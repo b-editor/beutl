@@ -86,7 +86,10 @@ public interface IAnimatablePropertyAdapter : IPropertyAdapter
     IObservable<IAnimation?> ObserveAnimation { get; }
 }
 
-public interface IAnimatablePropertyAdapter<T> : IPropertyAdapter<T>, IAnimatablePropertyAdapter, IExpressionPropertyAdapter<T>
+public interface IAnimatablePropertyAdapter<T>
+    : IPropertyAdapter<T>,
+        IAnimatablePropertyAdapter,
+        IExpressionPropertyAdapter<T>
 {
     new IAnimation<T>? Animation { get; set; }
 

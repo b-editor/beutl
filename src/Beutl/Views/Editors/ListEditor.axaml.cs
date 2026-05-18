@@ -29,11 +29,15 @@ public sealed class ListEditorDragBehavior : Behavior<Control>
     private ItemsControl? _itemsControl;
     private Control? _draggedContainer;
 
-    public static readonly StyledProperty<double> DragThresholdProperty =
-        AvaloniaProperty.Register<ListEditorDragBehavior, double>(nameof(DragThreshold), 3);
+    public static readonly StyledProperty<double> DragThresholdProperty = AvaloniaProperty.Register<
+        ListEditorDragBehavior,
+        double
+    >(nameof(DragThreshold), 3);
 
-    public static readonly StyledProperty<Control> DragControlProperty =
-        AvaloniaProperty.Register<ListEditorDragBehavior, Control>(nameof(DragControl));
+    public static readonly StyledProperty<Control> DragControlProperty = AvaloniaProperty.Register<
+        ListEditorDragBehavior,
+        Control
+    >(nameof(DragControl));
 
     public double DragThreshold
     {
@@ -54,10 +58,22 @@ public sealed class ListEditorDragBehavior : Behavior<Control>
 
         if (DragControl is { })
         {
-            DragControl.AddHandler(InputElement.PointerReleasedEvent, Released, RoutingStrategies.Tunnel);
-            DragControl.AddHandler(InputElement.PointerPressedEvent, Pressed, RoutingStrategies.Tunnel);
+            DragControl.AddHandler(
+                InputElement.PointerReleasedEvent,
+                Released,
+                RoutingStrategies.Tunnel
+            );
+            DragControl.AddHandler(
+                InputElement.PointerPressedEvent,
+                Pressed,
+                RoutingStrategies.Tunnel
+            );
             DragControl.AddHandler(InputElement.PointerMovedEvent, Moved, RoutingStrategies.Tunnel);
-            DragControl.AddHandler(InputElement.PointerCaptureLostEvent, CaptureLost, RoutingStrategies.Tunnel);
+            DragControl.AddHandler(
+                InputElement.PointerCaptureLostEvent,
+                CaptureLost,
+                RoutingStrategies.Tunnel
+            );
         }
     }
 
@@ -77,8 +93,10 @@ public sealed class ListEditorDragBehavior : Behavior<Control>
     private void Pressed(object? sender, PointerPressedEventArgs e)
     {
         PointerPointProperties properties = e.GetCurrentPoint(AssociatedObject).Properties;
-        if (properties.IsLeftButtonPressed
-            && AssociatedObject?.FindLogicalAncestorOfType<ItemsControl>() is { } itemsControl)
+        if (
+            properties.IsLeftButtonPressed
+            && AssociatedObject?.FindLogicalAncestorOfType<ItemsControl>() is { } itemsControl
+        )
         {
             _enableDrag = true;
             _dragStarted = false;
@@ -140,7 +158,12 @@ public sealed class ListEditorDragBehavior : Behavior<Control>
             }
         }
 
-        if (_dragStarted && _draggedIndex >= 0 && _targetIndex >= 0 && _draggedIndex != _targetIndex)
+        if (
+            _dragStarted
+            && _draggedIndex >= 0
+            && _targetIndex >= 0
+            && _draggedIndex != _targetIndex
+        )
         {
             OnMoveDraggedItem(_itemsControl, _draggedIndex, _targetIndex);
         }
@@ -220,10 +243,13 @@ public sealed class ListEditorDragBehavior : Behavior<Control>
     private void Moved(object? sender, PointerEventArgs e)
     {
         PointerPointProperties? properties = e.GetCurrentPoint(AssociatedObject).Properties;
-        if (_enableDrag
-            && properties?.IsLeftButtonPressed == true)
+        if (_enableDrag && properties?.IsLeftButtonPressed == true)
         {
-            if (_itemsControl?.Items is null || _draggedContainer?.RenderTransform is null || !_enableDrag)
+            if (
+                _itemsControl?.Items is null
+                || _draggedContainer?.RenderTransform is null
+                || !_enableDrag
+            )
             {
                 return;
             }
@@ -261,7 +287,10 @@ public sealed class ListEditorDragBehavior : Behavior<Control>
             foreach (object? _ in _itemsControl.Items)
             {
                 Control? targetContainer = _itemsControl.ContainerFromIndex(i);
-                if (targetContainer?.RenderTransform is null || ReferenceEquals(targetContainer, _draggedContainer))
+                if (
+                    targetContainer?.RenderTransform is null
+                    || ReferenceEquals(targetContainer, _draggedContainer)
+                )
                 {
                     i++;
                     continue;
@@ -276,15 +305,19 @@ public sealed class ListEditorDragBehavior : Behavior<Control>
                 {
                     SetTranslateTransform(targetContainer, 0, -draggedBounds.Height);
 
-                    _targetIndex = _targetIndex == -1 ? targetIndex :
-                        targetIndex > _targetIndex ? targetIndex : _targetIndex;
+                    _targetIndex =
+                        _targetIndex == -1 ? targetIndex
+                        : targetIndex > _targetIndex ? targetIndex
+                        : _targetIndex;
                 }
                 else if (targetStart < draggedStart && draggedDeltaStart <= targetMid)
                 {
                     SetTranslateTransform(targetContainer, 0, draggedBounds.Height);
 
-                    _targetIndex = _targetIndex == -1 ? targetIndex :
-                        targetIndex < _targetIndex ? targetIndex : _targetIndex;
+                    _targetIndex =
+                        _targetIndex == -1 ? targetIndex
+                        : targetIndex < _targetIndex ? targetIndex
+                        : _targetIndex;
                 }
                 else
                 {
@@ -311,14 +344,17 @@ public sealed class ListEditorDragBehavior : Behavior<Control>
 
 public partial class ListEditor : UserControl
 {
-    private static readonly Lazy<CrossFade> s_crossFade = new(() => new(TimeSpan.FromSeconds(0.25)));
+    private static readonly Lazy<CrossFade> s_crossFade = new(() =>
+        new(TimeSpan.FromSeconds(0.25))
+    );
     private CancellationTokenSource? _lastTransitionCts;
     private bool _flyoutOpen;
 
     public ListEditor()
     {
         InitializeComponent();
-        expandToggle.GetObservable(ToggleButton.IsCheckedProperty)
+        expandToggle
+            .GetObservable(ToggleButton.IsCheckedProperty)
             .Subscribe(async value =>
             {
                 _lastTransitionCts?.Cancel();
@@ -369,8 +405,10 @@ public partial class ListEditor : UserControl
 
     private async Task<object?> SelectTypeOrReference()
     {
-        if (_flyoutOpen) return null;
-        if (DataContext is not IListEditorViewModel { IsDisposed: false } viewModel) return null;
+        if (_flyoutOpen)
+            return null;
+        if (DataContext is not IListEditorViewModel { IsDisposed: false } viewModel)
+            return null;
 
         try
         {
@@ -404,21 +442,30 @@ public partial class ListEditor : UserControl
                     Type itemType = viewModel.ItemType;
                     Type[]? availableTypes;
 
-                    if (itemType.IsSealed
-                        && (itemType.GetConstructor([]) != null
-                            || itemType.GetConstructors().Length == 0))
+                    if (
+                        itemType.IsSealed
+                        && (
+                            itemType.GetConstructor([]) != null
+                            || itemType.GetConstructors().Length == 0
+                        )
+                    )
                     {
                         availableTypes = [itemType];
                     }
                     else
                     {
-                        availableTypes = AppDomain.CurrentDomain.GetAssemblies()
+                        availableTypes = AppDomain
+                            .CurrentDomain.GetAssemblies()
                             .SelectMany(x => x.GetTypes())
-                            .Where(x => !x.IsAbstract
-                                        && x.IsPublic
-                                        && x.IsAssignableTo(itemType)
-                                        && (itemType.GetConstructor([]) != null
-                                            || itemType.GetConstructors().Length == 0))
+                            .Where(x =>
+                                !x.IsAbstract
+                                && x.IsPublic
+                                && x.IsAssignableTo(itemType)
+                                && (
+                                    itemType.GetConstructor([]) != null
+                                    || itemType.GetConstructors().Length == 0
+                                )
+                            )
                             .ToArray();
                     }
 

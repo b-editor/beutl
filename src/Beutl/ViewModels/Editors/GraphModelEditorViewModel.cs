@@ -15,7 +15,8 @@ public sealed class GraphModelEditorViewModel : ValueEditorViewModel<GraphModel?
     public GraphModelEditorViewModel(IPropertyAdapter<GraphModel?> property)
         : base(property)
     {
-        Value.Subscribe(v =>
+        Value
+            .Subscribe(v =>
             {
                 DisposeNodeMembers();
                 _graphModelDisposables.Clear();
@@ -26,12 +27,21 @@ public sealed class GraphModelEditorViewModel : ValueEditorViewModel<GraphModel?
                             if (item is LayerInputNode layerInput)
                             {
                                 int idx = ConvertFromOriginalIndex(originalIdx);
-                                NodeMembers.Insert(idx,
-                                    new GraphModelNodeMemberViewModel(layerInput, originalIdx, v, this));
+                                NodeMembers.Insert(
+                                    idx,
+                                    new GraphModelNodeMemberViewModel(
+                                        layerInput,
+                                        originalIdx,
+                                        v,
+                                        this
+                                    )
+                                );
 
                                 for (int i = idx; i < NodeMembers.Count; i++)
                                 {
-                                    NodeMembers[i].OriginalIndex = v.Nodes.IndexOf(NodeMembers[i].GraphNode);
+                                    NodeMembers[i].OriginalIndex = v.Nodes.IndexOf(
+                                        NodeMembers[i].GraphNode
+                                    );
                                 }
                             }
                         },
@@ -45,11 +55,14 @@ public sealed class GraphModelEditorViewModel : ValueEditorViewModel<GraphModel?
 
                                 for (int i = idx; i < NodeMembers.Count; i++)
                                 {
-                                    NodeMembers[i].OriginalIndex = v.Nodes.IndexOf(NodeMembers[i].GraphNode);
+                                    NodeMembers[i].OriginalIndex = v.Nodes.IndexOf(
+                                        NodeMembers[i].GraphNode
+                                    );
                                 }
                             }
                         },
-                        DisposeNodeMembers)
+                        DisposeNodeMembers
+                    )
                     .DisposeWith(_graphModelDisposables);
 
                 AcceptChild();
@@ -79,11 +92,14 @@ public sealed class GraphModelEditorViewModel : ValueEditorViewModel<GraphModel?
 
     public void OpenNodeGraphTab()
     {
-        if (this.GetService<IEditorContext>() is not { } editorContext) return;
-        if (Value.Value == null) return;
+        if (this.GetService<IEditorContext>() is not { } editorContext)
+            return;
+        if (Value.Value == null)
+            return;
 
-        NodeGraphTabViewModel tab = editorContext.FindToolTab<NodeGraphTabViewModel>()
-                                   ?? new NodeGraphTabViewModel(editorContext);
+        NodeGraphTabViewModel tab =
+            editorContext.FindToolTab<NodeGraphTabViewModel>()
+            ?? new NodeGraphTabViewModel(editorContext);
 
         tab.Model.Value = Value.Value;
 
@@ -128,8 +144,10 @@ public sealed class GraphModelEditorViewModel : ValueEditorViewModel<GraphModel?
             {
                 for (int i = 1; i < NodeMembers.Count; i++)
                 {
-                    if (NodeMembers[i - 1].OriginalIndex < originalIndex
-                        && originalIndex <= NodeMembers[i].OriginalIndex)
+                    if (
+                        NodeMembers[i - 1].OriginalIndex < originalIndex
+                        && originalIndex <= NodeMembers[i].OriginalIndex
+                    )
                     {
                         return i;
                     }
@@ -140,7 +158,9 @@ public sealed class GraphModelEditorViewModel : ValueEditorViewModel<GraphModel?
         return 0;
     }
 
-    private sealed record Visitor(GraphModelEditorViewModel Obj) : IServiceProvider, IPropertyEditorContextVisitor
+    private sealed record Visitor(GraphModelEditorViewModel Obj)
+        : IServiceProvider,
+            IPropertyEditorContextVisitor
     {
         public object? GetService(Type serviceType)
         {
@@ -150,8 +170,6 @@ public sealed class GraphModelEditorViewModel : ValueEditorViewModel<GraphModel?
             return Obj.GetService(serviceType);
         }
 
-        public void Visit(IPropertyEditorContext context)
-        {
-        }
+        public void Visit(IPropertyEditorContext context) { }
     }
 }

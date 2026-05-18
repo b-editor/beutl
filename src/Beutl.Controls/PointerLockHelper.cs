@@ -1,6 +1,5 @@
 ﻿using Avalonia;
 using Avalonia.Input;
-
 using Beutl.Configuration;
 
 namespace Beutl.Controls;
@@ -47,11 +46,13 @@ internal class PointerLockHelper
         else if (OperatingSystem.IsMacOS())
         {
             CoreGraphics.CGAssociateMouseAndMouseCursorPosition(true);
-            CoreGraphics.CGWarpMouseCursorPosition(new CoreGraphics.CGPoint
-            {
-                X = s_savedScreenPosition.X,
-                Y = s_savedScreenPosition.Y
-            });
+            CoreGraphics.CGWarpMouseCursorPosition(
+                new CoreGraphics.CGPoint
+                {
+                    X = s_savedScreenPosition.X,
+                    Y = s_savedScreenPosition.Y,
+                }
+            );
             CoreGraphics.CGDisplayShowCursor(s_macDisplay);
         }
     }

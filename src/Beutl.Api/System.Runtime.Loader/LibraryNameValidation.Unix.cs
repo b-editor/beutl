@@ -10,10 +10,12 @@ namespace System.Runtime.Loader
 
         static LibraryNameVariation()
         {
-            if (OperatingSystem.IsMacOS()
+            if (
+                OperatingSystem.IsMacOS()
                 || OperatingSystem.IsMacCatalyst()
                 || OperatingSystem.IsIOS()
-                || OperatingSystem.IsTvOS())
+                || OperatingSystem.IsTvOS()
+            )
             {
                 s_libraryNameSuffix = ".dylib";
             }
@@ -28,7 +30,10 @@ namespace System.Runtime.Loader
             }
         }
 
-        internal static IEnumerable<LibraryNameVariation> DetermineLibraryNameVariations(string libName, bool isRelativePath)
+        internal static IEnumerable<LibraryNameVariation> DetermineLibraryNameVariations(
+            string libName,
+            bool isRelativePath
+        )
         {
             // This is a copy of the logic in DetermineLibNameVariations in dllimport.cpp in CoreCLR
 
@@ -39,11 +44,15 @@ namespace System.Runtime.Loader
             else
             {
                 bool containsSuffix = false;
-                int indexOfSuffix = libName.IndexOf(s_libraryNameSuffix, StringComparison.OrdinalIgnoreCase);
+                int indexOfSuffix = libName.IndexOf(
+                    s_libraryNameSuffix,
+                    StringComparison.OrdinalIgnoreCase
+                );
                 if (indexOfSuffix >= 0)
                 {
                     indexOfSuffix += s_libraryNameSuffix.Length;
-                    containsSuffix = indexOfSuffix == libName.Length || libName[indexOfSuffix] == '.';
+                    containsSuffix =
+                        indexOfSuffix == libName.Length || libName[indexOfSuffix] == '.';
                 }
 
                 bool containsDelim = libName.Contains(Path.DirectorySeparatorChar);
@@ -58,7 +67,10 @@ namespace System.Runtime.Loader
                     yield return new LibraryNameVariation(string.Empty, s_libraryNameSuffix);
                     if (!containsDelim)
                     {
-                        yield return new LibraryNameVariation(s_libraryNamePrefix, s_libraryNameSuffix);
+                        yield return new LibraryNameVariation(
+                            s_libraryNamePrefix,
+                            s_libraryNameSuffix
+                        );
                     }
                 }
                 else
@@ -66,7 +78,10 @@ namespace System.Runtime.Loader
                     yield return new LibraryNameVariation(string.Empty, s_libraryNameSuffix);
                     if (!containsDelim)
                     {
-                        yield return new LibraryNameVariation(s_libraryNamePrefix, s_libraryNameSuffix);
+                        yield return new LibraryNameVariation(
+                            s_libraryNamePrefix,
+                            s_libraryNameSuffix
+                        );
                     }
                     yield return new LibraryNameVariation(string.Empty, string.Empty);
                     if (!containsDelim)

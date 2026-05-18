@@ -73,8 +73,10 @@ internal sealed class EditorClockImpl : IEditorClock, IDisposable
             {
                 // 変更前の値を取得
                 TimeRange oldRange = element.Range;
-                if (startChanged) oldRange = oldRange.WithStart(typedArgs.OldValue);
-                if (lengthChanged) oldRange = oldRange.WithDuration(typedArgs.OldValue);
+                if (startChanged)
+                    oldRange = oldRange.WithStart(typedArgs.OldValue);
+                if (lengthChanged)
+                    oldRange = oldRange.WithDuration(typedArgs.OldValue);
 
                 if (MaximumTime.Value < element.Range.End)
                 {
@@ -90,9 +92,8 @@ internal sealed class EditorClockImpl : IEditorClock, IDisposable
 
     private void CalculateMaximumTime()
     {
-        MaximumTime.Value = _scene.Children.Count > 0
-            ? _scene.Children.Max(i => i.Range.End)
-            : TimeSpan.Zero;
+        MaximumTime.Value =
+            _scene.Children.Count > 0 ? _scene.Children.Max(i => i.Range.End) : TimeSpan.Zero;
     }
 
     public void Dispose()

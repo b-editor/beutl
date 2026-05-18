@@ -40,9 +40,7 @@ public class RectClipRenderNodeTest
     [Test]
     public void Process_WithInput_ShouldReturnExpectedRenderNodeOperation()
     {
-        var context = new RenderNodeContext([
-            RenderNodeOperation.CreateLambda(default, _ => {  })
-        ]);
+        var context = new RenderNodeContext([RenderNodeOperation.CreateLambda(default, _ => { })]);
 
         var node = new RectClipRenderNode(new Rect(0, 0, 100, 100), ClipOperation.Intersect);
         var operations = node.Process(context);

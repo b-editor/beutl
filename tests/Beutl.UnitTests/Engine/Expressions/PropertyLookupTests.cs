@@ -38,7 +38,11 @@ public class PropertyLookupTests
         var context = CreateContext(lookup);
 
         // Act (path with non-GUID identifier)
-        bool result = lookup.TryGetPropertyValue<double>("not-a-guid.PropertyName", context, out var value);
+        bool result = lookup.TryGetPropertyValue<double>(
+            "not-a-guid.PropertyName",
+            context,
+            out var value
+        );
 
         // Assert
         Assert.That(result, Is.False);
@@ -55,7 +59,11 @@ public class PropertyLookupTests
         var guid = Guid.NewGuid();
 
         // Act
-        bool result = lookup.TryGetPropertyValue<double>($"{guid}.PropertyName", context, out var value);
+        bool result = lookup.TryGetPropertyValue<double>(
+            $"{guid}.PropertyName",
+            context,
+            out var value
+        );
 
         // Assert
         Assert.That(result, Is.False);
@@ -72,7 +80,12 @@ public class PropertyLookupTests
         var guid = Guid.NewGuid();
 
         // Act
-        bool result = lookup.TryGetPropertyValue<double>(guid, "PropertyName", context, out var value);
+        bool result = lookup.TryGetPropertyValue<double>(
+            guid,
+            "PropertyName",
+            context,
+            out var value
+        );
 
         // Assert
         Assert.That(result, Is.False);
@@ -89,7 +102,11 @@ public class PropertyLookupTests
         var guid = Guid.NewGuid();
 
         // Act - Test with braced GUID format {guid}
-        bool result = lookup.TryGetPropertyValue<double>($"{{{guid}}}.PropertyName", context, out var value);
+        bool result = lookup.TryGetPropertyValue<double>(
+            $"{{{guid}}}.PropertyName",
+            context,
+            out var value
+        );
 
         // Assert - Should be false because object doesn't exist, but should parse correctly
         Assert.That(result, Is.False);
@@ -124,7 +141,11 @@ public class PropertyLookupTests
         var context = CreateContext(lookup, TimeSpan.Zero);
 
         // Act - Get the property value using the child's GUID
-        bool result = lookup.TryGetPropertyValue<double>($"{child.Id}.Value", context, out var value);
+        bool result = lookup.TryGetPropertyValue<double>(
+            $"{child.Id}.Value",
+            context,
+            out var value
+        );
 
         // Assert
         Assert.That(result, Is.True);
@@ -164,7 +185,11 @@ public class PropertyLookupTests
         var context = CreateContext(lookup, TimeSpan.Zero);
 
         // Act - Get the property with different casing (lowercase)
-        bool result = lookup.TryGetPropertyValue<double>($"{child.Id}.value", context, out var value);
+        bool result = lookup.TryGetPropertyValue<double>(
+            $"{child.Id}.value",
+            context,
+            out var value
+        );
 
         // Assert - Should work because PropertyLookup uses OrdinalIgnoreCase comparison
         Assert.That(result, Is.True);
@@ -184,7 +209,11 @@ public class PropertyLookupTests
         var context = CreateContext(lookup, TimeSpan.Zero);
 
         // Act - Try to get a non-existent property
-        bool result = lookup.TryGetPropertyValue<double>($"{child.Id}.NonExistent", context, out var value);
+        bool result = lookup.TryGetPropertyValue<double>(
+            $"{child.Id}.NonExistent",
+            context,
+            out var value
+        );
 
         // Assert
         Assert.That(result, Is.False);
@@ -202,7 +231,11 @@ public class PropertyLookupTests
         var context = CreateContext(lookup, TimeSpan.Zero);
 
         // Act - Get property from root itself
-        bool result = lookup.TryGetPropertyValue<double>($"{root.Id}.Value", context, out var value);
+        bool result = lookup.TryGetPropertyValue<double>(
+            $"{root.Id}.Value",
+            context,
+            out var value
+        );
 
         // Assert
         Assert.That(result, Is.True);
@@ -225,7 +258,11 @@ public class PropertyLookupTests
         var context = CreateContext(lookup, TimeSpan.Zero);
 
         // Act - Get property from deeply nested object
-        bool result = lookup.TryGetPropertyValue<double>($"{grandchild.Id}.Value", context, out var value);
+        bool result = lookup.TryGetPropertyValue<double>(
+            $"{grandchild.Id}.Value",
+            context,
+            out var value
+        );
 
         // Assert
         Assert.That(result, Is.True);

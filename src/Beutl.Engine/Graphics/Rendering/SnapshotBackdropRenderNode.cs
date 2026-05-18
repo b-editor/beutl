@@ -11,12 +11,15 @@ public class SnapshotBackdropRenderNode : RenderNode, IBackdrop
         context.IsRenderCacheEnabled = false;
         return
         [
-            RenderNodeOperation.CreateLambda(default, canvas =>
-            {
-                _bitmap?.Dispose();
-                using var renderTarget = RenderTarget.GetRenderTarget(canvas);
-                _bitmap = renderTarget.Snapshot();
-            })
+            RenderNodeOperation.CreateLambda(
+                default,
+                canvas =>
+                {
+                    _bitmap?.Dispose();
+                    using var renderTarget = RenderTarget.GetRenderTarget(canvas);
+                    _bitmap = renderTarget.Snapshot();
+                }
+            ),
         ];
     }
 

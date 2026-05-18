@@ -5,7 +5,8 @@ namespace Beutl.Media.Source;
 
 public static class MediaSourceExtensions
 {
-    extension<T>(T) where T : MediaSource, new()
+    extension<T>(T)
+        where T : MediaSource, new()
     {
         public static T Open(string fileName)
         {

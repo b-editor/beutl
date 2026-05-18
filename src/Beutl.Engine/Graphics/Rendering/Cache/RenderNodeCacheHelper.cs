@@ -53,7 +53,8 @@ public static class RenderNodeCacheHelper
     {
         node.Cache.Invalidate();
 
-        if (node is not ContainerRenderNode containerNode) return;
+        if (node is not ContainerRenderNode containerNode)
+            return;
 
         foreach (RenderNode item in containerNode.Children)
         {
@@ -126,7 +127,8 @@ public record RenderCacheOptions(bool IsEnabled, RenderCacheRules Rules)
         EditorConfig config = GlobalConfiguration.Instance.EditorConfig;
         return new RenderCacheOptions(
             config.IsNodeCacheEnabled,
-            new RenderCacheRules(config.NodeCacheMaxPixels, config.NodeCacheMinPixels));
+            new RenderCacheRules(config.NodeCacheMaxPixels, config.NodeCacheMinPixels)
+        );
     }
 }
 

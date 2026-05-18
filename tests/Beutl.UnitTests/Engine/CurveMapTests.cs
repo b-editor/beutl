@@ -135,7 +135,11 @@ public class CurveControlPointTests
     [Test]
     public void Constructor_WithHandles()
     {
-        var p = new CurveControlPoint(new Point(0.5f, 0.5f), new Point(-0.1f, 0f), new Point(0.1f, 0f));
+        var p = new CurveControlPoint(
+            new Point(0.5f, 0.5f),
+            new Point(-0.1f, 0f),
+            new Point(0.1f, 0f)
+        );
         Assert.That(p.HasHandles, Is.True);
         Assert.That(p.LeftHandle.X, Is.EqualTo(-0.1f));
         Assert.That(p.RightHandle.X, Is.EqualTo(0.1f));
@@ -144,7 +148,11 @@ public class CurveControlPointTests
     [Test]
     public void AbsoluteHandles_AreOffsetFromPoint()
     {
-        var p = new CurveControlPoint(new Point(0.5f, 0.5f), new Point(-0.1f, 0.05f), new Point(0.1f, -0.05f));
+        var p = new CurveControlPoint(
+            new Point(0.5f, 0.5f),
+            new Point(-0.1f, 0.05f),
+            new Point(0.1f, -0.05f)
+        );
 
         Assert.That(p.AbsoluteLeftHandle.X, Is.EqualTo(0.4f).Within(1e-6));
         Assert.That(p.AbsoluteLeftHandle.Y, Is.EqualTo(0.55f).Within(1e-6));
@@ -155,7 +163,11 @@ public class CurveControlPointTests
     [Test]
     public void WithPoint_ReplacesPoint()
     {
-        var original = new CurveControlPoint(new Point(0.5f, 0.5f), new Point(-0.1f, 0f), new Point(0.1f, 0f));
+        var original = new CurveControlPoint(
+            new Point(0.5f, 0.5f),
+            new Point(-0.1f, 0f),
+            new Point(0.1f, 0f)
+        );
         var updated = original.WithPoint(new Point(0.7f, 0.7f));
 
         Assert.That(updated.Point.X, Is.EqualTo(0.7f));
@@ -218,7 +230,11 @@ public class CurveControlPointTests
     [Test]
     public void ToString_WithHandles()
     {
-        var p = new CurveControlPoint(new Point(0.5f, 0.6f), new Point(-0.1f, 0f), new Point(0.1f, 0f));
+        var p = new CurveControlPoint(
+            new Point(0.5f, 0.6f),
+            new Point(-0.1f, 0f),
+            new Point(0.1f, 0f)
+        );
         Assert.That(p.ToString(), Does.Contain("L"));
         Assert.That(p.ToString(), Does.Contain("R"));
     }

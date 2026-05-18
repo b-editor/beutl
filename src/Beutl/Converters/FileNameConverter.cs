@@ -19,7 +19,12 @@ public sealed class FileNameConverter : IValueConverter
         }
     }
 
-    public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
+    public object? ConvertBack(
+        object? value,
+        Type targetType,
+        object? parameter,
+        CultureInfo culture
+    )
     {
         return new BindingNotification(value);
     }

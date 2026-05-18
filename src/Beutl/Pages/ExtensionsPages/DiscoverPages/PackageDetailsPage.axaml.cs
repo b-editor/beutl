@@ -1,12 +1,9 @@
 ﻿using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Avalonia.LogicalTree;
-
 using Beutl.Api.Objects;
-
 using Beutl.ViewModels;
 using Beutl.ViewModels.ExtensionsPages.DiscoverPages;
-
 using FluentAvalonia.UI.Controls;
 using FluentAvalonia.UI.Navigation;
 
@@ -48,23 +45,29 @@ public partial class PackageDetailsPage : UserControl
 
     private DataContextFactory GetDataContextFactory()
     {
-        return ((ExtensionsPageViewModel)this.FindLogicalAncestorOfType<ExtensionsPage>()!.DataContext!).Discover.DataContextFactory;
+        return (
+            (ExtensionsPageViewModel)this.FindLogicalAncestorOfType<ExtensionsPage>()!.DataContext!
+        )
+            .Discover
+            .DataContextFactory;
     }
 
     private async void OpenWebSite_Click(object? sender, RoutedEventArgs e)
     {
-        if (DataContext is PackageDetailsPageViewModel viewModel
-            && viewModel.Package.WebSite.Value is string url)
+        if (
+            DataContext is PackageDetailsPageViewModel viewModel
+            && viewModel.Package.WebSite.Value is string url
+        )
         {
             var dialog = new ContentDialog()
             {
                 Title = ExtensionsStrings.OpenUrl_Title,
                 Content = new SelectableTextBlock()
                 {
-                    Text = string.Format(ExtensionsStrings.OpenUrl_Content, url)
+                    Text = string.Format(ExtensionsStrings.OpenUrl_Content, url),
                 },
                 PrimaryButtonText = Strings.Open,
-                CloseButtonText = Strings.Cancel
+                CloseButtonText = Strings.Cancel,
             };
 
             if (await dialog.ShowAsync() is ContentDialogResult.Primary)
@@ -76,8 +79,10 @@ public partial class PackageDetailsPage : UserControl
 
     private void OpenPublisherPage_Click(object? sender, RoutedEventArgs e)
     {
-        if (DataContext is PackageDetailsPageViewModel viewModel
-            && this.FindLogicalAncestorOfType<Frame>() is { } frame)
+        if (
+            DataContext is PackageDetailsPageViewModel viewModel
+            && this.FindLogicalAncestorOfType<Frame>() is { } frame
+        )
         {
             frame.Navigate(typeof(UserProfilePage), viewModel.Package.Owner);
         }

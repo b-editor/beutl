@@ -25,7 +25,8 @@ public sealed class UnmanagedList<T> : IList<T>, IReadOnlyList<T>, IDisposable
 
     public UnmanagedList(IEnumerable<T> collection)
     {
-        if (collection is null) throw new ArgumentNullException(nameof(collection));
+        if (collection is null)
+            throw new ArgumentNullException(nameof(collection));
 
         if (collection is IList<T> c)
         {
@@ -62,7 +63,8 @@ public sealed class UnmanagedList<T> : IList<T>, IReadOnlyList<T>, IDisposable
         get => _items.Length;
         set
         {
-            if (value < Count) throw new ArgumentOutOfRangeException(nameof(value));
+            if (value < Count)
+                throw new ArgumentOutOfRangeException(nameof(value));
             if (value != _items.Length)
             {
                 UnmanagedArray<T> oldItems = _items;
@@ -96,13 +98,15 @@ public sealed class UnmanagedList<T> : IList<T>, IReadOnlyList<T>, IDisposable
     {
         get
         {
-            if ((uint)index >= (uint)Count) throw new IndexOutOfRangeException();
+            if ((uint)index >= (uint)Count)
+                throw new IndexOutOfRangeException();
 
             return _items[index];
         }
         set
         {
-            if ((uint)index >= (uint)Count) throw new IndexOutOfRangeException();
+            if ((uint)index >= (uint)Count)
+                throw new IndexOutOfRangeException();
 
             _items[index] = value;
             _version++;
@@ -157,7 +161,8 @@ public sealed class UnmanagedList<T> : IList<T>, IReadOnlyList<T>, IDisposable
     public UnmanagedList<TOutput> ConvertAll<TOutput>(Converter<T, TOutput> converter)
         where TOutput : unmanaged
     {
-        if (converter == null) throw new ArgumentNullException(nameof(converter));
+        if (converter == null)
+            throw new ArgumentNullException(nameof(converter));
 
         var list = new UnmanagedList<TOutput>(Count);
         for (int i = 0; i < Count; i++)
@@ -176,7 +181,8 @@ public sealed class UnmanagedList<T> : IList<T>, IReadOnlyList<T>, IDisposable
 
     public int EnsureCapacity(int capacity)
     {
-        if (capacity < 0) throw new ArgumentOutOfRangeException(nameof(capacity));
+        if (capacity < 0)
+            throw new ArgumentOutOfRangeException(nameof(capacity));
 
         if (_items.Length < capacity)
         {
@@ -194,7 +200,8 @@ public sealed class UnmanagedList<T> : IList<T>, IReadOnlyList<T>, IDisposable
 
     public T? Find(Predicate<T> match)
     {
-        if (match is null) throw new ArgumentNullException(nameof(match));
+        if (match is null)
+            throw new ArgumentNullException(nameof(match));
 
         for (int i = 0; i < Count; i++)
         {
@@ -209,7 +216,8 @@ public sealed class UnmanagedList<T> : IList<T>, IReadOnlyList<T>, IDisposable
 
     public UnmanagedList<T> FindAll(Predicate<T> match)
     {
-        if (match is null) throw new ArgumentNullException(nameof(match));
+        if (match is null)
+            throw new ArgumentNullException(nameof(match));
 
         var list = new UnmanagedList<T>();
         for (int i = 0; i < Count; i++)
@@ -235,14 +243,18 @@ public sealed class UnmanagedList<T> : IList<T>, IReadOnlyList<T>, IDisposable
 
     public int FindIndex(int startIndex, int count, Predicate<T> match)
     {
-        if ((uint)startIndex > (uint)Count) throw new ArgumentOutOfRangeException(nameof(startIndex));
-        if (count < 0 || startIndex > Count - count) throw new ArgumentOutOfRangeException(nameof(count));
-        if (match is null) throw new ArgumentNullException(nameof(match));
+        if ((uint)startIndex > (uint)Count)
+            throw new ArgumentOutOfRangeException(nameof(startIndex));
+        if (count < 0 || startIndex > Count - count)
+            throw new ArgumentOutOfRangeException(nameof(count));
+        if (match is null)
+            throw new ArgumentNullException(nameof(match));
 
         int endIndex = startIndex + count;
         for (int i = startIndex; i < endIndex; i++)
         {
-            if (match(_items[i])) return i;
+            if (match(_items[i]))
+                return i;
         }
 
         return -1;
@@ -250,7 +262,8 @@ public sealed class UnmanagedList<T> : IList<T>, IReadOnlyList<T>, IDisposable
 
     public T? FindLast(Predicate<T> match)
     {
-        if (match is null) throw new ArgumentNullException(nameof(match));
+        if (match is null)
+            throw new ArgumentNullException(nameof(match));
 
         for (int i = Count - 1; i >= 0; i--)
         {
@@ -275,7 +288,8 @@ public sealed class UnmanagedList<T> : IList<T>, IReadOnlyList<T>, IDisposable
 
     public int FindLastIndex(int startIndex, int count, Predicate<T> match)
     {
-        if (match is null) throw new ArgumentNullException(nameof(match));
+        if (match is null)
+            throw new ArgumentNullException(nameof(match));
 
         if (Count == 0 && startIndex != -1)
         {
@@ -286,7 +300,8 @@ public sealed class UnmanagedList<T> : IList<T>, IReadOnlyList<T>, IDisposable
             throw new ArgumentOutOfRangeException(nameof(startIndex));
         }
 
-        if (count < 0 || startIndex - count + 1 < 0) throw new ArgumentOutOfRangeException(nameof(count));
+        if (count < 0 || startIndex - count + 1 < 0)
+            throw new ArgumentOutOfRangeException(nameof(count));
 
         int endIndex = startIndex - count;
         for (int i = startIndex; i > endIndex; i--)
@@ -302,7 +317,8 @@ public sealed class UnmanagedList<T> : IList<T>, IReadOnlyList<T>, IDisposable
 
     public void ForEach(Action<T> action)
     {
-        if (action is null) throw new ArgumentNullException(nameof(action));
+        if (action is null)
+            throw new ArgumentNullException(nameof(action));
 
         int version = _version;
 
@@ -339,11 +355,14 @@ public sealed class UnmanagedList<T> : IList<T>, IReadOnlyList<T>, IDisposable
 
     public UnmanagedList<T> GetRange(int index, int count)
     {
-        if (index < 0) throw new ArgumentOutOfRangeException(nameof(index));
+        if (index < 0)
+            throw new ArgumentOutOfRangeException(nameof(index));
 
-        if (count < 0) throw new ArgumentOutOfRangeException(nameof(count));
+        if (count < 0)
+            throw new ArgumentOutOfRangeException(nameof(count));
 
-        if (Count - index < count) throw new ArgumentException();
+        if (Count - index < count)
+            throw new ArgumentException();
 
         var list = new UnmanagedList<T>(count);
         AsSpan().CopyTo(list.AsSpan());
@@ -357,7 +376,8 @@ public sealed class UnmanagedList<T> : IList<T>, IReadOnlyList<T>, IDisposable
         for (int i = 0; i < Count; i++)
         {
             T elm = _items[i];
-            if (elm.Equals(item)) return i;
+            if (elm.Equals(item))
+                return i;
         }
 
         return -1;
@@ -365,9 +385,11 @@ public sealed class UnmanagedList<T> : IList<T>, IReadOnlyList<T>, IDisposable
 
     public void Insert(int index, T item)
     {
-        if ((uint)index > (uint)Count) throw new ArgumentOutOfRangeException(nameof(index));
+        if ((uint)index > (uint)Count)
+            throw new ArgumentOutOfRangeException(nameof(index));
 
-        if (Count == _items.Length) Grow(Count + 1);
+        if (Count == _items.Length)
+            Grow(Count + 1);
         if (index < Count)
         {
             Span<T> span = _items.AsSpan();
@@ -394,7 +416,8 @@ public sealed class UnmanagedList<T> : IList<T>, IReadOnlyList<T>, IDisposable
 
     public void RemoveAt(int index)
     {
-        if ((uint)index >= (uint)Count) throw new ArgumentOutOfRangeException(nameof(index));
+        if ((uint)index >= (uint)Count)
+            throw new ArgumentOutOfRangeException(nameof(index));
         Count--;
         if (index < Count)
         {
@@ -413,11 +436,14 @@ public sealed class UnmanagedList<T> : IList<T>, IReadOnlyList<T>, IDisposable
 
     public void RemoveRange(int index, int count)
     {
-        if (index < 0) throw new ArgumentOutOfRangeException(nameof(index));
+        if (index < 0)
+            throw new ArgumentOutOfRangeException(nameof(index));
 
-        if (count < 0) throw new ArgumentOutOfRangeException(nameof(count));
+        if (count < 0)
+            throw new ArgumentOutOfRangeException(nameof(count));
 
-        if (Count - index < count) throw new ArgumentException();
+        if (Count - index < count)
+            throw new ArgumentException();
 
         if (count > 0)
         {
@@ -444,11 +470,14 @@ public sealed class UnmanagedList<T> : IList<T>, IReadOnlyList<T>, IDisposable
 
     public void Reverse(int index, int count)
     {
-        if (index < 0) throw new ArgumentOutOfRangeException(nameof(index));
+        if (index < 0)
+            throw new ArgumentOutOfRangeException(nameof(index));
 
-        if (count < 0) throw new ArgumentOutOfRangeException(nameof(count));
+        if (count < 0)
+            throw new ArgumentOutOfRangeException(nameof(count));
 
-        if (Count - index < count) throw new ArgumentException();
+        if (Count - index < count)
+            throw new ArgumentException();
 
         if (count > 1)
         {
@@ -474,7 +503,8 @@ public sealed class UnmanagedList<T> : IList<T>, IReadOnlyList<T>, IDisposable
 
     public bool TrueForAll(Predicate<T> match)
     {
-        if (match is null) throw new ArgumentNullException(nameof(match));
+        if (match is null)
+            throw new ArgumentNullException(nameof(match));
         for (int i = 0; i < Count; i++)
         {
             if (!match(_items[i]))
@@ -514,9 +544,11 @@ public sealed class UnmanagedList<T> : IList<T>, IReadOnlyList<T>, IDisposable
     {
         int newcapacity = _items.Length == 0 ? DefaultCapacity : 2 * _items.Length;
 
-        if ((uint)newcapacity > 0X7FFFFFC7) newcapacity = 0X7FFFFFC7;
+        if ((uint)newcapacity > 0X7FFFFFC7)
+            newcapacity = 0X7FFFFFC7;
 
-        if (newcapacity < capacity) newcapacity = capacity;
+        if (newcapacity < capacity)
+            newcapacity = capacity;
 
         Capacity = newcapacity;
     }
@@ -551,9 +583,7 @@ public sealed class UnmanagedList<T> : IList<T>, IReadOnlyList<T>, IDisposable
             }
         }
 
-        public void Dispose()
-        {
-        }
+        public void Dispose() { }
 
         public bool MoveNext()
         {

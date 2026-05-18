@@ -2,9 +2,7 @@
 using System.Collections.Immutable;
 using System.Runtime.InteropServices;
 using System.Text.Json.Serialization;
-
 using Beutl.Converters;
-
 using SkiaSharp;
 
 namespace Beutl.Graphics;
@@ -79,14 +77,24 @@ public sealed class CurveMap : IEquatable<CurveMap>
         // For X, we need to find the parameter u such that X(u) = t
         // Since we normalized t to the segment, we need to find u for the Bezier
         float u = FindBezierParameterForX(
-            startPoint.X, controlPoint1.X, controlPoint2.X, endPoint.X,
-            startPoint.X + t * (endPoint.X - startPoint.X));
+            startPoint.X,
+            controlPoint1.X,
+            controlPoint2.X,
+            endPoint.X,
+            startPoint.X + t * (endPoint.X - startPoint.X)
+        );
 
         // Then evaluate Y at that parameter
         return CubicBezier(u, startPoint.Y, controlPoint1.Y, controlPoint2.Y, endPoint.Y);
     }
 
-    private static float FindBezierParameterForX(float x0, float x1, float x2, float x3, float targetX)
+    private static float FindBezierParameterForX(
+        float x0,
+        float x1,
+        float x2,
+        float x3,
+        float targetX
+    )
     {
         // Binary search to find u where X(u) = targetX
         float low = 0f;
@@ -128,13 +136,18 @@ public sealed class CurveMap : IEquatable<CurveMap>
             }
 
             var info = new SKImageInfo(10000, 1, SKColorType.AlphaF16, SKAlphaType.Unpremul);
-            using SKImage image = SKImage.FromPixelCopy(info, MemoryMarshal.AsBytes(data.AsSpan()), info.RowBytes);
+            using SKImage image = SKImage.FromPixelCopy(
+                info,
+                MemoryMarshal.AsBytes(data.AsSpan()),
+                info.RowBytes
+            );
             return SKShader.CreateImage(
                 image,
                 SKShaderTileMode.Clamp,
                 SKShaderTileMode.Clamp,
                 SKSamplingOptions.Default,
-                SKMatrix.CreateScale(1 / 10000f, 1));
+                SKMatrix.CreateScale(1 / 10000f, 1)
+            );
         }
         finally
         {
@@ -144,8 +157,10 @@ public sealed class CurveMap : IEquatable<CurveMap>
 
     public bool Equals(CurveMap? other)
     {
-        if (ReferenceEquals(this, other)) return true;
-        if (other is null || other.Points.Length != Points.Length) return false;
+        if (ReferenceEquals(this, other))
+            return true;
+        if (other is null || other.Points.Length != Points.Length)
+            return false;
 
         for (int i = 0; i < Points.Length; i++)
         {
@@ -172,7 +187,9 @@ public sealed class CurveMap : IEquatable<CurveMap>
         return hash.ToHashCode();
     }
 
-    private static ImmutableArray<CurveControlPoint> Normalize(IEnumerable<CurveControlPoint> points)
+    private static ImmutableArray<CurveControlPoint> Normalize(
+        IEnumerable<CurveControlPoint> points
+    )
     {
         return points.OrderBy(p => p.Point.X).ToImmutableArray();
     }

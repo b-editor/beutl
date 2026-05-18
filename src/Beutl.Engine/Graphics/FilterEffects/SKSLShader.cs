@@ -68,7 +68,11 @@ public sealed class SKSLShader : IDisposable
         return new SKRuntimeShaderBuilder(_effect);
     }
 
-    public EffectTarget ApplyToNewTarget(CustomFilterEffectContext context, SKRuntimeShaderBuilder builder, Rect bounds)
+    public EffectTarget ApplyToNewTarget(
+        CustomFilterEffectContext context,
+        SKRuntimeShaderBuilder builder,
+        Rect bounds
+    )
     {
         var newTarget = context.CreateTarget(bounds);
         try
@@ -93,7 +97,8 @@ public sealed class SKSLShader : IDisposable
 
     public void Dispose()
     {
-        if (_disposed) return;
+        if (_disposed)
+            return;
         _disposed = true;
         _effect.Dispose();
     }

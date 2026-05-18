@@ -1,7 +1,5 @@
 ﻿using System.Diagnostics.CodeAnalysis;
-
 using Avalonia.Controls;
-
 using Beutl.Editor.Components.LibraryTab.ViewModels;
 using Beutl.Editor.Components.LibraryTab.Views;
 
@@ -26,13 +24,19 @@ public sealed class LibraryTabExtension : ToolTabExtension
 
     public override int DefaultOrder => 0;
 
-    public override bool TryCreateContent(IEditorContext editorContext, [NotNullWhen(true)] out Control? control)
+    public override bool TryCreateContent(
+        IEditorContext editorContext,
+        [NotNullWhen(true)] out Control? control
+    )
     {
         control = new LibraryTabView();
         return true;
     }
 
-    public override bool TryCreateContext(IEditorContext editorContext, [NotNullWhen(true)] out IToolContext? context)
+    public override bool TryCreateContext(
+        IEditorContext editorContext,
+        [NotNullWhen(true)] out IToolContext? context
+    )
     {
         context = new LibraryTabViewModel(editorContext);
         return true;

@@ -40,7 +40,8 @@ public partial class GraphNodeView : UserControl
         nodeContent.PointerReleased += OnNodeContentPointerReleased;
         ContextRequested += OnContextRequested;
 
-        expandToggle.GetObservable(ToggleButton.IsCheckedProperty)
+        expandToggle
+            .GetObservable(ToggleButton.IsCheckedProperty)
             .Subscribe(v =>
             {
                 _lastTransitionCts?.Cancel();
@@ -52,7 +53,10 @@ public partial class GraphNodeView : UserControl
                 _ = s_transition.Start(null, this, localToken);
             });
 
-        this.SubscribeDataContextChange<GraphNodeViewModel>(OnDataContextAttached, OnDataContextDetached);
+        this.SubscribeDataContextChange<GraphNodeViewModel>(
+            OnDataContextAttached,
+            OnDataContextDetached
+        );
 
         SizeChanged += OnSizeChanged;
     }
@@ -97,7 +101,7 @@ public partial class GraphNodeView : UserControl
                 _undecidedLeftNodePortContext = new InputPortViewModel(null, null, obj);
                 _undecidedLeftNodePort = new NodePortView
                 {
-                    DataContext = _undecidedLeftNodePortContext
+                    DataContext = _undecidedLeftNodePortContext,
                 };
                 stackPanel.Children.Add(_undecidedLeftNodePort);
             }
@@ -107,7 +111,7 @@ public partial class GraphNodeView : UserControl
                 _undecidedRightNodePortContext = new OutputPortViewModel(null, null, obj);
                 _undecidedRightNodePort = new NodePortView
                 {
-                    DataContext = _undecidedRightNodePortContext
+                    DataContext = _undecidedRightNodePortContext,
                 };
                 stackPanel.Children.Add(_undecidedRightNodePort);
             }
@@ -133,7 +137,8 @@ public partial class GraphNodeView : UserControl
             }
             else
             {
-                Point vcenter = viewModel.Position.Value + default(Point).WithY(handle.Bounds.Height / 2);
+                Point vcenter =
+                    viewModel.Position.Value + default(Point).WithY(handle.Bounds.Height / 2);
                 Point vcenterRight = vcenter + default(Point).WithX(Bounds.Width);
                 void UpdatePosition(NodeMemberViewModel? viewModel)
                 {
@@ -180,9 +185,7 @@ public partial class GraphNodeView : UserControl
     private void OnHandlePointerMoved(object? sender, PointerEventArgs e)
     {
         PointerPoint point = e.GetCurrentPoint(this);
-        if (_captured
-            && point.Properties.IsLeftButtonPressed
-            && Parent is Canvas canvas)
+        if (_captured && point.Properties.IsLeftButtonPressed && Parent is Canvas canvas)
         {
             Point position = e.GetPosition(canvas);
             Point delta = position - _start;
@@ -211,7 +214,14 @@ public partial class GraphNodeView : UserControl
     {
         if (Parent is Canvas canvas)
         {
-            return canvas.Children.Where(x => x is GraphNodeView { DataContext: GraphNodeViewModel { IsSelected.Value: true } })
+            return canvas
+                .Children.Where(x =>
+                    x
+                        is GraphNodeView
+                        {
+                            DataContext: GraphNodeViewModel { IsSelected.Value: true }
+                        }
+                )
                 .OfType<GraphNodeView>();
         }
         else
@@ -224,7 +234,9 @@ public partial class GraphNodeView : UserControl
     {
         if (Parent is Canvas canvas)
         {
-            foreach (Control? item in canvas.Children.Where(x => x.DataContext is GraphNodeViewModel))
+            foreach (
+                Control? item in canvas.Children.Where(x => x.DataContext is GraphNodeViewModel)
+            )
             {
                 if (item.DataContext is GraphNodeViewModel itemViewModel)
                 {
@@ -311,8 +323,11 @@ public partial class GraphNodeView : UserControl
 
     private void OpenNodeClick(object? sender, RoutedEventArgs e)
     {
-        if (DataContext is GraphNodeViewModel { GraphNode: GroupNode groupNode }
-            && this.FindAncestorOfType<NodeGraphTabView>()?.DataContext is NodeGraphTabViewModel tabViewModel)
+        if (
+            DataContext is GraphNodeViewModel { GraphNode: GroupNode groupNode }
+            && this.FindAncestorOfType<NodeGraphTabView>()?.DataContext
+                is NodeGraphTabViewModel tabViewModel
+        )
         {
             tabViewModel.NavigateTo(groupNode.Group);
         }
@@ -322,10 +337,7 @@ public partial class GraphNodeView : UserControl
     {
         if (DataContext is GraphNodeViewModel viewModel)
         {
-            var flyout = new RenameFlyout()
-            {
-                Text = viewModel.GraphNode.Name
-            };
+            var flyout = new RenameFlyout() { Text = viewModel.GraphNode.Name };
 
             flyout.Confirmed += OnNameConfirmed;
 
@@ -335,8 +347,7 @@ public partial class GraphNodeView : UserControl
 
     private void OnNameConfirmed(object? sender, string? e)
     {
-        if (sender is RenameFlyout flyout
-            && DataContext is GraphNodeViewModel viewModel)
+        if (sender is RenameFlyout flyout && DataContext is GraphNodeViewModel viewModel)
         {
             flyout.Confirmed -= OnNameConfirmed;
             viewModel.UpdateName(e);

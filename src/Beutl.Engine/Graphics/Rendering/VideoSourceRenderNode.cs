@@ -8,16 +8,23 @@ public sealed class VideoSourceRenderNode(
     VideoSource.Resource source,
     int frame,
     Brush.Resource? fill,
-    Pen.Resource? pen)
-    : BrushRenderNode(fill, pen)
+    Pen.Resource? pen
+) : BrushRenderNode(fill, pen)
 {
-    public (VideoSource.Resource Resource, int Version)? Source { get; private set; } = source.Capture();
+    public (VideoSource.Resource Resource, int Version)? Source { get; private set; } =
+        source.Capture();
 
     public int Frame { get; private set; } = frame;
 
-    public Rect Bounds { get; private set; } = PenHelper.GetBounds(new Rect(default, source.FrameSize.ToSize(1)), pen);
+    public Rect Bounds { get; private set; } =
+        PenHelper.GetBounds(new Rect(default, source.FrameSize.ToSize(1)), pen);
 
-    public bool Update(VideoSource.Resource source, int frame, Brush.Resource? fill, Pen.Resource? pen)
+    public bool Update(
+        VideoSource.Resource source,
+        int frame,
+        Brush.Resource? fill,
+        Pen.Resource? pen
+    )
     {
         bool changed = Update(fill, pen);
         if (!source.Compare(Source))
@@ -28,7 +35,10 @@ public sealed class VideoSourceRenderNode(
 
         if (changed && Source.HasValue)
         {
-            Bounds = PenHelper.GetBounds(new Rect(default, Source.Value.Resource.FrameSize.ToSize(1)), Pen?.Resource);
+            Bounds = PenHelper.GetBounds(
+                new Rect(default, Source.Value.Resource.FrameSize.ToSize(1)),
+                Pen?.Resource
+            );
         }
 
         if (Frame != frame)
@@ -43,7 +53,8 @@ public sealed class VideoSourceRenderNode(
 
     public override RenderNodeOperation[] Process(RenderNodeContext context)
     {
-        if (!Source.HasValue) return [];
+        if (!Source.HasValue)
+            return [];
 
         return
         [
@@ -60,7 +71,7 @@ public sealed class VideoSourceRenderNode(
                     }
                 },
                 hitTest: HitTest
-            )
+            ),
         ];
     }
 

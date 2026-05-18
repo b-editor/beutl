@@ -161,7 +161,6 @@ public abstract class LightweightObservableBase<T> : IObservable<T>
     {
         if (Volatile.Read(ref _observers) != null)
         {
-
             IObserver<T>[] observers;
 
             lock (this)
@@ -185,7 +184,5 @@ public abstract class LightweightObservableBase<T> : IObservable<T>
         }
     }
 
-    protected virtual void Subscribed(IObserver<T> observer, bool first)
-    {
-    }
+    protected virtual void Subscribed(IObserver<T> observer, bool first) { }
 }

@@ -11,17 +11,24 @@ public class KeyFrameTests
     [Test]
     public void Serialize_ShouldCorrectlySerializeLinearEasing()
     {
-        var keyFrame = new KeyFrame<int> { Easing = new LinearEasing(), KeyTime = TimeSpan.FromSeconds(1) };
+        var keyFrame = new KeyFrame<int>
+        {
+            Easing = new LinearEasing(),
+            KeyTime = TimeSpan.FromSeconds(1),
+        };
         var context = new Mock<ICoreSerializationContext>();
         var jsonObject = new JsonObject();
 
-        context.Setup(c => c.SetValue(It.IsAny<string>(), It.IsAny<object>()))
+        context
+            .Setup(c => c.SetValue(It.IsAny<string>(), It.IsAny<object>()))
             .Callback<string, object>((key, value) => jsonObject[key] = JsonValue.Create(value));
 
         keyFrame.Serialize(context.Object);
 
-        Assert.That(jsonObject["Easing"]?.GetValue<string>(),
-            Is.EqualTo("[Beutl.Engine]Beutl.Animation.Easings:LinearEasing"));
+        Assert.That(
+            jsonObject["Easing"]?.GetValue<string>(),
+            Is.EqualTo("[Beutl.Engine]Beutl.Animation.Easings:LinearEasing")
+        );
     }
 
     [Test]
@@ -30,13 +37,16 @@ public class KeyFrameTests
         var keyFrame = new KeyFrame<int>
         {
             Easing = new SplineEasing(0.1f, 0.2f, 0.3f, 0.4f),
-            KeyTime = TimeSpan.FromSeconds(1)
+            KeyTime = TimeSpan.FromSeconds(1),
         };
         var context = new Mock<ICoreSerializationContext>();
         var jsonObject = new JsonObject();
 
-        context.Setup(c => c.SetValue(It.IsAny<string>(), It.IsAny<object>()))
-            .Callback<string, object>((key, value) => jsonObject[key] = value as JsonNode ?? JsonValue.Create(value));
+        context
+            .Setup(c => c.SetValue(It.IsAny<string>(), It.IsAny<object>()))
+            .Callback<string, object>(
+                (key, value) => jsonObject[key] = value as JsonNode ?? JsonValue.Create(value)
+            );
 
         keyFrame.Serialize(context.Object);
 
@@ -52,7 +62,10 @@ public class KeyFrameTests
     {
         var keyFrame = new KeyFrame<int>();
         var context = new Mock<ICoreSerializationContext>();
-        var jsonObject = new JsonObject { ["Easing"] = "[Beutl.Engine]Beutl.Animation.Easings:LinearEasing" };
+        var jsonObject = new JsonObject
+        {
+            ["Easing"] = "[Beutl.Engine]Beutl.Animation.Easings:LinearEasing",
+        };
 
         context.Setup(c => c.GetValue<JsonNode>(It.IsAny<string>())).Returns(jsonObject["Easing"]);
         context.Setup(c => c.Contains(It.IsAny<string>())).Returns(false);
@@ -69,7 +82,13 @@ public class KeyFrameTests
         var context = new Mock<ICoreSerializationContext>();
         var jsonObject = new JsonObject
         {
-            ["Easing"] = new JsonObject { ["X1"] = 0.1f, ["Y1"] = 0.2f, ["X2"] = 0.3f, ["Y2"] = 0.4f }
+            ["Easing"] = new JsonObject
+            {
+                ["X1"] = 0.1f,
+                ["Y1"] = 0.2f,
+                ["X2"] = 0.3f,
+                ["Y2"] = 0.4f,
+            },
         };
 
         context.Setup(c => c.GetValue<JsonNode>(It.IsAny<string>())).Returns(jsonObject["Easing"]);

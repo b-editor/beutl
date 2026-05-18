@@ -1,5 +1,4 @@
 ﻿using Avalonia.Controls;
-
 using Beutl.Controls.PropertyEditors;
 using Beutl.ViewModels.Editors;
 
@@ -16,15 +15,18 @@ public partial class ScriptEditor : UserControl
 
     private void OnValueConfirmed(object? sender, PropertyEditorValueChangedEventArgs e)
     {
-        if (DataContext is not ScriptEditorViewModel { IsDisposed: false } vm) return;
-        if (e is not PropertyEditorValueChangedEventArgs<string?> args) return;
+        if (DataContext is not ScriptEditorViewModel { IsDisposed: false } vm)
+            return;
+        if (e is not PropertyEditorValueChangedEventArgs<string?> args)
+            return;
 
         vm.SetValue(args.OldValue, args.NewValue);
     }
 
     private void OnValueChanged(object? sender, PropertyEditorValueChangedEventArgs e)
     {
-        if (DataContext is not ScriptEditorViewModel { IsDisposed: false } vm) return;
+        if (DataContext is not ScriptEditorViewModel { IsDisposed: false } vm)
+            return;
 
         if (sender is StringEditor editor)
         {

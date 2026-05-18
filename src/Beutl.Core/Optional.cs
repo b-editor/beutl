@@ -4,7 +4,8 @@ public readonly struct Optional<T>(T value) : IEquatable<Optional<T>>, IOptional
 {
     public bool HasValue { get; } = true;
 
-    public T Value => HasValue ? value : throw new InvalidOperationException("Optional has no value.");
+    public T Value =>
+        HasValue ? value : throw new InvalidOperationException("Optional has no value.");
 
     public override bool Equals(object? obj)
     {
@@ -43,15 +44,19 @@ public readonly struct Optional<T>(T value) : IEquatable<Optional<T>>, IOptional
 
     public TResult? GetValueOrDefault<TResult>()
     {
-        return HasValue ?
-            value is TResult result ? result : default
+        return HasValue
+            ? value is TResult result
+                ? result
+                : default
             : default;
     }
 
     public TResult? GetValueOrDefault<TResult>(TResult defaultValue)
     {
-        return HasValue ?
-            value is TResult result ? result : default
+        return HasValue
+            ? value is TResult result
+                ? result
+                : default
             : defaultValue;
     }
 

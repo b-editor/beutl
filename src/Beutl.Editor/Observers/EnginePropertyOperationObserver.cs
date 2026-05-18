@@ -29,7 +29,8 @@ public sealed class EnginePropertyOperationObserver<T> : IOperationObserver
         IProperty<T> property,
         OperationSequenceGenerator sequenceNumberGenerator,
         string propertyPath,
-        HashSet<string>? propertyPathsToTrack = null)
+        HashSet<string>? propertyPathsToTrack = null
+    )
     {
         _object = obj;
         _property = property;
@@ -42,7 +43,8 @@ public sealed class EnginePropertyOperationObserver<T> : IOperationObserver
             _subscription = _operations.Subscribe(observer);
         }
 
-        HashSet<string>? propertiesToTrack = _propertyPathsToTrack?.Where(i => i.Contains(_propertyPath))
+        HashSet<string>? propertiesToTrack = _propertyPathsToTrack
+            ?.Where(i => i.Contains(_propertyPath))
             .Select(i => i.Substring(_propertyPath.Length).TrimStart('.').Split('.').First())
             .Where(i => !string.IsNullOrEmpty(i))
             .ToHashSet();
@@ -64,7 +66,8 @@ public sealed class EnginePropertyOperationObserver<T> : IOperationObserver
                         _operations,
                         animationObject,
                         _sequenceNumberGenerator,
-                        $"{_propertyPath}.Animation");
+                        $"{_propertyPath}.Animation"
+                    );
                 }
 
                 _animation = animatable.Animation;
@@ -107,12 +110,21 @@ public sealed class EnginePropertyOperationObserver<T> : IOperationObserver
         {
             var elementType = ArrayTypeHelpers.GetElementType(list.GetType());
             if (elementType == null)
-                throw new InvalidOperationException("Could not determine the element type of the list.");
+                throw new InvalidOperationException(
+                    "Could not determine the element type of the list."
+                );
             var observerType = typeof(CollectionOperationObserver<>).MakeGenericType(elementType);
 
-            _valuePublisher = (IOperationObserver)Activator.CreateInstance(observerType,
-                _operations, list, _object,
-                _propertyPath, _sequenceNumberGenerator, _propertyPathsToTrack)!;
+            _valuePublisher = (IOperationObserver)
+                Activator.CreateInstance(
+                    observerType,
+                    _operations,
+                    list,
+                    _object,
+                    _propertyPath,
+                    _sequenceNumberGenerator,
+                    _propertyPathsToTrack
+                )!;
         }
         else if (value is ICoreObject child)
         {
@@ -121,7 +133,8 @@ public sealed class EnginePropertyOperationObserver<T> : IOperationObserver
                 child,
                 _sequenceNumberGenerator,
                 _propertyPath,
-                _propertyPathsToTrack);
+                _propertyPathsToTrack
+            );
         }
     }
 
@@ -134,9 +147,13 @@ public sealed class EnginePropertyOperationObserver<T> : IOperationObserver
         }
 
         var operation = new UpdatePropertyValueOperation<IExpression<T>?>(
-            (CoreObject)_object, $"{_propertyPath}.Expression", obj, _expression)
+            (CoreObject)_object,
+            $"{_propertyPath}.Expression",
+            obj,
+            _expression
+        )
         {
-            SequenceNumber = _sequenceNumberGenerator.GetNext()
+            SequenceNumber = _sequenceNumberGenerator.GetNext(),
         };
         _operations.OnNext(operation);
         _expression = obj;
@@ -162,13 +179,18 @@ public sealed class EnginePropertyOperationObserver<T> : IOperationObserver
                 animObject,
                 _sequenceNumberGenerator,
                 animationPath,
-                _propertyPathsToTrack);
+                _propertyPathsToTrack
+            );
         }
 
         var operation = new UpdatePropertyValueOperation<IAnimation<T>?>(
-            (CoreObject)_object, animationPath, newAnimation, _animation)
+            (CoreObject)_object,
+            animationPath,
+            newAnimation,
+            _animation
+        )
         {
-            SequenceNumber = _sequenceNumberGenerator.GetNext()
+            SequenceNumber = _sequenceNumberGenerator.GetNext(),
         };
         _operations.OnNext(operation);
         _animation = newAnimation;
@@ -188,9 +210,13 @@ public sealed class EnginePropertyOperationObserver<T> : IOperationObserver
         InitializePublishers(e.NewValue);
 
         var operation = new UpdatePropertyValueOperation<T>(
-            (CoreObject)_object, _propertyPath, e.NewValue, e.OldValue)
+            (CoreObject)_object,
+            _propertyPath,
+            e.NewValue,
+            e.OldValue
+        )
         {
-            SequenceNumber = _sequenceNumberGenerator.GetNext()
+            SequenceNumber = _sequenceNumberGenerator.GetNext(),
         };
         _operations.OnNext(operation);
     }

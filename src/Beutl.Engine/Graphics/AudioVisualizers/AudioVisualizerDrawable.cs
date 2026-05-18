@@ -33,7 +33,10 @@ public abstract partial class AudioVisualizerDrawable : Drawable
     [Display(Name = nameof(GraphicsStrings.Fill), ResourceType = typeof(GraphicsStrings))]
     public IProperty<Brush?> Fill { get; } = Property.Create<Brush?>();
 
-    [Display(Name = nameof(GraphicsStrings.AudioVisualizer_Gain), ResourceType = typeof(GraphicsStrings))]
+    [Display(
+        Name = nameof(GraphicsStrings.AudioVisualizer_Gain),
+        ResourceType = typeof(GraphicsStrings)
+    )]
     [Range(0.01f, 1000f)]
     public IProperty<float> Gain { get; } = Property.CreateAnimatable(1f);
 
@@ -46,10 +49,7 @@ public abstract partial class AudioVisualizerDrawable : Drawable
     protected override void OnDraw(GraphicsContext2D context, Drawable.Resource resource)
     {
         var r = (Resource)resource;
-        context.DrawNode(
-            r,
-            p => new AudioVisualizerRenderNode(p),
-            (node, p) => node.Update(p));
+        context.DrawNode(r, p => new AudioVisualizerRenderNode(p), (node, p) => node.Update(p));
     }
 
     public abstract partial class Resource
@@ -78,7 +78,8 @@ public abstract partial class AudioVisualizerDrawable : Drawable
         internal TimeSpan CachedStart => _cachedStart;
         internal TimeSpan CachedDuration => _cachedDuration;
         internal int ComposerSampleRate => _composer?.SampleRate ?? DefaultComposerSampleRate;
-        internal ReadOnlySpan<float> CachedSampleSpan => _cachedSamples.AsSpan(0, _cachedSampleLength);
+        internal ReadOnlySpan<float> CachedSampleSpan =>
+            _cachedSamples.AsSpan(0, _cachedSampleLength);
 
         partial void PostUpdate(AudioVisualizerDrawable obj, CompositionContext context)
         {
@@ -118,11 +119,14 @@ public abstract partial class AudioVisualizerDrawable : Drawable
             _cachedSamples = [];
         }
 
-        protected abstract (TimeSpan Start, TimeSpan Duration) ComputeSampleWindow(TimeSpan currentTime);
+        protected abstract (TimeSpan Start, TimeSpan Duration) ComputeSampleWindow(
+            TimeSpan currentTime
+        );
 
         internal void RenderToCanvas(ImmediateCanvas canvas, Rect bounds)
         {
-            if (Fill is null) return;
+            if (Fill is null)
+                return;
             RenderForeground(canvas, bounds);
         }
 
@@ -146,12 +150,14 @@ public abstract partial class AudioVisualizerDrawable : Drawable
                 return;
             }
 
-            bool needsRecompose = _cachedSourceVersion != _source!.Version
+            bool needsRecompose =
+                _cachedSourceVersion != _source!.Version
                 || _cachedStart != targetStart
                 || _cachedDuration != targetDuration
                 || _cachedSampleRate != rate;
 
-            if (!needsRecompose) return;
+            if (!needsRecompose)
+                return;
 
             var targetRange = new TimeRange(targetStart, targetDuration);
             Sound sound = _source.GetOriginal();

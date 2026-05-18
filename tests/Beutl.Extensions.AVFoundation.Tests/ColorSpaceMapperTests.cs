@@ -10,7 +10,10 @@ public class ColorSpaceMapperTests
     public void SdrSrgbReturnsCanonicalSrgbInstance()
     {
         var cs = ColorSpaceMapper.BuildColorSpace(
-            isHdr: false, BeutlTransferFunction.Srgb, BeutlColorPrimaries.Srgb);
+            isHdr: false,
+            BeutlTransferFunction.Srgb,
+            BeutlColorPrimaries.Srgb
+        );
         Assert.That(cs, Is.EqualTo(BitmapColorSpace.Srgb));
     }
 
@@ -20,9 +23,14 @@ public class ColorSpaceMapperTests
         // PQ applies a 10000/203 gamut scale for HDR — verify the resulting gamut doesn't
         // equal the unscaled Rec.2020 one, which is how we assert the scale was applied.
         var unscaled = BitmapColorSpace.CreateRgb(
-            BitmapColorSpaceTransferFn.Pq, BitmapColorSpaceXyz.Rec2020);
+            BitmapColorSpaceTransferFn.Pq,
+            BitmapColorSpaceXyz.Rec2020
+        );
         var hdr = ColorSpaceMapper.BuildColorSpace(
-            isHdr: true, BeutlTransferFunction.Pq, BeutlColorPrimaries.Rec2020);
+            isHdr: true,
+            BeutlTransferFunction.Pq,
+            BeutlColorPrimaries.Rec2020
+        );
 
         Assert.That(hdr, Is.Not.EqualTo(unscaled));
         Assert.That(hdr.GetNumericalTransferFunction(), Is.EqualTo(BitmapColorSpaceTransferFn.Pq));
@@ -32,9 +40,14 @@ public class ColorSpaceMapperTests
     public void HdrHlgAppliesLuminanceScaling()
     {
         var unscaled = BitmapColorSpace.CreateRgb(
-            BitmapColorSpaceTransferFn.Hlg, BitmapColorSpaceXyz.Rec2020);
+            BitmapColorSpaceTransferFn.Hlg,
+            BitmapColorSpaceXyz.Rec2020
+        );
         var hdr = ColorSpaceMapper.BuildColorSpace(
-            isHdr: true, BeutlTransferFunction.Hlg, BeutlColorPrimaries.Rec2020);
+            isHdr: true,
+            BeutlTransferFunction.Hlg,
+            BeutlColorPrimaries.Rec2020
+        );
 
         Assert.That(hdr, Is.Not.EqualTo(unscaled));
         Assert.That(hdr.GetNumericalTransferFunction(), Is.EqualTo(BitmapColorSpaceTransferFn.Hlg));
@@ -44,7 +57,10 @@ public class ColorSpaceMapperTests
     public void UnknownTagsFallBackToSrgb()
     {
         var cs = ColorSpaceMapper.BuildColorSpace(
-            isHdr: false, BeutlTransferFunction.Unknown, BeutlColorPrimaries.Unknown);
+            isHdr: false,
+            BeutlTransferFunction.Unknown,
+            BeutlColorPrimaries.Unknown
+        );
         Assert.That(cs, Is.EqualTo(BitmapColorSpace.Srgb));
     }
 
@@ -55,9 +71,14 @@ public class ColorSpaceMapperTests
         // primaries tag, we must use the Rec.2020 gamut, not sRGB — otherwise encoder and
         // decoder pick different gamuts for the same untagged content.
         var expected = BitmapColorSpace.CreateRgb(
-            BitmapColorSpaceTransferFn.Pq, BitmapColorSpaceXyz.Rec2020.Scale(10000f / 203f));
+            BitmapColorSpaceTransferFn.Pq,
+            BitmapColorSpaceXyz.Rec2020.Scale(10000f / 203f)
+        );
         var actual = ColorSpaceMapper.BuildColorSpace(
-            isHdr: true, BeutlTransferFunction.Pq, BeutlColorPrimaries.Unknown);
+            isHdr: true,
+            BeutlTransferFunction.Pq,
+            BeutlColorPrimaries.Unknown
+        );
         Assert.That(actual, Is.EqualTo(expected));
     }
 }

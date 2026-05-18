@@ -47,7 +47,10 @@ public sealed class SpeedNode : AudioNode
         return ProcessAnimatedSpeed(context, expectedOutputSampleCount);
     }
 
-    private AudioBuffer ProcessStaticSpeed(AudioProcessContext context, int expectedOutputSampleCount)
+    private AudioBuffer ProcessStaticSpeed(
+        AudioProcessContext context,
+        int expectedOutputSampleCount
+    )
     {
         float speed = (Speed?.CurrentValue ?? 100f) / 100f;
         // If speed is 1.0, use normal processing
@@ -64,13 +67,17 @@ public sealed class SpeedNode : AudioNode
             sourceTimeRange,
             context.SampleRate,
             context.AnimationSampler,
-            context.OriginalTimeRange);
+            context.OriginalTimeRange
+        );
 
         // Process with constant speed to get the expected output length
         return _processor!.ProcessBuffer(inputContext, speed, expectedOutputSampleCount);
     }
 
-    private AudioBuffer ProcessAnimatedSpeed(AudioProcessContext context, int expectedOutputSampleCount)
+    private AudioBuffer ProcessAnimatedSpeed(
+        AudioProcessContext context,
+        int expectedOutputSampleCount
+    )
     {
         var animation = Speed?.Animation!;
         var keyFrameAnimation = (KeyFrameAnimation<float>)animation;
@@ -85,8 +92,9 @@ public sealed class SpeedNode : AudioNode
         TimeSpan sourceStartTime;
         if (keyFrameAnimation.UseGlobalClock)
         {
-            sourceStartTime = _integrator.Integrate(context.TimeRange.Start + ownerStart, keyFrameAnimation)
-                            - _integrator.Integrate(ownerStart, keyFrameAnimation);
+            sourceStartTime =
+                _integrator.Integrate(context.TimeRange.Start + ownerStart, keyFrameAnimation)
+                - _integrator.Integrate(ownerStart, keyFrameAnimation);
         }
         else
         {
@@ -99,8 +107,11 @@ public sealed class SpeedNode : AudioNode
         double sum = 0;
         for (int i = 0; i < expectedOutputSampleCount; i++)
         {
-            var value = animation.GetAnimatedValue(
-                ownerStart + TimeSpan.FromSeconds((startInSamples + i) / (double)context.SampleRate)) / 100.0;
+            var value =
+                animation.GetAnimatedValue(
+                    ownerStart
+                        + TimeSpan.FromSeconds((startInSamples + i) / (double)context.SampleRate)
+                ) / 100.0;
             speeds[i] = value;
             sum += value;
         }
@@ -112,9 +123,14 @@ public sealed class SpeedNode : AudioNode
             sourceTimeRange,
             context.SampleRate,
             context.AnimationSampler,
-            context.OriginalTimeRange);
+            context.OriginalTimeRange
+        );
 
-        return _processor!.ProcessBufferWithVariableSpeed(inputContext, speeds, expectedOutputSampleCount);
+        return _processor!.ProcessBufferWithVariableSpeed(
+            inputContext,
+            speeds,
+            expectedOutputSampleCount
+        );
     }
 
     private TimeRange CalculateSourceTimeRange(TimeRange outputTimeRange, float speed)
@@ -148,34 +164,52 @@ public sealed class SpeedNode : AudioNode
             _speedNode = speedNode;
 
             _rs = new WdlResampler();
-            _rs.SetMode(interp: true, filtercnt: 0, sinc: true, sinc_size: 128, sinc_interpsize: 64);
+            _rs.SetMode(
+                interp: true,
+                filtercnt: 0,
+                sinc: true,
+                sinc_size: 128,
+                sinc_interpsize: 64
+            );
             // _rs.SetMode(interp: true, filtercnt: 0, sinc: true, sinc_size: 64);
             _rs.SetFilterParms();
             _rs.SetFeedMode(false);
             _rs.SetRates(sampleRate, sampleRate);
         }
 
-        private int Read(int srcOffset, float[] buffer, int offset, int count, AudioProcessContext context)
+        private int Read(
+            int srcOffset,
+            float[] buffer,
+            int offset,
+            int count,
+            AudioProcessContext context
+        )
         {
             var newRange = new TimeRange(
                 TimeSpan.FromSeconds(srcOffset / (double)_sampleRate) + context.TimeRange.Start,
-                TimeSpan.FromSeconds(count / (double)_sampleRate));
+                TimeSpan.FromSeconds(count / (double)_sampleRate)
+            );
             if (newRange.End > context.TimeRange.End)
             {
                 // Console.WriteLine($"{newRange.End} > {context.TimeRange.End}");
                 newRange = newRange.WithDuration(
-                    TimeSpan.FromTicks(Math.Max((context.TimeRange.End - newRange.Start).Ticks, 0)));
+                    TimeSpan.FromTicks(Math.Max((context.TimeRange.End - newRange.Start).Ticks, 0))
+                );
             }
 
             var newContext = new AudioProcessContext(
                 newRange,
                 _sampleRate,
                 context.AnimationSampler,
-                context.OriginalTimeRange);
+                context.OriginalTimeRange
+            );
             var result = _speedNode.Inputs[0].Process(newContext);
             var leftData = result.GetChannelData(0);
             var rightData = result.GetChannelData(1);
-            int samplesToRead = Math.Min(buffer.Length / _channels, Math.Min(count, result.SampleCount));
+            int samplesToRead = Math.Min(
+                buffer.Length / _channels,
+                Math.Min(count, result.SampleCount)
+            );
             for (int i = 0; i < samplesToRead; i++)
             {
                 buffer[offset + i * _channels] = leftData[i];
@@ -207,33 +241,37 @@ public sealed class SpeedNode : AudioNode
                 float[] inBuf;
                 int inOff;
 
-                int want = _rs.ResamplePrepare(framesNeeded - framesDone,
-                    _channels, out inBuf, out inOff);
+                int want = _rs.ResamplePrepare(
+                    framesNeeded - framesDone,
+                    _channels,
+                    out inBuf,
+                    out inOff
+                );
 
-                int got = Read(
-                    srcFramesRead,
-                    inBuf,
-                    inOff / _channels,
-                    want,
-                    context);
+                int got = Read(srcFramesRead, inBuf, inOff / _channels, want, context);
                 srcFramesRead += got;
 
                 // --- リサンプル ----------------------------------------------------
-                int made = _rs.ResampleOut(dst,
+                int made = _rs.ResampleOut(
+                    dst,
                     framesDone * _channels,
                     got, // 供給した入力フレーム数
                     framesNeeded - framesDone, // 欲しい出力数
-                    _channels);
+                    _channels
+                );
 
                 if (made == 0)
                 {
-                    made = _rs.ResampleOut(dst,
+                    made = _rs.ResampleOut(
+                        dst,
                         framesDone * _channels,
                         0, // 追加入力なし
                         framesNeeded - framesDone,
-                        _channels);
+                        _channels
+                    );
 
-                    if (made == 0) break;
+                    if (made == 0)
+                        break;
                 }
 
                 framesDone += made;
@@ -255,7 +293,10 @@ public sealed class SpeedNode : AudioNode
         }
 
         public AudioBuffer ProcessBufferWithVariableSpeed(
-            AudioProcessContext context, ReadOnlySpan<double> speedCurve, int expectedOut)
+            AudioProcessContext context,
+            ReadOnlySpan<double> speedCurve,
+            int expectedOut
+        )
         {
             // TimeRangeは変換前での時間、つまりInputに渡される範囲
             // Console.WriteLine($"Start: {context.TimeRange.Start}, End: {context.TimeRange.End}");
@@ -306,7 +347,8 @@ public sealed class SpeedNode : AudioNode
                 int inOff;
                 int willNeed = _rs.ResamplePrepare(framesThis, _channels, out inBuf, out inOff);
 
-                if (wantFrames > willNeed) wantFrames = willNeed;
+                if (wantFrames > willNeed)
+                    wantFrames = willNeed;
 
                 // 本当に読む
                 int got = Read(srcIndexFloor, inBuf, inOff, wantFrames, context);
@@ -314,15 +356,16 @@ public sealed class SpeedNode : AudioNode
                 if (got < wantFrames)
                 {
                     // Console.WriteLine($"Clear: {got} < {wantFrames}");
-                    Array.Clear(inBuf, inOff + got * _channels,
-                        (wantFrames - got) * _channels);
+                    Array.Clear(inBuf, inOff + got * _channels, (wantFrames - got) * _channels);
                 }
 
-                int made = _rs.ResampleOut(dst,
+                int made = _rs.ResampleOut(
+                    dst,
                     framesDone * _channels,
                     willNeed, // 供給した入力フレーム数
                     framesThis, // 欲しい出力数
-                    _channels);
+                    _channels
+                );
 
                 framesDone += made;
                 srcIndexFloor += wantFrames;

@@ -12,8 +12,11 @@ public partial class ColorPaletteItem
     /// Defines the <see cref="Color"/> property
     /// </summary>
     public static readonly DirectProperty<ColorPaletteItem, Color> ColorProperty =
-        AvaloniaProperty.RegisterDirect<ColorPaletteItem, Color>(nameof(Color),
-            x => x.Color, (x, v) => x.Color = v);
+        AvaloniaProperty.RegisterDirect<ColorPaletteItem, Color>(
+            nameof(Color),
+            x => x.Color,
+            (x, v) => x.Color = v
+        );
 
     /// <summary>
     /// Defines the <see cref="BorderBrush"/> property

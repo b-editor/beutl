@@ -1,14 +1,17 @@
 ﻿using System.Numerics;
 using System.Text.Json;
 using System.Text.Json.Serialization;
-
 using Beutl.Utilities;
 
 namespace Beutl.JsonConverters;
 
 internal sealed class Vector3JsonConverter : JsonConverter<Vector3>
 {
-    public override Vector3 Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    public override Vector3 Read(
+        ref Utf8JsonReader reader,
+        Type typeToConvert,
+        JsonSerializerOptions options
+    )
     {
         string? s = reader.GetString();
         if (s == null)

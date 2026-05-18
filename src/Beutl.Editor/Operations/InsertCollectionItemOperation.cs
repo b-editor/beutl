@@ -2,7 +2,9 @@
 
 namespace Beutl.Editor.Operations;
 
-public sealed class InsertCollectionItemOperation<T> : CollectionChangeOperation<T>, ICollectionChangeOperation
+public sealed class InsertCollectionItemOperation<T>
+    : CollectionChangeOperation<T>,
+        ICollectionChangeOperation
 {
     public required T Item { get; set; }
 

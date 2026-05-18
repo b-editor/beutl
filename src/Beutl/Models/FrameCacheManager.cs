@@ -1,10 +1,8 @@
 ﻿using System.Collections.Immutable;
 using System.Diagnostics.CodeAnalysis;
-
 using Beutl.Configuration;
 using Beutl.Media;
 using Beutl.Media.Source;
-
 using Reactive.Bindings;
 
 namespace Beutl.Models;
@@ -23,7 +21,8 @@ public sealed partial class FrameCacheManager : IDisposable
         FrameSize = frameSize;
         Options = options;
 
-        _maxSize = GlobalConfiguration.Instance.EditorConfig.GetObservable(EditorConfig.FrameCacheMaxSizeProperty)
+        _maxSize = GlobalConfiguration
+            .Instance.EditorConfig.GetObservable(EditorConfig.FrameCacheMaxSizeProperty)
             .Select(v => (long)(v * 1024 * 1024))
             .ToReadOnlyReactivePropertySlim();
     }
@@ -41,7 +40,8 @@ public sealed partial class FrameCacheManager : IDisposable
 
     public void Add(int frame, Ref<Bitmap> bitmap)
     {
-        if (!IsEnabled) return;
+        if (!IsEnabled)
+            return;
 
         lock (_lock)
         {
@@ -91,8 +91,12 @@ public sealed partial class FrameCacheManager : IDisposable
     {
         lock (_lock)
         {
-            KeyValuePair<int, CacheEntry>[] items
-                = GetRange(_entries.Where(v => !v.Value.IsLocked), start, end).ToArray();
+            KeyValuePair<int, CacheEntry>[] items = GetRange(
+                    _entries.Where(v => !v.Value.IsLocked),
+                    start,
+                    end
+                )
+                .ToArray();
 
             foreach ((int key, CacheEntry e) in items)
             {
@@ -223,9 +227,12 @@ public sealed partial class FrameCacheManager : IDisposable
             ImmutableArray<CacheBlock> blocks = CalculateBlocks(int.MinValue, currentFrame);
             CacheBlock? skip = null;
 
-            foreach (CacheBlock? item in blocks.Where(v => !v.IsLocked)
-                .OrderByDescending(b => b.Length)
-                .ToArray())
+            foreach (
+                CacheBlock? item in blocks
+                    .Where(v => !v.IsLocked)
+                    .OrderByDescending(b => b.Length)
+                    .ToArray()
+            )
             {
                 if (item.Start + item.Length < currentFrame)
                 {
@@ -261,12 +268,16 @@ public sealed partial class FrameCacheManager : IDisposable
                 }
 
                 long excess = _size - _maxSize.Value;
-                int sizePerCache = CalculateBitmapByteSize(Options.GetSize(FrameSize), Options.ColorType == FrameCacheColorType.YUV);
+                int sizePerCache = CalculateBitmapByteSize(
+                    Options.GetSize(FrameSize),
+                    Options.ColorType == FrameCacheColorType.YUV
+                );
                 long targetCount = excess / sizePerCache;
 
-                var items = Options.DeletionStrategy == FrameCacheDeletionStrategy.Old
-                    ? GetOldCaches(targetCount)
-                    : GetFarCaches(targetCount);
+                var items =
+                    Options.DeletionStrategy == FrameCacheDeletionStrategy.Old
+                        ? GetOldCaches(targetCount)
+                        : GetFarCaches(targetCount);
                 DeleteItems(items);
 
                 loop--;
@@ -276,14 +287,15 @@ public sealed partial class FrameCacheManager : IDisposable
 
     private static int CalculateBitmapByteSize(PixelSize size, bool i420)
     {
-        return i420 ? size.Width * (int)(size.Height * 1.5)
-            : size.Width * size.Height * 4;
+        return i420 ? size.Width * (int)(size.Height * 1.5) : size.Width * size.Height * 4;
     }
 
-    private static IEnumerable<KeyValuePair<int, CacheEntry>> GetRange(IEnumerable<KeyValuePair<int, CacheEntry>> source, int start, int end)
+    private static IEnumerable<KeyValuePair<int, CacheEntry>> GetRange(
+        IEnumerable<KeyValuePair<int, CacheEntry>> source,
+        int start,
+        int end
+    )
     {
-        return source
-            .SkipWhile(t => t.Key < start)
-            .TakeWhile(t => t.Key < end);
+        return source.SkipWhile(t => t.Key < start).TakeWhile(t => t.Key < end);
     }
 }

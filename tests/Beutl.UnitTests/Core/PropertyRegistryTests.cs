@@ -38,9 +38,7 @@ public class PropertyRegistryTests
         }
     }
 
-    private sealed class FixtureUnregistered : CoreObject
-    {
-    }
+    private sealed class FixtureUnregistered : CoreObject { }
 
     [Test]
     public void GetRegistered_ReturnsRegisteredProperty()
@@ -79,7 +77,10 @@ public class PropertyRegistryTests
     [Test]
     public void FindRegistered_ByName_OnUnknownName_ReturnsNull()
     {
-        CoreProperty? property = PropertyRegistry.FindRegistered(typeof(FixtureB), "NoSuchProperty");
+        CoreProperty? property = PropertyRegistry.FindRegistered(
+            typeof(FixtureB),
+            "NoSuchProperty"
+        );
         Assert.That(property, Is.Null);
     }
 
@@ -87,14 +88,19 @@ public class PropertyRegistryTests
     public void FindRegistered_AttachedSyntax_Throws()
     {
         Assert.Throws<InvalidOperationException>(() =>
-            PropertyRegistry.FindRegistered(typeof(FixtureB), "Some.Attached"));
+            PropertyRegistry.FindRegistered(typeof(FixtureB), "Some.Attached")
+        );
     }
 
     [Test]
     public void FindRegistered_NullArguments_Throw()
     {
-        Assert.Throws<ArgumentNullException>(() => PropertyRegistry.FindRegistered((Type)null!, "x"));
-        Assert.Throws<ArgumentNullException>(() => PropertyRegistry.FindRegistered(typeof(FixtureB), null!));
+        Assert.Throws<ArgumentNullException>(() =>
+            PropertyRegistry.FindRegistered((Type)null!, "x")
+        );
+        Assert.Throws<ArgumentNullException>(() =>
+            PropertyRegistry.FindRegistered(typeof(FixtureB), null!)
+        );
     }
 
     [Test]
@@ -117,7 +123,8 @@ public class PropertyRegistryTests
     public void FindRegistered_ByObject_NullObject_Throws()
     {
         Assert.Throws<ArgumentNullException>(() =>
-            PropertyRegistry.FindRegistered((ICoreObject)null!, "Label"));
+            PropertyRegistry.FindRegistered((ICoreObject)null!, "Label")
+        );
     }
 
     [Test]
@@ -138,7 +145,10 @@ public class PropertyRegistryTests
     [Test]
     public void IsRegistered_RegisteredType_ReturnsTrue()
     {
-        Assert.That(PropertyRegistry.IsRegistered(typeof(FixtureB), FixtureB.LabelProperty), Is.True);
+        Assert.That(
+            PropertyRegistry.IsRegistered(typeof(FixtureB), FixtureB.LabelProperty),
+            Is.True
+        );
     }
 
     [Test]
@@ -146,16 +156,19 @@ public class PropertyRegistryTests
     {
         Assert.That(
             PropertyRegistry.IsRegistered(typeof(FixtureUnregistered), FixtureB.LabelProperty),
-            Is.False);
+            Is.False
+        );
     }
 
     [Test]
     public void IsRegistered_NullArguments_Throw()
     {
         Assert.Throws<ArgumentNullException>(() =>
-            PropertyRegistry.IsRegistered((Type)null!, FixtureB.LabelProperty));
+            PropertyRegistry.IsRegistered((Type)null!, FixtureB.LabelProperty)
+        );
         Assert.Throws<ArgumentNullException>(() =>
-            PropertyRegistry.IsRegistered(typeof(FixtureB), null!));
+            PropertyRegistry.IsRegistered(typeof(FixtureB), null!)
+        );
     }
 
     [Test]
@@ -166,9 +179,9 @@ public class PropertyRegistryTests
         {
             Assert.That(PropertyRegistry.IsRegistered(leaf, FixtureB.LabelProperty), Is.True);
             Assert.Throws<ArgumentNullException>(() =>
-                PropertyRegistry.IsRegistered((object)null!, FixtureB.LabelProperty));
-            Assert.Throws<ArgumentNullException>(() =>
-                PropertyRegistry.IsRegistered(leaf, null!));
+                PropertyRegistry.IsRegistered((object)null!, FixtureB.LabelProperty)
+            );
+            Assert.Throws<ArgumentNullException>(() => PropertyRegistry.IsRegistered(leaf, null!));
         });
     }
 }

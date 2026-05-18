@@ -28,5 +28,5 @@ public enum TileMode
     /// <summary>
     /// The content will be repeated.
     /// </summary>
-    Tile
+    Tile,
 }

@@ -6,7 +6,8 @@ internal static class DecoderFileExtensions
 {
     public static string[] GetFilePatterns(Func<IDecoderInfo, IEnumerable<string>> selector)
     {
-        return DecoderRegistry.EnumerateDecoder()
+        return DecoderRegistry
+            .EnumerateDecoder()
             .SelectMany(selector)
             .Distinct()
             .Select(NormalizePattern)

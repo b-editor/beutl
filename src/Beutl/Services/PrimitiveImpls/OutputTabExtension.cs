@@ -25,7 +25,10 @@ public sealed class OutputTabExtension : ToolTabExtension
 
     public override int DefaultOrder => 1;
 
-    public override bool TryCreateContent(IEditorContext editorContext, [NotNullWhen(true)] out Control? control)
+    public override bool TryCreateContent(
+        IEditorContext editorContext,
+        [NotNullWhen(true)] out Control? control
+    )
     {
         if (editorContext is EditViewModel)
         {
@@ -39,7 +42,10 @@ public sealed class OutputTabExtension : ToolTabExtension
         }
     }
 
-    public override bool TryCreateContext(IEditorContext editorContext, [NotNullWhen(true)] out IToolContext? context)
+    public override bool TryCreateContext(
+        IEditorContext editorContext,
+        [NotNullWhen(true)] out IToolContext? context
+    )
     {
         if (editorContext is EditViewModel editViewModel)
         {

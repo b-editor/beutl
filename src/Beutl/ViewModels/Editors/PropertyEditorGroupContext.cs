@@ -2,7 +2,11 @@
 
 namespace Beutl.ViewModels.Editors;
 
-public sealed class PropertyEditorGroupContext(IPropertyEditorContext?[] children, string groupName, bool isFirst) : IPropertyEditorContext
+public sealed class PropertyEditorGroupContext(
+    IPropertyEditorContext?[] children,
+    string groupName,
+    bool isFirst
+) : IPropertyEditorContext
 {
     public IReadOnlyList<IPropertyEditorContext?> Properties => children;
 
@@ -14,7 +18,9 @@ public sealed class PropertyEditorGroupContext(IPropertyEditorContext?[] childre
 
     public void Accept(IPropertyEditorContextVisitor visitor)
     {
-        throw new InvalidOperationException("PropertiesはEngineObjectPropertyViewModelがAcceptしています。");
+        throw new InvalidOperationException(
+            "PropertiesはEngineObjectPropertyViewModelがAcceptしています。"
+        );
     }
 
     public void Dispose()
@@ -29,10 +35,14 @@ public sealed class PropertyEditorGroupContext(IPropertyEditorContext?[] childre
 
     public void ReadFromJson(JsonObject json)
     {
-        if (json.TryGetPropertyValue(nameof(Properties), out JsonNode? childrenNode)
-            && childrenNode is JsonArray childrenArray)
+        if (
+            json.TryGetPropertyValue(nameof(Properties), out JsonNode? childrenNode)
+            && childrenNode is JsonArray childrenArray
+        )
         {
-            foreach ((JsonNode? node, IPropertyEditorContext? context) in childrenArray.Zip(children))
+            foreach (
+                (JsonNode? node, IPropertyEditorContext? context) in childrenArray.Zip(children)
+            )
             {
                 if (context != null && node != null)
                 {

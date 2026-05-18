@@ -11,7 +11,7 @@ public enum PackageInstallPhase
     Verifying = 2,
     Verified = 3,
     ResolvingDependencies = 4,
-    ResolvedDependencies = 5
+    ResolvedDependencies = 5,
 }
 
 public class PackageInstallContext(string packageName, string version, string downloadUrl)
@@ -45,11 +45,13 @@ public class PackageInstallContext(string packageName, string version, string do
 
     public IReadOnlyList<string> InstalledPaths
     {
-        get => _installedPaths ?? throw new InvalidOperationException("ResolvedDependencies <= Phase");
+        get =>
+            _installedPaths ?? throw new InvalidOperationException("ResolvedDependencies <= Phase");
         internal set => _installedPaths = value;
     }
 
-    public IList<(PackageIdentity, LicenseMetadata)> LicensesRequiringApproval { get; } = new List<(PackageIdentity, LicenseMetadata)>();
+    public IList<(PackageIdentity, LicenseMetadata)> LicensesRequiringApproval { get; } =
+        new List<(PackageIdentity, LicenseMetadata)>();
 
     internal FileResponse? Asset { get; set; }
 }

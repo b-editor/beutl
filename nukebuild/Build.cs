@@ -11,217 +11,278 @@ class Build : NukeBuild
     ///   - Microsoft VSCode           https://nuke.build/vscode
     public static int Main() => Execute<Build>(x => x.Compile);
 
-    [Parameter] Configuration Configuration = Configuration.Release;
+    [Parameter]
+    Configuration Configuration = Configuration.Release;
 
-    [Parameter] RuntimeIdentifier Runtime = null;
+    [Parameter]
+    RuntimeIdentifier Runtime = null;
 
-    [Parameter] bool SelfContained = false;
+    [Parameter]
+    bool SelfContained = false;
 
-    [Parameter] string Version = "1.0.0";
+    [Parameter]
+    string Version = "1.0.0";
 
-    [Parameter] string AssemblyVersion = "1.0.0.0";
+    [Parameter]
+    string AssemblyVersion = "1.0.0.0";
 
-    [Parameter] string InformationalVersion = "1.0.0.0";
+    [Parameter]
+    string InformationalVersion = "1.0.0.0";
 
-    [GitRepository] readonly GitRepository GitRepository;
-
+    [GitRepository]
+    readonly GitRepository GitRepository;
 
     AbsolutePath SourceDirectory => RootDirectory / "src";
     AbsolutePath TestsDirectory => RootDirectory / "tests";
     AbsolutePath OutputDirectory => RootDirectory / "output";
     AbsolutePath ArtifactsDirectory => RootDirectory / "artifacts";
 
-    Target Clean => _ => _
-        .Executes(() =>
-        {
-            SourceDirectory.GlobDirectories("**/bin", "**/obj").ForEach(p => p.DeleteDirectory());
-            TestsDirectory.GlobDirectories("**/bin", "**/obj").ForEach(p => p.DeleteDirectory());
-            OutputDirectory.CreateOrCleanDirectory();
-            ArtifactsDirectory.CreateOrCleanDirectory();
-        });
+    Target Clean =>
+        _ =>
+            _.Executes(() =>
+            {
+                SourceDirectory
+                    .GlobDirectories("**/bin", "**/obj")
+                    .ForEach(p => p.DeleteDirectory());
+                TestsDirectory
+                    .GlobDirectories("**/bin", "**/obj")
+                    .ForEach(p => p.DeleteDirectory());
+                OutputDirectory.CreateOrCleanDirectory();
+                ArtifactsDirectory.CreateOrCleanDirectory();
+            });
 
-    Target Restore => _ => _
-        .DependsOn(Clean)
-        .Executes(() =>
-        {
-            DotNetRestore();
-        });
+    Target Restore =>
+        _ =>
+            _.DependsOn(Clean)
+                .Executes(() =>
+                {
+                    DotNetRestore();
+                });
 
-    Target Compile => _ => _
-        .DependsOn(Restore)
-        .Executes(() =>
-        {
-            DotNetBuild(s => s
-                .SetConfiguration(Configuration)
-                .SetVersions(Version, AssemblyVersion, InformationalVersion)
-                .EnableNoRestore());
-        });
+    Target Compile =>
+        _ =>
+            _.DependsOn(Restore)
+                .Executes(() =>
+                {
+                    DotNetBuild(s =>
+                        s.SetConfiguration(Configuration)
+                            .SetVersions(Version, AssemblyVersion, InformationalVersion)
+                            .EnableNoRestore()
+                    );
+                });
 
     private string GetTFM()
     {
         AbsolutePath mainProj = SourceDirectory / "Beutl" / "Beutl.csproj";
-        using IProcess proc = StartProcess(DotNetPath, $"msbuild --getProperty:TargetFrameworks {mainProj}");
+        using IProcess proc = StartProcess(
+            DotNetPath,
+            $"msbuild --getProperty:TargetFrameworks {mainProj}"
+        );
         proc.WaitForExit();
         return proc.Output.First().Text.Split(';')[0];
     }
 
-    Target Publish => _ => _
-        //.DependsOn(Compile)
-        .DependsOn(Restore)
-        .Executes(() =>
-        {
-            AbsolutePath mainProj = SourceDirectory / "Beutl" / "Beutl.csproj";
-            AbsolutePath mainOutput = OutputDirectory / "Beutl";
+    Target Publish =>
+        _ =>
+            _
+            //.DependsOn(Compile)
+            .DependsOn(Restore)
+                .Executes(() =>
+                {
+                    AbsolutePath mainProj = SourceDirectory / "Beutl" / "Beutl.csproj";
+                    AbsolutePath mainOutput = OutputDirectory / "Beutl";
 
-            string tfm = GetTFM();
+                    string tfm = GetTFM();
 
-            DotNetPublish(s => s
-                .EnableNoRestore()
-                .When(_ => Runtime != null, s => s
-                    .SetRuntime(Runtime)
-                    .SetSelfContained(SelfContained))
-                .When(_ => Runtime == RuntimeIdentifier.win_x64, s => s.SetFramework($"{tfm}-windows"))
-                .When(_ => Runtime != RuntimeIdentifier.win_x64, s => s.SetFramework(tfm))
-                .SetConfiguration(Configuration)
-                .SetVersions(Version, AssemblyVersion, InformationalVersion)
-                .SetProject(mainProj)
-                .SetOutput(mainOutput)
-                .SetProperty("NukePublish", true));
+                    DotNetPublish(s =>
+                        s.EnableNoRestore()
+                            .When(
+                                _ => Runtime != null,
+                                s => s.SetRuntime(Runtime).SetSelfContained(SelfContained)
+                            )
+                            .When(
+                                _ => Runtime == RuntimeIdentifier.win_x64,
+                                s => s.SetFramework($"{tfm}-windows")
+                            )
+                            .When(
+                                _ => Runtime != RuntimeIdentifier.win_x64,
+                                s => s.SetFramework(tfm)
+                            )
+                            .SetConfiguration(Configuration)
+                            .SetVersions(Version, AssemblyVersion, InformationalVersion)
+                            .SetProject(mainProj)
+                            .SetOutput(mainOutput)
+                            .SetProperty("NukePublish", true)
+                    );
 
-            string[] subProjects =
-            [
-                "Beutl.ExceptionHandler",
-                "Beutl.PackageTools.UI",
-                "Beutl.WaitingDialog",
-                "Beutl.FFmpegWorker",
-            ];
-            foreach (string item in subProjects)
+                    string[] subProjects =
+                    [
+                        "Beutl.ExceptionHandler",
+                        "Beutl.PackageTools.UI",
+                        "Beutl.WaitingDialog",
+                        "Beutl.FFmpegWorker",
+                    ];
+                    foreach (string item in subProjects)
+                    {
+                        AbsolutePath output = OutputDirectory / item;
+                        DotNetPublish(s =>
+                            s.When(
+                                    _ => Runtime != null,
+                                    s => s.SetRuntime(Runtime).SetSelfContained(SelfContained)
+                                )
+                                .When(
+                                    _ => Runtime == RuntimeIdentifier.win_x64,
+                                    s => s.SetFramework($"{tfm}-windows")
+                                )
+                                .When(
+                                    _ => Runtime != RuntimeIdentifier.win_x64,
+                                    s => s.SetFramework(tfm)
+                                )
+                                .EnableNoRestore()
+                                .SetConfiguration(Configuration)
+                                .SetVersions(Version, AssemblyVersion, InformationalVersion)
+                                .SetProject(SourceDirectory / item / $"{item}.csproj")
+                                .SetOutput(output)
+                        );
+
+                        output
+                            .GlobFiles($"**/{item}*")
+                            .Select(p =>
+                                (Source: p, Target: mainOutput / output.GetRelativePathTo(p))
+                            )
+                            .ForEach(t => t.Source.Copy(t.Target));
+                    }
+                });
+
+    Target Zip =>
+        _ =>
+            _.DependsOn(Publish)
+                .Executes(() =>
+                {
+                    AbsolutePath mainOutput = OutputDirectory / "Beutl";
+
+                    // Eg: Beutl-0.0.0+0000.zip
+                    var fileName = new StringBuilder();
+                    fileName.Append("Beutl");
+                    if (Runtime != null)
+                    {
+                        fileName.Append('-');
+                        fileName.Append(Runtime.ToString());
+                    }
+
+                    if (SelfContained && Runtime != null)
+                    {
+                        fileName.Append("-standalone");
+                    }
+
+                    fileName.Append('-');
+                    fileName.Append(Version);
+                    fileName.Append(".zip");
+
+                    mainOutput.CompressTo(ArtifactsDirectory / fileName.ToString());
+                });
+
+    Target BuildInstaller =>
+        _ =>
+            _.DependsOn(Publish)
+                .Executes(() =>
+                {
+                    InnoSetup(c =>
+                        c.SetKeyValueDefinition("MyAppVersion", AssemblyVersion)
+                            .SetKeyValueDefinition("MyOutputDir", ArtifactsDirectory)
+                            .SetKeyValueDefinition("MyLicenseFile", RootDirectory / "LICENSE")
+                            .SetKeyValueDefinition(
+                                "MyGPLLicenseFile",
+                                RootDirectory / "LICENSE.GPL"
+                            )
+                            .SetKeyValueDefinition(
+                                "MySetupIconFile",
+                                RootDirectory / "assets/logos/logo.ico"
+                            )
+                            .SetKeyValueDefinition("MySource", OutputDirectory / "Beutl")
+                            .SetKeyValueDefinition(
+                                "MyOutputBaseFilename",
+                                $"beutl{(SelfContained ? "-standalone" : "")}-setup"
+                            )
+                            .SetScriptFile(RootDirectory / "nukebuild/beutl-setup.iss")
+                    );
+                });
+
+    Target BundleApp =>
+        _ =>
+            _.Executes(() =>
             {
-                AbsolutePath output = OutputDirectory / item;
-                DotNetPublish(s => s
-                    .When(_ => Runtime != null, s => s
-                        .SetRuntime(Runtime)
-                        .SetSelfContained(SelfContained))
-                    .When(_ => Runtime == RuntimeIdentifier.win_x64, s => s.SetFramework($"{tfm}-windows"))
-                    .When(_ => Runtime != RuntimeIdentifier.win_x64, s => s.SetFramework(tfm))
-                    .EnableNoRestore()
-                    .SetConfiguration(Configuration)
-                    .SetVersions(Version, AssemblyVersion, InformationalVersion)
-                    .SetProject(SourceDirectory / item / $"{item}.csproj")
-                    .SetOutput(output));
+                // dotnet msbuild -t:BundleApp -p:RuntimeIdentifier=osx-arm64 -p:TargetFramework=net9.0 -p:UseAppHost=true -p:SelfContained=true
+                AbsolutePath directory = SourceDirectory / "Beutl";
+                AbsolutePath output = OutputDirectory / "AppBundle";
+                string tfm = GetTFM();
+                DotNetRestore(s => s.SetProjectFile(directory / "Beutl.csproj"));
+                DotNetMSBuild(s =>
+                    s.SetProcessWorkingDirectory(directory)
+                        .SetTargets("BundleApp")
+                        .SetConfiguration(Configuration)
+                        .SetVersions(Version, AssemblyVersion, InformationalVersion)
+                        .SetProperty("PublishDir", output)
+                        .SetProperty("CFBundleVersion", AssemblyVersion)
+                        .SetProperty("CFBundleShortVersionString", AssemblyVersion)
+                        .SetProperty("RuntimeIdentifier", Runtime.ToString())
+                        .SetProperty("TargetFramework", tfm)
+                        .SetProperty("UseAppHost", true)
+                        .SetProperty("SelfContained", true)
+                );
+            });
 
-                output.GlobFiles($"**/{item}*")
-                    .Select(p => (Source: p, Target: mainOutput / output.GetRelativePathTo(p)))
-                    .ForEach(t => t.Source.Copy(t.Target));
-            }
-        });
+    Target NuGetPack =>
+        _ =>
+            _.DependsOn(Restore)
+                .Executes(() =>
+                {
+                    string tfm = GetTFM();
+                    (string Name, string TFM)[] projects =
+                    [
+                        ("Beutl.Configuration", tfm),
+                        ("Beutl.Core", tfm),
+                        ("Beutl.Extensibility", tfm),
+                        ("Beutl.Engine", tfm),
+                        ("Beutl.Engine.SourceGenerators", "netstandard2.0"),
+                        ("Beutl.Language", tfm),
+                        ("Beutl.ProjectSystem", tfm),
+                        ("Beutl.Threading", tfm),
+                        ("Beutl.Utilities", tfm),
+                        ("Beutl.NodeGraph", tfm),
+                        ("Beutl.Editor", tfm),
+                    ];
 
-    Target Zip => _ => _
-        .DependsOn(Publish)
-        .Executes(() =>
-        {
-            AbsolutePath mainOutput = OutputDirectory / "Beutl";
+                    foreach (var (name, projectTfm) in projects)
+                    {
+                        DotNetBuild(s =>
+                            s.EnableNoRestore()
+                                .SetFramework(projectTfm)
+                                .SetConfiguration(Configuration)
+                                .SetVersions(Version, AssemblyVersion, InformationalVersion)
+                                .SetProjectFile(SourceDirectory / name / $"{name}.csproj")
+                        );
 
-            // Eg: Beutl-0.0.0+0000.zip
-            var fileName = new StringBuilder();
-            fileName.Append("Beutl");
-            if (Runtime != null)
-            {
-                fileName.Append('-');
-                fileName.Append(Runtime.ToString());
-            }
+                        DotNetPack(s =>
+                            s.EnableNoRestore()
+                                .SetConfiguration(Configuration)
+                                .SetVersions(Version, AssemblyVersion, InformationalVersion)
+                                .SetOutputDirectory(ArtifactsDirectory)
+                                .SetProject(SourceDirectory / name / $"{name}.csproj")
+                        );
+                    }
 
-            if (SelfContained && Runtime != null)
-            {
-                fileName.Append("-standalone");
-            }
-
-            fileName.Append('-');
-            fileName.Append(Version);
-            fileName.Append(".zip");
-
-            mainOutput.CompressTo(ArtifactsDirectory / fileName.ToString());
-        });
-
-    Target BuildInstaller => _ => _
-        .DependsOn(Publish)
-        .Executes(() =>
-        {
-            InnoSetup(c => c
-                .SetKeyValueDefinition("MyAppVersion", AssemblyVersion)
-                .SetKeyValueDefinition("MyOutputDir", ArtifactsDirectory)
-                .SetKeyValueDefinition("MyLicenseFile", RootDirectory / "LICENSE")
-                .SetKeyValueDefinition("MyGPLLicenseFile", RootDirectory / "LICENSE.GPL")
-                .SetKeyValueDefinition("MySetupIconFile", RootDirectory / "assets/logos/logo.ico")
-                .SetKeyValueDefinition("MySource", OutputDirectory / "Beutl")
-                .SetKeyValueDefinition("MyOutputBaseFilename", $"beutl{(SelfContained ? "-standalone" : "")}-setup")
-                .SetScriptFile(RootDirectory / "nukebuild/beutl-setup.iss"));
-        });
-
-    Target BundleApp => _ => _
-        .Executes(() =>
-        {
-            // dotnet msbuild -t:BundleApp -p:RuntimeIdentifier=osx-arm64 -p:TargetFramework=net9.0 -p:UseAppHost=true -p:SelfContained=true
-            AbsolutePath directory = SourceDirectory / "Beutl";
-            AbsolutePath output = OutputDirectory / "AppBundle";
-            string tfm = GetTFM();
-            DotNetRestore(s => s.SetProjectFile(directory / "Beutl.csproj"));
-            DotNetMSBuild(s => s
-                .SetProcessWorkingDirectory(directory)
-                .SetTargets("BundleApp")
-                .SetConfiguration(Configuration)
-                .SetVersions(Version, AssemblyVersion, InformationalVersion)
-                .SetProperty("PublishDir", output)
-                .SetProperty("CFBundleVersion", AssemblyVersion)
-                .SetProperty("CFBundleShortVersionString", AssemblyVersion)
-                .SetProperty("RuntimeIdentifier", Runtime.ToString())
-                .SetProperty("TargetFramework", tfm)
-                .SetProperty("UseAppHost", true)
-                .SetProperty("SelfContained", true));
-        });
-
-    Target NuGetPack => _ => _
-        .DependsOn(Restore)
-        .Executes(() =>
-        {
-            string tfm = GetTFM();
-            (string Name, string TFM)[] projects =
-            [
-                ("Beutl.Configuration", tfm),
-                ("Beutl.Core", tfm),
-                ("Beutl.Extensibility", tfm),
-                ("Beutl.Engine", tfm),
-                ("Beutl.Engine.SourceGenerators", "netstandard2.0"),
-                ("Beutl.Language", tfm),
-                ("Beutl.ProjectSystem", tfm),
-                ("Beutl.Threading", tfm),
-                ("Beutl.Utilities", tfm),
-                ("Beutl.NodeGraph", tfm),
-                ("Beutl.Editor", tfm),
-            ];
-
-            foreach (var (name, projectTfm) in projects)
-            {
-                DotNetBuild(s => s
-                    .EnableNoRestore()
-                    .SetFramework(projectTfm)
-                    .SetConfiguration(Configuration)
-                    .SetVersions(Version, AssemblyVersion, InformationalVersion)
-                    .SetProjectFile(SourceDirectory / name / $"{name}.csproj"));
-
-                DotNetPack(s => s
-                    .EnableNoRestore()
-                    .SetConfiguration(Configuration)
-                    .SetVersions(Version, AssemblyVersion, InformationalVersion)
-                    .SetOutputDirectory(ArtifactsDirectory)
-                    .SetProject(SourceDirectory / name / $"{name}.csproj"));
-            }
-
-            DotNetPack(s => s
-                .EnableNoRestore()
-                .SetConfiguration(Configuration)
-                .SetVersions(Version, AssemblyVersion, InformationalVersion)
-                .SetOutputDirectory(ArtifactsDirectory)
-                .SetProject(RootDirectory / "sdk" / "Beutl.Extensibility.Sdk" / "Beutl.Extensibility.Sdk.csproj"));
-        });
+                    DotNetPack(s =>
+                        s.EnableNoRestore()
+                            .SetConfiguration(Configuration)
+                            .SetVersions(Version, AssemblyVersion, InformationalVersion)
+                            .SetOutputDirectory(ArtifactsDirectory)
+                            .SetProject(
+                                RootDirectory
+                                    / "sdk"
+                                    / "Beutl.Extensibility.Sdk"
+                                    / "Beutl.Extensibility.Sdk.csproj"
+                            )
+                    );
+                });
 }

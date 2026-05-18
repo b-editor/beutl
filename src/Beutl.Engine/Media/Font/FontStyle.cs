@@ -18,5 +18,5 @@ public enum FontStyle
     /// <summary>
     /// An oblique font.
     /// </summary>
-    Oblique
+    Oblique,
 }

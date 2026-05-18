@@ -53,9 +53,14 @@ internal sealed class VideoRingBuffer : IDisposable
     public long SlotSize => _slotSize;
 
     public VideoRingBuffer(
-        int slotCount, long slotSize, SharedMemoryBuffer videoBuffer,
-        FFmpegReader reader, int readerId,
-        SemaphoreSlim readerLock, Func<int> nextShmGeneration)
+        int slotCount,
+        long slotSize,
+        SharedMemoryBuffer videoBuffer,
+        FFmpegReader reader,
+        int readerId,
+        SemaphoreSlim readerLock,
+        Func<int> nextShmGeneration
+    )
     {
         _slotCount = slotCount;
         _slotSize = slotSize;
@@ -105,7 +110,10 @@ internal sealed class VideoRingBuffer : IDisposable
         if (_prefetchCts != null)
         {
             _prefetchCts.Cancel();
-            try { _prefetchTask?.Wait(); }
+            try
+            {
+                _prefetchTask?.Wait();
+            }
             catch (AggregateException) { }
             catch (OperationCanceledException) { }
             _prefetchCts.Dispose();
@@ -226,7 +234,11 @@ internal sealed class VideoRingBuffer : IDisposable
 
     // ReaderLock保持下で呼ぶこと。
     private unsafe VideoFrameInfo? DecodeToSlot(
-        int frame, ref string? newShmName, out int writeSlot, out long offset)
+        int frame,
+        ref string? newShmName,
+        out int writeSlot,
+        out long offset
+    )
     {
         writeSlot = _nextWriteSlot;
         offset = writeSlot * _slotSize;
@@ -281,7 +293,10 @@ internal sealed class VideoRingBuffer : IDisposable
 
             // ロックを一時解放してプリフェッチスレッドの終了を待つ
             _readerLock.Release();
-            try { _prefetchTask?.Wait(); }
+            try
+            {
+                _prefetchTask?.Wait();
+            }
             catch (AggregateException) { }
             catch (OperationCanceledException) { }
             _readerLock.Wait();
@@ -301,86 +316,97 @@ internal sealed class VideoRingBuffer : IDisposable
 
         long totalFrames = _reader.HasVideo ? _reader.VideoInfo.NumFrames : 0;
 
-        _prefetchTask = Task.Run(() =>
-        {
-            try
+        _prefetchTask = Task.Run(
+            () =>
             {
-                while (!ct.IsCancellationRequested)
+                try
                 {
-                    int baseFrame = LastRequestedFrame;
-                    if (baseFrame < 0) break;
-
-                    // 既にバッファにあるフレーム数をカウント
-                    int cachedAhead = 0;
-                    int maxAhead = _slotCount - 1;
-                    for (int i = 1; i <= maxAhead; i++)
+                    while (!ct.IsCancellationRequested)
                     {
-                        if (FindSlot(baseFrame + i) >= 0)
-                            cachedAhead++;
-                        else
+                        int baseFrame = LastRequestedFrame;
+                        if (baseFrame < 0)
                             break;
-                    }
 
-                    if (cachedAhead >= maxAhead)
-                    {
-                        // 十分プリフェッチ済み → 次のリクエストを待つ
-                        _prefetchSignal.Wait(ct);
-                        _prefetchSignal.Reset();
-                        continue;
-                    }
-
-                    int nextFrame = baseFrame + cachedAhead + 1;
-                    if (nextFrame >= totalFrames) break;
-
-                    // 既にキャッシュ済みならスキップ
-                    if (FindSlot(nextFrame) >= 0) continue;
-
-                    _readerLock.Wait(ct);
-                    try
-                    {
-                        if (ct.IsCancellationRequested) break;
-                        if (FindSlot(nextFrame) >= 0) continue;
-
-                        // LastServedSlotを上書きしないようにする
-                        int writeSlot = _nextWriteSlot;
-                        if (writeSlot == _lastServedSlot)
+                        // 既にバッファにあるフレーム数をカウント
+                        int cachedAhead = 0;
+                        int maxAhead = _slotCount - 1;
+                        for (int i = 1; i <= maxAhead; i++)
                         {
-                            writeSlot = (writeSlot + 1) % _slotCount;
+                            if (FindSlot(baseFrame + i) >= 0)
+                                cachedAhead++;
+                            else
+                                break;
                         }
 
-                        long slotOffset = writeSlot * _slotSize;
-                        byte* pfPtr = VideoBuffer.AcquirePointer();
+                        if (cachedAhead >= maxAhead)
+                        {
+                            // 十分プリフェッチ済み → 次のリクエストを待つ
+                            _prefetchSignal.Wait(ct);
+                            _prefetchSignal.Reset();
+                            continue;
+                        }
+
+                        int nextFrame = baseFrame + cachedAhead + 1;
+                        if (nextFrame >= totalFrames)
+                            break;
+
+                        // 既にキャッシュ済みならスキップ
+                        if (FindSlot(nextFrame) >= 0)
+                            continue;
+
+                        _readerLock.Wait(ct);
                         try
                         {
-                            var destination = new Span<byte>(pfPtr + slotOffset, (int)_slotSize);
-
-                            if (!_reader.ReadVideo(nextFrame, destination, out var pfInfo))
+                            if (ct.IsCancellationRequested)
+                                break;
+                            if (FindSlot(nextFrame) >= 0)
                                 continue;
 
-                            if (pfInfo.DataLength > _slotSize)
-                                continue; // スロットに収まらない場合はスキップ
+                            // LastServedSlotを上書きしないようにする
+                            int writeSlot = _nextWriteSlot;
+                            if (writeSlot == _lastServedSlot)
+                            {
+                                writeSlot = (writeSlot + 1) % _slotCount;
+                            }
 
-                            _slots[writeSlot] = SlotMetadata.FromFrameInfo(nextFrame, pfInfo);
-                            _slotFrameNumbers[writeSlot] = nextFrame;
-                            _nextWriteSlot = (writeSlot + 1) % _slotCount;
+                            long slotOffset = writeSlot * _slotSize;
+                            byte* pfPtr = VideoBuffer.AcquirePointer();
+                            try
+                            {
+                                var destination = new Span<byte>(
+                                    pfPtr + slotOffset,
+                                    (int)_slotSize
+                                );
+
+                                if (!_reader.ReadVideo(nextFrame, destination, out var pfInfo))
+                                    continue;
+
+                                if (pfInfo.DataLength > _slotSize)
+                                    continue; // スロットに収まらない場合はスキップ
+
+                                _slots[writeSlot] = SlotMetadata.FromFrameInfo(nextFrame, pfInfo);
+                                _slotFrameNumbers[writeSlot] = nextFrame;
+                                _nextWriteSlot = (writeSlot + 1) % _slotCount;
+                            }
+                            finally
+                            {
+                                VideoBuffer.ReleasePointer();
+                            }
                         }
                         finally
                         {
-                            VideoBuffer.ReleasePointer();
+                            _readerLock.Release();
                         }
                     }
-                    finally
-                    {
-                        _readerLock.Release();
-                    }
                 }
-            }
-            catch (OperationCanceledException) { }
-            catch (Exception ex)
-            {
-                WorkerLog.Error("Prefetch error", ex);
-            }
-        }, ct);
+                catch (OperationCanceledException) { }
+                catch (Exception ex)
+                {
+                    WorkerLog.Error("Prefetch error", ex);
+                }
+            },
+            ct
+        );
     }
 
     internal struct SlotMetadata
@@ -403,7 +429,7 @@ internal sealed class VideoRingBuffer : IDisposable
                 BytesPerPixel = fi.BytesPerPixel,
                 DataLength = fi.DataLength,
                 IsHdr = fi.IsHdr,
-                ColorSpace = fi.ColorSpace
+                ColorSpace = fi.ColorSpace,
             };
         }
     }

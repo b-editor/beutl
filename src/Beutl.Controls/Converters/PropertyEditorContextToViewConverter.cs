@@ -1,12 +1,10 @@
 ﻿#nullable enable
 
 using System.Globalization;
-
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Data;
 using Avalonia.Data.Converters;
-
 using Beutl.Extensibility;
 
 namespace Beutl.Controls.Converters;
@@ -29,7 +27,7 @@ public sealed class PropertyEditorContextToViewConverter : IValueConverter
                 {
                     Height = 24,
                     Margin = new Thickness(0, 4),
-                    Content = viewModel.Extension.DisplayName
+                    Content = viewModel.Extension.DisplayName,
                 };
             }
         }
@@ -39,7 +37,12 @@ public sealed class PropertyEditorContextToViewConverter : IValueConverter
         }
     }
 
-    public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
+    public object? ConvertBack(
+        object? value,
+        Type targetType,
+        object? parameter,
+        CultureInfo culture
+    )
     {
         return BindingNotification.Null;
     }

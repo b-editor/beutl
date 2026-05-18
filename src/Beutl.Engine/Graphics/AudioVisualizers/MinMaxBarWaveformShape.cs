@@ -6,7 +6,10 @@ using SkiaSharp;
 
 namespace Beutl.Graphics.AudioVisualizers;
 
-[Display(Name = nameof(GraphicsStrings.WaveformShape_MinMaxBar), ResourceType = typeof(GraphicsStrings))]
+[Display(
+    Name = nameof(GraphicsStrings.WaveformShape_MinMaxBar),
+    ResourceType = typeof(GraphicsStrings)
+)]
 public sealed partial class MinMaxBarWaveformShape : WaveformShape
 {
     public MinMaxBarWaveformShape()
@@ -15,11 +18,17 @@ public sealed partial class MinMaxBarWaveformShape : WaveformShape
     }
 
     // 0 にすると slotWidth から自動決定（従来の WaveformStyle.MinMaxBar と同じ挙動）。
-    [Display(Name = nameof(GraphicsStrings.SpectrumShape_BarWidth), ResourceType = typeof(GraphicsStrings))]
+    [Display(
+        Name = nameof(GraphicsStrings.SpectrumShape_BarWidth),
+        ResourceType = typeof(GraphicsStrings)
+    )]
     [Range(0f, 10000f)]
     public IProperty<float> BarWidth { get; } = Property.CreateAnimatable(0f);
 
-    [Display(Name = nameof(GraphicsStrings.SpectrumShape_CornerRadius), ResourceType = typeof(GraphicsStrings))]
+    [Display(
+        Name = nameof(GraphicsStrings.SpectrumShape_CornerRadius),
+        ResourceType = typeof(GraphicsStrings)
+    )]
     public IProperty<CornerRadius> CornerRadius { get; } =
         Property.CreateAnimatable<CornerRadius>(new CornerRadius(0f));
 
@@ -34,10 +43,12 @@ public sealed partial class MinMaxBarWaveformShape : WaveformShape
             ReadOnlySpan<float> mins,
             ReadOnlySpan<float> maxs,
             float gain,
-            Brush.Resource fill)
+            Brush.Resource fill
+        )
         {
             int barCount = mins.Length;
-            if (barCount == 0) return;
+            if (barCount == 0)
+                return;
 
             float width = (float)bounds.Width;
             float height = (float)bounds.Height;
@@ -45,7 +56,8 @@ public sealed partial class MinMaxBarWaveformShape : WaveformShape
             float halfHeight = height * 0.5f;
             float slotWidth = width / barCount;
             float requested = BarWidth;
-            float barWidth = requested > 0f ? MathF.Max(0.5f, requested) : MathF.Max(1f, slotWidth - 0.5f);
+            float barWidth =
+                requested > 0f ? MathF.Max(0.5f, requested) : MathF.Max(1f, slotWidth - 0.5f);
             float offsetX = (slotWidth - barWidth) * 0.5f;
 
             CornerRadius cr = CornerRadius;

@@ -12,7 +12,10 @@ public class RectConverterTests
     public void CanConvertTo_KnownTargets_ReturnsTrue()
     {
         Assert.That(_converter.CanConvertTo(null, typeof(float[])), Is.True);
-        Assert.That(_converter.CanConvertTo(null, typeof(Tuple<float, float, float, float>)), Is.True);
+        Assert.That(
+            _converter.CanConvertTo(null, typeof(Tuple<float, float, float, float>)),
+            Is.True
+        );
         Assert.That(_converter.CanConvertTo(null, typeof(Point)), Is.True);
         Assert.That(_converter.CanConvertTo(null, typeof(Size)), Is.True);
         Assert.That(_converter.CanConvertTo(null, typeof(PixelPoint)), Is.True);
@@ -24,7 +27,10 @@ public class RectConverterTests
     public void CanConvertFrom_KnownSources_ReturnsTrue()
     {
         Assert.That(_converter.CanConvertFrom(null, typeof(float[])), Is.True);
-        Assert.That(_converter.CanConvertFrom(null, typeof(Tuple<float, float, float, float>)), Is.True);
+        Assert.That(
+            _converter.CanConvertFrom(null, typeof(Tuple<float, float, float, float>)),
+            Is.True
+        );
         Assert.That(_converter.CanConvertFrom(null, typeof(Point)), Is.True);
         Assert.That(_converter.CanConvertFrom(null, typeof(Size)), Is.True);
         Assert.That(_converter.CanConvertFrom(null, typeof(PixelPoint)), Is.True);
@@ -91,7 +97,8 @@ public class RectConverterTests
     [Test]
     public void ConvertFrom_Tuple_ReturnsRect()
     {
-        Rect r = (Rect)_converter.ConvertFrom(null, null, new Tuple<float, float, float, float>(1, 2, 3, 4))!;
+        Rect r = (Rect)
+            _converter.ConvertFrom(null, null, new Tuple<float, float, float, float>(1, 2, 3, 4))!;
         Assert.That(r, Is.EqualTo(new Rect(1, 2, 3, 4)));
     }
 

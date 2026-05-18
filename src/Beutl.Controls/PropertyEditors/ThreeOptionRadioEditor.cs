@@ -1,10 +1,8 @@
 ﻿using System.Reactive.Disposables;
-
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Interactivity;
-
 using Beutl.Reactive;
 
 namespace Beutl.Controls.PropertyEditors;
@@ -39,12 +37,9 @@ public abstract class ThreeOptionRadioEditor<T> : PropertyEditor
         _buttonB = e.NameScope.Get<RadioButton>(ButtonBName);
         _buttonC = e.NameScope.Get<RadioButton>(ButtonCName);
 
-        _buttonA.AddDisposableHandler(Button.ClickEvent, OnButtonClick)
-            .DisposeWith(_disposables);
-        _buttonB.AddDisposableHandler(Button.ClickEvent, OnButtonClick)
-            .DisposeWith(_disposables);
-        _buttonC.AddDisposableHandler(Button.ClickEvent, OnButtonClick)
-            .DisposeWith(_disposables);
+        _buttonA.AddDisposableHandler(Button.ClickEvent, OnButtonClick).DisposeWith(_disposables);
+        _buttonB.AddDisposableHandler(Button.ClickEvent, OnButtonClick).DisposeWith(_disposables);
+        _buttonC.AddDisposableHandler(Button.ClickEvent, OnButtonClick).DisposeWith(_disposables);
 
         UpdatePseudoClassesAndCheckState();
     }
@@ -115,17 +110,21 @@ public abstract class ThreeOptionRadioEditor<T> : PropertyEditor
             return;
 
         T? value =
-            button.Name == ButtonAName ? ButtonAValue :
-            button.Name == ButtonBName ? ButtonBValue :
-            button.Name == ButtonCName ? ButtonCValue :
-            null;
+            button.Name == ButtonAName ? ButtonAValue
+            : button.Name == ButtonBName ? ButtonBValue
+            : button.Name == ButtonCName ? ButtonCValue
+            : null;
 
         if (!value.HasValue)
             return;
 
         T oldValue = _value;
-        RaiseEvent(new PropertyEditorValueChangedEventArgs<T>(value.Value, oldValue, ValueChangedEvent));
+        RaiseEvent(
+            new PropertyEditorValueChangedEventArgs<T>(value.Value, oldValue, ValueChangedEvent)
+        );
         SetValue(value.Value);
-        RaiseEvent(new PropertyEditorValueChangedEventArgs<T>(value.Value, oldValue, ValueConfirmedEvent));
+        RaiseEvent(
+            new PropertyEditorValueChangedEventArgs<T>(value.Value, oldValue, ValueConfirmedEvent)
+        );
     }
 }

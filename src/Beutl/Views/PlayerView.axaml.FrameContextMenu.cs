@@ -1,15 +1,12 @@
 ﻿using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Avalonia.Platform.Storage;
-
 using Beutl.Graphics;
 using Beutl.Media;
 using Beutl.ProjectSystem;
 using Beutl.Services;
 using Beutl.ViewModels;
-
 using FluentAvalonia.UI.Controls;
-
 using Microsoft.Extensions.Logging;
 
 namespace Beutl.Views;
@@ -18,37 +15,27 @@ public partial class PlayerView
 {
     private MenuItem? _saveElementAsImage;
     private MenuItem? _saveFrameAsImage;
+
     private void ConfigureFrameContextMenu(Control control)
     {
         _saveElementAsImage = new MenuItem
         {
             Header = Strings.SaveSelectedElementAsImage,
-            IsEnabled = false
+            IsEnabled = false,
         };
         _saveElementAsImage.Click += OnSaveElementAsImageClick;
         _saveFrameAsImage = new MenuItem
         {
             Header = Strings.SaveFrameAsImage,
-            Icon = new SymbolIcon
-            {
-                Symbol = Symbol.Image
-            },
+            Icon = new SymbolIcon { Symbol = Symbol.Image },
         };
         _saveFrameAsImage.Click += OnSaveFrameAsImageClick;
-        var resetZoom = new MenuItem
-        {
-            Header = Strings.ResetZoom
-        };
+        var resetZoom = new MenuItem { Header = Strings.ResetZoom };
         resetZoom.Click += OnResetZoomClick;
 
         var menu = new ContextMenu()
         {
-            Items =
-            {
-                _saveFrameAsImage,
-                _saveElementAsImage,
-                resetZoom
-            }
+            Items = { _saveFrameAsImage, _saveElementAsImage, resetZoom },
         };
         menu.Opening += FrameContextMenuOpening;
         control.ContextMenu = menu;
@@ -77,11 +64,16 @@ public partial class PlayerView
         }
     }
 
-    private static async Task<IStorageFile?> SaveImageFilePicker(string name, IStorageProvider storage)
+    private static async Task<IStorageFile?> SaveImageFilePicker(
+        string name,
+        IStorageProvider storage
+    )
     {
         FilePickerSaveOptions options = SharedFilePickerOptions.SaveImage();
         options.SuggestedFileName = $"{name} {DateTime.Now:yyyy-dd-MM HHmmss}";
-        options.SuggestedStartLocation = await storage.TryGetWellKnownFolderAsync(WellKnownFolder.Pictures);
+        options.SuggestedStartLocation = await storage.TryGetWellKnownFolderAsync(
+            WellKnownFolder.Pictures
+        );
         options.DefaultExtension = "png";
         return await storage.SaveFilePickerAsync(options);
     }
@@ -98,9 +90,11 @@ public partial class PlayerView
 
     private async void OnSaveElementAsImageClick(object? sender, RoutedEventArgs e)
     {
-        if (TopLevel.GetTopLevel(this)?.StorageProvider is { } storage
+        if (
+            TopLevel.GetTopLevel(this)?.StorageProvider is { } storage
             && DataContext is PlayerViewModel { Scene: Scene scene } viewModel
-            && _lastSelected.TryGetTarget(out Drawable? drawable))
+            && _lastSelected.TryGetTarget(out Drawable? drawable)
+        )
         {
             try
             {
@@ -115,7 +109,10 @@ public partial class PlayerView
                 {
                     using Bitmap bitmap = await renderTask;
                     await SaveImage(file, bitmap);
-                    _logger.LogInformation("Selected element saved as image: {FilePath}", file.Path);
+                    _logger.LogInformation(
+                        "Selected element saved as image: {FilePath}",
+                        file.Path
+                    );
                 }
             }
             catch (Exception ex)
@@ -128,8 +125,10 @@ public partial class PlayerView
 
     private async void OnSaveFrameAsImageClick(object? sender, RoutedEventArgs e)
     {
-        if (TopLevel.GetTopLevel(this)?.StorageProvider is { } storage
-            && DataContext is PlayerViewModel { Scene: Scene scene } viewModel)
+        if (
+            TopLevel.GetTopLevel(this)?.StorageProvider is { } storage
+            && DataContext is PlayerViewModel { Scene: Scene scene } viewModel
+        )
         {
             try
             {

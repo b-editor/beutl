@@ -1,10 +1,8 @@
 ﻿using System.Runtime.InteropServices;
-
 using Beutl.Graphics;
 using Beutl.Media;
 using Beutl.Media.Pixel;
 using Bitmap = Beutl.Media.Bitmap;
-
 #if WINDOWS
 using FormsDataObject = System.Windows.Forms.DataObject;
 using FormsDataFormats = System.Windows.Forms.DataFormats;
@@ -96,11 +94,24 @@ public static class WindowsClipboard
         return fullImageArr;
     }
 
-    public static void WriteIntToByteArray(byte[] data, int startIndex, int bytes, bool littleEndian, uint value)
+    public static void WriteIntToByteArray(
+        byte[] data,
+        int startIndex,
+        int bytes,
+        bool littleEndian,
+        uint value
+    )
     {
         int lastByte = bytes - 1;
         if (data.Length < startIndex + bytes)
-            throw new ArgumentOutOfRangeException("startIndex", "Data array is too small to write a " + bytes + "-byte value at offset " + startIndex + ".");
+            throw new ArgumentOutOfRangeException(
+                "startIndex",
+                "Data array is too small to write a "
+                    + bytes
+                    + "-byte value at offset "
+                    + startIndex
+                    + "."
+            );
         for (int index = 0; index < bytes; index++)
         {
             int offs = startIndex + (littleEndian ? index : lastByte - index);

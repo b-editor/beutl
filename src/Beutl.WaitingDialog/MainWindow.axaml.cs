@@ -1,16 +1,13 @@
 ﻿using System.CommandLine;
 using System.CommandLine.Parsing;
 using System.Diagnostics;
-
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Styling;
 using Avalonia.Threading;
-
 using FluentAvalonia.Styling;
 using FluentAvalonia.UI.Windowing;
-
 using Symbol = FluentIcons.Common.Symbol;
 
 namespace Beutl.WaitingDialog;
@@ -45,10 +42,12 @@ public partial class MainWindow : AppWindow
             progressOption,
             closableOption,
             parentProcecss,
-            themeOption
+            themeOption,
         };
 
-        string[] args = ((ClassicDesktopStyleApplicationLifetime)Application.Current!.ApplicationLifetime!).Args!;
+        string[] args = (
+            (ClassicDesktopStyleApplicationLifetime)Application.Current!.ApplicationLifetime!
+        ).Args!;
         ParseResult result = command.Parse(args);
 
         string? title = result.GetValue(titleOption);
@@ -111,9 +110,7 @@ public partial class MainWindow : AppWindow
                 _parentProcess.EnableRaisingEvents = true;
                 _parentProcess.Exited += OnParentExited;
             }
-            catch
-            {
-            }
+            catch { }
         }
     }
 

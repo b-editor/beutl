@@ -91,7 +91,8 @@ public sealed unsafe class AudioContext : IDisposable
 
     public void Dispose()
     {
-        if (IsDisposed) return;
+        if (IsDisposed)
+            return;
 
         _alc.MakeContextCurrent(null);
         _alc.DestroyContext(_context);

@@ -29,14 +29,15 @@ public sealed class CurvesTabViewModel : IToolContext
 
         SourceBitmap.Value = _player.PreviewImage.Value;
 
-        Effect.Subscribe(SetEditors)
-            .DisposeWith(_disposables);
+        Effect.Subscribe(SetEditors).DisposeWith(_disposables);
 
-        _player.AfterRendered.CombineLatest(IsSelected)
+        _player
+            .AfterRendered.CombineLatest(IsSelected)
             .ObserveOnUIDispatcher()
             .Subscribe(_ =>
             {
-                if (!IsSelected.Value) return;
+                if (!IsSelected.Value)
+                    return;
 
                 SourceBitmap.Value = _player.PreviewImage.Value;
                 UpdateHistogramForCurrentGroup();
@@ -72,7 +73,9 @@ public sealed class CurvesTabViewModel : IToolContext
         ];
 
         SelectedGroupItem = new ReactivePropertySlim<CurveGroupItem?>(CurveGroups.FirstOrDefault());
-        SelectedChannelItem = new ReactivePropertySlim<CustomCurveChannelItem?>(CustomCurveChannels.FirstOrDefault());
+        SelectedChannelItem = new ReactivePropertySlim<CustomCurveChannelItem?>(
+            CustomCurveChannels.FirstOrDefault()
+        );
 
         SelectedGroupItem
             .Where(v => v != null)
@@ -84,7 +87,9 @@ public sealed class CurvesTabViewModel : IToolContext
             .Subscribe(group =>
             {
                 CurveGroupItem? item = CurveGroups.FirstOrDefault(v => v.Group == group);
-                if (!EqualityComparer<CurveGroupItem?>.Default.Equals(SelectedGroupItem.Value, item))
+                if (
+                    !EqualityComparer<CurveGroupItem?>.Default.Equals(SelectedGroupItem.Value, item)
+                )
                 {
                     SelectedGroupItem.Value = item;
                 }
@@ -107,8 +112,15 @@ public sealed class CurvesTabViewModel : IToolContext
         SelectedChannel
             .Subscribe(channel =>
             {
-                CustomCurveChannelItem? item = CustomCurveChannels.FirstOrDefault(v => v.Channel == channel);
-                if (!EqualityComparer<CustomCurveChannelItem?>.Default.Equals(SelectedChannelItem.Value, item))
+                CustomCurveChannelItem? item = CustomCurveChannels.FirstOrDefault(v =>
+                    v.Channel == channel
+                );
+                if (
+                    !EqualityComparer<CustomCurveChannelItem?>.Default.Equals(
+                        SelectedChannelItem.Value,
+                        item
+                    )
+                )
                 {
                     SelectedChannelItem.Value = item;
                 }
@@ -116,22 +128,34 @@ public sealed class CurvesTabViewModel : IToolContext
             .DisposeWith(_disposables);
 
         ShowMasterCurve = ShowCustom
-            .CombineLatest(SelectedChannel, (showCustom, channel) => showCustom && channel == CustomCurveChannel.Master)
+            .CombineLatest(
+                SelectedChannel,
+                (showCustom, channel) => showCustom && channel == CustomCurveChannel.Master
+            )
             .ToReadOnlyReactivePropertySlim(initialValue: true)
             .DisposeWith(_disposables)!;
 
         ShowRedCurve = ShowCustom
-            .CombineLatest(SelectedChannel, (showCustom, channel) => showCustom && channel == CustomCurveChannel.Red)
+            .CombineLatest(
+                SelectedChannel,
+                (showCustom, channel) => showCustom && channel == CustomCurveChannel.Red
+            )
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables)!;
 
         ShowGreenCurve = ShowCustom
-            .CombineLatest(SelectedChannel, (showCustom, channel) => showCustom && channel == CustomCurveChannel.Green)
+            .CombineLatest(
+                SelectedChannel,
+                (showCustom, channel) => showCustom && channel == CustomCurveChannel.Green
+            )
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables)!;
 
         ShowBlueCurve = ShowCustom
-            .CombineLatest(SelectedChannel, (showCustom, channel) => showCustom && channel == CustomCurveChannel.Blue)
+            .CombineLatest(
+                SelectedChannel,
+                (showCustom, channel) => showCustom && channel == CustomCurveChannel.Blue
+            )
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables)!;
 
@@ -203,7 +227,8 @@ public sealed class CurvesTabViewModel : IToolContext
 
     public ReactivePropertySlim<CustomCurveChannelItem?> SelectedChannelItem { get; }
 
-    public ReactivePropertySlim<CustomCurveChannel> SelectedChannel { get; } = new(CustomCurveChannel.Master);
+    public ReactivePropertySlim<CustomCurveChannel> SelectedChannel { get; } =
+        new(CustomCurveChannel.Master);
 
     public ReadOnlyReactivePropertySlim<bool> ShowCustom { get; }
 
@@ -235,24 +260,30 @@ public sealed class CurvesTabViewModel : IToolContext
 
     public void ReadFromJson(JsonObject json)
     {
-        if (json.TryGetPropertyValue("selectedGroup", out var selectedGroupNode)
+        if (
+            json.TryGetPropertyValue("selectedGroup", out var selectedGroupNode)
             && selectedGroupNode is JsonValue selectedGroupValue
-            && selectedGroupValue.TryGetValue(out int selectedGroup))
+            && selectedGroupValue.TryGetValue(out int selectedGroup)
+        )
         {
             SelectedGroup.Value = (CurveGroup)selectedGroup;
         }
 
-        if (json.TryGetPropertyValue("selectedChannel", out var selectedChannelNode)
+        if (
+            json.TryGetPropertyValue("selectedChannel", out var selectedChannelNode)
             && selectedChannelNode is JsonValue selectedChannelValue
-            && selectedChannelValue.TryGetValue(out int selectedChannel))
+            && selectedChannelValue.TryGetValue(out int selectedChannel)
+        )
         {
             SelectedChannel.Value = (CustomCurveChannel)selectedChannel;
         }
 
-        if (json.TryGetPropertyValue("effectId", out var effectIdNode)
+        if (
+            json.TryGetPropertyValue("effectId", out var effectIdNode)
             && effectIdNode is JsonValue effectIdValue
             && effectIdValue.TryGetValue(out string? effectIdStr)
-            && Guid.TryParse(effectIdStr, out Guid effectId))
+            && Guid.TryParse(effectIdStr, out Guid effectId)
+        )
         {
             var colorGrading = _scene.FindById(effectId) as Curves;
             Effect.Value = colorGrading;
@@ -341,7 +372,9 @@ public sealed class CurvesTabViewModel : IToolContext
         SaturationVsSaturation.Value = CreateCurve(effect.SaturationVsSaturation, history);
 
         effect.DetachedFromHierarchy += OnEffectDetached;
-        _effectDisposables.Add(Disposable.Create(() => effect.DetachedFromHierarchy -= OnEffectDetached));
+        _effectDisposables.Add(
+            Disposable.Create(() => effect.DetachedFromHierarchy -= OnEffectDetached)
+        );
     }
 
     private void OnEffectDetached(object? sender, HierarchyAttachmentEventArgs e)
@@ -349,7 +382,10 @@ public sealed class CurvesTabViewModel : IToolContext
         _editorContext.CloseToolTab(this);
     }
 
-    private CurvePresenterViewModel CreateCurve(IProperty<CurveMap> property, HistoryManager history)
+    private CurvePresenterViewModel CreateCurve(
+        IProperty<CurveMap> property,
+        HistoryManager history
+    )
     {
         var vm = new CurvePresenterViewModel(property.Name, Effect.Value!, property, history);
         _effectDisposables.Add(vm);
@@ -387,7 +423,7 @@ public sealed class CurvesTabViewModel : IToolContext
             CurveGroup.HueVsLuminance => HistogramCategory.Hue,
             CurveGroup.LuminanceVsSaturation => HistogramCategory.Luminance,
             CurveGroup.SaturationVsSaturation => HistogramCategory.Saturation,
-            _ => HistogramCategory.None
+            _ => HistogramCategory.None,
         };
     }
 }

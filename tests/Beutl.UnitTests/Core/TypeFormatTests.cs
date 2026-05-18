@@ -77,12 +77,8 @@ public class TypeFormatTests
 
     public class NestedHost
     {
-        public class Nested
-        {
-        }
+        public class Nested { }
 
-        public class NestedGeneric<T>
-        {
-        }
+        public class NestedGeneric<T> { }
     }
 }

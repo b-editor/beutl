@@ -25,7 +25,12 @@ public sealed class SampleProviderImpl : ISampleProvider, IDisposable
     private readonly int _chunkSize;
     private bool _disposed;
 
-    public SampleProviderImpl(Scene scene, SceneComposer composer, long sampleRate, Subject<TimeSpan> progress)
+    public SampleProviderImpl(
+        Scene scene,
+        SceneComposer composer,
+        long sampleRate,
+        Subject<TimeSpan> progress
+    )
     {
         _scene = scene;
         _composer = composer;
@@ -40,7 +45,8 @@ public sealed class SampleProviderImpl : ISampleProvider, IDisposable
                 FullMode = BoundedChannelFullMode.Wait,
                 SingleReader = true,
                 SingleWriter = true,
-            });
+            }
+        );
 
         _producerTask = Task.Run(ComposeSamplesAsync, _cts.Token);
     }
@@ -53,7 +59,11 @@ public sealed class SampleProviderImpl : ISampleProvider, IDisposable
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
 
-        _progress.OnNext(TimeSpan.FromTicks(TimeSpan.TicksPerSecond * Math.Min(offset + length, SampleCount) / _sampleRate));
+        _progress.OnNext(
+            TimeSpan.FromTicks(
+                TimeSpan.TicksPerSecond * Math.Min(offset + length, SampleCount) / _sampleRate
+            )
+        );
 
         int lengthInt = (int)length;
         var pcm = new Pcm<Stereo32BitFloat>((int)_sampleRate, lengthInt);
@@ -108,14 +118,17 @@ public sealed class SampleProviderImpl : ISampleProvider, IDisposable
                 item.Pcm.Dispose();
                 _logger.LogWarning(
                     "Sample chunks are expected to be requested sequentially, but received offset {ReceivedOffset} while waiting for {ChunkOffset}. Falling back to on-demand composition.",
-                    item.Offset, chunkOffset);
+                    item.Offset,
+                    chunkOffset
+                );
                 return await ComposeChunk(chunkOffset, _cts.Token);
             }
         }
 
         _logger.LogWarning(
             "Requested chunk at offset {ChunkOffset} is not available in the channel (producer already finished or skipped). Falling back to on-demand composition.",
-            chunkOffset);
+            chunkOffset
+        );
         return await ComposeChunk(chunkOffset, _cts.Token);
     }
 
@@ -123,7 +136,11 @@ public sealed class SampleProviderImpl : ISampleProvider, IDisposable
     {
         try
         {
-            for (long offset = 0; offset < SampleCount && !_cts.Token.IsCancellationRequested; offset += _chunkSize)
+            for (
+                long offset = 0;
+                offset < SampleCount && !_cts.Token.IsCancellationRequested;
+                offset += _chunkSize
+            )
             {
                 var pcm = await ComposeChunk(offset, _cts.Token);
                 await _channel.Writer.WriteAsync((offset, pcm), _cts.Token);
@@ -144,7 +161,10 @@ public sealed class SampleProviderImpl : ISampleProvider, IDisposable
         _channel.Writer.TryComplete();
     }
 
-    private async ValueTask<Pcm<Stereo32BitFloat>> ComposeChunk(long offset, CancellationToken cancellationToken)
+    private async ValueTask<Pcm<Stereo32BitFloat>> ComposeChunk(
+        long offset,
+        CancellationToken cancellationToken
+    )
     {
         int length = (int)Math.Min(_chunkSize, SampleCount - offset);
 
@@ -154,15 +174,23 @@ public sealed class SampleProviderImpl : ISampleProvider, IDisposable
         }
         else
         {
-            return await ComposeThread.Dispatcher.InvokeAsync(() => ComposeCore(offset, length), ct: cancellationToken);
+            return await ComposeThread.Dispatcher.InvokeAsync(
+                () => ComposeCore(offset, length),
+                ct: cancellationToken
+            );
         }
     }
 
     private Pcm<Stereo32BitFloat> ComposeCore(long offset, int length)
     {
-        using var buffer = _composer.Compose(new(TimeSpan.FromTicks(TimeSpan.TicksPerSecond * offset / _sampleRate) + _scene.Start,
-            TimeSpan.FromSeconds(1)))
-                     ?? throw new InvalidOperationException("composer.Composeがnullを返しました。");
+        using var buffer =
+            _composer.Compose(
+                new(
+                    TimeSpan.FromTicks(TimeSpan.TicksPerSecond * offset / _sampleRate)
+                        + _scene.Start,
+                    TimeSpan.FromSeconds(1)
+                )
+            ) ?? throw new InvalidOperationException("composer.Composeがnullを返しました。");
         var pcm = buffer.ToPcm();
         if (pcm.NumSamples != length)
         {
@@ -177,7 +205,8 @@ public sealed class SampleProviderImpl : ISampleProvider, IDisposable
 
     public void Dispose()
     {
-        if (_disposed) return;
+        if (_disposed)
+            return;
         _disposed = true;
         _cts.Cancel();
 

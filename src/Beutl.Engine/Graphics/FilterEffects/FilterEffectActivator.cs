@@ -4,21 +4,18 @@ using SkiaSharp;
 
 namespace Beutl.Graphics.Effects;
 
-public sealed class FilterEffectActivator(EffectTargets targets, SKImageFilterBuilder builder) : IDisposable
+public sealed class FilterEffectActivator(EffectTargets targets, SKImageFilterBuilder builder)
+    : IDisposable
 {
     public SKImageFilterBuilder Builder { get; } = builder;
 
     public EffectTargets CurrentTargets { get; } = targets;
 
-    public void Dispose()
-    {
-    }
+    public void Dispose() { }
 
     public void Flush(bool force = true)
     {
-        if (force
-            || Builder.HasFilter()
-            || CurrentTargets is [{ NodeOperation: not null }])
+        if (force || Builder.HasFilter() || CurrentTargets is [{ NodeOperation: not null }])
         {
             using var paint = Builder.HasFilter() ? new SKPaint() : null;
             paint?.ImageFilter = Builder.GetFilter();
@@ -26,14 +23,24 @@ public sealed class FilterEffectActivator(EffectTargets targets, SKImageFilterBu
             for (int i = 0; i < CurrentTargets.Count; i++)
             {
                 EffectTarget target = CurrentTargets[i];
-                using RenderTarget? surface = RenderTarget.Create((int)target.OriginalBounds.Width, (int)target.OriginalBounds.Height);
+                using RenderTarget? surface = RenderTarget.Create(
+                    (int)target.OriginalBounds.Width,
+                    (int)target.OriginalBounds.Height
+                );
 
                 if (surface != null)
                 {
                     using (var canvas = new ImmediateCanvas(surface))
                     {
                         canvas.Clear();
-                        using (canvas.PushTransform(Matrix.CreateTranslation(-target.OriginalBounds.X, -target.OriginalBounds.Y)))
+                        using (
+                            canvas.PushTransform(
+                                Matrix.CreateTranslation(
+                                    -target.OriginalBounds.X,
+                                    -target.OriginalBounds.Y
+                                )
+                            )
+                        )
                         using (paint != null ? canvas.PushPaint(paint) : default)
                         {
                             target.Draw(canvas);
@@ -42,7 +49,7 @@ public sealed class FilterEffectActivator(EffectTargets targets, SKImageFilterBu
 
                     var newTarget = new EffectTarget(surface, target.Bounds)
                     {
-                        OriginalBounds = target.OriginalBounds
+                        OriginalBounds = target.OriginalBounds,
                     };
                     CurrentTargets[i] = newTarget;
                     target.Dispose();
@@ -54,7 +61,6 @@ public sealed class FilterEffectActivator(EffectTargets targets, SKImageFilterBu
                     CurrentTargets.RemoveAt(i);
                     i--;
                 }
-
             }
 
             Builder.Clear();
@@ -64,45 +70,49 @@ public sealed class FilterEffectActivator(EffectTargets targets, SKImageFilterBu
     // 最小単位である'IFEItem'の数がわからないので 'count'は'nullable'
     public void Apply(FilterEffectContext context)
     {
-        if (CurrentTargets.Count == 0) return;
+        if (CurrentTargets.Count == 0)
+            return;
 
         foreach (IFEItem item in context._items)
         {
             switch (item)
             {
                 case IFEItem_Skia skia:
+                {
+                    skia.Accepts(this, Builder);
+                    foreach (EffectTarget t in CurrentTargets)
                     {
-                        skia.Accepts(this, Builder);
-                        foreach (EffectTarget t in CurrentTargets)
-                        {
-                            t.Bounds = item.TransformBounds(t.Bounds);
-                            t.OriginalBounds = item.TransformBounds(t.OriginalBounds);
-                        }
-
-                        break;
+                        t.Bounds = item.TransformBounds(t.Bounds);
+                        t.OriginalBounds = item.TransformBounds(t.OriginalBounds);
                     }
+
+                    break;
+                }
                 case IFEItem_Custom custom:
+                {
+                    Flush();
+                    if (CurrentTargets.Count == 0)
+                        return;
+
+                    var customContext = new CustomFilterEffectContext(CurrentTargets);
+                    custom.Accepts(customContext);
+
+                    foreach (EffectTarget t in CurrentTargets)
                     {
-                        Flush();
-                        if (CurrentTargets.Count == 0) return;
-
-                        var customContext = new CustomFilterEffectContext(CurrentTargets);
-                        custom.Accepts(customContext);
-
-                        foreach (EffectTarget t in CurrentTargets)
-                        {
-                            t.OriginalBounds = t.Bounds.WithX(0).WithY(0);
-                        }
-
-                        break;
+                        t.OriginalBounds = t.Bounds.WithX(0).WithY(0);
                     }
+
+                    break;
+                }
             }
         }
 
-        if (context._renderTimeItems.Count <= 0) return;
+        if (context._renderTimeItems.Count <= 0)
+            return;
 
         Flush(false);
-        if (CurrentTargets.Count == 0) return;
+        if (CurrentTargets.Count == 0)
+            return;
         using var ctx = new FilterEffectContext(CurrentTargets.CalculateBounds());
 
         foreach (IFEItem item in context._renderTimeItems)
@@ -125,11 +135,13 @@ public sealed class FilterEffectActivator(EffectTargets targets, SKImageFilterBu
         activator.Flush(false);
 
         SKImageFilter? filter = builder.GetFilter();
-        if (filter != null) return filter;
+        if (filter != null)
+            return filter;
 
         foreach (EffectTarget t in activator.CurrentTargets)
         {
-            if (t.RenderTarget == null) continue;
+            if (t.RenderTarget == null)
+                continue;
 
             SKSurface innerSurface = t.RenderTarget.Value;
             using SKImage skImage = innerSurface.Snapshot();

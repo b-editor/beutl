@@ -46,8 +46,10 @@ public class FileItemDragBehavior : Behavior<Control>
         if (AssociatedObject == null)
             return;
 
-        if (e.GetCurrentPoint(AssociatedObject).Properties.IsLeftButtonPressed
-            && sender is Control { DataContext: FileSystemItemViewModel item })
+        if (
+            e.GetCurrentPoint(AssociatedObject).Properties.IsLeftButtonPressed
+            && sender is Control { DataContext: FileSystemItemViewModel item }
+        )
         {
             _dragStartPoint = e.GetPosition(AssociatedObject);
             _dragItem = item;
@@ -56,7 +58,12 @@ public class FileItemDragBehavior : Behavior<Control>
 
     private async void OnPointerMoved(object? sender, PointerEventArgs e)
     {
-        if (_dragStartPoint == null || _dragItem == null || _isDragStarting || AssociatedObject == null)
+        if (
+            _dragStartPoint == null
+            || _dragItem == null
+            || _isDragStarting
+            || AssociatedObject == null
+        )
             return;
 
         if (!e.GetCurrentPoint(AssociatedObject).Properties.IsLeftButtonPressed)
@@ -73,7 +80,10 @@ public class FileItemDragBehavior : Behavior<Control>
         if (Math.Abs(dx) <= DragThreshold && Math.Abs(dy) <= DragThreshold)
             return;
 
-        if (TopLevel.GetTopLevel(AssociatedObject) is not { StorageProvider: IStorageProvider storageProvider })
+        if (
+            TopLevel.GetTopLevel(AssociatedObject)
+            is not { StorageProvider: IStorageProvider storageProvider }
+        )
             return;
 
         _isDragStarting = true;
@@ -84,10 +94,11 @@ public class FileItemDragBehavior : Behavior<Control>
 
             // 選択中アイテムが複数あればすべて含める
             var vm = GetViewModel();
-            var items = vm?.SelectedItems is { Count: > 1 } selectedItems
-                        && selectedItems.Contains(_dragItem)
-                ? selectedItems.ToList()
-                : new List<FileSystemItemViewModel> { _dragItem };
+            var items =
+                vm?.SelectedItems is { Count: > 1 } selectedItems
+                && selectedItems.Contains(_dragItem)
+                    ? selectedItems.ToList()
+                    : new List<FileSystemItemViewModel> { _dragItem };
 
             foreach (FileSystemItemViewModel item in items)
             {

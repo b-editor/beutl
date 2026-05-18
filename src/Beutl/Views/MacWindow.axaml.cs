@@ -22,8 +22,9 @@ public sealed partial class MacWindow : Window
         {
             ExtendClientAreaToDecorationsHint = true;
             ExtendClientAreaTitleBarHeightHint = 40;
-            ExtendClientAreaChromeHints = ExtendClientAreaChromeHints.OSXThickTitleBar |
-                                          ExtendClientAreaChromeHints.PreferSystemChrome;
+            ExtendClientAreaChromeHints =
+                ExtendClientAreaChromeHints.OSXThickTitleBar
+                | ExtendClientAreaChromeHints.PreferSystemChrome;
         }
 
         InitializeComponent();
@@ -84,7 +85,12 @@ public sealed partial class MacWindow : Window
     {
         void AddItem(NativeMenu list, string item, ICommand command)
         {
-            var menuItem = new NativeMenuItem { Command = command, CommandParameter = item, Header = item };
+            var menuItem = new NativeMenuItem
+            {
+                Command = command,
+                CommandParameter = item,
+                Header = item,
+            };
             list.Add(menuItem);
         }
 
@@ -92,9 +98,11 @@ public sealed partial class MacWindow : Window
         {
             for (int i = list.Items.Count - 1; i >= 0; i--)
             {
-                if (list.Items[i] is NativeMenuItem menuItem
+                if (
+                    list.Items[i] is NativeMenuItem menuItem
                     && menuItem.Header is string header
-                    && header == item)
+                    && header == item
+                )
                 {
                     list.Items.Remove(menuItem);
                 }
@@ -110,21 +118,21 @@ public sealed partial class MacWindow : Window
             recentFiles = ((NativeMenuItem)fileMenu.Menu!.Items[^4]).Menu;
             recentProj = ((NativeMenuItem)fileMenu.Menu!.Items[^3]).Menu;
         }
-        catch
-        {
-        }
+        catch { }
 
         if (recentFiles != null && recentProj != null)
         {
             viewModel.MenuBar.RecentFileItems.ForEachItem(
                 item => AddItem(recentFiles, item, viewModel.MenuBar.OpenRecentFile),
                 item => RemoveItem(recentFiles, item),
-                recentFiles.Items.Clear);
+                recentFiles.Items.Clear
+            );
 
             viewModel.MenuBar.RecentProjectItems.ForEachItem(
                 item => AddItem(recentProj, item, viewModel.MenuBar.OpenRecentProject),
                 item => RemoveItem(recentProj, item),
-                recentProj.Items.Clear);
+                recentProj.Items.Clear
+            );
         }
     }
 
@@ -142,11 +150,15 @@ public sealed partial class MacWindow : Window
             toolTabMenu = ((NativeMenuItem)viewMenuItem.Menu!.Items[1]).Menu;
             toolWindowMenu = ((NativeMenuItem)rootMenu.Items[3]).Menu;
         }
-        catch
-        {
-        }
+        catch { }
 
-        if (viewMenuItem == null || editorTabMenu == null || toolTabMenu == null || toolWindowMenu == null) return;
+        if (
+            viewMenuItem == null
+            || editorTabMenu == null
+            || toolTabMenu == null
+            || toolWindowMenu == null
+        )
+            return;
 
         // ToolTabExtensionをメニューに表示する
         static NativeMenuItem CreateToolTabMenuItem(ToolTabExtension item)
@@ -155,9 +167,12 @@ public sealed partial class MacWindow : Window
 
             menuItem.Click += (s, e) =>
             {
-                if (EditorService.Current.SelectedTabItem.Value?.Context.Value is IEditorContext editorContext
+                if (
+                    EditorService.Current.SelectedTabItem.Value?.Context.Value
+                        is IEditorContext editorContext
                     && s is NativeMenuItem { CommandParameter: ToolTabExtension ext }
-                    && ext.TryCreateContext(editorContext, out IToolContext? toolContext))
+                    && ext.TryCreateContext(editorContext, out IToolContext? toolContext)
+                )
                 {
                     bool result = editorContext.OpenToolTab(toolContext);
                     if (!result)
@@ -170,7 +185,8 @@ public sealed partial class MacWindow : Window
             return menuItem;
         }
 
-        viewModel.ToolTabExtensions.ToObservableChangeSet()
+        viewModel
+            .ToolTabExtensions.ToObservableChangeSet()
             .ObserveOnUIDispatcher()
             .Filter(i => i.Header != null)
             .Cast(CreateToolTabMenuItem)
@@ -180,7 +196,8 @@ public sealed partial class MacWindow : Window
         list1.ForEachItem<NativeMenuItem, ReadOnlyObservableCollection<NativeMenuItem>>(
             toolTabMenu.Items.Insert,
             (i, _) => toolTabMenu.Items.RemoveAt(i),
-            toolTabMenu.Items.Clear);
+            toolTabMenu.Items.Clear
+        );
 
         // EditorExtensionをメニューに表示する
         static NativeMenuItem CreateEditorMenuItem(EditorExtension item)
@@ -191,14 +208,20 @@ public sealed partial class MacWindow : Window
                 CommandParameter = item,
                 // Todo: Avalonia 11.1.0から
                 // IsVisible = false
-                IsEnabled = false
+                IsEnabled = false,
             };
 
             menuItem.Click += async (s, e) =>
             {
                 EditorTabItem? selectedTab = EditorService.Current.SelectedTabItem.Value;
-                if (s is NativeMenuItem { CommandParameter: EditorExtension editorExtension } menuItem
-                    && selectedTab != null)
+                if (
+                    s
+                        is NativeMenuItem
+                        {
+                            CommandParameter: EditorExtension editorExtension
+                        } menuItem
+                    && selectedTab != null
+                )
                 {
                     IKnownEditorCommands? commands = selectedTab.Commands.Value;
                     if (commands != null)
@@ -206,7 +229,12 @@ public sealed partial class MacWindow : Window
                         await commands.OnSave();
                     }
 
-                    if (editorExtension.TryCreateContext(selectedTab.Context.Value.Object, out IEditorContext? context))
+                    if (
+                        editorExtension.TryCreateContext(
+                            selectedTab.Context.Value.Object,
+                            out IEditorContext? context
+                        )
+                    )
                     {
                         selectedTab.Context.Value.Dispose();
                         selectedTab.Context.Value = context;
@@ -218,7 +246,9 @@ public sealed partial class MacWindow : Window
                             message: string.Format(
                                 format: MessageStrings.FailedToOpenFileWithExtension,
                                 arg0: editorExtension.DisplayName,
-                                arg1: selectedTab.FileName.Value));
+                                arg1: selectedTab.FileName.Value
+                            )
+                        );
                     }
                 }
             };
@@ -226,7 +256,8 @@ public sealed partial class MacWindow : Window
             return menuItem;
         }
 
-        viewModel.EditorExtensions.ToObservableChangeSet()
+        viewModel
+            .EditorExtensions.ToObservableChangeSet()
             .ObserveOnUIDispatcher()
             .Cast(CreateEditorMenuItem)
             .Bind(out ReadOnlyObservableCollection<NativeMenuItem>? list2)
@@ -235,7 +266,8 @@ public sealed partial class MacWindow : Window
         list2.ForEachItem<NativeMenuItem, ReadOnlyObservableCollection<NativeMenuItem>>(
             editorTabMenu.Items.Insert,
             (i, _) => editorTabMenu.Items.RemoveAt(i),
-            editorTabMenu.Items.Clear);
+            editorTabMenu.Items.Clear
+        );
 
         viewMenuItem.Menu!.Opening += (s, e) =>
         {
@@ -257,7 +289,11 @@ public sealed partial class MacWindow : Window
         // ToolWindowExtension をメニューに表示する
         NativeMenuItem CreateToolWindowMenuItem(ToolWindowExtension item)
         {
-            var menuItem = new NativeMenuItem() { Header = item.DisplayName, CommandParameter = item };
+            var menuItem = new NativeMenuItem()
+            {
+                Header = item.DisplayName,
+                CommandParameter = item,
+            };
 
             menuItem.Click += async (s, e) =>
             {
@@ -274,7 +310,11 @@ public sealed partial class MacWindow : Window
         // PageExtension(Obsolete) をメニューに表示する
         NativeMenuItem CreatePageMenuItem(PageExtension item)
         {
-            var menuItem = new NativeMenuItem() { Header = item.DisplayName, CommandParameter = item };
+            var menuItem = new NativeMenuItem()
+            {
+                Header = item.DisplayName,
+                CommandParameter = item,
+            };
 
             menuItem.Click += async (s, e) =>
             {
@@ -292,7 +332,11 @@ public sealed partial class MacWindow : Window
                     }
                     else
                     {
-                        var window = new Window { Content = controlOrDialog, Title = dataContext.Header };
+                        var window = new Window
+                        {
+                            Content = controlOrDialog,
+                            Title = dataContext.Header,
+                        };
                         await window.ShowDialog(this);
                     }
                 }
@@ -305,32 +349,38 @@ public sealed partial class MacWindow : Window
             return menuItem;
         }
 
-        var toolWindowSource = viewModel.ToolWindowExtensions.ToObservableChangeSet()
+        var toolWindowSource = viewModel
+            .ToolWindowExtensions.ToObservableChangeSet()
             .ObserveOnUIDispatcher()
             .Transform<ToolWindowExtension, NativeMenuItem>(CreateToolWindowMenuItem);
-        var pageSource = viewModel.PageExtensions.ToObservableChangeSet()
+        var pageSource = viewModel
+            .PageExtensions.ToObservableChangeSet()
             .ObserveOnUIDispatcher()
             .Transform<PageExtension, NativeMenuItem>(CreatePageMenuItem);
 #pragma warning restore CS0618
 
-        toolWindowSource.Or(pageSource)
+        toolWindowSource
+            .Or(pageSource)
             .Bind(out ReadOnlyObservableCollection<NativeMenuItem>? list3)
             .Subscribe();
 
         list3.ForEachItem<NativeMenuItem, ReadOnlyObservableCollection<NativeMenuItem>>(
             toolWindowMenu.Items.Insert,
             (i, _) => toolWindowMenu.Items.RemoveAt(i),
-            toolWindowMenu.Items.Clear);
+            toolWindowMenu.Items.Clear
+        );
     }
 
     private async Task OpenToolWindowAsync(ToolWindowExtension extension)
     {
         try
         {
-            if (extension.Mode == ToolWindowMode.Window
+            if (
+                extension.Mode == ToolWindowMode.Window
                 && !extension.CanMultiple
                 && _openToolWindows.TryGetValue(extension, out List<Window>? existingList)
-                && existingList.Count > 0)
+                && existingList.Count > 0
+            )
             {
                 existingList[0].Activate();
                 return;
@@ -433,17 +483,23 @@ public sealed partial class MacWindow : Window
         Close();
     }
 
-    private async void OpenTutorialsDialog(object? sender, EventArgs e) => await mainView.ShowTutorialsDialogAsync();
+    private async void OpenTutorialsDialog(object? sender, EventArgs e) =>
+        await mainView.ShowTutorialsDialogAsync();
 
-    private async void GoToInformationPage(object? sender, EventArgs e) => await mainView.GoToInformationPageAsync();
+    private async void GoToInformationPage(object? sender, EventArgs e) =>
+        await mainView.GoToInformationPageAsync();
 
     private void GC_Collect_Click(object? sender, EventArgs e) => mainView.RunGcCollect();
 
-    private void MonitorKeyModifier_Click(object? sender, EventArgs e) => mainView.OpenKeyModifierMonitor();
+    private void MonitorKeyModifier_Click(object? sender, EventArgs e) =>
+        mainView.OpenKeyModifierMonitor();
 
-    private void ThrowUnhandledException_Click(object? sender, EventArgs e) => mainView.ThrowDebugException();
+    private void ThrowUnhandledException_Click(object? sender, EventArgs e) =>
+        mainView.ThrowDebugException();
 
-    private async void StartWindowCapture_Click(object? sender, EventArgs e) => await mainView.StartWindowCaptureAsync();
+    private async void StartWindowCapture_Click(object? sender, EventArgs e) =>
+        await mainView.StartWindowCaptureAsync();
 
-    private async void StopWindowCapture_Click(object? sender, EventArgs e) => await mainView.StopWindowCaptureAsync();
+    private async void StopWindowCapture_Click(object? sender, EventArgs e) =>
+        await mainView.StopWindowCaptureAsync();
 }

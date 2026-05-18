@@ -24,7 +24,9 @@ public sealed class SettingsDialogViewModel : IDisposable
         _font = new(() => new FontSettingsPageViewModel());
         _extensionsPage = new(() => new ExtensionsSettingsPageViewModel());
         _information = new(() => new InformationPageViewModel());
-        _keyMap = new(() => new KeyMapSettingsPageViewModel(clients.GetResource<ContextCommandManager>()));
+        _keyMap = new(() =>
+            new KeyMapSettingsPageViewModel(clients.GetResource<ContextCommandManager>())
+        );
     }
 
     public AccountSettingsPageViewModel Account => _account.Value;

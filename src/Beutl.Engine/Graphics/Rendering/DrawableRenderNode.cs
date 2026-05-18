@@ -4,7 +4,8 @@ namespace Beutl.Graphics.Rendering;
 
 public class DrawableRenderNode(Drawable.Resource drawable) : ContainerRenderNode
 {
-    public (Drawable.Resource Resource, int Version)? Drawable { get; private set; } = drawable.Capture();
+    public (Drawable.Resource Resource, int Version)? Drawable { get; private set; } =
+        drawable.Capture();
 
     public bool Update(Drawable.Resource drawable)
     {

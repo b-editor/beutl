@@ -8,7 +8,8 @@ namespace Beutl.Extensions.AVFoundation.Encoding;
 [SupportedOSPlatform("macos")]
 public class AVFEncodingController : EncodingController
 {
-    public AVFEncodingController(string outputFile) : base(outputFile) { }
+    public AVFEncodingController(string outputFile)
+        : base(outputFile) { }
 
     private const int AudioFrameSize = 1024;
 
@@ -19,7 +20,8 @@ public class AVFEncodingController : EncodingController
     public override async ValueTask Encode(
         IFrameProvider frameProvider,
         ISampleProvider sampleProvider,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken
+    )
     {
         var videoConfig = BuildVideoConfig();
         var audioConfig = BuildAudioConfig((int)sampleProvider.SampleRate);
@@ -32,7 +34,8 @@ public class AVFEncodingController : EncodingController
             ? ColorSpaceMapper.BuildColorSpace(
                 isHdr: true,
                 MapTransfer(VideoSettings.ColorTransfer),
-                MapPrimaries(VideoSettings.ColorPrimaries))
+                MapPrimaries(VideoSettings.ColorPrimaries)
+            )
             : null;
 
         BeutlAVFException.ThrowIfFailed(
@@ -40,7 +43,9 @@ public class AVFEncodingController : EncodingController
                 OutputFile,
                 ref videoConfig,
                 ref audioConfig,
-                out AVFWriterSafeHandle handle));
+                out AVFWriterSafeHandle handle
+            )
+        );
 
         using (handle)
         {
@@ -57,13 +62,19 @@ public class AVFEncodingController : EncodingController
             while ((encodeVideo || encodeAudio) && !cancellationToken.IsCancellationRequested)
             {
                 long videoTs = frameRateNum > 0 ? frameCount * frameRateDen / frameRateNum : 0;
-                long audioTs = sampleProvider.SampleRate > 0 ? sampleCount / sampleProvider.SampleRate : 0;
+                long audioTs =
+                    sampleProvider.SampleRate > 0 ? sampleCount / sampleProvider.SampleRate : 0;
 
                 if (encodeVideo && (!encodeAudio || videoTs <= audioTs))
                 {
                     await WriteVideoFrameAsync(
-                        handle, frameProvider, frameCount, frameRateNum, frameRateDen,
-                        hdrTargetColorSpace);
+                        handle,
+                        frameProvider,
+                        frameCount,
+                        frameRateNum,
+                        frameRateDen,
+                        hdrTargetColorSpace
+                    );
                     frameCount++;
                     if (frameCount >= frameProvider.FrameCount)
                     {
@@ -91,7 +102,8 @@ public class AVFEncodingController : EncodingController
         long frame,
         long frameRateNum,
         long frameRateDen,
-        BitmapColorSpace? hdrTargetColorSpace)
+        BitmapColorSpace? hdrTargetColorSpace
+    )
     {
         using var image = await frameProvider.RenderFrame(frame);
         long ptsNum = frame * frameRateDen;
@@ -102,7 +114,10 @@ public class AVFEncodingController : EncodingController
             // (e.g. Rec.2020 + PQ with luminance scaling baked into the gamut matrix),
             // emitting 16-bit-per-channel unpremultiplied RGBA for the Writer input.
             using var converted = image.Convert(
-                BitmapColorType.Rgba16161616, BitmapAlphaType.Unpremul, hdrTargetColorSpace);
+                BitmapColorType.Rgba16161616,
+                BitmapAlphaType.Unpremul,
+                hdrTargetColorSpace
+            );
             BeutlAVFException.ThrowIfFailed(
                 BeutlAVFNative.beutl_avf_writer_append_video(
                     handle,
@@ -111,12 +126,17 @@ public class AVFEncodingController : EncodingController
                     converted.Height,
                     converted.RowBytes,
                     ptsNum,
-                    (int)frameRateNum));
+                    (int)frameRateNum
+                )
+            );
         }
         else
         {
             using var bgra = image.Convert(
-                BitmapColorType.Bgra8888, BitmapAlphaType.Premul, BitmapColorSpace.Srgb);
+                BitmapColorType.Bgra8888,
+                BitmapAlphaType.Premul,
+                BitmapColorSpace.Srgb
+            );
             BeutlAVFException.ThrowIfFailed(
                 BeutlAVFNative.beutl_avf_writer_append_video(
                     handle,
@@ -125,7 +145,9 @@ public class AVFEncodingController : EncodingController
                     bgra.Height,
                     bgra.RowBytes,
                     ptsNum,
-                    (int)frameRateNum));
+                    (int)frameRateNum
+                )
+            );
         }
     }
 
@@ -133,7 +155,8 @@ public class AVFEncodingController : EncodingController
         AVFWriterSafeHandle handle,
         ISampleProvider sampleProvider,
         long startSample,
-        int length)
+        int length
+    )
     {
         using var sound = await sampleProvider.Sample(startSample, length);
         BeutlAVFException.ThrowIfFailed(
@@ -142,16 +165,16 @@ public class AVFEncodingController : EncodingController
                 sound.Data,
                 sound.NumSamples,
                 startSample,
-                sound.SampleRate));
+                sound.SampleRate
+            )
+        );
     }
 
     private BeutlVideoEncoderConfig BuildVideoConfig()
     {
         bool isHdr = VideoSettings.IsHdr;
         // Force HEVC when HDR is selected — H.264/JPEG have no HDR10 profile in VideoToolbox.
-        int codec = isHdr
-            ? (int)AVFVideoEncoderSettings.VideoCodec.HEVC
-            : (int)VideoSettings.Codec;
+        int codec = isHdr ? (int)AVFVideoEncoderSettings.VideoCodec.HEVC : (int)VideoSettings.Codec;
 
         return new BeutlVideoEncoderConfig
         {
@@ -177,9 +200,12 @@ public class AVFEncodingController : EncodingController
     {
         int sampleRate = AudioSettings.SampleRate > 0 ? AudioSettings.SampleRate : sourceSampleRate;
         int flags = 0;
-        if (AudioSettings.LinearPcmFloat) flags |= 1;
-        if (AudioSettings.LinearPcmBigEndian) flags |= 2;
-        if (AudioSettings.LinearPcmNonInterleaved) flags |= 4;
+        if (AudioSettings.LinearPcmFloat)
+            flags |= 1;
+        if (AudioSettings.LinearPcmBigEndian)
+            flags |= 2;
+        if (AudioSettings.LinearPcmNonInterleaved)
+            flags |= 4;
 
         return new BeutlAudioEncoderConfig
         {
@@ -197,32 +223,40 @@ public class AVFEncodingController : EncodingController
     // Enum-to-tag mappings are 1:1 (the AVFVideoEncoderSettings enums use the same numeric
     // values as BeutlTransferFunction/BeutlColorPrimaries/BeutlYCbCrMatrix) but the helpers
     // below clamp to Unknown if a user adds a value that hasn't been wired through.
-    private static BeutlTransferFunction MapTransfer(AVFVideoEncoderSettings.ColorTransferCharacteristic t) => t switch
-    {
-        AVFVideoEncoderSettings.ColorTransferCharacteristic.Srgb => BeutlTransferFunction.Srgb,
-        AVFVideoEncoderSettings.ColorTransferCharacteristic.Linear => BeutlTransferFunction.Linear,
-        AVFVideoEncoderSettings.ColorTransferCharacteristic.Bt709 => BeutlTransferFunction.Bt709,
-        AVFVideoEncoderSettings.ColorTransferCharacteristic.Pq => BeutlTransferFunction.Pq,
-        AVFVideoEncoderSettings.ColorTransferCharacteristic.Hlg => BeutlTransferFunction.Hlg,
-        AVFVideoEncoderSettings.ColorTransferCharacteristic.Smpte240M => BeutlTransferFunction.Smpte240M,
-        _ => BeutlTransferFunction.Unknown,
-    };
+    private static BeutlTransferFunction MapTransfer(
+        AVFVideoEncoderSettings.ColorTransferCharacteristic t
+    ) =>
+        t switch
+        {
+            AVFVideoEncoderSettings.ColorTransferCharacteristic.Srgb => BeutlTransferFunction.Srgb,
+            AVFVideoEncoderSettings.ColorTransferCharacteristic.Linear =>
+                BeutlTransferFunction.Linear,
+            AVFVideoEncoderSettings.ColorTransferCharacteristic.Bt709 =>
+                BeutlTransferFunction.Bt709,
+            AVFVideoEncoderSettings.ColorTransferCharacteristic.Pq => BeutlTransferFunction.Pq,
+            AVFVideoEncoderSettings.ColorTransferCharacteristic.Hlg => BeutlTransferFunction.Hlg,
+            AVFVideoEncoderSettings.ColorTransferCharacteristic.Smpte240M =>
+                BeutlTransferFunction.Smpte240M,
+            _ => BeutlTransferFunction.Unknown,
+        };
 
-    private static BeutlColorPrimaries MapPrimaries(AVFVideoEncoderSettings.ColorPrimariesType p) => p switch
-    {
-        AVFVideoEncoderSettings.ColorPrimariesType.Bt709 => BeutlColorPrimaries.Bt709,
-        AVFVideoEncoderSettings.ColorPrimariesType.Rec2020 => BeutlColorPrimaries.Rec2020,
-        AVFVideoEncoderSettings.ColorPrimariesType.Dcip3 => BeutlColorPrimaries.Dcip3,
-        AVFVideoEncoderSettings.ColorPrimariesType.Smpte170M => BeutlColorPrimaries.Smpte170M,
-        _ => BeutlColorPrimaries.Unknown,
-    };
+    private static BeutlColorPrimaries MapPrimaries(AVFVideoEncoderSettings.ColorPrimariesType p) =>
+        p switch
+        {
+            AVFVideoEncoderSettings.ColorPrimariesType.Bt709 => BeutlColorPrimaries.Bt709,
+            AVFVideoEncoderSettings.ColorPrimariesType.Rec2020 => BeutlColorPrimaries.Rec2020,
+            AVFVideoEncoderSettings.ColorPrimariesType.Dcip3 => BeutlColorPrimaries.Dcip3,
+            AVFVideoEncoderSettings.ColorPrimariesType.Smpte170M => BeutlColorPrimaries.Smpte170M,
+            _ => BeutlColorPrimaries.Unknown,
+        };
 
-    private static BeutlYCbCrMatrix MapMatrix(AVFVideoEncoderSettings.YCbCrMatrixType m) => m switch
-    {
-        AVFVideoEncoderSettings.YCbCrMatrixType.Bt709 => BeutlYCbCrMatrix.Bt709,
-        AVFVideoEncoderSettings.YCbCrMatrixType.Bt601 => BeutlYCbCrMatrix.Bt601,
-        AVFVideoEncoderSettings.YCbCrMatrixType.Rec2020 => BeutlYCbCrMatrix.Rec2020,
-        AVFVideoEncoderSettings.YCbCrMatrixType.Smpte240M => BeutlYCbCrMatrix.Smpte240M,
-        _ => BeutlYCbCrMatrix.Unknown,
-    };
+    private static BeutlYCbCrMatrix MapMatrix(AVFVideoEncoderSettings.YCbCrMatrixType m) =>
+        m switch
+        {
+            AVFVideoEncoderSettings.YCbCrMatrixType.Bt709 => BeutlYCbCrMatrix.Bt709,
+            AVFVideoEncoderSettings.YCbCrMatrixType.Bt601 => BeutlYCbCrMatrix.Bt601,
+            AVFVideoEncoderSettings.YCbCrMatrixType.Rec2020 => BeutlYCbCrMatrix.Rec2020,
+            AVFVideoEncoderSettings.YCbCrMatrixType.Smpte240M => BeutlYCbCrMatrix.Smpte240M,
+            _ => BeutlYCbCrMatrix.Unknown,
+        };
 }

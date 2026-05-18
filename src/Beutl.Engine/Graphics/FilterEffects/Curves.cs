@@ -1,5 +1,4 @@
 ﻿using System.ComponentModel.DataAnnotations;
-
 using Beutl.Engine;
 using Beutl.Language;
 using Beutl.Logging;
@@ -16,8 +15,7 @@ public sealed partial class Curves : FilterEffect
 
     static Curves()
     {
-        const string sksl =
-            """
+        const string sksl = """
             uniform shader src;
             uniform shader masterCurve;
             uniform shader redCurve;
@@ -110,32 +108,78 @@ public sealed partial class Curves : FilterEffect
         ScanProperties<Curves>();
     }
 
-    [Display(Name = nameof(GraphicsStrings.Curves_MasterCurve), ResourceType = typeof(GraphicsStrings))]
-    public IProperty<CurveMap> MasterCurve { get; } = Property.Create(new CurveMap([new CurveControlPoint(0, 0), new CurveControlPoint(1, 1)]));
+    [Display(
+        Name = nameof(GraphicsStrings.Curves_MasterCurve),
+        ResourceType = typeof(GraphicsStrings)
+    )]
+    public IProperty<CurveMap> MasterCurve { get; } =
+        Property.Create(new CurveMap([new CurveControlPoint(0, 0), new CurveControlPoint(1, 1)]));
 
-    [Display(Name = nameof(GraphicsStrings.Curves_RedCurve), ResourceType = typeof(GraphicsStrings))]
-    public IProperty<CurveMap> RedCurve { get; } = Property.Create(new CurveMap([new CurveControlPoint(0, 0), new CurveControlPoint(1, 1)]));
+    [Display(
+        Name = nameof(GraphicsStrings.Curves_RedCurve),
+        ResourceType = typeof(GraphicsStrings)
+    )]
+    public IProperty<CurveMap> RedCurve { get; } =
+        Property.Create(new CurveMap([new CurveControlPoint(0, 0), new CurveControlPoint(1, 1)]));
 
-    [Display(Name = nameof(GraphicsStrings.Curves_GreenCurve), ResourceType = typeof(GraphicsStrings))]
-    public IProperty<CurveMap> GreenCurve { get; } = Property.Create(new CurveMap([new CurveControlPoint(0, 0), new CurveControlPoint(1, 1)]));
+    [Display(
+        Name = nameof(GraphicsStrings.Curves_GreenCurve),
+        ResourceType = typeof(GraphicsStrings)
+    )]
+    public IProperty<CurveMap> GreenCurve { get; } =
+        Property.Create(new CurveMap([new CurveControlPoint(0, 0), new CurveControlPoint(1, 1)]));
 
-    [Display(Name = nameof(GraphicsStrings.Curves_BlueCurve), ResourceType = typeof(GraphicsStrings))]
-    public IProperty<CurveMap> BlueCurve { get; } = Property.Create(new CurveMap([new CurveControlPoint(0, 0), new CurveControlPoint(1, 1)]));
+    [Display(
+        Name = nameof(GraphicsStrings.Curves_BlueCurve),
+        ResourceType = typeof(GraphicsStrings)
+    )]
+    public IProperty<CurveMap> BlueCurve { get; } =
+        Property.Create(new CurveMap([new CurveControlPoint(0, 0), new CurveControlPoint(1, 1)]));
 
-    [Display(Name = nameof(GraphicsStrings.Curves_HueVsHue), ResourceType = typeof(GraphicsStrings))]
-    public IProperty<CurveMap> HueVsHue { get; } = Property.Create(new CurveMap([new CurveControlPoint(0, 0.5f), new CurveControlPoint(1, 0.5f)]));
+    [Display(
+        Name = nameof(GraphicsStrings.Curves_HueVsHue),
+        ResourceType = typeof(GraphicsStrings)
+    )]
+    public IProperty<CurveMap> HueVsHue { get; } =
+        Property.Create(
+            new CurveMap([new CurveControlPoint(0, 0.5f), new CurveControlPoint(1, 0.5f)])
+        );
 
-    [Display(Name = nameof(GraphicsStrings.Curves_HueVsSaturation), ResourceType = typeof(GraphicsStrings))]
-    public IProperty<CurveMap> HueVsSaturation { get; } = Property.Create(new CurveMap([new CurveControlPoint(0, 0.5f), new CurveControlPoint(1, 0.5f)]));
+    [Display(
+        Name = nameof(GraphicsStrings.Curves_HueVsSaturation),
+        ResourceType = typeof(GraphicsStrings)
+    )]
+    public IProperty<CurveMap> HueVsSaturation { get; } =
+        Property.Create(
+            new CurveMap([new CurveControlPoint(0, 0.5f), new CurveControlPoint(1, 0.5f)])
+        );
 
-    [Display(Name = nameof(GraphicsStrings.Curves_HueVsLuminance), ResourceType = typeof(GraphicsStrings))]
-    public IProperty<CurveMap> HueVsLuminance { get; } = Property.Create(new CurveMap([new CurveControlPoint(0, 0.5f), new CurveControlPoint(1, 0.5f)]));
+    [Display(
+        Name = nameof(GraphicsStrings.Curves_HueVsLuminance),
+        ResourceType = typeof(GraphicsStrings)
+    )]
+    public IProperty<CurveMap> HueVsLuminance { get; } =
+        Property.Create(
+            new CurveMap([new CurveControlPoint(0, 0.5f), new CurveControlPoint(1, 0.5f)])
+        );
 
-    [Display(Name = nameof(GraphicsStrings.Curves_LuminanceVsSaturation), ResourceType = typeof(GraphicsStrings))]
-    public IProperty<CurveMap> LuminanceVsSaturation { get; } = Property.Create(new CurveMap([new CurveControlPoint(0, 0.5f), new CurveControlPoint(1, 0.5f)]));
+    [Display(
+        Name = nameof(GraphicsStrings.Curves_LuminanceVsSaturation),
+        ResourceType = typeof(GraphicsStrings)
+    )]
+    public IProperty<CurveMap> LuminanceVsSaturation { get; } =
+        Property.Create(
+            new CurveMap([new CurveControlPoint(0, 0.5f), new CurveControlPoint(1, 0.5f)])
+        );
 
-    [Display(Name = nameof(GraphicsStrings.Curves_SaturationVsSaturation), ResourceType = typeof(GraphicsStrings))]
-    public IProperty<CurveMap> SaturationVsSaturation { get; } = Property.Create(new CurveMap([new CurveControlPoint(0, 0.5f), new CurveControlPoint(1, 0.5f)]));
+    [Display(
+        Name = nameof(GraphicsStrings.Curves_SaturationVsSaturation),
+        ResourceType = typeof(GraphicsStrings)
+    )]
+    public IProperty<CurveMap> SaturationVsSaturation { get; } =
+        Property.Create(
+            new CurveMap([new CurveControlPoint(0, 0.5f), new CurveControlPoint(1, 0.5f)])
+        );
 
     public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
     {
@@ -149,12 +193,14 @@ public sealed partial class Curves : FilterEffect
         context.CustomEffect(
             (Resource: r, Dummy: 0),
             static (data, ctx) => OnApply(data.Resource, ctx),
-            static (_, rect) => rect);
+            static (_, rect) => rect
+        );
     }
 
     private static void OnApply(Resource data, CustomFilterEffectContext context)
     {
-        if (s_shader is null) return;
+        if (s_shader is null)
+            return;
 
         using SKShader master = data.MasterCurve.ToShader();
         using SKShader red = data.RedCurve.ToShader();
@@ -172,7 +218,10 @@ public sealed partial class Curves : FilterEffect
             var renderTarget = target.RenderTarget!;
 
             using SKImage image = renderTarget.Value.Snapshot();
-            using SKShader baseShader = image.ToShader(SKShaderTileMode.Decal, SKShaderTileMode.Decal);
+            using SKShader baseShader = image.ToShader(
+                SKShaderTileMode.Decal,
+                SKShaderTileMode.Decal
+            );
 
             var builder = s_shader.CreateBuilder();
 

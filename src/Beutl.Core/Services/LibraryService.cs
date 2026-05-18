@@ -25,7 +25,8 @@ public abstract class LibraryItem
     }
 }
 
-public sealed class MultipleTypeLibraryItem(string displayName, string? description = null) : LibraryItem(displayName, description)
+public sealed class MultipleTypeLibraryItem(string displayName, string? description = null)
+    : LibraryItem(displayName, description)
 {
     private readonly Dictionary<string, Type> _types = [];
 
@@ -43,8 +44,8 @@ public sealed class SingleTypeLibraryItem(
     string format,
     Type implementationType,
     string displayName,
-    string? description = null)
-    : LibraryItem(displayName, description)
+    string? description = null
+) : LibraryItem(displayName, description)
 {
     public string Format { get; } = format;
 
@@ -71,8 +72,11 @@ public sealed class GroupLibraryItem(string displayName, string? description = n
     {
         lock (_lock)
         {
-            if (item is GroupLibraryItem group1
-                && Items.FirstOrDefault(x => x.DisplayName == item.DisplayName) is GroupLibraryItem group2)
+            if (
+                item is GroupLibraryItem group1
+                && Items.FirstOrDefault(x => x.DisplayName == item.DisplayName)
+                    is GroupLibraryItem group2
+            )
             {
                 group2.Merge(group1.Items);
             }
@@ -105,7 +109,11 @@ public sealed class GroupLibraryItem(string displayName, string? description = n
         return this;
     }
 
-    public GroupLibraryItem AddMultiple(string displayName, string? description, Action<MultipleTypeLibraryItem> action)
+    public GroupLibraryItem AddMultiple(
+        string displayName,
+        string? description,
+        Action<MultipleTypeLibraryItem> action
+    )
     {
         var item = new MultipleTypeLibraryItem(displayName, description);
         action(item);
@@ -117,7 +125,11 @@ public sealed class GroupLibraryItem(string displayName, string? description = n
         return this;
     }
 
-    public GroupLibraryItem AddGroup(string displayName, string? description, Action<GroupLibraryItem> action)
+    public GroupLibraryItem AddGroup(
+        string displayName,
+        string? description,
+        Action<GroupLibraryItem> action
+    )
     {
         var item = new GroupLibraryItem(displayName, description);
         action(item);
@@ -196,7 +208,6 @@ public sealed class LibraryService
         TypeUnloadNotifier.TypesUnloading += Unregister;
     }
 
-
     public static LibraryService Current { get; } = new();
 
     public IReadOnlyList<LibraryItem> Items => _items;
@@ -215,7 +226,10 @@ public sealed class LibraryService
             {
                 _totalCount += group.Count();
 
-                if (_items.FirstOrDefault(x => x.DisplayName == item.DisplayName) is GroupLibraryItem registered)
+                if (
+                    _items.FirstOrDefault(x => x.DisplayName == item.DisplayName)
+                    is GroupLibraryItem registered
+                )
                 {
                     registered.Merge(group.Items);
                 }
@@ -244,14 +258,22 @@ public sealed class LibraryService
         Register(item);
     }
 
-    public void AddMultiple(string displayName, string? description, Action<MultipleTypeLibraryItem> action)
+    public void AddMultiple(
+        string displayName,
+        string? description,
+        Action<MultipleTypeLibraryItem> action
+    )
     {
         var item = new MultipleTypeLibraryItem(displayName, description);
         action(item);
         Register(item);
     }
 
-    public void RegisterGroup(string displayName, string? description, Action<GroupLibraryItem> action)
+    public void RegisterGroup(
+        string displayName,
+        string? description,
+        Action<GroupLibraryItem> action
+    )
     {
         var item = new GroupLibraryItem(displayName, description);
         action(item);

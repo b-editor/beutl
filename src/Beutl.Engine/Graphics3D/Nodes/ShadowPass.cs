@@ -18,7 +18,8 @@ public sealed class ShadowPass : GraphicsNode3D
     public const int DefaultShadowMapSize = 2048;
 
     // Shader sources
-    private const string ShadowVertexShader = @"
+    private const string ShadowVertexShader =
+        @"
 #version 450
 
 layout(location = 0) in vec3 inPosition;
@@ -35,7 +36,8 @@ void main() {
 }
 ";
 
-    private const string ShadowFragmentShader = @"
+    private const string ShadowFragmentShader =
+        @"
 #version 450
 
 // Minimal fragment shader - depth is written automatically
@@ -62,9 +64,7 @@ void main() {
     private static readonly TextureFormat[] ShadowPassFormats = [TextureFormat.R8Unorm];
 
     public ShadowPass(IGraphicsContext context, IShaderCompiler shaderCompiler)
-        : base(context, shaderCompiler)
-    {
-    }
+        : base(context, shaderCompiler) { }
 
     /// <summary>
     /// Gets the shadow depth texture.
@@ -133,13 +133,17 @@ void main() {
         Framebuffer = Context.CreateFramebuffer3D(
             RenderPass,
             [DummyColorTexture],
-            ShadowDepthTexture);
+            ShadowDepthTexture
+        );
     }
 
     private void CompileShaders()
     {
         _vertexShaderSpirv = ShaderCompiler.CompileToSpirv(ShadowVertexShader, ShaderStage.Vertex);
-        _fragmentShaderSpirv = ShaderCompiler.CompileToSpirv(ShadowFragmentShader, ShaderStage.Fragment);
+        _fragmentShaderSpirv = ShaderCompiler.CompileToSpirv(
+            ShadowFragmentShader,
+            ShaderStage.Fragment
+        );
     }
 
     private void CreatePipeline()
@@ -156,7 +160,7 @@ void main() {
         {
             DepthTestEnabled = true,
             DepthWriteEnabled = true,
-            CullMode = CullMode.Back
+            CullMode = CullMode.Back,
         };
 
         _shadowPipeline = Context.CreatePipeline3D(
@@ -165,13 +169,18 @@ void main() {
             _fragmentShaderSpirv,
             descriptorBindings,
             Vertex3D.GetVertexInputDescription(),
-            options);
+            options
+        );
     }
 
     /// <summary>
     /// Sets up the shadow pass for a directional light.
     /// </summary>
-    public void SetupForDirectionalLight(DirectionalLight3D.Resource light, Vector3 sceneCenter, float sceneRadius)
+    public void SetupForDirectionalLight(
+        DirectionalLight3D.Resource light,
+        Vector3 sceneCenter,
+        float sceneRadius
+    )
     {
         var direction = light.Direction;
         if (direction == Vector3.Zero)
@@ -183,9 +192,8 @@ void main() {
         var lightPosition = sceneCenter - direction * shadowDistance * 0.5f;
 
         // Create view matrix looking at scene center
-        var up = Math.Abs(Vector3.Dot(direction, Vector3.UnitY)) > 0.99f
-            ? Vector3.UnitZ
-            : Vector3.UnitY;
+        var up =
+            Math.Abs(Vector3.Dot(direction, Vector3.UnitY)) > 0.99f ? Vector3.UnitZ : Vector3.UnitY;
         LightViewMatrix = Matrix4x4.CreateLookAt(lightPosition, sceneCenter, up);
 
         // Orthographic projection for directional light
@@ -205,9 +213,8 @@ void main() {
         direction = Vector3.Normalize(direction);
 
         // Create view matrix from light position looking in light direction
-        var up = Math.Abs(Vector3.Dot(direction, Vector3.UnitY)) > 0.99f
-            ? Vector3.UnitZ
-            : Vector3.UnitY;
+        var up =
+            Math.Abs(Vector3.Dot(direction, Vector3.UnitY)) > 0.99f ? Vector3.UnitZ : Vector3.UnitY;
         var target = position + direction;
         LightViewMatrix = Matrix4x4.CreateLookAt(position, target, up);
 
@@ -216,9 +223,10 @@ void main() {
         fovRadians = Math.Clamp(fovRadians, 0.1f, MathF.PI - 0.1f);
         LightProjectionMatrix = Matrix4x4.CreatePerspectiveFieldOfView(
             fovRadians,
-            1.0f,  // Square shadow map
+            1.0f, // Square shadow map
             0.1f,
-            light.Range);
+            light.Range
+        );
     }
 
     /// <summary>
@@ -281,7 +289,7 @@ void main() {
         var pushConstants = new ShadowPushConstants
         {
             Model = worldMatrix,
-            LightViewProjection = lightVP
+            LightViewProjection = lightVP,
         };
         RenderPass!.SetPushConstants(pushConstants);
 

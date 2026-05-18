@@ -33,8 +33,7 @@ internal class Program
 
         try
         {
-            BuildAvaloniaApp()
-                .StartWithClassicDesktopLifetime(args);
+            BuildAvaloniaApp().StartWithClassicDesktopLifetime(args);
         }
         catch (Exception ex)
         {
@@ -42,12 +41,15 @@ internal class Program
         }
     }
 
-    public static AppBuilder BuildAvaloniaApp()
-        => AppBuilder.Configure<App>()
+    public static AppBuilder BuildAvaloniaApp() =>
+        AppBuilder
+            .Configure<App>()
             .UsePlatformDetect()
-            .With(new FontManagerOptions
-            {
-                DefaultFamilyName = Media.FontManager.Instance.DefaultTypeface.FontFamily.Name
-            })
+            .With(
+                new FontManagerOptions
+                {
+                    DefaultFamilyName = Media.FontManager.Instance.DefaultTypeface.FontFamily.Name,
+                }
+            )
             .LogToTrace();
 }

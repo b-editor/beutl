@@ -55,5 +55,4 @@
   <ItemGroup>
     <EmbeddedResource Update="Resources\Strings.resx" />
   </ItemGroup>
-
 </Project>

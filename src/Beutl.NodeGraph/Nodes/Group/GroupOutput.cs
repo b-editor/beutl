@@ -14,7 +14,8 @@ public partial class GroupOutput : GraphNode, IDynamicPortNode
         protected override void OnPropertyChanged(PropertyChangedEventArgs args)
         {
             base.OnPropertyChanged(args);
-            if (args is not CorePropertyChangedEventArgs coreArgs) return;
+            if (args is not CorePropertyChangedEventArgs coreArgs)
+                return;
 
             if (coreArgs.Property.Id == ConnectionProperty.Id)
             {
@@ -58,7 +59,10 @@ public partial class GroupOutput : GraphNode, IDynamicPortNode
         {
             foreach (JsonObject itemJson in itemsArray.OfType<JsonObject>())
             {
-                if (CoreSerializer.DeserializeFromJsonObject(itemJson, typeof(IInputPort)) is IInputPort port)
+                if (
+                    CoreSerializer.DeserializeFromJsonObject(itemJson, typeof(IInputPort))
+                    is IInputPort port
+                )
                 {
                     Items.Add(port);
                 }

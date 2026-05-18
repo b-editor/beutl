@@ -9,4 +9,5 @@ public record struct ElementDescription(
     string Name = "",
     Type? InitialObject = null,
     string? FileName = null,
-    Point Position = default);
+    Point Position = default
+);

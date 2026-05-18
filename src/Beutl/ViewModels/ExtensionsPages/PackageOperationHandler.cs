@@ -34,7 +34,10 @@ internal class PackageOperationHandler
 
     public async Task DownloadAndLoadPackage(Release release, PackageIdentity packageId)
     {
-        PackageInstallContext context = await _packageInstaller.PrepareForInstall(release, force: true);
+        PackageInstallContext context = await _packageInstaller.PrepareForInstall(
+            release,
+            force: true
+        );
         await _packageInstaller.DownloadPackageFile(context);
         await _packageInstaller.VerifyPackageFile(context);
         await _packageInstaller.ResolveDependencies(context, null);
@@ -49,7 +52,11 @@ internal class PackageOperationHandler
 
     public async Task DownloadAndLoadPackage(PackageIdentity packageId)
     {
-        PackageInstallContext context = _packageInstaller.PrepareForInstall(packageId.Id, packageId.Version.ToString(), force: true);
+        PackageInstallContext context = _packageInstaller.PrepareForInstall(
+            packageId.Id,
+            packageId.Version.ToString(),
+            force: true
+        );
         await _packageInstaller.DownloadPackageFile(context);
         await _packageInstaller.VerifyPackageFile(context);
         await _packageInstaller.ResolveDependencies(context, null);
@@ -112,7 +119,11 @@ internal class PackageOperationHandler
             }
             catch (Exception ex)
             {
-                s_logger.LogWarning(ex, "Immediate uninstall failed for {PackageId}, falling back to queue.", item.Id);
+                s_logger.LogWarning(
+                    ex,
+                    "Immediate uninstall failed for {PackageId}, falling back to queue.",
+                    item.Id
+                );
                 _queue.UninstallQueue(item);
                 hasFallback = true;
             }
@@ -159,7 +170,7 @@ internal class PackageOperationHandler
             PrimaryButtonText = Strings.OK,
             SecondaryButtonText = ExtensionsStrings.PackageInstaller_SaveAndClose,
             CloseButtonText = Strings.Cancel,
-            DefaultButton = ContentDialogButton.Secondary
+            DefaultButton = ContentDialogButton.Secondary,
         };
 
         ContentDialogResult result = await dialog.ShowAsync();

@@ -126,7 +126,8 @@ public class HierarchicalTests
         parent1.HierarchicalChildren.Add(child);
 
         Assert.Throws<InvalidOperationException>(() =>
-            ((IModifiableHierarchical)child).SetParent(parent2));
+            ((IModifiableHierarchical)child).SetParent(parent2)
+        );
     }
 
     [Test]
@@ -222,7 +223,9 @@ public class HierarchicalTests
     public void FindRequiredHierarchicalParent_TypeOverload_Throws()
     {
         var node = new TestNode();
-        Assert.Throws<HierarchyException>(() => node.FindRequiredHierarchicalParent(typeof(TestRoot)));
+        Assert.Throws<HierarchyException>(() =>
+            node.FindRequiredHierarchicalParent(typeof(TestRoot))
+        );
     }
 
     [Test]

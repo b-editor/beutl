@@ -8,7 +8,8 @@ namespace Beutl.Services.StartupTasks;
 
 public sealed class RestoreLastProjectTask : StartupTask
 {
-    private readonly ILogger<RestoreLastProjectTask> _logger = Log.CreateLogger<RestoreLastProjectTask>();
+    private readonly ILogger<RestoreLastProjectTask> _logger =
+        Log.CreateLogger<RestoreLastProjectTask>();
 
     public RestoreLastProjectTask(Startup startup)
     {
@@ -39,7 +40,10 @@ public sealed class RestoreLastProjectTask : StartupTask
                 return;
             }
 
-            if (Application.Current?.ApplicationLifetime is not IClassicDesktopStyleApplicationLifetime)
+            if (
+                Application.Current?.ApplicationLifetime
+                is not IClassicDesktopStyleApplicationLifetime
+            )
             {
                 return;
             }

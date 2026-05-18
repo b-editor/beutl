@@ -28,32 +28,41 @@ public partial class MainView
 
     private void InitializeCommands(MainViewModel viewModel)
     {
-        viewModel.MenuBar.CreateNewProject.Subscribe(async () =>
-        {
-            var dialog = new CreateNewProject();
-            await dialog.ShowAsync();
-        }).AddTo(_disposables);
+        viewModel
+            .MenuBar.CreateNewProject.Subscribe(async () =>
+            {
+                var dialog = new CreateNewProject();
+                await dialog.ShowAsync();
+            })
+            .AddTo(_disposables);
 
         viewModel.MenuBar.OpenProject.Subscribe(OnOpenProject).AddTo(_disposables);
         viewModel.MenuBar.OpenFile.Subscribe(OnOpenFile).AddTo(_disposables);
 
         viewModel.MenuBar.RemoveFromProject.Subscribe(OnRemoveFromProject).AddTo(_disposables);
 
-        viewModel.MenuBar.NewScene.Subscribe(async () =>
-        {
-            var dialog = new CreateNewScene();
-            await dialog.ShowAsync();
-        }).AddTo(_disposables);
+        viewModel
+            .MenuBar.NewScene.Subscribe(async () =>
+            {
+                var dialog = new CreateNewScene();
+                await dialog.ShowAsync();
+            })
+            .AddTo(_disposables);
 
         viewModel.MenuBar.DeleteLayer.Subscribe(OnDeleteElement).AddTo(_disposables);
 
-        viewModel.MenuBar.Exit.Subscribe(() =>
-        {
-            if (Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime applicationLifetime)
+        viewModel
+            .MenuBar.Exit.Subscribe(() =>
             {
-                applicationLifetime.Shutdown();
-            }
-        }).AddTo(_disposables);
+                if (
+                    Application.Current?.ApplicationLifetime
+                    is IClassicDesktopStyleApplicationLifetime applicationLifetime
+                )
+                {
+                    applicationLifetime.Shutdown();
+                }
+            })
+            .AddTo(_disposables);
 
         viewModel.MenuBar.ExportProject.Subscribe(OnExportProject).AddTo(_disposables);
         viewModel.MenuBar.ImportProject.Subscribe(OnImportProject).AddTo(_disposables);
@@ -83,22 +92,31 @@ public partial class MainView
             }
         }
 
-        viewModel.MenuBar.RecentFileItems.ForEachItem(
+        viewModel
+            .MenuBar.RecentFileItems.ForEachItem(
                 item => AddItem(_rawRecentFileItems, item, viewModel.MenuBar.OpenRecentFile),
                 item => RemoveItem(_rawRecentFileItems, item),
-                _rawRecentFileItems.Clear)
+                _rawRecentFileItems.Clear
+            )
             .AddTo(_disposables);
 
-        viewModel.MenuBar.RecentProjectItems.ForEachItem(
+        viewModel
+            .MenuBar.RecentProjectItems.ForEachItem(
                 item => AddItem(_rawRecentProjItems, item, viewModel.MenuBar.OpenRecentProject),
                 item => RemoveItem(_rawRecentProjItems, item),
-                _rawRecentProjItems.Clear)
+                _rawRecentProjItems.Clear
+            )
             .AddTo(_disposables);
     }
 
-    private static bool TryGetSelectedEditViewModel([NotNullWhen(true)] out EditViewModel? viewModel)
+    private static bool TryGetSelectedEditViewModel(
+        [NotNullWhen(true)] out EditViewModel? viewModel
+    )
     {
-        if (EditorService.Current.SelectedTabItem.Value?.Context.Value is EditViewModel editViewModel)
+        if (
+            EditorService.Current.SelectedTabItem.Value?.Context.Value
+            is EditViewModel editViewModel
+        )
         {
             viewModel = editViewModel;
             return true;
@@ -112,9 +130,11 @@ public partial class MainView
 
     private async void OnDeleteElement()
     {
-        if (TryGetSelectedEditViewModel(out EditViewModel? viewModel)
+        if (
+            TryGetSelectedEditViewModel(out EditViewModel? viewModel)
             && viewModel.Scene is Scene scene
-            && viewModel.GetService<IEditorSelection>()?.SelectedObject.Value is Element element)
+            && viewModel.GetService<IEditorSelection>()?.SelectedObject.Value is Element element
+        )
         {
             string path = element.Uri!.LocalPath;
             string name = Path.GetFileName(path);
@@ -123,7 +143,7 @@ public partial class MainView
                 CloseButtonText = Strings.Cancel,
                 PrimaryButtonText = Strings.OK,
                 DefaultButton = ContentDialogButton.Primary,
-                Content = MessageStrings.ConfirmDeleteFile + "\n" + name
+                Content = MessageStrings.ConfirmDeleteFile + "\n" + name,
             };
 
             if (await dialog.ShowAsync() == ContentDialogResult.Primary)
@@ -142,7 +162,9 @@ public partial class MainView
         if (project != null && selectedTabItem != null)
         {
             string filePath = selectedTabItem.FilePath.Value;
-            ProjectItem? projItem = project.Items.FirstOrDefault(i => i == selectedTabItem.Context.Value.Object);
+            ProjectItem? projItem = project.Items.FirstOrDefault(i =>
+                i == selectedTabItem.Context.Value.Object
+            );
             if (projItem == null)
                 return;
 
@@ -151,7 +173,7 @@ public partial class MainView
                 CloseButtonText = Strings.Cancel,
                 PrimaryButtonText = Strings.OK,
                 DefaultButton = ContentDialogButton.Primary,
-                Content = MessageStrings.ConfirmExcludeItem + "\n" + filePath
+                Content = MessageStrings.ConfirmExcludeItem + "\n" + filePath,
             };
 
             if (await dialog.ShowAsync() == ContentDialogResult.Primary)
@@ -171,12 +193,17 @@ public partial class MainView
 
         var filters = new List<FilePickerFileType>();
 
-        filters.AddRange(ExtensionProvider.Current.GetExtensions<EditorExtension>()
-            .Select(e => e.GetFilePickerFileType())
-            .ToArray());
+        filters.AddRange(
+            ExtensionProvider
+                .Current.GetExtensions<EditorExtension>()
+                .Select(e => e.GetFilePickerFileType())
+                .ToArray()
+        );
         var options = new FilePickerOpenOptions { AllowMultiple = true, FileTypeFilter = filters };
 
-        IReadOnlyList<IStorageFile> files = await window.StorageProvider.OpenFilePickerAsync(options);
+        IReadOnlyList<IStorageFile> files = await window.StorageProvider.OpenFilePickerAsync(
+            options
+        );
         if (files.Count > 0)
         {
             foreach (IStorageFile file in files)
@@ -199,14 +226,15 @@ public partial class MainView
                 [
                     new FilePickerFileType(Strings.ProjectFile)
                     {
-                        Patterns = [$"*.{Constants.ProjectFileExtension}"]
-                    }
-                ]
+                        Patterns = [$"*.{Constants.ProjectFileExtension}"],
+                    },
+                ],
             };
 
-            IReadOnlyList<IStorageFile> result = await window.StorageProvider.OpenFilePickerAsync(options);
-            if (result.Count > 0
-                && result[0].TryGetLocalPath() is string localPath)
+            IReadOnlyList<IStorageFile> result = await window.StorageProvider.OpenFilePickerAsync(
+                options
+            );
+            if (result.Count > 0 && result[0].TryGetLocalPath() is string localPath)
             {
                 await ProjectService.Current.OpenProject(localPath);
             }
@@ -235,9 +263,9 @@ public partial class MainView
             [
                 new FilePickerFileType(Strings.ProjectPackage)
                 {
-                    Patterns = [$"*.{Constants.ProjectPackageExtension}"]
-                }
-            ]
+                    Patterns = [$"*.{Constants.ProjectPackageExtension}"],
+                },
+            ],
         };
 
         IStorageFile? file = await window.StorageProvider.SaveFilePickerAsync(options);
@@ -251,27 +279,40 @@ public partial class MainView
                     new Progress<(string Message, double Progress)>(p =>
                     {
                         // 進捗表示（将来的にはプログレスダイアログを表示）
-                    }));
+                    })
+                );
 
                 if (!result.Success)
                 {
                     _logger.LogWarning(
                         "Project export failed; partial failures collected before abort: [{Resources}]",
-                        string.Join(", ", result.FailedResources));
-                    NotificationService.ShowError(Strings.ExportProject, MessageStrings.OperationFailed);
+                        string.Join(", ", result.FailedResources)
+                    );
+                    NotificationService.ShowError(
+                        Strings.ExportProject,
+                        MessageStrings.OperationFailed
+                    );
                 }
                 else if (result.FailedResources.Count > 0)
                 {
                     _logger.LogWarning(
                         "Project exported with partial failures: [{Resources}]",
-                        string.Join(", ", result.FailedResources));
+                        string.Join(", ", result.FailedResources)
+                    );
                     NotificationService.ShowWarning(
                         Strings.ExportProject,
-                        string.Format(MessageStrings.ExportProjectPartialFailure, result.FailedResources.Count));
+                        string.Format(
+                            MessageStrings.ExportProjectPartialFailure,
+                            result.FailedResources.Count
+                        )
+                    );
                 }
                 else
                 {
-                    NotificationService.ShowSuccess(Strings.ExportProject, MessageStrings.OperationCompletedSuccessfully);
+                    NotificationService.ShowSuccess(
+                        Strings.ExportProject,
+                        MessageStrings.OperationCompletedSuccessfully
+                    );
                 }
             }
             catch (OperationCanceledException)
@@ -280,9 +321,16 @@ public partial class MainView
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Unhandled exception while exporting project to {OutputPath}", outputPath);
+                _logger.LogError(
+                    ex,
+                    "Unhandled exception while exporting project to {OutputPath}",
+                    outputPath
+                );
                 _ = ex.Handle();
-                NotificationService.ShowError(Strings.ExportProject, MessageStrings.OperationFailed);
+                NotificationService.ShowError(
+                    Strings.ExportProject,
+                    MessageStrings.OperationFailed
+                );
             }
         }
     }
@@ -301,24 +349,25 @@ public partial class MainView
             [
                 new FilePickerFileType(Strings.ProjectPackage)
                 {
-                    Patterns = [$"*.{Constants.ProjectPackageExtension}"]
-                }
-            ]
+                    Patterns = [$"*.{Constants.ProjectPackageExtension}"],
+                },
+            ],
         };
 
-        IReadOnlyList<IStorageFile> files = await window.StorageProvider.OpenFilePickerAsync(openOptions);
+        IReadOnlyList<IStorageFile> files = await window.StorageProvider.OpenFilePickerAsync(
+            openOptions
+        );
         if (files.Count == 0 || files[0].TryGetLocalPath() is not string packagePath)
         {
             return;
         }
 
         // 展開先フォルダを選択
-        var folderOptions = new FolderPickerOpenOptions
-        {
-            Title = Strings.SelectDestinationFolder
-        };
+        var folderOptions = new FolderPickerOpenOptions { Title = Strings.SelectDestinationFolder };
 
-        IReadOnlyList<IStorageFolder> folders = await window.StorageProvider.OpenFolderPickerAsync(folderOptions);
+        IReadOnlyList<IStorageFolder> folders = await window.StorageProvider.OpenFolderPickerAsync(
+            folderOptions
+        );
         if (folders.Count == 0 || folders[0].TryGetLocalPath() is not string destinationDir)
         {
             return;
@@ -332,16 +381,23 @@ public partial class MainView
                 new Progress<(string Message, double Progress)>(p =>
                 {
                     // 進捗表示（将来的にはプログレスダイアログを表示）
-                }));
+                })
+            );
 
             if (project?.Uri != null)
             {
                 await ProjectService.Current.OpenProject(project.Uri.LocalPath);
-                NotificationService.ShowSuccess(Strings.ImportProject, MessageStrings.OperationCompletedSuccessfully);
+                NotificationService.ShowSuccess(
+                    Strings.ImportProject,
+                    MessageStrings.OperationCompletedSuccessfully
+                );
             }
             else
             {
-                NotificationService.ShowError(Strings.ImportProject, MessageStrings.OperationFailed);
+                NotificationService.ShowError(
+                    Strings.ImportProject,
+                    MessageStrings.OperationFailed
+                );
             }
         }
         catch (OperationCanceledException)
@@ -350,7 +406,11 @@ public partial class MainView
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Unhandled exception while importing project from {PackagePath}", packagePath);
+            _logger.LogError(
+                ex,
+                "Unhandled exception while importing project from {PackagePath}",
+                packagePath
+            );
             _ = ex.Handle();
             NotificationService.ShowError(Strings.ImportProject, MessageStrings.OperationFailed);
         }

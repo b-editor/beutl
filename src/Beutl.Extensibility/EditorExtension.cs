@@ -12,15 +12,14 @@ public abstract class EditorExtension : ViewExtension
 
     public abstract IconSource? GetIcon();
 
-    public abstract bool TryCreateEditor(
-        CoreObject obj,
-        [NotNullWhen(true)] out Control? editor);
+    public abstract bool TryCreateEditor(CoreObject obj, [NotNullWhen(true)] out Control? editor);
 
     // NOTE: ここからProjectItemを取得する場合、
     //       ProjectItemContainerから取得すればいい
     public abstract bool TryCreateContext(
         CoreObject obj,
-        [NotNullWhen(true)] out IEditorContext? context);
+        [NotNullWhen(true)] out IEditorContext? context
+    );
 
     public virtual bool IsSupported(string? file)
     {

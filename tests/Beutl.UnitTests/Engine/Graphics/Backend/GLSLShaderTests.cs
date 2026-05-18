@@ -33,7 +33,10 @@ public class GLSLShaderTests
         """;
 
     [StructLayout(LayoutKind.Sequential)]
-    private struct DummyPush { public float Dummy; }
+    private struct DummyPush
+    {
+        public float Dummy;
+    }
 
     [Test]
     public void TryCreate_ValidShader_Succeeds()
@@ -109,7 +112,8 @@ public class GLSLShaderTests
             var ctx = CreateCustomContext(targets);
 
             Assert.Throws<ObjectDisposedException>(() =>
-                shader.Apply<DummyPush>(ctx, new DummyPush()));
+                shader.Apply<DummyPush>(ctx, new DummyPush())
+            );
         });
     }
 
@@ -160,6 +164,6 @@ public class GLSLShaderTests
         });
     }
 
-    private static CustomFilterEffectContext CreateCustomContext(EffectTargets targets)
-        => new CustomFilterEffectContext(targets);
+    private static CustomFilterEffectContext CreateCustomContext(EffectTargets targets) =>
+        new CustomFilterEffectContext(targets);
 }

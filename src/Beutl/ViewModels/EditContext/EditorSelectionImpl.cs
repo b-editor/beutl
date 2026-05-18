@@ -13,10 +13,10 @@ internal sealed class EditorSelectionImpl : IEditorSelection, IDisposable
 
     public EditorSelectionImpl()
     {
-        SelectedObject = new ReactiveProperty<CoreObject?>()
-            .DisposeWith(_disposables);
+        SelectedObject = new ReactiveProperty<CoreObject?>().DisposeWith(_disposables);
 
-        SelectedObject.CombineWithPrevious()
+        SelectedObject
+            .CombineWithPrevious()
             .Subscribe(v =>
             {
                 if (v.OldValue is IHierarchical oldHierarchical)
@@ -27,9 +27,11 @@ internal sealed class EditorSelectionImpl : IEditorSelection, IDisposable
             })
             .DisposeWith(_disposables);
 
-        SelectedLayerNumber = SelectedObject.Select(v =>
-                (v as Element)?.GetObservable(Element.ZIndexProperty).Select(i => (int?)i) ??
-                Observable.ReturnThenNever<int?>(null))
+        SelectedLayerNumber = SelectedObject
+            .Select(v =>
+                (v as Element)?.GetObservable(Element.ZIndexProperty).Select(i => (int?)i)
+                ?? Observable.ReturnThenNever<int?>(null)
+            )
             .Switch()
             .ToReadOnlyReactivePropertySlim()
             .AddTo(_disposables);
@@ -43,7 +45,10 @@ internal sealed class EditorSelectionImpl : IEditorSelection, IDisposable
 
     IReadOnlyReactiveProperty<int?> IEditorSelection.SelectedLayerNumber => SelectedLayerNumber;
 
-    private void OnSelectedObjectDetachedFromHierarchy(object? sender, HierarchyAttachmentEventArgs e)
+    private void OnSelectedObjectDetachedFromHierarchy(
+        object? sender,
+        HierarchyAttachmentEventArgs e
+    )
     {
         _logger.LogInformation("Selected object detached from hierarchy, clearing selection.");
         SelectedObject.Value = null;

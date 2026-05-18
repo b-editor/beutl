@@ -15,12 +15,11 @@ public partial class OutputView : UserControl
 
     private async void SelectDestinationFileClick(object? sender, RoutedEventArgs e)
     {
-        if (DataContext is OutputViewModel viewModel
-            && VisualRoot is TopLevel topLevel)
+        if (DataContext is OutputViewModel viewModel && VisualRoot is TopLevel topLevel)
         {
             var options = new FilePickerSaveOptions()
             {
-                FileTypeChoices = OutputViewModel.GetFilePickerFileTypes()
+                FileTypeChoices = OutputViewModel.GetFilePickerFileTypes(),
             };
             IStorageFile? file = await topLevel.StorageProvider.SaveFilePickerAsync(options);
 
@@ -34,7 +33,8 @@ public partial class OutputView : UserControl
 
     private async void StartEncodeClick(object? sender, RoutedEventArgs e)
     {
-        if (DataContext is not OutputViewModel viewModel) return;
+        if (DataContext is not OutputViewModel viewModel)
+            return;
 
         var dialog = new OutputProgressDialog { DataContext = viewModel };
         _ = dialog.ShowAsync();

@@ -111,8 +111,7 @@ public class RectTests
     [Test]
     public void Intersect()
     {
-        Rect rect = new Rect(0, 0, 100, 100)
-            .Intersect(new Rect(50, 50, 100, 100));
+        Rect rect = new Rect(0, 0, 100, 100).Intersect(new Rect(50, 50, 100, 100));
 
         Assert.That(rect, Is.EqualTo(new Rect(50, 50, 50, 50)));
     }
@@ -148,15 +147,16 @@ public class RectTests
     [Test]
     public void Normalize()
     {
-        Rect rect = new Rect(new Point(100, 100), new Point(0, 0))
-            .Normalize();
+        Rect rect = new Rect(new Point(100, 100), new Point(0, 0)).Normalize();
 
         Assert.That(rect, Is.EqualTo(new Rect(0, 0, 100, 100)));
 
         rect = new Rect(
-            float.NegativeInfinity, float.PositiveInfinity,
-            float.PositiveInfinity, float.PositiveInfinity)
-            .Normalize();
+            float.NegativeInfinity,
+            float.PositiveInfinity,
+            float.PositiveInfinity,
+            float.PositiveInfinity
+        ).Normalize();
 
         Assert.That(rect, Is.EqualTo(Rect.Empty));
     }
@@ -164,8 +164,7 @@ public class RectTests
     [Test]
     public void Union()
     {
-        Rect rect = new Rect(0, 0, 100, 100)
-            .Union(new Rect(50, 50, 100, 100));
+        Rect rect = new Rect(0, 0, 100, 100).Union(new Rect(50, 50, 100, 100));
 
         Assert.That(rect, Is.EqualTo(new Rect(0, 0, 150, 150)));
     }

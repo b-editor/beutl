@@ -73,7 +73,11 @@ public class ArrayTypeHelpersTests
     public void ConvertArrayType_ToList_PopulatesList()
     {
         var output = new List<object?> { "a", "b" };
-        object result = ArrayTypeHelpers.ConvertArrayType(output, typeof(List<string>), typeof(string));
+        object result = ArrayTypeHelpers.ConvertArrayType(
+            output,
+            typeof(List<string>),
+            typeof(string)
+        );
 
         Assert.That(result, Is.InstanceOf<List<string>>());
         Assert.That((List<string>)result, Is.EqualTo(new[] { "a", "b" }));
@@ -82,12 +86,12 @@ public class ArrayTypeHelpersTests
     [Test]
     public void ConvertDictionaryType_ToDictionary_PopulatesEntries()
     {
-        var output = new List<KeyValuePair<string, object?>>
-        {
-            new("k1", 1),
-            new("k2", 2),
-        };
-        object result = ArrayTypeHelpers.ConvertDictionaryType(output, typeof(Dictionary<string, int>), typeof(int));
+        var output = new List<KeyValuePair<string, object?>> { new("k1", 1), new("k2", 2) };
+        object result = ArrayTypeHelpers.ConvertDictionaryType(
+            output,
+            typeof(Dictionary<string, int>),
+            typeof(int)
+        );
 
         Assert.That(result, Is.InstanceOf<Dictionary<string, int>>());
         var dict = (Dictionary<string, int>)result;
@@ -101,15 +105,12 @@ public class ArrayTypeHelpersTests
     [Test]
     public void ConvertDictionaryType_ToArray_ReturnsKeyValuePairArray()
     {
-        var output = new List<KeyValuePair<string, object?>>
-        {
-            new("a", "1"),
-            new("b", "2"),
-        };
+        var output = new List<KeyValuePair<string, object?>> { new("a", "1"), new("b", "2") };
         object result = ArrayTypeHelpers.ConvertDictionaryType(
             output,
             typeof(KeyValuePair<string, string>[]),
-            typeof(string));
+            typeof(string)
+        );
 
         Assert.That(result, Is.TypeOf<KeyValuePair<string, string>[]>());
         var arr = (KeyValuePair<string, string>[])result;

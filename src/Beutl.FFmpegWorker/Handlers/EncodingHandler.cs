@@ -12,9 +12,14 @@ internal sealed class EncodingHandler : IDisposable
 {
     private CancellationTokenSource? _encodeCts;
 
-    public async Task<IpcMessage> HandleStartAsync(IpcMessage msg, IpcConnection connection, CancellationToken ct)
+    public async Task<IpcMessage> HandleStartAsync(
+        IpcMessage msg,
+        IpcConnection connection,
+        CancellationToken ct
+    )
     {
-        var request = msg.GetPayload<EncodeStartRequest>()
+        var request =
+            msg.GetPayload<EncodeStartRequest>()
             ?? throw new InvalidOperationException("Missing payload for StartEncode");
 
         _encodeCts?.Dispose();
@@ -23,21 +28,32 @@ internal sealed class EncodingHandler : IDisposable
         try
         {
             var encodingSettings = new FFmpegEncodingSettings();
-            encodingSettings.Acceleration = (FFmpegEncodingSettings.AccelerationOptions)request.Acceleration;
+            encodingSettings.Acceleration = (FFmpegEncodingSettings.AccelerationOptions)
+                request.Acceleration;
             encodingSettings.ThreadCount = request.ThreadCount;
 
             var controller = new FFmpegEncodingController(request.OutputFile, encodingSettings);
 
             // Video settings
-            controller.VideoSettings.SourceSize = new PixelSize(request.SourceWidth, request.SourceHeight);
-            controller.VideoSettings.DestinationSize = new PixelSize(request.DestWidth, request.DestHeight);
-            controller.VideoSettings.FrameRate = new Rational(request.FrameRateNum, request.FrameRateDen);
+            controller.VideoSettings.SourceSize = new PixelSize(
+                request.SourceWidth,
+                request.SourceHeight
+            );
+            controller.VideoSettings.DestinationSize = new PixelSize(
+                request.DestWidth,
+                request.DestHeight
+            );
+            controller.VideoSettings.FrameRate = new Rational(
+                request.FrameRateNum,
+                request.FrameRateDen
+            );
             controller.VideoSettings.Bitrate = request.VideoBitrate;
             controller.VideoSettings.KeyframeRate = request.KeyframeRate;
             controller.VideoSettings.Format = request.PixelFormat;
-            controller.VideoSettings.Codec = request.VideoCodecName == "Default"
-                ? CodecRecord.Default
-                : new CodecRecord(request.VideoCodecName, request.VideoCodecName);
+            controller.VideoSettings.Codec =
+                request.VideoCodecName == "Default"
+                    ? CodecRecord.Default
+                    : new CodecRecord(request.VideoCodecName, request.VideoCodecName);
             controller.VideoSettings.ColorPrimaries = request.ColorPrimaries;
             controller.VideoSettings.ColorTrc = request.ColorTrc;
             controller.VideoSettings.ColorSpace = request.ColorSpace;
@@ -54,10 +70,12 @@ internal sealed class EncodingHandler : IDisposable
             controller.AudioSettings.SampleRate = request.AudioSampleRate;
             controller.AudioSettings.Channels = request.AudioChannels;
             controller.AudioSettings.Bitrate = request.AudioBitrate;
-            controller.AudioSettings.Format = (FFmpegAudioEncoderSettings.AudioFormat)request.AudioFormat;
-            controller.AudioSettings.Codec = request.AudioCodecName == "Default"
-                ? CodecRecord.Default
-                : new CodecRecord(request.AudioCodecName, request.AudioCodecName);
+            controller.AudioSettings.Format = (FFmpegAudioEncoderSettings.AudioFormat)
+                request.AudioFormat;
+            controller.AudioSettings.Codec =
+                request.AudioCodecName == "Default"
+                    ? CodecRecord.Default
+                    : new CodecRecord(request.AudioCodecName, request.AudioCodecName);
 
             // 共有メモリ作成 (ダブルバッファリング)
             long videoBufferSize = (long)request.SourceWidth * request.SourceHeight * 8 + 64;
@@ -77,45 +95,70 @@ internal sealed class EncodingHandler : IDisposable
             SharedMemoryBuffer[] audioBuffers = [audioBuffer0, audioBuffer1];
 
             // 共有メモリ作成完了後にACK送信（名前とサイズを含む）
-            await connection.SendAsync(IpcMessage.Create(msg.Id, MessageType.StartEncodeAck,
-                new EncodeStartAckMessage
-                {
-                    VideoSharedMemoryName = videoShmName0,
-                    AudioSharedMemoryName = audioShmName0,
-                    VideoBufferSize = videoBufferSize,
-                    AudioBufferSize = audioBufferSize,
-                    VideoSharedMemoryName2 = videoShmName1,
-                    AudioSharedMemoryName2 = audioShmName1,
-                }));
+            await connection.SendAsync(
+                IpcMessage.Create(
+                    msg.Id,
+                    MessageType.StartEncodeAck,
+                    new EncodeStartAckMessage
+                    {
+                        VideoSharedMemoryName = videoShmName0,
+                        AudioSharedMemoryName = audioShmName0,
+                        VideoBufferSize = videoBufferSize,
+                        AudioBufferSize = audioBufferSize,
+                        VideoSharedMemoryName2 = videoShmName1,
+                        AudioSharedMemoryName2 = audioShmName1,
+                    }
+                )
+            );
 
-            var frameProvider = new IpcFrameProvider(connection, videoBuffers,
-                request.FrameCount, new Rational(request.FrameRateNum, request.FrameRateDen));
-            var sampleProvider = new IpcSampleProvider(connection, audioBuffers,
-                request.SampleCount, request.ProviderSampleRate);
+            var frameProvider = new IpcFrameProvider(
+                connection,
+                videoBuffers,
+                request.FrameCount,
+                new Rational(request.FrameRateNum, request.FrameRateDen)
+            );
+            var sampleProvider = new IpcSampleProvider(
+                connection,
+                audioBuffers,
+                request.SampleCount,
+                request.ProviderSampleRate
+            );
 
             await controller.Encode(frameProvider, sampleProvider, _encodeCts.Token);
 
-            return IpcMessage.Create(msg.Id, MessageType.EncodeComplete,
-                new EncodeCompleteMessage { Success = true });
+            return IpcMessage.Create(
+                msg.Id,
+                MessageType.EncodeComplete,
+                new EncodeCompleteMessage { Success = true }
+            );
         }
         catch (OperationCanceledException)
         {
-            return IpcMessage.Create(msg.Id, MessageType.EncodeComplete,
-                new EncodeCompleteMessage { Success = false, Error = "Cancelled" });
+            return IpcMessage.Create(
+                msg.Id,
+                MessageType.EncodeComplete,
+                new EncodeCompleteMessage { Success = false, Error = "Cancelled" }
+            );
         }
         catch (Exception ex)
         {
             WorkerLog.Error("Encoding failed", ex);
-            return IpcMessage.Create(msg.Id, MessageType.EncodeComplete,
-                new EncodeCompleteMessage { Success = false, Error = ex.Message });
+            return IpcMessage.Create(
+                msg.Id,
+                MessageType.EncodeComplete,
+                new EncodeCompleteMessage { Success = false, Error = ex.Message }
+            );
         }
     }
 
     public IpcMessage HandleCancel(IpcMessage msg)
     {
         _encodeCts?.Cancel();
-        return IpcMessage.Create(msg.Id, MessageType.EncodeComplete,
-            new EncodeCompleteMessage { Success = false, Error = "Cancelled" });
+        return IpcMessage.Create(
+            msg.Id,
+            MessageType.EncodeComplete,
+            new EncodeCompleteMessage { Success = false, Error = "Cancelled" }
+        );
     }
 
     public void Dispose()

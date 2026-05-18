@@ -19,5 +19,5 @@ public enum ColorSpectrumShape
     /// <summary>
     /// The <see cref="ColorSpectrum"/> should display as a HSV Color Triangle
     /// </summary>
-    Triangle
+    Triangle,
 }

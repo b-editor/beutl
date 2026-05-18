@@ -17,7 +17,12 @@ public static class FFmpegError
         }
     }
 
-    internal static int IfError(this int errorCode, int handledError, ErrorHandler action, bool handles = true)
+    internal static int IfError(
+        this int errorCode,
+        int handledError,
+        ErrorHandler action,
+        bool handles = true
+    )
     {
         if (errorCode == handledError)
         {
@@ -27,8 +32,8 @@ public static class FFmpegError
         return handles ? 0 : errorCode;
     }
 
-    internal static int IfError(this int errorCode, int handledError, string exceptionMessage)
-        => errorCode.IfError(handledError, x => throw new Exception(exceptionMessage));
+    internal static int IfError(this int errorCode, int handledError, string exceptionMessage) =>
+        errorCode.IfError(handledError, x => throw new Exception(exceptionMessage));
 
     private static string Utf8ToString(this IntPtr pointer)
     {

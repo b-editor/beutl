@@ -12,6 +12,7 @@ public sealed class ObjectPropertyTabViewModel : IToolContext
     private readonly CompositeDisposable _disposables = [];
     private readonly IEditorContext _editorContext;
     private readonly IPropertiesEditorFactory _factory;
+
     // インデックスが大きい方が新しい
     private readonly List<IPropertiesEditorViewModel> _cache = new(8);
     private readonly List<WeakReference<ICoreObject>> _backStack = new(32);
@@ -23,8 +24,9 @@ public sealed class ObjectPropertyTabViewModel : IToolContext
         _editorContext = editorContext;
         _factory = editorContext.GetRequiredService<IPropertiesEditorFactory>();
 
-        editorContext.GetRequiredService<IEditorSelection>().SelectedObject
-            .Subscribe(obj => NavigateCore(obj, false, null))
+        editorContext
+            .GetRequiredService<IEditorSelection>()
+            .SelectedObject.Subscribe(obj => NavigateCore(obj, false, null))
             .DisposeWith(_disposables);
     }
 
@@ -47,7 +49,10 @@ public sealed class ObjectPropertyTabViewModel : IToolContext
             WeakReference<ICoreObject> item = _backStack[i];
             if (item.TryGetTarget(out ICoreObject? obj))
             {
-                IServiceProvider? provider = _providers.TryGetValue(obj, out IServiceProvider? p) ? p : null; ;
+                IServiceProvider? provider = _providers.TryGetValue(obj, out IServiceProvider? p)
+                    ? p
+                    : null;
+                ;
                 NavigateCore(obj, true, provider);
                 return;
             }
@@ -62,8 +67,10 @@ public sealed class ObjectPropertyTabViewModel : IToolContext
     public void NavigateCore(ICoreObject? obj, bool back, IServiceProvider? provider)
     {
         ChildContext.Value = null;
-        WeakReference<ICoreObject> weakRef = _backStack.Find(x => x.TryGetTarget(out ICoreObject? item) && ReferenceEquals(item, obj))
-            ?? new WeakReference<ICoreObject>(obj!);
+        WeakReference<ICoreObject> weakRef =
+            _backStack.Find(x =>
+                x.TryGetTarget(out ICoreObject? item) && ReferenceEquals(item, obj)
+            ) ?? new WeakReference<ICoreObject>(obj!);
 
         if (obj != null)
         {
@@ -132,13 +139,9 @@ public sealed class ObjectPropertyTabViewModel : IToolContext
         _disposables.Dispose();
     }
 
-    public void ReadFromJson(JsonObject json)
-    {
-    }
+    public void ReadFromJson(JsonObject json) { }
 
-    public void WriteToJson(JsonObject json)
-    {
-    }
+    public void WriteToJson(JsonObject json) { }
 
     public object? GetService(Type serviceType)
     {
@@ -161,15 +164,15 @@ public sealed class ObjectPropertyTabViewModel : IToolContext
         }
     }
 
-    private sealed record Visitor(IServiceProvider Obj) : IServiceProvider, IPropertyEditorContextVisitor
+    private sealed record Visitor(IServiceProvider Obj)
+        : IServiceProvider,
+            IPropertyEditorContextVisitor
     {
         public object? GetService(Type serviceType)
         {
             return Obj.GetService(serviceType);
         }
 
-        public void Visit(IPropertyEditorContext context)
-        {
-        }
+        public void Visit(IPropertyEditorContext context) { }
     }
 }

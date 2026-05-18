@@ -28,7 +28,7 @@ internal struct PresentPushConstants
     public float DstH;
     public float Exposure;
     public int TmOperator; // 0=None, 1=Reinhard, 2=ACES, 3=Hable
-    public int LinearToSrgb;      // 1 = LinearからGammaへの変換が必要
+    public int LinearToSrgb; // 1 = LinearからGammaへの変換が必要
     public int IsSourceLinear; // 1 = Linear, 0 = Gamma
 }
 
@@ -136,7 +136,13 @@ internal sealed unsafe class VulkanPresentPipeline : IDisposable
     private Framebuffer[] _framebuffers = [];
     private bool _disposed;
 
-    public VulkanPresentPipeline(Vk vk, Device device, Format swapchainFormat, ImageView[] swapchainImageViews, Extent2D extent)
+    public VulkanPresentPipeline(
+        Vk vk,
+        Device device,
+        Format swapchainFormat,
+        ImageView[] swapchainImageViews,
+        Extent2D extent
+    )
     {
         _vk = vk;
         _device = device;
@@ -167,7 +173,7 @@ internal sealed unsafe class VulkanPresentPipeline : IDisposable
                 SType = StructureType.DescriptorSetAllocateInfo,
                 DescriptorPool = _descriptorPool,
                 DescriptorSetCount = 1,
-                PSetLayouts = pLayout
+                PSetLayouts = pLayout,
             };
 
             DescriptorSet descriptorSet;
@@ -191,7 +197,7 @@ internal sealed unsafe class VulkanPresentPipeline : IDisposable
         {
             Sampler = _sampler,
             ImageView = textureView,
-            ImageLayout = ImageLayout.ShaderReadOnlyOptimal
+            ImageLayout = ImageLayout.ShaderReadOnlyOptimal,
         };
 
         var write = new WriteDescriptorSet
@@ -202,7 +208,7 @@ internal sealed unsafe class VulkanPresentPipeline : IDisposable
             DstArrayElement = 0,
             DescriptorType = VkDescriptorType.CombinedImageSampler,
             DescriptorCount = 1,
-            PImageInfo = &imageInfo
+            PImageInfo = &imageInfo,
         };
 
         _vk.UpdateDescriptorSets(_device, 1, &write, 0, null);
@@ -225,20 +231,20 @@ internal sealed unsafe class VulkanPresentPipeline : IDisposable
             StencilLoadOp = VkAttachmentLoadOp.DontCare,
             StencilStoreOp = AttachmentStoreOp.DontCare,
             InitialLayout = ImageLayout.Undefined,
-            FinalLayout = ImageLayout.PresentSrcKhr
+            FinalLayout = ImageLayout.PresentSrcKhr,
         };
 
         var colorAttachmentRef = new AttachmentReference
         {
             Attachment = 0,
-            Layout = ImageLayout.ColorAttachmentOptimal
+            Layout = ImageLayout.ColorAttachmentOptimal,
         };
 
         var subpass = new SubpassDescription
         {
             PipelineBindPoint = PipelineBindPoint.Graphics,
             ColorAttachmentCount = 1,
-            PColorAttachments = &colorAttachmentRef
+            PColorAttachments = &colorAttachmentRef,
         };
 
         var dependency = new SubpassDependency
@@ -248,7 +254,7 @@ internal sealed unsafe class VulkanPresentPipeline : IDisposable
             SrcStageMask = PipelineStageFlags.ColorAttachmentOutputBit,
             SrcAccessMask = 0,
             DstStageMask = PipelineStageFlags.ColorAttachmentOutputBit,
-            DstAccessMask = AccessFlags.ColorAttachmentWriteBit
+            DstAccessMask = AccessFlags.ColorAttachmentWriteBit,
         };
 
         var renderPassInfo = new RenderPassCreateInfo
@@ -259,7 +265,7 @@ internal sealed unsafe class VulkanPresentPipeline : IDisposable
             SubpassCount = 1,
             PSubpasses = &subpass,
             DependencyCount = 1,
-            PDependencies = &dependency
+            PDependencies = &dependency,
         };
 
         RenderPass renderPass;
@@ -277,20 +283,22 @@ internal sealed unsafe class VulkanPresentPipeline : IDisposable
             Binding = 0,
             DescriptorType = VkDescriptorType.CombinedImageSampler,
             DescriptorCount = 1,
-            StageFlags = ShaderStageFlags.FragmentBit
+            StageFlags = ShaderStageFlags.FragmentBit,
         };
 
         var layoutInfo = new DescriptorSetLayoutCreateInfo
         {
             SType = StructureType.DescriptorSetLayoutCreateInfo,
             BindingCount = 1,
-            PBindings = &binding
+            PBindings = &binding,
         };
 
         DescriptorSetLayout layout;
         var result = _vk.CreateDescriptorSetLayout(_device, &layoutInfo, null, &layout);
         if (result != Result.Success)
-            throw new InvalidOperationException($"Failed to create descriptor set layout: {result}");
+            throw new InvalidOperationException(
+                $"Failed to create descriptor set layout: {result}"
+            );
 
         _descriptorSetLayout = layout;
     }
@@ -301,7 +309,7 @@ internal sealed unsafe class VulkanPresentPipeline : IDisposable
         {
             StageFlags = ShaderStageFlags.FragmentBit,
             Offset = 0,
-            Size = (uint)sizeof(PresentPushConstants)
+            Size = (uint)sizeof(PresentPushConstants),
         };
 
         fixed (DescriptorSetLayout* pLayout = &_descriptorSetLayout)
@@ -312,7 +320,7 @@ internal sealed unsafe class VulkanPresentPipeline : IDisposable
                 SetLayoutCount = 1,
                 PSetLayouts = pLayout,
                 PushConstantRangeCount = 1,
-                PPushConstantRanges = &pushConstantRange
+                PPushConstantRanges = &pushConstantRange,
             };
 
             PipelineLayout pipelineLayout;
@@ -343,25 +351,25 @@ internal sealed unsafe class VulkanPresentPipeline : IDisposable
                 SType = StructureType.PipelineShaderStageCreateInfo,
                 Stage = ShaderStageFlags.VertexBit,
                 Module = vertModule,
-                PName = entryPoint
+                PName = entryPoint,
             };
             shaderStages[1] = new PipelineShaderStageCreateInfo
             {
                 SType = StructureType.PipelineShaderStageCreateInfo,
                 Stage = ShaderStageFlags.FragmentBit,
                 Module = fragModule,
-                PName = entryPoint
+                PName = entryPoint,
             };
 
             var vertexInputInfo = new PipelineVertexInputStateCreateInfo
             {
-                SType = StructureType.PipelineVertexInputStateCreateInfo
+                SType = StructureType.PipelineVertexInputStateCreateInfo,
             };
 
             var inputAssembly = new PipelineInputAssemblyStateCreateInfo
             {
                 SType = StructureType.PipelineInputAssemblyStateCreateInfo,
-                Topology = PrimitiveTopology.TriangleList
+                Topology = PrimitiveTopology.TriangleList,
             };
 
             var viewport = new Viewport
@@ -371,14 +379,10 @@ internal sealed unsafe class VulkanPresentPipeline : IDisposable
                 Width = extent.Width,
                 Height = extent.Height,
                 MinDepth = 0,
-                MaxDepth = 1
+                MaxDepth = 1,
             };
 
-            var scissor = new Rect2D
-            {
-                Offset = new Offset2D(0, 0),
-                Extent = extent
-            };
+            var scissor = new Rect2D { Offset = new Offset2D(0, 0), Extent = extent };
 
             var viewportState = new PipelineViewportStateCreateInfo
             {
@@ -386,7 +390,7 @@ internal sealed unsafe class VulkanPresentPipeline : IDisposable
                 ViewportCount = 1,
                 PViewports = &viewport,
                 ScissorCount = 1,
-                PScissors = &scissor
+                PScissors = &scissor,
             };
 
             var rasterizer = new PipelineRasterizationStateCreateInfo
@@ -395,41 +399,48 @@ internal sealed unsafe class VulkanPresentPipeline : IDisposable
                 PolygonMode = PolygonMode.Fill,
                 LineWidth = 1.0f,
                 CullMode = CullModeFlags.None,
-                FrontFace = VkFrontFace.CounterClockwise
+                FrontFace = VkFrontFace.CounterClockwise,
             };
 
             var multisampling = new PipelineMultisampleStateCreateInfo
             {
                 SType = StructureType.PipelineMultisampleStateCreateInfo,
-                RasterizationSamples = SampleCountFlags.Count1Bit
+                RasterizationSamples = SampleCountFlags.Count1Bit,
             };
 
             var colorBlendAttachment = new PipelineColorBlendAttachmentState
             {
-                ColorWriteMask = ColorComponentFlags.RBit | ColorComponentFlags.GBit |
-                                 ColorComponentFlags.BBit | ColorComponentFlags.ABit,
+                ColorWriteMask =
+                    ColorComponentFlags.RBit
+                    | ColorComponentFlags.GBit
+                    | ColorComponentFlags.BBit
+                    | ColorComponentFlags.ABit,
                 BlendEnable = Vk.True,
                 SrcColorBlendFactor = VkBlendFactor.One,
                 DstColorBlendFactor = VkBlendFactor.OneMinusSrcAlpha,
                 ColorBlendOp = VkBlendOp.Add,
                 SrcAlphaBlendFactor = VkBlendFactor.One,
                 DstAlphaBlendFactor = VkBlendFactor.OneMinusSrcAlpha,
-                AlphaBlendOp = VkBlendOp.Add
+                AlphaBlendOp = VkBlendOp.Add,
             };
 
             var colorBlending = new PipelineColorBlendStateCreateInfo
             {
                 SType = StructureType.PipelineColorBlendStateCreateInfo,
                 AttachmentCount = 1,
-                PAttachments = &colorBlendAttachment
+                PAttachments = &colorBlendAttachment,
             };
 
-            var dynamicStates = stackalloc DynamicState[] { DynamicState.Viewport, DynamicState.Scissor };
+            var dynamicStates = stackalloc DynamicState[]
+            {
+                DynamicState.Viewport,
+                DynamicState.Scissor,
+            };
             var dynamicState = new PipelineDynamicStateCreateInfo
             {
                 SType = StructureType.PipelineDynamicStateCreateInfo,
                 DynamicStateCount = 2,
-                PDynamicStates = dynamicStates
+                PDynamicStates = dynamicStates,
             };
 
             var pipelineInfo = new GraphicsPipelineCreateInfo
@@ -446,13 +457,22 @@ internal sealed unsafe class VulkanPresentPipeline : IDisposable
                 PDynamicState = &dynamicState,
                 Layout = _pipelineLayout,
                 RenderPass = _renderPass,
-                Subpass = 0
+                Subpass = 0,
             };
 
             Pipeline pipeline;
-            var result = _vk.CreateGraphicsPipelines(_device, default, 1, &pipelineInfo, null, &pipeline);
+            var result = _vk.CreateGraphicsPipelines(
+                _device,
+                default,
+                1,
+                &pipelineInfo,
+                null,
+                &pipeline
+            );
             if (result != Result.Success)
-                throw new InvalidOperationException($"Failed to create graphics pipeline: {result}");
+                throw new InvalidOperationException(
+                    $"Failed to create graphics pipeline: {result}"
+                );
 
             _pipeline = pipeline;
 
@@ -475,7 +495,7 @@ internal sealed unsafe class VulkanPresentPipeline : IDisposable
             {
                 SType = StructureType.ShaderModuleCreateInfo,
                 CodeSize = (nuint)spirv.Length,
-                PCode = (uint*)pCode
+                PCode = (uint*)pCode,
             };
 
             ShaderModule module;
@@ -498,7 +518,7 @@ internal sealed unsafe class VulkanPresentPipeline : IDisposable
             AddressModeV = VkSamplerAddressMode.ClampToEdge,
             AddressModeW = VkSamplerAddressMode.ClampToEdge,
             MipmapMode = SamplerMipmapMode.Linear,
-            MaxLod = 1.0f
+            MaxLod = 1.0f,
         };
 
         Silk.NET.Vulkan.Sampler sampler;
@@ -514,7 +534,7 @@ internal sealed unsafe class VulkanPresentPipeline : IDisposable
         var poolSize = new VkDescriptorPoolSize
         {
             Type = VkDescriptorType.CombinedImageSampler,
-            DescriptorCount = 4
+            DescriptorCount = 4,
         };
 
         var poolInfo = new DescriptorPoolCreateInfo
@@ -523,7 +543,7 @@ internal sealed unsafe class VulkanPresentPipeline : IDisposable
             PoolSizeCount = 1,
             PPoolSizes = &poolSize,
             MaxSets = 4,
-            Flags = DescriptorPoolCreateFlags.FreeDescriptorSetBit
+            Flags = DescriptorPoolCreateFlags.FreeDescriptorSetBit,
         };
 
         DescriptorPool pool;
@@ -550,7 +570,7 @@ internal sealed unsafe class VulkanPresentPipeline : IDisposable
                 PAttachments = &attachment,
                 Width = extent.Width,
                 Height = extent.Height,
-                Layers = 1
+                Layers = 1,
             };
 
             Framebuffer framebuffer;

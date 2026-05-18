@@ -5,5 +5,5 @@ public enum GradientSpreadMethod
     Pad,
     Reflect,
     Repeat,
-    Decal
+    Decal,
 }

@@ -1,14 +1,11 @@
 ﻿using System.Globalization;
-
 using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
 using Avalonia.Media;
 using Avalonia.Styling;
-
 using Beutl.Configuration;
 using Beutl.PackageTools.UI.Views;
-
 using FluentAvalonia.Styling;
 
 namespace Beutl.PackageTools.UI;
@@ -40,8 +37,10 @@ public partial class App : Application
                 break;
         }
 
-
-        if (view.UseCustomAccentColor && Color.TryParse(view.CustomAccentColor, out Color customColor))
+        if (
+            view.UseCustomAccentColor
+            && Color.TryParse(view.CustomAccentColor, out Color customColor)
+        )
         {
             theme.CustomAccentColor = customColor;
         }

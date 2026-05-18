@@ -22,7 +22,8 @@ public class TileBrushCalculatorTests
             FullRect,
             destinationRel,
             new Size(100, 100),
-            new Size(200, 200));
+            new Size(200, 200)
+        );
 
         // destinationRel.ToPixels(target) = (50, 100, 100, 100)
         Assert.Multiple(() =>
@@ -47,7 +48,8 @@ public class TileBrushCalculatorTests
             FullRect,
             FullRect,
             new Size(50, 50),
-            new Size(200, 200));
+            new Size(200, 200)
+        );
 
         Assert.Multiple(() =>
         {
@@ -68,7 +70,8 @@ public class TileBrushCalculatorTests
             FullRect,
             FullRect,
             new Size(100, 100),
-            new Size(100, 100));
+            new Size(100, 100)
+        );
 
         Assert.That(calc.NeedsIntermediate, Is.False);
     }
@@ -81,7 +84,8 @@ public class TileBrushCalculatorTests
             AlignmentY.Top,
             sourceRect: new Rect(0, 0, 100, 100),
             destinationRect: new Rect(0, 0, 200, 200),
-            scale: new Vector(1f, 1f));
+            scale: new Vector(1f, 1f)
+        );
 
         Assert.That(v, Is.EqualTo(new Vector(0f, 0f)));
     }
@@ -94,7 +98,8 @@ public class TileBrushCalculatorTests
             AlignmentY.Center,
             sourceRect: new Rect(0, 0, 100, 100),
             destinationRect: new Rect(0, 0, 200, 200),
-            scale: new Vector(1f, 1f));
+            scale: new Vector(1f, 1f)
+        );
 
         Assert.That(v, Is.EqualTo(new Vector(50f, 50f)));
     }
@@ -107,7 +112,8 @@ public class TileBrushCalculatorTests
             AlignmentY.Bottom,
             sourceRect: new Rect(0, 0, 100, 100),
             destinationRect: new Rect(0, 0, 200, 200),
-            scale: new Vector(1f, 1f));
+            scale: new Vector(1f, 1f)
+        );
 
         Assert.That(v, Is.EqualTo(new Vector(100f, 100f)));
     }
@@ -121,7 +127,8 @@ public class TileBrushCalculatorTests
             destinationRect: new Rect(20, 20, 100, 100),
             scale: new Vector(1f, 1f),
             translate: new Vector(0f, 0f),
-            out Rect drawRect);
+            out Rect drawRect
+        );
 
         Assert.Multiple(() =>
         {
@@ -139,7 +146,8 @@ public class TileBrushCalculatorTests
             destinationRect: new Rect(20, 30, 100, 100),
             scale: new Vector(1f, 1f),
             translate: new Vector(0f, 0f),
-            out Rect drawRect);
+            out Rect drawRect
+        );
 
         Assert.That(drawRect, Is.EqualTo(new Rect(20, 30, 100, 100)));
     }

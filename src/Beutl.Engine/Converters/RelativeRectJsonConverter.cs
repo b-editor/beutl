@@ -7,7 +7,11 @@ namespace Beutl.Converters;
 
 internal sealed class RelativeRectJsonConverter : JsonConverter<RelativeRect>
 {
-    public override RelativeRect Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    public override RelativeRect Read(
+        ref Utf8JsonReader reader,
+        Type typeToConvert,
+        JsonSerializerOptions options
+    )
     {
         // 互換性のため
         if (reader.TokenType == JsonTokenType.StartObject)
@@ -35,7 +39,11 @@ internal sealed class RelativeRectJsonConverter : JsonConverter<RelativeRect>
         return RelativeRect.Parse(s);
     }
 
-    public override void Write(Utf8JsonWriter writer, RelativeRect value, JsonSerializerOptions options)
+    public override void Write(
+        Utf8JsonWriter writer,
+        RelativeRect value,
+        JsonSerializerOptions options
+    )
     {
         writer.WriteStringValue(value.ToString());
     }

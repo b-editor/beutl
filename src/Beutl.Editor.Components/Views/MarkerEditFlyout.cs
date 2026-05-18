@@ -12,17 +12,25 @@ namespace Beutl.Editor.Components.Views;
 
 public sealed class MarkerEditFlyout : PickerFlyoutBase
 {
-    public static readonly StyledProperty<TimeSpan> TimeProperty
-        = AvaloniaProperty.Register<MarkerEditFlyout, TimeSpan>(nameof(Time));
+    public static readonly StyledProperty<TimeSpan> TimeProperty = AvaloniaProperty.Register<
+        MarkerEditFlyout,
+        TimeSpan
+    >(nameof(Time));
 
-    public static readonly StyledProperty<string> MarkerNameProperty
-        = AvaloniaProperty.Register<MarkerEditFlyout, string>(nameof(MarkerName), string.Empty);
+    public static readonly StyledProperty<string> MarkerNameProperty = AvaloniaProperty.Register<
+        MarkerEditFlyout,
+        string
+    >(nameof(MarkerName), string.Empty);
 
-    public static readonly StyledProperty<string> NoteProperty
-        = AvaloniaProperty.Register<MarkerEditFlyout, string>(nameof(Note), string.Empty);
+    public static readonly StyledProperty<string> NoteProperty = AvaloniaProperty.Register<
+        MarkerEditFlyout,
+        string
+    >(nameof(Note), string.Empty);
 
-    public static readonly StyledProperty<AvaColor> ColorProperty
-        = AvaloniaProperty.Register<MarkerEditFlyout, AvaColor>(nameof(Color));
+    public static readonly StyledProperty<AvaColor> ColorProperty = AvaloniaProperty.Register<
+        MarkerEditFlyout,
+        AvaColor
+    >(nameof(Color));
 
     private TextBox? _nameBox;
     private TextBox? _noteBox;
@@ -89,7 +97,11 @@ public sealed class MarkerEditFlyout : PickerFlyoutBase
                 Children =
                 {
                     new SymbolIcon { Symbol = Symbol.Delete, FontSize = 14 },
-                    new TextBlock { Text = Strings.Delete, VerticalAlignment = VerticalAlignment.Center },
+                    new TextBlock
+                    {
+                        Text = Strings.Delete,
+                        VerticalAlignment = VerticalAlignment.Center,
+                    },
                 },
             },
             HorizontalAlignment = HorizontalAlignment.Stretch,
@@ -106,7 +118,6 @@ public sealed class MarkerEditFlyout : PickerFlyoutBase
             Margin = new Thickness(4),
             Children =
             {
-
                 new TextBlock { Text = Strings.Name },
                 _nameBox,
                 new TextBlock { Text = Strings.Color },

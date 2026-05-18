@@ -17,7 +17,12 @@ public sealed class WaveformModeConverter : IValueConverter
         return 0;
     }
 
-    public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
+    public object? ConvertBack(
+        object? value,
+        Type targetType,
+        object? parameter,
+        CultureInfo culture
+    )
     {
         if (value is int index && Enum.IsDefined(typeof(WaveformMode), index))
         {

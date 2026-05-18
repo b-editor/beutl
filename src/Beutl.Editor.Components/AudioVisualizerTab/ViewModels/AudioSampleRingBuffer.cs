@@ -31,7 +31,8 @@ public sealed class AudioSampleRingBuffer
     {
         get
         {
-            lock (_gate) return _capacity;
+            lock (_gate)
+                return _capacity;
         }
     }
 
@@ -39,7 +40,8 @@ public sealed class AudioSampleRingBuffer
     {
         get
         {
-            lock (_gate) return _sampleRate;
+            lock (_gate)
+                return _sampleRate;
         }
     }
 
@@ -47,25 +49,35 @@ public sealed class AudioSampleRingBuffer
     {
         get
         {
-            lock (_gate) return _totalWritten;
+            lock (_gate)
+                return _totalWritten;
         }
     }
 
     public void Configure(int sampleRate, int capacitySamples)
     {
-        if (capacitySamples <= 0) throw new ArgumentOutOfRangeException(nameof(capacitySamples));
+        if (capacitySamples <= 0)
+            throw new ArgumentOutOfRangeException(nameof(capacitySamples));
         lock (_gate)
         {
-            if (_sampleRate == sampleRate && _capacity == capacitySamples) return;
+            if (_sampleRate == sampleRate && _capacity == capacitySamples)
+                return;
             ResetInternal(sampleRate, capacitySamples);
         }
     }
 
-    public void WriteInterleaved(ReadOnlySpan<float> interleaved, int channelCount, int sampleRate, TimeSpan startTime)
+    public void WriteInterleaved(
+        ReadOnlySpan<float> interleaved,
+        int channelCount,
+        int sampleRate,
+        TimeSpan startTime
+    )
     {
-        if (channelCount < 1) return;
+        if (channelCount < 1)
+            return;
         int frames = interleaved.Length / channelCount;
-        if (frames == 0) return;
+        if (frames == 0)
+            return;
 
         lock (_gate)
         {
@@ -101,7 +113,8 @@ public sealed class AudioSampleRingBuffer
                 _left[idx] = l;
                 _right[idx] = r;
                 idx++;
-                if (idx >= capacity) idx = 0;
+                if (idx >= capacity)
+                    idx = 0;
             }
             _writeIndex = idx;
             _totalWritten += frames;
@@ -128,13 +141,19 @@ public sealed class AudioSampleRingBuffer
 
     // Returns the `length` most recent samples, oldest-first. Used when no
     // playback-time anchor is meaningful (e.g. metering fallback).
-    public int ReadLatest(Span<float> destLeft, Span<float> destRight, int length)
-        => ReadLatest(destLeft, destRight, length, out _);
+    public int ReadLatest(Span<float> destLeft, Span<float> destRight, int length) =>
+        ReadLatest(destLeft, destRight, length, out _);
 
-    public int ReadLatest(Span<float> destLeft, Span<float> destRight, int length, out int leadingZeros)
+    public int ReadLatest(
+        Span<float> destLeft,
+        Span<float> destRight,
+        int length,
+        out int leadingZeros
+    )
     {
         leadingZeros = 0;
-        if (destLeft.Length < length || destRight.Length < length) return 0;
+        if (destLeft.Length < length || destRight.Length < length)
+            return 0;
         lock (_gate)
         {
             return ReadEndingAtLocked(_totalWritten, destLeft, destRight, length, out leadingZeros);
@@ -147,13 +166,24 @@ public sealed class AudioSampleRingBuffer
     // and reports the offset of those real samples within the destination span
     // via `leadingZeros` so callers doing analysis (RMS, LUFS, ...) can skip
     // the silent prefix.
-    public int ReadAroundTime(TimeSpan playheadTime, Span<float> destLeft, Span<float> destRight, int length)
-        => ReadAroundTime(playheadTime, destLeft, destRight, length, out _);
+    public int ReadAroundTime(
+        TimeSpan playheadTime,
+        Span<float> destLeft,
+        Span<float> destRight,
+        int length
+    ) => ReadAroundTime(playheadTime, destLeft, destRight, length, out _);
 
-    public int ReadAroundTime(TimeSpan playheadTime, Span<float> destLeft, Span<float> destRight, int length, out int leadingZeros)
+    public int ReadAroundTime(
+        TimeSpan playheadTime,
+        Span<float> destLeft,
+        Span<float> destRight,
+        int length,
+        out int leadingZeros
+    )
     {
         leadingZeros = 0;
-        if (destLeft.Length < length || destRight.Length < length) return 0;
+        if (destLeft.Length < length || destRight.Length < length)
+            return 0;
         lock (_gate)
         {
             if (!_hasAnchor || _sampleRate <= 0)
@@ -173,10 +203,14 @@ public sealed class AudioSampleRingBuffer
     // Snapshot of `windowSamples` ending at `playheadTime` used for RMS / peak
     // calculations. Falls back to the newest samples if no anchor is available.
     public (float LeftRms, float RightRms, float LeftPeak, float RightPeak) ComputeMeters(
-        int windowSamples, TimeSpan? playheadTime = null)
+        int windowSamples,
+        TimeSpan? playheadTime = null
+    )
     {
-        Span<float> l = windowSamples <= 4096 ? stackalloc float[windowSamples] : new float[windowSamples];
-        Span<float> r = windowSamples <= 4096 ? stackalloc float[windowSamples] : new float[windowSamples];
+        Span<float> l =
+            windowSamples <= 4096 ? stackalloc float[windowSamples] : new float[windowSamples];
+        Span<float> r =
+            windowSamples <= 4096 ? stackalloc float[windowSamples] : new float[windowSamples];
         int got;
         int leadingZeros;
         if (playheadTime is { } t)
@@ -187,7 +221,8 @@ public sealed class AudioSampleRingBuffer
         {
             got = ReadLatest(l, r, windowSamples, out leadingZeros);
         }
-        if (got <= 0) return (0, 0, 0, 0);
+        if (got <= 0)
+            return (0, 0, 0, 0);
 
         // Real samples live at [leadingZeros, leadingZeros + got). Slicing from 0
         // would analyze the silent prefix and drop samples off the end.
@@ -197,10 +232,17 @@ public sealed class AudioSampleRingBuffer
             AudioMath.CalculateRms(lSlice),
             AudioMath.CalculateRms(rSlice),
             AudioMath.FindPeak(lSlice),
-            AudioMath.FindPeak(rSlice));
+            AudioMath.FindPeak(rSlice)
+        );
     }
 
-    private int ReadEndingAtLocked(long endAbsIndex, Span<float> destLeft, Span<float> destRight, int length, out int leadingZeros)
+    private int ReadEndingAtLocked(
+        long endAbsIndex,
+        Span<float> destLeft,
+        Span<float> destRight,
+        int length,
+        out int leadingZeros
+    )
     {
         leadingZeros = 0;
         if (_capacity == 0)
@@ -211,7 +253,8 @@ public sealed class AudioSampleRingBuffer
         }
 
         long oldestAbs = Math.Max(0L, _totalWritten - _capacity);
-        if (endAbsIndex > _totalWritten) endAbsIndex = _totalWritten;
+        if (endAbsIndex > _totalWritten)
+            endAbsIndex = _totalWritten;
         if (endAbsIndex <= oldestAbs)
         {
             destLeft.Slice(0, length).Clear();
@@ -241,7 +284,8 @@ public sealed class AudioSampleRingBuffer
 
         long backFromWriteIdx = _totalWritten - startAbs;
         int ringStart = (int)(((long)_writeIndex - backFromWriteIdx) % _capacity);
-        if (ringStart < 0) ringStart += _capacity;
+        if (ringStart < 0)
+            ringStart += _capacity;
 
         int firstChunk = Math.Min(toCopy, _capacity - ringStart);
         _left.AsSpan(ringStart, firstChunk).CopyTo(destLeft.Slice(leadingZeros));

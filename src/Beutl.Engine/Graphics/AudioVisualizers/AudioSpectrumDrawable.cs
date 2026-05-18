@@ -28,25 +28,44 @@ public sealed partial class AudioSpectrumDrawable : AudioVisualizerDrawable
         MoveProperty(Height, 10);
     }
 
-    [Display(Name = nameof(GraphicsStrings.AudioVisualizer_Shape), ResourceType = typeof(GraphicsStrings))]
+    [Display(
+        Name = nameof(GraphicsStrings.AudioVisualizer_Shape),
+        ResourceType = typeof(GraphicsStrings)
+    )]
     public IProperty<SpectrumShape?> Shape { get; } = Property.Create<SpectrumShape?>();
 
-    [Display(Name = nameof(GraphicsStrings.AudioVisualizer_BarCount), ResourceType = typeof(GraphicsStrings))]
+    [Display(
+        Name = nameof(GraphicsStrings.AudioVisualizer_BarCount),
+        ResourceType = typeof(GraphicsStrings)
+    )]
     [Range(1, 10000)]
     public IProperty<int> BarCount { get; } = Property.Create(128);
 
-    [Display(Name = nameof(GraphicsStrings.AudioVisualizer_FftSize), ResourceType = typeof(GraphicsStrings))]
+    [Display(
+        Name = nameof(GraphicsStrings.AudioVisualizer_FftSize),
+        ResourceType = typeof(GraphicsStrings)
+    )]
     [Range(64, 16384)]
     public IProperty<int> FftSize { get; } = Property.Create(1024);
 
-    [Display(Name = nameof(GraphicsStrings.AudioVisualizer_FrequencyScale), ResourceType = typeof(GraphicsStrings))]
-    public IProperty<FrequencyScale> FrequencyScale { get; } = Property.Create(AudioVisualizers.FrequencyScale.Logarithmic);
+    [Display(
+        Name = nameof(GraphicsStrings.AudioVisualizer_FrequencyScale),
+        ResourceType = typeof(GraphicsStrings)
+    )]
+    public IProperty<FrequencyScale> FrequencyScale { get; } =
+        Property.Create(AudioVisualizers.FrequencyScale.Logarithmic);
 
-    [Display(Name = nameof(GraphicsStrings.AudioVisualizer_FloorDb), ResourceType = typeof(GraphicsStrings))]
+    [Display(
+        Name = nameof(GraphicsStrings.AudioVisualizer_FloorDb),
+        ResourceType = typeof(GraphicsStrings)
+    )]
     [Range(-200f, 0f)]
     public IProperty<float> FloorDb { get; } = Property.CreateAnimatable(-80f);
 
-    [Display(Name = nameof(GraphicsStrings.AudioVisualizer_Smoothing), ResourceType = typeof(GraphicsStrings))]
+    [Display(
+        Name = nameof(GraphicsStrings.AudioVisualizer_Smoothing),
+        ResourceType = typeof(GraphicsStrings)
+    )]
     [Range(0f, 99f)]
     public IProperty<float> Smoothing { get; } = Property.CreateAnimatable(85f);
 
@@ -58,7 +77,9 @@ public sealed partial class AudioSpectrumDrawable : AudioVisualizerDrawable
         private float[] _smoothedMagnitudes = [];
         private float[] _normalizedBars = [];
 
-        protected override (TimeSpan Start, TimeSpan Duration) ComputeSampleWindow(TimeSpan currentTime)
+        protected override (TimeSpan Start, TimeSpan Duration) ComputeSampleWindow(
+            TimeSpan currentTime
+        )
         {
             int effectiveFftSize = Fft.ClampToPowerOfTwo(FftSize);
             TimeSpan duration = TimeSpan.FromSeconds((double)effectiveFftSize / ComposerSampleRate);
@@ -67,18 +88,24 @@ public sealed partial class AudioSpectrumDrawable : AudioVisualizerDrawable
 
         protected override void RenderForeground(ImmediateCanvas canvas, Rect bounds)
         {
-            if (CachedSampleLength == 0 || Fill is null || CachedSampleRate <= 0) return;
+            if (CachedSampleLength == 0 || Fill is null || CachedSampleRate <= 0)
+                return;
 
             SpectrumShape.Resource? shapeResource = Shape;
-            if (shapeResource is null) return;
+            if (shapeResource is null)
+                return;
 
             int fftSize = Fft.ClampToPowerOfTwo(FftSize);
-            if (fftSize < 2) return;
+            if (fftSize < 2)
+                return;
 
             int bins = fftSize / 2;
-            if (_fftReal.Length < fftSize) _fftReal = new float[fftSize];
-            if (_fftImag.Length < fftSize) _fftImag = new float[fftSize];
-            if (_fftMagnitudes.Length < bins) _fftMagnitudes = new float[bins];
+            if (_fftReal.Length < fftSize)
+                _fftReal = new float[fftSize];
+            if (_fftImag.Length < fftSize)
+                _fftImag = new float[fftSize];
+            if (_fftMagnitudes.Length < bins)
+                _fftMagnitudes = new float[bins];
             Span<float> real = _fftReal.AsSpan(0, fftSize);
             Span<float> imag = _fftImag.AsSpan(0, fftSize);
             Span<float> mags = _fftMagnitudes.AsSpan(0, bins);
@@ -119,8 +146,10 @@ public sealed partial class AudioSpectrumDrawable : AudioVisualizerDrawable
 
             float fMax = CachedSampleRate * 0.5f;
             float fMin = Math.Max(20f, fMax / bins);
-            double melMin = freqScale == FrequencyScale.Mel ? 2595.0 * Math.Log10(1 + fMin / 700.0) : 0;
-            double melMax = freqScale == FrequencyScale.Mel ? 2595.0 * Math.Log10(1 + fMax / 700.0) : 0;
+            double melMin =
+                freqScale == FrequencyScale.Mel ? 2595.0 * Math.Log10(1 + fMin / 700.0) : 0;
+            double melMax =
+                freqScale == FrequencyScale.Mel ? 2595.0 * Math.Log10(1 + fMax / 700.0) : 0;
 
             for (int i = 0; i < barCount; i++)
             {
@@ -129,32 +158,35 @@ public sealed partial class AudioSpectrumDrawable : AudioVisualizerDrawable
                 switch (freqScale)
                 {
                     case FrequencyScale.Logarithmic:
-                        {
-                            double freqLow = fMin * Math.Pow(fMax / fMin, (double)i / barCount);
-                            double freqHigh = fMin * Math.Pow(fMax / fMin, (double)(i + 1) / barCount);
-                            binLow = (int)Math.Floor(freqLow / fMax * bins);
-                            binHigh = (int)Math.Ceiling(freqHigh / fMax * bins);
-                            break;
-                        }
+                    {
+                        double freqLow = fMin * Math.Pow(fMax / fMin, (double)i / barCount);
+                        double freqHigh = fMin * Math.Pow(fMax / fMin, (double)(i + 1) / barCount);
+                        binLow = (int)Math.Floor(freqLow / fMax * bins);
+                        binHigh = (int)Math.Ceiling(freqHigh / fMax * bins);
+                        break;
+                    }
                     case FrequencyScale.Mel:
-                        {
-                            double m1 = melMin + (melMax - melMin) * i / barCount;
-                            double m2 = melMin + (melMax - melMin) * (i + 1) / barCount;
-                            double f1 = 700.0 * (Math.Pow(10, m1 / 2595.0) - 1);
-                            double f2 = 700.0 * (Math.Pow(10, m2 / 2595.0) - 1);
-                            binLow = (int)Math.Floor(f1 / fMax * bins);
-                            binHigh = (int)Math.Ceiling(f2 / fMax * bins);
-                            break;
-                        }
+                    {
+                        double m1 = melMin + (melMax - melMin) * i / barCount;
+                        double m2 = melMin + (melMax - melMin) * (i + 1) / barCount;
+                        double f1 = 700.0 * (Math.Pow(10, m1 / 2595.0) - 1);
+                        double f2 = 700.0 * (Math.Pow(10, m2 / 2595.0) - 1);
+                        binLow = (int)Math.Floor(f1 / fMax * bins);
+                        binHigh = (int)Math.Ceiling(f2 / fMax * bins);
+                        break;
+                    }
                     default:
                         binLow = i * bins / barCount;
                         binHigh = (i + 1) * bins / barCount;
                         break;
                 }
 
-                if (binHigh <= binLow) binHigh = binLow + 1;
-                if (binHigh > bins) binHigh = bins;
-                if (binLow < 0) binLow = 0;
+                if (binHigh <= binLow)
+                    binHigh = binLow + 1;
+                if (binHigh > bins)
+                    binHigh = bins;
+                if (binLow < 0)
+                    binLow = 0;
 
                 // バンド内は RMS で集計するとピーク値より滑らかに変化する
                 float sumSq = 0f;
@@ -167,9 +199,8 @@ public sealed partial class AudioSpectrumDrawable : AudioVisualizerDrawable
 
                 // 高速アタック + 緩やかリリース (ピークメーター方式)
                 float prev = smoothed[i];
-                float smoothedMag = rawMag > prev
-                    ? rawMag
-                    : prev * smoothing + rawMag * (1f - smoothing);
+                float smoothedMag =
+                    rawMag > prev ? rawMag : prev * smoothing + rawMag * (1f - smoothing);
                 smoothed[i] = smoothedMag;
 
                 float db = Fft.MagnitudeToDb(smoothedMag * gain, reference);

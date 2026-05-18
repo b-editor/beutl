@@ -1,23 +1,23 @@
 ﻿// https://github.com/amate/MFVideoReader
 
 using System.Diagnostics;
-
 using Beutl.Collections;
 using Beutl.Logging;
-
 using Microsoft.Extensions.Logging;
-
 using Vortice.MediaFoundation;
 
 #if MF_BUILD_IN
 namespace Beutl.Embedding.MediaFoundation.Decoding;
+
 #else
 namespace Beutl.Extensions.MediaFoundation.Decoding;
+
 #endif
 
 public record MFSampleCacheOptions(
     int MaxVideoBufferSize = 4, // あまり大きな値を設定するとReadSampleで停止する
-    int MaxAudioBufferSize = 20);
+    int MaxAudioBufferSize = 20
+);
 
 public class MFSampleCache(MFSampleCacheOptions options)
 {
@@ -32,9 +32,18 @@ public class MFSampleCache(MFSampleCacheOptions options)
 
     private readonly record struct VideoCache(int Frame, IMFSample Sample);
 
-    private readonly record struct AudioCache(int StartSampleNum, IMFSample Sample, int AudioSampleCount)
+    private readonly record struct AudioCache(
+        int StartSampleNum,
+        IMFSample Sample,
+        int AudioSampleCount
+    )
     {
-        public bool CopyBuffer(ref int startSample, ref int copySampleLength, ref nint buffer, short nBlockAlign)
+        public bool CopyBuffer(
+            ref int startSample,
+            ref int copySampleLength,
+            ref nint buffer,
+            short nBlockAlign
+        )
         {
             int querySampleEndPos = startSample + copySampleLength;
             int cacheSampleEndPos = StartSampleNum + AudioSampleCount;
@@ -47,7 +56,12 @@ public class MFSampleCache(MFSampleCacheOptions options)
                     // キャッシュ内に収まる
                     int actualBufferPos = (startSample - StartSampleNum) * nBlockAlign;
                     int actualBufferSize = copySampleLength * nBlockAlign;
-                    SampleUtilities.SampleCopyToBuffer(Sample, buffer, actualBufferPos, actualBufferSize);
+                    SampleUtilities.SampleCopyToBuffer(
+                        Sample,
+                        buffer,
+                        actualBufferPos,
+                        actualBufferSize
+                    );
 
                     startSample += copySampleLength;
                     copySampleLength = 0;
@@ -61,7 +75,12 @@ public class MFSampleCache(MFSampleCacheOptions options)
                     int actualBufferPos = (startSample - StartSampleNum) * nBlockAlign;
                     int leftSampleCount = cacheSampleEndPos - startSample;
                     int actualleftBufferSize = leftSampleCount * nBlockAlign;
-                    SampleUtilities.SampleCopyToBuffer(Sample, buffer, actualBufferPos, actualleftBufferSize);
+                    SampleUtilities.SampleCopyToBuffer(
+                        Sample,
+                        buffer,
+                        actualBufferPos,
+                        actualleftBufferSize
+                    );
 
                     startSample += leftSampleCount;
                     copySampleLength -= leftSampleCount;
@@ -123,14 +142,16 @@ public class MFSampleCache(MFSampleCacheOptions options)
         int lastAudioSampleNum = LastAudioSampleNumber();
         if (lastAudioSampleNum != -1)
         {
-            int actualAudioSampleNum = lastAudioSampleNum + _audioCircularBuffer.Back().AudioSampleCount;
+            int actualAudioSampleNum =
+                lastAudioSampleNum + _audioCircularBuffer.Back().AudioSampleCount;
             if (Math.Abs(startSample - actualAudioSampleNum) > AudioSampleWaringGapCount)
             {
                 _logger.LogWarning(
                     "sample laggin - lag: {lag} startSample: {startSample} lastAudioSampleNum: {lastAudioSampleNum}",
                     startSample - actualAudioSampleNum,
                     startSample,
-                    actualAudioSampleNum);
+                    actualAudioSampleNum
+                );
             }
 
             startSample = lastAudioSampleNum + _audioCircularBuffer.Back().AudioSampleCount;
@@ -189,7 +210,14 @@ public class MFSampleCache(MFSampleCacheOptions options)
     {
         foreach (AudioCache audioCache in _audioCircularBuffer)
         {
-            if (audioCache.CopyBuffer(ref startSample, ref copySampleLength, ref buffer, _nBlockAlign))
+            if (
+                audioCache.CopyBuffer(
+                    ref startSample,
+                    ref copySampleLength,
+                    ref buffer,
+                    _nBlockAlign
+                )
+            )
             {
                 if (copySampleLength == 0)
                 {

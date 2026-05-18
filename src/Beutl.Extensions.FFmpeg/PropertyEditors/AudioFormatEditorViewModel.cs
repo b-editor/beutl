@@ -4,17 +4,17 @@ using Avalonia;
 using Avalonia.Interactivity;
 using Beutl.Controls.PropertyEditors;
 using Beutl.Extensibility;
+using Beutl.Extensions.FFmpeg.Encoding;
+using Beutl.PropertyAdapters;
+using Beutl.Reactive;
+using Reactive.Bindings;
+using AudioFormat = Beutl.Extensions.FFmpeg.Encoding.FFmpegAudioEncoderSettings.AudioFormat;
 #if FFMPEG_OUT_OF_PROCESS
 using Beutl.FFmpegIpc.Protocol;
 using Beutl.FFmpegIpc.Protocol.Messages;
 #else
 using FFmpegSharp;
 #endif
-using Beutl.PropertyAdapters;
-using Beutl.Reactive;
-using Reactive.Bindings;
-using Beutl.Extensions.FFmpeg.Encoding;
-using AudioFormat = Beutl.Extensions.FFmpeg.Encoding.FFmpegAudioEncoderSettings.AudioFormat;
 
 namespace Beutl.Extensions.FFmpeg.PropertyEditors;
 
@@ -31,7 +31,8 @@ internal sealed class AudioFormatEditorViewModel : IPropertyEditorContext
 
     public AudioFormatEditorViewModel(
         IPropertyAdapter<AudioFormat> property,
-        PropertyEditorExtension extension)
+        PropertyEditorExtension extension
+    )
     {
         _property = property;
         Extension = extension;
@@ -46,13 +47,15 @@ internal sealed class AudioFormatEditorViewModel : IPropertyEditorContext
         if (_settings != null)
         {
             // コーデック変更を監視
-            _settings.GetObservable(FFmpegAudioEncoderSettings.CodecProperty)
+            _settings
+                .GetObservable(FFmpegAudioEncoderSettings.CodecProperty)
                 .Subscribe(_ => UpdateAudioFormats())
                 .DisposeWith(_disposables);
         }
 
         // 現在値の変更を監視してSelectedIndexを更新
-        _property.GetObservable()
+        _property
+            .GetObservable()
             .Subscribe(format =>
             {
                 int index = Array.IndexOf(_currentFormats, format);
@@ -76,10 +79,12 @@ internal sealed class AudioFormatEditorViewModel : IPropertyEditorContext
             editor.Header = _property.DisplayName;
             editor.Items = _currentItems;
 
-            editor.Bind(EnumEditor.SelectedIndexProperty, _selectedIndex.ToBinding())
+            editor
+                .Bind(EnumEditor.SelectedIndexProperty, _selectedIndex.ToBinding())
                 .DisposeWith(_disposables);
 
-            editor.AddDisposableHandler(PropertyEditor.ValueConfirmedEvent, OnValueConfirmed)
+            editor
+                .AddDisposableHandler(PropertyEditor.ValueConfirmedEvent, OnValueConfirmed)
                 .DisposeWith(_disposables);
 
             _editorRef = new WeakReference<EnumEditor>(editor);
@@ -90,9 +95,8 @@ internal sealed class AudioFormatEditorViewModel : IPropertyEditorContext
     {
         try
         {
-            AudioFormat[] supportedFmts = _settings != null
-                ? GetCodecFormats(_settings)
-                : GetAllFormats();
+            AudioFormat[] supportedFmts =
+                _settings != null ? GetCodecFormats(_settings) : GetAllFormats();
 
             // Default ("Auto") を先頭に追加
             _currentFormats = [AudioFormat.Default, .. supportedFmts];
@@ -100,7 +104,8 @@ internal sealed class AudioFormatEditorViewModel : IPropertyEditorContext
                 .Select(f => new EnumItem(
                     f == AudioFormat.Default ? "Auto" : f.ToString(),
                     null,
-                    f))
+                    f
+                ))
                 .ToArray();
 
             // エディタのアイテムを更新
@@ -143,14 +148,25 @@ internal sealed class AudioFormatEditorViewModel : IPropertyEditorContext
         try
         {
 #if FFMPEG_OUT_OF_PROCESS
-            var connection = FFmpegWorkerProcess.DecodingInstance.EnsureStartedAsync().GetAwaiter().GetResult();
-            var response = connection.RequestAsync<QueryAudioFormatsRequest, QueryAudioFormatsResponse>(
-                MessageType.QueryAudioFormats, MessageType.QueryAudioFormatsResult,
-                new QueryAudioFormatsRequest
-                {
-                    CodecName = settings.Codec.Equals(CodecRecord.Default) ? null : settings.Codec.Name,
-                    OutputFile = settings.OutputFile
-                }).AsTask().GetAwaiter().GetResult();
+            var connection = FFmpegWorkerProcess
+                .DecodingInstance.EnsureStartedAsync()
+                .GetAwaiter()
+                .GetResult();
+            var response = connection
+                .RequestAsync<QueryAudioFormatsRequest, QueryAudioFormatsResponse>(
+                    MessageType.QueryAudioFormats,
+                    MessageType.QueryAudioFormatsResult,
+                    new QueryAudioFormatsRequest
+                    {
+                        CodecName = settings.Codec.Equals(CodecRecord.Default)
+                            ? null
+                            : settings.Codec.Name,
+                        OutputFile = settings.OutputFile,
+                    }
+                )
+                .AsTask()
+                .GetAwaiter()
+                .GetResult();
             return response.Formats.Select(f => (AudioFormat)f).ToArray();
 #else
             MediaCodec codec;
@@ -193,13 +209,9 @@ internal sealed class AudioFormatEditorViewModel : IPropertyEditorContext
         }
     }
 
-    public void WriteToJson(JsonObject json)
-    {
-    }
+    public void WriteToJson(JsonObject json) { }
 
-    public void ReadFromJson(JsonObject json)
-    {
-    }
+    public void ReadFromJson(JsonObject json) { }
 
     public void Dispose()
     {

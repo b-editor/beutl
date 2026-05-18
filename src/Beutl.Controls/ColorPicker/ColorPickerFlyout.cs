@@ -30,10 +30,7 @@ public sealed class ColorPickerFlyout : PickerFlyoutBase
         if (_picker == null)
             _picker = new FAColorPicker();
 
-        var pfp = new PickerFlyoutPresenter()
-        {
-            Content = _picker
-        };
+        var pfp = new PickerFlyoutPresenter() { Content = _picker };
         pfp.Confirmed += OnFlyoutConfirmed;
         pfp.Dismissed += OnFlyoutDismissed;
 

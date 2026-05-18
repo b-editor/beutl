@@ -1,6 +1,5 @@
 ﻿using Avalonia.Controls;
 using Avalonia.Styling;
-
 using FluentAvalonia.Styling;
 
 namespace Beutl.Pages.SettingsPages;

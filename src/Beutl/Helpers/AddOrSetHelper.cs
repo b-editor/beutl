@@ -14,10 +14,7 @@ public static class AddOrSetHelper
         }
         else if (fe != null)
         {
-            fe = new FilterEffectGroup
-            {
-                Children = { fe, toBeAdded }
-            };
+            fe = new FilterEffectGroup { Children = { fe, toBeAdded } };
         }
         else
         {
@@ -33,10 +30,7 @@ public static class AddOrSetHelper
         }
         else if (tra != null)
         {
-            tra = new TransformGroup
-            {
-                Children = { tra, toBeAdded }
-            };
+            tra = new TransformGroup { Children = { tra, toBeAdded } };
         }
         else
         {

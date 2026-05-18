@@ -3,7 +3,6 @@ using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Numerics;
 using System.Text.Json.Serialization;
-
 using Beutl.Converters;
 using Beutl.Graphics;
 using Beutl.Utilities;
@@ -18,10 +17,10 @@ namespace Beutl.Media;
 [TypeConverter(typeof(PixelRectConverter))]
 public readonly struct PixelRect
     : IEquatable<PixelRect>,
-      IParsable<PixelRect>,
-      ISpanParsable<PixelRect>,
-      IEqualityOperators<PixelRect, PixelRect, bool>,
-      ITupleConvertible<PixelRect, int>
+        IParsable<PixelRect>,
+        ISpanParsable<PixelRect>,
+        IEqualityOperators<PixelRect, PixelRect, bool>,
+        ITupleConvertible<PixelRect, int>
 {
     /// <summary>
     /// An empty rectangle.
@@ -206,7 +205,8 @@ public readonly struct PixelRect
             X + (Width - rect.Width) / 2,
             Y + (Height - rect.Height) / 2,
             rect.Width,
-            rect.Height);
+            rect.Height
+        );
     }
 
     /// <summary>
@@ -379,7 +379,8 @@ public readonly struct PixelRect
     {
         return new PixelRect(
             PixelPoint.FromPoint(rect.Position),
-            FromPointCeiling(rect.BottomRight));
+            FromPointCeiling(rect.BottomRight)
+        );
     }
 
     /// <summary>
@@ -392,7 +393,8 @@ public readonly struct PixelRect
     {
         return new PixelRect(
             PixelPoint.FromPoint(rect.Position, scale),
-            FromPointCeiling(rect.BottomRight, new Vector(scale, scale)));
+            FromPointCeiling(rect.BottomRight, new Vector(scale, scale))
+        );
     }
 
     /// <summary>
@@ -405,7 +407,8 @@ public readonly struct PixelRect
     {
         return new PixelRect(
             PixelPoint.FromPoint(rect.Position, scale),
-            FromPointCeiling(rect.BottomRight, scale));
+            FromPointCeiling(rect.BottomRight, scale)
+        );
     }
 
     /// <summary>
@@ -465,7 +468,11 @@ public readonly struct PixelRect
     /// <returns>The parsed <see cref="PixelRect"/>.</returns>
     public static PixelRect Parse(ReadOnlySpan<char> s)
     {
-        using var tokenizer = new RefStringTokenizer(s, CultureInfo.InvariantCulture, exceptionMessage: "Invalid PixelRect.");
+        using var tokenizer = new RefStringTokenizer(
+            s,
+            CultureInfo.InvariantCulture,
+            exceptionMessage: "Invalid PixelRect."
+        );
         return new PixelRect(
             tokenizer.ReadInt32(),
             tokenizer.ReadInt32(),
@@ -479,7 +486,11 @@ public readonly struct PixelRect
         return Parse(s);
     }
 
-    static bool IParsable<PixelRect>.TryParse([NotNullWhen(true)] string? s, IFormatProvider? provider, [MaybeNullWhen(false)] out PixelRect result)
+    static bool IParsable<PixelRect>.TryParse(
+        [NotNullWhen(true)] string? s,
+        IFormatProvider? provider,
+        [MaybeNullWhen(false)] out PixelRect result
+    )
     {
         result = default;
         return s != null && TryParse(s, out result);
@@ -490,7 +501,11 @@ public readonly struct PixelRect
         return Parse(s);
     }
 
-    static bool ISpanParsable<PixelRect>.TryParse([NotNullWhen(true)] ReadOnlySpan<char> s, IFormatProvider? provider, [MaybeNullWhen(false)] out PixelRect result)
+    static bool ISpanParsable<PixelRect>.TryParse(
+        [NotNullWhen(true)] ReadOnlySpan<char> s,
+        IFormatProvider? provider,
+        [MaybeNullWhen(false)] out PixelRect result
+    )
     {
         return TryParse(s, out result);
     }
@@ -499,14 +514,13 @@ public readonly struct PixelRect
     {
         return new PixelPoint(
             (int)Math.Ceiling(point.X * scale.X),
-            (int)Math.Ceiling(point.Y * scale.Y));
+            (int)Math.Ceiling(point.Y * scale.Y)
+        );
     }
 
     private static PixelPoint FromPointCeiling(Point point)
     {
-        return new PixelPoint(
-            (int)Math.Ceiling(point.X),
-            (int)Math.Ceiling(point.Y));
+        return new PixelPoint((int)Math.Ceiling(point.X), (int)Math.Ceiling(point.Y));
     }
 
     static void ITupleConvertible<PixelRect, int>.ConvertTo(PixelRect self, Span<int> tuple)

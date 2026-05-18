@@ -1,6 +1,5 @@
 ﻿using System.Collections;
 using System.Runtime.CompilerServices;
-
 using Avalonia;
 using Avalonia.Animation;
 using Avalonia.Animation.Easings;
@@ -12,7 +11,6 @@ using Avalonia.Interactivity;
 using Avalonia.Media;
 using Avalonia.Styling;
 using Avalonia.VisualTree;
-
 using Beutl.Controls.Extensions;
 
 namespace Beutl.Controls;
@@ -39,22 +37,22 @@ public partial class BcTabView : TabControl
                 Setters =
                 {
                     new Setter(OpacityProperty, 0.0),
-                    new Setter(TranslateTransform.YProperty, 28)
+                    new Setter(TranslateTransform.YProperty, 28),
                 },
-                Cue = new Cue(0d)
+                Cue = new Cue(0d),
             },
             new KeyFrame
             {
                 Setters =
                 {
                     new Setter(OpacityProperty, 1d),
-                    new Setter(TranslateTransform.YProperty, 0.0)
+                    new Setter(TranslateTransform.YProperty, 0.0),
                 },
-                Cue = new Cue(1d)
-            }
+                Cue = new Cue(1d),
+            },
         },
         Duration = TimeSpan.FromSeconds(0.67),
-        FillMode = FillMode.Forward
+        FillMode = FillMode.Forward,
     };
     private Grid _g;
     private Grid _gridHost;
@@ -84,7 +82,11 @@ public partial class BcTabView : TabControl
         e_.Handled = true;
     }
 
-    protected override Control CreateContainerForItemOverride(object item, int index, object recycleKey)
+    protected override Control CreateContainerForItemOverride(
+        object item,
+        int index,
+        object recycleKey
+    )
     {
         var obj = new BcTabItem();
         TabItemAccessor.SetTabStripPlacement(obj, TabStripPlacement);
@@ -145,9 +147,15 @@ public partial class BcTabView : TabControl
 
     protected override void OnPointerPressed(PointerPressedEventArgs e)
     {
-        if (e.GetCurrentPoint(this).Properties.IsLeftButtonPressed && e.Pointer.Type == PointerType.Mouse)
+        if (
+            e.GetCurrentPoint(this).Properties.IsLeftButtonPressed
+            && e.Pointer.Type == PointerType.Mouse
+        )
         {
-            e.Handled = UpdateSelectionFromEventSource(e.Source, !e.KeyModifiers.HasFlag(KeyModifiers.Control));
+            e.Handled = UpdateSelectionFromEventSource(
+                e.Source,
+                !e.KeyModifiers.HasFlag(KeyModifiers.Control)
+            );
         }
     }
 
@@ -156,11 +164,17 @@ public partial class BcTabView : TabControl
         if (e.InitialPressMouseButton == MouseButton.Left && e.Pointer.Type != PointerType.Mouse)
         {
             var container = GetContainerFromEventSource(e.Source);
-            if (container != null
-                && container.GetVisualsAt(e.GetPosition(container))
-                    .Any(c => container == c || container.IsVisualAncestorOf(c)))
+            if (
+                container != null
+                && container
+                    .GetVisualsAt(e.GetPosition(container))
+                    .Any(c => container == c || container.IsVisualAncestorOf(c))
+            )
             {
-                e.Handled = UpdateSelectionFromEventSource(e.Source, !e.KeyModifiers.HasFlag(KeyModifiers.Control));
+                e.Handled = UpdateSelectionFromEventSource(
+                    e.Source,
+                    !e.KeyModifiers.HasFlag(KeyModifiers.Control)
+                );
             }
         }
     }

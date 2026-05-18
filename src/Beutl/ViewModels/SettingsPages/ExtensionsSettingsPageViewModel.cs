@@ -1,10 +1,8 @@
 ﻿using System.Collections.ObjectModel;
 using Beutl.Api.Services;
 using Beutl.Controls.Navigation;
-
 using DynamicData;
 using DynamicData.Binding;
-
 using Reactive.Bindings;
 
 namespace Beutl.ViewModels.SettingsPages;
@@ -21,9 +19,7 @@ public sealed class ExtensionsSettingsPageViewModel : PageContext, IDisposable
             .WithSubscribe(async () =>
             {
                 INavigationProvider nav = await GetNavigation();
-                await nav.NavigateAsync(
-                    x => x is not null,
-                    () => EditorPriority);
+                await nav.NavigateAsync(x => x is not null, () => EditorPriority);
             })
             .DisposeWith(_disposables);
 
@@ -31,9 +27,7 @@ public sealed class ExtensionsSettingsPageViewModel : PageContext, IDisposable
             .WithSubscribe(async () =>
             {
                 INavigationProvider nav = await GetNavigation();
-                await nav.NavigateAsync(
-                    x => x is not null,
-                    () => DecoderPriority);
+                await nav.NavigateAsync(x => x is not null, () => DecoderPriority);
             })
             .DisposeWith(_disposables);
 
@@ -43,13 +37,15 @@ public sealed class ExtensionsSettingsPageViewModel : PageContext, IDisposable
                 INavigationProvider nav = await GetNavigation();
                 await nav.NavigateAsync(
                     x => x?.Extension == e,
-                    () => new AnExtensionSettingsPageViewModel(e));
+                    () => new AnExtensionSettingsPageViewModel(e)
+                );
             })
             .DisposeWith(_disposables);
 
         ICoreReadOnlyList<Extension> allExtension = ExtensionProvider.Current.AllExtensions;
         var comparer = SortExpressionComparer<Extension>.Ascending(i => i.Name);
-        allExtension.ToObservableChangeSet<ICoreReadOnlyList<Extension>, Extension>()
+        allExtension
+            .ToObservableChangeSet<ICoreReadOnlyList<Extension>, Extension>()
             .Filter(v => v.Settings != null)
             .Sort(comparer)
             .Bind(out ReadOnlyObservableCollection<Extension>? extensions)

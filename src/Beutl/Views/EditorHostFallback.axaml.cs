@@ -28,8 +28,16 @@ public partial class EditorHostFallback : UserControl
     public EditorHostFallback()
     {
         InitializeComponent();
-        recentList.AddHandler(PointerPressedEvent, OnRecentListPointerPressed, RoutingStrategies.Tunnel);
-        recentList.AddHandler(PointerReleasedEvent, OnRecentListPointerReleased, RoutingStrategies.Tunnel);
+        recentList.AddHandler(
+            PointerPressedEvent,
+            OnRecentListPointerPressed,
+            RoutingStrategies.Tunnel
+        );
+        recentList.AddHandler(
+            PointerReleasedEvent,
+            OnRecentListPointerReleased,
+            RoutingStrategies.Tunnel
+        );
 
         OnActualThemeVariantChanged(null, EventArgs.Empty);
         ActualThemeVariantChanged += OnActualThemeVariantChanged;
@@ -43,21 +51,25 @@ public partial class EditorHostFallback : UserControl
 
         void SetImage(string darkTheme, string lightTheme, Image image)
         {
-            using var stream = AssetLoader.Open(theme == ThemeVariant.Light || theme == FluentAvaloniaTheme.HighContrastTheme
-                ? new Uri(lightTheme)
-                : new Uri(darkTheme));
+            using var stream = AssetLoader.Open(
+                theme == ThemeVariant.Light || theme == FluentAvaloniaTheme.HighContrastTheme
+                    ? new Uri(lightTheme)
+                    : new Uri(darkTheme)
+            );
             image.Source = new Bitmap(stream);
         }
 
         SetImage(
             darkTheme: "avares://Beutl.Controls/Assets/social/GitHub-Mark-Light-120px-plus.png",
             lightTheme: "avares://Beutl.Controls/Assets/social/GitHub-Mark-120px-plus.png",
-            image: githubLogo);
+            image: githubLogo
+        );
 
         SetImage(
             darkTheme: "avares://Beutl.Controls/Assets/social/x-logo-white.png",
             lightTheme: "avares://Beutl.Controls/Assets/social/x-logo-black.png",
-            image: xLogo);
+            image: xLogo
+        );
     }
 
     private void OpenContext(object? sender, RoutedEventArgs e)
@@ -141,9 +153,13 @@ public partial class EditorHostFallback : UserControl
         return OutProcessDialog.Show(
             title: MessageStrings.OpeningProject,
             subtitle: MessageStrings.PleaseWaitAMoment,
-            content: string.Format(MessageStrings.OpeningProjectMessage, Path.GetFileName(projectFile)),
+            content: string.Format(
+                MessageStrings.OpeningProjectMessage,
+                Path.GetFileName(projectFile)
+            ),
             icon: "Info",
-            progress: true);
+            progress: true
+        );
     }
 
     private void OpenRecentFile(string fileName)
@@ -154,15 +170,24 @@ public partial class EditorHostFallback : UserControl
 
             using var ct = new CancellationTokenSource();
             IDisposable? closeDialog = null;
-            Task.Delay(3000, ct.Token).ContinueWith(_ =>
-            {
-                closeDialog = ShowWaitDialog(fileName);
-                activity?.AddEvent(new("WaitDialogShown"));
-            }, ct.Token);
+            Task.Delay(3000, ct.Token)
+                .ContinueWith(
+                    _ =>
+                    {
+                        closeDialog = ShowWaitDialog(fileName);
+                        activity?.AddEvent(new("WaitDialogShown"));
+                    },
+                    ct.Token
+                );
 
             try
             {
-                if (fileName.EndsWith($".{Constants.ProjectFileExtension}", StringComparison.OrdinalIgnoreCase))
+                if (
+                    fileName.EndsWith(
+                        $".{Constants.ProjectFileExtension}",
+                        StringComparison.OrdinalIgnoreCase
+                    )
+                )
                 {
                     viewModel.MenuBar.OpenRecentProject.Execute(fileName);
                 }
@@ -174,12 +199,15 @@ public partial class EditorHostFallback : UserControl
             finally
             {
                 ct.Cancel();
-                Dispatcher.UIThread.Invoke(() =>
-                {
-                    activity?.AddEvent(new("InputResumed"));
-                    activity?.Dispose();
-                    closeDialog?.Dispose();
-                }, DispatcherPriority.Input);
+                Dispatcher.UIThread.Invoke(
+                    () =>
+                    {
+                        activity?.AddEvent(new("InputResumed"));
+                        activity?.Dispose();
+                        closeDialog?.Dispose();
+                    },
+                    DispatcherPriority.Input
+                );
             }
         });
     }
@@ -221,13 +249,32 @@ public partial class EditorHostFallback : UserControl
     {
         ViewConfig viewConfig = GlobalConfiguration.Instance.ViewConfig;
 
-        IObservable<int> filter = FilterComboBox.GetObservable(SelectingItemsControl.SelectedIndexProperty);
+        IObservable<int> filter = FilterComboBox.GetObservable(
+            SelectingItemsControl.SelectedIndexProperty
+        );
 
-        viewConfig.RecentFiles.ToObservableChangeSet<CoreList<string>, string>()
-            .Filter(filter.Select<int, Func<string, bool>>(
-                f => (x) => f == 0
-                        || (f == 1 && x.EndsWith($".{Constants.ProjectFileExtension}", StringComparison.OrdinalIgnoreCase))
-                        || (f == 2 && !x.EndsWith($".{Constants.ProjectFileExtension}", StringComparison.OrdinalIgnoreCase))))
+        viewConfig
+            .RecentFiles.ToObservableChangeSet<CoreList<string>, string>()
+            .Filter(
+                filter.Select<int, Func<string, bool>>(f =>
+                    (x) =>
+                        f == 0
+                        || (
+                            f == 1
+                            && x.EndsWith(
+                                $".{Constants.ProjectFileExtension}",
+                                StringComparison.OrdinalIgnoreCase
+                            )
+                        )
+                        || (
+                            f == 2
+                            && !x.EndsWith(
+                                $".{Constants.ProjectFileExtension}",
+                                StringComparison.OrdinalIgnoreCase
+                            )
+                        )
+                )
+            )
             .AddKey(x => x)
             .Cast(x => new FileInfo(x))
             .SortBy(x => x.LastAccessTimeUtc, sortOrder: SortDirection.Descending)

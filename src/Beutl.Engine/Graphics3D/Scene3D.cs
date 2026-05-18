@@ -35,7 +35,10 @@ public partial class Scene3D : Drawable, IFlowOperator
     /// <summary>
     /// Gets the 3D objects in this scene.
     /// </summary>
-    [Display(Name = nameof(GraphicsStrings.Scene3D_Objects), ResourceType = typeof(GraphicsStrings))]
+    [Display(
+        Name = nameof(GraphicsStrings.Scene3D_Objects),
+        ResourceType = typeof(GraphicsStrings)
+    )]
     [SuppressResourceClassGeneration]
     public IListProperty<Object3D> Objects { get; } = Property.CreateList<Object3D>();
 
@@ -49,34 +52,49 @@ public partial class Scene3D : Drawable, IFlowOperator
     /// <summary>
     /// Gets the ambient color of the scene.
     /// </summary>
-    [Display(Name = nameof(GraphicsStrings.Scene3D_AmbientColor), ResourceType = typeof(GraphicsStrings))]
+    [Display(
+        Name = nameof(GraphicsStrings.Scene3D_AmbientColor),
+        ResourceType = typeof(GraphicsStrings)
+    )]
     public IProperty<Color> AmbientColor { get; } = Property.CreateAnimatable(Colors.White);
 
     /// <summary>
     /// Gets the ambient light intensity.
     /// </summary>
-    [Display(Name = nameof(GraphicsStrings.Scene3D_AmbientIntensity), ResourceType = typeof(GraphicsStrings))]
+    [Display(
+        Name = nameof(GraphicsStrings.Scene3D_AmbientIntensity),
+        ResourceType = typeof(GraphicsStrings)
+    )]
     [Range(0f, 1f), NumberStep(0.1, 0.01)]
     public IProperty<float> AmbientIntensity { get; } = Property.CreateAnimatable(0.1f);
 
     /// <summary>
     /// Gets the width of the 3D render target.
     /// </summary>
-    [Display(Name = nameof(GraphicsStrings.Scene3D_RenderWidth), ResourceType = typeof(GraphicsStrings))]
+    [Display(
+        Name = nameof(GraphicsStrings.Scene3D_RenderWidth),
+        ResourceType = typeof(GraphicsStrings)
+    )]
     [Range(1f, 8192f)]
     public IProperty<float> RenderWidth { get; } = Property.CreateAnimatable(1920f);
 
     /// <summary>
     /// Gets the height of the 3D render target.
     /// </summary>
-    [Display(Name = nameof(GraphicsStrings.Scene3D_RenderHeight), ResourceType = typeof(GraphicsStrings))]
+    [Display(
+        Name = nameof(GraphicsStrings.Scene3D_RenderHeight),
+        ResourceType = typeof(GraphicsStrings)
+    )]
     [Range(1f, 8192f)]
     public IProperty<float> RenderHeight { get; } = Property.CreateAnimatable(1080f);
 
     /// <summary>
     /// Gets the background color of the 3D scene.
     /// </summary>
-    [Display(Name = nameof(GraphicsStrings.Scene3D_BackgroundColor), ResourceType = typeof(GraphicsStrings))]
+    [Display(
+        Name = nameof(GraphicsStrings.Scene3D_BackgroundColor),
+        ResourceType = typeof(GraphicsStrings)
+    )]
     public IProperty<Color> BackgroundColor { get; } = Property.CreateAnimatable(Colors.Black);
 
     /// <summary>
@@ -106,7 +124,8 @@ public partial class Scene3D : Drawable, IFlowOperator
         context.DrawNode<Scene3DRenderNode, Resource>(
             scene3DResource,
             static res => new Scene3DRenderNode(res),
-            static (node, res) => node.Update(res));
+            static (node, res) => node.Update(res)
+        );
     }
 
     public partial class Resource
@@ -186,14 +205,16 @@ public partial class Scene3D : Drawable, IFlowOperator
                 consumed: consumedLights,
                 field: Lights,
                 versions: _lightsVersion,
-                changed: ref changed);
+                changed: ref changed
+            );
             ResourceReconciler.ReconcileListFromFlow(
                 context: context,
                 property: obj.Objects,
                 consumed: consumedObjects,
                 field: Objects,
                 versions: _objectsVersion,
-                changed: ref changed);
+                changed: ref changed
+            );
 
             if (changed)
                 Version++;

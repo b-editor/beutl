@@ -15,7 +15,9 @@ public class EnginePropertyAdapter<T> : IPropertyAdapter<T>
     public EnginePropertyAdapter(IProperty<T> property, EngineObject obj)
     {
         _attributes = new Lazy<Attribute[]>(() => property.GetAttributes() ?? []);
-        _displayAttribute = new Lazy<DisplayAttribute?>(() => _attributes.Value.FirstOrDefault(i => i is DisplayAttribute) as DisplayAttribute);
+        _displayAttribute = new Lazy<DisplayAttribute?>(() =>
+            _attributes.Value.FirstOrDefault(i => i is DisplayAttribute) as DisplayAttribute
+        );
         Object = obj;
         Property = property;
     }
@@ -24,7 +26,8 @@ public class EnginePropertyAdapter<T> : IPropertyAdapter<T>
 
     public IProperty<T> Property { get; }
 
-    [field: AllowNull, MaybeNull] public Type ImplementedType => field ??= Object.GetType();
+    [field: AllowNull, MaybeNull]
+    public Type ImplementedType => field ??= Object.GetType();
 
     public Type PropertyType => Property.ValueType;
 
@@ -52,9 +55,11 @@ public class EnginePropertyAdapter<T> : IPropertyAdapter<T>
 
     public IObservable<T?> GetObservable()
     {
-        return _observable ??= Observable.FromEventPattern<PropertyValueChangedEventArgs<T>>(
+        return _observable ??= Observable
+            .FromEventPattern<PropertyValueChangedEventArgs<T>>(
                 handler => Property.ValueChanged += handler,
-                handler => Property.ValueChanged -= handler)
+                handler => Property.ValueChanged -= handler
+            )
             .Select(e => e.EventArgs.NewValue)
             .Publish(Property.CurrentValue)
             .RefCount();

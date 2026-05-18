@@ -8,7 +8,10 @@ using Beutl.Media;
 
 namespace Beutl.Graphics3D.Textures;
 
-[Display(Name = nameof(GraphicsStrings.DrawableTextureSource), ResourceType = typeof(GraphicsStrings))]
+[Display(
+    Name = nameof(GraphicsStrings.DrawableTextureSource),
+    ResourceType = typeof(GraphicsStrings)
+)]
 public sealed partial class DrawableTextureSource : TextureSource
 {
     public DrawableTextureSource()
@@ -19,11 +22,17 @@ public sealed partial class DrawableTextureSource : TextureSource
     [Display(Name = nameof(GraphicsStrings.Drawable), ResourceType = typeof(GraphicsStrings))]
     public IProperty<Drawable?> Drawable { get; } = Property.Create<Drawable?>(null);
 
-    [Display(Name = nameof(GraphicsStrings.DrawableTextureSource_TextureWidth), ResourceType = typeof(GraphicsStrings))]
+    [Display(
+        Name = nameof(GraphicsStrings.DrawableTextureSource_TextureWidth),
+        ResourceType = typeof(GraphicsStrings)
+    )]
     [Range(1, 8192)]
     public IProperty<int> TextureWidth { get; } = Property.CreateAnimatable(256);
 
-    [Display(Name = nameof(GraphicsStrings.DrawableTextureSource_TextureHeight), ResourceType = typeof(GraphicsStrings))]
+    [Display(
+        Name = nameof(GraphicsStrings.DrawableTextureSource_TextureHeight),
+        ResourceType = typeof(GraphicsStrings)
+    )]
     [Range(1, 8192)]
     public IProperty<int> TextureHeight { get; } = Property.CreateAnimatable(256);
 
@@ -51,7 +60,8 @@ public sealed partial class DrawableTextureSource : TextureSource
                 DisposeRenderTarget();
 
                 _renderTarget = RenderTarget.Create(textureWidth, textureHeight);
-                if (_renderTarget == null) return null;
+                if (_renderTarget == null)
+                    return null;
 
                 _lastWidth = textureWidth;
                 _lastHeight = textureHeight;
@@ -61,7 +71,12 @@ public sealed partial class DrawableTextureSource : TextureSource
             {
                 _drawableNode ??= new DrawableRenderNode(Drawable);
                 _drawableNode.Update(Drawable);
-                using (var context = new GraphicsContext2D(_drawableNode, new PixelSize(textureWidth, textureHeight)))
+                using (
+                    var context = new GraphicsContext2D(
+                        _drawableNode,
+                        new PixelSize(textureWidth, textureHeight)
+                    )
+                )
                 {
                     Drawable.GetOriginal().Render(context, Drawable);
                 }

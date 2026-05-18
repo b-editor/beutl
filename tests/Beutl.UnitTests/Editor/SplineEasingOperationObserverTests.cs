@@ -22,9 +22,7 @@ public class SplineEasingOperationObserverTests
     }
 
     [TearDown]
-    public void TearDown()
-    {
-    }
+    public void TearDown() { }
 
     #region Constructor Tests
 
@@ -35,7 +33,12 @@ public class SplineEasingOperationObserverTests
         var easing = new SplineEasing(0.25f, 0.1f, 0.25f, 1.0f);
 
         // Act
-        using var observer = new SplineEasingOperationObserver(null, easing, _sequenceGenerator, null);
+        using var observer = new SplineEasingOperationObserver(
+            null,
+            easing,
+            _sequenceGenerator,
+            null
+        );
 
         // Assert
         Assert.That(observer.Operations, Is.Not.Null);
@@ -51,7 +54,11 @@ public class SplineEasingOperationObserverTests
 
         // Act
         using var operationObserver = new SplineEasingOperationObserver(
-            testObserver, easing, _sequenceGenerator, null);
+            testObserver,
+            easing,
+            _sequenceGenerator,
+            null
+        );
         easing.X1 = 0.5f;
 
         // Assert
@@ -68,7 +75,12 @@ public class SplineEasingOperationObserverTests
         // Act & Assert
         Assert.DoesNotThrow(() =>
         {
-            using var observer = new SplineEasingOperationObserver(null, easing, _sequenceGenerator, null);
+            using var observer = new SplineEasingOperationObserver(
+                null,
+                easing,
+                _sequenceGenerator,
+                null
+            );
         });
     }
 
@@ -80,7 +92,12 @@ public class SplineEasingOperationObserverTests
 
         // Act
         using var observer = new SplineEasingOperationObserver(
-            null, easing, _sequenceGenerator, null, "");
+            null,
+            easing,
+            _sequenceGenerator,
+            null,
+            ""
+        );
 
         // Assert
         Assert.That(observer.Operations, Is.Not.Null);
@@ -96,7 +113,12 @@ public class SplineEasingOperationObserverTests
 
         // Act
         using var operationObserver = new SplineEasingOperationObserver(
-            testObserver, easing, _sequenceGenerator, _parent, "Easing");
+            testObserver,
+            easing,
+            _sequenceGenerator,
+            _parent,
+            "Easing"
+        );
         easing.X1 = 0.5f;
 
         // Assert
@@ -116,7 +138,13 @@ public class SplineEasingOperationObserverTests
 
         // Act
         using var operationObserver = new SplineEasingOperationObserver(
-            testObserver, easing, _sequenceGenerator, null, "", propertyPathsToTrack);
+            testObserver,
+            easing,
+            _sequenceGenerator,
+            null,
+            "",
+            propertyPathsToTrack
+        );
 
         easing.X1 = 0.5f;
         easing.Y1 = 0.5f;
@@ -138,7 +166,13 @@ public class SplineEasingOperationObserverTests
 
         // Act
         using var operationObserver = new SplineEasingOperationObserver(
-            testObserver, easing, _sequenceGenerator, null, "Easing", propertyPathsToTrack);
+            testObserver,
+            easing,
+            _sequenceGenerator,
+            null,
+            "Easing",
+            propertyPathsToTrack
+        );
 
         easing.X1 = 0.5f;
         easing.Y1 = 0.5f;
@@ -158,7 +192,11 @@ public class SplineEasingOperationObserverTests
 
         // Act
         using var operationObserver = new SplineEasingOperationObserver(
-            testObserver, easing, _sequenceGenerator, null);
+            testObserver,
+            easing,
+            _sequenceGenerator,
+            null
+        );
 
         // Change values
         easing.X1 = 0.5f;
@@ -183,7 +221,11 @@ public class SplineEasingOperationObserverTests
 
         // Act
         using var operationObserver = new SplineEasingOperationObserver(
-            testObserver, easing, _sequenceGenerator, _parent);
+            testObserver,
+            easing,
+            _sequenceGenerator,
+            _parent
+        );
         easing.X1 = 0.5f;
 
         // Assert
@@ -202,7 +244,11 @@ public class SplineEasingOperationObserverTests
 
         // Act
         using var operationObserver = new SplineEasingOperationObserver(
-            testObserver, easing, _sequenceGenerator, null);
+            testObserver,
+            easing,
+            _sequenceGenerator,
+            null
+        );
         easing.X1 = 0.5f;
 
         // Assert
@@ -222,7 +268,12 @@ public class SplineEasingOperationObserverTests
         var easing = new SplineEasing(0.25f, 0.1f, 0.25f, 1.0f);
 
         // Act
-        using var observer = new SplineEasingOperationObserver(null, easing, _sequenceGenerator, null);
+        using var observer = new SplineEasingOperationObserver(
+            null,
+            easing,
+            _sequenceGenerator,
+            null
+        );
 
         // Assert
         Assert.That(observer.Operations, Is.InstanceOf<IObservable<ChangeOperation>>());
@@ -236,7 +287,12 @@ public class SplineEasingOperationObserverTests
         var receivedOperations1 = new List<ChangeOperation>();
         var receivedOperations2 = new List<ChangeOperation>();
 
-        using var operationObserver = new SplineEasingOperationObserver(null, easing, _sequenceGenerator, null);
+        using var operationObserver = new SplineEasingOperationObserver(
+            null,
+            easing,
+            _sequenceGenerator,
+            null
+        );
 
         // Act
         using var sub1 = operationObserver.Operations.Subscribe(op => receivedOperations1.Add(op));
@@ -265,7 +321,11 @@ public class SplineEasingOperationObserverTests
         var testObserver = Observer.Create<ChangeOperation>(op => receivedOperations.Add(op));
 
         var operationObserver = new SplineEasingOperationObserver(
-            testObserver, easing, _sequenceGenerator, null);
+            testObserver,
+            easing,
+            _sequenceGenerator,
+            null
+        );
 
         // Act
         operationObserver.Dispose();
@@ -282,8 +342,16 @@ public class SplineEasingOperationObserverTests
         var easing = new SplineEasing(0.25f, 0.1f, 0.25f, 1.0f);
         bool completed = false;
 
-        var operationObserver = new SplineEasingOperationObserver(null, easing, _sequenceGenerator, null);
-        using var subscription = operationObserver.Operations.Subscribe(_ => { }, () => completed = true);
+        var operationObserver = new SplineEasingOperationObserver(
+            null,
+            easing,
+            _sequenceGenerator,
+            null
+        );
+        using var subscription = operationObserver.Operations.Subscribe(
+            _ => { },
+            () => completed = true
+        );
 
         // Act
         operationObserver.Dispose();
@@ -301,13 +369,19 @@ public class SplineEasingOperationObserverTests
         var testObserver = Observer.Create<ChangeOperation>(op => receivedOperations.Add(op));
 
         var operationObserver = new SplineEasingOperationObserver(
-            testObserver, easing, _sequenceGenerator, null);
+            testObserver,
+            easing,
+            _sequenceGenerator,
+            null
+        );
 
         // Act
         operationObserver.Dispose();
 
         // Attempt to use the Operations after dispose
-        using var subscription = operationObserver.Operations.Subscribe(op => receivedOperations.Add(op));
+        using var subscription = operationObserver.Operations.Subscribe(op =>
+            receivedOperations.Add(op)
+        );
 
         // Since it's completed, no more operations should be received
         // (but this won't throw)
@@ -329,7 +403,11 @@ public class SplineEasingOperationObserverTests
         var testObserver = Observer.Create<ChangeOperation>(op => receivedOperations.Add(op));
 
         using var operationObserver = new SplineEasingOperationObserver(
-            testObserver, easing, _sequenceGenerator, null);
+            testObserver,
+            easing,
+            _sequenceGenerator,
+            null
+        );
 
         // Act
         easing.X1 = 0.5f;
@@ -354,7 +432,11 @@ public class SplineEasingOperationObserverTests
         var testObserver = Observer.Create<ChangeOperation>(op => receivedOperations.Add(op));
 
         using var operationObserver = new SplineEasingOperationObserver(
-            testObserver, easing, _sequenceGenerator, null);
+            testObserver,
+            easing,
+            _sequenceGenerator,
+            null
+        );
 
         // Act
         easing.Y1 = 0.5f;
@@ -379,7 +461,11 @@ public class SplineEasingOperationObserverTests
         var testObserver = Observer.Create<ChangeOperation>(op => receivedOperations.Add(op));
 
         using var operationObserver = new SplineEasingOperationObserver(
-            testObserver, easing, _sequenceGenerator, null);
+            testObserver,
+            easing,
+            _sequenceGenerator,
+            null
+        );
 
         // Act
         easing.X2 = 0.75f;
@@ -404,7 +490,11 @@ public class SplineEasingOperationObserverTests
         var testObserver = Observer.Create<ChangeOperation>(op => receivedOperations.Add(op));
 
         using var operationObserver = new SplineEasingOperationObserver(
-            testObserver, easing, _sequenceGenerator, null);
+            testObserver,
+            easing,
+            _sequenceGenerator,
+            null
+        );
 
         // Act
         easing.Y2 = 0.5f;
@@ -429,7 +519,11 @@ public class SplineEasingOperationObserverTests
         var testObserver = Observer.Create<ChangeOperation>(op => receivedOperations.Add(op));
 
         using var operationObserver = new SplineEasingOperationObserver(
-            testObserver, easing, _sequenceGenerator, null);
+            testObserver,
+            easing,
+            _sequenceGenerator,
+            null
+        );
 
         // Act
         using (PublishingSuppression.Enter())
@@ -453,7 +547,11 @@ public class SplineEasingOperationObserverTests
         var testObserver = Observer.Create<ChangeOperation>(op => receivedOperations.Add(op));
 
         using var operationObserver = new SplineEasingOperationObserver(
-            testObserver, easing, _sequenceGenerator, null);
+            testObserver,
+            easing,
+            _sequenceGenerator,
+            null
+        );
 
         // Act
         using (PublishingSuppression.Enter())
@@ -477,7 +575,11 @@ public class SplineEasingOperationObserverTests
         var testObserver = Observer.Create<ChangeOperation>(op => receivedOperations.Add(op));
 
         using var operationObserver = new SplineEasingOperationObserver(
-            testObserver, easing, _sequenceGenerator, null);
+            testObserver,
+            easing,
+            _sequenceGenerator,
+            null
+        );
 
         // Act - Set to the same value
         easing.X1 = 0.25f;
@@ -495,7 +597,11 @@ public class SplineEasingOperationObserverTests
         var testObserver = Observer.Create<ChangeOperation>(op => receivedOperations.Add(op));
 
         using var operationObserver = new SplineEasingOperationObserver(
-            testObserver, easing, _sequenceGenerator, null);
+            testObserver,
+            easing,
+            _sequenceGenerator,
+            null
+        );
 
         // Act
         easing.X1 = 0.3f;
@@ -516,7 +622,11 @@ public class SplineEasingOperationObserverTests
         var testObserver = Observer.Create<ChangeOperation>(op => receivedOperations.Add(op));
 
         using var operationObserver = new SplineEasingOperationObserver(
-            testObserver, easing, _sequenceGenerator, null);
+            testObserver,
+            easing,
+            _sequenceGenerator,
+            null
+        );
 
         // Act
         easing.X1 = 0.3f;
@@ -524,7 +634,10 @@ public class SplineEasingOperationObserverTests
 
         // Assert
         Assert.That(receivedOperations, Has.Count.EqualTo(2));
-        Assert.That(receivedOperations[1].SequenceNumber, Is.GreaterThan(receivedOperations[0].SequenceNumber));
+        Assert.That(
+            receivedOperations[1].SequenceNumber,
+            Is.GreaterThan(receivedOperations[0].SequenceNumber)
+        );
     }
 
     [Test]
@@ -536,7 +649,11 @@ public class SplineEasingOperationObserverTests
         var testObserver = Observer.Create<ChangeOperation>(op => receivedOperations.Add(op));
 
         using var operationObserver = new SplineEasingOperationObserver(
-            testObserver, easing, _sequenceGenerator, null);
+            testObserver,
+            easing,
+            _sequenceGenerator,
+            null
+        );
 
         // Act - Change X1 twice
         easing.X1 = 0.5f;
@@ -568,7 +685,13 @@ public class SplineEasingOperationObserverTests
         var testObserver = Observer.Create<ChangeOperation>(op => receivedOperations.Add(op));
 
         using var operationObserver = new SplineEasingOperationObserver(
-            testObserver, easing, _sequenceGenerator, null, "", null);
+            testObserver,
+            easing,
+            _sequenceGenerator,
+            null,
+            "",
+            null
+        );
 
         // Act
         easing.X1 = 0.5f;
@@ -590,7 +713,13 @@ public class SplineEasingOperationObserverTests
         var propertyPathsToTrack = new HashSet<string> { "X1", "Y2" };
 
         using var operationObserver = new SplineEasingOperationObserver(
-            testObserver, easing, _sequenceGenerator, null, "", propertyPathsToTrack);
+            testObserver,
+            easing,
+            _sequenceGenerator,
+            null,
+            "",
+            propertyPathsToTrack
+        );
 
         // Act
         easing.X1 = 0.5f;
@@ -610,7 +739,13 @@ public class SplineEasingOperationObserverTests
         var propertyPathsToTrack = new HashSet<string> { "X1" };
 
         using var operationObserver = new SplineEasingOperationObserver(
-            testObserver, easing, _sequenceGenerator, null, "", propertyPathsToTrack);
+            testObserver,
+            easing,
+            _sequenceGenerator,
+            null,
+            "",
+            propertyPathsToTrack
+        );
 
         // Act
         easing.Y1 = 0.5f;
@@ -631,7 +766,13 @@ public class SplineEasingOperationObserverTests
         var propertyPathsToTrack = new HashSet<string>();
 
         using var operationObserver = new SplineEasingOperationObserver(
-            testObserver, easing, _sequenceGenerator, null, "", propertyPathsToTrack);
+            testObserver,
+            easing,
+            _sequenceGenerator,
+            null,
+            "",
+            propertyPathsToTrack
+        );
 
         // Act
         easing.X1 = 0.5f;
@@ -654,7 +795,13 @@ public class SplineEasingOperationObserverTests
         var propertyPathsToTrack = new HashSet<string> { "Parent.Easing.X1" };
 
         using var operationObserver = new SplineEasingOperationObserver(
-            testObserver, easing, _sequenceGenerator, null, "Parent.Easing", propertyPathsToTrack);
+            testObserver,
+            easing,
+            _sequenceGenerator,
+            null,
+            "Parent.Easing",
+            propertyPathsToTrack
+        );
 
         // Act
         easing.X1 = 0.5f;
@@ -679,7 +826,12 @@ public class SplineEasingOperationObserverTests
         var testObserver = Observer.Create<ChangeOperation>(op => receivedOperations.Add(op));
 
         using var operationObserver = new SplineEasingOperationObserver(
-            testObserver, easing, _sequenceGenerator, null, "");
+            testObserver,
+            easing,
+            _sequenceGenerator,
+            null,
+            ""
+        );
 
         // Act
         easing.X1 = 0.5f;
@@ -699,7 +851,12 @@ public class SplineEasingOperationObserverTests
         var testObserver = Observer.Create<ChangeOperation>(op => receivedOperations.Add(op));
 
         using var operationObserver = new SplineEasingOperationObserver(
-            testObserver, easing, _sequenceGenerator, null, "KeyFrame.Easing");
+            testObserver,
+            easing,
+            _sequenceGenerator,
+            null,
+            "KeyFrame.Easing"
+        );
 
         // Act
         easing.X1 = 0.5f;
@@ -719,7 +876,11 @@ public class SplineEasingOperationObserverTests
         var testObserver = Observer.Create<ChangeOperation>(op => receivedOperations.Add(op));
 
         using var operationObserver = new SplineEasingOperationObserver(
-            testObserver, easing, _sequenceGenerator, null);
+            testObserver,
+            easing,
+            _sequenceGenerator,
+            null
+        );
 
         // Act
         easing.X1 = 0.5f;
@@ -739,7 +900,11 @@ public class SplineEasingOperationObserverTests
         var testObserver = Observer.Create<ChangeOperation>(op => receivedOperations.Add(op));
 
         using var operationObserver = new SplineEasingOperationObserver(
-            testObserver, easing, _sequenceGenerator, null);
+            testObserver,
+            easing,
+            _sequenceGenerator,
+            null
+        );
 
         // Act
         easing.X1 = 0.5f;
@@ -763,7 +928,11 @@ public class SplineEasingOperationObserverTests
         var testObserver = Observer.Create<ChangeOperation>(op => receivedOperations.Add(op));
 
         using var operationObserver = new SplineEasingOperationObserver(
-            testObserver, easing, _sequenceGenerator, null);
+            testObserver,
+            easing,
+            _sequenceGenerator,
+            null
+        );
 
         easing.X1 = 0.5f;
 
@@ -791,7 +960,11 @@ public class SplineEasingOperationObserverTests
         var testObserver = Observer.Create<ChangeOperation>(op => receivedOperations.Add(op));
 
         using var operationObserver = new SplineEasingOperationObserver(
-            testObserver, easing, _sequenceGenerator, null);
+            testObserver,
+            easing,
+            _sequenceGenerator,
+            null
+        );
 
         easing.X1 = 0.5f;
 
@@ -818,9 +991,17 @@ public class SplineEasingOperationObserverTests
         var testObserver2 = Observer.Create<ChangeOperation>(op => receivedOperations2.Add(op));
 
         using var operationObserver1 = new SplineEasingOperationObserver(
-            testObserver1, easing, _sequenceGenerator, null);
+            testObserver1,
+            easing,
+            _sequenceGenerator,
+            null
+        );
         using var operationObserver2 = new SplineEasingOperationObserver(
-            testObserver2, easing, new OperationSequenceGenerator(), null);
+            testObserver2,
+            easing,
+            new OperationSequenceGenerator(),
+            null
+        );
 
         // Act
         easing.X1 = 0.5f;
@@ -842,7 +1023,11 @@ public class SplineEasingOperationObserverTests
         var testObserver = Observer.Create<ChangeOperation>(op => receivedOperations.Add(op));
 
         using var operationObserver = new SplineEasingOperationObserver(
-            testObserver, easing, _sequenceGenerator, null);
+            testObserver,
+            easing,
+            _sequenceGenerator,
+            null
+        );
 
         // Act
         using (PublishingSuppression.Enter())
@@ -863,9 +1048,7 @@ public class SplineEasingOperationObserverTests
 
     #region Test Helper Classes
 
-    private class TestCoreObject : CoreObject
-    {
-    }
+    private class TestCoreObject : CoreObject { }
 
     #endregion
 }

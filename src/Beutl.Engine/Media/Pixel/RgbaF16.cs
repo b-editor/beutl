@@ -20,7 +20,7 @@ public struct RgbaF16(Half r, Half g, Half b, Half a)
             R = (Half)Color.SrgbToLinear((float)R),
             G = (Half)Color.SrgbToLinear((float)G),
             B = (Half)Color.SrgbToLinear((float)B),
-            A = A
+            A = A,
         };
     }
 
@@ -31,7 +31,7 @@ public struct RgbaF16(Half r, Half g, Half b, Half a)
             R = (Half)Color.LinearToSrgb((float)R),
             G = (Half)Color.LinearToSrgb((float)G),
             B = (Half)Color.LinearToSrgb((float)B),
-            A = A
+            A = A,
         };
     }
 }

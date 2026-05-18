@@ -13,28 +13,37 @@ public sealed partial class TranslateTransform : Transform
         ScanProperties<TranslateTransform>();
     }
 
-    public TranslateTransform(float x, float y) : this()
+    public TranslateTransform(float x, float y)
+        : this()
     {
         X.CurrentValue = x;
         Y.CurrentValue = y;
     }
 
-    public TranslateTransform(Vector vector) : this()
+    public TranslateTransform(Vector vector)
+        : this()
     {
         X.CurrentValue = vector.X;
         Y.CurrentValue = vector.Y;
     }
 
-    public TranslateTransform(Point point) : this()
+    public TranslateTransform(Point point)
+        : this()
     {
         X.CurrentValue = point.X;
         Y.CurrentValue = point.Y;
     }
 
-    [Display(Name = nameof(GraphicsStrings.TranslateTransform_X), ResourceType = typeof(GraphicsStrings))]
+    [Display(
+        Name = nameof(GraphicsStrings.TranslateTransform_X),
+        ResourceType = typeof(GraphicsStrings)
+    )]
     public IProperty<float> X { get; } = Property.CreateAnimatable(0f);
 
-    [Display(Name = nameof(GraphicsStrings.TranslateTransform_Y), ResourceType = typeof(GraphicsStrings))]
+    [Display(
+        Name = nameof(GraphicsStrings.TranslateTransform_Y),
+        ResourceType = typeof(GraphicsStrings)
+    )]
     public IProperty<float> Y { get; } = Property.CreateAnimatable(0f);
 
     public override Matrix CreateMatrix(CompositionContext context)

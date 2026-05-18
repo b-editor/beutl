@@ -14,11 +14,17 @@ public sealed partial class LineSpectrumShape : SpectrumShape
         ScanProperties<LineSpectrumShape>();
     }
 
-    [Display(Name = nameof(GraphicsStrings.SpectrumShape_Thickness), ResourceType = typeof(GraphicsStrings))]
+    [Display(
+        Name = nameof(GraphicsStrings.SpectrumShape_Thickness),
+        ResourceType = typeof(GraphicsStrings)
+    )]
     [Range(0.5f, 50f)]
     public IProperty<float> Thickness { get; } = Property.CreateAnimatable(2f);
 
-    [Display(Name = nameof(GraphicsStrings.SpectrumShape_Smoothness), ResourceType = typeof(GraphicsStrings))]
+    [Display(
+        Name = nameof(GraphicsStrings.SpectrumShape_Smoothness),
+        ResourceType = typeof(GraphicsStrings)
+    )]
     [Range(0f, 100f)]
     public IProperty<float> Smoothness { get; } = Property.CreateAnimatable(0f);
 
@@ -33,10 +39,12 @@ public sealed partial class LineSpectrumShape : SpectrumShape
             ImmediateCanvas canvas,
             Rect bounds,
             ReadOnlySpan<float> normalizedBars,
-            Brush.Resource fill)
+            Brush.Resource fill
+        )
         {
             int barCount = normalizedBars.Length;
-            if (barCount < 2) return;
+            if (barCount < 2)
+                return;
 
             float width = (float)bounds.Width;
             float height = (float)bounds.Height;
@@ -54,7 +62,8 @@ public sealed partial class LineSpectrumShape : SpectrumShape
             if (_lastCornerRadius != cornerRadius)
             {
                 _cornerEffect?.Dispose();
-                _cornerEffect = cornerRadius > 0.01f ? SKPathEffect.CreateCorner(cornerRadius) : null;
+                _cornerEffect =
+                    cornerRadius > 0.01f ? SKPathEffect.CreateCorner(cornerRadius) : null;
                 _lastCornerRadius = cornerRadius;
             }
             _paint.PathEffect = _cornerEffect;
@@ -67,8 +76,10 @@ public sealed partial class LineSpectrumShape : SpectrumShape
                 float magnitude = normalizedBars[i];
                 float x = (float)bounds.X + i * slotWidth + slotWidth * 0.5f;
                 float y = (float)bounds.Y + height - MathF.Max(1f, magnitude * height);
-                if (i == 0) _path.MoveTo(x, y);
-                else _path.LineTo(x, y);
+                if (i == 0)
+                    _path.MoveTo(x, y);
+                else
+                    _path.LineTo(x, y);
             }
 
             canvas.Canvas.DrawPath(_path, _paint);

@@ -1,12 +1,13 @@
 <Project Sdk="Microsoft.NET.Sdk">
-
   <PropertyGroup>
     <RepositoryUrl>https://github.com/b-editor/beutl</RepositoryUrl>
     <Authors>b-editor</Authors>
 
     <MFBuildIn Condition="'$(MFBuildIn)' == ''">True</MFBuildIn>
     <DefineConstants>$(DefineConstants);DESKTOP_APP</DefineConstants>
-    <DefineConstants Condition="'$(MFBuildIn)'=='True'">$(DefineConstants);MF_BUILD_IN</DefineConstants>
+    <DefineConstants Condition="'$(MFBuildIn)'=='True'"
+      >$(DefineConstants);MF_BUILD_IN</DefineConstants
+    >
     <PlatformTarget>x64</PlatformTarget>
   </PropertyGroup>
 
@@ -54,5 +55,4 @@
       </PropertyGroup>
     </Otherwise>
   </Choose>
-
 </Project>

@@ -48,8 +48,12 @@ public class SplineEasingHelperTests
     public void Remove_NonNumberType_FallsBackToRemoveAt()
     {
         var animation = new KeyFrameAnimation<bool>();
-        animation.KeyFrames.Add(new KeyFrame<bool> { KeyTime = TimeSpan.FromSeconds(0), Value = false });
-        animation.KeyFrames.Add(new KeyFrame<bool> { KeyTime = TimeSpan.FromSeconds(1), Value = true });
+        animation.KeyFrames.Add(
+            new KeyFrame<bool> { KeyTime = TimeSpan.FromSeconds(0), Value = false }
+        );
+        animation.KeyFrames.Add(
+            new KeyFrame<bool> { KeyTime = TimeSpan.FromSeconds(1), Value = true }
+        );
 
         SplineEasingHelper.Remove(animation, 1);
 
@@ -61,7 +65,9 @@ public class SplineEasingHelperTests
     {
         var animation = new KeyFrameAnimation<bool>();
         var kf = new KeyFrame<bool> { KeyTime = TimeSpan.FromSeconds(1), Value = true };
-        animation.KeyFrames.Add(new KeyFrame<bool> { KeyTime = TimeSpan.FromSeconds(0), Value = false });
+        animation.KeyFrames.Add(
+            new KeyFrame<bool> { KeyTime = TimeSpan.FromSeconds(0), Value = false }
+        );
         animation.KeyFrames.Add(kf);
 
         SplineEasingHelper.Move(animation, kf, TimeSpan.FromSeconds(2));

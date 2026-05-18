@@ -1,15 +1,14 @@
 ﻿using System.Collections.Concurrent;
-
 using Beutl.Api.Services;
 using Beutl.Logging;
-
 using Microsoft.Extensions.Logging;
 
 namespace Beutl.Services.StartupTasks;
 
 public sealed class LoadInstalledExtensionTask : StartupTask
 {
-    private readonly ILogger<LoadInstalledExtensionTask> _logger = Log.CreateLogger<LoadInstalledExtensionTask>();
+    private readonly ILogger<LoadInstalledExtensionTask> _logger =
+        Log.CreateLogger<LoadInstalledExtensionTask>();
     private readonly PackageManager _manager;
 
     public LoadInstalledExtensionTask(PackageManager manager, Startup startup)
@@ -28,7 +27,8 @@ public sealed class LoadInstalledExtensionTask : StartupTask
                 // 依存関係の再復元に失敗したパッケージIDを収集
                 HashSet<string> failedPackageIds = new(
                     resolveTask.Failures.Select(f => f.Package.Id),
-                    StringComparer.OrdinalIgnoreCase);
+                    StringComparer.OrdinalIgnoreCase
+                );
 
                 // クラッシュ復旧プロンプトの結果を待機し、制限モードか判定
                 CrashRecoveryPromptTask promptTask = startup.GetTask<CrashRecoveryPromptTask>();
@@ -42,29 +42,43 @@ public sealed class LoadInstalledExtensionTask : StartupTask
 
                     activity?.AddEvent(new ActivityEvent("Started loading installed packages."));
 
-                    Parallel.ForEach(packages, item =>
-                    {
-                        if (failedPackageIds.Contains(item.Name))
+                    Parallel.ForEach(
+                        packages,
+                        item =>
                         {
-                            _logger.LogWarning(
-                                "Skipping package {PackageName} due to dependency re-resolution failure.",
-                                item.Name);
-                            Failures.Add((item, new InvalidOperationException(
-                                $"Dependency re-resolution failed for package '{item.Name}'.")));
-                            return;
-                        }
+                            if (failedPackageIds.Contains(item.Name))
+                            {
+                                _logger.LogWarning(
+                                    "Skipping package {PackageName} due to dependency re-resolution failure.",
+                                    item.Name
+                                );
+                                Failures.Add(
+                                    (
+                                        item,
+                                        new InvalidOperationException(
+                                            $"Dependency re-resolution failed for package '{item.Name}'."
+                                        )
+                                    )
+                                );
+                                return;
+                            }
 
-                        try
-                        {
-                            _manager.Load(item);
+                            try
+                            {
+                                _manager.Load(item);
+                            }
+                            catch (Exception e)
+                            {
+                                activity?.SetStatus(ActivityStatusCode.Error);
+                                _logger.LogError(
+                                    e,
+                                    "Failed to load package: {PackageName}",
+                                    item.Name
+                                );
+                                Failures.Add((item, e));
+                            }
                         }
-                        catch (Exception e)
-                        {
-                            activity?.SetStatus(ActivityStatusCode.Error);
-                            _logger.LogError(e, "Failed to load package: {PackageName}", item.Name);
-                            Failures.Add((item, e));
-                        }
-                    });
+                    );
 
                     activity?.AddEvent(new ActivityEvent("Finished loading installed packages."));
                 }

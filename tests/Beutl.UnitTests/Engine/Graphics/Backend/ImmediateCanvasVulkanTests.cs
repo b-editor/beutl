@@ -74,12 +74,31 @@ public class ImmediateCanvasVulkanTests
 
             using var snapshot = target!.Snapshot();
             // Linear sRGB: white -> 1, black -> 0
-            AssertHalfPixelMatches(snapshot, x: 2, y: 8, expectedRed: 1f, expectedGreen: 1f, expectedBlue: 1f);
-            AssertHalfPixelMatches(snapshot, x: 12, y: 8, expectedRed: 0f, expectedGreen: 0f, expectedBlue: 0f);
+            AssertHalfPixelMatches(
+                snapshot,
+                x: 2,
+                y: 8,
+                expectedRed: 1f,
+                expectedGreen: 1f,
+                expectedBlue: 1f
+            );
+            AssertHalfPixelMatches(
+                snapshot,
+                x: 12,
+                y: 8,
+                expectedRed: 0f,
+                expectedGreen: 0f,
+                expectedBlue: 0f
+            );
         });
     }
 
-    private static void AssertEveryPixelMatches(Bitmap snapshot, float expectedRed, float expectedGreen, float expectedBlue)
+    private static void AssertEveryPixelMatches(
+        Bitmap snapshot,
+        float expectedRed,
+        float expectedGreen,
+        float expectedBlue
+    )
     {
         // RgbaF16 は 4ch×2byte のハーフフロート。SnapshotはLinearSrgb。
         Assert.That(snapshot.ColorType, Is.EqualTo(BitmapColorType.RgbaF16));
@@ -89,23 +108,42 @@ public class ImmediateCanvasVulkanTests
         for (int i = 0; i < span.Length; i += 8)
         {
             float r = (float)BitConverter.UInt16BitsToHalf(BitConverter.ToUInt16(span.Slice(i, 2)));
-            float g = (float)BitConverter.UInt16BitsToHalf(BitConverter.ToUInt16(span.Slice(i + 2, 2)));
-            float b = (float)BitConverter.UInt16BitsToHalf(BitConverter.ToUInt16(span.Slice(i + 4, 2)));
+            float g = (float)
+                BitConverter.UInt16BitsToHalf(BitConverter.ToUInt16(span.Slice(i + 2, 2)));
+            float b = (float)
+                BitConverter.UInt16BitsToHalf(BitConverter.ToUInt16(span.Slice(i + 4, 2)));
 
             Assert.That(r, Is.EqualTo(expectedRed).Within(0.01f), $"R mismatch at byte offset {i}");
-            Assert.That(g, Is.EqualTo(expectedGreen).Within(0.01f), $"G mismatch at byte offset {i}");
-            Assert.That(b, Is.EqualTo(expectedBlue).Within(0.01f), $"B mismatch at byte offset {i}");
+            Assert.That(
+                g,
+                Is.EqualTo(expectedGreen).Within(0.01f),
+                $"G mismatch at byte offset {i}"
+            );
+            Assert.That(
+                b,
+                Is.EqualTo(expectedBlue).Within(0.01f),
+                $"B mismatch at byte offset {i}"
+            );
         }
     }
 
-    private static void AssertHalfPixelMatches(Bitmap snapshot, int x, int y, float expectedRed, float expectedGreen, float expectedBlue)
+    private static void AssertHalfPixelMatches(
+        Bitmap snapshot,
+        int x,
+        int y,
+        float expectedRed,
+        float expectedGreen,
+        float expectedBlue
+    )
     {
         int rowBytes = snapshot.RowBytes;
         var row = snapshot.GetRow(y);
         int offset = x * 8;
         float r = (float)BitConverter.UInt16BitsToHalf(BitConverter.ToUInt16(row.Slice(offset, 2)));
-        float g = (float)BitConverter.UInt16BitsToHalf(BitConverter.ToUInt16(row.Slice(offset + 2, 2)));
-        float b = (float)BitConverter.UInt16BitsToHalf(BitConverter.ToUInt16(row.Slice(offset + 4, 2)));
+        float g = (float)
+            BitConverter.UInt16BitsToHalf(BitConverter.ToUInt16(row.Slice(offset + 2, 2)));
+        float b = (float)
+            BitConverter.UInt16BitsToHalf(BitConverter.ToUInt16(row.Slice(offset + 4, 2)));
 
         Assert.That(r, Is.EqualTo(expectedRed).Within(0.01f), $"R mismatch at ({x},{y})");
         Assert.That(g, Is.EqualTo(expectedGreen).Within(0.01f), $"G mismatch at ({x},{y})");

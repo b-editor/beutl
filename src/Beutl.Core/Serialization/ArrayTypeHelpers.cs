@@ -40,7 +40,11 @@ internal static class ArrayTypeHelpers
         }
     }
 
-    public static object ConvertDictionaryType(List<KeyValuePair<string, object?>> output, Type type, Type valueType)
+    public static object ConvertDictionaryType(
+        List<KeyValuePair<string, object?>> output,
+        Type type,
+        Type valueType
+    )
     {
         if (type.IsArray)
         {
@@ -83,8 +87,12 @@ internal static class ArrayTypeHelpers
                 if (!s_elementTypes.TryGetValue(arrayType, out elementType))
                 {
                     Type[] interfaces = arrayType.GetInterfaces();
-                    if (interfaces.FirstOrDefault(x => x.IsGenericType && x.GetGenericTypeDefinition() == typeof(IEnumerable<>))
-                         is { } interfaceType)
+                    if (
+                        interfaces.FirstOrDefault(x =>
+                            x.IsGenericType && x.GetGenericTypeDefinition() == typeof(IEnumerable<>)
+                        ) is
+                        { } interfaceType
+                    )
                     {
                         elementType = interfaceType.GetGenericArguments()[0];
                         s_elementTypes.Add(arrayType, elementType);
@@ -104,8 +112,10 @@ internal static class ArrayTypeHelpers
             {
                 if (!s_genericArgsTypes.TryGetValue(elementType, out var result))
                 {
-                    if (elementType.IsGenericType
-                        && elementType.GetGenericTypeDefinition() == typeof(KeyValuePair<,>))
+                    if (
+                        elementType.IsGenericType
+                        && elementType.GetGenericTypeDefinition() == typeof(KeyValuePair<,>)
+                    )
                     {
                         Type[] args = elementType.GetGenericArguments();
                         result = new(args[0], args[1]);
@@ -141,7 +151,9 @@ internal static class ArrayTypeHelpers
             foreach (Type type in types)
             {
                 s_genericArgsTypes.Remove(type);
-                foreach (var kvp in list.Where(kvp => kvp.Value.Item1 == type || kvp.Value.Item2 == type))
+                foreach (
+                    var kvp in list.Where(kvp => kvp.Value.Item1 == type || kvp.Value.Item2 == type)
+                )
                 {
                     s_genericArgsTypes.Remove(kvp.Key);
                 }

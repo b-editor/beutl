@@ -2,7 +2,6 @@
 using System.Reactive.Subjects;
 using System.Security.Cryptography;
 using System.Text;
-
 using Beutl.Api.Objects;
 using Beutl.Logging;
 using Beutl.Reactive;
@@ -21,7 +20,8 @@ namespace Beutl.Api.Services;
 
 public partial class PackageInstaller : IBeutlApiResource
 {
-    private readonly Microsoft.Extensions.Logging.ILogger _logger = Log.CreateLogger<PackageInstaller>();
+    private readonly Microsoft.Extensions.Logging.ILogger _logger =
+        Log.CreateLogger<PackageInstaller>();
     private readonly HttpClient _httpClient;
     private readonly InstalledPackageRepository _installedPackageRepository;
     private readonly BeutlApiApplication _apiApplication;
@@ -36,7 +36,8 @@ public partial class PackageInstaller : IBeutlApiResource
 
     private readonly Subject<(PackageIdentity Package, EventType Type)> _subject = new();
 
-    private const string DefaultNuGetConfigContentTemplate = @"<?xml version=""1.0"" encoding=""utf-8""?>
+    private const string DefaultNuGetConfigContentTemplate =
+        @"<?xml version=""1.0"" encoding=""utf-8""?>
 <configuration>
   <packageSources>
     <clear />
@@ -53,7 +54,11 @@ public partial class PackageInstaller : IBeutlApiResource
         Uninstalling,
     }
 
-    public PackageInstaller(HttpClient httpClient, InstalledPackageRepository installedPackageRepository, BeutlApiApplication apiApplication)
+    public PackageInstaller(
+        HttpClient httpClient,
+        InstalledPackageRepository installedPackageRepository,
+        BeutlApiApplication apiApplication
+    )
     {
         _httpClient = httpClient;
         _installedPackageRepository = installedPackageRepository;
@@ -81,20 +86,22 @@ public partial class PackageInstaller : IBeutlApiResource
         {
             using (StreamWriter writer = File.CreateText(configPath))
             {
-                writer.Write(string.Format(DefaultNuGetConfigContentTemplate, Helper.LocalSourcePath));
+                writer.Write(
+                    string.Format(DefaultNuGetConfigContentTemplate, Helper.LocalSourcePath)
+                );
             }
         }
 
-    LoadSettings:
+        LoadSettings:
         //_settings = Settings.LoadDefaultSettings(Helper.AppRoot);
         _settings = new Settings(Helper.AppRoot, ConfigFileName);
         _packageSourceProvider = new PackageSourceProvider(_settings);
 
-        _sourceRepositoryProvider = new SourceRepositoryProvider(_packageSourceProvider, Repository.Provider.GetCoreV3());
-        _cacheContext = new SourceCacheContext()
-        {
-            DirectDownload = true
-        };
+        _sourceRepositoryProvider = new SourceRepositoryProvider(
+            _packageSourceProvider,
+            Repository.Provider.GetCoreV3()
+        );
+        _cacheContext = new SourceCacheContext() { DirectDownload = true };
 
         _resolver = new PackageResolver();
     }
@@ -115,7 +122,8 @@ public partial class PackageInstaller : IBeutlApiResource
     public async Task<PackageInstallContext> PrepareForInstall(
         Release release,
         bool force = false,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default
+    )
     {
         cancellationToken.ThrowIfCancellationRequested();
 
@@ -136,10 +144,7 @@ public partial class PackageInstaller : IBeutlApiResource
         {
             var asset = await release.GetAssetAsync().ConfigureAwait(false);
 
-            context = new PackageInstallContext(name, version, asset.DownloadUrl)
-            {
-                Asset = asset
-            };
+            context = new PackageInstallContext(name, version, asset.DownloadUrl) { Asset = asset };
             _installingContexts.Add(packageId, context);
             return context;
         }
@@ -149,7 +154,8 @@ public partial class PackageInstaller : IBeutlApiResource
         string name,
         string version,
         bool force = false,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default
+    )
     {
         cancellationToken.ThrowIfCancellationRequested();
         var packageId = new PackageIdentity(name, new NuGetVersion(version));
@@ -167,7 +173,7 @@ public partial class PackageInstaller : IBeutlApiResource
         {
             context = new PackageInstallContext(name, version, string.Empty)
             {
-                Phase = PackageInstallPhase.Downloaded
+                Phase = PackageInstallPhase.Downloaded,
             };
             _installingContexts.Add(packageId, context);
             return context;
@@ -177,7 +183,8 @@ public partial class PackageInstaller : IBeutlApiResource
     public async Task DownloadPackageFile(
         PackageInstallContext context,
         IProgress<double>? progress = null,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default
+    )
     {
         cancellationToken.ThrowIfCancellationRequested();
         if ((int)context.Phase <= (int)PackageInstallPhase.Downloading)
@@ -191,7 +198,8 @@ public partial class PackageInstaller : IBeutlApiResource
             context.NuGetPackageFile = Helper.GetNupkgFilePath(name, version);
             using (FileStream destination = File.Create(context.NuGetPackageFile))
             {
-                await Download(downloadUrl, destination, progress, cancellationToken).ConfigureAwait(false);
+                await Download(downloadUrl, destination, progress, cancellationToken)
+                    .ConfigureAwait(false);
             }
 
             context.Phase = PackageInstallPhase.Downloaded;
@@ -201,16 +209,28 @@ public partial class PackageInstaller : IBeutlApiResource
     public async Task VerifyPackageFile(
         PackageInstallContext context,
         IProgress<double>? progress = null,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default
+    )
     {
-        async Task<bool> Varify(HashAlgorithm algorithm, Stream stream, long totalLength, string hashValue)
+        async Task<bool> Varify(
+            HashAlgorithm algorithm,
+            Stream stream,
+            long totalLength,
+            string hashValue
+        )
         {
             long length = stream.Length;
             int bufferSize = 81920;
             byte[] buffer = new byte[bufferSize];
             long totalBytesRead = 0;
             int bytesRead;
-            while ((bytesRead = await stream.ReadAsync(buffer, cancellationToken).ConfigureAwait(false)) != 0)
+            while (
+                (
+                    bytesRead = await stream
+                        .ReadAsync(buffer, cancellationToken)
+                        .ConfigureAwait(false)
+                ) != 0
+            )
             {
                 totalBytesRead += bytesRead;
                 if (totalBytesRead < length)
@@ -251,19 +271,16 @@ public partial class PackageInstaller : IBeutlApiResource
         if ((int)context.Phase <= (int)PackageInstallPhase.Verifying)
         {
             context.Phase = PackageInstallPhase.Verifying;
-            if (context.Asset is { } asset
-                && context.NuGetPackageFile != null)
+            if (context.Asset is { } asset && context.NuGetPackageFile != null)
             {
                 using FileStream stream = File.OpenRead(context.NuGetPackageFile);
                 using var sha256 = SHA256.Create();
                 using var sha384 = SHA384.Create();
                 using var sha512 = SHA512.Create();
-                (HashAlgorithm, string?)[] items =
-                [
-                    (sha256, asset.Sha256)
-                ];
+                (HashAlgorithm, string?)[] items = [(sha256, asset.Sha256)];
 
-                long totalLength = items.Count(x => !string.IsNullOrWhiteSpace(x.Item2)) * stream.Length;
+                long totalLength =
+                    items.Count(x => !string.IsNullOrWhiteSpace(x.Item2)) * stream.Length;
                 if (totalLength == 0)
                 {
                     context.HashVerified = false;
@@ -292,17 +309,23 @@ public partial class PackageInstaller : IBeutlApiResource
     public async Task ReResolveDependencies(
         PackageIdentity package,
         ILogger? logger,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default
+    )
     {
         var context = PrepareForInstall(
-            package.Id, package.Version.ToString(), force: true, cancellationToken);
+            package.Id,
+            package.Version.ToString(),
+            force: true,
+            cancellationToken
+        );
         await ResolveDependencies(context, logger, cancellationToken);
     }
 
     public async Task ResolveDependencies(
         PackageInstallContext context,
         ILogger? logger,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default
+    )
     {
         PackageIdentity? package = null;
         try
@@ -319,16 +342,21 @@ public partial class PackageInstaller : IBeutlApiResource
 
                 logger ??= new LoggerAdapter(_logger);
 
-                IEnumerable<SourceRepository> repositories = _sourceRepositoryProvider.GetRepositories();
-                var availablePackages = new HashSet<SourcePackageDependencyInfo>(PackageIdentityComparer.Default);
-                await Helper.GetPackageDependencies(
-                    package,
-                    nuGetFramework,
-                    _cacheContext,
-                    logger,
-                    repositories,
-                    availablePackages,
-                    cancellationToken)
+                IEnumerable<SourceRepository> repositories =
+                    _sourceRepositoryProvider.GetRepositories();
+                var availablePackages = new HashSet<SourcePackageDependencyInfo>(
+                    PackageIdentityComparer.Default
+                );
+                await Helper
+                    .GetPackageDependencies(
+                        package,
+                        nuGetFramework,
+                        _cacheContext,
+                        logger,
+                        repositories,
+                        availablePackages,
+                        cancellationToken
+                    )
                     .ConfigureAwait(false);
 
                 var resolverContext = new PackageResolverContext(
@@ -339,52 +367,72 @@ public partial class PackageInstaller : IBeutlApiResource
                     CoreLibraries.GetPreferredVersions(),
                     availablePackages,
                     repositories.Select(s => s.PackageSource),
-                    logger);
+                    logger
+                );
 
-                SourcePackageDependencyInfo[] packagesToInstall
-                    = _resolver.Resolve(resolverContext, cancellationToken)
-                        .Select(p => availablePackages.Single(x => PackageIdentityComparer.Default.Equals(x, p)))
-                        .ToArray();
+                SourcePackageDependencyInfo[] packagesToInstall = _resolver
+                    .Resolve(resolverContext, cancellationToken)
+                    .Select(p =>
+                        availablePackages.Single(x => PackageIdentityComparer.Default.Equals(x, p))
+                    )
+                    .ToArray();
 
                 var packageExtractionContext = new PackageExtractionContext(
                     PackageSaveMode.Defaultv3,
                     XmlDocFileSaveMode.None,
                     ClientPolicyContext.GetClientPolicy(_settings, logger),
-                    logger);
+                    logger
+                );
 
                 var installedPaths = new List<string>(packagesToInstall.Length);
                 foreach (SourcePackageDependencyInfo packageToInstall in packagesToInstall)
                 {
                     // Beutl.Sdkに含まれるライブラリの場合、飛ばす。
-                    if (CoreLibraries.IncludedInPackageDependencies(packageToInstall.Id, packageToInstall.Version))
+                    if (
+                        CoreLibraries.IncludedInPackageDependencies(
+                            packageToInstall.Id,
+                            packageToInstall.Version
+                        )
+                    )
                     {
                         continue;
                     }
 
-                    string installedPath = Helper.PackagePathResolver.GetInstalledPath(packageToInstall);
+                    string installedPath = Helper.PackagePathResolver.GetInstalledPath(
+                        packageToInstall
+                    );
                     if (installedPath != null)
                     {
                         installedPaths.Add(installedPath);
                     }
                     else
                     {
-                        DownloadResource downloadResource = await packageToInstall.Source.GetResourceAsync<DownloadResource>(cancellationToken).ConfigureAwait(false);
-                        using DownloadResourceResult downloadResult = await downloadResource.GetDownloadResourceResultAsync(
-                            packageToInstall,
-                            new PackageDownloadContext(_cacheContext),
-                            SettingsUtility.GetGlobalPackagesFolder(_settings),
-                            logger, cancellationToken)
+                        DownloadResource downloadResource = await packageToInstall
+                            .Source.GetResourceAsync<DownloadResource>(cancellationToken)
+                            .ConfigureAwait(false);
+                        using DownloadResourceResult downloadResult = await downloadResource
+                            .GetDownloadResourceResultAsync(
+                                packageToInstall,
+                                new PackageDownloadContext(_cacheContext),
+                                SettingsUtility.GetGlobalPackagesFolder(_settings),
+                                logger,
+                                cancellationToken
+                            )
                             .ConfigureAwait(false);
 
-                        await PackageExtractor.ExtractPackageAsync(
-                            downloadResult.PackageSource,
-                            downloadResult.PackageStream,
-                            Helper.PackagePathResolver,
-                            packageExtractionContext,
-                            cancellationToken)
+                        await PackageExtractor
+                            .ExtractPackageAsync(
+                                downloadResult.PackageSource,
+                                downloadResult.PackageStream,
+                                Helper.PackagePathResolver,
+                                packageExtractionContext,
+                                cancellationToken
+                            )
                             .ConfigureAwait(false);
 
-                        installedPath = Helper.PackagePathResolver.GetInstalledPath(packageToInstall);
+                        installedPath = Helper.PackagePathResolver.GetInstalledPath(
+                            packageToInstall
+                        );
                         if (installedPath != null)
                         {
                             var reader = new PackageFolderReader(installedPath);
@@ -392,8 +440,10 @@ public partial class PackageInstaller : IBeutlApiResource
 
                             // GetLicenseMetadataの戻り値はNullの可能性があるので、
                             // https://github.com/NuGet/NuGet.Client/blob/e873b496daa6839a86f4b820d15945a9aad98e3d/src/NuGet.Core/NuGet.Packaging/NuspecReader.cs#L434
-                            if (nuspec.GetRequireLicenseAcceptance()
-                                && nuspec.GetLicenseMetadata() is { } license)
+                            if (
+                                nuspec.GetRequireLicenseAcceptance()
+                                && nuspec.GetLicenseMetadata() is { } license
+                            )
                             {
                                 context.LicensesRequiringApproval.Add((packageToInstall, license));
                             }
@@ -420,7 +470,8 @@ public partial class PackageInstaller : IBeutlApiResource
         string url,
         Stream destination,
         IProgress<double>? progress,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken
+    )
     {
         using var request = new HttpRequestMessage(HttpMethod.Get, url);
         if (_apiApplication.AuthenticatedUser.Value is { } user)
@@ -432,20 +483,33 @@ public partial class PackageInstaller : IBeutlApiResource
             }
             catch (Exception ex)
             {
-                _logger.LogWarning(ex, "Failed to refresh authenticated user. Proceeding without authentication.");
+                _logger.LogWarning(
+                    ex,
+                    "Failed to refresh authenticated user. Proceeding without authentication."
+                );
             }
         }
 
-        using (HttpResponseMessage response = await _httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken).ConfigureAwait(false))
+        using (
+            HttpResponseMessage response = await _httpClient
+                .SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken)
+                .ConfigureAwait(false)
+        )
         {
             long? contentLength = response.Content.Headers.ContentLength;
 
-            using (Stream download = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false))
+            using (
+                Stream download = await response
+                    .Content.ReadAsStreamAsync(cancellationToken)
+                    .ConfigureAwait(false)
+            )
             {
                 if (!contentLength.HasValue)
                 {
                     progress?.Report(double.PositiveInfinity);
-                    await download.CopyToAsync(destination, cancellationToken).ConfigureAwait(false);
+                    await download
+                        .CopyToAsync(destination, cancellationToken)
+                        .ConfigureAwait(false);
                 }
                 else
                 {
@@ -453,9 +517,17 @@ public partial class PackageInstaller : IBeutlApiResource
                     byte[] buffer = new byte[bufferSize];
                     long totalBytesRead = 0;
                     int bytesRead;
-                    while ((bytesRead = await download.ReadAsync(buffer, cancellationToken).ConfigureAwait(false)) != 0)
+                    while (
+                        (
+                            bytesRead = await download
+                                .ReadAsync(buffer, cancellationToken)
+                                .ConfigureAwait(false)
+                        ) != 0
+                    )
                     {
-                        await destination.WriteAsync(buffer.AsMemory(0, bytesRead), cancellationToken).ConfigureAwait(false);
+                        await destination
+                            .WriteAsync(buffer.AsMemory(0, bytesRead), cancellationToken)
+                            .ConfigureAwait(false);
                         totalBytesRead += bytesRead;
                         progress?.Report(totalBytesRead / (double)contentLength.Value);
                     }
@@ -501,7 +573,11 @@ public partial class PackageInstaller : IBeutlApiResource
             }
             else
             {
-                if (_installer._installingContexts.Any(x => StringComparer.OrdinalIgnoreCase.Equals(x.Key.Id, _name)))
+                if (
+                    _installer._installingContexts.Any(x =>
+                        StringComparer.OrdinalIgnoreCase.Equals(x.Key.Id, _name)
+                    )
+                )
                 {
                     observer.OnNext(EventType.Installing);
                 }
@@ -520,14 +596,15 @@ public partial class PackageInstaller : IBeutlApiResource
 
         protected override void Initialize()
         {
-            _disposable = _installer._subject
-                .Subscribe(OnReceived);
+            _disposable = _installer._subject.Subscribe(OnReceived);
         }
 
         private void OnReceived((PackageIdentity Package, EventType Type) obj)
         {
-            if ((_packageIdentity != null && _packageIdentity == obj.Package)
-                || StringComparer.OrdinalIgnoreCase.Equals(obj.Package.Id, _name))
+            if (
+                (_packageIdentity != null && _packageIdentity == obj.Package)
+                || StringComparer.OrdinalIgnoreCase.Equals(obj.Package.Id, _name)
+            )
             {
                 PublishNext(obj.Type);
             }

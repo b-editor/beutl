@@ -6,15 +6,14 @@ using FluentAvalonia.UI.Controls;
 
 namespace PackageSample;
 
-public sealed class SampleToolWindowContext(SampleToolWindowExtension extension) : IToolWindowContext
+public sealed class SampleToolWindowContext(SampleToolWindowExtension extension)
+    : IToolWindowContext
 {
     public ToolWindowExtension Extension { get; } = extension;
 
     public string Header => "Mail";
 
-    public void Dispose()
-    {
-    }
+    public void Dispose() { }
 }
 
 [Export]
@@ -42,7 +41,7 @@ public sealed class SampleToolWindowExtension : ToolWindowExtension
                 Text = "Hello from ToolWindow!",
                 VerticalAlignment = VerticalAlignment.Center,
                 HorizontalAlignment = HorizontalAlignment.Center,
-            }
+            },
         };
         return true;
     }

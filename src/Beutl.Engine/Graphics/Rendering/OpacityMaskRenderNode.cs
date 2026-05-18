@@ -3,7 +3,8 @@ using Beutl.Media;
 
 namespace Beutl.Graphics.Rendering;
 
-public sealed class OpacityMaskRenderNode(Brush.Resource mask, Rect maskBounds, bool invert) : ContainerRenderNode
+public sealed class OpacityMaskRenderNode(Brush.Resource mask, Rect maskBounds, bool invert)
+    : ContainerRenderNode
 {
     public (Brush.Resource Resource, int Version)? Mask { get; set; } = mask.Capture();
 
@@ -42,17 +43,23 @@ public sealed class OpacityMaskRenderNode(Brush.Resource mask, Rect maskBounds, 
 
     public override RenderNodeOperation[] Process(RenderNodeContext context)
     {
-        return context.Input.Select(r =>
-        {
-            return RenderNodeOperation.CreateDecorator(r, canvas =>
+        return context
+            .Input.Select(r =>
             {
-                if (!Mask.HasValue) return;
-                using (canvas.PushOpacityMask(Mask.Value.Resource, MaskBounds, Invert))
-                {
-                    r.Render(canvas);
-                }
-            });
-        }).ToArray();
+                return RenderNodeOperation.CreateDecorator(
+                    r,
+                    canvas =>
+                    {
+                        if (!Mask.HasValue)
+                            return;
+                        using (canvas.PushOpacityMask(Mask.Value.Resource, MaskBounds, Invert))
+                        {
+                            r.Render(canvas);
+                        }
+                    }
+                );
+            })
+            .ToArray();
     }
 
     protected override void OnDispose(bool disposing)

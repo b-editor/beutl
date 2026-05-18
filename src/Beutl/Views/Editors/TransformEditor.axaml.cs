@@ -35,14 +35,17 @@ public partial class TransformEditor : UserControl
         EditorMenuHelper.AttachCopyPasteAndTemplateMenus(
             this,
             (FAMenuFlyout)expandToggle.ContextFlyout!,
-            (FAMenuFlyout)ReferenceMenuButton.Flyout!);
+            (FAMenuFlyout)ReferenceMenuButton.Flyout!
+        );
     }
 
     private void Drop(object? sender, DragEventArgs e)
     {
-        if (DataContext is not TransformEditorViewModel { IsDisposed: false } viewModel) return;
+        if (DataContext is not TransformEditorViewModel { IsDisposed: false } viewModel)
+            return;
 
-        if (EditorDragDropHelper.TryHandleEditorDrop<Transform>(
+        if (
+            EditorDragDropHelper.TryHandleEditorDrop<Transform>(
                 e,
                 BeutlDataFormats.Transform,
                 tryPasteJson: viewModel.TryPasteJson,
@@ -64,7 +67,9 @@ public partial class TransformEditor : UserControl
                     else
                         viewModel.ChangeType(knownType);
                     return true;
-                }))
+                }
+            )
+        )
         {
             e.Handled = true;
         }
@@ -72,12 +77,18 @@ public partial class TransformEditor : UserControl
 
     private static KnownTransformType ToKnownTransformType(Type type)
     {
-        if (type == typeof(TransformGroup)) return KnownTransformType.Group;
-        if (type == typeof(TranslateTransform)) return KnownTransformType.Translate;
-        if (type == typeof(RotationTransform)) return KnownTransformType.Rotation;
-        if (type == typeof(ScaleTransform)) return KnownTransformType.Scale;
-        if (type == typeof(SkewTransform)) return KnownTransformType.Skew;
-        if (type == typeof(Rotation3DTransform)) return KnownTransformType.Rotation3D;
+        if (type == typeof(TransformGroup))
+            return KnownTransformType.Group;
+        if (type == typeof(TranslateTransform))
+            return KnownTransformType.Translate;
+        if (type == typeof(RotationTransform))
+            return KnownTransformType.Rotation;
+        if (type == typeof(ScaleTransform))
+            return KnownTransformType.Scale;
+        if (type == typeof(SkewTransform))
+            return KnownTransformType.Skew;
+        if (type == typeof(Rotation3DTransform))
+            return KnownTransformType.Rotation3D;
         return KnownTransformType.Unknown;
     }
 
@@ -91,14 +102,23 @@ public partial class TransformEditor : UserControl
         var items = new (KnownTransformType Tag, string Name, string? Icon)[]
         {
             (KnownTransformType.Group, GraphicsStrings.Group, null),
-            (KnownTransformType.Translate, GraphicsStrings.TranslateTransform, "TranslateTransformIconData"),
+            (
+                KnownTransformType.Translate,
+                GraphicsStrings.TranslateTransform,
+                "TranslateTransformIconData"
+            ),
             (KnownTransformType.Rotation, GraphicsStrings.Rotation, "RotationTransformIconData"),
             (KnownTransformType.Scale, GraphicsStrings.Scale, "ScaleTransformIconData"),
             (KnownTransformType.Skew, GraphicsStrings.SkewTransform, "SkewTransformIconData"),
-            (KnownTransformType.Rotation3D, GraphicsStrings.Rotation3DTransform, "Rotation3DTransformIconData"),
-            (KnownTransformType.Presenter, GraphicsStrings.Presenter, null)
+            (
+                KnownTransformType.Rotation3D,
+                GraphicsStrings.Rotation3DTransform,
+                "Rotation3DTransformIconData"
+            ),
+            (KnownTransformType.Presenter, GraphicsStrings.Presenter, null),
         };
-        return items.Select(x =>
+        return items
+            .Select(x =>
             {
                 var obj = new MenuFlyoutItem() { Tag = x.Tag, Text = x.Name };
                 if (handler != null)
@@ -110,7 +130,7 @@ public partial class TransformEditor : UserControl
                 {
                     obj.IconSource = new PathIconSource
                     {
-                        Data = Application.Current?.FindResource(x.Icon) as Avalonia.Media.Geometry
+                        Data = Application.Current?.FindResource(x.Icon) as Avalonia.Media.Geometry,
                     };
                 }
 
@@ -124,7 +144,7 @@ public partial class TransformEditor : UserControl
         return s_flyout ??= new FAMenuFlyout()
         {
             Placement = PlacementMode.Pointer,
-            ItemsSource = CreateMenuItems((s, e) => s_handler?.Invoke(s, e))
+            ItemsSource = CreateMenuItems((s, e) => s_handler?.Invoke(s, e)),
         };
     }
 
@@ -158,8 +178,10 @@ public partial class TransformEditor : UserControl
 
     private void AddTransformClick(object? sender, RoutedEventArgs e)
     {
-        if (sender is MenuFlyoutItem { Tag: KnownTransformType type }
-            && DataContext is TransformEditorViewModel { IsDisposed: false } viewModel)
+        if (
+            sender is MenuFlyoutItem { Tag: KnownTransformType type }
+            && DataContext is TransformEditorViewModel { IsDisposed: false } viewModel
+        )
         {
             viewModel.AddItem(type);
         }
@@ -167,8 +189,10 @@ public partial class TransformEditor : UserControl
 
     private void TransformTypeClicked(object? sender, RoutedEventArgs e)
     {
-        if (sender is MenuFlyoutItem { Tag: KnownTransformType type }
-            && DataContext is TransformEditorViewModel { IsDisposed: false } viewModel)
+        if (
+            sender is MenuFlyoutItem { Tag: KnownTransformType type }
+            && DataContext is TransformEditorViewModel { IsDisposed: false } viewModel
+        )
         {
             viewModel.ChangeType(type);
         }
@@ -184,17 +208,18 @@ public partial class TransformEditor : UserControl
 
     private async void SelectTarget_Requested(object? sender, RoutedEventArgs e)
     {
-        if (DataContext is not TransformEditorViewModel { IsDisposed: false } vm) return;
-        if (_flyoutOpen) return;
+        if (DataContext is not TransformEditorViewModel { IsDisposed: false } vm)
+            return;
+        if (_flyoutOpen)
+            return;
 
         try
         {
             _flyoutOpen = true;
-            await TargetSelectionHelper.HandleSelectTargetRequestAsync<TransformEditorViewModel, Transform>(
-                this,
-                vm,
-                vm => vm.GetAvailableTargets(),
-                (vm, target) => vm.SetTarget(target));
+            await TargetSelectionHelper.HandleSelectTargetRequestAsync<
+                TransformEditorViewModel,
+                Transform
+            >(this, vm, vm => vm.GetAvailableTargets(), (vm, target) => vm.SetTarget(target));
         }
         finally
         {

@@ -19,12 +19,14 @@ internal sealed class FFmpegWorkerLogPump : IDisposable
 
     public FFmpegWorkerLogPump(int capacity = DefaultCapacity)
     {
-        _channel = Channel.CreateBounded<(string, string)>(new BoundedChannelOptions(capacity)
-        {
-            FullMode = BoundedChannelFullMode.DropOldest,
-            SingleReader = true,
-            SingleWriter = false,
-        });
+        _channel = Channel.CreateBounded<(string, string)>(
+            new BoundedChannelOptions(capacity)
+            {
+                FullMode = BoundedChannelFullMode.DropOldest,
+                SingleReader = true,
+                SingleWriter = false,
+            }
+        );
         _consumer = Task.Run(ConsumeAsync);
     }
 
@@ -45,26 +47,29 @@ internal sealed class FFmpegWorkerLogPump : IDisposable
         {
             _channel.Writer.TryWrite((channel, data));
         }
-        catch
-        {
-        }
+        catch { }
     }
 
     private async Task ConsumeAsync()
     {
         try
         {
-            await foreach (var (channel, data) in _channel.Reader.ReadAllAsync(_cts.Token).ConfigureAwait(false))
+            await foreach (
+                var (channel, data) in _channel
+                    .Reader.ReadAllAsync(_cts.Token)
+                    .ConfigureAwait(false)
+            )
             {
                 Dispatch(channel, data);
             }
         }
-        catch (OperationCanceledException)
-        {
-        }
+        catch (OperationCanceledException) { }
         catch (Exception ex)
         {
-            try { Console.Error.WriteLine($"[FFmpegWorker] log pump terminated unexpectedly: {ex}"); }
+            try
+            {
+                Console.Error.WriteLine($"[FFmpegWorker] log pump terminated unexpectedly: {ex}");
+            }
             catch { }
         }
     }
@@ -78,7 +83,10 @@ internal sealed class FFmpegWorkerLogPump : IDisposable
         }
         catch (Exception ex)
         {
-            try { Console.Error.WriteLine($"[FFmpegWorker:{channel}] log dispatch failed: {ex}"); }
+            try
+            {
+                Console.Error.WriteLine($"[FFmpegWorker:{channel}] log dispatch failed: {ex}");
+            }
             catch { }
         }
     }
@@ -129,10 +137,18 @@ internal sealed class FFmpegWorkerLogPump : IDisposable
                 char next = encoded[++i];
                 switch (next)
                 {
-                    case 'n': sb.Append('\n'); break;
-                    case 'r': sb.Append('\r'); break;
-                    case '\\': sb.Append('\\'); break;
-                    default: sb.Append('\\').Append(next); break;
+                    case 'n':
+                        sb.Append('\n');
+                        break;
+                    case 'r':
+                        sb.Append('\r');
+                        break;
+                    case '\\':
+                        sb.Append('\\');
+                        break;
+                    default:
+                        sb.Append('\\').Append(next);
+                        break;
                 }
             }
             else
@@ -149,7 +165,10 @@ internal sealed class FFmpegWorkerLogPump : IDisposable
             return;
 
         _channel.Writer.TryComplete();
-        try { _consumer.Wait(TimeSpan.FromSeconds(2)); }
+        try
+        {
+            _consumer.Wait(TimeSpan.FromSeconds(2));
+        }
         catch { }
 
         _cts.Cancel();

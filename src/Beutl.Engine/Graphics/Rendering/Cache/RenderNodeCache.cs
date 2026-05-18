@@ -52,8 +52,10 @@ public sealed class RenderNodeCache(RenderNode node) : IDisposable
     {
         if (_cache.Count != 0)
         {
-            RenderNodeCacheHelper._logger.LogInformation("Invalidating Cache for {Node}",
-                _node.TryGetTarget(out RenderNode? node) ? node : null);
+            RenderNodeCacheHelper._logger.LogInformation(
+                "Invalidating Cache for {Node}",
+                _node.TryGetTarget(out RenderNode? node) ? node : null
+            );
         }
 
         foreach ((RenderTarget, Rect) item in _cache)

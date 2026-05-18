@@ -1,7 +1,6 @@
 ﻿using System.Diagnostics;
 using System.Reactive.Linq;
 using Beutl.Api.Clients;
-
 using Reactive.Bindings;
 
 namespace Beutl.Api.Objects;
@@ -22,7 +21,9 @@ public class Package
         Name = response.Name;
         DisplayName = _response.Select(x => x.DisplayName).ToReadOnlyReactivePropertySlim();
         Description = _response.Select(x => x.Description).ToReadOnlyReactivePropertySlim();
-        ShortDescription = _response.Select(x => x.ShortDescription).ToReadOnlyReactivePropertySlim();
+        ShortDescription = _response
+            .Select(x => x.ShortDescription)
+            .ToReadOnlyReactivePropertySlim();
         WebSite = _response.Select(x => x.WebSite).ToReadOnlyReactivePropertySlim();
         Tags = _response.Select(x => x.Tags).ToReadOnlyReactivePropertySlim([]);
         LogoId = _response.Select(x => x.LogoId).ToReadOnlyReactivePropertySlim();
@@ -32,7 +33,8 @@ public class Package
         Price = _response.Select(x => x.Price).ToReadOnlyReactivePropertySlim();
         Paid = _response.Select(x => x.Paid).ToReadOnlyReactivePropertySlim();
         Owned = _response.Select(x => x.Owned).ToReadOnlyReactivePropertySlim();
-        FormattedPrice = _response.Select(x => FormatPrice(x.Price, x.Currency))
+        FormattedPrice = _response
+            .Select(x => FormatPrice(x.Price, x.Currency))
             .ToReadOnlyReactivePropertySlim<string?>();
     }
 
@@ -81,13 +83,16 @@ public class Package
         {
             "JPY" => $"\u00a5{price:N0}",
             "USD" => $"${price / 100.0:F2}",
-            _ => $"{price} {currency}"
+            _ => $"{price} {currency}",
         };
     }
 
     public async Task RefreshAsync()
     {
-        using Activity? activity = _clients.ActivitySource.StartActivity("Package.Refresh", ActivityKind.Client);
+        using Activity? activity = _clients.ActivitySource.StartActivity(
+            "Package.Refresh",
+            ActivityKind.Client
+        );
 
         _response.Value = await _clients.Packages.GetPackage(Name);
         _isDeleted.Value = false;
@@ -95,14 +100,20 @@ public class Package
 
     public async Task<Release> GetReleaseAsync(string version)
     {
-        using Activity? activity = _clients.ActivitySource.StartActivity("Package.GetRelease", ActivityKind.Client);
+        using Activity? activity = _clients.ActivitySource.StartActivity(
+            "Package.GetRelease",
+            ActivityKind.Client
+        );
         ReleaseResponse response = await _clients.Releases.GetRelease(Name, version);
         return new Release(this, response, _clients);
     }
 
     public async Task<Release[]> GetReleasesAsync(int start = 0, int count = 30)
     {
-        using Activity? activity = _clients.ActivitySource.StartActivity("Package.GetReleases", ActivityKind.Client);
+        using Activity? activity = _clients.ActivitySource.StartActivity(
+            "Package.GetReleases",
+            ActivityKind.Client
+        );
         activity?.SetTag("start", start);
         activity?.SetTag("count", count);
 

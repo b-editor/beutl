@@ -1,15 +1,16 @@
 ﻿// https://github.com/amate/MFVideoReader
 
 using Vortice.MediaFoundation;
-
 using Windows.Win32;
 using Windows.Win32.Foundation;
 using Windows.Win32.Media.MediaFoundation;
 
 #if MF_BUILD_IN
 namespace Beutl.Embedding.MediaFoundation.Decoding;
+
 #else
 namespace Beutl.Extensions.MediaFoundation.Decoding;
+
 #endif
 
 #pragma warning disable CA1416 // プラットフォームの互換性を検証
@@ -26,8 +27,7 @@ internal class AspectRatioUtilities
         //  1. Transform from source PAR to 1:1
         //  2. Transform from 1:1 to destination PAR.
 
-        if ((srcPAR.Numerator != destPAR.Numerator) ||
-            (srcPAR.Denominator != destPAR.Denominator))
+        if ((srcPAR.Numerator != destPAR.Numerator) || (srcPAR.Denominator != destPAR.Denominator))
         {
             // Correct for the source's PAR.
 
@@ -43,7 +43,7 @@ internal class AspectRatioUtilities
             }
             // else: PAR is 1:1, which is a no-op.
 
-            // Next, correct for the target's PAR. This is the inverse operation of 
+            // Next, correct for the target's PAR. This is the inverse operation of
             // the previous.
 
             if (destPAR.Numerator > destPAR.Denominator)
@@ -72,8 +72,7 @@ internal class AspectRatioUtilities
         //  1. Transform from source PAR to 1:1
         //  2. Transform from 1:1 to destination PAR.
 
-        if ((srcPAR.Numerator != destPAR.Numerator) ||
-            (srcPAR.Denominator != destPAR.Denominator))
+        if ((srcPAR.Numerator != destPAR.Numerator) || (srcPAR.Denominator != destPAR.Denominator))
         {
             // Correct for the source's PAR.
 
@@ -85,22 +84,34 @@ internal class AspectRatioUtilities
             else if (srcPAR.Numerator < srcPAR.Denominator)
             {
                 // The source has "tall" pixels, so stretch the height.
-                rc.bottom = PInvoke.MulDiv(rc.bottom, (int)srcPAR.Denominator, (int)srcPAR.Numerator);
+                rc.bottom = PInvoke.MulDiv(
+                    rc.bottom,
+                    (int)srcPAR.Denominator,
+                    (int)srcPAR.Numerator
+                );
             }
             // else: PAR is 1:1, which is a no-op.
 
-            // Next, correct for the target's PAR. This is the inverse operation of 
+            // Next, correct for the target's PAR. This is the inverse operation of
             // the previous.
 
             if (destPAR.Numerator > destPAR.Denominator)
             {
                 // The destination has "wide" pixels, so stretch the height.
-                rc.bottom = PInvoke.MulDiv(rc.bottom, (int)destPAR.Numerator, (int)destPAR.Denominator);
+                rc.bottom = PInvoke.MulDiv(
+                    rc.bottom,
+                    (int)destPAR.Numerator,
+                    (int)destPAR.Denominator
+                );
             }
             else if (destPAR.Numerator < destPAR.Denominator)
             {
                 // The destination has "tall" pixels, so stretch the width.
-                rc.right = PInvoke.MulDiv(rc.right, (int)destPAR.Denominator, (int)destPAR.Numerator);
+                rc.right = PInvoke.MulDiv(
+                    rc.right,
+                    (int)destPAR.Denominator,
+                    (int)destPAR.Numerator
+                );
             }
             // else: PAR is 1:1, which is a no-op.
         }

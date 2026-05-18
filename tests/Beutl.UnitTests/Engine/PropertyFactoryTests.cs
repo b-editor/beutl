@@ -38,7 +38,11 @@ public class PropertyFactoryTests
 
         property.CurrentValue = 100;
 
-        Assert.That(property.CurrentValue, Is.EqualTo(10), "Out-of-range value should be coerced to max.");
+        Assert.That(
+            property.CurrentValue,
+            Is.EqualTo(10),
+            "Out-of-range value should be coerced to max."
+        );
     }
 
     [Test]
@@ -94,7 +98,8 @@ public class PropertyFactoryTests
         IProperty<int> property = Property.Create(0);
         property.SetAttributes(
             "RawName",
-            new Attribute[] { new DisplayAttribute { Name = "Friendly" } });
+            new Attribute[] { new DisplayAttribute { Name = "Friendly" } }
+        );
 
         Assert.That(Property.GetLocalizedName(property), Is.EqualTo("Friendly"));
     }

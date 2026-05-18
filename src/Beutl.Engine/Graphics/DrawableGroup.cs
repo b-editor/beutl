@@ -32,20 +32,33 @@ public sealed partial class DrawableGroup : Drawable, IFlowOperator
             var transformParams = (r.Transform, r.TransformOrigin, availableSize, boundsMemory);
 
             using (context.PushBlendMode(r.BlendMode))
-            using (context.PushNode(
-                       transformParams,
-                       b => new CustomTransformRenderNode(
-                           b.Transform, b.TransformOrigin, b.availableSize,
-                           Media.AlignmentX.Left, Media.AlignmentY.Top, b.boundsMemory),
-                       (n, b) => n.Update(
-                           b.Transform, b.TransformOrigin, b.availableSize,
-                           Media.AlignmentX.Left, Media.AlignmentY.Top, b.boundsMemory)))
+            using (
+                context.PushNode(
+                    transformParams,
+                    b => new CustomTransformRenderNode(
+                        b.Transform,
+                        b.TransformOrigin,
+                        b.availableSize,
+                        Media.AlignmentX.Left,
+                        Media.AlignmentY.Top,
+                        b.boundsMemory
+                    ),
+                    (n, b) =>
+                        n.Update(
+                            b.Transform,
+                            b.TransformOrigin,
+                            b.availableSize,
+                            Media.AlignmentX.Left,
+                            Media.AlignmentY.Top,
+                            b.boundsMemory
+                        )
+                )
+            )
             using (context.PushOpacity(resource.Opacity / 100f))
             using (r.FilterEffect == null ? new() : context.PushFilterEffect(r.FilterEffect))
-            using (context.PushNode(
-                       boundsMemory,
-                       b => new BoundsObserveNode(b),
-                       (n, b) => n.Update(b)))
+            using (
+                context.PushNode(boundsMemory, b => new BoundsObserveNode(b), (n, b) => n.Update(b))
+            )
             {
                 OnDraw(context, r);
             }
@@ -96,7 +109,8 @@ public sealed partial class DrawableGroup : Drawable, IFlowOperator
                 consumed: consumed,
                 field: Children,
                 versions: _childrenVersion,
-                changed: ref changed);
+                changed: ref changed
+            );
 
             if (changed)
                 Version++;
@@ -148,9 +162,11 @@ public sealed partial class DrawableGroup : Drawable, IFlowOperator
         Size screenSize,
         AlignmentX alignmentX,
         AlignmentY alignmentY,
-        MemoryNode<Rect> bounds) : ContainerRenderNode
+        MemoryNode<Rect> bounds
+    ) : ContainerRenderNode
     {
-        public (Transform.Resource Resource, int Version)? Transform { get; private set; } = transform.Capture();
+        public (Transform.Resource Resource, int Version)? Transform { get; private set; } =
+            transform.Capture();
 
         public RelativePoint TransformOrigin { get; private set; } = transformOrigin;
 
@@ -163,8 +179,13 @@ public sealed partial class DrawableGroup : Drawable, IFlowOperator
         public MemoryNode<Rect> Bounds { get; private set; } = bounds;
 
         public bool Update(
-            Transform.Resource? transform, RelativePoint transformOrigin, Size screenSize,
-            AlignmentX alignmentX, AlignmentY alignmentY, MemoryNode<Rect> bounds)
+            Transform.Resource? transform,
+            RelativePoint transformOrigin,
+            Size screenSize,
+            AlignmentX alignmentX,
+            AlignmentY alignmentY,
+            MemoryNode<Rect> bounds
+        )
         {
             bool changed = false;
             if (!transform.Compare(Transform))
@@ -268,7 +289,8 @@ public sealed partial class DrawableGroup : Drawable, IFlowOperator
         {
             var bounds = Bounds.Value;
             var transform = GetTransformMatrix(bounds);
-            return context.Input.Select(r =>
+            return context
+                .Input.Select(r =>
                     RenderNodeOperation.CreateLambda(
                         r.Bounds.TransformToAABB(transform),
                         canvas =>
@@ -284,7 +306,9 @@ public sealed partial class DrawableGroup : Drawable, IFlowOperator
                                 point *= transform.Invert();
                             return r.HitTest(point);
                         },
-                        onDispose: r.Dispose))
+                        onDispose: r.Dispose
+                    )
+                )
                 .ToArray();
         }
     }

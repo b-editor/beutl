@@ -23,12 +23,17 @@ internal sealed class VulkanContext : IGraphicsContext
     public VulkanContext(VulkanInstance vulkanInstance, VulkanPhysicalDeviceInfo physicalDevice)
     {
         _vulkanInstance = vulkanInstance;
-        _vulkanDevice = new VulkanDevice(vulkanInstance.Vk, vulkanInstance.Instance, physicalDevice.Device);
+        _vulkanDevice = new VulkanDevice(
+            vulkanInstance.Vk,
+            vulkanInstance.Instance,
+            physicalDevice.Device
+        );
         _vulkanCommandPool = new VulkanCommandPool(
             vulkanInstance.Vk,
             _vulkanDevice.Device,
             _vulkanDevice.GraphicsQueue,
-            _vulkanDevice.GraphicsQueueFamilyIndex);
+            _vulkanDevice.GraphicsQueueFamilyIndex
+        );
 
         if (!physicalDevice.IsMoltenVK)
         {
@@ -49,7 +54,7 @@ internal sealed class VulkanContext : IGraphicsContext
                 VkDevice = _vulkanDevice.Device.Handle,
                 VkQueue = _vulkanDevice.GraphicsQueue.Handle,
                 GraphicsQueueIndex = _vulkanDevice.GraphicsQueueFamilyIndex,
-                GetProcedureAddress = GetVulkanProcAddress
+                GetProcedureAddress = GetVulkanProcAddress,
             };
 
             _skiaContext = GRContext.CreateVulkan(_skiaBackendContext);
@@ -90,8 +95,11 @@ internal sealed class VulkanContext : IGraphicsContext
 
     public GraphicsBackend Backend => GraphicsBackend.Vulkan;
 
-    public GRContext SkiaContext => _skiaContext ?? throw new InvalidOperationException(
-        "SkiaSharp Vulkan context is not initialized. Make sure the Vulkan context was created successfully.");
+    public GRContext SkiaContext =>
+        _skiaContext
+        ?? throw new InvalidOperationException(
+            "SkiaSharp Vulkan context is not initialized. Make sure the Vulkan context was created successfully."
+        );
 
     public Vk Vk => _vulkanInstance.Vk;
 
@@ -115,13 +123,19 @@ internal sealed class VulkanContext : IGraphicsContext
         ImageUsageFlags usage;
         if (format.IsDepthFormat())
         {
-            usage = ImageUsageFlags.DepthStencilAttachmentBit | ImageUsageFlags.SampledBit |
-                    ImageUsageFlags.TransferSrcBit | ImageUsageFlags.TransferDstBit;
+            usage =
+                ImageUsageFlags.DepthStencilAttachmentBit
+                | ImageUsageFlags.SampledBit
+                | ImageUsageFlags.TransferSrcBit
+                | ImageUsageFlags.TransferDstBit;
         }
         else
         {
-            usage = ImageUsageFlags.ColorAttachmentBit | ImageUsageFlags.SampledBit |
-                    ImageUsageFlags.TransferSrcBit | ImageUsageFlags.TransferDstBit;
+            usage =
+                ImageUsageFlags.ColorAttachmentBit
+                | ImageUsageFlags.SampledBit
+                | ImageUsageFlags.TransferSrcBit
+                | ImageUsageFlags.TransferDstBit;
         }
         return new VulkanTexture2D(this, width, height, format, usage);
     }
@@ -129,24 +143,41 @@ internal sealed class VulkanContext : IGraphicsContext
     public ITextureCube CreateTextureCube(int size, TextureFormat format)
     {
         var usage = format.IsDepthFormat()
-            ? ImageUsageFlags.DepthStencilAttachmentBit | ImageUsageFlags.SampledBit | ImageUsageFlags.TransferDstBit
-            : ImageUsageFlags.ColorAttachmentBit | ImageUsageFlags.SampledBit | ImageUsageFlags.TransferSrcBit;
+            ? ImageUsageFlags.DepthStencilAttachmentBit
+                | ImageUsageFlags.SampledBit
+                | ImageUsageFlags.TransferDstBit
+            : ImageUsageFlags.ColorAttachmentBit
+                | ImageUsageFlags.SampledBit
+                | ImageUsageFlags.TransferSrcBit;
         return new VulkanTextureCube(this, size, format, usage);
     }
 
-    public ITextureArray CreateTextureArray(int width, int height, uint arraySize, TextureFormat format)
+    public ITextureArray CreateTextureArray(
+        int width,
+        int height,
+        uint arraySize,
+        TextureFormat format
+    )
     {
         var usage = format.IsDepthFormat()
-            ? ImageUsageFlags.DepthStencilAttachmentBit | ImageUsageFlags.SampledBit | ImageUsageFlags.TransferDstBit
-            : ImageUsageFlags.ColorAttachmentBit | ImageUsageFlags.SampledBit | ImageUsageFlags.TransferSrcBit;
+            ? ImageUsageFlags.DepthStencilAttachmentBit
+                | ImageUsageFlags.SampledBit
+                | ImageUsageFlags.TransferDstBit
+            : ImageUsageFlags.ColorAttachmentBit
+                | ImageUsageFlags.SampledBit
+                | ImageUsageFlags.TransferSrcBit;
         return new VulkanTextureArray(this, width, height, arraySize, format, usage);
     }
 
     public ITextureCubeArray CreateTextureCubeArray(int size, uint arraySize, TextureFormat format)
     {
         var usage = format.IsDepthFormat()
-            ? ImageUsageFlags.DepthStencilAttachmentBit | ImageUsageFlags.SampledBit | ImageUsageFlags.TransferDstBit
-            : ImageUsageFlags.ColorAttachmentBit | ImageUsageFlags.SampledBit | ImageUsageFlags.TransferSrcBit;
+            ? ImageUsageFlags.DepthStencilAttachmentBit
+                | ImageUsageFlags.SampledBit
+                | ImageUsageFlags.TransferDstBit
+            : ImageUsageFlags.ColorAttachmentBit
+                | ImageUsageFlags.SampledBit
+                | ImageUsageFlags.TransferSrcBit;
         return new VulkanTextureCubeArray(this, size, arraySize, format, usage);
     }
 
@@ -164,18 +195,34 @@ internal sealed class VulkanContext : IGraphicsContext
         IReadOnlyList<TextureFormat> colorFormats,
         TextureFormat depthFormat = TextureFormat.Depth32Float,
         AttachmentLoadOp colorLoadOp = AttachmentLoadOp.Clear,
-        AttachmentLoadOp depthLoadOp = AttachmentLoadOp.Clear)
+        AttachmentLoadOp depthLoadOp = AttachmentLoadOp.Clear
+    )
     {
         var vulkanColorFormats = colorFormats.Select(f => f.ToVulkanFormat()).ToList();
-        return new VulkanRenderPass3D(this, vulkanColorFormats, depthFormat.ToVulkanFormat(), colorLoadOp, depthLoadOp);
+        return new VulkanRenderPass3D(
+            this,
+            vulkanColorFormats,
+            depthFormat.ToVulkanFormat(),
+            colorLoadOp,
+            depthLoadOp
+        );
     }
 
-    public IFramebuffer3D CreateFramebuffer3D(IRenderPass3D renderPass, IReadOnlyList<ITexture2D> colorTextures, ITexture2D depthTexture)
+    public IFramebuffer3D CreateFramebuffer3D(
+        IRenderPass3D renderPass,
+        IReadOnlyList<ITexture2D> colorTextures,
+        ITexture2D depthTexture
+    )
     {
         var vulkanRenderPass = (VulkanRenderPass3D)renderPass;
         var vulkanColorTextures = colorTextures.Cast<VulkanTexture2D>().ToList();
         var vulkanDepthTexture = (VulkanTexture2D)depthTexture;
-        return new VulkanFramebuffer3D(this, vulkanRenderPass.Handle, vulkanColorTextures, vulkanDepthTexture);
+        return new VulkanFramebuffer3D(
+            this,
+            vulkanRenderPass.Handle,
+            vulkanColorTextures,
+            vulkanDepthTexture
+        );
     }
 
     public IPipeline3D CreatePipeline3D(
@@ -184,12 +231,11 @@ internal sealed class VulkanContext : IGraphicsContext
         byte[] fragmentShaderSpirv,
         DescriptorBinding[] descriptorBindings,
         VertexInputDescription vertexInput,
-        PipelineOptions? options = null)
+        PipelineOptions? options = null
+    )
     {
         var vulkanRenderPass = (VulkanRenderPass3D)renderPass;
-        var vulkanBindings = descriptorBindings
-            .Select(VulkanFlagConverter.ToVulkan)
-            .ToArray();
+        var vulkanBindings = descriptorBindings.Select(VulkanFlagConverter.ToVulkan).ToArray();
         var vulkanVertexInput = VulkanFlagConverter.ToVulkan(vertexInput);
         var pipelineOptions = options ?? PipelineOptions.Default;
 
@@ -211,23 +257,27 @@ internal sealed class VulkanContext : IGraphicsContext
             VulkanFlagConverter.ToVulkan(pipelineOptions.SrcAlphaBlendFactor),
             VulkanFlagConverter.ToVulkan(pipelineOptions.DstAlphaBlendFactor),
             VulkanFlagConverter.ToVulkan(pipelineOptions.ColorBlendOp),
-            VulkanFlagConverter.ToVulkan(pipelineOptions.AlphaBlendOp));
+            VulkanFlagConverter.ToVulkan(pipelineOptions.AlphaBlendOp)
+        );
     }
 
     public IDescriptorSet CreateDescriptorSet(IPipeline3D pipeline, DescriptorPoolSize[] poolSizes)
     {
         var vulkanPipeline = (VulkanPipeline3D)pipeline;
-        var vulkanPoolSizes = poolSizes
-            .Select(VulkanFlagConverter.ToVulkan)
-            .ToArray();
-        return new VulkanDescriptorSet(this, vulkanPipeline.DescriptorSetLayoutHandle, vulkanPoolSizes);
+        var vulkanPoolSizes = poolSizes.Select(VulkanFlagConverter.ToVulkan).ToArray();
+        return new VulkanDescriptorSet(
+            this,
+            vulkanPipeline.DescriptorSetLayoutHandle,
+            vulkanPoolSizes
+        );
     }
 
     public ISampler CreateSampler(
         SamplerFilter minFilter = SamplerFilter.Linear,
         SamplerFilter magFilter = SamplerFilter.Linear,
         SamplerAddressMode addressModeU = SamplerAddressMode.ClampToEdge,
-        SamplerAddressMode addressModeV = SamplerAddressMode.ClampToEdge)
+        SamplerAddressMode addressModeV = SamplerAddressMode.ClampToEdge
+    )
     {
         return new VulkanSampler(this, minFilter, magFilter, addressModeU, addressModeV);
     }
@@ -243,7 +293,6 @@ internal sealed class VulkanContext : IGraphicsContext
             Vk.CmdCopyBuffer(cmd, vulkanSource.Handle, vulkanDest.Handle, 1, &copyRegion);
         });
     }
-
 
     public unsafe void CopyTexture(ITexture2D source, ITexture2D destination)
     {
@@ -271,10 +320,10 @@ internal sealed class VulkanContext : IGraphicsContext
                     BaseMipLevel = 0,
                     LevelCount = 1,
                     BaseArrayLayer = 0,
-                    LayerCount = 1
+                    LayerCount = 1,
                 },
                 SrcAccessMask = 0,
-                DstAccessMask = AccessFlags.TransferWriteBit
+                DstAccessMask = AccessFlags.TransferWriteBit,
             };
 
             Vk.CmdPipelineBarrier(
@@ -282,9 +331,13 @@ internal sealed class VulkanContext : IGraphicsContext
                 PipelineStageFlags.TopOfPipeBit,
                 PipelineStageFlags.TransferBit,
                 0,
-                0, null,
-                0, null,
-                1, &barrier);
+                0,
+                null,
+                0,
+                null,
+                1,
+                &barrier
+            );
 
             // Use blit for format conversion (RGBA8 -> BGRA8)
             var blitRegion = new ImageBlit
@@ -294,15 +347,15 @@ internal sealed class VulkanContext : IGraphicsContext
                     AspectMask = ImageAspectFlags.ColorBit,
                     MipLevel = 0,
                     BaseArrayLayer = 0,
-                    LayerCount = 1
+                    LayerCount = 1,
                 },
                 DstSubresource = new ImageSubresourceLayers
                 {
                     AspectMask = ImageAspectFlags.ColorBit,
                     MipLevel = 0,
                     BaseArrayLayer = 0,
-                    LayerCount = 1
-                }
+                    LayerCount = 1,
+                },
             };
 
             blitRegion.SrcOffsets[0] = new Offset3D(0, 0, 0);
@@ -318,29 +371,39 @@ internal sealed class VulkanContext : IGraphicsContext
                 ImageLayout.TransferDstOptimal,
                 1,
                 &blitRegion,
-                Filter.Nearest);
+                Filter.Nearest
+            );
 
             // Transition destination back to color attachment optimal
             barrier.OldLayout = ImageLayout.TransferDstOptimal;
             barrier.NewLayout = ImageLayout.ColorAttachmentOptimal;
             barrier.SrcAccessMask = AccessFlags.TransferWriteBit;
-            barrier.DstAccessMask = AccessFlags.ColorAttachmentReadBit | AccessFlags.ColorAttachmentWriteBit;
+            barrier.DstAccessMask =
+                AccessFlags.ColorAttachmentReadBit | AccessFlags.ColorAttachmentWriteBit;
 
             Vk.CmdPipelineBarrier(
                 cmd,
                 PipelineStageFlags.TransferBit,
                 PipelineStageFlags.ColorAttachmentOutputBit,
                 0,
-                0, null,
-                0, null,
-                1, &barrier);
+                0,
+                null,
+                0,
+                null,
+                1,
+                &barrier
+            );
         });
 
         // Transition source back to shader read optimal
         vulkanSource.TransitionTo(ImageLayout.ShaderReadOnlyOptimal);
     }
 
-    public unsafe void CopyTextureToCubeFace(ITexture2D source, ITextureCube destination, int faceIndex)
+    public unsafe void CopyTextureToCubeFace(
+        ITexture2D source,
+        ITextureCube destination,
+        int faceIndex
+    )
     {
         if (faceIndex < 0 || faceIndex >= 6)
             throw new ArgumentOutOfRangeException(nameof(faceIndex), "Face index must be 0-5");
@@ -368,10 +431,10 @@ internal sealed class VulkanContext : IGraphicsContext
                     BaseMipLevel = 0,
                     LevelCount = 1,
                     BaseArrayLayer = (uint)faceIndex,
-                    LayerCount = 1
+                    LayerCount = 1,
                 },
                 SrcAccessMask = 0,
-                DstAccessMask = AccessFlags.TransferWriteBit
+                DstAccessMask = AccessFlags.TransferWriteBit,
             };
 
             Vk.CmdPipelineBarrier(
@@ -379,9 +442,13 @@ internal sealed class VulkanContext : IGraphicsContext
                 PipelineStageFlags.TopOfPipeBit,
                 PipelineStageFlags.TransferBit,
                 0,
-                0, null,
-                0, null,
-                1, &barrier);
+                0,
+                null,
+                0,
+                null,
+                1,
+                &barrier
+            );
 
             // Copy from 2D texture to cube face
             var copyRegion = new ImageCopy
@@ -391,7 +458,7 @@ internal sealed class VulkanContext : IGraphicsContext
                     AspectMask = ImageAspectFlags.DepthBit,
                     MipLevel = 0,
                     BaseArrayLayer = 0,
-                    LayerCount = 1
+                    LayerCount = 1,
                 },
                 SrcOffset = new Offset3D(0, 0, 0),
                 DstSubresource = new ImageSubresourceLayers
@@ -399,10 +466,10 @@ internal sealed class VulkanContext : IGraphicsContext
                     AspectMask = ImageAspectFlags.DepthBit,
                     MipLevel = 0,
                     BaseArrayLayer = (uint)faceIndex,
-                    LayerCount = 1
+                    LayerCount = 1,
                 },
                 DstOffset = new Offset3D(0, 0, 0),
-                Extent = new Extent3D((uint)source.Width, (uint)source.Height, 1)
+                Extent = new Extent3D((uint)source.Width, (uint)source.Height, 1),
             };
 
             Vk.CmdCopyImage(
@@ -412,7 +479,8 @@ internal sealed class VulkanContext : IGraphicsContext
                 vulkanDest.ImageHandle,
                 ImageLayout.TransferDstOptimal,
                 1,
-                &copyRegion);
+                &copyRegion
+            );
 
             // Transition cube face to shader read optimal
             barrier.OldLayout = ImageLayout.TransferDstOptimal;
@@ -425,19 +493,30 @@ internal sealed class VulkanContext : IGraphicsContext
                 PipelineStageFlags.TransferBit,
                 PipelineStageFlags.FragmentShaderBit,
                 0,
-                0, null,
-                0, null,
-                1, &barrier);
+                0,
+                null,
+                0,
+                null,
+                1,
+                &barrier
+            );
         });
 
         // Transition source back to shader read optimal
         vulkanSource.TransitionTo(ImageLayout.ShaderReadOnlyOptimal);
     }
 
-    public unsafe void CopyTextureToArrayLayer(ITexture2D source, ITextureArray destination, int layerIndex)
+    public unsafe void CopyTextureToArrayLayer(
+        ITexture2D source,
+        ITextureArray destination,
+        int layerIndex
+    )
     {
         if (layerIndex < 0 || layerIndex >= (int)destination.ArraySize)
-            throw new ArgumentOutOfRangeException(nameof(layerIndex), $"Layer index must be 0-{destination.ArraySize - 1}");
+            throw new ArgumentOutOfRangeException(
+                nameof(layerIndex),
+                $"Layer index must be 0-{destination.ArraySize - 1}"
+            );
 
         var vulkanSource = (VulkanTexture2D)source;
         var vulkanDest = (VulkanTextureArray)destination;
@@ -467,10 +546,10 @@ internal sealed class VulkanContext : IGraphicsContext
                     BaseMipLevel = 0,
                     LevelCount = 1,
                     BaseArrayLayer = (uint)layerIndex,
-                    LayerCount = 1
+                    LayerCount = 1,
                 },
                 SrcAccessMask = 0,
-                DstAccessMask = AccessFlags.TransferWriteBit
+                DstAccessMask = AccessFlags.TransferWriteBit,
             };
 
             Vk.CmdPipelineBarrier(
@@ -478,9 +557,13 @@ internal sealed class VulkanContext : IGraphicsContext
                 PipelineStageFlags.TopOfPipeBit,
                 PipelineStageFlags.TransferBit,
                 0,
-                0, null,
-                0, null,
-                1, &barrier);
+                0,
+                null,
+                0,
+                null,
+                1,
+                &barrier
+            );
 
             // Copy from 2D texture to array layer
             var copyRegion = new ImageCopy
@@ -490,7 +573,7 @@ internal sealed class VulkanContext : IGraphicsContext
                     AspectMask = aspectMask,
                     MipLevel = 0,
                     BaseArrayLayer = 0,
-                    LayerCount = 1
+                    LayerCount = 1,
                 },
                 SrcOffset = new Offset3D(0, 0, 0),
                 DstSubresource = new ImageSubresourceLayers
@@ -498,10 +581,10 @@ internal sealed class VulkanContext : IGraphicsContext
                     AspectMask = aspectMask,
                     MipLevel = 0,
                     BaseArrayLayer = (uint)layerIndex,
-                    LayerCount = 1
+                    LayerCount = 1,
                 },
                 DstOffset = new Offset3D(0, 0, 0),
-                Extent = new Extent3D((uint)source.Width, (uint)source.Height, 1)
+                Extent = new Extent3D((uint)source.Width, (uint)source.Height, 1),
             };
 
             Vk.CmdCopyImage(
@@ -511,7 +594,8 @@ internal sealed class VulkanContext : IGraphicsContext
                 vulkanDest.ImageHandle,
                 ImageLayout.TransferDstOptimal,
                 1,
-                &copyRegion);
+                &copyRegion
+            );
 
             // Transition array layer to shader read optimal
             barrier.OldLayout = ImageLayout.TransferDstOptimal;
@@ -524,19 +608,31 @@ internal sealed class VulkanContext : IGraphicsContext
                 PipelineStageFlags.TransferBit,
                 PipelineStageFlags.FragmentShaderBit,
                 0,
-                0, null,
-                0, null,
-                1, &barrier);
+                0,
+                null,
+                0,
+                null,
+                1,
+                &barrier
+            );
         });
 
         // Transition source back to shader read optimal
         vulkanSource.TransitionTo(ImageLayout.ShaderReadOnlyOptimal);
     }
 
-    public unsafe void CopyTextureToCubeArrayFace(ITexture2D source, ITextureCubeArray destination, int arrayIndex, int faceIndex)
+    public unsafe void CopyTextureToCubeArrayFace(
+        ITexture2D source,
+        ITextureCubeArray destination,
+        int arrayIndex,
+        int faceIndex
+    )
     {
         if (arrayIndex < 0 || arrayIndex >= (int)destination.ArraySize)
-            throw new ArgumentOutOfRangeException(nameof(arrayIndex), $"Array index must be 0-{destination.ArraySize - 1}");
+            throw new ArgumentOutOfRangeException(
+                nameof(arrayIndex),
+                $"Array index must be 0-{destination.ArraySize - 1}"
+            );
         if (faceIndex < 0 || faceIndex >= 6)
             throw new ArgumentOutOfRangeException(nameof(faceIndex), "Face index must be 0-5");
 
@@ -571,10 +667,10 @@ internal sealed class VulkanContext : IGraphicsContext
                     BaseMipLevel = 0,
                     LevelCount = 1,
                     BaseArrayLayer = layerIndex,
-                    LayerCount = 1
+                    LayerCount = 1,
                 },
                 SrcAccessMask = 0,
-                DstAccessMask = AccessFlags.TransferWriteBit
+                DstAccessMask = AccessFlags.TransferWriteBit,
             };
 
             Vk.CmdPipelineBarrier(
@@ -582,9 +678,13 @@ internal sealed class VulkanContext : IGraphicsContext
                 PipelineStageFlags.TopOfPipeBit,
                 PipelineStageFlags.TransferBit,
                 0,
-                0, null,
-                0, null,
-                1, &barrier);
+                0,
+                null,
+                0,
+                null,
+                1,
+                &barrier
+            );
 
             // Copy from 2D texture to cube array face
             var copyRegion = new ImageCopy
@@ -594,7 +694,7 @@ internal sealed class VulkanContext : IGraphicsContext
                     AspectMask = aspectMask,
                     MipLevel = 0,
                     BaseArrayLayer = 0,
-                    LayerCount = 1
+                    LayerCount = 1,
                 },
                 SrcOffset = new Offset3D(0, 0, 0),
                 DstSubresource = new ImageSubresourceLayers
@@ -602,10 +702,10 @@ internal sealed class VulkanContext : IGraphicsContext
                     AspectMask = aspectMask,
                     MipLevel = 0,
                     BaseArrayLayer = layerIndex,
-                    LayerCount = 1
+                    LayerCount = 1,
                 },
                 DstOffset = new Offset3D(0, 0, 0),
-                Extent = new Extent3D((uint)source.Width, (uint)source.Height, 1)
+                Extent = new Extent3D((uint)source.Width, (uint)source.Height, 1),
             };
 
             Vk.CmdCopyImage(
@@ -615,7 +715,8 @@ internal sealed class VulkanContext : IGraphicsContext
                 vulkanDest.ImageHandle,
                 ImageLayout.TransferDstOptimal,
                 1,
-                &copyRegion);
+                &copyRegion
+            );
 
             // Transition cube array face to shader read optimal
             barrier.OldLayout = ImageLayout.TransferDstOptimal;
@@ -628,9 +729,13 @@ internal sealed class VulkanContext : IGraphicsContext
                 PipelineStageFlags.TransferBit,
                 PipelineStageFlags.FragmentShaderBit,
                 0,
-                0, null,
-                0, null,
-                1, &barrier);
+                0,
+                null,
+                0,
+                null,
+                1,
+                &barrier
+            );
         });
 
         // Transition source back to shader read optimal
@@ -652,7 +757,12 @@ internal sealed class VulkanContext : IGraphicsContext
         _vulkanCommandPool.TransitionImageLayout(image, oldLayout, newLayout);
     }
 
-    public void TransitionImageLayout(Image image, ImageLayout oldLayout, ImageLayout newLayout, ImageAspectFlags aspectMask)
+    public void TransitionImageLayout(
+        Image image,
+        ImageLayout oldLayout,
+        ImageLayout newLayout,
+        ImageAspectFlags aspectMask
+    )
     {
         _vulkanCommandPool.TransitionImageLayout(image, oldLayout, newLayout, aspectMask);
     }
@@ -663,9 +773,17 @@ internal sealed class VulkanContext : IGraphicsContext
         ImageLayout newLayout,
         ImageAspectFlags aspectMask,
         uint baseArrayLayer,
-        uint layerCount)
+        uint layerCount
+    )
     {
-        _vulkanCommandPool.TransitionImageLayout(image, oldLayout, newLayout, aspectMask, baseArrayLayer, layerCount);
+        _vulkanCommandPool.TransitionImageLayout(
+            image,
+            oldLayout,
+            newLayout,
+            aspectMask,
+            baseArrayLayer,
+            layerCount
+        );
     }
 
     public CommandBuffer AllocateCommandBuffer()
@@ -678,7 +796,6 @@ internal sealed class VulkanContext : IGraphicsContext
         _vulkanCommandPool.SubmitCommandBuffer(commandBuffer);
     }
 
-
     /// <summary>
     /// Finds a suitable memory type for the given requirements.
     /// </summary>
@@ -689,8 +806,10 @@ internal sealed class VulkanContext : IGraphicsContext
 
         for (uint i = 0; i < memProps.MemoryTypeCount; i++)
         {
-            if ((typeFilter & (1u << (int)i)) != 0 &&
-                (memProps.MemoryTypes[(int)i].PropertyFlags & properties) == properties)
+            if (
+                (typeFilter & (1u << (int)i)) != 0
+                && (memProps.MemoryTypes[(int)i].PropertyFlags & properties) == properties
+            )
             {
                 return i;
             }

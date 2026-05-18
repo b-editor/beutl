@@ -36,11 +36,7 @@ public class ListExtensionsTests
     [Test]
     public void OrderedAdd_EqualKeyInsertedBeforeExisting()
     {
-        var list = new List<(int Key, string Tag)>
-        {
-            (1, "a"),
-            (3, "b"),
-        };
+        var list = new List<(int Key, string Tag)> { (1, "a"), (3, "b") };
 
         list.OrderedAdd<(int Key, string Tag), int>((3, "c"), x => x.Key);
 
@@ -140,6 +136,8 @@ public class ListExtensionsTests
     {
         var list = new List<int>();
 
-        Assert.Throws<ArgumentNullException>(() => list.OrderedAddDescending(1, (Func<int, int>)null!));
+        Assert.Throws<ArgumentNullException>(() =>
+            list.OrderedAddDescending(1, (Func<int, int>)null!)
+        );
     }
 }

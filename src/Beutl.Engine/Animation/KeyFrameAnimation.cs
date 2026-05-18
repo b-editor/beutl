@@ -37,7 +37,8 @@ public abstract class KeyFrameAnimation : Hierarchical, IKeyFrameAnimation
 
     private void OnKeyTimeChanged(object? sender, EventArgs e)
     {
-        if (sender is not IKeyFrame keyframe) return;
+        if (sender is not IKeyFrame keyframe)
+            return;
         using var _ = PublishingSuppression.Enter();
 
         int index = KeyFrames.IndexOf(keyframe);
@@ -139,10 +140,7 @@ public abstract class KeyFrameAnimation : Hierarchical, IKeyFrameAnimation
         }
     }
 
-    public TimeSpan Duration
-        => KeyFrames.Count > 0
-            ? KeyFrames[^1].KeyTime
-            : TimeSpan.Zero;
+    public TimeSpan Duration => KeyFrames.Count > 0 ? KeyFrames[^1].KeyTime : TimeSpan.Zero;
 
     public (IKeyFrame? Previous, IKeyFrame? Next) GetPreviousAndNextKeyFrame(IKeyFrame keyframe)
     {

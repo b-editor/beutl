@@ -26,9 +26,10 @@ public class AnimatedPngReader : MediaReader
                 continue;
 
             long delayDen = frame.fcTLChunk.DelayDen == 0 ? 100 : frame.fcTLChunk.DelayDen;
-            duration += frame.fcTLChunk.DelayNum == 0
-                ? new Rational(1, 1000)
-                : new Rational(frame.fcTLChunk.DelayNum, delayDen);
+            duration +=
+                frame.fcTLChunk.DelayNum == 0
+                    ? new Rational(1, 1000)
+                    : new Rational(frame.fcTLChunk.DelayNum, delayDen);
         }
 
         VideoInfo = new VideoStreamInfo(
@@ -57,7 +58,10 @@ public class AnimatedPngReader : MediaReader
         image = null;
 
         // frameを秒数に変換
-        var seconds = new Rational(frame * VideoInfo.FrameRate.Denominator, VideoInfo.FrameRate.Numerator);
+        var seconds = new Rational(
+            frame * VideoInfo.FrameRate.Denominator,
+            VideoInfo.FrameRate.Numerator
+        );
 
         int detectedFrame = -1;
         if (_defaultImage != null)
@@ -79,12 +83,14 @@ public class AnimatedPngReader : MediaReader
             for (int i = 0; i < _frameCount; i++)
             {
                 var f = _apng.Frames[i];
-                if (f.fcTLChunk == null) continue;
+                if (f.fcTLChunk == null)
+                    continue;
 
                 long delayDen = f.fcTLChunk.DelayDen == 0 ? 100 : f.fcTLChunk.DelayDen;
-                cycleDuration += f.fcTLChunk.DelayNum == 0
-                    ? new Rational(1, 1000)
-                    : new Rational(f.fcTLChunk.DelayNum, delayDen);
+                cycleDuration +=
+                    f.fcTLChunk.DelayNum == 0
+                        ? new Rational(1, 1000)
+                        : new Rational(f.fcTLChunk.DelayNum, delayDen);
             }
 
             if (cycleDuration <= new Rational(0, 1))
@@ -116,7 +122,8 @@ public class AnimatedPngReader : MediaReader
             for (int i = 0; i < _frameCount; i++)
             {
                 var f = _apng.Frames[i];
-                if (f.fcTLChunk == null) continue;
+                if (f.fcTLChunk == null)
+                    continue;
 
                 if (effective <= accumulated)
                 {
@@ -125,9 +132,10 @@ public class AnimatedPngReader : MediaReader
                 }
 
                 long delayDen = f.fcTLChunk.DelayDen == 0 ? 100 : f.fcTLChunk.DelayDen;
-                accumulated += f.fcTLChunk.DelayNum == 0
-                    ? new Rational(1, 1000)
-                    : new Rational(f.fcTLChunk.DelayNum, delayDen);
+                accumulated +=
+                    f.fcTLChunk.DelayNum == 0
+                        ? new Rational(1, 1000)
+                        : new Rational(f.fcTLChunk.DelayNum, delayDen);
             }
 
             // wrap 後でもヒットしない（端数などで最終フレーム超えと判定された）場合は
@@ -141,7 +149,8 @@ public class AnimatedPngReader : MediaReader
                 }
             }
 
-        BreakNestedLoop:;
+            BreakNestedLoop:
+            ;
         }
 
         if (detectedFrame == -1)
@@ -185,8 +194,7 @@ public class AnimatedPngReader : MediaReader
 
             stack.Push((info, i));
 
-            if (_lastFrame is not null &&
-                _lastFrame.Index == i)
+            if (_lastFrame is not null && _lastFrame.Index == i)
             {
                 break;
             }
@@ -197,24 +205,28 @@ public class AnimatedPngReader : MediaReader
             }
         }
 
-        var frameBitmap =
-            new SKBitmap(new SKImageInfo(VideoInfo.FrameSize.Width, VideoInfo.FrameSize.Height, SKColorType.Bgra8888));
+        var frameBitmap = new SKBitmap(
+            new SKImageInfo(
+                VideoInfo.FrameSize.Width,
+                VideoInfo.FrameSize.Height,
+                SKColorType.Bgra8888
+            )
+        );
         using var canvas = new SKCanvas(frameBitmap);
         using var paint = new SKPaint();
         foreach ((Frame info, int i) in stack)
         {
             var fcTL = info.fcTLChunk!;
-            paint.BlendMode = fcTL.BlendOp == BlendOps.APNGBlendOpOver
-                ? SKBlendMode.SrcOver
-                : SKBlendMode.Src;
+            paint.BlendMode =
+                fcTL.BlendOp == BlendOps.APNGBlendOpOver ? SKBlendMode.SrcOver : SKBlendMode.Src;
 
-            if (_lastFrame is not null &&
-                _lastFrame.Index == i)
+            if (_lastFrame is not null && _lastFrame.Index == i)
             {
                 canvas.DrawBitmap(
                     _lastFrame.Bitmap,
                     SKRect.Create(fcTL.XOffset, fcTL.YOffset, fcTL.Width, fcTL.Height),
-                    paint);
+                    paint
+                );
                 continue;
             }
 
@@ -223,7 +235,8 @@ public class AnimatedPngReader : MediaReader
             canvas.DrawBitmap(
                 tmp,
                 SKRect.Create(fcTL.XOffset, fcTL.YOffset, fcTL.Width, fcTL.Height),
-                paint);
+                paint
+            );
         }
 
         return frameBitmap;

@@ -1,6 +1,5 @@
 ﻿using Avalonia.Controls;
 using Avalonia.Threading;
-
 using Beutl.Editor.Components.ColorScopesTab.ViewModels;
 
 namespace Beutl.Editor.Components.ColorScopesTab.Views;

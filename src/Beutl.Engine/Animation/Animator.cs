@@ -1,5 +1,3 @@
 ﻿namespace Beutl.Animation;
 
-public abstract class Animator
-{
-}
+public abstract class Animator { }

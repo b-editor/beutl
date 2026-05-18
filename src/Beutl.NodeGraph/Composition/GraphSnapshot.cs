@@ -20,7 +20,8 @@ public sealed class GraphSnapshot : IDisposable
 
     public void Build(GraphModel model, CompositionContext context)
     {
-        if (!_isDirty) return;
+        if (!_isDirty)
+            return;
 
         // 既存リソースをクリーンアップ
         Uninitialize();
@@ -42,8 +43,9 @@ public sealed class GraphSnapshot : IDisposable
         if (sorted.Count != nodeCount)
         {
             Debug.WriteLine(
-                $"NodeGraphSnapshot: Cycle detected. " +
-                $"{nodeCount - sorted.Count} node(s) in cycle(s) were skipped.");
+                $"NodeGraphSnapshot: Cycle detected. "
+                    + $"{nodeCount - sorted.Count} node(s) in cycle(s) were skipped."
+            );
         }
 
         // リソースとコンテキストを構築
@@ -61,8 +63,10 @@ public sealed class GraphSnapshot : IDisposable
         _isDirty = false;
     }
 
-    private (Dictionary<GraphNode, int> inDegree, Dictionary<GraphNode, List<GraphNode>> adjacency) BuildAdjacencyAndInDegree(
-        ICoreList<GraphNode> nodes)
+    private (
+        Dictionary<GraphNode, int> inDegree,
+        Dictionary<GraphNode, List<GraphNode>> adjacency
+    ) BuildAdjacencyAndInDegree(ICoreList<GraphNode> nodes)
     {
         int nodeCount = nodes.Count;
         var inDegree = new Dictionary<GraphNode, int>(nodeCount);
@@ -83,8 +87,8 @@ public sealed class GraphSnapshot : IDisposable
                 {
                     foreach (var connection in listInputPort.Connections)
                     {
-                        GraphNode? upstream = connection.Value?.Output.Value?
-                            .FindHierarchicalParent<GraphNode>();
+                        GraphNode? upstream =
+                            connection.Value?.Output.Value?.FindHierarchicalParent<GraphNode>();
                         if (upstream != null && inDegree.ContainsKey(upstream))
                         {
                             adjacency[upstream].Add(node);
@@ -92,8 +96,10 @@ public sealed class GraphSnapshot : IDisposable
                         }
                     }
                 }
-                else if (item is IInputPort inputNodePort
-                         && inputNodePort.Connection.Value?.Output.Value is { } outputNodePort)
+                else if (
+                    item is IInputPort inputNodePort
+                    && inputNodePort.Connection.Value?.Output.Value is { } outputNodePort
+                )
                 {
                     GraphNode? upstream = outputNodePort.FindHierarchicalParent<GraphNode>();
                     if (upstream != null && inDegree.ContainsKey(upstream))
@@ -110,7 +116,8 @@ public sealed class GraphSnapshot : IDisposable
 
     private static List<GraphNode> TopologicalSort(
         Dictionary<GraphNode, int> inDegree,
-        Dictionary<GraphNode, List<GraphNode>> adjacency)
+        Dictionary<GraphNode, List<GraphNode>> adjacency
+    )
     {
         var queue = new Queue<GraphNode>();
         var sorted = new List<GraphNode>(inDegree.Count);
@@ -136,7 +143,10 @@ public sealed class GraphSnapshot : IDisposable
         return sorted;
     }
 
-    private Dictionary<GraphNode, int> BuildResourcesAndContexts(List<GraphNode> sorted, CompositionContext context)
+    private Dictionary<GraphNode, int> BuildResourcesAndContexts(
+        List<GraphNode> sorted,
+        CompositionContext context
+    )
     {
         var nodeToResourceIndex = new Dictionary<GraphNode, int>(sorted.Count);
         _resources = new GraphNode.Resource[sorted.Count];
@@ -178,40 +188,56 @@ public sealed class GraphSnapshot : IDisposable
 
     private List<ConnectionSnapshot> BuildConnectionSnapshots(
         IEnumerable<Connection> allConnections,
-        Dictionary<GraphNode, int> nodeToResourceIndex)
+        Dictionary<GraphNode, int> nodeToResourceIndex
+    )
     {
         var connectionList = new List<ConnectionSnapshot>();
 
         foreach (Connection connection in allConnections)
         {
-            if (connection.Output.Value is not { } outputSock
-                || connection.Input.Value is not { } inputSock)
+            if (
+                connection.Output.Value is not { } outputSock
+                || connection.Input.Value is not { } inputSock
+            )
                 continue;
 
             GraphNode? outputNode = outputSock.FindHierarchicalParent<GraphNode>();
             GraphNode? inputNode = inputSock.FindHierarchicalParent<GraphNode>();
 
-            if (outputNode == null || inputNode == null
-                                   || !nodeToResourceIndex.TryGetValue(outputNode, out int outputResourceIdx)
-                                   || !nodeToResourceIndex.TryGetValue(inputNode, out int inputResourceIdx))
+            if (
+                outputNode == null
+                || inputNode == null
+                || !nodeToResourceIndex.TryGetValue(outputNode, out int outputResourceIdx)
+                || !nodeToResourceIndex.TryGetValue(inputNode, out int inputResourceIdx)
+            )
                 continue;
 
             var outputResource = _resources[outputResourceIdx];
             var inputResource = _resources[inputResourceIdx];
 
-            if (!outputResource.ItemIndexMap.TryGetValue((INodeMember)outputSock, out int outputItemIdx)
-                || !inputResource.ItemIndexMap.TryGetValue((INodeMember)inputSock, out int inputItemIdx))
+            if (
+                !outputResource.ItemIndexMap.TryGetValue(
+                    (INodeMember)outputSock,
+                    out int outputItemIdx
+                )
+                || !inputResource.ItemIndexMap.TryGetValue(
+                    (INodeMember)inputSock,
+                    out int inputItemIdx
+                )
+            )
                 continue;
 
             int connIdx = connectionList.Count;
-            connectionList.Add(new ConnectionSnapshot
-            {
-                OutputSlotIndex = outputResourceIdx,
-                OutputItemIndex = outputItemIdx,
-                InputSlotIndex = inputResourceIdx,
-                InputItemIndex = inputItemIdx,
-                OriginalConnection = connection
-            });
+            connectionList.Add(
+                new ConnectionSnapshot
+                {
+                    OutputSlotIndex = outputResourceIdx,
+                    OutputItemIndex = outputItemIdx,
+                    InputSlotIndex = inputResourceIdx,
+                    InputItemIndex = inputItemIdx,
+                    OriginalConnection = connection,
+                }
+            );
 
             // 出力→接続マップに追加
             var key = (outputResourceIdx, outputItemIdx);
@@ -258,8 +284,10 @@ public sealed class GraphSnapshot : IDisposable
 
                     foreach (var connRef in listNodePort.Connections)
                     {
-                        if (connRef.Value != null
-                            && connectionToIndex.TryGetValue(connRef.Value, out int connIdx))
+                        if (
+                            connRef.Value != null
+                            && connectionToIndex.TryGetValue(connRef.Value, out int connIdx)
+                        )
                         {
                             orderedIndices.Add(connIdx);
                         }
@@ -303,28 +331,32 @@ public sealed class GraphSnapshot : IDisposable
 
     internal int FindSlotIndex(GraphNode? node)
     {
-        if (node == null) return -1;
+        if (node == null)
+            return -1;
         for (int i = 0; i < _resources.Length; i++)
         {
-            if (_resources[i].GetOriginal() == node) return i;
+            if (_resources[i].GetOriginal() == node)
+                return i;
         }
 
         return -1;
     }
 
-    internal GraphNode.Resource? GetResource(int slotIndex)
-        => slotIndex >= 0 && slotIndex < _resources.Length ? _resources[slotIndex] : null;
+    internal GraphNode.Resource? GetResource(int slotIndex) =>
+        slotIndex >= 0 && slotIndex < _resources.Length ? _resources[slotIndex] : null;
 
     internal IItemValue? GetItemValue(int slotIndex, int itemIndex)
     {
-        if (slotIndex < 0 || slotIndex >= _resources.Length) return null;
+        if (slotIndex < 0 || slotIndex >= _resources.Length)
+            return null;
         var resource = _resources[slotIndex];
-        if (itemIndex < 0 || itemIndex >= resource.ItemValues.Length) return null;
+        if (itemIndex < 0 || itemIndex >= resource.ItemValues.Length)
+            return null;
         return resource.ItemValues[itemIndex];
     }
 
-    internal bool HasInputConnection(int slotIndex, int itemIndex)
-        => _connectedInputs.Contains((slotIndex, itemIndex));
+    internal bool HasInputConnection(int slotIndex, int itemIndex) =>
+        _connectedInputs.Contains((slotIndex, itemIndex));
 
     internal void CollectListInputValues<T>(int slotIndex, int itemIndex, IList<T?> result)
     {
@@ -336,7 +368,9 @@ public sealed class GraphSnapshot : IDisposable
             foreach (int connIdx in connIndices)
             {
                 ref var conn = ref _connections[connIdx];
-                IItemValue outputValue = _resources[conn.OutputSlotIndex].ItemValues[conn.OutputItemIndex];
+                IItemValue outputValue = _resources[conn.OutputSlotIndex].ItemValues[
+                    conn.OutputItemIndex
+                ];
                 if (outputValue is IReadOnlyItemValue<T> typed)
                 {
                     result.Add(typed.GetValue());
@@ -362,8 +396,10 @@ public sealed class GraphSnapshot : IDisposable
         {
             INodeMember item = node.Items[i];
             // 接続がある入力は上流から値が来るのでスキップ
-            if (_connectedInputs.Contains((resource.SlotIndex, i))) continue;
-            if (item.Property is null || item is IEnginePropertyBackedInputPort) continue;
+            if (_connectedInputs.Contains((resource.SlotIndex, i)))
+                continue;
+            if (item.Property is null || item is IEnginePropertyBackedInputPort)
+                continue;
 
             if (item.Property is IAnimatablePropertyAdapter { Animation: { } animation })
             {
@@ -388,25 +424,35 @@ public sealed class GraphSnapshot : IDisposable
         var node = resource.GetOriginal();
         for (int itemIdx = 0; itemIdx < node.Items.Count; itemIdx++)
         {
-            if (!_outputConnectionMap.TryGetValue((resource.SlotIndex, itemIdx), out var connIndices))
+            if (
+                !_outputConnectionMap.TryGetValue(
+                    (resource.SlotIndex, itemIdx),
+                    out var connIndices
+                )
+            )
                 continue;
 
             IItemValue outputValue = resource.ItemValues[itemIdx];
             foreach (int ci in CollectionsMarshal.AsSpan(connIndices))
             {
                 ref var conn = ref _connections[ci];
-                IItemValue inputValue = _resources[conn.InputSlotIndex].ItemValues[conn.InputItemIndex];
+                IItemValue inputValue = _resources[conn.InputSlotIndex].ItemValues[
+                    conn.InputItemIndex
+                ];
 
                 var propagateResult = inputValue.PropagateFrom(outputValue);
                 conn.OriginalConnection?.Status = propagateResult switch
                 {
                     PropagateResult.Success => ConnectionStatus.Success,
                     PropagateResult.Converted => ConnectionStatus.Convert,
-                    _ => ConnectionStatus.Error
+                    _ => ConnectionStatus.Error,
                 };
 
                 // IEnginePropertyBackedInputPort なら、ItemValue の値をプロパティに反映
-                if (conn is { OriginalConnection.Input.Value: IEnginePropertyBackedInputPort inputNodePort })
+                if (
+                    conn is
+                    { OriginalConnection.Input.Value: IEnginePropertyBackedInputPort inputNodePort }
+                )
                 {
                     inputNodePort.CopyFrom(inputValue);
                 }

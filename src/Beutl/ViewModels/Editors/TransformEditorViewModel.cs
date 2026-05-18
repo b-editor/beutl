@@ -8,7 +8,6 @@ using Beutl.Graphics.Transformation;
 using Beutl.PropertyAdapters;
 using Beutl.Serialization;
 using Microsoft.Extensions.DependencyInjection;
-
 using Reactive.Bindings;
 
 namespace Beutl.ViewModels.Editors;
@@ -22,10 +21,12 @@ public enum KnownTransformType
     Scale,
     Skew,
     Rotation3D,
-    Presenter
+    Presenter,
 }
 
-public sealed class TransformEditorViewModel : ValueEditorViewModel<Transform?>, IFallbackObjectViewModel
+public sealed class TransformEditorViewModel
+    : ValueEditorViewModel<Transform?>,
+        IFallbackObjectViewModel
 {
     private static KnownTransformType GetTransformType(Transform? obj)
     {
@@ -38,7 +39,7 @@ public sealed class TransformEditorViewModel : ValueEditorViewModel<Transform?>,
             SkewTransform => KnownTransformType.Skew,
             Rotation3DTransform => KnownTransformType.Rotation3D,
             IPresenter<Transform> => KnownTransformType.Presenter,
-            _ => KnownTransformType.Unknown
+            _ => KnownTransformType.Unknown,
         };
     }
 
@@ -53,7 +54,7 @@ public sealed class TransformEditorViewModel : ValueEditorViewModel<Transform?>,
             KnownTransformType.Skew => new SkewTransform(),
             KnownTransformType.Rotation3D => new Rotation3DTransform(),
             KnownTransformType.Presenter => new TransformPresenter(),
-            _ => null
+            _ => null,
         };
     }
 
@@ -68,79 +69,98 @@ public sealed class TransformEditorViewModel : ValueEditorViewModel<Transform?>,
             KnownTransformType.Skew => GraphicsStrings.SkewTransform,
             KnownTransformType.Rotation3D => GraphicsStrings.Rotation3DTransform,
             KnownTransformType.Presenter => GraphicsStrings.Presenter,
-            _ => "Null"
+            _ => "Null",
         };
     }
 
     public TransformEditorViewModel(IPropertyAdapter<Transform?> property)
         : base(property)
     {
-        CanCopy = Value.Select(v => v is Transform and not FallbackTransform)
+        CanCopy = Value
+            .Select(v => v is Transform and not FallbackTransform)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(Disposables);
 
-        IsFallback = Value.Select(v => v is IFallback)
+        IsFallback = Value
+            .Select(v => v is IFallback)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(Disposables);
 
-        ActualTypeName = Value.Select(FallbackHelper.GetTypeName)
+        ActualTypeName = Value
+            .Select(FallbackHelper.GetTypeName)
             .ToReadOnlyReactivePropertySlim(Strings.Unknown)
             .DisposeWith(Disposables);
 
-        FallbackMessage = Value.Select(FallbackHelper.GetFallbackMessage)
+        FallbackMessage = Value
+            .Select(FallbackHelper.GetFallbackMessage)
             .ToReadOnlyReactivePropertySlim(MessageStrings.RestoreFailedTypeNotFound)
             .DisposeWith(Disposables);
 
-        TransformType = Value.Select(GetTransformType)
+        TransformType = Value
+            .Select(GetTransformType)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(Disposables);
 
-        TransformName = TransformType.Select(ToDisplayName)
+        TransformName = TransformType
+            .Select(ToDisplayName)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(Disposables);
 
-        IsGroup = Value.Select(v => v is TransformGroup)
+        IsGroup = Value
+            .Select(v => v is TransformGroup)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(Disposables);
 
-        IsGroupOrNull = Value.Select(v => v is TransformGroup || v == null)
+        IsGroupOrNull = Value
+            .Select(v => v is TransformGroup || v == null)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(Disposables);
 
-        IsExpanded.SkipWhile(v => !v)
+        IsExpanded
+            .SkipWhile(v => !v)
             .Take(1)
             .Subscribe(_ =>
-                Value.Subscribe(v =>
-                {
-                    Properties.Value?.Dispose();
-                    Properties.Value = null;
-                    Group.Value?.Dispose();
-                    Group.Value = null;
-
-                    if (v is TransformGroup group)
+                Value
+                    .Subscribe(v =>
                     {
-                        var prop = new EnginePropertyAdapter<ICoreList<Transform>>(group.Children, group);
-                        Group.Value = new ListEditorViewModel<Transform?>(prop)
+                        Properties.Value?.Dispose();
+                        Properties.Value = null;
+                        Group.Value?.Dispose();
+                        Group.Value = null;
+
+                        if (v is TransformGroup group)
                         {
-                            IsExpanded = { Value = true }
-                        };
-                    }
-                    else if (v != null)
-                    {
-                        Properties.Value = new PropertiesEditorViewModel(v);
-                    }
+                            var prop = new EnginePropertyAdapter<ICoreList<Transform>>(
+                                group.Children,
+                                group
+                            );
+                            Group.Value = new ListEditorViewModel<Transform?>(prop)
+                            {
+                                IsExpanded = { Value = true },
+                            };
+                        }
+                        else if (v != null)
+                        {
+                            Properties.Value = new PropertiesEditorViewModel(v);
+                        }
 
-                    AcceptChild();
-                })
-                .DisposeWith(Disposables))
+                        AcceptChild();
+                    })
+                    .DisposeWith(Disposables)
+            )
             .DisposeWith(Disposables);
 
-        IsEnabled = Value.Select(x => (x as Transform)?.GetObservable(Transform.IsEnabledProperty) ?? Observable.ReturnThenNever(x?.IsEnabled ?? false))
+        IsEnabled = Value
+            .Select(x =>
+                (x as Transform)?.GetObservable(Transform.IsEnabledProperty)
+                ?? Observable.ReturnThenNever(x?.IsEnabled ?? false)
+            )
             .Switch()
             .ToReactiveProperty()
             .DisposeWith(Disposables);
 
-        IsEnabled.Skip(1)
+        IsEnabled
+            .Skip(1)
             .Subscribe(v =>
             {
                 if (Value.Value is Transform transform && transform.IsEnabled != v)
@@ -152,13 +172,17 @@ public sealed class TransformEditorViewModel : ValueEditorViewModel<Transform?>,
             .DisposeWith(Disposables);
 
         var expressionObservable = Value
-            .Select(v => v switch
-            {
-                IPresenter<Transform> presenter => presenter.Target.SubscribeExpressionChange()
-                    .Select(exp => (presenter, exp))!,
-                _ => Observable.ReturnThenNever(
-                    ((IPresenter<Transform>?)null, (IExpression<Transform?>?)null))
-            })
+            .Select(v =>
+                v switch
+                {
+                    IPresenter<Transform> presenter => presenter
+                        .Target.SubscribeExpressionChange()
+                        .Select(exp => (presenter, exp))!,
+                    _ => Observable.ReturnThenNever(
+                        ((IPresenter<Transform>?)null, (IExpression<Transform?>?)null)
+                    ),
+                }
+            )
             .Switch();
         IsPresenter = expressionObservable
             .Select(t => t is { Item1: not null, Item2: ReferenceExpression<Transform> or null })
@@ -166,10 +190,14 @@ public sealed class TransformEditorViewModel : ValueEditorViewModel<Transform?>,
             .DisposeWith(Disposables);
 
         CurrentTargetName = expressionObservable
-            .Select(t => t.Item2 is ReferenceExpression<Transform>
-                ? t.Item1?.Target.GetValue(CompositionContext.Default)
-                : null)
-            .Select(fe => fe != null ? CoreObjectHelper.GetDisplayName(fe) : MessageStrings.PropertyUnset)
+            .Select(t =>
+                t.Item2 is ReferenceExpression<Transform>
+                    ? t.Item1?.Target.GetValue(CompositionContext.Default)
+                    : null
+            )
+            .Select(fe =>
+                fe != null ? CoreObjectHelper.GetDisplayName(fe) : MessageStrings.PropertyUnset
+            )
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(Disposables);
     }
@@ -223,7 +251,11 @@ public sealed class TransformEditorViewModel : ValueEditorViewModel<Transform?>,
 
     private void AcceptChild()
     {
-        NestedEditorContextHelper.AcceptChildren(new ChildVisitor(this), Group.Value, Properties.Value);
+        NestedEditorContextHelper.AcceptChildren(
+            new ChildVisitor(this),
+            Group.Value,
+            Properties.Value
+        );
     }
 
     public void ChangeTransform(Transform instance)
@@ -263,8 +295,8 @@ public sealed class TransformEditorViewModel : ValueEditorViewModel<Transform?>,
             AddItem(obj);
     }
 
-    protected override ICoreSerializable? GetCopyTarget()
-        => Value.Value is { } tf and not FallbackTransform ? tf : null;
+    protected override ICoreSerializable? GetCopyTarget() =>
+        Value.Value is { } tf and not FallbackTransform ? tf : null;
 
     protected override ICoreSerializable? GetTemplateTarget() => GetCopyTarget();
 
@@ -273,16 +305,23 @@ public sealed class TransformEditorViewModel : ValueEditorViewModel<Transform?>,
     public override bool ApplyTemplate(ObjectTemplateItem template)
     {
         return GroupedEditorHelper.ApplyTemplate(
-            template, this, IsExpanded,
+            template,
+            this,
+            IsExpanded,
             Value.Value is TransformGroup,
-            AddItem, ChangeTransform);
+            AddItem,
+            ChangeTransform
+        );
     }
 
     public override bool TryPasteJson(string json)
     {
         return GroupedEditorHelper.TryPasteJson(
-            json, this, IsExpanded,
-            (Value.Value as TransformGroup)?.Children);
+            json,
+            this,
+            IsExpanded,
+            (Value.Value as TransformGroup)?.Children
+        );
     }
 
     public void SetNull()
@@ -308,10 +347,8 @@ public sealed class TransformEditorViewModel : ValueEditorViewModel<Transform?>,
         }
     }
 
-    public IReadOnlyList<TargetObjectInfo> GetAvailableTargets()
-        => TargetObjectSearchHelper.GetAvailableTargets<Transform>(this);
-
-
+    public IReadOnlyList<TargetObjectInfo> GetAvailableTargets() =>
+        TargetObjectSearchHelper.GetAvailableTargets<Transform>(this);
 
     public override void ReadFromJson(JsonObject json)
     {
@@ -322,7 +359,12 @@ public sealed class TransformEditorViewModel : ValueEditorViewModel<Transform?>,
     public override void WriteToJson(JsonObject json)
     {
         base.WriteToJson(json);
-        NestedEditorContextHelper.WriteNestedJson(json, IsExpanded.Value, Properties.Value, Group.Value);
+        NestedEditorContextHelper.WriteNestedJson(
+            json,
+            IsExpanded.Value,
+            Properties.Value,
+            Group.Value
+        );
     }
 
     protected override void Dispose(bool disposing)
@@ -331,5 +373,4 @@ public sealed class TransformEditorViewModel : ValueEditorViewModel<Transform?>,
         Properties.Value?.Dispose();
         Group.Value?.Dispose();
     }
-
 }

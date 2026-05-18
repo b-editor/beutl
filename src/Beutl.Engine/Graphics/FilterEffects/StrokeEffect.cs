@@ -28,25 +28,32 @@ public partial class StrokeEffect : FilterEffect
     [Display(Name = nameof(GraphicsStrings.Offset), ResourceType = typeof(GraphicsStrings))]
     public IProperty<Point> Offset { get; } = Property.CreateAnimatable(default(Point));
 
-    [Display(Name = nameof(GraphicsStrings.StrokeEffect_Style), ResourceType = typeof(GraphicsStrings))]
-    public IProperty<StrokeStyles> Style { get; } = Property.CreateAnimatable(StrokeStyles.Background);
+    [Display(
+        Name = nameof(GraphicsStrings.StrokeEffect_Style),
+        ResourceType = typeof(GraphicsStrings)
+    )]
+    public IProperty<StrokeStyles> Style { get; } =
+        Property.CreateAnimatable(StrokeStyles.Background);
 
     public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
     {
         var r = (Resource)resource;
-        context.CustomEffect(
-            (r.Offset, r.Pen, r.Style),
-            Apply,
-            TransformBounds);
+        context.CustomEffect((r.Offset, r.Pen, r.Style), Apply, TransformBounds);
     }
 
-    private static Rect TransformBounds((Point Offset, Pen.Resource? Pen, StrokeStyles Style) data, Rect rect)
+    private static Rect TransformBounds(
+        (Point Offset, Pen.Resource? Pen, StrokeStyles Style) data,
+        Rect rect
+    )
     {
         Rect borderBounds = PenHelper.GetBounds(rect, data.Pen);
         return rect.Union(borderBounds.Translate(new Vector(data.Offset.X, data.Offset.Y)));
     }
 
-    private static void Apply((Point Offset, Pen.Resource? Pen, StrokeStyles Style) data, CustomFilterEffectContext context)
+    private static void Apply(
+        (Point Offset, Pen.Resource? Pen, StrokeStyles Style) data,
+        CustomFilterEffectContext context
+    )
     {
         static SKPath CreateBorderPath(Bitmap src)
         {
@@ -83,7 +90,8 @@ public partial class StrokeEffect : FilterEffect
                 float thickness = PenHelper.GetRealThickness(pen.StrokeAlignment, pen.Thickness);
                 var origin = Matrix.CreateTranslation(
                     thickness - Math.Min(data.Offset.X, thickness),
-                    thickness - Math.Min(data.Offset.Y, thickness));
+                    thickness - Math.Min(data.Offset.Y, thickness)
+                );
 
                 EffectTarget newTarget = context.CreateTarget(transformedBounds);
                 using (ImmediateCanvas newCanvas = context.Open(newTarget))
@@ -95,7 +103,11 @@ public partial class StrokeEffect : FilterEffect
                         newCanvas.DrawRenderTarget(srcRenderTarget, default);
                     }
 
-                    using (newCanvas.PushTransform(Matrix.CreateTranslation(data.Offset.X, data.Offset.Y)))
+                    using (
+                        newCanvas.PushTransform(
+                            Matrix.CreateTranslation(data.Offset.X, data.Offset.Y)
+                        )
+                    )
                     {
                         newCanvas.DrawSKPath(borderPath, true, null, pen);
                     }

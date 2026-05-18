@@ -8,7 +8,9 @@ public class InputPort<T> : NodePort<T>, IInputPort
 
     static InputPort()
     {
-        ConnectionProperty = ConfigureProperty<Reference<Connection>, InputPort<T>>(nameof(Connection))
+        ConnectionProperty = ConfigureProperty<Reference<Connection>, InputPort<T>>(
+                nameof(Connection)
+            )
             .Accessor(o => o.Connection, (o, v) => o.Connection = v)
             .Register();
     }
@@ -27,7 +29,10 @@ public class InputPort<T> : NodePort<T>, IInputPort
     protected override void OnPropertyChanged(PropertyChangedEventArgs args)
     {
         base.OnPropertyChanged(args);
-        if (args is CorePropertyChangedEventArgs coreArgs && coreArgs.Property.Id == ConnectionProperty.Id)
+        if (
+            args is CorePropertyChangedEventArgs coreArgs
+            && coreArgs.Property.Id == ConnectionProperty.Id
+        )
         {
             RaiseTopologyChanged();
             RaiseEdited();
@@ -37,7 +42,8 @@ public class InputPort<T> : NodePort<T>, IInputPort
     public override void NotifyConnected(Connection connection)
     {
         base.NotifyConnected(connection);
-        if (!Connection.IsNull) throw new InvalidOperationException("This input port is already connected.");
+        if (!Connection.IsNull)
+            throw new InvalidOperationException("This input port is already connected.");
         Connection = connection;
         connection.SetValue(Beutl.NodeGraph.Connection.StatusProperty, ConnectionStatus.Connected);
     }
@@ -46,8 +52,13 @@ public class InputPort<T> : NodePort<T>, IInputPort
     {
         base.NotifyDisconnected(connection);
         if (Connection.IsNull || Connection.Id != connection.Id)
-            throw new InvalidOperationException("This input port is not connected to the specified connection.");
+            throw new InvalidOperationException(
+                "This input port is not connected to the specified connection."
+            );
         Connection = default;
-        connection.SetValue(Beutl.NodeGraph.Connection.StatusProperty, ConnectionStatus.Disconnected);
+        connection.SetValue(
+            Beutl.NodeGraph.Connection.StatusProperty,
+            ConnectionStatus.Disconnected
+        );
     }
 }

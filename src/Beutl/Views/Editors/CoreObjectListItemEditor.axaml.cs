@@ -14,11 +14,18 @@ public partial class CoreObjectListItemEditor : UserControl, IListItemEditor
     public CoreObjectListItemEditor()
     {
         InitializeComponent();
-        ExpandTransitionHelper.Attach(reorderHandle, content, ExpandTransitionHelper.ListItemDuration);
+        ExpandTransitionHelper.Attach(
+            reorderHandle,
+            content,
+            ExpandTransitionHelper.ListItemDuration
+        );
         FallbackObjectViewHelper.Attach(this, view => content.Children.Add(view));
 
         reorderHandle.ContextFlyout = new FAMenuFlyout { Placement = PlacementMode.Pointer };
-        EditorMenuHelper.AttachCopyPasteAndTemplateMenus(this, (FAMenuFlyout)reorderHandle.ContextFlyout);
+        EditorMenuHelper.AttachCopyPasteAndTemplateMenus(
+            this,
+            (FAMenuFlyout)reorderHandle.ContextFlyout
+        );
     }
 
     public Control? ReorderHandle => reorderHandle;
@@ -32,7 +39,8 @@ public partial class CoreObjectListItemEditor : UserControl, IListItemEditor
 
     private async void NewClick(object? sender, RoutedEventArgs e)
     {
-        if (DataContext is not ICoreObjectEditorViewModel { IsDisposed: false } viewModel) return;
+        if (DataContext is not ICoreObjectEditorViewModel { IsDisposed: false } viewModel)
+            return;
 
         Type propertyType = viewModel.PropertyAdapter.PropertyType;
 
@@ -57,8 +65,10 @@ public partial class CoreObjectListItemEditor : UserControl, IListItemEditor
 
     private async void SelectTarget_Requested(object? sender, RoutedEventArgs e)
     {
-        if (DataContext is not ICoreObjectEditorViewModel { IsDisposed: false } vm) return;
-        if (_flyoutOpen) return;
+        if (DataContext is not ICoreObjectEditorViewModel { IsDisposed: false } vm)
+            return;
+        if (_flyoutOpen)
+            return;
 
         try
         {
@@ -72,8 +82,10 @@ public partial class CoreObjectListItemEditor : UserControl, IListItemEditor
 
             var tcs = new TaskCompletionSource<CoreObject?>();
             flyout.Dismissed += (_, _) => tcs.TrySetResult(null);
-            flyout.Confirmed += (_, _) => tcs.TrySetResult(
-                (pickerVm.SelectedItem.Value?.UserData as TargetObjectInfo)?.Object);
+            flyout.Confirmed += (_, _) =>
+                tcs.TrySetResult(
+                    (pickerVm.SelectedItem.Value?.UserData as TargetObjectInfo)?.Object
+                );
 
             var result = await tcs.Task;
             if (result != null)
@@ -89,8 +101,10 @@ public partial class CoreObjectListItemEditor : UserControl, IListItemEditor
 
     private async Task<object?> SelectTypeOrReference()
     {
-        if (_flyoutOpen) return null;
-        if (DataContext is not ICoreObjectEditorViewModel { IsDisposed: false } viewModel) return null;
+        if (_flyoutOpen)
+            return null;
+        if (DataContext is not ICoreObjectEditorViewModel { IsDisposed: false } viewModel)
+            return null;
 
         try
         {

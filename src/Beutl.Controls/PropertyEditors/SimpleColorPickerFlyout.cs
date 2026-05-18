@@ -1,8 +1,6 @@
 ﻿using System.ComponentModel;
-
 using Avalonia.Controls;
 using Avalonia.Input;
-
 using FluentAvalonia.Core;
 using FluentAvalonia.UI.Controls.Primitives;
 
@@ -20,10 +18,7 @@ public sealed class SimpleColorPickerFlyout : PickerFlyoutBase
 
     protected override Control CreatePresenter()
     {
-        var pfp = new SimpleColorPickerFlyoutPresenter()
-        {
-            Content = ColorPicker
-        };
+        var pfp = new SimpleColorPickerFlyoutPresenter() { Content = ColorPicker };
         pfp.Confirmed += OnFlyoutConfirmed;
         pfp.Dismissed += OnFlyoutDismissed;
         pfp.CloseClicked += OnFlyoutCloseClicked;

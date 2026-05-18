@@ -219,31 +219,50 @@ public sealed partial class PixelSortEffect : FilterEffect
         ScanProperties<PixelSortEffect>();
     }
 
-    [Display(Name = nameof(GraphicsStrings.PixelSortEffect_Direction), ResourceType = typeof(GraphicsStrings))]
-    public IProperty<PixelSortDirection> Direction { get; } = Property.Create(PixelSortDirection.Horizontal);
+    [Display(
+        Name = nameof(GraphicsStrings.PixelSortEffect_Direction),
+        ResourceType = typeof(GraphicsStrings)
+    )]
+    public IProperty<PixelSortDirection> Direction { get; } =
+        Property.Create(PixelSortDirection.Horizontal);
 
-    [Display(Name = nameof(GraphicsStrings.PixelSortEffect_SortKey), ResourceType = typeof(GraphicsStrings))]
+    [Display(
+        Name = nameof(GraphicsStrings.PixelSortEffect_SortKey),
+        ResourceType = typeof(GraphicsStrings)
+    )]
     public IProperty<PixelSortKey> SortKey { get; } = Property.Create(PixelSortKey.Luminance);
 
-    [Display(Name = nameof(GraphicsStrings.PixelSortEffect_ThresholdMin), ResourceType = typeof(GraphicsStrings))]
+    [Display(
+        Name = nameof(GraphicsStrings.PixelSortEffect_ThresholdMin),
+        ResourceType = typeof(GraphicsStrings)
+    )]
     [Range(0f, 100f)]
     public IProperty<float> ThresholdMin { get; } = Property.CreateAnimatable(25f);
 
-    [Display(Name = nameof(GraphicsStrings.PixelSortEffect_ThresholdMax), ResourceType = typeof(GraphicsStrings))]
+    [Display(
+        Name = nameof(GraphicsStrings.PixelSortEffect_ThresholdMax),
+        ResourceType = typeof(GraphicsStrings)
+    )]
     [Range(0f, 100f)]
     public IProperty<float> ThresholdMax { get; } = Property.CreateAnimatable(80f);
 
-    [Display(Name = nameof(GraphicsStrings.PixelSortEffect_Ascending), ResourceType = typeof(GraphicsStrings))]
+    [Display(
+        Name = nameof(GraphicsStrings.PixelSortEffect_Ascending),
+        ResourceType = typeof(GraphicsStrings)
+    )]
     public IProperty<bool> Ascending { get; } = Property.Create(true);
 
     private static void EnsureShadersInitialized()
     {
-        if (s_shadersInitialized) return;
+        if (s_shadersInitialized)
+            return;
 
         IGraphicsContext? context = GraphicsContextFactory.SharedContext;
         if (context == null || !context.Supports3DRendering)
         {
-            s_logger.LogWarning("Vulkan 3D rendering is not available; PixelSort effect will be inactive.");
+            s_logger.LogWarning(
+                "Vulkan 3D rendering is not available; PixelSort effect will be inactive."
+            );
             return;
         }
 
@@ -269,12 +288,19 @@ public sealed partial class PixelSortEffect : FilterEffect
         PixelSortKey SortKey,
         float ThresholdMin,
         float ThresholdMax,
-        bool Ascending);
+        bool Ascending
+    );
 
     public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
     {
         var r = (Resource)resource;
-        var data = new EffectData(r.Direction, r.SortKey, r.ThresholdMin / 100f, r.ThresholdMax / 100f, r.Ascending);
+        var data = new EffectData(
+            r.Direction,
+            r.SortKey,
+            r.ThresholdMin / 100f,
+            r.ThresholdMax / 100f,
+            r.Ascending
+        );
         context.CustomEffect(data, static (d, ctx) => OnApplyTo(d, ctx), static (_, b) => b);
     }
 
@@ -293,19 +319,30 @@ public sealed partial class PixelSortEffect : FilterEffect
         {
             EffectTarget target = ctx.Targets[i];
             RenderTarget? renderTarget = target.RenderTarget;
-            if (renderTarget?.Texture == null) continue;
+            if (renderTarget?.Texture == null)
+                continue;
 
             ITexture2D originalTexture = renderTarget.Texture;
             int width = originalTexture.Width;
             int height = originalTexture.Height;
 
-            using ITexture2D prepTexture = gfx.CreateTexture2D(width, height, TextureFormat.RGBA16Float);
-            using ITexture2D rankTexture = gfx.CreateTexture2D(width, height, TextureFormat.RGBA16Float);
+            using ITexture2D prepTexture = gfx.CreateTexture2D(
+                width,
+                height,
+                TextureFormat.RGBA16Float
+            );
+            using ITexture2D rankTexture = gfx.CreateTexture2D(
+                width,
+                height,
+                TextureFormat.RGBA16Float
+            );
             using ITexture2D depth = gfx.CreateTexture2D(width, height, TextureFormat.Depth32Float);
 
             // Pass 1: Prepare - encode sort key into alpha
             s_prepareShader.ExecuteSingleTarget(
-                originalTexture, prepTexture, depth,
+                originalTexture,
+                prepTexture,
+                depth,
                 new PreparePushConstants
                 {
                     ThresholdMin = r.ThresholdMin,
@@ -314,17 +351,21 @@ public sealed partial class PixelSortEffect : FilterEffect
                     SortDir = (int)r.Direction,
                     Width = width,
                     Height = height,
-                });
+                }
+            );
 
             // Pass 2: Rank - compute each pixel's rank within its segment
             s_rankShader.ExecuteSingleTarget(
-                prepTexture, rankTexture, depth,
+                prepTexture,
+                rankTexture,
+                depth,
                 new RankPushConstants
                 {
                     SortDir = (int)r.Direction,
                     Width = width,
                     Height = height,
-                });
+                }
+            );
 
             // Pass 3: Gather + Restore - place pixels by rank, restore anchors
             EffectTarget newTarget = ctx.CreateTarget(target.Bounds);
@@ -338,17 +379,25 @@ public sealed partial class PixelSortEffect : FilterEffect
 
             try
             {
-                using ITexture2D gatherDepth = gfx.CreateTexture2D(width, height, TextureFormat.Depth32Float);
+                using ITexture2D gatherDepth = gfx.CreateTexture2D(
+                    width,
+                    height,
+                    TextureFormat.Depth32Float
+                );
 
                 s_gatherShader.ExecuteSingleTargetWithMask(
-                    rankTexture, originalTexture, newRenderTarget.Texture, gatherDepth,
+                    rankTexture,
+                    originalTexture,
+                    newRenderTarget.Texture,
+                    gatherDepth,
                     new GatherPushConstants
                     {
                         SortDir = (int)r.Direction,
                         Ascending = r.Ascending ? 1 : 0,
                         Width = width,
                         Height = height,
-                    });
+                    }
+                );
 
                 target.Dispose();
                 ctx.Targets[i] = newTarget;

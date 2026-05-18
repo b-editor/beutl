@@ -1,14 +1,15 @@
 ﻿using Beutl.Logging;
 using Beutl.PackageTools.UI.Models;
-
 using NuGet.Packaging.Core;
-
 using Reactive.Bindings;
 
 namespace Beutl.PackageTools.UI.ViewModels;
 
-public class UninstallViewModel(BeutlApiApplication app, ChangesModel changesModel, PackageChangeModel model)
-    : ActionViewModel(changesModel, model), IProgress<double>
+public class UninstallViewModel(
+    BeutlApiApplication app,
+    ChangesModel changesModel,
+    PackageChangeModel model
+) : ActionViewModel(changesModel, model), IProgress<double>
 {
     private readonly ILogger _logger = Log.CreateLogger<UninstallViewModel>();
     private readonly ChangesModel _changesModel = changesModel;
@@ -23,7 +24,11 @@ public class UninstallViewModel(BeutlApiApplication app, ChangesModel changesMod
     {
         try
         {
-            _logger.LogInformation("Starting uninstallation process for package {PackageId} version {Version}.", Model.Id, Model.Version);
+            _logger.LogInformation(
+                "Starting uninstallation process for package {PackageId} version {Version}.",
+                Model.Id,
+                Model.Version
+            );
 
             string[]? installeds;
             var package = new PackageIdentity(Model.Id, Model.Version);
@@ -32,7 +37,8 @@ public class UninstallViewModel(BeutlApiApplication app, ChangesModel changesMod
 
             if (!package.HasVersion)
             {
-                installeds = repos.GetLocalPackages(package.Id)
+                installeds = repos
+                    .GetLocalPackages(package.Id)
                     .Select(x => Helper.PackagePathResolver.GetInstalledPath(x))
                     .Where(x => x != null)
                     .ToArray();
@@ -60,38 +66,64 @@ public class UninstallViewModel(BeutlApiApplication app, ChangesModel changesMod
             {
                 foreach (string installed in installeds)
                 {
-                    _logger.LogInformation("Preparing to uninstall package from path {Path}.", installed);
-                    PackageUninstallContext context = installer.PrepareForUninstall(installed, true, token);
+                    _logger.LogInformation(
+                        "Preparing to uninstall package from path {Path}.",
+                        installed
+                    );
+                    PackageUninstallContext context = installer.PrepareForUninstall(
+                        installed,
+                        true,
+                        token
+                    );
 
                     Message.Value = Strings.Deleting_files;
                     installer.Uninstall(context, this, token);
 
-                    _logger.LogInformation("Successfully uninstalled package {PackageId}.", context.Id);
+                    _logger.LogInformation(
+                        "Successfully uninstalled package {PackageId}.",
+                        context.Id
+                    );
                     Message.Value = string.Format(Strings.Uninstalled_XXX, context.Id);
                     if (context.FailedPackages?.Count > 0)
                     {
-                        _logger.LogError("Failed to delete some packages: {FailedPackages}.", string.Join(", ", context.FailedPackages));
+                        _logger.LogError(
+                            "Failed to delete some packages: {FailedPackages}.",
+                            string.Join(", ", context.FailedPackages)
+                        );
                         ErrorMessage.Value = $"""
                             {Strings.These_packages_were_not_deleted_successfully}
-                            {string.Join('\n', context.FailedPackages.Select(i => $"- {Path.GetFileName(i)}"))}
+                            {string.Join(
+                                '\n',
+                                context.FailedPackages.Select(i => $"- {Path.GetFileName(i)}")
+                            )}
                             """;
                     }
                 }
             }
 
-            _logger.LogInformation("Uninstallation process completed successfully for package {PackageId}.", Model.Id);
+            _logger.LogInformation(
+                "Uninstallation process completed successfully for package {PackageId}.",
+                Model.Id
+            );
             Succeeded.Value = true;
             return;
         }
         catch (OperationCanceledException)
         {
-            _logger.LogWarning("Uninstallation process for package {PackageId} was canceled.", Model.Id);
+            _logger.LogWarning(
+                "Uninstallation process for package {PackageId} was canceled.",
+                Model.Id
+            );
             ErrorMessage.Value = Strings.Operation_canceled;
             Canceled.Value = true;
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "An exception occurred during the uninstallation process for package {PackageId}.", Model.Id);
+            _logger.LogError(
+                ex,
+                "An exception occurred during the uninstallation process for package {PackageId}.",
+                Model.Id
+            );
             ErrorMessage.Value = ex.Message;
             Failed.Value = true;
         }

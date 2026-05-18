@@ -30,7 +30,8 @@ public partial class GroupNode : GraphNode
         HierarchicalChildren.Add(Group);
         Group.Edited += OnGroupEdited;
 
-        this.GetObservable(NameProperty).Subscribe(v => Group.Name = string.IsNullOrWhiteSpace(v) ? "Group" : v);
+        this.GetObservable(NameProperty)
+            .Subscribe(v => Group.Name = string.IsNullOrWhiteSpace(v) ? "Group" : v);
         Group.GetObservable(NameProperty).Subscribe(v => Name = v == "Group" ? "" : v);
     }
 
@@ -64,11 +65,13 @@ public partial class GroupNode : GraphNode
     protected override void OnAttachedToHierarchy(in HierarchyAttachmentEventArgs args)
     {
         base.OnAttachedToHierarchy(args);
-        Group.GetPropertyChangedObservable(GraphGroup.OutputProperty)
+        Group
+            .GetPropertyChangedObservable(GraphGroup.OutputProperty)
             .Subscribe(e => OnOutputChanged(e.NewValue, e.OldValue))
             .DisposeWith(_disposables);
 
-        Group.GetPropertyChangedObservable(GraphGroup.InputProperty)
+        Group
+            .GetPropertyChangedObservable(GraphGroup.InputProperty)
             .Subscribe(e => OnInputChanged(e.NewValue, e.OldValue))
             .DisposeWith(_disposables);
     }
@@ -82,7 +85,8 @@ public partial class GroupNode : GraphNode
 
     private void OnOutputChanged(GroupOutput? newObj, GroupOutput? oldObj)
     {
-        if (RecordingSuppression.IsSuppressed) return;
+        if (RecordingSuppression.IsSuppressed)
+            return;
         if (oldObj != null)
         {
             oldObj.Items.CollectionChanged -= OutputItemsCollectionChanged;
@@ -107,14 +111,17 @@ public partial class GroupNode : GraphNode
     {
         IOutputPort? outputNodePort = CreateOutput(item.Name, item.AssociatedType!);
 
-        _outputNodePortDisposable.Insert(index, ((CoreObject)item).GetObservable(NameProperty)
-            .Subscribe(v => outputNodePort.Name = v));
+        _outputNodePortDisposable.Insert(
+            index,
+            ((CoreObject)item).GetObservable(NameProperty).Subscribe(v => outputNodePort.Name = v)
+        );
         Items.Insert(index, outputNodePort);
     }
 
     private void OutputItemsCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
     {
-        if (RecordingSuppression.IsSuppressed) return;
+        if (RecordingSuppression.IsSuppressed)
+            return;
 
         void Add(int index, IList items)
         {
@@ -162,7 +169,8 @@ public partial class GroupNode : GraphNode
 
     private void OnInputChanged(GroupInput? newObj, GroupInput? oldObj)
     {
-        if (RecordingSuppression.IsSuppressed) return;
+        if (RecordingSuppression.IsSuppressed)
+            return;
         if (oldObj != null)
         {
             oldObj.Items.CollectionChanged -= InputItemsCollectionChanged;
@@ -196,15 +204,18 @@ public partial class GroupNode : GraphNode
             inputNodePort.Property?.SetValue(value);
         }
 
-        _inputNodePortDisposable.Insert(index, ((CoreObject)item).GetObservable(NameProperty)
-            .Subscribe(v => inputNodePort.Name = v));
+        _inputNodePortDisposable.Insert(
+            index,
+            ((CoreObject)item).GetObservable(NameProperty).Subscribe(v => inputNodePort.Name = v)
+        );
         var outputNodePortCount = Group.Output?.Items.Count ?? 0;
         Items.Insert(outputNodePortCount + index, inputNodePort);
     }
 
     private void InputItemsCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
     {
-        if (RecordingSuppression.IsSuppressed) return;
+        if (RecordingSuppression.IsSuppressed)
+            return;
 
         void Add(int index, IList items)
         {
@@ -222,7 +233,6 @@ public partial class GroupNode : GraphNode
             }
 
             _inputNodePortDisposable.RemoveRange(index, items.Count);
-
 
             var outputNodePortCount = Group.Output?.Items.Count ?? 0;
             Items.RemoveRange(outputNodePortCount + index, items.Count);
@@ -317,12 +327,16 @@ public partial class GroupNode : GraphNode
         public override void Update(GraphCompositionContext context)
         {
             var node = GetOriginal();
-            if (_innerSnapshot == null) return;
+            if (_innerSnapshot == null)
+                return;
 
             // GroupNodeの入力値からGroupInputの出力値に転送
             if (node.Group.Input != null && _groupInputSlotIndex >= 0)
             {
-                if (_innerSnapshot.GetResource(_groupInputSlotIndex) is GroupInput.Resource groupInputResource)
+                if (
+                    _innerSnapshot.GetResource(_groupInputSlotIndex)
+                    is GroupInput.Resource groupInputResource
+                )
                 {
                     var outputNodePortCount = node.Group.Output?.Items.Count ?? 0;
                     var inputCount = node.Items.Count - outputNodePortCount;

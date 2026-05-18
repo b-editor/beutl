@@ -9,7 +9,9 @@ public sealed class ColorAnimator : Animator<Color>
     private static float OECF_sRGB(float linear)
     {
         // IEC 61966-2-1:1999
-        return linear <= 0.0031308f ? linear * 12.92f : (MathF.Pow(linear, 1.0f / 2.4f) * 1.055f - 0.055f);
+        return linear <= 0.0031308f
+            ? linear * 12.92f
+            : (MathF.Pow(linear, 1.0f / 2.4f) * 1.055f - 0.055f);
     }
 
     // Electro-optical conversion function for the sRGB color space
@@ -59,6 +61,11 @@ public sealed class ColorAnimator : Animator<Color>
         g = OECF_sRGB(g) * 255f;
         b = OECF_sRGB(b) * 255f;
 
-        return Color.FromArgb((byte)MathF.Round(a), (byte)MathF.Round(r), (byte)MathF.Round(g), (byte)MathF.Round(b));
+        return Color.FromArgb(
+            (byte)MathF.Round(a),
+            (byte)MathF.Round(r),
+            (byte)MathF.Round(g),
+            (byte)MathF.Round(b)
+        );
     }
 }

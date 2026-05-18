@@ -39,7 +39,7 @@ public sealed class OpenFileResponse
     // Color space (BitmapColorSpace serialization)
     public bool IsHdr { get; set; }
     public float[]? TransferFn { get; set; } // G,A,B,C,D,E,F
-    public float[]? ToXyzD50 { get; set; }   // 3x3 matrix (row-major)
+    public float[]? ToXyzD50 { get; set; } // 3x3 matrix (row-major)
     public byte[]? IccProfile { get; set; }
 
     // リングバッファ情報
@@ -61,14 +61,18 @@ public sealed class ReadVideoResponse
     public int BytesPerPixel { get; set; }
     public int DataLength { get; set; }
     public bool IsHdr { get; set; }
+
     // 共有メモリ名。リサイズにより変更された場合に設定される
     public string? SharedMemoryName { get; set; }
+
     // Color space can change per frame in some cases
     public float[]? TransferFn { get; set; }
     public float[]? ToXyzD50 { get; set; }
+
     // リングバッファ: フレームデータの読み取り位置
     public int? SlotIndex { get; set; }
     public long SlotDataOffset { get; set; }
+
     // リサイズ時に更新されたリングバッファのサイズ情報
     public long? RingBufferSlotSize { get; set; }
     public int? RingBufferSlotCount { get; set; }
@@ -87,6 +91,7 @@ public sealed class ReadAudioResponse
     public int SampleRate { get; set; }
     public int NumSamples { get; set; }
     public int DataLength { get; set; }
+
     // 共有メモリ名。リサイズにより変更された場合に設定される
     public string? SharedMemoryName { get; set; }
 }

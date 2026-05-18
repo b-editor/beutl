@@ -2,7 +2,6 @@
 using Avalonia.Animation;
 using Avalonia.Animation.Easings;
 using Avalonia.Styling;
-
 using FluentAvalonia.UI.Media.Animation;
 
 namespace Beutl.Pages.ExtensionsPages;
@@ -18,23 +17,17 @@ public sealed class FadeNavigationTransitionInfo : NavigationTransitionInfo
             {
                 new KeyFrame
                 {
-                    Setters =
-                    {
-                        new Setter(Visual.OpacityProperty, 0.0)
-                    },
-                    Cue = new Cue(0d)
+                    Setters = { new Setter(Visual.OpacityProperty, 0.0) },
+                    Cue = new Cue(0d),
                 },
                 new KeyFrame
                 {
-                    Setters =
-                    {
-                        new Setter(Visual.OpacityProperty, 1d)
-                    },
-                    Cue = new Cue(1d)
-                }
+                    Setters = { new Setter(Visual.OpacityProperty, 1d) },
+                    Cue = new Cue(1d),
+                },
             },
             Duration = TimeSpan.FromSeconds(0.67),
-            FillMode = FillMode.Forward
+            FillMode = FillMode.Forward,
         };
 
         await animation.RunAsync(ctrl, ct);

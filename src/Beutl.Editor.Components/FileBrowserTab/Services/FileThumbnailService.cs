@@ -17,7 +17,8 @@ public sealed record MediaFileInfo(
     string? AudioCodec,
     int? SampleRate,
     int? NumChannels,
-    long FileSize)
+    long FileSize
+)
 {
     public string ToDisplayString()
     {
@@ -49,19 +50,23 @@ public sealed record MediaFileInfo(
 
         if (NumChannels.HasValue)
         {
-            parts.Add(NumChannels.Value switch
-            {
-                1 => "Mono",
-                2 => "Stereo",
-                _ => $"{NumChannels.Value}ch"
-            });
+            parts.Add(
+                NumChannels.Value switch
+                {
+                    1 => "Mono",
+                    2 => "Stereo",
+                    _ => $"{NumChannels.Value}ch",
+                }
+            );
         }
 
         if (Duration.HasValue)
         {
-            parts.Add(Duration.Value.TotalHours >= 1
-                ? Duration.Value.ToString(@"h\:mm\:ss", CultureInfo.InvariantCulture)
-                : Duration.Value.ToString(@"m\:ss", CultureInfo.InvariantCulture));
+            parts.Add(
+                Duration.Value.TotalHours >= 1
+                    ? Duration.Value.ToString(@"h\:mm\:ss", CultureInfo.InvariantCulture)
+                    : Duration.Value.ToString(@"m\:ss", CultureInfo.InvariantCulture)
+            );
         }
 
         parts.Add(FormatFileSize(FileSize));
@@ -76,7 +81,7 @@ public sealed record MediaFileInfo(
             >= 1_073_741_824 => $"{bytes / 1_073_741_824.0:0.#} GB",
             >= 1_048_576 => $"{bytes / 1_048_576.0:0.#} MB",
             >= 1024 => $"{bytes / 1024.0:0.#} KB",
-            _ => $"{bytes} B"
+            _ => $"{bytes} B",
         };
     }
 }
@@ -87,9 +92,14 @@ public sealed class FileThumbnailService : IDisposable
     private const int MaxMediaInfoCacheEntries = 500;
     private static readonly TimeSpan s_pruneInterval = TimeSpan.FromSeconds(60);
 
-    private static readonly Lazy<FileThumbnailService> s_instance = new(() => new FileThumbnailService());
+    private static readonly Lazy<FileThumbnailService> s_instance = new(() =>
+        new FileThumbnailService()
+    );
     private readonly ConcurrentDictionary<string, WeakReference<Bitmap>> _cache = new();
-    private readonly ConcurrentDictionary<string, (MediaFileInfo Info, long LastAccessTicks)> _mediaInfoCache = new();
+    private readonly ConcurrentDictionary<
+        string,
+        (MediaFileInfo Info, long LastAccessTicks)
+    > _mediaInfoCache = new();
     private readonly SemaphoreSlim _semaphore = new(4); // 同時生成数を制限
     private readonly ILogger _logger = Log.CreateLogger<FileThumbnailService>();
     private readonly Timer _pruneTimer;
@@ -106,20 +116,43 @@ public sealed class FileThumbnailService : IDisposable
 
     private static readonly HashSet<string> s_imageExtensions =
     [
-        ".png", ".jpg", ".jpeg", ".gif", ".bmp", ".webp", ".ico", ".tiff", ".tif"
+        ".png",
+        ".jpg",
+        ".jpeg",
+        ".gif",
+        ".bmp",
+        ".webp",
+        ".ico",
+        ".tiff",
+        ".tif",
     ];
 
     private static readonly HashSet<string> s_videoExtensions =
     [
-        ".mp4", ".avi", ".mov", ".mkv", ".wmv", ".flv", ".webm"
+        ".mp4",
+        ".avi",
+        ".mov",
+        ".mkv",
+        ".wmv",
+        ".flv",
+        ".webm",
     ];
 
     private static readonly HashSet<string> s_audioExtensions =
     [
-        ".mp3", ".wav", ".ogg", ".flac", ".aac", ".wma", ".m4a"
+        ".mp3",
+        ".wav",
+        ".ogg",
+        ".flac",
+        ".aac",
+        ".wma",
+        ".m4a",
     ];
 
-    public async Task<Bitmap?> GetThumbnailAsync(string filePath, CancellationToken cancellationToken = default)
+    public async Task<Bitmap?> GetThumbnailAsync(
+        string filePath,
+        CancellationToken cancellationToken = default
+    )
     {
         if (_disposed)
             return null;
@@ -175,7 +208,10 @@ public sealed class FileThumbnailService : IDisposable
         }
     }
 
-    public async Task<MediaFileInfo?> GetMediaInfoAsync(string filePath, CancellationToken cancellationToken = default)
+    public async Task<MediaFileInfo?> GetMediaInfoAsync(
+        string filePath,
+        CancellationToken cancellationToken = default
+    )
     {
         if (_disposed)
             return null;
@@ -203,55 +239,79 @@ public sealed class FileThumbnailService : IDisposable
                 return entry.Info;
             }
 
-            var info = await Task.Run(() =>
-            {
-                cancellationToken.ThrowIfCancellationRequested();
-
-                try
+            var info = await Task.Run(
+                () =>
                 {
-                    long fileSize = new FileInfo(filePath).Length;
-                    var mode = isVideo ? MediaMode.Video : MediaMode.Audio;
-                    var options = new MediaOptions(mode);
-                    using var reader = DecoderRegistry.OpenMediaFile(filePath, options);
-                    if (reader == null)
-                        return new MediaFileInfo(null, null, null, null, null, null, null, null, fileSize);
+                    cancellationToken.ThrowIfCancellationRequested();
 
-                    int? width = null, height = null;
-                    double? frameRate = null;
-                    string? videoCodec = null;
-                    TimeSpan? duration = null;
-
-                    if (reader.HasVideo)
+                    try
                     {
-                        var vi = reader.VideoInfo;
-                        width = vi.FrameSize.Width;
-                        height = vi.FrameSize.Height;
-                        frameRate = vi.FrameRate.ToDouble();
-                        videoCodec = vi.CodecName;
-                        duration = TimeSpan.FromSeconds(vi.Duration.ToDouble());
+                        long fileSize = new FileInfo(filePath).Length;
+                        var mode = isVideo ? MediaMode.Video : MediaMode.Audio;
+                        var options = new MediaOptions(mode);
+                        using var reader = DecoderRegistry.OpenMediaFile(filePath, options);
+                        if (reader == null)
+                            return new MediaFileInfo(
+                                null,
+                                null,
+                                null,
+                                null,
+                                null,
+                                null,
+                                null,
+                                null,
+                                fileSize
+                            );
+
+                        int? width = null,
+                            height = null;
+                        double? frameRate = null;
+                        string? videoCodec = null;
+                        TimeSpan? duration = null;
+
+                        if (reader.HasVideo)
+                        {
+                            var vi = reader.VideoInfo;
+                            width = vi.FrameSize.Width;
+                            height = vi.FrameSize.Height;
+                            frameRate = vi.FrameRate.ToDouble();
+                            videoCodec = vi.CodecName;
+                            duration = TimeSpan.FromSeconds(vi.Duration.ToDouble());
+                        }
+
+                        string? audioCodec = null;
+                        int? sampleRate = null;
+                        int? numChannels = null;
+
+                        if (reader.HasAudio)
+                        {
+                            var ai = reader.AudioInfo;
+                            audioCodec = ai.CodecName;
+                            sampleRate = ai.SampleRate;
+                            numChannels = ai.NumChannels;
+                            duration ??= TimeSpan.FromSeconds(ai.Duration.ToDouble());
+                        }
+
+                        return new MediaFileInfo(
+                            width,
+                            height,
+                            duration,
+                            frameRate,
+                            videoCodec,
+                            audioCodec,
+                            sampleRate,
+                            numChannels,
+                            fileSize
+                        );
                     }
-
-                    string? audioCodec = null;
-                    int? sampleRate = null;
-                    int? numChannels = null;
-
-                    if (reader.HasAudio)
+                    catch (Exception ex)
                     {
-                        var ai = reader.AudioInfo;
-                        audioCodec = ai.CodecName;
-                        sampleRate = ai.SampleRate;
-                        numChannels = ai.NumChannels;
-                        duration ??= TimeSpan.FromSeconds(ai.Duration.ToDouble());
+                        _logger.LogDebug(ex, "Failed to get media info for {FilePath}", filePath);
+                        return null;
                     }
-
-                    return new MediaFileInfo(width, height, duration, frameRate, videoCodec, audioCodec, sampleRate, numChannels, fileSize);
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogDebug(ex, "Failed to get media info for {FilePath}", filePath);
-                    return null;
-                }
-            }, cancellationToken);
+                },
+                cancellationToken
+            );
 
             if (info != null)
             {
@@ -290,90 +350,118 @@ public sealed class FileThumbnailService : IDisposable
             || s_audioExtensions.Contains(extension);
     }
 
-    private async Task<Bitmap?> GenerateImageThumbnailAsync(string filePath, CancellationToken cancellationToken)
+    private async Task<Bitmap?> GenerateImageThumbnailAsync(
+        string filePath,
+        CancellationToken cancellationToken
+    )
     {
-        return await Task.Run(() =>
-        {
-            cancellationToken.ThrowIfCancellationRequested();
+        return await Task.Run(
+            () =>
+            {
+                cancellationToken.ThrowIfCancellationRequested();
 
-            using var stream = File.OpenRead(filePath);
-            using var original = SKBitmap.Decode(stream);
-            if (original == null)
-                return null;
+                using var stream = File.OpenRead(filePath);
+                using var original = SKBitmap.Decode(stream);
+                if (original == null)
+                    return null;
 
-            cancellationToken.ThrowIfCancellationRequested();
+                cancellationToken.ThrowIfCancellationRequested();
 
-            // アスペクト比を維持してリサイズ
-            float scale = Math.Min((float)ThumbnailSize / original.Width, (float)ThumbnailSize / original.Height);
-            int newWidth = (int)(original.Width * scale);
-            int newHeight = (int)(original.Height * scale);
+                // アスペクト比を維持してリサイズ
+                float scale = Math.Min(
+                    (float)ThumbnailSize / original.Width,
+                    (float)ThumbnailSize / original.Height
+                );
+                int newWidth = (int)(original.Width * scale);
+                int newHeight = (int)(original.Height * scale);
 
-            using var resized = original.Resize(new SKImageInfo(newWidth, newHeight), new SKSamplingOptions(SKFilterMode.Linear, SKMipmapMode.Linear));
-            if (resized == null)
-                return null;
+                using var resized = original.Resize(
+                    new SKImageInfo(newWidth, newHeight),
+                    new SKSamplingOptions(SKFilterMode.Linear, SKMipmapMode.Linear)
+                );
+                if (resized == null)
+                    return null;
 
-            using var image = SKImage.FromBitmap(resized);
-            using var data = image.Encode(SKEncodedImageFormat.Png, 90);
+                using var image = SKImage.FromBitmap(resized);
+                using var data = image.Encode(SKEncodedImageFormat.Png, 90);
 
-            cancellationToken.ThrowIfCancellationRequested();
+                cancellationToken.ThrowIfCancellationRequested();
 
-            using var memStream = new MemoryStream();
-            data.SaveTo(memStream);
-            memStream.Position = 0;
+                using var memStream = new MemoryStream();
+                data.SaveTo(memStream);
+                memStream.Position = 0;
 
-            return new Bitmap(memStream);
-        }, cancellationToken);
+                return new Bitmap(memStream);
+            },
+            cancellationToken
+        );
     }
 
-    private async Task<Bitmap?> GenerateVideoThumbnailAsync(string filePath, CancellationToken cancellationToken)
+    private async Task<Bitmap?> GenerateVideoThumbnailAsync(
+        string filePath,
+        CancellationToken cancellationToken
+    )
     {
-        return await Task.Run(() =>
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-
-            try
+        return await Task.Run(
+            () =>
             {
-                var options = new MediaOptions(MediaMode.Video);
-                using var reader = DecoderRegistry.OpenMediaFile(filePath, options);
-                if (reader == null || !reader.HasVideo)
-                    return null;
+                cancellationToken.ThrowIfCancellationRequested();
 
-                // 最初のフレームを読み取る
-                if (!reader.ReadVideo(0, out var bmpRef) || bmpRef == null)
-                    return null;
-
-                using (bmpRef)
+                try
                 {
-                    cancellationToken.ThrowIfCancellationRequested();
-
-                    // SKBitmapを取得
-                    var skBitmap = bmpRef.Value.SKBitmap;
-
-                    // サムネイルサイズにリサイズ
-                    float scale = Math.Min((float)ThumbnailSize / skBitmap.Width, (float)ThumbnailSize / skBitmap.Height);
-                    int newWidth = (int)(skBitmap.Width * scale);
-                    int newHeight = (int)(skBitmap.Height * scale);
-
-                    using var resized = skBitmap.Resize(new SKImageInfo(newWidth, newHeight), new SKSamplingOptions(SKFilterMode.Linear, SKMipmapMode.Linear));
-                    if (resized == null)
+                    var options = new MediaOptions(MediaMode.Video);
+                    using var reader = DecoderRegistry.OpenMediaFile(filePath, options);
+                    if (reader == null || !reader.HasVideo)
                         return null;
 
-                    using var image = SKImage.FromBitmap(resized);
-                    using var data = image.Encode(SKEncodedImageFormat.Png, 90);
+                    // 最初のフレームを読み取る
+                    if (!reader.ReadVideo(0, out var bmpRef) || bmpRef == null)
+                        return null;
 
-                    using var memStream = new MemoryStream();
-                    data.SaveTo(memStream);
-                    memStream.Position = 0;
+                    using (bmpRef)
+                    {
+                        cancellationToken.ThrowIfCancellationRequested();
 
-                    return new Bitmap(memStream);
+                        // SKBitmapを取得
+                        var skBitmap = bmpRef.Value.SKBitmap;
+
+                        // サムネイルサイズにリサイズ
+                        float scale = Math.Min(
+                            (float)ThumbnailSize / skBitmap.Width,
+                            (float)ThumbnailSize / skBitmap.Height
+                        );
+                        int newWidth = (int)(skBitmap.Width * scale);
+                        int newHeight = (int)(skBitmap.Height * scale);
+
+                        using var resized = skBitmap.Resize(
+                            new SKImageInfo(newWidth, newHeight),
+                            new SKSamplingOptions(SKFilterMode.Linear, SKMipmapMode.Linear)
+                        );
+                        if (resized == null)
+                            return null;
+
+                        using var image = SKImage.FromBitmap(resized);
+                        using var data = image.Encode(SKEncodedImageFormat.Png, 90);
+
+                        using var memStream = new MemoryStream();
+                        data.SaveTo(memStream);
+                        memStream.Position = 0;
+
+                        return new Bitmap(memStream);
+                    }
                 }
-            }
-            catch (Exception ex)
-            {
-                _logger.LogDebug(ex, "Failed to generate video thumbnail for {FilePath}", filePath);
-                return null;
-            }
-        }, cancellationToken);
+                catch (Exception ex)
+                {
+                    _logger.LogDebug(
+                        ex,
+                        "Failed to generate video thumbnail for {FilePath}",
+                        filePath
+                    );
+                    return null;
+                }
+            },
+            cancellationToken
+        );
     }
 
     private void PruneCaches()

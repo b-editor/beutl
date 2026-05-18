@@ -12,7 +12,12 @@ using Reactive.Bindings;
 
 namespace Beutl.Services;
 
-public class OutputPresetItem(OutputExtension extension, JsonObject json, string name, string? presetKey = null)
+public class OutputPresetItem(
+    OutputExtension extension,
+    JsonObject json,
+    string name,
+    string? presetKey = null
+)
 {
     public OutputExtension Extension { get; } = extension;
 
@@ -38,10 +43,7 @@ public class OutputPresetItem(OutputExtension extension, JsonObject json, string
 
     public static OutputPresetItem CreateFromContext(ISupportOutputPreset context, string name)
     {
-        return new OutputPresetItem(
-            ((IOutputContext)context).Extension,
-            context.ToPreset(),
-            name);
+        return new OutputPresetItem(((IOutputContext)context).Extension, context.ToPreset(), name);
     }
 
     public static JsonNode ToJson(OutputPresetItem item)
@@ -50,7 +52,7 @@ public class OutputPresetItem(OutputExtension extension, JsonObject json, string
         {
             [nameof(Extension)] = TypeFormat.ToString(item.Extension.GetType()),
             [nameof(Json)] = item.Json.DeepClone(),
-            [nameof(Name)] = item.Name.Value
+            [nameof(Name)] = item.Name.Value,
         };
 
         if (item.PresetKey != null)
@@ -81,7 +83,10 @@ public class OutputPresetItem(OutputExtension extension, JsonObject json, string
 
             if (Activator.CreateInstance(type) is not OutputExtension extension)
             {
-                logger.LogError("Failed to create instance of extension type: {TypeName}", typeName);
+                logger.LogError(
+                    "Failed to create instance of extension type: {TypeName}",
+                    typeName
+                );
                 return null;
             }
 
@@ -91,14 +96,20 @@ public class OutputPresetItem(OutputExtension extension, JsonObject json, string
                 return null;
             }
 
-            if (json[nameof(Name)] is not JsonValue jsonValue || !jsonValue.TryGetValue(out string? name))
+            if (
+                json[nameof(Name)] is not JsonValue jsonValue
+                || !jsonValue.TryGetValue(out string? name)
+            )
             {
                 logger.LogError("Name is null.");
                 return null;
             }
 
             string? presetKey = null;
-            if (json[nameof(PresetKey)] is JsonValue keyValue && keyValue.TryGetValue(out string? key))
+            if (
+                json[nameof(PresetKey)] is JsonValue keyValue
+                && keyValue.TryGetValue(out string? key)
+            )
             {
                 presetKey = key;
             }
@@ -107,7 +118,10 @@ public class OutputPresetItem(OutputExtension extension, JsonObject json, string
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "An exception has occurred while creating OutputPresetItem from JSON.");
+            logger.LogError(
+                ex,
+                "An exception has occurred while creating OutputPresetItem from JSON."
+            );
             return null;
         }
     }
@@ -119,7 +133,9 @@ public sealed class OutputPresetService
     private readonly CoreList<OutputPresetItem> _items = [];
 
     private readonly string _filePath = Path.Combine(
-        BeutlEnvironment.GetHomeDirectoryPath(), "output-presets.json");
+        BeutlEnvironment.GetHomeDirectoryPath(),
+        "output-presets.json"
+    );
 
     private readonly ILogger _logger = Log.CreateLogger<OutputPresetService>();
     private bool _isRestored;
@@ -133,7 +149,8 @@ public sealed class OutputPresetService
 
     public void AddItem(IOutputContext context, string name)
     {
-        if (context is not ISupportOutputPreset outputPreset) return;
+        if (context is not ISupportOutputPreset outputPreset)
+            return;
         var item = OutputPresetItem.CreateFromContext(outputPreset, name);
         Items.Add(item);
         _logger.LogInformation("Added new OutputPresetItem. Context: {Context}", context);
@@ -141,7 +158,8 @@ public sealed class OutputPresetService
 
     public void SaveItems()
     {
-        if (!_isRestored) return;
+        if (!_isRestored)
+            return;
 
         var array = new JsonArray();
         foreach (OutputPresetItem item in _items)
@@ -151,7 +169,11 @@ public sealed class OutputPresetService
         }
 
         array.JsonSave(_filePath);
-        _logger.LogInformation("Saved {Count} OutputPresetItem to file: {FilePath}", _items.Count, _filePath);
+        _logger.LogInformation(
+            "Saved {Count} OutputPresetItem to file: {FilePath}",
+            _items.Count,
+            _filePath
+        );
     }
 
     public void RestoreItems()
@@ -169,7 +191,10 @@ public sealed class OutputPresetService
             var jsonNode = JsonNode.Parse(stream);
             if (jsonNode is not JsonArray jsonArray)
             {
-                _logger.LogWarning("Invalid JSON format in output preset file: {FilePath}", _filePath);
+                _logger.LogWarning(
+                    "Invalid JSON format in output preset file: {FilePath}",
+                    _filePath
+                );
                 return;
             }
 
@@ -179,7 +204,8 @@ public sealed class OutputPresetService
 
             foreach (JsonNode? jsonItem in jsonArray)
             {
-                if (jsonItem == null) continue;
+                if (jsonItem == null)
+                    continue;
 
                 var item = OutputPresetItem.FromJson(jsonItem, _logger);
                 if (item != null)
@@ -193,7 +219,11 @@ public sealed class OutputPresetService
             // CreateDefaultPresets/AddPlatformPresets 経由で SaveItems が走り、
             // ユーザーの保存済みプリセットがデフォルトで上書きされてしまう。
             _isRestored = true;
-            _logger.LogInformation("Restored {Count} OutputPresetItem from file: {FilePath}", _items.Count, _filePath);
+            _logger.LogInformation(
+                "Restored {Count} OutputPresetItem from file: {FilePath}",
+                _items.Count,
+                _filePath
+            );
         }
         catch (Exception ex)
         {
@@ -218,12 +248,14 @@ public sealed class OutputPresetService
         vid.Format = FFPixelFormat.YUV420P;
         vid.Bitrate = 15000000;
         vid.KeyframeRate = 12;
-        vid.Codec = VideoCodecChoicesProvider.GetChoices()
-            .Cast<CodecRecord>()
-            .FirstOrDefault(i => i.Name == "libx264") ?? CodecRecord.Default;
+        vid.Codec =
+            VideoCodecChoicesProvider
+                .GetChoices()
+                .Cast<CodecRecord>()
+                .FirstOrDefault(i => i.Name == "libx264")
+            ?? CodecRecord.Default;
         vid.Options.Clear();
-        vid.Options.AddRange(
-        [
+        vid.Options.AddRange([
             new AdditionalOption("preset", "veryslow"),
             new AdditionalOption("crf", "18"),
             new AdditionalOption("profile", "high"),
@@ -231,19 +263,27 @@ public sealed class OutputPresetService
         ]);
         var aud = new FFmpegAudioEncoderSettings();
         aud.Bitrate = 320000;
-        aud.Codec = AudioCodecChoicesProvider.GetChoices()
-            .Cast<CodecRecord>()
-            .FirstOrDefault(i => i.Name == "aac") ?? CodecRecord.Default;
+        aud.Codec =
+            AudioCodecChoicesProvider
+                .GetChoices()
+                .Cast<CodecRecord>()
+                .FirstOrDefault(i => i.Name == "aac")
+            ?? CodecRecord.Default;
 
-        _items.Add(new OutputPresetItem(
-            SceneOutputExtension.Instance,
-            new JsonObject
-            {
-                ["SelectedEncoder"] = TypeFormat.ToString(typeof(FFmpegControlledEncodingExtension)),
-                ["VideoSettings"] = CoreSerializer.SerializeToJsonObject(vid),
-                ["AudioSettings"] = CoreSerializer.SerializeToJsonObject(aud)
-            },
-            "High Quality"));
+        _items.Add(
+            new OutputPresetItem(
+                SceneOutputExtension.Instance,
+                new JsonObject
+                {
+                    ["SelectedEncoder"] = TypeFormat.ToString(
+                        typeof(FFmpegControlledEncodingExtension)
+                    ),
+                    ["VideoSettings"] = CoreSerializer.SerializeToJsonObject(vid),
+                    ["AudioSettings"] = CoreSerializer.SerializeToJsonObject(aud),
+                },
+                "High Quality"
+            )
+        );
 
         ObjectRegenerator.Regenerate<FFmpegVideoEncoderSettings>(vid, out vid);
         ObjectRegenerator.Regenerate<FFmpegAudioEncoderSettings>(aud, out aud);
@@ -254,15 +294,20 @@ public sealed class OutputPresetService
         vid.Options.First(i => i.Name == "crf").Value = "23";
         aud.Bitrate = 128000;
 
-        _items.Add(new OutputPresetItem(
-            SceneOutputExtension.Instance,
-            new JsonObject
-            {
-                ["SelectedEncoder"] = TypeFormat.ToString(typeof(FFmpegControlledEncodingExtension)),
-                ["VideoSettings"] = CoreSerializer.SerializeToJsonObject(vid),
-                ["AudioSettings"] = CoreSerializer.SerializeToJsonObject(aud)
-            },
-            "Medium Quality"));
+        _items.Add(
+            new OutputPresetItem(
+                SceneOutputExtension.Instance,
+                new JsonObject
+                {
+                    ["SelectedEncoder"] = TypeFormat.ToString(
+                        typeof(FFmpegControlledEncodingExtension)
+                    ),
+                    ["VideoSettings"] = CoreSerializer.SerializeToJsonObject(vid),
+                    ["AudioSettings"] = CoreSerializer.SerializeToJsonObject(aud),
+                },
+                "Medium Quality"
+            )
+        );
 
         ObjectRegenerator.Regenerate<FFmpegVideoEncoderSettings>(vid, out vid);
         ObjectRegenerator.Regenerate<FFmpegAudioEncoderSettings>(aud, out aud);
@@ -273,15 +318,20 @@ public sealed class OutputPresetService
         vid.Options.First(i => i.Name == "crf").Value = "28";
         aud.Bitrate = 128000;
 
-        _items.Add(new OutputPresetItem(
-            SceneOutputExtension.Instance,
-            new JsonObject
-            {
-                ["SelectedEncoder"] = TypeFormat.ToString(typeof(FFmpegControlledEncodingExtension)),
-                ["VideoSettings"] = CoreSerializer.SerializeToJsonObject(vid),
-                ["AudioSettings"] = CoreSerializer.SerializeToJsonObject(aud)
-            },
-            "Low Quality"));
+        _items.Add(
+            new OutputPresetItem(
+                SceneOutputExtension.Instance,
+                new JsonObject
+                {
+                    ["SelectedEncoder"] = TypeFormat.ToString(
+                        typeof(FFmpegControlledEncodingExtension)
+                    ),
+                    ["VideoSettings"] = CoreSerializer.SerializeToJsonObject(vid),
+                    ["AudioSettings"] = CoreSerializer.SerializeToJsonObject(aud),
+                },
+                "Low Quality"
+            )
+        );
 
         // HDR10 (PQ)
         ObjectRegenerator.Regenerate<FFmpegVideoEncoderSettings>(vid, out vid);
@@ -290,37 +340,49 @@ public sealed class OutputPresetService
         vid.Format = FFPixelFormat.YUV420P10LE;
         vid.Bitrate = 20000000;
         vid.KeyframeRate = 24;
-        vid.Codec = VideoCodecChoicesProvider.GetChoices()
-            .Cast<CodecRecord>()
-            .FirstOrDefault(i => i.Name == "libx265") ?? CodecRecord.Default;
+        vid.Codec =
+            VideoCodecChoicesProvider
+                .GetChoices()
+                .Cast<CodecRecord>()
+                .FirstOrDefault(i => i.Name == "libx265")
+            ?? CodecRecord.Default;
         vid.ColorPrimaries = FFColorPrimaries.BT2020;
         vid.ColorTrc = FFColorTransfer.SMPTE2084;
         vid.ColorSpace = FFColorSpace.BT2020_NCL;
         vid.ColorRange = FFColorRange.MPEG;
         vid.Options.Clear();
-        vid.Options.AddRange(
-        [
+        vid.Options.AddRange([
             new AdditionalOption("preset", "medium"),
             new AdditionalOption("crf", "20"),
             new AdditionalOption("profile", "main10"),
-            new AdditionalOption("x265-params",
+            new AdditionalOption(
+                "x265-params",
                 "colorprim=bt2020:transfer=smpte2084:colormatrix=bt2020nc:range=limited"
-                + ":master-display=G(13250,34500)B(7500,3000)R(34000,16000)WP(15635,16450)L(10000000,1):max-cll=1000,400:repeat-headers=1"),
+                    + ":master-display=G(13250,34500)B(7500,3000)R(34000,16000)WP(15635,16450)L(10000000,1):max-cll=1000,400:repeat-headers=1"
+            ),
         ]);
         aud.Bitrate = 192000;
-        aud.Codec = AudioCodecChoicesProvider.GetChoices()
-            .Cast<CodecRecord>()
-            .FirstOrDefault(i => i.Name == "aac") ?? CodecRecord.Default;
+        aud.Codec =
+            AudioCodecChoicesProvider
+                .GetChoices()
+                .Cast<CodecRecord>()
+                .FirstOrDefault(i => i.Name == "aac")
+            ?? CodecRecord.Default;
 
-        _items.Add(new OutputPresetItem(
-            SceneOutputExtension.Instance,
-            new JsonObject
-            {
-                ["SelectedEncoder"] = TypeFormat.ToString(typeof(FFmpegControlledEncodingExtension)),
-                ["VideoSettings"] = CoreSerializer.SerializeToJsonObject(vid),
-                ["AudioSettings"] = CoreSerializer.SerializeToJsonObject(aud)
-            },
-            "HDR10 (PQ)"));
+        _items.Add(
+            new OutputPresetItem(
+                SceneOutputExtension.Instance,
+                new JsonObject
+                {
+                    ["SelectedEncoder"] = TypeFormat.ToString(
+                        typeof(FFmpegControlledEncodingExtension)
+                    ),
+                    ["VideoSettings"] = CoreSerializer.SerializeToJsonObject(vid),
+                    ["AudioSettings"] = CoreSerializer.SerializeToJsonObject(aud),
+                },
+                "HDR10 (PQ)"
+            )
+        );
 
         // HLG
         ObjectRegenerator.Regenerate<FFmpegVideoEncoderSettings>(vid, out vid);
@@ -329,38 +391,47 @@ public sealed class OutputPresetService
         vid.Format = FFPixelFormat.YUV420P10LE;
         vid.Bitrate = 20000000;
         vid.KeyframeRate = 24;
-        vid.Codec = VideoCodecChoicesProvider.GetChoices()
-            .Cast<CodecRecord>()
-            .FirstOrDefault(i => i.Name == "libx265") ?? CodecRecord.Default;
+        vid.Codec =
+            VideoCodecChoicesProvider
+                .GetChoices()
+                .Cast<CodecRecord>()
+                .FirstOrDefault(i => i.Name == "libx265")
+            ?? CodecRecord.Default;
         vid.ColorPrimaries = FFColorPrimaries.BT2020;
         vid.ColorTrc = FFColorTransfer.ARIB_STD_B67;
         vid.ColorSpace = FFColorSpace.BT2020_NCL;
         vid.ColorRange = FFColorRange.MPEG;
         vid.Options.Clear();
-        vid.Options.AddRange(
-        [
+        vid.Options.AddRange([
             new AdditionalOption("preset", "medium"),
             new AdditionalOption("crf", "20"),
             new AdditionalOption("profile", "main10"),
-            new AdditionalOption("x265-params",
-                "repeat-headers=1"),
+            new AdditionalOption("x265-params", "repeat-headers=1"),
             // new AdditionalOption("x265-params",
             //     "colorprim=bt2020:transfer=arib-std-b67:colormatrix=bt2020nc:range=limited:repeat-headers=1"),
         ]);
         aud.Bitrate = 192000;
-        aud.Codec = AudioCodecChoicesProvider.GetChoices()
-            .Cast<CodecRecord>()
-            .FirstOrDefault(i => i.Name == "aac") ?? CodecRecord.Default;
+        aud.Codec =
+            AudioCodecChoicesProvider
+                .GetChoices()
+                .Cast<CodecRecord>()
+                .FirstOrDefault(i => i.Name == "aac")
+            ?? CodecRecord.Default;
 
-        _items.Add(new OutputPresetItem(
-            SceneOutputExtension.Instance,
-            new JsonObject
-            {
-                ["SelectedEncoder"] = TypeFormat.ToString(typeof(FFmpegControlledEncodingExtension)),
-                ["VideoSettings"] = CoreSerializer.SerializeToJsonObject(vid),
-                ["AudioSettings"] = CoreSerializer.SerializeToJsonObject(aud)
-            },
-            "HLG"));
+        _items.Add(
+            new OutputPresetItem(
+                SceneOutputExtension.Instance,
+                new JsonObject
+                {
+                    ["SelectedEncoder"] = TypeFormat.ToString(
+                        typeof(FFmpegControlledEncodingExtension)
+                    ),
+                    ["VideoSettings"] = CoreSerializer.SerializeToJsonObject(vid),
+                    ["AudioSettings"] = CoreSerializer.SerializeToJsonObject(aud),
+                },
+                "HLG"
+            )
+        );
 
         AddPlatformPresets();
     }
@@ -379,7 +450,8 @@ public sealed class OutputPresetService
             preset: "slow",
             crf: "20",
             profile: "high",
-            level: "4.2");
+            level: "4.2"
+        );
 
         changed |= AddH264Preset(
             presetKey: "Platform.YouTube_4K60",
@@ -391,7 +463,8 @@ public sealed class OutputPresetService
             preset: "slow",
             crf: "20",
             profile: "high",
-            level: "5.1");
+            level: "5.1"
+        );
 
         changed |= AddH264Preset(
             presetKey: "Platform.Twitter_1080p",
@@ -403,7 +476,8 @@ public sealed class OutputPresetService
             preset: "medium",
             crf: "21",
             profile: "high",
-            level: "4.0");
+            level: "4.0"
+        );
 
         changed |= AddH264Preset(
             presetKey: "Platform.Instagram_Reels",
@@ -415,7 +489,8 @@ public sealed class OutputPresetService
             preset: "medium",
             crf: "23",
             profile: "high",
-            level: "4.0");
+            level: "4.0"
+        );
 
         changed |= AddH264Preset(
             presetKey: "Platform.Instagram_Feed",
@@ -427,7 +502,8 @@ public sealed class OutputPresetService
             preset: "medium",
             crf: "23",
             profile: "high",
-            level: "4.0");
+            level: "4.0"
+        );
 
         changed |= AddH264Preset(
             presetKey: "Platform.TikTok",
@@ -439,7 +515,8 @@ public sealed class OutputPresetService
             preset: "medium",
             crf: "23",
             profile: "high",
-            level: "4.0");
+            level: "4.0"
+        );
 
         changed |= AddH264Preset(
             presetKey: "Platform.Discord_8MB",
@@ -452,7 +529,8 @@ public sealed class OutputPresetService
             crf: "30",
             profile: "main",
             level: "3.1",
-            audioSampleRate: 44100);
+            audioSampleRate: 44100
+        );
 
         if (changed)
         {
@@ -465,7 +543,10 @@ public sealed class OutputPresetService
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "An exception has occurred while saving output presets after platform preset migration.");
+                _logger.LogError(
+                    ex,
+                    "An exception has occurred while saving output presets after platform preset migration."
+                );
             }
         }
     }
@@ -481,14 +562,16 @@ public sealed class OutputPresetService
         string crf,
         string profile,
         string level,
-        int audioSampleRate = 48000)
+        int audioSampleRate = 48000
+    )
     {
         // 既知のプラットフォームプリセットは PresetKey で照合し、ロケール変更で
         // ローカライズ名が変わっても重複追加されないようにする。PresetKey 未対応の
         // 保存データから復元したアイテムは PresetKey が null なので、名前一致で
         // 後方互換照合した上でキーをバックフィルする。
-        OutputPresetItem? existing = _items.FirstOrDefault(
-            i => i.PresetKey == presetKey || (i.PresetKey == null && i.Name.Value == name));
+        OutputPresetItem? existing = _items.FirstOrDefault(i =>
+            i.PresetKey == presetKey || (i.PresetKey == null && i.Name.Value == name)
+        );
 
         if (existing != null)
         {
@@ -501,12 +584,18 @@ public sealed class OutputPresetService
             return false;
         }
 
-        CodecRecord videoCodec = VideoCodecChoicesProvider.GetChoices()
-            .Cast<CodecRecord>()
-            .FirstOrDefault(i => i.Name == "libx264") ?? CodecRecord.Default;
-        CodecRecord audioCodec = AudioCodecChoicesProvider.GetChoices()
-            .Cast<CodecRecord>()
-            .FirstOrDefault(i => i.Name == "aac") ?? CodecRecord.Default;
+        CodecRecord videoCodec =
+            VideoCodecChoicesProvider
+                .GetChoices()
+                .Cast<CodecRecord>()
+                .FirstOrDefault(i => i.Name == "libx264")
+            ?? CodecRecord.Default;
+        CodecRecord audioCodec =
+            AudioCodecChoicesProvider
+                .GetChoices()
+                .Cast<CodecRecord>()
+                .FirstOrDefault(i => i.Name == "aac")
+            ?? CodecRecord.Default;
 
         if (videoCodec == CodecRecord.Default || audioCodec == CodecRecord.Default)
         {
@@ -517,15 +606,15 @@ public sealed class OutputPresetService
         {
             Format = FFPixelFormat.YUV420P,
             Bitrate = videoBitrate,
-            KeyframeRate = (int)Math.Round((double)frameRate.Numerator / Math.Max(1, frameRate.Denominator) * 2),
+            KeyframeRate = (int)
+                Math.Round((double)frameRate.Numerator / Math.Max(1, frameRate.Denominator) * 2),
             Codec = videoCodec,
             SourceSize = destinationSize,
             DestinationSize = destinationSize,
-            FrameRate = frameRate
+            FrameRate = frameRate,
         };
         vid.Options.Clear();
-        vid.Options.AddRange(
-        [
+        vid.Options.AddRange([
             new AdditionalOption("preset", preset),
             new AdditionalOption("crf", crf),
             new AdditionalOption("profile", profile),
@@ -536,19 +625,24 @@ public sealed class OutputPresetService
         {
             Bitrate = audioBitrate,
             SampleRate = audioSampleRate,
-            Codec = audioCodec
+            Codec = audioCodec,
         };
 
-        _items.Add(new OutputPresetItem(
-            SceneOutputExtension.Instance,
-            new JsonObject
-            {
-                ["SelectedEncoder"] = TypeFormat.ToString(typeof(FFmpegControlledEncodingExtension)),
-                ["VideoSettings"] = CoreSerializer.SerializeToJsonObject(vid),
-                ["AudioSettings"] = CoreSerializer.SerializeToJsonObject(aud)
-            },
-            name,
-            presetKey));
+        _items.Add(
+            new OutputPresetItem(
+                SceneOutputExtension.Instance,
+                new JsonObject
+                {
+                    ["SelectedEncoder"] = TypeFormat.ToString(
+                        typeof(FFmpegControlledEncodingExtension)
+                    ),
+                    ["VideoSettings"] = CoreSerializer.SerializeToJsonObject(vid),
+                    ["AudioSettings"] = CoreSerializer.SerializeToJsonObject(aud),
+                },
+                name,
+                presetKey
+            )
+        );
 
         return true;
     }

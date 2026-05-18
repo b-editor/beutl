@@ -40,7 +40,8 @@ internal sealed unsafe class VulkanSwapchain : IDisposable
         uint queueFamilyIndex,
         SurfaceKHR surface,
         uint width,
-        uint height)
+        uint height
+    )
     {
         _vk = vk;
         _physicalDevice = physicalDevice;
@@ -82,7 +83,14 @@ internal sealed unsafe class VulkanSwapchain : IDisposable
     public Result AcquireNextImage(Semaphore imageAvailable, out uint imageIndex)
     {
         uint index = 0;
-        var result = _khrSwapchain.AcquireNextImage(_device, _swapchain, ulong.MaxValue, imageAvailable, default, &index);
+        var result = _khrSwapchain.AcquireNextImage(
+            _device,
+            _swapchain,
+            ulong.MaxValue,
+            imageAvailable,
+            default,
+            &index
+        );
         imageIndex = index;
         return result;
     }
@@ -98,7 +106,7 @@ internal sealed unsafe class VulkanSwapchain : IDisposable
                 PWaitSemaphores = &renderFinished,
                 SwapchainCount = 1,
                 PSwapchains = pSwapchain,
-                PImageIndices = &imageIndex
+                PImageIndices = &imageIndex,
             };
 
             return _khrSwapchain.QueuePresent(queue, &presentInfo);
@@ -113,7 +121,11 @@ internal sealed unsafe class VulkanSwapchain : IDisposable
 
         // Select format (prefer HDR)
         SelectFormat(out _format, out _colorSpace, out _isHdr);
-        SrgbFormat = _format != Format.B8G8R8A8Unorm && _format != Format.R8G8B8A8Unorm && _format != Format.B8G8R8A8Unorm && _format != Format.R8G8B8Unorm;
+        SrgbFormat =
+            _format != Format.B8G8R8A8Unorm
+            && _format != Format.R8G8B8A8Unorm
+            && _format != Format.B8G8R8A8Unorm
+            && _format != Format.R8G8B8Unorm;
 
         // Select extent
         _extent = SelectExtent(capabilities, width, height);
@@ -141,7 +153,7 @@ internal sealed unsafe class VulkanSwapchain : IDisposable
             CompositeAlpha = CompositeAlphaFlagsKHR.OpaqueBitKhr,
             PresentMode = presentMode,
             Clipped = Vk.True,
-            OldSwapchain = oldSwapchain
+            OldSwapchain = oldSwapchain,
         };
 
         SwapchainKHR swapchain;
@@ -175,7 +187,7 @@ internal sealed unsafe class VulkanSwapchain : IDisposable
                     R = ComponentSwizzle.Identity,
                     G = ComponentSwizzle.Identity,
                     B = ComponentSwizzle.Identity,
-                    A = ComponentSwizzle.Identity
+                    A = ComponentSwizzle.Identity,
                 },
                 SubresourceRange = new ImageSubresourceRange
                 {
@@ -183,21 +195,29 @@ internal sealed unsafe class VulkanSwapchain : IDisposable
                     BaseMipLevel = 0,
                     LevelCount = 1,
                     BaseArrayLayer = 0,
-                    LayerCount = 1
-                }
+                    LayerCount = 1,
+                },
             };
 
             ImageView view;
             result = _vk.CreateImageView(_device, &viewInfo, null, &view);
             if (result != Result.Success)
-                throw new InvalidOperationException($"Failed to create swapchain image view: {result}");
+                throw new InvalidOperationException(
+                    $"Failed to create swapchain image view: {result}"
+                );
 
             _imageViews[i] = view;
         }
 
         s_logger.LogInformation(
             "Created swapchain: {Width}x{Height}, Format={Format}, ColorSpace={ColorSpace}, HDR={IsHdr}, Images={ImageCount}",
-            _extent.Width, _extent.Height, _format, _colorSpace, _isHdr, _images.Length);
+            _extent.Width,
+            _extent.Height,
+            _format,
+            _colorSpace,
+            _isHdr,
+            _images.Length
+        );
     }
 
     private void SelectFormat(out Format format, out ColorSpaceKHR colorSpace, out bool isHdr)
@@ -208,25 +228,38 @@ internal sealed unsafe class VulkanSwapchain : IDisposable
         var formats = new SurfaceFormatKHR[formatCount];
         fixed (SurfaceFormatKHR* pFormats = formats)
         {
-            _khrSurface.GetPhysicalDeviceSurfaceFormats(_physicalDevice, _surface, &formatCount, pFormats);
+            _khrSurface.GetPhysicalDeviceSurfaceFormats(
+                _physicalDevice,
+                _surface,
+                &formatCount,
+                pFormats
+            );
         }
 
         // Log available formats
         foreach (var f in formats)
         {
-            s_logger.LogDebug("Available surface format: {Format} / {ColorSpace}", f.Format, f.ColorSpace);
+            s_logger.LogDebug(
+                "Available surface format: {Format} / {ColorSpace}",
+                f.Format,
+                f.ColorSpace
+            );
         }
 
         // Prefer HDR: RGBA16Float + Extended sRGB Linear
         foreach (var f in formats)
         {
-            if (f.Format == Format.R16G16B16A16Sfloat &&
-                f.ColorSpace == ColorSpaceKHR.SpaceExtendedSrgbLinearExt)
+            if (
+                f.Format == Format.R16G16B16A16Sfloat
+                && f.ColorSpace == ColorSpaceKHR.SpaceExtendedSrgbLinearExt
+            )
             {
                 format = f.Format;
                 colorSpace = f.ColorSpace;
                 isHdr = true;
-                s_logger.LogInformation("Selected HDR format: R16G16B16A16_SFLOAT + EXTENDED_SRGB_LINEAR");
+                s_logger.LogInformation(
+                    "Selected HDR format: R16G16B16A16_SFLOAT + EXTENDED_SRGB_LINEAR"
+                );
                 return;
             }
         }
@@ -234,8 +267,10 @@ internal sealed unsafe class VulkanSwapchain : IDisposable
         // Fallback: B8G8R8A8_SRGB
         foreach (var f in formats)
         {
-            if (f.Format == Format.B8G8R8A8Srgb &&
-                f.ColorSpace == ColorSpaceKHR.SpaceSrgbNonlinearKhr)
+            if (
+                f.Format == Format.B8G8R8A8Srgb
+                && f.ColorSpace == ColorSpaceKHR.SpaceSrgbNonlinearKhr
+            )
             {
                 format = f.Format;
                 colorSpace = f.ColorSpace;
@@ -251,7 +286,11 @@ internal sealed unsafe class VulkanSwapchain : IDisposable
             format = formats[0].Format;
             colorSpace = formats[0].ColorSpace;
             isHdr = false;
-            s_logger.LogInformation("Selected fallback format: {Format} / {ColorSpace}", format, colorSpace);
+            s_logger.LogInformation(
+                "Selected fallback format: {Format} / {ColorSpace}",
+                format,
+                colorSpace
+            );
             return;
         }
 
@@ -261,12 +300,22 @@ internal sealed unsafe class VulkanSwapchain : IDisposable
     private PresentModeKHR SelectPresentMode()
     {
         uint modeCount = 0;
-        _khrSurface.GetPhysicalDeviceSurfacePresentModes(_physicalDevice, _surface, &modeCount, null);
+        _khrSurface.GetPhysicalDeviceSurfacePresentModes(
+            _physicalDevice,
+            _surface,
+            &modeCount,
+            null
+        );
 
         var modes = new PresentModeKHR[modeCount];
         fixed (PresentModeKHR* pModes = modes)
         {
-            _khrSurface.GetPhysicalDeviceSurfacePresentModes(_physicalDevice, _surface, &modeCount, pModes);
+            _khrSurface.GetPhysicalDeviceSurfacePresentModes(
+                _physicalDevice,
+                _surface,
+                &modeCount,
+                pModes
+            );
         }
 
         // Prefer Mailbox (low-latency, no tearing)
@@ -280,15 +329,27 @@ internal sealed unsafe class VulkanSwapchain : IDisposable
         return PresentModeKHR.FifoKhr;
     }
 
-    private static Extent2D SelectExtent(SurfaceCapabilitiesKHR capabilities, uint requestedWidth, uint requestedHeight)
+    private static Extent2D SelectExtent(
+        SurfaceCapabilitiesKHR capabilities,
+        uint requestedWidth,
+        uint requestedHeight
+    )
     {
         if (capabilities.CurrentExtent.Width != uint.MaxValue)
             return capabilities.CurrentExtent;
 
         return new Extent2D
         {
-            Width = Math.Clamp(requestedWidth, capabilities.MinImageExtent.Width, capabilities.MaxImageExtent.Width),
-            Height = Math.Clamp(requestedHeight, capabilities.MinImageExtent.Height, capabilities.MaxImageExtent.Height)
+            Width = Math.Clamp(
+                requestedWidth,
+                capabilities.MinImageExtent.Width,
+                capabilities.MaxImageExtent.Width
+            ),
+            Height = Math.Clamp(
+                requestedHeight,
+                capabilities.MinImageExtent.Height,
+                capabilities.MaxImageExtent.Height
+            ),
         };
     }
 

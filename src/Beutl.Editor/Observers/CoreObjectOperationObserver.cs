@@ -29,7 +29,8 @@ public sealed class CoreObjectOperationObserver : IOperationObserver
         ICoreObject obj,
         OperationSequenceGenerator sequenceNumberGenerator,
         string propertyPath = "",
-        HashSet<string>? propertyPathsToTrack = null)
+        HashSet<string>? propertyPathsToTrack = null
+    )
     {
         _object = obj;
         _propertyPath = propertyPath;
@@ -41,7 +42,8 @@ public sealed class CoreObjectOperationObserver : IOperationObserver
             _subscription = _operations.Subscribe(observer);
         }
 
-        _propertiesToTrack = _propertyPathsToTrack?.Where(i => i.Contains(_propertyPath))
+        _propertiesToTrack = _propertyPathsToTrack
+            ?.Where(i => i.Contains(_propertyPath))
             .Select(i => i.Substring(_propertyPath.Length).TrimStart('.').Split('.').First())
             .Where(i => !string.IsNullOrEmpty(i))
             .ToHashSet();
@@ -94,30 +96,37 @@ public sealed class CoreObjectOperationObserver : IOperationObserver
         var objectType = _object.GetType();
         foreach (CoreProperty property in PropertyRegistry.GetRegistered(objectType))
         {
-            if (Hierarchical.HierarchicalParentProperty.Id == property.Id) continue;
+            if (Hierarchical.HierarchicalParentProperty.Id == property.Id)
+                continue;
             if (_propertiesToTrack != null && !_propertiesToTrack.Contains(property.Name))
             {
                 continue;
             }
 
             // Check if property is excluded from tracking
-            if (property.TryGetMetadata<CorePropertyMetadata>(objectType, out var metadata)
-                && !metadata.Tracked)
+            if (
+                property.TryGetMetadata<CorePropertyMetadata>(objectType, out var metadata)
+                && !metadata.Tracked
+            )
             {
                 continue;
             }
 
             string childPath = BuildPropertyPath(property.Name);
 
-            var observerType = typeof(CorePropertyOperationObserver<>).MakeGenericType(property.PropertyType);
-            var propertyPublisher = (IOperationObserver)Activator.CreateInstance(
-                observerType,
-                _operations,
-                _object,
-                property,
-                _sequenceNumberGenerator,
-                childPath,
-                _propertyPathsToTrack)!;
+            var observerType = typeof(CorePropertyOperationObserver<>).MakeGenericType(
+                property.PropertyType
+            );
+            var propertyPublisher = (IOperationObserver)
+                Activator.CreateInstance(
+                    observerType,
+                    _operations,
+                    _object,
+                    property,
+                    _sequenceNumberGenerator,
+                    childPath,
+                    _propertyPathsToTrack
+                )!;
 
             _corePropertyPublishers.Add(property.Id, propertyPublisher);
         }
@@ -140,7 +149,8 @@ public sealed class CoreObjectOperationObserver : IOperationObserver
                 _sequenceNumberGenerator,
                 keyFrame,
                 easingPath,
-                _propertyPathsToTrack);
+                _propertyPathsToTrack
+            );
         }
     }
 
@@ -154,7 +164,8 @@ public sealed class CoreObjectOperationObserver : IOperationObserver
                 nodeMember,
                 _sequenceNumberGenerator,
                 _propertyPath,
-                _propertyPathsToTrack);
+                _propertyPathsToTrack
+            );
         }
     }
 
@@ -168,15 +179,19 @@ public sealed class CoreObjectOperationObserver : IOperationObserver
             }
 
             string childPath = BuildPropertyPath(property.Name);
-            var publisherType = typeof(EnginePropertyOperationObserver<>).MakeGenericType(property.ValueType);
-            var publisher = (IOperationObserver)Activator.CreateInstance(
-                publisherType,
-                _operations,
-                engineObject,
-                property,
-                _sequenceNumberGenerator,
-                childPath,
-                _propertyPathsToTrack)!;
+            var publisherType = typeof(EnginePropertyOperationObserver<>).MakeGenericType(
+                property.ValueType
+            );
+            var publisher = (IOperationObserver)
+                Activator.CreateInstance(
+                    publisherType,
+                    _operations,
+                    engineObject,
+                    property,
+                    _sequenceNumberGenerator,
+                    childPath,
+                    _propertyPathsToTrack
+                )!;
 
             _enginePropertyPublishers.Add(property.Name, publisher);
         }
@@ -184,7 +199,8 @@ public sealed class CoreObjectOperationObserver : IOperationObserver
 
     private void OnPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
-        if (PublishingSuppression.IsSuppressed) return;
+        if (PublishingSuppression.IsSuppressed)
+            return;
 
         if (e is not CorePropertyChangedEventArgs<Easing> args || sender is not CoreObject source)
             return;
@@ -192,8 +208,7 @@ public sealed class CoreObjectOperationObserver : IOperationObserver
         if (args.Property.Id != KeyFrame.EasingProperty.Id)
             return;
 
-        if (_propertiesToTrack != null &&
-            !_propertiesToTrack.Contains(args.Property.Name))
+        if (_propertiesToTrack != null && !_propertiesToTrack.Contains(args.Property.Name))
             return;
 
         RecreateSplineEasingPublisher();

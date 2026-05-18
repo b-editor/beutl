@@ -39,13 +39,10 @@ public sealed class SaveAsTemplateFlyout : PickerFlyoutBase
                 Spacing = 4,
                 Children =
                 {
-                    new TextBlock
-                    {
-                        Text = Strings.SaveAsTemplate
-                    },
-                    _textBox
-                }
-            }
+                    new TextBlock { Text = Strings.SaveAsTemplate },
+                    _textBox,
+                },
+            },
         };
         pfp.Confirmed += OnFlyoutConfirmed;
         pfp.Dismissed += OnFlyoutDismissed;

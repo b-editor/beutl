@@ -25,7 +25,10 @@ public class SoundSamplingHelperTests
     public void DownsampleMinMax_ZeroBars_DoesNothing()
     {
         SoundSamplingHelper.DownsampleMinMax(
-            new float[] { 1f, 2f, 3f }, Span<float>.Empty, Span<float>.Empty);
+            new float[] { 1f, 2f, 3f },
+            Span<float>.Empty,
+            Span<float>.Empty
+        );
     }
 
     [Test]

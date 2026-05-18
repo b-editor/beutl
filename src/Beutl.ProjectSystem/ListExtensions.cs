@@ -4,7 +4,12 @@ namespace Beutl;
 
 public static class ListExtensions
 {
-    public static void OrderedAdd<T, TKey>(this IList<T> list, T value, Func<T, TKey> keySelector, IComparer<TKey>? comparer = null)
+    public static void OrderedAdd<T, TKey>(
+        this IList<T> list,
+        T value,
+        Func<T, TKey> keySelector,
+        IComparer<TKey>? comparer = null
+    )
     {
         if (list is null)
         {
@@ -33,7 +38,12 @@ public static class ListExtensions
         list.Add(value);
     }
 
-    public static void OrderedAddDescending<T, TKey>(this IList<T> list, T value, Func<T, TKey> keySelector, IComparer<TKey>? comparer = null)
+    public static void OrderedAddDescending<T, TKey>(
+        this IList<T> list,
+        T value,
+        Func<T, TKey> keySelector,
+        IComparer<TKey>? comparer = null
+    )
     {
         if (list is null)
         {
@@ -62,7 +72,12 @@ public static class ListExtensions
         list.Add(value);
     }
 
-    public static void OrderedAddOnScheduler<T, TKey>(this ReactiveCollection<T> list, T value, Func<T, TKey> keySelector, IComparer<TKey>? comparer = null)
+    public static void OrderedAddOnScheduler<T, TKey>(
+        this ReactiveCollection<T> list,
+        T value,
+        Func<T, TKey> keySelector,
+        IComparer<TKey>? comparer = null
+    )
     {
         if (list is null)
         {
@@ -91,7 +106,12 @@ public static class ListExtensions
         list.AddOnScheduler(value);
     }
 
-    public static void OrderedAddDescendingOnScheduler<T, TKey>(this ReactiveCollection<T> list, T value, Func<T, TKey> keySelector, IComparer<TKey>? comparer = null)
+    public static void OrderedAddDescendingOnScheduler<T, TKey>(
+        this ReactiveCollection<T> list,
+        T value,
+        Func<T, TKey> keySelector,
+        IComparer<TKey>? comparer = null
+    )
     {
         if (list is null)
         {

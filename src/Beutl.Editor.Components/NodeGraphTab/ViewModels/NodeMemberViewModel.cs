@@ -1,5 +1,4 @@
 ﻿using Beutl.NodeGraph;
-
 using Reactive.Bindings;
 
 namespace Beutl.Editor.Components.NodeGraphTab.ViewModels;
@@ -8,20 +7,30 @@ public class NodeMemberViewModel : IDisposable
 {
     private bool _disposedValue;
 
-    public NodeMemberViewModel(INodeMember? nodeMember, IPropertyEditorContext? propertyEditorContext, GraphNodeViewModel nodeViewModel)
+    public NodeMemberViewModel(
+        INodeMember? nodeMember,
+        IPropertyEditorContext? propertyEditorContext,
+        GraphNodeViewModel nodeViewModel
+    )
     {
         if (nodeMember is NodeMember nodeMemberObj)
         {
-            Name = nodeMemberObj.GetPropertyChangedObservable(NodeMember.DisplayProperty)
-                .Select(e => ((NodeMember)e.Sender).Display?.GetName()
+            Name = nodeMemberObj
+                .GetPropertyChangedObservable(NodeMember.DisplayProperty)
+                .Select(e =>
+                    ((NodeMember)e.Sender).Display?.GetName()
                     ?? ((NodeMember)e.Sender).Name
-                    ?? string.Empty)
+                    ?? string.Empty
+                )
                 .ToReadOnlyReactiveProperty(
-                    nodeMemberObj.Display?.GetName() ?? nodeMemberObj.Name ?? string.Empty)!;
+                    nodeMemberObj.Display?.GetName() ?? nodeMemberObj.Name ?? string.Empty
+                )!;
         }
         else
         {
-            Name = Observable.ReturnThenNever(nodeMember?.Name ?? string.Empty).ToReadOnlyReactiveProperty()!;
+            Name = Observable
+                .ReturnThenNever(nodeMember?.Name ?? string.Empty)
+                .ToReadOnlyReactiveProperty()!;
         }
 
         Model = nodeMember;

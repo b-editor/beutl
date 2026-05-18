@@ -1,6 +1,5 @@
 ﻿using Avalonia.Controls;
 using Avalonia.Threading;
-
 using FluentAvalonia.UI.Controls;
 using FluentAvalonia.UI.Media.Animation;
 using FluentAvalonia.UI.Navigation;
@@ -20,7 +19,11 @@ public class NavigationProvider : INavigationProvider
     private const int Orientation_DifferenceOrder = 0b_0_0_1_0;
     private const int Orientation_DifferenceOrder_Reverse = 0b_0_0_0_1;
 
-    public NavigationProvider(Frame frame, IPageResolver pageResolver, TransitionMode transitionMode = TransitionMode.LeftNavigationAndBreadcrumbs)
+    public NavigationProvider(
+        Frame frame,
+        IPageResolver pageResolver,
+        TransitionMode transitionMode = TransitionMode.LeftNavigationAndBreadcrumbs
+    )
     {
         _frame = frame;
         _pageResolver = pageResolver;
@@ -66,22 +69,40 @@ public class NavigationProvider : INavigationProvider
         {
             Type type1 = _frame.CurrentSourcePageType;
             Type type2 = e.SourcePageType;
-            (int order1, int depth1) = (_pageResolver.GetOrder(type1), _pageResolver.GetDepth(type1));
-            (int order2, int depth2) = (_pageResolver.GetOrder(type2), _pageResolver.GetDepth(type2));
+            (int order1, int depth1) = (
+                _pageResolver.GetOrder(type1),
+                _pageResolver.GetDepth(type1)
+            );
+            (int order2, int depth2) = (
+                _pageResolver.GetOrder(type2),
+                _pageResolver.GetDepth(type2)
+            );
             double horizontal = 28;
             double vertical = 28;
-            int signWhenSameOrder = HasFlags(_transitionMode, Orientation_SameOrder_Reverse) ? -1 : 1;
-            int signWhenDiffOrder = HasFlags(_transitionMode, Orientation_DifferenceOrder_Reverse) ? -1 : 1;
+            int signWhenSameOrder = HasFlags(_transitionMode, Orientation_SameOrder_Reverse)
+                ? -1
+                : 1;
+            int signWhenDiffOrder = HasFlags(_transitionMode, Orientation_DifferenceOrder_Reverse)
+                ? -1
+                : 1;
 
             if (order1 == order2)
             {
-                Locate(HasFlags(_transitionMode, Orientation_SameOrder), Math.Sign(depth2 - depth1) * signWhenSameOrder,
-                    ref horizontal, ref vertical);
+                Locate(
+                    HasFlags(_transitionMode, Orientation_SameOrder),
+                    Math.Sign(depth2 - depth1) * signWhenSameOrder,
+                    ref horizontal,
+                    ref vertical
+                );
             }
             else if (order1 != order2)
             {
-                Locate(HasFlags(_transitionMode, Orientation_DifferenceOrder), Math.Sign(order2 - order1) * signWhenDiffOrder,
-                    ref horizontal, ref vertical);
+                Locate(
+                    HasFlags(_transitionMode, Orientation_DifferenceOrder),
+                    Math.Sign(order2 - order1) * signWhenDiffOrder,
+                    ref horizontal,
+                    ref vertical
+                );
             }
 
             entrance.FromHorizontalOffset = horizontal;
@@ -157,7 +178,10 @@ public class NavigationProvider : INavigationProvider
         }
     }
 
-    public async ValueTask NavigateAsync<TContext>(Predicate<TContext> predicate, Func<TContext> factory)
+    public async ValueTask NavigateAsync<TContext>(
+        Predicate<TContext> predicate,
+        Func<TContext> factory
+    )
         where TContext : class
     {
         void NavigateCore(Predicate<TContext> predicate, Func<TContext> factory)
@@ -165,7 +189,11 @@ public class NavigationProvider : INavigationProvider
             TContext? context = FindCore(predicate);
             context ??= factory();
 
-            _frame.Navigate(_pageResolver.GetPageType(context?.GetType()), context, _transitionInfo);
+            _frame.Navigate(
+                _pageResolver.GetPageType(context?.GetType()),
+                context,
+                _transitionInfo
+            );
         }
 
         if (Dispatcher.UIThread.CheckAccess())
@@ -178,7 +206,10 @@ public class NavigationProvider : INavigationProvider
         }
     }
 
-    public async ValueTask RemoveAllAsync<TContext>(Predicate<TContext> predicate, bool goBack = false)
+    public async ValueTask RemoveAllAsync<TContext>(
+        Predicate<TContext> predicate,
+        bool goBack = false
+    )
         where TContext : class
     {
         void RemoveAllCore(Predicate<TContext> predicate, bool goBack)

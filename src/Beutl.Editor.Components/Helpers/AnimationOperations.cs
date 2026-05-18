@@ -8,7 +8,11 @@ namespace Beutl.Editor.Components.Helpers;
 
 public static class AnimationOperations
 {
-    private static TimeSpan ConvertKeyTime(IKeyFrameAnimation animation, TimeSpan globalkeyTime, ILogger logger)
+    private static TimeSpan ConvertKeyTime(
+        IKeyFrameAnimation animation,
+        TimeSpan globalkeyTime,
+        ILogger logger
+    )
     {
         var element = animation.FindHierarchicalParent<Element>();
         var scene = animation.FindHierarchicalParent<Scene>();
@@ -22,7 +26,12 @@ public static class AnimationOperations
         return keyTime.RoundToRate(rate);
     }
 
-    public static KeyFrame<T>? InsertKeyFrame<T>(KeyFrameAnimation<T> animation, Easing? easing, TimeSpan keyTime, ILogger logger)
+    public static KeyFrame<T>? InsertKeyFrame<T>(
+        KeyFrameAnimation<T> animation,
+        Easing? easing,
+        TimeSpan keyTime,
+        ILogger logger
+    )
     {
         logger.LogInformation("Inserting key frame at {KeyTime}", keyTime);
         bool defaultEasing = easing is null or SplineEasing { X1: 0, Y1: 0, X2: 1, Y2: 1 };
@@ -31,22 +40,26 @@ public static class AnimationOperations
 
         if (animation.KeyFrames.All(x => x.KeyTime != keyTime))
         {
-            (IKeyFrame? prevIKeyFrame, IKeyFrame? nextIKeyFrame) = animation.GetPreviousAndNextKeyFrame(keyTime);
+            (IKeyFrame? prevIKeyFrame, IKeyFrame? nextIKeyFrame) =
+                animation.GetPreviousAndNextKeyFrame(keyTime);
 
-            if (defaultEasing
+            if (
+                defaultEasing
                 && nextIKeyFrame is KeyFrame<T> nextKeyFrame
                 && prevIKeyFrame is KeyFrame<T> prevKeyFrame
-                && nextKeyFrame.Easing is SplineEasing existingEasing)
+                && nextKeyFrame.Easing is SplineEasing existingEasing
+            )
             {
                 var duration = nextKeyFrame.KeyTime - prevKeyFrame.KeyTime;
-                float t = (float)(keyTime - prevKeyFrame.KeyTime).TotalMilliseconds /
-                          (float)duration.TotalMilliseconds;
+                float t =
+                    (float)(keyTime - prevKeyFrame.KeyTime).TotalMilliseconds
+                    / (float)duration.TotalMilliseconds;
                 var (left, right) = SplineEasingHelper.SplitByT(existingEasing, t);
                 createdKeyFrame = new KeyFrame<T>
                 {
                     Value = animation.Interpolate(keyTime),
                     Easing = left,
-                    KeyTime = keyTime
+                    KeyTime = keyTime,
                 };
 
                 animation.KeyFrames.Add(createdKeyFrame, out _);
@@ -59,7 +72,7 @@ public static class AnimationOperations
                 {
                     Value = animation.Interpolate(keyTime),
                     Easing = easing,
-                    KeyTime = keyTime
+                    KeyTime = keyTime,
                 };
 
                 animation.KeyFrames.Add(createdKeyFrame, out _);
@@ -69,19 +82,28 @@ public static class AnimationOperations
         return createdKeyFrame;
     }
 
-    public static void RemoveKeyFrame(IKeyFrameAnimation animation, TimeSpan keyTime, ILogger logger)
+    public static void RemoveKeyFrame(
+        IKeyFrameAnimation animation,
+        TimeSpan keyTime,
+        ILogger logger
+    )
     {
         logger.LogInformation("Removing key frame at {KeyTime}", keyTime);
         keyTime = ConvertKeyTime(animation, keyTime, logger);
         IKeyFrame? keyframe = animation.KeyFrames.FirstOrDefault(x => x.KeyTime == keyTime);
-        if (keyframe == null) return;
+        if (keyframe == null)
+            return;
 
         var index = animation.KeyFrames.IndexOf(keyframe);
 
         SplineEasingHelper.Remove(animation, index);
     }
 
-    public static void RemoveKeyFrame(IKeyFrameAnimation animation, IKeyFrame keyframe, ILogger logger)
+    public static void RemoveKeyFrame(
+        IKeyFrameAnimation animation,
+        IKeyFrame keyframe,
+        ILogger logger
+    )
     {
         logger.LogInformation("Removing key frame at {KeyTime}", keyframe.KeyTime);
 

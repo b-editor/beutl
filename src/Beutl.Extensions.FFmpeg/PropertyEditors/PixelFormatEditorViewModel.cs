@@ -1,23 +1,21 @@
 ﻿using System.Reactive.Disposables;
 using System.Text.Json.Nodes;
-
 using Avalonia;
 using Avalonia.Interactivity;
-
 using Beutl.Controls.PropertyEditors;
 using Beutl.Extensibility;
+using Beutl.Extensions.FFmpeg.Encoding;
 using Beutl.FFmpegIpc;
 using Beutl.FFmpegIpc.Protocol.Messages;
+using Beutl.PropertyAdapters;
+using Beutl.Reactive;
+using Reactive.Bindings;
 #if FFMPEG_OUT_OF_PROCESS
 using Beutl.FFmpegIpc.Protocol;
 #else
 using FFmpeg.AutoGen.Abstractions;
 using FFmpegSharp;
 #endif
-using Beutl.PropertyAdapters;
-using Beutl.Reactive;
-using Reactive.Bindings;
-using Beutl.Extensions.FFmpeg.Encoding;
 
 namespace Beutl.Extensions.FFmpeg.PropertyEditors;
 
@@ -34,7 +32,8 @@ internal sealed class PixelFormatEditorViewModel : IPropertyEditorContext
 
     public PixelFormatEditorViewModel(
         IPropertyAdapter<int> property,
-        PropertyEditorExtension extension)
+        PropertyEditorExtension extension
+    )
     {
         _property = property;
         Extension = extension;
@@ -49,13 +48,15 @@ internal sealed class PixelFormatEditorViewModel : IPropertyEditorContext
         if (_settings != null)
         {
             // コーデック変更を監視
-            _settings.GetObservable(FFmpegVideoEncoderSettings.CodecProperty)
+            _settings
+                .GetObservable(FFmpegVideoEncoderSettings.CodecProperty)
                 .Subscribe(_ => UpdatePixelFormats())
                 .DisposeWith(_disposables);
         }
 
         // 現在値の変更を監視してSelectedIndexを更新
-        _property.GetObservable()
+        _property
+            .GetObservable()
             .Subscribe(format =>
             {
                 int index = Array.IndexOf(_currentFormats, format);
@@ -79,10 +80,12 @@ internal sealed class PixelFormatEditorViewModel : IPropertyEditorContext
             editor.Header = _property.DisplayName;
             editor.Items = _currentItems;
 
-            editor.Bind(EnumEditor.SelectedIndexProperty, _selectedIndex.ToBinding())
+            editor
+                .Bind(EnumEditor.SelectedIndexProperty, _selectedIndex.ToBinding())
                 .DisposeWith(_disposables);
 
-            editor.AddDisposableHandler(PropertyEditor.ValueConfirmedEvent, OnValueConfirmed)
+            editor
+                .AddDisposableHandler(PropertyEditor.ValueConfirmedEvent, OnValueConfirmed)
                 .DisposeWith(_disposables);
 
             _editorRef = new WeakReference<EnumEditor>(editor);
@@ -138,19 +141,31 @@ internal sealed class PixelFormatEditorViewModel : IPropertyEditorContext
 
     private static PixelFormatInfo[] GetCodecFormatInfos(FFmpegVideoEncoderSettings? settings)
     {
-        if (settings == null) return [];
+        if (settings == null)
+            return [];
 
         try
         {
 #if FFMPEG_OUT_OF_PROCESS
-            var connection = FFmpegWorkerProcess.DecodingInstance.EnsureStartedAsync().GetAwaiter().GetResult();
-            var response = connection.RequestAsync<QueryPixelFormatsRequest, QueryPixelFormatsResponse>(
-                MessageType.QueryPixelFormats, MessageType.QueryPixelFormatsResult,
-                new QueryPixelFormatsRequest
-                {
-                    CodecName = settings.Codec.Equals(CodecRecord.Default) ? null : settings.Codec.Name,
-                    OutputFile = settings.OutputFile
-                }).AsTask().GetAwaiter().GetResult();
+            var connection = FFmpegWorkerProcess
+                .DecodingInstance.EnsureStartedAsync()
+                .GetAwaiter()
+                .GetResult();
+            var response = connection
+                .RequestAsync<QueryPixelFormatsRequest, QueryPixelFormatsResponse>(
+                    MessageType.QueryPixelFormats,
+                    MessageType.QueryPixelFormatsResult,
+                    new QueryPixelFormatsRequest
+                    {
+                        CodecName = settings.Codec.Equals(CodecRecord.Default)
+                            ? null
+                            : settings.Codec.Name,
+                        OutputFile = settings.OutputFile,
+                    }
+                )
+                .AsTask()
+                .GetAwaiter()
+                .GetResult();
             return response.Formats;
 #else
             MediaCodec codec;
@@ -168,9 +183,14 @@ internal sealed class PixelFormatEditorViewModel : IPropertyEditorContext
                 codec = MediaCodec.FindEncoder(settings.Codec.Name);
             }
 
-            return codec.GetPixelFmts()
+            return codec
+                .GetPixelFmts()
                 .Where(f => ffmpeg.sws_isSupportedOutput(f) != 0)
-                .Select(f => new PixelFormatInfo { Value = (int)f, Name = ffmpeg.av_get_pix_fmt_name(f) })
+                .Select(f => new PixelFormatInfo
+                {
+                    Value = (int)f,
+                    Name = ffmpeg.av_get_pix_fmt_name(f),
+                })
                 .ToArray();
 #endif
         }
@@ -190,13 +210,9 @@ internal sealed class PixelFormatEditorViewModel : IPropertyEditorContext
         }
     }
 
-    public void WriteToJson(JsonObject json)
-    {
-    }
+    public void WriteToJson(JsonObject json) { }
 
-    public void ReadFromJson(JsonObject json)
-    {
-    }
+    public void ReadFromJson(JsonObject json) { }
 
     public void Dispose()
     {

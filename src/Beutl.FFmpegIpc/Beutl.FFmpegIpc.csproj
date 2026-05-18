@@ -1,5 +1,4 @@
 <Project Sdk="Microsoft.NET.Sdk">
-
   <PropertyGroup>
     <OutputType>Library</OutputType>
     <IsPackable>false</IsPackable>
@@ -9,5 +8,4 @@
   <ItemGroup>
     <InternalsVisibleTo Include="Beutl.FFmpegIpc.Tests" />
   </ItemGroup>
-
 </Project>

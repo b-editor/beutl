@@ -13,13 +13,12 @@ public sealed class SoundSource : MediaSource
 {
     private WeakReference<Counter<MediaReader>>? _mediaReaderRef;
 
-    public SoundSource()
-    {
-    }
+    public SoundSource() { }
 
     public override void ReadFrom(Uri uri)
     {
-        if (!uri.IsFile) throw new NotSupportedException("Only file URIs are supported.");
+        if (!uri.IsFile)
+            throw new NotSupportedException("Only file URIs are supported.");
 
         if (HasUri && Uri != uri)
         {
@@ -101,7 +100,11 @@ public sealed class SoundSource : MediaSource
             return (int)(timeSpan.TotalSeconds * SampleRate);
         }
 
-        public override void Update(EngineObject obj, CompositionContext context, ref bool updateOnly)
+        public override void Update(
+            EngineObject obj,
+            CompositionContext context,
+            ref bool updateOnly
+        )
         {
             base.Update(obj, context, ref updateOnly);
             var soundSource = (SoundSource)obj;
@@ -128,14 +131,20 @@ public sealed class SoundSource : MediaSource
                 {
                     try
                     {
-                        var reader = MediaReader.Open(soundSource.Uri.LocalPath, new(MediaMode.Audio));
+                        var reader = MediaReader.Open(
+                            soundSource.Uri.LocalPath,
+                            new(MediaMode.Audio)
+                        );
                         _counter = new Counter<MediaReader>(reader, null);
                         // DisableResourceShare 時は WeakReference を書き換えない。
                         // 他 Renderer（プレビュー側）の共有カウンタを
                         // エンコード専用カウンタで汚染してしまうため。
                         if (!context.DisableResourceShare)
                         {
-                            Volatile.Write(ref soundSource._mediaReaderRef, new WeakReference<Counter<MediaReader>>(_counter));
+                            Volatile.Write(
+                                ref soundSource._mediaReaderRef,
+                                new WeakReference<Counter<MediaReader>>(_counter)
+                            );
                         }
                     }
                     catch

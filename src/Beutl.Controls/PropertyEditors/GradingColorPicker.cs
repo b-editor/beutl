@@ -19,27 +19,36 @@ namespace Beutl.Controls.PropertyEditors;
 public enum GradingColorPickerInputType
 {
     Rgb,
-    Hsv
+    Hsv,
 }
 
 [PseudoClasses(":details")]
 public class GradingColorPicker : TemplatedControl
 {
-    public static readonly StyledProperty<GradingColor> ColorProperty =
-        AvaloniaProperty.Register<GradingColorPicker, GradingColor>(nameof(Color),
-            new GradingColor(1, 1, 1), defaultBindingMode: BindingMode.TwoWay);
+    public static readonly StyledProperty<GradingColor> ColorProperty = AvaloniaProperty.Register<
+        GradingColorPicker,
+        GradingColor
+    >(nameof(Color), new GradingColor(1, 1, 1), defaultBindingMode: BindingMode.TwoWay);
 
     public static readonly StyledProperty<GradingColorPickerInputType> InputTypeProperty =
-        AvaloniaProperty.Register<GradingColorPicker, GradingColorPickerInputType>(nameof(InputType));
+        AvaloniaProperty.Register<GradingColorPicker, GradingColorPickerInputType>(
+            nameof(InputType)
+        );
 
-    public static readonly StyledProperty<bool> ShowDetailsProperty =
-        AvaloniaProperty.Register<GradingColorPicker, bool>(nameof(ShowDetails));
+    public static readonly StyledProperty<bool> ShowDetailsProperty = AvaloniaProperty.Register<
+        GradingColorPicker,
+        bool
+    >(nameof(ShowDetails));
 
     private readonly CompositeDisposable _disposables = [];
     private ColorSpectrum? _ringSpectrum;
     private ColorPreviewer? _previewer;
-    private GradingWheel? _firstComponentWheel, _secondComponentWheel, _thirdComponentWheel, _fourthComponentWheel;
-    private ColorSlider? _hueSlider, _saturationSlider;
+    private GradingWheel? _firstComponentWheel,
+        _secondComponentWheel,
+        _thirdComponentWheel,
+        _fourthComponentWheel;
+    private ColorSlider? _hueSlider,
+        _saturationSlider;
     private ComboBox? _colorType;
     private ToggleButton? _detailsButton;
     private GradingColorComponentsEditor? _componentsBox;
@@ -48,9 +57,15 @@ public class GradingColorPicker : TemplatedControl
     private GradingColor _oldColor;
     private UnboundedHsv _currentHsv;
 
-    public event TypedEventHandler<GradingColorPicker, (GradingColor OldValue, GradingColor NewValue)>? ColorChanged;
+    public event TypedEventHandler<
+        GradingColorPicker,
+        (GradingColor OldValue, GradingColor NewValue)
+    >? ColorChanged;
 
-    public event TypedEventHandler<GradingColorPicker, (GradingColor OldValue, GradingColor NewValue)>? ColorConfirmed;
+    public event TypedEventHandler<
+        GradingColorPicker,
+        (GradingColor OldValue, GradingColor NewValue)
+    >? ColorConfirmed;
 
     public GradingColor Color
     {
@@ -70,19 +85,10 @@ public class GradingColorPicker : TemplatedControl
         set => SetValue(ShowDetailsProperty, value);
     }
 
-    private ColorSlider?[] GetColorSliders() =>
-    [
-        _hueSlider,
-        _saturationSlider
-    ];
+    private ColorSlider?[] GetColorSliders() => [_hueSlider, _saturationSlider];
 
     private GradingWheel?[] GetWheels() =>
-    [
-        _firstComponentWheel,
-        _secondComponentWheel,
-        _thirdComponentWheel,
-        _fourthComponentWheel
-    ];
+        [_firstComponentWheel, _secondComponentWheel, _thirdComponentWheel, _fourthComponentWheel];
 
     protected override void OnApplyTemplate(TemplateAppliedEventArgs e)
     {
@@ -105,28 +111,50 @@ public class GradingColorPicker : TemplatedControl
         if (_ringSpectrum != null)
         {
             _ringSpectrum.ColorChanged += OnSpectrumColorChanged;
-            _ringSpectrum.AddHandler(PointerPressedEvent, OnSpectrumPointerPressed, handledEventsToo: true);
-            _ringSpectrum.AddHandler(PointerReleasedEvent, OnSpectrumPointerReleased, handledEventsToo: true);
+            _ringSpectrum.AddHandler(
+                PointerPressedEvent,
+                OnSpectrumPointerPressed,
+                handledEventsToo: true
+            );
+            _ringSpectrum.AddHandler(
+                PointerReleasedEvent,
+                OnSpectrumPointerReleased,
+                handledEventsToo: true
+            );
         }
 
         if (_previewer != null)
         {
             _previewer.ColorChanged += OnSpectrumColorChanged;
-            _previewer.AddHandler(PointerPressedEvent, OnSpectrumPointerPressed, handledEventsToo: true);
-            _previewer.AddHandler(PointerReleasedEvent, OnSpectrumPointerReleased, handledEventsToo: true);
+            _previewer.AddHandler(
+                PointerPressedEvent,
+                OnSpectrumPointerPressed,
+                handledEventsToo: true
+            );
+            _previewer.AddHandler(
+                PointerReleasedEvent,
+                OnSpectrumPointerReleased,
+                handledEventsToo: true
+            );
         }
 
         foreach (ColorSlider? item in GetColorSliders())
         {
-            if (item == null) continue;
+            if (item == null)
+                continue;
             item.ColorChanged += OnColorSliderColorChanged;
             item.AddHandler(PointerPressedEvent, OnSpectrumPointerPressed, handledEventsToo: true);
-            item.AddHandler(PointerReleasedEvent, OnSpectrumPointerReleased, handledEventsToo: true);
+            item.AddHandler(
+                PointerReleasedEvent,
+                OnSpectrumPointerReleased,
+                handledEventsToo: true
+            );
         }
 
         foreach (GradingWheel? item in GetWheels())
         {
-            if (item == null) continue;
+            if (item == null)
+                continue;
             item.DragStarted += OnWheelDragStarted;
             item.DragDelta += OnWheelDragDelta;
             item.DragCompleted += OnWheelDragCompleted;
@@ -138,13 +166,15 @@ public class GradingColorPicker : TemplatedControl
             _componentsBox.ValueConfirmed += OnComponentsBoxValueConfirmed;
         }
 
-        _colorType?.GetPropertyChangedObservable(SelectingItemsControl.SelectedIndexProperty)
+        _colorType
+            ?.GetPropertyChangedObservable(SelectingItemsControl.SelectedIndexProperty)
             .Subscribe(_ => OnColorTypeChanged())
             .DisposeWith(_disposables);
 
         if (_detailsButton != null)
         {
-            _detailsButton.GetObservable(ToggleButton.IsCheckedProperty)
+            _detailsButton
+                .GetObservable(ToggleButton.IsCheckedProperty)
                 .Subscribe(OnToggleDetailsButtonIsCheckedChanged)
                 .DisposeWith(_disposables);
         }
@@ -161,12 +191,19 @@ public class GradingColorPicker : TemplatedControl
 
     private void OnWheelDragDelta(object? sender, VectorEventArgs e)
     {
-        if (_ignoreColorChange) return;
+        if (_ignoreColorChange)
+            return;
 
         if (sender is GradingWheel wheel)
         {
             float delta = (float)(e.Vector.X / wheel.Bounds.Width);
-            if ((InputType == GradingColorPickerInputType.Hsv || !PseudoClasses.Contains(":details")) && wheel.Name == "ThirdComponentWheel")
+            if (
+                (
+                    InputType == GradingColorPickerInputType.Hsv
+                    || !PseudoClasses.Contains(":details")
+                )
+                && wheel.Name == "ThirdComponentWheel"
+            )
             {
                 // Hue, SaturationはSliderで操作するため、Valueのみ変更する
                 var hsv = _oldHsv;
@@ -204,9 +241,15 @@ public class GradingColorPicker : TemplatedControl
         }
     }
 
-    private void OnComponentsBoxValueConfirmed(object? sender, PropertyEditorValueChangedEventArgs e)
+    private void OnComponentsBoxValueConfirmed(
+        object? sender,
+        PropertyEditorValueChangedEventArgs e
+    )
     {
-        if (_componentsBox != null && e is PropertyEditorValueChangedEventArgs<(float, float, float)> ee)
+        if (
+            _componentsBox != null
+            && e is PropertyEditorValueChangedEventArgs<(float, float, float)> ee
+        )
         {
             var oldValue = _componentsBox.ToGradingColorFromTuple(ee.OldValue);
             var newValue = _componentsBox.ToGradingColorFromTuple(ee.NewValue);
@@ -216,7 +259,11 @@ public class GradingColorPicker : TemplatedControl
 
     private void OnComponentsBoxValueChanged(object? sender, PropertyEditorValueChangedEventArgs e)
     {
-        if (_componentsBox != null && !_ignoreColorChange && e is PropertyEditorValueChangedEventArgs<(float, float, float)> ee)
+        if (
+            _componentsBox != null
+            && !_ignoreColorChange
+            && e is PropertyEditorValueChangedEventArgs<(float, float, float)> ee
+        )
         {
             var newValue = _componentsBox.GetGradingColorOrUnboundedHsv(ee.NewValue);
             UpdateColor(newValue, ignoreComponents: true);
@@ -293,7 +340,8 @@ public class GradingColorPicker : TemplatedControl
 
     private void OnColorSliderColorChanged(object? sender, ColorChangedEventArgs args)
     {
-        if (_ignoreColorChange) return;
+        if (_ignoreColorChange)
+            return;
 
         if (sender is ColorSlider { ColorModel: ColorModel.Hsva } slider)
         {
@@ -330,14 +378,16 @@ public class GradingColorPicker : TemplatedControl
 
     private void UpdateColor((GradingColor?, UnboundedHsv?) color, bool ignoreComponents = false)
     {
-        if (_ignoreColorChange) return;
+        if (_ignoreColorChange)
+            return;
 
         try
         {
             _ignoreColorChange = true;
             GradingColor oldColor = Color;
             GradingColor newColor = color.Item1 ?? GradingColorHelper.GetColor(color.Item2!.Value);
-            UnboundedHsv newHsv = color.Item2 ?? GradingColorHelper.GetUnboundedHsv(color.Item1!.Value);
+            UnboundedHsv newHsv =
+                color.Item2 ?? GradingColorHelper.GetUnboundedHsv(color.Item1!.Value);
             _currentHsv = newHsv;
             Color = newColor;
 
@@ -348,7 +398,8 @@ public class GradingColorPicker : TemplatedControl
 
             foreach (ColorSlider? item in GetColorSliders())
             {
-                if (item == null) continue;
+                if (item == null)
+                    continue;
 
                 if (item.ColorModel == ColorModel.Hsva)
                 {
@@ -393,7 +444,8 @@ public class GradingColorPicker : TemplatedControl
 
         foreach (ColorSlider? item in GetColorSliders())
         {
-            if (item == null) continue;
+            if (item == null)
+                continue;
 
             item.ColorChanged -= OnColorSliderColorChanged;
             item.RemoveHandler(PointerPressedEvent, OnSpectrumPointerPressed);
@@ -402,7 +454,8 @@ public class GradingColorPicker : TemplatedControl
 
         foreach (GradingWheel? item in GetWheels())
         {
-            if (item == null) continue;
+            if (item == null)
+                continue;
 
             item.DragStarted -= OnWheelDragStarted;
             item.DragDelta -= OnWheelDragDelta;

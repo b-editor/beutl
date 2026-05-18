@@ -81,9 +81,7 @@ public class ImageSourceRenderNodeTest
     [Test]
     public void Process_WithInput_ShouldReturnExpectedRenderNodeOperation()
     {
-        var context = new RenderNodeContext([
-            RenderNodeOperation.CreateLambda(default, _ => { })
-        ]);
+        var context = new RenderNodeContext([RenderNodeOperation.CreateLambda(default, _ => { })]);
 
         ImageSource.Resource source = GetTestImageSourceResource();
         var node = new ImageSourceRenderNode(source, null, null);

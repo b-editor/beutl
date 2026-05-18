@@ -26,12 +26,16 @@ public sealed class BitmapColorSpace : IEquatable<BitmapColorSpace>
     public static BitmapColorSpace? CreateIcc(ReadOnlySpan<byte> iccData)
     {
         var icc = SKColorSpaceIccProfile.Create(iccData);
-        if (icc == null) return null;
+        if (icc == null)
+            return null;
         var skCs = SKColorSpace.CreateIcc(iccData);
         return new BitmapColorSpace(skCs);
     }
 
-    public static BitmapColorSpace CreateRgb(BitmapColorSpaceTransferFn transferFn, BitmapColorSpaceXyz toXyzD50)
+    public static BitmapColorSpace CreateRgb(
+        BitmapColorSpaceTransferFn transferFn,
+        BitmapColorSpaceXyz toXyzD50
+    )
     {
         var skCs = SKColorSpace.CreateRgb(transferFn.ToSKTransferFn(), toXyzD50.ToSKXyz());
         return new BitmapColorSpace(skCs);
@@ -70,8 +74,10 @@ public sealed class BitmapColorSpace : IEquatable<BitmapColorSpace>
 
     public bool Equals(BitmapColorSpace? other)
     {
-        if (other is null) return false;
-        if (ReferenceEquals(this, other)) return true;
+        if (other is null)
+            return false;
+        if (ReferenceEquals(this, other))
+            return true;
         return SKColorSpace.Equal(_skColorSpace, other._skColorSpace);
     }
 

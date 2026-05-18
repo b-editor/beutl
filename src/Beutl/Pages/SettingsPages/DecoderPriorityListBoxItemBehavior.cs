@@ -6,7 +6,6 @@ using Avalonia.Interactivity;
 using Avalonia.LogicalTree;
 using Avalonia.Media.Transformation;
 using Avalonia.Xaml.Interactivity;
-
 using Beutl.ViewModels.SettingsPages;
 
 namespace Beutl.Pages.SettingsPages;
@@ -28,10 +27,26 @@ public sealed class DecoderPriorityListBoxItemBehavior : Behavior<ListBoxItem>
 
         if (AssociatedObject is { })
         {
-            AssociatedObject.AddHandler(InputElement.PointerReleasedEvent, Released, RoutingStrategies.Tunnel);
-            AssociatedObject.AddHandler(InputElement.PointerPressedEvent, Pressed, RoutingStrategies.Tunnel);
-            AssociatedObject.AddHandler(InputElement.PointerMovedEvent, Moved, RoutingStrategies.Tunnel);
-            AssociatedObject.AddHandler(InputElement.PointerCaptureLostEvent, CaptureLost, RoutingStrategies.Tunnel);
+            AssociatedObject.AddHandler(
+                InputElement.PointerReleasedEvent,
+                Released,
+                RoutingStrategies.Tunnel
+            );
+            AssociatedObject.AddHandler(
+                InputElement.PointerPressedEvent,
+                Pressed,
+                RoutingStrategies.Tunnel
+            );
+            AssociatedObject.AddHandler(
+                InputElement.PointerMovedEvent,
+                Moved,
+                RoutingStrategies.Tunnel
+            );
+            AssociatedObject.AddHandler(
+                InputElement.PointerCaptureLostEvent,
+                CaptureLost,
+                RoutingStrategies.Tunnel
+            );
         }
     }
 
@@ -51,8 +66,10 @@ public sealed class DecoderPriorityListBoxItemBehavior : Behavior<ListBoxItem>
     private void Pressed(object? sender, PointerPressedEventArgs e)
     {
         PointerPointProperties properties = e.GetCurrentPoint(AssociatedObject).Properties;
-        if (properties.IsLeftButtonPressed
-            && AssociatedObject?.FindLogicalAncestorOfType<ItemsControl>() is { } itemsControl)
+        if (
+            properties.IsLeftButtonPressed
+            && AssociatedObject?.FindLogicalAncestorOfType<ItemsControl>() is { } itemsControl
+        )
         {
             _itemsControl = itemsControl;
             _enableDrag = true;
@@ -104,7 +121,12 @@ public sealed class DecoderPriorityListBoxItemBehavior : Behavior<ListBoxItem>
             }
         }
 
-        if (_dragStarted && _draggedIndex >= 0 && _targetIndex >= 0 && _draggedIndex != _targetIndex)
+        if (
+            _dragStarted
+            && _draggedIndex >= 0
+            && _targetIndex >= 0
+            && _draggedIndex != _targetIndex
+        )
         {
             MoveDraggedItem(_itemsControl, _draggedIndex, _targetIndex);
         }
@@ -187,10 +209,13 @@ public sealed class DecoderPriorityListBoxItemBehavior : Behavior<ListBoxItem>
     private void Moved(object? sender, PointerEventArgs e)
     {
         PointerPointProperties? properties = e.GetCurrentPoint(AssociatedObject).Properties;
-        if (Equals(e.Pointer.Captured, AssociatedObject)
-            && properties?.IsLeftButtonPressed == true)
+        if (Equals(e.Pointer.Captured, AssociatedObject) && properties?.IsLeftButtonPressed == true)
         {
-            if (_itemsControl?.ItemsSource is null || AssociatedObject?.RenderTransform is null || !_enableDrag)
+            if (
+                _itemsControl?.ItemsSource is null
+                || AssociatedObject?.RenderTransform is null
+                || !_enableDrag
+            )
             {
                 return;
             }
@@ -227,7 +252,10 @@ public sealed class DecoderPriorityListBoxItemBehavior : Behavior<ListBoxItem>
             foreach (object? _ in _itemsControl.ItemsSource)
             {
                 Control? targetContainer = _itemsControl.ContainerFromIndex(i);
-                if (targetContainer?.RenderTransform is null || ReferenceEquals(targetContainer, AssociatedObject))
+                if (
+                    targetContainer?.RenderTransform is null
+                    || ReferenceEquals(targetContainer, AssociatedObject)
+                )
                 {
                     i++;
                     continue;
@@ -242,15 +270,19 @@ public sealed class DecoderPriorityListBoxItemBehavior : Behavior<ListBoxItem>
                 {
                     SetTranslateTransform(targetContainer, 0, -draggedBounds.Height);
 
-                    _targetIndex = _targetIndex == -1 ? targetIndex :
-                        targetIndex > _targetIndex ? targetIndex : _targetIndex;
+                    _targetIndex =
+                        _targetIndex == -1 ? targetIndex
+                        : targetIndex > _targetIndex ? targetIndex
+                        : _targetIndex;
                 }
                 else if (targetStart < draggedStart && draggedDeltaStart <= targetMid)
                 {
                     SetTranslateTransform(targetContainer, 0, draggedBounds.Height);
 
-                    _targetIndex = _targetIndex == -1 ? targetIndex :
-                        targetIndex < _targetIndex ? targetIndex : _targetIndex;
+                    _targetIndex =
+                        _targetIndex == -1 ? targetIndex
+                        : targetIndex < _targetIndex ? targetIndex
+                        : _targetIndex;
                 }
                 else
                 {

@@ -8,7 +8,7 @@ namespace Beutl.Audio.Graph;
 public static class AudioMath
 {
     private const float DbToLinearConstant = 0.11512925464970229f; // 1 / (20 * log10(e))
-    private const float LinearToDbConstant = 8.6858896380650365f;  // 20 * log10(e)
+    private const float LinearToDbConstant = 8.6858896380650365f; // 20 * log10(e)
 
     public static void AddWithGain(ReadOnlySpan<float> input, Span<float> output, float gain)
     {
@@ -25,7 +25,11 @@ public static class AudioMath
         }
     }
 
-    public static void MultiplyBuffers(ReadOnlySpan<float> input, ReadOnlySpan<float> gains, Span<float> output)
+    public static void MultiplyBuffers(
+        ReadOnlySpan<float> input,
+        ReadOnlySpan<float> gains,
+        Span<float> output
+    )
     {
         if (input.Length != gains.Length || input.Length != output.Length)
             throw new ArgumentException("All spans must have the same length.");
@@ -52,7 +56,13 @@ public static class AudioMath
         }
     }
 
-    public static void MixBuffers(ReadOnlySpan<float> input1, ReadOnlySpan<float> input2, Span<float> output, float mix1 = 0.5f, float mix2 = 0.5f)
+    public static void MixBuffers(
+        ReadOnlySpan<float> input1,
+        ReadOnlySpan<float> input2,
+        Span<float> output,
+        float mix1 = 0.5f,
+        float mix2 = 0.5f
+    )
     {
         if (input1.Length != input2.Length || input1.Length != output.Length)
             throw new ArgumentException("All spans must have the same length.");
@@ -163,7 +173,8 @@ public static class AudioMath
             {
                 // Soft clipping using tanh function
                 float normalizedSample = sample / abs;
-                float clippedAbs = threshold + (1f - threshold) * MathF.Tanh((abs - threshold) / (1f - threshold));
+                float clippedAbs =
+                    threshold + (1f - threshold) * MathF.Tanh((abs - threshold) / (1f - threshold));
                 buffer[i] = normalizedSample * clippedAbs;
             }
         }
@@ -204,7 +215,11 @@ public static class AudioMath
 
     #region Vectorized Implementations
 
-    private static void AddWithGainVectorized(ReadOnlySpan<float> input, Span<float> output, float gain)
+    private static void AddWithGainVectorized(
+        ReadOnlySpan<float> input,
+        Span<float> output,
+        float gain
+    )
     {
         var gainVector = new Vector<float>(gain);
         int vectorSize = Vector<float>.Count;
@@ -228,7 +243,11 @@ public static class AudioMath
         }
     }
 
-    private static void MultiplyBuffersVectorized(ReadOnlySpan<float> input, ReadOnlySpan<float> gains, Span<float> output)
+    private static void MultiplyBuffersVectorized(
+        ReadOnlySpan<float> input,
+        ReadOnlySpan<float> gains,
+        Span<float> output
+    )
     {
         int vectorSize = Vector<float>.Count;
         int vectorCount = input.Length / vectorSize;
@@ -274,7 +293,13 @@ public static class AudioMath
         }
     }
 
-    private static void MixBuffersVectorized(ReadOnlySpan<float> input1, ReadOnlySpan<float> input2, Span<float> output, float mix1, float mix2)
+    private static void MixBuffersVectorized(
+        ReadOnlySpan<float> input1,
+        ReadOnlySpan<float> input2,
+        Span<float> output,
+        float mix1,
+        float mix2
+    )
     {
         var mix1Vector = new Vector<float>(mix1);
         var mix2Vector = new Vector<float>(mix2);
@@ -295,7 +320,13 @@ public static class AudioMath
         if (remaining > 0)
         {
             int offset = vectorCount * vectorSize;
-            MixBuffersScalar(input1.Slice(offset), input2.Slice(offset), output.Slice(offset), mix1, mix2);
+            MixBuffersScalar(
+                input1.Slice(offset),
+                input2.Slice(offset),
+                output.Slice(offset),
+                mix1,
+                mix2
+            );
         }
     }
 
@@ -379,7 +410,11 @@ public static class AudioMath
         }
     }
 
-    private static void MultiplyBuffersScalar(ReadOnlySpan<float> input, ReadOnlySpan<float> gains, Span<float> output)
+    private static void MultiplyBuffersScalar(
+        ReadOnlySpan<float> input,
+        ReadOnlySpan<float> gains,
+        Span<float> output
+    )
     {
         for (int i = 0; i < input.Length; i++)
         {
@@ -395,7 +430,13 @@ public static class AudioMath
         }
     }
 
-    private static void MixBuffersScalar(ReadOnlySpan<float> input1, ReadOnlySpan<float> input2, Span<float> output, float mix1, float mix2)
+    private static void MixBuffersScalar(
+        ReadOnlySpan<float> input1,
+        ReadOnlySpan<float> input2,
+        Span<float> output,
+        float mix1,
+        float mix2
+    )
     {
         for (int i = 0; i < input1.Length; i++)
         {

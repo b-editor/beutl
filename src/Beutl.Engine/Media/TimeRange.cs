@@ -126,7 +126,8 @@ public readonly struct TimeRange : IEquatable<TimeRange>
 
     public override bool Equals(object? obj) => obj is TimeRange range && Equals(range);
 
-    public bool Equals(TimeRange other) => Start.Equals(other.Start) && Duration.Equals(other.Duration);
+    public bool Equals(TimeRange other) =>
+        Start.Equals(other.Start) && Duration.Equals(other.Duration);
 
     public override int GetHashCode() => HashCode.Combine(Start, Duration);
 

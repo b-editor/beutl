@@ -16,8 +16,10 @@ internal abstract record FEItem<T>(T Data, Func<T, Rect, Rect>? TransformBounds)
 }
 
 internal record FEItem_Skia<T>(
-    T Data, Func<T, SKImageFilter?, FilterEffectActivator, SKImageFilter?> Factory, Func<T, Rect, Rect> TransformBounds)
-    : FEItem<T>(Data, TransformBounds), IFEItem_Skia
+    T Data,
+    Func<T, SKImageFilter?, FilterEffectActivator, SKImageFilter?> Factory,
+    Func<T, Rect, Rect> TransformBounds
+) : FEItem<T>(Data, TransformBounds), IFEItem_Skia
 {
     public void Accepts(FilterEffectActivator activator, SKImageFilterBuilder builder)
     {
@@ -26,8 +28,9 @@ internal record FEItem_Skia<T>(
 }
 
 internal record FEItem_SKColorFilter<T>(
-    T Data, Func<T, FilterEffectActivator, SKColorFilter?> Factory)
-    : FEItem<T>(Data, (_, rect) => rect), IFEItem_Skia
+    T Data,
+    Func<T, FilterEffectActivator, SKColorFilter?> Factory
+) : FEItem<T>(Data, (_, rect) => rect), IFEItem_Skia
 {
     public void Accepts(FilterEffectActivator activator, SKImageFilterBuilder builder)
     {
@@ -41,8 +44,10 @@ internal interface IFEItem_Skia
 }
 
 internal record FEItem_CustomEffect<T>(
-    T Data, Action<T, CustomFilterEffectContext> Action, Func<T, Rect, Rect>? TransformBounds)
-    : FEItem<T>(Data, TransformBounds), IFEItem_Custom
+    T Data,
+    Action<T, CustomFilterEffectContext> Action,
+    Func<T, Rect, Rect>? TransformBounds
+) : FEItem<T>(Data, TransformBounds), IFEItem_Custom
 {
     public void Accepts(CustomFilterEffectContext context)
     {

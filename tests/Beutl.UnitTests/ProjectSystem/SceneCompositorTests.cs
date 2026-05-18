@@ -19,7 +19,7 @@ public class SceneCompositorTests
         Directory.CreateDirectory(basePath);
         var scene = new Scene(100, 100, string.Empty)
         {
-            Uri = new Uri(Path.Combine(basePath, "test.scene"))
+            Uri = new Uri(Path.Combine(basePath, "test.scene")),
         };
         return scene;
     }
@@ -31,7 +31,7 @@ public class SceneCompositorTests
             Start = TimeSpan.Zero,
             Length = TimeSpan.FromSeconds(1),
             IsEnabled = isEnabled,
-            Uri = new Uri(Path.Combine(basePath, $"{Guid.NewGuid():N}.layer"))
+            Uri = new Uri(Path.Combine(basePath, $"{Guid.NewGuid():N}.layer")),
         };
         element.AddObject(obj);
         return element;
@@ -57,7 +57,8 @@ public class SceneCompositorTests
         }
         finally
         {
-            if (Directory.Exists(basePath)) Directory.Delete(basePath, recursive: true);
+            if (Directory.Exists(basePath))
+                Directory.Delete(basePath, recursive: true);
         }
     }
 
@@ -75,14 +76,16 @@ public class SceneCompositorTests
             using var compositor = new SceneCompositor(scene);
 
             CompositionFrame frame = compositor.EvaluateAudio(
-                new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(1)));
+                new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(1))
+            );
 
             ClassicAssert.AreEqual(1, frame.Objects.Length);
             ClassicAssert.AreSame(enabled.Objects[0], frame.Objects[0].GetOriginal());
         }
         finally
         {
-            if (Directory.Exists(basePath)) Directory.Delete(basePath, recursive: true);
+            if (Directory.Exists(basePath))
+                Directory.Delete(basePath, recursive: true);
         }
     }
 
@@ -108,7 +111,8 @@ public class SceneCompositorTests
         }
         finally
         {
-            if (Directory.Exists(basePath)) Directory.Delete(basePath, recursive: true);
+            if (Directory.Exists(basePath))
+                Directory.Delete(basePath, recursive: true);
         }
     }
 
@@ -133,7 +137,8 @@ public class SceneCompositorTests
         }
         finally
         {
-            if (Directory.Exists(basePath)) Directory.Delete(basePath, recursive: true);
+            if (Directory.Exists(basePath))
+                Directory.Delete(basePath, recursive: true);
         }
     }
 

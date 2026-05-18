@@ -24,7 +24,10 @@ public sealed partial class ElementPropertyTabView : UserControl
             var self = new WeakReference<ElementPropertyTabView>(this);
             viewModel.RequestScroll = obj =>
             {
-                if (self.TryGetTarget(out ElementPropertyTabView? @this) && @this.DataContext is ElementPropertyTabViewModel viewModel)
+                if (
+                    self.TryGetTarget(out ElementPropertyTabView? @this)
+                    && @this.DataContext is ElementPropertyTabViewModel viewModel
+                )
                 {
                     int index = 0;
                     bool found = false;
@@ -43,7 +46,10 @@ public sealed partial class ElementPropertyTabView : UserControl
                         Control? ctrl = @this.itemsControl.ContainerFromIndex(index);
                         if (ctrl != null)
                         {
-                            @this.scrollViewer.Offset = new Avalonia.Vector(@this.scrollViewer.Offset.X, ctrl.Bounds.Top);
+                            @this.scrollViewer.Offset = new Avalonia.Vector(
+                                @this.scrollViewer.Offset.X,
+                                ctrl.Bounds.Top
+                            );
                         }
                     }
                 }
@@ -53,10 +59,12 @@ public sealed partial class ElementPropertyTabView : UserControl
 
     private void Drop(object? sender, DragEventArgs e)
     {
-        if (e.DataTransfer.TryGetValue(BeutlDataFormats.EngineObject) is { } typeName
+        if (
+            e.DataTransfer.TryGetValue(BeutlDataFormats.EngineObject) is { } typeName
             && TypeFormat.ToType(typeName) is { } item
             && DataContext is ElementPropertyTabViewModel vm
-            && vm.Element.Value is Element element)
+            && vm.Element.Value is Element element
+        )
         {
             HistoryManager history = vm.GetRequiredService<HistoryManager>();
             element.AddObject((EngineObject)Activator.CreateInstance(item)!);

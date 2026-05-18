@@ -10,7 +10,8 @@ public static class DiagnosticDescriptors
         messageFormat: "Type '{0}' must be declared partial to generate Resource nested classes",
         category: "Beutl.Engine.SourceGenerators",
         defaultSeverity: DiagnosticSeverity.Warning,
-        isEnabledByDefault: true);
+        isEnabledByDefault: true
+    );
 
     public static readonly DiagnosticDescriptor FallbackMissingPartial = new(
         id: "BESG002",
@@ -18,5 +19,6 @@ public static class DiagnosticDescriptors
         messageFormat: "Type '{0}' must be declared partial to generate IFallback implementation",
         category: "Beutl.Engine.SourceGenerators",
         defaultSeverity: DiagnosticSeverity.Warning,
-        isEnabledByDefault: true);
+        isEnabledByDefault: true
+    );
 }

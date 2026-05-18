@@ -1,7 +1,5 @@
 ﻿using Avalonia;
-
 using Beutl.Language;
-
 using FluentAvalonia.UI.Media;
 
 namespace Beutl.Controls.PropertyEditors;
@@ -11,45 +9,55 @@ public class ColorComponentsEditor : Vector3Editor<int>
 {
     // ColorPickerComponent.properties.cs
     public static readonly DirectProperty<ColorComponentsEditor, Color2> ColorProperty =
-        AvaloniaProperty.RegisterDirect<ColorComponentsEditor, Color2>(nameof(Color),
-            x => x.Color, (x, v) => x.Color = v);
+        AvaloniaProperty.RegisterDirect<ColorComponentsEditor, Color2>(
+            nameof(Color),
+            x => x.Color,
+            (x, v) => x.Color = v
+        );
 
     public static readonly DirectProperty<ColorComponentsEditor, bool> RgbProperty =
-        AvaloniaProperty.RegisterDirect<ColorComponentsEditor, bool>(nameof(Rgb),
-            x => x.Rgb, (x, v) => x.Rgb = v, unsetValue: true);
+        AvaloniaProperty.RegisterDirect<ColorComponentsEditor, bool>(
+            nameof(Rgb),
+            x => x.Rgb,
+            (x, v) => x.Rgb = v,
+            unsetValue: true
+        );
 
     private Color2 _color = Color2.FromHSVf(71, 0.54f, .5f);
     private bool _rgb = true;
 
     static ColorComponentsEditor()
     {
-        ValueChangedEvent.AddClassHandler<ColorComponentsEditor>((t, args) =>
-        {
-            if (args is PropertyEditorValueChangedEventArgs<(int, int, int)> e)
+        ValueChangedEvent.AddClassHandler<ColorComponentsEditor>(
+            (t, args) =>
             {
-                if (t.Rgb)
+                if (args is PropertyEditorValueChangedEventArgs<(int, int, int)> e)
                 {
-                    (byte r, byte g, byte b) = (
-                        (byte)Math.Clamp(e.NewValue.Item1, 0, 255),
-                        (byte)Math.Clamp(e.NewValue.Item2, 0, 255),
-                        (byte)Math.Clamp(e.NewValue.Item3, 0, 255));
-                    t.Color = Color2.FromRGB(r, g, b);
-                }
-                else
-                {
-                    (int h, int s, int v) = e.NewValue;
-                    h %= 360;
-                    if (h < 0)
+                    if (t.Rgb)
                     {
-                        h += 360;
+                        (byte r, byte g, byte b) = (
+                            (byte)Math.Clamp(e.NewValue.Item1, 0, 255),
+                            (byte)Math.Clamp(e.NewValue.Item2, 0, 255),
+                            (byte)Math.Clamp(e.NewValue.Item3, 0, 255)
+                        );
+                        t.Color = Color2.FromRGB(r, g, b);
+                    }
+                    else
+                    {
+                        (int h, int s, int v) = e.NewValue;
+                        h %= 360;
+                        if (h < 0)
+                        {
+                            h += 360;
+                        }
+
+                        t.Color = Color2.FromHSV(h, s, v);
                     }
 
-                    t.Color = Color2.FromHSV(h, s, v);
+                    t.UpdateProperties();
                 }
-
-                t.UpdateProperties();
             }
-        });
+        );
     }
 
     public ColorComponentsEditor()

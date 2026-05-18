@@ -1,12 +1,13 @@
 ﻿using System.ComponentModel.DataAnnotations;
-
 using Beutl.Extensibility;
 using Beutl.Extensions.MediaFoundation.Properties;
 
 #if MF_BUILD_IN
 namespace Beutl.Embedding.MediaFoundation.Decoding;
+
 #else
 namespace Beutl.Extensions.MediaFoundation.Decoding;
+
 #endif
 
 public sealed class MFDecodingSettings : ExtensionSettings
@@ -23,26 +24,38 @@ public sealed class MFDecodingSettings : ExtensionSettings
             .DefaultValue(false)
             .Register();
 
-        ThresholdFrameCountProperty = ConfigureProperty<int, MFDecodingSettings>(nameof(ThresholdFrameCount))
+        ThresholdFrameCountProperty = ConfigureProperty<int, MFDecodingSettings>(
+                nameof(ThresholdFrameCount)
+            )
             .DefaultValue(30)
             .Register();
 
-        ThresholdSampleCountProperty = ConfigureProperty<int, MFDecodingSettings>(nameof(ThresholdSampleCount))
+        ThresholdSampleCountProperty = ConfigureProperty<int, MFDecodingSettings>(
+                nameof(ThresholdSampleCount)
+            )
             .DefaultValue(30000)
             .Register();
 
-        MaxVideoBufferSizeProperty = ConfigureProperty<int, MFDecodingSettings>(nameof(MaxVideoBufferSize))
+        MaxVideoBufferSizeProperty = ConfigureProperty<int, MFDecodingSettings>(
+                nameof(MaxVideoBufferSize)
+            )
             .DefaultValue(4)
             .Register();
 
-        MaxAudioBufferSizeProperty = ConfigureProperty<int, MFDecodingSettings>(nameof(MaxAudioBufferSize))
+        MaxAudioBufferSizeProperty = ConfigureProperty<int, MFDecodingSettings>(
+                nameof(MaxAudioBufferSize)
+            )
             .DefaultValue(20)
             .Register();
 
         AffectsConfig<MFDecodingSettings>(UseDXVA2Property);
     }
 
-    [Display(Name = nameof(Strings.UseDXVA2), Description = nameof(Strings.UseDXVA2_Description), ResourceType = typeof(Strings))]
+    [Display(
+        Name = nameof(Strings.UseDXVA2),
+        Description = nameof(Strings.UseDXVA2_Description),
+        ResourceType = typeof(Strings)
+    )]
     public bool UseDXVA2
     {
         get => GetValue(UseDXVA2Property);
@@ -53,7 +66,8 @@ public sealed class MFDecodingSettings : ExtensionSettings
     [Display(
         Name = nameof(Strings.SeekThresholdInVideoStream),
         Description = nameof(Strings.SeekThresholdInVideoStream_Description),
-        ResourceType = typeof(Strings))]
+        ResourceType = typeof(Strings)
+    )]
     public int ThresholdFrameCount
     {
         get => GetValue(ThresholdFrameCountProperty);
@@ -64,7 +78,8 @@ public sealed class MFDecodingSettings : ExtensionSettings
     [Display(
         Name = nameof(Strings.SeekThresholdInAudioStream),
         Description = nameof(Strings.SeekThresholdInAudioStream_Description),
-        ResourceType = typeof(Strings))]
+        ResourceType = typeof(Strings)
+    )]
     public int ThresholdSampleCount
     {
         get => GetValue(ThresholdSampleCountProperty);
@@ -75,7 +90,8 @@ public sealed class MFDecodingSettings : ExtensionSettings
     [Display(
         Name = nameof(Strings.MaxVideoBufferSize),
         GroupName = nameof(Strings.Cache),
-        ResourceType = typeof(Strings))]
+        ResourceType = typeof(Strings)
+    )]
     public int MaxVideoBufferSize
     {
         get => GetValue(MaxVideoBufferSizeProperty);
@@ -86,7 +102,8 @@ public sealed class MFDecodingSettings : ExtensionSettings
     [Display(
         Name = nameof(Strings.MaxAudioBufferSize),
         GroupName = nameof(Strings.Cache),
-        ResourceType = typeof(Strings))]
+        ResourceType = typeof(Strings)
+    )]
     public int MaxAudioBufferSize
     {
         get => GetValue(MaxAudioBufferSizeProperty);

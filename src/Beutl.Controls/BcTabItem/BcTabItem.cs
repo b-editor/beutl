@@ -4,7 +4,6 @@ using Avalonia.Controls.Metadata;
 using Avalonia.Controls.Primitives;
 using Avalonia.Interactivity;
 using Avalonia.Layout;
-
 using Beutl.Controls.Behaviors;
 using Beutl.Controls.Extensions;
 
@@ -25,8 +24,12 @@ public partial class BcTabItem : TabItem
 
     static BcTabItem()
     {
-        TabStripPlacementProperty.Changed.AddClassHandler<BcTabItem>((x, _) => x.OnTabStripPlacementChanged());
-        CanBeDraggedProperty.Changed.AddClassHandler<BcTabItem>((x, e) => x.OnCanDraggablePropertyChanged(x, e));
+        TabStripPlacementProperty.Changed.AddClassHandler<BcTabItem>(
+            (x, _) => x.OnTabStripPlacementChanged()
+        );
+        CanBeDraggedProperty.Changed.AddClassHandler<BcTabItem>(
+            (x, e) => x.OnCanDraggablePropertyChanged(x, e)
+        );
         IsSelectedProperty.Changed.AddClassHandler<BcTabItem>((x, _) => UpdatePseudoClass(x));
         IsClosableProperty.Changed.Subscribe(e =>
         {

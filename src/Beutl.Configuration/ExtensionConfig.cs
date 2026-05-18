@@ -30,24 +30,38 @@ public sealed class ExtensionConfig : ConfigurationBase
     {
         base.Serialize(context);
 
-        context.SetValue(nameof(EditorExtensions), EditorExtensions
-            .ToDictionary(x => x.Key, y => y.Value.Select(z => z.FormattedTypeName).ToArray()));
+        context.SetValue(
+            nameof(EditorExtensions),
+            EditorExtensions.ToDictionary(
+                x => x.Key,
+                y => y.Value.Select(z => z.FormattedTypeName).ToArray()
+            )
+        );
 
-        context.SetValue(nameof(DecoderPriority), DecoderPriority.Select(v => v.FormattedTypeName).ToArray());
+        context.SetValue(
+            nameof(DecoderPriority),
+            DecoderPriority.Select(v => v.FormattedTypeName).ToArray()
+        );
     }
 
     public override void Deserialize(ICoreSerializationContext context)
     {
         base.Deserialize(context);
-        Dictionary<string, string[]>? ee = context.GetValue<Dictionary<string, string[]>>(nameof(EditorExtensions));
+        Dictionary<string, string[]>? ee = context.GetValue<Dictionary<string, string[]>>(
+            nameof(EditorExtensions)
+        );
         EditorExtensions.Clear();
         if (ee != null)
         {
             foreach (KeyValuePair<string, string[]> item in ee)
             {
-                EditorExtensions.Add(item.Key, new CoreList<TypeLazy>(item.Value
-                    .Select(str => new TypeLazy(str))
-                    .Where(type => type.FormattedTypeName != null)));
+                EditorExtensions.Add(
+                    item.Key,
+                    new CoreList<TypeLazy>(
+                        item.Value.Select(str => new TypeLazy(str))
+                            .Where(type => type.FormattedTypeName != null)
+                    )
+                );
             }
         }
 
@@ -55,9 +69,7 @@ public sealed class ExtensionConfig : ConfigurationBase
         DecoderPriority.Clear();
         if (dp != null)
         {
-            DecoderPriority.AddRange(dp
-                .Where(v => v != null)
-                .Select(v => new TypeLazy(v!)));
+            DecoderPriority.AddRange(dp.Where(v => v != null).Select(v => new TypeLazy(v!)));
         }
     }
 }

@@ -1,12 +1,9 @@
 ﻿using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Avalonia.LogicalTree;
-
 using Beutl.Api.Objects;
-
 using Beutl.ViewModels;
 using Beutl.ViewModels.ExtensionsPages.DiscoverPages;
-
 using FluentAvalonia.UI.Controls;
 using FluentAvalonia.UI.Navigation;
 
@@ -48,13 +45,19 @@ public partial class SearchPage : UserControl
 
     private DataContextFactory GetDataContextFactory()
     {
-        return ((ExtensionsPageViewModel)this.FindLogicalAncestorOfType<ExtensionsPage>()!.DataContext!).Discover.DataContextFactory;
+        return (
+            (ExtensionsPageViewModel)this.FindLogicalAncestorOfType<ExtensionsPage>()!.DataContext!
+        )
+            .Discover
+            .DataContextFactory;
     }
 
     private void Package_Click(object? sender, RoutedEventArgs e)
     {
-        if (sender is Button { DataContext: Package package }
-            && this.FindLogicalAncestorOfType<Frame>() is { } frame)
+        if (
+            sender is Button { DataContext: Package package }
+            && this.FindLogicalAncestorOfType<Frame>() is { } frame
+        )
         {
             frame.Navigate(typeof(PackageDetailsPage), package);
         }

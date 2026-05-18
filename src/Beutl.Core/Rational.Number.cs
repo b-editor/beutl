@@ -2,7 +2,6 @@
 using System.Globalization;
 using System.Numerics;
 using System.Text.Json.Serialization;
-
 using Beutl.JsonConverters;
 
 namespace Beutl;
@@ -148,7 +147,11 @@ public readonly partial struct Rational : INumber<Rational>, IMinMaxValue<Ration
         return y;
     }
 
-    public static Rational Parse(ReadOnlySpan<char> s, NumberStyles style, IFormatProvider? provider)
+    public static Rational Parse(
+        ReadOnlySpan<char> s,
+        NumberStyles style,
+        IFormatProvider? provider
+    )
     {
         int idx = s.IndexOf('/');
         if (idx == 0 || s.Contains('.'))
@@ -205,7 +208,12 @@ public readonly partial struct Rational : INumber<Rational>, IMinMaxValue<Ration
         return Parse(s, NumberStyles.Integer, provider);
     }
 
-    public static bool TryParse(ReadOnlySpan<char> s, NumberStyles style, IFormatProvider? provider, [MaybeNullWhen(false)] out Rational result)
+    public static bool TryParse(
+        ReadOnlySpan<char> s,
+        NumberStyles style,
+        IFormatProvider? provider,
+        [MaybeNullWhen(false)] out Rational result
+    )
     {
         result = default;
         int idx = s.IndexOf('/');
@@ -219,8 +227,10 @@ public readonly partial struct Rational : INumber<Rational>, IMinMaxValue<Ration
             ReadOnlySpan<char> numStr = s.Slice(0, idx);
             ReadOnlySpan<char> denStr = s.Slice(idx + 1);
 
-            if (long.TryParse(numStr, style, provider, out long num)
-                && long.TryParse(denStr, style, provider, out long den))
+            if (
+                long.TryParse(numStr, style, provider, out long num)
+                && long.TryParse(denStr, style, provider, out long den)
+            )
             {
                 result = new Rational(num, den);
                 return true;
@@ -244,17 +254,30 @@ public readonly partial struct Rational : INumber<Rational>, IMinMaxValue<Ration
         }
     }
 
-    public static bool TryParse([NotNullWhen(true)] string? s, NumberStyles style, IFormatProvider? provider, [MaybeNullWhen(false)] out Rational result)
+    public static bool TryParse(
+        [NotNullWhen(true)] string? s,
+        NumberStyles style,
+        IFormatProvider? provider,
+        [MaybeNullWhen(false)] out Rational result
+    )
     {
         return TryParse(s.AsSpan(), style, provider, out result);
     }
 
-    public static bool TryParse(ReadOnlySpan<char> s, IFormatProvider? provider, [MaybeNullWhen(false)] out Rational result)
+    public static bool TryParse(
+        ReadOnlySpan<char> s,
+        IFormatProvider? provider,
+        [MaybeNullWhen(false)] out Rational result
+    )
     {
         return TryParse(s, NumberStyles.Integer, provider, out result);
     }
 
-    public static bool TryParse([NotNullWhen(true)] string? s, IFormatProvider? provider, [MaybeNullWhen(false)] out Rational result)
+    public static bool TryParse(
+        [NotNullWhen(true)] string? s,
+        IFormatProvider? provider,
+        [MaybeNullWhen(false)] out Rational result
+    )
     {
         return TryParse(s, NumberStyles.Integer, provider, out result);
     }
@@ -274,23 +297,34 @@ public readonly partial struct Rational : INumber<Rational>, IMinMaxValue<Ration
         return double.IsInteger(value.ToDouble());
     }
 
-    public static bool IsNegativeInfinity(Rational value) => value.Denominator == 0 && value.Numerator == -1;
+    public static bool IsNegativeInfinity(Rational value) =>
+        value.Denominator == 0 && value.Numerator == -1;
 
-    public static bool IsPositiveInfinity(Rational value) => value.Denominator == 0 && value.Numerator == 1;
+    public static bool IsPositiveInfinity(Rational value) =>
+        value.Denominator == 0 && value.Numerator == 1;
 
     public static bool IsZero(Rational value) => value.Denominator == 1 && value.Numerator == 0;
 
-    static bool INumberBase<Rational>.TryConvertFromChecked<TOther>(TOther value, out Rational result)
+    static bool INumberBase<Rational>.TryConvertFromChecked<TOther>(
+        TOther value,
+        out Rational result
+    )
     {
         return TryConvertFrom(value, out result);
     }
 
-    static bool INumberBase<Rational>.TryConvertFromSaturating<TOther>(TOther value, out Rational result)
+    static bool INumberBase<Rational>.TryConvertFromSaturating<TOther>(
+        TOther value,
+        out Rational result
+    )
     {
         return TryConvertFrom(value, out result);
     }
 
-    static bool INumberBase<Rational>.TryConvertFromTruncating<TOther>(TOther value, out Rational result)
+    static bool INumberBase<Rational>.TryConvertFromTruncating<TOther>(
+        TOther value,
+        out Rational result
+    )
     {
         return TryConvertFrom(value, out result);
     }
@@ -353,7 +387,10 @@ public readonly partial struct Rational : INumber<Rational>, IMinMaxValue<Ration
         }
     }
 
-    static bool INumberBase<Rational>.TryConvertToChecked<TOther>(Rational value, [MaybeNullWhen(false)] out TOther result)
+    static bool INumberBase<Rational>.TryConvertToChecked<TOther>(
+        Rational value,
+        [MaybeNullWhen(false)] out TOther result
+    )
     {
         if (typeof(TOther) == typeof(byte))
         {
@@ -410,17 +447,26 @@ public readonly partial struct Rational : INumber<Rational>, IMinMaxValue<Ration
         }
     }
 
-    static bool INumberBase<Rational>.TryConvertToSaturating<TOther>(Rational value, [MaybeNullWhen(false)] out TOther result)
+    static bool INumberBase<Rational>.TryConvertToSaturating<TOther>(
+        Rational value,
+        [MaybeNullWhen(false)] out TOther result
+    )
     {
         return TryConvertTo(value, out result);
     }
 
-    static bool INumberBase<Rational>.TryConvertToTruncating<TOther>(Rational value, [MaybeNullWhen(false)] out TOther result)
+    static bool INumberBase<Rational>.TryConvertToTruncating<TOther>(
+        Rational value,
+        [MaybeNullWhen(false)] out TOther result
+    )
     {
         return TryConvertTo(value, out result);
     }
 
-    private static bool TryConvertTo<TOther>(Rational value, [MaybeNullWhen(false)] out TOther result)
+    private static bool TryConvertTo<TOther>(
+        Rational value,
+        [MaybeNullWhen(false)] out TOther result
+    )
         where TOther : INumberBase<TOther>
     {
         // In order to reduce overall code duplication and improve the inlinabilty of these
@@ -435,16 +481,20 @@ public readonly partial struct Rational : INumber<Rational>, IMinMaxValue<Ration
         if (typeof(TOther) == typeof(byte))
         {
             float valueF = value.ToSingle();
-            byte actualResult = (valueF >= byte.MaxValue) ? byte.MaxValue :
-                                (valueF <= byte.MinValue) ? byte.MinValue : (byte)valueF;
+            byte actualResult =
+                (valueF >= byte.MaxValue) ? byte.MaxValue
+                : (valueF <= byte.MinValue) ? byte.MinValue
+                : (byte)valueF;
             result = (TOther)(object)actualResult;
             return true;
         }
         else if (typeof(TOther) == typeof(char))
         {
             float valueF = value.ToSingle();
-            char actualResult = (valueF >= char.MaxValue) ? char.MaxValue :
-                                (valueF <= char.MinValue) ? char.MinValue : (char)valueF;
+            char actualResult =
+                (valueF >= char.MaxValue) ? char.MaxValue
+                : (valueF <= char.MinValue) ? char.MinValue
+                : (char)valueF;
             result = (TOther)(object)actualResult;
             return true;
         }
@@ -457,40 +507,50 @@ public readonly partial struct Rational : INumber<Rational>, IMinMaxValue<Ration
         else if (typeof(TOther) == typeof(ushort))
         {
             float valueF = value.ToSingle();
-            ushort actualResult = (valueF >= ushort.MaxValue) ? ushort.MaxValue :
-                                  (valueF <= ushort.MinValue) ? ushort.MinValue : (ushort)valueF;
+            ushort actualResult =
+                (valueF >= ushort.MaxValue) ? ushort.MaxValue
+                : (valueF <= ushort.MinValue) ? ushort.MinValue
+                : (ushort)valueF;
             result = (TOther)(object)actualResult;
             return true;
         }
         else if (typeof(TOther) == typeof(uint))
         {
             float valueF = value.ToSingle();
-            uint actualResult = (valueF >= uint.MaxValue) ? uint.MaxValue :
-                                (valueF <= uint.MinValue) ? uint.MinValue : (uint)valueF;
+            uint actualResult =
+                (valueF >= uint.MaxValue) ? uint.MaxValue
+                : (valueF <= uint.MinValue) ? uint.MinValue
+                : (uint)valueF;
             result = (TOther)(object)actualResult;
             return true;
         }
         else if (typeof(TOther) == typeof(ulong))
         {
             double valueD = value.ToDouble();
-            ulong actualResult = (valueD >= ulong.MaxValue) ? ulong.MaxValue :
-                                 (valueD <= ulong.MinValue) ? ulong.MinValue :
-                                 IsNaN(value) ? 0 : (ulong)valueD;
+            ulong actualResult =
+                (valueD >= ulong.MaxValue) ? ulong.MaxValue
+                : (valueD <= ulong.MinValue) ? ulong.MinValue
+                : IsNaN(value) ? 0
+                : (ulong)valueD;
             result = (TOther)(object)actualResult;
             return true;
         }
         else if (typeof(TOther) == typeof(UInt128))
         {
-            UInt128 actualResult = (IsPositiveInfinity(value)) ? UInt128.MaxValue :
-                                   (IsNegative(value) || IsZero(value)) ? UInt128.MinValue : (UInt128)value.Numerator / (UInt128)value.Denominator;
+            UInt128 actualResult =
+                (IsPositiveInfinity(value)) ? UInt128.MaxValue
+                : (IsNegative(value) || IsZero(value)) ? UInt128.MinValue
+                : (UInt128)value.Numerator / (UInt128)value.Denominator;
             result = (TOther)(object)actualResult;
             return true;
         }
         else if (typeof(TOther) == typeof(nuint))
         {
             float valueF = value.ToSingle();
-            nuint actualResult = (valueF >= nuint.MaxValue) ? unchecked(nuint.MaxValue) :
-                                 (valueF <= nuint.MinValue) ? unchecked(nuint.MinValue) : (nuint)valueF;
+            nuint actualResult =
+                (valueF >= nuint.MaxValue) ? unchecked(nuint.MaxValue)
+                : (valueF <= nuint.MinValue) ? unchecked(nuint.MinValue)
+                : (nuint)valueF;
             result = (TOther)(object)actualResult;
             return true;
         }
@@ -510,9 +570,12 @@ public readonly partial struct Rational : INumber<Rational>, IMinMaxValue<Ration
 
         if (value is Rational f)
         {
-            if (this < f) return -1;
-            if (this > f) return 1;
-            if (this == f) return 0;
+            if (this < f)
+                return -1;
+            if (this > f)
+                return 1;
+            if (this == f)
+                return 0;
 
             // At least one of the values is NaN.
             if (IsNaN(this))
@@ -526,9 +589,12 @@ public readonly partial struct Rational : INumber<Rational>, IMinMaxValue<Ration
 
     public int CompareTo(Rational value)
     {
-        if (this < value) return -1;
-        if (this > value) return 1;
-        if (this == value) return 0;
+        if (this < value)
+            return -1;
+        if (this > value)
+            return 1;
+        if (this == value)
+            return 0;
 
         // At least one of the values is NaN.
         if (IsNaN(this))

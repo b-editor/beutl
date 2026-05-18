@@ -12,8 +12,12 @@ public class RenderTarget : IDisposable
     private readonly SKSurfaceCounter<ITexture2D>? _texture;
     private readonly Dispatcher? _dispatcher = Dispatcher.Current;
 
-    private RenderTarget(SKSurfaceCounter<SKSurface> surface, int width, int height,
-        SKSurfaceCounter<ITexture2D>? texture = null)
+    private RenderTarget(
+        SKSurfaceCounter<SKSurface> surface,
+        int width,
+        int height,
+        SKSurfaceCounter<ITexture2D>? texture = null
+    )
     {
         _surface = surface;
         Width = width;
@@ -45,7 +49,15 @@ public class RenderTarget : IDisposable
             ITexture2D? sharedTexture = null;
             if (Dispatcher.Current == null)
             {
-                surface = SKSurface.Create(new SKImageInfo(width, height, SKColorType.RgbaF16, SKAlphaType.Premul, SKColorSpace.CreateSrgbLinear()));
+                surface = SKSurface.Create(
+                    new SKImageInfo(
+                        width,
+                        height,
+                        SKColorType.RgbaF16,
+                        SKAlphaType.Premul,
+                        SKColorSpace.CreateSrgbLinear()
+                    )
+                );
             }
             else
             {
@@ -54,20 +66,37 @@ public class RenderTarget : IDisposable
 
                 if (context != null)
                 {
-                    sharedTexture = context.CreateTexture2D(width, height, TextureFormat.RGBA16Float);
+                    sharedTexture = context.CreateTexture2D(
+                        width,
+                        height,
+                        TextureFormat.RGBA16Float
+                    );
                     surface = sharedTexture.CreateSkiaSurface();
                 }
                 else
                 {
-                    surface = SKSurface.Create(new SKImageInfo(width, height, SKColorType.RgbaF16,
-                        SKAlphaType.Premul, SKColorSpace.CreateSrgbLinear()));
+                    surface = SKSurface.Create(
+                        new SKImageInfo(
+                            width,
+                            height,
+                            SKColorType.RgbaF16,
+                            SKAlphaType.Premul,
+                            SKColorSpace.CreateSrgbLinear()
+                        )
+                    );
                 }
             }
 
-            var textureRef = sharedTexture != null ? new SKSurfaceCounter<ITexture2D>(sharedTexture) : null;
+            var textureRef =
+                sharedTexture != null ? new SKSurfaceCounter<ITexture2D>(sharedTexture) : null;
             return surface == null
                 ? null
-                : new RenderTarget(new SKSurfaceCounter<SKSurface>(surface), width, height, textureRef);
+                : new RenderTarget(
+                    new SKSurfaceCounter<SKSurface>(surface),
+                    width,
+                    height,
+                    textureRef
+                );
         }
         catch
         {
@@ -91,7 +120,13 @@ public class RenderTarget : IDisposable
     {
         VerifyAccess();
         PrepareForSampling();
-        var result = new Bitmap(Width, Height, BitmapColorType.RgbaF16, BitmapAlphaType.Premul, BitmapColorSpace.LinearSrgb);
+        var result = new Bitmap(
+            Width,
+            Height,
+            BitmapColorType.RgbaF16,
+            BitmapAlphaType.Premul,
+            BitmapColorSpace.LinearSrgb
+        );
 
         var readInfo = result.SKBitmap.Info;
         _surface.Value!.ReadPixels(readInfo, result.Data, Width * readInfo.BytesPerPixel, 0, 0);
@@ -114,7 +149,8 @@ public class RenderTarget : IDisposable
 
     public void Dispose()
     {
-        if (IsDisposed) return;
+        if (IsDisposed)
+            return;
 
         _surface.Release();
         _texture?.Release();

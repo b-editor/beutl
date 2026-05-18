@@ -17,7 +17,8 @@ public sealed unsafe class CircularBuffer<T> : IDisposable
             throw new ArgumentOutOfRangeException(nameof(length), "Length must be positive.");
 
         // Round up to next power of 2 for efficient wrapping
-        _length = (int)System.Math.Pow(2, System.Math.Ceiling(System.Math.Log(length) / System.Math.Log(2)));
+        _length = (int)
+            System.Math.Pow(2, System.Math.Ceiling(System.Math.Log(length) / System.Math.Log(2)));
         _wrapMask = _length - 1;
         _writeIndex = 0;
 
@@ -38,7 +39,10 @@ public sealed unsafe class CircularBuffer<T> : IDisposable
         ObjectDisposedException.ThrowIf(_disposed, this);
 
         if (samplesBack < 0)
-            throw new ArgumentOutOfRangeException(nameof(samplesBack), "Samples back must be non-negative.");
+            throw new ArgumentOutOfRangeException(
+                nameof(samplesBack),
+                "Samples back must be non-negative."
+            );
 
         if (samplesBack >= _length)
             return default(T); // Return silence for out-of-range reads

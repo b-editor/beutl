@@ -1,8 +1,6 @@
 ﻿using Avalonia;
-
 using Beutl.Configuration;
 using Beutl.Services;
-
 using Reactive.Bindings;
 
 namespace Beutl.ViewModels.Dialogs;
@@ -71,23 +69,27 @@ public sealed class CreateNewProjectViewModel
 
                 if (location != null && name != null)
                 {
-                    return !Directory.Exists(Path.Combine(location, name)) &&
-                        size.Width > 0 &&
-                        size.Height > 0 &&
-                        framerate > 0 &&
-                        samplerate > 0;
+                    return !Directory.Exists(Path.Combine(location, name))
+                        && size.Width > 0
+                        && size.Height > 0
+                        && framerate > 0
+                        && samplerate > 0;
                 }
-                else return false;
+                else
+                    return false;
             })
             .ToReadOnlyReactivePropertySlim();
         Create = new AsyncReactiveCommand(CanCreate);
         Create.Subscribe(async () =>
         {
             var proj = await ProjectService.Current.CreateProject(
-                Size.Value.Width, Size.Value.Height,
-                FrameRate.Value, SampleRate.Value,
+                Size.Value.Width,
+                Size.Value.Height,
+                FrameRate.Value,
+                SampleRate.Value,
                 Name.Value,
-                Location.Value);
+                Location.Value
+            );
             if (proj == null)
                 NotificationService.ShowError(string.Empty, MessageStrings.OperationFailed);
         });
@@ -118,9 +120,7 @@ public sealed class CreateNewProjectViewModel
                 return new string(Path.GetDirectoryName(Path.GetDirectoryName(span)));
             }
         }
-        catch
-        {
-        }
+        catch { }
 
         return Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
     }

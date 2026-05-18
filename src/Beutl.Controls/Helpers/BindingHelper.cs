@@ -4,7 +4,6 @@ using Avalonia.Data;
 using Avalonia.Data.Core;
 using Avalonia.Markup.Xaml.MarkupExtensions;
 using Avalonia.Markup.Xaml.MarkupExtensions.CompiledBindings;
-
 using Reactive.Bindings;
 
 namespace Beutl;
@@ -13,7 +12,10 @@ public static class BindingHelper
 {
     private static readonly Dictionary<Type, CompiledBindingPath> s_cache = [];
 
-    public static IBinding ToPropertyBinding<T>(this IReactiveProperty<T> property, BindingMode bindingMode = BindingMode.Default)
+    public static IBinding ToPropertyBinding<T>(
+        this IReactiveProperty<T> property,
+        BindingMode bindingMode = BindingMode.Default
+    )
     {
         if (!s_cache.TryGetValue(typeof(T), out CompiledBindingPath? path))
         {
@@ -37,7 +39,8 @@ public static class BindingHelper
                         p.Value = v is T t ? t : default!;
                     }
                 },
-                typeof(T));
+                typeof(T)
+            );
 
             var b = new CompiledBindingPathBuilder();
             b.Property(propInfo, PropertyInfoAccessorFactory.CreateInpcPropertyAccessor);
@@ -46,10 +49,6 @@ public static class BindingHelper
             s_cache.Add(typeof(T), path);
         }
 
-        return new CompiledBindingExtension(path)
-        {
-            Source = property,
-            Mode = bindingMode
-        };
+        return new CompiledBindingExtension(path) { Source = property, Mode = bindingMode };
     }
 }

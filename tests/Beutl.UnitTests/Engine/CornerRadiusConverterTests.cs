@@ -11,7 +11,10 @@ public class CornerRadiusConverterTests
     public void CanConvertTo_KnownTargets_ReturnsTrue()
     {
         Assert.That(_converter.CanConvertTo(null, typeof(float[])), Is.True);
-        Assert.That(_converter.CanConvertTo(null, typeof(Tuple<float, float, float, float>)), Is.True);
+        Assert.That(
+            _converter.CanConvertTo(null, typeof(Tuple<float, float, float, float>)),
+            Is.True
+        );
         Assert.That(_converter.CanConvertTo(null, typeof(Tuple<float, float>)), Is.True);
     }
 
@@ -34,7 +37,13 @@ public class CornerRadiusConverterTests
     {
         var radius = new CornerRadius(1, 2, 3, 4);
         Tuple<float, float, float, float> result =
-            (Tuple<float, float, float, float>)_converter.ConvertTo(null, null, radius, typeof(Tuple<float, float, float, float>))!;
+            (Tuple<float, float, float, float>)
+                _converter.ConvertTo(
+                    null,
+                    null,
+                    radius,
+                    typeof(Tuple<float, float, float, float>)
+                )!;
         Assert.That(result, Is.EqualTo(new Tuple<float, float, float, float>(1, 2, 3, 4)));
     }
 
@@ -43,7 +52,8 @@ public class CornerRadiusConverterTests
     {
         var radius = new CornerRadius(10, 20, 30, 40);
         Tuple<float, float> result =
-            (Tuple<float, float>)_converter.ConvertTo(null, null, radius, typeof(Tuple<float, float>))!;
+            (Tuple<float, float>)
+                _converter.ConvertTo(null, null, radius, typeof(Tuple<float, float>))!;
         Assert.That(result.Item1, Is.EqualTo(10f));
         Assert.That(result.Item2, Is.EqualTo(40f));
     }
@@ -65,7 +75,8 @@ public class CornerRadiusConverterTests
     [Test]
     public void ConvertFrom_FourElementArray_UsesAll()
     {
-        CornerRadius result = (CornerRadius)_converter.ConvertFrom(null, null, new[] { 1f, 2f, 3f, 4f })!;
+        CornerRadius result = (CornerRadius)
+            _converter.ConvertFrom(null, null, new[] { 1f, 2f, 3f, 4f })!;
         Assert.That(result, Is.EqualTo(new CornerRadius(1, 2, 3, 4)));
     }
 

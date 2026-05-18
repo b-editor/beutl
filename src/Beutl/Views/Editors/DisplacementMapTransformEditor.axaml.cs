@@ -11,7 +11,10 @@ public partial class DisplacementMapTransformEditor : UserControl
     {
         InitializeComponent();
         ExpandTransitionHelper.Attach(expandToggle, content);
-        EditorMenuHelper.AttachCopyPasteAndTemplateMenus(this, (FAMenuFlyout)expandToggle.ContextFlyout!);
+        EditorMenuHelper.AttachCopyPasteAndTemplateMenus(
+            this,
+            (FAMenuFlyout)expandToggle.ContextFlyout!
+        );
     }
 
     private void Tag_Click(object? sender, RoutedEventArgs e)
@@ -23,15 +26,22 @@ public partial class DisplacementMapTransformEditor : UserControl
 
     private void TransformTypeClicked(object? sender, RoutedEventArgs e)
     {
-        if (sender is not MenuFlyoutItem { Tag: string type }) return;
-        if (DataContext is not DisplacementMapTransformEditorViewModel { IsDisposed: false } viewModel) return;
+        if (sender is not MenuFlyoutItem { Tag: string type })
+            return;
+        if (
+            DataContext
+            is not DisplacementMapTransformEditorViewModel { IsDisposed: false } viewModel
+        )
+            return;
 
-        viewModel.ChangeType(type switch
-        {
-            "Translate" => DispMapTransformType.Translate,
-            "Rotation" => DispMapTransformType.Rotation,
-            "Scale" => DispMapTransformType.Scale,
-            _ => DispMapTransformType.Null
-        });
+        viewModel.ChangeType(
+            type switch
+            {
+                "Translate" => DispMapTransformType.Translate,
+                "Rotation" => DispMapTransformType.Rotation,
+                "Scale" => DispMapTransformType.Scale,
+                _ => DispMapTransformType.Null,
+            }
+        );
     }
 }

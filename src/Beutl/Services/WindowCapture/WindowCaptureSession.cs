@@ -28,10 +28,12 @@ internal sealed class WindowCaptureSession : IAsyncDisposable
     private readonly RenderTargetBitmap _rtb;
     private readonly string _ffmpegPixelFormat;
     private readonly ConcurrentQueue<byte[]> _freeBuffers = new();
+
     // SingleWriter must be false: OnTimerTick writes frames on the UI thread while
     // WriterLoopAsync (background) calls TryComplete on the same writer.
     private readonly Channel<byte[]> _channel = Channel.CreateUnbounded<byte[]>(
-        new UnboundedChannelOptions { SingleReader = true, SingleWriter = false });
+        new UnboundedChannelOptions { SingleReader = true, SingleWriter = false }
+    );
 
     private DispatcherTimer? _timer;
     private Process? _process;
@@ -42,10 +44,18 @@ internal sealed class WindowCaptureSession : IAsyncDisposable
     private bool _stopped;
     private volatile bool _encoderFailed;
 
-    public WindowCaptureSession(Window window, double scale, int frameRate, string outputPath, string ffmpegPath)
+    public WindowCaptureSession(
+        Window window,
+        double scale,
+        int frameRate,
+        string outputPath,
+        string ffmpegPath
+    )
     {
-        if (scale <= 0) throw new ArgumentOutOfRangeException(nameof(scale));
-        if (frameRate <= 0) throw new ArgumentOutOfRangeException(nameof(frameRate));
+        if (scale <= 0)
+            throw new ArgumentOutOfRangeException(nameof(scale));
+        if (frameRate <= 0)
+            throw new ArgumentOutOfRangeException(nameof(frameRate));
 
         _window = window;
         _frameRate = frameRate;
@@ -56,8 +66,10 @@ internal sealed class WindowCaptureSession : IAsyncDisposable
         _width = Math.Max(2, (int)Math.Round(clientSize.Width * scale));
         _height = Math.Max(2, (int)Math.Round(clientSize.Height * scale));
         // libx264 requires even dimensions for yuv420p output
-        if ((_width & 1) == 1) _width++;
-        if ((_height & 1) == 1) _height++;
+        if ((_width & 1) == 1)
+            _width++;
+        if ((_height & 1) == 1)
+            _height++;
         _stride = _width * 4;
 
         var pixelSize = new PixelSize(_width, _height);
@@ -76,7 +88,8 @@ internal sealed class WindowCaptureSession : IAsyncDisposable
         {
             _rtb.Dispose();
             throw new NotSupportedException(
-                $"Unsupported RenderTargetBitmap pixel format: {fmt}. Expected Bgra8888 or Rgba8888.");
+                $"Unsupported RenderTargetBitmap pixel format: {fmt}. Expected Bgra8888 or Rgba8888."
+            );
         }
 
         int byteCount = _stride * _height;
@@ -95,7 +108,8 @@ internal sealed class WindowCaptureSession : IAsyncDisposable
 
     public void Start()
     {
-        if (_started) throw new InvalidOperationException("Session already started.");
+        if (_started)
+            throw new InvalidOperationException("Session already started.");
 
         try
         {
@@ -125,7 +139,12 @@ internal sealed class WindowCaptureSession : IAsyncDisposable
 
         _logger.LogInformation(
             "Window capture started: {Width}x{Height} @ {Fps}fps -> {Output} (ffmpeg pid={Pid})",
-            _width, _height, _frameRate, _outputPath, _process.Id);
+            _width,
+            _height,
+            _frameRate,
+            _outputPath,
+            _process.Id
+        );
     }
 
     public async Task StopAsync()
@@ -133,7 +152,8 @@ internal sealed class WindowCaptureSession : IAsyncDisposable
         // Note: we intentionally do not gate on _started so that a partially
         // initialized session (e.g., ffmpeg started but timer creation failed
         // in Start()) is still torn down cleanly via DisposeAsync.
-        if (_stopped) return;
+        if (_stopped)
+            return;
         _stopped = true;
 
         if (_timer is { } timer)
@@ -163,9 +183,13 @@ internal sealed class WindowCaptureSession : IAsyncDisposable
                 // then wait again with a fresh timeout.
                 _logger.LogWarning(
                     "Writer task did not drain within {Timeout}; closing ffmpeg stdin to unblock.",
-                    StopTimeout);
+                    StopTimeout
+                );
             }
-            catch (Exception ex) { _logger.LogWarning(ex, "Window capture writer task ended with error."); }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Window capture writer task ended with error.");
+            }
 
             if (!drained)
             {
@@ -176,7 +200,10 @@ internal sealed class WindowCaptureSession : IAsyncDisposable
                         if (!stuckProc.HasExited)
                             stuckProc.StandardInput.Close();
                     }
-                    catch (Exception ex) { _logger.LogWarning(ex, "Failed to close ffmpeg stdin."); }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex, "Failed to close ffmpeg stdin.");
+                    }
                 }
 
                 try
@@ -187,9 +214,15 @@ internal sealed class WindowCaptureSession : IAsyncDisposable
                 catch (OperationCanceledException)
                 {
                     _encoderFailed = true;
-                    _logger.LogWarning("Window capture writer task did not complete within {Timeout}.", StopTimeout);
+                    _logger.LogWarning(
+                        "Window capture writer task did not complete within {Timeout}.",
+                        StopTimeout
+                    );
                 }
-                catch (Exception ex) { _logger.LogWarning(ex, "Window capture writer task ended with error."); }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Window capture writer task ended with error.");
+                }
             }
         }
 
@@ -202,7 +235,10 @@ internal sealed class WindowCaptureSession : IAsyncDisposable
                 if (!procForStdin.HasExited)
                     procForStdin.StandardInput.Close();
             }
-            catch (Exception ex) { _logger.LogWarning(ex, "Failed to close ffmpeg stdin."); }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to close ffmpeg stdin.");
+            }
         }
 
         int exitCode = -1;
@@ -217,14 +253,23 @@ internal sealed class WindowCaptureSession : IAsyncDisposable
             {
                 _encoderFailed = true;
                 _logger.LogWarning("ffmpeg did not exit within {Timeout}; killing.", StopTimeout);
-                try { proc.Kill(entireProcessTree: true); }
-                catch (Exception ex) { _logger.LogError(ex, "Failed to kill ffmpeg."); }
+                try
+                {
+                    proc.Kill(entireProcessTree: true);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Failed to kill ffmpeg.");
+                }
             }
 
             exitCode = proc.HasExited ? proc.ExitCode : -1;
             _logger.LogInformation(
                 "Window capture stopped: captured={Captured}, dropped={Dropped}, ffmpeg exit={ExitCode}",
-                CapturedFrameCount, DroppedFrameCount, exitCode);
+                CapturedFrameCount,
+                DroppedFrameCount,
+                exitCode
+            );
 
             proc.Dispose();
             _process = null;
@@ -235,7 +280,8 @@ internal sealed class WindowCaptureSession : IAsyncDisposable
         if (_encoderFailed || exitCode != 0)
         {
             throw new InvalidOperationException(
-                $"ffmpeg encoder failed (exit code: {exitCode}). See log for details.");
+                $"ffmpeg encoder failed (exit code: {exitCode}). See log for details."
+            );
         }
     }
 
@@ -246,7 +292,8 @@ internal sealed class WindowCaptureSession : IAsyncDisposable
 
     private void OnTimerTick(object? sender, EventArgs e)
     {
-        if (_stopped || _encoderFailed) return;
+        if (_stopped || _encoderFailed)
+            return;
 
         if (!_freeBuffers.TryDequeue(out byte[]? buffer))
         {
@@ -265,7 +312,8 @@ internal sealed class WindowCaptureSession : IAsyncDisposable
                         new PixelRect(0, 0, _width, _height),
                         (IntPtr)p,
                         buffer.Length,
-                        _stride);
+                        _stride
+                    );
                 }
             }
         }
@@ -287,7 +335,8 @@ internal sealed class WindowCaptureSession : IAsyncDisposable
     private async Task WriterLoopAsync()
     {
         Process? proc = _process;
-        if (proc is null) return;
+        if (proc is null)
+            return;
 
         Stream stdin = proc.StandardInput.BaseStream;
         bool earlyExit = false;
@@ -302,7 +351,9 @@ internal sealed class WindowCaptureSession : IAsyncDisposable
                         earlyExit = true;
                         break;
                     }
-                    await stdin.WriteAsync(frame.AsMemory(0, _stride * _height)).ConfigureAwait(false);
+                    await stdin
+                        .WriteAsync(frame.AsMemory(0, _stride * _height))
+                        .ConfigureAwait(false);
                     Interlocked.Increment(ref _capturedFrames);
                 }
                 catch (IOException ex)
@@ -317,8 +368,13 @@ internal sealed class WindowCaptureSession : IAsyncDisposable
                 }
             }
 
-            try { await stdin.FlushAsync().ConfigureAwait(false); }
-            catch { /* ignored */ }
+            try
+            {
+                await stdin.FlushAsync().ConfigureAwait(false);
+            }
+            catch
+            { /* ignored */
+            }
         }
         catch (Exception ex)
         {
@@ -342,7 +398,10 @@ internal sealed class WindowCaptureSession : IAsyncDisposable
                     }
                 });
             }
-            catch (Exception ex) { _logger.LogWarning(ex, "Failed to stop capture timer after encoder failure."); }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to stop capture timer after encoder failure.");
+            }
         }
     }
 
@@ -381,7 +440,8 @@ internal sealed class WindowCaptureSession : IAsyncDisposable
         startInfo.ArgumentList.Add("zerolatency");
         startInfo.ArgumentList.Add(_outputPath);
 
-        Process proc = Process.Start(startInfo)
+        Process proc =
+            Process.Start(startInfo)
             ?? throw new InvalidOperationException("Failed to start ffmpeg process.");
 
         proc.ErrorDataReceived += (_, e) =>
@@ -389,7 +449,11 @@ internal sealed class WindowCaptureSession : IAsyncDisposable
             if (!string.IsNullOrEmpty(e.Data))
                 _logger.LogDebug("ffmpeg: {Line}", e.Data);
         };
-        proc.OutputDataReceived += (_, _) => { /* drain to avoid buffer stall */ };
+        proc.OutputDataReceived += (
+            _,
+            _
+        ) => { /* drain to avoid buffer stall */
+        };
         proc.BeginErrorReadLine();
         proc.BeginOutputReadLine();
 

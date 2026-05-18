@@ -1,12 +1,9 @@
 ﻿using System.Collections.Specialized;
 using System.Text.Json.Nodes;
-
 using Beutl.Editor.Services;
 using Beutl.Engine;
 using Beutl.ProjectSystem;
-
 using Microsoft.Extensions.DependencyInjection;
-
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
 
@@ -22,8 +19,9 @@ public sealed class ElementPropertyTabViewModel : IToolContext
     public ElementPropertyTabViewModel(IEditorContext editorContext)
     {
         _editorContext = editorContext;
-        Element = editorContext.GetRequiredService<IEditorSelection>().SelectedObject
-            .Select(x => x as Element)
+        Element = editorContext
+            .GetRequiredService<IEditorSelection>()
+            .SelectedObject.Select(x => x as Element)
             .ToReactiveProperty();
 
         _disposable0 = Element.Subscribe(element =>
@@ -39,13 +37,24 @@ public sealed class ElementPropertyTabViewModel : IToolContext
             {
                 _disposable1?.Dispose();
 
-                Items.AddRange(element.Objects.Select(x => new EngineObjectPropertyViewModel(x, this)));
-                _disposable1 = element.Objects.CollectionChangedAsObservable()
+                Items.AddRange(
+                    element.Objects.Select(x => new EngineObjectPropertyViewModel(x, this))
+                );
+                _disposable1 = element
+                    .Objects.CollectionChangedAsObservable()
                     .Subscribe(e =>
                     {
-                        void RemoveItems(CoreList<EngineObjectPropertyViewModel> items, int index, int count)
+                        void RemoveItems(
+                            CoreList<EngineObjectPropertyViewModel> items,
+                            int index,
+                            int count
+                        )
                         {
-                            foreach (EngineObjectPropertyViewModel item in items.GetMarshal().Value.Slice(index, count))
+                            foreach (
+                                EngineObjectPropertyViewModel item in items
+                                    .GetMarshal()
+                                    .Value.Slice(index, count)
+                            )
                             {
                                 item?.Dispose();
                             }
@@ -55,9 +64,11 @@ public sealed class ElementPropertyTabViewModel : IToolContext
                         switch (e.Action)
                         {
                             case NotifyCollectionChangedAction.Add:
-                                Items.InsertRange(e.NewStartingIndex, e.NewItems!
-                                    .Cast<EngineObject>()
-                                    .Select(x => new EngineObjectPropertyViewModel(x, this)));
+                                Items.InsertRange(
+                                    e.NewStartingIndex,
+                                    e.NewItems!.Cast<EngineObject>()
+                                        .Select(x => new EngineObjectPropertyViewModel(x, this))
+                                );
                                 break;
 
                             case NotifyCollectionChangedAction.Move:
@@ -78,9 +89,11 @@ public sealed class ElementPropertyTabViewModel : IToolContext
                                     newIndex -= e.OldItems!.Count;
                                 }
 
-                                Items.InsertRange(newIndex, e.NewItems!
-                                    .Cast<EngineObject>()
-                                    .Select(x => new EngineObjectPropertyViewModel(x, this)));
+                                Items.InsertRange(
+                                    newIndex,
+                                    e.NewItems!.Cast<EngineObject>()
+                                        .Select(x => new EngineObjectPropertyViewModel(x, this))
+                                );
                                 break;
 
                             case NotifyCollectionChangedAction.Remove:
@@ -169,11 +182,20 @@ public sealed class ElementPropertyTabViewModel : IToolContext
 
         if (File.Exists(viewStateFile))
         {
-            using var stream = new FileStream(viewStateFile, FileMode.Open, FileAccess.Read, FileShare.Read);
+            using var stream = new FileStream(
+                viewStateFile,
+                FileMode.Open,
+                FileAccess.Read,
+                FileShare.Read
+            );
             var json = JsonNode.Parse(stream);
             if (json is JsonArray array)
             {
-                foreach ((JsonNode? item, EngineObjectPropertyViewModel? itemViewModel) in array.Zip(Items))
+                foreach (
+                    (JsonNode? item, EngineObjectPropertyViewModel? itemViewModel) in array.Zip(
+                        Items
+                    )
+                )
                 {
                     if (item != null && itemViewModel != null)
                     {

@@ -52,17 +52,35 @@ internal static class VulkanFlagConverter
         return type switch
         {
             Backend.DescriptorType.Sampler => Silk.NET.Vulkan.DescriptorType.Sampler,
-            Backend.DescriptorType.CombinedImageSampler => Silk.NET.Vulkan.DescriptorType.CombinedImageSampler,
+            Backend.DescriptorType.CombinedImageSampler => Silk.NET
+                .Vulkan
+                .DescriptorType
+                .CombinedImageSampler,
             Backend.DescriptorType.SampledImage => Silk.NET.Vulkan.DescriptorType.SampledImage,
             Backend.DescriptorType.StorageImage => Silk.NET.Vulkan.DescriptorType.StorageImage,
-            Backend.DescriptorType.UniformTexelBuffer => Silk.NET.Vulkan.DescriptorType.UniformTexelBuffer,
-            Backend.DescriptorType.StorageTexelBuffer => Silk.NET.Vulkan.DescriptorType.StorageTexelBuffer,
+            Backend.DescriptorType.UniformTexelBuffer => Silk.NET
+                .Vulkan
+                .DescriptorType
+                .UniformTexelBuffer,
+            Backend.DescriptorType.StorageTexelBuffer => Silk.NET
+                .Vulkan
+                .DescriptorType
+                .StorageTexelBuffer,
             Backend.DescriptorType.UniformBuffer => Silk.NET.Vulkan.DescriptorType.UniformBuffer,
             Backend.DescriptorType.StorageBuffer => Silk.NET.Vulkan.DescriptorType.StorageBuffer,
-            Backend.DescriptorType.UniformBufferDynamic => Silk.NET.Vulkan.DescriptorType.UniformBufferDynamic,
-            Backend.DescriptorType.StorageBufferDynamic => Silk.NET.Vulkan.DescriptorType.StorageBufferDynamic,
-            Backend.DescriptorType.InputAttachment => Silk.NET.Vulkan.DescriptorType.InputAttachment,
-            _ => throw new ArgumentOutOfRangeException(nameof(type))
+            Backend.DescriptorType.UniformBufferDynamic => Silk.NET
+                .Vulkan
+                .DescriptorType
+                .UniformBufferDynamic,
+            Backend.DescriptorType.StorageBufferDynamic => Silk.NET
+                .Vulkan
+                .DescriptorType
+                .StorageBufferDynamic,
+            Backend.DescriptorType.InputAttachment => Silk.NET
+                .Vulkan
+                .DescriptorType
+                .InputAttachment,
+            _ => throw new ArgumentOutOfRangeException(nameof(type)),
         };
     }
 
@@ -93,7 +111,7 @@ internal static class VulkanFlagConverter
             Binding = binding.Binding,
             DescriptorType = ToVulkan(binding.Type),
             DescriptorCount = binding.Count,
-            StageFlags = ToVulkan(binding.Stages)
+            StageFlags = ToVulkan(binding.Stages),
         };
     }
 
@@ -103,7 +121,7 @@ internal static class VulkanFlagConverter
         {
             Backend.FrontFace.CounterClockwise => Silk.NET.Vulkan.FrontFace.CounterClockwise,
             Backend.FrontFace.Clockwise => Silk.NET.Vulkan.FrontFace.Clockwise,
-            _ => Silk.NET.Vulkan.FrontFace.CounterClockwise
+            _ => Silk.NET.Vulkan.FrontFace.CounterClockwise,
         };
     }
 
@@ -112,7 +130,7 @@ internal static class VulkanFlagConverter
         return new Silk.NET.Vulkan.DescriptorPoolSize
         {
             Type = ToVulkan(poolSize.Type),
-            DescriptorCount = poolSize.Count
+            DescriptorCount = poolSize.Count,
         };
     }
 
@@ -123,7 +141,7 @@ internal static class VulkanFlagConverter
             CullMode.None => CullModeFlags.None,
             CullMode.Front => CullModeFlags.FrontBit,
             CullMode.Back => CullModeFlags.BackBit,
-            _ => CullModeFlags.BackBit
+            _ => CullModeFlags.BackBit,
         };
     }
 
@@ -143,7 +161,7 @@ internal static class VulkanFlagConverter
             VertexFormat.UInt2 => Format.R32G32Uint,
             VertexFormat.UInt3 => Format.R32G32B32Uint,
             VertexFormat.UInt4 => Format.R32G32B32A32Uint,
-            _ => Format.R32G32B32Sfloat
+            _ => Format.R32G32B32Sfloat,
         };
     }
 
@@ -153,7 +171,7 @@ internal static class VulkanFlagConverter
         {
             Backend.VertexInputRate.Vertex => Silk.NET.Vulkan.VertexInputRate.Vertex,
             Backend.VertexInputRate.Instance => Silk.NET.Vulkan.VertexInputRate.Instance,
-            _ => Silk.NET.Vulkan.VertexInputRate.Vertex
+            _ => Silk.NET.Vulkan.VertexInputRate.Vertex,
         };
     }
 
@@ -169,7 +187,7 @@ internal static class VulkanFlagConverter
             {
                 Binding = binding.Binding,
                 Stride = binding.Stride,
-                InputRate = ToVulkan(binding.InputRate)
+                InputRate = ToVulkan(binding.InputRate),
             };
         }
 
@@ -181,15 +199,11 @@ internal static class VulkanFlagConverter
                 Location = attr.Location,
                 Binding = attr.Binding,
                 Format = ToVulkan(attr.Format),
-                Offset = attr.Offset
+                Offset = attr.Offset,
             };
         }
 
-        return new VulkanVertexInputDescription
-        {
-            Bindings = bindings,
-            Attributes = attributes
-        };
+        return new VulkanVertexInputDescription { Bindings = bindings, Attributes = attributes };
     }
 
     public static Silk.NET.Vulkan.BlendFactor ToVulkan(BlendFactor blendFactor)
@@ -206,7 +220,7 @@ internal static class VulkanFlagConverter
             BlendFactor.OneMinusSrcAlpha => Silk.NET.Vulkan.BlendFactor.OneMinusSrcAlpha,
             BlendFactor.DstAlpha => Silk.NET.Vulkan.BlendFactor.DstAlpha,
             BlendFactor.OneMinusDstAlpha => Silk.NET.Vulkan.BlendFactor.OneMinusDstAlpha,
-            _ => Silk.NET.Vulkan.BlendFactor.One
+            _ => Silk.NET.Vulkan.BlendFactor.One,
         };
     }
 
@@ -219,7 +233,7 @@ internal static class VulkanFlagConverter
             BlendOp.ReverseSubtract => Silk.NET.Vulkan.BlendOp.ReverseSubtract,
             BlendOp.Min => Silk.NET.Vulkan.BlendOp.Min,
             BlendOp.Max => Silk.NET.Vulkan.BlendOp.Max,
-            _ => Silk.NET.Vulkan.BlendOp.Add
+            _ => Silk.NET.Vulkan.BlendOp.Add,
         };
     }
 }

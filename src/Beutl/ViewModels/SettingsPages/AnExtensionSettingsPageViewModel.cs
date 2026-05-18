@@ -4,14 +4,15 @@ using Beutl.Editor;
 using Beutl.PropertyAdapters;
 using Beutl.Services;
 using Beutl.ViewModels.Editors;
-
 using DynamicData;
-
 using Reactive.Bindings;
 
 namespace Beutl.ViewModels.SettingsPages;
 
-public sealed class AnExtensionSettingsPageViewModel : PageContext, IPropertyEditorContextVisitor, IServiceProvider
+public sealed class AnExtensionSettingsPageViewModel
+    : PageContext,
+        IPropertyEditorContextVisitor,
+        IServiceProvider
 {
     private readonly HistoryManager _history;
 
@@ -47,17 +48,20 @@ public sealed class AnExtensionSettingsPageViewModel : PageContext, IPropertyEdi
         return null;
     }
 
-    public void Visit(IPropertyEditorContext context)
-    {
-    }
+    public void Visit(IPropertyEditorContext context) { }
 
-    private void InitializeCoreObject(ExtensionSettings obj, Func<CoreProperty, CorePropertyMetadata, bool>? predicate = null)
+    private void InitializeCoreObject(
+        ExtensionSettings obj,
+        Func<CoreProperty, CorePropertyMetadata, bool>? predicate = null
+    )
     {
         Type objType = obj.GetType();
         Type adapterType = typeof(CorePropertyAdapter<>);
 
         List<CoreProperty> cprops = [.. PropertyRegistry.GetRegistered(objType)];
-        cprops.RemoveAll(x => !(predicate?.Invoke(x, x.GetMetadata<CorePropertyMetadata>(objType)) ?? true));
+        cprops.RemoveAll(x =>
+            !(predicate?.Invoke(x, x.GetMetadata<CorePropertyMetadata>(objType)) ?? true)
+        );
         List<IPropertyAdapter> props = cprops.ConvertAll(x =>
         {
             CorePropertyMetadata metadata = x.GetMetadata<CorePropertyMetadata>(objType);
@@ -74,7 +78,12 @@ public sealed class AnExtensionSettingsPageViewModel : PageContext, IPropertyEdi
             (foundItems, extension) = PropertyEditorService.MatchProperty(props);
             if (foundItems != null && extension != null)
             {
-                if (extension.TryCreateContextForSettings(foundItems, out IPropertyEditorContext? context))
+                if (
+                    extension.TryCreateContextForSettings(
+                        foundItems,
+                        out IPropertyEditorContext? context
+                    )
+                )
                 {
                     tempItems.Add(context);
                     context.Accept(this);
@@ -84,20 +93,25 @@ public sealed class AnExtensionSettingsPageViewModel : PageContext, IPropertyEdi
             }
         } while (foundItems != null && extension != null);
 
-        foreach ((string? Key, IPropertyEditorContext?[] Value) group in tempItems.GroupBy(x =>
-        {
-            if (x is BaseEditorViewModel { PropertyAdapter: { } adapter })
-            {
-                return (adapter.GetAttributes().FirstOrDefault(i => i is DisplayAttribute) as DisplayAttribute)
-                    ?.GetGroupName();
-            }
-            else
-            {
-                return null;
-            }
-        })
-            .Select(x => (x.Key, x.ToArray()))
-            .ToArray())
+        foreach (
+            (string? Key, IPropertyEditorContext?[] Value) group in tempItems
+                .GroupBy(x =>
+                {
+                    if (x is BaseEditorViewModel { PropertyAdapter: { } adapter })
+                    {
+                        return (
+                            adapter.GetAttributes().FirstOrDefault(i => i is DisplayAttribute)
+                            as DisplayAttribute
+                        )?.GetGroupName();
+                    }
+                    else
+                    {
+                        return null;
+                    }
+                })
+                .Select(x => (x.Key, x.ToArray()))
+                .ToArray()
+        )
         {
             if (group.Key != null)
             {
@@ -106,7 +120,10 @@ public sealed class AnExtensionSettingsPageViewModel : PageContext, IPropertyEdi
                 {
                     int index = tempItems.IndexOf(array[0]);
                     tempItems.RemoveMany(array);
-                    tempItems.Insert(index, new PropertyEditorGroupContext(array, group.Key, index == 0));
+                    tempItems.Insert(
+                        index,
+                        new PropertyEditorGroupContext(array, group.Key, index == 0)
+                    );
                 }
             }
         }

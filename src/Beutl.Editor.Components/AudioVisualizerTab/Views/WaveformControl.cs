@@ -16,10 +16,12 @@ public sealed class WaveformControl : AudioVisualizerControlBase
         context.FillRectangle(Brushes.Transparent, bounds);
 
         AudioSampleRingBuffer? buffer = RingBuffer;
-        if (buffer == null || bounds.Width < 4 || bounds.Height < 4) return;
+        if (buffer == null || bounds.Width < 4 || bounds.Height < 4)
+            return;
 
         int got = buffer.ReadAroundTime(PlayheadTime, _left, _right, DisplaySamples);
-        if (got <= 0) return;
+        if (got <= 0)
+            return;
 
         double halfHeight = bounds.Height / 2.0;
         double midTop = halfHeight / 2.0;
@@ -29,7 +31,13 @@ public sealed class WaveformControl : AudioVisualizerControlBase
         // fall outside the anchor, so samples at their proper time position
         // remain aligned even when the requested window overflows one edge.
         DrawChannel(context, _left.AsSpan(0, DisplaySamples), midTop, halfHeight, PrimaryBrush);
-        DrawChannel(context, _right.AsSpan(0, DisplaySamples), midBottom, halfHeight, SecondaryBrush);
+        DrawChannel(
+            context,
+            _right.AsSpan(0, DisplaySamples),
+            midBottom,
+            halfHeight,
+            SecondaryBrush
+        );
 
         // Center axis lines
         IBrush axisBrush = Brushes.Gray;
@@ -38,10 +46,17 @@ public sealed class WaveformControl : AudioVisualizerControlBase
         context.DrawLine(axisPen, new Point(0, midBottom), new Point(bounds.Width, midBottom));
     }
 
-    private void DrawChannel(DrawingContext context, ReadOnlySpan<float> samples, double centerY, double areaHeight, IBrush brush)
+    private void DrawChannel(
+        DrawingContext context,
+        ReadOnlySpan<float> samples,
+        double centerY,
+        double areaHeight,
+        IBrush brush
+    )
     {
         int count = samples.Length;
-        if (count < 2) return;
+        if (count < 2)
+            return;
 
         double width = Bounds.Width;
         double scale = (areaHeight / 2.0) * 0.9;
@@ -64,8 +79,10 @@ public sealed class WaveformControl : AudioVisualizerControlBase
 
     private static float ClampSample(float v)
     {
-        if (v > 1f) return 1f;
-        if (v < -1f) return -1f;
+        if (v > 1f)
+            return 1f;
+        if (v < -1f)
+            return -1f;
         return v;
     }
 }

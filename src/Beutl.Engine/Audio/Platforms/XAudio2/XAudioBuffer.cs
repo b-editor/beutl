@@ -1,5 +1,4 @@
 ﻿using System.Runtime.InteropServices;
-
 using Vortice.Multimedia;
 using Vortice.XAudio2;
 

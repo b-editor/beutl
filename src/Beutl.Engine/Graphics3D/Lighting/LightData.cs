@@ -21,7 +21,7 @@ public enum LightType
     /// <summary>
     /// Spotlight (cone-shaped).
     /// </summary>
-    Spot = 2
+    Spot = 2,
 }
 
 /// <summary>
@@ -116,7 +116,7 @@ public struct LightData
             QuadraticAttenuation = 0f,
             InnerCutoff = 0f,
             OuterCutoff = 0f,
-            ShadowIndex = -1
+            ShadowIndex = -1,
         };
     }
 
@@ -138,7 +138,7 @@ public struct LightData
             QuadraticAttenuation = light.QuadraticAttenuation,
             InnerCutoff = 0f,
             OuterCutoff = 0f,
-            ShadowIndex = -1
+            ShadowIndex = -1,
         };
     }
 
@@ -164,7 +164,7 @@ public struct LightData
             QuadraticAttenuation = light.QuadraticAttenuation,
             InnerCutoff = MathF.Cos(light.InnerConeAngle * MathF.PI / 180f),
             OuterCutoff = MathF.Cos(light.OuterConeAngle * MathF.PI / 180f),
-            ShadowIndex = -1
+            ShadowIndex = -1,
         };
     }
 
@@ -178,7 +178,7 @@ public struct LightData
             DirectionalLight3D.Resource dir => FromDirectional(dir),
             PointLight3D.Resource point => FromPoint(point),
             SpotLight3D.Resource spot => FromSpot(spot),
-            _ => default
+            _ => default,
         };
     }
 }

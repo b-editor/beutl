@@ -1,15 +1,11 @@
 ﻿using Beutl.Graphics;
-
 using SkiaSharp;
 
 namespace Beutl.Media;
 
 public sealed class GeometryContext : IGeometryContext, IDisposable
 {
-    public GeometryContext()
-    {
-
-    }
+    public GeometryContext() { }
 
     public SKPath NativeObject { get; } = new();
 
@@ -32,7 +28,8 @@ public sealed class GeometryContext : IGeometryContext, IDisposable
             xAxisRotate: angle,
             largeArc: isLargeArc ? SKPathArcSize.Large : SKPathArcSize.Small,
             sweep: sweepClockwise ? SKPathDirection.Clockwise : SKPathDirection.CounterClockwise,
-            xy: point.ToSKPoint());
+            xy: point.ToSKPoint()
+        );
     }
 
     public void Clear()
@@ -52,7 +49,11 @@ public sealed class GeometryContext : IGeometryContext, IDisposable
 
     public void CubicTo(Point controlPoint1, Point controlPoint2, Point endPoint)
     {
-        NativeObject.CubicTo(controlPoint1.ToSKPoint(), controlPoint2.ToSKPoint(), endPoint.ToSKPoint());
+        NativeObject.CubicTo(
+            controlPoint1.ToSKPoint(),
+            controlPoint2.ToSKPoint(),
+            endPoint.ToSKPoint()
+        );
     }
 
     public void LineTo(Point point)

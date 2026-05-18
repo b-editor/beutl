@@ -2,7 +2,6 @@
 using Beutl.Editor.Components.Helpers;
 using Beutl.Engine;
 using Beutl.ProjectSystem;
-
 using Reactive.Bindings;
 
 namespace Beutl.Editor.Components.TimelineTab.ViewModels;
@@ -25,21 +24,21 @@ public sealed class ElementScopeViewModel : IDisposable
         }
         Update();
 
-        Margin = parent.Margin.CombineLatest(parent.BorderMargin)
+        Margin = parent
+            .Margin.CombineLatest(parent.BorderMargin)
             .Select(t => t.First + t.Second)
             .ToReactiveProperty()
             .DisposeWith(_disposables);
 
-        Width = parent.Width
-            .ToReactiveProperty()
-            .DisposeWith(_disposables);
+        Width = parent.Width.ToReactiveProperty().DisposeWith(_disposables);
 
         IObservable<int> zIndex = element.GetObservable(Element.ZIndexProperty);
         IObservable<(int EndZIndex, int ZIndex)> zIndexTuple = zIndex
             .CombineLatest(Count)
             .Select(t => (t.First + t.Second + 1, t.First));
 
-        Height = zIndexTuple.Select(t =>
+        Height = zIndexTuple
+            .Select(t =>
             {
                 // CountがZero
                 if (t.EndZIndex - 1 == t.ZIndex)
@@ -48,7 +47,8 @@ public sealed class ElementScopeViewModel : IDisposable
                 }
                 else
                 {
-                    return parent.Timeline.GetTrackedLayerTopObservable(t.ZIndex)
+                    return parent
+                        .Timeline.GetTrackedLayerTopObservable(t.ZIndex)
                         .CombineLatest(parent.Timeline.GetTrackedLayerTopObservable(t.EndZIndex))
                         .Select(t => t.Second - t.First);
                 }
@@ -58,7 +58,11 @@ public sealed class ElementScopeViewModel : IDisposable
             .DisposeWith(_disposables);
     }
 
-    public Func<(Thickness Margin, double Width, double Height), CancellationToken, Task> AnimationRequested { get; set; } = (_, _) => Task.CompletedTask;
+    public Func<
+        (Thickness Margin, double Width, double Height),
+        CancellationToken,
+        Task
+    > AnimationRequested { get; set; } = (_, _) => Task.CompletedTask;
 
     public ReactiveProperty<Thickness> Margin { get; }
 
@@ -122,8 +126,7 @@ public sealed class ElementScopeViewModel : IDisposable
         PortalObject? model = null;
         foreach (EngineObject item in Model.Objects)
         {
-            if (item is PortalObject portal
-                && maxCount < portal.Count.CurrentValue)
+            if (item is PortalObject portal && maxCount < portal.Count.CurrentValue)
             {
                 model = portal;
                 maxCount = portal.Count.CurrentValue;
@@ -159,12 +162,18 @@ public sealed class ElementScopeViewModel : IDisposable
         AnimationRequested = (_, _) => Task.CompletedTask;
     }
 
-    public async Task AnimationRequest(PrepareAnimationContext context, CancellationToken cancellationToken = default)
+    public async Task AnimationRequest(
+        PrepareAnimationContext context,
+        CancellationToken cancellationToken = default
+    )
     {
         TimelineTabViewModel timeline = Parent.Timeline;
         var margin = new Thickness(
             Model.Start.TimeToPixel(timeline.Options.Value.Scale),
-            timeline.CalculateLayerTop(Model.ZIndex), 0, 0);
+            timeline.CalculateLayerTop(Model.ZIndex),
+            0,
+            0
+        );
 
         double width = Model.Length.TimeToPixel(timeline.Options.Value.Scale);
         double height = 0;

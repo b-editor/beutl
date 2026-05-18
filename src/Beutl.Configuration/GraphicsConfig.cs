@@ -6,14 +6,14 @@ public sealed class GraphicsConfig : ConfigurationBase
 
     static GraphicsConfig()
     {
-        SelectedGpuNameProperty = ConfigureProperty<string?, GraphicsConfig>(nameof(SelectedGpuName))
+        SelectedGpuNameProperty = ConfigureProperty<string?, GraphicsConfig>(
+                nameof(SelectedGpuName)
+            )
             .DefaultValue(null)
             .Register();
     }
 
-    public GraphicsConfig()
-    {
-    }
+    public GraphicsConfig() { }
 
     public string? SelectedGpuName
     {

@@ -18,15 +18,20 @@ public sealed class ToolTabContent : ContentControl
             return;
         }
 
-        if (DataContext is not BeutlToolDockable dockable ||
-            !dockable.ToolContext.Extension.TryCreateContent(dockable.EditViewModel, out Control? control))
+        if (
+            DataContext is not BeutlToolDockable dockable
+            || !dockable.ToolContext.Extension.TryCreateContent(
+                dockable.EditViewModel,
+                out Control? control
+            )
+        )
         {
             control = new TextBlock
             {
                 Text = $"""
-                        Error:
-                            {MessageStrings.CannotDisplayContext}
-                        """
+                    Error:
+                        {MessageStrings.CannotDisplayContext}
+                    """,
             };
         }
         else

@@ -14,7 +14,10 @@ public abstract class FourFloatComponentTypeConverter<T> : TypeConverter
     protected abstract T FromFour(float a, float b, float c, float d);
     protected abstract T Parse(string s);
 
-    public override bool CanConvertTo(ITypeDescriptorContext? context, [NotNullWhen(true)] Type? destinationType)
+    public override bool CanConvertTo(
+        ITypeDescriptorContext? context,
+        [NotNullWhen(true)] Type? destinationType
+    )
     {
         return destinationType == typeof(float[])
             || destinationType == typeof(Tuple<float, float, float, float>)
@@ -22,7 +25,12 @@ public abstract class FourFloatComponentTypeConverter<T> : TypeConverter
             || base.CanConvertTo(context, destinationType);
     }
 
-    public override object? ConvertTo(ITypeDescriptorContext? context, CultureInfo? culture, object? value, Type destinationType)
+    public override object? ConvertTo(
+        ITypeDescriptorContext? context,
+        CultureInfo? culture,
+        object? value,
+        Type destinationType
+    )
     {
         if (value is T typed)
         {
@@ -45,7 +53,10 @@ public abstract class FourFloatComponentTypeConverter<T> : TypeConverter
         return base.ConvertTo(context, culture, value, destinationType);
     }
 
-    public override bool CanConvertFrom(ITypeDescriptorContext? context, [NotNullWhen(true)] Type? sourceType)
+    public override bool CanConvertFrom(
+        ITypeDescriptorContext? context,
+        [NotNullWhen(true)] Type? sourceType
+    )
     {
         return sourceType == typeof(float[])
             || sourceType == typeof(float)
@@ -54,7 +65,11 @@ public abstract class FourFloatComponentTypeConverter<T> : TypeConverter
             || sourceType == typeof(string);
     }
 
-    public override object? ConvertFrom(ITypeDescriptorContext? context, CultureInfo? culture, object value)
+    public override object? ConvertFrom(
+        ITypeDescriptorContext? context,
+        CultureInfo? culture,
+        object value
+    )
     {
         if (value is float[] array)
         {
@@ -63,7 +78,7 @@ public abstract class FourFloatComponentTypeConverter<T> : TypeConverter
                 1 => FromUniform(array[0]),
                 2 => FromTwo(array[0], array[1]),
                 4 => FromFour(array[0], array[1], array[2], array[3]),
-                _ => base.ConvertFrom(context, culture, value)
+                _ => base.ConvertFrom(context, culture, value),
             };
         }
         else if (value is float f)

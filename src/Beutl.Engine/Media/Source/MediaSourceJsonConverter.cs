@@ -14,7 +14,9 @@ public class MediaSourceJsonConverter : FileSourceJsonConverter
         if (typeToConvert == typeof(MediaSource))
         {
             // MediaSource is abstract, return null or throw
-            throw new InvalidOperationException("Cannot create instance of abstract type MediaSource.");
+            throw new InvalidOperationException(
+                "Cannot create instance of abstract type MediaSource."
+            );
         }
 
         if (typeToConvert == typeof(ImageSource))

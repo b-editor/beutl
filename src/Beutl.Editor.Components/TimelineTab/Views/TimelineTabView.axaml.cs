@@ -55,14 +55,25 @@ public sealed partial class TimelineTabView : UserControl
 
         gridSplitter.DragDelta += GridSplitter_DragDelta;
 
-        Scale.AddHandler(PointerWheelChangedEvent, ContentScroll_PointerWheelChanged, RoutingStrategies.Tunnel);
-        ContentScroll.AddHandler(PointerWheelChangedEvent, ContentScroll_PointerWheelChanged, RoutingStrategies.Tunnel);
+        Scale.AddHandler(
+            PointerWheelChangedEvent,
+            ContentScroll_PointerWheelChanged,
+            RoutingStrategies.Tunnel
+        );
+        ContentScroll.AddHandler(
+            PointerWheelChangedEvent,
+            ContentScroll_PointerWheelChanged,
+            RoutingStrategies.Tunnel
+        );
 
         TimelinePanel.AddHandler(DragDrop.DragOverEvent, TimelinePanel_DragOver);
         TimelinePanel.AddHandler(DragDrop.DropEvent, TimelinePanel_Drop);
         DragDrop.SetAllowDrop(TimelinePanel, true);
 
-        this.SubscribeDataContextChange<TimelineTabViewModel>(OnDataContextAttached, OnDataContextDetached);
+        this.SubscribeDataContextChange<TimelineTabViewModel>(
+            OnDataContextAttached,
+            OnDataContextDetached
+        );
 
         PopulateAddElementSubMenu();
 
@@ -86,37 +97,38 @@ public sealed partial class TimelineTabView : UserControl
     {
         ViewModel = vm;
 
-        TimelinePanel.Children.AddRange(vm.Elements.SelectMany(e =>
-        {
-            return new Control[]
+        TimelinePanel.Children.AddRange(
+            vm.Elements.SelectMany(e =>
             {
-                new ElementView { DataContext = e }, new ElementScopeView { DataContext = e.Scope }
-            };
-        }));
+                return new Control[]
+                {
+                    new ElementView { DataContext = e },
+                    new ElementScopeView { DataContext = e.Scope },
+                };
+            })
+        );
 
-        TimelinePanel.Children.AddRange(vm.Inlines.Select(e => new InlineAnimationLayer { DataContext = e }));
+        TimelinePanel.Children.AddRange(
+            vm.Inlines.Select(e => new InlineAnimationLayer { DataContext = e })
+        );
 
-        vm.Elements.TrackCollectionChanged(
-                AddElement,
-                RemoveElement,
-                () => { })
+        vm.Elements.TrackCollectionChanged(AddElement, RemoveElement, () => { })
             .DisposeWith(_disposables);
 
-        vm.Inlines.TrackCollectionChanged(
-                OnAddedInline,
-                OnRemovedInline,
-                () => { })
+        vm.Inlines.TrackCollectionChanged(OnAddedInline, OnRemovedInline, () => { })
             .DisposeWith(_disposables);
 
-        ViewModel.ScrollTo.Subscribe(v => ScrollTimelinePosition(v.Range, v.ZIndex))
+        ViewModel
+            .ScrollTo.Subscribe(v => ScrollTimelinePosition(v.Range, v.ZIndex))
             .DisposeWith(_disposables);
 
-        vm.CurrentTime
-            .ObserveOnUIDispatcher()
+        vm.CurrentTime.ObserveOnUIDispatcher()
             .Subscribe(OnCurrentTimeChangedForAutoScroll)
             .DisposeWith(_disposables);
 
-        ViewModel.EditorContext.GetRequiredService<Beutl.Editor.Services.IEditorSelection>().SelectedObject.Subscribe(e =>
+        ViewModel
+            .EditorContext.GetRequiredService<Beutl.Editor.Services.IEditorSelection>()
+            .SelectedObject.Subscribe(e =>
             {
                 if (_selectedElement != null)
                 {
@@ -125,8 +137,11 @@ public sealed partial class TimelineTabView : UserControl
                     _selectedElement = null;
                 }
 
-                if (e is Element element && FindElementView(element) is
-                    { DataContext: ElementViewModel viewModel } newView)
+                if (
+                    e is Element element
+                    && FindElementView(element)
+                        is { DataContext: ElementViewModel viewModel } newView
+                )
                 {
                     _selectedElement = newView;
                     ViewModel.SelectElement(viewModel);
@@ -134,8 +149,7 @@ public sealed partial class TimelineTabView : UserControl
             })
             .DisposeWith(_disposables);
 
-        vm.IsRazorMode
-            .ObserveOnUIDispatcher()
+        vm.IsRazorMode.ObserveOnUIDispatcher()
             .Subscribe(isRazor =>
             {
                 Cursor cursor = isRazor ? Cursors.Cross : Cursors.Arrow;
@@ -153,14 +167,18 @@ public sealed partial class TimelineTabView : UserControl
             return;
         }
 
-        ViewModel.Options.Subscribe(options =>
+        ViewModel
+            .Options.Subscribe(options =>
             {
-                Dispatcher.UIThread.InvokeAsync(() =>
-                {
-                    Vector2 offset = options.Offset;
-                    ContentScroll.Offset = new(offset.X, offset.Y);
-                    PaneScroll.Offset = new(0, offset.Y);
-                }, DispatcherPriority.MaxValue);
+                Dispatcher.UIThread.InvokeAsync(
+                    () =>
+                    {
+                        Vector2 offset = options.Offset;
+                        ContentScroll.Offset = new(offset.X, offset.Y);
+                        PaneScroll.Offset = new(0, offset.Y);
+                    },
+                    DispatcherPriority.MaxValue
+                );
             })
             .DisposeWith(_disposables);
 
@@ -195,7 +213,8 @@ public sealed partial class TimelineTabView : UserControl
     // PaneScrollがスクロールされた
     private void ContentScroll_ScrollChanged(object? sender, ScrollChangedEventArgs e)
     {
-        if (ViewModel == null) return;
+        if (ViewModel == null)
+            return;
         TimelineTabViewModel viewModel = ViewModel;
         Avalonia.Vector aOffset = ContentScroll.Offset;
         var offset = new Vector2((float)aOffset.X, (float)aOffset.Y);
@@ -222,7 +241,8 @@ public sealed partial class TimelineTabView : UserControl
     // マウスホイールが動いた
     private void ContentScroll_PointerWheelChanged(object? sender, PointerWheelEventArgs e)
     {
-        if (ViewModel == null) return;
+        if (ViewModel == null)
+            return;
         TimelineTabViewModel viewModel = ViewModel;
         Avalonia.Vector aOffset = ContentScroll.Offset;
         Avalonia.Vector delta = e.Delta;
@@ -262,11 +282,14 @@ public sealed partial class TimelineTabView : UserControl
     // ポインター移動
     private void TimelinePanel_PointerMoved(object? sender, PointerEventArgs e)
     {
-        if (ViewModel == null) return;
+        if (ViewModel == null)
+            return;
         TimelineTabViewModel viewModel = ViewModel;
         PointerPoint pointerPt = e.GetCurrentPoint(TimelinePanel);
         int rate = viewModel.Scene.FindHierarchicalParent<Project>().GetFrameRate();
-        _pointerFrame = pointerPt.Position.X.PixelToTimeSpan(viewModel.Options.Value.Scale).RoundToRate(rate);
+        _pointerFrame = pointerPt
+            .Position.X.PixelToTimeSpan(viewModel.Options.Value.Scale)
+            .RoundToRate(rate);
 
         if (_pointerFrame < TimeSpan.Zero)
         {
@@ -298,9 +321,11 @@ public sealed partial class TimelineTabView : UserControl
         else if (_mouseFlag == MouseFlags.MarkerPressed && _pressedMarker is { } draggingMarker)
         {
             // 閾値を超えるまではドラッグとみなさず、クリックでのフライアウト表示の余地を残す
-            if (!_markerDragged
+            if (
+                !_markerDragged
                 && Math.Abs(pointerPt.Position.X - _markerPressPosition.X) < MarkerDragThreshold
-                && Math.Abs(pointerPt.Position.Y - _markerPressPosition.Y) < MarkerDragThreshold)
+                && Math.Abs(pointerPt.Position.Y - _markerPressPosition.Y) < MarkerDragThreshold
+            )
             {
                 return;
             }
@@ -335,8 +360,18 @@ public sealed partial class TimelineTabView : UserControl
             double endingBarX = viewModel.EndingBarMargin.Value.Left;
 
             // EndingBarマーカーやポイントマーカーの当たり判定チェック
-            if (TimelineHelper.IsPointInTimelineScaleMarker(pointerPt.Position.X, posScale.Y, startingBarX, endingBarX)
-                || (Scale.IsPointerOver && Scale.HitTestMarker(pointerPt.Position.X, posScale.Y) != null))
+            if (
+                TimelineHelper.IsPointInTimelineScaleMarker(
+                    pointerPt.Position.X,
+                    posScale.Y,
+                    startingBarX,
+                    endingBarX
+                )
+                || (
+                    Scale.IsPointerOver
+                    && Scale.HitTestMarker(pointerPt.Position.X, posScale.Y) != null
+                )
+            )
             {
                 Scale.Cursor = Cursors.SizeWestEast;
             }
@@ -349,8 +384,10 @@ public sealed partial class TimelineTabView : UserControl
             {
                 CacheBlock[] cacheBlocks = viewModel.BufferStatus.CacheBlocks.Value;
 
-                viewModel.HoveredCacheBlock.Value = Array.Find(cacheBlocks,
-                    v => new TimeRange(v.Start, v.Length).Contains(_pointerFrame));
+                viewModel.HoveredCacheBlock.Value = Array.Find(
+                    cacheBlocks,
+                    v => new TimeRange(v.Start, v.Length).Contains(_pointerFrame)
+                );
             }
             else
             {
@@ -362,7 +399,8 @@ public sealed partial class TimelineTabView : UserControl
     // ポインターが放された
     private void TimelinePanel_PointerReleased(object? sender, PointerReleasedEventArgs e)
     {
-        if (ViewModel == null) return;
+        if (ViewModel == null)
+            return;
         PointerPoint pointerPt = e.GetCurrentPoint(TimelinePanel);
         HistoryManager history = ViewModel.EditorContext.GetRequiredService<HistoryManager>();
 
@@ -401,14 +439,17 @@ public sealed partial class TimelineTabView : UserControl
 
             if (Scale.IsPointerOver && ViewModel.HoveredCacheBlock.Value is { } cache)
             {
-                long size = ViewModel.BufferStatus.CalculateCacheByteCount(cache.StartFrame, cache.StartFrame + cache.LengthFrame);
+                long size = ViewModel.BufferStatus.CalculateCacheByteCount(
+                    cache.StartFrame,
+                    cache.StartFrame + cache.LengthFrame
+                );
 
                 CacheTip.Content = $"""
-                                    {Strings.MemoryUsage}: {Utilities.StringFormats.ToHumanReadableSize(size)}
-                                    {Strings.StartTime}: {cache.Start}
-                                    {Strings.DurationTime}: {cache.Length}
-                                    {(cache.IsLocked ? Strings.Locked : Strings.Unlocked)}
-                                    """;
+                    {Strings.MemoryUsage}: {Utilities.StringFormats.ToHumanReadableSize(size)}
+                    {Strings.StartTime}: {cache.Start}
+                    {Strings.DurationTime}: {cache.Length}
+                    {(cache.IsLocked ? Strings.Locked : Strings.Unlocked)}
+                    """;
                 CacheTip.IsOpen = true;
             }
 
@@ -422,7 +463,8 @@ public sealed partial class TimelineTabView : UserControl
 
     private void UpdateRangeSelection()
     {
-        if (ViewModel == null) return;
+        if (ViewModel == null)
+            return;
         TimelineTabViewModel viewModel = ViewModel;
         viewModel.ClearSelected();
 
@@ -436,8 +478,11 @@ public sealed partial class TimelineTabView : UserControl
 
         foreach (ElementViewModel item in viewModel.Elements)
         {
-            if (timeRange.Intersects(item.Model.Range)
-                && startLayer <= item.Model.ZIndex && item.Model.ZIndex <= endLayer)
+            if (
+                timeRange.Intersects(item.Model.Range)
+                && startLayer <= item.Model.ZIndex
+                && item.Model.ZIndex <= endLayer
+            )
             {
                 viewModel.SelectElement(item);
             }
@@ -447,11 +492,17 @@ public sealed partial class TimelineTabView : UserControl
     // ポインターが押された
     private void TimelinePanel_PointerPressed(object? sender, PointerPressedEventArgs e)
     {
-        if (ViewModel == null) return;
+        if (ViewModel == null)
+            return;
         TimelineTabViewModel viewModel = ViewModel;
         PointerPoint pointerPt = e.GetCurrentPoint(TimelinePanel);
-        viewModel.ClickedFrame = pointerPt.Position.X.PixelToTimeSpan(viewModel.Options.Value.Scale)
-            .RoundToRate(viewModel.Scene.FindHierarchicalParent<Project>() is { } proj ? proj.GetFrameRate() : 30);
+        viewModel.ClickedFrame = pointerPt
+            .Position.X.PixelToTimeSpan(viewModel.Options.Value.Scale)
+            .RoundToRate(
+                viewModel.Scene.FindHierarchicalParent<Project>() is { } proj
+                    ? proj.GetFrameRate()
+                    : 30
+            );
 
         viewModel.ClickedPosition = pointerPt.Position;
 
@@ -482,8 +533,10 @@ public sealed partial class TimelineTabView : UserControl
                 Point scalePoint = e.GetPosition(Scale);
 
                 // ポイントマーカーの当たり判定（Scale 上端の三角ピン）
-                if (Scale.IsPointerOver
-                    && Scale.HitTestMarker(pointerPt.Position.X, scalePoint.Y) is { } hitMarker)
+                if (
+                    Scale.IsPointerOver
+                    && Scale.HitTestMarker(pointerPt.Position.X, scalePoint.Y) is { } hitMarker
+                )
                 {
                     _mouseFlag = MouseFlags.MarkerPressed;
                     _pressedMarker = hitMarker;
@@ -495,13 +548,25 @@ public sealed partial class TimelineTabView : UserControl
                 }
 
                 // マーカーの当たり判定チェック - TimelineScaleのマーカーのみ
-                if (TimelineHelper.IsPointInTimelineScaleEndingMarker(pointerPt.Position.X, scalePoint.Y, endingBarX))
+                if (
+                    TimelineHelper.IsPointInTimelineScaleEndingMarker(
+                        pointerPt.Position.X,
+                        scalePoint.Y,
+                        endingBarX
+                    )
+                )
                 {
                     _mouseFlag = MouseFlags.EndingBarMarkerPressed;
                     // 初期値を保存
                     _initialDuration = viewModel.Scene.Duration;
                 }
-                else if (TimelineHelper.IsPointInTimelineScaleStartingMarker(pointerPt.Position.X, scalePoint.Y, startingBarX))
+                else if (
+                    TimelineHelper.IsPointInTimelineScaleStartingMarker(
+                        pointerPt.Position.X,
+                        scalePoint.Y,
+                        startingBarX
+                    )
+                )
                 {
                     _mouseFlag = MouseFlags.StartingBarMarkerPressed;
                     _initialStart = viewModel.Scene.Start; // 初期値を保存
@@ -521,7 +586,8 @@ public sealed partial class TimelineTabView : UserControl
     // ポインターが離れた
     private void TimelinePanel_PointerExited(object? sender, PointerEventArgs e)
     {
-        if (ViewModel == null) return;
+        if (ViewModel == null)
+            return;
 
         if (!_rightButtonPressed)
         {
@@ -532,60 +598,92 @@ public sealed partial class TimelineTabView : UserControl
     // ドロップされた
     private async void TimelinePanel_Drop(object? sender, DragEventArgs e)
     {
-        if (ViewModel == null) return;
+        if (ViewModel == null)
+            return;
         TimelinePanel.Cursor = Cursors.Arrow;
         TimelineTabViewModel viewModel = ViewModel;
         Scene scene = ViewModel.Scene;
         Point pt = e.GetPosition(TimelinePanel);
 
-        viewModel.ClickedFrame = pt.X.PixelToTimeSpan(viewModel.Options.Value.Scale)
-            .RoundToRate(viewModel.Scene.FindHierarchicalParent<Project>() is { } proj ? proj.GetFrameRate() : 30);
+        viewModel.ClickedFrame = pt
+            .X.PixelToTimeSpan(viewModel.Options.Value.Scale)
+            .RoundToRate(
+                viewModel.Scene.FindHierarchicalParent<Project>() is { } proj
+                    ? proj.GetFrameRate()
+                    : 30
+            );
         viewModel.ClickedPosition = pt;
 
         // テンプレート経路（優先）
         ObjectTemplateItem? template = null;
-        if (e.DataTransfer.TryGetValue(BeutlDataFormats.ObjectTemplate) is { } idStr
-            && Guid.TryParse(idStr, out Guid templateId))
+        if (
+            e.DataTransfer.TryGetValue(BeutlDataFormats.ObjectTemplate) is { } idStr
+            && Guid.TryParse(idStr, out Guid templateId)
+        )
         {
             template = ObjectTemplateService.Instance.FindById(templateId);
         }
 
         // テンプレートファイルのドロップもテンプレート経路で処理
-        if (template == null && e.DataTransfer.TryGetFile()?.TryGetLocalPath() is { } droppedFile
-            && string.Equals(Path.GetExtension(droppedFile), ".json", StringComparison.OrdinalIgnoreCase))
+        if (
+            template == null
+            && e.DataTransfer.TryGetFile()?.TryGetLocalPath() is { } droppedFile
+            && string.Equals(
+                Path.GetExtension(droppedFile),
+                ".json",
+                StringComparison.OrdinalIgnoreCase
+            )
+        )
         {
             template = ObjectTemplateService.Instance.TryLoadFromFile(droppedFile);
         }
 
         if (template != null)
         {
-            if (viewModel.EditorContext.GetService<IElementAdder>() is { } adder
-                && (template.BaseType == typeof(Element)
-                    || template.BaseType.IsAssignableTo(typeof(EngineObject))))
+            if (
+                viewModel.EditorContext.GetService<IElementAdder>() is { } adder
+                && (
+                    template.BaseType == typeof(Element)
+                    || template.BaseType.IsAssignableTo(typeof(EngineObject))
+                )
+            )
             {
                 // Element テンプレート、もしくは EngineObject テンプレート → 新しい Element を作って配置
                 adder.AddElementFromTemplate(
                     template,
                     viewModel.ClickedFrame,
-                    viewModel.CalculateClickedLayer());
+                    viewModel.CalculateClickedLayer()
+                );
             }
 
             e.Handled = true;
         }
-        else if (e.DataTransfer.TryGetValue(BeutlDataFormats.EngineObject) is { } typeName
-            && TypeFormat.ToType(typeName) is { } type)
+        else if (
+            e.DataTransfer.TryGetValue(BeutlDataFormats.EngineObject) is { } typeName
+            && TypeFormat.ToType(typeName) is { } type
+        )
         {
-            viewModel.AddElement.Execute(new ElementDescription(
-                viewModel.ClickedFrame, TimeSpan.FromSeconds(5), viewModel.CalculateClickedLayer(),
-                InitialObject: type));
+            viewModel.AddElement.Execute(
+                new ElementDescription(
+                    viewModel.ClickedFrame,
+                    TimeSpan.FromSeconds(5),
+                    viewModel.CalculateClickedLayer(),
+                    InitialObject: type
+                )
+            );
 
             e.Handled = true;
         }
         else if (e.DataTransfer.TryGetFile()?.TryGetLocalPath() is { } fileName)
         {
-            viewModel.AddElement.Execute(new ElementDescription(
-                viewModel.ClickedFrame, TimeSpan.FromSeconds(5), viewModel.CalculateClickedLayer(),
-                FileName: fileName));
+            viewModel.AddElement.Execute(
+                new ElementDescription(
+                    viewModel.ClickedFrame,
+                    TimeSpan.FromSeconds(5),
+                    viewModel.CalculateClickedLayer(),
+                    FileName: fileName
+                )
+            );
 
             e.Handled = true;
         }
@@ -593,9 +691,11 @@ public sealed partial class TimelineTabView : UserControl
 
     private void TimelinePanel_DragOver(object? sender, DragEventArgs e)
     {
-        if (e.DataTransfer.Contains(BeutlDataFormats.ObjectTemplate)
+        if (
+            e.DataTransfer.Contains(BeutlDataFormats.ObjectTemplate)
             || e.DataTransfer.Contains(BeutlDataFormats.EngineObject)
-            || e.DataTransfer.Contains(DataFormat.File))
+            || e.DataTransfer.Contains(DataFormat.File)
+        )
         {
             e.DragEffects = DragDropEffects.Copy;
         }
@@ -617,42 +717,51 @@ public sealed partial class TimelineTabView : UserControl
     {
         switch (item)
         {
-            case SingleTypeLibraryItem single when single.Format == KnownLibraryItemFormats.EngineObject:
+            case SingleTypeLibraryItem single
+                when single.Format == KnownLibraryItemFormats.EngineObject:
+            {
+                var menuItem = new MenuFlyoutItem
                 {
-                    var menuItem = new MenuFlyoutItem { Text = single.DisplayName, Tag = single.ImplementationType };
-                    menuItem.Click += AddElementWithTypeClick;
-                    return menuItem;
-                }
+                    Text = single.DisplayName,
+                    Tag = single.ImplementationType,
+                };
+                menuItem.Click += AddElementWithTypeClick;
+                return menuItem;
+            }
 
-            case MultipleTypeLibraryItem multiple when multiple.Types.TryGetValue(KnownLibraryItemFormats.EngineObject, out Type? type):
-                {
-                    var menuItem = new MenuFlyoutItem { Text = multiple.DisplayName, Tag = type };
-                    menuItem.Click += AddElementWithTypeClick;
-                    return menuItem;
-                }
+            case MultipleTypeLibraryItem multiple
+                when multiple.Types.TryGetValue(
+                    KnownLibraryItemFormats.EngineObject,
+                    out Type? type
+                ):
+            {
+                var menuItem = new MenuFlyoutItem { Text = multiple.DisplayName, Tag = type };
+                menuItem.Click += AddElementWithTypeClick;
+                return menuItem;
+            }
 
             case GroupLibraryItem group:
+            {
+                var subItems = new List<Control>();
+                foreach (LibraryItem child in group.Items)
                 {
-                    var subItems = new List<Control>();
-                    foreach (LibraryItem child in group.Items)
+                    Control? childItem = CreateMenuItemForLibraryItem(child);
+                    if (childItem != null)
                     {
-                        Control? childItem = CreateMenuItemForLibraryItem(child);
-                        if (childItem != null)
-                        {
-                            subItems.Add(childItem);
-                        }
+                        subItems.Add(childItem);
                     }
-
-                    if (subItems.Count == 0)
-                        return null;
-
-                    var subMenu = new MenuFlyoutSubItem { Text = group.DisplayName };
-                    foreach (Control subItem in subItems)
-                    {
-                        subMenu.Items.Add(subItem);
-                    }
-                    return subMenu;
                 }
+
+                if (subItems.Count == 0)
+                    return null;
+
+                var subMenu = new MenuFlyoutSubItem { Text = group.DisplayName };
+                foreach (Control subItem in subItems)
+                {
+                    subMenu.Items.Add(subItem);
+                }
+                return subMenu;
+            }
 
             default:
                 return null;
@@ -661,21 +770,29 @@ public sealed partial class TimelineTabView : UserControl
 
     private void AddElementWithTypeClick(object? sender, RoutedEventArgs e)
     {
-        if (ViewModel == null) return;
-        if (sender is not MenuFlyoutItem { Tag: Type operatorType }) return;
+        if (ViewModel == null)
+            return;
+        if (sender is not MenuFlyoutItem { Tag: Type operatorType })
+            return;
 
-        ViewModel.AddElement.Execute(new ElementDescription(
-            ViewModel.ClickedFrame,
-            TimeSpan.FromSeconds(5),
-            ViewModel.CalculateClickedLayer(),
-            InitialObject: operatorType));
+        ViewModel.AddElement.Execute(
+            new ElementDescription(
+                ViewModel.ClickedFrame,
+                TimeSpan.FromSeconds(5),
+                ViewModel.CalculateClickedLayer(),
+                InitialObject: operatorType
+            )
+        );
     }
 
     private void PopulateAddFromTemplateSubMenu()
     {
         AddFromTemplateSubMenu.Items.Clear();
-        foreach (ObjectTemplateItem template in ObjectTemplateService.Instance
-            .FindByBaseType(typeof(Element)))
+        foreach (
+            ObjectTemplateItem template in ObjectTemplateService.Instance.FindByBaseType(
+                typeof(Element)
+            )
+        )
         {
             var menuItem = new MenuFlyoutItem { Text = template.Name.Value, Tag = template };
             menuItem.Click += AddElementFromTemplateClick;
@@ -687,22 +804,25 @@ public sealed partial class TimelineTabView : UserControl
 
     private void AddElementFromTemplateClick(object? sender, RoutedEventArgs e)
     {
-        if (ViewModel == null) return;
-        if (sender is not MenuFlyoutItem { Tag: ObjectTemplateItem template }) return;
+        if (ViewModel == null)
+            return;
+        if (sender is not MenuFlyoutItem { Tag: ObjectTemplateItem template })
+            return;
 
-        if (ViewModel.EditorContext.GetService(typeof(IElementAdder))
-            is IElementAdder adder)
+        if (ViewModel.EditorContext.GetService(typeof(IElementAdder)) is IElementAdder adder)
         {
             adder.AddElementFromTemplate(
                 template,
                 ViewModel.ClickedFrame,
-                ViewModel.CalculateClickedLayer());
+                ViewModel.CalculateClickedLayer()
+            );
         }
     }
 
     private void ShowSceneSettings(object? sender, RoutedEventArgs e)
     {
-        if (ViewModel == null) return;
+        if (ViewModel == null)
+            return;
         IEditorContext editorContext = ViewModel.EditorContext;
         SceneSettingsTabViewModel? tab = editorContext.FindToolTab<SceneSettingsTabViewModel>();
         if (tab != null)
@@ -733,8 +853,10 @@ public sealed partial class TimelineTabView : UserControl
         for (int i = TimelinePanel.Children.Count - 1; i >= 0; i--)
         {
             Control item = TimelinePanel.Children[i];
-            if ((item.DataContext is ElementViewModel vm1 && vm1.Model == elm)
-                || (item.DataContext is ElementScopeViewModel vm2 && vm2.Model == elm))
+            if (
+                (item.DataContext is ElementViewModel vm1 && vm1.Model == elm)
+                || (item.DataContext is ElementScopeViewModel vm2 && vm2.Model == elm)
+            )
             {
                 TimelinePanel.Children.RemoveAt(i);
             }
@@ -765,12 +887,14 @@ public sealed partial class TimelineTabView : UserControl
     private ElementView? FindElementView(Element element)
     {
         return TimelinePanel.Children.FirstOrDefault(ctr =>
-            ctr.DataContext is ElementViewModel vm && vm.Model == element) as ElementView;
+                ctr.DataContext is ElementViewModel vm && vm.Model == element
+            ) as ElementView;
     }
 
     private void ShowBpmGridFlyout(object? sender, RoutedEventArgs e)
     {
-        if (ViewModel == null) return;
+        if (ViewModel == null)
+            return;
 
         var bpmGrid = ViewModel.Options.Value.BpmGrid;
         var flyout = new Editor.Components.Views.BpmGridFlyout
@@ -817,27 +941,39 @@ public sealed partial class TimelineTabView : UserControl
             double pointerPos = _pointerFrame.TimeToPixel(ViewModel.Options.Value.Scale);
             double deltaLeft = pointerPos - offset.X;
             offset.X = (float)((pointerPos / oldScale * zoom) - deltaLeft);
-            ViewModel.Options.Value = ViewModel.Options.Value with { Scale = zoom, Offset = offset };
+            ViewModel.Options.Value = ViewModel.Options.Value with
+            {
+                Scale = zoom,
+                Offset = offset,
+            };
         }
     }
 
     private void OnCurrentTimeChangedForAutoScroll(TimeSpan currentTime)
     {
-        if (ViewModel == null) return;
+        if (ViewModel == null)
+            return;
 
         var mode = GlobalConfiguration.Instance.EditorConfig.TimelineAutoScrollMode;
-        if (mode == TimelineAutoScrollMode.None) return;
+        if (mode == TimelineAutoScrollMode.None)
+            return;
 
         var previewPlayer = ViewModel.EditorContext.GetService<IPreviewPlayer>();
-        if (previewPlayer == null || !previewPlayer.IsPlaying.Value) return;
+        if (previewPlayer == null || !previewPlayer.IsPlaying.Value)
+            return;
 
         float scale = ViewModel.Options.Value.Scale;
         double seekBarPixel = currentTime.TimeToPixel(scale);
 
         double? newOffsetX = TimelineHelper.CalculateAutoScrollOffset(
-            seekBarPixel, ContentScroll.Viewport.Width, ContentScroll.Offset.X, mode);
+            seekBarPixel,
+            ContentScroll.Viewport.Width,
+            ContentScroll.Offset.X,
+            mode
+        );
 
-        if (newOffsetX is not { } offsetX) return;
+        if (newOffsetX is not { } offsetX)
+            return;
 
         ContentScroll.Offset = new Avalonia.Vector(offsetX, ContentScroll.Offset.Y);
     }
@@ -845,8 +981,10 @@ public sealed partial class TimelineTabView : UserControl
     // ポインターがマーカー上にあるときは Scale の ContextFlyout を抑制する
     private void Scale_ContextRequested(object? sender, ContextRequestedEventArgs e)
     {
-        if (e.TryGetPosition(Scale, out Point position)
-            && Scale.HitTestMarker(position.X, position.Y) != null)
+        if (
+            e.TryGetPosition(Scale, out Point position)
+            && Scale.HitTestMarker(position.X, position.Y) != null
+        )
         {
             e.Handled = true;
         }
@@ -854,7 +992,8 @@ public sealed partial class TimelineTabView : UserControl
 
     private void ShowMarkerEditFlyout(SceneMarker marker)
     {
-        if (ViewModel == null) return;
+        if (ViewModel == null)
+            return;
 
         var initialName = marker.Name;
         var initialNote = marker.Note;
@@ -866,37 +1005,56 @@ public sealed partial class TimelineTabView : UserControl
             Time = marker.Time,
             MarkerName = marker.Name,
             Note = marker.Note,
-            Color = AvaColor.FromArgb(marker.Color.A, marker.Color.R, marker.Color.G, marker.Color.B),
+            Color = AvaColor.FromArgb(
+                marker.Color.A,
+                marker.Color.R,
+                marker.Color.G,
+                marker.Color.B
+            ),
         };
 
         flyout.ValuesChanged += (_, values) =>
         {
-            if (deleted) return;
+            if (deleted)
+                return;
             marker.Name = values.Name;
             marker.Note = values.Note;
-            marker.Color = BtlColor.FromArgb(values.Color.A, values.Color.R, values.Color.G, values.Color.B);
+            marker.Color = BtlColor.FromArgb(
+                values.Color.A,
+                values.Color.R,
+                values.Color.G,
+                values.Color.B
+            );
         };
 
         flyout.DeleteRequested += (_, _) =>
         {
-            if (ViewModel == null) return;
+            if (ViewModel == null)
+                return;
             // 削除前にプロパティ変更が残っていれば確定しない（Removeコマンドだけを履歴に残す）
             marker.Name = initialName;
             marker.Note = initialNote;
             marker.Color = initialColor;
             deleted = true;
             ViewModel.Scene.Markers.Remove(marker);
-            ViewModel.EditorContext.GetRequiredService<HistoryManager>().Commit(CommandNames.RemoveMarker);
+            ViewModel
+                .EditorContext.GetRequiredService<HistoryManager>()
+                .Commit(CommandNames.RemoveMarker);
         };
 
         flyout.Closed += (_, _) =>
         {
-            if (deleted || ViewModel == null) return;
-            if (marker.Name != initialName
+            if (deleted || ViewModel == null)
+                return;
+            if (
+                marker.Name != initialName
                 || marker.Note != initialNote
-                || marker.Color != initialColor)
+                || marker.Color != initialColor
+            )
             {
-                ViewModel.EditorContext.GetRequiredService<HistoryManager>().Commit(CommandNames.EditMarker);
+                ViewModel
+                    .EditorContext.GetRequiredService<HistoryManager>()
+                    .Commit(CommandNames.EditMarker);
             }
         };
 
@@ -943,18 +1101,20 @@ public sealed partial class TimelineTabView : UserControl
                     new KeyFrame()
                     {
                         Cue = new Cue(0),
-                        Setters = { new Setter(ScrollViewer.OffsetProperty, ContentScroll.Offset), }
+                        Setters = { new Setter(ScrollViewer.OffsetProperty, ContentScroll.Offset) },
                     },
                     new KeyFrame()
                     {
                         Cue = new Cue(1),
                         Setters =
                         {
-                            new Setter(ScrollViewer.OffsetProperty,
-                                new Avalonia.Vector(newOffsetX, newOffsetY)),
-                        }
-                    }
-                }
+                            new Setter(
+                                ScrollViewer.OffsetProperty,
+                                new Avalonia.Vector(newOffsetX, newOffsetY)
+                            ),
+                        },
+                    },
+                },
             };
             await anm.RunAsync(ContentScroll, _scrollCts.Token);
             ContentScroll.ClearValue(ScrollViewer.OffsetProperty);
@@ -963,7 +1123,7 @@ public sealed partial class TimelineTabView : UserControl
             {
                 viewModel.Options.Value = viewModel.Options.Value with
                 {
-                    Offset = new Vector2((float)newOffsetX, (float)newOffsetY)
+                    Offset = new Vector2((float)newOffsetX, (float)newOffsetY),
                 };
             }
         }

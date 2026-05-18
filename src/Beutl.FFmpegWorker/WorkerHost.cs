@@ -35,24 +35,27 @@ internal sealed class WorkerHost(IpcConnection connection) : IDisposable
             if (IsParallelizable(message.Type))
             {
                 var msg = message;
-                _ = Task.Run(async () =>
-                {
-                    IpcMessage response;
-                    try
+                _ = Task.Run(
+                    async () =>
                     {
-                        response = HandleMessage(msg);
-                    }
-                    catch (Exception ex)
-                    {
-                        response = IpcMessage.CreateError(msg.Id, ex.Message, ex.StackTrace);
-                    }
+                        IpcMessage response;
+                        try
+                        {
+                            response = HandleMessage(msg);
+                        }
+                        catch (Exception ex)
+                        {
+                            response = IpcMessage.CreateError(msg.Id, ex.Message, ex.StackTrace);
+                        }
 
-                    try
-                    {
-                        await connection.SendAsync(response, ct);
-                    }
-                    catch (IOException) { }
-                }, ct);
+                        try
+                        {
+                            await connection.SendAsync(response, ct);
+                        }
+                        catch (IOException) { }
+                    },
+                    ct
+                );
                 continue;
             }
 
@@ -62,10 +65,17 @@ internal sealed class WorkerHost(IpcConnection connection) : IDisposable
             {
                 seqResponse = message.Type switch
                 {
-                    MessageType.StartEncode => await _encodingHandler.HandleStartAsync(message, connection, ct),
+                    MessageType.StartEncode => await _encodingHandler.HandleStartAsync(
+                        message,
+                        connection,
+                        ct
+                    ),
                     MessageType.CancelEncode => _encodingHandler.HandleCancel(message),
                     MessageType.Shutdown => HandleShutdown(message),
-                    _ => IpcMessage.CreateError(message.Id, $"Unknown message type: {message.Type}"),
+                    _ => IpcMessage.CreateError(
+                        message.Id,
+                        $"Unknown message type: {message.Type}"
+                    ),
                 };
             }
             catch (Exception ex)
@@ -95,7 +105,9 @@ internal sealed class WorkerHost(IpcConnection connection) : IDisposable
             MessageType.ReadVideo => _decodingHandler.HandleReadVideo(message),
             MessageType.ReadAudio => _decodingHandler.HandleReadAudio(message),
             MessageType.CloseReader => _decodingHandler.HandleClose(message),
-            MessageType.UpdateDecoderSettings => _decodingHandler.HandleUpdateDecoderSettings(message),
+            MessageType.UpdateDecoderSettings => _decodingHandler.HandleUpdateDecoderSettings(
+                message
+            ),
             MessageType.QueryCodecs => _codecQueryHandler.HandleQueryCodecs(message),
             MessageType.QueryPixelFormats => _codecQueryHandler.HandleQueryPixelFormats(message),
             MessageType.QuerySampleRates => _codecQueryHandler.HandleQuerySampleRates(message),
@@ -107,16 +119,17 @@ internal sealed class WorkerHost(IpcConnection connection) : IDisposable
 
     private static bool IsParallelizable(MessageType type)
     {
-        return type is MessageType.ReadVideo
-            or MessageType.ReadAudio
-            or MessageType.OpenFile
-            or MessageType.CloseReader
-            or MessageType.UpdateDecoderSettings
-            or MessageType.QueryCodecs
-            or MessageType.QueryPixelFormats
-            or MessageType.QuerySampleRates
-            or MessageType.QueryAudioFormats
-            or MessageType.QueryDefaultCodec;
+        return type
+            is MessageType.ReadVideo
+                or MessageType.ReadAudio
+                or MessageType.OpenFile
+                or MessageType.CloseReader
+                or MessageType.UpdateDecoderSettings
+                or MessageType.QueryCodecs
+                or MessageType.QueryPixelFormats
+                or MessageType.QuerySampleRates
+                or MessageType.QueryAudioFormats
+                or MessageType.QueryDefaultCodec;
     }
 
     private static IpcMessage HandleShutdown(IpcMessage message)

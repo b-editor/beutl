@@ -40,11 +40,13 @@ internal static class VulkanSetup
         {
             Architecture.X64 => "x64",
             Architecture.Arm64 => "arm64",
-            _ => null
+            _ => null,
         };
-        var os = OperatingSystem.IsWindows() ? "win" :
-            OperatingSystem.IsLinux() ? "linux" :
-            OperatingSystem.IsMacOS() ? "osx" : null;
+        var os =
+            OperatingSystem.IsWindows() ? "win"
+            : OperatingSystem.IsLinux() ? "linux"
+            : OperatingSystem.IsMacOS() ? "osx"
+            : null;
         if (arch != null && os != null)
         {
             var runtimePath = Path.Combine(baseDir, "runtimes", $"{os}-{arch}", "native");
@@ -55,8 +57,11 @@ internal static class VulkanSetup
             }
         }
 
-        return Directory.EnumerateFiles(baseDir, "*.*", SearchOption.AllDirectories)
-            .FirstOrDefault(f => Path.GetFileName(f).Equals(fileName, StringComparison.OrdinalIgnoreCase));
+        return Directory
+            .EnumerateFiles(baseDir, "*.*", SearchOption.AllDirectories)
+            .FirstOrDefault(f =>
+                Path.GetFileName(f).Equals(fileName, StringComparison.OrdinalIgnoreCase)
+            );
     }
 
     private static void UpdateEnv(List<string> prepend, List<string> append, string varName)

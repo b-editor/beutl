@@ -1,14 +1,12 @@
 ﻿#nullable enable
 
 using System.Reactive.Disposables;
-
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Metadata;
 using Avalonia.Controls.Primitives;
 using Avalonia.Data;
 using Avalonia.Interactivity;
-
 using Beutl.Reactive;
 
 namespace Beutl.Controls.PropertyEditors;
@@ -21,12 +19,14 @@ public class ReferenceEditor : PropertyEditor
             nameof(TargetName),
             o => o.TargetName,
             (o, v) => o.TargetName = v,
-            defaultBindingMode: BindingMode.TwoWay);
+            defaultBindingMode: BindingMode.TwoWay
+        );
 
     public static readonly RoutedEvent<RoutedEventArgs> SelectTargetRequestedEvent =
         RoutedEvent.Register<ReferenceEditor, RoutedEventArgs>(
             nameof(SelectTargetRequested),
-            RoutingStrategies.Bubble);
+            RoutingStrategies.Bubble
+        );
 
     private string? _targetName;
     private readonly CompositeDisposable _eventRevokers = new(2);
@@ -53,7 +53,8 @@ public class ReferenceEditor : PropertyEditor
         TargetPickerButton = e.NameScope.Find<Button>("PART_TargetPickerButton");
         if (TargetPickerButton != null)
         {
-            TargetPickerButton.AddDisposableHandler(Button.ClickEvent, OnTargetPickerButtonClick)
+            TargetPickerButton
+                .AddDisposableHandler(Button.ClickEvent, OnTargetPickerButtonClick)
                 .DisposeWith(_eventRevokers);
         }
     }

@@ -64,8 +64,7 @@ public readonly struct FormattedTextTokenizer(string str)
         int tagStart = span.IndexOf("<", StringComparison.Ordinal);
         int tagEnd = span.IndexOf(">", StringComparison.Ordinal);
 
-        bool isMatch = tagStart >= 0 && tagEnd >= 0 &&
-                       tagStart < tagEnd;
+        bool isMatch = tagStart >= 0 && tagEnd >= 0 && tagStart < tagEnd;
 
         if (isMatch)
         {

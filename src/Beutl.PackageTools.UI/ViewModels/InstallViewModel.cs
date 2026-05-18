@@ -1,14 +1,15 @@
 ﻿using Beutl.Logging;
 using Beutl.PackageTools.UI.Models;
-
 using NuGet.Packaging.Core;
-
 using Reactive.Bindings;
 
 namespace Beutl.PackageTools.UI.ViewModels;
 
-public class InstallViewModel(BeutlApiApplication app, ChangesModel changesModel, PackageChangeModel model)
-    : ActionViewModel(changesModel, model)
+public class InstallViewModel(
+    BeutlApiApplication app,
+    ChangesModel changesModel,
+    PackageChangeModel model
+) : ActionViewModel(changesModel, model)
 {
     private readonly ILogger _logger = Log.CreateLogger<InstallViewModel>();
     private readonly ChangesModel _changesModel = changesModel;
@@ -29,45 +30,88 @@ public class InstallViewModel(BeutlApiApplication app, ChangesModel changesModel
         {
             _logger.LogInformation(
                 "Starting installation of package {PackageId} version {Version}.",
-                Model.Id, Model.Version.ToString());
+                Model.Id,
+                Model.Version.ToString()
+            );
 
             CurrentRunningTask.Value = Download.Value = new DownloadTaskModel(Model, app);
             Download.Value.ShowDetails.Value = true;
-            _logger.LogInformation("Downloading package {PackageId} version {Version}.", Model.Id, Model.Version.ToString());
+            _logger.LogInformation(
+                "Downloading package {PackageId} version {Version}.",
+                Model.Id,
+                Model.Version.ToString()
+            );
             bool result = await Download.Value.Run(token);
             if (!result || Download.Value.Context == null)
             {
-                _logger.LogWarning("Download failed for package {PackageId} version {Version}.", Model.Id, Model.Version.ToString());
+                _logger.LogWarning(
+                    "Download failed for package {PackageId} version {Version}.",
+                    Model.Id,
+                    Model.Version.ToString()
+                );
                 goto Failed;
             }
 
-            CurrentRunningTask.Value = Verify.Value = new VerifyTaskModel(app, Download.Value.Context);
+            CurrentRunningTask.Value = Verify.Value = new VerifyTaskModel(
+                app,
+                Download.Value.Context
+            );
             Verify.Value.ShowDetails.Value = true;
-            _logger.LogInformation("Verifying package {PackageId} version {Version}.", Model.Id, Model.Version.ToString());
+            _logger.LogInformation(
+                "Verifying package {PackageId} version {Version}.",
+                Model.Id,
+                Model.Version.ToString()
+            );
             result = await Verify.Value.Run(token);
             if (!result)
             {
-                _logger.LogWarning("Verification failed for package {PackageId} version {Version}.", Model.Id, Model.Version.ToString());
+                _logger.LogWarning(
+                    "Verification failed for package {PackageId} version {Version}.",
+                    Model.Id,
+                    Model.Version.ToString()
+                );
                 goto Failed;
             }
 
-            CurrentRunningTask.Value = Resolve.Value = new ResolveTaskModel(app, Download.Value.Context);
+            CurrentRunningTask.Value = Resolve.Value = new ResolveTaskModel(
+                app,
+                Download.Value.Context
+            );
             Resolve.Value.ShowDetails.Value = true;
-            _logger.LogInformation("Resolving dependencies for package {PackageId} version {Version}.", Model.Id, Model.Version.ToString());
+            _logger.LogInformation(
+                "Resolving dependencies for package {PackageId} version {Version}.",
+                Model.Id,
+                Model.Version.ToString()
+            );
             result = await Resolve.Value.Run(token);
             if (!result)
             {
-                _logger.LogWarning("Dependency resolution failed for package {PackageId} version {Version}.", Model.Id, Model.Version.ToString());
+                _logger.LogWarning(
+                    "Dependency resolution failed for package {PackageId} version {Version}.",
+                    Model.Id,
+                    Model.Version.ToString()
+                );
                 goto Failed;
             }
 
-            CurrentRunningTask.Value = AcceptLicense.Value = new AcceptLicenseTaskModel(app, Download.Value.Context);
+            CurrentRunningTask.Value = AcceptLicense.Value = new AcceptLicenseTaskModel(
+                app,
+                Download.Value.Context
+            );
             AcceptLicense.Value.ShowDetails.Value = true;
-            _logger.LogInformation("Accepting license for package {PackageId} version {Version}.", Model.Id, Model.Version.ToString());
+            _logger.LogInformation(
+                "Accepting license for package {PackageId} version {Version}.",
+                Model.Id,
+                Model.Version.ToString()
+            );
             result = await AcceptLicense.Value.Run(token);
             if (!result)
             {
-                _logger.LogWarning("License acceptance failed for package {PackageId} version {Version}.", Model.Id, Model.Version.ToString());
+                _logger.LogWarning(
+                    "License acceptance failed for package {PackageId} version {Version}.",
+                    Model.Id,
+                    Model.Version.ToString()
+                );
                 goto Failed;
             }
 
@@ -76,22 +120,39 @@ public class InstallViewModel(BeutlApiApplication app, ChangesModel changesModel
             var pkg = new PackageIdentity(Model.Id, Model.Version);
             repos.AddPackage(pkg);
             repos.UpgradePackages(pkg);
-            _logger.LogInformation("Package {PackageId} version {Version} installed successfully.", Model.Id, Model.Version.ToString());
+            _logger.LogInformation(
+                "Package {PackageId} version {Version} installed successfully.",
+                Model.Id,
+                Model.Version.ToString()
+            );
             Succeeded.Value = true;
             return;
 
-        Failed:
-            _logger.LogError("Installation failed for package {PackageId} version {Version}.", Model.Id, Model.Version.ToString());
+            Failed:
+            _logger.LogError(
+                "Installation failed for package {PackageId} version {Version}.",
+                Model.Id,
+                Model.Version.ToString()
+            );
             Failed.Value = true;
         }
         catch (OperationCanceledException)
         {
-            _logger.LogWarning("Installation canceled for package {PackageId} version {Version}.", Model.Id, Model.Version.ToString());
+            _logger.LogWarning(
+                "Installation canceled for package {PackageId} version {Version}.",
+                Model.Id,
+                Model.Version.ToString()
+            );
             Canceled.Value = true;
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "An exception occurred during installation of package {PackageId} version {Version}.", Model.Id, Model.Version.ToString());
+            _logger.LogError(
+                ex,
+                "An exception occurred during installation of package {PackageId} version {Version}.",
+                Model.Id,
+                Model.Version.ToString()
+            );
             Failed.Value = true;
         }
         finally

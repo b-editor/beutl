@@ -1,6 +1,5 @@
 ﻿using Avalonia.Controls;
 using Avalonia.Interactivity;
-
 using Beutl.Controls;
 using Beutl.Controls.Converters;
 using Beutl.ViewModels.Editors;
@@ -13,7 +12,11 @@ public partial class GraphModelNodeMemberView : UserControl
     {
         Resources["ViewModelToViewConverter"] = PropertyEditorContextToViewConverter.Instance;
         InitializeComponent();
-        ExpandTransitionHelper.Attach(expandToggle, content, ExpandTransitionHelper.ListItemDuration);
+        ExpandTransitionHelper.Attach(
+            expandToggle,
+            content,
+            ExpandTransitionHelper.ListItemDuration
+        );
     }
 
     public void Remove_Click(object? sender, RoutedEventArgs e)
@@ -28,10 +31,7 @@ public partial class GraphModelNodeMemberView : UserControl
     {
         if (DataContext is GraphModelNodeMemberViewModel viewModel)
         {
-            var flyout = new RenameFlyout()
-            {
-                Text = viewModel.GraphNode.Name
-            };
+            var flyout = new RenameFlyout() { Text = viewModel.GraphNode.Name };
 
             flyout.Confirmed += OnNameConfirmed;
 
@@ -41,12 +41,10 @@ public partial class GraphModelNodeMemberView : UserControl
 
     private void OnNameConfirmed(object? sender, string? e)
     {
-        if (sender is RenameFlyout flyout
-            && DataContext is GraphModelNodeMemberViewModel viewModel)
+        if (sender is RenameFlyout flyout && DataContext is GraphModelNodeMemberViewModel viewModel)
         {
             flyout.Confirmed -= OnNameConfirmed;
             viewModel.UpdateName(e);
         }
     }
-
 }

@@ -1,5 +1,4 @@
 ﻿using System.Diagnostics.CodeAnalysis;
-
 using NuGet.Packaging.Core;
 
 namespace Beutl.Api.Services;

@@ -1,5 +1,4 @@
-﻿
-using BenchmarkDotNet.Attributes;
+﻿using BenchmarkDotNet.Attributes;
 
 [MemoryDiagnoser]
 public class StringCompareBench

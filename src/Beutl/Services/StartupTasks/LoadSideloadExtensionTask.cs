@@ -1,20 +1,17 @@
 ﻿using System.Collections.Concurrent;
-
 using Avalonia.Controls;
 using Avalonia.Threading;
-
 using Beutl.Api.Services;
 using Beutl.Logging;
-
 using FluentAvalonia.UI.Controls;
-
 using Microsoft.Extensions.Logging;
 
 namespace Beutl.Services.StartupTasks;
 
 public sealed class LoadSideloadExtensionTask : StartupTask
 {
-    private readonly ILogger<LoadSideloadExtensionTask> _logger = Log.CreateLogger<LoadSideloadExtensionTask>();
+    private readonly ILogger<LoadSideloadExtensionTask> _logger =
+        Log.CreateLogger<LoadSideloadExtensionTask>();
     private readonly PackageManager _manager;
 
     public LoadSideloadExtensionTask(PackageManager manager)
@@ -31,23 +28,34 @@ public sealed class LoadSideloadExtensionTask : StartupTask
 
                     if (await ShowDialog(sideloads))
                     {
-                        activity?.AddEvent(new ActivityEvent("Started loading side-load-packages."));
+                        activity?.AddEvent(
+                            new ActivityEvent("Started loading side-load-packages.")
+                        );
 
-                        Parallel.ForEach(sideloads, item =>
-                        {
-                            try
+                        Parallel.ForEach(
+                            sideloads,
+                            item =>
                             {
-                                _manager.Load(item);
+                                try
+                                {
+                                    _manager.Load(item);
+                                }
+                                catch (Exception e)
+                                {
+                                    activity?.SetStatus(ActivityStatusCode.Error);
+                                    _logger.LogError(
+                                        e,
+                                        "Failed to load package: {PackageName}",
+                                        item.Name
+                                    );
+                                    Failures.Add((item, e));
+                                }
                             }
-                            catch (Exception e)
-                            {
-                                activity?.SetStatus(ActivityStatusCode.Error);
-                                _logger.LogError(e, "Failed to load package: {PackageName}", item.Name);
-                                Failures.Add((item, e));
-                            }
-                        });
+                        );
 
-                        activity?.AddEvent(new ActivityEvent("Finished loading side-load-packages."));
+                        activity?.AddEvent(
+                            new ActivityEvent("Finished loading side-load-packages.")
+                        );
                     }
                     else
                     {
@@ -73,7 +81,7 @@ public sealed class LoadSideloadExtensionTask : StartupTask
                 Content = new ListBox
                 {
                     ItemsSource = sideloads.Select(x => x.Name).ToArray(),
-                    SelectedIndex = 0
+                    SelectedIndex = 0,
                 },
                 PrimaryButtonText = Strings.Yes,
                 CloseButtonText = Strings.No,

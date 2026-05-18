@@ -8,6 +8,7 @@ public class DisposableExtensionTests
     private sealed class CountedDisposable : IDisposable
     {
         public int DisposeCount { get; private set; }
+
         public void Dispose() => DisposeCount++;
     }
 
@@ -63,8 +64,12 @@ public class DisposableExtensionTests
     {
         var items = Enumerable.Range(0, 4).Select(_ => new CountedDisposable()).ToArray();
 
-        ValueTuple<CountedDisposable?, CountedDisposable?, CountedDisposable?, CountedDisposable?> tuple
-            = (items[0], items[1], items[2], items[3]);
+        ValueTuple<
+            CountedDisposable?,
+            CountedDisposable?,
+            CountedDisposable?,
+            CountedDisposable?
+        > tuple = (items[0], items[1], items[2], items[3]);
 
         tuple.DisposeAll();
 
@@ -76,8 +81,13 @@ public class DisposableExtensionTests
     {
         var items = Enumerable.Range(0, 5).Select(_ => new CountedDisposable()).ToArray();
 
-        ValueTuple<CountedDisposable?, CountedDisposable?, CountedDisposable?, CountedDisposable?, CountedDisposable?> tuple
-            = (items[0], items[1], items[2], items[3], items[4]);
+        ValueTuple<
+            CountedDisposable?,
+            CountedDisposable?,
+            CountedDisposable?,
+            CountedDisposable?,
+            CountedDisposable?
+        > tuple = (items[0], items[1], items[2], items[3], items[4]);
 
         tuple.DisposeAll();
 
@@ -89,8 +99,14 @@ public class DisposableExtensionTests
     {
         var items = Enumerable.Range(0, 6).Select(_ => new CountedDisposable()).ToArray();
 
-        ValueTuple<CountedDisposable?, CountedDisposable?, CountedDisposable?, CountedDisposable?, CountedDisposable?, CountedDisposable?> tuple
-            = (items[0], items[1], items[2], items[3], items[4], items[5]);
+        ValueTuple<
+            CountedDisposable?,
+            CountedDisposable?,
+            CountedDisposable?,
+            CountedDisposable?,
+            CountedDisposable?,
+            CountedDisposable?
+        > tuple = (items[0], items[1], items[2], items[3], items[4], items[5]);
 
         tuple.DisposeAll();
 
@@ -102,8 +118,15 @@ public class DisposableExtensionTests
     {
         var items = Enumerable.Range(0, 7).Select(_ => new CountedDisposable()).ToArray();
 
-        ValueTuple<CountedDisposable?, CountedDisposable?, CountedDisposable?, CountedDisposable?, CountedDisposable?, CountedDisposable?, CountedDisposable?> tuple
-            = (items[0], items[1], items[2], items[3], items[4], items[5], items[6]);
+        ValueTuple<
+            CountedDisposable?,
+            CountedDisposable?,
+            CountedDisposable?,
+            CountedDisposable?,
+            CountedDisposable?,
+            CountedDisposable?,
+            CountedDisposable?
+        > tuple = (items[0], items[1], items[2], items[3], items[4], items[5], items[6]);
 
         tuple.DisposeAll();
 

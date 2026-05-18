@@ -13,8 +13,11 @@ public class GraphicsContextFactoryTests
         var devices = GraphicsContextFactory.GetAvailableDevices();
 
         Assert.That(devices, Is.Not.Null);
-        Assert.That(devices.Length, Is.GreaterThan(0),
-            "Vulkanインスタンスは作成できているのにデバイスが0件なのは想定外です。");
+        Assert.That(
+            devices.Length,
+            Is.GreaterThan(0),
+            "Vulkanインスタンスは作成できているのにデバイスが0件なのは想定外です。"
+        );
 
         foreach (var device in devices)
         {
@@ -32,8 +35,11 @@ public class GraphicsContextFactoryTests
         Assert.That(selected, Is.Not.Null);
 
         var devices = GraphicsContextFactory.GetAvailableDevices();
-        Assert.That(devices.Any(d => d.Name == selected!.Name), Is.True,
-            "GetSelectedDevice の返すデバイス名が GetAvailableDevices に含まれていません。");
+        Assert.That(
+            devices.Any(d => d.Name == selected!.Name),
+            Is.True,
+            "GetSelectedDevice の返すデバイス名が GetAvailableDevices に含まれていません。"
+        );
     }
 
     [Test]
@@ -41,7 +47,9 @@ public class GraphicsContextFactoryTests
     {
         var first = VulkanTestEnvironment.EnsureAvailable();
 
-        var second = VulkanTestEnvironment.InvokeOnRenderThread(GraphicsContextFactory.GetOrCreateShared);
+        var second = VulkanTestEnvironment.InvokeOnRenderThread(
+            GraphicsContextFactory.GetOrCreateShared
+        );
 
         Assert.That(second, Is.SameAs(first), "共有 GraphicsContext は使い回されるべきです。");
         Assert.That(GraphicsContextFactory.SharedContext, Is.SameAs(first));

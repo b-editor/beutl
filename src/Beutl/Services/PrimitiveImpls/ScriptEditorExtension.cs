@@ -1,5 +1,4 @@
 ﻿using System.Diagnostics.CodeAnalysis;
-
 using Avalonia.Controls;
 using Beutl.Engine;
 using Beutl.Graphics.Effects;
@@ -13,7 +12,9 @@ public sealed class ScriptEditorExtension : PropertyEditorExtension
 {
     public static new readonly ScriptEditorExtension Instance = new();
 
-    public override IEnumerable<IPropertyAdapter> MatchProperty(IReadOnlyList<IPropertyAdapter> properties)
+    public override IEnumerable<IPropertyAdapter> MatchProperty(
+        IReadOnlyList<IPropertyAdapter> properties
+    )
     {
         return [.. properties.Where(MatchProperty)];
     }
@@ -22,22 +23,34 @@ public sealed class ScriptEditorExtension : PropertyEditorExtension
     {
         IProperty? engineProperty = p.GetEngineProperty();
         return p.PropertyType == typeof(string)
-            && ((p.ImplementedType == typeof(GLSLScriptEffect) && engineProperty?.Name == nameof(GLSLScriptEffect.FragmentShader))
-            || (p.ImplementedType == typeof(SKSLScriptEffect) && engineProperty?.Name == nameof(SKSLScriptEffect.Script))
-            || (p.ImplementedType == typeof(CSharpScriptEffect) && engineProperty?.Name == nameof(CSharpScriptEffect.Script)));
+            && (
+                (
+                    p.ImplementedType == typeof(GLSLScriptEffect)
+                    && engineProperty?.Name == nameof(GLSLScriptEffect.FragmentShader)
+                )
+                || (
+                    p.ImplementedType == typeof(SKSLScriptEffect)
+                    && engineProperty?.Name == nameof(SKSLScriptEffect.Script)
+                )
+                || (
+                    p.ImplementedType == typeof(CSharpScriptEffect)
+                    && engineProperty?.Name == nameof(CSharpScriptEffect.Script)
+                )
+            );
     }
 
-    public override bool TryCreateContext(IReadOnlyList<IPropertyAdapter> properties,
-        [NotNullWhen(true)] out IPropertyEditorContext? context)
+    public override bool TryCreateContext(
+        IReadOnlyList<IPropertyAdapter> properties,
+        [NotNullWhen(true)] out IPropertyEditorContext? context
+    )
     {
-        if (properties.Count == 1
+        if (
+            properties.Count == 1
             && properties[0] is IPropertyAdapter<string?> stringProp
-            && MatchProperty(stringProp))
+            && MatchProperty(stringProp)
+        )
         {
-            context = new ScriptEditorViewModel(stringProp)
-            {
-                Extension = this
-            };
+            context = new ScriptEditorViewModel(stringProp) { Extension = this };
             return true;
         }
 
@@ -45,7 +58,10 @@ public sealed class ScriptEditorExtension : PropertyEditorExtension
         return false;
     }
 
-    public override bool TryCreateControl(IPropertyEditorContext context, [NotNullWhen(true)] out Control? control)
+    public override bool TryCreateControl(
+        IPropertyEditorContext context,
+        [NotNullWhen(true)] out Control? control
+    )
     {
         if (context is ScriptEditorViewModel)
         {

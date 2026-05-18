@@ -36,8 +36,10 @@ public sealed class HistoryTransaction
         {
             for (int j = i - 1; j >= 0; j--)
             {
-                if (_operations[j] is IMergableChangeOperation mergableChangeOperation
-                    && mergableChangeOperation.TryMerge(_operations[i]))
+                if (
+                    _operations[j] is IMergableChangeOperation mergableChangeOperation
+                    && mergableChangeOperation.TryMerge(_operations[i])
+                )
                 {
                     _operations.RemoveAt(i);
                     break;

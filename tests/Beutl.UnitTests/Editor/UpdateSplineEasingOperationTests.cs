@@ -23,11 +23,12 @@ public class UpdateSplineEasingOperationTests
         SplineEasing easing,
         string propertyPath,
         float newValue,
-        float oldValue)
+        float oldValue
+    )
     {
         return new UpdateSplineEasingOperation(easing, propertyPath, newValue, oldValue)
         {
-            SequenceNumber = _sequenceGenerator.GetNext()
+            SequenceNumber = _sequenceGenerator.GetNext(),
         };
     }
 
@@ -1114,19 +1115,13 @@ public class UpdateSplineEasingOperationTests
 
     #region Test Helper Classes
 
-    private class TestCoreObject : CoreObject
-    {
-    }
+    private class TestCoreObject : CoreObject { }
 
     private class TestChangeOperation : ChangeOperation
     {
-        public override void Apply(OperationExecutionContext context)
-        {
-        }
+        public override void Apply(OperationExecutionContext context) { }
 
-        public override void Revert(OperationExecutionContext context)
-        {
-        }
+        public override void Revert(OperationExecutionContext context) { }
     }
 
     #endregion

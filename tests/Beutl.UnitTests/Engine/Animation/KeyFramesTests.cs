@@ -5,7 +5,6 @@ namespace Beutl.UnitTests.Engine.Animation;
 
 public class KeyFramesTests
 {
-
     [Test]
     public void Add_ShouldInsertKeyFrameAtCorrectPositionAndReturnIndex()
     {

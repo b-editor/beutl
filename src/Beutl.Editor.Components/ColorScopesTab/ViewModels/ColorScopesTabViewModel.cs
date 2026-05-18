@@ -20,17 +20,20 @@ public sealed class ColorScopesTabViewModel : IToolContext
         SourceBitmap.Value = _player.PreviewImage.Value;
 
         // Update scope after rendering is complete
-        _player.AfterRendered.CombineLatest(IsSelected)
+        _player
+            .AfterRendered.CombineLatest(IsSelected)
             .Subscribe(_ =>
             {
-                if (!IsSelected.Value) return;
+                if (!IsSelected.Value)
+                    return;
 
                 SourceBitmap.Value = _player.PreviewImage.Value;
                 RefreshRequested?.Invoke(this, EventArgs.Empty);
             })
             .DisposeWith(_disposables);
 
-        SelectedScopeType.Skip(1)
+        SelectedScopeType
+            .Skip(1)
             .Subscribe(_ => RefreshRequested?.Invoke(this, EventArgs.Empty))
             .DisposeWith(_disposables);
     }
@@ -41,17 +44,20 @@ public sealed class ColorScopesTabViewModel : IToolContext
 
     public ToolTabExtension Extension => ColorScopesTabExtension.Instance;
 
-    public ReactivePropertySlim<ColorScopeType> SelectedScopeType { get; } = new(ColorScopeType.Waveform);
+    public ReactivePropertySlim<ColorScopeType> SelectedScopeType { get; } =
+        new(ColorScopeType.Waveform);
 
     public ReactivePropertySlim<Ref<Bitmap>?> SourceBitmap { get; } = new();
 
     // Waveform settings
-    public ReactivePropertySlim<WaveformMode> WaveformMode { get; } = new(ViewModels.WaveformMode.RgbOverlay);
+    public ReactivePropertySlim<WaveformMode> WaveformMode { get; } =
+        new(ViewModels.WaveformMode.RgbOverlay);
 
     public ReactivePropertySlim<float> WaveformHdrRange { get; } = new(1.0f);
 
     // Histogram settings
-    public ReactivePropertySlim<HistogramMode> HistogramMode { get; } = new(ViewModels.HistogramMode.Parade);
+    public ReactivePropertySlim<HistogramMode> HistogramMode { get; } =
+        new(ViewModels.HistogramMode.Parade);
 
     public ReactivePropertySlim<float> HistogramHdrRange { get; } = new(1.0f);
 
@@ -82,16 +88,25 @@ public sealed class ColorScopesTabViewModel : IToolContext
 
     public void ReadFromJson(JsonObject json)
     {
-        if (json.TryGetPropertyValue("scopeType", out var scopeTypeNode) && scopeTypeNode is JsonValue scopeTypeValue)
+        if (
+            json.TryGetPropertyValue("scopeType", out var scopeTypeNode)
+            && scopeTypeNode is JsonValue scopeTypeValue
+        )
         {
-            if (scopeTypeValue.TryGetValue(out int scopeType) && Enum.IsDefined(typeof(ColorScopeType), scopeType))
+            if (
+                scopeTypeValue.TryGetValue(out int scopeType)
+                && Enum.IsDefined(typeof(ColorScopeType), scopeType)
+            )
             {
                 SelectedScopeType.Value = (ColorScopeType)scopeType;
             }
         }
 
         // Waveform settings
-        if (json.TryGetPropertyValue("waveformMode", out var modeNode) && modeNode is JsonValue modeValue)
+        if (
+            json.TryGetPropertyValue("waveformMode", out var modeNode)
+            && modeNode is JsonValue modeValue
+        )
         {
             if (modeValue.TryGetValue(out int mode) && Enum.IsDefined(typeof(WaveformMode), mode))
             {
@@ -99,7 +114,10 @@ public sealed class ColorScopesTabViewModel : IToolContext
             }
         }
 
-        if (json.TryGetPropertyValue("waveformHdrRange", out var waveformHdrNode) && waveformHdrNode is JsonValue waveformHdrValue)
+        if (
+            json.TryGetPropertyValue("waveformHdrRange", out var waveformHdrNode)
+            && waveformHdrNode is JsonValue waveformHdrValue
+        )
         {
             if (waveformHdrValue.TryGetValue(out float waveformHdr) && waveformHdr >= 0.01f)
             {
@@ -108,15 +126,24 @@ public sealed class ColorScopesTabViewModel : IToolContext
         }
 
         // Histogram settings
-        if (json.TryGetPropertyValue("histogramMode", out var histogramModeNode) && histogramModeNode is JsonValue histogramModeValue)
+        if (
+            json.TryGetPropertyValue("histogramMode", out var histogramModeNode)
+            && histogramModeNode is JsonValue histogramModeValue
+        )
         {
-            if (histogramModeValue.TryGetValue(out int histogramMode) && Enum.IsDefined(typeof(HistogramMode), histogramMode))
+            if (
+                histogramModeValue.TryGetValue(out int histogramMode)
+                && Enum.IsDefined(typeof(HistogramMode), histogramMode)
+            )
             {
                 HistogramMode.Value = (HistogramMode)histogramMode;
             }
         }
 
-        if (json.TryGetPropertyValue("histogramHdrRange", out var histogramHdrNode) && histogramHdrNode is JsonValue histogramHdrValue)
+        if (
+            json.TryGetPropertyValue("histogramHdrRange", out var histogramHdrNode)
+            && histogramHdrNode is JsonValue histogramHdrValue
+        )
         {
             if (histogramHdrValue.TryGetValue(out float histogramHdr) && histogramHdr >= 0.01f)
             {
@@ -125,7 +152,10 @@ public sealed class ColorScopesTabViewModel : IToolContext
         }
 
         // False Color settings
-        if (json.TryGetPropertyValue("falseColorHdrRange", out var falseColorHdrNode) && falseColorHdrNode is JsonValue falseColorHdrValue)
+        if (
+            json.TryGetPropertyValue("falseColorHdrRange", out var falseColorHdrNode)
+            && falseColorHdrNode is JsonValue falseColorHdrValue
+        )
         {
             if (falseColorHdrValue.TryGetValue(out float falseColorHdr) && falseColorHdr >= 0.01f)
             {
@@ -134,7 +164,10 @@ public sealed class ColorScopesTabViewModel : IToolContext
         }
 
         // Zebra settings
-        if (json.TryGetPropertyValue("zebraHighThreshold", out var zebraHighNode) && zebraHighNode is JsonValue zebraHighValue)
+        if (
+            json.TryGetPropertyValue("zebraHighThreshold", out var zebraHighNode)
+            && zebraHighNode is JsonValue zebraHighValue
+        )
         {
             if (zebraHighValue.TryGetValue(out float zebraHigh))
             {
@@ -142,7 +175,10 @@ public sealed class ColorScopesTabViewModel : IToolContext
             }
         }
 
-        if (json.TryGetPropertyValue("zebraLowThreshold", out var zebraLowNode) && zebraLowNode is JsonValue zebraLowValue)
+        if (
+            json.TryGetPropertyValue("zebraLowThreshold", out var zebraLowNode)
+            && zebraLowNode is JsonValue zebraLowValue
+        )
         {
             if (zebraLowValue.TryGetValue(out float zebraLow))
             {
@@ -150,7 +186,10 @@ public sealed class ColorScopesTabViewModel : IToolContext
             }
         }
 
-        if (json.TryGetPropertyValue("zebraHdrRange", out var zebraHdrNode) && zebraHdrNode is JsonValue zebraHdrValue)
+        if (
+            json.TryGetPropertyValue("zebraHdrRange", out var zebraHdrNode)
+            && zebraHdrNode is JsonValue zebraHdrValue
+        )
         {
             if (zebraHdrValue.TryGetValue(out float zebraHdr) && zebraHdr >= 0.01f)
             {
@@ -159,9 +198,15 @@ public sealed class ColorScopesTabViewModel : IToolContext
         }
 
         // Shared settings
-        if (json.TryGetPropertyValue("colorSpace", out var colorSpaceNode) && colorSpaceNode is JsonValue colorSpaceValue)
+        if (
+            json.TryGetPropertyValue("colorSpace", out var colorSpaceNode)
+            && colorSpaceNode is JsonValue colorSpaceValue
+        )
         {
-            if (colorSpaceValue.TryGetValue(out int colorSpace) && Enum.IsDefined(typeof(ScopeColorSpace), colorSpace))
+            if (
+                colorSpaceValue.TryGetValue(out int colorSpace)
+                && Enum.IsDefined(typeof(ScopeColorSpace), colorSpace)
+            )
             {
                 ColorSpace.Value = (ScopeColorSpace)colorSpace;
             }

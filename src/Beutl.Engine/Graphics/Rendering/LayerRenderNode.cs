@@ -33,13 +33,15 @@ public class LayerRenderNode(Rect limit) : ContainerRenderNode
                         }
                     }
                 },
-                hitTest: p => context.Input.Any(n => n.HitTest(p)), onDispose: () =>
+                hitTest: p => context.Input.Any(n => n.HitTest(p)),
+                onDispose: () =>
                 {
                     foreach (RenderNodeOperation op in context.Input)
                     {
                         op.Dispose();
                     }
-                })
+                }
+            ),
         ];
     }
 }

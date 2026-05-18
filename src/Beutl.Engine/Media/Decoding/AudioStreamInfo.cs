@@ -4,8 +4,8 @@ public sealed record AudioStreamInfo(
     string CodecName,
     Rational Duration,
     int SampleRate,
-    int NumChannels)
-    : StreamInfo(CodecName, MediaType.Audio, Duration)
+    int NumChannels
+) : StreamInfo(CodecName, MediaType.Audio, Duration)
 {
     private Rational? _numSamples;
 

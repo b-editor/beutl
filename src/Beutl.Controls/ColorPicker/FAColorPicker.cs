@@ -15,10 +15,7 @@ namespace FluentAvalonia.UI.Controls;
 /// </summary>
 public partial class FAColorPicker : TemplatedControl
 {
-    public FAColorPicker()
-    {
-
-    }
+    public FAColorPicker() { }
 
     protected override void OnApplyTemplate(TemplateAppliedEventArgs e)
     {
@@ -218,7 +215,10 @@ public partial class FAColorPicker : TemplatedControl
         {
             if (!_ignoreColorChange)
             {
-                UpdateColorAndControls(change.GetNewValue<Color2>(), ColorUpdateReason.Programmatic);
+                UpdateColorAndControls(
+                    change.GetNewValue<Color2>(),
+                    ColorUpdateReason.Programmatic
+                );
             }
         }
         else if (change.Property == ColorTextTypeProperty)
@@ -244,13 +244,21 @@ public partial class FAColorPicker : TemplatedControl
     protected override void OnPointerReleased(PointerReleasedEventArgs e)
     {
         base.OnPointerReleased(e);
-        if (!e.Handled && e.InitialPressMouseButton == MouseButton.Left
-            && e.GetCurrentPoint(this).Properties.PointerUpdateKind == PointerUpdateKind.LeftButtonReleased)
+        if (
+            !e.Handled
+            && e.InitialPressMouseButton == MouseButton.Left
+            && e.GetCurrentPoint(this).Properties.PointerUpdateKind
+                == PointerUpdateKind.LeftButtonReleased
+        )
         {
             if (e.Source is Border b)
             {
-                if (b.Name == "Dark2PreviewBorder" || b.Name == "Dark1PreviewBorder"
-                     || b.Name == "Light1PreviewBorder" || b.Name == "Light2PreviewBorder")
+                if (
+                    b.Name == "Dark2PreviewBorder"
+                    || b.Name == "Dark1PreviewBorder"
+                    || b.Name == "Light1PreviewBorder"
+                    || b.Name == "Light2PreviewBorder"
+                )
                 {
                     Color = (b.Background as ISolidColorBrush)?.Color ?? Color;
                 }
@@ -568,7 +576,15 @@ public partial class FAColorPicker : TemplatedControl
             _thirdComponentSlider.Color = col;
     }
 
-    private void UpdateBoxes(Color2 col, bool hue, bool sat, bool val, bool red, bool green, bool blue)
+    private void UpdateBoxes(
+        Color2 col,
+        bool hue,
+        bool sat,
+        bool val,
+        bool red,
+        bool green,
+        bool blue
+    )
     {
         if (hue && _hueBox != null)
             _hueBox.Value = col.Hue;
@@ -589,7 +605,15 @@ public partial class FAColorPicker : TemplatedControl
             _blueBox.Value = col.B;
     }
 
-    private void UpdateRamps(Color2 col, bool hue, bool sat, bool val, bool red, bool green, bool blue)
+    private void UpdateRamps(
+        Color2 col,
+        bool hue,
+        bool sat,
+        bool val,
+        bool red,
+        bool green,
+        bool blue
+    )
     {
         if (hue && _hueBox != null)
             _hueRamp.Color = col;
@@ -662,7 +686,10 @@ public partial class FAColorPicker : TemplatedControl
         }
     }
 
-    private void OnComponentRampColorChanged(ColorPickerComponent sender, ColorChangedEventArgs args)
+    private void OnComponentRampColorChanged(
+        ColorPickerComponent sender,
+        ColorChangedEventArgs args
+    )
     {
         if (!_templateApplied || _ignoreColorChange)
             return;
@@ -694,27 +721,45 @@ public partial class FAColorPicker : TemplatedControl
         }
         else if (sender == _satBox)
         {
-            UpdateColorAndControls(Color.WithSatf((float)args.NewValue / 100), ColorUpdateReason.SaturationBox);
+            UpdateColorAndControls(
+                Color.WithSatf((float)args.NewValue / 100),
+                ColorUpdateReason.SaturationBox
+            );
         }
         else if (sender == _valBox)
         {
-            UpdateColorAndControls(Color.WithValf((float)args.NewValue / 100), ColorUpdateReason.ValueBox);
+            UpdateColorAndControls(
+                Color.WithValf((float)args.NewValue / 100),
+                ColorUpdateReason.ValueBox
+            );
         }
         else if (sender == _redBox)
         {
-            UpdateColorAndControls(Color.WithRedf((float)args.NewValue / 255), ColorUpdateReason.RedBox);
+            UpdateColorAndControls(
+                Color.WithRedf((float)args.NewValue / 255),
+                ColorUpdateReason.RedBox
+            );
         }
         else if (sender == _greenBox)
         {
-            UpdateColorAndControls(Color.WithGreenf((float)args.NewValue / 255), ColorUpdateReason.GreenBox);
+            UpdateColorAndControls(
+                Color.WithGreenf((float)args.NewValue / 255),
+                ColorUpdateReason.GreenBox
+            );
         }
         else if (sender == _blueBox)
         {
-            UpdateColorAndControls(Color.WithBluef((float)args.NewValue / 255), ColorUpdateReason.BlueBox);
+            UpdateColorAndControls(
+                Color.WithBluef((float)args.NewValue / 255),
+                ColorUpdateReason.BlueBox
+            );
         }
         else if (sender == _alphaBox)
         {
-            UpdateColorAndControls(Color.WithAlphaf((float)args.NewValue / 255), ColorUpdateReason.AlphaBox);
+            UpdateColorAndControls(
+                Color.WithAlphaf((float)args.NewValue / 255),
+                ColorUpdateReason.AlphaBox
+            );
         }
     }
 
@@ -757,7 +802,10 @@ public partial class FAColorPicker : TemplatedControl
         UpdateColorAndControls(args.NewColor, ColorUpdateReason.SpectrumAlphaRamp);
     }
 
-    private void OnThirdComponentColorChanged(ColorPickerComponent sender, ColorChangedEventArgs args)
+    private void OnThirdComponentColorChanged(
+        ColorPickerComponent sender,
+        ColorChangedEventArgs args
+    )
     {
         if (!_templateApplied || _ignoreColorChange)
             return;
@@ -780,7 +828,12 @@ public partial class FAColorPicker : TemplatedControl
 
     private void SetAsCompactMode()
     {
-        if (!_templateApplied || _rootGrid == null || _textEntryTabHost == null || _textEntryArea == null)
+        if (
+            !_templateApplied
+            || _rootGrid == null
+            || _textEntryTabHost == null
+            || _textEntryArea == null
+        )
             return;
 
         if (IsCompact)
@@ -982,7 +1035,6 @@ public partial class FAColorPicker : TemplatedControl
         if (_hsvButton != null)
             _hsvButton.IsCheckedChanged -= OnColorTypeRBChecked;
     }
-
 
     //Template Items
     private TabControl _displayItemTabControl;

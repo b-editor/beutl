@@ -24,10 +24,7 @@ public class PixelSortEffectTests
             Assume.That(sourceRenderTarget, Is.Not.Null);
 
             var bounds = new Rect(0, 0, 16, 16);
-            using var targets = new EffectTargets
-            {
-                new EffectTarget(sourceRenderTarget!, bounds),
-            };
+            using var targets = new EffectTargets { new EffectTarget(sourceRenderTarget!, bounds) };
 
             using var feCtx = new FilterEffectContext(bounds);
             var effect = new PixelSortEffect();
@@ -37,7 +34,8 @@ public class PixelSortEffectTests
             effect.ThresholdMax.CurrentValue = 100f;
             effect.Ascending.CurrentValue = true;
 
-            var resource = (FilterEffect.Resource)(object)effect.ToResource(new CompositionContext(TimeSpan.Zero));
+            var resource = (FilterEffect.Resource)
+                (object)effect.ToResource(new CompositionContext(TimeSpan.Zero));
             effect.ApplyTo(feCtx, resource);
 
             using var builder = new SKImageFilterBuilder();
@@ -64,10 +62,7 @@ public class PixelSortEffectTests
             Assume.That(sourceRenderTarget, Is.Not.Null);
 
             var bounds = new Rect(0, 0, 8, 8);
-            using var targets = new EffectTargets
-            {
-                new EffectTarget(sourceRenderTarget!, bounds),
-            };
+            using var targets = new EffectTargets { new EffectTarget(sourceRenderTarget!, bounds) };
 
             using var feCtx = new FilterEffectContext(bounds);
             var effect = new PixelSortEffect();
@@ -75,7 +70,8 @@ public class PixelSortEffectTests
             effect.SortKey.CurrentValue = PixelSortKey.Saturation;
             effect.Ascending.CurrentValue = false;
 
-            var resource = (FilterEffect.Resource)(object)effect.ToResource(new CompositionContext(TimeSpan.Zero));
+            var resource = (FilterEffect.Resource)
+                (object)effect.ToResource(new CompositionContext(TimeSpan.Zero));
             effect.ApplyTo(feCtx, resource);
 
             using var builder = new SKImageFilterBuilder();
@@ -88,7 +84,8 @@ public class PixelSortEffectTests
     private static RenderTarget? CreateGradientTarget(int width, int height)
     {
         var target = RenderTarget.Create(width, height);
-        if (target == null) return null;
+        if (target == null)
+            return null;
 
         using (var canvas = new ImmediateCanvas(target))
         {
@@ -98,7 +95,8 @@ public class PixelSortEffectTests
             {
                 byte v = (byte)(255 * x / Math.Max(1, width - 1));
                 var brush = new SolidColorBrush(new Color(255, v, v, v));
-                var brushResource = (SolidColorBrush.Resource)(object)brush.ToResource(new CompositionContext(TimeSpan.Zero));
+                var brushResource = (SolidColorBrush.Resource)
+                    (object)brush.ToResource(new CompositionContext(TimeSpan.Zero));
                 canvas.DrawRectangle(new Rect(x, 0, 1, height), brushResource, pen: null);
             }
         }

@@ -32,7 +32,8 @@ public partial class FileBrowserTabView : UserControl
 
     private void SetupSectionToggle(ToggleButton toggle, Control content)
     {
-        toggle.GetObservable(ToggleButton.IsCheckedProperty)
+        toggle
+            .GetObservable(ToggleButton.IsCheckedProperty)
             .Subscribe(async v =>
             {
                 if (_sectionTransitionCts.TryGetValue(content, out var oldCts))
@@ -55,11 +56,15 @@ public partial class FileBrowserTabView : UserControl
 
     private async void OnOpenFolderClick(object? sender, RoutedEventArgs e)
     {
-        if (ViewModel == null) return;
+        if (ViewModel == null)
+            return;
         var topLevel = TopLevel.GetTopLevel(this);
-        if (topLevel == null) return;
+        if (topLevel == null)
+            return;
 
-        var result = await topLevel.StorageProvider.OpenFolderPickerAsync(new FolderPickerOpenOptions());
+        var result = await topLevel.StorageProvider.OpenFolderPickerAsync(
+            new FolderPickerOpenOptions()
+        );
         if (result.Count > 0 && result[0].TryGetLocalPath() is string localPath)
         {
             ViewModel.RootPath.Value = localPath;
@@ -80,7 +85,7 @@ public partial class FileBrowserTabView : UserControl
                 FileBrowserViewMode.List => FileBrowserViewMode.Tree,
                 FileBrowserViewMode.Tree => FileBrowserViewMode.Icon,
                 FileBrowserViewMode.Icon => FileBrowserViewMode.List,
-                _ => FileBrowserViewMode.List
+                _ => FileBrowserViewMode.List,
             };
         }
     }
@@ -103,7 +108,6 @@ public partial class FileBrowserTabView : UserControl
             e.Handled = true;
         }
     }
-
 
     private void OnOpenClick(object? sender, RoutedEventArgs e)
     {
@@ -139,16 +143,20 @@ public partial class FileBrowserTabView : UserControl
 
     private void OnContextMenuOpened(object? sender, RoutedEventArgs e)
     {
-        if (sender is ContextMenu contextMenu &&
-            contextMenu.DataContext is FileSystemItemViewModel item &&
-            ViewModel != null)
+        if (
+            sender is ContextMenu contextMenu
+            && contextMenu.DataContext is FileSystemItemViewModel item
+            && ViewModel != null
+        )
         {
             foreach (var menuItem in contextMenu.Items.OfType<MenuItem>())
             {
                 if (menuItem.Tag is "FavoriteToggle")
                 {
                     bool isFavorite = ViewModel.Favorites.Contains(item.FullPath);
-                    menuItem.Header = isFavorite ? Strings.RemoveFromFavorites : Strings.AddToFavorites;
+                    menuItem.Header = isFavorite
+                        ? Strings.RemoveFromFavorites
+                        : Strings.AddToFavorites;
                 }
             }
         }
@@ -179,7 +187,8 @@ public partial class FileBrowserTabView : UserControl
 
     private async void StartRename(FileSystemItemViewModel item, Control? sourceControl)
     {
-        if (ViewModel == null) return;
+        if (ViewModel == null)
+            return;
 
         var flyout = new RenameFlyout { Text = item.Name.Value };
         flyout.Confirmed += async (_, newName) =>
@@ -190,13 +199,17 @@ public partial class FileBrowserTabView : UserControl
             }
         };
 
-        var target = (Control?)sourceControl?.FindLogicalAncestorOfType<TreeViewItem>()
-                     ?? (Control?)sourceControl?.FindLogicalAncestorOfType<ListBoxItem>()
-                     ?? this;
+        var target =
+            (Control?)sourceControl?.FindLogicalAncestorOfType<TreeViewItem>()
+            ?? (Control?)sourceControl?.FindLogicalAncestorOfType<ListBoxItem>()
+            ?? this;
         flyout.ShowAt(target, true);
     }
 
-    private void BreadcrumbBarItemClicked(BreadcrumbBar sender, BreadcrumbBarItemClickedEventArgs args)
+    private void BreadcrumbBarItemClicked(
+        BreadcrumbBar sender,
+        BreadcrumbBarItemClickedEventArgs args
+    )
     {
         ViewModel?.NavigateToBreadcrumb(args.Index);
     }
@@ -304,7 +317,11 @@ public partial class FileBrowserTabView : UserControl
         }
     }
 
-    private void TransferFiles(List<(string LocalPath, bool IsDirectory)> files, string targetDir, bool isInternal)
+    private void TransferFiles(
+        List<(string LocalPath, bool IsDirectory)> files,
+        string targetDir,
+        bool isInternal
+    )
     {
         if (ViewModel == null)
             return;
@@ -334,8 +351,10 @@ public partial class FileBrowserTabView : UserControl
         var source = e.Source as Control;
         while (source != null)
         {
-            if ((source is ListBoxItem or TreeViewItem) &&
-                source.DataContext is FileSystemItemViewModel { IsDirectory: true } folderVm)
+            if (
+                (source is ListBoxItem or TreeViewItem)
+                && source.DataContext is FileSystemItemViewModel { IsDirectory: true } folderVm
+            )
             {
                 return folderVm;
             }

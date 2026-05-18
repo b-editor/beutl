@@ -18,11 +18,19 @@ public sealed class ZebraControl : ImageOverlayScopeBase
 {
     public static readonly DirectProperty<ZebraControl, float> HighThresholdProperty =
         AvaloniaProperty.RegisterDirect<ZebraControl, float>(
-            nameof(HighThreshold), o => o.HighThreshold, (o, v) => o.HighThreshold = v, 0.95f);
+            nameof(HighThreshold),
+            o => o.HighThreshold,
+            (o, v) => o.HighThreshold = v,
+            0.95f
+        );
 
     public static readonly DirectProperty<ZebraControl, float> LowThresholdProperty =
         AvaloniaProperty.RegisterDirect<ZebraControl, float>(
-            nameof(LowThreshold), o => o.LowThreshold, (o, v) => o.LowThreshold = v, 0.03f);
+            nameof(LowThreshold),
+            o => o.LowThreshold,
+            (o, v) => o.LowThreshold = v,
+            0.03f
+        );
 
     private float _highThreshold = 0.95f;
     private float _lowThreshold = 0.03f;
@@ -50,7 +58,10 @@ public sealed class ZebraControl : ImageOverlayScopeBase
         set => SetAndRaise(LowThresholdProperty, ref _lowThreshold, Math.Clamp(value, 0f, 1f));
     }
 
-    protected override unsafe WriteableBitmap? RenderImage(BtlBitmap source, WriteableBitmap? existing)
+    protected override unsafe WriteableBitmap? RenderImage(
+        BtlBitmap source,
+        WriteableBitmap? existing
+    )
     {
         int sourceWidth = source.Width;
         int sourceHeight = source.Height;
@@ -64,11 +75,14 @@ public sealed class ZebraControl : ImageOverlayScopeBase
                     new PixelSize(sourceWidth, sourceHeight),
                     new Vector(96, 96),
                     PixelFormat.Bgra8888,
-                    AlphaFormat.Premul);
+                    AlphaFormat.Premul
+                );
 
         bool linear = ColorSpace == ScopeColorSpace.Linear;
         // Source for luma calculation (linear or gamma).
-        BitmapColorSpace lumaColorSpace = linear ? BitmapColorSpace.LinearSrgb : BitmapColorSpace.Srgb;
+        BitmapColorSpace lumaColorSpace = linear
+            ? BitmapColorSpace.LinearSrgb
+            : BitmapColorSpace.Srgb;
         // Source for display output (always sRGB display).
         BitmapColorSpace displayColorSpace = BitmapColorSpace.Srgb;
         float invHdr = 1f / MathF.Max(HdrRange, 1e-6f);
@@ -83,7 +97,11 @@ public sealed class ZebraControl : ImageOverlayScopeBase
         }
         else
         {
-            lumaBitmap = source.Convert(BitmapColorType.RgbaF16, BitmapAlphaType.Unpremul, lumaColorSpace);
+            lumaBitmap = source.Convert(
+                BitmapColorType.RgbaF16,
+                BitmapAlphaType.Unpremul,
+                lumaColorSpace
+            );
             disposeLuma = true;
         }
 
@@ -93,13 +111,20 @@ public sealed class ZebraControl : ImageOverlayScopeBase
         {
             displayBitmap = source;
         }
-        else if (lumaBitmap.ColorSpace == displayColorSpace && lumaBitmap.ColorType == BitmapColorType.RgbaF16)
+        else if (
+            lumaBitmap.ColorSpace == displayColorSpace
+            && lumaBitmap.ColorType == BitmapColorType.RgbaF16
+        )
         {
             displayBitmap = lumaBitmap;
         }
         else
         {
-            displayBitmap = source.Convert(BitmapColorType.RgbaF16, BitmapAlphaType.Unpremul, displayColorSpace);
+            displayBitmap = source.Convert(
+                BitmapColorType.RgbaF16,
+                BitmapAlphaType.Unpremul,
+                displayColorSpace
+            );
             disposeDisplay = true;
         }
 
@@ -117,71 +142,75 @@ public sealed class ZebraControl : ImageOverlayScopeBase
             int displayRowBytes = displayBitmap.RowBytes;
             bool displayPremul = displayBitmap.AlphaType == BitmapAlphaType.Premul;
 
-            Parallel.For(0, sourceHeight, y =>
-            {
-                RgbaF16* lumaRow = (RgbaF16*)(lumaData + (long)y * lumaRowBytes);
-                RgbaF16* dispRow = (RgbaF16*)(displayData + (long)y * displayRowBytes);
-                byte* destRow = destPtr + (long)y * destRowBytes;
-
-                for (int x = 0; x < sourceWidth; x++)
+            Parallel.For(
+                0,
+                sourceHeight,
+                y =>
                 {
-                    RgbaF16 lumaPixel = lumaRow[x];
-                    float lr = (float)lumaPixel.R;
-                    float lg = (float)lumaPixel.G;
-                    float lb = (float)lumaPixel.B;
-                    float la = (float)lumaPixel.A;
-                    if (lumaPremul && la > 0f && la < 1f)
-                    {
-                        float invA = 1f / la;
-                        lr *= invA;
-                        lg *= invA;
-                        lb *= invA;
-                    }
-                    float luma = 0.2126f * lr + 0.7152f * lg + 0.0722f * lb;
-                    float yNorm = Math.Clamp(luma * invHdr, 0f, 1f);
+                    RgbaF16* lumaRow = (RgbaF16*)(lumaData + (long)y * lumaRowBytes);
+                    RgbaF16* dispRow = (RgbaF16*)(displayData + (long)y * displayRowBytes);
+                    byte* destRow = destPtr + (long)y * destRowBytes;
 
-                    RgbaF16 dispPixel = dispRow[x];
-                    float dr = (float)dispPixel.R;
-                    float dg = (float)dispPixel.G;
-                    float db = (float)dispPixel.B;
-                    float da = (float)dispPixel.A;
-                    if (displayPremul && da > 0f && da < 1f)
+                    for (int x = 0; x < sourceWidth; x++)
                     {
-                        float invA = 1f / da;
-                        dr *= invA;
-                        dg *= invA;
-                        db *= invA;
-                    }
-
-                    bool over = yNorm >= high;
-                    bool under = yNorm <= low;
-                    if (over || under)
-                    {
-                        int phase = ((x + y) % StripePeriod) * 2 < StripePeriod ? 0 : 1;
-                        if (over)
+                        RgbaF16 lumaPixel = lumaRow[x];
+                        float lr = (float)lumaPixel.R;
+                        float lg = (float)lumaPixel.G;
+                        float lb = (float)lumaPixel.B;
+                        float la = (float)lumaPixel.A;
+                        if (lumaPremul && la > 0f && la < 1f)
                         {
-                            // Black/white stripes for over-exposure.
-                            float v = phase;
-                            dr = v;
-                            dg = v;
-                            db = v;
+                            float invA = 1f / la;
+                            lr *= invA;
+                            lg *= invA;
+                            lb *= invA;
                         }
-                        else
-                        {
-                            // Red/black stripes for under-exposure.
-                            dr = phase;
-                            dg = 0f;
-                            db = 0f;
-                        }
-                    }
+                        float luma = 0.2126f * lr + 0.7152f * lg + 0.0722f * lb;
+                        float yNorm = Math.Clamp(luma * invHdr, 0f, 1f);
 
-                    int idx = x * 4;
-                    destRow[idx + 0] = (byte)(Math.Clamp(db, 0f, 1f) * 255f);
-                    destRow[idx + 1] = (byte)(Math.Clamp(dg, 0f, 1f) * 255f);
-                    destRow[idx + 2] = (byte)(Math.Clamp(dr, 0f, 1f) * 255f);
-                    destRow[idx + 3] = 255;
+                        RgbaF16 dispPixel = dispRow[x];
+                        float dr = (float)dispPixel.R;
+                        float dg = (float)dispPixel.G;
+                        float db = (float)dispPixel.B;
+                        float da = (float)dispPixel.A;
+                        if (displayPremul && da > 0f && da < 1f)
+                        {
+                            float invA = 1f / da;
+                            dr *= invA;
+                            dg *= invA;
+                            db *= invA;
+                        }
+
+                        bool over = yNorm >= high;
+                        bool under = yNorm <= low;
+                        if (over || under)
+                        {
+                            int phase = ((x + y) % StripePeriod) * 2 < StripePeriod ? 0 : 1;
+                            if (over)
+                            {
+                                // Black/white stripes for over-exposure.
+                                float v = phase;
+                                dr = v;
+                                dg = v;
+                                db = v;
+                            }
+                            else
+                            {
+                                // Red/black stripes for under-exposure.
+                                dr = phase;
+                                dg = 0f;
+                                db = 0f;
+                            }
+                        }
+
+                        int idx = x * 4;
+                        destRow[idx + 0] = (byte)(Math.Clamp(db, 0f, 1f) * 255f);
+                        destRow[idx + 1] = (byte)(Math.Clamp(dg, 0f, 1f) * 255f);
+                        destRow[idx + 2] = (byte)(Math.Clamp(dr, 0f, 1f) * 255f);
+                        destRow[idx + 3] = 255;
+                    }
                 }
-            });
+            );
         }
         finally
         {

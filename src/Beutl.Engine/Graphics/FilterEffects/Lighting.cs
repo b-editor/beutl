@@ -13,7 +13,10 @@ public sealed partial class Lighting : FilterEffect
         ScanProperties<Lighting>();
     }
 
-    [Display(Name = nameof(GraphicsStrings.Lighting_Multiply), ResourceType = typeof(GraphicsStrings))]
+    [Display(
+        Name = nameof(GraphicsStrings.Lighting_Multiply),
+        ResourceType = typeof(GraphicsStrings)
+    )]
     public IProperty<Color> Multiply { get; } = Property.CreateAnimatable(Colors.White);
 
     [Display(Name = nameof(GraphicsStrings.Lighting_Add), ResourceType = typeof(GraphicsStrings))]

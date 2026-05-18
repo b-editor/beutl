@@ -61,7 +61,8 @@ public static class FallbackHelper
             instance = Activator.CreateInstance(type) as T;
         }
 
-        if (instance == null) throw new Exception(message);
+        if (instance == null)
+            throw new Exception(message);
 
         CoreSerializer.PopulateFromJsonObject(instance, type!, json);
         return instance;

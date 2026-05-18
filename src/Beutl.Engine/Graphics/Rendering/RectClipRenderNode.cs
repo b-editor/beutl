@@ -27,15 +27,20 @@ public sealed class RectClipRenderNode(Rect clip, ClipOperation operation) : Con
 
     public override RenderNodeOperation[] Process(RenderNodeContext context)
     {
-        return context.Input.Select(r =>
-        {
-            return RenderNodeOperation.CreateDecorator(r, canvas =>
+        return context
+            .Input.Select(r =>
             {
-                using (canvas.PushClip(Clip, Operation))
-                {
-                    r.Render(canvas);
-                }
-            });
-        }).ToArray();
+                return RenderNodeOperation.CreateDecorator(
+                    r,
+                    canvas =>
+                    {
+                        using (canvas.PushClip(Clip, Operation))
+                        {
+                            r.Render(canvas);
+                        }
+                    }
+                );
+            })
+            .ToArray();
     }
 }

@@ -13,7 +13,10 @@ public class StringFormatsTests
     [TestCase(1536, ExpectedResult = "1.50 KB")]
     public string ToHumanReadableSize_ShouldReturnCorrectFormat(double size)
     {
-        return StringFormats.ToHumanReadableSize(size, formatProvider: CultureInfo.InvariantCulture);
+        return StringFormats.ToHumanReadableSize(
+            size,
+            formatProvider: CultureInfo.InvariantCulture
+        );
     }
 
     [Test]
@@ -24,7 +27,8 @@ public class StringFormatsTests
         double bytes = 5d * 1024 * 1024 * 1024;
         Assert.That(
             StringFormats.ToHumanReadableSize(bytes, formatProvider: CultureInfo.InvariantCulture),
-            Is.EqualTo("5.00 GB"));
+            Is.EqualTo("5.00 GB")
+        );
     }
 
     [Test]
@@ -32,8 +36,13 @@ public class StringFormatsTests
     {
         // With a base-1000 standard, 1500 -> 1.50 KB
         Assert.That(
-            StringFormats.ToHumanReadableSize(1500, standard: 1000, formatProvider: CultureInfo.InvariantCulture),
-            Is.EqualTo("1.50 KB"));
+            StringFormats.ToHumanReadableSize(
+                1500,
+                standard: 1000,
+                formatProvider: CultureInfo.InvariantCulture
+            ),
+            Is.EqualTo("1.50 KB")
+        );
     }
 
     [Test]
@@ -41,8 +50,13 @@ public class StringFormatsTests
     {
         // Starting at scale=2 (MB), 4 stays at "4.00 MB" since 4 <= 1024.
         Assert.That(
-            StringFormats.ToHumanReadableSize(4, scale: 2, formatProvider: CultureInfo.InvariantCulture),
-            Is.EqualTo("4.00 MB"));
+            StringFormats.ToHumanReadableSize(
+                4,
+                scale: 2,
+                formatProvider: CultureInfo.InvariantCulture
+            ),
+            Is.EqualTo("4.00 MB")
+        );
     }
 
     [Test]

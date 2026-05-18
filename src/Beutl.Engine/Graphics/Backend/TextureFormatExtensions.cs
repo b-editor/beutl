@@ -24,7 +24,7 @@ public static class TextureFormatExtensions
             TextureFormat.R32Float => Format.R32Sfloat,
             TextureFormat.Depth32Float => Format.D32Sfloat,
             TextureFormat.Depth24Stencil8 => Format.D24UnormS8Uint,
-            _ => Format.R8G8B8A8Unorm
+            _ => Format.R8G8B8A8Unorm,
         };
     }
 
@@ -42,7 +42,7 @@ public static class TextureFormatExtensions
             TextureFormat.R8Unorm => SKColorType.Gray8,
             TextureFormat.R16Float => SKColorType.AlphaF16,
             TextureFormat.R32Float => SKColorType.RgbaF32, // Fallback: no single-channel F32
-            _ => SKColorType.Rgba8888
+            _ => SKColorType.Rgba8888,
         };
     }
 
@@ -54,8 +54,9 @@ public static class TextureFormatExtensions
         return format switch
         {
             TextureFormat.Depth32Float => ImageAspectFlags.DepthBit,
-            TextureFormat.Depth24Stencil8 => ImageAspectFlags.DepthBit | ImageAspectFlags.StencilBit,
-            _ => ImageAspectFlags.ColorBit
+            TextureFormat.Depth24Stencil8 => ImageAspectFlags.DepthBit
+                | ImageAspectFlags.StencilBit,
+            _ => ImageAspectFlags.ColorBit,
         };
     }
 

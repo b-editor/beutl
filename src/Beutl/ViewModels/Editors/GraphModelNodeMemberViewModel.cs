@@ -9,14 +9,22 @@ using Reactive.Bindings;
 
 namespace Beutl.ViewModels.Editors;
 
-public sealed class GraphModelNodeMemberViewModel : IDisposable, IPropertyEditorContextVisitor, IServiceProvider
+public sealed class GraphModelNodeMemberViewModel
+    : IDisposable,
+        IPropertyEditorContextVisitor,
+        IServiceProvider
 {
     private readonly CompositeDisposable _disposables = [];
     private readonly string _defaultName;
     private GraphModel? _graphModel;
     private GraphModelEditorViewModel _parent;
 
-    public GraphModelNodeMemberViewModel(LayerInputNode node, int originalIndex, GraphModel graphModel, GraphModelEditorViewModel parent)
+    public GraphModelNodeMemberViewModel(
+        LayerInputNode node,
+        int originalIndex,
+        GraphModel graphModel,
+        GraphModelEditorViewModel parent
+    )
     {
         GraphNode = node;
         OriginalIndex = originalIndex;
@@ -41,9 +49,7 @@ public sealed class GraphModelNodeMemberViewModel : IDisposable, IPropertyEditor
         IsExpanded = node.GetObservable(Beutl.NodeGraph.GraphNode.IsExpandedProperty)
             .ToReactiveProperty()
             .DisposeWith(_disposables);
-        IsExpanded
-            .Subscribe(v => GraphNode.IsExpanded = v)
-            .DisposeWith(_disposables);
+        IsExpanded.Subscribe(v => GraphNode.IsExpanded = v).DisposeWith(_disposables);
 
         InitializeProperties();
     }
@@ -60,18 +66,21 @@ public sealed class GraphModelNodeMemberViewModel : IDisposable, IPropertyEditor
 
     public void Remove()
     {
-        if (_graphModel == null) return;
+        if (_graphModel == null)
+            return;
         // 削除するとDisposeされるので、事前にHistoryManagerを取得しておく
         var historyManager = _parent.GetRequiredService<HistoryManager>();
 
-        Connection[] allConnections = GraphNode.Items
-            .SelectMany(i => i switch
-            {
-                IOutputPort outputNodePort => outputNodePort.Connections,
-                IListPort listNodePort => listNodePort.Connections,
-                IInputPort { Connection: var connection } => [connection],
-                _ => []
-            })
+        Connection[] allConnections = GraphNode
+            .Items.SelectMany(i =>
+                i switch
+                {
+                    IOutputPort outputNodePort => outputNodePort.Connections,
+                    IListPort listNodePort => listNodePort.Connections,
+                    IInputPort { Connection: var connection } => [connection],
+                    _ => [],
+                }
+            )
             .Select(conn => _graphModel.AllConnections.FirstOrDefault(a => a.Id == conn.Id))
             .Where(a => a != null)
             .ToArray()!;
@@ -190,7 +199,5 @@ public sealed class GraphModelNodeMemberViewModel : IDisposable, IPropertyEditor
         return _parent.GetService(serviceType);
     }
 
-    public void Visit(IPropertyEditorContext context)
-    {
-    }
+    public void Visit(IPropertyEditorContext context) { }
 }

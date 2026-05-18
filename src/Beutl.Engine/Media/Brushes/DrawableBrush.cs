@@ -23,7 +23,8 @@ public partial class DrawableBrush : TileBrush
     /// Initializes a new instance of the <see cref="DrawableBrush"/> class.
     /// </summary>
     /// <param name="drawable">The drawable to draw.</param>
-    public DrawableBrush(Drawable drawable) : this()
+    public DrawableBrush(Drawable drawable)
+        : this()
     {
         Drawable.CurrentValue = drawable;
     }

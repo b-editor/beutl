@@ -1,7 +1,5 @@
 ﻿using System.Diagnostics;
-
 using Beutl.ExceptionHandler.Properties;
-
 using Reactive.Bindings;
 
 namespace Beutl.ExceptionHandler;
@@ -17,7 +15,10 @@ public class MainWindowViewModel
         Header = Resources.ErrorOccurred;
         Content.Value = Resources.Content;
 
-        string path = Path.Combine(BeutlEnvironment.GetHomeDirectoryPath(), "last-unhandled-exeption");
+        string path = Path.Combine(
+            BeutlEnvironment.GetHomeDirectoryPath(),
+            "last-unhandled-exeption"
+        );
         if (File.Exists(path))
         {
             Footer = File.ReadAllText(path);
@@ -29,9 +30,7 @@ public class MainWindowViewModel
 
         string logFolder = Path.Combine(BeutlEnvironment.GetHomeDirectoryPath(), "log");
 
-        _logFile = Directory.GetFiles(logFolder)
-            .OrderDescending()
-            .FirstOrDefault();
+        _logFile = Directory.GetFiles(logFolder).OrderDescending().FirstOrDefault();
 
         ShowLog.Subscribe(() =>
         {
@@ -39,15 +38,11 @@ public class MainWindowViewModel
             {
                 if (_logFile == null || !File.Exists(_logFile))
                     return;
-                Process.Start(new ProcessStartInfo(_logFile)
-                {
-                    Verb = "open",
-                    UseShellExecute = true
-                });
+                Process.Start(
+                    new ProcessStartInfo(_logFile) { Verb = "open", UseShellExecute = true }
+                );
             }
-            catch
-            {
-            }
+            catch { }
         });
 
         SendFeedback.Subscribe(() =>
@@ -61,9 +56,7 @@ public class MainWindowViewModel
                 }
                 Process.Start(new ProcessStartInfo(url) { UseShellExecute = true });
             }
-            catch
-            {
-            }
+            catch { }
         });
     }
 

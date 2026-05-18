@@ -23,9 +23,7 @@ public class EnginePropertyOperationObserverTests
     }
 
     [TearDown]
-    public void TearDown()
-    {
-    }
+    public void TearDown() { }
 
     #region Constructor Tests
 
@@ -38,7 +36,12 @@ public class EnginePropertyOperationObserverTests
 
         // Act
         using var observer = new EnginePropertyOperationObserver<float>(
-            null, engineObj, property, _sequenceGenerator, "FloatValue");
+            null,
+            engineObj,
+            property,
+            _sequenceGenerator,
+            "FloatValue"
+        );
 
         // Assert
         Assert.That(observer.Operations, Is.Not.Null);
@@ -55,7 +58,12 @@ public class EnginePropertyOperationObserverTests
 
         // Act
         using var observer = new EnginePropertyOperationObserver<float>(
-            testObserver, engineObj, property, _sequenceGenerator, "FloatValue");
+            testObserver,
+            engineObj,
+            property,
+            _sequenceGenerator,
+            "FloatValue"
+        );
         property.CurrentValue = 50f;
 
         // Assert
@@ -74,7 +82,12 @@ public class EnginePropertyOperationObserverTests
         Assert.DoesNotThrow(() =>
         {
             using var observer = new EnginePropertyOperationObserver<float>(
-                null, engineObj, property, _sequenceGenerator, "FloatValue");
+                null,
+                engineObj,
+                property,
+                _sequenceGenerator,
+                "FloatValue"
+            );
         });
     }
 
@@ -89,7 +102,12 @@ public class EnginePropertyOperationObserverTests
 
         // Act
         using var observer = new EnginePropertyOperationObserver<float>(
-            testObserver, engineObj, property, _sequenceGenerator, "Parent.FloatValue");
+            testObserver,
+            engineObj,
+            property,
+            _sequenceGenerator,
+            "Parent.FloatValue"
+        );
         property.CurrentValue = 25f;
 
         // Assert
@@ -109,7 +127,12 @@ public class EnginePropertyOperationObserverTests
 
         // Act
         using var observer = new EnginePropertyOperationObserver<TestChildCoreObject>(
-            testObserver, engineObj, engineObj.ChildProperty, _sequenceGenerator, "Child");
+            testObserver,
+            engineObj,
+            engineObj.ChildProperty,
+            _sequenceGenerator,
+            "Child"
+        );
         childObj.Title = "modified";
 
         // Assert
@@ -131,7 +154,12 @@ public class EnginePropertyOperationObserverTests
 
         // Act
         using var observer = new EnginePropertyOperationObserver<CoreList<TestChildCoreObject>>(
-            testObserver, engineObj, engineObj.ItemsProperty, _sequenceGenerator, "Items");
+            testObserver,
+            engineObj,
+            engineObj.ItemsProperty,
+            _sequenceGenerator,
+            "Items"
+        );
         item.Title = "modified";
 
         // Assert
@@ -152,10 +180,17 @@ public class EnginePropertyOperationObserverTests
 
         // Act
         using var observer = new EnginePropertyOperationObserver<float>(
-            testObserver, engineObj, property, _sequenceGenerator, "FloatValue");
+            testObserver,
+            engineObj,
+            property,
+            _sequenceGenerator,
+            "FloatValue"
+        );
 
         // Modify animation (add a keyframe)
-        animation.KeyFrames.Add(new KeyFrame<float> { Value = 1.0f, KeyTime = TimeSpan.FromSeconds(1) });
+        animation.KeyFrames.Add(
+            new KeyFrame<float> { Value = 1.0f, KeyTime = TimeSpan.FromSeconds(1) }
+        );
 
         // Assert
         Assert.That(receivedOperations, Has.Count.GreaterThanOrEqualTo(1));
@@ -175,7 +210,12 @@ public class EnginePropertyOperationObserverTests
         var testObserver = Observer.Create<ChangeOperation>(op => receivedOperations.Add(op));
 
         using var observer = new EnginePropertyOperationObserver<float>(
-            testObserver, engineObj, property, _sequenceGenerator, "FloatValue");
+            testObserver,
+            engineObj,
+            property,
+            _sequenceGenerator,
+            "FloatValue"
+        );
 
         // Act
         property.CurrentValue = 75f;
@@ -201,7 +241,12 @@ public class EnginePropertyOperationObserverTests
         var testObserver = Observer.Create<ChangeOperation>(op => receivedOperations.Add(op));
 
         using var observer = new EnginePropertyOperationObserver<float>(
-            testObserver, engineObj, property, _sequenceGenerator, "FloatValue");
+            testObserver,
+            engineObj,
+            property,
+            _sequenceGenerator,
+            "FloatValue"
+        );
 
         // Act
         using (PublishingSuppression.Enter())
@@ -223,7 +268,12 @@ public class EnginePropertyOperationObserverTests
         var testObserver = Observer.Create<ChangeOperation>(op => receivedOperations.Add(op));
 
         using var observer = new EnginePropertyOperationObserver<float>(
-            testObserver, engineObj, property, _sequenceGenerator, "FloatValue");
+            testObserver,
+            engineObj,
+            property,
+            _sequenceGenerator,
+            "FloatValue"
+        );
 
         // Act
         using (PublishingSuppression.Enter())
@@ -247,7 +297,12 @@ public class EnginePropertyOperationObserverTests
         var testObserver = Observer.Create<ChangeOperation>(op => receivedOperations.Add(op));
 
         using var observer = new EnginePropertyOperationObserver<TestChildCoreObject>(
-            testObserver, engineObj, engineObj.ChildProperty, _sequenceGenerator, "Child");
+            testObserver,
+            engineObj,
+            engineObj.ChildProperty,
+            _sequenceGenerator,
+            "Child"
+        );
 
         // Act
         var newChild = new TestChildCoreObject { Title = "new" };
@@ -272,7 +327,12 @@ public class EnginePropertyOperationObserverTests
         var testObserver = Observer.Create<ChangeOperation>(op => receivedOperations.Add(op));
 
         using var observer = new EnginePropertyOperationObserver<TestChildCoreObject>(
-            testObserver, engineObj, engineObj.ChildProperty, _sequenceGenerator, "Child");
+            testObserver,
+            engineObj,
+            engineObj.ChildProperty,
+            _sequenceGenerator,
+            "Child"
+        );
 
         // Replace child
         var newChild = new TestChildCoreObject { Title = "new" };
@@ -296,7 +356,12 @@ public class EnginePropertyOperationObserverTests
         var testObserver = Observer.Create<ChangeOperation>(op => receivedOperations.Add(op));
 
         using var observer = new EnginePropertyOperationObserver<float>(
-            testObserver, engineObj, property, _sequenceGenerator, "FloatValue");
+            testObserver,
+            engineObj,
+            property,
+            _sequenceGenerator,
+            "FloatValue"
+        );
 
         // Act
         property.CurrentValue = 10f;
@@ -328,7 +393,12 @@ public class EnginePropertyOperationObserverTests
         var testObserver = Observer.Create<ChangeOperation>(op => receivedOperations.Add(op));
 
         using var observer = new EnginePropertyOperationObserver<float>(
-            testObserver, engineObj, property, _sequenceGenerator, "FloatValue");
+            testObserver,
+            engineObj,
+            property,
+            _sequenceGenerator,
+            "FloatValue"
+        );
 
         // Act
         var newAnimation = new KeyFrameAnimation<float>();
@@ -356,7 +426,12 @@ public class EnginePropertyOperationObserverTests
         var testObserver = Observer.Create<ChangeOperation>(op => receivedOperations.Add(op));
 
         using var observer = new EnginePropertyOperationObserver<float>(
-            testObserver, engineObj, property, _sequenceGenerator, "FloatValue");
+            testObserver,
+            engineObj,
+            property,
+            _sequenceGenerator,
+            "FloatValue"
+        );
 
         // Act
         using (PublishingSuppression.Enter())
@@ -378,14 +453,21 @@ public class EnginePropertyOperationObserverTests
         var testObserver = Observer.Create<ChangeOperation>(op => receivedOperations.Add(op));
 
         using var observer = new EnginePropertyOperationObserver<float>(
-            testObserver, engineObj, property, _sequenceGenerator, "FloatValue");
+            testObserver,
+            engineObj,
+            property,
+            _sequenceGenerator,
+            "FloatValue"
+        );
 
         var newAnimation = new KeyFrameAnimation<float>();
         property.Animation = newAnimation;
         receivedOperations.Clear();
 
         // Act - Modify the animation
-        newAnimation.KeyFrames.Add(new KeyFrame<float> { Value = 1.0f, KeyTime = TimeSpan.FromSeconds(1) });
+        newAnimation.KeyFrames.Add(
+            new KeyFrame<float> { Value = 1.0f, KeyTime = TimeSpan.FromSeconds(1) }
+        );
 
         // Assert
         Assert.That(receivedOperations, Has.Count.GreaterThanOrEqualTo(1));
@@ -404,7 +486,12 @@ public class EnginePropertyOperationObserverTests
         property.Animation = oldAnimation;
 
         using var observer = new EnginePropertyOperationObserver<float>(
-            testObserver, engineObj, property, _sequenceGenerator, "FloatValue");
+            testObserver,
+            engineObj,
+            property,
+            _sequenceGenerator,
+            "FloatValue"
+        );
 
         // Replace animation
         var newAnimation = new KeyFrameAnimation<float>();
@@ -412,7 +499,9 @@ public class EnginePropertyOperationObserverTests
         receivedOperations.Clear();
 
         // Act - Modify old animation
-        oldAnimation.KeyFrames.Add(new KeyFrame<float> { Value = 1.0f, KeyTime = TimeSpan.FromSeconds(1) });
+        oldAnimation.KeyFrames.Add(
+            new KeyFrame<float> { Value = 1.0f, KeyTime = TimeSpan.FromSeconds(1) }
+        );
 
         // Assert
         Assert.That(receivedOperations, Is.Empty);
@@ -431,7 +520,12 @@ public class EnginePropertyOperationObserverTests
         property.Animation = animation;
 
         using var observer = new EnginePropertyOperationObserver<float>(
-            testObserver, engineObj, property, _sequenceGenerator, "FloatValue");
+            testObserver,
+            engineObj,
+            property,
+            _sequenceGenerator,
+            "FloatValue"
+        );
         receivedOperations.Clear();
 
         // Act
@@ -458,7 +552,12 @@ public class EnginePropertyOperationObserverTests
         var testObserver = Observer.Create<ChangeOperation>(op => receivedOperations.Add(op));
 
         using var observer = new EnginePropertyOperationObserver<float>(
-            testObserver, engineObj, property, _sequenceGenerator, "FloatValue");
+            testObserver,
+            engineObj,
+            property,
+            _sequenceGenerator,
+            "FloatValue"
+        );
 
         // Act
         var expression = new TestExpression<float>(50f);
@@ -486,7 +585,12 @@ public class EnginePropertyOperationObserverTests
         var testObserver = Observer.Create<ChangeOperation>(op => receivedOperations.Add(op));
 
         using var observer = new EnginePropertyOperationObserver<float>(
-            testObserver, engineObj, property, _sequenceGenerator, "FloatValue");
+            testObserver,
+            engineObj,
+            property,
+            _sequenceGenerator,
+            "FloatValue"
+        );
 
         // Act
         using (PublishingSuppression.Enter())
@@ -510,7 +614,12 @@ public class EnginePropertyOperationObserverTests
         var testObserver = Observer.Create<ChangeOperation>(op => receivedOperations.Add(op));
 
         using var observer = new EnginePropertyOperationObserver<float>(
-            testObserver, engineObj, property, _sequenceGenerator, "FloatValue");
+            testObserver,
+            engineObj,
+            property,
+            _sequenceGenerator,
+            "FloatValue"
+        );
         receivedOperations.Clear();
 
         // Act
@@ -536,7 +645,12 @@ public class EnginePropertyOperationObserverTests
         var testObserver = Observer.Create<ChangeOperation>(op => receivedOperations.Add(op));
 
         using var observer = new EnginePropertyOperationObserver<float>(
-            testObserver, engineObj, property, _sequenceGenerator, "FloatValue");
+            testObserver,
+            engineObj,
+            property,
+            _sequenceGenerator,
+            "FloatValue"
+        );
         receivedOperations.Clear();
 
         // Act
@@ -568,7 +682,12 @@ public class EnginePropertyOperationObserverTests
         var testObserver = Observer.Create<ChangeOperation>(op => receivedOperations.Add(op));
 
         var observer = new EnginePropertyOperationObserver<float>(
-            testObserver, engineObj, property, _sequenceGenerator, "FloatValue");
+            testObserver,
+            engineObj,
+            property,
+            _sequenceGenerator,
+            "FloatValue"
+        );
 
         // Act
         observer.Dispose();
@@ -588,7 +707,12 @@ public class EnginePropertyOperationObserverTests
         var testObserver = Observer.Create<ChangeOperation>(op => receivedOperations.Add(op));
 
         var observer = new EnginePropertyOperationObserver<float>(
-            testObserver, engineObj, property, _sequenceGenerator, "FloatValue");
+            testObserver,
+            engineObj,
+            property,
+            _sequenceGenerator,
+            "FloatValue"
+        );
 
         // Act
         observer.Dispose();
@@ -608,7 +732,12 @@ public class EnginePropertyOperationObserverTests
         var testObserver = Observer.Create<ChangeOperation>(op => receivedOperations.Add(op));
 
         var observer = new EnginePropertyOperationObserver<float>(
-            testObserver, engineObj, property, _sequenceGenerator, "FloatValue");
+            testObserver,
+            engineObj,
+            property,
+            _sequenceGenerator,
+            "FloatValue"
+        );
 
         // Act
         observer.Dispose();
@@ -627,7 +756,12 @@ public class EnginePropertyOperationObserverTests
         bool completed = false;
 
         var observer = new EnginePropertyOperationObserver<float>(
-            null, engineObj, property, _sequenceGenerator, "FloatValue");
+            null,
+            engineObj,
+            property,
+            _sequenceGenerator,
+            "FloatValue"
+        );
         using var subscription = observer.Operations.Subscribe(_ => { }, () => completed = true);
 
         // Act
@@ -647,7 +781,12 @@ public class EnginePropertyOperationObserverTests
         var testObserver = Observer.Create<ChangeOperation>(op => receivedOperations.Add(op));
 
         var observer = new EnginePropertyOperationObserver<TestChildCoreObject>(
-            testObserver, engineObj, engineObj.ChildProperty, _sequenceGenerator, "Child");
+            testObserver,
+            engineObj,
+            engineObj.ChildProperty,
+            _sequenceGenerator,
+            "Child"
+        );
 
         // Act
         observer.Dispose();
@@ -670,12 +809,19 @@ public class EnginePropertyOperationObserverTests
         var testObserver = Observer.Create<ChangeOperation>(op => receivedOperations.Add(op));
 
         var observer = new EnginePropertyOperationObserver<float>(
-            testObserver, engineObj, property, _sequenceGenerator, "FloatValue");
+            testObserver,
+            engineObj,
+            property,
+            _sequenceGenerator,
+            "FloatValue"
+        );
         receivedOperations.Clear();
 
         // Act
         observer.Dispose();
-        animation.KeyFrames.Add(new KeyFrame<float> { Value = 1.0f, KeyTime = TimeSpan.FromSeconds(1) });
+        animation.KeyFrames.Add(
+            new KeyFrame<float> { Value = 1.0f, KeyTime = TimeSpan.FromSeconds(1) }
+        );
 
         // Assert
         Assert.That(receivedOperations, Is.Empty);
@@ -698,7 +844,13 @@ public class EnginePropertyOperationObserverTests
 
         // Act
         using var observer = new EnginePropertyOperationObserver<float>(
-            testObserver, engineObj, property, _sequenceGenerator, "FloatValue", propertyPathsToTrack);
+            testObserver,
+            engineObj,
+            property,
+            _sequenceGenerator,
+            "FloatValue",
+            propertyPathsToTrack
+        );
 
         property.CurrentValue = 50f;
 
@@ -719,13 +871,20 @@ public class EnginePropertyOperationObserverTests
 
         // Act
         using var observer = new EnginePropertyOperationObserver<float>(
-            testObserver, engineObj, property, _sequenceGenerator, "FloatValue", propertyPathsToTrack);
+            testObserver,
+            engineObj,
+            property,
+            _sequenceGenerator,
+            "FloatValue",
+            propertyPathsToTrack
+        );
 
         property.Animation = new KeyFrameAnimation<float>();
 
         // Assert
-        var animationOps = receivedOperations.Where(op =>
-            op is IPropertyPathProvider ppp && ppp.PropertyPath.Contains("Animation")).ToList();
+        var animationOps = receivedOperations
+            .Where(op => op is IPropertyPathProvider ppp && ppp.PropertyPath.Contains("Animation"))
+            .ToList();
         Assert.That(animationOps, Is.Empty);
     }
 
@@ -742,13 +901,20 @@ public class EnginePropertyOperationObserverTests
 
         // Act
         using var observer = new EnginePropertyOperationObserver<float>(
-            testObserver, engineObj, property, _sequenceGenerator, "FloatValue", propertyPathsToTrack);
+            testObserver,
+            engineObj,
+            property,
+            _sequenceGenerator,
+            "FloatValue",
+            propertyPathsToTrack
+        );
 
         property.Expression = new TestExpression<float>(50f);
 
         // Assert
-        var expressionOps = receivedOperations.Where(op =>
-            op is IPropertyPathProvider ppp && ppp.PropertyPath.Contains("Expression")).ToList();
+        var expressionOps = receivedOperations
+            .Where(op => op is IPropertyPathProvider ppp && ppp.PropertyPath.Contains("Expression"))
+            .ToList();
         Assert.That(expressionOps, Is.Empty);
     }
 
@@ -763,7 +929,13 @@ public class EnginePropertyOperationObserverTests
 
         // Act
         using var observer = new EnginePropertyOperationObserver<float>(
-            testObserver, engineObj, property, _sequenceGenerator, "FloatValue", null);
+            testObserver,
+            engineObj,
+            property,
+            _sequenceGenerator,
+            "FloatValue",
+            null
+        );
 
         property.CurrentValue = 50f;
         property.Animation = new KeyFrameAnimation<float>();
@@ -787,7 +959,12 @@ public class EnginePropertyOperationObserverTests
         var testObserver = Observer.Create<ChangeOperation>(op => receivedOperations.Add(op));
 
         using var observer = new EnginePropertyOperationObserver<float>(
-            testObserver, engineObj, property, _sequenceGenerator, "FloatValue");
+            testObserver,
+            engineObj,
+            property,
+            _sequenceGenerator,
+            "FloatValue"
+        );
 
         // Act
         property.CurrentValue = 25f;
@@ -796,8 +973,14 @@ public class EnginePropertyOperationObserverTests
 
         // Assert
         Assert.That(receivedOperations, Has.Count.EqualTo(3));
-        Assert.That(receivedOperations[1].SequenceNumber, Is.GreaterThan(receivedOperations[0].SequenceNumber));
-        Assert.That(receivedOperations[2].SequenceNumber, Is.GreaterThan(receivedOperations[1].SequenceNumber));
+        Assert.That(
+            receivedOperations[1].SequenceNumber,
+            Is.GreaterThan(receivedOperations[0].SequenceNumber)
+        );
+        Assert.That(
+            receivedOperations[2].SequenceNumber,
+            Is.GreaterThan(receivedOperations[1].SequenceNumber)
+        );
     }
 
     [Test]
@@ -810,7 +993,12 @@ public class EnginePropertyOperationObserverTests
         var testObserver = Observer.Create<ChangeOperation>(op => receivedOperations.Add(op));
 
         using var observer = new EnginePropertyOperationObserver<float>(
-            testObserver, engineObj, property, _sequenceGenerator, "FloatValue");
+            testObserver,
+            engineObj,
+            property,
+            _sequenceGenerator,
+            "FloatValue"
+        );
 
         // Act
         property.Animation = new KeyFrameAnimation<float>();
@@ -818,7 +1006,10 @@ public class EnginePropertyOperationObserverTests
 
         // Assert
         Assert.That(receivedOperations, Has.Count.EqualTo(2));
-        Assert.That(receivedOperations[1].SequenceNumber, Is.GreaterThan(receivedOperations[0].SequenceNumber));
+        Assert.That(
+            receivedOperations[1].SequenceNumber,
+            Is.GreaterThan(receivedOperations[0].SequenceNumber)
+        );
     }
 
     [Test]
@@ -831,7 +1022,12 @@ public class EnginePropertyOperationObserverTests
         var testObserver = Observer.Create<ChangeOperation>(op => receivedOperations.Add(op));
 
         using var observer = new EnginePropertyOperationObserver<float>(
-            testObserver, engineObj, property, _sequenceGenerator, "FloatValue");
+            testObserver,
+            engineObj,
+            property,
+            _sequenceGenerator,
+            "FloatValue"
+        );
 
         // Act
         property.Expression = new TestExpression<float>(25f);
@@ -839,7 +1035,10 @@ public class EnginePropertyOperationObserverTests
 
         // Assert
         Assert.That(receivedOperations, Has.Count.EqualTo(2));
-        Assert.That(receivedOperations[1].SequenceNumber, Is.GreaterThan(receivedOperations[0].SequenceNumber));
+        Assert.That(
+            receivedOperations[1].SequenceNumber,
+            Is.GreaterThan(receivedOperations[0].SequenceNumber)
+        );
     }
 
     #endregion
@@ -855,7 +1054,12 @@ public class EnginePropertyOperationObserverTests
 
         // Act
         using var observer = new EnginePropertyOperationObserver<float>(
-            null, engineObj, property, _sequenceGenerator, "FloatValue");
+            null,
+            engineObj,
+            property,
+            _sequenceGenerator,
+            "FloatValue"
+        );
 
         // Assert
         Assert.That(observer.Operations, Is.InstanceOf<IObservable<ChangeOperation>>());
@@ -871,7 +1075,12 @@ public class EnginePropertyOperationObserverTests
         var receivedOperations2 = new List<ChangeOperation>();
 
         using var observer = new EnginePropertyOperationObserver<float>(
-            null, engineObj, property, _sequenceGenerator, "FloatValue");
+            null,
+            engineObj,
+            property,
+            _sequenceGenerator,
+            "FloatValue"
+        );
 
         // Act
         using var sub1 = observer.Operations.Subscribe(op => receivedOperations1.Add(op));
@@ -904,7 +1113,12 @@ public class EnginePropertyOperationObserverTests
         Assert.DoesNotThrow(() =>
         {
             using var observer = new EnginePropertyOperationObserver<float>(
-                testObserver, engineObj, property, _sequenceGenerator, "FloatValue");
+                testObserver,
+                engineObj,
+                property,
+                _sequenceGenerator,
+                "FloatValue"
+            );
             property.CurrentValue = 50f;
         });
     }

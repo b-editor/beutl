@@ -15,12 +15,17 @@ public class FFmpegEncodingControllerProxy(string outputFile, FFmpegEncodingSett
 {
     private readonly ILogger _logger = Log.CreateLogger<FFmpegEncodingControllerProxy>();
 
-    public override FFmpegVideoEncoderSettings VideoSettings { get; } = new() { OutputFile = outputFile };
+    public override FFmpegVideoEncoderSettings VideoSettings { get; } =
+        new() { OutputFile = outputFile };
 
-    public override FFmpegAudioEncoderSettings AudioSettings { get; } = new() { OutputFile = outputFile };
+    public override FFmpegAudioEncoderSettings AudioSettings { get; } =
+        new() { OutputFile = outputFile };
 
     public override async ValueTask Encode(
-        IFrameProvider frameProvider, ISampleProvider sampleProvider, CancellationToken cancellationToken)
+        IFrameProvider frameProvider,
+        ISampleProvider sampleProvider,
+        CancellationToken cancellationToken
+    )
     {
         using var worker = FFmpegWorkerProcess.CreateForEncoding();
         IpcConnection connection;
@@ -55,8 +60,8 @@ public class FFmpegEncodingControllerProxy(string outputFile, FFmpegEncodingSett
             ColorTrc = VideoSettings.ColorTrc,
             ColorSpace = VideoSettings.ColorSpace,
             ColorRange = VideoSettings.ColorRange,
-            VideoOptions = VideoSettings.Options
-                .Where(o => !string.IsNullOrWhiteSpace(o.Name))
+            VideoOptions = VideoSettings
+                .Options.Where(o => !string.IsNullOrWhiteSpace(o.Name))
                 .ToDictionary(o => o.Name, o => o.Value),
             IsHdr = IsHdr(),
             AudioSampleRate = AudioSettings.SampleRate,
@@ -69,17 +74,34 @@ public class FFmpegEncodingControllerProxy(string outputFile, FFmpegEncodingSett
         };
 
         // StartEncode送信
-        var startMsg = IpcMessage.Create(connection.NextId(), MessageType.StartEncode, startRequest);
+        var startMsg = IpcMessage.Create(
+            connection.NextId(),
+            MessageType.StartEncode,
+            startRequest
+        );
         var ack = await connection.SendAndReceiveAsync(startMsg, cancellationToken);
 
-        var ackPayload = ack.GetPayload<EncodeStartAckMessage>()
+        var ackPayload =
+            ack.GetPayload<EncodeStartAckMessage>()
             ?? throw new InvalidOperationException("StartEncodeAck missing payload");
 
         // 共有メモリオープン (ダブルバッファリング: Worker側で作成済み、名前はACKから取得)
-        using var videoBuffer0 = SharedMemoryBuffer.Open(ackPayload.VideoSharedMemoryName, ackPayload.VideoBufferSize);
-        using var videoBuffer1 = SharedMemoryBuffer.Open(ackPayload.VideoSharedMemoryName2, ackPayload.VideoBufferSize);
-        using var audioBuffer0 = SharedMemoryBuffer.Open(ackPayload.AudioSharedMemoryName, ackPayload.AudioBufferSize);
-        using var audioBuffer1 = SharedMemoryBuffer.Open(ackPayload.AudioSharedMemoryName2, ackPayload.AudioBufferSize);
+        using var videoBuffer0 = SharedMemoryBuffer.Open(
+            ackPayload.VideoSharedMemoryName,
+            ackPayload.VideoBufferSize
+        );
+        using var videoBuffer1 = SharedMemoryBuffer.Open(
+            ackPayload.VideoSharedMemoryName2,
+            ackPayload.VideoBufferSize
+        );
+        using var audioBuffer0 = SharedMemoryBuffer.Open(
+            ackPayload.AudioSharedMemoryName,
+            ackPayload.AudioBufferSize
+        );
+        using var audioBuffer1 = SharedMemoryBuffer.Open(
+            ackPayload.AudioSharedMemoryName2,
+            ackPayload.AudioBufferSize
+        );
 
         SharedMemoryBuffer[] videoBuffers = [videoBuffer0, videoBuffer1];
         SharedMemoryBuffer[] audioBuffers = [audioBuffer0, audioBuffer1];
@@ -96,73 +118,105 @@ public class FFmpegEncodingControllerProxy(string outputFile, FFmpegEncodingSett
                 switch (msg.Type)
                 {
                     case MessageType.RequestFrame:
+                    {
+                        var frameReq =
+                            msg.GetPayload<RequestFrameMessage>()
+                            ?? throw new InvalidOperationException(
+                                "Missing payload for RequestFrame"
+                            );
+                        if (frameReq.BufferIndex is not (0 or 1))
+                            throw new InvalidOperationException(
+                                $"Invalid BufferIndex: {frameReq.BufferIndex}"
+                            );
+                        using var bitmap = await frameProvider.RenderFrame(frameReq.FrameIndex);
+
+                        // BufferIndex で指定されたバッファに書き込み (ダブルバッファリング)
+                        var targetVideoBuffer = videoBuffers[frameReq.BufferIndex];
+                        unsafe
                         {
-                            var frameReq = msg.GetPayload<RequestFrameMessage>()
-                                ?? throw new InvalidOperationException("Missing payload for RequestFrame");
-                            if (frameReq.BufferIndex is not (0 or 1))
-                                throw new InvalidOperationException($"Invalid BufferIndex: {frameReq.BufferIndex}");
-                            using var bitmap = await frameProvider.RenderFrame(frameReq.FrameIndex);
+                            targetVideoBuffer.Write(
+                                new ReadOnlySpan<byte>((void*)bitmap.Data, bitmap.ByteCount)
+                            );
+                        }
 
-                            // BufferIndex で指定されたバッファに書き込み (ダブルバッファリング)
-                            var targetVideoBuffer = videoBuffers[frameReq.BufferIndex];
-                            unsafe
-                            {
-                                targetVideoBuffer.Write(new ReadOnlySpan<byte>((void*)bitmap.Data, bitmap.ByteCount));
-                            }
-
-                            await connection.SendAsync(IpcMessage.Create(msg.Id, MessageType.ProvideFrame,
+                        await connection.SendAsync(
+                            IpcMessage.Create(
+                                msg.Id,
+                                MessageType.ProvideFrame,
                                 new ProvideFrameMessage
                                 {
                                     Width = bitmap.Width,
                                     Height = bitmap.Height,
                                     BytesPerPixel = bitmap.BytesPerPixel,
                                     DataLength = bitmap.ByteCount,
-                                    Premul = bitmap.AlphaType == BitmapAlphaType.Premul
-                                }), cancellationToken);
-                            break;
-                        }
+                                    Premul = bitmap.AlphaType == BitmapAlphaType.Premul,
+                                }
+                            ),
+                            cancellationToken
+                        );
+                        break;
+                    }
 
                     case MessageType.RequestSample:
+                    {
+                        var sampleReq =
+                            msg.GetPayload<RequestSampleMessage>()
+                            ?? throw new InvalidOperationException(
+                                "Missing payload for RequestSample"
+                            );
+                        if (sampleReq.BufferIndex is not (0 or 1))
+                            throw new InvalidOperationException(
+                                $"Invalid BufferIndex: {sampleReq.BufferIndex}"
+                            );
+                        using var pcm = await sampleProvider.Sample(
+                            sampleReq.Offset,
+                            sampleReq.Length
+                        );
+
+                        // BufferIndex で指定されたバッファに書き込み (ダブルバッファリング)
+                        var targetAudioBuffer = audioBuffers[sampleReq.BufferIndex];
+                        int dataLen;
+                        unsafe
                         {
-                            var sampleReq = msg.GetPayload<RequestSampleMessage>()
-                                ?? throw new InvalidOperationException("Missing payload for RequestSample");
-                            if (sampleReq.BufferIndex is not (0 or 1))
-                                throw new InvalidOperationException($"Invalid BufferIndex: {sampleReq.BufferIndex}");
-                            using var pcm = await sampleProvider.Sample(sampleReq.Offset, sampleReq.Length);
+                            dataLen = pcm.NumSamples * (int)pcm.SampleSize;
+                            targetAudioBuffer.Write(
+                                new ReadOnlySpan<byte>((void*)pcm.Data, dataLen)
+                            );
+                        }
 
-                            // BufferIndex で指定されたバッファに書き込み (ダブルバッファリング)
-                            var targetAudioBuffer = audioBuffers[sampleReq.BufferIndex];
-                            int dataLen;
-                            unsafe
-                            {
-                                dataLen = pcm.NumSamples * (int)pcm.SampleSize;
-                                targetAudioBuffer.Write(new ReadOnlySpan<byte>((void*)pcm.Data, dataLen));
-                            }
-
-                            await connection.SendAsync(IpcMessage.Create(msg.Id, MessageType.ProvideSample,
+                        await connection.SendAsync(
+                            IpcMessage.Create(
+                                msg.Id,
+                                MessageType.ProvideSample,
                                 new ProvideSampleMessage
                                 {
                                     NumSamples = pcm.NumSamples,
                                     DataLength = dataLen,
-                                }), cancellationToken);
-                            break;
-                        }
+                                }
+                            ),
+                            cancellationToken
+                        );
+                        break;
+                    }
 
                     case MessageType.EncodeComplete:
+                    {
+                        var complete = msg.GetPayload<EncodeCompleteMessage>();
+                        if (complete != null && !complete.Success)
                         {
-                            var complete = msg.GetPayload<EncodeCompleteMessage>();
-                            if (complete != null && !complete.Success)
-                            {
-                                throw new FFmpegWorkerException(complete.Error ?? "Encoding failed");
-                            }
-                            return;
+                            throw new FFmpegWorkerException(complete.Error ?? "Encoding failed");
                         }
+                        return;
+                    }
 
                     case MessageType.EncodeProgress:
                         break;
 
                     case MessageType.Error:
-                        throw new FFmpegWorkerException(msg.Error ?? "Unknown error", msg.ErrorStackTrace);
+                        throw new FFmpegWorkerException(
+                            msg.Error ?? "Unknown error",
+                            msg.ErrorStackTrace
+                        );
 
                     default:
                         break;
@@ -178,7 +232,8 @@ public class FFmpegEncodingControllerProxy(string outputFile, FFmpegEncodingSett
             {
                 await connection.SendAsync(
                     IpcMessage.CreateSimple(connection.NextId(), MessageType.CancelEncode),
-                    CancellationToken.None);
+                    CancellationToken.None
+                );
             }
             catch (Exception ex)
             {

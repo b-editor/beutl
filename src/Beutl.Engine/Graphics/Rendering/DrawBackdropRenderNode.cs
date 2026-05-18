@@ -24,7 +24,11 @@ public class DrawBackdropRenderNode(IBackdrop backdrop, Rect bounds) : RenderNod
         context.IsRenderCacheEnabled = false;
         return
         [
-            RenderNodeOperation.CreateLambda(Bounds, canvas => Backdrop.Draw(canvas), Bounds.Contains)
+            RenderNodeOperation.CreateLambda(
+                Bounds,
+                canvas => Backdrop.Draw(canvas),
+                Bounds.Contains
+            ),
         ];
     }
 }

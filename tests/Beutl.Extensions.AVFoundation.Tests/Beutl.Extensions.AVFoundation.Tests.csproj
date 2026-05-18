@@ -1,5 +1,4 @@
 <Project Sdk="Microsoft.NET.Sdk">
-
   <PropertyGroup>
     <IsPackable>false</IsPackable>
     <IsTestProject>true</IsTestProject>
@@ -30,18 +29,21 @@
   <!-- The Swift dylib lives under the referenced project's runtimes/ folder. ProjectReferences
        don't transitively copy native runtime assets the way NuGet packages do, so mirror them
        into this project's output so the test host can resolve `BeutlAVF.dylib`. -->
-  <Target Name="CopyBeutlAVFDylibsForTests"
-          AfterTargets="Build"
-          Condition="'$([MSBuild]::IsOSPlatform(OSX))' == 'true'">
+  <Target
+    Name="CopyBeutlAVFDylibsForTests"
+    AfterTargets="Build"
+    Condition="'$([MSBuild]::IsOSPlatform(OSX))' == 'true'"
+  >
     <PropertyGroup>
       <_BeutlAVFSourceRuntimes>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)../../src/Beutl.Extensions.AVFoundation/runtimes'))</_BeutlAVFSourceRuntimes>
     </PropertyGroup>
     <ItemGroup>
       <_BeutlAVFDylib Include="$(_BeutlAVFSourceRuntimes)/**/*.dylib" />
     </ItemGroup>
-    <Copy SourceFiles="@(_BeutlAVFDylib)"
-          DestinationFiles="@(_BeutlAVFDylib->'$(OutDir)runtimes/%(RecursiveDir)%(Filename)%(Extension)')"
-          SkipUnchangedFiles="true" />
+    <Copy
+      SourceFiles="@(_BeutlAVFDylib)"
+      DestinationFiles="@(_BeutlAVFDylib->'$(OutDir)runtimes/%(RecursiveDir)%(Filename)%(Extension)')"
+      SkipUnchangedFiles="true"
+    />
   </Target>
-
 </Project>

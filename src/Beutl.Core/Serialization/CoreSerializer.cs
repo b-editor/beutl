@@ -16,7 +16,11 @@ public static class CoreSerializer
     {
         var ownerJson = new JsonObject();
         var context = new JsonSerializationContext(
-            obj.GetType(), ThreadLocalSerializationContext.Current, ownerJson, options);
+            obj.GetType(),
+            ThreadLocalSerializationContext.Current,
+            ownerJson,
+            options
+        );
         using (ThreadLocalSerializationContext.Enter(context))
         {
             context.SetValue("Value", obj);
@@ -28,10 +32,17 @@ public static class CoreSerializer
         return valueNode!;
     }
 
-    public static JsonObject SerializeToJsonObject(ICoreSerializable obj, CoreSerializerOptions? options = null)
+    public static JsonObject SerializeToJsonObject(
+        ICoreSerializable obj,
+        CoreSerializerOptions? options = null
+    )
     {
         var type = obj.GetType();
-        var context = new JsonSerializationContext(type, ThreadLocalSerializationContext.Current, options: options);
+        var context = new JsonSerializationContext(
+            type,
+            ThreadLocalSerializationContext.Current,
+            options: options
+        );
         using (ThreadLocalSerializationContext.Enter(context))
         {
             obj.Serialize(context);
@@ -47,7 +58,10 @@ public static class CoreSerializer
         return ConvertToJsonString(SerializeToJsonObject(obj, options));
     }
 
-    public static string SerializeToJsonString(ICoreSerializable obj, CoreSerializerOptions? options = null)
+    public static string SerializeToJsonString(
+        ICoreSerializable obj,
+        CoreSerializerOptions? options = null
+    )
     {
         return ConvertToJsonString(SerializeToJsonObject(obj));
     }
@@ -57,7 +71,11 @@ public static class CoreSerializer
         return jsonNode.ToJsonString(JsonHelper.SerializerOptions);
     }
 
-    public static object DeserializeFromJsonObject(JsonObject json, Type baseType, CoreSerializerOptions? options = null)
+    public static object DeserializeFromJsonObject(
+        JsonObject json,
+        Type baseType,
+        CoreSerializerOptions? options = null
+    )
     {
         Type? actualType = baseType.IsSealed ? baseType : json.GetDiscriminator(baseType);
         if (actualType == null)
@@ -67,8 +85,11 @@ public static class CoreSerializer
 
         try
         {
-            var obj = Activator.CreateInstance(actualType) as ICoreSerializable
-                      ?? throw new InvalidOperationException($"Could not create instance of type {actualType.FullName}.");
+            var obj =
+                Activator.CreateInstance(actualType) as ICoreSerializable
+                ?? throw new InvalidOperationException(
+                    $"Could not create instance of type {actualType.FullName}."
+                );
 
             var parentContext = ThreadLocalSerializationContext.Current;
             ReflectUri(json, obj, parentContext, ref options);
@@ -87,23 +108,31 @@ public static class CoreSerializer
 
             return obj;
         }
-        catch (Exception ex) when (FallbackDeserializationHelper.TryCreateFallback(
-            baseType, actualType, json, ex) is { } fallback)
+        catch (Exception ex)
+            when (FallbackDeserializationHelper.TryCreateFallback(baseType, actualType, json, ex)
+                    is { } fallback
+            )
         {
             return fallback;
         }
     }
 
     // CoreObjectにUriを反映させ，CoreSerializerOptionsのBaseUriも更新する
-    internal static void ReflectUri(JsonObject json, ICoreSerializable obj, ICoreSerializationContext? parent, ref CoreSerializerOptions? options)
+    internal static void ReflectUri(
+        JsonObject json,
+        ICoreSerializable obj,
+        ICoreSerializationContext? parent,
+        ref CoreSerializerOptions? options
+    )
     {
         var baseUri = options?.BaseUri ?? parent?.BaseUri;
         if (json["Uri"] is JsonValue uriValue && uriValue.TryGetValue(out string? uriString))
         {
             uriString = Uri.UnescapeDataString(uriString);
-            var uri = baseUri != null
-                ? new Uri(baseUri, uriString)
-                : new Uri(uriString, UriKind.RelativeOrAbsolute);
+            var uri =
+                baseUri != null
+                    ? new Uri(baseUri, uriString)
+                    : new Uri(uriString, UriKind.RelativeOrAbsolute);
             if (obj is CoreObject coreObj)
             {
                 coreObj.Uri = uri;
@@ -112,24 +141,41 @@ public static class CoreSerializer
         }
     }
 
-    public static object? DeserializeFromJsonNode(JsonNode json, Type type, CoreSerializerOptions? options = null)
+    public static object? DeserializeFromJsonNode(
+        JsonNode json,
+        Type type,
+        CoreSerializerOptions? options = null
+    )
     {
         var ownerJson = new JsonObject { ["Value"] = json.DeepClone() };
-        var context = new JsonSerializationContext(type, ThreadLocalSerializationContext.Current, ownerJson, options);
+        var context = new JsonSerializationContext(
+            type,
+            ThreadLocalSerializationContext.Current,
+            ownerJson,
+            options
+        );
         using (ThreadLocalSerializationContext.Enter(context))
         {
             return context.GetValue("Value", type);
         }
     }
 
-    public static void PopulateFromJsonObject<T>(T obj, JsonObject json, CoreSerializerOptions? options = null)
+    public static void PopulateFromJsonObject<T>(
+        T obj,
+        JsonObject json,
+        CoreSerializerOptions? options = null
+    )
         where T : ICoreSerializable
     {
         PopulateFromJsonObject(obj, typeof(T), json, options);
     }
 
-    public static void PopulateFromJsonObject(ICoreSerializable obj, Type type, JsonObject json,
-        CoreSerializerOptions? options = null)
+    public static void PopulateFromJsonObject(
+        ICoreSerializable obj,
+        Type type,
+        JsonObject json,
+        CoreSerializerOptions? options = null
+    )
     {
         var parentContext = ThreadLocalSerializationContext.Current;
         ReflectUri(json, obj, parentContext, ref options);
@@ -153,7 +199,8 @@ public static class CoreSerializer
         using var stream = UriHelper.ResolveStream(uri);
 
         var node = JsonNode.Parse(stream);
-        if (node is not JsonObject jsonObject) throw new JsonException();
+        if (node is not JsonObject jsonObject)
+            throw new JsonException();
 
         // 互換性処理
         // 1.x で作成されたファイルでは一部のオブジェクトに $type が付与されないため、
@@ -178,15 +225,22 @@ public static class CoreSerializer
 
         try
         {
-            var obj = Activator.CreateInstance(actualType) as ICoreSerializable
-                      ?? throw new InvalidOperationException($"Could not create instance of type {actualType.FullName}.");
+            var obj =
+                Activator.CreateInstance(actualType) as ICoreSerializable
+                ?? throw new InvalidOperationException(
+                    $"Could not create instance of type {actualType.FullName}."
+                );
 
             if (obj is CoreObject coreObj)
             {
                 coreObj.Uri = uri;
             }
 
-            var options = new CoreSerializerOptions { BaseUri = uri, Mode = CoreSerializationMode.Read };
+            var options = new CoreSerializerOptions
+            {
+                BaseUri = uri,
+                Mode = CoreSerializationMode.Read,
+            };
             PopulateFromJsonObject(obj, type, jsonObject, options);
 
             if (obj is IFallback fallbackObj)
@@ -196,8 +250,10 @@ public static class CoreSerializer
 
             return obj;
         }
-        catch (Exception ex) when (FallbackDeserializationHelper.TryCreateFallback(
-            type, actualType, jsonObject, ex) is { } fallback)
+        catch (Exception ex)
+            when (FallbackDeserializationHelper.TryCreateFallback(type, actualType, jsonObject, ex)
+                    is { } fallback
+            )
         {
             return fallback;
         }
@@ -214,13 +270,18 @@ public static class CoreSerializer
         using var stream = UriHelper.ResolveStream(uri);
 
         var node = JsonNode.Parse(stream);
-        if (node is not JsonObject jsonObject) throw new JsonException();
+        if (node is not JsonObject jsonObject)
+            throw new JsonException();
         if (obj is CoreObject coreObj)
         {
             coreObj.Uri = uri;
         }
 
-        var options = new CoreSerializerOptions { BaseUri = uri, Mode = CoreSerializationMode.Read };
+        var options = new CoreSerializerOptions
+        {
+            BaseUri = uri,
+            Mode = CoreSerializationMode.Read,
+        };
         PopulateFromJsonObject(obj, type, jsonObject, options);
     }
 
@@ -246,11 +307,24 @@ public static class CoreSerializer
             // 中途半端な状態で残るのを防ぐ。
             // 固定 `.tmp` サフィックスだとユーザーや他ツールが既に持つ同名ファイルを
             // 上書きしてしまうため、ランダムサフィックスを付与して衝突を避ける。
-            var options = new CoreSerializerOptions { BaseUri = uri, Mode = mode ?? CoreSerializationMode.Write | CoreSerializationMode.SaveReferencedObjects };
+            var options = new CoreSerializerOptions
+            {
+                BaseUri = uri,
+                Mode =
+                    mode
+                    ?? CoreSerializationMode.Write | CoreSerializationMode.SaveReferencedObjects,
+            };
             string tmp = $"{path}.{Guid.NewGuid():N}.tmp";
             try
             {
-                using (var stream = new FileStream(tmp, FileMode.CreateNew, FileAccess.Write, FileShare.None))
+                using (
+                    var stream = new FileStream(
+                        tmp,
+                        FileMode.CreateNew,
+                        FileAccess.Write,
+                        FileShare.None
+                    )
+                )
                 using (var writer = new Utf8JsonWriter(stream, JsonHelper.WriterOptions))
                 {
                     SerializeToJsonObject(obj, options)
@@ -265,7 +339,8 @@ public static class CoreSerializer
             {
                 try
                 {
-                    if (File.Exists(tmp)) File.Delete(tmp);
+                    if (File.Exists(tmp))
+                        File.Delete(tmp);
                 }
                 catch
                 {

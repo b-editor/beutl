@@ -16,7 +16,8 @@ public static class ObjectRegenerator
     {
         var searcher = new ObjectSearcher(obj, v => v is ICoreObject);
 
-        Guid[] ids = searcher.SearchAll()
+        Guid[] ids = searcher
+            .SearchAll()
             .Cast<ICoreObject>()
             .Select(v => v.Id)
             .Distinct()
@@ -31,7 +32,7 @@ public static class ObjectRegenerator
         {
             Encoder = options.Encoder,
             Indented = options.WriteIndented,
-            MaxDepth = options.MaxDepth
+            MaxDepth = options.MaxDepth,
         };
 
         using (var writer = new Utf8JsonWriter(output, writerOptions))
@@ -40,7 +41,10 @@ public static class ObjectRegenerator
         }
 
         // Idを置き換える
-        Span<byte> buffer = PooledArrayBufferWriter<byte>.GetArray(output).AsSpan().Slice(0, output.WrittenCount);
+        Span<byte> buffer = PooledArrayBufferWriter<byte>
+            .GetArray(output)
+            .AsSpan()
+            .Slice(0, output.WrittenCount);
         Span<byte> oldStr = stackalloc byte[DefaultGuidStringSize];
         Span<byte> newStr = stackalloc byte[DefaultGuidStringSize];
         foreach (Guid oldId in ids)
@@ -65,7 +69,10 @@ public static class ObjectRegenerator
         using var output = new PooledArrayBufferWriter<byte>(BufferSizeDefault);
         RegenerateCore(obj, output);
 
-        Span<byte> buffer = PooledArrayBufferWriter<byte>.GetArray(output).AsSpan().Slice(0, output.WrittenCount);
+        Span<byte> buffer = PooledArrayBufferWriter<byte>
+            .GetArray(output)
+            .AsSpan()
+            .Slice(0, output.WrittenCount);
 
         JsonObject jsonObj = JsonNode.Parse(buffer)!.AsObject();
         var instance = new T();
@@ -80,16 +87,26 @@ public static class ObjectRegenerator
         using var output = new PooledArrayBufferWriter<byte>(BufferSizeDefault);
         RegenerateCore(obj, output);
 
-        Span<byte> buffer = PooledArrayBufferWriter<byte>.GetArray(output).AsSpan().Slice(0, output.WrittenCount);
+        Span<byte> buffer = PooledArrayBufferWriter<byte>
+            .GetArray(output)
+            .AsSpan()
+            .Slice(0, output.WrittenCount);
         json = Encoding.UTF8.GetString(buffer);
     }
 
-    public static void Regenerate(ICoreSerializable obj, Type actualType, out ICoreSerializable newInstance)
+    public static void Regenerate(
+        ICoreSerializable obj,
+        Type actualType,
+        out ICoreSerializable newInstance
+    )
     {
         using var output = new PooledArrayBufferWriter<byte>(BufferSizeDefault);
         RegenerateCore(obj, output);
 
-        Span<byte> buffer = PooledArrayBufferWriter<byte>.GetArray(output).AsSpan().Slice(0, output.WrittenCount);
+        Span<byte> buffer = PooledArrayBufferWriter<byte>
+            .GetArray(output)
+            .AsSpan()
+            .Slice(0, output.WrittenCount);
         JsonObject jsonObj = JsonNode.Parse(buffer)!.AsObject();
 
         var instance = (ICoreSerializable)Activator.CreateInstance(actualType)!;
@@ -105,7 +122,10 @@ public static class ObjectRegenerator
         wrapper.Items.AddRange(obj);
         RegenerateCore(wrapper, output);
 
-        Span<byte> buffer = PooledArrayBufferWriter<byte>.GetArray(output).AsSpan().Slice(0, output.WrittenCount);
+        Span<byte> buffer = PooledArrayBufferWriter<byte>
+            .GetArray(output)
+            .AsSpan()
+            .Slice(0, output.WrittenCount);
 
         JsonObject jsonObj = JsonNode.Parse(buffer)!.AsObject();
         var instance = new ListWrapper<T>();

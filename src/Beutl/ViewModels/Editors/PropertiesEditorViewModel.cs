@@ -6,7 +6,10 @@ using DynamicData;
 
 namespace Beutl.ViewModels.Editors;
 
-public sealed class PropertiesEditorViewModel : IDisposable, IJsonSerializable, IPropertiesEditorViewModel
+public sealed class PropertiesEditorViewModel
+    : IDisposable,
+        IJsonSerializable,
+        IPropertiesEditorViewModel
 {
     public PropertiesEditorViewModel(ICoreObject obj)
     {
@@ -27,7 +30,10 @@ public sealed class PropertiesEditorViewModel : IDisposable, IJsonSerializable, 
         InitializeCoreObject(obj, (_, v) => predicate(v));
     }
 
-    public PropertiesEditorViewModel(ICoreObject obj, Func<CoreProperty, CorePropertyMetadata, bool> predicate)
+    public PropertiesEditorViewModel(
+        ICoreObject obj,
+        Func<CoreProperty, CorePropertyMetadata, bool> predicate
+    )
     {
         Target = obj;
         InitializeCoreObject(obj, predicate);
@@ -53,10 +59,14 @@ public sealed class PropertiesEditorViewModel : IDisposable, IJsonSerializable, 
 
     public void ReadFromJson(JsonObject json)
     {
-        if (json.TryGetPropertyValue(nameof(Properties), out JsonNode? propsNode)
-            && propsNode is JsonArray propsArray)
+        if (
+            json.TryGetPropertyValue(nameof(Properties), out JsonNode? propsNode)
+            && propsNode is JsonArray propsArray
+        )
         {
-            foreach ((JsonNode? node, IPropertyEditorContext? context) in propsArray.Zip(Properties))
+            foreach (
+                (JsonNode? node, IPropertyEditorContext? context) in propsArray.Zip(Properties)
+            )
             {
                 if (context != null && node != null)
                 {
@@ -97,11 +107,10 @@ public sealed class PropertiesEditorViewModel : IDisposable, IJsonSerializable, 
         cprops.RemoveAll(x => !(predicate?.Invoke(x) ?? true));
         List<IPropertyAdapter> props = cprops.ConvertAll(x =>
         {
-            Type determinedType = x.IsAnimatable
-                ? animatableAdapterType
-                : x.SupportsExpression
-                    ? simpleAdapterType
-                    : adapterType;
+            Type determinedType =
+                x.IsAnimatable ? animatableAdapterType
+                : x.SupportsExpression ? simpleAdapterType
+                : adapterType;
             Type adapterGType = determinedType.MakeGenericType(x.ValueType);
             return (IPropertyAdapter)Activator.CreateInstance(adapterGType, x, obj)!;
         });
@@ -124,13 +133,18 @@ public sealed class PropertiesEditorViewModel : IDisposable, IJsonSerializable, 
         } while (foundItems != null && extension != null);
     }
 
-    private void InitializeCoreObject(ICoreObject obj, Func<CoreProperty, CorePropertyMetadata, bool>? predicate = null)
+    private void InitializeCoreObject(
+        ICoreObject obj,
+        Func<CoreProperty, CorePropertyMetadata, bool>? predicate = null
+    )
     {
         Type objType = obj.GetType();
         Type adapterType = typeof(CorePropertyAdapter<>);
 
         List<CoreProperty> cprops = [.. PropertyRegistry.GetRegistered(objType)];
-        cprops.RemoveAll(x => !(predicate?.Invoke(x, x.GetMetadata<CorePropertyMetadata>(objType)) ?? true));
+        cprops.RemoveAll(x =>
+            !(predicate?.Invoke(x, x.GetMetadata<CorePropertyMetadata>(objType)) ?? true)
+        );
         List<IPropertyAdapter> props = cprops.ConvertAll(x =>
         {
             Type determinedType = adapterType;

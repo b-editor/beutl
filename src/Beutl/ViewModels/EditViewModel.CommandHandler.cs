@@ -18,10 +18,13 @@ public partial class EditViewModel : IContextCommandHandler, IContextCommandStat
     // 通知 Subject へ流す。これによりパレット表示中の再生状態遷移にも CanExecute が追従する。
     private void HookCommandStateNotifier()
     {
-        ((System.Windows.Input.ICommand)Player.PlayPause).CanExecuteChanged += OnPlayerCanExecuteChanged;
+        ((System.Windows.Input.ICommand)Player.PlayPause).CanExecuteChanged +=
+            OnPlayerCanExecuteChanged;
         ((System.Windows.Input.ICommand)Player.Next).CanExecuteChanged += OnPlayerCanExecuteChanged;
-        ((System.Windows.Input.ICommand)Player.Previous).CanExecuteChanged += OnPlayerCanExecuteChanged;
-        ((System.Windows.Input.ICommand)Player.Start).CanExecuteChanged += OnPlayerCanExecuteChanged;
+        ((System.Windows.Input.ICommand)Player.Previous).CanExecuteChanged +=
+            OnPlayerCanExecuteChanged;
+        ((System.Windows.Input.ICommand)Player.Start).CanExecuteChanged +=
+            OnPlayerCanExecuteChanged;
         ((System.Windows.Input.ICommand)Player.End).CanExecuteChanged += OnPlayerCanExecuteChanged;
     }
 
@@ -36,10 +39,13 @@ public partial class EditViewModel : IContextCommandHandler, IContextCommandStat
     private void DisposeCommandStateNotifier()
     {
         _commandStateNotifierDisposed = true;
-        ((System.Windows.Input.ICommand)Player.PlayPause).CanExecuteChanged -= OnPlayerCanExecuteChanged;
+        ((System.Windows.Input.ICommand)Player.PlayPause).CanExecuteChanged -=
+            OnPlayerCanExecuteChanged;
         ((System.Windows.Input.ICommand)Player.Next).CanExecuteChanged -= OnPlayerCanExecuteChanged;
-        ((System.Windows.Input.ICommand)Player.Previous).CanExecuteChanged -= OnPlayerCanExecuteChanged;
-        ((System.Windows.Input.ICommand)Player.Start).CanExecuteChanged -= OnPlayerCanExecuteChanged;
+        ((System.Windows.Input.ICommand)Player.Previous).CanExecuteChanged -=
+            OnPlayerCanExecuteChanged;
+        ((System.Windows.Input.ICommand)Player.Start).CanExecuteChanged -=
+            OnPlayerCanExecuteChanged;
         ((System.Windows.Input.ICommand)Player.End).CanExecuteChanged -= OnPlayerCanExecuteChanged;
         _commandStateChangedSubject.Dispose();
     }
@@ -151,10 +157,10 @@ public partial class EditViewModel : IContextCommandHandler, IContextCommandStat
     {
         int rate = Player.GetFrameRate();
         TimeSpan time = _editorClock.CurrentTime.Value.RoundToRate(rate);
-        if (time < TimeSpan.Zero) time = TimeSpan.Zero;
+        if (time < TimeSpan.Zero)
+            time = TimeSpan.Zero;
 
-        SceneMarker? existing = Scene.Markers
-            .FirstOrDefault(m => m.Time.RoundToRate(rate) == time);
+        SceneMarker? existing = Scene.Markers.FirstOrDefault(m => m.Time.RoundToRate(rate) == time);
         if (existing != null)
         {
             Scene.Markers.Remove(existing);
@@ -173,20 +179,22 @@ public partial class EditViewModel : IContextCommandHandler, IContextCommandStat
     {
         TimeSpan current = _editorClock.CurrentTime.Value;
         TimeSpan? target = null;
-        foreach (TimeSpan marker in Scene.Markers.Select(m => m.Time).Union([TimeSpan.Zero, Scene.Start, Scene.Duration + Scene.Start]))
+        foreach (
+            TimeSpan marker in Scene
+                .Markers.Select(m => m.Time)
+                .Union([TimeSpan.Zero, Scene.Start, Scene.Duration + Scene.Start])
+        )
         {
             if (forward)
             {
-                if (marker > current
-                    && (target == null || marker < target.Value))
+                if (marker > current && (target == null || marker < target.Value))
                 {
                     target = marker;
                 }
             }
             else
             {
-                if (marker < current
-                    && (target == null || marker > target.Value))
+                if (marker < current && (target == null || marker > target.Value))
                 {
                     target = marker;
                 }
@@ -201,7 +209,9 @@ public partial class EditViewModel : IContextCommandHandler, IContextCommandStat
             if (FindToolTab<TimelineTabViewModel>() is { } timeline)
             {
                 int currentZIndex = timeline.ToLayerNumber(timeline.Options.Value.Offset.Y);
-                timeline.ScrollTo.Execute((new TimeRange(target.Value, TimeSpan.FromTicks(1)), currentZIndex));
+                timeline.ScrollTo.Execute(
+                    (new TimeRange(target.Value, TimeSpan.FromTicks(1)), currentZIndex)
+                );
             }
         }
     }

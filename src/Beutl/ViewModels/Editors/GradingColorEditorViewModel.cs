@@ -1,20 +1,18 @@
 ﻿using Avalonia;
 using Avalonia.Interactivity;
-
 using Beutl.Controls.PropertyEditors;
 using Beutl.Media;
-
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
 
 namespace Beutl.ViewModels.Editors;
 
-public sealed class GradingColorEditorViewModel : ValueEditorViewModel<GradingColor>, IConfigureLivePreview
+public sealed class GradingColorEditorViewModel
+    : ValueEditorViewModel<GradingColor>,
+        IConfigureLivePreview
 {
     public GradingColorEditorViewModel(IPropertyAdapter<GradingColor> property)
-        : base(property)
-    {
-    }
+        : base(property) { }
 
     public ReactivePropertySlim<bool> IsLivePreviewEnabled { get; } = new(true);
 
@@ -23,22 +21,30 @@ public sealed class GradingColorEditorViewModel : ValueEditorViewModel<GradingCo
         base.Accept(visitor);
         if (visitor is GradingColorEditor editor && !Disposables.IsDisposed)
         {
-            editor.Bind(GradingColorEditor.ValueProperty, Value.ToBinding())
+            editor
+                .Bind(GradingColorEditor.ValueProperty, Value.ToBinding())
                 .DisposeWith(Disposables);
-            editor.Bind(GradingColorEditor.IsLivePreviewEnabledProperty, IsLivePreviewEnabled.ToBinding())
+            editor
+                .Bind(
+                    GradingColorEditor.IsLivePreviewEnabledProperty,
+                    IsLivePreviewEnabled.ToBinding()
+                )
                 .DisposeWith(Disposables);
-            editor.AddDisposableHandler(PropertyEditor.ValueConfirmedEvent, OnValueConfirmed)
+            editor
+                .AddDisposableHandler(PropertyEditor.ValueConfirmedEvent, OnValueConfirmed)
                 .DisposeWith(Disposables);
-            editor.AddDisposableHandler(PropertyEditor.ValueChangedEvent, OnValueChanged)
+            editor
+                .AddDisposableHandler(PropertyEditor.ValueChangedEvent, OnValueChanged)
                 .DisposeWith(Disposables);
         }
         if (visitor is ColorGradingWheel wheel && !Disposables.IsDisposed)
         {
-            wheel.Bind(ColorGradingWheel.ColorProperty, Value.ToBinding())
+            wheel.Bind(ColorGradingWheel.ColorProperty, Value.ToBinding()).DisposeWith(Disposables);
+            wheel
+                .AddDisposableHandler(PropertyEditor.ValueConfirmedEvent, OnValueConfirmed)
                 .DisposeWith(Disposables);
-            wheel.AddDisposableHandler(PropertyEditor.ValueConfirmedEvent, OnValueConfirmed)
-                .DisposeWith(Disposables);
-            wheel.AddDisposableHandler(PropertyEditor.ValueChangedEvent, OnValueChanged)
+            wheel
+                .AddDisposableHandler(PropertyEditor.ValueChangedEvent, OnValueChanged)
                 .DisposeWith(Disposables);
         }
     }

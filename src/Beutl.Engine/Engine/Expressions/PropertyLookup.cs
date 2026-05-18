@@ -28,7 +28,12 @@ public class PropertyLookup(ICoreObject root)
         return TryGetPropertyValue(objectId, propertyName, context, out value);
     }
 
-    public bool TryGetPropertyValue<T>(Guid id, string propertyName, ExpressionContext context, out T? value)
+    public bool TryGetPropertyValue<T>(
+        Guid id,
+        string propertyName,
+        ExpressionContext context,
+        out T? value
+    )
     {
         value = default;
 
@@ -39,7 +44,8 @@ public class PropertyLookup(ICoreObject root)
         {
             // Find the property
             IProperty? property = engineObject.Properties.FirstOrDefault(p =>
-                string.Equals(p.Name, propertyName, StringComparison.OrdinalIgnoreCase));
+                string.Equals(p.Name, propertyName, StringComparison.OrdinalIgnoreCase)
+            );
 
             if (property is IProperty<T> typedProperty)
             {
@@ -48,10 +54,12 @@ public class PropertyLookup(ICoreObject root)
             }
         }
 
-
         Type type = coreObject.GetType();
-        CoreProperty? coreProperty = PropertyRegistry.GetRegistered(type)
-            .FirstOrDefault(p => string.Equals(p.Name, propertyName, StringComparison.OrdinalIgnoreCase));
+        CoreProperty? coreProperty = PropertyRegistry
+            .GetRegistered(type)
+            .FirstOrDefault(p =>
+                string.Equals(p.Name, propertyName, StringComparison.OrdinalIgnoreCase)
+            );
 
         if (coreProperty is CoreProperty<T> typedCoreProperty)
         {

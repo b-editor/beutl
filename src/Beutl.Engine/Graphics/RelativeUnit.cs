@@ -1,7 +1,7 @@
 ﻿namespace Beutl.Graphics;
 
 /// <summary>
-/// Defines the reference point units of an <see cref="RelativePoint"/> or 
+/// Defines the reference point units of an <see cref="RelativePoint"/> or
 /// <see cref="RelativeRect"/>.
 /// </summary>
 public enum RelativeUnit

@@ -61,8 +61,12 @@ public partial class ColorSpectrum : ColorPickerComponent
                 var minD = Math.Min(Bounds.Width, Bounds.Height) - WheelPadding;
                 if (_lastWheelRect.Width != minD)
                 {
-                    _lastWheelRect = new Rect(Bounds.Width / 2 - minD / 2, Bounds.Height / 2 - minD / 2,
-                        minD, minD);
+                    _lastWheelRect = new Rect(
+                        Bounds.Width / 2 - minD / 2,
+                        Bounds.Height / 2 - minD / 2,
+                        minD,
+                        minD
+                    );
                 }
 
                 Rect x = new Rect(_lastWheelRect.X + 1, _lastWheelRect.Y + 1, minD - 2, minD - 2);
@@ -77,8 +81,12 @@ public partial class ColorSpectrum : ColorPickerComponent
             else if (Shape == ColorSpectrumShape.Triangle)
             {
                 var minD = Math.Min(Bounds.Width, Bounds.Height) - WheelPadding;
-                _lastWheelRect = new Rect(Bounds.Width / 2 - minD / 2, Bounds.Height / 2 - minD / 2,
-                        minD, minD);
+                _lastWheelRect = new Rect(
+                    Bounds.Width / 2 - minD / 2,
+                    Bounds.Height / 2 - minD / 2,
+                    minD,
+                    minD
+                );
                 if (_triangleDirty || _tempBitmap == null)
                 {
                     CreateBitmap();
@@ -129,10 +137,13 @@ public partial class ColorSpectrum : ColorPickerComponent
     {
         base.OnPointerReleased(e);
         var cPt = e.GetCurrentPoint(this);
-        if (_lastHTR != HitTestResult.None && e.InitialPressMouseButton == MouseButton.Left &&
-            cPt.Properties.PointerUpdateKind == PointerUpdateKind.LeftButtonReleased)
+        if (
+            _lastHTR != HitTestResult.None
+            && e.InitialPressMouseButton == MouseButton.Left
+            && cPt.Properties.PointerUpdateKind == PointerUpdateKind.LeftButtonReleased
+        )
         {
-            // Ensure we've set the color correctly on pointer up, but only if we're still in a 
+            // Ensure we've set the color correctly on pointer up, but only if we're still in a
             // hit testable area
             var result = HitTestPoint(cPt.Position);
             if (result != HitTestResult.None)
@@ -163,8 +174,7 @@ public partial class ColorSpectrum : ColorPickerComponent
     protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
     {
         base.OnPropertyChanged(change);
-        if (change.Property == BorderBrushProperty ||
-            change.Property == BorderThicknessProperty)
+        if (change.Property == BorderBrushProperty || change.Property == BorderThicknessProperty)
         {
             RecreateBorderPen();
             InvalidateVisual();
@@ -229,7 +239,7 @@ public partial class ColorSpectrum : ColorPickerComponent
     protected override void OnComponentChanged(ColorComponent newValue)
     {
         CreateBitmap();
-        base.OnComponentChanged(newValue); // this will call invalidate            
+        base.OnComponentChanged(newValue); // this will call invalidate
     }
 
     private void OnShapeChanged(ColorSpectrumShape shape)
@@ -253,7 +263,12 @@ public partial class ColorSpectrum : ColorPickerComponent
             if (_tempBitmap == null || !(_tempBitmap is WriteableBitmap))
             {
                 _tempBitmap?.Dispose();
-                _tempBitmap = new WriteableBitmap(new PixelSize(500, 500), new Vector(96, 96), Avalonia.Platform.PixelFormat.Bgra8888, Avalonia.Platform.AlphaFormat.Premul);
+                _tempBitmap = new WriteableBitmap(
+                    new PixelSize(500, 500),
+                    new Vector(96, 96),
+                    Avalonia.Platform.PixelFormat.Bgra8888,
+                    Avalonia.Platform.AlphaFormat.Premul
+                );
             }
 
             // Component represents the third, non-displayed, color component
@@ -296,7 +311,9 @@ public partial class ColorSpectrum : ColorPickerComponent
         else if (Shape == ColorSpectrumShape.Triangle)
         {
             _tempBitmap?.Dispose();
-            _tempBitmap = new RenderTargetBitmap(new PixelSize((int)_lastWheelRect.Width, (int)_lastWheelRect.Height));
+            _tempBitmap = new RenderTargetBitmap(
+                new PixelSize((int)_lastWheelRect.Width, (int)_lastWheelRect.Height)
+            );
 
             DrawTriangleWheelBitmap();
             _triangleDirty = false;
@@ -314,19 +331,23 @@ public partial class ColorSpectrum : ColorPickerComponent
                 var hue = Hue;
                 float size = _defBitmapSize;
 
-                Parallel.For(0, _defBitmapSize, i =>
-                {
-                    int start = i * _defBitmapSize;
-                    uint x = 0;
-                    var sat = (1 - (i / (size - 1)));
-                    for (int j = start; j < start + _defBitmapSize; j++)
+                Parallel.For(
+                    0,
+                    _defBitmapSize,
+                    i =>
                     {
-                        var value = (x / (size - 1));
-                        Color2.HSVToUInt(hue, sat, value, out uint num);
-                        pixels[j] = num;
-                        x++;
+                        int start = i * _defBitmapSize;
+                        uint x = 0;
+                        var sat = (1 - (i / (size - 1)));
+                        for (int j = start; j < start + _defBitmapSize; j++)
+                        {
+                            var value = (x / (size - 1));
+                            Color2.HSVToUInt(hue, sat, value, out uint num);
+                            pixels[j] = num;
+                            x++;
+                        }
                     }
-                });
+                );
             }
         }
     }
@@ -342,20 +363,24 @@ public partial class ColorSpectrum : ColorPickerComponent
                 var sat = Color.Saturationf;
                 float size = _defBitmapSize;
 
-                Parallel.For(0, _defBitmapSize, i =>
-                {
-                    int start = i * _defBitmapSize;
-                    uint x = 0;
-                    var hue = 360 - ((i / size) * 360);
-
-                    for (int j = start; j < start + _defBitmapSize; j++)
+                Parallel.For(
+                    0,
+                    _defBitmapSize,
+                    i =>
                     {
-                        var value = x / size;
-                        Color2.HSVToUInt(hue, sat, value, out uint num);
-                        pixels[j] = num;
-                        x++;
+                        int start = i * _defBitmapSize;
+                        uint x = 0;
+                        var hue = 360 - ((i / size) * 360);
+
+                        for (int j = start; j < start + _defBitmapSize; j++)
+                        {
+                            var value = x / size;
+                            Color2.HSVToUInt(hue, sat, value, out uint num);
+                            pixels[j] = num;
+                            x++;
+                        }
                     }
-                });
+                );
             }
         }
     }
@@ -371,20 +396,24 @@ public partial class ColorSpectrum : ColorPickerComponent
                 var value = Color.Valuef;
                 float size = _defBitmapSize;
 
-                Parallel.For(0, _defBitmapSize, i =>
-                {
-                    int start = i * _defBitmapSize;
-                    uint x = 0;
-                    var hue = 360 - ((i / size) * 360);
-
-                    for (int j = start; j < start + _defBitmapSize; j++)
+                Parallel.For(
+                    0,
+                    _defBitmapSize,
+                    i =>
                     {
-                        var sat = x / size;
-                        Color2.HSVToUInt(hue, sat, value, out uint num);
-                        pixels[j] = num;
-                        x++;
+                        int start = i * _defBitmapSize;
+                        uint x = 0;
+                        var hue = 360 - ((i / size) * 360);
+
+                        for (int j = start; j < start + _defBitmapSize; j++)
+                        {
+                            var sat = x / size;
+                            Color2.HSVToUInt(hue, sat, value, out uint num);
+                            pixels[j] = num;
+                            x++;
+                        }
                     }
-                });
+                );
             }
         }
     }
@@ -400,19 +429,25 @@ public partial class ColorSpectrum : ColorPickerComponent
                 var red = (uint)Color.R;
                 float size = _defBitmapSize;
 
-                Parallel.For(0, _defBitmapSize, i =>
-                {
-                    int start = i * _defBitmapSize;
-                    uint x = 0;
-                    var green = 255 - ((i / size) * 255);
-
-                    for (int j = start; j < start + _defBitmapSize; j++)
+                Parallel.For(
+                    0,
+                    _defBitmapSize,
+                    i =>
                     {
-                        var blue = (x / size) * 255;
-                        pixels[j] = (uint)(0xFF << 24 | red << 16 | (uint)green << 8 | (uint)blue);
-                        x++;
+                        int start = i * _defBitmapSize;
+                        uint x = 0;
+                        var green = 255 - ((i / size) * 255);
+
+                        for (int j = start; j < start + _defBitmapSize; j++)
+                        {
+                            var blue = (x / size) * 255;
+                            pixels[j] = (uint)(
+                                0xFF << 24 | red << 16 | (uint)green << 8 | (uint)blue
+                            );
+                            x++;
+                        }
                     }
-                });
+                );
             }
         }
     }
@@ -428,19 +463,25 @@ public partial class ColorSpectrum : ColorPickerComponent
                 var green = (uint)Color.G;
                 float size = _defBitmapSize;
 
-                Parallel.For(0, _defBitmapSize, i =>
-                {
-                    int start = i * _defBitmapSize;
-                    uint x = 0;
-                    var red = 255 - ((i / size) * 255);
-
-                    for (int j = start; j < start + _defBitmapSize; j++)
+                Parallel.For(
+                    0,
+                    _defBitmapSize,
+                    i =>
                     {
-                        var blue = (x / size) * 255;
-                        pixels[j] = (uint)(0xFF << 24 | (uint)red << 16 | (uint)green << 8 | (uint)blue);
-                        x++;
+                        int start = i * _defBitmapSize;
+                        uint x = 0;
+                        var red = 255 - ((i / size) * 255);
+
+                        for (int j = start; j < start + _defBitmapSize; j++)
+                        {
+                            var blue = (x / size) * 255;
+                            pixels[j] = (uint)(
+                                0xFF << 24 | (uint)red << 16 | (uint)green << 8 | (uint)blue
+                            );
+                            x++;
+                        }
                     }
-                });
+                );
             }
         }
     }
@@ -456,19 +497,25 @@ public partial class ColorSpectrum : ColorPickerComponent
                 var blue = (uint)Color.B;
                 float size = _defBitmapSize;
 
-                Parallel.For(0, _defBitmapSize, i =>
-                {
-                    int start = i * _defBitmapSize;
-                    uint x = 0;
-                    var red = 255 - ((i / size) * 255);
-
-                    for (int j = start; j < start + _defBitmapSize; j++)
+                Parallel.For(
+                    0,
+                    _defBitmapSize,
+                    i =>
                     {
-                        var green = (x / size) * 255;
-                        pixels[j] = (uint)(0xFF << 24 | (uint)red << 16 | (uint)green << 8 | (uint)blue);
-                        x++;
+                        int start = i * _defBitmapSize;
+                        uint x = 0;
+                        var red = 255 - ((i / size) * 255);
+
+                        for (int j = start; j < start + _defBitmapSize; j++)
+                        {
+                            var green = (x / size) * 255;
+                            pixels[j] = (uint)(
+                                0xFF << 24 | (uint)red << 16 | (uint)green << 8 | (uint)blue
+                            );
+                            x++;
+                        }
                     }
-                });
+                );
             }
         }
     }
@@ -614,7 +661,6 @@ public partial class ColorSpectrum : ColorPickerComponent
             //        SKColor.FromHsv(hue,100,100)
             //    }, SKShaderTileMode.Clamp);
 
-
             //xMid = (hx + sx) / 2;
             //yMid = (hy + sy) / 2;
             //var wShader = SKShader.CreateLinearGradient(new SKPoint(vx, vy), new SKPoint(xMid, yMid),
@@ -628,7 +674,6 @@ public partial class ColorSpectrum : ColorPickerComponent
             //paint.Style = SKPaintStyle.StrokeAndFill;
 
             //skDC.DrawPath(path, paint);
-
 
             //paint.Shader = hShader;
             //skDC.DrawPath(path, paint);
@@ -685,7 +730,11 @@ public partial class ColorSpectrum : ColorPickerComponent
                 break;
         }
 
-        context.DrawRectangle(_shouldSelectorBeDark ? BlackPen : WhitePen, new Rect(x - 5, y - 5, 10, 10), 5f);
+        context.DrawRectangle(
+            _shouldSelectorBeDark ? BlackPen : WhitePen,
+            new Rect(x - 5, y - 5, 10, 10),
+            5f
+        );
     }
 
     private void RenderWheelSelector(DrawingContext context)
@@ -697,7 +746,11 @@ public partial class ColorSpectrum : ColorPickerComponent
         var x = _lastWheelRect.Center.X + (radius * sat) * MathF.Cos(hue * MathF.PI / 180);
         var y = _lastWheelRect.Center.Y - (radius * sat) * MathF.Sin(hue * MathF.PI / 180);
 
-        context.DrawRectangle(_shouldSelectorBeDark ? BlackPen : WhitePen, new Rect(x - 5, y - 5, 10, 10), 5f);
+        context.DrawRectangle(
+            _shouldSelectorBeDark ? BlackPen : WhitePen,
+            new Rect(x - 5, y - 5, 10, 10),
+            5f
+        );
     }
 
     private void RenderTriangleSelector(DrawingContext context)
@@ -712,17 +765,29 @@ public partial class ColorSpectrum : ColorPickerComponent
         var hy = rect.Center.Y - radius * MathF.Sin(h);
 
         // Draw line - uses hx,hy
-        context.DrawLine(_shouldSelectorBeDark ? BlackPen : WhitePen, new Point(hx, hy),
-            new Point(rect.Center.X + (radius + wheelThicc) * MathF.Cos(h),
-            rect.Center.Y - (radius + wheelThicc) * MathF.Sin(h)));
+        context.DrawLine(
+            _shouldSelectorBeDark ? BlackPen : WhitePen,
+            new Point(hx, hy),
+            new Point(
+                rect.Center.X + (radius + wheelThicc) * MathF.Cos(h),
+                rect.Center.Y - (radius + wheelThicc) * MathF.Sin(h)
+            )
+        );
 
         // Draw ellipse
         var x = (3 * s * v / 2) - 0.5;
         var y = ((Math.Sqrt(3) / 2) * s * v) - (v * Math.Sqrt(3)) + (Math.Sqrt(3) / 2);
 
-        var pt = new Point(x * radius, y * radius) * Matrix.CreateRotation(-h) * Matrix.CreateTranslation(_lastWheelRect.Center);
+        var pt =
+            new Point(x * radius, y * radius)
+            * Matrix.CreateRotation(-h)
+            * Matrix.CreateTranslation(_lastWheelRect.Center);
 
-        context.DrawRectangle(_shouldSelectorBeDark ? BlackPen : WhitePen, new Rect(pt.X - 4, pt.Y - 4, 8, 8), 8);
+        context.DrawRectangle(
+            _shouldSelectorBeDark ? BlackPen : WhitePen,
+            new Rect(pt.X - 4, pt.Y - 4, 8, 8),
+            8
+        );
     }
 
     private HitTestResult HitTestPoint(Point pt)
@@ -733,7 +798,10 @@ public partial class ColorSpectrum : ColorPickerComponent
         }
         else if (Shape == ColorSpectrumShape.Wheel)
         {
-            var dist = Math.Sqrt(Math.Pow(pt.X - _lastWheelRect.Center.X, 2) + Math.Pow(pt.Y - _lastWheelRect.Center.Y, 2));
+            var dist = Math.Sqrt(
+                Math.Pow(pt.X - _lastWheelRect.Center.X, 2)
+                    + Math.Pow(pt.Y - _lastWheelRect.Center.Y, 2)
+            );
 
             if (dist <= _lastWheelRect.Width / 2)
             {
@@ -742,7 +810,10 @@ public partial class ColorSpectrum : ColorPickerComponent
         }
         else if (Shape == ColorSpectrumShape.Triangle)
         {
-            var dist = Math.Sqrt(Math.Pow(pt.X - _lastWheelRect.Center.X, 2) + Math.Pow(pt.Y - _lastWheelRect.Center.Y, 2));
+            var dist = Math.Sqrt(
+                Math.Pow(pt.X - _lastWheelRect.Center.X, 2)
+                    + Math.Pow(pt.Y - _lastWheelRect.Center.Y, 2)
+            );
             var radius = _lastWheelRect.Width / 2;
             var wheelThicc = TriangleWheelThickness * (_lastWheelRect.Width / 500);
             var innerRadius = radius - wheelThicc - 2;
@@ -791,7 +862,11 @@ public partial class ColorSpectrum : ColorPickerComponent
                             Color = Color2.FromHSVf(Hue, (float)(1 - pY), (float)pX);
                             break;
                         case ColorComponent.Saturation:
-                            Color = Color2.FromHSVf((float)(1 - pY) * 359, Color.Saturationf, (float)pX);
+                            Color = Color2.FromHSVf(
+                                (float)(1 - pY) * 359,
+                                Color.Saturationf,
+                                (float)pX
+                            );
                             break;
                         case ColorComponent.Value:
                             Color = Color2.FromHSVf((float)(1 - pY) * 359, (float)pX, Color.Valuef);
@@ -801,7 +876,12 @@ public partial class ColorSpectrum : ColorPickerComponent
                             Color = Color2.FromRGBf(Color.Rf, (float)(1 - pY), (float)pX, Color.Af);
                             break;
                         case ColorComponent.Green:
-                            Color = Color2.FromRGBf((float)(1 - pY), Color.Gf, (float)(pX), Color.Af);
+                            Color = Color2.FromRGBf(
+                                (float)(1 - pY),
+                                Color.Gf,
+                                (float)(pX),
+                                Color.Af
+                            );
                             break;
                         case ColorComponent.Blue:
                             Color = Color2.FromRGBf((float)(1 - pY), (float)pX, Color.Bf, Color.Af);
@@ -817,14 +897,31 @@ public partial class ColorSpectrum : ColorPickerComponent
                     if (theta < 0)
                         theta += 360;
 
-                    var dist = MathHelpers.Clamp(Math.Sqrt(dp.X * dp.X + dp.Y * dp.Y) / (_lastWheelRect.Width / 2), 0, 1);
-                    Color = Color2.FromHSVf((float)MathHelpers.Clamp(theta, 0, 360), (float)dist, Color.Valuef);
+                    var dist = MathHelpers.Clamp(
+                        Math.Sqrt(dp.X * dp.X + dp.Y * dp.Y) / (_lastWheelRect.Width / 2),
+                        0,
+                        1
+                    );
+                    Color = Color2.FromHSVf(
+                        (float)MathHelpers.Clamp(theta, 0, 360),
+                        (float)dist,
+                        Color.Valuef
+                    );
                 }
                 break;
 
             case HitTestResult.TriangleWheel:
                 {
-                    var newHue = 360 - (Math.Atan2(pt.Y - _lastWheelRect.Center.Y, pt.X - _lastWheelRect.Center.X) * 180 / Math.PI);
+                    var newHue =
+                        360
+                        - (
+                            Math.Atan2(
+                                pt.Y - _lastWheelRect.Center.Y,
+                                pt.X - _lastWheelRect.Center.X
+                            )
+                            * 180
+                            / Math.PI
+                        );
                     if (newHue < 0)
                         newHue += 360;
                     Color = Color.WithHuef((float)newHue);
@@ -864,8 +961,11 @@ public partial class ColorSpectrum : ColorPickerComponent
             return (p1.X - p3.X) * (p2.Y - p3.Y) - (p2.X - p3.X) * (p1.Y - p3.Y);
         }
 
-        double d1, d2, d3;
-        bool has_neg, has_pos;
+        double d1,
+            d2,
+            d3;
+        bool has_neg,
+            has_pos;
 
         d1 = sign(p, p0, p1);
         d2 = sign(p, p1, p2);
@@ -883,7 +983,7 @@ public partial class ColorSpectrum : ColorPickerComponent
         var col = Color;
         if (Shape == ColorSpectrumShape.Spectrum)
         {
-            // The "with[..]f" methods scale the values there so we don't 
+            // The "with[..]f" methods scale the values there so we don't
             // need to check if we're in a valid range
             switch (Component)
             {
@@ -894,7 +994,7 @@ public partial class ColorSpectrum : ColorPickerComponent
                 case ColorComponent.Value:
                     Color = col.WithHuef(col.Huef + (inc ? 1f : -1f));
                     break;
-                case ColorComponent.Red://Adjust green
+                case ColorComponent.Red: //Adjust green
                     Color = col.WithGreenf(col.Gf + (inc ? 0.01f : -0.01f));
                     break;
                 case ColorComponent.Green: //Adjust red
@@ -936,7 +1036,7 @@ public partial class ColorSpectrum : ColorPickerComponent
         var col = Color;
         if (Shape == ColorSpectrumShape.Spectrum)
         {
-            // The "with[..]f" methods scale the values there so we don't 
+            // The "with[..]f" methods scale the values there so we don't
             // need to check if we're in a valid range
             switch (Component)
             {
@@ -977,7 +1077,7 @@ public partial class ColorSpectrum : ColorPickerComponent
             // If ctrl + up/down is used, we'll adjust the hue
             if ((KeyModifiers.Control & e.KeyModifiers) == KeyModifiers.Control)
             {
-                // Because of the direction of the wheel, we'll invert the key to 
+                // Because of the direction of the wheel, we'll invert the key to
                 // increase the hue (left increases it)
                 var h = col.Huef + (!inc ? 1f : -1f);
                 if (h < 0)
@@ -1024,6 +1124,6 @@ public partial class ColorSpectrum : ColorPickerComponent
         Spectrum,
         ColorWheel,
         TriangleWheel,
-        Triangle
+        Triangle,
     }
 }

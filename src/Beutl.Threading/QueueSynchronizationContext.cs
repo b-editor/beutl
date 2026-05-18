@@ -1,6 +1,7 @@
 ﻿namespace Beutl.Threading;
 
-internal sealed class QueueSynchronizationContext(Dispatcher dispatcher, TimeProvider timeProvider) : SynchronizationContext
+internal sealed class QueueSynchronizationContext(Dispatcher dispatcher, TimeProvider timeProvider)
+    : SynchronizationContext
 {
     private readonly OperationQueue _operationQueue = new();
     private readonly TimerQueue _timerQueue = new(timeProvider);
@@ -139,7 +140,12 @@ internal sealed class QueueSynchronizationContext(Dispatcher dispatcher, TimePro
         }
     }
 
-    internal void PostDelayed(DateTimeOffset dateTime, DispatchPriority priority, Action action, CancellationToken ct)
+    internal void PostDelayed(
+        DateTimeOffset dateTime,
+        DispatchPriority priority,
+        Action action,
+        CancellationToken ct
+    )
     {
         _timerQueue.Enqueue(dateTime, priority, action, ct);
         lock (this)

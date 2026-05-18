@@ -1,5 +1,3 @@
 ﻿namespace Beutl.NodeGraph;
 
-public interface IDynamicPort : INodePort
-{
-}
+public interface IDynamicPort : INodePort { }

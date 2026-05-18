@@ -1,5 +1,4 @@
 ﻿using System.Reactive.Disposables;
-
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Metadata;
@@ -7,7 +6,6 @@ using Avalonia.Controls.Primitives;
 using Avalonia.Controls.Templates;
 using Avalonia.Interactivity;
 using Avalonia.LogicalTree;
-
 using Beutl.Extensibility;
 using Beutl.Reactive;
 
@@ -21,45 +19,70 @@ public enum PropertyEditorStyle
     Settings,
 }
 
-[PseudoClasses(":compact", ":list-item", ":settings", ":visible-left-button", ":visible-right-button")]
+[PseudoClasses(
+    ":compact",
+    ":list-item",
+    ":settings",
+    ":visible-left-button",
+    ":visible-right-button"
+)]
 [TemplatePart("PART_LeftButton", typeof(Button))]
 [TemplatePart("PART_RightButton", typeof(Button))]
 [TemplatePart("PART_DeleteButton", typeof(Button))]
 [TemplatePart("PART_ReorderHandle", typeof(Control))]
 public class PropertyEditor : TemplatedControl, IPropertyEditorContextVisitor, IListItemEditor
 {
-    public static readonly StyledProperty<string> HeaderProperty =
-        AvaloniaProperty.Register<PropertyEditor, string>(nameof(Header));
+    public static readonly StyledProperty<string> HeaderProperty = AvaloniaProperty.Register<
+        PropertyEditor,
+        string
+    >(nameof(Header));
 
-    public static readonly StyledProperty<string> DescriptionProperty =
-        AvaloniaProperty.Register<PropertyEditor, string>(nameof(Description));
+    public static readonly StyledProperty<string> DescriptionProperty = AvaloniaProperty.Register<
+        PropertyEditor,
+        string
+    >(nameof(Description));
 
     public static readonly StyledProperty<bool> IsReadOnlyProperty =
         TextBox.IsReadOnlyProperty.AddOwner<PropertyEditor>();
 
     public static readonly StyledProperty<PropertyEditorStyle> EditorStyleProperty =
-        AvaloniaProperty.Register<PropertyEditor, PropertyEditorStyle>(nameof(EditorStyle), PropertyEditorStyle.Normal);
+        AvaloniaProperty.Register<PropertyEditor, PropertyEditorStyle>(
+            nameof(EditorStyle),
+            PropertyEditorStyle.Normal
+        );
 
-    public static readonly StyledProperty<object> MenuContentProperty =
-        AvaloniaProperty.Register<PropertyEditor, object>(nameof(MenuContent));
+    public static readonly StyledProperty<object> MenuContentProperty = AvaloniaProperty.Register<
+        PropertyEditor,
+        object
+    >(nameof(MenuContent));
 
     public static readonly StyledProperty<IDataTemplate> MenuContentTemplateProperty =
         AvaloniaProperty.Register<PropertyEditor, IDataTemplate>(nameof(MenuContentTemplate));
 
-    public static readonly StyledProperty<float> KeyFrameIndexProperty =
-        AvaloniaProperty.Register<PropertyEditor, float>(nameof(KeyFrameIndex), 0);
+    public static readonly StyledProperty<float> KeyFrameIndexProperty = AvaloniaProperty.Register<
+        PropertyEditor,
+        float
+    >(nameof(KeyFrameIndex), 0);
 
-    public static readonly StyledProperty<int> KeyFrameCountProperty =
-        AvaloniaProperty.Register<PropertyEditor, int>(nameof(KeyFrameCount), 0, coerce: (_, v) => Math.Max(v, 0));
+    public static readonly StyledProperty<int> KeyFrameCountProperty = AvaloniaProperty.Register<
+        PropertyEditor,
+        int
+    >(nameof(KeyFrameCount), 0, coerce: (_, v) => Math.Max(v, 0));
 
     public static readonly StyledProperty<Control> ReorderHandleProperty =
         AvaloniaProperty.Register<PropertyEditor, Control>(nameof(ReorderHandle), null);
 
     public static readonly RoutedEvent<PropertyEditorValueChangedEventArgs> ValueChangedEvent =
-        RoutedEvent.Register<PropertyEditor, PropertyEditorValueChangedEventArgs>(nameof(ValueChanged), RoutingStrategies.Bubble);
+        RoutedEvent.Register<PropertyEditor, PropertyEditorValueChangedEventArgs>(
+            nameof(ValueChanged),
+            RoutingStrategies.Bubble
+        );
 
     public static readonly RoutedEvent<PropertyEditorValueChangedEventArgs> ValueConfirmedEvent =
-        RoutedEvent.Register<PropertyEditor, PropertyEditorValueChangedEventArgs>(nameof(ValueConfirmed), RoutingStrategies.Bubble);
+        RoutedEvent.Register<PropertyEditor, PropertyEditorValueChangedEventArgs>(
+            nameof(ValueConfirmed),
+            RoutingStrategies.Bubble
+        );
 
     private readonly CompositeDisposable _eventRevokers = new(3);
 
@@ -136,9 +159,7 @@ public class PropertyEditor : TemplatedControl, IPropertyEditorContextVisitor, I
         remove => RemoveHandler(ValueConfirmedEvent, value);
     }
 
-    public virtual void Visit(IPropertyEditorContext context)
-    {
-    }
+    public virtual void Visit(IPropertyEditorContext context) { }
 
     private void UpdateStyle()
     {
@@ -180,8 +201,10 @@ public class PropertyEditor : TemplatedControl, IPropertyEditorContextVisitor, I
                 LogicalChildren.Add(newChild);
             }
         }
-        else if (change.Property == KeyFrameIndexProperty
-            || change.Property == KeyFrameCountProperty)
+        else if (
+            change.Property == KeyFrameIndexProperty
+            || change.Property == KeyFrameCountProperty
+        )
         {
             UpdateKeyFrameProperty();
         }
@@ -200,13 +223,19 @@ public class PropertyEditor : TemplatedControl, IPropertyEditorContextVisitor, I
 
         if (leftButton != null && rightButton != null)
         {
-            leftButton.AddDisposableHandler(Button.ClickEvent, OnLeftButtonClick).DisposeWith(_eventRevokers);
-            rightButton.AddDisposableHandler(Button.ClickEvent, OnRightButtonClick).DisposeWith(_eventRevokers);
+            leftButton
+                .AddDisposableHandler(Button.ClickEvent, OnLeftButtonClick)
+                .DisposeWith(_eventRevokers);
+            rightButton
+                .AddDisposableHandler(Button.ClickEvent, OnRightButtonClick)
+                .DisposeWith(_eventRevokers);
         }
 
         ReorderHandle = e.NameScope.Find<Control>("PART_ReorderHandle");
         Button deleteButton = e.NameScope.Find<Button>("PART_DeleteButton");
-        deleteButton?.AddDisposableHandler(Button.ClickEvent, OnDeleteButtonClick).DisposeWith(_eventRevokers);
+        deleteButton
+            ?.AddDisposableHandler(Button.ClickEvent, OnDeleteButtonClick)
+            .DisposeWith(_eventRevokers);
     }
 
     private void OnDeleteButtonClick(object sender, RoutedEventArgs e)

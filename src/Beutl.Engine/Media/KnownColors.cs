@@ -18,9 +18,11 @@ internal static class KnownColors
 
         foreach (FieldInfo field in typeof(KnownColor).GetRuntimeFields())
         {
-            if (field.FieldType != typeof(KnownColor)) continue;
+            if (field.FieldType != typeof(KnownColor))
+                continue;
             var knownColor = (KnownColor)field.GetValue(null)!;
-            if (knownColor == KnownColor.None) continue;
+            if (knownColor == KnownColor.None)
+                continue;
 
             knownColorNames.Add(field.Name, knownColor);
 
@@ -209,5 +211,5 @@ internal enum KnownColor : uint
     White = 0xffffffff,
     WhiteSmoke = 0xfff5f5f5,
     Yellow = 0xffffff00,
-    YellowGreen = 0xff9acd32
+    YellowGreen = 0xff9acd32,
 }

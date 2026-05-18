@@ -23,48 +23,61 @@ public sealed class LayerHeaderViewModel : IDisposable
         Timeline = timeline;
         _model.Value = timeline.Scene.Layers.FirstOrDefault(i => i.ZIndex == num);
 
-        Number = _model.Select(i => i?.GetObservable(TimelineLayer.ZIndexProperty) ?? Observable.ReturnThenNever(num))
+        Number = _model
+            .Select(i =>
+                i?.GetObservable(TimelineLayer.ZIndexProperty) ?? Observable.ReturnThenNever(num)
+            )
             .Switch()
             .ToReactiveProperty();
-        Name = _model.Select(i => i?.GetObservable(CoreObject.NameProperty) ?? Number.Select(n => n.ToString()))
+        Name = _model
+            .Select(i =>
+                i?.GetObservable(CoreObject.NameProperty) ?? Number.Select(n => n.ToString())
+            )
             .Switch()
             .Select(s => string.IsNullOrEmpty(s) ? $"{Number.Value}" : s)
             .ToReactiveProperty($"{num}");
-        Color = _model.Select(i =>
-                i?.GetObservable(TimelineLayer.ColorProperty) ?? Observable.ReturnThenNever(Media.Colors.Transparent))
+        Color = _model
+            .Select(i =>
+                i?.GetObservable(TimelineLayer.ColorProperty)
+                ?? Observable.ReturnThenNever(Media.Colors.Transparent)
+            )
             .Switch()
             .Select(c => c.ToAvaColor())
             .ToReactiveProperty(Colors.Transparent);
 
-        HasItems = ItemsCount.Select(i => i > 0)
+        HasItems = ItemsCount
+            .Select(i => i > 0)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
 
-        SwitchEnabledCommand = new ReactiveCommand()
-            .WithSubscribe(() =>
+        SwitchEnabledCommand = new ReactiveCommand().WithSubscribe(() =>
+        {
+            HistoryManager history = Timeline.EditorContext.GetRequiredService<HistoryManager>();
+            try
             {
-                HistoryManager history = Timeline.EditorContext.GetRequiredService<HistoryManager>();
-                try
+                _skipSubscription = true;
+                IsEnabled.Value = !IsEnabled.Value;
+                foreach (
+                    Element element in Timeline.Scene.Children.Where(i =>
+                        i.ZIndex == Number.Value && i.IsEnabled != IsEnabled.Value
+                    )
+                )
                 {
-                    _skipSubscription = true;
-                    IsEnabled.Value = !IsEnabled.Value;
-                    foreach (Element element in Timeline.Scene.Children.Where(i =>
-                                 i.ZIndex == Number.Value && i.IsEnabled != IsEnabled.Value))
-                    {
-                        element.IsEnabled = IsEnabled.Value;
-                    }
+                    element.IsEnabled = IsEnabled.Value;
+                }
 
-                    history.Commit(CommandNames.ChangeLayerEnabled);
-                }
-                finally
-                {
-                    _skipSubscription = false;
-                }
-            });
+                history.Commit(CommandNames.ChangeLayerEnabled);
+            }
+            finally
+            {
+                _skipSubscription = false;
+            }
+        });
 
         Height.Subscribe(_ => Timeline.RaiseLayerHeightChanged(this)).DisposeWith(_disposables);
 
-        Inlines.ForEachItem(
+        Inlines
+            .ForEachItem(
                 (idx, x) =>
                 {
                     Height.Value += FrameNumberHelper.LayerHeight;
@@ -75,10 +88,12 @@ public sealed class LayerHeaderViewModel : IDisposable
                     Height.Value -= FrameNumberHelper.LayerHeight;
                     x.Index.Value = -1;
                 },
-                () => { })
+                () => { }
+            )
             .DisposeWith(_disposables);
 
-        Inlines.CollectionChangedAsObservable()
+        Inlines
+            .CollectionChangedAsObservable()
             .Subscribe(OnInlinesCollectionChanged)
             .AddTo(_disposables);
     }
@@ -142,7 +157,8 @@ public sealed class LayerHeaderViewModel : IDisposable
 
     public ReactiveProperty<double> Height { get; } = new(FrameNumberHelper.LayerHeight);
 
-    public CoreList<InlineAnimationLayerViewModel> Inlines { get; } = new() { ResetBehavior = ResetBehavior.Remove };
+    public CoreList<InlineAnimationLayerViewModel> Inlines { get; } =
+        new() { ResetBehavior = ResetBehavior.Remove };
 
     public ReactiveCommand SwitchEnabledCommand { get; }
 
@@ -178,9 +194,11 @@ public sealed class LayerHeaderViewModel : IDisposable
             return;
         }
 
-        _elementsSubscription = _elements.Select(obj => obj.IsEnabled.Select(b => (bool?)b))
-            .Aggregate((x, y) => x.CombineLatest(y)
-                .Select(t => t.First == t.Second ? t.First : null))
+        _elementsSubscription = _elements
+            .Select(obj => obj.IsEnabled.Select(b => (bool?)b))
+            .Aggregate(
+                (x, y) => x.CombineLatest(y).Select(t => t.First == t.Second ? t.First : null)
+            )
             .Where(b => b.HasValue && !_skipSubscription)
             .Subscribe(b => IsEnabled.Value = b!.Value);
     }
@@ -204,8 +222,10 @@ public sealed class LayerHeaderViewModel : IDisposable
             GetOrCreateModel().Name = name;
         }
 
-        if (obj.TryGetPropertyValueAsJsonValue(nameof(Color), out string? colorStr)
-            && Avalonia.Media.Color.TryParse(colorStr, out Color color))
+        if (
+            obj.TryGetPropertyValueAsJsonValue(nameof(Color), out string? colorStr)
+            && Avalonia.Media.Color.TryParse(colorStr, out Color color)
+        )
         {
             GetOrCreateModel().Color = color.ToBtlColor();
         }
@@ -221,9 +241,15 @@ public sealed class LayerHeaderViewModel : IDisposable
 
     private TimelineLayer GetOrCreateModel()
     {
-        if (_model.Value != null) return _model.Value;
+        if (_model.Value != null)
+            return _model.Value;
 
-        _model.Value = new TimelineLayer { Name = Name.Value, Color = Color.Value.ToBtlColor(), ZIndex = Number.Value };
+        _model.Value = new TimelineLayer
+        {
+            Name = Name.Value,
+            Color = Color.Value.ToBtlColor(),
+            ZIndex = Number.Value,
+        };
         Timeline.Scene.Layers.Add(_model.Value);
         return _model.Value;
     }

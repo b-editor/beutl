@@ -120,8 +120,10 @@ public class RationalArithmeticTests
     [Test]
     public void Division_ByZero_Throws()
     {
-        Assert.That(() => new Rational(1, 2) / Rational.Zero,
-            Throws.TypeOf<DivideByZeroException>());
+        Assert.That(
+            () => new Rational(1, 2) / Rational.Zero,
+            Throws.TypeOf<DivideByZeroException>()
+        );
     }
 
     [Test]
@@ -186,8 +188,7 @@ public class RationalArithmeticTests
     [Test]
     public void CompareTo_NonRational_Throws()
     {
-        Assert.That(() => new Rational(1).CompareTo("not a rational"),
-            Throws.ArgumentException);
+        Assert.That(() => new Rational(1).CompareTo("not a rational"), Throws.ArgumentException);
     }
 
     [Test]
@@ -205,16 +206,28 @@ public class RationalArithmeticTests
     public void TryFormat_WritesExpectedRepresentation()
     {
         Span<char> buf = stackalloc char[32];
-        Assert.That(Rational.NaN.TryFormat(buf, out int w, default, CultureInfo.InvariantCulture), Is.True);
+        Assert.That(
+            Rational.NaN.TryFormat(buf, out int w, default, CultureInfo.InvariantCulture),
+            Is.True
+        );
         Assert.That(buf[..w].ToString(), Is.EqualTo("[ Indeterminate ]"));
 
-        Assert.That(Rational.PositiveInfinity.TryFormat(buf, out w, default, CultureInfo.InvariantCulture), Is.True);
+        Assert.That(
+            Rational.PositiveInfinity.TryFormat(buf, out w, default, CultureInfo.InvariantCulture),
+            Is.True
+        );
         Assert.That(buf[..w].ToString(), Is.EqualTo("[ PositiveInfinity ]"));
 
-        Assert.That(new Rational(0, 1).TryFormat(buf, out w, default, CultureInfo.InvariantCulture), Is.True);
+        Assert.That(
+            new Rational(0, 1).TryFormat(buf, out w, default, CultureInfo.InvariantCulture),
+            Is.True
+        );
         Assert.That(buf[..w].ToString(), Is.EqualTo("0"));
 
-        Assert.That(new Rational(7, 2).TryFormat(buf, out w, default, CultureInfo.InvariantCulture), Is.True);
+        Assert.That(
+            new Rational(7, 2).TryFormat(buf, out w, default, CultureInfo.InvariantCulture),
+            Is.True
+        );
         Assert.That(buf[..w].ToString(), Is.EqualTo("7/2"));
     }
 
@@ -255,18 +268,20 @@ public class RationalArithmeticTests
     [Test]
     public void MaxMagnitude_ReturnsLargerByAbsoluteValue()
     {
-        Assert.That(Rational.MaxMagnitude(new Rational(-3, 1), new Rational(2, 1)),
-            Is.EqualTo(new Rational(-3, 1)));
-        Assert.That(Rational.MaxMagnitude(Rational.NaN, new Rational(2)),
-            Is.EqualTo(Rational.NaN));
+        Assert.That(
+            Rational.MaxMagnitude(new Rational(-3, 1), new Rational(2, 1)),
+            Is.EqualTo(new Rational(-3, 1))
+        );
+        Assert.That(Rational.MaxMagnitude(Rational.NaN, new Rational(2)), Is.EqualTo(Rational.NaN));
     }
 
     [Test]
     public void MinMagnitude_ReturnsSmallerByAbsoluteValue()
     {
-        Assert.That(Rational.MinMagnitude(new Rational(-3, 1), new Rational(2, 1)),
-            Is.EqualTo(new Rational(2, 1)));
-        Assert.That(Rational.MinMagnitude(Rational.NaN, new Rational(2)),
-            Is.EqualTo(Rational.NaN));
+        Assert.That(
+            Rational.MinMagnitude(new Rational(-3, 1), new Rational(2, 1)),
+            Is.EqualTo(new Rational(2, 1))
+        );
+        Assert.That(Rational.MinMagnitude(Rational.NaN, new Rational(2)), Is.EqualTo(Rational.NaN));
     }
 }

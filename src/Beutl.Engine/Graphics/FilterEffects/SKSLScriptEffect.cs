@@ -4,7 +4,6 @@ using Beutl.Engine;
 using Beutl.Language;
 using Beutl.Logging;
 using Microsoft.Extensions.Logging;
-
 using SkiaSharp;
 
 namespace Beutl.Graphics.Effects;
@@ -26,21 +25,21 @@ public sealed partial class SKSLScriptEffect : FilterEffect
     private static string GetDefaultScript()
     {
         return """
-               uniform shader src;
-               uniform float progress;  // 0.0 - 1.0
-               uniform float duration;  // seconds
-               uniform float time;      // seconds
-               uniform float width;     // render target width
-               uniform float height;    // render target height
-               // Also available:
-               // uniform float2 iResolution;
-               // uniform float iTime;
+            uniform shader src;
+            uniform float progress;  // 0.0 - 1.0
+            uniform float duration;  // seconds
+            uniform float time;      // seconds
+            uniform float width;     // render target width
+            uniform float height;    // render target height
+            // Also available:
+            // uniform float2 iResolution;
+            // uniform float iTime;
 
-               half4 main(float2 fragCoord) {
-                   half4 c = src.eval(fragCoord);
-                   return c;
-               }
-               """;
+            half4 main(float2 fragCoord) {
+                half4 c = src.eval(fragCoord);
+                return c;
+            }
+            """;
     }
 
     internal static string? ValidateScript(string script)
@@ -67,15 +66,22 @@ public sealed partial class SKSLScriptEffect : FilterEffect
             return;
 
         context.CustomEffect(
-            (Resource: r.Progress, duration: r.Duration, time: r.Time, shader: r._shader,
-                compileError: r._compileError),
+            (
+                Resource: r.Progress,
+                duration: r.Duration,
+                time: r.Time,
+                shader: r._shader,
+                compileError: r._compileError
+            ),
             OnApplyTo,
-            static (_, r) => r);
+            static (_, r) => r
+        );
     }
 
     private static void OnApplyTo(
         (float progress, float duration, float time, SKSLShader shader, string? compileError) data,
-        CustomFilterEffectContext c)
+        CustomFilterEffectContext c
+    )
     {
         for (int i = 0; i < c.Targets.Count; i++)
         {
@@ -101,7 +107,10 @@ public sealed partial class SKSLScriptEffect : FilterEffect
             if (effect.Uniforms.Contains("height"))
                 builder.Uniforms["height"] = effectTarget.Bounds.Height;
             if (effect.Uniforms.Contains("iResolution"))
-                builder.Uniforms["iResolution"] = new SKPoint(effectTarget.Bounds.Width, effectTarget.Bounds.Height);
+                builder.Uniforms["iResolution"] = new SKPoint(
+                    effectTarget.Bounds.Width,
+                    effectTarget.Bounds.Height
+                );
             if (effect.Uniforms.Contains("iTime"))
                 builder.Uniforms["iTime"] = data.time;
 

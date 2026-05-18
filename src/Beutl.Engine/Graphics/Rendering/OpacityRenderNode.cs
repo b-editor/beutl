@@ -18,15 +18,20 @@ public sealed class OpacityRenderNode(float opacity) : ContainerRenderNode
 
     public override RenderNodeOperation[] Process(RenderNodeContext context)
     {
-        return context.Input.Select(r =>
-        {
-            return RenderNodeOperation.CreateDecorator(r, canvas =>
+        return context
+            .Input.Select(r =>
             {
-                using (canvas.PushOpacity(Opacity))
-                {
-                    r.Render(canvas);
-                }
-            });
-        }).ToArray();
+                return RenderNodeOperation.CreateDecorator(
+                    r,
+                    canvas =>
+                    {
+                        using (canvas.PushOpacity(Opacity))
+                        {
+                            r.Render(canvas);
+                        }
+                    }
+                );
+            })
+            .ToArray();
     }
 }

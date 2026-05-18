@@ -10,20 +10,23 @@ public partial class ColorSpectrum
     /// Defines the <see cref="Shape"/> property
     /// </summary>
     public static readonly DirectProperty<ColorSpectrum, ColorSpectrumShape> ShapeProperty =
-        AvaloniaProperty.RegisterDirect<ColorSpectrum, ColorSpectrumShape>(nameof(Shape),
-            x => x.Shape, (x, v) => x.Shape = v);
+        AvaloniaProperty.RegisterDirect<ColorSpectrum, ColorSpectrumShape>(
+            nameof(Shape),
+            x => x.Shape,
+            (x, v) => x.Shape = v
+        );
 
     /// <summary>
     /// Defines the <see cref="BorderBrush"/> property
     /// </summary>
     public static readonly StyledProperty<IBrush> BorderBrushProperty =
-    Border.BorderBrushProperty.AddOwner<ColorSpectrum>();
+        Border.BorderBrushProperty.AddOwner<ColorSpectrum>();
 
     /// <summary>
     /// Defines the <see cref="BorderThickness"/> property
     /// </summary>
     public static readonly StyledProperty<double> BorderThicknessProperty =
-    ColorRamp.BorderThicknessProperty.AddOwner<ColorSpectrum>();
+        ColorRamp.BorderThicknessProperty.AddOwner<ColorSpectrum>();
 
     /// <summary>
     /// Gets or sets the Brush used to render the border of this ColorSpectrum control

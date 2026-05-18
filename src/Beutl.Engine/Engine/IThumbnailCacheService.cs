@@ -8,7 +8,13 @@ public interface IThumbnailCacheService
 
     void Save(string cacheKey, TimeSpan time, Bitmap bitmap);
 
-    bool TryGetWaveform(string cacheKey, TimeSpan time, TimeSpan threshold, out float minValue, out float maxValue);
+    bool TryGetWaveform(
+        string cacheKey,
+        TimeSpan time,
+        TimeSpan threshold,
+        out float minValue,
+        out float maxValue
+    );
 
     void SaveWaveform(string cacheKey, TimeSpan time, float minValue, float maxValue);
 

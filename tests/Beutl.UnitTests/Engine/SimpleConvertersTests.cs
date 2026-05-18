@@ -152,7 +152,9 @@ public class ThicknessConverterTests
     public void ConvertTo_Tuple4_ReturnsLeftTopRightBottom()
     {
         var t = new Thickness(1, 2, 3, 4);
-        var tup = (Tuple<float, float, float, float>)_converter.ConvertTo(null, null, t, typeof(Tuple<float, float, float, float>))!;
+        var tup =
+            (Tuple<float, float, float, float>)
+                _converter.ConvertTo(null, null, t, typeof(Tuple<float, float, float, float>))!;
         Assert.That(tup, Is.EqualTo(new Tuple<float, float, float, float>(1, 2, 3, 4)));
     }
 
@@ -160,7 +162,8 @@ public class ThicknessConverterTests
     public void ConvertTo_Tuple2_ReturnsLeftTop()
     {
         var t = new Thickness(1, 2, 3, 4);
-        var tup = (Tuple<float, float>)_converter.ConvertTo(null, null, t, typeof(Tuple<float, float>))!;
+        var tup =
+            (Tuple<float, float>)_converter.ConvertTo(null, null, t, typeof(Tuple<float, float>))!;
         Assert.That(tup, Is.EqualTo(new Tuple<float, float>(1, 2)));
     }
 
@@ -202,7 +205,8 @@ public class ThicknessConverterTests
     [Test]
     public void ConvertFrom_Tuple4_ReturnsFourComponent()
     {
-        var t = (Thickness)_converter.ConvertFrom(null, null, new Tuple<float, float, float, float>(1, 2, 3, 4))!;
+        var t = (Thickness)
+            _converter.ConvertFrom(null, null, new Tuple<float, float, float, float>(1, 2, 3, 4))!;
         Assert.That(t, Is.EqualTo(new Thickness(1, 2, 3, 4)));
     }
 
@@ -249,7 +253,9 @@ public class GradingColorConverterTests
     public void ConvertTo_Tuple_ReturnsRGB()
     {
         var c = new GradingColor(0.1f, 0.2f, 0.3f);
-        var tup = (Tuple<float, float, float>)_converter.ConvertTo(null, null, c, typeof(Tuple<float, float, float>))!;
+        var tup =
+            (Tuple<float, float, float>)
+                _converter.ConvertTo(null, null, c, typeof(Tuple<float, float, float>))!;
         Assert.That(tup.Item1, Is.EqualTo(0.1f));
         Assert.That(tup.Item2, Is.EqualTo(0.2f));
         Assert.That(tup.Item3, Is.EqualTo(0.3f));
@@ -283,7 +289,8 @@ public class GradingColorConverterTests
     [Test]
     public void ConvertFrom_Tuple_ReturnsGradingColor()
     {
-        var c = (GradingColor)_converter.ConvertFrom(null, null, new Tuple<float, float, float>(0.4f, 0.5f, 0.6f))!;
+        var c = (GradingColor)
+            _converter.ConvertFrom(null, null, new Tuple<float, float, float>(0.4f, 0.5f, 0.6f))!;
         Assert.That(c.R, Is.EqualTo(0.4f));
         Assert.That(c.G, Is.EqualTo(0.5f));
         Assert.That(c.B, Is.EqualTo(0.6f));
@@ -321,7 +328,10 @@ public class ColorConverterTests
     {
         Assert.That(_converter.CanConvertTo(null, typeof(float[])), Is.True);
         Assert.That(_converter.CanConvertTo(null, typeof(byte[])), Is.True);
-        Assert.That(_converter.CanConvertTo(null, typeof(Tuple<float, float, float, float>)), Is.True);
+        Assert.That(
+            _converter.CanConvertTo(null, typeof(Tuple<float, float, float, float>)),
+            Is.True
+        );
         Assert.That(_converter.CanConvertTo(null, typeof(Tuple<byte, byte, byte, byte>)), Is.True);
         Assert.That(_converter.CanConvertTo(null, typeof(int)), Is.True);
         Assert.That(_converter.CanConvertTo(null, typeof(uint)), Is.True);
@@ -361,7 +371,9 @@ public class ColorConverterTests
     public void ConvertTo_TupleByte_ReturnsARGB()
     {
         var color = Color.FromArgb(255, 100, 50, 25);
-        var tup = (Tuple<byte, byte, byte, byte>)_converter.ConvertTo(null, null, color, typeof(Tuple<byte, byte, byte, byte>))!;
+        var tup =
+            (Tuple<byte, byte, byte, byte>)
+                _converter.ConvertTo(null, null, color, typeof(Tuple<byte, byte, byte, byte>))!;
         Assert.That(tup, Is.EqualTo(new Tuple<byte, byte, byte, byte>(255, 100, 50, 25)));
     }
 
@@ -424,14 +436,20 @@ public class ColorConverterTests
     [Test]
     public void ConvertFrom_TupleByte_ReturnsColor()
     {
-        var color = (Color)_converter.ConvertFrom(null, null, new Tuple<byte, byte, byte, byte>(255, 100, 50, 25))!;
+        var color = (Color)
+            _converter.ConvertFrom(
+                null,
+                null,
+                new Tuple<byte, byte, byte, byte>(255, 100, 50, 25)
+            )!;
         Assert.That(color, Is.EqualTo(Color.FromArgb(255, 100, 50, 25)));
     }
 
     [Test]
     public void ConvertFrom_TupleFloat_ReturnsColor()
     {
-        var color = (Color)_converter.ConvertFrom(null, null, new Tuple<float, float, float, float>(1, 1, 0, 0))!;
+        var color = (Color)
+            _converter.ConvertFrom(null, null, new Tuple<float, float, float, float>(1, 1, 0, 0))!;
         Assert.That(color, Is.EqualTo(Color.FromArgb(255, 255, 0, 0)));
     }
 }

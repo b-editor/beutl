@@ -8,11 +8,11 @@ public class EngineObject : Hierarchical
 
     internal int Version { get; private set; }
 
-    protected void ScanProperties<T>() where T : EngineObject
+    protected void ScanProperties<T>()
+        where T : EngineObject
     {
         throw null!;
     }
-
 
     public virtual Resource ToResource(RenderContext context)
     {
@@ -35,7 +35,12 @@ public class EngineObject : Hierarchical
             _original = obj;
         }
 
-        protected void CompareAndUpdate<TValue>(RenderContext context, IProperty<TValue> prop, ref TValue field, ref bool updateOnly)
+        protected void CompareAndUpdate<TValue>(
+            RenderContext context,
+            IProperty<TValue> prop,
+            ref TValue field,
+            ref bool updateOnly
+        )
         {
             TValue newValue = context.Get(prop);
             TValue oldValue = field;
@@ -51,7 +56,14 @@ public class EngineObject : Hierarchical
             }
         }
 
-        protected void CompareAndUpdateList<TItem, TResource>(RenderContext context, IList<TItem> prop, ref List<TResource> field, ref bool updateOnly) where TItem : EngineObject where TResource : Resource
+        protected void CompareAndUpdateList<TItem, TResource>(
+            RenderContext context,
+            IList<TItem> prop,
+            ref List<TResource> field,
+            ref bool updateOnly
+        )
+            where TItem : EngineObject
+            where TResource : Resource
         {
             for (int i = 0; i < prop.Count; i++)
             {
@@ -93,7 +105,15 @@ public class EngineObject : Hierarchical
                 field.RemoveAt(field.Count - 1);
             }
         }
-        protected void CompareAndUpdateObject<TObject, TResource>(RenderContext context, IProperty<TObject> prop, ref TResource field, ref bool updateOnly) where TObject : EngineObject where TResource : Resource
+
+        protected void CompareAndUpdateObject<TObject, TResource>(
+            RenderContext context,
+            IProperty<TObject> prop,
+            ref TResource field,
+            ref bool updateOnly
+        )
+            where TObject : EngineObject
+            where TResource : Resource
         {
             var value = context.Get(prop);
             if (value is null)

@@ -2,7 +2,8 @@
 
 namespace Beutl.ViewModels.Editors;
 
-public sealed class TimeSpanEditorViewModel(IPropertyAdapter<TimeSpan> property) : ValueEditorViewModel<TimeSpan>(property)
+public sealed class TimeSpanEditorViewModel(IPropertyAdapter<TimeSpan> property)
+    : ValueEditorViewModel<TimeSpan>(property)
 {
     public override void Accept(IPropertyEditorContextVisitor visitor)
     {
@@ -13,7 +14,8 @@ public sealed class TimeSpanEditorViewModel(IPropertyAdapter<TimeSpan> property)
                 editor,
                 TimeSpanEditor.ValueProperty,
                 static ed => ed.Value,
-                static (ed, v) => ed.Value = v);
+                static (ed, v) => ed.Value = v
+            );
         }
     }
 }

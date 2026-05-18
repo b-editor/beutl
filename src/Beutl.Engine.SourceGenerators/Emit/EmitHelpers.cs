@@ -1,5 +1,4 @@
 ﻿using System.Text;
-
 using Microsoft.CodeAnalysis;
 
 namespace Beutl.Engine.SourceGenerators.Emit;
@@ -12,7 +11,8 @@ public static class EmitHelpers
         genericsOptions: SymbolDisplayGenericsOptions.IncludeTypeParameters,
         miscellaneousOptions: SymbolDisplayMiscellaneousOptions.UseSpecialTypes
             | SymbolDisplayMiscellaneousOptions.EscapeKeywordIdentifiers
-            | SymbolDisplayMiscellaneousOptions.IncludeNullableReferenceTypeModifier);
+            | SymbolDisplayMiscellaneousOptions.IncludeNullableReferenceTypeModifier
+    );
 
     public static string GetAccessibility(Accessibility accessibility)
     {
@@ -143,11 +143,13 @@ public static class EmitHelpers
         var sb = new StringBuilder(name.Length + 32);
         foreach (char c in name)
         {
-            sb.Append(c switch
-            {
-                '<' or '>' or ',' or '.' or ' ' or ':' => '_',
-                _ => c,
-            });
+            sb.Append(
+                c switch
+                {
+                    '<' or '>' or ',' or '.' or ' ' or ':' => '_',
+                    _ => c,
+                }
+            );
         }
 
         sb.Append("_Resource.g.cs");

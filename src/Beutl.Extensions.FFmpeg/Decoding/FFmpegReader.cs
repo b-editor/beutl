@@ -13,8 +13,10 @@ using Microsoft.Extensions.Logging;
 
 #if BEUTL_FFMPEG_WORKER
 namespace Beutl.FFmpegWorker.Decoding;
+
 #else
 namespace Beutl.Extensions.FFmpeg.Decoding;
+
 #endif
 
 public sealed class FFmpegReader : MediaReader
@@ -28,7 +30,7 @@ public sealed class FFmpegReader : MediaReader
     {
         order = AVChannelOrder.AV_CHANNEL_ORDER_NATIVE,
         nb_channels = 2,
-        u = new AVChannelLayout_u { mask = ffmpeg.AV_CH_LAYOUT_STEREO }
+        u = new AVChannelLayout_u { mask = ffmpeg.AV_CH_LAYOUT_STEREO },
     };
 
     private readonly MediaStream? _audioStream;
@@ -116,9 +118,10 @@ public sealed class FFmpegReader : MediaReader
                     codec?.LongName ?? "Unknown",
                     _videoStream!.NbFrames,
                     new PixelSize(_videoDecoder.Width, _videoDecoder.Height),
-                    new Rational(_videoStream.AvgFrameRate.num, _videoStream.AvgFrameRate.den))
+                    new Rational(_videoStream.AvgFrameRate.num, _videoStream.AvgFrameRate.den)
+                )
                 {
-                    Duration = new Rational(_demuxer.Duration, ffmpeg.AV_TIME_BASE)
+                    Duration = new Rational(_demuxer.Duration, ffmpeg.AV_TIME_BASE),
                 };
             }
 
@@ -129,7 +132,8 @@ public sealed class FFmpegReader : MediaReader
                     codec?.Name ?? "Unknown",
                     new Rational(_demuxer!.Duration, ffmpeg.AV_TIME_BASE),
                     _audioDecoder.SampleRate,
-                    _audioDecoder.ChLayout.nb_channels);
+                    _audioDecoder.ChLayout.nb_channels
+                );
             }
         }
         catch
@@ -143,9 +147,11 @@ public sealed class FFmpegReader : MediaReader
 
     private MediaFrame? ActiveVideoFrame => _isHWDecoding ? _swVideoFrame : _currentVideoFrame;
 
-    public override VideoStreamInfo VideoInfo => field ?? throw new Exception("The stream does not exist.");
+    public override VideoStreamInfo VideoInfo =>
+        field ?? throw new Exception("The stream does not exist.");
 
-    public override AudioStreamInfo AudioInfo => field ?? throw new Exception("The stream does not exist.");
+    public override AudioStreamInfo AudioInfo =>
+        field ?? throw new Exception("The stream does not exist.");
 
     public override bool HasVideo => _hasVideo;
 
@@ -161,7 +167,8 @@ public sealed class FFmpegReader : MediaReader
         }
 
         result = null;
-        if (_audioDecoder == null || _currentAudioFrame == null) return false;
+        if (_audioDecoder == null || _currentAudioFrame == null)
+            return false;
 
         var sound = new Pcm<Stereo32BitFloat>(AudioInfo.SampleRate, length);
         if (ReadAudio(start, length, MemoryMarshal.AsBytes(sound.DataSpan), out _))
@@ -176,13 +183,23 @@ public sealed class FFmpegReader : MediaReader
         }
     }
 
-    public unsafe bool ReadAudio(int start, int length, Span<byte> destination, out AudioFrameInfo info)
+    public unsafe bool ReadAudio(
+        int start,
+        int length,
+        Span<byte> destination,
+        out AudioFrameInfo info
+    )
     {
         info = default;
 
         if (length == 0)
         {
-            info = new AudioFrameInfo { SampleRate = AudioInfo.SampleRate, NumSamples = 0, DataLength = 0, };
+            info = new AudioFrameInfo
+            {
+                SampleRate = AudioInfo.SampleRate,
+                NumSamples = 0,
+                DataLength = 0,
+            };
             return true;
         }
 
@@ -215,10 +232,15 @@ public sealed class FFmpegReader : MediaReader
                     AV_CHANNEL_LAYOUT_STEREO,
                     AudioInfo.SampleRate,
                     AVSampleFormat.AV_SAMPLE_FMT_FLT,
-                    _currentAudioFrame.NbSamples);
+                    _currentAudioFrame.NbSamples
+                );
 
                 // 変換
-                using var convertedFrame = _sampleConverter.ConvertFrame(_currentAudioFrame, out _, out _);
+                using var convertedFrame = _sampleConverter.ConvertFrame(
+                    _currentAudioFrame,
+                    out _,
+                    out _
+                );
                 _samplesReturn = convertedFrame.NbSamples;
 
                 if (_samplesReturn < 0)
@@ -245,7 +267,8 @@ public sealed class FFmpegReader : MediaReader
                         convertedFrame.Data[0] + (skip * sampleSize),
                         buf + (decoded * sampleSize),
                         len * sampleSize,
-                        len * sampleSize);
+                        len * sampleSize
+                    );
                     decoded += len;
                 }
 
@@ -278,10 +301,14 @@ public sealed class FFmpegReader : MediaReader
         image = null;
 
         MediaFrame? filterFrame = ReadVideoCore(frame);
-        if (filterFrame == null) return false;
+        if (filterFrame == null)
+            return false;
 
         // フレームの色空間を取得
-        var colorSpace = (!Settings.ForceSrgbGamma || _isHdr) ? GetFrameColorSpace(filterFrame) : BitmapColorSpace.Srgb;
+        var colorSpace =
+            (!Settings.ForceSrgbGamma || _isHdr)
+                ? GetFrameColorSpace(filterFrame)
+                : BitmapColorSpace.Srgb;
         int width = filterFrame.Width;
         int height = filterFrame.Height;
         var colorType = _isHdr ? BitmapColorType.Rgba16161616 : BitmapColorType.Bgra8888;
@@ -312,14 +339,16 @@ public sealed class FFmpegReader : MediaReader
         info = default;
 
         MediaFrame? filterFrame = ReadVideoCore(frame);
-        if (filterFrame == null) return false;
+        if (filterFrame == null)
+            return false;
 
         try
         {
             // フレームの色空間を取得
-            var colorSpace = (!Settings.ForceSrgbGamma || _isHdr)
-                ? GetFrameColorSpace(filterFrame)
-                : BitmapColorSpace.Srgb;
+            var colorSpace =
+                (!Settings.ForceSrgbGamma || _isHdr)
+                    ? GetFrameColorSpace(filterFrame)
+                    : BitmapColorSpace.Srgb;
             int width = filterFrame.Width;
             int height = filterFrame.Height;
             int bytesPerPixel = _isHdr ? 8 : 4;
@@ -397,7 +426,12 @@ public sealed class FFmpegReader : MediaReader
         var srcPixFmt = (AVPixelFormat)videoFrame.Format;
 
         // 入力パラメータが変わっていなければ再構築不要
-        if (_filterGraph != null && _filterWidth == width && _filterHeight == height && _filterSrcPixFmt == srcPixFmt)
+        if (
+            _filterGraph != null
+            && _filterWidth == width
+            && _filterHeight == height
+            && _filterSrcPixFmt == srcPixFmt
+        )
             return;
 
         _filterGraph?.Dispose();
@@ -411,8 +445,15 @@ public sealed class FFmpegReader : MediaReader
         var aspect = videoFrame.SampleAspectRatio;
         var frameRate = _videoStream.AvgFrameRate;
 
-        _bufferSrcCtx =
-            _filterGraph.AddVideoSrcFilter(bufferSrc, width, height, srcPixFmt, timeBase, aspect, frameRate);
+        _bufferSrcCtx = _filterGraph.AddVideoSrcFilter(
+            bufferSrc,
+            width,
+            height,
+            srcPixFmt,
+            timeBase,
+            aspect,
+            frameRate
+        );
 
         var dstPixFmt = _isHdr ? AVPixelFormat.AV_PIX_FMT_RGBA64LE : AVPixelFormat.AV_PIX_FMT_BGRA;
         _bufferSinkCtx = _filterGraph.AddVideoSinkFilter(bufferSink, [dstPixFmt]);
@@ -486,8 +527,13 @@ public sealed class FFmpegReader : MediaReader
 
     private bool GrabAudio()
     {
-        if (_demuxer == null || _audioDecoder == null || _packet == null || _audioStream == null ||
-            _currentAudioFrame == null)
+        if (
+            _demuxer == null
+            || _audioDecoder == null
+            || _packet == null
+            || _audioStream == null
+            || _currentAudioFrame == null
+        )
             return false;
 
         _currentAudioFrame.Unref();
@@ -516,14 +562,22 @@ public sealed class FFmpegReader : MediaReader
 
     private void UpdateAudioTimestamp()
     {
-        if (_currentAudioFrame == null || _audioStream == null || _audioDecoder == null || _demuxer == null)
+        if (
+            _currentAudioFrame == null
+            || _audioStream == null
+            || _audioDecoder == null
+            || _demuxer == null
+        )
             return;
 
         if (_audioSeek)
         {
-            _audioNowTimestamp = (long)((_currentAudioFrame.Pts * ffmpeg.av_q2d(_audioStream.TimeBase)
-                                         - (_demuxer.StartTime * ffmpeg.av_q2d(s_time_base))) *
-                                        _audioDecoder.SampleRate);
+            _audioNowTimestamp = (long)(
+                (
+                    _currentAudioFrame.Pts * ffmpeg.av_q2d(_audioStream.TimeBase)
+                    - (_demuxer.StartTime * ffmpeg.av_q2d(s_time_base))
+                ) * _audioDecoder.SampleRate
+            );
             _audioSeek = false;
             _audioNowTimestamp -= _audioNowTimestamp % _currentAudioFrame.NbSamples;
         }
@@ -537,16 +591,15 @@ public sealed class FFmpegReader : MediaReader
 
     private unsafe void SeekAudio(long sample_pos)
     {
-        if (_demuxer == null || _audioDecoder == null) return;
+        if (_demuxer == null || _audioDecoder == null)
+            return;
 
         long timestamp = sample_pos * 1000000 / _audioDecoder.SampleRate + _demuxer.StartTime;
         _demuxer.Seek(timestamp, -1);
         ffmpeg.avcodec_flush_buffers(_audioDecoder);
         _audioSeek = true;
 
-        while (GrabAudio() && _audioNextTimestamp < sample_pos)
-        {
-        }
+        while (GrabAudio() && _audioNextTimestamp < sample_pos) { }
     }
 
     private bool GrabVideo()
@@ -558,7 +611,9 @@ public sealed class FFmpegReader : MediaReader
         {
             if (packet.StreamIndex == _videoStream.Index)
             {
-                foreach (var _ in _videoDecoder.DecodePacket(packet, _currentVideoFrame, _swVideoFrame))
+                foreach (
+                    var _ in _videoDecoder.DecodePacket(packet, _currentVideoFrame, _swVideoFrame)
+                )
                 {
                     _videoNowFrame = GetNowFrame();
                     return true;
@@ -578,12 +633,16 @@ public sealed class FFmpegReader : MediaReader
 
     private unsafe void SeekVideo(int frame)
     {
-        if (_demuxer == null || _videoDecoder == null) return;
+        if (_demuxer == null || _videoDecoder == null)
+            return;
 
         void SeekOnly(long targetFrame)
         {
-            long timestamp = (long)Math.Round(targetFrame * 1000000.0 / _videoAvgFrameRateDouble + _demuxer.StartTime,
-                MidpointRounding.AwayFromZero);
+            long timestamp = (long)
+                Math.Round(
+                    targetFrame * 1000000.0 / _videoAvgFrameRateDouble + _demuxer.StartTime,
+                    MidpointRounding.AwayFromZero
+                );
             _demuxer.Seek(timestamp, -1);
             ffmpeg.avcodec_flush_buffers(_videoDecoder);
             GrabVideo();
@@ -594,28 +653,32 @@ public sealed class FFmpegReader : MediaReader
         long f = frame - (_videoNowFrame - frame) - 3;
         while (_videoNowFrame > frame)
         {
-            if (f < 0) f = 0;
+            if (f < 0)
+                f = 0;
             SeekOnly(f);
-            if (f == 0) break;
+            if (f == 0)
+                break;
             f -= 30;
         }
 
-        while (_videoNowFrame < frame && GrabVideo())
-        {
-        }
+        while (_videoNowFrame < frame && GrabVideo()) { }
     }
 
     private long GetNowFrame()
     {
         var frame = ActiveVideoFrame;
-        if (frame == null || _videoStream == null) return 0;
-        double f = (frame.Pts - _videoStream.StartTime) * _videoTimeBaseDouble * _videoAvgFrameRateDouble + 0.5;
+        if (frame == null || _videoStream == null)
+            return 0;
+        double f =
+            (frame.Pts - _videoStream.StartTime) * _videoTimeBaseDouble * _videoAvgFrameRateDouble
+            + 0.5;
         return (long)f;
     }
 
     private void ConfigureVideoStream()
     {
-        if (!_hasVideo || _videoStream == null) return;
+        if (!_hasVideo || _videoStream == null)
+            return;
 
         AVHWDeviceType? hwDeviceType = GetAVHWDeviceType();
 
@@ -630,14 +693,17 @@ public sealed class FFmpegReader : MediaReader
                     {
                         ctx.ThreadCount = Math.Min(
                             Environment.ProcessorCount,
-                            Settings.ThreadCount > 0 ? Settings.ThreadCount : 16);
+                            Settings.ThreadCount > 0 ? Settings.ThreadCount : 16
+                        );
                     }
                     else
                     {
                         ctx.ThreadCount = 0;
                     }
 
-                    if (Settings.Acceleration != FFmpegDecodingSettings.AccelerationOptions.Software)
+                    if (
+                        Settings.Acceleration != FFmpegDecodingSettings.AccelerationOptions.Software
+                    )
                     {
                         try
                         {
@@ -648,11 +714,13 @@ public sealed class FFmpegReader : MediaReader
                         catch
                         {
                             _logger.LogWarning(
-                                "Failed to initialize HW device context, falling back to software decoding");
+                                "Failed to initialize HW device context, falling back to software decoding"
+                            );
                             _isHWDecoding = false;
                         }
                     }
-                });
+                }
+            );
         }
         catch
         {
@@ -683,25 +751,35 @@ public sealed class FFmpegReader : MediaReader
     {
         return Settings.Acceleration switch
         {
-            FFmpegDecodingSettings.AccelerationOptions.Software => AVHWDeviceType.AV_HWDEVICE_TYPE_NONE,
-            FFmpegDecodingSettings.AccelerationOptions.VDPAU => AVHWDeviceType.AV_HWDEVICE_TYPE_VDPAU,
+            FFmpegDecodingSettings.AccelerationOptions.Software =>
+                AVHWDeviceType.AV_HWDEVICE_TYPE_NONE,
+            FFmpegDecodingSettings.AccelerationOptions.VDPAU =>
+                AVHWDeviceType.AV_HWDEVICE_TYPE_VDPAU,
             FFmpegDecodingSettings.AccelerationOptions.CUDA => AVHWDeviceType.AV_HWDEVICE_TYPE_CUDA,
-            FFmpegDecodingSettings.AccelerationOptions.VAAPI => AVHWDeviceType.AV_HWDEVICE_TYPE_VAAPI,
-            FFmpegDecodingSettings.AccelerationOptions.DXVA2 => AVHWDeviceType.AV_HWDEVICE_TYPE_DXVA2,
+            FFmpegDecodingSettings.AccelerationOptions.VAAPI =>
+                AVHWDeviceType.AV_HWDEVICE_TYPE_VAAPI,
+            FFmpegDecodingSettings.AccelerationOptions.DXVA2 =>
+                AVHWDeviceType.AV_HWDEVICE_TYPE_DXVA2,
             FFmpegDecodingSettings.AccelerationOptions.QSV => AVHWDeviceType.AV_HWDEVICE_TYPE_QSV,
-            FFmpegDecodingSettings.AccelerationOptions.VideoToolbox => AVHWDeviceType.AV_HWDEVICE_TYPE_VIDEOTOOLBOX,
-            FFmpegDecodingSettings.AccelerationOptions.D3D11VA => AVHWDeviceType.AV_HWDEVICE_TYPE_D3D11VA,
+            FFmpegDecodingSettings.AccelerationOptions.VideoToolbox =>
+                AVHWDeviceType.AV_HWDEVICE_TYPE_VIDEOTOOLBOX,
+            FFmpegDecodingSettings.AccelerationOptions.D3D11VA =>
+                AVHWDeviceType.AV_HWDEVICE_TYPE_D3D11VA,
             FFmpegDecodingSettings.AccelerationOptions.DRM => AVHWDeviceType.AV_HWDEVICE_TYPE_DRM,
-            FFmpegDecodingSettings.AccelerationOptions.OpenCL => AVHWDeviceType.AV_HWDEVICE_TYPE_OPENCL,
-            FFmpegDecodingSettings.AccelerationOptions.MediaCodec => AVHWDeviceType.AV_HWDEVICE_TYPE_MEDIACODEC,
-            FFmpegDecodingSettings.AccelerationOptions.Vulkan => AVHWDeviceType.AV_HWDEVICE_TYPE_VULKAN,
-            _ => null
+            FFmpegDecodingSettings.AccelerationOptions.OpenCL =>
+                AVHWDeviceType.AV_HWDEVICE_TYPE_OPENCL,
+            FFmpegDecodingSettings.AccelerationOptions.MediaCodec =>
+                AVHWDeviceType.AV_HWDEVICE_TYPE_MEDIACODEC,
+            FFmpegDecodingSettings.AccelerationOptions.Vulkan =>
+                AVHWDeviceType.AV_HWDEVICE_TYPE_VULKAN,
+            _ => null,
         };
     }
 
     private void ConfigureAudioStream()
     {
-        if (!_hasAudio || _audioStream == null) return;
+        if (!_hasAudio || _audioStream == null)
+            return;
 
         try
         {
@@ -714,13 +792,15 @@ public sealed class FFmpegReader : MediaReader
                     {
                         ctx.ThreadCount = Math.Min(
                             Environment.ProcessorCount,
-                            Settings.ThreadCount > 0 ? Settings.ThreadCount : 16);
+                            Settings.ThreadCount > 0 ? Settings.ThreadCount : 16
+                        );
                     }
                     else
                     {
                         ctx.ThreadCount = 0;
                     }
-                });
+                }
+            );
         }
         catch
         {
@@ -741,7 +821,8 @@ public sealed class FFmpegReader : MediaReader
 
     private unsafe void GetPacketColorSpace()
     {
-        if (_videoStream == null) return;
+        if (_videoStream == null)
+            return;
 
         // HDR判定: PQ (HDR10) または HLG の場合はHDR
         var trc = _videoStream.Codecpar->color_trc;
@@ -750,10 +831,13 @@ public sealed class FFmpegReader : MediaReader
         AVPacketSideData* psd = ffmpeg.av_packet_side_data_get(
             _videoStream.Codecpar->coded_side_data,
             _videoStream.Codecpar->nb_coded_side_data,
-            AVPacketSideDataType.AV_PKT_DATA_ICC_PROFILE);
+            AVPacketSideDataType.AV_PKT_DATA_ICC_PROFILE
+        );
         if (psd != null)
         {
-            _colorspace = BitmapColorSpace.CreateIcc(new ReadOnlySpan<byte>(psd->data, (int)psd->size));
+            _colorspace = BitmapColorSpace.CreateIcc(
+                new ReadOnlySpan<byte>(psd->data, (int)psd->size)
+            );
         }
 
         if (_colorspace == null)
@@ -762,18 +846,30 @@ public sealed class FFmpegReader : MediaReader
             {
                 // HDR: 輝度スケーリング付き色空間（エンコードと対称）
                 _colorspace = ColorSpaceHelper.BuildHdrColorSpace(
-                    _videoStream.Codecpar->color_trc, _videoStream.Codecpar->color_primaries);
+                    _videoStream.Codecpar->color_trc,
+                    _videoStream.Codecpar->color_primaries
+                );
             }
             else
             {
-                var transferFn = ColorSpaceHelper.GetTransferFunction(_videoStream.Codecpar->color_trc);
-                var gamut = ColorSpaceHelper.GetBitmapColorSpaceXyz(_videoStream.Codecpar->color_primaries);
+                var transferFn = ColorSpaceHelper.GetTransferFunction(
+                    _videoStream.Codecpar->color_trc
+                );
+                var gamut = ColorSpaceHelper.GetBitmapColorSpaceXyz(
+                    _videoStream.Codecpar->color_primaries
+                );
 
-                if (transferFn == BitmapColorSpaceTransferFn.Srgb && gamut == BitmapColorSpaceXyz.Srgb)
+                if (
+                    transferFn == BitmapColorSpaceTransferFn.Srgb
+                    && gamut == BitmapColorSpaceXyz.Srgb
+                )
                 {
                     _colorspace = BitmapColorSpace.Srgb;
                 }
-                else if (transferFn == BitmapColorSpaceTransferFn.Linear && gamut == BitmapColorSpaceXyz.Srgb)
+                else if (
+                    transferFn == BitmapColorSpaceTransferFn.Linear
+                    && gamut == BitmapColorSpaceXyz.Srgb
+                )
                 {
                     _colorspace = BitmapColorSpace.LinearSrgb;
                 }
@@ -795,7 +891,11 @@ public sealed class FFmpegReader : MediaReader
 
         if (_colorspace != null)
         {
-            _logger.LogInformation("Video color space: {ColorSpace} ({Hdr})", _colorspace, _isHdr ? "HDR" : "SDR");
+            _logger.LogInformation(
+                "Video color space: {ColorSpace} ({Hdr})",
+                _colorspace,
+                _isHdr ? "HDR" : "SDR"
+            );
         }
         else
         {
@@ -807,21 +907,25 @@ public sealed class FFmpegReader : MediaReader
             if (_isHdr)
             {
                 _logger.LogInformation(
-                    "ForceSrgbGamma is enabled, but HDR content detected. HDR color space will be used instead of sRGB.");
+                    "ForceSrgbGamma is enabled, but HDR content detected. HDR color space will be used instead of sRGB."
+                );
             }
             else
             {
                 _logger.LogWarning(
-                    "ForceSrgbGamma is enabled, but the detected color space is not sRGB. Forcing sRGB gamma may lead to incorrect colors.");
+                    "ForceSrgbGamma is enabled, but the detected color space is not sRGB. Forcing sRGB gamma may lead to incorrect colors."
+                );
             }
         }
     }
 
     private BitmapColorSpace GetFrameColorSpace(MediaFrame frame)
     {
-        if (_colorspace != null) return _colorspace;
+        if (_colorspace != null)
+            return _colorspace;
 
-        if (_isHdr) return ColorSpaceHelper.BuildHdrColorSpace(frame.ColorTrc, frame.ColorPrimaries);
+        if (_isHdr)
+            return ColorSpaceHelper.BuildHdrColorSpace(frame.ColorTrc, frame.ColorPrimaries);
         return ColorSpaceHelper.BuildTargetColorSpace(frame.ColorTrc, frame.ColorPrimaries);
     }
 }

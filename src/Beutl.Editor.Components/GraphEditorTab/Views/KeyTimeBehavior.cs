@@ -6,7 +6,6 @@ using Avalonia.Xaml.Interactivity;
 using Beutl.Animation;
 using Beutl.Animation.Easings;
 using Beutl.Editor.Components.GraphEditorTab.ViewModels;
-
 using Path = Avalonia.Controls.Shapes.Path;
 
 namespace Beutl.Editor.Components.GraphEditorTab.Views;
@@ -14,6 +13,7 @@ namespace Beutl.Editor.Components.GraphEditorTab.Views;
 public class KeyTimeMoveState
 {
     public Point DragStart;
+
     // ViewControlPoint2は後ろの位置からの相対的な位置
     // ドラッグ前のコントロールポイントの位置（表示上の点）
     public (Point ControlPoint1, Point ControlPoint2)? ViewControlPoints;
@@ -55,7 +55,8 @@ public class KeyTimeBehavior : Behavior<Path>
     {
         base.OnAttached();
 
-        if (AssociatedObject == null) return;
+        if (AssociatedObject == null)
+            return;
         AssociatedObject.PointerPressed += OnControlPointPointerPressed;
     }
 
@@ -63,7 +64,8 @@ public class KeyTimeBehavior : Behavior<Path>
     {
         base.OnDetaching();
 
-        if (AssociatedObject == null) return;
+        if (AssociatedObject == null)
+            return;
         AssociatedObject.PointerPressed -= OnControlPointPointerPressed;
     }
 
@@ -71,7 +73,8 @@ public class KeyTimeBehavior : Behavior<Path>
     private bool TryGetValues(
         [NotNullWhen(true)] out GraphEditorView? view,
         [NotNullWhen(true)] out GraphEditorViewModel? viewModel,
-        [NotNullWhen(true)] out GraphEditorKeyFrameViewModel? keyFrameViewModel)
+        [NotNullWhen(true)] out GraphEditorKeyFrameViewModel? keyFrameViewModel
+    )
     {
         view = _view ??= AssociatedObject.FindAncestorOfType<GraphEditorView>();
         viewModel = view?.DataContext as GraphEditorViewModel;
@@ -113,13 +116,15 @@ public class KeyTimeBehavior : Behavior<Path>
                 KeyFrameViewModel = viewModel,
                 ViewControlPoints = GetSplineControlPoints(viewModel),
                 NextKeyFrameViewModel = viewModel.Parent.KeyFrames.ElementAtOrDefault(nextIndex),
-                NextViewControlPoints = viewModel.Parent.KeyFrames.ElementAtOrDefault(nextIndex) is { } next
+                NextViewControlPoints = viewModel.Parent.KeyFrames.ElementAtOrDefault(nextIndex)
+                    is { } next
                     ? GetSplineControlPoints(next)
                     : null,
                 Crossed = false,
-                FollowingKeyFrames = e.KeyModifiers == KeyModifiers.Shift
-                    ? viewModel.Parent.KeyFrames.Where(i => i != viewModel).ToArray()
-                    : null
+                FollowingKeyFrames =
+                    e.KeyModifiers == KeyModifiers.Shift
+                        ? viewModel.Parent.KeyFrames.Where(i => i != viewModel).ToArray()
+                        : null,
             };
 
             editorViewModel.BeginEditing();

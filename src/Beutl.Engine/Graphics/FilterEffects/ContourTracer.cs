@@ -64,7 +64,8 @@ public static class ContourTracer
     public static void FindContoursWithHierarchy(
         Bitmap bitmap,
         out Contours contours,
-        out PooledList<int> parentIndices)
+        out PooledList<int> parentIndices
+    )
     {
         using var alphaBitmap = bitmap.Convert(BitmapColorType.Alpha8);
         FindContoursCore(alphaBitmap, out var contoursList, out parentIndices);
@@ -74,7 +75,8 @@ public static class ContourTracer
     private static void FindContoursCore(
         Bitmap bitmap,
         out PooledList<PooledList<PixelPoint>> contours,
-        out PooledList<int> parentIndices)
+        out PooledList<int> parentIndices
+    )
     {
         int width = bitmap.Width;
         int height = bitmap.Height;
@@ -129,7 +131,14 @@ public static class ContourTracer
                     // Flood-fill the whole connected fg component seeded from all contour
                     // pixels so interior pixels (not on the traced boundary) are also marked.
                     // This prevents inner walls of ring-shaped regions from being re-traced.
-                    FloodFillContourMap(fgSpan, outerContourMapSpan, width, height, contour, contourIdx);
+                    FloodFillContourMap(
+                        fgSpan,
+                        outerContourMapSpan,
+                        width,
+                        height,
+                        contour,
+                        contourIdx
+                    );
                 }
             }
         }
@@ -159,13 +168,29 @@ public static class ContourTracer
                 using var adjFgArr = new PooledArray<bool>(height * width);
                 Span<bool> adjFgSpan = adjFgArr.Span;
                 adjFgSpan.Clear();
-                FloodFillAndMarkAdjFg(fgSpan, externalBgSpan, holeVisitedSpan, adjFgSpan, width, height, x, y);
+                FloodFillAndMarkAdjFg(
+                    fgSpan,
+                    externalBgSpan,
+                    holeVisitedSpan,
+                    adjFgSpan,
+                    width,
+                    height,
+                    x,
+                    y
+                );
 
                 // The fg pixel directly above the topmost-leftmost bg pixel starts the trace.
                 if (y > 0 && fgSpan[(y - 1) * width + x])
                 {
                     int parentIdx = outerContourMapSpan[(y - 1) * width + x];
-                    using var rawContour = TraceBorder(adjFgSpan, width, height, x, y - 1, startDir: 2);
+                    using var rawContour = TraceBorder(
+                        adjFgSpan,
+                        width,
+                        height,
+                        x,
+                        y - 1,
+                        startDir: 2
+                    );
                     contours.Add(ApproxSimple(rawContour));
                     parentIndices.Add(parentIdx);
                 }
@@ -181,8 +206,13 @@ public static class ContourTracer
     /// interior pixels surrounded by already-labeled boundary pixels are reached.
     /// </summary>
     private static void FloodFillContourMap(
-        Span<bool> fg, Span<int> contourMap, int width, int height,
-        PooledList<PixelPoint> seeds, int label)
+        Span<bool> fg,
+        Span<int> contourMap,
+        int width,
+        int height,
+        PooledList<PixelPoint> seeds,
+        int label
+    )
     {
         Queue<PixelPoint> queue = new();
         foreach (PixelPoint p in seeds)
@@ -212,7 +242,11 @@ public static class ContourTracer
     /// Flood fills from all image boundary background pixels to identify external background.
     /// Uses 4-connectivity for background (complementary to 8-connected foreground).
     /// </summary>
-    private static PooledArray<bool> FloodFillExternalBackground(Span<bool> fg, int width, int height)
+    private static PooledArray<bool> FloodFillExternalBackground(
+        Span<bool> fg,
+        int width,
+        int height
+    )
     {
         var visited = new PooledArray<bool>(height * width);
         var visitedSpan = visited.Span;
@@ -280,12 +314,18 @@ public static class ContourTracer
     /// Traces a contour border starting from (startX, startY) using Moore neighborhood tracing.
     /// </summary>
     private static PooledList<PixelPoint> TraceBorder(
-        Span<bool> fg, int width, int height,
-        int startX, int startY, int startDir)
+        Span<bool> fg,
+        int width,
+        int height,
+        int startX,
+        int startY,
+        int startDir
+    )
     {
         // Find the first foreground neighbor by scanning clockwise from startDir
         int firstDir = -1;
-        int firstX = -1, firstY = -1;
+        int firstX = -1,
+            firstY = -1;
 
         for (int i = 0; i < 8; i++)
         {
@@ -310,7 +350,8 @@ public static class ContourTracer
 
         PooledList<PixelPoint> contour = [new PixelPoint(startX, startY)];
 
-        int curX = firstX, curY = firstY;
+        int curX = firstX,
+            curY = firstY;
         int prevDir = firstDir;
 
         // Safety limit to prevent infinite loops in degenerate cases
@@ -346,7 +387,8 @@ public static class ContourTracer
             // Search for next border pixel
             int searchStart = ((prevDir + 4) % 8 + 1) % 8;
             int nextDir = -1;
-            int nextX = -1, nextY = -1;
+            int nextX = -1,
+                nextY = -1;
 
             for (int i = 0; i < 8; i++)
             {
@@ -384,8 +426,15 @@ public static class ContourTracer
     /// a hole's inner boundary to the outer boundary of a ring-shaped fg region.
     /// </summary>
     private static void FloodFillAndMarkAdjFg(
-        Span<bool> fg, Span<bool> externalBg, Span<bool> visited, Span<bool> adjFg,
-        int width, int height, int startX, int startY)
+        Span<bool> fg,
+        Span<bool> externalBg,
+        Span<bool> visited,
+        Span<bool> adjFg,
+        int width,
+        int height,
+        int startX,
+        int startY
+    )
     {
         Queue<PixelPoint> queue = new();
         visited[startY * width + startX] = true;

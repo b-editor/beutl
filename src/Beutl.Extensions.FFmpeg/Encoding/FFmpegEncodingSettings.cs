@@ -2,8 +2,10 @@
 
 #if BEUTL_FFMPEG_WORKER
 namespace Beutl.FFmpegWorker.Encoding;
+
 #else
 namespace Beutl.Extensions.FFmpeg.Encoding;
+
 #endif
 
 public sealed class FFmpegEncodingSettings : ExtensionSettings
@@ -17,7 +19,9 @@ public sealed class FFmpegEncodingSettings : ExtensionSettings
             .DefaultValue(-1)
             .Register();
 
-        AccelerationProperty = ConfigureProperty<AccelerationOptions, FFmpegEncodingSettings>(nameof(Acceleration))
+        AccelerationProperty = ConfigureProperty<AccelerationOptions, FFmpegEncodingSettings>(
+                nameof(Acceleration)
+            )
             .DefaultValue(AccelerationOptions.Software)
             .Register();
 
@@ -50,6 +54,6 @@ public sealed class FFmpegEncodingSettings : ExtensionSettings
         DRM,
         OpenCL,
         MediaCodec,
-        Vulkan
+        Vulkan,
     }
 }

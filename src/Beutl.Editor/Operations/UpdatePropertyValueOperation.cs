@@ -4,8 +4,12 @@ using Beutl.Engine.Expressions;
 
 namespace Beutl.Editor.Operations;
 
-public sealed class UpdatePropertyValueOperation<T>(CoreObject obj, string propertyPath, T newValue, T oldValue)
-    : ChangeOperation, IPropertyPathProvider, IMergableChangeOperation, IUpdatePropertyValueOperation
+public sealed class UpdatePropertyValueOperation<T>(
+    CoreObject obj,
+    string propertyPath,
+    T newValue,
+    T oldValue
+) : ChangeOperation, IPropertyPathProvider, IMergableChangeOperation, IUpdatePropertyValueOperation
 {
     public CoreObject Object { get; set; } = obj;
 
@@ -48,7 +52,12 @@ public sealed class UpdatePropertyValueOperation<T>(CoreObject obj, string prope
         return (name, updateAnimation, updateExpression);
     }
 
-    private static void UpdateEngineProperty(IProperty engineProperty, bool updateAnimation, bool updateExpression, T value)
+    private static void UpdateEngineProperty(
+        IProperty engineProperty,
+        bool updateAnimation,
+        bool updateExpression,
+        T value
+    )
     {
         if (updateAnimation)
         {
@@ -87,9 +96,11 @@ public sealed class UpdatePropertyValueOperation<T>(CoreObject obj, string prope
 
         if (Object is EngineObject engineObj)
         {
-            var engineProperty = engineObj.Properties.FirstOrDefault(p => p.Name == name)
-                                 ?? throw new InvalidOperationException(
-                                     $"Engine property {PropertyPath} not found on type {engineObj.GetType().FullName}.");
+            var engineProperty =
+                engineObj.Properties.FirstOrDefault(p => p.Name == name)
+                ?? throw new InvalidOperationException(
+                    $"Engine property {PropertyPath} not found on type {engineObj.GetType().FullName}."
+                );
 
             UpdateEngineProperty(engineProperty, updateAnimation, updateExpression, NewValue);
         }
@@ -109,9 +120,11 @@ public sealed class UpdatePropertyValueOperation<T>(CoreObject obj, string prope
 
         if (Object is EngineObject engineObj)
         {
-            var engineProperty = engineObj.Properties.FirstOrDefault(p => p.Name == name)
-                                 ?? throw new InvalidOperationException(
-                                     $"Engine property {PropertyPath} not found on type {engineObj.GetType().FullName}.");
+            var engineProperty =
+                engineObj.Properties.FirstOrDefault(p => p.Name == name)
+                ?? throw new InvalidOperationException(
+                    $"Engine property {PropertyPath} not found on type {engineObj.GetType().FullName}."
+                );
 
             UpdateEngineProperty(engineProperty, updateAnimation, updateExpression, OldValue);
         }
@@ -119,12 +132,14 @@ public sealed class UpdatePropertyValueOperation<T>(CoreObject obj, string prope
 
     public bool TryMerge(ChangeOperation other)
     {
-        if (other is not UpdatePropertyValueOperation<T> op) return false;
-        if (op.Object != Object) return false;
-        if (op.PropertyPath != PropertyPath) return false;
+        if (other is not UpdatePropertyValueOperation<T> op)
+            return false;
+        if (op.Object != Object)
+            return false;
+        if (op.PropertyPath != PropertyPath)
+            return false;
 
         NewValue = op.NewValue;
         return true;
-
     }
 }

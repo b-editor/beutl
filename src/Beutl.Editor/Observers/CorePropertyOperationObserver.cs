@@ -24,7 +24,8 @@ public sealed class CorePropertyOperationObserver<T> : IOperationObserver
         CoreProperty<T> property,
         OperationSequenceGenerator sequenceNumberGenerator,
         string propertyPath,
-        HashSet<string>? propertyPathsToTrack = null)
+        HashSet<string>? propertyPathsToTrack = null
+    )
     {
         _object = obj;
         _property = property;
@@ -71,12 +72,24 @@ public sealed class CorePropertyOperationObserver<T> : IOperationObserver
         {
             case IList list:
                 var elementType = ArrayTypeHelpers.GetElementType(list.GetType());
-                if (elementType == null) throw new InvalidOperationException("Could not determine the element type of the list.");
-                var observerType = typeof(CollectionOperationObserver<>).MakeGenericType(elementType);
+                if (elementType == null)
+                    throw new InvalidOperationException(
+                        "Could not determine the element type of the list."
+                    );
+                var observerType = typeof(CollectionOperationObserver<>).MakeGenericType(
+                    elementType
+                );
 
-                _collectionPublisher = (IOperationObserver)Activator.CreateInstance(observerType,
-                    _operations, list, _object,
-                    _propertyPath, _sequenceNumberGenerator, _propertyPathsToTrack)!;
+                _collectionPublisher = (IOperationObserver)
+                    Activator.CreateInstance(
+                        observerType,
+                        _operations,
+                        list,
+                        _object,
+                        _propertyPath,
+                        _sequenceNumberGenerator,
+                        _propertyPathsToTrack
+                    )!;
                 break;
             case ICoreObject child:
                 _childPublisher = new CoreObjectOperationObserver(
@@ -84,26 +97,35 @@ public sealed class CorePropertyOperationObserver<T> : IOperationObserver
                     child,
                     _sequenceNumberGenerator,
                     _propertyPath,
-                    _propertyPathsToTrack);
+                    _propertyPathsToTrack
+                );
                 break;
         }
     }
 
     public void OnPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
-        if (PublishingSuppression.IsSuppressed) return;
-        if (e is not CorePropertyChangedEventArgs<T> args) return;
-        if (sender is not ICoreObject source) return;
+        if (PublishingSuppression.IsSuppressed)
+            return;
+        if (e is not CorePropertyChangedEventArgs<T> args)
+            return;
+        if (sender is not ICoreObject source)
+            return;
 
         // プロパティが同じか
-        if (args.Property.Id != _property.Id) return;
+        if (args.Property.Id != _property.Id)
+            return;
 
         RecreateChildPublisher();
 
         var operation = new UpdatePropertyValueOperation<T?>(
-            (CoreObject)source, _propertyPath, args.NewValue, args.OldValue)
+            (CoreObject)source,
+            _propertyPath,
+            args.NewValue,
+            args.OldValue
+        )
         {
-            SequenceNumber = _sequenceNumberGenerator.GetNext()
+            SequenceNumber = _sequenceNumberGenerator.GetNext(),
         };
         _operations.OnNext(operation);
     }

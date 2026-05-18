@@ -28,7 +28,8 @@ public static class MathUtilities
     public static bool AreClose(double value1, double value2)
     {
         //in case they are Infinities (then epsilon check does not work)
-        if (value1 == value2) return true;
+        if (value1 == value2)
+            return true;
         double eps = (Math.Abs(value1) + Math.Abs(value2) + 10.0) * DoubleEpsilon;
         double delta = value1 - value2;
         return (-eps < delta) && (eps > delta);
@@ -44,7 +45,8 @@ public static class MathUtilities
     public static bool AreClose(double value1, double value2, double eps)
     {
         //in case they are Infinities (then epsilon check does not work)
-        if (value1 == value2) return true;
+        if (value1 == value2)
+            return true;
         double delta = value1 - value2;
         return (-eps < delta) && (eps > delta);
     }
@@ -58,7 +60,8 @@ public static class MathUtilities
     public static bool AreClose(float value1, float value2)
     {
         //in case they are Infinities (then epsilon check does not work)
-        if (value1 == value2) return true;
+        if (value1 == value2)
+            return true;
         float eps = (Math.Abs(value1) + Math.Abs(value2) + 10.0f) * FloatEpsilon;
         float delta = value1 - value2;
         return (-eps < delta) && (eps > delta);

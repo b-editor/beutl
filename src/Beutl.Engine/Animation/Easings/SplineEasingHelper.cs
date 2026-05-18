@@ -8,8 +8,8 @@ public static class SplineEasingHelper
 {
     private const float Eps = 1e-9f;
 
-    private static (float x, float y) Lerp((float x, float y) a, (float x, float y) b, float t)
-        => (a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t);
+    private static (float x, float y) Lerp((float x, float y) a, (float x, float y) b, float t) =>
+        (a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t);
 
     private static float Bezier(float t, float p0, float p1, float p2, float p3)
     {
@@ -22,14 +22,17 @@ public static class SplineEasingHelper
         t = Math.Clamp(t, 0.0f, 1.0f);
 
         // x(tau) = t を満たすパラメータ s を2分探索で求める
-        float s0 = 0, s1 = 1;
+        float s0 = 0,
+            s1 = 1;
         float s = 0.5f;
         for (int i = 0; i < 40; i++)
         {
             s = 0.5f * (s0 + s1);
             float x = Bezier(s, 0, src.X1, src.X2, 1);
-            if (x < t) s0 = s;
-            else s1 = s;
+            if (x < t)
+                s0 = s;
+            else
+                s1 = s;
         }
 
         return SplitByS(src, s);
@@ -67,16 +70,11 @@ public static class SplineEasingHelper
         var R1 = (x: (P123.x - xs) * sxR, y: (P123.y - ys) * syR);
         var R2 = (x: (P23.x - xs) * sxR, y: (P23.y - ys) * syR);
 
-        static float Clamp01(float v) =>
-            float.IsNaN(v) ? 0 : (MathF.Abs(v) < Eps ? 0 : v);
+        static float Clamp01(float v) => float.IsNaN(v) ? 0 : (MathF.Abs(v) < Eps ? 0 : v);
 
-        var left = new SplineEasing(
-            Clamp01(L1.x), Clamp01(L1.y),
-            Clamp01(L2.x), Clamp01(L2.y));
+        var left = new SplineEasing(Clamp01(L1.x), Clamp01(L1.y), Clamp01(L2.x), Clamp01(L2.y));
 
-        var right = new SplineEasing(
-            Clamp01(R1.x), Clamp01(R1.y),
-            Clamp01(R2.x), Clamp01(R2.y));
+        var right = new SplineEasing(Clamp01(R1.x), Clamp01(R1.y), Clamp01(R2.x), Clamp01(R2.y));
 
         return (left, right);
     }
@@ -93,7 +91,11 @@ public static class SplineEasingHelper
         public (float X, float Y) P2;
         public SplineEasing Easing;
 
-        public InterpolationInfo(SplineEasing easing, KeyFrame<T> keyframe, KeyFrame<T> prevKeyFrame)
+        public InterpolationInfo(
+            SplineEasing easing,
+            KeyFrame<T> keyframe,
+            KeyFrame<T> prevKeyFrame
+        )
         {
             Decrease = keyframe.Value < prevKeyFrame.Value;
             Height = float.CreateChecked(T.Abs(keyframe.Value - prevKeyFrame.Value));
@@ -101,8 +103,14 @@ public static class SplineEasingHelper
             P1 = (X: 0f, Y: Decrease ? Height : 0f);
             P2 = (X: Width, Y: Decrease ? 0f : Height);
 
-            CP1 = (X: easing.X1 * Width, Y: Decrease ? (1 - easing.Y1) * Height : easing.Y1 * Height);
-            CP2 = (X: easing.X2 * Width, Y: Decrease ? (1 - easing.Y2) * Height : easing.Y2 * Height);
+            CP1 = (
+                X: easing.X1 * Width,
+                Y: Decrease ? (1 - easing.Y1) * Height : easing.Y1 * Height
+            );
+            CP2 = (
+                X: easing.X2 * Width,
+                Y: Decrease ? (1 - easing.Y2) * Height : easing.Y2 * Height
+            );
             Easing = easing;
         }
 
@@ -149,8 +157,10 @@ public static class SplineEasingHelper
                 newPoint.Y = newPoint.Y / Height;
             }
 
-            if (!double.IsFinite(newPoint.X)) newPoint.X = 0;
-            if (!double.IsFinite(newPoint.Y)) newPoint.Y = 0;
+            if (!double.IsFinite(newPoint.X))
+                newPoint.X = 0;
+            if (!double.IsFinite(newPoint.Y))
+                newPoint.Y = 0;
 
             // Update CP1
             Easing.X1 = newPoint.X;
@@ -179,8 +189,10 @@ public static class SplineEasingHelper
                 newPoint.Y = newPoint.Y / Height;
             }
 
-            if (!double.IsFinite(newPoint.X)) newPoint.X = 1;
-            if (!double.IsFinite(newPoint.Y)) newPoint.Y = 1;
+            if (!double.IsFinite(newPoint.X))
+                newPoint.X = 1;
+            if (!double.IsFinite(newPoint.Y))
+                newPoint.Y = 1;
 
             // Update CP2
             Easing.X2 = newPoint.X;
@@ -208,8 +220,10 @@ public static class SplineEasingHelper
                 newPoint.Y = newPoint.Y / Height;
             }
 
-            if (!double.IsFinite(newPoint.X)) newPoint.X = 0;
-            if (!double.IsFinite(newPoint.Y)) newPoint.Y = 0;
+            if (!double.IsFinite(newPoint.X))
+                newPoint.X = 0;
+            if (!double.IsFinite(newPoint.Y))
+                newPoint.Y = 0;
 
             // Update CP1
             var easing = Easing;
@@ -238,8 +252,10 @@ public static class SplineEasingHelper
                 newPoint.Y = newPoint.Y / Height;
             }
 
-            if (!double.IsFinite(newPoint.X)) newPoint.X = 1;
-            if (!double.IsFinite(newPoint.Y)) newPoint.Y = 1;
+            if (!double.IsFinite(newPoint.X))
+                newPoint.X = 1;
+            if (!double.IsFinite(newPoint.Y))
+                newPoint.Y = 1;
 
             // Update CP2
             var easing = Easing;
@@ -285,8 +301,14 @@ public static class SplineEasingHelper
         return (x, y);
     }
 
-    private static readonly ConcurrentDictionary<Type, Optional<MethodInfo>> s_cachedRemoveGenericMethods = new();
-    private static readonly ConcurrentDictionary<Type, Optional<MethodInfo>> s_cachedMoveGenericMethods = new();
+    private static readonly ConcurrentDictionary<
+        Type,
+        Optional<MethodInfo>
+    > s_cachedRemoveGenericMethods = new();
+    private static readonly ConcurrentDictionary<
+        Type,
+        Optional<MethodInfo>
+    > s_cachedMoveGenericMethods = new();
 
     public static void Remove(IKeyFrameAnimation animation, int index)
     {
@@ -295,11 +317,18 @@ public static class SplineEasingHelper
         {
             s_cachedRemoveGenericMethods[type] = method = default;
             Type[] interfaces = type.GetInterfaces();
-            if (type.IsValueType &&
-                interfaces.Any(x => x.IsGenericType && x.GetGenericTypeDefinition() == typeof(INumber<>)))
+            if (
+                type.IsValueType
+                && interfaces.Any(x =>
+                    x.IsGenericType && x.GetGenericTypeDefinition() == typeof(INumber<>)
+                )
+            )
             {
                 Type methodType = typeof(SplineEasingHelper);
-                var methodInfo = methodType.GetMethod(nameof(RemoveGeneric), BindingFlags.Public | BindingFlags.Static);
+                var methodInfo = methodType.GetMethod(
+                    nameof(RemoveGeneric),
+                    BindingFlags.Public | BindingFlags.Static
+                );
                 if (methodInfo != null)
                 {
                     var genericMethod = methodInfo.MakeGenericMethod(type);
@@ -318,19 +347,25 @@ public static class SplineEasingHelper
         }
     }
 
-    public static void Move(
-        IKeyFrameAnimation animation, IKeyFrame keyFrame, TimeSpan keyTime)
+    public static void Move(IKeyFrameAnimation animation, IKeyFrame keyFrame, TimeSpan keyTime)
     {
         var type = animation.ValueType;
         if (!s_cachedMoveGenericMethods.TryGetValue(type, out var method))
         {
             s_cachedMoveGenericMethods[type] = method = default;
             Type[] interfaces = type.GetInterfaces();
-            if (type.IsValueType &&
-                interfaces.Any(x => x.IsGenericType && x.GetGenericTypeDefinition() == typeof(INumber<>)))
+            if (
+                type.IsValueType
+                && interfaces.Any(x =>
+                    x.IsGenericType && x.GetGenericTypeDefinition() == typeof(INumber<>)
+                )
+            )
             {
                 Type methodType = typeof(SplineEasingHelper);
-                var methodInfo = methodType.GetMethod(nameof(MoveGeneric), BindingFlags.Public | BindingFlags.Static);
+                var methodInfo = methodType.GetMethod(
+                    nameof(MoveGeneric),
+                    BindingFlags.Public | BindingFlags.Static
+                );
                 if (methodInfo != null)
                 {
                     var genericMethod = methodInfo.MakeGenericMethod(type);
@@ -356,30 +391,39 @@ public static class SplineEasingHelper
         if (index >= animation.KeyFrames.Count)
             return;
 
-        if (0 <= index - 1 && index + 1 < animation.KeyFrames.Count
-                           && animation.KeyFrames[index + 1] is KeyFrame<T> { Easing: SplineEasing } nextKeyFrame
-                           && animation.KeyFrames[index - 1] is KeyFrame<T>
-                           {
-                               Easing: SplineEasing prevSplineEasing
-                           } prevKeyFrame)
+        if (
+            0 <= index - 1
+            && index + 1 < animation.KeyFrames.Count
+            && animation.KeyFrames[index + 1] is KeyFrame<T> { Easing: SplineEasing } nextKeyFrame
+            && animation.KeyFrames[index - 1]
+                is KeyFrame<T> { Easing: SplineEasing prevSplineEasing } prevKeyFrame
+        )
         {
             nextKeyFrame.Easing = new SplineEasing();
             var nextSplineEasing = (SplineEasing)nextKeyFrame.Easing;
             var nextInfo = new InterpolationInfo<T>(nextSplineEasing, nextKeyFrame, prevKeyFrame);
 
-            if (0 <= index - 2
-                && animation.KeyFrames[index - 2] is KeyFrame<T> prevPrevKeyFrame)
+            if (0 <= index - 2 && animation.KeyFrames[index - 2] is KeyFrame<T> prevPrevKeyFrame)
             {
-                var prevInfo = new InterpolationInfo<T>(prevSplineEasing, prevKeyFrame, prevPrevKeyFrame);
+                var prevInfo = new InterpolationInfo<T>(
+                    prevSplineEasing,
+                    prevKeyFrame,
+                    prevPrevKeyFrame
+                );
                 nextInfo.MakeControlPoint1Symmetry(prevInfo);
             }
 
-            if (index + 2 < animation.KeyFrames.Count && animation.KeyFrames[index + 2] is KeyFrame<T>
-                {
-                    Easing: SplineEasing nextNextSplineEasing
-                } nextNextKeyFrame)
+            if (
+                index + 2 < animation.KeyFrames.Count
+                && animation.KeyFrames[index + 2]
+                    is KeyFrame<T> { Easing: SplineEasing nextNextSplineEasing } nextNextKeyFrame
+            )
             {
-                var nextNextInfo = new InterpolationInfo<T>(nextNextSplineEasing, nextNextKeyFrame, nextKeyFrame);
+                var nextNextInfo = new InterpolationInfo<T>(
+                    nextNextSplineEasing,
+                    nextNextKeyFrame,
+                    nextKeyFrame
+                );
                 nextInfo.MakeControlPoint2Symmetry(nextNextInfo);
             }
 
@@ -389,23 +433,28 @@ public static class SplineEasingHelper
         animation.KeyFrames.RemoveAt(index);
     }
 
-
     public static void MoveGeneric<T>(
-        KeyFrameAnimation<T> animation, KeyFrame<T> keyFrame, TimeSpan keyTime)
+        KeyFrameAnimation<T> animation,
+        KeyFrame<T> keyFrame,
+        TimeSpan keyTime
+    )
         where T : struct, INumber<T>
     {
         int oldIndex = animation.KeyFrames.IndexOf(keyFrame);
 
-        var oldNextKeyFrame = oldIndex + 1 < animation.KeyFrames.Count
-            ? (KeyFrame<T>)animation.KeyFrames[oldIndex + 1]
-            : null;
-        var oldPrevKeyFrame = 0 <= oldIndex - 1 ? (KeyFrame<T>)animation.KeyFrames[oldIndex - 1] : null;
+        var oldNextKeyFrame =
+            oldIndex + 1 < animation.KeyFrames.Count
+                ? (KeyFrame<T>)animation.KeyFrames[oldIndex + 1]
+                : null;
+        var oldPrevKeyFrame =
+            0 <= oldIndex - 1 ? (KeyFrame<T>)animation.KeyFrames[oldIndex - 1] : null;
         var oldNextInfo = oldNextKeyFrame?.Easing is SplineEasing oldNextEasing
             ? new InterpolationInfo<T>(oldNextEasing, oldNextKeyFrame, keyFrame)
             : null;
-        var currentInfo = keyFrame.Easing is SplineEasing currentEasing && oldPrevKeyFrame != null
-            ? new InterpolationInfo<T>(currentEasing, keyFrame, oldPrevKeyFrame)
-            : null;
+        var currentInfo =
+            keyFrame.Easing is SplineEasing currentEasing && oldPrevKeyFrame != null
+                ? new InterpolationInfo<T>(currentEasing, keyFrame, oldPrevKeyFrame)
+                : null;
         var oldNextCPV1 = oldNextInfo?.ControlPoint1Vector();
         var oldNextCPV2 = oldNextInfo?.ControlPoint2Vector();
         var currentCPV1 = currentInfo?.ControlPoint1Vector();
@@ -421,22 +470,27 @@ public static class SplineEasingHelper
             oldNextInfo?.Update(oldNextKeyFrame, keyFrame);
             currentInfo?.Update(keyFrame, oldPrevKeyFrame);
 
-            if (oldNextCPV1.HasValue) oldNextInfo?.UpdateControlPoint1(oldNextCPV1.Value);
-            if (oldNextCPV2.HasValue) oldNextInfo?.UpdateControlPoint2(oldNextCPV2.Value);
-            if (currentCPV1.HasValue) currentInfo?.UpdateControlPoint1(currentCPV1.Value);
-            if (currentCPV2.HasValue) currentInfo?.UpdateControlPoint2(currentCPV2.Value);
+            if (oldNextCPV1.HasValue)
+                oldNextInfo?.UpdateControlPoint1(oldNextCPV1.Value);
+            if (oldNextCPV2.HasValue)
+                oldNextInfo?.UpdateControlPoint2(oldNextCPV2.Value);
+            if (currentCPV1.HasValue)
+                currentInfo?.UpdateControlPoint1(currentCPV1.Value);
+            if (currentCPV2.HasValue)
+                currentInfo?.UpdateControlPoint2(currentCPV2.Value);
         }
         else if (0 <= newIndex && newIndex <= animation.KeyFrames.Count)
         {
-            var newNextKeyFrame = newIndex < animation.KeyFrames.Count
-                ? (KeyFrame<T>)animation.KeyFrames[newIndex]
-                : null;
-            var newPrevKeyFrame = 0 <= newIndex - 1
-                ? (KeyFrame<T>)animation.KeyFrames[newIndex - 1]
-                : null;
-            var newNextInfo = newNextKeyFrame?.Easing is SplineEasing newNextEasing && newPrevKeyFrame != null
-                ? new InterpolationInfo<T>(newNextEasing, newNextKeyFrame, newPrevKeyFrame)
-                : null;
+            var newNextKeyFrame =
+                newIndex < animation.KeyFrames.Count
+                    ? (KeyFrame<T>)animation.KeyFrames[newIndex]
+                    : null;
+            var newPrevKeyFrame =
+                0 <= newIndex - 1 ? (KeyFrame<T>)animation.KeyFrames[newIndex - 1] : null;
+            var newNextInfo =
+                newNextKeyFrame?.Easing is SplineEasing newNextEasing && newPrevKeyFrame != null
+                    ? new InterpolationInfo<T>(newNextEasing, newNextKeyFrame, newPrevKeyFrame)
+                    : null;
 
             var newNextCPV1 = newNextInfo?.ControlPoint1Vector();
             var newNextCPV2 = newNextInfo?.ControlPoint2Vector();

@@ -85,7 +85,9 @@ internal sealed class Counter<T>
         {
             if (_refs == 0)
             {
-                Trace.WriteLine($"Counter<{typeof(T).FullName}>.Release called past zero - possible double-release bug.{Environment.NewLine}{Environment.StackTrace}");
+                Trace.WriteLine(
+                    $"Counter<{typeof(T).FullName}>.Release called past zero - possible double-release bug.{Environment.NewLine}{Environment.StackTrace}"
+                );
                 return;
             }
 

@@ -1,7 +1,6 @@
 ﻿using System.Globalization;
 using System.Numerics;
 using System.Reactive.Disposables;
-
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Metadata;
@@ -9,7 +8,6 @@ using Avalonia.Controls.Primitives;
 using Avalonia.Data;
 using Avalonia.Input;
 using Avalonia.Interactivity;
-
 using Beutl.Reactive;
 
 namespace Beutl.Controls.PropertyEditors;
@@ -22,38 +20,42 @@ public class Vector4Editor<TElement> : Vector4Editor
             nameof(FirstValue),
             o => o.FirstValue,
             (o, v) => o.FirstValue = v,
-            defaultBindingMode: BindingMode.TwoWay);
+            defaultBindingMode: BindingMode.TwoWay
+        );
 
     public static readonly DirectProperty<Vector4Editor<TElement>, TElement> SecondValueProperty =
         AvaloniaProperty.RegisterDirect<Vector4Editor<TElement>, TElement>(
             nameof(SecondValue),
             o => o.SecondValue,
             (o, v) => o.SecondValue = v,
-            defaultBindingMode: BindingMode.TwoWay);
+            defaultBindingMode: BindingMode.TwoWay
+        );
 
     public static readonly DirectProperty<Vector4Editor<TElement>, TElement> ThirdValueProperty =
         AvaloniaProperty.RegisterDirect<Vector4Editor<TElement>, TElement>(
             nameof(ThirdValue),
             o => o.ThirdValue,
             (o, v) => o.ThirdValue = v,
-            defaultBindingMode: BindingMode.TwoWay);
+            defaultBindingMode: BindingMode.TwoWay
+        );
 
     public static readonly DirectProperty<Vector4Editor<TElement>, TElement> FourthValueProperty =
         AvaloniaProperty.RegisterDirect<Vector4Editor<TElement>, TElement>(
             nameof(FourthValue),
             o => o.FourthValue,
             (o, v) => o.FourthValue = v,
-            defaultBindingMode: BindingMode.TwoWay);
+            defaultBindingMode: BindingMode.TwoWay
+        );
 
-    public static readonly StyledProperty<TElement> LargeChangeProperty =
-        AvaloniaProperty.Register<Vector4Editor<TElement>, TElement>(
-            nameof(LargeChange),
-            defaultValue: TElement.CreateTruncating(10));
+    public static readonly StyledProperty<TElement> LargeChangeProperty = AvaloniaProperty.Register<
+        Vector4Editor<TElement>,
+        TElement
+    >(nameof(LargeChange), defaultValue: TElement.CreateTruncating(10));
 
-    public static readonly StyledProperty<TElement> SmallChangeProperty =
-        AvaloniaProperty.Register<Vector4Editor<TElement>, TElement>(
-            nameof(SmallChange),
-            defaultValue: TElement.One);
+    public static readonly StyledProperty<TElement> SmallChangeProperty = AvaloniaProperty.Register<
+        Vector4Editor<TElement>,
+        TElement
+    >(nameof(SmallChange), defaultValue: TElement.One);
 
     private readonly CompositeDisposable _disposables = [];
     private TElement _firstValue;
@@ -143,21 +145,35 @@ public class Vector4Editor<TElement> : Vector4Editor
         {
             if (textBox != null)
             {
-                textBox.AddDisposableHandler(GotFocusEvent, OnInnerTextBoxGotFocus)
+                textBox
+                    .AddDisposableHandler(GotFocusEvent, OnInnerTextBoxGotFocus)
                     .DisposeWith(_disposables);
-                textBox.AddDisposableHandler(LostFocusEvent, OnInnerTextBoxLostFocus)
+                textBox
+                    .AddDisposableHandler(LostFocusEvent, OnInnerTextBoxLostFocus)
                     .DisposeWith(_disposables);
-                textBox.GetPropertyChangedObservable(TextBox.TextProperty)
+                textBox
+                    .GetPropertyChangedObservable(TextBox.TextProperty)
                     .Subscribe(e =>
                     {
-                        if (e is AvaloniaPropertyChangedEventArgs<string> args
-                            && args.Sender is TextBox textBox)
+                        if (
+                            e is AvaloniaPropertyChangedEventArgs<string> args
+                            && args.Sender is TextBox textBox
+                        )
                         {
-                            OnInnerTextBoxTextChanged(textBox, args.NewValue.GetValueOrDefault(), args.OldValue.GetValueOrDefault());
+                            OnInnerTextBoxTextChanged(
+                                textBox,
+                                args.NewValue.GetValueOrDefault(),
+                                args.OldValue.GetValueOrDefault()
+                            );
                         }
                     })
                     .DisposeWith(_disposables);
-                textBox.AddDisposableHandler(PointerWheelChangedEvent, OnInnerTextBoxPointerWheelChanged, RoutingStrategies.Tunnel)
+                textBox
+                    .AddDisposableHandler(
+                        PointerWheelChangedEvent,
+                        OnInnerTextBoxPointerWheelChanged,
+                        RoutingStrategies.Tunnel
+                    )
                     .DisposeWith(_disposables);
             }
         }
@@ -174,15 +190,17 @@ public class Vector4Editor<TElement> : Vector4Editor
         SubscribeEvents(InnerThirdTextBox);
         SubscribeEvents(InnerFourthTextBox);
 
-
         _headerText = e.NameScope.Find<TextBlock>("PART_HeaderTextBlock");
         if (_headerText != null)
         {
-            _headerText.AddDisposableHandler(PointerPressedEvent, OnTextBlockPointerPressed)
+            _headerText
+                .AddDisposableHandler(PointerPressedEvent, OnTextBlockPointerPressed)
                 .DisposeWith(_disposables);
-            _headerText.AddDisposableHandler(PointerReleasedEvent, OnTextBlockPointerReleased)
+            _headerText
+                .AddDisposableHandler(PointerReleasedEvent, OnTextBlockPointerReleased)
                 .DisposeWith(_disposables);
-            _headerText.AddDisposableHandler(PointerMovedEvent, OnTextBlockPointerMoved)
+            _headerText
+                .AddDisposableHandler(PointerMovedEvent, OnTextBlockPointerMoved)
                 .DisposeWith(_disposables);
             _headerText.Cursor = PointerLockHelper.SizeWestEast;
         }
@@ -192,29 +210,40 @@ public class Vector4Editor<TElement> : Vector4Editor
 
     private void OnTextBlockPointerMoved(object sender, PointerEventArgs e)
     {
-        if (!(InnerFirstTextBox.IsKeyboardFocusWithin
-            || InnerSecondTextBox?.IsKeyboardFocusWithin == true
-            || InnerThirdTextBox?.IsKeyboardFocusWithin == true
-            || InnerFourthTextBox?.IsKeyboardFocusWithin == true)
-            && _headerPressed)
+        if (
+            !(
+                InnerFirstTextBox.IsKeyboardFocusWithin
+                || InnerSecondTextBox?.IsKeyboardFocusWithin == true
+                || InnerThirdTextBox?.IsKeyboardFocusWithin == true
+                || InnerFourthTextBox?.IsKeyboardFocusWithin == true
+            ) && _headerPressed
+        )
         {
             Point point = e.GetPosition(_headerText);
 
             // ポインタロック + デルタ取得
             Point move = PointerLockHelper.Moved(_headerText, point, ref _headerDragStart);
             double scaledX = NumberEditorHelper.ApplyScrubModifier(move.X, e.KeyModifiers);
-            TElement delta = NumberEditorHelper.ConsumeScrubAccumulator<TElement>(ref _scrubAccumulator, scaledX) * SmallChange;
+            TElement delta =
+                NumberEditorHelper.ConsumeScrubAccumulator<TElement>(ref _scrubAccumulator, scaledX)
+                * SmallChange;
 
             var newValues = (
                 NumberEditorHelper.AddPreservingScale(FirstValue, delta),
                 NumberEditorHelper.AddPreservingScale(SecondValue, delta),
                 NumberEditorHelper.AddPreservingScale(ThirdValue, delta),
-                NumberEditorHelper.AddPreservingScale(FourthValue, delta));
+                NumberEditorHelper.AddPreservingScale(FourthValue, delta)
+            );
             var oldValues = (FirstValue, SecondValue, ThirdValue, FourthValue);
 
             (FirstValue, SecondValue, ThirdValue, FourthValue) = newValues;
-            RaiseEvent(new PropertyEditorValueChangedEventArgs<(TElement, TElement, TElement, TElement)>(
-                newValues, oldValues, ValueChangedEvent));
+            RaiseEvent(
+                new PropertyEditorValueChangedEventArgs<(TElement, TElement, TElement, TElement)>(
+                    newValues,
+                    oldValues,
+                    ValueChangedEvent
+                )
+            );
 
             e.Handled = true;
 
@@ -226,13 +255,15 @@ public class Vector4Editor<TElement> : Vector4Editor
     {
         if (_headerPressed)
         {
-            if (FirstValue != _oldFirstValue
-                || SecondValue != _oldSecondValue)
+            if (FirstValue != _oldFirstValue || SecondValue != _oldSecondValue)
             {
-                RaiseEvent(new PropertyEditorValueChangedEventArgs<(TElement, TElement)>(
-                    (FirstValue, SecondValue),
-                    (_oldFirstValue, _oldSecondValue),
-                    ValueConfirmedEvent));
+                RaiseEvent(
+                    new PropertyEditorValueChangedEventArgs<(TElement, TElement)>(
+                        (FirstValue, SecondValue),
+                        (_oldFirstValue, _oldSecondValue),
+                        ValueConfirmedEvent
+                    )
+                );
             }
 
             PointerLockHelper.Released();
@@ -245,8 +276,7 @@ public class Vector4Editor<TElement> : Vector4Editor
     private void OnTextBlockPointerPressed(object sender, PointerPressedEventArgs e)
     {
         PointerPoint pointerPoint = e.GetCurrentPoint(_headerText);
-        if (pointerPoint.Properties.IsLeftButtonPressed
-            && !DataValidationErrors.GetHasErrors(this))
+        if (pointerPoint.Properties.IsLeftButtonPressed && !DataValidationErrors.GetHasErrors(this))
         {
             _oldFirstValue = FirstValue;
             _oldSecondValue = SecondValue;
@@ -273,25 +303,41 @@ public class Vector4Editor<TElement> : Vector4Editor
     {
         if (!DataValidationErrors.GetHasErrors(this))
         {
-            if (FirstValue != _oldFirstValue
+            if (
+                FirstValue != _oldFirstValue
                 || SecondValue != _oldSecondValue
                 || ThirdValue != _oldThirdValue
-                || FourthValue != _oldFourthValue)
+                || FourthValue != _oldFourthValue
+            )
             {
-                RaiseEvent(new PropertyEditorValueChangedEventArgs<(TElement, TElement, TElement, TElement)>(
-                    (FirstValue, SecondValue, ThirdValue, FourthValue),
-                    (_oldFirstValue, _oldSecondValue, _oldThirdValue, _oldFourthValue),
-                    ValueConfirmedEvent));
+                RaiseEvent(
+                    new PropertyEditorValueChangedEventArgs<(
+                        TElement,
+                        TElement,
+                        TElement,
+                        TElement
+                    )>(
+                        (FirstValue, SecondValue, ThirdValue, FourthValue),
+                        (_oldFirstValue, _oldSecondValue, _oldThirdValue, _oldFourthValue),
+                        ValueConfirmedEvent
+                    )
+                );
             }
         }
     }
 
     private void OnInnerTextBoxTextChanged(TextBox sender, string newValue, string oldValue)
     {
-        if (sender.IsKeyboardFocusWithin
-            && TElement.TryParse(newValue, CultureInfo.CurrentUICulture, out TElement newValue2))
+        if (
+            sender.IsKeyboardFocusWithin
+            && TElement.TryParse(newValue, CultureInfo.CurrentUICulture, out TElement newValue2)
+        )
         {
-            bool invalidOldValue = !TElement.TryParse(oldValue, CultureInfo.CurrentUICulture, out TElement oldValue2);
+            bool invalidOldValue = !TElement.TryParse(
+                oldValue,
+                CultureInfo.CurrentUICulture,
+                out TElement oldValue2
+            );
             if (invalidOldValue)
             {
                 oldValue2 = newValue2;
@@ -336,8 +382,14 @@ public class Vector4Editor<TElement> : Vector4Editor
                     }
                 }
 
-                RaiseEvent(new PropertyEditorValueChangedEventArgs<(TElement, TElement, TElement, TElement)>(
-                    newValues, oldValues, ValueChangedEvent));
+                RaiseEvent(
+                    new PropertyEditorValueChangedEventArgs<(
+                        TElement,
+                        TElement,
+                        TElement,
+                        TElement
+                    )>(newValues, oldValues, ValueChangedEvent)
+                );
             }
         }
 
@@ -346,11 +398,25 @@ public class Vector4Editor<TElement> : Vector4Editor
 
     private void UpdateErrors()
     {
-        if (TElement.TryParse(InnerFirstTextBox.Text, CultureInfo.CurrentUICulture, out _)
-            && (IsUniform
-            || (TElement.TryParse(InnerSecondTextBox.Text, CultureInfo.CurrentUICulture, out _)
-            && TElement.TryParse(InnerThirdTextBox.Text, CultureInfo.CurrentUICulture, out _)
-            && TElement.TryParse(InnerFourthTextBox.Text, CultureInfo.CurrentUICulture, out _))))
+        if (
+            TElement.TryParse(InnerFirstTextBox.Text, CultureInfo.CurrentUICulture, out _)
+            && (
+                IsUniform
+                || (
+                    TElement.TryParse(InnerSecondTextBox.Text, CultureInfo.CurrentUICulture, out _)
+                    && TElement.TryParse(
+                        InnerThirdTextBox.Text,
+                        CultureInfo.CurrentUICulture,
+                        out _
+                    )
+                    && TElement.TryParse(
+                        InnerFourthTextBox.Text,
+                        CultureInfo.CurrentUICulture,
+                        out _
+                    )
+                )
+            )
+        )
         {
             DataValidationErrors.ClearErrors(this);
         }
@@ -362,10 +428,12 @@ public class Vector4Editor<TElement> : Vector4Editor
 
     private void OnInnerTextBoxPointerWheelChanged(object sender, PointerWheelEventArgs e)
     {
-        if (!DataValidationErrors.GetHasErrors(this)
+        if (
+            !DataValidationErrors.GetHasErrors(this)
             && sender is TextBox textBox
             && textBox.IsKeyboardFocusWithin
-            && TElement.TryParse(textBox.Text, CultureInfo.CurrentUICulture, out TElement value))
+            && TElement.TryParse(textBox.Text, CultureInfo.CurrentUICulture, out TElement value)
+        )
         {
             TElement delta = LargeChange;
             double wheelDelta = e.Delta.Y;
@@ -379,7 +447,7 @@ public class Vector4Editor<TElement> : Vector4Editor
             {
                 < 0 => NumberEditorHelper.AddPreservingScale(value, -delta),
                 > 0 => NumberEditorHelper.AddPreservingScale(value, delta),
-                _ => value
+                _ => value,
             };
 
             if (IsUniform)
@@ -414,8 +482,13 @@ public class Vector4Editor<TElement> : Vector4Editor
 
 [PseudoClasses(
     FocusAnyTextBox,
-    FocusFirstTextBox, FocusSecondTextBox, FocusThirdTextBox, FocusFourthTextBox,
-    BorderPointerOver, Uniform)]
+    FocusFirstTextBox,
+    FocusSecondTextBox,
+    FocusThirdTextBox,
+    FocusFourthTextBox,
+    BorderPointerOver,
+    Uniform
+)]
 [TemplatePart("PART_InnerFirstTextBox", typeof(TextBox))]
 [TemplatePart("PART_InnerSecondTextBox", typeof(TextBox))]
 [TemplatePart("PART_InnerThirdTextBox", typeof(TextBox))]
@@ -429,48 +502,62 @@ public class Vector4Editor : PropertyEditor
             nameof(FirstText),
             o => o.FirstText,
             (o, v) => o.FirstText = v,
-            defaultBindingMode: BindingMode.TwoWay);
+            defaultBindingMode: BindingMode.TwoWay
+        );
 
     public static readonly DirectProperty<Vector4Editor, string> SecondTextProperty =
         AvaloniaProperty.RegisterDirect<Vector4Editor, string>(
             nameof(SecondText),
             o => o.SecondText,
             (o, v) => o.SecondText = v,
-            defaultBindingMode: BindingMode.TwoWay);
+            defaultBindingMode: BindingMode.TwoWay
+        );
 
     public static readonly DirectProperty<Vector4Editor, string> ThirdTextProperty =
         AvaloniaProperty.RegisterDirect<Vector4Editor, string>(
             nameof(ThirdText),
             o => o.ThirdText,
             (o, v) => o.ThirdText = v,
-            defaultBindingMode: BindingMode.TwoWay);
+            defaultBindingMode: BindingMode.TwoWay
+        );
 
     public static readonly DirectProperty<Vector4Editor, string> FourthTextProperty =
         AvaloniaProperty.RegisterDirect<Vector4Editor, string>(
             nameof(FourthText),
             o => o.FourthText,
             (o, v) => o.FourthText = v,
-            defaultBindingMode: BindingMode.TwoWay);
+            defaultBindingMode: BindingMode.TwoWay
+        );
 
-    public static readonly StyledProperty<string> FirstHeaderProperty =
-        AvaloniaProperty.Register<Vector4Editor, string>(nameof(FirstHeader));
+    public static readonly StyledProperty<string> FirstHeaderProperty = AvaloniaProperty.Register<
+        Vector4Editor,
+        string
+    >(nameof(FirstHeader));
 
-    public static readonly StyledProperty<string> SecondHeaderProperty =
-        AvaloniaProperty.Register<Vector4Editor, string>(nameof(SecondHeader));
+    public static readonly StyledProperty<string> SecondHeaderProperty = AvaloniaProperty.Register<
+        Vector4Editor,
+        string
+    >(nameof(SecondHeader));
 
-    public static readonly StyledProperty<string> ThirdHeaderProperty =
-        AvaloniaProperty.Register<Vector4Editor, string>(nameof(ThirdHeader));
+    public static readonly StyledProperty<string> ThirdHeaderProperty = AvaloniaProperty.Register<
+        Vector4Editor,
+        string
+    >(nameof(ThirdHeader));
 
-    public static readonly StyledProperty<string> FourthHeaderProperty =
-        AvaloniaProperty.Register<Vector4Editor, string>(nameof(FourthHeader));
+    public static readonly StyledProperty<string> FourthHeaderProperty = AvaloniaProperty.Register<
+        Vector4Editor,
+        string
+    >(nameof(FourthHeader));
 
-    public static readonly StyledProperty<bool> IsUniformProperty =
-        AvaloniaProperty.Register<Vector4Editor, bool>(nameof(IsUniform));
+    public static readonly StyledProperty<bool> IsUniformProperty = AvaloniaProperty.Register<
+        Vector4Editor,
+        bool
+    >(nameof(IsUniform));
 
-    public static readonly StyledProperty<string> NumberFormatProperty =
-        AvaloniaProperty.Register<Vector4Editor, string>(
-            nameof(NumberFormat),
-            defaultValue: null);
+    public static readonly StyledProperty<string> NumberFormatProperty = AvaloniaProperty.Register<
+        Vector4Editor,
+        string
+    >(nameof(NumberFormat), defaultValue: null);
 
     private const string FocusAnyTextBox = ":focus-any-textbox";
     private const string FocusFirstTextBox = ":focus-1st-textbox";
@@ -562,11 +649,14 @@ public class Vector4Editor : PropertyEditor
         {
             if (textBox != null)
             {
-                textBox.AddDisposableHandler(GotFocusEvent, OnInnerTextBoxGotFocus)
+                textBox
+                    .AddDisposableHandler(GotFocusEvent, OnInnerTextBoxGotFocus)
                     .DisposeWith(_disposables);
-                textBox.AddDisposableHandler(LostFocusEvent, OnInnerTextBoxLostFocus)
+                textBox
+                    .AddDisposableHandler(LostFocusEvent, OnInnerTextBoxLostFocus)
                     .DisposeWith(_disposables);
-                textBox.GetObservable(IsPointerOverProperty)
+                textBox
+                    .GetObservable(IsPointerOverProperty)
                     .Subscribe(IsPointerOverChanged)
                     .DisposeWith(_disposables);
             }
@@ -585,7 +675,8 @@ public class Vector4Editor : PropertyEditor
         SubscribeEvents(InnerThirdTextBox);
         SubscribeEvents(InnerFourthTextBox);
 
-        _backgroundBorder?.GetObservable(IsPointerOverProperty)
+        _backgroundBorder
+            ?.GetObservable(IsPointerOverProperty)
             ?.Subscribe(IsPointerOverChanged)
             ?.DisposeWith(_disposables);
 
@@ -625,11 +716,13 @@ public class Vector4Editor : PropertyEditor
 
     private void IsPointerOverChanged(bool obj)
     {
-        if (_backgroundBorder?.IsPointerOver == true
+        if (
+            _backgroundBorder?.IsPointerOver == true
             || InnerFirstTextBox.IsPointerOver
             || InnerSecondTextBox?.IsPointerOver == true
             || InnerThirdTextBox?.IsPointerOver == true
-            || InnerFourthTextBox?.IsPointerOver == true)
+            || InnerFourthTextBox?.IsPointerOver == true
+        )
         {
             PseudoClasses.Add(BorderPointerOver);
         }
@@ -664,10 +757,12 @@ public class Vector4Editor : PropertyEditor
         else if (InnerFourthTextBox?.IsFocused == true)
             PseudoClasses.Add(FocusFourthTextBox);
 
-        if (InnerFirstTextBox.IsFocused
+        if (
+            InnerFirstTextBox.IsFocused
             || InnerSecondTextBox?.IsFocused == true
             || InnerThirdTextBox?.IsFocused == true
-            || InnerFourthTextBox?.IsFocused == true)
+            || InnerFourthTextBox?.IsFocused == true
+        )
         {
             PseudoClasses.Add(FocusAnyTextBox);
         }

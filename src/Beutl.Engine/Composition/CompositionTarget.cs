@@ -6,5 +6,5 @@ public enum CompositionTarget
 
     Graphics,
 
-    Audio
+    Audio,
 }

@@ -18,7 +18,8 @@ public sealed class RecordingScope<TState> : IDisposable
         Func<TState> captureState,
         Action<TState> applyState,
         OperationSequenceGenerator sequenceGenerator,
-        string? description)
+        string? description
+    )
     {
         _historyManager = historyManager;
         _captureState = captureState;
@@ -49,8 +50,11 @@ public sealed class RecordingScope<TState> : IDisposable
         return new CustomOperation(
             _ => _applyState(toState),
             _ => _applyState(fromState),
-            _description)
-        { SequenceNumber = _sequenceGenerator.GetNext() };
+            _description
+        )
+        {
+            SequenceNumber = _sequenceGenerator.GetNext(),
+        };
     }
 
     public void Dispose()

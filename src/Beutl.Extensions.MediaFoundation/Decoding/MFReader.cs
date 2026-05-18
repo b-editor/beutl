@@ -1,22 +1,21 @@
 ﻿using System.Buffers;
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.InteropServices;
-
 using Beutl.Media;
 using Beutl.Media.Decoding;
 using Beutl.Media.Music;
 using Beutl.Media.Music.Samples;
 using Beutl.Media.Pixel;
 using Beutl.Media.Source;
-
 using NAudio.Wave;
-
 using static NAudio.Wave.MediaFoundationReader;
 
 #if MF_BUILD_IN
 namespace Beutl.Embedding.MediaFoundation.Decoding;
+
 #else
 namespace Beutl.Extensions.MediaFoundation.Decoding;
+
 #endif
 
 public class MFReader : MediaReader
@@ -46,16 +45,17 @@ public class MFReader : MediaReader
                     info.VideoFormatName ?? "Unknown",
                     info.TotalFrameCount,
                     new PixelSize(info.ImageFormat.Width, info.ImageFormat.Height),
-                    new Rational(info.Fps.Numerator, info.Fps.Denominator));
+                    new Rational(info.Fps.Numerator, info.Fps.Denominator)
+                );
                 HasVideo = true;
             }
 
             if (options.StreamsToLoad.HasFlag(MediaMode.Audio))
             {
-                _audioReader = new MediaFoundationReader(_file, new MediaFoundationReaderSettings
-                {
-                    RequestFloatOutput = true
-                });
+                _audioReader = new MediaFoundationReader(
+                    _file,
+                    new MediaFoundationReaderSettings { RequestFloatOutput = true }
+                );
                 _waveFormat = _audioReader.WaveFormat;
 
                 _provider = _audioReader.ToSampleProvider().ToStereo();
@@ -64,13 +64,12 @@ public class MFReader : MediaReader
                     CodecName: _waveFormat.Encoding.ToString(),
                     Duration: new Rational(_audioReader.Length, _waveFormat.AverageBytesPerSecond),
                     SampleRate: _waveFormat.SampleRate,
-                    NumChannels: _waveFormat.Channels);
+                    NumChannels: _waveFormat.Channels
+                );
                 HasAudio = true;
             }
         }
-        finally
-        {
-        }
+        finally { }
     }
 
     public override VideoStreamInfo VideoInfo => _videoInfo ?? throw new NotSupportedException();
@@ -175,7 +174,10 @@ public class MFReader : MediaReader
             return false;
 
         _audioReader.CurrentTime = TimeSpan.FromSeconds(start / (double)_waveFormat.SampleRate);
-        var tmp = new Pcm<Stereo32BitFloat>(_waveFormat.SampleRate, (int)(length / (double)_waveFormat.SampleRate * _waveFormat.SampleRate));
+        var tmp = new Pcm<Stereo32BitFloat>(
+            _waveFormat.SampleRate,
+            (int)(length / (double)_waveFormat.SampleRate * _waveFormat.SampleRate)
+        );
 
         float[] buffer = new float[tmp.NumSamples * 2];
         int count = _provider.Read(buffer, 0, buffer.Length);

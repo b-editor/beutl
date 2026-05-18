@@ -1,5 +1,4 @@
 ﻿using System.ComponentModel;
-
 using Beutl.Media;
 using Beutl.Validation;
 
@@ -67,8 +66,10 @@ public sealed class KeyFrame<T> : KeyFrame, IKeyFrame
     protected override void OnPropertyChanged(PropertyChangedEventArgs args)
     {
         base.OnPropertyChanged(args);
-        if (args is CorePropertyChangedEventArgs args1
-            && args.PropertyName is nameof(Value) or nameof(Easing) or nameof(KeyTime))
+        if (
+            args is CorePropertyChangedEventArgs args1
+            && args.PropertyName is nameof(Value) or nameof(Easing) or nameof(KeyTime)
+        )
         {
             Edited?.Invoke(this, EventArgs.Empty);
 

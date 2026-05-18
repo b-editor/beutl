@@ -45,19 +45,28 @@ public abstract partial class Object3D : EngineObject
     /// <summary>
     /// Gets the material applied to this object.
     /// </summary>
-    [Display(Name = nameof(GraphicsStrings.Object3D_Material), ResourceType = typeof(GraphicsStrings))]
+    [Display(
+        Name = nameof(GraphicsStrings.Object3D_Material),
+        ResourceType = typeof(GraphicsStrings)
+    )]
     public IProperty<Material3D?> Material { get; } = Property.Create<Material3D?>();
 
     /// <summary>
     /// Gets whether this object casts shadows.
     /// </summary>
-    [Display(Name = nameof(GraphicsStrings.Object3D_CastShadows), ResourceType = typeof(GraphicsStrings))]
+    [Display(
+        Name = nameof(GraphicsStrings.Object3D_CastShadows),
+        ResourceType = typeof(GraphicsStrings)
+    )]
     public IProperty<bool> CastShadows { get; } = Property.CreateAnimatable(true);
 
     /// <summary>
     /// Gets whether this object receives shadows.
     /// </summary>
-    [Display(Name = nameof(GraphicsStrings.Object3D_ReceiveShadows), ResourceType = typeof(GraphicsStrings))]
+    [Display(
+        Name = nameof(GraphicsStrings.Object3D_ReceiveShadows),
+        ResourceType = typeof(GraphicsStrings)
+    )]
     public IProperty<bool> ReceiveShadows { get; } = Property.CreateAnimatable(true);
 
     public abstract partial class Resource
@@ -68,7 +77,11 @@ public abstract partial class Object3D : EngineObject
         public Matrix4x4 GetWorldMatrix()
         {
             var scale = Matrix4x4.CreateScale(Scale);
-            var rotation = Matrix4x4.CreateFromYawPitchRoll(MathUtilities.Deg2Rad(Rotation.Y), MathUtilities.Deg2Rad(Rotation.X), MathUtilities.Deg2Rad(Rotation.Z));
+            var rotation = Matrix4x4.CreateFromYawPitchRoll(
+                MathUtilities.Deg2Rad(Rotation.Y),
+                MathUtilities.Deg2Rad(Rotation.X),
+                MathUtilities.Deg2Rad(Rotation.Z)
+            );
             var translation = Matrix4x4.CreateTranslation(Position);
             return scale * rotation * translation;
         }

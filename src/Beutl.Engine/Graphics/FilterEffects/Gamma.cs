@@ -1,6 +1,5 @@
 ﻿using System.ComponentModel.DataAnnotations;
 using System.Reactive;
-
 using Beutl.Engine;
 using Beutl.Language;
 using Beutl.Logging;
@@ -17,8 +16,7 @@ public sealed partial class Gamma : FilterEffect
 
     static Gamma()
     {
-        string sksl =
-            """
+        string sksl = """
             uniform shader src;
             uniform float gamma;
             uniform float strength;
@@ -66,12 +64,14 @@ public sealed partial class Gamma : FilterEffect
         context.CustomEffect(
             (r, Unit.Default),
             (t, c) => OnApply(t.r, c),
-            static (_, rect) => rect);
+            static (_, rect) => rect
+        );
     }
 
     private static void OnApply(Resource data, CustomFilterEffectContext context)
     {
-        if (s_shader is null) return;
+        if (s_shader is null)
+            return;
 
         float gamma = Math.Clamp(data.Amount / 100f, 0.01f, 3f);
         float strength = data.Strength / 100f;
@@ -82,7 +82,10 @@ public sealed partial class Gamma : FilterEffect
             var renderTarget = target.RenderTarget!;
 
             using SKImage image = renderTarget.Value.Snapshot();
-            using SKShader baseShader = image.ToShader(SKShaderTileMode.Decal, SKShaderTileMode.Decal);
+            using SKShader baseShader = image.ToShader(
+                SKShaderTileMode.Decal,
+                SKShaderTileMode.Decal
+            );
             var builder = s_shader.CreateBuilder();
 
             builder.Children["src"] = baseShader;

@@ -15,7 +15,11 @@ namespace Beutl.Graphics3D.Meshes;
 /// </summary>
 [StructLayout(LayoutKind.Sequential)]
 [JsonConverter(typeof(Vertex3DJsonConverter))]
-public struct Vertex3D : ISpanParsable<Vertex3D>, IUtf8SpanParsable<Vertex3D>, IUtf8SpanFormattable, ISpanFormattable
+public struct Vertex3D
+    : ISpanParsable<Vertex3D>,
+        IUtf8SpanParsable<Vertex3D>,
+        IUtf8SpanFormattable,
+        ISpanFormattable
 {
     public Vector3 Position;
     public Vector3 Normal;
@@ -73,22 +77,30 @@ public struct Vertex3D : ISpanParsable<Vertex3D>, IUtf8SpanParsable<Vertex3D>, I
         return TryParse(s.AsSpan(), provider, out result);
     }
 
-    public static bool TryParse(ReadOnlySpan<byte> s, IFormatProvider? provider, out Vertex3D result)
+    public static bool TryParse(
+        ReadOnlySpan<byte> s,
+        IFormatProvider? provider,
+        out Vertex3D result
+    )
     {
         // Expected format: "px,py,pz; nx,ny,nz; u,v; tx,ty,tz,w"
         var tokenizer = new RefUtf8StringTokenizer(s, ';', "Invalid Vertex3D.");
-        if (!tokenizer.TryReadString(out var posStr) ||
-            !tokenizer.TryReadString(out var normStr) ||
-            !tokenizer.TryReadString(out var texStr))
+        if (
+            !tokenizer.TryReadString(out var posStr)
+            || !tokenizer.TryReadString(out var normStr)
+            || !tokenizer.TryReadString(out var texStr)
+        )
         {
             result = default;
             return false;
         }
 
         bool hasTangent = tokenizer.TryReadString(out var tangentStr);
-        if (TryParseVector3(posStr, out Vector3 position) &&
-            TryParseVector3(normStr, out Vector3 normal) &&
-            TryParseVector2(texStr, out Vector2 texCoord))
+        if (
+            TryParseVector3(posStr, out Vector3 position)
+            && TryParseVector3(normStr, out Vector3 normal)
+            && TryParseVector2(texStr, out Vector2 texCoord)
+        )
         {
             if (hasTangent && TryParseVector4(tangentStr, out Vector4 tangent))
             {
@@ -108,10 +120,12 @@ public struct Vertex3D : ISpanParsable<Vertex3D>, IUtf8SpanParsable<Vertex3D>, I
         static bool TryParseVector4(ReadOnlySpan<byte> str, out Vector4 vec4)
         {
             var tokenizer = new RefUtf8StringTokenizer(str, ',', "Invalid Vector4.");
-            if (tokenizer.TryReadSingle(out float x) &&
-                tokenizer.TryReadSingle(out float y) &&
-                tokenizer.TryReadSingle(out float z) &&
-                tokenizer.TryReadSingle(out float w))
+            if (
+                tokenizer.TryReadSingle(out float x)
+                && tokenizer.TryReadSingle(out float y)
+                && tokenizer.TryReadSingle(out float z)
+                && tokenizer.TryReadSingle(out float w)
+            )
             {
                 vec4 = new Vector4(x, y, z, w);
                 return true;
@@ -124,9 +138,11 @@ public struct Vertex3D : ISpanParsable<Vertex3D>, IUtf8SpanParsable<Vertex3D>, I
         static bool TryParseVector3(ReadOnlySpan<byte> str, out Vector3 vec3)
         {
             var tokenizer = new RefUtf8StringTokenizer(str, ',', "Invalid Vector3.");
-            if (tokenizer.TryReadSingle(out float x) &&
-                tokenizer.TryReadSingle(out float y) &&
-                tokenizer.TryReadSingle(out float z))
+            if (
+                tokenizer.TryReadSingle(out float x)
+                && tokenizer.TryReadSingle(out float y)
+                && tokenizer.TryReadSingle(out float z)
+            )
             {
                 vec3 = new Vector3(x, y, z);
                 return true;
@@ -139,8 +155,7 @@ public struct Vertex3D : ISpanParsable<Vertex3D>, IUtf8SpanParsable<Vertex3D>, I
         static bool TryParseVector2(ReadOnlySpan<byte> str, out Vector2 vec2)
         {
             var tokenizer = new RefUtf8StringTokenizer(str, ',', "Invalid Vector2.");
-            if (tokenizer.TryReadSingle(out float x) &&
-                tokenizer.TryReadSingle(out float y))
+            if (tokenizer.TryReadSingle(out float x) && tokenizer.TryReadSingle(out float y))
             {
                 vec2 = new Vector2(x, y);
                 return true;
@@ -151,22 +166,30 @@ public struct Vertex3D : ISpanParsable<Vertex3D>, IUtf8SpanParsable<Vertex3D>, I
         }
     }
 
-    public static bool TryParse(ReadOnlySpan<char> s, IFormatProvider? provider, out Vertex3D result)
+    public static bool TryParse(
+        ReadOnlySpan<char> s,
+        IFormatProvider? provider,
+        out Vertex3D result
+    )
     {
         // Expected format: "px,py,pz; nx,ny,nz; u,v; tx,ty,tz,w"
         var tokenizer = new RefStringTokenizer(s, ';', "Invalid Vertex3D.");
-        if (!tokenizer.TryReadString(out var posStr) ||
-            !tokenizer.TryReadString(out var normStr) ||
-            !tokenizer.TryReadString(out var texStr))
+        if (
+            !tokenizer.TryReadString(out var posStr)
+            || !tokenizer.TryReadString(out var normStr)
+            || !tokenizer.TryReadString(out var texStr)
+        )
         {
             result = default;
             return false;
         }
 
         bool hasTangent = tokenizer.TryReadString(out var tangentStr);
-        if (TryParseVector3(posStr, out Vector3 position) &&
-            TryParseVector3(normStr, out Vector3 normal) &&
-            TryParseVector2(texStr, out Vector2 texCoord))
+        if (
+            TryParseVector3(posStr, out Vector3 position)
+            && TryParseVector3(normStr, out Vector3 normal)
+            && TryParseVector2(texStr, out Vector2 texCoord)
+        )
         {
             if (hasTangent && TryParseVector4(tangentStr, out Vector4 tangent))
             {
@@ -186,10 +209,12 @@ public struct Vertex3D : ISpanParsable<Vertex3D>, IUtf8SpanParsable<Vertex3D>, I
         static bool TryParseVector4(ReadOnlySpan<char> str, out Vector4 vec4)
         {
             var tokenizer = new RefStringTokenizer(str, ',', "Invalid Vector4.");
-            if (tokenizer.TryReadSingle(out float x) &&
-                tokenizer.TryReadSingle(out float y) &&
-                tokenizer.TryReadSingle(out float z) &&
-                tokenizer.TryReadSingle(out float w))
+            if (
+                tokenizer.TryReadSingle(out float x)
+                && tokenizer.TryReadSingle(out float y)
+                && tokenizer.TryReadSingle(out float z)
+                && tokenizer.TryReadSingle(out float w)
+            )
             {
                 vec4 = new Vector4(x, y, z, w);
                 return true;
@@ -202,9 +227,11 @@ public struct Vertex3D : ISpanParsable<Vertex3D>, IUtf8SpanParsable<Vertex3D>, I
         static bool TryParseVector3(ReadOnlySpan<char> str, out Vector3 vec3)
         {
             var tokenizer = new RefStringTokenizer(str, ',', "Invalid Vector3.");
-            if (tokenizer.TryReadSingle(out float x) &&
-                tokenizer.TryReadSingle(out float y) &&
-                tokenizer.TryReadSingle(out float z))
+            if (
+                tokenizer.TryReadSingle(out float x)
+                && tokenizer.TryReadSingle(out float y)
+                && tokenizer.TryReadSingle(out float z)
+            )
             {
                 vec3 = new Vector3(x, y, z);
                 return true;
@@ -217,8 +244,7 @@ public struct Vertex3D : ISpanParsable<Vertex3D>, IUtf8SpanParsable<Vertex3D>, I
         static bool TryParseVector2(ReadOnlySpan<char> str, out Vector2 vec2)
         {
             var tokenizer = new RefStringTokenizer(str, ',', "Invalid Vector2.");
-            if (tokenizer.TryReadSingle(out float x) &&
-                tokenizer.TryReadSingle(out float y))
+            if (tokenizer.TryReadSingle(out float x) && tokenizer.TryReadSingle(out float y))
             {
                 vec2 = new Vector2(x, y);
                 return true;
@@ -235,11 +261,13 @@ public struct Vertex3D : ISpanParsable<Vertex3D>, IUtf8SpanParsable<Vertex3D>, I
         if (Tangent == new Vector4(1, 0, 0, 1))
         {
             return FormattableString.Invariant(
-                $"{Position.X},{Position.Y},{Position.Z}; {Normal.X},{Normal.Y},{Normal.Z}; {TexCoord.X},{TexCoord.Y}");
+                $"{Position.X},{Position.Y},{Position.Z}; {Normal.X},{Normal.Y},{Normal.Z}; {TexCoord.X},{TexCoord.Y}"
+            );
         }
 
         return FormattableString.Invariant(
-            $"{Position.X},{Position.Y},{Position.Z}; {Normal.X},{Normal.Y},{Normal.Z}; {TexCoord.X},{TexCoord.Y}; {Tangent.X},{Tangent.Y},{Tangent.Z},{Tangent.W}");
+            $"{Position.X},{Position.Y},{Position.Z}; {Normal.X},{Normal.Y},{Normal.Z}; {TexCoord.X},{TexCoord.Y}; {Tangent.X},{Tangent.Y},{Tangent.Z},{Tangent.W}"
+        );
     }
 
     public string ToString(string? format, IFormatProvider? formatProvider)
@@ -247,8 +275,12 @@ public struct Vertex3D : ISpanParsable<Vertex3D>, IUtf8SpanParsable<Vertex3D>, I
         return ToString();
     }
 
-    public bool TryFormat(Span<byte> utf8Destination, out int bytesWritten, ReadOnlySpan<char> format,
-        IFormatProvider? provider)
+    public bool TryFormat(
+        Span<byte> utf8Destination,
+        out int bytesWritten,
+        ReadOnlySpan<char> format,
+        IFormatProvider? provider
+    )
     {
         if (Tangent == new Vector4(1, 0, 0, 1))
         {
@@ -256,31 +288,39 @@ public struct Vertex3D : ISpanParsable<Vertex3D>, IUtf8SpanParsable<Vertex3D>, I
                 utf8Destination,
                 CultureInfo.InvariantCulture,
                 $"{Position.X},{Position.Y},{Position.Z}; {Normal.X},{Normal.Y},{Normal.Z}; {TexCoord.X},{TexCoord.Y}",
-                out bytesWritten);
+                out bytesWritten
+            );
         }
 
         return Utf8.TryWrite(
             utf8Destination,
             CultureInfo.InvariantCulture,
             $"{Position.X},{Position.Y},{Position.Z}; {Normal.X},{Normal.Y},{Normal.Z}; {TexCoord.X},{TexCoord.Y}; {Tangent.X},{Tangent.Y},{Tangent.Z},{Tangent.W}",
-            out bytesWritten);
+            out bytesWritten
+        );
     }
 
-    public bool TryFormat(Span<char> destination, out int charsWritten, ReadOnlySpan<char> format,
-        IFormatProvider? provider)
+    public bool TryFormat(
+        Span<char> destination,
+        out int charsWritten,
+        ReadOnlySpan<char> format,
+        IFormatProvider? provider
+    )
     {
         if (Tangent == new Vector4(1, 0, 0, 1))
         {
             return destination.TryWrite(
                 CultureInfo.InvariantCulture,
                 $"{Position.X},{Position.Y},{Position.Z}; {Normal.X},{Normal.Y},{Normal.Z}; {TexCoord.X},{TexCoord.Y}",
-                out charsWritten);
+                out charsWritten
+            );
         }
 
         return destination.TryWrite(
             CultureInfo.InvariantCulture,
             $"{Position.X},{Position.Y},{Position.Z}; {Normal.X},{Normal.Y},{Normal.Z}; {TexCoord.X},{TexCoord.Y}; {Tangent.X},{Tangent.Y},{Tangent.Z},{Tangent.W}",
-            out charsWritten);
+            out charsWritten
+        );
     }
 
     /// <summary>
@@ -294,34 +334,42 @@ public struct Vertex3D : ISpanParsable<Vertex3D>, IUtf8SpanParsable<Vertex3D>, I
             [
                 new VertexBindingDescription
                 {
-                    Binding = 0, Stride = (uint)Marshal.SizeOf<Vertex3D>(), InputRate = VertexInputRate.Vertex
-                }
+                    Binding = 0,
+                    Stride = (uint)Marshal.SizeOf<Vertex3D>(),
+                    InputRate = VertexInputRate.Vertex,
+                },
             ],
             Attributes =
             [
-                new VertexAttributeDescription { Binding = 0, Location = 0, Format = VertexFormat.Float3, Offset = 0 },
+                new VertexAttributeDescription
+                {
+                    Binding = 0,
+                    Location = 0,
+                    Format = VertexFormat.Float3,
+                    Offset = 0,
+                },
                 new VertexAttributeDescription
                 {
                     Binding = 0,
                     Location = 1,
                     Format = VertexFormat.Float3,
-                    Offset = (uint)Marshal.OffsetOf<Vertex3D>(nameof(Normal))
+                    Offset = (uint)Marshal.OffsetOf<Vertex3D>(nameof(Normal)),
                 },
                 new VertexAttributeDescription
                 {
                     Binding = 0,
                     Location = 2,
                     Format = VertexFormat.Float2,
-                    Offset = (uint)Marshal.OffsetOf<Vertex3D>(nameof(TexCoord))
+                    Offset = (uint)Marshal.OffsetOf<Vertex3D>(nameof(TexCoord)),
                 },
                 new VertexAttributeDescription
                 {
                     Binding = 0,
                     Location = 3,
                     Format = VertexFormat.Float4,
-                    Offset = (uint)Marshal.OffsetOf<Vertex3D>(nameof(Tangent))
-                }
-            ]
+                    Offset = (uint)Marshal.OffsetOf<Vertex3D>(nameof(Tangent)),
+                },
+            ],
         };
     }
 }

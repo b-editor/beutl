@@ -21,9 +21,7 @@ public static class TestHelper
     }
 }
 
-public class TestCoreObject : CoreObject
-{
-}
+public class TestCoreObject : CoreObject { }
 
 public partial class TestEngineObject : EngineObject
 {

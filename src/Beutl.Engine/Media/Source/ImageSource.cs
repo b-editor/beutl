@@ -11,9 +11,7 @@ public sealed class ImageSource : MediaSource
 {
     private WeakReference<Counter<Bitmap>>? _bitmapRef;
 
-    public ImageSource()
-    {
-    }
+    public ImageSource() { }
 
     public override void ReadFrom(Uri uri)
     {
@@ -44,7 +42,11 @@ public sealed class ImageSource : MediaSource
 
         public Bitmap? Bitmap => _counter?.Value;
 
-        public override void Update(EngineObject obj, CompositionContext context, ref bool updateOnly)
+        public override void Update(
+            EngineObject obj,
+            CompositionContext context,
+            ref bool updateOnly
+        )
         {
             base.Update(obj, context, ref updateOnly);
             var imageSource = (ImageSource)obj;

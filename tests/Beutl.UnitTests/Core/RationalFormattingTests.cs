@@ -61,7 +61,10 @@ public class RationalFormattingTests
     public void TryFormat_PositiveInfinity_ReturnsLabel()
     {
         Span<char> buffer = stackalloc char[32];
-        Assert.That(Rational.PositiveInfinity.TryFormat(buffer, out int written, default, null), Is.True);
+        Assert.That(
+            Rational.PositiveInfinity.TryFormat(buffer, out int written, default, null),
+            Is.True
+        );
         Assert.That(buffer[..written].ToString(), Is.EqualTo("[ PositiveInfinity ]"));
     }
 
@@ -69,7 +72,10 @@ public class RationalFormattingTests
     public void TryFormat_NegativeInfinity_ReturnsLabel()
     {
         Span<char> buffer = stackalloc char[32];
-        Assert.That(Rational.NegativeInfinity.TryFormat(buffer, out int written, default, null), Is.True);
+        Assert.That(
+            Rational.NegativeInfinity.TryFormat(buffer, out int written, default, null),
+            Is.True
+        );
         Assert.That(buffer[..written].ToString(), Is.EqualTo("[ NegativeInfinity ]"));
     }
 

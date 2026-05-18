@@ -3,7 +3,6 @@ using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Numerics;
 using System.Text.Json.Serialization;
-
 using Beutl.Converters;
 
 namespace Beutl.Media;
@@ -15,10 +14,9 @@ namespace Beutl.Media;
 [TypeConverter(typeof(ColorConverter))]
 public readonly struct Color(byte a, byte r, byte g, byte b)
     : IEquatable<Color>,
-      IParsable<Color>,
-      ISpanParsable<Color>
+        IParsable<Color>,
+        ISpanParsable<Color>
 {
-
     /// <summary>
     /// Gets the Alpha component of the color.
     /// </summary>
@@ -213,8 +211,14 @@ public readonly struct Color(byte a, byte r, byte g, byte b)
                 return false;
             }
 
-            if (!uint.TryParse(input, NumberStyles.HexNumber, CultureInfo.InvariantCulture,
-                out uint parsed))
+            if (
+                !uint.TryParse(
+                    input,
+                    NumberStyles.HexNumber,
+                    CultureInfo.InvariantCulture,
+                    out uint parsed
+                )
+            )
             {
                 return false;
             }
@@ -400,7 +404,9 @@ public readonly struct Color(byte a, byte r, byte g, byte b)
 
     internal static float LinearToSrgb(float linear)
     {
-        return linear <= 0.0031308f ? linear * 12.92f : 1.055f * MathF.Pow(linear, 1 / 2.4f) - 0.055f;
+        return linear <= 0.0031308f
+            ? linear * 12.92f
+            : 1.055f * MathF.Pow(linear, 1 / 2.4f) - 0.055f;
     }
 
     /// <summary>
@@ -436,7 +442,11 @@ public readonly struct Color(byte a, byte r, byte g, byte b)
         return Parse(s);
     }
 
-    static bool IParsable<Color>.TryParse([NotNullWhen(true)] string? s, IFormatProvider? provider, [MaybeNullWhen(false)] out Color result)
+    static bool IParsable<Color>.TryParse(
+        [NotNullWhen(true)] string? s,
+        IFormatProvider? provider,
+        [MaybeNullWhen(false)] out Color result
+    )
     {
         result = default;
         return s != null && TryParse(s, out result);
@@ -447,7 +457,11 @@ public readonly struct Color(byte a, byte r, byte g, byte b)
         return Parse(s);
     }
 
-    static bool ISpanParsable<Color>.TryParse([NotNullWhen(true)] ReadOnlySpan<char> s, IFormatProvider? provider, [MaybeNullWhen(false)] out Color result)
+    static bool ISpanParsable<Color>.TryParse(
+        [NotNullWhen(true)] ReadOnlySpan<char> s,
+        IFormatProvider? provider,
+        [MaybeNullWhen(false)] out Color result
+    )
     {
         return TryParse(s, out result);
     }

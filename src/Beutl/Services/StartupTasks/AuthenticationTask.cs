@@ -37,13 +37,19 @@ public sealed class AuthenticationTask : StartupTask
                                 NotificationService.ShowError(
                                     SettingsStrings.Account,
                                     MessageStrings.SigninInvalid,
-                                    onActionButtonClick: () => _ = _beutlApiApplication.SignInAsync(default),
-                                    actionButtonText: SettingsStrings.SignIn);
+                                    onActionButtonClick: () =>
+                                        _ = _beutlApiApplication.SignInAsync(default),
+                                    actionButtonText: SettingsStrings.SignIn
+                                );
                             }
                         }
                         catch (Exception ex)
                         {
-                            _logger.LogError(ex, "Error while handling API error: {ApiContent}", error.Content);
+                            _logger.LogError(
+                                ex,
+                                "Error while handling API error: {ApiContent}",
+                                error.Content
+                            );
                             NotificationService.ShowError(Strings.APIError, error.Message);
                         }
                     }

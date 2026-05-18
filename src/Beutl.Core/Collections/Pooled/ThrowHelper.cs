@@ -41,43 +41,55 @@ internal static class ThrowHelper
     [DoesNotReturn]
     internal static void ThrowArgumentOutOfRange_IndexException()
     {
-        throw GetArgumentOutOfRangeException(ExceptionArgument.index,
-                                                ExceptionResource.ArgumentOutOfRange_Index);
+        throw GetArgumentOutOfRangeException(
+            ExceptionArgument.index,
+            ExceptionResource.ArgumentOutOfRange_Index
+        );
     }
 
     [DoesNotReturn]
     internal static void ThrowIndexArgumentOutOfRange_NeedNonNegNumException()
     {
-        throw GetArgumentOutOfRangeException(ExceptionArgument.index,
-                                                ExceptionResource.ArgumentOutOfRange_NeedNonNegNum);
+        throw GetArgumentOutOfRangeException(
+            ExceptionArgument.index,
+            ExceptionResource.ArgumentOutOfRange_NeedNonNegNum
+        );
     }
 
     [DoesNotReturn]
     internal static void ThrowValueArgumentOutOfRange_NeedNonNegNumException()
     {
-        throw GetArgumentOutOfRangeException(ExceptionArgument.value,
-                                                ExceptionResource.ArgumentOutOfRange_NeedNonNegNum);
+        throw GetArgumentOutOfRangeException(
+            ExceptionArgument.value,
+            ExceptionResource.ArgumentOutOfRange_NeedNonNegNum
+        );
     }
 
     [DoesNotReturn]
     internal static void ThrowLengthArgumentOutOfRange_ArgumentOutOfRange_NeedNonNegNum()
     {
-        throw GetArgumentOutOfRangeException(ExceptionArgument.length,
-                                                ExceptionResource.ArgumentOutOfRange_NeedNonNegNum);
+        throw GetArgumentOutOfRangeException(
+            ExceptionArgument.length,
+            ExceptionResource.ArgumentOutOfRange_NeedNonNegNum
+        );
     }
 
     [DoesNotReturn]
     internal static void ThrowStartIndexArgumentOutOfRange_ArgumentOutOfRange_Index()
     {
-        throw GetArgumentOutOfRangeException(ExceptionArgument.startIndex,
-                                                ExceptionResource.ArgumentOutOfRange_Index);
+        throw GetArgumentOutOfRangeException(
+            ExceptionArgument.startIndex,
+            ExceptionResource.ArgumentOutOfRange_Index
+        );
     }
 
     [DoesNotReturn]
     internal static void ThrowCountArgumentOutOfRange_ArgumentOutOfRange_Count()
     {
-        throw GetArgumentOutOfRangeException(ExceptionArgument.count,
-                                                ExceptionResource.ArgumentOutOfRange_Count);
+        throw GetArgumentOutOfRangeException(
+            ExceptionArgument.count,
+            ExceptionResource.ArgumentOutOfRange_Count
+        );
     }
 
     [DoesNotReturn]
@@ -120,7 +132,10 @@ internal static class ThrowHelper
     }
 
     [DoesNotReturn]
-    internal static void ThrowArgumentException(ExceptionResource resource, ExceptionArgument argument)
+    internal static void ThrowArgumentException(
+        ExceptionResource resource,
+        ExceptionArgument argument
+    )
     {
         throw GetArgumentException(resource, argument);
     }
@@ -143,7 +158,10 @@ internal static class ThrowHelper
     }
 
     [DoesNotReturn]
-    internal static void ThrowArgumentNullException(ExceptionArgument argument, ExceptionResource resource)
+    internal static void ThrowArgumentNullException(
+        ExceptionArgument argument,
+        ExceptionResource resource
+    )
     {
         throw new ArgumentNullException(GetArgumentName(argument), GetResourceString(resource));
     }
@@ -155,13 +173,20 @@ internal static class ThrowHelper
     }
 
     [DoesNotReturn]
-    internal static void ThrowArgumentOutOfRangeException(ExceptionArgument argument, ExceptionResource resource)
+    internal static void ThrowArgumentOutOfRangeException(
+        ExceptionArgument argument,
+        ExceptionResource resource
+    )
     {
         throw GetArgumentOutOfRangeException(argument, resource);
     }
 
     [DoesNotReturn]
-    internal static void ThrowArgumentOutOfRangeException(ExceptionArgument argument, int paramNumber, ExceptionResource resource)
+    internal static void ThrowArgumentOutOfRangeException(
+        ExceptionArgument argument,
+        int paramNumber,
+        ExceptionResource resource
+    )
     {
         throw GetArgumentOutOfRangeException(argument, paramNumber, resource);
     }
@@ -271,7 +296,9 @@ internal static class ThrowHelper
     [DoesNotReturn]
     internal static void ThrowInvalidOperationException_InvalidOperation_EnumOpCantHappen()
     {
-        throw new InvalidOperationException("Invalid enumerator state: enumeration cannot proceed.");
+        throw new InvalidOperationException(
+            "Invalid enumerator state: enumeration cannot proceed."
+        );
     }
 
     [DoesNotReturn]
@@ -303,19 +330,30 @@ internal static class ThrowHelper
         return new ArgumentException(GetResourceString(resource));
     }
 
-    private static InvalidOperationException GetInvalidOperationException(ExceptionResource resource)
+    private static InvalidOperationException GetInvalidOperationException(
+        ExceptionResource resource
+    )
     {
         return new InvalidOperationException(GetResourceString(resource));
     }
 
     private static ArgumentException GetWrongKeyTypeArgumentException(object? key, Type targetType)
     {
-        return new ArgumentException($"Wrong key type. Expected {targetType}, got: '{key}'.", nameof(key));
+        return new ArgumentException(
+            $"Wrong key type. Expected {targetType}, got: '{key}'.",
+            nameof(key)
+        );
     }
 
-    private static ArgumentException GetWrongValueTypeArgumentException(object? value, Type targetType)
+    private static ArgumentException GetWrongValueTypeArgumentException(
+        object? value,
+        Type targetType
+    )
     {
-        return new ArgumentException($"Wrong value type. Expected {targetType}, got: '{value}'.", nameof(value));
+        return new ArgumentException(
+            $"Wrong value type. Expected {targetType}, got: '{value}'.",
+            nameof(value)
+        );
     }
 
     private static KeyNotFoundException GetKeyNotFoundException(object? key)
@@ -323,34 +361,52 @@ internal static class ThrowHelper
         return new KeyNotFoundException($"Key not found: {key}");
     }
 
-    private static ArgumentOutOfRangeException GetArgumentOutOfRangeException(ExceptionArgument argument, ExceptionResource resource)
+    private static ArgumentOutOfRangeException GetArgumentOutOfRangeException(
+        ExceptionArgument argument,
+        ExceptionResource resource
+    )
     {
-        return new ArgumentOutOfRangeException(GetArgumentName(argument), GetResourceString(resource));
+        return new ArgumentOutOfRangeException(
+            GetArgumentName(argument),
+            GetResourceString(resource)
+        );
     }
 
-    private static ArgumentException GetArgumentException(ExceptionResource resource, ExceptionArgument argument)
+    private static ArgumentException GetArgumentException(
+        ExceptionResource resource,
+        ExceptionArgument argument
+    )
     {
         return new ArgumentException(GetResourceString(resource), GetArgumentName(argument));
     }
 
-    private static ArgumentOutOfRangeException GetArgumentOutOfRangeException(ExceptionArgument argument, int paramNumber, ExceptionResource resource)
+    private static ArgumentOutOfRangeException GetArgumentOutOfRangeException(
+        ExceptionArgument argument,
+        int paramNumber,
+        ExceptionResource resource
+    )
     {
-        return new ArgumentOutOfRangeException(GetArgumentName(argument) + "[" + paramNumber.ToString() + "]", GetResourceString(resource));
+        return new ArgumentOutOfRangeException(
+            GetArgumentName(argument) + "[" + paramNumber.ToString() + "]",
+            GetResourceString(resource)
+        );
     }
 
     private static InvalidOperationException GetInvalidOperationException_EnumCurrent(int index)
     {
         return new InvalidOperationException(
-            index < 0 ?
-            "Enumeration has not started" :
-            "Enumeration has ended");
+            index < 0 ? "Enumeration has not started" : "Enumeration has ended"
+        );
     }
 
     // Allow nulls for reference types and Nullable<U>, but not for value types.
     // Aggressively inline so the jit evaluates the if in place and either drops the call altogether
     // Or just leaves null test and call to the Non-returning ThrowHelper.ThrowArgumentNullException
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal static void IfNullAndNullsAreIllegalThenThrow<T>(object? value, ExceptionArgument argName)
+    internal static void IfNullAndNullsAreIllegalThenThrow<T>(
+        object? value,
+        ExceptionArgument argName
+    )
     {
         // Note that default(T) is not equal to null for value types except when T is Nullable<U>.
         if (!(default(T) == null) && value == null)
@@ -358,13 +414,21 @@ internal static class ThrowHelper
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal static void ThrowForUnsupportedVectorBaseType<T>() where T : struct
+    internal static void ThrowForUnsupportedVectorBaseType<T>()
+        where T : struct
     {
-        if (typeof(T) != typeof(byte) && typeof(T) != typeof(sbyte) &&
-            typeof(T) != typeof(short) && typeof(T) != typeof(ushort) &&
-            typeof(T) != typeof(int) && typeof(T) != typeof(uint) &&
-            typeof(T) != typeof(long) && typeof(T) != typeof(ulong) &&
-            typeof(T) != typeof(float) && typeof(T) != typeof(double))
+        if (
+            typeof(T) != typeof(byte)
+            && typeof(T) != typeof(sbyte)
+            && typeof(T) != typeof(short)
+            && typeof(T) != typeof(ushort)
+            && typeof(T) != typeof(int)
+            && typeof(T) != typeof(uint)
+            && typeof(T) != typeof(long)
+            && typeof(T) != typeof(ulong)
+            && typeof(T) != typeof(float)
+            && typeof(T) != typeof(double)
+        )
         {
             ThrowNotSupportedException(ExceptionResource.Arg_TypeNotSupported);
         }
@@ -505,7 +569,9 @@ internal static class ThrowHelper
             case ExceptionArgument.arrayIndex:
                 return "arrayIndex";
             default:
-                Debug.Fail("The enum value is not defined, please check the ExceptionArgument Enum.");
+                Debug.Fail(
+                    "The enum value is not defined, please check the ExceptionArgument Enum."
+                );
                 return argument.ToString();
         }
     }
@@ -587,8 +653,10 @@ internal static class ThrowHelper
             case ExceptionResource.Arg_TypeNotSupported:
                 return "Type not supported.";
             default:
-                Debug.Assert(false,
-                    "The enum value is not defined, please check the ExceptionResource Enum.");
+                Debug.Assert(
+                    false,
+                    "The enum value is not defined, please check the ExceptionResource Enum."
+                );
                 return resource.ToString();
         }
     }
@@ -657,7 +725,7 @@ internal enum ExceptionArgument
     indices,
     endIndex,
     elementType,
-    arrayIndex
+    arrayIndex,
 }
 
 //

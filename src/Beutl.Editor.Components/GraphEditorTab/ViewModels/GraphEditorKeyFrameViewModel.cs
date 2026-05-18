@@ -25,31 +25,33 @@ public sealed class GraphEditorKeyFrameViewModel : IDisposable
     internal readonly ReactivePropertySlim<GraphEditorKeyFrameViewModel?> _previous = new();
     internal GraphEditorKeyFrameViewModel? _next;
 
-    public GraphEditorKeyFrameViewModel(
-        IKeyFrame keyframe,
-        GraphEditorViewViewModel parent)
+    public GraphEditorKeyFrameViewModel(IKeyFrame keyframe, GraphEditorViewViewModel parent)
     {
         Model = keyframe;
         Parent = parent;
 
-        EndY = Model.ObserveProperty(x => x.Value)
+        EndY = Model
+            .ObserveProperty(x => x.Value)
             .Select(Parent.ConvertToDouble)
             .CombineLatest(parent.Parent.ScaleY)
             .Select(x => x.First * x.Second)
             .ToReactiveProperty()
             .DisposeWith(_disposables);
 
-        StartY = _previous.Select(x => x?.EndY ?? EndY)
+        StartY = _previous
+            .Select(x => x?.EndY ?? EndY)
             .Switch()
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
 
-        Decreasing = StartY.CombineLatest(EndY)
+        Decreasing = StartY
+            .CombineLatest(EndY)
             .Select(x => x.First > x.Second)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
 
-        Height = StartY.CombineLatest(EndY)
+        Height = StartY
+            .CombineLatest(EndY)
             .Select(o => o.Second - o.First)
             .Select(Math.Abs)
             .ToReadOnlyReactivePropertySlim()
@@ -61,13 +63,15 @@ public sealed class GraphEditorKeyFrameViewModel : IDisposable
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
 
-        Right = keyframe.GetObservable(KeyFrame.KeyTimeProperty)
+        Right = keyframe
+            .GetObservable(KeyFrame.KeyTimeProperty)
             .CombineLatest(parent.Parent.Options)
             .Select(item => item.First.TimeToPixel(item.Second.Scale))
             .ToReactiveProperty()
             .DisposeWith(_disposables);
 
-        Width = Right.CombineLatest(Left)
+        Width = Right
+            .CombineLatest(Left)
             .Select(x => x.First - x.Second)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
@@ -78,30 +82,36 @@ public sealed class GraphEditorKeyFrameViewModel : IDisposable
 
         Baseline = parent.Parent.Baseline;
 
-        BoundsMargin = StartY.CombineLatest(EndY)
+        BoundsMargin = StartY
+            .CombineLatest(EndY)
             .Select(v => Math.Max(v.First, v.Second))
             .CombineLatest(Baseline)
             .Select(v => new Thickness(0, v.Second - v.First, 0, 0))
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
 
-        IsSplineEasing = keyframe.GetObservable(KeyFrame.EasingProperty)
+        IsSplineEasing = keyframe
+            .GetObservable(KeyFrame.EasingProperty)
             .Select(v => v is SplineEasing)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
 
-        IObservable<(Vector, Vector)> controlPointObservable = keyframe.GetObservable(KeyFrame.EasingProperty)
+        IObservable<(Vector, Vector)> controlPointObservable = keyframe
+            .GetObservable(KeyFrame.EasingProperty)
             .Select(v =>
             {
                 if (v is SplineEasing splineEasing)
                 {
                     (Vector, Vector) ToVector()
                     {
-                        return (new Vector(splineEasing.X1, splineEasing.Y1),
-                            new Vector(splineEasing.X2, splineEasing.Y2));
+                        return (
+                            new Vector(splineEasing.X1, splineEasing.Y1),
+                            new Vector(splineEasing.X2, splineEasing.Y2)
+                        );
                     }
 
-                    return Observable.FromEventPattern(splineEasing, nameof(SplineEasing.Changed))
+                    return Observable
+                        .FromEventPattern(splineEasing, nameof(SplineEasing.Changed))
                         .Select(_ => ToVector())
                         .Publish(ToVector())
                         .RefCount();
@@ -117,7 +127,11 @@ public sealed class GraphEditorKeyFrameViewModel : IDisposable
             .Select(v => v.Item1)
             .CombineLatest(Decreasing)
             .Select(v => v.First.WithY(v.Second ? v.First.Y : 1 - v.First.Y))
-            .CombineLatest(Width, Height, (pt, w, h) => (Point)Vector.Multiply(pt, new Vector(w, h)))
+            .CombineLatest(
+                Width,
+                Height,
+                (pt, w, h) => (Point)Vector.Multiply(pt, new Vector(w, h))
+            )
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
 
@@ -125,7 +139,11 @@ public sealed class GraphEditorKeyFrameViewModel : IDisposable
             .Select(v => v.Item2)
             .CombineLatest(Decreasing)
             .Select(v => v.First.WithY(v.Second ? v.First.Y : 1 - v.First.Y))
-            .CombineLatest(Width, Height, (pt, w, h) => (Point)Vector.Multiply(pt, new Vector(w, h)))
+            .CombineLatest(
+                Width,
+                Height,
+                (pt, w, h) => (Point)Vector.Multiply(pt, new Vector(w, h))
+            )
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
 
@@ -141,17 +159,13 @@ public sealed class GraphEditorKeyFrameViewModel : IDisposable
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
 
-        CopyCommand = new AsyncReactiveCommand()
-            .WithSubscribe(CopyAsync)
-            .DisposeWith(_disposables);
+        CopyCommand = new AsyncReactiveCommand().WithSubscribe(CopyAsync).DisposeWith(_disposables);
 
         PasteCommand = new AsyncReactiveCommand()
             .WithSubscribe(PasteAsync)
             .DisposeWith(_disposables);
 
-        RemoveCommand = new ReactiveCommand()
-            .WithSubscribe(Remove)
-            .DisposeWith(_disposables);
+        RemoveCommand = new ReactiveCommand().WithSubscribe(Remove).DisposeWith(_disposables);
     }
 
     public GraphEditorViewViewModel Parent { get; }
@@ -272,7 +286,9 @@ public sealed class GraphEditorKeyFrameViewModel : IDisposable
 
     public void UpdateKeyTime(TimeSpan timeSpan)
     {
-        int rate = Parent.Parent.Scene.FindHierarchicalParent<Project>() is { } proj ? proj.GetFrameRate() : 30;
+        int rate = Parent.Parent.Scene.FindHierarchicalParent<Project>() is { } proj
+            ? proj.GetFrameRate()
+            : 30;
         Model.KeyTime = timeSpan.RoundToRate(rate);
     }
 
@@ -283,10 +299,18 @@ public sealed class GraphEditorKeyFrameViewModel : IDisposable
         IKeyFrameAnimation animation = parent2.Animation;
 
         float scale = parent2.Options.Value.Scale;
-        int rate = parent2.Scene.FindHierarchicalParent<Project>() is { } proj ? proj.GetFrameRate() : 30;
+        int rate = parent2.Scene.FindHierarchicalParent<Project>() is { } proj
+            ? proj.GetFrameRate()
+            : 30;
 
-        if (Parent.TryConvertFromDouble(Model.Value, EndY.Value / parent2.ScaleY.Value, animation.ValueType,
-                out object? obj))
+        if (
+            Parent.TryConvertFromDouble(
+                Model.Value,
+                EndY.Value / parent2.ScaleY.Value,
+                animation.ValueType,
+                out object? obj
+            )
+        )
         {
             Model.Value = obj;
             Model.KeyTime = Right.Value.PixelToTimeSpan(scale).RoundToRate(rate);
@@ -308,10 +332,18 @@ public sealed class GraphEditorKeyFrameViewModel : IDisposable
         IKeyFrameAnimation animation = parent2.Animation;
 
         float scale = parent2.Options.Value.Scale;
-        int rate = parent2.Scene.FindHierarchicalParent<Project>() is { } proj ? proj.GetFrameRate() : 30;
+        int rate = parent2.Scene.FindHierarchicalParent<Project>() is { } proj
+            ? proj.GetFrameRate()
+            : 30;
 
-        if (Parent.TryConvertFromDouble(Model.Value, EndY.Value / parent2.ScaleY.Value, animation.ValueType,
-                out object? obj))
+        if (
+            Parent.TryConvertFromDouble(
+                Model.Value,
+                EndY.Value / parent2.ScaleY.Value,
+                animation.ValueType,
+                out object? obj
+            )
+        )
         {
             Model.Value = obj;
             Model.KeyTime = Right.Value.PixelToTimeSpan(scale).RoundToRate(rate);
@@ -329,7 +361,8 @@ public sealed class GraphEditorKeyFrameViewModel : IDisposable
     private async Task CopyAsync()
     {
         IClipboard? clipboard = ClipboardHelper.GetClipboard();
-        if (clipboard == null) return;
+        if (clipboard == null)
+            return;
 
         try
         {
@@ -350,22 +383,31 @@ public sealed class GraphEditorKeyFrameViewModel : IDisposable
     private async Task PasteAsync()
     {
         IClipboard? clipboard = ClipboardHelper.GetClipboard();
-        if (clipboard == null) return;
+        if (clipboard == null)
+            return;
 
         try
         {
-            if (await clipboard.TryGetValueAsync(BeutlDataFormats.KeyFrame) is { } json
-                && JsonNode.Parse(json) is JsonObject jsonObj)
+            if (
+                await clipboard.TryGetValueAsync(BeutlDataFormats.KeyFrame) is { } json
+                && JsonNode.Parse(json) is JsonObject jsonObj
+            )
             {
                 if (!jsonObj.TryGetDiscriminator(out Type? type))
                 {
-                    NotificationService.ShowWarning(Strings.Paste, MessageStrings.InvalidKeyframeDataFormat_MissingType);
+                    NotificationService.ShowWarning(
+                        Strings.Paste,
+                        MessageStrings.InvalidKeyframeDataFormat_MissingType
+                    );
                     return;
                 }
 
                 if (!type.IsAssignableTo(typeof(KeyFrame)))
                 {
-                    NotificationService.ShowWarning(Strings.Paste, MessageStrings.InvalidKeyframeDataFormat_TypeIsNotKeyFrame);
+                    NotificationService.ShowWarning(
+                        Strings.Paste,
+                        MessageStrings.InvalidKeyframeDataFormat_TypeIsNotKeyFrame
+                    );
                     return;
                 }
 
@@ -378,8 +420,10 @@ public sealed class GraphEditorKeyFrameViewModel : IDisposable
                     // イージングのみ変更
                     Model.Easing = newKeyFrame.Easing;
                     history.Commit(CommandNames.PasteKeyFrame);
-                    NotificationService.ShowWarning(Strings.GraphEditor,
-                        MessageStrings.KeyframePropertyTypeMismatch_EasingApplied);
+                    NotificationService.ShowWarning(
+                        Strings.GraphEditor,
+                        MessageStrings.KeyframePropertyTypeMismatch_EasingApplied
+                    );
                 }
                 else
                 {
@@ -392,7 +436,10 @@ public sealed class GraphEditorKeyFrameViewModel : IDisposable
                 return;
             }
 
-            NotificationService.ShowWarning(Strings.Paste, MessageStrings.InvalidKeyframeDataFormat);
+            NotificationService.ShowWarning(
+                Strings.Paste,
+                MessageStrings.InvalidKeyframeDataFormat
+            );
         }
         catch (Exception ex)
         {
@@ -406,7 +453,8 @@ public sealed class GraphEditorKeyFrameViewModel : IDisposable
         AnimationOperations.RemoveKeyFrame(
             animation: Parent.Parent.Animation,
             keyframe: Model,
-            logger: _logger);
+            logger: _logger
+        );
         Parent.Parent.HistoryManager.Commit(CommandNames.RemoveKeyFrame);
     }
 }

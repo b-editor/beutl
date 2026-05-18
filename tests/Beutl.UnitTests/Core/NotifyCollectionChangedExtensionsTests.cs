@@ -8,22 +8,34 @@ public class NotifyCollectionChangedExtensionsTests
     [Test]
     public void GetWeakCollectionChangedObservable_NullCollection_Throws()
     {
-        Assert.That(() => NotifyCollectionChangedExtensions.GetWeakCollectionChangedObservable(null!),
-            Throws.ArgumentNullException);
+        Assert.That(
+            () => NotifyCollectionChangedExtensions.GetWeakCollectionChangedObservable(null!),
+            Throws.ArgumentNullException
+        );
     }
 
     [Test]
     public void WeakSubscribe_Handler_NullCollection_Throws()
     {
-        Assert.That(() => ((INotifyCollectionChanged)null!).WeakSubscribe((NotifyCollectionChangedEventHandler)((_, _) => { })),
-            Throws.ArgumentNullException);
+        Assert.That(
+            () =>
+                ((INotifyCollectionChanged)null!).WeakSubscribe(
+                    (NotifyCollectionChangedEventHandler)((_, _) => { })
+                ),
+            Throws.ArgumentNullException
+        );
     }
 
     [Test]
     public void WeakSubscribe_Action_NullCollection_Throws()
     {
-        Assert.That(() => ((INotifyCollectionChanged)null!).WeakSubscribe((Action<NotifyCollectionChangedEventArgs>)(_ => { })),
-            Throws.ArgumentNullException);
+        Assert.That(
+            () =>
+                ((INotifyCollectionChanged)null!).WeakSubscribe(
+                    (Action<NotifyCollectionChangedEventArgs>)(_ => { })
+                ),
+            Throws.ArgumentNullException
+        );
     }
 
     [Test]
@@ -31,8 +43,10 @@ public class NotifyCollectionChangedExtensionsTests
     {
         var list = new CoreList<int>();
 
-        Assert.That(() => list.WeakSubscribe((NotifyCollectionChangedEventHandler)null!),
-            Throws.ArgumentNullException);
+        Assert.That(
+            () => list.WeakSubscribe((NotifyCollectionChangedEventHandler)null!),
+            Throws.ArgumentNullException
+        );
     }
 
     [Test]
@@ -40,8 +54,10 @@ public class NotifyCollectionChangedExtensionsTests
     {
         var list = new CoreList<int>();
 
-        Assert.That(() => list.WeakSubscribe((Action<NotifyCollectionChangedEventArgs>)null!),
-            Throws.ArgumentNullException);
+        Assert.That(
+            () => list.WeakSubscribe((Action<NotifyCollectionChangedEventArgs>)null!),
+            Throws.ArgumentNullException
+        );
     }
 
     [Test]
@@ -56,12 +72,17 @@ public class NotifyCollectionChangedExtensionsTests
         list.Add(2);
         list.RemoveAt(0);
 
-        Assert.That(actions, Is.EqualTo(new[]
-        {
-            NotifyCollectionChangedAction.Add,
-            NotifyCollectionChangedAction.Add,
-            NotifyCollectionChangedAction.Remove,
-        }));
+        Assert.That(
+            actions,
+            Is.EqualTo(
+                new[]
+                {
+                    NotifyCollectionChangedAction.Add,
+                    NotifyCollectionChangedAction.Add,
+                    NotifyCollectionChangedAction.Remove,
+                }
+            )
+        );
     }
 
     [Test]

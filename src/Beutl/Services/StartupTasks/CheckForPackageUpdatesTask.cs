@@ -11,7 +11,8 @@ namespace Beutl.Services.StartupTasks;
 
 public sealed class CheckForPackageUpdatesTask : StartupTask
 {
-    private readonly ILogger<CheckForPackageUpdatesTask> _logger = Log.CreateLogger<CheckForPackageUpdatesTask>();
+    private readonly ILogger<CheckForPackageUpdatesTask> _logger =
+        Log.CreateLogger<CheckForPackageUpdatesTask>();
 
     public CheckForPackageUpdatesTask(Startup startup, PackageManager packageManager)
     {
@@ -30,12 +31,16 @@ public sealed class CheckForPackageUpdatesTask : StartupTask
 
                     if (updates.Count > 0)
                     {
-                        _logger.LogInformation("{Count} package update(s) available.", updates.Count);
+                        _logger.LogInformation(
+                            "{Count} package update(s) available.",
+                            updates.Count
+                        );
                         NotificationService.ShowInformation(
                             MessageStrings.PackageUpdatesAvailable,
                             string.Format(MessageStrings.PackagesCanBeUpdated, updates.Count),
                             onActionButtonClick: OpenExtensionsPage,
-                            actionButtonText: Strings.Open);
+                            actionButtonText: Strings.Open
+                        );
                     }
                     else
                     {
@@ -75,7 +80,9 @@ public sealed class CheckForPackageUpdatesTask : StartupTask
                 window.DataContext = context;
                 if (window is Pages.ExtensionsPage page)
                 {
-                    page.nav.SelectedItem = page.nav.MenuItemsSource.Cast<NavigationViewItem>().ElementAtOrDefault(1);
+                    page.nav.SelectedItem = page
+                        .nav.MenuItemsSource.Cast<NavigationViewItem>()
+                        .ElementAtOrDefault(1);
                 }
 
                 try

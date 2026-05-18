@@ -20,7 +20,12 @@ public sealed class AvaloniaPixelSizeConverter : IValueConverter
         }
     }
 
-    public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
+    public object? ConvertBack(
+        object? value,
+        Type targetType,
+        object? parameter,
+        CultureInfo culture
+    )
     {
         if (value is string str)
         {
@@ -30,7 +35,11 @@ public sealed class AvaloniaPixelSizeConverter : IValueConverter
             }
             catch
             {
-                return new BindingNotification(new FormatException(string.Format(MessageStrings.IsNotValid, str)), BindingErrorType.Error, str);
+                return new BindingNotification(
+                    new FormatException(string.Format(MessageStrings.IsNotValid, str)),
+                    BindingErrorType.Error,
+                    str
+                );
             }
         }
 

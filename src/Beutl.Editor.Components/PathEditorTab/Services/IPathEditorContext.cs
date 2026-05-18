@@ -1,7 +1,6 @@
 ﻿using Beutl.Editor.Components.PropertyEditors.Services;
 using Beutl.Media;
 using Beutl.ProjectSystem;
-
 using Reactive.Bindings;
 
 namespace Beutl.Editor.Components.PathEditorTab.Services;

@@ -12,21 +12,26 @@ namespace Beutl.Graphics.Effects;
 public abstract partial class DisplacementMapTransform : EngineObject
 {
     internal abstract void ApplyTo(
-        Brush.Resource displacementMap, Resource resource, GradientSpreadMethod spreadMethod,
-        DisplacementMapChannel channel, bool signed, FilterEffectContext context);
+        Brush.Resource displacementMap,
+        Resource resource,
+        GradientSpreadMethod spreadMethod,
+        DisplacementMapChannel channel,
+        bool signed,
+        FilterEffectContext context
+    );
 }
 
 [Display(Name = nameof(GraphicsStrings.TranslateTransform), ResourceType = typeof(GraphicsStrings))]
 public partial class DisplacementMapTranslateTransform : DisplacementMapTransform
 {
-    private static readonly ILogger s_logger = Log.CreateLogger<DisplacementMapTranslateTransform>();
+    private static readonly ILogger s_logger =
+        Log.CreateLogger<DisplacementMapTranslateTransform>();
     private static readonly SKSLShader? s_shader;
 
     static DisplacementMapTranslateTransform()
     {
         // SKSLコード（child shaderとして uBaseTexture と uDisplacementMap を使用）
-        string sksl =
-            """
+        string sksl = """
             uniform shader uBaseTexture;
             uniform shader uDisplacementMap;
 
@@ -69,20 +74,33 @@ public partial class DisplacementMapTranslateTransform : DisplacementMapTransfor
         ScanProperties<DisplacementMapTranslateTransform>();
     }
 
-    [Display(Name = nameof(GraphicsStrings.TranslateTransform_X), ResourceType = typeof(GraphicsStrings))]
+    [Display(
+        Name = nameof(GraphicsStrings.TranslateTransform_X),
+        ResourceType = typeof(GraphicsStrings)
+    )]
     public IProperty<float> X { get; } = Property.CreateAnimatable<float>();
 
-    [Display(Name = nameof(GraphicsStrings.TranslateTransform_Y), ResourceType = typeof(GraphicsStrings))]
+    [Display(
+        Name = nameof(GraphicsStrings.TranslateTransform_Y),
+        ResourceType = typeof(GraphicsStrings)
+    )]
     public IProperty<float> Y { get; } = Property.CreateAnimatable<float>();
 
     internal override void ApplyTo(
-        Brush.Resource displacementMap, DisplacementMapTransform.Resource resource,
-        GradientSpreadMethod spreadMethod, DisplacementMapChannel channel, bool signed, FilterEffectContext context)
+        Brush.Resource displacementMap,
+        DisplacementMapTransform.Resource resource,
+        GradientSpreadMethod spreadMethod,
+        DisplacementMapChannel channel,
+        bool signed,
+        FilterEffectContext context
+    )
     {
-        if (s_shader is null) throw new InvalidOperationException("Failed to compile SKSL.");
+        if (s_shader is null)
+            throw new InvalidOperationException("Failed to compile SKSL.");
         var r = (Resource)resource;
 
-        context.CustomEffect((displacementMap, r, spreadMethod, channel, signed, r.X, r.Y),
+        context.CustomEffect(
+            (displacementMap, r, spreadMethod, channel, signed, r.X, r.Y),
             (d, c) =>
             {
                 var (map, r, sm, ch, isSigned, x, y) = d;
@@ -90,12 +108,17 @@ public partial class DisplacementMapTranslateTransform : DisplacementMapTransfor
                 {
                     using EffectTarget effectTarget = c.Targets[i];
                     var renderTarget = effectTarget.RenderTarget!;
-                    using var displacementMapShader =
-                        new BrushConstructor(new(effectTarget.Bounds.Size), map, BlendMode.SrcOver)
-                            .CreateShader();
+                    using var displacementMapShader = new BrushConstructor(
+                        new(effectTarget.Bounds.Size),
+                        map,
+                        BlendMode.SrcOver
+                    ).CreateShader();
 
                     using var image = renderTarget.Value.Snapshot();
-                    using var baseShader = image.ToShader(sm.ToSKShaderTileMode(), sm.ToSKShaderTileMode());
+                    using var baseShader = image.ToShader(
+                        sm.ToSKShaderTileMode(),
+                        sm.ToSKShaderTileMode()
+                    );
 
                     // SKRuntimeShaderBuilderを作成して、child shaderとuniformを設定
                     var builder = s_shader.CreateBuilder();
@@ -111,7 +134,8 @@ public partial class DisplacementMapTranslateTransform : DisplacementMapTransfor
                     // 新しいターゲットに適用
                     c.Targets[i] = s_shader.ApplyToNewTarget(c, builder, effectTarget.Bounds);
                 }
-            });
+            }
+        );
     }
 }
 
@@ -123,8 +147,7 @@ public partial class DisplacementMapScaleTransform : DisplacementMapTransform
 
     static DisplacementMapScaleTransform()
     {
-        string sksl =
-            """
+        string sksl = """
             uniform shader uBaseTexture;
             uniform shader uDisplacementMap;
 
@@ -170,10 +193,16 @@ public partial class DisplacementMapScaleTransform : DisplacementMapTransform
     [Display(Name = nameof(GraphicsStrings.Scale), ResourceType = typeof(GraphicsStrings))]
     public IProperty<float> Scale { get; } = Property.CreateAnimatable<float>(100);
 
-    [Display(Name = nameof(GraphicsStrings.ScaleTransform_ScaleX), ResourceType = typeof(GraphicsStrings))]
+    [Display(
+        Name = nameof(GraphicsStrings.ScaleTransform_ScaleX),
+        ResourceType = typeof(GraphicsStrings)
+    )]
     public IProperty<float> ScaleX { get; } = Property.CreateAnimatable<float>(100);
 
-    [Display(Name = nameof(GraphicsStrings.ScaleTransform_ScaleY), ResourceType = typeof(GraphicsStrings))]
+    [Display(
+        Name = nameof(GraphicsStrings.ScaleTransform_ScaleY),
+        ResourceType = typeof(GraphicsStrings)
+    )]
     public IProperty<float> ScaleY { get; } = Property.CreateAnimatable<float>(100);
 
     [Display(Name = nameof(GraphicsStrings.CenterX), ResourceType = typeof(GraphicsStrings))]
@@ -183,15 +212,28 @@ public partial class DisplacementMapScaleTransform : DisplacementMapTransform
     public IProperty<float> CenterY { get; } = Property.CreateAnimatable<float>();
 
     internal override void ApplyTo(
-        Brush.Resource displacementMap, DisplacementMapTransform.Resource resource,
-        GradientSpreadMethod spreadMethod, DisplacementMapChannel channel, bool signed, FilterEffectContext context)
+        Brush.Resource displacementMap,
+        DisplacementMapTransform.Resource resource,
+        GradientSpreadMethod spreadMethod,
+        DisplacementMapChannel channel,
+        bool signed,
+        FilterEffectContext context
+    )
     {
-        if (s_shader is null) throw new InvalidOperationException("Failed to compile SKSL.");
+        if (s_shader is null)
+            throw new InvalidOperationException("Failed to compile SKSL.");
         var r = (Resource)resource;
 
         context.CustomEffect(
-            (displacementMap, spreadMethod, channel, signed, x: r.Scale * r.ScaleX / 10000, y: r.Scale * r.ScaleY / 10000,
-                center: new Point(r.CenterX, r.CenterY)),
+            (
+                displacementMap,
+                spreadMethod,
+                channel,
+                signed,
+                x: r.Scale * r.ScaleX / 10000,
+                y: r.Scale * r.ScaleY / 10000,
+                center: new Point(r.CenterX, r.CenterY)
+            ),
             (d, c) =>
             {
                 var (map, sm, ch, isSigned, scaleX, scaleY, center) = d;
@@ -199,12 +241,17 @@ public partial class DisplacementMapScaleTransform : DisplacementMapTransform
                 {
                     using var effectTarget = c.Targets[i];
                     var renderTarget = effectTarget.RenderTarget!;
-                    using var displacementMapShader =
-                        new BrushConstructor(new(effectTarget.Bounds.Size), map, BlendMode.SrcOver)
-                            .CreateShader();
+                    using var displacementMapShader = new BrushConstructor(
+                        new(effectTarget.Bounds.Size),
+                        map,
+                        BlendMode.SrcOver
+                    ).CreateShader();
 
                     using var image = renderTarget.Value.Snapshot();
-                    using var baseShader = image.ToShader(sm.ToSKShaderTileMode(), sm.ToSKShaderTileMode());
+                    using var baseShader = image.ToShader(
+                        sm.ToSKShaderTileMode(),
+                        sm.ToSKShaderTileMode()
+                    );
 
                     // SKRuntimeShaderBuilderを作成して、child shaderとuniformを設定
                     var builder = s_shader.CreateBuilder();
@@ -216,14 +263,16 @@ public partial class DisplacementMapScaleTransform : DisplacementMapTransform
                     builder.Uniforms["uScale"] = new SKPoint(scaleX, scaleY);
                     builder.Uniforms["uPivot"] = new SKPoint(
                         effectTarget.Bounds.Width / 2 + center.X,
-                        effectTarget.Bounds.Height / 2 + center.Y);
+                        effectTarget.Bounds.Height / 2 + center.Y
+                    );
                     builder.Uniforms["uChannel"] = (int)ch;
                     builder.Uniforms["uSigned"] = isSigned ? 1 : 0;
 
                     // 新しいターゲットに適用
                     c.Targets[i] = s_shader.ApplyToNewTarget(c, builder, effectTarget.Bounds);
                 }
-            });
+            }
+        );
     }
 }
 
@@ -235,8 +284,7 @@ public partial class DisplacementMapRotationTransform : DisplacementMapTransform
 
     static DisplacementMapRotationTransform()
     {
-        string sksl =
-            """
+        string sksl = """
             uniform shader uBaseTexture;
             uniform shader uDisplacementMap;
 
@@ -292,14 +340,27 @@ public partial class DisplacementMapRotationTransform : DisplacementMapTransform
     public IProperty<float> CenterY { get; } = Property.CreateAnimatable<float>(0);
 
     internal override void ApplyTo(
-        Brush.Resource displacementMap, DisplacementMapTransform.Resource resource,
-        GradientSpreadMethod spreadMethod, DisplacementMapChannel channel, bool signed, FilterEffectContext context)
+        Brush.Resource displacementMap,
+        DisplacementMapTransform.Resource resource,
+        GradientSpreadMethod spreadMethod,
+        DisplacementMapChannel channel,
+        bool signed,
+        FilterEffectContext context
+    )
     {
-        if (s_shader is null) throw new InvalidOperationException("Failed to compile SKSL.");
+        if (s_shader is null)
+            throw new InvalidOperationException("Failed to compile SKSL.");
         var r = (Resource)resource;
 
         context.CustomEffect(
-            (displacementMap, spreadMethod, channel, signed, r.Rotation, new Point(r.CenterX, r.CenterY)),
+            (
+                displacementMap,
+                spreadMethod,
+                channel,
+                signed,
+                r.Rotation,
+                new Point(r.CenterX, r.CenterY)
+            ),
             (d, c) =>
             {
                 var (map, sm, ch, isSigned, rotation, center) = d;
@@ -307,12 +368,17 @@ public partial class DisplacementMapRotationTransform : DisplacementMapTransform
                 {
                     using var effectTarget = c.Targets[i];
                     var renderTarget = effectTarget.RenderTarget!;
-                    using var displacementMapShader =
-                        new BrushConstructor(new(effectTarget.Bounds.Size), map, BlendMode.SrcOver)
-                            .CreateShader();
+                    using var displacementMapShader = new BrushConstructor(
+                        new(effectTarget.Bounds.Size),
+                        map,
+                        BlendMode.SrcOver
+                    ).CreateShader();
 
                     using var image = renderTarget.Value.Snapshot();
-                    using var baseShader = image.ToShader(sm.ToSKShaderTileMode(), sm.ToSKShaderTileMode());
+                    using var baseShader = image.ToShader(
+                        sm.ToSKShaderTileMode(),
+                        sm.ToSKShaderTileMode()
+                    );
 
                     // SKRuntimeShaderBuilderを作成して、child shaderとuniformを設定
                     var builder = s_shader.CreateBuilder();
@@ -324,13 +390,15 @@ public partial class DisplacementMapRotationTransform : DisplacementMapTransform
                     builder.Uniforms["uAngle"] = MathUtilities.Deg2Rad(rotation);
                     builder.Uniforms["uPivot"] = new SKPoint(
                         effectTarget.Bounds.Width / 2 + center.X,
-                        effectTarget.Bounds.Height / 2 + center.Y);
+                        effectTarget.Bounds.Height / 2 + center.Y
+                    );
                     builder.Uniforms["uChannel"] = (int)ch;
                     builder.Uniforms["uSigned"] = isSigned ? 1 : 0;
 
                     // 新しいターゲットに適用
                     c.Targets[i] = s_shader.ApplyToNewTarget(c, builder, effectTarget.Bounds);
                 }
-            });
+            }
+        );
     }
 }

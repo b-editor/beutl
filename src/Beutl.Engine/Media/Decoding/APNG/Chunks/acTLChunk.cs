@@ -4,19 +4,13 @@
 public class acTLChunk : Chunk
 {
     public acTLChunk(byte[] bytes)
-        : base(bytes)
-    {
-    }
+        : base(bytes) { }
 
     public acTLChunk(MemoryStream ms)
-        : base(ms)
-    {
-    }
+        : base(ms) { }
 
     public acTLChunk(Chunk chunk)
-        : base(chunk)
-    {
-    }
+        : base(chunk) { }
 
     public uint NumFrames { get; private set; }
 

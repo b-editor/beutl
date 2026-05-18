@@ -45,7 +45,8 @@ public sealed partial class PortalObject : EngineObject
                         // Evaluate another element and get flow-processed results
                         ctx.EvaluateElementIntoFlow(item);
                     }
-                    else if (item.ZIndex > end) break;
+                    else if (item.ZIndex > end)
+                        break;
                 }
             }
         }

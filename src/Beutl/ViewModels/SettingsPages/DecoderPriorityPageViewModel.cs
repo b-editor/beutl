@@ -2,16 +2,16 @@
 using Beutl.Controls.Navigation;
 using Beutl.Media.Decoding;
 using Beutl.ViewModels.ExtensionsPages;
-
 using Reactive.Bindings;
-
 using static Beutl.Configuration.ExtensionConfig;
 
 namespace Beutl.ViewModels.SettingsPages;
 
 public sealed class DecoderPriorityPageViewModel : BasePageViewModel
 {
-    private readonly ExtensionConfig _extensionConfig = GlobalConfiguration.Instance.ExtensionConfig;
+    private readonly ExtensionConfig _extensionConfig = GlobalConfiguration
+        .Instance
+        .ExtensionConfig;
 
     public record DecoderDetailViewModel(IDecoderInfo Model)
     {
@@ -65,6 +65,8 @@ public sealed class DecoderPriorityPageViewModel : BasePageViewModel
         Items.Move(oldIndex, newIndex);
 
         // Items -> ExtensionConfig.DecoderPriority
-        _extensionConfig.DecoderPriority.Replace(Items.Select(v => new TypeLazy(TypeFormat.ToString(v.Model.GetType()))).ToArray());
+        _extensionConfig.DecoderPriority.Replace(
+            Items.Select(v => new TypeLazy(TypeFormat.ToString(v.Model.GetType()))).ToArray()
+        );
     }
 }

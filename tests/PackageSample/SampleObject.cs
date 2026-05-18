@@ -2,6 +2,4 @@
 
 namespace PackageSample;
 
-public sealed partial class SampleObject : EngineObject
-{
-}
+public sealed partial class SampleObject : EngineObject { }

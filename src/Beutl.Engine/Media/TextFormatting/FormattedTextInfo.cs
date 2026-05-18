@@ -5,4 +5,5 @@ public record struct FormattedTextInfo(
     float Size,
     Brush.Resource? Brush,
     float Space,
-    Pen.Resource? Pen);
+    Pen.Resource? Pen
+);

@@ -1,5 +1,4 @@
-﻿
-using System.Collections.Concurrent;
+﻿using System.Collections.Concurrent;
 using Beutl.FFmpegIpc.Protocol;
 using Beutl.FFmpegIpc.Protocol.Messages;
 using Beutl.FFmpegIpc.SharedMemory;
@@ -18,7 +17,8 @@ internal sealed partial class DecodingHandler : IDisposable
 
     public IpcMessage HandleOpen(IpcMessage msg)
     {
-        var request = msg.GetPayload<OpenFileRequest>()
+        var request =
+            msg.GetPayload<OpenFileRequest>()
             ?? throw new InvalidOperationException("Missing payload for OpenFile");
         var settings = new FFmpegDecodingSettings();
         settings.ThreadCount = request.ThreadCount;
@@ -47,9 +47,14 @@ internal sealed partial class DecodingHandler : IDisposable
             var videoBuffer = SharedMemoryBuffer.Create(videoShmName, totalSize);
 
             state.RingBuffer = new VideoRingBuffer(
-                slotCount, slotSize, videoBuffer,
-                reader, id, state.ReaderLock,
-                () => Interlocked.Increment(ref _shmGeneration));
+                slotCount,
+                slotSize,
+                videoBuffer,
+                reader,
+                id,
+                state.ReaderLock,
+                () => Interlocked.Increment(ref _shmGeneration)
+            );
         }
 
         if (reader.HasAudio)
@@ -100,7 +105,8 @@ internal sealed partial class DecodingHandler : IDisposable
 
     public IpcMessage HandleReadVideo(IpcMessage msg)
     {
-        var request = msg.GetPayload<ReadVideoRequest>()
+        var request =
+            msg.GetPayload<ReadVideoRequest>()
             ?? throw new InvalidOperationException("Missing payload for ReadVideo");
         if (!_readers.TryGetValue(request.ReaderId, out var state))
             return IpcMessage.CreateError(msg.Id, $"Unknown reader ID: {request.ReaderId}");
@@ -111,29 +117,42 @@ internal sealed partial class DecodingHandler : IDisposable
         return HandleReadVideoLegacy(msg.Id, request, state);
     }
 
-    private static IpcMessage HandleReadVideoRingBuffer(int msgId, int frame, VideoRingBuffer ringBuffer)
+    private static IpcMessage HandleReadVideoRingBuffer(
+        int msgId,
+        int frame,
+        VideoRingBuffer ringBuffer
+    )
     {
         var result = ringBuffer.ReadFrame(frame);
 
-        return IpcMessage.Create(msgId, MessageType.ReadVideoResult, new ReadVideoResponse
-        {
-            Success = result.Success,
-            Width = result.Width,
-            Height = result.Height,
-            BytesPerPixel = result.BytesPerPixel,
-            DataLength = result.DataLength,
-            IsHdr = result.IsHdr,
-            SharedMemoryName = result.NewSharedMemoryName,
-            RingBufferSlotSize = result.NewSharedMemoryName != null ? result.NewSlotSize : null,
-            RingBufferSlotCount = result.NewSharedMemoryName != null ? result.NewSlotCount : null,
-            SlotIndex = result.Success ? result.SlotIndex : null,
-            SlotDataOffset = result.SlotDataOffset,
-            TransferFn = result.TransferFn,
-            ToXyzD50 = result.ToXyzD50,
-        });
+        return IpcMessage.Create(
+            msgId,
+            MessageType.ReadVideoResult,
+            new ReadVideoResponse
+            {
+                Success = result.Success,
+                Width = result.Width,
+                Height = result.Height,
+                BytesPerPixel = result.BytesPerPixel,
+                DataLength = result.DataLength,
+                IsHdr = result.IsHdr,
+                SharedMemoryName = result.NewSharedMemoryName,
+                RingBufferSlotSize = result.NewSharedMemoryName != null ? result.NewSlotSize : null,
+                RingBufferSlotCount =
+                    result.NewSharedMemoryName != null ? result.NewSlotCount : null,
+                SlotIndex = result.Success ? result.SlotIndex : null,
+                SlotDataOffset = result.SlotDataOffset,
+                TransferFn = result.TransferFn,
+                ToXyzD50 = result.ToXyzD50,
+            }
+        );
     }
 
-    private unsafe IpcMessage HandleReadVideoLegacy(int msgId, ReadVideoRequest request, ReaderState state)
+    private unsafe IpcMessage HandleReadVideoLegacy(
+        int msgId,
+        ReadVideoRequest request,
+        ReaderState state
+    )
     {
         state.ReaderLock.Wait();
         try
@@ -159,14 +178,18 @@ internal sealed partial class DecodingHandler : IDisposable
                 if (!state.Reader.ReadVideo(request.Frame, destination, out var frameInfo))
                 {
                     // バッファが小さい場合リサイズして再試行
-                    if (frameInfo.DataLength > 0 && frameInfo.DataLength > state.VideoBuffer.Capacity)
+                    if (
+                        frameInfo.DataLength > 0
+                        && frameInfo.DataLength > state.VideoBuffer.Capacity
+                    )
                     {
                         state.VideoBuffer.ReleasePointer();
                         ptr = null;
                         state.VideoBuffer.Dispose();
                         long newSize = frameInfo.DataLength + 64;
                         int gen = Interlocked.Increment(ref _shmGeneration);
-                        newShmName = $"beutl-ffmpeg-video-{Environment.ProcessId}-{request.ReaderId}-{gen}";
+                        newShmName =
+                            $"beutl-ffmpeg-video-{Environment.ProcessId}-{request.ReaderId}-{gen}";
                         state.VideoBuffer = SharedMemoryBuffer.Create(newShmName, newSize);
 
                         ptr = state.VideoBuffer.AcquirePointer();
@@ -174,14 +197,24 @@ internal sealed partial class DecodingHandler : IDisposable
 
                         if (!state.Reader.ReadVideo(request.Frame, destination, out frameInfo))
                         {
-                            return IpcMessage.Create(msgId, MessageType.ReadVideoResult,
-                                new ReadVideoResponse { Success = false, SharedMemoryName = newShmName });
+                            return IpcMessage.Create(
+                                msgId,
+                                MessageType.ReadVideoResult,
+                                new ReadVideoResponse
+                                {
+                                    Success = false,
+                                    SharedMemoryName = newShmName,
+                                }
+                            );
                         }
                     }
                     else
                     {
-                        return IpcMessage.Create(msgId, MessageType.ReadVideoResult,
-                            new ReadVideoResponse { Success = false });
+                        return IpcMessage.Create(
+                            msgId,
+                            MessageType.ReadVideoResult,
+                            new ReadVideoResponse { Success = false }
+                        );
                     }
                 }
 
@@ -190,21 +223,27 @@ internal sealed partial class DecodingHandler : IDisposable
                 state.LastColorSpace = frameInfo.ColorSpace;
                 if (colorSpaceChanged || state.LastToXyzD50 == null || state.LastTransferFn == null)
                 {
-                    (state.LastTransferFn, state.LastToXyzD50) = ColorSpaceIpcHelper.Extract(frameInfo.ColorSpace);
+                    (state.LastTransferFn, state.LastToXyzD50) = ColorSpaceIpcHelper.Extract(
+                        frameInfo.ColorSpace
+                    );
                 }
 
-                return IpcMessage.Create(msgId, MessageType.ReadVideoResult, new ReadVideoResponse
-                {
-                    Success = true,
-                    Width = frameInfo.Width,
-                    Height = frameInfo.Height,
-                    BytesPerPixel = frameInfo.BytesPerPixel,
-                    DataLength = frameInfo.DataLength,
-                    IsHdr = frameInfo.IsHdr,
-                    SharedMemoryName = newShmName,
-                    TransferFn = colorSpaceChanged ? state.LastTransferFn : null,
-                    ToXyzD50 = colorSpaceChanged ? state.LastToXyzD50 : null,
-                });
+                return IpcMessage.Create(
+                    msgId,
+                    MessageType.ReadVideoResult,
+                    new ReadVideoResponse
+                    {
+                        Success = true,
+                        Width = frameInfo.Width,
+                        Height = frameInfo.Height,
+                        BytesPerPixel = frameInfo.BytesPerPixel,
+                        DataLength = frameInfo.DataLength,
+                        IsHdr = frameInfo.IsHdr,
+                        SharedMemoryName = newShmName,
+                        TransferFn = colorSpaceChanged ? state.LastTransferFn : null,
+                        ToXyzD50 = colorSpaceChanged ? state.LastToXyzD50 : null,
+                    }
+                );
             }
             finally
             {
@@ -220,7 +259,8 @@ internal sealed partial class DecodingHandler : IDisposable
 
     public unsafe IpcMessage HandleReadAudio(IpcMessage msg)
     {
-        var request = msg.GetPayload<ReadAudioRequest>()
+        var request =
+            msg.GetPayload<ReadAudioRequest>()
             ?? throw new InvalidOperationException("Missing payload for ReadAudio");
         if (!_readers.TryGetValue(request.ReaderId, out var state))
             return IpcMessage.CreateError(msg.Id, $"Unknown reader ID: {request.ReaderId}");
@@ -246,20 +286,34 @@ internal sealed partial class DecodingHandler : IDisposable
             {
                 var destination = new Span<byte>(ptr, (int)state.AudioBuffer.Capacity);
 
-                if (!state.Reader.ReadAudio(request.Start, request.Length, destination, out var audioInfo))
+                if (
+                    !state.Reader.ReadAudio(
+                        request.Start,
+                        request.Length,
+                        destination,
+                        out var audioInfo
+                    )
+                )
                 {
-                    return IpcMessage.Create(msg.Id, MessageType.ReadAudioResult,
-                        new ReadAudioResponse { Success = false });
+                    return IpcMessage.Create(
+                        msg.Id,
+                        MessageType.ReadAudioResult,
+                        new ReadAudioResponse { Success = false }
+                    );
                 }
 
-                return IpcMessage.Create(msg.Id, MessageType.ReadAudioResult, new ReadAudioResponse
-                {
-                    Success = true,
-                    SampleRate = audioInfo.SampleRate,
-                    NumSamples = audioInfo.NumSamples,
-                    DataLength = audioInfo.DataLength,
-                    SharedMemoryName = newShmName,
-                });
+                return IpcMessage.Create(
+                    msg.Id,
+                    MessageType.ReadAudioResult,
+                    new ReadAudioResponse
+                    {
+                        Success = true,
+                        SampleRate = audioInfo.SampleRate,
+                        NumSamples = audioInfo.NumSamples,
+                        DataLength = audioInfo.DataLength,
+                        SharedMemoryName = newShmName,
+                    }
+                );
             }
             finally
             {
@@ -274,7 +328,8 @@ internal sealed partial class DecodingHandler : IDisposable
 
     public IpcMessage HandleClose(IpcMessage msg)
     {
-        var request = msg.GetPayload<CloseReaderRequest>()
+        var request =
+            msg.GetPayload<CloseReaderRequest>()
             ?? throw new InvalidOperationException("Missing payload for CloseReader");
         if (_readers.TryRemove(request.ReaderId, out var state))
         {
@@ -291,7 +346,8 @@ internal sealed partial class DecodingHandler : IDisposable
 
     public IpcMessage HandleUpdateDecoderSettings(IpcMessage msg)
     {
-        var request = msg.GetPayload<UpdateDecoderSettingsRequest>()
+        var request =
+            msg.GetPayload<UpdateDecoderSettingsRequest>()
             ?? throw new InvalidOperationException("Missing payload for UpdateDecoderSettings");
 
         foreach (KeyValuePair<int, ReaderState> kvp in _readers)
@@ -310,7 +366,8 @@ internal sealed partial class DecodingHandler : IDisposable
                 }
 
                 state.Reader.Settings.ThreadCount = request.ThreadCount;
-                state.Reader.Settings.Acceleration = (FFmpegDecodingSettings.AccelerationOptions)request.Acceleration;
+                state.Reader.Settings.Acceleration = (FFmpegDecodingSettings.AccelerationOptions)
+                    request.Acceleration;
                 state.Reader.Settings.ForceSrgbGamma = request.ForceSrgbGamma;
             }
             finally

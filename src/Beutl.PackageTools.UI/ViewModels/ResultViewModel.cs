@@ -8,7 +8,8 @@ public class ResultViewModel
         ActionViewModel[] install,
         ActionViewModel[] uninstall,
         ActionViewModel[] update,
-        CleanViewModel? clean)
+        CleanViewModel? clean
+    )
     {
         Install = install;
         Uninstall = uninstall;

@@ -18,12 +18,14 @@ public sealed class CollectionOperationObserver<T> : IOperationObserver
     private readonly IDisposable _subscription;
     private readonly HashSet<string>? _propertyPathsToTrack;
 
-    public CollectionOperationObserver(IObserver<ChangeOperation> observer,
+    public CollectionOperationObserver(
+        IObserver<ChangeOperation> observer,
         IList<T> list,
         CoreObject owner,
         string propertyPath,
         OperationSequenceGenerator sequenceNumberGenerator,
-        HashSet<string>? propertyPathsToTrack = null)
+        HashSet<string>? propertyPathsToTrack = null
+    )
     {
         _list = list;
         _owner = owner;
@@ -52,7 +54,8 @@ public sealed class CollectionOperationObserver<T> : IOperationObserver
             obj,
             _sequenceNumberGenerator,
             _propertyPath,
-            _propertyPathsToTrack);
+            _propertyPathsToTrack
+        );
         _childPublishers.Add(obj, childPublisher);
     }
 
@@ -120,7 +123,7 @@ public sealed class CollectionOperationObserver<T> : IOperationObserver
             Object = _owner,
             PropertyPath = _propertyPath,
             Items = e.NewItems.Cast<T>().ToArray(),
-            Index = index
+            Index = index,
         };
         _operations.OnNext(operation);
     }
@@ -134,8 +137,10 @@ public sealed class CollectionOperationObserver<T> : IOperationObserver
 
         foreach (object oldItem in e.OldItems)
         {
-            if (oldItem is CoreObject coreObject
-                && _childPublishers.TryGetValue(coreObject, out var childPublisher))
+            if (
+                oldItem is CoreObject coreObject
+                && _childPublishers.TryGetValue(coreObject, out var childPublisher)
+            )
             {
                 childPublisher.Dispose();
                 _childPublishers.Remove(coreObject);
@@ -148,7 +153,7 @@ public sealed class CollectionOperationObserver<T> : IOperationObserver
             Object = _owner,
             PropertyPath = _propertyPath,
             Index = e.OldStartingIndex,
-            Items = e.OldItems.Cast<T>().ToArray()
+            Items = e.OldItems.Cast<T>().ToArray(),
         };
         _operations.OnNext(operation);
     }
@@ -167,7 +172,7 @@ public sealed class CollectionOperationObserver<T> : IOperationObserver
             PropertyPath = _propertyPath,
             OldIndex = e.OldStartingIndex,
             NewIndex = e.NewStartingIndex,
-            Count = e.OldItems.Count
+            Count = e.OldItems.Count,
         };
         _operations.OnNext(operation);
     }
@@ -178,8 +183,10 @@ public sealed class CollectionOperationObserver<T> : IOperationObserver
         {
             foreach (object oldItem in e.OldItems)
             {
-                if (oldItem is CoreObject coreObject
-                    && _childPublishers.TryGetValue(coreObject, out var childPublisher))
+                if (
+                    oldItem is CoreObject coreObject
+                    && _childPublishers.TryGetValue(coreObject, out var childPublisher)
+                )
                 {
                     childPublisher.Dispose();
                     _childPublishers.Remove(coreObject);
@@ -192,7 +199,7 @@ public sealed class CollectionOperationObserver<T> : IOperationObserver
                 Object = _owner,
                 PropertyPath = _propertyPath,
                 Index = e.OldStartingIndex,
-                Items = e.OldItems.Cast<T>().ToArray()
+                Items = e.OldItems.Cast<T>().ToArray(),
             };
             _operations.OnNext(operation);
         }
@@ -214,7 +221,7 @@ public sealed class CollectionOperationObserver<T> : IOperationObserver
                 Object = _owner,
                 PropertyPath = _propertyPath,
                 Items = e.NewItems.Cast<T>().ToArray(),
-                Index = index
+                Index = index,
             };
             _operations.OnNext(operation);
         }

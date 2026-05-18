@@ -48,7 +48,11 @@ public class ResourceRelocationServiceTests
         var sources = new[] { (Guid.NewGuid(), "Source", missingUri) };
 
         // Act
-        RelocationResult result = await service.RelocateFileSourcesAsync(sources, project, _projectDir);
+        RelocationResult result = await service.RelocateFileSourcesAsync(
+            sources,
+            project,
+            _projectDir
+        );
 
         // Assert
         Assert.Multiple(() =>
@@ -72,7 +76,11 @@ public class ResourceRelocationServiceTests
         var sources = new[] { (id, "NonExistentProperty", sourceUri) };
 
         // Act
-        RelocationResult result = await service.RelocateFileSourcesAsync(sources, project, _projectDir);
+        RelocationResult result = await service.RelocateFileSourcesAsync(
+            sources,
+            project,
+            _projectDir
+        );
 
         // Assert: the per-property failure path tags the entry with the GUID and property,
         // which lets us tell it apart from the source-not-found branch.
@@ -134,7 +142,8 @@ public class ResourceRelocationServiceTests
         // Arrange: font finder returns a path that does not exist; CopyFileAsync throws.
         string missingFontPath = Path.Combine(_testDir, "missing.ttf");
         var service = new ResourceRelocationService(name =>
-            name == "FamilyWithMissingFile" ? new[] { missingFontPath } : []);
+            name == "FamilyWithMissingFile" ? new[] { missingFontPath } : []
+        );
         var fonts = new[] { new FontFamily("FamilyWithMissingFile") };
 
         // Act
@@ -155,12 +164,14 @@ public class ResourceRelocationServiceTests
         // Arrange: one family resolves to a real file, the other throws from the finder.
         string goodFontPath = Path.Combine(_testDir, "good.ttf");
         await File.WriteAllBytesAsync(goodFontPath, [1, 2, 3]);
-        var service = new ResourceRelocationService(name => name switch
-        {
-            "GoodFamily" => [goodFontPath],
-            "BadFamily" => throw new InvalidOperationException("simulated"),
-            _ => Array.Empty<string>(),
-        });
+        var service = new ResourceRelocationService(name =>
+            name switch
+            {
+                "GoodFamily" => [goodFontPath],
+                "BadFamily" => throw new InvalidOperationException("simulated"),
+                _ => Array.Empty<string>(),
+            }
+        );
         var fonts = new[] { new FontFamily("GoodFamily"), new FontFamily("BadFamily") };
 
         // Act
@@ -172,7 +183,10 @@ public class ResourceRelocationServiceTests
             Assert.That(result.SuccessCount, Is.EqualTo(1));
             Assert.That(result.FailedResources, Has.Count.EqualTo(1));
             Assert.That(result.FailedResources[0], Is.EqualTo("BadFamily"));
-            Assert.That(File.Exists(Path.Combine(_projectDir, "resources", "fonts", "good.ttf")), Is.True);
+            Assert.That(
+                File.Exists(Path.Combine(_projectDir, "resources", "fonts", "good.ttf")),
+                Is.True
+            );
         });
     }
 
@@ -213,7 +227,11 @@ public class ResourceRelocationServiceTests
         };
 
         // Act
-        RelocationResult result = await service.RelocateFileSourcesAsync(sources, project, _projectDir);
+        RelocationResult result = await service.RelocateFileSourcesAsync(
+            sources,
+            project,
+            _projectDir
+        );
 
         // Assert
         Assert.Multiple(() =>
@@ -256,7 +274,8 @@ public class ResourceRelocationServiceTests
 
         // Act & Assert
         Assert.ThrowsAsync<OperationCanceledException>(async () =>
-            await service.RelocateFileSourcesAsync(sources, project, _projectDir, cts.Token));
+            await service.RelocateFileSourcesAsync(sources, project, _projectDir, cts.Token)
+        );
     }
 
     [Test]
@@ -272,7 +291,8 @@ public class ResourceRelocationServiceTests
 
         // Act & Assert
         Assert.ThrowsAsync<OperationCanceledException>(async () =>
-            await service.RelocateFontsAsync(fonts, _projectDir, cts.Token));
+            await service.RelocateFontsAsync(fonts, _projectDir, cts.Token)
+        );
     }
 
     [Test]

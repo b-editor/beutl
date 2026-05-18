@@ -142,7 +142,5 @@ public class VirtualProjectRootTests
         Assert.That(((IHierarchical)root).HierarchicalChildren.Contains(project2), Is.True);
     }
 
-    private class TestHierarchical : Hierarchical
-    {
-    }
+    private class TestHierarchical : Hierarchical { }
 }

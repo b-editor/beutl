@@ -10,27 +10,38 @@ namespace Beutl.Controls.PropertyEditors;
 
 public class GradingColorComponentsEditor : Vector3Editor<float>
 {
-    public static readonly DirectProperty<GradingColorComponentsEditor, GradingColor> ColorProperty =
-        AvaloniaProperty.RegisterDirect<GradingColorComponentsEditor, GradingColor>(nameof(Color),
-            x => x.Color, (x, v) => x.Color = v);
+    public static readonly DirectProperty<
+        GradingColorComponentsEditor,
+        GradingColor
+    > ColorProperty = AvaloniaProperty.RegisterDirect<GradingColorComponentsEditor, GradingColor>(
+        nameof(Color),
+        x => x.Color,
+        (x, v) => x.Color = v
+    );
 
     public static readonly DirectProperty<ColorComponentsEditor, bool> RgbProperty =
-        AvaloniaProperty.RegisterDirect<ColorComponentsEditor, bool>(nameof(Rgb),
-            x => x.Rgb, (x, v) => x.Rgb = v, unsetValue: true);
+        AvaloniaProperty.RegisterDirect<ColorComponentsEditor, bool>(
+            nameof(Rgb),
+            x => x.Rgb,
+            (x, v) => x.Rgb = v,
+            unsetValue: true
+        );
 
     private GradingColor _color = new GradingColor(1, 1, 1);
     private bool _rgb = true;
 
     static GradingColorComponentsEditor()
     {
-        ValueChangedEvent.AddClassHandler<GradingColorComponentsEditor>((t, args) =>
-        {
-            if (args is PropertyEditorValueChangedEventArgs<(float, float, float)> e)
+        ValueChangedEvent.AddClassHandler<GradingColorComponentsEditor>(
+            (t, args) =>
             {
-                t.Color = t.ToGradingColorFromTuple(e.NewValue);
-                t.UpdateProperties();
+                if (args is PropertyEditorValueChangedEventArgs<(float, float, float)> e)
+                {
+                    t.Color = t.ToGradingColorFromTuple(e.NewValue);
+                    t.UpdateProperties();
+                }
             }
-        });
+        );
     }
 
     public GradingColorComponentsEditor()
@@ -101,10 +112,7 @@ public class GradingColorComponentsEditor : Vector3Editor<float>
     {
         if (Rgb)
         {
-            return new GradingColor(
-                t.Item1 / 100f,
-                t.Item2 / 100f,
-                t.Item3 / 100f);
+            return new GradingColor(t.Item1 / 100f, t.Item2 / 100f, t.Item3 / 100f);
         }
         else
         {
@@ -124,11 +132,7 @@ public class GradingColorComponentsEditor : Vector3Editor<float>
     {
         if (Rgb)
         {
-            return (new GradingColor(
-                t.Item1 / 100f,
-                t.Item2 / 100f,
-                t.Item3 / 100f),
-                null);
+            return (new GradingColor(t.Item1 / 100f, t.Item2 / 100f, t.Item3 / 100f), null);
         }
         else
         {

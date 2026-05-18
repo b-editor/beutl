@@ -77,10 +77,7 @@ public readonly struct GradingColor
     /// <returns>The grading color.</returns>
     public static GradingColor FromColor(Color color, float scale = 1f / 255f)
     {
-        return new GradingColor(
-            color.R * scale,
-            color.G * scale,
-            color.B * scale);
+        return new GradingColor(color.R * scale, color.G * scale, color.B * scale);
     }
 
     /// <summary>
@@ -114,7 +111,8 @@ public readonly struct GradingColor
             255,
             (byte)Math.Clamp(R * 255f, 0f, 255f),
             (byte)Math.Clamp(G * 255f, 0f, 255f),
-            (byte)Math.Clamp(B * 255f, 0f, 255f));
+            (byte)Math.Clamp(B * 255f, 0f, 255f)
+        );
     }
 
     /// <summary>
@@ -201,9 +199,11 @@ public readonly struct GradingColor
         ReadOnlySpan<char> gStr = s.Slice(firstComma + 1, secondComma - firstComma - 1).Trim();
         ReadOnlySpan<char> bStr = s.Slice(secondComma + 1).Trim();
 
-        if (!float.TryParse(rStr, NumberStyles.Float, CultureInfo.InvariantCulture, out float r) ||
-            !float.TryParse(gStr, NumberStyles.Float, CultureInfo.InvariantCulture, out float g) ||
-            !float.TryParse(bStr, NumberStyles.Float, CultureInfo.InvariantCulture, out float b))
+        if (
+            !float.TryParse(rStr, NumberStyles.Float, CultureInfo.InvariantCulture, out float r)
+            || !float.TryParse(gStr, NumberStyles.Float, CultureInfo.InvariantCulture, out float g)
+            || !float.TryParse(bStr, NumberStyles.Float, CultureInfo.InvariantCulture, out float b)
+        )
         {
             return false;
         }
@@ -261,10 +261,7 @@ public readonly struct GradingColor
     /// </summary>
     public static GradingColor operator +(GradingColor left, GradingColor right)
     {
-        return new GradingColor(
-            left.R + right.R,
-            left.G + right.G,
-            left.B + right.B);
+        return new GradingColor(left.R + right.R, left.G + right.G, left.B + right.B);
     }
 
     /// <summary>
@@ -272,10 +269,7 @@ public readonly struct GradingColor
     /// </summary>
     public static GradingColor operator -(GradingColor left, GradingColor right)
     {
-        return new GradingColor(
-            left.R - right.R,
-            left.G - right.G,
-            left.B - right.B);
+        return new GradingColor(left.R - right.R, left.G - right.G, left.B - right.B);
     }
 
     /// <summary>
@@ -299,19 +293,28 @@ public readonly struct GradingColor
         return Parse(s);
     }
 
-    static bool IParsable<GradingColor>.TryParse([NotNullWhen(true)] string? s, IFormatProvider? provider,
-        [MaybeNullWhen(false)] out GradingColor result)
+    static bool IParsable<GradingColor>.TryParse(
+        [NotNullWhen(true)] string? s,
+        IFormatProvider? provider,
+        [MaybeNullWhen(false)] out GradingColor result
+    )
     {
         return TryParse(s, out result);
     }
 
-    static GradingColor ISpanParsable<GradingColor>.Parse(ReadOnlySpan<char> s, IFormatProvider? provider)
+    static GradingColor ISpanParsable<GradingColor>.Parse(
+        ReadOnlySpan<char> s,
+        IFormatProvider? provider
+    )
     {
         return Parse(s);
     }
 
-    static bool ISpanParsable<GradingColor>.TryParse([NotNullWhen(true)] ReadOnlySpan<char> s,
-        IFormatProvider? provider, [MaybeNullWhen(false)] out GradingColor result)
+    static bool ISpanParsable<GradingColor>.TryParse(
+        [NotNullWhen(true)] ReadOnlySpan<char> s,
+        IFormatProvider? provider,
+        [MaybeNullWhen(false)] out GradingColor result
+    )
     {
         return TryParse(s, out result);
     }

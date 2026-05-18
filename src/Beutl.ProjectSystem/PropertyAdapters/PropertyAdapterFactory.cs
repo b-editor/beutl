@@ -17,15 +17,21 @@ public static class PropertyAdapterFactory
                 var genericTypeDef = propertyType.GetGenericTypeDefinition();
                 if (genericTypeDef == typeof(AnimatableProperty<>))
                 {
-                    adapterType = typeof(AnimatablePropertyAdapter<>).MakeGenericType(property.ValueType);
+                    adapterType = typeof(AnimatablePropertyAdapter<>).MakeGenericType(
+                        property.ValueType
+                    );
                 }
                 else if (genericTypeDef == typeof(SimpleProperty<>))
                 {
-                    adapterType = typeof(SimplePropertyAdapter<>).MakeGenericType(property.ValueType);
+                    adapterType = typeof(SimplePropertyAdapter<>).MakeGenericType(
+                        property.ValueType
+                    );
                 }
                 else
                 {
-                    adapterType = typeof(EnginePropertyAdapter<>).MakeGenericType(property.ValueType);
+                    adapterType = typeof(EnginePropertyAdapter<>).MakeGenericType(
+                        property.ValueType
+                    );
                 }
             }
             else

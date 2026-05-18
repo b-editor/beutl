@@ -22,9 +22,13 @@ public sealed partial class RoundedRectShape : Shape
     [Range(0, float.MaxValue)]
     public IProperty<float> Height { get; } = Property.CreateAnimatable<float>(100);
 
-    [Display(Name = nameof(GraphicsStrings.RoundedRectShape_CornerRadius), ResourceType = typeof(GraphicsStrings))]
+    [Display(
+        Name = nameof(GraphicsStrings.RoundedRectShape_CornerRadius),
+        ResourceType = typeof(GraphicsStrings)
+    )]
     [Range(typeof(CornerRadius), "0", "max")]
-    public IProperty<CornerRadius> CornerRadius { get; } = Property.CreateAnimatable<CornerRadius>(new(25));
+    public IProperty<CornerRadius> CornerRadius { get; } =
+        Property.CreateAnimatable<CornerRadius>(new(25));
 
     [Range(0, 100)]
     [Display(Name = nameof(GraphicsStrings.Smoothing), ResourceType = typeof(GraphicsStrings))]

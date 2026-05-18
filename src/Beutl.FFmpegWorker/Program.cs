@@ -73,7 +73,12 @@ internal static class Program
         }
 
         // パイプ接続
-        using var pipeClient = new NamedPipeClientStream(".", pipeName, PipeDirection.InOut, PipeOptions.Asynchronous);
+        using var pipeClient = new NamedPipeClientStream(
+            ".",
+            pipeName,
+            PipeDirection.InOut,
+            PipeOptions.Asynchronous
+        );
         try
         {
             await pipeClient.ConnectAsync(30000);
@@ -88,13 +93,17 @@ internal static class Program
         {
             // 受信ループ / Dispose 異常系の診断は WorkerLog 経由でホストに送る。
             // DroppedResponseHandler はワーカー側が多重化モードを使わないため未設定。
-            DiagnosticLogger = WorkerLog.Error
+            DiagnosticLogger = WorkerLog.Error,
         };
 
         // ハンドシェイク送信（プロトコルバージョン含む）
         await connection.SendAsync(
-            Beutl.FFmpegIpc.Protocol.IpcMessage.Create(0, Beutl.FFmpegIpc.Protocol.MessageType.HandshakeAck,
-                new Beutl.FFmpegIpc.Protocol.Messages.HandshakeMessage()));
+            Beutl.FFmpegIpc.Protocol.IpcMessage.Create(
+                0,
+                Beutl.FFmpegIpc.Protocol.MessageType.HandshakeAck,
+                new Beutl.FFmpegIpc.Protocol.Messages.HandshakeMessage()
+            )
+        );
 
         // メッセージループ
         using var host = new WorkerHost(connection);
@@ -116,11 +125,17 @@ internal static class Program
         }
         catch (Exception ex)
         {
-            WorkerLog.Error($"Unexpected error monitoring parent process {parentPid}: {ex.Message}", ex);
+            WorkerLog.Error(
+                $"Unexpected error monitoring parent process {parentPid}: {ex.Message}",
+                ex
+            );
         }
 
         // CancellationTokenでグレースフルにシャットダウン
-        try { s_shutdownCts.Cancel(); }
+        try
+        {
+            s_shutdownCts.Cancel();
+        }
         catch (ObjectDisposedException) { }
     }
 }

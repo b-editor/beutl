@@ -2,7 +2,8 @@
 
 namespace Beutl.ViewModels.Editors;
 
-public sealed class RationalEditorViewModel(IPropertyAdapter<Rational> property) : ValueEditorViewModel<Rational>(property)
+public sealed class RationalEditorViewModel(IPropertyAdapter<Rational> property)
+    : ValueEditorViewModel<Rational>(property)
 {
     public override void Accept(IPropertyEditorContextVisitor visitor)
     {
@@ -13,7 +14,8 @@ public sealed class RationalEditorViewModel(IPropertyAdapter<Rational> property)
                 editor,
                 RationalEditor.ValueProperty,
                 static ed => ed.Value,
-                static (ed, v) => ed.Value = v);
+                static (ed, v) => ed.Value = v
+            );
         }
     }
 }

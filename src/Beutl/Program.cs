@@ -34,8 +34,7 @@ internal static class Program
 
         UnhandledExceptionHandler.Initialize();
 
-        BuildAvaloniaApp()
-            .StartWithClassicDesktopLifetime(args);
+        BuildAvaloniaApp().StartWithClassicDesktopLifetime(args);
 
         // 正常に終了した
         UnhandledExceptionHandler.Exit();
@@ -46,14 +45,16 @@ internal static class Program
         Process[] processes = Process.GetProcessesByName("Beutl.PackageTools");
         if (processes.Length > 0)
         {
-            using (OutProcessDialog.Show(
-                MessageStrings.OpeningBeutl,
-                MessageStrings.PackageChangesInProgress,
-                MessageStrings.ClosePackageToolsToOpenBeutl,
-                icon: "Info",
-                progress: true))
+            using (
+                OutProcessDialog.Show(
+                    MessageStrings.OpeningBeutl,
+                    MessageStrings.PackageChangesInProgress,
+                    MessageStrings.ClosePackageToolsToOpenBeutl,
+                    icon: "Info",
+                    progress: true
+                )
+            )
             {
-
                 foreach (Process item in processes)
                 {
                     if (!item.HasExited)
@@ -67,26 +68,23 @@ internal static class Program
 
     public static AppBuilder BuildAvaloniaApp()
     {
-        return AppBuilder.Configure<App>()
+        return AppBuilder
+            .Configure<App>()
             .UsePlatformDetect()
             .UseReactiveUI(_ => { })
-            .With(new Win32PlatformOptions()
-            {
-                WinUICompositionBackdropCornerRadius = 8f
-            })
-            .With(new AvaloniaNativePlatformOptions()
-            {
-                OverlayPopups = true
-            })
-            .With(new FontManagerOptions
-            {
-                DefaultFamilyName = Media.FontManager.Instance.DefaultTypeface.FontFamily.Name
-            })
+            .With(new Win32PlatformOptions() { WinUICompositionBackdropCornerRadius = 8f })
+            .With(new AvaloniaNativePlatformOptions() { OverlayPopups = true })
+            .With(
+                new FontManagerOptions
+                {
+                    DefaultFamilyName = Media.FontManager.Instance.DefaultTypeface.FontFamily.Name,
+                }
+            )
             .AfterSetup(_ => Telemetry.CompressLogFiles())
 #if DEBUG
             .LogToTrace();
 #else
-            ;
+        ;
 #endif
     }
 }

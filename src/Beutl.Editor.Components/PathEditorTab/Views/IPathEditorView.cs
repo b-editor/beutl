@@ -2,7 +2,6 @@
 using Avalonia.Controls.Primitives;
 using Beutl.Engine;
 using Beutl.Media;
-
 using BtlPoint = Beutl.Graphics.Point;
 
 namespace Beutl.Editor.Components.PathEditorTab.Views;

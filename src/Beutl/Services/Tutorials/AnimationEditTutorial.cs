@@ -45,18 +45,23 @@ public static class AnimationEditTutorial
             {
                 // プロジェクトを準備（シーンを開くまで）
                 bool result = await TutorialHelpers.EnsureProjectAsync("AnimationTutorial");
-                if (!result) return false;
+                if (!result)
+                    return false;
 
                 EditViewModel? editVm = TutorialHelpers.GetEditViewModel();
                 var adder = editVm?.GetService<IElementAdder>();
-                if (adder == null) return false;
+                if (adder == null)
+                    return false;
 
                 // 楕円要素を追加
-                adder.AddElement(new ElementDescription(
-                    Start: TimeSpan.Zero,
-                    Length: TimeSpan.FromSeconds(5),
-                    Layer: 0,
-                    InitialObject: typeof(EllipseShape)));
+                adder.AddElement(
+                    new ElementDescription(
+                        Start: TimeSpan.Zero,
+                        Length: TimeSpan.FromSeconds(5),
+                        Layer: 0,
+                        InitialObject: typeof(EllipseShape)
+                    )
+                );
 
                 return true;
             },
@@ -69,7 +74,13 @@ public static class AnimationEditTutorial
                     Title = TutorialStrings.Tutorial_AnimationEdit_Step1_Title,
                     Content = TutorialStrings.Tutorial_AnimationEdit_Step1_Content,
                     TargetElements =
-                        [new TargetElementDefinition { ToolTabType = typeof(TimelineTabExtension), IsPrimary = true }],
+                    [
+                        new TargetElementDefinition
+                        {
+                            ToolTabType = typeof(TimelineTabExtension),
+                            IsPrimary = true,
+                        },
+                    ],
                     PreferredPlacement = TutorialStepPlacement.Top,
                     IsActionRequired = true,
                     OnShown = () =>
@@ -77,7 +88,8 @@ public static class AnimationEditTutorial
                         EditViewModel? editVm = TutorialHelpers.GetEditViewModel();
                         step1Subscription = TutorialHelpers.SubscribeToElementSelection(
                             editVm,
-                            () => TutorialService.Current.AdvanceStep());
+                            () => TutorialService.Current.AdvanceStep()
+                        );
                     },
                     OnDismissed = () =>
                     {
@@ -85,7 +97,6 @@ public static class AnimationEditTutorial
                         step1Subscription = null;
                     },
                 },
-
                 // Step 2: Add Transform via + button
                 new TutorialStep
                 {
@@ -93,16 +104,24 @@ public static class AnimationEditTutorial
                     Title = TutorialStrings.Tutorial_AnimationEdit_Step2_Title,
                     Content = TutorialStrings.Tutorial_AnimationEdit_Step2_Content,
                     TargetElements =
-                        [new TargetElementDefinition { ElementResolver = FindTransformEditor, IsPrimary = true }],
+                    [
+                        new TargetElementDefinition
+                        {
+                            ElementResolver = FindTransformEditor,
+                            IsPrimary = true,
+                        },
+                    ],
                     PreferredPlacement = TutorialStepPlacement.Left,
                     IsActionRequired = true,
                     OnShown = () =>
                     {
                         EditViewModel? editVm = TutorialHelpers.GetEditViewModel();
-                        if (editVm == null) return;
+                        if (editVm == null)
+                            return;
 
                         Drawable? drawable = TutorialHelpers.GetDrawable(editVm);
-                        if (drawable == null) return;
+                        if (drawable == null)
+                            return;
 
                         // Already has TranslateTransform?
                         if (TutorialHelpers.GetTranslateTransform(drawable) != null)
@@ -118,12 +137,16 @@ public static class AnimationEditTutorial
                             {
                                 if (t is TranslateTransform)
                                 {
-                                    Dispatcher.UIThread.Post(() => TutorialService.Current.AdvanceStep());
+                                    Dispatcher.UIThread.Post(() =>
+                                        TutorialService.Current.AdvanceStep()
+                                    );
                                 }
                             }
 
                             group.Children.Attached += Handler;
-                            step2Subscription = Disposable.Create(() => group.Children.Attached -= Handler);
+                            step2Subscription = Disposable.Create(() =>
+                                group.Children.Attached -= Handler
+                            );
                         }
                     },
                     OnDismissed = () =>
@@ -132,7 +155,6 @@ public static class AnimationEditTutorial
                         step2Subscription = null;
                     },
                 },
-
                 // Step 3: Enable animation for X property
                 new TutorialStep
                 {
@@ -143,23 +165,29 @@ public static class AnimationEditTutorial
                     [
                         new TargetElementDefinition
                         {
-                            ElementResolver = FindTranslateTransformXPropertyEditor, IsPrimary = true
-                        }
+                            ElementResolver = FindTranslateTransformXPropertyEditor,
+                            IsPrimary = true,
+                        },
                     ],
                     PreferredPlacement = TutorialStepPlacement.Bottom,
                     IsActionRequired = true,
                     OnShown = () =>
                     {
                         EditViewModel? editVm = TutorialHelpers.GetEditViewModel();
-                        if (editVm == null) return;
+                        if (editVm == null)
+                            return;
 
-                        TranslateTransform? translateTransform = TutorialHelpers.GetTranslateTransform(
-                            TutorialHelpers.GetDrawable(editVm));
-                        if (translateTransform == null) return;
+                        TranslateTransform? translateTransform =
+                            TutorialHelpers.GetTranslateTransform(
+                                TutorialHelpers.GetDrawable(editVm)
+                            );
+                        if (translateTransform == null)
+                            return;
 
                         step3Subscription = TutorialHelpers.SubscribeToAnimationEnabled(
                             translateTransform.X,
-                            () => TutorialService.Current.AdvanceStep());
+                            () => TutorialService.Current.AdvanceStep()
+                        );
                     },
                     OnDismissed = () =>
                     {
@@ -167,7 +195,6 @@ public static class AnimationEditTutorial
                         step3Subscription = null;
                     },
                 },
-
                 // Step 4: Add keyframe
                 new TutorialStep
                 {
@@ -178,32 +205,45 @@ public static class AnimationEditTutorial
                     [
                         new TargetElementDefinition
                         {
-                            ElementResolver = FindTranslateTransformXPropertyEditor, IsPrimary = true
-                        }
+                            ElementResolver = FindTranslateTransformXPropertyEditor,
+                            IsPrimary = true,
+                        },
                     ],
                     PreferredPlacement = TutorialStepPlacement.Bottom,
                     IsActionRequired = true,
                     OnShown = () =>
                     {
                         EditViewModel? editVm = TutorialHelpers.GetEditViewModel();
-                        if (editVm == null) return;
+                        if (editVm == null)
+                            return;
 
                         var editorClock = editVm.GetService<IEditorClock>();
-                        if (editorClock == null) return;
+                        if (editorClock == null)
+                            return;
 
-                        Element? element = TutorialHelpers.FindElementWithObject<EllipseShape>(editVm.Scene);
-                        if (element == null) return;
+                        Element? element = TutorialHelpers.FindElementWithObject<EllipseShape>(
+                            editVm.Scene
+                        );
+                        if (element == null)
+                            return;
 
-                        TranslateTransform? translateTransform = TutorialHelpers.GetTranslateTransform(
-                            TutorialHelpers.GetDrawable(editVm));
-                        if (translateTransform == null) return;
+                        TranslateTransform? translateTransform =
+                            TutorialHelpers.GetTranslateTransform(
+                                TutorialHelpers.GetDrawable(editVm)
+                            );
+                        if (translateTransform == null)
+                            return;
 
-                        if (translateTransform.X.Animation is not KeyFrameAnimation<float> animation) return;
+                        if (
+                            translateTransform.X.Animation is not KeyFrameAnimation<float> animation
+                        )
+                            return;
 
                         // Move playhead forward
                         if (animation.KeyFrames.Count >= 2)
                         {
-                            editorClock.CurrentTime.Value = animation.KeyFrames[1].KeyTime + element.Start;
+                            editorClock.CurrentTime.Value =
+                                animation.KeyFrames[1].KeyTime + element.Start;
                             Dispatcher.UIThread.Post(() => TutorialService.Current.AdvanceStep());
                         }
                         else
@@ -212,7 +252,8 @@ public static class AnimationEditTutorial
                             step4Subscription = TutorialHelpers.SubscribeToKeyFrameAdded(
                                 animation,
                                 2,
-                                () => TutorialService.Current.AdvanceStep());
+                                () => TutorialService.Current.AdvanceStep()
+                            );
                         }
                     },
                     OnDismissed = () =>
@@ -221,7 +262,6 @@ public static class AnimationEditTutorial
                         step4Subscription = null;
                     },
                 },
-
                 // Step 5: Drag and drop easing
                 new TutorialStep
                 {
@@ -230,7 +270,11 @@ public static class AnimationEditTutorial
                     Content = TutorialStrings.Tutorial_AnimationEdit_Step5_Content,
                     TargetElements =
                     [
-                        new TargetElementDefinition { ToolTabType = typeof(GraphEditorTabExtension), IsPrimary = true },
+                        new TargetElementDefinition
+                        {
+                            ToolTabType = typeof(GraphEditorTabExtension),
+                            IsPrimary = true,
+                        },
                         new TargetElementDefinition { ToolTabType = typeof(LibraryTabExtension) },
                     ],
                     PreferredPlacement = TutorialStepPlacement.Top,
@@ -238,27 +282,40 @@ public static class AnimationEditTutorial
                     OnShown = () =>
                     {
                         EditViewModel? editVm = TutorialHelpers.GetEditViewModel();
-                        if (editVm == null) return;
+                        if (editVm == null)
+                            return;
 
                         // Set LibraryTab to Easings tab via View's TabStrip
-                        Dispatcher.UIThread.Post(() =>
-                        {
-                            TopLevel? topLevel = AppHelper.GetTopLevel();
-                            var tabStrip = topLevel?.GetVisualDescendants()
-                                .OfType<LibraryTabView>()
-                                .FirstOrDefault()?.tabStrip;
+                        Dispatcher.UIThread.Post(
+                            () =>
+                            {
+                                TopLevel? topLevel = AppHelper.GetTopLevel();
+                                var tabStrip = topLevel
+                                    ?.GetVisualDescendants()
+                                    .OfType<LibraryTabView>()
+                                    .FirstOrDefault()
+                                    ?.tabStrip;
 
-                            tabStrip?.SelectedIndex = 1; // 0:Search, 1:Easings, 2:Library, 3:Nodes
-                        }, DispatcherPriority.Loaded);
+                                tabStrip?.SelectedIndex = 1; // 0:Search, 1:Easings, 2:Library, 3:Nodes
+                            },
+                            DispatcherPriority.Loaded
+                        );
 
                         // Monitor easing change
-                        TranslateTransform? translateTransform = TutorialHelpers.GetTranslateTransform(
-                            TutorialHelpers.GetDrawable(editVm));
-                        if (translateTransform?.X.Animation is not KeyFrameAnimation<float> animation) return;
+                        TranslateTransform? translateTransform =
+                            TutorialHelpers.GetTranslateTransform(
+                                TutorialHelpers.GetDrawable(editVm)
+                            );
+                        if (
+                            translateTransform?.X.Animation
+                            is not KeyFrameAnimation<float> animation
+                        )
+                            return;
 
                         step5Subscription = TutorialHelpers.SubscribeToEasingChanged(
                             animation,
-                            () => TutorialService.Current.AdvanceStep());
+                            () => TutorialService.Current.AdvanceStep()
+                        );
                     },
                     OnDismissed = () =>
                     {
@@ -266,7 +323,6 @@ public static class AnimationEditTutorial
                         step5Subscription = null;
                     },
                 },
-
                 // Step 6: Graph editor overview
                 new TutorialStep
                 {
@@ -275,11 +331,14 @@ public static class AnimationEditTutorial
                     Content = TutorialStrings.Tutorial_AnimationEdit_Step6_Content,
                     TargetElements =
                     [
-                        new TargetElementDefinition { ToolTabType = typeof(GraphEditorTabExtension), IsPrimary = true }
+                        new TargetElementDefinition
+                        {
+                            ToolTabType = typeof(GraphEditorTabExtension),
+                            IsPrimary = true,
+                        },
                     ],
                     PreferredPlacement = TutorialStepPlacement.Top,
                 },
-
                 // Step 7: Move keyframe intro
                 new TutorialStep
                 {
@@ -288,27 +347,34 @@ public static class AnimationEditTutorial
                     Content = TutorialStrings.Tutorial_AnimationEdit_Step7_Content,
                     TargetElements =
                     [
-                        new TargetElementDefinition { ToolTabType = typeof(GraphEditorTabExtension), IsPrimary = true }
+                        new TargetElementDefinition
+                        {
+                            ToolTabType = typeof(GraphEditorTabExtension),
+                            IsPrimary = true,
+                        },
                     ],
                     PreferredPlacement = TutorialStepPlacement.Top,
                 },
-
                 // Step 8: Preview animation
                 new TutorialStep
                 {
                     Id = "animation-play-preview",
                     Title = TutorialStrings.Tutorial_AnimationEdit_Step8_Title,
                     Content = TutorialStrings.Tutorial_AnimationEdit_Step8_Content,
-                    TargetElements = [new TargetElementDefinition { ElementName = "Player", IsPrimary = true }],
+                    TargetElements =
+                    [
+                        new TargetElementDefinition { ElementName = "Player", IsPrimary = true },
+                    ],
                     PreferredPlacement = TutorialStepPlacement.Bottom,
                     OnShown = () =>
                     {
                         EditViewModel? editVm = TutorialHelpers.GetEditViewModel();
-                        Element? element = TutorialHelpers.FindElementWithObject<EllipseShape>(editVm?.Scene);
+                        Element? element = TutorialHelpers.FindElementWithObject<EllipseShape>(
+                            editVm?.Scene
+                        );
                         TutorialHelpers.PrepareForPlayback(editVm, element);
                     },
                 },
-
                 // Step 9: Copy all keyframes intro
                 new TutorialStep
                 {
@@ -317,11 +383,14 @@ public static class AnimationEditTutorial
                     Content = TutorialStrings.Tutorial_AnimationEdit_Step9_Content,
                     TargetElements =
                     [
-                        new TargetElementDefinition { ToolTabType = typeof(GraphEditorTabExtension), IsPrimary = true }
+                        new TargetElementDefinition
+                        {
+                            ToolTabType = typeof(GraphEditorTabExtension),
+                            IsPrimary = true,
+                        },
                     ],
                     PreferredPlacement = TutorialStepPlacement.Top,
                 },
-
                 // Step 10: Enable animation for Y property
                 new TutorialStep
                 {
@@ -332,23 +401,29 @@ public static class AnimationEditTutorial
                     [
                         new TargetElementDefinition
                         {
-                            ElementResolver = FindTranslateTransformYPropertyEditor, IsPrimary = true
-                        }
+                            ElementResolver = FindTranslateTransformYPropertyEditor,
+                            IsPrimary = true,
+                        },
                     ],
                     PreferredPlacement = TutorialStepPlacement.Bottom,
                     IsActionRequired = true,
                     OnShown = () =>
                     {
                         EditViewModel? editVm = TutorialHelpers.GetEditViewModel();
-                        if (editVm == null) return;
+                        if (editVm == null)
+                            return;
 
-                        TranslateTransform? translateTransform = TutorialHelpers.GetTranslateTransform(
-                            TutorialHelpers.GetDrawable(editVm));
-                        if (translateTransform == null) return;
+                        TranslateTransform? translateTransform =
+                            TutorialHelpers.GetTranslateTransform(
+                                TutorialHelpers.GetDrawable(editVm)
+                            );
+                        if (translateTransform == null)
+                            return;
 
                         step10Subscription = TutorialHelpers.SubscribeToAnimationEnabled(
                             translateTransform.Y,
-                            () => TutorialService.Current.AdvanceStep());
+                            () => TutorialService.Current.AdvanceStep()
+                        );
                     },
                     OnDismissed = () =>
                     {
@@ -356,7 +431,6 @@ public static class AnimationEditTutorial
                         step10Subscription = null;
                     },
                 },
-
                 // Step 11: Paste animation
                 new TutorialStep
                 {
@@ -365,23 +439,31 @@ public static class AnimationEditTutorial
                     Content = TutorialStrings.Tutorial_AnimationEdit_Step11_Content,
                     TargetElements =
                     [
-                        new TargetElementDefinition { ToolTabType = typeof(GraphEditorTabExtension), IsPrimary = true }
+                        new TargetElementDefinition
+                        {
+                            ToolTabType = typeof(GraphEditorTabExtension),
+                            IsPrimary = true,
+                        },
                     ],
                     PreferredPlacement = TutorialStepPlacement.Top,
                     IsActionRequired = true,
                     OnShown = () =>
                     {
                         EditViewModel? editVm = TutorialHelpers.GetEditViewModel();
-                        if (editVm == null) return;
+                        if (editVm == null)
+                            return;
 
-                        TranslateTransform? translateTransform = TutorialHelpers.GetTranslateTransform(
-                            TutorialHelpers.GetDrawable(editVm));
+                        TranslateTransform? translateTransform =
+                            TutorialHelpers.GetTranslateTransform(
+                                TutorialHelpers.GetDrawable(editVm)
+                            );
                         if (translateTransform?.Y.Animation is KeyFrameAnimation<float> animation)
                         {
                             step11Subscription = TutorialHelpers.SubscribeToKeyFrameAdded(
                                 animation,
                                 2,
-                                () => TutorialService.Current.AdvanceStep());
+                                () => TutorialService.Current.AdvanceStep()
+                            );
                         }
                     },
                     OnDismissed = () =>
@@ -390,19 +472,23 @@ public static class AnimationEditTutorial
                         step11Subscription = null;
                     },
                 },
-
                 // Step 12: Final preview
                 new TutorialStep
                 {
                     Id = "animation-final-play",
                     Title = TutorialStrings.Tutorial_AnimationEdit_Step12_Title,
                     Content = TutorialStrings.Tutorial_AnimationEdit_Step12_Content,
-                    TargetElements = [new TargetElementDefinition { ElementName = "Player", IsPrimary = true }],
+                    TargetElements =
+                    [
+                        new TargetElementDefinition { ElementName = "Player", IsPrimary = true },
+                    ],
                     PreferredPlacement = TutorialStepPlacement.Bottom,
                     OnShown = () =>
                     {
                         EditViewModel? editVm = TutorialHelpers.GetEditViewModel();
-                        Element? element = TutorialHelpers.FindElementWithObject<EllipseShape>(editVm?.Scene);
+                        Element? element = TutorialHelpers.FindElementWithObject<EllipseShape>(
+                            editVm?.Scene
+                        );
                         var clock = editVm?.GetService<IEditorClock>();
                         if (editVm != null && element != null && clock != null)
                         {
@@ -410,7 +496,6 @@ public static class AnimationEditTutorial
                         }
                     },
                 },
-
                 // Step 13: Complete
                 new TutorialStep
                 {
@@ -419,42 +504,48 @@ public static class AnimationEditTutorial
                     Content = TutorialStrings.Tutorial_AnimationEdit_Step13_Content,
                     PreferredPlacement = TutorialStepPlacement.Center,
                 },
-            ]
+            ],
         };
     }
 
     private static Control? FindTransformEditor()
     {
         TopLevel? topLevel = AppHelper.GetTopLevel();
-        return topLevel?.GetVisualDescendants()
+        return topLevel
+            ?.GetVisualDescendants()
             .OfType<Views.Editors.TransformEditor>()
             .FirstOrDefault(c =>
-                c.DataContext is TransformEditorViewModel vm &&
-                (vm.GetService(typeof(Element)) as Element)?.Objects.OfType<EllipseShape>().Any() ==
-                true);
+                c.DataContext is TransformEditorViewModel vm
+                && (vm.GetService(typeof(Element)) as Element)?.Objects.OfType<EllipseShape>().Any()
+                    == true
+            );
     }
 
     private static Control? FindTranslateTransformXPropertyEditor()
     {
         TopLevel? topLevel = AppHelper.GetTopLevel();
-        return topLevel?.GetVisualDescendants()
+        return topLevel
+            ?.GetVisualDescendants()
             .OfType<NumberEditor<float>>()
             .FirstOrDefault(c =>
-                c.DataContext is BaseEditorViewModel vm &&
-                vm.PropertyAdapter.GetEngineProperty() is IProperty prop &&
-                prop.GetOwnerObject() is TranslateTransform &&
-                prop.Name == nameof(TranslateTransform.X));
+                c.DataContext is BaseEditorViewModel vm
+                && vm.PropertyAdapter.GetEngineProperty() is IProperty prop
+                && prop.GetOwnerObject() is TranslateTransform
+                && prop.Name == nameof(TranslateTransform.X)
+            );
     }
 
     private static Control? FindTranslateTransformYPropertyEditor()
     {
         TopLevel? topLevel = AppHelper.GetTopLevel();
-        return topLevel?.GetVisualDescendants()
+        return topLevel
+            ?.GetVisualDescendants()
             .OfType<NumberEditor<float>>()
             .FirstOrDefault(c =>
-                c.DataContext is BaseEditorViewModel vm &&
-                vm.PropertyAdapter.GetEngineProperty() is IProperty prop &&
-                prop.GetOwnerObject() is TranslateTransform &&
-                prop.Name == nameof(TranslateTransform.Y));
+                c.DataContext is BaseEditorViewModel vm
+                && vm.PropertyAdapter.GetEngineProperty() is IProperty prop
+                && prop.GetOwnerObject() is TranslateTransform
+                && prop.Name == nameof(TranslateTransform.Y)
+            );
     }
 }

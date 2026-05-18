@@ -3,7 +3,6 @@ using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Data;
 using Avalonia.Interactivity;
-
 using Beutl.Media;
 
 #nullable enable
@@ -17,7 +16,8 @@ public class GradingColorEditor : PropertyEditor
             nameof(Value),
             o => o.Value,
             (o, v) => o.Value = v,
-            defaultBindingMode: BindingMode.TwoWay);
+            defaultBindingMode: BindingMode.TwoWay
+        );
 
     public static readonly StyledProperty<bool> IsLivePreviewEnabledProperty =
         AvaloniaProperty.Register<GradingColorEditor, bool>(nameof(IsLivePreviewEnabled));
@@ -85,7 +85,8 @@ public class GradingColorEditor : PropertyEditor
 
     private void OnButtonClick(object? sender, RoutedEventArgs e)
     {
-        if (_flyout == null) return;
+        if (_flyout == null)
+            return;
 
         _flyout.Hide();
 
@@ -108,14 +109,22 @@ public class GradingColorEditor : PropertyEditor
             _oldValue = _value;
     }
 
-    private void OnFlyoutColorChanged(GradingColorPickerFlyout sender, (GradingColor OldValue, GradingColor NewValue) args)
+    private void OnFlyoutColorChanged(
+        GradingColorPickerFlyout sender,
+        (GradingColor OldValue, GradingColor NewValue) args
+    )
     {
         if (IsLivePreviewEnabled)
         {
             var oldValue = Value;
             Value = args.NewValue;
-            RaiseEvent(new PropertyEditorValueChangedEventArgs<GradingColor>(
-                args.NewValue, oldValue, ValueChangedEvent));
+            RaiseEvent(
+                new PropertyEditorValueChangedEventArgs<GradingColor>(
+                    args.NewValue,
+                    oldValue,
+                    ValueChangedEvent
+                )
+            );
         }
     }
 
@@ -124,8 +133,13 @@ public class GradingColorEditor : PropertyEditor
         if (_flyoutActive && _flyout != null)
         {
             Value = _flyout.Color;
-            RaiseEvent(new PropertyEditorValueChangedEventArgs<GradingColor>(
-                Value, _oldValue, ValueConfirmedEvent));
+            RaiseEvent(
+                new PropertyEditorValueChangedEventArgs<GradingColor>(
+                    Value,
+                    _oldValue,
+                    ValueConfirmedEvent
+                )
+            );
         }
     }
 
@@ -134,8 +148,13 @@ public class GradingColorEditor : PropertyEditor
         if (_flyout != null && IsLivePreviewEnabled)
         {
             _flyout.ColorChanged -= OnFlyoutColorChanged;
-            RaiseEvent(new PropertyEditorValueChangedEventArgs<GradingColor>(
-                Value, _oldValue, ValueConfirmedEvent));
+            RaiseEvent(
+                new PropertyEditorValueChangedEventArgs<GradingColor>(
+                    Value,
+                    _oldValue,
+                    ValueConfirmedEvent
+                )
+            );
         }
 
         _flyoutActive = false;

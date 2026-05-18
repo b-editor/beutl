@@ -10,7 +10,8 @@ using Reactive.Bindings.Extensions;
 
 namespace Beutl.Views.Editors;
 
-public sealed class LibraryItemPickerFlyout(SelectLibraryItemDialogViewModel viewModel) : PickerFlyoutBase
+public sealed class LibraryItemPickerFlyout(SelectLibraryItemDialogViewModel viewModel)
+    : PickerFlyoutBase
 {
     public event TypedEventHandler<LibraryItemPickerFlyout, EventArgs>? Confirmed;
 
@@ -40,8 +41,7 @@ public sealed class LibraryItemPickerFlyout(SelectLibraryItemDialogViewModel vie
             .Subscribe(v => viewModel.SearchText.Value = v);
         pfp.GetObservable(LibraryItemPickerFlyoutPresenter.ShowReferencesProperty)
             .Subscribe(v => viewModel.ShowReferences.Value = v);
-        viewModel.IsBusy.ObserveOnUIDispatcher()
-            .Subscribe(v => pfp.IsBusy = v);
+        viewModel.IsBusy.ObserveOnUIDispatcher().Subscribe(v => pfp.IsBusy = v);
         pfp.KeyDown += (_, e) =>
         {
             switch (e.Key)

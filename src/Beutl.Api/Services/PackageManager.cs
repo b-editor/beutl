@@ -24,7 +24,8 @@ public sealed class PackageManager(
     InstalledPackageRepository installedPackageRepository,
     ExtensionProvider extensionProvider,
     ContextCommandManager commandManager,
-    BeutlApiApplication apiApplication) : PackageLoader
+    BeutlApiApplication apiApplication
+) : PackageLoader
 {
     private readonly ILogger _logger = Log.CreateLogger<PackageManager>();
     private readonly ConcurrentDictionary<int, LoadedPackageInfo> _loadedPackages = new();
@@ -48,9 +49,10 @@ public sealed class PackageManager(
         if (version is { })
         {
             var nugetVersion = new NuGetVersion(version);
-            return packages.Any(
-                x => StringComparer.OrdinalIgnoreCase.Equals(x.Package.Name, name)
-                     && new NuGetVersion(x.Package.Version) == nugetVersion);
+            return packages.Any(x =>
+                StringComparer.OrdinalIgnoreCase.Equals(x.Package.Name, name)
+                && new NuGetVersion(x.Package.Version) == nugetVersion
+            );
         }
         else
         {
@@ -74,7 +76,11 @@ public sealed class PackageManager(
             using FileStream stream = File.OpenRead(file);
             if (Helper.ReadLocalPackageFromNupkgFile(stream) is { } localPackage)
             {
-                if (!packages.Any(x => StringComparer.OrdinalIgnoreCase.Equals(x.Package.Name, localPackage.Name)))
+                if (
+                    !packages.Any(x =>
+                        StringComparer.OrdinalIgnoreCase.Equals(x.Package.Name, localPackage.Name)
+                    )
+                )
                 {
                     list.Add(localPackage);
                 }
@@ -106,7 +112,9 @@ public sealed class PackageManager(
                     Package remotePackage = await discover.GetPackage(pkg.Id).ConfigureAwait(false);
                     activity?.AddEvent(new("Checked updates"));
 
-                    Release[] releases = await remotePackage.GetReleasesAsync().ConfigureAwait(false);
+                    Release[] releases = await remotePackage
+                        .GetReleasesAsync()
+                        .ConfigureAwait(false);
 
                     foreach (Release? item in releases)
                     {
@@ -117,15 +125,23 @@ public sealed class PackageManager(
                                 .TryGetOrDefault(() => remotePackage.GetReleaseAsync(versionStr))
                                 .ConfigureAwait(false);
                             updates.Add(new PackageUpdate(remotePackage, oldRelease, item));
-                            _logger.LogInformation("Update found for package {PackageId}: {OldVersion} -> {NewVersion}", pkg.Id, versionStr, item.Version.Value);
+                            _logger.LogInformation(
+                                "Update found for package {PackageId}: {OldVersion} -> {NewVersion}",
+                                pkg.Id,
+                                versionStr,
+                                item.Version.Value
+                            );
                             break;
                         }
                     }
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogError(ex,
-                        "An exception occurred while checking for package updates. (PackageId: {PackageId})", pkg.Id);
+                    _logger.LogError(
+                        ex,
+                        "An exception occurred while checking for package updates. (PackageId: {PackageId})",
+                        pkg.Id
+                    );
                 }
             }
 
@@ -139,10 +155,11 @@ public sealed class PackageManager(
         {
             DiscoverService discover = apiApplication.GetResource<DiscoverService>();
 
-            LocalPackage? pkg = _loadedPackages.Values
-                .Select(x => x.Package)
+            LocalPackage? pkg = _loadedPackages
+                .Values.Select(x => x.Package)
                 .FirstOrDefault(v =>
-                    !v.SideLoad && StringComparer.OrdinalIgnoreCase.Equals(v.Name, name));
+                    !v.SideLoad && StringComparer.OrdinalIgnoreCase.Equals(v.Name, name)
+                );
             if (pkg != null)
             {
                 string versionStr = pkg.Version;
@@ -163,7 +180,12 @@ public sealed class PackageManager(
                         Release? oldRelease = await Helper
                             .TryGetOrDefault(() => remotePackage.GetReleaseAsync(pkg.Version))
                             .ConfigureAwait(false);
-                        _logger.LogInformation("Update found for package {PackageName}: {OldVersion} -> {NewVersion}", pkg.Name, versionStr, item.Version.Value);
+                        _logger.LogInformation(
+                            "Update found for package {PackageName}: {OldVersion} -> {NewVersion}",
+                            pkg.Name,
+                            versionStr,
+                            item.Version.Value
+                        );
                         return new PackageUpdate(remotePackage, oldRelease, item);
                     }
                 }
@@ -208,13 +230,15 @@ public sealed class PackageManager(
 
                 if (File.Exists(Path.Combine(item, $"{name}.dll")))
                 {
-                    list.Add(new LocalPackage
-                    {
-                        Name = name,
-                        DisplayName = name,
-                        InstalledPath = item,
-                        SideLoad = true
-                    });
+                    list.Add(
+                        new LocalPackage
+                        {
+                            Name = name,
+                            DisplayName = name,
+                            InstalledPath = item,
+                            SideLoad = true,
+                        }
+                    );
                     _logger.LogInformation("Side-loaded package found: {PackageName}", name);
                 }
             }
@@ -233,7 +257,10 @@ public sealed class PackageManager(
             activity?.SetTag("PackageVersion", package.Version);
             if (package.InstalledPath == null)
             {
-                var packageId = new PackageIdentity(package.Name, NuGetVersion.Parse(package.Version));
+                var packageId = new PackageIdentity(
+                    package.Name,
+                    NuGetVersion.Parse(package.Version)
+                );
                 package.InstalledPath = Helper.PackagePathResolver.GetInstallPath(packageId);
             }
 
@@ -256,10 +283,15 @@ public sealed class PackageManager(
 
             ExtensionProvider.AddExtensions(package.LocalId, extensions.ToArray());
 
-            _loadedPackages.TryAdd(package.LocalId, new LoadedPackageInfo(package, result.LoadContext));
+            _loadedPackages.TryAdd(
+                package.LocalId,
+                new LoadedPackageInfo(package, result.LoadContext)
+            );
 
-            var pkgId = new PackageIdentity(package.Name,
-                string.IsNullOrEmpty(package.Version) ? null : NuGetVersion.Parse(package.Version));
+            var pkgId = new PackageIdentity(
+                package.Name,
+                string.IsNullOrEmpty(package.Version) ? null : NuGetVersion.Parse(package.Version)
+            );
             _subject.OnNext((pkgId, true));
 
             return result.Assemblies;
@@ -288,7 +320,11 @@ public sealed class PackageManager(
         }
     }
 
-    private bool UnloadCore(Activity? activity, LocalPackage package, [NotNullWhen(true)] out WeakReference? weakReference)
+    private bool UnloadCore(
+        Activity? activity,
+        LocalPackage package,
+        [NotNullWhen(true)] out WeakReference? weakReference
+    )
     {
         weakReference = null;
         activity?.SetTag("PackageName", package.Name);
@@ -322,7 +358,11 @@ public sealed class PackageManager(
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Failed to unload extension {ExtensionName}.", ext.GetType().Name);
+                _logger.LogError(
+                    ex,
+                    "Failed to unload extension {ExtensionName}.",
+                    ext.GetType().Name
+                );
             }
         }
 
@@ -333,22 +373,35 @@ public sealed class PackageManager(
                 var types = loadContext.Assemblies.SelectMany(a => a.GetTypes()).ToArray();
                 TypeUnloadNotifier.NotifyUnloading(types);
                 AvaloniaPropertyRegistry.Instance.UnregisterByModule(types);
-                foreach (string name in loadContext.Assemblies.Select(a => a.GetName().Name).OfType<string>())
+                foreach (
+                    string name in loadContext
+                        .Assemblies.Select(a => a.GetName().Name)
+                        .OfType<string>()
+                )
                 {
                     AssetLoader.InvalidateAssemblyCache(name);
                 }
 
                 loadContext.Unload();
-                _logger.LogInformation("AssemblyLoadContext unloaded for {PackageName}.", package.Name);
+                _logger.LogInformation(
+                    "AssemblyLoadContext unloaded for {PackageName}.",
+                    package.Name
+                );
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Failed to unload AssemblyLoadContext for {PackageName}.", package.Name);
+                _logger.LogError(
+                    ex,
+                    "Failed to unload AssemblyLoadContext for {PackageName}.",
+                    package.Name
+                );
             }
         }
 
-        var pkgId = new PackageIdentity(package.Name,
-            string.IsNullOrEmpty(package.Version) ? null : NuGetVersion.Parse(package.Version));
+        var pkgId = new PackageIdentity(
+            package.Name,
+            string.IsNullOrEmpty(package.Version) ? null : NuGetVersion.Parse(package.Version)
+        );
         _subject.OnNext((pkgId, false));
 
         // https://learn.microsoft.com/ja-jp/dotnet/standard/assembly/unloadability#use-a-custom-collectible-assemblyloadcontext
@@ -358,9 +411,12 @@ public sealed class PackageManager(
 
     public LocalPackage[] FindLoadedPackage(string name)
     {
-        return [.. _loadedPackages.Values
-            .Select(x => x.Package)
-            .Where(x => StringComparer.OrdinalIgnoreCase.Equals(x.Name, name))];
+        return
+        [
+            .. _loadedPackages
+                .Values.Select(x => x.Package)
+                .Where(x => StringComparer.OrdinalIgnoreCase.Equals(x.Name, name)),
+        ];
     }
 
     private void LoadExtensions(Assembly assembly, List<Extension> extensions)
@@ -369,8 +425,10 @@ public sealed class PackageManager(
         {
             if (type.GetCustomAttribute<ExportAttribute>() is { })
             {
-                if (type.IsAssignableTo(typeof(Extension))
-                    && Activator.CreateInstance(type) is Extension extension)
+                if (
+                    type.IsAssignableTo(typeof(Extension))
+                    && Activator.CreateInstance(type) is Extension extension
+                )
                 {
                     SetupExtensionSettings(extension);
                     if (extension is ViewExtension viewExtension)
@@ -380,7 +438,11 @@ public sealed class PackageManager(
                     extension.Load();
 
                     extensions.Add(extension);
-                    _logger.LogInformation("Extension {ExtensionName} loaded from assembly {AssemblyName}", type.Name, assembly.GetName().Name);
+                    _logger.LogInformation(
+                        "Extension {ExtensionName} loaded from assembly {AssemblyName}",
+                        type.Name,
+                        assembly.GetName().Name
+                    );
                 }
             }
         }
@@ -395,7 +457,10 @@ public sealed class PackageManager(
             EventHandler handler = (_, _) => _settingsStore.Save(extension, settings);
             extension.SettingsChangedHandler = handler;
             settings.ConfigurationChanged += handler;
-            _logger.LogInformation("Settings restored for extension {ExtensionName}", extension.GetType().Name);
+            _logger.LogInformation(
+                "Settings restored for extension {ExtensionName}",
+                extension.GetType().Name
+            );
         }
     }
 
@@ -431,14 +496,20 @@ public sealed class PackageManager(
             var packages = _manager._loadedPackages.Values;
             if (_packageIdentity is { })
             {
-                observer.OnNext(packages.Any(
-                    x => StringComparer.OrdinalIgnoreCase.Equals(x.Package.Name, _name)
-                         && new NuGetVersion(x.Package.Version) == _packageIdentity.Version));
+                observer.OnNext(
+                    packages.Any(x =>
+                        StringComparer.OrdinalIgnoreCase.Equals(x.Package.Name, _name)
+                        && new NuGetVersion(x.Package.Version) == _packageIdentity.Version
+                    )
+                );
             }
             else
             {
                 observer.OnNext(
-                    packages.Any(x => StringComparer.OrdinalIgnoreCase.Equals(x.Package.Name, _name)));
+                    packages.Any(x =>
+                        StringComparer.OrdinalIgnoreCase.Equals(x.Package.Name, _name)
+                    )
+                );
             }
         }
 
@@ -450,14 +521,15 @@ public sealed class PackageManager(
 
         protected override void Initialize()
         {
-            _disposable = _manager._subject
-                .Subscribe(OnReceived);
+            _disposable = _manager._subject.Subscribe(OnReceived);
         }
 
         private void OnReceived((PackageIdentity Package, bool Loaded) obj)
         {
-            if ((_packageIdentity != null && _packageIdentity == obj.Package)
-                || StringComparer.OrdinalIgnoreCase.Equals(obj.Package.Id, _name))
+            if (
+                (_packageIdentity != null && _packageIdentity == obj.Package)
+                || StringComparer.OrdinalIgnoreCase.Equals(obj.Package.Id, _name)
+            )
             {
                 PublishNext(obj.Loaded);
             }

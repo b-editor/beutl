@@ -11,7 +11,8 @@ namespace Beutl.UnitTests.Engine;
 
 public class TextBlockTests
 {
-    private const string Case1 = @"<b>吾輩</b><size=70>は</size><#ff0000>猫</#><size=70>である。</size>
+    private const string Case1 =
+        @"<b>吾輩</b><size=70>は</size><#ff0000>猫</#><size=70>である。</size>
 <i>名前</i><size=70>はまだ</size>無<size=70>い。</cspace>
 
 <single-line>
@@ -59,7 +60,12 @@ public class TextBlockTests
         var processor = new RenderNodeProcessor(node, false);
         using Bitmap bmp = processor.RasterizeAndConcat();
 
-        ClassicAssert.IsTrue(bmp.Save(Path.Combine(ArtifactProvider.GetArtifactDirectory(), $"{id}.png"), EncodedImageFormat.Png));
+        ClassicAssert.IsTrue(
+            bmp.Save(
+                Path.Combine(ArtifactProvider.GetArtifactDirectory(), $"{id}.png"),
+                EncodedImageFormat.Png
+            )
+        );
     }
 
     [Test]
@@ -93,6 +99,11 @@ public class TextBlockTests
 
         using Bitmap bmp = renderTarget.Snapshot();
 
-        ClassicAssert.IsTrue(bmp.Save(Path.Combine(ArtifactProvider.GetArtifactDirectory(), $"0.png"), EncodedImageFormat.Png));
+        ClassicAssert.IsTrue(
+            bmp.Save(
+                Path.Combine(ArtifactProvider.GetArtifactDirectory(), $"0.png"),
+                EncodedImageFormat.Png
+            )
+        );
     }
 }

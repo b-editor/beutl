@@ -3,7 +3,11 @@ using System.Text.Json.Nodes;
 
 namespace Beutl.Serialization;
 
-[AttributeUsage(AttributeTargets.Class | AttributeTargets.Struct | AttributeTargets.Interface, Inherited = true, AllowMultiple = false)]
+[AttributeUsage(
+    AttributeTargets.Class | AttributeTargets.Struct | AttributeTargets.Interface,
+    Inherited = true,
+    AllowMultiple = false
+)]
 public sealed class FallbackTypeAttribute(Type fallbackType) : Attribute
 {
     public Type FallbackType { get; } = fallbackType;

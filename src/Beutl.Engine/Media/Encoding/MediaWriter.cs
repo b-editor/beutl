@@ -30,7 +30,8 @@ public abstract class MediaWriter : IDisposable
         string file,
         VideoEncoderSettings? videoConfig = null,
         AudioEncoderSettings? audioConfig = null,
-        IEncoderInfo? encoder = null)
+        IEncoderInfo? encoder = null
+    )
     {
         encoder ??= EncoderRegistry.GuessEncoder(file).FirstOrDefault();
         if (encoder == null)
@@ -58,7 +59,5 @@ public abstract class MediaWriter : IDisposable
         }
     }
 
-    protected virtual void Dispose(bool disposing)
-    {
-    }
+    protected virtual void Dispose(bool disposing) { }
 }

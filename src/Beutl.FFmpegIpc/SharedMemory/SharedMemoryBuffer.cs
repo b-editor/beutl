@@ -15,7 +15,14 @@ public sealed class SharedMemoryBuffer : IDisposable
     private readonly string? _filePath;
     private readonly bool _ownsFile;
 
-    private SharedMemoryBuffer(MemoryMappedFile mmf, MemoryMappedViewAccessor accessor, string name, long capacity, string? filePath, bool ownsFile)
+    private SharedMemoryBuffer(
+        MemoryMappedFile mmf,
+        MemoryMappedViewAccessor accessor,
+        string name,
+        long capacity,
+        string? filePath,
+        bool ownsFile
+    )
     {
         _mmf = mmf;
         _accessor = accessor;
@@ -36,17 +43,34 @@ public sealed class SharedMemoryBuffer : IDisposable
     {
         if (OperatingSystem.IsWindows())
         {
-            var mmf = MemoryMappedFile.CreateNew(name, capacity, MemoryMappedFileAccess.ReadWrite, MemoryMappedFileOptions.None, HandleInheritability.None);
+            var mmf = MemoryMappedFile.CreateNew(
+                name,
+                capacity,
+                MemoryMappedFileAccess.ReadWrite,
+                MemoryMappedFileOptions.None,
+                HandleInheritability.None
+            );
             var accessor = mmf.CreateViewAccessor(0, capacity);
             return new SharedMemoryBuffer(mmf, accessor, name, capacity, null, ownsFile: true);
         }
         else
         {
             string filePath = GetSharedMemoryPath(name);
-            var stream = new FileStream(filePath, FileMode.Create, FileAccess.ReadWrite, FileShare.ReadWrite);
+            var stream = new FileStream(
+                filePath,
+                FileMode.Create,
+                FileAccess.ReadWrite,
+                FileShare.ReadWrite
+            );
             stream.SetLength(capacity);
-            var mmf = MemoryMappedFile.CreateFromFile(stream, null, capacity, MemoryMappedFileAccess.ReadWrite,
-                HandleInheritability.None, leaveOpen: false);
+            var mmf = MemoryMappedFile.CreateFromFile(
+                stream,
+                null,
+                capacity,
+                MemoryMappedFileAccess.ReadWrite,
+                HandleInheritability.None,
+                leaveOpen: false
+            );
             var accessor = mmf.CreateViewAccessor(0, capacity);
             return new SharedMemoryBuffer(mmf, accessor, name, capacity, filePath, ownsFile: true);
         }
@@ -59,16 +83,31 @@ public sealed class SharedMemoryBuffer : IDisposable
     {
         if (OperatingSystem.IsWindows())
         {
-            var mmf = MemoryMappedFile.OpenExisting(name, MemoryMappedFileRights.ReadWrite, HandleInheritability.None);
+            var mmf = MemoryMappedFile.OpenExisting(
+                name,
+                MemoryMappedFileRights.ReadWrite,
+                HandleInheritability.None
+            );
             var accessor = mmf.CreateViewAccessor(0, capacity);
             return new SharedMemoryBuffer(mmf, accessor, name, capacity, null, ownsFile: false);
         }
         else
         {
             string filePath = GetSharedMemoryPath(name);
-            var stream = new FileStream(filePath, FileMode.Open, FileAccess.ReadWrite, FileShare.ReadWrite);
-            var mmf = MemoryMappedFile.CreateFromFile(stream, null, 0, MemoryMappedFileAccess.ReadWrite,
-                HandleInheritability.None, leaveOpen: false);
+            var stream = new FileStream(
+                filePath,
+                FileMode.Open,
+                FileAccess.ReadWrite,
+                FileShare.ReadWrite
+            );
+            var mmf = MemoryMappedFile.CreateFromFile(
+                stream,
+                null,
+                0,
+                MemoryMappedFileAccess.ReadWrite,
+                HandleInheritability.None,
+                leaveOpen: false
+            );
             var accessor = mmf.CreateViewAccessor(0, capacity);
             return new SharedMemoryBuffer(mmf, accessor, name, capacity, filePath, ownsFile: false);
         }
@@ -127,10 +166,15 @@ public sealed class SharedMemoryBuffer : IDisposable
 
         if (_ownsFile && _filePath != null)
         {
-            try { File.Delete(_filePath); }
+            try
+            {
+                File.Delete(_filePath);
+            }
             catch (Exception ex)
             {
-                Console.Error.WriteLine($"Warning: Failed to delete shared memory file '{_filePath}': {ex.Message}");
+                Console.Error.WriteLine(
+                    $"Warning: Failed to delete shared memory file '{_filePath}': {ex.Message}"
+                );
             }
         }
     }

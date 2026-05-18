@@ -208,7 +208,11 @@ public class ExpressionTests
     public void TryParse_WithInvalidExpression_ShouldReturnFalse()
     {
         // Act
-        bool result = Expression.TryParse<double>("invalid ++", out var expression, out string? error);
+        bool result = Expression.TryParse<double>(
+            "invalid ++",
+            out var expression,
+            out string? error
+        );
 
         // Assert
         Assert.That(result, Is.False);

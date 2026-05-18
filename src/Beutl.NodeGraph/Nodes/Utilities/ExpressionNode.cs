@@ -72,16 +72,14 @@ public partial class ExpressionNode : GraphNode
 
     private static ScriptOptions CreateScriptOptions()
     {
-        return ScriptOptions.Default
-            .AddReferences(
+        return ScriptOptions
+            .Default.AddReferences(
                 typeof(object).Assembly,
                 typeof(Math).Assembly,
                 typeof(Enumerable).Assembly,
-                typeof(ExpressionNodeGlobals).Assembly)
-            .AddImports(
-                "System",
-                "System.Linq",
-                "System.Collections.Generic");
+                typeof(ExpressionNodeGlobals).Assembly
+            )
+            .AddImports("System", "System.Linq", "System.Collections.Generic");
     }
 
     private sealed class ExpressionNodeState
@@ -103,7 +101,8 @@ public partial class ExpressionNode : GraphNode
                 var script = CSharpScript.Create<object>(
                     expression,
                     options,
-                    typeof(ExpressionNodeGlobals));
+                    typeof(ExpressionNodeGlobals)
+                );
                 var diagnostics = script.Compile();
                 var errors = diagnostics
                     .Where(d => d.Severity == DiagnosticSeverity.Error)
@@ -111,7 +110,10 @@ public partial class ExpressionNode : GraphNode
 
                 if (errors.Count > 0)
                 {
-                    CompileError = string.Join(Environment.NewLine, errors.Select(e => e.GetMessage()));
+                    CompileError = string.Join(
+                        Environment.NewLine,
+                        errors.Select(e => e.GetMessage())
+                    );
                 }
                 else
                 {

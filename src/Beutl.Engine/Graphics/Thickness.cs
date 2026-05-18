@@ -4,7 +4,6 @@ using System.Globalization;
 using System.Numerics;
 using System.Text.Json.Serialization;
 using System.Text.Unicode;
-
 using Beutl.Converters;
 using Beutl.Utilities;
 
@@ -17,16 +16,16 @@ namespace Beutl.Graphics;
 [TypeConverter(typeof(ThicknessConverter))]
 public readonly struct Thickness
     : IEquatable<Thickness>,
-      IParsable<Thickness>,
-      ISpanParsable<Thickness>,
-      ISpanFormattable,
-      IUtf8SpanFormattable,
-      IUtf8SpanParsable<Thickness>,
-      IEqualityOperators<Thickness, Thickness, bool>,
-      IAdditionOperators<Thickness, Thickness, Thickness>,
-      ISubtractionOperators<Thickness, Thickness, Thickness>,
-      IMultiplyOperators<Thickness, float, Thickness>,
-      ITupleConvertible<Thickness, float>
+        IParsable<Thickness>,
+        ISpanParsable<Thickness>,
+        ISpanFormattable,
+        IUtf8SpanFormattable,
+        IUtf8SpanParsable<Thickness>,
+        IEqualityOperators<Thickness, Thickness, bool>,
+        IAdditionOperators<Thickness, Thickness, Thickness>,
+        ISubtractionOperators<Thickness, Thickness, Thickness>,
+        IMultiplyOperators<Thickness, float, Thickness>,
+        ITupleConvertible<Thickness, float>
 {
     /// <summary>
     /// Initializes a new instance of the <see cref="Thickness"/> structure.
@@ -134,7 +133,8 @@ public readonly struct Thickness
             a.Left + b.Left,
             a.Top + b.Top,
             a.Right + b.Right,
-            a.Bottom + b.Bottom);
+            a.Bottom + b.Bottom
+        );
     }
 
     /// <summary>
@@ -149,7 +149,8 @@ public readonly struct Thickness
             a.Left - b.Left,
             a.Top - b.Top,
             a.Right - b.Right,
-            a.Bottom - b.Bottom);
+            a.Bottom - b.Bottom
+        );
     }
 
     /// <summary>
@@ -160,11 +161,7 @@ public readonly struct Thickness
     /// <returns>The equality.</returns>
     public static Thickness operator *(Thickness a, float b)
     {
-        return new Thickness(
-            a.Left * b,
-            a.Top * b,
-            a.Right * b,
-            a.Bottom * b);
+        return new Thickness(a.Left * b, a.Top * b, a.Right * b, a.Bottom * b);
     }
 
     /// <summary>
@@ -216,10 +213,10 @@ public readonly struct Thickness
     /// <returns>True if this thickness is equal to other; False otherwise.</returns>
     public bool Equals(Thickness other)
     {
-        return Left == other.Left &&
-               Top == other.Top &&
-               Right == other.Right &&
-               Bottom == other.Bottom;
+        return Left == other.Left
+            && Top == other.Top
+            && Right == other.Right
+            && Bottom == other.Bottom;
     }
 
     /// <summary>
@@ -321,7 +318,11 @@ public readonly struct Thickness
     {
         const string exceptionMessage = "Invalid Thickness.";
 
-        using var tokenizer = new RefStringTokenizer(s, provider ?? CultureInfo.InvariantCulture, exceptionMessage);
+        using var tokenizer = new RefStringTokenizer(
+            s,
+            provider ?? CultureInfo.InvariantCulture,
+            exceptionMessage
+        );
         if (tokenizer.TryReadSingle(out float a))
         {
             if (tokenizer.TryReadSingle(out float b))
@@ -340,7 +341,11 @@ public readonly struct Thickness
         throw new FormatException(exceptionMessage);
     }
 
-    public static bool TryParse(ReadOnlySpan<char> s, IFormatProvider? provider, out Thickness result)
+    public static bool TryParse(
+        ReadOnlySpan<char> s,
+        IFormatProvider? provider,
+        out Thickness result
+    )
     {
         try
         {
@@ -362,12 +367,20 @@ public readonly struct Thickness
         tuple[3] = self.Bottom;
     }
 
-    static void ITupleConvertible<Thickness, float>.ConvertFrom(Span<float> tuple, out Thickness self)
+    static void ITupleConvertible<Thickness, float>.ConvertFrom(
+        Span<float> tuple,
+        out Thickness self
+    )
     {
         self = new Thickness(tuple[0], tuple[1], tuple[2], tuple[3]);
     }
 
-    public bool TryFormat(Span<char> destination, out int charsWritten, ReadOnlySpan<char> format = default, IFormatProvider? provider = null)
+    public bool TryFormat(
+        Span<char> destination,
+        out int charsWritten,
+        ReadOnlySpan<char> format = default,
+        IFormatProvider? provider = null
+    )
     {
         char separator = TokenizerHelper.GetSeparatorFromFormatProvider(provider);
         if (Left == Right && Top == Bottom)
@@ -377,10 +390,20 @@ public readonly struct Thickness
                 return Left.TryFormat(destination, out charsWritten, format, provider);
             }
 
-            return MemoryExtensions.TryWrite(destination, provider, $"{Left}{separator} {Top}", out charsWritten);
+            return MemoryExtensions.TryWrite(
+                destination,
+                provider,
+                $"{Left}{separator} {Top}",
+                out charsWritten
+            );
         }
 
-        return MemoryExtensions.TryWrite(destination, provider, $"{Left}{separator} {Top}{separator} {Right}{separator} {Bottom}", out charsWritten);
+        return MemoryExtensions.TryWrite(
+            destination,
+            provider,
+            $"{Left}{separator} {Top}{separator} {Right}{separator} {Bottom}",
+            out charsWritten
+        );
     }
 
     public string ToString(IFormatProvider? formatProvider)
@@ -408,11 +431,19 @@ public readonly struct Thickness
                 return string.Create(formatProvider, $"{Left}{separator} {Top}");
             }
 
-            return string.Create(formatProvider, $"{Left}{separator} {Top}{separator} {Right}{separator} {Bottom}");
+            return string.Create(
+                formatProvider,
+                $"{Left}{separator} {Top}{separator} {Right}{separator} {Bottom}"
+            );
         }
     }
 
-    public bool TryFormat(Span<byte> utf8Destination, out int bytesWritten, ReadOnlySpan<char> format = default, IFormatProvider? provider = null)
+    public bool TryFormat(
+        Span<byte> utf8Destination,
+        out int bytesWritten,
+        ReadOnlySpan<char> format = default,
+        IFormatProvider? provider = null
+    )
     {
         char separator = TokenizerHelper.GetSeparatorFromFormatProvider(provider);
         if (Left == Right && Top == Bottom)
@@ -422,10 +453,20 @@ public readonly struct Thickness
                 return Left.TryFormat(utf8Destination, out bytesWritten, format, provider);
             }
 
-            return Utf8.TryWrite(utf8Destination, provider, $"{Left}{separator} {Top}", out bytesWritten);
+            return Utf8.TryWrite(
+                utf8Destination,
+                provider,
+                $"{Left}{separator} {Top}",
+                out bytesWritten
+            );
         }
 
-        return Utf8.TryWrite(utf8Destination, provider, $"{Left}{separator} {Top}{separator} {Right}{separator} {Bottom}", out bytesWritten);
+        return Utf8.TryWrite(
+            utf8Destination,
+            provider,
+            $"{Left}{separator} {Top}{separator} {Right}{separator} {Bottom}",
+            out bytesWritten
+        );
     }
 
     public static Thickness Parse(ReadOnlySpan<byte> utf8Text)
@@ -442,7 +483,11 @@ public readonly struct Thickness
     {
         const string exceptionMessage = "Invalid Thickness.";
 
-        using var tokenizer = new RefUtf8StringTokenizer(utf8Text, provider ?? CultureInfo.InvariantCulture, exceptionMessage);
+        using var tokenizer = new RefUtf8StringTokenizer(
+            utf8Text,
+            provider ?? CultureInfo.InvariantCulture,
+            exceptionMessage
+        );
         if (tokenizer.TryReadSingle(out float a))
         {
             if (tokenizer.TryReadSingle(out float b))
@@ -461,7 +506,11 @@ public readonly struct Thickness
         throw new FormatException(exceptionMessage);
     }
 
-    public static bool TryParse(ReadOnlySpan<byte> utf8Text, IFormatProvider? provider, out Thickness result)
+    public static bool TryParse(
+        ReadOnlySpan<byte> utf8Text,
+        IFormatProvider? provider,
+        out Thickness result
+    )
     {
         try
         {
@@ -480,7 +529,11 @@ public readonly struct Thickness
         return Parse(s.AsSpan(), provider);
     }
 
-    public static bool TryParse([NotNullWhen(true)] string? s, IFormatProvider? provider, out Thickness result)
+    public static bool TryParse(
+        [NotNullWhen(true)] string? s,
+        IFormatProvider? provider,
+        out Thickness result
+    )
     {
         return TryParse(s.AsSpan(), provider, out result);
     }

@@ -102,7 +102,10 @@ internal sealed class FavoritesManager : IDisposable
     {
         try
         {
-            Preferences.Default.Set("FileBrowser.Favorites", JsonSerializer.Serialize(Favorites.ToArray()));
+            Preferences.Default.Set(
+                "FileBrowser.Favorites",
+                JsonSerializer.Serialize(Favorites.ToArray())
+            );
         }
         catch (Exception ex)
         {

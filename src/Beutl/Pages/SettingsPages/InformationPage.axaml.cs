@@ -15,8 +15,10 @@ public sealed partial class InformationPage : UserControl
 
     private async void CopyVersion_Click(object? sender, RoutedEventArgs e)
     {
-        if (TopLevel.GetTopLevel(this)?.Clipboard is { } clipboard
-            && DataContext is InformationPageViewModel vm)
+        if (
+            TopLevel.GetTopLevel(this)?.Clipboard is { } clipboard
+            && DataContext is InformationPageViewModel vm
+        )
         {
             await clipboard.SetTextAsync(vm.BuildMetadata);
         }

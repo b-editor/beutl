@@ -19,7 +19,10 @@ public sealed partial class PenEditor : UserControl
         ExpandTransitionHelper.Attach(expandToggle, content);
         ExpandTransitionHelper.Attach(expandMinorProps, minorProps);
 
-        EditorMenuHelper.AttachCopyPasteAndTemplateMenus(this, (FAMenuFlyout)ExpandMenuButton.ContextFlyout!);
+        EditorMenuHelper.AttachCopyPasteAndTemplateMenus(
+            this,
+            (FAMenuFlyout)ExpandMenuButton.ContextFlyout!
+        );
 
         DragDrop.SetAllowDrop(this, true);
         AddHandler(DragDrop.DragOverEvent, DragOver);
@@ -28,12 +31,19 @@ public sealed partial class PenEditor : UserControl
 
     private void Drop(object? sender, DragEventArgs e)
     {
-        if (DataContext is not PenEditorViewModel { IsDisposed: false } viewModel) return;
+        if (DataContext is not PenEditorViewModel { IsDisposed: false } viewModel)
+            return;
 
-        if (e.DataTransfer.TryGetFile()?.TryGetLocalPath() is { } droppedFile
-            && string.Equals(Path.GetExtension(droppedFile), ".json", StringComparison.OrdinalIgnoreCase)
+        if (
+            e.DataTransfer.TryGetFile()?.TryGetLocalPath() is { } droppedFile
+            && string.Equals(
+                Path.GetExtension(droppedFile),
+                ".json",
+                StringComparison.OrdinalIgnoreCase
+            )
             && ObjectTemplateService.Instance.TryLoadFromFile(droppedFile) is { } template
-            && viewModel.ApplyTemplate(template))
+            && viewModel.ApplyTemplate(template)
+        )
         {
             e.Handled = true;
         }

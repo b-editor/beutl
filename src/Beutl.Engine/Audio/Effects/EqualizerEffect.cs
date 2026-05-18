@@ -21,18 +21,70 @@ public sealed partial class EqualizerEffect : AudioEffect
 
     private static readonly float[] s_frequencies10Band =
     [
-        31f, 62f, 125f, 250f, 500f, 1000f, 2000f, 4000f, 8000f, 16000f
+        31f,
+        62f,
+        125f,
+        250f,
+        500f,
+        1000f,
+        2000f,
+        4000f,
+        8000f,
+        16000f,
     ];
 
     private static readonly float[] s_frequencies15Band =
     [
-        25f, 40f, 63f, 100f, 160f, 250f, 400f, 630f, 1000f, 1600f, 2500f, 4000f, 6300f, 10000f, 16000f
+        25f,
+        40f,
+        63f,
+        100f,
+        160f,
+        250f,
+        400f,
+        630f,
+        1000f,
+        1600f,
+        2500f,
+        4000f,
+        6300f,
+        10000f,
+        16000f,
     ];
 
     private static readonly float[] s_frequencies31Band =
     [
-        20f, 25f, 31.5f, 40f, 50f, 63f, 80f, 100f, 125f, 160f, 200f, 250f, 315f, 400f, 500f, 630f, 800f, 1000f,
-        1250f, 1600f, 2000f, 2500f, 3150f, 4000f, 5000f, 6300f, 8000f, 10000f, 12500f, 16000f, 20000f
+        20f,
+        25f,
+        31.5f,
+        40f,
+        50f,
+        63f,
+        80f,
+        100f,
+        125f,
+        160f,
+        200f,
+        250f,
+        315f,
+        400f,
+        500f,
+        630f,
+        800f,
+        1000f,
+        1250f,
+        1600f,
+        2000f,
+        2500f,
+        3150f,
+        4000f,
+        5000f,
+        6300f,
+        8000f,
+        10000f,
+        12500f,
+        16000f,
+        20000f,
     ];
 
     public EqualizerEffect()
@@ -46,7 +98,8 @@ public sealed partial class EqualizerEffect : AudioEffect
     /// Band count preset.
     /// </summary>
     [Display(Name = nameof(AudioStrings.Equalizer_BandCount), ResourceType = typeof(AudioStrings))]
-    public IProperty<BandCountPreset> BandCountOption { get; } = Property.Create(BandCountPreset.Bands10);
+    public IProperty<BandCountPreset> BandCountOption { get; } =
+        Property.Create(BandCountPreset.Bands10);
 
     /// <summary>
     /// List of equalizer bands (fixed frequencies).
@@ -54,10 +107,13 @@ public sealed partial class EqualizerEffect : AudioEffect
     [Display(Name = nameof(AudioStrings.Equalizer_Bands), ResourceType = typeof(AudioStrings))]
     public IListProperty<EqualizerBand> Bands { get; } = Property.CreateList<EqualizerBand>();
 
-    private void OnBandCountOptionOnValueChanged(object? o,
-        PropertyValueChangedEventArgs<BandCountPreset> propertyValueChangedEventArgs)
+    private void OnBandCountOptionOnValueChanged(
+        object? o,
+        PropertyValueChangedEventArgs<BandCountPreset> propertyValueChangedEventArgs
+    )
     {
-        if (RecordingSuppression.IsSuppressed) return;
+        if (RecordingSuppression.IsSuppressed)
+            return;
         InitializeBands(BandCountOption.CurrentValue);
     }
 
@@ -72,7 +128,7 @@ public sealed partial class EqualizerEffect : AudioEffect
             BandCountPreset.Bands10 => s_frequencies10Band,
             BandCountPreset.Bands15 => s_frequencies15Band,
             BandCountPreset.Bands31 => s_frequencies31Band,
-            _ => s_frequencies10Band
+            _ => s_frequencies10Band,
         };
 
         // Calculate Q value for graphic EQ
@@ -83,7 +139,7 @@ public sealed partial class EqualizerEffect : AudioEffect
             BandCountPreset.Bands10 => 1.4f,
             BandCountPreset.Bands15 => 2.0f,
             BandCountPreset.Bands31 => 4.3f,
-            _ => 1.4f
+            _ => 1.4f,
         };
 
         Bands.Clear();
@@ -121,9 +177,11 @@ public sealed partial class EqualizerEffect : AudioEffect
         // Only gain-dependent filter types collapse to pass-through at 0 dB.
         // LowPass/HighPass/BandPass/Notch still shape the signal regardless of gain.
         var type = band.FilterType.CurrentValue;
-        if (type != BiQuadFilterType.Peak
+        if (
+            type != BiQuadFilterType.Peak
             && type != BiQuadFilterType.LowShelf
-            && type != BiQuadFilterType.HighShelf)
+            && type != BiQuadFilterType.HighShelf
+        )
         {
             return false;
         }
@@ -135,7 +193,8 @@ public sealed partial class EqualizerEffect : AudioEffect
         // FIXME(expression): once AnimationSampler evaluates expressions per-sample, this guard must
         // also treat HasExpression as live. Otherwise an expression that evaluates to 0 dB at graph
         // build time but to non-zero later will be silently dropped from the signal path.
-        if (band.Gain.Animation is not null) return false;
+        if (band.Gain.Animation is not null)
+            return false;
 
         return band.Gain.CurrentValue == 0f;
     }

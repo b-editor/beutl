@@ -12,28 +12,35 @@ using Reactive.Bindings;
 
 namespace Beutl.ViewModels.Editors;
 
-public sealed class FilterEffectEditorViewModel : ValueEditorViewModel<FilterEffect?>, IFallbackObjectViewModel
+public sealed class FilterEffectEditorViewModel
+    : ValueEditorViewModel<FilterEffect?>,
+        IFallbackObjectViewModel
 {
     public FilterEffectEditorViewModel(IPropertyAdapter<FilterEffect?> property)
         : base(property)
     {
-        CanCopy = Value.Select(v => v is FilterEffect and not FallbackFilterEffect)
+        CanCopy = Value
+            .Select(v => v is FilterEffect and not FallbackFilterEffect)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(Disposables);
 
-        IsFallback = Value.Select(v => v is IFallback)
+        IsFallback = Value
+            .Select(v => v is IFallback)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(Disposables);
 
-        ActualTypeName = Value.Select(FallbackHelper.GetTypeName)
+        ActualTypeName = Value
+            .Select(FallbackHelper.GetTypeName)
             .ToReadOnlyReactivePropertySlim(Strings.Unknown)
             .DisposeWith(Disposables);
 
-        FallbackMessage = Value.Select(FallbackHelper.GetFallbackMessage)
+        FallbackMessage = Value
+            .Select(FallbackHelper.GetFallbackMessage)
             .ToReadOnlyReactivePropertySlim(MessageStrings.RestoreFailedTypeNotFound)
             .DisposeWith(Disposables);
 
-        FilterName = Value.Select(v =>
+        FilterName = Value
+            .Select(v =>
             {
                 if (v != null)
                 {
@@ -48,18 +55,22 @@ public sealed class FilterEffectEditorViewModel : ValueEditorViewModel<FilterEff
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(Disposables);
 
-        IsGroup = Value.Select(v => v is FilterEffectGroup)
+        IsGroup = Value
+            .Select(v => v is FilterEffectGroup)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(Disposables);
 
-        IsGroupOrNull = Value.Select(v => v is FilterEffectGroup || v == null)
+        IsGroupOrNull = Value
+            .Select(v => v is FilterEffectGroup || v == null)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(Disposables);
 
-        IsExpanded.SkipWhile(v => !v)
+        IsExpanded
+            .SkipWhile(v => !v)
             .Take(1)
             .Subscribe(_ =>
-                Value.Subscribe(v =>
+                Value
+                    .Subscribe(v =>
                     {
                         Properties.Value?.Dispose();
                         Properties.Value = null;
@@ -68,8 +79,14 @@ public sealed class FilterEffectEditorViewModel : ValueEditorViewModel<FilterEff
 
                         if (v is FilterEffectGroup group)
                         {
-                            var prop = new EnginePropertyAdapter<ICoreList<FilterEffect>>(group.Children, group);
-                            Group.Value = new ListEditorViewModel<FilterEffect>(prop) { IsExpanded = { Value = true } };
+                            var prop = new EnginePropertyAdapter<ICoreList<FilterEffect>>(
+                                group.Children,
+                                group
+                            );
+                            Group.Value = new ListEditorViewModel<FilterEffect>(prop)
+                            {
+                                IsExpanded = { Value = true },
+                            };
                         }
                         else if (v != null)
                         {
@@ -78,16 +95,21 @@ public sealed class FilterEffectEditorViewModel : ValueEditorViewModel<FilterEff
 
                         AcceptChild();
                     })
-                    .DisposeWith(Disposables))
+                    .DisposeWith(Disposables)
+            )
             .DisposeWith(Disposables);
 
-        IsEnabled = Value.Select(x =>
-                x?.GetObservable(FilterEffect.IsEnabledProperty) ?? Observable.ReturnThenNever(x?.IsEnabled ?? false))
+        IsEnabled = Value
+            .Select(x =>
+                x?.GetObservable(FilterEffect.IsEnabledProperty)
+                ?? Observable.ReturnThenNever(x?.IsEnabled ?? false)
+            )
             .Switch()
             .ToReactiveProperty()
             .DisposeWith(Disposables);
 
-        IsEnabled.Skip(1)
+        IsEnabled
+            .Skip(1)
             .Subscribe(v =>
             {
                 if (Value.Value is { } filter && filter.IsEnabled != v)
@@ -99,13 +121,17 @@ public sealed class FilterEffectEditorViewModel : ValueEditorViewModel<FilterEff
             .DisposeWith(Disposables);
 
         var expressionObservable = Value
-            .Select(v => v switch
-            {
-                IPresenter<FilterEffect> presenter => presenter.Target.SubscribeExpressionChange()
-                    .Select(exp => (presenter, exp))!,
-                _ => Observable.ReturnThenNever(
-                    ((IPresenter<FilterEffect>?)null, (IExpression<FilterEffect?>?)null))
-            })
+            .Select(v =>
+                v switch
+                {
+                    IPresenter<FilterEffect> presenter => presenter
+                        .Target.SubscribeExpressionChange()
+                        .Select(exp => (presenter, exp))!,
+                    _ => Observable.ReturnThenNever(
+                        ((IPresenter<FilterEffect>?)null, (IExpression<FilterEffect?>?)null)
+                    ),
+                }
+            )
             .Switch();
         IsPresenter = expressionObservable
             .Select(t => t is { Item1: not null, Item2: ReferenceExpression<FilterEffect> or null })
@@ -113,10 +139,14 @@ public sealed class FilterEffectEditorViewModel : ValueEditorViewModel<FilterEff
             .DisposeWith(Disposables);
 
         CurrentTargetName = expressionObservable
-            .Select(t => t.Item2 is ReferenceExpression<FilterEffect>
-                ? t.Item1?.Target.GetValue(CompositionContext.Default)
-                : null)
-            .Select(fe => fe != null ? CoreObjectHelper.GetDisplayName(fe) : MessageStrings.PropertyUnset)
+            .Select(t =>
+                t.Item2 is ReferenceExpression<FilterEffect>
+                    ? t.Item1?.Target.GetValue(CompositionContext.Default)
+                    : null
+            )
+            .Select(fe =>
+                fe != null ? CoreObjectHelper.GetDisplayName(fe) : MessageStrings.PropertyUnset
+            )
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(Disposables);
     }
@@ -161,7 +191,11 @@ public sealed class FilterEffectEditorViewModel : ValueEditorViewModel<FilterEff
 
     private void AcceptChild()
     {
-        NestedEditorContextHelper.AcceptChildren(new ChildVisitor(this), Group.Value, Properties.Value);
+        NestedEditorContextHelper.AcceptChildren(
+            new ChildVisitor(this),
+            Group.Value,
+            Properties.Value
+        );
     }
 
     public void ChangeFilter(FilterEffect instance)
@@ -176,8 +210,8 @@ public sealed class FilterEffectEditorViewModel : ValueEditorViewModel<FilterEff
             ChangeFilter(instance);
     }
 
-    protected override ICoreSerializable? GetCopyTarget()
-        => Value.Value is FilterEffect fe and not FallbackFilterEffect ? fe : null;
+    protected override ICoreSerializable? GetCopyTarget() =>
+        Value.Value is FilterEffect fe and not FallbackFilterEffect ? fe : null;
 
     protected override ICoreSerializable? GetTemplateTarget() => GetCopyTarget();
 
@@ -186,16 +220,23 @@ public sealed class FilterEffectEditorViewModel : ValueEditorViewModel<FilterEff
     public override bool ApplyTemplate(ObjectTemplateItem template)
     {
         return GroupedEditorHelper.ApplyTemplate(
-            template, this, IsExpanded,
+            template,
+            this,
+            IsExpanded,
             Value.Value is FilterEffectGroup,
-            AddItem, ChangeFilter);
+            AddItem,
+            ChangeFilter
+        );
     }
 
     public override bool TryPasteJson(string json)
     {
         return GroupedEditorHelper.TryPasteJson(
-            json, this, IsExpanded,
-            (Value.Value as FilterEffectGroup)?.Children);
+            json,
+            this,
+            IsExpanded,
+            (Value.Value as FilterEffectGroup)?.Children
+        );
     }
 
     public void AddItem(FilterEffect instance)
@@ -225,8 +266,10 @@ public sealed class FilterEffectEditorViewModel : ValueEditorViewModel<FilterEff
 
     public void AddTarget(Type presenterType, FilterEffect target)
     {
-        if (Value.Value is FilterEffectGroup group
-            && Activator.CreateInstance(presenterType) is IPresenter<FilterEffect> presenter)
+        if (
+            Value.Value is FilterEffectGroup group
+            && Activator.CreateInstance(presenterType) is IPresenter<FilterEffect> presenter
+        )
         {
             IsExpanded.Value = true;
             presenter.Target.Expression = Expression.CreateReference<FilterEffect>(target.Id);
@@ -259,10 +302,8 @@ public sealed class FilterEffectEditorViewModel : ValueEditorViewModel<FilterEff
         }
     }
 
-    public IReadOnlyList<TargetObjectInfo> GetAvailableTargets()
-        => TargetObjectSearchHelper.GetAvailableTargets<FilterEffect>(this);
-
-
+    public IReadOnlyList<TargetObjectInfo> GetAvailableTargets() =>
+        TargetObjectSearchHelper.GetAvailableTargets<FilterEffect>(this);
 
     public override void ReadFromJson(JsonObject json)
     {
@@ -273,7 +314,12 @@ public sealed class FilterEffectEditorViewModel : ValueEditorViewModel<FilterEff
     public override void WriteToJson(JsonObject json)
     {
         base.WriteToJson(json);
-        NestedEditorContextHelper.WriteNestedJson(json, IsExpanded.Value, Properties.Value, Group.Value);
+        NestedEditorContextHelper.WriteNestedJson(
+            json,
+            IsExpanded.Value,
+            Properties.Value,
+            Group.Value
+        );
     }
 
     public IObservable<string?> GetJsonString() => FallbackHelper.GetFallbackJson(Value);

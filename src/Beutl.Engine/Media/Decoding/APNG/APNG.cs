@@ -7,9 +7,7 @@ namespace Beutl.Media.Decoding.APNG;
 public class APNG
 {
     public APNG(string fileName)
-        : this(File.ReadAllBytes(fileName))
-    {
-    }
+        : this(File.ReadAllBytes(fileName)) { }
 
     public APNG(byte[] fileBytes)
     {
@@ -76,7 +74,11 @@ public class APNG
                         // for next use
                         if (frame != null)
                             frames.Add(frame);
-                        frame = new Frame { IHDRChunk = IHDRChunk, fcTLChunk = new fcTLChunk(chunk) };
+                        frame = new Frame
+                        {
+                            IHDRChunk = IHDRChunk,
+                            fcTLChunk = new fcTLChunk(chunk),
+                        };
                     }
                     // Otherwise this fcTL is used by the DEFAULT IMAGE.
                     else

@@ -8,13 +8,19 @@ namespace Beutl.Collections;
 public static class CoreListExtensions
 {
     public static IDisposable ForEachItem<T>(
-           this ICoreReadOnlyList<T> collection,
-           Action<T> added,
-           Action<T> removed,
-           Action reset,
-           bool weakSubscription = false)
+        this ICoreReadOnlyList<T> collection,
+        Action<T> added,
+        Action<T> removed,
+        Action reset,
+        bool weakSubscription = false
+    )
     {
-        return collection.ForEachItem((_, i) => added(i), (_, i) => removed(i), reset, weakSubscription);
+        return collection.ForEachItem(
+            (_, i) => added(i),
+            (_, i) => removed(i),
+            reset,
+            weakSubscription
+        );
     }
 
     public static IDisposable ForEachItem<T>(
@@ -22,7 +28,8 @@ public static class CoreListExtensions
         Action<int, T> added,
         Action<int, T> removed,
         Action reset,
-        bool weakSubscription = false)
+        bool weakSubscription = false
+    )
     {
         void Add(int index, IList items)
         {
@@ -62,7 +69,8 @@ public static class CoreListExtensions
                     if (reset == null)
                     {
                         throw new InvalidOperationException(
-                            "Reset called on collection without reset handler.");
+                            "Reset called on collection without reset handler."
+                        );
                     }
 
                     reset();
@@ -90,7 +98,8 @@ public static class CoreListExtensions
         Action<int, T> added,
         Action<int, T> removed,
         Action reset,
-        bool weakSubscription = false)
+        bool weakSubscription = false
+    )
         where TCollection : IReadOnlyList<T>, INotifyCollectionChanged
     {
         void Add(int index, IList items)
@@ -139,7 +148,8 @@ public static class CoreListExtensions
                     if (reset == null)
                     {
                         throw new InvalidOperationException(
-                            "Reset called on collection without reset handler.");
+                            "Reset called on collection without reset handler."
+                        );
                     }
 
                     reset();
@@ -163,13 +173,19 @@ public static class CoreListExtensions
     }
 
     public static IDisposable TrackCollectionChanged<T>(
-           this ICoreReadOnlyList<T> collection,
-           Action<T> added,
-           Action<T> removed,
-           Action reset,
-           bool weakSubscription = false)
+        this ICoreReadOnlyList<T> collection,
+        Action<T> added,
+        Action<T> removed,
+        Action reset,
+        bool weakSubscription = false
+    )
     {
-        return collection.TrackCollectionChanged((_, i) => added(i), (_, i) => removed(i), reset, weakSubscription);
+        return collection.TrackCollectionChanged(
+            (_, i) => added(i),
+            (_, i) => removed(i),
+            reset,
+            weakSubscription
+        );
     }
 
     public static IDisposable TrackCollectionChanged<T>(
@@ -177,7 +193,8 @@ public static class CoreListExtensions
         Action<int, T> added,
         Action<int, T> removed,
         Action reset,
-        bool weakSubscription = false)
+        bool weakSubscription = false
+    )
     {
         void Add(int index, IList items)
         {
@@ -217,7 +234,8 @@ public static class CoreListExtensions
                     if (reset == null)
                     {
                         throw new InvalidOperationException(
-                            "Reset called on collection without reset handler.");
+                            "Reset called on collection without reset handler."
+                        );
                     }
 
                     reset();
@@ -240,7 +258,8 @@ public static class CoreListExtensions
 
     public static IDisposable TrackItemPropertyChanged<T>(
         this ICoreReadOnlyList<T> collection,
-        Action<Tuple<object?, PropertyChangedEventArgs>> callback)
+        Action<Tuple<object?, PropertyChangedEventArgs>> callback
+    )
     {
         var tracked = new List<INotifyPropertyChanged>();
 
@@ -266,7 +285,8 @@ public static class CoreListExtensions
                     tracked.Remove(inpc);
                 }
             },
-            () => throw new NotSupportedException("Collection reset not supported."));
+            () => throw new NotSupportedException("Collection reset not supported.")
+        );
 
         return Disposable.Create(() =>
         {

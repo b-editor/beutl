@@ -54,17 +54,11 @@ public partial class PlayerView
 
         void OnReleased(PointerReleasedEventArgs e);
 
-        void OnWheelChanged(PointerWheelEventArgs e)
-        {
-        }
+        void OnWheelChanged(PointerWheelEventArgs e) { }
 
-        void OnKeyDown(KeyEventArgs e)
-        {
-        }
+        void OnKeyDown(KeyEventArgs e) { }
 
-        void OnKeyUp(KeyEventArgs e)
-        {
-        }
+        void OnKeyUp(KeyEventArgs e) { }
     }
 
     private class MouseControlHand : IMouseControlHandler
@@ -102,7 +96,10 @@ public partial class PlayerView
             {
                 AvaPoint position = e.GetPosition(Player);
                 AvaPoint delta = position - _position;
-                ViewModel.FrameMatrix.Value *= Matrix.CreateTranslation((float)delta.X, (float)delta.Y);
+                ViewModel.FrameMatrix.Value *= Matrix.CreateTranslation(
+                    (float)delta.X,
+                    (float)delta.Y
+                );
 
                 _position = position;
 
@@ -123,7 +120,9 @@ public partial class PlayerView
         public void OnPressed(PointerPressedEventArgs e)
         {
             PointerPoint pointerPoint = e.GetCurrentPoint(Player);
-            _pressed = pointerPoint.Properties.IsLeftButtonPressed || pointerPoint.Properties.IsMiddleButtonPressed;
+            _pressed =
+                pointerPoint.Properties.IsLeftButtonPressed
+                || pointerPoint.Properties.IsMiddleButtonPressed;
             _position = pointerPoint.Position;
             if (_pressed)
             {
@@ -190,7 +189,9 @@ public partial class PlayerView
                     }
                     else
                     {
-                        var res = transformGroup.ToResource(new CompositionContext(Clock.CurrentTime.Value));
+                        var res = transformGroup.ToResource(
+                            new CompositionContext(Clock.CurrentTime.Value)
+                        );
 
                         return (obj, res.Matrix);
                     }
@@ -201,7 +202,9 @@ public partial class PlayerView
 
         private KeyFrameState<float>? FindKeyFramePairOrNull(IProperty<float> property)
         {
-            int rate = EditViewModel.Scene.FindHierarchicalParent<Project>() is { } proj ? proj.GetFrameRate() : 30;
+            int rate = EditViewModel.Scene.FindHierarchicalParent<Project>() is { } proj
+                ? proj.GetFrameRate()
+                : 30;
             TimeSpan globalkeyTime = Clock.CurrentTime.Value;
             TimeSpan localKeyTime = Element != null ? globalkeyTime - Element.Start : globalkeyTime;
 
@@ -210,7 +213,9 @@ public partial class PlayerView
                 TimeSpan keyTime = animation.UseGlobalClock ? globalkeyTime : localKeyTime;
                 keyTime = keyTime.RoundToRate(rate);
 
-                (IKeyFrame? prev, IKeyFrame? next) = animation.KeyFrames.GetPreviousAndNextKeyFrame(keyTime);
+                (IKeyFrame? prev, IKeyFrame? next) = animation.KeyFrames.GetPreviousAndNextKeyFrame(
+                    keyTime
+                );
 
                 if (next?.KeyTime == keyTime)
                     return new(next as KeyFrame<float>, null);
@@ -336,7 +341,10 @@ public partial class PlayerView
             {
                 var compositor = EditViewModel.Renderer.Value.Compositor;
                 var compositionFrame = compositor.EvaluateGraphics(Clock.CurrentTime.Value);
-                return EditViewModel.Renderer.Value.HitTest(compositionFrame, new((float)_scaledStartPosition.X, (float)_scaledStartPosition.Y));
+                return EditViewModel.Renderer.Value.HitTest(
+                    compositionFrame,
+                    new((float)_scaledStartPosition.X, (float)_scaledStartPosition.Y)
+                );
             });
 
             if (Drawable != null)
@@ -346,10 +354,8 @@ public partial class PlayerView
                 TimeSpan time = Clock.CurrentTime.Value;
 
                 Element = scene.Children.FirstOrDefault(v =>
-                    v.IsEnabled
-                    && v.ZIndex == zindex
-                    && v.Start <= time
-                    && time < v.Range.End);
+                    v.IsEnabled && v.ZIndex == zindex && v.Start <= time && time < v.Range.End
+                );
 
                 if (Element != null)
                 {
@@ -361,17 +367,22 @@ public partial class PlayerView
 
             if (e.ClickCount == 2 && Drawable is Graphics.Shapes.Shape shape)
             {
-                ElementPropertyTabViewModel? tab = EditViewModel.FindToolTab<ElementPropertyTabViewModel>();
+                ElementPropertyTabViewModel? tab =
+                    EditViewModel.FindToolTab<ElementPropertyTabViewModel>();
                 if (tab != null)
                 {
                     foreach (EngineObjectPropertyViewModel item in tab.Items)
                     {
-                        IPropertyEditorContext?
-                            prop = item.Properties.FirstOrDefault(v => v is GeometryEditorViewModel);
+                        IPropertyEditorContext? prop = item.Properties.FirstOrDefault(v =>
+                            v is GeometryEditorViewModel
+                        );
                         if (prop is GeometryEditorViewModel geometryEditorViewModel)
                         {
-                            EditViewModel.Player.PathEditor.StartEdit(shape, geometryEditorViewModel,
-                                _scaledStartPosition);
+                            EditViewModel.Player.PathEditor.StartEdit(
+                                shape,
+                                geometryEditorViewModel,
+                                _scaledStartPosition
+                            );
                             break;
                         }
                     }
@@ -429,11 +440,18 @@ public partial class PlayerView
                 PixelRect intersect = bounds.Intersect(pxRect);
                 using Bitmap intersectBitmap = frame.ExtractSubset(intersect);
                 var result = new Bitmap(
-                    pxRect.Width, pxRect.Height,
-                    intersectBitmap.ColorType, intersectBitmap.AlphaType, intersectBitmap.ColorSpace);
+                    pxRect.Width,
+                    pxRect.Height,
+                    intersectBitmap.ColorType,
+                    intersectBitmap.AlphaType,
+                    intersectBitmap.ColorSpace
+                );
 
                 PixelPoint leftTop = intersect.Position - pxRect.Position;
-                result.CopyFrom(intersectBitmap, new PixelRect(leftTop.X, leftTop.Y, intersect.Width, intersect.Height));
+                result.CopyFrom(
+                    intersectBitmap,
+                    new PixelRect(leftTop.X, leftTop.Y, intersect.Width, intersect.Height)
+                );
 
                 return result;
             }
@@ -465,19 +483,22 @@ public partial class PlayerView
             if (_pressed)
             {
                 float scale = ViewModel.Scene!.FrameSize.Width / (float)Image.Bounds.Width;
-                Rect rect = new Rect(_start.ToBtlPoint() * scale, _position.ToBtlPoint() * scale).Normalize();
+                Rect rect = new Rect(
+                    _start.ToBtlPoint() * scale,
+                    _position.ToBtlPoint() * scale
+                ).Normalize();
 
                 if (ViewModel.TcsForCrop == null)
                 {
                     var copyAsString = new MenuFlyoutItem()
                     {
                         Text = Strings.Copy,
-                        IconSource = new SymbolIconSource() { Symbol = Symbol.Copy }
+                        IconSource = new SymbolIconSource() { Symbol = Symbol.Copy },
                     };
                     var saveAsImage = new MenuFlyoutItem()
                     {
                         Text = Strings.SaveAsImage,
-                        IconSource = new SymbolIconSource() { Symbol = Symbol.SaveAs }
+                        IconSource = new SymbolIconSource() { Symbol = Symbol.SaveAs },
                     };
                     copyAsString.Click += (s, e) =>
                     {
@@ -495,7 +516,9 @@ public partial class PlayerView
                                 Scene scene = ViewModel.Scene!;
                                 Task<Bitmap> renderTask = ViewModel.DrawFrame();
 
-                                string addtional = Path.GetFileNameWithoutExtension(scene.Uri!.LocalPath);
+                                string addtional = Path.GetFileNameWithoutExtension(
+                                    scene.Uri!.LocalPath
+                                );
                                 IStorageFile? file = await SaveImageFilePicker(addtional, storage);
 
                                 if (file != null)
@@ -509,7 +532,10 @@ public partial class PlayerView
                             catch (Exception ex)
                             {
                                 _logger.LogError(ex, "Failed to save image.");
-                                NotificationService.ShowError(MessageStrings.FailedToSaveImage, ex.Message);
+                                NotificationService.ShowError(
+                                    MessageStrings.FailedToSaveImage,
+                                    ex.Message
+                                );
                             }
                         }
                     };
@@ -520,7 +546,7 @@ public partial class PlayerView
                         var copyAsImage = new MenuFlyoutItem()
                         {
                             Text = Strings.CopyAsImage,
-                            IconSource = new SymbolIconSource() { Symbol = Symbol.ImageCopy }
+                            IconSource = new SymbolIconSource() { Symbol = Symbol.ImageCopy },
                         };
                         copyAsImage.Click += (s, e) => OnCopyAsImageClicked(rect);
 
@@ -559,7 +585,9 @@ public partial class PlayerView
             _startInPanel = e.GetCurrentPoint(panel).Position;
             if (_pressed)
             {
-                _border = panel.Children.OfType<Border>().FirstOrDefault(x => x.Tag is nameof(MouseControlCrop));
+                _border = panel
+                    .Children.OfType<Border>()
+                    .FirstOrDefault(x => x.Tag is nameof(MouseControlCrop));
                 if (_border == null)
                 {
                     _border = new()
@@ -569,7 +597,7 @@ public partial class PlayerView
                         BorderThickness = new(0.5),
                         Background = TimelineSharedObject.SelectionFillBrush,
                         HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Left,
-                        VerticalAlignment = Avalonia.Layout.VerticalAlignment.Top
+                        VerticalAlignment = Avalonia.Layout.VerticalAlignment.Top,
                     };
                     panel.Children.Add(_border);
                 }
@@ -623,16 +651,21 @@ public partial class PlayerView
 
         private KeyFrameState<Vector3>? FindKeyFramePairOrNull(IProperty<Vector3> property)
         {
-            int rate = EditViewModel.Scene.FindHierarchicalParent<Project>() is { } proj ? proj.GetFrameRate() : 30;
+            int rate = EditViewModel.Scene.FindHierarchicalParent<Project>() is { } proj
+                ? proj.GetFrameRate()
+                : 30;
             TimeSpan globalKeyTime = Clock.CurrentTime.Value;
-            TimeSpan localKeyTime = _scene3D != null ? globalKeyTime - _scene3D.TimeRange.Start : globalKeyTime;
+            TimeSpan localKeyTime =
+                _scene3D != null ? globalKeyTime - _scene3D.TimeRange.Start : globalKeyTime;
 
             if (property.Animation is KeyFrameAnimation<Vector3> animation)
             {
                 TimeSpan keyTime = animation.UseGlobalClock ? globalKeyTime : localKeyTime;
                 keyTime = keyTime.RoundToRate(rate);
 
-                (IKeyFrame? prev, IKeyFrame? next) = animation.KeyFrames.GetPreviousAndNextKeyFrame(keyTime);
+                (IKeyFrame? prev, IKeyFrame? next) = animation.KeyFrames.GetPreviousAndNextKeyFrame(
+                    keyTime
+                );
 
                 if (next?.KeyTime == keyTime)
                     return new(next as KeyFrame<Vector3>, null);
@@ -703,14 +736,21 @@ public partial class PlayerView
                     var existingTarget = RenderThread.Dispatcher.Invoke(() =>
                     {
                         var objects = sceneResource.Objects.Where(o => o.IsEnabled).ToList();
-                        return objects.FirstOrDefault(o => o.GetOriginal()?.Id == currentGizmoTarget.Value);
+                        return objects.FirstOrDefault(o =>
+                            o.GetOriginal()?.Id == currentGizmoTarget.Value
+                        );
                     });
 
                     if (existingTarget != null)
                     {
                         // GizmoのヒットテストをRenderThreadで実行
                         var gizmoAxis = RenderThread.Dispatcher.Invoke(() =>
-                            sceneResource.Renderer.GizmoHitTest(screenPoint, existingTarget, currentGizmoMode));
+                            sceneResource.Renderer.GizmoHitTest(
+                                screenPoint,
+                                existingTarget,
+                                currentGizmoMode
+                            )
+                        );
 
                         if (gizmoAxis != GizmoAxis.None)
                         {
@@ -721,9 +761,15 @@ public partial class PlayerView
 
                             if (_selectedObject != null)
                             {
-                                _objectPositionKeyFrame = FindKeyFramePairOrNull(_selectedObject.Position);
-                                _objectRotationKeyFrame = FindKeyFramePairOrNull(_selectedObject.Rotation);
-                                _objectScaleKeyFrame = FindKeyFramePairOrNull(_selectedObject.Scale);
+                                _objectPositionKeyFrame = FindKeyFramePairOrNull(
+                                    _selectedObject.Position
+                                );
+                                _objectRotationKeyFrame = FindKeyFramePairOrNull(
+                                    _selectedObject.Rotation
+                                );
+                                _objectScaleKeyFrame = FindKeyFramePairOrNull(
+                                    _selectedObject.Scale
+                                );
                             }
 
                             e.Handled = true;
@@ -735,7 +781,8 @@ public partial class PlayerView
                 // Gizmoがクリックされなかった場合、オブジェクトのヒットテストを行う
                 // HitTestWithPathを使用して階層パスを取得
                 var hitPath = RenderThread.Dispatcher.Invoke(() =>
-                    sceneResource.Renderer.HitTestWithPath(screenPoint));
+                    sceneResource.Renderer.HitTestWithPath(screenPoint)
+                );
 
                 if (hitPath.Count > 0)
                 {
@@ -760,9 +807,10 @@ public partial class PlayerView
                     if (isDoubleClick && currentIndex >= 0)
                     {
                         // ダブルクリック: 現在の選択から1階層下を選択
-                        targetResource = currentIndex < hitPath.Count - 1
-                            ? hitPath[currentIndex + 1] // 1階層下を選択
-                            : hitPath[currentIndex]; // 最深部の場合は維持
+                        targetResource =
+                            currentIndex < hitPath.Count - 1
+                                ? hitPath[currentIndex + 1] // 1階層下を選択
+                                : hitPath[currentIndex]; // 最深部の場合は維持
                     }
                     else if (currentIndex >= 0)
                     {
@@ -848,8 +896,9 @@ public partial class PlayerView
                             if (_selectedGizmoAxis != GizmoAxis.None)
                             {
                                 // マウス移動をカメラ平面上の移動に変換
-                                var screenMovement = (right * (float)delta.X + cameraUp * -(float)delta.Y) *
-                                                     ObjectMoveSpeed;
+                                var screenMovement =
+                                    (right * (float)delta.X + cameraUp * -(float)delta.Y)
+                                    * ObjectMoveSpeed;
 
                                 if (_selectedGizmoAxis is GizmoAxis.X or GizmoAxis.Y or GizmoAxis.Z)
                                 {
@@ -859,7 +908,7 @@ public partial class PlayerView
                                         GizmoAxis.X => Vector3.UnitX,
                                         GizmoAxis.Y => Vector3.UnitY,
                                         GizmoAxis.Z => Vector3.UnitZ,
-                                        _ => Vector3.Zero
+                                        _ => Vector3.Zero,
                                     };
 
                                     // 軸方向に投影
@@ -874,7 +923,7 @@ public partial class PlayerView
                                         GizmoAxis.XY => (Vector3.UnitX, Vector3.UnitY),
                                         GizmoAxis.YZ => (Vector3.UnitY, Vector3.UnitZ),
                                         GizmoAxis.ZX => (Vector3.UnitZ, Vector3.UnitX),
-                                        _ => (Vector3.Zero, Vector3.Zero)
+                                        _ => (Vector3.Zero, Vector3.Zero),
                                     };
 
                                     // 平面に投影
@@ -886,7 +935,9 @@ public partial class PlayerView
                             else
                             {
                                 // 自由移動: カメラ平面上を移動
-                                movement = (right * (float)delta.X + cameraUp * -(float)delta.Y) * ObjectMoveSpeed;
+                                movement =
+                                    (right * (float)delta.X + cameraUp * -(float)delta.Y)
+                                    * ObjectMoveSpeed;
                             }
 
                             if (!SetKeyFrameValue(_objectPositionKeyFrame, movement))
@@ -903,13 +954,14 @@ public partial class PlayerView
                             if (_selectedGizmoAxis != GizmoAxis.None)
                             {
                                 // 軸拘束回転: 選択した軸周りのみ回転
-                                float rotationAmount = ((float)delta.X + (float)delta.Y) * ObjectRotateSpeed;
+                                float rotationAmount =
+                                    ((float)delta.X + (float)delta.Y) * ObjectRotateSpeed;
                                 rotation = _selectedGizmoAxis switch
                                 {
                                     GizmoAxis.X => new Vector3(rotationAmount, 0, 0),
                                     GizmoAxis.Y => new Vector3(0, rotationAmount, 0),
                                     GizmoAxis.Z => new Vector3(0, 0, rotationAmount),
-                                    _ => Vector3.Zero
+                                    _ => Vector3.Zero,
                                 };
                             }
                             else
@@ -918,7 +970,8 @@ public partial class PlayerView
                                 rotation = new Vector3(
                                     (float)delta.Y * ObjectRotateSpeed,
                                     (float)delta.X * ObjectRotateSpeed,
-                                    0);
+                                    0
+                                );
                             }
 
                             if (!SetKeyFrameValue(_objectRotationKeyFrame, rotation))
@@ -939,7 +992,9 @@ public partial class PlayerView
                                 // 均一スケール（中央キューブ）
                                 scaleDelta = currentScale * (scaleFactor - 1.0f);
                             }
-                            else if (_selectedGizmoAxis is GizmoAxis.X or GizmoAxis.Y or GizmoAxis.Z)
+                            else if (
+                                _selectedGizmoAxis is GizmoAxis.X or GizmoAxis.Y or GizmoAxis.Z
+                            )
                             {
                                 // 軸拘束スケール: 選択した軸のみスケール
                                 float axisScale = scaleFactor - 1.0f;
@@ -948,7 +1003,7 @@ public partial class PlayerView
                                     GizmoAxis.X => new Vector3(currentScale.X * axisScale, 0, 0),
                                     GizmoAxis.Y => new Vector3(0, currentScale.Y * axisScale, 0),
                                     GizmoAxis.Z => new Vector3(0, 0, currentScale.Z * axisScale),
-                                    _ => Vector3.Zero
+                                    _ => Vector3.Zero,
                                 };
                             }
                             else
@@ -1036,7 +1091,8 @@ public partial class PlayerView
                     FindScene3DAndCamera();
                 }
 
-                if (_camera == null) return;
+                if (_camera == null)
+                    return;
 
                 // キーフレームを探す
                 var posKeyFrame = FindKeyFramePairOrNull(_camera.Position);
@@ -1143,7 +1199,7 @@ public partial class PlayerView
 
             _movementTimer = new DispatcherTimer
             {
-                Interval = TimeSpan.FromMilliseconds(16) // ~60fps
+                Interval = TimeSpan.FromMilliseconds(16), // ~60fps
             };
             _movementTimer.Tick += OnMovementTimerTick;
             _movementTimer.Start();
@@ -1197,7 +1253,10 @@ public partial class PlayerView
             {
                 var compositor = EditViewModel.Renderer.Value.Compositor;
                 var compositionFrame = compositor.EvaluateGraphics(Clock.CurrentTime.Value);
-                return EditViewModel.Renderer.Value.HitTest(compositionFrame, new((float)scaledPos.X, (float)scaledPos.Y));
+                return EditViewModel.Renderer.Value.HitTest(
+                    compositionFrame,
+                    new((float)scaledPos.X, (float)scaledPos.Y)
+                );
             });
 
             if (drawable is Scene3D scene3D)
@@ -1222,8 +1281,8 @@ public partial class PlayerView
                 }
                 else if (rn is ContainerRenderNode container)
                 {
-                    return container.Children
-                        .Select(FindScene3DRenderNode)
+                    return container
+                        .Children.Select(FindScene3DRenderNode)
                         .OfType<Scene3DRenderNode>()
                         .FirstOrDefault();
                 }
@@ -1308,8 +1367,10 @@ public partial class PlayerView
         _mouseState?.OnReleased(e);
         _mouseState = null;
 
-        if (DataContext is PlayerViewModel viewModel
-            && e.InitialPressMouseButton == MouseButton.Middle)
+        if (
+            DataContext is PlayerViewModel viewModel
+            && e.InitialPressMouseButton == MouseButton.Middle
+        )
         {
             SetMouseMode(viewModel, _lastMouseMode, true);
 
@@ -1326,7 +1387,7 @@ public partial class PlayerView
                 ViewModel = viewModel,
                 Clock = viewModel.EditViewModel.GetRequiredService<IEditorClock>(),
                 EditorSelection = viewModel.EditViewModel.GetRequiredService<IEditorSelection>(),
-                View = this
+                View = this,
             };
         }
         else if (viewModel.IsHandMode.Value)
@@ -1340,7 +1401,7 @@ public partial class PlayerView
                 ViewModel = viewModel,
                 Clock = viewModel.EditViewModel.GetRequiredService<IEditorClock>(),
                 EditorSelection = viewModel.EditViewModel.GetRequiredService<IEditorSelection>(),
-                View = this
+                View = this,
             };
         }
         else

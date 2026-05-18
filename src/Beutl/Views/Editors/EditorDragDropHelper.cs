@@ -11,12 +11,20 @@ internal static class EditorDragDropHelper
         DataFormat<string> dataFormat,
         Func<string, bool> tryPasteJson,
         Action<TItem> onTemplateInstance,
-        Func<Type, bool> onTypePayload) where TItem : class
+        Func<Type, bool> onTypePayload
+    )
+        where TItem : class
     {
-        if (e.DataTransfer.TryGetFile()?.TryGetLocalPath() is { } droppedFile
-            && string.Equals(Path.GetExtension(droppedFile), ".json", StringComparison.OrdinalIgnoreCase)
+        if (
+            e.DataTransfer.TryGetFile()?.TryGetLocalPath() is { } droppedFile
+            && string.Equals(
+                Path.GetExtension(droppedFile),
+                ".json",
+                StringComparison.OrdinalIgnoreCase
+            )
             && ObjectTemplateService.Instance.TryLoadFromFile(droppedFile) is { } template
-            && template.CreateInstance() is TItem instance)
+            && template.CreateInstance() is TItem instance
+        )
         {
             onTemplateInstance(instance);
             return true;
@@ -42,8 +50,7 @@ internal static class EditorDragDropHelper
 
     public static void HandleEditorDragOver(DragEventArgs e, DataFormat<string> dataFormat)
     {
-        if (e.DataTransfer.Contains(dataFormat)
-            || e.DataTransfer.Contains(DataFormat.File))
+        if (e.DataTransfer.Contains(dataFormat) || e.DataTransfer.Contains(DataFormat.File))
         {
             e.DragEffects = DragDropEffects.Copy | DragDropEffects.Link;
             e.Handled = true;

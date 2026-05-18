@@ -9,7 +9,10 @@ using DynamicData;
 
 namespace Beutl.ViewModels;
 
-public sealed class EncoderSettingsViewModel : IPropertyEditorContextVisitor, IServiceProvider, IDisposable
+public sealed class EncoderSettingsViewModel
+    : IPropertyEditorContextVisitor,
+        IServiceProvider,
+        IDisposable
 {
     private readonly HistoryManager _history;
 
@@ -35,18 +38,20 @@ public sealed class EncoderSettingsViewModel : IPropertyEditorContextVisitor, IS
         return null;
     }
 
-    public void Visit(IPropertyEditorContext context)
-    {
-    }
+    public void Visit(IPropertyEditorContext context) { }
 
-    private void InitializeCoreObject(MediaEncoderSettings obj,
-        Func<CoreProperty, CorePropertyMetadata, bool>? predicate = null)
+    private void InitializeCoreObject(
+        MediaEncoderSettings obj,
+        Func<CoreProperty, CorePropertyMetadata, bool>? predicate = null
+    )
     {
         Type objType = obj.GetType();
         Type adapterType = typeof(CorePropertyAdapter<>);
 
         List<CoreProperty> cprops = [.. PropertyRegistry.GetRegistered(objType)];
-        cprops.RemoveAll(x => !(predicate?.Invoke(x, x.GetMetadata<CorePropertyMetadata>(objType)) ?? true));
+        cprops.RemoveAll(x =>
+            !(predicate?.Invoke(x, x.GetMetadata<CorePropertyMetadata>(objType)) ?? true)
+        );
         List<IPropertyAdapter> props = cprops.ConvertAll(x =>
         {
             CorePropertyMetadata metadata = x.GetMetadata<CorePropertyMetadata>(objType);
@@ -73,17 +78,21 @@ public sealed class EncoderSettingsViewModel : IPropertyEditorContextVisitor, IS
             }
         } while (foundItems != null && extension != null);
 
-        tempItems.Sort((x, y) =>
-        {
-            int xx = GetDisplayAttribute(x)?.GetOrder() ?? 0;
-            int yy = GetDisplayAttribute(y)?.GetOrder() ?? 0;
-            return xx - yy;
-        });
+        tempItems.Sort(
+            (x, y) =>
+            {
+                int xx = GetDisplayAttribute(x)?.GetOrder() ?? 0;
+                int yy = GetDisplayAttribute(y)?.GetOrder() ?? 0;
+                return xx - yy;
+            }
+        );
 
-        foreach ((string? Key, IPropertyEditorContext?[] Value) group in tempItems
-                     .GroupBy(x => GetDisplayAttribute(x)?.GetGroupName())
-                     .Select(x => (x.Key, x.ToArray()))
-                     .ToArray())
+        foreach (
+            (string? Key, IPropertyEditorContext?[] Value) group in tempItems
+                .GroupBy(x => GetDisplayAttribute(x)?.GetGroupName())
+                .Select(x => (x.Key, x.ToArray()))
+                .ToArray()
+        )
         {
             if (group.Key != null)
             {
@@ -92,7 +101,10 @@ public sealed class EncoderSettingsViewModel : IPropertyEditorContextVisitor, IS
                 {
                     int index = tempItems.IndexOf(array[0]);
                     tempItems.RemoveMany(array);
-                    tempItems.Insert(index, new PropertyEditorGroupContext(array, group.Key, index == 0));
+                    tempItems.Insert(
+                        index,
+                        new PropertyEditorGroupContext(array, group.Key, index == 0)
+                    );
                 }
             }
         }
@@ -104,7 +116,8 @@ public sealed class EncoderSettingsViewModel : IPropertyEditorContextVisitor, IS
     {
         if (context is BaseEditorViewModel { PropertyAdapter: { } adapter })
         {
-            return adapter.GetAttributes().FirstOrDefault(i => i is DisplayAttribute) as DisplayAttribute;
+            return adapter.GetAttributes().FirstOrDefault(i => i is DisplayAttribute)
+                as DisplayAttribute;
         }
         else
         {

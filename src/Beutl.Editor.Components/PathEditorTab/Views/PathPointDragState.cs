@@ -1,10 +1,8 @@
 ﻿using Avalonia.Controls.Primitives;
-
 using Beutl.Animation;
 using Beutl.Composition;
 using Beutl.Engine;
 using Beutl.Media;
-
 using BtlPoint = Beutl.Graphics.Point;
 using BtlVector = Beutl.Graphics.Vector;
 
@@ -18,7 +16,8 @@ public sealed class PathPointDragState
         KeyFrame<BtlPoint>? previous,
         KeyFrame<BtlPoint>? next,
         // このThumbがControlPointの時、点線でつながっているポイントを指定する
-        PathSegment? anchor = null)
+        PathSegment? anchor = null
+    )
     {
         Previous = previous;
         Next = next;

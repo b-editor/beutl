@@ -1,7 +1,5 @@
 ﻿using System.Text;
-
 using Beutl.Engine.SourceGenerators.Models;
-
 using Microsoft.CodeAnalysis;
 
 namespace Beutl.Engine.SourceGenerators.Emit;
@@ -36,12 +34,16 @@ public static class ScanPropertiesCoreEmitter
         EmitFields(sb, indent, info);
 
         // ScanPropertiesCore<T>() メソッドの emit
-        sb.Append(indent).AppendLine($"protected override global::System.Collections.Generic.IEnumerable<global::Beutl.Engine.IProperty> ScanPropertiesCore<{genericTypeParam}>()");
+        sb.Append(indent)
+            .AppendLine(
+                $"protected override global::System.Collections.Generic.IEnumerable<global::Beutl.Engine.IProperty> ScanPropertiesCore<{genericTypeParam}>()"
+            );
         sb.Append(indent).AppendLine("{");
 
         string innerIndent = indent + "    ";
 
-        sb.Append(innerIndent).AppendLine($"if (typeof({genericTypeParam}) == typeof({currentTypeDisplay}))");
+        sb.Append(innerIndent)
+            .AppendLine($"if (typeof({genericTypeParam}) == typeof({currentTypeDisplay}))");
         sb.Append(innerIndent).AppendLine("{");
 
         string bodyIndent = innerIndent + "    ";
@@ -68,7 +70,10 @@ public static class ScanPropertiesCoreEmitter
         sb.Append(innerIndent).AppendLine("}");
         sb.Append(innerIndent).AppendLine("else");
         sb.Append(innerIndent).AppendLine("{");
-        sb.Append(bodyIndent).AppendLine($"foreach (global::Beutl.Engine.IProperty __prop in base.ScanPropertiesCore<{genericTypeParam}>())");
+        sb.Append(bodyIndent)
+            .AppendLine(
+                $"foreach (global::Beutl.Engine.IProperty __prop in base.ScanPropertiesCore<{genericTypeParam}>())"
+            );
         sb.Append(bodyIndent).AppendLine("    yield return __prop;");
         sb.Append(innerIndent).AppendLine("}");
 
@@ -96,7 +101,12 @@ public static class ScanPropertiesCoreEmitter
         }
     }
 
-    private static void EmitAttributeField(StringBuilder sb, string indent, string propName, IReadOnlyList<AttributeData> attributes)
+    private static void EmitAttributeField(
+        StringBuilder sb,
+        string indent,
+        string propName,
+        IReadOnlyList<AttributeData> attributes
+    )
     {
         var emittedAttrs = new List<string>();
         foreach (AttributeData attr in attributes)
@@ -108,7 +118,8 @@ public static class ScanPropertiesCoreEmitter
             }
         }
 
-        sb.Append(indent).Append($"private static readonly global::System.Attribute[] __attrs_{propName} = [");
+        sb.Append(indent)
+            .Append($"private static readonly global::System.Attribute[] __attrs_{propName} = [");
         if (emittedAttrs.Count > 0)
         {
             sb.AppendLine();
@@ -125,15 +136,22 @@ public static class ScanPropertiesCoreEmitter
 
     private static void EmitValidatorField(StringBuilder sb, string indent, string propName)
     {
-        sb.Append(indent).AppendLine($"private static global::Beutl.Validation.IValidator? __validator_{propName};");
+        sb.Append(indent)
+            .AppendLine(
+                $"private static global::Beutl.Validation.IValidator? __validator_{propName};"
+            );
         sb.AppendLine();
     }
 
     private static void EmitPropertyScan(StringBuilder sb, string indent, string propName)
     {
-        sb.Append(indent).AppendLine($"__validator_{propName} ??= {propName}.CreateValidator(__attrs_{propName});");
+        sb.Append(indent)
+            .AppendLine(
+                $"__validator_{propName} ??= {propName}.CreateValidator(__attrs_{propName});"
+            );
         sb.Append(indent).AppendLine($"{propName}.SetValidator(__validator_{propName});");
-        sb.Append(indent).AppendLine($"{propName}.SetAttributes(\"{propName}\", __attrs_{propName});");
+        sb.Append(indent)
+            .AppendLine($"{propName}.SetAttributes(\"{propName}\", __attrs_{propName});");
         sb.Append(indent).AppendLine($"{propName}.SetOwnerObject(this);");
         sb.Append(indent).AppendLine($"yield return {propName};");
         sb.AppendLine();
@@ -141,7 +159,8 @@ public static class ScanPropertiesCoreEmitter
 
     private static string? TryEmitAttributeInstance(AttributeData attr)
     {
-        if (attr.AttributeClass == null) return null;
+        if (attr.AttributeClass == null)
+            return null;
 
         string typeName = attr.AttributeClass.ToDisplayString(EmitHelpers.TypeDisplayFormat);
 
@@ -149,7 +168,8 @@ public static class ScanPropertiesCoreEmitter
         foreach (TypedConstant arg in attr.ConstructorArguments)
         {
             string? val = TryEmitTypedConstant(arg);
-            if (val == null) return null; // emit できない引数があればスキップ
+            if (val == null)
+                return null; // emit できない引数があればスキップ
             ctorArgs.Add(val);
         }
 
@@ -157,7 +177,8 @@ public static class ScanPropertiesCoreEmitter
         foreach (KeyValuePair<string, TypedConstant> kvp in attr.NamedArguments)
         {
             string? val = TryEmitTypedConstant(kvp.Value);
-            if (val == null) return null;
+            if (val == null)
+                return null;
             namedArgs.Add($"{kvp.Key} = {val}");
         }
 
@@ -187,7 +208,8 @@ public static class ScanPropertiesCoreEmitter
 
     private static string? TryEmitTypedConstant(TypedConstant constant)
     {
-        if (constant.IsNull) return "null";
+        if (constant.IsNull)
+            return "null";
 
         return constant.Kind switch
         {
@@ -199,7 +221,7 @@ public static class ScanPropertiesCoreEmitter
                 ? $"typeof({typeSymbol.ToDisplayString(EmitHelpers.TypeDisplayFormat)})"
                 : null,
             TypedConstantKind.Array => TryEmitArray(constant),
-            _ => null
+            _ => null,
         };
     }
 
@@ -228,19 +250,21 @@ public static class ScanPropertiesCoreEmitter
             byte b => $"(byte){b}",
             sbyte sb2 => $"(sbyte){sb2}",
             decimal dec => $"{dec.ToString(System.Globalization.CultureInfo.InvariantCulture)}M",
-            _ => value.ToString()
+            _ => value.ToString(),
         };
     }
 
     private static string? TryEmitArray(TypedConstant constant)
     {
-        if (constant.Type == null) return null;
+        if (constant.Type == null)
+            return null;
 
         var elements = new List<string>();
         foreach (TypedConstant element in constant.Values)
         {
             string? val = TryEmitTypedConstant(element);
-            if (val == null) return null;
+            if (val == null)
+                return null;
             elements.Add(val);
         }
 
@@ -250,7 +274,11 @@ public static class ScanPropertiesCoreEmitter
 
     private static string EscapeString(string s)
     {
-        return s.Replace("\\", "\\\\").Replace("\"", "\\\"").Replace("\r", "\\r").Replace("\n", "\\n").Replace("\t", "\\t");
+        return s.Replace("\\", "\\\\")
+            .Replace("\"", "\\\"")
+            .Replace("\r", "\\r")
+            .Replace("\n", "\\n")
+            .Replace("\t", "\\t");
     }
 
     private static string EscapeChar(char c)
@@ -262,7 +290,7 @@ public static class ScanPropertiesCoreEmitter
             '\r' => "\\r",
             '\n' => "\\n",
             '\t' => "\\t",
-            _ => c.ToString()
+            _ => c.ToString(),
         };
     }
 }

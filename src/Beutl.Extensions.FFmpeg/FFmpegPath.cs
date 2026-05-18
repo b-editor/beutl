@@ -1,9 +1,7 @@
 ﻿using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Text;
-
 using Beutl.Logging;
-
 using FFmpeg.AutoGen.Abstractions;
 using FFmpeg.AutoGen.Bindings.DynamicallyLoaded;
 using Microsoft.Extensions.Logging;
@@ -45,13 +43,27 @@ public static class FFmpegLoader
             }
 
             sb.AppendLine("Licenses:");
-            sb.AppendLine($"  avcodec.{GetVersionString(ffmpeg.avcodec_version())}: {ffmpeg.avcodec_license()}");
-            sb.AppendLine($"  avdevice.{GetVersionString(ffmpeg.avdevice_version())}: {ffmpeg.avdevice_license()}");
-            sb.AppendLine($"  avfilter.{GetVersionString(ffmpeg.avfilter_version())}: {ffmpeg.avfilter_license()}");
-            sb.AppendLine($"  avformat.{GetVersionString(ffmpeg.avformat_version())}: {ffmpeg.avformat_license()}");
-            sb.AppendLine($"  avutil.{GetVersionString(ffmpeg.avutil_version())}: {ffmpeg.avutil_license()}");
-            sb.AppendLine($"  swresample.{GetVersionString(ffmpeg.swresample_version())}: {ffmpeg.swresample_license()}");
-            sb.AppendLine($"  swscale.{GetVersionString(ffmpeg.swscale_version())}: {ffmpeg.swscale_license()}");
+            sb.AppendLine(
+                $"  avcodec.{GetVersionString(ffmpeg.avcodec_version())}: {ffmpeg.avcodec_license()}"
+            );
+            sb.AppendLine(
+                $"  avdevice.{GetVersionString(ffmpeg.avdevice_version())}: {ffmpeg.avdevice_license()}"
+            );
+            sb.AppendLine(
+                $"  avfilter.{GetVersionString(ffmpeg.avfilter_version())}: {ffmpeg.avfilter_license()}"
+            );
+            sb.AppendLine(
+                $"  avformat.{GetVersionString(ffmpeg.avformat_version())}: {ffmpeg.avformat_license()}"
+            );
+            sb.AppendLine(
+                $"  avutil.{GetVersionString(ffmpeg.avutil_version())}: {ffmpeg.avutil_license()}"
+            );
+            sb.AppendLine(
+                $"  swresample.{GetVersionString(ffmpeg.swresample_version())}: {ffmpeg.swresample_license()}"
+            );
+            sb.AppendLine(
+                $"  swscale.{GetVersionString(ffmpeg.swscale_version())}: {ffmpeg.swscale_license()}"
+            );
             s_logger.LogInformation("{VersionAndLicense}", sb.ToString());
 
             s_isInitialized = true;
@@ -84,16 +96,29 @@ public static class FFmpegLoader
                     FFmpegSharp.LogLevel.Warning => LogLevel.Warning,
                     FFmpegSharp.LogLevel.Error => LogLevel.Error,
                     FFmpegSharp.LogLevel.Fatal or FFmpegSharp.LogLevel.Panic => LogLevel.Critical,
-                    _ => LogLevel.Information
+                    _ => LogLevel.Information,
                 };
-                s_ffmpegLogger.Log(convertedLevel, "{OriginalLevel} {FFmpegLog}", level, s.TrimEnd('\n').TrimEnd('\r'));
-            });
+                s_ffmpegLogger.Log(
+                    convertedLevel,
+                    "{OriginalLevel} {FFmpegLog}",
+                    level,
+                    s.TrimEnd('\n').TrimEnd('\r')
+                );
+            }
+        );
     }
 
     private static void FixDependencyIssue()
     {
         // FFmpeg 8.0 以降では postproc は廃止されているため、依存関係を修正する
-        FunctionResolverBase.LibraryDependenciesMap["avfilter"] = ["avcodec", "avformat", "avutil", "swresample", "swscale"];
+        FunctionResolverBase.LibraryDependenciesMap["avfilter"] =
+        [
+            "avcodec",
+            "avformat",
+            "avutil",
+            "swresample",
+            "swscale",
+        ];
         FunctionResolverBase.LibraryDependenciesMap.Remove("postproc");
     }
 
@@ -103,25 +128,35 @@ public static class FFmpegLoader
         {
             s_defaultFFmpegPath,
             Directory.GetParent(Assembly.GetExecutingAssembly().Location)!.FullName,
-            AppContext.BaseDirectory
+            AppContext.BaseDirectory,
         };
 
         if (OperatingSystem.IsWindows())
         {
-            paths.Add(Path.Combine(Directory.GetParent(Assembly.GetExecutingAssembly().Location)!.FullName,
-                "runtimes",
-                Environment.Is64BitProcess ? "win-x64" : "win-x86",
-                "native"));
+            paths.Add(
+                Path.Combine(
+                    Directory.GetParent(Assembly.GetExecutingAssembly().Location)!.FullName,
+                    "runtimes",
+                    Environment.Is64BitProcess ? "win-x64" : "win-x86",
+                    "native"
+                )
+            );
 
-            paths.Add(Path.Combine(AppContext.BaseDirectory,
-                "runtimes",
-                Environment.Is64BitProcess ? "win-x64" : "win-x86",
-                "native"));
+            paths.Add(
+                Path.Combine(
+                    AppContext.BaseDirectory,
+                    "runtimes",
+                    Environment.Is64BitProcess ? "win-x64" : "win-x86",
+                    "native"
+                )
+            );
         }
         else if (OperatingSystem.IsLinux())
         {
             paths.Add($"/usr/lib/{(Environment.Is64BitProcess ? "x86_64" : "x86")}-linux-gnu");
-            var libraryPath = Environment.GetEnvironmentVariable("LD_LIBRARY_PATH")?.Split(Path.PathSeparator) ?? [];
+            var libraryPath =
+                Environment.GetEnvironmentVariable("LD_LIBRARY_PATH")?.Split(Path.PathSeparator)
+                ?? [];
             paths.AddRange(libraryPath);
         }
         else if (OperatingSystem.IsMacOS())
@@ -154,16 +189,17 @@ public static class FFmpegLoader
 
     private static bool LibrariesExists(string basePath)
     {
-        if (!Directory.Exists(basePath)) return false;
+        if (!Directory.Exists(basePath))
+            return false;
 
         string[] files = Directory.GetFiles(basePath);
         foreach (KeyValuePair<string, int> item in DynamicallyLoadedBindings.LibraryVersionMap)
         {
             string versionedLibraryName =
-                OperatingSystem.IsWindows() ? $"{item.Key}-{item.Value}.dll" :
-                OperatingSystem.IsLinux() ? $"lib{item.Key}.so.{item.Value}" :
-                OperatingSystem.IsMacOS() ? $"lib{item.Key}.{item.Value}.dylib" :
-                throw new InvalidOperationException();
+                OperatingSystem.IsWindows() ? $"{item.Key}-{item.Value}.dll"
+                : OperatingSystem.IsLinux() ? $"lib{item.Key}.so.{item.Value}"
+                : OperatingSystem.IsMacOS() ? $"lib{item.Key}.{item.Value}.dylib"
+                : throw new InvalidOperationException();
 
             if (!files.Any(x => x.Contains(versionedLibraryName)))
             {

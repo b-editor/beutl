@@ -79,8 +79,11 @@ public sealed class FilterEffectContext : IDisposable
     }
 
     [EditorBrowsable(EditorBrowsableState.Never)]
-    public void AppendSkiaFilter<T>(T data, Func<T, SKImageFilter?, FilterEffectActivator, SKImageFilter?> factory,
-        Func<T, Rect, Rect> transformBounds)
+    public void AppendSkiaFilter<T>(
+        T data,
+        Func<T, SKImageFilter?, FilterEffectActivator, SKImageFilter?> factory,
+        Func<T, Rect, Rect> transformBounds
+    )
         where T : IEquatable<T>
     {
         AddItem(new FEItem_Skia<T>(data, factory, transformBounds));
@@ -88,7 +91,10 @@ public sealed class FilterEffectContext : IDisposable
     }
 
     [EditorBrowsable(EditorBrowsableState.Never)]
-    public void AppendSKColorFilter<T>(T data, Func<T, FilterEffectActivator, SKColorFilter?> factory)
+    public void AppendSKColorFilter<T>(
+        T data,
+        Func<T, FilterEffectActivator, SKColorFilter?> factory
+    )
         where T : IEquatable<T>
     {
         AddItem(new FEItem_SKColorFilter<T>(data, factory));
@@ -98,22 +104,42 @@ public sealed class FilterEffectContext : IDisposable
     {
         AppendSkiaFilter(
             data: (position, sigma, color),
-            factory: static (t, input, _) => SKImageFilter.CreateDropShadowOnly(t.position.X, t.position.Y,
-                t.sigma.Width, t.sigma.Height, t.color.ToSKColor(), input),
-            transformBounds: static (t, bounds) => bounds
-                .Translate(t.position)
-                .Inflate(new Thickness(t.sigma.Width * 3, t.sigma.Height * 3)));
+            factory: static (t, input, _) =>
+                SKImageFilter.CreateDropShadowOnly(
+                    t.position.X,
+                    t.position.Y,
+                    t.sigma.Width,
+                    t.sigma.Height,
+                    t.color.ToSKColor(),
+                    input
+                ),
+            transformBounds: static (t, bounds) =>
+                bounds
+                    .Translate(t.position)
+                    .Inflate(new Thickness(t.sigma.Width * 3, t.sigma.Height * 3))
+        );
     }
 
     public void DropShadow(Point position, Size sigma, Color color)
     {
         AppendSkiaFilter(
             data: (position, sigma, color),
-            factory: static (t, input, _) => SKImageFilter.CreateDropShadow(t.position.X, t.position.Y, t.sigma.Width,
-                t.sigma.Height, t.color.ToSKColor(), input),
-            transformBounds: static (t, bounds) => bounds.Union(bounds
-                .Translate(t.position)
-                .Inflate(new Thickness(t.sigma.Width * 3, t.sigma.Height * 3))));
+            factory: static (t, input, _) =>
+                SKImageFilter.CreateDropShadow(
+                    t.position.X,
+                    t.position.Y,
+                    t.sigma.Width,
+                    t.sigma.Height,
+                    t.color.ToSKColor(),
+                    input
+                ),
+            transformBounds: static (t, bounds) =>
+                bounds.Union(
+                    bounds
+                        .Translate(t.position)
+                        .Inflate(new Thickness(t.sigma.Width * 3, t.sigma.Height * 3))
+                )
+        );
     }
 
     public void Blur(Size sigma)
@@ -133,17 +159,23 @@ public sealed class FilterEffectContext : IDisposable
                 return SKImageFilter.CreateBlur(sigma.Width, sigma.Height, input);
             },
             transformBounds: static (sigma, bounds) =>
-                bounds.Inflate(new Thickness(sigma.Width * 3, sigma.Height * 3)));
+                bounds.Inflate(new Thickness(sigma.Width * 3, sigma.Height * 3))
+        );
     }
 
     // https://github.com/Shopify/react-native-skia/blob/c7740e30234e6b0a49721ab954c4a848e42d7edb/package/src/dom/nodes/paint/ImageFilters.ts#L25
-    public void InnerShadow(Point position, Size sigma, Color color)
-        => InnerShadowCore(position, sigma, color, Graphics.BlendMode.DstATop);
+    public void InnerShadow(Point position, Size sigma, Color color) =>
+        InnerShadowCore(position, sigma, color, Graphics.BlendMode.DstATop);
 
-    public void InnerShadowOnly(Point position, Size sigma, Color color)
-        => InnerShadowCore(position, sigma, color, Graphics.BlendMode.DstIn);
+    public void InnerShadowOnly(Point position, Size sigma, Color color) =>
+        InnerShadowCore(position, sigma, color, Graphics.BlendMode.DstIn);
 
-    private void InnerShadowCore(Point position, Size sigma, Color color, Graphics.BlendMode blendMode)
+    private void InnerShadowCore(
+        Point position,
+        Size sigma,
+        Color color,
+        Graphics.BlendMode blendMode
+    )
     {
         CustomEffect(
             data: (position, sigma, color, blendMode),
@@ -159,8 +191,14 @@ public sealed class FilterEffectContext : IDisposable
                         using (ImmediateCanvas canvas = context.Open(newTarget))
                         {
                             canvas.Clear();
-                            using var blur = SKImageFilter.CreateBlur(data.sigma.Width, data.sigma.Height);
-                            using var blend = SKColorFilter.CreateBlendMode(data.color.ToSKColor(), SKBlendMode.SrcOut);
+                            using var blur = SKImageFilter.CreateBlur(
+                                data.sigma.Width,
+                                data.sigma.Height
+                            );
+                            using var blend = SKColorFilter.CreateBlendMode(
+                                data.color.ToSKColor(),
+                                SKBlendMode.SrcOut
+                            );
                             using var filter = SKImageFilter.CreateColorFilter(blend, blur);
                             using var paint = new SKPaint { ImageFilter = filter };
 
@@ -180,16 +218,22 @@ public sealed class FilterEffectContext : IDisposable
                     }
                 }
             },
-            transformBounds: (_, bounds) => bounds);
+            transformBounds: (_, bounds) => bounds
+        );
     }
 
     public void Transform(Matrix matrix, BitmapInterpolationMode bitmapInterpolationMode)
     {
         AppendSkiaFilter(
             (matrix, bitmapInterpolationMode),
-            (data, input, _) => SKImageFilter.CreateMatrix(data.matrix.ToSKMatrix(),
-                data.bitmapInterpolationMode.ToSKSamplingOptions(), input),
-            (data, rect) => rect.TransformToAABB(data.matrix));
+            (data, input, _) =>
+                SKImageFilter.CreateMatrix(
+                    data.matrix.ToSKMatrix(),
+                    data.bitmapInterpolationMode.ToSKSamplingOptions(),
+                    input
+                ),
+            (data, rect) => rect.TransformToAABB(data.matrix)
+        );
     }
 
     public void MatrixConvolution(
@@ -199,31 +243,38 @@ public sealed class FilterEffectContext : IDisposable
         float bias,
         PixelPoint kernelOffset,
         GradientSpreadMethod spreadMethod,
-        bool convolveAlpha)
+        bool convolveAlpha
+    )
     {
         AppendSkiaFilter(
             (kernelSize, kernel, gain, bias, kernelOffset, spreadMethod, convolveAlpha),
-            (data, input, _) => SKImageFilter.CreateMatrixConvolution(
-                data.kernelSize.ToSKSizeI(),
-                data.kernel,
-                data.gain,
-                data.bias,
-                data.kernelOffset.ToSKPointI(),
-                data.spreadMethod.ToSKShaderTileMode(),
-                data.convolveAlpha,
-                input),
+            (data, input, _) =>
+                SKImageFilter.CreateMatrixConvolution(
+                    data.kernelSize.ToSKSizeI(),
+                    data.kernel,
+                    data.gain,
+                    data.bias,
+                    data.kernelOffset.ToSKPointI(),
+                    data.spreadMethod.ToSKShaderTileMode(),
+                    data.convolveAlpha,
+                    input
+                ),
             (data, rect) =>
             {
                 Rect dst = rect;
                 int w = data.kernelSize.Width - 1;
                 int h = data.kernelSize.Height - 1;
 
-                return rect.Inflate(new Thickness(
-                    data.kernelOffset.X - w,
-                    data.kernelOffset.Y - h,
-                    data.kernelOffset.X,
-                    data.kernelOffset.Y));
-            });
+                return rect.Inflate(
+                    new Thickness(
+                        data.kernelOffset.X - w,
+                        data.kernelOffset.Y - h,
+                        data.kernelOffset.X,
+                        data.kernelOffset.Y
+                    )
+                );
+            }
+        );
     }
 
     public void Erode(float radiusX, float radiusY)
@@ -231,7 +282,8 @@ public sealed class FilterEffectContext : IDisposable
         AppendSkiaFilter(
             (radiusX, radiusY),
             (data, input, _) => SKImageFilter.CreateErode(data.radiusX, data.radiusY, input),
-            (data, rect) => rect);
+            (data, rect) => rect
+        );
     }
 
     public void Dilate(float radiusX, float radiusY)
@@ -239,24 +291,28 @@ public sealed class FilterEffectContext : IDisposable
         AppendSkiaFilter(
             (radiusX, radiusY),
             (data, input, _) => SKImageFilter.CreateDilate(data.radiusX, data.radiusY, input),
-            (data, rect) => rect.Inflate(new Thickness(data.radiusX, data.radiusY)));
+            (data, rect) => rect.Inflate(new Thickness(data.radiusX, data.radiusY))
+        );
     }
 
     public void ColorMatrix(in ColorMatrix matrix)
     {
-        AppendSKColorFilter(matrix, (m, _) =>
-        {
-            float[] array = s_colorMatPool.Get();
-            try
+        AppendSKColorFilter(
+            matrix,
+            (m, _) =>
             {
-                m.ToArrayForSkia(array);
-                return SKColorFilter.CreateColorMatrix(array);
+                float[] array = s_colorMatPool.Get();
+                try
+                {
+                    m.ToArrayForSkia(array);
+                    return SKColorFilter.CreateColorMatrix(array);
+                }
+                finally
+                {
+                    s_colorMatPool.Return(array);
+                }
             }
-            finally
-            {
-                s_colorMatPool.Return(array);
-            }
-        });
+        );
     }
 
     public void ColorMatrix<T>(T data, Func<T, ColorMatrix> factory)
@@ -276,95 +332,113 @@ public sealed class FilterEffectContext : IDisposable
                 {
                     s_colorMatPool.Return(array);
                 }
-            });
+            }
+        );
     }
 
     public void Saturate(float amount)
     {
-        AppendSKColorFilter(amount, (s, _) =>
-        {
-            float[] array = s_colorMatPool.Get();
-            try
+        AppendSKColorFilter(
+            amount,
+            (s, _) =>
             {
-                Graphics.ColorMatrix.CreateSaturateMatrix(s, array);
-                //M15,M25,M35,M45がゼロなので意味がない
-                //Graphics.ColorMatrix.ToSkiaColorMatrix(array);
+                float[] array = s_colorMatPool.Get();
+                try
+                {
+                    Graphics.ColorMatrix.CreateSaturateMatrix(s, array);
+                    //M15,M25,M35,M45がゼロなので意味がない
+                    //Graphics.ColorMatrix.ToSkiaColorMatrix(array);
 
-                return SKColorFilter.CreateColorMatrix(array);
+                    return SKColorFilter.CreateColorMatrix(array);
+                }
+                finally
+                {
+                    s_colorMatPool.Return(array);
+                }
             }
-            finally
-            {
-                s_colorMatPool.Return(array);
-            }
-        });
+        );
     }
 
     public void HueRotate(float degrees)
     {
-        AppendSKColorFilter(degrees, (s, _) =>
-        {
-            float[] array = s_colorMatPool.Get();
-            try
+        AppendSKColorFilter(
+            degrees,
+            (s, _) =>
             {
-                Graphics.ColorMatrix.CreateHueRotateMatrix(degrees, array);
-                //M15,M25,M35,M45がゼロなので意味がない
-                //Graphics.ColorMatrix.ToSkiaColorMatrix(array);
+                float[] array = s_colorMatPool.Get();
+                try
+                {
+                    Graphics.ColorMatrix.CreateHueRotateMatrix(degrees, array);
+                    //M15,M25,M35,M45がゼロなので意味がない
+                    //Graphics.ColorMatrix.ToSkiaColorMatrix(array);
 
-                return SKColorFilter.CreateColorMatrix(array);
+                    return SKColorFilter.CreateColorMatrix(array);
+                }
+                finally
+                {
+                    s_colorMatPool.Return(array);
+                }
             }
-            finally
-            {
-                s_colorMatPool.Return(array);
-            }
-        });
+        );
     }
 
     public void LuminanceToAlpha()
     {
-        AppendSKColorFilter(Unit.Default, (_, _) =>
-        {
-            float[] array = s_colorMatPool.Get();
-            try
+        AppendSKColorFilter(
+            Unit.Default,
+            (_, _) =>
             {
-                Graphics.ColorMatrix.CreateLuminanceToAlphaMatrix(array);
-                //M15,M25,M35,M45がゼロなので意味がない
-                //Graphics.ColorMatrix.ToSkiaColorMatrix(array);
+                float[] array = s_colorMatPool.Get();
+                try
+                {
+                    Graphics.ColorMatrix.CreateLuminanceToAlphaMatrix(array);
+                    //M15,M25,M35,M45がゼロなので意味がない
+                    //Graphics.ColorMatrix.ToSkiaColorMatrix(array);
 
-                return SKColorFilter.CreateColorMatrix(array);
+                    return SKColorFilter.CreateColorMatrix(array);
+                }
+                finally
+                {
+                    s_colorMatPool.Return(array);
+                }
             }
-            finally
-            {
-                s_colorMatPool.Return(array);
-            }
-        });
+        );
     }
 
     public void Brightness(float amount)
     {
-        AppendSKColorFilter(amount, (s, _) =>
-        {
-            float[] array = s_colorMatPool.Get();
-            try
+        AppendSKColorFilter(
+            amount,
+            (s, _) =>
             {
-                Graphics.ColorMatrix.CreateBrightness(amount, array);
-                //M15,M25,M35,M45がゼロなので意味がない
-                //Graphics.ColorMatrix.ToSkiaColorMatrix(array);
+                float[] array = s_colorMatPool.Get();
+                try
+                {
+                    Graphics.ColorMatrix.CreateBrightness(amount, array);
+                    //M15,M25,M35,M45がゼロなので意味がない
+                    //Graphics.ColorMatrix.ToSkiaColorMatrix(array);
 
-                return SKColorFilter.CreateColorMatrix(array);
+                    return SKColorFilter.CreateColorMatrix(array);
+                }
+                finally
+                {
+                    s_colorMatPool.Return(array);
+                }
             }
-            finally
-            {
-                s_colorMatPool.Return(array);
-            }
-        });
+        );
     }
 
     public void HighContrast(bool grayscale, HighContrastInvertStyle invertStyle, float contrast)
     {
         AppendSKColorFilter(
             (grayscale, invertStyle, contrast),
-            (data, _) => SKColorFilter.CreateHighContrast(data.grayscale,
-                (SKHighContrastConfigInvertStyle)data.invertStyle, data.contrast));
+            (data, _) =>
+                SKColorFilter.CreateHighContrast(
+                    data.grayscale,
+                    (SKHighContrastConfigInvertStyle)data.invertStyle,
+                    data.contrast
+                )
+        );
     }
 
     public void Lighting(Color multiply, Color add)
@@ -395,7 +469,8 @@ public sealed class FilterEffectContext : IDisposable
                 {
                     s_colorMatPool.Return(array);
                 }
-            });
+            }
+        );
     }
 
     public void LumaColor()
@@ -403,72 +478,85 @@ public sealed class FilterEffectContext : IDisposable
         AppendSKColorFilter(Unit.Default, (_, _) => SKColorFilter.CreateLumaColor());
     }
 
-    [Obsolete("Byte-based LUTs destroy HDR values. Please use CustomEffect and SkSL shaders instead.")]
+    [Obsolete(
+        "Byte-based LUTs destroy HDR values. Please use CustomEffect and SkSL shaders instead."
+    )]
     public void LookupTable<T>(
         T data,
         float strength,
-        Action<T, (byte[] A, byte[] R, byte[] G, byte[] B)> factory)
+        Action<T, (byte[] A, byte[] R, byte[] G, byte[] B)> factory
+    )
         where T : IEquatable<T>
     {
-        AppendSKColorFilter((data, strength, factory), (data, _) =>
-        {
-            byte[] a = s_lutPool.Get();
-            byte[] r = s_lutPool.Get();
-            byte[] g = s_lutPool.Get();
-            byte[] b = s_lutPool.Get();
-
-            try
+        AppendSKColorFilter(
+            (data, strength, factory),
+            (data, _) =>
             {
-                data.factory(data.data, (a, r, g, b));
+                byte[] a = s_lutPool.Get();
+                byte[] r = s_lutPool.Get();
+                byte[] g = s_lutPool.Get();
+                byte[] b = s_lutPool.Get();
 
-                Graphics.LookupTable.SetStrength(data.strength, (a, r, g, b));
-                return SKColorFilter.CreateTable(a, r, g, b);
+                try
+                {
+                    data.factory(data.data, (a, r, g, b));
+
+                    Graphics.LookupTable.SetStrength(data.strength, (a, r, g, b));
+                    return SKColorFilter.CreateTable(a, r, g, b);
+                }
+                finally
+                {
+                    s_lutPool.Return(a);
+                    s_lutPool.Return(r);
+                    s_lutPool.Return(g);
+                    s_lutPool.Return(b);
+                }
             }
-            finally
-            {
-                s_lutPool.Return(a);
-                s_lutPool.Return(r);
-                s_lutPool.Return(g);
-                s_lutPool.Return(b);
-            }
-        });
+        );
     }
 
-    [Obsolete("Byte-based LUTs destroy HDR values. Please use CustomEffect and SkSL shaders instead.")]
-    public void LookupTable<T>(
-        T data,
-        float strength,
-        Action<T, byte[]> factory)
+    [Obsolete(
+        "Byte-based LUTs destroy HDR values. Please use CustomEffect and SkSL shaders instead."
+    )]
+    public void LookupTable<T>(T data, float strength, Action<T, byte[]> factory)
         where T : IEquatable<T>
     {
-        AppendSKColorFilter((data, strength, factory), (data, _) =>
-        {
-            byte[] array = s_lutPool.Get();
-
-            try
+        AppendSKColorFilter(
+            (data, strength, factory),
+            (data, _) =>
             {
-                data.factory(data.data, array);
+                byte[] array = s_lutPool.Get();
 
-                Graphics.LookupTable.SetStrength(data.strength, array);
-                return SKColorFilter.CreateTable(array);
+                try
+                {
+                    data.factory(data.data, array);
+
+                    Graphics.LookupTable.SetStrength(data.strength, array);
+                    return SKColorFilter.CreateTable(array);
+                }
+                finally
+                {
+                    s_lutPool.Return(array);
+                }
             }
-            finally
-            {
-                s_lutPool.Return(array);
-            }
-        });
+        );
     }
 
     public void BlendMode(Color color, BlendMode blendMode)
     {
         AppendSKColorFilter(
             (color, blendMode),
-            (data, _) => SKColorFilter.CreateBlendMode(data.color.ToSKColor(), (SKBlendMode)data.blendMode));
+            (data, _) =>
+                SKColorFilter.CreateBlendMode(data.color.ToSKColor(), (SKBlendMode)data.blendMode)
+        );
     }
 
     public void BlendMode(Brush.Resource? brush, BlendMode blendMode)
     {
-        static void ApplyCore((Brush.Resource? Brush, BlendMode BlendMode) data, CustomFilterEffectContext context)
+        static void ApplyCore(
+            (Brush.Resource? Brush, BlendMode BlendMode) data,
+            CustomFilterEffectContext context
+        )
         {
             for (int i = 0; i < context.Targets.Count; i++)
             {
@@ -497,8 +585,11 @@ public sealed class FilterEffectContext : IDisposable
         CustomEffect((brush, blendMode), ApplyCore, (_, r) => r);
     }
 
-    public void CustomEffect<T>(T data, Action<T, CustomFilterEffectContext> action,
-        Func<T, Rect, Rect> transformBounds)
+    public void CustomEffect<T>(
+        T data,
+        Action<T, CustomFilterEffectContext> action,
+        Func<T, Rect, Rect> transformBounds
+    )
         where T : IEquatable<T>
     {
         AddItem(new FEItem_CustomEffect<T>(data, action, transformBounds));

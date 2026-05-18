@@ -12,7 +12,8 @@ public sealed class ObjectTemplateItem(
     JsonObject json,
     string name,
     string categoryFormat,
-    string? filePath)
+    string? filePath
+)
 {
     public Guid Id { get; } = id;
 
@@ -34,8 +35,8 @@ public sealed class ObjectTemplateItem(
     {
         try
         {
-            return CoreSerializer.DeserializeFromJsonObject(
-                (JsonObject)Json.DeepClone(), BaseType) as ICoreSerializable;
+            return CoreSerializer.DeserializeFromJsonObject((JsonObject)Json.DeepClone(), BaseType)
+                as ICoreSerializable;
         }
         catch
         {
@@ -60,16 +61,23 @@ public sealed class ObjectTemplateItem(
             [nameof(BaseType)] = TypeFormat.ToString(item.BaseType),
             [nameof(ActualType)] = TypeFormat.ToString(item.ActualType),
             [nameof(Json)] = item.Json.DeepClone(),
-            [nameof(CategoryFormat)] = item.CategoryFormat
+            [nameof(CategoryFormat)] = item.CategoryFormat,
         };
     }
 
-    public static ObjectTemplateItem? FromJson(JsonNode json, string name, string filePath, ILogger logger)
+    public static ObjectTemplateItem? FromJson(
+        JsonNode json,
+        string name,
+        string filePath,
+        ILogger logger
+    )
     {
         try
         {
-            if (json[nameof(Id)]?.GetValue<string>() is not { } idStr
-                || !Guid.TryParse(idStr, out Guid id))
+            if (
+                json[nameof(Id)]?.GetValue<string>() is not { } idStr
+                || !Guid.TryParse(idStr, out Guid id)
+            )
             {
                 logger.LogError("Invalid or missing Id in template JSON.");
                 return null;
@@ -109,14 +117,26 @@ public sealed class ObjectTemplateItem(
                 return null;
             }
 
-            string categoryFormat = json[nameof(CategoryFormat)]?.GetValue<string>()
-                                    ?? ObjectTemplateCategoryResolver.Resolve(actualType).Format;
+            string categoryFormat =
+                json[nameof(CategoryFormat)]?.GetValue<string>()
+                ?? ObjectTemplateCategoryResolver.Resolve(actualType).Format;
 
-            return new ObjectTemplateItem(id, baseType, actualType, jsonObject, name, categoryFormat, filePath);
+            return new ObjectTemplateItem(
+                id,
+                baseType,
+                actualType,
+                jsonObject,
+                name,
+                categoryFormat,
+                filePath
+            );
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "An exception has occurred while creating ObjectTemplateItem from JSON.");
+            logger.LogError(
+                ex,
+                "An exception has occurred while creating ObjectTemplateItem from JSON."
+            );
             return null;
         }
     }

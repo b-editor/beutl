@@ -1,8 +1,6 @@
 ﻿using System.Text.Json.Serialization;
-
 using Beutl.Converters;
 using Beutl.Graphics;
-
 using SkiaSharp;
 
 namespace Beutl.Media;
@@ -11,9 +9,9 @@ namespace Beutl.Media;
 public readonly struct Typeface(
     FontFamily fontFamily,
     FontStyle style = FontStyle.Normal,
-    FontWeight weight = FontWeight.Regular) : IEquatable<Typeface>
+    FontWeight weight = FontWeight.Regular
+) : IEquatable<Typeface>
 {
-
     /// <summary>
     /// Gets the font family.
     /// </summary>
@@ -31,7 +29,11 @@ public readonly struct Typeface(
 
     internal static Typeface FromSKTypeface(SKTypeface typeface)
     {
-        return new Typeface(new FontFamily(typeface.FamilyName), typeface.FontSlant.ToFontStyle(), (FontWeight)typeface.FontWeight);
+        return new Typeface(
+            new FontFamily(typeface.FamilyName),
+            typeface.FontSlant.ToFontStyle(),
+            (FontWeight)typeface.FontWeight
+        );
     }
 
     internal SKTypeface ToSkia()
@@ -46,7 +48,9 @@ public readonly struct Typeface(
 
     public bool Equals(Typeface other)
     {
-        return EqualityComparer<FontFamily>.Default.Equals(FontFamily, other.FontFamily) && Style == other.Style && Weight == other.Weight;
+        return EqualityComparer<FontFamily>.Default.Equals(FontFamily, other.FontFamily)
+            && Style == other.Style
+            && Weight == other.Weight;
     }
 
     public override int GetHashCode()

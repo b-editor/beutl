@@ -10,7 +10,11 @@ using Reactive.Bindings;
 
 namespace Beutl.Editor.Components.ElementPropertyTab.ViewModels;
 
-public sealed class EngineObjectPropertyViewModel : IDisposable, IPropertyEditorContextVisitor, IServiceProvider, IFallbackObjectViewModel
+public sealed class EngineObjectPropertyViewModel
+    : IDisposable,
+        IPropertyEditorContextVisitor,
+        IServiceProvider,
+        IFallbackObjectViewModel
 {
     private ElementPropertyTabViewModel _parent;
 
@@ -18,27 +22,31 @@ public sealed class EngineObjectPropertyViewModel : IDisposable, IPropertyEditor
     {
         Model = model;
         _parent = parent;
-        IsEnabled = model.GetObservable(EngineObject.IsEnabledProperty)
-            .ToReactiveProperty();
-        IsEnabled.Skip(1).Subscribe(v =>
-        {
-            HistoryManager? history = this.GetService<HistoryManager>();
-            if (history != null)
+        IsEnabled = model.GetObservable(EngineObject.IsEnabledProperty).ToReactiveProperty();
+        IsEnabled
+            .Skip(1)
+            .Subscribe(v =>
             {
-                Model.IsEnabled = v;
-                history.Commit(CommandNames.ChangeObjectEnabled);
-            }
-        });
+                HistoryManager? history = this.GetService<HistoryManager>();
+                if (history != null)
+                {
+                    Model.IsEnabled = v;
+                    history.Commit(CommandNames.ChangeObjectEnabled);
+                }
+            });
 
         Init();
 
-        IsFallback = Observable.ReturnThenNever(model is IFallback)
+        IsFallback = Observable
+            .ReturnThenNever(model is IFallback)
             .ToReadOnlyReactivePropertySlim();
 
-        ActualTypeName = Observable.ReturnThenNever(FallbackHelper.GetTypeName(model))
+        ActualTypeName = Observable
+            .ReturnThenNever(FallbackHelper.GetTypeName(model))
             .ToReadOnlyReactivePropertySlim()!;
 
-        FallbackMessage = Observable.ReturnThenNever(FallbackHelper.GetFallbackMessage(model))
+        FallbackMessage = Observable
+            .ReturnThenNever(FallbackHelper.GetFallbackMessage(model))
             .ToReadOnlyReactivePropertySlim()!;
     }
 
@@ -60,17 +68,23 @@ public sealed class EngineObjectPropertyViewModel : IDisposable, IPropertyEditor
     {
         if (json is JsonObject obj)
         {
-            if (obj.TryGetPropertyValue("is-expanded", out JsonNode? isExpandedNode)
+            if (
+                obj.TryGetPropertyValue("is-expanded", out JsonNode? isExpandedNode)
                 && isExpandedNode is JsonValue isExpandedValue
-                && isExpandedValue.TryGetValue(out bool isExpanded))
+                && isExpandedValue.TryGetValue(out bool isExpanded)
+            )
             {
                 IsExpanded.Value = isExpanded;
             }
 
-            if (obj.TryGetPropertyValue("properties", out JsonNode? propsNode)
-                && propsNode is JsonArray propsArray)
+            if (
+                obj.TryGetPropertyValue("properties", out JsonNode? propsNode)
+                && propsNode is JsonArray propsArray
+            )
             {
-                foreach ((JsonNode? node, IPropertyEditorContext? context) in propsArray.Zip(Properties))
+                foreach (
+                    (JsonNode? node, IPropertyEditorContext? context) in propsArray.Zip(Properties)
+                )
                 {
                     if (context != null && node != null)
                     {
@@ -124,9 +138,7 @@ public sealed class EngineObjectPropertyViewModel : IDisposable, IPropertyEditor
         Properties.AddRange(contexts);
     }
 
-    public void Visit(IPropertyEditorContext context)
-    {
-    }
+    public void Visit(IPropertyEditorContext context) { }
 
     public object? GetService(Type serviceType)
     {
@@ -148,10 +160,12 @@ public sealed class EngineObjectPropertyViewModel : IDisposable, IPropertyEditor
 
     public void SetJsonString(string? str)
     {
-        if (Model.HierarchicalParent is not Element element) return;
+        if (Model.HierarchicalParent is not Element element)
+            return;
 
         int index = element.Objects.IndexOf(Model);
-        if (index < 0) return;
+        if (index < 0)
+            return;
 
         string message = MessageStrings.InvalidJson;
         _ = str ?? throw new Exception(message);
@@ -164,7 +178,8 @@ public sealed class EngineObjectPropertyViewModel : IDisposable, IPropertyEditor
             obj = Activator.CreateInstance(type) as EngineObject;
         }
 
-        if (obj == null) throw new Exception(message);
+        if (obj == null)
+            throw new Exception(message);
 
         CoreSerializer.PopulateFromJsonObject(obj, type!, json);
 

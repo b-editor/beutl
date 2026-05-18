@@ -12,16 +12,21 @@ public static class TemplateMenuHelper
 {
     public static void AddMenus(FAMenuFlyout menuFlyout, Control control)
     {
-        var dataContext = control.GetObservable(StyledElement.DataContextProperty)
+        var dataContext = control
+            .GetObservable(StyledElement.DataContextProperty)
             .Select(obj => obj as BaseEditorViewModel);
 
         var saveMenu = new MenuFlyoutItem { Text = Strings.SaveAsTemplate };
         saveMenu.Bind(
             InputElement.IsEnabledProperty,
-            dataContext.Select(d => d?.CanSaveAsTemplate ?? Observable.ReturnThenNever(false)).Switch());
+            dataContext
+                .Select(d => d?.CanSaveAsTemplate ?? Observable.ReturnThenNever(false))
+                .Switch()
+        );
         saveMenu.Click += (_, _) =>
         {
-            if (control.DataContext is not BaseEditorViewModel { IsDisposed: false } vm) return;
+            if (control.DataContext is not BaseEditorViewModel { IsDisposed: false } vm)
+                return;
 
             string defaultName = vm.GetTemplateDefaultName();
             string uniqueName = ObjectTemplateService.Instance.GetUniqueName(defaultName);
@@ -102,14 +107,18 @@ public static class TemplateMenuHelper
             Visual.IsVisibleProperty,
             dataContext
                 .Select(d => d?.CanSaveAsTemplate ?? Observable.ReturnThenNever(false))
-                .Switch());
+                .Switch()
+        );
         menuFlyout.Items.Add(separator);
         menuFlyout.Items.Add(saveMenu);
         menuFlyout.Items.Add(applySubMenu);
         menuFlyout.Items.Add(addSubMenu);
     }
 
-    private static MenuFlyoutItem CreateApplyMenuItem(ObjectTemplateItem template, BaseEditorViewModel vm)
+    private static MenuFlyoutItem CreateApplyMenuItem(
+        ObjectTemplateItem template,
+        BaseEditorViewModel vm
+    )
     {
         var mi = new MenuFlyoutItem { Text = template.Name.Value, Tag = template };
         mi.Click += (s, _) =>
@@ -120,12 +129,17 @@ public static class TemplateMenuHelper
         return mi;
     }
 
-    private static MenuFlyoutItem CreateAddMenuItem(ObjectTemplateItem template, BaseEditorViewModel vm, bool useApplyTemplate)
+    private static MenuFlyoutItem CreateAddMenuItem(
+        ObjectTemplateItem template,
+        BaseEditorViewModel vm,
+        bool useApplyTemplate
+    )
     {
         var mi = new MenuFlyoutItem { Text = template.Name.Value, Tag = template };
         mi.Click += (s, _) =>
         {
-            if (s is not MenuFlyoutItem { Tag: ObjectTemplateItem item }) return;
+            if (s is not MenuFlyoutItem { Tag: ObjectTemplateItem item })
+                return;
             if (useApplyTemplate)
                 vm.ApplyTemplate(item);
             else

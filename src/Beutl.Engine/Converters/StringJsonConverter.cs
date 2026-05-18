@@ -11,7 +11,11 @@ internal abstract class StringJsonConverter<T> : JsonConverter<T>
 
     protected virtual string Format(T value) => value!.ToString()!;
 
-    public override T Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    public override T Read(
+        ref Utf8JsonReader reader,
+        Type typeToConvert,
+        JsonSerializerOptions options
+    )
     {
         string? s = reader.GetString();
         return s != null ? Parse(s) : throw new Exception($"Invalid {TypeName}.");

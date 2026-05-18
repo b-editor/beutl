@@ -34,7 +34,8 @@ public partial class ImmediateCanvas
             }
         }
 
-        internal record BlendModePushedState(BlendMode BlendMode, int Count, SKPaint Paint) : CanvasPushedState
+        internal record BlendModePushedState(BlendMode BlendMode, int Count, SKPaint Paint)
+            : CanvasPushedState
         {
             public override void Pop(ImmediateCanvas canvas)
             {
@@ -44,7 +45,8 @@ public partial class ImmediateCanvas
             }
         }
 
-        internal record OpacityPushedState(float Opacity, int Count, SKPaint Paint) : CanvasPushedState
+        internal record OpacityPushedState(float Opacity, int Count, SKPaint Paint)
+            : CanvasPushedState
         {
             public override void Pop(ImmediateCanvas canvas)
             {

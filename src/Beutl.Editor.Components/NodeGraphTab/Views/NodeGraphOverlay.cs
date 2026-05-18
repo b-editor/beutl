@@ -8,17 +8,24 @@ namespace Beutl.Editor.Components.NodeGraphTab.Views;
 
 public sealed class NodeGraphOverlay : Control
 {
-    public static readonly DirectProperty<NodeGraphOverlay, ZoomBorder> ZoomBorderProperty
-        = NodeGraphBackground.ZoomBorderProperty.AddOwner<NodeGraphOverlay>(
+    public static readonly DirectProperty<NodeGraphOverlay, ZoomBorder> ZoomBorderProperty =
+        NodeGraphBackground.ZoomBorderProperty.AddOwner<NodeGraphOverlay>(
             o => o.ZoomBorder,
-            (o, v) => o.ZoomBorder = v);
+            (o, v) => o.ZoomBorder = v
+        );
 
-    public static readonly DirectProperty<NodeGraphOverlay, Rect> SelectionRangeProperty
-        = AvaloniaProperty.RegisterDirect<NodeGraphOverlay, Rect>(
-            nameof(SelectionRange), o => o.SelectionRange, (o, v) => o.SelectionRange = v);
+    public static readonly DirectProperty<NodeGraphOverlay, Rect> SelectionRangeProperty =
+        AvaloniaProperty.RegisterDirect<NodeGraphOverlay, Rect>(
+            nameof(SelectionRange),
+            o => o.SelectionRange,
+            (o, v) => o.SelectionRange = v
+        );
 
     private readonly Pen _pen = new();
-    private readonly IBrush _selectionFillBrush = new ImmutableSolidColorBrush(Colors.CornflowerBlue, 0.3);
+    private readonly IBrush _selectionFillBrush = new ImmutableSolidColorBrush(
+        Colors.CornflowerBlue,
+        0.3
+    );
     private readonly IBrush _selectionStrokeBrush = Brushes.CornflowerBlue;
     private ZoomBorder _zoomBorder = null!;
     private Rect _selectionRange;

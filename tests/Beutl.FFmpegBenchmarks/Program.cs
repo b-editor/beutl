@@ -71,8 +71,15 @@ internal static class Program
             ForceSrgbGamma = true,
         };
 
-        var response = connection.RequestAsync<OpenFileRequest, OpenFileResponse>(
-            MessageType.OpenFile, MessageType.OpenFileResult, request).AsTask().GetAwaiter().GetResult();
+        var response = connection
+            .RequestAsync<OpenFileRequest, OpenFileResponse>(
+                MessageType.OpenFile,
+                MessageType.OpenFileResult,
+                request
+            )
+            .AsTask()
+            .GetAwaiter()
+            .GetResult();
 
         using var reader = new FFmpegReaderProxy(connection, response.ReaderId, response);
 
@@ -88,7 +95,9 @@ internal static class Program
             int totalFrames = (int)reader.VideoInfo.NumFrames;
             int width = reader.VideoInfo.FrameSize.Width;
             int height = reader.VideoInfo.FrameSize.Height;
-            Console.WriteLine($"  動画: {width}x{height}, {totalFrames}フレーム, {reader.VideoInfo.FrameRate}fps");
+            Console.WriteLine(
+                $"  動画: {width}x{height}, {totalFrames}フレーム, {reader.VideoInfo.FrameRate}fps"
+            );
 
             int benchFrames = Math.Min(totalFrames, 300);
 
@@ -96,7 +105,11 @@ internal static class Program
             results.SequentialVideo = MeasureSequentialVideo(reader, benchFrames);
 
             // 2. ランダムアクセス (スクラビング模擬)
-            results.RandomVideo = MeasureRandomVideo(reader, totalFrames, Math.Min(50, totalFrames));
+            results.RandomVideo = MeasureRandomVideo(
+                reader,
+                totalFrames,
+                Math.Min(50, totalFrames)
+            );
 
             // 3. 最初のフレーム読み取り (コールドスタート)
             results.FirstFrame = MeasureFirstFrame(reader);
@@ -134,7 +147,8 @@ internal static class Program
             bool ok = reader.ReadVideo(i, out Ref<Bitmap>? img);
             sw.Stop();
 
-            if (ok) img!.Dispose();
+            if (ok)
+                img!.Dispose();
             frameTimes.Add(sw.Elapsed.TotalMilliseconds);
         }
 
@@ -155,7 +169,8 @@ internal static class Program
     {
         // ランダムなフレーム番号を生成 (再現性のためシード固定)
         var rng = new Random(42);
-        var frames = Enumerable.Range(0, sampleCount)
+        var frames = Enumerable
+            .Range(0, sampleCount)
             .Select(_ => rng.Next(0, totalFrames))
             .ToArray();
 
@@ -169,7 +184,8 @@ internal static class Program
             bool ok = reader.ReadVideo(frame, out Ref<Bitmap>? img);
             sw.Stop();
 
-            if (ok) img!.Dispose();
+            if (ok)
+                img!.Dispose();
             frameTimes.Add(sw.Elapsed.TotalMilliseconds);
         }
 
@@ -200,7 +216,8 @@ internal static class Program
             bool ok = reader.ReadVideo(0, out Ref<Bitmap>? img);
             sw.Stop();
 
-            if (ok) img!.Dispose();
+            if (ok)
+                img!.Dispose();
             frameTimes.Add(sw.Elapsed.TotalMilliseconds);
         }
 
@@ -231,7 +248,8 @@ internal static class Program
             bool ok = reader.ReadAudio(i * sampleRate, sampleRate, out var sound);
             sw.Stop();
 
-            if (ok) sound!.Dispose();
+            if (ok)
+                sound!.Dispose();
             chunkTimes.Add(sw.Elapsed.TotalMilliseconds);
         }
 
@@ -266,7 +284,9 @@ internal static class Program
     {
         Console.WriteLine("=== Comparison Results (IPC / Direct) ===");
         Console.WriteLine();
-        Console.WriteLine($"{"Item",-24} {"Direct Avg",12} {"IPC Avg",12} {"Ratio",8} {"Diff",12}");
+        Console.WriteLine(
+            $"{"Item", -24} {"Direct Avg", 12} {"IPC Avg", 12} {"Ratio", 8} {"Diff", 12}"
+        );
         Console.WriteLine(new string('-', 72));
 
         CompareOne("Sequential frame read", direct.SequentialVideo, ipc.SequentialVideo);
@@ -277,14 +297,17 @@ internal static class Program
 
     static void CompareOne(string name, TimingResult? direct, TimingResult? ipc)
     {
-        if (direct == null || ipc == null) return;
+        if (direct == null || ipc == null)
+            return;
 
         double directAvg = direct.PerItemMs.Average();
         double ipcAvg = ipc.PerItemMs.Average();
         double ratio = directAvg > 0 ? ipcAvg / directAvg : double.NaN;
         double diffMs = ipcAvg - directAvg;
 
-        Console.WriteLine($"{name,-24} {directAvg,10:F2}ms {ipcAvg,10:F2}ms {ratio,7:F2}x {diffMs,+10:F2}ms");
+        Console.WriteLine(
+            $"{name, -24} {directAvg, 10:F2}ms {ipcAvg, 10:F2}ms {ratio, 7:F2}x {diffMs, +10:F2}ms"
+        );
     }
 }
 

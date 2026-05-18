@@ -50,20 +50,32 @@ public class JsonSerializationTest
         var proj = new Project();
         var basePath = Path.GetFullPath(ArtifactProvider.GetArtifactDirectory());
 
-        CoreSerializer.StoreToUri(proj, UriHelper.CreateFromPath(Path.Combine(basePath, $"0.bproj")));
+        CoreSerializer.StoreToUri(
+            proj,
+            UriHelper.CreateFromPath(Path.Combine(basePath, $"0.bproj"))
+        );
         app.Project = proj;
 
         var scene = new Scene();
-        CoreSerializer.StoreToUri(scene, UriHelper.CreateFromPath(Path.Combine(basePath, $"0.scene")));
+        CoreSerializer.StoreToUri(
+            scene,
+            UriHelper.CreateFromPath(Path.Combine(basePath, $"0.scene"))
+        );
         proj.Items.Add(scene);
         var elm1 = new Element();
-        CoreSerializer.StoreToUri(elm1, UriHelper.CreateFromPath(Path.Combine(basePath, $"0.layer")));
+        CoreSerializer.StoreToUri(
+            elm1,
+            UriHelper.CreateFromPath(Path.Combine(basePath, $"0.layer"))
+        );
         scene.AddChild(elm1);
         elm1.Objects.Add(new EllipseShape());
         elm1.Objects.Add(new DrawableDecorator());
 
         var elm2 = new Element { ZIndex = 2 };
-        CoreSerializer.StoreToUri(elm2, UriHelper.CreateFromPath(Path.Combine(basePath, $"1.layer")));
+        CoreSerializer.StoreToUri(
+            elm2,
+            UriHelper.CreateFromPath(Path.Combine(basePath, $"1.layer"))
+        );
         scene.AddChild(elm2);
         var nodeGraphDrawable = new NodeGraphDrawable();
         elm2.Objects.Add(nodeGraphDrawable);
@@ -89,9 +101,12 @@ public class JsonSerializationTest
         var layerPath = Path.Combine(basePath, "0", "1", "0.layer");
 
         // 既存のファイルを削除
-        if (File.Exists(projPath)) File.Delete(projPath);
-        if (File.Exists(scenePath)) File.Delete(scenePath);
-        if (File.Exists(layerPath)) File.Delete(layerPath);
+        if (File.Exists(projPath))
+            File.Delete(projPath);
+        if (File.Exists(scenePath))
+            File.Delete(scenePath);
+        if (File.Exists(layerPath))
+            File.Delete(layerPath);
 
         BeutlApplication app = BeutlApplication.Current;
         var proj = new Project { Uri = UriHelper.CreateFromPath(projPath) };
@@ -101,7 +116,11 @@ public class JsonSerializationTest
         proj.Items.Add(scene);
         app.Project = proj;
 
-        CoreSerializer.StoreToUri(proj, proj.Uri, CoreSerializationMode.Write | CoreSerializationMode.SaveReferencedObjects);
+        CoreSerializer.StoreToUri(
+            proj,
+            proj.Uri,
+            CoreSerializationMode.Write | CoreSerializationMode.SaveReferencedObjects
+        );
 
         // ファイルが存在することを確認
         Assert.That(File.Exists(projPath), Is.True);
@@ -114,7 +133,12 @@ public class JsonSerializationTest
     {
         SerializeWithSaveReferencedObjects();
 
-        var basePath = Path.GetFullPath(Path.Combine(ArtifactProvider.GetArtifactDirectory(), "../SerializeWithSaveReferencedObjects"));
+        var basePath = Path.GetFullPath(
+            Path.Combine(
+                ArtifactProvider.GetArtifactDirectory(),
+                "../SerializeWithSaveReferencedObjects"
+            )
+        );
         var projPath = Path.Combine(basePath, "0.bproj");
 
         BeutlApplication app = BeutlApplication.Current;
@@ -139,9 +163,12 @@ public class JsonSerializationTest
         var scenePath = Path.Combine(basePath, "0", "0.scene");
         var layerPath = Path.Combine(basePath, "0", "1", "0.layer");
         // 既存のファイルを削除
-        if (File.Exists(projPath)) File.Delete(projPath);
-        if (File.Exists(scenePath)) File.Delete(scenePath);
-        if (File.Exists(layerPath)) File.Delete(layerPath);
+        if (File.Exists(projPath))
+            File.Delete(projPath);
+        if (File.Exists(scenePath))
+            File.Delete(scenePath);
+        if (File.Exists(layerPath))
+            File.Delete(layerPath);
 
         BeutlApplication app = BeutlApplication.Current;
         var proj = new Project { Uri = UriHelper.CreateFromPath(projPath) };
@@ -151,7 +178,11 @@ public class JsonSerializationTest
         proj.Items.Add(scene);
         app.Project = proj;
 
-        CoreSerializer.StoreToUri(proj, proj.Uri, CoreSerializationMode.Write | CoreSerializationMode.EmbedReferencedObjects);
+        CoreSerializer.StoreToUri(
+            proj,
+            proj.Uri,
+            CoreSerializationMode.Write | CoreSerializationMode.EmbedReferencedObjects
+        );
 
         // ファイルが存在することを確認
         Assert.That(File.Exists(projPath), Is.True);
@@ -164,7 +195,12 @@ public class JsonSerializationTest
     {
         SerializeWithEmbedReferencedObjects();
 
-        var basePath = Path.GetFullPath(Path.Combine(ArtifactProvider.GetArtifactDirectory(), "../SerializeWithEmbedReferencedObjects"));
+        var basePath = Path.GetFullPath(
+            Path.Combine(
+                ArtifactProvider.GetArtifactDirectory(),
+                "../SerializeWithEmbedReferencedObjects"
+            )
+        );
         var projPath = Path.Combine(basePath, "0.bproj");
 
         BeutlApplication app = BeutlApplication.Current;
@@ -188,8 +224,10 @@ public class JsonSerializationTest
         var basePath = Path.GetFullPath(ArtifactProvider.GetArtifactDirectory());
         var scenePath = Path.Combine(basePath, "legacy.scene");
         var layerPath = Path.Combine(basePath, "legacy.belm");
-        if (File.Exists(scenePath)) File.Delete(scenePath);
-        if (File.Exists(layerPath)) File.Delete(layerPath);
+        if (File.Exists(scenePath))
+            File.Delete(scenePath);
+        if (File.Exists(layerPath))
+            File.Delete(layerPath);
 
         // $typeを持たない1.x形式のJSONを書き出す
         File.WriteAllText(scenePath, "{\"Width\":1920,\"Height\":1080}");

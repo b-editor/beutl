@@ -7,7 +7,11 @@ public class TimeSpanExtensionsTests
     [TestCase(1.0, 30, 30.0)]
     [TestCase(0.5, 60, 30.0)]
     [TestCase(0.04166, 24, 0.99984)]
-    public void ToFrameNumber_Double_ReturnsSecondsTimesRate(double seconds, double rate, double expected)
+    public void ToFrameNumber_Double_ReturnsSecondsTimesRate(
+        double seconds,
+        double rate,
+        double expected
+    )
     {
         TimeSpan ts = TimeSpan.FromSeconds(seconds);
 

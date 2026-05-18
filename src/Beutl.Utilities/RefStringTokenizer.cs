@@ -13,13 +13,21 @@ public ref struct RefStringTokenizer
     private int _tokenIndex;
     private int _tokenLength;
 
-    public RefStringTokenizer(ReadOnlySpan<char> s, IFormatProvider formatProvider, string exceptionMessage = "")
+    public RefStringTokenizer(
+        ReadOnlySpan<char> s,
+        IFormatProvider formatProvider,
+        string exceptionMessage = ""
+    )
         : this(s, TokenizerHelper.GetSeparatorFromFormatProvider(formatProvider), exceptionMessage)
     {
         _formatProvider = formatProvider;
     }
 
-    public RefStringTokenizer(ReadOnlySpan<char> s, char separator = TokenizerHelper.DefaultSeparatorChar, string exceptionMessage = "")
+    public RefStringTokenizer(
+        ReadOnlySpan<char> s,
+        char separator = TokenizerHelper.DefaultSeparatorChar,
+        string exceptionMessage = ""
+    )
     {
         _s = s;
         _length = s.Length;
@@ -36,7 +44,8 @@ public ref struct RefStringTokenizer
         }
     }
 
-    public readonly ReadOnlySpan<char> CurrentToken => _tokenIndex < 0 ? default : _s.Slice(_tokenIndex, _tokenLength);
+    public readonly ReadOnlySpan<char> CurrentToken =>
+        _tokenIndex < 0 ? default : _s.Slice(_tokenIndex, _tokenLength);
 
     public readonly void Dispose()
     {

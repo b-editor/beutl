@@ -26,7 +26,8 @@ public interface IProperty<T> : IProperty
     event EventHandler<PropertyValueChangedEventArgs<T>>? ValueChanged;
 }
 
-public class PropertyValueChangedEventArgs<T>(IProperty<T> property, T oldValue, T newValue) : EventArgs
+public class PropertyValueChangedEventArgs<T>(IProperty<T> property, T oldValue, T newValue)
+    : EventArgs
 {
     public IProperty<T> Property { get; } = property;
 

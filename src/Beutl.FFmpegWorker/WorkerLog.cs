@@ -6,14 +6,14 @@ internal static class WorkerLog
 {
     private static readonly object s_writeLock = new();
 
-    public static void Information(string message, Exception? exception = null)
-        => Write("Information", message, exception);
+    public static void Information(string message, Exception? exception = null) =>
+        Write("Information", message, exception);
 
-    public static void Warning(string message, Exception? exception = null)
-        => Write("Warning", message, exception);
+    public static void Warning(string message, Exception? exception = null) =>
+        Write("Warning", message, exception);
 
-    public static void Error(string message, Exception? exception = null)
-        => Write("Error", message, exception);
+    public static void Error(string message, Exception? exception = null) =>
+        Write("Error", message, exception);
 
     public static void Write(string level, string message, Exception? exception)
     {
@@ -22,9 +22,7 @@ internal static class WorkerLog
         {
             // ダッシュボードで1イベントとして表示できるよう、複数行は \n エスケープして1行で送る。
             // ホスト側 (FFmpegWorkerProcess) でデコードする。
-            string payload = exception != null
-                ? $"{message}\n{exception}"
-                : message;
+            string payload = exception != null ? $"{message}\n{exception}" : message;
 
             string encoded = Encode(payload);
 
@@ -33,9 +31,7 @@ internal static class WorkerLog
                 Console.Out.WriteLine($"[ffmpeg:{level}] {encoded}");
             }
         }
-        catch
-        {
-        }
+        catch { }
     }
 
     private static string Encode(string text)
@@ -48,10 +44,18 @@ internal static class WorkerLog
         {
             switch (c)
             {
-                case '\\': sb.Append("\\\\"); break;
-                case '\n': sb.Append("\\n"); break;
-                case '\r': sb.Append("\\r"); break;
-                default: sb.Append(c); break;
+                case '\\':
+                    sb.Append("\\\\");
+                    break;
+                case '\n':
+                    sb.Append("\\n");
+                    break;
+                case '\r':
+                    sb.Append("\\r");
+                    break;
+                default:
+                    sb.Append(c);
+                    break;
             }
         }
         return sb.ToString();

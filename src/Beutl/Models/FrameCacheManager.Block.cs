@@ -20,8 +20,8 @@ public partial class FrameCacheManager
             int expect = 0;
             int count = 0;
             bool isLocked = false;
-            IEnumerable<KeyValuePair<int, CacheEntry>> items
-                = start == int.MinValue && end == int.MaxValue
+            IEnumerable<KeyValuePair<int, CacheEntry>> items =
+                start == int.MinValue && end == int.MaxValue
                     ? _entries
                     : GetRange(_entries, start, end);
 

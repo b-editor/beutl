@@ -5,8 +5,8 @@ namespace Beutl;
 public abstract class CorePropertyChangedEventArgs(
     CoreObject sender,
     CoreProperty property,
-    CorePropertyMetadata metadata)
-    : PropertyChangedEventArgs(property.Name)
+    CorePropertyMetadata metadata
+) : PropertyChangedEventArgs(property.Name)
 {
     public CoreObject Sender { get; } = sender;
 
@@ -30,8 +30,8 @@ public sealed class CorePropertyChangedEventArgs<TValue>(
     CoreProperty<TValue> property,
     CorePropertyMetadata metadata,
     TValue? newValue,
-    TValue? oldValue)
-    : CorePropertyChangedEventArgs(sender, property, metadata)
+    TValue? oldValue
+) : CorePropertyChangedEventArgs(sender, property, metadata)
 {
     public new CoreProperty<TValue> Property { get; } = property;
 

@@ -15,11 +15,18 @@ public sealed partial class PathFigure : EngineObject
         ScanProperties<PathFigure>();
     }
 
-    [Display(Name = nameof(GraphicsStrings.PathFigure_IsClosed), ResourceType = typeof(GraphicsStrings))]
+    [Display(
+        Name = nameof(GraphicsStrings.PathFigure_IsClosed),
+        ResourceType = typeof(GraphicsStrings)
+    )]
     public IProperty<bool> IsClosed { get; } = Property.CreateAnimatable<bool>();
 
-    [Display(Name = nameof(GraphicsStrings.PathFigure_StartPoint), ResourceType = typeof(GraphicsStrings))]
-    public IProperty<Point> StartPoint { get; } = Property.CreateAnimatable(new Point(float.NaN, float.NaN));
+    [Display(
+        Name = nameof(GraphicsStrings.PathFigure_StartPoint),
+        ResourceType = typeof(GraphicsStrings)
+    )]
+    public IProperty<Point> StartPoint { get; } =
+        Property.CreateAnimatable(new Point(float.NaN, float.NaN));
 
     public IListProperty<PathSegment> Segments { get; } = Property.CreateList<PathSegment>();
 

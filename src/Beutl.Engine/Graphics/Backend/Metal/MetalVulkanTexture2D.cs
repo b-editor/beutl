@@ -25,8 +25,12 @@ internal sealed unsafe class MetalVulkanTexture2D : VulkanTexture2D
         int width,
         int height,
         TextureFormat format,
-        ImageUsageFlags usage = ImageUsageFlags.ColorAttachmentBit | ImageUsageFlags.SampledBit |
-                               ImageUsageFlags.TransferSrcBit | ImageUsageFlags.TransferDstBit)
+        ImageUsageFlags usage =
+            ImageUsageFlags.ColorAttachmentBit
+            | ImageUsageFlags.SampledBit
+            | ImageUsageFlags.TransferSrcBit
+            | ImageUsageFlags.TransferDstBit
+    )
         : base(vulkanContext, width, height, format, usage, CreateExportInfo())
     {
         // Free the export info that was allocated in CreateExportInfo
@@ -76,14 +80,21 @@ internal sealed unsafe class MetalVulkanTexture2D : VulkanTexture2D
             GRSurfaceOrigin.TopLeft,
             1,
             _format.ToSkiaColorType(),
-            SKColorSpace.CreateSrgbLinear());
+            SKColorSpace.CreateSrgbLinear()
+        );
     }
 
     private IntPtr ExportMetalTexture()
     {
         var vk = _context.Vk;
 
-        if (!vk.TryGetDeviceExtension<ExtMetalObjects>(_context.Instance, _context.Device, out var metalObjects))
+        if (
+            !vk.TryGetDeviceExtension<ExtMetalObjects>(
+                _context.Instance,
+                _context.Device,
+                out var metalObjects
+            )
+        )
         {
             s_logger.LogWarning("VK_EXT_metal_objects extension not available");
             return IntPtr.Zero;
@@ -96,13 +107,13 @@ internal sealed unsafe class MetalVulkanTexture2D : VulkanTexture2D
             Image = _image,
             ImageView = _imageView,
             BufferView = default,
-            Plane = ImageAspectFlags.ColorBit
+            Plane = ImageAspectFlags.ColorBit,
         };
 
         var exportInfo = new ExportMetalObjectsInfoEXT
         {
             SType = StructureType.ExportMetalObjectsInfoExt,
-            PNext = &exportTextureInfo
+            PNext = &exportTextureInfo,
         };
 
         metalObjects.ExportMetalObjects(_context.Device, &exportInfo);

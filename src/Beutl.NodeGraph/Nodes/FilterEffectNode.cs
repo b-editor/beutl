@@ -61,7 +61,9 @@ public partial class FilterEffectNode<T> : ConfigureNode
                 resource = node.Object.ToResource(context);
                 OutputPort = resource.CreateRenderNode();
             }
-            else if (output is FilterEffectRenderNode { FilterEffect.Resource: { } filterEffect } fen)
+            else if (
+                output is FilterEffectRenderNode { FilterEffect.Resource: { } filterEffect } fen
+            )
             {
                 resource = filterEffect;
                 bool updateOnly = false;

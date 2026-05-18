@@ -24,7 +24,8 @@ public abstract partial class ConfigureNode : GraphNode
 
             UpdateCore(context);
             var output = OutputPort;
-            if (output == null) return;
+            if (output == null)
+                return;
 
             output.HasChanges = inputs.Any(i => i?.HasChanges == true) || output.HasChanges;
             output.RemoveRange(0, output.Children.Count);
@@ -34,8 +35,6 @@ public abstract partial class ConfigureNode : GraphNode
             }
         }
 
-        protected virtual void UpdateCore(GraphCompositionContext context)
-        {
-        }
+        protected virtual void UpdateCore(GraphCompositionContext context) { }
     }
 }

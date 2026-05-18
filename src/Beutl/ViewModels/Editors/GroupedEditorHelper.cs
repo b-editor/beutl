@@ -1,6 +1,5 @@
 ﻿using Beutl.Editor.Components.Helpers;
 using Beutl.PropertyAdapters;
-
 using Reactive.Bindings;
 
 namespace Beutl.ViewModels.Editors;
@@ -11,10 +10,12 @@ internal static class GroupedEditorHelper
         string json,
         BaseEditorViewModel<TItem?> vm,
         ReactivePropertySlim<bool> isExpanded,
-        IList<TItem>? groupChildren)
+        IList<TItem>? groupChildren
+    )
         where TItem : class, ICoreObject
     {
-        if (!CoreObjectClipboard.TryDeserializeJson<TItem>(json, out var pasted)) return false;
+        if (!CoreObjectClipboard.TryDeserializeJson<TItem>(json, out var pasted))
+            return false;
 
         isExpanded.Value = true;
         if (groupChildren != null)
@@ -44,10 +45,12 @@ internal static class GroupedEditorHelper
         ReactivePropertySlim<bool> isExpanded,
         bool isGroup,
         Action<TItem> addItem,
-        Action<TItem> changeItem)
+        Action<TItem> changeItem
+    )
         where TItem : class
     {
-        if (template.CreateInstance() is not TItem instance) return false;
+        if (template.CreateInstance() is not TItem instance)
+            return false;
         isExpanded.Value = true;
         if (isGroup)
             addItem(instance);

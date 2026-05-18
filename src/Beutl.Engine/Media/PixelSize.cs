@@ -3,7 +3,6 @@ using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Numerics;
 using System.Text.Json.Serialization;
-
 using Beutl.Converters;
 using Beutl.Graphics;
 using Beutl.Utilities;
@@ -23,10 +22,10 @@ namespace Beutl.Media;
 [TypeConverter(typeof(PixelSizeConverter))]
 public readonly struct PixelSize(int width, int height)
     : IEquatable<PixelSize>,
-      IParsable<PixelSize>,
-      ISpanParsable<PixelSize>,
-      IEqualityOperators<PixelSize, PixelSize, bool>,
-      ITupleConvertible<PixelSize, int>
+        IParsable<PixelSize>,
+        ISpanParsable<PixelSize>,
+        IEqualityOperators<PixelSize, PixelSize, bool>,
+        ITupleConvertible<PixelSize, int>
 {
     /// <summary>
     /// A size representing zero
@@ -120,11 +119,13 @@ public readonly struct PixelSize(int width, int height)
     /// <returns>The <see cref="PixelSize"/>.</returns>
     public static PixelSize Parse(ReadOnlySpan<char> s)
     {
-        using var tokenizer = new RefStringTokenizer(s, CultureInfo.InvariantCulture, exceptionMessage: "Invalid PixelSize.");
+        using var tokenizer = new RefStringTokenizer(
+            s,
+            CultureInfo.InvariantCulture,
+            exceptionMessage: "Invalid PixelSize."
+        );
 
-        return new PixelSize(
-            tokenizer.ReadInt32(),
-            tokenizer.ReadInt32());
+        return new PixelSize(tokenizer.ReadInt32(), tokenizer.ReadInt32());
     }
 
     /// <summary>
@@ -210,7 +211,8 @@ public readonly struct PixelSize(int width, int height)
     {
         return new PixelSize(
             (int)Math.Ceiling(size.Width * scale),
-            (int)Math.Ceiling(size.Height * scale));
+            (int)Math.Ceiling(size.Height * scale)
+        );
     }
 
     /// <summary>
@@ -223,7 +225,8 @@ public readonly struct PixelSize(int width, int height)
     {
         return new PixelSize(
             (int)Math.Ceiling(size.Width * scale.X),
-            (int)Math.Ceiling(size.Height * scale.Y));
+            (int)Math.Ceiling(size.Height * scale.Y)
+        );
     }
 
     static PixelSize IParsable<PixelSize>.Parse(string s, IFormatProvider? provider)
@@ -231,7 +234,11 @@ public readonly struct PixelSize(int width, int height)
         return Parse(s);
     }
 
-    static bool IParsable<PixelSize>.TryParse([NotNullWhen(true)] string? s, IFormatProvider? provider, [MaybeNullWhen(false)] out PixelSize result)
+    static bool IParsable<PixelSize>.TryParse(
+        [NotNullWhen(true)] string? s,
+        IFormatProvider? provider,
+        [MaybeNullWhen(false)] out PixelSize result
+    )
     {
         result = default;
         return s != null && TryParse(s, out result);
@@ -242,7 +249,11 @@ public readonly struct PixelSize(int width, int height)
         return Parse(s);
     }
 
-    static bool ISpanParsable<PixelSize>.TryParse([NotNullWhen(true)] ReadOnlySpan<char> s, IFormatProvider? provider, [MaybeNullWhen(false)] out PixelSize result)
+    static bool ISpanParsable<PixelSize>.TryParse(
+        [NotNullWhen(true)] ReadOnlySpan<char> s,
+        IFormatProvider? provider,
+        [MaybeNullWhen(false)] out PixelSize result
+    )
     {
         return TryParse(s, out result);
     }

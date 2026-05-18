@@ -14,7 +14,10 @@ internal static class FFmpegLoaderWorker
     static FFmpegLoaderWorker()
     {
         s_defaultFFmpegPath = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".beutl", "ffmpeg");
+            Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
+            ".beutl",
+            "ffmpeg"
+        );
     }
 
     public static void Initialize()
@@ -36,7 +39,14 @@ internal static class FFmpegLoaderWorker
 
     private static void FixDependencyIssue()
     {
-        FunctionResolverBase.LibraryDependenciesMap["avfilter"] = ["avcodec", "avformat", "avutil", "swresample", "swscale"];
+        FunctionResolverBase.LibraryDependenciesMap["avfilter"] =
+        [
+            "avcodec",
+            "avformat",
+            "avutil",
+            "swresample",
+            "swscale",
+        ];
         FunctionResolverBase.LibraryDependenciesMap.Remove("postproc");
     }
 
@@ -51,7 +61,8 @@ internal static class FFmpegLoaderWorker
             {
                 var level = (FFmpegSharp.LogLevel)i;
                 WorkerLog.Write(level.ToString(), s, null);
-            });
+            }
+        );
     }
 
     private static string GetRootPath()
@@ -60,20 +71,34 @@ internal static class FFmpegLoaderWorker
         {
             s_defaultFFmpegPath,
             Directory.GetParent(Assembly.GetExecutingAssembly().Location)!.FullName,
-            AppContext.BaseDirectory
+            AppContext.BaseDirectory,
         };
 
         if (OperatingSystem.IsWindows())
         {
-            paths.Add(Path.Combine(Directory.GetParent(Assembly.GetExecutingAssembly().Location)!.FullName,
-                "runtimes", Environment.Is64BitProcess ? "win-x64" : "win-x86", "native"));
-            paths.Add(Path.Combine(AppContext.BaseDirectory,
-                "runtimes", Environment.Is64BitProcess ? "win-x64" : "win-x86", "native"));
+            paths.Add(
+                Path.Combine(
+                    Directory.GetParent(Assembly.GetExecutingAssembly().Location)!.FullName,
+                    "runtimes",
+                    Environment.Is64BitProcess ? "win-x64" : "win-x86",
+                    "native"
+                )
+            );
+            paths.Add(
+                Path.Combine(
+                    AppContext.BaseDirectory,
+                    "runtimes",
+                    Environment.Is64BitProcess ? "win-x64" : "win-x86",
+                    "native"
+                )
+            );
         }
         else if (OperatingSystem.IsLinux())
         {
             paths.Add($"/usr/lib/{(Environment.Is64BitProcess ? "x86_64" : "x86")}-linux-gnu");
-            var libraryPath = Environment.GetEnvironmentVariable("LD_LIBRARY_PATH")?.Split(Path.PathSeparator) ?? [];
+            var libraryPath =
+                Environment.GetEnvironmentVariable("LD_LIBRARY_PATH")?.Split(Path.PathSeparator)
+                ?? [];
             paths.AddRange(libraryPath);
         }
         else if (OperatingSystem.IsMacOS())
@@ -104,16 +129,17 @@ internal static class FFmpegLoaderWorker
 
     private static bool LibrariesExists(string basePath)
     {
-        if (!Directory.Exists(basePath)) return false;
+        if (!Directory.Exists(basePath))
+            return false;
 
         string[] files = Directory.GetFiles(basePath);
         foreach (KeyValuePair<string, int> item in DynamicallyLoadedBindings.LibraryVersionMap)
         {
             string versionedLibraryName =
-                OperatingSystem.IsWindows() ? $"{item.Key}-{item.Value}.dll" :
-                OperatingSystem.IsLinux() ? $"lib{item.Key}.so.{item.Value}" :
-                OperatingSystem.IsMacOS() ? $"lib{item.Key}.{item.Value}.dylib" :
-                throw new InvalidOperationException();
+                OperatingSystem.IsWindows() ? $"{item.Key}-{item.Value}.dll"
+                : OperatingSystem.IsLinux() ? $"lib{item.Key}.so.{item.Value}"
+                : OperatingSystem.IsMacOS() ? $"lib{item.Key}.{item.Value}.dylib"
+                : throw new InvalidOperationException();
 
             if (!files.Any(x => x.Contains(versionedLibraryName)))
                 return false;

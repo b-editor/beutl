@@ -89,31 +89,31 @@ public sealed partial class SettingsDialog : AppWindow
             {
                 Content = SettingsStrings.Account,
                 Tag = typeof(AccountSettingsPage),
-                IconSource = new SymbolIconSource { Symbol = Symbol.People }
+                IconSource = new SymbolIconSource { Symbol = Symbol.People },
             },
             new NavigationViewItem()
             {
                 Content = Strings.View,
                 Tag = typeof(ViewSettingsPage),
-                IconSource = new SymbolIconSource { Symbol = Symbol.View }
+                IconSource = new SymbolIconSource { Symbol = Symbol.View },
             },
             new NavigationViewItem()
             {
                 Content = Strings.Editor,
                 Tag = typeof(EditorSettingsPage),
-                IconSource = new SymbolIconSource { Symbol = Symbol.Edit }
+                IconSource = new SymbolIconSource { Symbol = Symbol.Edit },
             },
             new NavigationViewItem()
             {
                 Content = SettingsStrings.Keymap,
                 Tag = typeof(KeyMapSettingsPage),
-                IconSource = new SymbolIconSource { Symbol = Symbol.Keyboard }
+                IconSource = new SymbolIconSource { Symbol = Symbol.Keyboard },
             },
             new NavigationViewItem()
             {
                 Content = SettingsStrings.Font,
                 Tag = typeof(FontSettingsPage),
-                IconSource = new SymbolIconSource { Symbol = Symbol.Font }
+                IconSource = new SymbolIconSource { Symbol = Symbol.Font },
             },
             new NavigationViewItem()
             {
@@ -121,8 +121,8 @@ public sealed partial class SettingsDialog : AppWindow
                 Tag = typeof(ExtensionsSettingsPage),
                 IconSource = new FluentIcons.FluentAvalonia.SymbolIconSource()
                 {
-                    Symbol = FluentIcons.Common.Symbol.PuzzlePiece
-                }
+                    Symbol = FluentIcons.Common.Symbol.PuzzlePiece,
+                },
             },
             new NavigationViewItem()
             {
@@ -130,9 +130,9 @@ public sealed partial class SettingsDialog : AppWindow
                 Tag = typeof(InformationPage),
                 IconSource = new FluentIcons.FluentAvalonia.SymbolIconSource()
                 {
-                    Symbol = FluentIcons.Common.Symbol.Info
-                }
-            }
+                    Symbol = FluentIcons.Common.Symbol.Info,
+                },
+            },
         ];
     }
 
@@ -151,8 +151,7 @@ public sealed partial class SettingsDialog : AppWindow
 
     private void OnItemInvoked(NavigationViewItem nvi)
     {
-        if (nvi.Tag is Type typ
-            && DataContext is SettingsDialogViewModel settingsPage)
+        if (nvi.Tag is Type typ && DataContext is SettingsDialogViewModel settingsPage)
         {
             NavigationTransitionInfo transitionInfo = SharedNavigationTransitionInfo.Instance;
             object? parameter = typ.Name switch
@@ -195,20 +194,24 @@ public sealed partial class SettingsDialog : AppWindow
     {
         public int GetDepth(Type pagetype)
         {
-            if (pagetype == typeof(AccountSettingsPage)
+            if (
+                pagetype == typeof(AccountSettingsPage)
                 || pagetype == typeof(ViewSettingsPage)
                 || pagetype == typeof(EditorSettingsPage)
                 || pagetype == typeof(KeyMapSettingsPage)
                 || pagetype == typeof(FontSettingsPage)
                 || pagetype == typeof(ExtensionsSettingsPage)
-                || pagetype == typeof(InformationPage))
+                || pagetype == typeof(InformationPage)
+            )
             {
                 return 0;
             }
-            else if (pagetype == typeof(EditorExtensionPriorityPage)
-                     || pagetype == typeof(DecoderPriorityPage)
-                     || pagetype == typeof(TelemetrySettingsPage)
-                     || pagetype == typeof(AnExtensionSettingsPage))
+            else if (
+                pagetype == typeof(EditorExtensionPriorityPage)
+                || pagetype == typeof(DecoderPriorityPage)
+                || pagetype == typeof(TelemetrySettingsPage)
+                || pagetype == typeof(AnExtensionSettingsPage)
+            )
             {
                 return 1;
             }
@@ -227,8 +230,10 @@ public sealed partial class SettingsDialog : AppWindow
                 "EditorSettingsPage" => 2,
                 "KeyMapSettingsPage" => 3,
                 "FontSettingsPage" => 4,
-                "ExtensionsSettingsPage" or "EditorExtensionPriorityPage" or "DecoderPriorityPage"
-                    or "AnExtensionSettingsPage" => 5,
+                "ExtensionsSettingsPage"
+                or "EditorExtensionPriorityPage"
+                or "DecoderPriorityPage"
+                or "AnExtensionSettingsPage" => 5,
                 "StorageSettingsPage" or "StorageDetailPage" => 6,
                 "InformationPage" or "TelemetrySettingsPage" => 7,
                 _ => 0,

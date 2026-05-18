@@ -1,5 +1,4 @@
 <Project Sdk="Microsoft.NET.Sdk">
-
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
     <SelfContained>false</SelfContained>
@@ -24,5 +23,4 @@
     <PackageReference Include="FluentIcons.FluentAvalonia" />
     <PackageReference Include="System.Reactive" />
   </ItemGroup>
-
 </Project>

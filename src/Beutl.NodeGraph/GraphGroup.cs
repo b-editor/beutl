@@ -13,11 +13,9 @@ public class GraphGroup : GraphModel
 
     static GraphGroup()
     {
-        InputProperty = ConfigureProperty<GroupInput?, GraphGroup>(o => o.Input)
-            .Register();
+        InputProperty = ConfigureProperty<GroupInput?, GraphGroup>(o => o.Input).Register();
 
-        OutputProperty = ConfigureProperty<GroupOutput?, GraphGroup>(o => o.Output)
-            .Register();
+        OutputProperty = ConfigureProperty<GroupOutput?, GraphGroup>(o => o.Output).Register();
     }
 
     public GraphGroup()
@@ -71,8 +69,7 @@ public class GraphGroup : GraphModel
         base.OnPropertyChanged(args);
         if (args is CorePropertyChangedEventArgs e)
         {
-            if (e.Property == InputProperty
-                || e.Property == OutputProperty)
+            if (e.Property == InputProperty || e.Property == OutputProperty)
             {
                 int index = -1;
 

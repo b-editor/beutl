@@ -3,5 +3,5 @@
 public enum HistogramMode
 {
     Overlay = 0,
-    Parade = 1
+    Parade = 1,
 }

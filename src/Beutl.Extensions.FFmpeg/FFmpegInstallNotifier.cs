@@ -1,5 +1,4 @@
 ﻿using Avalonia.Threading;
-
 using Beutl.Extensions.FFmpeg.Properties;
 using Beutl.Services;
 
@@ -27,7 +26,8 @@ internal static class FFmpegInstallNotifier
             Strings.FFmpegError,
             Strings.Make_sure_you_have_FFmpeg_installed,
             onActionButtonClick: ShowInstallDialog,
-            actionButtonText: Strings.Install);
+            actionButtonText: Strings.Install
+        );
     }
 
     public static void MarkInstalled()

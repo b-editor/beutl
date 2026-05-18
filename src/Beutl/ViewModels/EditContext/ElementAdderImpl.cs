@@ -32,20 +32,31 @@ internal sealed class ElementAdderImpl(EditViewModel context) : IElementAdder
 
         Element CreateElement()
         {
-            _logger.LogDebug("Creating new element with start: {Start}, length: {Length}, layer: {Layer}", desc.Start,
-                desc.Length, desc.Layer);
+            _logger.LogDebug(
+                "Creating new element with start: {Start}, length: {Length}, layer: {Layer}",
+                desc.Start,
+                desc.Length,
+                desc.Layer
+            );
             return new Element()
             {
                 Start = desc.Start,
                 Length = desc.Length,
                 ZIndex = desc.Layer,
-                Uri = RandomFileNameGenerator.GenerateUri(scene.Uri!, Constants.ElementFileExtension)
+                Uri = RandomFileNameGenerator.GenerateUri(
+                    scene.Uri!,
+                    Constants.ElementFileExtension
+                ),
             };
         }
 
         void SetAccentColor(Element element, string str)
         {
-            _logger.LogDebug("Setting accent color for element: {Element}, color string: {ColorString}", element, str);
+            _logger.LogDebug(
+                "Setting accent color for element: {Element}, color string: {ColorString}",
+                element,
+                str
+            );
             element.AccentColor = ColorGenerator.GenerateColor(str);
         }
 
@@ -55,11 +66,11 @@ internal sealed class ElementAdderImpl(EditViewModel context) : IElementAdder
             {
                 _logger.LogDebug(
                     "Setting transform for drawable: {Drawable}, position: {Position}",
-                    drawable, desc.Position);
+                    drawable,
+                    desc.Position
+                );
                 Transform? transform = drawable.Transform.CurrentValue;
-                AddOrSetHelper.AddOrSet(
-                    ref transform,
-                    new TranslateTransform(desc.Position));
+                AddOrSetHelper.AddOrSet(ref transform, new TranslateTransform(desc.Position));
                 drawable.Transform.CurrentValue = transform;
             }
         }
@@ -124,24 +135,33 @@ internal sealed class ElementAdderImpl(EditViewModel context) : IElementAdder
                 var videoResource = TrySetDuration(
                     element1,
                     () => video.ToResource(CompositionContext.Default),
-                    v => v.Duration);
+                    v => v.Duration
+                );
 
                 var sound = SoundSource.Open(desc.FileName);
                 t2.Source.CurrentValue = sound;
                 var soundResource = TrySetDuration(
                     element2,
                     () => sound.ToResource(CompositionContext.Default),
-                    v => v.Duration);
+                    v => v.Duration
+                );
                 // VideoSource.Resource, SoundSource.ResourceのMediaReaderは参照カウンターで管理され、Resource間で共有される
                 // すぐに解放してしまうとこのDuration設定時とレンダリング時の2回MediaReaderが生成されてしまう
                 // 作成 -> 参照カウントを引く -> 解放 -> レンダラ側で作成 のようになってしまう
                 // これを以下のようにさせる
                 // 作成 -> レンダラ側で参照カウントを追加 -> 以下のDisposeで参照カウントを引く -> 実体は解放されない
-                compositeDisposable.Add(Disposable.Create(() => RenderThread.Dispatcher.Dispatch(() =>
-                {
-                    videoResource?.Dispose();
-                    soundResource?.Dispose();
-                }, DispatchPriority.Low)));
+                compositeDisposable.Add(
+                    Disposable.Create(() =>
+                        RenderThread.Dispatcher.Dispatch(
+                            () =>
+                            {
+                                videoResource?.Dispose();
+                                soundResource?.Dispose();
+                            },
+                            DispatchPriority.Low
+                        )
+                    )
+                );
 
                 CoreSerializer.StoreToUri(element1, element1.Uri!);
                 CoreSerializer.StoreToUri(element2, element2.Uri!);
@@ -160,9 +180,16 @@ internal sealed class ElementAdderImpl(EditViewModel context) : IElementAdder
                 var soundResource = TrySetDuration(
                     element,
                     () => sound.ToResource(CompositionContext.Default),
-                    v => v.Duration);
-                compositeDisposable.Add(Disposable.Create(() =>
-                    RenderThread.Dispatcher.Dispatch(() => soundResource?.Dispose(), DispatchPriority.Low)));
+                    v => v.Duration
+                );
+                compositeDisposable.Add(
+                    Disposable.Create(() =>
+                        RenderThread.Dispatcher.Dispatch(
+                            () => soundResource?.Dispose(),
+                            DispatchPriority.Low
+                        )
+                    )
+                );
 
                 CoreSerializer.StoreToUri(element, element.Uri!);
                 scene.AddChild(element);
@@ -185,8 +212,9 @@ internal sealed class ElementAdderImpl(EditViewModel context) : IElementAdder
             {
                 element.Name = TypeDisplayHelpers.GetLocalizedName(desc.InitialObject);
 
-                element.AccentColor =
-                    ColorGenerator.GenerateColor(desc.InitialObject.FullName ?? desc.InitialObject.Name);
+                element.AccentColor = ColorGenerator.GenerateColor(
+                    desc.InitialObject.FullName ?? desc.InitialObject.Name
+                );
                 var engineObject = (EngineObject)Activator.CreateInstance(desc.InitialObject)!;
                 element.AddObject(engineObject);
                 if (engineObject is Drawable drawable)
@@ -224,7 +252,10 @@ internal sealed class ElementAdderImpl(EditViewModel context) : IElementAdder
         else if (instance is EngineObject templateEngineObject)
         {
             ObjectRegenerator.Regenerate(
-                templateEngineObject, templateEngineObject.GetType(), out ICoreSerializable regenerated);
+                templateEngineObject,
+                templateEngineObject.GetType(),
+                out ICoreSerializable regenerated
+            );
             var newEngineObject = (EngineObject)regenerated;
 
             newElement = new Element
@@ -234,7 +265,8 @@ internal sealed class ElementAdderImpl(EditViewModel context) : IElementAdder
                 ZIndex = layer,
                 Name = template.Name.Value,
                 AccentColor = ColorGenerator.GenerateColor(
-                    template.ActualType.FullName ?? template.ActualType.Name),
+                    template.ActualType.FullName ?? template.ActualType.Name
+                ),
             };
             newElement.AddObject(newEngineObject);
         }
@@ -244,7 +276,10 @@ internal sealed class ElementAdderImpl(EditViewModel context) : IElementAdder
             return;
         }
 
-        newElement.Uri = RandomFileNameGenerator.GenerateUri(scene.Uri!, Constants.ElementFileExtension);
+        newElement.Uri = RandomFileNameGenerator.GenerateUri(
+            scene.Uri!,
+            Constants.ElementFileExtension
+        );
 
         CoreSerializer.StoreToUri(newElement, newElement.Uri!);
         scene.AddChild(newElement);
@@ -273,16 +308,18 @@ internal sealed class ElementAdderImpl(EditViewModel context) : IElementAdder
 
     private static bool MatchFileAudioOnly(string filePath)
     {
-        return MatchFileExtensions(filePath, DecoderRegistry.EnumerateDecoder()
-            .SelectMany(x => x.AudioExtensions())
-            .Distinct());
+        return MatchFileExtensions(
+            filePath,
+            DecoderRegistry.EnumerateDecoder().SelectMany(x => x.AudioExtensions()).Distinct()
+        );
     }
 
     private static bool MatchFileVideoOnly(string filePath)
     {
-        return MatchFileExtensions(filePath, DecoderRegistry.EnumerateDecoder()
-            .SelectMany(x => x.VideoExtensions())
-            .Distinct());
+        return MatchFileExtensions(
+            filePath,
+            DecoderRegistry.EnumerateDecoder().SelectMany(x => x.VideoExtensions()).Distinct()
+        );
     }
 
     private static bool MatchFileImage(string filePath)

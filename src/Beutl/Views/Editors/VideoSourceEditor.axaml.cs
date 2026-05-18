@@ -24,21 +24,25 @@ public partial class VideoSourceEditor : UserControl
 
         FileEditor.OpenOptions = new FilePickerOpenOptions
         {
-            FileTypeFilter = [new FilePickerFileType("Video File") { Patterns = fileExtensions }]
+            FileTypeFilter = [new FilePickerFileType("Video File") { Patterns = fileExtensions }],
         };
         FileEditor.ValueConfirmed += FileEditorOnValueConfirmed;
     }
 
     private void FileEditorOnValueConfirmed(object? sender, PropertyEditorValueChangedEventArgs e)
     {
-        if (DataContext is not VideoSourceEditorViewModel { IsDisposed: false } vm) return;
-        if (e.NewValue is not FileInfo fi) return;
+        if (DataContext is not VideoSourceEditorViewModel { IsDisposed: false } vm)
+            return;
+        if (e.NewValue is not FileInfo fi)
+            return;
 
         vm.SetValue(VideoSource.Open(fi.FullName));
 
         // 動画の長さに要素の長さを合わせる
-        if (vm.GetService<Element>() is not { } element) return;
-        TimelineTabViewModel? timeline = vm.GetService<EditViewModel>()?.FindToolTab<TimelineTabViewModel>();
+        if (vm.GetService<Element>() is not { } element)
+            return;
+        TimelineTabViewModel? timeline = vm.GetService<EditViewModel>()
+            ?.FindToolTab<TimelineTabViewModel>();
         ElementViewModel? elmViewModel = timeline?.GetViewModelFor(element);
 
         elmViewModel?.ChangeToOriginalDuration.Execute();

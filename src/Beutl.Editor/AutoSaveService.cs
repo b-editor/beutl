@@ -56,7 +56,8 @@ public sealed class AutoSaveService : IDisposable
                 _logger.LogTrace(
                     "Auto-saving object ({TypeName}, {ObjectId}).",
                     TypeFormat.ToString(obj.GetType()),
-                    obj.Id);
+                    obj.Id
+                );
                 CoreSerializer.StoreToUri(obj, obj.Uri!, CoreSerializationMode.Write);
             }
             catch (Exception ex)
@@ -67,7 +68,10 @@ public sealed class AutoSaveService : IDisposable
         }
     }
 
-    public static void CollectObjectsToSave(ChangeOperation operation, HashSet<CoreObject> objectsToSave)
+    public static void CollectObjectsToSave(
+        ChangeOperation operation,
+        HashSet<CoreObject> objectsToSave
+    )
     {
         CoreObject? obj = null;
 
@@ -111,7 +115,11 @@ public sealed class AutoSaveService : IDisposable
         // 親要素を辿ってUriを持つオブジェクトを探す
         if (obj is IHierarchical hierarchical)
         {
-            foreach (CoreObject ancestor in hierarchical.EnumerateAncestors<CoreObject>().Where(a => a.Uri != null))
+            foreach (
+                CoreObject ancestor in hierarchical
+                    .EnumerateAncestors<CoreObject>()
+                    .Where(a => a.Uri != null)
+            )
             {
                 objectsToSave.Add(ancestor);
             }
@@ -120,7 +128,8 @@ public sealed class AutoSaveService : IDisposable
 
     public void Dispose()
     {
-        if (_isDisposed) return;
+        if (_isDisposed)
+            return;
 
         _saveError.Dispose();
         _isDisposed = true;

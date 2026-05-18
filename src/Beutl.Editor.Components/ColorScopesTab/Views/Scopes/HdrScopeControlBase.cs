@@ -10,7 +10,11 @@ public abstract class HdrScopeControlBase : ScopeControlBase
 {
     public static readonly DirectProperty<HdrScopeControlBase, float> HdrRangeProperty =
         AvaloniaProperty.RegisterDirect<HdrScopeControlBase, float>(
-            nameof(HdrRange), o => o.HdrRange, (o, v) => o.HdrRange = v, 1.0f);
+            nameof(HdrRange),
+            o => o.HdrRange,
+            (o, v) => o.HdrRange = v,
+            1.0f
+        );
 
     private float _hdrRange = 1.0f;
 
@@ -64,9 +68,10 @@ public abstract class HdrScopeControlBase : ScopeControlBase
         e.Pointer.Capture(this);
 
         _previousCursor = Cursor;
-        Cursor = DragAxis == Orientation.Vertical
-            ? new Cursor(StandardCursorType.SizeNorthSouth)
-            : new Cursor(StandardCursorType.SizeWestEast);
+        Cursor =
+            DragAxis == Orientation.Vertical
+                ? new Cursor(StandardCursorType.SizeNorthSouth)
+                : new Cursor(StandardCursorType.SizeWestEast);
 
         ShowOverlay();
         e.Handled = true;
@@ -80,9 +85,10 @@ public abstract class HdrScopeControlBase : ScopeControlBase
             return;
 
         Point current = e.GetPosition(this);
-        float delta = DragAxis == Orientation.Vertical
-            ? -(float)(current.Y - _dragStartPosition.Y)
-            : (float)(current.X - _dragStartPosition.X);
+        float delta =
+            DragAxis == Orientation.Vertical
+                ? -(float)(current.Y - _dragStartPosition.Y)
+                : (float)(current.X - _dragStartPosition.X);
 
         HdrRange = _dragStartHdrRange * MathF.Pow(DragSensitivity, delta);
         UpdateOverlayText();
@@ -152,7 +158,8 @@ public abstract class HdrScopeControlBase : ScopeControlBase
             FlowDirection.LeftToRight,
             DefaultTypeface,
             12,
-            Brushes.White);
+            Brushes.White
+        );
 
         double padding = 4;
         double textWidth = formattedText.Width;
@@ -166,7 +173,8 @@ public abstract class HdrScopeControlBase : ScopeControlBase
         context.FillRectangle(
             new SolidColorBrush(Color.FromArgb(160, 0, 0, 0)),
             new Rect(x, y, bgWidth, bgHeight),
-            4);
+            4
+        );
 
         // Text
         context.DrawText(formattedText, new Point(x + padding, y + padding));
@@ -208,8 +216,6 @@ public abstract class HdrScopeControlBase : ScopeControlBase
                 InvalidateVisual();
             });
         }
-        catch (OperationCanceledException)
-        {
-        }
+        catch (OperationCanceledException) { }
     }
 }

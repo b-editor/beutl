@@ -10,7 +10,9 @@ public class OutputPort<T> : NodePort<T>, IOutputPort
 
     static OutputPort()
     {
-        ConnectionsProperty = ConfigureProperty<CoreList<Reference<Connection>>, OutputPort<T>>(nameof(Connections))
+        ConnectionsProperty = ConfigureProperty<CoreList<Reference<Connection>>, OutputPort<T>>(
+                nameof(Connections)
+            )
             .Accessor(o => o.Connections, (o, v) => o.Connections = v)
             .Register();
     }
@@ -66,10 +68,13 @@ public class OutputPort<T> : NodePort<T>, IOutputPort
             {
                 int index = i;
                 Reference<Connection> reference = Connections[i];
-                context.Resolve(reference.Id, o =>
-                {
-                    Connections[index] = (Connection)o;
-                });
+                context.Resolve(
+                    reference.Id,
+                    o =>
+                    {
+                        Connections[index] = (Connection)o;
+                    }
+                );
             }
         }
     }

@@ -38,10 +38,16 @@ internal static class TestMediaHelper
 
     private static bool _registered;
 
-    public static string CreateTestVideoFile(int width, int height, Rational frameRate, int frameCount)
+    public static string CreateTestVideoFile(
+        int width,
+        int height,
+        Rational frameRate,
+        int frameCount
+    )
     {
         // Encode parameters in the file name so the test decoder can read them
-        var fileName = $"test-video-{width}x{height}@{frameRate.Numerator}_{frameRate.Denominator}f{frameCount}.testvideo";
+        var fileName =
+            $"test-video-{width}x{height}@{frameRate.Numerator}_{frameRate.Denominator}f{frameCount}.testvideo";
         var filePath = Path.Combine(Path.GetTempPath(), fileName);
 
         // Create an empty file if it doesn't exist
@@ -53,13 +59,16 @@ internal static class TestMediaHelper
         return filePath;
     }
 
-    public static (int Width, int Height, Rational FrameRate, int FrameCount) ParseTestVideoPath(string path)
+    public static (int Width, int Height, Rational FrameRate, int FrameCount) ParseTestVideoPath(
+        string path
+    )
     {
         var fileName = Path.GetFileNameWithoutExtension(path);
         // Format: test-video-100x100@30_1f300
         var match = System.Text.RegularExpressions.Regex.Match(
             fileName,
-            @"test-video-(\d+)x(\d+)@(\d+)_(\d+)f(\d+)");
+            @"test-video-(\d+)x(\d+)@(\d+)_(\d+)f(\d+)"
+        );
 
         if (!match.Success)
             throw new FormatException($"Invalid test video path: {path}");
@@ -109,16 +118,8 @@ internal sealed class TestMediaReader : MediaReader
         _frameSize = frameSize;
         _frameRate = frameRate;
         _frameCount = frameCount;
-        _videoInfo = new VideoStreamInfo(
-            "test",
-            frameCount,
-            frameSize,
-            frameRate);
-        _audioInfo = new AudioStreamInfo(
-            "test",
-            Rational.Zero,
-            44100,
-            2);
+        _videoInfo = new VideoStreamInfo("test", frameCount, frameSize, frameRate);
+        _audioInfo = new AudioStreamInfo("test", Rational.Zero, 44100, 2);
     }
 
     public override VideoStreamInfo VideoInfo => _videoInfo;

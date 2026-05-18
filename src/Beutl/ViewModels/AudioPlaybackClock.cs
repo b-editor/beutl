@@ -3,8 +3,9 @@
 internal sealed class AudioPlaybackClock
 {
     private readonly object _lock = new();
-    private readonly TaskCompletionSource _started =
-        new(TaskCreationOptions.RunContinuationsAsynchronously);
+    private readonly TaskCompletionSource _started = new(
+        TaskCreationOptions.RunContinuationsAsynchronously
+    );
     private TimeSpan _anchorAudioTime;
     private long _anchorTimestamp;
     private bool _running;
@@ -39,7 +40,8 @@ internal sealed class AudioPlaybackClock
     {
         lock (_lock)
         {
-            if (!_running) return null;
+            if (!_running)
+                return null;
             return _anchorAudioTime + Stopwatch.GetElapsedTime(_anchorTimestamp);
         }
     }

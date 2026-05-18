@@ -17,13 +17,18 @@ public partial class PlayerView
     // Todo: Refactor
     private async void OnFrameDrop(object? sender, DragEventArgs e)
     {
-        if (DataContext is not PlayerViewModel { Scene: { } scene, EditViewModel: { } editViewModel } viewModel) return;
+        if (
+            DataContext
+            is not PlayerViewModel { Scene: { } scene, EditViewModel: { } editViewModel } viewModel
+        )
+            return;
         TimeSpan frame = viewModel.CurrentFrame.Value;
 
         AvaPoint position = e.GetPosition(image);
         double scaleX = image.Bounds.Size.Width / scene.FrameSize.Width;
         Point scaledPosition = (position / scaleX).ToBtlPoint();
-        Point centeredPosition = scaledPosition - new Point(scene.FrameSize.Width / 2f, scene.FrameSize.Height / 2f);
+        Point centeredPosition =
+            scaledPosition - new Point(scene.FrameSize.Width / 2f, scene.FrameSize.Height / 2f);
 
         bool containsFe = e.DataTransfer.Contains(BeutlDataFormats.FilterEffect);
         bool containsTra = e.DataTransfer.Contains(BeutlDataFormats.Transform);
@@ -33,7 +38,10 @@ public partial class PlayerView
             {
                 var compositor = editViewModel.Renderer.Value.Compositor;
                 var compositionFrame = compositor.EvaluateGraphics(frame);
-                return editViewModel.Renderer.Value.HitTest(compositionFrame, new((float)scaledPosition.X, (float)scaledPosition.Y));
+                return editViewModel.Renderer.Value.HitTest(
+                    compositionFrame,
+                    new((float)scaledPosition.X, (float)scaledPosition.Y)
+                );
             });
 
             if (drawable != null)
@@ -42,10 +50,8 @@ public partial class PlayerView
                 int zindex = drawable.ZIndex;
 
                 Element? element = scene.Children.FirstOrDefault(v =>
-                    v.IsEnabled
-                    && v.ZIndex == zindex
-                    && v.Start <= frame
-                    && frame < v.Range.End);
+                    v.IsEnabled && v.ZIndex == zindex && v.Start <= frame && frame < v.Range.End
+                );
 
                 if (element != null)
                 {
@@ -53,19 +59,23 @@ public partial class PlayerView
                     editorSelection?.SelectedObject.Value = element;
                 }
 
-                if (containsFe
+                if (
+                    containsFe
                     && e.DataTransfer.TryGetValue(BeutlDataFormats.FilterEffect) is { } feTypeName
                     && TypeFormat.ToType(feTypeName) is { } feType
-                    && Activator.CreateInstance(feType) is FilterEffect newFe)
+                    && Activator.CreateInstance(feType) is FilterEffect newFe
+                )
                 {
                     FilterEffect? fe = drawable.FilterEffect.CurrentValue;
                     AddOrSetHelper.AddOrSet(ref fe, newFe);
                     drawable.FilterEffect.CurrentValue = fe;
                 }
-                else if (containsTra
-                         && e.DataTransfer.TryGetValue(BeutlDataFormats.Transform) is { } traTypeName
-                         && TypeFormat.ToType(traTypeName) is { } traType
-                         && Activator.CreateInstance(traType) is Transform newTra)
+                else if (
+                    containsTra
+                    && e.DataTransfer.TryGetValue(BeutlDataFormats.Transform) is { } traTypeName
+                    && TypeFormat.ToType(traTypeName) is { } traType
+                    && Activator.CreateInstance(traType) is Transform newTra
+                )
                 {
                     Transform? tra = drawable.Transform.CurrentValue;
                     AddOrSetHelper.AddOrSet(ref tra, newTra);
@@ -79,29 +89,45 @@ public partial class PlayerView
         {
             int CalculateZIndex(Scene scene)
             {
-                Element[] elements = scene.Children
-                    .Where(item => item.Start <= frame && frame < item.Range.End)
+                Element[] elements = scene
+                    .Children.Where(item => item.Start <= frame && frame < item.Range.End)
                     .ToArray();
                 return elements.Length == 0 ? 0 : elements.Max(v => v.ZIndex) + 1;
             }
 
             var adder = editViewModel.GetRequiredService<IElementAdder>();
-            if (e.DataTransfer.TryGetValue(BeutlDataFormats.EngineObject) is { } typeName
-                && TypeFormat.ToType(typeName) is { } type)
+            if (
+                e.DataTransfer.TryGetValue(BeutlDataFormats.EngineObject) is { } typeName
+                && TypeFormat.ToType(typeName) is { } type
+            )
             {
                 e.Handled = true;
 
                 int zindex = CalculateZIndex(scene);
 
-                adder.AddElement(new ElementDescription(
-                    frame, TimeSpan.FromSeconds(5), zindex, InitialObject: type, Position: centeredPosition));
+                adder.AddElement(
+                    new ElementDescription(
+                        frame,
+                        TimeSpan.FromSeconds(5),
+                        zindex,
+                        InitialObject: type,
+                        Position: centeredPosition
+                    )
+                );
             }
             else if (e.DataTransfer.TryGetFile()?.TryGetLocalPath() is { } fileName)
             {
                 int zindex = CalculateZIndex(scene);
 
-                adder.AddElement(new ElementDescription(
-                    frame, TimeSpan.FromSeconds(5), zindex, FileName: fileName, Position: centeredPosition));
+                adder.AddElement(
+                    new ElementDescription(
+                        frame,
+                        TimeSpan.FromSeconds(5),
+                        zindex,
+                        FileName: fileName,
+                        Position: centeredPosition
+                    )
+                );
 
                 e.Handled = true;
             }
@@ -110,10 +136,12 @@ public partial class PlayerView
 
     private void OnFrameDragOver(object? sender, DragEventArgs e)
     {
-        if (e.DataTransfer.Contains(BeutlDataFormats.EngineObject)
+        if (
+            e.DataTransfer.Contains(BeutlDataFormats.EngineObject)
             || e.DataTransfer.Contains(BeutlDataFormats.FilterEffect)
             || e.DataTransfer.Contains(BeutlDataFormats.Transform)
-            || e.DataTransfer.Contains(DataFormat.File))
+            || e.DataTransfer.Contains(DataFormat.File)
+        )
         {
             e.DragEffects = DragDropEffects.Copy;
         }

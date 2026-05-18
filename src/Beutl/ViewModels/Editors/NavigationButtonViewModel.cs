@@ -17,7 +17,9 @@ public interface INavigationButtonViewModel
     bool CanWrite { get; }
 }
 
-public sealed class NavigationButtonViewModel<T> : BaseEditorViewModel<T>, INavigationButtonViewModel
+public sealed class NavigationButtonViewModel<T>
+    : BaseEditorViewModel<T>,
+        INavigationButtonViewModel
     where T : ICoreObject
 {
     public NavigationButtonViewModel(IPropertyAdapter<T> property)
@@ -25,18 +27,18 @@ public sealed class NavigationButtonViewModel<T> : BaseEditorViewModel<T>, INavi
     {
         CanWrite = !property.IsReadOnly;
 
-        IsSet = property.GetObservable()
+        IsSet = property
+            .GetObservable()
             .Select(x => x != null)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(Disposables);
 
-        IsNotSetAndCanWrite = IsSet.Select(x => !x && CanWrite)
+        IsNotSetAndCanWrite = IsSet
+            .Select(x => !x && CanWrite)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(Disposables);
 
-        Value = property.GetObservable()
-            .ToReadOnlyReactivePropertySlim()
-            .DisposeWith(Disposables);
+        Value = property.GetObservable().ToReadOnlyReactivePropertySlim().DisposeWith(Disposables);
     }
 
     public ReadOnlyReactivePropertySlim<T?> Value { get; }

@@ -31,7 +31,17 @@ public readonly struct FontMetrics : IEquatable<FontMetrics>
 
     public bool Equals(FontMetrics other)
     {
-        return Leading == other.Leading && CapHeight == other.CapHeight && XHeight == other.XHeight && XMax == other.XMax && XMin == other.XMin && MaxCharacterWidth == other.MaxCharacterWidth && AverageCharacterWidth == other.AverageCharacterWidth && Bottom == other.Bottom && Descent == other.Descent && Ascent == other.Ascent && Top == other.Top;
+        return Leading == other.Leading
+            && CapHeight == other.CapHeight
+            && XHeight == other.XHeight
+            && XMax == other.XMax
+            && XMin == other.XMin
+            && MaxCharacterWidth == other.MaxCharacterWidth
+            && AverageCharacterWidth == other.AverageCharacterWidth
+            && Bottom == other.Bottom
+            && Descent == other.Descent
+            && Ascent == other.Ascent
+            && Top == other.Top;
     }
 
     public override int GetHashCode()

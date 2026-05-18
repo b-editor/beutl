@@ -63,36 +63,37 @@ public abstract class BaseEditorViewModel : IPropertyEditorContext, IServiceProv
             .ToReadOnlyReactivePropertySlim()
             .AddTo(Disposables);
 
-        IsReadOnly = CanEdit.Not()
-            .ToReadOnlyReactivePropertySlim()
-            .AddTo(Disposables);
+        IsReadOnly = CanEdit.Not().ToReadOnlyReactivePropertySlim().AddTo(Disposables);
 
-        HasAnimation = hasAnimation
-            .ToReadOnlyReactiveProperty()
-            .AddTo(Disposables);
+        HasAnimation = hasAnimation.ToReadOnlyReactiveProperty().AddTo(Disposables);
 
-        HasExpression = hasExpression
-            .ToReadOnlyReactiveProperty()
-            .AddTo(Disposables);
+        HasExpression = hasExpression.ToReadOnlyReactiveProperty().AddTo(Disposables);
 
         if (property is IAnimatablePropertyAdapter animatableProperty)
         {
-            KeyFrameCount = animatableProperty.ObserveAnimation
-                .Select(x => (x as IKeyFrameAnimation)?.KeyFrames.ObserveProperty(y => y.Count) ?? Observable.ReturnThenNever(0))
+            KeyFrameCount = animatableProperty
+                .ObserveAnimation.Select(x =>
+                    (x as IKeyFrameAnimation)?.KeyFrames.ObserveProperty(y => y.Count)
+                    ?? Observable.ReturnThenNever(0)
+                )
                 .Switch()
                 .ToReadOnlyReactiveProperty()
                 .DisposeWith(Disposables);
 
             KeyFrameIndex
-                .CombineLatest(animatableProperty.ObserveAnimation
-                    .Select(x => (x as IKeyFrameAnimation)?.KeyFrames)
-                    .Select(x => x?.CollectionChangedAsObservable()
-                        .Do(_ => _skipKeyFrameIndexSubscription = true)
-                        .Select(_ => x)
-                        .Publish(x)
-                        .RefCount())
-                    .Select(x => x ?? Observable.ReturnThenNever<KeyFrames?>(default))
-                    .Switch())
+                .CombineLatest(
+                    animatableProperty
+                        .ObserveAnimation.Select(x => (x as IKeyFrameAnimation)?.KeyFrames)
+                        .Select(x =>
+                            x?.CollectionChangedAsObservable()
+                                .Do(_ => _skipKeyFrameIndexSubscription = true)
+                                .Select(_ => x)
+                                .Publish(x)
+                                .RefCount()
+                        )
+                        .Select(x => x ?? Observable.ReturnThenNever<KeyFrames?>(default))
+                        .Switch()
+                )
                 .CombineWithPrevious()
                 .Subscribe(t =>
                 {
@@ -103,7 +104,8 @@ public abstract class BaseEditorViewModel : IPropertyEditorContext, IServiceProv
 
                         if (_clock != null && keyframes is { Count: > 0 })
                         {
-                            int newCeiled = (int)Math.Clamp(MathF.Ceiling(newIndex), 0, keyframes.Count - 1);
+                            int newCeiled = (int)
+                                Math.Clamp(MathF.Ceiling(newIndex), 0, keyframes.Count - 1);
                             EditingKeyFrame.Value = keyframes[newCeiled];
 
                             if (!_skipKeyFrameIndexSubscription && newIndex != oldIndex)
@@ -111,7 +113,9 @@ public abstract class BaseEditorViewModel : IPropertyEditorContext, IServiceProv
                                 TimeSpan start = _element?.Start ?? default;
                                 TimeSpan keyTime = EditingKeyFrame.Value.KeyTime;
 
-                                _clock.CurrentTime.Value = animation.UseGlobalClock ? keyTime : keyTime + start;
+                                _clock.CurrentTime.Value = animation.UseGlobalClock
+                                    ? keyTime
+                                    : keyTime + start;
                             }
                         }
                         else
@@ -136,7 +140,8 @@ public abstract class BaseEditorViewModel : IPropertyEditorContext, IServiceProv
 
     ~BaseEditorViewModel()
     {
-        if (IsDisposed) return;
+        if (IsDisposed)
+            return;
 
         Logger.LogWarning("Finalizer called on {TypeName}", GetType().Name);
         Dispatcher.UIThread.Post(() =>
@@ -176,7 +181,8 @@ public abstract class BaseEditorViewModel : IPropertyEditorContext, IServiceProv
 
     public bool IsAnimatable => PropertyAdapter is IAnimatablePropertyAdapter;
 
-    [AllowNull] public PropertyEditorExtension Extension { get; set; }
+    [AllowNull]
+    public PropertyEditorExtension Extension { get; set; }
 
     protected ImmutableArray<CoreObject?> GetStorables() => [_element];
 
@@ -192,13 +198,9 @@ public abstract class BaseEditorViewModel : IPropertyEditorContext, IServiceProv
 
     public abstract void Reset();
 
-    public virtual void WriteToJson(JsonObject json)
-    {
-    }
+    public virtual void WriteToJson(JsonObject json) { }
 
-    public virtual void ReadFromJson(JsonObject json)
-    {
-    }
+    public virtual void ReadFromJson(JsonObject json) { }
 
     public IAnimation? GetAnimation()
     {
@@ -222,30 +224,42 @@ public abstract class BaseEditorViewModel : IPropertyEditorContext, IServiceProv
 
                 if (PropertyAdapter is IAnimatablePropertyAdapter animatableProperty)
                 {
-                    _currentFrameRevoker = _clock.CurrentTime
-                        .Do(_currentTime.OnNext)
-                        .CombineLatest(animatableProperty.ObserveAnimation
-                            .Select(x => (x as IKeyFrameAnimation)?.KeyFrames)
-                            .Select(x => x?.CollectionChangedAsObservable()
-                                .Select(_ => x)
-                                .Publish(x)
-                                .RefCount())
-                            .Select(x => x ?? Observable.ReturnThenNever<KeyFrames?>(default))
-                            .Switch())
+                    _currentFrameRevoker = _clock
+                        .CurrentTime.Do(_currentTime.OnNext)
+                        .CombineLatest(
+                            animatableProperty
+                                .ObserveAnimation.Select(x => (x as IKeyFrameAnimation)?.KeyFrames)
+                                .Select(x =>
+                                    x?.CollectionChangedAsObservable()
+                                        .Select(_ => x)
+                                        .Publish(x)
+                                        .RefCount()
+                                )
+                                .Select(x => x ?? Observable.ReturnThenNever<KeyFrames?>(default))
+                                .Switch()
+                        )
                         .Subscribe(t =>
                         {
                             if (GetAnimation() is { } animation)
                             {
-                                int rate = _editViewModel?.Scene?.FindHierarchicalParent<Project>().GetFrameRate() ??
-                                           30;
+                                int rate =
+                                    _editViewModel
+                                        ?.Scene?.FindHierarchicalParent<Project>()
+                                        .GetFrameRate()
+                                    ?? 30;
 
                                 TimeSpan globalkeyTime = t.First;
                                 TimeSpan localKeyTime =
-                                    _element != null ? globalkeyTime - _element.Start : globalkeyTime;
-                                TimeSpan keyTime = animation.UseGlobalClock ? globalkeyTime : localKeyTime;
+                                    _element != null
+                                        ? globalkeyTime - _element.Start
+                                        : globalkeyTime;
+                                TimeSpan keyTime = animation.UseGlobalClock
+                                    ? globalkeyTime
+                                    : localKeyTime;
                                 keyTime = keyTime.RoundToRate(rate);
 
-                                IsSymbolIconFilled.Value = t.Second?.Any(obj => obj.KeyTime == keyTime) ?? false;
+                                IsSymbolIconFilled.Value =
+                                    t.Second?.Any(obj => obj.KeyTime == keyTime) ?? false;
                                 if (t.Second != null)
                                 {
                                     float kfIndex = t.Second.IndexAtOrCount(keyTime);
@@ -260,8 +274,7 @@ public abstract class BaseEditorViewModel : IPropertyEditorContext, IServiceProv
                 }
                 else
                 {
-                    _currentFrameRevoker = _clock.CurrentTime
-                        .Subscribe(_currentTime.OnNext);
+                    _currentFrameRevoker = _clock.CurrentTime.Subscribe(_currentTime.OnNext);
                 }
             }
         }
@@ -273,7 +286,9 @@ public abstract class BaseEditorViewModel : IPropertyEditorContext, IServiceProv
             if (PropertyAdapter is IAnimatablePropertyAdapter animatableProperty)
             {
                 editor[!PropertyEditor.KeyFrameCountProperty] = KeyFrameCount.ToBinding();
-                editor[!PropertyEditor.KeyFrameIndexProperty] = KeyFrameIndex.ToPropertyBinding(BindingMode.TwoWay);
+                editor[!PropertyEditor.KeyFrameIndexProperty] = KeyFrameIndex.ToPropertyBinding(
+                    BindingMode.TwoWay
+                );
             }
         }
     }
@@ -300,31 +315,24 @@ public abstract class BaseEditorViewModel : IPropertyEditorContext, IServiceProv
         PropertyAdapter = null!;
     }
 
-    public virtual void InsertKeyFrame(TimeSpan keyTime)
-    {
-    }
+    public virtual void InsertKeyFrame(TimeSpan keyTime) { }
 
-    public virtual void RemoveKeyFrame(TimeSpan keyTime)
-    {
-    }
+    public virtual void RemoveKeyFrame(TimeSpan keyTime) { }
 
-    public virtual void PrepareToEditAnimation()
-    {
-    }
+    public virtual void PrepareToEditAnimation() { }
 
-    public virtual void RemoveAnimation()
-    {
-    }
+    public virtual void RemoveAnimation() { }
 
-    public virtual bool SetExpression(string expressionString, [NotNullWhen(false)] out string? error)
+    public virtual bool SetExpression(
+        string expressionString,
+        [NotNullWhen(false)] out string? error
+    )
     {
         error = null;
         return true;
     }
 
-    public virtual void RemoveExpression()
-    {
-    }
+    public virtual void RemoveExpression() { }
 
     public virtual string? GetExpressionString()
     {
@@ -332,8 +340,8 @@ public abstract class BaseEditorViewModel : IPropertyEditorContext, IServiceProv
     }
 
     // 任意のICoreSerializableオブジェクトのクリップボードコピー&ペースト対応
-    private static readonly IReadOnlyReactiveProperty<bool> s_alwaysFalse
-        = new ReactivePropertySlim<bool>(false);
+    private static readonly IReadOnlyReactiveProperty<bool> s_alwaysFalse =
+        new ReactivePropertySlim<bool>(false);
 
     private readonly ReactivePropertySlim<bool> _canPaste = new(false);
 
@@ -349,16 +357,20 @@ public abstract class BaseEditorViewModel : IPropertyEditorContext, IServiceProv
 
     public virtual async ValueTask<bool> CopyAsync()
     {
-        if (PasteFormat is not { } format) return false;
-        if (GetCopyTarget() is not { } obj) return false;
+        if (PasteFormat is not { } format)
+            return false;
+        if (GetCopyTarget() is not { } obj)
+            return false;
         return await CoreObjectClipboard.CopyAsync(obj, format);
     }
 
     public virtual async ValueTask<bool> PasteAsync()
     {
-        if (PasteFormat is not { } format) return false;
+        if (PasteFormat is not { } format)
+            return false;
         var clipboard = ClipboardHelper.GetClipboard();
-        if (clipboard == null) return false;
+        if (clipboard == null)
+            return false;
         string? json = await CoreObjectClipboard.TryGetJsonAsync(clipboard, format);
         return json != null && TryPasteJson(json);
     }
@@ -378,8 +390,10 @@ public abstract class BaseEditorViewModel : IPropertyEditorContext, IServiceProv
 
     public virtual bool AddTemplateAsListItem(ObjectTemplateItem template)
     {
-        if (PropertyAdapter is not IListItemAccessor accessor) return false;
-        if (template.CreateInstance() is not { } instance) return false;
+        if (PropertyAdapter is not IListItemAccessor accessor)
+            return false;
+        if (template.CreateInstance() is not { } instance)
+            return false;
 
         try
         {
@@ -394,8 +408,8 @@ public abstract class BaseEditorViewModel : IPropertyEditorContext, IServiceProv
         }
     }
 
-    public virtual IEnumerable<ObjectTemplateItem> GetApplicableTemplates()
-        => TemplateBaseType is { } t ? ObjectTemplateService.Instance.FindByBaseType(t) : [];
+    public virtual IEnumerable<ObjectTemplateItem> GetApplicableTemplates() =>
+        TemplateBaseType is { } t ? ObjectTemplateService.Instance.FindByBaseType(t) : [];
 
     public virtual string GetTemplateDefaultName()
     {
@@ -406,7 +420,8 @@ public abstract class BaseEditorViewModel : IPropertyEditorContext, IServiceProv
 
     public ValueTask<bool> SaveAsTemplateAsync(string name)
     {
-        if (GetTemplateTarget() is not { } target) return new(false);
+        if (GetTemplateTarget() is not { } target)
+            return new(false);
         return new(ObjectTemplateService.Instance.AddFromInstance(target, name) != null);
     }
 
@@ -444,17 +459,27 @@ public abstract class BaseEditorViewModel : IPropertyEditorContext, IServiceProv
 
     public void InvalidateFrameCache()
     {
-        if (this.GetService<EditViewModel>() is { Player: { } player, FrameCacheManager.Value: { } cacheManager })
+        if (
+            this.GetService<EditViewModel>() is
+            { Player: { } player, FrameCacheManager.Value: { } cacheManager }
+        )
         {
             Task.Run(() =>
             {
                 int rate = player.GetFrameRate();
                 ImmutableArray<CoreObject?> storables = GetStorables();
-                IEnumerable<TimeRange> affectedRange = storables.OfType<Element>().Select(v => v.Range);
+                IEnumerable<TimeRange> affectedRange = storables
+                    .OfType<Element>()
+                    .Select(v => v.Range);
 
-                cacheManager.DeleteAndUpdateBlocks(affectedRange
-                    .Select(item => (Start: (int)item.Start.ToFrameNumber(rate),
-                        End: (int)Math.Ceiling(item.End.ToFrameNumber(rate)))));
+                cacheManager.DeleteAndUpdateBlocks(
+                    affectedRange.Select(item =>
+                        (
+                            Start: (int)item.Start.ToFrameNumber(rate),
+                            End: (int)Math.Ceiling(item.End.ToFrameNumber(rate))
+                        )
+                    )
+                );
             });
         }
     }
@@ -465,14 +490,15 @@ public abstract class BaseEditorViewModel<T> : BaseEditorViewModel
     protected BaseEditorViewModel(IPropertyAdapter<T> property)
         : base(property)
     {
-        EditingKeyFrame = base.EditingKeyFrame
-            .Select(x => x as KeyFrame<T>)
+        EditingKeyFrame = base
+            .EditingKeyFrame.Select(x => x as KeyFrame<T>)
             .ToReadOnlyReactiveProperty()
             .DisposeWith(Disposables);
 
         if (typeof(T).IsAssignableTo(typeof(CoreObject)))
         {
-            PropertyAdapter.GetObservable()
+            PropertyAdapter
+                .GetObservable()
                 .Subscribe(value =>
                 {
                     if (value is CoreObject obj)
@@ -564,16 +590,19 @@ public abstract class BaseEditorViewModel<T> : BaseEditorViewModel
 
     public override void InsertKeyFrame(TimeSpan keyTime)
     {
-        if (GetAnimation() is not KeyFrameAnimation<T> kfAnimation) return;
+        if (GetAnimation() is not KeyFrameAnimation<T> kfAnimation)
+            return;
 
         var keyframe = AnimationOperations.InsertKeyFrame(
             animation: kfAnimation,
             easing: null,
             keyTime: keyTime,
-            logger: Logger);
+            logger: Logger
+        );
         Commit();
 
-        if (keyframe == null) return;
+        if (keyframe == null)
+            return;
 
         int index = kfAnimation.KeyFrames.IndexOf(keyframe);
         if (index >= 0)
@@ -584,28 +613,34 @@ public abstract class BaseEditorViewModel<T> : BaseEditorViewModel
 
     public override void RemoveKeyFrame(TimeSpan keyTime)
     {
-        if (GetAnimation() is not KeyFrameAnimation<T> kfAnimation) return;
+        if (GetAnimation() is not KeyFrameAnimation<T> kfAnimation)
+            return;
 
         AnimationOperations.RemoveKeyFrame(
             animation: kfAnimation,
             keyTime: keyTime,
-            logger: Logger);
+            logger: Logger
+        );
         Commit();
     }
 
     public override void PrepareToEditAnimation()
     {
-        if (PropertyAdapter is IAnimatablePropertyAdapter<T> animatableProperty
-            && animatableProperty.Animation is not KeyFrameAnimation<T>)
+        if (
+            PropertyAdapter is IAnimatablePropertyAdapter<T> animatableProperty
+            && animatableProperty.Animation is not KeyFrameAnimation<T>
+        )
         {
             var newAnimation = new KeyFrameAnimation<T>();
             T initialValue = animatableProperty.GetValue()!;
-            newAnimation.KeyFrames.Add(new KeyFrame<T>
-            {
-                Value = initialValue,
-                Easing = new SplineEasing(),
-                KeyTime = TimeSpan.Zero
-            });
+            newAnimation.KeyFrames.Add(
+                new KeyFrame<T>
+                {
+                    Value = initialValue,
+                    Easing = new SplineEasing(),
+                    KeyTime = TimeSpan.Zero,
+                }
+            );
 
             animatableProperty.Animation = newAnimation;
             if (PropertyAdapter is IExpressionPropertyAdapter<T> ep)
@@ -626,7 +661,10 @@ public abstract class BaseEditorViewModel<T> : BaseEditorViewModel
         }
     }
 
-    public override bool SetExpression(string expressionString, [NotNullWhen(false)] out string? error)
+    public override bool SetExpression(
+        string expressionString,
+        [NotNullWhen(false)] out string? error
+    )
     {
         if (PropertyAdapter is IExpressionPropertyAdapter<T> expressionProperty)
         {

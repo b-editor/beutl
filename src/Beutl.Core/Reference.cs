@@ -25,13 +25,11 @@ public readonly struct Reference<TObject> : IEquatable<Reference<TObject>>, IRef
     private readonly TObject? _value;
     private readonly Guid _id;
 
-    public Reference(Guid id) : this(id, null)
-    {
-    }
+    public Reference(Guid id)
+        : this(id, null) { }
 
-    public Reference(TObject value) : this(value.Id, value)
-    {
-    }
+    public Reference(TObject value)
+        : this(value.Id, value) { }
 
     public Reference(Guid id, TObject? value)
     {
@@ -39,9 +37,7 @@ public readonly struct Reference<TObject> : IEquatable<Reference<TObject>>, IRef
         _value = value;
     }
 
-    public Reference()
-    {
-    }
+    public Reference() { }
 
     public Guid Id => _value?.Id ?? _id;
 
@@ -69,7 +65,8 @@ public readonly struct Reference<TObject> : IEquatable<Reference<TObject>>, IRef
         Value = this.Value;
     }
 
-    public bool Equals(Reference<TObject> other) => Id.Equals(other.Id) && EqualityComparer<TObject?>.Default.Equals(_value, other._value);
+    public bool Equals(Reference<TObject> other) =>
+        Id.Equals(other.Id) && EqualityComparer<TObject?>.Default.Equals(_value, other._value);
 
     public override bool Equals(object? obj) => obj is Reference<TObject> other && Equals(other);
 
@@ -81,9 +78,12 @@ public readonly struct Reference<TObject> : IEquatable<Reference<TObject>>, IRef
 
     public static implicit operator TObject?(Reference<TObject> reference) => reference.Value;
 
-    public static implicit operator Reference<TObject>(TObject? value) => new(value?.Id ?? default, value);
+    public static implicit operator Reference<TObject>(TObject? value) =>
+        new(value?.Id ?? default, value);
 
-    public static bool operator ==(Reference<TObject> left, Reference<TObject> right) => left.Equals(right);
+    public static bool operator ==(Reference<TObject> left, Reference<TObject> right) =>
+        left.Equals(right);
 
-    public static bool operator !=(Reference<TObject> left, Reference<TObject> right) => !left.Equals(right);
+    public static bool operator !=(Reference<TObject> left, Reference<TObject> right) =>
+        !left.Equals(right);
 }

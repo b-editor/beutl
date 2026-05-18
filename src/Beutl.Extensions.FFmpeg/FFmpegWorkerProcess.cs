@@ -12,7 +12,9 @@ namespace Beutl.Extensions.FFmpeg;
 public sealed class FFmpegWorkerProcess : IDisposable
 {
     private static readonly ILogger s_logger = Log.CreateLogger("FFmpegWorker");
-    private static readonly Lazy<FFmpegWorkerProcess> s_decodingInstance = new(() => new FFmpegWorkerProcess(multiplexed: true));
+    private static readonly Lazy<FFmpegWorkerProcess> s_decodingInstance = new(() =>
+        new FFmpegWorkerProcess(multiplexed: true)
+    );
     public static FFmpegWorkerProcess DecodingInstance => s_decodingInstance.Value;
 
     public static FFmpegWorkerProcess CreateForEncoding() => new(multiplexed: false);
@@ -88,7 +90,8 @@ public sealed class FFmpegWorkerProcess : IDisposable
         if (FFmpegInstallNotifier.IsLibrariesMissing)
         {
             throw new FFmpegLibrariesNotFoundException(
-                "FFmpeg libraries are missing; install FFmpeg before starting the worker.");
+                "FFmpeg libraries are missing; install FFmpeg before starting the worker."
+            );
         }
 #endif
     }
@@ -105,7 +108,8 @@ public sealed class FFmpegWorkerProcess : IDisposable
             PipeDirection.InOut,
             1,
             PipeTransmissionMode.Byte,
-            PipeOptions.Asynchronous);
+            PipeOptions.Asynchronous
+        );
 
         try
         {
@@ -121,7 +125,8 @@ public sealed class FFmpegWorkerProcess : IDisposable
             startInfo.RedirectStandardError = true;
             startInfo.RedirectStandardOutput = true;
 
-            _process = Process.Start(startInfo)
+            _process =
+                Process.Start(startInfo)
                 ?? throw new InvalidOperationException("Failed to start FFmpeg worker process");
 
             // stdout/stderr のドレインはストリームリーダースレッドから即時 enqueue するだけにし、
@@ -149,35 +154,50 @@ public sealed class FFmpegWorkerProcess : IDisposable
                 // 敗者となった connectTask の例外を観測しておく（UnobservedTaskException 防止）
                 connectCts.Cancel();
                 _ = connectTask.ContinueWith(
-                    static t => { _ = t.Exception; },
+                    static t =>
+                    {
+                        _ = t.Exception;
+                    },
                     CancellationToken.None,
-                    TaskContinuationOptions.OnlyOnFaulted | TaskContinuationOptions.ExecuteSynchronously,
-                    TaskScheduler.Default);
+                    TaskContinuationOptions.OnlyOnFaulted
+                        | TaskContinuationOptions.ExecuteSynchronously,
+                    TaskScheduler.Default
+                );
 
                 pipeServer.Dispose();
                 if (code == 2)
                 {
                     throw new FFmpegLibrariesNotFoundException(
-                        "FFmpeg worker exited because the FFmpeg libraries could not be found.");
+                        "FFmpeg worker exited because the FFmpeg libraries could not be found."
+                    );
                 }
                 throw new InvalidOperationException(
-                    $"FFmpeg worker exited unexpectedly with code {code} before establishing connection.");
+                    $"FFmpeg worker exited unexpectedly with code {code} before establishing connection."
+                );
             }
 
             // 接続が先に成立。例外があれば伝播させる
             await connectTask;
             // 敗者となった exitTask の例外を観測しておく（UnobservedTaskException 防止）
             _ = exitTask.ContinueWith(
-                static t => { _ = t.Exception; },
+                static t =>
+                {
+                    _ = t.Exception;
+                },
                 CancellationToken.None,
-                TaskContinuationOptions.OnlyOnFaulted | TaskContinuationOptions.ExecuteSynchronously,
-                TaskScheduler.Default);
+                TaskContinuationOptions.OnlyOnFaulted
+                    | TaskContinuationOptions.ExecuteSynchronously,
+                TaskScheduler.Default
+            );
         }
         catch (OperationCanceledException)
         {
             if (_process != null)
             {
-                try { _process.Kill(); }
+                try
+                {
+                    _process.Kill();
+                }
                 catch (InvalidOperationException) { }
             }
             pipeServer.Dispose();
@@ -198,21 +218,32 @@ public sealed class FFmpegWorkerProcess : IDisposable
             // 共有メモリは参照カウントで管理されるため通常は呼ばれない。
             // 将来 CancellationToken 対応リードを追加した際のリグレッション検知として
             // 観測のみログに残す (実際のバッファ解放は消費側の責務とする)。
-            DroppedResponseHandler = msg => s_logger.LogWarning(
-                "Dropped IPC response Id={Id} Type={Type}; no awaiter present.", msg.Id, msg.Type)
+            DroppedResponseHandler = msg =>
+                s_logger.LogWarning(
+                    "Dropped IPC response Id={Id} Type={Type}; no awaiter present.",
+                    msg.Id,
+                    msg.Type
+                ),
         };
 
         // ハンドシェイク待機（プロトコルバージョン検証）
-        var handshake = await _connection.ReceiveAsync(ct)
+        var handshake =
+            await _connection.ReceiveAsync(ct)
             ?? throw new InvalidOperationException("Worker closed connection during handshake");
 
         if (handshake.Type != MessageType.HandshakeAck)
-            throw new InvalidOperationException($"Invalid handshake: expected HandshakeAck, got {handshake.Type}");
+            throw new InvalidOperationException(
+                $"Invalid handshake: expected HandshakeAck, got {handshake.Type}"
+            );
 
         var handshakePayload = handshake.GetPayload<HandshakeMessage>();
-        if (handshakePayload != null && handshakePayload.ProtocolVersion != ProtocolConstants.CurrentVersion)
+        if (
+            handshakePayload != null
+            && handshakePayload.ProtocolVersion != ProtocolConstants.CurrentVersion
+        )
             throw new InvalidOperationException(
-                $"Protocol version mismatch: host={ProtocolConstants.CurrentVersion}, worker={handshakePayload.ProtocolVersion}");
+                $"Protocol version mismatch: host={ProtocolConstants.CurrentVersion}, worker={handshakePayload.ProtocolVersion}"
+            );
 
         // デコード用接続は多重化モードで起動（複数リーダーからの並行リクエスト対応）
         if (_multiplexed)
@@ -239,7 +270,8 @@ public sealed class FFmpegWorkerProcess : IDisposable
             if (!File.Exists(dllPath) && !path.EndsWith(".exe"))
                 dllPath = path + ".dll";
 
-            string dotnetHost = Environment.GetEnvironmentVariable("DOTNET_HOST_PATH")
+            string dotnetHost =
+                Environment.GetEnvironmentVariable("DOTNET_HOST_PATH")
                 ?? (OperatingSystem.IsWindows() ? "dotnet.exe" : "dotnet");
             startInfo.FileName = dotnetHost;
             startInfo.ArgumentList.Insert(0, dllPath);
@@ -255,8 +287,13 @@ public sealed class FFmpegWorkerProcess : IDisposable
         {
             if (!_process.HasExited)
             {
-                try { _process.Kill(); }
-                catch (InvalidOperationException) { /* プロセスが既に終了 */ }
+                try
+                {
+                    _process.Kill();
+                }
+                catch (InvalidOperationException)
+                { /* プロセスが既に終了 */
+                }
                 catch (Exception ex)
                 {
                     s_logger.LogWarning(ex, "Failed to kill worker process");
@@ -278,8 +315,10 @@ public sealed class FFmpegWorkerProcess : IDisposable
         {
             try
             {
-                _connection.SendAsync(
-                    IpcMessage.CreateSimple(0, MessageType.Shutdown)).AsTask().Wait(3000);
+                _connection
+                    .SendAsync(IpcMessage.CreateSimple(0, MessageType.Shutdown))
+                    .AsTask()
+                    .Wait(3000);
             }
             catch (Exception ex)
             {

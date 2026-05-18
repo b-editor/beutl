@@ -27,7 +27,10 @@ public sealed partial class Sphere3D : Object3D
     /// <summary>
     /// Gets the number of horizontal segments (longitude).
     /// </summary>
-    [Display(Name = nameof(GraphicsStrings.Sphere3D_Segments), ResourceType = typeof(GraphicsStrings))]
+    [Display(
+        Name = nameof(GraphicsStrings.Sphere3D_Segments),
+        ResourceType = typeof(GraphicsStrings)
+    )]
     [Range(3, 128), NumberStep(1, 1)]
     public IProperty<int> Segments { get; } = Property.CreateAnimatable(32);
 

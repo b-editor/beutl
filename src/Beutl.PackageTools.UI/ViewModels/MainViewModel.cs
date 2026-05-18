@@ -1,9 +1,7 @@
 ﻿using System.CommandLine;
 using System.CommandLine.Parsing;
-
 using Beutl.Logging;
 using Beutl.PackageTools.UI.Models;
-
 using Reactive.Bindings;
 
 namespace Beutl.PackageTools.UI.ViewModels;
@@ -29,7 +27,7 @@ public class MainViewModel
         _beutlProcesses =
         [
             .. Process.GetProcessesByName("Beutl"),
-            .. Process.GetProcessesByName("beutl")
+            .. Process.GetProcessesByName("beutl"),
         ];
 
         _pkgProcesses =
@@ -59,7 +57,12 @@ public class MainViewModel
                 _logger.LogError(ex, "An error occurred during authentication");
             }
 
-            (string[] installItems, string[] uninstallItems, string[] updateItems, bool launchDebugger) = ParseArgs();
+            (
+                string[] installItems,
+                string[] uninstallItems,
+                string[] updateItems,
+                bool launchDebugger
+            ) = ParseArgs();
 
             if (!Debugger.IsAttached && launchDebugger)
             {
@@ -70,10 +73,13 @@ public class MainViewModel
             {
                 await _model.Load(_app, installItems, uninstallItems, updateItems);
 
-                _viewModels.AddRange(InstallItems.Concat(UpdateItems)
-                    .Concat(UninstallItems)
-                    .Select(i => i.CreateViewModel(_app, _model))
-                    .Where(i => i != null)!);
+                _viewModels.AddRange(
+                    InstallItems
+                        .Concat(UpdateItems)
+                        .Concat(UninstallItems)
+                        .Select(i => i.CreateViewModel(_app, _model))
+                        .Where(i => i != null)!
+                );
             }
             finally
             {
@@ -132,7 +138,12 @@ public class MainViewModel
         }
     }
 
-    private static (string[] InstallItems, string[] UninstallItems, string[] UpdateItems, bool LaunchDebugger) ParseArgs()
+    private static (
+        string[] InstallItems,
+        string[] UninstallItems,
+        string[] UpdateItems,
+        bool LaunchDebugger
+    ) ParseArgs()
     {
         var command = new RootCommand();
         var installs = new Option<string[]>("--installs", "-i")
@@ -147,14 +158,8 @@ public class MainViewModel
         {
             AllowMultipleArgumentsPerToken = true,
         };
-        var launchDebugger = new Option<bool>("--launch-debugger")
-        {
-            Hidden = true
-        };
-        var sessionId = new Option<string?>("--session-id")
-        {
-            Hidden = true,
-        };
+        var launchDebugger = new Option<bool>("--launch-debugger") { Hidden = true };
+        var sessionId = new Option<string?>("--session-id") { Hidden = true };
         command.Add(installs);
         command.Add(uninstalls);
         command.Add(updates);
@@ -203,9 +208,16 @@ public class MainViewModel
     public ResultViewModel Result()
     {
         return new ResultViewModel(
-            install: [.. _viewModels.Where(x => x is { Model.Action: PackageChangeAction.Install })],
-            uninstall: [.. _viewModels.Where(x => x is { Model.Action: PackageChangeAction.Uninstall })],
+            install:
+            [
+                .. _viewModels.Where(x => x is { Model.Action: PackageChangeAction.Install }),
+            ],
+            uninstall:
+            [
+                .. _viewModels.Where(x => x is { Model.Action: PackageChangeAction.Uninstall }),
+            ],
             update: [.. _viewModels.Where(x => x is { Model.Action: PackageChangeAction.Update })],
-            clean: _cleanViewModel?.Items?.Length > 0 ? _cleanViewModel : null);
+            clean: _cleanViewModel?.Items?.Length > 0 ? _cleanViewModel : null
+        );
     }
 }

@@ -14,30 +14,37 @@ public static class TypeDisplayHelpers
     }
 
     private static readonly ConditionalWeakTable<Type, DisplayInfo> s_displayCache = new();
-    private static readonly ConditionalWeakTable<MemberInfo, DisplayInfo> s_memberDisplayCache = new();
+    private static readonly ConditionalWeakTable<MemberInfo, DisplayInfo> s_memberDisplayCache =
+        new();
 
     private static DisplayInfo GetDisplayInfo(Type type)
     {
         ArgumentNullException.ThrowIfNull(type);
 
-        return s_displayCache.GetOrAdd(type, t =>
-        {
-            var displayAttribute = t.GetCustomAttribute<DisplayAttribute>();
-            var name = displayAttribute?.GetName() ?? t.Name;
-            var description = displayAttribute?.GetDescription();
-            return new DisplayInfo(name, description);
-        });
+        return s_displayCache.GetOrAdd(
+            type,
+            t =>
+            {
+                var displayAttribute = t.GetCustomAttribute<DisplayAttribute>();
+                var name = displayAttribute?.GetName() ?? t.Name;
+                var description = displayAttribute?.GetDescription();
+                return new DisplayInfo(name, description);
+            }
+        );
     }
 
     private static DisplayInfo GetDisplayInfo(MemberInfo member)
     {
-        return s_memberDisplayCache.GetOrAdd(member, m =>
-        {
-            var displayAttribute = m.GetCustomAttribute<DisplayAttribute>();
-            var name = displayAttribute?.GetName() ?? m.Name;
-            var description = displayAttribute?.GetDescription();
-            return new DisplayInfo(name, description);
-        });
+        return s_memberDisplayCache.GetOrAdd(
+            member,
+            m =>
+            {
+                var displayAttribute = m.GetCustomAttribute<DisplayAttribute>();
+                var name = displayAttribute?.GetName() ?? m.Name;
+                var description = displayAttribute?.GetDescription();
+                return new DisplayInfo(name, description);
+            }
+        );
     }
 
     public static string GetLocalizedName(Type type)

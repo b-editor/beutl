@@ -14,71 +14,101 @@ namespace Beutl.Editor.Components.Views;
 
 public sealed class TimelineScale : Control
 {
-    public static readonly DirectProperty<TimelineScale, float> ScaleProperty
-        = AvaloniaProperty.RegisterDirect<TimelineScale, float>(
+    public static readonly DirectProperty<TimelineScale, float> ScaleProperty =
+        AvaloniaProperty.RegisterDirect<TimelineScale, float>(
             nameof(Scale),
-            o => o.Scale, (o, v) => o.Scale = v,
-            1);
+            o => o.Scale,
+            (o, v) => o.Scale = v,
+            1
+        );
 
-    public static readonly DirectProperty<TimelineScale, Vector> OffsetProperty
-        = AvaloniaProperty.RegisterDirect<TimelineScale, Vector>(
-            nameof(Offset), o => o.Offset, (o, v) => o.Offset = v);
+    public static readonly DirectProperty<TimelineScale, Vector> OffsetProperty =
+        AvaloniaProperty.RegisterDirect<TimelineScale, Vector>(
+            nameof(Offset),
+            o => o.Offset,
+            (o, v) => o.Offset = v
+        );
 
-    public static readonly DirectProperty<TimelineScale, Thickness> StartingBarMarginProperty
-        = AvaloniaProperty.RegisterDirect<TimelineScale, Thickness>(
-            nameof(StartingBarMargin), o => o.StartingBarMargin, (o, v) => o.StartingBarMargin = v);
+    public static readonly DirectProperty<TimelineScale, Thickness> StartingBarMarginProperty =
+        AvaloniaProperty.RegisterDirect<TimelineScale, Thickness>(
+            nameof(StartingBarMargin),
+            o => o.StartingBarMargin,
+            (o, v) => o.StartingBarMargin = v
+        );
 
-    public static readonly DirectProperty<TimelineScale, Thickness> EndingBarMarginProperty
-        = AvaloniaProperty.RegisterDirect<TimelineScale, Thickness>(
-            nameof(EndingBarMargin), o => o.EndingBarMargin, (o, v) => o.EndingBarMargin = v);
+    public static readonly DirectProperty<TimelineScale, Thickness> EndingBarMarginProperty =
+        AvaloniaProperty.RegisterDirect<TimelineScale, Thickness>(
+            nameof(EndingBarMargin),
+            o => o.EndingBarMargin,
+            (o, v) => o.EndingBarMargin = v
+        );
 
-    public static readonly DirectProperty<TimelineScale, Thickness> SeekBarMarginProperty
-        = AvaloniaProperty.RegisterDirect<TimelineScale, Thickness>(
-            nameof(SeekBarMargin), o => o.SeekBarMargin, (o, v) => o.SeekBarMargin = v);
+    public static readonly DirectProperty<TimelineScale, Thickness> SeekBarMarginProperty =
+        AvaloniaProperty.RegisterDirect<TimelineScale, Thickness>(
+            nameof(SeekBarMargin),
+            o => o.SeekBarMargin,
+            (o, v) => o.SeekBarMargin = v
+        );
 
-    public static readonly StyledProperty<double> BufferStartProperty
-        = AvaloniaProperty.Register<TimelineScale, double>(nameof(BufferStart));
+    public static readonly StyledProperty<double> BufferStartProperty = AvaloniaProperty.Register<
+        TimelineScale,
+        double
+    >(nameof(BufferStart));
 
-    public static readonly StyledProperty<double> BufferEndProperty
-        = AvaloniaProperty.Register<TimelineScale, double>(nameof(BufferEnd));
+    public static readonly StyledProperty<double> BufferEndProperty = AvaloniaProperty.Register<
+        TimelineScale,
+        double
+    >(nameof(BufferEnd));
 
-    public static readonly StyledProperty<CacheBlock[]?> CacheBlocksProperty
-        = AvaloniaProperty.Register<TimelineScale, CacheBlock[]?>(nameof(CacheBlocks));
+    public static readonly StyledProperty<CacheBlock[]?> CacheBlocksProperty =
+        AvaloniaProperty.Register<TimelineScale, CacheBlock[]?>(nameof(CacheBlocks));
 
-    public static readonly StyledProperty<CacheBlock?> HoveredCacheBlockProperty
-        = AvaloniaProperty.Register<TimelineScale, CacheBlock?>(nameof(HoveredCacheBlock));
+    public static readonly StyledProperty<CacheBlock?> HoveredCacheBlockProperty =
+        AvaloniaProperty.Register<TimelineScale, CacheBlock?>(nameof(HoveredCacheBlock));
 
-    public static readonly StyledProperty<IBrush?> ScaleBrushProperty
-        = AvaloniaProperty.Register<TimelineScale, IBrush?>(nameof(ScaleBrush));
+    public static readonly StyledProperty<IBrush?> ScaleBrushProperty = AvaloniaProperty.Register<
+        TimelineScale,
+        IBrush?
+    >(nameof(ScaleBrush));
 
-    public static readonly StyledProperty<IBrush?> SeekBarBrushProperty
-        = AvaloniaProperty.Register<TimelineScale, IBrush?>(nameof(SeekBarBrush));
+    public static readonly StyledProperty<IBrush?> SeekBarBrushProperty = AvaloniaProperty.Register<
+        TimelineScale,
+        IBrush?
+    >(nameof(SeekBarBrush));
 
-    public static readonly StyledProperty<IBrush?> StartingBarBrushProperty
-        = AvaloniaProperty.Register<TimelineScale, IBrush?>(nameof(StartingBarBrush));
+    public static readonly StyledProperty<IBrush?> StartingBarBrushProperty =
+        AvaloniaProperty.Register<TimelineScale, IBrush?>(nameof(StartingBarBrush));
 
-    public static readonly StyledProperty<IBrush?> EndingBarBrushProperty
-        = AvaloniaProperty.Register<TimelineScale, IBrush?>(nameof(EndingBarBrush));
+    public static readonly StyledProperty<IBrush?> EndingBarBrushProperty =
+        AvaloniaProperty.Register<TimelineScale, IBrush?>(nameof(EndingBarBrush));
 
-    public static readonly StyledProperty<IBrush?> CacheBlockBrushProperty
-        = AvaloniaProperty.Register<TimelineScale, IBrush?>(nameof(CacheBlockBrush));
+    public static readonly StyledProperty<IBrush?> CacheBlockBrushProperty =
+        AvaloniaProperty.Register<TimelineScale, IBrush?>(nameof(CacheBlockBrush));
 
-    public static readonly StyledProperty<IBrush?> LockedCacheBlockBrushProperty
-        = AvaloniaProperty.Register<TimelineScale, IBrush?>(nameof(LockedCacheBlockBrush));
+    public static readonly StyledProperty<IBrush?> LockedCacheBlockBrushProperty =
+        AvaloniaProperty.Register<TimelineScale, IBrush?>(nameof(LockedCacheBlockBrush));
 
-    public static readonly StyledProperty<IBrush?> BufferBrushProperty
-        = AvaloniaProperty.Register<TimelineScale, IBrush?>(nameof(BufferBrush));
+    public static readonly StyledProperty<IBrush?> BufferBrushProperty = AvaloniaProperty.Register<
+        TimelineScale,
+        IBrush?
+    >(nameof(BufferBrush));
 
-    public static readonly StyledProperty<IEnumerable?> MarkersProperty
-        = AvaloniaProperty.Register<TimelineScale, IEnumerable?>(nameof(Markers));
+    public static readonly StyledProperty<IEnumerable?> MarkersProperty = AvaloniaProperty.Register<
+        TimelineScale,
+        IEnumerable?
+    >(nameof(Markers));
 
-    public static readonly StyledProperty<IBrush?> MarkerLabelBackgroundProperty
-        = AvaloniaProperty.Register<TimelineScale, IBrush?>(nameof(MarkerLabelBackground));
+    public static readonly StyledProperty<IBrush?> MarkerLabelBackgroundProperty =
+        AvaloniaProperty.Register<TimelineScale, IBrush?>(nameof(MarkerLabelBackground));
 
-    public static readonly StyledProperty<IBrush?> MarkerLabelForegroundProperty
-        = AvaloniaProperty.Register<TimelineScale, IBrush?>(nameof(MarkerLabelForeground));
+    public static readonly StyledProperty<IBrush?> MarkerLabelForegroundProperty =
+        AvaloniaProperty.Register<TimelineScale, IBrush?>(nameof(MarkerLabelForeground));
 
-    private static readonly Typeface s_typeface = new(FontFamily.Default, FontStyle.Normal, FontWeight.Medium);
+    private static readonly Typeface s_typeface = new(
+        FontFamily.Default,
+        FontStyle.Normal,
+        FontWeight.Medium
+    );
     private float _scale = 1;
     private Vector _offset;
     private Thickness _startingBarMargin;
@@ -116,7 +146,8 @@ public sealed class TimelineScale : Control
             BufferBrushProperty,
             MarkersProperty,
             MarkerLabelBackgroundProperty,
-            MarkerLabelForegroundProperty);
+            MarkerLabelForegroundProperty
+        );
     }
 
     public TimelineScale()
@@ -306,8 +337,10 @@ public sealed class TimelineScale : Control
         {
             foreach (object? item in e.OldItems)
             {
-                if (item is SceneMarker marker
-                    && _markerSubscriptions.Remove(marker, out IDisposable? sub))
+                if (
+                    item is SceneMarker marker
+                    && _markerSubscriptions.Remove(marker, out IDisposable? sub)
+                )
                 {
                     sub.Dispose();
                 }
@@ -340,14 +373,18 @@ public sealed class TimelineScale : Control
 
     private void SubscribeMarker(SceneMarker marker)
     {
-        if (_markerSubscriptions.ContainsKey(marker)) return;
+        if (_markerSubscriptions.ContainsKey(marker))
+            return;
 
         System.ComponentModel.PropertyChangedEventHandler handler = (_, _) => InvalidateVisual();
         marker.PropertyChanged += handler;
         _markerSubscriptions[marker] = new MarkerSubscription(marker, handler);
     }
 
-    private sealed class MarkerSubscription(SceneMarker marker, System.ComponentModel.PropertyChangedEventHandler handler) : IDisposable
+    private sealed class MarkerSubscription(
+        SceneMarker marker,
+        System.ComponentModel.PropertyChangedEventHandler handler
+    ) : IDisposable
     {
         public void Dispose() => marker.PropertyChanged -= handler;
     }
@@ -385,7 +422,12 @@ public sealed class TimelineScale : Control
                     context.DrawLine(_pen, new(x, 5), new(x, height));
                 }
 
-                using var text = new TextLayout(time.ToString("hh\\:mm\\:ss\\.ff"), s_typeface, 13, ScaleBrush);
+                using var text = new TextLayout(
+                    time.ToString("hh\\:mm\\:ss\\.ff"),
+                    s_typeface,
+                    13,
+                    ScaleBrush
+                );
                 var textbounds = new Rect(x + 8, 0, text.Width, text.Height);
 
                 if (viewport.Intersects(textbounds) && (recentPix == 0d || (x + 8) > recentPix))
@@ -397,9 +439,11 @@ public sealed class TimelineScale : Control
                 double ll = x + inc;
                 for (double xx = x + wf; xx < ll; xx += wf)
                 {
-                    if (!viewport.Contains(new Point(xx, height))) continue;
+                    if (!viewport.Contains(new Point(xx, height)))
+                        continue;
 
-                    if (viewport.Right < xx) return;
+                    if (viewport.Right < xx)
+                        return;
 
                     context.DrawLine(_pen, new(xx, top), new(xx, height));
                 }
@@ -408,8 +452,10 @@ public sealed class TimelineScale : Control
             if (BufferEnd != BufferStart)
             {
                 context.DrawRectangle(
-                    BufferBrush, null,
-                    new RoundedRect(new Rect(BufferStart, Height - 4, BufferEnd - BufferStart, 4)));
+                    BufferBrush,
+                    null,
+                    new RoundedRect(new Rect(BufferStart, Height - 4, BufferEnd - BufferStart, 4))
+                );
             }
 
             if (CacheBlocks != null)
@@ -426,17 +472,34 @@ public sealed class TimelineScale : Control
                     }
 
                     context.DrawRectangle(
-                        item.IsLocked ? LockedCacheBlockBrush : CacheBlockBrush, null,
-                        new RoundedRect(new Rect(item.Start.TimeToPixel(Scale), Height - 4, item.Length.TimeToPixel(Scale),
-                            4)));
+                        item.IsLocked ? LockedCacheBlockBrush : CacheBlockBrush,
+                        null,
+                        new RoundedRect(
+                            new Rect(
+                                item.Start.TimeToPixel(Scale),
+                                Height - 4,
+                                item.Length.TimeToPixel(Scale),
+                                4
+                            )
+                        )
+                    );
                 }
             }
 
             if (HoveredCacheBlock is { } hover)
             {
                 context.DrawRectangle(
-                    hover.IsLocked ? LockedCacheBlockBrush : CacheBlockBrush, null,
-                    new RoundedRect(new Rect(hover.Start.TimeToPixel(Scale), Height - 6, hover.Length.TimeToPixel(Scale), 6)));
+                    hover.IsLocked ? LockedCacheBlockBrush : CacheBlockBrush,
+                    null,
+                    new RoundedRect(
+                        new Rect(
+                            hover.Start.TimeToPixel(Scale),
+                            Height - 6,
+                            hover.Length.TimeToPixel(Scale),
+                            6
+                        )
+                    )
+                );
             }
 
             var size = new Size(1.25, height);
@@ -487,14 +550,17 @@ public sealed class TimelineScale : Control
 
     private void DrawMarkers(DrawingContext context, Rect viewport)
     {
-        if (Markers == null) return;
+        if (Markers == null)
+            return;
 
         foreach (object? obj in Markers)
         {
-            if (obj is not SceneMarker marker) continue;
+            if (obj is not SceneMarker marker)
+                continue;
 
             double x = marker.Time.TimeToPixel(Scale);
-            if (x < viewport.X - 8 || x > viewport.X + viewport.Width + 8) continue;
+            if (x < viewport.X - 8 || x > viewport.X + viewport.Width + 8)
+                continue;
 
             var fillBrush = new ImmutableSolidColorBrush(marker.Color.ToAvaColor());
             using (context.PushTransform(Matrix.CreateTranslation(x, 0)))
@@ -512,7 +578,12 @@ public sealed class TimelineScale : Control
                 {
                     const double padX = 4;
                     const double padY = 1;
-                    var bgRect = new Rect(origin.X - padX, origin.Y - padY, text.Width + padX * 2, text.Height + padY * 2);
+                    var bgRect = new Rect(
+                        origin.X - padX,
+                        origin.Y - padY,
+                        text.Width + padX * 2,
+                        text.Height + padY * 2
+                    );
                     context.DrawRectangle(bg, null, new RoundedRect(bgRect, 3));
                 }
                 text.Draw(context, origin);
@@ -522,14 +593,17 @@ public sealed class TimelineScale : Control
 
     public SceneMarker? HitTestMarker(double x, double y)
     {
-        if (Markers == null) return null;
-        if (y < 0 || y > 16) return null;
+        if (Markers == null)
+            return null;
+        if (y < 0 || y > 16)
+            return null;
 
         SceneMarker? best = null;
         double bestDist = double.PositiveInfinity;
         foreach (object? obj in Markers)
         {
-            if (obj is not SceneMarker marker) continue;
+            if (obj is not SceneMarker marker)
+                continue;
             double mx = marker.Time.TimeToPixel(Scale);
             double dist = Math.Abs(mx - x);
             if (dist <= 6 && dist < bestDist)

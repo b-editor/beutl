@@ -25,22 +25,38 @@ public partial class TextBlock : Drawable
     public IProperty<float> Size { get; } = Property.CreateAnimatable<float>(12);
 
     [SuppressResourceClassGeneration]
-    [Display(Name = nameof(GraphicsStrings.TextBlock_FontFamily), ResourceType = typeof(GraphicsStrings))]
-    public IProperty<FontFamily?> FontFamily { get; } = Property.Create<FontFamily?>(Media.FontFamily.Default);
+    [Display(
+        Name = nameof(GraphicsStrings.TextBlock_FontFamily),
+        ResourceType = typeof(GraphicsStrings)
+    )]
+    public IProperty<FontFamily?> FontFamily { get; } =
+        Property.Create<FontFamily?>(Media.FontFamily.Default);
 
     [SuppressResourceClassGeneration]
-    [Display(Name = nameof(GraphicsStrings.TextBlock_FontStyle), ResourceType = typeof(GraphicsStrings))]
+    [Display(
+        Name = nameof(GraphicsStrings.TextBlock_FontStyle),
+        ResourceType = typeof(GraphicsStrings)
+    )]
     public IProperty<FontStyle> FontStyle { get; } = Property.Create(Media.FontStyle.Normal);
 
     [SuppressResourceClassGeneration]
-    [Display(Name = nameof(GraphicsStrings.TextBlock_FontWeight), ResourceType = typeof(GraphicsStrings))]
+    [Display(
+        Name = nameof(GraphicsStrings.TextBlock_FontWeight),
+        ResourceType = typeof(GraphicsStrings)
+    )]
     public IProperty<FontWeight> FontWeight { get; } = Property.Create(Media.FontWeight.Regular);
 
     [SuppressResourceClassGeneration]
-    [Display(Name = nameof(GraphicsStrings.TextBlock_Spacing), ResourceType = typeof(GraphicsStrings))]
+    [Display(
+        Name = nameof(GraphicsStrings.TextBlock_Spacing),
+        ResourceType = typeof(GraphicsStrings)
+    )]
     public IProperty<float> Spacing { get; } = Property.CreateAnimatable<float>(0);
 
-    [Display(Name = nameof(GraphicsStrings.TextBlock_SplitByCharacters), ResourceType = typeof(GraphicsStrings))]
+    [Display(
+        Name = nameof(GraphicsStrings.TextBlock_SplitByCharacters),
+        ResourceType = typeof(GraphicsStrings)
+    )]
     public IProperty<bool> SplitByCharacters { get; } = Property.CreateAnimatable<bool>(false);
 
     [SuppressResourceClassGeneration]
@@ -49,10 +65,18 @@ public partial class TextBlock : Drawable
     public IProperty<string?> Text { get; } = Property.Create<string?>(string.Empty);
 
     [SuppressResourceClassGeneration]
-    [Display(Name = nameof(GraphicsStrings.Stroke), GroupName = nameof(GraphicsStrings.Stroke), ResourceType = typeof(GraphicsStrings))]
+    [Display(
+        Name = nameof(GraphicsStrings.Stroke),
+        GroupName = nameof(GraphicsStrings.Stroke),
+        ResourceType = typeof(GraphicsStrings)
+    )]
     public IProperty<Pen?> Pen { get; } = Property.Create<Pen?>();
 
-    [Display(Name = nameof(GraphicsStrings.Fill), ResourceType = typeof(GraphicsStrings), GroupName = nameof(GraphicsStrings.Fill))]
+    [Display(
+        Name = nameof(GraphicsStrings.Fill),
+        ResourceType = typeof(GraphicsStrings),
+        GroupName = nameof(GraphicsStrings.Fill)
+    )]
     public IProperty<Brush?> Fill { get; } = Property.Create<Brush?>();
 
     protected override Size MeasureCore(Size availableSize, Drawable.Resource resource)
@@ -137,9 +161,17 @@ public partial class TextBlock : Drawable
                         {
                             Rect elementBounds = item.Bounds;
 
-                            using (context.PushTransform(Matrix.CreateTranslation(prevRight + item.Spacing / 2, 0)))
+                            using (
+                                context.PushTransform(
+                                    Matrix.CreateTranslation(prevRight + item.Spacing / 2, 0)
+                                )
+                            )
                             {
-                                context.DrawText(item, item.Brush ?? resource.Fill, item.Pen ?? resource.Pen);
+                                context.DrawText(
+                                    item,
+                                    item.Brush ?? resource.Fill,
+                                    item.Pen ?? resource.Pen
+                                );
 
                                 prevRight += elementBounds.Width + item.Spacing;
                             }
@@ -171,9 +203,17 @@ public partial class TextBlock : Drawable
 
                     foreach (Geometry.Resource geometry in item.ToGeometies())
                     {
-                        using (context.PushTransform(Matrix.CreateTranslation(prevRight + item.Spacing / 2, yPosition)))
+                        using (
+                            context.PushTransform(
+                                Matrix.CreateTranslation(prevRight + item.Spacing / 2, yPosition)
+                            )
+                        )
                         {
-                            context.DrawGeometry(geometry, item.Brush ?? resource.Fill, item.Pen ?? resource.Pen);
+                            context.DrawGeometry(
+                                geometry,
+                                item.Brush ?? resource.Fill,
+                                item.Pen ?? resource.Pen
+                            );
                         }
                     }
 
@@ -198,7 +238,10 @@ public partial class TextBlock : Drawable
                 width += bounds.Width;
                 width += item.Spacing;
 
-                height = MathF.Max(item.Metrics.Leading + item.Metrics.Descent - item.Metrics.Ascent, height);
+                height = MathF.Max(
+                    item.Metrics.Leading + item.Metrics.Descent - item.Metrics.Ascent,
+                    height
+                );
             }
         }
 
@@ -262,11 +305,16 @@ public partial class TextBlock : Drawable
                     var tokenizer = new FormattedTextTokenizer(Text);
                     tokenizer.Tokenize();
                     var options = new FormattedTextInfo(
-                        Typeface: new Typeface(FontFamily ?? FontFamily.Default, FontStyle, FontWeight),
+                        Typeface: new Typeface(
+                            FontFamily ?? FontFamily.Default,
+                            FontStyle,
+                            FontWeight
+                        ),
                         Size: Size,
                         Brush: Fill,
                         Space: Spacing,
-                        Pen: Pen);
+                        Pen: Pen
+                    );
 
                     var builder = new TextElementsBuilder(options);
                     builder.AppendTokens(CollectionsMarshal.AsSpan(tokenizer.Result));

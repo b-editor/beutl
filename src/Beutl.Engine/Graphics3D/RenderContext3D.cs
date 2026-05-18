@@ -27,7 +27,8 @@ public readonly struct RenderContext3D
         Vector3 cameraPosition,
         Vector3 ambientColor,
         IReadOnlyList<LightData> lights,
-        CompositionContext compositionContext)
+        CompositionContext compositionContext
+    )
     {
         GraphicsContext = graphicsContext;
         RenderPass = renderPass;

@@ -20,9 +20,7 @@ public partial class SkewMatrixNode : MatrixNode
     {
         protected override Matrix GetMatrix(GraphCompositionContext context, MatrixNode node)
         {
-            return Matrix.CreateSkew(
-                MathUtilities.Deg2Rad(SkewX),
-                MathUtilities.Deg2Rad(SkewY));
+            return Matrix.CreateSkew(MathUtilities.Deg2Rad(SkewX), MathUtilities.Deg2Rad(SkewY));
         }
     }
 }

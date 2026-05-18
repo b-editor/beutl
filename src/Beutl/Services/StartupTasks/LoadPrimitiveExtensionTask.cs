@@ -21,7 +21,8 @@ namespace Beutl.Services.StartupTasks;
 
 public sealed class LoadPrimitiveExtensionTask : StartupTask
 {
-    private readonly ILogger<LoadPrimitiveExtensionTask> _logger = Log.CreateLogger<LoadPrimitiveExtensionTask>();
+    private readonly ILogger<LoadPrimitiveExtensionTask> _logger =
+        Log.CreateLogger<LoadPrimitiveExtensionTask>();
     private readonly PackageManager _manager;
 
     public static readonly Extension[] PrimitiveExtensions =
@@ -53,7 +54,7 @@ public sealed class LoadPrimitiveExtensionTask : StartupTask
         ScriptEditorExtension.Instance,
         FileBrowserTabExtension.Instance,
         HistoryTabExtension.Instance,
-        DefaultTutorialExtension.Instance
+        DefaultTutorialExtension.Instance,
     ];
 
     public LoadPrimitiveExtensionTask(PackageManager manager)
@@ -98,17 +99,19 @@ public sealed class LoadPrimitiveExtensionTask : StartupTask
                             "encoder",
                             "encoding",
                             "video",
-                            "audio"
+                            "audio",
                         },
                         Version = BeutlApplication.Version,
                         WebSite = "https://github.com/b-editor/beutl",
-                        Publisher = "b-editor"
+                        Publisher = "b-editor",
                     };
                     try
                     {
                         var decoding = new Extensions.FFmpeg.Decoding.FFmpegDecodingExtension();
-                        var encoding = new Extensions.FFmpeg.Encoding.FFmpegControlledEncodingExtension();
-                        var propertyEditor = new Extensions.FFmpeg.PropertyEditors.FFmpegEncoderSpecializedPropertyExtension();
+                        var encoding =
+                            new Extensions.FFmpeg.Encoding.FFmpegControlledEncodingExtension();
+                        var propertyEditor =
+                            new Extensions.FFmpeg.PropertyEditors.FFmpegEncoderSpecializedPropertyExtension();
                         _manager.SetupExtensionSettings(decoding);
                         _manager.SetupExtensionSettings(encoding);
                         _manager.SetupExtensionSettings(propertyEditor);
@@ -121,7 +124,11 @@ public sealed class LoadPrimitiveExtensionTask : StartupTask
                     catch (Exception ex)
                     {
                         Failures.Add((pkg, ex));
-                        _logger.LogError(ex, "Failed to load FFmpeg extensions for package {Package}", pkg.Name);
+                        _logger.LogError(
+                            ex,
+                            "Failed to load FFmpeg extensions for package {Package}",
+                            pkg.Name
+                        );
                     }
 
                     activity?.AddEvent(new("Loaded_FFmpeg"));
@@ -143,10 +150,19 @@ public sealed class LoadPrimitiveExtensionTask : StartupTask
                         DisplayName = "Beutl.Embedding.MediaFoundation",
                         InstalledPath = AppContext.BaseDirectory,
                         Tags =
- { "windows", "media-foundation", "decoder", "decoding", "encoder", "encoding", "video", "audio" },
+                        {
+                            "windows",
+                            "media-foundation",
+                            "decoder",
+                            "decoding",
+                            "encoder",
+                            "encoding",
+                            "video",
+                            "audio",
+                        },
                         Version = BeutlApplication.Version,
                         WebSite = "https://github.com/b-editor/beutl",
-                        Publisher = "b-editor"
+                        Publisher = "b-editor",
                     };
                     try
                     {
@@ -159,7 +175,11 @@ public sealed class LoadPrimitiveExtensionTask : StartupTask
                     catch (Exception ex)
                     {
                         Failures.Add((pkg, ex));
-                        _logger.LogError(ex, "Failed to load MediaFoundation extensions for package {Package}", pkg.Name);
+                        _logger.LogError(
+                            ex,
+                            "Failed to load MediaFoundation extensions for package {Package}",
+                            pkg.Name
+                        );
                     }
 
                     activity?.AddEvent(new("Loaded_MediaFoundation"));
@@ -189,11 +209,11 @@ public sealed class LoadPrimitiveExtensionTask : StartupTask
                             "encoder",
                             "encoding",
                             "video",
-                            "audio"
+                            "audio",
                         },
                         Version = BeutlApplication.Version,
                         WebSite = "https://github.com/b-editor/beutl",
-                        Publisher = "b-editor"
+                        Publisher = "b-editor",
                     };
                     try
                     {
@@ -209,7 +229,11 @@ public sealed class LoadPrimitiveExtensionTask : StartupTask
                     catch (Exception ex)
                     {
                         Failures.Add((pkg, ex));
-                        _logger.LogError(ex, "Failed to load AVFoundation extensions for package {Package}", pkg.Name);
+                        _logger.LogError(
+                            ex,
+                            "Failed to load AVFoundation extensions for package {Package}",
+                            pkg.Name
+                        );
                     }
 
                     activity?.AddEvent(new("Loaded_AVFoundation"));

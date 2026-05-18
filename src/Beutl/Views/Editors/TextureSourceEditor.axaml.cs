@@ -31,8 +31,10 @@ public partial class TextureSourceEditor : UserControl
 
     private void ChangeTextureSourceType(object? sender, RoutedEventArgs e)
     {
-        if (DataContext is not TextureSourceEditorViewModel { IsDisposed: false } vm) return;
-        if (sender is not RadioMenuFlyoutItem { Tag: string tag }) return;
+        if (DataContext is not TextureSourceEditorViewModel { IsDisposed: false } vm)
+            return;
+        if (sender is not RadioMenuFlyoutItem { Tag: string tag })
+            return;
 
         switch (tag)
         {
@@ -50,7 +52,8 @@ public partial class TextureSourceEditor : UserControl
 
     private async void SelectDrawable_Click(object? sender, RoutedEventArgs e)
     {
-        if (DataContext is not TextureSourceEditorViewModel { IsDisposed: false } vm) return;
+        if (DataContext is not TextureSourceEditorViewModel { IsDisposed: false } vm)
+            return;
 
         object? result = await SelectDrawableTypeOrReference();
 
@@ -67,31 +70,44 @@ public partial class TextureSourceEditor : UserControl
 
     private async Task<object?> SelectDrawableTypeOrReference()
     {
-        if (_flyoutOpen) return null;
+        if (_flyoutOpen)
+            return null;
 
         try
         {
             _flyoutOpen = true;
             var selectVm = new SelectDrawableTypeViewModel();
 
-            if (DataContext is TextureSourceEditorViewModel { IsDisposed: false } vm
-                && PresenterTypeAttribute.GetPresenterType(typeof(Drawable)) != null)
+            if (
+                DataContext is TextureSourceEditorViewModel { IsDisposed: false } vm
+                && PresenterTypeAttribute.GetPresenterType(typeof(Drawable)) != null
+            )
             {
                 var scene = vm.GetService<EditViewModel>()?.Scene;
                 if (scene != null)
                 {
-                    var searcher = new ObjectSearcher(scene, obj =>
-                        obj is Drawable && obj is not IPresenter<Drawable>);
-                    var targets = searcher.SearchAll()
+                    var searcher = new ObjectSearcher(
+                        scene,
+                        obj => obj is Drawable && obj is not IPresenter<Drawable>
+                    );
+                    var targets = searcher
+                        .SearchAll()
                         .Cast<Drawable>()
                         .Select(d => new TargetObjectInfo(
-                            CoreObjectHelper.GetDisplayName(d), d, CoreObjectHelper.GetOwnerElement(d)))
+                            CoreObjectHelper.GetDisplayName(d),
+                            d,
+                            CoreObjectHelper.GetOwnerElement(d)
+                        ))
                         .ToList();
                     selectVm.InitializeReferences(targets);
                 }
             }
 
-            return await LibraryItemPickerHelper.ShowAsync(this, selectVm, KnownLibraryItemFormats.Drawable);
+            return await LibraryItemPickerHelper.ShowAsync(
+                this,
+                selectVm,
+                KnownLibraryItemFormats.Drawable
+            );
         }
         finally
         {

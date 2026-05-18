@@ -15,25 +15,39 @@ public abstract class ScopeControlBase : Control
     public static readonly StyledProperty<Ref<BtlBitmap>?> SourceBitmapProperty =
         AvaloniaProperty.Register<ScopeControlBase, Ref<BtlBitmap>?>(nameof(SourceBitmap));
 
-    public static readonly StyledProperty<IBrush?> AxisBrushProperty =
-        AvaloniaProperty.Register<ScopeControlBase, IBrush?>(nameof(AxisBrush));
+    public static readonly StyledProperty<IBrush?> AxisBrushProperty = AvaloniaProperty.Register<
+        ScopeControlBase,
+        IBrush?
+    >(nameof(AxisBrush));
 
-    public static readonly StyledProperty<IBrush?> LabelBrushProperty =
-        AvaloniaProperty.Register<ScopeControlBase, IBrush?>(nameof(LabelBrush));
+    public static readonly StyledProperty<IBrush?> LabelBrushProperty = AvaloniaProperty.Register<
+        ScopeControlBase,
+        IBrush?
+    >(nameof(LabelBrush));
 
     public static readonly StyledProperty<IBrush?> BackgroundBrushProperty =
         AvaloniaProperty.Register<ScopeControlBase, IBrush?>(nameof(BackgroundBrush));
 
-    public static readonly StyledProperty<double> AxisMarginProperty =
-        AvaloniaProperty.Register<ScopeControlBase, double>(nameof(AxisMargin), 32);
+    public static readonly StyledProperty<double> AxisMarginProperty = AvaloniaProperty.Register<
+        ScopeControlBase,
+        double
+    >(nameof(AxisMargin), 32);
 
     public static readonly DirectProperty<ScopeControlBase, ScopeColorSpace> ColorSpaceProperty =
         AvaloniaProperty.RegisterDirect<ScopeControlBase, ScopeColorSpace>(
-            nameof(ColorSpace), o => o.ColorSpace, (o, v) => o.ColorSpace = v, ScopeColorSpace.Gamma);
+            nameof(ColorSpace),
+            o => o.ColorSpace,
+            (o, v) => o.ColorSpace = v,
+            ScopeColorSpace.Gamma
+        );
 
     private ScopeColorSpace _colorSpace = ScopeColorSpace.Gamma;
 
-    protected static readonly Typeface DefaultTypeface = new(FontFamily.Default, FontStyle.Normal, FontWeight.Normal);
+    protected static readonly Typeface DefaultTypeface = new(
+        FontFamily.Default,
+        FontStyle.Normal,
+        FontWeight.Normal
+    );
 
     private readonly Pen _axisPen = new(Brushes.Gray, 1.5);
     private readonly SemaphoreSlim _renderLock = new(1, 1);
@@ -55,10 +69,12 @@ public abstract class ScopeControlBase : Control
             LabelBrushProperty,
             BackgroundBrushProperty,
             AxisMarginProperty,
-            ColorSpaceProperty);
+            ColorSpaceProperty
+        );
 
-        AxisBrushProperty.Changed.AddClassHandler<ScopeControlBase>((s, e) =>
-            s._axisPen.Brush = (e.NewValue as IBrush) ?? Brushes.Gray);
+        AxisBrushProperty.Changed.AddClassHandler<ScopeControlBase>(
+            (s, e) => s._axisPen.Brush = (e.NewValue as IBrush) ?? Brushes.Gray
+        );
 
         ColorSpaceProperty.Changed.AddClassHandler<ScopeControlBase>((o, _) => o.Refresh());
     }
@@ -107,7 +123,8 @@ public abstract class ScopeControlBase : Control
         BtlBitmap sourceBitmap,
         int targetWidth,
         int targetHeight,
-        WriteableBitmap? existingBitmap);
+        WriteableBitmap? existingBitmap
+    );
 
     private async void StartBackgroundRender()
     {
@@ -137,52 +154,55 @@ public abstract class ScopeControlBase : Control
             int targetWidth = (int)Math.Max(1, bounds.Width - axisMargin);
             int targetHeight = (int)Math.Max(1, bounds.Height - axisMargin);
 
-            if (targetWidth <= 0 || targetHeight <= 0) return;
+            if (targetWidth <= 0 || targetHeight <= 0)
+                return;
 
-            await Task.Run(async () =>
-            {
-                try
+            await Task.Run(
+                async () =>
                 {
-                    if (ct.IsCancellationRequested) return;
-
-                    var result = RenderScope(
-                        bitmapRef.Value,
-                        targetWidth,
-                        targetHeight,
-                        backBuffer);
-
-                    if (result == null) return;
-
-                    await Dispatcher.UIThread.InvokeAsync(() =>
+                    try
                     {
-                        var oldFront = _frontBuffer;
-                        _frontBuffer = result;
+                        if (ct.IsCancellationRequested)
+                            return;
 
-                        if (result != backBuffer)
-                        {
-                            _backBuffer?.Dispose();
-                            _backBuffer = oldFront;
-                        }
-                        else if (oldFront != result)
-                        {
-                            _backBuffer = oldFront;
-                        }
+                        var result = RenderScope(
+                            bitmapRef.Value,
+                            targetWidth,
+                            targetHeight,
+                            backBuffer
+                        );
 
-                        InvalidateVisual();
-                    });
-                }
-                catch (OperationCanceledException)
-                {
-                }
-                catch (Exception ex)
-                {
-                    Debug.WriteLine($"Scope render error: {ex.Message}");
-                }
-            }, ct);
+                        if (result == null)
+                            return;
+
+                        await Dispatcher.UIThread.InvokeAsync(() =>
+                        {
+                            var oldFront = _frontBuffer;
+                            _frontBuffer = result;
+
+                            if (result != backBuffer)
+                            {
+                                _backBuffer?.Dispose();
+                                _backBuffer = oldFront;
+                            }
+                            else if (oldFront != result)
+                            {
+                                _backBuffer = oldFront;
+                            }
+
+                            InvalidateVisual();
+                        });
+                    }
+                    catch (OperationCanceledException) { }
+                    catch (Exception ex)
+                    {
+                        Debug.WriteLine($"Scope render error: {ex.Message}");
+                    }
+                },
+                ct
+            );
         }
-        catch (OperationCanceledException)
-        {
-        }
+        catch (OperationCanceledException) { }
         finally
         {
             bitmapRef.Dispose();
@@ -220,10 +240,14 @@ public abstract class ScopeControlBase : Control
         if (bitmap != null)
         {
             var destRect = new Rect(axisMargin, 0, contentWidth, contentHeight);
-            using (context.PushRenderOptions(new RenderOptions
-            {
-                BitmapInterpolationMode = BitmapInterpolationMode.HighQuality
-            }))
+            using (
+                context.PushRenderOptions(
+                    new RenderOptions
+                    {
+                        BitmapInterpolationMode = BitmapInterpolationMode.HighQuality,
+                    }
+                )
+            )
             {
                 context.DrawImage(bitmap, destRect);
             }
@@ -233,8 +257,13 @@ public abstract class ScopeControlBase : Control
         DrawAxes(context, bounds, axisMargin, contentWidth, contentHeight);
     }
 
-    private void DrawAxes(DrawingContext context, Rect bounds, double axisMargin, double contentWidth,
-        double contentHeight)
+    private void DrawAxes(
+        DrawingContext context,
+        Rect bounds,
+        double axisMargin,
+        double contentWidth,
+        double contentHeight
+    )
     {
         var labelBrush = LabelBrush ?? Brushes.Gray;
 
@@ -242,7 +271,11 @@ public abstract class ScopeControlBase : Control
         context.DrawLine(_axisPen, new Point(axisMargin, 0), new Point(axisMargin, contentHeight));
 
         // Draw horizontal axis line
-        context.DrawLine(_axisPen, new Point(axisMargin, contentHeight), new Point(bounds.Width, contentHeight));
+        context.DrawLine(
+            _axisPen,
+            new Point(axisMargin, contentHeight),
+            new Point(bounds.Width, contentHeight)
+        );
 
         // Draw vertical labels (from top to bottom)
         var verticalLabels = VerticalAxisLabels;
@@ -259,7 +292,8 @@ public abstract class ScopeControlBase : Control
                     FlowDirection.LeftToRight,
                     DefaultTypeface,
                     10,
-                    labelBrush);
+                    labelBrush
+                );
 
                 double textX = axisMargin - formattedText.Width - 4;
                 double textY = y - formattedText.Height / 2;
@@ -284,7 +318,8 @@ public abstract class ScopeControlBase : Control
             int count = horizontalLabels.Length;
             for (int i = 0; i < count; i++)
             {
-                double x = axisMargin + (count > 1 ? i * contentWidth / (count - 1) : contentWidth / 2);
+                double x =
+                    axisMargin + (count > 1 ? i * contentWidth / (count - 1) : contentWidth / 2);
 
                 var formattedText = new FormattedText(
                     horizontalLabels[i],
@@ -292,7 +327,8 @@ public abstract class ScopeControlBase : Control
                     FlowDirection.LeftToRight,
                     DefaultTypeface,
                     10,
-                    labelBrush);
+                    labelBrush
+                );
 
                 double textX = x - formattedText.Width / 2;
                 double textY = contentHeight + 4;
@@ -306,7 +342,11 @@ public abstract class ScopeControlBase : Control
                 }
 
                 context.DrawText(formattedText, new Point(textX, textY));
-                context.DrawLine(_axisPen, new Point(x, contentHeight), new Point(x, contentHeight + 3));
+                context.DrawLine(
+                    _axisPen,
+                    new Point(x, contentHeight),
+                    new Point(x, contentHeight + 3)
+                );
             }
         }
     }
@@ -335,7 +375,8 @@ public abstract class ScopeControlBase : Control
     protected static void PlotPoint(Span<uint> dest, int stride, int x, int y, uint color)
     {
         int height = dest.Length / stride;
-        if ((uint)x >= (uint)stride || (uint)y >= (uint)height) return;
+        if ((uint)x >= (uint)stride || (uint)y >= (uint)height)
+            return;
 
         int idx = y * stride + x;
         uint existing = dest[idx];

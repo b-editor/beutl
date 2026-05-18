@@ -10,7 +10,8 @@ internal sealed class ParticleRenderNode(ParticleEmitter.Resource particle) : Re
     private (RenderTarget RT, Drawable.Resource? Resource, int? Version)? _cachedRenderTarget;
     private Rect _drawableBounds;
 
-    public (ParticleEmitter.Resource Resource, int Version)? Particle { get; private set; } = particle.Capture();
+    public (ParticleEmitter.Resource Resource, int Version)? Particle { get; private set; } =
+        particle.Capture();
 
     public bool Update(ParticleEmitter.Resource resource)
     {
@@ -26,14 +27,18 @@ internal sealed class ParticleRenderNode(ParticleEmitter.Resource particle) : Re
 
     public override RenderNodeOperation[] Process(RenderNodeContext context)
     {
-        if (!Particle.HasValue) return [];
+        if (!Particle.HasValue)
+            return [];
         var resource = Particle.Value.Resource;
         var particles = resource.GetAliveParticles();
-        if (particles.Length == 0) return [];
+        if (particles.Length == 0)
+            return [];
 
-        if (!_cachedRenderTarget.HasValue ||
-            !ReferenceEquals(_cachedRenderTarget.Value.Resource, resource.ParticleDrawable) ||
-            _cachedRenderTarget.Value.Version != resource.ParticleDrawable?.Version)
+        if (
+            !_cachedRenderTarget.HasValue
+            || !ReferenceEquals(_cachedRenderTarget.Value.Resource, resource.ParticleDrawable)
+            || _cachedRenderTarget.Value.Version != resource.ParticleDrawable?.Version
+        )
         {
             _cachedRenderTarget?.RT.Dispose();
             _cachedRenderTarget = null;
@@ -59,18 +64,17 @@ internal sealed class ParticleRenderNode(ParticleEmitter.Resource particle) : Re
         for (int i = 0; i < particles.Length; i++)
         {
             ref readonly Particle p = ref particlesSpan[i];
-            if (!p.IsAlive) continue;
+            if (!p.IsAlive)
+                continue;
 
             float scale = p.CurrentSize / 10f;
-            if (scale <= 0) continue;
+            if (scale <= 0)
+                continue;
 
             // Use a conservative square bounding box that safely encloses any rotation
-            float maxDim = MathF.Max((float)_drawableBounds.Width, (float)_drawableBounds.Height) * scale;
-            var particleBounds = new Rect(
-                p.X - maxDim / 2f,
-                p.Y - maxDim / 2f,
-                maxDim,
-                maxDim);
+            float maxDim =
+                MathF.Max((float)_drawableBounds.Width, (float)_drawableBounds.Height) * scale;
+            var particleBounds = new Rect(p.X - maxDim / 2f, p.Y - maxDim / 2f, maxDim, maxDim);
 
             totalBounds = totalBounds.Union(particleBounds);
         }
@@ -80,8 +84,10 @@ internal sealed class ParticleRenderNode(ParticleEmitter.Resource particle) : Re
 
         return
         [
-            RenderNodeOperation.CreateLambda(totalBounds,
-                canvas => DrawAllParticles(canvas, cachedRT, particles, _drawableBounds))
+            RenderNodeOperation.CreateLambda(
+                totalBounds,
+                canvas => DrawAllParticles(canvas, cachedRT, particles, _drawableBounds)
+            ),
         ];
     }
 
@@ -89,22 +95,26 @@ internal sealed class ParticleRenderNode(ParticleEmitter.Resource particle) : Re
         ImmediateCanvas canvas,
         RenderTarget cachedRT,
         ReadOnlyMemory<Particle> particles,
-        Rect drawableBounds)
+        Rect drawableBounds
+    )
     {
         var particlesSpan = particles.Span;
         for (int i = 0; i < particles.Length; i++)
         {
             ref readonly Particle p = ref particlesSpan[i];
-            if (!p.IsAlive) continue;
+            if (!p.IsAlive)
+                continue;
 
             float scale = p.CurrentSize / 10f;
             float opacity = p.CurrentOpacity / 100f;
-            if (opacity <= 0 || scale <= 0) continue;
+            if (opacity <= 0 || scale <= 0)
+                continue;
 
             float rotRad = p.Rotation * MathF.PI / 180f;
-            Matrix transform = Matrix.CreateScale(scale, scale)
-                               * Matrix.CreateRotation(rotRad)
-                               * Matrix.CreateTranslation(p.X, p.Y);
+            Matrix transform =
+                Matrix.CreateScale(scale, scale)
+                * Matrix.CreateRotation(rotRad)
+                * Matrix.CreateTranslation(p.X, p.Y);
 
             using (canvas.PushTransform(transform))
             using (canvas.PushOpacity(opacity))
@@ -114,18 +124,25 @@ internal sealed class ParticleRenderNode(ParticleEmitter.Resource particle) : Re
                 {
                     using var colorFilter = SKColorFilter.CreateBlendMode(
                         new SKColor(color.R, color.G, color.B, color.A),
-                        SKBlendMode.Modulate);
+                        SKBlendMode.Modulate
+                    );
                     using var paint = new SKPaint();
                     paint.ColorFilter = colorFilter;
 
                     using (canvas.PushPaint(paint))
                     {
-                        canvas.DrawRenderTarget(cachedRT, new(-drawableBounds.Width / 2, -drawableBounds.Height / 2));
+                        canvas.DrawRenderTarget(
+                            cachedRT,
+                            new(-drawableBounds.Width / 2, -drawableBounds.Height / 2)
+                        );
                     }
                 }
                 else
                 {
-                    canvas.DrawRenderTarget(cachedRT, new(-drawableBounds.Width / 2, -drawableBounds.Height / 2));
+                    canvas.DrawRenderTarget(
+                        cachedRT,
+                        new(-drawableBounds.Width / 2, -drawableBounds.Height / 2)
+                    );
                 }
             }
         }
@@ -133,7 +150,8 @@ internal sealed class ParticleRenderNode(ParticleEmitter.Resource particle) : Re
 
     private static (RenderTarget, Drawable.Resource, int)? RenderDrawableToTarget(
         Drawable.Resource drawable,
-        out Rect bounds)
+        out Rect bounds
+    )
     {
         using var node = new DrawableRenderNode(drawable);
         using (var gctx = new GraphicsContext2D(node, new PixelSize(1920, 1080)))
@@ -183,7 +201,8 @@ internal sealed class ParticleRenderNode(ParticleEmitter.Resource particle) : Re
         bounds = new Rect(-5, -5, 10, 10);
 
         var renderTarget = RenderTarget.Create(10, 10);
-        if (renderTarget == null) return null;
+        if (renderTarget == null)
+            return null;
 
         using (var canvas = new ImmediateCanvas(renderTarget))
         {

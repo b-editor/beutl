@@ -29,11 +29,7 @@ public partial class OrthographicCamera : Camera3D
         var orthoResource = (Resource)resource;
         float width = orthoResource.Width;
         float height = width / aspectRatio;
-        return Matrix4x4.CreateOrthographic(
-            width,
-            height,
-            resource.NearPlane,
-            resource.FarPlane);
+        return Matrix4x4.CreateOrthographic(width, height, resource.NearPlane, resource.FarPlane);
     }
 
     public new partial class Resource : Camera3D.Resource
@@ -42,11 +38,7 @@ public partial class OrthographicCamera : Camera3D
         public override Matrix4x4 GetProjectionMatrix(float aspectRatio)
         {
             float height = Width / aspectRatio;
-            return Matrix4x4.CreateOrthographic(
-                Width,
-                height,
-                NearPlane,
-                FarPlane);
+            return Matrix4x4.CreateOrthographic(Width, height, NearPlane, FarPlane);
         }
     }
 }

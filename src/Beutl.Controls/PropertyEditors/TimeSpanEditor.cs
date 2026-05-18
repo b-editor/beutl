@@ -1,5 +1,4 @@
 ﻿using System.Reactive.Disposables;
-
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
@@ -17,7 +16,8 @@ public class TimeSpanEditor : StringEditor
             nameof(Value),
             o => o.Value,
             (o, v) => o.Value = v,
-            defaultBindingMode: BindingMode.TwoWay);
+            defaultBindingMode: BindingMode.TwoWay
+        );
 
     private TimeSpan _value;
     private TimeSpan _oldValue;
@@ -46,7 +46,12 @@ public class TimeSpanEditor : StringEditor
     {
         _disposables.Clear();
         base.OnApplyTemplate(e);
-        InnerTextBox.AddDisposableHandler(PointerWheelChangedEvent, OnTextBoxPointerWheelChanged, RoutingStrategies.Tunnel)
+        InnerTextBox
+            .AddDisposableHandler(
+                PointerWheelChangedEvent,
+                OnTextBoxPointerWheelChanged,
+                RoutingStrategies.Tunnel
+            )
             .DisposeWith(_disposables);
     }
 
@@ -60,17 +65,24 @@ public class TimeSpanEditor : StringEditor
 
     protected override void OnTextBoxLostFocus(RoutedEventArgs e)
     {
-        if (!DataValidationErrors.GetHasErrors(InnerTextBox)
-            && Value != _oldValue)
+        if (!DataValidationErrors.GetHasErrors(InnerTextBox) && Value != _oldValue)
         {
-            RaiseEvent(new PropertyEditorValueChangedEventArgs<TimeSpan>(Value, _oldValue, ValueConfirmedEvent));
+            RaiseEvent(
+                new PropertyEditorValueChangedEventArgs<TimeSpan>(
+                    Value,
+                    _oldValue,
+                    ValueConfirmedEvent
+                )
+            );
         }
     }
 
     protected override void OnTextBoxTextChanged(string newValue, string oldValue)
     {
-        if (InnerTextBox?.IsKeyboardFocusWithin == true
-            && TimeSpan.TryParse(newValue, out TimeSpan newValue2))
+        if (
+            InnerTextBox?.IsKeyboardFocusWithin == true
+            && TimeSpan.TryParse(newValue, out TimeSpan newValue2)
+        )
         {
             bool invalidOldValue = !TimeSpan.TryParse(oldValue, out TimeSpan oldValue2);
             if (invalidOldValue)
@@ -81,7 +93,13 @@ public class TimeSpanEditor : StringEditor
             if (invalidOldValue || newValue2 != oldValue2)
             {
                 Value = newValue2;
-                RaiseEvent(new PropertyEditorValueChangedEventArgs<TimeSpan>(newValue2, oldValue2, ValueChangedEvent));
+                RaiseEvent(
+                    new PropertyEditorValueChangedEventArgs<TimeSpan>(
+                        newValue2,
+                        oldValue2,
+                        ValueChangedEvent
+                    )
+                );
             }
         }
 
@@ -102,22 +120,24 @@ public class TimeSpanEditor : StringEditor
 
     private void OnTextBoxPointerWheelChanged(object sender, PointerWheelEventArgs e)
     {
-        if (!DataValidationErrors.GetHasErrors(InnerTextBox)
+        if (
+            !DataValidationErrors.GetHasErrors(InnerTextBox)
             && InnerTextBox.IsKeyboardFocusWithin
-            && TimeSpan.TryParse(InnerTextBox.Text, out TimeSpan value))
+            && TimeSpan.TryParse(InnerTextBox.Text, out TimeSpan value)
+        )
         {
             value = e.Delta.Y switch
             {
                 < 0 => value.Subtract(TimeSpan.FromMinutes(1)),
                 > 0 => value.Add(TimeSpan.FromMinutes(1)),
-                _ => value
+                _ => value,
             };
 
             value = e.Delta.X switch
             {
                 < 0 => value.Subtract(TimeSpan.FromSeconds(10)),
                 > 0 => value.Add(TimeSpan.FromSeconds(10)),
-                _ => value
+                _ => value,
             };
 
             Value = value;

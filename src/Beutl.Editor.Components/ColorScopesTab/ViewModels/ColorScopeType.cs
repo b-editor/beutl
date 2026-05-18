@@ -6,5 +6,5 @@ public enum ColorScopeType
     Histogram,
     Vectorscope,
     FalseColor,
-    Zebra
+    Zebra,
 }

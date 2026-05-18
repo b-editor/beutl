@@ -20,8 +20,7 @@ public sealed class ExtensionsToolWindowExtension : ToolWindowExtension
 
     public override ToolWindowMode Mode => ToolWindowMode.Dialog;
 
-    public override IconSource? GetIcon()
-        => new SymbolIconSource() { Symbol = Symbol.PuzzlePiece };
+    public override IconSource? GetIcon() => new SymbolIconSource() { Symbol = Symbol.PuzzlePiece };
 
     public override bool TryCreateContent([NotNullWhen(true)] out Window? window)
     {
@@ -31,8 +30,11 @@ public sealed class ExtensionsToolWindowExtension : ToolWindowExtension
 
     public override bool TryCreateContext([NotNullWhen(true)] out IToolWindowContext? context)
     {
-        if (Application.Current?.ApplicationLifetime is not IClassicDesktopStyleApplicationLifetime lifetime
-            || lifetime.MainWindow?.DataContext is not MainViewModel mainViewModel)
+        if (
+            Application.Current?.ApplicationLifetime
+                is not IClassicDesktopStyleApplicationLifetime lifetime
+            || lifetime.MainWindow?.DataContext is not MainViewModel mainViewModel
+        )
         {
             context = null;
             return false;

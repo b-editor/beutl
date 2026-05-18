@@ -11,7 +11,8 @@ internal static class SoundSamplingHelper
         TimeSpan start,
         TimeSpan length,
         out float[] samples,
-        out int sampleRate)
+        out int sampleRate
+    )
     {
         samples = [];
         sampleRate = 0;
@@ -56,7 +57,8 @@ internal static class SoundSamplingHelper
     public static void DownsampleMinMax(
         ReadOnlySpan<float> samples,
         Span<float> mins,
-        Span<float> maxs)
+        Span<float> maxs
+    )
     {
         int barCount = mins.Length;
         if (maxs.Length != barCount)
@@ -75,18 +77,23 @@ internal static class SoundSamplingHelper
         {
             int start = (int)((long)bar * samples.Length / barCount);
             int end = (int)((long)(bar + 1) * samples.Length / barCount);
-            if (end <= start) end = Math.Min(start + 1, samples.Length);
+            if (end <= start)
+                end = Math.Min(start + 1, samples.Length);
 
             float min = float.PositiveInfinity;
             float max = float.NegativeInfinity;
             for (int i = start; i < end; i++)
             {
                 float v = samples[i];
-                if (v < min) min = v;
-                if (v > max) max = v;
+                if (v < min)
+                    min = v;
+                if (v > max)
+                    max = v;
             }
-            if (float.IsPositiveInfinity(min)) min = 0f;
-            if (float.IsNegativeInfinity(max)) max = 0f;
+            if (float.IsPositiveInfinity(min))
+                min = 0f;
+            if (float.IsNegativeInfinity(max))
+                max = 0f;
 
             mins[bar] = min;
             maxs[bar] = max;
@@ -96,7 +103,8 @@ internal static class SoundSamplingHelper
     public static void ExtractWindow(
         ReadOnlySpan<float> samples,
         int centerIndex,
-        Span<float> destination)
+        Span<float> destination
+    )
     {
         int n = destination.Length;
         int start = centerIndex - n / 2;

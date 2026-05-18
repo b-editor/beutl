@@ -83,7 +83,8 @@ public class PixelRectConverterTests
     [Test]
     public void ConvertFrom_Tuple_ReturnsRect()
     {
-        PixelRect r = (PixelRect)_converter.ConvertFrom(null, null, new Tuple<int, int, int, int>(1, 2, 3, 4))!;
+        PixelRect r = (PixelRect)
+            _converter.ConvertFrom(null, null, new Tuple<int, int, int, int>(1, 2, 3, 4))!;
         Assert.That(r, Is.EqualTo(new PixelRect(1, 2, 3, 4)));
     }
 
@@ -97,7 +98,8 @@ public class PixelRectConverterTests
     [Test]
     public void ConvertFrom_Rect_TruncatesCoordinates()
     {
-        PixelRect r = (PixelRect)_converter.ConvertFrom(null, null, new Rect(1.5f, 2.5f, 3.5f, 4.5f))!;
+        PixelRect r = (PixelRect)
+            _converter.ConvertFrom(null, null, new Rect(1.5f, 2.5f, 3.5f, 4.5f))!;
         Assert.That(r, Is.EqualTo(new PixelRect(1, 2, 3, 4)));
     }
 

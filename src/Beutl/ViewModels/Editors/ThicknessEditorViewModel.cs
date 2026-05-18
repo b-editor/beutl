@@ -1,32 +1,23 @@
 ﻿using Avalonia;
 using Avalonia.Interactivity;
-
 using Beutl.Controls.PropertyEditors;
-
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
 
 namespace Beutl.ViewModels.Editors;
 
-public sealed class ThicknessEditorViewModel : ValueEditorViewModel<Graphics.Thickness>, IConfigureUniformEditor
+public sealed class ThicknessEditorViewModel
+    : ValueEditorViewModel<Graphics.Thickness>,
+        IConfigureUniformEditor
 {
     public ThicknessEditorViewModel(IPropertyAdapter<Graphics.Thickness> property)
         : base(property)
     {
-        FirstValue = Value
-            .Select(x => x.Left)
-            .ToReadOnlyReactivePropertySlim()
-            .AddTo(Disposables);
+        FirstValue = Value.Select(x => x.Left).ToReadOnlyReactivePropertySlim().AddTo(Disposables);
 
-        SecondValue = Value
-            .Select(x => x.Top)
-            .ToReadOnlyReactivePropertySlim()
-            .AddTo(Disposables);
+        SecondValue = Value.Select(x => x.Top).ToReadOnlyReactivePropertySlim().AddTo(Disposables);
 
-        ThirdValue = Value
-            .Select(x => x.Right)
-            .ToReadOnlyReactivePropertySlim()
-            .AddTo(Disposables);
+        ThirdValue = Value.Select(x => x.Right).ToReadOnlyReactivePropertySlim().AddTo(Disposables);
 
         FourthValue = Value
             .Select(x => x.Bottom)
@@ -51,33 +42,60 @@ public sealed class ThicknessEditorViewModel : ValueEditorViewModel<Graphics.Thi
         {
             VectorEditorBindingHelper.ApplyNumberAttributes(editor, PropertyAdapter);
 
-            editor.Bind(Vector4Editor<float>.FirstValueProperty, FirstValue.ToBinding())
+            editor
+                .Bind(Vector4Editor<float>.FirstValueProperty, FirstValue.ToBinding())
                 .DisposeWith(Disposables);
-            editor.Bind(Vector4Editor<float>.SecondValueProperty, SecondValue.ToBinding())
+            editor
+                .Bind(Vector4Editor<float>.SecondValueProperty, SecondValue.ToBinding())
                 .DisposeWith(Disposables);
-            editor.Bind(Vector4Editor<float>.ThirdValueProperty, ThirdValue.ToBinding())
+            editor
+                .Bind(Vector4Editor<float>.ThirdValueProperty, ThirdValue.ToBinding())
                 .DisposeWith(Disposables);
-            editor.Bind(Vector4Editor<float>.FourthValueProperty, FourthValue.ToBinding())
+            editor
+                .Bind(Vector4Editor<float>.FourthValueProperty, FourthValue.ToBinding())
                 .DisposeWith(Disposables);
-            editor.Bind(Vector4Editor.IsUniformProperty, IsUniformEditorEnabled.ToBinding())
+            editor
+                .Bind(Vector4Editor.IsUniformProperty, IsUniformEditorEnabled.ToBinding())
                 .DisposeWith(Disposables);
             editor.FirstHeader = Strings.Left;
             editor.SecondHeader = Strings.Top;
             editor.ThirdHeader = Strings.Right;
             editor.FourthHeader = Strings.Bottom;
-            editor.AddDisposableHandler(PropertyEditor.ValueConfirmedEvent, OnValueConfirmed)
+            editor
+                .AddDisposableHandler(PropertyEditor.ValueConfirmedEvent, OnValueConfirmed)
                 .DisposeWith(Disposables);
-            editor.AddDisposableHandler(PropertyEditor.ValueChangedEvent, OnValueChanged)
+            editor
+                .AddDisposableHandler(PropertyEditor.ValueChangedEvent, OnValueChanged)
                 .DisposeWith(Disposables);
         }
     }
 
     private void OnValueConfirmed(object? sender, PropertyEditorValueChangedEventArgs e)
     {
-        if (e is PropertyEditorValueChangedEventArgs<(float Left, float Top, float Right, float Bottom)> args)
+        if (
+            e
+            is PropertyEditorValueChangedEventArgs<(
+                float Left,
+                float Top,
+                float Right,
+                float Bottom
+            )> args
+        )
         {
-            SetValue(new Graphics.Thickness(args.OldValue.Left, args.OldValue.Top, args.OldValue.Right, args.OldValue.Bottom),
-                     new Graphics.Thickness(args.NewValue.Left, args.NewValue.Top, args.NewValue.Right, args.NewValue.Bottom));
+            SetValue(
+                new Graphics.Thickness(
+                    args.OldValue.Left,
+                    args.OldValue.Top,
+                    args.OldValue.Right,
+                    args.OldValue.Bottom
+                ),
+                new Graphics.Thickness(
+                    args.NewValue.Left,
+                    args.NewValue.Top,
+                    args.NewValue.Right,
+                    args.NewValue.Bottom
+                )
+            );
         }
     }
 
@@ -86,7 +104,13 @@ public sealed class ThicknessEditorViewModel : ValueEditorViewModel<Graphics.Thi
         if (sender is Vector4Editor<float> editor)
         {
             Graphics.Thickness coerced = SetCurrentValueAndGetCoerced(
-                new Graphics.Thickness(editor.FirstValue, editor.SecondValue, editor.ThirdValue, editor.FourthValue));
+                new Graphics.Thickness(
+                    editor.FirstValue,
+                    editor.SecondValue,
+                    editor.ThirdValue,
+                    editor.FourthValue
+                )
+            );
             editor.FirstValue = coerced.Left;
             editor.SecondValue = coerced.Top;
             editor.ThirdValue = coerced.Right;

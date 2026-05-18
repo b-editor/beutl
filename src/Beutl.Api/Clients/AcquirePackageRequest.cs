@@ -4,5 +4,6 @@ namespace Beutl.Api.Clients;
 
 public class AcquirePackageRequest
 {
-    [JsonPropertyName("packageId")] public required string PackageId { get; init; }
+    [JsonPropertyName("packageId")]
+    public required string PackageId { get; init; }
 }

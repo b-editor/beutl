@@ -1,8 +1,6 @@
 ﻿using System.Collections.Frozen;
 using System.Reflection;
-
 using Microsoft.Extensions.DependencyModel;
-
 using NuGet.Packaging.Core;
 using NuGet.Versioning;
 
@@ -10,14 +8,16 @@ namespace Beutl.Api.Services;
 
 internal static class CoreLibraries
 {
-    private static readonly Lazy<FrozenDictionary<string, string[]>> s_runtimeMap
-        = new(() => CollectRuntimeDependencies()
+    private static readonly Lazy<FrozenDictionary<string, string[]>> s_runtimeMap = new(() =>
+        CollectRuntimeDependencies()
             .GroupBy(i => i.Name, i => i.Version)
-            .ToFrozenDictionary(x => x.Key, x => x.ToArray()));
-    private static readonly Lazy<FrozenDictionary<string, string[]>> s_pkgMap
-        = new(() => CollectPackageDependencies()
+            .ToFrozenDictionary(x => x.Key, x => x.ToArray())
+    );
+    private static readonly Lazy<FrozenDictionary<string, string[]>> s_pkgMap = new(() =>
+        CollectPackageDependencies()
             .GroupBy(i => i.Name, i => i.Version)
-            .ToFrozenDictionary(x => x.Key, x => x.ToArray()));
+            .ToFrozenDictionary(x => x.Key, x => x.ToArray())
+    );
     private static List<PackageIdentity>? s_preferredVersions;
 
     public static IEnumerable<PackageIdentity> GetPreferredVersions()
@@ -32,8 +32,8 @@ internal static class CoreLibraries
     public static IEnumerable<Dependency> CollectPackageDependencies()
     {
         var assembly = Assembly.LoadFile(Path.Combine(AppContext.BaseDirectory, "Beutl.dll"));
-        DependencyContext? depsContext = DependencyContextLoader.Default.Load(assembly)
-            ?? throw new InvalidOperationException();
+        DependencyContext? depsContext =
+            DependencyContextLoader.Default.Load(assembly) ?? throw new InvalidOperationException();
 
         var library = new HashSet<Dependency>();
 
@@ -48,8 +48,8 @@ internal static class CoreLibraries
     public static IEnumerable<Dependency> CollectRuntimeDependencies()
     {
         var assembly = Assembly.LoadFile(Path.Combine(AppContext.BaseDirectory, "Beutl.dll"));
-        DependencyContext? depsContext = DependencyContextLoader.Default.Load(assembly)
-            ?? throw new InvalidOperationException();
+        DependencyContext? depsContext =
+            DependencyContextLoader.Default.Load(assembly) ?? throw new InvalidOperationException();
 
         var library = new HashSet<Dependency>();
 

@@ -1,5 +1,3 @@
 ﻿namespace Beutl.Extensibility;
 
-public abstract class LayerExtension : Extension
-{
-}
+public abstract class LayerExtension : Extension { }

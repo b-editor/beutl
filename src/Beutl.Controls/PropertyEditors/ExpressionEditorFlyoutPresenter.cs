@@ -1,12 +1,10 @@
 ﻿#nullable enable
 
 using System.Reactive.Disposables;
-
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Interactivity;
-
 using Beutl.Reactive;
 
 namespace Beutl.Controls.PropertyEditors;
@@ -16,8 +14,10 @@ public class ExpressionEditorFlyoutPresenter : DraggablePickerFlyoutPresenter
     public static readonly StyledProperty<string?> ExpressionTextProperty =
         AvaloniaProperty.Register<ExpressionEditorFlyoutPresenter, string?>(nameof(ExpressionText));
 
-    public static readonly StyledProperty<string?> ErrorMessageProperty =
-        AvaloniaProperty.Register<ExpressionEditorFlyoutPresenter, string?>(nameof(ErrorMessage));
+    public static readonly StyledProperty<string?> ErrorMessageProperty = AvaloniaProperty.Register<
+        ExpressionEditorFlyoutPresenter,
+        string?
+    >(nameof(ErrorMessage));
 
     private readonly CompositeDisposable _disposables = [];
     private const string HasErrorPseudoClass = ":has-error";
@@ -46,10 +46,12 @@ public class ExpressionEditorFlyoutPresenter : DraggablePickerFlyoutPresenter
         _inputTabButton = e.NameScope.Find<RadioButton>("InputTabButton");
         _helpTabButton = e.NameScope.Find<RadioButton>("HelpTabButton");
 
-        _inputTabButton?.AddDisposableHandler(ToggleButton.IsCheckedChangedEvent, OnTabButtonIsCheckedChanged)
+        _inputTabButton
+            ?.AddDisposableHandler(ToggleButton.IsCheckedChangedEvent, OnTabButtonIsCheckedChanged)
             .DisposeWith(_disposables);
 
-        _helpTabButton?.AddDisposableHandler(ToggleButton.IsCheckedChangedEvent, OnTabButtonIsCheckedChanged)
+        _helpTabButton
+            ?.AddDisposableHandler(ToggleButton.IsCheckedChangedEvent, OnTabButtonIsCheckedChanged)
             .DisposeWith(_disposables);
 
         if (_inputTabButton != null)

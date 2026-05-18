@@ -1,5 +1,4 @@
 <Project Sdk="Microsoft.NET.Sdk">
-
   <ItemGroup>
     <ProjectReference Include="..\Beutl.Core\Beutl.Core.csproj" />
     <ProjectReference Include="..\Beutl.Engine\Beutl.Engine.csproj" />
@@ -17,5 +16,4 @@
     <PackageReference Include="SkiaSharp.HarfBuzz" />
     <PackageReference Include="Vortice.XAudio2" />
   </ItemGroup>
-
 </Project>

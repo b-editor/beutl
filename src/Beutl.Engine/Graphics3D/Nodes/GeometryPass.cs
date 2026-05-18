@@ -16,10 +16,10 @@ public sealed class GeometryPass : GraphicsNode3D
     // G-Buffer formats
     public static readonly TextureFormat[] GBufferFormats =
     [
-        TextureFormat.RGBA16Float,  // Position
-        TextureFormat.RGBA16Float,  // Normal + Metallic
-        TextureFormat.RGBA8Unorm,   // Albedo + Roughness
-        TextureFormat.RGBA16Float   // Emission + AO
+        TextureFormat.RGBA16Float, // Position
+        TextureFormat.RGBA16Float, // Normal + Metallic
+        TextureFormat.RGBA8Unorm, // Albedo + Roughness
+        TextureFormat.RGBA16Float, // Emission + AO
     ];
 
     // Default material for objects without a material
@@ -27,9 +27,7 @@ public sealed class GeometryPass : GraphicsNode3D
     private BasicMaterial.Resource? _defaultMaterialResource;
 
     public GeometryPass(IGraphicsContext context, IShaderCompiler shaderCompiler)
-        : base(context, shaderCompiler)
-    {
-    }
+        : base(context, shaderCompiler) { }
 
     /// <summary>
     /// Gets the world position texture (RGB16F).
@@ -59,7 +57,9 @@ public sealed class GeometryPass : GraphicsNode3D
     protected override void OnInitialize(int width, int height)
     {
         CreateGBuffer(width, height);
-        _defaultMaterialResource = _defaultMaterial.ToResource(new CompositionContext(TimeSpan.Zero));
+        _defaultMaterialResource = _defaultMaterial.ToResource(
+            new CompositionContext(TimeSpan.Zero)
+        );
     }
 
     protected override void OnResize(int width, int height)
@@ -89,8 +89,15 @@ public sealed class GeometryPass : GraphicsNode3D
         RenderPass = Context.CreateRenderPass3D(GBufferFormats, TextureFormat.Depth32Float);
         Framebuffer = Context.CreateFramebuffer3D(
             RenderPass,
-            new[] { PositionTexture, NormalMetallicTexture, AlbedoRoughnessTexture, EmissionAOTexture },
-            DepthTexture);
+            new[]
+            {
+                PositionTexture,
+                NormalMetallicTexture,
+                AlbedoRoughnessTexture,
+                EmissionAOTexture,
+            },
+            DepthTexture
+        );
     }
 
     /// <summary>
@@ -103,7 +110,8 @@ public sealed class GeometryPass : GraphicsNode3D
         float aspectRatio,
         IReadOnlyList<LightData> lightDataList,
         Color ambientColor,
-        float ambientIntensity)
+        float ambientIntensity
+    )
     {
         if (Framebuffer == null || RenderPass == null)
             return;
@@ -118,15 +126,16 @@ public sealed class GeometryPass : GraphicsNode3D
             camera.Position,
             ambientColor.ToLinearPremultiplied().AsVector3() * ambientIntensity,
             lightDataList,
-            compositionContext);
+            compositionContext
+        );
 
         // Clear colors for G-Buffer (black/zero for most, except normal which should be (0,0,1) for up)
         Span<Color> clearColors =
         [
-            new Color(0, 0, 0, 0),       // Position (black, alpha=0 for invalid background)
+            new Color(0, 0, 0, 0), // Position (black, alpha=0 for invalid background)
             new Color(255, 128, 128, 0), // Normal (0.5,0.5,1 = up) + Metallic=0
-            new Color(0, 0, 0, 0),       // Albedo (black) + Roughness=0
-            new Color(255, 0, 0, 0)      // Emission (none) + AO=1
+            new Color(0, 0, 0, 0), // Albedo (black) + Roughness=0
+            new Color(255, 0, 0, 0), // Emission (none) + AO=1
         ];
 
         // Begin geometry pass
@@ -141,7 +150,11 @@ public sealed class GeometryPass : GraphicsNode3D
         EndPass();
     }
 
-    private void RenderObject(RenderContext3D renderContext3D, Object3D.Resource obj, Matrix4x4 parentMatrix)
+    private void RenderObject(
+        RenderContext3D renderContext3D,
+        Object3D.Resource obj,
+        Matrix4x4 parentMatrix
+    )
     {
         if (!obj.IsEnabled)
             return;
@@ -160,7 +173,11 @@ public sealed class GeometryPass : GraphicsNode3D
         RenderMesh(renderContext3D, obj, worldMatrix);
     }
 
-    private void RenderMesh(RenderContext3D renderContext3D, Object3D.Resource obj, Matrix4x4 worldMatrix)
+    private void RenderMesh(
+        RenderContext3D renderContext3D,
+        Object3D.Resource obj,
+        Matrix4x4 worldMatrix
+    )
     {
         // Get mesh resource from object
         var meshResource = obj.GetMesh();

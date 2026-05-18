@@ -2,7 +2,6 @@
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
-
 using Beutl.Logging;
 using Beutl.PackageTools.UI.Models;
 
@@ -49,12 +48,13 @@ public partial class AcceptLicenseTask : UserControl
             {
                 if (url != null)
                 {
-                    Process.Start(new ProcessStartInfo(url.ToString())
-                    {
-                        UseShellExecute = true,
-                        Verb = "open"
-                    });
-
+                    Process.Start(
+                        new ProcessStartInfo(url.ToString())
+                        {
+                            UseShellExecute = true,
+                            Verb = "open",
+                        }
+                    );
                 }
             }
             catch (Exception ex)

@@ -8,7 +8,11 @@ public class DispatcherOperationTests
     public void Run_InvokesAction()
     {
         bool invoked = false;
-        var op = new DispatcherOperation(() => invoked = true, DispatchPriority.Medium, CancellationToken.None);
+        var op = new DispatcherOperation(
+            () => invoked = true,
+            DispatchPriority.Medium,
+            CancellationToken.None
+        );
 
         op.Run();
 
@@ -46,7 +50,11 @@ public class DispatcherOperationTests
         try
         {
             bool invoked = false;
-            var op = new DispatcherOperation(() => invoked = true, DispatchPriority.Low, CancellationToken.None);
+            var op = new DispatcherOperation(
+                () => invoked = true,
+                DispatchPriority.Low,
+                CancellationToken.None
+            );
 
             op.Run();
 

@@ -36,8 +36,9 @@ public sealed class PresenterTypeAttribute(Type presenterType) : Attribute
         if (targetType == null)
             throw new ArgumentNullException(nameof(targetType));
 
-        PresenterTypeAttribute? attribute =
-            targetType.GetCustomAttribute<PresenterTypeAttribute>(inherit: true);
+        PresenterTypeAttribute? attribute = targetType.GetCustomAttribute<PresenterTypeAttribute>(
+            inherit: true
+        );
 
         return attribute?.PresenterType;
     }

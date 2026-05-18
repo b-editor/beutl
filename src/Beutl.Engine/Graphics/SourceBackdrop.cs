@@ -13,7 +13,10 @@ public partial class SourceBackdrop : Drawable
         ScanProperties<SourceBackdrop>();
     }
 
-    [Display(Name = nameof(GraphicsStrings.SourceBackdrop_Clear), ResourceType = typeof(GraphicsStrings))]
+    [Display(
+        Name = nameof(GraphicsStrings.SourceBackdrop_Clear),
+        ResourceType = typeof(GraphicsStrings)
+    )]
     public IProperty<bool> Clear { get; } = Property.CreateAnimatable(false);
 
     protected override Size MeasureCore(Size availableSize, Drawable.Resource resource)
@@ -21,9 +24,7 @@ public partial class SourceBackdrop : Drawable
         return availableSize;
     }
 
-    protected override void OnDraw(GraphicsContext2D context, Drawable.Resource resource)
-    {
-    }
+    protected override void OnDraw(GraphicsContext2D context, Drawable.Resource resource) { }
 
     public override void Render(GraphicsContext2D context, Drawable.Resource resource)
     {

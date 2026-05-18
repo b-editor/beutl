@@ -14,8 +14,7 @@ public partial class MosaicEffect : FilterEffect
 
     static MosaicEffect()
     {
-        string sksl =
-            """
+        string sksl = """
             uniform shader src;
             uniform float2 origin;
             uniform float2 tileSize;
@@ -43,24 +42,32 @@ public partial class MosaicEffect : FilterEffect
     }
 
     [Range(typeof(Size), "0.0001, 0.0001", "max,max")]
-    [Display(Name = nameof(GraphicsStrings.MosaicEffect_TileSize), ResourceType = typeof(GraphicsStrings))]
+    [Display(
+        Name = nameof(GraphicsStrings.MosaicEffect_TileSize),
+        ResourceType = typeof(GraphicsStrings)
+    )]
     public IProperty<Size> TileSize { get; } = Property.CreateAnimatable(new Size(10, 10));
 
-    [Display(Name = nameof(GraphicsStrings.MosaicEffect_Origin), ResourceType = typeof(GraphicsStrings))]
-    public IProperty<RelativePoint> Origin { get; } = Property.CreateAnimatable(RelativePoint.Center);
+    [Display(
+        Name = nameof(GraphicsStrings.MosaicEffect_Origin),
+        ResourceType = typeof(GraphicsStrings)
+    )]
+    public IProperty<RelativePoint> Origin { get; } =
+        Property.CreateAnimatable(RelativePoint.Center);
 
     public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
     {
         var r = (Resource)resource;
-        context.CustomEffect(
-            (r.TileSize, r.Origin),
-            OnApplyTo,
-            static (_, r) => r);
+        context.CustomEffect((r.TileSize, r.Origin), OnApplyTo, static (_, r) => r);
     }
 
-    private static void OnApplyTo((Size tileSize, RelativePoint origin) data, CustomFilterEffectContext c)
+    private static void OnApplyTo(
+        (Size tileSize, RelativePoint origin) data,
+        CustomFilterEffectContext c
+    )
     {
-        if (s_shader is null) return;
+        if (s_shader is null)
+            return;
 
         for (int i = 0; i < c.Targets.Count; i++)
         {
@@ -76,7 +83,9 @@ public partial class MosaicEffect : FilterEffect
             // child shaderとしてテクスチャ用のシェーダーを設定
             builder.Children["src"] = baseShader;
             builder.Uniforms["tileSize"] = data.tileSize.ToSKSize();
-            builder.Uniforms["origin"] = data.origin.ToPixels(new(image.Width, image.Height)).ToSKPoint();
+            builder.Uniforms["origin"] = data
+                .origin.ToPixels(new(image.Width, image.Height))
+                .ToSKPoint();
 
             // 新しいターゲットに適用
             c.Targets[i] = s_shader.ApplyToNewTarget(c, builder, effectTarget.Bounds);

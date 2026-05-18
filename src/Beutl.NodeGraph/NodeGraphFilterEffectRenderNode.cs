@@ -5,11 +5,13 @@ using Beutl.NodeGraph.Nodes;
 
 namespace Beutl.NodeGraph;
 
-internal class NodeGraphFilterEffectRenderNode(NodeGraphFilterEffect.Resource resource) : FilterEffectRenderNode(resource)
+internal class NodeGraphFilterEffectRenderNode(NodeGraphFilterEffect.Resource resource)
+    : FilterEffectRenderNode(resource)
 {
     private readonly CompositionContext _compositionContext = new(TimeSpan.Zero);
 
-    private NodeGraphFilterEffect.Resource? GraphResource => FilterEffect?.Resource as NodeGraphFilterEffect.Resource;
+    private NodeGraphFilterEffect.Resource? GraphResource =>
+        FilterEffect?.Resource as NodeGraphFilterEffect.Resource;
 
     public override RenderNodeOperation[] Process(RenderNodeContext context)
     {
@@ -54,7 +56,8 @@ internal class NodeGraphFilterEffectRenderNode(NodeGraphFilterEffect.Resource re
             if (node is FilterEffectInputNode)
             {
                 int slotIndex = GraphResource!.Snapshot.FindSlotIndex(node);
-                if (slotIndex < 0) continue;
+                if (slotIndex < 0)
+                    continue;
                 var resource = GraphResource!.Snapshot.GetResource(slotIndex);
                 if (resource is FilterEffectInputNode.Resource inputResource)
                     return inputResource.Wrapper;
@@ -72,10 +75,12 @@ internal class NodeGraphFilterEffectRenderNode(NodeGraphFilterEffect.Resource re
             if (node is OutputNode outputNode)
             {
                 int slotIndex = GraphResource!.Snapshot.FindSlotIndex(outputNode);
-                if (slotIndex < 0) continue;
+                if (slotIndex < 0)
+                    continue;
 
                 var resource = GraphResource!.Snapshot.GetResource(slotIndex);
-                if (resource == null) continue;
+                if (resource == null)
+                    continue;
 
                 if (!resource.ItemIndexMap.TryGetValue(outputNode.InputPort, out int itemIndex))
                     continue;

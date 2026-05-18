@@ -1,7 +1,6 @@
 ﻿using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
-
 using Beutl.Serialization;
 
 namespace Beutl;
@@ -14,7 +13,11 @@ public sealed class OptionalJsonConverter : JsonConverter<IOptional>
     }
 
     // TODO: JsonArrayに対応させる
-    public override IOptional? Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    public override IOptional? Read(
+        ref Utf8JsonReader reader,
+        Type typeToConvert,
+        JsonSerializerOptions options
+    )
     {
         var jsonNode = JsonNode.Parse(ref reader);
 
@@ -23,8 +26,7 @@ public sealed class OptionalJsonConverter : JsonConverter<IOptional>
             return (IOptional?)Activator.CreateInstance(typeToConvert);
         }
 
-        if (typeToConvert.IsGenericType
-            && typeToConvert.GetGenericArguments()[0] is Type valueType)
+        if (typeToConvert.IsGenericType && typeToConvert.GetGenericArguments()[0] is Type valueType)
         {
             object? instance;
             if (jsonNode is JsonObject jsonObject)
@@ -35,7 +37,7 @@ public sealed class OptionalJsonConverter : JsonConverter<IOptional>
 
             instance = JsonSerializer.Deserialize(jsonNode, valueType, options);
 
-        Return:
+            Return:
             var o = (IOptional?)Activator.CreateInstance(typeToConvert, instance);
             return o;
         }
@@ -43,7 +45,11 @@ public sealed class OptionalJsonConverter : JsonConverter<IOptional>
         throw new Exception("Invalid Optional<T>");
     }
 
-    public override void Write(Utf8JsonWriter writer, IOptional value, JsonSerializerOptions options)
+    public override void Write(
+        Utf8JsonWriter writer,
+        IOptional value,
+        JsonSerializerOptions options
+    )
     {
         if (value.HasValue)
         {
@@ -57,7 +63,11 @@ public sealed class OptionalJsonConverter : JsonConverter<IOptional>
             }
             else
             {
-                JsonNode? node = JsonSerializer.SerializeToNode(optionalValue, optionalType, options);
+                JsonNode? node = JsonSerializer.SerializeToNode(
+                    optionalValue,
+                    optionalType,
+                    options
+                );
                 node?.WriteTo(writer, options);
             }
         }

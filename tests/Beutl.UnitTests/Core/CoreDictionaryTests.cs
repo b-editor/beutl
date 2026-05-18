@@ -116,10 +116,15 @@ public class CoreDictionaryTests
         var dict = new CoreDictionary<string, int> { ["a"] = 1, ["b"] = 2 };
         var actual = dict.OrderBy(kv => kv.Key).ToArray();
 
-        Assert.That(actual, Is.EqualTo(new[]
-        {
-            new KeyValuePair<string, int>("a", 1),
-            new KeyValuePair<string, int>("b", 2),
-        }));
+        Assert.That(
+            actual,
+            Is.EqualTo(
+                new[]
+                {
+                    new KeyValuePair<string, int>("a", 1),
+                    new KeyValuePair<string, int>("b", 2),
+                }
+            )
+        );
     }
 }

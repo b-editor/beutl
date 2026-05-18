@@ -13,7 +13,8 @@ public class BooleanEditor : PropertyEditor
             nameof(Value),
             o => o.Value,
             (o, v) => o.Value = v,
-            defaultBindingMode: BindingMode.TwoWay);
+            defaultBindingMode: BindingMode.TwoWay
+        );
 
     private bool _value;
 
@@ -32,14 +33,16 @@ public class BooleanEditor : PropertyEditor
 
     private void OnCheckBoxClick(object sender, RoutedEventArgs e)
     {
-        if (sender is ToggleButton toggleButton
-            && toggleButton.IsChecked.HasValue)
+        if (sender is ToggleButton toggleButton && toggleButton.IsChecked.HasValue)
         {
             bool value = toggleButton.IsChecked.Value;
-            RaiseEvent(new PropertyEditorValueChangedEventArgs<bool>(value, !value, ValueChangedEvent));
+            RaiseEvent(
+                new PropertyEditorValueChangedEventArgs<bool>(value, !value, ValueChangedEvent)
+            );
             Value = value;
-            RaiseEvent(new PropertyEditorValueChangedEventArgs<bool>(value, !value, ValueConfirmedEvent));
-
+            RaiseEvent(
+                new PropertyEditorValueChangedEventArgs<bool>(value, !value, ValueConfirmedEvent)
+            );
         }
     }
 }

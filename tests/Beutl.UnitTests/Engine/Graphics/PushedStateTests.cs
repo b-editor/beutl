@@ -39,9 +39,7 @@ public class PushedStateTests
     public void Dispose_CallsPopWithStoredCount()
     {
         var popable = new FakePopable();
-        using (new PushedState(popable, 3))
-        {
-        }
+        using (new PushedState(popable, 3)) { }
 
         Assert.That(popable.PopCalls, Is.EqualTo(new[] { 3 }));
     }

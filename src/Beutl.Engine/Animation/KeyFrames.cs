@@ -4,13 +4,10 @@ namespace Beutl.Animation;
 
 public class KeyFrames : HierarchicalList<IKeyFrame>
 {
-    public KeyFrames(IModifiableHierarchical parent) : base(parent)
-    {
-    }
+    public KeyFrames(IModifiableHierarchical parent)
+        : base(parent) { }
 
-    public KeyFrames()
-    {
-    }
+    public KeyFrames() { }
 
     public void Add(IKeyFrame item, out int index)
     {
@@ -29,8 +26,7 @@ public class KeyFrames : HierarchicalList<IKeyFrame>
         {
             IKeyFrame prev = this[i - 1];
             IKeyFrame next = this[i];
-            if (prev.KeyTime < item.KeyTime
-                && item.KeyTime <= next.KeyTime)
+            if (prev.KeyTime < item.KeyTime && item.KeyTime <= next.KeyTime)
             {
                 index = i;
                 Insert(index, item);
@@ -91,8 +87,7 @@ public class KeyFrames : HierarchicalList<IKeyFrame>
         {
             IKeyFrame prev = this[i - 1];
             IKeyFrame next = this[i];
-            if (prev.KeyTime < timeSpan
-                && timeSpan <= next.KeyTime)
+            if (prev.KeyTime < timeSpan && timeSpan <= next.KeyTime)
             {
                 return (prev, next);
             }

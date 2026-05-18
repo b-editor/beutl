@@ -6,26 +6,33 @@ public static partial class RegexHelper
 {
     public static Regex[] CreateRegexes(string pattern)
     {
-        return pattern.ToUpperInvariant()
+        return pattern
+            .ToUpperInvariant()
             .Split(' ')
             .Select(i => i.Trim())
             .Where(i => !string.IsNullOrWhiteSpace(i))
-            .Select(i => MyRegex().Replace(i, m =>
-            {
-                string s = m.Value;
-                if (s.Equals("?"))
-                {
-                    return ".";
-                }
-                else if (s.Equals("*"))
-                {
-                    return ".*";
-                }
-                else
-                {
-                    return Regex.Escape(s);
-                }
-            }))
+            .Select(i =>
+                MyRegex()
+                    .Replace(
+                        i,
+                        m =>
+                        {
+                            string s = m.Value;
+                            if (s.Equals("?"))
+                            {
+                                return ".";
+                            }
+                            else if (s.Equals("*"))
+                            {
+                                return ".*";
+                            }
+                            else
+                            {
+                                return Regex.Escape(s);
+                            }
+                        }
+                    )
+            )
             .Select(i => new Regex(i))
             .ToArray();
     }

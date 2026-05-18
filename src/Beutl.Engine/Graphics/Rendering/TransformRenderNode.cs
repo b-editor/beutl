@@ -1,6 +1,7 @@
 ﻿namespace Beutl.Graphics.Rendering;
 
-public sealed class TransformRenderNode(Matrix transform, TransformOperator transformOperator) : ContainerRenderNode
+public sealed class TransformRenderNode(Matrix transform, TransformOperator transformOperator)
+    : ContainerRenderNode
 {
     public Matrix Transform { get; private set; } = transform;
 
@@ -27,23 +28,26 @@ public sealed class TransformRenderNode(Matrix transform, TransformOperator tran
 
     public override RenderNodeOperation[] Process(RenderNodeContext context)
     {
-        return context.Input.Select(r =>
-            RenderNodeOperation.CreateLambda(
-                r.Bounds.TransformToAABB(Transform),
-                canvas =>
-                {
-                    using (canvas.PushTransform(Transform, TransformOperator))
+        return context
+            .Input.Select(r =>
+                RenderNodeOperation.CreateLambda(
+                    r.Bounds.TransformToAABB(Transform),
+                    canvas =>
                     {
-                        r.Render(canvas);
-                    }
-                },
-                hitTest: point =>
-                {
-                    if (Transform.HasInverse)
-                        point *= Transform.Invert();
-                    return r.HitTest(point);
-                },
-                onDispose: r.Dispose))
+                        using (canvas.PushTransform(Transform, TransformOperator))
+                        {
+                            r.Render(canvas);
+                        }
+                    },
+                    hitTest: point =>
+                    {
+                        if (Transform.HasInverse)
+                            point *= Transform.Invert();
+                        return r.HitTest(point);
+                    },
+                    onDispose: r.Dispose
+                )
+            )
             .ToArray();
     }
 }

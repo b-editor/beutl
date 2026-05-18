@@ -16,14 +16,24 @@ public class GradingColorBrushConverter : IValueConverter
         if (value is GradingColor gradingColor)
         {
             var beutlColor = gradingColor.ToColor();
-            var avaloniaColor = AColor.FromArgb(beutlColor.A, beutlColor.R, beutlColor.G, beutlColor.B);
+            var avaloniaColor = AColor.FromArgb(
+                beutlColor.A,
+                beutlColor.R,
+                beutlColor.G,
+                beutlColor.B
+            );
             return new ASolidColorBrush(avaloniaColor);
         }
 
         return null;
     }
 
-    public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
+    public object? ConvertBack(
+        object? value,
+        Type targetType,
+        object? parameter,
+        CultureInfo culture
+    )
     {
         throw new NotImplementedException();
     }

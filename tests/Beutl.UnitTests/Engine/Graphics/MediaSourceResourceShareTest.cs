@@ -26,8 +26,11 @@ public class MediaSourceResourceShareTest
 
         Assert.That(a.MediaReader, Is.Not.Null);
         Assert.That(b.MediaReader, Is.Not.Null);
-        Assert.That(b.MediaReader, Is.SameAs(a.MediaReader),
-            "DisableResourceShare=false では同じ MediaReader を共有するはず");
+        Assert.That(
+            b.MediaReader,
+            Is.SameAs(a.MediaReader),
+            "DisableResourceShare=false では同じ MediaReader を共有するはず"
+        );
     }
 
     [Test]
@@ -45,8 +48,11 @@ public class MediaSourceResourceShareTest
 
         Assert.That(preview.MediaReader, Is.Not.Null);
         Assert.That(encode.MediaReader, Is.Not.Null);
-        Assert.That(encode.MediaReader, Is.Not.SameAs(preview.MediaReader),
-            "DisableResourceShare=true では専用の MediaReader が割り当てられるはず");
+        Assert.That(
+            encode.MediaReader,
+            Is.Not.SameAs(preview.MediaReader),
+            "DisableResourceShare=true では専用の MediaReader が割り当てられるはず"
+        );
     }
 
     [Test]
@@ -59,11 +65,15 @@ public class MediaSourceResourceShareTest
         // エンコード側が先に Resource を生成しても、プレビュー側 (共有モード) は
         // エンコード専用 MediaReader を掴まない
         using var encode = videoSource.ToResource(
-            new CompositionContext(TimeSpan.Zero) { DisableResourceShare = true });
+            new CompositionContext(TimeSpan.Zero) { DisableResourceShare = true }
+        );
         using var preview = videoSource.ToResource(CompositionContext.Default);
 
-        Assert.That(preview.MediaReader, Is.Not.SameAs(encode.MediaReader),
-            "エンコード専用 MediaReader がプレビュー側に漏れてはならない");
+        Assert.That(
+            preview.MediaReader,
+            Is.Not.SameAs(encode.MediaReader),
+            "エンコード専用 MediaReader がプレビュー側に漏れてはならない"
+        );
     }
 
     [Test]
@@ -78,8 +88,11 @@ public class MediaSourceResourceShareTest
 
         Assert.That(a.MediaReader, Is.Not.Null);
         Assert.That(b.MediaReader, Is.Not.Null);
-        Assert.That(b.MediaReader, Is.SameAs(a.MediaReader),
-            "DisableResourceShare=false では同じ MediaReader を共有するはず");
+        Assert.That(
+            b.MediaReader,
+            Is.SameAs(a.MediaReader),
+            "DisableResourceShare=false では同じ MediaReader を共有するはず"
+        );
     }
 
     [Test]
@@ -91,12 +104,16 @@ public class MediaSourceResourceShareTest
 
         using var preview = soundSource.ToResource(CompositionContext.Default);
         using var encode = soundSource.ToResource(
-            new CompositionContext(TimeSpan.Zero) { DisableResourceShare = true });
+            new CompositionContext(TimeSpan.Zero) { DisableResourceShare = true }
+        );
 
         Assert.That(preview.MediaReader, Is.Not.Null);
         Assert.That(encode.MediaReader, Is.Not.Null);
-        Assert.That(encode.MediaReader, Is.Not.SameAs(preview.MediaReader),
-            "DisableResourceShare=true では専用の MediaReader が割り当てられるはず");
+        Assert.That(
+            encode.MediaReader,
+            Is.Not.SameAs(preview.MediaReader),
+            "DisableResourceShare=true では専用の MediaReader が割り当てられるはず"
+        );
     }
 
     [Test]
@@ -111,8 +128,11 @@ public class MediaSourceResourceShareTest
 
         Assert.That(a.Bitmap, Is.Not.Null);
         Assert.That(b.Bitmap, Is.Not.Null);
-        Assert.That(b.Bitmap, Is.SameAs(a.Bitmap),
-            "DisableResourceShare=false では同じ Bitmap を共有するはず");
+        Assert.That(
+            b.Bitmap,
+            Is.SameAs(a.Bitmap),
+            "DisableResourceShare=false では同じ Bitmap を共有するはず"
+        );
     }
 
     [Test]
@@ -124,12 +144,16 @@ public class MediaSourceResourceShareTest
 
         using var preview = imageSource.ToResource(CompositionContext.Default);
         using var encode = imageSource.ToResource(
-            new CompositionContext(TimeSpan.Zero) { DisableResourceShare = true });
+            new CompositionContext(TimeSpan.Zero) { DisableResourceShare = true }
+        );
 
         Assert.That(preview.Bitmap, Is.Not.Null);
         Assert.That(encode.Bitmap, Is.Not.Null);
-        Assert.That(encode.Bitmap, Is.Not.SameAs(preview.Bitmap),
-            "DisableResourceShare=true では専用の Bitmap が割り当てられるはず");
+        Assert.That(
+            encode.Bitmap,
+            Is.Not.SameAs(preview.Bitmap),
+            "DisableResourceShare=true では専用の Bitmap が割り当てられるはず"
+        );
     }
 
     [Test]
@@ -142,11 +166,15 @@ public class MediaSourceResourceShareTest
         // エンコード側が先に Resource を生成しても、プレビュー側 (共有モード) は
         // エンコード専用 Bitmap を掴まない
         using var encode = imageSource.ToResource(
-            new CompositionContext(TimeSpan.Zero) { DisableResourceShare = true });
+            new CompositionContext(TimeSpan.Zero) { DisableResourceShare = true }
+        );
         using var preview = imageSource.ToResource(CompositionContext.Default);
 
-        Assert.That(preview.Bitmap, Is.Not.SameAs(encode.Bitmap),
-            "エンコード専用 Bitmap がプレビュー側に漏れてはならない");
+        Assert.That(
+            preview.Bitmap,
+            Is.Not.SameAs(encode.Bitmap),
+            "エンコード専用 Bitmap がプレビュー側に漏れてはならない"
+        );
     }
 
     [Test]
@@ -159,11 +187,15 @@ public class MediaSourceResourceShareTest
         // エンコード側が先に Resource を生成しても、プレビュー側 (共有モード) は
         // エンコード専用 MediaReader を掴まない
         using var encode = soundSource.ToResource(
-            new CompositionContext(TimeSpan.Zero) { DisableResourceShare = true });
+            new CompositionContext(TimeSpan.Zero) { DisableResourceShare = true }
+        );
         using var preview = soundSource.ToResource(CompositionContext.Default);
 
-        Assert.That(preview.MediaReader, Is.Not.SameAs(encode.MediaReader),
-            "エンコード専用 MediaReader がプレビュー側に漏れてはならない");
+        Assert.That(
+            preview.MediaReader,
+            Is.Not.SameAs(encode.MediaReader),
+            "エンコード専用 MediaReader がプレビュー側に漏れてはならない"
+        );
     }
 
     [Test]
@@ -184,10 +216,16 @@ public class MediaSourceResourceShareTest
         using var newResource = imageSource.ToResource(CompositionContext.Default);
 
         Assert.That(newResource.Bitmap, Is.Not.Null);
-        Assert.That(newResource.Bitmap, Is.Not.SameAs(oldResource.Bitmap),
-            "URI 切替後の Resource が旧 URI の Bitmap を共有してはならない");
-        Assert.That(newResource.FrameSize, Is.EqualTo(new PixelSize(32, 32)),
-            "新 URI に対応する Bitmap がロードされるはず");
+        Assert.That(
+            newResource.Bitmap,
+            Is.Not.SameAs(oldResource.Bitmap),
+            "URI 切替後の Resource が旧 URI の Bitmap を共有してはならない"
+        );
+        Assert.That(
+            newResource.FrameSize,
+            Is.EqualTo(new PixelSize(32, 32)),
+            "新 URI に対応する Bitmap がロードされるはず"
+        );
     }
 
     [Test]
@@ -206,10 +244,16 @@ public class MediaSourceResourceShareTest
         using var newResource = videoSource.ToResource(CompositionContext.Default);
 
         Assert.That(newResource.MediaReader, Is.Not.Null);
-        Assert.That(newResource.MediaReader, Is.Not.SameAs(oldResource.MediaReader),
-            "URI 切替後の Resource が旧 URI の MediaReader を共有してはならない");
-        Assert.That(newResource.MediaReader!.VideoInfo.FrameSize, Is.EqualTo(new PixelSize(120, 120)),
-            "新 URI に対応する MediaReader がロードされるはず");
+        Assert.That(
+            newResource.MediaReader,
+            Is.Not.SameAs(oldResource.MediaReader),
+            "URI 切替後の Resource が旧 URI の MediaReader を共有してはならない"
+        );
+        Assert.That(
+            newResource.MediaReader!.VideoInfo.FrameSize,
+            Is.EqualTo(new PixelSize(120, 120)),
+            "新 URI に対応する MediaReader がロードされるはず"
+        );
     }
 
     [Test]
@@ -228,7 +272,10 @@ public class MediaSourceResourceShareTest
         using var newResource = soundSource.ToResource(CompositionContext.Default);
 
         Assert.That(newResource.MediaReader, Is.Not.Null);
-        Assert.That(newResource.MediaReader, Is.Not.SameAs(oldResource.MediaReader),
-            "URI 切替後の Resource が旧 URI の MediaReader を共有してはならない");
+        Assert.That(
+            newResource.MediaReader,
+            Is.Not.SameAs(oldResource.MediaReader),
+            "URI 切替後の Resource が旧 URI の MediaReader を共有してはならない"
+        );
     }
 }

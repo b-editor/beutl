@@ -7,9 +7,8 @@ public partial class MainWindow : Window
 {
     private readonly MainWindowViewModel _viewModel;
 
-    public MainWindow() : this(null)
-    {
-    }
+    public MainWindow()
+        : this(null) { }
 
     public MainWindow(string? sessionId)
     {

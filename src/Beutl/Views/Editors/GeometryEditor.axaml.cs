@@ -22,7 +22,10 @@ public partial class GeometryEditor : UserControl
         ExpandTransitionHelper.Attach(expandToggle, content);
         FallbackObjectViewHelper.Attach(this, view => content.Children.Add(view));
 
-        EditorMenuHelper.AttachCopyPasteAndTemplateMenus(this, (FAMenuFlyout)expandToggle.ContextFlyout!);
+        EditorMenuHelper.AttachCopyPasteAndTemplateMenus(
+            this,
+            (FAMenuFlyout)expandToggle.ContextFlyout!
+        );
 
         DragDrop.SetAllowDrop(this, true);
         AddHandler(DragDrop.DragOverEvent, DragOver);
@@ -31,12 +34,19 @@ public partial class GeometryEditor : UserControl
 
     private void Drop(object? sender, DragEventArgs e)
     {
-        if (DataContext is not GeometryEditorViewModel { IsDisposed: false } viewModel) return;
+        if (DataContext is not GeometryEditorViewModel { IsDisposed: false } viewModel)
+            return;
 
-        if (e.DataTransfer.TryGetFile()?.TryGetLocalPath() is { } droppedFile
-            && string.Equals(Path.GetExtension(droppedFile), ".json", StringComparison.OrdinalIgnoreCase)
+        if (
+            e.DataTransfer.TryGetFile()?.TryGetLocalPath() is { } droppedFile
+            && string.Equals(
+                Path.GetExtension(droppedFile),
+                ".json",
+                StringComparison.OrdinalIgnoreCase
+            )
             && ObjectTemplateService.Instance.TryLoadFromFile(droppedFile) is { } template
-            && viewModel.ApplyTemplate(template))
+            && viewModel.ApplyTemplate(template)
+        )
         {
             e.Handled = true;
         }
@@ -53,7 +63,8 @@ public partial class GeometryEditor : UserControl
 
     private void Tag_Click(object? sender, RoutedEventArgs e)
     {
-        if (DataContext is not GeometryEditorViewModel { IsDisposed: false } viewModel) return;
+        if (DataContext is not GeometryEditorViewModel { IsDisposed: false } viewModel)
+            return;
 
         if (viewModel.IsGroup.Value)
         {
@@ -77,20 +88,22 @@ public partial class GeometryEditor : UserControl
 
     private async void ImportFromSvgPathClick(object? sender, RoutedEventArgs e)
     {
-        if (DataContext is not GeometryEditorViewModel { IsDisposed: false } viewModel) return;
+        if (DataContext is not GeometryEditorViewModel { IsDisposed: false } viewModel)
+            return;
 
         _logger.LogInformation("Importing from SVG path.");
         var dialog = new ContentDialog()
         {
             Title = Strings.ImportSvgPath,
             PrimaryButtonText = Strings.Import,
-            CloseButtonText = Strings.Cancel
+            CloseButtonText = Strings.Cancel,
         };
         var stack = new StackPanel() { Spacing = 8 };
         var description = new TextBlock() { Text = Strings.ImportSvgPath_Description };
         var textBox = new TextBox();
 
-        dialog[!ContentDialog.IsPrimaryButtonEnabledProperty] = textBox.GetObservable(TextBox.TextProperty)
+        dialog[!ContentDialog.IsPrimaryButtonEnabledProperty] = textBox
+            .GetObservable(TextBox.TextProperty)
             .Select(s => !string.IsNullOrWhiteSpace(s))
             .ToBinding();
 
@@ -104,7 +117,10 @@ public partial class GeometryEditor : UserControl
             if (string.IsNullOrWhiteSpace(path))
             {
                 _logger.LogWarning("SVG path is empty.");
-                NotificationService.ShowWarning(Strings.ImportSvgPath, MessageStrings.InputRequired);
+                NotificationService.ShowWarning(
+                    Strings.ImportSvgPath,
+                    MessageStrings.InputRequired
+                );
                 return;
             }
 
@@ -117,16 +133,15 @@ public partial class GeometryEditor : UserControl
             catch (Exception ex)
             {
                 _logger.LogError(ex, "An exception occurred while parsing the SVG path.");
-                NotificationService.ShowError(
-                    MessageStrings.SvgPathParsingException,
-                    ex.Message);
+                NotificationService.ShowError(MessageStrings.SvgPathParsingException, ex.Message);
             }
         }
     }
 
     private void SetNullClick(object? sender, RoutedEventArgs e)
     {
-        if (DataContext is not GeometryEditorViewModel { IsDisposed: false } viewModel) return;
+        if (DataContext is not GeometryEditorViewModel { IsDisposed: false } viewModel)
+            return;
 
         _logger.LogInformation("Setting value to null.");
         viewModel.SetNull();
@@ -134,7 +149,8 @@ public partial class GeometryEditor : UserControl
 
     private void InitializeClick(object? sender, RoutedEventArgs e)
     {
-        if (DataContext is not GeometryEditorViewModel { IsDisposed: false } viewModel) return;
+        if (DataContext is not GeometryEditorViewModel { IsDisposed: false } viewModel)
+            return;
 
         _logger.LogInformation("Initializing geometry type.");
         viewModel.ChangeGeometryType(typeof(PathGeometry));

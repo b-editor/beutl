@@ -18,7 +18,8 @@ public class StorageFileEditor : StringEditor
             nameof(Value),
             o => o.Value,
             (o, v) => o.Value = v,
-            defaultBindingMode: BindingMode.TwoWay);
+            defaultBindingMode: BindingMode.TwoWay
+        );
 
     private FileInfo _value;
     private FileInfo _oldValue;
@@ -67,7 +68,13 @@ public class StorageFileEditor : StringEditor
             {
                 FileInfo oldValue = Value;
                 Value = new FileInfo(localPath);
-                RaiseEvent(new PropertyEditorValueChangedEventArgs<FileInfo>(Value, oldValue, ValueConfirmedEvent));
+                RaiseEvent(
+                    new PropertyEditorValueChangedEventArgs<FileInfo>(
+                        Value,
+                        oldValue,
+                        ValueConfirmedEvent
+                    )
+                );
             }
         }
     }
@@ -88,7 +95,13 @@ public class StorageFileEditor : StringEditor
             Value = GetStorageFile(Text);
             if (Text != _oldText)
             {
-                RaiseEvent(new PropertyEditorValueChangedEventArgs<FileInfo>(Value, _oldValue, ValueConfirmedEvent));
+                RaiseEvent(
+                    new PropertyEditorValueChangedEventArgs<FileInfo>(
+                        Value,
+                        _oldValue,
+                        ValueConfirmedEvent
+                    )
+                );
             }
         }
     }

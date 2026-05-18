@@ -18,31 +18,40 @@ public sealed class AVFAudioEncoderSettings : AudioEncoderSettings
             .DefaultValue(AudioFormatType.MPEG4AAC)
             .Register();
 
-        LinearPcmBitDepthProperty = ConfigureProperty<BitDepth, AVFAudioEncoderSettings>(nameof(LinearPcmBitDepth))
+        LinearPcmBitDepthProperty = ConfigureProperty<BitDepth, AVFAudioEncoderSettings>(
+                nameof(LinearPcmBitDepth)
+            )
             .DefaultValue(BitDepth.Bits16)
             .Register();
 
-        LinearPcmBigEndianProperty = ConfigureProperty<bool, AVFAudioEncoderSettings>(nameof(LinearPcmBigEndian))
+        LinearPcmBigEndianProperty = ConfigureProperty<bool, AVFAudioEncoderSettings>(
+                nameof(LinearPcmBigEndian)
+            )
             .DefaultValue(false)
             .Register();
 
-        LinearPcmFloatProperty = ConfigureProperty<bool, AVFAudioEncoderSettings>(nameof(LinearPcmFloat))
+        LinearPcmFloatProperty = ConfigureProperty<bool, AVFAudioEncoderSettings>(
+                nameof(LinearPcmFloat)
+            )
             .DefaultValue(false)
             .Register();
 
-        LinearPcmNonInterleavedProperty =
-            ConfigureProperty<bool, AVFAudioEncoderSettings>(nameof(LinearPcmNonInterleaved))
-                .DefaultValue(false)
-                .Register();
+        LinearPcmNonInterleavedProperty = ConfigureProperty<bool, AVFAudioEncoderSettings>(
+                nameof(LinearPcmNonInterleaved)
+            )
+            .DefaultValue(false)
+            .Register();
 
         QualityProperty = ConfigureProperty<AudioQuality, AVFAudioEncoderSettings>(nameof(Quality))
             .DefaultValue(AudioQuality.Default)
             .Register();
 
-        SampleRateConverterQualityProperty =
-            ConfigureProperty<AudioQuality, AVFAudioEncoderSettings>(nameof(SampleRateConverterQuality))
-                .DefaultValue(AudioQuality.Default)
-                .Register();
+        SampleRateConverterQualityProperty = ConfigureProperty<
+            AudioQuality,
+            AVFAudioEncoderSettings
+        >(nameof(SampleRateConverterQuality))
+            .DefaultValue(AudioQuality.Default)
+            .Register();
 
         BitrateProperty.OverrideDefaultValue<AVFAudioEncoderSettings>(-1);
     }
@@ -94,7 +103,7 @@ public sealed class AVFAudioEncoderSettings : AudioEncoderSettings
         Bits8 = 8,
         Bits16 = 16,
         Bits24 = 24,
-        Bits32 = 32
+        Bits32 = 32,
     }
 
     public enum AudioQuality

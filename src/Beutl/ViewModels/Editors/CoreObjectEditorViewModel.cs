@@ -52,7 +52,10 @@ public interface ICoreObjectEditorViewModel : IServiceProvider
     IReadOnlyList<TargetObjectInfo> GetAvailableTargets();
 }
 
-public sealed class CoreObjectEditorViewModel<T> : BaseEditorViewModel<T>, ICoreObjectEditorViewModel, IFallbackObjectViewModel
+public sealed class CoreObjectEditorViewModel<T>
+    : BaseEditorViewModel<T>,
+        ICoreObjectEditorViewModel,
+        IFallbackObjectViewModel
     where T : CoreObject
 {
     public CoreObjectEditorViewModel(IPropertyAdapter<T> property)
@@ -60,18 +63,18 @@ public sealed class CoreObjectEditorViewModel<T> : BaseEditorViewModel<T>, ICore
     {
         CanWrite = !property.IsReadOnly;
 
-        IsNull = property.GetObservable()
+        IsNull = property
+            .GetObservable()
             .Select(x => x == null)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(Disposables);
 
-        IsNotSetAndCanWrite = IsNull.Select(x => x && CanWrite)
+        IsNotSetAndCanWrite = IsNull
+            .Select(x => x && CanWrite)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(Disposables);
 
-        Value = property.GetObservable()
-            .ToReadOnlyReactivePropertySlim()
-            .DisposeWith(Disposables);
+        Value = property.GetObservable().ToReadOnlyReactivePropertySlim().DisposeWith(Disposables);
 
         Properties = Value
             .Select(x => x != null ? new PropertiesEditorViewModel(x) : null)
@@ -81,13 +84,15 @@ public sealed class CoreObjectEditorViewModel<T> : BaseEditorViewModel<T>, ICore
             .DisposeWith(Disposables);
 
         var expressionObservable = Value
-            .Select(v => v switch
-            {
-                IPresenter<T> presenter => presenter.Target.SubscribeExpressionChange()
-                    .Select(exp => (presenter, exp))!,
-                _ => Observable.ReturnThenNever(
-                    ((IPresenter<T>?)null, (IExpression<T?>?)null))
-            })
+            .Select(v =>
+                v switch
+                {
+                    IPresenter<T> presenter => presenter
+                        .Target.SubscribeExpressionChange()
+                        .Select(exp => (presenter, exp))!,
+                    _ => Observable.ReturnThenNever(((IPresenter<T>?)null, (IExpression<T?>?)null)),
+                }
+            )
             .Switch();
         IsPresenter = expressionObservable
             .Select(t => t is { Item1: not null, Item2: ReferenceExpression<T> or null })
@@ -95,26 +100,34 @@ public sealed class CoreObjectEditorViewModel<T> : BaseEditorViewModel<T>, ICore
             .DisposeWith(Disposables);
 
         CurrentTargetName = expressionObservable
-            .Select(t => t.Item2 is ReferenceExpression<T>
-                ? t.Item1?.Target.GetValue(CompositionContext.Default)
-                : null)
-            .Select(obj => obj != null ? CoreObjectHelper.GetDisplayName(obj) : MessageStrings.PropertyUnset)
+            .Select(t =>
+                t.Item2 is ReferenceExpression<T>
+                    ? t.Item1?.Target.GetValue(CompositionContext.Default)
+                    : null
+            )
+            .Select(obj =>
+                obj != null ? CoreObjectHelper.GetDisplayName(obj) : MessageStrings.PropertyUnset
+            )
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(Disposables);
 
-        IsFallback = Value.Select(v => v is IFallback)
+        IsFallback = Value
+            .Select(v => v is IFallback)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(Disposables);
 
-        CanCopy = Value.Select(v => v is T and not IFallback)
+        CanCopy = Value
+            .Select(v => v is T and not IFallback)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(Disposables);
 
-        ActualTypeName = Value.Select(FallbackHelper.GetTypeName)
+        ActualTypeName = Value
+            .Select(FallbackHelper.GetTypeName)
             .ToReadOnlyReactivePropertySlim(Strings.Unknown)
             .DisposeWith(Disposables);
 
-        FallbackMessage = Value.Select(FallbackHelper.GetFallbackMessage)
+        FallbackMessage = Value
+            .Select(FallbackHelper.GetFallbackMessage)
             .ToReadOnlyReactivePropertySlim(MessageStrings.RestoreFailedTypeNotFound)
             .DisposeWith(Disposables);
     }
@@ -167,8 +180,8 @@ public sealed class CoreObjectEditorViewModel<T> : BaseEditorViewModel<T>, ICore
         }
     }
 
-    protected override ICoreSerializable? GetCopyTarget()
-        => Value.Value is T obj and not IFallback ? obj : null;
+    protected override ICoreSerializable? GetCopyTarget() =>
+        Value.Value is T obj and not IFallback ? obj : null;
 
     public override IReadOnlyReactiveProperty<bool> CanSaveAsTemplate => CanCopy;
 
@@ -178,7 +191,8 @@ public sealed class CoreObjectEditorViewModel<T> : BaseEditorViewModel<T>, ICore
 
     public override bool ApplyTemplate(ObjectTemplateItem template)
     {
-        if (template.CreateInstance() is not T instance) return false;
+        if (template.CreateInstance() is not T instance)
+            return false;
         IsExpanded.Value = true;
         PropertyAdapter.SetValue(instance);
         Commit(CommandNames.ApplyTemplate);
@@ -187,7 +201,8 @@ public sealed class CoreObjectEditorViewModel<T> : BaseEditorViewModel<T>, ICore
 
     public override bool TryPasteJson(string json)
     {
-        if (!CoreObjectClipboard.TryDeserializeJson<T>(json, out var pasted)) return false;
+        if (!CoreObjectClipboard.TryDeserializeJson<T>(json, out var pasted))
+            return false;
 
         IsExpanded.Value = true;
         if (EditingKeyFrame.Value is { } kf)
@@ -211,9 +226,13 @@ public sealed class CoreObjectEditorViewModel<T> : BaseEditorViewModel<T>, ICore
     {
         if (Value.Value is not IPresenter<T> presenter)
         {
-            Type? presenterType = PresenterTypeAttribute.GetPresenterType(PropertyAdapter.PropertyType);
-            if (presenterType == null) return;
-            if (Activator.CreateInstance(presenterType) is not IPresenter<T> p) return;
+            Type? presenterType = PresenterTypeAttribute.GetPresenterType(
+                PropertyAdapter.PropertyType
+            );
+            if (presenterType == null)
+                return;
+            if (Activator.CreateInstance(presenterType) is not IPresenter<T> p)
+                return;
             presenter = p;
             PropertyAdapter.SetValue(presenter);
         }
@@ -232,8 +251,8 @@ public sealed class CoreObjectEditorViewModel<T> : BaseEditorViewModel<T>, ICore
         Commit();
     }
 
-    public IReadOnlyList<TargetObjectInfo> GetAvailableTargets()
-        => TargetObjectSearchHelper.GetAvailableTargets<T>(this);
+    public IReadOnlyList<TargetObjectInfo> GetAvailableTargets() =>
+        TargetObjectSearchHelper.GetAvailableTargets<T>(this);
 
     private void AcceptProperties(PropertiesEditorViewModel? obj)
     {

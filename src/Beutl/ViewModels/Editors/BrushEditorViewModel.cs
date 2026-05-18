@@ -20,9 +20,7 @@ public sealed class BrushEditorViewModel : BaseEditorViewModel, IFallbackObjectV
     public BrushEditorViewModel(IPropertyAdapter<Brush?> property)
         : base(property)
     {
-        Value = property.GetObservable()
-            .ToReadOnlyReactiveProperty()
-            .DisposeWith(Disposables);
+        Value = property.GetObservable().ToReadOnlyReactiveProperty().DisposeWith(Disposables);
 
         AvaloniaBrush = new ReactiveProperty<Avalonia.Media.Brush?>();
         Value.Subscribe(v =>
@@ -32,60 +30,75 @@ public sealed class BrushEditorViewModel : BaseEditorViewModel, IFallbackObjectV
             (AvaloniaBrush.Value, _revoker, _update) = v.ToAvaBrushSync(CurrentTime);
         });
 
-        ChildContext = Value.Select(v => v as ICoreObject)
+        ChildContext = Value
+            .Select(v => v as ICoreObject)
             .Select(x => x != null ? new PropertiesEditorViewModel(x) : null)
             .Do(AcceptChildren)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(Disposables);
 
-        CanCopy = Value.Select(v => v is Brush and not FallbackBrush)
+        CanCopy = Value
+            .Select(v => v is Brush and not FallbackBrush)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(Disposables);
 
-        IsSolid = Value.Select(v => v is SolidColorBrush)
+        IsSolid = Value
+            .Select(v => v is SolidColorBrush)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(Disposables);
 
-        IsLinearGradient = Value.Select(v => v is LinearGradientBrush)
+        IsLinearGradient = Value
+            .Select(v => v is LinearGradientBrush)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(Disposables);
 
-        IsConicGradient = Value.Select(v => v is ConicGradientBrush)
+        IsConicGradient = Value
+            .Select(v => v is ConicGradientBrush)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(Disposables);
 
-        IsRadialGradient = Value.Select(v => v is RadialGradientBrush)
+        IsRadialGradient = Value
+            .Select(v => v is RadialGradientBrush)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(Disposables);
 
-        IsPerlinNoise = Value.Select(v => v is PerlinNoiseBrush)
+        IsPerlinNoise = Value
+            .Select(v => v is PerlinNoiseBrush)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(Disposables);
 
-        IsDrawable = Value.Select(v => v is DrawableBrush)
+        IsDrawable = Value
+            .Select(v => v is DrawableBrush)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(Disposables);
 
-        IsFallback = Value.Select(v => v is IFallback)
+        IsFallback = Value
+            .Select(v => v is IFallback)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(Disposables);
 
-        ActualTypeName = Value.Select(FallbackHelper.GetTypeName)
+        ActualTypeName = Value
+            .Select(FallbackHelper.GetTypeName)
             .ToReadOnlyReactivePropertySlim(Strings.Unknown)
             .DisposeWith(Disposables);
 
-        FallbackMessage = Value.Select(FallbackHelper.GetFallbackMessage)
+        FallbackMessage = Value
+            .Select(FallbackHelper.GetFallbackMessage)
             .ToReadOnlyReactivePropertySlim(MessageStrings.RestoreFailedTypeNotFound)
             .DisposeWith(Disposables);
 
         var expressionObservable = Value
-            .Select(v => v switch
-            {
-                IPresenter<Brush> presenter => presenter.Target.SubscribeExpressionChange()
-                    .Select(exp => (presenter, exp))!,
-                _ => Observable.ReturnThenNever(
-                    ((IPresenter<Brush>?)null, (IExpression<Brush?>?)null))
-            })
+            .Select(v =>
+                v switch
+                {
+                    IPresenter<Brush> presenter => presenter
+                        .Target.SubscribeExpressionChange()
+                        .Select(exp => (presenter, exp))!,
+                    _ => Observable.ReturnThenNever(
+                        ((IPresenter<Brush>?)null, (IExpression<Brush?>?)null)
+                    ),
+                }
+            )
             .Switch();
         IsPresenter = expressionObservable
             .Select(t => t is { Item1: not null, Item2: ReferenceExpression<Brush> or null })
@@ -93,10 +106,14 @@ public sealed class BrushEditorViewModel : BaseEditorViewModel, IFallbackObjectV
             .DisposeWith(Disposables);
 
         CurrentTargetName = expressionObservable
-            .Select(t => t.Item2 is ReferenceExpression<Brush>
-                ? t.Item1?.Target.GetValue(CompositionContext.Default)
-                : null)
-            .Select(fe => fe != null ? CoreObjectHelper.GetDisplayName(fe) : MessageStrings.PropertyUnset)
+            .Select(t =>
+                t.Item2 is ReferenceExpression<Brush>
+                    ? t.Item1?.Target.GetValue(CompositionContext.Default)
+                    : null
+            )
+            .Select(fe =>
+                fe != null ? CoreObjectHelper.GetDisplayName(fe) : MessageStrings.PropertyUnset
+            )
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(Disposables);
     }
@@ -173,14 +190,15 @@ public sealed class BrushEditorViewModel : BaseEditorViewModel, IFallbackObjectV
         }
     }
 
-    protected override ICoreSerializable? GetCopyTarget()
-        => Value.Value is Brush brush and not FallbackBrush ? brush : null;
+    protected override ICoreSerializable? GetCopyTarget() =>
+        Value.Value is Brush brush and not FallbackBrush ? brush : null;
 
     protected override ICoreSerializable? GetTemplateTarget() => GetCopyTarget();
 
     public override bool ApplyTemplate(ObjectTemplateItem template)
     {
-        if (template.CreateInstance() is not Brush instance) return false;
+        if (template.CreateInstance() is not Brush instance)
+            return false;
         IsExpanded.Value = true;
         PropertyAdapter.SetValue(instance);
         Commit(CommandNames.ApplyTemplate);
@@ -189,7 +207,8 @@ public sealed class BrushEditorViewModel : BaseEditorViewModel, IFallbackObjectV
 
     public override bool TryPasteJson(string json)
     {
-        if (!CoreObjectClipboard.TryDeserializeJson<Brush>(json, out var pasted)) return false;
+        if (!CoreObjectClipboard.TryDeserializeJson<Brush>(json, out var pasted))
+            return false;
 
         IsExpanded.Value = true;
         PropertyAdapter.SetValue(pasted);
@@ -225,8 +244,11 @@ public sealed class BrushEditorViewModel : BaseEditorViewModel, IFallbackObjectV
     }
 
     public void ConfirmeGradientStop(
-        int oldIndex, int newIndex,
-        GradientStop.Resource oldObject, GradientStop obj)
+        int oldIndex,
+        int newIndex,
+        GradientStop.Resource oldObject,
+        GradientStop obj
+    )
     {
         if (Value.Value is GradientBrush { GradientStops: { } list })
         {
@@ -293,11 +315,11 @@ public sealed class BrushEditorViewModel : BaseEditorViewModel, IFallbackObjectV
         Commit();
     }
 
-    public IReadOnlyList<TargetObjectInfo> GetAvailableTargets()
-        => TargetObjectSearchHelper.GetAvailableTargets<Brush>(this);
+    public IReadOnlyList<TargetObjectInfo> GetAvailableTargets() =>
+        TargetObjectSearchHelper.GetAvailableTargets<Brush>(this);
 
-    public IReadOnlyList<TargetObjectInfo> GetAvailableDrawableTargets()
-        => TargetObjectSearchHelper.GetAvailableTargets<Drawable>(this);
+    public IReadOnlyList<TargetObjectInfo> GetAvailableDrawableTargets() =>
+        TargetObjectSearchHelper.GetAvailableTargets<Drawable>(this);
 
     public override void Accept(IPropertyEditorContextVisitor visitor)
     {

@@ -15,8 +15,7 @@ public partial class ColorKey : FilterEffect
 
     static ColorKey()
     {
-        string sksl =
-            """
+        string sksl = """
             uniform shader src;
             uniform float4 color;
             uniform float range;
@@ -64,21 +63,25 @@ public partial class ColorKey : FilterEffect
     [Display(Name = nameof(GraphicsStrings.ColorKey_Range), ResourceType = typeof(GraphicsStrings))]
     public IProperty<float> Range { get; } = Property.CreateAnimatable<float>();
 
-    [Display(Name = nameof(GraphicsStrings.ColorKey_Boundary), ResourceType = typeof(GraphicsStrings))]
+    [Display(
+        Name = nameof(GraphicsStrings.ColorKey_Boundary),
+        ResourceType = typeof(GraphicsStrings)
+    )]
     public IProperty<float> Boundary { get; } = Property.CreateAnimatable(2f);
 
     public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
     {
         var r = (Resource)resource;
-        context.CustomEffect(
-            (r.Color, r.Range, r.Boundary),
-            OnApplyTo,
-            static (_, r) => r);
+        context.CustomEffect((r.Color, r.Range, r.Boundary), OnApplyTo, static (_, r) => r);
     }
 
-    private static void OnApplyTo((Color color, float range, float boundary) data, CustomFilterEffectContext c)
+    private static void OnApplyTo(
+        (Color color, float range, float boundary) data,
+        CustomFilterEffectContext c
+    )
     {
-        if (s_shader is null) return;
+        if (s_shader is null)
+            return;
 
         for (int i = 0; i < c.Targets.Count; i++)
         {

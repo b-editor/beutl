@@ -7,28 +7,32 @@ public static class Property
 {
     public static IProperty<T> CreateAnimatable<T>(
         T defaultValue = default(T)!,
-        IValidator<T>? validator = null)
+        IValidator<T>? validator = null
+    )
     {
         throw null!;
     }
 
     public static IProperty<T> CreateAnimatable<T>(
         T defaultValue,
-        params ValidationAttribute[] validationAttributes)
+        params ValidationAttribute[] validationAttributes
+    )
     {
         throw null!;
     }
 
     public static IProperty<T> Create<T>(
         T defaultValue = default(T)!,
-        IValidator<T>? validator = null)
+        IValidator<T>? validator = null
+    )
     {
         throw null!;
     }
 
     public static IProperty<T> Create<T>(
         T defaultValue,
-        params ValidationAttribute[] validationAttributes)
+        params ValidationAttribute[] validationAttributes
+    )
     {
         throw null!;
     }

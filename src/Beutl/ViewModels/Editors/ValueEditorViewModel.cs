@@ -18,13 +18,15 @@ public class ValueEditorViewModel<T> : BaseEditorViewModel<T>
         // Expressionが設定されていない場合は、EditingKeyFrameまたはPropertyAdapterの値を表示
         Value = HasExpression
             .Select(hasExpression =>
-                hasExpression && PropertyAdapter is EnginePropertyAdapter<T> { Property: var engineProperty }
+                hasExpression
+                && PropertyAdapter is EnginePropertyAdapter<T> { Property: var engineProperty }
                     ? CurrentTime.Select(t => engineProperty.GetValue(new CompositionContext(t)))
                     // Expressionが設定されていない場合は通常の動作
                     : EditingKeyFrame
                         .Select(x => x?.GetObservable(KeyFrame<T>.ValueProperty))
                         .Select(x => x ?? PropertyAdapter.GetObservable())
-                        .Switch())
+                        .Switch()
+            )
             .Switch()
             .ToReadOnlyReactiveProperty()
             .AddTo(Disposables)!;
@@ -36,13 +38,14 @@ public class ValueEditorViewModel<T> : BaseEditorViewModel<T>
         TEditor editor,
         AvaloniaProperty valueProperty,
         Func<TEditor, T> getValue,
-        Action<TEditor, T> setValue)
+        Action<TEditor, T> setValue
+    )
         where TEditor : PropertyEditor
     {
-        editor.Bind(valueProperty, Value.ToBinding())
-            .DisposeWith(Disposables);
+        editor.Bind(valueProperty, Value.ToBinding()).DisposeWith(Disposables);
 
-        editor.AddDisposableHandler(
+        editor
+            .AddDisposableHandler(
                 PropertyEditor.ValueChangedEvent,
                 (s, _) =>
                 {
@@ -50,10 +53,12 @@ public class ValueEditorViewModel<T> : BaseEditorViewModel<T>
                     {
                         setValue(ed, SetCurrentValueAndGetCoerced(getValue(ed))!);
                     }
-                })
+                }
+            )
             .DisposeWith(Disposables);
 
-        editor.AddDisposableHandler(
+        editor
+            .AddDisposableHandler(
                 PropertyEditor.ValueConfirmedEvent,
                 (_, e) =>
                 {
@@ -61,7 +66,8 @@ public class ValueEditorViewModel<T> : BaseEditorViewModel<T>
                     {
                         SetValue(args.OldValue, args.NewValue);
                     }
-                })
+                }
+            )
             .DisposeWith(Disposables);
     }
 }

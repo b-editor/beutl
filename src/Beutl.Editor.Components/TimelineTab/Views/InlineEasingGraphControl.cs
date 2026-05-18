@@ -9,8 +9,10 @@ namespace Beutl.Editor.Components.TimelineTab.Views;
 
 public sealed class InlineEasingGraphControl : Control
 {
-    public static readonly StyledProperty<IBrush?> BrushProperty =
-        AvaloniaProperty.Register<InlineEasingGraphControl, IBrush?>(nameof(Brush), Brushes.White);
+    public static readonly StyledProperty<IBrush?> BrushProperty = AvaloniaProperty.Register<
+        InlineEasingGraphControl,
+        IBrush?
+    >(nameof(Brush), Brushes.White);
 
     private const double VerticalPadding = 1.0;
 
@@ -57,41 +59,48 @@ public sealed class InlineEasingGraphControl : Control
 
     private void SubscribeToItems(InlineAnimationLayerViewModel viewModel)
     {
-        if (_subscriptions == null) return;
+        if (_subscriptions == null)
+            return;
 
         var perItemDisposables = new Dictionary<InlineKeyFrameViewModel, IDisposable>();
 
-        Disposable.Create(() =>
-        {
-            foreach (var d in perItemDisposables.Values) d.Dispose();
-            perItemDisposables.Clear();
-        }).DisposeWith(_subscriptions);
-
-        viewModel.Items.ForEachItem(
-            (idx, item) =>
+        Disposable
+            .Create(() =>
             {
-                var d = new CompositeDisposable();
-                item.Left.Subscribe(_ => InvalidateVisual()).DisposeWith(d);
-                item.Model.Edited += OnKeyFrameEdited;
-                Disposable.Create(() => item.Model.Edited -= OnKeyFrameEdited).DisposeWith(d);
-                perItemDisposables[item] = d;
-                InvalidateVisual();
-            },
-            (idx, item) =>
-            {
-                if (perItemDisposables.TryGetValue(item, out var d))
-                {
+                foreach (var d in perItemDisposables.Values)
                     d.Dispose();
-                    perItemDisposables.Remove(item);
-                }
-                InvalidateVisual();
-            },
-            () =>
-            {
-                foreach (var d in perItemDisposables.Values) d.Dispose();
                 perItemDisposables.Clear();
-                InvalidateVisual();
             })
+            .DisposeWith(_subscriptions);
+
+        viewModel
+            .Items.ForEachItem(
+                (idx, item) =>
+                {
+                    var d = new CompositeDisposable();
+                    item.Left.Subscribe(_ => InvalidateVisual()).DisposeWith(d);
+                    item.Model.Edited += OnKeyFrameEdited;
+                    Disposable.Create(() => item.Model.Edited -= OnKeyFrameEdited).DisposeWith(d);
+                    perItemDisposables[item] = d;
+                    InvalidateVisual();
+                },
+                (idx, item) =>
+                {
+                    if (perItemDisposables.TryGetValue(item, out var d))
+                    {
+                        d.Dispose();
+                        perItemDisposables.Remove(item);
+                    }
+                    InvalidateVisual();
+                },
+                () =>
+                {
+                    foreach (var d in perItemDisposables.Values)
+                        d.Dispose();
+                    perItemDisposables.Clear();
+                    InvalidateVisual();
+                }
+            )
             .DisposeWith(_subscriptions);
     }
 
@@ -104,10 +113,12 @@ public sealed class InlineEasingGraphControl : Control
     {
         base.Render(context);
 
-        if (DataContext is not InlineAnimationLayerViewModel viewModel) return;
+        if (DataContext is not InlineAnimationLayerViewModel viewModel)
+            return;
 
         CoreList<InlineKeyFrameViewModel> items = viewModel.Items;
-        if (items.Count < 2) return;
+        if (items.Count < 2)
+            return;
 
         // Leftでソートしたスナップショットを作成
         var sorted = new (double left, IKeyFrame model)[items.Count];
@@ -119,7 +130,8 @@ public sealed class InlineEasingGraphControl : Control
 
         double height = Bounds.Height;
         double usableHeight = height - VerticalPadding * 2;
-        if (usableHeight <= 0) return;
+        if (usableHeight <= 0)
+            return;
 
         _pen.Brush = Brush;
 
@@ -129,7 +141,8 @@ public sealed class InlineEasingGraphControl : Control
             double right = sorted[i + 1].left;
             double segmentWidth = right - left;
 
-            if (segmentWidth < 2) continue;
+            if (segmentWidth < 2)
+                continue;
 
             Easing easing = sorted[i + 1].model.Easing;
             int comparison = Compare(sorted[i].model.Value, sorted[i + 1].model.Value);
@@ -147,7 +160,8 @@ public sealed class InlineEasingGraphControl : Control
                 double x1 = left + t1 * segmentWidth;
                 double x2 = left + t2 * segmentWidth;
 
-                double y1, y2;
+                double y1,
+                    y2;
                 if (comparison > 0)
                 {
                     y1 = VerticalPadding + e1 * usableHeight;

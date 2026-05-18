@@ -5,7 +5,6 @@ using Avalonia.LogicalTree;
 using Avalonia.VisualTree;
 using Avalonia.Xaml.Interactivity;
 using Beutl.Editor.Components.GraphEditorTab.ViewModels;
-
 using Path = Avalonia.Controls.Shapes.Path;
 
 namespace Beutl.Editor.Components.GraphEditorTab.Views;
@@ -41,7 +40,8 @@ public class ControlPointBehavior : Behavior<Path>
     {
         base.OnAttached();
 
-        if (AssociatedObject == null) return;
+        if (AssociatedObject == null)
+            return;
         AssociatedObject.PointerMoved += OnPointerMoved;
         AssociatedObject.PointerPressed += OnPointerPressed;
         AssociatedObject.PointerReleased += OnPointerReleased;
@@ -51,7 +51,8 @@ public class ControlPointBehavior : Behavior<Path>
     {
         base.OnDetaching();
 
-        if (AssociatedObject == null) return;
+        if (AssociatedObject == null)
+            return;
         AssociatedObject.PointerMoved -= OnPointerMoved;
         AssociatedObject.PointerPressed -= OnPointerPressed;
         AssociatedObject.PointerReleased -= OnPointerReleased;
@@ -61,7 +62,8 @@ public class ControlPointBehavior : Behavior<Path>
     private bool TryGetValues(
         [NotNullWhen(true)] out GraphEditorView? view,
         [NotNullWhen(true)] out GraphEditorViewModel? viewModel,
-        [NotNullWhen(true)] out GraphEditorKeyFrameViewModel? keyFrameViewModel)
+        [NotNullWhen(true)] out GraphEditorKeyFrameViewModel? keyFrameViewModel
+    )
     {
         view = _view ??= AssociatedObject.FindAncestorOfType<GraphEditorView>();
         viewModel = view?.DataContext as GraphEditorViewModel;
@@ -70,16 +72,23 @@ public class ControlPointBehavior : Behavior<Path>
     }
 
     // 反対側のコントロールポイントのキーフレームを探す
-    private static GraphEditorKeyFrameViewModel? FindOppositeKeyFrame(GraphEditorViewModel viewModel, GraphEditorKeyFrameViewModel item, string tag)
+    private static GraphEditorKeyFrameViewModel? FindOppositeKeyFrame(
+        GraphEditorViewModel viewModel,
+        GraphEditorKeyFrameViewModel item,
+        string tag
+    )
     {
-        if (viewModel.SelectedView.Value is not { } selectedView) return null;
+        if (viewModel.SelectedView.Value is not { } selectedView)
+            return null;
         int index = selectedView.KeyFrames.IndexOf(item);
 
         return tag switch
         {
             "ControlPoint1" => index == 0 ? null : selectedView.KeyFrames[index - 1],
-            "ControlPoint2" => index == selectedView.KeyFrames.Count - 1 ? null : selectedView.KeyFrames[index + 1],
-            _ => null
+            "ControlPoint2" => index == selectedView.KeyFrames.Count - 1
+                ? null
+                : selectedView.KeyFrames[index + 1],
+            _ => null,
         };
     }
 
@@ -109,7 +118,9 @@ public class ControlPointBehavior : Behavior<Path>
                 break;
         }
 
-        position = position.WithX(Math.Clamp(position.X, viewModel.Left.Value, viewModel.Right.Value));
+        position = position.WithX(
+            Math.Clamp(position.X, viewModel.Left.Value, viewModel.Right.Value)
+        );
         view.ControlPointMoveState.DragStart = position;
 
         if (!editorViewModel.Separately.Value)
@@ -142,14 +153,18 @@ public class ControlPointBehavior : Behavior<Path>
                             ? Length(d)
                             : Length(oppotite.LeftBottom.Value - oppotite.ControlPoint1.Value);
 
-                        oppotite.UpdateControlPoint1(oppotite.LeftBottom.Value + CalculatePoint(radians, length));
+                        oppotite.UpdateControlPoint1(
+                            oppotite.LeftBottom.Value + CalculatePoint(radians, length)
+                        );
                         break;
                     case "ControlPoint1":
                         length = symmetry
                             ? Length(d)
                             : Length(oppotite.RightTop.Value - oppotite.ControlPoint2.Value);
 
-                        oppotite.UpdateControlPoint2(oppotite.RightTop.Value + CalculatePoint(radians, length));
+                        oppotite.UpdateControlPoint2(
+                            oppotite.RightTop.Value + CalculatePoint(radians, length)
+                        );
                         break;
                 }
             }
@@ -169,9 +184,15 @@ public class ControlPointBehavior : Behavior<Path>
         if (AssociatedObject == null)
             return;
 
-        if (!e.KeyModifiers.HasFlag(KeyModifiers.Alt)
-            && AssociatedObject.GetLogicalSiblings().OfType<Path>().FirstOrDefault(v => v.Name == "KeyTimeIcon") is Path ki
-            && ki.InputHitTest(e.GetPosition(ki)) == ki)
+        if (
+            !e.KeyModifiers.HasFlag(KeyModifiers.Alt)
+            && AssociatedObject
+                .GetLogicalSiblings()
+                .OfType<Path>()
+                .FirstOrDefault(v => v.Name == "KeyTimeIcon")
+                is Path ki
+            && ki.InputHitTest(e.GetPosition(ki)) == ki
+        )
         {
             ki.RaiseEvent(e);
             return;
@@ -183,7 +204,7 @@ public class ControlPointBehavior : Behavior<Path>
         {
             view.ControlPointMoveState = new ControlPointMoveState
             {
-                DragStart = new Point(e.GetPosition(view.views).X, point.Position.Y)
+                DragStart = new Point(e.GetPosition(view.views).X, point.Position.Y),
             };
             editorViewModel.BeginEditing();
             e.Handled = true;

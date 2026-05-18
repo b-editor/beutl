@@ -21,7 +21,8 @@ public class JsonHelperTests
         }
         finally
         {
-            if (File.Exists(path)) File.Delete(path);
+            if (File.Exists(path))
+                File.Delete(path);
         }
     }
 
@@ -41,7 +42,8 @@ public class JsonHelperTests
         }
         finally
         {
-            if (File.Exists(path)) File.Delete(path);
+            if (File.Exists(path))
+                File.Delete(path);
         }
     }
 
@@ -69,7 +71,8 @@ public class JsonHelperTests
         }
         finally
         {
-            if (File.Exists(path)) File.Delete(path);
+            if (File.Exists(path))
+                File.Delete(path);
         }
     }
 
@@ -89,7 +92,8 @@ public class JsonHelperTests
         }
         finally
         {
-            if (File.Exists(path)) File.Delete(path);
+            if (File.Exists(path))
+                File.Delete(path);
         }
     }
 
@@ -210,11 +214,7 @@ public class JsonHelperTests
     }
 
     [FallbackType(typeof(FallbackImpl))]
-    private abstract class BaseWithFallback
-    {
-    }
+    private abstract class BaseWithFallback { }
 
-    private sealed class FallbackImpl : BaseWithFallback
-    {
-    }
+    private sealed class FallbackImpl : BaseWithFallback { }
 }

@@ -1,6 +1,5 @@
 ﻿using Beutl.Media;
 using Beutl.Utilities;
-
 using SkiaSharp;
 
 namespace Beutl.Graphics.Rendering;
@@ -41,7 +40,8 @@ internal static class PenHelper
 
     public static Rect CalculateBoundsWithStrokeCap(Rect rect, Pen.Resource? pen)
     {
-        if (pen == null || MathUtilities.IsZero(pen.Thickness)) return rect;
+        if (pen == null || MathUtilities.IsZero(pen.Thickness))
+            return rect;
 
         return pen.StrokeCap switch
         {
@@ -52,9 +52,7 @@ internal static class PenHelper
         };
     }
 
-    public static void ConfigureStrokePaint(
-        Pen.Resource pen,
-        SKPaint paint, Size size)
+    public static void ConfigureStrokePaint(Pen.Resource pen, SKPaint paint, Size size)
     {
         float thickness = pen.Thickness;
         switch (pen.StrokeAlignment)
@@ -108,13 +106,16 @@ internal static class PenHelper
 
         float start = ((pen.TrimStart + pen.TrimOffset) % 100f) / 100f;
         float stop = ((pen.TrimEnd + pen.TrimOffset) % 100f) / 100f;
-        if (start <= 0) start += 1f;
-        if (stop <= 0) stop += 1f;
+        if (start <= 0)
+            start += 1f;
+        if (stop <= 0)
+            stop += 1f;
 
         return SKPathEffect.CreateTrim(
             Math.Min(start, stop),
             Math.Max(start, stop),
-            start <= stop ? SKTrimPathEffectMode.Normal : SKTrimPathEffectMode.Inverted);
+            start <= stop ? SKTrimPathEffectMode.Normal : SKTrimPathEffectMode.Inverted
+        );
     }
 
     internal static SKPathEffect? CombineEffects(SKPathEffect? outer, SKPathEffect? inner)
@@ -161,7 +162,12 @@ internal static class PenHelper
     }
 
     // StrokeWidthが大きすぎる場合、元の内側に空間ができてしまうため、複数回に分けてStrokePathを生成する
-    private static void CreateStrokePath(SKPath fillPath, SKPath strokePath, SKPaint paint, Rect bounds)
+    private static void CreateStrokePath(
+        SKPath fillPath,
+        SKPath strokePath,
+        SKPaint paint,
+        Rect bounds
+    )
     {
         float thickness = paint.StrokeWidth;
         float maxAspect = Math.Max(bounds.Width, bounds.Height);
@@ -173,7 +179,8 @@ internal static class PenHelper
             while (maxAspect < thickness)
             {
                 using SKPath tmp = paint.GetFillPath(first ? fillPath : strokePath);
-                if (tmp == null) break;
+                if (tmp == null)
+                    break;
 
                 if (!first)
                 {

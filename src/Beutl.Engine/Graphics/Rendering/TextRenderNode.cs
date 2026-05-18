@@ -27,7 +27,11 @@ public sealed class TextRenderNode(FormattedText text, Brush.Resource? fill, Pen
     {
         return
         [
-            RenderNodeOperation.CreateLambda(Text.ActualBounds, canvas => canvas.DrawText(Text, Fill?.Resource, Pen?.Resource), HitTest)
+            RenderNodeOperation.CreateLambda(
+                Text.ActualBounds,
+                canvas => canvas.DrawText(Text, Fill?.Resource, Pen?.Resource),
+                HitTest
+            ),
         ];
     }
 

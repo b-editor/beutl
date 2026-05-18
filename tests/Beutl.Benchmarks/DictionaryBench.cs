@@ -9,7 +9,10 @@ public class DictionaryBench
 
     public DictionaryBench()
     {
-        _dictionary = Enumerable.Range(0, 500).Select(i => new KeyValuePair<int, int>(i, i)).ToDictionary(i => i.Key, i => i.Value);
+        _dictionary = Enumerable
+            .Range(0, 500)
+            .Select(i => new KeyValuePair<int, int>(i, i))
+            .ToDictionary(i => i.Key, i => i.Value);
     }
 
     [Benchmark]

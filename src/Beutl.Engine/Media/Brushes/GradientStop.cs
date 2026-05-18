@@ -22,7 +22,8 @@ public sealed partial class GradientStop : EngineObject
     /// </summary>
     /// <param name="color">The color</param>
     /// <param name="offset">The offset</param>
-    public GradientStop(Color color, float offset) : this()
+    public GradientStop(Color color, float offset)
+        : this()
     {
         Color.CurrentValue = color;
         Offset.CurrentValue = offset;

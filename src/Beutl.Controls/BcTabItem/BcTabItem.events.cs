@@ -4,11 +4,16 @@ namespace Beutl.Controls;
 
 public partial class BcTabItem
 {
-    public static readonly RoutedEvent<RoutedEventArgs> ClosingEvent =
-        RoutedEvent.Register<BcTabItem, RoutedEventArgs>(nameof(Closing), RoutingStrategies.Bubble);
+    public static readonly RoutedEvent<RoutedEventArgs> ClosingEvent = RoutedEvent.Register<
+        BcTabItem,
+        RoutedEventArgs
+    >(nameof(Closing), RoutingStrategies.Bubble);
 
     public static readonly RoutedEvent<RoutedEventArgs> CloseButtonClickEvent =
-        RoutedEvent.Register<BcTabItem, RoutedEventArgs>(nameof(CloseButtonClick), RoutingStrategies.Bubble);
+        RoutedEvent.Register<BcTabItem, RoutedEventArgs>(
+            nameof(CloseButtonClick),
+            RoutingStrategies.Bubble
+        );
 
     protected virtual void OnClosing(object sender, RoutedEventArgs e)
     {

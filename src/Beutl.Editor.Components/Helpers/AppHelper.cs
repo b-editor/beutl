@@ -14,7 +14,9 @@ public static class AppHelper
         return (Application.Current?.ApplicationLifetime) switch
         {
             IClassicDesktopStyleApplicationLifetime desktop => desktop.MainWindow,
-            ISingleViewApplicationLifetime { MainView: { } mainview } => TopLevel.GetTopLevel(mainview),
+            ISingleViewApplicationLifetime { MainView: { } mainview } => TopLevel.GetTopLevel(
+                mainview
+            ),
             _ => null,
         };
     }

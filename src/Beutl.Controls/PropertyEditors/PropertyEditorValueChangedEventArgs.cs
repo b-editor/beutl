@@ -5,14 +5,10 @@ namespace Beutl.Controls.PropertyEditors;
 public abstract class PropertyEditorValueChangedEventArgs : RoutedEventArgs
 {
     protected PropertyEditorValueChangedEventArgs(RoutedEvent routedEvent)
-        : base(routedEvent)
-    {
-    }
+        : base(routedEvent) { }
 
     protected PropertyEditorValueChangedEventArgs(RoutedEvent routedEvent, Interactive source)
-        : base(routedEvent, source)
-    {
-    }
+        : base(routedEvent, source) { }
 
     public object NewValue => GetNewValue();
 
@@ -25,14 +21,23 @@ public abstract class PropertyEditorValueChangedEventArgs : RoutedEventArgs
 
 public class PropertyEditorValueChangedEventArgs<TValue> : PropertyEditorValueChangedEventArgs
 {
-    public PropertyEditorValueChangedEventArgs(TValue newValue, TValue oldValue, RoutedEvent routedEvent)
+    public PropertyEditorValueChangedEventArgs(
+        TValue newValue,
+        TValue oldValue,
+        RoutedEvent routedEvent
+    )
         : base(routedEvent)
     {
         NewValue = newValue;
         OldValue = oldValue;
     }
 
-    public PropertyEditorValueChangedEventArgs(TValue newValue, TValue oldValue, RoutedEvent routedEvent, Interactive source)
+    public PropertyEditorValueChangedEventArgs(
+        TValue newValue,
+        TValue oldValue,
+        RoutedEvent routedEvent,
+        Interactive source
+    )
         : base(routedEvent, source)
     {
         NewValue = newValue;

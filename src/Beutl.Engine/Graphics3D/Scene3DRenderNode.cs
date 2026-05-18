@@ -91,7 +91,8 @@ internal sealed class Scene3DRenderNode(Scene3D.Resource scene) : RenderNode
             scene.AmbientColor,
             scene.AmbientIntensity,
             gizmoTarget,
-            scene.GizmoMode);
+            scene.GizmoMode
+        );
 
         // Get the rendered surface
         var surface = renderer.CreateSkiaSurface();
@@ -99,15 +100,15 @@ internal sealed class Scene3DRenderNode(Scene3D.Resource scene) : RenderNode
             return [];
 
         // Create the render operation that will draw the 3D scene
-        var operation = RenderNodeOperation.CreateFromSurface(
-            Bounds,
-            new Point(0, 0),
-            surface);
+        var operation = RenderNodeOperation.CreateFromSurface(Bounds, new Point(0, 0), surface);
 
         return [operation];
     }
 
-    private static Object3D.Resource? FindObjectById(IEnumerable<Object3D.Resource> objects, Guid targetId)
+    private static Object3D.Resource? FindObjectById(
+        IEnumerable<Object3D.Resource> objects,
+        Guid targetId
+    )
     {
         foreach (var obj in objects)
         {

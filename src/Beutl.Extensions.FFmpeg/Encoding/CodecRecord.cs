@@ -1,7 +1,9 @@
 ﻿#if BEUTL_FFMPEG_WORKER
 namespace Beutl.FFmpegWorker.Encoding;
+
 #else
 namespace Beutl.Extensions.FFmpeg.Encoding;
+
 #endif
 
 public class CodecRecord(string name, string longName) : IEquatable<CodecRecord?>

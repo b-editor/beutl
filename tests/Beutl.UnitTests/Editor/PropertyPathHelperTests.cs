@@ -47,7 +47,10 @@ public class PropertyPathHelperTests
     [TestCase("x.y.z", "z")]
     [TestCase("One.Two.Three.Four", "Four")]
     [TestCase("Property", "Property")]
-    public void GetPropertyNameFromPath_VariousPaths_ReturnsExpectedPropertyName(string path, string expected)
+    public void GetPropertyNameFromPath_VariousPaths_ReturnsExpectedPropertyName(
+        string path,
+        string expected
+    )
     {
         // Act
         string result = PropertyPathHelper.GetPropertyNameFromPath(path);

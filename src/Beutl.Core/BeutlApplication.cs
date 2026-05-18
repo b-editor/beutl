@@ -3,7 +3,6 @@ using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
 using Beutl.Collections;
-
 using Microsoft.Extensions.Logging;
 
 namespace Beutl;
@@ -37,7 +36,11 @@ public class BeutlApplication : Hierarchical, IHierarchicalRoot
 
     internal static ActivitySource ActivitySource { get; } = new("Beutl.Application", s_version);
 
-    [SuppressMessage("Performance", "CA1822:メンバーを static に設定します", Justification = "<保留中>")]
+    [SuppressMessage(
+        "Performance",
+        "CA1822:メンバーを static に設定します",
+        Justification = "<保留中>"
+    )]
     public ILoggerFactory LoggerFactory => Logging.Log.LoggerFactory;
 
     public Project? Project

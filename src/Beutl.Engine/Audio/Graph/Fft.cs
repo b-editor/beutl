@@ -6,18 +6,23 @@ internal static class Fft
 
     public static int ClampToPowerOfTwo(int value, int min = 64, int max = 16384)
     {
-        if (value < min) value = min;
-        if (value > max) value = max;
+        if (value < min)
+            value = min;
+        if (value > max)
+            value = max;
         int p = 1;
-        while (p < value) p <<= 1;
-        if (p > max) p >>= 1;
+        while (p < value)
+            p <<= 1;
+        if (p > max)
+            p >>= 1;
         return p;
     }
 
     public static void ApplyHann(Span<float> window)
     {
         int n = window.Length;
-        if (n <= 1) return;
+        if (n <= 1)
+            return;
         double factor = 2.0 * Math.PI / (n - 1);
         for (int i = 0; i < n; i++)
         {
@@ -28,9 +33,12 @@ internal static class Fft
     public static void Forward(Span<float> real, Span<float> imag)
     {
         int n = real.Length;
-        if (n != imag.Length) throw new ArgumentException("real and imag must have the same length.");
-        if (!IsPowerOfTwo(n)) throw new ArgumentException("length must be a power of two.", nameof(real));
-        if (n <= 1) return;
+        if (n != imag.Length)
+            throw new ArgumentException("real and imag must have the same length.");
+        if (!IsPowerOfTwo(n))
+            throw new ArgumentException("length must be a power of two.", nameof(real));
+        if (n <= 1)
+            return;
 
         // Bit-reversal permutation
         int j = 0;
@@ -83,7 +91,11 @@ internal static class Fft
         }
     }
 
-    public static void Magnitudes(ReadOnlySpan<float> real, ReadOnlySpan<float> imag, Span<float> outMagnitudes)
+    public static void Magnitudes(
+        ReadOnlySpan<float> real,
+        ReadOnlySpan<float> imag,
+        Span<float> outMagnitudes
+    )
     {
         int bins = outMagnitudes.Length;
         for (int i = 0; i < bins; i++)
@@ -96,7 +108,8 @@ internal static class Fft
 
     public static float MagnitudeToDb(float magnitude, float reference)
     {
-        if (magnitude <= 0f || reference <= 0f) return -160f;
+        if (magnitude <= 0f || reference <= 0f)
+            return -160f;
         return 20f * MathF.Log10(magnitude / reference);
     }
 }

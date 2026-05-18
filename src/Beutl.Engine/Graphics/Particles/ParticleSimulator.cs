@@ -1,5 +1,4 @@
 ﻿using System.Runtime.InteropServices;
-
 using Beutl.Graphics.Effects;
 using Beutl.Media;
 
@@ -17,7 +16,12 @@ internal sealed class ParticleSimulator
     private int _aliveCount;
 
     // Checkpoint cache
-    private readonly List<(float Time, Particle[] Snapshot, int AliveCount, int RngCallCount)> _checkpoints = [];
+    private readonly List<(
+        float Time,
+        Particle[] Snapshot,
+        int AliveCount,
+        int RngCallCount
+    )> _checkpoints = [];
     private long _parameterVersion;
     private long _lastCachedVersion;
 
@@ -55,7 +59,8 @@ internal sealed class ParticleSimulator
         float endSizeMultiplier,
         float endOpacityMultiplier,
         Color endColor,
-        bool useEndColor)
+        bool useEndColor
+    )
     {
         if (time <= 0)
         {
@@ -129,7 +134,8 @@ internal sealed class ParticleSimulator
                 ref Particle p = ref _particles[_aliveCount];
                 p.BirthTime = currentTime;
                 p.Lifetime = lifetime + (rng.NextSingle() * 2f - 1f) * lifetimeRandom;
-                if (p.Lifetime < 0.01f) p.Lifetime = 0.01f;
+                if (p.Lifetime < 0.01f)
+                    p.Lifetime = 0.01f;
 
                 // Emitter shape position
                 SpawnPosition(rng, emitterShape, emitterWidth, emitterHeight, out p.X, out p.Y);
@@ -142,7 +148,8 @@ internal sealed class ParticleSimulator
 
                 // Size
                 p.BaseSize = particleSize + (rng.NextSingle() * 2f - 1f) * sizeRandom;
-                if (p.BaseSize < 0) p.BaseSize = 0;
+                if (p.BaseSize < 0)
+                    p.BaseSize = 0;
 
                 p.BaseOpacity = particleOpacity;
                 p.BaseColor = color;
@@ -160,7 +167,8 @@ internal sealed class ParticleSimulator
             for (int i = span.Length - 1; i >= 0; i--)
             {
                 ref Particle p = ref span[i];
-                if (!p.IsAlive) continue;
+                if (!p.IsAlive)
+                    continue;
 
                 float age = currentTime + dt - p.BirthTime;
                 if (age >= p.Lifetime)
@@ -182,7 +190,8 @@ internal sealed class ParticleSimulator
                 if (airResistance > 0)
                 {
                     float factor = 1f - airResistance * dt;
-                    if (factor < 0) factor = 0;
+                    if (factor < 0)
+                        factor = 0;
                     p.VelocityX *= factor;
                     p.VelocityY *= factor;
                 }
@@ -192,10 +201,12 @@ internal sealed class ParticleSimulator
                 {
                     float nx = _noise.Perlin(
                         p.X * turbulenceScale + currentTime * turbulenceSpeed,
-                        p.Y * turbulenceScale + seed);
+                        p.Y * turbulenceScale + seed
+                    );
                     float ny = _noise.Perlin(
                         p.Y * turbulenceScale + seed,
-                        p.X * turbulenceScale + currentTime * turbulenceSpeed);
+                        p.X * turbulenceScale + currentTime * turbulenceSpeed
+                    );
                     p.VelocityX += (nx - 0.5f) * 2f * turbulenceStrength * dt;
                     p.VelocityY += (ny - 0.5f) * 2f * turbulenceStrength * dt;
                 }
@@ -211,7 +222,8 @@ internal sealed class ParticleSimulator
                 float t = age / p.Lifetime;
                 p.CurrentSize = p.BaseSize * (1f + (endSizeMultiplier - 1f) * t);
                 p.CurrentOpacity = p.BaseOpacity * (1f + (endOpacityMultiplier - 1f) * t);
-                if (p.CurrentOpacity < 0) p.CurrentOpacity = 0;
+                if (p.CurrentOpacity < 0)
+                    p.CurrentOpacity = 0;
 
                 if (useEndColor)
                 {
@@ -253,12 +265,20 @@ internal sealed class ParticleSimulator
 
     private void EnsureCapacity(int required)
     {
-        if (_particles.Length >= required) return;
+        if (_particles.Length >= required)
+            return;
         int newSize = Math.Max(_particles.Length * 2, required);
         Array.Resize(ref _particles, newSize);
     }
 
-    private static void SpawnPosition(CountingRandom rng, EmitterShape shape, float width, float height, out float x, out float y)
+    private static void SpawnPosition(
+        CountingRandom rng,
+        EmitterShape shape,
+        float width,
+        float height,
+        out float x,
+        out float y
+    )
     {
         switch (shape)
         {
@@ -267,14 +287,14 @@ internal sealed class ParticleSimulator
                 y = 0;
                 break;
             case EmitterShape.Circle:
-                {
-                    float radius = width / 2f;
-                    float r = MathF.Sqrt(rng.NextSingle()) * radius;
-                    float angle = rng.NextSingle() * MathF.PI * 2f;
-                    x = MathF.Cos(angle) * r;
-                    y = MathF.Sin(angle) * r;
-                    break;
-                }
+            {
+                float radius = width / 2f;
+                float r = MathF.Sqrt(rng.NextSingle()) * radius;
+                float angle = rng.NextSingle() * MathF.PI * 2f;
+                x = MathF.Cos(angle) * r;
+                y = MathF.Sin(angle) * r;
+                break;
+            }
             case EmitterShape.Box:
                 x = (rng.NextSingle() - 0.5f) * width;
                 y = (rng.NextSingle() - 0.5f) * height;
@@ -292,7 +312,8 @@ internal sealed class ParticleSimulator
             (byte)(a.A + (b.A - a.A) * t),
             (byte)(a.R + (b.R - a.R) * t),
             (byte)(a.G + (b.G - a.G) * t),
-            (byte)(a.B + (b.B - a.B) * t));
+            (byte)(a.B + (b.B - a.B) * t)
+        );
     }
 
     private sealed class CountingRandom

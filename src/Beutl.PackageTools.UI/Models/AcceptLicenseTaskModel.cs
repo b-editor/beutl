@@ -1,8 +1,6 @@
 ﻿using Beutl.Logging;
-
 using NuGet.Packaging;
 using NuGet.Packaging.Core;
-
 using Reactive.Bindings;
 using Reactive.Bindings.TinyLinq;
 
@@ -12,18 +10,12 @@ public record LicenseItem(PackageIdentity Package, LicenseMetadata License)
 {
     public string Body
     {
-        get
-        {
-            return License.License;
-        }
+        get { return License.License; }
     }
 
     public string ShortName
     {
-        get
-        {
-            return License.LicenseExpression?.ToString() ?? License.License;
-        }
+        get { return License.LicenseExpression?.ToString() ?? License.License; }
     }
 }
 
@@ -40,11 +32,12 @@ public class AcceptLicenseTaskModel
         _app = app;
         _context = context;
         _acceptedLicenseManager = _app.GetResource<AcceptedLicenseManager>();
-        IsAcceptedNull = IsAccepted.Select(v => v.HasValue)
-            .ToReadOnlyReactivePropertySlim();
+        IsAcceptedNull = IsAccepted.Select(v => v.HasValue).ToReadOnlyReactivePropertySlim();
 
-        var licensesRequiringApproval = _context.LicensesRequiringApproval
-            .Where(x => !_acceptedLicenseManager.Accepted.ContainsKey(x.Item1))
+        var licensesRequiringApproval = _context
+            .LicensesRequiringApproval.Where(x =>
+                !_acceptedLicenseManager.Accepted.ContainsKey(x.Item1)
+            )
             .Select(x => new LicenseItem(x.Item1, x.Item2))
             .ToArray();
         if (licensesRequiringApproval.Length > 0)
@@ -108,7 +101,9 @@ public class AcceptLicenseTaskModel
                 else
                 {
                     // 同意したことを記録
-                    _acceptedLicenseManager.Accepts(Licenses.Value!.Select(v => (v.Package, v.License)).ToArray());
+                    _acceptedLicenseManager.Accepts(
+                        Licenses.Value!.Select(v => (v.Package, v.License)).ToArray()
+                    );
                     _logger.LogInformation("User accepted the licenses.");
                 }
             }

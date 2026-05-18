@@ -9,8 +9,10 @@ namespace Beutl.Editor.Components.TimelineTab.Views;
 
 public sealed class ThumbnailStripControl : Control
 {
-    public static readonly StyledProperty<int> ThumbnailCountProperty =
-        AvaloniaProperty.Register<ThumbnailStripControl, int>(nameof(ThumbnailCount));
+    public static readonly StyledProperty<int> ThumbnailCountProperty = AvaloniaProperty.Register<
+        ThumbnailStripControl,
+        int
+    >(nameof(ThumbnailCount));
 
     private readonly Dictionary<int, WriteableBitmap?> _thumbnails = new();
     private readonly Lock _lock = new();
@@ -71,7 +73,6 @@ public sealed class ThumbnailStripControl : Control
             NotifyVisibleRangeIfChanged();
         }
     }
-
 
     private (int Start, int End) ComputeVisibleRange()
     {
@@ -170,11 +171,8 @@ public sealed class ThumbnailStripControl : Control
 
                 Vector scale = Stretch.UniformToFill.CalculateScaling(dstSize, srcSize);
                 Size scaledSize = srcSize * scale;
-                Rect dstRect = viewPort
-                    .CenterRect(new Rect(scaledSize))
-                    .Intersect(viewPort);
-                Rect srcRect = new Rect(srcSize)
-                    .CenterRect(new Rect(dstRect.Size / scale));
+                Rect dstRect = viewPort.CenterRect(new Rect(scaledSize)).Intersect(viewPort);
+                Rect srcRect = new Rect(srcSize).CenterRect(new Rect(dstRect.Size / scale));
 
                 dstRect = dstRect.Translate(new(slotX, 0));
 
@@ -193,8 +191,10 @@ public sealed class ThumbnailStripControl : Control
 
     private void OnScrollViewerPropertyChanged(object? sender, AvaloniaPropertyChangedEventArgs e)
     {
-        if (e.Property == ScrollViewer.OffsetProperty ||
-            e.Property == ScrollViewer.ViewportProperty)
+        if (
+            e.Property == ScrollViewer.OffsetProperty
+            || e.Property == ScrollViewer.ViewportProperty
+        )
         {
             InvalidateVisual();
             NotifyVisibleRangeIfChanged();

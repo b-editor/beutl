@@ -23,9 +23,7 @@ public sealed class RenderNodeDrawable : Drawable
         return Size.Empty;
     }
 
-    protected override void OnDraw(GraphicsContext2D context, Drawable.Resource resource)
-    {
-    }
+    protected override void OnDraw(GraphicsContext2D context, Drawable.Resource resource) { }
 
     public override void Render(GraphicsContext2D context, Drawable.Resource resource)
     {
@@ -35,7 +33,8 @@ public sealed class RenderNodeDrawable : Drawable
             context.DrawNode(
                 r.GraphNode,
                 n => new ReferencesChildRenderNode(n),
-                (refNode, n) => refNode.Update(n));
+                (refNode, n) => refNode.Update(n)
+            );
         }
     }
 
@@ -43,7 +42,11 @@ public sealed class RenderNodeDrawable : Drawable
     {
         public RenderNode? GraphNode { get; set; }
 
-        public override void Update(EngineObject obj, CompositionContext context, ref bool updateOnly)
+        public override void Update(
+            EngineObject obj,
+            CompositionContext context,
+            ref bool updateOnly
+        )
         {
             base.Update(obj, context, ref updateOnly);
             if (obj is RenderNodeDrawable renderNode)

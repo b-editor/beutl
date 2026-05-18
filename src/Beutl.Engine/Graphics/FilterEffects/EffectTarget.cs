@@ -24,9 +24,7 @@ public sealed class EffectTarget : IDisposable
         Bounds = originalBounds;
     }
 
-    public EffectTarget()
-    {
-    }
+    public EffectTarget() { }
 
     public Rect OriginalBounds { get; set; }
 

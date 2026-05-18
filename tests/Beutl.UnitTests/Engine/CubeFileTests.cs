@@ -38,7 +38,8 @@ public class CubeFileTests
                     data[index] = new Vector3(
                         x / (float)(size - 1),
                         y / (float)(size - 1),
-                        z / (float)(size - 1));
+                        z / (float)(size - 1)
+                    );
                 }
             }
         }
@@ -192,8 +193,7 @@ public class CubeFileTests
     [Test]
     public void FromStream_Parses1DCubeHeader()
     {
-        const string content =
-            """
+        const string content = """
             TITLE "Test1D"
             LUT_1D_SIZE 4
             DOMAIN_MIN 0 0 0

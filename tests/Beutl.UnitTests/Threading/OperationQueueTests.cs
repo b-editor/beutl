@@ -82,6 +82,13 @@ public class OperationQueueTests
 
     private static DispatcherOperation NewOperation(string label, DispatchPriority priority)
     {
-        return new DispatcherOperation(() => { _ = label; }, priority, CancellationToken.None);
+        return new DispatcherOperation(
+            () =>
+            {
+                _ = label;
+            },
+            priority,
+            CancellationToken.None
+        );
     }
 }

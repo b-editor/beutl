@@ -19,15 +19,20 @@ public sealed class BlendModeRenderNode(BlendMode blendMode) : ContainerRenderNo
     public override RenderNodeOperation[] Process(RenderNodeContext context)
     {
         context.IsRenderCacheEnabled = BlendMode == BlendMode.SrcOver;
-        return context.Input.Select(r =>
-        {
-            return RenderNodeOperation.CreateDecorator(r, canvas =>
+        return context
+            .Input.Select(r =>
             {
-                using (canvas.PushBlendMode(BlendMode))
-                {
-                    r.Render(canvas);
-                }
-            });
-        }).ToArray();
+                return RenderNodeOperation.CreateDecorator(
+                    r,
+                    canvas =>
+                    {
+                        using (canvas.PushBlendMode(BlendMode))
+                        {
+                            r.Render(canvas);
+                        }
+                    }
+                );
+            })
+            .ToArray();
     }
 }

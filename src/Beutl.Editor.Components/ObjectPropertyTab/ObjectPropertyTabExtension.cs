@@ -1,7 +1,5 @@
 ﻿using System.Diagnostics.CodeAnalysis;
-
 using Avalonia.Controls;
-
 using Beutl.Editor.Components.ObjectPropertyTab.ViewModels;
 using Beutl.Editor.Components.ObjectPropertyTab.Views;
 
@@ -24,13 +22,19 @@ public sealed class ObjectPropertyTabExtension : ToolTabExtension
 
     public override int DefaultOrder => 2;
 
-    public override bool TryCreateContent(IEditorContext editorContext, [NotNullWhen(true)] out Control? control)
+    public override bool TryCreateContent(
+        IEditorContext editorContext,
+        [NotNullWhen(true)] out Control? control
+    )
     {
         control = new ObjectPropertyTabView();
         return true;
     }
 
-    public override bool TryCreateContext(IEditorContext editorContext, [NotNullWhen(true)] out IToolContext? context)
+    public override bool TryCreateContext(
+        IEditorContext editorContext,
+        [NotNullWhen(true)] out IToolContext? context
+    )
     {
         context = new ObjectPropertyTabViewModel(editorContext);
         return true;

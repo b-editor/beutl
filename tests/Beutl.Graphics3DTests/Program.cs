@@ -88,10 +88,7 @@ for (int y = 0; y < GridSizeY; y++)
         float metallic = (float)x / (GridSizeX - 1); // 0.0 to 1.0
 
         var sphere = new Sphere3D();
-        sphere.Position.CurrentValue = new Vector3(
-            offsetX + x * Spacing,
-            offsetY + y * Spacing,
-            0);
+        sphere.Position.CurrentValue = new Vector3(offsetX + x * Spacing, offsetY + y * Spacing, 0);
         sphere.Radius.CurrentValue = SphereRadius;
         sphere.Segments.CurrentValue = 32;
         sphere.Rings.CurrentValue = 16;
@@ -134,7 +131,7 @@ var lights = new List<Light3D.Resource>
 {
     (DirectionalLight3D.Resource)keyLight.ToResource(renderContext),
     (DirectionalLight3D.Resource)fillLight.ToResource(renderContext),
-    (DirectionalLight3D.Resource)rimLight.ToResource(renderContext)
+    (DirectionalLight3D.Resource)rimLight.ToResource(renderContext),
 };
 
 Console.WriteLine("Lights: Key (white), Fill (warm), Rim (cool)");
@@ -149,7 +146,8 @@ renderer.Render(
     lights,
     new Color(255, 25, 25, 30), // Dark background
     Colors.White,
-    0.08f); // Low ambient
+    0.08f
+); // Low ambient
 
 SaveRenderOutput(renderer, Width, Height, PBRGridOutputPath);
 Console.WriteLine($"Output saved to: {Path.GetFullPath(PBRGridOutputPath)}");
@@ -158,7 +156,9 @@ Console.WriteLine();
 // Legend
 Console.WriteLine("=== What to observe ===");
 Console.WriteLine("Bottom-left (Metallic=0, Roughness=0): Smooth plastic - sharp WHITE specular");
-Console.WriteLine("Bottom-right (Metallic=1, Roughness=0): Polished metal - sharp COLORED specular");
+Console.WriteLine(
+    "Bottom-right (Metallic=1, Roughness=0): Polished metal - sharp COLORED specular"
+);
 Console.WriteLine("Top-left (Metallic=0, Roughness=1): Matte plastic - soft diffuse");
 Console.WriteLine("Top-right (Metallic=1, Roughness=1): Rough metal - soft colored highlights");
 Console.WriteLine();
@@ -241,7 +241,7 @@ static void RunShadowTest(IGraphicsContext graphicsContext)
     Console.WriteLine("Creating ground plane...");
     var ground = new Cube3D();
     ground.Width.CurrentValue = 20f;
-    ground.Height.CurrentValue = 0.1f;  // Very thin to simulate a plane
+    ground.Height.CurrentValue = 0.1f; // Very thin to simulate a plane
     ground.Depth.CurrentValue = 20f;
     ground.Position.CurrentValue = new Vector3(0, -1.05f, 0);
     ground.ReceiveShadows.CurrentValue = true;
@@ -337,7 +337,8 @@ static void RunShadowTest(IGraphicsContext graphicsContext)
         lights,
         new Color(255, 40, 50, 60),
         Colors.White,
-        0.15f);
+        0.15f
+    );
 
     SaveRenderOutput(renderer, Width, Height, "shadow_directional.png");
     Console.WriteLine($"  Saved to: {Path.GetFullPath("shadow_directional.png")}");
@@ -382,7 +383,8 @@ static void RunShadowTest(IGraphicsContext graphicsContext)
         lights,
         new Color(255, 20, 25, 35),
         Colors.White,
-        0.05f);
+        0.05f
+    );
 
     SaveRenderOutput(renderer, Width, Height, "shadow_point.png");
     Console.WriteLine($"  Saved to: {Path.GetFullPath("shadow_point.png")}");
@@ -401,7 +403,7 @@ static void RunShadowTest(IGraphicsContext graphicsContext)
     spotLight.Intensity.CurrentValue = 30f;
     spotLight.Range.CurrentValue = 15f;
     spotLight.InnerConeAngle.CurrentValue = 25f;
-    spotLight.OuterConeAngle.CurrentValue = 50f;  // Wider cone to cover scene
+    spotLight.OuterConeAngle.CurrentValue = 50f; // Wider cone to cover scene
     spotLight.IsEnabled = true;
     spotLight.CastsShadow.CurrentValue = true;
     spotLight.ShadowBias.CurrentValue = 0.005f;
@@ -414,7 +416,9 @@ static void RunShadowTest(IGraphicsContext graphicsContext)
 
     Console.WriteLine($"  Light position: {spotLight.Position.CurrentValue}");
     Console.WriteLine($"  Light direction: {spotLight.Direction.CurrentValue}");
-    Console.WriteLine($"  Cone angles: inner={spotLight.InnerConeAngle.CurrentValue}°, outer={spotLight.OuterConeAngle.CurrentValue}°");
+    Console.WriteLine(
+        $"  Cone angles: inner={spotLight.InnerConeAngle.CurrentValue}°, outer={spotLight.OuterConeAngle.CurrentValue}°"
+    );
     Console.WriteLine($"  Shadow enabled: {spotLight.CastsShadow.CurrentValue}");
 
     Console.WriteLine("  Rendering...");
@@ -425,7 +429,8 @@ static void RunShadowTest(IGraphicsContext graphicsContext)
         lights,
         new Color(255, 15, 20, 30),
         Colors.White,
-        0.03f);
+        0.03f
+    );
 
     SaveRenderOutput(renderer, Width, Height, "shadow_spot.png");
     Console.WriteLine($"  Saved to: {Path.GetFullPath("shadow_spot.png")}");
@@ -473,7 +478,8 @@ static void RunShadowTest(IGraphicsContext graphicsContext)
         lights,
         new Color(255, 30, 35, 45),
         Colors.White,
-        0.1f);
+        0.1f
+    );
 
     SaveRenderOutput(renderer, Width, Height, "shadow_multiple.png");
     Console.WriteLine($"  Saved to: {Path.GetFullPath("shadow_multiple.png")}");

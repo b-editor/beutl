@@ -2,14 +2,16 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Numerics;
-
 using Beutl.Media;
 
 namespace Beutl.Converters;
 
 public sealed class GradingColorConverter : TypeConverter
 {
-    public override bool CanConvertTo(ITypeDescriptorContext? context, [NotNullWhen(true)] Type? destinationType)
+    public override bool CanConvertTo(
+        ITypeDescriptorContext? context,
+        [NotNullWhen(true)] Type? destinationType
+    )
     {
         return destinationType == typeof(float[])
             || destinationType == typeof(Tuple<float, float, float>)
@@ -18,7 +20,12 @@ public sealed class GradingColorConverter : TypeConverter
             || base.CanConvertTo(context, destinationType);
     }
 
-    public override object? ConvertTo(ITypeDescriptorContext? context, CultureInfo? culture, object? value, Type destinationType)
+    public override object? ConvertTo(
+        ITypeDescriptorContext? context,
+        CultureInfo? culture,
+        object? value,
+        Type destinationType
+    )
     {
         if (value is GradingColor color)
         {
@@ -52,7 +59,11 @@ public sealed class GradingColorConverter : TypeConverter
             || sourceType == typeof(string);
     }
 
-    public override object? ConvertFrom(ITypeDescriptorContext? context, CultureInfo? culture, object value)
+    public override object? ConvertFrom(
+        ITypeDescriptorContext? context,
+        CultureInfo? culture,
+        object value
+    )
     {
         if (value is float[] { Length: >= 3 } array)
         {

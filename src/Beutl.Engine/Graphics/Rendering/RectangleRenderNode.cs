@@ -28,8 +28,11 @@ public sealed class RectangleRenderNode(Rect rect, Brush.Resource? fill, Pen.Res
     {
         return
         [
-            RenderNodeOperation.CreateLambda(PenHelper.GetBounds(Rect, Pen?.Resource),
-                canvas => canvas.DrawRectangle(Rect, Fill?.Resource, Pen?.Resource), HitTest)
+            RenderNodeOperation.CreateLambda(
+                PenHelper.GetBounds(Rect, Pen?.Resource),
+                canvas => canvas.DrawRectangle(Rect, Fill?.Resource, Pen?.Resource),
+                HitTest
+            ),
         ];
     }
 

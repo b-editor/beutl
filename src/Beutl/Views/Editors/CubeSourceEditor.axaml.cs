@@ -14,15 +14,17 @@ public partial class CubeSourceEditor : UserControl
 
         FileEditor.OpenOptions = new FilePickerOpenOptions
         {
-            FileTypeFilter = [new FilePickerFileType("LUT File") { Patterns = ["*.cube"] }]
+            FileTypeFilter = [new FilePickerFileType("LUT File") { Patterns = ["*.cube"] }],
         };
         FileEditor.ValueConfirmed += FileEditorOnValueConfirmed;
     }
 
     private void FileEditorOnValueConfirmed(object? sender, PropertyEditorValueChangedEventArgs e)
     {
-        if (DataContext is not CubeSourceEditorViewModel { IsDisposed: false } vm) return;
-        if (e.NewValue is not FileInfo fi) return;
+        if (DataContext is not CubeSourceEditorViewModel { IsDisposed: false } vm)
+            return;
+        if (e.NewValue is not FileInfo fi)
+            return;
 
         CubeSource? oldValue = vm.PropertyAdapter.GetValue();
         var newValue = new CubeSource();

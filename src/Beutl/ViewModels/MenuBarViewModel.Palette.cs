@@ -4,7 +4,11 @@ namespace Beutl.ViewModels;
 
 public partial class MenuBarViewModel
 {
-    public readonly record struct PaletteMenuCommand(string Id, string DisplayName, ICommand Command);
+    public readonly record struct PaletteMenuCommand(
+        string Id,
+        string DisplayName,
+        ICommand Command
+    );
 
     public IEnumerable<PaletteMenuCommand> EnumeratePaletteCommands()
     {
@@ -22,18 +26,19 @@ public partial class MenuBarViewModel
 
     // MainViewExtension の ContextCommand 名から MenuBar 上の ICommand への単一マッピング。
     // MainViewModel.Execute / CanExecute と CommandPalette が共通で参照するためここに集約している。
-    public ICommand? FindContextCommand(string commandName) => commandName switch
-    {
-        "CreateNewProject" => CreateNewProject,
-        "CreateNewFile" => CreateNew,
-        "OpenProject" => OpenProject,
-        "OpenFile" => OpenFile,
-        "Save" => Save,
-        "SaveAll" => SaveAll,
-        "CloseProject" => CloseProject,
-        "Undo" => Undo,
-        "Redo" => Redo,
-        "Exit" => Exit,
-        _ => null
-    };
+    public ICommand? FindContextCommand(string commandName) =>
+        commandName switch
+        {
+            "CreateNewProject" => CreateNewProject,
+            "CreateNewFile" => CreateNew,
+            "OpenProject" => OpenProject,
+            "OpenFile" => OpenFile,
+            "Save" => Save,
+            "SaveAll" => SaveAll,
+            "CloseProject" => CloseProject,
+            "Undo" => Undo,
+            "Redo" => Redo,
+            "Exit" => Exit,
+            _ => null,
+        };
 }

@@ -1,76 +1,93 @@
 ﻿using System.Text.Json.Nodes;
-
 using Avalonia.Input;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Components.PropertyEditors.Services;
 using Beutl.Media;
 using Beutl.PropertyAdapters;
 using Beutl.Serialization;
-
 using Reactive.Bindings;
 
 namespace Beutl.ViewModels.Editors;
 
-public sealed class GeometryEditorViewModel : ValueEditorViewModel<Geometry?>, IGeometryEditorContext, IFallbackObjectViewModel
+public sealed class GeometryEditorViewModel
+    : ValueEditorViewModel<Geometry?>,
+        IGeometryEditorContext,
+        IFallbackObjectViewModel
 {
     public GeometryEditorViewModel(IPropertyAdapter<Geometry?> property)
         : base(property)
     {
-        CanCopy = Value.Select(v => v is Geometry and not FallbackGeometry)
+        CanCopy = Value
+            .Select(v => v is Geometry and not FallbackGeometry)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(Disposables);
 
-        IsFallback = Value.Select(v => v is IFallback)
+        IsFallback = Value
+            .Select(v => v is IFallback)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(Disposables);
 
-        ActualTypeName = Value.Select(FallbackHelper.GetTypeName)
+        ActualTypeName = Value
+            .Select(FallbackHelper.GetTypeName)
             .ToReadOnlyReactivePropertySlim(Strings.Unknown)
             .DisposeWith(Disposables);
 
-        FallbackMessage = Value.Select(FallbackHelper.GetFallbackMessage)
+        FallbackMessage = Value
+            .Select(FallbackHelper.GetFallbackMessage)
             .ToReadOnlyReactivePropertySlim(MessageStrings.RestoreFailedTypeNotFound)
             .DisposeWith(Disposables);
 
-        IsGroup = Value.Select(v => v is PathGeometry)
+        IsGroup = Value
+            .Select(v => v is PathGeometry)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(Disposables);
 
-        IsGroupOrNull = Value.Select(v => v is PathGeometry || v == null)
+        IsGroupOrNull = Value
+            .Select(v => v is PathGeometry || v == null)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(Disposables);
 
-        IsExpanded.SkipWhile(v => !v)
+        IsExpanded
+            .SkipWhile(v => !v)
             .Take(1)
             .Subscribe(_ =>
-                Value.Subscribe(v =>
-                {
-                    Properties.Value?.Dispose();
-                    Properties.Value = null;
-                    Group.Value?.Dispose();
-                    Group.Value = null;
-
-                    if (v is PathGeometry group)
+                Value
+                    .Subscribe(v =>
                     {
-                        var prop = new EnginePropertyAdapter<ICoreList<PathFigure>>(group.Figures, group);
-                        Group.Value = new ListEditorViewModel<PathFigure>(prop)
+                        Properties.Value?.Dispose();
+                        Properties.Value = null;
+                        Group.Value?.Dispose();
+                        Group.Value = null;
+
+                        if (v is PathGeometry group)
                         {
-                            IsExpanded = { Value = true }
-                        };
+                            var prop = new EnginePropertyAdapter<ICoreList<PathFigure>>(
+                                group.Figures,
+                                group
+                            );
+                            Group.Value = new ListEditorViewModel<PathFigure>(prop)
+                            {
+                                IsExpanded = { Value = true },
+                            };
 
-                        Properties.Value = new PropertiesEditorViewModel(group,
-                            p => p == group.FillType);
-                    }
-                    else if (v is { } geometry)
-                    {
-                        Properties.Value = new PropertiesEditorViewModel(geometry, (p) => p != geometry.Transform);
-                    }
+                            Properties.Value = new PropertiesEditorViewModel(
+                                group,
+                                p => p == group.FillType
+                            );
+                        }
+                        else if (v is { } geometry)
+                        {
+                            Properties.Value = new PropertiesEditorViewModel(
+                                geometry,
+                                (p) => p != geometry.Transform
+                            );
+                        }
 
-                    AcceptChild();
-                })
-                .DisposeWith(Disposables))
+                        AcceptChild();
+                    })
+                    .DisposeWith(Disposables)
+            )
             .DisposeWith(Disposables);
-
     }
 
     public ReadOnlyReactivePropertySlim<bool> IsGroup { get; }
@@ -123,14 +140,15 @@ public sealed class GeometryEditorViewModel : ValueEditorViewModel<Geometry?>, I
         }
     }
 
-    protected override ICoreSerializable? GetCopyTarget()
-        => Value.Value is Geometry geom and not FallbackGeometry ? geom : null;
+    protected override ICoreSerializable? GetCopyTarget() =>
+        Value.Value is Geometry geom and not FallbackGeometry ? geom : null;
 
     protected override ICoreSerializable? GetTemplateTarget() => GetCopyTarget();
 
     public override bool ApplyTemplate(ObjectTemplateItem template)
     {
-        if (template.CreateInstance() is not Geometry instance) return false;
+        if (template.CreateInstance() is not Geometry instance)
+            return false;
         IsExpanded.Value = true;
         PropertyAdapter.SetValue(instance);
         Commit(CommandNames.ApplyTemplate);
@@ -139,7 +157,8 @@ public sealed class GeometryEditorViewModel : ValueEditorViewModel<Geometry?>, I
 
     public override bool TryPasteJson(string json)
     {
-        if (!CoreObjectClipboard.TryDeserializeJson<Geometry>(json, out var pasted)) return false;
+        if (!CoreObjectClipboard.TryDeserializeJson<Geometry>(json, out var pasted))
+            return false;
 
         IsExpanded.Value = true;
         if (EditingKeyFrame.Value is { } kf)
@@ -182,7 +201,12 @@ public sealed class GeometryEditorViewModel : ValueEditorViewModel<Geometry?>, I
     public override void WriteToJson(JsonObject json)
     {
         base.WriteToJson(json);
-        NestedEditorContextHelper.WriteNestedJson(json, IsExpanded.Value, Properties.Value, Group.Value);
+        NestedEditorContextHelper.WriteNestedJson(
+            json,
+            IsExpanded.Value,
+            Properties.Value,
+            Group.Value
+        );
     }
 
     protected override void Dispose(bool disposing)
@@ -202,12 +226,16 @@ public sealed class GeometryEditorViewModel : ValueEditorViewModel<Geometry?>, I
 
     public IPathFigureEditorContext? FindPathFigureContext(PathFigure figure)
     {
-        return Group.Value?.Items
-            .FirstOrDefault(v => v.Context is PathFigureEditorViewModel f && f.Value.Value == figure)
-            ?.Context as IPathFigureEditorContext;
+        return Group
+                .Value?.Items.FirstOrDefault(v =>
+                    v.Context is PathFigureEditorViewModel f && f.Value.Value == figure
+                )
+                ?.Context as IPathFigureEditorContext;
     }
 
-    private sealed record Visitor(GeometryEditorViewModel Obj) : IServiceProvider, IPropertyEditorContextVisitor
+    private sealed record Visitor(GeometryEditorViewModel Obj)
+        : IServiceProvider,
+            IPropertyEditorContextVisitor
     {
         public object? GetService(Type serviceType)
         {
@@ -217,8 +245,6 @@ public sealed class GeometryEditorViewModel : ValueEditorViewModel<Geometry?>, I
             return Obj.GetService(serviceType);
         }
 
-        public void Visit(IPropertyEditorContext context)
-        {
-        }
+        public void Visit(IPropertyEditorContext context) { }
     }
 }

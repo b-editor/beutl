@@ -30,8 +30,11 @@ public sealed class BufferedPlayer : IPlayer
     private bool _isDisposed;
 
     public BufferedPlayer(
-        EditViewModel editViewModel, Scene scene,
-        IReactiveProperty<bool> isPlaying, int rate)
+        EditViewModel editViewModel,
+        Scene scene,
+        IReactiveProperty<bool> isPlaying,
+        int rate
+    )
     {
         _editViewModel = editViewModel;
         _frameCacheManager = editViewModel.FrameCacheManager.Value;
@@ -41,11 +44,13 @@ public sealed class BufferedPlayer : IPlayer
         _isPlaying = isPlaying;
         _rate = rate;
 
-        _disposable = isPlaying.Where(v => !v).Subscribe(_ =>
-        {
-            _waitRenderToken?.Cancel();
-            _waitTimerToken?.Cancel();
-        });
+        _disposable = isPlaying
+            .Where(v => !v)
+            .Subscribe(_ =>
+            {
+                _waitRenderToken?.Cancel();
+                _waitTimerToken?.Cancel();
+            });
     }
 
     public void Start()
@@ -53,75 +58,85 @@ public sealed class BufferedPlayer : IPlayer
         int startFrame = (int)_editorClock.CurrentTime.Value.ToFrameNumber(_rate);
         int durationFrame = (int)Math.Ceiling(_scene.Duration.ToFrameNumber(_rate));
 
-        RenderThread.Dispatcher.Dispatch(() =>
-        {
-            try
+        RenderThread.Dispatcher.Dispatch(
+            () =>
             {
-                _logger.LogInformation("Start rendering from frame {StartFrame} to {DurationFrame}", startFrame,
-                    durationFrame);
-                int endFrame = (int)_scene.Start.ToFrameNumber(_rate) + durationFrame;
-                for (int frame = startFrame; frame < endFrame; frame++)
+                try
                 {
-                    if (!_isPlaying.Value)
+                    _logger.LogInformation(
+                        "Start rendering from frame {StartFrame} to {DurationFrame}",
+                        startFrame,
+                        durationFrame
+                    );
+                    int endFrame = (int)_scene.Start.ToFrameNumber(_rate) + durationFrame;
+                    for (int frame = startFrame; frame < endFrame; frame++)
                     {
-                        _logger.LogInformation("Rendering stopped at frame {Frame}", frame);
-                        break;
-                    }
-
-                    if (_queue.Count >= 120)
-                    {
-                        WaitTimer();
-                    }
-
-                    if (!_isPlaying.Value)
-                    {
-                        _logger.LogInformation("Rendering stopped at frame {Frame}", frame);
-                        break;
-                    }
-
-                    TimeSpan time = TimeSpanExtensions.ToTimeSpan(frame, _rate);
-
-                    // キャッシュを探す
-                    // cacheは参照を既に追加されている
-                    if (_frameCacheManager.TryGet(frame, out Ref<Bitmap>? cache))
-                    {
-                        _queue.Enqueue(new(cache, frame));
-                    }
-                    else
-                    {
-                        var compositionFrame = _renderer.Compositor.EvaluateGraphics(time);
-                        _renderer.Render(compositionFrame);
-                        using (Ref<Bitmap> bitmap = Ref<Bitmap>.Create(_renderer.Snapshot()))
+                        if (!_isPlaying.Value)
                         {
-                            _queue.Enqueue(new(bitmap.Clone(), frame));
-                            _frameCacheManager.Add(frame, bitmap);
+                            _logger.LogInformation("Rendering stopped at frame {Frame}", frame);
+                            break;
+                        }
+
+                        if (_queue.Count >= 120)
+                        {
+                            WaitTimer();
+                        }
+
+                        if (!_isPlaying.Value)
+                        {
+                            _logger.LogInformation("Rendering stopped at frame {Frame}", frame);
+                            break;
+                        }
+
+                        TimeSpan time = TimeSpanExtensions.ToTimeSpan(frame, _rate);
+
+                        // キャッシュを探す
+                        // cacheは参照を既に追加されている
+                        if (_frameCacheManager.TryGet(frame, out Ref<Bitmap>? cache))
+                        {
+                            _queue.Enqueue(new(cache, frame));
+                        }
+                        else
+                        {
+                            var compositionFrame = _renderer.Compositor.EvaluateGraphics(time);
+                            _renderer.Render(compositionFrame);
+                            using (Ref<Bitmap> bitmap = Ref<Bitmap>.Create(_renderer.Snapshot()))
+                            {
+                                _queue.Enqueue(new(bitmap.Clone(), frame));
+                                _frameCacheManager.Add(frame, bitmap);
+                            }
+                        }
+
+                        _waitRenderToken?.Cancel();
+                        if (_isPlaying.Value)
+                            _editViewModel.BufferStatus.EndTime.Value = time;
+
+                        int? requestedFrame = _requestedFrame;
+                        if (requestedFrame > frame)
+                        {
+                            _logger.LogDebug(
+                                "Frame delay detected. Requested frame {RequestedFrame} is greater than current frame {Frame}",
+                                requestedFrame,
+                                frame
+                            );
+                            frame = requestedFrame.Value + (requestedFrame.Value - frame) * 2;
+                            _requestedFrame = null;
                         }
                     }
 
-                    _waitRenderToken?.Cancel();
-                    if (_isPlaying.Value)
-                        _editViewModel.BufferStatus.EndTime.Value = time;
-
-                    int? requestedFrame = _requestedFrame;
-                    if (requestedFrame > frame)
-                    {
-                        _logger.LogDebug(
-                            "Frame delay detected. Requested frame {RequestedFrame} is greater than current frame {Frame}",
-                            requestedFrame, frame);
-                        frame = requestedFrame.Value + (requestedFrame.Value - frame) * 2;
-                        _requestedFrame = null;
-                    }
+                    _logger.LogInformation("Rendering completed.");
                 }
-
-                _logger.LogInformation("Rendering completed.");
-            }
-            catch (Exception ex)
-            {
-                NotificationService.ShowError(MessageStrings.UnexpectedError,
-                    MessageStrings.FrameDrawingException);
-                _logger.LogError(ex, "An exception occurred while drawing the frame.");
-            }
-        }, Threading.DispatchPriority.High);
+                catch (Exception ex)
+                {
+                    NotificationService.ShowError(
+                        MessageStrings.UnexpectedError,
+                        MessageStrings.FrameDrawingException
+                    );
+                    _logger.LogError(ex, "An exception occurred while drawing the frame.");
+                }
+            },
+            Threading.DispatchPriority.High
+        );
     }
 
     public bool TryDequeue(out IPlayer.Frame frame)
@@ -140,7 +155,8 @@ public sealed class BufferedPlayer : IPlayer
 
     private void WaitRender()
     {
-        if (_isDisposed) return;
+        if (_isDisposed)
+            return;
         _waitRenderToken = new CancellationTokenSource();
 
         _waitRenderToken.Token.WaitHandle.WaitOne();
@@ -149,7 +165,8 @@ public sealed class BufferedPlayer : IPlayer
 
     private void WaitTimer()
     {
-        if (_isDisposed) return;
+        if (_isDisposed)
+            return;
         _waitTimerToken = new CancellationTokenSource();
 
         _waitTimerToken.Token.WaitHandle.WaitOne();

@@ -12,10 +12,11 @@ public enum DispMapTransformType
     Null,
     Translate,
     Rotation,
-    Scale
+    Scale,
 }
 
-public sealed class DisplacementMapTransformEditorViewModel : ValueEditorViewModel<DisplacementMapTransform?>
+public sealed class DisplacementMapTransformEditorViewModel
+    : ValueEditorViewModel<DisplacementMapTransform?>
 {
     private static DispMapTransformType GetTransformType(DisplacementMapTransform? obj)
     {
@@ -24,7 +25,7 @@ public sealed class DisplacementMapTransformEditorViewModel : ValueEditorViewMod
             DisplacementMapTranslateTransform => DispMapTransformType.Translate,
             DisplacementMapRotationTransform => DispMapTransformType.Rotation,
             DisplacementMapScaleTransform => DispMapTransformType.Scale,
-            _ => DispMapTransformType.Null
+            _ => DispMapTransformType.Null,
         };
     }
 
@@ -35,7 +36,7 @@ public sealed class DisplacementMapTransformEditorViewModel : ValueEditorViewMod
             DispMapTransformType.Translate => new DisplacementMapTranslateTransform(),
             DispMapTransformType.Rotation => new DisplacementMapRotationTransform(),
             DispMapTransformType.Scale => new DisplacementMapScaleTransform(),
-            _ => null
+            _ => null,
         };
     }
 
@@ -46,45 +47,56 @@ public sealed class DisplacementMapTransformEditorViewModel : ValueEditorViewMod
             DispMapTransformType.Translate => GraphicsStrings.TranslateTransform,
             DispMapTransformType.Rotation => GraphicsStrings.Rotation,
             DispMapTransformType.Scale => GraphicsStrings.Scale,
-            _ => "Null"
+            _ => "Null",
         };
     }
 
-    public DisplacementMapTransformEditorViewModel(IPropertyAdapter<DisplacementMapTransform?> property)
+    public DisplacementMapTransformEditorViewModel(
+        IPropertyAdapter<DisplacementMapTransform?> property
+    )
         : base(property)
     {
-        CanCopy = Value.Select(v => v is DisplacementMapTransform)
+        CanCopy = Value
+            .Select(v => v is DisplacementMapTransform)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(Disposables);
 
-        TransformType = Value.Select(GetTransformType)
+        TransformType = Value
+            .Select(GetTransformType)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(Disposables);
 
-        TransformName = TransformType.Select(ToDisplayName)
+        TransformName = TransformType
+            .Select(ToDisplayName)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(Disposables);
 
-        IsTranslate = TransformType.Select(v => v == DispMapTransformType.Translate)
+        IsTranslate = TransformType
+            .Select(v => v == DispMapTransformType.Translate)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(Disposables);
 
-        IsRotation = TransformType.Select(v => v == DispMapTransformType.Rotation)
+        IsRotation = TransformType
+            .Select(v => v == DispMapTransformType.Rotation)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(Disposables);
 
-        IsScale = TransformType.Select(v => v == DispMapTransformType.Scale)
+        IsScale = TransformType
+            .Select(v => v == DispMapTransformType.Scale)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(Disposables);
 
-        IsNull = Value.Select(v => v == null)
+        IsNull = Value
+            .Select(v => v == null)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(Disposables);
 
-        IsExpanded.SkipWhile(v => !v)
+        IsExpanded
+            .SkipWhile(v => !v)
             .Take(1)
             .Subscribe(_ =>
-                Value.Subscribe(v =>
+                Value
+                    .Subscribe(v =>
                     {
                         Properties.Value?.Dispose();
                         Properties.Value = null;
@@ -96,9 +108,9 @@ public sealed class DisplacementMapTransformEditorViewModel : ValueEditorViewMod
 
                         AcceptChild();
                     })
-                    .DisposeWith(Disposables))
+                    .DisposeWith(Disposables)
+            )
             .DisposeWith(Disposables);
-
     }
 
     public override IReadOnlyReactiveProperty<bool> CanCopy { get; }
@@ -154,7 +166,8 @@ public sealed class DisplacementMapTransformEditorViewModel : ValueEditorViewMod
 
     public override bool TryPasteJson(string json)
     {
-        if (!CoreObjectClipboard.TryDeserializeJson<DisplacementMapTransform>(json, out var pasted)) return false;
+        if (!CoreObjectClipboard.TryDeserializeJson<DisplacementMapTransform>(json, out var pasted))
+            return false;
 
         IsExpanded.Value = true;
         if (EditingKeyFrame.Value is { } kf)
@@ -174,17 +187,17 @@ public sealed class DisplacementMapTransformEditorViewModel : ValueEditorViewMod
         base.ReadFromJson(json);
         try
         {
-            if (json.TryGetPropertyValue(nameof(IsExpanded), out var isExpandedNode)
-                && isExpandedNode is JsonValue isExpanded)
+            if (
+                json.TryGetPropertyValue(nameof(IsExpanded), out var isExpandedNode)
+                && isExpandedNode is JsonValue isExpanded
+            )
             {
                 IsExpanded.Value = (bool)isExpanded;
             }
 
             Properties.Value?.ReadFromJson(json);
         }
-        catch
-        {
-        }
+        catch { }
     }
 
     public override void WriteToJson(JsonObject json)
@@ -195,9 +208,7 @@ public sealed class DisplacementMapTransformEditorViewModel : ValueEditorViewMod
             json[nameof(IsExpanded)] = IsExpanded.Value;
             Properties.Value?.WriteToJson(json);
         }
-        catch
-        {
-        }
+        catch { }
     }
 
     protected override void Dispose(bool disposing)
@@ -207,15 +218,14 @@ public sealed class DisplacementMapTransformEditorViewModel : ValueEditorViewMod
     }
 
     private sealed record Visitor(DisplacementMapTransformEditorViewModel Obj)
-        : IServiceProvider, IPropertyEditorContextVisitor
+        : IServiceProvider,
+            IPropertyEditorContextVisitor
     {
         public object? GetService(Type serviceType)
         {
             return Obj.GetService(serviceType);
         }
 
-        public void Visit(IPropertyEditorContext context)
-        {
-        }
+        public void Visit(IPropertyEditorContext context) { }
     }
 }

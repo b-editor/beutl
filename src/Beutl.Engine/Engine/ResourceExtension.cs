@@ -2,7 +2,8 @@
 
 public static class ResourceExtension
 {
-    extension<T>(T? resource) where T : EngineObject.Resource
+    extension<T>(T? resource)
+        where T : EngineObject.Resource
     {
         public (T Resource, int Version)? Capture()
         {
@@ -14,8 +15,8 @@ public static class ResourceExtension
         public bool Compare((T Resource, int Version)? captured)
         {
             return ReferenceEquals(captured?.Resource, resource)
-                   && ReferenceEquals(captured?.Resource.GetOriginal(), resource?.GetOriginal())
-                   && captured?.Version == resource?.Version;
+                && ReferenceEquals(captured?.Resource.GetOriginal(), resource?.GetOriginal())
+                && captured?.Version == resource?.Version;
         }
     }
 }

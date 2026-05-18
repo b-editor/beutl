@@ -35,7 +35,9 @@ public sealed class ProjectService
 
     public IReadOnlyReactiveProperty<bool> IsOpened => _isOpened;
 
-    private static async Task<(NuGetVersion AppVersion, NuGetVersion MinVersion)> GetProjectVersion(string file)
+    private static async Task<(NuGetVersion AppVersion, NuGetVersion MinVersion)> GetProjectVersion(
+        string file
+    )
     {
         await using var stream = File.OpenRead(file);
         var node = await JsonNode.ParseAsync(stream);
@@ -43,7 +45,9 @@ public sealed class ProjectService
         string? minAppVersion = (string?)node?["minAppVersion"];
         if (appVersion == null || minAppVersion == null)
         {
-            throw new InvalidOperationException("The project file does not contain version information.");
+            throw new InvalidOperationException(
+                "The project file does not contain version information."
+            );
         }
 
         return (NuGetVersion.Parse(appVersion), NuGetVersion.Parse(minAppVersion));
@@ -61,14 +65,19 @@ public sealed class ProjectService
             (NuGetVersion appVersion, NuGetVersion minVersion) = await GetProjectVersion(file);
             activity?.SetTag(nameof(appVersion), appVersion.ToString());
             activity?.SetTag(nameof(minVersion), minVersion.ToString());
-            if (minVersion > NuGetVersion.Parse(BeutlApplication.Version) &&
-                !Preferences.Default.Get("ProjectService.SkipVersionCheck", false))
+            if (
+                minVersion > NuGetVersion.Parse(BeutlApplication.Version)
+                && !Preferences.Default.Get("ProjectService.SkipVersionCheck", false)
+            )
             {
                 var dialog = new ContentDialog
                 {
                     Title = MessageStrings.ProjectVersionMismatch_Title,
-                    Content = string.Format(MessageStrings.ProjectVersionMismatch_Content, minVersion),
-                    PrimaryButtonText = Strings.Close
+                    Content = string.Format(
+                        MessageStrings.ProjectVersionMismatch_Content,
+                        minVersion
+                    ),
+                    PrimaryButtonText = Strings.Close,
                 };
                 await dialog.ShowAsync();
                 return;
@@ -81,13 +90,21 @@ public sealed class ProjectService
             _projectObservable.OnNext((New: project, null));
 
             AddToRecentProjects(file);
-            _logger.LogInformation("Opened project. File: {File}, AppVersion: {AppVersion}, MinVersion: {MinVersion}", file, appVersion, minVersion);
+            _logger.LogInformation(
+                "Opened project. File: {File}, AppVersion: {AppVersion}, MinVersion: {MinVersion}",
+                file,
+                appVersion,
+                minVersion
+            );
         }
         catch (Exception ex)
         {
             activity?.SetStatus(ActivityStatusCode.Error);
             _logger.LogError(ex, "Unable to open the project. File: {File}", file);
-            NotificationService.ShowInformation(Strings.Project, MessageStrings.FailedToOpenProject);
+            NotificationService.ShowInformation(
+                Strings.Project,
+                MessageStrings.FailedToOpenProject
+            );
         }
     }
 
@@ -103,7 +120,14 @@ public sealed class ProjectService
         }
     }
 
-    public async Task<Project?> CreateProject(int width, int height, int framerate, int samplerate, string name, string location)
+    public async Task<Project?> CreateProject(
+        int width,
+        int height,
+        int framerate,
+        int samplerate,
+        string name,
+        string location
+    )
     {
         await App.WaitLoadingExtensions();
 
@@ -119,17 +143,21 @@ public sealed class ProjectService
             location = Path.Combine(location, name);
             var scene = new Scene(width, height, name)
             {
-                Uri = UriHelper.CreateFromPath(Path.Combine(location, name, $"{name}.{Constants.SceneFileExtension}")),
+                Uri = UriHelper.CreateFromPath(
+                    Path.Combine(location, name, $"{name}.{Constants.SceneFileExtension}")
+                ),
             };
             var project = new Project()
             {
                 Items = { scene },
-                Uri = UriHelper.CreateFromPath(Path.Combine(location, $"{name}.{Constants.ProjectFileExtension}")),
+                Uri = UriHelper.CreateFromPath(
+                    Path.Combine(location, $"{name}.{Constants.ProjectFileExtension}")
+                ),
                 Variables =
                 {
                     [ProjectVariableKeys.FrameRate] = framerate.ToString(),
                     [ProjectVariableKeys.SampleRate] = samplerate.ToString(),
-                }
+                },
             };
 
             CoreSerializer.StoreToUri(scene, scene.Uri);
@@ -140,14 +168,27 @@ public sealed class ProjectService
             _app.Project = project;
 
             AddToRecentProjects(project.Uri.LocalPath);
-            _logger.LogInformation("Created new project. Name: {Name}, Location: {Location}, Width: {Width}, Height: {Height}, Framerate: {Framerate}, Samplerate: {Samplerate}", name, location, width, height, framerate, samplerate);
+            _logger.LogInformation(
+                "Created new project. Name: {Name}, Location: {Location}, Width: {Width}, Height: {Height}, Framerate: {Framerate}, Samplerate: {Samplerate}",
+                name,
+                location,
+                width,
+                height,
+                framerate,
+                samplerate
+            );
 
             return project;
         }
         catch (Exception ex)
         {
             activity?.SetStatus(ActivityStatusCode.Error);
-            _logger.LogError(ex, "Unable to create the project. Name: {Name}, Location: {Location}", name, location);
+            _logger.LogError(
+                ex,
+                "Unable to create the project. Name: {Name}, Location: {Location}",
+                name,
+                location
+            );
             return null;
         }
     }

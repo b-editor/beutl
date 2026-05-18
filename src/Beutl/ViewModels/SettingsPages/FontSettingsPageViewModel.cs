@@ -1,8 +1,6 @@
 ﻿using System.Collections.ObjectModel;
-
 using Beutl.Configuration;
 using Beutl.Controls.Navigation;
-
 using Reactive.Bindings;
 
 namespace Beutl.ViewModels.SettingsPages;

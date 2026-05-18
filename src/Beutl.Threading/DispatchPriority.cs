@@ -6,5 +6,5 @@ public enum DispatchPriority
 
     Medium,
 
-    High
+    High,
 }

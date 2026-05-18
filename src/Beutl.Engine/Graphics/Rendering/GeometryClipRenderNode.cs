@@ -3,7 +3,8 @@ using Beutl.Media;
 
 namespace Beutl.Graphics.Rendering;
 
-public sealed class GeometryClipRenderNode(Geometry.Resource clip, ClipOperation operation) : ContainerRenderNode
+public sealed class GeometryClipRenderNode(Geometry.Resource clip, ClipOperation operation)
+    : ContainerRenderNode
 {
     public (Geometry.Resource Resource, int Version)? Clip { get; private set; } = clip.Capture();
 
@@ -35,16 +36,21 @@ public sealed class GeometryClipRenderNode(Geometry.Resource clip, ClipOperation
             return context.Input;
         }
 
-        return context.Input.Select(r =>
-        {
-            return RenderNodeOperation.CreateDecorator(r, canvas =>
+        return context
+            .Input.Select(r =>
             {
-                using (canvas.PushClip(Clip.Value.Resource, Operation))
-                {
-                    r.Render(canvas);
-                }
-            });
-        }).ToArray();
+                return RenderNodeOperation.CreateDecorator(
+                    r,
+                    canvas =>
+                    {
+                        using (canvas.PushClip(Clip.Value.Resource, Operation))
+                        {
+                            r.Render(canvas);
+                        }
+                    }
+                );
+            })
+            .ToArray();
     }
 
     protected override void OnDispose(bool disposing)

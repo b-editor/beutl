@@ -1,23 +1,24 @@
 ﻿using Avalonia;
 using Avalonia.Interactivity;
-
 using Beutl.Controls.PropertyEditors;
 using Beutl.Media;
 
 namespace Beutl.ViewModels.Editors;
 
-public sealed class FontFamilyEditorViewModel(IPropertyAdapter<FontFamily?> property) : ValueEditorViewModel<FontFamily?>(property)
+public sealed class FontFamilyEditorViewModel(IPropertyAdapter<FontFamily?> property)
+    : ValueEditorViewModel<FontFamily?>(property)
 {
     public override void Accept(IPropertyEditorContextVisitor visitor)
     {
         base.Accept(visitor);
         if (visitor is FontFamilyEditor editor && !Disposables.IsDisposed)
         {
-            editor.Bind(FontFamilyEditor.ValueProperty, Value.ToBinding())
+            editor.Bind(FontFamilyEditor.ValueProperty, Value.ToBinding()).DisposeWith(Disposables);
+            editor
+                .AddDisposableHandler(PropertyEditor.ValueConfirmedEvent, OnValueConfirmed)
                 .DisposeWith(Disposables);
-            editor.AddDisposableHandler(PropertyEditor.ValueConfirmedEvent, OnValueConfirmed)
-                .DisposeWith(Disposables);
-            editor.AddDisposableHandler(PropertyEditor.ValueChangedEvent, OnValueChanged)
+            editor
+                .AddDisposableHandler(PropertyEditor.ValueChangedEvent, OnValueChanged)
                 .DisposeWith(Disposables);
         }
     }

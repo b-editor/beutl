@@ -16,18 +16,23 @@ public class SceneMoveChildrenTests
         Directory.CreateDirectory(basePath);
         return new Scene(100, 100, string.Empty)
         {
-            Uri = new Uri(Path.Combine(basePath, "test.scene"))
+            Uri = new Uri(Path.Combine(basePath, "test.scene")),
         };
     }
 
-    private static Element CreateElement(string basePath, TimeSpan start, TimeSpan length, int zIndex = 0)
+    private static Element CreateElement(
+        string basePath,
+        TimeSpan start,
+        TimeSpan length,
+        int zIndex = 0
+    )
     {
         return new Element
         {
             Start = start,
             Length = length,
             ZIndex = zIndex,
-            Uri = new Uri(Path.Combine(basePath, $"{Guid.NewGuid():N}.layer"))
+            Uri = new Uri(Path.Combine(basePath, $"{Guid.NewGuid():N}.layer")),
         };
     }
 
@@ -38,7 +43,11 @@ public class SceneMoveChildrenTests
         try
         {
             Scene scene = CreateScene(basePath);
-            Element element = CreateElement(basePath, TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(1));
+            Element element = CreateElement(
+                basePath,
+                TimeSpan.FromSeconds(2),
+                TimeSpan.FromSeconds(1)
+            );
             scene.Children.Add(element);
 
             scene.MoveChildren(0, TimeSpan.FromSeconds(1), [element]);
@@ -48,7 +57,8 @@ public class SceneMoveChildrenTests
         }
         finally
         {
-            if (Directory.Exists(basePath)) Directory.Delete(basePath, recursive: true);
+            if (Directory.Exists(basePath))
+                Directory.Delete(basePath, recursive: true);
         }
     }
 
@@ -60,12 +70,14 @@ public class SceneMoveChildrenTests
         {
             Scene scene = CreateScene(basePath);
 
-            ClassicAssert.Throws<ArgumentOutOfRangeException>(
-                () => scene.MoveChildren(0, TimeSpan.FromSeconds(1), []));
+            ClassicAssert.Throws<ArgumentOutOfRangeException>(() =>
+                scene.MoveChildren(0, TimeSpan.FromSeconds(1), [])
+            );
         }
         finally
         {
-            if (Directory.Exists(basePath)) Directory.Delete(basePath, recursive: true);
+            if (Directory.Exists(basePath))
+                Directory.Delete(basePath, recursive: true);
         }
     }
 
@@ -76,7 +88,12 @@ public class SceneMoveChildrenTests
         try
         {
             Scene scene = CreateScene(basePath);
-            Element element = CreateElement(basePath, TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(1), zIndex: 1);
+            Element element = CreateElement(
+                basePath,
+                TimeSpan.FromSeconds(2),
+                TimeSpan.FromSeconds(1),
+                zIndex: 1
+            );
             scene.Children.Add(element);
 
             scene.MoveChildren(+2, TimeSpan.Zero, [element]);
@@ -86,7 +103,8 @@ public class SceneMoveChildrenTests
         }
         finally
         {
-            if (Directory.Exists(basePath)) Directory.Delete(basePath, recursive: true);
+            if (Directory.Exists(basePath))
+                Directory.Delete(basePath, recursive: true);
         }
     }
 
@@ -97,8 +115,18 @@ public class SceneMoveChildrenTests
         try
         {
             Scene scene = CreateScene(basePath);
-            Element movable = CreateElement(basePath, TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(1), zIndex: 0);
-            Element obstacle = CreateElement(basePath, TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(1), zIndex: 1);
+            Element movable = CreateElement(
+                basePath,
+                TimeSpan.FromSeconds(2),
+                TimeSpan.FromSeconds(1),
+                zIndex: 0
+            );
+            Element obstacle = CreateElement(
+                basePath,
+                TimeSpan.FromSeconds(2),
+                TimeSpan.FromSeconds(1),
+                zIndex: 1
+            );
             scene.Children.Add(movable);
             scene.Children.Add(obstacle);
 
@@ -111,7 +139,8 @@ public class SceneMoveChildrenTests
         }
         finally
         {
-            if (Directory.Exists(basePath)) Directory.Delete(basePath, recursive: true);
+            if (Directory.Exists(basePath))
+                Directory.Delete(basePath, recursive: true);
         }
     }
 
@@ -122,8 +151,18 @@ public class SceneMoveChildrenTests
         try
         {
             Scene scene = CreateScene(basePath);
-            Element a = CreateElement(basePath, TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(1), zIndex: 0);
-            Element b = CreateElement(basePath, TimeSpan.FromSeconds(4), TimeSpan.FromSeconds(1), zIndex: 1);
+            Element a = CreateElement(
+                basePath,
+                TimeSpan.FromSeconds(2),
+                TimeSpan.FromSeconds(1),
+                zIndex: 0
+            );
+            Element b = CreateElement(
+                basePath,
+                TimeSpan.FromSeconds(4),
+                TimeSpan.FromSeconds(1),
+                zIndex: 1
+            );
             scene.Children.Add(a);
             scene.Children.Add(b);
 
@@ -134,7 +173,8 @@ public class SceneMoveChildrenTests
         }
         finally
         {
-            if (Directory.Exists(basePath)) Directory.Delete(basePath, recursive: true);
+            if (Directory.Exists(basePath))
+                Directory.Delete(basePath, recursive: true);
         }
     }
 }

@@ -46,22 +46,29 @@ public sealed partial class SourceSound : IThumbnailsProvider
                 cacheJson[prop] = node?.DeepClone();
         }
 
-        if (fullJson.TryGetPropertyValue("Animations", out var anims) && anims is JsonObject animObj)
+        if (
+            fullJson.TryGetPropertyValue("Animations", out var anims) && anims is JsonObject animObj
+        )
         {
             var filtered = new JsonObject();
             foreach (var prop in targetProps)
                 if (animObj.TryGetPropertyValue(prop, out var n))
                     filtered[prop] = n?.DeepClone();
-            if (filtered.Count > 0) cacheJson["Animations"] = filtered;
+            if (filtered.Count > 0)
+                cacheJson["Animations"] = filtered;
         }
 
-        if (fullJson.TryGetPropertyValue("Expressions", out var exprs) && exprs is JsonObject exprObj)
+        if (
+            fullJson.TryGetPropertyValue("Expressions", out var exprs)
+            && exprs is JsonObject exprObj
+        )
         {
             var filtered = new JsonObject();
             foreach (var prop in targetProps)
                 if (exprObj.TryGetPropertyValue(prop, out var n))
                     filtered[prop] = n?.DeepClone();
-            if (filtered.Count > 0) cacheJson["Expressions"] = filtered;
+            if (filtered.Count > 0)
+                cacheJson["Expressions"] = filtered;
         }
 
         var jsonStr = cacheJson.ToJsonString();
@@ -75,7 +82,8 @@ public sealed partial class SourceSound : IThumbnailsProvider
         IThumbnailCacheService? cacheService,
         [EnumeratorCancellation] CancellationToken cancellationToken = default,
         int startIndex = 0,
-        int endIndex = -1)
+        int endIndex = -1
+    )
     {
         await Task.CompletedTask;
         yield break;
@@ -85,7 +93,8 @@ public sealed partial class SourceSound : IThumbnailsProvider
         int chunkCount,
         int samplesPerChunk,
         IThumbnailCacheService? cacheService,
-        [EnumeratorCancellation] CancellationToken cancellationToken = default)
+        [EnumeratorCancellation] CancellationToken cancellationToken = default
+    )
     {
         using var resource = ToResource(CompositionContext.Default);
         if (resource.Source == null)
@@ -124,46 +133,65 @@ public sealed partial class SourceSound : IThumbnailsProvider
             if (sampleCount <= 0)
                 continue;
 
-            if (cacheKey != null
-                && cacheService!.TryGetWaveform(cacheKey, chunkTime, cacheThreshold, out var cachedMin,
-                    out var cachedMax))
+            if (
+                cacheKey != null
+                && cacheService!.TryGetWaveform(
+                    cacheKey,
+                    chunkTime,
+                    cacheThreshold,
+                    out var cachedMin,
+                    out var cachedMax
+                )
+            )
             {
                 yield return new WaveformChunk(chunkIndex, cachedMin, cachedMax);
                 continue;
             }
 
-            var chunk = await ComposeThread.Dispatcher.InvokeAsync(() =>
-            {
-                if (cancellationToken.IsCancellationRequested)
-                    return (WaveformChunk?)null;
-
-                using var buffer = composer.Compose(new TimeRange(startTime, durationTime), frame);
-                if (buffer == null || buffer.SampleCount == 0)
-                    return null;
-
-                var firstChannel = buffer.GetChannelData(0);
-                var secondChannel = buffer.GetChannelData(1);
-
-                float minValue = float.MaxValue;
-                float maxValue = float.MinValue;
-
-                for (int i = 0; i < buffer.SampleCount; i++)
+            var chunk = await ComposeThread.Dispatcher.InvokeAsync(
+                () =>
                 {
-                    float left = firstChannel[i];
-                    float right = secondChannel[i];
+                    if (cancellationToken.IsCancellationRequested)
+                        return (WaveformChunk?)null;
 
-                    float monoValue = (left + right) * 0.5f;
-                    minValue = Math.Min(minValue, monoValue);
-                    maxValue = Math.Max(maxValue, monoValue);
-                }
+                    using var buffer = composer.Compose(
+                        new TimeRange(startTime, durationTime),
+                        frame
+                    );
+                    if (buffer == null || buffer.SampleCount == 0)
+                        return null;
 
-                return new WaveformChunk(chunkIndex, minValue, maxValue);
-            }, DispatchPriority.Low, cancellationToken);
+                    var firstChannel = buffer.GetChannelData(0);
+                    var secondChannel = buffer.GetChannelData(1);
+
+                    float minValue = float.MaxValue;
+                    float maxValue = float.MinValue;
+
+                    for (int i = 0; i < buffer.SampleCount; i++)
+                    {
+                        float left = firstChannel[i];
+                        float right = secondChannel[i];
+
+                        float monoValue = (left + right) * 0.5f;
+                        minValue = Math.Min(minValue, monoValue);
+                        maxValue = Math.Max(maxValue, monoValue);
+                    }
+
+                    return new WaveformChunk(chunkIndex, minValue, maxValue);
+                },
+                DispatchPriority.Low,
+                cancellationToken
+            );
 
             if (chunk.HasValue)
             {
                 if (cacheKey != null)
-                    cacheService!.SaveWaveform(cacheKey, chunkTime, chunk.Value.MinValue, chunk.Value.MaxValue);
+                    cacheService!.SaveWaveform(
+                        cacheKey,
+                        chunkTime,
+                        chunk.Value.MinValue,
+                        chunk.Value.MaxValue
+                    );
 
                 yield return chunk.Value;
             }

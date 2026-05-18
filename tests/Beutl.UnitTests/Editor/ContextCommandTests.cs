@@ -32,7 +32,12 @@ public class ContextCommandTests
     public void ContextCommandDefinition_StoresAllFields()
     {
         var win = new ContextCommandKeyGesture("Ctrl+S", OSPlatform.Windows);
-        var def = new ContextCommandDefinition("Save", "Save File", "Saves current document", [win]);
+        var def = new ContextCommandDefinition(
+            "Save",
+            "Save File",
+            "Saves current document",
+            [win]
+        );
 
         Assert.That(def.Name, Is.EqualTo("Save"));
         Assert.That(def.DisplayName, Is.EqualTo("Save File"));
@@ -71,8 +76,12 @@ public class ContextCommandTests
         var def = new ContextCommandDefinition("Save", keyGestures: [win, mac]);
 
         Assert.That(def.KeyGestures, Has.Length.EqualTo(2));
-        Assert.That(def.KeyGestures!.Any(g => g.Platform == OSPlatform.Windows && g.KeyGesture == "Ctrl+S"));
-        Assert.That(def.KeyGestures!.Any(g => g.Platform == OSPlatform.OSX && g.KeyGesture == "Cmd+S"));
+        Assert.That(
+            def.KeyGestures!.Any(g => g.Platform == OSPlatform.Windows && g.KeyGesture == "Ctrl+S")
+        );
+        Assert.That(
+            def.KeyGestures!.Any(g => g.Platform == OSPlatform.OSX && g.KeyGesture == "Cmd+S")
+        );
     }
 
     [Test]

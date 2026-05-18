@@ -19,7 +19,8 @@ public sealed class SourceNode : AudioNode
         var sampleCount = context.GetSampleCount();
         var buffer = new AudioBuffer(context.SampleRate, 2, sampleCount);
         var start = (int)(context.TimeRange.Start.TotalSeconds * resource.SampleRate);
-        var length = (int)Math.Ceiling(context.TimeRange.Duration.TotalSeconds * resource.SampleRate);
+        var length = (int)
+            Math.Ceiling(context.TimeRange.Duration.TotalSeconds * resource.SampleRate);
 
         // Read PCM data from source
         if (resource.Read(start, length, out var pcmRef))
@@ -63,7 +64,10 @@ public sealed class SourceNode : AudioNode
         }
     }
 
-    private static unsafe void CopyMonoToStereoBuffer(Pcm<Monaural32BitFloat> pcm, AudioBuffer buffer)
+    private static unsafe void CopyMonoToStereoBuffer(
+        Pcm<Monaural32BitFloat> pcm,
+        AudioBuffer buffer
+    )
     {
         var srcPtr = (Monaural32BitFloat*)pcm.Data;
         var leftChannel = buffer.GetChannelData(0);

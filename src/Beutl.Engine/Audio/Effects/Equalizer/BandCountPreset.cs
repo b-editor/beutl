@@ -23,5 +23,5 @@ public enum BandCountPreset
     /// <summary>
     /// 31 bands.
     /// </summary>
-    Bands31 = 31
+    Bands31 = 31,
 }

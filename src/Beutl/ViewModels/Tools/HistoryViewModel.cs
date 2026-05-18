@@ -44,14 +44,18 @@ public sealed class HistoryViewModel : IToolContext
         _currentIndex = new ReactivePropertySlim<int>(initialCurrentIndex);
         CurrentIndex = _currentIndex;
 
-        _historyManager.StateChanged
-            .Subscribe(
+        _historyManager
+            .StateChanged.Subscribe(
                 _ => DispatchToUI(SyncCurrentIndex),
                 ex =>
                 {
-                    _logger.LogError(ex, "HistoryManager.StateChanged stream errored; UI sync stopped");
+                    _logger.LogError(
+                        ex,
+                        "HistoryManager.StateChanged stream errored; UI sync stopped"
+                    );
                     NotificationService.ShowError(Strings.History, Strings.History_OperationFailed);
-                })
+                }
+            )
             .DisposeWith(_disposables);
 
         // A commit/clear/jump that fired between SubscribeEntries returning
@@ -155,67 +159,70 @@ public sealed class HistoryViewModel : IToolContext
             switch (e.Action)
             {
                 case NotifyCollectionChangedAction.Add when e.NewItems is not null:
+                {
+                    int insertIndex = e.NewStartingIndex >= 0 ? e.NewStartingIndex : _entries.Count;
+                    foreach (object? item in e.NewItems)
                     {
-                        int insertIndex = e.NewStartingIndex >= 0 ? e.NewStartingIndex : _entries.Count;
-                        foreach (object? item in e.NewItems)
+                        if (item is HistoryEntry entry)
                         {
-                            if (item is HistoryEntry entry)
-                            {
-                                _entries.Insert(insertIndex++, entry);
-                            }
+                            _entries.Insert(insertIndex++, entry);
                         }
-                        break;
                     }
+                    break;
+                }
                 case NotifyCollectionChangedAction.Remove when e.OldItems is not null:
+                {
+                    int removeAt = e.OldStartingIndex;
+                    if (removeAt < 0)
                     {
-                        int removeAt = e.OldStartingIndex;
-                        if (removeAt < 0)
+                        ResyncEntries();
+                    }
+                    else
+                    {
+                        for (int i = 0; i < e.OldItems.Count; i++)
                         {
-                            ResyncEntries();
-                        }
-                        else
-                        {
-                            for (int i = 0; i < e.OldItems.Count; i++)
+                            if (removeAt < _entries.Count)
                             {
-                                if (removeAt < _entries.Count)
-                                {
-                                    _entries.RemoveAt(removeAt);
-                                }
+                                _entries.RemoveAt(removeAt);
                             }
                         }
-                        break;
                     }
+                    break;
+                }
                 case NotifyCollectionChangedAction.Replace when e.NewItems is not null:
+                {
+                    int start = e.NewStartingIndex;
+                    if (start < 0)
                     {
-                        int start = e.NewStartingIndex;
-                        if (start < 0)
-                        {
-                            ResyncEntries();
-                            break;
-                        }
-                        for (int i = 0; i < e.NewItems.Count; i++)
-                        {
-                            if (e.NewItems[i] is HistoryEntry entry && start + i < _entries.Count)
-                            {
-                                _entries[start + i] = entry;
-                            }
-                        }
+                        ResyncEntries();
                         break;
                     }
+                    for (int i = 0; i < e.NewItems.Count; i++)
+                    {
+                        if (e.NewItems[i] is HistoryEntry entry && start + i < _entries.Count)
+                        {
+                            _entries[start + i] = entry;
+                        }
+                    }
+                    break;
+                }
                 case NotifyCollectionChangedAction.Move:
+                {
+                    if (
+                        e.OldStartingIndex < 0
+                        || e.NewStartingIndex < 0
+                        || e.OldStartingIndex >= _entries.Count
+                        || e.NewStartingIndex >= _entries.Count
+                    )
                     {
-                        if (e.OldStartingIndex < 0 || e.NewStartingIndex < 0
-                            || e.OldStartingIndex >= _entries.Count
-                            || e.NewStartingIndex >= _entries.Count)
-                        {
-                            ResyncEntries();
-                        }
-                        else
-                        {
-                            _entries.Move(e.OldStartingIndex, e.NewStartingIndex);
-                        }
-                        break;
+                        ResyncEntries();
                     }
+                    else
+                    {
+                        _entries.Move(e.OldStartingIndex, e.NewStartingIndex);
+                    }
+                    break;
+                }
                 case NotifyCollectionChangedAction.Reset:
                 default:
                     ResyncEntries();
@@ -224,7 +231,11 @@ public sealed class HistoryViewModel : IToolContext
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to apply HistoryManager.Entries change ({Action}); falling back to full resync", e.Action);
+            _logger.LogError(
+                ex,
+                "Failed to apply HistoryManager.Entries change ({Action}); falling back to full resync",
+                e.Action
+            );
             ResyncEntries();
         }
 
@@ -240,7 +251,10 @@ public sealed class HistoryViewModel : IToolContext
         }
         catch (ObjectDisposedException ex)
         {
-            _logger.LogDebug(ex, "ResyncEntries skipped — manager is disposed; clearing UI-side mirror");
+            _logger.LogDebug(
+                ex,
+                "ResyncEntries skipped — manager is disposed; clearing UI-side mirror"
+            );
             _entries.Clear();
             return;
         }

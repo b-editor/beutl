@@ -22,17 +22,18 @@ public sealed partial class EngineObjectPropertyView : UserControl
     {
         Resources["ViewModelToViewConverter"] = PropertyEditorContextToViewConverter.Instance;
         InitializeComponent();
-        Interaction.SetBehaviors(this,
-        [
-            new _DragBehavior() { Orientation = Orientation.Vertical, DragControl = dragBorder },
-        ]);
+        Interaction.SetBehaviors(
+            this,
+            [new _DragBehavior() { Orientation = Orientation.Vertical, DragControl = dragBorder }]
+        );
         AddHandler(DragDrop.DragOverEvent, DragOver);
         AddHandler(DragDrop.DropEvent, Drop);
     }
 
     private void SaveAsTemplate_Click(object? sender, RoutedEventArgs e)
     {
-        if (DataContext is not EngineObjectPropertyViewModel viewModel) return;
+        if (DataContext is not EngineObjectPropertyViewModel viewModel)
+            return;
 
         string defaultName = TypeDisplayHelpers.GetLocalizedName(viewModel.Model.GetType());
         string uniqueName = ObjectTemplateService.Instance.GetUniqueName(defaultName);
@@ -62,9 +63,11 @@ public sealed partial class EngineObjectPropertyView : UserControl
 
     private void Drop(object? sender, DragEventArgs e)
     {
-        if (e.DataTransfer.TryGetValue(BeutlDataFormats.EngineObject) is { } typeName
+        if (
+            e.DataTransfer.TryGetValue(BeutlDataFormats.EngineObject) is { } typeName
             && TypeFormat.ToType(typeName) is { } item2
-            && DataContext is EngineObjectPropertyViewModel viewModel2)
+            && DataContext is EngineObjectPropertyViewModel viewModel2
+        )
         {
             HistoryManager history = viewModel2.GetRequiredService<HistoryManager>();
             EngineObject obj = viewModel2.Model;
@@ -128,12 +131,18 @@ public sealed partial class EngineObjectPropertyView : UserControl
 
     private sealed class _DragBehavior : GenericDragBehavior
     {
-        protected override void OnMoveDraggedItem(ItemsControl? itemsControl, int oldIndex, int newIndex)
+        protected override void OnMoveDraggedItem(
+            ItemsControl? itemsControl,
+            int oldIndex,
+            int newIndex
+        )
         {
-            if (itemsControl?.DataContext is ElementPropertyTabViewModel
+            if (
+                itemsControl?.DataContext is ElementPropertyTabViewModel
                 {
                     Element.Value: { } element
-                } viewModel)
+                } viewModel
+            )
             {
                 HistoryManager history = viewModel.GetRequiredService<HistoryManager>();
                 element.Objects.Move(oldIndex, newIndex);
@@ -141,5 +150,4 @@ public sealed partial class EngineObjectPropertyView : UserControl
             }
         }
     }
-
 }

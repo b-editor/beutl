@@ -15,13 +15,22 @@ public sealed partial class PathFollowEffect : FilterEffect
         Geometry.CurrentValue = new PathGeometry();
     }
 
-    [Display(Name = nameof(GraphicsStrings.PathFollowEffect_Geometry), ResourceType = typeof(GraphicsStrings))]
+    [Display(
+        Name = nameof(GraphicsStrings.PathFollowEffect_Geometry),
+        ResourceType = typeof(GraphicsStrings)
+    )]
     public IProperty<Geometry?> Geometry { get; } = Property.Create<Geometry?>();
 
-    [Display(Name = nameof(GraphicsStrings.PathFollowEffect_Progress), ResourceType = typeof(GraphicsStrings))]
+    [Display(
+        Name = nameof(GraphicsStrings.PathFollowEffect_Progress),
+        ResourceType = typeof(GraphicsStrings)
+    )]
     public IProperty<float> Progress { get; } = Property.CreateAnimatable(0f);
 
-    [Display(Name = nameof(GraphicsStrings.PathFollowEffect_FollowRotation), ResourceType = typeof(GraphicsStrings))]
+    [Display(
+        Name = nameof(GraphicsStrings.PathFollowEffect_FollowRotation),
+        ResourceType = typeof(GraphicsStrings)
+    )]
     public IProperty<bool> FollowRotation { get; } = Property.CreateAnimatable(false);
 
     public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
@@ -58,41 +67,55 @@ public sealed partial class PathFollowEffect : FilterEffect
             rotationAngle = MathF.Atan2(tangent.Y, tangent.X);
         }
 
-        context.CustomEffect((offsetX, offsetY, rotationAngle), static (data, effectContext) =>
-        {
-            effectContext.ForEach((_, target) =>
+        context.CustomEffect(
+            (offsetX, offsetY, rotationAngle),
+            static (data, effectContext) =>
             {
+                effectContext.ForEach(
+                    (_, target) =>
+                    {
+                        var translate = Matrix.CreateTranslation(data.offsetX, data.offsetY);
+                        Matrix m1,
+                            m2;
+                        if (data.rotationAngle != 0)
+                        {
+                            var center = new Vector(
+                                target.Bounds.Width / 2,
+                                target.Bounds.Height / 2
+                            );
+                            var rotate = Matrix.CreateRotation(data.rotationAngle);
 
-                var translate = Matrix.CreateTranslation(data.offsetX, data.offsetY);
-                Matrix m1, m2;
-                if (data.rotationAngle != 0)
-                {
-                    var center = new Vector(target.Bounds.Width / 2, target.Bounds.Height / 2);
-                    var rotate = Matrix.CreateRotation(data.rotationAngle);
+                            var offset1 = Matrix.CreateTranslation(center + target.Bounds.Position);
+                            var offset2 = Matrix.CreateTranslation(center);
+                            m1 = -offset1 * rotate * offset1 * translate;
+                            m2 = -offset2 * rotate * offset2 * translate;
+                        }
+                        else
+                        {
+                            m1 = m2 = translate;
+                        }
 
-                    var offset1 = Matrix.CreateTranslation(center + target.Bounds.Position);
-                    var offset2 = Matrix.CreateTranslation(center);
-                    m1 = -offset1 * rotate * offset1 * translate;
-                    m2 = -offset2 * rotate * offset2 * translate;
-                }
-                else
-                {
-                    m1 = m2 = translate;
-                }
+                        var newBounds = target.Bounds.TransformToAABB(m1);
+                        var newTarget = effectContext.CreateTarget(newBounds);
+                        using (var canvas = effectContext.Open(newTarget))
+                        using (
+                            canvas.PushTransform(
+                                Matrix.CreateTranslation(
+                                    target.Bounds.Position - newTarget.Bounds.Position
+                                )
+                            )
+                        )
+                        using (canvas.PushTransform(m2))
+                        {
+                            canvas.Clear();
+                            target.Draw(canvas);
+                        }
 
-                var newBounds = target.Bounds.TransformToAABB(m1);
-                var newTarget = effectContext.CreateTarget(newBounds);
-                using (var canvas = effectContext.Open(newTarget))
-                using (canvas.PushTransform(Matrix.CreateTranslation(target.Bounds.Position - newTarget.Bounds.Position)))
-                using (canvas.PushTransform(m2))
-                {
-                    canvas.Clear();
-                    target.Draw(canvas);
-                }
-
-                target.Dispose();
-                return newTarget;
-            });
-        });
+                        target.Dispose();
+                        return newTarget;
+                    }
+                );
+            }
+        );
     }
 }

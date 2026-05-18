@@ -1,5 +1,4 @@
 ﻿using System.Diagnostics.CodeAnalysis;
-
 using NuGet.Frameworks;
 using NuGet.Packaging;
 using NuGet.Packaging.Core;
@@ -33,12 +32,14 @@ public class LocalPackage
         IEnumerable<PackageDependencyGroup> depGroups = nuspecReader.GetDependencyGroups();
         NuGetFramework? nearest = Helper.FrameworkReducer.GetNearest(
             framework,
-            depGroups.Select(v => v.TargetFramework));
+            depGroups.Select(v => v.TargetFramework)
+        );
 
         if (nearest != null)
         {
             PackageDependencyGroup depGroup = depGroups.First(v => v.TargetFramework == nearest);
-            PackageDependency? sdkDep = depGroup.Packages.FirstOrDefault(v => v.Id == "Beutl.Sdk")
+            PackageDependency? sdkDep =
+                depGroup.Packages.FirstOrDefault(v => v.Id == "Beutl.Sdk")
                 ?? depGroup.Packages.FirstOrDefault(v => v.Id == "Beutl.Extensibility");
             if (sdkDep != null)
             {

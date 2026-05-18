@@ -1,5 +1,4 @@
 ﻿using System.CodeDom.Compiler;
-
 using Beutl.Api.Services;
 
 namespace Beutl.Services.StartupTasks;
@@ -26,7 +25,8 @@ public sealed class AfterLoadingExtensionsTask : StartupTask
                     MessageStrings.FailedToLoadPackage,
                     string.Format(MessageStrings.FailedToLoadNPackages, failures.Length),
                     onActionButtonClick: () => ShowPackageLoadingError(failures),
-                    actionButtonText: Strings.Details);
+                    actionButtonText: Strings.Details
+                );
             }
         });
     }
@@ -34,7 +34,9 @@ public sealed class AfterLoadingExtensionsTask : StartupTask
     public override Task Task { get; }
 
     // ユーザー向けのテキストファイルを生成して、デフォルトのテキストエディタで表示する。
-    private static async void ShowPackageLoadingError(IReadOnlyList<(LocalPackage, Exception)> failures)
+    private static async void ShowPackageLoadingError(
+        IReadOnlyList<(LocalPackage, Exception)> failures
+    )
     {
         string file = Path.GetTempFileName();
         file = Path.ChangeExtension(file, ".txt");
@@ -66,10 +68,6 @@ public sealed class AfterLoadingExtensionsTask : StartupTask
             await writer.FlushAsync();
         }
 
-        Process.Start(new ProcessStartInfo(file)
-        {
-            UseShellExecute = true,
-            Verb = "open"
-        });
+        Process.Start(new ProcessStartInfo(file) { UseShellExecute = true, Verb = "open" });
     }
 }

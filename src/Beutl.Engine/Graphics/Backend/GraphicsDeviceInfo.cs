@@ -11,7 +11,8 @@ public record GraphicsDeviceInfo(
     string Name,
     GraphicsDeviceType DeviceType,
     string ApiVersion,
-    ulong TotalMemoryMB)
+    ulong TotalMemoryMB
+)
 {
     /// <summary>
     /// Gets a value indicating whether this device is running on MoltenVK (Apple Silicon).

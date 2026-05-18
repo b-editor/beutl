@@ -4,7 +4,8 @@ namespace Beutl.Extensions.AVFoundation.Interop;
 
 internal sealed class AVFReaderSafeHandle : SafeHandle
 {
-    public AVFReaderSafeHandle() : base(IntPtr.Zero, ownsHandle: true) { }
+    public AVFReaderSafeHandle()
+        : base(IntPtr.Zero, ownsHandle: true) { }
 
     public override bool IsInvalid => handle == IntPtr.Zero;
 

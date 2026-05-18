@@ -4,7 +4,8 @@ namespace Beutl.Media.Wave;
 
 public sealed class WaveDecoderInfo : IDecoderInfo
 {
-    public string Name => "Wave Reader (unsigned 8bit[PCM], signed 16bit[PCM], signed 24bit[PCM], signed 24bit[PCM], signed 32bit[PCM], 32bit float[IEEE Float])";
+    public string Name =>
+        "Wave Reader (unsigned 8bit[PCM], signed 16bit[PCM], signed 24bit[PCM], signed 24bit[PCM], signed 32bit[PCM], 32bit float[IEEE Float])";
 
     public IEnumerable<string> AudioExtensions()
     {

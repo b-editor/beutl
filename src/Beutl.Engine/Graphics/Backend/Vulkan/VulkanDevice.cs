@@ -49,7 +49,6 @@ internal sealed unsafe class VulkanDevice : IDisposable
 
     public string[] EnabledExtensions => _enabledExtensions;
 
-
     private uint FindGraphicsQueueFamily()
     {
         uint queueFamilyCount = 0;
@@ -58,7 +57,11 @@ internal sealed unsafe class VulkanDevice : IDisposable
         var queueFamilies = new QueueFamilyProperties[queueFamilyCount];
         fixed (QueueFamilyProperties* pQueueFamilies = queueFamilies)
         {
-            _vk.GetPhysicalDeviceQueueFamilyProperties(_physicalDevice, &queueFamilyCount, pQueueFamilies);
+            _vk.GetPhysicalDeviceQueueFamilyProperties(
+                _physicalDevice,
+                &queueFamilyCount,
+                pQueueFamilies
+            );
         }
 
         for (uint i = 0; i < queueFamilyCount; i++)
@@ -82,7 +85,12 @@ internal sealed unsafe class VulkanDevice : IDisposable
         var availableExtensions = new ExtensionProperties[extensionCount];
         fixed (ExtensionProperties* pExtensions = availableExtensions)
         {
-            _vk.EnumerateDeviceExtensionProperties(_physicalDevice, (byte*)null, &extensionCount, pExtensions);
+            _vk.EnumerateDeviceExtensionProperties(
+                _physicalDevice,
+                (byte*)null,
+                &extensionCount,
+                pExtensions
+            );
         }
 
         var availableNames = new HashSet<string>();
@@ -116,7 +124,7 @@ internal sealed unsafe class VulkanDevice : IDisposable
             SType = StructureType.DeviceQueueCreateInfo,
             QueueFamilyIndex = _graphicsQueueFamilyIndex,
             QueueCount = 1,
-            PQueuePriorities = &queuePriority
+            PQueuePriorities = &queuePriority,
         };
 
         var features = new PhysicalDeviceFeatures();
@@ -126,7 +134,7 @@ internal sealed unsafe class VulkanDevice : IDisposable
             SType = StructureType.DeviceCreateInfo,
             QueueCreateInfoCount = 1,
             PQueueCreateInfos = &queueCreateInfo,
-            PEnabledFeatures = &features
+            PEnabledFeatures = &features,
         };
 
         var extensionPtrs = new byte*[extensions.Length];
@@ -146,7 +154,9 @@ internal sealed unsafe class VulkanDevice : IDisposable
                 var result = _vk.CreateDevice(_physicalDevice, &createInfo, null, &device);
                 if (result != Result.Success)
                 {
-                    throw new InvalidOperationException($"Failed to create Vulkan device: {result}");
+                    throw new InvalidOperationException(
+                        $"Failed to create Vulkan device: {result}"
+                    );
                 }
 
                 return device;

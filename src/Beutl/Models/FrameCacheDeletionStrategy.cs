@@ -19,5 +19,5 @@ public enum FrameCacheDeletionStrategy
     //   ^     ^
     //   |     再生位置
     //   ここから削除する (後方)
-    Far = 3
+    Far = 3,
 }

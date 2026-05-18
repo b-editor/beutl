@@ -11,11 +11,15 @@ namespace Beutl.Editor.Components.NodeGraphTab.Views;
 
 public sealed class NodePortPoint : Control
 {
-    public static readonly StyledProperty<IBrush?> BrushProperty =
-        AvaloniaProperty.Register<NodePortPoint, IBrush?>(nameof(Brush));
+    public static readonly StyledProperty<IBrush?> BrushProperty = AvaloniaProperty.Register<
+        NodePortPoint,
+        IBrush?
+    >(nameof(Brush));
 
-    public static readonly StyledProperty<bool> IsConnectedProperty =
-        AvaloniaProperty.Register<NodePortPoint, bool>(nameof(IsConnected));
+    public static readonly StyledProperty<bool> IsConnectedProperty = AvaloniaProperty.Register<
+        NodePortPoint,
+        bool
+    >(nameof(IsConnected));
 
     private ConnectionLine? _line;
     private bool _captured;
@@ -63,7 +67,8 @@ public sealed class NodePortPoint : Control
     protected override void OnPointerPressed(PointerPressedEventArgs e)
     {
         base.OnPointerPressed(e);
-        if (e.Handled) return;
+        if (e.Handled)
+            return;
 
         if (e.ClickCount == 2)
         {
@@ -176,7 +181,7 @@ public sealed class NodePortPoint : Control
                     {
                         var args = new NodePortConnectRequestedEventArgs(target, true)
                         {
-                            Connection = Tag as ConnectionViewModel // IListPortの場合TagにConnectionViewModelを持っている
+                            Connection = Tag as ConnectionViewModel, // IListPortの場合TagにConnectionViewModelを持っている
                         };
                         DisconnectRequested?.Invoke(this, args);
                         if (args.IsConnected)
@@ -205,7 +210,11 @@ public sealed class NodePortPoint : Control
             {
                 var color = (Color2)solidColorBrush.Color;
                 color = color.WithSatf(color.Saturationf * 0.2f);
-                context.FillRectangle(new ImmutableSolidColorBrush(color), new Rect(0, 0, 10, 10), 5);
+                context.FillRectangle(
+                    new ImmutableSolidColorBrush(color),
+                    new Rect(0, 0, 10, 10),
+                    5
+                );
             }
             else
             {

@@ -15,7 +15,8 @@ public static class SnapHelper
         TimeSpan time,
         IEnumerable<TimeSpan> candidates,
         float scale,
-        double thresholdPixel = DefaultThresholdPixel)
+        double thresholdPixel = DefaultThresholdPixel
+    )
     {
         TimeSpan threshold = thresholdPixel.PixelToTimeSpan(scale);
         TimeSpan bestDelta = TimeSpan.MaxValue;
@@ -37,12 +38,15 @@ public static class SnapHelper
     public static IEnumerable<TimeSpan> CollectElementCandidates(
         IEnumerable<Element> elements,
         Element? exclude,
-        int? sameZIndex = null)
+        int? sameZIndex = null
+    )
     {
         foreach (Element item in elements)
         {
-            if (item == exclude) continue;
-            if (sameZIndex is { } z && item.ZIndex != z) continue;
+            if (item == exclude)
+                continue;
+            if (sameZIndex is { } z && item.ZIndex != z)
+                continue;
 
             yield return item.Start;
             yield return item.Start + item.Length;
@@ -54,6 +58,7 @@ public static class SnapHelper
         yield return scene.Start;
         yield return scene.Start + scene.Duration;
         yield return currentTime;
-        if (currentTime != TimeSpan.Zero) yield return TimeSpan.Zero;
+        if (currentTime != TimeSpan.Zero)
+            yield return TimeSpan.Zero;
     }
 }

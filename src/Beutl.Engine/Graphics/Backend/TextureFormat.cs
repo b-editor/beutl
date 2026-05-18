@@ -10,5 +10,5 @@ public enum TextureFormat
     R16Float,
     R32Float,
     Depth32Float,
-    Depth24Stencil8
+    Depth24Stencil8,
 }

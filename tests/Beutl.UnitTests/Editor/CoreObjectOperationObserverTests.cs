@@ -26,9 +26,7 @@ public class CoreObjectOperationObserverTests
     }
 
     [TearDown]
-    public void TearDown()
-    {
-    }
+    public void TearDown() { }
 
     #region Constructor Tests
 
@@ -54,7 +52,11 @@ public class CoreObjectOperationObserverTests
         var testObserver = Observer.Create<ChangeOperation>(op => receivedOperations.Add(op));
 
         // Act
-        using var operationObserver = new CoreObjectOperationObserver(testObserver, obj, _sequenceGenerator);
+        using var operationObserver = new CoreObjectOperationObserver(
+            testObserver,
+            obj,
+            _sequenceGenerator
+        );
         obj.StringValue = "changed";
 
         // Assert
@@ -97,7 +99,12 @@ public class CoreObjectOperationObserverTests
         var testObserver = Observer.Create<ChangeOperation>(op => receivedOperations.Add(op));
 
         // Act
-        using var operationObserver = new CoreObjectOperationObserver(testObserver, obj, _sequenceGenerator, "Parent");
+        using var operationObserver = new CoreObjectOperationObserver(
+            testObserver,
+            obj,
+            _sequenceGenerator,
+            "Parent"
+        );
         obj.StringValue = "changed";
 
         // Assert
@@ -117,7 +124,12 @@ public class CoreObjectOperationObserverTests
 
         // Act
         using var operationObserver = new CoreObjectOperationObserver(
-            testObserver, obj, _sequenceGenerator, "", propertyPathsToTrack);
+            testObserver,
+            obj,
+            _sequenceGenerator,
+            "",
+            propertyPathsToTrack
+        );
 
         obj.StringValue = "changed";
         obj.IntValue = 100;
@@ -138,7 +150,11 @@ public class CoreObjectOperationObserverTests
         var testObserver = Observer.Create<ChangeOperation>(op => receivedOperations.Add(op));
 
         // Act
-        using var operationObserver = new CoreObjectOperationObserver(testObserver, parentObj, _sequenceGenerator);
+        using var operationObserver = new CoreObjectOperationObserver(
+            testObserver,
+            parentObj,
+            _sequenceGenerator
+        );
         childObj.StringValue = "modified";
 
         // Assert
@@ -159,7 +175,11 @@ public class CoreObjectOperationObserverTests
         var testObserver = Observer.Create<ChangeOperation>(op => receivedOperations.Add(op));
 
         // Act
-        using var operationObserver = new CoreObjectOperationObserver(testObserver, parentObj, _sequenceGenerator);
+        using var operationObserver = new CoreObjectOperationObserver(
+            testObserver,
+            parentObj,
+            _sequenceGenerator
+        );
         childItem.StringValue = "modified";
 
         // Assert
@@ -178,7 +198,11 @@ public class CoreObjectOperationObserverTests
         var receivedOperations = new List<ChangeOperation>();
         var testObserver = Observer.Create<ChangeOperation>(op => receivedOperations.Add(op));
 
-        var operationObserver = new CoreObjectOperationObserver(testObserver, obj, _sequenceGenerator);
+        var operationObserver = new CoreObjectOperationObserver(
+            testObserver,
+            obj,
+            _sequenceGenerator
+        );
 
         // Act
         operationObserver.Dispose();
@@ -197,7 +221,10 @@ public class CoreObjectOperationObserverTests
 
         var operationObserver = new CoreObjectOperationObserver(null, obj, _sequenceGenerator);
         // Subscribe to Operations after creation
-        using var subscription = operationObserver.Operations.Subscribe(_ => { }, () => completed = true);
+        using var subscription = operationObserver.Operations.Subscribe(
+            _ => { },
+            () => completed = true
+        );
 
         // Act
         operationObserver.Dispose();
@@ -215,7 +242,11 @@ public class CoreObjectOperationObserverTests
         var receivedOperations = new List<ChangeOperation>();
         var testObserver = Observer.Create<ChangeOperation>(op => receivedOperations.Add(op));
 
-        var operationObserver = new CoreObjectOperationObserver(testObserver, parentObj, _sequenceGenerator);
+        var operationObserver = new CoreObjectOperationObserver(
+            testObserver,
+            parentObj,
+            _sequenceGenerator
+        );
 
         // Act
         operationObserver.Dispose();
@@ -236,7 +267,11 @@ public class CoreObjectOperationObserverTests
         var receivedOperations = new List<ChangeOperation>();
         var testObserver = Observer.Create<ChangeOperation>(op => receivedOperations.Add(op));
 
-        var operationObserver = new CoreObjectOperationObserver(testObserver, parentObj, _sequenceGenerator);
+        var operationObserver = new CoreObjectOperationObserver(
+            testObserver,
+            parentObj,
+            _sequenceGenerator
+        );
 
         // Act
         operationObserver.Dispose();
@@ -258,7 +293,11 @@ public class CoreObjectOperationObserverTests
         var receivedOperations = new List<ChangeOperation>();
         var testObserver = Observer.Create<ChangeOperation>(op => receivedOperations.Add(op));
 
-        using var operationObserver = new CoreObjectOperationObserver(testObserver, obj, _sequenceGenerator);
+        using var operationObserver = new CoreObjectOperationObserver(
+            testObserver,
+            obj,
+            _sequenceGenerator
+        );
 
         // Act
         obj.StringValue = "new value";
@@ -283,7 +322,11 @@ public class CoreObjectOperationObserverTests
         var receivedOperations = new List<ChangeOperation>();
         var testObserver = Observer.Create<ChangeOperation>(op => receivedOperations.Add(op));
 
-        using var operationObserver = new CoreObjectOperationObserver(testObserver, obj, _sequenceGenerator);
+        using var operationObserver = new CoreObjectOperationObserver(
+            testObserver,
+            obj,
+            _sequenceGenerator
+        );
 
         // Act
         using (PublishingSuppression.Enter())
@@ -303,7 +346,11 @@ public class CoreObjectOperationObserverTests
         var receivedOperations = new List<ChangeOperation>();
         var testObserver = Observer.Create<ChangeOperation>(op => receivedOperations.Add(op));
 
-        using var operationObserver = new CoreObjectOperationObserver(testObserver, obj, _sequenceGenerator);
+        using var operationObserver = new CoreObjectOperationObserver(
+            testObserver,
+            obj,
+            _sequenceGenerator
+        );
 
         // Act
         using (PublishingSuppression.Enter())
@@ -326,7 +373,11 @@ public class CoreObjectOperationObserverTests
         var receivedOperations = new List<ChangeOperation>();
         var testObserver = Observer.Create<ChangeOperation>(op => receivedOperations.Add(op));
 
-        using var operationObserver = new CoreObjectOperationObserver(testObserver, obj, _sequenceGenerator);
+        using var operationObserver = new CoreObjectOperationObserver(
+            testObserver,
+            obj,
+            _sequenceGenerator
+        );
 
         // Act
         obj.NotTrackedValue = "changed";
@@ -343,7 +394,11 @@ public class CoreObjectOperationObserverTests
         var receivedOperations = new List<ChangeOperation>();
         var testObserver = Observer.Create<ChangeOperation>(op => receivedOperations.Add(op));
 
-        using var operationObserver = new CoreObjectOperationObserver(testObserver, obj, _sequenceGenerator);
+        using var operationObserver = new CoreObjectOperationObserver(
+            testObserver,
+            obj,
+            _sequenceGenerator
+        );
 
         // Act
         obj.TrackedValue = "changed";
@@ -362,7 +417,12 @@ public class CoreObjectOperationObserverTests
         var propertyPathsToTrack = new HashSet<string> { "StringValue" };
 
         using var operationObserver = new CoreObjectOperationObserver(
-            testObserver, obj, _sequenceGenerator, "", propertyPathsToTrack);
+            testObserver,
+            obj,
+            _sequenceGenerator,
+            "",
+            propertyPathsToTrack
+        );
 
         // Act
         obj.IntValue = 42;
@@ -379,7 +439,11 @@ public class CoreObjectOperationObserverTests
         var receivedOperations = new List<ChangeOperation>();
         var testObserver = Observer.Create<ChangeOperation>(op => receivedOperations.Add(op));
 
-        using var operationObserver = new CoreObjectOperationObserver(testObserver, parentObj, _sequenceGenerator);
+        using var operationObserver = new CoreObjectOperationObserver(
+            testObserver,
+            parentObj,
+            _sequenceGenerator
+        );
         receivedOperations.Clear();
 
         // Act
@@ -407,7 +471,11 @@ public class CoreObjectOperationObserverTests
         var receivedOperations = new List<ChangeOperation>();
         var testObserver = Observer.Create<ChangeOperation>(op => receivedOperations.Add(op));
 
-        using var operationObserver = new CoreObjectOperationObserver(testObserver, parentObj, _sequenceGenerator);
+        using var operationObserver = new CoreObjectOperationObserver(
+            testObserver,
+            parentObj,
+            _sequenceGenerator
+        );
 
         // Replace child
         var newChild = new TestCoreObject { StringValue = "new" };
@@ -429,7 +497,11 @@ public class CoreObjectOperationObserverTests
         var receivedOperations = new List<ChangeOperation>();
         var testObserver = Observer.Create<ChangeOperation>(op => receivedOperations.Add(op));
 
-        using var operationObserver = new CoreObjectOperationObserver(testObserver, parentObj, _sequenceGenerator);
+        using var operationObserver = new CoreObjectOperationObserver(
+            testObserver,
+            parentObj,
+            _sequenceGenerator
+        );
         receivedOperations.Clear();
 
         // Act
@@ -457,7 +529,11 @@ public class CoreObjectOperationObserverTests
         var receivedOperations = new List<ChangeOperation>();
         var testObserver = Observer.Create<ChangeOperation>(op => receivedOperations.Add(op));
 
-        using var operationObserver = new CoreObjectOperationObserver(testObserver, obj, _sequenceGenerator);
+        using var operationObserver = new CoreObjectOperationObserver(
+            testObserver,
+            obj,
+            _sequenceGenerator
+        );
 
         // Act
         obj.StringValue = "first";
@@ -483,7 +559,11 @@ public class CoreObjectOperationObserverTests
         var receivedOperations = new List<ChangeOperation>();
         var testObserver = Observer.Create<ChangeOperation>(op => receivedOperations.Add(op));
 
-        using var operationObserver = new CoreObjectOperationObserver(testObserver, obj, _sequenceGenerator);
+        using var operationObserver = new CoreObjectOperationObserver(
+            testObserver,
+            obj,
+            _sequenceGenerator
+        );
 
         // Act
         obj.StringValue = "first";
@@ -491,7 +571,10 @@ public class CoreObjectOperationObserverTests
 
         // Assert
         Assert.That(receivedOperations, Has.Count.EqualTo(2));
-        Assert.That(receivedOperations[1].SequenceNumber, Is.GreaterThan(receivedOperations[0].SequenceNumber));
+        Assert.That(
+            receivedOperations[1].SequenceNumber,
+            Is.GreaterThan(receivedOperations[0].SequenceNumber)
+        );
     }
 
     #endregion
@@ -506,14 +589,18 @@ public class CoreObjectOperationObserverTests
         {
             Value = 1.0f,
             KeyTime = TimeSpan.FromSeconds(1),
-            Easing = new SplineEasing(0.25f, 0.1f, 0.25f, 1.0f)
+            Easing = new SplineEasing(0.25f, 0.1f, 0.25f, 1.0f),
         };
 
         var receivedOperations = new List<ChangeOperation>();
         var testObserver = Observer.Create<ChangeOperation>(op => receivedOperations.Add(op));
 
         // Act
-        using var operationObserver = new CoreObjectOperationObserver(testObserver, keyFrame, _sequenceGenerator);
+        using var operationObserver = new CoreObjectOperationObserver(
+            testObserver,
+            keyFrame,
+            _sequenceGenerator
+        );
 
         var splineEasing = (SplineEasing)keyFrame.Easing;
         splineEasing.X1 = 0.5f;
@@ -530,13 +617,17 @@ public class CoreObjectOperationObserverTests
         {
             Value = 1.0f,
             KeyTime = TimeSpan.FromSeconds(1),
-            Easing = new LinearEasing()
+            Easing = new LinearEasing(),
         };
 
         var receivedOperations = new List<ChangeOperation>();
         var testObserver = Observer.Create<ChangeOperation>(op => receivedOperations.Add(op));
 
-        using var operationObserver = new CoreObjectOperationObserver(testObserver, keyFrame, _sequenceGenerator);
+        using var operationObserver = new CoreObjectOperationObserver(
+            testObserver,
+            keyFrame,
+            _sequenceGenerator
+        );
         receivedOperations.Clear();
 
         // Act
@@ -561,13 +652,17 @@ public class CoreObjectOperationObserverTests
         {
             Value = 1.0f,
             KeyTime = TimeSpan.FromSeconds(1),
-            Easing = oldSplineEasing
+            Easing = oldSplineEasing,
         };
 
         var receivedOperations = new List<ChangeOperation>();
         var testObserver = Observer.Create<ChangeOperation>(op => receivedOperations.Add(op));
 
-        using var operationObserver = new CoreObjectOperationObserver(testObserver, keyFrame, _sequenceGenerator);
+        using var operationObserver = new CoreObjectOperationObserver(
+            testObserver,
+            keyFrame,
+            _sequenceGenerator
+        );
 
         // Act
         keyFrame.Easing = new LinearEasing();
@@ -604,7 +699,11 @@ public class CoreObjectOperationObserverTests
         var receivedOperations1 = new List<ChangeOperation>();
         var receivedOperations2 = new List<ChangeOperation>();
 
-        using var operationObserver = new CoreObjectOperationObserver(null, obj, _sequenceGenerator);
+        using var operationObserver = new CoreObjectOperationObserver(
+            null,
+            obj,
+            _sequenceGenerator
+        );
 
         // Act
         using var sub1 = operationObserver.Operations.Subscribe(op => receivedOperations1.Add(op));
@@ -633,7 +732,12 @@ public class CoreObjectOperationObserverTests
         var testObserver = Observer.Create<ChangeOperation>(op => receivedOperations.Add(op));
 
         // Act
-        using var operationObserver = new CoreObjectOperationObserver(testObserver, obj, _sequenceGenerator, "");
+        using var operationObserver = new CoreObjectOperationObserver(
+            testObserver,
+            obj,
+            _sequenceGenerator,
+            ""
+        );
         obj.StringValue = "test";
 
         // Assert
@@ -658,7 +762,11 @@ public class CoreObjectOperationObserverTests
         var testObserver = Observer.Create<ChangeOperation>(op => receivedOperations.Add(op));
 
         // Act
-        using var operationObserver = new CoreObjectOperationObserver(testObserver, parentObj, _sequenceGenerator);
+        using var operationObserver = new CoreObjectOperationObserver(
+            testObserver,
+            parentObj,
+            _sequenceGenerator
+        );
         innerChild.StringValue = "modified";
 
         // Assert
@@ -678,7 +786,11 @@ public class CoreObjectOperationObserverTests
         var receivedOperations = new List<ChangeOperation>();
         var testObserver = Observer.Create<ChangeOperation>(op => receivedOperations.Add(op));
 
-        var operationObserver = new CoreObjectOperationObserver(testObserver, parentObj, _sequenceGenerator);
+        var operationObserver = new CoreObjectOperationObserver(
+            testObserver,
+            parentObj,
+            _sequenceGenerator
+        );
 
         // Act
         operationObserver.Dispose();
@@ -705,7 +817,12 @@ public class CoreObjectOperationObserverTests
 
         // Act
         using var operationObserver = new CoreObjectOperationObserver(
-            testObserver, parent, _sequenceGenerator, "", propertyPathsToTrack);
+            testObserver,
+            parent,
+            _sequenceGenerator,
+            "",
+            propertyPathsToTrack
+        );
 
         child.StringValue = "tracked";
         child.IntValue = 100;
@@ -731,14 +848,20 @@ public class CoreObjectOperationObserverTests
         var testObserver = Observer.Create<ChangeOperation>(op => receivedOperations.Add(op));
 
         // Create observer for child
-        using var operationObserver = new CoreObjectOperationObserver(testObserver, child, _sequenceGenerator);
+        using var operationObserver = new CoreObjectOperationObserver(
+            testObserver,
+            child,
+            _sequenceGenerator
+        );
 
         // Act - simulate hierarchy attachment (internally sets HierarchicalParent)
         parent.AddTestChild(child);
 
         // Assert - HierarchicalParent changes should not be published
         var hierarchicalParentOps = receivedOperations
-            .Where(op => op is IPropertyPathProvider ppp && ppp.PropertyPath == "HierarchicalParent")
+            .Where(op =>
+                op is IPropertyPathProvider ppp && ppp.PropertyPath == "HierarchicalParent"
+            )
             .ToList();
         Assert.That(hierarchicalParentOps, Is.Empty);
     }
@@ -751,7 +874,11 @@ public class CoreObjectOperationObserverTests
         var receivedOperations = new List<ChangeOperation>();
         var testObserver = Observer.Create<ChangeOperation>(op => receivedOperations.Add(op));
 
-        using var operationObserver = new CoreObjectOperationObserver(testObserver, obj, _sequenceGenerator);
+        using var operationObserver = new CoreObjectOperationObserver(
+            testObserver,
+            obj,
+            _sequenceGenerator
+        );
 
         // Act
         obj.Title = "changed";
@@ -775,7 +902,11 @@ public class CoreObjectOperationObserverTests
         var testObserver = Observer.Create<ChangeOperation>(op => receivedOperations.Add(op));
 
         // Act
-        using var operationObserver = new CoreObjectOperationObserver(testObserver, engineObj, _sequenceGenerator);
+        using var operationObserver = new CoreObjectOperationObserver(
+            testObserver,
+            engineObj,
+            _sequenceGenerator
+        );
         engineObj.FloatValue.CurrentValue = 50f;
 
         // Assert
@@ -790,7 +921,11 @@ public class CoreObjectOperationObserverTests
         var receivedOperations = new List<ChangeOperation>();
         var testObserver = Observer.Create<ChangeOperation>(op => receivedOperations.Add(op));
 
-        var operationObserver = new CoreObjectOperationObserver(testObserver, engineObj, _sequenceGenerator);
+        var operationObserver = new CoreObjectOperationObserver(
+            testObserver,
+            engineObj,
+            _sequenceGenerator
+        );
 
         // Act
         operationObserver.Dispose();
@@ -808,7 +943,11 @@ public class CoreObjectOperationObserverTests
         var receivedOperations = new List<ChangeOperation>();
         var testObserver = Observer.Create<ChangeOperation>(op => receivedOperations.Add(op));
 
-        using var operationObserver = new CoreObjectOperationObserver(testObserver, engineObj, _sequenceGenerator);
+        using var operationObserver = new CoreObjectOperationObserver(
+            testObserver,
+            engineObj,
+            _sequenceGenerator
+        );
 
         // Act
         engineObj.FloatValue.CurrentValue = 25f;
@@ -826,7 +965,11 @@ public class CoreObjectOperationObserverTests
         var receivedOperations = new List<ChangeOperation>();
         var testObserver = Observer.Create<ChangeOperation>(op => receivedOperations.Add(op));
 
-        using var operationObserver = new CoreObjectOperationObserver(testObserver, engineObj, _sequenceGenerator);
+        using var operationObserver = new CoreObjectOperationObserver(
+            testObserver,
+            engineObj,
+            _sequenceGenerator
+        );
 
         // Act
         using (PublishingSuppression.Enter())
@@ -851,7 +994,12 @@ public class CoreObjectOperationObserverTests
 
         // Act
         using var operationObserver = new CoreObjectOperationObserver(
-            testObserver, engineObj, _sequenceGenerator, "", propertyPathsToTrack);
+            testObserver,
+            engineObj,
+            _sequenceGenerator,
+            "",
+            propertyPathsToTrack
+        );
 
         engineObj.FloatValue.CurrentValue = 50f;
 
@@ -875,7 +1023,11 @@ public class CoreObjectOperationObserverTests
         var testObserver = Observer.Create<ChangeOperation>(op => receivedOperations.Add(op));
 
         // Act
-        using var operationObserver = new CoreObjectOperationObserver(testObserver, nodeMember, _sequenceGenerator);
+        using var operationObserver = new CoreObjectOperationObserver(
+            testObserver,
+            nodeMember,
+            _sequenceGenerator
+        );
         adapter.SetValue(50f);
 
         // Assert
@@ -893,7 +1045,11 @@ public class CoreObjectOperationObserverTests
         var receivedOperations = new List<ChangeOperation>();
         var testObserver = Observer.Create<ChangeOperation>(op => receivedOperations.Add(op));
 
-        var operationObserver = new CoreObjectOperationObserver(testObserver, nodeMember, _sequenceGenerator);
+        var operationObserver = new CoreObjectOperationObserver(
+            testObserver,
+            nodeMember,
+            _sequenceGenerator
+        );
 
         // Act
         operationObserver.Dispose();
@@ -914,7 +1070,11 @@ public class CoreObjectOperationObserverTests
         var receivedOperations = new List<ChangeOperation>();
         var testObserver = Observer.Create<ChangeOperation>(op => receivedOperations.Add(op));
 
-        using var operationObserver = new CoreObjectOperationObserver(testObserver, nodeMember, _sequenceGenerator);
+        using var operationObserver = new CoreObjectOperationObserver(
+            testObserver,
+            nodeMember,
+            _sequenceGenerator
+        );
 
         // Act
         adapter.SetValue(25f);
@@ -935,7 +1095,11 @@ public class CoreObjectOperationObserverTests
         var receivedOperations = new List<ChangeOperation>();
         var testObserver = Observer.Create<ChangeOperation>(op => receivedOperations.Add(op));
 
-        using var operationObserver = new CoreObjectOperationObserver(testObserver, nodeMember, _sequenceGenerator);
+        using var operationObserver = new CoreObjectOperationObserver(
+            testObserver,
+            nodeMember,
+            _sequenceGenerator
+        );
 
         // Act
         using (PublishingSuppression.Enter())
@@ -958,7 +1122,11 @@ public class CoreObjectOperationObserverTests
         var receivedOperations = new List<ChangeOperation>();
         var testObserver = Observer.Create<ChangeOperation>(op => receivedOperations.Add(op));
 
-        using var operationObserver = new CoreObjectOperationObserver(testObserver, nodeMember, _sequenceGenerator);
+        using var operationObserver = new CoreObjectOperationObserver(
+            testObserver,
+            nodeMember,
+            _sequenceGenerator
+        );
 
         // Act
         using (PublishingSuppression.Enter())
@@ -983,7 +1151,11 @@ public class CoreObjectOperationObserverTests
         var receivedOperations = new List<ChangeOperation>();
         var testObserver = Observer.Create<ChangeOperation>(op => receivedOperations.Add(op));
 
-        using var operationObserver = new CoreObjectOperationObserver(testObserver, nodeMember, _sequenceGenerator);
+        using var operationObserver = new CoreObjectOperationObserver(
+            testObserver,
+            nodeMember,
+            _sequenceGenerator
+        );
 
         // Act - Change the animation
         var newAnimation = new KeyFrameAnimation<float>();
@@ -1004,7 +1176,11 @@ public class CoreObjectOperationObserverTests
         var receivedOperations = new List<ChangeOperation>();
         var testObserver = Observer.Create<ChangeOperation>(op => receivedOperations.Add(op));
 
-        using var operationObserver = new CoreObjectOperationObserver(testObserver, nodeMember, _sequenceGenerator);
+        using var operationObserver = new CoreObjectOperationObserver(
+            testObserver,
+            nodeMember,
+            _sequenceGenerator
+        );
 
         // Act
         adapter.Animation = new KeyFrameAnimation<float>();
@@ -1027,7 +1203,12 @@ public class CoreObjectOperationObserverTests
 
         // Act
         using var operationObserver = new CoreObjectOperationObserver(
-            testObserver, nodeMember, _sequenceGenerator, "", propertyPathsToTrack);
+            testObserver,
+            nodeMember,
+            _sequenceGenerator,
+            "",
+            propertyPathsToTrack
+        );
 
         adapter.SetValue(50f);
 
@@ -1050,13 +1231,19 @@ public class CoreObjectOperationObserverTests
 
         // Act
         using var operationObserver = new CoreObjectOperationObserver(
-            testObserver, nodeMember, _sequenceGenerator, "", propertyPathsToTrack);
+            testObserver,
+            nodeMember,
+            _sequenceGenerator,
+            "",
+            propertyPathsToTrack
+        );
 
         adapter.SetValue(50f);
 
         // Assert - Property changes should not be tracked
-        var propertyOps = receivedOperations.Where(op =>
-            op is IPropertyPathProvider ppp && ppp.PropertyPath == "Property").ToList();
+        var propertyOps = receivedOperations
+            .Where(op => op is IPropertyPathProvider ppp && ppp.PropertyPath == "Property")
+            .ToList();
         Assert.That(propertyOps, Is.Empty);
     }
 
@@ -1124,7 +1311,9 @@ public class CoreObjectOperationObserverTests
 
         static TestCollectionCoreObject()
         {
-            ItemsProperty = ConfigureProperty<CoreList<TestCoreObject>, TestCollectionCoreObject>(nameof(Items))
+            ItemsProperty = ConfigureProperty<CoreList<TestCoreObject>, TestCollectionCoreObject>(
+                    nameof(Items)
+                )
                 .Accessor(o => o.Items, (o, v) => o.Items = v)
                 .Register();
         }
@@ -1146,12 +1335,17 @@ public class CoreObjectOperationObserverTests
 
         static TestCoreObjectWithNotTrackedProperty()
         {
-            NotTrackedValueProperty = ConfigureProperty<string?, TestCoreObjectWithNotTrackedProperty>(nameof(NotTrackedValue))
+            NotTrackedValueProperty = ConfigureProperty<
+                string?,
+                TestCoreObjectWithNotTrackedProperty
+            >(nameof(NotTrackedValue))
                 .Accessor(o => o.NotTrackedValue, (o, v) => o.NotTrackedValue = v)
                 .SetAttribute(new NotTrackedAttribute())
                 .Register();
 
-            TrackedValueProperty = ConfigureProperty<string?, TestCoreObjectWithNotTrackedProperty>(nameof(TrackedValue))
+            TrackedValueProperty = ConfigureProperty<string?, TestCoreObjectWithNotTrackedProperty>(
+                    nameof(TrackedValue)
+                )
                 .Accessor(o => o.TrackedValue, (o, v) => o.TrackedValue = v)
                 .Register();
         }
@@ -1177,7 +1371,10 @@ public class CoreObjectOperationObserverTests
 
         static TestGrandParentCoreObject()
         {
-            MiddleChildProperty = ConfigureProperty<TestParentCoreObject?, TestGrandParentCoreObject>(nameof(MiddleChild))
+            MiddleChildProperty = ConfigureProperty<
+                TestParentCoreObject?,
+                TestGrandParentCoreObject
+            >(nameof(MiddleChild))
                 .Accessor(o => o.MiddleChild, (o, v) => o.MiddleChild = v)
                 .Register();
         }

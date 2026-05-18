@@ -1,5 +1,3 @@
 ﻿namespace Beutl.ViewModels.ExtensionsPages;
 
-public class LoadMoreItem
-{
-}
+public class LoadMoreItem { }

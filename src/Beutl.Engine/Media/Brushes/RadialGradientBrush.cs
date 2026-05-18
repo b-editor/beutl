@@ -8,7 +8,10 @@ namespace Beutl.Media;
 /// <summary>
 /// Paints an area with a radial gradient.
 /// </summary>
-[Display(Name = nameof(GraphicsStrings.RadialGradientBrush), ResourceType = typeof(GraphicsStrings))]
+[Display(
+    Name = nameof(GraphicsStrings.RadialGradientBrush),
+    ResourceType = typeof(GraphicsStrings)
+)]
 public sealed partial class RadialGradientBrush : GradientBrush
 {
     public RadialGradientBrush()
@@ -19,15 +22,23 @@ public sealed partial class RadialGradientBrush : GradientBrush
     /// <summary>
     /// Gets or sets the start point for the gradient.
     /// </summary>
-    [Display(Name = nameof(GraphicsStrings.RadialGradientBrush_Center), ResourceType = typeof(GraphicsStrings))]
-    public IProperty<RelativePoint> Center { get; } = Property.CreateAnimatable(RelativePoint.Center);
+    [Display(
+        Name = nameof(GraphicsStrings.RadialGradientBrush_Center),
+        ResourceType = typeof(GraphicsStrings)
+    )]
+    public IProperty<RelativePoint> Center { get; } =
+        Property.CreateAnimatable(RelativePoint.Center);
 
     /// <summary>
     /// Gets or sets the location of the two-dimensional focal point that defines the beginning
     /// of the gradient.
     /// </summary>
-    [Display(Name = nameof(GraphicsStrings.RadialGradientBrush_GradientOrigin), ResourceType = typeof(GraphicsStrings))]
-    public IProperty<RelativePoint> GradientOrigin { get; } = Property.CreateAnimatable(RelativePoint.Center);
+    [Display(
+        Name = nameof(GraphicsStrings.RadialGradientBrush_GradientOrigin),
+        ResourceType = typeof(GraphicsStrings)
+    )]
+    public IProperty<RelativePoint> GradientOrigin { get; } =
+        Property.CreateAnimatable(RelativePoint.Center);
 
     /// <summary>
     /// Gets or sets the horizontal and vertical radius of the outermost circle of the radial

@@ -12,22 +12,27 @@ using Avalonia.Media.Immutable;
 using Beutl.Reactive;
 using FluentAvalonia.UI.Media;
 
-
 namespace Beutl.Controls.PropertyEditors;
 
 public class BrushEditorFlyoutPresenter : DraggablePickerFlyoutPresenter
 {
-    public static readonly StyledProperty<Brush?> BrushProperty =
-        AvaloniaProperty.Register<BrushEditorFlyoutPresenter, Brush?>(nameof(Brush));
+    public static readonly StyledProperty<Brush?> BrushProperty = AvaloniaProperty.Register<
+        BrushEditorFlyoutPresenter,
+        Brush?
+    >(nameof(Brush));
 
     public static readonly StyledProperty<Media.Brush?> OriginalBrushProperty =
         AvaloniaProperty.Register<BrushEditorFlyoutPresenter, Media.Brush?>(nameof(OriginalBrush));
 
-    public static readonly StyledProperty<string?> DrawableNameProperty =
-        AvaloniaProperty.Register<BrushEditorFlyoutPresenter, string?>(nameof(DrawableName));
+    public static readonly StyledProperty<string?> DrawableNameProperty = AvaloniaProperty.Register<
+        BrushEditorFlyoutPresenter,
+        string?
+    >(nameof(DrawableName));
 
-    public static readonly StyledProperty<bool> CanEditDrawableProperty =
-        AvaloniaProperty.Register<BrushEditorFlyoutPresenter, bool>(nameof(CanEditDrawable), false);
+    public static readonly StyledProperty<bool> CanEditDrawableProperty = AvaloniaProperty.Register<
+        BrushEditorFlyoutPresenter,
+        bool
+    >(nameof(CanEditDrawable), false);
 
     private readonly CompositeDisposable _disposables = [];
     private const string Palette = ":palette";
@@ -47,10 +52,19 @@ public class BrushEditorFlyoutPresenter : DraggablePickerFlyoutPresenter
     private Button? _editDrawableButton;
 
     // ドラッグ操作中
-    public event EventHandler<(int OldIndex, int NewIndex, GradientStop Object)>? GradientStopChanged;
+    public event EventHandler<(
+        int OldIndex,
+        int NewIndex,
+        GradientStop Object
+    )>? GradientStopChanged;
 
     // ドラッグ操作完了
-    public event EventHandler<(int OldIndex, int NewIndex, GradientStop Object, ImmutableGradientStop OldObject)>? GradientStopConfirmed;
+    public event EventHandler<(
+        int OldIndex,
+        int NewIndex,
+        GradientStop Object,
+        ImmutableGradientStop OldObject
+    )>? GradientStopConfirmed;
 
     public event EventHandler<(int Index, GradientStop Object)>? GradientStopDeleted;
 
@@ -106,7 +120,12 @@ public class BrushEditorFlyoutPresenter : DraggablePickerFlyoutPresenter
 
     private void UpdateTabCheckedState()
     {
-        if (_solidBrushTabButton == null || _gradientBrushTabButton == null || _drawableBrushTabButton == null) return;
+        if (
+            _solidBrushTabButton == null
+            || _gradientBrushTabButton == null
+            || _drawableBrushTabButton == null
+        )
+            return;
 
         switch (OriginalBrush)
         {
@@ -160,12 +179,15 @@ public class BrushEditorFlyoutPresenter : DraggablePickerFlyoutPresenter
                 if (_gradientStopsSlider != null)
                 {
                     _gradientStopsSlider.Stops = newGradientBrush.GradientStops;
-                    _gradientStopsSlider.SelectedStop = newGradientBrush.GradientStops.FirstOrDefault();
+                    _gradientStopsSlider.SelectedStop =
+                        newGradientBrush.GradientStops.FirstOrDefault();
                 }
 
                 if (_gradientTypeBox != null)
                 {
-                    _gradientTypeBox.SelectedIndex = GetGradientTabIndex(newGradientBrush.GetType());
+                    _gradientTypeBox.SelectedIndex = GetGradientTabIndex(
+                        newGradientBrush.GetType()
+                    );
                 }
             }
 
@@ -224,10 +246,15 @@ public class BrushEditorFlyoutPresenter : DraggablePickerFlyoutPresenter
         _changeDrawableTypeButton = e.NameScope.Find<Button>("ChangeDrawableButton");
         _editDrawableButton = e.NameScope.Find<Button>("EditDrawableButton");
 
-        foreach (ToggleButton? item in new[]
-                 {
-                     _solidBrushTabButton, _gradientBrushTabButton, _drawableBrushTabButton, _paletteTabButton
-                 })
+        foreach (
+            ToggleButton? item in new[]
+            {
+                _solidBrushTabButton,
+                _gradientBrushTabButton,
+                _drawableBrushTabButton,
+                _paletteTabButton,
+            }
+        )
         {
             item?.AddDisposableHandler(Button.ClickEvent, OnTagButtonClicked)
                 .DisposeWith(_disposables);
@@ -239,7 +266,8 @@ public class BrushEditorFlyoutPresenter : DraggablePickerFlyoutPresenter
         {
             _gradientTypeBox.SelectedIndex = GetGradientTabIndex(Brush?.GetType());
 
-            _gradientTypeBox.GetObservable(SelectingItemsControl.SelectedIndexProperty)
+            _gradientTypeBox
+                .GetObservable(SelectingItemsControl.SelectedIndexProperty)
                 .Subscribe(OnGradientTypeChanged)
                 .DisposeWith(_disposables);
         }
@@ -252,36 +280,63 @@ public class BrushEditorFlyoutPresenter : DraggablePickerFlyoutPresenter
                 _gradientStopsSlider.SelectedStop = stops.FirstOrDefault();
             }
 
-            _gradientStopsSlider.GetObservable(GradientStopsSlider.SelectedStopProperty)
+            _gradientStopsSlider
+                .GetObservable(GradientStopsSlider.SelectedStopProperty)
                 .Subscribe(OnSelectedStopChanged)
                 .DisposeWith(_disposables);
 
-            Observable.FromEventPattern<(int OldIndex, int NewIndex, GradientStop Object)>(_gradientStopsSlider, nameof(_gradientStopsSlider.Changed))
+            Observable
+                .FromEventPattern<(int OldIndex, int NewIndex, GradientStop Object)>(
+                    _gradientStopsSlider,
+                    nameof(_gradientStopsSlider.Changed)
+                )
                 .Subscribe(t => GradientStopChanged?.Invoke(this, t.EventArgs))
                 .DisposeWith(_disposables);
 
-            Observable.FromEventPattern<(int OldIndex, int NewIndex, GradientStop Object, ImmutableGradientStop OldObject)>(_gradientStopsSlider, nameof(_gradientStopsSlider.Confirmed))
+            Observable
+                .FromEventPattern<(
+                    int OldIndex,
+                    int NewIndex,
+                    GradientStop Object,
+                    ImmutableGradientStop OldObject
+                )>(_gradientStopsSlider, nameof(_gradientStopsSlider.Confirmed))
                 .Subscribe(t => GradientStopConfirmed?.Invoke(this, t.EventArgs))
                 .DisposeWith(_disposables);
 
-            Observable.FromEventPattern<(int Index, GradientStop Object)>(_gradientStopsSlider, nameof(_gradientStopsSlider.Added))
+            Observable
+                .FromEventPattern<(int Index, GradientStop Object)>(
+                    _gradientStopsSlider,
+                    nameof(_gradientStopsSlider.Added)
+                )
                 .Subscribe(t => GradientStopAdded?.Invoke(this, t.EventArgs))
                 .DisposeWith(_disposables);
 
-            Observable.FromEventPattern<(int Index, GradientStop Object)>(_gradientStopsSlider, nameof(_gradientStopsSlider.Deleted))
+            Observable
+                .FromEventPattern<(int Index, GradientStop Object)>(
+                    _gradientStopsSlider,
+                    nameof(_gradientStopsSlider.Deleted)
+                )
                 .Subscribe(t => GradientStopDeleted?.Invoke(this, t.EventArgs))
                 .DisposeWith(_disposables);
         }
 
         if (_changeDrawableTypeButton != null)
         {
-            _changeDrawableTypeButton.AddDisposableHandler(Button.ClickEvent, (_, _) => ChangeDrawableClicked?.Invoke(this, _changeDrawableTypeButton))
+            _changeDrawableTypeButton
+                .AddDisposableHandler(
+                    Button.ClickEvent,
+                    (_, _) => ChangeDrawableClicked?.Invoke(this, _changeDrawableTypeButton)
+                )
                 .DisposeWith(_disposables);
         }
 
         if (_editDrawableButton != null)
         {
-            _editDrawableButton.AddDisposableHandler(Button.ClickEvent, (_, _) => EditDrawableClicked?.Invoke(this, EventArgs.Empty))
+            _editDrawableButton
+                .AddDisposableHandler(
+                    Button.ClickEvent,
+                    (_, _) => EditDrawableClicked?.Invoke(this, EventArgs.Empty)
+                )
                 .DisposeWith(_disposables);
         }
     }
@@ -313,7 +368,7 @@ public class BrushEditorFlyoutPresenter : DraggablePickerFlyoutPresenter
             0 => typeof(LinearGradientBrush),
             1 => typeof(ConicGradientBrush),
             2 => typeof(RadialGradientBrush),
-            _ => null
+            _ => null,
         };
     }
 
@@ -324,7 +379,7 @@ public class BrushEditorFlyoutPresenter : DraggablePickerFlyoutPresenter
             0 => BrushType.LinearGradientBrush,
             1 => BrushType.ConicGradientBrush,
             2 => BrushType.RadialGradientBrush,
-            _ => null
+            _ => null,
         };
     }
 
@@ -332,10 +387,15 @@ public class BrushEditorFlyoutPresenter : DraggablePickerFlyoutPresenter
     {
         if (sender is ToggleButton self)
         {
-            foreach (ToggleButton? item in new[]
-                     {
-                         _solidBrushTabButton, _gradientBrushTabButton, _drawableBrushTabButton, _paletteTabButton
-                     })
+            foreach (
+                ToggleButton? item in new[]
+                {
+                    _solidBrushTabButton,
+                    _gradientBrushTabButton,
+                    _drawableBrushTabButton,
+                    _paletteTabButton,
+                }
+            )
             {
                 if (item != self && item != null)
                 {
@@ -360,13 +420,19 @@ public class BrushEditorFlyoutPresenter : DraggablePickerFlyoutPresenter
         }
     }
 
-    private void OnColorPickerColorConfirmed(SimpleColorPicker sender, (Color2 OldValue, Color2 NewValue) args)
+    private void OnColorPickerColorConfirmed(
+        SimpleColorPicker sender,
+        (Color2 OldValue, Color2 NewValue) args
+    )
     {
         if (_gradientStopsSlider?.SelectedStop is { } stop && _gradientStopsSlider.Stops != null)
         {
             stop.Color = args.NewValue;
             int index = _gradientStopsSlider.Stops.IndexOf(stop);
-            GradientStopConfirmed?.Invoke(this, (index, index, stop, new(stop.Offset, args.OldValue)));
+            GradientStopConfirmed?.Invoke(
+                this,
+                (index, index, stop, new(stop.Offset, args.OldValue))
+            );
         }
         else if (Brush is SolidColorBrush)
         {
@@ -374,7 +440,10 @@ public class BrushEditorFlyoutPresenter : DraggablePickerFlyoutPresenter
         }
     }
 
-    private void OnColorPickerColorChanged(SimpleColorPicker sender, (Color2 OldValue, Color2 NewValue) args)
+    private void OnColorPickerColorChanged(
+        SimpleColorPicker sender,
+        (Color2 OldValue, Color2 NewValue) args
+    )
     {
         if (_gradientStopsSlider?.SelectedStop is { } stop && _gradientStopsSlider.Stops != null)
         {
@@ -394,9 +463,11 @@ public class BrushEditorFlyoutPresenter : DraggablePickerFlyoutPresenter
 
     private void OnSelectedStopChanged(GradientStop? stop)
     {
-        if (Content is SimpleColorPicker colorPicker
+        if (
+            Content is SimpleColorPicker colorPicker
             && stop != null
-            && _gradientBrushTabButton?.IsChecked == true)
+            && _gradientBrushTabButton?.IsChecked == true
+        )
         {
             colorPicker.Color = stop.Color;
         }
@@ -404,12 +475,18 @@ public class BrushEditorFlyoutPresenter : DraggablePickerFlyoutPresenter
 
     private void OnTabButtonIsCheckedChanged()
     {
-        if (_paletteTabButton != null && _solidBrushTabButton != null && _gradientBrushTabButton != null &&
-            _drawableBrushTabButton != null)
+        if (
+            _paletteTabButton != null
+            && _solidBrushTabButton != null
+            && _gradientBrushTabButton != null
+            && _drawableBrushTabButton != null
+        )
         {
-            if (_paletteTabButton.IsChecked == true
+            if (
+                _paletteTabButton.IsChecked == true
                 && _paletteContent != null
-                && _contentPresenter != null)
+                && _contentPresenter != null
+            )
             {
                 _paletteContent.MaxHeight = _contentPresenter.Bounds.Height;
             }
@@ -426,9 +503,7 @@ public class BrushEditorFlyoutPresenter : DraggablePickerFlyoutPresenter
             {
                 MakeSolidColorBrush();
             }
-            else if (_paletteTabButton.IsChecked == true)
-            {
-            }
+            else if (_paletteTabButton.IsChecked == true) { }
             else if (_drawableBrushTabButton.IsChecked == true)
             {
                 MakeDrawableBrush();

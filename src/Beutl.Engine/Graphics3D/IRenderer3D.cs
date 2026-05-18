@@ -59,7 +59,8 @@ public interface IRenderer3D : IDisposable
         Color ambientColor,
         float ambientIntensity,
         Object3D.Resource? gizmoTarget = null,
-        GizmoMode gizmoMode = GizmoMode.None);
+        GizmoMode gizmoMode = GizmoMode.None
+    );
 
     /// <summary>
     /// Creates a SkiaSharp surface from the rendered output.

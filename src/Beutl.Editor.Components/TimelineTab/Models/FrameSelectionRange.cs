@@ -1,5 +1,4 @@
 ﻿using Beutl.Editor.Components.Helpers;
-
 using Reactive.Bindings;
 
 namespace Beutl.Editor.Components.TimelineTab.Models;
@@ -8,11 +7,13 @@ public sealed class FrameSelectionRange : IDisposable
 {
     public FrameSelectionRange(IObservable<float> scale)
     {
-        PixelStart = Start.CombineLatest(scale)
+        PixelStart = Start
+            .CombineLatest(scale)
             .Select(v => v.First.TimeToPixel(v.Second))
             .ToReactiveProperty();
 
-        PixelLength = Length.CombineLatest(scale)
+        PixelLength = Length
+            .CombineLatest(scale)
             .Select(v => v.First.TimeToPixel(v.Second))
             .ToReactiveProperty();
     }

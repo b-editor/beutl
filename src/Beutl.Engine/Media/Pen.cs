@@ -16,7 +16,8 @@ public sealed partial class Pen : EngineObject
     public IProperty<Brush?> Brush { get; } = Property.Create<Brush?>();
 
     [Display(Name = nameof(GraphicsStrings.Pen_DashArray), ResourceType = typeof(GraphicsStrings))]
-    public IProperty<Beutl.Collections.CoreList<float>?> DashArray { get; } = Property.Create<CoreList<float>?>();
+    public IProperty<Beutl.Collections.CoreList<float>?> DashArray { get; } =
+        Property.Create<CoreList<float>?>();
 
     [Display(Name = nameof(GraphicsStrings.Pen_DashOffset), ResourceType = typeof(GraphicsStrings))]
     public IProperty<float> DashOffset { get; } = Property.CreateAnimatable<float>(0);
@@ -34,8 +35,12 @@ public sealed partial class Pen : EngineObject
     [Display(Name = nameof(GraphicsStrings.Pen_StrokeJoin), ResourceType = typeof(GraphicsStrings))]
     public IProperty<StrokeJoin> StrokeJoin { get; } = Property.Create(Media.StrokeJoin.Miter);
 
-    [Display(Name = nameof(GraphicsStrings.Pen_StrokeAlignment), ResourceType = typeof(GraphicsStrings))]
-    public IProperty<StrokeAlignment> StrokeAlignment { get; } = Property.Create(Media.StrokeAlignment.Center);
+    [Display(
+        Name = nameof(GraphicsStrings.Pen_StrokeAlignment),
+        ResourceType = typeof(GraphicsStrings)
+    )]
+    public IProperty<StrokeAlignment> StrokeAlignment { get; } =
+        Property.Create(Media.StrokeAlignment.Center);
 
     [Display(Name = nameof(GraphicsStrings.Pen_TrimStart), ResourceType = typeof(GraphicsStrings))]
     public IProperty<float> TrimStart { get; } = Property.CreateAnimatable<float>(0);

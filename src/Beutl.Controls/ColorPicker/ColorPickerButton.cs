@@ -64,9 +64,13 @@ public partial class ColorPickerButton : TemplatedControl
         base.OnPropertyChanged(change);
         if (change.Property == ColorProperty)
         {
-            ColorChanged?.Invoke(this, new ColorButtonColorChangedEventArgs(
-                change.GetOldValue<Color?>(),
-                change.GetNewValue<Color?>()));
+            ColorChanged?.Invoke(
+                this,
+                new ColorButtonColorChangedEventArgs(
+                    change.GetOldValue<Color?>(),
+                    change.GetNewValue<Color?>()
+                )
+            );
         }
     }
 
@@ -148,4 +152,3 @@ public partial class ColorPickerButton : TemplatedControl
     private bool _flyoutActive;
     private Button _button;
 }
-

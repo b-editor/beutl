@@ -24,22 +24,31 @@ public class HdrBitmapView : NativeControlHost
     public static readonly StyledProperty<Ref<BtlBitmap>?> SourceProperty =
         AvaloniaProperty.Register<HdrBitmapView, Ref<BtlBitmap>?>(nameof(Source));
 
-    public static readonly StyledProperty<Stretch> StretchProperty =
-        AvaloniaProperty.Register<HdrBitmapView, Stretch>(nameof(Stretch), Stretch.Uniform);
+    public static readonly StyledProperty<Stretch> StretchProperty = AvaloniaProperty.Register<
+        HdrBitmapView,
+        Stretch
+    >(nameof(Stretch), Stretch.Uniform);
 
     public static readonly StyledProperty<BitmapInterpolationMode> InterpolationModeProperty =
         AvaloniaProperty.Register<HdrBitmapView, BitmapInterpolationMode>(
-            nameof(InterpolationMode), BitmapInterpolationMode.HighQuality);
+            nameof(InterpolationMode),
+            BitmapInterpolationMode.HighQuality
+        );
 
     public static readonly StyledProperty<UIToneMappingOperator> ToneMappingProperty =
-        AvaloniaProperty.Register<HdrBitmapView, UIToneMappingOperator>(nameof(ToneMapping),
-            UIToneMappingOperator.None);
+        AvaloniaProperty.Register<HdrBitmapView, UIToneMappingOperator>(
+            nameof(ToneMapping),
+            UIToneMappingOperator.None
+        );
 
     public static readonly StyledProperty<float> ToneMappingExposureProperty =
         AvaloniaProperty.Register<HdrBitmapView, float>(nameof(ToneMappingExposure), 0f);
 
     public static readonly DirectProperty<HdrBitmapView, bool> IsHdrActiveProperty =
-        AvaloniaProperty.RegisterDirect<HdrBitmapView, bool>(nameof(IsHdrActive), o => o.IsHdrActive);
+        AvaloniaProperty.RegisterDirect<HdrBitmapView, bool>(
+            nameof(IsHdrActive),
+            o => o.IsHdrActive
+        );
 
     private VulkanSwapchainRenderer? _renderer;
     private Ref<BtlBitmap>? _clonedSource;
@@ -110,9 +119,7 @@ public class HdrBitmapView : NativeControlHost
         if (_renderer != null && Bounds.Width > 0 && Bounds.Height > 0)
         {
             var scaling = VisualRoot?.RenderScaling ?? 1.0;
-            _renderer.Resize(
-                (uint)(Bounds.Width * scaling),
-                (uint)(Bounds.Height * scaling));
+            _renderer.Resize((uint)(Bounds.Width * scaling), (uint)(Bounds.Height * scaling));
 
             RequestRender();
         }
@@ -137,10 +144,12 @@ public class HdrBitmapView : NativeControlHost
 
             RequestRender();
         }
-        else if (change.Property == ToneMappingProperty ||
-                 change.Property == ToneMappingExposureProperty ||
-                 change.Property == StretchProperty ||
-                 change.Property == InterpolationModeProperty)
+        else if (
+            change.Property == ToneMappingProperty
+            || change.Property == ToneMappingExposureProperty
+            || change.Property == StretchProperty
+            || change.Property == InterpolationModeProperty
+        )
         {
             RequestRender();
         }
@@ -153,9 +162,7 @@ public class HdrBitmapView : NativeControlHost
         if (_renderer != null && e.NewSize.Width > 0 && e.NewSize.Height > 0)
         {
             var scaling = VisualRoot?.RenderScaling ?? 1.0;
-            _renderer.Resize(
-                (uint)(e.NewSize.Width * scaling),
-                (uint)(e.NewSize.Height * scaling));
+            _renderer.Resize((uint)(e.NewSize.Width * scaling), (uint)(e.NewSize.Height * scaling));
 
             RequestRender();
         }
@@ -207,7 +214,8 @@ public class HdrBitmapView : NativeControlHost
                 handle.Handle,
                 handle.HandleDescriptor ?? "",
                 (uint)Math.Max(1, Bounds.Width * scaling),
-                (uint)Math.Max(1, Bounds.Height * scaling));
+                (uint)Math.Max(1, Bounds.Height * scaling)
+            );
 
             IsHdrActive = _renderer.IsHdrActive;
         }
@@ -271,7 +279,8 @@ public class HdrBitmapView : NativeControlHost
             Stretch: (BtlStretch)(int)Stretch,
             ToneMapping: ToneMapping,
             Exposure: ToneMappingExposure,
-            IsSourceLinear: isLinear);
+            IsSourceLinear: isLinear
+        );
 
         _renderer.RequestRender(bitmapRef, renderParams);
     }
@@ -294,11 +303,15 @@ public class HdrBitmapView : NativeControlHost
             "Static", // lpClassName
             "", // lpWindowName
             0x40000000 | 0x10000000, // WS_CHILD | WS_VISIBLE
-            0, 0, 1, 1,
+            0,
+            0,
+            1,
+            1,
             parent.Handle,
             IntPtr.Zero,
             GetModuleHandleW(null),
-            IntPtr.Zero);
+            IntPtr.Zero
+        );
 
         if (hwnd == IntPtr.Zero)
             throw new InvalidOperationException("Failed to create child HWND");
@@ -308,9 +321,19 @@ public class HdrBitmapView : NativeControlHost
 
     [DllImport("user32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
     private static extern IntPtr CreateWindowExW(
-        uint dwExStyle, string lpClassName, string lpWindowName, uint dwStyle,
-        int x, int y, int nWidth, int nHeight,
-        IntPtr hWndParent, IntPtr hMenu, IntPtr hInstance, IntPtr lpParam);
+        uint dwExStyle,
+        string lpClassName,
+        string lpWindowName,
+        uint dwStyle,
+        int x,
+        int y,
+        int nWidth,
+        int nHeight,
+        IntPtr hWndParent,
+        IntPtr hMenu,
+        IntPtr hInstance,
+        IntPtr lpParam
+    );
 
     [DllImport("user32.dll")]
     [return: MarshalAs(UnmanagedType.Bool)]
@@ -360,8 +383,13 @@ public class HdrBitmapView : NativeControlHost
     // initWithFrame: takes an NSRect (CGRect) which is { x, y, width, height } as doubles
     [DllImport("/usr/lib/libobjc.dylib", EntryPoint = "objc_msgSend")]
     private static extern IntPtr objc_msgSend_NSRect(
-        IntPtr receiver, IntPtr selector,
-        double x, double y, double width, double height);
+        IntPtr receiver,
+        IntPtr selector,
+        double x,
+        double y,
+        double width,
+        double height
+    );
 
     // Linux
     private static IPlatformHandle CreateLinuxControl(IPlatformHandle parent)

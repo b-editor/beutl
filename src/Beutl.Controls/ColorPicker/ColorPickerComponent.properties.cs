@@ -14,15 +14,21 @@ public abstract partial class ColorPickerComponent : Control
     /// Defines the <see cref="Color"/> property
     /// </summary>
     public static readonly DirectProperty<ColorPickerComponent, Color2> ColorProperty =
-        AvaloniaProperty.RegisterDirect<ColorPickerComponent, Color2>(nameof(Color),
-            x => x.Color, (x, v) => x.Color = v);
+        AvaloniaProperty.RegisterDirect<ColorPickerComponent, Color2>(
+            nameof(Color),
+            x => x.Color,
+            (x, v) => x.Color = v
+        );
 
     /// <summary>
     /// Defines the <see cref="Component"/> property
     /// </summary>
     public static readonly DirectProperty<ColorPickerComponent, ColorComponent> ComponentProperty =
-        AvaloniaProperty.RegisterDirect<ColorPickerComponent, ColorComponent>(nameof(Component),
-            x => x.Component, (x, v) => x.Component = v);
+        AvaloniaProperty.RegisterDirect<ColorPickerComponent, ColorComponent>(
+            nameof(Component),
+            x => x.Component,
+            (x, v) => x.Component = v
+        );
 
     /// <summary>
     /// Event raised when the <see cref="Color"/> property changes
@@ -82,11 +88,11 @@ public abstract partial class ColorPickerComponent : Control
             if (_color.Hue >= 0)
                 return _color.Hue;
             else
-                return _explicitHue;//Rename this
+                return _explicitHue; //Rename this
         }
     }
 
-    private int _explicitHue = -1;//Rename this
+    private int _explicitHue = -1; //Rename this
     private Color2 _color = Color2.FromHSVf(71, 0.54f, .5f);
     private ColorComponent _component;
 }

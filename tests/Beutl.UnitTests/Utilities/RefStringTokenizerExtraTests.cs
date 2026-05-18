@@ -59,22 +59,28 @@ public class RefStringTokenizerExtraTests
     [Test]
     public void DoubleSeparator_ThrowsFormatException()
     {
-        Assert.That(() =>
-        {
-            var t = new RefStringTokenizer("1,,2".AsSpan(), CultureInfo.InvariantCulture);
-            t.ReadInt32();
-            t.ReadInt32();
-        }, Throws.TypeOf<FormatException>());
+        Assert.That(
+            () =>
+            {
+                var t = new RefStringTokenizer("1,,2".AsSpan(), CultureInfo.InvariantCulture);
+                t.ReadInt32();
+                t.ReadInt32();
+            },
+            Throws.TypeOf<FormatException>()
+        );
     }
 
     [Test]
     public void TrailingSeparator_ThrowsFormatException()
     {
-        Assert.That(() =>
-        {
-            var t = new RefStringTokenizer("1,".AsSpan(), CultureInfo.InvariantCulture);
-            t.ReadInt32();
-        }, Throws.TypeOf<FormatException>());
+        Assert.That(
+            () =>
+            {
+                var t = new RefStringTokenizer("1,".AsSpan(), CultureInfo.InvariantCulture);
+                t.ReadInt32();
+            },
+            Throws.TypeOf<FormatException>()
+        );
     }
 
     [Test]

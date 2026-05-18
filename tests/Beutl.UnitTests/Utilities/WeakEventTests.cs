@@ -9,8 +9,8 @@ public class WeakEventTests
     {
         public event PropertyChangedEventHandler? PropertyChanged;
 
-        public void Raise(string property)
-            => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(property));
+        public void Raise(string property) =>
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(property));
     }
 
     private sealed class Subscriber : IWeakEventSubscriber<PropertyChangedEventArgs>
@@ -70,17 +70,17 @@ public class WeakEventTests
     {
         public event EventHandler<PropertyChangedEventArgs>? Changed;
 
-        public void Raise(string property)
-            => Changed?.Invoke(this, new PropertyChangedEventArgs(property));
+        public void Raise(string property) =>
+            Changed?.Invoke(this, new PropertyChangedEventArgs(property));
     }
 
     [Test]
     public void Register_ActionStyle_AlsoWorks()
     {
-        WeakEvent<GenericEventSource, PropertyChangedEventArgs> ev =
-            WeakEvent.Register<GenericEventSource, PropertyChangedEventArgs>(
-                (s, h) => s.Changed += h,
-                (s, h) => s.Changed -= h);
+        WeakEvent<GenericEventSource, PropertyChangedEventArgs> ev = WeakEvent.Register<
+            GenericEventSource,
+            PropertyChangedEventArgs
+        >((s, h) => s.Changed += h, (s, h) => s.Changed -= h);
 
         var src = new GenericEventSource();
         var sub = new Subscriber();

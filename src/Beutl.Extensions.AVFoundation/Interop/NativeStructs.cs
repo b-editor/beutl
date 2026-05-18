@@ -15,10 +15,10 @@ internal struct BeutlVideoInfo
     public long DurationNum;
     public long DurationDen;
     public long NominalFrameCount;
-    public int IsHdr;                 // 0 = SDR, 1 = HDR
-    public int TransferFunction;      // BeutlTransferFunction
-    public int ColorPrimaries;        // BeutlColorPrimaries
-    public int BytesPerPixel;         // 4 (Bgra8888) or 8 (Rgba16161616)
+    public int IsHdr; // 0 = SDR, 1 = HDR
+    public int TransferFunction; // BeutlTransferFunction
+    public int ColorPrimaries; // BeutlColorPrimaries
+    public int BytesPerPixel; // 4 (Bgra8888) or 8 (Rgba16161616)
 }
 
 internal enum BeutlTransferFunction
@@ -80,17 +80,17 @@ internal struct BeutlVideoEncoderConfig
     public int Height;
     public int SourceWidth;
     public int SourceHeight;
-    public int Codec;                 // 0=Default, 1=H264, 2=JPEG, 3=HEVC
-    public int Bitrate;               // -1 = unspecified
-    public int KeyframeInterval;      // -1 = unspecified
-    public int ProfileLevelH264;      // 0=Default
+    public int Codec; // 0=Default, 1=H264, 2=JPEG, 3=HEVC
+    public int Bitrate; // -1 = unspecified
+    public int KeyframeInterval; // -1 = unspecified
+    public int ProfileLevelH264; // 0=Default
     public int FrameRateNum;
     public int FrameRateDen;
-    public float JpegQuality;         // < 0 = unspecified
-    public int IsHdr;                 // 0 = SDR, 1 = HDR
-    public int ColorTransfer;         // BeutlTransferFunction
-    public int ColorPrimaries;        // BeutlColorPrimaries
-    public int YCbCrMatrix;           // BeutlYCbCrMatrix
+    public float JpegQuality; // < 0 = unspecified
+    public int IsHdr; // 0 = SDR, 1 = HDR
+    public int ColorTransfer; // BeutlTransferFunction
+    public int ColorPrimaries; // BeutlColorPrimaries
+    public int YCbCrMatrix; // BeutlYCbCrMatrix
 }
 
 internal enum BeutlYCbCrMatrix
@@ -108,9 +108,9 @@ internal struct BeutlAudioEncoderConfig
     public int SampleRate;
     public int ChannelCount;
     public int FormatFourCC;
-    public int Bitrate;                    // -1 = unspecified
-    public int Quality;                    // -1 = Default
+    public int Bitrate; // -1 = unspecified
+    public int Quality; // -1 = Default
     public int SampleRateConverterQuality;
     public int LinearPcmBitDepth;
-    public int LinearPcmFlags;             // bit0=Float, bit1=BigEndian, bit2=NonInterleaved
+    public int LinearPcmFlags; // bit0=Float, bit1=BigEndian, bit2=NonInterleaved
 }

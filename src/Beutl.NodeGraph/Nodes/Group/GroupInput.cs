@@ -55,7 +55,10 @@ public partial class GroupInput : GraphNode, IDynamicPortNode
         {
             foreach (JsonObject itemJson in itemsArray.OfType<JsonObject>())
             {
-                if (CoreSerializer.DeserializeFromJsonObject(itemJson, typeof(IOutputPort)) is IOutputPort port)
+                if (
+                    CoreSerializer.DeserializeFromJsonObject(itemJson, typeof(IOutputPort))
+                    is IOutputPort port
+                )
                 {
                     Items.Add(port);
                 }
@@ -69,7 +72,8 @@ public partial class GroupInput : GraphNode, IDynamicPortNode
 
         public override void Update(GraphCompositionContext context)
         {
-            if (OuterInputValues == null) return;
+            if (OuterInputValues == null)
+                return;
 
             var node = GetOriginal();
             // 外部 GroupNode の入力値を GroupInput の出力値にコピー

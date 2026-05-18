@@ -12,7 +12,7 @@
   <Target Name="_GenerateVersionProps" BeforeTargets="GenerateNuspec;Pack">
     <PropertyGroup>
       <_VersionPropsContent>
-<![CDATA[<Project>
+        <![CDATA[<Project>
   <PropertyGroup>
     <BeutlExtensibilitySdkVersion>$(Version)</BeutlExtensibilitySdkVersion>
   </PropertyGroup>
@@ -22,13 +22,14 @@
     <WriteLinesToFile
       File="$(IntermediateOutputPath)Sdk/Version.props"
       Lines="$(_VersionPropsContent)"
-      Overwrite="true" />
+      Overwrite="true"
+    />
   </Target>
 
   <ItemGroup>
     <None Include="$(IntermediateOutputPath)Sdk/Version.props" Pack="true" PackagePath="Sdk/" />
   </ItemGroup>
-  
+
   <ItemGroup>
     <None Include="Sdk\Sdk.props" Pack="true" PackagePath="Sdk" />
     <None Include="Sdk\Sdk.targets" Pack="true" PackagePath="Sdk" />

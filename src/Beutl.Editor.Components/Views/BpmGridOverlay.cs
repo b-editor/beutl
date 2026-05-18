@@ -9,27 +9,41 @@ namespace Beutl.Editor.Components.Views;
 
 public sealed class BpmGridOverlay : Control
 {
-    public static readonly DirectProperty<BpmGridOverlay, Vector> OffsetProperty
-        = AvaloniaProperty.RegisterDirect<BpmGridOverlay, Vector>(
-            nameof(Offset), o => o.Offset, (o, v) => o.Offset = v);
+    public static readonly DirectProperty<BpmGridOverlay, Vector> OffsetProperty =
+        AvaloniaProperty.RegisterDirect<BpmGridOverlay, Vector>(
+            nameof(Offset),
+            o => o.Offset,
+            (o, v) => o.Offset = v
+        );
 
-    public static readonly DirectProperty<BpmGridOverlay, Size> ViewportProperty
-        = AvaloniaProperty.RegisterDirect<BpmGridOverlay, Size>(
-            nameof(Viewport), o => o.Viewport, (o, v) => o.Viewport = v);
+    public static readonly DirectProperty<BpmGridOverlay, Size> ViewportProperty =
+        AvaloniaProperty.RegisterDirect<BpmGridOverlay, Size>(
+            nameof(Viewport),
+            o => o.Viewport,
+            (o, v) => o.Viewport = v
+        );
 
-    public static readonly DirectProperty<BpmGridOverlay, float> ScaleProperty
-        = AvaloniaProperty.RegisterDirect<BpmGridOverlay, float>(
-            nameof(Scale), o => o.Scale, (o, v) => o.Scale = v);
+    public static readonly DirectProperty<BpmGridOverlay, float> ScaleProperty =
+        AvaloniaProperty.RegisterDirect<BpmGridOverlay, float>(
+            nameof(Scale),
+            o => o.Scale,
+            (o, v) => o.Scale = v
+        );
 
-    public static readonly DirectProperty<BpmGridOverlay, BpmGridOptions> BpmOptionsProperty
-        = AvaloniaProperty.RegisterDirect<BpmGridOverlay, BpmGridOptions>(
-            nameof(BpmOptions), o => o.BpmOptions, (o, v) => o.BpmOptions = v);
+    public static readonly DirectProperty<BpmGridOverlay, BpmGridOptions> BpmOptionsProperty =
+        AvaloniaProperty.RegisterDirect<BpmGridOverlay, BpmGridOptions>(
+            nameof(BpmOptions),
+            o => o.BpmOptions,
+            (o, v) => o.BpmOptions = v
+        );
 
-    public static readonly StyledProperty<IBrush?> BeatBrushProperty
-        = AvaloniaProperty.Register<BpmGridOverlay, IBrush?>(nameof(BeatBrush));
+    public static readonly StyledProperty<IBrush?> BeatBrushProperty = AvaloniaProperty.Register<
+        BpmGridOverlay,
+        IBrush?
+    >(nameof(BeatBrush));
 
-    public static readonly StyledProperty<IBrush?> SubdivisionBrushProperty
-        = AvaloniaProperty.Register<BpmGridOverlay, IBrush?>(nameof(SubdivisionBrush));
+    public static readonly StyledProperty<IBrush?> SubdivisionBrushProperty =
+        AvaloniaProperty.Register<BpmGridOverlay, IBrush?>(nameof(SubdivisionBrush));
 
     private Vector _offset;
     private Size _viewport;
@@ -46,7 +60,8 @@ public sealed class BpmGridOverlay : Control
             ScaleProperty,
             BpmOptionsProperty,
             BeatBrushProperty,
-            SubdivisionBrushProperty);
+            SubdivisionBrushProperty
+        );
     }
 
     public BpmGridOverlay()
@@ -136,7 +151,8 @@ public sealed class BpmGridOverlay : Control
 
         int subdivisions = Math.Max(1, _bpmOptions.Subdivisions);
         double subdivisionIntervalPixels = beatIntervalPixels / subdivisions;
-        bool drawSubdivisions = subdivisions > 1 && subdivisionIntervalPixels >= 3 && _subdivisionPen != null;
+        bool drawSubdivisions =
+            subdivisions > 1 && subdivisionIntervalPixels >= 3 && _subdivisionPen != null;
 
         double offsetSeconds = _bpmOptions.Offset.TotalSeconds;
         double offsetPixels = offsetSeconds * secondWidth * _scale;

@@ -26,16 +26,19 @@ public sealed class PathEditorViewModel : IDisposable, IPathEditorContext
         _clock = editorContext.GetRequiredService<IEditorClock>();
         _scene = editorContext.GetRequiredService<Scene>();
 
-        SceneWidth = _scene.GetObservable(Scene.FrameSizeProperty)
+        SceneWidth = _scene
+            .GetObservable(Scene.FrameSizeProperty)
             .Select(v => v.Width)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
 
-        Context = FigureContext.Select(v => v?.GetParentContext() ?? null)
+        Context = FigureContext
+            .Select(v => v?.GetParentContext() ?? null)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
 
-        Geometry = Context.Select(v => v?.Value ?? Observable.ReturnThenNever<Geometry?>(null))
+        Geometry = Context
+            .Select(v => v?.Value ?? Observable.ReturnThenNever<Geometry?>(null))
             .Switch()
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
@@ -44,60 +47,75 @@ public sealed class PathEditorViewModel : IDisposable, IPathEditorContext
             .Select(v => v as PathGeometry)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
-        PathFigure = FigureContext.Select(v => v?.Value ?? Observable.ReturnThenNever<PathFigure?>(null))
+        PathFigure = FigureContext
+            .Select(v => v?.Value ?? Observable.ReturnThenNever<PathFigure?>(null))
             .Switch()
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
-        Element = Context.Select(v => v?.GetService<Element>())
+        Element = Context
+            .Select(v => v?.GetService<Element>())
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
-        Drawable = Geometry.Select(v => v?.FindHierarchicalParent<Drawable>())
+        Drawable = Geometry
+            .Select(v => v?.FindHierarchicalParent<Drawable>())
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
 
         var drawableResource = Drawable
             .Select(d =>
                 d?.SubscribeEngineVersionedResource(_clock.CurrentTime, (o, c) => o.ToResource(c))
-                    .Select(t => ((Drawable.Resource, int)?)t) ??
-                Observable.ReturnThenNever<(Drawable.Resource, int)?>(null))
+                    .Select(t => ((Drawable.Resource, int)?)t)
+                ?? Observable.ReturnThenNever<(Drawable.Resource, int)?>(null)
+            )
             .Switch()
-            .Publish(null).RefCount();
+            .Publish(null)
+            .RefCount();
 
         GeometryResource = drawableResource
             .Select(t =>
                 t is { Item1: GeometryShape.Resource { Data: PathGeometry.Resource pathGeometry } }
                     ? (pathGeometry, pathGeometry.Version)
-                    : ((PathGeometry.Resource, int)?)null)
+                    : ((PathGeometry.Resource, int)?)null
+            )
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
 
-        Matrix = drawableResource.Select(r => r != null ? CalculateMatrix(r.Value.Item1) : Graphics.Matrix.Identity)
+        Matrix = drawableResource
+            .Select(r => r != null ? CalculateMatrix(r.Value.Item1) : Graphics.Matrix.Identity)
             .ToReadOnlyReactiveProperty()
             .DisposeWith(_disposables);
-        AvaMatrix = Matrix.Select(v => v.ToAvaMatrix())
+        AvaMatrix = Matrix
+            .Select(v => v.ToAvaMatrix())
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
 
-        IsVisible = _clock.CurrentTime
-            .CombineLatest(Element
-                .Select(e => e?.GetObservable(ProjectSystem.Element.StartProperty)
-                    .CombineLatest(e.GetObservable(ProjectSystem.Element.LengthProperty))
-                    .Select(t => new TimeRange(t.First, t.Second)) ?? Observable.ReturnThenNever<TimeRange>(default))
-                .Switch())
+        IsVisible = _clock
+            .CurrentTime.CombineLatest(
+                Element
+                    .Select(e =>
+                        e?.GetObservable(ProjectSystem.Element.StartProperty)
+                            .CombineLatest(e.GetObservable(ProjectSystem.Element.LengthProperty))
+                            .Select(t => new TimeRange(t.First, t.Second))
+                        ?? Observable.ReturnThenNever<TimeRange>(default)
+                    )
+                    .Switch()
+            )
             .Select(t => t.Second.Contains(t.First))
             .CombineLatest(player.IsPlaying, Context)
             .Select(t => t.First && !t.Second && t.Third != null)
             .ToReadOnlyReactiveProperty()
             .DisposeWith(_disposables);
 
-        IsClosed = PathFigure.Select(g =>
-                g?.IsClosed.SubscribeEngineProperty(g, _clock.CurrentTime) ?? Observable.ReturnThenNever(false))
+        IsClosed = PathFigure
+            .Select(g =>
+                g?.IsClosed.SubscribeEngineProperty(g, _clock.CurrentTime)
+                ?? Observable.ReturnThenNever(false)
+            )
             .Switch()
             .ToReadOnlyReactiveProperty()
             .DisposeWith(_disposables);
 
-        FigureContext.Subscribe(_ => SelectedOperation.Value = null)
-            .DisposeWith(_disposables);
+        FigureContext.Subscribe(_ => SelectedOperation.Value = null).DisposeWith(_disposables);
     }
 
     private Matrix CalculateMatrix(Drawable.Resource drawable)
@@ -114,7 +132,10 @@ public sealed class PathEditorViewModel : IDisposable, IPathEditorContext
 
             if (shape.Pen != null)
             {
-                float thickness = PenHelper.GetRealThickness(shape.Pen.StrokeAlignment, shape.Pen.Thickness);
+                float thickness = PenHelper.GetRealThickness(
+                    shape.Pen.StrokeAlignment,
+                    shape.Pen.Thickness
+                );
                 size = size.Inflate(thickness);
 
                 matrix *= Graphics.Matrix.CreateTranslation(thickness, thickness);
@@ -144,7 +165,10 @@ public sealed class PathEditorViewModel : IDisposable, IPathEditorContext
 
     public ReadOnlyReactivePropertySlim<Drawable?> Drawable { get; }
 
-    public ReadOnlyReactivePropertySlim<(PathGeometry.Resource Resource, int Version)?> GeometryResource { get; }
+    public ReadOnlyReactivePropertySlim<(
+        PathGeometry.Resource Resource,
+        int Version
+    )?> GeometryResource { get; }
 
     public ReadOnlyReactiveProperty<Matrix> Matrix { get; }
 
@@ -152,7 +176,8 @@ public sealed class PathEditorViewModel : IDisposable, IPathEditorContext
 
     public ReadOnlyReactivePropertySlim<int> SceneWidth { get; }
 
-    public IReactiveProperty<PathSegment?> SelectedOperation { get; } = new ReactiveProperty<PathSegment?>();
+    public IReactiveProperty<PathSegment?> SelectedOperation { get; } =
+        new ReactiveProperty<PathSegment?>();
 
     public ReadOnlyReactiveProperty<bool> IsVisible { get; }
 
@@ -171,13 +196,18 @@ public sealed class PathEditorViewModel : IDisposable, IPathEditorContext
 
         var shapeResource = shape.ToResource(new CompositionContext(_clock.CurrentTime.Value));
         Avalonia.Matrix matrix = CalculateMatrix(shapeResource).ToAvaMatrix();
-        if (matrix.TryInvert(out Avalonia.Matrix inverted)
+        if (
+            matrix.TryInvert(out Avalonia.Matrix inverted)
             && shapeResource is GeometryShape.Resource { Data: not null } geometryShapeResource
-            && context.Value.Value is PathGeometry geometry)
+            && context.Value.Value is PathGeometry geometry
+        )
         {
             point = inverted.Transform(point);
             PathFigure.Resource? figure = geometry.HitTestFigure(
-                point.ToBtlPoint(), geometryShapeResource.Pen, geometryShapeResource.Data);
+                point.ToBtlPoint(),
+                geometryShapeResource.Pen,
+                geometryShapeResource.Data
+            );
             if (figure != null)
             {
                 var figContext = context.FindPathFigureContext(figure.GetOriginal());

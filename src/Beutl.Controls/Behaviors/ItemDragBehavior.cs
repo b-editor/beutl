@@ -1,6 +1,5 @@
 ﻿using System.Collections;
 using System.Diagnostics;
-
 using Avalonia;
 using Avalonia.Collections;
 using Avalonia.Controls;
@@ -37,9 +36,21 @@ public class ItemDragBehavior : Behavior<Control>
 
         if (AssociatedObject != null)
         {
-            AssociatedObject.AddHandler(InputElement.PointerReleasedEvent, Released, RoutingStrategies.Tunnel);
-            AssociatedObject.AddHandler(InputElement.PointerPressedEvent, Pressed, RoutingStrategies.Tunnel);
-            AssociatedObject.AddHandler(InputElement.PointerMovedEvent, Moved, RoutingStrategies.Tunnel);
+            AssociatedObject.AddHandler(
+                InputElement.PointerReleasedEvent,
+                Released,
+                RoutingStrategies.Tunnel
+            );
+            AssociatedObject.AddHandler(
+                InputElement.PointerPressedEvent,
+                Pressed,
+                RoutingStrategies.Tunnel
+            );
+            AssociatedObject.AddHandler(
+                InputElement.PointerMovedEvent,
+                Moved,
+                RoutingStrategies.Tunnel
+            );
         }
     }
 
@@ -57,9 +68,11 @@ public class ItemDragBehavior : Behavior<Control>
 
     private void Pressed(object sender, PointerPressedEventArgs e)
     {
-        if (AssociatedObject?.Parent is not ItemsControl |
-            (AssociatedObject?.Parent is BcTabView aw && !aw.ReorderableTabs) |
-            (AssociatedObject is BcTabItem at && !at.CanBeDragged))
+        if (
+            AssociatedObject?.Parent is not ItemsControl
+            | (AssociatedObject?.Parent is BcTabView aw && !aw.ReorderableTabs)
+            | (AssociatedObject is BcTabItem at && !at.CanBeDragged)
+        )
         {
             return;
         }
@@ -136,7 +149,11 @@ public class ItemDragBehavior : Behavior<Control>
         }
     }
 
-    private static void MoveDraggedItem(ItemsControl itemsControl, int draggedIndex, int targetIndex)
+    private static void MoveDraggedItem(
+        ItemsControl itemsControl,
+        int draggedIndex,
+        int targetIndex
+    )
     {
         if (itemsControl?.ItemsSource is not IList items)
         {
@@ -169,7 +186,8 @@ public class ItemDragBehavior : Behavior<Control>
 
         Orientation orientation = Orientation;
         Point position = e.GetPosition(_itemsControl);
-        double delta = orientation == Orientation.Horizontal ? position.X - _start.X : position.Y - _start.Y;
+        double delta =
+            orientation == Orientation.Horizontal ? position.X - _start.X : position.Y - _start.Y;
 
         if (orientation == Orientation.Horizontal)
         {
@@ -185,21 +203,28 @@ public class ItemDragBehavior : Behavior<Control>
 
         Rect draggedBounds = _draggedContainer.Bounds;
 
-        double draggedStart = orientation == Orientation.Horizontal ?
-            draggedBounds.X : draggedBounds.Y;
+        double draggedStart =
+            orientation == Orientation.Horizontal ? draggedBounds.X : draggedBounds.Y;
 
-        double draggedDeltaStart = orientation == Orientation.Horizontal ?
-            draggedBounds.X + delta : draggedBounds.Y + delta;
+        double draggedDeltaStart =
+            orientation == Orientation.Horizontal
+                ? draggedBounds.X + delta
+                : draggedBounds.Y + delta;
 
-        double draggedDeltaEnd = orientation == Orientation.Horizontal ?
-            draggedBounds.X + delta + draggedBounds.Width : draggedBounds.Y + delta + draggedBounds.Height;
+        double draggedDeltaEnd =
+            orientation == Orientation.Horizontal
+                ? draggedBounds.X + delta + draggedBounds.Width
+                : draggedBounds.Y + delta + draggedBounds.Height;
 
         int i = 0;
 
         foreach (object _ in _itemsControl.ItemsSource)
         {
             Control targetContainer = _itemsControl.ContainerFromIndex(i);
-            if (targetContainer?.RenderTransform is null || ReferenceEquals(targetContainer, _draggedContainer))
+            if (
+                targetContainer?.RenderTransform is null
+                || ReferenceEquals(targetContainer, _draggedContainer)
+            )
             {
                 i++;
                 continue;
@@ -207,11 +232,13 @@ public class ItemDragBehavior : Behavior<Control>
 
             Rect targetBounds = targetContainer.Bounds;
 
-            double targetStart = orientation == Orientation.Horizontal ?
-                targetBounds.X : targetBounds.Y;
+            double targetStart =
+                orientation == Orientation.Horizontal ? targetBounds.X : targetBounds.Y;
 
-            double targetMid = orientation == Orientation.Horizontal ?
-                targetBounds.X + targetBounds.Width / 2 : targetBounds.Y + targetBounds.Height / 2;
+            double targetMid =
+                orientation == Orientation.Horizontal
+                    ? targetBounds.X + targetBounds.Width / 2
+                    : targetBounds.Y + targetBounds.Height / 2;
 
             int targetIndex = _itemsControl.IndexFromContainer(targetContainer);
 
@@ -226,9 +253,10 @@ public class ItemDragBehavior : Behavior<Control>
                     ((TranslateTransform)targetContainer.RenderTransform).Y = -draggedBounds.Height;
                 }
 
-                _targetIndex = _targetIndex == -1 ?
-                    targetIndex :
-                    targetIndex > _targetIndex ? targetIndex : _targetIndex;
+                _targetIndex =
+                    _targetIndex == -1 ? targetIndex
+                    : targetIndex > _targetIndex ? targetIndex
+                    : _targetIndex;
                 Debug.WriteLine($"Moved Right {_draggedIndex} -> {_targetIndex}");
             }
             else if (targetStart < draggedStart && draggedDeltaStart <= targetMid)
@@ -242,9 +270,10 @@ public class ItemDragBehavior : Behavior<Control>
                     ((TranslateTransform)targetContainer.RenderTransform).Y = draggedBounds.Height;
                 }
 
-                _targetIndex = _targetIndex == -1 ?
-                    targetIndex :
-                    targetIndex < _targetIndex ? targetIndex : _targetIndex;
+                _targetIndex =
+                    _targetIndex == -1 ? targetIndex
+                    : targetIndex < _targetIndex ? targetIndex
+                    : _targetIndex;
                 Debug.WriteLine($"Moved Left {_draggedIndex} -> {_targetIndex}");
             }
             else

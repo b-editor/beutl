@@ -21,7 +21,11 @@ public static class DefaultExceptionHandler
             }
             catch (Exception ex)
             {
-                s_logger.LogError(ex, "Error while handling API error: {ApiContent}", apiError.Content);
+                s_logger.LogError(
+                    ex,
+                    "Error while handling API error: {ApiContent}",
+                    apiError.Content
+                );
                 NotificationService.ShowError(Strings.APIError, apiError.Message);
             }
         }

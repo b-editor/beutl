@@ -26,19 +26,25 @@ public sealed class LocalUserPackageViewModel : BaseViewModel, IUserPackageViewM
 
         _handler = new PackageOperationHandler(app);
 
-        IObservable<PackageChangesQueue.EventType> observable = _handler.Queue.GetObservable(package.Name);
-        CanCancel = observable.Select(x => x != PackageChangesQueue.EventType.None)
+        IObservable<PackageChangesQueue.EventType> observable = _handler.Queue.GetObservable(
+            package.Name
+        );
+        CanCancel = observable
+            .Select(x => x != PackageChangesQueue.EventType.None)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
 
-        IObservable<bool> installed = _handler.InstalledPackageRepository.GetObservable(package.Name);
+        IObservable<bool> installed = _handler.InstalledPackageRepository.GetObservable(
+            package.Name
+        );
         IsInstallButtonVisible = installed
             .AnyTrue(CanCancel)
             .Not()
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
 
-        IsUpdateButtonVisible = LatestRelease.Select(x => x != null)
+        IsUpdateButtonVisible = LatestRelease
+            .Select(x => x != null)
             .AreTrue(CanCancel.Not())
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
@@ -64,8 +70,11 @@ public sealed class LocalUserPackageViewModel : BaseViewModel, IUserPackageViewM
                         await _handler.DownloadAndLoadPackage(_packageIdentity);
                         NotificationService.ShowInformation(
                             title: ExtensionsStrings.PackageInstaller,
-                            message: string.Format(ExtensionsStrings.PackageInstaller_Installed,
-                                _packageIdentity.Id));
+                            message: string.Format(
+                                ExtensionsStrings.PackageInstaller_Installed,
+                                _packageIdentity.Id
+                            )
+                        );
                     }
                     catch (Exception ex)
                     {
@@ -73,8 +82,11 @@ public sealed class LocalUserPackageViewModel : BaseViewModel, IUserPackageViewM
                         _handler.Queue.InstallQueue(_packageIdentity);
                         NotificationService.ShowInformation(
                             title: ExtensionsStrings.PackageInstaller,
-                            message: string.Format(ExtensionsStrings.PackageInstaller_ScheduledInstallation,
-                                _packageIdentity.Id));
+                            message: string.Format(
+                                ExtensionsStrings.PackageInstaller_ScheduledInstallation,
+                                _packageIdentity.Id
+                            )
+                        );
                     }
                 }
                 catch (Exception e)
@@ -105,8 +117,10 @@ public sealed class LocalUserPackageViewModel : BaseViewModel, IUserPackageViewM
                     StatusText.Value = ExtensionsStrings.Updating;
                     if (LatestRelease.Value != null)
                     {
-                        var packageId = new PackageIdentity(Package.Name,
-                            new NuGetVersion(LatestRelease.Value.Version.Value));
+                        var packageId = new PackageIdentity(
+                            Package.Name,
+                            new NuGetVersion(LatestRelease.Value.Version.Value)
+                        );
 
                         try
                         {
@@ -115,15 +129,26 @@ public sealed class LocalUserPackageViewModel : BaseViewModel, IUserPackageViewM
                             await _handler.DownloadAndLoadPackage(LatestRelease.Value, packageId);
                             NotificationService.ShowInformation(
                                 title: ExtensionsStrings.PackageInstaller,
-                                message: string.Format(ExtensionsStrings.PackageInstaller_Updated, packageId.Id));
+                                message: string.Format(
+                                    ExtensionsStrings.PackageInstaller_Updated,
+                                    packageId.Id
+                                )
+                            );
                         }
                         catch (Exception ex)
                         {
-                            _logger.LogWarning(ex, "Immediate update failed, falling back to queue.");
+                            _logger.LogWarning(
+                                ex,
+                                "Immediate update failed, falling back to queue."
+                            );
                             _handler.Queue.InstallQueue(packageId);
                             NotificationService.ShowInformation(
                                 title: ExtensionsStrings.PackageInstaller,
-                                message: string.Format(ExtensionsStrings.PackageInstaller_ScheduledUpdate, packageId.Id));
+                                message: string.Format(
+                                    ExtensionsStrings.PackageInstaller_ScheduledUpdate,
+                                    packageId.Id
+                                )
+                            );
                         }
                     }
                 }
@@ -156,22 +181,30 @@ public sealed class LocalUserPackageViewModel : BaseViewModel, IUserPackageViewM
 
                     if (!await _handler.UnloadPackages(Package.Name))
                     {
-                        throw new Exception("Failed to unload the package. It may still be in use. Uninstallation has been scheduled.");
+                        throw new Exception(
+                            "Failed to unload the package. It may still be in use. Uninstallation has been scheduled."
+                        );
                     }
 
                     if (!_handler.UninstallSinglePackage(Package.InstalledPath, _packageIdentity))
                     {
                         NotificationService.ShowInformation(
                             title: ExtensionsStrings.PackageInstaller,
-                            message: string.Format(ExtensionsStrings.PackageInstaller_ScheduledUninstallation,
-                                _packageIdentity.Id));
+                            message: string.Format(
+                                ExtensionsStrings.PackageInstaller_ScheduledUninstallation,
+                                _packageIdentity.Id
+                            )
+                        );
                     }
                     else
                     {
                         NotificationService.ShowInformation(
                             title: ExtensionsStrings.PackageInstaller,
-                            message: string.Format(ExtensionsStrings.PackageInstaller_Uninstalled,
-                                _packageIdentity.Id));
+                            message: string.Format(
+                                ExtensionsStrings.PackageInstaller_Uninstalled,
+                                _packageIdentity.Id
+                            )
+                        );
                     }
                 }
                 catch (Exception e)
@@ -181,8 +214,11 @@ public sealed class LocalUserPackageViewModel : BaseViewModel, IUserPackageViewM
                     _handler.Queue.UninstallQueue(_packageIdentity);
                     NotificationService.ShowInformation(
                         title: ExtensionsStrings.PackageInstaller,
-                        message: string.Format(ExtensionsStrings.PackageInstaller_ScheduledUninstallation,
-                            _packageIdentity.Id));
+                        message: string.Format(
+                            ExtensionsStrings.PackageInstaller_ScheduledUninstallation,
+                            _packageIdentity.Id
+                        )
+                    );
                 }
                 finally
                 {
@@ -245,7 +281,8 @@ public sealed class LocalUserPackageViewModel : BaseViewModel, IUserPackageViewM
 
     public ReactivePropertySlim<string?> StatusText { get; } = new();
 
-    IReadOnlyReactiveProperty<bool> IUserPackageViewModel.IsUpdateButtonVisible => IsUpdateButtonVisible;
+    IReadOnlyReactiveProperty<bool> IUserPackageViewModel.IsUpdateButtonVisible =>
+        IsUpdateButtonVisible;
 
     bool IUserPackageViewModel.IsRemote => false;
 

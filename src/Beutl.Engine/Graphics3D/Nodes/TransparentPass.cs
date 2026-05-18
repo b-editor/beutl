@@ -27,7 +27,11 @@ public sealed class TransparentPass : GraphicsNode3D
     private readonly ITexture2D _depthTexture;
     private ITexture2D? _colorInput;
 
-    public TransparentPass(IGraphicsContext context, IShaderCompiler shaderCompiler, ITexture2D depthTexture)
+    public TransparentPass(
+        IGraphicsContext context,
+        IShaderCompiler shaderCompiler,
+        ITexture2D depthTexture
+    )
         : base(context, shaderCompiler)
     {
         _depthTexture = depthTexture ?? throw new ArgumentNullException(nameof(depthTexture));
@@ -71,14 +75,12 @@ public sealed class TransparentPass : GraphicsNode3D
         RenderPass = Context.CreateRenderPass3D(
             [TextureFormat.RGBA8Unorm],
             TextureFormat.Depth32Float,
-            AttachmentLoadOp.Load,  // Preserve color from LightingPass
-            AttachmentLoadOp.Load); // Preserve depth from GeometryPass
+            AttachmentLoadOp.Load, // Preserve color from LightingPass
+            AttachmentLoadOp.Load
+        ); // Preserve depth from GeometryPass
 
         // Create framebuffer using output texture and the shared depth texture
-        Framebuffer = Context.CreateFramebuffer3D(
-            RenderPass,
-            [OutputTexture],
-            _depthTexture);
+        Framebuffer = Context.CreateFramebuffer3D(RenderPass, [OutputTexture], _depthTexture);
     }
 
     /// <summary>
@@ -98,9 +100,15 @@ public sealed class TransparentPass : GraphicsNode3D
         IReadOnlyList<LightData> lights,
         Color ambientColor,
         float ambientIntensity,
-        float aspectRatio)
+        float aspectRatio
+    )
     {
-        if (Framebuffer == null || RenderPass == null || OutputTexture == null || _colorInput == null)
+        if (
+            Framebuffer == null
+            || RenderPass == null
+            || OutputTexture == null
+            || _colorInput == null
+        )
             return;
 
         // First, copy the LightingPass output to our output texture
@@ -122,7 +130,8 @@ public sealed class TransparentPass : GraphicsNode3D
             camera.Position,
             ambientColor.ToLinearPremultiplied().AsVector3() * ambientIntensity,
             lights,
-            compositionContext);
+            compositionContext
+        );
 
         // Begin transparent pass with load (preserves copied content and depth buffer)
         Span<Color> clearColors = [Colors.Transparent];
@@ -137,7 +146,11 @@ public sealed class TransparentPass : GraphicsNode3D
         EndPass();
     }
 
-    private void RenderTransparentObject(RenderContext3D context, Object3D.Resource obj, Matrix4x4 worldMatrix)
+    private void RenderTransparentObject(
+        RenderContext3D context,
+        Object3D.Resource obj,
+        Matrix4x4 worldMatrix
+    )
     {
         // Get mesh resource from object
         var meshResource = obj.GetMesh();
@@ -180,7 +193,9 @@ public sealed class TransparentPass : GraphicsNode3D
         if (vertices.Length == 0 || indices.Length == 0)
             return;
 
-        ulong vertexSize = (ulong)(vertices.Length * System.Runtime.InteropServices.Marshal.SizeOf<Vertex3D>());
+        ulong vertexSize = (ulong)(
+            vertices.Length * System.Runtime.InteropServices.Marshal.SizeOf<Vertex3D>()
+        );
         ulong indexSize = (ulong)(indices.Length * sizeof(uint));
 
         // Dispose old buffers if they exist
@@ -191,23 +206,27 @@ public sealed class TransparentPass : GraphicsNode3D
         var vertexBuffer = Context.CreateBuffer(
             vertexSize,
             BufferUsage.VertexBuffer | BufferUsage.TransferDestination,
-            MemoryProperty.DeviceLocal);
+            MemoryProperty.DeviceLocal
+        );
 
         var indexBuffer = Context.CreateBuffer(
             indexSize,
             BufferUsage.IndexBuffer | BufferUsage.TransferDestination,
-            MemoryProperty.DeviceLocal);
+            MemoryProperty.DeviceLocal
+        );
 
         // Create staging buffers and upload
         using var vertexStaging = Context.CreateBuffer(
             vertexSize,
             BufferUsage.TransferSource,
-            MemoryProperty.HostVisible | MemoryProperty.HostCoherent);
+            MemoryProperty.HostVisible | MemoryProperty.HostCoherent
+        );
 
         using var indexStaging = Context.CreateBuffer(
             indexSize,
             BufferUsage.TransferSource,
-            MemoryProperty.HostVisible | MemoryProperty.HostCoherent);
+            MemoryProperty.HostVisible | MemoryProperty.HostCoherent
+        );
 
         vertexStaging.Upload(vertices);
         indexStaging.Upload(indices);

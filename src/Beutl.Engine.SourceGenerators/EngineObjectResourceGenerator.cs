@@ -1,11 +1,9 @@
 ﻿using System.Collections.Immutable;
 using System.Text;
-
 using Beutl.Engine.SourceGenerators.Analysis;
 using Beutl.Engine.SourceGenerators.Diagnostics;
 using Beutl.Engine.SourceGenerators.Emit;
 using Beutl.Engine.SourceGenerators.Models;
-
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 
@@ -16,19 +14,30 @@ public sealed class EngineObjectResourceGenerator : IIncrementalGenerator
 {
     public void Initialize(IncrementalGeneratorInitializationContext context)
     {
-        var classDeclarations = context.SyntaxProvider.CreateSyntaxProvider(
+        var classDeclarations = context
+            .SyntaxProvider.CreateSyntaxProvider(
                 static (node, _) => node is ClassDeclarationSyntax { BaseList: not null },
-                static (syntaxContext, cancellationToken) => ClassInfoExtractor.TryExtract(syntaxContext, cancellationToken))
+                static (syntaxContext, cancellationToken) =>
+                    ClassInfoExtractor.TryExtract(syntaxContext, cancellationToken)
+            )
             .Where(static info => info is not null)
             .Select(static (info, _) => info!.Value);
 
-        var compilationAndClasses = context.CompilationProvider.Combine(classDeclarations.Collect());
+        var compilationAndClasses = context.CompilationProvider.Combine(
+            classDeclarations.Collect()
+        );
 
-        context.RegisterSourceOutput(compilationAndClasses, static (productionContext, pair) =>
-            Execute(productionContext, pair.Left, pair.Right));
+        context.RegisterSourceOutput(
+            compilationAndClasses,
+            static (productionContext, pair) => Execute(productionContext, pair.Left, pair.Right)
+        );
     }
 
-    private static void Execute(SourceProductionContext context, Compilation compilation, ImmutableArray<ClassInfo> classes)
+    private static void Execute(
+        SourceProductionContext context,
+        Compilation compilation,
+        ImmutableArray<ClassInfo> classes
+    )
     {
         if (classes.IsDefaultOrEmpty)
         {
@@ -44,18 +53,23 @@ public sealed class EngineObjectResourceGenerator : IIncrementalGenerator
                 continue;
             }
 
-            if (!info.ShouldGenerate()) continue;
+            if (!info.ShouldGenerate())
+                continue;
 
             if (!info.IsPartial)
             {
                 // Class opted out via [SuppressResourceClassGeneration]; fall back to the
                 // reflection-based base implementation instead of warning about partial.
-                if (info.SuppressedResourceGeneration) continue;
+                if (info.SuppressedResourceGeneration)
+                    continue;
 
-                context.ReportDiagnostic(Diagnostic.Create(
-                    DiagnosticDescriptors.MissingPartial,
-                    info.Symbol.Locations.FirstOrDefault(),
-                    info.Symbol.ToDisplayString()));
+                context.ReportDiagnostic(
+                    Diagnostic.Create(
+                        DiagnosticDescriptors.MissingPartial,
+                        info.Symbol.Locations.FirstOrDefault(),
+                        info.Symbol.ToDisplayString()
+                    )
+                );
                 continue;
             }
 

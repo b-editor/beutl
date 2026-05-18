@@ -24,7 +24,8 @@ public class SceneMarkerTests
             TimeSpan.FromSeconds(2),
             name: "intro",
             color: Colors.Red,
-            note: "first marker");
+            note: "first marker"
+        );
 
         Assert.That(marker.Time, Is.EqualTo(TimeSpan.FromSeconds(2)));
         Assert.That(marker.Name, Is.EqualTo("intro"));

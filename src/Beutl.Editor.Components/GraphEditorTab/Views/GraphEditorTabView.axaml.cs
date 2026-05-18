@@ -23,8 +23,10 @@ public partial class GraphEditorTabView : UserControl
 
     private void ToggleDragModeClick(object? sender, RoutedEventArgs e)
     {
-        if (sender is not RadioButton { Tag: string tag }) return;
-        if (DataContext is not GraphEditorTabViewModel { SelectedAnimation.Value: { } viewModel }) return;
+        if (sender is not RadioButton { Tag: string tag })
+            return;
+        if (DataContext is not GraphEditorTabViewModel { SelectedAnimation.Value: { } viewModel })
+            return;
 
         viewModel.Symmetry.Value = false;
         viewModel.Asymmetry.Value = false;

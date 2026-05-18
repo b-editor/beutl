@@ -37,7 +37,5 @@ public abstract class RenderNode : INode
         }
     }
 
-    protected virtual void OnDispose(bool disposing)
-    {
-    }
+    protected virtual void OnDispose(bool disposing) { }
 }

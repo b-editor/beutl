@@ -1,14 +1,14 @@
 ﻿using Avalonia;
 using Avalonia.Interactivity;
-
 using Beutl.Controls.PropertyEditors;
-
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
 
 namespace Beutl.ViewModels.Editors;
 
-public sealed class CornerRadiusEditorViewModel : ValueEditorViewModel<Media.CornerRadius>, IConfigureUniformEditor
+public sealed class CornerRadiusEditorViewModel
+    : ValueEditorViewModel<Media.CornerRadius>,
+        IConfigureUniformEditor
 {
     public CornerRadiusEditorViewModel(IPropertyAdapter<Media.CornerRadius> property)
         : base(property)
@@ -51,29 +51,56 @@ public sealed class CornerRadiusEditorViewModel : ValueEditorViewModel<Media.Cor
         {
             VectorEditorBindingHelper.ApplyNumberAttributes(editor, PropertyAdapter);
 
-            editor.Bind(Vector4Editor<float>.FirstValueProperty, FirstValue.ToBinding())
+            editor
+                .Bind(Vector4Editor<float>.FirstValueProperty, FirstValue.ToBinding())
                 .DisposeWith(Disposables);
-            editor.Bind(Vector4Editor<float>.SecondValueProperty, SecondValue.ToBinding())
+            editor
+                .Bind(Vector4Editor<float>.SecondValueProperty, SecondValue.ToBinding())
                 .DisposeWith(Disposables);
-            editor.Bind(Vector4Editor<float>.ThirdValueProperty, ThirdValue.ToBinding())
+            editor
+                .Bind(Vector4Editor<float>.ThirdValueProperty, ThirdValue.ToBinding())
                 .DisposeWith(Disposables);
-            editor.Bind(Vector4Editor<float>.FourthValueProperty, FourthValue.ToBinding())
+            editor
+                .Bind(Vector4Editor<float>.FourthValueProperty, FourthValue.ToBinding())
                 .DisposeWith(Disposables);
-            editor.Bind(Vector4Editor.IsUniformProperty, IsUniformEditorEnabled.ToBinding())
+            editor
+                .Bind(Vector4Editor.IsUniformProperty, IsUniformEditorEnabled.ToBinding())
                 .DisposeWith(Disposables);
-            editor.AddDisposableHandler(PropertyEditor.ValueConfirmedEvent, OnValueConfirmed)
+            editor
+                .AddDisposableHandler(PropertyEditor.ValueConfirmedEvent, OnValueConfirmed)
                 .DisposeWith(Disposables);
-            editor.AddDisposableHandler(PropertyEditor.ValueChangedEvent, OnValueChanged)
+            editor
+                .AddDisposableHandler(PropertyEditor.ValueChangedEvent, OnValueChanged)
                 .DisposeWith(Disposables);
         }
     }
 
     private void OnValueConfirmed(object? sender, PropertyEditorValueChangedEventArgs e)
     {
-        if (e is PropertyEditorValueChangedEventArgs<(float TopLeft, float TopRight, float BottomRight, float BottomLeft)> args)
+        if (
+            e
+            is PropertyEditorValueChangedEventArgs<(
+                float TopLeft,
+                float TopRight,
+                float BottomRight,
+                float BottomLeft
+            )> args
+        )
         {
-            SetValue(new Media.CornerRadius(args.OldValue.TopLeft, args.OldValue.TopRight, args.OldValue.BottomRight, args.OldValue.BottomLeft),
-                     new Media.CornerRadius(args.NewValue.TopLeft, args.NewValue.TopRight, args.NewValue.BottomRight, args.NewValue.BottomLeft));
+            SetValue(
+                new Media.CornerRadius(
+                    args.OldValue.TopLeft,
+                    args.OldValue.TopRight,
+                    args.OldValue.BottomRight,
+                    args.OldValue.BottomLeft
+                ),
+                new Media.CornerRadius(
+                    args.NewValue.TopLeft,
+                    args.NewValue.TopRight,
+                    args.NewValue.BottomRight,
+                    args.NewValue.BottomLeft
+                )
+            );
         }
     }
 
@@ -82,7 +109,13 @@ public sealed class CornerRadiusEditorViewModel : ValueEditorViewModel<Media.Cor
         if (sender is Vector4Editor<float> editor)
         {
             Media.CornerRadius coerced = SetCurrentValueAndGetCoerced(
-                new Media.CornerRadius(editor.FirstValue, editor.SecondValue, editor.ThirdValue, editor.FourthValue));
+                new Media.CornerRadius(
+                    editor.FirstValue,
+                    editor.SecondValue,
+                    editor.ThirdValue,
+                    editor.FourthValue
+                )
+            );
             editor.FirstValue = coerced.TopLeft;
             editor.SecondValue = coerced.TopRight;
             editor.ThirdValue = coerced.BottomRight;

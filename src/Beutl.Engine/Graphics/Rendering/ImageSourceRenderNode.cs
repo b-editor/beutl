@@ -4,12 +4,17 @@ using Beutl.Media.Source;
 
 namespace Beutl.Graphics.Rendering;
 
-public sealed class ImageSourceRenderNode(ImageSource.Resource source, Brush.Resource? fill, Pen.Resource? pen)
-    : BrushRenderNode(fill, pen)
+public sealed class ImageSourceRenderNode(
+    ImageSource.Resource source,
+    Brush.Resource? fill,
+    Pen.Resource? pen
+) : BrushRenderNode(fill, pen)
 {
-    public (ImageSource.Resource Resource, int Version)? Source { get; private set; } = source.Capture();
+    public (ImageSource.Resource Resource, int Version)? Source { get; private set; } =
+        source.Capture();
 
-    public Rect Bounds { get; private set; } = PenHelper.GetBounds(new Rect(default, source.FrameSize.ToSize(1)), pen);
+    public Rect Bounds { get; private set; } =
+        PenHelper.GetBounds(new Rect(default, source.FrameSize.ToSize(1)), pen);
 
     public bool Update(ImageSource.Resource source, Brush.Resource? fill, Pen.Resource? pen)
     {
@@ -22,7 +27,10 @@ public sealed class ImageSourceRenderNode(ImageSource.Resource source, Brush.Res
 
         if (changed && Source.HasValue)
         {
-            Bounds = PenHelper.GetBounds(new Rect(default, Source.Value.Resource.FrameSize.ToSize(1)), Pen?.Resource);
+            Bounds = PenHelper.GetBounds(
+                new Rect(default, Source.Value.Resource.FrameSize.ToSize(1)),
+                Pen?.Resource
+            );
         }
 
         HasChanges = changed;
@@ -31,7 +39,8 @@ public sealed class ImageSourceRenderNode(ImageSource.Resource source, Brush.Res
 
     public override RenderNodeOperation[] Process(RenderNodeContext context)
     {
-        if (!Source.HasValue) return [];
+        if (!Source.HasValue)
+            return [];
 
         return
         [
@@ -42,7 +51,7 @@ public sealed class ImageSourceRenderNode(ImageSource.Resource source, Brush.Res
                     canvas.DrawImageSource(Source.Value.Resource, Fill?.Resource, Pen?.Resource);
                 },
                 hitTest: HitTest
-            )
+            ),
         ];
     }
 

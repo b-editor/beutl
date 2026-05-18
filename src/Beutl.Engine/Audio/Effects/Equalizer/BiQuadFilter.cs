@@ -6,11 +6,15 @@
 public sealed class BiQuadFilter
 {
     // Normalized filter coefficients
-    private float _b0, _b1, _b2;
-    private float _a1, _a2;
+    private float _b0,
+        _b1,
+        _b2;
+    private float _a1,
+        _a2;
 
     // State variables (Direct Form II Transposed)
-    private float _z1, _z2;
+    private float _z1,
+        _z2;
 
     // Current settings
     private BiQuadFilterType _type;
@@ -27,15 +31,25 @@ public sealed class BiQuadFilter
     /// <param name="q">Q factor (determines bandwidth).</param>
     /// <param name="gainDb">Gain in dB - used for Peak, LowShelf, and HighShelf filters.</param>
     /// <param name="sampleRate">Sample rate.</param>
-    public void CalculateCoefficients(BiQuadFilterType type, float frequency, float q, float gainDb, int sampleRate)
+    public void CalculateCoefficients(
+        BiQuadFilterType type,
+        float frequency,
+        float q,
+        float gainDb,
+        int sampleRate
+    )
     {
         // Skip recalculation only when the new parameters are indistinguishable from the last ones.
         // ProcessAnimated calls this per-sample, so the threshold must be tight enough that smooth
         // per-sample Q/gain/frequency ramps are not quantized into audible stair-steps.
         const float epsilon = 1e-5f;
-        if (_type == type && Math.Abs(_frequency - frequency) < epsilon &&
-            Math.Abs(_q - q) < epsilon && Math.Abs(_gainDb - gainDb) < epsilon &&
-            _sampleRate == sampleRate)
+        if (
+            _type == type
+            && Math.Abs(_frequency - frequency) < epsilon
+            && Math.Abs(_q - q) < epsilon
+            && Math.Abs(_gainDb - gainDb) < epsilon
+            && _sampleRate == sampleRate
+        )
         {
             return;
         }
@@ -46,16 +60,35 @@ public sealed class BiQuadFilter
         _gainDb = gainDb;
         _sampleRate = sampleRate;
 
-        ComputeCoefficients(type, frequency, q, gainDb, sampleRate,
-            out _b0, out _b1, out _b2, out _a1, out _a2);
+        ComputeCoefficients(
+            type,
+            frequency,
+            q,
+            gainDb,
+            sampleRate,
+            out _b0,
+            out _b1,
+            out _b2,
+            out _a1,
+            out _a2
+        );
     }
 
     /// <summary>
     /// Computes normalized BiQuad coefficients without touching any filter state.
     /// </summary>
     public static void ComputeCoefficients(
-        BiQuadFilterType type, float frequency, float q, float gainDb, int sampleRate,
-        out float b0Out, out float b1Out, out float b2Out, out float a1Out, out float a2Out)
+        BiQuadFilterType type,
+        float frequency,
+        float q,
+        float gainDb,
+        int sampleRate,
+        out float b0Out,
+        out float b1Out,
+        out float b2Out,
+        out float a1Out,
+        out float a2Out
+    )
     {
         // Clamp frequency to valid range
         frequency = Math.Clamp(frequency, 20f, sampleRate / 2f - 1f);
@@ -70,7 +103,12 @@ public sealed class BiQuadFilter
         // Gain coefficient (convert from dB to linear)
         float A = MathF.Pow(10f, gainDb / 40f); // sqrt(10^(dB/20))
 
-        float b0, b1, b2, a0, a1, a2;
+        float b0,
+            b1,
+            b2,
+            a0,
+            a1,
+            a2;
 
         switch (type)
         {
@@ -168,13 +206,29 @@ public sealed class BiQuadFilter
     /// without touching any filter state. Matches the transfer function the renderer applies at runtime.
     /// </summary>
     public static double CalculateResponseDb(
-        BiQuadFilterType type, float centerFrequency, float q, float gainDb,
-        int sampleRate, float measuredFrequency)
+        BiQuadFilterType type,
+        float centerFrequency,
+        float q,
+        float gainDb,
+        int sampleRate,
+        float measuredFrequency
+    )
     {
-        ComputeCoefficients(type, centerFrequency, q, gainDb, sampleRate,
-            out float b0, out float b1, out float b2, out float a1, out float a2);
+        ComputeCoefficients(
+            type,
+            centerFrequency,
+            q,
+            gainDb,
+            sampleRate,
+            out float b0,
+            out float b1,
+            out float b2,
+            out float a1,
+            out float a2
+        );
 
-        double omega = 2.0 * Math.PI * Math.Clamp(measuredFrequency, 0.0001f, sampleRate / 2f) / sampleRate;
+        double omega =
+            2.0 * Math.PI * Math.Clamp(measuredFrequency, 0.0001f, sampleRate / 2f) / sampleRate;
         double cos1 = Math.Cos(omega);
         double sin1 = Math.Sin(omega);
         double cos2 = Math.Cos(2.0 * omega);
@@ -189,9 +243,11 @@ public sealed class BiQuadFilter
         double denMag2 = denR * denR + denI * denI;
 
         const double minDb = -96.0;
-        if (denMag2 <= double.Epsilon || numMag2 <= 0.0) return minDb;
+        if (denMag2 <= double.Epsilon || numMag2 <= 0.0)
+            return minDb;
         double ratio = numMag2 / denMag2;
-        if (ratio <= 0.0) return minDb;
+        if (ratio <= 0.0)
+            return minDb;
         return Math.Max(10.0 * Math.Log10(ratio), minDb);
     }
 
@@ -251,7 +307,7 @@ public sealed class BiQuadFilter
             _frequency = _frequency,
             _q = _q,
             _gainDb = _gainDb,
-            _sampleRate = _sampleRate
+            _sampleRate = _sampleRate,
             // State variables are reset
         };
     }

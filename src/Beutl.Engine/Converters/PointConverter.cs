@@ -1,7 +1,6 @@
 ﻿using System.ComponentModel;
 using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
-
 using Beutl.Graphics;
 using Beutl.Media;
 
@@ -9,7 +8,10 @@ namespace Beutl.Converters;
 
 public sealed class PointConverter : TypeConverter
 {
-    public override bool CanConvertTo(ITypeDescriptorContext? context, [NotNullWhen(true)] Type? destinationType)
+    public override bool CanConvertTo(
+        ITypeDescriptorContext? context,
+        [NotNullWhen(true)] Type? destinationType
+    )
     {
         return destinationType == typeof(float[])
             || destinationType == typeof(Tuple<float, float>)
@@ -21,7 +23,12 @@ public sealed class PointConverter : TypeConverter
             || base.CanConvertTo(context, destinationType);
     }
 
-    public override object? ConvertTo(ITypeDescriptorContext? context, CultureInfo? culture, object? value, Type destinationType)
+    public override object? ConvertTo(
+        ITypeDescriptorContext? context,
+        CultureInfo? culture,
+        object? value,
+        Type destinationType
+    )
     {
         if (value is Point point)
         {
@@ -58,7 +65,10 @@ public sealed class PointConverter : TypeConverter
         return base.ConvertTo(context, culture, value, destinationType);
     }
 
-    public override bool CanConvertFrom(ITypeDescriptorContext? context, [NotNullWhen(true)] Type? sourceType)
+    public override bool CanConvertFrom(
+        ITypeDescriptorContext? context,
+        [NotNullWhen(true)] Type? sourceType
+    )
     {
         return sourceType == typeof(float[])
             || sourceType == typeof(Tuple<float, float>)
@@ -70,7 +80,11 @@ public sealed class PointConverter : TypeConverter
             || sourceType == typeof(string);
     }
 
-    public override object? ConvertFrom(ITypeDescriptorContext? context, CultureInfo? culture, object value)
+    public override object? ConvertFrom(
+        ITypeDescriptorContext? context,
+        CultureInfo? culture,
+        object value
+    )
     {
         if (value is float[] { Length: >= 2 } array)
         {

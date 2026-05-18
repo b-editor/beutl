@@ -7,16 +7,18 @@ public static class SharedFilePickerOptions
     public static readonly FilePickerFileType NuGetPackageFileType = new("NuGet Package File")
     {
         MimeTypes = ["application/x-beutl-package"],
-        Patterns = ["*.nupkg"]
+        Patterns = ["*.nupkg"],
     };
-    public static readonly FilePickerFileType NuGetPackageManifestFileType = new("NuGet Package Manifest")
+    public static readonly FilePickerFileType NuGetPackageManifestFileType = new(
+        "NuGet Package Manifest"
+    )
     {
         MimeTypes = ["application/xml"],
-        Patterns = ["*.nuspec"]
+        Patterns = ["*.nuspec"],
     };
     public static readonly FilePickerOpenOptions NuGetPackage = new()
     {
-        FileTypeFilter = [NuGetPackageFileType]
+        FileTypeFilter = [NuGetPackageFileType],
     };
 
     public static FilePickerOpenOptions OpenImage()
@@ -43,12 +45,12 @@ public static class SharedFilePickerOptions
                         "*.astc",
                         "*.dng",
                         "*.heif",
-                        "*.avif"
+                        "*.avif",
                     ],
                     AppleUniformTypeIdentifiers = ["public.image"],
-                    MimeTypes = ["image/*"]
-                }
-            ]
+                    MimeTypes = ["image/*"],
+                },
+            ],
         };
     }
 
@@ -76,12 +78,12 @@ public static class SharedFilePickerOptions
                         "*.astc",
                         "*.dng",
                         "*.heif",
-                        "*.avif"
+                        "*.avif",
                     ],
                     AppleUniformTypeIdentifiers = ["public.image"],
-                    MimeTypes = ["image/*"]
-                }
-            ]
+                    MimeTypes = ["image/*"],
+                },
+            ],
         };
     }
 }

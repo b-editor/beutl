@@ -11,7 +11,12 @@ namespace Beutl.Collections.Pooled;
 // src/Avalonia.Base/Collections/Pooled/PooledList.cs
 [DebuggerDisplay("Count = {Count}")]
 [Serializable]
-public class PooledList<T> : IList<T>, IReadOnlyList<T>, IList, IDisposable, IDeserializationCallback
+public class PooledList<T>
+    : IList<T>,
+        IReadOnlyList<T>,
+        IList,
+        IDisposable,
+        IDeserializationCallback
 {
     // internal constant copied from Array.MaxArrayLength
     private const int MaxArrayLength = 0x7FEFFFFF;
@@ -20,6 +25,7 @@ public class PooledList<T> : IList<T>, IReadOnlyList<T>, IList, IDisposable, IDe
 
     [NonSerialized]
     private ArrayPool<T> _pool;
+
     [NonSerialized]
     private object? _syncRoot;
 
@@ -36,7 +42,8 @@ public class PooledList<T> : IList<T>, IReadOnlyList<T>, IList, IDisposable, IDe
     /// increased to DefaultCapacity, and then increased in multiples of two
     /// as required.
     /// </summary>
-    public PooledList() : this(ClearMode.Auto, ArrayPool<T>.Shared) { }
+    public PooledList()
+        : this(ClearMode.Auto, ArrayPool<T>.Shared) { }
 
     /// <summary>
     /// Constructs a PooledList. The list is initially empty and has a capacity
@@ -44,7 +51,8 @@ public class PooledList<T> : IList<T>, IReadOnlyList<T>, IList, IDisposable, IDe
     /// increased to DefaultCapacity, and then increased in multiples of two
     /// as required.
     /// </summary>
-    public PooledList(ClearMode clearMode) : this(clearMode, ArrayPool<T>.Shared) { }
+    public PooledList(ClearMode clearMode)
+        : this(clearMode, ArrayPool<T>.Shared) { }
 
     /// <summary>
     /// Constructs a PooledList. The list is initially empty and has a capacity
@@ -52,7 +60,8 @@ public class PooledList<T> : IList<T>, IReadOnlyList<T>, IList, IDisposable, IDe
     /// increased to DefaultCapacity, and then increased in multiples of two
     /// as required.
     /// </summary>
-    public PooledList(ArrayPool<T> customPool) : this(ClearMode.Auto, customPool) { }
+    public PooledList(ArrayPool<T> customPool)
+        : this(ClearMode.Auto, customPool) { }
 
     /// <summary>
     /// Constructs a PooledList. The list is initially empty and has a capacity
@@ -72,59 +81,74 @@ public class PooledList<T> : IList<T>, IReadOnlyList<T>, IList, IDisposable, IDe
     /// initially empty, but will have room for the given number of elements
     /// before any reallocations are required.
     /// </summary>
-    public PooledList(int capacity) : this(capacity, ClearMode.Auto, ArrayPool<T>.Shared) { }
+    public PooledList(int capacity)
+        : this(capacity, ClearMode.Auto, ArrayPool<T>.Shared) { }
 
     /// <summary>
     /// Constructs a List with a given initial capacity. The list is
     /// initially empty, but will have room for the given number of elements
     /// before any reallocations are required.
     /// </summary>
-    public PooledList(int capacity, bool sizeToCapacity) : this(capacity, ClearMode.Auto, ArrayPool<T>.Shared, sizeToCapacity) { }
+    public PooledList(int capacity, bool sizeToCapacity)
+        : this(capacity, ClearMode.Auto, ArrayPool<T>.Shared, sizeToCapacity) { }
 
     /// <summary>
     /// Constructs a List with a given initial capacity. The list is
     /// initially empty, but will have room for the given number of elements
     /// before any reallocations are required.
     /// </summary>
-    public PooledList(int capacity, ClearMode clearMode) : this(capacity, clearMode, ArrayPool<T>.Shared) { }
+    public PooledList(int capacity, ClearMode clearMode)
+        : this(capacity, clearMode, ArrayPool<T>.Shared) { }
 
     /// <summary>
     /// Constructs a List with a given initial capacity. The list is
     /// initially empty, but will have room for the given number of elements
     /// before any reallocations are required.
     /// </summary>
-    public PooledList(int capacity, ClearMode clearMode, bool sizeToCapacity) : this(capacity, clearMode, ArrayPool<T>.Shared, sizeToCapacity) { }
+    public PooledList(int capacity, ClearMode clearMode, bool sizeToCapacity)
+        : this(capacity, clearMode, ArrayPool<T>.Shared, sizeToCapacity) { }
 
     /// <summary>
     /// Constructs a List with a given initial capacity. The list is
     /// initially empty, but will have room for the given number of elements
     /// before any reallocations are required.
     /// </summary>
-    public PooledList(int capacity, ArrayPool<T> customPool) : this(capacity, ClearMode.Auto, customPool) { }
+    public PooledList(int capacity, ArrayPool<T> customPool)
+        : this(capacity, ClearMode.Auto, customPool) { }
 
     /// <summary>
     /// Constructs a List with a given initial capacity. The list is
     /// initially empty, but will have room for the given number of elements
     /// before any reallocations are required.
     /// </summary>
-    public PooledList(int capacity, ArrayPool<T> customPool, bool sizeToCapacity) : this(capacity, ClearMode.Auto, customPool, sizeToCapacity) { }
+    public PooledList(int capacity, ArrayPool<T> customPool, bool sizeToCapacity)
+        : this(capacity, ClearMode.Auto, customPool, sizeToCapacity) { }
 
     /// <summary>
     /// Constructs a List with a given initial capacity. The list is
     /// initially empty, but will have room for the given number of elements
     /// before any reallocations are required.
     /// </summary>
-    public PooledList(int capacity, ClearMode clearMode, ArrayPool<T> customPool) : this(capacity, clearMode, customPool, false) { }
+    public PooledList(int capacity, ClearMode clearMode, ArrayPool<T> customPool)
+        : this(capacity, clearMode, customPool, false) { }
 
     /// <summary>
     /// Constructs a List with a given initial capacity. The list is
     /// initially empty, but will have room for the given number of elements
     /// before any reallocations are required.
     /// </summary>
-    public PooledList(int capacity, ClearMode clearMode, ArrayPool<T> customPool, bool sizeToCapacity)
+    public PooledList(
+        int capacity,
+        ClearMode clearMode,
+        ArrayPool<T> customPool,
+        bool sizeToCapacity
+    )
     {
         if (capacity < 0)
-            ThrowHelper.ThrowArgumentOutOfRangeException(ExceptionArgument.capacity, ExceptionResource.ArgumentOutOfRange_NeedNonNegNum);
+            ThrowHelper.ThrowArgumentOutOfRangeException(
+                ExceptionArgument.capacity,
+                ExceptionResource.ArgumentOutOfRange_NeedNonNegNum
+            );
 
         _pool = customPool ?? ArrayPool<T>.Shared;
         _clearOnFree = ShouldClear(clearMode);
@@ -153,49 +177,56 @@ public class PooledList<T> : IList<T>, IReadOnlyList<T>, IList, IDisposable, IDe
     /// size and capacity of the new list will both be equal to the size of the
     /// given collection.
     /// </summary>
-    public PooledList(T[] array) : this(array.AsSpan(), ClearMode.Auto, ArrayPool<T>.Shared) { }
+    public PooledList(T[] array)
+        : this(array.AsSpan(), ClearMode.Auto, ArrayPool<T>.Shared) { }
 
     /// <summary>
     /// Constructs a PooledList, copying the contents of the given collection. The
     /// size and capacity of the new list will both be equal to the size of the
     /// given collection.
     /// </summary>
-    public PooledList(T[] array, ClearMode clearMode) : this(array.AsSpan(), clearMode, ArrayPool<T>.Shared) { }
+    public PooledList(T[] array, ClearMode clearMode)
+        : this(array.AsSpan(), clearMode, ArrayPool<T>.Shared) { }
 
     /// <summary>
     /// Constructs a PooledList, copying the contents of the given collection. The
     /// size and capacity of the new list will both be equal to the size of the
     /// given collection.
     /// </summary>
-    public PooledList(T[] array, ArrayPool<T> customPool) : this(array.AsSpan(), ClearMode.Auto, customPool) { }
+    public PooledList(T[] array, ArrayPool<T> customPool)
+        : this(array.AsSpan(), ClearMode.Auto, customPool) { }
 
     /// <summary>
     /// Constructs a PooledList, copying the contents of the given collection. The
     /// size and capacity of the new list will both be equal to the size of the
     /// given collection.
     /// </summary>
-    public PooledList(T[] array, ClearMode clearMode, ArrayPool<T> customPool) : this(array.AsSpan(), clearMode, customPool) { }
+    public PooledList(T[] array, ClearMode clearMode, ArrayPool<T> customPool)
+        : this(array.AsSpan(), clearMode, customPool) { }
 
     /// <summary>
     /// Constructs a PooledList, copying the contents of the given collection. The
     /// size and capacity of the new list will both be equal to the size of the
     /// given collection.
     /// </summary>
-    public PooledList(ReadOnlySpan<T> span) : this(span, ClearMode.Auto, ArrayPool<T>.Shared) { }
+    public PooledList(ReadOnlySpan<T> span)
+        : this(span, ClearMode.Auto, ArrayPool<T>.Shared) { }
 
     /// <summary>
     /// Constructs a PooledList, copying the contents of the given collection. The
     /// size and capacity of the new list will both be equal to the size of the
     /// given collection.
     /// </summary>
-    public PooledList(ReadOnlySpan<T> span, ClearMode clearMode) : this(span, clearMode, ArrayPool<T>.Shared) { }
+    public PooledList(ReadOnlySpan<T> span, ClearMode clearMode)
+        : this(span, clearMode, ArrayPool<T>.Shared) { }
 
     /// <summary>
     /// Constructs a PooledList, copying the contents of the given collection. The
     /// size and capacity of the new list will both be equal to the size of the
     /// given collection.
     /// </summary>
-    public PooledList(ReadOnlySpan<T> span, ArrayPool<T> customPool) : this(span, ClearMode.Auto, customPool) { }
+    public PooledList(ReadOnlySpan<T> span, ArrayPool<T> customPool)
+        : this(span, ClearMode.Auto, customPool) { }
 
     /// <summary>
     /// Constructs a PooledList, copying the contents of the given collection. The
@@ -225,21 +256,24 @@ public class PooledList<T> : IList<T>, IReadOnlyList<T>, IList, IDisposable, IDe
     /// size and capacity of the new list will both be equal to the size of the
     /// given collection.
     /// </summary>
-    public PooledList(IEnumerable<T> collection) : this(collection, ClearMode.Auto, ArrayPool<T>.Shared) { }
+    public PooledList(IEnumerable<T> collection)
+        : this(collection, ClearMode.Auto, ArrayPool<T>.Shared) { }
 
     /// <summary>
     /// Constructs a PooledList, copying the contents of the given collection. The
     /// size and capacity of the new list will both be equal to the size of the
     /// given collection.
     /// </summary>
-    public PooledList(IEnumerable<T> collection, ClearMode clearMode) : this(collection, clearMode, ArrayPool<T>.Shared) { }
+    public PooledList(IEnumerable<T> collection, ClearMode clearMode)
+        : this(collection, clearMode, ArrayPool<T>.Shared) { }
 
     /// <summary>
     /// Constructs a PooledList, copying the contents of the given collection. The
     /// size and capacity of the new list will both be equal to the size of the
     /// given collection.
     /// </summary>
-    public PooledList(IEnumerable<T> collection, ArrayPool<T> customPool) : this(collection, ClearMode.Auto, customPool) { }
+    public PooledList(IEnumerable<T> collection, ArrayPool<T> customPool)
+        : this(collection, ClearMode.Auto, customPool) { }
 
     /// <summary>
     /// Constructs a PooledList, copying the contents of the given collection. The
@@ -292,7 +326,7 @@ public class PooledList<T> : IList<T>, IReadOnlyList<T>, IList, IDisposable, IDe
 
     /// <summary>
     /// Gets and sets the capacity of this list.  The capacity is the size of
-    /// the internal array used to hold items.  When set, the internal 
+    /// the internal array used to hold items.  When set, the internal
     /// Memory of the list is reallocated to the given capacity.
     /// Note that the return value for this property may be larger than the property was set to.
     /// </summary>
@@ -303,7 +337,10 @@ public class PooledList<T> : IList<T>, IReadOnlyList<T>, IList, IDisposable, IDe
         {
             if (value < _size)
             {
-                ThrowHelper.ThrowArgumentOutOfRangeException(ExceptionArgument.value, ExceptionResource.ArgumentOutOfRange_SmallCapacity);
+                ThrowHelper.ThrowArgumentOutOfRangeException(
+                    ExceptionArgument.value,
+                    ExceptionResource.ArgumentOutOfRange_SmallCapacity
+                );
             }
 
             if (value != _items.Length)
@@ -375,7 +412,6 @@ public class PooledList<T> : IList<T>, IReadOnlyList<T>, IList, IDisposable, IDe
             }
             return _items[index];
         }
-
         set
         {
             if ((uint)index >= (uint)_size)
@@ -390,16 +426,13 @@ public class PooledList<T> : IList<T>, IReadOnlyList<T>, IList, IDisposable, IDe
     private static bool IsCompatibleObject(object? value)
     {
         // Non-null values are fine.  Only accept nulls if T is a class or Nullable<U>.
-        // Note that default(T) is not equal to null for value types except when T is Nullable<U>. 
+        // Note that default(T) is not equal to null for value types except when T is Nullable<U>.
         return value is T || value == null && default(T) == null;
     }
 
     object? IList.this[int index]
     {
-        get
-        {
-            return this[index];
-        }
+        get { return this[index]; }
         set
         {
             ThrowHelper.IfNullAndNullsAreIllegalThenThrow<T>(value, ExceptionArgument.value);
@@ -467,16 +500,14 @@ public class PooledList<T> : IList<T>, IReadOnlyList<T>, IList, IDisposable, IDe
     /// required, the capacity of the list is increased to twice the previous
     /// capacity or the new size, whichever is larger.
     /// </summary>
-    public void AddRange(IEnumerable<T> collection)
-        => InsertRange(_size, collection);
+    public void AddRange(IEnumerable<T> collection) => InsertRange(_size, collection);
 
     /// <summary>
     /// Adds the elements of the given array to the end of this list. If
     /// required, the capacity of the list is increased to twice the previous
     /// capacity or the new size, whichever is larger.
     /// </summary>
-    public void AddRange(T[] array)
-        => AddRange(array.AsSpan());
+    public void AddRange(T[] array) => AddRange(array.AsSpan());
 
     /// <summary>
     /// Adds the elements of the given <see cref="ReadOnlySpan{T}"/> to the end of this list. If
@@ -496,17 +527,15 @@ public class PooledList<T> : IList<T>, IReadOnlyList<T>, IList, IDisposable, IDe
     /// of the collection.
     /// </summary>
     /// <param name="count">The number of items to add.</param>
-    public Span<T> AddSpan(int count)
-        => InsertSpan(_size, count);
+    public Span<T> AddSpan(int count) => InsertSpan(_size, count);
 
-    public ReadOnlyCollection<T> AsReadOnly()
-        => new(this);
+    public ReadOnlyCollection<T> AsReadOnly() => new(this);
 
     /// <summary>
     /// Searches a section of the list for a given element using a binary search
-    /// algorithm. 
+    /// algorithm.
     /// </summary>
-    /// 
+    ///
     /// <remarks><para>Elements of the list are compared to the search value using
     /// the given IComparer interface. If comparer is null, elements of
     /// the list are compared to the search value using the IComparable
@@ -528,7 +557,10 @@ public class PooledList<T> : IList<T>, IReadOnlyList<T>, IList, IDisposable, IDe
         if (index < 0)
             ThrowHelper.ThrowIndexArgumentOutOfRange_NeedNonNegNumException();
         if (count < 0)
-            ThrowHelper.ThrowArgumentOutOfRangeException(ExceptionArgument.count, ExceptionResource.ArgumentOutOfRange_NeedNonNegNum);
+            ThrowHelper.ThrowArgumentOutOfRangeException(
+                ExceptionArgument.count,
+                ExceptionResource.ArgumentOutOfRange_NeedNonNegNum
+            );
         if (_size - index < count)
             ThrowHelper.ThrowArgumentException(ExceptionResource.Argument_InvalidOffLen);
 
@@ -540,16 +572,15 @@ public class PooledList<T> : IList<T>, IReadOnlyList<T>, IList, IDisposable, IDe
     /// algorithm. If the item implements <see cref="IComparable{T}"/>
     /// then that is used for comparison, otherwise <see cref="Comparer{T}.Default"/> is used.
     /// </summary>
-    public int BinarySearch(T item)
-        => BinarySearch(0, Count, item, null);
+    public int BinarySearch(T item) => BinarySearch(0, Count, item, null);
 
     /// <summary>
     /// Searches the list for a given element using a binary search
     /// algorithm. If the item implements <see cref="IComparable{T}"/>
     /// then that is used for comparison, otherwise <see cref="Comparer{T}.Default"/> is used.
     /// </summary>
-    public int BinarySearch(T item, IComparer<T> comparer)
-        => BinarySearch(0, Count, item, comparer);
+    public int BinarySearch(T item, IComparer<T> comparer) =>
+        BinarySearch(0, Count, item, comparer);
 
     /// <summary>
     /// Clears the contents of the PooledList.
@@ -627,8 +658,8 @@ public class PooledList<T> : IList<T>, IReadOnlyList<T>, IList, IDisposable, IDe
         Array.Copy(_items, 0, array, arrayIndex, _size);
     }
 
-    // Copies this List into array, which must be of a 
-    // compatible array type.  
+    // Copies this List into array, which must be of a
+    // compatible array type.
     void ICollection.CopyTo(Array array, int arrayIndex)
     {
         _ = array ?? throw new ArgumentNullException(nameof(array));
@@ -669,8 +700,7 @@ public class PooledList<T> : IList<T>, IReadOnlyList<T>, IList, IDisposable, IDe
         }
     }
 
-    public bool Exists(Func<T, bool> match)
-        => FindIndex(match) != -1;
+    public bool Exists(Func<T, bool> match) => FindIndex(match) != -1;
 
     public bool TryFind(Func<T, bool> match, [MaybeNullWhen(false)] out T result)
     {
@@ -706,11 +736,10 @@ public class PooledList<T> : IList<T>, IReadOnlyList<T>, IList, IDisposable, IDe
         return list;
     }
 
-    public int FindIndex(Func<T, bool> match)
-        => FindIndex(0, _size, match);
+    public int FindIndex(Func<T, bool> match) => FindIndex(0, _size, match);
 
-    public int FindIndex(int startIndex, Func<T, bool> match)
-        => FindIndex(startIndex, _size - startIndex, match);
+    public int FindIndex(int startIndex, Func<T, bool> match) =>
+        FindIndex(startIndex, _size - startIndex, match);
 
     public int FindIndex(int startIndex, int count, Func<T, bool> match)
     {
@@ -752,11 +781,10 @@ public class PooledList<T> : IList<T>, IReadOnlyList<T>, IList, IDisposable, IDe
         return false;
     }
 
-    public int FindLastIndex(Func<T, bool> match)
-        => FindLastIndex(_size - 1, _size, match);
+    public int FindLastIndex(Func<T, bool> match) => FindLastIndex(_size - 1, _size, match);
 
-    public int FindLastIndex(int startIndex, Func<T, bool> match)
-        => FindLastIndex(startIndex, startIndex + 1, match);
+    public int FindLastIndex(int startIndex, Func<T, bool> match) =>
+        FindLastIndex(startIndex, startIndex + 1, match);
 
     public int FindLastIndex(int startIndex, int count, Func<T, bool> match)
     {
@@ -822,18 +850,15 @@ public class PooledList<T> : IList<T>, IReadOnlyList<T>, IList, IDisposable, IDe
 
     /// <summary>
     /// Returns an enumerator for this list with the given
-    /// permission for removal of elements. If modifications made to the list 
-    /// while an enumeration is in progress, the MoveNext and 
+    /// permission for removal of elements. If modifications made to the list
+    /// while an enumeration is in progress, the MoveNext and
     /// GetObject methods of the enumerator will throw an exception.
     /// </summary>
-    public Enumerator GetEnumerator()
-        => new(this);
+    public Enumerator GetEnumerator() => new(this);
 
-    IEnumerator<T> IEnumerable<T>.GetEnumerator()
-        => new Enumerator(this);
+    IEnumerator<T> IEnumerable<T>.GetEnumerator() => new Enumerator(this);
 
-    IEnumerator IEnumerable.GetEnumerator()
-        => new Enumerator(this);
+    IEnumerator IEnumerable.GetEnumerator() => new Enumerator(this);
 
     /// <summary>
     /// Equivalent to PooledList.Span.Slice(index, count).
@@ -847,7 +872,10 @@ public class PooledList<T> : IList<T>, IReadOnlyList<T>, IList, IDisposable, IDe
 
         if (count < 0)
         {
-            ThrowHelper.ThrowArgumentOutOfRangeException(ExceptionArgument.count, ExceptionResource.ArgumentOutOfRange_NeedNonNegNum);
+            ThrowHelper.ThrowArgumentOutOfRangeException(
+                ExceptionArgument.count,
+                ExceptionResource.ArgumentOutOfRange_NeedNonNegNum
+            );
         }
 
         if (_size - index < count)
@@ -862,8 +890,7 @@ public class PooledList<T> : IList<T>, IReadOnlyList<T>, IList, IDisposable, IDe
     /// Returns the index of the first occurrence of a given value in
     /// this list. The list is searched forwards from beginning to end.
     /// </summary>
-    public int IndexOf(T item)
-        => Array.IndexOf(_items, item, 0, _size);
+    public int IndexOf(T item) => Array.IndexOf(_items, item, 0, _size);
 
     int IList.IndexOf(object? item)
     {
@@ -877,7 +904,7 @@ public class PooledList<T> : IList<T>, IReadOnlyList<T>, IList, IDisposable, IDe
     /// <summary>
     /// Returns the index of the first occurrence of a given value in a range of
     /// this list. The list is searched forwards, starting at index
-    /// index and ending at count number of elements. 
+    /// index and ending at count number of elements.
     /// </summary>
     public int IndexOf(T item, int index)
     {
@@ -889,7 +916,7 @@ public class PooledList<T> : IList<T>, IReadOnlyList<T>, IList, IDisposable, IDe
     /// <summary>
     /// Returns the index of the first occurrence of a given value in a range of
     /// this list. The list is searched forwards, starting at index
-    /// index and upto count number of elements. 
+    /// index and upto count number of elements.
     /// </summary>
     public int IndexOf(T item, int index, int count)
     {
@@ -912,7 +939,10 @@ public class PooledList<T> : IList<T>, IReadOnlyList<T>, IList, IDisposable, IDe
         // Note that insertions at the end are legal.
         if ((uint)index > (uint)_size)
         {
-            ThrowHelper.ThrowArgumentOutOfRangeException(ExceptionArgument.index, ExceptionResource.ArgumentOutOfRange_ListInsert);
+            ThrowHelper.ThrowArgumentOutOfRangeException(
+                ExceptionArgument.index,
+                ExceptionResource.ArgumentOutOfRange_ListInsert
+            );
         }
 
         if (_size == _items.Length)
@@ -1030,8 +1060,7 @@ public class PooledList<T> : IList<T>, IReadOnlyList<T>, IList, IDisposable, IDe
     /// the set of items to be added, allowing direct writes to that section
     /// of the collection.
     /// </summary>
-    public Span<T> InsertSpan(int index, int count)
-        => InsertSpan(index, count, true);
+    public Span<T> InsertSpan(int index, int count) => InsertSpan(index, count, true);
 
     private Span<T> InsertSpan(int index, int count, bool clearOutput)
     {
@@ -1057,13 +1086,13 @@ public class PooledList<T> : IList<T>, IReadOnlyList<T>, IList, IDisposable, IDe
 
     /// <summary>
     /// Returns the index of the last occurrence of a given value in a range of
-    /// this list. The list is searched backwards, starting at the end 
+    /// this list. The list is searched backwards, starting at the end
     /// and ending at the first element in the list.
     /// </summary>
     public int LastIndexOf(T item)
     {
         if (_size == 0)
-        {  // Special case for empty list
+        { // Special case for empty list
             return -1;
         }
         else
@@ -1098,7 +1127,10 @@ public class PooledList<T> : IList<T>, IReadOnlyList<T>, IList, IDisposable, IDe
 
         if (Count != 0 && count < 0)
         {
-            ThrowHelper.ThrowArgumentOutOfRangeException(ExceptionArgument.count, ExceptionResource.ArgumentOutOfRange_NeedNonNegNum);
+            ThrowHelper.ThrowArgumentOutOfRangeException(
+                ExceptionArgument.count,
+                ExceptionResource.ArgumentOutOfRange_NeedNonNegNum
+            );
         }
 
         if (_size == 0)
@@ -1109,12 +1141,18 @@ public class PooledList<T> : IList<T>, IReadOnlyList<T>, IList, IDisposable, IDe
 
         if (index >= _size)
         {
-            ThrowHelper.ThrowArgumentOutOfRangeException(ExceptionArgument.index, ExceptionResource.ArgumentOutOfRange_BiggerThanCollection);
+            ThrowHelper.ThrowArgumentOutOfRangeException(
+                ExceptionArgument.index,
+                ExceptionResource.ArgumentOutOfRange_BiggerThanCollection
+            );
         }
 
         if (count > index + 1)
         {
-            ThrowHelper.ThrowArgumentOutOfRangeException(ExceptionArgument.count, ExceptionResource.ArgumentOutOfRange_BiggerThanCollection);
+            ThrowHelper.ThrowArgumentOutOfRangeException(
+                ExceptionArgument.count,
+                ExceptionResource.ArgumentOutOfRange_BiggerThanCollection
+            );
         }
 
         return Array.LastIndexOf(_items, item, index, count);
@@ -1151,7 +1189,7 @@ public class PooledList<T> : IList<T>, IReadOnlyList<T>, IList, IDisposable, IDe
         if (match == null)
             ThrowHelper.ThrowArgumentNullException(ExceptionArgument.match);
 
-        int freeIndex = 0;   // the first free slot in items array
+        int freeIndex = 0; // the first free slot in items array
 
         // Find the first item which needs to be removed.
         while (freeIndex < _size && !match(_items[freeIndex]))
@@ -1217,7 +1255,10 @@ public class PooledList<T> : IList<T>, IReadOnlyList<T>, IList, IDisposable, IDe
             ThrowHelper.ThrowIndexArgumentOutOfRange_NeedNonNegNumException();
 
         if (count < 0)
-            ThrowHelper.ThrowArgumentOutOfRangeException(ExceptionArgument.count, ExceptionResource.ArgumentOutOfRange_NeedNonNegNum);
+            ThrowHelper.ThrowArgumentOutOfRangeException(
+                ExceptionArgument.count,
+                ExceptionResource.ArgumentOutOfRange_NeedNonNegNum
+            );
 
         if (_size - index < count)
             ThrowHelper.ThrowArgumentException(ExceptionResource.Argument_InvalidOffLen);
@@ -1243,8 +1284,7 @@ public class PooledList<T> : IList<T>, IReadOnlyList<T>, IList, IDisposable, IDe
     /// <summary>
     /// Reverses the elements in this list.
     /// </summary>
-    public void Reverse()
-        => Reverse(0, _size);
+    public void Reverse() => Reverse(0, _size);
 
     /// <summary>
     /// Reverses the elements in a range of this list. Following a call to this
@@ -1258,7 +1298,10 @@ public class PooledList<T> : IList<T>, IReadOnlyList<T>, IList, IDisposable, IDe
             ThrowHelper.ThrowIndexArgumentOutOfRange_NeedNonNegNumException();
 
         if (count < 0)
-            ThrowHelper.ThrowArgumentOutOfRangeException(ExceptionArgument.count, ExceptionResource.ArgumentOutOfRange_NeedNonNegNum);
+            ThrowHelper.ThrowArgumentOutOfRangeException(
+                ExceptionArgument.count,
+                ExceptionResource.ArgumentOutOfRange_NeedNonNegNum
+            );
 
         if (_size - index < count)
             ThrowHelper.ThrowArgumentException(ExceptionResource.Argument_InvalidOffLen);
@@ -1271,19 +1314,17 @@ public class PooledList<T> : IList<T>, IReadOnlyList<T>, IList, IDisposable, IDe
     }
 
     /// <summary>
-    /// Sorts the elements in this list.  Uses the default comparer and 
+    /// Sorts the elements in this list.  Uses the default comparer and
     /// Array.Sort.
     /// </summary>
-    public void Sort()
-        => Sort(0, Count, null);
+    public void Sort() => Sort(0, Count, null);
 
     /// <summary>
     /// Sorts the elements in this list.  Uses Array.Sort with the
     /// provided comparer.
     /// </summary>
     /// <param name="comparer"></param>
-    public void Sort(IComparer<T> comparer)
-        => Sort(0, Count, comparer);
+    public void Sort(IComparer<T> comparer) => Sort(0, Count, comparer);
 
     /// <summary>
     /// Sorts the elements in a section of this list. The sort compares the
@@ -1291,7 +1332,7 @@ public class PooledList<T> : IList<T>, IReadOnlyList<T>, IList, IDisposable, IDe
     /// comparer is null, the elements are compared to each other using
     /// the IComparable interface, which in that case must be implemented by all
     /// elements of the list.
-    /// 
+    ///
     /// This method uses the Array.Sort method to sort the elements.
     /// </summary>
     public void Sort(int index, int count, IComparer<T>? comparer)
@@ -1300,7 +1341,10 @@ public class PooledList<T> : IList<T>, IReadOnlyList<T>, IList, IDisposable, IDe
             ThrowHelper.ThrowIndexArgumentOutOfRange_NeedNonNegNumException();
 
         if (count < 0)
-            ThrowHelper.ThrowArgumentOutOfRangeException(ExceptionArgument.count, ExceptionResource.ArgumentOutOfRange_NeedNonNegNum);
+            ThrowHelper.ThrowArgumentOutOfRangeException(
+                ExceptionArgument.count,
+                ExceptionResource.ArgumentOutOfRange_NeedNonNegNum
+            );
 
         if (_size - index < count)
             ThrowHelper.ThrowArgumentException(ExceptionResource.Argument_InvalidOffLen);
@@ -1441,9 +1485,7 @@ public class PooledList<T> : IList<T>, IReadOnlyList<T>, IList, IDisposable, IDe
             _current = default;
         }
 
-        public readonly void Dispose()
-        {
-        }
+        public readonly void Dispose() { }
 
         public bool MoveNext()
         {

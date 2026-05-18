@@ -18,8 +18,11 @@ public class HierarchicalExtensionsTests
         public event EventHandler<IHierarchical>? DescendantAttached;
         public event EventHandler<IHierarchical>? DescendantDetached;
 
-        public void OnDescendantAttached(IHierarchical descendant) => DescendantAttached?.Invoke(this, descendant);
-        public void OnDescendantDetached(IHierarchical descendant) => DescendantDetached?.Invoke(this, descendant);
+        public void OnDescendantAttached(IHierarchical descendant) =>
+            DescendantAttached?.Invoke(this, descendant);
+
+        public void OnDescendantDetached(IHierarchical descendant) =>
+            DescendantDetached?.Invoke(this, descendant);
     }
 
     [Test]
@@ -41,7 +44,9 @@ public class HierarchicalExtensionsTests
     {
         var leaf = new SpecialNode();
 
-        SpecialNode? found = ((IHierarchical)leaf).FindHierarchicalParent<SpecialNode>(includeSelf: true);
+        SpecialNode? found = ((IHierarchical)leaf).FindHierarchicalParent<SpecialNode>(
+            includeSelf: true
+        );
 
         Assert.That(found, Is.SameAs(leaf));
     }
@@ -63,7 +68,8 @@ public class HierarchicalExtensionsTests
 
         Assert.That(
             () => ((IHierarchical)root).FindRequiredHierarchicalParent<TestRoot>(),
-            Throws.TypeOf<HierarchyException>());
+            Throws.TypeOf<HierarchyException>()
+        );
     }
 
     [Test]
@@ -95,7 +101,10 @@ public class HierarchicalExtensionsTests
     {
         var leaf = new TestNode();
 
-        IHierarchical? found = ((IHierarchical)leaf).FindHierarchicalParent(typeof(TestNode), includeSelf: true);
+        IHierarchical? found = ((IHierarchical)leaf).FindHierarchicalParent(
+            typeof(TestNode),
+            includeSelf: true
+        );
 
         Assert.That(found, Is.SameAs(leaf));
     }
@@ -107,7 +116,8 @@ public class HierarchicalExtensionsTests
 
         Assert.That(
             () => ((IHierarchical)root).FindRequiredHierarchicalParent(typeof(TestRoot)),
-            Throws.TypeOf<HierarchyException>());
+            Throws.TypeOf<HierarchyException>()
+        );
     }
 
     [Test]
@@ -143,7 +153,9 @@ public class HierarchicalExtensionsTests
         middle.HierarchicalChildren.Add(leaf1);
         middle.HierarchicalChildren.Add(leaf2);
 
-        SpecialNode[] specials = ((IHierarchical)root).EnumerateAllChildren<SpecialNode>().ToArray();
+        SpecialNode[] specials = ((IHierarchical)root)
+            .EnumerateAllChildren<SpecialNode>()
+            .ToArray();
 
         Assert.That(specials, Is.EquivalentTo(new[] { leaf1, leaf2 }));
     }
@@ -157,7 +169,9 @@ public class HierarchicalExtensionsTests
         root.HierarchicalChildren.Add(middle);
         middle.HierarchicalChildren.Add(leaf);
 
-        IHierarchical[] ancestors = ((IHierarchical)leaf).EnumerateAncestors<IHierarchical>().ToArray();
+        IHierarchical[] ancestors = ((IHierarchical)leaf)
+            .EnumerateAncestors<IHierarchical>()
+            .ToArray();
 
         Assert.That(ancestors[0], Is.SameAs(leaf));
         Assert.That(ancestors[^1], Is.SameAs(root));

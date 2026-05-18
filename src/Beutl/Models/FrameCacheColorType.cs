@@ -5,5 +5,5 @@ public enum FrameCacheColorType
     BGRA,
 
     // I420
-    YUV
+    YUV,
 }

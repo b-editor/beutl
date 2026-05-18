@@ -1,6 +1,5 @@
 ﻿using System.ComponentModel.DataAnnotations;
 using System.Reactive.Linq;
-
 using Reactive.Bindings;
 
 namespace PackageSample;
@@ -13,8 +12,8 @@ public sealed class AddWellKnownSizeScreenViewModel
         Width.SetValidateAttribute(() => Width);
         Height.SetValidateAttribute(() => Height);
 
-        Add = Name.ObserveHasErrors
-            .CombineLatest(Width.ObserveHasErrors, Height.ObserveHasErrors)
+        Add = Name
+            .ObserveHasErrors.CombineLatest(Width.ObserveHasErrors, Height.ObserveHasErrors)
             .Select(t => !(t.First || t.Second || t.Third))
             .ToReactiveCommand()
             .WithSubscribe(AddCore);

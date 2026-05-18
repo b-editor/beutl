@@ -25,7 +25,9 @@ public class JsonConvertersExtraTests
     [Test]
     public void Vector3_InvalidString_Throws()
     {
-        Assert.Throws<FormatException>(() => JsonSerializer.Deserialize<Vector3>("\"not-a-vector\"", s_options));
+        Assert.Throws<FormatException>(() =>
+            JsonSerializer.Deserialize<Vector3>("\"not-a-vector\"", s_options)
+        );
     }
 
     [Test]
@@ -39,7 +41,9 @@ public class JsonConvertersExtraTests
     [Test]
     public void Quaternion_TooFewComponents_Throws()
     {
-        Assert.Throws<FormatException>(() => JsonSerializer.Deserialize<Quaternion>("\"1,2,3\"", s_options));
+        Assert.Throws<FormatException>(() =>
+            JsonSerializer.Deserialize<Quaternion>("\"1,2,3\"", s_options)
+        );
     }
 
     [Test]
@@ -61,7 +65,9 @@ public class JsonConvertersExtraTests
     [Test]
     public void Rational_InvalidString_Throws()
     {
-        Assert.Throws<FormatException>(() => JsonSerializer.Deserialize<Rational>("\"3:4\"", s_options));
+        Assert.Throws<FormatException>(() =>
+            JsonSerializer.Deserialize<Rational>("\"3:4\"", s_options)
+        );
     }
 
     [Test]
@@ -71,7 +77,9 @@ public class JsonConvertersExtraTests
         string json = JsonSerializer.Serialize(reference, s_options);
         Assert.That(json, Is.EqualTo($"\"{reference.Id}\""));
 
-        Reference<JsonReferenceTestObject> back = JsonSerializer.Deserialize<Reference<JsonReferenceTestObject>>(json, s_options);
+        Reference<JsonReferenceTestObject> back = JsonSerializer.Deserialize<
+            Reference<JsonReferenceTestObject>
+        >(json, s_options);
         Assert.That(back.Id, Is.EqualTo(reference.Id));
     }
 

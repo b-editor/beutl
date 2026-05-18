@@ -13,7 +13,8 @@ public class FontFamilyEditor : PropertyEditor
         AvaloniaProperty.Register<FontFamilyEditor, Media.FontFamily>(
             nameof(Value),
             defaultValue: Media.FontFamily.Default,
-            defaultBindingMode: BindingMode.TwoWay);
+            defaultBindingMode: BindingMode.TwoWay
+        );
 
     private DropDownButton _button;
     private bool _flyoutActive;
@@ -59,7 +60,9 @@ public class FontFamilyEditor : PropertyEditor
     private Task<Media.FontFamily> Select()
     {
         var viewModel = new FontFamilyPickerFlyoutViewModel();
-        viewModel.SelectedItem.Value = viewModel.Items.FirstOrDefault(f => (Media.FontFamily)f.UserData == Value);
+        viewModel.SelectedItem.Value = viewModel.Items.FirstOrDefault(f =>
+            (Media.FontFamily)f.UserData == Value
+        );
         var prevValue = Value;
         viewModel.SelectedItem.Subscribe(item =>
         {
@@ -67,8 +70,13 @@ public class FontFamilyEditor : PropertyEditor
             if (value != prevValue && value != null)
             {
                 Value = value;
-                RaiseEvent(new PropertyEditorValueChangedEventArgs<Media.FontFamily>(
-                    value, prevValue, ValueChangedEvent));
+                RaiseEvent(
+                    new PropertyEditorValueChangedEventArgs<Media.FontFamily>(
+                        value,
+                        prevValue,
+                        ValueChangedEvent
+                    )
+                );
                 prevValue = Value;
             }
         });
@@ -79,14 +87,16 @@ public class FontFamilyEditor : PropertyEditor
         dialog.Pinned += (_, item) => viewModel.Pin(item);
         dialog.Unpinned += (_, item) => viewModel.Unpin(item);
         dialog.Dismissed += (_, _) => tcs.SetResult(null);
-        dialog.Confirmed += (_, _) => tcs.SetResult(viewModel.SelectedItem.Value?.UserData as Media.FontFamily);
+        dialog.Confirmed += (_, _) =>
+            tcs.SetResult(viewModel.SelectedItem.Value?.UserData as Media.FontFamily);
 
         return tcs.Task;
     }
 
     private async void OnButtonClick(object sender, RoutedEventArgs e)
     {
-        if (_flyoutActive) return;
+        if (_flyoutActive)
+            return;
 
         try
         {
@@ -97,14 +107,24 @@ public class FontFamilyEditor : PropertyEditor
             {
                 var value = Value;
                 Value = oldValue;
-                RaiseEvent(new PropertyEditorValueChangedEventArgs<Media.FontFamily>(
-                    oldValue, value, ValueConfirmedEvent));
+                RaiseEvent(
+                    new PropertyEditorValueChangedEventArgs<Media.FontFamily>(
+                        oldValue,
+                        value,
+                        ValueConfirmedEvent
+                    )
+                );
             }
             else
             {
                 Value = newValue;
-                RaiseEvent(new PropertyEditorValueChangedEventArgs<Media.FontFamily>(
-                    Value, oldValue, ValueConfirmedEvent));
+                RaiseEvent(
+                    new PropertyEditorValueChangedEventArgs<Media.FontFamily>(
+                        Value,
+                        oldValue,
+                        ValueConfirmedEvent
+                    )
+                );
             }
         }
         finally

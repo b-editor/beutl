@@ -8,7 +8,12 @@ public static class StringFormats
      * 1MB以上～1GB未満ならば、789.2MBのように表示し、
      * 1KB以上～1MB未満ならば、300.5KBのように表示
      */
-    public static string ToHumanReadableSize(double size, int scale = 0, int standard = 1024, IFormatProvider? formatProvider = null)
+    public static string ToHumanReadableSize(
+        double size,
+        int scale = 0,
+        int standard = 1024,
+        IFormatProvider? formatProvider = null
+    )
     {
         string[] unit = ["B", "KB", "MB", "GB"];
         if (scale == unit.Length - 1 || size <= standard)

@@ -7,11 +7,15 @@ public sealed class WindowCaptureDialogViewModel
     public WindowCaptureDialogViewModel()
     {
         CanStart = OutputPath
-            .CombineLatest(Scale, FrameRate, (path, scale, fps) =>
-                !string.IsNullOrWhiteSpace(path)
-                && path!.EndsWith(".mp4", StringComparison.OrdinalIgnoreCase)
-                && scale > 0
-                && fps > 0)
+            .CombineLatest(
+                Scale,
+                FrameRate,
+                (path, scale, fps) =>
+                    !string.IsNullOrWhiteSpace(path)
+                    && path!.EndsWith(".mp4", StringComparison.OrdinalIgnoreCase)
+                    && scale > 0
+                    && fps > 0
+            )
             .ToReadOnlyReactivePropertySlim();
     }
 

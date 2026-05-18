@@ -9,17 +9,21 @@ namespace Beutl.Editor.Components.Views;
 
 public sealed class BpmGridFlyout : PickerFlyoutBase
 {
-    public static readonly StyledProperty<bool> IsEnabledCheckedProperty
-        = AvaloniaProperty.Register<BpmGridFlyout, bool>(nameof(IsEnabledChecked));
+    public static readonly StyledProperty<bool> IsEnabledCheckedProperty =
+        AvaloniaProperty.Register<BpmGridFlyout, bool>(nameof(IsEnabledChecked));
 
-    public static readonly StyledProperty<decimal> BpmProperty
-        = AvaloniaProperty.Register<BpmGridFlyout, decimal>(nameof(Bpm), 120m);
+    public static readonly StyledProperty<decimal> BpmProperty = AvaloniaProperty.Register<
+        BpmGridFlyout,
+        decimal
+    >(nameof(Bpm), 120m);
 
-    public static readonly StyledProperty<int> SubdivisionsProperty
-        = AvaloniaProperty.Register<BpmGridFlyout, int>(nameof(Subdivisions), 4);
+    public static readonly StyledProperty<int> SubdivisionsProperty = AvaloniaProperty.Register<
+        BpmGridFlyout,
+        int
+    >(nameof(Subdivisions), 4);
 
-    public static readonly StyledProperty<decimal> OffsetSecondsProperty
-        = AvaloniaProperty.Register<BpmGridFlyout, decimal>(nameof(OffsetSeconds));
+    public static readonly StyledProperty<decimal> OffsetSecondsProperty =
+        AvaloniaProperty.Register<BpmGridFlyout, decimal>(nameof(OffsetSeconds));
 
     private ToggleSwitch? _enabledToggle;
     private NumericUpDown? _bpmUpDown;
@@ -106,7 +110,7 @@ public sealed class BpmGridFlyout : PickerFlyoutBase
                 _subdivisionCombo,
                 new TextBlock { Text = Strings.BpmOffset },
                 _offsetUpDown,
-            }
+            },
         };
 
         var pfp = new PickerFlyoutPresenter
@@ -125,8 +129,11 @@ public sealed class BpmGridFlyout : PickerFlyoutBase
     {
         base.OnOpening(args);
         _initialOptions = new BpmGridOptions(
-            (double)Bpm, Subdivisions,
-            TimeSpan.FromSeconds((double)OffsetSeconds), IsEnabledChecked);
+            (double)Bpm,
+            Subdivisions,
+            TimeSpan.FromSeconds((double)OffsetSeconds),
+            IsEnabledChecked
+        );
 
         if (_enabledToggle != null)
             _enabledToggle.IsChecked = IsEnabledChecked;
@@ -180,7 +187,8 @@ public sealed class BpmGridFlyout : PickerFlyoutBase
             (double)Bpm,
             Subdivisions,
             TimeSpan.FromSeconds((double)OffsetSeconds),
-            IsEnabledChecked);
+            IsEnabledChecked
+        );
         OptionsChanged?.Invoke(this, options);
     }
 }

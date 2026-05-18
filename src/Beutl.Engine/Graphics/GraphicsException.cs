@@ -3,17 +3,11 @@
 [Serializable]
 public sealed class GraphicsException : Exception
 {
-    public GraphicsException()
-    {
-    }
+    public GraphicsException() { }
 
     public GraphicsException(string message)
-        : base(message)
-    {
-    }
+        : base(message) { }
 
     public GraphicsException(string message, Exception inner)
-        : base(message, inner)
-    {
-    }
+        : base(message, inner) { }
 }

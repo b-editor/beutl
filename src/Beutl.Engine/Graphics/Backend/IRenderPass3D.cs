@@ -14,7 +14,11 @@ public interface IRenderPass3D : IDisposable
     /// <param name="framebuffer">The framebuffer to render to.</param>
     /// <param name="clearColors">Clear colors for each color attachment.</param>
     /// <param name="clearDepth">The depth value to clear the depth buffer with.</param>
-    void Begin(IFramebuffer3D framebuffer, ReadOnlySpan<Color> clearColors, float clearDepth = 1.0f);
+    void Begin(
+        IFramebuffer3D framebuffer,
+        ReadOnlySpan<Color> clearColors,
+        float clearDepth = 1.0f
+    );
 
     /// <summary>
     /// Binds a pipeline for rendering.
@@ -49,12 +53,23 @@ public interface IRenderPass3D : IDisposable
     /// <summary>
     /// Draws indexed primitives.
     /// </summary>
-    void DrawIndexed(uint indexCount, uint instanceCount = 1, uint firstIndex = 0, int vertexOffset = 0, uint firstInstance = 0);
+    void DrawIndexed(
+        uint indexCount,
+        uint instanceCount = 1,
+        uint firstIndex = 0,
+        int vertexOffset = 0,
+        uint firstInstance = 0
+    );
 
     /// <summary>
     /// Draws a fullscreen triangle for post-processing.
     /// </summary>
-    void Draw(uint vertexCount, uint instanceCount = 1, uint firstVertex = 0, uint firstInstance = 0);
+    void Draw(
+        uint vertexCount,
+        uint instanceCount = 1,
+        uint firstVertex = 0,
+        uint firstInstance = 0
+    );
 
     /// <summary>
     /// Sets push constants for the currently bound pipeline.
@@ -62,5 +77,9 @@ public interface IRenderPass3D : IDisposable
     /// <typeparam name="T">The type of push constants data.</typeparam>
     /// <param name="data">The push constants data.</param>
     /// <param name="stageFlags">The shader stages that will access the push constants.</param>
-    void SetPushConstants<T>(T data, ShaderStage stageFlags = ShaderStage.Vertex | ShaderStage.Fragment) where T : unmanaged;
+    void SetPushConstants<T>(
+        T data,
+        ShaderStage stageFlags = ShaderStage.Vertex | ShaderStage.Fragment
+    )
+        where T : unmanaged;
 }

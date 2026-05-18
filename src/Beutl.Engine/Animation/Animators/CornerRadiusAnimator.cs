@@ -4,7 +4,11 @@ namespace Beutl.Animation.Animators;
 
 public sealed class CornerRadiusAnimator : Animator<CornerRadius>
 {
-    public override CornerRadius Interpolate(float progress, CornerRadius oldValue, CornerRadius newValue)
+    public override CornerRadius Interpolate(
+        float progress,
+        CornerRadius oldValue,
+        CornerRadius newValue
+    )
     {
         float deltaTL = newValue.TopLeft - oldValue.TopLeft;
         float deltaTR = newValue.TopRight - oldValue.TopRight;

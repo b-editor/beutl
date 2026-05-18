@@ -20,8 +20,7 @@ public sealed partial class LutEffect : FilterEffect
     static LutEffect()
     {
         // https://shizenkarasuzon.hatenablog.com/entry/2020/08/13/185223
-        string sksl =
-            """
+        string sksl = """
             uniform shader src;
             // 横に長いシェーダー指定
             uniform shader lut;
@@ -137,8 +136,7 @@ public sealed partial class LutEffect : FilterEffect
         }
 
         // 1D LUT SkSLシェーダー（バイトテーブルの代替）
-        string sksl1d =
-            """
+        string sksl1d = """
             uniform shader src;
             uniform shader lut;
             uniform int lutSize;
@@ -229,7 +227,8 @@ public sealed partial class LutEffect : FilterEffect
 
     private void OnApply1DLUT_GPU((CubeFile cube, float strength) data, CustomFilterEffectContext c)
     {
-        if (s_1dShader is null) return;
+        if (s_1dShader is null)
+            return;
 
         for (int i = 0; i < c.Targets.Count; i++)
         {
@@ -241,7 +240,9 @@ public sealed partial class LutEffect : FilterEffect
 
             var builder = s_1dShader.CreateBuilder();
 
-            using var lutImage = SKImage.Create(new SKImageInfo(data.cube.Data.Length, 1, SKColorType.RgbaF32));
+            using var lutImage = SKImage.Create(
+                new SKImageInfo(data.cube.Data.Length, 1, SKColorType.RgbaF32)
+            );
             using (var pixmap = lutImage.PeekPixels())
             {
                 var span = pixmap.GetPixelSpan<Vector4>();
@@ -264,7 +265,8 @@ public sealed partial class LutEffect : FilterEffect
 
     private void OnApply3DLUT_GPU((CubeFile cube, float strength) data, CustomFilterEffectContext c)
     {
-        if (s_shader is null) return;
+        if (s_shader is null)
+            return;
 
         for (int i = 0; i < c.Targets.Count; i++)
         {
@@ -276,7 +278,9 @@ public sealed partial class LutEffect : FilterEffect
 
             var builder = s_shader.CreateBuilder();
 
-            using var lutImage = SKImage.Create(new SKImageInfo(data.cube.Data.Length, 1, SKColorType.RgbaF32));
+            using var lutImage = SKImage.Create(
+                new SKImageInfo(data.cube.Data.Length, 1, SKColorType.RgbaF32)
+            );
             using (var pixmap = lutImage.PeekPixels())
             {
                 var span = pixmap.GetPixelSpan<Vector4>();

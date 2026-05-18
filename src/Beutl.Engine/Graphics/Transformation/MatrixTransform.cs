@@ -13,12 +13,16 @@ public sealed partial class MatrixTransform : Transform
         ScanProperties<MatrixTransform>();
     }
 
-    public MatrixTransform(Matrix matrix) : this()
+    public MatrixTransform(Matrix matrix)
+        : this()
     {
         Matrix.CurrentValue = matrix;
     }
 
-    [Display(Name = nameof(GraphicsStrings.MatrixTransform_Matrix), ResourceType = typeof(GraphicsStrings))]
+    [Display(
+        Name = nameof(GraphicsStrings.MatrixTransform_Matrix),
+        ResourceType = typeof(GraphicsStrings)
+    )]
     public IProperty<Matrix> Matrix { get; } = Property.CreateAnimatable(Graphics.Matrix.Identity);
 
     public override Matrix CreateMatrix(CompositionContext context)

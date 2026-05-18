@@ -21,33 +21,56 @@ public class PathGeometryControl : Control
         AvaloniaProperty.Register<PathGeometryControl, Media.PathFigure?>(nameof(Figure));
 
     public static readonly StyledProperty<Media.PathSegment?> SelectedOperationProperty =
-        AvaloniaProperty.Register<PathGeometryControl, Media.PathSegment?>(nameof(SelectedOperation));
+        AvaloniaProperty.Register<PathGeometryControl, Media.PathSegment?>(
+            nameof(SelectedOperation)
+        );
 
-    public static readonly StyledProperty<(PathGeometry.Resource Resource, int Version)?> GeometryResourceProperty =
-        AvaloniaProperty.Register<PathGeometryControl, (PathGeometry.Resource Resource, int Version)?>(
-            nameof(GeometryResource));
+    public static readonly StyledProperty<(
+        PathGeometry.Resource Resource,
+        int Version
+    )?> GeometryResourceProperty = AvaloniaProperty.Register<
+        PathGeometryControl,
+        (PathGeometry.Resource Resource, int Version)?
+    >(nameof(GeometryResource));
 
-    public static readonly StyledProperty<AvaMatrix> MatrixProperty =
-        AvaloniaProperty.Register<PathGeometryControl, AvaMatrix>(nameof(Matrix), AvaMatrix.Identity);
+    public static readonly StyledProperty<AvaMatrix> MatrixProperty = AvaloniaProperty.Register<
+        PathGeometryControl,
+        AvaMatrix
+    >(nameof(Matrix), AvaMatrix.Identity);
 
-    public static readonly StyledProperty<double> ScaleProperty =
-        AvaloniaProperty.Register<PathGeometryControl, double>(nameof(Scale), 1.0);
+    public static readonly StyledProperty<double> ScaleProperty = AvaloniaProperty.Register<
+        PathGeometryControl,
+        double
+    >(nameof(Scale), 1.0);
 
-    public static readonly StyledProperty<bool> IsPlayingProperty =
-        AvaloniaProperty.Register<PathGeometryControl, bool>(nameof(IsPlaying));
+    public static readonly StyledProperty<bool> IsPlayingProperty = AvaloniaProperty.Register<
+        PathGeometryControl,
+        bool
+    >(nameof(IsPlaying));
 
     private static readonly Avalonia.Media.IPen s_pen = new Avalonia.Media.Immutable.ImmutablePen(
-        Avalonia.Media.Brushes.White.ToImmutable(), 1,
-        new Avalonia.Media.Immutable.ImmutableDashStyle([3, 3], 0));
+        Avalonia.Media.Brushes.White.ToImmutable(),
+        1,
+        new Avalonia.Media.Immutable.ImmutableDashStyle([3, 3], 0)
+    );
 
-    private static readonly Avalonia.Media.IPen s_shadowPen = new Avalonia.Media.Immutable.ImmutablePen(
-        Avalonia.Media.Brushes.Black.ToImmutable(), 1,
-        new Avalonia.Media.Immutable.ImmutableDashStyle([3, 3], 0));
+    private static readonly Avalonia.Media.IPen s_shadowPen =
+        new Avalonia.Media.Immutable.ImmutablePen(
+            Avalonia.Media.Brushes.Black.ToImmutable(),
+            1,
+            new Avalonia.Media.Immutable.ImmutableDashStyle([3, 3], 0)
+        );
 
     static PathGeometryControl()
     {
-        AffectsRender<PathGeometryControl>(GeometryProperty, FigureProperty, MatrixProperty, ScaleProperty,
-            SelectedOperationProperty, GeometryResourceProperty);
+        AffectsRender<PathGeometryControl>(
+            GeometryProperty,
+            FigureProperty,
+            MatrixProperty,
+            ScaleProperty,
+            SelectedOperationProperty,
+            GeometryResourceProperty
+        );
     }
 
     public (PathGeometry.Resource Resource, int Version)? GeometryResource
@@ -104,14 +127,21 @@ public class PathGeometryControl : Control
     public override void Render(DrawingContext context)
     {
         base.Render(context);
-        if (Geometry != null
+        if (
+            Geometry != null
             && Figure != null
             && SelectedOperation != null
-            && GeometryResource is { Resource: { } pathGeometry })
+            && GeometryResource is { Resource: { } pathGeometry }
+        )
         {
-            var figureResource = pathGeometry.Figures.FirstOrDefault(f => f.GetOriginal() == Figure);
-            if (figureResource == null) return;
-            int index = figureResource.Segments.FindIndex(s => s.GetOriginal() == SelectedOperation);
+            var figureResource = pathGeometry.Figures.FirstOrDefault(f =>
+                f.GetOriginal() == Figure
+            );
+            if (figureResource == null)
+                return;
+            int index = figureResource.Segments.FindIndex(s =>
+                s.GetOriginal() == SelectedOperation
+            );
             if (figureResource.Segments.Count > 0 && index >= 0)
             {
                 AvaMatrix mat = Matrix * AvaMatrix.CreateScale(Scale, Scale);
@@ -131,7 +161,8 @@ public class PathGeometryControl : Control
                         return;
                     }
 
-                    int prevIndex = (index - 1 + figureResource.Segments.Count) % figureResource.Segments.Count;
+                    int prevIndex =
+                        (index - 1 + figureResource.Segments.Count) % figureResource.Segments.Count;
                     AvaPoint lastPoint = default;
                     if (0 <= prevIndex && prevIndex < figureResource.Segments.Count)
                     {
@@ -146,14 +177,16 @@ public class PathGeometryControl : Control
                             {
                                 DrawLineAndShadow(
                                     mat.Transform(lastPoint),
-                                    mat.Transform(conic.ControlPoint.ToAvaPoint()));
+                                    mat.Transform(conic.ControlPoint.ToAvaPoint())
+                                );
                             }
 
                             if (c2)
                             {
                                 DrawLineAndShadow(
                                     mat.Transform(conic.EndPoint.ToAvaPoint()),
-                                    mat.Transform(conic.ControlPoint.ToAvaPoint()));
+                                    mat.Transform(conic.ControlPoint.ToAvaPoint())
+                                );
                             }
 
                             break;
@@ -163,14 +196,16 @@ public class PathGeometryControl : Control
                             {
                                 DrawLineAndShadow(
                                     mat.Transform(lastPoint),
-                                    mat.Transform(cubic.ControlPoint1.ToAvaPoint()));
+                                    mat.Transform(cubic.ControlPoint1.ToAvaPoint())
+                                );
                             }
 
                             if (c2)
                             {
                                 DrawLineAndShadow(
                                     mat.Transform(cubic.EndPoint.ToAvaPoint()),
-                                    mat.Transform(cubic.ControlPoint2.ToAvaPoint()));
+                                    mat.Transform(cubic.ControlPoint2.ToAvaPoint())
+                                );
                             }
 
                             break;
@@ -180,14 +215,16 @@ public class PathGeometryControl : Control
                             {
                                 DrawLineAndShadow(
                                     mat.Transform(lastPoint),
-                                    mat.Transform(quad.ControlPoint.ToAvaPoint()));
+                                    mat.Transform(quad.ControlPoint.ToAvaPoint())
+                                );
                             }
 
                             if (c2)
                             {
                                 DrawLineAndShadow(
                                     mat.Transform(quad.EndPoint.ToAvaPoint()),
-                                    mat.Transform(quad.ControlPoint.ToAvaPoint()));
+                                    mat.Transform(quad.ControlPoint.ToAvaPoint())
+                                );
                             }
 
                             break;

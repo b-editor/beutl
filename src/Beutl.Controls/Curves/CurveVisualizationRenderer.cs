@@ -21,7 +21,7 @@ public enum HistogramCategory
     Hue = 2,
     Luminance = 4,
     Saturation = 8,
-    All = Rgb | Hue | Luminance | Saturation
+    All = Rgb | Hue | Luminance | Saturation,
 }
 
 public sealed class CurveVisualizationRenderer
@@ -38,23 +38,27 @@ public sealed class CurveVisualizationRenderer
     private int _lumaHistMax;
     private int _satHistMax;
 
-    private static readonly ImmutableSolidColorBrush s_blackOverlayBrush =
-        new(Colors.Black, 0.55);
+    private static readonly ImmutableSolidColorBrush s_blackOverlayBrush = new(Colors.Black, 0.55);
 
-    private static readonly ImmutableSolidColorBrush s_whiteBarBrush =
-        new(Color.FromArgb(100, 255, 255, 255));
+    private static readonly ImmutableSolidColorBrush s_whiteBarBrush = new(
+        Color.FromArgb(100, 255, 255, 255)
+    );
 
-    private static readonly ImmutableSolidColorBrush s_masterBarBrush =
-        new(Color.FromArgb(140, 255, 255, 255));
+    private static readonly ImmutableSolidColorBrush s_masterBarBrush = new(
+        Color.FromArgb(140, 255, 255, 255)
+    );
 
-    private static readonly ImmutableSolidColorBrush s_redBarBrush =
-        new(Color.FromArgb(140, 255, 0, 0));
+    private static readonly ImmutableSolidColorBrush s_redBarBrush = new(
+        Color.FromArgb(140, 255, 0, 0)
+    );
 
-    private static readonly ImmutableSolidColorBrush s_greenBarBrush =
-        new(Color.FromArgb(140, 0, 255, 0));
+    private static readonly ImmutableSolidColorBrush s_greenBarBrush = new(
+        Color.FromArgb(140, 0, 255, 0)
+    );
 
-    private static readonly ImmutableSolidColorBrush s_blueBarBrush =
-        new(Color.FromArgb(140, 30, 144, 255));
+    private static readonly ImmutableSolidColorBrush s_blueBarBrush = new(
+        Color.FromArgb(140, 30, 144, 255)
+    );
 
     private static readonly IBrush s_hueGradientBrush;
     private static readonly IBrush s_luminanceGradientBrush;
@@ -75,7 +79,7 @@ public sealed class CurveVisualizationRenderer
                 new GradientStop(Colors.Cyan, 3.0 / 6),
                 new GradientStop(Colors.Blue, 4.0 / 6),
                 new GradientStop(Colors.Magenta, 5.0 / 6),
-                new GradientStop(Colors.Red, 1.0)
+                new GradientStop(Colors.Red, 1.0),
             ],
             StartPoint = new RelativePoint(0, 0.5, RelativeUnit.Relative),
             EndPoint = new RelativePoint(1, 0.5, RelativeUnit.Relative),
@@ -86,7 +90,7 @@ public sealed class CurveVisualizationRenderer
             GradientStops =
             [
                 new GradientStop(Colors.Black, 0.0),
-                new GradientStop(Colors.White, 1.0)
+                new GradientStop(Colors.White, 1.0),
             ],
             StartPoint = new RelativePoint(0, 0.5, RelativeUnit.Relative),
             EndPoint = new RelativePoint(1, 0.5, RelativeUnit.Relative),
@@ -97,7 +101,7 @@ public sealed class CurveVisualizationRenderer
             GradientStops =
             [
                 new GradientStop(Color.FromArgb(40, 128, 128, 128), 0),
-                new GradientStop(Color.FromArgb(20, 128, 128, 128), 1)
+                new GradientStop(Color.FromArgb(20, 128, 128, 128), 1),
             ],
             StartPoint = new RelativePoint(0, 0, RelativeUnit.Relative),
             EndPoint = new RelativePoint(0, 1, RelativeUnit.Relative),
@@ -108,7 +112,7 @@ public sealed class CurveVisualizationRenderer
             GradientStops =
             [
                 new GradientStop(Color.FromArgb(40, 139, 0, 0), 0),
-                new GradientStop(Color.FromArgb(20, 139, 0, 0), 1)
+                new GradientStop(Color.FromArgb(20, 139, 0, 0), 1),
             ],
             StartPoint = new RelativePoint(0, 0, RelativeUnit.Relative),
             EndPoint = new RelativePoint(0, 1, RelativeUnit.Relative),
@@ -119,7 +123,7 @@ public sealed class CurveVisualizationRenderer
             GradientStops =
             [
                 new GradientStop(Color.FromArgb(40, 0, 100, 0), 0),
-                new GradientStop(Color.FromArgb(20, 0, 100, 0), 1)
+                new GradientStop(Color.FromArgb(20, 0, 100, 0), 1),
             ],
             StartPoint = new RelativePoint(0, 0, RelativeUnit.Relative),
             EndPoint = new RelativePoint(0, 1, RelativeUnit.Relative),
@@ -130,7 +134,7 @@ public sealed class CurveVisualizationRenderer
             GradientStops =
             [
                 new GradientStop(Color.FromArgb(40, 0, 0, 139), 0),
-                new GradientStop(Color.FromArgb(20, 0, 0, 139), 1)
+                new GradientStop(Color.FromArgb(20, 0, 0, 139), 1),
             ],
             StartPoint = new RelativePoint(0, 0, RelativeUnit.Relative),
             EndPoint = new RelativePoint(0, 1, RelativeUnit.Relative),
@@ -139,7 +143,10 @@ public sealed class CurveVisualizationRenderer
 
     public event EventHandler? Updated;
 
-    public void UpdateHistogram(Ref<Bitmap>? sourceBitmapRef, HistogramCategory categories = HistogramCategory.All)
+    public void UpdateHistogram(
+        Ref<Bitmap>? sourceBitmapRef,
+        HistogramCategory categories = HistogramCategory.All
+    )
     {
         if (categories == HistogramCategory.None)
             return;
@@ -185,7 +192,10 @@ public sealed class CurveVisualizationRenderer
         bool requireDispose = false;
         // TODO: Linear/Gammaを切り替えられるようにする
         // TODO: 解像度を高くする
-        if (bitmap.ColorType == BitmapColorType.Bgra8888 && bitmap.ColorSpace == BitmapColorSpace.Srgb)
+        if (
+            bitmap.ColorType == BitmapColorType.Bgra8888
+            && bitmap.ColorSpace == BitmapColorSpace.Srgb
+        )
         {
             rgbaGamma = bitmap;
         }
@@ -216,7 +226,11 @@ public sealed class CurveVisualizationRenderer
                         _gHist[g]++;
                         _rHist[r]++;
 
-                        int luminance = (int)Math.Round(r * 0.2126 + g * 0.7152 + b * 0.0722, MidpointRounding.AwayFromZero);
+                        int luminance = (int)
+                            Math.Round(
+                                r * 0.2126 + g * 0.7152 + b * 0.0722,
+                                MidpointRounding.AwayFromZero
+                            );
                         _combinedHist[luminance]++;
                     }
 
@@ -244,14 +258,20 @@ public sealed class CurveVisualizationRenderer
         }
         finally
         {
-            if (requireDispose) rgbaGamma.Dispose();
+            if (requireDispose)
+                rgbaGamma.Dispose();
             cloned.Dispose();
         }
 
         if (needRgb)
         {
-            _histMax = Math.Max(1,
-                Math.Max(_combinedHist.Max(), Math.Max(_rHist.Max(), Math.Max(_gHist.Max(), _bHist.Max()))));
+            _histMax = Math.Max(
+                1,
+                Math.Max(
+                    _combinedHist.Max(),
+                    Math.Max(_rHist.Max(), Math.Max(_gHist.Max(), _bHist.Max()))
+                )
+            );
         }
 
         if (needHue)
@@ -272,7 +292,14 @@ public sealed class CurveVisualizationRenderer
         Updated?.Invoke(this, EventArgs.Empty);
     }
 
-    private static void RgbToHsl(byte r, byte g, byte b, out int hue, out int saturation, out int luminance)
+    private static void RgbToHsl(
+        byte r,
+        byte g,
+        byte b,
+        out int hue,
+        out int saturation,
+        out int luminance
+    )
     {
         float rf = r / 255f;
         float gf = g / 255f;
@@ -311,7 +338,8 @@ public sealed class CurveVisualizationRenderer
                 h = 60f * (((rf - gf) / delta) + 4f);
             }
         }
-        if (h < 0) h += 360f;
+        if (h < 0)
+            h += 360f;
         hue = (int)Math.Clamp(Math.Round(h), 0, 359);
     }
 
@@ -354,7 +382,13 @@ public sealed class CurveVisualizationRenderer
         }
     }
 
-    private void DrawHistogram(DrawingContext context, Rect bounds, IBrush backBrush, IBrush barBrush, int[] histogram)
+    private void DrawHistogram(
+        DrawingContext context,
+        Rect bounds,
+        IBrush backBrush,
+        IBrush barBrush,
+        int[] histogram
+    )
     {
         context.DrawRectangle(backBrush, null, bounds);
         if (histogram.Length == 0 || _histMax <= 0)
@@ -365,7 +399,12 @@ public sealed class CurveVisualizationRenderer
         for (int i = 0; i < histogram.Length; i++)
         {
             double height = bounds.Height * histogram[i] / _histMax;
-            var rect = new Rect(bounds.X + i * barWidth, bounds.Bottom - height, Math.Max(1, barWidth - 0.5), height);
+            var rect = new Rect(
+                bounds.X + i * barWidth,
+                bounds.Bottom - height,
+                Math.Max(1, barWidth - 0.5),
+                height
+            );
             context.DrawRectangle(barBrush, null, rect);
         }
     }
@@ -382,7 +421,12 @@ public sealed class CurveVisualizationRenderer
             for (int i = 0; i < 360; i++)
             {
                 double height = bounds.Height * _hueHist[i] / _hueHistMax;
-                var rect = new Rect(bounds.X + i * barWidth, bounds.Bottom - height, Math.Max(1, barWidth), height);
+                var rect = new Rect(
+                    bounds.X + i * barWidth,
+                    bounds.Bottom - height,
+                    Math.Max(1, barWidth),
+                    height
+                );
                 context.DrawRectangle(s_whiteBarBrush, null, rect);
             }
         }
@@ -400,7 +444,12 @@ public sealed class CurveVisualizationRenderer
             for (int i = 0; i < 256; i++)
             {
                 double height = bounds.Height * _lumaHist[i] / _lumaHistMax;
-                var rect = new Rect(bounds.X + i * barWidth, bounds.Bottom - height, Math.Max(1, barWidth), height);
+                var rect = new Rect(
+                    bounds.X + i * barWidth,
+                    bounds.Bottom - height,
+                    Math.Max(1, barWidth),
+                    height
+                );
                 context.DrawRectangle(s_whiteBarBrush, null, rect);
             }
         }
@@ -418,7 +467,12 @@ public sealed class CurveVisualizationRenderer
             for (int i = 0; i < 256; i++)
             {
                 double height = bounds.Height * _satHist[i] / _satHistMax;
-                var rect = new Rect(bounds.X + i * barWidth, bounds.Bottom - height, Math.Max(1, barWidth), height);
+                var rect = new Rect(
+                    bounds.X + i * barWidth,
+                    bounds.Bottom - height,
+                    Math.Max(1, barWidth),
+                    height
+                );
                 context.DrawRectangle(s_whiteBarBrush, null, rect);
             }
         }

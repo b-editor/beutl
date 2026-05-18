@@ -37,8 +37,7 @@ public class PixelRectTests
     [Test]
     public void Intersect()
     {
-        var rect = new PixelRect(0, 0, 100, 100)
-            .Intersect(new PixelRect(50, 50, 100, 100));
+        var rect = new PixelRect(0, 0, 100, 100).Intersect(new PixelRect(50, 50, 100, 100));
 
         Assert.That(rect, Is.EqualTo(new PixelRect(50, 50, 50, 50)));
     }
@@ -65,8 +64,7 @@ public class PixelRectTests
     [Test]
     public void Union()
     {
-        var rect = new PixelRect(0, 0, 100, 100)
-            .Union(new PixelRect(50, 50, 100, 100));
+        var rect = new PixelRect(0, 0, 100, 100).Union(new PixelRect(50, 50, 100, 100));
 
         Assert.That(rect, Is.EqualTo(new PixelRect(0, 0, 150, 150)));
     }

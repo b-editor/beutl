@@ -46,22 +46,28 @@ public class RefUtf8StringTokenizerExtraTests
     [Test]
     public void DoubleSeparator_ThrowsFormatException()
     {
-        Assert.That(() =>
-        {
-            var t = new RefUtf8StringTokenizer("1,,2"u8, CultureInfo.InvariantCulture);
-            t.ReadInt32();
-            t.ReadInt32();
-        }, Throws.TypeOf<FormatException>());
+        Assert.That(
+            () =>
+            {
+                var t = new RefUtf8StringTokenizer("1,,2"u8, CultureInfo.InvariantCulture);
+                t.ReadInt32();
+                t.ReadInt32();
+            },
+            Throws.TypeOf<FormatException>()
+        );
     }
 
     [Test]
     public void TrailingSeparator_ThrowsFormatException()
     {
-        Assert.That(() =>
-        {
-            var t = new RefUtf8StringTokenizer("1,"u8, CultureInfo.InvariantCulture);
-            t.ReadInt32();
-        }, Throws.TypeOf<FormatException>());
+        Assert.That(
+            () =>
+            {
+                var t = new RefUtf8StringTokenizer("1,"u8, CultureInfo.InvariantCulture);
+                t.ReadInt32();
+            },
+            Throws.TypeOf<FormatException>()
+        );
     }
 
     [Test]

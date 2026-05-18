@@ -19,7 +19,9 @@ public partial class GraphModel : EngineObject
             .Accessor(o => o.Nodes, (o, v) => o.Nodes = v)
             .Register();
 
-        AllConnectionsProperty = ConfigureProperty<HierarchicalList<Connection>, GraphModel>(nameof(AllConnections))
+        AllConnectionsProperty = ConfigureProperty<HierarchicalList<Connection>, GraphModel>(
+                nameof(AllConnections)
+            )
             .Accessor(o => o.AllConnections, (o, v) => o.AllConnections = v)
             .Register();
     }
@@ -107,8 +109,7 @@ public partial class GraphModel : EngineObject
         {
             foreach (INodeMember item in node.Items.GetMarshal().Value)
             {
-                if (item is INodePort port
-                    && port.Id == id)
+                if (item is INodePort port && port.Id == id)
                 {
                     return port;
                 }

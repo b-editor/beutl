@@ -29,7 +29,8 @@ public sealed class NodeMemberOperationObserver : IOperationObserver
         INodeMember nodeMember,
         OperationSequenceGenerator sequenceNumberGenerator,
         string propertyPath = "",
-        HashSet<string>? propertyPathsToTrack = null)
+        HashSet<string>? propertyPathsToTrack = null
+    )
     {
         _nodeMember = nodeMember;
         _sequenceNumberGenerator = sequenceNumberGenerator;
@@ -41,7 +42,8 @@ public sealed class NodeMemberOperationObserver : IOperationObserver
             _subscription = _operations.Subscribe(observer);
         }
 
-        HashSet<string>? propertiesToTrack = _propertyPathsToTrack?.Where(i => i.Contains(_propertyPath))
+        HashSet<string>? propertiesToTrack = _propertyPathsToTrack
+            ?.Where(i => i.Contains(_propertyPath))
             .Select(i => i.Substring(_propertyPath.Length).TrimStart('.').Split('.').First())
             .Where(i => !string.IsNullOrEmpty(i))
             .ToHashSet();
@@ -49,29 +51,34 @@ public sealed class NodeMemberOperationObserver : IOperationObserver
         if (propertiesToTrack?.Contains("Property") != false)
         {
             RecreateChildObserver(_nodeMember.Property?.GetValue());
-            _nodeMember.Property?.GetObservable()
+            _nodeMember
+                .Property?.GetObservable()
                 .CombineWithPrevious()
                 .Skip(1)
                 .Subscribe(t => OnChanged(t.OldValue, t.NewValue))
                 .DisposeWith(_subscriptionToProperty);
         }
 
-        if (_nodeMember.Property is IAnimatablePropertyAdapter animatablePropertyAdapter &&
-            propertiesToTrack?.Contains("Animation") != false)
+        if (
+            _nodeMember.Property is IAnimatablePropertyAdapter animatablePropertyAdapter
+            && propertiesToTrack?.Contains("Animation") != false
+        )
         {
             RecreateAnimationObserver(animatablePropertyAdapter.Animation);
-            animatablePropertyAdapter.ObserveAnimation
-                .CombineWithPrevious()
+            animatablePropertyAdapter
+                .ObserveAnimation.CombineWithPrevious()
                 .Skip(1)
                 .Subscribe(t => OnAnimationChanged(t.OldValue, t.NewValue))
                 .DisposeWith(_subscriptionToProperty);
         }
 
-        if (_nodeMember.Property is IExpressionPropertyAdapter expressionPropertyAdapter &&
-            propertiesToTrack?.Contains("Expression") != false)
+        if (
+            _nodeMember.Property is IExpressionPropertyAdapter expressionPropertyAdapter
+            && propertiesToTrack?.Contains("Expression") != false
+        )
         {
-            expressionPropertyAdapter.ObserveExpression
-                .CombineWithPrevious()
+            expressionPropertyAdapter
+                .ObserveExpression.CombineWithPrevious()
                 .Skip(1)
                 .Subscribe(OnExpressionChanged)
                 .DisposeWith(_subscriptionToProperty);
@@ -80,13 +87,18 @@ public sealed class NodeMemberOperationObserver : IOperationObserver
 
     private void OnExpressionChanged((IExpression? OldValue, IExpression? NewValue) t)
     {
-        if (PublishingSuppression.IsSuppressed) return;
+        if (PublishingSuppression.IsSuppressed)
+            return;
 
-        var operation =
-            new UpdateNodeMemberOperation(_nodeMember,
-                string.IsNullOrEmpty(_propertyPath) ? "Expression" : $"{_propertyPath}.Expression", t.NewValue,
-                t.OldValue)
-            { SequenceNumber = _sequenceNumberGenerator.GetNext() };
+        var operation = new UpdateNodeMemberOperation(
+            _nodeMember,
+            string.IsNullOrEmpty(_propertyPath) ? "Expression" : $"{_propertyPath}.Expression",
+            t.NewValue,
+            t.OldValue
+        )
+        {
+            SequenceNumber = _sequenceNumberGenerator.GetNext(),
+        };
         _operations.OnNext(operation);
     }
 
@@ -107,20 +119,26 @@ public sealed class NodeMemberOperationObserver : IOperationObserver
                 animObject,
                 _sequenceNumberGenerator,
                 GetAnimationPath(),
-                _propertyPathsToTrack);
+                _propertyPathsToTrack
+            );
         }
     }
 
     private void OnAnimationChanged(IAnimation? oldAnimation, IAnimation? newAnimation)
     {
-        if (PublishingSuppression.IsSuppressed) return;
+        if (PublishingSuppression.IsSuppressed)
+            return;
 
         RecreateAnimationObserver(newAnimation);
 
         var operation = new UpdateNodeMemberOperation(
-            _nodeMember, GetAnimationPath(), newAnimation, oldAnimation)
+            _nodeMember,
+            GetAnimationPath(),
+            newAnimation,
+            oldAnimation
+        )
         {
-            SequenceNumber = _sequenceNumberGenerator.GetNext()
+            SequenceNumber = _sequenceNumberGenerator.GetNext(),
         };
         _operations.OnNext(operation);
     }
@@ -146,26 +164,39 @@ public sealed class NodeMemberOperationObserver : IOperationObserver
                     coreObject,
                     _sequenceNumberGenerator,
                     string.IsNullOrEmpty(_propertyPath) ? "Property" : $"{_propertyPath}.Property",
-                    _propertyPathsToTrack);
+                    _propertyPathsToTrack
+                );
                 break;
             case IList list:
                 var elementType = ArrayTypeHelpers.GetElementType(list.GetType());
                 if (elementType == null)
-                    throw new InvalidOperationException("Could not determine the element type of the list.");
-                var observerType = typeof(CollectionOperationObserver<>).MakeGenericType(elementType);
+                    throw new InvalidOperationException(
+                        "Could not determine the element type of the list."
+                    );
+                var observerType = typeof(CollectionOperationObserver<>).MakeGenericType(
+                    elementType
+                );
 
-                _valueObserver = (IOperationObserver?)Activator.CreateInstance(observerType,
-                    _operations, list, _nodeMember,
-                    string.IsNullOrEmpty(_propertyPath) ? "Property" : $"{_propertyPath}.Property",
-                    _sequenceNumberGenerator,
-                    _propertyPathsToTrack)!;
+                _valueObserver = (IOperationObserver?)
+                    Activator.CreateInstance(
+                        observerType,
+                        _operations,
+                        list,
+                        _nodeMember,
+                        string.IsNullOrEmpty(_propertyPath)
+                            ? "Property"
+                            : $"{_propertyPath}.Property",
+                        _sequenceNumberGenerator,
+                        _propertyPathsToTrack
+                    )!;
                 break;
         }
     }
 
     private void OnChanged(object? oldValue, object? newValue)
     {
-        if (PublishingSuppression.IsSuppressed) return;
+        if (PublishingSuppression.IsSuppressed)
+            return;
 
         RecreateChildObserver(newValue);
 
@@ -180,7 +211,7 @@ public sealed class NodeMemberOperationObserver : IOperationObserver
 
         var operation = new UpdateNodeMemberOperation(_nodeMember, fullPath, newValue, oldValue)
         {
-            SequenceNumber = _sequenceNumberGenerator.GetNext()
+            SequenceNumber = _sequenceNumberGenerator.GetNext(),
         };
         _operations.OnNext(operation);
     }

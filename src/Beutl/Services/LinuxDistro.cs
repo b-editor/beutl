@@ -51,8 +51,10 @@ public static class LinuxDistro
             if (lines.Length >= 1)
             {
                 string line = lines[0];
-                if (line.StartsWith("Red Hat Enterprise Linux Server release 6.") ||
-                    line.StartsWith("CentOS release 6."))
+                if (
+                    line.StartsWith("Red Hat Enterprise Linux Server release 6.")
+                    || line.StartsWith("CentOS release 6.")
+                )
                 {
                     id = "rhel";
                     versionId = "6";

@@ -17,7 +17,10 @@ public sealed partial class SceneDrawable : Drawable
         ScanProperties<SceneDrawable>();
     }
 
-    [Display(Name = nameof(GraphicsStrings.SceneDrawable_ReferencedScene), ResourceType = typeof(GraphicsStrings))]
+    [Display(
+        Name = nameof(GraphicsStrings.SceneDrawable_ReferencedScene),
+        ResourceType = typeof(GraphicsStrings)
+    )]
     public IProperty<Scene?> ReferencedScene { get; } = Property.Create<Scene?>();
 
     protected override Size MeasureCore(Size availableSize, Drawable.Resource resource)
@@ -37,12 +40,16 @@ public sealed partial class SceneDrawable : Drawable
         context.DrawNode(
             r,
             static r => new SceneBitmapRenderNode(r),
-            static (node, r) => node.Update(r));
+            static (node, r) => node.Update(r)
+        );
     }
 
     private readonly struct CapturedCompositionFrame(CompositionFrame frame)
     {
-        public readonly ImmutableArray<(EngineObject.Resource Resource, int Version)> Objects = [.. frame.Objects.Select(r => (r, r.Version))];
+        public readonly ImmutableArray<(EngineObject.Resource Resource, int Version)> Objects =
+        [
+            .. frame.Objects.Select(r => (r, r.Version)),
+        ];
         public readonly PixelSize Size = frame.Size;
 
         public bool IsSame(CompositionFrame frame)
@@ -94,8 +101,10 @@ public sealed partial class SceneDrawable : Drawable
                 changed = true;
             }
 
-            if (_compositor?.Scene != ReferencedScene
-                || _compositor?.DisableResourceShare != context.DisableResourceShare)
+            if (
+                _compositor?.Scene != ReferencedScene
+                || _compositor?.DisableResourceShare != context.DisableResourceShare
+            )
             {
                 _compositor?.Dispose();
                 _compositor = null;
@@ -116,7 +125,8 @@ public sealed partial class SceneDrawable : Drawable
 
             try
             {
-                CapturedCompositionFrame? oldFrame = Frame != null ? new CapturedCompositionFrame(Frame.Value) : null;
+                CapturedCompositionFrame? oldFrame =
+                    Frame != null ? new CapturedCompositionFrame(Frame.Value) : null;
                 Frame = _compositor?.EvaluateGraphics(context.Time - obj.Start);
 
                 if (oldFrame.HasValue && Frame.HasValue)
@@ -190,7 +200,8 @@ public sealed partial class SceneDrawable : Drawable
                         _renderer.Render(frame.Value);
                         RenderTarget renderTarget = Renderer.GetInternalRenderTarget(_renderer);
                         canvas.DrawRenderTarget(renderTarget, default);
-                    })
+                    }
+                ),
             ];
         }
 

@@ -3,17 +3,11 @@
 public class IDATChunk : Chunk
 {
     public IDATChunk(byte[] bytes)
-        : base(bytes)
-    {
-    }
+        : base(bytes) { }
 
     public IDATChunk(MemoryStream ms)
-        : base(ms)
-    {
-    }
+        : base(ms) { }
 
     public IDATChunk(Chunk chunk)
-        : base(chunk)
-    {
-    }
+        : base(chunk) { }
 }

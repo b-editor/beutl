@@ -14,11 +14,17 @@ public sealed partial class BarSpectrumShape : SpectrumShape
         ScanProperties<BarSpectrumShape>();
     }
 
-    [Display(Name = nameof(GraphicsStrings.SpectrumShape_BarWidth), ResourceType = typeof(GraphicsStrings))]
+    [Display(
+        Name = nameof(GraphicsStrings.SpectrumShape_BarWidth),
+        ResourceType = typeof(GraphicsStrings)
+    )]
     [Range(0.5f, 10000f)]
     public IProperty<float> BarWidth { get; } = Property.CreateAnimatable(6f);
 
-    [Display(Name = nameof(GraphicsStrings.SpectrumShape_CornerRadius), ResourceType = typeof(GraphicsStrings))]
+    [Display(
+        Name = nameof(GraphicsStrings.SpectrumShape_CornerRadius),
+        ResourceType = typeof(GraphicsStrings)
+    )]
     public IProperty<CornerRadius> CornerRadius { get; } =
         Property.CreateAnimatable<CornerRadius>(new CornerRadius(0f));
 
@@ -31,10 +37,12 @@ public sealed partial class BarSpectrumShape : SpectrumShape
             ImmediateCanvas canvas,
             Rect bounds,
             ReadOnlySpan<float> normalizedBars,
-            Brush.Resource fill)
+            Brush.Resource fill
+        )
         {
             int barCount = normalizedBars.Length;
-            if (barCount == 0) return;
+            if (barCount == 0)
+                return;
 
             float width = (float)bounds.Width;
             float height = (float)bounds.Height;

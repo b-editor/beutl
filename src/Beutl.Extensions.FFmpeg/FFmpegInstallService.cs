@@ -8,7 +8,6 @@ using System.Text.RegularExpressions;
 using Beutl.Extensions.FFmpeg.Properties;
 using Beutl.Logging;
 using Microsoft.Extensions.Logging;
-
 #if !FFMPEG_OUT_OF_PROCESS
 using FFmpeg.AutoGen.Abstractions;
 using FFmpeg.AutoGen.Bindings.DynamicallyLoaded;
@@ -18,12 +17,14 @@ namespace Beutl.Extensions.FFmpeg;
 
 internal sealed class GitHubRelease
 {
-    [JsonPropertyName("assets")] public GitHubAsset[]? Assets { get; set; }
+    [JsonPropertyName("assets")]
+    public GitHubAsset[]? Assets { get; set; }
 }
 
 internal sealed class GitHubAsset
 {
-    [JsonPropertyName("name")] public string? Name { get; set; }
+    [JsonPropertyName("name")]
+    public string? Name { get; set; }
 
     [JsonPropertyName("browser_download_url")]
     public string? BrowserDownloadUrl { get; set; }
@@ -32,14 +33,15 @@ internal sealed class GitHubAsset
 public enum FFmpegInstallMethod
 {
     BtbNBuilds, // Windows, Linux: Download from BtbN/FFmpeg-Builds
-    Homebrew // macOS: brew install ffmpeg@8
+    Homebrew, // macOS: brew install ffmpeg@8
 }
 
 public class FFmpegInstallService
 {
     private readonly ILogger _logger = Log.CreateLogger<FFmpegInstallService>();
     private readonly CancellationTokenSource _cts = new();
-    private const string GitHubReleasesApiUrl = "https://api.github.com/repos/BtbN/FFmpeg-Builds/releases";
+    private const string GitHubReleasesApiUrl =
+        "https://api.github.com/repos/BtbN/FFmpeg-Builds/releases";
 
     public event Action<string>? ProgressTextChanged;
     public event Action<double, double>? ProgressChanged;
@@ -65,24 +67,33 @@ public class FFmpegInstallService
             return RuntimeInformation.OSArchitecture switch
             {
                 Architecture.X64 => new(@"^ffmpeg-n8[0-9.-]+-.*-win64-gpl-shared-8[0-9.-]+\.zip$"),
-                Architecture.Arm64 => new(@"^ffmpeg-n8[0-9.-]+-.*-winarm64-gpl-shared-8[0-9.-]+\.zip$"),
-                _ => null
+                Architecture.Arm64 => new(
+                    @"^ffmpeg-n8[0-9.-]+-.*-winarm64-gpl-shared-8[0-9.-]+\.zip$"
+                ),
+                _ => null,
             };
         }
         else if (OperatingSystem.IsLinux())
         {
             return RuntimeInformation.OSArchitecture switch
             {
-                Architecture.X64 => new(@"^ffmpeg-n8[0-9.-]+-.*-linux64-gpl-shared-8[0-9.-]+\.tar\.xz$"),
-                Architecture.Arm64 => new(@"^ffmpeg-n8[0-9.-]+-.*-linuxarm64-gpl-shared-8[0-9.-]+\.tar\.xz$"),
-                _ => null
+                Architecture.X64 => new(
+                    @"^ffmpeg-n8[0-9.-]+-.*-linux64-gpl-shared-8[0-9.-]+\.tar\.xz$"
+                ),
+                Architecture.Arm64 => new(
+                    @"^ffmpeg-n8[0-9.-]+-.*-linuxarm64-gpl-shared-8[0-9.-]+\.tar\.xz$"
+                ),
+                _ => null,
             };
         }
 
         return null;
     }
 
-    private async Task<string?> GetDownloadUrlAsync(HttpClient client, CancellationToken ct = default)
+    private async Task<string?> GetDownloadUrlAsync(
+        HttpClient client,
+        CancellationToken ct = default
+    )
     {
         Regex? regex = GetAssetNameRegex();
         if (regex == null)
@@ -94,7 +105,10 @@ public class FFmpegInstallService
             client.DefaultRequestHeaders.Add("Accept", "application/vnd.github+json");
 
             _logger.LogInformation("Fetching releases from GitHub API");
-            GitHubRelease[]? releases = await client.GetFromJsonAsync<GitHubRelease[]>(GitHubReleasesApiUrl, ct);
+            GitHubRelease[]? releases = await client.GetFromJsonAsync<GitHubRelease[]>(
+                GitHubReleasesApiUrl,
+                ct
+            );
             if (releases == null)
                 return null;
 
@@ -107,8 +121,11 @@ public class FFmpegInstallService
                 {
                     if (asset.Name != null && regex.IsMatch(asset.Name))
                     {
-                        _logger.LogInformation("Found FFmpeg asset: {Name}, URL: {Url}", asset.Name,
-                            asset.BrowserDownloadUrl);
+                        _logger.LogInformation(
+                            "Found FFmpeg asset: {Name}, URL: {Url}",
+                            asset.Name,
+                            asset.BrowserDownloadUrl
+                        );
                         return asset.BrowserDownloadUrl;
                     }
                 }
@@ -205,7 +222,11 @@ public class FFmpegInstallService
         await VerifyAndCompleteAsync();
     }
 
-    private async Task<string?> DownloadFileAsync(HttpClient client, string url, CancellationToken ct)
+    private async Task<string?> DownloadFileAsync(
+        HttpClient client,
+        string url,
+        CancellationToken ct
+    )
     {
         try
         {
@@ -214,7 +235,11 @@ public class FFmpegInstallService
             ProgressTextChanged?.Invoke(Language.MessageStrings.Downloading);
 
             _logger.LogInformation("Downloading FFmpeg from {Url}", url);
-            using HttpResponseMessage response = await client.GetAsync(url, HttpCompletionOption.ResponseHeadersRead, ct);
+            using HttpResponseMessage response = await client.GetAsync(
+                url,
+                HttpCompletionOption.ResponseHeadersRead,
+                ct
+            );
             response.EnsureSuccessStatusCode();
 
             long? contentLength = response.Content.Headers.ContentLength;
@@ -264,14 +289,22 @@ public class FFmpegInstallService
         }
     }
 
-    private async Task<bool> ExtractArchiveAsync(string archivePath, string destinationPath, CancellationToken ct)
+    private async Task<bool> ExtractArchiveAsync(
+        string archivePath,
+        string destinationPath,
+        CancellationToken ct
+    )
     {
         try
         {
             ProgressTextChanged?.Invoke(Language.MessageStrings.Extracting);
             IndeterminateChanged?.Invoke(true);
 
-            _logger.LogInformation("Extracting {Archive} to {Destination}", archivePath, destinationPath);
+            _logger.LogInformation(
+                "Extracting {Archive} to {Destination}",
+                archivePath,
+                destinationPath
+            );
 
             // Clean up existing directory
             if (Directory.Exists(destinationPath))
@@ -332,7 +365,9 @@ public class FFmpegInstallService
                 string entryPath = Path.GetFullPath(Path.Combine(destinationPath, entry.FullName));
                 if (!entryPath.StartsWith(destinationPath, StringComparison.Ordinal))
                 {
-                    throw new InvalidOperationException("Entry is outside of the target directory.");
+                    throw new InvalidOperationException(
+                        "Entry is outside of the target directory."
+                    );
                 }
 
                 Directory.CreateDirectory(Path.GetDirectoryName(entryPath)!);
@@ -346,7 +381,11 @@ public class FFmpegInstallService
         }
     }
 
-    private static async Task ExtractTarXzAsync(string tarXzPath, string destinationPath, CancellationToken ct)
+    private static async Task ExtractTarXzAsync(
+        string tarXzPath,
+        string destinationPath,
+        CancellationToken ct
+    )
     {
         // Use tar command on Linux
         ProcessStartInfo psi = new("tar")
@@ -355,7 +394,7 @@ public class FFmpegInstallService
             RedirectStandardOutput = true,
             RedirectStandardError = true,
             UseShellExecute = false,
-            CreateNoWindow = true
+            CreateNoWindow = true,
         };
 
         using Process? process = Process.Start(psi);
@@ -460,8 +499,8 @@ public class FFmpegInstallService
             Environment =
             {
                 ["NONINTERACTIVE"] = "1", // Set SUDO_ASKPASS for brew install (may need sudo for some operations)
-                ["SUDO_ASKPASS"] = askPassPath
-            }
+                ["SUDO_ASKPASS"] = askPassPath,
+            },
         };
 
         try
@@ -512,7 +551,7 @@ public class FFmpegInstallService
         string[] paths = RuntimeInformation.OSArchitecture switch
         {
             Architecture.Arm64 => ["/opt/homebrew/bin/brew"],
-            _ => ["/usr/local/bin/brew"]
+            _ => ["/usr/local/bin/brew"],
         };
 
         foreach (string path in paths)
@@ -529,7 +568,7 @@ public class FFmpegInstallService
                 Arguments = "brew",
                 RedirectStandardOutput = true,
                 UseShellExecute = false,
-                CreateNoWindow = true
+                CreateNoWindow = true,
             };
             using Process? process = Process.Start(psi);
             if (process != null)
@@ -556,8 +595,8 @@ public class FFmpegInstallService
         string scriptPath = Path.Combine(tempDir, "askpass.js");
 
         // Extract embedded askpass.js to temp file
-        using Stream? resourceStream = typeof(FFmpegInstallService).Assembly
-            .GetManifestResourceStream("askpass.js");
+        using Stream? resourceStream =
+            typeof(FFmpegInstallService).Assembly.GetManifestResourceStream("askpass.js");
 
         if (resourceStream != null)
         {
@@ -584,9 +623,10 @@ public class FFmpegInstallService
         File.SetUnixFileMode(
             filePath,
             File.GetUnixFileMode(filePath)
-            | UnixFileMode.UserExecute
-            | UnixFileMode.GroupExecute
-            | UnixFileMode.OtherExecute);
+                | UnixFileMode.UserExecute
+                | UnixFileMode.GroupExecute
+                | UnixFileMode.OtherExecute
+        );
     }
 
     [SupportedOSPlatform("macos")]
@@ -604,7 +644,9 @@ public class FFmpegInstallService
         {
             // Download the Homebrew install script
             string installScript = await client.GetStringAsync(
-                "https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh", ct);
+                "https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh",
+                ct
+            );
 
             // Save install script to temp file
             string tempScriptPath = Path.Combine(Path.GetTempPath(), "Beutl", "brew_install.sh");
@@ -623,8 +665,8 @@ public class FFmpegInstallService
                 {
                     // Set environment variables for non-interactive install with GUI password prompt
                     ["NONINTERACTIVE"] = "1",
-                    ["SUDO_ASKPASS"] = askPassPath
-                }
+                    ["SUDO_ASKPASS"] = askPassPath,
+                },
             };
 
             using Process? process = Process.Start(psi);
@@ -644,7 +686,9 @@ public class FFmpegInstallService
             if (process.ExitCode != 0)
             {
                 _logger.LogError("Homebrew installation failed: {Error}", error);
-                ProgressTextChanged?.Invoke(string.Format(Strings.Homebrew_installation_failed, error));
+                ProgressTextChanged?.Invoke(
+                    string.Format(Strings.Homebrew_installation_failed, error)
+                );
                 return false;
             }
 
@@ -668,7 +712,9 @@ public class FFmpegInstallService
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to install Homebrew");
-            ProgressTextChanged?.Invoke(string.Format(Strings.Failed_to_install_Homebrew, ex.Message));
+            ProgressTextChanged?.Invoke(
+                string.Format(Strings.Failed_to_install_Homebrew, ex.Message)
+            );
             return false;
         }
     }
@@ -688,7 +734,10 @@ public class FFmpegInstallService
         {
             var connection = await FFmpegWorkerProcess.DecodingInstance.EnsureStartedAsync();
             verified = connection.IsConnected;
-            _logger.LogInformation("FFmpeg verification via worker process: {Result}", verified ? "success" : "failed");
+            _logger.LogInformation(
+                "FFmpeg verification via worker process: {Result}",
+                verified ? "success" : "failed"
+            );
         }
         catch (Exception ex)
         {
@@ -737,7 +786,8 @@ public class FFmpegInstallService
 
     public void Cancel()
     {
-        if (_cts.IsCancellationRequested) return;
+        if (_cts.IsCancellationRequested)
+            return;
         _logger.LogInformation("Canceling FFmpeg installation");
         _cts.Cancel();
     }

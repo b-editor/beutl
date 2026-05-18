@@ -38,8 +38,13 @@ internal sealed class Biquad
 
     public void Process(ReadOnlySpan<float> input, Span<float> output)
     {
-        float b0 = B0, b1 = B1, b2 = B2, a1 = A1, a2 = A2;
-        float z1 = _z1, z2 = _z2;
+        float b0 = B0,
+            b1 = B1,
+            b2 = B2,
+            a1 = A1,
+            a2 = A2;
+        float z1 = _z1,
+            z2 = _z2;
         for (int i = 0; i < input.Length; i++)
         {
             float x = input[i];

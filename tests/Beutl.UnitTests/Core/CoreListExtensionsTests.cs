@@ -16,7 +16,8 @@ public class CoreListExtensionsTests
         using var sub = list.ForEachItem(
             (i, v) => seen.Add((i, v)),
             (_, v) => removed.Add(v),
-            () => resetCalled = true);
+            () => resetCalled = true
+        );
 
         Assert.That(seen, Is.EqualTo(new[] { (0, 1), (1, 2), (2, 3) }));
         Assert.That(removed, Is.Empty);
@@ -33,7 +34,8 @@ public class CoreListExtensionsTests
         using var sub = list.ForEachItem<string>(
             (i, v) => added.Add((i, v)),
             (i, v) => removed.Add((i, v)),
-            () => { });
+            () => { }
+        );
 
         list.Add("a");
         list.Add("b");
@@ -57,7 +59,8 @@ public class CoreListExtensionsTests
         using var sub = list.ForEachItem<int>(
             (_, v) => added.Add(v),
             (_, _) => { },
-            () => reset = true);
+            () => reset = true
+        );
 
         added.Clear();
         list.Clear();
@@ -72,10 +75,7 @@ public class CoreListExtensionsTests
         var list = new CoreList<int>();
         var added = new List<int>();
 
-        var sub = list.ForEachItem<int>(
-            (_, v) => added.Add(v),
-            (_, _) => { },
-            () => { });
+        var sub = list.ForEachItem<int>((_, v) => added.Add(v), (_, _) => { }, () => { });
 
         list.Add(1);
         sub.Dispose();
@@ -90,10 +90,7 @@ public class CoreListExtensionsTests
         var list = new CoreList<int> { 1, 2 };
         var added = new List<int>();
 
-        using var sub = list.TrackCollectionChanged(
-            v => added.Add(v),
-            _ => { },
-            () => { });
+        using var sub = list.TrackCollectionChanged(v => added.Add(v), _ => { }, () => { });
 
         Assert.That(added, Is.Empty);
 

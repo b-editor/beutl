@@ -3,19 +3,13 @@
 internal class fdATChunk : Chunk
 {
     public fdATChunk(byte[] bytes)
-        : base(bytes)
-    {
-    }
+        : base(bytes) { }
 
     public fdATChunk(MemoryStream ms)
-        : base(ms)
-    {
-    }
+        : base(ms) { }
 
     public fdATChunk(Chunk chunk)
-        : base(chunk)
-    {
-    }
+        : base(chunk) { }
 
     public uint SequenceNumber { get; private set; }
 

@@ -69,7 +69,8 @@ public interface IGraphicsContext : IDisposable
         IReadOnlyList<TextureFormat> colorFormats,
         TextureFormat depthFormat = TextureFormat.Depth32Float,
         AttachmentLoadOp colorLoadOp = AttachmentLoadOp.Clear,
-        AttachmentLoadOp depthLoadOp = AttachmentLoadOp.Clear);
+        AttachmentLoadOp depthLoadOp = AttachmentLoadOp.Clear
+    );
 
     /// <summary>
     /// Creates a new 3D framebuffer with multiple color attachments.
@@ -77,7 +78,11 @@ public interface IGraphicsContext : IDisposable
     /// <param name="renderPass">The render pass to use with this framebuffer.</param>
     /// <param name="colorTextures">The color attachment textures.</param>
     /// <param name="depthTexture">The depth attachment texture.</param>
-    IFramebuffer3D CreateFramebuffer3D(IRenderPass3D renderPass, IReadOnlyList<ITexture2D> colorTextures, ITexture2D depthTexture);
+    IFramebuffer3D CreateFramebuffer3D(
+        IRenderPass3D renderPass,
+        IReadOnlyList<ITexture2D> colorTextures,
+        ITexture2D depthTexture
+    );
 
     /// <summary>
     /// Creates a new 3D pipeline.
@@ -95,7 +100,8 @@ public interface IGraphicsContext : IDisposable
         byte[] fragmentShaderSpirv,
         DescriptorBinding[] descriptorBindings,
         VertexInputDescription vertexInput,
-        PipelineOptions? options = null);
+        PipelineOptions? options = null
+    );
 
     /// <summary>
     /// Creates a new descriptor set.
@@ -113,7 +119,8 @@ public interface IGraphicsContext : IDisposable
         SamplerFilter minFilter = SamplerFilter.Linear,
         SamplerFilter magFilter = SamplerFilter.Linear,
         SamplerAddressMode addressModeU = SamplerAddressMode.ClampToEdge,
-        SamplerAddressMode addressModeV = SamplerAddressMode.ClampToEdge);
+        SamplerAddressMode addressModeV = SamplerAddressMode.ClampToEdge
+    );
 
     /// <summary>
     /// Copies data between two buffers.
@@ -150,7 +157,12 @@ public interface IGraphicsContext : IDisposable
     /// <param name="destination">The destination cube map array texture.</param>
     /// <param name="arrayIndex">The array index of the cube map.</param>
     /// <param name="faceIndex">The cube face index (0=+X, 1=-X, 2=+Y, 3=-Y, 4=+Z, 5=-Z).</param>
-    void CopyTextureToCubeArrayFace(ITexture2D source, ITextureCubeArray destination, int arrayIndex, int faceIndex);
+    void CopyTextureToCubeArrayFace(
+        ITexture2D source,
+        ITextureCubeArray destination,
+        int arrayIndex,
+        int faceIndex
+    );
 
     void WaitIdle();
 }

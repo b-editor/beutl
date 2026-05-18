@@ -17,15 +17,23 @@ public class EncodeDecodeRoundTripTests
     [SetUp]
     public void SetUp()
     {
-        _workDir = Path.Combine(Path.GetTempPath(), "beutl-avf-tests-" + Guid.NewGuid().ToString("N"));
+        _workDir = Path.Combine(
+            Path.GetTempPath(),
+            "beutl-avf-tests-" + Guid.NewGuid().ToString("N")
+        );
         Directory.CreateDirectory(_workDir);
     }
 
     [TearDown]
     public void TearDown()
     {
-        try { Directory.Delete(_workDir, recursive: true); }
-        catch { /* best-effort cleanup */ }
+        try
+        {
+            Directory.Delete(_workDir, recursive: true);
+        }
+        catch
+        { /* best-effort cleanup */
+        }
     }
 
     [Test]
@@ -49,7 +57,11 @@ public class EncodeDecodeRoundTripTests
         controller.AudioSettings.Channels = 2;
 
         var frameProvider = new GradientFrameProvider(
-            frameCount, new Rational(frameRateNum, frameRateDen), width, height);
+            frameCount,
+            new Rational(frameRateNum, frameRateDen),
+            width,
+            height
+        );
         var sampleProvider = new SineSampleProvider(sampleRate, sampleRate);
 
         await controller.Encode(frameProvider, sampleProvider, CancellationToken.None);
@@ -99,12 +111,21 @@ public class EncodeDecodeRoundTripTests
             float peak = 0f;
             for (int i = 0; i < samples.Length; i++)
             {
-                peak = Math.Max(peak, Math.Max(Math.Abs(samples[i].Left), Math.Abs(samples[i].Right)));
+                peak = Math.Max(
+                    peak,
+                    Math.Max(Math.Abs(samples[i].Left), Math.Abs(samples[i].Right))
+                );
             }
-            Assert.That(peak, Is.GreaterThan(0.01f),
-                "Decoded audio should not be silent; 440 Hz tone should survive round trip.");
-            Assert.That(peak, Is.LessThanOrEqualTo(1.0f),
-                "Decoded samples must stay within [-1, 1] for Stereo32BitFloat.");
+            Assert.That(
+                peak,
+                Is.GreaterThan(0.01f),
+                "Decoded audio should not be silent; 440 Hz tone should survive round trip."
+            );
+            Assert.That(
+                peak,
+                Is.LessThanOrEqualTo(1.0f),
+                "Decoded samples must stay within [-1, 1] for Stereo32BitFloat."
+            );
         }
     }
 
@@ -136,7 +157,11 @@ public class EncodeDecodeRoundTripTests
         controller.AudioSettings.Channels = 2;
 
         var frameProvider = new GradientFrameProvider(
-            frameCount, new Rational(frameRateNum, frameRateDen), width, height);
+            frameCount,
+            new Rational(frameRateNum, frameRateDen),
+            width,
+            height
+        );
         // Sweeping tone so successive chunks contain genuinely different waveforms; a stale-buffer
         // bug shows up as later chunks being bitwise identical to an earlier one.
         var sampleProvider = new SweepSampleProvider(sampleCount, sampleRate);
@@ -150,7 +175,7 @@ public class EncodeDecodeRoundTripTests
 
         int[] probes =
         {
-            chunkSize,                       // skip the first chunk; AAC priming usually leaves it quiet
+            chunkSize, // skip the first chunk; AAC priming usually leaves it quiet
             sampleCount / 4,
             sampleCount / 2,
             3 * sampleCount / 4,
@@ -169,10 +194,16 @@ public class EncodeDecodeRoundTripTests
                 float peak = 0f;
                 for (int i = 0; i < samples.Length; i++)
                 {
-                    peak = Math.Max(peak, Math.Max(Math.Abs(samples[i].Left), Math.Abs(samples[i].Right)));
+                    peak = Math.Max(
+                        peak,
+                        Math.Max(Math.Abs(samples[i].Left), Math.Abs(samples[i].Right))
+                    );
                 }
-                Assert.That(peak, Is.GreaterThan(0.01f),
-                    $"Chunk at sample {probes[p]} should have audible energy.");
+                Assert.That(
+                    peak,
+                    Is.GreaterThan(0.01f),
+                    $"Chunk at sample {probes[p]} should have audible energy."
+                );
 
                 probeBytes[p] = MemoryMarshal.AsBytes(samples).ToArray();
             }
@@ -182,8 +213,11 @@ public class EncodeDecodeRoundTripTests
         {
             for (int j = i + 1; j < probes.Length; j++)
             {
-                Assert.That(probeBytes[i].AsSpan().SequenceEqual(probeBytes[j]), Is.False,
-                    $"Chunks at samples {probes[i]} and {probes[j]} must not be bitwise identical.");
+                Assert.That(
+                    probeBytes[i].AsSpan().SequenceEqual(probeBytes[j]),
+                    Is.False,
+                    $"Chunks at samples {probes[i]} and {probes[j]} must not be bitwise identical."
+                );
             }
         }
     }
@@ -205,8 +239,12 @@ public class EncodeDecodeRoundTripTests
         controller.VideoSettings.FrameRate = new Rational(frameRateNum, frameRateDen);
         // HDR PQ + Rec.2020 — this flips the writer to HEVC Main10 + CV64RGBALE input and
         // stamps the AVVideoColorProperties tags on the output stream.
-        controller.VideoSettings.ColorTransfer = AVFVideoEncoderSettings.ColorTransferCharacteristic.Pq;
-        controller.VideoSettings.ColorPrimaries = AVFVideoEncoderSettings.ColorPrimariesType.Rec2020;
+        controller.VideoSettings.ColorTransfer = AVFVideoEncoderSettings
+            .ColorTransferCharacteristic
+            .Pq;
+        controller.VideoSettings.ColorPrimaries = AVFVideoEncoderSettings
+            .ColorPrimariesType
+            .Rec2020;
         controller.VideoSettings.YCbCrMatrix = AVFVideoEncoderSettings.YCbCrMatrixType.Rec2020;
         controller.AudioSettings.SampleRate = 44100;
         controller.AudioSettings.Channels = 2;
@@ -214,7 +252,11 @@ public class EncodeDecodeRoundTripTests
         Assert.That(controller.VideoSettings.IsHdr, Is.True);
 
         var frameProvider = new GradientFrameProvider(
-            frameCount, new Rational(frameRateNum, frameRateDen), width, height);
+            frameCount,
+            new Rational(frameRateNum, frameRateDen),
+            width,
+            height
+        );
         var sampleProvider = new SineSampleProvider(44100, 44100);
 
         await controller.Encode(frameProvider, sampleProvider, CancellationToken.None);
@@ -232,8 +274,11 @@ public class EncodeDecodeRoundTripTests
         {
             Assert.That(image!.Value.Width, Is.EqualTo(width));
             Assert.That(image.Value.Height, Is.EqualTo(height));
-            Assert.That(image.Value.ColorType, Is.EqualTo(BitmapColorType.Rgba16161616),
-                "HDR stream must decode into a 16bpc Bitmap.");
+            Assert.That(
+                image.Value.ColorType,
+                Is.EqualTo(BitmapColorType.Rgba16161616),
+                "HDR stream must decode into a 16bpc Bitmap."
+            );
 
             // Confirm the HDR pixel pipeline actually landed non-zero data in the Bitmap.
             // HEVC is lossy so we can't compare exact values, but an entirely-black decode
@@ -241,7 +286,9 @@ public class EncodeDecodeRoundTripTests
             unsafe
             {
                 var words = new ReadOnlySpan<ushort>(
-                    (void*)image.Value.Data, image.Value.ByteCount / sizeof(ushort));
+                    (void*)image.Value.Data,
+                    image.Value.ByteCount / sizeof(ushort)
+                );
                 bool nonBlack = false;
                 for (int i = 0; i + 3 < words.Length; i += 4)
                 {

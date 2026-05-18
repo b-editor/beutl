@@ -18,7 +18,8 @@ public class DownloadTaskModel : IProgress<double>
         _app = app;
         _model = model;
         PackageFileName = $"{_model.Id}.{_model.Version}.nupkg";
-        IsLocalSourcePreferredNull = IsLocalSourcePreferred.Select(v => v.HasValue)
+        IsLocalSourcePreferredNull = IsLocalSourcePreferred
+            .Select(v => v.HasValue)
             .ToReadOnlyReactivePropertySlim();
     }
 
@@ -64,7 +65,11 @@ public class DownloadTaskModel : IProgress<double>
         PackageInstaller installer = _app.GetResource<PackageInstaller>();
         DiscoverService discover = _app.GetResource<DiscoverService>();
         IsRunning.Value = true;
-        _logger.LogInformation("Download task started for package {PackageId} version {Version}.", _model.Id, _model.Version);
+        _logger.LogInformation(
+            "Download task started for package {PackageId} version {Version}.",
+            _model.Id,
+            _model.Version
+        );
 
         try
         {
@@ -75,7 +80,10 @@ public class DownloadTaskModel : IProgress<double>
                 {
                     _userInput = new TaskCompletionSource<bool>();
                     task = _userInput.Task;
-                    _logger.LogInformation("Waiting for user input to resolve conflict for package {PackageId}.", _model.Id);
+                    _logger.LogInformation(
+                        "Waiting for user input to resolve conflict for package {PackageId}.",
+                        _model.Id
+                    );
                 }
                 else
                 {
@@ -85,9 +93,18 @@ public class DownloadTaskModel : IProgress<double>
                 if (await task.WaitAsync(token))
                 {
                     DownloadSkipped.Value = true;
-                    Context = installer.PrepareForInstall(_model.Id, _model.Version.ToString(), true, token);
+                    Context = installer.PrepareForInstall(
+                        _model.Id,
+                        _model.Version.ToString(),
+                        true,
+                        token
+                    );
                     Succeeded.Value = true;
-                    _logger.LogInformation("Download skipped for package {PackageId} version {Version}.", _model.Id, _model.Version);
+                    _logger.LogInformation(
+                        "Download skipped for package {PackageId} version {Version}.",
+                        _model.Id,
+                        _model.Version
+                    );
                     return true;
                 }
             }
@@ -111,7 +128,12 @@ public class DownloadTaskModel : IProgress<double>
         catch (ApiException apiEx)
         {
             var errorResponse = await TryGetApiErrorResponse(apiEx);
-            _logger.LogError(apiEx, "API exception occurred while downloading package {PackageId} version {Version}.", _model.Id, _model.Version);
+            _logger.LogError(
+                apiEx,
+                "API exception occurred while downloading package {PackageId} version {Version}.",
+                _model.Id,
+                _model.Version
+            );
             ErrorMessage.Value = errorResponse?.Message ?? apiEx.Message;
             Failed.Value = true;
             return false;
@@ -124,13 +146,22 @@ public class DownloadTaskModel : IProgress<double>
             }
 
             ErrorMessage.Value = Strings.Operation_canceled;
-            _logger.LogWarning("Download operation canceled for package {PackageId} version {Version}.", _model.Id, _model.Version);
+            _logger.LogWarning(
+                "Download operation canceled for package {PackageId} version {Version}.",
+                _model.Id,
+                _model.Version
+            );
             Failed.Value = true;
             throw;
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "An unexpected exception occurred while downloading package {PackageId} version {Version}.", _model.Id, _model.Version);
+            _logger.LogError(
+                ex,
+                "An unexpected exception occurred while downloading package {PackageId} version {Version}.",
+                _model.Id,
+                _model.Version
+            );
             ErrorMessage.Value = ex.Message;
             Failed.Value = true;
             return false;
@@ -139,7 +170,11 @@ public class DownloadTaskModel : IProgress<double>
         {
             IsIndeterminate.Value = false;
             IsRunning.Value = false;
-            _logger.LogInformation("Download task ended for package {PackageId} version {Version}.", _model.Id, _model.Version);
+            _logger.LogInformation(
+                "Download task ended for package {PackageId} version {Version}.",
+                _model.Id,
+                _model.Version
+            );
         }
     }
 

@@ -14,7 +14,8 @@ internal record VulkanPhysicalDeviceInfo(
     string Name,
     PhysicalDeviceType Type,
     uint ApiVersionInt,
-    VulkanMemoryInfo Memory)
+    VulkanMemoryInfo Memory
+)
 {
     public bool IsMoltenVK => Name.Contains("Apple");
 
@@ -40,10 +41,15 @@ internal record VulkanPhysicalDeviceInfo(
             PhysicalDeviceType.DiscreteGpu => GraphicsDeviceType.Discrete,
             PhysicalDeviceType.VirtualGpu => GraphicsDeviceType.Virtual,
             PhysicalDeviceType.Cpu => GraphicsDeviceType.Cpu,
-            _ => GraphicsDeviceType.Other
+            _ => GraphicsDeviceType.Other,
         };
 
-        return new GraphicsDeviceInfo(Name, deviceType, ApiVersion, Memory.DeviceLocalMemory / (1024 * 1024));
+        return new GraphicsDeviceInfo(
+            Name,
+            deviceType,
+            ApiVersion,
+            Memory.DeviceLocalMemory / (1024 * 1024)
+        );
     }
 }
 
@@ -124,7 +130,11 @@ internal sealed unsafe class VulkanInstance : IDisposable
 
         foreach (var gpu in gpus)
         {
-            s_logger.LogInformation("Found GPU: {DeviceName} (Type: {DeviceType})", gpu.Name, gpu.Type);
+            s_logger.LogInformation(
+                "Found GPU: {DeviceName} (Type: {DeviceType})",
+                gpu.Name,
+                gpu.Type
+            );
 
             if (gpu.Type == PhysicalDeviceType.DiscreteGpu)
             {
@@ -175,7 +185,13 @@ internal sealed unsafe class VulkanInstance : IDisposable
 
         var memoryInfo = new VulkanMemoryInfo(deviceLocalMemory, hostVisibleMemory);
 
-        return new VulkanPhysicalDeviceInfo(device, deviceName, deviceType, properties.ApiVersion, memoryInfo);
+        return new VulkanPhysicalDeviceInfo(
+            device,
+            deviceName,
+            deviceType,
+            properties.ApiVersion,
+            memoryInfo
+        );
     }
 
     private string[] GetRequiredInstanceExtensions()
@@ -221,7 +237,9 @@ internal sealed unsafe class VulkanInstance : IDisposable
             validationLayers = new[] { "VK_LAYER_KHRONOS_validation" };
             if (!CheckValidationLayerSupport(validationLayers))
             {
-                s_logger.LogWarning("Validation layers requested but not available, continuing without them.");
+                s_logger.LogWarning(
+                    "Validation layers requested but not available, continuing without them."
+                );
                 validationLayers = Array.Empty<string>();
             }
         }
@@ -254,13 +272,13 @@ internal sealed unsafe class VulkanInstance : IDisposable
                 ApplicationVersion = new Version32(1, 0, 0),
                 PEngineName = (byte*)engineNamePtr,
                 EngineVersion = new Version32(1, 0, 0),
-                ApiVersion = Vk.Version12
+                ApiVersion = Vk.Version12,
             };
 
             var createInfo = new InstanceCreateInfo
             {
                 SType = StructureType.InstanceCreateInfo,
-                PApplicationInfo = &appInfo
+                PApplicationInfo = &appInfo,
             };
 
             fixed (byte** ppExtensions = extensionPtrs)
@@ -280,7 +298,9 @@ internal sealed unsafe class VulkanInstance : IDisposable
                 var result = _vk.CreateInstance(&createInfo, null, &instance);
                 if (result != Result.Success)
                 {
-                    throw new InvalidOperationException($"Failed to create Vulkan instance: {result}");
+                    throw new InvalidOperationException(
+                        $"Failed to create Vulkan instance: {result}"
+                    );
                 }
 
                 return instance;
@@ -367,16 +387,23 @@ internal sealed unsafe class VulkanInstance : IDisposable
         var createInfo = new DebugUtilsMessengerCreateInfoEXT
         {
             SType = StructureType.DebugUtilsMessengerCreateInfoExt,
-            MessageSeverity = DebugUtilsMessageSeverityFlagsEXT.WarningBitExt |
-                              DebugUtilsMessageSeverityFlagsEXT.ErrorBitExt,
-            MessageType = DebugUtilsMessageTypeFlagsEXT.GeneralBitExt |
-                          DebugUtilsMessageTypeFlagsEXT.ValidationBitExt |
-                          DebugUtilsMessageTypeFlagsEXT.PerformanceBitExt,
-            PfnUserCallback = (PfnDebugUtilsMessengerCallbackEXT)DebugCallback
+            MessageSeverity =
+                DebugUtilsMessageSeverityFlagsEXT.WarningBitExt
+                | DebugUtilsMessageSeverityFlagsEXT.ErrorBitExt,
+            MessageType =
+                DebugUtilsMessageTypeFlagsEXT.GeneralBitExt
+                | DebugUtilsMessageTypeFlagsEXT.ValidationBitExt
+                | DebugUtilsMessageTypeFlagsEXT.PerformanceBitExt,
+            PfnUserCallback = (PfnDebugUtilsMessengerCallbackEXT)DebugCallback,
         };
 
         DebugUtilsMessengerEXT messenger;
-        var result = _debugUtils!.CreateDebugUtilsMessenger(_instance, &createInfo, null, &messenger);
+        var result = _debugUtils!.CreateDebugUtilsMessenger(
+            _instance,
+            &createInfo,
+            null,
+            &messenger
+        );
         if (result != Result.Success)
         {
             s_logger.LogError("Failed to create debug messenger: {Result}", result);
@@ -389,7 +416,8 @@ internal sealed unsafe class VulkanInstance : IDisposable
         DebugUtilsMessageSeverityFlagsEXT severity,
         DebugUtilsMessageTypeFlagsEXT type,
         DebugUtilsMessengerCallbackDataEXT* callbackData,
-        void* userData)
+        void* userData
+    )
     {
         var message = Marshal.PtrToStringAnsi((IntPtr)callbackData->PMessage);
         switch (severity)

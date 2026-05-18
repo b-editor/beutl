@@ -60,7 +60,8 @@ public sealed unsafe class UnmanagedArray<T> : IDisposable, IEnumerable<T>, IClo
 
     public void Dispose()
     {
-        if (IsDisposed) return;
+        if (IsDisposed)
+            return;
 
         NativeMemory.Free(_ptr);
         GC.SuppressFinalize(this);
@@ -96,7 +97,8 @@ public sealed unsafe class UnmanagedArray<T> : IDisposable, IEnumerable<T>, IClo
 
     private void ThrowIfDisposed()
     {
-        if (IsDisposed) throw new ObjectDisposedException(nameof(UnmanagedArray<T>));
+        if (IsDisposed)
+            throw new ObjectDisposedException(nameof(UnmanagedArray<T>));
     }
 
     private sealed class ArrayEnumerator : IEnumerator<T>, ICloneable

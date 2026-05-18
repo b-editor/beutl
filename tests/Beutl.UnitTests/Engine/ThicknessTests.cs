@@ -132,12 +132,7 @@ public class ThicknessTests
     [Test]
     public void TryFormat_Char_AndUtf8_ReturnSameContent()
     {
-        var values = new[]
-        {
-            new Thickness(5),
-            new Thickness(2, 3),
-            new Thickness(1, 2, 3, 4),
-        };
+        var values = new[] { new Thickness(5), new Thickness(2, 3), new Thickness(1, 2, 3, 4) };
 
         Span<char> chars = stackalloc char[64];
         Span<byte> bytes = stackalloc byte[64];
@@ -147,8 +142,7 @@ public class ThicknessTests
             Assert.That(t.TryFormat(chars, out int cw), Is.True);
             Assert.That(t.TryFormat(bytes, out int bw), Is.True);
 
-            Assert.That(chars[..cw].ToString(),
-                Is.EqualTo(Encoding.UTF8.GetString(bytes[..bw])));
+            Assert.That(chars[..cw].ToString(), Is.EqualTo(Encoding.UTF8.GetString(bytes[..bw])));
         }
     }
 }

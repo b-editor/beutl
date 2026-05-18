@@ -23,8 +23,8 @@ namespace Beutl.Editor.Components.GraphEditorTab.ViewModels;
 public sealed class GraphEditorViewModel<T>(
     IEditorContext editorContext,
     KeyFrameAnimation<T> animation,
-    Element? element)
-    : GraphEditorViewModel(editorContext, animation, element)
+    Element? element
+) : GraphEditorViewModel(editorContext, animation, element)
 {
     public override void DropEasing(Easing easing, TimeSpan keyTime)
     {
@@ -36,8 +36,9 @@ public sealed class GraphEditorViewModel<T>(
 
         TimeSpan threshold = TimeSpan.FromSeconds(1d / rate) * 3;
 
-        IKeyFrame? keyFrame =
-            Animation.KeyFrames.FirstOrDefault(v => Math.Abs(v.KeyTime.Ticks - keyTime.Ticks) <= threshold.Ticks);
+        IKeyFrame? keyFrame = Animation.KeyFrames.FirstOrDefault(v =>
+            Math.Abs(v.KeyTime.Ticks - keyTime.Ticks) <= threshold.Ticks
+        );
         if (keyFrame != null)
         {
             _logger.LogInformation("Editing existing key frame at {KeyTime}", keyTime);
@@ -56,7 +57,8 @@ public sealed class GraphEditorViewModel<T>(
             animation: (KeyFrameAnimation<T>)Animation,
             easing: easing,
             keyTime: keyTime,
-            logger: _logger);
+            logger: _logger
+        );
         HistoryManager.Commit(CommandNames.InsertKeyFrame);
     }
 }
@@ -70,7 +72,11 @@ public abstract class GraphEditorViewModel : IDisposable
     private bool _editting;
     private TimeSpan _pointerPosition;
 
-    protected GraphEditorViewModel(IEditorContext editorContext, IKeyFrameAnimation animation, Element? element)
+    protected GraphEditorViewModel(
+        IEditorContext editorContext,
+        IKeyFrameAnimation animation,
+        Element? element
+    )
     {
         _logger.LogInformation("Initializing GraphEditorViewModel");
         EditorContext = editorContext;
@@ -83,67 +89,92 @@ public abstract class GraphEditorViewModel : IDisposable
         Scene = timelineOptions.Scene;
         HistoryManager = editorContext.GetRequiredService<HistoryManager>();
 
-        UseGlobalClock = ((CoreObject)animation).GetObservable(KeyFrameAnimation.UseGlobalClockProperty)
+        UseGlobalClock = ((CoreObject)animation)
+            .GetObservable(KeyFrameAnimation.UseGlobalClockProperty)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
 
-        ElementMargin = (Element?.GetObservable(Element.StartProperty) ?? Observable.ReturnThenNever<TimeSpan>(default))
+        ElementMargin = (
+            Element?.GetObservable(Element.StartProperty)
+            ?? Observable.ReturnThenNever<TimeSpan>(default)
+        )
             .CombineLatest(timelineOptions.Scale)
             .Select(t => new Thickness(t.First.TimeToPixel(t.Second), 0, 0, 0))
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
 
-        ElementWidth = (Element?.GetObservable(Element.LengthProperty) ?? Observable.ReturnThenNever<TimeSpan>(default))
+        ElementWidth = (
+            Element?.GetObservable(Element.LengthProperty)
+            ?? Observable.ReturnThenNever<TimeSpan>(default)
+        )
             .CombineLatest(timelineOptions.Scale)
             .Select(t => t.First.TimeToPixel(t.Second))
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
 
-        ElementColor = (Element?.GetObservable(Element.AccentColorProperty) ??
-                        Observable.ReturnThenNever(Media.Colors.Transparent))
+        ElementColor = (
+            Element?.GetObservable(Element.AccentColorProperty)
+            ?? Observable.ReturnThenNever(Media.Colors.Transparent)
+        )
             .Select(v => (IBrush)new ImmutableSolidColorBrush(v.ToAvaColor()))
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
 
-        Margin = UseGlobalClock.Select(v => !v
-                ? Element?.GetObservable(Element.StartProperty)
-                    .CombineLatest(Options)
-                    .Select(item => new Thickness(item.First.TimeToPixel(item.Second.Scale), 0, 0, 0))
-                : null)
+        Margin = UseGlobalClock
+            .Select(v =>
+                !v
+                    ? Element
+                        ?.GetObservable(Element.StartProperty)
+                        .CombineLatest(Options)
+                        .Select(item => new Thickness(
+                            item.First.TimeToPixel(item.Second.Scale),
+                            0,
+                            0,
+                            0
+                        ))
+                    : null
+            )
             .Select(v => v ?? Observable.ReturnThenNever<Thickness>(default))
             .Switch()
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
 
-        SeekBarMargin = _editorClock.CurrentTime
-            .CombineLatest(timelineOptions.Scale)
+        SeekBarMargin = _editorClock
+            .CurrentTime.CombineLatest(timelineOptions.Scale)
             .Select(item => new Thickness(item.First.TimeToPixel(item.Second), 0, 0, 0))
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
 
-        StartingBarMargin = Scene.GetObservable(Scene.StartProperty)
+        StartingBarMargin = Scene
+            .GetObservable(Scene.StartProperty)
             .CombineLatest(timelineOptions.Scale)
             .Select(item => item.First.TimeToPixel(item.Second))
             .Select(p => new Thickness(p, 0, 0, 0))
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
 
-        EndingBarMargin = Scene.GetObservable(Scene.DurationProperty)
+        EndingBarMargin = Scene
+            .GetObservable(Scene.DurationProperty)
             .CombineLatest(timelineOptions.Scale, StartingBarMargin)
             .Select(item => item.First.TimeToPixel(item.Second) + item.Third.Left)
             .Select(p => new Thickness(p, 0, 0, 0))
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
 
-        PanelWidth = _editorClock.MaximumTime
-            .CombineLatest(
+        PanelWidth = _editorClock
+            .MaximumTime.CombineLatest(
                 Scene.GetObservable(Scene.DurationProperty),
                 Scene.GetObservable(Scene.StartProperty),
-                _editorClock.CurrentTime)
-            .Select(i => TimeSpan.FromTicks(
-                Math.Max(
-                    Math.Max(i.First.Ticks, i.Second.Ticks + i.Third.Ticks),
-                    i.Fourth.Ticks)))
+                _editorClock.CurrentTime
+            )
+            .Select(i =>
+                TimeSpan.FromTicks(
+                    Math.Max(
+                        Math.Max(i.First.Ticks, i.Second.Ticks + i.Third.Ticks),
+                        i.Fourth.Ticks
+                    )
+                )
+            )
             .CombineLatest(timelineOptions.Scale)
             .Select(i => i.First.TimeToPixel(i.Second) + 500)
             .ToReadOnlyReactivePropertySlim()
@@ -161,7 +192,8 @@ public abstract class GraphEditorViewModel : IDisposable
 
         CalculateMaxHeight();
 
-        timelineOptions.Offset.Subscribe(v => ScrollOffset.Value = ScrollOffset.Value.WithX(v.X))
+        timelineOptions
+            .Offset.Subscribe(v => ScrollOffset.Value = ScrollOffset.Value.WithX(v.X))
             .DisposeWith(_disposables);
 
         CopyAllKeyFramesCommand = new AsyncReactiveCommand()
@@ -286,7 +318,10 @@ public abstract class GraphEditorViewModel : IDisposable
             MinHeight.Value = newHeight;
             Baseline.Value = newBase;
 
-            ScrollOffset.Value = new Vector(ScrollOffset.Value.X, Math.Max(0, ScrollOffset.Value.Y + delta));
+            ScrollOffset.Value = new Vector(
+                ScrollOffset.Value.X,
+                Math.Max(0, ScrollOffset.Value.Y + delta)
+            );
         }
     }
 
@@ -323,7 +358,8 @@ public abstract class GraphEditorViewModel : IDisposable
     private async Task CopyAllKeyFramesAsync()
     {
         IClipboard? clipboard = ClipboardHelper.GetClipboard();
-        if (clipboard == null) return;
+        if (clipboard == null)
+            return;
 
         try
         {
@@ -345,7 +381,8 @@ public abstract class GraphEditorViewModel : IDisposable
     private async Task PasteKeyFrameAtPositionAsync(TimeSpan pointerPosition)
     {
         IClipboard? clipboard = ClipboardHelper.GetClipboard();
-        if (clipboard == null) return;
+        if (clipboard == null)
+            return;
 
         try
         {
@@ -354,13 +391,19 @@ public abstract class GraphEditorViewModel : IDisposable
                 PasteKeyFrame(keyFrameJson, pointerPosition);
                 return;
             }
-            else if (await clipboard.TryGetValueAsync(BeutlDataFormats.KeyFrameAnimation) is { } keyFrameAnimationJson)
+            else if (
+                await clipboard.TryGetValueAsync(BeutlDataFormats.KeyFrameAnimation) is
+                { } keyFrameAnimationJson
+            )
             {
                 PasteAnimation(keyFrameAnimationJson);
                 return;
             }
 
-            NotificationService.ShowWarning(Strings.Paste, MessageStrings.InvalidKeyframeDataFormat);
+            NotificationService.ShowWarning(
+                Strings.Paste,
+                MessageStrings.InvalidKeyframeDataFormat
+            );
         }
         catch (Exception ex)
         {
@@ -382,14 +425,20 @@ public abstract class GraphEditorViewModel : IDisposable
         if (!newJson.TryGetDiscriminator(out Type? discriminator))
         {
             _logger.LogError("Invalid JSON: missing $type");
-            NotificationService.ShowError(Strings.GraphEditor, MessageStrings.InvalidJSON_MissingType);
+            NotificationService.ShowError(
+                Strings.GraphEditor,
+                MessageStrings.InvalidJSON_MissingType
+            );
             return;
         }
 
         if (!discriminator.IsAssignableTo(typeof(IKeyFrameAnimation)))
         {
             _logger.LogError("Invalid JSON: $type is not a KeyFrameAnimation");
-            NotificationService.ShowError(Strings.GraphEditor, MessageStrings.InvalidJSON_TypeIsNotKeyFrameAnimation);
+            NotificationService.ShowError(
+                Strings.GraphEditor,
+                MessageStrings.InvalidJSON_TypeIsNotKeyFrameAnimation
+            );
             return;
         }
 
@@ -400,7 +449,14 @@ public abstract class GraphEditorViewModel : IDisposable
             if (discriminator.GenericTypeArguments[0] != animation.ValueType)
             {
                 _logger.LogError("The property type of the pasted animation does not match.");
-                NotificationService.ShowError(Strings.GraphEditor, string.Format(MessageStrings.AnimationPropertyTypeMismatch, animation.ValueType.Name, discriminator.GenericTypeArguments[0].Name));
+                NotificationService.ShowError(
+                    Strings.GraphEditor,
+                    string.Format(
+                        MessageStrings.AnimationPropertyTypeMismatch,
+                        animation.ValueType.Name,
+                        discriminator.GenericTypeArguments[0].Name
+                    )
+                );
                 return;
             }
 
@@ -433,14 +489,20 @@ public abstract class GraphEditorViewModel : IDisposable
         if (!newJson.TryGetDiscriminator(out Type? discriminator))
         {
             _logger.LogError("Invalid JSON: missing $type");
-            NotificationService.ShowError(Strings.GraphEditor, MessageStrings.InvalidJSON_MissingType);
+            NotificationService.ShowError(
+                Strings.GraphEditor,
+                MessageStrings.InvalidJSON_MissingType
+            );
             return;
         }
 
         if (!discriminator.IsAssignableTo(typeof(KeyFrame)))
         {
             _logger.LogError("Invalid JSON: $type is not a KeyFrame");
-            NotificationService.ShowError(Strings.GraphEditor, MessageStrings.InvalidJSON_TypeIsNotKeyFrame);
+            NotificationService.ShowError(
+                Strings.GraphEditor,
+                MessageStrings.InvalidJSON_TypeIsNotKeyFrame
+            );
             return;
         }
 
@@ -454,18 +516,27 @@ public abstract class GraphEditorViewModel : IDisposable
             if (discriminator.GenericTypeArguments[0] != animation.ValueType)
             {
                 InsertKeyFrame(newKeyFrame.Easing, pointerPosition);
-                NotificationService.ShowWarning(Strings.GraphEditor, MessageStrings.KeyframePropertyTypeMismatch_EasingApplied);
+                NotificationService.ShowWarning(
+                    Strings.GraphEditor,
+                    MessageStrings.KeyframePropertyTypeMismatch_EasingApplied
+                );
                 return;
             }
 
             var keyTime = ConvertKeyTime(pointerPosition);
-            if (animation.KeyFrames.FirstOrDefault(k => k.KeyTime == keyTime) is { } existingKeyFrame)
+            if (
+                animation.KeyFrames.FirstOrDefault(k => k.KeyTime == keyTime) is
+                { } existingKeyFrame
+            )
             {
                 // イージングと値を変更
                 existingKeyFrame.Easing = newKeyFrame.Easing;
                 existingKeyFrame.Value = ((IKeyFrame)newKeyFrame).Value;
                 HistoryManager.Commit(CommandNames.PasteKeyFrame);
-                NotificationService.ShowWarning(Strings.GraphEditor, MessageStrings.KeyframeExistsAtPastePosition);
+                NotificationService.ShowWarning(
+                    Strings.GraphEditor,
+                    MessageStrings.KeyframeExistsAtPastePosition
+                );
             }
             else
             {

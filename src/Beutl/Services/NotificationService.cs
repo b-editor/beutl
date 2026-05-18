@@ -98,7 +98,9 @@ public sealed class NotificationServiceHandler : INotificationServiceHandler
                     _logger.LogError(
                         e,
                         "Failed to show notification (Type={Type}, Title={Title})",
-                        notification.Type, notification.Title);
+                        notification.Type,
+                        notification.Title
+                    );
                 }
             });
         }
@@ -108,7 +110,9 @@ public sealed class NotificationServiceHandler : INotificationServiceHandler
             _logger.LogError(
                 e,
                 "Failed to dispatch notification (Type={Type}, Title={Title})",
-                notification.Type, notification.Title);
+                notification.Type,
+                notification.Title
+            );
         }
     }
 
@@ -116,8 +120,9 @@ public sealed class NotificationServiceHandler : INotificationServiceHandler
     {
         var infoBar = new InfoBar
         {
-            [!TemplatedControl.BackgroundProperty] =
-                new DynamicResourceExtension("SolidBackgroundFillColorTertiaryBrush"),
+            [!TemplatedControl.BackgroundProperty] = new DynamicResourceExtension(
+                "SolidBackgroundFillColorTertiaryBrush"
+            ),
             DataContext = notification,
             Title = notification.Title,
             Message = notification.Message,
@@ -130,7 +135,7 @@ public sealed class NotificationServiceHandler : INotificationServiceHandler
                 NotificationType.Warning => InfoBarSeverity.Warning,
                 NotificationType.Error => InfoBarSeverity.Error,
                 NotificationType.Information or _ => InfoBarSeverity.Informational,
-            }
+            },
         };
 
         infoBar.CloseButtonClick += (s, _) =>
@@ -164,7 +169,8 @@ public sealed class NotificationServiceHandler : INotificationServiceHandler
 
     private void InvokeCallback(Action? callback, Notification notification, string callbackName)
     {
-        if (callback is null) return;
+        if (callback is null)
+            return;
         try
         {
             callback();
@@ -176,7 +182,10 @@ public sealed class NotificationServiceHandler : INotificationServiceHandler
             _logger.LogError(
                 e,
                 "Notification {Callback} threw (Type={Type}, Title={Title})",
-                callbackName, notification.Type, notification.Title);
+                callbackName,
+                notification.Type,
+                notification.Title
+            );
         }
     }
 

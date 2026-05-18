@@ -1,7 +1,5 @@
 ﻿using System.Diagnostics.CodeAnalysis;
-
 using Avalonia.Controls;
-
 using Beutl.Extensibility;
 
 namespace PackageSample;
@@ -17,13 +15,19 @@ public sealed class EditWellKnownSizeTabExtension : ToolTabExtension
 
     public override bool CanMultiple => false;
 
-    public override bool TryCreateContent(IEditorContext editorContext, [NotNullWhen(true)] out Control? control)
+    public override bool TryCreateContent(
+        IEditorContext editorContext,
+        [NotNullWhen(true)] out Control? control
+    )
     {
         control = new EditWellKnownSizeTab();
         return true;
     }
 
-    public override bool TryCreateContext(IEditorContext editorContext, [NotNullWhen(true)] out IToolContext? context)
+    public override bool TryCreateContext(
+        IEditorContext editorContext,
+        [NotNullWhen(true)] out IToolContext? context
+    )
     {
         context = new EditWellKnownSizeTabViewModel(this);
         return true;

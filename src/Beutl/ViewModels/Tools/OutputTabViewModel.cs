@@ -119,14 +119,18 @@ public class OutputTabViewModel : IToolContext
 
     private void CreateDefaultProfile()
     {
-        if (Items.Count != 0) return;
+        if (Items.Count != 0)
+            return;
 
         _logger.LogInformation("Creating default profile.");
         var ext = OutputService.GetExtensions(EditViewModel.Scene.GetType());
         if (ext.Length == 1)
         {
             AddItem(ext[0]);
-            _logger.LogInformation("Default profile created with extension: {ExtensionName}", ext[0].Name);
+            _logger.LogInformation(
+                "Default profile created with extension: {ExtensionName}",
+                ext[0].Name
+            );
         }
     }
 

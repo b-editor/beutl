@@ -6,8 +6,10 @@ internal struct Particle
 {
     public float BirthTime;
     public float Lifetime;
-    public float X, Y;
-    public float VelocityX, VelocityY;
+    public float X,
+        Y;
+    public float VelocityX,
+        VelocityY;
     public float Rotation;
     public float AngularVelocity;
     public float BaseSize;

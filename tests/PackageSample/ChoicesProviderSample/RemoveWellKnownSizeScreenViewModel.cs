@@ -1,7 +1,5 @@
 ﻿using System.Reactive.Linq;
-
 using Beutl.Collections;
-
 using Reactive.Bindings;
 
 namespace PackageSample;
@@ -12,9 +10,7 @@ public sealed class RemoveWellKnownSizeScreenViewModel
     {
         Items = WellKnownSizesProvider.GetTypedChoices();
 
-        Remove = SelectedItem.Select(v => v != null)
-            .ToReactiveCommand()
-            .WithSubscribe(RemoveCore);
+        Remove = SelectedItem.Select(v => v != null).ToReactiveCommand().WithSubscribe(RemoveCore);
     }
 
     public ICoreReadOnlyList<WellKnownSize> Items { get; }

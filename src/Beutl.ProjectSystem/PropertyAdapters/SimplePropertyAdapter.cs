@@ -7,7 +7,8 @@ using Beutl.Extensibility;
 namespace Beutl.PropertyAdapters;
 
 public sealed class SimplePropertyAdapter<T>(SimpleProperty<T> property, EngineObject obj)
-    : EnginePropertyAdapter<T>(property, obj), IExpressionPropertyAdapter<T>
+    : EnginePropertyAdapter<T>(property, obj),
+        IExpressionPropertyAdapter<T>
 {
     public IExpression<T>? Expression
     {
@@ -18,9 +19,12 @@ public sealed class SimplePropertyAdapter<T>(SimpleProperty<T> property, EngineO
     public bool HasExpression => Property.HasExpression;
 
     [field: AllowNull]
-    public IObservable<IExpression<T>?> ObserveExpression => field ??= Observable.FromEvent<IExpression<T>?>(
-            handler => Property.ExpressionChanged += handler,
-            handler => Property.ExpressionChanged -= handler)
-        .Publish(Expression)
-        .RefCount();
+    public IObservable<IExpression<T>?> ObserveExpression =>
+        field ??= Observable
+            .FromEvent<IExpression<T>?>(
+                handler => Property.ExpressionChanged += handler,
+                handler => Property.ExpressionChanged -= handler
+            )
+            .Publish(Expression)
+            .RefCount();
 }

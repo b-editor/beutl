@@ -1,5 +1,4 @@
 ﻿using Beutl.Graphics.Effects;
-
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
 

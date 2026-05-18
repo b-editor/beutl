@@ -6,8 +6,8 @@ public sealed class UpdateSplineEasingOperation(
     SplineEasing easing,
     string propertyPath,
     float newValue,
-    float oldValue)
-    : ChangeOperation, IPropertyPathProvider, IMergableChangeOperation
+    float oldValue
+) : ChangeOperation, IPropertyPathProvider, IMergableChangeOperation
 {
     public CoreObject? Parent { get; set; }
 
@@ -50,7 +50,10 @@ public sealed class UpdateSplineEasingOperation(
                 easing.Y2 = value;
                 break;
             default:
-                throw new ArgumentException($"Unknown property name: {propertyName}", nameof(propertyPath));
+                throw new ArgumentException(
+                    $"Unknown property name: {propertyName}",
+                    nameof(propertyPath)
+                );
         }
     }
 

@@ -23,7 +23,7 @@ public sealed class ViewConfig : ConfigurationBase
         "AlignmentX",
         "AlignmentY",
         "TransformOrigin",
-        "BlendMode"
+        "BlendMode",
     ];
     private readonly CoreList<string> _recentFiles = [];
     private readonly CoreList<string> _recentProjects = [];
@@ -39,11 +39,15 @@ public sealed class ViewConfig : ConfigurationBase
             .DefaultValue(CultureInfo.InstalledUICulture)
             .Register();
 
-        WindowPositionProperty = ConfigureProperty<(int X, int Y)?, ViewConfig>(nameof(WindowPosition))
+        WindowPositionProperty = ConfigureProperty<(int X, int Y)?, ViewConfig>(
+                nameof(WindowPosition)
+            )
             .DefaultValue(null)
             .Register();
 
-        WindowSizeProperty = ConfigureProperty<(int Width, int Height)?, ViewConfig>(nameof(WindowSize))
+        WindowSizeProperty = ConfigureProperty<(int Width, int Height)?, ViewConfig>(
+                nameof(WindowSize)
+            )
             .DefaultValue(null)
             .Register();
 
@@ -51,15 +55,21 @@ public sealed class ViewConfig : ConfigurationBase
             .DefaultValue(null)
             .Register();
 
-        UseCustomAccentColorProperty = ConfigureProperty<bool, ViewConfig>(nameof(UseCustomAccentColor))
+        UseCustomAccentColorProperty = ConfigureProperty<bool, ViewConfig>(
+                nameof(UseCustomAccentColor)
+            )
             .DefaultValue(false)
             .Register();
 
-        CustomAccentColorProperty = ConfigureProperty<string?, ViewConfig>(nameof(CustomAccentColor))
+        CustomAccentColorProperty = ConfigureProperty<string?, ViewConfig>(
+                nameof(CustomAccentColor)
+            )
             .DefaultValue(null)
             .Register();
 
-        ShowExactBoundariesProperty = ConfigureProperty<bool, ViewConfig>(nameof(ShowExactBoundaries))
+        ShowExactBoundariesProperty = ConfigureProperty<bool, ViewConfig>(
+                nameof(ShowExactBoundaries)
+            )
             .Accessor(o => o.ShowExactBoundaries, (o, v) => o.ShowExactBoundaries = v)
             .DefaultValue(false)
             .Register();
@@ -68,11 +78,15 @@ public sealed class ViewConfig : ConfigurationBase
             .Accessor(o => o.RecentFiles, (o, v) => o.RecentFiles = v)
             .Register();
 
-        RecentProjectsProperty = ConfigureProperty<CoreList<string>, ViewConfig>(nameof(RecentProjects))
+        RecentProjectsProperty = ConfigureProperty<CoreList<string>, ViewConfig>(
+                nameof(RecentProjects)
+            )
             .Accessor(o => o.RecentProjects, (o, v) => o.RecentProjects = v)
             .Register();
 
-        LastOpenedProjectFileProperty = ConfigureProperty<string?, ViewConfig>(nameof(LastOpenedProjectFile))
+        LastOpenedProjectFileProperty = ConfigureProperty<string?, ViewConfig>(
+                nameof(LastOpenedProjectFile)
+            )
             .DefaultValue(null)
             .Register();
     }
@@ -159,7 +173,7 @@ public sealed class ViewConfig : ConfigurationBase
         Light,
         Dark,
         HighContrast,
-        System
+        System,
     }
 
     public override void Deserialize(ICoreSerializationContext context)
@@ -226,7 +240,15 @@ public sealed class ViewConfig : ConfigurationBase
     protected override void OnPropertyChanged(PropertyChangedEventArgs args)
     {
         base.OnPropertyChanged(args);
-        if (args.PropertyName is nameof(Theme) or nameof(UICulture) or nameof(UseCustomAccentColor) or nameof(CustomAccentColor) or nameof(ShowExactBoundaries) or nameof(LastOpenedProjectFile))
+        if (
+            args.PropertyName
+            is nameof(Theme)
+                or nameof(UICulture)
+                or nameof(UseCustomAccentColor)
+                or nameof(CustomAccentColor)
+                or nameof(ShowExactBoundaries)
+                or nameof(LastOpenedProjectFile)
+        )
         {
             OnChanged();
         }

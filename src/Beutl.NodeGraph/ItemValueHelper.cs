@@ -11,7 +11,10 @@ namespace Beutl.NodeGraph;
 
 public static class ItemValueHelper
 {
-    public static void RegisterDefaultReceiver<T>(ItemValue<T> itemValue, IModifiableHierarchical hierarchical)
+    public static void RegisterDefaultReceiver<T>(
+        ItemValue<T> itemValue,
+        IModifiableHierarchical hierarchical
+    )
     {
         switch (itemValue)
         {
@@ -99,49 +102,54 @@ public static class ItemValueHelper
         }
     }
 
-    public static void AcceptNode(this ItemValue<Drawable?> itemValue, IModifiableHierarchical hierarchical)
+    public static void AcceptNode(
+        this ItemValue<Drawable?> itemValue,
+        IModifiableHierarchical hierarchical
+    )
     {
         // RenderNodeを受け取った時RenderNodeDrawableに変換する
-        itemValue.RegisterReceiver((source, out value) =>
-        {
-            value = null;
-            var obj = source.GetBoxed();
-            if (obj == null)
+        itemValue.RegisterReceiver(
+            (source, out value) =>
             {
-                if (itemValue.Value is RenderNodeDrawable renderNodeDrawable)
+                value = null;
+                var obj = source.GetBoxed();
+                if (obj == null)
                 {
-                    hierarchical.RemoveChild(renderNodeDrawable);
+                    if (itemValue.Value is RenderNodeDrawable renderNodeDrawable)
+                    {
+                        hierarchical.RemoveChild(renderNodeDrawable);
+                    }
+
+                    return true;
                 }
 
-                return true;
-            }
-
-            if (obj is Drawable drawable)
-            {
-                if (itemValue.Value is RenderNodeDrawable renderNodeDrawable)
+                if (obj is Drawable drawable)
                 {
-                    hierarchical.RemoveChild(renderNodeDrawable);
+                    if (itemValue.Value is RenderNodeDrawable renderNodeDrawable)
+                    {
+                        hierarchical.RemoveChild(renderNodeDrawable);
+                    }
+
+                    value = drawable;
+                    return true;
                 }
 
-                value = drawable;
-                return true;
-            }
-
-            if (obj is RenderNode node)
-            {
-                if (itemValue.Value is not RenderNodeDrawable renderNodeDrawable)
+                if (obj is RenderNode node)
                 {
-                    renderNodeDrawable = new RenderNodeDrawable();
-                    hierarchical.AddChild(renderNodeDrawable);
+                    if (itemValue.Value is not RenderNodeDrawable renderNodeDrawable)
+                    {
+                        renderNodeDrawable = new RenderNodeDrawable();
+                        hierarchical.AddChild(renderNodeDrawable);
+                    }
+
+                    renderNodeDrawable.GraphNode = node;
+                    value = renderNodeDrawable;
+                    return true;
                 }
 
-                renderNodeDrawable.GraphNode = node;
-                value = renderNodeDrawable;
-                return true;
+                return false;
             }
-
-            return false;
-        });
+        );
         itemValue.RegisterDisposer(() =>
         {
             if (itemValue.Value is RenderNodeDrawable renderNodeDrawable)
@@ -151,50 +159,57 @@ public static class ItemValueHelper
         });
     }
 
-    public static void AcceptMatrix(this ItemValue<Transform?> itemValue, IModifiableHierarchical hierarchical)
+    public static void AcceptMatrix(
+        this ItemValue<Transform?> itemValue,
+        IModifiableHierarchical hierarchical
+    )
     {
         // Matrixを受け取った時MatrixTransformに変換する
-        itemValue.RegisterReceiver((source, out value) =>
-        {
-            value = null;
-            var obj = source.GetBoxed();
-            if (obj == null)
+        itemValue.RegisterReceiver(
+            (source, out value) =>
             {
-                if (itemValue.Value is MatrixTransform matrixTransform)
+                value = null;
+                var obj = source.GetBoxed();
+                if (obj == null)
                 {
-                    hierarchical.RemoveChild(matrixTransform);
+                    if (itemValue.Value is MatrixTransform matrixTransform)
+                    {
+                        hierarchical.RemoveChild(matrixTransform);
+                    }
+
+                    return true;
                 }
 
-                return true;
-            }
-
-            if (obj is Transform transform)
-            {
-                if (itemValue.Value is MatrixTransform matrixTransform &&
-                    !ReferenceEquals(transform, matrixTransform))
+                if (obj is Transform transform)
                 {
-                    hierarchical.RemoveChild(matrixTransform);
+                    if (
+                        itemValue.Value is MatrixTransform matrixTransform
+                        && !ReferenceEquals(transform, matrixTransform)
+                    )
+                    {
+                        hierarchical.RemoveChild(matrixTransform);
+                    }
+
+                    value = transform;
+                    return true;
                 }
 
-                value = transform;
-                return true;
-            }
-
-            if (obj is Matrix matrix)
-            {
-                if (itemValue.Value is not MatrixTransform matrixTransform)
+                if (obj is Matrix matrix)
                 {
-                    matrixTransform = new MatrixTransform();
-                    hierarchical.AddChild(matrixTransform);
+                    if (itemValue.Value is not MatrixTransform matrixTransform)
+                    {
+                        matrixTransform = new MatrixTransform();
+                        hierarchical.AddChild(matrixTransform);
+                    }
+
+                    matrixTransform.Matrix.CurrentValue = matrix;
+                    value = matrixTransform;
+                    return true;
                 }
 
-                matrixTransform.Matrix.CurrentValue = matrix;
-                value = matrixTransform;
-                return true;
+                return false;
             }
-
-            return false;
-        });
+        );
         itemValue.RegisterDisposer(() =>
         {
             if (itemValue.Value is MatrixTransform matrixTransform)
@@ -207,278 +222,305 @@ public static class ItemValueHelper
     public static void AcceptNumber<T>(this ItemValue<T> itemValue)
         where T : INumber<T>
     {
-        itemValue.RegisterReceiver((source, out value) =>
-        {
-            value = default;
-
-            if (ToNumber<T>(source, out T? numValue))
+        itemValue.RegisterReceiver(
+            (source, out value) =>
             {
-                value = numValue;
-                return true;
-            }
+                value = default;
 
-            return false;
-        });
+                if (ToNumber<T>(source, out T? numValue))
+                {
+                    value = numValue;
+                    return true;
+                }
+
+                return false;
+            }
+        );
     }
 
     public static void AcceptNumber(this ItemValue<Thickness> itemValue)
     {
-        itemValue.RegisterReceiver((source, out value) =>
-        {
-            value = default;
-
-            if (ToNumber(source, out float numValue))
+        itemValue.RegisterReceiver(
+            (source, out value) =>
             {
-                value = new Thickness(numValue, numValue);
-                return true;
-            }
+                value = default;
 
-            if (source is ItemValue<string> str
-                && Thickness.TryParse(str.Value, out Thickness parsed))
-            {
-                value = parsed;
-                return true;
-            }
+                if (ToNumber(source, out float numValue))
+                {
+                    value = new Thickness(numValue, numValue);
+                    return true;
+                }
 
-            return false;
-        });
+                if (
+                    source is ItemValue<string> str
+                    && Thickness.TryParse(str.Value, out Thickness parsed)
+                )
+                {
+                    value = parsed;
+                    return true;
+                }
+
+                return false;
+            }
+        );
     }
 
     public static void AcceptNumber(this ItemValue<Vector> itemValue)
     {
-        itemValue.RegisterReceiver((source, out value) =>
-        {
-            value = default;
-
-            if (ToNumber(source, out float numValue))
+        itemValue.RegisterReceiver(
+            (source, out value) =>
             {
-                value = new Vector(numValue, numValue);
-                return true;
-            }
+                value = default;
 
-            if (source is ItemValue<Size> size)
-            {
-                value = new Vector(size.Value.Width, size.Value.Height);
-                return true;
-            }
+                if (ToNumber(source, out float numValue))
+                {
+                    value = new Vector(numValue, numValue);
+                    return true;
+                }
 
-            if (source is ItemValue<Point> point)
-            {
-                value = new Vector(point.Value.X, point.Value.Y);
-                return true;
-            }
+                if (source is ItemValue<Size> size)
+                {
+                    value = new Vector(size.Value.Width, size.Value.Height);
+                    return true;
+                }
 
-            if (source is ItemValue<string> str
-                && Vector.TryParse(str.Value, out Vector parsed))
-            {
-                value = parsed;
-                return true;
-            }
+                if (source is ItemValue<Point> point)
+                {
+                    value = new Vector(point.Value.X, point.Value.Y);
+                    return true;
+                }
 
-            return false;
-        });
+                if (
+                    source is ItemValue<string> str
+                    && Vector.TryParse(str.Value, out Vector parsed)
+                )
+                {
+                    value = parsed;
+                    return true;
+                }
+
+                return false;
+            }
+        );
     }
 
     public static void AcceptNumber(this ItemValue<Point> itemValue)
     {
-        itemValue.RegisterReceiver((source, out value) =>
-        {
-            value = default;
-
-            if (ToNumber(source, out float numValue))
+        itemValue.RegisterReceiver(
+            (source, out value) =>
             {
-                value = new Point(numValue, numValue);
-                return true;
-            }
+                value = default;
 
-            if (source is ItemValue<Size> size)
-            {
-                value = new Point(size.Value.Width, size.Value.Height);
-                return true;
-            }
+                if (ToNumber(source, out float numValue))
+                {
+                    value = new Point(numValue, numValue);
+                    return true;
+                }
 
-            if (source is ItemValue<Vector> vec)
-            {
-                value = new Point(vec.Value.X, vec.Value.Y);
-                return true;
-            }
+                if (source is ItemValue<Size> size)
+                {
+                    value = new Point(size.Value.Width, size.Value.Height);
+                    return true;
+                }
 
-            if (source is ItemValue<string> str
-                && Point.TryParse(str.Value, out Point parsed))
-            {
-                value = parsed;
-                return true;
-            }
+                if (source is ItemValue<Vector> vec)
+                {
+                    value = new Point(vec.Value.X, vec.Value.Y);
+                    return true;
+                }
 
-            return false;
-        });
+                if (source is ItemValue<string> str && Point.TryParse(str.Value, out Point parsed))
+                {
+                    value = parsed;
+                    return true;
+                }
+
+                return false;
+            }
+        );
     }
 
     public static void AcceptNumber(this ItemValue<Size> itemValue)
     {
-        itemValue.RegisterReceiver((source, out value) =>
-        {
-            value = default;
-
-            if (ToNumber(source, out float numValue))
+        itemValue.RegisterReceiver(
+            (source, out value) =>
             {
-                value = new Size(numValue, numValue);
-                return true;
-            }
+                value = default;
 
-            if (source is ItemValue<Point> point)
-            {
-                value = new Size(point.Value.X, point.Value.Y);
-                return true;
-            }
+                if (ToNumber(source, out float numValue))
+                {
+                    value = new Size(numValue, numValue);
+                    return true;
+                }
 
-            if (source is ItemValue<Vector> vec)
-            {
-                value = new Size(vec.Value.X, vec.Value.Y);
-                return true;
-            }
+                if (source is ItemValue<Point> point)
+                {
+                    value = new Size(point.Value.X, point.Value.Y);
+                    return true;
+                }
 
-            if (source is ItemValue<string> str
-                && Size.TryParse(str.Value, out Size parsed))
-            {
-                value = parsed;
-                return true;
-            }
+                if (source is ItemValue<Vector> vec)
+                {
+                    value = new Size(vec.Value.X, vec.Value.Y);
+                    return true;
+                }
 
-            return false;
-        });
+                if (source is ItemValue<string> str && Size.TryParse(str.Value, out Size parsed))
+                {
+                    value = parsed;
+                    return true;
+                }
+
+                return false;
+            }
+        );
     }
 
     public static void AcceptNumber(this ItemValue<Rect> itemValue)
     {
-        itemValue.RegisterReceiver((source, out value) =>
-        {
-            value = default;
-
-            if (ToNumber(source, out float numValue))
+        itemValue.RegisterReceiver(
+            (source, out value) =>
             {
-                value = new Rect(numValue, numValue, numValue, numValue);
-                return true;
-            }
+                value = default;
 
-            if (source is ItemValue<Size> size)
-            {
-                value = new Rect(size.Value);
-                return true;
-            }
+                if (ToNumber(source, out float numValue))
+                {
+                    value = new Rect(numValue, numValue, numValue, numValue);
+                    return true;
+                }
 
-            if (source is ItemValue<string> str
-                && Rect.TryParse(str.Value, out Rect parsed))
-            {
-                value = parsed;
-                return true;
-            }
+                if (source is ItemValue<Size> size)
+                {
+                    value = new Rect(size.Value);
+                    return true;
+                }
 
-            return false;
-        });
+                if (source is ItemValue<string> str && Rect.TryParse(str.Value, out Rect parsed))
+                {
+                    value = parsed;
+                    return true;
+                }
+
+                return false;
+            }
+        );
     }
 
     public static void AcceptNumber(this ItemValue<PixelPoint> itemValue)
     {
-        itemValue.RegisterReceiver((source, out value) =>
-        {
-            value = default;
-
-            if (ToNumber(source, out int numValue))
+        itemValue.RegisterReceiver(
+            (source, out value) =>
             {
-                value = new PixelPoint(numValue, numValue);
-                return true;
-            }
+                value = default;
 
-            if (source is ItemValue<PixelSize> size)
-            {
-                value = new PixelPoint(size.Value.Width, size.Value.Height);
-                return true;
-            }
+                if (ToNumber(source, out int numValue))
+                {
+                    value = new PixelPoint(numValue, numValue);
+                    return true;
+                }
 
-            if (source is ItemValue<string> str
-                && PixelPoint.TryParse(str.Value, out PixelPoint parsed))
-            {
-                value = parsed;
-                return true;
-            }
+                if (source is ItemValue<PixelSize> size)
+                {
+                    value = new PixelPoint(size.Value.Width, size.Value.Height);
+                    return true;
+                }
 
-            return false;
-        });
+                if (
+                    source is ItemValue<string> str
+                    && PixelPoint.TryParse(str.Value, out PixelPoint parsed)
+                )
+                {
+                    value = parsed;
+                    return true;
+                }
+
+                return false;
+            }
+        );
     }
 
     public static void AcceptNumber(this ItemValue<PixelSize> itemValue)
     {
-        itemValue.RegisterReceiver((source, out value) =>
-        {
-            value = default;
-
-            if (ToNumber(source, out int numValue))
+        itemValue.RegisterReceiver(
+            (source, out value) =>
             {
-                value = new PixelSize(numValue, numValue);
-                return true;
-            }
+                value = default;
 
-            if (source is ItemValue<PixelPoint> point)
-            {
-                value = new PixelSize(point.Value.X, point.Value.Y);
-                return true;
-            }
+                if (ToNumber(source, out int numValue))
+                {
+                    value = new PixelSize(numValue, numValue);
+                    return true;
+                }
 
-            if (source is ItemValue<string> str
-                && PixelSize.TryParse(str.Value, out PixelSize parsed))
-            {
-                value = parsed;
-                return true;
-            }
+                if (source is ItemValue<PixelPoint> point)
+                {
+                    value = new PixelSize(point.Value.X, point.Value.Y);
+                    return true;
+                }
 
-            return false;
-        });
+                if (
+                    source is ItemValue<string> str
+                    && PixelSize.TryParse(str.Value, out PixelSize parsed)
+                )
+                {
+                    value = parsed;
+                    return true;
+                }
+
+                return false;
+            }
+        );
     }
 
     public static void AcceptNumber(this ItemValue<PixelRect> itemValue)
     {
-        itemValue.RegisterReceiver((source, out value) =>
-        {
-            value = default;
-
-            if (ToNumber(source, out int numValue))
+        itemValue.RegisterReceiver(
+            (source, out value) =>
             {
-                value = new PixelRect(numValue, numValue, numValue, numValue);
-                return true;
-            }
+                value = default;
 
-            if (source is ItemValue<PixelSize> size)
-            {
-                value = new PixelRect(size.Value);
-                return true;
-            }
+                if (ToNumber(source, out int numValue))
+                {
+                    value = new PixelRect(numValue, numValue, numValue, numValue);
+                    return true;
+                }
 
-            if (source is ItemValue<string> str
-                && PixelRect.TryParse(str.Value, out PixelRect parsed))
-            {
-                value = parsed;
-                return true;
-            }
+                if (source is ItemValue<PixelSize> size)
+                {
+                    value = new PixelRect(size.Value);
+                    return true;
+                }
 
-            return false;
-        });
+                if (
+                    source is ItemValue<string> str
+                    && PixelRect.TryParse(str.Value, out PixelRect parsed)
+                )
+                {
+                    value = parsed;
+                    return true;
+                }
+
+                return false;
+            }
+        );
     }
 
     public static void AcceptNumber(this ItemValue<TimeSpan> itemValue)
     {
-        itemValue.RegisterReceiver((source, out value) =>
-        {
-            value = default;
-
-            if (ToNumber(source, out double numValue))
+        itemValue.RegisterReceiver(
+            (source, out value) =>
             {
-                value = TimeSpan.FromSeconds(numValue);
-                return true;
-            }
+                value = default;
 
-            return false;
-        });
+                if (ToNumber(source, out double numValue))
+                {
+                    value = TimeSpan.FromSeconds(numValue);
+                    return true;
+                }
+
+                return false;
+            }
+        );
     }
 
     private static bool ToNumber<T>(IItemValue source, out T value)

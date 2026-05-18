@@ -12,9 +12,11 @@ public class TitleBreadcrumbBarViewModel
     {
         _viewModel = viewModel;
         _editorService = editorService;
-        FileName = _editorService.SelectedTabItem
-            .Select(i =>
-                i?.FileName ?? IsProjectOpened.Select(b => b ? MessageStrings.FileNotSelected : null))
+        FileName = _editorService
+            .SelectedTabItem.Select(i =>
+                i?.FileName
+                ?? IsProjectOpened.Select(b => b ? MessageStrings.FileNotSelected : null)
+            )
             .Switch()
             .ToReadOnlyReactivePropertySlim();
     }

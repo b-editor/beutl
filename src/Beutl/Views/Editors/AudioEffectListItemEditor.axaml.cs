@@ -9,11 +9,18 @@ public partial class AudioEffectListItemEditor : UserControl, IListItemEditor
     public AudioEffectListItemEditor()
     {
         InitializeComponent();
-        ExpandTransitionHelper.Attach(reorderHandle, content, ExpandTransitionHelper.ListItemDuration);
+        ExpandTransitionHelper.Attach(
+            reorderHandle,
+            content,
+            ExpandTransitionHelper.ListItemDuration
+        );
         FallbackObjectViewHelper.Attach(this, view => content.Children.Add(view));
 
         reorderHandle.ContextFlyout = new FAMenuFlyout { Placement = PlacementMode.Pointer };
-        EditorMenuHelper.AttachCopyPasteAndTemplateMenus(this, (FAMenuFlyout)reorderHandle.ContextFlyout);
+        EditorMenuHelper.AttachCopyPasteAndTemplateMenus(
+            this,
+            (FAMenuFlyout)reorderHandle.ContextFlyout
+        );
     }
 
     public Control? ReorderHandle => reorderHandle;

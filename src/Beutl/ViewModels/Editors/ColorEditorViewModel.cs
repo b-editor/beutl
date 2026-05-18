@@ -1,13 +1,10 @@
 ﻿using Avalonia;
 using Avalonia.Interactivity;
-
 using Beutl.Controls;
 using Beutl.Controls.PropertyEditors;
 using Beutl.Media;
-
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
-
 using AColor = Avalonia.Media.Color;
 
 namespace Beutl.ViewModels.Editors;
@@ -32,13 +29,15 @@ public sealed class ColorEditorViewModel : ValueEditorViewModel<Color>, IConfigu
         base.Accept(visitor);
         if (visitor is ColorEditor editor && !Disposables.IsDisposed)
         {
-            editor.Bind(ColorEditor.ValueProperty, Value2.ToBinding())
+            editor.Bind(ColorEditor.ValueProperty, Value2.ToBinding()).DisposeWith(Disposables);
+            editor
+                .Bind(ColorEditor.IsLivePreviewEnabledProperty, IsLivePreviewEnabled.ToBinding())
                 .DisposeWith(Disposables);
-            editor.Bind(ColorEditor.IsLivePreviewEnabledProperty, IsLivePreviewEnabled.ToBinding())
+            editor
+                .AddDisposableHandler(PropertyEditor.ValueConfirmedEvent, OnValueConfirmed)
                 .DisposeWith(Disposables);
-            editor.AddDisposableHandler(PropertyEditor.ValueConfirmedEvent, OnValueConfirmed)
-                .DisposeWith(Disposables);
-            editor.AddDisposableHandler(PropertyEditor.ValueChangedEvent, OnValueChanged)
+            editor
+                .AddDisposableHandler(PropertyEditor.ValueChangedEvent, OnValueChanged)
                 .DisposeWith(Disposables);
         }
     }

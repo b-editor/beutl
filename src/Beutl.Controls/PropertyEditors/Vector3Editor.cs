@@ -1,14 +1,12 @@
 ﻿using System.Globalization;
 using System.Numerics;
 using System.Reactive.Disposables;
-
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Metadata;
 using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Interactivity;
-
 using Beutl.Reactive;
 
 namespace Beutl.Controls.PropertyEditors;
@@ -19,17 +17,20 @@ public class Vector3Editor<TElement> : Vector3Editor
     public static readonly DirectProperty<Vector3Editor<TElement>, TElement> FirstValueProperty =
         Vector4Editor<TElement>.FirstValueProperty.AddOwner<Vector3Editor<TElement>>(
             o => o.FirstValue,
-            (o, v) => o.FirstValue = v);
+            (o, v) => o.FirstValue = v
+        );
 
     public static readonly DirectProperty<Vector3Editor<TElement>, TElement> SecondValueProperty =
         Vector4Editor<TElement>.SecondValueProperty.AddOwner<Vector3Editor<TElement>>(
             o => o.SecondValue,
-            (o, v) => o.SecondValue = v);
+            (o, v) => o.SecondValue = v
+        );
 
     public static readonly DirectProperty<Vector3Editor<TElement>, TElement> ThirdValueProperty =
         Vector4Editor<TElement>.ThirdValueProperty.AddOwner<Vector3Editor<TElement>>(
             o => o.ThirdValue,
-            (o, v) => o.ThirdValue = v);
+            (o, v) => o.ThirdValue = v
+        );
 
     public static readonly StyledProperty<TElement> LargeChangeProperty =
         Vector4Editor<TElement>.LargeChangeProperty.AddOwner<Vector3Editor<TElement>>();
@@ -111,21 +112,35 @@ public class Vector3Editor<TElement> : Vector3Editor
         {
             if (textBox != null)
             {
-                textBox.AddDisposableHandler(GotFocusEvent, OnInnerTextBoxGotFocus)
+                textBox
+                    .AddDisposableHandler(GotFocusEvent, OnInnerTextBoxGotFocus)
                     .DisposeWith(_disposables);
-                textBox.AddDisposableHandler(LostFocusEvent, OnInnerTextBoxLostFocus)
+                textBox
+                    .AddDisposableHandler(LostFocusEvent, OnInnerTextBoxLostFocus)
                     .DisposeWith(_disposables);
-                textBox.GetPropertyChangedObservable(TextBox.TextProperty)
+                textBox
+                    .GetPropertyChangedObservable(TextBox.TextProperty)
                     .Subscribe(e =>
                     {
-                        if (e is AvaloniaPropertyChangedEventArgs<string> args
-                            && args.Sender is TextBox textBox)
+                        if (
+                            e is AvaloniaPropertyChangedEventArgs<string> args
+                            && args.Sender is TextBox textBox
+                        )
                         {
-                            OnInnerTextBoxTextChanged(textBox, args.NewValue.GetValueOrDefault(), args.OldValue.GetValueOrDefault());
+                            OnInnerTextBoxTextChanged(
+                                textBox,
+                                args.NewValue.GetValueOrDefault(),
+                                args.OldValue.GetValueOrDefault()
+                            );
                         }
                     })
                     .DisposeWith(_disposables);
-                textBox.AddDisposableHandler(PointerWheelChangedEvent, OnInnerTextBoxPointerWheelChanged, RoutingStrategies.Tunnel)
+                textBox
+                    .AddDisposableHandler(
+                        PointerWheelChangedEvent,
+                        OnInnerTextBoxPointerWheelChanged,
+                        RoutingStrategies.Tunnel
+                    )
                     .DisposeWith(_disposables);
             }
         }
@@ -134,11 +149,26 @@ public class Vector3Editor<TElement> : Vector3Editor
         {
             if (textBlock != null)
             {
-                textBlock.AddDisposableHandler(PointerPressedEvent, OnTextBlockPointerPressed, RoutingStrategies.Tunnel)
+                textBlock
+                    .AddDisposableHandler(
+                        PointerPressedEvent,
+                        OnTextBlockPointerPressed,
+                        RoutingStrategies.Tunnel
+                    )
                     .DisposeWith(_disposables);
-                textBlock.AddDisposableHandler(PointerReleasedEvent, OnTextBlockPointerReleased, RoutingStrategies.Tunnel)
+                textBlock
+                    .AddDisposableHandler(
+                        PointerReleasedEvent,
+                        OnTextBlockPointerReleased,
+                        RoutingStrategies.Tunnel
+                    )
                     .DisposeWith(_disposables);
-                textBlock.AddDisposableHandler(PointerMovedEvent, OnTextBlockPointerMoved, RoutingStrategies.Tunnel)
+                textBlock
+                    .AddDisposableHandler(
+                        PointerMovedEvent,
+                        OnTextBlockPointerMoved,
+                        RoutingStrategies.Tunnel
+                    )
                     .DisposeWith(_disposables);
                 textBlock.Cursor = PointerLockHelper.SizeWestEast;
             }
@@ -165,44 +195,73 @@ public class Vector3Editor<TElement> : Vector3Editor
 
     private void OnTextBlockPointerMoved(object sender, PointerEventArgs e)
     {
-        if (!(InnerFirstTextBox.IsKeyboardFocusWithin
-            || InnerSecondTextBox?.IsKeyboardFocusWithin == true
-            || InnerThirdTextBox?.IsKeyboardFocusWithin == true)
+        if (
+            !(
+                InnerFirstTextBox.IsKeyboardFocusWithin
+                || InnerSecondTextBox?.IsKeyboardFocusWithin == true
+                || InnerThirdTextBox?.IsKeyboardFocusWithin == true
+            )
             && _headerPressed
-            && sender is TextBlock headerText)
+            && sender is TextBlock headerText
+        )
         {
             Point point = e.GetPosition(headerText);
 
             // ポインタロック + デルタ取得
             Point move = PointerLockHelper.Moved(headerText, point, ref _headerDragStart);
             double scaledX = NumberEditorHelper.ApplyScrubModifier(move.X, e.KeyModifiers);
-            TElement delta = NumberEditorHelper.ConsumeScrubAccumulator<TElement>(ref _scrubAccumulator, scaledX) * SmallChange;
+            TElement delta =
+                NumberEditorHelper.ConsumeScrubAccumulator<TElement>(ref _scrubAccumulator, scaledX)
+                * SmallChange;
 
             var newValues = (FirstValue, SecondValue, ThirdValue);
             var oldValues = (FirstValue, SecondValue, ThirdValue);
             switch (headerText.Name)
             {
                 case "PART_HeaderFirstTextBlock":
-                    newValues.FirstValue = NumberEditorHelper.AddPreservingScale(newValues.FirstValue, delta);
+                    newValues.FirstValue = NumberEditorHelper.AddPreservingScale(
+                        newValues.FirstValue,
+                        delta
+                    );
                     break;
                 case "PART_HeaderSecondTextBlock":
-                    newValues.SecondValue = NumberEditorHelper.AddPreservingScale(newValues.SecondValue, delta);
+                    newValues.SecondValue = NumberEditorHelper.AddPreservingScale(
+                        newValues.SecondValue,
+                        delta
+                    );
                     break;
                 case "PART_HeaderThirdTextBlock":
-                    newValues.ThirdValue = NumberEditorHelper.AddPreservingScale(newValues.ThirdValue, delta);
+                    newValues.ThirdValue = NumberEditorHelper.AddPreservingScale(
+                        newValues.ThirdValue,
+                        delta
+                    );
                     break;
                 case "PART_HeaderTextBlock":
-                    newValues.FirstValue = NumberEditorHelper.AddPreservingScale(newValues.FirstValue, delta);
-                    newValues.SecondValue = NumberEditorHelper.AddPreservingScale(newValues.SecondValue, delta);
-                    newValues.ThirdValue = NumberEditorHelper.AddPreservingScale(newValues.ThirdValue, delta);
+                    newValues.FirstValue = NumberEditorHelper.AddPreservingScale(
+                        newValues.FirstValue,
+                        delta
+                    );
+                    newValues.SecondValue = NumberEditorHelper.AddPreservingScale(
+                        newValues.SecondValue,
+                        delta
+                    );
+                    newValues.ThirdValue = NumberEditorHelper.AddPreservingScale(
+                        newValues.ThirdValue,
+                        delta
+                    );
                     break;
                 default:
                     break;
             }
 
             (FirstValue, SecondValue, ThirdValue) = newValues;
-            RaiseEvent(new PropertyEditorValueChangedEventArgs<(TElement, TElement, TElement)>(
-                newValues, oldValues, ValueChangedEvent));
+            RaiseEvent(
+                new PropertyEditorValueChangedEventArgs<(TElement, TElement, TElement)>(
+                    newValues,
+                    oldValues,
+                    ValueChangedEvent
+                )
+            );
 
             e.Handled = true;
 
@@ -214,14 +273,19 @@ public class Vector3Editor<TElement> : Vector3Editor
     {
         if (_headerPressed)
         {
-            if (FirstValue != _oldFirstValue
+            if (
+                FirstValue != _oldFirstValue
                 || SecondValue != _oldSecondValue
-                || ThirdValue != _oldThirdValue)
+                || ThirdValue != _oldThirdValue
+            )
             {
-                RaiseEvent(new PropertyEditorValueChangedEventArgs<(TElement, TElement, TElement)>(
-                    (FirstValue, SecondValue, ThirdValue),
-                    (_oldFirstValue, _oldSecondValue, _oldThirdValue),
-                    ValueConfirmedEvent));
+                RaiseEvent(
+                    new PropertyEditorValueChangedEventArgs<(TElement, TElement, TElement)>(
+                        (FirstValue, SecondValue, ThirdValue),
+                        (_oldFirstValue, _oldSecondValue, _oldThirdValue),
+                        ValueConfirmedEvent
+                    )
+                );
             }
 
             PointerLockHelper.Released();
@@ -236,8 +300,10 @@ public class Vector3Editor<TElement> : Vector3Editor
         if (sender is TextBlock headerText)
         {
             PointerPoint pointerPoint = e.GetCurrentPoint(headerText);
-            if (pointerPoint.Properties.IsLeftButtonPressed
-                && !DataValidationErrors.GetHasErrors(this))
+            if (
+                pointerPoint.Properties.IsLeftButtonPressed
+                && !DataValidationErrors.GetHasErrors(this)
+            )
             {
                 _oldFirstValue = FirstValue;
                 _oldSecondValue = SecondValue;
@@ -265,24 +331,35 @@ public class Vector3Editor<TElement> : Vector3Editor
     {
         if (!DataValidationErrors.GetHasErrors(this))
         {
-            if (FirstValue != _oldFirstValue
+            if (
+                FirstValue != _oldFirstValue
                 || SecondValue != _oldSecondValue
-                || ThirdValue != _oldThirdValue)
+                || ThirdValue != _oldThirdValue
+            )
             {
-                RaiseEvent(new PropertyEditorValueChangedEventArgs<(TElement, TElement, TElement)>(
-                    (FirstValue, SecondValue, ThirdValue),
-                    (_oldFirstValue, _oldSecondValue, _oldThirdValue),
-                    ValueConfirmedEvent));
+                RaiseEvent(
+                    new PropertyEditorValueChangedEventArgs<(TElement, TElement, TElement)>(
+                        (FirstValue, SecondValue, ThirdValue),
+                        (_oldFirstValue, _oldSecondValue, _oldThirdValue),
+                        ValueConfirmedEvent
+                    )
+                );
             }
         }
     }
 
     private void OnInnerTextBoxTextChanged(TextBox sender, string newValue, string oldValue)
     {
-        if (sender.IsKeyboardFocusWithin
-            && TElement.TryParse(newValue, CultureInfo.CurrentUICulture, out TElement newValue2))
+        if (
+            sender.IsKeyboardFocusWithin
+            && TElement.TryParse(newValue, CultureInfo.CurrentUICulture, out TElement newValue2)
+        )
         {
-            bool invalidOldValue = !TElement.TryParse(oldValue, CultureInfo.CurrentUICulture, out TElement oldValue2);
+            bool invalidOldValue = !TElement.TryParse(
+                oldValue,
+                CultureInfo.CurrentUICulture,
+                out TElement oldValue2
+            );
             if (invalidOldValue)
             {
                 oldValue2 = newValue2;
@@ -322,8 +399,13 @@ public class Vector3Editor<TElement> : Vector3Editor
                     }
                 }
 
-                RaiseEvent(new PropertyEditorValueChangedEventArgs<(TElement, TElement, TElement)>(
-                    newValues, oldValues, ValueChangedEvent));
+                RaiseEvent(
+                    new PropertyEditorValueChangedEventArgs<(TElement, TElement, TElement)>(
+                        newValues,
+                        oldValues,
+                        ValueChangedEvent
+                    )
+                );
             }
         }
 
@@ -332,10 +414,20 @@ public class Vector3Editor<TElement> : Vector3Editor
 
     private void UpdateErrors()
     {
-        if (TElement.TryParse(InnerFirstTextBox.Text, CultureInfo.CurrentUICulture, out _)
-            && (IsUniform
-            || (TElement.TryParse(InnerSecondTextBox.Text, CultureInfo.CurrentUICulture, out _)
-            && TElement.TryParse(InnerThirdTextBox.Text, CultureInfo.CurrentUICulture, out _))))
+        if (
+            TElement.TryParse(InnerFirstTextBox.Text, CultureInfo.CurrentUICulture, out _)
+            && (
+                IsUniform
+                || (
+                    TElement.TryParse(InnerSecondTextBox.Text, CultureInfo.CurrentUICulture, out _)
+                    && TElement.TryParse(
+                        InnerThirdTextBox.Text,
+                        CultureInfo.CurrentUICulture,
+                        out _
+                    )
+                )
+            )
+        )
         {
             DataValidationErrors.ClearErrors(this);
         }
@@ -347,10 +439,12 @@ public class Vector3Editor<TElement> : Vector3Editor
 
     private void OnInnerTextBoxPointerWheelChanged(object sender, PointerWheelEventArgs e)
     {
-        if (!DataValidationErrors.GetHasErrors(this)
+        if (
+            !DataValidationErrors.GetHasErrors(this)
             && sender is TextBox textBox
             && textBox.IsKeyboardFocusWithin
-            && TElement.TryParse(textBox.Text, CultureInfo.CurrentUICulture, out TElement value))
+            && TElement.TryParse(textBox.Text, CultureInfo.CurrentUICulture, out TElement value)
+        )
         {
             TElement delta = LargeChange;
             double wheelDelta = e.Delta.Y;
@@ -364,7 +458,7 @@ public class Vector3Editor<TElement> : Vector3Editor
             {
                 < 0 => NumberEditorHelper.AddPreservingScale(value, -delta),
                 > 0 => NumberEditorHelper.AddPreservingScale(value, delta),
-                _ => value
+                _ => value,
             };
 
             if (IsUniform)
@@ -395,8 +489,13 @@ public class Vector3Editor<TElement> : Vector3Editor
 }
 
 [PseudoClasses(
-    FocusAnyTextBox, FocusFirstTextBox, FocusSecondTextBox, FocusThirdTextBox,
-    BorderPointerOver, Uniform)]
+    FocusAnyTextBox,
+    FocusFirstTextBox,
+    FocusSecondTextBox,
+    FocusThirdTextBox,
+    BorderPointerOver,
+    Uniform
+)]
 [TemplatePart("PART_InnerFirstTextBox", typeof(TextBox))]
 [TemplatePart("PART_InnerSecondTextBox", typeof(TextBox))]
 [TemplatePart("PART_InnerThirdTextBox", typeof(TextBox))]
@@ -409,17 +508,20 @@ public class Vector3Editor : PropertyEditor
     public static readonly DirectProperty<Vector3Editor, string> FirstTextProperty =
         Vector4Editor.FirstTextProperty.AddOwner<Vector3Editor>(
             o => o.FirstText,
-            (o, v) => o.FirstText = v);
+            (o, v) => o.FirstText = v
+        );
 
     public static readonly DirectProperty<Vector3Editor, string> SecondTextProperty =
         Vector4Editor.SecondTextProperty.AddOwner<Vector3Editor>(
             o => o.SecondText,
-            (o, v) => o.SecondText = v);
+            (o, v) => o.SecondText = v
+        );
 
     public static readonly DirectProperty<Vector3Editor, string> ThirdTextProperty =
         Vector4Editor.ThirdTextProperty.AddOwner<Vector3Editor>(
             o => o.ThirdText,
-            (o, v) => o.ThirdText = v);
+            (o, v) => o.ThirdText = v
+        );
 
     public static readonly StyledProperty<string> FirstHeaderProperty =
         Vector4Editor.FirstHeaderProperty.AddOwner<Vector3Editor>();
@@ -516,11 +618,14 @@ public class Vector3Editor : PropertyEditor
         {
             if (textBox != null)
             {
-                textBox.AddDisposableHandler(GotFocusEvent, OnInnerTextBoxGotFocus)
+                textBox
+                    .AddDisposableHandler(GotFocusEvent, OnInnerTextBoxGotFocus)
                     .DisposeWith(_disposables);
-                textBox.AddDisposableHandler(LostFocusEvent, OnInnerTextBoxLostFocus)
+                textBox
+                    .AddDisposableHandler(LostFocusEvent, OnInnerTextBoxLostFocus)
                     .DisposeWith(_disposables);
-                textBox.GetObservable(IsPointerOverProperty)
+                textBox
+                    .GetObservable(IsPointerOverProperty)
                     .Subscribe(IsPointerOverChanged)
                     .DisposeWith(_disposables);
             }
@@ -538,17 +643,21 @@ public class Vector3Editor : PropertyEditor
         SubscribeEvents(InnerFirstTextBox);
         SubscribeEvents(InnerSecondTextBox);
         SubscribeEvents(InnerThirdTextBox);
-        FirstHeaderTextBlock?.GetObservable(IsPointerOverProperty)
+        FirstHeaderTextBlock
+            ?.GetObservable(IsPointerOverProperty)
             ?.Subscribe(IsPointerOverChanged)
             ?.DisposeWith(_disposables);
-        SecondHeaderTextBlock?.GetObservable(IsPointerOverProperty)
+        SecondHeaderTextBlock
+            ?.GetObservable(IsPointerOverProperty)
             ?.Subscribe(IsPointerOverChanged)
             ?.DisposeWith(_disposables);
-        ThirdHeaderTextBlock?.GetObservable(IsPointerOverProperty)
+        ThirdHeaderTextBlock
+            ?.GetObservable(IsPointerOverProperty)
             ?.Subscribe(IsPointerOverChanged)
             ?.DisposeWith(_disposables);
 
-        _backgroundBorder?.GetObservable(IsPointerOverProperty)
+        _backgroundBorder
+            ?.GetObservable(IsPointerOverProperty)
             ?.Subscribe(IsPointerOverChanged)
             ?.DisposeWith(_disposables);
     }
@@ -564,13 +673,15 @@ public class Vector3Editor : PropertyEditor
 
     private void IsPointerOverChanged(bool obj)
     {
-        if (_backgroundBorder?.IsPointerOver == true
+        if (
+            _backgroundBorder?.IsPointerOver == true
             || InnerFirstTextBox.IsPointerOver
             || InnerSecondTextBox?.IsPointerOver == true
             || InnerThirdTextBox?.IsPointerOver == true
             || FirstHeaderTextBlock?.IsPointerOver == true
             || SecondHeaderTextBlock?.IsPointerOver == true
-            || ThirdHeaderTextBlock?.IsPointerOver == true)
+            || ThirdHeaderTextBlock?.IsPointerOver == true
+        )
         {
             PseudoClasses.Add(BorderPointerOver);
         }
@@ -602,9 +713,11 @@ public class Vector3Editor : PropertyEditor
         else if (InnerThirdTextBox?.IsFocused == true)
             PseudoClasses.Add(FocusThirdTextBox);
 
-        if (InnerFirstTextBox.IsFocused
+        if (
+            InnerFirstTextBox.IsFocused
             || InnerSecondTextBox?.IsFocused == true
-            || InnerThirdTextBox?.IsFocused == true)
+            || InnerThirdTextBox?.IsFocused == true
+        )
         {
             PseudoClasses.Add(FocusAnyTextBox);
         }

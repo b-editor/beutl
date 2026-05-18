@@ -6,10 +6,9 @@ using Beutl.Media.TextFormatting;
 
 namespace Beutl.Graphics.Rendering;
 
-public sealed class GraphicsContext2D(
-    ContainerRenderNode container,
-    PixelSize canvasSize = default)
-    : IDisposable, IPopable
+public sealed class GraphicsContext2D(ContainerRenderNode container, PixelSize canvasSize = default)
+    : IDisposable,
+        IPopable
 {
     private readonly Stack<(ContainerRenderNode, int)> _nodes = [];
     private int _drawOperationindex;
@@ -30,7 +29,8 @@ public sealed class GraphicsContext2D(
 
     private void Untracked(RenderNode? node)
     {
-        if (node != null) OnUntracked?.Invoke(node);
+        if (node != null)
+            OnUntracked?.Invoke(node);
     }
 
     private void Add(RenderNode node)
@@ -62,7 +62,8 @@ public sealed class GraphicsContext2D(
         _container = node;
     }
 
-    private T? Next<T>() where T : RenderNode
+    private T? Next<T>()
+        where T : RenderNode
     {
         if (_drawOperationindex < _container.Children.Count)
         {
@@ -80,12 +81,17 @@ public sealed class GraphicsContext2D(
 
     private RenderNode? Next()
     {
-        return _drawOperationindex < _container.Children.Count ? _container.Children[_drawOperationindex] : null;
+        return _drawOperationindex < _container.Children.Count
+            ? _container.Children[_drawOperationindex]
+            : null;
     }
 
     public void Dispose()
     {
-        _container.RemoveRange(_drawOperationindex, _container.Children.Count - _drawOperationindex);
+        _container.RemoveRange(
+            _drawOperationindex,
+            _container.Children.Count - _drawOperationindex
+        );
     }
 
     public void Reset()
@@ -137,10 +143,16 @@ public sealed class GraphicsContext2D(
         ++_drawOperationindex;
     }
 
-    public void DrawImageSource(ImageSource.Resource source, Brush.Resource? fill, Pen.Resource? pen)
+    public void DrawImageSource(
+        ImageSource.Resource source,
+        Brush.Resource? fill,
+        Pen.Resource? pen
+    )
     {
-        if (fill != null) ObjectDisposedException.ThrowIf(fill.IsDisposed, fill);
-        if (pen != null) ObjectDisposedException.ThrowIf(pen.IsDisposed, pen);
+        if (fill != null)
+            ObjectDisposedException.ThrowIf(fill.IsDisposed, fill);
+        if (pen != null)
+            ObjectDisposedException.ThrowIf(pen.IsDisposed, pen);
         ArgumentNullException.ThrowIfNull(source);
         ObjectDisposedException.ThrowIf(source.IsDisposed, source);
 
@@ -158,10 +170,17 @@ public sealed class GraphicsContext2D(
         ++_drawOperationindex;
     }
 
-    public void DrawVideoSource(VideoSource.Resource source, TimeSpan frame, Brush.Resource? fill, Pen.Resource? pen)
+    public void DrawVideoSource(
+        VideoSource.Resource source,
+        TimeSpan frame,
+        Brush.Resource? fill,
+        Pen.Resource? pen
+    )
     {
-        if (fill != null) ObjectDisposedException.ThrowIf(fill.IsDisposed, fill);
-        if (pen != null) ObjectDisposedException.ThrowIf(pen.IsDisposed, pen);
+        if (fill != null)
+            ObjectDisposedException.ThrowIf(fill.IsDisposed, fill);
+        if (pen != null)
+            ObjectDisposedException.ThrowIf(pen.IsDisposed, pen);
         ArgumentNullException.ThrowIfNull(source);
         ObjectDisposedException.ThrowIf(source.IsDisposed, source);
 
@@ -170,10 +189,17 @@ public sealed class GraphicsContext2D(
         DrawVideoSource(source, (int)frameNum, fill, pen);
     }
 
-    public void DrawVideoSource(VideoSource.Resource source, int frame, Brush.Resource? fill, Pen.Resource? pen)
+    public void DrawVideoSource(
+        VideoSource.Resource source,
+        int frame,
+        Brush.Resource? fill,
+        Pen.Resource? pen
+    )
     {
-        if (fill != null) ObjectDisposedException.ThrowIf(fill.IsDisposed, fill);
-        if (pen != null) ObjectDisposedException.ThrowIf(pen.IsDisposed, pen);
+        if (fill != null)
+            ObjectDisposedException.ThrowIf(fill.IsDisposed, fill);
+        if (pen != null)
+            ObjectDisposedException.ThrowIf(pen.IsDisposed, pen);
         ArgumentNullException.ThrowIfNull(source);
         ObjectDisposedException.ThrowIf(source.IsDisposed, source);
 
@@ -193,8 +219,10 @@ public sealed class GraphicsContext2D(
 
     public void DrawEllipse(Rect rect, Brush.Resource? fill, Pen.Resource? pen)
     {
-        if (fill != null) ObjectDisposedException.ThrowIf(fill.IsDisposed, fill);
-        if (pen != null) ObjectDisposedException.ThrowIf(pen.IsDisposed, pen);
+        if (fill != null)
+            ObjectDisposedException.ThrowIf(fill.IsDisposed, fill);
+        if (pen != null)
+            ObjectDisposedException.ThrowIf(pen.IsDisposed, pen);
 
         EllipseRenderNode? next = Next<EllipseRenderNode>();
 
@@ -212,8 +240,10 @@ public sealed class GraphicsContext2D(
 
     public void DrawGeometry(Geometry.Resource geometry, Brush.Resource? fill, Pen.Resource? pen)
     {
-        if (fill != null) ObjectDisposedException.ThrowIf(fill.IsDisposed, fill);
-        if (pen != null) ObjectDisposedException.ThrowIf(pen.IsDisposed, pen);
+        if (fill != null)
+            ObjectDisposedException.ThrowIf(fill.IsDisposed, fill);
+        if (pen != null)
+            ObjectDisposedException.ThrowIf(pen.IsDisposed, pen);
         ArgumentNullException.ThrowIfNull(geometry);
         ObjectDisposedException.ThrowIf(geometry.IsDisposed, geometry);
 
@@ -233,8 +263,10 @@ public sealed class GraphicsContext2D(
 
     public void DrawRectangle(Rect rect, Brush.Resource? fill, Pen.Resource? pen)
     {
-        if (fill != null) ObjectDisposedException.ThrowIf(fill.IsDisposed, fill);
-        if (pen != null) ObjectDisposedException.ThrowIf(pen.IsDisposed, pen);
+        if (fill != null)
+            ObjectDisposedException.ThrowIf(fill.IsDisposed, fill);
+        if (pen != null)
+            ObjectDisposedException.ThrowIf(pen.IsDisposed, pen);
 
         RectangleRenderNode? next = Next<RectangleRenderNode>();
 
@@ -252,8 +284,10 @@ public sealed class GraphicsContext2D(
 
     public void DrawText(FormattedText text, Brush.Resource? fill, Pen.Resource? pen)
     {
-        if (fill != null) ObjectDisposedException.ThrowIf(fill.IsDisposed, fill);
-        if (pen != null) ObjectDisposedException.ThrowIf(pen.IsDisposed, pen);
+        if (fill != null)
+            ObjectDisposedException.ThrowIf(fill.IsDisposed, fill);
+        if (pen != null)
+            ObjectDisposedException.ThrowIf(pen.IsDisposed, pen);
         ArgumentNullException.ThrowIfNull(text);
 
         TextRenderNode? next = Next<TextRenderNode>();
@@ -314,8 +348,11 @@ public sealed class GraphicsContext2D(
         ++_drawOperationindex;
     }
 
-    public void DrawNode<TNode, TParams>(in TParams parameters, Func<TParams, TNode> createNode,
-        Func<TNode, TParams, bool> updateNode)
+    public void DrawNode<TNode, TParams>(
+        in TParams parameters,
+        Func<TParams, TNode> createNode,
+        Func<TNode, TParams, bool> updateNode
+    )
         where TNode : RenderNode
     {
         ArgumentNullException.ThrowIfNull(createNode);
@@ -372,8 +409,7 @@ public sealed class GraphicsContext2D(
     {
         if (count < 0)
         {
-            while (count < 0
-                   && _nodes.TryPop(out (ContainerRenderNode, int) state))
+            while (count < 0 && _nodes.TryPop(out (ContainerRenderNode, int) state))
             {
                 foreach (RenderNode node in _container.Children.Take(_drawOperationindex..))
                 {
@@ -382,7 +418,10 @@ public sealed class GraphicsContext2D(
                     Untracked(node);
                 }
 
-                _container.RemoveRange(_drawOperationindex, _container.Children.Count - _drawOperationindex);
+                _container.RemoveRange(
+                    _drawOperationindex,
+                    _container.Children.Count - _drawOperationindex
+                );
 
                 _container = state.Item1;
                 _container.HasChanges = _container.HasChanges || _hasChanges;
@@ -393,8 +432,7 @@ public sealed class GraphicsContext2D(
         }
         else
         {
-            while (_nodes.Count >= count
-                   && _nodes.TryPop(out (ContainerRenderNode, int) state))
+            while (_nodes.Count >= count && _nodes.TryPop(out (ContainerRenderNode, int) state))
             {
                 foreach (RenderNode node in _container.Children.Take(_drawOperationindex..))
                 {
@@ -403,7 +441,10 @@ public sealed class GraphicsContext2D(
                     Untracked(node);
                 }
 
-                _container.RemoveRange(_drawOperationindex, _container.Children.Count - _drawOperationindex);
+                _container.RemoveRange(
+                    _drawOperationindex,
+                    _container.Children.Count - _drawOperationindex
+                );
 
                 _container = state.Item1;
                 _container.HasChanges = _container.HasChanges || _hasChanges;
@@ -479,7 +520,10 @@ public sealed class GraphicsContext2D(
         return new(this, _nodes.Count);
     }
 
-    public PushedState PushClip(Geometry.Resource geometry, ClipOperation operation = ClipOperation.Intersect)
+    public PushedState PushClip(
+        Geometry.Resource geometry,
+        ClipOperation operation = ClipOperation.Intersect
+    )
     {
         ArgumentNullException.ThrowIfNull(geometry);
         ObjectDisposedException.ThrowIf(geometry.IsDisposed, geometry);
@@ -556,7 +600,10 @@ public sealed class GraphicsContext2D(
         return new(this, _nodes.Count);
     }
 
-    public PushedState PushTransform(Matrix matrix, TransformOperator transformOperator = TransformOperator.Prepend)
+    public PushedState PushTransform(
+        Matrix matrix,
+        TransformOperator transformOperator = TransformOperator.Prepend
+    )
     {
         TransformRenderNode? next = Next<TransformRenderNode>();
 
@@ -573,8 +620,10 @@ public sealed class GraphicsContext2D(
         return new(this, _nodes.Count);
     }
 
-    public PushedState PushTransform(Transform.Resource transform,
-        TransformOperator transformOperator = TransformOperator.Prepend)
+    public PushedState PushTransform(
+        Transform.Resource transform,
+        TransformOperator transformOperator = TransformOperator.Prepend
+    )
     {
         ArgumentNullException.ThrowIfNull(transform);
         ObjectDisposedException.ThrowIf(transform.IsDisposed, transform);
@@ -594,8 +643,11 @@ public sealed class GraphicsContext2D(
         return new(this, _nodes.Count);
     }
 
-    public PushedState PushNode<TNode, TParams>(in TParams parameters, Func<TParams, TNode> createNode,
-        Func<TNode, TParams, bool> updateNode)
+    public PushedState PushNode<TNode, TParams>(
+        in TParams parameters,
+        Func<TParams, TNode> createNode,
+        Func<TNode, TParams, bool> updateNode
+    )
         where TNode : ContainerRenderNode
     {
         ArgumentNullException.ThrowIfNull(createNode);

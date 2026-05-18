@@ -1,5 +1,4 @@
 ﻿using Microsoft.Extensions.Logging;
-
 using NuGet.Frameworks;
 using NuGet.Packaging;
 using NuGet.Packaging.Core;
@@ -8,7 +7,9 @@ namespace Beutl.Api.Services;
 
 public partial class PackageInstaller
 {
-    private PackageIdentity[] UnnecessaryPackages(IEnumerable<PackageIdentity>? installedPackages = null)
+    private PackageIdentity[] UnnecessaryPackages(
+        IEnumerable<PackageIdentity>? installedPackages = null
+    )
     {
         if (!Directory.Exists(Helper.InstallPath))
         {
@@ -32,24 +33,31 @@ public partial class PackageInstaller
                 IEnumerable<PackageDependencyGroup> deps = reader.GetPackageDependencies();
                 NuGetFramework? nearest = Helper.FrameworkReducer.GetNearest(
                     framework,
-                    deps.Select(x => x.TargetFramework));
+                    deps.Select(x => x.TargetFramework)
+                );
 
                 Helper.GetPackageDependencies(
-                    new PackageDependencyInfo(packageId, deps
-                        .Where(x => x.TargetFramework == nearest)
-                        .SelectMany(x => x.Packages)),
+                    new PackageDependencyInfo(
+                        packageId,
+                        deps.Where(x => x.TargetFramework == nearest).SelectMany(x => x.Packages)
+                    ),
                     framework,
-                    availablePackages);
+                    availablePackages
+                );
             }
         }
 
-        IEnumerable<PackageIdentity> all = Directory.GetDirectories(Helper.InstallPath)
+        IEnumerable<PackageIdentity> all = Directory
+            .GetDirectories(Helper.InstallPath)
             .Select(x => new PackageFolderReader(x).GetIdentity());
 
         return all.Except(availablePackages, PackageIdentityComparer.Default).ToArray();
     }
 
-    public PackageCleanContext PrepareForClean(IEnumerable<PackageIdentity>? excludedPackages = null, CancellationToken cancellationToken = default)
+    public PackageCleanContext PrepareForClean(
+        IEnumerable<PackageIdentity>? excludedPackages = null,
+        CancellationToken cancellationToken = default
+    )
     {
         cancellationToken.ThrowIfCancellationRequested();
         excludedPackages ??= [];
@@ -62,13 +70,19 @@ public partial class PackageInstaller
         foreach (PackageIdentity package in unnecessaryPackages)
         {
             string directory = Helper.PackagePathResolver.GetInstalledPath(package);
-            foreach (string file in Directory.GetFiles(directory, "*.*", SearchOption.AllDirectories))
+            foreach (
+                string file in Directory.GetFiles(directory, "*.*", SearchOption.AllDirectories)
+            )
             {
                 size += new FileInfo(file).Length;
             }
         }
 
-        _logger.LogInformation("Prepared for clean. Unnecessary packages: {PackageCount}, Total size: {TotalSize} bytes", unnecessaryPackages.Length, size);
+        _logger.LogInformation(
+            "Prepared for clean. Unnecessary packages: {PackageCount}, Total size: {TotalSize} bytes",
+            unnecessaryPackages.Length,
+            size
+        );
 
         return new PackageCleanContext(unnecessaryPackages, size);
     }
@@ -76,7 +90,8 @@ public partial class PackageInstaller
     public void Clean(
         PackageCleanContext context,
         IProgress<double> progress,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default
+    )
     {
         cancellationToken.ThrowIfCancellationRequested();
 
@@ -86,7 +101,9 @@ public partial class PackageInstaller
         {
             string directory = Helper.PackagePathResolver.GetInstalledPath(package);
             bool hasAnyFailures = false;
-            foreach (string file in Directory.GetFiles(directory, "*.*", SearchOption.AllDirectories))
+            foreach (
+                string file in Directory.GetFiles(directory, "*.*", SearchOption.AllDirectories)
+            )
             {
                 try
                 {
@@ -96,7 +113,12 @@ public partial class PackageInstaller
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogError(ex, "Failed to delete file: {FileName} in package: {PackageId}", Path.GetFileName(file), package.Id);
+                    _logger.LogError(
+                        ex,
+                        "Failed to delete file: {FileName} in package: {PackageId}",
+                        Path.GetFileName(file),
+                        package.Id
+                    );
                     hasAnyFailures = true;
                 }
 
@@ -109,7 +131,12 @@ public partial class PackageInstaller
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Failed to delete package directory: {Directory} for package: {PackageId}", directory, package.Id);
+                _logger.LogError(
+                    ex,
+                    "Failed to delete package directory: {Directory} for package: {PackageId}",
+                    directory,
+                    package.Id
+                );
                 hasAnyFailures = true;
             }
 
@@ -125,11 +152,17 @@ public partial class PackageInstaller
 
         if (failedPackages.Count > 0)
         {
-            _logger.LogWarning("Clean completed with failures. Failed packages: {FailedPackageCount}", failedPackages.Count);
+            _logger.LogWarning(
+                "Clean completed with failures. Failed packages: {FailedPackageCount}",
+                failedPackages.Count
+            );
         }
         else
         {
-            _logger.LogInformation("Clean completed successfully. Total size released: {TotalSize} bytes", totalSize);
+            _logger.LogInformation(
+                "Clean completed successfully. Total size released: {TotalSize} bytes",
+                totalSize
+            );
         }
     }
 }

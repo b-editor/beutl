@@ -23,10 +23,16 @@ public partial class ShakeEffect : FilterEffect
         ScanProperties<ShakeEffect>();
     }
 
-    [Display(Name = nameof(GraphicsStrings.ShakeEffect_StrengthX), ResourceType = typeof(GraphicsStrings))]
+    [Display(
+        Name = nameof(GraphicsStrings.ShakeEffect_StrengthX),
+        ResourceType = typeof(GraphicsStrings)
+    )]
     public IProperty<float> StrengthX { get; } = Property.CreateAnimatable(50f);
 
-    [Display(Name = nameof(GraphicsStrings.ShakeEffect_StrengthY), ResourceType = typeof(GraphicsStrings))]
+    [Display(
+        Name = nameof(GraphicsStrings.ShakeEffect_StrengthY),
+        ResourceType = typeof(GraphicsStrings)
+    )]
     public IProperty<float> StrengthY { get; } = Property.CreateAnimatable(50f);
 
     [Display(Name = nameof(GraphicsStrings.Speed), ResourceType = typeof(GraphicsStrings))]
@@ -49,20 +55,30 @@ public partial class ShakeEffect : FilterEffect
     {
         var r = (Resource)resource;
         context.CustomEffect(
-            (time: r.Time, speed: r.Speed, strengthX: r.StrengthX, strengthY: r.StrengthY, random: _random, offset: _offset),
+            (
+                time: r.Time,
+                speed: r.Speed,
+                strengthX: r.StrengthX,
+                strengthY: r.StrengthY,
+                random: _random,
+                offset: _offset
+            ),
             static (data, effectContext) =>
             {
-                effectContext.ForEach((i, target) =>
-                {
-                    float a = data.time * data.speed / 100 + data.offset;
-                    float b = i + data.offset;
-                    float randomX = data.random.Perlin(a, b);
-                    float randomY = data.random.Perlin(b, a);
-                    randomX = (randomX - 0.5F) * 2F * data.strengthX;
-                    randomY = (randomY - 0.5F) * 2F * data.strengthY;
-                    target.Bounds = target.Bounds.Translate(new Vector(randomX, randomY));
-                });
-            });
+                effectContext.ForEach(
+                    (i, target) =>
+                    {
+                        float a = data.time * data.speed / 100 + data.offset;
+                        float b = i + data.offset;
+                        float randomX = data.random.Perlin(a, b);
+                        float randomY = data.random.Perlin(b, a);
+                        randomX = (randomX - 0.5F) * 2F * data.strengthX;
+                        randomY = (randomY - 0.5F) * 2F * data.strengthY;
+                        target.Bounds = target.Bounds.Translate(new Vector(randomX, randomY));
+                    }
+                );
+            }
+        );
     }
 
     public override Resource ToResource(CompositionContext context)
@@ -88,7 +104,11 @@ public partial class ShakeEffect : FilterEffect
 
         public float Time => _time;
 
-        public override void Update(EngineObject obj, CompositionContext context, ref bool updateOnly)
+        public override void Update(
+            EngineObject obj,
+            CompositionContext context,
+            ref bool updateOnly
+        )
         {
             base.Update(obj, context, ref updateOnly);
 

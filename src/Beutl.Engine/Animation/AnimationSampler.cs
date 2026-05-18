@@ -9,7 +9,8 @@ public sealed class AnimationSampler
         IProperty<T> property,
         TimeRange range,
         int sampleRate,
-        Span<T> output)
+        Span<T> output
+    )
         where T : struct
     {
         ArgumentNullException.ThrowIfNull(property);
@@ -24,7 +25,8 @@ public sealed class AnimationSampler
             for (int i = 0; i < output.Length; i++)
             {
                 output[i] = keyFrameAnimation.GetAnimatedValue(
-                    ownerStart + range.Start + TimeSpan.FromSeconds(i / (double)sampleRate));
+                    ownerStart + range.Start + TimeSpan.FromSeconds(i / (double)sampleRate)
+                );
             }
         }
         else

@@ -1,5 +1,4 @@
 ﻿using System.Text.Json.Nodes;
-
 using Beutl.Animation.Easings;
 using Beutl.Serialization;
 using Beutl.Validation;
@@ -15,7 +14,9 @@ public class KeyFrame : Hierarchical
 
     protected KeyFrame()
     {
-        _easing = EasingProperty.GetMetadata<CorePropertyMetadata<Easing>>(GetType()).DefaultValue ?? new LinearEasing();
+        _easing =
+            EasingProperty.GetMetadata<CorePropertyMetadata<Easing>>(GetType()).DefaultValue
+            ?? new LinearEasing();
     }
 
     static KeyFrame()
@@ -51,8 +52,10 @@ public class KeyFrame : Hierarchical
 
         if (context.GetValue<JsonNode>(nameof(Easing)) is { } easingNode)
         {
-            if (easingNode is JsonValue easingTypeValue
-                && easingTypeValue.TryGetValue(out string? easingType))
+            if (
+                easingNode is JsonValue easingTypeValue
+                && easingTypeValue.TryGetValue(out string? easingType)
+            )
             {
                 Type type = TypeFormat.ToType(easingType) ?? typeof(LinearEasing);
 
@@ -78,13 +81,16 @@ public class KeyFrame : Hierarchical
         base.Serialize(context);
         if (Easing is SplineEasing splineEasing)
         {
-            context.SetValue(nameof(Easing), new JsonObject
-            {
-                ["X1"] = splineEasing.X1,
-                ["Y1"] = splineEasing.Y1,
-                ["X2"] = splineEasing.X2,
-                ["Y2"] = splineEasing.Y2,
-            });
+            context.SetValue(
+                nameof(Easing),
+                new JsonObject
+                {
+                    ["X1"] = splineEasing.X1,
+                    ["Y1"] = splineEasing.Y1,
+                    ["X2"] = splineEasing.X2,
+                    ["Y2"] = splineEasing.Y2,
+                }
+            );
         }
         else
         {

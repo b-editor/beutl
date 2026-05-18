@@ -23,7 +23,9 @@ public class DispatcherTests
         int id = Environment.CurrentManagedThreadId;
         var dispatcher = Dispatcher.Spawn();
 
-        int dispatcherId = await dispatcher.InvokeAsync(async () => await Task.FromResult(Environment.CurrentManagedThreadId));
+        int dispatcherId = await dispatcher.InvokeAsync(async () =>
+            await Task.FromResult(Environment.CurrentManagedThreadId)
+        );
         Assert.That(id, Is.Not.EqualTo(dispatcherId));
 
         dispatcher.Shutdown();
@@ -34,8 +36,7 @@ public class DispatcherTests
     {
         var dispatcher = Dispatcher.Spawn();
 
-        Assert.Catch<OperationCanceledException>(
-            () => dispatcher.Invoke(() => { }, ct: new(true)));
+        Assert.Catch<OperationCanceledException>(() => dispatcher.Invoke(() => { }, ct: new(true)));
 
         dispatcher.Shutdown();
     }
@@ -45,8 +46,7 @@ public class DispatcherTests
     {
         var dispatcher = Dispatcher.Spawn();
 
-        Assert.Catch<OperationCanceledException>(
-            () => dispatcher.Invoke(() => 100, ct: new(true)));
+        Assert.Catch<OperationCanceledException>(() => dispatcher.Invoke(() => 100, ct: new(true)));
 
         dispatcher.Shutdown();
     }
@@ -56,8 +56,9 @@ public class DispatcherTests
     {
         var dispatcher = Dispatcher.Spawn();
 
-        Assert.CatchAsync<OperationCanceledException>(
-            async () => await dispatcher.InvokeAsync(() => { }, ct: new(true)));
+        Assert.CatchAsync<OperationCanceledException>(async () =>
+            await dispatcher.InvokeAsync(() => { }, ct: new(true))
+        );
 
         dispatcher.Shutdown();
     }
@@ -67,8 +68,9 @@ public class DispatcherTests
     {
         var dispatcher = Dispatcher.Spawn();
 
-        Assert.CatchAsync<OperationCanceledException>(
-            async () => await dispatcher.InvokeAsync(async () => await Task.Delay(100), ct: new(true)));
+        Assert.CatchAsync<OperationCanceledException>(async () =>
+            await dispatcher.InvokeAsync(async () => await Task.Delay(100), ct: new(true))
+        );
 
         dispatcher.Shutdown();
     }
@@ -78,8 +80,9 @@ public class DispatcherTests
     {
         var dispatcher = Dispatcher.Spawn();
 
-        Assert.CatchAsync<OperationCanceledException>(
-            async () => await dispatcher.InvokeAsync(() => 100, ct: new(true)));
+        Assert.CatchAsync<OperationCanceledException>(async () =>
+            await dispatcher.InvokeAsync(() => 100, ct: new(true))
+        );
 
         dispatcher.Shutdown();
     }
@@ -89,8 +92,9 @@ public class DispatcherTests
     {
         var dispatcher = Dispatcher.Spawn();
 
-        Assert.CatchAsync<OperationCanceledException>(
-            async () => await dispatcher.InvokeAsync(async () => await Task.FromResult(100), ct: new(true)));
+        Assert.CatchAsync<OperationCanceledException>(async () =>
+            await dispatcher.InvokeAsync(async () => await Task.FromResult(100), ct: new(true))
+        );
 
         dispatcher.Shutdown();
     }
@@ -208,11 +212,20 @@ public class DispatcherTests
         var scheduledAt = DateTime.UtcNow;
         var tcs = new TaskCompletionSource<DateTime>();
 
-        dispatcher.Schedule(TimeSpan.FromMilliseconds(100), () => { tcs.SetResult(DateTime.UtcNow); });
+        dispatcher.Schedule(
+            TimeSpan.FromMilliseconds(100),
+            () =>
+            {
+                tcs.SetResult(DateTime.UtcNow);
+            }
+        );
 
         var responseAt = await tcs.Task;
 
-        Assert.That(responseAt - scheduledAt, Is.GreaterThanOrEqualTo(TimeSpan.FromMilliseconds(100)));
+        Assert.That(
+            responseAt - scheduledAt,
+            Is.GreaterThanOrEqualTo(TimeSpan.FromMilliseconds(100))
+        );
 
         dispatcher.Shutdown();
     }
@@ -224,15 +237,21 @@ public class DispatcherTests
         var scheduledAt = DateTime.UtcNow;
         var tcs = new TaskCompletionSource<DateTime>();
 
-        dispatcher.Schedule(TimeSpan.FromMilliseconds(100), async () =>
-        {
-            await Task.CompletedTask;
-            tcs.SetResult(DateTime.UtcNow);
-        });
+        dispatcher.Schedule(
+            TimeSpan.FromMilliseconds(100),
+            async () =>
+            {
+                await Task.CompletedTask;
+                tcs.SetResult(DateTime.UtcNow);
+            }
+        );
 
         var responseAt = await tcs.Task;
 
-        Assert.That(responseAt - scheduledAt, Is.GreaterThanOrEqualTo(TimeSpan.FromMilliseconds(100)));
+        Assert.That(
+            responseAt - scheduledAt,
+            Is.GreaterThanOrEqualTo(TimeSpan.FromMilliseconds(100))
+        );
 
         dispatcher.Shutdown();
     }
@@ -247,12 +266,30 @@ public class DispatcherTests
         var tcs2 = new TaskCompletionSource<DateTime>();
         var delay = TimeSpan.FromMilliseconds(100);
 
-        dispatcher.Schedule(delay, () => { tcs1.SetResult(DateTime.UtcNow); });
-        dispatcher.Schedule(delay, () => { tcs2.SetResult(DateTime.UtcNow); });
+        dispatcher.Schedule(
+            delay,
+            () =>
+            {
+                tcs1.SetResult(DateTime.UtcNow);
+            }
+        );
+        dispatcher.Schedule(
+            delay,
+            () =>
+            {
+                tcs2.SetResult(DateTime.UtcNow);
+            }
+        );
 
         timeProvider.Advance(delay);
-        Assert.That(await tcs1.Task - scheduledAt, Is.GreaterThanOrEqualTo(TimeSpan.FromMilliseconds(100)));
-        Assert.That(await tcs2.Task - scheduledAt, Is.GreaterThanOrEqualTo(TimeSpan.FromMilliseconds(100)));
+        Assert.That(
+            await tcs1.Task - scheduledAt,
+            Is.GreaterThanOrEqualTo(TimeSpan.FromMilliseconds(100))
+        );
+        Assert.That(
+            await tcs2.Task - scheduledAt,
+            Is.GreaterThanOrEqualTo(TimeSpan.FromMilliseconds(100))
+        );
 
         dispatcher.Shutdown();
     }
@@ -265,11 +302,14 @@ public class DispatcherTests
         Assert.That(context, Is.Not.Null, "SynchronizationContext.Current is null");
 
         bool value = false;
-        context!.Send(_ =>
-        {
-            Thread.Sleep(10);
-            value = true;
-        }, null);
+        context!.Send(
+            _ =>
+            {
+                Thread.Sleep(10);
+                value = true;
+            },
+            null
+        );
 
         Assert.That(value, Is.True, "Send did not execute the action synchronously");
 
@@ -297,11 +337,14 @@ public class DispatcherTests
         Assert.That(context, Is.Not.Null, "SynchronizationContext.Current is null");
 
         bool value = false;
-        context!.Post(_ =>
-        {
-            Thread.Sleep(10);
-            value = true;
-        }, null);
+        context!.Post(
+            _ =>
+            {
+                Thread.Sleep(10);
+                value = true;
+            },
+            null
+        );
 
         Assert.That(value, Is.False, "Post executed the action synchronously");
 
@@ -496,9 +539,15 @@ public class DispatcherTests
             // the dispatcher would block on WaitOne and never process this operation.
             dispatcher.Dispatch(() => operationExecuted.SetResult());
 
-            var completed = await Task.WhenAny(operationExecuted.Task, Task.Delay(TimeSpan.FromSeconds(5)));
-            Assert.That(completed, Is.EqualTo(operationExecuted.Task),
-                $"Iteration {i}: Dispatched operation was not executed promptly; dispatcher may have blocked in WaitForPendingOperations");
+            var completed = await Task.WhenAny(
+                operationExecuted.Task,
+                Task.Delay(TimeSpan.FromSeconds(5))
+            );
+            Assert.That(
+                completed,
+                Is.EqualTo(operationExecuted.Task),
+                $"Iteration {i}: Dispatched operation was not executed promptly; dispatcher may have blocked in WaitForPendingOperations"
+            );
         }
 
         dispatcher.Shutdown();

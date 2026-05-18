@@ -20,7 +20,7 @@ public partial class MainWindow : Window
         _text = new TextBlock()
         {
             Size = { CurrentValue = 70 },
-            Fill = { CurrentValue = Brushes.White }
+            Fill = { CurrentValue = Brushes.White },
         };
 
         _resource = _text.ToResource(CompositionContext.Default);
@@ -50,10 +50,15 @@ public partial class MainWindow : Window
         var updateOnly = false;
         var oldVersion = _resource.Version;
         _resource.Update(_text, CompositionContext.Default, ref updateOnly);
-        if (_resource.Version != oldVersion) return;
+        if (_resource.Version != oldVersion)
+            return;
 
-        using (var context = new GraphicsContext2D(_node,
-                   new Beutl.Media.PixelSize((int)image.Bounds.Width, (int)image.Bounds.Height)))
+        using (
+            var context = new GraphicsContext2D(
+                _node,
+                new Beutl.Media.PixelSize((int)image.Bounds.Width, (int)image.Bounds.Height)
+            )
+        )
         {
             context.Clear(Beutl.Media.Colors.Black);
             _text.Render(context, _resource);
@@ -72,7 +77,8 @@ public partial class MainWindow : Window
             new PixelSize(bmp.Width, bmp.Height),
             Avalonia.Skia.SkiaPlatform.DefaultDpi,
             Avalonia.Platform.PixelFormat.Bgra8888,
-            Avalonia.Platform.AlphaFormat.Premul);
+            Avalonia.Platform.AlphaFormat.Premul
+        );
 
         using (var buf = wbmp.Lock())
         {

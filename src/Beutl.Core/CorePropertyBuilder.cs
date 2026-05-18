@@ -4,7 +4,10 @@ using System.Reflection;
 
 namespace Beutl;
 
-public sealed class CorePropertyBuilder<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.Interfaces)] T, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties)] TOwner>
+public sealed class CorePropertyBuilder<
+    [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.Interfaces)] T,
+    [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties)] TOwner
+>
 {
     private readonly string _name;
     private Func<TOwner, T>? _getter;
@@ -19,7 +22,8 @@ public sealed class CorePropertyBuilder<[DynamicallyAccessedMembers(DynamicallyA
 
         if (!isAttached)
         {
-            _propertyInfo = typeof(TOwner).GetProperty(name) ?? throw new InvalidOperationException();
+            _propertyInfo =
+                typeof(TOwner).GetProperty(name) ?? throw new InvalidOperationException();
             _attributes = _propertyInfo.GetCustomAttributes().ToArray();
         }
         else
@@ -31,9 +35,11 @@ public sealed class CorePropertyBuilder<[DynamicallyAccessedMembers(DynamicallyA
     public CorePropertyBuilder(Expression<Func<TOwner, T>> exp)
     {
         _getter = exp.Compile();
-        if (exp.Body is MemberExpression memberExp &&
-            memberExp.Member is PropertyInfo propInfo &&
-            propInfo.SetMethod != null)
+        if (
+            exp.Body is MemberExpression memberExp
+            && memberExp.Member is PropertyInfo propInfo
+            && propInfo.SetMethod != null
+        )
         {
             _propertyInfo = propInfo;
             _name = propInfo.Name;
@@ -42,7 +48,10 @@ public sealed class CorePropertyBuilder<[DynamicallyAccessedMembers(DynamicallyA
             ParameterExpression valueParam = Expression.Parameter(typeof(T), "v");
             MemberExpression? memberAccess = Expression.MakeMemberAccess(ownerParam, propInfo);
             BinaryExpression? assign = Expression.Assign(memberAccess, valueParam);
-            Expression<Action<TOwner, T>> lambda1 = Expression.Lambda<Action<TOwner, T>>(assign, [ownerParam, valueParam]);
+            Expression<Action<TOwner, T>> lambda1 = Expression.Lambda<Action<TOwner, T>>(
+                assign,
+                [ownerParam, valueParam]
+            );
             _setter = lambda1.Compile();
 
             _attributes = _propertyInfo.GetCustomAttributes().ToArray();
@@ -57,7 +66,11 @@ public sealed class CorePropertyBuilder<[DynamicallyAccessedMembers(DynamicallyA
     {
         CoreProperty<T>? property = null;
 
-        var metadata = new CorePropertyMetadata<T>(_defaultValue, _getter == null || _setter != null, _attributes);
+        var metadata = new CorePropertyMetadata<T>(
+            _defaultValue,
+            _getter == null || _setter != null,
+            _attributes
+        );
         if (_getter != null)
         {
             property = new StaticProperty<TOwner, T>(_name, _getter, _setter, metadata);
@@ -77,7 +90,10 @@ public sealed class CorePropertyBuilder<[DynamicallyAccessedMembers(DynamicallyA
         return (StaticProperty<TOwner, T>)Register();
     }
 
-    public CorePropertyBuilder<T, TOwner> Accessor(Func<TOwner, T> getter, Action<TOwner, T>? setter = null)
+    public CorePropertyBuilder<T, TOwner> Accessor(
+        Func<TOwner, T> getter,
+        Action<TOwner, T>? setter = null
+    )
     {
         _getter = getter;
         _setter = setter;

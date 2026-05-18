@@ -20,7 +20,5 @@ public abstract class MediaSource : EngineObject, IFileSource
 
     public abstract void ReadFrom(Uri uri);
 
-    public new abstract class Resource : EngineObject.Resource
-    {
-    }
+    public new abstract class Resource : EngineObject.Resource { }
 }

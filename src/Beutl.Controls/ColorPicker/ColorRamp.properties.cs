@@ -14,8 +14,11 @@ public partial class ColorRamp : ColorPickerComponent
     /// Defines the <see cref="Orientation"/> property
     /// </summary>
     public static readonly DirectProperty<ColorRamp, Orientation> OrientationProperty =
-        AvaloniaProperty.RegisterDirect<ColorRamp, Orientation>(nameof(Orientation),
-            x => x.Orientation, (x, v) => x.Orientation = v);
+        AvaloniaProperty.RegisterDirect<ColorRamp, Orientation>(
+            nameof(Orientation),
+            x => x.Orientation,
+            (x, v) => x.Orientation = v
+        );
 
     /// <summary>
     /// Defines the <see cref="BorderBrush"/> property

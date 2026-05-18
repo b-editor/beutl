@@ -33,28 +33,52 @@ public sealed partial class PlaneMesh : Mesh
     /// <summary>
     /// Gets the number of segments along the width (X-axis).
     /// </summary>
-    [Display(Name = nameof(GraphicsStrings.PlaneMesh_WidthSegments), ResourceType = typeof(GraphicsStrings))]
+    [Display(
+        Name = nameof(GraphicsStrings.PlaneMesh_WidthSegments),
+        ResourceType = typeof(GraphicsStrings)
+    )]
     [Range(1, int.MaxValue), NumberStep(1, 1)]
     public IProperty<int> WidthSegments { get; } = Property.CreateAnimatable(1);
 
     /// <summary>
     /// Gets the number of segments along the height (Z-axis).
     /// </summary>
-    [Display(Name = nameof(GraphicsStrings.PlaneMesh_HeightSegments), ResourceType = typeof(GraphicsStrings))]
+    [Display(
+        Name = nameof(GraphicsStrings.PlaneMesh_HeightSegments),
+        ResourceType = typeof(GraphicsStrings)
+    )]
     [Range(1, int.MaxValue), NumberStep(1, 1)]
     public IProperty<int> HeightSegments { get; } = Property.CreateAnimatable(1);
 
     /// <inheritdoc />
-    public override void ApplyTo(Mesh.Resource resource, out Vertex3D[] vertices, out uint[] indices)
+    public override void ApplyTo(
+        Mesh.Resource resource,
+        out Vertex3D[] vertices,
+        out uint[] indices
+    )
     {
         var r = (Resource)resource;
-        GeneratePlane(r.Width, r.Height, r.WidthSegments, r.HeightSegments, out vertices, out indices);
+        GeneratePlane(
+            r.Width,
+            r.Height,
+            r.WidthSegments,
+            r.HeightSegments,
+            out vertices,
+            out indices
+        );
     }
 
     /// <summary>
     /// Generates plane mesh data on the XZ plane with the specified dimensions and segments.
     /// </summary>
-    public static void GeneratePlane(float width, float height, int widthSegments, int heightSegments, out Vertex3D[] vertices, out uint[] indices)
+    public static void GeneratePlane(
+        float width,
+        float height,
+        int widthSegments,
+        int heightSegments,
+        out Vertex3D[] vertices,
+        out uint[] indices
+    )
     {
         int xSegs = Math.Max(widthSegments, 1);
         int zSegs = Math.Max(heightSegments, 1);
@@ -87,7 +111,8 @@ public sealed partial class PlaneMesh : Mesh
                     new Vector3(x, 0, z),
                     normal,
                     new Vector2(tx, tz),
-                    tangent);
+                    tangent
+                );
             }
         }
 

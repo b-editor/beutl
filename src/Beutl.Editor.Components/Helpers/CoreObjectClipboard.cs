@@ -17,7 +17,8 @@ public static class CoreObjectClipboard
     public static async ValueTask<bool> CopyAsync(ICoreSerializable obj, DataFormat<string> format)
     {
         IClipboard? clipboard = ClipboardHelper.GetClipboard();
-        if (clipboard == null) return false;
+        if (clipboard == null)
+            return false;
 
         string json = CoreSerializer.SerializeToJsonString(obj);
         var data = new DataTransfer();
@@ -28,9 +29,13 @@ public static class CoreObjectClipboard
     }
 
     // クリップボードから指定フォーマットのJSON文字列を取得
-    public static async ValueTask<string?> TryGetJsonAsync(IClipboard clipboard, DataFormat<string> format)
+    public static async ValueTask<string?> TryGetJsonAsync(
+        IClipboard clipboard,
+        DataFormat<string> format
+    )
     {
-        if (await clipboard.TryGetValueAsync(format) is not { } data) return null;
+        if (await clipboard.TryGetValueAsync(format) is not { } data)
+            return null;
         return IsJsonData(data) ? data : null;
     }
 
@@ -39,16 +44,20 @@ public static class CoreObjectClipboard
         where T : class, ICoreObject
     {
         result = null;
-        if (string.IsNullOrEmpty(json)) return false;
+        if (string.IsNullOrEmpty(json))
+            return false;
         try
         {
-            if (JsonNode.Parse(json) is not JsonObject jsonObj) return false;
+            if (JsonNode.Parse(json) is not JsonObject jsonObj)
+                return false;
 
             Type baseType = typeof(T);
             Type? actualType = baseType.IsSealed ? baseType : jsonObj.GetDiscriminator(baseType);
-            if (actualType == null || !actualType.IsAssignableTo(baseType)) return false;
+            if (actualType == null || !actualType.IsAssignableTo(baseType))
+                return false;
 
-            if (Activator.CreateInstance(actualType) is not ICoreSerializable tmp) return false;
+            if (Activator.CreateInstance(actualType) is not ICoreSerializable tmp)
+                return false;
             CoreSerializer.PopulateFromJsonObject(tmp, actualType, jsonObj);
 
             ObjectRegenerator.Regenerate(tmp, actualType, out ICoreSerializable newInstance);
@@ -57,7 +66,11 @@ public static class CoreObjectClipboard
         }
         catch (Exception ex)
         {
-            s_logger.LogWarning(ex, "Failed to deserialize clipboard JSON as {Type}", typeof(T).Name);
+            s_logger.LogWarning(
+                ex,
+                "Failed to deserialize clipboard JSON as {Type}",
+                typeof(T).Name
+            );
             return false;
         }
     }
@@ -65,7 +78,8 @@ public static class CoreObjectClipboard
     // 文字列がJSON形式かどうかを判定する
     public static bool IsJsonData(string? data)
     {
-        if (string.IsNullOrWhiteSpace(data)) return false;
+        if (string.IsNullOrWhiteSpace(data))
+            return false;
         ReadOnlySpan<char> span = data.AsSpan().TrimStart();
         return span.Length > 0 && span[0] == '{';
     }

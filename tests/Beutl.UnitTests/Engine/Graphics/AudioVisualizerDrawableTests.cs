@@ -8,26 +8,29 @@ namespace Beutl.UnitTests.Engine.Graphics;
 
 public class AudioVisualizerDrawableTests
 {
-    private static AudioWaveformDrawable CreateWaveform() => new()
-    {
-        Width = { CurrentValue = 320f },
-        Height = { CurrentValue = 80f },
-        Fill = { CurrentValue = new SolidColorBrush(Colors.White) }
-    };
+    private static AudioWaveformDrawable CreateWaveform() =>
+        new()
+        {
+            Width = { CurrentValue = 320f },
+            Height = { CurrentValue = 80f },
+            Fill = { CurrentValue = new SolidColorBrush(Colors.White) },
+        };
 
-    private static AudioSpectrumDrawable CreateSpectrum() => new()
-    {
-        Width = { CurrentValue = 320f },
-        Height = { CurrentValue = 80f },
-        Fill = { CurrentValue = new SolidColorBrush(Colors.White) }
-    };
+    private static AudioSpectrumDrawable CreateSpectrum() =>
+        new()
+        {
+            Width = { CurrentValue = 320f },
+            Height = { CurrentValue = 80f },
+            Fill = { CurrentValue = new SolidColorBrush(Colors.White) },
+        };
 
-    private static AudioSpectrogramDrawable CreateSpectrogram() => new()
-    {
-        Width = { CurrentValue = 320f },
-        Height = { CurrentValue = 80f },
-        Fill = { CurrentValue = new SolidColorBrush(Colors.White) }
-    };
+    private static AudioSpectrogramDrawable CreateSpectrogram() =>
+        new()
+        {
+            Width = { CurrentValue = 320f },
+            Height = { CurrentValue = 80f },
+            Fill = { CurrentValue = new SolidColorBrush(Colors.White) },
+        };
 
     private static void RenderOnce(Drawable drawable)
     {
@@ -41,7 +44,8 @@ public class AudioVisualizerDrawableTests
     public void Waveform_NoSource_HasEmptyCache()
     {
         var drawable = CreateWaveform();
-        using var resource = (AudioWaveformDrawable.Resource)drawable.ToResource(CompositionContext.Default);
+        using var resource = (AudioWaveformDrawable.Resource)
+            drawable.ToResource(CompositionContext.Default);
 
         Assert.That(resource.Width, Is.EqualTo(320f));
         Assert.That(resource.Height, Is.EqualTo(80f));
@@ -78,19 +82,19 @@ public class AudioVisualizerDrawableTests
     }
 
     public static IEnumerable<Func<WaveformShape>> WaveformShapeCases() =>
-    [
-        () => new MinMaxBarWaveformShape(),
-        () => new LineWaveformShape(),
-        () => new LineWaveformShape { Mirrored = { CurrentValue = true } },
-        () => new FilledMirrorWaveformShape(),
-        () => new FilledEnvelopeWaveformShape(),
-        () => new FilledEnvelopeWaveformShape { Symmetric = { CurrentValue = true } },
-        () => new BlockWaveformShape(),
-        () => new BlockWaveformShape { Mirrored = { CurrentValue = true } },
-        () => new DotsWaveformShape(),
-        () => new DotsWaveformShape { Mode = { CurrentValue = DotsWaveformMode.Center } },
-        () => new RadialWaveformShape(),
-    ];
+        [
+            () => new MinMaxBarWaveformShape(),
+            () => new LineWaveformShape(),
+            () => new LineWaveformShape { Mirrored = { CurrentValue = true } },
+            () => new FilledMirrorWaveformShape(),
+            () => new FilledEnvelopeWaveformShape(),
+            () => new FilledEnvelopeWaveformShape { Symmetric = { CurrentValue = true } },
+            () => new BlockWaveformShape(),
+            () => new BlockWaveformShape { Mirrored = { CurrentValue = true } },
+            () => new DotsWaveformShape(),
+            () => new DotsWaveformShape { Mode = { CurrentValue = DotsWaveformMode.Center } },
+            () => new RadialWaveformShape(),
+        ];
 
     [TestCase(FrequencyScale.Linear)]
     [TestCase(FrequencyScale.Logarithmic)]
@@ -111,5 +115,4 @@ public class AudioVisualizerDrawableTests
         drawable.FrequencyScale.CurrentValue = scale;
         Assert.DoesNotThrow(() => RenderOnce(drawable));
     }
-
 }

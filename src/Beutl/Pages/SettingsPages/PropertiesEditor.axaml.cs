@@ -17,7 +17,12 @@ public partial class PropertiesEditor : UserControl
     {
         public static readonly ViewModelToViewConverter Instance = new();
 
-        public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
+        public object? Convert(
+            object? value,
+            Type targetType,
+            object? parameter,
+            CultureInfo culture
+        )
         {
             if (value is IPropertyEditorContext viewModel)
             {
@@ -31,7 +36,7 @@ public partial class PropertiesEditor : UserControl
                     {
                         Height = 24,
                         Margin = new Thickness(0, 4),
-                        Content = viewModel.Extension.DisplayName
+                        Content = viewModel.Extension.DisplayName,
                     };
                 }
             }
@@ -41,7 +46,12 @@ public partial class PropertiesEditor : UserControl
             }
         }
 
-        public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
+        public object? ConvertBack(
+            object? value,
+            Type targetType,
+            object? parameter,
+            CultureInfo culture
+        )
         {
             return BindingNotification.Null;
         }

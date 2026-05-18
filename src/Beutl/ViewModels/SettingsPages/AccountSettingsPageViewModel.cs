@@ -3,7 +3,6 @@ using Beutl.Api.Objects;
 using Beutl.Logging;
 using Beutl.Services;
 using Beutl.ViewModels.ExtensionsPages;
-
 using Microsoft.Extensions.Logging;
 using Reactive.Bindings;
 using Refit;
@@ -29,32 +28,38 @@ public sealed class AccountSettingsPageViewModel : BasePageViewModel
         SignInWithGoogle = new(SigningIn.Select(x => !x));
         SignInWithGitHub = new(SigningIn.Select(x => !x));
 
-        SignIn.Subscribe(async () => await SignInCore(null))
+        SignIn.Subscribe(async () => await SignInCore(null)).DisposeWith(_disposables);
+        SignInWithGoogle
+            .Subscribe(async () => await SignInCore("Google"))
             .DisposeWith(_disposables);
-        SignInWithGoogle.Subscribe(async () => await SignInCore("Google"))
-            .DisposeWith(_disposables);
-        SignInWithGitHub.Subscribe(async () => await SignInCore("GitHub"))
+        SignInWithGitHub
+            .Subscribe(async () => await SignInCore("GitHub"))
             .DisposeWith(_disposables);
 
         Cancel = new(SigningIn);
         Cancel.Subscribe(() => _cts.Value!.Cancel());
 
-        SignedIn = clients.AuthenticatedUser.Select(x => x != null)
+        SignedIn = clients
+            .AuthenticatedUser.Select(x => x != null)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
 
-        ProfileImage = _clients.AuthenticatedUser
-            .SelectMany(x => x?.Profile?.AvatarUrl ?? Observable.ReturnThenNever<string?>(null))
+        ProfileImage = _clients
+            .AuthenticatedUser.SelectMany(x =>
+                x?.Profile?.AvatarUrl ?? Observable.ReturnThenNever<string?>(null)
+            )
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
 
-        Name = _clients.AuthenticatedUser
-            .Select(x => x?.Profile?.Name)
+        Name = _clients
+            .AuthenticatedUser.Select(x => x?.Profile?.Name)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
 
-        DisplayName = _clients.AuthenticatedUser
-            .SelectMany(x => x?.Profile?.DisplayName ?? Observable.ReturnThenNever<string?>(null))
+        DisplayName = _clients
+            .AuthenticatedUser.SelectMany(x =>
+                x?.Profile?.DisplayName ?? Observable.ReturnThenNever<string?>(null)
+            )
             .Zip(Name, (x, y) => string.IsNullOrEmpty(x) ? y : x)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
@@ -152,9 +157,7 @@ public sealed class AccountSettingsPageViewModel : BasePageViewModel
                 // Todo: エラー説明
                 Error.Value = MessageStrings.ApiErrorOccurred;
             }
-            catch (OperationCanceledException)
-            {
-            }
+            catch (OperationCanceledException) { }
             catch (Exception ex)
             {
                 activity?.SetStatus(ActivityStatusCode.Error);

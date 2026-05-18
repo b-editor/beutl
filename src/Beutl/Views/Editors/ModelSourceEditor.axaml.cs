@@ -29,7 +29,6 @@ public partial class ModelSourceEditor : UserControl
         "*.usda", // Universal Scene Description ASCII
         "*.usdc", // Universal Scene Description Binary
         "*.usdz", // Universal Scene Description Zip
-
         // Other formats (alphabetical)
         "*.3d", // Unreal
         "*.ac", // AC3D
@@ -95,11 +94,11 @@ public partial class ModelSourceEditor : UserControl
             assimp.GetExtensionList(ref str);
 
             s_modelExtensions = str.ToString()
-                .Split(';').Select(s => s.StartsWith("*.") ? s : $"*.{s}").ToArray();
+                .Split(';')
+                .Select(s => s.StartsWith("*.") ? s : $"*.{s}")
+                .ToArray();
         }
-        catch
-        {
-        }
+        catch { }
     }
 
     public ModelSourceEditor()
@@ -108,15 +107,20 @@ public partial class ModelSourceEditor : UserControl
 
         FileEditor.OpenOptions = new FilePickerOpenOptions
         {
-            FileTypeFilter = [new FilePickerFileType("3D Model File") { Patterns = s_modelExtensions }]
+            FileTypeFilter =
+            [
+                new FilePickerFileType("3D Model File") { Patterns = s_modelExtensions },
+            ],
         };
         FileEditor.ValueConfirmed += FileEditorOnValueConfirmed;
     }
 
     private void FileEditorOnValueConfirmed(object? sender, PropertyEditorValueChangedEventArgs e)
     {
-        if (DataContext is not ModelSourceEditorViewModel { IsDisposed: false } vm) return;
-        if (e.NewValue is not FileInfo fi) return;
+        if (DataContext is not ModelSourceEditorViewModel { IsDisposed: false } vm)
+            return;
+        if (e.NewValue is not FileInfo fi)
+            return;
 
         var newValue = new ModelSource();
         newValue.ReadFrom(new Uri(fi.FullName));

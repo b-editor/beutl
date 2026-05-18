@@ -69,30 +69,49 @@ public class MathUtilitiesTests
 
     [Test]
     [TestCase(0d, double.MaxValue, double.MinValue)]
-    public void ClampDouble_ShouldThrowArgumentExceptionForInvalidRange(double val, double min, double max)
+    public void ClampDouble_ShouldThrowArgumentExceptionForInvalidRange(
+        double val,
+        double min,
+        double max
+    )
     {
         Assert.That(() => MathUtilities.Clamp(val, min, max), Throws.TypeOf<ArgumentException>());
     }
 
     [Test]
     [TestCase(0f, float.MaxValue, float.MinValue)]
-    public void ClampFloat_ShouldThrowArgumentExceptionForInvalidRange(float val, float min, float max)
+    public void ClampFloat_ShouldThrowArgumentExceptionForInvalidRange(
+        float val,
+        float min,
+        float max
+    )
     {
         Assert.That(() => MathUtilities.Clamp(val, min, max), Throws.TypeOf<ArgumentException>());
     }
 
     [Test]
     [TestCase(0d, 100d, 80d)]
-    public void ClampDecimal_ShouldThrowArgumentExceptionForInvalidRange(double val, double min, double max)
+    public void ClampDecimal_ShouldThrowArgumentExceptionForInvalidRange(
+        double val,
+        double min,
+        double max
+    )
     {
-        Assert.That(() => MathUtilities.Clamp((decimal)val, (decimal)min, (decimal)max), Throws.TypeOf<ArgumentException>());
+        Assert.That(
+            () => MathUtilities.Clamp((decimal)val, (decimal)min, (decimal)max),
+            Throws.TypeOf<ArgumentException>()
+        );
     }
 
     [Test]
     [TestCase(1.0, 1.0, true)]
     [TestCase(1.0, 1.0 - MathUtilities.DoubleEpsilon, true)]
     [TestCase(1.0, 1.0 + MathUtilities.DoubleEpsilon, true)]
-    public void AreCloseDouble_ShouldReturnExpectedResult(double value1, double value2, bool expected)
+    public void AreCloseDouble_ShouldReturnExpectedResult(
+        double value1,
+        double value2,
+        bool expected
+    )
     {
         bool result = MathUtilities.AreClose(value1, value2);
         Assert.That(result, Is.EqualTo(expected));
@@ -205,7 +224,11 @@ public class MathUtilitiesTests
     [TestCase(1.0, 2.0, true)]
     [TestCase(2.0, 1.0, false)]
     [TestCase(1.0, 1.0 + 10.0 * MathUtilities.DoubleEpsilon, false)]
-    public void LessThan_ShouldReturnExpectedResultForDouble(double value1, double value2, bool expected)
+    public void LessThan_ShouldReturnExpectedResultForDouble(
+        double value1,
+        double value2,
+        bool expected
+    )
     {
         bool result = MathUtilities.LessThan(value1, value2);
         Assert.That(result, Is.EqualTo(expected));
@@ -215,7 +238,11 @@ public class MathUtilitiesTests
     [TestCase(1.0f, 2.0f, true)]
     [TestCase(2.0f, 1.0f, false)]
     [TestCase(1.0f, 1.0f + 10.0f * MathUtilities.FloatEpsilon, false)]
-    public void LessThan_ShouldReturnExpectedResultForFloat(float value1, float value2, bool expected)
+    public void LessThan_ShouldReturnExpectedResultForFloat(
+        float value1,
+        float value2,
+        bool expected
+    )
     {
         bool result = MathUtilities.LessThan(value1, value2);
         Assert.That(result, Is.EqualTo(expected));
@@ -225,7 +252,11 @@ public class MathUtilitiesTests
     [TestCase(2.0, 1.0, true)]
     [TestCase(1.0, 2.0, false)]
     [TestCase(1.0 + 10.0 * MathUtilities.DoubleEpsilon, 1.0, false)]
-    public void GreaterThan_ShouldReturnExpectedResultForDouble(double value1, double value2, bool expected)
+    public void GreaterThan_ShouldReturnExpectedResultForDouble(
+        double value1,
+        double value2,
+        bool expected
+    )
     {
         bool result = MathUtilities.GreaterThan(value1, value2);
         Assert.That(result, Is.EqualTo(expected));
@@ -235,7 +266,11 @@ public class MathUtilitiesTests
     [TestCase(2.0f, 1.0f, true)]
     [TestCase(1.0f, 2.0f, false)]
     [TestCase(1.0f + 10.0f * MathUtilities.FloatEpsilon, 1.0f, false)]
-    public void GreaterThan_ShouldReturnExpectedResultForFloat(float value1, float value2, bool expected)
+    public void GreaterThan_ShouldReturnExpectedResultForFloat(
+        float value1,
+        float value2,
+        bool expected
+    )
     {
         bool result = MathUtilities.GreaterThan(value1, value2);
         Assert.That(result, Is.EqualTo(expected));
@@ -245,7 +280,11 @@ public class MathUtilitiesTests
     [TestCase(1.0, 2.0, true)]
     [TestCase(2.0, 1.0, false)]
     [TestCase(1.0, 1.0 + 10.0 * MathUtilities.DoubleEpsilon, true)]
-    public void LessThanOrClose_ShouldReturnExpectedResultForDouble(double value1, double value2, bool expected)
+    public void LessThanOrClose_ShouldReturnExpectedResultForDouble(
+        double value1,
+        double value2,
+        bool expected
+    )
     {
         bool result = MathUtilities.LessThanOrClose(value1, value2);
         Assert.That(result, Is.EqualTo(expected));
@@ -255,7 +294,11 @@ public class MathUtilitiesTests
     [TestCase(1.0f, 2.0f, true)]
     [TestCase(2.0f, 1.0f, false)]
     [TestCase(1.0f, 1.0f + 10.0f * MathUtilities.FloatEpsilon, true)]
-    public void LessThanOrClose_ShouldReturnExpectedResultForFloat(float value1, float value2, bool expected)
+    public void LessThanOrClose_ShouldReturnExpectedResultForFloat(
+        float value1,
+        float value2,
+        bool expected
+    )
     {
         bool result = MathUtilities.LessThanOrClose(value1, value2);
         Assert.That(result, Is.EqualTo(expected));
@@ -265,7 +308,11 @@ public class MathUtilitiesTests
     [TestCase(2.0, 1.0, true)]
     [TestCase(1.0, 2.0, false)]
     [TestCase(1.0 + 10.0 * MathUtilities.DoubleEpsilon, 1.0, true)]
-    public void GreaterThanOrClose_ShouldReturnExpectedResultForDouble(double value1, double value2, bool expected)
+    public void GreaterThanOrClose_ShouldReturnExpectedResultForDouble(
+        double value1,
+        double value2,
+        bool expected
+    )
     {
         bool result = MathUtilities.GreaterThanOrClose(value1, value2);
         Assert.That(result, Is.EqualTo(expected));
@@ -275,7 +322,11 @@ public class MathUtilitiesTests
     [TestCase(2.0f, 1.0f, true)]
     [TestCase(1.0f, 2.0f, false)]
     [TestCase(1.0f + 10.0f * MathUtilities.FloatEpsilon, 1.0f, true)]
-    public void GreaterThanOrClose_ShouldReturnExpectedResultForFloat(float value1, float value2, bool expected)
+    public void GreaterThanOrClose_ShouldReturnExpectedResultForFloat(
+        float value1,
+        float value2,
+        bool expected
+    )
     {
         bool result = MathUtilities.GreaterThanOrClose(value1, value2);
         Assert.That(result, Is.EqualTo(expected));
@@ -285,7 +336,11 @@ public class MathUtilitiesTests
     [TestCase(48, 18, 6)]
     [TestCase(101, 103, 1)]
     [TestCase(0, 5, 5)]
-    public void GreatestCommonDivisor_ShouldReturnExpectedResult(long left, long right, long expected)
+    public void GreatestCommonDivisor_ShouldReturnExpectedResult(
+        long left,
+        long right,
+        long expected
+    )
     {
         long result = MathUtilities.GreatestCommonDivisor(left, right);
         Assert.That(result, Is.EqualTo(expected));
@@ -295,7 +350,11 @@ public class MathUtilitiesTests
     [TestCase(48, 18, 144)]
     [TestCase(101, 103, 10403)]
     [TestCase(0, 5, 0)]
-    public void LeastCommonDenominator_ShouldReturnExpectedResult(long left, long right, long expected)
+    public void LeastCommonDenominator_ShouldReturnExpectedResult(
+        long left,
+        long right,
+        long expected
+    )
     {
         long result = MathUtilities.LeastCommonDenominator(left, right);
         Assert.That(result, Is.EqualTo(expected));

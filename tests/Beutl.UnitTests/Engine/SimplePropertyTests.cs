@@ -81,7 +81,9 @@ public class SimplePropertyTests
     {
         var property = Make(0);
 
-        Assert.Throws<InvalidOperationException>(() => property.Animation = new Beutl.Animation.KeyFrameAnimation<int>());
+        Assert.Throws<InvalidOperationException>(() =>
+            property.Animation = new Beutl.Animation.KeyFrameAnimation<int>()
+        );
     }
 
     [Test]

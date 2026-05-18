@@ -5,11 +5,12 @@ using System.Diagnostics.CodeAnalysis;
 
 namespace Beutl.Collections;
 
-public class CoreDictionary<TKey, TValue> : IDictionary<TKey, TValue>,
-    IDictionary,
-    INotifyCollectionChanged,
-    INotifyPropertyChanged
-        where TKey : notnull
+public class CoreDictionary<TKey, TValue>
+    : IDictionary<TKey, TValue>,
+        IDictionary,
+        INotifyCollectionChanged,
+        INotifyPropertyChanged
+    where TKey : notnull
 {
     private Dictionary<TKey, TValue> _inner;
 
@@ -42,11 +43,7 @@ public class CoreDictionary<TKey, TValue> : IDictionary<TKey, TValue>,
 
     public TValue this[TKey key]
     {
-        get
-        {
-            return _inner[key];
-        }
-
+        get { return _inner[key]; }
         set
         {
             bool replace = _inner.TryGetValue(key, out TValue? old);
@@ -61,7 +58,8 @@ public class CoreDictionary<TKey, TValue> : IDictionary<TKey, TValue>,
                     var e = new NotifyCollectionChangedEventArgs(
                         NotifyCollectionChangedAction.Replace,
                         new KeyValuePair<TKey, TValue>(key, value),
-                        new KeyValuePair<TKey, TValue>(key, old!));
+                        new KeyValuePair<TKey, TValue>(key, old!)
+                    );
                     CollectionChanged(this, e);
                 }
             }
@@ -72,7 +70,11 @@ public class CoreDictionary<TKey, TValue> : IDictionary<TKey, TValue>,
         }
     }
 
-    object? IDictionary.this[object key] { get => ((IDictionary)_inner)[key]; set => ((IDictionary)_inner)[key] = value; }
+    object? IDictionary.this[object key]
+    {
+        get => ((IDictionary)_inner)[key];
+        set => ((IDictionary)_inner)[key] = value;
+    }
 
     public void Add(TKey key, TValue value)
     {
@@ -89,13 +91,13 @@ public class CoreDictionary<TKey, TValue> : IDictionary<TKey, TValue>,
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Count)));
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs("Item"));
 
-
         if (CollectionChanged != null)
         {
             var e = new NotifyCollectionChangedEventArgs(
                 NotifyCollectionChangedAction.Remove,
                 old.ToArray(),
-                -1);
+                -1
+            );
             CollectionChanged(this, e);
         }
     }
@@ -122,7 +124,8 @@ public class CoreDictionary<TKey, TValue> : IDictionary<TKey, TValue>,
                 var e = new NotifyCollectionChangedEventArgs(
                     NotifyCollectionChangedAction.Remove,
                     new[] { new KeyValuePair<TKey, TValue>(key, value) },
-                    -1);
+                    -1
+                );
                 CollectionChanged(this, e);
             }
 
@@ -134,7 +137,8 @@ public class CoreDictionary<TKey, TValue> : IDictionary<TKey, TValue>,
         }
     }
 
-    public bool TryGetValue(TKey key, [MaybeNullWhen(false)] out TValue value) => _inner.TryGetValue(key, out value);
+    public bool TryGetValue(TKey key, [MaybeNullWhen(false)] out TValue value) =>
+        _inner.TryGetValue(key, out value);
 
     IEnumerator IEnumerable.GetEnumerator() => _inner.GetEnumerator();
 
@@ -168,13 +172,13 @@ public class CoreDictionary<TKey, TValue> : IDictionary<TKey, TValue>,
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Count)));
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs($"Item[{key}]"));
 
-
         if (CollectionChanged != null)
         {
             var e = new NotifyCollectionChangedEventArgs(
                 NotifyCollectionChangedAction.Add,
                 new[] { new KeyValuePair<TKey, TValue>(key, value) },
-                -1);
+                -1
+            );
             CollectionChanged(this, e);
         }
     }

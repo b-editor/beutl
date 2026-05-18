@@ -67,19 +67,25 @@ internal sealed class ShadowManager : IDisposable
     /// </summary>
     public void Initialize()
     {
-        if (_initialized) return;
+        if (_initialized)
+            return;
 
         // Create shadow passes
         for (int i = 0; i < MaxShadowMaps2D; i++)
         {
             _shadowPasses2D[i] = new ShadowPass(_context, _shaderCompiler);
-            _shadowPasses2D[i].Initialize(ShadowPass.DefaultShadowMapSize, ShadowPass.DefaultShadowMapSize);
+            _shadowPasses2D[i]
+                .Initialize(ShadowPass.DefaultShadowMapSize, ShadowPass.DefaultShadowMapSize);
         }
 
         for (int i = 0; i < MaxShadowMapsCube; i++)
         {
             _pointShadowPasses[i] = new PointShadowPass(_context, _shaderCompiler);
-            _pointShadowPasses[i].Initialize(PointShadowPass.DefaultCubeFaceSize, PointShadowPass.DefaultCubeFaceSize);
+            _pointShadowPasses[i]
+                .Initialize(
+                    PointShadowPass.DefaultCubeFaceSize,
+                    PointShadowPass.DefaultCubeFaceSize
+                );
         }
 
         // Create shadow map array for 2D shadows
@@ -87,13 +93,15 @@ internal sealed class ShadowManager : IDisposable
             ShadowPass.DefaultShadowMapSize,
             ShadowPass.DefaultShadowMapSize,
             MaxShadowMaps2D,
-            TextureFormat.Depth32Float);
+            TextureFormat.Depth32Float
+        );
 
         // Create shadow cube map array for point light shadows
         _shadowMapCubeArray = _context.CreateTextureCubeArray(
             PointShadowPass.DefaultCubeFaceSize,
             MaxShadowMapsCube,
-            TextureFormat.Depth32Float);
+            TextureFormat.Depth32Float
+        );
 
         _initialized = true;
     }
@@ -110,7 +118,8 @@ internal sealed class ShadowManager : IDisposable
         IReadOnlyList<Light3D.Resource> lights,
         IReadOnlyList<Object3D.Resource> objects,
         Vector3 sceneCenter,
-        float sceneRadius)
+        float sceneRadius
+    )
     {
         if (!_initialized)
             Initialize();
@@ -124,7 +133,11 @@ internal sealed class ShadowManager : IDisposable
 
         int shadowInfoIndex = 0;
 
-        for (int lightIndex = 0; lightIndex < lights.Count && shadowInfoIndex < ShadowInfoArray.MaxShadows; lightIndex++)
+        for (
+            int lightIndex = 0;
+            lightIndex < lights.Count && shadowInfoIndex < ShadowInfoArray.MaxShadows;
+            lightIndex++
+        )
         {
             var light = lights[lightIndex];
 
@@ -140,7 +153,12 @@ internal sealed class ShadowManager : IDisposable
                     if (_activeShadowCount2D >= MaxShadowMaps2D)
                         continue;
 
-                    shadowInfo = RenderDirectionalLightShadow(directionalLight, objects, sceneCenter, sceneRadius);
+                    shadowInfo = RenderDirectionalLightShadow(
+                        directionalLight,
+                        objects,
+                        sceneCenter,
+                        sceneRadius
+                    );
                     shadowInfo.ShadowMapIndex = _activeShadowCount2D;
                     shadowInfo.ShadowType = (int)ShadowType.Map2D;
                     _activeShadowCount2D++;
@@ -187,7 +205,8 @@ internal sealed class ShadowManager : IDisposable
         DirectionalLight3D.Resource light,
         IReadOnlyList<Object3D.Resource> objects,
         Vector3 sceneCenter,
-        float sceneRadius)
+        float sceneRadius
+    )
     {
         var shadowPass = _shadowPasses2D[_activeShadowCount2D];
         shadowPass.SetupForDirectionalLight(light, sceneCenter, sceneRadius);
@@ -196,20 +215,25 @@ internal sealed class ShadowManager : IDisposable
         // Copy shadow map to array
         if (shadowPass.ShadowDepthTexture != null && _shadowMapArray != null)
         {
-            _context.CopyTextureToArrayLayer(shadowPass.ShadowDepthTexture, _shadowMapArray, _activeShadowCount2D);
+            _context.CopyTextureToArrayLayer(
+                shadowPass.ShadowDepthTexture,
+                _shadowMapArray,
+                _activeShadowCount2D
+            );
         }
 
         return new ShadowInfo
         {
             LightViewProjection = shadowPass.LightViewProjection,
             LightPosition = Vector3.Zero, // Not used for directional
-            FarPlane = light.ShadowDistance
+            FarPlane = light.ShadowDistance,
         };
     }
 
     private ShadowInfo RenderSpotLightShadow(
         SpotLight3D.Resource light,
-        IReadOnlyList<Object3D.Resource> objects)
+        IReadOnlyList<Object3D.Resource> objects
+    )
     {
         var shadowPass = _shadowPasses2D[_activeShadowCount2D];
         shadowPass.SetupForSpotLight(light);
@@ -218,20 +242,25 @@ internal sealed class ShadowManager : IDisposable
         // Copy shadow map to array
         if (shadowPass.ShadowDepthTexture != null && _shadowMapArray != null)
         {
-            _context.CopyTextureToArrayLayer(shadowPass.ShadowDepthTexture, _shadowMapArray, _activeShadowCount2D);
+            _context.CopyTextureToArrayLayer(
+                shadowPass.ShadowDepthTexture,
+                _shadowMapArray,
+                _activeShadowCount2D
+            );
         }
 
         return new ShadowInfo
         {
             LightViewProjection = shadowPass.LightViewProjection,
             LightPosition = light.Position,
-            FarPlane = light.Range
+            FarPlane = light.Range,
         };
     }
 
     private ShadowInfo RenderPointLightShadow(
         PointLight3D.Resource light,
-        IReadOnlyList<Object3D.Resource> objects)
+        IReadOnlyList<Object3D.Resource> objects
+    )
     {
         var shadowPass = _pointShadowPasses[_activeShadowCountCube];
         shadowPass.SetupForPointLight(light);
@@ -246,7 +275,12 @@ internal sealed class ShadowManager : IDisposable
                 var faceTexture = faceTextures[faceIndex];
                 if (faceTexture != null)
                 {
-                    _context.CopyTextureToCubeArrayFace(faceTexture, _shadowMapCubeArray, _activeShadowCountCube, faceIndex);
+                    _context.CopyTextureToCubeArrayFace(
+                        faceTexture,
+                        _shadowMapCubeArray,
+                        _activeShadowCountCube,
+                        faceIndex
+                    );
                 }
             }
         }
@@ -255,7 +289,7 @@ internal sealed class ShadowManager : IDisposable
         {
             LightViewProjection = Matrix4x4.Identity, // Not used for point lights
             LightPosition = light.Position,
-            FarPlane = light.Range
+            FarPlane = light.Range,
         };
     }
 
@@ -267,7 +301,7 @@ internal sealed class ShadowManager : IDisposable
         var ubo = new ShadowUBO
         {
             ShadowCount2D = _activeShadowCount2D,
-            ShadowCountCube = _activeShadowCountCube
+            ShadowCountCube = _activeShadowCountCube,
         };
 
         for (int i = 0; i < Math.Min(_shadowInfos.Length, ShadowInfoArray.MaxShadows); i++)
@@ -283,7 +317,10 @@ internal sealed class ShadowManager : IDisposable
     /// </summary>
     public ReadOnlySpan<ShadowInfo> GetShadowInfos()
     {
-        return _shadowInfos.AsSpan(0, Math.Min(_activeShadowCount2D + _activeShadowCountCube, ShadowInfoArray.MaxShadows));
+        return _shadowInfos.AsSpan(
+            0,
+            Math.Min(_activeShadowCount2D + _activeShadowCountCube, ShadowInfoArray.MaxShadows)
+        );
     }
 
     /// <summary>
@@ -323,7 +360,8 @@ internal sealed class ShadowManager : IDisposable
 
     public void Dispose()
     {
-        if (_disposed) return;
+        if (_disposed)
+            return;
         _disposed = true;
 
         foreach (var pass in _shadowPasses2D)

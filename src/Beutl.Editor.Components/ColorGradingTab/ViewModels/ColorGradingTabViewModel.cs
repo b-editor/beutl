@@ -11,11 +11,15 @@ namespace Beutl.Editor.Components.ColorGradingTab.ViewModels;
 
 public record ColorGradingWheelMode(string Name, int Value)
 {
-    public static readonly ColorGradingWheelMode ShadowsMidtonesHighlights =
-        new($"{GraphicsStrings.ColorGrading_Shadows} / {GraphicsStrings.ColorGrading_Midtones} / {GraphicsStrings.ColorGrading_Highlights}", 0);
+    public static readonly ColorGradingWheelMode ShadowsMidtonesHighlights = new(
+        $"{GraphicsStrings.ColorGrading_Shadows} / {GraphicsStrings.ColorGrading_Midtones} / {GraphicsStrings.ColorGrading_Highlights}",
+        0
+    );
 
-    public static readonly ColorGradingWheelMode LiftGammaGainOffset =
-        new($"{GraphicsStrings.ColorGrading_Lift} / {GraphicsStrings.ColorGrading_Gamma} / {GraphicsStrings.ColorGrading_Gain} / {GraphicsStrings.ColorGrading_Offset}", 1);
+    public static readonly ColorGradingWheelMode LiftGammaGainOffset = new(
+        $"{GraphicsStrings.ColorGrading_Lift} / {GraphicsStrings.ColorGrading_Gamma} / {GraphicsStrings.ColorGrading_Gain} / {GraphicsStrings.ColorGrading_Offset}",
+        1
+    );
 }
 
 public sealed class ColorGradingTabViewModel : IToolContext, IPropertyEditorContextVisitor
@@ -28,8 +32,7 @@ public sealed class ColorGradingTabViewModel : IToolContext, IPropertyEditorCont
     {
         _editorContext = editorContext;
 
-        Effect.Subscribe(SetEditors)
-            .DisposeWith(_disposables);
+        Effect.Subscribe(SetEditors).DisposeWith(_disposables);
 
         HasColorGrading = Effect
             .Select(x => x != null)
@@ -68,10 +71,7 @@ public sealed class ColorGradingTabViewModel : IToolContext, IPropertyEditorCont
     public ReactivePropertySlim<bool> IsNumberEditorsVisible { get; } = new(true);
 
     public ColorGradingWheelMode[] AvailableWheelModes { get; } =
-    [
-        ColorGradingWheelMode.ShadowsMidtonesHighlights,
-        ColorGradingWheelMode.LiftGammaGainOffset
-    ];
+    [ColorGradingWheelMode.ShadowsMidtonesHighlights, ColorGradingWheelMode.LiftGammaGainOffset];
 
     public ReadOnlyReactivePropertySlim<bool> IsLogMode { get; }
 
@@ -113,9 +113,7 @@ public sealed class ColorGradingTabViewModel : IToolContext, IPropertyEditorCont
 
     public ReactivePropertySlim<IPropertyEditorContext?> OffsetEditor { get; } = new();
 
-    public void Visit(IPropertyEditorContext context)
-    {
-    }
+    public void Visit(IPropertyEditorContext context) { }
 
     public object? GetService(Type serviceType)
     {
@@ -136,26 +134,33 @@ public sealed class ColorGradingTabViewModel : IToolContext, IPropertyEditorCont
 
     public void ReadFromJson(JsonObject json)
     {
-        if (json.TryGetPropertyValue("wheelMode", out var wheelModeNode)
+        if (
+            json.TryGetPropertyValue("wheelMode", out var wheelModeNode)
             && wheelModeNode is JsonValue wheelModeValue
-            && wheelModeValue.TryGetValue(out int mode))
+            && wheelModeValue.TryGetValue(out int mode)
+        )
         {
-            WheelMode.Value = AvailableWheelModes.FirstOrDefault(i => i.Value == mode) ?? WheelMode.Value;
+            WheelMode.Value =
+                AvailableWheelModes.FirstOrDefault(i => i.Value == mode) ?? WheelMode.Value;
         }
 
-        if (json.TryGetPropertyValue("effectId", out var effectIdNode)
+        if (
+            json.TryGetPropertyValue("effectId", out var effectIdNode)
             && effectIdNode is JsonValue effectIdValue
             && effectIdValue.TryGetValue(out string? effectIdStr)
-            && Guid.TryParse(effectIdStr, out Guid effectId))
+            && Guid.TryParse(effectIdStr, out Guid effectId)
+        )
         {
             var scene = _editorContext.GetService<Scene>();
             var colorGrading = scene?.FindById(effectId) as ColorGrading;
             Effect.Value = colorGrading;
         }
 
-        if (json.TryGetPropertyValue("isNumberEditorsVisible", out var isNumberEditorsVisibleNode)
+        if (
+            json.TryGetPropertyValue("isNumberEditorsVisible", out var isNumberEditorsVisibleNode)
             && isNumberEditorsVisibleNode is JsonValue isNumberEditorsVisibleValue
-            && isNumberEditorsVisibleValue.TryGetValue(out bool isVisible))
+            && isNumberEditorsVisibleValue.TryGetValue(out bool isVisible)
+        )
         {
             IsNumberEditorsVisible.Value = isVisible;
         }
@@ -199,10 +204,16 @@ public sealed class ColorGradingTabViewModel : IToolContext, IPropertyEditorCont
         OffsetEditor.Value = CreateEditor(factory, effect.Offset, effect);
 
         effect.DetachedFromHierarchy += OnEffectDetached;
-        _effectDisposables.Add(Disposable.Create(() => effect.DetachedFromHierarchy -= OnEffectDetached));
+        _effectDisposables.Add(
+            Disposable.Create(() => effect.DetachedFromHierarchy -= OnEffectDetached)
+        );
     }
 
-    private IPropertyEditorContext? CreateEditor<T>(IPropertyEditorFactory factory, IProperty<T> property, EngineObject owner)
+    private IPropertyEditorContext? CreateEditor<T>(
+        IPropertyEditorFactory factory,
+        IProperty<T> property,
+        EngineObject owner
+    )
     {
         if (property is not AnimatableProperty<T> anim)
             return null;

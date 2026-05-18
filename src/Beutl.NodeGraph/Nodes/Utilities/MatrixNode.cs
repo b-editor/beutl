@@ -32,7 +32,7 @@ public abstract partial class MatrixNode : GraphNode
             }
         }
 
-        protected virtual Matrix GetMatrix(GraphCompositionContext context, MatrixNode node)
-            => Matrix.Identity;
+        protected virtual Matrix GetMatrix(GraphCompositionContext context, MatrixNode node) =>
+            Matrix.Identity;
     }
 }

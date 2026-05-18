@@ -10,7 +10,8 @@ internal sealed class StdoutLoggerProvider : ILoggerProvider
 
     private sealed class StdoutLogger(string category) : ILogger
     {
-        public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
+        public IDisposable? BeginScope<TState>(TState state)
+            where TState : notnull => null;
 
         public bool IsEnabled(LogLevel logLevel) => logLevel != LogLevel.None;
 
@@ -19,7 +20,8 @@ internal sealed class StdoutLoggerProvider : ILoggerProvider
             EventId eventId,
             TState state,
             Exception? exception,
-            Func<TState, Exception?, string> formatter)
+            Func<TState, Exception?, string> formatter
+        )
         {
             if (!IsEnabled(logLevel))
                 return;
@@ -28,15 +30,16 @@ internal sealed class StdoutLoggerProvider : ILoggerProvider
             WorkerLog.Write(LevelText(logLevel), $"{category}: {message}", exception);
         }
 
-        private static string LevelText(LogLevel level) => level switch
-        {
-            LogLevel.Trace => "Trace",
-            LogLevel.Debug => "Debug",
-            LogLevel.Information => "Information",
-            LogLevel.Warning => "Warning",
-            LogLevel.Error => "Error",
-            LogLevel.Critical => "Critical",
-            _ => "Information",
-        };
+        private static string LevelText(LogLevel level) =>
+            level switch
+            {
+                LogLevel.Trace => "Trace",
+                LogLevel.Debug => "Debug",
+                LogLevel.Information => "Information",
+                LogLevel.Warning => "Warning",
+                LogLevel.Error => "Error",
+                LogLevel.Critical => "Critical",
+                _ => "Information",
+            };
     }
 }

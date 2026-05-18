@@ -17,19 +17,35 @@ public class WaveformControl : HdrScopeControlBase
 {
     public static readonly DirectProperty<WaveformControl, WaveformMode> ModeProperty =
         AvaloniaProperty.RegisterDirect<WaveformControl, WaveformMode>(
-            nameof(Mode), o => o.Mode, (o, v) => o.Mode = v, WaveformMode.Luma);
+            nameof(Mode),
+            o => o.Mode,
+            (o, v) => o.Mode = v,
+            WaveformMode.Luma
+        );
 
     public static readonly DirectProperty<WaveformControl, float> ThicknessProperty =
         AvaloniaProperty.RegisterDirect<WaveformControl, float>(
-            nameof(Thickness), o => o.Thickness, (o, v) => o.Thickness = v, 5f);
+            nameof(Thickness),
+            o => o.Thickness,
+            (o, v) => o.Thickness = v,
+            5f
+        );
 
     public static readonly DirectProperty<WaveformControl, float> GainProperty =
         AvaloniaProperty.RegisterDirect<WaveformControl, float>(
-            nameof(Gain), o => o.Gain, (o, v) => o.Gain = v, 10.0f);
+            nameof(Gain),
+            o => o.Gain,
+            (o, v) => o.Gain = v,
+            10.0f
+        );
 
     public static readonly DirectProperty<WaveformControl, bool> ShowGridProperty =
         AvaloniaProperty.RegisterDirect<WaveformControl, bool>(
-            nameof(ShowGrid), o => o.ShowGrid, (o, v) => o.ShowGrid = v, true);
+            nameof(ShowGrid),
+            o => o.ShowGrid,
+            (o, v) => o.ShowGrid = v,
+            true
+        );
 
     private WaveformMode _mode = WaveformMode.Luma;
     private float _thickness = 5f;
@@ -50,7 +66,12 @@ public class WaveformControl : HdrScopeControlBase
 
     static WaveformControl()
     {
-        AffectsRender<WaveformControl>(ModeProperty, ThicknessProperty, GainProperty, ShowGridProperty);
+        AffectsRender<WaveformControl>(
+            ModeProperty,
+            ThicknessProperty,
+            GainProperty,
+            ShowGridProperty
+        );
         ModeProperty.Changed.AddClassHandler<WaveformControl>((o, _) => o.Refresh());
     }
 
@@ -83,7 +104,14 @@ public class WaveformControl : HdrScopeControlBase
     protected override string[]? VerticalAxisLabels =>
         HdrRange is > 0.99f and < 1.01f
             ? s_verticalLabelsSdr
-            : [FormatRange(HdrRange), FormatRange(HdrRange * 0.75f), FormatRange(HdrRange * 0.5f), FormatRange(HdrRange * 0.25f), "0"];
+            :
+            [
+                FormatRange(HdrRange),
+                FormatRange(HdrRange * 0.75f),
+                FormatRange(HdrRange * 0.5f),
+                FormatRange(HdrRange * 0.25f),
+                "0",
+            ];
 
     private static string FormatRange(float v) => v >= 10 ? $"{v:F0}" : $"{v:F1}";
 
@@ -93,16 +121,19 @@ public class WaveformControl : HdrScopeControlBase
         BtlBitmap sourceBitmap,
         int targetWidth,
         int targetHeight,
-        WriteableBitmap? existingBitmap)
+        WriteableBitmap? existingBitmap
+    )
     {
         WriteableBitmap result =
-            existingBitmap?.PixelSize.Width == targetWidth && existingBitmap.PixelSize.Height == targetHeight
+            existingBitmap?.PixelSize.Width == targetWidth
+            && existingBitmap.PixelSize.Height == targetHeight
                 ? existingBitmap
                 : new WriteableBitmap(
                     new PixelSize(targetWidth, targetHeight),
                     new Vector(96, 96),
                     PixelFormat.Bgra8888,
-                    AlphaFormat.Premul);
+                    AlphaFormat.Premul
+                );
 
         int sourceWidth = sourceBitmap.Width;
         int sourceHeight = sourceBitmap.Height;
@@ -138,7 +169,11 @@ public class WaveformControl : HdrScopeControlBase
         float invSampleCount = 1f / sampleCount;
         int[] srcYArr = new int[sampleCount];
         for (int i = 0; i < sampleCount; i++)
-            srcYArr[i] = Math.Clamp((int)((i + 0.5f) * invSampleCount * sourceHeight), 0, sourceHeight - 1);
+            srcYArr[i] = Math.Clamp(
+                (int)((i + 0.5f) * invSampleCount * sourceHeight),
+                0,
+                sourceHeight - 1
+            );
 
         // Pre-compute srcX and parade band per column
         int[] srcXArr = new int[targetWidth];
@@ -157,18 +192,26 @@ public class WaveformControl : HdrScopeControlBase
         }
 
         using ILockedFramebuffer fb = result.Lock();
-        BitmapColorSpace targetColorSpace = ColorSpace == ViewModels.ScopeColorSpace.Linear
-            ? BitmapColorSpace.LinearSrgb
-            : BitmapColorSpace.Srgb;
+        BitmapColorSpace targetColorSpace =
+            ColorSpace == ViewModels.ScopeColorSpace.Linear
+                ? BitmapColorSpace.LinearSrgb
+                : BitmapColorSpace.Srgb;
         BtlBitmap rgbaConverted;
         bool requireDispose = false;
-        if (sourceBitmap.ColorType == BitmapColorType.RgbaF16 && sourceBitmap.ColorSpace == targetColorSpace)
+        if (
+            sourceBitmap.ColorType == BitmapColorType.RgbaF16
+            && sourceBitmap.ColorSpace == targetColorSpace
+        )
         {
             rgbaConverted = sourceBitmap;
         }
         else
         {
-            rgbaConverted = sourceBitmap.Convert(BitmapColorType.RgbaF16, BitmapAlphaType.Unpremul, targetColorSpace);
+            rgbaConverted = sourceBitmap.Convert(
+                BitmapColorType.RgbaF16,
+                BitmapAlphaType.Unpremul,
+                targetColorSpace
+            );
             requireDispose = true;
         }
 
@@ -181,13 +224,18 @@ public class WaveformControl : HdrScopeControlBase
             int srcRowBytes = rgbaConverted.RowBytes;
             bool premul = rgbaConverted.AlphaType == BitmapAlphaType.Premul;
 
-            Parallel.For(0, targetWidth,
+            Parallel.For(
+                0,
+                targetWidth,
                 // Per-thread local: reuse 4 float buffers across columns to avoid stackalloc / heap alloc per iteration
-                () => new[]
-                {
-                    new float[targetHeight], new float[targetHeight],
-                    new float[targetHeight], new float[targetHeight]
-                },
+                () =>
+                    new[]
+                    {
+                        new float[targetHeight],
+                        new float[targetHeight],
+                        new float[targetHeight],
+                        new float[targetHeight],
+                    },
                 (x, _, bufs) =>
                 {
                     float[] rBuf = bufs[0];
@@ -204,30 +252,80 @@ public class WaveformControl : HdrScopeControlBase
                     // Mode-specific sampling — eliminates per-sample branching
                     if (mode == WaveformMode.Luma)
                     {
-                        SampleLuma(srcData, srcRowBytes, srcX, srcYArr, sampleCount, premul,
-                            yBuf, targetHeight, invHdr, kernelArr, kernelRadius);
+                        SampleLuma(
+                            srcData,
+                            srcRowBytes,
+                            srcX,
+                            srcYArr,
+                            sampleCount,
+                            premul,
+                            yBuf,
+                            targetHeight,
+                            invHdr,
+                            kernelArr,
+                            kernelRadius
+                        );
                     }
                     else if (mode == WaveformMode.RgbOverlay)
                     {
-                        SampleRgbOverlay(srcData, srcRowBytes, srcX, srcYArr, sampleCount, premul,
-                            rBuf, gBuf, bBuf, targetHeight, invHdr, kernelArr, kernelRadius);
+                        SampleRgbOverlay(
+                            srcData,
+                            srcRowBytes,
+                            srcX,
+                            srcYArr,
+                            sampleCount,
+                            premul,
+                            rBuf,
+                            gBuf,
+                            bBuf,
+                            targetHeight,
+                            invHdr,
+                            kernelArr,
+                            kernelRadius
+                        );
                     }
                     else
                     {
                         int band = paradeBandArr![x];
-                        float[] target = band == 0 ? rBuf : band == 1 ? gBuf : bBuf;
-                        SampleParade(srcData, srcRowBytes, srcX, srcYArr, sampleCount, premul, band,
-                            target, targetHeight, invHdr, kernelArr, kernelRadius);
+                        float[] target =
+                            band == 0 ? rBuf
+                            : band == 1 ? gBuf
+                            : bBuf;
+                        SampleParade(
+                            srcData,
+                            srcRowBytes,
+                            srcX,
+                            srcYArr,
+                            sampleCount,
+                            premul,
+                            band,
+                            target,
+                            targetHeight,
+                            invHdr,
+                            kernelArr,
+                            kernelRadius
+                        );
                     }
 
                     WriteColumn(
-                        destPtr, destRowBytes, x, targetHeight,
-                        rBuf, gBuf, bBuf, yBuf,
-                        invSamplesGain, mode, showGrid, gridStrength);
+                        destPtr,
+                        destRowBytes,
+                        x,
+                        targetHeight,
+                        rBuf,
+                        gBuf,
+                        bBuf,
+                        yBuf,
+                        invSamplesGain,
+                        mode,
+                        showGrid,
+                        gridStrength
+                    );
 
                     return bufs;
                 },
-                _ => { });
+                _ => { }
+            );
         }
         finally
         {
@@ -239,8 +337,18 @@ public class WaveformControl : HdrScopeControlBase
     }
 
     private static unsafe void SampleLuma(
-        byte* srcData, int srcRowBytes, int srcX, int[] srcYArr, int sampleCount, bool premul,
-        float[] yBuf, int height, float invHdr, float[] kernel, int radius)
+        byte* srcData,
+        int srcRowBytes,
+        int srcX,
+        int[] srcYArr,
+        int sampleCount,
+        bool premul,
+        float[] yBuf,
+        int height,
+        float invHdr,
+        float[] kernel,
+        int radius
+    )
     {
         for (int i = 0; i < sampleCount; i++)
         {
@@ -267,9 +375,20 @@ public class WaveformControl : HdrScopeControlBase
     }
 
     private static unsafe void SampleRgbOverlay(
-        byte* srcData, int srcRowBytes, int srcX, int[] srcYArr, int sampleCount, bool premul,
-        float[] rBuf, float[] gBuf, float[] bBuf,
-        int height, float invHdr, float[] kernel, int radius)
+        byte* srcData,
+        int srcRowBytes,
+        int srcX,
+        int[] srcYArr,
+        int sampleCount,
+        bool premul,
+        float[] rBuf,
+        float[] gBuf,
+        float[] bBuf,
+        int height,
+        float invHdr,
+        float[] kernel,
+        int radius
+    )
     {
         for (int i = 0; i < sampleCount; i++)
         {
@@ -295,8 +414,19 @@ public class WaveformControl : HdrScopeControlBase
     }
 
     private static unsafe void SampleParade(
-        byte* srcData, int srcRowBytes, int srcX, int[] srcYArr, int sampleCount, bool premul,
-        int band, float[] target, int height, float invHdr, float[] kernel, int radius)
+        byte* srcData,
+        int srcRowBytes,
+        int srcX,
+        int[] srcYArr,
+        int sampleCount,
+        bool premul,
+        int band,
+        float[] target,
+        int height,
+        float invHdr,
+        float[] kernel,
+        int radius
+    )
     {
         for (int i = 0; i < sampleCount; i++)
         {
@@ -317,21 +447,36 @@ public class WaveformControl : HdrScopeControlBase
                 }
             }
 
-            float channel = band == 0 ? r : band == 1 ? g : b;
+            float channel =
+                band == 0 ? r
+                : band == 1 ? g
+                : b;
             AddContribution(target, channel, height, invHdr, kernel, radius);
         }
     }
 
     private static unsafe void WriteColumn(
-        byte* destPtr, int destRowBytes, int x, int targetHeight,
-        float[] rBuf, float[] gBuf, float[] bBuf, float[] yBuf,
-        float invSamplesGain, WaveformMode mode, bool showGrid, float[]? gridStrength)
+        byte* destPtr,
+        int destRowBytes,
+        int x,
+        int targetHeight,
+        float[] rBuf,
+        float[] gBuf,
+        float[] bBuf,
+        float[] yBuf,
+        float invSamplesGain,
+        WaveformMode mode,
+        bool showGrid,
+        float[]? gridStrength
+    )
     {
         bool isLuma = mode == WaveformMode.Luma;
         bool useGrid = showGrid && gridStrength is not null;
 
         int simdCount = VectorF.Count;
-        int vectorizedEnd = SysVector.IsHardwareAccelerated ? (targetHeight / simdCount) * simdCount : 0;
+        int vectorizedEnd = SysVector.IsHardwareAccelerated
+            ? (targetHeight / simdCount) * simdCount
+            : 0;
 
         if (vectorizedEnd > 0)
         {
@@ -376,7 +521,9 @@ public class WaveformControl : HdrScopeControlBase
                 VectorF bb = bbIn / (vOne + bbIn * vHalf);
                 VectorF yy = yyIn / (vOne + yyIn * vHalf);
 
-                VectorF colR, colG, colB;
+                VectorF colR,
+                    colG,
+                    colB;
                 if (isLuma)
                 {
                     colR = yy * vLumaR;
@@ -438,7 +585,9 @@ public class WaveformControl : HdrScopeControlBase
             float bb = bbIn / (1f + bbIn * 0.5f);
             float yy = yyIn / (1f + yyIn * 0.5f);
 
-            float colR, colG, colB;
+            float colR,
+                colG,
+                colB;
             if (isLuma)
             {
                 colR = yy * s_colorLuma.R;
@@ -469,7 +618,14 @@ public class WaveformControl : HdrScopeControlBase
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static void AddContribution(float[] buffer, float value, int height, float invHdr, float[] kernel, int radius)
+    private static void AddContribution(
+        float[] buffer,
+        float value,
+        int height,
+        float invHdr,
+        float[] kernel,
+        int radius
+    )
     {
         float normalized = Math.Clamp(value * invHdr, 0f, 1f);
         float center = (1f - normalized) * height;
@@ -485,9 +641,17 @@ public class WaveformControl : HdrScopeControlBase
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static void AddContributionRgb(
-        float[] rBuf, float[] gBuf, float[] bBuf,
-        float r, float g, float b,
-        int height, float invHdr, float[] kernel, int radius)
+        float[] rBuf,
+        float[] gBuf,
+        float[] bBuf,
+        float r,
+        float g,
+        float b,
+        int height,
+        float invHdr,
+        float[] kernel,
+        int radius
+    )
     {
         float rNorm = Math.Clamp(r * invHdr, 0f, 1f);
         float gNorm = Math.Clamp(g * invHdr, 0f, 1f);
@@ -517,7 +681,11 @@ public class WaveformControl : HdrScopeControlBase
 
     private float[] GetGridStrength(int height, float hdrRange)
     {
-        if (_cachedGridStrength != null && _cachedGridHeight == height && _cachedGridHdrRange == hdrRange)
+        if (
+            _cachedGridStrength != null
+            && _cachedGridHeight == height
+            && _cachedGridHdrRange == hdrRange
+        )
             return _cachedGridStrength;
 
         _cachedGridStrength = CreateGridStrength(height, hdrRange);

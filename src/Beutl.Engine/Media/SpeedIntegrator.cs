@@ -59,7 +59,8 @@ public sealed class SpeedIntegrator : IDisposable
     /// </summary>
     public (int Key, double Value) TryGetCache(int targetSec)
     {
-        if (_integralCache == null) return (-1, 0);
+        if (_integralCache == null)
+            return (-1, 0);
 
         for (int sec = targetSec; sec >= 0; sec--)
         {

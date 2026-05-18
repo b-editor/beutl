@@ -36,8 +36,12 @@ public readonly ref struct CoreListMarshal<T>
 
 public class CoreList<T> : ICoreList<T>
 {
-    private static readonly PropertyChangedEventArgs s_countPropertyChanged = new(nameof(CoreList<object>.Count));
-    private static readonly NotifyCollectionChangedEventArgs s_resetCollectionChanged = new(NotifyCollectionChangedAction.Reset);
+    private static readonly PropertyChangedEventArgs s_countPropertyChanged = new(
+        nameof(CoreList<object>.Count)
+    );
+    private static readonly NotifyCollectionChangedEventArgs s_resetCollectionChanged = new(
+        NotifyCollectionChangedAction.Reset
+    );
     private static readonly PropertyChangedEventArgs s_indexerPropertyChanged = new("Item[]");
 
     public CoreList()
@@ -102,11 +106,15 @@ public class CoreList<T> : ICoreList<T>
                 Inner[index] = value;
 
                 PropertyChanged?.Invoke(this, s_indexerPropertyChanged);
-                CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(
-                    NotifyCollectionChangedAction.Replace,
-                    value,
-                    old,
-                    index));
+                CollectionChanged?.Invoke(
+                    this,
+                    new NotifyCollectionChangedEventArgs(
+                        NotifyCollectionChangedAction.Replace,
+                        value,
+                        old,
+                        index
+                    )
+                );
             }
         }
     }
@@ -158,17 +166,24 @@ public class CoreList<T> : ICoreList<T>
             List<T>? items = null;
             NotifyCollectionChangedEventArgs? eventArgs = null;
 
-            if ((CollectionChanged != null && ResetBehavior == ResetBehavior.Remove)
-                || Detached != null)
+            if (
+                (CollectionChanged != null && ResetBehavior == ResetBehavior.Remove)
+                || Detached != null
+            )
             {
                 items = [.. Inner];
             }
 
             if (CollectionChanged != null)
             {
-                eventArgs = ResetBehavior == ResetBehavior.Reset
-                    ? s_resetCollectionChanged
-                    : new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Remove, items, 0);
+                eventArgs =
+                    ResetBehavior == ResetBehavior.Reset
+                        ? s_resetCollectionChanged
+                        : new NotifyCollectionChangedEventArgs(
+                            NotifyCollectionChangedAction.Remove,
+                            items,
+                            0
+                        );
             }
 
             Inner.Clear();
@@ -209,11 +224,15 @@ public class CoreList<T> : ICoreList<T>
             }
 
             PropertyChanged?.Invoke(this, s_indexerPropertyChanged);
-            CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(
-                NotifyCollectionChangedAction.Replace,
-                (IList)source,
-                oldItems,
-                0));
+            CollectionChanged?.Invoke(
+                this,
+                new NotifyCollectionChangedEventArgs(
+                    NotifyCollectionChangedAction.Replace,
+                    (IList)source,
+                    oldItems,
+                    0
+                )
+            );
         }
     }
 
@@ -316,7 +335,6 @@ public class CoreList<T> : ICoreList<T>
                         Inner.Insert(insertIndex++, item);
 
                         notificationItems?.Add(item);
-
                     } while (en.MoveNext());
 
                     if (notificationItems is not null)
@@ -370,11 +388,15 @@ public class CoreList<T> : ICoreList<T>
         Inner.Insert(newIndex, item);
 
         PropertyChanged?.Invoke(this, s_indexerPropertyChanged);
-        CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(
-            NotifyCollectionChangedAction.Move,
-            item,
-            newIndex,
-            oldIndex));
+        CollectionChanged?.Invoke(
+            this,
+            new NotifyCollectionChangedEventArgs(
+                NotifyCollectionChangedAction.Move,
+                item,
+                newIndex,
+                oldIndex
+            )
+        );
     }
 
     public void MoveRange(int oldIndex, int count, int newIndex)
@@ -390,11 +412,15 @@ public class CoreList<T> : ICoreList<T>
         Inner.InsertRange(newIndex, items);
 
         PropertyChanged?.Invoke(this, s_indexerPropertyChanged);
-        CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(
-            NotifyCollectionChangedAction.Move,
-            items,
-            newIndex,
-            oldIndex));
+        CollectionChanged?.Invoke(
+            this,
+            new NotifyCollectionChangedEventArgs(
+                NotifyCollectionChangedAction.Move,
+                items,
+                newIndex,
+                oldIndex
+            )
+        );
     }
 
     public void EnsureCapacity(int capacity)
@@ -554,7 +580,12 @@ public class CoreList<T> : ICoreList<T>
             //
             Type targetType = array.GetType().GetElementType()!;
             Type sourceType = typeof(T);
-            if (!(targetType.IsAssignableFrom(sourceType) || sourceType.IsAssignableFrom(targetType)))
+            if (
+                !(
+                    targetType.IsAssignableFrom(sourceType)
+                    || sourceType.IsAssignableFrom(targetType)
+                )
+            )
             {
                 throw new ArgumentException("Invalid array type");
             }
@@ -596,7 +627,11 @@ public class CoreList<T> : ICoreList<T>
         PropertyChanged?.Invoke(this, s_indexerPropertyChanged);
         if (CollectionChanged != null)
         {
-            var e = new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Add, t, index);
+            var e = new NotifyCollectionChangedEventArgs(
+                NotifyCollectionChangedAction.Add,
+                t,
+                index
+            );
             CollectionChanged(this, e);
         }
 
@@ -616,7 +651,11 @@ public class CoreList<T> : ICoreList<T>
             T[] array = ArrayPool<T>.Shared.Rent(t.Length);
             t.CopyTo(array.AsSpan());
 
-            var e = new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Add, array, index);
+            var e = new NotifyCollectionChangedEventArgs(
+                NotifyCollectionChangedAction.Add,
+                array,
+                index
+            );
             try
             {
                 CollectionChanged(this, e);
@@ -637,7 +676,11 @@ public class CoreList<T> : ICoreList<T>
         PropertyChanged?.Invoke(this, s_indexerPropertyChanged);
         if (CollectionChanged != null)
         {
-            var e = new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Add, new[] { item }, index);
+            var e = new NotifyCollectionChangedEventArgs(
+                NotifyCollectionChangedAction.Add,
+                new[] { item },
+                index
+            );
             CollectionChanged(this, e);
         }
 
@@ -662,7 +705,11 @@ public class CoreList<T> : ICoreList<T>
         PropertyChanged?.Invoke(this, s_indexerPropertyChanged);
         if (CollectionChanged != null)
         {
-            var e = new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Remove, t, index);
+            var e = new NotifyCollectionChangedEventArgs(
+                NotifyCollectionChangedAction.Remove,
+                t,
+                index
+            );
             CollectionChanged(this, e);
         }
 
@@ -676,7 +723,11 @@ public class CoreList<T> : ICoreList<T>
         PropertyChanged?.Invoke(this, s_indexerPropertyChanged);
         if (CollectionChanged != null)
         {
-            var e = new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Remove, new[] { item }, index);
+            var e = new NotifyCollectionChangedEventArgs(
+                NotifyCollectionChangedAction.Remove,
+                new[] { item },
+                index
+            );
             CollectionChanged(this, e);
         }
 

@@ -69,13 +69,16 @@ public class BeutlApiApplication
         if (!string.IsNullOrWhiteSpace(culture))
         {
             httpClient.DefaultRequestHeaders.AcceptLanguage.Clear();
-            httpClient.DefaultRequestHeaders.AcceptLanguage.Add(new StringWithQualityHeaderValue(culture));
+            httpClient.DefaultRequestHeaders.AcceptLanguage.Add(
+                new StringWithQualityHeaderValue(culture)
+            );
         }
 
         RegisterAll();
     }
 
-    public ActivitySource ActivitySource { get; } = new("Beutl.Api.Client", BeutlApplication.Version);
+    public ActivitySource ActivitySource { get; } =
+        new("Beutl.Api.Client", BeutlApplication.Version);
 
     public IPackagesClient Packages { get; }
 
@@ -100,13 +103,21 @@ public class BeutlApiApplication
     // 更新があるかどうかをチェックします
     // このアプリケーションがアセットメタデータを持っている場合は、AppUpdateResponseを返します
     // そうでない場合は、CheckForUpdatesResponseを返します
-    public async Task<(CheckForUpdatesResponse? V1, AppUpdateResponse? V3)> CheckForUpdatesAsync(string version)
+    public async Task<(CheckForUpdatesResponse? V1, AppUpdateResponse? V3)> CheckForUpdatesAsync(
+        string version
+    )
     {
         var metadata = await LoadMetadata();
-        if (metadata == null) return (await App.CheckForUpdates(version), null);
+        if (metadata == null)
+            return (await App.CheckForUpdates(version), null);
         var update = await App.GetUpdate(
-            version, metadata.Type, metadata.OS, metadata.Arch,
-            metadata.Standalone, "false");
+            version,
+            metadata.Type,
+            metadata.OS,
+            metadata.Arch,
+            metadata.Standalone,
+            "false"
+        );
         return (null, update);
     }
 
@@ -140,17 +151,27 @@ public class BeutlApiApplication
         Register(() => ExtensionProvider.Current);
         Register(() => new ContextCommandSettingsStore());
         Register(() => new ContextCommandHandlerRegistry());
-        Register(() => new ContextCommandManager(
-            GetResource<ContextCommandSettingsStore>(),
-            GetResource<ContextCommandHandlerRegistry>()));
+        Register(() =>
+            new ContextCommandManager(
+                GetResource<ContextCommandSettingsStore>(),
+                GetResource<ContextCommandHandlerRegistry>()
+            )
+        );
         Register(() => new InstalledPackageRepository());
         Register(() => new AcceptedLicenseManager());
         Register(() => new PackageChangesQueue());
         Register(() => new LibraryService(this));
-        Register(() => new PackageInstaller(new HttpClient(), GetResource<InstalledPackageRepository>(), this));
-        Register(() => new PackageManager(
-            GetResource<InstalledPackageRepository>(), GetResource<ExtensionProvider>(),
-            GetResource<ContextCommandManager>(), this));
+        Register(() =>
+            new PackageInstaller(new HttpClient(), GetResource<InstalledPackageRepository>(), this)
+        );
+        Register(() =>
+            new PackageManager(
+                GetResource<InstalledPackageRepository>(),
+                GetResource<ExtensionProvider>(),
+                GetResource<ContextCommandManager>(),
+                this
+            )
+        );
     }
 
     private void Register<T>(Func<T> factory)
@@ -182,15 +203,22 @@ public class BeutlApiApplication
         return SignInExternalAsync("GitHub", cancellationToken);
     }
 
-    private async Task<AuthenticatedUser> SignInExternalAsync(string provider, CancellationToken cancellationToken)
+    private async Task<AuthenticatedUser> SignInExternalAsync(
+        string provider,
+        CancellationToken cancellationToken
+    )
     {
-        using (Activity? activity = ActivitySource.StartActivity("SignInExternalAsync", ActivityKind.Client))
+        using (
+            Activity? activity = ActivitySource.StartActivity(
+                "SignInExternalAsync",
+                ActivityKind.Client
+            )
+        )
         {
             string continueUri = $"http://localhost:{GetRandomUnusedPort()}/__/auth/handler";
-            CreateAuthUriResponse authUriRes = await Account.CreateAuthUri(new CreateAuthUriRequest
-            {
-                ContinueUri = continueUri
-            });
+            CreateAuthUriResponse authUriRes = await Account.CreateAuthUri(
+                new CreateAuthUriRequest { ContinueUri = continueUri }
+            );
             using HttpListener listener = StartListener($"{continueUri}/");
             activity?.AddEvent(new("Started_Listener"));
 
@@ -206,19 +234,25 @@ public class BeutlApiApplication
                 throw new Exception("The returned code was empty.");
             }
 
-            AuthResponse authResponse = await Account.Exchange(new ExchangeRequest
-            {
-                Code = code,
-                SessionId = authUriRes.SessionId
-            });
+            AuthResponse authResponse = await Account.Exchange(
+                new ExchangeRequest { Code = code, SessionId = authUriRes.SessionId }
+            );
             activity?.AddEvent(new("Done_CodeToJwtAsync"));
 
-            _httpClient.DefaultRequestHeaders.Authorization =
-                new AuthenticationHeaderValue("Bearer", authResponse.Token);
+            _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
+                "Bearer",
+                authResponse.Token
+            );
             ProfileResponse profileResponse = await Users.GetSelf();
             var profile = new Profile(profileResponse, this);
 
-            _authenticatedUser.Value = new AuthenticatedUser(profile, authResponse, this, _httpClient, DateTime.UtcNow);
+            _authenticatedUser.Value = new AuthenticatedUser(
+                profile,
+                authResponse,
+                this,
+                _httpClient,
+                DateTime.UtcNow
+            );
             SaveUser();
             activity?.AddEvent(new("Saved_User"));
             return _authenticatedUser.Value;
@@ -227,20 +261,22 @@ public class BeutlApiApplication
 
     public async Task<AuthenticatedUser> SignInAsync(CancellationToken cancellationToken)
     {
-        using (Activity? activity = ActivitySource.StartActivity("SignInAsync", ActivityKind.Client))
+        using (
+            Activity? activity = ActivitySource.StartActivity("SignInAsync", ActivityKind.Client)
+        )
         {
             using (await Lock.LockAsync(cancellationToken))
             {
                 activity?.AddEvent(new("Entered_AsyncLock"));
                 string continueUri = $"http://localhost:{GetRandomUnusedPort()}/__/auth/handler";
-                CreateAuthUriResponse authUriRes = await Account.CreateAuthUri(new CreateAuthUriRequest
-                {
-                    ContinueUri = continueUri
-                });
+                CreateAuthUriResponse authUriRes = await Account.CreateAuthUri(
+                    new CreateAuthUriRequest { ContinueUri = continueUri }
+                );
                 using HttpListener listener = StartListener($"{continueUri}/");
                 activity?.AddEvent(new("Started_Listener"));
 
-                string uri = $"{BaseUrl}/account/signIn?returnUrl={Uri.EscapeDataString(authUriRes.AuthUri)}";
+                string uri =
+                    $"{BaseUrl}/account/signIn?returnUrl={Uri.EscapeDataString(authUriRes.AuthUri)}";
 
                 Process.Start(new ProcessStartInfo(uri) { UseShellExecute = true, Verb = "open" });
 
@@ -251,19 +287,25 @@ public class BeutlApiApplication
                     throw new Exception("The returned code was empty.");
                 }
 
-                AuthResponse authResponse = await Account.Exchange(new ExchangeRequest
-                {
-                    Code = code,
-                    SessionId = authUriRes.SessionId
-                });
+                AuthResponse authResponse = await Account.Exchange(
+                    new ExchangeRequest { Code = code, SessionId = authUriRes.SessionId }
+                );
                 activity?.AddEvent(new("Done_CodeToJwtAsync"));
 
-                _httpClient.DefaultRequestHeaders.Authorization =
-                    new AuthenticationHeaderValue("Bearer", authResponse.Token);
+                _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
+                    "Bearer",
+                    authResponse.Token
+                );
                 ProfileResponse profileResponse = await Users.GetSelf();
                 var profile = new Profile(profileResponse, this);
 
-                _authenticatedUser.Value = new AuthenticatedUser(profile, authResponse, this, _httpClient, DateTime.UtcNow);
+                _authenticatedUser.Value = new AuthenticatedUser(
+                    profile,
+                    authResponse,
+                    this,
+                    _httpClient,
+                    DateTime.UtcNow
+                );
                 SaveUser();
                 activity?.AddEvent(new("Saved_User"));
                 return _authenticatedUser.Value;
@@ -273,7 +315,13 @@ public class BeutlApiApplication
 
     public static void OpenAccountSettings()
     {
-        Process.Start(new ProcessStartInfo($"{BaseUrl}/account/manage") { UseShellExecute = true, Verb = "open" });
+        Process.Start(
+            new ProcessStartInfo($"{BaseUrl}/account/manage")
+            {
+                UseShellExecute = true,
+                Verb = "open",
+            }
+        );
     }
 
     public void SaveUser()
@@ -310,7 +358,10 @@ public class BeutlApiApplication
             {
                 await user.RefreshAsync();
 
-                _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", user.Token);
+                _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
+                    "Bearer",
+                    user.Token
+                );
                 await user.Profile.RefreshAsync(true);
                 _authenticatedUser.Value = user;
                 SaveUser();
@@ -328,22 +379,27 @@ public class BeutlApiApplication
 
             if (node != null)
             {
-                ProfileResponse? profile = JsonSerializer.Deserialize<ProfileResponse>(node["profile"]);
+                ProfileResponse? profile = JsonSerializer.Deserialize<ProfileResponse>(
+                    node["profile"]
+                );
                 string? token = (string?)node["token"];
                 string? refreshToken = (string?)node["refresh_token"];
                 var expiration = (DateTime?)node["expiration"];
 
-                if (profile != null
-                    && token != null
-                    && refreshToken != null
-                    && expiration.HasValue)
+                if (profile != null && token != null && refreshToken != null && expiration.HasValue)
                 {
                     return new AuthenticatedUser(
                         new Profile(profile, this),
-                        new AuthResponse { Expiration = expiration.Value, RefreshToken = refreshToken, Token = token },
+                        new AuthResponse
+                        {
+                            Expiration = expiration.Value,
+                            RefreshToken = refreshToken,
+                            Token = token,
+                        },
                         this,
                         _httpClient,
-                        lastWriteTime);
+                        lastWriteTime
+                    );
                 }
             }
         }
@@ -373,7 +429,10 @@ public class BeutlApiApplication
         return listener;
     }
 
-    private static async Task<string?> GetResponseFromListener(HttpListener listener, CancellationToken ct)
+    private static async Task<string?> GetResponseFromListener(
+        HttpListener listener,
+        CancellationToken ct
+    )
     {
         HttpListenerContext context;
 
@@ -415,8 +474,9 @@ public class BeutlApiApplication
 
     private static Stream ReadClosePageResponse()
     {
-        Stream? stream =
-            typeof(BeutlApiApplication).Assembly.GetManifestResourceStream("Beutl.Api.Resources.index.html");
+        Stream? stream = typeof(BeutlApiApplication).Assembly.GetManifestResourceStream(
+            "Beutl.Api.Resources.index.html"
+        );
 
         return stream ?? throw new Exception("Embedded resource not found.");
     }
@@ -424,16 +484,22 @@ public class BeutlApiApplication
 
 public sealed class AssetMetadataJson
 {
-    [JsonPropertyName("id")] public required string Id { get; init; }
+    [JsonPropertyName("id")]
+    public required string Id { get; init; }
 
-    [JsonPropertyName("os")] public required string OS { get; init; }
+    [JsonPropertyName("os")]
+    public required string OS { get; init; }
 
-    [JsonPropertyName("arch")] public required string Arch { get; init; }
+    [JsonPropertyName("arch")]
+    public required string Arch { get; init; }
 
-    [JsonPropertyName("version")] public required string Version { get; init; }
+    [JsonPropertyName("version")]
+    public required string Version { get; init; }
 
-    [JsonPropertyName("standalone")] public required string Standalone { get; init; }
+    [JsonPropertyName("standalone")]
+    public required string Standalone { get; init; }
 
     // zip,debian,installer,app
-    [JsonPropertyName("type")] public required string Type { get; init; }
+    [JsonPropertyName("type")]
+    public required string Type { get; init; }
 }

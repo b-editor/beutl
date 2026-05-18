@@ -1,5 +1,4 @@
 ﻿using System.ComponentModel;
-
 using Beutl.Collections;
 
 namespace Beutl.Configuration;
@@ -11,11 +10,15 @@ public sealed class TutorialConfig : ConfigurationBase
 
     static TutorialConfig()
     {
-        CompletedTutorialIdsProperty = ConfigureProperty<CoreList<string>, TutorialConfig>(nameof(CompletedTutorialIds))
+        CompletedTutorialIdsProperty = ConfigureProperty<CoreList<string>, TutorialConfig>(
+                nameof(CompletedTutorialIds)
+            )
             .DefaultValue([])
             .Register();
 
-        ShowTutorialsOnStartupProperty = ConfigureProperty<bool, TutorialConfig>(nameof(ShowTutorialsOnStartup))
+        ShowTutorialsOnStartupProperty = ConfigureProperty<bool, TutorialConfig>(
+                nameof(ShowTutorialsOnStartup)
+            )
             .DefaultValue(true)
             .Register();
     }

@@ -17,7 +17,10 @@ public partial class SourceVideo : Drawable, IOriginalDurationProvider, ISplitta
         ScanProperties<SourceVideo>();
     }
 
-    [Display(Name = nameof(GraphicsStrings.SourceVideo_OffsetPosition), ResourceType = typeof(GraphicsStrings))]
+    [Display(
+        Name = nameof(GraphicsStrings.SourceVideo_OffsetPosition),
+        ResourceType = typeof(GraphicsStrings)
+    )]
     public IProperty<TimeSpan> OffsetPosition { get; } = Property.Create<TimeSpan>();
 
     [Display(Name = nameof(GraphicsStrings.Speed), ResourceType = typeof(GraphicsStrings))]
@@ -27,7 +30,10 @@ public partial class SourceVideo : Drawable, IOriginalDurationProvider, ISplitta
     [Display(Name = nameof(GraphicsStrings.Source), ResourceType = typeof(GraphicsStrings))]
     public IProperty<VideoSource?> Source { get; } = Property.CreateAnimatable<VideoSource?>();
 
-    [Display(Name = nameof(GraphicsStrings.SourceVideo_IsLoop), ResourceType = typeof(GraphicsStrings))]
+    [Display(
+        Name = nameof(GraphicsStrings.SourceVideo_IsLoop),
+        ResourceType = typeof(GraphicsStrings)
+    )]
     public IProperty<bool> IsLoop { get; } = Property.CreateAnimatable<bool>();
 
     public bool HasOriginalDuration()
@@ -76,14 +82,18 @@ public partial class SourceVideo : Drawable, IOriginalDurationProvider, ISplitta
 
     public TimeSpan? CalculateOriginalTime(Resource resource)
     {
-        if (resource.Source == null) return null;
+        if (resource.Source == null)
+            return null;
 
         var duration = resource.Source.Duration;
 
         var anm = Speed.Animation;
 
         // スピードのアニメーションまたはキーフレームが 1 つもない場合は、単純に逆変換する
-        if (anm is not KeyFrameAnimation<float> keyFrameAnimation || keyFrameAnimation.KeyFrames.Count == 0)
+        if (
+            anm is not KeyFrameAnimation<float> keyFrameAnimation
+            || keyFrameAnimation.KeyFrames.Count == 0
+        )
         {
             return TimeSpan.FromTicks((long)(duration.Ticks / (Speed.CurrentValue / 100.0)));
         }
@@ -99,9 +109,11 @@ public partial class SourceVideo : Drawable, IOriginalDurationProvider, ISplitta
         // 速度が非常に遅い場合に備えて high を段階的に拡大する
         const int maxHighExpansions = 20;
         int expansionCount = 0;
-        while (videoTimeAtHigh < duration
-               && expansionCount < maxHighExpansions
-               && high <= TimeSpan.FromTicks(TimeSpan.MaxValue.Ticks / 2))
+        while (
+            videoTimeAtHigh < duration
+            && expansionCount < maxHighExpansions
+            && high <= TimeSpan.FromTicks(TimeSpan.MaxValue.Ticks / 2)
+        )
         {
             high = TimeSpan.FromTicks(high.Ticks * 2);
             videoTimeAtHigh = CalculateVideoTime(high, resource);
@@ -151,13 +163,15 @@ public partial class SourceVideo : Drawable, IOriginalDurationProvider, ISplitta
         {
             TimeSpan pos = r.RequestedPosition + r.OffsetPosition;
             Rational rate = r.Source.FrameRate;
-            double frameNum = pos.Ticks * rate.Numerator / (double)(TimeSpan.TicksPerSecond * rate.Denominator);
+            double frameNum =
+                pos.Ticks * rate.Numerator / (double)(TimeSpan.TicksPerSecond * rate.Denominator);
 
             context.DrawVideoSource(
                 r.Source,
                 (int)Math.Round(frameNum, MidpointRounding.AwayFromZero),
                 Brushes.Resource.White,
-                null);
+                null
+            );
             r.RenderedPosition = r.RequestedPosition;
         }
     }
@@ -192,8 +206,9 @@ public partial class SourceVideo : Drawable, IOriginalDurationProvider, ISplitta
             {
                 if (keyFrameAnimation.UseGlobalClock)
                 {
-                    RequestedPosition = obj.CalculateVideoTime(time, this)
-                                      - obj.CalculateVideoTime(obj.TimeRange.Start, this);
+                    RequestedPosition =
+                        obj.CalculateVideoTime(time, this)
+                        - obj.CalculateVideoTime(obj.TimeRange.Start, this);
                 }
                 else
                 {
@@ -211,12 +226,15 @@ public partial class SourceVideo : Drawable, IOriginalDurationProvider, ISplitta
                 // 正の値の場合、動画の長さでモジュロ計算
                 if (RequestedPosition >= TimeSpan.Zero)
                 {
-                    RequestedPosition = TimeSpan.FromTicks(RequestedPosition.Ticks % Source.Duration.Ticks);
+                    RequestedPosition = TimeSpan.FromTicks(
+                        RequestedPosition.Ticks % Source.Duration.Ticks
+                    );
                 }
                 // 負の値の場合、動画の長さを足してからモジュロ計算
                 else
                 {
-                    var positiveTicks = Source.Duration.Ticks + (RequestedPosition.Ticks % Source.Duration.Ticks);
+                    var positiveTicks =
+                        Source.Duration.Ticks + (RequestedPosition.Ticks % Source.Duration.Ticks);
                     RequestedPosition = TimeSpan.FromTicks(positiveTicks % Source.Duration.Ticks);
                 }
             }

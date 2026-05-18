@@ -7,48 +7,62 @@ namespace Beutl.Editor.Components.Helpers;
 
 public static class EngineObjectHelper
 {
-    public static IObservable<IExpression<T>?> SubscribeExpressionChange<T>(this IProperty<T> property)
+    public static IObservable<IExpression<T>?> SubscribeExpressionChange<T>(
+        this IProperty<T> property
+    )
     {
-        return Observable.FromEvent<IExpression<T>?>(
+        return Observable
+            .FromEvent<IExpression<T>?>(
                 h => property.ExpressionChanged += h,
-                h => property.ExpressionChanged -= h)
+                h => property.ExpressionChanged -= h
+            )
             .Select(s => s)
-            .Publish(property.Expression).RefCount();
+            .Publish(property.Expression)
+            .RefCount();
     }
 
     public static IObservable<T> SubscribeCurrentValueChange<T>(this IProperty<T> property)
     {
-        return Observable.FromEventPattern<PropertyValueChangedEventArgs<T>>(
+        return Observable
+            .FromEventPattern<PropertyValueChangedEventArgs<T>>(
                 h => property.ValueChanged += h,
-                h => property.ValueChanged -= h)
+                h => property.ValueChanged -= h
+            )
             .Select(s => s.EventArgs.NewValue)
-            .Publish(property.CurrentValue).RefCount();
+            .Publish(property.CurrentValue)
+            .RefCount();
     }
 
     public static IObservable<T> SubscribeEngineProperty<T>(
-        this IProperty<T> property, EngineObject obj, IObservable<TimeSpan> time)
+        this IProperty<T> property,
+        EngineObject obj,
+        IObservable<TimeSpan> time
+    )
     {
-        return Observable.FromEventPattern(
-                h => obj.Edited += h,
-                h => obj.Edited -= h)
+        return Observable
+            .FromEventPattern(h => obj.Edited += h, h => obj.Edited -= h)
             .Select(_ => Unit.Default)
-            .Publish(Unit.Default).RefCount()
+            .Publish(Unit.Default)
+            .RefCount()
             .CombineLatest(time)
             .Select(t => property.GetValue(new CompositionContext(t.Second)));
     }
 
     public static IObservable<TResource> SubscribeEngineResource<T, TResource>(
-        this T obj, IObservable<TimeSpan> time, Func<T, CompositionContext, TResource> createResource)
+        this T obj,
+        IObservable<TimeSpan> time,
+        Func<T, CompositionContext, TResource> createResource
+    )
         where T : EngineObject
         where TResource : EngineObject.Resource
     {
         var renderContext = new CompositionContext(TimeSpan.Zero);
         TResource? resource = null;
-        return Observable.FromEventPattern(
-                h => obj.Edited += h,
-                h => obj.Edited -= h)
+        return Observable
+            .FromEventPattern(h => obj.Edited += h, h => obj.Edited -= h)
             .Select(_ => Unit.Default)
-            .Publish(Unit.Default).RefCount()
+            .Publish(Unit.Default)
+            .RefCount()
             .CombineLatest(time)
             .Select(t =>
             {
@@ -69,18 +83,20 @@ public static class EngineObjectHelper
             .Select(t => t.resource);
     }
 
-    public static IObservable<(TResource Resource, int Version)> SubscribeEngineVersionedResource<T, TResource>(
-        this T obj, IObservable<TimeSpan> time, Func<T, CompositionContext, TResource> createResource)
+    public static IObservable<(TResource Resource, int Version)> SubscribeEngineVersionedResource<
+        T,
+        TResource
+    >(this T obj, IObservable<TimeSpan> time, Func<T, CompositionContext, TResource> createResource)
         where T : EngineObject
         where TResource : EngineObject.Resource
     {
         var renderContext = new CompositionContext(TimeSpan.Zero);
         TResource? resource = null;
-        return Observable.FromEventPattern(
-                h => obj.Edited += h,
-                h => obj.Edited -= h)
+        return Observable
+            .FromEventPattern(h => obj.Edited += h, h => obj.Edited -= h)
             .Select(_ => Unit.Default)
-            .Publish(Unit.Default).RefCount()
+            .Publish(Unit.Default)
+            .RefCount()
             .CombineLatest(time)
             .Select(t =>
             {

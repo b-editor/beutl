@@ -33,22 +33,26 @@ public class DockHostViewModel : IDisposable, IJsonSerializable
 
     public ReactivePropertySlim<IRootDock> Layout { get; }
 
-    public T? FindToolTab<T>(Func<T, bool> condition) where T : IToolContext
+    public T? FindToolTab<T>(Func<T, bool> condition)
+        where T : IToolContext
     {
-        return Factory.EnumerateTools()
+        return Factory
+            .EnumerateTools()
             .Select(t => t.ToolContext)
             .OfType<T>()
             .FirstOrDefault(condition);
     }
 
-    public T? FindToolTab<T>() where T : IToolContext
+    public T? FindToolTab<T>()
+        where T : IToolContext
     {
         return FindToolTab<T>(_ => true);
     }
 
     public IToolContext? FindToolContext(Type extensionType)
     {
-        return Factory.EnumerateTools()
+        return Factory
+            .EnumerateTools()
             .Select(t => t.ToolContext)
             .FirstOrDefault(ctx => ctx.Extension.GetType() == extensionType);
     }
@@ -60,7 +64,11 @@ public class DockHostViewModel : IDisposable, IJsonSerializable
 
     public bool OpenToolTab(IToolContext item, IToolDock? target)
     {
-        _logger.LogInformation("Attempting to open tool tab '{ToolTabName}' ({SceneId})", item.Extension.Name, _sceneId);
+        _logger.LogInformation(
+            "Attempting to open tool tab '{ToolTabName}' ({SceneId})",
+            item.Extension.Name,
+            _sceneId
+        );
         try
         {
             EnsureDefaultLayout();
@@ -72,32 +80,55 @@ public class DockHostViewModel : IDisposable, IJsonSerializable
                 return true;
             }
 
-            if (!item.Extension.CanMultiple &&
-                Factory.EnumerateTools().Any(t => t.ToolContext.Extension == item.Extension))
+            if (
+                !item.Extension.CanMultiple
+                && Factory.EnumerateTools().Any(t => t.ToolContext.Extension == item.Extension)
+            )
             {
-                _logger.LogWarning("Tool tab '{ToolTabName}' cannot be opened multiple times. ({SceneId})", item.Extension.Name, _sceneId);
+                _logger.LogWarning(
+                    "Tool tab '{ToolTabName}' cannot be opened multiple times. ({SceneId})",
+                    item.Extension.Name,
+                    _sceneId
+                );
                 return false;
             }
 
             var dockable = Factory.AddTool(item, target);
             if (dockable is null)
             {
-                _logger.LogWarning("No dock zone found for tool '{ToolTabName}'. ({SceneId})", item.Extension.Name, _sceneId);
+                _logger.LogWarning(
+                    "No dock zone found for tool '{ToolTabName}'. ({SceneId})",
+                    item.Extension.Name,
+                    _sceneId
+                );
                 return false;
             }
-            _logger.LogInformation("Tool tab '{ToolTabName}' opened successfully. ({SceneId})", item.Extension.Name, _sceneId);
+            _logger.LogInformation(
+                "Tool tab '{ToolTabName}' opened successfully. ({SceneId})",
+                item.Extension.Name,
+                _sceneId
+            );
             return true;
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to open tool tab '{ToolTabName}'. ({SceneId})", item.Extension.Name, _sceneId);
+            _logger.LogError(
+                ex,
+                "Failed to open tool tab '{ToolTabName}'. ({SceneId})",
+                item.Extension.Name,
+                _sceneId
+            );
             return false;
         }
     }
 
     public void CloseToolTab(IToolContext item)
     {
-        _logger.LogInformation("Attempting to close tool tab '{ToolName}' ({SceneId})", item.Extension.Name, _sceneId);
+        _logger.LogInformation(
+            "Attempting to close tool tab '{ToolName}' ({SceneId})",
+            item.Extension.Name,
+            _sceneId
+        );
         try
         {
             var dockable = Factory.EnumerateTools().FirstOrDefault(t => t.ToolContext == item);
@@ -111,7 +142,12 @@ public class DockHostViewModel : IDisposable, IJsonSerializable
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to close tool tab '{ToolName}'. ({SceneId})", item.Extension.Name, _sceneId);
+            _logger.LogError(
+                ex,
+                "Failed to close tool tab '{ToolName}'. ({SceneId})",
+                item.Extension.Name,
+                _sceneId
+            );
         }
     }
 
@@ -123,8 +159,8 @@ public class DockHostViewModel : IDisposable, IJsonSerializable
 
         var fallback = Factory.GetAnchoredDock(DockAnchor.Left) ?? Factory.FindFirstToolDock();
 
-        var extensions = ExtensionProvider.Current.AllExtensions
-            .OfType<ToolTabExtension>()
+        var extensions = ExtensionProvider
+            .Current.AllExtensions.OfType<ToolTabExtension>()
             .Where(e => e.OpenByDefault)
             .OrderBy(e => (int)e.DefaultAnchor)
             .ThenBy(e => e.DefaultOrder);
@@ -153,7 +189,8 @@ public class DockHostViewModel : IDisposable, IJsonSerializable
 
     private void EnsureDefaultLayout()
     {
-        if (_layoutInitialized) return;
+        if (_layoutInitialized)
+            return;
         var layout = Factory.CreateLayout();
         Factory.InitLayout(layout);
         Layout.Value = layout;
@@ -180,13 +217,17 @@ public class DockHostViewModel : IDisposable, IJsonSerializable
     {
         _logger.LogInformation("Reading DockHostViewModel from JSON ({SceneId})", _sceneId);
 
-        var hasVersion = json.TryGetPropertyValue("_dockVersion", out var vNode) &&
-            vNode is JsonValue vVal && vVal.TryGetValue(out int version) &&
-            version == DockVersion;
+        var hasVersion =
+            json.TryGetPropertyValue("_dockVersion", out var vNode)
+            && vNode is JsonValue vVal
+            && vVal.TryGetValue(out int version)
+            && version == DockVersion;
 
-        if (hasVersion &&
-            json.TryGetPropertyValue("DockLayout", out var layoutNode) &&
-            layoutNode is JsonObject layoutObj)
+        if (
+            hasVersion
+            && json.TryGetPropertyValue("DockLayout", out var layoutNode)
+            && layoutNode is JsonObject layoutObj
+        )
         {
             try
             {
@@ -205,7 +246,11 @@ public class DockHostViewModel : IDisposable, IJsonSerializable
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Failed to restore dock layout, using defaults ({SceneId})", _sceneId);
+                _logger.LogError(
+                    ex,
+                    "Failed to restore dock layout, using defaults ({SceneId})",
+                    _sceneId
+                );
                 ResetToDefaultLayout("restore threw an exception");
             }
         }
@@ -213,7 +258,8 @@ public class DockHostViewModel : IDisposable, IJsonSerializable
         {
             _logger.LogInformation(
                 "Dock layout version missing or mismatched, initializing defaults ({SceneId})",
-                _sceneId);
+                _sceneId
+            );
         }
 
         if (!Factory.EnumerateTools().Any())
@@ -230,16 +276,18 @@ public class DockHostViewModel : IDisposable, IJsonSerializable
 
     private void ResetToDefaultLayout(string reason)
     {
-        _logger.LogWarning("Resetting dock layout to defaults ({Reason}, {SceneId})", reason, _sceneId);
+        _logger.LogWarning(
+            "Resetting dock layout to defaults ({Reason}, {SceneId})",
+            reason,
+            _sceneId
+        );
         foreach (var tool in Factory.EnumerateTools().ToList())
         {
             try
             {
                 Factory.CloseDockable(tool);
             }
-            catch
-            {
-            }
+            catch { }
         }
 
         _layoutInitialized = false;
@@ -262,11 +310,7 @@ public class DockHostViewModel : IDisposable, IJsonSerializable
 
     private JsonObject SaveRootDock(IRootDock root)
     {
-        var obj = new JsonObject
-        {
-            ["$type"] = "root",
-            ["id"] = root.Id
-        };
+        var obj = new JsonObject { ["$type"] = "root", ["id"] = root.Id };
 
         if (root.VisibleDockables is { Count: > 0 } visible)
         {
@@ -287,7 +331,8 @@ public class DockHostViewModel : IDisposable, IJsonSerializable
             var windowsArray = new JsonArray();
             foreach (var w in windows)
             {
-                if (w.Layout is null) continue;
+                if (w.Layout is null)
+                    continue;
                 var wObj = new JsonObject
                 {
                     ["layout"] = SaveNode(w.Layout),
@@ -310,7 +355,8 @@ public class DockHostViewModel : IDisposable, IJsonSerializable
 
     private void SaveDockableList(JsonObject parent, string key, IList<IDockable>? list)
     {
-        if (list is not { Count: > 0 }) return;
+        if (list is not { Count: > 0 })
+            return;
         var array = new JsonArray();
         foreach (var item in list)
             array.Add(SaveNode(item));
@@ -323,7 +369,8 @@ public class DockHostViewModel : IDisposable, IJsonSerializable
         {
             ["$type"] = "proportional",
             ["id"] = prop.Id,
-            ["orientation"] = prop.Orientation == Orientation.Horizontal ? "horizontal" : "vertical",
+            ["orientation"] =
+                prop.Orientation == Orientation.Horizontal ? "horizontal" : "vertical",
         };
         if (!double.IsNaN(prop.Proportion))
             obj["proportion"] = prop.Proportion;
@@ -375,11 +422,7 @@ public class DockHostViewModel : IDisposable, IJsonSerializable
     private static JsonObject SaveBeutlTool(BeutlToolDockable dockable)
     {
         var ctx = dockable.ToolContext;
-        var obj = new JsonObject
-        {
-            ["$type"] = "tool",
-            ["id"] = dockable.Id
-        };
+        var obj = new JsonObject { ["$type"] = "tool", ["id"] = dockable.Id };
         var extObj = new JsonObject();
         extObj.WriteDiscriminator(ctx.Extension.GetType());
         obj["extension"] = extObj;
@@ -430,24 +473,40 @@ public class DockHostViewModel : IDisposable, IJsonSerializable
         {
             foreach (var wItem in wArray)
             {
-                if (wItem is not JsonObject wObj) continue;
-                if (!wObj.TryGetPropertyValue("layout", out var layoutNode) || layoutNode is not JsonObject layoutObj) continue;
+                if (wItem is not JsonObject wObj)
+                    continue;
+                if (
+                    !wObj.TryGetPropertyValue("layout", out var layoutNode)
+                    || layoutNode is not JsonObject layoutObj
+                )
+                    continue;
                 var layout = RestoreNode(layoutObj);
-                if (layout is null) continue;
+                if (layout is null)
+                    continue;
 
-                if (!BeutlDockFactory.Traverse(layout).Any(i => i is BeutlToolDockable or PlayerToolDockable))
+                if (
+                    !BeutlDockFactory
+                        .Traverse(layout)
+                        .Any(i => i is BeutlToolDockable or PlayerToolDockable)
+                )
                 {
                     continue;
                 }
 
                 var window = Factory.CreateDockWindow();
                 window.Layout = layout as IRootDock ?? CreateWindowRootDock(layout);
-                if (wObj["x"] is JsonValue xVal && xVal.TryGetValue(out double x)) window.X = x;
-                if (wObj["y"] is JsonValue yVal && yVal.TryGetValue(out double y)) window.Y = y;
-                if (wObj["width"] is JsonValue wVal && wVal.TryGetValue(out double width)) window.Width = width;
-                if (wObj["height"] is JsonValue hVal && hVal.TryGetValue(out double height)) window.Height = height;
-                if (wObj["topmost"] is JsonValue tVal && tVal.TryGetValue(out bool topmost)) window.Topmost = topmost;
-                if (wObj["title"] is JsonValue titleVal && titleVal.TryGetValue(out string? title)) window.Title = title ?? string.Empty;
+                if (wObj["x"] is JsonValue xVal && xVal.TryGetValue(out double x))
+                    window.X = x;
+                if (wObj["y"] is JsonValue yVal && yVal.TryGetValue(out double y))
+                    window.Y = y;
+                if (wObj["width"] is JsonValue wVal && wVal.TryGetValue(out double width))
+                    window.Width = width;
+                if (wObj["height"] is JsonValue hVal && hVal.TryGetValue(out double height))
+                    window.Height = height;
+                if (wObj["topmost"] is JsonValue tVal && tVal.TryGetValue(out bool topmost))
+                    window.Topmost = topmost;
+                if (wObj["title"] is JsonValue titleVal && titleVal.TryGetValue(out string? title))
+                    window.Title = title ?? string.Empty;
                 rootDock.Windows ??= Factory.CreateList<IDockWindow>();
                 rootDock.Windows.Add(window);
             }
@@ -463,9 +522,11 @@ public class DockHostViewModel : IDisposable, IJsonSerializable
         var list = new List<IDockable>();
         foreach (var item in array)
         {
-            if (item is not JsonObject itemObj) continue;
+            if (item is not JsonObject itemObj)
+                continue;
             var restored = RestoreNode(itemObj);
-            if (restored is not null) list.Add(restored);
+            if (restored is not null)
+                list.Add(restored);
         }
 
         return list.Count == 0 ? null : Factory.CreateList<IDockable>(list.ToArray());
@@ -483,9 +544,10 @@ public class DockHostViewModel : IDisposable, IJsonSerializable
     {
         var dock = Factory.CreateProportionalDock();
         dock.Id = obj["id"]?.GetValue<string>() ?? string.Empty;
-        dock.Orientation = obj["orientation"]?.GetValue<string>() == "horizontal"
-            ? Orientation.Horizontal
-            : Orientation.Vertical;
+        dock.Orientation =
+            obj["orientation"]?.GetValue<string>() == "horizontal"
+                ? Orientation.Horizontal
+                : Orientation.Vertical;
         if (obj["proportion"] is JsonValue pv && pv.TryGetValue(out double prop))
             dock.Proportion = prop;
 
@@ -500,9 +562,12 @@ public class DockHostViewModel : IDisposable, IJsonSerializable
         var alignment = obj["alignment"]?.GetValue<string>() is { } alignStr
             ? ParseAlignment(alignStr)
             : Alignment.Unset;
-        var proportion = obj["proportion"] is JsonValue pv && pv.TryGetValue(out double p) ? p : double.NaN;
-        var minWidth = obj["minWidth"] is JsonValue mwVal && mwVal.TryGetValue(out double mw) ? mw : 0.0;
-        var minHeight = obj["minHeight"] is JsonValue mhVal && mhVal.TryGetValue(out double mh) ? mh : 0.0;
+        var proportion =
+            obj["proportion"] is JsonValue pv && pv.TryGetValue(out double p) ? p : double.NaN;
+        var minWidth =
+            obj["minWidth"] is JsonValue mwVal && mwVal.TryGetValue(out double mw) ? mw : 0.0;
+        var minHeight =
+            obj["minHeight"] is JsonValue mhVal && mhVal.TryGetValue(out double mh) ? mh : 0.0;
         var dock = Factory.CreateStyledToolDock(id, alignment, proportion, minWidth, minHeight);
 
         var dockables = new List<IDockable>();
@@ -510,11 +575,14 @@ public class DockHostViewModel : IDisposable, IJsonSerializable
         if (obj["activeDockableIndex"] is JsonValue aiVal)
             aiVal.TryGetValue(out activeDockableIndex);
 
-        if (obj.TryGetPropertyValue("tools", out var toolsNode) && toolsNode is JsonArray toolsArray)
+        if (
+            obj.TryGetPropertyValue("tools", out var toolsNode) && toolsNode is JsonArray toolsArray
+        )
         {
             foreach (var toolNode in toolsArray)
             {
-                if (toolNode is not JsonObject toolObj) continue;
+                if (toolNode is not JsonObject toolObj)
+                    continue;
                 var restored = RestoreNode(toolObj);
                 if (restored is not null)
                     dockables.Add(restored);
@@ -542,14 +610,20 @@ public class DockHostViewModel : IDisposable, IJsonSerializable
 
     private BeutlToolDockable? RestoreBeutlTool(JsonObject obj)
     {
-        if (obj["extension"] is not JsonObject extObj || !extObj.TryGetDiscriminator(out Type? extType))
+        if (
+            obj["extension"] is not JsonObject extObj
+            || !extObj.TryGetDiscriminator(out Type? extType)
+        )
             return null;
 
-        var extension = ExtensionProvider.Current.AllExtensions
-            .FirstOrDefault(x => x.GetType() == extType) as ToolTabExtension;
-        if (extension is null) return null;
+        var extension =
+            ExtensionProvider.Current.AllExtensions.FirstOrDefault(x => x.GetType() == extType)
+            as ToolTabExtension;
+        if (extension is null)
+            return null;
 
-        if (!extension.TryCreateContext(_editViewModel, out IToolContext? ctx)) return null;
+        if (!extension.TryCreateContext(_editViewModel, out IToolContext? ctx))
+            return null;
 
         try
         {
@@ -561,7 +635,8 @@ public class DockHostViewModel : IDisposable, IJsonSerializable
                 ex,
                 "Failed to restore tool state for '{ToolType}' ({SceneId})",
                 extType.FullName,
-                _sceneId);
+                _sceneId
+            );
         }
 
         var dockable = new BeutlToolDockable(ctx, _editViewModel);
@@ -578,12 +653,16 @@ public class DockHostViewModel : IDisposable, IJsonSerializable
     private List<IDockable> RestoreChildren(JsonObject obj)
     {
         var result = new List<IDockable>();
-        if (!obj.TryGetPropertyValue("children", out var childrenNode) || childrenNode is not JsonArray childrenArray)
+        if (
+            !obj.TryGetPropertyValue("children", out var childrenNode)
+            || childrenNode is not JsonArray childrenArray
+        )
             return result;
 
         foreach (var childNode in childrenArray)
         {
-            if (childNode is not JsonObject childObj) continue;
+            if (childNode is not JsonObject childObj)
+                continue;
             var restored = RestoreNode(childObj);
             if (restored is not null)
                 result.Add(restored);
@@ -592,12 +671,13 @@ public class DockHostViewModel : IDisposable, IJsonSerializable
         return result;
     }
 
-    private static Alignment ParseAlignment(string value) => value switch
-    {
-        "left" => Alignment.Left,
-        "right" => Alignment.Right,
-        "bottom" => Alignment.Bottom,
-        "top" => Alignment.Top,
-        _ => Alignment.Unset,
-    };
+    private static Alignment ParseAlignment(string value) =>
+        value switch
+        {
+            "left" => Alignment.Left,
+            "right" => Alignment.Right,
+            "bottom" => Alignment.Bottom,
+            "top" => Alignment.Top,
+            _ => Alignment.Unset,
+        };
 }

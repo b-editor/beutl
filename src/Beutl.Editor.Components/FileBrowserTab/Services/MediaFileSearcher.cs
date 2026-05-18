@@ -41,47 +41,59 @@ internal sealed class MediaFileSearcher : IDisposable
             return;
         }
 
-        Task.Run(() =>
-        {
-            var results = new List<string>();
-            try
+        Task.Run(
+            () =>
             {
-                SearchRecursive(searchDirectory, results, token, maxCount: 200);
-
-                if (token.IsCancellationRequested)
-                    return;
-
-                Dispatcher.UIThread.Post(() =>
+                var results = new List<string>();
+                try
                 {
+                    SearchRecursive(searchDirectory, results, token, maxCount: 200);
+
                     if (token.IsCancellationRequested)
                         return;
 
-                    foreach (string filePath in results)
+                    Dispatcher.UIThread.Post(() =>
                     {
-                        MediaFileItems.Add(new FileSystemItemViewModel(filePath, false));
-                    }
+                        if (token.IsCancellationRequested)
+                            return;
 
-                    IsLoadingMediaFiles.Value = false;
-                    HasNoMediaFiles.Value = MediaFileItems.Count == 0;
-                });
-            }
-            catch (OperationCanceledException)
-            {
-                // cancelled, no action needed
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(ex, "Error searching media files in {Path}", searchDirectory);
-                Dispatcher.UIThread.Post(() =>
+                        foreach (string filePath in results)
+                        {
+                            MediaFileItems.Add(new FileSystemItemViewModel(filePath, false));
+                        }
+
+                        IsLoadingMediaFiles.Value = false;
+                        HasNoMediaFiles.Value = MediaFileItems.Count == 0;
+                    });
+                }
+                catch (OperationCanceledException)
                 {
-                    IsLoadingMediaFiles.Value = false;
-                    HasNoMediaFiles.Value = true;
-                });
-            }
-        }, token);
+                    // cancelled, no action needed
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(
+                        ex,
+                        "Error searching media files in {Path}",
+                        searchDirectory
+                    );
+                    Dispatcher.UIThread.Post(() =>
+                    {
+                        IsLoadingMediaFiles.Value = false;
+                        HasNoMediaFiles.Value = true;
+                    });
+                }
+            },
+            token
+        );
     }
 
-    private static void SearchRecursive(string directory, List<string> results, CancellationToken token, int maxCount)
+    private static void SearchRecursive(
+        string directory,
+        List<string> results,
+        CancellationToken token,
+        int maxCount
+    )
     {
         token.ThrowIfCancellationRequested();
 
@@ -90,7 +102,8 @@ internal sealed class MediaFileSearcher : IDisposable
             foreach (string file in Directory.GetFiles(directory))
             {
                 token.ThrowIfCancellationRequested();
-                if (results.Count >= maxCount) return;
+                if (results.Count >= maxCount)
+                    return;
 
                 if (FileThumbnailService.Instance.IsMediaFile(file))
                 {
@@ -101,7 +114,8 @@ internal sealed class MediaFileSearcher : IDisposable
             foreach (string subDir in Directory.GetDirectories(directory))
             {
                 token.ThrowIfCancellationRequested();
-                if (results.Count >= maxCount) return;
+                if (results.Count >= maxCount)
+                    return;
 
                 try
                 {

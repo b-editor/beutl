@@ -26,8 +26,8 @@ public sealed class PackageDetailsPageViewModel : BasePageViewModel, ISupportRef
         _handler = new PackageOperationHandler(app);
         _library = app.GetResource<LibraryService>();
 
-        DisplayName = package.DisplayName
-            .Select(x => !string.IsNullOrWhiteSpace(x) ? x : Package.Name)
+        DisplayName = package
+            .DisplayName.Select(x => !string.IsNullOrWhiteSpace(x) ? x : Package.Name)
             .ToReadOnlyReactivePropertySlim(Package.Name)
             .DisposeWith(_disposables);
 
@@ -54,7 +54,10 @@ public sealed class PackageDetailsPageViewModel : BasePageViewModel, ISupportRef
                             Release[] array = await package.GetReleasesAsync(totalCount, 30);
                             AllReleases.AddRange(array);
 
-                            if (LatestRelease.Value == null && array.FirstOrDefault() is { } publicRelease)
+                            if (
+                                LatestRelease.Value == null
+                                && array.FirstOrDefault() is { } publicRelease
+                            )
                             {
                                 LatestRelease.Value = publicRelease;
                                 SelectedRelease.Value = publicRelease;
@@ -66,10 +69,13 @@ public sealed class PackageDetailsPageViewModel : BasePageViewModel, ISupportRef
 
                         if (_handler.InstalledPackageRepository.ExistsPackage(package.Name))
                         {
-                            PackageIdentity mostLatested = _handler.InstalledPackageRepository.GetLocalPackages(package.Name)
+                            PackageIdentity mostLatested = _handler
+                                .InstalledPackageRepository.GetLocalPackages(package.Name)
                                 .Aggregate((x, y) => x.Version > y.Version ? x : y);
 
-                            CurrentRelease.Value = await package.GetReleaseAsync(mostLatested.Version.ToString());
+                            CurrentRelease.Value = await package.GetReleaseAsync(
+                                mostLatested.Version.ToString()
+                            );
                         }
                     }
                 }
@@ -88,18 +94,24 @@ public sealed class PackageDetailsPageViewModel : BasePageViewModel, ISupportRef
 
         Refresh.Execute();
 
-        IObservable<PackageChangesQueue.EventType> observable = _handler.Queue.GetObservable(package.Name);
-        CanCancel = observable.Select(x => x != PackageChangesQueue.EventType.None)
+        IObservable<PackageChangesQueue.EventType> observable = _handler.Queue.GetObservable(
+            package.Name
+        );
+        CanCancel = observable
+            .Select(x => x != PackageChangesQueue.EventType.None)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
 
-        CanInstallOrUpdate = SelectedRelease.Select(v =>
+        CanInstallOrUpdate = SelectedRelease
+            .Select(v =>
             {
                 string beutlVersion = BeutlApplication.Version;
 
-                if (v?.TargetVersion?.Value is { } target
+                if (
+                    v?.TargetVersion?.Value is { } target
                     && VersionRange.TryParse(target, out VersionRange? versionRange)
-                    && NuGetVersion.TryParse(beutlVersion, out NuGetVersion? version))
+                    && NuGetVersion.TryParse(beutlVersion, out NuGetVersion? version)
+                )
                 {
                     return versionRange.Satisfies(version);
                 }
@@ -111,13 +123,17 @@ public sealed class PackageDetailsPageViewModel : BasePageViewModel, ISupportRef
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
 
-        IObservable<bool> installed = _handler.InstalledPackageRepository.GetObservable(package.Name);
-        IsInstallButtonVisible = installed.Not()
+        IObservable<bool> installed = _handler.InstalledPackageRepository.GetObservable(
+            package.Name
+        );
+        IsInstallButtonVisible = installed
+            .Not()
             .AreTrue(CanCancel.Not(), CanInstallOrUpdate)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
 
-        IsUpdateButtonVisible = CurrentRelease.CombineLatest(SelectedRelease)
+        IsUpdateButtonVisible = CurrentRelease
+            .CombineLatest(SelectedRelease)
             .Select(x => x.First != null && x.First.Version.Value != x.Second?.Version.Value)
             .AreTrue(CanCancel.Not(), CanInstallOrUpdate)
             .ToReadOnlyReactivePropertySlim()
@@ -128,13 +144,15 @@ public sealed class PackageDetailsPageViewModel : BasePageViewModel, ISupportRef
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
 
-        Downgrade = SelectedRelease.CombineLatest(CurrentRelease)
+        Downgrade = SelectedRelease
+            .CombineLatest(CurrentRelease)
             .Select(x =>
             {
                 if (x.First is { } selected && x.Second is { } current)
                 {
-                    return NuGetVersion.Parse(selected.Version.Value)
-                        .CompareTo(NuGetVersion.Parse(current.Version.Value)) < 0;
+                    return NuGetVersion
+                            .Parse(selected.Version.Value)
+                            .CompareTo(NuGetVersion.Parse(current.Version.Value)) < 0;
                 }
                 else
                 {
@@ -144,12 +162,14 @@ public sealed class PackageDetailsPageViewModel : BasePageViewModel, ISupportRef
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
 
-        SelectingLatestVersion = SelectedRelease.CombineLatest(LatestRelease)
+        SelectingLatestVersion = SelectedRelease
+            .CombineLatest(LatestRelease)
             .Select(x => x.First?.Version?.Value == x.Second?.Version?.Value)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
 
-        InstallButtonText = Package.FormattedPrice.CombineLatest(Package.Owned)
+        InstallButtonText = Package
+            .FormattedPrice.CombineLatest(Package.Owned)
             .Select(t => (t.Second ? null : t.First) ?? ExtensionsStrings.Install)
             .ToReadOnlyReactivePropertySlim(ExtensionsStrings.Install)
             .DisposeWith(_disposables);
@@ -162,7 +182,11 @@ public sealed class PackageDetailsPageViewModel : BasePageViewModel, ISupportRef
                 try
                 {
                     // 価格が設定されていて所有していない場合はストアページを開く
-                    if (Package.Price.Value != null && Package.Price.Value > 0 && !Package.Owned.Value)
+                    if (
+                        Package.Price.Value != null
+                        && Package.Price.Value > 0
+                        && !Package.Owned.Value
+                    )
                     {
                         string url = $"https://beutl.beditor.net/store/{Package.Name}";
                         Process.Start(new ProcessStartInfo(url) { UseShellExecute = true });
@@ -174,24 +198,36 @@ public sealed class PackageDetailsPageViewModel : BasePageViewModel, ISupportRef
                     {
                         activity?.AddEvent(new("Entered_AsyncLock"));
                         Release release = await AcquireRelease();
-                        var packageId = new PackageIdentity(Package.Name, new NuGetVersion(release.Version.Value));
+                        var packageId = new PackageIdentity(
+                            Package.Name,
+                            new NuGetVersion(release.Version.Value)
+                        );
 
                         try
                         {
                             await _handler.DownloadAndLoadPackage(release, packageId);
                             NotificationService.ShowInformation(
                                 title: ExtensionsStrings.PackageInstaller,
-                                message: string.Format(ExtensionsStrings.PackageInstaller_Installed,
-                                    packageId.Id));
+                                message: string.Format(
+                                    ExtensionsStrings.PackageInstaller_Installed,
+                                    packageId.Id
+                                )
+                            );
                         }
                         catch (Exception ex)
                         {
-                            _logger.LogWarning(ex, "Immediate install failed, falling back to queue.");
+                            _logger.LogWarning(
+                                ex,
+                                "Immediate install failed, falling back to queue."
+                            );
                             _handler.Queue.InstallQueue(packageId);
                             NotificationService.ShowInformation(
                                 title: ExtensionsStrings.PackageInstaller,
-                                message: string.Format(ExtensionsStrings.PackageInstaller_ScheduledInstallation,
-                                    packageId.Id));
+                                message: string.Format(
+                                    ExtensionsStrings.PackageInstaller_ScheduledInstallation,
+                                    packageId.Id
+                                )
+                            );
                         }
                     }
                 }
@@ -223,7 +259,10 @@ public sealed class PackageDetailsPageViewModel : BasePageViewModel, ISupportRef
                     {
                         activity?.AddEvent(new("Entered_AsyncLock"));
                         Release release = await AcquireRelease();
-                        var packageId = new PackageIdentity(Package.Name, new NuGetVersion(release.Version.Value));
+                        var packageId = new PackageIdentity(
+                            Package.Name,
+                            new NuGetVersion(release.Version.Value)
+                        );
 
                         try
                         {
@@ -234,15 +273,26 @@ public sealed class PackageDetailsPageViewModel : BasePageViewModel, ISupportRef
                             await _handler.DownloadAndLoadPackage(release, packageId);
                             NotificationService.ShowInformation(
                                 title: ExtensionsStrings.PackageInstaller,
-                                message: string.Format(ExtensionsStrings.PackageInstaller_Updated, packageId.Id));
+                                message: string.Format(
+                                    ExtensionsStrings.PackageInstaller_Updated,
+                                    packageId.Id
+                                )
+                            );
                         }
                         catch (Exception ex)
                         {
-                            _logger.LogWarning(ex, "Immediate update failed, falling back to queue.");
+                            _logger.LogWarning(
+                                ex,
+                                "Immediate update failed, falling back to queue."
+                            );
                             _handler.Queue.InstallQueue(packageId);
                             NotificationService.ShowInformation(
                                 title: ExtensionsStrings.PackageInstaller,
-                                message: string.Format(ExtensionsStrings.PackageInstaller_ScheduledUpdate, packageId.Id));
+                                message: string.Format(
+                                    ExtensionsStrings.PackageInstaller_ScheduledUpdate,
+                                    packageId.Id
+                                )
+                            );
                         }
                     }
                 }
@@ -271,20 +321,30 @@ public sealed class PackageDetailsPageViewModel : BasePageViewModel, ISupportRef
 
                     if (!await _handler.UnloadPackages(Package.Name))
                     {
-                        throw new Exception("Failed to unload the package. It may still be in use. Uninstallation has been scheduled.");
+                        throw new Exception(
+                            "Failed to unload the package. It may still be in use. Uninstallation has been scheduled."
+                        );
                     }
 
                     if (_handler.UninstallWithFallback(Package.Name))
                     {
                         NotificationService.ShowInformation(
                             title: ExtensionsStrings.PackageInstaller,
-                            message: string.Format(ExtensionsStrings.PackageInstaller_Uninstalled, Package.Name));
+                            message: string.Format(
+                                ExtensionsStrings.PackageInstaller_Uninstalled,
+                                Package.Name
+                            )
+                        );
                     }
                     else
                     {
                         NotificationService.ShowInformation(
                             title: ExtensionsStrings.PackageInstaller,
-                            message: string.Format(ExtensionsStrings.PackageInstaller_ScheduledUninstallation, Package.Name));
+                            message: string.Format(
+                                ExtensionsStrings.PackageInstaller_ScheduledUninstallation,
+                                Package.Name
+                            )
+                        );
                     }
                 }
                 catch (Exception e)
@@ -293,7 +353,11 @@ public sealed class PackageDetailsPageViewModel : BasePageViewModel, ISupportRef
                     _handler.QueueUninstallAll(Package.Name);
                     NotificationService.ShowInformation(
                         title: ExtensionsStrings.PackageInstaller,
-                        message: string.Format(ExtensionsStrings.PackageInstaller_ScheduledUninstallation, Package.Name));
+                        message: string.Format(
+                            ExtensionsStrings.PackageInstaller_ScheduledUninstallation,
+                            Package.Name
+                        )
+                    );
                 }
                 finally
                 {

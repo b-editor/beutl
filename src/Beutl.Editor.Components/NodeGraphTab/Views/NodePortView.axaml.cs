@@ -28,7 +28,10 @@ public partial class NodePortView : UserControl
     public NodePortView()
     {
         InitializeComponent();
-        this.SubscribeDataContextChange<NodeMemberViewModel>(OnDataContextAttached, OnDataContextDetached);
+        this.SubscribeDataContextChange<NodeMemberViewModel>(
+            OnDataContextAttached,
+            OnDataContextDetached
+        );
     }
 
     protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
@@ -50,17 +53,21 @@ public partial class NodePortView : UserControl
 
     internal void UpdateNodePortPosition()
     {
-        if (_nodeView is { DataContext: GraphNodeViewModel nodeViewModel }
+        if (
+            _nodeView is { DataContext: GraphNodeViewModel nodeViewModel }
             && DataContext is NodePortViewModel viewModel
-            && nodeViewModel.IsExpanded.Value)
+            && nodeViewModel.IsExpanded.Value
+        )
         {
             if (_listNodePortPanel != null)
             {
                 // ListNodePort: update each connected NodePortPoint's position individually
                 for (int i = 0; i < _listNodePortPanel.Children.Count - 1; i++) // skip placeholder
                 {
-                    if (_listNodePortPanel.Children[i] is NodePortPoint sp
-                        && sp.Tag is ConnectionViewModel connVM)
+                    if (
+                        _listNodePortPanel.Children[i] is NodePortPoint sp
+                        && sp.Tag is ConnectionViewModel connVM
+                    )
                     {
                         Point? pos = sp.TranslatePoint(new(5, 5), _nodeView);
                         if (pos.HasValue)
@@ -118,7 +125,7 @@ public partial class NodePortView : UserControl
         {
             Brush = obj.Color,
             [!NodePortPoint.IsConnectedProperty] = obj.IsConnected.ToBinding(),
-            VerticalAlignment = VerticalAlignment.Top
+            VerticalAlignment = VerticalAlignment.Top,
         };
         portPt.ConnectRequested += OnNodePortPointConnectRequested;
         portPt.DisconnectRequested += OnNodePortPointDisconnectRequested;
@@ -140,11 +147,7 @@ public partial class NodePortView : UserControl
 
     private void InitListNodePortPoints(NodePortViewModel obj)
     {
-        _listNodePortPanel = new StackPanel
-        {
-            Orientation = Orientation.Vertical,
-            Spacing = 2
-        };
+        _listNodePortPanel = new StackPanel { Orientation = Orientation.Vertical, Spacing = 2 };
 
         if (obj is InputPortViewModel)
         {
@@ -158,11 +161,7 @@ public partial class NodePortView : UserControl
         }
 
         // Placeholder NodePortPoint for new connections
-        var placeholder = new NodePortPoint
-        {
-            Brush = obj.Color,
-            IsConnected = false,
-        };
+        var placeholder = new NodePortPoint { Brush = obj.Color, IsConnected = false };
         placeholder.ConnectRequested += OnNodePortPointConnectRequested;
         placeholder.DisconnectRequested += OnNodePortPointDisconnectRequested;
         AddContextMenu(obj, placeholder);
@@ -170,34 +169,35 @@ public partial class NodePortView : UserControl
 
         // Subscribe to Connections changes (handles Add, Remove, Move)
         obj.Connections.ForEachItem(
-            (index, connVM) =>
-            {
-                var portPt = new NodePortPoint
+                (index, connVM) =>
                 {
-                    Brush = obj.Color,
-                    IsConnected = true,
-                    Tag = connVM,
-                };
-                Interaction.GetBehaviors(portPt).Add(new ListPortDragBehavior());
-                _listNodePortPanel.Children.Insert(index, portPt);
-                Dispatcher.UIThread.Post(UpdateNodePortPosition, DispatcherPriority.Background);
-            },
-            (index, connVM) =>
-            {
-                if (index < _listNodePortPanel.Children.Count - 1)
+                    var portPt = new NodePortPoint
+                    {
+                        Brush = obj.Color,
+                        IsConnected = true,
+                        Tag = connVM,
+                    };
+                    Interaction.GetBehaviors(portPt).Add(new ListPortDragBehavior());
+                    _listNodePortPanel.Children.Insert(index, portPt);
+                    Dispatcher.UIThread.Post(UpdateNodePortPosition, DispatcherPriority.Background);
+                },
+                (index, connVM) =>
                 {
-                    _listNodePortPanel.Children.RemoveAt(index);
+                    if (index < _listNodePortPanel.Children.Count - 1)
+                    {
+                        _listNodePortPanel.Children.RemoveAt(index);
+                    }
+                    Dispatcher.UIThread.Post(UpdateNodePortPosition, DispatcherPriority.Background);
+                },
+                () =>
+                {
+                    while (_listNodePortPanel.Children.Count > 1)
+                    {
+                        _listNodePortPanel.Children.RemoveAt(0);
+                    }
                 }
-                Dispatcher.UIThread.Post(UpdateNodePortPosition, DispatcherPriority.Background);
-            },
-            () =>
-            {
-                while (_listNodePortPanel.Children.Count > 1)
-                {
-                    _listNodePortPanel.Children.RemoveAt(0);
-                }
-            })
-        .DisposeWith(_disposables);
+            )
+            .DisposeWith(_disposables);
 
         grid.Children.Add(_listNodePortPanel);
     }
@@ -209,45 +209,38 @@ public partial class NodePortView : UserControl
             new MenuItem()
             {
                 Header = Strings.Disconnect,
-                Command = new ReactiveCommand()
-                    .WithSubscribe(obj.DisconnectAll)
-            }
+                Command = new ReactiveCommand().WithSubscribe(obj.DisconnectAll),
+            },
         };
 
         if (obj.Model is IDynamicPort)
         {
-            list.Add(new MenuItem()
-            {
-                Header = Strings.Remove,
-                Command = new ReactiveCommand()
-                    .WithSubscribe(obj.Remove)
-            });
-
-            list.Add(new MenuItem()
-            {
-                Header = Strings.Rename,
-                Command = new ReactiveCommand().WithSubscribe(RenameClick),
-                Icon = new SymbolIcon
+            list.Add(
+                new MenuItem()
                 {
-                    Symbol = Symbol.Rename
+                    Header = Strings.Remove,
+                    Command = new ReactiveCommand().WithSubscribe(obj.Remove),
                 }
-            });
+            );
+
+            list.Add(
+                new MenuItem()
+                {
+                    Header = Strings.Rename,
+                    Command = new ReactiveCommand().WithSubscribe(RenameClick),
+                    Icon = new SymbolIcon { Symbol = Symbol.Rename },
+                }
+            );
         }
 
-        portPt.ContextMenu = new ContextMenu
-        {
-            ItemsSource = list
-        };
+        portPt.ContextMenu = new ContextMenu { ItemsSource = list };
     }
 
     private void RenameClick()
     {
         if (DataContext is NodePortViewModel viewModel)
         {
-            var flyout = new RenameFlyout()
-            {
-                Text = viewModel.Model?.Name
-            };
+            var flyout = new RenameFlyout() { Text = viewModel.Model?.Name };
 
             flyout.Confirmed += OnNameConfirmed;
 
@@ -257,8 +250,7 @@ public partial class NodePortView : UserControl
 
     private void OnNameConfirmed(object? sender, string? e)
     {
-        if (sender is RenameFlyout flyout
-            && DataContext is NodePortViewModel viewModel)
+        if (sender is RenameFlyout flyout && DataContext is NodePortViewModel viewModel)
         {
             flyout.Confirmed -= OnNameConfirmed;
             viewModel.UpdateName(e);
@@ -274,7 +266,8 @@ public partial class NodePortView : UserControl
             if (control1 is PropertyEditor pe)
             {
                 pe.EditorStyle = PropertyEditorStyle.Compact;
-                pe.Bind(PropertyEditor.HeaderProperty, obj.Name.ToBinding()).DisposeWith(_disposables);
+                pe.Bind(PropertyEditor.HeaderProperty, obj.Name.ToBinding())
+                    .DisposeWith(_disposables);
             }
             if (control1 != null)
             {
@@ -289,9 +282,10 @@ public partial class NodePortView : UserControl
         {
             _label = new TextBlock
             {
-                HorizontalAlignment = obj is OutputPortViewModel
-                    ? HorizontalAlignment.Right
-                    : HorizontalAlignment.Left
+                HorizontalAlignment =
+                    obj is OutputPortViewModel
+                        ? HorizontalAlignment.Right
+                        : HorizontalAlignment.Left,
             };
             _label.Bind(TextBlock.TextProperty, obj.Name.ToBinding()).DisposeWith(_disposables);
 
@@ -313,8 +307,8 @@ public partial class NodePortView : UserControl
         {
             InitNodePortPoint(portObj);
 
-            portObj.IsConnected
-                .ObserveOnUIDispatcher()
+            portObj
+                .IsConnected.ObserveOnUIDispatcher()
                 .Subscribe(OnIsConnectedChanged)
                 .DisposeWith(_disposables);
         }
@@ -329,42 +323,46 @@ public partial class NodePortView : UserControl
         switch (monitorObj.Model?.ContentKind)
         {
             case NodeMonitorContentKind.Text:
+            {
+                var textBlock = new SelectableTextBlock
                 {
-                    var textBlock = new SelectableTextBlock
-                    {
-                        FontFamily = new Avalonia.Media.FontFamily("Cascadia Mono, Consolas, monospace"),
-                        TextWrapping = Avalonia.Media.TextWrapping.Wrap
-                    };
-                    textBlock.Bind(TextBlock.TextProperty, monitorObj.DisplayText.ToBinding())
-                        .DisposeWith(_disposables);
-                    Grid.SetColumn(textBlock, 1);
-                    grid.Children.Add(textBlock);
-                    break;
-                }
+                    FontFamily = new Avalonia.Media.FontFamily(
+                        "Cascadia Mono, Consolas, monospace"
+                    ),
+                    TextWrapping = Avalonia.Media.TextWrapping.Wrap,
+                };
+                textBlock
+                    .Bind(TextBlock.TextProperty, monitorObj.DisplayText.ToBinding())
+                    .DisposeWith(_disposables);
+                Grid.SetColumn(textBlock, 1);
+                grid.Children.Add(textBlock);
+                break;
+            }
             case NodeMonitorContentKind.Image:
+            {
+                var bitmapView = new BitmapView
                 {
-                    var bitmapView = new BitmapView
-                    {
-                        MaxHeight = 200,
-                        MaxWidth = 200,
-                        Stretch = Avalonia.Media.Stretch.Uniform,
-                        Source = monitorObj.DisplayBitmap
-                    };
+                    MaxHeight = 200,
+                    MaxWidth = 200,
+                    Stretch = Avalonia.Media.Stretch.Uniform,
+                    Source = monitorObj.DisplayBitmap,
+                };
 
-                    void OnImageInvalidated(object? sender, EventArgs e)
-                    {
-                        bitmapView.Source = monitorObj.DisplayBitmap;
-                        bitmapView.InvalidateVisual();
-                    }
-
-                    monitorObj.ImageInvalidated += OnImageInvalidated;
-                    Disposable.Create(() => monitorObj.ImageInvalidated -= OnImageInvalidated)
-                        .DisposeWith(_disposables);
-
-                    Grid.SetColumn(bitmapView, 1);
-                    grid.Children.Add(bitmapView);
-                    break;
+                void OnImageInvalidated(object? sender, EventArgs e)
+                {
+                    bitmapView.Source = monitorObj.DisplayBitmap;
+                    bitmapView.InvalidateVisual();
                 }
+
+                monitorObj.ImageInvalidated += OnImageInvalidated;
+                Disposable
+                    .Create(() => monitorObj.ImageInvalidated -= OnImageInvalidated)
+                    .DisposeWith(_disposables);
+
+                Grid.SetColumn(bitmapView, 1);
+                grid.Children.Add(bitmapView);
+                break;
+            }
         }
     }
 
@@ -387,7 +385,10 @@ public partial class NodePortView : UserControl
         }
     }
 
-    private void OnNodePortPointDisconnectRequested(object? sender, NodePortConnectRequestedEventArgs e)
+    private void OnNodePortPointDisconnectRequested(
+        object? sender,
+        NodePortConnectRequestedEventArgs e
+    )
     {
         if (DataContext is NodePortViewModel viewModel)
         {
@@ -395,7 +396,10 @@ public partial class NodePortView : UserControl
         }
     }
 
-    private void OnNodePortPointConnectRequested(object? sender, NodePortConnectRequestedEventArgs e)
+    private void OnNodePortPointConnectRequested(
+        object? sender,
+        NodePortConnectRequestedEventArgs e
+    )
     {
         if (DataContext is NodePortViewModel viewModel)
         {

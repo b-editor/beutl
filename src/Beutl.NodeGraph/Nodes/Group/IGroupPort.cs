@@ -1,5 +1,3 @@
 ﻿namespace Beutl.NodeGraph.Nodes.Group;
 
-public interface IGroupPort : INodePort
-{
-}
+public interface IGroupPort : INodePort { }

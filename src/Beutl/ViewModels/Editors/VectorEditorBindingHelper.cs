@@ -6,7 +6,10 @@ namespace Beutl.ViewModels.Editors;
 
 internal static class VectorEditorBindingHelper
 {
-    public static void ApplyNumberAttributes<TElement>(Vector2Editor<TElement> editor, IPropertyAdapter adapter)
+    public static void ApplyNumberAttributes<TElement>(
+        Vector2Editor<TElement> editor,
+        IPropertyAdapter adapter
+    )
         where TElement : INumber<TElement>
     {
         var attrs = adapter.GetAttributes();
@@ -24,7 +27,10 @@ internal static class VectorEditorBindingHelper
         }
     }
 
-    public static void ApplyNumberAttributes<TElement>(Vector3Editor<TElement> editor, IPropertyAdapter adapter)
+    public static void ApplyNumberAttributes<TElement>(
+        Vector3Editor<TElement> editor,
+        IPropertyAdapter adapter
+    )
         where TElement : INumber<TElement>
     {
         var attrs = adapter.GetAttributes();
@@ -42,7 +48,10 @@ internal static class VectorEditorBindingHelper
         }
     }
 
-    public static void ApplyNumberAttributes<TElement>(Vector4Editor<TElement> editor, IPropertyAdapter adapter)
+    public static void ApplyNumberAttributes<TElement>(
+        Vector4Editor<TElement> editor,
+        IPropertyAdapter adapter
+    )
         where TElement : INumber<TElement>
     {
         var attrs = adapter.GetAttributes();

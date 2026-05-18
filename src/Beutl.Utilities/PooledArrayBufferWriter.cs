@@ -24,7 +24,11 @@ public sealed class PooledArrayBufferWriter<T> : IBufferWriter<T>, IDisposable
     public PooledArrayBufferWriter(int initialCapacity, ArrayPool<T>? pool = null)
     {
         IsDisposed = true;
-        ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(initialCapacity, 0, nameof(initialCapacity));
+        ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(
+            initialCapacity,
+            0,
+            nameof(initialCapacity)
+        );
 
         _pool = pool ?? ArrayPool<T>.Shared;
         _buffer = _pool.Rent(initialCapacity);
@@ -162,7 +166,9 @@ public sealed class PooledArrayBufferWriter<T> : IBufferWriter<T>, IDisposable
 
     private static void ThrowInvalidOperationException_AdvancedTooFar(int capacity)
     {
-        throw new InvalidOperationException($"Cannot advance past the end of the buffer, which has a size of {capacity}.");
+        throw new InvalidOperationException(
+            $"Cannot advance past the end of the buffer, which has a size of {capacity}."
+        );
     }
 
     private static void ThrowOutOfMemoryException(uint capacity)

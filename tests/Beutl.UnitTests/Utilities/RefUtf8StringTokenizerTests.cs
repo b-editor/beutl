@@ -26,12 +26,18 @@ public class RefUtf8StringTokenizerTests
     [TestCase("   ")]
     public void ReadInt32_ShouldThrowFormatExceptionForInvalidInteger(string input)
     {
-        Assert.That(() =>
-        {
-            Span<byte> inputBytes = Encoding.UTF8.GetBytes(input);
-            var tokenizer = new RefUtf8StringTokenizer(inputBytes, CultureInfo.InvariantCulture);
-            tokenizer.ReadInt32();
-        }, Throws.TypeOf<FormatException>());
+        Assert.That(
+            () =>
+            {
+                Span<byte> inputBytes = Encoding.UTF8.GetBytes(input);
+                var tokenizer = new RefUtf8StringTokenizer(
+                    inputBytes,
+                    CultureInfo.InvariantCulture
+                );
+                tokenizer.ReadInt32();
+            },
+            Throws.TypeOf<FormatException>()
+        );
     }
 
     [Test]
@@ -53,12 +59,18 @@ public class RefUtf8StringTokenizerTests
     [TestCase("   ")]
     public void ReadDouble_ShouldThrowFormatExceptionForInvalidDouble(string input)
     {
-        Assert.That(() =>
-        {
-            Span<byte> inputBytes = Encoding.UTF8.GetBytes(input);
-            var tokenizer = new RefUtf8StringTokenizer(inputBytes, CultureInfo.InvariantCulture);
-            tokenizer.ReadDouble();
-        }, Throws.TypeOf<FormatException>());
+        Assert.That(
+            () =>
+            {
+                Span<byte> inputBytes = Encoding.UTF8.GetBytes(input);
+                var tokenizer = new RefUtf8StringTokenizer(
+                    inputBytes,
+                    CultureInfo.InvariantCulture
+                );
+                tokenizer.ReadDouble();
+            },
+            Throws.TypeOf<FormatException>()
+        );
     }
 
     [Test]
@@ -80,12 +92,18 @@ public class RefUtf8StringTokenizerTests
     [TestCase("   ")]
     public void ReadSingle_ShouldThrowFormatExceptionForInvalidFloat(string input)
     {
-        Assert.That(() =>
-        {
-            Span<byte> inputBytes = Encoding.UTF8.GetBytes(input);
-            var tokenizer = new RefUtf8StringTokenizer(inputBytes, CultureInfo.InvariantCulture);
-            tokenizer.ReadSingle();
-        }, Throws.TypeOf<FormatException>());
+        Assert.That(
+            () =>
+            {
+                Span<byte> inputBytes = Encoding.UTF8.GetBytes(input);
+                var tokenizer = new RefUtf8StringTokenizer(
+                    inputBytes,
+                    CultureInfo.InvariantCulture
+                );
+                tokenizer.ReadSingle();
+            },
+            Throws.TypeOf<FormatException>()
+        );
     }
 
     [Test]
@@ -104,35 +122,50 @@ public class RefUtf8StringTokenizerTests
     [TestCase("   ")]
     public void ReadString_ShouldThrowFormatExceptionForInvalidString(string input)
     {
-        Assert.That(() =>
-        {
-            Span<byte> inputBytes = Encoding.UTF8.GetBytes(input);
-            var tokenizer = new RefUtf8StringTokenizer(inputBytes, CultureInfo.InvariantCulture);
-            tokenizer.ReadString();
-        }, Throws.TypeOf<FormatException>());
+        Assert.That(
+            () =>
+            {
+                Span<byte> inputBytes = Encoding.UTF8.GetBytes(input);
+                var tokenizer = new RefUtf8StringTokenizer(
+                    inputBytes,
+                    CultureInfo.InvariantCulture
+                );
+                tokenizer.ReadString();
+            },
+            Throws.TypeOf<FormatException>()
+        );
     }
 
     [Test]
     public void Dispose_ShouldThrowFormatExceptionIfNotAllTokensRead()
     {
-        Assert.That(() =>
-        {
-            // ref structなのでラムダ式内で初期化
-            var tokenizer = new RefUtf8StringTokenizer("123,456"u8, CultureInfo.InvariantCulture);
-            tokenizer.Dispose();
-        }, Throws.TypeOf<FormatException>());
+        Assert.That(
+            () =>
+            {
+                // ref structなのでラムダ式内で初期化
+                var tokenizer = new RefUtf8StringTokenizer(
+                    "123,456"u8,
+                    CultureInfo.InvariantCulture
+                );
+                tokenizer.Dispose();
+            },
+            Throws.TypeOf<FormatException>()
+        );
     }
 
     [Test]
     public void Dispose_ShouldNotThrowIfAllTokensRead()
     {
-        Assert.That(() =>
-        {
-            // ref structなのでラムダ式内で初期化
-            var tokenizer = new RefUtf8StringTokenizer("123"u8, CultureInfo.InvariantCulture);
-            tokenizer.TryReadInt32(out _);
+        Assert.That(
+            () =>
+            {
+                // ref structなのでラムダ式内で初期化
+                var tokenizer = new RefUtf8StringTokenizer("123"u8, CultureInfo.InvariantCulture);
+                tokenizer.TryReadInt32(out _);
 
-            tokenizer.Dispose();
-        }, Throws.Nothing);
+                tokenizer.Dispose();
+            },
+            Throws.Nothing
+        );
     }
 }

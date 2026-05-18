@@ -13,20 +13,30 @@ public sealed class SceneFile
         Width = json[nameof(Width)]?.AsValue()?.GetValue<int>() ?? 0;
         Height = json[nameof(Height)]?.AsValue()?.GetValue<int>() ?? 0;
 
-        if (json[nameof(Duration)]?.AsValue()?.GetValue<string>() is { } durationStr
-            && TimeSpan.TryParse(durationStr, out var duration))
+        if (
+            json[nameof(Duration)]?.AsValue()?.GetValue<string>() is { } durationStr
+            && TimeSpan.TryParse(durationStr, out var duration)
+        )
         {
             Duration = duration;
         }
 
-        if (json[nameof(CurrentFrame)]?.AsValue()?.GetValue<string>() is { } currentStr
-            && TimeSpan.TryParse(currentStr, out var current))
+        if (
+            json[nameof(CurrentFrame)]?.AsValue()?.GetValue<string>() is { } currentStr
+            && TimeSpan.TryParse(currentStr, out var current)
+        )
         {
             CurrentFrame = current;
         }
     }
 
-    public SceneFile(int width, int height, TimeSpan duration, TimeSpan currentFrame, string fileName)
+    public SceneFile(
+        int width,
+        int height,
+        TimeSpan duration,
+        TimeSpan currentFrame,
+        string fileName
+    )
     {
         Width = width;
         Height = height;

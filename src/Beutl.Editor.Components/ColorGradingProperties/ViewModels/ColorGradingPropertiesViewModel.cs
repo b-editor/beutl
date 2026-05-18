@@ -25,7 +25,8 @@ public class ColorGradingPropertiesViewModel : IPropertyEditorContext, IServiceP
 
     public ColorGrading? TryGetColorGrading()
     {
-        if (_props.Count == 0) return null;
+        if (_props.Count == 0)
+            return null;
         return _props[0].GetEngineProperty()?.GetOwnerObject() as ColorGrading;
     }
 
@@ -36,11 +37,13 @@ public class ColorGradingPropertiesViewModel : IPropertyEditorContext, IServiceP
 
     private void CreateEditors()
     {
-        if (_editorsCreated) return;
+        if (_editorsCreated)
+            return;
         _editorsCreated = true;
 
         var factory = _parentServices?.GetService<IPropertyEditorFactory>();
-        if (factory == null) return;
+        if (factory == null)
+            return;
 
         Properties.EnsureCapacity(_props.Count);
         foreach (IPropertyAdapter prop in _props)
@@ -79,16 +82,22 @@ public class ColorGradingPropertiesViewModel : IPropertyEditorContext, IServiceP
 
     public void ReadFromJson(JsonObject json)
     {
-        if (json.TryGetPropertyValue(nameof(IsExpanded), out JsonNode? isExpandedNode)
-            && isExpandedNode is JsonValue isExpanded)
+        if (
+            json.TryGetPropertyValue(nameof(IsExpanded), out JsonNode? isExpandedNode)
+            && isExpandedNode is JsonValue isExpanded
+        )
         {
             IsExpanded.Value = (bool)isExpanded;
         }
 
-        if (json.TryGetPropertyValue(nameof(Properties), out JsonNode? propsNode)
-            && propsNode is JsonArray propsArray)
+        if (
+            json.TryGetPropertyValue(nameof(Properties), out JsonNode? propsNode)
+            && propsNode is JsonArray propsArray
+        )
         {
-            foreach ((JsonNode? node, IPropertyEditorContext? context) in propsArray.Zip(Properties))
+            foreach (
+                (JsonNode? node, IPropertyEditorContext? context) in propsArray.Zip(Properties)
+            )
             {
                 if (node != null)
                 {
@@ -114,9 +123,7 @@ public class ColorGradingPropertiesViewModel : IPropertyEditorContext, IServiceP
 
             json[nameof(Properties)] = array;
         }
-        catch
-        {
-        }
+        catch { }
     }
 
     public void Dispose()
@@ -128,15 +135,15 @@ public class ColorGradingPropertiesViewModel : IPropertyEditorContext, IServiceP
         }
     }
 
-    private sealed record Visitor(ColorGradingPropertiesViewModel Obj) : IServiceProvider, IPropertyEditorContextVisitor
+    private sealed record Visitor(ColorGradingPropertiesViewModel Obj)
+        : IServiceProvider,
+            IPropertyEditorContextVisitor
     {
         public object? GetService(Type serviceType)
         {
             return Obj._parentServices?.GetService(serviceType);
         }
 
-        public void Visit(IPropertyEditorContext context)
-        {
-        }
+        public void Visit(IPropertyEditorContext context) { }
     }
 }

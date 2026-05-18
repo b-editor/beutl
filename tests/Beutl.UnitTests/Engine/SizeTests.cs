@@ -97,7 +97,6 @@ public class SizeTests
         Assert.That(size, Is.EqualTo(new Size(1950, 1100)));
     }
 
-
     [Test]
     public void AspectRatio_ReturnsCorrectRatio()
     {

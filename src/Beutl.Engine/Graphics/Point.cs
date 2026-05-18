@@ -4,7 +4,6 @@ using System.Globalization;
 using System.Numerics;
 using System.Text.Json.Serialization;
 using System.Text.Unicode;
-
 using Beutl.Converters;
 using Beutl.Utilities;
 
@@ -22,22 +21,22 @@ namespace Beutl.Graphics;
 [TypeConverter(typeof(PointConverter))]
 public readonly struct Point(float x, float y)
     : IEquatable<Point>,
-      IParsable<Point>,
-      IFormattable,
-      ISpanParsable<Point>,
-      ISpanFormattable,
-      IUtf8SpanParsable<Point>,
-      IUtf8SpanFormattable,
-      IEqualityOperators<Point, Point, bool>,
-      IUnaryNegationOperators<Point, Point>,
-      IAdditionOperators<Point, Point, Point>,
-      IAdditionOperators<Point, Vector, Point>,
-      ISubtractionOperators<Point, Point, Point>,
-      ISubtractionOperators<Point, Vector, Point>,
-      IMultiplyOperators<Point, float, Point>,
-      IDivisionOperators<Point, float, Point>,
-      IMultiplyOperators<Point, Matrix, Point>,
-      ITupleConvertible<Point, float>
+        IParsable<Point>,
+        IFormattable,
+        ISpanParsable<Point>,
+        ISpanFormattable,
+        IUtf8SpanParsable<Point>,
+        IUtf8SpanFormattable,
+        IEqualityOperators<Point, Point, bool>,
+        IUnaryNegationOperators<Point, Point>,
+        IAdditionOperators<Point, Point, Point>,
+        IAdditionOperators<Point, Vector, Point>,
+        ISubtractionOperators<Point, Point, Point>,
+        ISubtractionOperators<Point, Vector, Point>,
+        IMultiplyOperators<Point, float, Point>,
+        IDivisionOperators<Point, float, Point>,
+        IMultiplyOperators<Point, Matrix, Point>,
+        ITupleConvertible<Point, float>
 {
     public static readonly Point Invalid = new(float.NaN, float.NaN);
 
@@ -238,8 +237,7 @@ public readonly struct Point(float x, float y)
     /// <returns>True if this point is equal to other; False otherwise.</returns>
     public bool Equals(Point other)
     {
-        return X == other.X &&
-               Y == other.Y;
+        return X == other.X && Y == other.Y;
     }
 
     /// <summary>
@@ -318,18 +316,23 @@ public readonly struct Point(float x, float y)
         return Parse(s.AsSpan(), provider);
     }
 
-    public static bool TryParse([NotNullWhen(true)] string? s, IFormatProvider? provider, out Point result)
+    public static bool TryParse(
+        [NotNullWhen(true)] string? s,
+        IFormatProvider? provider,
+        out Point result
+    )
     {
         return TryParse(s.AsSpan(), provider, out result);
     }
 
     public static Point Parse(ReadOnlySpan<char> s, IFormatProvider? provider)
     {
-        using var tokenizer = new RefStringTokenizer(s, provider ?? CultureInfo.InvariantCulture, exceptionMessage: "Invalid Point.");
-        return new Point(
-            tokenizer.ReadSingle(),
-            tokenizer.ReadSingle()
+        using var tokenizer = new RefStringTokenizer(
+            s,
+            provider ?? CultureInfo.InvariantCulture,
+            exceptionMessage: "Invalid Point."
         );
+        return new Point(tokenizer.ReadSingle(), tokenizer.ReadSingle());
     }
 
     public static bool TryParse(ReadOnlySpan<char> s, IFormatProvider? provider, out Point result)
@@ -375,10 +378,20 @@ public readonly struct Point(float x, float y)
         return ToString(formatProvider);
     }
 
-    public bool TryFormat(Span<char> destination, out int charsWritten, ReadOnlySpan<char> format = default, IFormatProvider? provider = null)
+    public bool TryFormat(
+        Span<char> destination,
+        out int charsWritten,
+        ReadOnlySpan<char> format = default,
+        IFormatProvider? provider = null
+    )
     {
         char separator = TokenizerHelper.GetSeparatorFromFormatProvider(provider);
-        return MemoryExtensions.TryWrite(destination, provider, $"{X}{separator} {Y}", out charsWritten);
+        return MemoryExtensions.TryWrite(
+            destination,
+            provider,
+            $"{X}{separator} {Y}",
+            out charsWritten
+        );
     }
 
     public static Point Parse(ReadOnlySpan<byte> utf8Text)
@@ -388,11 +401,12 @@ public readonly struct Point(float x, float y)
 
     public static Point Parse(ReadOnlySpan<byte> utf8Text, IFormatProvider? provider)
     {
-        using var tokenizer = new RefUtf8StringTokenizer(utf8Text, provider ?? CultureInfo.InvariantCulture, exceptionMessage: "Invalid Point.");
-        return new Point(
-            tokenizer.ReadSingle(),
-            tokenizer.ReadSingle()
+        using var tokenizer = new RefUtf8StringTokenizer(
+            utf8Text,
+            provider ?? CultureInfo.InvariantCulture,
+            exceptionMessage: "Invalid Point."
         );
+        return new Point(tokenizer.ReadSingle(), tokenizer.ReadSingle());
     }
 
     public static bool TryParse(ReadOnlySpan<byte> utf8Text, out Point result)
@@ -400,7 +414,11 @@ public readonly struct Point(float x, float y)
         return TryParse(utf8Text, null, out result);
     }
 
-    public static bool TryParse(ReadOnlySpan<byte> utf8Text, IFormatProvider? provider, out Point result)
+    public static bool TryParse(
+        ReadOnlySpan<byte> utf8Text,
+        IFormatProvider? provider,
+        out Point result
+    )
     {
         try
         {
@@ -414,7 +432,12 @@ public readonly struct Point(float x, float y)
         }
     }
 
-    public bool TryFormat(Span<byte> utf8Destination, out int bytesWritten, ReadOnlySpan<char> format = default, IFormatProvider? provider = null)
+    public bool TryFormat(
+        Span<byte> utf8Destination,
+        out int bytesWritten,
+        ReadOnlySpan<char> format = default,
+        IFormatProvider? provider = null
+    )
     {
         char separator = TokenizerHelper.GetSeparatorFromFormatProvider(provider);
         return Utf8.TryWrite(utf8Destination, provider, $"{X}{separator} {Y}", out bytesWritten);

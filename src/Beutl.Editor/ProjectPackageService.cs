@@ -46,7 +46,8 @@ public sealed class ProjectPackageService
         Project project,
         string outputPath,
         IProgress<(string Message, double Progress)>? progress = null,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default
+    )
     {
         ArgumentNullException.ThrowIfNull(project);
         ArgumentNullException.ThrowIfNull(outputPath);
@@ -74,7 +75,10 @@ public sealed class ProjectPackageService
             await CopyDirectoryAsync(projectDir, tempProjectDir, cancellationToken);
 
             // Step 3: Open the temporary project
-            string tempProjectFile = Path.Combine(tempProjectDir, Path.GetFileName(project.Uri.LocalPath));
+            string tempProjectFile = Path.Combine(
+                tempProjectDir,
+                Path.GetFileName(project.Uri.LocalPath)
+            );
             Uri tempProjectUri = new(tempProjectFile);
             progress?.Report((Strings.ExportingProject, 0.2));
             Project tempProject = CoreSerializer.RestoreFromUri<Project>(tempProjectUri);
@@ -86,20 +90,25 @@ public sealed class ProjectPackageService
 
             // Step 5: Collect and copy external files
             progress?.Report((Strings.ExportingProject, 0.4));
-            ExternalResourceCollector collector = ExternalResourceCollector.Collect(project, projectDir);
+            ExternalResourceCollector collector = ExternalResourceCollector.Collect(
+                project,
+                projectDir
+            );
 
             fileResult = await _relocationService.RelocateFileSourcesAsync(
                 collector.FileSources,
                 tempProject,
                 tempProjectDir,
-                cancellationToken);
+                cancellationToken
+            );
             _logger.LogInformation("Relocated {Count} external files", fileResult.SuccessCount);
             if (fileResult.FailedResources.Count > 0)
             {
                 _logger.LogWarning(
                     "Failed to relocate {Count} external files: {Resources}",
                     fileResult.FailedResources.Count,
-                    string.Join(", ", fileResult.FailedResources));
+                    string.Join(", ", fileResult.FailedResources)
+                );
             }
 
             // Step 6: Copy fonts
@@ -107,14 +116,16 @@ public sealed class ProjectPackageService
             fontResult = await _relocationService.RelocateFontsAsync(
                 collector.FontFamilies,
                 tempProjectDir,
-                cancellationToken);
+                cancellationToken
+            );
             _logger.LogInformation("Relocated {Count} font files", fontResult.SuccessCount);
             if (fontResult.FailedResources.Count > 0)
             {
                 _logger.LogWarning(
                     "Failed to relocate {Count} font families: {Resources}",
                     fontResult.FailedResources.Count,
-                    string.Join(", ", fontResult.FailedResources));
+                    string.Join(", ", fontResult.FailedResources)
+                );
             }
 
             // Step 7: Save the project
@@ -131,12 +142,19 @@ public sealed class ProjectPackageService
                 File.Delete(outputPath);
             }
 
-            await Task.Run(() => ZipFile.CreateFromDirectory(tempProjectDir, outputPath), cancellationToken);
+            await Task.Run(
+                () => ZipFile.CreateFromDirectory(tempProjectDir, outputPath),
+                cancellationToken
+            );
 
             progress?.Report((Strings.ExportingProject, 1.0));
             _logger.LogInformation("Project exported successfully to {OutputPath}", outputPath);
 
-            List<string> failedResources = [.. fileResult.FailedResources, .. fontResult.FailedResources];
+            List<string> failedResources =
+            [
+                .. fileResult.FailedResources,
+                .. fontResult.FailedResources,
+            ];
             return new ExportResult(true, failedResources);
         }
         catch (OperationCanceledException)
@@ -160,10 +178,18 @@ public sealed class ProjectPackageService
         _logger.LogInformation("Export operation was cancelled");
     }
 
-    private ExportResult LogExportError(Exception ex, RelocationResult fileResult, RelocationResult fontResult)
+    private ExportResult LogExportError(
+        Exception ex,
+        RelocationResult fileResult,
+        RelocationResult fontResult
+    )
     {
         _logger.LogError(ex, "Failed to export project");
-        List<string> failedResources = [.. fileResult.FailedResources, .. fontResult.FailedResources];
+        List<string> failedResources =
+        [
+            .. fileResult.FailedResources,
+            .. fontResult.FailedResources,
+        ];
         return new ExportResult(false, failedResources);
     }
 
@@ -195,7 +221,8 @@ public sealed class ProjectPackageService
         string packagePath,
         string destinationDirectory,
         IProgress<(string Message, double Progress)>? progress = null,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default
+    )
     {
         ArgumentNullException.ThrowIfNull(packagePath);
         ArgumentNullException.ThrowIfNull(destinationDirectory);
@@ -214,10 +241,14 @@ public sealed class ProjectPackageService
             try
             {
                 progress?.Report((Strings.ImportingProject, 0.3));
-                await Task.Run(() => ZipFile.ExtractToDirectory(packagePath, projectDir), cancellationToken);
+                await Task.Run(
+                    () => ZipFile.ExtractToDirectory(packagePath, projectDir),
+                    cancellationToken
+                );
 
                 progress?.Report((Strings.ImportingProject, 0.6));
-                string? projectFile = Directory.GetFiles(projectDir, "*.bep", SearchOption.TopDirectoryOnly)
+                string? projectFile = Directory
+                    .GetFiles(projectDir, "*.bep", SearchOption.TopDirectoryOnly)
                     .FirstOrDefault();
 
                 if (projectFile == null)
@@ -232,8 +263,11 @@ public sealed class ProjectPackageService
                 Project project = CoreSerializer.RestoreFromUri<Project>(projectUri);
 
                 progress?.Report((Strings.ImportingProject, 1.0));
-                _logger.LogInformation("Project imported successfully from {PackagePath} to {ProjectDir}",
-                    packagePath, projectDir);
+                _logger.LogInformation(
+                    "Project imported successfully from {PackagePath} to {ProjectDir}",
+                    packagePath,
+                    projectDir
+                );
                 return project;
             }
             catch
@@ -288,7 +322,11 @@ public sealed class ProjectPackageService
     /// <summary>
     /// Copies a directory asynchronously.
     /// </summary>
-    private static async Task CopyDirectoryAsync(string sourceDir, string destDir, CancellationToken cancellationToken)
+    private static async Task CopyDirectoryAsync(
+        string sourceDir,
+        string destDir,
+        CancellationToken cancellationToken
+    )
     {
         Directory.CreateDirectory(destDir);
 
@@ -316,10 +354,28 @@ public sealed class ProjectPackageService
     /// <summary>
     /// Copies a file asynchronously.
     /// </summary>
-    private static async Task CopyFileAsync(string sourcePath, string destPath, CancellationToken cancellationToken)
+    private static async Task CopyFileAsync(
+        string sourcePath,
+        string destPath,
+        CancellationToken cancellationToken
+    )
     {
-        await using FileStream sourceStream = new(sourcePath, FileMode.Open, FileAccess.Read, FileShare.Read, 81920, FileOptions.Asynchronous | FileOptions.SequentialScan);
-        await using FileStream destStream = new(destPath, FileMode.Create, FileAccess.Write, FileShare.None, 81920, FileOptions.Asynchronous | FileOptions.SequentialScan);
+        await using FileStream sourceStream = new(
+            sourcePath,
+            FileMode.Open,
+            FileAccess.Read,
+            FileShare.Read,
+            81920,
+            FileOptions.Asynchronous | FileOptions.SequentialScan
+        );
+        await using FileStream destStream = new(
+            destPath,
+            FileMode.Create,
+            FileAccess.Write,
+            FileShare.None,
+            81920,
+            FileOptions.Asynchronous | FileOptions.SequentialScan
+        );
         await sourceStream.CopyToAsync(destStream, cancellationToken);
     }
 }

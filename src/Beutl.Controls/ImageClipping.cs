@@ -7,8 +7,8 @@ namespace Beutl.Controls;
 
 public sealed class RoundedClippingBehavior : Behavior<Control>
 {
-    public static readonly StyledProperty<CornerRadius> CornerRadiusProperty
-        = AvaloniaProperty.Register<RoundedClippingBehavior, CornerRadius>("CornerRadius");
+    public static readonly StyledProperty<CornerRadius> CornerRadiusProperty =
+        AvaloniaProperty.Register<RoundedClippingBehavior, CornerRadius>("CornerRadius");
     private IDisposable _disposable;
     private IDisposable _disposable1;
 
@@ -23,7 +23,8 @@ public sealed class RoundedClippingBehavior : Behavior<Control>
         base.OnAttached();
         if (AssociatedObject != null)
         {
-            _disposable = AssociatedObject.GetObservable(Visual.BoundsProperty)
+            _disposable = AssociatedObject
+                .GetObservable(Visual.BoundsProperty)
                 .Subscribe(_ => Invalidate());
 
             _disposable1 = this.GetObservable(CornerRadiusProperty).Subscribe(_ => Invalidate());
@@ -61,7 +62,7 @@ public sealed class RoundedClippingBehavior : Behavior<Control>
             //
             // - Lines 1,3 follow the deflated rectangle bounds minus RadiusX
             // - Lines 2,4 follow the deflated rectangle bounds minus RadiusY
-            // - All corners are constructed using elliptical arcs 
+            // - All corners are constructed using elliptical arcs
 
             // Line 1 + Corner 1
             context.BeginFigure(new Point(rect.Left + cornerRadius.TopLeft, rect.Top), true);
@@ -71,7 +72,8 @@ public sealed class RoundedClippingBehavior : Behavior<Control>
                 new Size(cornerRadius.TopRight, cornerRadius.TopRight),
                 rotationAngle: PiOver2,
                 isLargeArc: false,
-                SweepDirection.Clockwise);
+                SweepDirection.Clockwise
+            );
 
             // Line 2 + Corner 2
             context.LineTo(new Point(rect.Right, rect.Bottom - cornerRadius.BottomRight));
@@ -80,7 +82,8 @@ public sealed class RoundedClippingBehavior : Behavior<Control>
                 new Size(cornerRadius.BottomRight, cornerRadius.BottomRight),
                 rotationAngle: PiOver2,
                 isLargeArc: false,
-                SweepDirection.Clockwise);
+                SweepDirection.Clockwise
+            );
 
             // Line 3 + Corner 3
             context.LineTo(new Point(rect.Left + cornerRadius.BottomLeft, rect.Bottom));
@@ -89,7 +92,8 @@ public sealed class RoundedClippingBehavior : Behavior<Control>
                 new Size(cornerRadius.BottomLeft, cornerRadius.BottomLeft),
                 rotationAngle: PiOver2,
                 isLargeArc: false,
-                SweepDirection.Clockwise);
+                SweepDirection.Clockwise
+            );
 
             // Line 4 + Corner 4
             context.LineTo(new Point(rect.Left, rect.Top + cornerRadius.TopLeft));
@@ -98,7 +102,8 @@ public sealed class RoundedClippingBehavior : Behavior<Control>
                 new Size(cornerRadius.TopLeft, cornerRadius.TopLeft),
                 rotationAngle: PiOver2,
                 isLargeArc: false,
-                SweepDirection.Clockwise);
+                SweepDirection.Clockwise
+            );
 
             context.EndFigure(true);
         }
@@ -109,8 +114,8 @@ public sealed class RoundedClippingBehavior : Behavior<Control>
 
 public class ImageClipping : AvaloniaObject
 {
-    public static readonly AttachedProperty<CornerRadius> CornerRadiusProperty
-        = AvaloniaProperty.RegisterAttached<ImageClipping, Control, CornerRadius>("CornerRadius");
+    public static readonly AttachedProperty<CornerRadius> CornerRadiusProperty =
+        AvaloniaProperty.RegisterAttached<ImageClipping, Control, CornerRadius>("CornerRadius");
 
     static ImageClipping()
     {
@@ -119,16 +124,18 @@ public class ImageClipping : AvaloniaObject
             if (args.Sender is Control control && args.NewValue.HasValue)
             {
                 BehaviorCollection collection = Interaction.GetBehaviors(control);
-                if (collection.FirstOrDefault(x => x is RoundedClippingBehavior) is RoundedClippingBehavior exists)
+                if (
+                    collection.FirstOrDefault(x => x is RoundedClippingBehavior)
+                    is RoundedClippingBehavior exists
+                )
                 {
                     exists.CornerRadius = args.NewValue.Value;
                 }
                 else
                 {
-                    collection.Add(new RoundedClippingBehavior()
-                    {
-                        CornerRadius = args.NewValue.Value,
-                    });
+                    collection.Add(
+                        new RoundedClippingBehavior() { CornerRadius = args.NewValue.Value }
+                    );
                 }
             }
         });

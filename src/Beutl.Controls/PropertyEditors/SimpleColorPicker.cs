@@ -1,7 +1,5 @@
 ﻿using System.Reactive.Disposables;
-
 using Avalonia;
-
 using Avalonia.Controls;
 using Avalonia.Controls.Metadata;
 using Avalonia.Controls.Primitives;
@@ -9,9 +7,7 @@ using Avalonia.Data;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Media;
-
 using Beutl.Reactive;
-
 using FluentAvalonia.Core;
 using FluentAvalonia.UI.Media;
 
@@ -23,15 +19,16 @@ public enum SimpleColorPickerInputType
 {
     Hex,
     Rgb,
-    Hsv
+    Hsv,
 }
 
 [PseudoClasses(":details")]
 public class SimpleColorPicker : TemplatedControl
 {
-    public static readonly StyledProperty<Color2> ColorProperty =
-        AvaloniaProperty.Register<SimpleColorPicker, Color2>(nameof(Color),
-            Colors.Red, defaultBindingMode: BindingMode.TwoWay);
+    public static readonly StyledProperty<Color2> ColorProperty = AvaloniaProperty.Register<
+        SimpleColorPicker,
+        Color2
+    >(nameof(Color), Colors.Red, defaultBindingMode: BindingMode.TwoWay);
 
     public static readonly StyledProperty<SimpleColorPickerInputType> InputTypeProperty =
         AvaloniaProperty.Register<SimpleColorPicker, SimpleColorPickerInputType>(nameof(InputType));
@@ -42,7 +39,9 @@ public class SimpleColorPicker : TemplatedControl
     private ColorPreviewer? _previewer;
     private ColorSlider? _thirdComponentSlider;
     private ColorSlider? _spectrumAlphaSlider;
-    private ColorSlider? _component1Slider, _component2Slider, _component3Slider;
+    private ColorSlider? _component1Slider,
+        _component2Slider,
+        _component3Slider;
     private ComboBox? _colorType;
     private ToggleButton? _dropperButton;
     private ToggleButton? _detailsButton;
@@ -54,9 +53,15 @@ public class SimpleColorPicker : TemplatedControl
     private Color2 _oldColor;
     private CancellationTokenSource? _cts;
 
-    public event TypedEventHandler<SimpleColorPicker, (Color2 OldValue, Color2 NewValue)>? ColorChanged;
+    public event TypedEventHandler<
+        SimpleColorPicker,
+        (Color2 OldValue, Color2 NewValue)
+    >? ColorChanged;
 
-    public event TypedEventHandler<SimpleColorPicker, (Color2 OldValue, Color2 NewValue)>? ColorConfirmed;
+    public event TypedEventHandler<
+        SimpleColorPicker,
+        (Color2 OldValue, Color2 NewValue)
+    >? ColorConfirmed;
 
     public Color2 Color
     {
@@ -77,12 +82,14 @@ public class SimpleColorPicker : TemplatedControl
         ColorConfirmed?.Invoke(this, (oldValue, value));
     }
 
-    private ColorSlider?[] GetColorSliders() => [
-        _thirdComponentSlider,
-        _spectrumAlphaSlider,
-        _component1Slider,
-        _component2Slider,
-        _component3Slider];
+    private ColorSlider?[] GetColorSliders() =>
+        [
+            _thirdComponentSlider,
+            _spectrumAlphaSlider,
+            _component1Slider,
+            _component2Slider,
+            _component3Slider,
+        ];
 
     protected override void OnApplyTemplate(TemplateAppliedEventArgs e)
     {
@@ -109,20 +116,44 @@ public class SimpleColorPicker : TemplatedControl
         if (_spectrum != null)
         {
             _spectrum.ColorChanged += OnSpectrumColorChanged;
-            _spectrum.AddHandler(PointerPressedEvent, OnSpectrumPointerPressed, handledEventsToo: true);
-            _spectrum.AddHandler(PointerReleasedEvent, OnSpectrumPointerReleased, handledEventsToo: true);
+            _spectrum.AddHandler(
+                PointerPressedEvent,
+                OnSpectrumPointerPressed,
+                handledEventsToo: true
+            );
+            _spectrum.AddHandler(
+                PointerReleasedEvent,
+                OnSpectrumPointerReleased,
+                handledEventsToo: true
+            );
         }
         if (_ringSpectrum != null)
         {
             _ringSpectrum.ColorChanged += OnSpectrumColorChanged;
-            _ringSpectrum.AddHandler(PointerPressedEvent, OnSpectrumPointerPressed, handledEventsToo: true);
-            _ringSpectrum.AddHandler(PointerReleasedEvent, OnSpectrumPointerReleased, handledEventsToo: true);
+            _ringSpectrum.AddHandler(
+                PointerPressedEvent,
+                OnSpectrumPointerPressed,
+                handledEventsToo: true
+            );
+            _ringSpectrum.AddHandler(
+                PointerReleasedEvent,
+                OnSpectrumPointerReleased,
+                handledEventsToo: true
+            );
         }
         if (_previewer != null)
         {
             _previewer.ColorChanged += OnSpectrumColorChanged;
-            _previewer.AddHandler(PointerPressedEvent, OnSpectrumPointerPressed, handledEventsToo: true);
-            _previewer.AddHandler(PointerReleasedEvent, OnSpectrumPointerReleased, handledEventsToo: true);
+            _previewer.AddHandler(
+                PointerPressedEvent,
+                OnSpectrumPointerPressed,
+                handledEventsToo: true
+            );
+            _previewer.AddHandler(
+                PointerReleasedEvent,
+                OnSpectrumPointerReleased,
+                handledEventsToo: true
+            );
         }
 
         foreach (ColorSlider? item in GetColorSliders())
@@ -130,8 +161,16 @@ public class SimpleColorPicker : TemplatedControl
             if (item != null)
             {
                 item.ColorChanged += OnColorSliderColorChanged;
-                item.AddHandler(PointerPressedEvent, OnSpectrumPointerPressed, handledEventsToo: true);
-                item.AddHandler(PointerReleasedEvent, OnSpectrumPointerReleased, handledEventsToo: true);
+                item.AddHandler(
+                    PointerPressedEvent,
+                    OnSpectrumPointerPressed,
+                    handledEventsToo: true
+                );
+                item.AddHandler(
+                    PointerReleasedEvent,
+                    OnSpectrumPointerReleased,
+                    handledEventsToo: true
+                );
             }
         }
 
@@ -145,39 +184,50 @@ public class SimpleColorPicker : TemplatedControl
         {
             _hexBox.LostFocus += OnHexBoxLostFocus;
             _hexBox.GotFocus += OnHexBoxGotFocus;
-            _hexBox.GetPropertyChangedObservable(TextBox.TextProperty)
+            _hexBox
+                .GetPropertyChangedObservable(TextBox.TextProperty)
                 .Subscribe(OnHexBoxTextChanged)
                 .DisposeWith(_disposables);
         }
 
-        _opacityBox?.GetPropertyChangedObservable(TextBox.TextProperty)
+        _opacityBox
+            ?.GetPropertyChangedObservable(TextBox.TextProperty)
             .Subscribe(OnOpacityBoxTextChanged)
             .DisposeWith(_disposables);
 
-        _opacityBox?.AddDisposableHandler(PointerWheelChangedEvent, OnOpacityBoxPointerWheelChanged, RoutingStrategies.Tunnel)
+        _opacityBox
+            ?.AddDisposableHandler(
+                PointerWheelChangedEvent,
+                OnOpacityBoxPointerWheelChanged,
+                RoutingStrategies.Tunnel
+            )
             .DisposeWith(_disposables);
 
-        _colorType?.GetPropertyChangedObservable(SelectingItemsControl.SelectedIndexProperty)
+        _colorType
+            ?.GetPropertyChangedObservable(SelectingItemsControl.SelectedIndexProperty)
             .Subscribe(_ => OnColorTypeChanged())
             .DisposeWith(_disposables);
 
         if (ColorDropper.IsSupported && _dropperButton != null)
         {
-            _dropperButton.AddDisposableHandler(Button.ClickEvent, OnDropperButtonClick)
+            _dropperButton
+                .AddDisposableHandler(Button.ClickEvent, OnDropperButtonClick)
                 .DisposeWith(_disposables);
 
             _dropperButton.IsVisible = true;
         }
         if (_detailsButton != null)
         {
-            _detailsButton.GetObservable(ToggleButton.IsCheckedProperty)
+            _detailsButton
+                .GetObservable(ToggleButton.IsCheckedProperty)
                 .Subscribe(OnToggleDetailsButtonIsCheckedChanged)
                 .DisposeWith(_disposables);
         }
 
         if (_spectrumShapeButton != null)
         {
-            _spectrumShapeButton.GetObservable(ToggleButton.IsCheckedProperty)
+            _spectrumShapeButton
+                .GetObservable(ToggleButton.IsCheckedProperty)
                 .Subscribe(OnToggleSpectrumShapeButtonIsCheckedChanged)
                 .DisposeWith(_disposables);
         }
@@ -186,7 +236,10 @@ public class SimpleColorPicker : TemplatedControl
         OnInputTypeChanged();
     }
 
-    private void OnComponentsBoxValueConfirmed(object? sender, PropertyEditorValueChangedEventArgs e)
+    private void OnComponentsBoxValueConfirmed(
+        object? sender,
+        PropertyEditorValueChangedEventArgs e
+    )
     {
         if (_componentsBox != null)
         {
@@ -307,9 +360,8 @@ public class SimpleColorPicker : TemplatedControl
             _ringSpectrum.IsVisible = value == true;
             _spectrum.IsVisible = value != true;
 
-            _thirdComponentSlider.ColorComponent = value == true
-                ? _ringSpectrum.ThirdComponent
-                : _spectrum.ThirdComponent;
+            _thirdComponentSlider.ColorComponent =
+                value == true ? _ringSpectrum.ThirdComponent : _spectrum.ThirdComponent;
         }
     }
 
@@ -370,10 +422,12 @@ public class SimpleColorPicker : TemplatedControl
 
     private void OnOpacityBoxPointerWheelChanged(object? sender, PointerWheelEventArgs e)
     {
-        if (_opacityBox != null
+        if (
+            _opacityBox != null
             && !DataValidationErrors.GetHasErrors(_opacityBox)
             && _opacityBox.IsKeyboardFocusWithin
-            && TryParseOpacity(_opacityBox.Text, out float value))
+            && TryParseOpacity(_opacityBox.Text, out float value)
+        )
         {
             float delta = 10;
             var wheelDelta = e.Delta.Y;
@@ -387,7 +441,7 @@ public class SimpleColorPicker : TemplatedControl
             {
                 < 0 => value - delta,
                 > 0 => value + delta,
-                _ => value
+                _ => value,
             };
 
             UpdateColor(Color.WithAlphaf(value / 100f));
@@ -399,7 +453,8 @@ public class SimpleColorPicker : TemplatedControl
     private static bool TryParseOpacity(string? s, out float r)
     {
         r = 0;
-        if (string.IsNullOrWhiteSpace(s)) return false;
+        if (string.IsNullOrWhiteSpace(s))
+            return false;
 
         string text = s.Trim() ?? "";
         if (text.EndsWith('%'))
@@ -432,8 +487,7 @@ public class SimpleColorPicker : TemplatedControl
 
     private void OnHexBoxLostFocus(object? sender, RoutedEventArgs e)
     {
-        if (_hexBox != null
-            && Color2.TryParse(_hexBox.Text, out Color2 color))
+        if (_hexBox != null && Color2.TryParse(_hexBox.Text, out Color2 color))
         {
             ColorConfirmed?.Invoke(this, (_oldColor, color));
         }
@@ -456,7 +510,8 @@ public class SimpleColorPicker : TemplatedControl
 
     private void OnColorSliderColorChanged(object? sender, ColorChangedEventArgs args)
     {
-        if (_ignoreColorChange) return;
+        if (_ignoreColorChange)
+            return;
 
         Color2 newColor = args.NewColor;
         if (sender is ColorSlider { ColorModel: ColorModel.Hsva } slider)
@@ -467,15 +522,30 @@ public class SimpleColorPicker : TemplatedControl
 
             if (slider is { ColorComponent: Avalonia.Controls.ColorComponent.Component3 })
             {
-                newColor = Color2.FromHSV(oldColor.Hue, oldColor.Saturation, newColor.Value, Color.A);
+                newColor = Color2.FromHSV(
+                    oldColor.Hue,
+                    oldColor.Saturation,
+                    newColor.Value,
+                    Color.A
+                );
             }
             else if (slider is { ColorComponent: Avalonia.Controls.ColorComponent.Component2 })
             {
-                newColor = Color2.FromHSV(oldColor.Hue, newColor.Saturation, oldColor.Value, Color.A);
+                newColor = Color2.FromHSV(
+                    oldColor.Hue,
+                    newColor.Saturation,
+                    oldColor.Value,
+                    Color.A
+                );
             }
             else if (slider is { ColorComponent: Avalonia.Controls.ColorComponent.Component1 })
             {
-                newColor = Color2.FromHSV(newColor.Hue, oldColor.Saturation, oldColor.Value, Color.A);
+                newColor = Color2.FromHSV(
+                    newColor.Hue,
+                    oldColor.Saturation,
+                    oldColor.Value,
+                    Color.A
+                );
             }
         }
 
@@ -497,9 +567,15 @@ public class SimpleColorPicker : TemplatedControl
         UpdateColor(Color2.FromHSVf((float)color.H, (float)color.S, (float)color.V, Color.Af));
     }
 
-    private void UpdateColor(Color2 color, bool ignoreOpacity = false, bool ignoreComponents = false, bool ignoreHex = false)
+    private void UpdateColor(
+        Color2 color,
+        bool ignoreOpacity = false,
+        bool ignoreComponents = false,
+        bool ignoreHex = false
+    )
     {
-        if (_ignoreColorChange) return;
+        if (_ignoreColorChange)
+            return;
 
         try
         {

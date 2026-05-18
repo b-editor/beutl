@@ -38,5 +38,5 @@ public enum ColorSpectrumComponents
     /// <summary>
     /// RGB color space, Green is on the X-Axis, Red is on the Y-Axis
     /// </summary>
-    GreenRed = 5
+    GreenRed = 5,
 }

@@ -8,11 +8,13 @@ public sealed class ModelSourceEditorViewModel : ValueEditorViewModel<ModelSourc
     public ModelSourceEditorViewModel(IPropertyAdapter<ModelSource?> property)
         : base(property)
     {
-        FullName = Value.Select(x => x?.HasUri == true ? x.Uri.LocalPath : null)
+        FullName = Value
+            .Select(x => x?.HasUri == true ? x.Uri.LocalPath : null)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(Disposables);
 
-        FileInfo = FullName.Select(p => p != null ? new FileInfo(p) : null)
+        FileInfo = FullName
+            .Select(p => p != null ? new FileInfo(p) : null)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(Disposables);
     }

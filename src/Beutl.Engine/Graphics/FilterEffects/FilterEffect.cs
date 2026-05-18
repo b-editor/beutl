@@ -24,7 +24,8 @@ public abstract partial class FilterEffect : EngineObject
             return context.PushNode(
                 this,
                 resource => new FilterEffectRenderNode(resource),
-                (node, resource) => node.Update(resource));
+                (node, resource) => node.Update(resource)
+            );
         }
     }
 }

@@ -32,7 +32,7 @@ public class CustomOperationTests
         // Act
         var operation = new CustomOperation(apply, revert, "Test Description")
         {
-            SequenceNumber = 1
+            SequenceNumber = 1,
         };
 
         // Assert
@@ -49,7 +49,8 @@ public class CustomOperationTests
 
         // Act & Assert
         var exception = Assert.Throws<ArgumentNullException>(() =>
-            new CustomOperation(null!, revert, "Test") { SequenceNumber = 1 });
+            new CustomOperation(null!, revert, "Test") { SequenceNumber = 1 }
+        );
 
         Assert.That(exception!.ParamName, Is.EqualTo("apply"));
     }
@@ -62,7 +63,8 @@ public class CustomOperationTests
 
         // Act & Assert
         var exception = Assert.Throws<ArgumentNullException>(() =>
-            new CustomOperation(apply, null!, "Test") { SequenceNumber = 1 });
+            new CustomOperation(apply, null!, "Test") { SequenceNumber = 1 }
+        );
 
         Assert.That(exception!.ParamName, Is.EqualTo("revert"));
     }
@@ -75,10 +77,7 @@ public class CustomOperationTests
         Action<OperationExecutionContext> revert = _ => { };
 
         // Act
-        var operation = new CustomOperation(apply, revert, null)
-        {
-            SequenceNumber = 1
-        };
+        var operation = new CustomOperation(apply, revert, null) { SequenceNumber = 1 };
 
         // Assert
         Assert.That(operation.Description, Is.Null);
@@ -93,12 +92,9 @@ public class CustomOperationTests
     {
         // Arrange
         bool applyInvoked = false;
-        var operation = new CustomOperation(
-            _ => applyInvoked = true,
-            _ => { },
-            "Test")
+        var operation = new CustomOperation(_ => applyInvoked = true, _ => { }, "Test")
         {
-            SequenceNumber = 1
+            SequenceNumber = 1,
         };
 
         // Act
@@ -113,12 +109,9 @@ public class CustomOperationTests
     {
         // Arrange
         OperationExecutionContext? receivedContext = null;
-        var operation = new CustomOperation(
-            ctx => receivedContext = ctx,
-            _ => { },
-            "Test")
+        var operation = new CustomOperation(ctx => receivedContext = ctx, _ => { }, "Test")
         {
-            SequenceNumber = 1
+            SequenceNumber = 1,
         };
 
         // Act
@@ -136,9 +129,10 @@ public class CustomOperationTests
         var operation = new CustomOperation(
             _ => _root.Value = 100,
             _ => _root.Value = 0,
-            "Set Value")
+            "Set Value"
+        )
         {
-            SequenceNumber = 1
+            SequenceNumber = 1,
         };
 
         // Act
@@ -157,12 +151,9 @@ public class CustomOperationTests
     {
         // Arrange
         bool revertInvoked = false;
-        var operation = new CustomOperation(
-            _ => { },
-            _ => revertInvoked = true,
-            "Test")
+        var operation = new CustomOperation(_ => { }, _ => revertInvoked = true, "Test")
         {
-            SequenceNumber = 1
+            SequenceNumber = 1,
         };
 
         // Act
@@ -177,12 +168,9 @@ public class CustomOperationTests
     {
         // Arrange
         OperationExecutionContext? receivedContext = null;
-        var operation = new CustomOperation(
-            _ => { },
-            ctx => receivedContext = ctx,
-            "Test")
+        var operation = new CustomOperation(_ => { }, ctx => receivedContext = ctx, "Test")
         {
-            SequenceNumber = 1
+            SequenceNumber = 1,
         };
 
         // Act
@@ -200,9 +188,10 @@ public class CustomOperationTests
         var operation = new CustomOperation(
             _ => _root.Value = 100,
             _ => _root.Value = 0,
-            "Set Value")
+            "Set Value"
+        )
         {
-            SequenceNumber = 1
+            SequenceNumber = 1,
         };
 
         // Act
@@ -220,9 +209,10 @@ public class CustomOperationTests
         var operation = new CustomOperation(
             _ => _root.Value = 200,
             _ => _root.Value = 50,
-            "Modify Value")
+            "Modify Value"
+        )
         {
-            SequenceNumber = 1
+            SequenceNumber = 1,
         };
 
         // Act
@@ -246,7 +236,8 @@ public class CustomOperationTests
             () => { },
             () => { },
             _sequenceGenerator,
-            "Test Operation");
+            "Test Operation"
+        );
 
         // Assert
         Assert.That(operation, Is.Not.Null);
@@ -276,7 +267,8 @@ public class CustomOperationTests
             () => { },
             () => { },
             _sequenceGenerator,
-            "My Description");
+            "My Description"
+        );
 
         // Assert
         Assert.That(operation.Description, Is.EqualTo("My Description"));
@@ -286,11 +278,7 @@ public class CustomOperationTests
     public void Create_ShouldAllowNullDescription()
     {
         // Arrange & Act
-        var operation = CustomOperation.Create(
-            () => { },
-            () => { },
-            _sequenceGenerator,
-            null);
+        var operation = CustomOperation.Create(() => { }, () => { }, _sequenceGenerator, null);
 
         // Assert
         Assert.That(operation.Description, Is.Null);
@@ -301,7 +289,8 @@ public class CustomOperationTests
     {
         // Act & Assert
         Assert.Throws<ArgumentNullException>(() =>
-            CustomOperation.Create(null!, () => { }, _sequenceGenerator));
+            CustomOperation.Create(null!, () => { }, _sequenceGenerator)
+        );
     }
 
     [Test]
@@ -309,7 +298,8 @@ public class CustomOperationTests
     {
         // Act & Assert
         Assert.Throws<ArgumentNullException>(() =>
-            CustomOperation.Create(() => { }, null!, _sequenceGenerator));
+            CustomOperation.Create(() => { }, null!, _sequenceGenerator)
+        );
     }
 
     [Test]
@@ -317,7 +307,8 @@ public class CustomOperationTests
     {
         // Act & Assert
         Assert.Throws<ArgumentNullException>(() =>
-            CustomOperation.Create(() => { }, () => { }, null!));
+            CustomOperation.Create(() => { }, () => { }, null!)
+        );
     }
 
     [Test]
@@ -328,7 +319,8 @@ public class CustomOperationTests
         var operation = CustomOperation.Create(
             () => doActionInvoked = true,
             () => { },
-            _sequenceGenerator);
+            _sequenceGenerator
+        );
 
         // Act
         operation.Apply(_context);
@@ -345,7 +337,8 @@ public class CustomOperationTests
         var operation = CustomOperation.Create(
             () => { },
             () => undoActionInvoked = true,
-            _sequenceGenerator);
+            _sequenceGenerator
+        );
 
         // Act
         operation.Revert(_context);
@@ -363,7 +356,8 @@ public class CustomOperationTests
             () => _root.Value = 999,
             () => _root.Value = 0,
             _sequenceGenerator,
-            "Set to 999");
+            "Set to 999"
+        );
 
         // Act
         operation.Apply(_context);
@@ -388,7 +382,8 @@ public class CustomOperationTests
             () => _root.Value,
             value => _root.Value = value,
             _sequenceGenerator,
-            "State Capture");
+            "State Capture"
+        );
 
         // Assert
         Assert.That(builder, Is.Not.Null);
@@ -400,7 +395,8 @@ public class CustomOperationTests
     {
         // Act & Assert
         Assert.Throws<ArgumentNullException>(() =>
-            CustomOperation.CaptureState<int>(null!, _ => { }, _sequenceGenerator));
+            CustomOperation.CaptureState<int>(null!, _ => { }, _sequenceGenerator)
+        );
     }
 
     [Test]
@@ -408,7 +404,8 @@ public class CustomOperationTests
     {
         // Act & Assert
         Assert.Throws<ArgumentNullException>(() =>
-            CustomOperation.CaptureState(() => 0, null!, _sequenceGenerator));
+            CustomOperation.CaptureState(() => 0, null!, _sequenceGenerator)
+        );
     }
 
     [Test]
@@ -416,7 +413,8 @@ public class CustomOperationTests
     {
         // Act & Assert
         Assert.Throws<ArgumentNullException>(() =>
-            CustomOperation.CaptureState(() => 0, _ => { }, null!));
+            CustomOperation.CaptureState(() => 0, _ => { }, null!)
+        );
     }
 
     [Test]
@@ -429,7 +427,8 @@ public class CustomOperationTests
         var builder = CustomOperation.CaptureState(
             () => _root.Value,
             value => _root.Value = value,
-            _sequenceGenerator);
+            _sequenceGenerator
+        );
 
         // Modify state after capture
         _root.Value = 100;
@@ -459,7 +458,8 @@ public class CustomOperationTests
             () => _root.Value,
             value => _root.Value = value,
             _sequenceGenerator,
-            "Value Change");
+            "Value Change"
+        );
 
         // Act
         _root.Value = 20;
@@ -479,7 +479,8 @@ public class CustomOperationTests
         var builder = CustomOperation.CaptureState(
             () => _root.Value,
             value => _root.Value = value,
-            generator);
+            generator
+        );
 
         // Act
         var operation = builder.Complete();
@@ -496,7 +497,8 @@ public class CustomOperationTests
         var builder = CustomOperation.CaptureState(
             () => _root.Value,
             value => _root.Value = value,
-            _sequenceGenerator);
+            _sequenceGenerator
+        );
 
         _root.Value = 15;
         var operation = builder.Complete();
@@ -519,7 +521,8 @@ public class CustomOperationTests
         var builder = CustomOperation.CaptureState(
             () => _root.Value,
             value => _root.Value = value,
-            _sequenceGenerator);
+            _sequenceGenerator
+        );
 
         _root.Value = 75;
         var operation = builder.Complete();
@@ -543,7 +546,8 @@ public class CustomOperationTests
             () => _root.Name,
             value => _root.Name = value,
             _sequenceGenerator,
-            "Name Change");
+            "Name Change"
+        );
 
         _root.Name = "Modified";
         var operation = builder.Complete();
@@ -566,7 +570,8 @@ public class CustomOperationTests
         var builder = CustomOperation.CaptureState(
             () => _root.Name,
             value => _root.Name = value,
-            _sequenceGenerator);
+            _sequenceGenerator
+        );
 
         _root.Name = "Not Null";
         var operation = builder.Complete();
@@ -587,7 +592,8 @@ public class CustomOperationTests
         var builder = CustomOperation.CaptureState(
             () => _root.Value,
             value => _root.Value = value,
-            _sequenceGenerator);
+            _sequenceGenerator
+        );
 
         // No state change - complete immediately
         var operation = builder.Complete();
@@ -617,16 +623,19 @@ public class CustomOperationTests
             ctx =>
             {
                 var obj = ctx.FindObject(rootId) as TestCoreObject;
-                if (obj != null) obj.Value = 500;
+                if (obj != null)
+                    obj.Value = 500;
             },
             ctx =>
             {
                 var obj = ctx.FindObject(rootId) as TestCoreObject;
-                if (obj != null) obj.Value = 0;
+                if (obj != null)
+                    obj.Value = 0;
             },
-            "Modify Root via FindObject")
+            "Modify Root via FindObject"
+        )
         {
-            SequenceNumber = 1
+            SequenceNumber = 1,
         };
 
         // Act
@@ -650,13 +659,15 @@ public class CustomOperationTests
             () => _root.Value = 100,
             () => _root.Value = 0,
             _sequenceGenerator,
-            "Value Op");
+            "Value Op"
+        );
 
         var nameOperation = CustomOperation.Create(
             () => _root.Name = "Changed",
             () => _root.Name = "Initial",
             _sequenceGenerator,
-            "Name Op");
+            "Name Op"
+        );
 
         // Act & Assert
         valueOperation.Apply(_context);
@@ -686,17 +697,16 @@ public class CustomOperationTests
         // Act
         for (int i = 0; i < 10; i++)
         {
-            operations.Add(CustomOperation.Create(
-                () => { },
-                () => { },
-                generator,
-                $"Op {i}"));
+            operations.Add(CustomOperation.Create(() => { }, () => { }, generator, $"Op {i}"));
         }
 
         // Assert
         var sequenceNumbers = operations.Select(op => op.SequenceNumber).ToList();
         Assert.That(sequenceNumbers, Is.Unique);
-        Assert.That(sequenceNumbers, Is.EqualTo(Enumerable.Range(1, 10).Select(i => (long)i).ToList()));
+        Assert.That(
+            sequenceNumbers,
+            Is.EqualTo(Enumerable.Range(1, 10).Select(i => (long)i).ToList())
+        );
     }
 
     #endregion

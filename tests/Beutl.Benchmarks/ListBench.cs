@@ -1,5 +1,4 @@
 ﻿using System.Runtime.InteropServices;
-
 using BenchmarkDotNet.Attributes;
 
 public class ListBench

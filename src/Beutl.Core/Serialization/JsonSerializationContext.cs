@@ -7,8 +7,8 @@ public partial class JsonSerializationContext(
     Type ownerType,
     ICoreSerializationContext? parent = null,
     JsonObject? json = null,
-    CoreSerializerOptions? options = null)
-    : IJsonSerializationContext
+    CoreSerializerOptions? options = null
+) : IJsonSerializationContext
 {
     public readonly Dictionary<string, (Type DefinedType, Type ActualType)> _knownTypes = [];
     private List<(object, Guid, Action<ICoreSerializable>)>? _rootResolvers;
@@ -18,9 +18,11 @@ public partial class JsonSerializationContext(
 
     public ICoreSerializationContext? Parent { get; } = parent;
 
-    public JsonSerializationContext Root => IsRoot ? this : (Parent as JsonSerializationContext)!.Root;
+    public JsonSerializationContext Root =>
+        IsRoot ? this : (Parent as JsonSerializationContext)!.Root;
 
-    public CoreSerializationMode Mode => options?.Mode ?? Parent?.Mode ?? CoreSerializationMode.ReadWrite;
+    public CoreSerializationMode Mode =>
+        options?.Mode ?? Parent?.Mode ?? CoreSerializationMode.ReadWrite;
 
     public Uri? BaseUri => options?.BaseUri ?? Parent?.BaseUri;
 
@@ -58,7 +60,8 @@ public partial class JsonSerializationContext(
             var context = new JsonSerializationContext(
                 ownerType: obj.GetType(),
                 parent: this,
-                json: jobj);
+                json: jobj
+            );
 
             using (ThreadLocalSerializationContext.Enter(context))
             {
@@ -99,11 +102,13 @@ public partial class JsonSerializationContext(
                     else if (coreObject is IHierarchical hierarchical)
                     {
                         var resolver = new ReferenceResolver(hierarchical, id);
-                        resolver.Resolve().ContinueWith(t =>
-                        {
-                            callback(t.Result);
-                            _rootResolvers?.Remove(item);
-                        });
+                        resolver
+                            .Resolve()
+                            .ContinueWith(t =>
+                            {
+                                callback(t.Result);
+                                _rootResolvers?.Remove(item);
+                            });
                     }
                     else
                     {

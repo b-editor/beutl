@@ -51,7 +51,8 @@ public static class HitTester3D
         int width,
         int height,
         Camera3D.Resource camera,
-        IReadOnlyList<Object3D.Resource> objects)
+        IReadOnlyList<Object3D.Resource> objects
+    )
     {
         if (objects.Count == 0)
             return null;
@@ -87,7 +88,8 @@ public static class HitTester3D
     private static (Object3D.Resource? obj, float distance) HitTestRecursive(
         Ray3D ray,
         Object3D.Resource obj,
-        Matrix4x4 parentMatrix)
+        Matrix4x4 parentMatrix
+    )
     {
         if (!obj.IsEnabled)
             return (null, float.MaxValue);
@@ -151,7 +153,8 @@ public static class HitTester3D
         int width,
         int height,
         Camera3D.Resource camera,
-        IReadOnlyList<Object3D.Resource> objects)
+        IReadOnlyList<Object3D.Resource> objects
+    )
     {
         if (objects.Count == 0)
             return [];
@@ -171,7 +174,12 @@ public static class HitTester3D
 
             // Recursively hit test this object and its children, collecting the path
             var currentPath = new List<Object3D.Resource>();
-            var (hitPath, distance) = HitTestRecursiveWithPath(ray, obj, Matrix4x4.Identity, currentPath);
+            var (hitPath, distance) = HitTestRecursiveWithPath(
+                ray,
+                obj,
+                Matrix4x4.Identity,
+                currentPath
+            );
             if (hitPath != null && distance < closestDistance)
             {
                 closestDistance = distance;
@@ -189,7 +197,8 @@ public static class HitTester3D
         Ray3D ray,
         Object3D.Resource obj,
         Matrix4x4 parentMatrix,
-        List<Object3D.Resource> currentPath)
+        List<Object3D.Resource> currentPath
+    )
     {
         if (!obj.IsEnabled)
             return (null, float.MaxValue);
@@ -258,7 +267,8 @@ public static class HitTester3D
         int width,
         int height,
         Camera3D.Resource camera,
-        out Ray3D ray)
+        out Ray3D ray
+    )
     {
         ray = default;
 
@@ -333,10 +343,12 @@ public static class HitTester3D
         {
             float t1 = (bbox.Min.X - ray.Origin.X) / ray.Direction.X;
             float t2 = (bbox.Max.X - ray.Origin.X) / ray.Direction.X;
-            if (t1 > t2) (t1, t2) = (t2, t1);
+            if (t1 > t2)
+                (t1, t2) = (t2, t1);
             tMin = Math.Max(tMin, t1);
             tMax = Math.Min(tMax, t2);
-            if (tMin > tMax) return false;
+            if (tMin > tMax)
+                return false;
         }
         else if (ray.Origin.X < bbox.Min.X || ray.Origin.X > bbox.Max.X)
         {
@@ -348,10 +360,12 @@ public static class HitTester3D
         {
             float t1 = (bbox.Min.Y - ray.Origin.Y) / ray.Direction.Y;
             float t2 = (bbox.Max.Y - ray.Origin.Y) / ray.Direction.Y;
-            if (t1 > t2) (t1, t2) = (t2, t1);
+            if (t1 > t2)
+                (t1, t2) = (t2, t1);
             tMin = Math.Max(tMin, t1);
             tMax = Math.Min(tMax, t2);
-            if (tMin > tMax) return false;
+            if (tMin > tMax)
+                return false;
         }
         else if (ray.Origin.Y < bbox.Min.Y || ray.Origin.Y > bbox.Max.Y)
         {
@@ -363,10 +377,12 @@ public static class HitTester3D
         {
             float t1 = (bbox.Min.Z - ray.Origin.Z) / ray.Direction.Z;
             float t2 = (bbox.Max.Z - ray.Origin.Z) / ray.Direction.Z;
-            if (t1 > t2) (t1, t2) = (t2, t1);
+            if (t1 > t2)
+                (t1, t2) = (t2, t1);
             tMin = Math.Max(tMin, t1);
             tMax = Math.Min(tMax, t2);
-            if (tMin > tMax) return false;
+            if (tMin > tMax)
+                return false;
         }
         else if (ray.Origin.Z < bbox.Min.Z || ray.Origin.Z > bbox.Max.Z)
         {
@@ -421,7 +437,13 @@ public static class HitTester3D
     /// <param name="v2">Third vertex of the triangle.</param>
     /// <param name="t">The distance along the ray to the intersection point.</param>
     /// <returns>True if the ray intersects the triangle.</returns>
-    public static bool RayIntersectsTriangle(Ray3D ray, Vector3 v0, Vector3 v1, Vector3 v2, out float t)
+    public static bool RayIntersectsTriangle(
+        Ray3D ray,
+        Vector3 v0,
+        Vector3 v1,
+        Vector3 v2,
+        out float t
+    )
     {
         const float epsilon = 1e-8f;
         t = 0;

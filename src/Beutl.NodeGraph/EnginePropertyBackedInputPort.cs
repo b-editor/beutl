@@ -45,7 +45,8 @@ public class EnginePropertyBackedInputPort<T> : InputPort<T>, IEnginePropertyBac
 
     public void CopyFrom(IItemValue itemValue)
     {
-        if (itemValue is not ItemValue<T> typed) return;
+        if (itemValue is not ItemValue<T> typed)
+            return;
         if (!Connection.IsNull && _property.Expression is NodePortExpression<T> exp)
         {
             exp.Value = typed.Value;
@@ -55,8 +56,10 @@ public class EnginePropertyBackedInputPort<T> : InputPort<T>, IEnginePropertyBac
     protected override void OnPropertyChanged(PropertyChangedEventArgs args)
     {
         base.OnPropertyChanged(args);
-        if (args is CorePropertyChangedEventArgs coreArgs &&
-            coreArgs.Property.Id == ConnectionProperty.Id)
+        if (
+            args is CorePropertyChangedEventArgs coreArgs
+            && coreArgs.Property.Id == ConnectionProperty.Id
+        )
         {
             _property.Expression = Connection.IsNull ? null : new NodePortExpression<T>();
         }
@@ -90,16 +93,25 @@ internal class NodePortExpressionJsonConverter : JsonConverter<IExpression>
         return typeToConvert.GetGenericTypeDefinition() == typeof(NodePortExpression<>);
     }
 
-    public override IExpression? Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    public override IExpression? Read(
+        ref Utf8JsonReader reader,
+        Type typeToConvert,
+        JsonSerializerOptions options
+    )
     {
         var node = JsonNode.Parse(ref reader);
-        if (node is not JsonObject) throw new JsonException();
+        if (node is not JsonObject)
+            throw new JsonException();
 
         // typeToConvertはNodePortExpression
         return Activator.CreateInstance(typeToConvert) as IExpression;
     }
 
-    public override void Write(Utf8JsonWriter writer, IExpression value, JsonSerializerOptions options)
+    public override void Write(
+        Utf8JsonWriter writer,
+        IExpression value,
+        JsonSerializerOptions options
+    )
     {
         writer.WriteStartObject();
         writer.WriteEndObject();

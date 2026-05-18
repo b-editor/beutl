@@ -12,9 +12,9 @@ public sealed class EditorHostView : ContentControl
             Content = new TextBlock
             {
                 Text = $"""
-                        Error:
-                            {MessageStrings.EditorContextNull}
-                        """
+                    Error:
+                        {MessageStrings.EditorContextNull}
+                    """,
             };
             return;
         }
@@ -33,12 +33,16 @@ public sealed class EditorHostView : ContentControl
             control ??= new TextBlock()
             {
                 Text = $"""
-                           Error:
-                               {string.Format(MessageStrings.FailedToOpenFileWithExtension, viewModel.Extension.DisplayName, viewModel.Object.Uri)}
+                       Error:
+                           {string.Format(
+                        MessageStrings.FailedToOpenFileWithExtension,
+                        viewModel.Extension.DisplayName,
+                        viewModel.Object.Uri
+                    )}
 
-                           Message:
-                               {MessageStrings.EditorContextAlreadyCreated}
-                        """
+                       Message:
+                           {MessageStrings.EditorContextAlreadyCreated}
+                    """,
             };
         }
 

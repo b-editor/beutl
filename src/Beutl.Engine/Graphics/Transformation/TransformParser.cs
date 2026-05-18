@@ -1,7 +1,6 @@
 ﻿using System.Globalization;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
-
 using Beutl.Utilities;
 
 namespace Beutl.Graphics.Transformation;
@@ -20,7 +19,7 @@ internal static class TransformParser
         ("skewX", TransformFunction.SkewX),
         ("skewY", TransformFunction.SkewY),
         ("rotate", TransformFunction.Rotate),
-        ("matrix", TransformFunction.Matrix)
+        ("matrix", TransformFunction.Matrix),
     ];
 
     private static readonly (string, Unit)[] s_unitMapping =
@@ -74,7 +73,8 @@ internal static class TransformParser
                 ThrowInvalidFormat(s);
             }
 
-            ReadOnlySpan<char> valuePart = span.Slice(beginIndex + 1, endIndex - beginIndex - 1).Trim();
+            ReadOnlySpan<char> valuePart = span.Slice(beginIndex + 1, endIndex - beginIndex - 1)
+                .Trim();
 
             ParseFunction(in valuePart, function, ref builder);
 
@@ -129,7 +129,8 @@ internal static class TransformParser
                 ThrowInvalidFormat(s);
             }
 
-            ReadOnlySpan<char> valuePart = span.Slice(beginIndex + 1, endIndex - beginIndex - 1).Trim();
+            ReadOnlySpan<char> valuePart = span.Slice(beginIndex + 1, endIndex - beginIndex - 1)
+                .Trim();
 
             ParseFunction(in valuePart, function, ref builder);
 
@@ -147,7 +148,8 @@ internal static class TransformParser
     private static void ParseFunction(
         in ReadOnlySpan<char> functionPart,
         TransformFunction function,
-        ref Builder builder)
+        ref Builder builder
+    )
     {
         static UnitValue ParseValue(ReadOnlySpan<char> part)
         {
@@ -185,14 +187,19 @@ internal static class TransformParser
         static int ParseValuePair(
             in ReadOnlySpan<char> part,
             ref UnitValue leftValue,
-            ref UnitValue rightValue)
+            ref UnitValue rightValue
+        )
         {
             int commaIndex = part.IndexOf(',');
 
             if (commaIndex != -1)
             {
                 ReadOnlySpan<char> leftPart = part.Slice(0, commaIndex).Trim();
-                ReadOnlySpan<char> rightPart = part.Slice(commaIndex + 1, part.Length - commaIndex - 1).Trim();
+                ReadOnlySpan<char> rightPart = part.Slice(
+                        commaIndex + 1,
+                        part.Length - commaIndex - 1
+                    )
+                    .Trim();
 
                 leftValue = ParseValue(leftPart);
                 rightValue = ParseValue(rightPart);
@@ -243,143 +250,168 @@ internal static class TransformParser
             case TransformFunction.Scale:
             case TransformFunction.ScaleX:
             case TransformFunction.ScaleY:
+            {
+                UnitValue scaleX = UnitValue.One;
+                UnitValue scaleY = UnitValue.One;
+
+                int count = ParseValuePair(functionPart, ref scaleX, ref scaleY);
+
+                if (
+                    count != 1
+                    && (
+                        function == TransformFunction.ScaleX || function == TransformFunction.ScaleY
+                    )
+                )
                 {
-                    UnitValue scaleX = UnitValue.One;
-                    UnitValue scaleY = UnitValue.One;
-
-                    int count = ParseValuePair(functionPart, ref scaleX, ref scaleY);
-
-                    if (count != 1 && (function == TransformFunction.ScaleX || function == TransformFunction.ScaleY))
-                    {
-                        ThrowFormatInvalidValueCount(function, 1);
-                    }
-
-                    VerifyZeroOrScale(function, in scaleX);
-                    VerifyZeroOrScale(function, in scaleY);
-
-                    if (function == TransformFunction.ScaleY)
-                    {
-                        scaleY = scaleX;
-                        scaleX = UnitValue.One;
-                    }
-                    else if (function == TransformFunction.Scale && count == 1)
-                    {
-                        scaleY = scaleX;
-                    }
-
-                    builder.AppendScale(ToScale(in scaleX), ToScale(in scaleY));
-
-                    break;
+                    ThrowFormatInvalidValueCount(function, 1);
                 }
+
+                VerifyZeroOrScale(function, in scaleX);
+                VerifyZeroOrScale(function, in scaleY);
+
+                if (function == TransformFunction.ScaleY)
+                {
+                    scaleY = scaleX;
+                    scaleX = UnitValue.One;
+                }
+                else if (function == TransformFunction.Scale && count == 1)
+                {
+                    scaleY = scaleX;
+                }
+
+                builder.AppendScale(ToScale(in scaleX), ToScale(in scaleY));
+
+                break;
+            }
             case TransformFunction.Skew:
             case TransformFunction.SkewX:
             case TransformFunction.SkewY:
+            {
+                UnitValue skewX = UnitValue.Zero;
+                UnitValue skewY = UnitValue.Zero;
+
+                int count = ParseValuePair(functionPart, ref skewX, ref skewY);
+
+                if (
+                    count != 1
+                    && (function == TransformFunction.SkewX || function == TransformFunction.SkewY)
+                )
                 {
-                    UnitValue skewX = UnitValue.Zero;
-                    UnitValue skewY = UnitValue.Zero;
-
-                    int count = ParseValuePair(functionPart, ref skewX, ref skewY);
-
-                    if (count != 1 && (function == TransformFunction.SkewX || function == TransformFunction.SkewY))
-                    {
-                        ThrowFormatInvalidValueCount(function, 1);
-                    }
-
-                    VerifyZeroOrAngle(function, in skewX);
-                    VerifyZeroOrAngle(function, in skewY);
-
-                    if (function == TransformFunction.SkewY)
-                    {
-                        skewY = skewX;
-                        skewX = UnitValue.Zero;
-                    }
-
-                    builder.AppendSkew(ToRadians(in skewX), ToRadians(in skewY));
-
-                    break;
+                    ThrowFormatInvalidValueCount(function, 1);
                 }
+
+                VerifyZeroOrAngle(function, in skewX);
+                VerifyZeroOrAngle(function, in skewY);
+
+                if (function == TransformFunction.SkewY)
+                {
+                    skewY = skewX;
+                    skewX = UnitValue.Zero;
+                }
+
+                builder.AppendSkew(ToRadians(in skewX), ToRadians(in skewY));
+
+                break;
+            }
             case TransformFunction.Rotate:
+            {
+                UnitValue angle = UnitValue.Zero;
+                UnitValue _ = default;
+
+                int count = ParseValuePair(functionPart, ref angle, ref _);
+
+                if (count != 1)
                 {
-                    UnitValue angle = UnitValue.Zero;
-                    UnitValue _ = default;
-
-                    int count = ParseValuePair(functionPart, ref angle, ref _);
-
-                    if (count != 1)
-                    {
-                        ThrowFormatInvalidValueCount(function, 1);
-                    }
-
-                    VerifyZeroOrAngle(function, in angle);
-
-                    builder.AppendRotate(ToRadians(in angle));
-
-                    break;
+                    ThrowFormatInvalidValueCount(function, 1);
                 }
+
+                VerifyZeroOrAngle(function, in angle);
+
+                builder.AppendRotate(ToRadians(in angle));
+
+                break;
+            }
             case TransformFunction.Translate:
             case TransformFunction.TranslateX:
             case TransformFunction.TranslateY:
+            {
+                UnitValue translateX = UnitValue.Zero;
+                UnitValue translateY = UnitValue.Zero;
+
+                int count = ParseValuePair(functionPart, ref translateX, ref translateY);
+
+                if (
+                    count != 1
+                    && (
+                        function == TransformFunction.TranslateX
+                        || function == TransformFunction.TranslateY
+                    )
+                )
                 {
-                    UnitValue translateX = UnitValue.Zero;
-                    UnitValue translateY = UnitValue.Zero;
-
-                    int count = ParseValuePair(functionPart, ref translateX, ref translateY);
-
-                    if (count != 1 && (function == TransformFunction.TranslateX || function == TransformFunction.TranslateY))
-                    {
-                        ThrowFormatInvalidValueCount(function, 1);
-                    }
-
-                    VerifyZeroOrUnit(function, in translateX, Unit.Pixel);
-                    VerifyZeroOrUnit(function, in translateY, Unit.Pixel);
-
-                    if (function == TransformFunction.TranslateY)
-                    {
-                        translateY = translateX;
-                        translateX = UnitValue.Zero;
-                    }
-
-                    builder.AppendTranslate(translateX.Value, translateY.Value);
-
-                    break;
+                    ThrowFormatInvalidValueCount(function, 1);
                 }
+
+                VerifyZeroOrUnit(function, in translateX, Unit.Pixel);
+                VerifyZeroOrUnit(function, in translateY, Unit.Pixel);
+
+                if (function == TransformFunction.TranslateY)
+                {
+                    translateY = translateX;
+                    translateX = UnitValue.Zero;
+                }
+
+                builder.AppendTranslate(translateX.Value, translateY.Value);
+
+                break;
+            }
             case TransformFunction.Matrix:
+            {
+                Span<UnitValue> values = stackalloc UnitValue[9];
+
+                int count = ParseCommaDelimitedValues(functionPart, in values);
+
+                if (count is not (6 or 9))
                 {
-                    Span<UnitValue> values = stackalloc UnitValue[9];
-
-                    int count = ParseCommaDelimitedValues(functionPart, in values);
-
-                    if (count is not (6 or 9))
-                    {
-                        ThrowFormatInvalidValueCount(function, 6);
-                    }
-
-                    foreach (UnitValue value in values)
-                    {
-                        VerifyZeroOrUnit(function, value, Unit.None);
-                    }
-
-                    if (count == 6)
-                    {
-                        var matrix = new Matrix(
-                            values[0].Value, values[1].Value,
-                            values[2].Value, values[3].Value,
-                            values[4].Value, values[5].Value);
-
-                        builder.AppendMatrix(matrix);
-                    }
-                    else if (count == 9)
-                    {
-                        var matrix = new Matrix(
-                            values[0].Value, values[1].Value, values[2].Value,
-                            values[3].Value, values[4].Value, values[5].Value,
-                            values[6].Value, values[7].Value, values[8].Value);
-
-                        builder.AppendMatrix(matrix);
-                    }
-
-                    break;
+                    ThrowFormatInvalidValueCount(function, 6);
                 }
+
+                foreach (UnitValue value in values)
+                {
+                    VerifyZeroOrUnit(function, value, Unit.None);
+                }
+
+                if (count == 6)
+                {
+                    var matrix = new Matrix(
+                        values[0].Value,
+                        values[1].Value,
+                        values[2].Value,
+                        values[3].Value,
+                        values[4].Value,
+                        values[5].Value
+                    );
+
+                    builder.AppendMatrix(matrix);
+                }
+                else if (count == 9)
+                {
+                    var matrix = new Matrix(
+                        values[0].Value,
+                        values[1].Value,
+                        values[2].Value,
+                        values[3].Value,
+                        values[4].Value,
+                        values[5].Value,
+                        values[6].Value,
+                        values[7].Value,
+                        values[8].Value
+                    );
+
+                    builder.AppendMatrix(matrix);
+                }
+
+                break;
+            }
         }
     }
 
@@ -463,7 +495,7 @@ internal static class TransformParser
             Unit.Gradian => MathUtilities.Grad2Rad(value.Value),
             Unit.Degree => MathUtilities.Deg2Rad(value.Value),
             Unit.Turn => MathUtilities.Turn2Rad(value.Value),
-            _ => value.Value
+            _ => value.Value,
         };
     }
 
@@ -473,7 +505,7 @@ internal static class TransformParser
         {
             Unit.None => value.Value,
             Unit.Relative => value.Value / 100,
-            _ => value.Value
+            _ => value.Value,
         };
     }
 
@@ -485,7 +517,7 @@ internal static class TransformParser
         Gradian,
         Degree,
         Turn,
-        Relative
+        Relative,
     }
 
     private readonly struct UnitValue(Unit unit, float value)
@@ -511,7 +543,7 @@ internal static class TransformParser
         SkewX,
         SkewY,
         Rotate,
-        Matrix
+        Matrix,
     }
 
     public readonly struct Builder(int capacity)
@@ -616,23 +648,29 @@ internal static class TransformParser
         Scale,
         Skew,
         Matrix,
-        Identity
+        Identity,
     }
 
     [StructLayout(LayoutKind.Explicit)]
     public unsafe struct DataLayout
     {
-        [FieldOffset(0)] public MatrixLayout Matrix;
+        [FieldOffset(0)]
+        public MatrixLayout Matrix;
 
-        [FieldOffset(0)] public SkewLayout Skew;
+        [FieldOffset(0)]
+        public SkewLayout Skew;
 
-        [FieldOffset(0)] public ScaleLayout Scale;
+        [FieldOffset(0)]
+        public ScaleLayout Scale;
 
-        [FieldOffset(0)] public TranslateLayout Translate;
+        [FieldOffset(0)]
+        public TranslateLayout Translate;
 
-        [FieldOffset(0)] public RotateLayout Rotate;
+        [FieldOffset(0)]
+        public RotateLayout Rotate;
 
-        [FieldOffset(4 * 3 * 3)] public DataType Type;
+        [FieldOffset(4 * 3 * 3)]
+        public DataType Type;
 
         public readonly Matrix ToMatrix()
         {
@@ -655,7 +693,10 @@ internal static class TransformParser
                 DataType.Translate => new TranslateTransform(Translate.X, Translate.Y),
                 DataType.Rotate => new RotationTransform(MathUtilities.Rad2Deg(Rotate.Angle)),
                 DataType.Scale => new ScaleTransform(Scale.X * 100f, Scale.Y * 100f),
-                DataType.Skew => new SkewTransform(MathUtilities.Rad2Deg(Skew.X), MathUtilities.Rad2Deg(Skew.Y)),
+                DataType.Skew => new SkewTransform(
+                    MathUtilities.Rad2Deg(Skew.X),
+                    MathUtilities.Rad2Deg(Skew.Y)
+                ),
                 DataType.Matrix => new MatrixTransform(Matrix.Value),
                 DataType.Identity => new MatrixTransform(Graphics.Matrix.Identity),
                 _ => throw new InvalidOperationException(),

@@ -1,7 +1,5 @@
 ﻿using System.Reactive.Subjects;
-
 using Beutl.Reactive;
-
 using NuGet.Packaging.Core;
 using NuGet.Versioning;
 
@@ -124,7 +122,11 @@ public class PackageChangesQueue : IBeutlApiResource
                 {
                     observer.OnNext(EventType.Install);
                 }
-                else if (_queue._uninstalls.Any(x => StringComparer.OrdinalIgnoreCase.Equals(x.Id, _name)))
+                else if (
+                    _queue._uninstalls.Any(x =>
+                        StringComparer.OrdinalIgnoreCase.Equals(x.Id, _name)
+                    )
+                )
                 {
                     observer.OnNext(EventType.Uninstall);
                 }
@@ -143,14 +145,15 @@ public class PackageChangesQueue : IBeutlApiResource
 
         protected override void Initialize()
         {
-            _disposable = _queue._subject
-                .Subscribe(OnReceived);
+            _disposable = _queue._subject.Subscribe(OnReceived);
         }
 
         private void OnReceived((PackageIdentity Package, EventType Type) obj)
         {
-            if ((_packageIdentity != null && _packageIdentity == obj.Package)
-                || StringComparer.OrdinalIgnoreCase.Equals(obj.Package.Id, _name))
+            if (
+                (_packageIdentity != null && _packageIdentity == obj.Package)
+                || StringComparer.OrdinalIgnoreCase.Equals(obj.Package.Id, _name)
+            )
             {
                 PublishNext(obj.Type);
             }

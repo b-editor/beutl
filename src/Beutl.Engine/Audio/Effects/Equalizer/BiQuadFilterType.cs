@@ -38,5 +38,5 @@ public enum BiQuadFilterType
     /// <summary>
     /// High-shelf filter - adjusts the gain of frequencies above the cutoff frequency.
     /// </summary>
-    HighShelf
+    HighShelf,
 }

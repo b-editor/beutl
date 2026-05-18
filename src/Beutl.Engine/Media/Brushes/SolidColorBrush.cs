@@ -23,7 +23,8 @@ public partial class SolidColorBrush : Brush
     /// </summary>
     /// <param name="color">The color to use.</param>
     /// <param name="opacity">The opacity of the brush.</param>
-    public SolidColorBrush(Color color, float opacity = 100) : this()
+    public SolidColorBrush(Color color, float opacity = 100)
+        : this()
     {
         Color.CurrentValue = color;
         Opacity.CurrentValue = opacity;
@@ -34,9 +35,7 @@ public partial class SolidColorBrush : Brush
     /// </summary>
     /// <param name="color">The color to use.</param>
     public SolidColorBrush(uint color)
-        : this(Media.Color.FromUInt32(color))
-    {
-    }
+        : this(Media.Color.FromUInt32(color)) { }
 
     /// <summary>
     /// Gets or sets the color of the brush.

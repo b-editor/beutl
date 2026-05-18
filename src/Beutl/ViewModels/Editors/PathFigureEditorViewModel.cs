@@ -9,7 +9,9 @@ using Reactive.Bindings;
 
 namespace Beutl.ViewModels.Editors;
 
-public sealed class PathFigureEditorViewModel : ValueEditorViewModel<PathFigure>, IPathFigureEditorContext
+public sealed class PathFigureEditorViewModel
+    : ValueEditorViewModel<PathFigure>,
+        IPathFigureEditorContext
 {
     private readonly ReactivePropertySlim<EditViewModel?> _editViewModel = new();
 
@@ -18,10 +20,12 @@ public sealed class PathFigureEditorViewModel : ValueEditorViewModel<PathFigure>
     {
         _editViewModel.DisposeWith(Disposables);
 
-        IsExpanded.SkipWhile(v => !v)
+        IsExpanded
+            .SkipWhile(v => !v)
             .Take(1)
             .Subscribe(_ =>
-                Value.Subscribe(v =>
+                Value
+                    .Subscribe(v =>
                     {
                         Properties.Value?.Dispose();
                         Properties.Value = null;
@@ -30,28 +34,39 @@ public sealed class PathFigureEditorViewModel : ValueEditorViewModel<PathFigure>
 
                         if (v is { } group)
                         {
-                            var prop = new EnginePropertyAdapter<ICoreList<PathSegment>>(group.Segments, group);
-                            Group.Value = new ListEditorViewModel<PathSegment>(prop) { IsExpanded = { Value = true } };
+                            var prop = new EnginePropertyAdapter<ICoreList<PathSegment>>(
+                                group.Segments,
+                                group
+                            );
+                            Group.Value = new ListEditorViewModel<PathSegment>(prop)
+                            {
+                                IsExpanded = { Value = true },
+                            };
 
-                            Properties.Value = new PropertiesEditorViewModel(group,
-                                p => p == group.StartPoint
-                                     || p == group.IsClosed);
+                            Properties.Value = new PropertiesEditorViewModel(
+                                group,
+                                p => p == group.StartPoint || p == group.IsClosed
+                            );
                         }
 
                         AcceptChild();
                     })
-                    .DisposeWith(Disposables))
+                    .DisposeWith(Disposables)
+            )
             .DisposeWith(Disposables);
 
         EditingPath = _editViewModel
-            .Select(v => v?.Player.PathEditor.PathFigure ?? Observable.ReturnThenNever<PathFigure?>(null))
+            .Select(v =>
+                v?.Player.PathEditor.PathFigure ?? Observable.ReturnThenNever<PathFigure?>(null)
+            )
             .Switch()
             .CombineLatest(Value)
             .Select(t => t.First == t.Second && t.First != null)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(Disposables);
 
-        Value.Select(i => i.ToAvaGeometrySync(CurrentTime))
+        Value
+            .Select(i => i.ToAvaGeometrySync(CurrentTime))
             .CombineWithPrevious()
             // Null-conditionalアクセスがグレーアウトしているが必要なはず...
             .Do(t => t.OldValue.Item2?.Dispose())
@@ -86,13 +101,16 @@ public sealed class PathFigureEditorViewModel : ValueEditorViewModel<PathFigure>
 
     private void AcceptChild()
     {
-        NestedEditorContextHelper.AcceptChildren(new ChildVisitor(this), Group.Value, Properties.Value);
+        NestedEditorContextHelper.AcceptChildren(
+            new ChildVisitor(this),
+            Group.Value,
+            Properties.Value
+        );
     }
 
     public void AddItem(Type type)
     {
-        if (Value.Value is { } group
-            && Activator.CreateInstance(type) is PathSegment instance)
+        if (Value.Value is { } group && Activator.CreateInstance(type) is PathSegment instance)
         {
             group.Segments.Add(instance);
             Commit();
@@ -113,10 +131,16 @@ public sealed class PathFigureEditorViewModel : ValueEditorViewModel<PathFigure>
     public override void WriteToJson(JsonObject json)
     {
         base.WriteToJson(json);
-        NestedEditorContextHelper.WriteNestedJson(json, IsExpanded.Value, Properties.Value, Group.Value);
+        NestedEditorContextHelper.WriteNestedJson(
+            json,
+            IsExpanded.Value,
+            Properties.Value,
+            Group.Value
+        );
     }
 
-    public IGeometryEditorContext? GetParentContext() => ParentContext.Value as IGeometryEditorContext;
+    public IGeometryEditorContext? GetParentContext() =>
+        ParentContext.Value as IGeometryEditorContext;
 
     public void ExpandForEditing()
     {
@@ -132,8 +156,10 @@ public sealed class PathFigureEditorViewModel : ValueEditorViewModel<PathFigure>
         {
             foreach (ListItemEditorViewModel<PathSegment> item in group.Items)
             {
-                if (item.Context is PathOperationEditorViewModel opEditor
-                    && opEditor.ProgrammaticallyExpanded)
+                if (
+                    item.Context is PathOperationEditorViewModel opEditor
+                    && opEditor.ProgrammaticallyExpanded
+                )
                 {
                     opEditor.IsExpanded.Value = false;
                 }
@@ -193,8 +219,10 @@ public sealed class PathFigureEditorViewModel : ValueEditorViewModel<PathFigure>
                 tab.FigureContext.Value = null;
             }
 
-            if (editViewModel is { Player.PathEditor: { } pathEditor }
-                && pathEditor.FigureContext.Value == this)
+            if (
+                editViewModel is { Player.PathEditor: { } pathEditor }
+                && pathEditor.FigureContext.Value == this
+            )
             {
                 pathEditor.FigureContext.Value = null;
             }
@@ -206,5 +234,4 @@ public sealed class PathFigureEditorViewModel : ValueEditorViewModel<PathFigure>
         Properties.Value?.Dispose();
         Group.Value?.Dispose();
     }
-
 }

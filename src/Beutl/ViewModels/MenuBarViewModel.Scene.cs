@@ -14,35 +14,42 @@ namespace Beutl.ViewModels;
 
 public partial class MenuBarViewModel
 {
-    [MemberNotNull(nameof(DeleteLayer), nameof(ExcludeLayer), nameof(CutLayer), nameof(PasteLayer), nameof(CopyLayer), nameof(ShowSceneSettings), nameof(RemoveFromProject))]
+    [MemberNotNull(
+        nameof(DeleteLayer),
+        nameof(ExcludeLayer),
+        nameof(CutLayer),
+        nameof(PasteLayer),
+        nameof(CopyLayer),
+        nameof(ShowSceneSettings),
+        nameof(RemoveFromProject)
+    )]
     private void InitializeSceneCommands(IObservable<bool> isSceneOpened)
     {
-        IObservable<bool> isProjectOpenedAndTabOpened = ProjectService.Current.IsOpened
-            .CombineLatest(EditorService.Current.SelectedTabItem)
+        IObservable<bool> isProjectOpenedAndTabOpened = ProjectService
+            .Current.IsOpened.CombineLatest(EditorService.Current.SelectedTabItem)
             .Select(i => i is { First: true, Second: not null });
 
         RemoveFromProject = new(isProjectOpenedAndTabOpened);
 
         DeleteLayer = new(isSceneOpened);
-        ExcludeLayer = new ReactiveCommandSlim(isSceneOpened)
-            .WithSubscribe(OnExcludeElement);
+        ExcludeLayer = new ReactiveCommandSlim(isSceneOpened).WithSubscribe(OnExcludeElement);
 
-        CutLayer = new AsyncReactiveCommand(isSceneOpened)
-            .WithSubscribe(OnCutElement);
-        CopyLayer = new AsyncReactiveCommand(isSceneOpened)
-            .WithSubscribe(OnCopyElement);
-        PasteLayer = new ReactiveCommandSlim(isSceneOpened)
-            .WithSubscribe(() =>
+        CutLayer = new AsyncReactiveCommand(isSceneOpened).WithSubscribe(OnCutElement);
+        CopyLayer = new AsyncReactiveCommand(isSceneOpened).WithSubscribe(OnCopyElement);
+        PasteLayer = new ReactiveCommandSlim(isSceneOpened).WithSubscribe(() =>
+        {
+            if (
+                TryGetSelectedEditViewModel(out EditViewModel? viewModel)
+                && viewModel.FindToolTab<TimelineTabViewModel>() is TimelineTabViewModel timeline
+            )
             {
-                if (TryGetSelectedEditViewModel(out EditViewModel? viewModel)
-                    && viewModel.FindToolTab<TimelineTabViewModel>() is TimelineTabViewModel timeline)
-                {
-                    timeline.Paste.Execute();
-                }
-            });
+                timeline.Paste.Execute();
+            }
+        });
 
-        ShowSceneSettings = new ReactiveCommandSlim(isSceneOpened)
-            .WithSubscribe(OnShowSceneSettings);
+        ShowSceneSettings = new ReactiveCommandSlim(isSceneOpened).WithSubscribe(
+            OnShowSceneSettings
+        );
     }
 
     // Scene
@@ -72,9 +79,14 @@ public partial class MenuBarViewModel
 
     public ReactiveCommandSlim ShowSceneSettings { get; private set; }
 
-    private static bool TryGetSelectedEditViewModel([NotNullWhen(true)] out EditViewModel? viewModel)
+    private static bool TryGetSelectedEditViewModel(
+        [NotNullWhen(true)] out EditViewModel? viewModel
+    )
     {
-        if (EditorService.Current.SelectedTabItem.Value?.Context.Value is EditViewModel editViewModel)
+        if (
+            EditorService.Current.SelectedTabItem.Value?.Context.Value
+            is EditViewModel editViewModel
+        )
         {
             viewModel = editViewModel;
             return true;
@@ -98,9 +110,11 @@ public partial class MenuBarViewModel
 
     private void OnExcludeElement()
     {
-        if (TryGetSelectedEditViewModel(out EditViewModel? viewModel)
+        if (
+            TryGetSelectedEditViewModel(out EditViewModel? viewModel)
             && viewModel.Scene is Scene scene
-            && viewModel.GetService<IEditorSelection>()?.SelectedObject.Value is Element element)
+            && viewModel.GetService<IEditorSelection>()?.SelectedObject.Value is Element element
+        )
         {
             scene.RemoveChild(element);
             viewModel.HistoryManager.Commit(CommandNames.RemoveElement);
@@ -109,10 +123,12 @@ public partial class MenuBarViewModel
 
     private async Task OnCutElement()
     {
-        if (ClipboardHelper.GetClipboard() is IClipboard clipboard
+        if (
+            ClipboardHelper.GetClipboard() is IClipboard clipboard
             && TryGetSelectedEditViewModel(out EditViewModel? viewModel)
             && viewModel.Scene is Scene scene
-            && viewModel.GetService<IEditorSelection>()?.SelectedObject.Value is Element element)
+            && viewModel.GetService<IEditorSelection>()?.SelectedObject.Value is Element element
+        )
         {
             DataTransfer data = CreateElementDataObject(element);
 
@@ -124,9 +140,11 @@ public partial class MenuBarViewModel
 
     private async Task OnCopyElement()
     {
-        if (ClipboardHelper.GetClipboard() is IClipboard clipboard
+        if (
+            ClipboardHelper.GetClipboard() is IClipboard clipboard
             && TryGetSelectedEditViewModel(out EditViewModel? viewModel)
-            && viewModel.GetService<IEditorSelection>()?.SelectedObject.Value is Element element)
+            && viewModel.GetService<IEditorSelection>()?.SelectedObject.Value is Element element
+        )
         {
             DataTransfer data = CreateElementDataObject(element);
 

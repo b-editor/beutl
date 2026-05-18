@@ -41,32 +41,37 @@ internal static class FFmpegBinaryLocator
                 "runtimes",
                 GetWindowsRuntimeIdentifier(),
                 "native",
-                "ffmpeg.exe");
+                "ffmpeg.exe"
+            );
         }
     }
 
-    private static string GetWindowsRuntimeIdentifier() => RuntimeInformation.ProcessArchitecture switch
-    {
-        Architecture.Arm64 => "win-arm64",
-        Architecture.X86 => "win-x86",
-        _ => "win-x64",
-    };
+    private static string GetWindowsRuntimeIdentifier() =>
+        RuntimeInformation.ProcessArchitecture switch
+        {
+            Architecture.Arm64 => "win-arm64",
+            Architecture.X86 => "win-x86",
+            _ => "win-x64",
+        };
 
     private static bool CanLaunch(string path)
     {
         Process? process = null;
         try
         {
-            process = Process.Start(new ProcessStartInfo
-            {
-                FileName = path,
-                Arguments = "-version",
-                UseShellExecute = false,
-                CreateNoWindow = true,
-                RedirectStandardOutput = true,
-                RedirectStandardError = true,
-            });
-            if (process is null) return false;
+            process = Process.Start(
+                new ProcessStartInfo
+                {
+                    FileName = path,
+                    Arguments = "-version",
+                    UseShellExecute = false,
+                    CreateNoWindow = true,
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true,
+                }
+            );
+            if (process is null)
+                return false;
 
             // Drain stdout/stderr so the child does not block on a full pipe when
             // ffmpeg -version produces a long configuration banner.
@@ -79,8 +84,13 @@ internal static class FFmpegBinaryLocator
             {
                 // Disposing the Process object does not terminate the underlying process,
                 // so explicitly kill it to avoid leaving a stray ffmpeg around.
-                try { process.Kill(entireProcessTree: true); }
-                catch { /* best effort */ }
+                try
+                {
+                    process.Kill(entireProcessTree: true);
+                }
+                catch
+                { /* best effort */
+                }
                 return false;
             }
 

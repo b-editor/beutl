@@ -1,6 +1,5 @@
 ﻿using System.Diagnostics.CodeAnalysis;
 using System.Text.Json.Nodes;
-
 using Beutl.Serialization;
 
 namespace Beutl.Configuration;
@@ -12,10 +11,7 @@ public sealed class GlobalConfiguration
 
     public static string DefaultFilePath
     {
-        get
-        {
-            return Path.Combine(BeutlEnvironment.GetHomeDirectoryPath(), "settings.json");
-        }
+        get { return Path.Combine(BeutlEnvironment.GetHomeDirectoryPath(), "settings.json"); }
     }
 
     private GlobalConfiguration()
@@ -56,10 +52,7 @@ public sealed class GlobalConfiguration
                 Directory.CreateDirectory(dir);
             }
 
-            var json = new JsonObject()
-            {
-                ["Version"] = BeutlApplication.Version
-            };
+            var json = new JsonObject() { ["Version"] = BeutlApplication.Version };
 
             json["Font"] = CoreSerializer.SerializeToJsonObject(FontConfig);
 
@@ -130,8 +123,10 @@ public sealed class GlobalConfiguration
                 if (json["Tutorial"] is JsonObject tutorial)
                     Deserialize(TutorialConfig, tutorial);
 
-                if (json["Version"] is JsonValue version
-                    && version.TryGetValue(out string? versionString))
+                if (
+                    json["Version"] is JsonValue version
+                    && version.TryGetValue(out string? versionString)
+                )
                 {
                     LastStartedVersion = versionString;
                 }

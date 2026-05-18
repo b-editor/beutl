@@ -4,7 +4,6 @@ using System.Globalization;
 using System.Numerics;
 using System.Text.Json.Serialization;
 using System.Text.Unicode;
-
 using Beutl.Converters;
 using Beutl.Media;
 using Beutl.Utilities;
@@ -23,22 +22,22 @@ namespace Beutl.Graphics;
 [TypeConverter(typeof(SizeConverter))]
 public readonly struct Size(float width, float height)
     : IEquatable<Size>,
-      IParsable<Size>,
-      ISpanParsable<Size>,
-      ISpanFormattable,
-      IUtf8SpanFormattable,
-      IUtf8SpanParsable<Size>,
-      IEqualityOperators<Size, Size, bool>,
-      IMultiplyOperators<Size, Vector, Size>,
-      IDivisionOperators<Size, Vector, Size>,
-      IDivisionOperators<Size, Size, Vector>,
-      IMultiplyOperators<Size, float, Size>,
-      IDivisionOperators<Size, float, Size>,
-      IAdditionOperators<Size, Size, Size>,
-      ISubtractionOperators<Size, Size, Size>,
-      IAdditionOperators<Size, Thickness, Size>,
-      ISubtractionOperators<Size, Thickness, Size>,
-      ITupleConvertible<Size, float>
+        IParsable<Size>,
+        ISpanParsable<Size>,
+        ISpanFormattable,
+        IUtf8SpanFormattable,
+        IUtf8SpanParsable<Size>,
+        IEqualityOperators<Size, Size, bool>,
+        IMultiplyOperators<Size, Vector, Size>,
+        IDivisionOperators<Size, Vector, Size>,
+        IDivisionOperators<Size, Size, Vector>,
+        IMultiplyOperators<Size, float, Size>,
+        IDivisionOperators<Size, float, Size>,
+        IAdditionOperators<Size, Size, Size>,
+        ISubtractionOperators<Size, Size, Size>,
+        IAdditionOperators<Size, Thickness, Size>,
+        ISubtractionOperators<Size, Thickness, Size>,
+        ITupleConvertible<Size, float>
 {
     /// <summary>
     /// A size representing infinity.
@@ -169,7 +168,8 @@ public readonly struct Size(float width, float height)
     {
         return new Size(
             size.Width + thickness.Left + thickness.Right,
-            size.Height + thickness.Top + thickness.Bottom);
+            size.Height + thickness.Top + thickness.Bottom
+        );
     }
 
     /// <summary>
@@ -182,7 +182,8 @@ public readonly struct Size(float width, float height)
     {
         return new Size(
             size.Width - (thickness.Left + thickness.Right),
-            size.Height - (thickness.Top + thickness.Bottom));
+            size.Height - (thickness.Top + thickness.Bottom)
+        );
     }
 
     /// <summary>
@@ -234,9 +235,7 @@ public readonly struct Size(float width, float height)
     /// <returns>The constrained size.</returns>
     public Size Constrain(Size constraint)
     {
-        return new Size(
-            MathF.Min(Width, constraint.Width),
-            MathF.Min(Height, constraint.Height));
+        return new Size(MathF.Min(Width, constraint.Width), MathF.Min(Height, constraint.Height));
     }
 
     /// <summary>
@@ -249,7 +248,8 @@ public readonly struct Size(float width, float height)
     {
         return new Size(
             MathF.Max(0, Width - thickness.Left - thickness.Right),
-            MathF.Max(0, Height - thickness.Top - thickness.Bottom));
+            MathF.Max(0, Height - thickness.Top - thickness.Bottom)
+        );
     }
 
     /// <summary>
@@ -262,7 +262,8 @@ public readonly struct Size(float width, float height)
     {
         return new Size(
             MathF.Max(0, Width - (thickness * 2)),
-            MathF.Max(0, Height - (thickness * 2)));
+            MathF.Max(0, Height - (thickness * 2))
+        );
     }
 
     /// <summary>
@@ -272,8 +273,7 @@ public readonly struct Size(float width, float height)
     /// <returns>True if this size is equal to other; False otherwise.</returns>
     public bool Equals(Size other)
     {
-        return Width == other.Width &&
-               Height == other.Height;
+        return Width == other.Width && Height == other.Height;
     }
 
     /// <summary>
@@ -283,8 +283,8 @@ public readonly struct Size(float width, float height)
     /// <returns>True if this size is equal to other; False otherwise.</returns>
     public bool NearlyEquals(Size other)
     {
-        return MathUtilities.AreClose(Width, other.Width) &&
-               MathUtilities.AreClose(Height, other.Height);
+        return MathUtilities.AreClose(Width, other.Width)
+            && MathUtilities.AreClose(Height, other.Height);
     }
 
     /// <summary>
@@ -317,7 +317,8 @@ public readonly struct Size(float width, float height)
     {
         return new Size(
             Width + thickness.Left + thickness.Right,
-            Height + thickness.Top + thickness.Bottom);
+            Height + thickness.Top + thickness.Bottom
+        );
     }
 
     /// <summary>
@@ -327,9 +328,7 @@ public readonly struct Size(float width, float height)
     /// <returns>The inflated size.</returns>
     public Size Inflate(float thickness)
     {
-        return new Size(
-            Width + (thickness * 2),
-            Height + (thickness * 2));
+        return new Size(Width + (thickness * 2), Height + (thickness * 2));
     }
 
     /// <summary>
@@ -382,17 +381,23 @@ public readonly struct Size(float width, float height)
         return Parse(s.AsSpan(), provider);
     }
 
-    public static bool TryParse([NotNullWhen(true)] string? s, IFormatProvider? provider, out Size result)
+    public static bool TryParse(
+        [NotNullWhen(true)] string? s,
+        IFormatProvider? provider,
+        out Size result
+    )
     {
         return TryParse(s.AsSpan(), provider, out result);
     }
 
     public static Size Parse(ReadOnlySpan<char> s, IFormatProvider? provider)
     {
-        using var tokenizer = new RefStringTokenizer(s, provider ?? CultureInfo.InvariantCulture, exceptionMessage: "Invalid Size.");
-        return new Size(
-            tokenizer.ReadSingle(),
-            tokenizer.ReadSingle());
+        using var tokenizer = new RefStringTokenizer(
+            s,
+            provider ?? CultureInfo.InvariantCulture,
+            exceptionMessage: "Invalid Size."
+        );
+        return new Size(tokenizer.ReadSingle(), tokenizer.ReadSingle());
     }
 
     public static bool TryParse(ReadOnlySpan<char> s, IFormatProvider? provider, out Size result)
@@ -420,10 +425,20 @@ public readonly struct Size(float width, float height)
         self = new Size(tuple[0], tuple[1]);
     }
 
-    public bool TryFormat(Span<char> destination, out int charsWritten, ReadOnlySpan<char> format = default, IFormatProvider? provider = null)
+    public bool TryFormat(
+        Span<char> destination,
+        out int charsWritten,
+        ReadOnlySpan<char> format = default,
+        IFormatProvider? provider = null
+    )
     {
         char separator = TokenizerHelper.GetSeparatorFromFormatProvider(provider);
-        return MemoryExtensions.TryWrite(destination, provider, $"{Width}{separator} {Height}", out charsWritten);
+        return MemoryExtensions.TryWrite(
+            destination,
+            provider,
+            $"{Width}{separator} {Height}",
+            out charsWritten
+        );
     }
 
     public string ToString(string? format, IFormatProvider? formatProvider)
@@ -432,10 +447,20 @@ public readonly struct Size(float width, float height)
         return string.Create(formatProvider, $"{Width}{separator} {Height}");
     }
 
-    public bool TryFormat(Span<byte> utf8Destination, out int bytesWritten, ReadOnlySpan<char> format = default, IFormatProvider? provider = null)
+    public bool TryFormat(
+        Span<byte> utf8Destination,
+        out int bytesWritten,
+        ReadOnlySpan<char> format = default,
+        IFormatProvider? provider = null
+    )
     {
         char separator = TokenizerHelper.GetSeparatorFromFormatProvider(provider);
-        return Utf8.TryWrite(utf8Destination, provider, $"{Width}{separator} {Height}", out bytesWritten);
+        return Utf8.TryWrite(
+            utf8Destination,
+            provider,
+            $"{Width}{separator} {Height}",
+            out bytesWritten
+        );
     }
 
     public static Size Parse(ReadOnlySpan<byte> utf8Text)
@@ -459,13 +484,19 @@ public readonly struct Size(float width, float height)
 
     public static Size Parse(ReadOnlySpan<byte> utf8Text, IFormatProvider? provider)
     {
-        using var tokenizer = new RefUtf8StringTokenizer(utf8Text, provider ?? CultureInfo.InvariantCulture, exceptionMessage: "Invalid Size.");
-        return new Size(
-            tokenizer.ReadSingle(),
-            tokenizer.ReadSingle());
+        using var tokenizer = new RefUtf8StringTokenizer(
+            utf8Text,
+            provider ?? CultureInfo.InvariantCulture,
+            exceptionMessage: "Invalid Size."
+        );
+        return new Size(tokenizer.ReadSingle(), tokenizer.ReadSingle());
     }
 
-    public static bool TryParse(ReadOnlySpan<byte> utf8Text, IFormatProvider? provider, out Size result)
+    public static bool TryParse(
+        ReadOnlySpan<byte> utf8Text,
+        IFormatProvider? provider,
+        out Size result
+    )
     {
         try
         {

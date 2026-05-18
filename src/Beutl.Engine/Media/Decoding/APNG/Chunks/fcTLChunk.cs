@@ -4,19 +4,13 @@
 public class fcTLChunk : Chunk
 {
     public fcTLChunk(byte[] bytes)
-        : base(bytes)
-    {
-    }
+        : base(bytes) { }
 
     public fcTLChunk(MemoryStream ms)
-        : base(ms)
-    {
-    }
+        : base(ms) { }
 
     public fcTLChunk(Chunk chunk)
-        : base(chunk)
-    {
-    }
+        : base(chunk) { }
 
     /// <summary>
     ///     Sequence number of the animation chunk, starting from 0

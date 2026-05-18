@@ -12,7 +12,10 @@ public class DiscoverService(BeutlApiApplication clients) : IBeutlApiResource
 
     public async Task<Package> GetPackage(string name)
     {
-        using Activity? activity = clients.ActivitySource.StartActivity("DiscoverService.GetPackage", ActivityKind.Client);
+        using Activity? activity = clients.ActivitySource.StartActivity(
+            "DiscoverService.GetPackage",
+            ActivityKind.Client
+        );
 
         PackageResponse package = await clients.Packages.GetPackage(name).ConfigureAwait(false);
         var owner = new Profile(package.Owner, clients);
@@ -22,7 +25,10 @@ public class DiscoverService(BeutlApiApplication clients) : IBeutlApiResource
 
     public async Task<Profile> GetProfile(string name)
     {
-        using Activity? activity = clients.ActivitySource.StartActivity("DiscoverService.GetProfile", ActivityKind.Client);
+        using Activity? activity = clients.ActivitySource.StartActivity(
+            "DiscoverService.GetProfile",
+            ActivityKind.Client
+        );
 
         ProfileResponse response = await clients.Users.GetUser(name).ConfigureAwait(false);
         return new Profile(response, clients);
@@ -30,7 +36,10 @@ public class DiscoverService(BeutlApiApplication clients) : IBeutlApiResource
 
     public async Task<Package[]> GetFeatured(int start = 0, int count = 30)
     {
-        using Activity? activity = clients.ActivitySource.StartActivity("DiscoverService.GetDailyRanking", ActivityKind.Client);
+        using Activity? activity = clients.ActivitySource.StartActivity(
+            "DiscoverService.GetDailyRanking",
+            ActivityKind.Client
+        );
         activity?.SetTag("start", start);
         activity?.SetTag("count", count);
 

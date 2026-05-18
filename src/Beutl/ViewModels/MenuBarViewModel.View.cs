@@ -8,8 +8,7 @@ public partial class MenuBarViewModel
     [MemberNotNull(nameof(ResetDockLayout))]
     private void InitializeViewCommands(IObservable<bool> isSceneOpened)
     {
-        ResetDockLayout = new ReactiveCommandSlim(isSceneOpened)
-            .WithSubscribe(OnResetDockLayout);
+        ResetDockLayout = new ReactiveCommandSlim(isSceneOpened).WithSubscribe(OnResetDockLayout);
     }
 
     // View

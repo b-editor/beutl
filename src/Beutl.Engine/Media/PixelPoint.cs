@@ -3,7 +3,6 @@ using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Numerics;
 using System.Text.Json.Serialization;
-
 using Beutl.Converters;
 using Beutl.Graphics;
 using Beutl.Utilities;
@@ -23,12 +22,12 @@ namespace Beutl.Media;
 [TypeConverter(typeof(PixelPointConverter))]
 public readonly struct PixelPoint(int x, int y)
     : IEquatable<PixelPoint>,
-      IParsable<PixelPoint>,
-      ISpanParsable<PixelPoint>,
-      IEqualityOperators<PixelPoint, PixelPoint, bool>,
-      IAdditionOperators<PixelPoint, PixelPoint, PixelPoint>,
-      ISubtractionOperators<PixelPoint, PixelPoint, PixelPoint>,
-      ITupleConvertible<PixelPoint, int>
+        IParsable<PixelPoint>,
+        ISpanParsable<PixelPoint>,
+        IEqualityOperators<PixelPoint, PixelPoint, bool>,
+        IAdditionOperators<PixelPoint, PixelPoint, PixelPoint>,
+        ISubtractionOperators<PixelPoint, PixelPoint, PixelPoint>,
+        ITupleConvertible<PixelPoint, int>
 {
     /// <summary>
     /// A point representing 0,0.
@@ -139,10 +138,12 @@ public readonly struct PixelPoint(int x, int y)
     /// <returns>The <see cref="PixelPoint"/>.</returns>
     public static PixelPoint Parse(ReadOnlySpan<char> s)
     {
-        using var tokenizer = new RefStringTokenizer(s, CultureInfo.InvariantCulture, exceptionMessage: "Invalid PixelPoint.");
-        return new PixelPoint(
-            tokenizer.ReadInt32(),
-            tokenizer.ReadInt32());
+        using var tokenizer = new RefStringTokenizer(
+            s,
+            CultureInfo.InvariantCulture,
+            exceptionMessage: "Invalid PixelPoint."
+        );
+        return new PixelPoint(tokenizer.ReadInt32(), tokenizer.ReadInt32());
     }
 
     /// <summary>
@@ -236,9 +237,7 @@ public readonly struct PixelPoint(int x, int y)
     /// <returns>The device-independent point.</returns>
     public static PixelPoint FromPoint(Point point, float scale)
     {
-        return new PixelPoint(
-            (int)(point.X * scale),
-            (int)(point.Y * scale));
+        return new PixelPoint((int)(point.X * scale), (int)(point.Y * scale));
     }
 
     /// <summary>
@@ -249,9 +248,7 @@ public readonly struct PixelPoint(int x, int y)
     /// <returns>The device-independent point.</returns>
     public static PixelPoint FromPoint(Point point, Vector scale)
     {
-        return new PixelPoint(
-            (int)(point.X * scale.X),
-            (int)(point.Y * scale.Y));
+        return new PixelPoint((int)(point.X * scale.X), (int)(point.Y * scale.Y));
     }
 
     /// <summary>
@@ -268,18 +265,29 @@ public readonly struct PixelPoint(int x, int y)
         return Parse(s);
     }
 
-    static bool IParsable<PixelPoint>.TryParse([NotNullWhen(true)] string? s, IFormatProvider? provider, [MaybeNullWhen(false)] out PixelPoint result)
+    static bool IParsable<PixelPoint>.TryParse(
+        [NotNullWhen(true)] string? s,
+        IFormatProvider? provider,
+        [MaybeNullWhen(false)] out PixelPoint result
+    )
     {
         result = default;
         return s != null && TryParse(s, out result);
     }
 
-    static PixelPoint ISpanParsable<PixelPoint>.Parse(ReadOnlySpan<char> s, IFormatProvider? provider)
+    static PixelPoint ISpanParsable<PixelPoint>.Parse(
+        ReadOnlySpan<char> s,
+        IFormatProvider? provider
+    )
     {
         return Parse(s);
     }
 
-    static bool ISpanParsable<PixelPoint>.TryParse([NotNullWhen(true)] ReadOnlySpan<char> s, IFormatProvider? provider, [MaybeNullWhen(false)] out PixelPoint result)
+    static bool ISpanParsable<PixelPoint>.TryParse(
+        [NotNullWhen(true)] ReadOnlySpan<char> s,
+        IFormatProvider? provider,
+        [MaybeNullWhen(false)] out PixelPoint result
+    )
     {
         return TryParse(s, out result);
     }

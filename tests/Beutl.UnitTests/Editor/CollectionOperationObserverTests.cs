@@ -31,7 +31,12 @@ public class CollectionOperationObserverTests
 
         // Act
         using var observer = new CollectionOperationObserver<TestItemCoreObject>(
-            testObserver, list, owner, "Items", _sequenceGenerator);
+            testObserver,
+            list,
+            owner,
+            "Items",
+            _sequenceGenerator
+        );
 
         // Assert
         Assert.That(observer.Operations, Is.Not.Null);
@@ -48,12 +53,20 @@ public class CollectionOperationObserverTests
 
         // Act
         using var operationObserver = new CollectionOperationObserver<TestItemCoreObject>(
-            testObserver, list, owner, "Items", _sequenceGenerator);
+            testObserver,
+            list,
+            owner,
+            "Items",
+            _sequenceGenerator
+        );
         list.Add(new TestItemCoreObject());
 
         // Assert
         Assert.That(receivedOperations, Has.Count.EqualTo(1));
-        Assert.That(receivedOperations[0], Is.TypeOf<InsertCollectionRangeOperation<TestItemCoreObject>>());
+        Assert.That(
+            receivedOperations[0],
+            Is.TypeOf<InsertCollectionRangeOperation<TestItemCoreObject>>()
+        );
     }
 
     [Test]
@@ -68,7 +81,12 @@ public class CollectionOperationObserverTests
 
         // Act
         using var operationObserver = new CollectionOperationObserver<TestItemCoreObject>(
-            testObserver, list, owner, "Items", _sequenceGenerator);
+            testObserver,
+            list,
+            owner,
+            "Items",
+            _sequenceGenerator
+        );
 
         // Modify existing item - should be tracked
         item.Title = "modified";
@@ -91,7 +109,12 @@ public class CollectionOperationObserverTests
         Assert.DoesNotThrow(() =>
         {
             using var operationObserver = new CollectionOperationObserver<int>(
-                testObserver, list, owner, "Items", _sequenceGenerator);
+                testObserver,
+                list,
+                owner,
+                "Items",
+                _sequenceGenerator
+            );
         });
     }
 
@@ -107,7 +130,12 @@ public class CollectionOperationObserverTests
 
         // Act
         using var operationObserver = new CollectionOperationObserver<TestItemCoreObject>(
-            testObserver, list, owner, "Parent.Items", _sequenceGenerator);
+            testObserver,
+            list,
+            owner,
+            "Parent.Items",
+            _sequenceGenerator
+        );
         item.Title = "changed";
 
         // Assert
@@ -130,7 +158,12 @@ public class CollectionOperationObserverTests
         var testObserver = Observer.Create<ChangeOperation>(op => receivedOperations.Add(op));
 
         using var operationObserver = new CollectionOperationObserver<TestItemCoreObject>(
-            testObserver, list, owner, "Items", _sequenceGenerator);
+            testObserver,
+            list,
+            owner,
+            "Items",
+            _sequenceGenerator
+        );
 
         // Act
         var item = new TestItemCoreObject { Title = "item1" };
@@ -159,7 +192,12 @@ public class CollectionOperationObserverTests
         var testObserver = Observer.Create<ChangeOperation>(op => receivedOperations.Add(op));
 
         using var operationObserver = new CollectionOperationObserver<TestItemCoreObject>(
-            testObserver, list, owner, "Items", _sequenceGenerator);
+            testObserver,
+            list,
+            owner,
+            "Items",
+            _sequenceGenerator
+        );
 
         // Act
         list.Add(new TestItemCoreObject { Title = "item1" });
@@ -189,7 +227,12 @@ public class CollectionOperationObserverTests
         var testObserver = Observer.Create<ChangeOperation>(op => receivedOperations.Add(op));
 
         using var operationObserver = new CollectionOperationObserver<TestItemCoreObject>(
-            testObserver, list, owner, "Items", _sequenceGenerator);
+            testObserver,
+            list,
+            owner,
+            "Items",
+            _sequenceGenerator
+        );
 
         var item = new TestItemCoreObject();
         list.Add(item);
@@ -211,13 +254,18 @@ public class CollectionOperationObserverTests
         var list = new CoreList<TestItemCoreObject>
         {
             new() { Title = "item1" },
-            new() { Title = "item3" }
+            new() { Title = "item3" },
         };
         var receivedOperations = new List<ChangeOperation>();
         var testObserver = Observer.Create<ChangeOperation>(op => receivedOperations.Add(op));
 
         using var operationObserver = new CollectionOperationObserver<TestItemCoreObject>(
-            testObserver, list, owner, "Items", _sequenceGenerator);
+            testObserver,
+            list,
+            owner,
+            "Items",
+            _sequenceGenerator
+        );
         receivedOperations.Clear();
 
         // Act
@@ -240,14 +288,19 @@ public class CollectionOperationObserverTests
         var testObserver = Observer.Create<ChangeOperation>(op => receivedOperations.Add(op));
 
         using var operationObserver = new CollectionOperationObserver<TestItemCoreObject>(
-            testObserver, list, owner, "Items", _sequenceGenerator);
+            testObserver,
+            list,
+            owner,
+            "Items",
+            _sequenceGenerator
+        );
 
         // Act
         var items = new[]
         {
             new TestItemCoreObject { Title = "item1" },
             new TestItemCoreObject { Title = "item2" },
-            new TestItemCoreObject { Title = "item3" }
+            new TestItemCoreObject { Title = "item3" },
         };
         list.AddRange(items);
 
@@ -272,7 +325,12 @@ public class CollectionOperationObserverTests
         var testObserver = Observer.Create<ChangeOperation>(op => receivedOperations.Add(op));
 
         using var operationObserver = new CollectionOperationObserver<TestItemCoreObject>(
-            testObserver, list, owner, "Items", _sequenceGenerator);
+            testObserver,
+            list,
+            owner,
+            "Items",
+            _sequenceGenerator
+        );
         receivedOperations.Clear();
 
         // Act
@@ -300,13 +358,18 @@ public class CollectionOperationObserverTests
         {
             new() { Title = "item1" },
             new() { Title = "item2" },
-            new() { Title = "item3" }
+            new() { Title = "item3" },
         };
         var receivedOperations = new List<ChangeOperation>();
         var testObserver = Observer.Create<ChangeOperation>(op => receivedOperations.Add(op));
 
         using var operationObserver = new CollectionOperationObserver<TestItemCoreObject>(
-            testObserver, list, owner, "Items", _sequenceGenerator);
+            testObserver,
+            list,
+            owner,
+            "Items",
+            _sequenceGenerator
+        );
         receivedOperations.Clear();
 
         // Act
@@ -333,7 +396,12 @@ public class CollectionOperationObserverTests
         var testObserver = Observer.Create<ChangeOperation>(op => receivedOperations.Add(op));
 
         using var operationObserver = new CollectionOperationObserver<TestItemCoreObject>(
-            testObserver, list, owner, "Items", _sequenceGenerator);
+            testObserver,
+            list,
+            owner,
+            "Items",
+            _sequenceGenerator
+        );
 
         list.Remove(item);
         receivedOperations.Clear();
@@ -355,13 +423,18 @@ public class CollectionOperationObserverTests
             new() { Title = "item1" },
             new() { Title = "item2" },
             new() { Title = "item3" },
-            new() { Title = "item4" }
+            new() { Title = "item4" },
         };
         var receivedOperations = new List<ChangeOperation>();
         var testObserver = Observer.Create<ChangeOperation>(op => receivedOperations.Add(op));
 
         using var operationObserver = new CollectionOperationObserver<TestItemCoreObject>(
-            testObserver, list, owner, "Items", _sequenceGenerator);
+            testObserver,
+            list,
+            owner,
+            "Items",
+            _sequenceGenerator
+        );
         receivedOperations.Clear();
 
         // Act
@@ -385,14 +458,19 @@ public class CollectionOperationObserverTests
         var list = new CoreList<TestItemCoreObject>
         {
             new() { Title = "item1" },
-            new() { Title = "item2" }
+            new() { Title = "item2" },
         };
         list.ResetBehavior = ResetBehavior.Remove; // Required to get Remove event instead of Reset
         var receivedOperations = new List<ChangeOperation>();
         var testObserver = Observer.Create<ChangeOperation>(op => receivedOperations.Add(op));
 
         using var operationObserver = new CollectionOperationObserver<TestItemCoreObject>(
-            testObserver, list, owner, "Items", _sequenceGenerator);
+            testObserver,
+            list,
+            owner,
+            "Items",
+            _sequenceGenerator
+        );
         receivedOperations.Clear();
 
         // Act
@@ -412,14 +490,19 @@ public class CollectionOperationObserverTests
         var list = new CoreList<TestItemCoreObject>
         {
             new() { Title = "item1" },
-            new() { Title = "item2" }
+            new() { Title = "item2" },
         };
         // ResetBehavior defaults to Reset, which sends a Reset event not handled by observer
         var receivedOperations = new List<ChangeOperation>();
         var testObserver = Observer.Create<ChangeOperation>(op => receivedOperations.Add(op));
 
         using var operationObserver = new CollectionOperationObserver<TestItemCoreObject>(
-            testObserver, list, owner, "Items", _sequenceGenerator);
+            testObserver,
+            list,
+            owner,
+            "Items",
+            _sequenceGenerator
+        );
         receivedOperations.Clear();
 
         // Act
@@ -442,13 +525,18 @@ public class CollectionOperationObserverTests
         {
             new() { Title = "item1" },
             new() { Title = "item2" },
-            new() { Title = "item3" }
+            new() { Title = "item3" },
         };
         var receivedOperations = new List<ChangeOperation>();
         var testObserver = Observer.Create<ChangeOperation>(op => receivedOperations.Add(op));
 
         using var operationObserver = new CollectionOperationObserver<TestItemCoreObject>(
-            testObserver, list, owner, "Items", _sequenceGenerator);
+            testObserver,
+            list,
+            owner,
+            "Items",
+            _sequenceGenerator
+        );
         receivedOperations.Clear();
 
         // Act
@@ -478,13 +566,18 @@ public class CollectionOperationObserverTests
             new() { Title = "item2" },
             new() { Title = "item3" },
             new() { Title = "item4" },
-            new() { Title = "item5" }
+            new() { Title = "item5" },
         };
         var receivedOperations = new List<ChangeOperation>();
         var testObserver = Observer.Create<ChangeOperation>(op => receivedOperations.Add(op));
 
         using var operationObserver = new CollectionOperationObserver<TestItemCoreObject>(
-            testObserver, list, owner, "Items", _sequenceGenerator);
+            testObserver,
+            list,
+            owner,
+            "Items",
+            _sequenceGenerator
+        );
         receivedOperations.Clear();
 
         // Act - Move items at index 0-1 to index 4 (which becomes index 2 after removal adjustment)
@@ -517,7 +610,12 @@ public class CollectionOperationObserverTests
         var testObserver = Observer.Create<ChangeOperation>(op => receivedOperations.Add(op));
 
         using var operationObserver = new CollectionOperationObserver<TestItemCoreObject>(
-            testObserver, list, owner, "Items", _sequenceGenerator);
+            testObserver,
+            list,
+            owner,
+            "Items",
+            _sequenceGenerator
+        );
         receivedOperations.Clear();
 
         // Act - Replace using indexer
@@ -526,8 +624,14 @@ public class CollectionOperationObserverTests
 
         // Assert
         Assert.That(receivedOperations, Has.Count.EqualTo(2));
-        Assert.That(receivedOperations[0], Is.TypeOf<RemoveCollectionRangeOperation<TestItemCoreObject>>());
-        Assert.That(receivedOperations[1], Is.TypeOf<InsertCollectionRangeOperation<TestItemCoreObject>>());
+        Assert.That(
+            receivedOperations[0],
+            Is.TypeOf<RemoveCollectionRangeOperation<TestItemCoreObject>>()
+        );
+        Assert.That(
+            receivedOperations[1],
+            Is.TypeOf<InsertCollectionRangeOperation<TestItemCoreObject>>()
+        );
     }
 
     [Test]
@@ -541,7 +645,12 @@ public class CollectionOperationObserverTests
         var testObserver = Observer.Create<ChangeOperation>(op => receivedOperations.Add(op));
 
         using var operationObserver = new CollectionOperationObserver<TestItemCoreObject>(
-            testObserver, list, owner, "Items", _sequenceGenerator);
+            testObserver,
+            list,
+            owner,
+            "Items",
+            _sequenceGenerator
+        );
 
         var newItem = new TestItemCoreObject();
         list[0] = newItem; // Replace using indexer
@@ -569,7 +678,12 @@ public class CollectionOperationObserverTests
         var testObserver = Observer.Create<ChangeOperation>(op => receivedOperations.Add(op));
 
         using var operationObserver = new CollectionOperationObserver<TestItemCoreObject>(
-            testObserver, list, owner, "Items", _sequenceGenerator);
+            testObserver,
+            list,
+            owner,
+            "Items",
+            _sequenceGenerator
+        );
         receivedOperations.Clear();
 
         // Act - Replace entire list
@@ -577,14 +691,20 @@ public class CollectionOperationObserverTests
         {
             new() { Title = "new1" },
             new() { Title = "new2" },
-            new() { Title = "new3" }
+            new() { Title = "new3" },
         };
         list.Replace(newItems);
 
         // Assert - Replace triggers a single Replace event
         Assert.That(receivedOperations, Has.Count.EqualTo(2));
-        Assert.That(receivedOperations[0], Is.TypeOf<RemoveCollectionRangeOperation<TestItemCoreObject>>());
-        Assert.That(receivedOperations[1], Is.TypeOf<InsertCollectionRangeOperation<TestItemCoreObject>>());
+        Assert.That(
+            receivedOperations[0],
+            Is.TypeOf<RemoveCollectionRangeOperation<TestItemCoreObject>>()
+        );
+        Assert.That(
+            receivedOperations[1],
+            Is.TypeOf<InsertCollectionRangeOperation<TestItemCoreObject>>()
+        );
     }
 
     #endregion
@@ -603,7 +723,12 @@ public class CollectionOperationObserverTests
         var testObserver = Observer.Create<ChangeOperation>(op => receivedOperations.Add(op));
 
         var operationObserver = new CollectionOperationObserver<TestItemCoreObject>(
-            testObserver, list, owner, "Items", _sequenceGenerator);
+            testObserver,
+            list,
+            owner,
+            "Items",
+            _sequenceGenerator
+        );
 
         // Act
         operationObserver.Dispose();
@@ -624,7 +749,12 @@ public class CollectionOperationObserverTests
         var testObserver = Observer.Create<ChangeOperation>(op => receivedOperations.Add(op));
 
         var operationObserver = new CollectionOperationObserver<TestItemCoreObject>(
-            testObserver, list, owner, "Items", _sequenceGenerator);
+            testObserver,
+            list,
+            owner,
+            "Items",
+            _sequenceGenerator
+        );
 
         // Act
         operationObserver.Dispose();
@@ -644,7 +774,12 @@ public class CollectionOperationObserverTests
         var testObserver = Observer.Create<ChangeOperation>(_ => { });
 
         var operationObserver = new CollectionOperationObserver<TestItemCoreObject>(
-            testObserver, list, owner, "Items", _sequenceGenerator);
+            testObserver,
+            list,
+            owner,
+            "Items",
+            _sequenceGenerator
+        );
 
         operationObserver.Operations.Subscribe(_ => { }, () => completed = true);
 
@@ -669,7 +804,12 @@ public class CollectionOperationObserverTests
         var testObserver = Observer.Create<ChangeOperation>(op => receivedOperations.Add(op));
 
         using var operationObserver = new CollectionOperationObserver<TestItemCoreObject>(
-            testObserver, list, owner, "Items", _sequenceGenerator);
+            testObserver,
+            list,
+            owner,
+            "Items",
+            _sequenceGenerator
+        );
 
         // Act
         using (PublishingSuppression.Enter())
@@ -692,7 +832,12 @@ public class CollectionOperationObserverTests
         var testObserver = Observer.Create<ChangeOperation>(op => receivedOperations.Add(op));
 
         using var operationObserver = new CollectionOperationObserver<TestItemCoreObject>(
-            testObserver, list, owner, "Items", _sequenceGenerator);
+            testObserver,
+            list,
+            owner,
+            "Items",
+            _sequenceGenerator
+        );
         receivedOperations.Clear();
 
         // Act
@@ -710,16 +855,17 @@ public class CollectionOperationObserverTests
     {
         // Arrange
         var owner = new TestOwnerCoreObject();
-        var list = new CoreList<TestItemCoreObject>
-        {
-            new(),
-            new()
-        };
+        var list = new CoreList<TestItemCoreObject> { new(), new() };
         var receivedOperations = new List<ChangeOperation>();
         var testObserver = Observer.Create<ChangeOperation>(op => receivedOperations.Add(op));
 
         using var operationObserver = new CollectionOperationObserver<TestItemCoreObject>(
-            testObserver, list, owner, "Items", _sequenceGenerator);
+            testObserver,
+            list,
+            owner,
+            "Items",
+            _sequenceGenerator
+        );
         receivedOperations.Clear();
 
         // Act
@@ -743,7 +889,12 @@ public class CollectionOperationObserverTests
         var testObserver = Observer.Create<ChangeOperation>(op => receivedOperations.Add(op));
 
         using var operationObserver = new CollectionOperationObserver<TestItemCoreObject>(
-            testObserver, list, owner, "Items", _sequenceGenerator);
+            testObserver,
+            list,
+            owner,
+            "Items",
+            _sequenceGenerator
+        );
         receivedOperations.Clear();
 
         // Act
@@ -766,7 +917,12 @@ public class CollectionOperationObserverTests
         var testObserver = Observer.Create<ChangeOperation>(op => receivedOperations.Add(op));
 
         using var operationObserver = new CollectionOperationObserver<TestItemCoreObject>(
-            testObserver, list, owner, "Items", _sequenceGenerator);
+            testObserver,
+            list,
+            owner,
+            "Items",
+            _sequenceGenerator
+        );
 
         // Act
         using (PublishingSuppression.Enter())
@@ -796,7 +952,13 @@ public class CollectionOperationObserverTests
 
         // Act
         using var operationObserver = new CollectionOperationObserver<TestItemCoreObject>(
-            testObserver, list, owner, "Items", _sequenceGenerator, propertyPathsToTrack);
+            testObserver,
+            list,
+            owner,
+            "Items",
+            _sequenceGenerator,
+            propertyPathsToTrack
+        );
 
         item.Title = "tracked";
         item.Value = 100; // Not in paths to track
@@ -818,7 +980,13 @@ public class CollectionOperationObserverTests
         var propertyPathsToTrack = new HashSet<string> { "Items.Title" };
 
         using var operationObserver = new CollectionOperationObserver<TestItemCoreObject>(
-            testObserver, list, owner, "Items", _sequenceGenerator, propertyPathsToTrack);
+            testObserver,
+            list,
+            owner,
+            "Items",
+            _sequenceGenerator,
+            propertyPathsToTrack
+        );
 
         var item = new TestItemCoreObject();
         list.Add(item);
@@ -847,7 +1015,12 @@ public class CollectionOperationObserverTests
         var testObserver = Observer.Create<ChangeOperation>(op => receivedOperations.Add(op));
 
         using var operationObserver = new CollectionOperationObserver<TestItemCoreObject>(
-            testObserver, list, owner, "Items", _sequenceGenerator);
+            testObserver,
+            list,
+            owner,
+            "Items",
+            _sequenceGenerator
+        );
 
         // Act
         list.Add(new TestItemCoreObject());
@@ -856,8 +1029,14 @@ public class CollectionOperationObserverTests
 
         // Assert
         Assert.That(receivedOperations, Has.Count.EqualTo(3));
-        Assert.That(receivedOperations[1].SequenceNumber, Is.GreaterThan(receivedOperations[0].SequenceNumber));
-        Assert.That(receivedOperations[2].SequenceNumber, Is.GreaterThan(receivedOperations[1].SequenceNumber));
+        Assert.That(
+            receivedOperations[1].SequenceNumber,
+            Is.GreaterThan(receivedOperations[0].SequenceNumber)
+        );
+        Assert.That(
+            receivedOperations[2].SequenceNumber,
+            Is.GreaterThan(receivedOperations[1].SequenceNumber)
+        );
     }
 
     #endregion
@@ -874,7 +1053,12 @@ public class CollectionOperationObserverTests
 
         // Act
         using var operationObserver = new CollectionOperationObserver<TestItemCoreObject>(
-            testObserver, list, owner, "Items", _sequenceGenerator);
+            testObserver,
+            list,
+            owner,
+            "Items",
+            _sequenceGenerator
+        );
 
         // Assert
         Assert.That(operationObserver.Operations, Is.InstanceOf<IObservable<ChangeOperation>>());
@@ -891,7 +1075,12 @@ public class CollectionOperationObserverTests
         var testObserver = Observer.Create<ChangeOperation>(_ => { });
 
         using var operationObserver = new CollectionOperationObserver<TestItemCoreObject>(
-            testObserver, list, owner, "Items", _sequenceGenerator);
+            testObserver,
+            list,
+            owner,
+            "Items",
+            _sequenceGenerator
+        );
 
         // Act
         using var sub1 = operationObserver.Operations.Subscribe(op => receivedOperations1.Add(op));
@@ -921,7 +1110,12 @@ public class CollectionOperationObserverTests
         var testObserver = Observer.Create<ChangeOperation>(op => receivedOperations.Add(op));
 
         using var operationObserver = new CollectionOperationObserver<TestItemCoreObject>(
-            testObserver, list, owner, "Items", _sequenceGenerator);
+            testObserver,
+            list,
+            owner,
+            "Items",
+            _sequenceGenerator
+        );
 
         // Act - add to list (won't trigger CollectionChanged since List<T> doesn't implement it)
         list.Add(new TestItemCoreObject());
@@ -942,7 +1136,9 @@ public class CollectionOperationObserverTests
 
         static TestOwnerCoreObject()
         {
-            ItemsProperty = ConfigureProperty<CoreList<TestItemCoreObject>, TestOwnerCoreObject>(nameof(Items))
+            ItemsProperty = ConfigureProperty<CoreList<TestItemCoreObject>, TestOwnerCoreObject>(
+                    nameof(Items)
+                )
                 .Accessor(o => o.Items, (o, v) => o.Items = v)
                 .Register();
         }

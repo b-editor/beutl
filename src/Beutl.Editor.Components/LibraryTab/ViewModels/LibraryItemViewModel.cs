@@ -2,9 +2,7 @@
 using System.Reflection;
 using System.Text;
 using System.Text.RegularExpressions;
-
 using Avalonia.Input;
-
 using Beutl.Editor.Components.Helpers;
 using Beutl.NodeGraph;
 using Beutl.Services;
@@ -25,8 +23,10 @@ public class LibraryItemViewModel
 
     public List<LibraryItemViewModel> Children { get; } = [];
 
-    public static LibraryItemViewModel CreateFromGraphNodeRegistryItem(GraphNodeRegistry.BaseRegistryItem registryItem,
-        string? parentFullName = null)
+    public static LibraryItemViewModel CreateFromGraphNodeRegistryItem(
+        GraphNodeRegistry.BaseRegistryItem registryItem,
+        string? parentFullName = null
+    )
     {
         string? description = null;
         object? data = null;
@@ -46,21 +46,26 @@ public class LibraryItemViewModel
             Description = description,
             Data = data,
             Type = Strings.NodeGraph,
-            FullDisplayName = parentFullName != null
-                ? $"{parentFullName} / {registryItem.DisplayName}"
-                : registryItem.DisplayName
+            FullDisplayName =
+                parentFullName != null
+                    ? $"{parentFullName} / {registryItem.DisplayName}"
+                    : registryItem.DisplayName,
         };
 
         if (registryItem is GraphNodeRegistry.GroupableRegistryItem group)
         {
-            obj.Children.AddRange(group.Items.Select(x => CreateFromGraphNodeRegistryItem(x, obj.FullDisplayName)));
+            obj.Children.AddRange(
+                group.Items.Select(x => CreateFromGraphNodeRegistryItem(x, obj.FullDisplayName))
+            );
         }
 
         return obj;
     }
 
-    public static LibraryItemViewModel CreateFromLibraryItem(LibraryItem registryItem,
-        string? parentFullName = null)
+    public static LibraryItemViewModel CreateFromLibraryItem(
+        LibraryItem registryItem,
+        string? parentFullName = null
+    )
     {
         var obj = new LibraryItemViewModel()
         {
@@ -68,14 +73,17 @@ public class LibraryItemViewModel
             Description = registryItem.Description,
             Data = registryItem,
             Type = CreateTypeString(registryItem),
-            FullDisplayName = parentFullName != null
-                ? $"{parentFullName} / {registryItem.DisplayName}"
-                : registryItem.DisplayName
+            FullDisplayName =
+                parentFullName != null
+                    ? $"{parentFullName} / {registryItem.DisplayName}"
+                    : registryItem.DisplayName,
         };
 
         if (registryItem is GroupLibraryItem group)
         {
-            obj.Children.AddRange(group.Items.Select(x => CreateFromLibraryItem(x, obj.FullDisplayName)));
+            obj.Children.AddRange(
+                group.Items.Select(x => CreateFromLibraryItem(x, obj.FullDisplayName))
+            );
         }
 
         return obj;
@@ -116,13 +124,16 @@ public class LibraryItemViewModel
             KnownLibraryItemFormats.GraphNode => BeutlDataFormats.GraphNode,
             KnownLibraryItemFormats.AudioEffect => BeutlDataFormats.AudioEffect,
             KnownLibraryItemFormats.EngineObject => BeutlDataFormats.EngineObject,
-            _ => DataFormat.CreateStringApplicationFormat(format)
+            _ => DataFormat.CreateStringApplicationFormat(format),
         };
     }
 
     public bool CanDragDrop()
     {
-        return Data is SingleTypeLibraryItem or MultipleTypeLibraryItem or GraphNodeRegistry.RegistryItem;
+        return Data
+            is SingleTypeLibraryItem
+                or MultipleTypeLibraryItem
+                or GraphNodeRegistry.RegistryItem;
     }
 
     public int Match(Regex[] regexes)
@@ -209,8 +220,8 @@ public class LibraryItemViewModel
         }
         else if (item is MultipleTypeLibraryItem multi)
         {
-            string[] array = multi.Types.Keys
-                .Select(FormatToString)
+            string[] array = multi
+                .Types.Keys.Select(FormatToString)
                 .Where(v => !string.IsNullOrEmpty(v))
                 .ToArray();
             Array.Sort(array);

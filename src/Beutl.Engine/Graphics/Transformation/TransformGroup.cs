@@ -17,7 +17,8 @@ public sealed partial class TransformGroup : Transform
 
     public override Matrix CreateMatrix(CompositionContext context)
     {
-        return Children.Where(item => item.IsEnabled)
+        return Children
+            .Where(item => item.IsEnabled)
             .Aggregate(Matrix.Identity, (current, item) => item.CreateMatrix(context) * current);
     }
 }

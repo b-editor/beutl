@@ -23,5 +23,5 @@ public enum BitmapInterpolationMode
     /// <summary>
     /// Highest quality but worst performance.
     /// </summary>
-    HighQuality
+    HighQuality,
 }

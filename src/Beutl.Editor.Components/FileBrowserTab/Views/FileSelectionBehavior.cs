@@ -14,8 +14,16 @@ public class FileSelectionBehavior : Behavior<Control>
         base.OnAttached();
         if (AssociatedObject != null)
         {
-            AssociatedObject.AddHandler(InputElement.PointerPressedEvent, OnPointerPressed, handledEventsToo: true);
-            AssociatedObject.AddHandler(InputElement.KeyDownEvent, OnKeyDown, handledEventsToo: true);
+            AssociatedObject.AddHandler(
+                InputElement.PointerPressedEvent,
+                OnPointerPressed,
+                handledEventsToo: true
+            );
+            AssociatedObject.AddHandler(
+                InputElement.KeyDownEvent,
+                OnKeyDown,
+                handledEventsToo: true
+            );
         }
     }
 
@@ -30,7 +38,10 @@ public class FileSelectionBehavior : Behavior<Control>
         base.OnDetaching();
     }
 
-    private static bool ContainsRecursive(IEnumerable<FileSystemItemViewModel> items, FileSystemItemViewModel target)
+    private static bool ContainsRecursive(
+        IEnumerable<FileSystemItemViewModel> items,
+        FileSystemItemViewModel target
+    )
     {
         foreach (var item in items)
         {
@@ -53,7 +64,7 @@ public class FileSelectionBehavior : Behavior<Control>
         {
             ListBox lb => lb.ItemsSource as ObservableCollection<FileSystemItemViewModel>,
             TreeView tree => tree.ItemsSource as ObservableCollection<FileSystemItemViewModel>,
-            _ => null
+            _ => null,
         };
         if (items == null)
             return;

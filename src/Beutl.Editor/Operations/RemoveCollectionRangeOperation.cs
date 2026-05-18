@@ -2,7 +2,9 @@
 
 namespace Beutl.Editor.Operations;
 
-public sealed class RemoveCollectionRangeOperation<T> : CollectionChangeOperation<T>, ICollectionChangeOperation
+public sealed class RemoveCollectionRangeOperation<T>
+    : CollectionChangeOperation<T>,
+        ICollectionChangeOperation
 {
     public required int Index { get; set; }
 

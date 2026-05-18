@@ -41,7 +41,11 @@ public class ContourTracerTests
     [Test]
     public void FindContours_FullyFilledImage_ReturnsOneContour()
     {
-        using var bitmap = CreateBitmap(10, 10, b => b.GetPixelSpan<Bgra8888>().Fill(new Bgra8888(255, 255, 255, 255)));
+        using var bitmap = CreateBitmap(
+            10,
+            10,
+            b => b.GetPixelSpan<Bgra8888>().Fill(new Bgra8888(255, 255, 255, 255))
+        );
 
         using var contours = ContourTracer.FindContours(bitmap);
 
@@ -52,10 +56,14 @@ public class ContourTracerTests
     [Test]
     public void FindContours_SinglePixel_ReturnsSinglePointContour()
     {
-        using var bitmap = CreateBitmap(5, 5, b =>
-        {
-            b.GetRow<Bgra8888>(2)[2] = new Bgra8888(255, 255, 255, 255);
-        });
+        using var bitmap = CreateBitmap(
+            5,
+            5,
+            b =>
+            {
+                b.GetRow<Bgra8888>(2)[2] = new Bgra8888(255, 255, 255, 255);
+            }
+        );
 
         using var contours = ContourTracer.FindContours(bitmap);
 
@@ -93,20 +101,24 @@ public class ContourTracerTests
     public void FindContours_RectangleWithHole_ReturnsMultipleContours()
     {
         // 10x10 bitmap, fill outer 10x10, clear inner 4x4 (creating a hole)
-        using var bitmap = CreateBitmap(10, 10, b =>
-        {
-            b.GetPixelSpan<Bgra8888>().Fill(new Bgra8888(255, 255, 255, 255));
-            // Clear inner region (3,3)-(6,6)
-            var empty = new Bgra8888(0, 0, 0, 0);
-            for (int row = 3; row <= 6; row++)
+        using var bitmap = CreateBitmap(
+            10,
+            10,
+            b =>
             {
-                Span<Bgra8888> span = b.GetRow<Bgra8888>(row);
-                for (int col = 3; col <= 6; col++)
+                b.GetPixelSpan<Bgra8888>().Fill(new Bgra8888(255, 255, 255, 255));
+                // Clear inner region (3,3)-(6,6)
+                var empty = new Bgra8888(0, 0, 0, 0);
+                for (int row = 3; row <= 6; row++)
                 {
-                    span[col] = empty;
+                    Span<Bgra8888> span = b.GetRow<Bgra8888>(row);
+                    for (int col = 3; col <= 6; col++)
+                    {
+                        span[col] = empty;
+                    }
                 }
             }
-        });
+        );
 
         using var contours = ContourTracer.FindContours(bitmap);
 
@@ -118,11 +130,15 @@ public class ContourTracerTests
     public void FindContours_TwoSeparateRegions_ReturnsTwoOuterContours()
     {
         // Two separate rectangles
-        using var bitmap = CreateBitmap(20, 10, b =>
-        {
-            FillRect(b, 1, 1, 3, 3);   // Left rect
-            FillRect(b, 15, 1, 3, 3);  // Right rect (far away)
-        });
+        using var bitmap = CreateBitmap(
+            20,
+            10,
+            b =>
+            {
+                FillRect(b, 1, 1, 3, 3); // Left rect
+                FillRect(b, 15, 1, 3, 3); // Right rect (far away)
+            }
+        );
 
         using var contours = ContourTracer.FindContours(bitmap);
 
@@ -176,10 +192,16 @@ public class ContourTracerTests
         // With ApproxSimple, a rectangle contour should have significantly fewer
         // points than its perimeter (roughly 4 corners instead of ~20 perimeter pixels)
         var outerContour = contours[0];
-        Assert.That(outerContour.Length, Is.LessThanOrEqualTo(8),
-            "ApproxSimple should compress straight edges of a rectangle");
-        Assert.That(outerContour.Length, Is.GreaterThanOrEqualTo(4),
-            "Rectangle contour should have at least 4 points");
+        Assert.That(
+            outerContour.Length,
+            Is.LessThanOrEqualTo(8),
+            "ApproxSimple should compress straight edges of a rectangle"
+        );
+        Assert.That(
+            outerContour.Length,
+            Is.GreaterThanOrEqualTo(4),
+            "Rectangle contour should have at least 4 points"
+        );
     }
 
     [Test]
@@ -193,10 +215,16 @@ public class ContourTracerTests
         {
             foreach (var point in contour)
             {
-                Assert.That(point.X, Is.InRange(0, bitmap.Width - 1),
-                    $"X coordinate {point.X} out of bounds");
-                Assert.That(point.Y, Is.InRange(0, bitmap.Height - 1),
-                    $"Y coordinate {point.Y} out of bounds");
+                Assert.That(
+                    point.X,
+                    Is.InRange(0, bitmap.Width - 1),
+                    $"X coordinate {point.X} out of bounds"
+                );
+                Assert.That(
+                    point.Y,
+                    Is.InRange(0, bitmap.Height - 1),
+                    $"Y coordinate {point.Y} out of bounds"
+                );
             }
         }
     }
@@ -205,10 +233,14 @@ public class ContourTracerTests
     public void FindContours_CornerPixel_ReturnsContour()
     {
         // Pixel at (0,0) - edge case for boundary handling
-        using var bitmap = CreateBitmap(5, 5, b =>
-        {
-            b.GetRow<Bgra8888>(0)[0] = new Bgra8888(255, 255, 255, 255);
-        });
+        using var bitmap = CreateBitmap(
+            5,
+            5,
+            b =>
+            {
+                b.GetRow<Bgra8888>(0)[0] = new Bgra8888(255, 255, 255, 255);
+            }
+        );
 
         using var contours = ContourTracer.FindContours(bitmap);
 
@@ -241,11 +273,15 @@ public class ContourTracerTests
     public void FindContours_LShape_ReturnsContour()
     {
         // L-shaped region
-        using var bitmap = CreateBitmap(10, 10, b =>
-        {
-            FillRect(b, 1, 1, 2, 5); // Vertical part
-            FillRect(b, 1, 5, 5, 2); // Horizontal part
-        });
+        using var bitmap = CreateBitmap(
+            10,
+            10,
+            b =>
+            {
+                FillRect(b, 1, 1, 2, 5); // Vertical part
+                FillRect(b, 1, 5, 5, 2); // Horizontal part
+            }
+        );
 
         using var contours = ContourTracer.FindContours(bitmap);
 
@@ -253,17 +289,24 @@ public class ContourTracerTests
 
         // L-shape has more corners than a rectangle
         var contour = contours[0];
-        Assert.That(contour.Length, Is.GreaterThanOrEqualTo(6),
-            "L-shape should have at least 6 corner points");
+        Assert.That(
+            contour.Length,
+            Is.GreaterThanOrEqualTo(6),
+            "L-shape should have at least 6 corner points"
+        );
     }
 
     [Test]
     public void FindContours_1x1Image_SinglePixelFilled()
     {
-        using var bitmap = CreateBitmap(1, 1, b =>
-        {
-            b.GetRow<Bgra8888>(0)[0] = new Bgra8888(255, 255, 255, 255);
-        });
+        using var bitmap = CreateBitmap(
+            1,
+            1,
+            b =>
+            {
+                b.GetRow<Bgra8888>(0)[0] = new Bgra8888(255, 255, 255, 255);
+            }
+        );
 
         using var contours = ContourTracer.FindContours(bitmap);
 
@@ -286,12 +329,16 @@ public class ContourTracerTests
     public void FindContours_DiagonalPixels_ReturnsContours()
     {
         // Diagonal line of single pixels - each should be a single contour
-        using var bitmap = CreateBitmap(5, 5, b =>
-        {
-            b.GetRow<Bgra8888>(0)[0] = new Bgra8888(255, 255, 255, 255);
-            b.GetRow<Bgra8888>(1)[1] = new Bgra8888(255, 255, 255, 255);
-            b.GetRow<Bgra8888>(2)[2] = new Bgra8888(255, 255, 255, 255);
-        });
+        using var bitmap = CreateBitmap(
+            5,
+            5,
+            b =>
+            {
+                b.GetRow<Bgra8888>(0)[0] = new Bgra8888(255, 255, 255, 255);
+                b.GetRow<Bgra8888>(1)[1] = new Bgra8888(255, 255, 255, 255);
+                b.GetRow<Bgra8888>(2)[2] = new Bgra8888(255, 255, 255, 255);
+            }
+        );
 
         using var contours = ContourTracer.FindContours(bitmap);
 
@@ -302,20 +349,28 @@ public class ContourTracerTests
     public void FindContoursWithHierarchy_FilledRect_HoleHasParent()
     {
         // 12x12 bitmap: outer 10x10 filled, inner 4x4 hole → ring shape
-        using var bitmap = CreateBitmap(12, 12, b =>
-        {
-            FillRect(b, 1, 1, 10, 10);
-            // Clear inner hole (4,4)-(7,7)
-            var empty = new Bgra8888(0, 0, 0, 0);
-            for (int row = 4; row <= 7; row++)
+        using var bitmap = CreateBitmap(
+            12,
+            12,
+            b =>
             {
-                Span<Bgra8888> span = b.GetRow<Bgra8888>(row);
-                for (int col = 4; col <= 7; col++)
-                    span[col] = empty;
+                FillRect(b, 1, 1, 10, 10);
+                // Clear inner hole (4,4)-(7,7)
+                var empty = new Bgra8888(0, 0, 0, 0);
+                for (int row = 4; row <= 7; row++)
+                {
+                    Span<Bgra8888> span = b.GetRow<Bgra8888>(row);
+                    for (int col = 4; col <= 7; col++)
+                        span[col] = empty;
+                }
             }
-        });
+        );
 
-        ContourTracer.FindContoursWithHierarchy(bitmap, out Contours contours, out PooledList<int> parentIndices);
+        ContourTracer.FindContoursWithHierarchy(
+            bitmap,
+            out Contours contours,
+            out PooledList<int> parentIndices
+        );
         using (contours)
         using (parentIndices)
         {
@@ -342,12 +397,19 @@ public class ContourTracerTests
                 {
                     hasHoleWithParent = true;
                     // Parent index must be valid
-                    Assert.That(parentIndices[i], Is.LessThan(contours.Count),
-                        $"Parent index {parentIndices[i]} must be within contours range");
+                    Assert.That(
+                        parentIndices[i],
+                        Is.LessThan(contours.Count),
+                        $"Parent index {parentIndices[i]} must be within contours range"
+                    );
                     break;
                 }
             }
-            Assert.That(hasHoleWithParent, Is.True, "Should have at least one hole contour with a parent");
+            Assert.That(
+                hasHoleWithParent,
+                Is.True,
+                "Should have at least one hole contour with a parent"
+            );
         }
     }
 
@@ -355,13 +417,21 @@ public class ContourTracerTests
     public void FindContoursWithHierarchy_TwoRects_BothTopLevel()
     {
         // Two separate filled rectangles, no holes → both outer contours, no parents
-        using var bitmap = CreateBitmap(20, 10, b =>
-        {
-            FillRect(b, 1, 1, 4, 4);
-            FillRect(b, 14, 1, 4, 4);
-        });
+        using var bitmap = CreateBitmap(
+            20,
+            10,
+            b =>
+            {
+                FillRect(b, 1, 1, 4, 4);
+                FillRect(b, 14, 1, 4, 4);
+            }
+        );
 
-        ContourTracer.FindContoursWithHierarchy(bitmap, out Contours contours, out PooledList<int> parentIndices);
+        ContourTracer.FindContoursWithHierarchy(
+            bitmap,
+            out Contours contours,
+            out PooledList<int> parentIndices
+        );
         using (contours)
         using (parentIndices)
         {
@@ -370,8 +440,11 @@ public class ContourTracerTests
             // All outer contours should have parent == -1 (no holes in these rects)
             for (int i = 0; i < parentIndices.Count; i++)
             {
-                Assert.That(parentIndices[i], Is.EqualTo(-1),
-                    $"Contour {i} should have no parent (separate filled rects have no holes)");
+                Assert.That(
+                    parentIndices[i],
+                    Is.EqualTo(-1),
+                    $"Contour {i} should have no parent (separate filled rects have no holes)"
+                );
             }
         }
     }
@@ -382,25 +455,35 @@ public class ContourTracerTests
         // Two separate ring shapes: each should have their hole point to their own outer contour
         // Ring 1: outer at (1,1) 6x6, hole at (2,2) 4x4
         // Ring 2: outer at (10,1) 6x6, hole at (11,2) 4x4
-        using var bitmap = CreateBitmap(20, 10, b =>
-        {
-            FillRect(b, 1, 1, 6, 6);
-            var empty = new Bgra8888(0, 0, 0, 0);
-            for (int row = 2; row <= 5; row++)
+        using var bitmap = CreateBitmap(
+            20,
+            10,
+            b =>
             {
-                Span<Bgra8888> span = b.GetRow<Bgra8888>(row);
-                for (int col = 2; col <= 5; col++) span[col] = empty;
-            }
+                FillRect(b, 1, 1, 6, 6);
+                var empty = new Bgra8888(0, 0, 0, 0);
+                for (int row = 2; row <= 5; row++)
+                {
+                    Span<Bgra8888> span = b.GetRow<Bgra8888>(row);
+                    for (int col = 2; col <= 5; col++)
+                        span[col] = empty;
+                }
 
-            FillRect(b, 10, 1, 6, 6);
-            for (int row = 2; row <= 5; row++)
-            {
-                Span<Bgra8888> span = b.GetRow<Bgra8888>(row);
-                for (int col = 11; col <= 14; col++) span[col] = empty;
+                FillRect(b, 10, 1, 6, 6);
+                for (int row = 2; row <= 5; row++)
+                {
+                    Span<Bgra8888> span = b.GetRow<Bgra8888>(row);
+                    for (int col = 11; col <= 14; col++)
+                        span[col] = empty;
+                }
             }
-        });
+        );
 
-        ContourTracer.FindContoursWithHierarchy(bitmap, out Contours contours, out PooledList<int> parentIndices);
+        ContourTracer.FindContoursWithHierarchy(
+            bitmap,
+            out Contours contours,
+            out PooledList<int> parentIndices
+        );
         using (contours)
         using (parentIndices)
         {
@@ -417,7 +500,11 @@ public class ContourTracerTests
                     holeCount++;
             }
 
-            Assert.That(topLevelCount, Is.GreaterThanOrEqualTo(2), "Should have 2 top-level outer contours");
+            Assert.That(
+                topLevelCount,
+                Is.GreaterThanOrEqualTo(2),
+                "Should have 2 top-level outer contours"
+            );
             Assert.That(holeCount, Is.GreaterThanOrEqualTo(2), "Should have 2 hole contours");
 
             // Each hole's parent must be a valid top-level contour (parent == -1)
@@ -426,8 +513,11 @@ public class ContourTracerTests
                 int p = parentIndices[i];
                 if (p >= 0)
                 {
-                    Assert.That(parentIndices[p], Is.EqualTo(-1),
-                        $"Hole contour {i}'s parent ({p}) should itself be a top-level contour");
+                    Assert.That(
+                        parentIndices[p],
+                        Is.EqualTo(-1),
+                        $"Hole contour {i}'s parent ({p}) should itself be a top-level contour"
+                    );
                 }
             }
         }
@@ -444,29 +534,40 @@ public class ContourTracerTests
         // 20x20 image:
         //  Outer ring: fg from (1,1) to (18,18), hole from (4,4) to (15,15)
         //  Inner shape: fg from (7,7) to (12,12) inside the hole
-        using var bitmap = CreateBitmap(20, 20, b =>
-        {
-            // Outer ring
-            FillRect(b, 1, 1, 18, 18);
-            var empty = new Bgra8888(0, 0, 0, 0);
-            for (int row = 4; row <= 15; row++)
+        using var bitmap = CreateBitmap(
+            20,
+            20,
+            b =>
             {
-                Span<Bgra8888> span = b.GetRow<Bgra8888>(row);
-                for (int col = 4; col <= 15; col++)
-                    span[col] = empty;
+                // Outer ring
+                FillRect(b, 1, 1, 18, 18);
+                var empty = new Bgra8888(0, 0, 0, 0);
+                for (int row = 4; row <= 15; row++)
+                {
+                    Span<Bgra8888> span = b.GetRow<Bgra8888>(row);
+                    for (int col = 4; col <= 15; col++)
+                        span[col] = empty;
+                }
+
+                // Inner shape (inside the hole)
+                FillRect(b, 7, 7, 6, 6);
             }
+        );
 
-            // Inner shape (inside the hole)
-            FillRect(b, 7, 7, 6, 6);
-        });
-
-        ContourTracer.FindContoursWithHierarchy(bitmap, out Contours contours, out PooledList<int> parentIndices);
+        ContourTracer.FindContoursWithHierarchy(
+            bitmap,
+            out Contours contours,
+            out PooledList<int> parentIndices
+        );
         using (contours)
         using (parentIndices)
         {
             // Expect exactly: outer ring contour + 1 hole contour + inner shape contour = 3
-            Assert.That(contours.Count, Is.EqualTo(3),
-                "Should have exactly 3 contours: outer ring, its hole, and the inner shape");
+            Assert.That(
+                contours.Count,
+                Is.EqualTo(3),
+                "Should have exactly 3 contours: outer ring, its hole, and the inner shape"
+            );
 
             int topLevelCount = 0;
             int holeCount = 0;
@@ -478,8 +579,16 @@ public class ContourTracerTests
                     holeCount++;
             }
 
-            Assert.That(topLevelCount, Is.EqualTo(2), "Should have 2 top-level outer contours (outer ring + inner shape)");
-            Assert.That(holeCount, Is.EqualTo(1), "Should have exactly 1 hole contour (inner boundary of outer ring)");
+            Assert.That(
+                topLevelCount,
+                Is.EqualTo(2),
+                "Should have 2 top-level outer contours (outer ring + inner shape)"
+            );
+            Assert.That(
+                holeCount,
+                Is.EqualTo(1),
+                "Should have exactly 1 hole contour (inner boundary of outer ring)"
+            );
         }
     }
 }

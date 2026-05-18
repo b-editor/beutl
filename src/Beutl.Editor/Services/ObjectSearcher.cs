@@ -65,14 +65,20 @@ public class ObjectSearcher
             switch (obj)
             {
                 case CoreObject coreObject:
-                    foreach (CoreProperty? item in PropertyRegistry.GetRegistered(coreObject.GetType())
-                                 .Where(x => (!x.PropertyType.IsValueType
-                                              || x.PropertyType.IsAssignableTo(typeof(IOptional)))
-                                             && x.Id != Hierarchical.HierarchicalParentProperty.Id))
+                    foreach (
+                        CoreProperty? item in PropertyRegistry
+                            .GetRegistered(coreObject.GetType())
+                            .Where(x =>
+                                (
+                                    !x.PropertyType.IsValueType
+                                    || x.PropertyType.IsAssignableTo(typeof(IOptional))
+                                )
+                                && x.Id != Hierarchical.HierarchicalParentProperty.Id
+                            )
+                    )
                     {
                         object? value = coreObject.GetValue(item);
-                        if (value != null
-                            && SearchRecursive(value) is { } result)
+                        if (value != null && SearchRecursive(value) is { } result)
                         {
                             return result;
                         }
@@ -82,10 +88,14 @@ public class ObjectSearcher
                     {
                         foreach (IProperty property in engineObject.Properties)
                         {
-                            if ((!property.ValueType.IsValueType
-                                 || property.ValueType.IsAssignableTo(typeof(IOptional)))
+                            if (
+                                (
+                                    !property.ValueType.IsValueType
+                                    || property.ValueType.IsAssignableTo(typeof(IOptional))
+                                )
                                 && property.CurrentValue is { } value
-                                && SearchRecursive(value) is { } result)
+                                && SearchRecursive(value) is { } result
+                            )
                             {
                                 return result;
                             }
@@ -98,8 +108,7 @@ public class ObjectSearcher
                     {
                         foreach (object? item in enm)
                         {
-                            if (item != null
-                                && SearchRecursive(item) is { } result)
+                            if (item != null && SearchRecursive(item) is { } result)
                             {
                                 return result;
                             }
@@ -109,16 +118,22 @@ public class ObjectSearcher
 
                 case IPropertyAdapter property:
                     {
-                        if ((!property.PropertyType.IsValueType
-                             || property.PropertyType.IsAssignableTo(typeof(IOptional)))
+                        if (
+                            (
+                                !property.PropertyType.IsValueType
+                                || property.PropertyType.IsAssignableTo(typeof(IOptional))
+                            )
                             && property.GetValue() is { } value
-                            && SearchRecursive(value) is { } result1)
+                            && SearchRecursive(value) is { } result1
+                        )
                         {
                             return result1;
                         }
 
-                        if (property is IAnimatablePropertyAdapter { Animation: { } animation }
-                            && SearchRecursive(animation) is { } result2)
+                        if (
+                            property is IAnimatablePropertyAdapter { Animation: { } animation }
+                            && SearchRecursive(animation) is { } result2
+                        )
                         {
                             return result2;
                         }
@@ -149,21 +164,28 @@ public class ObjectSearcher
             switch (obj)
             {
                 case CoreObject coreObject:
-                    foreach (object? item in PropertyRegistry.GetRegistered(coreObject.GetType())
-                                 .Where(x => !x.PropertyType.IsValueType &&
-                                             x != Hierarchical.HierarchicalParentProperty)
-                                 .Select(coreObject.GetValue)
-                                 .Where(x => x != null))
+                    foreach (
+                        object? item in PropertyRegistry
+                            .GetRegistered(coreObject.GetType())
+                            .Where(x =>
+                                !x.PropertyType.IsValueType
+                                && x != Hierarchical.HierarchicalParentProperty
+                            )
+                            .Select(coreObject.GetValue)
+                            .Where(x => x != null)
+                    )
                     {
                         SearchAllRecursive(item!, list);
                     }
 
                     if (coreObject is EngineObject engineObject)
                     {
-                        foreach (object? item in engineObject.Properties
-                                     .Where(x => !x.ValueType.IsValueType)
-                                     .Select(x => x.CurrentValue)
-                                     .Where(x => x != null))
+                        foreach (
+                            object? item in engineObject
+                                .Properties.Where(x => !x.ValueType.IsValueType)
+                                .Select(x => x.CurrentValue)
+                                .Where(x => x != null)
+                        )
                         {
                             SearchAllRecursive(item!, list);
                         }
@@ -183,8 +205,7 @@ public class ObjectSearcher
 
                 case IPropertyAdapter property:
                     {
-                        if (!property.PropertyType.IsValueType
-                            && property.GetValue() is { } value)
+                        if (!property.PropertyType.IsValueType && property.GetValue() is { } value)
                         {
                             SearchAllRecursive(value, list);
                         }

@@ -1,5 +1,4 @@
 ﻿using System.ComponentModel;
-
 using Beutl.Reactive;
 
 namespace Beutl;
@@ -33,7 +32,8 @@ internal sealed class CoreObjectSubject<T> : LightweightObservableBase<T>
 
     private void Object_PropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
-        if (e.PropertyName != _property.Name) return;
+        if (e.PropertyName != _property.Name)
+            return;
 
         T value = _object.GetValue(_property);
         PublishNext(value);

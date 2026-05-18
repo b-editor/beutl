@@ -39,7 +39,9 @@ public class GraphicsContextFactory
     {
         if (SharedContext != null)
         {
-            throw new InvalidOperationException("Cannot change GPU after the graphics context has been created.");
+            throw new InvalidOperationException(
+                "Cannot change GPU after the graphics context has been created."
+            );
         }
 
         s_selectedPhysicalDevice = physicalDevice;
@@ -82,7 +84,8 @@ public class GraphicsContextFactory
     public static IGraphicsContext CreateContext()
     {
         EnsureVulkanInstance();
-        var physicalDevice = s_selectedPhysicalDevice ?? s_vulkanInstance!.SelectBestPhysicalDevice();
+        var physicalDevice =
+            s_selectedPhysicalDevice ?? s_vulkanInstance!.SelectBestPhysicalDevice();
 
         if (OperatingSystem.IsMacOS())
             return new CompositeContext(s_vulkanInstance!, physicalDevice);

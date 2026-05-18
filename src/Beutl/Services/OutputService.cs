@@ -19,8 +19,11 @@ public sealed class OutputProfileItem : IDisposable
 
         Context.Started += OnStarted;
         Context.Finished += OnFinished;
-        _logger.LogInformation("OutputProfileItem created. File: {File}, Context: {Context}", Context.Object.Uri,
-            Context);
+        _logger.LogInformation(
+            "OutputProfileItem created. File: {File}, Context: {Context}",
+            Context.Object.Uri,
+            Context
+        );
     }
 
     public IOutputContext Context { get; }
@@ -73,11 +76,15 @@ public sealed class OutputProfileItem : IDisposable
         {
             ["Extension"] = TypeFormat.ToString(item.Context.Extension.GetType()),
             ["File"] = item.Context.Object.Uri!.LocalPath,
-            [nameof(Context)] = ctxJson
+            [nameof(Context)] = ctxJson,
         };
     }
 
-    public static OutputProfileItem? FromJson(IEditorContext editorContext, JsonNode json, ILogger logger)
+    public static OutputProfileItem? FromJson(
+        IEditorContext editorContext,
+        JsonNode json,
+        ILogger logger
+    )
     {
         try
         {
@@ -87,31 +94,44 @@ public sealed class OutputProfileItem : IDisposable
             string extensionStr = obj["Extension"]!.AsValue().GetValue<string>();
             Type? extensionType = TypeFormat.ToType(extensionStr);
             ExtensionProvider provider = ExtensionProvider.Current;
-            OutputExtension? extension = Array.Find(provider.GetExtensions<OutputExtension>(),
-                x => x.GetType() == extensionType);
+            OutputExtension? extension = Array.Find(
+                provider.GetExtensions<OutputExtension>(),
+                x => x.GetType() == extensionType
+            );
 
             string file = obj["File"]!.AsValue().GetValue<string>();
 
-            if (contextJson != null
+            if (
+                contextJson != null
                 && extension != null
                 && File.Exists(file)
-                && extension.TryCreateContext(editorContext, out IOutputContext? context))
+                && extension.TryCreateContext(editorContext, out IOutputContext? context)
+            )
             {
                 context.ReadFromJson(contextJson.AsObject());
-                logger.LogInformation("OutputProfileItem created from JSON. File: {File}, Context: {Context}", file,
-                    context);
+                logger.LogInformation(
+                    "OutputProfileItem created from JSON. File: {File}, Context: {Context}",
+                    file,
+                    context
+                );
                 return new OutputProfileItem(context, editorContext);
             }
             else
             {
-                logger.LogWarning("Failed to create OutputProfileItem from JSON. File: {File}, Extension: {Extension}",
-                    file, extensionStr);
+                logger.LogWarning(
+                    "Failed to create OutputProfileItem from JSON. File: {File}, Extension: {Extension}",
+                    file,
+                    extensionStr
+                );
                 return null;
             }
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "An exception has occurred while creating OutputProfileItem from JSON.");
+            logger.LogError(
+                ex,
+                "An exception has occurred while creating OutputProfileItem from JSON."
+            );
             return null;
         }
     }
@@ -124,7 +144,9 @@ public sealed class OutputService(EditViewModel editViewModel) : IDisposable
 
     private readonly string _filePath = Path.Combine(
         Path.GetDirectoryName(editViewModel.Scene.Uri!.LocalPath)!,
-        Constants.BeutlFolder, "output-profile.json");
+        Constants.BeutlFolder,
+        "output-profile.json"
+    );
 
     private readonly ILogger _logger = Log.CreateLogger<OutputService>();
     private bool _isRestored;
@@ -145,19 +167,25 @@ public sealed class OutputService(EditViewModel editViewModel) : IDisposable
         var item = new OutputProfileItem(context, editViewModel);
         Items.Add(item);
         SelectedItem.Value = item;
-        _logger.LogInformation("Added new OutputProfileItem. File: {File}, Context: {Context}", file, context);
+        _logger.LogInformation(
+            "Added new OutputProfileItem. File: {File}, Context: {Context}",
+            file,
+            context
+        );
     }
 
     public static OutputExtension[] GetExtensions(Type type)
     {
-        return ExtensionProvider.Current
-            .GetExtensions<OutputExtension>()
-            .Where(x => x.IsSupported(type)).ToArray();
+        return ExtensionProvider
+            .Current.GetExtensions<OutputExtension>()
+            .Where(x => x.IsSupported(type))
+            .ToArray();
     }
 
     public void SaveItems()
     {
-        if (!_isRestored) return;
+        if (!_isRestored)
+            return;
 
         var array = new JsonArray();
         foreach (OutputProfileItem item in _items.GetMarshal().Value)
@@ -167,7 +195,11 @@ public sealed class OutputService(EditViewModel editViewModel) : IDisposable
         }
 
         array.JsonSave(_filePath);
-        _logger.LogInformation("Saved {Count} OutputProfileItems to file: {FilePath}", _items.Count, _filePath);
+        _logger.LogInformation(
+            "Saved {Count} OutputProfileItems to file: {FilePath}",
+            _items.Count,
+            _filePath
+        );
     }
 
     public void RestoreItems()
@@ -188,7 +220,10 @@ public sealed class OutputService(EditViewModel editViewModel) : IDisposable
             var jsonNode = JsonNode.Parse(stream);
             if (jsonNode is not JsonArray jsonArray)
             {
-                _logger.LogWarning("Invalid JSON format in output profile file: {FilePath}", _filePath);
+                _logger.LogWarning(
+                    "Invalid JSON format in output profile file: {FilePath}",
+                    _filePath
+                );
                 return;
             }
 
@@ -204,7 +239,8 @@ public sealed class OutputService(EditViewModel editViewModel) : IDisposable
 
             foreach (JsonNode? jsonItem in jsonArray)
             {
-                if (jsonItem == null) continue;
+                if (jsonItem == null)
+                    continue;
 
                 var item = OutputProfileItem.FromJson(editViewModel, jsonItem, _logger);
                 if (item != null)
@@ -217,11 +253,19 @@ public sealed class OutputService(EditViewModel editViewModel) : IDisposable
             // try 冒頭で true にすると、IO 失敗や JSON 破損時に後続の SaveItems が
             // 空の _items を書き込み、ユーザーの保存済みプロファイルが消える。
             _isRestored = true;
-            _logger.LogInformation("Restored {Count} OutputProfileItems from file: {FilePath}", _items.Count, _filePath);
+            _logger.LogInformation(
+                "Restored {Count} OutputProfileItems from file: {FilePath}",
+                _items.Count,
+                _filePath
+            );
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "An exception has occurred while restoring output profile file: {FilePath}", _filePath);
+            _logger.LogError(
+                ex,
+                "An exception has occurred while restoring output profile file: {FilePath}",
+                _filePath
+            );
         }
     }
 

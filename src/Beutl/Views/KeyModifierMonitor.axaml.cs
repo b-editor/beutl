@@ -22,9 +22,11 @@ public partial class KeyModifierMonitor : AppWindow
     {
         if (Owner != null)
         {
-            Owner.AddDisposableHandler(KeyDownEvent, OnOwnerKeyDown, RoutingStrategies.Tunnel)
+            Owner
+                .AddDisposableHandler(KeyDownEvent, OnOwnerKeyDown, RoutingStrategies.Tunnel)
                 .DisposeWith(_disposables);
-            Owner.AddDisposableHandler(KeyUpEvent, OnOwnerKeyUp, RoutingStrategies.Tunnel)
+            Owner
+                .AddDisposableHandler(KeyUpEvent, OnOwnerKeyUp, RoutingStrategies.Tunnel)
                 .DisposeWith(_disposables);
         }
     }
@@ -37,26 +39,27 @@ public partial class KeyModifierMonitor : AppWindow
 
     private static bool Skip(Key key)
     {
-        return key is Key.ImeAccept
-            or Key.ImeConvert
-            or Key.ImeModeChange
-            or Key.ImeNonConvert
-            or Key.ImeProcessed
-            or Key.DbeEnterImeConfigureMode
-            or Key.DbeAlphanumeric
-            or Key.DbeCodeInput
-            or Key.DbeDbcsChar
-            or Key.DbeDetermineString
-            or Key.DbeEnterDialogConversionMode
-            or Key.DbeEnterImeConfigureMode
-            or Key.DbeEnterWordRegisterMode
-            or Key.DbeFlushString
-            or Key.DbeHiragana
-            or Key.DbeKatakana
-            or Key.DbeNoCodeInput
-            or Key.DbeNoRoman
-            or Key.DbeRoman
-            or Key.DbeSbcsChar;
+        return key
+            is Key.ImeAccept
+                or Key.ImeConvert
+                or Key.ImeModeChange
+                or Key.ImeNonConvert
+                or Key.ImeProcessed
+                or Key.DbeEnterImeConfigureMode
+                or Key.DbeAlphanumeric
+                or Key.DbeCodeInput
+                or Key.DbeDbcsChar
+                or Key.DbeDetermineString
+                or Key.DbeEnterDialogConversionMode
+                or Key.DbeEnterImeConfigureMode
+                or Key.DbeEnterWordRegisterMode
+                or Key.DbeFlushString
+                or Key.DbeHiragana
+                or Key.DbeKatakana
+                or Key.DbeNoCodeInput
+                or Key.DbeNoRoman
+                or Key.DbeRoman
+                or Key.DbeSbcsChar;
     }
 
     private static string GetKeyName(Key key)
@@ -84,7 +87,8 @@ public partial class KeyModifierMonitor : AppWindow
 
     private async void OnOwnerKeyUp(object? sender, KeyEventArgs e)
     {
-        if (Skip(e.Key)) return;
+        if (Skip(e.Key))
+            return;
 
         if (_buttons.TryGetValue(e.Key, out Button? btn))
         {
@@ -112,14 +116,14 @@ public partial class KeyModifierMonitor : AppWindow
                         new KeyFrame
                         {
                             Cue = new Cue(0),
-                            Setters = { new Setter(OpacityProperty, 1d) }
+                            Setters = { new Setter(OpacityProperty, 1d) },
                         },
                         new KeyFrame
                         {
                             Cue = new Cue(1),
-                            Setters = { new Setter(OpacityProperty, 0d) }
+                            Setters = { new Setter(OpacityProperty, 0d) },
                         },
-                    }
+                    },
                 };
 
                 await anim.RunAsync(btn, cts.Token);
@@ -128,15 +132,14 @@ public partial class KeyModifierMonitor : AppWindow
                     Host.Children.Remove(btn);
                 }
             }
-            catch
-            {
-            }
+            catch { }
         }
     }
 
     private void OnOwnerKeyDown(object? sender, KeyEventArgs e)
     {
-        if (Skip(e.Key)) return;
+        if (Skip(e.Key))
+            return;
 
         lock (_cts)
         {
@@ -149,10 +152,7 @@ public partial class KeyModifierMonitor : AppWindow
 
         if (!_buttons.TryGetValue(e.Key, out Button? btn))
         {
-            btn = new Button()
-            {
-                Content = GetKeyName(e.Key)
-            };
+            btn = new Button() { Content = GetKeyName(e.Key) };
             _buttons.Add(e.Key, btn);
         }
 

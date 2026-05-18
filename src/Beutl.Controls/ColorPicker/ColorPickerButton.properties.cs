@@ -14,9 +14,10 @@ public partial class ColorPickerButton
     /// <summary>
     /// Defines the <see cref="Color"/> property
     /// </summary>
-    public static readonly StyledProperty<Color?> ColorProperty =
-        AvaloniaProperty.Register<ColorPickerButton, Color?>(nameof(Color),
-            defaultBindingMode: BindingMode.TwoWay);
+    public static readonly StyledProperty<Color?> ColorProperty = AvaloniaProperty.Register<
+        ColorPickerButton,
+        Color?
+    >(nameof(Color), defaultBindingMode: BindingMode.TwoWay);
 
     /// <summary>
     /// Defines the <see cref="IsMoreButtonVisible"/> property
@@ -63,9 +64,14 @@ public partial class ColorPickerButton
     /// <summary>
     /// Defines the <see cref="CustomPaletteColors"/> property
     /// </summary>
-    public static readonly DirectProperty<ColorPickerButton, IEnumerable<Color>> CustomPaletteColorsProperty =
-        FAColorPicker.CustomPaletteColorsProperty.AddOwner<ColorPickerButton>(x => x.CustomPaletteColors,
-            (x, v) => x.CustomPaletteColors = v);
+    public static readonly DirectProperty<
+        ColorPickerButton,
+        IEnumerable<Color>
+    > CustomPaletteColorsProperty =
+        FAColorPicker.CustomPaletteColorsProperty.AddOwner<ColorPickerButton>(
+            x => x.CustomPaletteColors,
+            (x, v) => x.CustomPaletteColors = v
+        );
 
     /// <summary>
     /// Define sthe <see cref="PaletteColumnCount"/> property
@@ -77,15 +83,19 @@ public partial class ColorPickerButton
     /// Defines the <see cref="ShowAcceptDismissButtons"/> property
     /// </summary>
     public static readonly StyledProperty<bool> ShowAcceptDismissButtonsProperty =
-        AvaloniaProperty.Register<ColorPickerButton, bool>(nameof(ShowAcceptDismissButtons), defaultValue: true);
+        AvaloniaProperty.Register<ColorPickerButton, bool>(
+            nameof(ShowAcceptDismissButtons),
+            defaultValue: true
+        );
 
     /// <summary>
     /// Defines the <see cref="FlyoutPlacement"/> property
     /// </summary>
     public static readonly StyledProperty<PlacementMode> FlyoutPlacementProperty =
-        AvaloniaProperty.Register<ColorPickerButton, PlacementMode>(nameof(FlyoutPlacement),
-            defaultValue: PlacementMode.Bottom);
-
+        AvaloniaProperty.Register<ColorPickerButton, PlacementMode>(
+            nameof(FlyoutPlacement),
+            defaultValue: PlacementMode.Bottom
+        );
 
     /// <summary>
     /// Gets or sets the current <see cref="Avalonia.Media.Color"/> of the ColorPickerButton
@@ -124,7 +134,7 @@ public partial class ColorPickerButton
     }
 
     /// <summary>
-    /// Gets or sets whether the <see cref="FAColorPicker"/> should allow using the 
+    /// Gets or sets whether the <see cref="FAColorPicker"/> should allow using the
     /// Color Spectrum display for selecting a color
     /// </summary>
     public bool UseSpectrum
@@ -144,7 +154,7 @@ public partial class ColorPickerButton
     }
 
     /// <summary>
-    /// Gets or sets whether the <see cref="FAColorPicker"/> should allow using the 
+    /// Gets or sets whether the <see cref="FAColorPicker"/> should allow using the
     /// HSV Color Triangle display for selecting a color
     /// </summary>
     public bool UseColorTriangle
@@ -174,7 +184,7 @@ public partial class ColorPickerButton
     }
 
     /// <summary>
-    /// Gets or sets the number of columns to use in the Custom Color Palette display 
+    /// Gets or sets the number of columns to use in the Custom Color Palette display
     /// of the <see cref="FAColorPicker"/>
     /// </summary>
     public int PaletteColumnCount
@@ -185,7 +195,7 @@ public partial class ColorPickerButton
 
     /// <summary>
     /// Gets or sets whether the Flyout should show the Accept and Dismiss buttons. If true,
-    /// changes to the color are only applied if accept is pressed. If false, changes to the 
+    /// changes to the color are only applied if accept is pressed. If false, changes to the
     /// color apply immediately.
     /// </summary>
     public bool ShowAcceptDismissButtons
@@ -206,7 +216,10 @@ public partial class ColorPickerButton
     /// <summary>
     /// Raised when the color change was confirmed and the flyout closes.
     /// </summary>
-    public event TypedEventHandler<ColorPickerButton, ColorButtonColorChangedEventArgs> FlyoutConfirmed;
+    public event TypedEventHandler<
+        ColorPickerButton,
+        ColorButtonColorChangedEventArgs
+    > FlyoutConfirmed;
 
     /// <summary>
     /// Raised when the color change was dismissed and the flyout closes.
@@ -225,7 +238,10 @@ public partial class ColorPickerButton
     /// <summary>
     /// Fired when the current <see cref="Color"/> property changes
     /// </summary>
-    public event TypedEventHandler<ColorPickerButton, ColorButtonColorChangedEventArgs> ColorChanged;
+    public event TypedEventHandler<
+        ColorPickerButton,
+        ColorButtonColorChangedEventArgs
+    > ColorChanged;
 
     private IEnumerable<Color> _customPaletteColors;
     private const string s_tpShowFlyoutButton = "ShowFlyoutButton";

@@ -26,7 +26,8 @@ public partial class CoreObjectEditor : UserControl
         EditorMenuHelper.AttachCopyPasteAndTemplateMenus(
             this,
             (FAMenuFlyout)expandToggle.ContextFlyout!,
-            (FAMenuFlyout)ReferenceMenuButton.Flyout!);
+            (FAMenuFlyout)ReferenceMenuButton.Flyout!
+        );
 
         DragDrop.SetAllowDrop(this, true);
         AddHandler(DragDrop.DragOverEvent, DragOver);
@@ -35,12 +36,19 @@ public partial class CoreObjectEditor : UserControl
 
     private void Drop(object? sender, DragEventArgs e)
     {
-        if (DataContext is not BaseEditorViewModel { IsDisposed: false } viewModel) return;
+        if (DataContext is not BaseEditorViewModel { IsDisposed: false } viewModel)
+            return;
 
-        if (e.DataTransfer.TryGetFile()?.TryGetLocalPath() is { } droppedFile
-            && string.Equals(Path.GetExtension(droppedFile), ".json", StringComparison.OrdinalIgnoreCase)
+        if (
+            e.DataTransfer.TryGetFile()?.TryGetLocalPath() is { } droppedFile
+            && string.Equals(
+                Path.GetExtension(droppedFile),
+                ".json",
+                StringComparison.OrdinalIgnoreCase
+            )
             && ObjectTemplateService.Instance.TryLoadFromFile(droppedFile) is { } template
-            && viewModel.ApplyTemplate(template))
+            && viewModel.ApplyTemplate(template)
+        )
         {
             e.Handled = true;
         }
@@ -57,13 +65,15 @@ public partial class CoreObjectEditor : UserControl
 
     private void Navigate_Click(object? sender, RoutedEventArgs e)
     {
-        if (DataContext is not ICoreObjectEditorViewModel { IsDisposed: false } viewModel) return;
-        if (viewModel.GetService<EditViewModel>() is not { } editViewModel) return;
+        if (DataContext is not ICoreObjectEditorViewModel { IsDisposed: false } viewModel)
+            return;
+        if (viewModel.GetService<EditViewModel>() is not { } editViewModel)
+            return;
 
-        ObjectPropertyTabViewModel objViewModel
-            = editViewModel.FindToolTab<ObjectPropertyTabViewModel>(i =>
-                  ReferenceEquals(i.ChildContext.Value?.Target, viewModel.Value.Value))
-              ?? new ObjectPropertyTabViewModel(editViewModel);
+        ObjectPropertyTabViewModel objViewModel =
+            editViewModel.FindToolTab<ObjectPropertyTabViewModel>(i =>
+                ReferenceEquals(i.ChildContext.Value?.Target, viewModel.Value.Value)
+            ) ?? new ObjectPropertyTabViewModel(editViewModel);
 
         objViewModel.NavigateCore(viewModel.Value.Value, false, viewModel);
         editViewModel.OpenToolTab(objViewModel);
@@ -71,7 +81,8 @@ public partial class CoreObjectEditor : UserControl
 
     private async void NewClick(object? sender, RoutedEventArgs e)
     {
-        if (DataContext is not ICoreObjectEditorViewModel { IsDisposed: false } viewModel) return;
+        if (DataContext is not ICoreObjectEditorViewModel { IsDisposed: false } viewModel)
+            return;
 
         Type propertyType = viewModel.PropertyAdapter.PropertyType;
 
@@ -96,7 +107,8 @@ public partial class CoreObjectEditor : UserControl
 
     private void SetNullClick(object? sender, RoutedEventArgs e)
     {
-        if (DataContext is not ICoreObjectEditorViewModel { IsDisposed: false } viewModel) return;
+        if (DataContext is not ICoreObjectEditorViewModel { IsDisposed: false } viewModel)
+            return;
 
         viewModel.SetNull();
     }
@@ -108,8 +120,10 @@ public partial class CoreObjectEditor : UserControl
 
     private async Task<object?> SelectTypeOrReference()
     {
-        if (_flyoutOpen) return null;
-        if (DataContext is not ICoreObjectEditorViewModel { IsDisposed: false } viewModel) return null;
+        if (_flyoutOpen)
+            return null;
+        if (DataContext is not ICoreObjectEditorViewModel { IsDisposed: false } viewModel)
+            return null;
 
         try
         {
@@ -124,17 +138,18 @@ public partial class CoreObjectEditor : UserControl
 
     private async void OnSelectTargetRequested()
     {
-        if (DataContext is not ICoreObjectEditorViewModel { IsDisposed: false } vm) return;
-        if (_flyoutOpen) return;
+        if (DataContext is not ICoreObjectEditorViewModel { IsDisposed: false } vm)
+            return;
+        if (_flyoutOpen)
+            return;
 
         try
         {
             _flyoutOpen = true;
-            await TargetSelectionHelper.HandleSelectTargetRequestAsync<ICoreObjectEditorViewModel, CoreObject>(
-                this,
-                vm,
-                vm => vm.GetAvailableTargets(),
-                (vm, target) => vm.SetTarget(target));
+            await TargetSelectionHelper.HandleSelectTargetRequestAsync<
+                ICoreObjectEditorViewModel,
+                CoreObject
+            >(this, vm, vm => vm.GetAvailableTargets(), (vm, target) => vm.SetTarget(target));
         }
         finally
         {

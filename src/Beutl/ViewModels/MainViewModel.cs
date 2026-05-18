@@ -28,17 +28,21 @@ public sealed class MainViewModel : BasePageViewModel, IContextCommandHandler
         MenuBar = new MenuBarViewModel();
 
         IsProjectOpened = ProjectService.Current.IsOpened;
-        NameOfOpenProject = ProjectService.Current.CurrentProject.Select(v =>
-                v is { Uri.LocalPath: { } path } ? Path.GetFileName(path) : null)
+        NameOfOpenProject = ProjectService
+            .Current.CurrentProject.Select(v =>
+                v is { Uri.LocalPath: { } path } ? Path.GetFileName(path) : null
+            )
             .ToReadOnlyReactivePropertySlim();
-        WindowTitle = NameOfOpenProject.Select(v => string.IsNullOrWhiteSpace(v) ? "Beutl" : $"Beutl - {v}")
+        WindowTitle = NameOfOpenProject
+            .Select(v => string.IsNullOrWhiteSpace(v) ? "Beutl" : $"Beutl - {v}")
             .ToReadOnlyReactivePropertySlim("Beutl");
         TitleBreadcrumbBar = new TitleBreadcrumbBarViewModel(this, EditorService.Current);
 
         var paletteService = new CommandPaletteService(
             ContextCommandManager,
             new CommandPaletteHandlerProvider(() => this),
-            () => MenuBar);
+            () => MenuBar
+        );
         CommandPalette = new CommandPaletteViewModel(paletteService);
 
         ICoreReadOnlyList<Extension> allExtension = ExtensionProvider.Current.AllExtensions;
@@ -48,24 +52,28 @@ public sealed class MainViewModel : BasePageViewModel, IContextCommandHandler
             .ToObservableChangeSet<ICoreReadOnlyList<Extension>, Extension>()
             .Sort(comparer);
 
-        changeSet.Filter(i => i is ToolTabExtension)
+        changeSet
+            .Filter(i => i is ToolTabExtension)
             .Cast(item => (ToolTabExtension)item)
             .Bind(out ReadOnlyObservableCollection<ToolTabExtension>? list1)
             .Subscribe();
 
-        changeSet.Filter(i => i is EditorExtension)
+        changeSet
+            .Filter(i => i is EditorExtension)
             .Cast(item => (EditorExtension)item)
             .Bind(out ReadOnlyObservableCollection<EditorExtension>? list2)
             .Subscribe();
 
 #pragma warning disable CS0618
-        changeSet.Filter(i => i is PageExtension)
+        changeSet
+            .Filter(i => i is PageExtension)
             .Cast(item => (PageExtension)item)
             .Bind(out ReadOnlyObservableCollection<PageExtension>? list3)
             .Subscribe();
 #pragma warning restore CS0618
 
-        changeSet.Filter(i => i is ToolWindowExtension)
+        changeSet
+            .Filter(i => i is ToolWindowExtension)
             .Cast(item => (ToolWindowExtension)item)
             .Bind(out ReadOnlyObservableCollection<ToolWindowExtension>? list4)
             .Subscribe();
@@ -143,15 +151,20 @@ public sealed class MainViewModel : BasePageViewModel, IContextCommandHandler
 
         if (installs.Length > 0 || uninstalls.Length > 0)
         {
-            var startInfo = new ProcessStartInfo() { UseShellExecute = true, };
-            DotNetProcess.Configure(startInfo, Path.Combine(AppContext.BaseDirectory, "Beutl.PackageTools.UI"));
+            var startInfo = new ProcessStartInfo() { UseShellExecute = true };
+            DotNetProcess.Configure(
+                startInfo,
+                Path.Combine(AppContext.BaseDirectory, "Beutl.PackageTools.UI")
+            );
 
             if (installs.Length > 0)
             {
                 startInfo.ArgumentList.Add("--installs");
                 foreach (PackageIdentity? item in installs)
                 {
-                    startInfo.ArgumentList.Add(item.HasVersion ? $"{item.Id}/{item.Version}" : item.Id);
+                    startInfo.ArgumentList.Add(
+                        item.HasVersion ? $"{item.Id}/{item.Version}" : item.Id
+                    );
                 }
             }
 
@@ -160,7 +173,9 @@ public sealed class MainViewModel : BasePageViewModel, IContextCommandHandler
                 startInfo.ArgumentList.Add("--uninstalls");
                 foreach (PackageIdentity? item in uninstalls)
                 {
-                    startInfo.ArgumentList.Add(item.HasVersion ? $"{item.Id}/{item.Version}" : item.Id);
+                    startInfo.ArgumentList.Add(
+                        item.HasVersion ? $"{item.Id}/{item.Version}" : item.Id
+                    );
                 }
             }
 

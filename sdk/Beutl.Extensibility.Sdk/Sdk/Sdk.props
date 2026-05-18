@@ -3,9 +3,15 @@
   <Import Project="$(MSBuildThisFileDirectory)Version.props" />
 
   <PropertyGroup>
-    <BeutlExtensibilitySdkVersion Condition="'$(BeutlExtensibilitySdkVersion)' == ''">1.0.0</BeutlExtensibilitySdkVersion>
-    <BeutlPackagesVersion Condition="'$(BeutlPackagesVersion)' == ''">$(BeutlExtensibilitySdkVersion)</BeutlPackagesVersion>
-    <TargetFramework Condition="'$(TargetFramework)' == '' and '$(TargetFrameworks)' == ''">net10.0</TargetFramework>
+    <BeutlExtensibilitySdkVersion Condition="'$(BeutlExtensibilitySdkVersion)' == ''"
+      >1.0.0</BeutlExtensibilitySdkVersion
+    >
+    <BeutlPackagesVersion Condition="'$(BeutlPackagesVersion)' == ''"
+      >$(BeutlExtensibilitySdkVersion)</BeutlPackagesVersion
+    >
+    <TargetFramework Condition="'$(TargetFramework)' == '' and '$(TargetFrameworks)' == ''"
+      >net10.0</TargetFramework
+    >
     <ImplicitUsings Condition="'$(ImplicitUsings)' == ''">enable</ImplicitUsings>
     <Nullable Condition="'$(Nullable)' == ''">enable</Nullable>
   </PropertyGroup>

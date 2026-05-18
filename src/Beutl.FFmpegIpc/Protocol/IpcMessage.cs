@@ -92,5 +92,6 @@ public sealed class IpcMessage
 [JsonSerializable(typeof(Dictionary<string, string>))]
 [JsonSourceGenerationOptions(
     PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase,
-    DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull)]
+    DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
+)]
 internal partial class IpcJsonContext : JsonSerializerContext;

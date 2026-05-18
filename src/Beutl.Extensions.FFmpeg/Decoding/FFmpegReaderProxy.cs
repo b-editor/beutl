@@ -25,7 +25,11 @@ public sealed class FFmpegReaderProxy : MediaReader
     private int _ringSlotCount;
     private long _ringSlotSize;
 
-    internal FFmpegReaderProxy(IpcConnection connection, int readerId, OpenFileResponse openResponse)
+    internal FFmpegReaderProxy(
+        IpcConnection connection,
+        int readerId,
+        OpenFileResponse openResponse
+    )
     {
         _connection = connection;
         _readerId = readerId;
@@ -38,9 +42,10 @@ public sealed class FFmpegReaderProxy : MediaReader
                 vi.VideoCodecName ?? "Unknown",
                 vi.VideoNumFrames,
                 new PixelSize(vi.VideoWidth, vi.VideoHeight),
-                new Rational(vi.FrameRateNum, vi.FrameRateDen))
+                new Rational(vi.FrameRateNum, vi.FrameRateDen)
+            )
             {
-                Duration = new Rational(vi.DurationNum, vi.DurationDen)
+                Duration = new Rational(vi.DurationNum, vi.DurationDen),
             };
 
             // 色空間復元
@@ -58,13 +63,16 @@ public sealed class FFmpegReaderProxy : MediaReader
                 ai.AudioCodecName ?? "Unknown",
                 new Rational(ai.AudioDurationNum, ai.AudioDurationDen),
                 ai.AudioSampleRate,
-                ai.AudioNumChannels);
+                ai.AudioNumChannels
+            );
         }
     }
 
-    public override VideoStreamInfo VideoInfo => field ?? throw new Exception("The stream does not exist.");
+    public override VideoStreamInfo VideoInfo =>
+        field ?? throw new Exception("The stream does not exist.");
 
-    public override AudioStreamInfo AudioInfo => field ?? throw new Exception("The stream does not exist.");
+    public override AudioStreamInfo AudioInfo =>
+        field ?? throw new Exception("The stream does not exist.");
 
     public override bool HasVideo => _openResponse.HasVideo;
 
@@ -73,8 +81,15 @@ public sealed class FFmpegReaderProxy : MediaReader
     public override unsafe bool ReadVideo(int frame, [NotNullWhen(true)] out Ref<Bitmap>? image)
     {
         var request = new ReadVideoRequest { ReaderId = _readerId, Frame = frame };
-        var response = _connection.RequestAsync<ReadVideoRequest, ReadVideoResponse>(
-            MessageType.ReadVideo, MessageType.ReadVideoResult, request).AsTask().GetAwaiter().GetResult();
+        var response = _connection
+            .RequestAsync<ReadVideoRequest, ReadVideoResponse>(
+                MessageType.ReadVideo,
+                MessageType.ReadVideoResult,
+                request
+            )
+            .AsTask()
+            .GetAwaiter()
+            .GetResult();
 
         if (!response.Success)
         {
@@ -109,8 +124,14 @@ public sealed class FFmpegReaderProxy : MediaReader
         {
             long readOffset = response.SlotDataOffset;
             var bmp = new Bitmap(
-                (IntPtr)(ptr + readOffset), response.Width, response.Height, rowBytes,
-                colorType, BitmapAlphaType.Unpremul, colorSpace);
+                (IntPtr)(ptr + readOffset),
+                response.Width,
+                response.Height,
+                rowBytes,
+                colorType,
+                BitmapAlphaType.Unpremul,
+                colorSpace
+            );
 
             image = Ref<Bitmap>.Create(bmp, onRelease: buffer.ReleasePointer);
             return true;
@@ -135,11 +156,27 @@ public sealed class FFmpegReaderProxy : MediaReader
         return ReadAudioCore(start, length, out sound);
     }
 
-    private unsafe bool ReadAudioCore(int start, int length, [NotNullWhen(true)] out Ref<IPcm>? sound)
+    private unsafe bool ReadAudioCore(
+        int start,
+        int length,
+        [NotNullWhen(true)] out Ref<IPcm>? sound
+    )
     {
-        var request = new ReadAudioRequest { ReaderId = _readerId, Start = start, Length = length };
-        var response = _connection.RequestAsync<ReadAudioRequest, ReadAudioResponse>(
-            MessageType.ReadAudio, MessageType.ReadAudioResult, request).AsTask().GetAwaiter().GetResult();
+        var request = new ReadAudioRequest
+        {
+            ReaderId = _readerId,
+            Start = start,
+            Length = length,
+        };
+        var response = _connection
+            .RequestAsync<ReadAudioRequest, ReadAudioResponse>(
+                MessageType.ReadAudio,
+                MessageType.ReadAudioResult,
+                request
+            )
+            .AsTask()
+            .GetAwaiter()
+            .GetResult();
 
         if (!response.Success)
         {
@@ -154,7 +191,11 @@ public sealed class FFmpegReaderProxy : MediaReader
         byte* ptr = buffer.AcquirePointer();
         try
         {
-            var pcm = new Pcm<Stereo32BitFloat>(response.SampleRate, response.NumSamples, (IntPtr)ptr);
+            var pcm = new Pcm<Stereo32BitFloat>(
+                response.SampleRate,
+                response.NumSamples,
+                (IntPtr)ptr
+            );
             sound = Ref<IPcm>.Create(pcm, onRelease: buffer.ReleasePointer);
             return true;
         }
@@ -165,7 +206,12 @@ public sealed class FFmpegReaderProxy : MediaReader
         }
     }
 
-    private bool ReadAudioChunked(int start, int length, int chunkSize, [NotNullWhen(true)] out Ref<IPcm>? sound)
+    private bool ReadAudioChunked(
+        int start,
+        int length,
+        int chunkSize,
+        [NotNullWhen(true)] out Ref<IPcm>? sound
+    )
     {
         var result = new Pcm<Stereo32BitFloat>(AudioInfo.SampleRate, length);
         try
@@ -212,12 +258,20 @@ public sealed class FFmpegReaderProxy : MediaReader
                 try
                 {
                     await _connection.SendAndReceiveAsync(
-                        IpcMessage.Create(_connection.NextId(), MessageType.CloseReader,
-                            new CloseReaderRequest { ReaderId = _readerId }));
+                        IpcMessage.Create(
+                            _connection.NextId(),
+                            MessageType.CloseReader,
+                            new CloseReaderRequest { ReaderId = _readerId }
+                        )
+                    );
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogWarning(ex, "Failed to close FFmpeg reader {ReaderId} on worker", _readerId);
+                    _logger.LogWarning(
+                        ex,
+                        "Failed to close FFmpeg reader {ReaderId} on worker",
+                        _readerId
+                    );
                 }
             });
 
@@ -233,15 +287,15 @@ public sealed class FFmpegReaderProxy : MediaReader
         bool nameChanged = newShmName != null;
 
         // リングバッファの場合: 全体サイズで確保
-        long requiredCapacity = _ringSlotCount > 0
-            ? _ringSlotSize * _ringSlotCount
-            : response.DataLength;
+        long requiredCapacity =
+            _ringSlotCount > 0 ? _ringSlotSize * _ringSlotCount : response.DataLength;
 
         if (!nameChanged && _videoBuffer != null && _videoBuffer.Capacity >= requiredCapacity)
             return;
 
         _videoBuffer?.Dispose();
-        string shmName = newShmName
+        string shmName =
+            newShmName
             ?? _openResponse.VideoSharedMemoryName
             ?? throw new InvalidOperationException("Video shared memory name not provided");
         _videoBuffer = SharedMemoryBuffer.Open(shmName, requiredCapacity);
@@ -254,7 +308,8 @@ public sealed class FFmpegReaderProxy : MediaReader
             return;
 
         _audioBuffer?.Dispose();
-        string shmName = newShmName
+        string shmName =
+            newShmName
             ?? _openResponse.AudioSharedMemoryName
             ?? throw new InvalidOperationException("Audio shared memory name not provided");
         _audioBuffer = SharedMemoryBuffer.Open(shmName, requiredSize);
@@ -288,7 +343,7 @@ public sealed class FFmpegReaderProxy : MediaReader
             C = transferFn[3],
             D = transferFn[4],
             E = transferFn[5],
-            F = transferFn[6]
+            F = transferFn[6],
         };
         var xyz = BitmapColorSpaceXyz.Create(toXyzD50);
 

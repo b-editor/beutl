@@ -8,7 +8,5 @@ namespace System.Runtime.CompilerServices
     ///     This class should not be used by developers in source code.
     /// </summary>
     [ExcludeFromCodeCoverage, DebuggerNonUserCode]
-    internal static class IsExternalInit
-    {
-    }
+    internal static class IsExternalInit { }
 }

@@ -1,14 +1,11 @@
 ﻿#nullable enable
 
 using System.Reactive.Disposables;
-
 using Avalonia.Controls;
 using Avalonia.Controls.Presenters;
 using Avalonia.Controls.Primitives;
 using Avalonia.Interactivity;
-
 using Beutl.Reactive;
-
 
 namespace Beutl.Controls.PropertyEditors;
 
@@ -30,10 +27,12 @@ public class SimpleColorPickerFlyoutPresenter : DraggablePickerFlyoutPresenter
         _paletteContent = e.NameScope.Find<Control>("PaletteContent");
         _contentPresenter = e.NameScope.Find<ContentPresenter>("ContentPresenter");
 
-        _spectrumTabButton?.AddDisposableHandler(ToggleButton.IsCheckedChangedEvent, OnTabButtonIsCheckedChanged)
+        _spectrumTabButton
+            ?.AddDisposableHandler(ToggleButton.IsCheckedChangedEvent, OnTabButtonIsCheckedChanged)
             .DisposeWith(_disposables);
 
-        _paletteTabButton?.AddDisposableHandler(ToggleButton.IsCheckedChangedEvent, OnTabButtonIsCheckedChanged)
+        _paletteTabButton
+            ?.AddDisposableHandler(ToggleButton.IsCheckedChangedEvent, OnTabButtonIsCheckedChanged)
             .DisposeWith(_disposables);
 
         if (_spectrumTabButton != null)
@@ -46,9 +45,11 @@ public class SimpleColorPickerFlyoutPresenter : DraggablePickerFlyoutPresenter
     {
         if (_paletteTabButton != null && _spectrumTabButton != null)
         {
-            if (_paletteTabButton.IsChecked == true
+            if (
+                _paletteTabButton.IsChecked == true
                 && _paletteContent != null
-                && _contentPresenter != null)
+                && _contentPresenter != null
+            )
             {
                 _paletteContent.MaxHeight = _contentPresenter.Bounds.Height;
             }

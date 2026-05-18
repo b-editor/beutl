@@ -9,9 +9,7 @@ using Avalonia.Interactivity;
 using Avalonia.LogicalTree;
 using Avalonia.Platform.Storage;
 using Avalonia.Threading;
-
 using Beutl.Language;
-
 using FluentAvalonia.UI.Controls;
 
 namespace Beutl.Controls;
@@ -48,47 +46,27 @@ public sealed class DirectoryTreeView : TreeView
         _open = new MenuItem
         {
             Header = Strings.Open,
-            Icon = new SymbolIcon
-            {
-                Symbol = Symbol.Open,
-                FontSize = 20,
-            }
+            Icon = new SymbolIcon { Symbol = Symbol.Open, FontSize = 20 },
         };
         _copy = new MenuItem
         {
             Header = Strings.Copy,
-            Icon = new SymbolIcon
-            {
-                Symbol = Symbol.Copy,
-                FontSize = 20,
-            }
+            Icon = new SymbolIcon { Symbol = Symbol.Copy, FontSize = 20 },
         };
         _remove = new MenuItem
         {
             Header = Strings.Remove,
-            Icon = new SymbolIcon
-            {
-                Symbol = Symbol.Delete,
-                FontSize = 20,
-            }
+            Icon = new SymbolIcon { Symbol = Symbol.Delete, FontSize = 20 },
         };
         _rename = new MenuItem
         {
             Header = Strings.Rename,
-            Icon = new SymbolIcon
-            {
-                Symbol = Symbol.Rename,
-                FontSize = 20,
-            }
+            Icon = new SymbolIcon { Symbol = Symbol.Rename, FontSize = 20 },
         };
         _addfolder = new MenuItem
         {
             Header = Strings.NewFolder,
-            Icon = new SymbolIcon
-            {
-                Symbol = Symbol.Folder,
-                FontSize = 20,
-            }
+            Icon = new SymbolIcon { Symbol = Symbol.Folder, FontSize = 20 },
         };
 
         _open.Click += Open;
@@ -100,18 +78,11 @@ public sealed class DirectoryTreeView : TreeView
         _menuItem =
         [
             _open,
-            new MenuItem
-            {
-                Header = Strings.CreateNew,
-                Items =
-                {
-                    _addfolder,
-                },
-            },
+            new MenuItem { Header = Strings.CreateNew, Items = { _addfolder } },
             _copy,
             _remove,
             _rename,
-            new Separator()
+            new Separator(),
         ];
 
         //foreach (var (asm, menus) in PluginManager.Default.FileMenus)
@@ -130,10 +101,7 @@ public sealed class DirectoryTreeView : TreeView
         //    }
         //}
 
-        ContextMenu = new ContextMenu
-        {
-            ItemsSource = _menuItem
-        };
+        ContextMenu = new ContextMenu { ItemsSource = _menuItem };
 
         ContextMenu.Opening += ContextMenu_ContextMenuOpening;
     }
@@ -149,7 +117,10 @@ public sealed class DirectoryTreeView : TreeView
     //    }
     //}
 
-    private void ContextMenu_ContextMenuOpening(object sender, System.ComponentModel.CancelEventArgs e)
+    private void ContextMenu_ContextMenuOpening(
+        object sender,
+        System.ComponentModel.CancelEventArgs e
+    )
     {
         _remove.IsEnabled = CanRemove();
         _open.IsEnabled = CanOpen();
@@ -188,16 +159,16 @@ public sealed class DirectoryTreeView : TreeView
         }
         else if (SelectedItem is FileTreeItem fileTree)
         {
-            Process.Start(new ProcessStartInfo(fileTree.Info.FullName)
-            {
-                UseShellExecute = true,
-            });
+            Process.Start(new ProcessStartInfo(fileTree.Info.FullName) { UseShellExecute = true });
         }
     }
 
     private async void Copy(object sender, RoutedEventArgs e)
     {
-        if (TopLevel.GetTopLevel(this) is { Clipboard: IClipboard clipboard, StorageProvider: IStorageProvider storageProvider })
+        if (
+            TopLevel.GetTopLevel(this) is
+            { Clipboard: IClipboard clipboard, StorageProvider: IStorageProvider storageProvider }
+        )
         {
             if (SelectedItem is DirectoryTreeItem directoryTree)
             {
@@ -206,7 +177,11 @@ public sealed class DirectoryTreeView : TreeView
             else if (SelectedItem is FileTreeItem fileTree)
             {
                 var data = new DataTransfer();
-                data.Add(DataTransferItem.CreateFile(await storageProvider.TryGetFileFromPathAsync(fileTree.Info.FullName)));
+                data.Add(
+                    DataTransferItem.CreateFile(
+                        await storageProvider.TryGetFileFromPathAsync(fileTree.Info.FullName)
+                    )
+                );
 
                 await clipboard.SetDataAsync(data);
             }
@@ -302,17 +277,21 @@ public sealed class DirectoryTreeView : TreeView
                 if (Directory.Exists(e.FullPath))
                 {
                     var di = new DirectoryInfo(e.FullPath);
-                    _items.Add(new DirectoryTreeItem(di, _watcher, _contextFactory)
-                    {
-                        DataContext = _contextFactory?.Invoke(e.FullPath)
-                    });
+                    _items.Add(
+                        new DirectoryTreeItem(di, _watcher, _contextFactory)
+                        {
+                            DataContext = _contextFactory?.Invoke(e.FullPath),
+                        }
+                    );
                 }
                 else
                 {
-                    _items.Add(new FileTreeItem(new FileInfo(e.FullPath))
-                    {
-                        DataContext = _contextFactory?.Invoke(e.FullPath)
-                    });
+                    _items.Add(
+                        new FileTreeItem(new FileInfo(e.FullPath))
+                        {
+                            DataContext = _contextFactory?.Invoke(e.FullPath),
+                        }
+                    );
                 }
             }
 
@@ -329,7 +308,9 @@ public sealed class DirectoryTreeView : TreeView
 
             if (parent == _directoryInfo.FullName)
             {
-                TreeViewItem item = _items.FirstOrDefault(i => i.Header is string str && str == filename);
+                TreeViewItem item = _items.FirstOrDefault(i =>
+                    i.Header is string str && str == filename
+                );
                 if (item != null)
                 {
                     _items.Remove(item);
@@ -348,7 +329,9 @@ public sealed class DirectoryTreeView : TreeView
 
             if (parent == _directoryInfo.FullName)
             {
-                TreeViewItem item = _items.FirstOrDefault(i => i.Header is string str && str == oldFilename);
+                TreeViewItem item = _items.FirstOrDefault(i =>
+                    i.Header is string str && str == oldFilename
+                );
                 if (item is DirectoryTreeItem dir)
                 {
                     dir.Info = new DirectoryInfo(e.FullPath);
@@ -390,8 +373,7 @@ public sealed class DirectoryTreeView : TreeView
 
             foreach (IStorageItem src in e.DataTransfer.TryGetFiles() ?? [])
             {
-                if (src is IStorageFile
-                    && src.TryGetLocalPath() is string localPath)
+                if (src is IStorageFile && src.TryGetLocalPath() is string localPath)
                 {
                     string dst = Path.Combine(baseDir, Path.GetFileName(localPath));
                     if (!File.Exists(dst))
@@ -411,10 +393,12 @@ public sealed class DirectoryTreeView : TreeView
         {
             if (!item.Attributes.HasAnyFlag(FileAttributes.Hidden | FileAttributes.System))
             {
-                _items.Add(new DirectoryTreeItem(item, _watcher, _contextFactory)
-                {
-                    DataContext = _contextFactory?.Invoke(item.FullName)
-                });
+                _items.Add(
+                    new DirectoryTreeItem(item, _watcher, _contextFactory)
+                    {
+                        DataContext = _contextFactory?.Invoke(item.FullName),
+                    }
+                );
             }
         }
 
@@ -423,10 +407,9 @@ public sealed class DirectoryTreeView : TreeView
         {
             if (!item.Attributes.HasAnyFlag(FileAttributes.Hidden | FileAttributes.System))
             {
-                _items.Add(new FileTreeItem(item)
-                {
-                    DataContext = _contextFactory?.Invoke(item.FullName)
-                });
+                _items.Add(
+                    new FileTreeItem(item) { DataContext = _contextFactory?.Invoke(item.FullName) }
+                );
             }
         }
     }
@@ -465,6 +448,7 @@ public sealed class DirectoryTreeView : TreeView
 public sealed class FileTreeItem : TreeViewItem
 {
     private FileInfo _info;
+
     // 名前を変更中
     private bool _isRenaming;
 
@@ -500,10 +484,7 @@ public sealed class FileTreeItem : TreeViewItem
             _isRenaming = true;
 
             TextBox tb;
-            Header = tb = new TextBox
-            {
-                Text = Info.Name
-            };
+            Header = tb = new TextBox { Text = Info.Name };
 
             tb.SelectAll();
             tb.AddHandler(KeyUpEvent, TextBox_KeyUp, RoutingStrategies.Tunnel);
@@ -569,7 +550,6 @@ public sealed class FileTreeItem : TreeViewItem
                 _info = new FileInfo(@new);
             }
 
-
             tb.RemoveHandler(KeyUpEvent, TextBox_KeyUp);
             tb.TemplateApplied -= TextBox_TemplateApplied;
             tb.LostFocus -= TextBox_LostFocus;
@@ -585,13 +565,16 @@ public sealed class FileTreeItem : TreeViewItem
 
         if (e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
         {
-
             TreeView parent = this.FindLogicalAncestorOfType<TreeView>();
             parent.SelectedItem = this;
             Refresh();
 
             var data = new DataTransfer();
-            data.Add(DataTransferItem.CreateFile(await storageProvider.TryGetFileFromPathAsync(Info.FullName)));
+            data.Add(
+                DataTransferItem.CreateFile(
+                    await storageProvider.TryGetFileFromPathAsync(Info.FullName)
+                )
+            );
 
             // ドラッグ開始
             await DragDrop.DoDragDropAsync(e, data, DragDropEffects.Copy).ConfigureAwait(false);
@@ -601,10 +584,7 @@ public sealed class FileTreeItem : TreeViewItem
     private void FileTreeItem_DoubleTapped(object sender, RoutedEventArgs e)
     {
         Refresh();
-        Process.Start(new ProcessStartInfo(Info.FullName)
-        {
-            UseShellExecute = true,
-        });
+        Process.Start(new ProcessStartInfo(Info.FullName) { UseShellExecute = true });
     }
 }
 
@@ -613,13 +593,19 @@ public sealed class DirectoryTreeItem : TreeViewItem
     private readonly AvaloniaList<TreeViewItem> _items = [];
     private readonly FileSystemWatcher _watcher;
     private readonly Func<string, object> _contextFactory;
+
     // //サブフォルダを作成済みかどうか
     private bool _isAdd;
     private DirectoryInfo _info;
+
     // 名前を変更中
     private bool _isRenaming;
 
-    public DirectoryTreeItem(DirectoryInfo info, FileSystemWatcher watcher, Func<string, object> contextFactory = null)
+    public DirectoryTreeItem(
+        DirectoryInfo info,
+        FileSystemWatcher watcher,
+        Func<string, object> contextFactory = null
+    )
     {
         _info = info;
         Header = info.Name;
@@ -631,13 +617,14 @@ public sealed class DirectoryTreeItem : TreeViewItem
             _items.Add(new TreeViewItem());
         }
 
-        this.GetObservable(IsExpandedProperty).Subscribe(v =>
-        {
-            if (!_isAdd && v)
+        this.GetObservable(IsExpandedProperty)
+            .Subscribe(v =>
             {
-                InitSubDirectory();
-            }
-        });
+                if (!_isAdd && v)
+                {
+                    InitSubDirectory();
+                }
+            });
     }
 
     public DirectoryInfo Info
@@ -662,10 +649,12 @@ public sealed class DirectoryTreeItem : TreeViewItem
         {
             if (!item.Attributes.HasAnyFlag(FileAttributes.Hidden | FileAttributes.System))
             {
-                _items.Add(new DirectoryTreeItem(item, _watcher, _contextFactory)
-                {
-                    DataContext = _contextFactory?.Invoke(item.FullName)
-                });
+                _items.Add(
+                    new DirectoryTreeItem(item, _watcher, _contextFactory)
+                    {
+                        DataContext = _contextFactory?.Invoke(item.FullName),
+                    }
+                );
             }
         }
 
@@ -674,10 +663,9 @@ public sealed class DirectoryTreeItem : TreeViewItem
         {
             if (!item.Attributes.HasAnyFlag(FileAttributes.Hidden | FileAttributes.System))
             {
-                _items.Add(new FileTreeItem(item)
-                {
-                    DataContext = _contextFactory?.Invoke(item.FullName)
-                });
+                _items.Add(
+                    new FileTreeItem(item) { DataContext = _contextFactory?.Invoke(item.FullName) }
+                );
             }
         }
 
@@ -730,10 +718,7 @@ public sealed class DirectoryTreeItem : TreeViewItem
             _isRenaming = true;
 
             TextBox tb;
-            Header = tb = new TextBox
-            {
-                Text = Info.Name
-            };
+            Header = tb = new TextBox { Text = Info.Name };
 
             tb.SelectAll();
             tb.AddHandler(KeyUpEvent, TextBox_KeyUp, RoutingStrategies.Tunnel);
@@ -799,7 +784,6 @@ public sealed class DirectoryTreeItem : TreeViewItem
                 _info = new DirectoryInfo(@new);
             }
 
-
             tb.RemoveHandler(KeyUpEvent, TextBox_KeyUp);
             tb.TemplateApplied -= TextBox_TemplateApplied;
             tb.LostFocus -= TextBox_LostFocus;
@@ -807,7 +791,9 @@ public sealed class DirectoryTreeItem : TreeViewItem
         }
     }
 
-    protected override void OnAttachedToLogicalTree(Avalonia.LogicalTree.LogicalTreeAttachmentEventArgs e)
+    protected override void OnAttachedToLogicalTree(
+        Avalonia.LogicalTree.LogicalTreeAttachmentEventArgs e
+    )
     {
         base.OnAttachedToLogicalTree(e);
 
@@ -816,7 +802,9 @@ public sealed class DirectoryTreeItem : TreeViewItem
         _watcher.Created += Watcher_Created;
     }
 
-    protected override void OnDetachedFromLogicalTree(Avalonia.LogicalTree.LogicalTreeAttachmentEventArgs e)
+    protected override void OnDetachedFromLogicalTree(
+        Avalonia.LogicalTree.LogicalTreeAttachmentEventArgs e
+    )
     {
         base.OnDetachedFromLogicalTree(e);
 
@@ -837,17 +825,21 @@ public sealed class DirectoryTreeItem : TreeViewItem
                 if (Directory.Exists(e.FullPath))
                 {
                     var di = new DirectoryInfo(e.FullPath);
-                    _items.Add(new DirectoryTreeItem(di, _watcher, _contextFactory)
-                    {
-                        DataContext = _contextFactory?.Invoke(e.FullPath)
-                    });
+                    _items.Add(
+                        new DirectoryTreeItem(di, _watcher, _contextFactory)
+                        {
+                            DataContext = _contextFactory?.Invoke(e.FullPath),
+                        }
+                    );
                 }
                 else
                 {
-                    _items.Add(new FileTreeItem(new FileInfo(e.FullPath))
-                    {
-                        DataContext = _contextFactory?.Invoke(e.FullPath)
-                    });
+                    _items.Add(
+                        new FileTreeItem(new FileInfo(e.FullPath))
+                        {
+                            DataContext = _contextFactory?.Invoke(e.FullPath),
+                        }
+                    );
                 }
 
                 Sort();
@@ -865,7 +857,9 @@ public sealed class DirectoryTreeItem : TreeViewItem
 
             if (parent == Info.FullName)
             {
-                TreeViewItem item = _items.FirstOrDefault(i => i.Header is string str && str == filename);
+                TreeViewItem item = _items.FirstOrDefault(i =>
+                    i.Header is string str && str == filename
+                );
                 if (item != null)
                 {
                     _items.Remove(item);
@@ -885,7 +879,9 @@ public sealed class DirectoryTreeItem : TreeViewItem
 
             if (parent == Info.FullName)
             {
-                TreeViewItem item = _items.FirstOrDefault(i => i.Header is string str && str == oldFilename);
+                TreeViewItem item = _items.FirstOrDefault(i =>
+                    i.Header is string str && str == oldFilename
+                );
                 if (item is DirectoryTreeItem dir)
                 {
                     dir.Info = new DirectoryInfo(e.FullPath);

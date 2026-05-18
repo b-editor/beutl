@@ -35,9 +35,15 @@ public sealed class AudioContext : IDisposable
     public AudioContext(int sampleRate, int channelCount)
     {
         if (sampleRate <= 0)
-            throw new ArgumentOutOfRangeException(nameof(sampleRate), "Sample rate must be positive.");
+            throw new ArgumentOutOfRangeException(
+                nameof(sampleRate),
+                "Sample rate must be positive."
+            );
         if (channelCount <= 0)
-            throw new ArgumentOutOfRangeException(nameof(channelCount), "Channel count must be positive.");
+            throw new ArgumentOutOfRangeException(
+                nameof(channelCount),
+                "Channel count must be positive."
+            );
 
         SampleRate = sampleRate;
         ChannelCount = channelCount;
@@ -57,7 +63,8 @@ public sealed class AudioContext : IDisposable
     /// </summary>
     /// <param name="node">The node to add.</param>
     /// <returns>The added node.</returns>
-    public T AddNode<T>(T node) where T : AudioNode
+    public T AddNode<T>(T node)
+        where T : AudioNode
     {
         ThrowIfDisposed();
         ArgumentNullException.ThrowIfNull(node, nameof(node));
@@ -92,7 +99,8 @@ public sealed class AudioContext : IDisposable
         TParams parameters,
         Func<TParams, TNode> factory,
         Action<TParams, TNode> updater,
-        Func<TParams, TNode, bool> comparer)
+        Func<TParams, TNode, bool> comparer
+    )
         where TNode : AudioNode
     {
         ThrowIfDisposed();
@@ -103,7 +111,8 @@ public sealed class AudioContext : IDisposable
         // Try to reuse from previous nodes
         if (_previousNodes != null)
         {
-            var existing = _previousNodes.OfType<TNode>()
+            var existing = _previousNodes
+                .OfType<TNode>()
                 .FirstOrDefault(n => comparer(parameters, n));
             if (existing != null)
             {
@@ -131,7 +140,8 @@ public sealed class AudioContext : IDisposable
         // Try to reuse from previous nodes
         if (_previousNodes != null)
         {
-            var existing = _previousNodes.OfType<SourceNode>()
+            var existing = _previousNodes
+                .OfType<SourceNode>()
                 .FirstOrDefault(n => source.Compare(n.Source));
             if (existing != null)
             {
@@ -160,8 +170,7 @@ public sealed class AudioContext : IDisposable
         // Try to reuse from previous nodes
         if (_previousNodes != null)
         {
-            var existing = _previousNodes.OfType<GainNode>()
-                .FirstOrDefault(n => n.Gain == gain);
+            var existing = _previousNodes.OfType<GainNode>().FirstOrDefault(n => n.Gain == gain);
             if (existing != null)
             {
                 _previousNodes.Remove(existing);
@@ -171,10 +180,7 @@ public sealed class AudioContext : IDisposable
             }
         }
 
-        var node = new GainNode
-        {
-            Gain = gain
-        };
+        var node = new GainNode { Gain = gain };
         return AddNode(node);
     }
 
@@ -190,8 +196,7 @@ public sealed class AudioContext : IDisposable
         // Try to reuse from previous nodes
         if (_previousNodes != null)
         {
-            var existing = _previousNodes.OfType<ShiftNode>()
-                .FirstOrDefault(n => n.Shift == shift);
+            var existing = _previousNodes.OfType<ShiftNode>().FirstOrDefault(n => n.Shift == shift);
             if (existing != null)
             {
                 _previousNodes.Remove(existing);
@@ -200,10 +205,7 @@ public sealed class AudioContext : IDisposable
             }
         }
 
-        var node = new ShiftNode
-        {
-            Shift = shift
-        };
+        var node = new ShiftNode { Shift = shift };
         return AddNode(node);
     }
 
@@ -221,7 +223,8 @@ public sealed class AudioContext : IDisposable
         // Try to reuse from previous nodes
         if (_previousNodes != null)
         {
-            var existing = _previousNodes.OfType<ClipNode>()
+            var existing = _previousNodes
+                .OfType<ClipNode>()
                 .FirstOrDefault(n => n.Duration == duration && n.Start == start);
             if (existing != null)
             {
@@ -231,11 +234,7 @@ public sealed class AudioContext : IDisposable
             }
         }
 
-        var node = new ClipNode
-        {
-            Start = start,
-            Duration = duration
-        };
+        var node = new ClipNode { Start = start, Duration = duration };
         return AddNode(node);
     }
 
@@ -272,11 +271,15 @@ public sealed class AudioContext : IDisposable
     {
         ThrowIfDisposed();
         if (sourceSampleRate <= 0)
-            throw new ArgumentOutOfRangeException(nameof(sourceSampleRate), "Source sample rate must be positive.");
+            throw new ArgumentOutOfRangeException(
+                nameof(sourceSampleRate),
+                "Source sample rate must be positive."
+            );
 
         if (_previousNodes != null)
         {
-            var existing = _previousNodes.OfType<ResampleNode>()
+            var existing = _previousNodes
+                .OfType<ResampleNode>()
                 .FirstOrDefault(n => n.SourceSampleRate == sourceSampleRate);
             if (existing != null)
             {
@@ -305,8 +308,7 @@ public sealed class AudioContext : IDisposable
         // Try to reuse from previous nodes
         if (_previousNodes != null)
         {
-            var existing = _previousNodes.OfType<SpeedNode>()
-                .FirstOrDefault(n => n.Speed == speed);
+            var existing = _previousNodes.OfType<SpeedNode>().FirstOrDefault(n => n.Speed == speed);
             if (existing != null)
             {
                 _previousNodes.Remove(existing);
@@ -316,10 +318,7 @@ public sealed class AudioContext : IDisposable
             }
         }
 
-        var node = new SpeedNode
-        {
-            Speed = speed
-        };
+        var node = new SpeedNode { Speed = speed };
         return AddNode(node);
     }
 
@@ -328,13 +327,16 @@ public sealed class AudioContext : IDisposable
     /// </summary>
     /// <param name="destination">The destination node.</param>
     /// <returns>The destination node.</returns>
-    public T ConnectTo<T>(T destination) where T : AudioNode
+    public T ConnectTo<T>(T destination)
+        where T : AudioNode
     {
         ThrowIfDisposed();
         ArgumentNullException.ThrowIfNull(destination, nameof(destination));
 
         if (_currentNode == null)
-            throw new InvalidOperationException("No current node to connect from. Add a node first.");
+            throw new InvalidOperationException(
+                "No current node to connect from. Add a node first."
+            );
 
         Connect(_currentNode, destination);
         _currentNode = destination;
@@ -387,7 +389,8 @@ public sealed class AudioContext : IDisposable
     /// </summary>
     /// <param name="node">The node to set as current.</param>
     /// <returns>The node.</returns>
-    public T SetCurrent<T>(T node) where T : AudioNode
+    public T SetCurrent<T>(T node)
+        where T : AudioNode
     {
         ThrowIfDisposed();
         ArgumentNullException.ThrowIfNull(node, nameof(node));

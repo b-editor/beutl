@@ -4,8 +4,10 @@
 using Windows.Win32.Media.MediaFoundation;
 
 namespace Beutl.Embedding.MediaFoundation.Decoding;
+
 #else
 namespace Beutl.Extensions.MediaFoundation.Decoding;
+
 #endif
 
 internal static class TimestampUtilities

@@ -77,11 +77,17 @@ public class UpdateDialogViewModel
 
             var psi = new ProcessStartInfo(_downloadFile) { UseShellExecute = true, Verb = "open" };
             Process.Start(psi);
-            (Application.Current?.ApplicationLifetime as IControlledApplicationLifetime)?.Shutdown();
+            (
+                Application.Current?.ApplicationLifetime as IControlledApplicationLifetime
+            )?.Shutdown();
         }
         else if (metadata.Type == "zip")
         {
-            string scriptPath = Path.Combine(BeutlEnvironment.GetHomeDirectoryPath(), "tmp", "update.ps1");
+            string scriptPath = Path.Combine(
+                BeutlEnvironment.GetHomeDirectoryPath(),
+                "tmp",
+                "update.ps1"
+            );
             await using (var fs = File.Create(scriptPath))
             {
                 // UTF-8 BOMを書き込む
@@ -93,11 +99,17 @@ public class UpdateDialogViewModel
                 }
             }
 
-            var directory = Path.Combine(BeutlEnvironment.GetHomeDirectoryPath(), "tmp", "update",
-                new DirectoryInfo(AppContext.BaseDirectory).Name);
+            var directory = Path.Combine(
+                BeutlEnvironment.GetHomeDirectoryPath(),
+                "tmp",
+                "update",
+                new DirectoryInfo(AppContext.BaseDirectory).Name
+            );
             var target = AppContext.BaseDirectory;
 
-            var psi = new ProcessStartInfo(@"C:\WINDOWS\System32\WindowsPowerShell\v1.0\powershell.EXE")
+            var psi = new ProcessStartInfo(
+                @"C:\WINDOWS\System32\WindowsPowerShell\v1.0\powershell.EXE"
+            )
             {
                 WorkingDirectory = BeutlEnvironment.GetHomeDirectoryPath(),
                 CreateNoWindow = !Preferences.Default.Get("Updater.ShowWindow", false),
@@ -110,12 +122,14 @@ public class UpdateDialogViewModel
                     directory,
                     target,
                     "Beutl",
-                    Path.Combine(AppContext.BaseDirectory, "Beutl.exe")
-                }
+                    Path.Combine(AppContext.BaseDirectory, "Beutl.exe"),
+                },
             };
 
             Process.Start(psi);
-            (Application.Current?.ApplicationLifetime as IControlledApplicationLifetime)?.Shutdown();
+            (
+                Application.Current?.ApplicationLifetime as IControlledApplicationLifetime
+            )?.Shutdown();
         }
     }
 
@@ -136,15 +150,21 @@ public class UpdateDialogViewModel
                     "--",
                     "bash",
                     "-c",
-                     $"sudo apt update && sudo apt install \"{_downloadFile}\""
-                }
+                    $"sudo apt update && sudo apt install \"{_downloadFile}\"",
+                },
             };
             _ = Process.Start(psi);
-            (Application.Current?.ApplicationLifetime as IControlledApplicationLifetime)?.Shutdown();
+            (
+                Application.Current?.ApplicationLifetime as IControlledApplicationLifetime
+            )?.Shutdown();
         }
         else if (metadata.Type == "zip")
         {
-            string scriptPath = Path.Combine(BeutlEnvironment.GetHomeDirectoryPath(), "tmp", "update.sh");
+            string scriptPath = Path.Combine(
+                BeutlEnvironment.GetHomeDirectoryPath(),
+                "tmp",
+                "update.sh"
+            );
             await using (var fs = File.Create(scriptPath))
             {
                 if (!await LoadScript("Beutl.Resources.linux-update.sh", fs))
@@ -154,8 +174,12 @@ public class UpdateDialogViewModel
                 }
             }
 
-            var directory = Path.Combine(BeutlEnvironment.GetHomeDirectoryPath(), "tmp", "update",
-                new DirectoryInfo(AppContext.BaseDirectory).Name);
+            var directory = Path.Combine(
+                BeutlEnvironment.GetHomeDirectoryPath(),
+                "tmp",
+                "update",
+                new DirectoryInfo(AppContext.BaseDirectory).Name
+            );
             var target = AppContext.BaseDirectory;
 
             var psi = new ProcessStartInfo("gnome-terminal")
@@ -165,18 +189,24 @@ public class UpdateDialogViewModel
                     "--",
                     "bash",
                     "-c",
-                    $"chmod +x \"{scriptPath}\" && \"{scriptPath}\" \"{directory}\" \"{target}\" Beutl \"{Path.Combine(AppContext.BaseDirectory, "Beutl")}\""
-                }
+                    $"chmod +x \"{scriptPath}\" && \"{scriptPath}\" \"{directory}\" \"{target}\" Beutl \"{Path.Combine(AppContext.BaseDirectory, "Beutl")}\"",
+                },
             };
 
             Process.Start(psi);
-            (Application.Current?.ApplicationLifetime as IControlledApplicationLifetime)?.Shutdown();
+            (
+                Application.Current?.ApplicationLifetime as IControlledApplicationLifetime
+            )?.Shutdown();
         }
     }
 
     private async Task InstallOnOSX(AssetMetadataJson metadata)
     {
-        string scriptPath = Path.Combine(BeutlEnvironment.GetHomeDirectoryPath(), "tmp", "update.sh");
+        string scriptPath = Path.Combine(
+            BeutlEnvironment.GetHomeDirectoryPath(),
+            "tmp",
+            "update.sh"
+        );
         await using (var fs = File.Create(scriptPath))
         {
             if (!await LoadScript("Beutl.Resources.osx-update.sh", fs))
@@ -212,8 +242,8 @@ public class UpdateDialogViewModel
                 directory,
                 target,
                 "Beutl",
-                Path.Combine(AppContext.BaseDirectory, "Beutl")
-            }
+                Path.Combine(AppContext.BaseDirectory, "Beutl"),
+            },
         };
         Process.Start(psi);
         (Application.Current?.ApplicationLifetime as IControlledApplicationLifetime)?.Shutdown();
@@ -225,7 +255,8 @@ public class UpdateDialogViewModel
         {
             _logger.LogInformation("Starting update process");
             _downloadFile = await DownloadFile();
-            if (_downloadFile == null) return;
+            if (_downloadFile == null)
+                return;
 
             var metadata = await BeutlApiApplication.LoadMetadata();
             if (metadata == null)
@@ -236,10 +267,17 @@ public class UpdateDialogViewModel
 
             if (metadata.Type is "zip" or "app")
             {
-                var destination = Path.Combine(BeutlEnvironment.GetHomeDirectoryPath(), "tmp", "update");
+                var destination = Path.Combine(
+                    BeutlEnvironment.GetHomeDirectoryPath(),
+                    "tmp",
+                    "update"
+                );
                 if (metadata.Type == "zip")
                 {
-                    destination = Path.Combine(destination, new DirectoryInfo(AppContext.BaseDirectory).Name);
+                    destination = Path.Combine(
+                        destination,
+                        new DirectoryInfo(AppContext.BaseDirectory).Name
+                    );
                 }
 
                 if (Directory.Exists(destination))
@@ -249,7 +287,8 @@ public class UpdateDialogViewModel
 
                 Directory.CreateDirectory(destination);
                 var result = await ExtractIfNeeded(metadata, _downloadFile, destination);
-                if (!result) return;
+                if (!result)
+                    return;
 
                 ProgressText.Value = MessageStrings.ApplicationRestartRequired;
                 IsPrimaryButtonEnabled.Value = true;
@@ -275,8 +314,11 @@ public class UpdateDialogViewModel
 
             _logger.LogInformation("Downloading update from {DownloadUrl}", Update.DownloadUrl);
             using var client = new HttpClient();
-            using var response =
-                await client.GetAsync(Update.DownloadUrl, HttpCompletionOption.ResponseHeadersRead, ct);
+            using var response = await client.GetAsync(
+                Update.DownloadUrl,
+                HttpCompletionOption.ResponseHeadersRead,
+                ct
+            );
             long? contentLength = response.Content.Headers.ContentLength;
             var file = response.Content.Headers.ContentDisposition?.FileName;
             if (file == null)
@@ -297,7 +339,9 @@ public class UpdateDialogViewModel
             file = Path.Combine(directory, file);
 
             await using var destination = File.Create(file);
-            await using Stream download = await response.Content.ReadAsStreamAsync(ct).ConfigureAwait(false);
+            await using Stream download = await response
+                .Content.ReadAsStreamAsync(ct)
+                .ConfigureAwait(false);
 
             if (!contentLength.HasValue)
             {
@@ -310,9 +354,13 @@ public class UpdateDialogViewModel
                 byte[] buffer = new byte[bufferSize];
                 long totalBytesRead = 0;
                 int bytesRead;
-                while ((bytesRead = await download.ReadAsync(buffer, ct).ConfigureAwait(false)) != 0)
+                while (
+                    (bytesRead = await download.ReadAsync(buffer, ct).ConfigureAwait(false)) != 0
+                )
                 {
-                    await destination.WriteAsync(buffer.AsMemory(0, bytesRead), ct).ConfigureAwait(false);
+                    await destination
+                        .WriteAsync(buffer.AsMemory(0, bytesRead), ct)
+                        .ConfigureAwait(false);
                     totalBytesRead += bytesRead;
                     ProgressValue.Value = totalBytesRead / (double)contentLength.Value;
                 }
@@ -339,7 +387,11 @@ public class UpdateDialogViewModel
         }
     }
 
-    private async Task<bool> ExtractIfNeeded(AssetMetadataJson metadata, string file, string destination)
+    private async Task<bool> ExtractIfNeeded(
+        AssetMetadataJson metadata,
+        string file,
+        string destination
+    )
     {
         var ct = _cts.Token;
         _logger.LogInformation("Extracting update to {Destination}", destination);
@@ -358,8 +410,13 @@ public class UpdateDialogViewModel
                         string dst = Path.GetFullPath(Path.Combine(destination, entry.FullName));
                         if (!dst.StartsWith(destination))
                         {
-                            _logger.LogError("Entry is outside of the target directory: {Entry}", entry.FullName);
-                            throw new InvalidOperationException("Entry is outside of the target directory.");
+                            _logger.LogError(
+                                "Entry is outside of the target directory: {Entry}",
+                                entry.FullName
+                            );
+                            throw new InvalidOperationException(
+                                "Entry is outside of the target directory."
+                            );
                         }
 
                         Directory.CreateDirectory(Path.GetDirectoryName(dst)!);
@@ -377,12 +434,7 @@ public class UpdateDialogViewModel
                 IsIndeterminate.Value = true;
                 var psi = new ProcessStartInfo("/usr/bin/ditto")
                 {
-                    ArgumentList =
-                    {
-                        "-xk",
-                        file,
-                        destination
-                    }
+                    ArgumentList = { "-xk", file, destination },
                 };
                 var process = Process.Start(psi);
                 if (process == null)
@@ -417,7 +469,8 @@ public class UpdateDialogViewModel
 
     public void Cancel()
     {
-        if (_cts.IsCancellationRequested) return;
+        if (_cts.IsCancellationRequested)
+            return;
         _logger.LogInformation("Canceling update process");
         _cts.Cancel();
     }
@@ -436,7 +489,9 @@ public class UpdateDialogViewModel
         await using var writer = new StreamWriter(stream);
 
         var renderer = new SimpleTemplateRenderer(
-            await reader.ReadToEndAsync(), [typeof(Strings), typeof(MessageStrings)]);
+            await reader.ReadToEndAsync(),
+            [typeof(Strings), typeof(MessageStrings)]
+        );
         var script = renderer.Render();
         await writer.WriteAsync(script);
         return true;

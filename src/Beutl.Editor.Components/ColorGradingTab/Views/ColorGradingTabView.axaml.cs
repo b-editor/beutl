@@ -1,5 +1,4 @@
 ﻿using Avalonia.Controls;
-
 using Beutl.Controls.PropertyEditors;
 using Beutl.Editor.Components.ColorGradingTab.ViewModels;
 
@@ -21,11 +20,15 @@ public partial class ColorGradingTabView : UserControl
         _subscriptions.Clear();
         if (DataContext is ColorGradingTabViewModel vm)
         {
-            _subscriptions.Add(vm.TemperatureEditor.Subscribe(v => BindEditor(TemperatureEditor, v)));
+            _subscriptions.Add(
+                vm.TemperatureEditor.Subscribe(v => BindEditor(TemperatureEditor, v))
+            );
             _subscriptions.Add(vm.TintEditor.Subscribe(v => BindEditor(TintEditor, v)));
             _subscriptions.Add(vm.ExposureEditor.Subscribe(v => BindEditor(ExposureEditor, v)));
             _subscriptions.Add(vm.ContrastEditor.Subscribe(v => BindEditor(ContrastEditor, v)));
-            _subscriptions.Add(vm.ContrastPivotEditor.Subscribe(v => BindEditor(ContrastPivotEditor, v)));
+            _subscriptions.Add(
+                vm.ContrastPivotEditor.Subscribe(v => BindEditor(ContrastPivotEditor, v))
+            );
             _subscriptions.Add(vm.SaturationEditor.Subscribe(v => BindEditor(SaturationEditor, v)));
             _subscriptions.Add(vm.VibranceEditor.Subscribe(v => BindEditor(VibranceEditor, v)));
             _subscriptions.Add(vm.HueEditor.Subscribe(v => BindEditor(HueEditor, v)));
@@ -42,7 +45,10 @@ public partial class ColorGradingTabView : UserControl
         }
     }
 
-    private static void BindEditor(IPropertyEditorContextVisitor editor, IPropertyEditorContext? context)
+    private static void BindEditor(
+        IPropertyEditorContextVisitor editor,
+        IPropertyEditorContext? context
+    )
     {
         if (context != null)
         {

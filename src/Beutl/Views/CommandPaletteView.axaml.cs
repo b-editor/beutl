@@ -38,10 +38,7 @@ public partial class CommandPaletteView : UserControl
         if (DataContext is CommandPaletteViewModel viewModel)
         {
             // Skip(1) で初期値の false を読み飛ばし、購読セット時にフォーカス操作を行わないようにする。
-            viewModel.IsOpen
-                .Skip(1)
-                .Subscribe(HandleIsOpenChanged)
-                .AddTo(_disposables);
+            viewModel.IsOpen.Skip(1).Subscribe(HandleIsOpenChanged).AddTo(_disposables);
         }
     }
 
@@ -51,13 +48,18 @@ public partial class CommandPaletteView : UserControl
         {
             // パレットを閉じた時に呼び出し元へフォーカスを戻せるよう、開く直前のフォーカス位置を控えておく。
             IInputElement? focused = TopLevel.GetTopLevel(this)?.FocusManager?.GetFocusedElement();
-            _previouslyFocused = focused is not null ? new WeakReference<IInputElement>(focused) : null;
+            _previouslyFocused = focused is not null
+                ? new WeakReference<IInputElement>(focused)
+                : null;
 
-            Dispatcher.UIThread.Post(() =>
-            {
-                QueryTextBox.Focus();
-                QueryTextBox.SelectAll();
-            }, DispatcherPriority.Background);
+            Dispatcher.UIThread.Post(
+                () =>
+                {
+                    QueryTextBox.Focus();
+                    QueryTextBox.SelectAll();
+                },
+                DispatcherPriority.Background
+            );
         }
         else
         {
@@ -68,40 +70,51 @@ public partial class CommandPaletteView : UserControl
             WeakReference<IInputElement>? captured = _previouslyFocused;
             _previouslyFocused = null;
 
-            Dispatcher.UIThread.Post(() =>
-            {
-                // 閉じた時点で既にパレット外の要素へフォーカスが移っている場合は奪い返さない
-                // (典型例: コマンドが同期的にダイアログを開いてフォーカスを取った後)。
-                // それ以外の経路 (Esc / Backdrop / フォーカスを動かさない単純コマンド) は
-                // 必ず restore しないと focused element が null のまま残り、ContextCommandManager
-                // が登録した KeyDown ハンドラに Ctrl+Shift+P が届かなくなって再表示できなくなる。
-                IInputElement? current = TopLevel.GetTopLevel(this)?.FocusManager?.GetFocusedElement();
-                if (current is Visual currentVisual
-                    && currentVisual.FindAncestorOfType<CommandPaletteView>(includeSelf: true) is null)
+            Dispatcher.UIThread.Post(
+                () =>
                 {
-                    return;
-                }
+                    // 閉じた時点で既にパレット外の要素へフォーカスが移っている場合は奪い返さない
+                    // (典型例: コマンドが同期的にダイアログを開いてフォーカスを取った後)。
+                    // それ以外の経路 (Esc / Backdrop / フォーカスを動かさない単純コマンド) は
+                    // 必ず restore しないと focused element が null のまま残り、ContextCommandManager
+                    // が登録した KeyDown ハンドラに Ctrl+Shift+P が届かなくなって再表示できなくなる。
+                    IInputElement? current = TopLevel
+                        .GetTopLevel(this)
+                        ?.FocusManager?.GetFocusedElement();
+                    if (
+                        current is Visual currentVisual
+                        && currentVisual.FindAncestorOfType<CommandPaletteView>(includeSelf: true)
+                            is null
+                    )
+                    {
+                        return;
+                    }
 
-                if (captured is not null
-                    && captured.TryGetTarget(out IInputElement? target)
-                    && target is Visual { IsEffectivelyVisible: true } visual
-                    && visual.GetVisualRoot() is not null
-                    && target.Focus())
-                {
-                    return;
-                }
+                    if (
+                        captured is not null
+                        && captured.TryGetTarget(out IInputElement? target)
+                        && target is Visual { IsEffectivelyVisible: true } visual
+                        && visual.GetVisualRoot() is not null
+                        && target.Focus()
+                    )
+                    {
+                        return;
+                    }
 
-                MainView? mainView = this.FindAncestorOfType<MainView>();
-                if (mainView is null || !mainView.Focus())
-                {
-                    // ここまで来てフォーカス復帰に失敗した場合、focused element が null のまま残り
-                    // MainView の KeyDown ハンドラに Ctrl+Shift+P が届かなくなって再表示できなくなる。
-                    // このバグの再発時に検知できるよう警告として残す (通常は発火しない想定)。
-                    _logger.LogWarning(
-                        "Failed to restore focus after command palette closed (mainViewFound={Found}). Ctrl+Shift+P may stop responding.",
-                        mainView is not null);
-                }
-            }, DispatcherPriority.Background);
+                    MainView? mainView = this.FindAncestorOfType<MainView>();
+                    if (mainView is null || !mainView.Focus())
+                    {
+                        // ここまで来てフォーカス復帰に失敗した場合、focused element が null のまま残り
+                        // MainView の KeyDown ハンドラに Ctrl+Shift+P が届かなくなって再表示できなくなる。
+                        // このバグの再発時に検知できるよう警告として残す (通常は発火しない想定)。
+                        _logger.LogWarning(
+                            "Failed to restore focus after command palette closed (mainViewFound={Found}). Ctrl+Shift+P may stop responding.",
+                            mainView is not null
+                        );
+                    }
+                },
+                DispatcherPriority.Background
+            );
         }
     }
 
@@ -118,7 +131,8 @@ public partial class CommandPaletteView : UserControl
         if (TopLevel.GetTopLevel(this) is { } topLevel)
         {
             // GetObservable は購読時に現在値を即座に発火するため、初期 Width 設定もこの購読に任せる。
-            topLevel.GetObservable(BoundsProperty)
+            topLevel
+                .GetObservable(BoundsProperty)
                 .Subscribe(bounds => UpdatePaletteWidth(bounds.Width))
                 .AddTo(_visualTreeDisposables);
         }
@@ -200,7 +214,11 @@ public partial class CommandPaletteView : UserControl
     private void OnRootKeyDown(object? sender, KeyEventArgs e)
     {
         // IME 変換中の Enter/Escape は IME による確定・取消に使われるため横取りしない。
-        if (e.Handled || e.Key == Key.ImeProcessed || DataContext is not CommandPaletteViewModel viewModel)
+        if (
+            e.Handled
+            || e.Key == Key.ImeProcessed
+            || DataContext is not CommandPaletteViewModel viewModel
+        )
         {
             return;
         }
@@ -227,8 +245,11 @@ public partial class CommandPaletteView : UserControl
 
         // 別アイテム上でダブルクリックされた場合に SelectedItem の更新が
         // 反映される前に実行してしまわないよう、起点アイテムから VM を取り出す。
-        if (e.Source is Visual source
-            && source.FindAncestorOfType<ListBoxItem>(includeSelf: true) is { DataContext: CommandPaletteItemViewModel item })
+        if (
+            e.Source is Visual source
+            && source.FindAncestorOfType<ListBoxItem>(includeSelf: true)
+                is { DataContext: CommandPaletteItemViewModel item }
+        )
         {
             viewModel.SelectedCommand.Value = item;
             viewModel.ExecuteSelected();

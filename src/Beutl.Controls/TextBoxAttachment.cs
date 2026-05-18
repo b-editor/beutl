@@ -9,7 +9,11 @@ namespace Beutl.Controls;
 public static class TextBoxAttachment
 {
     public static readonly AttachedProperty<EnterBehaviorMode> EnterDownBehaviorProperty =
-        AvaloniaProperty.RegisterAttached<TextBox, EnterBehaviorMode>("EnterDownBehavior", typeof(TextBoxAttachment), EnterBehaviorMode.None);
+        AvaloniaProperty.RegisterAttached<TextBox, EnterBehaviorMode>(
+            "EnterDownBehavior",
+            typeof(TextBoxAttachment),
+            EnterBehaviorMode.None
+        );
 
     static TextBoxAttachment()
     {
@@ -19,7 +23,11 @@ public static class TextBoxAttachment
             {
                 if (ev.NewValue.Value != EnterBehaviorMode.None)
                 {
-                    tb.AddHandler(InputElement.KeyDownEvent, OnTextBoxKeyDown, RoutingStrategies.Tunnel);
+                    tb.AddHandler(
+                        InputElement.KeyDownEvent,
+                        OnTextBoxKeyDown,
+                        RoutingStrategies.Tunnel
+                    );
                 }
                 else
                 {
@@ -33,7 +41,7 @@ public static class TextBoxAttachment
     {
         None,
         LostFocus,
-        Auto
+        Auto,
     }
 
     public static EnterBehaviorMode GetEnterDownBehavior(TextBox obj)
@@ -48,14 +56,24 @@ public static class TextBoxAttachment
 
     private static void OnTextBoxKeyDown(object sender, KeyEventArgs e)
     {
-        if (sender is TextBox tb
-            && e.Key == Key.Enter)
+        if (sender is TextBox tb && e.Key == Key.Enter)
         {
             EnterBehaviorMode mode = GetEnterDownBehavior(tb);
-            if (mode == EnterBehaviorMode.None) return;
-            if (mode == EnterBehaviorMode.Auto && tb.AcceptsReturn && !e.KeyModifiers.HasFlag(KeyModifiers.Control)) return;
+            if (mode == EnterBehaviorMode.None)
+                return;
+            if (
+                mode == EnterBehaviorMode.Auto
+                && tb.AcceptsReturn
+                && !e.KeyModifiers.HasFlag(KeyModifiers.Control)
+            )
+                return;
 
-            foreach (InputElement item in tb.GetLogicalSiblings().SkipWhile(v => v != tb).Skip(1).OfType<InputElement>())
+            foreach (
+                InputElement item in tb.GetLogicalSiblings()
+                    .SkipWhile(v => v != tb)
+                    .Skip(1)
+                    .OfType<InputElement>()
+            )
             {
                 if (item.Focus())
                 {
@@ -63,7 +81,6 @@ public static class TextBoxAttachment
                     return;
                 }
             }
-
 
             foreach (InputElement item in tb.GetLogicalAncestors().OfType<InputElement>())
             {

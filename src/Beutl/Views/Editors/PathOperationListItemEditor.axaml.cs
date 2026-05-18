@@ -8,7 +8,11 @@ public partial class PathOperationListItemEditor : UserControl, IListItemEditor
     public PathOperationListItemEditor()
     {
         InitializeComponent();
-        ExpandTransitionHelper.Attach(reorderHandle, content, ExpandTransitionHelper.ListItemDuration);
+        ExpandTransitionHelper.Attach(
+            reorderHandle,
+            content,
+            ExpandTransitionHelper.ListItemDuration
+        );
     }
 
     public Control? ReorderHandle => reorderHandle;

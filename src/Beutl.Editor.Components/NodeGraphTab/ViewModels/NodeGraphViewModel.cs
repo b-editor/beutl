@@ -15,7 +15,8 @@ public sealed class NodeGraphViewModel : IDisposable, IJsonSerializable
     {
         NodeGraph = graph;
         EditorContext = editorContext;
-        graph.Nodes.ForEachItem(
+        graph
+            .Nodes.ForEachItem(
                 (idx, item) =>
                 {
                     var viewModel = new GraphNodeViewModel(item, this);
@@ -35,21 +36,26 @@ public sealed class NodeGraphViewModel : IDisposable, IJsonSerializable
                     }
 
                     Nodes.Clear();
-                })
+                }
+            )
             .DisposeWith(_disposables);
 
-        graph.AllConnections.ForEachItem(
+        graph
+            .AllConnections.ForEachItem(
                 item =>
                 {
                     // NodePortViewModel側が既に追加している場合はスキップする
-                    if (AllConnections.Any(i => i.Connection.Id == item.Id)) return;
+                    if (AllConnections.Any(i => i.Connection.Id == item.Id))
+                        return;
 
                     var viewModel = new ConnectionViewModel(this, item);
                     AllConnections.Add(viewModel);
                 },
                 item =>
                 {
-                    ConnectionViewModel? viewModel = AllConnections.FirstOrDefault(i => i.Connection == item);
+                    ConnectionViewModel? viewModel = AllConnections.FirstOrDefault(i =>
+                        i.Connection == item
+                    );
                     if (viewModel != null)
                     {
                         AllConnections.Remove(viewModel);
@@ -64,7 +70,8 @@ public sealed class NodeGraphViewModel : IDisposable, IJsonSerializable
                     }
 
                     AllConnections.Clear();
-                })
+                }
+            )
             .DisposeWith(_disposables);
     }
 
@@ -100,13 +107,11 @@ public sealed class NodeGraphViewModel : IDisposable, IJsonSerializable
         node.Position = (point.X, point.Y);
         if (NodeGraph is GraphGroup nodeGroup)
         {
-            if (node is GroupInput
-                && nodeGroup.Nodes.Any(x => x is GroupInput))
+            if (node is GroupInput && nodeGroup.Nodes.Any(x => x is GroupInput))
             {
                 return;
             }
-            else if (node is GroupOutput
-                     && nodeGroup.Nodes.Any(x => x is GroupOutput))
+            else if (node is GroupOutput && nodeGroup.Nodes.Any(x => x is GroupOutput))
             {
                 return;
             }

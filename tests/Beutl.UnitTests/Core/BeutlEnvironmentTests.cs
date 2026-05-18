@@ -11,7 +11,8 @@ public class BeutlEnvironmentTests
             Environment.SetEnvironmentVariable(BeutlEnvironment.HomeVariable, null);
             string expected = Path.Combine(
                 Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
-                ".beutl");
+                ".beutl"
+            );
             Assert.That(BeutlEnvironment.GetHomeDirectoryPath(), Is.EqualTo(expected));
         }
         finally
@@ -48,7 +49,8 @@ public class BeutlEnvironmentTests
             Environment.SetEnvironmentVariable(BeutlEnvironment.HomeVariable, nonExistent);
             string expected = Path.Combine(
                 Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
-                ".beutl");
+                ".beutl"
+            );
             Assert.That(BeutlEnvironment.GetHomeDirectoryPath(), Is.EqualTo(expected));
         }
         finally
@@ -61,15 +63,19 @@ public class BeutlEnvironmentTests
     public void GetPackagesDirectoryPath_IsHomeSlashPackages()
     {
         string home = BeutlEnvironment.GetHomeDirectoryPath();
-        Assert.That(BeutlEnvironment.GetPackagesDirectoryPath(),
-            Is.EqualTo(Path.Combine(home, "packages")));
+        Assert.That(
+            BeutlEnvironment.GetPackagesDirectoryPath(),
+            Is.EqualTo(Path.Combine(home, "packages"))
+        );
     }
 
     [Test]
     public void GetSideloadsDirectoryPath_IsHomeSlashSideloads()
     {
         string home = BeutlEnvironment.GetHomeDirectoryPath();
-        Assert.That(BeutlEnvironment.GetSideloadsDirectoryPath(),
-            Is.EqualTo(Path.Combine(home, "sideloads")));
+        Assert.That(
+            BeutlEnvironment.GetSideloadsDirectoryPath(),
+            Is.EqualTo(Path.Combine(home, "sideloads"))
+        );
     }
 }

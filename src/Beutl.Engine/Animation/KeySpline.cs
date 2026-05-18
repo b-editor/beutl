@@ -19,17 +19,17 @@ public class KeySpline
     private float _parameter;
 
     // Cached coefficients
-    private float _bx;        // 3*points[0].X
-    private float _cx;        // 3*points[1].X
-    private float _cx_bx;     // 2*(Cx - Bx)
-    private float _three_Cx;  // 3 - Cx
+    private float _bx; // 3*points[0].X
+    private float _cx; // 3*points[1].X
+    private float _cx_bx; // 2*(Cx - Bx)
+    private float _three_Cx; // 3 - Cx
 
-    private float _by;        // 3*points[0].Y
-    private float _cy;        // 3*points[1].Y
+    private float _by; // 3*points[0].Y
+    private float _cy; // 3*points[1].Y
 
     // constants
-    private const float Accuracy = 0.001f;   // 1/3 the desired accuracy in X
-    private const float Fuzz = 0.000001f;    // computational zero
+    private const float Accuracy = 0.001f; // 1/3 the desired accuracy in X
+    private const float Fuzz = 0.000001f; // computational zero
 
     public KeySpline()
     {
@@ -49,12 +49,20 @@ public class KeySpline
         _isDirty = true;
     }
 
-    public static bool TryParse(string s, [NotNullWhen(true)] out KeySpline? keySpline, IFormatProvider? provider = null)
+    public static bool TryParse(
+        string s,
+        [NotNullWhen(true)] out KeySpline? keySpline,
+        IFormatProvider? provider = null
+    )
     {
         return TryParse(s.AsSpan(), out keySpline, provider);
     }
 
-    public static bool TryParse(ReadOnlySpan<char> s, [NotNullWhen(true)] out KeySpline? keySpline, IFormatProvider? provider = null)
+    public static bool TryParse(
+        ReadOnlySpan<char> s,
+        [NotNullWhen(true)] out KeySpline? keySpline,
+        IFormatProvider? provider = null
+    )
     {
         try
         {
@@ -77,9 +85,18 @@ public class KeySpline
     {
         provider ??= CultureInfo.InvariantCulture;
 
-        using var tokenizer = new RefStringTokenizer(value, provider, exceptionMessage: $"Invalid KeySpline string: \"{value}\".");
+        using var tokenizer = new RefStringTokenizer(
+            value,
+            provider,
+            exceptionMessage: $"Invalid KeySpline string: \"{value}\"."
+        );
 
-        return new KeySpline(tokenizer.ReadSingle(), tokenizer.ReadSingle(), tokenizer.ReadSingle(), tokenizer.ReadSingle());
+        return new KeySpline(
+            tokenizer.ReadSingle(),
+            tokenizer.ReadSingle(),
+            tokenizer.ReadSingle(),
+            tokenizer.ReadSingle()
+        );
     }
 
     public float ControlPointX1
@@ -94,7 +111,9 @@ public class KeySpline
             }
             else
             {
-                throw new ArgumentException("Invalid KeySpline X1 value. Must be >= 0.0 and <= 1.0.");
+                throw new ArgumentException(
+                    "Invalid KeySpline X1 value. Must be >= 0.0 and <= 1.0."
+                );
             }
         }
     }
@@ -121,7 +140,9 @@ public class KeySpline
             }
             else
             {
-                throw new ArgumentException("Invalid KeySpline X2 value. Must be >= 0.0 and <= 1.0.");
+                throw new ArgumentException(
+                    "Invalid KeySpline X2 value. Must be >= 0.0 and <= 1.0."
+                );
             }
         }
     }
@@ -167,7 +188,12 @@ public class KeySpline
 
     private void Build()
     {
-        if (_controlPointX1 == 0 && _controlPointY1 == 0 && _controlPointX2 == 1 && _controlPointY2 == 1)
+        if (
+            _controlPointX1 == 0
+            && _controlPointY1 == 0
+            && _controlPointX2 == 1
+            && _controlPointY2 == 1
+        )
         {
             // This KeySpline would have no effect on the progress.
             _isSpecified = false;
@@ -236,11 +262,11 @@ public class KeySpline
                 // Clamp down the search interval, relying on the monotonicity of X(t)
                 if (x > time)
                 {
-                    top = _parameter;      // because parameter > solution
+                    top = _parameter; // because parameter > solution
                 }
                 else
                 {
-                    bottom = _parameter;  // because parameter < solution
+                    bottom = _parameter; // because parameter < solution
                 }
 
                 // The desired accuracy is in ultimately in y, not in x, so the
@@ -271,7 +297,7 @@ public class KeySpline
                         _parameter = next;
                     }
                 }
-                else    // Zero derivative, halve the search interval
+                else // Zero derivative, halve the search interval
                 {
                     _parameter = (bottom + top) / 2;
                 }

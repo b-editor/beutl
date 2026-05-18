@@ -32,10 +32,11 @@ public sealed partial class ImageTextureSource : TextureSource
             }
 
             // Check if we need to recreate the texture
-            bool needsRecreate = _gpuTexture == null ||
-                                 _gpuTextureVersion != Version ||
-                                 _gpuTexture.Width != Source.FrameSize.Width ||
-                                 _gpuTexture.Height != Source.FrameSize.Height;
+            bool needsRecreate =
+                _gpuTexture == null
+                || _gpuTextureVersion != Version
+                || _gpuTexture.Width != Source.FrameSize.Width
+                || _gpuTexture.Height != Source.FrameSize.Height;
 
             if (needsRecreate)
             {
@@ -46,21 +47,24 @@ public sealed partial class ImageTextureSource : TextureSource
                         ? BitmapColorType.RgbaF16
                         : BitmapColorType.Bgra8888,
                     BitmapAlphaType.Premul,
-                    BitmapColorSpace.LinearSrgb);
+                    BitmapColorSpace.LinearSrgb
+                );
 
                 _gpuTexture = graphicsContext.CreateTexture2D(
                     Source.FrameSize.Width,
                     Source.FrameSize.Height,
                     linearBitmap.ColorType == BitmapColorType.RgbaF16
                         ? TextureFormat.RGBA16Float
-                        : TextureFormat.BGRA8Unorm);
+                        : TextureFormat.BGRA8Unorm
+                );
 
                 // Upload pixel data
                 unsafe
                 {
                     var data = new ReadOnlySpan<byte>(
                         (void*)linearBitmap.Data,
-                        linearBitmap.ByteCount);
+                        linearBitmap.ByteCount
+                    );
                     _gpuTexture.Upload(data);
                 }
 

@@ -29,7 +29,8 @@ public class FftTests
         const int n = 64;
         var real = new float[n];
         var imag = new float[n];
-        for (int i = 0; i < n; i++) real[i] = 1f;
+        for (int i = 0; i < n; i++)
+            real[i] = 1f;
 
         Fft.Forward(real, imag);
 
@@ -78,7 +79,8 @@ public class FftTests
     public void ApplyHann_EndpointsAreZero()
     {
         var window = new float[16];
-        for (int i = 0; i < window.Length; i++) window[i] = 1f;
+        for (int i = 0; i < window.Length; i++)
+            window[i] = 1f;
 
         Fft.ApplyHann(window);
 

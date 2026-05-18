@@ -5,11 +5,16 @@ public interface IEncoderInfo
 {
     string Name { get; }
 
-    MediaWriter? Create(string file, VideoEncoderSettings videoConfig, AudioEncoderSettings audioConfig);
+    MediaWriter? Create(
+        string file,
+        VideoEncoderSettings videoConfig,
+        AudioEncoderSettings audioConfig
+    );
 
     bool IsSupported(string file)
     {
-        return SupportExtensions().Contains(Path.GetExtension(file), StringComparer.OrdinalIgnoreCase);
+        return SupportExtensions()
+            .Contains(Path.GetExtension(file), StringComparer.OrdinalIgnoreCase);
     }
 
     IEnumerable<string> SupportExtensions();

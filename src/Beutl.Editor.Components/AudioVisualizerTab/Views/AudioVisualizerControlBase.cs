@@ -9,7 +9,9 @@ namespace Beutl.Editor.Components.AudioVisualizerTab.Views;
 public abstract class AudioVisualizerControlBase : Control
 {
     public static readonly StyledProperty<AudioSampleRingBuffer?> RingBufferProperty =
-        AvaloniaProperty.Register<AudioVisualizerControlBase, AudioSampleRingBuffer?>(nameof(RingBuffer));
+        AvaloniaProperty.Register<AudioVisualizerControlBase, AudioSampleRingBuffer?>(
+            nameof(RingBuffer)
+        );
 
     public static readonly StyledProperty<TimeSpan> PlayheadTimeProperty =
         AvaloniaProperty.Register<AudioVisualizerControlBase, TimeSpan>(nameof(PlayheadTime));
@@ -19,11 +21,14 @@ public abstract class AudioVisualizerControlBase : Control
 
     public static readonly StyledProperty<IBrush> SecondaryBrushProperty =
         AvaloniaProperty.Register<AudioVisualizerControlBase, IBrush>(
-            nameof(SecondaryBrush), new SolidColorBrush(Color.FromArgb(160, 120, 200, 255)));
+            nameof(SecondaryBrush),
+            new SolidColorBrush(Color.FromArgb(160, 120, 200, 255))
+        );
 
-    public static readonly StyledProperty<IBrush> PrimaryBrushProperty =
-        AvaloniaProperty.Register<AudioVisualizerControlBase, IBrush>(
-            nameof(PrimaryBrush), new SolidColorBrush(Color.FromArgb(220, 90, 255, 160)));
+    public static readonly StyledProperty<IBrush> PrimaryBrushProperty = AvaloniaProperty.Register<
+        AudioVisualizerControlBase,
+        IBrush
+    >(nameof(PrimaryBrush), new SolidColorBrush(Color.FromArgb(220, 90, 255, 160)));
 
     private DispatcherTimer? _timer;
 
@@ -60,7 +65,11 @@ public abstract class AudioVisualizerControlBase : Control
     protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
     {
         base.OnAttachedToVisualTree(e);
-        _timer ??= new DispatcherTimer(TimeSpan.FromMilliseconds(33), DispatcherPriority.Render, (_, _) => InvalidateVisual());
+        _timer ??= new DispatcherTimer(
+            TimeSpan.FromMilliseconds(33),
+            DispatcherPriority.Render,
+            (_, _) => InvalidateVisual()
+        );
         UpdateTimerState();
     }
 
@@ -81,8 +90,11 @@ public abstract class AudioVisualizerControlBase : Control
 
     private void UpdateTimerState()
     {
-        if (_timer == null) return;
-        if (IsVisible) _timer.Start();
-        else _timer.Stop();
+        if (_timer == null)
+            return;
+        if (IsVisible)
+            _timer.Start();
+        else
+            _timer.Stop();
     }
 }

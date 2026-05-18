@@ -1,9 +1,6 @@
 ﻿using System.Text.Json;
-
 using Beutl.Logging;
-
 using Microsoft.Extensions.Logging;
-
 using NuGet.Packaging;
 using NuGet.Packaging.Core;
 using NuGet.Packaging.Licenses;
@@ -42,9 +39,7 @@ public class AcceptedLicenseManager : IBeutlApiResource
         string fileName = Path.Combine(Helper.AppRoot, FileName);
         using (FileStream stream = File.Create(fileName))
         {
-            JsonSerializer.Serialize(stream, _accepted
-                .Select(AccepedPackageInfo.Create)
-                .ToArray());
+            JsonSerializer.Serialize(stream, _accepted.Select(AccepedPackageInfo.Create).ToArray());
         }
     }
 
@@ -57,12 +52,19 @@ public class AcceptedLicenseManager : IBeutlApiResource
             {
                 try
                 {
-                    if (JsonSerializer.Deserialize<AccepedPackageInfo[]>(stream) is AccepedPackageInfo[] packages)
+                    if (
+                        JsonSerializer.Deserialize<AccepedPackageInfo[]>(stream)
+                        is AccepedPackageInfo[] packages
+                    )
                     {
                         _accepted.Clear();
 
-                        _accepted.AddRange(packages.Select(x =>
-                            new KeyValuePair<PackageIdentity, LicenseMetadata>(x.Package.ToIdentity(), x.License.ToMetadata())));
+                        _accepted.AddRange(
+                            packages.Select(x => new KeyValuePair<PackageIdentity, LicenseMetadata>(
+                                x.Package.ToIdentity(),
+                                x.License.ToMetadata()
+                            ))
+                        );
                     }
                 }
                 catch (Exception ex)
@@ -80,7 +82,8 @@ public class AcceptedLicenseManager : IBeutlApiResource
         {
             return new AccepedPackageInfo(
                 new PackageInfo(item.Key.Id, item.Key.Version.ToString()),
-                new LicenseInfo(item.Value.Type, item.Value.License, item.Value.Version.ToString()));
+                new LicenseInfo(item.Value.Type, item.Value.License, item.Value.Version.ToString())
+            );
         }
     }
 
@@ -99,9 +102,12 @@ public class AcceptedLicenseManager : IBeutlApiResource
             return new LicenseMetadata(
                 type: Type,
                 license: License,
-                expression: Type == LicenseType.Expression ? NuGetLicenseExpression.Parse(License) : null,
+                expression: Type == LicenseType.Expression
+                    ? NuGetLicenseExpression.Parse(License)
+                    : null,
                 warningsAndErrors: Array.Empty<string>(),
-                version: new Version(Version));
+                version: new Version(Version)
+            );
         }
     }
 }

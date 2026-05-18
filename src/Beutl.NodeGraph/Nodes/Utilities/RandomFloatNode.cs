@@ -71,7 +71,10 @@ public partial class RandomInt32Node : GraphNode
     {
         public override void Update(GraphCompositionContext context)
         {
-            Value = Maximum <= Minimum ? Random.Shared.Next(Maximum, Minimum) : Random.Shared.Next(Minimum, Maximum);
+            Value =
+                Maximum <= Minimum
+                    ? Random.Shared.Next(Maximum, Minimum)
+                    : Random.Shared.Next(Minimum, Maximum);
         }
     }
 }
@@ -95,7 +98,10 @@ public partial class RandomInt64Node : GraphNode
     {
         public override void Update(GraphCompositionContext context)
         {
-            Value = Maximum <= Minimum ? Random.Shared.NextInt64(Maximum, Minimum) : Random.Shared.NextInt64(Minimum, Maximum);
+            Value =
+                Maximum <= Minimum
+                    ? Random.Shared.NextInt64(Maximum, Minimum)
+                    : Random.Shared.NextInt64(Minimum, Maximum);
         }
     }
 }

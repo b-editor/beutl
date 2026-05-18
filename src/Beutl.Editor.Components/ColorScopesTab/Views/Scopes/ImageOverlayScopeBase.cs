@@ -26,7 +26,8 @@ public abstract class ImageOverlayScopeBase : HdrScopeControlBase
         BtlBitmap sourceBitmap,
         int targetWidth,
         int targetHeight,
-        WriteableBitmap? existingBitmap)
+        WriteableBitmap? existingBitmap
+    )
     {
         // Render at the source's native resolution; the View applies Stretch.Uniform on draw.
         return RenderImage(sourceBitmap, existingBitmap);
@@ -49,15 +50,22 @@ public abstract class ImageOverlayScopeBase : HdrScopeControlBase
             if (pixelSize.Width > 0 && pixelSize.Height > 0)
             {
                 var sourceSize = new Size(pixelSize.Width, pixelSize.Height);
-                double scale = Math.Min(bounds.Width / sourceSize.Width, bounds.Height / sourceSize.Height);
+                double scale = Math.Min(
+                    bounds.Width / sourceSize.Width,
+                    bounds.Height / sourceSize.Height
+                );
                 if (scale > 0)
                 {
                     var scaledSize = sourceSize * scale;
                     var destRect = new Rect(bounds.Size).CenterRect(new Rect(scaledSize));
-                    using (context.PushRenderOptions(new RenderOptions
-                    {
-                        BitmapInterpolationMode = BitmapInterpolationMode.HighQuality
-                    }))
+                    using (
+                        context.PushRenderOptions(
+                            new RenderOptions
+                            {
+                                BitmapInterpolationMode = BitmapInterpolationMode.HighQuality,
+                            }
+                        )
+                    )
                     {
                         context.DrawImage(bitmap, destRect);
                     }

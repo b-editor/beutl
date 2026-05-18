@@ -1,10 +1,8 @@
 ﻿using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Avalonia.LogicalTree;
-
 using Beutl.Pages.ExtensionsPages.DiscoverPages;
 using Beutl.ViewModels.ExtensionsPages;
-
 using FluentAvalonia.UI.Controls;
 using FluentAvalonia.UI.Navigation;
 
@@ -28,9 +26,11 @@ public sealed partial class LibraryPage : UserControl
 
     private void Package_Click(object? sender, RoutedEventArgs e)
     {
-        if (this.FindLogicalAncestorOfType<Frame>() is { } frame
+        if (
+            this.FindLogicalAncestorOfType<Frame>() is { } frame
             && DataContext is LibraryPageViewModel viewModel
-            && sender is Button button)
+            && sender is Button button
+        )
         {
             if (button.DataContext is RemoteUserPackageViewModel package)
             {
@@ -47,7 +47,8 @@ public sealed partial class LibraryPage : UserControl
         Button button,
         LocalUserPackageViewModel localPackage,
         LibraryPageViewModel viewModel,
-        Frame frame)
+        Frame frame
+    )
     {
         button.IsEnabled = false;
         var package = await viewModel.TryFindPackage(localPackage.Package);
@@ -61,14 +62,15 @@ public sealed partial class LibraryPage : UserControl
             var dialog = new ContentDialog
             {
                 Title = ExtensionsStrings.LocalPackage,
-                Content = $"{string.Format(ExtensionsStrings.Could_not_find_a_package_from_remote, localPackage.Name)}\n" +
-                $"Name: {localPackage.Name}\n" +
-                $"DisplayName: {localPackage.DisplayName}\n" +
-                $"Publisher: {localPackage.Publisher}\n" +
-                $"Description: {localPackage.Package.Description}\n" +
-                $"Version: {localPackage.Package.Version}\n" +
-                $"WebSite: {localPackage.Package.WebSite}",
-                CloseButtonText = Strings.Close
+                Content =
+                    $"{string.Format(ExtensionsStrings.Could_not_find_a_package_from_remote, localPackage.Name)}\n"
+                    + $"Name: {localPackage.Name}\n"
+                    + $"DisplayName: {localPackage.DisplayName}\n"
+                    + $"Publisher: {localPackage.Publisher}\n"
+                    + $"Description: {localPackage.Package.Description}\n"
+                    + $"Version: {localPackage.Package.Version}\n"
+                    + $"WebSite: {localPackage.Package.WebSite}",
+                CloseButtonText = Strings.Close,
             };
             await dialog.ShowAsync();
         }
@@ -76,8 +78,10 @@ public sealed partial class LibraryPage : UserControl
 
     public void ActionButton_Click(object? sender, RoutedEventArgs e)
     {
-        if (sender is Button { Command: { } command } button
-            && command.CanExecute(button.CommandParameter))
+        if (
+            sender is Button { Command: { } command } button
+            && command.CanExecute(button.CommandParameter)
+        )
         {
             command.Execute(button.CommandParameter);
             e.Handled = true;

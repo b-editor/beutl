@@ -23,10 +23,18 @@ public sealed class PhaseScopeControl : AudioVisualizerControlBase
         context.FillRectangle(Brushes.Transparent, bounds);
 
         AudioSampleRingBuffer? buffer = RingBuffer;
-        if (buffer == null || bounds.Width < 40 || bounds.Height < 40) return;
+        if (buffer == null || bounds.Width < 40 || bounds.Height < 40)
+            return;
 
-        int got = buffer.ReadAroundTime(PlayheadTime, _left, _right, SampleWindow, out int leadingZeros);
-        if (got <= 0) return;
+        int got = buffer.ReadAroundTime(
+            PlayheadTime,
+            _left,
+            _right,
+            SampleWindow,
+            out int leadingZeros
+        );
+        if (got <= 0)
+            return;
 
         // Use only the real samples. Padded zeros would pile up as a bright dot
         // at the origin and skew the correlation readout toward 0.
@@ -38,12 +46,9 @@ public sealed class PhaseScopeControl : AudioVisualizerControlBase
         // labels when they were positioned outside the vertices.
         const double outerMargin = 24;
         double size = Math.Min(bounds.Width, bounds.Height) - outerMargin * 2;
-        if (size < 40) return;
-        var area = new Rect(
-            bounds.Center.X - size / 2,
-            bounds.Center.Y - size / 2,
-            size,
-            size);
+        if (size < 40)
+            return;
+        var area = new Rect(bounds.Center.X - size / 2, bounds.Center.Y - size / 2, size, size);
 
         DrawGuides(context, area);
         DrawCorrelationLabel(context, bounds, ComputeCorrelation(left, right));
@@ -68,34 +73,76 @@ public sealed class PhaseScopeControl : AudioVisualizerControlBase
         context.DrawGeometry(null, pen, diamond);
 
         // Vertical mono axis and horizontal anti-phase axis.
-        context.DrawLine(pen, new Point(area.Center.X, area.Top), new Point(area.Center.X, area.Bottom));
-        context.DrawLine(pen, new Point(area.Left, area.Center.Y), new Point(area.Right, area.Center.Y));
+        context.DrawLine(
+            pen,
+            new Point(area.Center.X, area.Top),
+            new Point(area.Center.X, area.Bottom)
+        );
+        context.DrawLine(
+            pen,
+            new Point(area.Left, area.Center.Y),
+            new Point(area.Right, area.Center.Y)
+        );
 
         IBrush textBrush = Brushes.LightGray;
         // Place labels just outside each diamond vertex so they never overlap
         // the dot cloud or the axis lines, and stay aligned regardless of font size.
-        DrawAxisLabelCentered(context, "M", new Point(area.Center.X, area.Top - 2), textBrush, hAlign: 0.5, vAlign: 1.0);
-        DrawAxisLabelCentered(context, "L", new Point(area.Left - 4, area.Center.Y), textBrush, hAlign: 1.0, vAlign: 0.5);
-        DrawAxisLabelCentered(context, "R", new Point(area.Right + 4, area.Center.Y), textBrush, hAlign: 0.0, vAlign: 0.5);
-        DrawAxisLabelCentered(context, "S", new Point(area.Center.X, area.Bottom + 2), textBrush, hAlign: 0.5, vAlign: 0.0);
+        DrawAxisLabelCentered(
+            context,
+            "M",
+            new Point(area.Center.X, area.Top - 2),
+            textBrush,
+            hAlign: 0.5,
+            vAlign: 1.0
+        );
+        DrawAxisLabelCentered(
+            context,
+            "L",
+            new Point(area.Left - 4, area.Center.Y),
+            textBrush,
+            hAlign: 1.0,
+            vAlign: 0.5
+        );
+        DrawAxisLabelCentered(
+            context,
+            "R",
+            new Point(area.Right + 4, area.Center.Y),
+            textBrush,
+            hAlign: 0.0,
+            vAlign: 0.5
+        );
+        DrawAxisLabelCentered(
+            context,
+            "S",
+            new Point(area.Center.X, area.Bottom + 2),
+            textBrush,
+            hAlign: 0.5,
+            vAlign: 0.0
+        );
     }
 
     private void DrawCorrelationLabel(DrawingContext context, Rect bounds, float correlation)
     {
-        string label = $"corr {correlation,5:+0.00;-0.00; 0.00}";
+        string label = $"corr {correlation, 5:+0.00;-0.00; 0.00}";
         var text = new FormattedText(
             label,
             CultureInfo.InvariantCulture,
             FlowDirection.LeftToRight,
             Typeface.Default,
             CorrelationFontSize,
-            Brushes.White);
+            Brushes.White
+        );
         // Anchor to the top-left of the control so it never collides with the
         // S vertex label below the diamond.
         context.DrawText(text, new Point(4, 2));
     }
 
-    private void DrawSamples(DrawingContext context, Rect area, ReadOnlySpan<float> left, ReadOnlySpan<float> right)
+    private void DrawSamples(
+        DrawingContext context,
+        Rect area,
+        ReadOnlySpan<float> left,
+        ReadOnlySpan<float> right
+    )
     {
         // Project to the rotated frame:
         //   x = (L - R) / sqrt(2)  (stereo width)
@@ -125,7 +172,9 @@ public sealed class PhaseScopeControl : AudioVisualizerControlBase
 
     private static float ComputeCorrelation(ReadOnlySpan<float> left, ReadOnlySpan<float> right)
     {
-        double sumLR = 0, sumLL = 0, sumRR = 0;
+        double sumLR = 0,
+            sumLL = 0,
+            sumRR = 0;
         for (int i = 0; i < left.Length; i++)
         {
             float l = left[i];
@@ -135,11 +184,19 @@ public sealed class PhaseScopeControl : AudioVisualizerControlBase
             sumRR += r * r;
         }
         double denom = Math.Sqrt(sumLL * sumRR);
-        if (denom <= double.Epsilon) return 0f;
+        if (denom <= double.Epsilon)
+            return 0f;
         return (float)Math.Clamp(sumLR / denom, -1.0, 1.0);
     }
 
-    private static void DrawAxisLabelCentered(DrawingContext context, string text, Point at, IBrush brush, double hAlign, double vAlign)
+    private static void DrawAxisLabelCentered(
+        DrawingContext context,
+        string text,
+        Point at,
+        IBrush brush,
+        double hAlign,
+        double vAlign
+    )
     {
         var formatted = new FormattedText(
             text,
@@ -147,7 +204,8 @@ public sealed class PhaseScopeControl : AudioVisualizerControlBase
             FlowDirection.LeftToRight,
             Typeface.Default,
             AxisLabelFontSize,
-            brush);
+            brush
+        );
         // hAlign/vAlign in [0,1] anchor the named edge of the label to `at`:
         //   0.0 = left/top, 0.5 = center, 1.0 = right/bottom of the label.
         double x = at.X - formatted.Width * hAlign;

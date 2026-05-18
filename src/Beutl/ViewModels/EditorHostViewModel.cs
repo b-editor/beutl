@@ -15,7 +15,9 @@ public class EditorHostViewModel
 
     public EditorHostViewModel()
     {
-        _projectService.ProjectObservable.Subscribe(item => DispatchProjectChange(item.New, item.Old));
+        _projectService.ProjectObservable.Subscribe(item =>
+            DispatchProjectChange(item.New, item.Old)
+        );
     }
 
     private void DispatchProjectChange(Project? @new, Project? old)
@@ -68,19 +70,19 @@ public class EditorHostViewModel
                     {
                         await item.DisposeAsync();
                     }
-                    catch (OperationCanceledException)
-                    {
-                    }
+                    catch (OperationCanceledException) { }
                     catch (Exception ex)
                     {
-                        _logger.LogError(ex, "Failed to dispose editor tab item. FilePath={FilePath}", filePath);
+                        _logger.LogError(
+                            ex,
+                            "Failed to dispose editor tab item. FilePath={FilePath}",
+                            filePath
+                        );
                     }
                 }
             }
         }
-        catch (OperationCanceledException)
-        {
-        }
+        catch (OperationCanceledException) { }
         catch (Exception ex)
         {
             _logger.LogError(
@@ -88,7 +90,8 @@ public class EditorHostViewModel
                 "Unhandled exception in {Method}. OldProject={OldProject} NewProject={NewProject}",
                 nameof(OnProjectChangedAsync),
                 SafeLocalPath(old?.Uri),
-                SafeLocalPath(@new?.Uri));
+                SafeLocalPath(@new?.Uri)
+            );
             NotificationService.ShowError(Strings.Project, MessageStrings.OperationFailed);
         }
     }
@@ -102,16 +105,14 @@ public class EditorHostViewModel
     {
         try
         {
-            if (e.Action == NotifyCollectionChangedAction.Add &&
-                e.NewItems != null)
+            if (e.Action == NotifyCollectionChangedAction.Add && e.NewItems != null)
             {
                 foreach (ProjectItem item in e.NewItems.OfType<ProjectItem>())
                 {
                     _editorService.ActivateTabItem(item);
                 }
             }
-            else if (e.Action == NotifyCollectionChangedAction.Remove &&
-                     e.OldItems != null)
+            else if (e.Action == NotifyCollectionChangedAction.Remove && e.OldItems != null)
             {
                 foreach (ProjectItem item in e.OldItems.OfType<ProjectItem>())
                 {
@@ -119,15 +120,14 @@ public class EditorHostViewModel
                     {
                         await _editorService.CloseTabItem(item);
                     }
-                    catch (OperationCanceledException)
-                    {
-                    }
+                    catch (OperationCanceledException) { }
                     catch (Exception ex)
                     {
                         _logger.LogError(
                             ex,
                             "Failed to close tab for removed project item. FilePath={FilePath}",
-                            SafeLocalPath(item.Uri));
+                            SafeLocalPath(item.Uri)
+                        );
                     }
                 }
             }
@@ -137,19 +137,19 @@ public class EditorHostViewModel
                     "Unhandled project items collection change. Action={Action} NewCount={NewCount} OldCount={OldCount}",
                     e.Action,
                     e.NewItems?.Count,
-                    e.OldItems?.Count);
+                    e.OldItems?.Count
+                );
             }
         }
-        catch (OperationCanceledException)
-        {
-        }
+        catch (OperationCanceledException) { }
         catch (Exception ex)
         {
             _logger.LogError(
                 ex,
                 "Unhandled exception in {Method}. Action={Action}",
                 nameof(HandleProjectItemsChangedAsync),
-                e.Action);
+                e.Action
+            );
             NotificationService.ShowError(Strings.Project, MessageStrings.OperationFailed);
         }
     }

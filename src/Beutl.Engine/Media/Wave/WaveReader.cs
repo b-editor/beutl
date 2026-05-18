@@ -1,11 +1,9 @@
 ﻿using System.Diagnostics.CodeAnalysis;
 using System.Runtime.InteropServices;
-
 using Beutl.Media.Decoding;
 using Beutl.Media.Music;
 using Beutl.Media.Music.Samples;
 using Beutl.Media.Source;
-
 using NAudio.Wave;
 
 namespace Beutl.Media.Wave;
@@ -26,7 +24,8 @@ public sealed class WaveReader : MediaReader
             CodecName: $"Wave ({_waveFormat.Encoding})",
             Duration: new Rational(_reader.Length, _waveFormat.AverageBytesPerSecond),
             SampleRate: _waveFormat.SampleRate,
-            NumChannels: _waveFormat.Channels);
+            NumChannels: _waveFormat.Channels
+        );
     }
 
     public override VideoStreamInfo VideoInfo => throw new NotSupportedException();
@@ -45,7 +44,10 @@ public sealed class WaveReader : MediaReader
 
         _reader.CurrentTime = TimeSpan.FromSeconds(start / (double)_waveFormat.SampleRate);
 
-        var tmp = new Pcm<Stereo32BitFloat>(_waveFormat.SampleRate, (int)(length / (double)_waveFormat.SampleRate * _waveFormat.SampleRate));
+        var tmp = new Pcm<Stereo32BitFloat>(
+            _waveFormat.SampleRate,
+            (int)(length / (double)_waveFormat.SampleRate * _waveFormat.SampleRate)
+        );
 
         float[] buffer = new float[tmp.NumSamples * 2];
         int count = _provider.Read(buffer, 0, tmp.NumSamples * 2);

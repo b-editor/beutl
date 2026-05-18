@@ -1,6 +1,5 @@
 ﻿using System.Globalization;
 using System.Reactive.Disposables;
-
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
@@ -18,7 +17,8 @@ public class RationalEditor : StringEditor
             nameof(Value),
             o => o.Value,
             (o, v) => o.Value = v,
-            defaultBindingMode: BindingMode.TwoWay);
+            defaultBindingMode: BindingMode.TwoWay
+        );
     private Rational _value;
     private Rational _oldValue;
     private readonly CompositeDisposable _disposables = [];
@@ -48,17 +48,25 @@ public class RationalEditor : StringEditor
     {
         _disposables.Clear();
         base.OnApplyTemplate(e);
-        InnerTextBox.AddDisposableHandler(PointerWheelChangedEvent, OnTextBoxPointerWheelChanged, RoutingStrategies.Tunnel)
+        InnerTextBox
+            .AddDisposableHandler(
+                PointerWheelChangedEvent,
+                OnTextBoxPointerWheelChanged,
+                RoutingStrategies.Tunnel
+            )
             .DisposeWith(_disposables);
 
         _headerText = e.NameScope.Find<TextBlock>("PART_HeaderTextBlock");
         if (_headerText != null)
         {
-            _headerText.AddDisposableHandler(PointerPressedEvent, OnTextBlockPointerPressed)
+            _headerText
+                .AddDisposableHandler(PointerPressedEvent, OnTextBlockPointerPressed)
                 .DisposeWith(_disposables);
-            _headerText.AddDisposableHandler(PointerReleasedEvent, OnTextBlockPointerReleased)
+            _headerText
+                .AddDisposableHandler(PointerReleasedEvent, OnTextBlockPointerReleased)
                 .DisposeWith(_disposables);
-            _headerText.AddDisposableHandler(PointerMovedEvent, OnTextBlockPointerMoved)
+            _headerText
+                .AddDisposableHandler(PointerMovedEvent, OnTextBlockPointerMoved)
                 .DisposeWith(_disposables);
             _headerText.Cursor = PointerLockHelper.SizeWestEast;
         }
@@ -73,14 +81,23 @@ public class RationalEditor : StringEditor
             // ポインタロック + デルタ取得
             Point move = PointerLockHelper.Moved(_headerText, point, ref _headerDragStart);
             double scaledX = NumberEditorHelper.ApplyScrubModifier(move.X, e.KeyModifiers);
-            int truncated = NumberEditorHelper.ConsumeScrubAccumulator<int>(ref _scrubAccumulator, scaledX);
+            int truncated = NumberEditorHelper.ConsumeScrubAccumulator<int>(
+                ref _scrubAccumulator,
+                scaledX
+            );
             var delta = new Rational(truncated, 1);
             Rational oldValue = Value;
             Rational newValue = Value + delta;
             if (newValue != oldValue)
             {
                 Value = newValue;
-                RaiseEvent(new PropertyEditorValueChangedEventArgs<Rational>(newValue, oldValue, ValueChangedEvent));
+                RaiseEvent(
+                    new PropertyEditorValueChangedEventArgs<Rational>(
+                        newValue,
+                        oldValue,
+                        ValueChangedEvent
+                    )
+                );
             }
 
             e.Handled = true;
@@ -95,7 +112,13 @@ public class RationalEditor : StringEditor
         {
             if (Value != _oldValue)
             {
-                RaiseEvent(new PropertyEditorValueChangedEventArgs<Rational>(Value, _oldValue, ValueConfirmedEvent));
+                RaiseEvent(
+                    new PropertyEditorValueChangedEventArgs<Rational>(
+                        Value,
+                        _oldValue,
+                        ValueConfirmedEvent
+                    )
+                );
             }
 
             PointerLockHelper.Released();
@@ -108,8 +131,10 @@ public class RationalEditor : StringEditor
     private void OnTextBlockPointerPressed(object sender, PointerPressedEventArgs e)
     {
         PointerPoint pointerPoint = e.GetCurrentPoint(_headerText);
-        if (pointerPoint.Properties.IsLeftButtonPressed
-            && !DataValidationErrors.GetHasErrors(InnerTextBox))
+        if (
+            pointerPoint.Properties.IsLeftButtonPressed
+            && !DataValidationErrors.GetHasErrors(InnerTextBox)
+        )
         {
             _oldValue = Value;
             _headerDragStart = pointerPoint.Position;
@@ -130,19 +155,30 @@ public class RationalEditor : StringEditor
 
     protected override void OnTextBoxLostFocus(RoutedEventArgs e)
     {
-        if (!DataValidationErrors.GetHasErrors(InnerTextBox)
-            && Value != _oldValue)
+        if (!DataValidationErrors.GetHasErrors(InnerTextBox) && Value != _oldValue)
         {
-            RaiseEvent(new PropertyEditorValueChangedEventArgs<Rational>(Value, _oldValue, ValueConfirmedEvent));
+            RaiseEvent(
+                new PropertyEditorValueChangedEventArgs<Rational>(
+                    Value,
+                    _oldValue,
+                    ValueConfirmedEvent
+                )
+            );
         }
     }
 
     protected override void OnTextBoxTextChanged(string newValue, string oldValue)
     {
-        if (InnerTextBox?.IsKeyboardFocusWithin == true
-            && Rational.TryParse(newValue, CultureInfo.CurrentUICulture, out Rational newValue2))
+        if (
+            InnerTextBox?.IsKeyboardFocusWithin == true
+            && Rational.TryParse(newValue, CultureInfo.CurrentUICulture, out Rational newValue2)
+        )
         {
-            bool invalidOldValue = !Rational.TryParse(oldValue, CultureInfo.CurrentUICulture, out Rational oldValue2);
+            bool invalidOldValue = !Rational.TryParse(
+                oldValue,
+                CultureInfo.CurrentUICulture,
+                out Rational oldValue2
+            );
             if (invalidOldValue)
             {
                 oldValue2 = newValue2;
@@ -151,7 +187,13 @@ public class RationalEditor : StringEditor
             if (invalidOldValue || newValue2 != oldValue2)
             {
                 Value = newValue2;
-                RaiseEvent(new PropertyEditorValueChangedEventArgs<Rational>(newValue2, oldValue2, ValueChangedEvent));
+                RaiseEvent(
+                    new PropertyEditorValueChangedEventArgs<Rational>(
+                        newValue2,
+                        oldValue2,
+                        ValueChangedEvent
+                    )
+                );
             }
         }
 
@@ -172,9 +214,15 @@ public class RationalEditor : StringEditor
 
     private void OnTextBoxPointerWheelChanged(object sender, PointerWheelEventArgs e)
     {
-        if (!DataValidationErrors.GetHasErrors(InnerTextBox)
+        if (
+            !DataValidationErrors.GetHasErrors(InnerTextBox)
             && InnerTextBox.IsKeyboardFocusWithin
-            && Rational.TryParse(InnerTextBox.Text, CultureInfo.CurrentUICulture, out Rational value))
+            && Rational.TryParse(
+                InnerTextBox.Text,
+                CultureInfo.CurrentUICulture,
+                out Rational value
+            )
+        )
         {
             var delta = new Rational(10);
             double wheelDelta = e.Delta.Y;
@@ -188,7 +236,7 @@ public class RationalEditor : StringEditor
             {
                 < 0 => value - delta,
                 > 0 => value + delta,
-                _ => value
+                _ => value,
             };
 
             Value = value;

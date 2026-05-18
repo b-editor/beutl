@@ -5,9 +5,7 @@ namespace Beutl.UnitTests.Core;
 [TestFixture]
 public class HierarchicalListTests
 {
-    private sealed class TestNode : Hierarchical
-    {
-    }
+    private sealed class TestNode : Hierarchical { }
 
     [Test]
     public void DefaultConstructor_HasNoParentAndRemovesOnReset()

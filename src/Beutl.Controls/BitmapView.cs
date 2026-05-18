@@ -18,15 +18,22 @@ public class BitmapView : Avalonia.Controls.Control
     public static readonly StyledProperty<Ref<BtlBitmap>?> SourceProperty =
         AvaloniaProperty.Register<BitmapView, Ref<BtlBitmap>?>(nameof(Source));
 
-    public static readonly StyledProperty<Stretch> StretchProperty =
-        AvaloniaProperty.Register<BitmapView, Stretch>(nameof(Stretch), Stretch.Uniform);
+    public static readonly StyledProperty<Stretch> StretchProperty = AvaloniaProperty.Register<
+        BitmapView,
+        Stretch
+    >(nameof(Stretch), Stretch.Uniform);
 
     public static readonly StyledProperty<BitmapInterpolationMode> InterpolationModeProperty =
         AvaloniaProperty.Register<BitmapView, BitmapInterpolationMode>(
-            nameof(InterpolationMode), BitmapInterpolationMode.HighQuality);
+            nameof(InterpolationMode),
+            BitmapInterpolationMode.HighQuality
+        );
 
     public static readonly StyledProperty<UIToneMappingOperator> ToneMappingProperty =
-        AvaloniaProperty.Register<BitmapView, UIToneMappingOperator>(nameof(ToneMapping), UIToneMappingOperator.None);
+        AvaloniaProperty.Register<BitmapView, UIToneMappingOperator>(
+            nameof(ToneMapping),
+            UIToneMappingOperator.None
+        );
 
     public static readonly StyledProperty<float> ToneMappingExposureProperty =
         AvaloniaProperty.Register<BitmapView, float>(nameof(ToneMappingExposure), 0f);
@@ -36,8 +43,13 @@ public class BitmapView : Avalonia.Controls.Control
 
     static BitmapView()
     {
-        AffectsRender<BitmapView>(SourceProperty, StretchProperty, InterpolationModeProperty,
-            ToneMappingProperty, ToneMappingExposureProperty);
+        AffectsRender<BitmapView>(
+            SourceProperty,
+            StretchProperty,
+            InterpolationModeProperty,
+            ToneMappingProperty,
+            ToneMappingExposureProperty
+        );
         AffectsMeasure<BitmapView>(StretchProperty);
     }
 
@@ -123,7 +135,8 @@ public class BitmapView : Avalonia.Controls.Control
     public override void Render(DrawingContext context)
     {
         Ref<BtlBitmap>? cloneForDrawOp = _clonedSource?.TryClone();
-        if (cloneForDrawOp == null) return;
+        if (cloneForDrawOp == null)
+            return;
 
         try
         {
@@ -131,27 +144,33 @@ public class BitmapView : Avalonia.Controls.Control
             var sourceSize = new Size(cloneForDrawOp.Value.Width, cloneForDrawOp.Value.Height);
             var scale = Stretch.CalculateScaling(Bounds.Size, sourceSize);
             var scaledSize = sourceSize * scale;
-            var destRect = viewPort
-                .CenterRect(new Rect(scaledSize))
-                .Intersect(viewPort);
-            var sourceRect = new Rect(sourceSize)
-                .CenterRect(new Rect(destRect.Size / scale));
+            var destRect = viewPort.CenterRect(new Rect(scaledSize)).Intersect(viewPort);
+            var sourceRect = new Rect(sourceSize).CenterRect(new Rect(destRect.Size / scale));
 
             var skSourceRect = SKRect.Create(
-                (float)sourceRect.X, (float)sourceRect.Y,
-                (float)sourceRect.Width, (float)sourceRect.Height);
+                (float)sourceRect.X,
+                (float)sourceRect.Y,
+                (float)sourceRect.Width,
+                (float)sourceRect.Height
+            );
             var skDestRect = SKRect.Create(
-                (float)destRect.X, (float)destRect.Y,
-                (float)destRect.Width, (float)destRect.Height);
+                (float)destRect.X,
+                (float)destRect.Y,
+                (float)destRect.Width,
+                (float)destRect.Height
+            );
 
-            context.Custom(new BitmapDrawOperation(
-                new Rect(Bounds.Size),
-                cloneForDrawOp,
-                skSourceRect,
-                skDestRect,
-                InterpolationMode,
-                ToneMapping,
-                ToneMappingExposure));
+            context.Custom(
+                new BitmapDrawOperation(
+                    new Rect(Bounds.Size),
+                    cloneForDrawOp,
+                    skSourceRect,
+                    skDestRect,
+                    InterpolationMode,
+                    ToneMapping,
+                    ToneMappingExposure
+                )
+            );
         }
         catch
         {
@@ -166,10 +185,13 @@ public class BitmapView : Avalonia.Controls.Control
         SKRect destRect,
         BitmapInterpolationMode interpolationMode,
         UIToneMappingOperator tmOperator,
-        float tmExposure)
-        : ICustomDrawOperation
+        float tmExposure
+    ) : ICustomDrawOperation
     {
-        private static readonly SKPaint s_linearPaint = new() { ColorFilter = SKColorFilter.CreateLinearToSrgbGamma() };
+        private static readonly SKPaint s_linearPaint = new()
+        {
+            ColorFilter = SKColorFilter.CreateLinearToSrgbGamma(),
+        };
 
         private static readonly SKPaint s_gammaPaint = new();
 
@@ -273,14 +295,19 @@ public class BitmapView : Avalonia.Controls.Control
             {
                 BitmapInterpolationMode.None => SKSamplingOptions.Default,
                 BitmapInterpolationMode.LowQuality => new SKSamplingOptions(SKFilterMode.Linear),
-                BitmapInterpolationMode.MediumQuality =>
-                    new SKSamplingOptions(SKFilterMode.Linear, SKMipmapMode.Linear),
-                BitmapInterpolationMode.HighQuality => new SKSamplingOptions(SKCubicResampler.Mitchell),
-                _ => new SKSamplingOptions(SKFilterMode.Linear, SKMipmapMode.Linear)
+                BitmapInterpolationMode.MediumQuality => new SKSamplingOptions(
+                    SKFilterMode.Linear,
+                    SKMipmapMode.Linear
+                ),
+                BitmapInterpolationMode.HighQuality => new SKSamplingOptions(
+                    SKCubicResampler.Mitchell
+                ),
+                _ => new SKSamplingOptions(SKFilterMode.Linear, SKMipmapMode.Linear),
             };
 
             bool isLinear = image.ColorSpace?.GammaIsLinear == true;
-            bool needsToneMapping = isLinear && tmOperator != UIToneMappingOperator.None && s_toneMappingEffect != null;
+            bool needsToneMapping =
+                isLinear && tmOperator != UIToneMappingOperator.None && s_toneMappingEffect != null;
 
             if (needsToneMapping)
             {
@@ -289,11 +316,19 @@ public class BitmapView : Avalonia.Controls.Control
                 float scaleY = sourceRect.Height / destRect.Height;
                 float transX = sourceRect.Left - destRect.Left * scaleX;
                 float transY = sourceRect.Top - destRect.Top * scaleY;
-                var localMatrix = SKMatrix.CreateScaleTranslation(1 / scaleX, 1 / scaleY, transX, transY);
+                var localMatrix = SKMatrix.CreateScaleTranslation(
+                    1 / scaleX,
+                    1 / scaleY,
+                    transX,
+                    transY
+                );
 
                 using var imageShader = image.ToShader(
-                    SKShaderTileMode.Clamp, SKShaderTileMode.Clamp,
-                    sampling, localMatrix);
+                    SKShaderTileMode.Clamp,
+                    SKShaderTileMode.Clamp,
+                    sampling,
+                    localMatrix
+                );
                 var builder = new SKRuntimeShaderBuilder(s_toneMappingEffect!);
                 builder.Children["src"] = imageShader;
                 builder.Uniforms["exposure"] = tmExposure;
@@ -307,8 +342,13 @@ public class BitmapView : Avalonia.Controls.Control
             else
             {
                 // 既存パス: Linear→sRGB or そのまま
-                canvas.DrawImage(image, sourceRect, destRect, sampling,
-                    isLinear ? s_linearPaint : s_gammaPaint);
+                canvas.DrawImage(
+                    image,
+                    sourceRect,
+                    destRect,
+                    sampling,
+                    isLinear ? s_linearPaint : s_gammaPaint
+                );
             }
         }
     }

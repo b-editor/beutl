@@ -1,6 +1,5 @@
 ﻿using System.ComponentModel.DataAnnotations;
 using System.Reactive;
-
 using Beutl.Engine;
 using Beutl.Language;
 using Beutl.Logging;
@@ -17,8 +16,7 @@ public sealed partial class Invert : FilterEffect
 
     static Invert()
     {
-        string sksl =
-            """
+        string sksl = """
             uniform shader src;
             uniform float amount;
             uniform int excludeAlpha;
@@ -55,7 +53,10 @@ public sealed partial class Invert : FilterEffect
     [Display(Name = nameof(GraphicsStrings.Amount), ResourceType = typeof(GraphicsStrings))]
     public IProperty<float> Amount { get; } = Property.CreateAnimatable(100f);
 
-    [Display(Name = nameof(GraphicsStrings.Invert_ExcludeAlphaChannel), ResourceType = typeof(GraphicsStrings))]
+    [Display(
+        Name = nameof(GraphicsStrings.Invert_ExcludeAlphaChannel),
+        ResourceType = typeof(GraphicsStrings)
+    )]
     public IProperty<bool> ExcludeAlphaChannel { get; } = Property.CreateAnimatable(true);
 
     public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
@@ -69,12 +70,14 @@ public sealed partial class Invert : FilterEffect
         context.CustomEffect(
             (r, Unit.Default),
             (t, c) => OnApply(t.r, c),
-            static (_, rect) => rect);
+            static (_, rect) => rect
+        );
     }
 
     private static void OnApply(Resource data, CustomFilterEffectContext context)
     {
-        if (s_shader is null) return;
+        if (s_shader is null)
+            return;
 
         for (int i = 0; i < context.Targets.Count; i++)
         {
@@ -82,7 +85,10 @@ public sealed partial class Invert : FilterEffect
             var renderTarget = target.RenderTarget!;
 
             using SKImage image = renderTarget.Value.Snapshot();
-            using SKShader baseShader = image.ToShader(SKShaderTileMode.Decal, SKShaderTileMode.Decal);
+            using SKShader baseShader = image.ToShader(
+                SKShaderTileMode.Decal,
+                SKShaderTileMode.Decal
+            );
             var builder = s_shader.CreateBuilder();
 
             builder.Children["src"] = baseShader;

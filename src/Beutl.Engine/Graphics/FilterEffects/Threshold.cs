@@ -1,6 +1,5 @@
 ﻿using System.ComponentModel.DataAnnotations;
 using System.Reactive;
-
 using Beutl.Engine;
 using Beutl.Language;
 using Beutl.Logging;
@@ -17,8 +16,7 @@ public sealed partial class Threshold : FilterEffect
 
     static Threshold()
     {
-        string sksl =
-            """
+        string sksl = """
             uniform shader src;
             uniform float threshold;
             uniform float smoothness;
@@ -74,12 +72,14 @@ public sealed partial class Threshold : FilterEffect
         context.CustomEffect(
             (r, Unit.Default),
             (t, c) => OnApply(t.r, c),
-            static (_, rect) => rect);
+            static (_, rect) => rect
+        );
     }
 
     private static void OnApply(Resource data, CustomFilterEffectContext context)
     {
-        if (s_shader is null) return;
+        if (s_shader is null)
+            return;
 
         for (int i = 0; i < context.Targets.Count; i++)
         {
@@ -87,7 +87,10 @@ public sealed partial class Threshold : FilterEffect
             var renderTarget = target.RenderTarget!;
 
             using SKImage image = renderTarget.Value.Snapshot();
-            using SKShader baseShader = image.ToShader(SKShaderTileMode.Decal, SKShaderTileMode.Decal);
+            using SKShader baseShader = image.ToShader(
+                SKShaderTileMode.Decal,
+                SKShaderTileMode.Decal
+            );
             var builder = s_shader.CreateBuilder();
 
             builder.Children["src"] = baseShader;

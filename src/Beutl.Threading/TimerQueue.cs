@@ -20,11 +20,18 @@ internal sealed class TimerQueue(TimeProvider timeProvider)
         }
     }
 
-    public void Enqueue(DateTimeOffset timestamp, DispatchPriority priority, Action operation, CancellationToken ct)
+    public void Enqueue(
+        DateTimeOffset timestamp,
+        DispatchPriority priority,
+        Action operation,
+        CancellationToken ct
+    )
     {
         lock (_lock)
         {
-            if (_operations.TryGetValue(timestamp, out List<DispatcherOperation>? stampedOperations))
+            if (
+                _operations.TryGetValue(timestamp, out List<DispatcherOperation>? stampedOperations)
+            )
             {
                 stampedOperations.Add(new(operation, priority, ct));
             }

@@ -1,10 +1,7 @@
 ﻿using System.Collections.Concurrent;
-
 using Beutl.Api.Services;
 using Beutl.Logging;
-
 using Microsoft.Extensions.Logging;
-
 using NuGet.Common;
 using NuGet.Packaging.Core;
 
@@ -17,7 +14,8 @@ public sealed class ResolvePackageDependenciesTask : StartupTask
 
     public ResolvePackageDependenciesTask(
         InstalledPackageRepository repository,
-        PackageInstaller installer)
+        PackageInstaller installer
+    )
     {
         Task = Task.Run(async () =>
         {
@@ -28,37 +26,47 @@ public sealed class ResolvePackageDependenciesTask : StartupTask
                 if (packages.Length == 0)
                 {
                     _logger.LogInformation(
-                        "All installed packages were resolved under the current Beutl version. No re-resolution needed.");
+                        "All installed packages were resolved under the current Beutl version. No re-resolution needed."
+                    );
                     return;
                 }
 
                 _logger.LogInformation(
                     "Beutl version changed. Re-resolving dependencies for {Count} package(s).",
-                    packages.Length);
+                    packages.Length
+                );
 
                 foreach (PackageIdentity package in packages)
                 {
                     try
                     {
-                        activity?.AddEvent(new ActivityEvent(
-                            $"Re-resolving {package.Id} {package.Version}"));
+                        activity?.AddEvent(
+                            new ActivityEvent($"Re-resolving {package.Id} {package.Version}")
+                        );
 
                         await installer.ReResolveDependencies(
-                            package, null, CancellationToken.None);
+                            package,
+                            null,
+                            CancellationToken.None
+                        );
 
-                        repository.SetResolvedBeutlVersion(
-                            package.Id, BeutlApplication.Version);
+                        repository.SetResolvedBeutlVersion(package.Id, BeutlApplication.Version);
 
                         _logger.LogInformation(
                             "Successfully re-resolved dependencies for {PackageId} {PackageVersion}.",
-                            package.Id, package.Version);
+                            package.Id,
+                            package.Version
+                        );
                     }
                     catch (Exception ex)
                     {
                         activity?.SetStatus(ActivityStatusCode.Error);
-                        _logger.LogError(ex,
+                        _logger.LogError(
+                            ex,
                             "Failed to re-resolve dependencies for {PackageId} {PackageVersion}.",
-                            package.Id, package.Version);
+                            package.Id,
+                            package.Version
+                        );
                         Failures.Add((package, ex));
                     }
                 }

@@ -58,5 +58,5 @@ public enum FontWeight
     /// <summary>
     /// Specifies an "ultra black" font weight.
     /// </summary>
-    UltraBlack = 950
+    UltraBlack = 950,
 }

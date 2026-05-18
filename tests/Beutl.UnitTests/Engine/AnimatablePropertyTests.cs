@@ -19,18 +19,22 @@ public class AnimatablePropertyTests
     private static KeyFrameAnimation<int> CreateLinearAnimation(int from, int to, double seconds)
     {
         var animation = new KeyFrameAnimation<int>();
-        animation.KeyFrames.Add(new KeyFrame<int>
-        {
-            KeyTime = TimeSpan.Zero,
-            Value = from,
-            Easing = new LinearEasing()
-        });
-        animation.KeyFrames.Add(new KeyFrame<int>
-        {
-            KeyTime = TimeSpan.FromSeconds(seconds),
-            Value = to,
-            Easing = new LinearEasing()
-        });
+        animation.KeyFrames.Add(
+            new KeyFrame<int>
+            {
+                KeyTime = TimeSpan.Zero,
+                Value = from,
+                Easing = new LinearEasing(),
+            }
+        );
+        animation.KeyFrames.Add(
+            new KeyFrame<int>
+            {
+                KeyTime = TimeSpan.FromSeconds(seconds),
+                Value = to,
+                Easing = new LinearEasing(),
+            }
+        );
         return animation;
     }
 

@@ -1,7 +1,6 @@
 ﻿using Beutl.Collections;
 using Beutl.Configuration;
 using Beutl.Extensibility;
-
 using static Beutl.Configuration.ExtensionConfig;
 
 namespace Beutl.Api.Services;
@@ -15,9 +14,7 @@ public sealed class ExtensionProvider : IBeutlApiResource
     private readonly object _lock = new();
     private bool _cacheInvalidated;
 
-    public ExtensionProvider()
-    {
-    }
+    public ExtensionProvider() { }
 
     public static ExtensionProvider Current { get; } = new();
 
@@ -58,12 +55,12 @@ public sealed class ExtensionProvider : IBeutlApiResource
                 foreach (Extension extension in AllExtensions)
                 {
                     Type extType = extension.GetType();
-                    if (extension is not EditorExtension editorExtension) continue;
+                    if (extension is not EditorExtension editorExtension)
+                        continue;
 
                     foreach (TypeLazy type in list.GetMarshal().Value)
                     {
-                        if (extType == type.Type
-                            && editorExtension.IsSupported(file))
+                        if (extType == type.Type && editorExtension.IsSupported(file))
                         {
                             return editorExtension;
                         }
@@ -73,8 +70,10 @@ public sealed class ExtensionProvider : IBeutlApiResource
 
             foreach (Extension extension in AllExtensions)
             {
-                if (extension is EditorExtension editorExtension &&
-                    editorExtension.IsSupported(file))
+                if (
+                    extension is EditorExtension editorExtension
+                    && editorExtension.IsSupported(file)
+                )
                 {
                     return editorExtension;
                 }
@@ -90,8 +89,10 @@ public sealed class ExtensionProvider : IBeutlApiResource
         {
             foreach (Extension extension in AllExtensions)
             {
-                if (extension is ProjectItemExtension wsiExtension &&
-                    wsiExtension.IsSupported(file))
+                if (
+                    extension is ProjectItemExtension wsiExtension
+                    && wsiExtension.IsSupported(file)
+                )
                 {
                     return wsiExtension;
                 }
@@ -107,8 +108,10 @@ public sealed class ExtensionProvider : IBeutlApiResource
         {
             foreach (Extension extension in AllExtensions)
             {
-                if (extension is ProjectItemExtension wsiExtension &&
-                    wsiExtension.IsSupported(file))
+                if (
+                    extension is ProjectItemExtension wsiExtension
+                    && wsiExtension.IsSupported(file)
+                )
                 {
                     yield return wsiExtension;
                 }

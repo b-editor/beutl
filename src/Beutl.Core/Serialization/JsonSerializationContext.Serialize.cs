@@ -10,7 +10,12 @@ namespace Beutl.Serialization;
 public partial class JsonSerializationContext
 {
     private static JsonNode? Serialize(
-        string name, object value, Type actualType, Type baseType, ICoreSerializationContext? parent)
+        string name,
+        object value,
+        Type actualType,
+        Type baseType,
+        ICoreSerializationContext? parent
+    )
     {
         switch (value)
         {
@@ -35,7 +40,11 @@ public partial class JsonSerializationContext
     }
 
     private static JsonNode? SerializeCoreSerializable(
-        ICoreSerializable coreSerializable, Type actualType, Type baseType, ICoreSerializationContext? parent)
+        ICoreSerializable coreSerializable,
+        Type actualType,
+        Type baseType,
+        ICoreSerializationContext? parent
+    )
     {
         // 外部ファイル参照として保存するケース
         if (coreSerializable is CoreObject { Uri: not null } coreObject && parent != null)
@@ -62,7 +71,11 @@ public partial class JsonSerializationContext
     }
 
     private static JsonNode? SerializeEnumerable(
-        IEnumerable enumerable, Type actualType, Type baseType, ICoreSerializationContext? parent)
+        IEnumerable enumerable,
+        Type actualType,
+        Type baseType,
+        ICoreSerializationContext? parent
+    )
     {
         Type elementType = ArrayTypeHelpers.GetElementType(actualType) ?? typeof(object);
 
@@ -81,7 +94,8 @@ public partial class JsonSerializationContext
         Type actualType,
         Type baseType,
         ICoreSerializationContext? parent,
-        out JsonNode? result)
+        out JsonNode? result
+    )
     {
         result = null;
 
@@ -111,7 +125,13 @@ public partial class JsonSerializationContext
         foreach (object? item in enumerable)
         {
             StringValuePair<object> typed = Unsafe.As<StringValuePair<object>>(item);
-            jobj[typed.Key] = Serialize(typed.Key, typed.Value, typed.Value.GetType(), valueType, parent);
+            jobj[typed.Key] = Serialize(
+                typed.Key,
+                typed.Value,
+                typed.Value.GetType(),
+                valueType,
+                parent
+            );
         }
 
         result = jobj;
@@ -119,7 +139,10 @@ public partial class JsonSerializationContext
     }
 
     private static JsonArray SerializeArray(
-        IEnumerable enumerable, Type elementType, ICoreSerializationContext? parent)
+        IEnumerable enumerable,
+        Type elementType,
+        ICoreSerializationContext? parent
+    )
     {
         var jarray = new JsonArray();
         int index = 0;
@@ -157,7 +180,8 @@ public partial class JsonSerializationContext
     {
         var node = CoreSerializer.SerializeToJsonObject(
             value,
-            new CoreSerializerOptions { BaseUri = value.Uri });
+            new CoreSerializerOptions { BaseUri = value.Uri }
+        );
 
         using var stream = File.Create(value.Uri!.LocalPath);
         using var writer = new Utf8JsonWriter(stream, JsonHelper.WriterOptions);
@@ -178,7 +202,8 @@ public partial class JsonSerializationContext
     {
         var node = CoreSerializer.SerializeToJsonObject(
             value,
-            new CoreSerializerOptions { BaseUri = value.Uri });
+            new CoreSerializerOptions { BaseUri = value.Uri }
+        );
         node["Uri"] = serializedUri.ToString();
         return node;
     }

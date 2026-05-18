@@ -6,7 +6,9 @@ using Reactive.Bindings.Extensions;
 
 namespace Beutl.ViewModels.Editors;
 
-public sealed class RelativeRectEditorViewModel : ValueEditorViewModel<Graphics.RelativeRect>, IConfigureUniformEditor
+public sealed class RelativeRectEditorViewModel
+    : ValueEditorViewModel<Graphics.RelativeRect>,
+        IConfigureUniformEditor
 {
     public RelativeRectEditorViewModel(IPropertyAdapter<Graphics.RelativeRect> property)
         : base(property)
@@ -31,10 +33,7 @@ public sealed class RelativeRectEditorViewModel : ValueEditorViewModel<Graphics.
             .ToReadOnlyReactivePropertySlim()
             .AddTo(Disposables);
 
-        UnitValue = Value
-            .Select(x => x.Unit)
-            .ToReadOnlyReactivePropertySlim()
-            .AddTo(Disposables);
+        UnitValue = Value.Select(x => x.Unit).ToReadOnlyReactivePropertySlim().AddTo(Disposables);
     }
 
     public ReadOnlyReactivePropertySlim<float> FirstValue { get; }
@@ -54,21 +53,29 @@ public sealed class RelativeRectEditorViewModel : ValueEditorViewModel<Graphics.
         base.Accept(visitor);
         if (visitor is RelativeRectEditor editor && !Disposables.IsDisposed)
         {
-            editor.Bind(RelativeRectEditor.FirstValueProperty, FirstValue.ToBinding())
+            editor
+                .Bind(RelativeRectEditor.FirstValueProperty, FirstValue.ToBinding())
                 .DisposeWith(Disposables);
-            editor.Bind(RelativeRectEditor.SecondValueProperty, SecondValue.ToBinding())
+            editor
+                .Bind(RelativeRectEditor.SecondValueProperty, SecondValue.ToBinding())
                 .DisposeWith(Disposables);
-            editor.Bind(RelativeRectEditor.ThirdValueProperty, ThirdValue.ToBinding())
+            editor
+                .Bind(RelativeRectEditor.ThirdValueProperty, ThirdValue.ToBinding())
                 .DisposeWith(Disposables);
-            editor.Bind(RelativeRectEditor.FourthValueProperty, FourthValue.ToBinding())
+            editor
+                .Bind(RelativeRectEditor.FourthValueProperty, FourthValue.ToBinding())
                 .DisposeWith(Disposables);
-            editor.Bind(RelativeRectEditor.UnitProperty, UnitValue.ToBinding())
+            editor
+                .Bind(RelativeRectEditor.UnitProperty, UnitValue.ToBinding())
                 .DisposeWith(Disposables);
-            editor.Bind(Vector4Editor.IsUniformProperty, IsUniformEditorEnabled.ToBinding())
+            editor
+                .Bind(Vector4Editor.IsUniformProperty, IsUniformEditorEnabled.ToBinding())
                 .DisposeWith(Disposables);
-            editor.AddDisposableHandler(PropertyEditor.ValueConfirmedEvent, OnValueConfirmed)
+            editor
+                .AddDisposableHandler(PropertyEditor.ValueConfirmedEvent, OnValueConfirmed)
                 .DisposeWith(Disposables);
-            editor.AddDisposableHandler(PropertyEditor.ValueChangedEvent, OnValueChanged)
+            editor
+                .AddDisposableHandler(PropertyEditor.ValueChangedEvent, OnValueChanged)
                 .DisposeWith(Disposables);
         }
     }
@@ -83,8 +90,10 @@ public sealed class RelativeRectEditorViewModel : ValueEditorViewModel<Graphics.
 
     private void OnValueChanged(object? sender, PropertyEditorValueChangedEventArgs e)
     {
-        if (e is PropertyEditorValueChangedEventArgs<Graphics.RelativeRect> args
-            && sender is RelativeRectEditor editor)
+        if (
+            e is PropertyEditorValueChangedEventArgs<Graphics.RelativeRect> args
+            && sender is RelativeRectEditor editor
+        )
         {
             Graphics.RelativeRect coerced = SetCurrentValueAndGetCoerced(args.NewValue);
             editor.FirstValue = coerced.Rect.X;

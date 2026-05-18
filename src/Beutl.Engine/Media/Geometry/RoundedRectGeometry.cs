@@ -6,7 +6,10 @@ using Beutl.Utilities;
 
 namespace Beutl.Media;
 
-[Display(Name = nameof(GraphicsStrings.RoundedRectGeometry), ResourceType = typeof(GraphicsStrings))]
+[Display(
+    Name = nameof(GraphicsStrings.RoundedRectGeometry),
+    ResourceType = typeof(GraphicsStrings)
+)]
 public sealed partial class RoundedRectGeometry : Geometry
 {
     public RoundedRectGeometry()
@@ -20,16 +23,29 @@ public sealed partial class RoundedRectGeometry : Geometry
     [Display(Name = nameof(GraphicsStrings.Height), ResourceType = typeof(GraphicsStrings))]
     public IProperty<float> Height { get; } = Property.CreateAnimatable<float>();
 
-    [Display(Name = nameof(GraphicsStrings.RoundedRectGeometry_CornerRadius), ResourceType = typeof(GraphicsStrings))]
-    public IProperty<CornerRadius> CornerRadius { get; } = Property.CreateAnimatable<CornerRadius>();
+    [Display(
+        Name = nameof(GraphicsStrings.RoundedRectGeometry_CornerRadius),
+        ResourceType = typeof(GraphicsStrings)
+    )]
+    public IProperty<CornerRadius> CornerRadius { get; } =
+        Property.CreateAnimatable<CornerRadius>();
 
     [Display(Name = nameof(GraphicsStrings.Smoothing), ResourceType = typeof(GraphicsStrings))]
     public IProperty<float> Smoothing { get; } = Property.CreateAnimatable<float>();
 
     // https://github.com/yjb94/react-native-squircle-skia
     private static void GetPathParams(
-        float width, float height, float cornerRadius, float smoothing,
-        out float a, out float b, out float c, out float d, out float p, out float circularSectionLength)
+        float width,
+        float height,
+        float cornerRadius,
+        float smoothing,
+        out float a,
+        out float b,
+        out float c,
+        out float d,
+        out float p,
+        out float circularSectionLength
+    )
     {
         float maxRadius = MathF.Min(width, height) / 2;
         cornerRadius = MathF.Min(cornerRadius, maxRadius);
@@ -55,7 +71,8 @@ public sealed partial class RoundedRectGeometry : Geometry
         float angleTheta = (90 - angleBeta) / 2;
         float p3ToP4Distance = cornerRadius * MathF.Tan(MathUtilities.Deg2Rad(angleTheta / 2));
 
-        circularSectionLength = MathF.Sin(MathUtilities.Deg2Rad(angleBeta / 2)) * cornerRadius * MathF.Sqrt(2);
+        circularSectionLength =
+            MathF.Sin(MathUtilities.Deg2Rad(angleBeta / 2)) * cornerRadius * MathF.Sqrt(2);
 
         c = p3ToP4Distance * MathF.Cos(MathUtilities.Deg2Rad(angleAlpha));
         d = c * MathF.Tan(MathUtilities.Deg2Rad(angleAlpha));
@@ -63,30 +80,47 @@ public sealed partial class RoundedRectGeometry : Geometry
         a = 2 * b;
     }
 
-    private void ApplyTopRightCorner(float width, float height,
-        float cornerRadius, float smoothing, IGeometryContext context)
+    private void ApplyTopRightCorner(
+        float width,
+        float height,
+        float cornerRadius,
+        float smoothing,
+        IGeometryContext context
+    )
     {
         if (cornerRadius != 0)
         {
             GetPathParams(
-                width, height, cornerRadius, smoothing,
-                out float a, out float b, out float c, out float d, out float p, out float circularSectionLength);
+                width,
+                height,
+                cornerRadius,
+                smoothing,
+                out float a,
+                out float b,
+                out float c,
+                out float d,
+                out float p,
+                out float circularSectionLength
+            );
 
             context.MoveTo(new Point(MathF.Max(width / 2, width - p), 0));
             context.CubicTo(
                 new Point(width - (p - a), 0),
                 new Point(width - (p - a - b), 0),
-                new Point(width - (p - a - b - c), d));
+                new Point(width - (p - a - b - c), d)
+            );
             context.ArcTo(
                 new Size(cornerRadius, cornerRadius),
                 0,
                 false,
                 true,
-                new Point(circularSectionLength, circularSectionLength) + context.LastPoint);
+                new Point(circularSectionLength, circularSectionLength) + context.LastPoint
+            );
             context.CubicTo(
                 new Point(width, p - a - b),
                 new Point(width, p - a),
-                new Point(width, MathF.Min(height / 2, p)));
+                new Point(width, MathF.Min(height / 2, p))
+            );
         }
         else
         {
@@ -96,30 +130,47 @@ public sealed partial class RoundedRectGeometry : Geometry
         }
     }
 
-    private void ApplyBottomRightCorner(float width, float height,
-        float cornerRadius, float smoothing, IGeometryContext context)
+    private void ApplyBottomRightCorner(
+        float width,
+        float height,
+        float cornerRadius,
+        float smoothing,
+        IGeometryContext context
+    )
     {
         if (cornerRadius != 0)
         {
             GetPathParams(
-                width, height, cornerRadius, smoothing,
-                out float a, out float b, out float c, out float d, out float p, out float circularSectionLength);
+                width,
+                height,
+                cornerRadius,
+                smoothing,
+                out float a,
+                out float b,
+                out float c,
+                out float d,
+                out float p,
+                out float circularSectionLength
+            );
 
             context.LineTo(new Point(width, MathF.Max(height / 2, height - p)));
             context.CubicTo(
                 new Point(width, height - (p - a)),
                 new Point(width, height - (p - a - b)),
-                new Point(width - d, height - (p - a - b - c)));
+                new Point(width - d, height - (p - a - b - c))
+            );
             context.ArcTo(
                 new Size(cornerRadius, cornerRadius),
                 0,
                 false,
                 true,
-                new Point(-circularSectionLength, circularSectionLength) + context.LastPoint);
+                new Point(-circularSectionLength, circularSectionLength) + context.LastPoint
+            );
             context.CubicTo(
                 new Point(width - (p - a - b), height),
                 new Point(width - (p - a), height),
-                new Point(MathF.Max(width / 2, width - p), height));
+                new Point(MathF.Max(width / 2, width - p), height)
+            );
         }
         else
         {
@@ -128,30 +179,47 @@ public sealed partial class RoundedRectGeometry : Geometry
         }
     }
 
-    private void ApplyBottomLeftCorner(float width, float height,
-        float cornerRadius, float smoothing, IGeometryContext context)
+    private void ApplyBottomLeftCorner(
+        float width,
+        float height,
+        float cornerRadius,
+        float smoothing,
+        IGeometryContext context
+    )
     {
         if (cornerRadius != 0)
         {
             GetPathParams(
-                width, height, cornerRadius, smoothing,
-                out float a, out float b, out float c, out float d, out float p, out float circularSectionLength);
+                width,
+                height,
+                cornerRadius,
+                smoothing,
+                out float a,
+                out float b,
+                out float c,
+                out float d,
+                out float p,
+                out float circularSectionLength
+            );
 
             context.LineTo(new Point(MathF.Min(width / 2, p), height));
             context.CubicTo(
                 new Point(p - a, height),
                 new Point(p - a - b, height),
-                new Point(p - a - b - c, height - d));
+                new Point(p - a - b - c, height - d)
+            );
             context.ArcTo(
                 new Size(cornerRadius, cornerRadius),
                 0,
                 false,
                 true,
-                new Point(-circularSectionLength, -circularSectionLength) + context.LastPoint);
+                new Point(-circularSectionLength, -circularSectionLength) + context.LastPoint
+            );
             context.CubicTo(
                 new Point(0, height - (p - a - b)),
                 new Point(0, height - (p - a)),
-                new Point(0, MathF.Max(height / 2, height - p)));
+                new Point(0, MathF.Max(height / 2, height - p))
+            );
         }
         else
         {
@@ -160,30 +228,47 @@ public sealed partial class RoundedRectGeometry : Geometry
         }
     }
 
-    private void ApplyTopLeftCorner(float width, float height,
-        float cornerRadius, float smoothing, IGeometryContext context)
+    private void ApplyTopLeftCorner(
+        float width,
+        float height,
+        float cornerRadius,
+        float smoothing,
+        IGeometryContext context
+    )
     {
         if (cornerRadius != 0)
         {
             GetPathParams(
-                width, height, cornerRadius, smoothing,
-                out float a, out float b, out float c, out float d, out float p, out float circularSectionLength);
+                width,
+                height,
+                cornerRadius,
+                smoothing,
+                out float a,
+                out float b,
+                out float c,
+                out float d,
+                out float p,
+                out float circularSectionLength
+            );
 
             context.LineTo(new Point(0, MathF.Min(height / 2, p)));
             context.CubicTo(
                 new Point(0, p - a),
                 new Point(0, p - a - b),
-                new Point(d, p - a - b - c));
+                new Point(d, p - a - b - c)
+            );
             context.ArcTo(
                 new Size(cornerRadius, cornerRadius),
                 0,
                 false,
                 true,
-                new Point(circularSectionLength, -circularSectionLength) + context.LastPoint);
+                new Point(circularSectionLength, -circularSectionLength) + context.LastPoint
+            );
             context.CubicTo(
                 new Point(p - a - b, 0),
                 new Point(p - a, 0),
-                new Point(MathF.Min(width / 2, p), 0));
+                new Point(MathF.Min(width / 2, p), 0)
+            );
         }
         else
         {
@@ -214,13 +299,9 @@ public sealed partial class RoundedRectGeometry : Geometry
         float bottomLeft = Math.Clamp(cornerRadius.BottomLeft, 0, maxRadius);
         float smoothing = r.Smoothing / 100;
 
-        ApplyTopRightCorner(
-            width, height, topRight, smoothing, context);
-        ApplyBottomRightCorner(
-            width, height, bottomRight, smoothing, context);
-        ApplyBottomLeftCorner(
-            width, height, bottomLeft, smoothing, context);
-        ApplyTopLeftCorner(
-            width, height, topLeft, smoothing, context);
+        ApplyTopRightCorner(width, height, topRight, smoothing, context);
+        ApplyBottomRightCorner(width, height, bottomRight, smoothing, context);
+        ApplyBottomLeftCorner(width, height, bottomLeft, smoothing, context);
+        ApplyTopLeftCorner(width, height, topLeft, smoothing, context);
     }
 }

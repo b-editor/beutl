@@ -6,6 +6,7 @@ using Beutl.Extensions.FFmpeg.Encoding;
 using Beutl.Media.Encoding;
 using Beutl.PropertyAdapters;
 using AudioFormat = Beutl.Extensions.FFmpeg.Encoding.FFmpegAudioEncoderSettings.AudioFormat;
+
 namespace Beutl.Extensions.FFmpeg.PropertyEditors;
 
 public sealed class FFmpegEncoderSpecializedPropertyExtension : PropertyEditorExtension
@@ -13,29 +14,35 @@ public sealed class FFmpegEncoderSpecializedPropertyExtension : PropertyEditorEx
     private static bool IsSampleRateProperty(IPropertyAdapter prop)
     {
         return prop is CorePropertyAdapter<int> cpa
-               && cpa.Property.Id == AudioEncoderSettings.SampleRateProperty.Id
-               && cpa.Object is FFmpegAudioEncoderSettings;
+            && cpa.Property.Id == AudioEncoderSettings.SampleRateProperty.Id
+            && cpa.Object is FFmpegAudioEncoderSettings;
     }
 
     private static bool IsPixelFormatProperty(IPropertyAdapter prop)
     {
         return prop is CorePropertyAdapter<int> cpa
-               && cpa.Property.Id == FFmpegVideoEncoderSettings.FormatProperty.Id
-               && cpa.Object is FFmpegVideoEncoderSettings;
+            && cpa.Property.Id == FFmpegVideoEncoderSettings.FormatProperty.Id
+            && cpa.Object is FFmpegVideoEncoderSettings;
     }
 
     private static bool IsAudioFormatProperty(IPropertyAdapter prop)
     {
         return prop is CorePropertyAdapter<AudioFormat> cpa
-               && cpa.Property.Id == FFmpegAudioEncoderSettings.FormatProperty.Id
-               && cpa.Object is FFmpegAudioEncoderSettings;
+            && cpa.Property.Id == FFmpegAudioEncoderSettings.FormatProperty.Id
+            && cpa.Object is FFmpegAudioEncoderSettings;
     }
 
-    public override IEnumerable<IPropertyAdapter> MatchProperty(IReadOnlyList<IPropertyAdapter> properties)
+    public override IEnumerable<IPropertyAdapter> MatchProperty(
+        IReadOnlyList<IPropertyAdapter> properties
+    )
     {
         foreach (var prop in properties)
         {
-            if (IsAudioFormatProperty(prop) || IsPixelFormatProperty(prop) || IsSampleRateProperty(prop))
+            if (
+                IsAudioFormatProperty(prop)
+                || IsPixelFormatProperty(prop)
+                || IsSampleRateProperty(prop)
+            )
             {
                 return [prop];
             }
@@ -46,7 +53,8 @@ public sealed class FFmpegEncoderSpecializedPropertyExtension : PropertyEditorEx
 
     public override bool TryCreateContext(
         IReadOnlyList<IPropertyAdapter> properties,
-        [NotNullWhen(true)] out IPropertyEditorContext? context)
+        [NotNullWhen(true)] out IPropertyEditorContext? context
+    )
     {
         context = null;
         if (properties.Count != 1)
@@ -62,7 +70,9 @@ public sealed class FFmpegEncoderSpecializedPropertyExtension : PropertyEditorEx
         else if (IsAudioFormatProperty(prop))
         {
             context = new AudioFormatEditorViewModel(
-                (IPropertyAdapter<FFmpegAudioEncoderSettings.AudioFormat>)prop, this);
+                (IPropertyAdapter<FFmpegAudioEncoderSettings.AudioFormat>)prop,
+                this
+            );
         }
         else if (IsPixelFormatProperty(prop))
         {
@@ -74,7 +84,8 @@ public sealed class FFmpegEncoderSpecializedPropertyExtension : PropertyEditorEx
 
     public override bool TryCreateControl(
         IPropertyEditorContext context,
-        [NotNullWhen(true)] out Control? control)
+        [NotNullWhen(true)] out Control? control
+    )
     {
         if (context is SampleRateEditorViewModel)
         {

@@ -21,7 +21,8 @@ public partial class InlineAnimationLayer : UserControl
         Height = FrameNumberHelper.LayerHeight;
         this.SubscribeDataContextChange<InlineAnimationLayerViewModel>(
             OnDataContextAttached,
-            OnDataContextDetached);
+            OnDataContextDetached
+        );
 
         items.ContainerPrepared += OnMaterialized;
         items.ContainerClearing += OnDematerialized;
@@ -33,7 +34,8 @@ public partial class InlineAnimationLayer : UserControl
 
     private void OnDrap(object? sender, DragEventArgs e)
     {
-        if (DataContext is not InlineAnimationLayerViewModel viewModel) return;
+        if (DataContext is not InlineAnimationLayerViewModel viewModel)
+            return;
 
         if (viewModel.HandleDrop(e, e.GetPosition(this).X))
         {
@@ -43,7 +45,8 @@ public partial class InlineAnimationLayer : UserControl
 
     private void OnDragOver(object? sender, DragEventArgs e)
     {
-        if (DataContext is not InlineAnimationLayerViewModel viewModel) return;
+        if (DataContext is not InlineAnimationLayerViewModel viewModel)
+            return;
 
         if (viewModel.HandleDragOver(e))
         {
@@ -79,9 +82,17 @@ public partial class InlineAnimationLayer : UserControl
                     FillMode = FillMode.Forward,
                     Children =
                     {
-                        new KeyFrame() { Cue = new Cue(0), Setters = { new Setter(MarginProperty, Margin) } },
-                        new KeyFrame() { Cue = new Cue(1), Setters = { new Setter(MarginProperty, margin) } }
-                    }
+                        new KeyFrame()
+                        {
+                            Cue = new Cue(0),
+                            Setters = { new Setter(MarginProperty, Margin) },
+                        },
+                        new KeyFrame()
+                        {
+                            Cue = new Cue(1),
+                            Setters = { new Setter(MarginProperty, margin) },
+                        },
+                    },
                 };
                 var animation2 = new Avalonia.Animation.Animation
                 {
@@ -92,13 +103,15 @@ public partial class InlineAnimationLayer : UserControl
                     {
                         new KeyFrame()
                         {
-                            Cue = new Cue(0), Setters = { new Setter(MarginProperty, items.Margin) }
+                            Cue = new Cue(0),
+                            Setters = { new Setter(MarginProperty, items.Margin) },
                         },
                         new KeyFrame()
                         {
-                            Cue = new Cue(1), Setters = { new Setter(MarginProperty, leftMargin) }
-                        }
-                    }
+                            Cue = new Cue(1),
+                            Setters = { new Setter(MarginProperty, leftMargin) },
+                        },
+                    },
                 };
 
                 Task task1 = animation1.RunAsync(this, token);
@@ -111,7 +124,8 @@ public partial class InlineAnimationLayer : UserControl
     protected override void OnPointerMoved(PointerEventArgs e)
     {
         base.OnPointerMoved(e);
-        if (DataContext is not InlineAnimationLayerViewModel viewModel) return;
+        if (DataContext is not InlineAnimationLayerViewModel viewModel)
+            return;
         Point point = e.GetPosition(this);
         viewModel.UpdatePointerPosition(point.X);
     }
@@ -125,7 +139,8 @@ public partial class InlineAnimationLayer : UserControl
         protected override void OnAttached()
         {
             base.OnAttached();
-            if (AssociatedObject is not InputElement ie) return;
+            if (AssociatedObject is not InputElement ie)
+                return;
 
             ie.PointerPressed += OnPointerPressed;
             ie.PointerReleased += OnPointerReleased;
@@ -135,7 +150,8 @@ public partial class InlineAnimationLayer : UserControl
         protected override void OnDetaching()
         {
             base.OnDetaching();
-            if (AssociatedObject is not InputElement ie) return;
+            if (AssociatedObject is not InputElement ie)
+                return;
 
             ie.PointerPressed -= OnPointerPressed;
             ie.PointerReleased -= OnPointerReleased;
@@ -144,8 +160,10 @@ public partial class InlineAnimationLayer : UserControl
 
         private void OnPointerMoved(object? sender, PointerEventArgs e)
         {
-            if (AssociatedObject is not { DataContext: InlineKeyFrameViewModel viewModel }) return;
-            if (!_pressed) return;
+            if (AssociatedObject is not { DataContext: InlineKeyFrameViewModel viewModel })
+                return;
+            if (!_pressed)
+                return;
 
             Point position = e.GetPosition(AssociatedObject);
             Point delta = position - _start;
@@ -154,7 +172,8 @@ public partial class InlineAnimationLayer : UserControl
             viewModel.Left.Value += delta.X;
             e.Handled = true;
 
-            if (_items == null) return;
+            if (_items == null)
+                return;
             foreach (InlineKeyFrameViewModel item in _items)
             {
                 item.Left.Value += delta.X;
@@ -163,8 +182,10 @@ public partial class InlineAnimationLayer : UserControl
 
         private void OnPointerReleased(object? sender, PointerReleasedEventArgs e)
         {
-            if (AssociatedObject is not { DataContext: InlineKeyFrameViewModel viewModel }) return;
-            if (!_pressed) return;
+            if (AssociatedObject is not { DataContext: InlineKeyFrameViewModel viewModel })
+                return;
+            if (!_pressed)
+                return;
 
             if (_items != null)
             {
@@ -188,11 +209,13 @@ public partial class InlineAnimationLayer : UserControl
 
         private void OnPointerPressed(object? sender, PointerPressedEventArgs e)
         {
-            if (AssociatedObject is not { DataContext: InlineKeyFrameViewModel viewModel }) return;
+            if (AssociatedObject is not { DataContext: InlineKeyFrameViewModel viewModel })
+                return;
 
             PointerPoint point = e.GetCurrentPoint(AssociatedObject);
 
-            if (!point.Properties.IsLeftButtonPressed) return;
+            if (!point.Properties.IsLeftButtonPressed)
+                return;
 
             _pressed = true;
             _start = point.Position;

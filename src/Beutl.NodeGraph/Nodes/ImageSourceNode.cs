@@ -56,7 +56,11 @@ public sealed partial class ImageSourceNode : GraphNode
 
             if (_cachedOutput == null)
             {
-                _cachedOutput = new ImageSourceRenderNode(_sourceResource, Brushes.Resource.White, null);
+                _cachedOutput = new ImageSourceRenderNode(
+                    _sourceResource,
+                    Brushes.Resource.White,
+                    null
+                );
             }
             else
             {

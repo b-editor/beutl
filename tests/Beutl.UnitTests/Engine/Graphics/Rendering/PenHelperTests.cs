@@ -2,7 +2,6 @@
 using Beutl.Graphics;
 using Beutl.Graphics.Rendering;
 using Beutl.Media;
-
 using SkiaSharp;
 
 namespace Beutl.UnitTests.Engine.Graphics.Rendering;
@@ -30,11 +29,7 @@ public class PenHelperTests
     public void GetBounds_WithNegativeOffset_DoesNotExpandBounds()
     {
         var rect = new Rect(0, 0, 100, 100);
-        var pen = new Pen
-        {
-            Thickness = { CurrentValue = 0 },
-            Offset = { CurrentValue = -10 }
-        };
+        var pen = new Pen { Thickness = { CurrentValue = 0 }, Offset = { CurrentValue = -10 } };
         var penResource = pen.ToResource(CompositionContext.Default);
 
         var result = PenHelper.GetBounds(rect, penResource);
@@ -46,11 +41,7 @@ public class PenHelperTests
     public void GetBounds_WithZeroOffset_DoesNotExpandBounds()
     {
         var rect = new Rect(0, 0, 100, 100);
-        var pen = new Pen
-        {
-            Thickness = { CurrentValue = 0 },
-            Offset = { CurrentValue = 0 }
-        };
+        var pen = new Pen { Thickness = { CurrentValue = 0 }, Offset = { CurrentValue = 0 } };
         var penResource = pen.ToResource(CompositionContext.Default);
 
         var result = PenHelper.GetBounds(rect, penResource);
@@ -123,8 +114,16 @@ public class PenHelperTests
         fillPath.AddRect(SKRect.Create(0, 0, 100, 100));
         var bounds = new Rect(0, 0, 100, 100);
 
-        var penNoOffset = new Pen { Thickness = { CurrentValue = 4 }, Offset = { CurrentValue = 0 } };
-        var penWithOffset = new Pen { Thickness = { CurrentValue = 4 }, Offset = { CurrentValue = 10 } };
+        var penNoOffset = new Pen
+        {
+            Thickness = { CurrentValue = 4 },
+            Offset = { CurrentValue = 0 },
+        };
+        var penWithOffset = new Pen
+        {
+            Thickness = { CurrentValue = 4 },
+            Offset = { CurrentValue = 10 },
+        };
         var resourceNoOffset = penNoOffset.ToResource(CompositionContext.Default);
         var resourceWithOffset = penWithOffset.ToResource(CompositionContext.Default);
 
@@ -143,8 +142,16 @@ public class PenHelperTests
         fillPath.AddRect(SKRect.Create(0, 0, 200, 200));
         var bounds = new Rect(0, 0, 200, 200);
 
-        var penNoOffset = new Pen { Thickness = { CurrentValue = 4 }, Offset = { CurrentValue = 0 } };
-        var penWithOffset = new Pen { Thickness = { CurrentValue = 4 }, Offset = { CurrentValue = -10 } };
+        var penNoOffset = new Pen
+        {
+            Thickness = { CurrentValue = 4 },
+            Offset = { CurrentValue = 0 },
+        };
+        var penWithOffset = new Pen
+        {
+            Thickness = { CurrentValue = 4 },
+            Offset = { CurrentValue = -10 },
+        };
         var resourceNoOffset = penNoOffset.ToResource(CompositionContext.Default);
         var resourceWithOffset = penWithOffset.ToResource(CompositionContext.Default);
 

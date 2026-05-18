@@ -3,20 +3,25 @@ using FFmpeg.AutoGen.Abstractions;
 
 #if BEUTL_FFMPEG_WORKER
 namespace Beutl.FFmpegWorker;
+
 #else
 namespace Beutl.Extensions.FFmpeg;
+
 #endif
 
 internal static class ColorSpaceHelper
 {
     public static bool IsHdrTransfer(AVColorTransferCharacteristic trc)
     {
-        return trc is AVColorTransferCharacteristic.AVCOL_TRC_SMPTE2084
-            or AVColorTransferCharacteristic.AVCOL_TRC_ARIB_STD_B67;
+        return trc
+            is AVColorTransferCharacteristic.AVCOL_TRC_SMPTE2084
+                or AVColorTransferCharacteristic.AVCOL_TRC_ARIB_STD_B67;
     }
 
     public static BitmapColorSpace BuildTargetColorSpace(
-        AVColorTransferCharacteristic trc, AVColorPrimaries primaries)
+        AVColorTransferCharacteristic trc,
+        AVColorPrimaries primaries
+    )
     {
         var transferFn = GetTransferFunction(trc);
         var gamut = GetBitmapColorSpaceXyz(primaries);
@@ -36,7 +41,9 @@ internal static class ColorSpaceHelper
     /// マッピングされるよう、ガマット行列に輝度スケーリングを組み込む。
     /// </summary>
     public static BitmapColorSpace BuildHdrColorSpace(
-        AVColorTransferCharacteristic trc, AVColorPrimaries primaries)
+        AVColorTransferCharacteristic trc,
+        AVColorPrimaries primaries
+    )
     {
         var transferFn = GetTransferFunction(trc);
         var gamut = GetBitmapColorSpaceXyz(primaries);
@@ -56,7 +63,7 @@ internal static class ColorSpaceHelper
         {
             AVColorTransferCharacteristic.AVCOL_TRC_SMPTE2084 => GetPqLuminanceScale(),
             AVColorTransferCharacteristic.AVCOL_TRC_ARIB_STD_B67 => GetHlgLuminanceScale(),
-            _ => 1.0f
+            _ => 1.0f,
         };
     }
 
@@ -93,18 +100,21 @@ internal static class ColorSpaceHelper
         {
             AVColorTransferCharacteristic.AVCOL_TRC_LINEAR => BitmapColorSpaceTransferFn.Linear,
             AVColorTransferCharacteristic.AVCOL_TRC_GAMMA22 => BitmapColorSpaceTransferFn.TwoDotTwo,
-            AVColorTransferCharacteristic.AVCOL_TRC_BT2020_10 or
-                AVColorTransferCharacteristic.AVCOL_TRC_BT2020_12 => BitmapColorSpaceTransferFn.Rec2020,
+            AVColorTransferCharacteristic.AVCOL_TRC_BT2020_10
+            or AVColorTransferCharacteristic.AVCOL_TRC_BT2020_12 =>
+                BitmapColorSpaceTransferFn.Rec2020,
             AVColorTransferCharacteristic.AVCOL_TRC_SMPTE2084 => BitmapColorSpaceTransferFn.Pq,
             AVColorTransferCharacteristic.AVCOL_TRC_ARIB_STD_B67 => BitmapColorSpaceTransferFn.Hlg,
-            AVColorTransferCharacteristic.AVCOL_TRC_BT709 or
-                AVColorTransferCharacteristic.AVCOL_TRC_SMPTE170M or
-                AVColorTransferCharacteristic.AVCOL_TRC_IEC61966_2_4 or
-                AVColorTransferCharacteristic.AVCOL_TRC_BT1361_ECG => BitmapColorSpaceTransferFn.Bt709,
+            AVColorTransferCharacteristic.AVCOL_TRC_BT709
+            or AVColorTransferCharacteristic.AVCOL_TRC_SMPTE170M
+            or AVColorTransferCharacteristic.AVCOL_TRC_IEC61966_2_4
+            or AVColorTransferCharacteristic.AVCOL_TRC_BT1361_ECG =>
+                BitmapColorSpaceTransferFn.Bt709,
             AVColorTransferCharacteristic.AVCOL_TRC_GAMMA28 => BitmapColorSpaceTransferFn.Gamma28,
-            AVColorTransferCharacteristic.AVCOL_TRC_SMPTE240M => BitmapColorSpaceTransferFn.Smpte240M,
+            AVColorTransferCharacteristic.AVCOL_TRC_SMPTE240M =>
+                BitmapColorSpaceTransferFn.Smpte240M,
             AVColorTransferCharacteristic.AVCOL_TRC_SMPTE428 => BitmapColorSpaceTransferFn.Smpte428,
-            _ => BitmapColorSpaceTransferFn.Srgb
+            _ => BitmapColorSpaceTransferFn.Srgb,
         };
     }
 
@@ -123,7 +133,7 @@ internal static class ColorSpaceHelper
             AVColorPrimaries.AVCOL_PRI_SMPTE431 => BitmapColorSpaceXyz.Smpte431,
             AVColorPrimaries.AVCOL_PRI_SMPTE432 => BitmapColorSpaceXyz.Dcip3,
             AVColorPrimaries.AVCOL_PRI_EBU3213 => BitmapColorSpaceXyz.Ebu3213,
-            _ => BitmapColorSpaceXyz.Srgb
+            _ => BitmapColorSpaceXyz.Srgb,
         };
     }
 }

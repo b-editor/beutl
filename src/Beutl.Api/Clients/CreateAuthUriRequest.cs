@@ -4,5 +4,6 @@ namespace Beutl.Api.Clients;
 
 public class CreateAuthUriRequest
 {
-    [JsonPropertyName("continue_uri")] public required string ContinueUri { get; init; }
+    [JsonPropertyName("continue_uri")]
+    public required string ContinueUri { get; init; }
 }

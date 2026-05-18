@@ -1,5 +1,4 @@
 ﻿using System.Diagnostics.CodeAnalysis;
-
 using Avalonia.Controls;
 using Avalonia.Platform.Storage;
 using Beutl.ProjectSystem;
@@ -20,16 +19,13 @@ public sealed class SceneOutputExtension : OutputExtension
 
     public override FilePickerFileType GetFilePickerFileType()
     {
-        return new FilePickerFileType(Strings.SceneFile)
-        {
-            Patterns =
-            [
-                "*.scene"
-            ]
-        };
+        return new FilePickerFileType(Strings.SceneFile) { Patterns = ["*.scene"] };
     }
 
-    public override bool TryCreateContext(IEditorContext editorContext, [NotNullWhen(true)] out IOutputContext? context)
+    public override bool TryCreateContext(
+        IEditorContext editorContext,
+        [NotNullWhen(true)] out IOutputContext? context
+    )
     {
         if (editorContext is EditViewModel editViewModel)
         {
@@ -45,7 +41,10 @@ public sealed class SceneOutputExtension : OutputExtension
 
     public override bool IsSupported(Type type) => type.IsAssignableTo(typeof(Scene));
 
-    public override bool TryCreateControl(IEditorContext editorContext, [NotNullWhen(true)] out Control? control)
+    public override bool TryCreateControl(
+        IEditorContext editorContext,
+        [NotNullWhen(true)] out Control? control
+    )
     {
         if (editorContext is EditViewModel)
         {

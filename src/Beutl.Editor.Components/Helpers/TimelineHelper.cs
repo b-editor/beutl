@@ -1,5 +1,4 @@
 ﻿using Avalonia;
-
 using Beutl.Configuration;
 
 namespace Beutl.Editor.Components.Helpers;
@@ -10,7 +9,8 @@ public static class TimelineHelper
         double seekBarPixel,
         double viewportWidth,
         double currentOffsetX,
-        TimelineAutoScrollMode mode)
+        TimelineAutoScrollMode mode
+    )
     {
         double newOffsetX;
 
@@ -43,16 +43,21 @@ public static class TimelineHelper
         RangeSelectionPressed,
         EndingBarMarkerPressed,
         StartingBarMarkerPressed,
-        MarkerPressed
+        MarkerPressed,
     }
 
     private const int MarkerHeight = 18;
     private const int MarkerWidth = 4;
 
-    public static bool IsPointInTimelineScaleMarker(double x, double y, double startingBarX, double endingBarX)
+    public static bool IsPointInTimelineScaleMarker(
+        double x,
+        double y,
+        double startingBarX,
+        double endingBarX
+    )
     {
-        return IsPointInTimelineScaleStartingMarker(x, y, startingBarX) ||
-               IsPointInTimelineScaleEndingMarker(x, y, endingBarX);
+        return IsPointInTimelineScaleStartingMarker(x, y, startingBarX)
+            || IsPointInTimelineScaleEndingMarker(x, y, endingBarX);
     }
 
     public static bool IsPointInTimelineScaleStartingMarker(double x, double y, double startingBarX)

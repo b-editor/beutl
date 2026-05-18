@@ -9,16 +9,20 @@ namespace Beutl.Controls;
 public partial class BcTabView
 {
     public static readonly DirectProperty<BcTabView, object> FallBackContentProperty =
-        AvaloniaProperty.RegisterDirect<BcTabView, object>
-            (nameof(FallBackContent),
+        AvaloniaProperty.RegisterDirect<BcTabView, object>(
+            nameof(FallBackContent),
             o => o.FallBackContent,
-            (o, v) => o.FallBackContent = v);
+            (o, v) => o.FallBackContent = v
+        );
 
     public static readonly StyledProperty<bool> AdderButtonIsVisibleProperty =
         AvaloniaProperty.Register<BcTabView, bool>(nameof(AdderButtonIsVisible), true);
 
     public static readonly StyledProperty<double> MaxWidthOfItemsPresenterProperty =
-        AvaloniaProperty.Register<BcTabView, double>(nameof(MaxWidthOfItemsPresenter), double.PositiveInfinity);
+        AvaloniaProperty.Register<BcTabView, double>(
+            nameof(MaxWidthOfItemsPresenter),
+            double.PositiveInfinity
+        );
 
     public static readonly StyledProperty<IBrush> SecondaryBackgroundProperty =
         AvaloniaProperty.Register<BcTabView, IBrush>(nameof(SecondaryBackground));
@@ -32,18 +36,24 @@ public partial class BcTabView
     public static readonly DirectProperty<BcTabView, double> WidthRemainingSpaceProperty =
         AvaloniaProperty.RegisterDirect<BcTabView, double>(
             nameof(WidthRemainingSpace),
-            o => o.WidthRemainingSpace);
+            o => o.WidthRemainingSpace
+        );
 
     public static readonly DirectProperty<BcTabView, double> HeightRemainingSpaceProperty =
         AvaloniaProperty.RegisterDirect<BcTabView, double>(
             nameof(HeightRemainingSpace),
-            o => o.HeightRemainingSpace);
+            o => o.HeightRemainingSpace
+        );
 
-    public static readonly StyledProperty<bool> ReorderableTabsProperty =
-        AvaloniaProperty.Register<BcTabView, bool>(nameof(ReorderableTabs), true);
+    public static readonly StyledProperty<bool> ReorderableTabsProperty = AvaloniaProperty.Register<
+        BcTabView,
+        bool
+    >(nameof(ReorderableTabs), true);
 
-    public static readonly StyledProperty<bool> ImmediateDragProperty =
-        AvaloniaProperty.Register<BcTabView, bool>(nameof(ImmediateDrag), true);
+    public static readonly StyledProperty<bool> ImmediateDragProperty = AvaloniaProperty.Register<
+        BcTabView,
+        bool
+    >(nameof(ImmediateDrag), true);
 
     public static new readonly StyledProperty<SelectionMode> SelectionModeProperty =
         SelectingItemsControl.SelectionModeProperty;
@@ -53,7 +63,7 @@ public partial class BcTabView
         Text = "Nothing here",
         HorizontalAlignment = HorizontalAlignment.Center,
         VerticalAlignment = VerticalAlignment.Center,
-        FontSize = 16
+        FontSize = 16,
     };
 
     private double _widthremainingspace;
@@ -125,5 +135,4 @@ public partial class BcTabView
         get => base.SelectionMode;
         set => base.SelectionMode = value;
     }
-
 }

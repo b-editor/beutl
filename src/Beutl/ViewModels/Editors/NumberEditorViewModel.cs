@@ -4,7 +4,8 @@ using Beutl.Controls.PropertyEditors;
 
 namespace Beutl.ViewModels.Editors;
 
-public sealed class NumberEditorViewModel<T>(IPropertyAdapter<T> property) : ValueEditorViewModel<T>(property)
+public sealed class NumberEditorViewModel<T>(IPropertyAdapter<T> property)
+    : ValueEditorViewModel<T>(property)
     where T : struct, INumber<T>
 {
     public override void Accept(IPropertyEditorContextVisitor visitor)
@@ -29,7 +30,8 @@ public sealed class NumberEditorViewModel<T>(IPropertyAdapter<T> property) : Val
                 editor,
                 NumberEditor<T>.ValueProperty,
                 static ed => ed.Value,
-                static (ed, v) => ed.Value = v);
+                static (ed, v) => ed.Value = v
+            );
         }
     }
 }

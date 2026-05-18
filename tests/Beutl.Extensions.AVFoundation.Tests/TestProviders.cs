@@ -7,8 +7,12 @@ namespace Beutl.Extensions.AVFoundation.Tests;
 
 // Deterministic 64x64 RGBA gradient per frame — lets us both create an input clip and later
 // verify we decoded roughly what we encoded (exact match is not guaranteed because H.264 is lossy).
-internal sealed class GradientFrameProvider(long frameCount, Rational frameRate, int width, int height)
-    : IFrameProvider
+internal sealed class GradientFrameProvider(
+    long frameCount,
+    Rational frameRate,
+    int width,
+    int height
+) : IFrameProvider
 {
     public long FrameCount { get; } = frameCount;
     public Rational FrameRate { get; } = frameRate;
@@ -24,10 +28,10 @@ internal sealed class GradientFrameProvider(long frameCount, Rational frameRate,
                 for (int x = 0; x < width; x++)
                 {
                     int i = (y * bitmap.RowBytes) + (x * 4);
-                    pixels[i + 0] = (byte)(x * 4 & 0xFF);                      // B
-                    pixels[i + 1] = (byte)(y * 4 & 0xFF);                      // G
-                    pixels[i + 2] = (byte)((frame * 8) & 0xFF);                // R varies per frame
-                    pixels[i + 3] = 0xFF;                                      // A
+                    pixels[i + 0] = (byte)(x * 4 & 0xFF); // B
+                    pixels[i + 1] = (byte)(y * 4 & 0xFF); // G
+                    pixels[i + 2] = (byte)((frame * 8) & 0xFF); // R varies per frame
+                    pixels[i + 3] = 0xFF; // A
                 }
             }
         }

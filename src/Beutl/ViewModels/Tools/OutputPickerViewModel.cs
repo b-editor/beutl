@@ -23,7 +23,8 @@ public sealed class OutputPickerViewModel : IDisposable
 
     public OutputPickerViewModel(
         ICoreList<OutputProfileItem> profileSource,
-        ICoreList<OutputPresetItem> presetSource)
+        ICoreList<OutputPresetItem> presetSource
+    )
     {
         _profileSource = profileSource;
         _presetSource = presetSource;
@@ -62,8 +63,11 @@ public sealed class OutputPickerViewModel : IDisposable
 
     public void SetInitialSelection(OutputProfileItem? currentProfile)
     {
-        if (currentProfile == null) return;
-        SelectedProfile.Value = ProfileItems.FirstOrDefault(i => ReferenceEquals(i.UserData, currentProfile));
+        if (currentProfile == null)
+            return;
+        SelectedProfile.Value = ProfileItems.FirstOrDefault(i =>
+            ReferenceEquals(i.UserData, currentProfile)
+        );
     }
 
     public void Pin(PinnableOutputItem item)
@@ -107,20 +111,22 @@ public sealed class OutputPickerViewModel : IDisposable
         _searchSubscription.Dispose();
     }
 
-    private void OnProfileSourceChanged(object? sender, NotifyCollectionChangedEventArgs e) => RebuildProfiles();
+    private void OnProfileSourceChanged(object? sender, NotifyCollectionChangedEventArgs e) =>
+        RebuildProfiles();
 
-    private void OnPresetSourceChanged(object? sender, NotifyCollectionChangedEventArgs e) => RebuildPresets();
+    private void OnPresetSourceChanged(object? sender, NotifyCollectionChangedEventArgs e) =>
+        RebuildPresets();
 
     private void RebuildProfiles()
     {
         var selected = SelectedProfile.Value?.UserData;
         ProfileItems.ClearOnScheduler();
 
-        IEnumerable<PinnableOutputItem> items = _profileSource
-            .Select(p => new PinnableOutputItem(
-                p.Context.Name.Value,
-                _pinnedProfiles.Contains(p.Context.Name.Value),
-                p));
+        IEnumerable<PinnableOutputItem> items = _profileSource.Select(p => new PinnableOutputItem(
+            p.Context.Name.Value,
+            _pinnedProfiles.Contains(p.Context.Name.Value),
+            p
+        ));
 
         items = ApplyFilterAndSort(items);
 
@@ -139,11 +145,11 @@ public sealed class OutputPickerViewModel : IDisposable
         var selected = SelectedPreset.Value?.UserData;
         PresetItems.ClearOnScheduler();
 
-        IEnumerable<PinnableOutputItem> items = _presetSource
-            .Select(p => new PinnableOutputItem(
-                p.Name.Value,
-                _pinnedPresets.Contains(p.Name.Value),
-                p));
+        IEnumerable<PinnableOutputItem> items = _presetSource.Select(p => new PinnableOutputItem(
+            p.Name.Value,
+            _pinnedPresets.Contains(p.Name.Value),
+            p
+        ));
 
         items = ApplyFilterAndSort(items);
 
@@ -157,17 +163,21 @@ public sealed class OutputPickerViewModel : IDisposable
         }
     }
 
-    private IEnumerable<PinnableOutputItem> ApplyFilterAndSort(IEnumerable<PinnableOutputItem> items)
+    private IEnumerable<PinnableOutputItem> ApplyFilterAndSort(
+        IEnumerable<PinnableOutputItem> items
+    )
     {
         if (!string.IsNullOrWhiteSpace(SearchText.Value))
         {
-            string[] segments = SearchText.Value.Split(' ')
+            string[] segments = SearchText
+                .Value.Split(' ')
                 .Select(s => s.Trim())
                 .Where(s => !string.IsNullOrWhiteSpace(s))
                 .ToArray();
 
             items = items.Where(item =>
-                segments.All(s => item.DisplayName.Contains(s, StringComparison.OrdinalIgnoreCase)));
+                segments.All(s => item.DisplayName.Contains(s, StringComparison.OrdinalIgnoreCase))
+            );
         }
 
         return items

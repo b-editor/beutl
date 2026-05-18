@@ -13,17 +13,13 @@ public readonly struct CurveControlPoint : IEquatable<CurveControlPoint>
     /// Initializes a new instance with only the main point (no handles).
     /// </summary>
     public CurveControlPoint(float x, float y)
-        : this(new Point(x, y), default, default)
-    {
-    }
+        : this(new Point(x, y), default, default) { }
 
     /// <summary>
     /// Initializes a new instance with only the main point (no handles).
     /// </summary>
     public CurveControlPoint(Point point)
-        : this(point, default, default)
-    {
-    }
+        : this(point, default, default) { }
 
     /// <summary>
     /// Initializes a new instance with the main point and Bezier handles.
@@ -75,22 +71,26 @@ public readonly struct CurveControlPoint : IEquatable<CurveControlPoint>
     /// <summary>
     /// Creates a new control point with the specified left handle.
     /// </summary>
-    public CurveControlPoint WithLeftHandle(Point leftHandle) => new(Point, leftHandle, RightHandle);
+    public CurveControlPoint WithLeftHandle(Point leftHandle) =>
+        new(Point, leftHandle, RightHandle);
 
     /// <summary>
     /// Creates a new control point with the specified right handle.
     /// </summary>
-    public CurveControlPoint WithRightHandle(Point rightHandle) => new(Point, LeftHandle, rightHandle);
+    public CurveControlPoint WithRightHandle(Point rightHandle) =>
+        new(Point, LeftHandle, rightHandle);
 
     /// <summary>
     /// Creates a new control point with symmetric handles (left = -right).
     /// </summary>
-    public CurveControlPoint WithSymmetricHandles(Point rightHandle)
-        => new(Point, new Point(-rightHandle.X, -rightHandle.Y), rightHandle);
+    public CurveControlPoint WithSymmetricHandles(Point rightHandle) =>
+        new(Point, new Point(-rightHandle.X, -rightHandle.Y), rightHandle);
 
     public bool Equals(CurveControlPoint other)
     {
-        return Point == other.Point && LeftHandle == other.LeftHandle && RightHandle == other.RightHandle;
+        return Point == other.Point
+            && LeftHandle == other.LeftHandle
+            && RightHandle == other.RightHandle;
     }
 
     public override bool Equals(object? obj)
@@ -103,9 +103,11 @@ public readonly struct CurveControlPoint : IEquatable<CurveControlPoint>
         return HashCode.Combine(Point, LeftHandle, RightHandle);
     }
 
-    public static bool operator ==(CurveControlPoint left, CurveControlPoint right) => left.Equals(right);
+    public static bool operator ==(CurveControlPoint left, CurveControlPoint right) =>
+        left.Equals(right);
 
-    public static bool operator !=(CurveControlPoint left, CurveControlPoint right) => !left.Equals(right);
+    public static bool operator !=(CurveControlPoint left, CurveControlPoint right) =>
+        !left.Equals(right);
 
     public override string ToString()
     {

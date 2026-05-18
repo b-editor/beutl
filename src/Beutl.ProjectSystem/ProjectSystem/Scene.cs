@@ -37,7 +37,7 @@ public enum ElementOverlapHandling
 
     Auto = Length | Start | ZIndex,
 
-    Allow = 1 << 3
+    Allow = 1 << 3,
 }
 
 public class Scene : ProjectItem, INotifyEdited
@@ -59,9 +59,7 @@ public class Scene : ProjectItem, INotifyEdited
     private PixelSize _frameSize;
 
     public Scene()
-        : this(1920, 1080, string.Empty)
-    {
-    }
+        : this(1920, 1080, string.Empty) { }
 
     public Scene(int width, int height, string name)
     {
@@ -168,8 +166,10 @@ public class Scene : ProjectItem, INotifyEdited
     }
 
     // element.FileNameが既に設定されている状態
-    public void AddChild(Element element,
-        ElementOverlapHandling overlapHandling = ElementOverlapHandling.Auto)
+    public void AddChild(
+        Element element,
+        ElementOverlapHandling overlapHandling = ElementOverlapHandling.Auto
+    )
     {
         ArgumentNullException.ThrowIfNull(element);
 
@@ -207,8 +207,8 @@ public class Scene : ProjectItem, INotifyEdited
             oldStart: element.Start,
             newLength: length,
             oldLength: element.Length,
-            scene: this)
-            .Do();
+            scene: this
+        ).Do();
     }
 
     public void MoveChildren(int deltaIndex, TimeSpan deltaStart, Element[] elements)
@@ -284,8 +284,7 @@ public class Scene : ProjectItem, INotifyEdited
         static void Process(Func<string, Matcher> add, JsonNode node, List<string> list)
         {
             list.Clear();
-            if (node is JsonValue jvalue &&
-                jvalue.TryGetValue(out string? pattern))
+            if (node is JsonValue jvalue && jvalue.TryGetValue(out string? pattern))
             {
                 list.Add(pattern);
                 add(pattern);
@@ -305,7 +304,10 @@ public class Scene : ProjectItem, INotifyEdited
 
         if (context.Contains("Width") && context.Contains("Height"))
         {
-            FrameSize = new PixelSize(context.GetValue<int>("Width"), context.GetValue<int>("Height"));
+            FrameSize = new PixelSize(
+                context.GetValue<int>("Width"),
+                context.GetValue<int>("Height")
+            );
         }
 
         if (context.GetValue<JsonNode>(nameof(Elements)) is { } elementsJson)
@@ -347,7 +349,8 @@ public class Scene : ProjectItem, INotifyEdited
             Groups.Clear();
             foreach (string group in groups ?? [])
             {
-                var ids = group.Split(':')
+                var ids = group
+                    .Split(':')
                     .Select(s => Guid.TryParse(s, out Guid id) ? id : Guid.Empty)
                     .Where(i => i != Guid.Empty && Children.Any(e => e.Id == i))
                     .ToImmutableHashSet();
@@ -359,8 +362,10 @@ public class Scene : ProjectItem, INotifyEdited
         }
 
         Markers.Clear();
-        if (context.Contains(nameof(Markers))
-            && context.GetValue<SceneMarker[]>(nameof(Markers)) is { } markers)
+        if (
+            context.Contains(nameof(Markers))
+            && context.GetValue<SceneMarker[]>(nameof(Markers)) is { } markers
+        )
         {
             Markers.AddRange(markers);
         }
@@ -368,14 +373,20 @@ public class Scene : ProjectItem, INotifyEdited
 
     private void SyncronizeFiles(IEnumerable<string> pathToElement)
     {
-        using Activity? activity = BeutlApplication.ActivitySource.StartActivity("Scene.SyncronizeFiles");
+        using Activity? activity = BeutlApplication.ActivitySource.StartActivity(
+            "Scene.SyncronizeFiles"
+        );
 
-        var uriToElement = pathToElement.Select(x => new Uri(Uri!, Uri.UnescapeDataString(x))).ToArray();
+        var uriToElement = pathToElement
+            .Select(x => new Uri(Uri!, Uri.UnescapeDataString(x)))
+            .ToArray();
 
         // 削除するElements
         Element[] elementsRemove = Children.ExceptBy(uriToElement, x => x.Uri).ToArray();
         // 追加するElements
-        Uri[] urisAdd = uriToElement.Except(Children.Select(x => x.Uri).Where(u => u != null)).ToArray()!;
+        Uri[] urisAdd = uriToElement
+            .Except(Children.Select(x => x.Uri).Where(u => u != null))
+            .ToArray()!;
 
         foreach (Element item in elementsRemove)
         {
@@ -413,16 +424,16 @@ public class Scene : ProjectItem, INotifyEdited
 
     private void Children_CollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
     {
-        ImmutableArray<TimeRange>.Builder affectedRange
-            = ImmutableArray.CreateBuilder<TimeRange>(Math.Max(e.OldItems?.Count ?? 0, e.NewItems?.Count ?? 0));
+        ImmutableArray<TimeRange>.Builder affectedRange = ImmutableArray.CreateBuilder<TimeRange>(
+            Math.Max(e.OldItems?.Count ?? 0, e.NewItems?.Count ?? 0)
+        );
 
         // Path.GetRelativePath の基点はディレクトリでなければならない。Uri.LocalPath は
         // .scene ファイル自身を指すため、そのまま使うと _excludeElements に "../foo.belm"
         // のような不正パスが入り、Deserialize 側 (Path.GetDirectoryName を使用) と整合せず
         // 除外パターンが効かない。結果として削除した Element が再読み込みで復活する。
         string dirPath = Path.GetDirectoryName(Uri!.LocalPath)!;
-        if (e.Action == NotifyCollectionChangedAction.Remove
-            && e.OldItems != null)
+        if (e.Action == NotifyCollectionChangedAction.Remove && e.OldItems != null)
         {
             foreach (Element item in e.OldItems.OfType<Element>())
             {
@@ -437,8 +448,7 @@ public class Scene : ProjectItem, INotifyEdited
                 affectedRange.Add(item.Range);
             }
         }
-        else if (e.Action == NotifyCollectionChangedAction.Add
-                 && e.NewItems != null)
+        else if (e.Action == NotifyCollectionChangedAction.Add && e.NewItems != null)
         {
             foreach (Element item in e.NewItems.OfType<Element>())
             {
@@ -454,7 +464,10 @@ public class Scene : ProjectItem, INotifyEdited
             }
         }
 
-        Edited?.Invoke(this, new ElementEditedEventArgs { AffectedRange = affectedRange.DrainToImmutable() });
+        Edited?.Invoke(
+            this,
+            new ElementEditedEventArgs { AffectedRange = affectedRange.DrainToImmutable() }
+        );
     }
 
     private void OnElementEdited(object? sender, EventArgs e)
@@ -512,7 +525,11 @@ public class Scene : ProjectItem, INotifyEdited
         Element? tmp = null;
         foreach (Element? item in Children.GetMarshal().Value)
         {
-            if (item != element && item.ZIndex == element.ZIndex && item.Range.End > element.Range.End)
+            if (
+                item != element
+                && item.ZIndex == element.ZIndex
+                && item.Range.End > element.Range.End
+            )
             {
                 if (tmp == null || tmp.Range.End >= item.Range.End)
                 {
@@ -524,7 +541,9 @@ public class Scene : ProjectItem, INotifyEdited
         return tmp;
     }
 
-    internal (Element? Before, Element? After, Element? Cover) GetBeforeAndAfterAndCover(Element element)
+    internal (Element? Before, Element? After, Element? Cover) GetBeforeAndAfterAndCover(
+        Element element
+    )
     {
         Element? beforeTmp = null;
         Element? afterTmp = null;
@@ -535,14 +554,18 @@ public class Scene : ProjectItem, INotifyEdited
         {
             if (item != element && item.ZIndex == element.ZIndex)
             {
-                if (item.Start < range.Start
-                    && (beforeTmp == null || beforeTmp.Start <= item.Start))
+                if (
+                    item.Start < range.Start
+                    && (beforeTmp == null || beforeTmp.Start <= item.Start)
+                )
                 {
                     beforeTmp = item;
                 }
 
-                if (item.Range.End > range.End
-                    && (afterTmp == null || afterTmp.Range.End >= item.Range.End))
+                if (
+                    item.Range.End > range.End
+                    && (afterTmp == null || afterTmp.Range.End >= item.Range.End)
+                )
                 {
                     afterTmp = item;
                 }
@@ -563,10 +586,12 @@ public class Scene : ProjectItem, INotifyEdited
         {
             if (i.ZIndex == zindex)
             {
-                if (i.Range == timeRange
+                if (
+                    i.Range == timeRange
                     || i.Range.Intersects(timeRange)
                     || i.Range.Contains(timeRange)
-                    || timeRange.Contains(i.Range))
+                    || timeRange.Contains(i.Range)
+                )
                 {
                     return true;
                 }
@@ -576,7 +601,10 @@ public class Scene : ProjectItem, INotifyEdited
         });
     }
 
-    private (TimeRange Range, int ZIndex) GetCorrectPosition(Element element, ElementOverlapHandling handling)
+    private (TimeRange Range, int ZIndex) GetCorrectPosition(
+        Element element,
+        ElementOverlapHandling handling
+    )
     {
         bool overlapping = IsOverlapping(element.Range, element.ZIndex);
 
@@ -595,13 +623,18 @@ public class Scene : ProjectItem, INotifyEdited
             candidateStart.Add(cover.Range.End);
         }
 
-        if (after != null) candidateEnd.Add(after.Start);
-        if (before != null) candidateStart.Add(before.Range.End);
+        if (after != null)
+            candidateEnd.Add(after.Start);
+        if (before != null)
+            candidateStart.Add(before.Range.End);
 
         TimeSpan start = element.Start;
         TimeSpan end = element.Range.End;
 
-        if (handling.HasFlag(ElementOverlapHandling.Start) && handling.HasFlag(ElementOverlapHandling.Length))
+        if (
+            handling.HasFlag(ElementOverlapHandling.Start)
+            && handling.HasFlag(ElementOverlapHandling.Length)
+        )
         {
             foreach (TimeSpan cEnd in candidateEnd)
             {
@@ -649,9 +682,16 @@ public class Scene : ProjectItem, INotifyEdited
         return (element.Range, NearestLayerNumber(element));
     }
 
-    private sealed class AddCommand(Scene scene, Element element, ElementOverlapHandling overlapHandling)
+    private sealed class AddCommand(
+        Scene scene,
+        Element element,
+        ElementOverlapHandling overlapHandling
+    )
     {
-        private readonly bool _adjustSceneDuration = GlobalConfiguration.Instance.EditorConfig.AutoAdjustSceneDuration;
+        private readonly bool _adjustSceneDuration = GlobalConfiguration
+            .Instance
+            .EditorConfig
+            .AutoAdjustSceneDuration;
         private int _zIndex;
         private TimeRange _range;
 
@@ -713,21 +753,31 @@ public class Scene : ProjectItem, INotifyEdited
         TimeSpan oldStart,
         TimeSpan newLength,
         TimeSpan oldLength,
-        Scene scene)
+        Scene scene
+    )
     {
         private readonly int _oldZIndex = element.ZIndex;
         private readonly TimeSpan _oldSceneDuration = scene.Duration;
-        private readonly bool _adjustSceneDuration = GlobalConfiguration.Instance.EditorConfig.AutoAdjustSceneDuration;
+        private readonly bool _adjustSceneDuration = GlobalConfiguration
+            .Instance
+            .EditorConfig
+            .AutoAdjustSceneDuration;
 
         public void Do()
         {
             TimeSpan newEnd = newStart + newLength;
-            (Element? before, Element? after, Element? cover) =
-                element.GetBeforeAndAfterAndCover(zIndex, newStart, newEnd);
+            (Element? before, Element? after, Element? cover) = element.GetBeforeAndAfterAndCover(
+                zIndex,
+                newStart,
+                newEnd
+            );
 
             if (before != null && before.Range.End >= newStart)
             {
-                if ((after != null && (after.Start - before.Range.End) >= newLength) || after == null)
+                if (
+                    (after != null && (after.Start - before.Range.End) >= newLength)
+                    || after == null
+                )
                 {
                     element.Start = before.Range.End;
                     element.Length = newLength;
@@ -741,8 +791,13 @@ public class Scene : ProjectItem, INotifyEdited
             else if (after != null && after.Start < newEnd)
             {
                 TimeSpan ns = after.Start - newLength;
-                if (((before != null && (after.Start - before.Range.End) >= newLength) || before == null) &&
-                    ns >= TimeSpan.Zero)
+                if (
+                    (
+                        (before != null && (after.Start - before.Range.End) >= newLength)
+                        || before == null
+                    )
+                    && ns >= TimeSpan.Zero
+                )
                 {
                     element.Start = ns;
                     element.Length = newLength;
@@ -798,7 +853,8 @@ public class Scene : ProjectItem, INotifyEdited
             Scene scene,
             Element[] elements,
             int deltaZIndex,
-            TimeSpan deltaTime)
+            TimeSpan deltaTime
+        )
         {
             _scene = scene;
             _elements = elements;
@@ -823,7 +879,10 @@ public class Scene : ProjectItem, INotifyEdited
             }
 
             _conflict = HasConflict(scene, _deltaZIndex, _deltaTime);
-            _adjustSceneDuration = GlobalConfiguration.Instance.EditorConfig.AutoAdjustSceneDuration;
+            _adjustSceneDuration = GlobalConfiguration
+                .Instance
+                .EditorConfig
+                .AutoAdjustSceneDuration;
 
             if (_adjustSceneDuration)
             {
@@ -865,12 +924,18 @@ public class Scene : ProjectItem, INotifyEdited
 
             TimeSpan newEnd = newStart + element.Length;
             int newIndex = element.ZIndex + _deltaZIndex;
-            (Element? before, Element? after, Element? _) =
-                element.GetBeforeAndAfterAndCover(newIndex, newStart, _elements);
+            (Element? before, Element? after, Element? _) = element.GetBeforeAndAfterAndCover(
+                newIndex,
+                newStart,
+                _elements
+            );
 
             if (before != null && before.Range.End >= newStart)
             {
-                if ((after != null && (after.Start - before.Range.End) >= element.Length) || after == null)
+                if (
+                    (after != null && (after.Start - before.Range.End) >= element.Length)
+                    || after == null
+                )
                 {
                     return before.Range.End - element.Start;
                 }
@@ -878,8 +943,13 @@ public class Scene : ProjectItem, INotifyEdited
             else if (after != null && after.Start < newEnd)
             {
                 TimeSpan ns = after.Start - element.Length;
-                if (((before != null && (after.Start - before.Range.End) >= element.Length) || before == null) &&
-                    ns >= TimeSpan.Zero)
+                if (
+                    (
+                        (before != null && (after.Start - before.Range.End) >= element.Length)
+                        || before == null
+                    )
+                    && ns >= TimeSpan.Zero
+                )
                 {
                     return ns - element.Start;
                 }

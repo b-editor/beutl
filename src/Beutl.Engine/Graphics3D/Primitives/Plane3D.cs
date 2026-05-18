@@ -34,14 +34,20 @@ public sealed partial class Plane3D : Object3D
     /// <summary>
     /// Gets the number of segments along the width (X-axis).
     /// </summary>
-    [Display(Name = nameof(GraphicsStrings.Plane3D_WidthSegments), ResourceType = typeof(GraphicsStrings))]
+    [Display(
+        Name = nameof(GraphicsStrings.Plane3D_WidthSegments),
+        ResourceType = typeof(GraphicsStrings)
+    )]
     [Range(1, int.MaxValue), NumberStep(1, 1)]
     public IProperty<int> WidthSegments { get; } = Property.CreateAnimatable(1);
 
     /// <summary>
     /// Gets the number of segments along the height (Z-axis).
     /// </summary>
-    [Display(Name = nameof(GraphicsStrings.Plane3D_HeightSegments), ResourceType = typeof(GraphicsStrings))]
+    [Display(
+        Name = nameof(GraphicsStrings.Plane3D_HeightSegments),
+        ResourceType = typeof(GraphicsStrings)
+    )]
     [Range(1, int.MaxValue), NumberStep(1, 1)]
     public IProperty<int> HeightSegments { get; } = Property.CreateAnimatable(1);
 

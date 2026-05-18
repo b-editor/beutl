@@ -14,11 +14,20 @@ public sealed class AudioBuffer : IDisposable
     public AudioBuffer(int sampleRate, int channelCount, int sampleCount)
     {
         if (sampleRate <= 0)
-            throw new ArgumentOutOfRangeException(nameof(sampleRate), "Sample rate must be positive.");
+            throw new ArgumentOutOfRangeException(
+                nameof(sampleRate),
+                "Sample rate must be positive."
+            );
         if (channelCount <= 0)
-            throw new ArgumentOutOfRangeException(nameof(channelCount), "Channel count must be positive.");
+            throw new ArgumentOutOfRangeException(
+                nameof(channelCount),
+                "Channel count must be positive."
+            );
         if (sampleCount < 0)
-            throw new ArgumentOutOfRangeException(nameof(sampleCount), "Sample count must be non-negative.");
+            throw new ArgumentOutOfRangeException(
+                nameof(sampleCount),
+                "Sample count must be non-negative."
+            );
 
         SampleRate = sampleRate;
         ChannelCount = channelCount;
@@ -42,7 +51,10 @@ public sealed class AudioBuffer : IDisposable
         ObjectDisposedException.ThrowIf(_disposed, this);
 
         if (channel < 0 || channel >= ChannelCount)
-            throw new ArgumentOutOfRangeException(nameof(channel), $"Channel must be between 0 and {ChannelCount - 1}.");
+            throw new ArgumentOutOfRangeException(
+                nameof(channel),
+                $"Channel must be between 0 and {ChannelCount - 1}."
+            );
 
         var start = channel * _channelSampleCount;
         return _memory.Span.Slice(start, _channelSampleCount);
@@ -53,7 +65,10 @@ public sealed class AudioBuffer : IDisposable
         ObjectDisposedException.ThrowIf(_disposed, this);
 
         if (channel < 0 || channel >= ChannelCount)
-            throw new ArgumentOutOfRangeException(nameof(channel), $"Channel must be between 0 and {ChannelCount - 1}.");
+            throw new ArgumentOutOfRangeException(
+                nameof(channel),
+                $"Channel must be between 0 and {ChannelCount - 1}."
+            );
 
         var start = channel * _channelSampleCount;
         return _memory.Slice(start, _channelSampleCount);
@@ -64,14 +79,14 @@ public sealed class AudioBuffer : IDisposable
         ObjectDisposedException.ThrowIf(_disposed, this);
 
         if (ChannelCount != 2)
-            throw new InvalidOperationException("AudioBuffer must have exactly 2 channels to convert to Pcm<Stereo32BitFloat>.");
+            throw new InvalidOperationException(
+                "AudioBuffer must have exactly 2 channels to convert to Pcm<Stereo32BitFloat>."
+            );
 
         var pcm = new Pcm<Stereo32BitFloat>(SampleRate, SampleCount);
         for (int i = 0; i < SampleCount; i++)
         {
-            pcm.DataSpan[i] = new Stereo32BitFloat(
-                GetChannelData(0)[i],
-                GetChannelData(1)[i]);
+            pcm.DataSpan[i] = new Stereo32BitFloat(GetChannelData(0)[i], GetChannelData(1)[i]);
         }
         return pcm;
     }
@@ -109,7 +124,10 @@ public sealed class AudioBuffer : IDisposable
         if (destination.ChannelCount != ChannelCount)
             throw new ArgumentException("Channel counts must match.", nameof(destination));
         if (offset < 0 || offset + SampleCount > destination.SampleCount)
-            throw new ArgumentOutOfRangeException(nameof(offset), "Offset is out of range for the destination buffer.");
+            throw new ArgumentOutOfRangeException(
+                nameof(offset),
+                "Offset is out of range for the destination buffer."
+            );
 
         for (int ch = 0; ch < ChannelCount; ch++)
         {
@@ -132,9 +150,15 @@ public sealed class AudioBuffer : IDisposable
         if (count < 0)
             throw new ArgumentOutOfRangeException(nameof(count), "Count must be non-negative.");
         if (count > SampleCount)
-            throw new ArgumentOutOfRangeException(nameof(count), "Count exceeds source sample count.");
+            throw new ArgumentOutOfRangeException(
+                nameof(count),
+                "Count exceeds source sample count."
+            );
         if (offset < 0 || offset + count > destination.SampleCount)
-            throw new ArgumentOutOfRangeException(nameof(offset), "Offset is out of range for the destination buffer.");
+            throw new ArgumentOutOfRangeException(
+                nameof(offset),
+                "Offset is out of range for the destination buffer."
+            );
 
         for (int ch = 0; ch < ChannelCount; ch++)
         {

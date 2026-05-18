@@ -25,7 +25,10 @@ public partial class NodeGraphView : UserControl
     {
         InitializeComponent();
         InitializeMenuItems();
-        this.SubscribeDataContextChange<NodeGraphViewModel>(OnDataContextAttached, OnDataContextDetached);
+        this.SubscribeDataContextChange<NodeGraphViewModel>(
+            OnDataContextAttached,
+            OnDataContextDetached
+        );
 
         AddHandler(PointerPressedEvent, OnNodeGraphPointerPressed, RoutingStrategies.Tunnel);
         AddHandler(PointerReleasedEvent, OnNodeGraphPointerReleased, RoutingStrategies.Tunnel);
@@ -39,9 +42,11 @@ public partial class NodeGraphView : UserControl
 
     private void OnDrop(object? sender, DragEventArgs e)
     {
-        if (DataContext is NodeGraphViewModel viewModel
+        if (
+            DataContext is NodeGraphViewModel viewModel
             && e.DataTransfer.TryGetValue(BeutlDataFormats.GraphNode) is { } typeName
-            && TypeFormat.ToType(typeName) is { } item)
+            && TypeFormat.ToType(typeName) is { } item
+        )
         {
             Point point = e.GetPosition(canvas) - new Point(215 / 2, 0);
             viewModel.AddNodePort(item, point);
@@ -153,8 +158,7 @@ public partial class NodeGraphView : UserControl
         {
             _leftClickedPosition = point.Position;
 
-            if (e.KeyModifiers == KeyModifiers.Control
-                && e.Source is ZoomBorder)
+            if (e.KeyModifiers == KeyModifiers.Control && e.Source is ZoomBorder)
             {
                 _rangeSelectionPressed = true;
                 overlay.SelectionRange = new(point.Position, default(Size));
@@ -170,7 +174,7 @@ public partial class NodeGraphView : UserControl
 
         foreach (GraphNodeRegistry.BaseRegistryItem item in GraphNodeRegistry.GetRegistered())
         {
-            var menuItem = new MenuItem { Header = item.DisplayName, DataContext = item, };
+            var menuItem = new MenuItem { Header = item.DisplayName, DataContext = item };
             menuItem.Click += AddNodeClick;
             menulist.Add(menuItem);
 
@@ -187,7 +191,7 @@ public partial class NodeGraphView : UserControl
         menuItem.ItemsSource = alist;
         foreach (GraphNodeRegistry.BaseRegistryItem item in list.Items)
         {
-            var menuItem2 = new MenuItem { Header = item.DisplayName, DataContext = item, };
+            var menuItem2 = new MenuItem { Header = item.DisplayName, DataContext = item };
 
             if (item is GraphNodeRegistry.GroupableRegistryItem inner)
             {
@@ -204,8 +208,10 @@ public partial class NodeGraphView : UserControl
 
     private void AddNodeClick(object? sender, RoutedEventArgs e)
     {
-        if (DataContext is NodeGraphViewModel viewModel
-            && sender is MenuItem { DataContext: GraphNodeRegistry.RegistryItem item })
+        if (
+            DataContext is NodeGraphViewModel viewModel
+            && sender is MenuItem { DataContext: GraphNodeRegistry.RegistryItem item }
+        )
         {
             viewModel.AddNodePort(item.Type, _rightClickedPosition);
         }
@@ -224,7 +230,7 @@ public partial class NodeGraphView : UserControl
             [!Line.EndPointProperty] = connVM.OutputPortPosition.ToBinding(),
             [!ConnectionLine.InputPortProperty] = connVM.InputPortVM.ToBinding(),
             [!ConnectionLine.OutputPortProperty] = connVM.OutputPortVM.ToBinding(),
-            ConnectionViewModel = connVM
+            ConnectionViewModel = connVM,
         };
     }
 
@@ -235,12 +241,15 @@ public partial class NodeGraphView : UserControl
             if (child is GraphNodeView { DataContext: GraphNodeViewModel nodeVM } nodeView)
             {
                 bool hasInput = nodeVM.GraphNode.Items.Any(i => i.Id == connVM.Connection.Input.Id);
-                bool hasOutput = nodeVM.GraphNode.Items.Any(i => i.Id == connVM.Connection.Output.Id);
+                bool hasOutput = nodeVM.GraphNode.Items.Any(i =>
+                    i.Id == connVM.Connection.Output.Id
+                );
 
                 if (hasInput || hasOutput)
                 {
                     nodeView.UpdateNodePortPosition();
-                    if (hasInput && hasOutput) break;
+                    if (hasInput && hasOutput)
+                        break;
                 }
             }
         }
@@ -271,7 +280,8 @@ public partial class NodeGraphView : UserControl
                             canvas.Children.RemoveAt(i);
                         }
                     }
-                })
+                }
+            )
             .DisposeWith(_disposables);
 
         obj.AllConnections.ForEachItem(
@@ -285,7 +295,10 @@ public partial class NodeGraphView : UserControl
                 {
                     for (int i = canvas.Children.Count - 1; i >= 0; i--)
                     {
-                        if (canvas.Children[i] is ConnectionLine line && line.ConnectionViewModel == connVM)
+                        if (
+                            canvas.Children[i] is ConnectionLine line
+                            && line.ConnectionViewModel == connVM
+                        )
                         {
                             canvas.Children.RemoveAt(i);
                             break;
@@ -301,7 +314,8 @@ public partial class NodeGraphView : UserControl
                             canvas.Children.RemoveAt(i);
                         }
                     }
-                })
+                }
+            )
             .DisposeWith(_disposables);
 
         obj.Matrix.Where(_ => !_matrixUpdating)

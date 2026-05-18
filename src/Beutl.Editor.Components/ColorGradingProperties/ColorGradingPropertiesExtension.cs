@@ -1,7 +1,5 @@
 ﻿using System.Diagnostics.CodeAnalysis;
-
 using Avalonia.Controls;
-
 using Beutl.Editor.Components.ColorGradingProperties.ViewModels;
 using Beutl.Editor.Components.ColorGradingProperties.Views;
 using Beutl.Graphics.Effects;
@@ -13,28 +11,31 @@ public sealed class ColorGradingPropertiesExtension : PropertyEditorExtension
 {
     public static new readonly ColorGradingPropertiesExtension Instance = new();
 
-    public override IEnumerable<IPropertyAdapter> MatchProperty(IReadOnlyList<IPropertyAdapter> properties)
+    public override IEnumerable<IPropertyAdapter> MatchProperty(
+        IReadOnlyList<IPropertyAdapter> properties
+    )
     {
         try
         {
-            var colorGradingProps = properties.Where(p => p.ImplementedType == typeof(ColorGrading)).ToArray();
+            var colorGradingProps = properties
+                .Where(p => p.ImplementedType == typeof(ColorGrading))
+                .ToArray();
             if (colorGradingProps.Length > 1)
             {
                 return colorGradingProps;
             }
         }
-        catch
-        {
-        }
+        catch { }
 
         return [];
     }
 
-    public override bool TryCreateContext(IReadOnlyList<IPropertyAdapter> properties,
-        [NotNullWhen(true)] out IPropertyEditorContext? context)
+    public override bool TryCreateContext(
+        IReadOnlyList<IPropertyAdapter> properties,
+        [NotNullWhen(true)] out IPropertyEditorContext? context
+    )
     {
-        if (properties.Count <= 1
-            || properties[0].ImplementedType != typeof(ColorGrading))
+        if (properties.Count <= 1 || properties[0].ImplementedType != typeof(ColorGrading))
         {
             context = null;
             return false;
@@ -44,7 +45,10 @@ public sealed class ColorGradingPropertiesExtension : PropertyEditorExtension
         return true;
     }
 
-    public override bool TryCreateControl(IPropertyEditorContext context, [NotNullWhen(true)] out Control? control)
+    public override bool TryCreateControl(
+        IPropertyEditorContext context,
+        [NotNullWhen(true)] out Control? control
+    )
     {
         control = new ColorGradingPropertiesEditor();
         return true;

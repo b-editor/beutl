@@ -159,13 +159,14 @@ public class CornerRadiusTests
         Assert.That(restored, Is.EqualTo(original));
     }
 
-    private static int GetTupleLength<T>() where T : struct, ITupleConvertible<T, float>
-        => T.TupleLength;
+    private static int GetTupleLength<T>()
+        where T : struct, ITupleConvertible<T, float> => T.TupleLength;
 
-    private static void ConvertTo<T>(T value, Span<float> tuple) where T : struct, ITupleConvertible<T, float>
-        => T.ConvertTo(value, tuple);
+    private static void ConvertTo<T>(T value, Span<float> tuple)
+        where T : struct, ITupleConvertible<T, float> => T.ConvertTo(value, tuple);
 
-    private static T ConvertFrom<T>(Span<float> tuple) where T : struct, ITupleConvertible<T, float>
+    private static T ConvertFrom<T>(Span<float> tuple)
+        where T : struct, ITupleConvertible<T, float>
     {
         T.ConvertFrom(tuple, out T value);
         return value;

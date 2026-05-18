@@ -14,16 +14,24 @@ public class GraphNodeRegistry
     }
 
     public static void RegisterNode<
-        [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicParameterlessConstructor)] T>(
-        string displayName)
+        [DynamicallyAccessedMembers(
+            DynamicallyAccessedMemberTypes.PublicProperties
+                | DynamicallyAccessedMemberTypes.PublicParameterlessConstructor
+        )]
+            T
+    >(string displayName)
         where T : GraphNode, new()
     {
         Register(new RegistryItem(displayName, Colors.Teal, typeof(T)));
     }
 
     public static void RegisterNode<
-        [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicParameterlessConstructor)] T>(
-        string displayName, Color accentColor)
+        [DynamicallyAccessedMembers(
+            DynamicallyAccessedMemberTypes.PublicProperties
+                | DynamicallyAccessedMemberTypes.PublicParameterlessConstructor
+        )]
+            T
+    >(string displayName, Color accentColor)
         where T : GraphNode, new()
     {
         Register(new RegistryItem(displayName, accentColor, typeof(T)));
@@ -111,7 +119,10 @@ public class GraphNodeRegistry
                     s_totalCount += groupable.Count();
                 }
             }
-            else if (item is RegistryItem registryItem && types.Any(t => TypeUnloadNotifier.ContainsTypeRecursive(registryItem.Type, t)))
+            else if (
+                item is RegistryItem registryItem
+                && types.Any(t => TypeUnloadNotifier.ContainsTypeRecursive(registryItem.Type, t))
+            )
             {
                 s_totalCount--;
                 s_nodes.RemoveAt(i);
@@ -125,7 +136,10 @@ public class GraphNodeRegistry
         {
             s_totalCount += groupable.Count();
 
-            if (s_nodes.FirstOrDefault(x => x.DisplayName == item.DisplayName) is GroupableRegistryItem registered)
+            if (
+                s_nodes.FirstOrDefault(x => x.DisplayName == item.DisplayName)
+                is GroupableRegistryItem registered
+            )
             {
                 registered.Merge(groupable.Items);
             }
@@ -146,9 +160,12 @@ public class GraphNodeRegistry
     public record RegistryItem(
         string DisplayName,
         Color AccentColor,
-        [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicParameterlessConstructor)]
-        Type Type)
-        : BaseRegistryItem(DisplayName, AccentColor);
+        [DynamicallyAccessedMembers(
+            DynamicallyAccessedMemberTypes.PublicProperties
+                | DynamicallyAccessedMemberTypes.PublicParameterlessConstructor
+        )]
+            Type Type
+    ) : BaseRegistryItem(DisplayName, AccentColor);
 
     public record GroupableRegistryItem(string DisplayName, Color AccentColor)
         : BaseRegistryItem(DisplayName, AccentColor)
@@ -159,8 +176,11 @@ public class GraphNodeRegistry
         {
             foreach (BaseRegistryItem item in items)
             {
-                if (item is GroupableRegistryItem groupable1
-                    && Items.FirstOrDefault(x => x.DisplayName == item.DisplayName) is GroupableRegistryItem groupable2)
+                if (
+                    item is GroupableRegistryItem groupable1
+                    && Items.FirstOrDefault(x => x.DisplayName == item.DisplayName)
+                        is GroupableRegistryItem groupable2
+                )
                 {
                     groupable2.Merge(groupable1.Items);
                 }
@@ -184,7 +204,12 @@ public class GraphNodeRegistry
                         Items.RemoveAt(i);
                     }
                 }
-                else if (item is RegistryItem registryItem && types.Any(t => TypeUnloadNotifier.ContainsTypeRecursive(registryItem.Type, t)))
+                else if (
+                    item is RegistryItem registryItem
+                    && types.Any(t =>
+                        TypeUnloadNotifier.ContainsTypeRecursive(registryItem.Type, t)
+                    )
+                )
                 {
                     Items.RemoveAt(i);
                 }
@@ -217,15 +242,22 @@ public class GraphNodeRegistry
         private readonly GroupableRegistryItem _item;
         private readonly Action<GroupableRegistryItem> _register;
 
-        internal RegistrationHelper(GroupableRegistryItem item, Action<GroupableRegistryItem>? register = null)
+        internal RegistrationHelper(
+            GroupableRegistryItem item,
+            Action<GroupableRegistryItem>? register = null
+        )
         {
             _item = item;
             _register = register ?? (item => GraphNodeRegistry.Register(item));
         }
 
         public RegistrationHelper Add<
-            [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicParameterlessConstructor)] T>(
-            string displayName)
+            [DynamicallyAccessedMembers(
+                DynamicallyAccessedMemberTypes.PublicProperties
+                    | DynamicallyAccessedMemberTypes.PublicParameterlessConstructor
+            )]
+                T
+        >(string displayName)
             where T : GraphNode, new()
         {
             _item.Items.Add(new RegistryItem(displayName, _item.AccentColor, typeof(T)));
@@ -233,8 +265,13 @@ public class GraphNodeRegistry
             return this;
         }
 
-        public RegistrationHelper Add<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicParameterlessConstructor)] T>(
-            string displayName, Color accentColor)
+        public RegistrationHelper Add<
+            [DynamicallyAccessedMembers(
+                DynamicallyAccessedMemberTypes.PublicProperties
+                    | DynamicallyAccessedMemberTypes.PublicParameterlessConstructor
+            )]
+                T
+        >(string displayName, Color accentColor)
             where T : GraphNode, new()
         {
             _item.Items.Add(new RegistryItem(displayName, accentColor, typeof(T)));
@@ -252,7 +289,11 @@ public class GraphNodeRegistry
             return this;
         }
 
-        public RegistrationHelper AddGroup(string displayName, Action<RegistrationHelper> action, Color accentColor)
+        public RegistrationHelper AddGroup(
+            string displayName,
+            Action<RegistrationHelper> action,
+            Color accentColor
+        )
         {
             var item = new GroupableRegistryItem(displayName, accentColor);
             var helper = new RegistrationHelper(item, _item.Items.Add);

@@ -7,11 +7,13 @@ namespace Beutl.Editor.Components.PathEditorTab.Views;
 
 public sealed class PathEditorGrid : Control
 {
-    public static readonly StyledProperty<Matrix> MatrixProperty =
-        AvaloniaProperty.Register<PathGeometryControl, Matrix>(nameof(Matrix), Matrix.Identity);
+    public static readonly StyledProperty<Matrix> MatrixProperty = AvaloniaProperty.Register<
+        PathGeometryControl,
+        Matrix
+    >(nameof(Matrix), Matrix.Identity);
 
-    public static readonly StyledProperty<IBrush?> BorderBrushProperty
-        = Border.BorderBrushProperty.AddOwner<PathEditorGrid>();
+    public static readonly StyledProperty<IBrush?> BorderBrushProperty =
+        Border.BorderBrushProperty.AddOwner<PathEditorGrid>();
 
     static PathEditorGrid()
     {
@@ -43,7 +45,8 @@ public sealed class PathEditorGrid : Control
             if (u > 100)
             {
                 scaledDotSize = u;
-                matrix = Matrix.CreateScale(DotSize / scaledDotSize, DotSize / scaledDotSize) * matrix;
+                matrix =
+                    Matrix.CreateScale(DotSize / scaledDotSize, DotSize / scaledDotSize) * matrix;
                 break;
             }
         }
@@ -123,6 +126,5 @@ public sealed class PathEditorGrid : Control
             var p2 = new Point(width, 0);
             context.DrawLine(pen, p1, p2);
         }
-
     }
 }

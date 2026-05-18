@@ -11,5 +11,8 @@ public abstract class EncodingController(string outputFile)
     public abstract AudioEncoderSettings AudioSettings { get; }
 
     public abstract ValueTask Encode(
-        IFrameProvider frameProvider, ISampleProvider sampleProvider, CancellationToken cancellationToken);
+        IFrameProvider frameProvider,
+        ISampleProvider sampleProvider,
+        CancellationToken cancellationToken
+    );
 }

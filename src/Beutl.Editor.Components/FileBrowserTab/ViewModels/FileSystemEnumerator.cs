@@ -12,7 +12,11 @@ internal static class FileSystemEnumerator
     {
         var dirInfo = new DirectoryInfo(path);
 
-        foreach (var dir in dirInfo.GetDirectories().OrderBy(d => d.Name, StringComparer.OrdinalIgnoreCase))
+        foreach (
+            var dir in dirInfo
+                .GetDirectories()
+                .OrderBy(d => d.Name, StringComparer.OrdinalIgnoreCase)
+        )
         {
             if ((dir.Attributes & FileAttributes.Hidden) == 0)
             {
@@ -20,7 +24,9 @@ internal static class FileSystemEnumerator
             }
         }
 
-        foreach (var file in dirInfo.GetFiles().OrderBy(f => f.Name, StringComparer.OrdinalIgnoreCase))
+        foreach (
+            var file in dirInfo.GetFiles().OrderBy(f => f.Name, StringComparer.OrdinalIgnoreCase)
+        )
         {
             if ((file.Attributes & FileAttributes.Hidden) == 0)
             {
@@ -30,7 +36,10 @@ internal static class FileSystemEnumerator
     }
 
     // コレクションをクリアして指定ディレクトリの内容で再構築する。
-    public static void PopulateCollection(ObservableCollection<FileSystemItemViewModel> collection, string path)
+    public static void PopulateCollection(
+        ObservableCollection<FileSystemItemViewModel> collection,
+        string path
+    )
     {
         foreach (var item in collection)
         {

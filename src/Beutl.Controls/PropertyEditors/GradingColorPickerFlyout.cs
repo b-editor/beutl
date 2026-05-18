@@ -1,10 +1,7 @@
 ﻿using System.ComponentModel;
-
 using Avalonia.Controls;
 using Avalonia.Input;
-
 using Beutl.Media;
-
 using FluentAvalonia.Core;
 using FluentAvalonia.UI.Controls.Primitives;
 
@@ -31,16 +28,19 @@ public sealed class GradingColorPickerFlyout : PickerFlyoutBase
 
     public event TypedEventHandler<GradingColorPickerFlyout, EventArgs>? CloseClicked;
 
-    public event TypedEventHandler<GradingColorPickerFlyout, (GradingColor OldValue, GradingColor NewValue)>? ColorChanged;
+    public event TypedEventHandler<
+        GradingColorPickerFlyout,
+        (GradingColor OldValue, GradingColor NewValue)
+    >? ColorChanged;
 
-    public event TypedEventHandler<GradingColorPickerFlyout, (GradingColor OldValue, GradingColor NewValue)>? ColorConfirmed;
+    public event TypedEventHandler<
+        GradingColorPickerFlyout,
+        (GradingColor OldValue, GradingColor NewValue)
+    >? ColorConfirmed;
 
     protected override Control CreatePresenter()
     {
-        var pfp = new SimpleColorPickerFlyoutPresenter()
-        {
-            Content = ColorPicker
-        };
+        var pfp = new SimpleColorPickerFlyoutPresenter() { Content = ColorPicker };
         pfp.Confirmed += OnFlyoutConfirmed;
         pfp.Dismissed += OnFlyoutDismissed;
         pfp.CloseClicked += OnFlyoutCloseClicked;
@@ -52,12 +52,18 @@ public sealed class GradingColorPickerFlyout : PickerFlyoutBase
         return pfp;
     }
 
-    private void OnPickerColorChanged(GradingColorPicker sender, (GradingColor OldValue, GradingColor NewValue) args)
+    private void OnPickerColorChanged(
+        GradingColorPicker sender,
+        (GradingColor OldValue, GradingColor NewValue) args
+    )
     {
         ColorChanged?.Invoke(this, args);
     }
 
-    private void OnPickerColorConfirmed(GradingColorPicker sender, (GradingColor OldValue, GradingColor NewValue) args)
+    private void OnPickerColorConfirmed(
+        GradingColorPicker sender,
+        (GradingColor OldValue, GradingColor NewValue) args
+    )
     {
         ColorConfirmed?.Invoke(this, args);
     }

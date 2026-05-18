@@ -10,10 +10,11 @@ public class ListInputPort<T> : NodePort<T>, IListInputPort
 
     static ListInputPort()
     {
-        ConnectionsProperty =
-            ConfigureProperty<CoreList<Reference<Connection>>, ListInputPort<T>>(nameof(Connections))
-                .Accessor(o => o.Connections, (o, v) => o.Connections = v)
-                .Register();
+        ConnectionsProperty = ConfigureProperty<CoreList<Reference<Connection>>, ListInputPort<T>>(
+                nameof(Connections)
+            )
+            .Accessor(o => o.Connections, (o, v) => o.Connections = v)
+            .Register();
     }
 
     public ListInputPort()
@@ -41,7 +42,10 @@ public class ListInputPort<T> : NodePort<T>, IListInputPort
         if (Connections.All(r => r.Id != connection.Id))
         {
             Connections.Add(connection);
-            connection.SetValue(Beutl.NodeGraph.Connection.StatusProperty, ConnectionStatus.Connected);
+            connection.SetValue(
+                Beutl.NodeGraph.Connection.StatusProperty,
+                ConnectionStatus.Connected
+            );
         }
     }
 
@@ -51,7 +55,10 @@ public class ListInputPort<T> : NodePort<T>, IListInputPort
         if (Connections.Any(r => r.Id == connection.Id))
         {
             Connections.Remove(connection);
-            connection.SetValue(Beutl.NodeGraph.Connection.StatusProperty, ConnectionStatus.Disconnected);
+            connection.SetValue(
+                Beutl.NodeGraph.Connection.StatusProperty,
+                ConnectionStatus.Disconnected
+            );
         }
     }
 
@@ -77,7 +84,13 @@ public class ListInputPort<T> : NodePort<T>, IListInputPort
             {
                 int index = i;
                 Reference<Connection> reference = Connections[i];
-                context.Resolve(reference.Id, o => { Connections[index] = (Connection)o; });
+                context.Resolve(
+                    reference.Id,
+                    o =>
+                    {
+                        Connections[index] = (Connection)o;
+                    }
+                );
             }
         }
     }

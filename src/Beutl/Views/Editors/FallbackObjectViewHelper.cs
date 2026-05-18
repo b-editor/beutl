@@ -10,7 +10,10 @@ public static class FallbackObjectViewHelper
     {
         return host.GetObservable(StyledElement.DataContextProperty)
             .Select(x => x as IFallbackObjectViewModel)
-            .Select(x => x?.IsFallback.Select(_ => x) ?? Observable.ReturnThenNever<IFallbackObjectViewModel?>(null))
+            .Select(x =>
+                x?.IsFallback.Select(_ => x)
+                ?? Observable.ReturnThenNever<IFallbackObjectViewModel?>(null)
+            )
             .Switch()
             .Where(v => v?.IsFallback.Value == true)
             .Take(1)

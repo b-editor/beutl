@@ -16,8 +16,17 @@ namespace PropertyEditorViewTests
             InitializeComponent();
             //vector2Editor = new Vector2Editor<float>() { Header = "Property 3" };
             //vector3Editor = new Vector3Editor<float>() { Header = "Property 4" };
-            var cornerRadiusEditor = new Vector4Editor<float>() { Header = "Property 5", Theme = (Avalonia.Styling.ControlTheme)this.FindResource("CornerRadiusEditorStyle")! };
-            var thicknessEditor = new Vector4Editor<float>() { Header = "Property 5", Theme = (Avalonia.Styling.ControlTheme)this.FindResource("ThicknessEditorStyle")! };
+            var cornerRadiusEditor = new Vector4Editor<float>()
+            {
+                Header = "Property 5",
+                Theme = (Avalonia.Styling.ControlTheme)
+                    this.FindResource("CornerRadiusEditorStyle")!,
+            };
+            var thicknessEditor = new Vector4Editor<float>()
+            {
+                Header = "Property 5",
+                Theme = (Avalonia.Styling.ControlTheme)this.FindResource("ThicknessEditorStyle")!,
+            };
             var boolEditor = new BooleanEditor() { Header = "Property 6" };
             var colorEditor = new ColorEditor() { Header = "Property 7" };
             _enumEditor = new EnumEditor()
@@ -28,8 +37,8 @@ namespace PropertyEditorViewTests
                     new EnumItem("Apple", null, null),
                     new EnumItem("Grape", null, null),
                     new EnumItem("Orange", null, null),
-                    new EnumItem("Lemon", null, null)
-                ]
+                    new EnumItem("Lemon", null, null),
+                ],
             };
             _indexEditor = new NumberEditor<int>() { Header = "Property 9(Index)" };
             //stack.Children.Add(vector2Editor);

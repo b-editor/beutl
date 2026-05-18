@@ -1,8 +1,6 @@
 ﻿using Beutl.Media;
 using Microsoft.Extensions.DependencyInjection;
-
 using Reactive.Bindings;
-
 using AM = Avalonia.Media;
 
 namespace Beutl.ViewModels.Editors;
@@ -14,18 +12,21 @@ public class GradientStopsEditorViewModel : BaseEditorViewModel<ICoreList<Gradie
     public GradientStopsEditorViewModel(IPropertyAdapter<ICoreList<GradientStop>> property)
         : base(property)
     {
-        Value = property.GetObservable()!
+        Value = property
+            .GetObservable()!
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(Disposables)!;
 
-        Value.Subscribe(v =>
-        {
-            _disposable?.Dispose();
+        Value
+            .Subscribe(v =>
+            {
+                _disposable?.Dispose();
 
-            var t = v.ToAvaGradientStopsSync(CurrentTime);
-            _disposable = t.Item2;
-            Stops.Value = t.Item1;
-        }).DisposeWith(Disposables);
+                var t = v.ToAvaGradientStopsSync(CurrentTime);
+                _disposable = t.Item2;
+                Stops.Value = t.Item1;
+            })
+            .DisposeWith(Disposables);
     }
 
     public ReadOnlyReactivePropertySlim<ICoreList<GradientStop>> Value { get; }
@@ -59,8 +60,11 @@ public class GradientStopsEditorViewModel : BaseEditorViewModel<ICoreList<Gradie
     }
 
     public void ConfirmeGradientStop(
-        int oldIndex, int newIndex,
-        GradientStop.Resource oldObject, GradientStop obj)
+        int oldIndex,
+        int newIndex,
+        GradientStop.Resource oldObject,
+        GradientStop obj
+    )
     {
         if (Value.Value is { } list)
         {
@@ -72,5 +76,4 @@ public class GradientStopsEditorViewModel : BaseEditorViewModel<ICoreList<Gradie
             Commit();
         }
     }
-
 }

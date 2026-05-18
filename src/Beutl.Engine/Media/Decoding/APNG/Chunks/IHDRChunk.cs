@@ -3,19 +3,13 @@
 public class IHDRChunk : Chunk
 {
     public IHDRChunk(byte[] chunkBytes)
-        : base(chunkBytes)
-    {
-    }
+        : base(chunkBytes) { }
 
     public IHDRChunk(MemoryStream ms)
-        : base(ms)
-    {
-    }
+        : base(ms) { }
 
     public IHDRChunk(Chunk chunk)
-        : base(chunk)
-    {
-    }
+        : base(chunk) { }
 
     public int Width { get; private set; }
 

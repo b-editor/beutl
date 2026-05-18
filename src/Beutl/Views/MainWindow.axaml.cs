@@ -1,10 +1,8 @@
 ﻿using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Platform;
-
 using Beutl.Configuration;
 using Beutl.ViewModels;
-
 using FluentAvalonia.UI.Windowing;
 
 namespace Beutl.Views;

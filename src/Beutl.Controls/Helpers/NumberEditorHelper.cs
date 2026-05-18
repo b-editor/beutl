@@ -1,5 +1,4 @@
 ﻿using System.Numerics;
-
 using Avalonia.Input;
 
 namespace Beutl;

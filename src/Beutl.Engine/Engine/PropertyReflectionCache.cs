@@ -39,7 +39,11 @@ public static class PropertyReflectionCache
         return func;
     }
 
-    public static Attribute[] GetOrCreateAttributes(Type type, string name, Func<Attribute[]> factory)
+    public static Attribute[] GetOrCreateAttributes(
+        Type type,
+        string name,
+        Func<Attribute[]> factory
+    )
     {
         var attrs = Cache.GetValue(type, _ => new PropertyCacheEntry()).Attributes;
         return attrs.GetOrAdd(name, _ => factory());

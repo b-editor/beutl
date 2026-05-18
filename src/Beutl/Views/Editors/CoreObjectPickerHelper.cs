@@ -1,5 +1,4 @@
 ﻿using Avalonia.Controls;
-
 using Beutl.Engine;
 using Beutl.Services;
 using Beutl.ViewModels.Dialogs;
@@ -11,7 +10,8 @@ internal static class CoreObjectPickerHelper
 {
     public static async Task<object?> ShowTypeOrReferenceAsync(
         Control control,
-        ICoreObjectEditorViewModel viewModel)
+        ICoreObjectEditorViewModel viewModel
+    )
     {
         Type propertyType = viewModel.PropertyAdapter.PropertyType;
         string format = propertyType.FullName!;

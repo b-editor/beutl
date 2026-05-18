@@ -1,5 +1,4 @@
 ﻿using System.Collections;
-
 using Beutl.Media;
 using Beutl.Media.TextFormatting;
 
@@ -10,9 +9,7 @@ public class TextElements : IReadOnlyList<TextElement>
     private readonly TextElement[] _array;
 
     public TextElements(IEnumerable<TextElement> items)
-        : this(items.ToArray())
-    {
-    }
+        : this(items.ToArray()) { }
 
     internal TextElements(TextElement[] array)
     {
@@ -103,7 +100,9 @@ public class TextElements : IReadOnlyList<TextElement>
             while (index < _arrayCount)
             {
                 FormattedText item = _array[index];
-                if (item.BeginOnNewLine/* || index + 1 >= _arrayCount*/)
+                if (
+                    item.BeginOnNewLine /* || index + 1 >= _arrayCount*/
+                )
                 {
                     break;
                 }

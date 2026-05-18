@@ -11,16 +11,18 @@ public partial class FAColorPicker
     /// <summary>
     /// Defines the <see cref="PreviousColor"/> property
     /// </summary>
-    public static readonly StyledProperty<Color2> PreviousColorProperty =
-        AvaloniaProperty.Register<FAColorPicker, Color2>(nameof(PreviousColor),
-            Colors.Red, defaultBindingMode: BindingMode.TwoWay);
+    public static readonly StyledProperty<Color2> PreviousColorProperty = AvaloniaProperty.Register<
+        FAColorPicker,
+        Color2
+    >(nameof(PreviousColor), Colors.Red, defaultBindingMode: BindingMode.TwoWay);
 
     /// <summary>
     /// Defines the <see cref="Color"/> property
     /// </summary>
-    public static readonly StyledProperty<Color2> ColorProperty =
-        AvaloniaProperty.Register<FAColorPicker, Color2>(nameof(Color),
-            Colors.Red, defaultBindingMode: BindingMode.TwoWay);
+    public static readonly StyledProperty<Color2> ColorProperty = AvaloniaProperty.Register<
+        FAColorPicker,
+        Color2
+    >(nameof(Color), Colors.Red, defaultBindingMode: BindingMode.TwoWay);
 
     /// <summary>
     /// Defines the <see cref="ColorTextType"/> property
@@ -32,8 +34,10 @@ public partial class FAColorPicker
     /// Defines the <see cref="Component"/> property
     /// </summary>
     public static readonly StyledProperty<ColorSpectrumComponents> ComponentProperty =
-        AvaloniaProperty.Register<FAColorPicker, ColorSpectrumComponents>(nameof(Component),
-            defaultValue: ColorSpectrumComponents.SaturationValue);
+        AvaloniaProperty.Register<FAColorPicker, ColorSpectrumComponents>(
+            nameof(Component),
+            defaultValue: ColorSpectrumComponents.SaturationValue
+        );
 
     /// <summary>
     /// Defines the <see cref="IsMoreButtonVisible"/> property
@@ -44,56 +48,68 @@ public partial class FAColorPicker
     /// <summary>
     /// Defines the <see cref="IsCompact"/> property
     /// </summary>
-    public static readonly StyledProperty<bool> IsCompactProperty =
-        AvaloniaProperty.Register<FAColorPicker, bool>(nameof(IsCompact));
+    public static readonly StyledProperty<bool> IsCompactProperty = AvaloniaProperty.Register<
+        FAColorPicker,
+        bool
+    >(nameof(IsCompact));
 
     /// <summary>
     /// Defines the <see cref="IsAlphaEnabled"/> property
     /// </summary>
-    public static readonly StyledProperty<bool> IsAlphaEnabledProperty =
-        AvaloniaProperty.Register<FAColorPicker, bool>(nameof(IsAlphaEnabled),
-            defaultValue: true);
+    public static readonly StyledProperty<bool> IsAlphaEnabledProperty = AvaloniaProperty.Register<
+        FAColorPicker,
+        bool
+    >(nameof(IsAlphaEnabled), defaultValue: true);
 
     /// <summary>
     /// Defines the <see cref="UseSpectrum"/> property
     /// </summary>
-    public static readonly StyledProperty<bool> UseSpectrumProperty =
-        AvaloniaProperty.Register<FAColorPicker, bool>(nameof(UseSpectrum),
-            defaultValue: true);
+    public static readonly StyledProperty<bool> UseSpectrumProperty = AvaloniaProperty.Register<
+        FAColorPicker,
+        bool
+    >(nameof(UseSpectrum), defaultValue: true);
 
     /// <summary>
     /// Defines the <see cref="UseColorWheel"/> property
     /// </summary>
-    public static readonly StyledProperty<bool> UseColorWheelProperty =
-        AvaloniaProperty.Register<FAColorPicker, bool>(nameof(UseColorWheel),
-            defaultValue: false);
+    public static readonly StyledProperty<bool> UseColorWheelProperty = AvaloniaProperty.Register<
+        FAColorPicker,
+        bool
+    >(nameof(UseColorWheel), defaultValue: false);
 
     /// <summary>
     /// Defines the <see cref="UseColorTriangle"/> property
     /// </summary>
     public static readonly StyledProperty<bool> UseColorTriangleProperty =
-        AvaloniaProperty.Register<FAColorPicker, bool>(nameof(UseColorTriangle),
-            defaultValue: false);
+        AvaloniaProperty.Register<FAColorPicker, bool>(
+            nameof(UseColorTriangle),
+            defaultValue: false
+        );
 
     /// <summary>
     /// Defines the <see cref="UseColorPalette"/> property
     /// </summary>
-    public static readonly StyledProperty<bool> UseColorPaletteProperty =
-        AvaloniaProperty.Register<FAColorPicker, bool>(nameof(UseColorPalette));
+    public static readonly StyledProperty<bool> UseColorPaletteProperty = AvaloniaProperty.Register<
+        FAColorPicker,
+        bool
+    >(nameof(UseColorPalette));
 
     /// <summary>
     /// Defines the <see cref="CustomPaletteColors"/> property
     /// </summary>
-    public static readonly DirectProperty<FAColorPicker, IEnumerable<Color>> CustomPaletteColorsProperty =
-        AvaloniaProperty.RegisterDirect<FAColorPicker, IEnumerable<Color>>(nameof(CustomPaletteColors),
-            x => x.CustomPaletteColors, (x, v) => x.CustomPaletteColors = v);
+    public static readonly DirectProperty<
+        FAColorPicker,
+        IEnumerable<Color>
+    > CustomPaletteColorsProperty = AvaloniaProperty.RegisterDirect<
+        FAColorPicker,
+        IEnumerable<Color>
+    >(nameof(CustomPaletteColors), x => x.CustomPaletteColors, (x, v) => x.CustomPaletteColors = v);
 
     /// <summary>
     /// Defines the <see cref="PaletteColumnCount"/> property
     /// </summary>
     public static readonly StyledProperty<int> PaletteColumnCountProperty =
-        AvaloniaProperty.Register<FAColorPicker, int>(nameof(PaletteColumnCount),
-            defaultValue: 10);
+        AvaloniaProperty.Register<FAColorPicker, int>(nameof(PaletteColumnCount), defaultValue: 10);
 
     /// <summary>
     /// Gets or sets the color used as the previous color
@@ -117,7 +133,7 @@ public partial class FAColorPicker
     /// Gets or sets how the color should be represented in string form
     /// </summary>
     /// <remarks>
-    /// Options: [Hex: #RRGGBB], [HexAlpha: #AARRGGBB], [RGB: rgb (R,G,B)], 
+    /// Options: [Hex: #RRGGBB], [HexAlpha: #AARRGGBB], [RGB: rgb (R,G,B)],
     /// or [RGBA: rgba (R, G, B, A)]
     /// </remarks>
     public ColorTextType ColorTextType
@@ -220,7 +236,6 @@ public partial class FAColorPicker
     /// Event raised when the <see cref="Color"/> property changes
     /// </summary>
     public event TypedEventHandler<FAColorPicker, ColorChangedEventArgs> ColorChanged;
-
 
     private IEnumerable<Color> _customPaletteColors;
 }

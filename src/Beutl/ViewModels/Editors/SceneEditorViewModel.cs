@@ -48,13 +48,16 @@ public sealed class SceneEditorViewModel : ValueEditorViewModel<Scene?>
     public IReadOnlyList<TargetObjectInfo> GetAvailableScenes()
     {
         var currentScene = this.GetService<EditViewModel>()?.Scene;
-        if (currentScene == null) return [];
+        if (currentScene == null)
+            return [];
 
         var project = currentScene.FindHierarchicalParent<Project>();
-        if (project == null) return [];
+        if (project == null)
+            return [];
 
-        return [.. project.Items
-            .OfType<Scene>()
-            .Select(s => new TargetObjectInfo(s.Name, s, null))];
+        return
+        [
+            .. project.Items.OfType<Scene>().Select(s => new TargetObjectInfo(s.Name, s, null)),
+        ];
     }
 }

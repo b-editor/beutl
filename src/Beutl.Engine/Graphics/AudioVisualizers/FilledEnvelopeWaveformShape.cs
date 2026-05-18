@@ -6,7 +6,10 @@ using SkiaSharp;
 
 namespace Beutl.Graphics.AudioVisualizers;
 
-[Display(Name = nameof(GraphicsStrings.WaveformShape_FilledEnvelope), ResourceType = typeof(GraphicsStrings))]
+[Display(
+    Name = nameof(GraphicsStrings.WaveformShape_FilledEnvelope),
+    ResourceType = typeof(GraphicsStrings)
+)]
 public sealed partial class FilledEnvelopeWaveformShape : WaveformShape
 {
     public FilledEnvelopeWaveformShape()
@@ -14,12 +17,18 @@ public sealed partial class FilledEnvelopeWaveformShape : WaveformShape
         ScanProperties<FilledEnvelopeWaveformShape>();
     }
 
-    [Display(Name = nameof(GraphicsStrings.SpectrumShape_Smoothness), ResourceType = typeof(GraphicsStrings))]
+    [Display(
+        Name = nameof(GraphicsStrings.SpectrumShape_Smoothness),
+        ResourceType = typeof(GraphicsStrings)
+    )]
     [Range(0f, 100f)]
     public IProperty<float> Smoothness { get; } = Property.CreateAnimatable(0f);
 
     // true なら max(|min|, |max|) の ±絶対値 を用いて完全上下対称の形状になる
-    [Display(Name = nameof(GraphicsStrings.WaveformShape_Symmetric), ResourceType = typeof(GraphicsStrings))]
+    [Display(
+        Name = nameof(GraphicsStrings.WaveformShape_Symmetric),
+        ResourceType = typeof(GraphicsStrings)
+    )]
     public IProperty<bool> Symmetric { get; } = Property.Create(false);
 
     public new partial class Resource
@@ -35,10 +44,12 @@ public sealed partial class FilledEnvelopeWaveformShape : WaveformShape
             ReadOnlySpan<float> mins,
             ReadOnlySpan<float> maxs,
             float gain,
-            Brush.Resource fill)
+            Brush.Resource fill
+        )
         {
             int barCount = mins.Length;
-            if (barCount < 2) return;
+            if (barCount < 2)
+                return;
 
             float width = (float)bounds.Width;
             float height = (float)bounds.Height;
@@ -55,7 +66,8 @@ public sealed partial class FilledEnvelopeWaveformShape : WaveformShape
             if (_lastCornerRadius != cornerRadius)
             {
                 _cornerEffect?.Dispose();
-                _cornerEffect = cornerRadius > 0.01f ? SKPathEffect.CreateCorner(cornerRadius) : null;
+                _cornerEffect =
+                    cornerRadius > 0.01f ? SKPathEffect.CreateCorner(cornerRadius) : null;
                 _lastCornerRadius = cornerRadius;
             }
             _paint.PathEffect = _cornerEffect;
@@ -78,8 +90,10 @@ public sealed partial class FilledEnvelopeWaveformShape : WaveformShape
                 }
                 float x = (float)bounds.X + i * slotWidth + slotWidth * 0.5f;
                 float y = centerY - v * halfHeight;
-                if (i == 0) _path.MoveTo(x, y);
-                else _path.LineTo(x, y);
+                if (i == 0)
+                    _path.MoveTo(x, y);
+                else
+                    _path.LineTo(x, y);
             }
             // 下側 (min or -abs) を右→左
             for (int i = barCount - 1; i >= 0; i--)

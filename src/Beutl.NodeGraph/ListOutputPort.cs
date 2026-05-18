@@ -10,10 +10,11 @@ public class ListOutputPort<T> : NodePort<T>, IListOutputPort
 
     static ListOutputPort()
     {
-        ConnectionsProperty =
-            ConfigureProperty<CoreList<Reference<Connection>>, ListOutputPort<T>>(nameof(Connections))
-                .Accessor(o => o.Connections, (o, v) => o.Connections = v)
-                .Register();
+        ConnectionsProperty = ConfigureProperty<CoreList<Reference<Connection>>, ListOutputPort<T>>(
+                nameof(Connections)
+            )
+            .Accessor(o => o.Connections, (o, v) => o.Connections = v)
+            .Register();
     }
 
     public ListOutputPort()

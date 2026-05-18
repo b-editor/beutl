@@ -19,7 +19,9 @@ public class CorePropertyAdapter<T>(CoreProperty<T> property, ICoreObject obj) :
     {
         get
         {
-            CorePropertyMetadata metadata = Property.GetMetadata<CorePropertyMetadata>(ImplementedType);
+            CorePropertyMetadata metadata = Property.GetMetadata<CorePropertyMetadata>(
+                ImplementedType
+            );
             return metadata.DisplayAttribute?.GetName() ?? Property.Name;
         }
     }
@@ -28,7 +30,9 @@ public class CorePropertyAdapter<T>(CoreProperty<T> property, ICoreObject obj) :
     {
         get
         {
-            CorePropertyMetadata metadata = Property.GetMetadata<CorePropertyMetadata>(ImplementedType);
+            CorePropertyMetadata metadata = Property.GetMetadata<CorePropertyMetadata>(
+                ImplementedType
+            );
             return metadata.DisplayAttribute?.GetDescription();
         }
     }

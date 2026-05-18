@@ -9,23 +9,28 @@ namespace Beutl.ViewModels;
 
 public partial class MenuBarViewModel
 {
-    [MemberNotNull(nameof(CloseFile), nameof(CloseProject), nameof(Save), nameof(SaveAll), nameof(ExportProject))]
+    [MemberNotNull(
+        nameof(CloseFile),
+        nameof(CloseProject),
+        nameof(Save),
+        nameof(SaveAll),
+        nameof(ExportProject)
+    )]
     private void InitializeFilesCommands()
     {
-        CloseFile = new ReactiveCommandSlim(EditorService.Current.SelectedTabItem.Select(i => i != null))
-            .WithSubscribe(() => OnCloseFileCore(null));
+        CloseFile = new ReactiveCommandSlim(
+            EditorService.Current.SelectedTabItem.Select(i => i != null)
+        ).WithSubscribe(() => OnCloseFileCore(null));
 
-        CloseFileCore = new ReactiveCommandSlim<EditorTabItem>()
-            .WithSubscribe(OnCloseFileCore);
+        CloseFileCore = new ReactiveCommandSlim<EditorTabItem>().WithSubscribe(OnCloseFileCore);
 
-        CloseProject = new ReactiveCommandSlim(IsProjectOpened)
-            .WithSubscribe(ProjectService.Current.CloseProject);
+        CloseProject = new ReactiveCommandSlim(IsProjectOpened).WithSubscribe(
+            ProjectService.Current.CloseProject
+        );
 
-        Save = new AsyncReactiveCommand(IsProjectOpened)
-            .WithSubscribe(OnSave);
+        Save = new AsyncReactiveCommand(IsProjectOpened).WithSubscribe(OnSave);
 
-        SaveAll = new AsyncReactiveCommand(IsProjectOpened)
-            .WithSubscribe(OnSaveAll);
+        SaveAll = new AsyncReactiveCommand(IsProjectOpened).WithSubscribe(OnSaveAll);
 
         ExportProject = new AsyncReactiveCommand(IsProjectOpened);
 
@@ -33,12 +38,14 @@ public partial class MenuBarViewModel
         viewConfig.RecentFiles.ForEachItem(
             item => RecentFileItems.Insert(0, item),
             item => RecentFileItems.Remove(item),
-            RecentFileItems.Clear);
+            RecentFileItems.Clear
+        );
 
         viewConfig.RecentProjects.ForEachItem(
             item => RecentProjectItems.Insert(0, item),
             item => RecentProjectItems.Remove(item),
-            RecentProjectItems.Clear);
+            RecentProjectItems.Clear
+        );
 
         OpenRecentFile.Subscribe(OpenFileCore);
 
@@ -127,17 +134,30 @@ public partial class MenuBarViewModel
                     else
                     {
                         Type type = item.Extension.Value.GetType();
-                        _logger.LogError("{Extension} failed to save file: {FileName}", type.FullName ?? type.Name,
-                            item.FileName.Value);
-                        NotificationService.ShowError(MessageStrings.UnableToSaveFile, item.FileName.Value);
+                        _logger.LogError(
+                            "{Extension} failed to save file: {FileName}",
+                            type.FullName ?? type.Name,
+                            item.FileName.Value
+                        );
+                        NotificationService.ShowError(
+                            MessageStrings.UnableToSaveFile,
+                            item.FileName.Value
+                        );
                     }
                 }
             }
 
-            NotificationService.ShowSuccess(string.Empty, string.Format(MessageStrings.ItemsSaved, itemsCount.ToString()));
+            NotificationService.ShowSuccess(
+                string.Empty,
+                string.Format(MessageStrings.ItemsSaved, itemsCount.ToString())
+            );
 
-            if (GlobalConfiguration.Instance.EditorConfig.IsAutoSaveEnabled
-                && EditorService.Current.TabItems.All(v => v.Context.Value is ISupportAutoSaveEditorContext))
+            if (
+                GlobalConfiguration.Instance.EditorConfig.IsAutoSaveEnabled
+                && EditorService.Current.TabItems.All(v =>
+                    v.Context.Value is ISupportAutoSaveEditorContext
+                )
+            )
             {
                 NotificationService.ShowInformation(string.Empty, MessageStrings.FilesAutoSaved);
             }
@@ -162,26 +182,42 @@ public partial class MenuBarViewModel
         {
             try
             {
-                bool result = await (item.Commands.Value == null
-                    ? ValueTask.FromResult(false)
-                    : item.Commands.Value.OnSave());
+                bool result = await (
+                    item.Commands.Value == null
+                        ? ValueTask.FromResult(false)
+                        : item.Commands.Value.OnSave()
+                );
 
                 if (result)
                 {
-                    NotificationService.ShowSuccess(string.Empty, string.Format(MessageStrings.ItemSaved, item.FileName));
+                    NotificationService.ShowSuccess(
+                        string.Empty,
+                        string.Format(MessageStrings.ItemSaved, item.FileName)
+                    );
 
-                    if (GlobalConfiguration.Instance.EditorConfig.IsAutoSaveEnabled
-                        && item.Context.Value is ISupportAutoSaveEditorContext)
+                    if (
+                        GlobalConfiguration.Instance.EditorConfig.IsAutoSaveEnabled
+                        && item.Context.Value is ISupportAutoSaveEditorContext
+                    )
                     {
-                        NotificationService.ShowInformation(string.Empty, MessageStrings.FilesAutoSaved);
+                        NotificationService.ShowInformation(
+                            string.Empty,
+                            MessageStrings.FilesAutoSaved
+                        );
                     }
                 }
                 else
                 {
                     Type type = item.Extension.Value.GetType();
-                    _logger.LogError("{Extension} failed to save file: {FileName}", type.FullName ?? type.Name,
-                        item.FileName.Value);
-                    NotificationService.ShowInformation(string.Empty, MessageStrings.OperationFailed);
+                    _logger.LogError(
+                        "{Extension} failed to save file: {FileName}",
+                        type.FullName ?? type.Name,
+                        item.FileName.Value
+                    );
+                    NotificationService.ShowInformation(
+                        string.Empty,
+                        MessageStrings.OperationFailed
+                    );
                 }
             }
             catch (Exception ex)

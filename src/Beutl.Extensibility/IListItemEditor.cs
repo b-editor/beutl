@@ -1,5 +1,4 @@
 ﻿using System.ComponentModel;
-
 using Avalonia.Controls;
 
 namespace Beutl.Extensibility;

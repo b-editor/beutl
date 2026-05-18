@@ -27,7 +27,12 @@ public struct Monaural32BitFloat(float value) : ISample<Monaural32BitFloat>
         return new Sample(src.Value, src.Value);
     }
 
-    public static unsafe void GetChannelData(Monaural32BitFloat s, int channel, Span<byte> destination, out int bytesWritten)
+    public static unsafe void GetChannelData(
+        Monaural32BitFloat s,
+        int channel,
+        Span<byte> destination,
+        out int bytesWritten
+    )
     {
         bytesWritten = 0;
         if (channel == 0)

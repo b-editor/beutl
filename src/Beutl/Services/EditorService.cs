@@ -14,15 +14,15 @@ public sealed class EditorTabItem : IAsyncDisposable
     public EditorTabItem(IEditorContext context)
     {
         Context = new ReactiveProperty<IEditorContext>(context);
-        FilePath = Context.Select(ctxt => ctxt?.Object.Uri?.LocalPath)
+        FilePath = Context
+            .Select(ctxt => ctxt?.Object.Uri?.LocalPath)
             .ToReadOnlyReactivePropertySlim()!;
-        FileName = FilePath.Select(Path.GetFileName)
+        FileName = FilePath
+            .Select(Path.GetFileName)
             .Do(_ => _hash = null)
             .ToReadOnlyReactivePropertySlim()!;
-        Extension = Context.Select(ctxt => ctxt?.Extension!)
-            .ToReadOnlyReactivePropertySlim()!;
-        Commands = Context.Select(ctxt => ctxt?.Commands)
-            .ToReadOnlyReactivePropertySlim();
+        Extension = Context.Select(ctxt => ctxt?.Extension!).ToReadOnlyReactivePropertySlim()!;
+        Commands = Context.Select(ctxt => ctxt?.Commands).ToReadOnlyReactivePropertySlim();
     }
 
     public IReactiveProperty<IEditorContext> Context { get; }
@@ -80,7 +80,8 @@ public sealed class EditorService
 
     public ICoreList<EditorTabItem> TabItems => _tabItems;
 
-    public IReactiveProperty<EditorTabItem?> SelectedTabItem { get; } = new ReactivePropertySlim<EditorTabItem?>();
+    public IReactiveProperty<EditorTabItem?> SelectedTabItem { get; } =
+        new ReactivePropertySlim<EditorTabItem?>();
 
     public bool TryGetTabItem(CoreObject obj, [NotNullWhen(true)] out EditorTabItem? result)
     {

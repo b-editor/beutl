@@ -3,7 +3,6 @@ using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.VisualTree;
-
 using Beutl.Editor.Components.LibraryTab.ViewModels;
 
 namespace Beutl.Editor.Components.LibraryTab.Views.LibraryViews;
@@ -20,7 +19,11 @@ internal static class LibraryTreeDragHelper
     {
         if (e.Container is TreeViewItem treeItem)
         {
-            treeItem.AddHandler(InputElement.PointerPressedEvent, OnTreeViewPointerPressed, RoutingStrategies.Tunnel);
+            treeItem.AddHandler(
+                InputElement.PointerPressedEvent,
+                OnTreeViewPointerPressed,
+                RoutingStrategies.Tunnel
+            );
         }
     }
 
@@ -35,7 +38,8 @@ internal static class LibraryTreeDragHelper
     private static async void OnTreeViewPointerPressed(object? sender, PointerPressedEventArgs e)
     {
         var treeView = (sender as Control)?.FindAncestorOfType<TreeView>();
-        if (treeView == null) return;
+        if (treeView == null)
+            return;
 
         LibraryItemViewModel? item;
         if (e.GetCurrentPoint(treeView).Properties.IsLeftButtonPressed)

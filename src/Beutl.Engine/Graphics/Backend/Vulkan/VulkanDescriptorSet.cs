@@ -14,7 +14,11 @@ internal sealed unsafe class VulkanDescriptorSet : IDescriptorSet
     private readonly DescriptorSetLayout _layout;
     private bool _disposed;
 
-    public VulkanDescriptorSet(VulkanContext context, DescriptorSetLayout layout, Silk.NET.Vulkan.DescriptorPoolSize[] poolSizes)
+    public VulkanDescriptorSet(
+        VulkanContext context,
+        DescriptorSetLayout layout,
+        Silk.NET.Vulkan.DescriptorPoolSize[] poolSizes
+    )
     {
         _context = context;
         _layout = layout;
@@ -30,7 +34,7 @@ internal sealed unsafe class VulkanDescriptorSet : IDescriptorSet
                 SType = StructureType.DescriptorPoolCreateInfo,
                 MaxSets = 1,
                 PoolSizeCount = (uint)poolSizes.Length,
-                PPoolSizes = poolSizesPtr
+                PPoolSizes = poolSizesPtr,
             };
 
             DescriptorPool pool;
@@ -49,7 +53,7 @@ internal sealed unsafe class VulkanDescriptorSet : IDescriptorSet
             SType = StructureType.DescriptorSetAllocateInfo,
             DescriptorPool = _descriptorPool,
             DescriptorSetCount = 1,
-            PSetLayouts = layouts
+            PSetLayouts = layouts,
         };
 
         DescriptorSet set;
@@ -57,7 +61,9 @@ internal sealed unsafe class VulkanDescriptorSet : IDescriptorSet
         if (allocResult != Result.Success)
         {
             vk.DestroyDescriptorPool(device, _descriptorPool, null);
-            throw new InvalidOperationException($"Failed to allocate descriptor set: {allocResult}");
+            throw new InvalidOperationException(
+                $"Failed to allocate descriptor set: {allocResult}"
+            );
         }
         _descriptorSet = set;
     }
@@ -76,7 +82,7 @@ internal sealed unsafe class VulkanDescriptorSet : IDescriptorSet
         {
             Buffer = vulkanBuffer.Handle,
             Offset = 0,
-            Range = vulkanBuffer.Size
+            Range = vulkanBuffer.Size,
         };
 
         var writeDescriptor = new WriteDescriptorSet
@@ -87,23 +93,27 @@ internal sealed unsafe class VulkanDescriptorSet : IDescriptorSet
             DstArrayElement = 0,
             DescriptorCount = 1,
             DescriptorType = Silk.NET.Vulkan.DescriptorType.UniformBuffer,
-            PBufferInfo = &bufferInfo
+            PBufferInfo = &bufferInfo,
         };
 
         _context.Vk.UpdateDescriptorSets(_context.Device, 1, &writeDescriptor, 0, null);
     }
 
-    public void UpdateTexture(int binding, ITexture2D texture, ISampler sampler)
-        => UpdateCombinedImageSampler(binding, ((VulkanTexture2D)texture).ImageViewHandle, sampler);
+    public void UpdateTexture(int binding, ITexture2D texture, ISampler sampler) =>
+        UpdateCombinedImageSampler(binding, ((VulkanTexture2D)texture).ImageViewHandle, sampler);
 
-    public void UpdateTextureCube(int binding, ITextureCube texture, ISampler sampler)
-        => UpdateCombinedImageSampler(binding, ((VulkanTextureCube)texture).ImageViewHandle, sampler);
+    public void UpdateTextureCube(int binding, ITextureCube texture, ISampler sampler) =>
+        UpdateCombinedImageSampler(binding, ((VulkanTextureCube)texture).ImageViewHandle, sampler);
 
-    public void UpdateTextureArray(int binding, ITextureArray texture, ISampler sampler)
-        => UpdateCombinedImageSampler(binding, ((VulkanTextureArray)texture).ImageViewHandle, sampler);
+    public void UpdateTextureArray(int binding, ITextureArray texture, ISampler sampler) =>
+        UpdateCombinedImageSampler(binding, ((VulkanTextureArray)texture).ImageViewHandle, sampler);
 
-    public void UpdateTextureCubeArray(int binding, ITextureCubeArray texture, ISampler sampler)
-        => UpdateCombinedImageSampler(binding, ((VulkanTextureCubeArray)texture).ImageViewHandle, sampler);
+    public void UpdateTextureCubeArray(int binding, ITextureCubeArray texture, ISampler sampler) =>
+        UpdateCombinedImageSampler(
+            binding,
+            ((VulkanTextureCubeArray)texture).ImageViewHandle,
+            sampler
+        );
 
     private void UpdateCombinedImageSampler(int binding, ImageView imageView, ISampler sampler)
     {
@@ -115,7 +125,7 @@ internal sealed unsafe class VulkanDescriptorSet : IDescriptorSet
         {
             ImageView = imageView,
             ImageLayout = ImageLayout.ShaderReadOnlyOptimal,
-            Sampler = vulkanSampler.Handle
+            Sampler = vulkanSampler.Handle,
         };
 
         var writeDescriptor = new WriteDescriptorSet
@@ -126,7 +136,7 @@ internal sealed unsafe class VulkanDescriptorSet : IDescriptorSet
             DstArrayElement = 0,
             DescriptorCount = 1,
             DescriptorType = Silk.NET.Vulkan.DescriptorType.CombinedImageSampler,
-            PImageInfo = &imageInfo
+            PImageInfo = &imageInfo,
         };
 
         _context.Vk.UpdateDescriptorSets(_context.Device, 1, &writeDescriptor, 0, null);
@@ -140,7 +150,8 @@ internal sealed unsafe class VulkanDescriptorSet : IDescriptorSet
 
     public void Dispose()
     {
-        if (_disposed) return;
+        if (_disposed)
+            return;
         _disposed = true;
 
         // Descriptor sets are automatically freed when the pool is destroyed

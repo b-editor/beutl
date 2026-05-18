@@ -9,21 +9,34 @@ namespace Beutl.Controls;
 
 public class TreeLineDecorator : Decorator
 {
-    public static readonly StyledProperty<int> IndentLevelProperty =
-        AvaloniaProperty.Register<TreeLineDecorator, int>(nameof(IndentLevel), 1);
+    public static readonly StyledProperty<int> IndentLevelProperty = AvaloniaProperty.Register<
+        TreeLineDecorator,
+        int
+    >(nameof(IndentLevel), 1);
 
-    public static readonly StyledProperty<double> IndentWidthProperty =
-        AvaloniaProperty.Register<TreeLineDecorator, double>(nameof(IndentWidth), 16.0);
+    public static readonly StyledProperty<double> IndentWidthProperty = AvaloniaProperty.Register<
+        TreeLineDecorator,
+        double
+    >(nameof(IndentWidth), 16.0);
 
-    public static readonly StyledProperty<IBrush?> LineBrushProperty =
-        AvaloniaProperty.Register<TreeLineDecorator, IBrush?>(nameof(LineBrush));
+    public static readonly StyledProperty<IBrush?> LineBrushProperty = AvaloniaProperty.Register<
+        TreeLineDecorator,
+        IBrush?
+    >(nameof(LineBrush));
 
-    public static readonly StyledProperty<double> LineThicknessProperty =
-        AvaloniaProperty.Register<TreeLineDecorator, double>(nameof(LineThickness), 1.0);
+    public static readonly StyledProperty<double> LineThicknessProperty = AvaloniaProperty.Register<
+        TreeLineDecorator,
+        double
+    >(nameof(LineThickness), 1.0);
 
     static TreeLineDecorator()
     {
-        AffectsRender<TreeLineDecorator>(IndentLevelProperty, IndentWidthProperty, LineBrushProperty, LineThicknessProperty);
+        AffectsRender<TreeLineDecorator>(
+            IndentLevelProperty,
+            IndentWidthProperty,
+            LineBrushProperty,
+            LineThicknessProperty
+        );
         AffectsMeasure<TreeLineDecorator>(IndentLevelProperty, IndentWidthProperty);
         AffectsArrange<TreeLineDecorator>(IndentLevelProperty, IndentWidthProperty);
     }
@@ -75,20 +88,28 @@ public class TreeLineDecorator : Decorator
     {
         double leftMargin = IndentLevel * IndentWidth;
 
-        if (Child == null) return new Size(leftMargin, 0);
+        if (Child == null)
+            return new Size(leftMargin, 0);
 
-        Child.Measure(new Size(Math.Max(0, availableSize.Width - leftMargin), availableSize.Height));
+        Child.Measure(
+            new Size(Math.Max(0, availableSize.Width - leftMargin), availableSize.Height)
+        );
         return new Size(Child.DesiredSize.Width + leftMargin, Child.DesiredSize.Height);
-
     }
 
     protected override Size ArrangeOverride(Size finalSize)
     {
         double leftMargin = IndentLevel * IndentWidth;
 
-        if (Child == null) return finalSize;
+        if (Child == null)
+            return finalSize;
 
-        var childRect = new Rect(leftMargin, 0, Math.Max(0, finalSize.Width - leftMargin), finalSize.Height);
+        var childRect = new Rect(
+            leftMargin,
+            0,
+            Math.Max(0, finalSize.Width - leftMargin),
+            finalSize.Height
+        );
         Child.Arrange(childRect);
 
         return finalSize;

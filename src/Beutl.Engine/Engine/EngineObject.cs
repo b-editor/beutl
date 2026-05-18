@@ -52,7 +52,12 @@ public class EngineObject : Hierarchical, INotifyEdited
             .Accessor(o => o.TimeRange, (o, v) => o.TimeRange = v)
             .Register();
 
-        AffectsRender<EngineObject>(IsEnabledProperty, IsTimeAnchorProperty, ZIndexProperty, TimeRangeProperty);
+        AffectsRender<EngineObject>(
+            IsEnabledProperty,
+            IsTimeAnchorProperty,
+            ZIndexProperty,
+            TimeRangeProperty
+        );
     }
 
     public virtual IReadOnlyList<IProperty> Properties => _properties;
@@ -110,7 +115,8 @@ public class EngineObject : Hierarchical, INotifyEdited
     protected override void OnAttachedToHierarchy(in HierarchyAttachmentEventArgs args)
     {
         base.OnAttachedToHierarchy(in args);
-        if (IsTimeAnchor) return;
+        if (IsTimeAnchor)
+            return;
 
         SubscribeTimeAnchor();
     }
@@ -132,13 +138,12 @@ public class EngineObject : Hierarchical, INotifyEdited
         _timeAnchorSubscription?.Dispose();
 
         var parent = this.FindHierarchicalParent<EngineObject>();
-        if (parent == null) return;
+        if (parent == null)
+            return;
 
-        var d1 = parent.GetObservable(TimeRangeProperty)
-            .Subscribe(t => TimeRange = t);
+        var d1 = parent.GetObservable(TimeRangeProperty).Subscribe(t => TimeRange = t);
 
-        var d2 = parent.GetObservable(ZIndexProperty)
-            .Subscribe(z => ZIndex = z);
+        var d2 = parent.GetObservable(ZIndexProperty).Subscribe(z => ZIndex = z);
 
         _timeAnchorSubscription = Disposable.Create((d1, d2), t => t.DisposeAll());
     }
@@ -155,16 +160,21 @@ public class EngineObject : Hierarchical, INotifyEdited
             ZIndex = zIndex.Value;
         IsTimeAnchor = start.HasValue && duration.HasValue && zIndex.HasValue;
 
-        Dictionary<string, IAnimation>? animations
-            = context.GetValue<Dictionary<string, IAnimation>>("Animations");
+        Dictionary<string, IAnimation>? animations = context.GetValue<
+            Dictionary<string, IAnimation>
+        >("Animations");
 
-        Dictionary<string, JsonNode>? expressions
-            = context.GetValue<Dictionary<string, JsonNode>>("Expressions");
+        Dictionary<string, JsonNode>? expressions = context.GetValue<Dictionary<string, JsonNode>>(
+            "Expressions"
+        );
 
         foreach (IProperty property in _properties)
         {
             property.DeserializeValue(context);
-            if (property.IsAnimatable && animations?.TryGetValue(property.Name, out IAnimation? animation) == true)
+            if (
+                property.IsAnimatable
+                && animations?.TryGetValue(property.Name, out IAnimation? animation) == true
+            )
             {
                 property.Animation = animation;
             }
@@ -230,25 +240,35 @@ public class EngineObject : Hierarchical, INotifyEdited
         }
     }
 
-    protected virtual IEnumerable<IProperty> ScanPropertiesCore<T>() where T : EngineObject
+    protected virtual IEnumerable<IProperty> ScanPropertiesCore<T>()
+        where T : EngineObject
     {
         var type = typeof(T);
         var propertyInfos = type.GetProperties(
-            BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly);
+            BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly
+        );
 
         for (int index = 0; index < propertyInfos.Length; index++)
         {
             PropertyInfo propertyInfo = propertyInfos[index];
-            if (!typeof(IProperty).IsAssignableFrom(propertyInfo.PropertyType)) continue;
+            if (!typeof(IProperty).IsAssignableFrom(propertyInfo.PropertyType))
+                continue;
 
             var func = PropertyReflectionCache.GetOrCreateAccessor(type, propertyInfo);
             var property = func(this);
-            if (property == null) continue;
+            if (property == null)
+                continue;
 
-            var attrs = PropertyReflectionCache.GetOrCreateAttributes(type, propertyInfo.Name,
-                () => [.. propertyInfo.GetCustomAttributes()]);
-            var validator = PropertyReflectionCache.GetOrCreateValidator(type, propertyInfo.Name,
-                () => property.CreateValidator(attrs));
+            var attrs = PropertyReflectionCache.GetOrCreateAttributes(
+                type,
+                propertyInfo.Name,
+                () => [.. propertyInfo.GetCustomAttributes()]
+            );
+            var validator = PropertyReflectionCache.GetOrCreateValidator(
+                type,
+                propertyInfo.Name,
+                () => property.CreateValidator(attrs)
+            );
 
             property.SetAttributes(propertyInfo.Name, attrs);
             property.SetValidator(validator);
@@ -257,7 +277,8 @@ public class EngineObject : Hierarchical, INotifyEdited
         }
     }
 
-    protected void ScanProperties<T>() where T : EngineObject
+    protected void ScanProperties<T>()
+        where T : EngineObject
     {
         int index = 0;
         foreach (IProperty property in ScanPropertiesCore<T>())
@@ -389,7 +410,11 @@ public class EngineObject : Hierarchical, INotifyEdited
 
         public EngineObject GetOriginal() => _original;
 
-        public virtual void Update(EngineObject obj, CompositionContext context, ref bool updateOnly)
+        public virtual void Update(
+            EngineObject obj,
+            CompositionContext context,
+            ref bool updateOnly
+        )
         {
             ObjectDisposedException.ThrowIf(IsDisposed, this);
             _original = obj;
@@ -404,8 +429,12 @@ public class EngineObject : Hierarchical, INotifyEdited
             }
         }
 
-        protected void CompareAndUpdate<TValue>(CompositionContext context, IProperty<TValue> prop, ref TValue field,
-            ref bool updateOnly)
+        protected void CompareAndUpdate<TValue>(
+            CompositionContext context,
+            IProperty<TValue> prop,
+            ref TValue field,
+            ref bool updateOnly
+        )
         {
             TValue newValue = context.Get(prop);
             TValue oldValue = field;
@@ -422,8 +451,14 @@ public class EngineObject : Hierarchical, INotifyEdited
             }
         }
 
-        protected void CompareAndUpdateList<TItem, TResource>(CompositionContext context, IList<TItem> prop,
-            ref List<TResource> field, ref bool updateOnly) where TItem : EngineObject where TResource : Resource
+        protected void CompareAndUpdateList<TItem, TResource>(
+            CompositionContext context,
+            IList<TItem> prop,
+            ref List<TResource> field,
+            ref bool updateOnly
+        )
+            where TItem : EngineObject
+            where TResource : Resource
         {
             for (int i = 0; i < prop.Count; i++)
             {
@@ -478,8 +513,14 @@ public class EngineObject : Hierarchical, INotifyEdited
             }
         }
 
-        protected void CompareAndUpdateObject<TObject, TResource>(CompositionContext context, IProperty<TObject> prop,
-            ref TResource? field, ref bool updateOnly) where TObject : EngineObject? where TResource : Resource
+        protected void CompareAndUpdateObject<TObject, TResource>(
+            CompositionContext context,
+            IProperty<TObject> prop,
+            ref TResource? field,
+            ref bool updateOnly
+        )
+            where TObject : EngineObject?
+            where TResource : Resource
         {
             var value = context.Get(prop);
             if (value is null)
@@ -531,18 +572,16 @@ public class EngineObject : Hierarchical, INotifyEdited
             }
         }
 
-        protected virtual void Dispose(bool disposing)
-        {
-        }
+        protected virtual void Dispose(bool disposing) { }
 
         public void Dispose()
         {
-            if (IsDisposed) return;
+            if (IsDisposed)
+                return;
 
             Dispose(true);
             IsDisposed = true;
             GC.SuppressFinalize(this);
         }
     }
-
 }

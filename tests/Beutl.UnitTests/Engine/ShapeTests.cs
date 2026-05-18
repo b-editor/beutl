@@ -38,7 +38,12 @@ public class ShapeTests
 
         using Bitmap bmp = renderTarget.Snapshot();
 
-        ClassicAssert.IsTrue(bmp.Save(Path.Combine(ArtifactProvider.GetArtifactDirectory(), $"0.png"), EncodedImageFormat.Png));
+        ClassicAssert.IsTrue(
+            bmp.Save(
+                Path.Combine(ArtifactProvider.GetArtifactDirectory(), $"0.png"),
+                EncodedImageFormat.Png
+            )
+        );
     }
 
     [Test]
@@ -69,7 +74,12 @@ public class ShapeTests
 
         using Bitmap bmp = renderTarget.Snapshot();
 
-        ClassicAssert.IsTrue(bmp.Save(Path.Combine(ArtifactProvider.GetArtifactDirectory(), $"0.png"), EncodedImageFormat.Png));
+        ClassicAssert.IsTrue(
+            bmp.Save(
+                Path.Combine(ArtifactProvider.GetArtifactDirectory(), $"0.png"),
+                EncodedImageFormat.Png
+            )
+        );
     }
 
     [Test]
@@ -92,7 +102,12 @@ public class ShapeTests
 
         using Bitmap bmp = renderTarget.Snapshot();
 
-        ClassicAssert.IsTrue(bmp.Save(Path.Combine(ArtifactProvider.GetArtifactDirectory(), $"0.png"), EncodedImageFormat.Png));
+        ClassicAssert.IsTrue(
+            bmp.Save(
+                Path.Combine(ArtifactProvider.GetArtifactDirectory(), $"0.png"),
+                EncodedImageFormat.Png
+            )
+        );
     }
 
     [Test]
@@ -116,7 +131,12 @@ public class ShapeTests
 
         using Bitmap bmp = renderTarget.Snapshot();
 
-        ClassicAssert.IsTrue(bmp.Save(Path.Combine(ArtifactProvider.GetArtifactDirectory(), $"0.png"), EncodedImageFormat.Png));
+        ClassicAssert.IsTrue(
+            bmp.Save(
+                Path.Combine(ArtifactProvider.GetArtifactDirectory(), $"0.png"),
+                EncodedImageFormat.Png
+            )
+        );
     }
 
     [Test]
@@ -149,7 +169,12 @@ public class ShapeTests
 
         using Bitmap bmp = renderTarget.Snapshot();
 
-        ClassicAssert.IsTrue(bmp.Save(Path.Combine(ArtifactProvider.GetArtifactDirectory(), $"{alignment}.png"), EncodedImageFormat.Png));
+        ClassicAssert.IsTrue(
+            bmp.Save(
+                Path.Combine(ArtifactProvider.GetArtifactDirectory(), $"{alignment}.png"),
+                EncodedImageFormat.Png
+            )
+        );
     }
 
     [Test]
@@ -166,7 +191,10 @@ public class ShapeTests
         {
             float angle = i * 4 * MathF.PI / 5;
             figure.Segments.Add(
-                new LineSegment(center + new Point(radius * MathF.Sin(angle), -radius * MathF.Cos(angle))));
+                new LineSegment(
+                    center + new Point(radius * MathF.Sin(angle), -radius * MathF.Cos(angle))
+                )
+            );
         }
 
         figure.IsClosed.CurrentValue = true;
@@ -191,7 +219,12 @@ public class ShapeTests
 
         using Bitmap bmp = renderTarget.Snapshot();
 
-        ClassicAssert.IsTrue(bmp.Save(Path.Combine(ArtifactProvider.GetArtifactDirectory(), $"0.png"), EncodedImageFormat.Png));
+        ClassicAssert.IsTrue(
+            bmp.Save(
+                Path.Combine(ArtifactProvider.GetArtifactDirectory(), $"0.png"),
+                EncodedImageFormat.Png
+            )
+        );
     }
 
     [Test]
@@ -216,7 +249,10 @@ public class ShapeTests
         {
             float angle = i * 4 * MathF.PI / 5;
             figure.Segments.Add(
-                new LineSegment(center + new Point(radius * MathF.Sin(angle), -radius * MathF.Cos(angle))));
+                new LineSegment(
+                    center + new Point(radius * MathF.Sin(angle), -radius * MathF.Cos(angle))
+                )
+            );
         }
 
         figure.IsClosed.CurrentValue = true;
@@ -248,6 +284,14 @@ public class ShapeTests
 
         using Bitmap bmp = renderTarget.Snapshot();
 
-        ClassicAssert.IsTrue(bmp.Save(Path.Combine(ArtifactProvider.GetArtifactDirectory(), $"{alignment}_{fillType}.png"), EncodedImageFormat.Png));
+        ClassicAssert.IsTrue(
+            bmp.Save(
+                Path.Combine(
+                    ArtifactProvider.GetArtifactDirectory(),
+                    $"{alignment}_{fillType}.png"
+                ),
+                EncodedImageFormat.Png
+            )
+        );
     }
 }

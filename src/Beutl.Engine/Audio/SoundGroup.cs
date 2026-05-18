@@ -47,7 +47,9 @@ public sealed partial class SoundGroup : Sound, IFlowOperator
                 {
                     var shiftNode = context.CreateShiftNode(original.TimeRange.Start);
                     var clipNode2 = context.CreateClipNode(
-                        original.TimeRange.Start, TimeRange.Start - original.TimeRange.Start);
+                        original.TimeRange.Start,
+                        TimeRange.Start - original.TimeRange.Start
+                    );
                     context.Connect(outputNode, shiftNode);
                     context.Connect(shiftNode, clipNode2);
                     context.MarkAsOutput(clipNode2);
@@ -67,7 +69,9 @@ public sealed partial class SoundGroup : Sound, IFlowOperator
                 {
                     var shiftNode = context.CreateShiftNode(TimeRange.End);
                     var clipNode2 = context.CreateClipNode(
-                        TimeRange.End, original.TimeRange.End - TimeRange.End);
+                        TimeRange.End,
+                        original.TimeRange.End - TimeRange.End
+                    );
                     context.Connect(outputNode, shiftNode);
                     context.Connect(shiftNode, clipNode2);
                     context.MarkAsOutput(clipNode2);
@@ -147,7 +151,8 @@ public sealed partial class SoundGroup : Sound, IFlowOperator
                 consumed: consumed,
                 field: Children,
                 versions: _childrenVersion,
-                changed: ref changed);
+                changed: ref changed
+            );
 
             if (changed)
                 Version++;

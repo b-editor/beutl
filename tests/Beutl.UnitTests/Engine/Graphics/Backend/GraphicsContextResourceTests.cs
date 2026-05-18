@@ -66,7 +66,8 @@ public class GraphicsContextResourceTests
             using var buffer = ctx.CreateBuffer(
                 256,
                 BufferUsage.UniformBuffer | BufferUsage.TransferDestination,
-                MemoryProperty.HostVisible | MemoryProperty.HostCoherent);
+                MemoryProperty.HostVisible | MemoryProperty.HostCoherent
+            );
 
             Assert.That(buffer.Size, Is.EqualTo(256));
         });
@@ -84,7 +85,8 @@ public class GraphicsContextResourceTests
             using var buffer = ctx.CreateBuffer(
                 size,
                 BufferUsage.UniformBuffer | BufferUsage.TransferDestination,
-                MemoryProperty.HostVisible | MemoryProperty.HostCoherent);
+                MemoryProperty.HostVisible | MemoryProperty.HostCoherent
+            );
 
             buffer.Upload<int>(payload);
 
@@ -124,16 +126,20 @@ public class GraphicsContextResourceTests
         {
             var compiler = ctx.CreateShaderCompiler();
             const string source = """
-                #version 450
-                layout(location = 0) out vec4 outColor;
-                void main() { outColor = vec4(1.0); }
-                """;
+            #version 450
+            layout(location = 0) out vec4 outColor;
+            void main() { outColor = vec4(1.0); }
+            """;
 
             var spirv = compiler.CompileToSpirv(source, ShaderStage.Fragment);
 
             Assert.That(spirv, Is.Not.Null);
             Assert.That(spirv.Length, Is.GreaterThan(0));
-            Assert.That(spirv.Length % 4, Is.EqualTo(0), "SPIR-V は 4 バイト単位の語の列であるべきです。");
+            Assert.That(
+                spirv.Length % 4,
+                Is.EqualTo(0),
+                "SPIR-V は 4 バイト単位の語の列であるべきです。"
+            );
         });
     }
 

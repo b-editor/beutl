@@ -23,13 +23,22 @@ public sealed partial class Clipping : FilterEffect
     [Display(Name = nameof(GraphicsStrings.Clipping_Right), ResourceType = typeof(GraphicsStrings))]
     public IProperty<float> Right { get; } = Property.CreateAnimatable<float>();
 
-    [Display(Name = nameof(GraphicsStrings.Clipping_Bottom), ResourceType = typeof(GraphicsStrings))]
+    [Display(
+        Name = nameof(GraphicsStrings.Clipping_Bottom),
+        ResourceType = typeof(GraphicsStrings)
+    )]
     public IProperty<float> Bottom { get; } = Property.CreateAnimatable<float>();
 
-    [Display(Name = nameof(GraphicsStrings.Clipping_AutoCenter), ResourceType = typeof(GraphicsStrings))]
+    [Display(
+        Name = nameof(GraphicsStrings.Clipping_AutoCenter),
+        ResourceType = typeof(GraphicsStrings)
+    )]
     public IProperty<bool> AutoCenter { get; } = Property.CreateAnimatable(false);
 
-    [Display(Name = nameof(GraphicsStrings.Clipping_AutoClip), ResourceType = typeof(GraphicsStrings))]
+    [Display(
+        Name = nameof(GraphicsStrings.Clipping_AutoClip),
+        ResourceType = typeof(GraphicsStrings)
+    )]
     public IProperty<bool> AutoClip { get; } = Property.CreateAnimatable(false);
 
     public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
@@ -39,9 +48,13 @@ public sealed partial class Clipping : FilterEffect
         context.CustomEffect((thickness, r.AutoCenter, r.AutoClip), Apply, TransformBounds);
     }
 
-    private static Rect TransformBounds((Thickness thickness, bool autoCenter, bool autoClip) data, Rect rect)
+    private static Rect TransformBounds(
+        (Thickness thickness, bool autoCenter, bool autoClip) data,
+        Rect rect
+    )
     {
-        if (data.autoClip) return Rect.Invalid;
+        if (data.autoClip)
+            return Rect.Invalid;
 
         var result = rect.Deflate(data.thickness).Normalize();
         if (data.autoCenter)
@@ -70,10 +83,14 @@ public sealed partial class Clipping : FilterEffect
             {
                 if (row[x] != 0)
                 {
-                    if (x0 > x) x0 = x;
-                    if (y0 > y) y0 = y;
-                    if (x1 < x) x1 = x;
-                    if (y1 < y) y1 = y;
+                    if (x0 > x)
+                        x0 = x;
+                    if (y0 > y)
+                        y0 = y;
+                    if (x1 < x)
+                        x1 = x;
+                    if (y1 < y)
+                        y1 = y;
                 }
             }
         }
@@ -81,8 +98,10 @@ public sealed partial class Clipping : FilterEffect
         return new Thickness(x0, y0, bitmap.Width - x1, bitmap.Height - y1);
     }
 
-    private static void Apply((Thickness thickness, bool autoCenter, bool autoClip) data,
-        CustomFilterEffectContext context)
+    private static void Apply(
+        (Thickness thickness, bool autoCenter, bool autoClip) data,
+        CustomFilterEffectContext context
+    )
     {
         Thickness originalThickness = data.thickness;
         bool autoCenter = data.autoCenter;
@@ -108,8 +127,14 @@ public sealed partial class Clipping : FilterEffect
             }
             else
             {
-                float pointX = MathF.CopySign(MathF.Ceiling(thickness.Left) - thickness.Left, thickness.Left);
-                float pointY = MathF.CopySign(MathF.Ceiling(thickness.Top) - thickness.Top, thickness.Top);
+                float pointX = MathF.CopySign(
+                    MathF.Ceiling(thickness.Left) - thickness.Left,
+                    thickness.Left
+                );
+                float pointY = MathF.CopySign(
+                    MathF.Ceiling(thickness.Top) - thickness.Top,
+                    thickness.Top
+                );
 
                 var newBounds = clipRect
                     .WithX(target.Bounds.X + thickness.Left - pointX)
@@ -130,12 +155,17 @@ public sealed partial class Clipping : FilterEffect
                 if (autoCenter)
                 {
                     Rect centeredRect = originalRect.CenterRect(clipRect);
-                    newTarget = context.CreateTarget(centeredRect.Translate(target.Bounds.Position));
+                    newTarget = context.CreateTarget(
+                        centeredRect.Translate(target.Bounds.Position)
+                    );
                     using (ImmediateCanvas newCanvas = context.Open(newTarget))
                     using (newCanvas.PushTransform(Matrix.CreateTranslation(pointX, pointY)))
                     {
                         newCanvas.Clear();
-                        newCanvas.DrawRenderTarget(target.RenderTarget!, new(centeredRect.X, centeredRect.Y));
+                        newCanvas.DrawRenderTarget(
+                            target.RenderTarget!,
+                            new(centeredRect.X, centeredRect.Y)
+                        );
                     }
                 }
                 else
@@ -145,8 +175,10 @@ public sealed partial class Clipping : FilterEffect
                     using (newCanvas.PushTransform(Matrix.CreateTranslation(pointX, pointY)))
                     {
                         newCanvas.Clear();
-                        newCanvas.DrawRenderTarget(target.RenderTarget!,
-                            new(target.Bounds.X - newBounds.X, target.Bounds.Y - newBounds.Y));
+                        newCanvas.DrawRenderTarget(
+                            target.RenderTarget!,
+                            new(target.Bounds.X - newBounds.X, target.Bounds.Y - newBounds.Y)
+                        );
                     }
                 }
 

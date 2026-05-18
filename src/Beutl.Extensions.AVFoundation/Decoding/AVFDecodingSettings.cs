@@ -12,19 +12,27 @@ public sealed class AVFDecodingSettings : ExtensionSettings
 
     static AVFDecodingSettings()
     {
-        ThresholdFrameCountProperty = ConfigureProperty<int, AVFDecodingSettings>(nameof(ThresholdFrameCount))
+        ThresholdFrameCountProperty = ConfigureProperty<int, AVFDecodingSettings>(
+                nameof(ThresholdFrameCount)
+            )
             .DefaultValue(30)
             .Register();
 
-        ThresholdSampleCountProperty = ConfigureProperty<int, AVFDecodingSettings>(nameof(ThresholdSampleCount))
+        ThresholdSampleCountProperty = ConfigureProperty<int, AVFDecodingSettings>(
+                nameof(ThresholdSampleCount)
+            )
             .DefaultValue(30000)
             .Register();
 
-        MaxVideoBufferSizeProperty = ConfigureProperty<int, AVFDecodingSettings>(nameof(MaxVideoBufferSize))
+        MaxVideoBufferSizeProperty = ConfigureProperty<int, AVFDecodingSettings>(
+                nameof(MaxVideoBufferSize)
+            )
             .DefaultValue(4)
             .Register();
 
-        MaxAudioBufferSizeProperty = ConfigureProperty<int, AVFDecodingSettings>(nameof(MaxAudioBufferSize))
+        MaxAudioBufferSizeProperty = ConfigureProperty<int, AVFDecodingSettings>(
+                nameof(MaxAudioBufferSize)
+            )
             .DefaultValue(20)
             .Register();
 
@@ -32,7 +40,8 @@ public sealed class AVFDecodingSettings : ExtensionSettings
             ThresholdFrameCountProperty,
             ThresholdSampleCountProperty,
             MaxVideoBufferSizeProperty,
-            MaxAudioBufferSizeProperty);
+            MaxAudioBufferSizeProperty
+        );
     }
 
     [Range(1, int.MaxValue)]

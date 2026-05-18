@@ -8,7 +8,11 @@ namespace Beutl.Serialization;
 public partial class JsonSerializationContext
 {
     private static object? Deserialize(
-        JsonNode node, Type baseType, string propertyName, ICoreSerializationContext? parent)
+        JsonNode node,
+        Type baseType,
+        string propertyName,
+        ICoreSerializationContext? parent
+    )
     {
         // JsonNode型として要求されている場合はそのまま返す
         if (baseType.IsAssignableTo(typeof(JsonNode)))
@@ -21,7 +25,7 @@ public partial class JsonSerializationContext
             JsonObject obj => DeserializeObject(obj, baseType, parent),
             JsonArray jarray => DeserializeArray(jarray, baseType, parent),
             JsonValue jsonValue => DeserializeValue(jsonValue, baseType, parent),
-            _ => DeserializeWithJsonSerializer(node, baseType)
+            _ => DeserializeWithJsonSerializer(node, baseType),
         };
     }
 
@@ -31,7 +35,10 @@ public partial class JsonSerializationContext
     }
 
     private static object? DeserializeObject(
-        JsonObject obj, Type baseType, ICoreSerializationContext? parent)
+        JsonObject obj,
+        Type baseType,
+        ICoreSerializationContext? parent
+    )
     {
         // Dictionary<string, T> の場合
         if (TryDeserializeDictionary(obj, baseType, parent, out object? result))
@@ -49,7 +56,11 @@ public partial class JsonSerializationContext
     }
 
     private static bool TryDeserializeDictionary(
-        JsonObject obj, Type baseType, ICoreSerializationContext? parent, out object? result)
+        JsonObject obj,
+        Type baseType,
+        ICoreSerializationContext? parent,
+        out object? result
+    )
     {
         result = null;
 
@@ -66,9 +77,10 @@ public partial class JsonSerializationContext
 
         foreach (KeyValuePair<string, JsonNode?> item in obj)
         {
-            object? value = item.Value == null
-                ? DefaultValueHelpers.GetDefault(valueType)
-                : Deserialize(item.Value, valueType, item.Key, parent);
+            object? value =
+                item.Value == null
+                    ? DefaultValueHelpers.GetDefault(valueType)
+                    : Deserialize(item.Value, valueType, item.Key, parent);
 
             output.Add(new(item.Key, value));
         }
@@ -78,19 +90,26 @@ public partial class JsonSerializationContext
     }
 
     private static bool TryDeserializeCoreSerializable(
-        JsonObject obj, Type baseType, ICoreSerializationContext? parent, out object? result)
+        JsonObject obj,
+        Type baseType,
+        ICoreSerializationContext? parent,
+        out object? result
+    )
     {
         result = null;
 
         Type? actualType = baseType.IsSealed ? baseType : obj.GetDiscriminator(baseType);
 
-        if (actualType?.IsAssignableTo(typeof(ICoreSerializable)) != true) return false;
+        if (actualType?.IsAssignableTo(typeof(ICoreSerializable)) != true)
+            return false;
 
         try
         {
-            var instance = Activator.CreateInstance(actualType) as ICoreSerializable
-                           ?? throw new InvalidOperationException(
-                               $"Could not create instance of type {actualType.FullName}.");
+            var instance =
+                Activator.CreateInstance(actualType) as ICoreSerializable
+                ?? throw new InvalidOperationException(
+                    $"Could not create instance of type {actualType.FullName}."
+                );
 
             CoreSerializerOptions? options = null;
             CoreSerializer.ReflectUri(obj, instance, parent, ref options);
@@ -99,7 +118,8 @@ public partial class JsonSerializationContext
                 ownerType: actualType,
                 parent: parent,
                 json: obj,
-                options: options);
+                options: options
+            );
 
             using (ThreadLocalSerializationContext.Enter(context))
             {
@@ -115,8 +135,10 @@ public partial class JsonSerializationContext
             result = instance;
             return true;
         }
-        catch (Exception ex) when (FallbackDeserializationHelper.TryCreateFallback(
-            baseType, actualType, obj, ex) is { } fallback)
+        catch (Exception ex)
+            when (FallbackDeserializationHelper.TryCreateFallback(baseType, actualType, obj, ex)
+                    is { } fallback
+            )
         {
             result = fallback;
             return true;
@@ -124,7 +146,10 @@ public partial class JsonSerializationContext
     }
 
     private static object? DeserializeArray(
-        JsonArray jarray, Type baseType, ICoreSerializationContext? parent)
+        JsonArray jarray,
+        Type baseType,
+        ICoreSerializationContext? parent
+    )
     {
         Type? elementType = ArrayTypeHelpers.GetElementType(baseType);
 
@@ -140,7 +165,11 @@ public partial class JsonSerializationContext
     }
 
     private static void DeserializeArrayElements(
-        List<object?> output, JsonArray jarray, Type elementType, ICoreSerializationContext? parent)
+        List<object?> output,
+        JsonArray jarray,
+        Type elementType,
+        ICoreSerializationContext? parent
+    )
     {
         int index = 0;
 
@@ -160,7 +189,10 @@ public partial class JsonSerializationContext
     }
 
     private static object? DeserializeValue(
-        JsonValue jsonValue, Type baseType, ICoreSerializationContext? parent)
+        JsonValue jsonValue,
+        Type baseType,
+        ICoreSerializationContext? parent
+    )
     {
         // IReference の場合
         if (jsonValue.TryGetValue(out Guid id) && baseType.IsAssignableTo(typeof(IReference)))
@@ -170,9 +202,11 @@ public partial class JsonSerializationContext
 
         // 外部ファイル参照の ICoreSerializable の場合
         // IFileSourceを実装している場合はJsonConverterで処理されるのでここでは処理しない
-        if (jsonValue.TryGetValue(out string? uriString)
+        if (
+            jsonValue.TryGetValue(out string? uriString)
             && typeof(ICoreSerializable).IsAssignableFrom(baseType)
-            && !typeof(IFileSource).IsAssignableFrom(baseType))
+            && !typeof(IFileSource).IsAssignableFrom(baseType)
+        )
         {
             return DeserializeObjectFile(uriString, baseType, parent);
         }
@@ -181,7 +215,10 @@ public partial class JsonSerializationContext
     }
 
     private static object DeserializeObjectFile(
-        string? uriString, Type type, ICoreSerializationContext? parent)
+        string? uriString,
+        Type type,
+        ICoreSerializationContext? parent
+    )
     {
         Uri uri = ResolveUri(uriString, parent);
         return CoreSerializer.RestoreFromUri(uri, type);
@@ -229,9 +266,7 @@ public partial class JsonSerializationContext
         if (node == null)
         {
             // プロパティがnullの場合
-            return useOptionalDefault
-                ? DefaultValueHelpers.GetDefaultOrOptional(type)
-                : null;
+            return useOptionalDefault ? DefaultValueHelpers.GetDefaultOrOptional(type) : null;
         }
 
         return Deserialize(node, type, name, this);

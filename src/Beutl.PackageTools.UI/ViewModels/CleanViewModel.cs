@@ -1,10 +1,7 @@
 ﻿using System.Reactive.Linq;
-
 using Beutl.Logging;
 using Beutl.Utilities;
-
 using NuGet.Packaging.Core;
-
 using Reactive.Bindings;
 
 namespace Beutl.PackageTools.UI.ViewModels;
@@ -21,22 +18,29 @@ public class CleanViewModel : IProgress<double>
         _installer = app.GetResource<PackageInstaller>();
         PackageCleanContext context = _installer.PrepareForClean(null);
 
-        Items = context.UnnecessaryPackages.Select(v => new CleanPackage(v, new(true)))
+        Items = context
+            .UnnecessaryPackages.Select(v => new CleanPackage(v, new(true)))
             .Do(v => v.Condition.Skip(1).Subscribe(c => ConditionChanged(v.Package, c)))
             .ToArray();
 
         SizeToBeReleased.Value = context.SizeToBeReleased;
-        SizeToBeReleasedString = SizeToBeReleased.Select(v => StringFormats.ToHumanReadableSize(v))
+        SizeToBeReleasedString = SizeToBeReleased
+            .Select(v => StringFormats.ToHumanReadableSize(v))
             .ToReadOnlyReactiveProperty()!;
 
-        Finished = Succeeded.CombineLatest(Failed, Canceled)
+        Finished = Succeeded
+            .CombineLatest(Failed, Canceled)
             .Select(t => t.First || t.Second || t.Third)
             .ToReadOnlyReactiveProperty();
     }
 
     private void ConditionChanged(PackageIdentity package, bool condition)
     {
-        _logger.LogDebug("Condition changed for package {PackageId} to {Condition}.", package.Id, condition);
+        _logger.LogDebug(
+            "Condition changed for package {PackageId} to {Condition}.",
+            package.Id,
+            condition
+        );
         long size = SizeToBeReleased.Value;
 
         string directory = Helper.PackagePathResolver.GetInstalledPath(package);
@@ -82,7 +86,10 @@ public class CleanViewModel : IProgress<double>
         {
             _logger.LogInformation("Starting to delete unnecessary packages.");
 
-            PackageCleanContext context = _installer.PrepareForClean(Items.Where(v => !v.Condition.Value).Select(v => v.Package), token);
+            PackageCleanContext context = _installer.PrepareForClean(
+                Items.Where(v => !v.Condition.Value).Select(v => v.Package),
+                token
+            );
 
             Message.Value = Strings.Deleting_unnecessary_packages;
             _installer.Clean(context, this, token);
@@ -92,9 +99,15 @@ public class CleanViewModel : IProgress<double>
             {
                 ErrorMessage.Value = $"""
                     {Strings.These_packages_were_not_deleted_successfully}
-                    {string.Join('\n', context.FailedPackages.Select(i => $"- {Path.GetFileName(i)}"))}
+                    {string.Join(
+                        '\n',
+                        context.FailedPackages.Select(i => $"- {Path.GetFileName(i)}")
+                    )}
                     """;
-                _logger.LogWarning("Some packages were not deleted successfully: {FailedPackages}", context.FailedPackages);
+                _logger.LogWarning(
+                    "Some packages were not deleted successfully: {FailedPackages}",
+                    context.FailedPackages
+                );
                 Failed.Value = true;
             }
             else
@@ -102,7 +115,6 @@ public class CleanViewModel : IProgress<double>
                 _logger.LogInformation("Successfully deleted all unnecessary packages.");
                 Succeeded.Value = true;
             }
-
         }
         catch (OperationCanceledException)
         {

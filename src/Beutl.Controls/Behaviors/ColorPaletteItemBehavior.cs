@@ -1,9 +1,7 @@
 ﻿using Avalonia.Input;
 using Avalonia.VisualTree;
 using Avalonia.Xaml.Interactivity;
-
 using Beutl.Controls.PropertyEditors;
-
 using FluentAvalonia.UI.Controls;
 
 namespace Beutl.Controls.Behaviors;
@@ -17,8 +15,16 @@ public class ColorPaletteItemBehavior : Behavior<ColorPaletteItem>
         base.OnAttached();
         if (AssociatedObject is { })
         {
-            AssociatedObject.AddHandler(InputElement.PointerPressedEvent, OnPointerPressed, handledEventsToo: true);
-            AssociatedObject.AddHandler(InputElement.PointerReleasedEvent, OnPointerReleased, handledEventsToo: true);
+            AssociatedObject.AddHandler(
+                InputElement.PointerPressedEvent,
+                OnPointerPressed,
+                handledEventsToo: true
+            );
+            AssociatedObject.AddHandler(
+                InputElement.PointerReleasedEvent,
+                OnPointerReleased,
+                handledEventsToo: true
+            );
         }
     }
 
@@ -38,7 +44,8 @@ public class ColorPaletteItemBehavior : Behavior<ColorPaletteItem>
         {
             _isPressed = false;
 
-            SimpleColorPickerFlyoutPresenter fp = AssociatedObject.FindAncestorOfType<SimpleColorPickerFlyoutPresenter>();
+            SimpleColorPickerFlyoutPresenter fp =
+                AssociatedObject.FindAncestorOfType<SimpleColorPickerFlyoutPresenter>();
             if (fp?.Content is SimpleColorPicker cp)
             {
                 cp.SetColor(AssociatedObject.Color);
@@ -46,7 +53,8 @@ public class ColorPaletteItemBehavior : Behavior<ColorPaletteItem>
                 return;
             }
 
-            BrushEditorFlyoutPresenter fp2 = AssociatedObject.FindAncestorOfType<BrushEditorFlyoutPresenter>();
+            BrushEditorFlyoutPresenter fp2 =
+                AssociatedObject.FindAncestorOfType<BrushEditorFlyoutPresenter>();
             if (fp2 != null)
             {
                 fp2.SetColorPaletteItem(AssociatedObject.Color);
@@ -57,8 +65,10 @@ public class ColorPaletteItemBehavior : Behavior<ColorPaletteItem>
 
     private void OnPointerPressed(object sender, PointerPressedEventArgs e)
     {
-        if (AssociatedObject != null
-            && e.GetCurrentPoint(AssociatedObject).Properties.IsLeftButtonPressed)
+        if (
+            AssociatedObject != null
+            && e.GetCurrentPoint(AssociatedObject).Properties.IsLeftButtonPressed
+        )
         {
             _isPressed = true;
             e.Handled = true;

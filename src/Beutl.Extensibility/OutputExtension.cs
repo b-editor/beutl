@@ -2,7 +2,6 @@
 using System.Text.Json.Nodes;
 using Avalonia.Controls;
 using Avalonia.Platform.Storage;
-
 using Reactive.Bindings;
 
 namespace Beutl.Extensibility;
@@ -37,9 +36,15 @@ public abstract class OutputExtension : Extension
 {
     public abstract FilePickerFileType GetFilePickerFileType();
 
-    public abstract bool TryCreateControl(IEditorContext editorContext, [NotNullWhen(true)] out Control? control);
+    public abstract bool TryCreateControl(
+        IEditorContext editorContext,
+        [NotNullWhen(true)] out Control? control
+    );
 
-    public abstract bool TryCreateContext(IEditorContext editorContext, [NotNullWhen(true)] out IOutputContext? context);
+    public abstract bool TryCreateContext(
+        IEditorContext editorContext,
+        [NotNullWhen(true)] out IOutputContext? context
+    );
 
     public abstract bool IsSupported(Type type);
 }

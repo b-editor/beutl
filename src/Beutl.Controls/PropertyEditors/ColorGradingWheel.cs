@@ -15,13 +15,18 @@ public class ColorGradingWheel : PropertyEditor
             nameof(Color),
             o => o.Color,
             (o, v) => o.Color = v,
-            defaultBindingMode: BindingMode.TwoWay);
+            defaultBindingMode: BindingMode.TwoWay
+        );
 
     public static readonly StyledProperty<GradingColorPickerInputType> InputTypeProperty =
-        AvaloniaProperty.Register<ColorGradingWheel, GradingColorPickerInputType>(nameof(InputType));
+        AvaloniaProperty.Register<ColorGradingWheel, GradingColorPickerInputType>(
+            nameof(InputType)
+        );
 
-    public static readonly StyledProperty<bool> ShowDetailsProperty =
-        AvaloniaProperty.Register<ColorGradingWheel, bool>(nameof(ShowDetails));
+    public static readonly StyledProperty<bool> ShowDetailsProperty = AvaloniaProperty.Register<
+        ColorGradingWheel,
+        bool
+    >(nameof(ShowDetails));
 
     private GradingColorPicker? _gradingColorPicker;
 
@@ -62,15 +67,31 @@ public class ColorGradingWheel : PropertyEditor
         }
     }
 
-    private void OnColorConfirmed(GradingColorPicker sender, (GradingColor OldValue, GradingColor NewValue) args)
+    private void OnColorConfirmed(
+        GradingColorPicker sender,
+        (GradingColor OldValue, GradingColor NewValue) args
+    )
     {
-        RaiseEvent(new PropertyEditorValueChangedEventArgs<GradingColor>(
-            args.NewValue, args.OldValue, ValueConfirmedEvent));
+        RaiseEvent(
+            new PropertyEditorValueChangedEventArgs<GradingColor>(
+                args.NewValue,
+                args.OldValue,
+                ValueConfirmedEvent
+            )
+        );
     }
 
-    private void OnColorChanged(GradingColorPicker sender, (GradingColor OldValue, GradingColor NewValue) args)
+    private void OnColorChanged(
+        GradingColorPicker sender,
+        (GradingColor OldValue, GradingColor NewValue) args
+    )
     {
-        RaiseEvent(new PropertyEditorValueChangedEventArgs<GradingColor>(
-            args.NewValue, args.OldValue, ValueChangedEvent));
+        RaiseEvent(
+            new PropertyEditorValueChangedEventArgs<GradingColor>(
+                args.NewValue,
+                args.OldValue,
+                ValueChangedEvent
+            )
+        );
     }
 }

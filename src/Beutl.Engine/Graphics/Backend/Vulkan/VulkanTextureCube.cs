@@ -12,8 +12,8 @@ internal sealed unsafe class VulkanTextureCube : ITextureCube
     private readonly VulkanContext _context;
     private readonly Silk.NET.Vulkan.Image _image;
     private readonly DeviceMemory _memory;
-    private readonly ImageView _imageView;           // Cube map view for sampling
-    private readonly ImageView[] _faceViews;         // Individual face views for framebuffer attachment
+    private readonly ImageView _imageView; // Cube map view for sampling
+    private readonly ImageView[] _faceViews; // Individual face views for framebuffer attachment
     private readonly int _size;
     private readonly TextureFormat _format;
     private ImageLayout _currentLayout = ImageLayout.Undefined;
@@ -23,7 +23,9 @@ internal sealed unsafe class VulkanTextureCube : ITextureCube
         VulkanContext context,
         int size,
         TextureFormat format,
-        ImageUsageFlags usage = ImageUsageFlags.SampledBit | ImageUsageFlags.DepthStencilAttachmentBit)
+        ImageUsageFlags usage =
+            ImageUsageFlags.SampledBit | ImageUsageFlags.DepthStencilAttachmentBit
+    )
     {
         _context = context;
         _size = size;
@@ -37,24 +39,26 @@ internal sealed unsafe class VulkanTextureCube : ITextureCube
         var imageInfo = new ImageCreateInfo
         {
             SType = StructureType.ImageCreateInfo,
-            Flags = ImageCreateFlags.CreateCubeCompatibleBit,  // Enable cube map compatibility
+            Flags = ImageCreateFlags.CreateCubeCompatibleBit, // Enable cube map compatibility
             ImageType = ImageType.Type2D,
             Format = format.ToVulkanFormat(),
             Extent = new Extent3D((uint)size, (uint)size, 1),
             MipLevels = 1,
-            ArrayLayers = 6,  // 6 faces for cube map
+            ArrayLayers = 6, // 6 faces for cube map
             Samples = SampleCountFlags.Count1Bit,
             Tiling = ImageTiling.Optimal,
             Usage = usage,
             SharingMode = SharingMode.Exclusive,
-            InitialLayout = ImageLayout.Undefined
+            InitialLayout = ImageLayout.Undefined,
         };
 
         Silk.NET.Vulkan.Image image;
         var result = vk.CreateImage(device, &imageInfo, null, &image);
         if (result != Result.Success)
         {
-            throw new InvalidOperationException($"Failed to create Vulkan cube map image: {result}");
+            throw new InvalidOperationException(
+                $"Failed to create Vulkan cube map image: {result}"
+            );
         }
         _image = image;
 
@@ -67,7 +71,10 @@ internal sealed unsafe class VulkanTextureCube : ITextureCube
         {
             SType = StructureType.MemoryAllocateInfo,
             AllocationSize = memReqs.Size,
-            MemoryTypeIndex = context.FindMemoryType(memReqs.MemoryTypeBits, MemoryPropertyFlags.DeviceLocalBit)
+            MemoryTypeIndex = context.FindMemoryType(
+                memReqs.MemoryTypeBits,
+                MemoryPropertyFlags.DeviceLocalBit
+            ),
         };
 
         DeviceMemory memory;
@@ -75,7 +82,9 @@ internal sealed unsafe class VulkanTextureCube : ITextureCube
         if (result != Result.Success)
         {
             vk.DestroyImage(device, _image, null);
-            throw new InvalidOperationException($"Failed to allocate Vulkan cube map image memory: {result}");
+            throw new InvalidOperationException(
+                $"Failed to allocate Vulkan cube map image memory: {result}"
+            );
         }
         _memory = memory;
 
@@ -101,8 +110,8 @@ internal sealed unsafe class VulkanTextureCube : ITextureCube
                 BaseMipLevel = 0,
                 LevelCount = 1,
                 BaseArrayLayer = 0,
-                LayerCount = 6
-            }
+                LayerCount = 6,
+            },
         };
 
         ImageView cubeView;
@@ -111,7 +120,9 @@ internal sealed unsafe class VulkanTextureCube : ITextureCube
         {
             vk.FreeMemory(device, _memory, null);
             vk.DestroyImage(device, _image, null);
-            throw new InvalidOperationException($"Failed to create Vulkan cube map image view: {result}");
+            throw new InvalidOperationException(
+                $"Failed to create Vulkan cube map image view: {result}"
+            );
         }
         _imageView = cubeView;
 
@@ -122,16 +133,16 @@ internal sealed unsafe class VulkanTextureCube : ITextureCube
             {
                 SType = StructureType.ImageViewCreateInfo,
                 Image = _image,
-                ViewType = ImageViewType.Type2D,  // Individual face as 2D view
+                ViewType = ImageViewType.Type2D, // Individual face as 2D view
                 Format = format.ToVulkanFormat(),
                 SubresourceRange = new ImageSubresourceRange
                 {
                     AspectMask = format.GetAspectMask(),
                     BaseMipLevel = 0,
                     LevelCount = 1,
-                    BaseArrayLayer = (uint)i,  // Face index
-                    LayerCount = 1
-                }
+                    BaseArrayLayer = (uint)i, // Face index
+                    LayerCount = 1,
+                },
             };
 
             ImageView faceView;
@@ -146,7 +157,9 @@ internal sealed unsafe class VulkanTextureCube : ITextureCube
                 vk.DestroyImageView(device, _imageView, null);
                 vk.FreeMemory(device, _memory, null);
                 vk.DestroyImage(device, _image, null);
-                throw new InvalidOperationException($"Failed to create Vulkan cube face image view {i}: {result}");
+                throw new InvalidOperationException(
+                    $"Failed to create Vulkan cube face image view {i}: {result}"
+                );
             }
             _faceViews[i] = faceView;
         }
@@ -195,7 +208,8 @@ internal sealed unsafe class VulkanTextureCube : ITextureCube
             newLayout,
             _format.GetAspectMask(),
             baseArrayLayer: 0,
-            layerCount: 6);
+            layerCount: 6
+        );
         _currentLayout = newLayout;
     }
 
@@ -211,7 +225,8 @@ internal sealed unsafe class VulkanTextureCube : ITextureCube
             _context,
             (ulong)data.Length,
             BufferUsage.TransferSource,
-            MemoryProperty.HostVisible | MemoryProperty.HostCoherent);
+            MemoryProperty.HostVisible | MemoryProperty.HostCoherent
+        );
 
         // Copy data to staging buffer
         stagingBuffer.Upload(data);
@@ -223,7 +238,8 @@ internal sealed unsafe class VulkanTextureCube : ITextureCube
             ImageLayout.TransferDstOptimal,
             _format.GetAspectMask(),
             baseArrayLayer: (uint)faceIndex,
-            layerCount: 1);
+            layerCount: 1
+        );
 
         // Copy buffer to image
         _context.SubmitImmediateCommands(cmd =>
@@ -238,14 +254,21 @@ internal sealed unsafe class VulkanTextureCube : ITextureCube
                     AspectMask = _format.GetAspectMask(),
                     MipLevel = 0,
                     BaseArrayLayer = (uint)faceIndex,
-                    LayerCount = 1
+                    LayerCount = 1,
                 },
                 ImageOffset = new Offset3D(0, 0, 0),
-                ImageExtent = new Extent3D((uint)_size, (uint)_size, 1)
+                ImageExtent = new Extent3D((uint)_size, (uint)_size, 1),
             };
 
             // ReSharper disable once AccessToDisposedClosure
-            _context.Vk.CmdCopyBufferToImage(cmd, stagingBuffer.Handle, _image, ImageLayout.TransferDstOptimal, 1, &region);
+            _context.Vk.CmdCopyBufferToImage(
+                cmd,
+                stagingBuffer.Handle,
+                _image,
+                ImageLayout.TransferDstOptimal,
+                1,
+                &region
+            );
         });
 
         // Transition back to shader read
@@ -255,7 +278,8 @@ internal sealed unsafe class VulkanTextureCube : ITextureCube
             ImageLayout.ShaderReadOnlyOptimal,
             _format.GetAspectMask(),
             baseArrayLayer: (uint)faceIndex,
-            layerCount: 1);
+            layerCount: 1
+        );
     }
 
     public IntPtr GetFaceView(int faceIndex)
@@ -280,7 +304,8 @@ internal sealed unsafe class VulkanTextureCube : ITextureCube
 
     public void Dispose()
     {
-        if (_disposed) return;
+        if (_disposed)
+            return;
         _disposed = true;
 
         var vk = _context.Vk;

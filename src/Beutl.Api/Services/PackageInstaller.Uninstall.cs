@@ -1,5 +1,4 @@
 ﻿using Microsoft.Extensions.Logging;
-
 using NuGet.Packaging;
 using NuGet.Packaging.Core;
 
@@ -10,11 +9,16 @@ public partial class PackageInstaller
     public PackageUninstallContext PrepareForUninstall(
         string installedPath,
         bool clean = true,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default
+    )
     {
         cancellationToken.ThrowIfCancellationRequested();
 
-        _logger.LogInformation("Preparing for uninstall. Installed path: {InstalledPath}, Clean: {Clean}", installedPath, clean);
+        _logger.LogInformation(
+            "Preparing for uninstall. Installed path: {InstalledPath}, Clean: {Clean}",
+            installedPath,
+            clean
+        );
 
         PackageIdentity uninstallPackage = new PackageFolderReader(installedPath).GetIdentity();
         PackageIdentity[] unnecessaryPackages = [uninstallPackage];
@@ -23,7 +27,8 @@ public partial class PackageInstaller
         {
             _logger.LogInformation("Cleaning unnecessary packages.");
 
-            PackageIdentity[] installedPackages = _installedPackageRepository.GetLocalPackages()
+            PackageIdentity[] installedPackages = _installedPackageRepository
+                .GetLocalPackages()
                 .Except(unnecessaryPackages, PackageIdentityComparer.Default)
                 .ToArray();
 
@@ -34,25 +39,32 @@ public partial class PackageInstaller
         foreach (PackageIdentity package in unnecessaryPackages)
         {
             string directory = Helper.PackagePathResolver.GetInstalledPath(package);
-            foreach (string file in Directory.GetFiles(directory, "*.*", SearchOption.AllDirectories))
+            foreach (
+                string file in Directory.GetFiles(directory, "*.*", SearchOption.AllDirectories)
+            )
             {
                 size += new FileInfo(file).Length;
             }
         }
 
-        _logger.LogInformation("Prepared uninstall context. Uninstall package: {UninstallPackage}, Size to be released: {SizeToBeReleased}", uninstallPackage, size);
+        _logger.LogInformation(
+            "Prepared uninstall context. Uninstall package: {UninstallPackage}, Size to be released: {SizeToBeReleased}",
+            uninstallPackage,
+            size
+        );
 
         return new PackageUninstallContext(uninstallPackage, installedPath)
         {
             UnnecessaryPackages = unnecessaryPackages,
-            SizeToBeReleased = size
+            SizeToBeReleased = size,
         };
     }
 
     public void Uninstall(
         PackageUninstallContext context,
         IProgress<double> progress,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default
+    )
     {
         cancellationToken.ThrowIfCancellationRequested();
 
@@ -62,7 +74,9 @@ public partial class PackageInstaller
         {
             string directory = Helper.PackagePathResolver.GetInstalledPath(package);
             bool hasAnyFailures = false;
-            foreach (string file in Directory.GetFiles(directory, "*.*", SearchOption.AllDirectories))
+            foreach (
+                string file in Directory.GetFiles(directory, "*.*", SearchOption.AllDirectories)
+            )
             {
                 try
                 {

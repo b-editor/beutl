@@ -2,7 +2,8 @@
 
 internal sealed class BeutlAVFException : Exception
 {
-    public BeutlAVFException(int code, string message) : base($"{message} (code={code})")
+    public BeutlAVFException(int code, string message)
+        : base($"{message} (code={code})")
     {
         Code = code;
     }
@@ -11,7 +12,8 @@ internal sealed class BeutlAVFException : Exception
 
     public static void ThrowIfFailed(int result)
     {
-        if (result == 0) return;
+        if (result == 0)
+            return;
         throw new BeutlAVFException(result, BeutlAVFNative.GetLastErrorMessage());
     }
 }

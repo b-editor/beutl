@@ -10,7 +10,8 @@ public class AuthenticatedUser(
     AuthResponse response,
     BeutlApiApplication clients,
     HttpClient httpClient,
-    DateTime writeTime)
+    DateTime writeTime
+)
 {
     private AuthResponse _response = response;
 
@@ -31,7 +32,10 @@ public class AuthenticatedUser(
 
     public async ValueTask RefreshAsync(bool force = false)
     {
-        using Activity? activity = clients.ActivitySource.StartActivity("AuthenticatedUser.Refresh", ActivityKind.Client);
+        using Activity? activity = clients.ActivitySource.StartActivity(
+            "AuthenticatedUser.Refresh",
+            ActivityKind.Client
+        );
 
         string fileName = Path.Combine(Helper.AppRoot, BeutlApiApplication.UserFileName);
         if (File.Exists(fileName))
@@ -48,7 +52,9 @@ public class AuthenticatedUser(
                 else if (fileUser != null)
                 {
                     clients.SignOut(false);
-                    throw new InvalidOperationException("The user may have been changed in another process.");
+                    throw new InvalidOperationException(
+                        "The user may have been changed in another process."
+                    );
                 }
             }
         }
@@ -58,14 +64,16 @@ public class AuthenticatedUser(
 
         if (force || IsExpired)
         {
-            _response = await clients.Account.Refresh(new RefreshTokenRequest
-            {
-                RefreshToken = RefreshToken,
-                Token = Token
-            })
+            _response = await clients
+                .Account.Refresh(
+                    new RefreshTokenRequest { RefreshToken = RefreshToken, Token = Token }
+                )
                 .ConfigureAwait(false);
             activity?.AddEvent(new("Refreshed"));
-            httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", Token);
+            httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
+                "Bearer",
+                Token
+            );
 
             if (clients.AuthenticatedUser.Value == this)
             {

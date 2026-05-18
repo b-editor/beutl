@@ -1,7 +1,6 @@
 ﻿// https://github.com/ymg2006/FluentAvalonia.ProgressRing/blob/49bf3a2287033decb36ed81f59f5e18cb9333f39/FluentAvalonia.ProgressRing/Converters/FitSquarelyWithinAspectRatioConverter.cs
 
 using System.Globalization;
-
 using Avalonia;
 using Avalonia.Data.Converters;
 

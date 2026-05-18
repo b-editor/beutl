@@ -6,7 +6,8 @@ namespace Beutl.Graphics.Rendering;
 
 public class FilterEffectRenderNode(FilterEffect.Resource filterEffect) : ContainerRenderNode
 {
-    public (FilterEffect.Resource Resource, int Version)? FilterEffect { get; private set; } = filterEffect.Capture();
+    public (FilterEffect.Resource Resource, int Version)? FilterEffect { get; private set; } =
+        filterEffect.Capture();
 
     public bool Update(FilterEffect.Resource? fe)
     {
@@ -40,37 +41,50 @@ public class FilterEffectRenderNode(FilterEffect.Resource filterEffect) : Contai
             if (builder.HasFilter())
             {
                 var imageFilter = builder.GetFilter();
-                return activator.CurrentTargets.Select(t =>
-                {
-                    var paint = new SKPaint();
-                    paint.ImageFilter = imageFilter;
-                    return RenderNodeOperation.CreateLambda(
-                        bounds: t.Bounds,
-                        render: canvas =>
-                        {
-                            using (canvas.PushBlendMode(BlendMode.SrcOver))
-                            using (canvas.PushTransform(Matrix.CreateTranslation(
-                                       t.Bounds.X - t.OriginalBounds.X,
-                                       t.Bounds.Y - t.OriginalBounds.Y)))
-                            using (canvas.PushPaint(paint))
+                return activator
+                    .CurrentTargets.Select(t =>
+                    {
+                        var paint = new SKPaint();
+                        paint.ImageFilter = imageFilter;
+                        return RenderNodeOperation.CreateLambda(
+                            bounds: t.Bounds,
+                            render: canvas =>
                             {
-                                t.Draw(canvas);
+                                using (canvas.PushBlendMode(BlendMode.SrcOver))
+                                using (
+                                    canvas.PushTransform(
+                                        Matrix.CreateTranslation(
+                                            t.Bounds.X - t.OriginalBounds.X,
+                                            t.Bounds.Y - t.OriginalBounds.Y
+                                        )
+                                    )
+                                )
+                                using (canvas.PushPaint(paint))
+                                {
+                                    t.Draw(canvas);
+                                }
+                            },
+                            hitTest: t.Bounds.Contains,
+                            onDispose: () =>
+                            {
+                                t.Dispose();
+                                paint.Dispose();
                             }
-                        },
-                        hitTest: t.Bounds.Contains,
-                        onDispose: () =>
-                        {
-                            t.Dispose();
-                            paint.Dispose();
-                        }
-                    );
-                }).ToArray();
+                        );
+                    })
+                    .ToArray();
             }
             else
             {
-                return activator.CurrentTargets.Select(i =>
-                    i.NodeOperation ??
-                    RenderNodeOperation.CreateFromRenderTarget(i.Bounds, i.Bounds.Position, i.RenderTarget!))
+                return activator
+                    .CurrentTargets.Select(i =>
+                        i.NodeOperation
+                        ?? RenderNodeOperation.CreateFromRenderTarget(
+                            i.Bounds,
+                            i.Bounds.Position,
+                            i.RenderTarget!
+                        )
+                    )
                     .ToArray();
             }
         }

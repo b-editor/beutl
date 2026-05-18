@@ -20,7 +20,10 @@ public partial class PerspectiveCamera : Camera3D
     /// <summary>
     /// Gets the vertical field of view in degrees.
     /// </summary>
-    [Display(Name = nameof(GraphicsStrings.PerspectiveCamera_FieldOfView), ResourceType = typeof(GraphicsStrings))]
+    [Display(
+        Name = nameof(GraphicsStrings.PerspectiveCamera_FieldOfView),
+        ResourceType = typeof(GraphicsStrings)
+    )]
     [Range(1f, 179f), NumberStep(1, 0.1)]
     public IProperty<float> FieldOfView { get; } = Property.CreateAnimatable(60f);
 
@@ -33,7 +36,8 @@ public partial class PerspectiveCamera : Camera3D
             fovRadians,
             aspectRatio,
             resource.NearPlane,
-            resource.FarPlane);
+            resource.FarPlane
+        );
     }
 
     public new partial class Resource : Camera3D.Resource
@@ -46,7 +50,8 @@ public partial class PerspectiveCamera : Camera3D
                 fovRadians,
                 aspectRatio,
                 NearPlane,
-                FarPlane);
+                FarPlane
+            );
         }
     }
 }

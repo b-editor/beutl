@@ -2,9 +2,7 @@
 using System.Diagnostics;
 using System.Text;
 using System.Text.Json.Serialization;
-
 using Beutl.Converters;
-
 using SkiaSharp;
 
 namespace Beutl.Media;
@@ -39,10 +37,12 @@ public class FontFamily(string familyname) : IEquatable<FontFamily?>
         if (OperatingSystem.IsLinux())
         {
             var output = new StringBuilder();
-            using Process process = Process.Start(new ProcessStartInfo("/usr/bin/fc-match", "--format %{file}")
-            {
-                RedirectStandardOutput = true
-            })!;
+            using Process process = Process.Start(
+                new ProcessStartInfo("/usr/bin/fc-match", "--format %{file}")
+                {
+                    RedirectStandardOutput = true,
+                }
+            )!;
             process.OutputDataReceived += (sender, e) =>
             {
                 if (e.Data != null)

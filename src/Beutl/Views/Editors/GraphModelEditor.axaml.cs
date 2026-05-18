@@ -3,7 +3,6 @@ using Avalonia.Animation;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Interactivity;
-
 using Beutl.ViewModels.Editors;
 
 namespace Beutl.Views.Editors;

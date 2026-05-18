@@ -15,9 +15,11 @@ internal static class DefaultValueHelpers
     {
         if (!s_optionalToGenericTypeCache.TryGetValue(type, out Type? genericType))
         {
-            if (type.IsGenericType
+            if (
+                type.IsGenericType
                 && type.GetGenericTypeDefinition() == typeof(Optional<>)
-                && type.GetGenericArguments().FirstOrDefault() is { } uType)
+                && type.GetGenericArguments().FirstOrDefault() is { } uType
+            )
             {
                 genericType = uType;
                 s_optionalToGenericTypeCache.TryAdd(type, genericType);

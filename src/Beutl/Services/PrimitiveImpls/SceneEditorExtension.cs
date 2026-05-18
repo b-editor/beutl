@@ -21,68 +21,104 @@ public sealed class SceneEditorExtension : EditorExtension
     public override string DisplayName => Strings.Editor;
 
     public override IEnumerable<ContextCommandDefinition> ContextCommands =>
-    [
-        new("PlayPause", Strings.PlayPause, Strings.PlayPause_Description,
         [
-            new ContextCommandKeyGesture("Space")
-        ]),
-        new("Next", Strings.MoveToNext, Strings.MoveToNext_Description,
-        [
-            new ContextCommandKeyGesture("Right")
-        ]),
-        new("Previous", Strings.MoveToPrevious, Strings.MoveToPrevious_Description,
-        [
-            new ContextCommandKeyGesture("Left")
-        ]),
-        new("SeekStart", Strings.MoveToStart, Strings.MoveToStart_Description,
-        [
-            new ContextCommandKeyGesture("Home"),
-            new ContextCommandKeyGesture("Cmd+Left", OSPlatform.OSX),
-        ]),
-        new("SeekEnd", Strings.MoveToEnd, Strings.MoveToEnd_Description,
-        [
-            new ContextCommandKeyGesture("End"),
-            new ContextCommandKeyGesture("Cmd+Right", OSPlatform.OSX)
-        ]),
-        new("ToggleMarker", Strings.ToggleMarker, Strings.ToggleMarker_Description,
-        [
-            new ContextCommandKeyGesture("M")
-        ]),
-        new("NextMarker", Strings.NextMarker, Strings.NextMarker_Description,
-        [
-            new ContextCommandKeyGesture("Ctrl+Right"),
-            new ContextCommandKeyGesture("Alt+Right", OSPlatform.OSX)
-        ]),
-        new("PreviousMarker", Strings.PreviousMarker, Strings.PreviousMarker_Description,
-        [
-            new ContextCommandKeyGesture("Ctrl+Left"),
-            new ContextCommandKeyGesture("Alt+Left", OSPlatform.OSX)
-        ]),
-        new("ShuttleForward", Strings.ShuttleForward, Strings.ShuttleForward_Description,
-        [
-            new ContextCommandKeyGesture("L")
-        ]),
-        new("ShuttleForwardFine", Strings.ShuttleForwardFine, Strings.ShuttleForwardFine_Description,
-        [
-            new ContextCommandKeyGesture("Shift+L")
-        ]),
-        new("ShuttleBackward", Strings.ShuttleBackward, Strings.ShuttleBackward_Description,
-        [
-            new ContextCommandKeyGesture("J")
-        ]),
-        new("ShuttleBackwardFine", Strings.ShuttleBackwardFine, Strings.ShuttleBackwardFine_Description,
-        [
-            new ContextCommandKeyGesture("Shift+J")
-        ]),
-        new("ShuttleStop", Strings.ShuttleStop, Strings.ShuttleStop_Description,
-        [
-            new ContextCommandKeyGesture("K")
-        ]),
-        new("ToggleLoop", Strings.ToggleLoop, Strings.ToggleLoop_Description,
-        [
-            new ContextCommandKeyGesture("OemQuestion")
-        ]),
-    ];
+            new(
+                "PlayPause",
+                Strings.PlayPause,
+                Strings.PlayPause_Description,
+                [new ContextCommandKeyGesture("Space")]
+            ),
+            new(
+                "Next",
+                Strings.MoveToNext,
+                Strings.MoveToNext_Description,
+                [new ContextCommandKeyGesture("Right")]
+            ),
+            new(
+                "Previous",
+                Strings.MoveToPrevious,
+                Strings.MoveToPrevious_Description,
+                [new ContextCommandKeyGesture("Left")]
+            ),
+            new(
+                "SeekStart",
+                Strings.MoveToStart,
+                Strings.MoveToStart_Description,
+                [
+                    new ContextCommandKeyGesture("Home"),
+                    new ContextCommandKeyGesture("Cmd+Left", OSPlatform.OSX),
+                ]
+            ),
+            new(
+                "SeekEnd",
+                Strings.MoveToEnd,
+                Strings.MoveToEnd_Description,
+                [
+                    new ContextCommandKeyGesture("End"),
+                    new ContextCommandKeyGesture("Cmd+Right", OSPlatform.OSX),
+                ]
+            ),
+            new(
+                "ToggleMarker",
+                Strings.ToggleMarker,
+                Strings.ToggleMarker_Description,
+                [new ContextCommandKeyGesture("M")]
+            ),
+            new(
+                "NextMarker",
+                Strings.NextMarker,
+                Strings.NextMarker_Description,
+                [
+                    new ContextCommandKeyGesture("Ctrl+Right"),
+                    new ContextCommandKeyGesture("Alt+Right", OSPlatform.OSX),
+                ]
+            ),
+            new(
+                "PreviousMarker",
+                Strings.PreviousMarker,
+                Strings.PreviousMarker_Description,
+                [
+                    new ContextCommandKeyGesture("Ctrl+Left"),
+                    new ContextCommandKeyGesture("Alt+Left", OSPlatform.OSX),
+                ]
+            ),
+            new(
+                "ShuttleForward",
+                Strings.ShuttleForward,
+                Strings.ShuttleForward_Description,
+                [new ContextCommandKeyGesture("L")]
+            ),
+            new(
+                "ShuttleForwardFine",
+                Strings.ShuttleForwardFine,
+                Strings.ShuttleForwardFine_Description,
+                [new ContextCommandKeyGesture("Shift+L")]
+            ),
+            new(
+                "ShuttleBackward",
+                Strings.ShuttleBackward,
+                Strings.ShuttleBackward_Description,
+                [new ContextCommandKeyGesture("J")]
+            ),
+            new(
+                "ShuttleBackwardFine",
+                Strings.ShuttleBackwardFine,
+                Strings.ShuttleBackwardFine_Description,
+                [new ContextCommandKeyGesture("Shift+J")]
+            ),
+            new(
+                "ShuttleStop",
+                Strings.ShuttleStop,
+                Strings.ShuttleStop_Description,
+                [new ContextCommandKeyGesture("K")]
+            ),
+            new(
+                "ToggleLoop",
+                Strings.ToggleLoop,
+                Strings.ToggleLoop_Description,
+                [new ContextCommandKeyGesture("OemQuestion")]
+            ),
+        ];
 
     public override bool TryCreateEditor(CoreObject obj, [NotNullWhen(true)] out Control? editor)
     {
@@ -98,7 +134,10 @@ public sealed class SceneEditorExtension : EditorExtension
         }
     }
 
-    public override bool TryCreateContext(CoreObject obj, [NotNullWhen(true)] out IEditorContext? context)
+    public override bool TryCreateContext(
+        CoreObject obj,
+        [NotNullWhen(true)] out IEditorContext? context
+    )
     {
         if (obj is Scene scene)
         {

@@ -14,7 +14,11 @@ using Reactive.Bindings;
 
 namespace Beutl.Editor.Components.NodeGraphTab.ViewModels;
 
-public sealed class GraphNodeViewModel : IDisposable, IJsonSerializable, IPropertyEditorContextVisitor, IServiceProvider
+public sealed class GraphNodeViewModel
+    : IDisposable,
+        IJsonSerializable,
+        IPropertyEditorContextVisitor,
+        IServiceProvider
 {
     private readonly CompositeDisposable _disposables = [];
     private readonly string _defaultName;
@@ -33,10 +37,11 @@ public sealed class GraphNodeViewModel : IDisposable, IJsonSerializable, IProper
             Color = new ImmutableLinearGradientBrush(
                 [
                     new ImmutableGradientStop(0, color.WithAlphaf(0.9f)),
-                    new ImmutableGradientStop(1, color.WithAlphaf(0.8f))
+                    new ImmutableGradientStop(1, color.WithAlphaf(0.8f)),
                 ],
                 startPoint: RelativePoint.TopLeft,
-                endPoint: RelativePoint.BottomRight);
+                endPoint: RelativePoint.BottomRight
+            );
         }
         else
         {
@@ -53,8 +58,7 @@ public sealed class GraphNodeViewModel : IDisposable, IJsonSerializable, IProper
             .ToReactiveProperty()
             .DisposeWith(_disposables);
 
-        IsExpanded.Subscribe(v => GraphNode.IsExpanded = v)
-            .DisposeWith(_disposables);
+        IsExpanded.Subscribe(v => GraphNode.IsExpanded = v).DisposeWith(_disposables);
 
         Position = node.GetObservable(GraphNode.PositionProperty)
             .Select(x => new Point(x.X, x.Y))
@@ -66,14 +70,16 @@ public sealed class GraphNodeViewModel : IDisposable, IJsonSerializable, IProper
             GraphModel? tree = GraphNode.FindHierarchicalParent<GraphModel>();
             if (tree != null)
             {
-                Connection[] allConnections = GraphNode.Items
-                    .SelectMany(i => i switch
-                    {
-                        IOutputPort outputNodePort => outputNodePort.Connections,
-                        IListPort listNodePort => listNodePort.Connections,
-                        IInputPort { Connection: var connection } => [connection],
-                        _ => []
-                    })
+                Connection[] allConnections = GraphNode
+                    .Items.SelectMany(i =>
+                        i switch
+                        {
+                            IOutputPort outputNodePort => outputNodePort.Connections,
+                            IListPort listNodePort => listNodePort.Connections,
+                            IInputPort { Connection: var connection } => [connection],
+                            _ => [],
+                        }
+                    )
                     .Select(conn => tree.AllConnections.FirstOrDefault(a => a.Id == conn.Id))
                     .Where(a => a != null)
                     .ToArray()!;
@@ -198,13 +204,19 @@ public sealed class GraphNodeViewModel : IDisposable, IJsonSerializable, IProper
         return CreateNodeMemberViewModelCore(item, context);
     }
 
-    private NodeMemberViewModel CreateNodeMemberViewModelCore(INodeMember nodeMember,
-        IPropertyEditorContext? propertyEditorContext)
+    private NodeMemberViewModel CreateNodeMemberViewModelCore(
+        INodeMember nodeMember,
+        IPropertyEditorContext? propertyEditorContext
+    )
     {
         return nodeMember switch
         {
             INodeMonitor monitor => new NodeMonitorViewModel(monitor, propertyEditorContext, this),
-            IOutputPort outputPort => new OutputPortViewModel(outputPort, propertyEditorContext, this),
+            IOutputPort outputPort => new OutputPortViewModel(
+                outputPort,
+                propertyEditorContext,
+                this
+            ),
             IInputPort inputPort => new InputPortViewModel(inputPort, propertyEditorContext, this),
             INodePort nodePort => new NodePortViewModel(nodePort, propertyEditorContext, this),
             _ => new NodeMemberViewModel(nodeMember, propertyEditorContext, this),
@@ -236,8 +248,7 @@ public sealed class GraphNodeViewModel : IDisposable, IJsonSerializable, IProper
         var itemsJson = new JsonObject();
         foreach (NodeMemberViewModel item in Items)
         {
-            if (item.Model != null
-                && item.PropertyEditorContext != null)
+            if (item.Model != null && item.PropertyEditorContext != null)
             {
                 var itemJson = new JsonObject();
                 item.PropertyEditorContext.WriteToJson(itemJson);
@@ -256,18 +267,18 @@ public sealed class GraphNodeViewModel : IDisposable, IJsonSerializable, IProper
         JsonObject itemsJson = json[nameof(Items)]!.AsObject();
         foreach (NodeMemberViewModel item in Items)
         {
-            if (item.Model != null
+            if (
+                item.Model != null
                 && item.PropertyEditorContext != null
-                && itemsJson.TryGetPropertyValue(item.Model.Id.ToString(), out JsonNode? itemJson))
+                && itemsJson.TryGetPropertyValue(item.Model.Id.ToString(), out JsonNode? itemJson)
+            )
             {
                 item.PropertyEditorContext.ReadFromJson(itemJson!.AsObject());
             }
         }
     }
 
-    public void Visit(IPropertyEditorContext context)
-    {
-    }
+    public void Visit(IPropertyEditorContext context) { }
 
     public object? GetService(Type serviceType)
     {

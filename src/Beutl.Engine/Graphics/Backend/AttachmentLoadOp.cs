@@ -18,5 +18,5 @@ public enum AttachmentLoadOp
     /// <summary>
     /// The previous contents of the attachment are undefined.
     /// </summary>
-    DontCare = 2
+    DontCare = 2,
 }

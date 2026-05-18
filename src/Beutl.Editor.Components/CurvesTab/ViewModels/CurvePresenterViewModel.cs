@@ -13,8 +13,12 @@ public sealed class CurvePresenterViewModel : IDisposable
     private readonly HistoryManager _history;
     private bool _isUpdating;
 
-    public CurvePresenterViewModel(string header, Curves effect, IProperty<CurveMap> property,
-        HistoryManager history)
+    public CurvePresenterViewModel(
+        string header,
+        Curves effect,
+        IProperty<CurveMap> property,
+        HistoryManager history
+    )
     {
         Header = header;
         _effect = effect;
@@ -30,9 +34,7 @@ public sealed class CurvePresenterViewModel : IDisposable
 
     public ObservableCollection<CurveControlPoint> Points { get; }
 
-    public void BeginEdit()
-    {
-    }
+    public void BeginEdit() { }
 
     public void EndEdit()
     {
@@ -42,7 +44,8 @@ public sealed class CurvePresenterViewModel : IDisposable
     // Viewからの変更を反映
     private void OnCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
     {
-        if (_isUpdating) return;
+        if (_isUpdating)
+            return;
 
         _isUpdating = true;
         try
@@ -59,7 +62,8 @@ public sealed class CurvePresenterViewModel : IDisposable
     // Modelからの変更を反映
     private void OnPropertyChanged(object? sender, PropertyValueChangedEventArgs<CurveMap> e)
     {
-        if (_isUpdating) return;
+        if (_isUpdating)
+            return;
 
         _isUpdating = true;
         try

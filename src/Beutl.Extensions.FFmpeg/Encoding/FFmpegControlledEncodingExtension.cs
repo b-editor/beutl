@@ -35,7 +35,6 @@ public class FFmpegControlledEncodingExtension : ControllableEncodingExtension
 #endif
     }
 
-
     public override void Load()
     {
 #if !FFMPEG_OUT_OF_PROCESS

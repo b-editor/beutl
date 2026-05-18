@@ -20,13 +20,15 @@ public interface IThumbnailsProvider
         IThumbnailCacheService? cacheService = null,
         CancellationToken cancellationToken = default,
         int startIndex = 0,
-        int endIndex = -1);
+        int endIndex = -1
+    );
 
     IAsyncEnumerable<WaveformChunk> GetWaveformChunksAsync(
         int chunkCount,
         int samplesPerChunk,
         IThumbnailCacheService? cacheService,
-        CancellationToken cancellationToken = default);
+        CancellationToken cancellationToken = default
+    );
 }
 
 public readonly record struct WaveformChunk(int Index, float MinValue, float MaxValue);

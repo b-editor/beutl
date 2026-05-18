@@ -29,7 +29,12 @@ public sealed class ResampleNode : AudioNode
         if (Inputs.Count != 1)
             throw new InvalidOperationException("Resample node requires exactly one input.");
 
-        var newContext = new AudioProcessContext(context.TimeRange, SourceSampleRate, context.AnimationSampler, context.OriginalTimeRange);
+        var newContext = new AudioProcessContext(
+            context.TimeRange,
+            SourceSampleRate,
+            context.AnimationSampler,
+            context.OriginalTimeRange
+        );
         var input = Inputs[0].Process(newContext);
 
         if (input.SampleRate == context.SampleRate)
@@ -92,7 +97,8 @@ public sealed class ResampleNode : AudioNode
                 CreateResampler(input);
             }
 
-            var outputSampleCount = (int)System.Math.Round(input.SampleCount * (double)_targetSampleRate / input.SampleRate);
+            var outputSampleCount = (int)
+                System.Math.Round(input.SampleCount * (double)_targetSampleRate / input.SampleRate);
             var output = new AudioBuffer(_targetSampleRate, input.ChannelCount, outputSampleCount);
 
             // Read resampled data
@@ -133,7 +139,10 @@ public sealed class ResampleNode : AudioNode
         public AudioBufferSampleProvider(AudioBuffer buffer)
         {
             _inputBuffer = buffer;
-            _waveFormat = WaveFormat.CreateIeeeFloatWaveFormat(buffer.SampleRate, buffer.ChannelCount);
+            _waveFormat = WaveFormat.CreateIeeeFloatWaveFormat(
+                buffer.SampleRate,
+                buffer.ChannelCount
+            );
             _position = 0;
         }
 
@@ -159,7 +168,9 @@ public sealed class ResampleNode : AudioNode
                 for (int ch = 0; ch < _inputBuffer.ChannelCount; ch++)
                 {
                     var channelData = _inputBuffer.GetChannelData(ch);
-                    buffer[offset + i * _inputBuffer.ChannelCount + ch] = channelData[_position + i];
+                    buffer[offset + i * _inputBuffer.ChannelCount + ch] = channelData[
+                        _position + i
+                    ];
                 }
             }
 

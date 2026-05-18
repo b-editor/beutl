@@ -7,7 +7,10 @@ using Beutl.Language;
 
 namespace Beutl.Graphics;
 
-[Display(Name = nameof(GraphicsStrings.DrawableTimeController), ResourceType = typeof(GraphicsStrings))]
+[Display(
+    Name = nameof(GraphicsStrings.DrawableTimeController),
+    ResourceType = typeof(GraphicsStrings)
+)]
 public sealed partial class DrawableTimeController : Drawable, IPresenter<Drawable>, IFlowOperator
 {
     public DrawableTimeController()
@@ -19,30 +22,51 @@ public sealed partial class DrawableTimeController : Drawable, IPresenter<Drawab
     [SuppressResourceClassGeneration]
     public IProperty<Drawable?> Target { get; } = Property.Create<Drawable?>();
 
-    [Display(Name = nameof(GraphicsStrings.DrawableTimeController_OffsetPosition), ResourceType = typeof(GraphicsStrings))]
+    [Display(
+        Name = nameof(GraphicsStrings.DrawableTimeController_OffsetPosition),
+        ResourceType = typeof(GraphicsStrings)
+    )]
     public IProperty<TimeSpan> OffsetPosition { get; } = Property.Create<TimeSpan>();
 
     [Display(Name = nameof(GraphicsStrings.Speed), ResourceType = typeof(GraphicsStrings))]
     [Range(0, float.MaxValue)]
     public IProperty<float> Speed { get; } = Property.CreateAnimatable(100f);
 
-    [Display(Name = nameof(GraphicsStrings.DrawableTimeController_AdjustTimeRange), ResourceType = typeof(GraphicsStrings))]
+    [Display(
+        Name = nameof(GraphicsStrings.DrawableTimeController_AdjustTimeRange),
+        ResourceType = typeof(GraphicsStrings)
+    )]
     public IProperty<bool> AdjustTimeRange { get; } = Property.Create<bool>();
 
-    [Display(Name = nameof(GraphicsStrings.DrawableTimeController_FrameRate), ResourceType = typeof(GraphicsStrings))]
+    [Display(
+        Name = nameof(GraphicsStrings.DrawableTimeController_FrameRate),
+        ResourceType = typeof(GraphicsStrings)
+    )]
     [Range(0, float.MaxValue)]
     public IProperty<float> FrameRate { get; } = Property.Create<float>();
 
-    [Display(Name = nameof(GraphicsStrings.DrawableTimeController_Loop), ResourceType = typeof(GraphicsStrings))]
+    [Display(
+        Name = nameof(GraphicsStrings.DrawableTimeController_Loop),
+        ResourceType = typeof(GraphicsStrings)
+    )]
     public IProperty<bool> Loop { get; } = Property.Create<bool>();
 
-    [Display(Name = nameof(GraphicsStrings.DrawableTimeController_Reverse), ResourceType = typeof(GraphicsStrings))]
+    [Display(
+        Name = nameof(GraphicsStrings.DrawableTimeController_Reverse),
+        ResourceType = typeof(GraphicsStrings)
+    )]
     public IProperty<bool> Reverse { get; } = Property.Create<bool>();
 
-    [Display(Name = nameof(GraphicsStrings.DrawableTimeController_HoldFirstFrame), ResourceType = typeof(GraphicsStrings))]
+    [Display(
+        Name = nameof(GraphicsStrings.DrawableTimeController_HoldFirstFrame),
+        ResourceType = typeof(GraphicsStrings)
+    )]
     public IProperty<bool> HoldFirstFrame { get; } = Property.Create<bool>();
 
-    [Display(Name = nameof(GraphicsStrings.DrawableTimeController_HoldLastFrame), ResourceType = typeof(GraphicsStrings))]
+    [Display(
+        Name = nameof(GraphicsStrings.DrawableTimeController_HoldLastFrame),
+        ResourceType = typeof(GraphicsStrings)
+    )]
     public IProperty<bool> HoldLastFrame { get; } = Property.Create<bool>();
 
     private TimeSpan CalculateTimeWithSpeed(TimeSpan timeSpan, Resource resource)
@@ -63,7 +87,11 @@ public sealed partial class DrawableTimeController : Drawable, IPresenter<Drawab
     /// <summary>
     /// Main time calculation (follows the order defined in the design document).
     /// </summary>
-    private TimeSpan CalculateTargetTime(TimeSpan currentTime, Resource resource, Drawable? targetDrawable)
+    private TimeSpan CalculateTargetTime(
+        TimeSpan currentTime,
+        Resource resource,
+        Drawable? targetDrawable
+    )
     {
         if (targetDrawable == null)
             return currentTime;
@@ -91,12 +119,16 @@ public sealed partial class DrawableTimeController : Drawable, IPresenter<Drawab
         // UseGlobalClock=true でグローバル時刻を渡す場合は要素開始 (TimeRange.Start) 時点の
         // 積分を差し引いて要素ローカルから見た累積に揃える。
         var anm = Speed.Animation;
-        if (anm is KeyFrameAnimation<float> keyFrameAnimation && keyFrameAnimation.KeyFrames.Count > 0)
+        if (
+            anm is KeyFrameAnimation<float> keyFrameAnimation
+            && keyFrameAnimation.KeyFrames.Count > 0
+        )
         {
             if (keyFrameAnimation.UseGlobalClock)
             {
-                baseTime = CalculateTimeWithSpeed(baseTime + TimeRange.Start, resource)
-                         - CalculateTimeWithSpeed(TimeRange.Start, resource);
+                baseTime =
+                    CalculateTimeWithSpeed(baseTime + TimeRange.Start, resource)
+                    - CalculateTimeWithSpeed(TimeRange.Start, resource);
             }
             else
             {
@@ -163,9 +195,7 @@ public sealed partial class DrawableTimeController : Drawable, IPresenter<Drawab
         return r.Target?.GetOriginal().MeasureInternal(availableSize, r.Target) ?? Size.Empty;
     }
 
-    protected override void OnDraw(GraphicsContext2D context, Drawable.Resource resource)
-    {
-    }
+    protected override void OnDraw(GraphicsContext2D context, Drawable.Resource resource) { }
 
     public partial class Resource
     {
@@ -204,7 +234,8 @@ public sealed partial class DrawableTimeController : Drawable, IPresenter<Drawab
                     context: context,
                     value: targetDrawable,
                     field: ref _target,
-                    changed: ref changed);
+                    changed: ref changed
+                );
                 if (changed)
                     Version++;
             }

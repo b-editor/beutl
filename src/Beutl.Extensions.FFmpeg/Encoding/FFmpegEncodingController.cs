@@ -7,8 +7,10 @@ using Microsoft.Extensions.Logging;
 
 #if BEUTL_FFMPEG_WORKER
 namespace Beutl.FFmpegWorker.Encoding;
+
 #else
 namespace Beutl.Extensions.FFmpeg.Encoding;
+
 #endif
 
 public class FFmpegEncodingController(string outputFile, FFmpegEncodingSettings settings)
@@ -28,27 +30,38 @@ public class FFmpegEncodingController(string outputFile, FFmpegEncodingSettings 
         public long NextPts { get; set; }
     }
 
-    public override FFmpegVideoEncoderSettings VideoSettings { get; } = new() { OutputFile = outputFile };
+    public override FFmpegVideoEncoderSettings VideoSettings { get; } =
+        new() { OutputFile = outputFile };
 
-    public override FFmpegAudioEncoderSettings AudioSettings { get; } = new() { OutputFile = outputFile };
+    public override FFmpegAudioEncoderSettings AudioSettings { get; } =
+        new() { OutputFile = outputFile };
 
     private AVHWDeviceType? GetAVHWDeviceType()
     {
         return settings.Acceleration switch
         {
-            FFmpegEncodingSettings.AccelerationOptions.Software => AVHWDeviceType.AV_HWDEVICE_TYPE_NONE,
-            FFmpegEncodingSettings.AccelerationOptions.VDPAU => AVHWDeviceType.AV_HWDEVICE_TYPE_VDPAU,
+            FFmpegEncodingSettings.AccelerationOptions.Software =>
+                AVHWDeviceType.AV_HWDEVICE_TYPE_NONE,
+            FFmpegEncodingSettings.AccelerationOptions.VDPAU =>
+                AVHWDeviceType.AV_HWDEVICE_TYPE_VDPAU,
             FFmpegEncodingSettings.AccelerationOptions.CUDA => AVHWDeviceType.AV_HWDEVICE_TYPE_CUDA,
-            FFmpegEncodingSettings.AccelerationOptions.VAAPI => AVHWDeviceType.AV_HWDEVICE_TYPE_VAAPI,
-            FFmpegEncodingSettings.AccelerationOptions.DXVA2 => AVHWDeviceType.AV_HWDEVICE_TYPE_DXVA2,
+            FFmpegEncodingSettings.AccelerationOptions.VAAPI =>
+                AVHWDeviceType.AV_HWDEVICE_TYPE_VAAPI,
+            FFmpegEncodingSettings.AccelerationOptions.DXVA2 =>
+                AVHWDeviceType.AV_HWDEVICE_TYPE_DXVA2,
             FFmpegEncodingSettings.AccelerationOptions.QSV => AVHWDeviceType.AV_HWDEVICE_TYPE_QSV,
-            FFmpegEncodingSettings.AccelerationOptions.VideoToolbox => AVHWDeviceType.AV_HWDEVICE_TYPE_VIDEOTOOLBOX,
-            FFmpegEncodingSettings.AccelerationOptions.D3D11VA => AVHWDeviceType.AV_HWDEVICE_TYPE_D3D11VA,
+            FFmpegEncodingSettings.AccelerationOptions.VideoToolbox =>
+                AVHWDeviceType.AV_HWDEVICE_TYPE_VIDEOTOOLBOX,
+            FFmpegEncodingSettings.AccelerationOptions.D3D11VA =>
+                AVHWDeviceType.AV_HWDEVICE_TYPE_D3D11VA,
             FFmpegEncodingSettings.AccelerationOptions.DRM => AVHWDeviceType.AV_HWDEVICE_TYPE_DRM,
-            FFmpegEncodingSettings.AccelerationOptions.OpenCL => AVHWDeviceType.AV_HWDEVICE_TYPE_OPENCL,
-            FFmpegEncodingSettings.AccelerationOptions.MediaCodec => AVHWDeviceType.AV_HWDEVICE_TYPE_MEDIACODEC,
-            FFmpegEncodingSettings.AccelerationOptions.Vulkan => AVHWDeviceType.AV_HWDEVICE_TYPE_VULKAN,
-            _ => null
+            FFmpegEncodingSettings.AccelerationOptions.OpenCL =>
+                AVHWDeviceType.AV_HWDEVICE_TYPE_OPENCL,
+            FFmpegEncodingSettings.AccelerationOptions.MediaCodec =>
+                AVHWDeviceType.AV_HWDEVICE_TYPE_MEDIACODEC,
+            FFmpegEncodingSettings.AccelerationOptions.Vulkan =>
+                AVHWDeviceType.AV_HWDEVICE_TYPE_VULKAN,
+            _ => null,
         };
     }
 
@@ -68,7 +81,14 @@ public class FFmpegEncodingController(string outputFile, FFmpegEncodingSettings 
         var frameRate = new AVRational { num = (int)fps.Numerator, den = (int)fps.Denominator };
 
         _bufferSrcCtx = _filterGraph.AddVideoSrcFilter(
-            bufferSrc, width, height, srcPixFmt, timeBase, sar, frameRate);
+            bufferSrc,
+            width,
+            height,
+            srcPixFmt,
+            timeBase,
+            sar,
+            frameRate
+        );
         _bufferSinkCtx = _filterGraph.AddVideoSinkFilter(bufferSink, [encoder.PixFmt]);
 
         var formatFilter = new MediaFilter("format");
@@ -82,8 +102,13 @@ public class FFmpegEncodingController(string outputFile, FFmpegEncodingSettings 
     }
 
     private void ConfigureAudioStream(
-        OutputFormat outFormat, MediaMuxer muxer,
-        MediaFrame audioFrame, out MediaEncoder encoder, out MediaStream stream, out SampleConverter swr)
+        OutputFormat outFormat,
+        MediaMuxer muxer,
+        MediaFrame audioFrame,
+        out MediaEncoder encoder,
+        out MediaStream stream,
+        out SampleConverter swr
+    )
     {
         var codec = AudioSettings.Codec.Equals(CodecRecord.Default)
             ? MediaCodec.FindEncoder(outFormat.AudioCodec)
@@ -92,71 +117,89 @@ public class FFmpegEncodingController(string outputFile, FFmpegEncodingSettings 
         {
             order = AVChannelOrder.AV_CHANNEL_ORDER_NATIVE,
             nb_channels = AudioSettings.Channels,
-            u = new AVChannelLayout_u { mask = ffmpeg.AV_CH_LAYOUT_STEREO }
+            u = new AVChannelLayout_u { mask = ffmpeg.AV_CH_LAYOUT_STEREO },
         };
         int sampleRate = AudioSettings.SampleRate;
         var format = (AVSampleFormat)AudioSettings.Format;
         int bitRate = AudioSettings.Bitrate;
-        encoder = MediaEncoder.Create(codec, codecContext =>
-        {
-            int[] supportedSampleRates = codec.GetSupportedSamplerates().ToArray();
-            var supportedFmts = codec.GetSampelFmts().ToArray();
-
-            if (channelLayout.nb_channels <= 0)
-                throw new InvalidOperationException("Channels must be greater than 0");
-            if (bitRate < 0)
-                throw new InvalidOperationException("Bitrate must be greater than 0");
-            _logger.LogInformation("Supported sample rates: {Rates}", string.Join(", ", supportedSampleRates));
-            _logger.LogInformation("Supported sample formats: {Formats}", string.Join(", ", supportedFmts));
-
-            if (sampleRate <= 0)
+        encoder = MediaEncoder.Create(
+            codec,
+            codecContext =>
             {
-                sampleRate = supportedSampleRates.FirstOrDefault(44100);
-            }
-            else if (supportedSampleRates.Length > 0 && supportedSampleRates.All(i => i != sampleRate))
-            {
-                throw new InvalidOperationException(
-                    $"Invalid sample rate.\nSupported sample rates: {string.Join(", ", supportedSampleRates)}");
-            }
+                int[] supportedSampleRates = codec.GetSupportedSamplerates().ToArray();
+                var supportedFmts = codec.GetSampelFmts().ToArray();
 
-            if (format == AVSampleFormat.AV_SAMPLE_FMT_NONE)
-            {
-                format = supportedFmts.FirstOrDefault(AVSampleFormat.AV_SAMPLE_FMT_S16);
-            }
-            else if (supportedFmts.Length > 0 && supportedFmts.All(i => i != format))
-            {
-                throw new InvalidOperationException(
-                    $"Invalid sample format.\nSupported sample formats: {string.Join(", ", supportedFmts.Cast<FFmpegAudioEncoderSettings.AudioFormat>())}");
-            }
+                if (channelLayout.nb_channels <= 0)
+                    throw new InvalidOperationException("Channels must be greater than 0");
+                if (bitRate < 0)
+                    throw new InvalidOperationException("Bitrate must be greater than 0");
+                _logger.LogInformation(
+                    "Supported sample rates: {Rates}",
+                    string.Join(", ", supportedSampleRates)
+                );
+                _logger.LogInformation(
+                    "Supported sample formats: {Formats}",
+                    string.Join(", ", supportedFmts)
+                );
 
-            var layouts = codec.GetChLayouts().ToArray();
-            if (layouts.Length > 0
-                && layouts.All(i => !i.IsContentEqual(channelLayout)))
-            {
-                throw new InvalidOperationException("Invalid channel layout");
-            }
+                if (sampleRate <= 0)
+                {
+                    sampleRate = supportedSampleRates.FirstOrDefault(44100);
+                }
+                else if (
+                    supportedSampleRates.Length > 0
+                    && supportedSampleRates.All(i => i != sampleRate)
+                )
+                {
+                    throw new InvalidOperationException(
+                        $"Invalid sample rate.\nSupported sample rates: {string.Join(", ", supportedSampleRates)}"
+                    );
+                }
 
-            codecContext.SampleRate = sampleRate;
-            codecContext.ChLayout = channelLayout;
-            codecContext.SampleFmt = format;
-            codecContext.BitRate = bitRate;
-            codecContext.TimeBase = new AVRational { num = 1, den = sampleRate };
-            codecContext.ThreadCount = Math.Min(Environment.ProcessorCount, 16);
+                if (format == AVSampleFormat.AV_SAMPLE_FMT_NONE)
+                {
+                    format = supportedFmts.FirstOrDefault(AVSampleFormat.AV_SAMPLE_FMT_S16);
+                }
+                else if (supportedFmts.Length > 0 && supportedFmts.All(i => i != format))
+                {
+                    throw new InvalidOperationException(
+                        $"Invalid sample format.\nSupported sample formats: {string.Join(", ", supportedFmts.Cast<FFmpegAudioEncoderSettings.AudioFormat>())}"
+                    );
+                }
 
-            if ((outFormat.Flags & ffmpeg.AVFMT_GLOBALHEADER) != 0)
-            {
-                codecContext.Flags |= ffmpeg.AV_CODEC_FLAG_GLOBAL_HEADER;
+                var layouts = codec.GetChLayouts().ToArray();
+                if (layouts.Length > 0 && layouts.All(i => !i.IsContentEqual(channelLayout)))
+                {
+                    throw new InvalidOperationException("Invalid channel layout");
+                }
+
+                codecContext.SampleRate = sampleRate;
+                codecContext.ChLayout = channelLayout;
+                codecContext.SampleFmt = format;
+                codecContext.BitRate = bitRate;
+                codecContext.TimeBase = new AVRational { num = 1, den = sampleRate };
+                codecContext.ThreadCount = Math.Min(Environment.ProcessorCount, 16);
+
+                if ((outFormat.Flags & ffmpeg.AVFMT_GLOBALHEADER) != 0)
+                {
+                    codecContext.Flags |= ffmpeg.AV_CODEC_FLAG_GLOBAL_HEADER;
+                }
             }
-        });
+        );
         stream = muxer.AddStream(encoder);
 
-        int nbsamples = (codec.Capabilities & ffmpeg.AV_CODEC_CAP_VARIABLE_FRAME_SIZE) != 0
-            ? 10000
-            : encoder.FrameSize;
+        int nbsamples =
+            (codec.Capabilities & ffmpeg.AV_CODEC_CAP_VARIABLE_FRAME_SIZE) != 0
+                ? 10000
+                : encoder.FrameSize;
 
         swr = new SampleConverter();
-        swr.SetOpts(encoder.ChLayout, encoder.SampleRate,
-            (AVSampleFormat)AudioSettings.Format, nbsamples);
+        swr.SetOpts(
+            encoder.ChLayout,
+            encoder.SampleRate,
+            (AVSampleFormat)AudioSettings.Format,
+            nbsamples
+        );
 
         // src
         audioFrame.ChLayout = encoder.ChLayout;
@@ -167,8 +210,12 @@ public class FFmpegEncodingController(string outputFile, FFmpegEncodingSettings 
     }
 
     private unsafe void ConfigureVideoStream(
-        OutputFormat outFormat, MediaMuxer muxer,
-        MediaFrame videoFrame, out MediaEncoder encoder, out MediaStream stream)
+        OutputFormat outFormat,
+        MediaMuxer muxer,
+        MediaFrame videoFrame,
+        out MediaEncoder encoder,
+        out MediaStream stream
+    )
     {
         var codec = VideoSettings.Codec.Equals(CodecRecord.Default)
             ? MediaCodec.FindEncoder(outFormat.VideoCodec)
@@ -178,48 +225,61 @@ public class FFmpegEncodingController(string outputFile, FFmpegEncodingSettings 
         var fps = VideoSettings.FrameRate;
         var format = (AVPixelFormat)VideoSettings.Format;
         int bitRate = VideoSettings.Bitrate;
-        var options = new MediaDictionary(VideoSettings.Options
-            .Where(item => !string.IsNullOrWhiteSpace(item.Name))
-            .Select(item => new KeyValuePair<string, string>(item.Name, item.Value)));
+        var options = new MediaDictionary(
+            VideoSettings
+                .Options.Where(item => !string.IsNullOrWhiteSpace(item.Name))
+                .Select(item => new KeyValuePair<string, string>(item.Name, item.Value))
+        );
 
-        encoder = MediaEncoder.Create(codec, codecContext =>
-        {
-            var supportedPixelFmts = codec.GetPixelFmts().ToArray();
-
-            if (width <= 0 || height <= 0 || fps.ToDouble() <= 0 || bitRate < 0)
-                throw new InvalidOperationException("Invalid video settings");
-            if (!supportedPixelFmts.Any())
-                throw new InvalidOperationException("Invalid video codec");
-
-            if (format == AVPixelFormat.AV_PIX_FMT_NONE)
-                format = supportedPixelFmts.First(i => ffmpeg.sws_isSupportedInput(i) != 0);
-            else if (supportedPixelFmts.All(i => i != format))
-                throw new InvalidOperationException(
-                    $"Invalid pixel format.\nSupported pixel formats: {string.Join(", ", supportedPixelFmts)}");
-            codecContext.Width = width;
-            codecContext.Height = height;
-            codecContext.TimeBase =
-                new AVRational { num = (int)fps.Denominator, den = (int)fps.Numerator };
-            codecContext.Framerate =
-                new AVRational { num = (int)fps.Numerator, den = (int)fps.Denominator };
-            codecContext.PixFmt = format;
-            codecContext.BitRate = bitRate;
-            codecContext.GopSize = VideoSettings.KeyframeRate;
-            codecContext.ThreadCount = Math.Min(Environment.ProcessorCount, 16);
-
-            codecContext.ColorPrimaries = (AVColorPrimaries)(int)VideoSettings.ColorPrimaries;
-            codecContext.ColorTrc = (AVColorTransferCharacteristic)(int)VideoSettings.ColorTrc;
-            codecContext.Colorspace = (AVColorSpace)(int)VideoSettings.ColorSpace;
-            codecContext.ColorRange = (AVColorRange)(int)VideoSettings.ColorRange;
-
-            var hwType = GetAVHWDeviceType();
-            codecContext.InitHWDeviceContext(hwType);
-
-            if ((outFormat.Flags & ffmpeg.AVFMT_GLOBALHEADER) != 0)
+        encoder = MediaEncoder.Create(
+            codec,
+            codecContext =>
             {
-                codecContext.Flags |= ffmpeg.AV_CODEC_FLAG_GLOBAL_HEADER;
-            }
-        }, options);
+                var supportedPixelFmts = codec.GetPixelFmts().ToArray();
+
+                if (width <= 0 || height <= 0 || fps.ToDouble() <= 0 || bitRate < 0)
+                    throw new InvalidOperationException("Invalid video settings");
+                if (!supportedPixelFmts.Any())
+                    throw new InvalidOperationException("Invalid video codec");
+
+                if (format == AVPixelFormat.AV_PIX_FMT_NONE)
+                    format = supportedPixelFmts.First(i => ffmpeg.sws_isSupportedInput(i) != 0);
+                else if (supportedPixelFmts.All(i => i != format))
+                    throw new InvalidOperationException(
+                        $"Invalid pixel format.\nSupported pixel formats: {string.Join(", ", supportedPixelFmts)}"
+                    );
+                codecContext.Width = width;
+                codecContext.Height = height;
+                codecContext.TimeBase = new AVRational
+                {
+                    num = (int)fps.Denominator,
+                    den = (int)fps.Numerator,
+                };
+                codecContext.Framerate = new AVRational
+                {
+                    num = (int)fps.Numerator,
+                    den = (int)fps.Denominator,
+                };
+                codecContext.PixFmt = format;
+                codecContext.BitRate = bitRate;
+                codecContext.GopSize = VideoSettings.KeyframeRate;
+                codecContext.ThreadCount = Math.Min(Environment.ProcessorCount, 16);
+
+                codecContext.ColorPrimaries = (AVColorPrimaries)(int)VideoSettings.ColorPrimaries;
+                codecContext.ColorTrc = (AVColorTransferCharacteristic)(int)VideoSettings.ColorTrc;
+                codecContext.Colorspace = (AVColorSpace)(int)VideoSettings.ColorSpace;
+                codecContext.ColorRange = (AVColorRange)(int)VideoSettings.ColorRange;
+
+                var hwType = GetAVHWDeviceType();
+                codecContext.InitHWDeviceContext(hwType);
+
+                if ((outFormat.Flags & ffmpeg.AVFMT_GLOBALHEADER) != 0)
+                {
+                    codecContext.Flags |= ffmpeg.AV_CODEC_FLAG_GLOBAL_HEADER;
+                }
+            },
+            options
+        );
         stream = muxer.AddStream(encoder);
 
         // Apple QuickTime requires 'hvc1' sample entry type for HEVC playback
@@ -229,9 +289,14 @@ public class FFmpegEncodingController(string outputFile, FFmpegEncodingSettings 
             stream.Codecpar->codec_tag = 0x31637668;
         }
 
-        _isHdr = ColorSpaceHelper.IsHdrTransfer((AVColorTransferCharacteristic)(int)VideoSettings.ColorTrc);
+        _isHdr = ColorSpaceHelper.IsHdrTransfer(
+            (AVColorTransferCharacteristic)(int)VideoSettings.ColorTrc
+        );
         _targetColorSpace = _isHdr
-            ? ColorSpaceHelper.BuildHdrColorSpace((AVColorTransferCharacteristic)(int)VideoSettings.ColorTrc, (AVColorPrimaries)(int)VideoSettings.ColorPrimaries)
+            ? ColorSpaceHelper.BuildHdrColorSpace(
+                (AVColorTransferCharacteristic)(int)VideoSettings.ColorTrc,
+                (AVColorPrimaries)(int)VideoSettings.ColorPrimaries
+            )
             : null;
 
         InitEncodeFilterGraph(encoder);
@@ -248,10 +313,14 @@ public class FFmpegEncodingController(string outputFile, FFmpegEncodingSettings 
         videoFrame.AllocateBuffer();
     }
 
-    public override async ValueTask Encode(IFrameProvider frameProvider, ISampleProvider sampleProvider,
-        CancellationToken cancellationToken)
+    public override async ValueTask Encode(
+        IFrameProvider frameProvider,
+        ISampleProvider sampleProvider,
+        CancellationToken cancellationToken
+    )
     {
-        bool encodeVideo = false, encodeAudio = false;
+        bool encodeVideo = false,
+            encodeAudio = false;
         using (var fs = File.OpenWrite(OutputFile))
         using (var muxer = MediaMuxer.Create(fs, OutputFormat.GuessFormat(null, OutputFile, null)))
         using (var videoFrame = new MediaFrame())
@@ -268,7 +337,14 @@ public class FFmpegEncodingController(string outputFile, FFmpegEncodingSettings 
             {
                 if (outFormat.AudioCodec != AVCodecID.AV_CODEC_ID_NONE)
                 {
-                    ConfigureAudioStream(outFormat, muxer, audioFrame, out var encoder, out var stream, out swr);
+                    ConfigureAudioStream(
+                        outFormat,
+                        muxer,
+                        audioFrame,
+                        out var encoder,
+                        out var stream,
+                        out swr
+                    );
                     encoders.Add((encoder, stream));
                     audioRef = (encoder, stream);
                     encodeAudio = true;
@@ -276,7 +352,13 @@ public class FFmpegEncodingController(string outputFile, FFmpegEncodingSettings 
 
                 if (outFormat.VideoCodec != AVCodecID.AV_CODEC_ID_NONE)
                 {
-                    ConfigureVideoStream(outFormat, muxer, videoFrame, out var encoder, out var stream);
+                    ConfigureVideoStream(
+                        outFormat,
+                        muxer,
+                        videoFrame,
+                        out var encoder,
+                        out var stream
+                    );
                     encoders.Add((encoder, stream));
                     videoRef = (encoder, stream);
                     encodeVideo = true;
@@ -290,18 +372,39 @@ public class FFmpegEncodingController(string outputFile, FFmpegEncodingSettings 
                 var audioState = new EncodeState();
                 while ((encodeVideo || encodeAudio) && !cancellationToken.IsCancellationRequested)
                 {
-                    if (encodeVideo &&
-                        (!encodeAudio || ffmpeg.av_compare_ts(videoState.NextPts,
-                            videoRef!.Value.Encoder.TimeBase,
-                            audioState.NextPts, audioRef!.Value.Encoder.TimeBase) <= 0))
+                    if (
+                        encodeVideo
+                        && (
+                            !encodeAudio
+                            || ffmpeg.av_compare_ts(
+                                videoState.NextPts,
+                                videoRef!.Value.Encoder.TimeBase,
+                                audioState.NextPts,
+                                audioRef!.Value.Encoder.TimeBase
+                            ) <= 0
+                        )
+                    )
                     {
                         encodeVideo = await WriteVideoFrame(
-                            muxer, videoRef!.Value.Encoder, videoRef!.Value.Stream, videoFrame, videoState, frameProvider);
+                            muxer,
+                            videoRef!.Value.Encoder,
+                            videoRef!.Value.Stream,
+                            videoFrame,
+                            videoState,
+                            frameProvider
+                        );
                     }
                     else
                     {
                         encodeAudio = await WriteAudioFrame(
-                            muxer, swr!, audioRef!.Value.Encoder, audioRef!.Value.Stream, audioFrame, audioState, sampleProvider);
+                            muxer,
+                            swr!,
+                            audioRef!.Value.Encoder,
+                            audioRef!.Value.Stream,
+                            audioFrame,
+                            audioState,
+                            sampleProvider
+                        );
                     }
                 }
             }
@@ -322,8 +425,12 @@ public class FFmpegEncodingController(string outputFile, FFmpegEncodingSettings 
         }
     }
 
-    private static async ValueTask<MediaFrame?> GetAudioFrame(MediaFrame frame, SampleConverter swr, EncodeState state,
-        ISampleProvider sampleProvider)
+    private static async ValueTask<MediaFrame?> GetAudioFrame(
+        MediaFrame frame,
+        SampleConverter swr,
+        EncodeState state,
+        ISampleProvider sampleProvider
+    )
     {
         if (state.NextPts >= sampleProvider.SampleCount)
             return null;
@@ -343,9 +450,14 @@ public class FFmpegEncodingController(string outputFile, FFmpegEncodingSettings 
     }
 
     private static async ValueTask<bool> WriteAudioFrame(
-        MediaMuxer muxer, SampleConverter swr, MediaEncoder encoder, MediaStream stream,
-        MediaFrame src, EncodeState state,
-        ISampleProvider sampleProvider)
+        MediaMuxer muxer,
+        SampleConverter swr,
+        MediaEncoder encoder,
+        MediaStream stream,
+        MediaFrame src,
+        EncodeState state,
+        ISampleProvider sampleProvider
+    )
     {
         var f = await GetAudioFrame(src, swr, state, sampleProvider);
         try
@@ -359,7 +471,10 @@ public class FFmpegEncodingController(string outputFile, FFmpegEncodingSettings 
     }
 
     private async ValueTask<MediaFrame?> GetVideoFrame(
-        MediaFrame srcFrame, EncodeState state, IFrameProvider frameProvider)
+        MediaFrame srcFrame,
+        EncodeState state,
+        IFrameProvider frameProvider
+    )
     {
         if (state.NextPts >= frameProvider.FrameCount)
             return null;
@@ -369,23 +484,37 @@ public class FFmpegEncodingController(string outputFile, FFmpegEncodingSettings 
         if (_isHdr && _targetColorSpace != null)
         {
             // Skia: LinearSrgb → ターゲット色空間（例: BT.2020/PQ）
-            using var converted =
-                bitmap.Convert(BitmapColorType.Rgba16161616, BitmapAlphaType.Unpremul, _targetColorSpace);
+            using var converted = bitmap.Convert(
+                BitmapColorType.Rgba16161616,
+                BitmapAlphaType.Unpremul,
+                _targetColorSpace
+            );
             unsafe
             {
-                Buffer.MemoryCopy((void*)converted.Data, (void*)srcFrame.Data[0], converted.ByteCount,
-                    converted.ByteCount);
+                Buffer.MemoryCopy(
+                    (void*)converted.Data,
+                    (void*)srcFrame.Data[0],
+                    converted.ByteCount,
+                    converted.ByteCount
+                );
             }
         }
         else
         {
             // Skia: LinearSrgb → Bgra8888/Srgb
-            using var converted =
-                bitmap.Convert(BitmapColorType.Bgra8888, BitmapAlphaType.Premul, BitmapColorSpace.Srgb);
+            using var converted = bitmap.Convert(
+                BitmapColorType.Bgra8888,
+                BitmapAlphaType.Premul,
+                BitmapColorSpace.Srgb
+            );
             unsafe
             {
-                Buffer.MemoryCopy((void*)converted.Data, (void*)srcFrame.Data[0], converted.ByteCount,
-                    converted.ByteCount);
+                Buffer.MemoryCopy(
+                    (void*)converted.Data,
+                    (void*)srcFrame.Data[0],
+                    converted.ByteCount,
+                    converted.ByteCount
+                );
             }
         }
 
@@ -407,9 +536,13 @@ public class FFmpegEncodingController(string outputFile, FFmpegEncodingSettings 
     }
 
     private async ValueTask<bool> WriteVideoFrame(
-        MediaMuxer muxer, MediaEncoder encoder,
-        MediaStream stream, MediaFrame srcFrame,
-        EncodeState state, IFrameProvider frameProvider)
+        MediaMuxer muxer,
+        MediaEncoder encoder,
+        MediaStream stream,
+        MediaFrame srcFrame,
+        EncodeState state,
+        IFrameProvider frameProvider
+    )
     {
         var f = await GetVideoFrame(srcFrame, state, frameProvider);
         try
@@ -422,8 +555,12 @@ public class FFmpegEncodingController(string outputFile, FFmpegEncodingSettings 
         }
     }
 
-    private static unsafe bool WriteFrame(MediaMuxer muxer, MediaEncoder encoder, MediaStream stream,
-        MediaFrame? frame)
+    private static unsafe bool WriteFrame(
+        MediaMuxer muxer,
+        MediaEncoder encoder,
+        MediaStream stream,
+        MediaFrame? frame
+    )
     {
         foreach (var pkt in encoder.EncodeFrame(frame))
         {

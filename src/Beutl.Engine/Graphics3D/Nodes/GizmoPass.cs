@@ -34,7 +34,11 @@ public sealed class GizmoPass : GraphicsNode3D
 
     private bool _geometryInitialized;
 
-    public GizmoPass(IGraphicsContext context, IShaderCompiler shaderCompiler, ITexture2D depthTexture)
+    public GizmoPass(
+        IGraphicsContext context,
+        IShaderCompiler shaderCompiler,
+        ITexture2D depthTexture
+    )
         : base(context, shaderCompiler)
     {
         _depthTexture = depthTexture ?? throw new ArgumentNullException(nameof(depthTexture));
@@ -59,10 +63,7 @@ public sealed class GizmoPass : GraphicsNode3D
         if (RenderPass != null && _colorTexture != null)
         {
             Framebuffer?.Dispose();
-            Framebuffer = Context.CreateFramebuffer3D(
-                RenderPass,
-                [_colorTexture],
-                _depthTexture);
+            Framebuffer = Context.CreateFramebuffer3D(RenderPass, [_colorTexture], _depthTexture);
         }
     }
 
@@ -92,8 +93,9 @@ public sealed class GizmoPass : GraphicsNode3D
         RenderPass = Context.CreateRenderPass3D(
             [TextureFormat.RGBA8Unorm],
             TextureFormat.Depth32Float,
-            AttachmentLoadOp.Load,  // Preserve color content
-            AttachmentLoadOp.Load); // Use existing depth
+            AttachmentLoadOp.Load, // Preserve color content
+            AttachmentLoadOp.Load
+        ); // Use existing depth
 
         // Framebuffer will be created when SetColorTexture is called
 
@@ -101,16 +103,20 @@ public sealed class GizmoPass : GraphicsNode3D
         _uniformBuffer = Context.CreateBuffer(
             (ulong)Marshal.SizeOf<GizmoUBO>(),
             BufferUsage.UniformBuffer,
-            MemoryProperty.HostVisible | MemoryProperty.HostCoherent);
+            MemoryProperty.HostVisible | MemoryProperty.HostCoherent
+        );
 
         // Compile shaders
         var vertexSpirv = ShaderCompiler.CompileToSpirv(GizmoVertexShader, ShaderStage.Vertex);
-        var fragmentSpirv = ShaderCompiler.CompileToSpirv(GizmoFragmentShader, ShaderStage.Fragment);
+        var fragmentSpirv = ShaderCompiler.CompileToSpirv(
+            GizmoFragmentShader,
+            ShaderStage.Fragment
+        );
 
         // Descriptor bindings
         var descriptorBindings = new DescriptorBinding[]
         {
-            new(0, DescriptorType.UniformBuffer, 1, ShaderStage.Vertex)
+            new(0, DescriptorType.UniformBuffer, 1, ShaderStage.Vertex),
         };
 
         // Create pipeline with GizmoVertex input
@@ -119,13 +125,11 @@ public sealed class GizmoPass : GraphicsNode3D
             vertexSpirv,
             fragmentSpirv,
             descriptorBindings,
-            GizmoVertex.GetVertexInputDescription());
+            GizmoVertex.GetVertexInputDescription()
+        );
 
         // Create descriptor set
-        var poolSizes = new DescriptorPoolSize[]
-        {
-            new(DescriptorType.UniformBuffer, 1)
-        };
+        var poolSizes = new DescriptorPoolSize[] { new(DescriptorType.UniformBuffer, 1) };
 
         _descriptorSet = Context.CreateDescriptorSet(_pipeline, poolSizes);
         _descriptorSet.UpdateBuffer(0, _uniformBuffer);
@@ -160,7 +164,11 @@ public sealed class GizmoPass : GraphicsNode3D
     private IBuffer CreateVertexBuffer(GizmoVertex[] vertices)
     {
         var size = (ulong)(Marshal.SizeOf<GizmoVertex>() * vertices.Length);
-        var buffer = Context.CreateBuffer(size, BufferUsage.VertexBuffer, MemoryProperty.HostVisible | MemoryProperty.HostCoherent);
+        var buffer = Context.CreateBuffer(
+            size,
+            BufferUsage.VertexBuffer,
+            MemoryProperty.HostVisible | MemoryProperty.HostCoherent
+        );
         buffer.Upload(new ReadOnlySpan<GizmoVertex>(vertices));
         return buffer;
     }
@@ -168,7 +176,11 @@ public sealed class GizmoPass : GraphicsNode3D
     private IBuffer CreateIndexBuffer(uint[] indices)
     {
         var size = (ulong)(sizeof(uint) * indices.Length);
-        var buffer = Context.CreateBuffer(size, BufferUsage.IndexBuffer, MemoryProperty.HostVisible | MemoryProperty.HostCoherent);
+        var buffer = Context.CreateBuffer(
+            size,
+            BufferUsage.IndexBuffer,
+            MemoryProperty.HostVisible | MemoryProperty.HostCoherent
+        );
         buffer.Upload(new ReadOnlySpan<uint>(indices));
         return buffer;
     }
@@ -180,9 +192,15 @@ public sealed class GizmoPass : GraphicsNode3D
         Camera.Camera3D.Resource camera,
         Object3D.Resource? gizmoTarget,
         GizmoMode gizmoMode,
-        float aspectRatio)
+        float aspectRatio
+    )
     {
-        if (Framebuffer == null || RenderPass == null || _pipeline == null || _descriptorSet == null)
+        if (
+            Framebuffer == null
+            || RenderPass == null
+            || _pipeline == null
+            || _descriptorSet == null
+        )
             return;
 
         if (gizmoTarget == null || gizmoMode == GizmoMode.None)
@@ -225,7 +243,8 @@ public sealed class GizmoPass : GraphicsNode3D
             var rotationMatrix = Matrix4x4.CreateFromYawPitchRoll(
                 rotation.Y * MathF.PI / 180f,
                 rotation.X * MathF.PI / 180f,
-                rotation.Z * MathF.PI / 180f);
+                rotation.Z * MathF.PI / 180f
+            );
             modelMatrix = rotationMatrix * Matrix4x4.CreateTranslation(gizmoTarget.Position);
         }
         else
@@ -239,7 +258,7 @@ public sealed class GizmoPass : GraphicsNode3D
         {
             Model = modelMatrix,
             View = camera.GetViewMatrix(),
-            Projection = camera.GetProjectionMatrix(aspectRatio)
+            Projection = camera.GetProjectionMatrix(aspectRatio),
         };
         _uniformBuffer!.Upload(new ReadOnlySpan<GizmoUBO>(ref ubo));
 
@@ -280,36 +299,38 @@ public sealed class GizmoPass : GraphicsNode3D
 
     // === Gizmo Shaders ===
 
-    private static string GizmoVertexShader => """
-        #version 450
+    private static string GizmoVertexShader =>
+        """
+            #version 450
 
-        layout(location = 0) in vec3 inPosition;
-        layout(location = 1) in vec3 inColor;
+            layout(location = 0) in vec3 inPosition;
+            layout(location = 1) in vec3 inColor;
 
-        layout(binding = 0) uniform GizmoUBO {
-            mat4 model;
-            mat4 view;
-            mat4 projection;
-        } ubo;
+            layout(binding = 0) uniform GizmoUBO {
+                mat4 model;
+                mat4 view;
+                mat4 projection;
+            } ubo;
 
-        layout(location = 0) out vec3 fragColor;
+            layout(location = 0) out vec3 fragColor;
 
-        void main() {
-            gl_Position = ubo.projection * ubo.view * ubo.model * vec4(inPosition, 1.0);
-            fragColor = inColor;
-        }
-        """;
+            void main() {
+                gl_Position = ubo.projection * ubo.view * ubo.model * vec4(inPosition, 1.0);
+                fragColor = inColor;
+            }
+            """;
 
-    private static string GizmoFragmentShader => """
-        #version 450
+    private static string GizmoFragmentShader =>
+        """
+            #version 450
 
-        layout(location = 0) in vec3 fragColor;
-        layout(location = 0) out vec4 outColor;
+            layout(location = 0) in vec3 fragColor;
+            layout(location = 0) out vec4 outColor;
 
-        void main() {
-            outColor = vec4(fragColor, 1.0);
-        }
-        """;
+            void main() {
+                outColor = vec4(fragColor, 1.0);
+            }
+            """;
 
     // === UBO Struct ===
 

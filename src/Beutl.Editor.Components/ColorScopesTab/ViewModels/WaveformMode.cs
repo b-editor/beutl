@@ -4,5 +4,5 @@ public enum WaveformMode
 {
     Luma = 0,
     RgbOverlay = 1,
-    RgbParade = 2
+    RgbParade = 2,
 }

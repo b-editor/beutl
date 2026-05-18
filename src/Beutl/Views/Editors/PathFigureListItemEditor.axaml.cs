@@ -1,15 +1,12 @@
 ﻿using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Interactivity;
-
 using Beutl.Editor.Components.PathEditorTab.ViewModels;
 using Beutl.Media;
 using Beutl.Services;
 using Beutl.ViewModels;
 using Beutl.ViewModels.Editors;
-
 using FluentAvalonia.UI.Controls;
-
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Beutl.Views.Editors;
@@ -32,8 +29,10 @@ public partial class PathFigureListItemEditor : UserControl, IListItemEditor
 
     private void EditInFrameClicked(object? sender, RoutedEventArgs e)
     {
-        if (DataContext is PathFigureEditorViewModel { IsDisposed: false } viewModel
-            && viewModel.GetService<EditViewModel>() is { } editViewModel)
+        if (
+            DataContext is PathFigureEditorViewModel { IsDisposed: false } viewModel
+            && viewModel.GetService<EditViewModel>() is { } editViewModel
+        )
         {
             editViewModel?.Player.PathEditor.StartEdit(viewModel);
         }
@@ -41,10 +40,13 @@ public partial class PathFigureListItemEditor : UserControl, IListItemEditor
 
     private void EditInTabClicked(object? sender, RoutedEventArgs e)
     {
-        if (DataContext is PathFigureEditorViewModel { IsDisposed: false } viewModel
-            && viewModel.GetService<EditViewModel>() is { } editViewModel)
+        if (
+            DataContext is PathFigureEditorViewModel { IsDisposed: false } viewModel
+            && viewModel.GetService<EditViewModel>() is { } editViewModel
+        )
         {
-            var context = editViewModel.FindToolTab<PathEditorTabViewModel>()
+            var context =
+                editViewModel.FindToolTab<PathEditorTabViewModel>()
                 ?? new PathEditorTabViewModel(editViewModel);
 
             // 既に編集中でタブが選択されている場合、編集を終了
@@ -66,9 +68,11 @@ public partial class PathFigureListItemEditor : UserControl, IListItemEditor
 
     private void Edit_Click(object? sender, RoutedEventArgs e)
     {
-        if (DataContext is PathFigureEditorViewModel { IsDisposed: false } viewModel
+        if (
+            DataContext is PathFigureEditorViewModel { IsDisposed: false } viewModel
             && viewModel.GetService<EditViewModel>() is { } editViewModel
-            && sender is ToggleButton btn)
+            && sender is ToggleButton btn
+        )
         {
             btn.IsChecked = btn.IsChecked != true;
 
@@ -85,8 +89,10 @@ public partial class PathFigureListItemEditor : UserControl, IListItemEditor
 
     private void AddClick(object? sender, RoutedEventArgs e)
     {
-        if (DataContext is PathFigureEditorViewModel { IsDisposed: false } viewModel
-            && sender is MenuFlyoutItem item)
+        if (
+            DataContext is PathFigureEditorViewModel { IsDisposed: false } viewModel
+            && sender is MenuFlyoutItem item
+        )
         {
             try
             {

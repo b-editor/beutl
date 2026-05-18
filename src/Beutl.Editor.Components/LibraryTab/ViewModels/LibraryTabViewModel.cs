@@ -1,13 +1,11 @@
 ﻿using System.Diagnostics.CodeAnalysis;
 using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
-
 using Beutl.Animation.Easings;
 using Beutl.Configuration;
 using Beutl.Editor.Components.Helpers;
 using Beutl.NodeGraph;
 using Beutl.Services;
-
 using Reactive.Bindings;
 
 namespace Beutl.Editor.Components.LibraryTab.ViewModels;
@@ -81,8 +79,8 @@ public sealed class LibraryTabViewModel : IDisposable, IToolContext
     public int SelectedTab { get; set; } = 2;
 
     [SuppressMessage("Performance", "CA1822:メンバーを static に設定します")]
-    public CoreDictionary<string, LibraryTabDisplayMode> LibraryTabDisplayModes
-        => GlobalConfiguration.Instance.EditorConfig.LibraryTabDisplayModes;
+    public CoreDictionary<string, LibraryTabDisplayMode> LibraryTabDisplayModes =>
+        GlobalConfiguration.Instance.EditorConfig.LibraryTabDisplayModes;
 
     private void AddAllItems(List<LibraryItemViewModel> items)
     {
@@ -99,21 +97,27 @@ public sealed class LibraryTabViewModel : IDisposable, IToolContext
         try
         {
             SearchResult.ClearOnScheduler();
-            await Task.Run(() =>
-            {
-                Regex[] regices = RegexHelper.CreateRegexes(str);
-                for (int i = 0; i < AllItems.Count; i++)
+            await Task.Run(
+                () =>
                 {
-                    KeyValuePair<int, LibraryItemViewModel> item = AllItems[i];
-                    int score = item.Value.Match(regices);
-                    if (score > 0)
+                    Regex[] regices = RegexHelper.CreateRegexes(str);
+                    for (int i = 0; i < AllItems.Count; i++)
                     {
-                        SearchResult.OrderedAddDescendingOnScheduler(new(score, item.Value), x => x.Key);
-                    }
+                        KeyValuePair<int, LibraryItemViewModel> item = AllItems[i];
+                        int score = item.Value.Match(regices);
+                        if (score > 0)
+                        {
+                            SearchResult.OrderedAddDescendingOnScheduler(
+                                new(score, item.Value),
+                                x => x.Key
+                            );
+                        }
 
-                    cancellationToken.ThrowIfCancellationRequested();
-                }
-            }, cancellationToken);
+                        cancellationToken.ThrowIfCancellationRequested();
+                    }
+                },
+                cancellationToken
+            );
         }
         catch (OperationCanceledException)
         {
@@ -135,13 +139,9 @@ public sealed class LibraryTabViewModel : IDisposable, IToolContext
         SearchResult.Clear();
     }
 
-    public void WriteToJson(JsonObject json)
-    {
-    }
+    public void WriteToJson(JsonObject json) { }
 
-    public void ReadFromJson(JsonObject json)
-    {
-    }
+    public void ReadFromJson(JsonObject json) { }
 
     public object? GetService(Type serviceType)
     {

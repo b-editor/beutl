@@ -18,11 +18,7 @@ public struct VertexInputDescription
     /// <summary>
     /// Gets an empty vertex input description (for fullscreen passes).
     /// </summary>
-    public static VertexInputDescription Empty => new()
-    {
-        Bindings = [],
-        Attributes = []
-    };
+    public static VertexInputDescription Empty => new() { Bindings = [], Attributes = [] };
 }
 
 /// <summary>
@@ -85,7 +81,7 @@ public enum VertexInputRate
     /// <summary>
     /// Attributes are read per-instance.
     /// </summary>
-    Instance = 1
+    Instance = 1,
 }
 
 /// <summary>
@@ -151,5 +147,5 @@ public enum VertexFormat
     /// <summary>
     /// Four 32-bit unsigned integers (uvec4).
     /// </summary>
-    UInt4 = 11
+    UInt4 = 11,
 }

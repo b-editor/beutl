@@ -6,8 +6,10 @@ public class CorePropertyJsonConverterTests
 {
     private sealed class JsonOwner : CoreObject
     {
-        public static readonly CoreProperty<int> CountProperty
-            = ConfigureProperty<int, JsonOwner>(nameof(Count)).Register();
+        public static readonly CoreProperty<int> CountProperty = ConfigureProperty<int, JsonOwner>(
+                nameof(Count)
+            )
+            .Register();
 
         public int Count
         {
@@ -27,8 +29,10 @@ public class CorePropertyJsonConverterTests
         using JsonDocument doc = JsonDocument.Parse(json);
 
         Assert.That(doc.RootElement.GetProperty("Name").GetString(), Is.EqualTo("Count"));
-        Assert.That(doc.RootElement.GetProperty("Owner").GetString(),
-            Does.Contain(nameof(JsonOwner)));
+        Assert.That(
+            doc.RootElement.GetProperty("Owner").GetString(),
+            Does.Contain(nameof(JsonOwner))
+        );
     }
 
     [Test]
@@ -46,14 +50,16 @@ public class CorePropertyJsonConverterTests
     [Test]
     public void Read_NonObjectJson_Throws()
     {
-        Assert.Throws<JsonException>(
-            () => JsonSerializer.Deserialize<CoreProperty>("\"not-an-object\"", s_options));
+        Assert.Throws<JsonException>(() =>
+            JsonSerializer.Deserialize<CoreProperty>("\"not-an-object\"", s_options)
+        );
     }
 
     [Test]
     public void Read_MissingFields_Throws()
     {
-        Assert.Throws<JsonException>(
-            () => JsonSerializer.Deserialize<CoreProperty>("{\"Name\":\"Count\"}", s_options));
+        Assert.Throws<JsonException>(() =>
+            JsonSerializer.Deserialize<CoreProperty>("{\"Name\":\"Count\"}", s_options)
+        );
     }
 }

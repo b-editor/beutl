@@ -41,7 +41,11 @@ public class MediaExtensionsTests
     [Test]
     public void CalculateScaling_UpOnly_PreventsShrink()
     {
-        var scale = Stretch.Fill.CalculateScaling(new Size(50, 25), new Size(100, 100), StretchDirection.UpOnly);
+        var scale = Stretch.Fill.CalculateScaling(
+            new Size(50, 25),
+            new Size(100, 100),
+            StretchDirection.UpOnly
+        );
         Assert.That(scale.X, Is.EqualTo(1f));
         Assert.That(scale.Y, Is.EqualTo(1f));
     }
@@ -49,7 +53,11 @@ public class MediaExtensionsTests
     [Test]
     public void CalculateScaling_DownOnly_PreventsGrow()
     {
-        var scale = Stretch.Fill.CalculateScaling(new Size(200, 200), new Size(100, 100), StretchDirection.DownOnly);
+        var scale = Stretch.Fill.CalculateScaling(
+            new Size(200, 200),
+            new Size(100, 100),
+            StretchDirection.DownOnly
+        );
         Assert.That(scale.X, Is.EqualTo(1f));
         Assert.That(scale.Y, Is.EqualTo(1f));
     }
@@ -65,7 +73,10 @@ public class MediaExtensionsTests
     [Test]
     public void CalculateScaling_UnconstrainedWidth_PropagatesY()
     {
-        var scale = Stretch.Uniform.CalculateScaling(new Size(float.PositiveInfinity, 100), new Size(50, 50));
+        var scale = Stretch.Uniform.CalculateScaling(
+            new Size(float.PositiveInfinity, 100),
+            new Size(50, 50)
+        );
         Assert.That(scale.X, Is.EqualTo(scale.Y));
         Assert.That(scale.Y, Is.EqualTo(2f));
     }
@@ -73,7 +84,10 @@ public class MediaExtensionsTests
     [Test]
     public void CalculateScaling_UnconstrainedHeight_PropagatesX()
     {
-        var scale = Stretch.Uniform.CalculateScaling(new Size(200, float.PositiveInfinity), new Size(50, 50));
+        var scale = Stretch.Uniform.CalculateScaling(
+            new Size(200, float.PositiveInfinity),
+            new Size(50, 50)
+        );
         Assert.That(scale.X, Is.EqualTo(scale.Y));
         Assert.That(scale.X, Is.EqualTo(4f));
     }

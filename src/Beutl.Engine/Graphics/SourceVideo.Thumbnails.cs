@@ -54,22 +54,29 @@ public partial class SourceVideo : IThumbnailsProvider
                 cacheJson[prop] = node?.DeepClone();
         }
 
-        if (fullJson.TryGetPropertyValue("Animations", out var anims) && anims is JsonObject animObj)
+        if (
+            fullJson.TryGetPropertyValue("Animations", out var anims) && anims is JsonObject animObj
+        )
         {
             var filtered = new JsonObject();
             foreach (var prop in targetProps)
                 if (animObj.TryGetPropertyValue(prop, out var n))
                     filtered[prop] = n?.DeepClone();
-            if (filtered.Count > 0) cacheJson["Animations"] = filtered;
+            if (filtered.Count > 0)
+                cacheJson["Animations"] = filtered;
         }
 
-        if (fullJson.TryGetPropertyValue("Expressions", out var exprs) && exprs is JsonObject exprObj)
+        if (
+            fullJson.TryGetPropertyValue("Expressions", out var exprs)
+            && exprs is JsonObject exprObj
+        )
         {
             var filtered = new JsonObject();
             foreach (var prop in targetProps)
                 if (exprObj.TryGetPropertyValue(prop, out var n))
                     filtered[prop] = n?.DeepClone();
-            if (filtered.Count > 0) cacheJson["Expressions"] = filtered;
+            if (filtered.Count > 0)
+                cacheJson["Expressions"] = filtered;
         }
 
         var jsonStr = cacheJson.ToJsonString();
@@ -83,7 +90,8 @@ public partial class SourceVideo : IThumbnailsProvider
         IThumbnailCacheService? cacheService,
         [EnumeratorCancellation] CancellationToken cancellationToken = default,
         int startIndex = 0,
-        int endIndex = -1)
+        int endIndex = -1
+    )
     {
         Resource? resource = null;
         DrawableRenderNode? node = null;
@@ -120,32 +128,49 @@ public partial class SourceVideo : IThumbnailsProvider
 
                 var time = TimeSpan.FromSeconds(i * interval);
 
-                if (cacheKey != null
+                if (
+                    cacheKey != null
                     && cacheService!.TryGet(cacheKey, time, cacheThreshold, out var cached)
-                    && cached != null)
+                    && cached != null
+                )
                 {
                     yield return (i, count, cached);
                     continue;
                 }
 
-                var thumbnail = await RenderThread.Dispatcher.InvokeAsync(() =>
-                {
-                    if (cancellationToken.IsCancellationRequested)
-                        return null;
-
-                    var ctx = new CompositionContext(time + TimeRange.Start);
-                    bool updateOnly = false;
-                    resource.Update(this, ctx, ref updateOnly);
-
-                    using (var gctx = new GraphicsContext2D(node, new PixelSize((int)thumbWidth, maxHeight)))
-                    using (gctx.PushTransform(Matrix.CreateScale(thumbWidth / frameSize.Width,
-                               (float)maxHeight / frameSize.Height)))
+                var thumbnail = await RenderThread.Dispatcher.InvokeAsync(
+                    () =>
                     {
-                        DrawInternal(gctx, resource);
-                    }
+                        if (cancellationToken.IsCancellationRequested)
+                            return null;
 
-                    return processor.RasterizeAndConcat();
-                }, DispatchPriority.Medium, cancellationToken);
+                        var ctx = new CompositionContext(time + TimeRange.Start);
+                        bool updateOnly = false;
+                        resource.Update(this, ctx, ref updateOnly);
+
+                        using (
+                            var gctx = new GraphicsContext2D(
+                                node,
+                                new PixelSize((int)thumbWidth, maxHeight)
+                            )
+                        )
+                        using (
+                            gctx.PushTransform(
+                                Matrix.CreateScale(
+                                    thumbWidth / frameSize.Width,
+                                    (float)maxHeight / frameSize.Height
+                                )
+                            )
+                        )
+                        {
+                            DrawInternal(gctx, resource);
+                        }
+
+                        return processor.RasterizeAndConcat();
+                    },
+                    DispatchPriority.Medium,
+                    cancellationToken
+                );
 
                 if (thumbnail != null)
                 {
@@ -158,11 +183,14 @@ public partial class SourceVideo : IThumbnailsProvider
         }
         finally
         {
-            RenderThread.Dispatcher.Dispatch(() =>
-            {
-                node?.Dispose();
-                resource?.Dispose();
-            }, ct: CancellationToken.None);
+            RenderThread.Dispatcher.Dispatch(
+                () =>
+                {
+                    node?.Dispose();
+                    resource?.Dispose();
+                },
+                ct: CancellationToken.None
+            );
         }
     }
 
@@ -170,7 +198,8 @@ public partial class SourceVideo : IThumbnailsProvider
         int chunkCount,
         int samplesPerChunk,
         IThumbnailCacheService? cacheService,
-        [EnumeratorCancellation] CancellationToken cancellationToken = default)
+        [EnumeratorCancellation] CancellationToken cancellationToken = default
+    )
     {
         await Task.CompletedTask;
         yield break;

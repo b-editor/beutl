@@ -9,8 +9,8 @@ public sealed class UpdateNodeMemberOperation(
     INodeMember nodeMember,
     string propertyPath,
     object? newValue,
-    object? oldValue)
-    : ChangeOperation, IPropertyPathProvider, IMergableChangeOperation
+    object? oldValue
+) : ChangeOperation, IPropertyPathProvider, IMergableChangeOperation
 {
     public INodeMember NodeMember { get; set; } = nodeMember;
 
@@ -28,10 +28,16 @@ public sealed class UpdateNodeMemberOperation(
 
             switch (parts[^1])
             {
-                case "Animation" when parts.Length >= 2 && NodeMember.Property is IAnimatablePropertyAdapter animatablePropertyAdapter:
+                case "Animation"
+                    when parts.Length >= 2
+                        && NodeMember.Property
+                            is IAnimatablePropertyAdapter animatablePropertyAdapter:
                     animatablePropertyAdapter.Animation = value as IAnimation;
                     return;
-                case "Expression" when parts.Length >= 2 && NodeMember.Property is IExpressionPropertyAdapter expressiblePropertyAdapter:
+                case "Expression"
+                    when parts.Length >= 2
+                        && NodeMember.Property
+                            is IExpressionPropertyAdapter expressiblePropertyAdapter:
                     expressiblePropertyAdapter.Expression = value as IExpression;
                     return;
             }

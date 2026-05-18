@@ -1,9 +1,7 @@
 ﻿using System.Numerics;
 using System.Security.Cryptography;
 using System.Text;
-
 using Avalonia.Media;
-
 using Beutl.Controls;
 using Beutl.Utilities;
 
@@ -39,7 +37,8 @@ public static class ColorGenerator
                     1,
                     hue / 4095d * 360d,
                     (65 - (sat / 255d * 20d)) / 100d,
-                    (75 - (lit / 255d * 20d)) / 100d);
+                    (75 - (lit / 255d * 20d)) / 100d
+                );
 
                 color = hsl.ToRgb().ToBtlColor();
 

@@ -13,17 +13,19 @@ public sealed partial class LineSegment : PathSegment
         ScanProperties<LineSegment>();
     }
 
-    public LineSegment(Point point) : this()
+    public LineSegment(Point point)
+        : this()
     {
         Point.CurrentValue = point;
     }
 
     public LineSegment(float x, float y)
-        : this(new Point(x, y))
-    {
-    }
+        : this(new Point(x, y)) { }
 
-    [Display(Name = nameof(GraphicsStrings.LineSegment_Point), ResourceType = typeof(GraphicsStrings))]
+    [Display(
+        Name = nameof(GraphicsStrings.LineSegment_Point),
+        ResourceType = typeof(GraphicsStrings)
+    )]
     public IProperty<Point> Point { get; } = Property.CreateAnimatable<Point>();
 
     public override void ApplyTo(IGeometryContext context, PathSegment.Resource resource)

@@ -8,9 +8,9 @@ namespace Beutl;
 /// </summary>
 public static class EnumExtensions
 {
-
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static unsafe bool HasAllFlags<T>(this T value, T flags) where T : unmanaged, Enum
+    public static unsafe bool HasAllFlags<T>(this T value, T flags)
+        where T : unmanaged, Enum
     {
         if (sizeof(T) == 1)
         {
@@ -37,11 +37,14 @@ public static class EnumExtensions
             return (longValue & longFlags) == longFlags;
         }
         else
-            throw new NotSupportedException("Enum with size of " + Unsafe.SizeOf<T>() + " are not supported");
+            throw new NotSupportedException(
+                "Enum with size of " + Unsafe.SizeOf<T>() + " are not supported"
+            );
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static unsafe bool HasAnyFlag<T>(this T value, T flags) where T : unmanaged, Enum
+    public static unsafe bool HasAnyFlag<T>(this T value, T flags)
+        where T : unmanaged, Enum
     {
         if (sizeof(T) == 1)
         {
@@ -68,6 +71,8 @@ public static class EnumExtensions
             return (longValue & longFlags) != 0;
         }
         else
-            throw new NotSupportedException("Enum with size of " + Unsafe.SizeOf<T>() + " are not supported");
+            throw new NotSupportedException(
+                "Enum with size of " + Unsafe.SizeOf<T>() + " are not supported"
+            );
     }
 }

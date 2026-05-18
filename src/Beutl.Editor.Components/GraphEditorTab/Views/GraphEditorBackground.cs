@@ -2,37 +2,50 @@
 using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Avalonia.Media;
-
 using Beutl.Editor.Components.Helpers;
 
 namespace Beutl.Editor.Components.GraphEditorTab.Views;
 
 public sealed class GraphEditorBackground : Control
 {
-    public static readonly DirectProperty<GraphEditorBackground, double> ScaleProperty
-        = AvaloniaProperty.RegisterDirect<GraphEditorBackground, double>(
+    public static readonly DirectProperty<GraphEditorBackground, double> ScaleProperty =
+        AvaloniaProperty.RegisterDirect<GraphEditorBackground, double>(
             nameof(Scale),
-            o => o.Scale, (o, v) => o.Scale = v,
-            1d);
+            o => o.Scale,
+            (o, v) => o.Scale = v,
+            1d
+        );
 
-    public static readonly DirectProperty<GraphEditorBackground, double> BaselineProperty
-        = AvaloniaProperty.RegisterDirect<GraphEditorBackground, double>(
+    public static readonly DirectProperty<GraphEditorBackground, double> BaselineProperty =
+        AvaloniaProperty.RegisterDirect<GraphEditorBackground, double>(
             nameof(Baseline),
-            o => o.Baseline, (o, v) => o.Baseline = v);
+            o => o.Baseline,
+            (o, v) => o.Baseline = v
+        );
 
-    public static readonly StyledProperty<double> MaximumProperty
-        = AvaloniaProperty.Register<GraphEditorBackground, double>(nameof(Maximum), double.MaxValue);
+    public static readonly StyledProperty<double> MaximumProperty = AvaloniaProperty.Register<
+        GraphEditorBackground,
+        double
+    >(nameof(Maximum), double.MaxValue);
 
-    public static readonly StyledProperty<double> MinimumProperty
-        = AvaloniaProperty.Register<GraphEditorBackground, double>(nameof(Minimum), double.MinValue);
+    public static readonly StyledProperty<double> MinimumProperty = AvaloniaProperty.Register<
+        GraphEditorBackground,
+        double
+    >(nameof(Minimum), double.MinValue);
 
-    public static readonly DirectProperty<GraphEditorBackground, Vector> OffsetProperty
-        = AvaloniaProperty.RegisterDirect<GraphEditorBackground, Vector>(
-            nameof(Offset), o => o.Offset, (o, v) => o.Offset = v);
+    public static readonly DirectProperty<GraphEditorBackground, Vector> OffsetProperty =
+        AvaloniaProperty.RegisterDirect<GraphEditorBackground, Vector>(
+            nameof(Offset),
+            o => o.Offset,
+            (o, v) => o.Offset = v
+        );
 
-    public static readonly DirectProperty<GraphEditorBackground, Size> ViewportProperty
-        = AvaloniaProperty.RegisterDirect<GraphEditorBackground, Size>(
-            nameof(Viewport), o => o.Viewport, (o, v) => o.Viewport = v);
+    public static readonly DirectProperty<GraphEditorBackground, Size> ViewportProperty =
+        AvaloniaProperty.RegisterDirect<GraphEditorBackground, Size>(
+            nameof(Viewport),
+            o => o.Viewport,
+            (o, v) => o.Viewport = v
+        );
 
     private readonly Pen _pen;
     private IBrush _brush = Brushes.White;
@@ -44,15 +57,17 @@ public sealed class GraphEditorBackground : Control
 
     static GraphEditorBackground()
     {
-        AffectsRender<GraphEditorBackground>(ScaleProperty, BaselineProperty, OffsetProperty, ViewportProperty);
+        AffectsRender<GraphEditorBackground>(
+            ScaleProperty,
+            BaselineProperty,
+            OffsetProperty,
+            ViewportProperty
+        );
     }
 
     public GraphEditorBackground()
     {
-        _pen = new Pen()
-        {
-            Brush = _brush
-        };
+        _pen = new Pen() { Brush = _brush };
     }
 
     public double Scale
@@ -94,15 +109,16 @@ public sealed class GraphEditorBackground : Control
     protected override void OnLoaded(RoutedEventArgs e)
     {
         base.OnLoaded(e);
-        _disposable = this.GetResourceObservable("GraphEditorGridLineBrush").Subscribe(b =>
-        {
-            if (b is IBrush brush)
+        _disposable = this.GetResourceObservable("GraphEditorGridLineBrush")
+            .Subscribe(b =>
             {
-                _brush = brush;
-                _pen.Brush = brush;
-                InvalidateVisual();
-            }
-        });
+                if (b is IBrush brush)
+                {
+                    _brush = brush;
+                    _pen.Brush = brush;
+                    InvalidateVisual();
+                }
+            });
     }
 
     protected override void OnUnloaded(RoutedEventArgs e)
@@ -144,9 +160,7 @@ public sealed class GraphEditorBackground : Control
             double maxY = originY - maxPixel;
             if (double.IsFinite(maxY) && maxY >= 0)
             {
-                context.FillRectangle(
-                    _brush,
-                    new Rect(viewport.Left, 0, viewport.Width, maxY));
+                context.FillRectangle(_brush, new Rect(viewport.Left, 0, viewport.Width, maxY));
             }
 
             double minPixel = Minimum * _scale;
@@ -155,7 +169,11 @@ public sealed class GraphEditorBackground : Control
             {
                 context.FillRectangle(
                     _brush,
-                    new Rect(new Point(viewport.Left, minY), new Point(viewport.Right, viewport.Bottom)));
+                    new Rect(
+                        new Point(viewport.Left, minY),
+                        new Point(viewport.Right, viewport.Bottom)
+                    )
+                );
             }
         }
     }

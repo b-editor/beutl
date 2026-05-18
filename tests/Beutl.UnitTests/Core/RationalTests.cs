@@ -3,15 +3,18 @@
 public class RationalTests
 {
     [Test]
-    [TestCase(1, 2, 1, 3,
-        3, 6, 2, 6)]
-    [TestCase(1, 7, 1, 12,
-        12, 84, 7, 84)]
+    [TestCase(1, 2, 1, 3, 3, 6, 2, 6)]
+    [TestCase(1, 7, 1, 12, 12, 84, 7, 84)]
     public void Reduce(
-        long leftNum, long leftDen,
-        long rightNum, long rightDen,
-        long expLeftNum, long expLeftDen,
-        long exptRightNum, long expRightDen)
+        long leftNum,
+        long leftDen,
+        long rightNum,
+        long rightDen,
+        long expLeftNum,
+        long expLeftDen,
+        long exptRightNum,
+        long expRightDen
+    )
     {
         var left = new Rational(leftNum, leftDen);
         var right = new Rational(rightNum, rightDen);

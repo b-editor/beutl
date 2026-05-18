@@ -14,17 +14,29 @@ public partial class SplitEffect : FilterEffect
     }
 
     [Range(1, int.MaxValue)]
-    [Display(Name = nameof(GraphicsStrings.SplitEffect_HorizontalDivisions), ResourceType = typeof(GraphicsStrings))]
+    [Display(
+        Name = nameof(GraphicsStrings.SplitEffect_HorizontalDivisions),
+        ResourceType = typeof(GraphicsStrings)
+    )]
     public IProperty<int> HorizontalDivisions { get; } = Property.CreateAnimatable(2);
 
     [Range(1, int.MaxValue)]
-    [Display(Name = nameof(GraphicsStrings.SplitEffect_VerticalDivisions), ResourceType = typeof(GraphicsStrings))]
+    [Display(
+        Name = nameof(GraphicsStrings.SplitEffect_VerticalDivisions),
+        ResourceType = typeof(GraphicsStrings)
+    )]
     public IProperty<int> VerticalDivisions { get; } = Property.CreateAnimatable(2);
 
-    [Display(Name = nameof(GraphicsStrings.SplitEffect_HorizontalSpacing), ResourceType = typeof(GraphicsStrings))]
+    [Display(
+        Name = nameof(GraphicsStrings.SplitEffect_HorizontalSpacing),
+        ResourceType = typeof(GraphicsStrings)
+    )]
     public IProperty<float> HorizontalSpacing { get; } = Property.CreateAnimatable(0f);
 
-    [Display(Name = nameof(GraphicsStrings.SplitEffect_VerticalSpacing), ResourceType = typeof(GraphicsStrings))]
+    [Display(
+        Name = nameof(GraphicsStrings.SplitEffect_VerticalSpacing),
+        ResourceType = typeof(GraphicsStrings)
+    )]
     public IProperty<float> VerticalSpacing { get; } = Property.CreateAnimatable(0f);
 
     public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
@@ -54,10 +66,13 @@ public partial class SplitEffect : FilterEffect
                             0,
                             0,
                             t.Bounds.Width + (d.HorizontalSpacing * (d.HorizontalDivisions - 1)),
-                            t.Bounds.Height + (d.VerticalSpacing * (d.VerticalDivisions - 1)));
+                            t.Bounds.Height + (d.VerticalSpacing * (d.VerticalDivisions - 1))
+                        );
                         newBounds = t.Bounds.CenterRect(newBounds);
 
-                        var newTargets = new EffectTarget[d.HorizontalDivisions * d.VerticalDivisions];
+                        var newTargets = new EffectTarget[
+                            d.HorizontalDivisions * d.VerticalDivisions
+                        ];
 
                         for (int v = 0; v < d.VerticalDivisions; v++)
                         {
@@ -68,12 +83,17 @@ public partial class SplitEffect : FilterEffect
                                         newBounds.X + (divWidth + d.HorizontalSpacing) * h,
                                         newBounds.Y + (divHeight + d.VerticalSpacing) * v,
                                         divWidth,
-                                        divHeight));
+                                        divHeight
+                                    )
+                                );
 
                                 using (ImmediateCanvas canvas = effectContext.Open(newTarget))
                                 {
                                     canvas.Clear();
-                                    canvas.DrawRenderTarget(renderTarget, new Point(-divWidth * h, -divHeight * v));
+                                    canvas.DrawRenderTarget(
+                                        renderTarget,
+                                        new Point(-divWidth * h, -divHeight * v)
+                                    );
                                 }
 
                                 newTargets[v * d.HorizontalDivisions + h] = newTarget;
@@ -86,6 +106,7 @@ public partial class SplitEffect : FilterEffect
                         i += newTargets.Length - 1;
                     }
                 }
-            });
+            }
+        );
     }
 }

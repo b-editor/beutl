@@ -82,7 +82,8 @@ public class ProjectPackageServiceTests
 
         // Act & Assert
         Assert.ThrowsAsync<ArgumentNullException>(async () =>
-            await service.ExportAsync(null!, outputPath));
+            await service.ExportAsync(null!, outputPath)
+        );
     }
 
     [Test]
@@ -94,7 +95,8 @@ public class ProjectPackageServiceTests
 
         // Act & Assert
         Assert.ThrowsAsync<ArgumentNullException>(async () =>
-            await service.ExportAsync(project, null!));
+            await service.ExportAsync(project, null!)
+        );
     }
 
     [Test]
@@ -107,7 +109,8 @@ public class ProjectPackageServiceTests
 
         // Act & Assert
         Assert.ThrowsAsync<InvalidOperationException>(async () =>
-            await service.ExportAsync(project, outputPath));
+            await service.ExportAsync(project, outputPath)
+        );
     }
 
     [Test]
@@ -139,7 +142,9 @@ public class ProjectPackageServiceTests
         string outputPath = Path.Combine(_exportDir, "test.zip");
 
         ConcurrentBag<double> progressValues = [];
-        var progress = new Progress<(string Message, double Progress)>(p => progressValues.Add(p.Progress));
+        var progress = new Progress<(string Message, double Progress)>(p =>
+            progressValues.Add(p.Progress)
+        );
 
         // Act
         ExportResult result = await service.ExportAsync(project, outputPath, progress);
@@ -162,7 +167,8 @@ public class ProjectPackageServiceTests
 
         // Act & Assert
         Assert.ThrowsAsync<OperationCanceledException>(async () =>
-            await service.ExportAsync(project, outputPath, cancellationToken: cts.Token));
+            await service.ExportAsync(project, outputPath, cancellationToken: cts.Token)
+        );
     }
 
     [Test]
@@ -209,7 +215,11 @@ public class ProjectPackageServiceTests
         // Extract and verify .beutl is not included
         string extractDir = Path.Combine(_testDir, "verify");
         System.IO.Compression.ZipFile.ExtractToDirectory(outputPath, extractDir);
-        string extractedBeutlDir = Path.Combine(extractDir, Path.GetFileName(_projectDir), ".beutl");
+        string extractedBeutlDir = Path.Combine(
+            extractDir,
+            Path.GetFileName(_projectDir),
+            ".beutl"
+        );
         Assert.That(Directory.Exists(extractedBeutlDir), Is.False);
     }
 
@@ -240,7 +250,8 @@ public class ProjectPackageServiceTests
         // so we can verify ExportAsync concatenates them into ExportResult.FailedResources.
         var stub = new StubRelocationService(
             new RelocationResult(2, ["missing/file_a.png", "missing/file_b.png"]),
-            new RelocationResult(1, ["MissingFamily1", "MissingFamily2"]));
+            new RelocationResult(1, ["MissingFamily1", "MissingFamily2"])
+        );
         var service = new ProjectPackageService(stub);
         Project project = CreateAndSaveTestProject();
         string outputPath = Path.Combine(_exportDir, "partial_failure.zip");
@@ -254,13 +265,18 @@ public class ProjectPackageServiceTests
         {
             Assert.That(result.Success, Is.True);
             Assert.That(File.Exists(outputPath), Is.True);
-            Assert.That(result.FailedResources, Is.EqualTo(new[]
-            {
-                "missing/file_a.png",
-                "missing/file_b.png",
-                "MissingFamily1",
-                "MissingFamily2",
-            }));
+            Assert.That(
+                result.FailedResources,
+                Is.EqualTo(
+                    new[]
+                    {
+                        "missing/file_a.png",
+                        "missing/file_b.png",
+                        "MissingFamily1",
+                        "MissingFamily2",
+                    }
+                )
+            );
         });
     }
 
@@ -270,7 +286,8 @@ public class ProjectPackageServiceTests
         // Arrange
         var stub = new StubRelocationService(
             new RelocationResult(0, ["missing/only_file.png"]),
-            new RelocationResult(0, []));
+            new RelocationResult(0, [])
+        );
         var service = new ProjectPackageService(stub);
         Project project = CreateAndSaveTestProject();
         string outputPath = Path.Combine(_exportDir, "file_only.zip");
@@ -292,7 +309,8 @@ public class ProjectPackageServiceTests
         // Arrange
         var stub = new StubRelocationService(
             new RelocationResult(0, []),
-            new RelocationResult(0, ["MissingFontFamily"]));
+            new RelocationResult(0, ["MissingFontFamily"])
+        );
         var service = new ProjectPackageService(stub);
         Project project = CreateAndSaveTestProject();
         string outputPath = Path.Combine(_exportDir, "font_only.zip");
@@ -317,7 +335,8 @@ public class ProjectPackageServiceTests
         // that's already in memory.
         var stub = new StubRelocationService(
             new RelocationResult(0, ["pre_abort_file.png"]),
-            new RelocationResult(0, ["pre_abort_font"]));
+            new RelocationResult(0, ["pre_abort_font"])
+        );
         var service = new ProjectPackageService(stub);
         Project project = CreateAndSaveTestProject();
         string invalidOutputPath = Path.Combine(_exportDir, "invalid_output_dir");
@@ -330,7 +349,10 @@ public class ProjectPackageServiceTests
         Assert.Multiple(() =>
         {
             Assert.That(result.Success, Is.False);
-            Assert.That(result.FailedResources, Is.EqualTo(new[] { "pre_abort_file.png", "pre_abort_font" }));
+            Assert.That(
+                result.FailedResources,
+                Is.EqualTo(new[] { "pre_abort_file.png", "pre_abort_font" })
+            );
         });
     }
 
@@ -346,7 +368,8 @@ public class ProjectPackageServiceTests
 
         // Act & Assert
         Assert.ThrowsAsync<ArgumentNullException>(async () =>
-            await service.ImportAsync(null!, _importDir));
+            await service.ImportAsync(null!, _importDir)
+        );
     }
 
     [Test]
@@ -358,7 +381,8 @@ public class ProjectPackageServiceTests
 
         // Act & Assert
         Assert.ThrowsAsync<ArgumentNullException>(async () =>
-            await service.ImportAsync(packagePath, null!));
+            await service.ImportAsync(packagePath, null!)
+        );
     }
 
     [Test]
@@ -370,7 +394,8 @@ public class ProjectPackageServiceTests
 
         // Act & Assert
         Assert.ThrowsAsync<FileNotFoundException>(async () =>
-            await service.ImportAsync(packagePath, _importDir));
+            await service.ImportAsync(packagePath, _importDir)
+        );
     }
 
     [Test]
@@ -399,7 +424,9 @@ public class ProjectPackageServiceTests
         await service.ExportAsync(originalProject, packagePath);
 
         List<double> progressValues = [];
-        var progress = new Progress<(string Message, double Progress)>(p => progressValues.Add(p.Progress));
+        var progress = new Progress<(string Message, double Progress)>(p =>
+            progressValues.Add(p.Progress)
+        );
 
         // Act
         Project? importedProject = await service.ImportAsync(packagePath, _importDir, progress);
@@ -422,7 +449,8 @@ public class ProjectPackageServiceTests
 
         // Act & Assert
         var ex = Assert.CatchAsync<Exception>(async () =>
-            await service.ImportAsync(packagePath, _importDir, cancellationToken: cts.Token));
+            await service.ImportAsync(packagePath, _importDir, cancellationToken: cts.Token)
+        );
         Assert.That(ex, Is.InstanceOf<OperationCanceledException>());
     }
 
@@ -639,20 +667,21 @@ public class ProjectPackageServiceTests
 
     private sealed class StubRelocationService(
         RelocationResult fileResult,
-        RelocationResult fontResult) : ResourceRelocationService
+        RelocationResult fontResult
+    ) : ResourceRelocationService
     {
         public override Task<RelocationResult> RelocateFileSourcesAsync(
             IEnumerable<(Guid Object, string PropertyName, Uri OriginalUri)> sources,
             Project stagingProject,
             string projectDirectory,
-            CancellationToken cancellationToken = default)
-            => Task.FromResult(fileResult);
+            CancellationToken cancellationToken = default
+        ) => Task.FromResult(fileResult);
 
         public override Task<RelocationResult> RelocateFontsAsync(
             IEnumerable<FontFamily> fontFamilies,
             string projectDirectory,
-            CancellationToken cancellationToken = default)
-            => Task.FromResult(fontResult);
+            CancellationToken cancellationToken = default
+        ) => Task.FromResult(fontResult);
     }
 
     private Project CreateAndSaveTestProjectWithItems()

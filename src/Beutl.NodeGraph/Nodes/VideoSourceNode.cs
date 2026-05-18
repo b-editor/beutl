@@ -59,12 +59,18 @@ public sealed partial class VideoSourceNode : GraphNode
 
             TimeSpan time = Time;
             Rational rate = _sourceResource.FrameRate;
-            double frameNum = time.Ticks * rate.Numerator / (double)(TimeSpan.TicksPerSecond * rate.Denominator);
+            double frameNum =
+                time.Ticks * rate.Numerator / (double)(TimeSpan.TicksPerSecond * rate.Denominator);
             int frame = (int)Math.Round(frameNum, MidpointRounding.AwayFromZero);
 
             if (_cachedOutput == null)
             {
-                _cachedOutput = new VideoSourceRenderNode(_sourceResource, frame, Brushes.Resource.White, null);
+                _cachedOutput = new VideoSourceRenderNode(
+                    _sourceResource,
+                    frame,
+                    Brushes.Resource.White,
+                    null
+                );
             }
             else
             {

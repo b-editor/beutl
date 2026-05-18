@@ -4,9 +4,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Media;
-
 using Beutl.Graphics;
-
 using AvaPoint = Avalonia.Point;
 using AvaRect = Avalonia.Rect;
 using BtlPoint = Beutl.Graphics.Point;
@@ -18,19 +16,37 @@ public class CurveEditor : Control
     public static readonly StyledProperty<IList<CurveControlPoint>?> PointsProperty =
         AvaloniaProperty.Register<CurveEditor, IList<CurveControlPoint>?>(nameof(Points));
 
-    public static readonly StyledProperty<bool> IsReadOnlyProperty =
-        AvaloniaProperty.Register<CurveEditor, bool>(nameof(IsReadOnly));
+    public static readonly StyledProperty<bool> IsReadOnlyProperty = AvaloniaProperty.Register<
+        CurveEditor,
+        bool
+    >(nameof(IsReadOnly));
 
     public static readonly StyledProperty<CurveVisualization> VisualizationProperty =
-        AvaloniaProperty.Register<CurveEditor, CurveVisualization>(nameof(Visualization), CurveVisualization.None);
+        AvaloniaProperty.Register<CurveEditor, CurveVisualization>(
+            nameof(Visualization),
+            CurveVisualization.None
+        );
 
     public static readonly StyledProperty<CurveVisualizationRenderer?> VisualizationRendererProperty =
-        AvaloniaProperty.Register<CurveEditor, CurveVisualizationRenderer?>(nameof(VisualizationRenderer));
+        AvaloniaProperty.Register<CurveEditor, CurveVisualizationRenderer?>(
+            nameof(VisualizationRenderer)
+        );
 
-    private static readonly IPen s_curvePen = new Pen(new SolidColorBrush(Color.FromArgb(200, 0, 122, 204)), 2).ToImmutable();
-    private static readonly IPen s_axisPen = new Pen(new SolidColorBrush(Color.FromArgb(120, 255, 255, 255)), 1).ToImmutable();
-    private static readonly IPen s_handleLinePen = new Pen(new SolidColorBrush(Color.FromArgb(150, 255, 200, 100)), 1).ToImmutable();
-    private static readonly IBrush s_handleBrush = new SolidColorBrush(Color.FromArgb(200, 255, 200, 100)).ToImmutable();
+    private static readonly IPen s_curvePen = new Pen(
+        new SolidColorBrush(Color.FromArgb(200, 0, 122, 204)),
+        2
+    ).ToImmutable();
+    private static readonly IPen s_axisPen = new Pen(
+        new SolidColorBrush(Color.FromArgb(120, 255, 255, 255)),
+        1
+    ).ToImmutable();
+    private static readonly IPen s_handleLinePen = new Pen(
+        new SolidColorBrush(Color.FromArgb(150, 255, 200, 100)),
+        1
+    ).ToImmutable();
+    private static readonly IBrush s_handleBrush = new SolidColorBrush(
+        Color.FromArgb(200, 255, 200, 100)
+    ).ToImmutable();
 
     private int _draggingIndex = -1;
     private DragTarget _dragTarget = DragTarget.None;
@@ -41,7 +57,7 @@ public class CurveEditor : Control
         None,
         Point,
         LeftHandle,
-        RightHandle
+        RightHandle,
     }
 
     public event EventHandler? DragStarted;
@@ -101,7 +117,8 @@ public class CurveEditor : Control
     protected override void OnPointerPressed(PointerPressedEventArgs e)
     {
         base.OnPointerPressed(e);
-        if (Points is null || IsReadOnly) return;
+        if (Points is null || IsReadOnly)
+            return;
 
         var pos = e.GetPosition(this);
         var norm = Normalize(pos);
@@ -116,17 +133,19 @@ public class CurveEditor : Control
                 if (target == DragTarget.LeftHandle || target == DragTarget.RightHandle)
                 {
                     var point = Points[index];
-                    bool isHandleDefault = target == DragTarget.LeftHandle
-                        ? point.LeftHandle == default
-                        : point.RightHandle == default;
+                    bool isHandleDefault =
+                        target == DragTarget.LeftHandle
+                            ? point.LeftHandle == default
+                            : point.RightHandle == default;
 
                     if (!isHandleDefault)
                     {
                         // ハンドルをリセット
                         DragStarted?.Invoke(this, EventArgs.Empty);
-                        Points[index] = target == DragTarget.LeftHandle
-                            ? point.WithLeftHandle(default)
-                            : point.WithRightHandle(default);
+                        Points[index] =
+                            target == DragTarget.LeftHandle
+                                ? point.WithLeftHandle(default)
+                                : point.WithRightHandle(default);
                         DragCompleted?.Invoke(this, EventArgs.Empty);
                         InvalidateVisual();
                         return;
@@ -171,7 +190,8 @@ public class CurveEditor : Control
     protected override void OnPointerMoved(PointerEventArgs e)
     {
         base.OnPointerMoved(e);
-        if (Points is null || IsReadOnly) return;
+        if (Points is null || IsReadOnly)
+            return;
 
         if (_draggingIndex >= 0 && _dragTarget != DragTarget.None)
         {
@@ -223,7 +243,8 @@ public class CurveEditor : Control
 
     private (int Index, DragTarget Target) HitTest(AvaPoint screenPos)
     {
-        if (Points is null) return (-1, DragTarget.None);
+        if (Points is null)
+            return (-1, DragTarget.None);
 
         const double pointRadius = 6;
         const double handleRadius = 3;
@@ -235,18 +256,22 @@ public class CurveEditor : Control
 
             // 左ハンドル
             var leftHandlePos = Denormalize(selectedPoint.AbsoluteLeftHandle);
-            if (Math.Abs(leftHandlePos.X - screenPos.X) <= handleRadius &&
-                Math.Abs(leftHandlePos.Y - screenPos.Y) <= handleRadius &&
-                _selectedIndex != 0)
+            if (
+                Math.Abs(leftHandlePos.X - screenPos.X) <= handleRadius
+                && Math.Abs(leftHandlePos.Y - screenPos.Y) <= handleRadius
+                && _selectedIndex != 0
+            )
             {
                 return (_selectedIndex, DragTarget.LeftHandle);
             }
 
             // 右ハンドル
             var rightHandlePos = Denormalize(selectedPoint.AbsoluteRightHandle);
-            if (Math.Abs(rightHandlePos.X - screenPos.X) <= handleRadius &&
-                Math.Abs(rightHandlePos.Y - screenPos.Y) <= handleRadius &&
-                _selectedIndex != Points.Count - 1)
+            if (
+                Math.Abs(rightHandlePos.X - screenPos.X) <= handleRadius
+                && Math.Abs(rightHandlePos.Y - screenPos.Y) <= handleRadius
+                && _selectedIndex != Points.Count - 1
+            )
             {
                 return (_selectedIndex, DragTarget.RightHandle);
             }
@@ -256,7 +281,10 @@ public class CurveEditor : Control
         for (int i = 0; i < Points.Count; i++)
         {
             var pos = Denormalize(Points[i].Point);
-            if (Math.Abs(pos.X - screenPos.X) <= pointRadius && Math.Abs(pos.Y - screenPos.Y) <= pointRadius)
+            if (
+                Math.Abs(pos.X - screenPos.X) <= pointRadius
+                && Math.Abs(pos.Y - screenPos.Y) <= pointRadius
+            )
             {
                 return (i, DragTarget.Point);
             }
@@ -267,7 +295,8 @@ public class CurveEditor : Control
 
     private int InsertPoint(BtlPoint norm)
     {
-        if (Points is null) return -1;
+        if (Points is null)
+            return -1;
 
         int index = 0;
         while (index < Points.Count && Points[index].Point.X < norm.X)
@@ -316,7 +345,8 @@ public class CurveEditor : Control
 
     private void SortPoints()
     {
-        if (Points is null) return;
+        if (Points is null)
+            return;
 
         var sorted = Points.OrderBy(p => p.Point.X).ToArray();
         for (int i = 0; i < sorted.Length; i++)
@@ -422,7 +452,8 @@ public class CurveEditor : Control
 
     private BtlPoint Normalize(AvaPoint pos)
     {
-        if (Bounds.Width <= 0 || Bounds.Height <= 0) return default;
+        if (Bounds.Width <= 0 || Bounds.Height <= 0)
+            return default;
         return new BtlPoint((float)(pos.X / Bounds.Width), (float)(1 - (pos.Y / Bounds.Height)));
     }
 

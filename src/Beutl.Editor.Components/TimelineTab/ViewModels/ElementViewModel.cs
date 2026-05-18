@@ -52,88 +52,94 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
         InitializeElementGroup();
 
         // プロパティを構成
-        IsEnabled = element.GetObservable(Element.IsEnabledProperty)
+        IsEnabled = element
+            .GetObservable(Element.IsEnabledProperty)
             .ToReadOnlyReactivePropertySlim()
             .AddTo(_disposables);
 
-        Name = element.GetObservable(CoreObject.NameProperty)
+        Name = element
+            .GetObservable(CoreObject.NameProperty)
             .ToReactiveProperty()
             .AddTo(_disposables)!;
-        Name.Subscribe(v => Model.Name = v)
-            .AddTo(_disposables);
+        Name.Subscribe(v => Model.Name = v).AddTo(_disposables);
 
         IObservable<int> zIndexSubject = element.GetObservable(Element.ZIndexProperty);
-        Margin = Timeline.GetTrackedLayerTopObservable(zIndexSubject)
+        Margin = Timeline
+            .GetTrackedLayerTopObservable(zIndexSubject)
             .Select(item => new Thickness(0, item, 0, 0))
             .ToReactiveProperty()
             .AddTo(_disposables);
 
-        BorderMargin = element.GetObservable(Element.StartProperty)
+        BorderMargin = element
+            .GetObservable(Element.StartProperty)
             .CombineLatest(timeline.Scale)
             .Select(item => new Thickness(item.First.TimeToPixel(item.Second), 0, 0, 0))
             .ToReactiveProperty()
             .AddTo(_disposables);
 
-        Width = element.GetObservable(Element.LengthProperty)
+        Width = element
+            .GetObservable(Element.LengthProperty)
             .CombineLatest(timeline.Scale)
             .Select(item => item.First.TimeToPixel(item.Second))
             .ToReactiveProperty()
             .AddTo(_disposables);
 
-        Color = element.GetObservable(Element.AccentColorProperty)
+        Color = element
+            .GetObservable(Element.AccentColorProperty)
             .Select(c => c.ToAvaColor())
             .ToReactiveProperty()
             .AddTo(_disposables);
 
-        RestBorderColor = Color.Select(v => (Avalonia.Media.Color)((Color2)v).LightenPercent(-0.15f))
+        RestBorderColor = Color
+            .Select(v => (Avalonia.Media.Color)((Color2)v).LightenPercent(-0.15f))
             .ToReadOnlyReactivePropertySlim();
 
-        TextColor = Color.Select(ColorGenerator.GetTextColor)
+        TextColor = Color
+            .Select(ColorGenerator.GetTextColor)
             .ToReadOnlyReactivePropertySlim()
             .AddTo(_disposables);
 
         // コマンドを構成
-        Split.Where(_ => GetClickedTime != null)
+        Split
+            .Where(_ => GetClickedTime != null)
             .Subscribe(_ => OnSplit(GetClickedTime!()))
             .AddTo(_disposables);
 
-        SplitByCurrentFrame
-            .Subscribe(_ => OnSplit(timeline.CurrentTime.Value))
-            .AddTo(_disposables);
+        SplitByCurrentFrame.Subscribe(_ => OnSplit(timeline.CurrentTime.Value)).AddTo(_disposables);
 
-        Cut.Subscribe(OnCut)
-            .AddTo(_disposables);
+        Cut.Subscribe(OnCut).AddTo(_disposables);
 
         Copy.Subscribe(async () => await SetClipboard([.. GetGroupOrSelectedElements()]))
             .AddTo(_disposables);
 
-        Exclude.Subscribe(OnExclude)
-            .AddTo(_disposables);
+        Exclude.Subscribe(OnExclude).AddTo(_disposables);
 
-        Delete.Subscribe(OnDelete)
-            .AddTo(_disposables);
+        Delete.Subscribe(OnDelete).AddTo(_disposables);
 
-        Color.Skip(1)
+        Color
+            .Skip(1)
             .Subscribe(c =>
             {
                 Model.AccentColor = c.ToBtlColor();
-                Timeline.EditorContext.GetRequiredService<HistoryManager>().Commit(CommandNames.ChangeElementColor);
+                Timeline
+                    .EditorContext.GetRequiredService<HistoryManager>()
+                    .Commit(CommandNames.ChangeElementColor);
             })
             .AddTo(_disposables);
 
-        FinishEditingAnimation.Subscribe(OnFinishEditingAnimation)
-            .AddTo(_disposables);
+        FinishEditingAnimation.Subscribe(OnFinishEditingAnimation).AddTo(_disposables);
 
-        BringAnimationToTop.Subscribe(OnBringAnimationToTop)
-            .AddTo(_disposables);
+        BringAnimationToTop.Subscribe(OnBringAnimationToTop).AddTo(_disposables);
 
-        ChangeToOriginalDuration.Subscribe(OnChangeToOriginalDuration)
-            .AddTo(_disposables);
+        ChangeToOriginalDuration.Subscribe(OnChangeToOriginalDuration).AddTo(_disposables);
 
         // ZIndexが変更されたら、LayerHeaderのカウントを増減して、新しいLayerHeaderを設定する。
-        zIndexSubject.Subscribe(number =>
+        zIndexSubject
+            .Subscribe(number =>
             {
-                LayerHeaderViewModel? newLH = Timeline.LayerHeaders.FirstOrDefault(i => i.Number.Value == number);
+                LayerHeaderViewModel? newLH = Timeline.LayerHeaders.FirstOrDefault(i =>
+                    i.Number.Value == number
+                );
 
                 LayerHeader.Value?.ElementRemoved(this);
 
@@ -145,10 +151,12 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
         Scope = new ElementScopeViewModel(Model, this);
 
         // プレビュー関連の初期化
-        IsThumbnailsKindAudio = ThumbnailsKind.Select(k => k == Engine.ThumbnailsKind.Audio)
+        IsThumbnailsKindAudio = ThumbnailsKind
+            .Select(k => k == Engine.ThumbnailsKind.Audio)
             .ToReadOnlyReactivePropertySlim()
             .AddTo(_disposables);
-        IsThumbnailsKindVideo = ThumbnailsKind.Select(k => k == Engine.ThumbnailsKind.Video)
+        IsThumbnailsKindVideo = ThumbnailsKind
+            .Select(k => k == Engine.ThumbnailsKind.Video)
             .ToReadOnlyReactivePropertySlim()
             .AddTo(_disposables);
 
@@ -165,7 +173,8 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
         Timeline.ThumbnailsDisabledElements.Detached += OnThumbnailsDisabledElementsDetached;
 
         // IsThumbnailsDisabledが変更されたらThumbnailsDisabledElementsを更新し、プレビューを再読み込み
-        IsThumbnailsDisabled.Skip(1)
+        IsThumbnailsDisabled
+            .Skip(1)
             .Subscribe(isDisabled =>
             {
                 if (isDisabled)
@@ -185,9 +194,8 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
             .AddTo(_disposables);
 
         // Width変更とThumbnailsInvalidatedイベントをマージして、いずれかが発生してから500ms後に更新
-        Observable.Merge(
-                Width.Select(_ => Unit.Default),
-                _thumbnailsInvalidatedSubject.AsObservable())
+        Observable
+            .Merge(Width.Select(_ => Unit.Default), _thumbnailsInvalidatedSubject.AsObservable())
             .Throttle(TimeSpan.FromMilliseconds(500))
             .ObserveOnUIDispatcher()
             .Subscribe(_ => UpdateThumbnailsAsync())
@@ -208,17 +216,17 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
 
         Scene.Groups.Attached += OnSetAttached;
         Scene.Groups.Detached += OnSetDetached;
-        _disposables.Add(Disposable.Create(() =>
-        {
-            Scene.Groups.Attached -= OnSetAttached;
-            Scene.Groups.Detached -= OnSetDetached;
-        }));
+        _disposables.Add(
+            Disposable.Create(() =>
+            {
+                Scene.Groups.Attached -= OnSetAttached;
+                Scene.Groups.Detached -= OnSetDetached;
+            })
+        );
 
-        GroupSelectedElements.Subscribe(_ => OnGroupSelectedElements())
-            .AddTo(_disposables);
+        GroupSelectedElements.Subscribe(_ => OnGroupSelectedElements()).AddTo(_disposables);
 
-        UngroupSelectedElements.Subscribe(_ => OnUngroupSelectedElements())
-            .AddTo(_disposables);
+        UngroupSelectedElements.Subscribe(_ => OnUngroupSelectedElements()).AddTo(_disposables);
     }
 
     ~ElementViewModel()
@@ -226,11 +234,11 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
         _disposables.Dispose();
     }
 
-    public Func<(Thickness Margin, Thickness BorderMargin, double Width), CancellationToken, Task> AnimationRequested
-    {
-        get;
-        set;
-    } = (_, _) => Task.CompletedTask;
+    public Func<
+        (Thickness Margin, Thickness BorderMargin, double Width),
+        CancellationToken,
+        Task
+    > AnimationRequested { get; set; } = (_, _) => Task.CompletedTask;
 
     public Action RenameRequested { get; set; } = () => { };
 
@@ -286,7 +294,8 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
 
     public ReactiveCommand ChangeToOriginalDuration { get; } = new();
 
-    public ReactivePropertySlim<ThumbnailsKind> ThumbnailsKind { get; } = new(Engine.ThumbnailsKind.None);
+    public ReactivePropertySlim<ThumbnailsKind> ThumbnailsKind { get; } =
+        new(Engine.ThumbnailsKind.None);
 
     public ReadOnlyReactivePropertySlim<bool> IsThumbnailsKindVideo { get; }
 
@@ -325,9 +334,7 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
             return [];
         }
 
-        return Timeline.Elements
-            .Where(x => ids.Contains(x.Model.Id))
-            .ToArray();
+        return Timeline.Elements.Where(x => ids.Contains(x.Model.Id)).ToArray();
     }
 
     public bool CanGroupSelectedElements()
@@ -379,11 +386,14 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
         GC.SuppressFinalize(this);
     }
 
-    public async void AnimationRequest(int layerNum, bool affectModel = true,
-        CancellationToken cancellationToken = default)
+    public async void AnimationRequest(
+        int layerNum,
+        bool affectModel = true,
+        CancellationToken cancellationToken = default
+    )
     {
-        var inlines = Timeline.Inlines
-            .Where(x => x.Element == this)
+        var inlines = Timeline
+            .Inlines.Where(x => x.Element == this)
             .Select(x => (ViewModel: x, Context: x.PrepareAnimation()))
             .ToArray();
         var scope = Scope.PrepareAnimation();
@@ -399,16 +409,27 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
             item.AnimationRequest(context, newMargin, BorderMargin.Value, cancellationToken);
 
         Task task1 = Scope.AnimationRequest(scope, cancellationToken);
-        Task task2 = AnimationRequested((newMargin, BorderMargin.Value, Width.Value), cancellationToken);
+        Task task2 = AnimationRequested(
+            (newMargin, BorderMargin.Value, Width.Value),
+            cancellationToken
+        );
 
         await Task.WhenAll(task1, task2);
         Margin.Value = newMargin;
     }
 
-    public async Task AnimationRequest(PrepareAnimationContext context, CancellationToken cancellationToken = default)
+    public async Task AnimationRequest(
+        PrepareAnimationContext context,
+        CancellationToken cancellationToken = default
+    )
     {
         var margin = new Thickness(0, Timeline.CalculateLayerTop(Model.ZIndex), 0, 0);
-        var borderMargin = new Thickness(Model.Start.TimeToPixel(Timeline.Options.Value.Scale), 0, 0, 0);
+        var borderMargin = new Thickness(
+            Model.Start.TimeToPixel(Timeline.Options.Value.Scale),
+            0,
+            0,
+            0
+        );
         double width = Model.Length.TimeToPixel(Timeline.Options.Value.Scale);
 
         BorderMargin.Value = context.BorderMargin;
@@ -440,7 +461,9 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
         int zindex = Timeline.ToLayerNumber(Margin.Value);
 
         Scene.MoveChild(zindex, start, length, Model);
-        Timeline.EditorContext.GetRequiredService<HistoryManager>().Commit(CommandNames.MoveElement);
+        Timeline
+            .EditorContext.GetRequiredService<HistoryManager>()
+            .Commit(CommandNames.MoveElement);
 
         await AnimationRequest(context);
     }
@@ -448,16 +471,18 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
     private async ValueTask<bool> SetClipboard(HashSet<ElementViewModel> selected)
     {
         IClipboard? clipboard = ClipboardHelper.GetClipboard();
-        if (clipboard == null) return false;
+        if (clipboard == null)
+            return false;
 
         var skipMulti = selected.Count == 1 && selected.First() == this;
 
         string singleJson = CoreSerializer.SerializeToJsonString(Model);
         string? multiJson = !skipMulti
-            ? new JsonArray(selected
+            ? new JsonArray(
+                selected
                     .Select(JsonNode (i) => CoreSerializer.SerializeToJsonObject(i.Model))
-                    .ToArray())
-                .ToJsonString()
+                    .ToArray()
+            ).ToJsonString()
             : null;
         var data = new DataTransfer();
         data.Add(DataTransferItem.CreateText(singleJson));
@@ -477,11 +502,12 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
             Margin: Margin.Value,
             BorderMargin: BorderMargin.Value,
             Width: Width.Value,
-            Inlines: Timeline.Inlines
-                .Where(x => x.Element == this)
+            Inlines: Timeline
+                .Inlines.Where(x => x.Element == this)
                 .Select(x => (ViewModel: x, Context: x.PrepareAnimation()))
                 .ToArray(),
-            Scope: Scope.PrepareAnimation());
+            Scope: Scope.PrepareAnimation()
+        );
     }
 
     private void OnThumbnailsDisabledElementsAttached(Guid id)
@@ -525,7 +551,9 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
     {
         if (LayerHeader.Value is { } layerHeader)
         {
-            InlineAnimationLayerViewModel[] inlines = Timeline.Inlines.Where(x => x.Element == this).ToArray();
+            InlineAnimationLayerViewModel[] inlines = Timeline
+                .Inlines.Where(x => x.Element == this)
+                .ToArray();
             Array.Sort(inlines, (x, y) => x.Index.Value - y.Index.Value);
 
             for (int i = 0; i < inlines.Length; i++)
@@ -542,7 +570,11 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
 
     private void OnFinishEditingAnimation()
     {
-        foreach (InlineAnimationLayerViewModel item in Timeline.Inlines.Where(x => x.Element == this).ToArray())
+        foreach (
+            InlineAnimationLayerViewModel item in Timeline
+                .Inlines.Where(x => x.Element == this)
+                .ToArray()
+        )
         {
             Timeline.DetachInline(item);
         }
@@ -597,7 +629,9 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
             }
         }
 
-        Timeline.EditorContext.GetRequiredService<HistoryManager>().Commit(CommandNames.GroupElements);
+        Timeline
+            .EditorContext.GetRequiredService<HistoryManager>()
+            .Commit(CommandNames.GroupElements);
     }
 
     private void OnUngroupSelectedElements()
@@ -605,7 +639,9 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
         IReadOnlyCollection<Guid> ids = GetSelectedIdsOrSelf();
         RemoveIdsFromElementSets(ids);
 
-        Timeline.EditorContext.GetRequiredService<HistoryManager>().Commit(CommandNames.UngroupElements);
+        Timeline
+            .EditorContext.GetRequiredService<HistoryManager>()
+            .Commit(CommandNames.UngroupElements);
     }
 
     private void OnSetAttached(ImmutableHashSet<Guid> group)
@@ -693,13 +729,18 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
                 target.Model.ZIndex,
                 target.Model.Start,
                 forwardDuration,
-                target.Model);
+                target.Model
+            );
             backward.Start = absTime;
             backward.Length = backwardDuration;
-            foreach (KeyFrameAnimation item in new ObjectSearcher(backward,
-                             o => o is KeyFrameAnimation { UseGlobalClock: false })
-                         .SearchAll()
-                         .OfType<KeyFrameAnimation>())
+            foreach (
+                KeyFrameAnimation item in new ObjectSearcher(
+                    backward,
+                    o => o is KeyFrameAnimation { UseGlobalClock: false }
+                )
+                    .SearchAll()
+                    .OfType<KeyFrameAnimation>()
+            )
             {
                 foreach (IKeyFrame keyframe in item.KeyFrames)
                 {
@@ -709,7 +750,8 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
 
             CoreSerializer.StoreToUri(
                 backward,
-                RandomFileNameGenerator.GenerateUri(Scene.Uri!, Constants.ElementFileExtension));
+                RandomFileNameGenerator.GenerateUri(Scene.Uri!, Constants.ElementFileExtension)
+            );
             target.Scene.AddChild(backward);
             backward.NotifySplitted(true, forwardDuration, -forwardDuration);
             target.Model.NotifySplitted(false, TimeSpan.Zero, -backwardDuration);
@@ -740,17 +782,20 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
             }
         }
 
-        Timeline.EditorContext.GetRequiredService<HistoryManager>().Commit(CommandNames.SplitElement);
+        Timeline
+            .EditorContext.GetRequiredService<HistoryManager>()
+            .Commit(CommandNames.SplitElement);
     }
 
     private async void OnChangeToOriginalDuration()
     {
-        if (Model.HasOriginalDuration()
-            && Model.TryGetOriginalDuration(out TimeSpan timeSpan))
+        if (Model.HasOriginalDuration() && Model.TryGetOriginalDuration(out TimeSpan timeSpan))
         {
             PrepareAnimationContext context = PrepareAnimation();
 
-            int rate = Scene.FindHierarchicalParent<Project>() is { } proj ? proj.GetFrameRate() : 30;
+            int rate = Scene.FindHierarchicalParent<Project>() is { } proj
+                ? proj.GetFrameRate()
+                : 30;
             TimeSpan duration = timeSpan.FloorToRate(rate);
 
             Element? after = Model.GetAfter(Model.ZIndex, Model.Range.End);
@@ -764,7 +809,9 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
             }
 
             Scene.MoveChild(Model.ZIndex, Model.Start, duration, Model);
-            Timeline.EditorContext.GetRequiredService<HistoryManager>().Commit(CommandNames.MoveElement);
+            Timeline
+                .EditorContext.GetRequiredService<HistoryManager>()
+                .Commit(CommandNames.MoveElement);
 
             await AnimationRequest(context);
         }
@@ -798,9 +845,12 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
         Thickness Margin,
         Thickness BorderMargin,
         double Width,
-        (InlineAnimationLayerViewModel ViewModel, InlineAnimationLayerViewModel.PrepareAnimationContext Context)[]
-            Inlines,
-        ElementScopeViewModel.PrepareAnimationContext Scope);
+        (
+            InlineAnimationLayerViewModel ViewModel,
+            InlineAnimationLayerViewModel.PrepareAnimationContext Context
+        )[] Inlines,
+        ElementScopeViewModel.PrepareAnimationContext Scope
+    );
 
     private void CancelThumbnailsLoading()
     {
@@ -876,9 +926,7 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
                     break;
             }
         }
-        catch (OperationCanceledException)
-        {
-        }
+        catch (OperationCanceledException) { }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to update thumbnails.");
@@ -914,7 +962,8 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
 
     private async Task UpdateVisibleThumbnailsAsync(int start, int end)
     {
-        if (end < start) return;
+        if (end < start)
+            return;
 
         var provider = _currentThumbnailsProvider;
         if (provider == null || provider.ThumbnailsKind != Engine.ThumbnailsKind.Video)
@@ -939,8 +988,16 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
             if (width <= 0)
                 return;
 
-            await foreach (var (index, count, thumbnail) in provider.GetThumbnailStripAsync(
-                (int)width, MaxThumbnailHeight, _thumbnailCacheService, ct, start, end))
+            await foreach (
+                var (index, count, thumbnail) in provider.GetThumbnailStripAsync(
+                    (int)width,
+                    MaxThumbnailHeight,
+                    _thumbnailCacheService,
+                    ct,
+                    start,
+                    end
+                )
+            )
             {
                 if (ct.IsCancellationRequested)
                 {
@@ -955,15 +1012,16 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
                         if (!ct.IsCancellationRequested)
                         {
                             VideoThumbnailCount.Value = count;
-                            ThumbnailReady?.Invoke(index, !thumbnail.IsDisposed ? thumbnail.ToAvaWriteableBitmap(null) : null);
+                            ThumbnailReady?.Invoke(
+                                index,
+                                !thumbnail.IsDisposed ? thumbnail.ToAvaWriteableBitmap(null) : null
+                            );
                         }
                     }
                 });
             }
         }
-        catch (OperationCanceledException)
-        {
-        }
+        catch (OperationCanceledException) { }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to update visible thumbnails.");
@@ -975,7 +1033,10 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
         }
     }
 
-    private async Task UpdateVideoThumbnailsAsync(IThumbnailsProvider provider, CancellationToken ct)
+    private async Task UpdateVideoThumbnailsAsync(
+        IThumbnailsProvider provider,
+        CancellationToken ct
+    )
     {
         const int MaxThumbnailHeight = 25;
         double width = Width.Value;
@@ -993,7 +1054,16 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
         int startIndex = _lastVisibleStart >= 0 ? _lastVisibleStart : 0;
         int endIndex = _lastVisibleEnd >= 0 ? _lastVisibleEnd : -1;
 
-        await foreach (var (index, count, thumbnail) in provider.GetThumbnailStripAsync((int)width, MaxThumbnailHeight, _thumbnailCacheService, ct, startIndex, endIndex))
+        await foreach (
+            var (index, count, thumbnail) in provider.GetThumbnailStripAsync(
+                (int)width,
+                MaxThumbnailHeight,
+                _thumbnailCacheService,
+                ct,
+                startIndex,
+                endIndex
+            )
+        )
         {
             if (ct.IsCancellationRequested)
             {
@@ -1008,14 +1078,20 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
                     if (!ct.IsCancellationRequested)
                     {
                         VideoThumbnailCount.Value = count;
-                        ThumbnailReady?.Invoke(index, !thumbnail.IsDisposed ? thumbnail.ToAvaWriteableBitmap(null) : null);
+                        ThumbnailReady?.Invoke(
+                            index,
+                            !thumbnail.IsDisposed ? thumbnail.ToAvaWriteableBitmap(null) : null
+                        );
                     }
                 }
             });
         }
     }
 
-    private async Task UpdateAudioThumbnailsAsync(IThumbnailsProvider provider, CancellationToken ct)
+    private async Task UpdateAudioThumbnailsAsync(
+        IThumbnailsProvider provider,
+        CancellationToken ct
+    )
     {
         const int MaxSamplesPerChunk = 4096;
         double width = Width.Value;
@@ -1033,7 +1109,14 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
             }
         });
 
-        await foreach (var chunk in provider.GetWaveformChunksAsync(chunkCount, MaxSamplesPerChunk, _thumbnailCacheService, ct))
+        await foreach (
+            var chunk in provider.GetWaveformChunksAsync(
+                chunkCount,
+                MaxSamplesPerChunk,
+                _thumbnailCacheService,
+                ct
+            )
+        )
         {
             if (ct.IsCancellationRequested)
                 break;

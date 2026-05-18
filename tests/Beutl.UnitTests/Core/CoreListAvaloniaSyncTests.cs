@@ -11,7 +11,9 @@ namespace Beutl.UnitTests.Core;
 [TestFixture]
 public class CoreListAvaloniaSyncTests
 {
-    private static (CoreList<string> Source, AvaloniaList<string> Mirror) BuildPair(params string[] items)
+    private static (CoreList<string> Source, AvaloniaList<string> Mirror) BuildPair(
+        params string[] items
+    )
     {
         var source = new CoreList<string>();
         foreach (string s in items)
@@ -26,12 +28,14 @@ public class CoreListAvaloniaSyncTests
             switch (e.Action)
             {
                 case NotifyCollectionChangedAction.Move:
-                    if (e.OldStartingIndex >= 0
+                    if (
+                        e.OldStartingIndex >= 0
                         && e.OldStartingIndex < mirror.Count
                         && e.NewStartingIndex >= 0
                         && e.NewStartingIndex < mirror.Count
                         && e.OldStartingIndex != e.NewStartingIndex
-                        && e.OldItems is { Count: 1 })
+                        && e.OldItems is { Count: 1 }
+                    )
                     {
                         mirror.Move(e.OldStartingIndex, e.NewStartingIndex);
                     }

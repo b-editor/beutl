@@ -39,14 +39,26 @@ public partial class GraphEditorView : UserControl
         graphPanel.PointerMoved += OnGraphPanelPointerMoved;
         graphPanel.PointerReleased += OnGraphPanelPointerReleased;
 
-        scale.AddHandler(PointerWheelChangedEvent, OnContentPointerWheelChanged, RoutingStrategies.Tunnel);
-        graphPanel.AddHandler(PointerWheelChangedEvent, OnContentPointerWheelChanged, RoutingStrategies.Tunnel);
-        verticalScale.AddHandler(PointerWheelChangedEvent, OnVerticalScalePointerWheelChanged,
-            RoutingStrategies.Tunnel);
+        scale.AddHandler(
+            PointerWheelChangedEvent,
+            OnContentPointerWheelChanged,
+            RoutingStrategies.Tunnel
+        );
+        graphPanel.AddHandler(
+            PointerWheelChangedEvent,
+            OnContentPointerWheelChanged,
+            RoutingStrategies.Tunnel
+        );
+        verticalScale.AddHandler(
+            PointerWheelChangedEvent,
+            OnVerticalScalePointerWheelChanged,
+            RoutingStrategies.Tunnel
+        );
 
         this.SubscribeDataContextChange<GraphEditorViewModel>(
             OnDataContextAttached,
-            OnDataContextDetached);
+            OnDataContextDetached
+        );
 
         views.ContainerPrepared += OnContainerPrepared;
         views.ContainerClearing += OnContainerClearing;
@@ -80,14 +92,12 @@ public partial class GraphEditorView : UserControl
 
     private void OnDataContextAttached(GraphEditorViewModel obj)
     {
-        obj.MinHeight
-            .CombineLatest(scroll.GetObservable(BoundsProperty))
+        obj.MinHeight.CombineLatest(scroll.GetObservable(BoundsProperty))
             .ObserveOnUIDispatcher()
             .Subscribe(v => graphPanel.Height = Math.Max(v.First, v.Second.Height))
             .DisposeWith(_disposables);
 
-        obj.CurrentTime
-            .ObserveOnUIDispatcher()
+        obj.CurrentTime.ObserveOnUIDispatcher()
             .Subscribe(time => OnCurrentTimeChangedForAutoScroll(obj, time))
             .DisposeWith(_disposables);
     }
@@ -97,7 +107,8 @@ public partial class GraphEditorView : UserControl
         base.OnLoaded(e);
         if (DataContext is GraphEditorViewModel viewModel)
         {
-            viewModel.ScrollOffset.Subscribe(offset => scroll.Offset = offset)
+            viewModel
+                .ScrollOffset.Subscribe(offset => scroll.Offset = offset)
                 .DisposeWith(_disposables);
         }
 
@@ -112,21 +123,31 @@ public partial class GraphEditorView : UserControl
         }
     }
 
-    private void OnCurrentTimeChangedForAutoScroll(GraphEditorViewModel viewModel, TimeSpan currentTime)
+    private void OnCurrentTimeChangedForAutoScroll(
+        GraphEditorViewModel viewModel,
+        TimeSpan currentTime
+    )
     {
         var mode = GlobalConfiguration.Instance.EditorConfig.TimelineAutoScrollMode;
-        if (mode == TimelineAutoScrollMode.None) return;
+        if (mode == TimelineAutoScrollMode.None)
+            return;
 
         var previewPlayer = viewModel.EditorContext.GetService<IPreviewPlayer>();
-        if (previewPlayer == null || !previewPlayer.IsPlaying.Value) return;
+        if (previewPlayer == null || !previewPlayer.IsPlaying.Value)
+            return;
 
         float scale = viewModel.Options.Value.Scale;
         double seekBarPixel = currentTime.TimeToPixel(scale);
 
         double? newOffsetX = TimelineHelper.CalculateAutoScrollOffset(
-            seekBarPixel, scroll.Viewport.Width, scroll.Offset.X, mode);
+            seekBarPixel,
+            scroll.Viewport.Width,
+            scroll.Offset.X,
+            mode
+        );
 
-        if (newOffsetX is not { } offsetX) return;
+        if (newOffsetX is not { } offsetX)
+            return;
 
         scroll.Offset = new Vector(offsetX, scroll.Offset.Y);
     }
@@ -208,7 +229,7 @@ public partial class GraphEditorView : UserControl
             viewModel.Options.Value = viewModel.Options.Value with
             {
                 Scale = scale,
-                Offset = new Vector2(offset.X, originalOffset.Y)
+                Offset = new Vector2(offset.X, originalOffset.Y),
             };
 
             viewModel.ScrollOffset.Value = new(offset.X, offset.Y);
@@ -266,7 +287,7 @@ public partial class GraphEditorView : UserControl
             viewModel.Options.Value = viewModel.Options.Value with
             {
                 Scale = scale,
-                Offset = new Vector2(offset.X, originalOffset.Y)
+                Offset = new Vector2(offset.X, originalOffset.Y),
             };
 
             viewModel.ScrollOffset.Value = new(offset.X, offset.Y);
@@ -292,7 +313,9 @@ public partial class GraphEditorView : UserControl
             PointerPoint pointerPt = e.GetCurrentPoint(graphPanel);
             viewModel.UpdatePointerPosition(pointerPt.Position.X);
             int rate = viewModel.Scene.FindHierarchicalParent<Project>().GetFrameRate();
-            _pointerFrame = pointerPt.Position.X.PixelToTimeSpan(viewModel.Options.Value.Scale).RoundToRate(rate);
+            _pointerFrame = pointerPt
+                .Position.X.PixelToTimeSpan(viewModel.Options.Value.Scale)
+                .RoundToRate(rate);
 
             if (_pointerFrame < TimeSpan.Zero)
             {
@@ -340,8 +363,14 @@ public partial class GraphEditorView : UserControl
                 double endingBarX = viewModel.EndingBarMargin.Value.Left;
 
                 // EndingBarマーカーの当たり判定チェック
-                if (TimelineHelper.IsPointInTimelineScaleMarker(pointerPt.Position.X, posScale.Y, startingBarX,
-                        endingBarX))
+                if (
+                    TimelineHelper.IsPointInTimelineScaleMarker(
+                        pointerPt.Position.X,
+                        posScale.Y,
+                        startingBarX,
+                        endingBarX
+                    )
+                )
                 {
                     scale.Cursor = new Cursor(StandardCursorType.SizeWestEast);
                 }
@@ -355,7 +384,8 @@ public partial class GraphEditorView : UserControl
 
     private void OnContentPointerReleased(object? sender, PointerReleasedEventArgs e)
     {
-        if (DataContext is not GraphEditorViewModel viewModel) return;
+        if (DataContext is not GraphEditorViewModel viewModel)
+            return;
         PointerPoint pointerPt = e.GetCurrentPoint(graphPanel);
 
         if (pointerPt.Properties.PointerUpdateKind == PointerUpdateKind.LeftButtonReleased)
@@ -386,13 +416,24 @@ public partial class GraphEditorView : UserControl
                 Point scalePoint = e.GetPosition(scale);
 
                 // マーカーの当たり判定チェック - TimelineScaleのマーカーのみ
-                if (TimelineHelper.IsPointInTimelineScaleEndingMarker(pointerPt.Position.X, scalePoint.Y, endingBarX))
+                if (
+                    TimelineHelper.IsPointInTimelineScaleEndingMarker(
+                        pointerPt.Position.X,
+                        scalePoint.Y,
+                        endingBarX
+                    )
+                )
                 {
                     _mouseFlag = TimelineHelper.MouseFlags.EndingBarMarkerPressed;
                     _initialDuration = viewModel.Scene.Duration; // 初期値を保存
                 }
-                else if (TimelineHelper.IsPointInTimelineScaleStartingMarker(pointerPt.Position.X, scalePoint.Y,
-                             startingBarX))
+                else if (
+                    TimelineHelper.IsPointInTimelineScaleStartingMarker(
+                        pointerPt.Position.X,
+                        scalePoint.Y,
+                        startingBarX
+                    )
+                )
                 {
                     _mouseFlag = TimelineHelper.MouseFlags.StartingBarMarkerPressed;
                     _initialStart = viewModel.Scene.Start; // 初期値を保存
@@ -401,11 +442,13 @@ public partial class GraphEditorView : UserControl
                 else
                 {
                     _mouseFlag = TimelineHelper.MouseFlags.SeekBarPressed;
-                    viewModel.CurrentTime.Value = pointerPt.Position.X
-                        .PixelToTimeSpan(viewModel.Options.Value.Scale)
-                        .RoundToRate(viewModel.Scene.FindHierarchicalParent<Project>() is { } proj
-                            ? proj.GetFrameRate()
-                            : 30);
+                    viewModel.CurrentTime.Value = pointerPt
+                        .Position.X.PixelToTimeSpan(viewModel.Options.Value.Scale)
+                        .RoundToRate(
+                            viewModel.Scene.FindHierarchicalParent<Project>() is { } proj
+                                ? proj.GetFrameRate()
+                                : 30
+                        );
                 }
 
                 e.Handled = true;
@@ -415,8 +458,7 @@ public partial class GraphEditorView : UserControl
 
     private void ZoomClick(object? sender, RoutedEventArgs e)
     {
-        if (e.Source is MenuItem menuItem
-            && DataContext is GraphEditorViewModel viewModel)
+        if (e.Source is MenuItem menuItem && DataContext is GraphEditorViewModel viewModel)
         {
             float zoom;
             switch (menuItem.CommandParameter)
@@ -444,8 +486,11 @@ public partial class GraphEditorView : UserControl
 
     private void OnGraphPanelPointerMoved(object? sender, PointerEventArgs e)
     {
-        if (KeyTimeMoveState != null
-            && DataContext is GraphEditorViewModel { SelectedView.Value: { } selectedView } viewModel)
+        if (
+            KeyTimeMoveState != null
+            && DataContext
+                is GraphEditorViewModel { SelectedView.Value: { } selectedView } viewModel
+        )
         {
             GraphEditorKeyFrameViewModel? itemViewModel = KeyTimeMoveState.KeyFrameViewModel;
             // ドラッグ中のキーフレームが左右のキーフレームを横断した場合、
@@ -455,14 +500,17 @@ public partial class GraphEditorView : UserControl
             {
                 double? y = KeyTimeMoveState.KeyFrameViewModel?.EndY.Value;
                 itemViewModel = KeyTimeMoveState.KeyFrameViewModel =
-                    selectedView.KeyFrames.FirstOrDefault(x => x.Model == KeyTimeMoveState.KeyFrame);
+                    selectedView.KeyFrames.FirstOrDefault(x =>
+                        x.Model == KeyTimeMoveState.KeyFrame
+                    );
 
                 if (y.HasValue && itemViewModel != null)
                 {
                     int nextIndex = selectedView.KeyFrames.IndexOf(itemViewModel) + 1;
-                    KeyTimeMoveState.NextKeyFrameViewModel = nextIndex < selectedView.KeyFrames.Count
-                        ? selectedView.KeyFrames[nextIndex]
-                        : null;
+                    KeyTimeMoveState.NextKeyFrameViewModel =
+                        nextIndex < selectedView.KeyFrames.Count
+                            ? selectedView.KeyFrames[nextIndex]
+                            : null;
 
                     itemViewModel.EndY.Value = y.Value;
                 }
@@ -479,12 +527,17 @@ public partial class GraphEditorView : UserControl
                     Point delta = position - KeyTimeMoveState.DragStart;
                     KeyTimeMoveState.DragStart = position;
                     float scale = viewModel.Options.Value.Scale;
-                    int rate = viewModel.Scene.FindHierarchicalParent<Project>() is { } proj ? proj.GetFrameRate() : 30;
+                    int rate = viewModel.Scene.FindHierarchicalParent<Project>() is { } proj
+                        ? proj.GetFrameRate()
+                        : 30;
 
                     if (KeyTimeMoveState.FollowingKeyFrames != null)
                     {
-                        foreach (GraphEditorKeyFrameViewModel item in KeyTimeMoveState.FollowingKeyFrames.Append(
-                                     itemViewModel))
+                        foreach (
+                            GraphEditorKeyFrameViewModel item in KeyTimeMoveState.FollowingKeyFrames.Append(
+                                itemViewModel
+                            )
+                        )
                         {
                             double right = item.Right.Value + delta.X;
                             var timeSpan = right.PixelToTimeSpan(scale);
@@ -497,8 +550,10 @@ public partial class GraphEditorView : UserControl
                         double right = itemViewModel.Right.Value + delta.X;
                         var timeSpan = right.PixelToTimeSpan(scale);
                         // 左のキーフレームに横断した場合
-                        if (itemViewModel._previous.Value is { Model.KeyTime: TimeSpan prevTime }
-                            && prevTime > timeSpan.RoundToRate(rate))
+                        if (
+                            itemViewModel._previous.Value is { Model.KeyTime: TimeSpan prevTime }
+                            && prevTime > timeSpan.RoundToRate(rate)
+                        )
                         {
                             int index = selectedView.KeyFrames.IndexOf(itemViewModel);
                             var viewControlPoints = KeyTimeMoveState.ViewControlPoints;
@@ -511,29 +566,38 @@ public partial class GraphEditorView : UserControl
                                 {
                                     KeyTimeMoveState.NextViewControlPoints = (
                                         KeyTimeMoveState.NextViewControlPoints.Value.ControlPoint1,
-                                        prev.RightTop.Value - prev.ControlPoint2.Value);
+                                        prev.RightTop.Value - prev.ControlPoint2.Value
+                                    );
                                 }
 
                                 if (KeyTimeMoveState.ViewControlPoints.HasValue)
                                 {
                                     KeyTimeMoveState.ViewControlPoints = (
                                         prev.LeftBottom.Value - prev.ControlPoint1.Value,
-                                        KeyTimeMoveState.ViewControlPoints.Value.ControlPoint2);
+                                        KeyTimeMoveState.ViewControlPoints.Value.ControlPoint2
+                                    );
                                 }
                             }
 
                             itemViewModel.UpdateKeyTime(timeSpan);
 
                             // 現在編集中のキーフレームが横断したので、indexは現在の後になっている
-                            if (index + 1 < selectedView.KeyFrames.Count && viewControlPoints.HasValue &&
-                                nextViewControlPoints.HasValue)
+                            if (
+                                index + 1 < selectedView.KeyFrames.Count
+                                && viewControlPoints.HasValue
+                                && nextViewControlPoints.HasValue
+                            )
                             {
                                 // 編集中のキーフレームの前後のキーフレームが変わったので、移動前の時点でのコントロールポイントを表示上の位置で設定する
                                 var nextNext = selectedView.KeyFrames[index + 1];
                                 nextNext.UpdateControlPoint1(
-                                    nextNext.LeftBottom.Value - viewControlPoints.Value.ControlPoint1);
+                                    nextNext.LeftBottom.Value
+                                        - viewControlPoints.Value.ControlPoint1
+                                );
                                 nextNext.UpdateControlPoint2(
-                                    nextNext.RightTop.Value - nextViewControlPoints.Value.ControlPoint2);
+                                    nextNext.RightTop.Value
+                                        - nextViewControlPoints.Value.ControlPoint2
+                                );
                             }
 
                             KeyTimeMoveState.Crossed = true;
@@ -546,8 +610,10 @@ public partial class GraphEditorView : UserControl
                         }
 
                         // 右のキーフレームに横断した場合
-                        if (itemViewModel._next is { Model.KeyTime: TimeSpan nextTime }
-                            && timeSpan.RoundToRate(rate) > nextTime)
+                        if (
+                            itemViewModel._next is { Model.KeyTime: TimeSpan nextTime }
+                            && timeSpan.RoundToRate(rate) > nextTime
+                        )
                         {
                             int index = selectedView.KeyFrames.IndexOf(itemViewModel);
                             var viewControlPoints = KeyTimeMoveState.ViewControlPoints;
@@ -559,29 +625,36 @@ public partial class GraphEditorView : UserControl
                                 {
                                     KeyTimeMoveState.NextViewControlPoints = (
                                         KeyTimeMoveState.NextViewControlPoints.Value.ControlPoint1,
-                                        nextNext.RightTop.Value - nextNext.ControlPoint2.Value);
+                                        nextNext.RightTop.Value - nextNext.ControlPoint2.Value
+                                    );
                                 }
 
                                 if (KeyTimeMoveState.ViewControlPoints.HasValue)
                                 {
                                     KeyTimeMoveState.ViewControlPoints = (
                                         nextNext.LeftBottom.Value - nextNext.ControlPoint1.Value,
-                                        KeyTimeMoveState.ViewControlPoints.Value.ControlPoint2);
+                                        KeyTimeMoveState.ViewControlPoints.Value.ControlPoint2
+                                    );
                                 }
                             }
 
                             itemViewModel.UpdateKeyTime(timeSpan);
 
                             // 現在編集中のキーフレームが横断したので、indexは現在の手前になっている
-                            if (index < selectedView.KeyFrames.Count && viewControlPoints.HasValue &&
-                                nextViewControlPoints.HasValue)
+                            if (
+                                index < selectedView.KeyFrames.Count
+                                && viewControlPoints.HasValue
+                                && nextViewControlPoints.HasValue
+                            )
                             {
                                 // 編集中のキーフレームの前後のキーフレームが変わったので、移動前の時点でのコントロールポイントを表示上の位置で設定する
                                 var prev = selectedView.KeyFrames[index];
                                 prev.UpdateControlPoint1(
-                                    prev.LeftBottom.Value - viewControlPoints.Value.ControlPoint1);
+                                    prev.LeftBottom.Value - viewControlPoints.Value.ControlPoint1
+                                );
                                 prev.UpdateControlPoint2(
-                                    prev.RightTop.Value - nextViewControlPoints.Value.ControlPoint2);
+                                    prev.RightTop.Value - nextViewControlPoints.Value.ControlPoint2
+                                );
                             }
 
                             KeyTimeMoveState.Crossed = true;
@@ -600,20 +673,28 @@ public partial class GraphEditorView : UserControl
                     if (KeyTimeMoveState.ViewControlPoints != null)
                     {
                         itemViewModel.UpdateControlPoint1(
-                            itemViewModel.LeftBottom.Value - KeyTimeMoveState.ViewControlPoints.Value.ControlPoint1);
+                            itemViewModel.LeftBottom.Value
+                                - KeyTimeMoveState.ViewControlPoints.Value.ControlPoint1
+                        );
                         itemViewModel.UpdateControlPoint2(
-                            itemViewModel.RightTop.Value - KeyTimeMoveState.ViewControlPoints.Value.ControlPoint2);
+                            itemViewModel.RightTop.Value
+                                - KeyTimeMoveState.ViewControlPoints.Value.ControlPoint2
+                        );
                     }
 
-                    if (KeyTimeMoveState.NextKeyFrameViewModel != null &&
-                        KeyTimeMoveState.NextViewControlPoints != null)
+                    if (
+                        KeyTimeMoveState.NextKeyFrameViewModel != null
+                        && KeyTimeMoveState.NextViewControlPoints != null
+                    )
                     {
                         KeyTimeMoveState.NextKeyFrameViewModel.UpdateControlPoint1(
-                            KeyTimeMoveState.NextKeyFrameViewModel.LeftBottom.Value -
-                            KeyTimeMoveState.NextViewControlPoints.Value.ControlPoint1);
+                            KeyTimeMoveState.NextKeyFrameViewModel.LeftBottom.Value
+                                - KeyTimeMoveState.NextViewControlPoints.Value.ControlPoint1
+                        );
                         KeyTimeMoveState.NextKeyFrameViewModel.UpdateControlPoint2(
-                            KeyTimeMoveState.NextKeyFrameViewModel.RightTop.Value -
-                            KeyTimeMoveState.NextViewControlPoints.Value.ControlPoint2);
+                            KeyTimeMoveState.NextKeyFrameViewModel.RightTop.Value
+                                - KeyTimeMoveState.NextViewControlPoints.Value.ControlPoint2
+                        );
                     }
 
                     // マウスがスクロール外に行った時、スクロールを移動する
@@ -636,13 +717,17 @@ public partial class GraphEditorView : UserControl
 
     private void OnGraphPanelPointerReleased(object? sender, PointerReleasedEventArgs e)
     {
-        if (DataContext is GraphEditorViewModel viewModel
+        if (
+            DataContext is GraphEditorViewModel viewModel
             && KeyTimeMoveState != null
-            && KeyTimeMoveState.KeyFrameViewModel != null)
+            && KeyTimeMoveState.KeyFrameViewModel != null
+        )
         {
             if (KeyTimeMoveState.FollowingKeyFrames != null)
             {
-                foreach (GraphEditorKeyFrameViewModel keyframe in KeyTimeMoveState.FollowingKeyFrames)
+                foreach (
+                    GraphEditorKeyFrameViewModel keyframe in KeyTimeMoveState.FollowingKeyFrames
+                )
                 {
                     keyframe.UpdateKeyTimeAndValue();
                 }
@@ -662,8 +747,10 @@ public partial class GraphEditorView : UserControl
 
     private void SelectedView_Click(object? sender, RoutedEventArgs e)
     {
-        if (DataContext is GraphEditorViewModel viewModel
-            && e.Source is MenuItem { DataContext: GraphEditorViewViewModel itemViewModel })
+        if (
+            DataContext is GraphEditorViewModel viewModel
+            && e.Source is MenuItem { DataContext: GraphEditorViewViewModel itemViewModel }
+        )
         {
             viewModel.SelectedView.Value = itemViewModel;
         }
@@ -671,7 +758,8 @@ public partial class GraphEditorView : UserControl
 
     private void ShowBpmGridFlyout(object? sender, RoutedEventArgs e)
     {
-        if (DataContext is not GraphEditorViewModel viewModel) return;
+        if (DataContext is not GraphEditorViewModel viewModel)
+            return;
 
         var bpmGrid = viewModel.Options.Value.BpmGrid;
         var flyout = new Editor.Components.Views.BpmGridFlyout

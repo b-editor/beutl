@@ -17,7 +17,11 @@ public class HistogramControl : HdrScopeControlBase
 {
     public static readonly DirectProperty<HistogramControl, HistogramMode> ModeProperty =
         AvaloniaProperty.RegisterDirect<HistogramControl, HistogramMode>(
-            nameof(Mode), o => o.Mode, (o, v) => o.Mode = v, HistogramMode.Overlay);
+            nameof(Mode),
+            o => o.Mode,
+            (o, v) => o.Mode = v,
+            HistogramMode.Overlay
+        );
 
     private HistogramMode _mode = HistogramMode.Overlay;
 
@@ -52,13 +56,21 @@ public class HistogramControl : HdrScopeControlBase
     protected override string[]? HorizontalAxisLabels =>
         HdrRange is > 0.99f and < 1.01f
             ? s_horizontalLabelsSdr
-            : ["0", $"{HdrRange * 0.25f:F1}", $"{HdrRange * 0.5f:F1}", $"{HdrRange * 0.75f:F1}", $"{HdrRange:F1}"];
+            :
+            [
+                "0",
+                $"{HdrRange * 0.25f:F1}",
+                $"{HdrRange * 0.5f:F1}",
+                $"{HdrRange * 0.75f:F1}",
+                $"{HdrRange:F1}",
+            ];
 
     protected override unsafe WriteableBitmap RenderScope(
         BtlBitmap sourceBitmap,
         int targetWidth,
         int targetHeight,
-        WriteableBitmap? existingBitmap)
+        WriteableBitmap? existingBitmap
+    )
     {
         const int binCount = 256;
         int[] rHist = _rHist;
@@ -75,18 +87,26 @@ public class HistogramControl : HdrScopeControlBase
         float hdrRange = HdrRange;
         float binScale = (binCount - 1) / hdrRange;
 
-        BitmapColorSpace targetColorSpace = ColorSpace == ViewModels.ScopeColorSpace.Linear
-            ? BitmapColorSpace.LinearSrgb
-            : BitmapColorSpace.Srgb;
+        BitmapColorSpace targetColorSpace =
+            ColorSpace == ViewModels.ScopeColorSpace.Linear
+                ? BitmapColorSpace.LinearSrgb
+                : BitmapColorSpace.Srgb;
         BtlBitmap rgbaF16;
         bool requireDispose = false;
-        if (sourceBitmap.ColorType == BitmapColorType.RgbaF16 && sourceBitmap.ColorSpace == targetColorSpace)
+        if (
+            sourceBitmap.ColorType == BitmapColorType.RgbaF16
+            && sourceBitmap.ColorSpace == targetColorSpace
+        )
         {
             rgbaF16 = sourceBitmap;
         }
         else
         {
-            rgbaF16 = sourceBitmap.Convert(BitmapColorType.RgbaF16, BitmapAlphaType.Unpremul, targetColorSpace);
+            rgbaF16 = sourceBitmap.Convert(
+                BitmapColorType.RgbaF16,
+                BitmapAlphaType.Unpremul,
+                targetColorSpace
+            );
             requireDispose = true;
         }
 
@@ -97,7 +117,9 @@ public class HistogramControl : HdrScopeControlBase
 
             // Parallelize binning with per-task local histograms, merged at the end
             var rgbaF16Local = rgbaF16; // capture for closure
-            Parallel.For(0, yCount,
+            Parallel.For(
+                0,
+                yCount,
                 () => (new int[binCount], new int[binCount], new int[binCount]),
                 (yi, _, local) =>
                 {
@@ -139,7 +161,8 @@ public class HistogramControl : HdrScopeControlBase
                             bHist[i] += lB[i];
                         }
                     }
-                });
+                }
+            );
         }
         finally
         {
@@ -149,13 +172,16 @@ public class HistogramControl : HdrScopeControlBase
         var mode = Mode;
 
         // Reuse existing bitmap if size matches
-        WriteableBitmap bitmap = existingBitmap?.PixelSize.Width == targetWidth && existingBitmap.PixelSize.Height == targetHeight
-            ? existingBitmap
-            : new WriteableBitmap(
-                new PixelSize(targetWidth, targetHeight),
-                new Vector(96, 96),
-                PixelFormat.Bgra8888,
-                AlphaFormat.Premul);
+        WriteableBitmap bitmap =
+            existingBitmap?.PixelSize.Width == targetWidth
+            && existingBitmap.PixelSize.Height == targetHeight
+                ? existingBitmap
+                : new WriteableBitmap(
+                    new PixelSize(targetWidth, targetHeight),
+                    new Vector(96, 96),
+                    PixelFormat.Bgra8888,
+                    AlphaFormat.Premul
+                );
 
         using ILockedFramebuffer fb = bitmap.Lock();
         var dest = new Span<uint>((void*)fb.Address, (fb.RowBytes * fb.Size.Height) / sizeof(uint));
@@ -176,17 +202,30 @@ public class HistogramControl : HdrScopeControlBase
 
     private static (int rMax, int gMax, int bMax) ComputeMax(int[] rHist, int[] gHist, int[] bHist)
     {
-        int rMax = 0, gMax = 0, bMax = 0;
+        int rMax = 0,
+            gMax = 0,
+            bMax = 0;
         for (int i = 0; i < 256; i++)
         {
-            if (rHist[i] > rMax) rMax = rHist[i];
-            if (gHist[i] > gMax) gMax = gHist[i];
-            if (bHist[i] > bMax) bMax = bHist[i];
+            if (rHist[i] > rMax)
+                rMax = rHist[i];
+            if (gHist[i] > gMax)
+                gMax = gHist[i];
+            if (bHist[i] > bMax)
+                bMax = bHist[i];
         }
         return (rMax, gMax, bMax);
     }
 
-    private void RenderOverlayMode(int[] rHist, int[] gHist, int[] bHist, Span<uint> dest, int stridePixels, int targetWidth, int targetHeight)
+    private void RenderOverlayMode(
+        int[] rHist,
+        int[] gHist,
+        int[] bHist,
+        Span<uint> dest,
+        int stridePixels,
+        int targetWidth,
+        int targetHeight
+    )
     {
         var (rMax, gMax, bMax) = ComputeMax(rHist, gHist, bHist);
         int max = Math.Max(1, Math.Max(rMax, Math.Max(gMax, bMax)));
@@ -196,17 +235,20 @@ public class HistogramControl : HdrScopeControlBase
             (byte)(s_colorRed.R * 200),
             (byte)(s_colorRed.G * 200),
             (byte)(s_colorRed.B * 200),
-            180);
+            180
+        );
         uint greenColor = PackColor(
             (byte)(s_colorGreen.R * 200),
             (byte)(s_colorGreen.G * 200),
             (byte)(s_colorGreen.B * 200),
-            180);
+            180
+        );
         uint blueColor = PackColor(
             (byte)(s_colorBlue.R * 200),
             (byte)(s_colorBlue.G * 200),
             (byte)(s_colorBlue.B * 200),
-            180);
+            180
+        );
 
         // Render histogram bars with per-bin pre-computed zone colors (no per-pixel branching/blending)
         for (int i = 0; i < 256; i++)
@@ -220,9 +262,12 @@ public class HistogramControl : HdrScopeControlBase
             (int H, uint C) a = (rHist[i] * targetHeight / max, redColor);
             (int H, uint C) b = (gHist[i] * targetHeight / max, greenColor);
             (int H, uint C) c = (bHist[i] * targetHeight / max, blueColor);
-            if (a.H > b.H) (a, b) = (b, a);
-            if (b.H > c.H) (b, c) = (c, b);
-            if (a.H > b.H) (a, b) = (b, a);
+            if (a.H > b.H)
+                (a, b) = (b, a);
+            if (b.H > c.H)
+                (b, c) = (c, b);
+            if (a.H > b.H)
+                (a, b) = (b, a);
             // Now a.H <= b.H <= c.H
 
             // Zones: [0, a.H) = a+b+c, [a.H, b.H) = b+c, [b.H, c.H) = c
@@ -250,7 +295,15 @@ public class HistogramControl : HdrScopeControlBase
         }
     }
 
-    private void RenderParadeMode(int[] rHist, int[] gHist, int[] bHist, Span<uint> dest, int stridePixels, int targetWidth, int targetHeight)
+    private void RenderParadeMode(
+        int[] rHist,
+        int[] gHist,
+        int[] bHist,
+        Span<uint> dest,
+        int stridePixels,
+        int targetWidth,
+        int targetHeight
+    )
     {
         // In Parade mode, split the height into 3 equal sections: R (top), G (middle), B (bottom)
         int sectionHeight = targetHeight / 3;
@@ -268,17 +321,20 @@ public class HistogramControl : HdrScopeControlBase
             (byte)(s_colorRed.R * 220),
             (byte)(s_colorRed.G * 220),
             (byte)(s_colorRed.B * 220),
-            200);
+            200
+        );
         uint greenColor = PackColor(
             (byte)(s_colorGreen.R * 220),
             (byte)(s_colorGreen.G * 220),
             (byte)(s_colorGreen.B * 220),
-            200);
+            200
+        );
         uint blueColor = PackColor(
             (byte)(s_colorBlue.R * 220),
             (byte)(s_colorBlue.G * 220),
             (byte)(s_colorBlue.B * 220),
-            200);
+            200
+        );
 
         // Pre-blend once (each bar writes to a unique pixel within its section)
         uint redBlended = BlendAdd(0u, redColor);

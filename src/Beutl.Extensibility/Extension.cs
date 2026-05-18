@@ -11,11 +11,7 @@ public abstract class Extension
 
     internal EventHandler? SettingsChangedHandler { get; set; }
 
-    public virtual void Load()
-    {
-    }
+    public virtual void Load() { }
 
-    public virtual void Unload()
-    {
-    }
+    public virtual void Unload() { }
 }

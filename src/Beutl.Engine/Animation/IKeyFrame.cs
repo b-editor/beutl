@@ -1,5 +1,4 @@
 ﻿using System.Text.Json.Serialization;
-
 using Beutl.Animation.Easings;
 using Beutl.Converters;
 using Beutl.Media;

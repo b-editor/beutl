@@ -35,16 +35,14 @@ public static partial class Image
         this SKImage self,
         BitmapColorType? colorType = null,
         BitmapAlphaType? alphaType = null,
-        BitmapColorSpace? colorSpace = null)
+        BitmapColorSpace? colorSpace = null
+    )
     {
         var colorType2 = colorType ?? BitmapColorTypeExtensions.FromSKColorType(self.ColorType);
         var alphaType2 = alphaType ?? BitmapAlphaTypeExtensions.FromSKAlphaType(self.AlphaType);
         var colorSpace2 = colorSpace ?? BitmapColorSpace.FromSKColorSpace(self.ColorSpace);
         var bitmap = new Bitmap(self.Width, self.Height, colorType2, alphaType2, colorSpace2);
-        self.ReadPixels(
-            bitmap.SKBitmap.Info,
-            bitmap.Data,
-            bitmap.RowBytes);
+        self.ReadPixels(bitmap.SKBitmap.Info, bitmap.Data, bitmap.RowBytes);
 
         return bitmap;
     }
@@ -56,6 +54,8 @@ public static partial class Image
         if (string.IsNullOrEmpty(filename))
             throw new IOException();
 
-        return s_extensionToFormat.TryGetValue(ex, out EncodedImageFormat value) ? value : EncodedImageFormat.Png;
+        return s_extensionToFormat.TryGetValue(ex, out EncodedImageFormat value)
+            ? value
+            : EncodedImageFormat.Png;
     }
 }

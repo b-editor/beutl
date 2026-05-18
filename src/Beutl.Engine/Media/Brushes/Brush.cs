@@ -1,5 +1,4 @@
 ﻿using System.ComponentModel.DataAnnotations;
-
 using Beutl.Engine;
 using Beutl.Graphics;
 using Beutl.Graphics.Transformation;
@@ -38,6 +37,10 @@ public abstract partial class Brush : EngineObject
     /// <summary>
     /// Gets or sets the origin of the brush <see cref="Transform"/>
     /// </summary>
-    [Display(Name = nameof(GraphicsStrings.TransformOrigin), ResourceType = typeof(GraphicsStrings))]
-    public IProperty<RelativePoint> TransformOrigin { get; } = Property.CreateAnimatable(RelativePoint.Center);
+    [Display(
+        Name = nameof(GraphicsStrings.TransformOrigin),
+        ResourceType = typeof(GraphicsStrings)
+    )]
+    public IProperty<RelativePoint> TransformOrigin { get; } =
+        Property.CreateAnimatable(RelativePoint.Center);
 }

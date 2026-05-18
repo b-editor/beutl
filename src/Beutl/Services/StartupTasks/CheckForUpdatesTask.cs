@@ -38,11 +38,14 @@ public sealed class CheckForUpdatesTask : StartupTask
                             MessageStrings.NewVersionAvailable,
                             v1.Url,
                             onActionButtonClick: () => OpenUrl(v1.Url),
-                            actionButtonText: Strings.Open);
+                            actionButtonText: Strings.Open
+                        );
                     }
                     else if (v1.MustLatest)
                     {
-                        _logger.LogWarning("Current version must be updated to the latest version.");
+                        _logger.LogWarning(
+                            "Current version must be updated to the latest version."
+                        );
                         await ShowDialogAndClose(v1);
                     }
                 }
@@ -50,7 +53,10 @@ public sealed class CheckForUpdatesTask : StartupTask
                 {
                     if (!v3.IsLatest)
                     {
-                        _logger.LogInformation("A new version is available: {DownloadUrl}", v3.DownloadUrl);
+                        _logger.LogInformation(
+                            "A new version is available: {DownloadUrl}",
+                            v3.DownloadUrl
+                        );
                         bool isFlatpak = IsFlatpak();
                         _logger.LogDebug("Flatpak sandbox detected: {IsFlatpak}", isFlatpak);
                         if (isFlatpak)
@@ -68,7 +74,8 @@ public sealed class CheckForUpdatesTask : StartupTask
                                 MessageStrings.NewVersionAvailable,
                                 releaseUrl,
                                 onActionButtonClick: () => OpenUrl(releaseUrl),
-                                actionButtonText: Strings.Open);
+                                actionButtonText: Strings.Open
+                            );
                         }
                         else
                         {
@@ -83,20 +90,25 @@ public sealed class CheckForUpdatesTask : StartupTask
                                     viewModel.Start();
                                 },
                                 // TODO: Stringsに移動
-                                actionButtonText: ExtensionsStrings.Install);
+                                actionButtonText: ExtensionsStrings.Install
+                            );
                         }
                     }
                     else if (v3.MustLatest)
                     {
-                        _logger.LogWarning("Current version must be updated to the latest version.");
+                        _logger.LogWarning(
+                            "Current version must be updated to the latest version."
+                        );
                         string releaseUrl = GetReleaseUrl(v3, activity);
-                        await ShowDialogAndClose(new CheckForUpdatesResponse
-                        {
-                            Url = releaseUrl,
-                            IsLatest = v3.IsLatest,
-                            MustLatest = v3.MustLatest,
-                            LatestVersion = v3.LatestVersion
-                        });
+                        await ShowDialogAndClose(
+                            new CheckForUpdatesResponse
+                            {
+                                Url = releaseUrl,
+                                IsLatest = v3.IsLatest,
+                                MustLatest = v3.MustLatest,
+                                LatestVersion = v3.LatestVersion,
+                            }
+                        );
                     }
                 }
             }
@@ -123,7 +135,8 @@ public sealed class CheckForUpdatesTask : StartupTask
 
         _logger.LogWarning(
             "AppUpdateResponse for {LatestVersion} had no Url; falling back to releases page.",
-            v3.LatestVersion);
+            v3.LatestVersion
+        );
         activity?.SetTag("UpdateUrlMissing", true);
         return "https://github.com/b-editor/beutl/releases";
     }
@@ -143,7 +156,9 @@ public sealed class CheckForUpdatesTask : StartupTask
         }
     }
 
-    private async ValueTask<(CheckForUpdatesResponse? V1, AppUpdateResponse? V3)> CheckForUpdates(Activity? activity)
+    private async ValueTask<(CheckForUpdatesResponse? V1, AppUpdateResponse? V3)> CheckForUpdates(
+        Activity? activity
+    )
     {
         try
         {

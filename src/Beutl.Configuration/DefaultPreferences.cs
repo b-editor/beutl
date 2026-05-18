@@ -93,7 +93,9 @@ public sealed class DefaultPreferences : IPreferences
         {
             using FileStream stream = File.OpenRead(_filePath);
 
-            Dictionary<string, string>? readPreferences = JsonSerializer.Deserialize<Dictionary<string, string>>(stream);
+            Dictionary<string, string>? readPreferences = JsonSerializer.Deserialize<
+                Dictionary<string, string>
+            >(stream);
 
             if (readPreferences != null)
             {

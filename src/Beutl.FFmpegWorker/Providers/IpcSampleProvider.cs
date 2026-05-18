@@ -23,8 +23,12 @@ internal sealed class IpcSampleProvider : ISampleProvider
     private long _prefetchChunkOffset;
     private int _prefetchBufferIndex;
 
-    public IpcSampleProvider(IpcConnection connection, SharedMemoryBuffer[] audioBuffers,
-        long sampleCount, long sampleRate)
+    public IpcSampleProvider(
+        IpcConnection connection,
+        SharedMemoryBuffer[] audioBuffers,
+        long sampleCount,
+        long sampleRate
+    )
     {
         _connection = connection;
         _audioBuffers = audioBuffers;
@@ -39,9 +43,11 @@ internal sealed class IpcSampleProvider : ISampleProvider
     public async ValueTask<Pcm<Stereo32BitFloat>> Sample(long offset, long length)
     {
         // キャッシュヒット: 要求範囲がキャッシュ内に完全に収まる
-        if (_currentChunk != null
+        if (
+            _currentChunk != null
             && offset >= _currentChunkOffset
-            && offset + length <= _currentChunkOffset + _currentChunk.NumSamples)
+            && offset + length <= _currentChunkOffset + _currentChunk.NumSamples
+        )
         {
             var result = CopyFromCache(offset, length);
             StartPrefetchIfNeeded();
@@ -70,7 +76,9 @@ internal sealed class IpcSampleProvider : ISampleProvider
         long remainingOffset = cacheEnd;
         long remainingLength = length - firstPartLength;
         await EnsureChunkLoaded(remainingOffset);
-        _currentChunk!.DataSpan[..(int)remainingLength].CopyTo(result2.DataSpan[(int)firstPartLength..]);
+        _currentChunk!
+            .DataSpan[..(int)remainingLength]
+            .CopyTo(result2.DataSpan[(int)firstPartLength..]);
 
         SamplesProvided += result2.NumSamples;
         StartPrefetchIfNeeded();
@@ -129,11 +137,14 @@ internal sealed class IpcSampleProvider : ISampleProvider
 
     private void StartPrefetchIfNeeded()
     {
-        if (_prefetchTask != null) return;
-        if (_currentChunk == null) return;
+        if (_prefetchTask != null)
+            return;
+        if (_currentChunk == null)
+            return;
 
         long nextChunkOffset = _currentChunkOffset + _currentChunk.NumSamples;
-        if (nextChunkOffset >= SampleCount) return;
+        if (nextChunkOffset >= SampleCount)
+            return;
 
         _prefetchBufferIndex = 1 - _currentBufferIndex;
         _prefetchChunkOffset = nextChunkOffset;
@@ -144,10 +155,19 @@ internal sealed class IpcSampleProvider : ISampleProvider
     {
         long chunkLength = Math.Min(SampleRate, SampleCount - chunkOffset);
 
-        var request = IpcMessage.Create(_connection.NextId(), MessageType.RequestSample,
-            new RequestSampleMessage { Offset = chunkOffset, Length = chunkLength, BufferIndex = bufferIndex });
-        var response = await _connection.SendAndReceiveAsync(request)
-                       ?? throw new IOException("Connection closed while waiting for audio samples");
+        var request = IpcMessage.Create(
+            _connection.NextId(),
+            MessageType.RequestSample,
+            new RequestSampleMessage
+            {
+                Offset = chunkOffset,
+                Length = chunkLength,
+                BufferIndex = bufferIndex,
+            }
+        );
+        var response =
+            await _connection.SendAndReceiveAsync(request)
+            ?? throw new IOException("Connection closed while waiting for audio samples");
 
         if (response.Type == MessageType.CancelEncode)
             throw new OperationCanceledException();
@@ -155,7 +175,8 @@ internal sealed class IpcSampleProvider : ISampleProvider
         if (response.Error != null)
             throw new InvalidOperationException($"Sample failed: {response.Error}");
 
-        var sampleInfo = response.GetPayload<ProvideSampleMessage>()
+        var sampleInfo =
+            response.GetPayload<ProvideSampleMessage>()
             ?? throw new InvalidOperationException("Missing payload for ProvideSample");
 
         var pcm = new Pcm<Stereo32BitFloat>((int)SampleRate, sampleInfo.NumSamples);
@@ -163,7 +184,8 @@ internal sealed class IpcSampleProvider : ISampleProvider
         {
             unsafe
             {
-                _audioBuffers[bufferIndex].Read(new Span<byte>((void*)pcm.Data, sampleInfo.DataLength));
+                _audioBuffers[bufferIndex]
+                    .Read(new Span<byte>((void*)pcm.Data, sampleInfo.DataLength));
             }
 
             return pcm;

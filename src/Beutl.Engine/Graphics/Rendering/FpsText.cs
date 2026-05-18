@@ -6,7 +6,10 @@ namespace Beutl.Graphics.Rendering;
 
 internal sealed class FpsText
 {
-    private static readonly Brush.Resource s_background = new SolidColorBrush(Colors.Black, 50).ToResource(CompositionContext.Default);
+    private static readonly Brush.Resource s_background = new SolidColorBrush(
+        Colors.Black,
+        50
+    ).ToResource(CompositionContext.Default);
     private double _maxFps;
     private double _minFps = double.MaxValue;
     private double _avgFps;

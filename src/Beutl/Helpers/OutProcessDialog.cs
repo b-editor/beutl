@@ -1,5 +1,4 @@
 ﻿using Beutl.Configuration;
-
 using DynamicData;
 
 namespace Beutl.Helpers;
@@ -12,10 +11,14 @@ public static class OutProcessDialog
         string? content,
         string? icon,
         bool progress = false,
-        bool closable = false)
+        bool closable = false
+    )
     {
         var startInfo = new ProcessStartInfo();
-        DotNetProcess.Configure(startInfo, Path.Combine(AppContext.BaseDirectory, "Beutl.WaitingDialog"));
+        DotNetProcess.Configure(
+            startInfo,
+            Path.Combine(AppContext.BaseDirectory, "Beutl.WaitingDialog")
+        );
 
         startInfo.ArgumentList.AddRange(["--parent", Environment.ProcessId.ToString()]);
 
@@ -40,14 +43,16 @@ public static class OutProcessDialog
         ViewConfig viewConfig = GlobalConfiguration.Instance.ViewConfig;
         if (viewConfig.Theme != ViewConfig.ViewTheme.System)
         {
-            startInfo.ArgumentList.AddRange(["--theme",
+            startInfo.ArgumentList.AddRange([
+                "--theme",
                 viewConfig.Theme switch
                 {
                     ViewConfig.ViewTheme.Light => "light",
                     ViewConfig.ViewTheme.Dark => "dark",
                     ViewConfig.ViewTheme.HighContrast => "highcontrast",
                     ViewConfig.ViewTheme.System or _ => "auto",
-                }]);
+                },
+            ]);
         }
 
         var process = Process.Start(startInfo);

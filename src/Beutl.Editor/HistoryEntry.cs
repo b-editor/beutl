@@ -37,15 +37,15 @@ public abstract class HistoryEntry
             transaction.Name,
             transaction.DisplayName,
             transaction.OperationCount,
-            DateTime.Now);
+            DateTime.Now
+        );
     }
 }
 
 public sealed class InitialHistoryEntry : HistoryEntry
 {
-    internal InitialHistoryEntry(DateTime timestamp) : base(timestamp)
-    {
-    }
+    internal InitialHistoryEntry(DateTime timestamp)
+        : base(timestamp) { }
 
     public override bool IsInitial => true;
 
@@ -67,7 +67,9 @@ public sealed class TransactionHistoryEntry : HistoryEntry
         string? name,
         string? displayName,
         int operationCount,
-        DateTime timestamp) : base(timestamp)
+        DateTime timestamp
+    )
+        : base(timestamp)
     {
         TransactionId = transactionId;
         Name = name;

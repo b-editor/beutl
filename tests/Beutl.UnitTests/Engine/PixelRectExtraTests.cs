@@ -107,10 +107,11 @@ public class PixelRectExtraTests
     public void FromRect_WithScale_CeilsBottomRight()
     {
         var r = new Rect(0, 0, 1.5f, 2.5f);
-        Assert.That(PixelRect.FromRect(r, 1f),
-            Is.EqualTo(new PixelRect(0, 0, 2, 3)));
-        Assert.That(PixelRect.FromRect(r, new Vector(2, 4)),
-            Is.EqualTo(new PixelRect(0, 0, 3, 10)));
+        Assert.That(PixelRect.FromRect(r, 1f), Is.EqualTo(new PixelRect(0, 0, 2, 3)));
+        Assert.That(
+            PixelRect.FromRect(r, new Vector(2, 4)),
+            Is.EqualTo(new PixelRect(0, 0, 3, 10))
+        );
     }
 
     [Test]

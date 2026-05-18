@@ -1,7 +1,6 @@
 ﻿#nullable enable
 
 using Avalonia.Threading;
-
 using FluentAvalonia.UI.Media;
 
 namespace Beutl.Controls.PropertyEditors;
@@ -19,8 +18,7 @@ public partial class ColorDropper : IDisposable
         _timer.Interval = TimeSpan.FromMilliseconds(10);
     }
 
-    public static bool IsSupported =>
-        OperatingSystem.IsWindows() || OperatingSystem.IsMacOS();
+    public static bool IsSupported => OperatingSystem.IsWindows() || OperatingSystem.IsMacOS();
 
     public static async Task<(Color2, int X, int Y)> Run(CancellationToken ct = default)
     {
@@ -60,9 +58,7 @@ public partial class ColorDropper : IDisposable
         }
     }
 
-    public void Dispose()
-    {
-    }
+    public void Dispose() { }
 
     private static bool IsClickDown()
     {

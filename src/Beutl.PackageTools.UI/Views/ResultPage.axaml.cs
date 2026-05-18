@@ -2,9 +2,7 @@
 using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Avalonia.VisualTree;
-
 using Beutl.PackageTools.UI.ViewModels;
-
 using FluentAvalonia.UI.Controls;
 using FluentAvalonia.UI.Navigation;
 
@@ -26,9 +24,7 @@ public partial class ResultPage : PackageToolPage
         }
     }
 
-    private void OnBackButtonClick(object? sender, RoutedEventArgs e)
-    {
-    }
+    private void OnBackButtonClick(object? sender, RoutedEventArgs e) { }
 
     private void OnCloseButtonClick(object? sender, RoutedEventArgs e)
     {
@@ -38,7 +34,8 @@ public partial class ResultPage : PackageToolPage
     private void ShowDetailsClick(object? sender, RoutedEventArgs e)
     {
         Frame? frame = this.FindAncestorOfType<Frame>();
-        if (frame == null) return;
+        if (frame == null)
+            return;
 
         if (sender is StyledElement { DataContext: ActionViewModel item })
         {

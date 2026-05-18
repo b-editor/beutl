@@ -1,5 +1,4 @@
 <Project Sdk="Microsoft.NET.Sdk">
-
   <PropertyGroup>
     <NeutralLanguage>en</NeutralLanguage>
   </PropertyGroup>
@@ -22,5 +21,4 @@
     <EmbeddedResource Update="GraphicsStrings.resx" />
     <EmbeddedResource Update="DockStrings.resx" />
   </ItemGroup>
-
 </Project>

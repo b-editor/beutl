@@ -12,7 +12,12 @@ namespace Beutl.Editor.Components.NodeGraphTab.Views;
 
 public sealed class ListPortDragBehavior : Behavior<NodePortPoint>
 {
-    private enum DragDirection { None, Vertical, Horizontal }
+    private enum DragDirection
+    {
+        None,
+        Vertical,
+        Horizontal,
+    }
 
     private const double DragThreshold = 5;
 
@@ -32,9 +37,21 @@ public sealed class ListPortDragBehavior : Behavior<NodePortPoint>
         base.OnAttached();
         if (AssociatedObject != null)
         {
-            AssociatedObject.AddHandler(InputElement.PointerPressedEvent, OnPointerPressed, RoutingStrategies.Tunnel);
-            AssociatedObject.AddHandler(InputElement.PointerMovedEvent, OnPointerMoved, RoutingStrategies.Tunnel);
-            AssociatedObject.AddHandler(InputElement.PointerReleasedEvent, OnPointerReleased, RoutingStrategies.Tunnel);
+            AssociatedObject.AddHandler(
+                InputElement.PointerPressedEvent,
+                OnPointerPressed,
+                RoutingStrategies.Tunnel
+            );
+            AssociatedObject.AddHandler(
+                InputElement.PointerMovedEvent,
+                OnPointerMoved,
+                RoutingStrategies.Tunnel
+            );
+            AssociatedObject.AddHandler(
+                InputElement.PointerReleasedEvent,
+                OnPointerReleased,
+                RoutingStrategies.Tunnel
+            );
         }
     }
 
@@ -51,12 +68,15 @@ public sealed class ListPortDragBehavior : Behavior<NodePortPoint>
 
     private void OnPointerPressed(object? sender, PointerPressedEventArgs e)
     {
-        if (AssociatedObject == null) return;
+        if (AssociatedObject == null)
+            return;
 
         if (e.ClickCount == 2)
         {
-            if (AssociatedObject.Tag is ConnectionViewModel connVM
-                && AssociatedObject.DataContext is NodePortViewModel portViewModel)
+            if (
+                AssociatedObject.Tag is ConnectionViewModel connVM
+                && AssociatedObject.DataContext is NodePortViewModel portViewModel
+            )
             {
                 portViewModel.DisconnectConnection(connVM);
             }
@@ -89,7 +109,8 @@ public sealed class ListPortDragBehavior : Behavior<NodePortPoint>
 
     private void OnPointerMoved(object? sender, PointerEventArgs e)
     {
-        if (!_enableDrag || AssociatedObject == null || _stackPanel == null) return;
+        if (!_enableDrag || AssociatedObject == null || _stackPanel == null)
+            return;
 
         Point position = e.GetPosition(_stackPanel);
         double deltaX = position.X - _start.X;
@@ -104,9 +125,10 @@ public sealed class ListPortDragBehavior : Behavior<NodePortPoint>
             }
 
             _dragStarted = true;
-            _direction = Math.Abs(deltaY) > Math.Abs(deltaX)
-                ? DragDirection.Vertical
-                : DragDirection.Horizontal;
+            _direction =
+                Math.Abs(deltaY) > Math.Abs(deltaX)
+                    ? DragDirection.Vertical
+                    : DragDirection.Horizontal;
         }
 
         if (_direction == DragDirection.Vertical)
@@ -123,7 +145,8 @@ public sealed class ListPortDragBehavior : Behavior<NodePortPoint>
 
     private void OnPointerReleased(object? sender, PointerReleasedEventArgs e)
     {
-        if (!_enableDrag) return;
+        if (!_enableDrag)
+            return;
 
         if (_dragStarted)
         {
@@ -144,7 +167,8 @@ public sealed class ListPortDragBehavior : Behavior<NodePortPoint>
 
     private void MoveVertical(double delta)
     {
-        if (_stackPanel == null || AssociatedObject?.RenderTransform == null) return;
+        if (_stackPanel == null || AssociatedObject?.RenderTransform == null)
+            return;
 
         SetTranslateTransform(AssociatedObject, 0, delta);
 
@@ -157,9 +181,11 @@ public sealed class ListPortDragBehavior : Behavior<NodePortPoint>
         int connectedCount = _stackPanel.Children.Count - 1; // exclude placeholder
         for (int i = 0; i < connectedCount; i++)
         {
-            if (_stackPanel.Children[i] is not NodePortPoint target
+            if (
+                _stackPanel.Children[i] is not NodePortPoint target
                 || ReferenceEquals(target, AssociatedObject)
-                || target.RenderTransform == null)
+                || target.RenderTransform == null
+            )
             {
                 continue;
             }
@@ -202,7 +228,8 @@ public sealed class ListPortDragBehavior : Behavior<NodePortPoint>
 
     private void MoveHorizontal(PointerEventArgs e)
     {
-        if (_canvas == null || AssociatedObject == null) return;
+        if (_canvas == null || AssociatedObject == null)
+            return;
 
         if (_tempLine == null)
         {
@@ -247,10 +274,12 @@ public sealed class ListPortDragBehavior : Behavior<NodePortPoint>
         if (_canvas != null && AssociatedObject != null)
         {
             IInputElement? elm = _canvas.InputHitTest(e.GetPosition(_canvas));
-            if (elm is NodePortPoint { DataContext: NodePortViewModel targetVM } targetSp
+            if (
+                elm is NodePortPoint { DataContext: NodePortViewModel targetVM } targetSp
                 && targetSp != AssociatedObject
                 && AssociatedObject.Tag is ConnectionViewModel connVM
-                && AssociatedObject.DataContext is NodePortViewModel portVM)
+                && AssociatedObject.DataContext is NodePortViewModel portVM
+            )
             {
                 portVM.DisconnectConnection(connVM);
                 portVM.TryConnect(targetVM);
@@ -260,7 +289,8 @@ public sealed class ListPortDragBehavior : Behavior<NodePortPoint>
 
     private void AddTransforms()
     {
-        if (_stackPanel == null) return;
+        if (_stackPanel == null)
+            return;
         int connectedCount = _stackPanel.Children.Count - 1;
         for (int i = 0; i < connectedCount; i++)
         {
@@ -273,7 +303,8 @@ public sealed class ListPortDragBehavior : Behavior<NodePortPoint>
 
     private void RemoveTransforms()
     {
-        if (_stackPanel == null) return;
+        if (_stackPanel == null)
+            return;
         int connectedCount = _stackPanel.Children.Count - 1;
         for (int i = 0; i < connectedCount; i++)
         {
@@ -308,7 +339,8 @@ public sealed class ListPortDragBehavior : Behavior<NodePortPoint>
 
     private void UpdateConnectionPositionsDuringDrag()
     {
-        if (_stackPanel == null || _nodeView?.DataContext is not GraphNodeViewModel nodeVM) return;
+        if (_stackPanel == null || _nodeView?.DataContext is not GraphNodeViewModel nodeVM)
+            return;
         bool isInput = AssociatedObject?.DataContext is InputPortViewModel;
 
         int connectedCount = _stackPanel.Children.Count - 1; // exclude placeholder

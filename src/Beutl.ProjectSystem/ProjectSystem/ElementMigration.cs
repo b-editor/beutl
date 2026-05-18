@@ -16,28 +16,80 @@ namespace Beutl.ProjectSystem;
 internal static class ElementMigration
 {
     private static readonly FrozenDictionary<string, Type> s_typeMap = FrozenDictionary.Create(
-        new KeyValuePair<string, Type>("[Beutl.Operators].Source:EllipseOperator", typeof(EllipseShape)),
+        new KeyValuePair<string, Type>(
+            "[Beutl.Operators].Source:EllipseOperator",
+            typeof(EllipseShape)
+        ),
         new KeyValuePair<string, Type>("[Beutl.Operators].Source:RectOperator", typeof(RectShape)),
-        new KeyValuePair<string, Type>("[Beutl.Operators].Source:RoundedRectOperator", typeof(RoundedRectShape)),
-        new KeyValuePair<string, Type>("[Beutl.Operators].Source:GeometryOperator", typeof(GeometryShape)),
-        new KeyValuePair<string, Type>("[Beutl.Operators].Source:TextBlockOperator", typeof(TextBlock)),
-        new KeyValuePair<string, Type>("[Beutl.Operators].Source:SourceVideoOperator", typeof(SourceVideo)),
-        new KeyValuePair<string, Type>("[Beutl.Operators].Source:SourceImageOperator", typeof(SourceImage)),
-        new KeyValuePair<string, Type>("[Beutl.Operators].Source:SourceBackdropOperator", typeof(SourceBackdrop)),
-        new KeyValuePair<string, Type>("[Beutl.Operators].Source:SourceSoundOperator", typeof(SourceSound)),
-        new KeyValuePair<string, Type>("[Beutl.Operators].Source:ParticleEmitterOperator", typeof(ParticleEmitter)),
-        new KeyValuePair<string, Type>("[Beutl.ProjectSystem]Beutl.Operation:DecorateOperator", typeof(DrawableDecorator)),
-        new KeyValuePair<string, Type>("[Beutl.ProjectSystem]Beutl.Operation:GroupOperator", typeof(DrawableGroup)),
-        new KeyValuePair<string, Type>("[Beutl.ProjectSystem]Beutl.Operation:SoundGroupOperator", typeof(SoundGroup)),
-        new KeyValuePair<string, Type>("[Beutl.Operators].Source:DrawableTimeControllerOperator", typeof(DrawableTimeController)),
+        new KeyValuePair<string, Type>(
+            "[Beutl.Operators].Source:RoundedRectOperator",
+            typeof(RoundedRectShape)
+        ),
+        new KeyValuePair<string, Type>(
+            "[Beutl.Operators].Source:GeometryOperator",
+            typeof(GeometryShape)
+        ),
+        new KeyValuePair<string, Type>(
+            "[Beutl.Operators].Source:TextBlockOperator",
+            typeof(TextBlock)
+        ),
+        new KeyValuePair<string, Type>(
+            "[Beutl.Operators].Source:SourceVideoOperator",
+            typeof(SourceVideo)
+        ),
+        new KeyValuePair<string, Type>(
+            "[Beutl.Operators].Source:SourceImageOperator",
+            typeof(SourceImage)
+        ),
+        new KeyValuePair<string, Type>(
+            "[Beutl.Operators].Source:SourceBackdropOperator",
+            typeof(SourceBackdrop)
+        ),
+        new KeyValuePair<string, Type>(
+            "[Beutl.Operators].Source:SourceSoundOperator",
+            typeof(SourceSound)
+        ),
+        new KeyValuePair<string, Type>(
+            "[Beutl.Operators].Source:ParticleEmitterOperator",
+            typeof(ParticleEmitter)
+        ),
+        new KeyValuePair<string, Type>(
+            "[Beutl.ProjectSystem]Beutl.Operation:DecorateOperator",
+            typeof(DrawableDecorator)
+        ),
+        new KeyValuePair<string, Type>(
+            "[Beutl.ProjectSystem]Beutl.Operation:GroupOperator",
+            typeof(DrawableGroup)
+        ),
+        new KeyValuePair<string, Type>(
+            "[Beutl.ProjectSystem]Beutl.Operation:SoundGroupOperator",
+            typeof(SoundGroup)
+        ),
+        new KeyValuePair<string, Type>(
+            "[Beutl.Operators].Source:DrawableTimeControllerOperator",
+            typeof(DrawableTimeController)
+        ),
         new KeyValuePair<string, Type>("[Beutl.Operators].Source:Scene3DOperator", typeof(Scene3D)),
         new KeyValuePair<string, Type>("[Beutl.Operators].Source:Cube3DOperator", typeof(Cube3D)),
-        new KeyValuePair<string, Type>("[Beutl.Operators].Source:Sphere3DOperator", typeof(Sphere3D)),
+        new KeyValuePair<string, Type>(
+            "[Beutl.Operators].Source:Sphere3DOperator",
+            typeof(Sphere3D)
+        ),
         new KeyValuePair<string, Type>("[Beutl.Operators].Source:Plane3DOperator", typeof(Plane3D)),
         new KeyValuePair<string, Type>("[Beutl.Operators].Source:Model3DOperator", typeof(Model3D)),
-        new KeyValuePair<string, Type>("[Beutl.Operators].Source:DirectionalLight3DOperator", typeof(DirectionalLight3D)),
-        new KeyValuePair<string, Type>("[Beutl.Operators].Source:PointLight3DOperator", typeof(PointLight3D)),
-        new KeyValuePair<string, Type>("[Beutl.Operators].Source:SpotLight3DOperator", typeof(SpotLight3D)));
+        new KeyValuePair<string, Type>(
+            "[Beutl.Operators].Source:DirectionalLight3DOperator",
+            typeof(DirectionalLight3D)
+        ),
+        new KeyValuePair<string, Type>(
+            "[Beutl.Operators].Source:PointLight3DOperator",
+            typeof(PointLight3D)
+        ),
+        new KeyValuePair<string, Type>(
+            "[Beutl.Operators].Source:SpotLight3DOperator",
+            typeof(SpotLight3D)
+        )
+    );
 
     internal static EngineObject[] MigrateFromOperation(IJsonSerializationContext jsonContext)
     {
@@ -60,19 +112,25 @@ internal static class ElementMigration
         return results.ToArray();
     }
 
-    private static EngineObject ExtractEngineObjectFromOperator(JsonObject operatorObj,
-        IJsonSerializationContext jsonContext)
+    private static EngineObject ExtractEngineObjectFromOperator(
+        JsonObject operatorObj,
+        IJsonSerializationContext jsonContext
+    )
     {
         string? operatorType = null;
         // TakeAfterOperator の移行
-        if (operatorObj.TryGetPropertyValue("$type", out JsonNode? typeNode)
+        if (
+            operatorObj.TryGetPropertyValue("$type", out JsonNode? typeNode)
             && typeNode is JsonValue typeValue
             && typeValue.TryGetValue(out operatorType)
-            && operatorType.Contains("TakeAfterOperator"))
+            && operatorType.Contains("TakeAfterOperator")
+        )
         {
             var portal = new PortalObject();
-            if (operatorObj["Count"] is JsonValue countValue
-                && countValue.TryGetValue(out int count))
+            if (
+                operatorObj["Count"] is JsonValue countValue
+                && countValue.TryGetValue(out int count)
+            )
             {
                 portal.Count.CurrentValue = count;
             }
@@ -85,12 +143,17 @@ internal static class ElementMigration
         {
             try
             {
-                if (operatorType != null
-                    && s_typeMap.TryGetValue(operatorType, out Type? targetType))
+                if (
+                    operatorType != null
+                    && s_typeMap.TryGetValue(operatorType, out Type? targetType)
+                )
                 {
-                    return (EngineObject)CoreSerializer.DeserializeFromJsonObject(
-                        valueObj, targetType,
-                        new CoreSerializerOptions { BaseUri = jsonContext.BaseUri });
+                    return (EngineObject)
+                        CoreSerializer.DeserializeFromJsonObject(
+                            valueObj,
+                            targetType,
+                            new CoreSerializerOptions { BaseUri = jsonContext.BaseUri }
+                        );
                 }
 
                 throw new InvalidOperationException("Unknown type");

@@ -25,13 +25,23 @@ public static class AvaloniaTypeConverter
         return new Media.GradientStop(obj.Color.ToBtlColor(), (float)obj.Offset);
     }
 
-    public static GradientStop.Resource ToBtlImmutableGradientStop(this Avalonia.Media.IGradientStop obj)
+    public static GradientStop.Resource ToBtlImmutableGradientStop(
+        this Avalonia.Media.IGradientStop obj
+    )
     {
-        return new GradientStop.Resource { Color = obj.Color.ToBtlColor(), Offset = (float)obj.Offset, };
+        return new GradientStop.Resource
+        {
+            Color = obj.Color.ToBtlColor(),
+            Offset = (float)obj.Offset,
+        };
     }
 
-    private static IDisposable AdaptEngineObject<T, TResource>(T obj, IObservable<TimeSpan> time,
-        Func<T, CompositionContext, TResource> createResource, Action<TResource> onUpdated)
+    private static IDisposable AdaptEngineObject<T, TResource>(
+        T obj,
+        IObservable<TimeSpan> time,
+        Func<T, CompositionContext, TResource> createResource,
+        Action<TResource> onUpdated
+    )
         where T : EngineObject
         where TResource : EngineObject.Resource
     {
@@ -41,27 +51,34 @@ public static class AvaloniaTypeConverter
     }
 
     public static (Avalonia.Media.GradientStop, IDisposable) ToAvaGradientStopSync(
-        this Media.GradientStop obj, IObservable<TimeSpan> time)
+        this Media.GradientStop obj,
+        IObservable<TimeSpan> time
+    )
     {
         var s = new Avalonia.Media.GradientStop();
         var d = AdaptEngineObject(
-            obj, time,
+            obj,
+            time,
             (o, rc) => o.ToResource(rc),
             r =>
             {
                 s.Color = r.Color.ToAvaColor();
                 s.Offset = r.Offset;
-            });
+            }
+        );
 
         return (s, d);
     }
 
     public static (IObservable<Avalonia.Media.Geometry>, IDisposable) ToAvaGeometrySync(
-        this PathFigure obj, IObservable<TimeSpan> time)
+        this PathFigure obj,
+        IObservable<TimeSpan> time
+    )
     {
         var reactiveProperty = new ReactivePropertySlim<Avalonia.Media.Geometry>();
         var d = AdaptEngineObject(
-            obj, time,
+            obj,
+            time,
             (o, rc) => o.ToResource(rc),
             r =>
             {
@@ -71,7 +88,8 @@ public static class AvaloniaTypeConverter
 
                 string svgPath = context.NativeObject.ToSvgPathData();
                 reactiveProperty.Value = Avalonia.Media.Geometry.Parse(svgPath);
-            });
+            }
+        );
 
         return (reactiveProperty, d);
     }
@@ -79,9 +97,16 @@ public static class AvaloniaTypeConverter
     public static Matrix ToAvaMatrix(this in Graphics.Matrix matrix)
     {
         return new Matrix(
-            matrix.M11, matrix.M12, matrix.M13,
-            matrix.M21, matrix.M22, matrix.M23,
-            matrix.M31, matrix.M32, matrix.M33);
+            matrix.M11,
+            matrix.M12,
+            matrix.M13,
+            matrix.M21,
+            matrix.M22,
+            matrix.M23,
+            matrix.M31,
+            matrix.M32,
+            matrix.M33
+        );
     }
 
     public static Graphics.Point ToBtlPoint(this in Point point)
@@ -91,7 +116,8 @@ public static class AvaloniaTypeConverter
 
     public static (Avalonia.Media.GradientStops, IDisposable) ToAvaGradientStopsSync(
         this ICoreList<Media.GradientStop> obj,
-        IObservable<TimeSpan> time)
+        IObservable<TimeSpan> time
+    )
     {
         var d = new CompositeDisposable();
         var stops = new Avalonia.Media.GradientStops();
@@ -150,7 +176,8 @@ public static class AvaloniaTypeConverter
                                 subscription.Remove(oldItem);
                             }
 
-                            (Avalonia.Media.GradientStop, IDisposable) t = newItem.ToAvaGradientStopSync(time);
+                            (Avalonia.Media.GradientStop, IDisposable) t =
+                                newItem.ToAvaGradientStopSync(time);
 
                             stops[index] = t.Item1;
                             index++;
@@ -158,12 +185,14 @@ public static class AvaloniaTypeConverter
 
                         break;
                     case NotifyCollectionChangedAction.Move:
-                        if (e.OldStartingIndex >= 0
+                        if (
+                            e.OldStartingIndex >= 0
                             && e.OldStartingIndex < stops.Count
                             && e.NewStartingIndex >= 0
                             && e.NewStartingIndex < stops.Count
                             && e.OldStartingIndex != e.NewStartingIndex
-                            && e.OldItems is { Count: 1 })
+                            && e.OldItems is { Count: 1 }
+                        )
                         {
                             stops.Move(e.OldStartingIndex, e.NewStartingIndex);
                         }
@@ -183,65 +212,89 @@ public static class AvaloniaTypeConverter
                 }
             })
             .DisposeWith(d);
-        Disposable.Create(subscription, s =>
-        {
-            foreach (var item in s.Values)
-            {
-                item.Dispose();
-            }
-        }).DisposeWith(d);
+        Disposable
+            .Create(
+                subscription,
+                s =>
+                {
+                    foreach (var item in s.Values)
+                    {
+                        item.Dispose();
+                    }
+                }
+            )
+            .DisposeWith(d);
 
         return (stops, d);
     }
 
-    public static (Avalonia.Media.Brush?, IDisposable, Action?) ToAvaBrushSync(this Media.Brush? brush,
-        IObservable<TimeSpan> time)
+    public static (Avalonia.Media.Brush?, IDisposable, Action?) ToAvaBrushSync(
+        this Media.Brush? brush,
+        IObservable<TimeSpan> time
+    )
     {
         switch (brush)
         {
             case Media.SolidColorBrush s:
-                {
-                    var ss = new Avalonia.Media.SolidColorBrush();
-                    var d = AdaptEngineObject(
-                        s, time,
-                        (o, rc) => o.ToResource(rc),
-                        r => ss.Color = r.Color.ToAvaColor());
-                    return (ss, d, null);
-                }
+            {
+                var ss = new Avalonia.Media.SolidColorBrush();
+                var d = AdaptEngineObject(
+                    s,
+                    time,
+                    (o, rc) => o.ToResource(rc),
+                    r => ss.Color = r.Color.ToAvaColor()
+                );
+                return (ss, d, null);
+            }
 
             case Media.GradientBrush g:
                 {
-                    (Avalonia.Media.GradientStops stops, IDisposable d) = g.GradientStops.ToAvaGradientStopsSync(time);
+                    (Avalonia.Media.GradientStops stops, IDisposable d) =
+                        g.GradientStops.ToAvaGradientStopsSync(time);
 
                     switch (g)
                     {
                         case Media.LinearGradientBrush:
-                            return (new Avalonia.Media.LinearGradientBrush { GradientStops = stops, }, d, null);
+                            return (
+                                new Avalonia.Media.LinearGradientBrush { GradientStops = stops },
+                                d,
+                                null
+                            );
 
                         case Media.ConicGradientBrush:
-                            return (new Avalonia.Media.ConicGradientBrush { GradientStops = stops, }, d, null);
+                            return (
+                                new Avalonia.Media.ConicGradientBrush { GradientStops = stops },
+                                d,
+                                null
+                            );
 
                         case Media.RadialGradientBrush:
-                            return (new Avalonia.Media.RadialGradientBrush { GradientStops = stops, }, d, null);
+                            return (
+                                new Avalonia.Media.RadialGradientBrush { GradientStops = stops },
+                                d,
+                                null
+                            );
                     }
                 }
                 break;
 
             case Media.DrawableBrush db:
-                {
-                    var imageBrush = new ImageBrush();
-                    DrawableImageBrushHandler? handler = null;
-                    var d = AdaptEngineObject(
-                        db, time,
-                        (o, rc) => o.ToResource(rc),
-                        r =>
-                        {
-                            handler ??= new DrawableImageBrushHandler(r, imageBrush);
-                            handler.Update();
-                        });
+            {
+                var imageBrush = new ImageBrush();
+                DrawableImageBrushHandler? handler = null;
+                var d = AdaptEngineObject(
+                    db,
+                    time,
+                    (o, rc) => o.ToResource(rc),
+                    r =>
+                    {
+                        handler ??= new DrawableImageBrushHandler(r, imageBrush);
+                        handler.Update();
+                    }
+                );
 
-                    return (imageBrush, d, null);
-                }
+                return (imageBrush, d, null);
+            }
         }
 
         return default;
@@ -254,7 +307,10 @@ public static class AvaloniaTypeConverter
         private readonly ImageBrush _imageBrush;
         private readonly DrawableBrush.Resource _drawableBrush;
 
-        public DrawableImageBrushHandler(DrawableBrush.Resource drawableBrush, ImageBrush imageBrush)
+        public DrawableImageBrushHandler(
+            DrawableBrush.Resource drawableBrush,
+            ImageBrush imageBrush
+        )
         {
             _imageBrush = imageBrush;
             _drawableBrush = drawableBrush;
@@ -266,37 +322,49 @@ public static class AvaloniaTypeConverter
             _cts = new CancellationTokenSource();
             var token = _cts.Token;
 
-            RenderThread.Dispatcher.Dispatch(async () =>
-            {
-                if (_drawableBrush.Drawable == null) return;
-                var node = new DrawableRenderNode(_drawableBrush.Drawable);
-                // TODO: UI側の物理的なサイズをもとに描画するように変更する
-                using (var context = new GraphicsContext2D(node, new Media.PixelSize(1920, 1080)))
+            RenderThread.Dispatcher.Dispatch(
+                async () =>
                 {
-                    _drawableBrush.Drawable.GetOriginal()!.Render(context, _drawableBrush.Drawable);
-                }
-
-                var processor = new RenderNodeProcessor(node, false);
-                using var bitmap = processor.RasterizeAndConcat();
-
-                var previous = _bitmap;
-                var pixelSize = new PixelSize(bitmap.Width, bitmap.Height);
-                _bitmap = bitmap.ToAvaWriteableBitmap(null);
-
-                await Dispatcher.UIThread.InvokeAsync(() =>
-                {
-                    _imageBrush.Stretch = _drawableBrush.Stretch switch
+                    if (_drawableBrush.Drawable == null)
+                        return;
+                    var node = new DrawableRenderNode(_drawableBrush.Drawable);
+                    // TODO: UI側の物理的なサイズをもとに描画するように変更する
+                    using (
+                        var context = new GraphicsContext2D(node, new Media.PixelSize(1920, 1080))
+                    )
                     {
-                        Stretch.Fill => Avalonia.Media.Stretch.Fill,
-                        Stretch.Uniform => Avalonia.Media.Stretch.Uniform,
-                        Stretch.UniformToFill => Avalonia.Media.Stretch.UniformToFill,
-                        Stretch.None => Avalonia.Media.Stretch.None,
-                        _ => Avalonia.Media.Stretch.Fill,
-                    };
-                    _imageBrush.Source = _bitmap;
-                    previous?.Dispose();
-                }, DispatcherPriority.Background);
-            }, DispatchPriority.Low, token);
+                        _drawableBrush
+                            .Drawable.GetOriginal()!
+                            .Render(context, _drawableBrush.Drawable);
+                    }
+
+                    var processor = new RenderNodeProcessor(node, false);
+                    using var bitmap = processor.RasterizeAndConcat();
+
+                    var previous = _bitmap;
+                    var pixelSize = new PixelSize(bitmap.Width, bitmap.Height);
+                    _bitmap = bitmap.ToAvaWriteableBitmap(null);
+
+                    await Dispatcher.UIThread.InvokeAsync(
+                        () =>
+                        {
+                            _imageBrush.Stretch = _drawableBrush.Stretch switch
+                            {
+                                Stretch.Fill => Avalonia.Media.Stretch.Fill,
+                                Stretch.Uniform => Avalonia.Media.Stretch.Uniform,
+                                Stretch.UniformToFill => Avalonia.Media.Stretch.UniformToFill,
+                                Stretch.None => Avalonia.Media.Stretch.None,
+                                _ => Avalonia.Media.Stretch.Fill,
+                            };
+                            _imageBrush.Source = _bitmap;
+                            previous?.Dispose();
+                        },
+                        DispatcherPriority.Background
+                    );
+                },
+                DispatchPriority.Low,
+                token
+            );
         }
     }
 }

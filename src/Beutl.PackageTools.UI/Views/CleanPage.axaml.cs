@@ -4,13 +4,11 @@ using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.VisualTree;
 using Beutl.PackageTools.UI.ViewModels;
-
 using FluentAvalonia.UI.Controls;
 using FluentAvalonia.UI.Controls.Primitives;
 using FluentAvalonia.UI.Navigation;
 
 namespace Beutl.PackageTools.UI.Views;
-
 
 public partial class CleanPage : PackageToolPage
 {
@@ -27,12 +25,9 @@ public partial class CleanPage : PackageToolPage
             var panel = new TaskDialogButtonsPanel
             {
                 [KeyboardNavigation.TabNavigationProperty] = KeyboardNavigationMode.Continue,
-                Spacing = 8
+                Spacing = 8,
             };
-            var backButton = new TaskDialogButtonHost()
-            {
-                Content = Strings.Back
-            };
+            var backButton = new TaskDialogButtonHost() { Content = Strings.Back };
             backButton.Click += (s, e) =>
             {
                 Frame? frame = this.FindAncestorOfType<Frame>();
@@ -48,17 +43,17 @@ public partial class CleanPage : PackageToolPage
             var panel = new TaskDialogButtonsPanel
             {
                 [KeyboardNavigation.TabNavigationProperty] = KeyboardNavigationMode.Continue,
-                Spacing = 8
+                Spacing = 8,
             };
             var cancelButton = new TaskDialogButtonHost()
             {
                 Content = Strings.Cancel,
-                IsEnabled = false
+                IsEnabled = false,
             };
             var runButton = new TaskDialogButtonHost()
             {
                 Content = Strings.Start,
-                Classes = { "accent" }
+                Classes = { "accent" },
             };
             cancelButton.Click += (_, _) =>
             {

@@ -13,7 +13,9 @@ internal sealed class MetalContext : IDisposable
     private static readonly IntPtr s_newCommandQueueSelector = GetValidSelector("newCommandQueue");
     private static readonly IntPtr s_commandBufferSelector = GetValidSelector("commandBuffer");
     private static readonly IntPtr s_commitSelector = GetValidSelector("commit");
-    private static readonly IntPtr s_waitUntilCompletedSelector = GetValidSelector("waitUntilCompleted");
+    private static readonly IntPtr s_waitUntilCompletedSelector = GetValidSelector(
+        "waitUntilCompleted"
+    );
     private static readonly IntPtr s_releaseSelector = GetValidSelector("release");
 
     public MetalContext()
@@ -45,7 +47,7 @@ internal sealed class MetalContext : IDisposable
                 var backendContext = new GRMtlBackendContext
                 {
                     DeviceHandle = _metalDevice,
-                    QueueHandle = _commandQueue
+                    QueueHandle = _commandQueue,
                 };
 
                 _grContext = GRContext.CreateMetal(backendContext);
@@ -101,7 +103,9 @@ internal sealed class MetalContext : IDisposable
         var selector = sel_getUid(selectorName);
         if (selector == IntPtr.Zero)
         {
-            throw new InvalidOperationException($"Failed to get Objective-C selector: {selectorName}");
+            throw new InvalidOperationException(
+                $"Failed to get Objective-C selector: {selectorName}"
+            );
         }
         return selector;
     }

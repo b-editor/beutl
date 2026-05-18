@@ -1,9 +1,7 @@
 ﻿using Avalonia.Controls;
 using Avalonia.Data;
 using Avalonia.Interactivity;
-
 using Beutl.ViewModels.SettingsPages;
-
 using FluentAvalonia.UI.Controls;
 
 namespace Beutl.Pages.SettingsPages;
@@ -24,13 +22,18 @@ public sealed partial class EditorExtensionPriorityPage : UserControl
                 DataContext = viewModel,
                 Title = SettingsStrings.Add_file_extension,
                 PrimaryButtonText = Strings.Add,
-                [!ContentDialog.IsPrimaryButtonEnabledProperty] = new Binding("CanAddFileExtension.Value"),
+                [!ContentDialog.IsPrimaryButtonEnabledProperty] = new Binding(
+                    "CanAddFileExtension.Value"
+                ),
                 PrimaryButtonCommand = viewModel.AddFileExtension,
                 CloseButtonText = Strings.Cancel,
                 Content = new TextBox
                 {
-                    [!TextBox.TextProperty] = new Binding("FileExtensionInput.Value", BindingMode.TwoWay)
-                }
+                    [!TextBox.TextProperty] = new Binding(
+                        "FileExtensionInput.Value",
+                        BindingMode.TwoWay
+                    ),
+                },
             };
             await dialog.ShowAsync();
         }

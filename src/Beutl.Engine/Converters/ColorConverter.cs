@@ -8,7 +8,10 @@ namespace Beutl.Converters;
 
 public sealed class ColorConverter : TypeConverter
 {
-    public override bool CanConvertTo(ITypeDescriptorContext? context, [NotNullWhen(true)] Type? destinationType)
+    public override bool CanConvertTo(
+        ITypeDescriptorContext? context,
+        [NotNullWhen(true)] Type? destinationType
+    )
     {
         return destinationType == typeof(float[])
             || destinationType == typeof(byte[])
@@ -22,7 +25,12 @@ public sealed class ColorConverter : TypeConverter
             || base.CanConvertTo(context, destinationType);
     }
 
-    public override object? ConvertTo(ITypeDescriptorContext? context, CultureInfo? culture, object? value, Type destinationType)
+    public override object? ConvertTo(
+        ITypeDescriptorContext? context,
+        CultureInfo? culture,
+        object? value,
+        Type destinationType
+    )
     {
         if (value is Color color)
         {
@@ -30,19 +38,24 @@ public sealed class ColorConverter : TypeConverter
             {
                 return new float[]
                 {
-                    color.A / 255f, color.R / 255f, color.G / 255f, color.B / 255f,
+                    color.A / 255f,
+                    color.R / 255f,
+                    color.G / 255f,
+                    color.B / 255f,
                 };
             }
             else if (destinationType == typeof(byte[]))
             {
-                return new byte[]
-                {
-                    color.A, color.R, color.G, color.B,
-                };
+                return new byte[] { color.A, color.R, color.G, color.B };
             }
             else if (destinationType == typeof(Tuple<float, float, float, float>))
             {
-                return new Tuple<float, float, float, float>(color.A / 255f, color.R / 255f, color.G / 255f, color.B / 255f);
+                return new Tuple<float, float, float, float>(
+                    color.A / 255f,
+                    color.R / 255f,
+                    color.G / 255f,
+                    color.B / 255f
+                );
             }
             else if (destinationType == typeof(Tuple<byte, byte, byte, byte>))
             {
@@ -56,8 +69,7 @@ public sealed class ColorConverter : TypeConverter
             {
                 return color.ToUint32();
             }
-            else if (destinationType == typeof(Brush)
-                || destinationType == typeof(SolidColorBrush))
+            else if (destinationType == typeof(Brush) || destinationType == typeof(SolidColorBrush))
             {
                 return color.ToBrush();
             }
@@ -83,11 +95,20 @@ public sealed class ColorConverter : TypeConverter
             || sourceType == typeof(string);
     }
 
-    public override object? ConvertFrom(ITypeDescriptorContext? context, CultureInfo? culture, object value)
+    public override object? ConvertFrom(
+        ITypeDescriptorContext? context,
+        CultureInfo? culture,
+        object value
+    )
     {
         if (value is float[] { Length: >= 4 } array)
         {
-            return Color.FromArgb((byte)(array[0] * 255), (byte)(array[1] * 255), (byte)(array[2] * 255), (byte)(array[3] * 255));
+            return Color.FromArgb(
+                (byte)(array[0] * 255),
+                (byte)(array[1] * 255),
+                (byte)(array[2] * 255),
+                (byte)(array[3] * 255)
+            );
         }
         else if (value is byte[] { Length: >= 4 } array2)
         {
@@ -95,7 +116,12 @@ public sealed class ColorConverter : TypeConverter
         }
         else if (value is Tuple<float, float, float, float> tuple1)
         {
-            return Color.FromArgb((byte)(tuple1.Item1 * 255), (byte)(tuple1.Item2 * 255), (byte)(tuple1.Item3 * 255), (byte)(tuple1.Item4 * 255));
+            return Color.FromArgb(
+                (byte)(tuple1.Item1 * 255),
+                (byte)(tuple1.Item2 * 255),
+                (byte)(tuple1.Item3 * 255),
+                (byte)(tuple1.Item4 * 255)
+            );
         }
         else if (value is Tuple<byte, byte, byte, byte> tuple2)
         {

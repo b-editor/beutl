@@ -11,17 +11,27 @@ public sealed class NodeGraphNavigationItem : IDisposable, IJsonSerializable
 {
     internal Lazy<NodeGraphViewModel> _lazyViewModel;
 
-    public NodeGraphNavigationItem(NodeGraphViewModel viewModel, ReadOnlyReactivePropertySlim<string> name, GraphModel nodeGraph)
+    public NodeGraphNavigationItem(
+        NodeGraphViewModel viewModel,
+        ReadOnlyReactivePropertySlim<string> name,
+        GraphModel nodeGraph
+    )
     {
         _lazyViewModel = new Lazy<NodeGraphViewModel>(viewModel);
         Name = name;
         NodeGraph = nodeGraph;
     }
 
-    public NodeGraphNavigationItem(ReadOnlyReactivePropertySlim<string> name, GraphModel nodeGraph, IEditorContext editorContext)
+    public NodeGraphNavigationItem(
+        ReadOnlyReactivePropertySlim<string> name,
+        GraphModel nodeGraph,
+        IEditorContext editorContext
+    )
     {
         NodeGraph = nodeGraph;
-        _lazyViewModel = new Lazy<NodeGraphViewModel>(() => new NodeGraphViewModel(NodeGraph, editorContext));
+        _lazyViewModel = new Lazy<NodeGraphViewModel>(() =>
+            new NodeGraphViewModel(NodeGraph, editorContext)
+        );
         Name = name;
     }
 
@@ -64,7 +74,8 @@ public sealed class NodeGraphTabViewModel : IToolContext
     {
         _editorContext = editorContext;
 
-        Model.CombineWithPrevious()
+        Model
+            .CombineWithPrevious()
             .Subscribe(t =>
             {
                 var oldModel = t.OldValue;
@@ -88,19 +99,24 @@ public sealed class NodeGraphTabViewModel : IToolContext
                 {
                     NodeGraph.Value = new NodeGraphViewModel(newModel, editorContext);
                     var element = newModel.FindHierarchicalParent<Element>();
-                    IObservable<string> name = element?.GetObservable(CoreObject.NameProperty) ?? Observable.ReturnThenNever(string.Empty);
+                    IObservable<string> name =
+                        element?.GetObservable(CoreObject.NameProperty)
+                        ?? Observable.ReturnThenNever(string.Empty);
                     string? fileName = Path.GetFileNameWithoutExtension(element?.Uri!.LocalPath);
 
-                    Items.Add(new NodeGraphNavigationItem(
-                        viewModel: NodeGraph.Value,
-                        nodeGraph: newModel,
-                        name: name
-                            .Select(x => string.IsNullOrWhiteSpace(x) ? fileName : x)
-                            .ToReadOnlyReactivePropertySlim()!));
+                    Items.Add(
+                        new NodeGraphNavigationItem(
+                            viewModel: NodeGraph.Value,
+                            nodeGraph: newModel,
+                            name: name.Select(x => string.IsNullOrWhiteSpace(x) ? fileName : x)
+                                .ToReadOnlyReactivePropertySlim()!
+                        )
+                    );
 
                     RestoreState(newModel);
                 }
-            }).DisposeWith(_disposables);
+            })
+            .DisposeWith(_disposables);
     }
 
     public string Header => Strings.NodeGraph;
@@ -195,7 +211,8 @@ public sealed class NodeGraphTabViewModel : IToolContext
             foundItem ??= new NodeGraphNavigationItem(
                 item.GetObservable(CoreObject.NameProperty).ToReadOnlyReactivePropertySlim()!,
                 graph,
-                _editorContext);
+                _editorContext
+            );
 
             list.Add(foundItem);
         }
@@ -256,11 +273,15 @@ public sealed class NodeGraphTabViewModel : IToolContext
 
         if (File.Exists(viewStateFile))
         {
-            using var stream = new FileStream(viewStateFile, FileMode.Open, FileAccess.Read, FileShare.Read);
+            using var stream = new FileStream(
+                viewStateFile,
+                FileMode.Open,
+                FileAccess.Read,
+                FileShare.Read
+            );
             JsonObject json = JsonNode.Parse(stream)!.AsObject();
             Guid? selected = (Guid?)json["Selected"];
-            if (selected.HasValue
-                && model.FindById(selected.Value) is GraphModel selectedModel)
+            if (selected.HasValue && model.FindById(selected.Value) is GraphModel selectedModel)
             {
                 NavigateTo(selectedModel);
             }
@@ -269,7 +290,12 @@ public sealed class NodeGraphTabViewModel : IToolContext
 
             foreach (NodeGraphNavigationItem item in Items)
             {
-                if (itemsJson.TryGetPropertyValue(item.NodeGraph.Id.ToString(), out JsonNode? itemJson))
+                if (
+                    itemsJson.TryGetPropertyValue(
+                        item.NodeGraph.Id.ToString(),
+                        out JsonNode? itemJson
+                    )
+                )
                 {
                     item.ReadFromJson(itemJson!.AsObject());
                 }
@@ -280,9 +306,11 @@ public sealed class NodeGraphTabViewModel : IToolContext
     public void ReadFromJson(JsonObject json)
     {
         Scene scene = _editorContext.GetRequiredService<Scene>();
-        if (Model.Value == null
+        if (
+            Model.Value == null
             && json.TryGetPropertyValue("ModelId", out JsonNode? idNode)
-            && (idNode as JsonValue)?.TryGetValue(out Guid id) == true)
+            && (idNode as JsonValue)?.TryGetValue(out Guid id) == true
+        )
         {
             Model.Value = scene.FindById(id) as GraphModel;
         }

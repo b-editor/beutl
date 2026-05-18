@@ -1,5 +1,4 @@
 <Project Sdk="Microsoft.NET.Sdk">
-
   <PropertyGroup>
     <IsPackable>false</IsPackable>
     <IsTestProject>true</IsTestProject>
@@ -26,11 +25,14 @@
     <ProjectReference Include="..\..\src\Beutl.Engine\Beutl.Engine.csproj" />
     <ProjectReference Include="..\..\src\Beutl.ProjectSystem\Beutl.ProjectSystem.csproj" />
     <ProjectReference Include="..\..\src\Beutl.Editor\Beutl.Editor.csproj" />
-    <ProjectReference Include="..\..\src\Beutl.Engine.SourceGenerators\Beutl.Engine.SourceGenerators.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
+    <ProjectReference
+      Include="..\..\src\Beutl.Engine.SourceGenerators\Beutl.Engine.SourceGenerators.csproj"
+      OutputItemType="Analyzer"
+      ReferenceOutputAssembly="false"
+    />
   </ItemGroup>
 
   <ItemGroup>
     <EmbeddedResource Include="Assets\**\*.*" />
   </ItemGroup>
-
 </Project>

@@ -1,8 +1,14 @@
 ﻿namespace Beutl.Media;
 
 public readonly struct BitmapInfo(
-    int width, int height, int byteCount, int bytesPerPixel,
-    BitmapColorType colorType, BitmapAlphaType alphaType, BitmapColorSpace colorSpace)
+    int width,
+    int height,
+    int byteCount,
+    int bytesPerPixel,
+    BitmapColorType colorType,
+    BitmapAlphaType alphaType,
+    BitmapColorSpace colorSpace
+)
 {
     public int Width { get; } = width;
 

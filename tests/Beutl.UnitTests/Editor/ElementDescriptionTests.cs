@@ -28,7 +28,8 @@ public class ElementDescriptionTests
             Name: "title",
             InitialObject: typeof(string),
             FileName: "/tmp/x.mp4",
-            Position: new Point(10, 20));
+            Position: new Point(10, 20)
+        );
 
         Assert.That(desc.Name, Is.EqualTo("title"));
         Assert.That(desc.InitialObject, Is.EqualTo(typeof(string)));

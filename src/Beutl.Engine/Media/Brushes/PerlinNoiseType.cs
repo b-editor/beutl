@@ -3,5 +3,5 @@
 public enum PerlinNoiseType
 {
     Turbulence,
-    Fractal
+    Fractal,
 }

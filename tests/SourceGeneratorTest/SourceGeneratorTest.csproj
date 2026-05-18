@@ -1,15 +1,18 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
-
-    <PropertyGroup>
-        <TargetFramework>net10.0</TargetFramework>
-        <ImplicitUsings>enable</ImplicitUsings>
-        <Nullable>enable</Nullable>
-    </PropertyGroup>
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
   <ItemGroup>
     <Compile Remove="$(MSBuildThisFileDirectory)\..\ArtifactProvider.cs" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\src\Beutl.Core\Beutl.Core.csproj" />
-    <ProjectReference Include="..\..\src\Beutl.Engine.SourceGenerators\Beutl.Engine.SourceGenerators.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
+    <ProjectReference
+      Include="..\..\src\Beutl.Engine.SourceGenerators\Beutl.Engine.SourceGenerators.csproj"
+      OutputItemType="Analyzer"
+      ReferenceOutputAssembly="false"
+    />
   </ItemGroup>
 </Project>

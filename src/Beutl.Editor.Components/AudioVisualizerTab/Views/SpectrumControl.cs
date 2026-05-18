@@ -7,20 +7,40 @@ namespace Beutl.Editor.Components.AudioVisualizerTab.Views;
 
 public sealed class SpectrumControl : AudioVisualizerControlBase
 {
-    public static readonly StyledProperty<int> FftSizeProperty =
-        AvaloniaProperty.Register<SpectrumControl, int>(nameof(FftSize), 2048);
+    public static readonly StyledProperty<int> FftSizeProperty = AvaloniaProperty.Register<
+        SpectrumControl,
+        int
+    >(nameof(FftSize), 2048);
 
-    public static readonly StyledProperty<float> MinDecibelsProperty =
-        AvaloniaProperty.Register<SpectrumControl, float>(nameof(MinDecibels), -90f);
+    public static readonly StyledProperty<float> MinDecibelsProperty = AvaloniaProperty.Register<
+        SpectrumControl,
+        float
+    >(nameof(MinDecibels), -90f);
 
-    public static readonly StyledProperty<float> SmoothingProperty =
-        AvaloniaProperty.Register<SpectrumControl, float>(nameof(Smoothing), 55f);
+    public static readonly StyledProperty<float> SmoothingProperty = AvaloniaProperty.Register<
+        SpectrumControl,
+        float
+    >(nameof(Smoothing), 55f);
 
     public static readonly StyledProperty<SpectrumDisplayShape> ShapeProperty =
-        AvaloniaProperty.Register<SpectrumControl, SpectrumDisplayShape>(nameof(Shape), SpectrumDisplayShape.Bar);
+        AvaloniaProperty.Register<SpectrumControl, SpectrumDisplayShape>(
+            nameof(Shape),
+            SpectrumDisplayShape.Bar
+        );
 
     private const double FrequencyLabelFontSize = 12.0;
-    private static readonly double[] s_frequencyTicks = [50, 100, 200, 500, 1000, 2000, 5000, 10000, 20000];
+    private static readonly double[] s_frequencyTicks =
+    [
+        50,
+        100,
+        200,
+        500,
+        1000,
+        2000,
+        5000,
+        10000,
+        20000,
+    ];
 
     private float[] _samplesL = [];
     private float[] _samplesR = [];
@@ -59,13 +79,15 @@ public sealed class SpectrumControl : AudioVisualizerControlBase
         context.FillRectangle(Brushes.Transparent, bounds);
 
         AudioSampleRingBuffer? buffer = RingBuffer;
-        if (buffer == null || bounds.Width < 8 || bounds.Height < 8) return;
+        if (buffer == null || bounds.Width < 8 || bounds.Height < 8)
+            return;
 
         int n = Fft.ClampToPowerOfTwo(FftSize, min: 256, max: 8192);
         EnsureBuffers(n);
 
         int got = buffer.ReadAroundTime(PlayheadTime, _samplesL, _samplesR, n);
-        if (got < n / 2) return;
+        if (got < n / 2)
+            return;
 
         Span<float> real = _real.AsSpan(0, n);
         Span<float> imag = _imag.AsSpan(0, n);
@@ -92,7 +114,8 @@ public sealed class SpectrumControl : AudioVisualizerControlBase
         {
             float db = MathF.Max(Fft.MagnitudeToDb(mags[i], referenceMag), minDb);
             float norm = (db - minDb) / rangeDb;
-            if (norm < 0) norm = 0;
+            if (norm < 0)
+                norm = 0;
             _smoothed[i] = _smoothed[i] * smoothFactor + norm * newWeight;
         }
 
@@ -102,7 +125,8 @@ public sealed class SpectrumControl : AudioVisualizerControlBase
             FlowDirection.LeftToRight,
             Typeface.Default,
             FrequencyLabelFontSize,
-            Brushes.White);
+            Brushes.White
+        );
         double labelHeight = f.Height;
         double labelBaseline = f.Baseline;
         double frequencyAxisHeight = labelHeight + 1;
@@ -148,19 +172,25 @@ public sealed class SpectrumControl : AudioVisualizerControlBase
             double hi = Math.Pow(bins, (b + 1) / (double)bands);
             int start = Math.Max(1, (int)Math.Floor(lo));
             int end = Math.Min(bins, (int)Math.Ceiling(hi));
-            if (end <= start) end = Math.Min(bins, start + 1);
+            if (end <= start)
+                end = Math.Min(bins, start + 1);
 
             float peak = 0f;
             for (int k = start; k < end; k++)
             {
                 float v = _smoothed[k];
-                if (v > peak) peak = v;
+                if (v > peak)
+                    peak = v;
             }
             bandPeaks[b] = peak;
         }
     }
 
-    private void DrawBarShape(DrawingContext context, Rect plotBounds, ReadOnlySpan<float> bandPeaks)
+    private void DrawBarShape(
+        DrawingContext context,
+        Rect plotBounds,
+        ReadOnlySpan<float> bandPeaks
+    )
     {
         int bands = bandPeaks.Length;
         double barSlot = plotBounds.Width / bands;
@@ -174,7 +204,11 @@ public sealed class SpectrumControl : AudioVisualizerControlBase
         }
     }
 
-    private void DrawMirroredBarsShape(DrawingContext context, Rect plotBounds, ReadOnlySpan<float> bandPeaks)
+    private void DrawMirroredBarsShape(
+        DrawingContext context,
+        Rect plotBounds,
+        ReadOnlySpan<float> bandPeaks
+    )
     {
         int bands = bandPeaks.Length;
         double barSlot = plotBounds.Width / bands;
@@ -189,17 +223,25 @@ public sealed class SpectrumControl : AudioVisualizerControlBase
         }
     }
 
-    private void DrawLineShape(DrawingContext context, Rect plotBounds, ReadOnlySpan<float> bandPeaks)
+    private void DrawLineShape(
+        DrawingContext context,
+        Rect plotBounds,
+        ReadOnlySpan<float> bandPeaks
+    )
     {
         int bands = bandPeaks.Length;
-        if (bands < 2) return;
+        if (bands < 2)
+            return;
 
         double slotWidth = plotBounds.Width / bands;
         double height = plotBounds.Height - 2;
         var geometry = new StreamGeometry();
         using (StreamGeometryContext ctx = geometry.Open())
         {
-            ctx.BeginFigure(new Point(slotWidth * 0.5, plotBounds.Bottom - bandPeaks[0] * height), false);
+            ctx.BeginFigure(
+                new Point(slotWidth * 0.5, plotBounds.Bottom - bandPeaks[0] * height),
+                false
+            );
             for (int b = 1; b < bands; b++)
             {
                 double x = b * slotWidth + slotWidth * 0.5;
@@ -213,10 +255,15 @@ public sealed class SpectrumControl : AudioVisualizerControlBase
         context.DrawGeometry(null, pen, geometry);
     }
 
-    private void DrawFilledAreaShape(DrawingContext context, Rect plotBounds, ReadOnlySpan<float> bandPeaks)
+    private void DrawFilledAreaShape(
+        DrawingContext context,
+        Rect plotBounds,
+        ReadOnlySpan<float> bandPeaks
+    )
     {
         int bands = bandPeaks.Length;
-        if (bands < 2) return;
+        if (bands < 2)
+            return;
 
         double slotWidth = plotBounds.Width / bands;
         double height = plotBounds.Height - 2;
@@ -237,9 +284,15 @@ public sealed class SpectrumControl : AudioVisualizerControlBase
         context.DrawGeometry(PrimaryBrush, null, geometry);
     }
 
-    private void DrawFrequencyGrid(DrawingContext context, Rect plotBounds, int sampleRate, int bins)
+    private void DrawFrequencyGrid(
+        DrawingContext context,
+        Rect plotBounds,
+        int sampleRate,
+        int bins
+    )
     {
-        if (sampleRate <= 0 || bins < 2) return;
+        if (sampleRate <= 0 || bins < 2)
+            return;
 
         var gridPen = new Pen(new SolidColorBrush(Colors.Gray, 0.35), 0.5)
         {
@@ -249,22 +302,35 @@ public sealed class SpectrumControl : AudioVisualizerControlBase
         double nyquist = sampleRate * 0.5;
         foreach (double freq in s_frequencyTicks)
         {
-            if (freq >= nyquist) break;
+            if (freq >= nyquist)
+                break;
             double x = FrequencyToX(freq, plotBounds.Width, nyquist, bins);
-            context.DrawLine(gridPen, new Point(x, plotBounds.Top), new Point(x, plotBounds.Bottom));
+            context.DrawLine(
+                gridPen,
+                new Point(x, plotBounds.Top),
+                new Point(x, plotBounds.Bottom)
+            );
         }
     }
 
-    private void DrawFrequencyLabels(DrawingContext context, Rect bounds, int sampleRate, int bins, double labelY)
+    private void DrawFrequencyLabels(
+        DrawingContext context,
+        Rect bounds,
+        int sampleRate,
+        int bins,
+        double labelY
+    )
     {
-        if (sampleRate <= 0 || bins < 2) return;
+        if (sampleRate <= 0 || bins < 2)
+            return;
 
         double nyquist = sampleRate * 0.5;
         double plotWidth = bounds.Width;
 
         foreach (double freq in s_frequencyTicks)
         {
-            if (freq >= nyquist) break;
+            if (freq >= nyquist)
+                break;
             string label = freq >= 1000 ? $"{freq / 1000:0.#}k" : $"{freq:0}";
             var formatted = new FormattedText(
                 label,
@@ -272,12 +338,14 @@ public sealed class SpectrumControl : AudioVisualizerControlBase
                 FlowDirection.LeftToRight,
                 Typeface.Default,
                 FrequencyLabelFontSize,
-                Brushes.LightGray);
+                Brushes.LightGray
+            );
             double tickX = FrequencyToX(freq, plotWidth, nyquist, bins);
             double x = tickX - formatted.Width / 2;
             // Drop labels that would need clamping rather than offset them from
             // their tick — visible misalignment is worse than a missing label.
-            if (x < 0 || x + formatted.Width > plotWidth) continue;
+            if (x < 0 || x + formatted.Width > plotWidth)
+                continue;
             context.DrawText(formatted, new Point(x, labelY));
         }
     }
@@ -287,7 +355,8 @@ public sealed class SpectrumControl : AudioVisualizerControlBase
     private static double FrequencyToX(double freq, double width, double nyquist, int bins)
     {
         double targetBin = freq / nyquist * bins;
-        if (targetBin < 1) targetBin = 1;
+        if (targetBin < 1)
+            targetBin = 1;
         double t = Math.Log(targetBin) / Math.Log(bins);
         return Math.Clamp(t, 0, 1) * width;
     }

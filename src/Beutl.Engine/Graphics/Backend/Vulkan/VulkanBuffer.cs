@@ -22,7 +22,8 @@ internal sealed unsafe class VulkanBuffer : IBuffer
         VulkanContext context,
         ulong size,
         BufferUsage usage,
-        MemoryProperty memoryProperties)
+        MemoryProperty memoryProperties
+    )
     {
         _context = context;
         _size = size;
@@ -41,7 +42,7 @@ internal sealed unsafe class VulkanBuffer : IBuffer
             SType = StructureType.BufferCreateInfo,
             Size = size,
             Usage = vulkanUsage,
-            SharingMode = SharingMode.Exclusive
+            SharingMode = SharingMode.Exclusive,
         };
 
         Buffer buffer;
@@ -61,7 +62,10 @@ internal sealed unsafe class VulkanBuffer : IBuffer
         {
             SType = StructureType.MemoryAllocateInfo,
             AllocationSize = memReqs.Size,
-            MemoryTypeIndex = context.FindMemoryType(memReqs.MemoryTypeBits, vulkanMemoryProperties)
+            MemoryTypeIndex = context.FindMemoryType(
+                memReqs.MemoryTypeBits,
+                vulkanMemoryProperties
+            ),
         };
 
         DeviceMemory memory;
@@ -69,7 +73,9 @@ internal sealed unsafe class VulkanBuffer : IBuffer
         if (result != Result.Success)
         {
             vk.DestroyBuffer(device, _buffer, null);
-            throw new InvalidOperationException($"Failed to allocate Vulkan buffer memory: {result}");
+            throw new InvalidOperationException(
+                $"Failed to allocate Vulkan buffer memory: {result}"
+            );
         }
         _memory = memory;
 
@@ -87,7 +93,8 @@ internal sealed unsafe class VulkanBuffer : IBuffer
 
     public Buffer Handle => _buffer;
 
-    public void Upload<T>(ReadOnlySpan<T> data) where T : unmanaged
+    public void Upload<T>(ReadOnlySpan<T> data)
+        where T : unmanaged
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
 
@@ -133,7 +140,8 @@ internal sealed unsafe class VulkanBuffer : IBuffer
 
     public void Dispose()
     {
-        if (_disposed) return;
+        if (_disposed)
+            return;
         _disposed = true;
 
         var vk = _context.Vk;

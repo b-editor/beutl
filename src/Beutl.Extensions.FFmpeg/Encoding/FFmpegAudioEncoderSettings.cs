@@ -3,8 +3,10 @@ using Beutl.Serialization;
 
 #if BEUTL_FFMPEG_WORKER
 namespace Beutl.FFmpegWorker.Encoding;
+
 #else
 namespace Beutl.Extensions.FFmpeg.Encoding;
+
 #endif
 
 public sealed class FFmpegAudioEncoderSettings : AudioEncoderSettings
@@ -45,7 +47,8 @@ public sealed class FFmpegAudioEncoderSettings : AudioEncoderSettings
         string? codecName = context.GetValue<string>(nameof(Codec));
         if (codecName != null)
         {
-            Codec = AudioCodecChoicesProvider.GetChoices()
+            Codec = AudioCodecChoicesProvider
+                .GetChoices()
                 .Cast<CodecRecord>()
                 .FirstOrDefault(i => i.Name == codecName, CodecRecord.Default);
         }
@@ -71,7 +74,7 @@ public sealed class FFmpegAudioEncoderSettings : AudioEncoderSettings
         Fltp = 8,
         Dblp = 9,
         S64 = 10,
-        S64p = 11
+        S64p = 11,
     }
 }
 
@@ -82,8 +85,12 @@ public class AudioCodecChoicesProvider : IChoicesProvider
 #if FFMPEG_OUT_OF_PROCESS
         return FFmpegWorkerCodecCache.GetAudioCodecs();
 #else
-        return FFmpegSharp.MediaCodec.GetCodecs()
-            .Where(i => i.IsEncoder && i.Type == global::FFmpeg.AutoGen.Abstractions.AVMediaType.AVMEDIA_TYPE_AUDIO)
+        return FFmpegSharp
+            .MediaCodec.GetCodecs()
+            .Where(i =>
+                i.IsEncoder
+                && i.Type == global::FFmpeg.AutoGen.Abstractions.AVMediaType.AVMEDIA_TYPE_AUDIO
+            )
             .Select(i => (object)new CodecRecord(i.Name, i.LongName))
             .Prepend(CodecRecord.Default)
             .ToArray();

@@ -4,7 +4,6 @@ using System.Globalization;
 using System.Numerics;
 using System.Text.Json.Serialization;
 using System.Text.Unicode;
-
 using Beutl.Converters;
 using Beutl.Utilities;
 
@@ -17,16 +16,16 @@ namespace Beutl.Graphics;
 [TypeConverter(typeof(RectConverter))]
 public readonly struct Rect
     : IEquatable<Rect>,
-      IParsable<Rect>,
-      ISpanParsable<Rect>,
-      ISpanFormattable,
-      IUtf8SpanParsable<Rect>,
-      IUtf8SpanFormattable,
-      IEqualityOperators<Rect, Rect, bool>,
-      IMultiplyOperators<Rect, Vector, Rect>,
-      IMultiplyOperators<Rect, float, Rect>,
-      IDivisionOperators<Rect, Vector, Rect>,
-      ITupleConvertible<Rect, float>
+        IParsable<Rect>,
+        ISpanParsable<Rect>,
+        ISpanFormattable,
+        IUtf8SpanParsable<Rect>,
+        IUtf8SpanFormattable,
+        IEqualityOperators<Rect, Rect, bool>,
+        IMultiplyOperators<Rect, Vector, Rect>,
+        IMultiplyOperators<Rect, float, Rect>,
+        IDivisionOperators<Rect, Vector, Rect>,
+        ITupleConvertible<Rect, float>
 {
     /// <summary>
     /// An empty rectangle.
@@ -174,7 +173,8 @@ public readonly struct Rect
     /// <summary>
     /// Gets the value of whether any of the properties are NaN.
     /// </summary>
-    public bool IsInvalid => float.IsNaN(Width) || float.IsNaN(Height) || float.IsNaN(X) || float.IsNaN(Y);
+    public bool IsInvalid =>
+        float.IsNaN(Width) || float.IsNaN(Height) || float.IsNaN(X) || float.IsNaN(Y);
 
     static int ITupleConvertible<Rect, float>.TupleLength => 4;
 
@@ -212,7 +212,8 @@ public readonly struct Rect
             rect.X * scale.X,
             rect.Y * scale.Y,
             rect.Width * scale.X,
-            rect.Height * scale.Y);
+            rect.Height * scale.Y
+        );
     }
 
     /// <summary>
@@ -223,11 +224,7 @@ public readonly struct Rect
     /// <returns>The scaled rectangle.</returns>
     public static Rect operator *(Rect rect, float scale)
     {
-        return new Rect(
-            rect.X * scale,
-            rect.Y * scale,
-            rect.Width * scale,
-            rect.Height * scale);
+        return new Rect(rect.X * scale, rect.Y * scale, rect.Width * scale, rect.Height * scale);
     }
 
     /// <summary>
@@ -242,7 +239,8 @@ public readonly struct Rect
             rect.X / scale.X,
             rect.Y / scale.Y,
             rect.Width / scale.X,
-            rect.Height / scale.Y);
+            rect.Height / scale.Y
+        );
     }
 
     /// <summary>
@@ -252,8 +250,7 @@ public readonly struct Rect
     /// <returns>true if the point is in the bounds of the rectangle; otherwise false.</returns>
     public bool Contains(Point p)
     {
-        return p.X >= X && p.X <= X + Width &&
-               p.Y >= Y && p.Y <= Y + Height;
+        return p.X >= X && p.X <= X + Width && p.Y >= Y && p.Y <= Y + Height;
     }
 
     /// <summary>
@@ -264,8 +261,7 @@ public readonly struct Rect
     /// <returns>true if the point is in the bounds of the rectangle; otherwise false.</returns>
     public bool ContainsExclusive(Point p)
     {
-        return p.X >= X && p.X < X + Width &&
-               p.Y >= Y && p.Y < Y + Height;
+        return p.X >= X && p.X < X + Width && p.Y >= Y && p.Y < Y + Height;
     }
 
     /// <summary>
@@ -289,7 +285,8 @@ public readonly struct Rect
             X + ((Width - rect.Width) / 2),
             Y + ((Height - rect.Height) / 2),
             rect.Width,
-            rect.Height);
+            rect.Height
+        );
     }
 
     /// <summary>
@@ -309,9 +306,7 @@ public readonly struct Rect
     /// <returns>The inflated rectangle.</returns>
     public Rect Inflate(Thickness thickness)
     {
-        return new Rect(
-            new Point(X - thickness.Left, Y - thickness.Top),
-            Size.Inflate(thickness));
+        return new Rect(new Point(X - thickness.Left, Y - thickness.Top), Size.Inflate(thickness));
     }
 
     /// <summary>
@@ -331,9 +326,7 @@ public readonly struct Rect
     /// <returns>The deflated rectangle.</returns>
     public Rect Deflate(Thickness thickness)
     {
-        return new Rect(
-            new Point(X + thickness.Left, Y + thickness.Top),
-            Size.Deflate(thickness));
+        return new Rect(new Point(X + thickness.Left, Y + thickness.Top), Size.Deflate(thickness));
     }
 
     /// <summary>
@@ -343,10 +336,7 @@ public readonly struct Rect
     /// <returns>True if this rect is equal to other; False otherwise.</returns>
     public bool Equals(Rect other)
     {
-        return X == other.X &&
-               Y == other.Y &&
-               Width == other.Width &&
-               Height == other.Height;
+        return X == other.X && Y == other.Y && Width == other.Width && Height == other.Height;
     }
 
     /// <summary>
@@ -414,7 +404,7 @@ public readonly struct Rect
             TopLeft.Transform(matrix),
             TopRight.Transform(matrix),
             BottomRight.Transform(matrix),
-            BottomLeft.Transform(matrix)
+            BottomLeft.Transform(matrix),
         ];
 
         float left = float.MaxValue;
@@ -424,10 +414,14 @@ public readonly struct Rect
 
         foreach (Point p in points)
         {
-            if (p.X < left) left = p.X;
-            if (p.X > right) right = p.X;
-            if (p.Y < top) top = p.Y;
-            if (p.Y > bottom) bottom = p.Y;
+            if (p.X < left)
+                left = p.X;
+            if (p.X > right)
+                right = p.X;
+            if (p.Y < top)
+                top = p.Y;
+            if (p.Y > bottom)
+                bottom = p.Y;
         }
 
         return new Rect(new Point(left, top), new Point(right, bottom));
@@ -455,9 +449,14 @@ public readonly struct Rect
     {
         Rect rect = this;
 
-        if (float.IsNaN(rect.Right) || float.IsNaN(rect.Bottom) ||
-            float.IsNaN(rect.X) || float.IsNaN(rect.Y) ||
-            float.IsNaN(Height) || float.IsNaN(Width))
+        if (
+            float.IsNaN(rect.Right)
+            || float.IsNaN(rect.Bottom)
+            || float.IsNaN(rect.X)
+            || float.IsNaN(rect.Y)
+            || float.IsNaN(Height)
+            || float.IsNaN(Width)
+        )
         {
             return Empty;
         }
@@ -617,14 +616,22 @@ public readonly struct Rect
         return Parse(s.AsSpan(), provider);
     }
 
-    public static bool TryParse([NotNullWhen(true)] string? s, IFormatProvider? provider, out Rect result)
+    public static bool TryParse(
+        [NotNullWhen(true)] string? s,
+        IFormatProvider? provider,
+        out Rect result
+    )
     {
         return TryParse(s.AsSpan(), provider, out result);
     }
 
     public static Rect Parse(ReadOnlySpan<char> s, IFormatProvider? provider)
     {
-        using var tokenizer = new RefStringTokenizer(s, provider ?? CultureInfo.InvariantCulture, exceptionMessage: "Invalid Rect.");
+        using var tokenizer = new RefStringTokenizer(
+            s,
+            provider ?? CultureInfo.InvariantCulture,
+            exceptionMessage: "Invalid Rect."
+        );
         return new Rect(
             tokenizer.ReadSingle(),
             tokenizer.ReadSingle(),
@@ -647,10 +654,20 @@ public readonly struct Rect
         }
     }
 
-    public bool TryFormat(Span<char> destination, out int charsWritten, ReadOnlySpan<char> format = default, IFormatProvider? provider = null)
+    public bool TryFormat(
+        Span<char> destination,
+        out int charsWritten,
+        ReadOnlySpan<char> format = default,
+        IFormatProvider? provider = null
+    )
     {
         char separator = TokenizerHelper.GetSeparatorFromFormatProvider(provider);
-        return MemoryExtensions.TryWrite(destination, provider, $"{X}{separator} {Y}{separator} {Width}{separator} {Height}", out charsWritten);
+        return MemoryExtensions.TryWrite(
+            destination,
+            provider,
+            $"{X}{separator} {Y}{separator} {Width}{separator} {Height}",
+            out charsWritten
+        );
     }
 
     public string ToString(string? format, IFormatProvider? formatProvider)
@@ -667,7 +684,10 @@ public readonly struct Rect
         else
         {
             char separator = TokenizerHelper.GetSeparatorFromFormatProvider(formatProvider);
-            return string.Create(formatProvider, $"{X}{separator} {Y}{separator} {Width}{separator} {Height}");
+            return string.Create(
+                formatProvider,
+                $"{X}{separator} {Y}{separator} {Width}{separator} {Height}"
+            );
         }
     }
 
@@ -691,7 +711,11 @@ public readonly struct Rect
 
     public static Rect Parse(ReadOnlySpan<byte> utf8Text, IFormatProvider? provider)
     {
-        using var tokenizer = new RefUtf8StringTokenizer(utf8Text, provider ?? CultureInfo.InvariantCulture, exceptionMessage: "Invalid Rect.");
+        using var tokenizer = new RefUtf8StringTokenizer(
+            utf8Text,
+            provider ?? CultureInfo.InvariantCulture,
+            exceptionMessage: "Invalid Rect."
+        );
         return new Rect(
             tokenizer.ReadSingle(),
             tokenizer.ReadSingle(),
@@ -705,7 +729,11 @@ public readonly struct Rect
         return TryParse(utf8Text, out result);
     }
 
-    public static bool TryParse(ReadOnlySpan<byte> utf8Text, IFormatProvider? provider, out Rect result)
+    public static bool TryParse(
+        ReadOnlySpan<byte> utf8Text,
+        IFormatProvider? provider,
+        out Rect result
+    )
     {
         try
         {
@@ -719,9 +747,19 @@ public readonly struct Rect
         }
     }
 
-    public bool TryFormat(Span<byte> utf8Destination, out int bytesWritten, ReadOnlySpan<char> format = default, IFormatProvider? provider = null)
+    public bool TryFormat(
+        Span<byte> utf8Destination,
+        out int bytesWritten,
+        ReadOnlySpan<char> format = default,
+        IFormatProvider? provider = null
+    )
     {
         char separator = TokenizerHelper.GetSeparatorFromFormatProvider(provider);
-        return Utf8.TryWrite(utf8Destination, provider, $"{X}{separator} {Y}{separator} {Width}{separator} {Height}", out bytesWritten);
+        return Utf8.TryWrite(
+            utf8Destination,
+            provider,
+            $"{X}{separator} {Y}{separator} {Width}{separator} {Height}",
+            out bytesWritten
+        );
     }
 }

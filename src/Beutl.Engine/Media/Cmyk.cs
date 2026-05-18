@@ -73,11 +73,7 @@ public readonly struct Cmyk : IEquatable<Cmyk>
 
     public bool Equals(Cmyk other)
     {
-        return C == other.C &&
-               M == other.M &&
-               Y == other.Y &&
-               K == other.K &&
-               A == other.A;
+        return C == other.C && M == other.M && Y == other.Y && K == other.K && A == other.A;
     }
 
     public override int GetHashCode()

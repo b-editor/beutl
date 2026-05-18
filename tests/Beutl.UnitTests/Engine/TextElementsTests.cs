@@ -17,28 +17,12 @@ public class TextElementsTests
     [Test]
     public void LinesEnumerator()
     {
-        var items = new TextElements(
-        [
-            new TextElement()
-            {
-                Size = 72,
-                Text = "ABC\nDEF"
-            },
-            new TextElement()
-            {
-                Size = 64,
-                Text = "GHI\n\rJKL\r"
-            },
-            new TextElement()
-            {
-                Size = 56,
-                Text = "\nMNO"
-            }
+        var items = new TextElements([
+            new TextElement() { Size = 72, Text = "ABC\nDEF" },
+            new TextElement() { Size = 64, Text = "GHI\n\rJKL\r" },
+            new TextElement() { Size = 56, Text = "\nMNO" },
         ]);
 
-        foreach (Span<FormattedText> _ in items.Lines)
-        {
-
-        }
+        foreach (Span<FormattedText> _ in items.Lines) { }
     }
 }

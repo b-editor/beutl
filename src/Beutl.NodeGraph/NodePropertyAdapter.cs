@@ -28,7 +28,8 @@ public sealed class NodePropertyAdapter<T> : IAnimatablePropertyAdapter<T>
         ObserveAnimation = new AnimationObservable(this);
     }
 
-    private sealed class AnimationObservable(NodePropertyAdapter<T> adapter) : LightweightObservableBase<IAnimation<T>?>
+    private sealed class AnimationObservable(NodePropertyAdapter<T> adapter)
+        : LightweightObservableBase<IAnimation<T>?>
     {
         private IAnimation<T>? _prevAnimation = adapter.Animation;
 
@@ -97,7 +98,8 @@ public sealed class NodePropertyAdapter<T> : IAnimatablePropertyAdapter<T>
 
     public bool HasExpression => false;
 
-    public IObservable<IExpression<T>?> ObserveExpression { get; } = Observable.ReturnThenNever<IExpression<T>?>(null);
+    public IObservable<IExpression<T>?> ObserveExpression { get; } =
+        Observable.ReturnThenNever<IExpression<T>?>(null);
 
     public Type ImplementedType => typeof(NodePropertyAdapter<T>);
 
@@ -166,7 +168,10 @@ public sealed class NodePropertyAdapter<T> : IAnimatablePropertyAdapter<T>
         context.SetValue("Property", Name);
         context.SetValue("Target", TypeFormat.ToString(ImplementedType));
 
-        context.SetValue("Setter", PropertyEntrySerializer.ToJson(_rxProperty.Value, Animation, PropertyType));
+        context.SetValue(
+            "Setter",
+            PropertyEntrySerializer.ToJson(_rxProperty.Value, Animation, PropertyType)
+        );
     }
 
     public void Deserialize(ICoreSerializationContext context)
@@ -174,8 +179,10 @@ public sealed class NodePropertyAdapter<T> : IAnimatablePropertyAdapter<T>
         if (context.GetValue<JsonNode>("Setter") is not { } setterNode)
             return;
 
-        (Optional<object?> value, IAnimation? animation) =
-            PropertyEntrySerializer.ToTuple(setterNode, PropertyType);
+        (Optional<object?> value, IAnimation? animation) = PropertyEntrySerializer.ToTuple(
+            setterNode,
+            PropertyType
+        );
 
         if (animation != null)
         {

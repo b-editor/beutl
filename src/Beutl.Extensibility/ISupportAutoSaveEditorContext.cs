@@ -1,5 +1,3 @@
 ﻿namespace Beutl.Extensibility;
 
-public interface ISupportAutoSaveEditorContext
-{
-}
+public interface ISupportAutoSaveEditorContext { }

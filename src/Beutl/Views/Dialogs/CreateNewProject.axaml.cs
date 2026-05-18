@@ -1,9 +1,7 @@
 ﻿using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Avalonia.Platform.Storage;
-
 using Beutl.ViewModels.Dialogs;
-
 using FluentAvalonia.UI.Controls;
 
 namespace Beutl.Views.Dialogs;
@@ -42,7 +40,8 @@ public sealed partial class CreateNewProject : ContentDialog
     protected override void OnSecondaryButtonClick(ContentDialogButtonClickEventArgs args)
     {
         base.OnSecondaryButtonClick(args);
-        if (DataContext is not CreateNewProjectViewModel vm) return;
+        if (DataContext is not CreateNewProjectViewModel vm)
+            return;
 
         if (carousel.SelectedIndex == 1)
         {
@@ -68,10 +67,10 @@ public sealed partial class CreateNewProject : ContentDialog
         if (DataContext is CreateNewProjectViewModel vm && VisualRoot is Window parent)
         {
             var options = new FolderPickerOpenOptions();
-            IReadOnlyList<IStorageFolder> result = await parent.StorageProvider.OpenFolderPickerAsync(options);
+            IReadOnlyList<IStorageFolder> result =
+                await parent.StorageProvider.OpenFolderPickerAsync(options);
 
-            if (result.Count > 0
-                && result[0].TryGetLocalPath() is string localPath)
+            if (result.Count > 0 && result[0].TryGetLocalPath() is string localPath)
             {
                 vm.Location.Value = localPath;
             }

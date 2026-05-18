@@ -10,7 +10,8 @@ public class ShiftNode : AudioNode
             context.TimeRange.AddStart(Shift),
             context.SampleRate,
             context.AnimationSampler,
-            context.OriginalTimeRange);
+            context.OriginalTimeRange
+        );
         return Inputs[0].Process(shiftedContext);
     }
 }

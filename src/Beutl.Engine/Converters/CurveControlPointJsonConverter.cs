@@ -1,13 +1,16 @@
 ﻿using System.Text.Json;
 using System.Text.Json.Serialization;
-
 using Beutl.Graphics;
 
 namespace Beutl.Converters;
 
 internal sealed class CurveControlPointJsonConverter : JsonConverter<CurveControlPoint>
 {
-    public override CurveControlPoint Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    public override CurveControlPoint Read(
+        ref Utf8JsonReader reader,
+        Type typeToConvert,
+        JsonSerializerOptions options
+    )
     {
         if (reader.TokenType == JsonTokenType.String)
         {
@@ -75,7 +78,11 @@ internal sealed class CurveControlPointJsonConverter : JsonConverter<CurveContro
         throw new JsonException("Invalid CurveControlPoint format.");
     }
 
-    public override void Write(Utf8JsonWriter writer, CurveControlPoint value, JsonSerializerOptions options)
+    public override void Write(
+        Utf8JsonWriter writer,
+        CurveControlPoint value,
+        JsonSerializerOptions options
+    )
     {
         if (value.HasHandles)
         {

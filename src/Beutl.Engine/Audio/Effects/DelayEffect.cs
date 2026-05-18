@@ -17,7 +17,10 @@ public sealed partial class DelayEffect : AudioEffect
     }
 
     [Range(0, MaxDelayTime)]
-    [Display(Name = nameof(AudioStrings.DelayEffect_DelayTime), ResourceType = typeof(AudioStrings))]
+    [Display(
+        Name = nameof(AudioStrings.DelayEffect_DelayTime),
+        ResourceType = typeof(AudioStrings)
+    )]
     [SuppressResourceClassGeneration]
     public IProperty<float> DelayTime { get; } = Property.CreateAnimatable(200f);
 
@@ -38,13 +41,15 @@ public sealed partial class DelayEffect : AudioEffect
 
     public override AudioNode CreateNode(AudioContext context, AudioNode inputNode)
     {
-        var delayNode = context.AddNode(new DelayNode
-        {
-            DelayTime = DelayTime,
-            Feedback = Feedback,
-            DryMix = DryMix,
-            WetMix = WetMix
-        });
+        var delayNode = context.AddNode(
+            new DelayNode
+            {
+                DelayTime = DelayTime,
+                Feedback = Feedback,
+                DryMix = DryMix,
+                WetMix = WetMix,
+            }
+        );
 
         context.Connect(inputNode, delayNode);
         return delayNode;

@@ -124,10 +124,7 @@ public readonly struct Hsv : IEquatable<Hsv>
 
     public bool Equals(Hsv other)
     {
-        return H == other.H &&
-               S == other.S &&
-               V == other.V &&
-               A == other.A;
+        return H == other.H && S == other.S && V == other.V && A == other.A;
     }
 
     public override int GetHashCode()

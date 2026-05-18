@@ -17,21 +17,22 @@ public partial class WindowCaptureDialog : ContentDialog
 
     private async void OnBrowseClick(object? sender, RoutedEventArgs e)
     {
-        if (DataContext is not WindowCaptureDialogViewModel vm) return;
+        if (DataContext is not WindowCaptureDialogViewModel vm)
+            return;
 
         IStorageProvider? storage = TopLevel.GetTopLevel(this)?.StorageProvider;
-        if (storage is null) return;
+        if (storage is null)
+            return;
 
         var options = new FilePickerSaveOptions
         {
             Title = "Save Window Capture",
             DefaultExtension = "mp4",
             SuggestedFileName = $"beutl-capture-{DateTime.Now:yyyyMMdd-HHmmss}.mp4",
-            SuggestedStartLocation = await storage.TryGetWellKnownFolderAsync(WellKnownFolder.Videos),
-            FileTypeChoices =
-            [
-                new FilePickerFileType("MP4 video") { Patterns = ["*.mp4"] },
-            ],
+            SuggestedStartLocation = await storage.TryGetWellKnownFolderAsync(
+                WellKnownFolder.Videos
+            ),
+            FileTypeChoices = [new FilePickerFileType("MP4 video") { Patterns = ["*.mp4"] }],
         };
 
         IStorageFile? file = await storage.SaveFilePickerAsync(options);

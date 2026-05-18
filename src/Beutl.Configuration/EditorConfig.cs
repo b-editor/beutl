@@ -11,7 +11,7 @@ namespace Beutl.Configuration;
 public enum LibraryTabDisplayMode
 {
     Show,
-    Hide
+    Hide,
 }
 
 public enum FrameCacheConfigScale
@@ -29,7 +29,7 @@ public enum FrameCacheConfigColorType
 {
     RGBA,
 
-    YUV
+    YUV,
 }
 
 public enum TimelineAutoScrollMode
@@ -38,7 +38,7 @@ public enum TimelineAutoScrollMode
 
     AlwaysFollow,
 
-    PageScroll
+    PageScroll,
 }
 
 public enum UIToneMappingOperator
@@ -46,7 +46,7 @@ public enum UIToneMappingOperator
     None,
     Reinhard,
     ACES,
-    Hable
+    Hable,
 }
 
 public sealed partial class EditorConfig : ConfigurationBase
@@ -71,11 +71,15 @@ public sealed partial class EditorConfig : ConfigurationBase
 
     static EditorConfig()
     {
-        AutoAdjustSceneDurationProperty = ConfigureProperty<bool, EditorConfig>(nameof(AutoAdjustSceneDuration))
+        AutoAdjustSceneDurationProperty = ConfigureProperty<bool, EditorConfig>(
+                nameof(AutoAdjustSceneDuration)
+            )
             .DefaultValue(true)
             .Register();
 
-        EnablePointerLockInPropertyProperty = ConfigureProperty<bool, EditorConfig>(nameof(EnablePointerLockInProperty))
+        EnablePointerLockInPropertyProperty = ConfigureProperty<bool, EditorConfig>(
+                nameof(EnablePointerLockInProperty)
+            )
             .DefaultValue(true)
             .Register();
 
@@ -83,62 +87,89 @@ public sealed partial class EditorConfig : ConfigurationBase
             .DefaultValue(true)
             .Register();
 
-        IsFrameCacheEnabledProperty = ConfigureProperty<bool, EditorConfig>(nameof(IsFrameCacheEnabled))
+        IsFrameCacheEnabledProperty = ConfigureProperty<bool, EditorConfig>(
+                nameof(IsFrameCacheEnabled)
+            )
             .DefaultValue(false)
             .Register();
 
-        ulong memSize = OperatingSystem.IsWindows() ? GetWindowsMemoryCapacity()
+        ulong memSize =
+            OperatingSystem.IsWindows() ? GetWindowsMemoryCapacity()
             : OperatingSystem.IsLinux() ? GetLinuxMemoryCapacity()
             : OperatingSystem.IsMacOS() ? GetMacMemoryCapacity()
             : 1024 * 1024 * 1024;
         double memSizeInMG = memSize / (1024d * 1024d);
 
         // デフォルトはメモリ容量の半分にする
-        FrameCacheMaxSizeProperty = ConfigureProperty<double, EditorConfig>(nameof(FrameCacheMaxSize))
+        FrameCacheMaxSizeProperty = ConfigureProperty<double, EditorConfig>(
+                nameof(FrameCacheMaxSize)
+            )
             .DefaultValue(memSizeInMG / 2)
             .Register();
 
-        FrameCacheScaleProperty = ConfigureProperty<FrameCacheConfigScale, EditorConfig>(nameof(FrameCacheScale))
+        FrameCacheScaleProperty = ConfigureProperty<FrameCacheConfigScale, EditorConfig>(
+                nameof(FrameCacheScale)
+            )
             .DefaultValue(FrameCacheConfigScale.FitToPreviewer)
             .Register();
 
-        FrameCacheColorTypeProperty = ConfigureProperty<FrameCacheConfigColorType, EditorConfig>(nameof(FrameCacheColorType))
+        FrameCacheColorTypeProperty = ConfigureProperty<FrameCacheConfigColorType, EditorConfig>(
+                nameof(FrameCacheColorType)
+            )
             .DefaultValue(FrameCacheConfigColorType.RGBA)
             .Register();
 
-        IsNodeCacheEnabledProperty = ConfigureProperty<bool, EditorConfig>(nameof(IsNodeCacheEnabled))
+        IsNodeCacheEnabledProperty = ConfigureProperty<bool, EditorConfig>(
+                nameof(IsNodeCacheEnabled)
+            )
             .DefaultValue(false)
             .Register();
 
-        NodeCacheMaxPixelsProperty = ConfigureProperty<int, EditorConfig>(nameof(NodeCacheMaxPixels))
+        NodeCacheMaxPixelsProperty = ConfigureProperty<int, EditorConfig>(
+                nameof(NodeCacheMaxPixels)
+            )
             .DefaultValue(1000 * 1000)
             .Register();
 
-        NodeCacheMinPixelsProperty = ConfigureProperty<int, EditorConfig>(nameof(NodeCacheMinPixels))
+        NodeCacheMinPixelsProperty = ConfigureProperty<int, EditorConfig>(
+                nameof(NodeCacheMinPixels)
+            )
             .DefaultValue(1)
             .Register();
 
-        SwapTimelineScrollDirectionProperty = ConfigureProperty<bool, EditorConfig>(nameof(SwapTimelineScrollDirection))
+        SwapTimelineScrollDirectionProperty = ConfigureProperty<bool, EditorConfig>(
+                nameof(SwapTimelineScrollDirection)
+            )
             .DefaultValue(false)
             .Register();
 
-        ClampResizeToOriginalLengthProperty = ConfigureProperty<bool, EditorConfig>(nameof(ClampResizeToOriginalLength))
+        ClampResizeToOriginalLengthProperty = ConfigureProperty<bool, EditorConfig>(
+                nameof(ClampResizeToOriginalLength)
+            )
             .DefaultValue(true)
             .Register();
 
-        IsTimelineSnapEnabledProperty = ConfigureProperty<bool, EditorConfig>(nameof(IsTimelineSnapEnabled))
+        IsTimelineSnapEnabledProperty = ConfigureProperty<bool, EditorConfig>(
+                nameof(IsTimelineSnapEnabled)
+            )
             .DefaultValue(true)
             .Register();
 
-        TimelineAutoScrollModeProperty = ConfigureProperty<TimelineAutoScrollMode, EditorConfig>(nameof(TimelineAutoScrollMode))
+        TimelineAutoScrollModeProperty = ConfigureProperty<TimelineAutoScrollMode, EditorConfig>(
+                nameof(TimelineAutoScrollMode)
+            )
             .DefaultValue(TimelineAutoScrollMode.PageScroll)
             .Register();
 
-        ToneMappingModeProperty = ConfigureProperty<UIToneMappingOperator, EditorConfig>(nameof(ToneMappingMode))
+        ToneMappingModeProperty = ConfigureProperty<UIToneMappingOperator, EditorConfig>(
+                nameof(ToneMappingMode)
+            )
             .DefaultValue(UIToneMappingOperator.None)
             .Register();
 
-        ToneMappingExposureProperty = ConfigureProperty<float, EditorConfig>(nameof(ToneMappingExposure))
+        ToneMappingExposureProperty = ConfigureProperty<float, EditorConfig>(
+                nameof(ToneMappingExposure)
+            )
             .DefaultValue(0f)
             .Register();
 
@@ -254,13 +285,14 @@ public sealed partial class EditorConfig : ConfigurationBase
         set => SetValue(UseHdrPreviewProperty, value);
     }
 
-    public CoreDictionary<string, LibraryTabDisplayMode> LibraryTabDisplayModes { get; } = new()
-    {
-        ["Search"] = LibraryTabDisplayMode.Show,
-        ["Easings"] = LibraryTabDisplayMode.Show,
-        ["Library"] = LibraryTabDisplayMode.Show,
-        ["Nodes"] = LibraryTabDisplayMode.Hide,
-    };
+    public CoreDictionary<string, LibraryTabDisplayMode> LibraryTabDisplayModes { get; } =
+        new()
+        {
+            ["Search"] = LibraryTabDisplayMode.Show,
+            ["Easings"] = LibraryTabDisplayMode.Show,
+            ["Library"] = LibraryTabDisplayMode.Show,
+            ["Nodes"] = LibraryTabDisplayMode.Hide,
+        };
 
     protected override void OnPropertyChanged(PropertyChangedEventArgs args)
     {
@@ -281,8 +313,9 @@ public sealed partial class EditorConfig : ConfigurationBase
     public override void Deserialize(ICoreSerializationContext context)
     {
         base.Deserialize(context);
-        Dictionary<string, LibraryTabDisplayMode>? items
-            = context.GetValue<Dictionary<string, LibraryTabDisplayMode>>(nameof(LibraryTabDisplayModes));
+        Dictionary<string, LibraryTabDisplayMode>? items = context.GetValue<
+            Dictionary<string, LibraryTabDisplayMode>
+        >(nameof(LibraryTabDisplayModes));
 
         if (items != null)
         {
@@ -326,7 +359,8 @@ public sealed partial class EditorConfig : ConfigurationBase
             {
                 if (item.StartsWith("MemTotal:"))
                 {
-                    string? s = item.Split(' ', StringSplitOptions.RemoveEmptyEntries).ElementAtOrDefault(1);
+                    string? s = item.Split(' ', StringSplitOptions.RemoveEmptyEntries)
+                        .ElementAtOrDefault(1);
                     if (ulong.TryParse(s, out ulong v))
                     {
                         // kBで固定されている
@@ -345,7 +379,7 @@ public sealed partial class EditorConfig : ConfigurationBase
     {
         var startInfo = new ProcessStartInfo("/usr/bin/memory_pressure", "-Q")
         {
-            RedirectStandardOutput = true
+            RedirectStandardOutput = true,
         };
         var proc = Process.Start(startInfo);
         if (proc != null)

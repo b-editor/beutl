@@ -13,11 +13,12 @@ namespace Beutl.Editor.Components.TimelineTab.Views;
 
 public sealed partial class LayerHeader : UserControl
 {
-    public static readonly DirectProperty<LayerHeader, double> PositionYProperty
-        = AvaloniaProperty.RegisterDirect<LayerHeader, double>(
+    public static readonly DirectProperty<LayerHeader, double> PositionYProperty =
+        AvaloniaProperty.RegisterDirect<LayerHeader, double>(
             nameof(PositionY),
             o => o.PositionY,
-            (o, v) => o.PositionY = v);
+            (o, v) => o.PositionY = v
+        );
 
     private bool _pressed;
     private TimelineTabView? _timeline;
@@ -46,13 +47,17 @@ public sealed partial class LayerHeader : UserControl
 
     private LayerHeaderViewModel ViewModel => (LayerHeaderViewModel)DataContext!;
 
-    protected override void OnAttachedToLogicalTree(Avalonia.LogicalTree.LogicalTreeAttachmentEventArgs e)
+    protected override void OnAttachedToLogicalTree(
+        Avalonia.LogicalTree.LogicalTreeAttachmentEventArgs e
+    )
     {
         base.OnAttachedToLogicalTree(e);
         _timeline = null;
     }
 
-    protected override void OnDetachedFromLogicalTree(Avalonia.LogicalTree.LogicalTreeAttachmentEventArgs e)
+    protected override void OnDetachedFromLogicalTree(
+        Avalonia.LogicalTree.LogicalTreeAttachmentEventArgs e
+    )
     {
         base.OnDetachedFromLogicalTree(e);
         _timeline = null;
@@ -91,13 +96,15 @@ public sealed partial class LayerHeader : UserControl
         // Border_PointerPressed で _pressed = true にされるのは左ボタンドラッグ開始時のみ。
         // 右クリックや単発の左クリックで本ハンドラを通すと _newLayer = 0 のまま
         // MoveLayerCommand が走り、レイヤーが ZIndex=0 に移動して履歴に commit される。
-        if (!_pressed) return;
+        if (!_pressed)
+            return;
 
         _pressed = false;
 
         int newLayerNum = _newLayer;
         int oldLayerNum = ViewModel.Number.Value;
-        HistoryManager history = ViewModel.Timeline.EditorContext.GetRequiredService<HistoryManager>();
+        HistoryManager history =
+            ViewModel.Timeline.EditorContext.GetRequiredService<HistoryManager>();
         new MoveLayerCommand(ViewModel, newLayerNum, oldLayerNum, _elements).Do();
         history.Commit(CommandNames.MoveLayer);
         _elements = [];
@@ -112,8 +119,8 @@ public sealed partial class LayerHeader : UserControl
             _newLayer = ViewModel.Number.Value;
             _startRel = point.Position;
             _start = e.GetCurrentPoint(timeline.TimelinePanel).Position;
-            _elements = ViewModel.Timeline.Elements
-                .Where(i => i.Model.ZIndex == ViewModel.Number.Value)
+            _elements = ViewModel
+                .Timeline.Elements.Where(i => i.Model.ZIndex == ViewModel.Number.Value)
                 .ToArray();
         }
     }
@@ -146,7 +153,12 @@ public sealed partial class LayerHeader : UserControl
         private readonly LayerHeaderViewModel _viewModel;
         private readonly List<LayerHeaderViewModel> _viewModels;
 
-        public MoveLayerCommand(LayerHeaderViewModel viewModel, int newLayerNum, int oldLayerNum, ElementViewModel[] items)
+        public MoveLayerCommand(
+            LayerHeaderViewModel viewModel,
+            int newLayerNum,
+            int oldLayerNum,
+            ElementViewModel[] items
+        )
         {
             _viewModel = viewModel;
             _newLayerNum = newLayerNum;
@@ -154,13 +166,18 @@ public sealed partial class LayerHeader : UserControl
             _items1 = items;
             _items2 = [];
             CoreListMarshal<ElementViewModel> span1 = _viewModel.Timeline.Elements.GetMarshal();
-            CoreListMarshal<LayerHeaderViewModel> span2 = _viewModel.Timeline.LayerHeaders.GetMarshal();
+            CoreListMarshal<LayerHeaderViewModel> span2 =
+                _viewModel.Timeline.LayerHeaders.GetMarshal();
 
             foreach (ElementViewModel item in span1.Value)
             {
-                if (item.Model.ZIndex != oldLayerNum
-                    && ((item.Model.ZIndex > oldLayerNum && item.Model.ZIndex <= newLayerNum)
-                    || (item.Model.ZIndex < oldLayerNum && item.Model.ZIndex >= newLayerNum)))
+                if (
+                    item.Model.ZIndex != oldLayerNum
+                    && (
+                        (item.Model.ZIndex > oldLayerNum && item.Model.ZIndex <= newLayerNum)
+                        || (item.Model.ZIndex < oldLayerNum && item.Model.ZIndex >= newLayerNum)
+                    )
+                )
                 {
                     _items2.Add(item);
                 }
@@ -169,9 +186,13 @@ public sealed partial class LayerHeader : UserControl
             _viewModels = [];
             foreach (LayerHeaderViewModel item in span2.Value)
             {
-                if (item.Number.Value != oldLayerNum
-                    && ((item.Number.Value > oldLayerNum && item.Number.Value <= newLayerNum)
-                    || (item.Number.Value < oldLayerNum && item.Number.Value >= newLayerNum)))
+                if (
+                    item.Number.Value != oldLayerNum
+                    && (
+                        (item.Number.Value > oldLayerNum && item.Number.Value <= newLayerNum)
+                        || (item.Number.Value < oldLayerNum && item.Number.Value >= newLayerNum)
+                    )
+                )
                 {
                     _viewModels.Add(item);
                 }

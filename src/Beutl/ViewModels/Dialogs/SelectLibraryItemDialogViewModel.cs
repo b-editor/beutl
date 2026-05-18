@@ -42,7 +42,8 @@ public class SelectLibraryItemDialogViewModel
             try
             {
                 IsBusy.Value = true;
-                return items.Select(i => LibraryService.Current.FindItem(i))
+                return items
+                    .Select(i => LibraryService.Current.FindItem(i))
                     .Where(i => i != null)
                     .Select(i => new PinnableLibraryItem(i!.DisplayName, false, i, i.Description))
                     .ToArray();
@@ -93,12 +94,17 @@ public class SelectLibraryItemDialogViewModel
                 IsBusy.Value = true;
 
                 Type itemType = _baseType;
-                Type[] availableTypes = AppDomain.CurrentDomain.GetAssemblies()
+                Type[] availableTypes = AppDomain
+                    .CurrentDomain.GetAssemblies()
                     .SelectMany(x => x.GetTypes())
-                    .Where(x => x is { IsAbstract: false, IsPublic: true }
-                                && x.IsAssignableTo(itemType)
-                                && (itemType.GetConstructor([]) != null
-                                    || itemType.GetConstructors().Length == 0))
+                    .Where(x =>
+                        x is { IsAbstract: false, IsPublic: true }
+                        && x.IsAssignableTo(itemType)
+                        && (
+                            itemType.GetConstructor([]) != null
+                            || itemType.GetConstructors().Length == 0
+                        )
+                    )
                     .ToArray();
 
                 return availableTypes
@@ -106,9 +112,16 @@ public class SelectLibraryItemDialogViewModel
                     {
                         LibraryItem? item = LibraryService.Current.FindItem(type);
                         item ??= new SingleTypeLibraryItem(
-                            _format, type,
-                            TypeDisplayHelpers.GetLocalizedName(type));
-                        return new PinnableLibraryItem(item.DisplayName, false, item, item.Description);
+                            _format,
+                            type,
+                            TypeDisplayHelpers.GetLocalizedName(type)
+                        );
+                        return new PinnableLibraryItem(
+                            item.DisplayName,
+                            false,
+                            item,
+                            item.Description
+                        );
                     })
                     .ToArray();
             }
@@ -122,12 +135,11 @@ public class SelectLibraryItemDialogViewModel
     public void Pin(PinnableLibraryItem item)
     {
         Type? type = GetImplementationType((LibraryItem)item.UserData);
-        if (type == null) return;
+        if (type == null)
+            return;
 
         _pinnedItems.Add(type);
-        string[] array = _pinnedItems
-            .Select(TypeFormat.ToString)
-            .ToArray();
+        string[] array = _pinnedItems.Select(TypeFormat.ToString).ToArray();
         Preferences.Default.Set("LibraryService.PinnedItems", JsonSerializer.Serialize(array));
         ProcessSearchText();
     }
@@ -135,12 +147,11 @@ public class SelectLibraryItemDialogViewModel
     public void Unpin(PinnableLibraryItem item)
     {
         Type? type = GetImplementationType((LibraryItem)item.UserData);
-        if (type == null) return;
+        if (type == null)
+            return;
 
         _pinnedItems.Remove(type);
-        string[] array = _pinnedItems
-            .Select(TypeFormat.ToString)
-            .ToArray();
+        string[] array = _pinnedItems.Select(TypeFormat.ToString).ToArray();
         Preferences.Default.Set("LibraryService.PinnedItems", JsonSerializer.Serialize(array));
         ProcessSearchText();
     }
@@ -151,14 +162,15 @@ public class SelectLibraryItemDialogViewModel
         {
             SingleTypeLibraryItem single => single.ImplementationType,
             MultipleTypeLibraryItem multi => multi.Types.GetValueOrDefault(_format),
-            _ => null
+            _ => null,
         };
     }
 
     private bool IsPinned(LibraryItem item)
     {
         Type? type = GetImplementationType(item);
-        if (type == null) return false;
+        if (type == null)
+            return false;
         return _pinnedItems.Contains(type);
     }
 
@@ -175,7 +187,13 @@ public class SelectLibraryItemDialogViewModel
     {
         Items.ClearOnScheduler();
         var items = ShowAll.Value ? await LoadAllItems() : await _itemsTask;
-        items = items.Select(i => new PinnableLibraryItem(i.DisplayName, IsPinned((LibraryItem)i.UserData), i.UserData, i.Description))
+        items = items
+            .Select(i => new PinnableLibraryItem(
+                i.DisplayName,
+                IsPinned((LibraryItem)i.UserData),
+                i.UserData,
+                i.Description
+            ))
             .OrderByDescending(t => t.IsPinned)
             .ToArray();
 
@@ -188,12 +206,26 @@ public class SelectLibraryItemDialogViewModel
             Regex[] regexes = RegexHelper.CreateRegexes(SearchText.Value);
 
             var newItems = items
-                .Select(v => (ViewModel: LibraryItemViewModel.CreateFromLibraryItem((LibraryItem)v.UserData), IsPinned: v.IsPinned))
-                .Select(v => (score: v.ViewModel.Match(regexes), item: v.ViewModel, IsPinned: v.IsPinned))
+                .Select(v =>
+                    (
+                        ViewModel: LibraryItemViewModel.CreateFromLibraryItem(
+                            (LibraryItem)v.UserData
+                        ),
+                        IsPinned: v.IsPinned
+                    )
+                )
+                .Select(v =>
+                    (score: v.ViewModel.Match(regexes), item: v.ViewModel, IsPinned: v.IsPinned)
+                )
                 .Where(v => v.score > 0)
                 .OrderByDescending(t => t.IsPinned)
                 .ThenByDescending(v => v.score)
-                .Select(v => new PinnableLibraryItem(((LibraryItem)v.item.Data!).DisplayName, v.IsPinned, v.item.Data, ((LibraryItem)v.item.Data!).Description))
+                .Select(v => new PinnableLibraryItem(
+                    ((LibraryItem)v.item.Data!).DisplayName,
+                    v.IsPinned,
+                    v.item.Data,
+                    ((LibraryItem)v.item.Data!).Description
+                ))
                 .ToArray();
             Items.AddRange(newItems);
         }
@@ -209,14 +241,16 @@ public class SelectLibraryItemDialogViewModel
         }
         else
         {
-            string[] segments = SearchText.Value.Split(' ')
+            string[] segments = SearchText
+                .Value.Split(' ')
                 .Select(x => x.Trim())
                 .Where(x => !string.IsNullOrWhiteSpace(x))
                 .ToArray();
 
             var filtered = _allReferenceItems
-                .Where(x => segments.Any(s =>
-                    x.DisplayName.Contains(s, StringComparison.OrdinalIgnoreCase)))
+                .Where(x =>
+                    segments.Any(s => x.DisplayName.Contains(s, StringComparison.OrdinalIgnoreCase))
+                )
                 .ToArray();
 
             ReferenceItems.AddRange(filtered);

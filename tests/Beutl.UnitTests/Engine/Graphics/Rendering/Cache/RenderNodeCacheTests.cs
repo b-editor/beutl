@@ -88,7 +88,10 @@ public class RenderNodeCacheTests
         // Act
         using var renderTarget1 = RenderTarget.CreateNull(1, 1);
         using var renderTarget2 = RenderTarget.CreateNull(1, 1);
-        cache.StoreCache([(renderTarget1, new Rect(0, 0, 1, 1)), (renderTarget2, new Rect(0, 0, 1, 1))]);
+        cache.StoreCache([
+            (renderTarget1, new Rect(0, 0, 1, 1)),
+            (renderTarget2, new Rect(0, 0, 1, 1)),
+        ]);
 
         // Assert
         Assert.That(cache.IsCached, Is.True);

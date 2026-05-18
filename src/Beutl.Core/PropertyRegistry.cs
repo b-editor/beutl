@@ -78,7 +78,10 @@ public static class PropertyRegistry
             ArgumentNullException.ThrowIfNull(o);
             if (string.IsNullOrEmpty(name))
             {
-                throw new ArgumentException($"'{nameof(name)}' cannot be null or empty.", nameof(name));
+                throw new ArgumentException(
+                    $"'{nameof(name)}' cannot be null or empty.",
+                    nameof(name)
+                );
             }
 
             return FindRegistered(o.GetType(), name);
@@ -139,10 +142,7 @@ public static class PropertyRegistry
 
             if (!s_registered.TryGetValue(type, out Dictionary<int, CoreProperty>? inner))
             {
-                inner = new Dictionary<int, CoreProperty>
-                {
-                    { property.Id, property },
-                };
+                inner = new Dictionary<int, CoreProperty> { { property.Id, property } };
                 s_registered.Add(type, inner);
             }
             else
@@ -169,7 +169,10 @@ public static class PropertyRegistry
                 foreach (Type t in types)
                 {
                     kvp.Value.RemoveMetadataOverride(t);
-                    if (TypeUnloadNotifier.ContainsTypeRecursive(kvp.Value.PropertyType, t) || TypeUnloadNotifier.ContainsTypeRecursive(kvp.Value.OwnerType, t))
+                    if (
+                        TypeUnloadNotifier.ContainsTypeRecursive(kvp.Value.PropertyType, t)
+                        || TypeUnloadNotifier.ContainsTypeRecursive(kvp.Value.OwnerType, t)
+                    )
                     {
                         s_properties.Remove(kvp.Key);
                         s_registered.Remove(kvp.Value.OwnerType);
@@ -178,5 +181,4 @@ public static class PropertyRegistry
             }
         }
     }
-
 }

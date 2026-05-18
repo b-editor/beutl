@@ -1,5 +1,4 @@
 <Project Sdk="Microsoft.NET.Sdk">
-
   <ItemGroup>
     <EmbeddedResource Include="Resources\index.html" />
   </ItemGroup>
@@ -25,5 +24,4 @@
     <ProjectReference Include="..\Beutl.Extensibility\Beutl.Extensibility.csproj" />
     <ProjectReference Include="..\Beutl.ProjectSystem\Beutl.ProjectSystem.csproj" />
   </ItemGroup>
-
 </Project>

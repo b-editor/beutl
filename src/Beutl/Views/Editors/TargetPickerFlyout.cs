@@ -17,19 +17,18 @@ public sealed class TargetPickerFlyout(TargetPickerFlyoutViewModel viewModel) : 
 
     protected override Control CreatePresenter()
     {
-        var presenter = new LibraryItemPickerFlyoutPresenter
-        {
-            ShowReferences = true
-        };
+        var presenter = new LibraryItemPickerFlyoutPresenter { ShowReferences = true };
 
         presenter.CloseClicked += OnFlyoutDismissed;
         presenter.Confirmed += OnFlyoutConfirmed;
         presenter.Dismissed += OnFlyoutDismissed;
         presenter.ReferenceItems = viewModel.Items;
         presenter.SelectedItem = viewModel.SelectedItem.Value;
-        AvaloniaObjectExtensions.GetObservable(presenter, LibraryItemPickerFlyoutPresenter.SelectedItemProperty)
+        AvaloniaObjectExtensions
+            .GetObservable(presenter, LibraryItemPickerFlyoutPresenter.SelectedItemProperty)
             .Subscribe(v => viewModel.SelectedItem.Value = v);
-        AvaloniaObjectExtensions.GetObservable(presenter, LibraryItemPickerFlyoutPresenter.SearchTextProperty)
+        AvaloniaObjectExtensions
+            .GetObservable(presenter, LibraryItemPickerFlyoutPresenter.SearchTextProperty)
             .Subscribe(v => viewModel.SearchText.Value = v);
         presenter.KeyDown += (_, e) =>
         {

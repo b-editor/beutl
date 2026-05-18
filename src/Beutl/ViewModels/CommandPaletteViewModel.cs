@@ -22,7 +22,9 @@ public sealed class CommandPaletteViewModel : BaseViewModel
     public CommandPaletteViewModel(CommandPaletteService service)
     {
         _service = service;
-        FilteredCommands = new ReadOnlyObservableCollection<CommandPaletteItemViewModel>(_filteredCommands);
+        FilteredCommands = new ReadOnlyObservableCollection<CommandPaletteItemViewModel>(
+            _filteredCommands
+        );
 
         _querySubscription = Query
             .Skip(1)
@@ -32,8 +34,8 @@ public sealed class CommandPaletteViewModel : BaseViewModel
 
         // パレット表示中にアクティブタブが切り替わったらスナップショットを取り直して
         // コマンド一覧と CanExecute 結果を最新の状態に追従させる。
-        _activeTabSubscription = EditorService.Current.SelectedTabItem
-            .Skip(1)
+        _activeTabSubscription = EditorService
+            .Current.SelectedTabItem.Skip(1)
             .ObserveOnUIDispatcher()
             .Subscribe(_ =>
             {
@@ -87,10 +89,12 @@ public sealed class CommandPaletteViewModel : BaseViewModel
 
         // 同じハンドラーから複数のコマンドが来る場合 StateChanged の observable は同一インスタンスになるため
         // Distinct で重複購読を避ける。通知時はバースト抑止のため軽くスロットリングして RefreshFiltered する。
-        foreach (IObservable<Unit> observable in _snapshot
-            .Select(c => c.StateChanged)
-            .OfType<IObservable<Unit>>()
-            .Distinct())
+        foreach (
+            IObservable<Unit> observable in _snapshot
+                .Select(c => c.StateChanged)
+                .OfType<IObservable<Unit>>()
+                .Distinct()
+        )
         {
             observable
                 .Throttle(s_stateChangeThrottle)
@@ -149,8 +153,10 @@ public sealed class CommandPaletteViewModel : BaseViewModel
             ? _filteredCommands.IndexOf(current)
             : -1;
         int next = currentIndex + delta;
-        if (next < 0) next = 0;
-        if (next >= _filteredCommands.Count) next = _filteredCommands.Count - 1;
+        if (next < 0)
+            next = 0;
+        if (next >= _filteredCommands.Count)
+            next = _filteredCommands.Count - 1;
         SelectedCommand.Value = _filteredCommands[next];
     }
 
@@ -192,14 +198,22 @@ public sealed class CommandPaletteViewModel : BaseViewModel
             matches.Add(new CommandPaletteItemViewModel(command, isEnabled, relevance));
         }
 
-        matches.Sort((a, b) =>
-        {
-            int byRelevance = b.Relevance.CompareTo(a.Relevance);
-            if (byRelevance != 0) return byRelevance;
-            int byEnabled = b.IsEnabled.CompareTo(a.IsEnabled);
-            if (byEnabled != 0) return byEnabled;
-            return string.Compare(a.DisplayName, b.DisplayName, StringComparison.CurrentCultureIgnoreCase);
-        });
+        matches.Sort(
+            (a, b) =>
+            {
+                int byRelevance = b.Relevance.CompareTo(a.Relevance);
+                if (byRelevance != 0)
+                    return byRelevance;
+                int byEnabled = b.IsEnabled.CompareTo(a.IsEnabled);
+                if (byEnabled != 0)
+                    return byEnabled;
+                return string.Compare(
+                    a.DisplayName,
+                    b.DisplayName,
+                    StringComparison.CurrentCultureIgnoreCase
+                );
+            }
+        );
 
         ApplyFilteredCommands(matches);
         HasNoResults.Value = _filteredCommands.Count == 0 && !string.IsNullOrEmpty(query);
@@ -217,8 +231,10 @@ public sealed class CommandPaletteViewModel : BaseViewModel
         {
             CommandPaletteItemViewModel existing = _filteredCommands[i];
             CommandPaletteItemViewModel candidate = next[i];
-            if (!ReferenceEquals(existing.Command, candidate.Command)
-                || existing.IsEnabled != candidate.IsEnabled)
+            if (
+                !ReferenceEquals(existing.Command, candidate.Command)
+                || existing.IsEnabled != candidate.IsEnabled
+            )
             {
                 _filteredCommands[i] = candidate;
             }
@@ -256,10 +272,12 @@ public sealed class CommandPaletteViewModel : BaseViewModel
 
     private static void Update(ref int best, string? haystack, string needle, int baseScore)
     {
-        if (string.IsNullOrEmpty(haystack)) return;
+        if (string.IsNullOrEmpty(haystack))
+            return;
 
         int idx = haystack.IndexOf(needle, StringComparison.CurrentCultureIgnoreCase);
-        if (idx < 0) return;
+        if (idx < 0)
+            return;
 
         int score = baseScore;
         if (idx == 0)
@@ -271,7 +289,8 @@ public sealed class CommandPaletteViewModel : BaseViewModel
             score += 15;
         }
 
-        if (score > best) best = score;
+        if (score > best)
+            best = score;
     }
 
     public override void Dispose()

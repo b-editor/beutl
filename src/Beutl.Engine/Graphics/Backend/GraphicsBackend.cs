@@ -3,5 +3,5 @@
 public enum GraphicsBackend
 {
     Vulkan,
-    Metal
+    Metal,
 }

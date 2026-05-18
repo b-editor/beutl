@@ -8,8 +8,10 @@ public class DispatcherException : Exception
     [ExcludeFromCodeCoverage]
     public DispatcherException() { }
 
-    public DispatcherException(string message) : base(message) { }
+    public DispatcherException(string message)
+        : base(message) { }
 
     [ExcludeFromCodeCoverage]
-    public DispatcherException(string message, Exception inner) : base(message, inner) { }
+    public DispatcherException(string message, Exception inner)
+        : base(message, inner) { }
 }

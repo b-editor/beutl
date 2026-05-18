@@ -1,7 +1,5 @@
 ﻿using System.Diagnostics.CodeAnalysis;
-
 using Avalonia.Controls;
-
 using Beutl.Editor.Components.PathEditorTab.ViewModels;
 using Beutl.Editor.Components.PathEditorTab.Views;
 using Beutl.Editor.Services;
@@ -22,7 +20,10 @@ public sealed class PathEditorTabExtension : ToolTabExtension
 
     public override string? Header => Strings.PathEditor;
 
-    public override bool TryCreateContent(IEditorContext editorContext, [NotNullWhen(true)] out Control? control)
+    public override bool TryCreateContent(
+        IEditorContext editorContext,
+        [NotNullWhen(true)] out Control? control
+    )
     {
         // IEditorContextがITimelineOptionsProviderサービスを提供しているかチェック
         if (editorContext.GetService<ITimelineOptionsProvider>() != null)
@@ -37,7 +38,10 @@ public sealed class PathEditorTabExtension : ToolTabExtension
         }
     }
 
-    public override bool TryCreateContext(IEditorContext editorContext, [NotNullWhen(true)] out IToolContext? context)
+    public override bool TryCreateContext(
+        IEditorContext editorContext,
+        [NotNullWhen(true)] out IToolContext? context
+    )
     {
         if (editorContext.GetService<ITimelineOptionsProvider>() != null)
         {

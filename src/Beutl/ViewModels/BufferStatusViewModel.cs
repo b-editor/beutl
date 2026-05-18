@@ -1,5 +1,4 @@
 ﻿using System.Collections.Immutable;
-
 using Avalonia.Threading;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Models;
@@ -19,18 +18,25 @@ public sealed class BufferStatusViewModel : IBufferStatus, IDisposable
         _editViewModel = editViewModel;
         var timelineOptionsProvider = editViewModel.GetRequiredService<ITimelineOptionsProvider>();
 
-        Start = StartTime.CombineLatest(timelineOptionsProvider.Scale)
+        Start = StartTime
+            .CombineLatest(timelineOptionsProvider.Scale)
             .Select(v => v.First.TimeToPixel(v.Second))
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
 
-        End = EndTime.CombineLatest(timelineOptionsProvider.Scale)
+        End = EndTime
+            .CombineLatest(timelineOptionsProvider.Scale)
             .Select(v => v.First.TimeToPixel(v.Second))
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
 
-        editViewModel.FrameCacheManager
-            .Select(v => Observable.FromEvent<ImmutableArray<FrameCacheManager.CacheBlock>>(h => v.BlocksUpdated += h, h => v.BlocksUpdated -= h))
+        editViewModel
+            .FrameCacheManager.Select(v =>
+                Observable.FromEvent<ImmutableArray<FrameCacheManager.CacheBlock>>(
+                    h => v.BlocksUpdated += h,
+                    h => v.BlocksUpdated -= h
+                )
+            )
             .Switch()
             .Subscribe(OnFrameCacheManagerBlocksUpdated)
             .DisposeWith(_disposables);
@@ -41,9 +47,17 @@ public sealed class BufferStatusViewModel : IBufferStatus, IDisposable
         _cts?.Cancel();
         _cts = new CancellationTokenSource();
         Dispatcher.UIThread.InvokeAsync(
-            () => CacheBlocks.Value = obj.Select(v => new CacheBlock(_editViewModel.Player.GetFrameRate(), v.Start, v.Length, v.IsLocked)).ToArray(),
+            () =>
+                CacheBlocks.Value = obj.Select(v => new CacheBlock(
+                        _editViewModel.Player.GetFrameRate(),
+                        v.Start,
+                        v.Length,
+                        v.IsLocked
+                    ))
+                    .ToArray(),
             DispatcherPriority.Background,
-            _cts.Token);
+            _cts.Token
+        );
     }
 
     public ReactivePropertySlim<TimeSpan> StartTime { get; } = new();
@@ -93,7 +107,8 @@ public sealed class BufferStatusViewModel : IBufferStatus, IDisposable
 
     public long CalculateCacheByteCount(int startFrame, int endFrame)
     {
-        return _editViewModel.FrameCacheManager.Value?.CalculateByteCount(startFrame, endFrame) ?? 0;
+        return _editViewModel.FrameCacheManager.Value?.CalculateByteCount(startFrame, endFrame)
+            ?? 0;
     }
 
     public void Dispose()

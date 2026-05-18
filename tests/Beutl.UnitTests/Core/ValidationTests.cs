@@ -144,18 +144,19 @@ public class ValidationTests
     [Test]
     public void Multiple_Validate_NoErrorsReturnsNull()
     {
-        var validator = new MultipleValidator<int>([new SuccessValidator(), new SuccessValidator()]);
+        var validator = new MultipleValidator<int>([
+            new SuccessValidator(),
+            new SuccessValidator(),
+        ]);
         Assert.That(validator.Validate(EmptyContext, 0), Is.Null);
     }
 
     [Test]
     public void RangeDataAnnotation_BothExclusive_TryCoerceReturnsFalse()
     {
-        var validator = new RangeDataAnnotationValidater<int>(new RangeAttribute(0, 100)
-        {
-            MinimumIsExclusive = true,
-            MaximumIsExclusive = true,
-        });
+        var validator = new RangeDataAnnotationValidater<int>(
+            new RangeAttribute(0, 100) { MinimumIsExclusive = true, MaximumIsExclusive = true }
+        );
 
         int value = 50;
         Assert.That(validator.TryCoerce(EmptyContext, ref value), Is.False);
@@ -164,10 +165,9 @@ public class ValidationTests
     [Test]
     public void RangeDataAnnotation_MaxExclusiveOnly_OnlyClampsToMinimum()
     {
-        var validator = new RangeDataAnnotationValidater<int>(new RangeAttribute(0, 100)
-        {
-            MaximumIsExclusive = true,
-        });
+        var validator = new RangeDataAnnotationValidater<int>(
+            new RangeAttribute(0, 100) { MaximumIsExclusive = true }
+        );
 
         int low = -10;
         int high = 200;
@@ -183,10 +183,9 @@ public class ValidationTests
     [Test]
     public void RangeDataAnnotation_MinExclusiveOnly_OnlyClampsToMaximum()
     {
-        var validator = new RangeDataAnnotationValidater<int>(new RangeAttribute(0, 100)
-        {
-            MinimumIsExclusive = true,
-        });
+        var validator = new RangeDataAnnotationValidater<int>(
+            new RangeAttribute(0, 100) { MinimumIsExclusive = true }
+        );
 
         int low = -10;
         int high = 200;
@@ -202,23 +201,27 @@ public class ValidationTests
     private sealed class FailingCoerceValidator : IValidator<int>
     {
         public bool TryCoerce(ValidationContext context, ref int value) => false;
+
         public string? Validate(ValidationContext context, int value) => null;
     }
 
     private sealed class SuccessValidator : IValidator<int>
     {
         public int CoerceCount { get; private set; }
+
         public bool TryCoerce(ValidationContext context, ref int value)
         {
             CoerceCount++;
             return true;
         }
+
         public string? Validate(ValidationContext context, int value) => null;
     }
 
     private sealed class MessageValidator(string message) : IValidator<int>
     {
         public bool TryCoerce(ValidationContext context, ref int value) => true;
+
         public string? Validate(ValidationContext context, int value) => message;
     }
 }

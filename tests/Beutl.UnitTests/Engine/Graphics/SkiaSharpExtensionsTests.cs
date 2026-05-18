@@ -139,7 +139,10 @@ public class SkiaSharpExtensionsTests
     [TestCase(GradientSpreadMethod.Reflect, SKShaderTileMode.Mirror)]
     [TestCase(GradientSpreadMethod.Repeat, SKShaderTileMode.Repeat)]
     [TestCase(GradientSpreadMethod.Decal, SKShaderTileMode.Decal)]
-    public void GradientSpreadMethod_ToSKShaderTileMode(GradientSpreadMethod m, SKShaderTileMode expected)
+    public void GradientSpreadMethod_ToSKShaderTileMode(
+        GradientSpreadMethod m,
+        SKShaderTileMode expected
+    )
     {
         Assert.That(m.ToSKShaderTileMode(), Is.EqualTo(expected));
     }
@@ -177,7 +180,8 @@ public class SkiaSharpExtensionsTests
     public void BitmapInterpolationMode_ToSKSamplingOptions_InvalidThrows()
     {
         Assert.Throws<ArgumentOutOfRangeException>(() =>
-            ((BitmapInterpolationMode)999).ToSKSamplingOptions());
+            ((BitmapInterpolationMode)999).ToSKSamplingOptions()
+        );
     }
 
     [Test]
@@ -192,8 +196,7 @@ public class SkiaSharpExtensionsTests
     [Test]
     public void SKFontStyleSlant_ToFontStyle_InvalidThrows()
     {
-        Assert.Throws<ArgumentOutOfRangeException>(() =>
-            ((SKFontStyleSlant)999).ToFontStyle());
+        Assert.Throws<ArgumentOutOfRangeException>(() => ((SKFontStyleSlant)999).ToFontStyle());
     }
 
     // Note: SKFontMetrics の各フィールドは読み取り専用かつコンストラクタで全て指定する手段がないため、

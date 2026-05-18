@@ -4,16 +4,16 @@ using Avalonia;
 using Avalonia.Interactivity;
 using Beutl.Controls.PropertyEditors;
 using Beutl.Extensibility;
+using Beutl.Extensions.FFmpeg.Encoding;
+using Beutl.PropertyAdapters;
+using Beutl.Reactive;
+using Reactive.Bindings;
 #if FFMPEG_OUT_OF_PROCESS
 using Beutl.FFmpegIpc.Protocol;
 using Beutl.FFmpegIpc.Protocol.Messages;
 #else
 using FFmpegSharp;
 #endif
-using Beutl.PropertyAdapters;
-using Beutl.Reactive;
-using Reactive.Bindings;
-using Beutl.Extensions.FFmpeg.Encoding;
 
 namespace Beutl.Extensions.FFmpeg.PropertyEditors;
 
@@ -29,11 +29,14 @@ internal sealed class SampleRateEditorViewModel : IPropertyEditorContext
 
     public SampleRateEditorViewModel(
         IPropertyAdapter<int> property,
-        PropertyEditorExtension extension)
+        PropertyEditorExtension extension
+    )
     {
         _property = property;
         Extension = extension;
-        _text = new ReactivePropertySlim<string>(property.GetValue().ToString()).DisposeWith(_disposables);
+        _text = new ReactivePropertySlim<string>(property.GetValue().ToString()).DisposeWith(
+            _disposables
+        );
 
         // CorePropertyAdapterからFFmpegAudioEncoderSettingsを取得
         if (property is CorePropertyAdapter<int> cpa)
@@ -44,13 +47,15 @@ internal sealed class SampleRateEditorViewModel : IPropertyEditorContext
         if (_settings != null)
         {
             // コーデック変更を監視
-            _settings.GetObservable(FFmpegAudioEncoderSettings.CodecProperty)
+            _settings
+                .GetObservable(FFmpegAudioEncoderSettings.CodecProperty)
                 .Subscribe(_ => UpdateSampleRates())
                 .DisposeWith(_disposables);
         }
 
         // 現在値の変更を監視してテキストを更新
-        _property.GetObservable()
+        _property
+            .GetObservable()
             .Subscribe(value =>
             {
                 string text = value.ToString();
@@ -74,10 +79,12 @@ internal sealed class SampleRateEditorViewModel : IPropertyEditorContext
             editor.Header = _property.DisplayName;
             editor.ItemsSource = _currentSuggestions;
 
-            editor.Bind(AutoCompleteStringEditor.TextProperty, _text.ToBinding())
+            editor
+                .Bind(AutoCompleteStringEditor.TextProperty, _text.ToBinding())
                 .DisposeWith(_disposables);
 
-            editor.AddDisposableHandler(PropertyEditor.ValueConfirmedEvent, OnValueConfirmed)
+            editor
+                .AddDisposableHandler(PropertyEditor.ValueConfirmedEvent, OnValueConfirmed)
                 .DisposeWith(_disposables);
 
             _editorRef = new WeakReference<AutoCompleteStringEditor>(editor);
@@ -90,9 +97,7 @@ internal sealed class SampleRateEditorViewModel : IPropertyEditorContext
         {
             int[] supportedRates = GetCodecSampleRates(_settings);
 
-            _currentSuggestions = supportedRates
-                .Select(r => r.ToString())
-                .ToArray();
+            _currentSuggestions = supportedRates.Select(r => r.ToString()).ToArray();
 
             // エディタのItemsSourceを更新
             if (_editorRef?.TryGetTarget(out var editor) == true)
@@ -114,19 +119,31 @@ internal sealed class SampleRateEditorViewModel : IPropertyEditorContext
 
     private static int[] GetCodecSampleRates(FFmpegAudioEncoderSettings? settings)
     {
-        if (settings == null) return [];
+        if (settings == null)
+            return [];
 
         try
         {
 #if FFMPEG_OUT_OF_PROCESS
-            var connection = FFmpegWorkerProcess.DecodingInstance.EnsureStartedAsync().GetAwaiter().GetResult();
-            var response = connection.RequestAsync<QuerySampleRatesRequest, QuerySampleRatesResponse>(
-                MessageType.QuerySampleRates, MessageType.QuerySampleRatesResult,
-                new QuerySampleRatesRequest
-                {
-                    CodecName = settings.Codec.Equals(CodecRecord.Default) ? null : settings.Codec.Name,
-                    OutputFile = settings.OutputFile
-                }).AsTask().GetAwaiter().GetResult();
+            var connection = FFmpegWorkerProcess
+                .DecodingInstance.EnsureStartedAsync()
+                .GetAwaiter()
+                .GetResult();
+            var response = connection
+                .RequestAsync<QuerySampleRatesRequest, QuerySampleRatesResponse>(
+                    MessageType.QuerySampleRates,
+                    MessageType.QuerySampleRatesResult,
+                    new QuerySampleRatesRequest
+                    {
+                        CodecName = settings.Codec.Equals(CodecRecord.Default)
+                            ? null
+                            : settings.Codec.Name,
+                        OutputFile = settings.OutputFile,
+                    }
+                )
+                .AsTask()
+                .GetAwaiter()
+                .GetResult();
             return response.SampleRates;
 #else
             MediaCodec codec;
@@ -169,13 +186,9 @@ internal sealed class SampleRateEditorViewModel : IPropertyEditorContext
         }
     }
 
-    public void WriteToJson(JsonObject json)
-    {
-    }
+    public void WriteToJson(JsonObject json) { }
 
-    public void ReadFromJson(JsonObject json)
-    {
-    }
+    public void ReadFromJson(JsonObject json) { }
 
     public void Dispose()
     {

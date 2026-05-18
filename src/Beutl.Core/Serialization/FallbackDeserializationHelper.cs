@@ -5,10 +5,16 @@ namespace Beutl.Serialization;
 internal static class FallbackDeserializationHelper
 {
     internal static ICoreSerializable? TryCreateFallback(
-        Type baseType, Type? actualType, JsonObject json, Exception? exception = null)
+        Type baseType,
+        Type? actualType,
+        JsonObject json,
+        Exception? exception = null
+    )
     {
-        if (Attribute.GetCustomAttribute(baseType, typeof(FallbackTypeAttribute))
-            is not FallbackTypeAttribute attr)
+        if (
+            Attribute.GetCustomAttribute(baseType, typeof(FallbackTypeAttribute))
+            is not FallbackTypeAttribute attr
+        )
         {
             return null;
         }
@@ -21,9 +27,11 @@ internal static class FallbackDeserializationHelper
             return null;
         }
 
-        var fallback = Activator.CreateInstance(fallbackType) as IFallback
+        var fallback =
+            Activator.CreateInstance(fallbackType) as IFallback
             ?? throw new InvalidOperationException(
-                $"Could not create fallback instance of type {fallbackType.FullName}.");
+                $"Could not create fallback instance of type {fallbackType.FullName}."
+            );
 
         fallback.Json = json.DeepClone().AsObject();
         fallback.Reason = FallbackReason.DeserializationFailed;

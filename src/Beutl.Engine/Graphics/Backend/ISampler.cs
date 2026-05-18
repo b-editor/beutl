@@ -8,7 +8,7 @@ namespace Beutl.Graphics.Backend;
 public enum SamplerFilter
 {
     Nearest,
-    Linear
+    Linear,
 }
 
 /// <summary>
@@ -19,7 +19,7 @@ public enum SamplerAddressMode
     Repeat,
     MirroredRepeat,
     ClampToEdge,
-    ClampToBorder
+    ClampToBorder,
 }
 
 /// <summary>

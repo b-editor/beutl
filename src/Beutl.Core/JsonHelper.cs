@@ -26,7 +26,8 @@ public static class JsonHelper
     {
         get
         {
-            if (s_logger is not null) return s_logger;
+            if (s_logger is not null)
+                return s_logger;
             try
             {
                 return s_logger = Log.CreateLogger(typeof(JsonHelper));
@@ -38,30 +39,30 @@ public static class JsonHelper
         }
     }
 
-    public static JsonWriterOptions WriterOptions { get; } = new()
-    {
-        Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
-        Indented = true,
-    };
+    public static JsonWriterOptions WriterOptions { get; } =
+        new() { Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping, Indented = true };
 
-    public static JsonSerializerOptions SerializerOptions { get; } = new()
-    {
-        WriteIndented = true,
-        Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
-        TypeInfoResolver = null,
-        NumberHandling = JsonNumberHandling.AllowNamedFloatingPointLiterals | JsonNumberHandling.AllowReadingFromString,
-        Converters =
+    public static JsonSerializerOptions SerializerOptions { get; } =
+        new()
         {
-            new OptionalJsonConverter(),
-            new CultureInfoConverter(),
-            new DirectoryInfoConverter(),
-            new FileInfoConverter(),
-            new CoreSerializableJsonConverter(),
-            new Vector3JsonConverter(),
-            new QuaternionJsonConverter()
-            //new CoreObjectJsonConverter()
-        }
-    };
+            WriteIndented = true,
+            Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
+            TypeInfoResolver = null,
+            NumberHandling =
+                JsonNumberHandling.AllowNamedFloatingPointLiterals
+                | JsonNumberHandling.AllowReadingFromString,
+            Converters =
+            {
+                new OptionalJsonConverter(),
+                new CultureInfoConverter(),
+                new DirectoryInfoConverter(),
+                new FileInfoConverter(),
+                new CoreSerializableJsonConverter(),
+                new Vector3JsonConverter(),
+                new QuaternionJsonConverter(),
+                //new CoreObjectJsonConverter()
+            },
+        };
 
     public static JsonConverter GetOrCreateConverterInstance(Type converterType)
     {
@@ -109,8 +110,7 @@ public static class JsonHelper
     {
         if (JsonRestore(filename) is JsonObject obj)
         {
-            var context = new JsonSerializationContext(
-                serializable.GetType(), json: obj);
+            var context = new JsonSerializationContext(serializable.GetType(), json: obj);
             using (ThreadLocalSerializationContext.Enter(context))
             {
                 serializable.Deserialize(context);
@@ -130,7 +130,14 @@ public static class JsonHelper
         string tmp = $"{filename}.{Guid.NewGuid():N}.tmp";
         try
         {
-            using (var stream = new FileStream(tmp, FileMode.CreateNew, FileAccess.Write, FileShare.None))
+            using (
+                var stream = new FileStream(
+                    tmp,
+                    FileMode.CreateNew,
+                    FileAccess.Write,
+                    FileShare.None
+                )
+            )
             using (var writer = new Utf8JsonWriter(stream, WriterOptions))
             {
                 node.WriteTo(writer, SerializerOptions);
@@ -144,7 +151,8 @@ public static class JsonHelper
         {
             try
             {
-                if (File.Exists(tmp)) File.Delete(tmp);
+                if (File.Exists(tmp))
+                    File.Delete(tmp);
             }
             catch
             {
@@ -156,7 +164,8 @@ public static class JsonHelper
 
     public static JsonNode? JsonRestore(string filename)
     {
-        if (!File.Exists(filename)) return null;
+        if (!File.Exists(filename))
+            return null;
         using var stream = new FileStream(filename, FileMode.Open, FileAccess.Read, FileShare.Read);
         try
         {
@@ -184,7 +193,10 @@ public static class JsonHelper
         }
         else
         {
-            if (Attribute.GetCustomAttribute(baseType, typeof(FallbackTypeAttribute)) is FallbackTypeAttribute att)
+            if (
+                Attribute.GetCustomAttribute(baseType, typeof(FallbackTypeAttribute))
+                is FallbackTypeAttribute att
+            )
             {
                 return att.FallbackType;
             }
@@ -200,13 +212,16 @@ public static class JsonHelper
         type = null;
         if (node is JsonObject obj)
         {
-            JsonNode? typeNode = obj.TryGetPropertyValue("$type", out JsonNode? typeNode1) ? typeNode1
-                               : obj.TryGetPropertyValue("@type", out JsonNode? typeNode2) ? typeNode2
-                               : null;
+            JsonNode? typeNode =
+                obj.TryGetPropertyValue("$type", out JsonNode? typeNode1) ? typeNode1
+                : obj.TryGetPropertyValue("@type", out JsonNode? typeNode2) ? typeNode2
+                : null;
 
-            if (typeNode is JsonValue typeValue
+            if (
+                typeNode is JsonValue typeValue
                 && typeValue.TryGetValue(out string? typeStr)
-                && !string.IsNullOrWhiteSpace(typeStr))
+                && !string.IsNullOrWhiteSpace(typeStr)
+            )
             {
                 type = TypeFormat.ToType(typeStr);
             }
@@ -215,18 +230,24 @@ public static class JsonHelper
         return type != null;
     }
 
-    public static bool TryGetDiscriminator(this JsonNode node, [NotNullWhen(true)] out string? result)
+    public static bool TryGetDiscriminator(
+        this JsonNode node,
+        [NotNullWhen(true)] out string? result
+    )
     {
         result = null;
         if (node is JsonObject obj)
         {
-            JsonNode? typeNode = obj.TryGetPropertyValue("$type", out JsonNode? typeNode1) ? typeNode1
-                               : obj.TryGetPropertyValue("@type", out JsonNode? typeNode2) ? typeNode2
-                               : null;
+            JsonNode? typeNode =
+                obj.TryGetPropertyValue("$type", out JsonNode? typeNode1) ? typeNode1
+                : obj.TryGetPropertyValue("@type", out JsonNode? typeNode2) ? typeNode2
+                : null;
 
-            if (typeNode is JsonValue typeValue
+            if (
+                typeNode is JsonValue typeValue
                 && typeValue.TryGetValue(out string? typeStr)
-                && !string.IsNullOrWhiteSpace(typeStr))
+                && !string.IsNullOrWhiteSpace(typeStr)
+            )
             {
                 result = typeStr;
             }
@@ -242,7 +263,9 @@ public static class JsonHelper
 
     private static Dictionary<string, object> ParseJson(string json)
     {
-        Dictionary<string, JsonElement> dic = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(json)!;
+        Dictionary<string, JsonElement> dic = JsonSerializer.Deserialize<
+            Dictionary<string, JsonElement>
+        >(json)!;
 
         return dic.ToDictionary(x => x.Key, x => ParseJsonElement(x.Value)!);
     }
@@ -264,12 +287,18 @@ public static class JsonHelper
 
     public static Dictionary<string, object> ToDictionary(this JsonNode json)
     {
-        Dictionary<string, JsonElement> dic = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(json)!;
+        Dictionary<string, JsonElement> dic = JsonSerializer.Deserialize<
+            Dictionary<string, JsonElement>
+        >(json)!;
 
         return dic.ToDictionary(x => x.Key, x => ParseJsonElement(x.Value)!);
     }
 
-    public static bool TryGetPropertyValueAsJsonValue<T>(this JsonObject obj, string propertyName, [NotNullWhen(true)] out T? value)
+    public static bool TryGetPropertyValueAsJsonValue<T>(
+        this JsonObject obj,
+        string propertyName,
+        [NotNullWhen(true)] out T? value
+    )
     {
         value = default;
         return obj.TryGetPropertyValue(propertyName, out JsonNode? node)

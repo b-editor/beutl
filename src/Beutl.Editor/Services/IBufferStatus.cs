@@ -8,9 +8,9 @@ public interface IBufferStatus
 
     IReadOnlyReactiveProperty<TimeSpan> EndTime { get; }
 
-    IReadOnlyReactiveProperty<double> Start { get; }  // pixel
+    IReadOnlyReactiveProperty<double> Start { get; } // pixel
 
-    IReadOnlyReactiveProperty<double> End { get; }    // pixel
+    IReadOnlyReactiveProperty<double> End { get; } // pixel
 
     IReadOnlyReactiveProperty<CacheBlock[]> CacheBlocks { get; }
 

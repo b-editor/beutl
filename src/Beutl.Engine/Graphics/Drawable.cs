@@ -25,25 +25,50 @@ public abstract partial class Drawable : EngineObject
 
     public override CompositionTarget GetCompositionTarget() => CompositionTarget.Graphics;
 
-    [Display(Name = nameof(GraphicsStrings.Transform), ResourceType = typeof(GraphicsStrings), GroupName = nameof(GraphicsStrings.Transform))]
+    [Display(
+        Name = nameof(GraphicsStrings.Transform),
+        ResourceType = typeof(GraphicsStrings),
+        GroupName = nameof(GraphicsStrings.Transform)
+    )]
     public IProperty<Transform?> Transform { get; } = Property.Create<Transform?>();
 
-    [Display(Name = nameof(GraphicsStrings.Drawable_AlignmentX), ResourceType = typeof(GraphicsStrings), GroupName = nameof(GraphicsStrings.Transform))]
-    public IProperty<AlignmentX> AlignmentX { get; } = Property.CreateAnimatable(Media.AlignmentX.Center);
+    [Display(
+        Name = nameof(GraphicsStrings.Drawable_AlignmentX),
+        ResourceType = typeof(GraphicsStrings),
+        GroupName = nameof(GraphicsStrings.Transform)
+    )]
+    public IProperty<AlignmentX> AlignmentX { get; } =
+        Property.CreateAnimatable(Media.AlignmentX.Center);
 
-    [Display(Name = nameof(GraphicsStrings.Drawable_AlignmentY), ResourceType = typeof(GraphicsStrings), GroupName = nameof(GraphicsStrings.Transform))]
-    public IProperty<AlignmentY> AlignmentY { get; } = Property.CreateAnimatable(Media.AlignmentY.Center);
+    [Display(
+        Name = nameof(GraphicsStrings.Drawable_AlignmentY),
+        ResourceType = typeof(GraphicsStrings),
+        GroupName = nameof(GraphicsStrings.Transform)
+    )]
+    public IProperty<AlignmentY> AlignmentY { get; } =
+        Property.CreateAnimatable(Media.AlignmentY.Center);
 
-    [Display(Name = nameof(GraphicsStrings.TransformOrigin), ResourceType = typeof(GraphicsStrings),
-        GroupName = nameof(GraphicsStrings.Transform))]
-    public IProperty<RelativePoint> TransformOrigin { get; } = Property.CreateAnimatable(RelativePoint.Center);
+    [Display(
+        Name = nameof(GraphicsStrings.TransformOrigin),
+        ResourceType = typeof(GraphicsStrings),
+        GroupName = nameof(GraphicsStrings.Transform)
+    )]
+    public IProperty<RelativePoint> TransformOrigin { get; } =
+        Property.CreateAnimatable(RelativePoint.Center);
 
-    [Display(Name = nameof(GraphicsStrings.FilterEffect), ResourceType = typeof(GraphicsStrings),
-        GroupName = nameof(GraphicsStrings.FilterEffect))]
+    [Display(
+        Name = nameof(GraphicsStrings.FilterEffect),
+        ResourceType = typeof(GraphicsStrings),
+        GroupName = nameof(GraphicsStrings.FilterEffect)
+    )]
     public IProperty<FilterEffect?> FilterEffect { get; } = Property.Create<FilterEffect?>();
 
-    [Display(Name = nameof(GraphicsStrings.Drawable_BlendMode), ResourceType = typeof(GraphicsStrings))]
-    public IProperty<BlendMode> BlendMode { get; } = Property.CreateAnimatable(Graphics.BlendMode.SrcOver);
+    [Display(
+        Name = nameof(GraphicsStrings.Drawable_BlendMode),
+        ResourceType = typeof(GraphicsStrings)
+    )]
+    public IProperty<BlendMode> BlendMode { get; } =
+        Property.CreateAnimatable(Graphics.BlendMode.SrcOver);
 
     [Display(Name = nameof(GraphicsStrings.Opacity), ResourceType = typeof(GraphicsStrings))]
     [Range(0, 100)]
@@ -51,7 +76,8 @@ public abstract partial class Drawable : EngineObject
 
     protected abstract Size MeasureCore(Size availableSize, Resource resource);
 
-    internal Size MeasureInternal(Size availableSize, Resource resource) => MeasureCore(availableSize, resource);
+    internal Size MeasureInternal(Size availableSize, Resource resource) =>
+        MeasureCore(availableSize, resource);
 
     internal Matrix GetTransformMatrix(Size availableSize, Size coreBounds, Resource resource)
     {
@@ -81,7 +107,11 @@ public abstract partial class Drawable : EngineObject
             using (context.PushBlendMode(resource.BlendMode))
             using (context.PushTransform(transform))
             using (context.PushOpacity(resource.Opacity / 100f))
-            using (resource.FilterEffect == null ? new() : context.PushFilterEffect(resource.FilterEffect))
+            using (
+                resource.FilterEffect == null
+                    ? new()
+                    : context.PushFilterEffect(resource.FilterEffect)
+            )
             {
                 OnDraw(context, resource);
             }

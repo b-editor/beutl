@@ -1,7 +1,5 @@
 ﻿using System.Diagnostics.CodeAnalysis;
-
 using Avalonia.Controls;
-
 using Beutl.Editor.Components.FileBrowserTab.ViewModels;
 using Beutl.Editor.Components.FileBrowserTab.Views;
 
@@ -26,13 +24,19 @@ public sealed class FileBrowserTabExtension : ToolTabExtension
 
     public override int DefaultOrder => 1;
 
-    public override bool TryCreateContent(IEditorContext editorContext, [NotNullWhen(true)] out Control? control)
+    public override bool TryCreateContent(
+        IEditorContext editorContext,
+        [NotNullWhen(true)] out Control? control
+    )
     {
         control = new FileBrowserTabView();
         return true;
     }
 
-    public override bool TryCreateContext(IEditorContext editorContext, [NotNullWhen(true)] out IToolContext? context)
+    public override bool TryCreateContext(
+        IEditorContext editorContext,
+        [NotNullWhen(true)] out IToolContext? context
+    )
     {
         context = new FileBrowserTabViewModel(editorContext);
         return true;

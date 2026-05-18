@@ -26,22 +26,26 @@ internal static class MeshBufferUploadHelper
         var vertexBuffer = context.CreateBuffer(
             vertexSize,
             BufferUsage.VertexBuffer | BufferUsage.TransferDestination,
-            MemoryProperty.DeviceLocal);
+            MemoryProperty.DeviceLocal
+        );
 
         var indexBuffer = context.CreateBuffer(
             indexSize,
             BufferUsage.IndexBuffer | BufferUsage.TransferDestination,
-            MemoryProperty.DeviceLocal);
+            MemoryProperty.DeviceLocal
+        );
 
         using var vertexStaging = context.CreateBuffer(
             vertexSize,
             BufferUsage.TransferSource,
-            MemoryProperty.HostVisible | MemoryProperty.HostCoherent);
+            MemoryProperty.HostVisible | MemoryProperty.HostCoherent
+        );
 
         using var indexStaging = context.CreateBuffer(
             indexSize,
             BufferUsage.TransferSource,
-            MemoryProperty.HostVisible | MemoryProperty.HostCoherent);
+            MemoryProperty.HostVisible | MemoryProperty.HostCoherent
+        );
 
         vertexStaging.Upload(vertices);
         indexStaging.Upload(indices);

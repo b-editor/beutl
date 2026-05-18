@@ -34,7 +34,10 @@ public sealed partial class PathGeometry : Geometry
 
             if (pathVerb == SKPathVerb.Move)
             {
-                if (!currentFigure.StartPoint.CurrentValue.IsInvalid || currentFigure.Segments.Count > 0)
+                if (
+                    !currentFigure.StartPoint.CurrentValue.IsInvalid
+                    || currentFigure.Segments.Count > 0
+                )
                 {
                     result.Figures.Add(currentFigure);
                     currentFigure = new PathFigure();
@@ -52,9 +55,20 @@ public sealed partial class PathGeometry : Geometry
             segment = pathVerb switch
             {
                 SKPathVerb.Line => new LineSegment(points[1].ToGraphicsPoint()),
-                SKPathVerb.Quad => new QuadraticBezierSegment(points[1].ToGraphicsPoint(), points[2].ToGraphicsPoint()),
-                SKPathVerb.Conic => new ConicSegment(points[1].ToGraphicsPoint(), points[2].ToGraphicsPoint(), it.ConicWeight()),
-                SKPathVerb.Cubic => new CubicBezierSegment(points[1].ToGraphicsPoint(), points[2].ToGraphicsPoint(), points[3].ToGraphicsPoint()),
+                SKPathVerb.Quad => new QuadraticBezierSegment(
+                    points[1].ToGraphicsPoint(),
+                    points[2].ToGraphicsPoint()
+                ),
+                SKPathVerb.Conic => new ConicSegment(
+                    points[1].ToGraphicsPoint(),
+                    points[2].ToGraphicsPoint(),
+                    it.ConicWeight()
+                ),
+                SKPathVerb.Cubic => new CubicBezierSegment(
+                    points[1].ToGraphicsPoint(),
+                    points[2].ToGraphicsPoint(),
+                    points[3].ToGraphicsPoint()
+                ),
                 SKPathVerb.Done or _ => null,
             };
 
@@ -62,7 +76,6 @@ public sealed partial class PathGeometry : Geometry
             {
                 currentFigure.Segments.Add(segment);
             }
-
         } while (pathVerb != SKPathVerb.Done);
 
         if (currentFigure.Segments.Count > 0)
@@ -74,10 +87,7 @@ public sealed partial class PathGeometry : Geometry
     [Obsolete("Use 'StartPoint'.")]
     public void MoveTo(Point point)
     {
-        var figure = new PathFigure
-        {
-            StartPoint = { CurrentValue = point }
-        };
+        var figure = new PathFigure { StartPoint = { CurrentValue = point } };
         Figures.Add(figure);
     }
 
@@ -97,34 +107,43 @@ public sealed partial class PathGeometry : Geometry
 
     public void ArcTo(Size radius, float angle, bool isLargeArc, bool sweepClockwise, Point point)
     {
-        GetLastOrAdd().Segments.Add(new ArcSegment()
-        {
-            Radius = { CurrentValue = radius },
-            RotationAngle = { CurrentValue = angle },
-            IsLargeArc = { CurrentValue = isLargeArc },
-            SweepClockwise = { CurrentValue = sweepClockwise },
-            Point = { CurrentValue = point }
-        });
+        GetLastOrAdd()
+            .Segments.Add(
+                new ArcSegment()
+                {
+                    Radius = { CurrentValue = radius },
+                    RotationAngle = { CurrentValue = angle },
+                    IsLargeArc = { CurrentValue = isLargeArc },
+                    SweepClockwise = { CurrentValue = sweepClockwise },
+                    Point = { CurrentValue = point },
+                }
+            );
     }
 
     public void ConicTo(Point controlPoint, Point endPoint, float weight)
     {
-        GetLastOrAdd().Segments.Add(new ConicSegment()
-        {
-            ControlPoint = { CurrentValue = controlPoint },
-            EndPoint = { CurrentValue = endPoint },
-            Weight = { CurrentValue = weight }
-        });
+        GetLastOrAdd()
+            .Segments.Add(
+                new ConicSegment()
+                {
+                    ControlPoint = { CurrentValue = controlPoint },
+                    EndPoint = { CurrentValue = endPoint },
+                    Weight = { CurrentValue = weight },
+                }
+            );
     }
 
     public void CubicTo(Point controlPoint1, Point controlPoint2, Point endPoint)
     {
-        GetLastOrAdd().Segments.Add(new CubicBezierSegment()
-        {
-            ControlPoint1 = { CurrentValue = controlPoint1 },
-            ControlPoint2 = { CurrentValue = controlPoint2 },
-            EndPoint = { CurrentValue = endPoint }
-        });
+        GetLastOrAdd()
+            .Segments.Add(
+                new CubicBezierSegment()
+                {
+                    ControlPoint1 = { CurrentValue = controlPoint1 },
+                    ControlPoint2 = { CurrentValue = controlPoint2 },
+                    EndPoint = { CurrentValue = endPoint },
+                }
+            );
     }
 
     public void LineTo(Point point)
@@ -134,11 +153,14 @@ public sealed partial class PathGeometry : Geometry
 
     public void QuadraticTo(Point controlPoint, Point endPoint)
     {
-        GetLastOrAdd().Segments.Add(new QuadraticBezierSegment()
-        {
-            ControlPoint = { CurrentValue = controlPoint },
-            EndPoint = { CurrentValue = endPoint }
-        });
+        GetLastOrAdd()
+            .Segments.Add(
+                new QuadraticBezierSegment()
+                {
+                    ControlPoint = { CurrentValue = controlPoint },
+                    EndPoint = { CurrentValue = endPoint },
+                }
+            );
     }
 
     [Obsolete("Use 'IsClosed'.")]
@@ -161,7 +183,11 @@ public sealed partial class PathGeometry : Geometry
         }
     }
 
-    public PathFigure.Resource? HitTestFigure(Point point, Pen.Resource? pen, Geometry.Resource resource)
+    public PathFigure.Resource? HitTestFigure(
+        Point point,
+        Pen.Resource? pen,
+        Geometry.Resource resource
+    )
     {
         var r = (Resource)resource;
         Rect bounds = resource.Bounds;
@@ -184,13 +210,16 @@ public sealed partial class PathGeometry : Geometry
 
                 if (pen != null)
                 {
-                    using SKPath strokePath = PenHelper.CreateStrokePath(context.NativeObject, pen, bounds);
+                    using SKPath strokePath = PenHelper.CreateStrokePath(
+                        context.NativeObject,
+                        pen,
+                        bounds
+                    );
                     if (strokePath.Contains(point.X, point.Y))
                     {
                         return item;
                     }
                 }
-
             }
         }
 

@@ -18,7 +18,9 @@ public sealed class GLSLShader : IDisposable
         IGraphicsContext? context = GraphicsContextFactory.SharedContext;
         if (context == null || !context.Supports3DRendering)
         {
-            throw new InvalidOperationException("Vulkan 3D rendering is not supported on this platform.");
+            throw new InvalidOperationException(
+                "Vulkan 3D rendering is not supported on this platform."
+            );
         }
 
         GLSLFilterPipeline? pipeline = GLSLFilterPipeline.Create(context, fragmentShaderSource);
@@ -36,10 +38,16 @@ public sealed class GLSLShader : IDisposable
         IGraphicsContext? context = GraphicsContextFactory.SharedContext;
         if (context == null || !context.Supports3DRendering)
         {
-            throw new InvalidOperationException("Vulkan 3D rendering is not supported on this platform.");
+            throw new InvalidOperationException(
+                "Vulkan 3D rendering is not supported on this platform."
+            );
         }
 
-        GLSLFilterPipeline? pipeline = GLSLFilterPipeline.Create(context, fragmentShaderSource, hasMaskTexture: true);
+        GLSLFilterPipeline? pipeline = GLSLFilterPipeline.Create(
+            context,
+            fragmentShaderSource,
+            hasMaskTexture: true
+        );
         if (pipeline == null)
         {
             throw new InvalidOperationException("Failed to compile GLSL dual-texture shader.");
@@ -48,7 +56,11 @@ public sealed class GLSLShader : IDisposable
         return new GLSLShader(pipeline);
     }
 
-    public static bool TryCreate(string fragmentShaderSource, out GLSLShader? shader, out string? errorText)
+    public static bool TryCreate(
+        string fragmentShaderSource,
+        out GLSLShader? shader,
+        out string? errorText
+    )
     {
         shader = null;
         errorText = null;
@@ -94,12 +106,15 @@ public sealed class GLSLShader : IDisposable
         }
     }
 
-    public void Apply<T>(CustomFilterEffectContext context, T pushConstants) where T : unmanaged
+    public void Apply<T>(CustomFilterEffectContext context, T pushConstants)
+        where T : unmanaged
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
 
         if (_pipeline.HasMaskTexture)
-            throw new InvalidOperationException("Cannot use single-texture Apply on a dual-texture shader. Use ExecuteSingleTargetWithMask instead.");
+            throw new InvalidOperationException(
+                "Cannot use single-texture Apply on a dual-texture shader. Use ExecuteSingleTargetWithMask instead."
+            );
 
         IGraphicsContext? graphicsContext = GraphicsContextFactory.SharedContext;
         if (graphicsContext == null || !graphicsContext.Supports3DRendering)
@@ -134,7 +149,8 @@ public sealed class GLSLShader : IDisposable
                 using ITexture2D depthTexture = graphicsContext.CreateTexture2D(
                     destinationTexture.Width,
                     destinationTexture.Height,
-                    TextureFormat.Depth32Float);
+                    TextureFormat.Depth32Float
+                );
 
                 _pipeline.Execute(sourceTexture, destinationTexture, depthTexture, pushConstants);
 
@@ -154,7 +170,9 @@ public sealed class GLSLShader : IDisposable
         ITexture2D source,
         ITexture2D destination,
         ITexture2D depth,
-        T pushConstants) where T : unmanaged
+        T pushConstants
+    )
+        where T : unmanaged
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
         _pipeline.Execute(source, destination, depth, pushConstants);
@@ -166,7 +184,9 @@ public sealed class GLSLShader : IDisposable
         ITexture2D mask,
         ITexture2D destination,
         ITexture2D depth,
-        T pushConstants) where T : unmanaged
+        T pushConstants
+    )
+        where T : unmanaged
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
         _pipeline.Execute(source, mask, destination, depth, pushConstants);
@@ -176,7 +196,9 @@ public sealed class GLSLShader : IDisposable
     public void ApplyMultiPass<T>(
         CustomFilterEffectContext context,
         int passCount,
-        Func<int, EffectTarget, T> createPushConstants) where T : unmanaged
+        Func<int, EffectTarget, T> createPushConstants
+    )
+        where T : unmanaged
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
 
@@ -200,9 +222,21 @@ public sealed class GLSLShader : IDisposable
             int height = sourceTexture.Height;
 
             // Create ping-pong textures
-            using ITexture2D pingTexture = graphicsContext.CreateTexture2D(width, height, TextureFormat.RGBA16Float);
-            using ITexture2D pongTexture = graphicsContext.CreateTexture2D(width, height, TextureFormat.RGBA16Float);
-            using ITexture2D depthTexture = graphicsContext.CreateTexture2D(width, height, TextureFormat.Depth32Float);
+            using ITexture2D pingTexture = graphicsContext.CreateTexture2D(
+                width,
+                height,
+                TextureFormat.RGBA16Float
+            );
+            using ITexture2D pongTexture = graphicsContext.CreateTexture2D(
+                width,
+                height,
+                TextureFormat.RGBA16Float
+            );
+            using ITexture2D depthTexture = graphicsContext.CreateTexture2D(
+                width,
+                height,
+                TextureFormat.Depth32Float
+            );
 
             // Run first shader pass (pass 0) from source into ping buffer as the initial state
             sourceTexture.PrepareForSampling();
@@ -221,7 +255,12 @@ public sealed class GLSLShader : IDisposable
 
                 try
                 {
-                    _pipeline.Execute(sourceTexture, newRenderTarget.Texture, depthTexture, createPushConstants(0, target));
+                    _pipeline.Execute(
+                        sourceTexture,
+                        newRenderTarget.Texture,
+                        depthTexture,
+                        createPushConstants(0, target)
+                    );
 
                     target.Dispose();
                     context.Targets[i] = newTarget;
@@ -235,7 +274,12 @@ public sealed class GLSLShader : IDisposable
                 continue;
             }
 
-            _pipeline.Execute(sourceTexture, pingTexture, depthTexture, createPushConstants(0, target));
+            _pipeline.Execute(
+                sourceTexture,
+                pingTexture,
+                depthTexture,
+                createPushConstants(0, target)
+            );
 
             ITexture2D current = pingTexture;
             ITexture2D next = pongTexture;
@@ -260,7 +304,12 @@ public sealed class GLSLShader : IDisposable
 
                 try
                 {
-                    _pipeline.Execute(current, newRenderTarget.Texture, depthTexture, createPushConstants(passCount - 1, target));
+                    _pipeline.Execute(
+                        current,
+                        newRenderTarget.Texture,
+                        depthTexture,
+                        createPushConstants(passCount - 1, target)
+                    );
 
                     target.Dispose();
                     context.Targets[i] = newTarget;
@@ -276,7 +325,9 @@ public sealed class GLSLShader : IDisposable
 
     public void Apply<T>(
         CustomFilterEffectContext context,
-        Func<EffectTarget, T> createPushConstants) where T : unmanaged
+        Func<EffectTarget, T> createPushConstants
+    )
+        where T : unmanaged
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
 
@@ -314,7 +365,8 @@ public sealed class GLSLShader : IDisposable
                 using ITexture2D depthTexture = graphicsContext.CreateTexture2D(
                     destinationTexture.Width,
                     destinationTexture.Height,
-                    TextureFormat.Depth32Float);
+                    TextureFormat.Depth32Float
+                );
 
                 T pushConstants = createPushConstants(target);
                 _pipeline.Execute(sourceTexture, destinationTexture, depthTexture, pushConstants);
@@ -332,7 +384,8 @@ public sealed class GLSLShader : IDisposable
 
     public void Dispose()
     {
-        if (_disposed) return;
+        if (_disposed)
+            return;
         _disposed = true;
         _pipeline.Dispose();
     }

@@ -14,7 +14,10 @@ public sealed partial class GeometryShape : Shape
         Data.CurrentValue = new PathGeometry();
     }
 
-    [Display(Name = nameof(GraphicsStrings.GeometryShape_Data), ResourceType = typeof(GraphicsStrings))]
+    [Display(
+        Name = nameof(GraphicsStrings.GeometryShape_Data),
+        ResourceType = typeof(GraphicsStrings)
+    )]
     public IProperty<Geometry?> Data { get; } = Property.Create<Geometry?>();
 
     public partial class Resource

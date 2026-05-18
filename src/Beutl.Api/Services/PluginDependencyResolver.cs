@@ -11,11 +11,15 @@ namespace Beutl.Api.Services;
 // https://github.com/dotnet/runtime/blob/9ec7fc21862f3446c6c6f7dcfff275942e3884d3/src/libraries/System.Private.CoreLib/src/System/Runtime/Loader/AssemblyDependencyResolver.cs
 internal sealed class PluginDependencyResolver
 {
-    private readonly ILogger _logger = new LoggerAdapter(Log.CreateLogger<PluginDependencyResolver>());
+    private readonly ILogger _logger = new LoggerAdapter(
+        Log.CreateLogger<PluginDependencyResolver>()
+    );
     private const string NeutralCultureName = "neutral";
     private const string ResourceAssemblyExtension = ".dll";
 
-    private readonly Dictionary<string, string> _assemblyPaths = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, string> _assemblyPaths = new(
+        StringComparer.OrdinalIgnoreCase
+    );
     private readonly HashSet<string> _nativeSearchPaths = [];
     private readonly HashSet<string> _resourceSearchPaths = [];
     private readonly string[] _assemblyDirectorySearchPaths;
@@ -34,15 +38,17 @@ internal sealed class PluginDependencyResolver
                 reader.GetIdentity(),
                 framework,
                 _logger,
-                availablePackages);
+                availablePackages
+            );
         }
         else
         {
-            foreach (string item in Directory.GetFiles(mainDirectory, "*.*", SearchOption.AllDirectories))
+            foreach (
+                string item in Directory.GetFiles(mainDirectory, "*.*", SearchOption.AllDirectories)
+            )
             {
                 string relative = Path.GetRelativePath(mainDirectory, item);
-                if (relative.StartsWith("runtimes")
-                    && Path.GetDirectoryName(item) is { } fullname)
+                if (relative.StartsWith("runtimes") && Path.GetDirectoryName(item) is { } fullname)
                 {
                     _nativeSearchPaths.Add(fullname);
                 }
@@ -50,10 +56,12 @@ internal sealed class PluginDependencyResolver
                 {
                     string? parent = Path.GetDirectoryName(item);
                     string? culture = Path.GetFileName(parent);
-                    if (parent is { }
+                    if (
+                        parent is { }
                         && !_resourceSearchPaths.Contains(parent)
                         && culture is { }
-                        && CultureNameValidation.IsValid(culture))
+                        && CultureNameValidation.IsValid(culture)
+                    )
                     {
                         _resourceSearchPaths.Add(parent);
                     }
@@ -74,16 +82,20 @@ internal sealed class PluginDependencyResolver
         PackageIdentity package,
         NuGetFramework framework,
         ILogger logger,
-        ISet<PackageIdentity> availablePackages)
+        ISet<PackageIdentity> availablePackages
+    )
     {
-        if (availablePackages.Contains(package)) return;
+        if (availablePackages.Contains(package))
+            return;
 
         IEnumerable<PackageDependencyGroup> deps = reader.GetPackageDependencies();
         NuGetFramework? nearest = Helper.FrameworkReducer.GetNearest(
             framework,
-            deps.Select(x => x.TargetFramework));
+            deps.Select(x => x.TargetFramework)
+        );
 
-        string[] libItems = reader.GetLibItems()
+        string[] libItems = reader
+            .GetLibItems()
             .Where(x => x.TargetFramework == nearest)
             .SelectMany(x => x.Items)
             .ToArray();
@@ -93,10 +105,12 @@ internal sealed class PluginDependencyResolver
             {
                 string? parent = Path.GetDirectoryName(Path.Combine(path, item));
                 string? culture = Path.GetFileName(parent);
-                if (parent is { }
+                if (
+                    parent is { }
                     && !_resourceSearchPaths.Contains(parent)
                     && culture is { }
-                    && CultureNameValidation.IsValid(culture))
+                    && CultureNameValidation.IsValid(culture)
+                )
                 {
                     _resourceSearchPaths.Add(parent);
                     continue;
@@ -107,12 +121,12 @@ internal sealed class PluginDependencyResolver
             {
                 _assemblyPaths.TryAdd(
                     Path.GetFileNameWithoutExtension(item),
-                    Path.Combine(path, item));
+                    Path.Combine(path, item)
+                );
             }
         }
 
-        foreach (string? item in reader.GetItems("runtimes")
-            .SelectMany(x => x.Items))
+        foreach (string? item in reader.GetItems("runtimes").SelectMany(x => x.Items))
         {
             string add = Path.Combine(path, Path.GetDirectoryName(item)!);
             if (Directory.Exists(add))
@@ -123,10 +137,15 @@ internal sealed class PluginDependencyResolver
 
         availablePackages.Add(package);
 
-        foreach (PackageDependency? dependency in deps.Where(x => x.TargetFramework == nearest)
-            .SelectMany(x => x.Packages))
+        foreach (
+            PackageDependency? dependency in deps.Where(x => x.TargetFramework == nearest)
+                .SelectMany(x => x.Packages)
+        )
         {
-            var dependentPackage = new PackageIdentity(dependency.Id, dependency.VersionRange.MinVersion);
+            var dependentPackage = new PackageIdentity(
+                dependency.Id,
+                dependency.VersionRange.MinVersion
+            );
             path = Helper.PackagePathResolver.GetInstalledPath(dependentPackage);
             if (path != null)
             {
@@ -136,22 +155,32 @@ internal sealed class PluginDependencyResolver
                     path,
                     reader,
                     dependentPackage,
-                    framework, logger, availablePackages);
+                    framework,
+                    logger,
+                    availablePackages
+                );
             }
         }
     }
 
     public string? ResolveAssemblyToPath(AssemblyName assemblyName)
     {
-        if (!string.IsNullOrEmpty(assemblyName.CultureName)
-            && !string.Equals(assemblyName.CultureName, NeutralCultureName, StringComparison.OrdinalIgnoreCase))
+        if (
+            !string.IsNullOrEmpty(assemblyName.CultureName)
+            && !string.Equals(
+                assemblyName.CultureName,
+                NeutralCultureName,
+                StringComparison.OrdinalIgnoreCase
+            )
+        )
         {
             foreach (string searchPath in _resourceSearchPaths)
             {
                 string assemblyPath = Path.Combine(
                     searchPath,
                     assemblyName.CultureName,
-                    $"{assemblyName.Name}{ResourceAssemblyExtension}");
+                    $"{assemblyName.Name}{ResourceAssemblyExtension}"
+                );
                 if (File.Exists(assemblyPath))
                 {
                     return assemblyPath;
@@ -190,9 +219,15 @@ internal sealed class PluginDependencyResolver
         }
 
         bool isRelativePath = !Path.IsPathFullyQualified(unmanagedDllName);
-        foreach (LibraryNameVariation libraryNameVariation in LibraryNameVariation.DetermineLibraryNameVariations(unmanagedDllName, isRelativePath))
+        foreach (
+            LibraryNameVariation libraryNameVariation in LibraryNameVariation.DetermineLibraryNameVariations(
+                unmanagedDllName,
+                isRelativePath
+            )
+        )
         {
-            string libraryName = libraryNameVariation.Prefix + unmanagedDllName + libraryNameVariation.Suffix;
+            string libraryName =
+                libraryNameVariation.Prefix + unmanagedDllName + libraryNameVariation.Suffix;
             foreach (string searchPath in searchPaths)
             {
                 string libraryPath = Path.Combine(searchPath, libraryName);

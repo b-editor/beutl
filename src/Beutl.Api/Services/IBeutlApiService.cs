@@ -1,5 +1,3 @@
 ﻿namespace Beutl.Api.Services;
 
-public interface IBeutlApiResource
-{
-}
+public interface IBeutlApiResource { }

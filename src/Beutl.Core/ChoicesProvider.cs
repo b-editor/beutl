@@ -31,7 +31,10 @@ public sealed class ChoicesProviderAttribute : Attribute
     public ChoicesProviderAttribute(Type providerType)
     {
         if (!providerType.IsAssignableTo(typeof(IChoicesProvider)))
-            throw new ArgumentException("'IChoicesProvider'を継承する必要があります。", nameof(providerType));
+            throw new ArgumentException(
+                "'IChoicesProvider'を継承する必要があります。",
+                nameof(providerType)
+            );
 
         ProviderType = providerType;
     }

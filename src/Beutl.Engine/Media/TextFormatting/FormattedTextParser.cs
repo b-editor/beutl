@@ -27,7 +27,14 @@ public static class FormattedTextParser
         TagType tagType = GetTagType(first);
 
         // "<#fffff>" みたいなタグ
-        if (tagType is TagType.ColorHash or TagType.FontWeightBold or TagType.FontStyleItalic or TagType.NoParse or TagType.SingleLine)
+        if (
+            tagType
+            is TagType.ColorHash
+                or TagType.FontWeightBold
+                or TagType.FontStyleItalic
+                or TagType.NoParse
+                or TagType.SingleLine
+        )
         {
             result = new TagInfo(first, tagType);
             return true;
@@ -182,8 +189,10 @@ public static class FormattedTextParser
 
         public bool TryGetColor(out Color color)
         {
-            if (Type is TagType.Color or TagType.ColorHash &&
-                Color.TryParse(RemoveQuotation(Value), out color))
+            if (
+                Type is TagType.Color or TagType.ColorHash
+                && Color.TryParse(RemoveQuotation(Value), out color)
+            )
             {
                 return true;
             }
@@ -253,12 +262,16 @@ public static class FormattedTextParser
                     r = StrokeAlignment.Center;
                     return true;
                 }
-                else if (s.Equals(nameof(StrokeAlignment.Inside), StringComparison.OrdinalIgnoreCase))
+                else if (
+                    s.Equals(nameof(StrokeAlignment.Inside), StringComparison.OrdinalIgnoreCase)
+                )
                 {
                     r = StrokeAlignment.Inside;
                     return true;
                 }
-                else if (s.Equals(nameof(StrokeAlignment.Outside), StringComparison.OrdinalIgnoreCase))
+                else if (
+                    s.Equals(nameof(StrokeAlignment.Outside), StringComparison.OrdinalIgnoreCase)
+                )
                 {
                     r = StrokeAlignment.Outside;
                     return true;
@@ -273,8 +286,10 @@ public static class FormattedTextParser
             {
                 ReadOnlySpan<char> str = RemoveQuotation(Value);
                 var tokenizer = new RefStringTokenizer(str);
-                if (tokenizer.TryReadString(out ReadOnlySpan<char> colorStr)
-                    && Color.TryParse(colorStr, out Color color))
+                if (
+                    tokenizer.TryReadString(out ReadOnlySpan<char> colorStr)
+                    && Color.TryParse(colorStr, out Color color)
+                )
                 {
                     if (tokenizer.TryReadSingle(out float thickness))
                     {
@@ -282,24 +297,41 @@ public static class FormattedTextParser
                         StrokeJoin join = StrokeJoin.Miter;
                         StrokeAlignment align = StrokeAlignment.Center;
 
-                        ReadOnlySpan<char> str1 = tokenizer.TryReadString(out ReadOnlySpan<char> _str1) ? _str1 : default;
-                        ReadOnlySpan<char> str2 = tokenizer.TryReadString(out ReadOnlySpan<char> _str2) ? _str2 : default;
-                        ReadOnlySpan<char> str3 = tokenizer.TryReadString(out ReadOnlySpan<char> _str3) ? _str3 : default;
+                        ReadOnlySpan<char> str1 = tokenizer.TryReadString(
+                            out ReadOnlySpan<char> _str1
+                        )
+                            ? _str1
+                            : default;
+                        ReadOnlySpan<char> str2 = tokenizer.TryReadString(
+                            out ReadOnlySpan<char> _str2
+                        )
+                            ? _str2
+                            : default;
+                        ReadOnlySpan<char> str3 = tokenizer.TryReadString(
+                            out ReadOnlySpan<char> _str3
+                        )
+                            ? _str3
+                            : default;
 
-                        if (TryReadStrokeCap(str1, ref cap)
+                        if (
+                            TryReadStrokeCap(str1, ref cap)
                             || TryReadStrokeJoin(str1, ref join)
-                            || TryReadStrokeAlignment(str1, ref align))
-                        { }
-                        if (TryReadStrokeCap(str2, ref cap)
+                            || TryReadStrokeAlignment(str1, ref align)
+                        ) { }
+                        if (
+                            TryReadStrokeCap(str2, ref cap)
                             || TryReadStrokeJoin(str2, ref join)
-                            || TryReadStrokeAlignment(str2, ref align))
-                        { }
-                        if (TryReadStrokeCap(str3, ref cap)
+                            || TryReadStrokeAlignment(str2, ref align)
+                        ) { }
+                        if (
+                            TryReadStrokeCap(str3, ref cap)
                             || TryReadStrokeJoin(str3, ref join)
-                            || TryReadStrokeAlignment(str3, ref align))
-                        { }
+                            || TryReadStrokeAlignment(str3, ref align)
+                        ) { }
 
-                        float miterLimit = tokenizer.TryReadSingle(out float _miterLimit) ? _miterLimit : 10;
+                        float miterLimit = tokenizer.TryReadSingle(out float _miterLimit)
+                            ? _miterLimit
+                            : 10;
 
                         var brush = new SolidColorBrush.Resource { Color = color, Opacity = 100 };
                         pen = new Pen.Resource
@@ -344,8 +376,15 @@ public static class FormattedTextParser
 
         public bool TryGetSize(out float size)
         {
-            if (Type is TagType.Size &&
-                float.TryParse(RemoveQuotation(Value), NumberStyles.Float, CultureInfo.InvariantCulture, out size))
+            if (
+                Type is TagType.Size
+                && float.TryParse(
+                    RemoveQuotation(Value),
+                    NumberStyles.Float,
+                    CultureInfo.InvariantCulture,
+                    out size
+                )
+            )
             {
                 return true;
             }
@@ -356,8 +395,15 @@ public static class FormattedTextParser
 
         public bool TryGetCharSpace(out float space)
         {
-            if (Type is TagType.CharSpace &&
-                float.TryParse(RemoveQuotation(Value), NumberStyles.Float, CultureInfo.InvariantCulture, out space))
+            if (
+                Type is TagType.CharSpace
+                && float.TryParse(
+                    RemoveQuotation(Value),
+                    NumberStyles.Float,
+                    CultureInfo.InvariantCulture,
+                    out space
+                )
+            )
             {
                 return true;
             }
@@ -381,7 +427,8 @@ public static class FormattedTextParser
                     weight = str switch
                     {
                         var thin when thin.SequenceEqual("thin") => FontWeight.Thin,
-                        var ulight when ulight.SequenceEqual("ultra-light") => FontWeight.UltraLight,
+                        var ulight when ulight.SequenceEqual("ultra-light") =>
+                            FontWeight.UltraLight,
                         var light when light.SequenceEqual("light") => FontWeight.Light,
                         var slight when slight.SequenceEqual("semi-light") => FontWeight.SemiLight,
                         var reg when reg.SequenceEqual("regular") => FontWeight.Regular,
@@ -391,7 +438,8 @@ public static class FormattedTextParser
                         var b when b.SequenceEqual("b") => FontWeight.Bold,
                         var ubold when ubold.SequenceEqual("ultra-bold") => FontWeight.UltraBold,
                         var black when black.SequenceEqual("black") => FontWeight.Black,
-                        var ublack when ublack.SequenceEqual("ultra-black") => FontWeight.UltraBlack,
+                        var ublack when ublack.SequenceEqual("ultra-black") =>
+                            FontWeight.UltraBlack,
                         _ => (FontWeight)(-1),
                     };
 
@@ -441,13 +489,17 @@ public static class FormattedTextParser
             {
                 span = span[..^1];
             }
-            if (span.StartsWith("\"", StringComparison.Ordinal) ||
-                span.StartsWith("\'", StringComparison.Ordinal))
+            if (
+                span.StartsWith("\"", StringComparison.Ordinal)
+                || span.StartsWith("\'", StringComparison.Ordinal)
+            )
             {
                 span = span[1..];
             }
-            if (span.EndsWith("\"", StringComparison.Ordinal) ||
-               span.EndsWith("\'", StringComparison.Ordinal))
+            if (
+                span.EndsWith("\"", StringComparison.Ordinal)
+                || span.EndsWith("\'", StringComparison.Ordinal)
+            )
             {
                 span = span[..^1];
             }
@@ -470,6 +522,6 @@ public static class FormattedTextParser
         FontStyle,
         FontStyleItalic,
         NoParse,
-        SingleLine
+        SingleLine,
     }
 }

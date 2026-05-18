@@ -108,7 +108,10 @@ public class KeySplineTests
     [Test]
     public void TryParse_NullProvider_StillSucceeds()
     {
-        Assert.That(KeySpline.TryParse("0.5,0.0,0.5,1.0".AsSpan(), out var ks, provider: null), Is.True);
+        Assert.That(
+            KeySpline.TryParse("0.5,0.0,0.5,1.0".AsSpan(), out var ks, provider: null),
+            Is.True
+        );
         Assert.That(ks!.ControlPointX1, Is.EqualTo(0.5f));
     }
 

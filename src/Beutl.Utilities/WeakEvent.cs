@@ -2,7 +2,9 @@
 
 namespace Beutl.Utilities;
 
-public class WeakEvent<TSender, TEventArgs> : WeakEvent where TEventArgs : EventArgs where TSender : class
+public class WeakEvent<TSender, TEventArgs> : WeakEvent
+    where TEventArgs : EventArgs
+    where TSender : class
 {
     private readonly Func<TSender, EventHandler<TEventArgs>, Action> _subscribe;
 
@@ -10,7 +12,8 @@ public class WeakEvent<TSender, TEventArgs> : WeakEvent where TEventArgs : Event
 
     internal WeakEvent(
         Action<TSender, EventHandler<TEventArgs>> subscribe,
-        Action<TSender, EventHandler<TEventArgs>> unsubscribe)
+        Action<TSender, EventHandler<TEventArgs>> unsubscribe
+    )
     {
         _subscribe = (t, s) =>
         {
@@ -26,7 +29,12 @@ public class WeakEvent<TSender, TEventArgs> : WeakEvent where TEventArgs : Event
 
     public void Subscribe(TSender target, IWeakEventSubscriber<TEventArgs> subscriber)
     {
-        if (!_subscriptions.TryGetValue(target, out WeakEvent<TSender, TEventArgs>.Subscription? subscription))
+        if (
+            !_subscriptions.TryGetValue(
+                target,
+                out WeakEvent<TSender, TEventArgs>.Subscription? subscription
+            )
+        )
         {
             _subscriptions.Add(target, subscription = new Subscription(this, target));
         }
@@ -36,7 +44,12 @@ public class WeakEvent<TSender, TEventArgs> : WeakEvent where TEventArgs : Event
 
     public void Unsubscribe(TSender target, IWeakEventSubscriber<TEventArgs> subscriber)
     {
-        if (_subscriptions.TryGetValue(target, out WeakEvent<TSender, TEventArgs>.Subscription? subscription))
+        if (
+            _subscriptions.TryGetValue(
+                target,
+                out WeakEvent<TSender, TEventArgs>.Subscription? subscription
+            )
+        )
         {
             subscription.Remove(subscriber);
         }
@@ -47,8 +60,9 @@ public class WeakEvent<TSender, TEventArgs> : WeakEvent where TEventArgs : Event
         private readonly WeakEvent<TSender, TEventArgs> _ev;
         private readonly TSender _target;
 
-        private WeakReference<IWeakEventSubscriber<TEventArgs>>?[] _data =
-            new WeakReference<IWeakEventSubscriber<TEventArgs>>[16];
+        private WeakReference<IWeakEventSubscriber<TEventArgs>>?[] _data = new WeakReference<
+            IWeakEventSubscriber<TEventArgs>
+        >[16];
         private int _count;
         private readonly Action _unsubscribe;
         private bool _compactScheduled;
@@ -71,7 +85,9 @@ public class WeakEvent<TSender, TEventArgs> : WeakEvent where TEventArgs : Event
             if (_count == _data.Length)
             {
                 //Extend capacity
-                var extendedData = new WeakReference<IWeakEventSubscriber<TEventArgs>>?[_data.Length * 2];
+                var extendedData = new WeakReference<IWeakEventSubscriber<TEventArgs>>?[
+                    _data.Length * 2
+                ];
                 Array.Copy(_data, extendedData, _data.Length);
                 _data = extendedData;
             }
@@ -86,9 +102,11 @@ public class WeakEvent<TSender, TEventArgs> : WeakEvent where TEventArgs : Event
 
             for (int c = 0; c < _count; ++c)
             {
-                if (_data[c] is WeakReference<IWeakEventSubscriber<TEventArgs>> reference &&
-                    reference.TryGetTarget(out IWeakEventSubscriber<TEventArgs>? instance) &&
-                    instance == s)
+                if (
+                    _data[c] is WeakReference<IWeakEventSubscriber<TEventArgs>> reference
+                    && reference.TryGetTarget(out IWeakEventSubscriber<TEventArgs>? instance)
+                    && instance == s
+                )
                 {
                     _data[c] = null;
                     removed = true;
@@ -149,33 +167,42 @@ public class WeakEvent<TSender, TEventArgs> : WeakEvent where TEventArgs : Event
                 ScheduleCompact();
         }
     }
-
 }
 
 public class WeakEvent
 {
     public static WeakEvent<TSender, TEventArgs> Register<TSender, TEventArgs>(
         Action<TSender, EventHandler<TEventArgs>> subscribe,
-        Action<TSender, EventHandler<TEventArgs>> unsubscribe) where TSender : class where TEventArgs : EventArgs
+        Action<TSender, EventHandler<TEventArgs>> unsubscribe
+    )
+        where TSender : class
+        where TEventArgs : EventArgs
     {
         return new WeakEvent<TSender, TEventArgs>(subscribe, unsubscribe);
     }
 
     public static WeakEvent<TSender, TEventArgs> Register<TSender, TEventArgs>(
-        Func<TSender, EventHandler<TEventArgs>, Action> subscribe) where TSender : class where TEventArgs : EventArgs
+        Func<TSender, EventHandler<TEventArgs>, Action> subscribe
+    )
+        where TSender : class
+        where TEventArgs : EventArgs
     {
         return new WeakEvent<TSender, TEventArgs>(subscribe);
     }
 
     public static WeakEvent<TSender, EventArgs> Register<TSender>(
         Action<TSender, EventHandler> subscribe,
-        Action<TSender, EventHandler> unsubscribe) where TSender : class
+        Action<TSender, EventHandler> unsubscribe
+    )
+        where TSender : class
     {
-        return Register<TSender, EventArgs>((s, h) =>
-        {
-            void handler(object? _, EventArgs e) => h(s, e);
-            subscribe(s, handler);
-            return () => unsubscribe(s, handler);
-        });
+        return Register<TSender, EventArgs>(
+            (s, h) =>
+            {
+                void handler(object? _, EventArgs e) => h(s, e);
+                subscribe(s, handler);
+                return () => unsubscribe(s, handler);
+            }
+        );
     }
 }

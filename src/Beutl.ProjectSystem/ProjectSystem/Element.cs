@@ -151,7 +151,10 @@ public class Element : Hierarchical, INotifyEdited
     {
         foreach (EngineObject item in _objects)
         {
-            if (item is IOriginalDurationProvider provider && provider.TryGetOriginalDuration(out timeSpan))
+            if (
+                item is IOriginalDurationProvider provider
+                && provider.TryGetOriginalDuration(out timeSpan)
+            )
                 return true;
         }
 
@@ -186,9 +189,11 @@ public class Element : Hierarchical, INotifyEdited
     {
         foreach (EngineObject obj in _objects)
         {
-            if (!obj.IsEnabled) continue;
+            if (!obj.IsEnabled)
+                continue;
             CompositionTarget t = obj.GetCompositionTarget();
-            if (t != CompositionTarget.Unknown && t != target) continue;
+            if (t != CompositionTarget.Unknown && t != target)
+                continue;
             objects.Add(obj);
         }
     }
@@ -203,11 +208,17 @@ public class Element : Hierarchical, INotifyEdited
             {
                 if (e.Property == StartProperty)
                 {
-                    return new TimeRange(((CorePropertyChangedEventArgs<TimeSpan>)args).OldValue, Length);
+                    return new TimeRange(
+                        ((CorePropertyChangedEventArgs<TimeSpan>)args).OldValue,
+                        Length
+                    );
                 }
                 else if (e.Property == LengthProperty)
                 {
-                    return new TimeRange(Start, ((CorePropertyChangedEventArgs<TimeSpan>)args).OldValue);
+                    return new TimeRange(
+                        Start,
+                        ((CorePropertyChangedEventArgs<TimeSpan>)args).OldValue
+                    );
                 }
                 else
                 {
@@ -225,10 +236,10 @@ public class Element : Hierarchical, INotifyEdited
                 }
 
                 TimeRange oldRange = GetOldRange();
-                Edited?.Invoke(this, new ElementEditedEventArgs
-                {
-                    AffectedRange = [newRange, oldRange]
-                });
+                Edited?.Invoke(
+                    this,
+                    new ElementEditedEventArgs { AffectedRange = [newRange, oldRange] }
+                );
             }
             else if (e.Property == ZIndexProperty)
             {
@@ -316,7 +327,11 @@ public class Element : Hierarchical, INotifyEdited
         return null;
     }
 
-    internal (Element? Before, Element? After, Element? Cover) GetBeforeAndAfterAndCover(int zindex, TimeSpan start, TimeSpan end)
+    internal (Element? Before, Element? After, Element? Cover) GetBeforeAndAfterAndCover(
+        int zindex,
+        TimeSpan start,
+        TimeSpan end
+    )
     {
         if (HierarchicalParent is Scene scene)
         {
@@ -329,14 +344,15 @@ public class Element : Hierarchical, INotifyEdited
             {
                 if (item != this && item.ZIndex == zindex)
                 {
-                    if (item.Start < start
-                        && (beforeTmp == null || beforeTmp.Start <= item.Start))
+                    if (item.Start < start && (beforeTmp == null || beforeTmp.Start <= item.Start))
                     {
                         beforeTmp = item;
                     }
 
-                    if (item.Range.End > end
-                        && (afterTmp == null || afterTmp.Range.End >= item.Range.End))
+                    if (
+                        item.Range.End > end
+                        && (afterTmp == null || afterTmp.Range.End >= item.Range.End)
+                    )
                     {
                         afterTmp = item;
                     }
@@ -353,7 +369,11 @@ public class Element : Hierarchical, INotifyEdited
         return (null, null, null);
     }
 
-    internal (Element? Before, Element? After, Element? Cover) GetBeforeAndAfterAndCover(int zindex, TimeSpan start, Element[] excludes)
+    internal (Element? Before, Element? After, Element? Cover) GetBeforeAndAfterAndCover(
+        int zindex,
+        TimeSpan start,
+        Element[] excludes
+    )
     {
         if (HierarchicalParent is Scene scene)
         {
@@ -366,14 +386,15 @@ public class Element : Hierarchical, INotifyEdited
             {
                 if (item != this && item.ZIndex == zindex)
                 {
-                    if (item.Start < start
-                        && (beforeTmp == null || beforeTmp.Start <= item.Start))
+                    if (item.Start < start && (beforeTmp == null || beforeTmp.Start <= item.Start))
                     {
                         beforeTmp = item;
                     }
 
-                    if (item.Range.End > range.End
-                        && (afterTmp == null || afterTmp.Range.End >= item.Range.End))
+                    if (
+                        item.Range.End > range.End
+                        && (afterTmp == null || afterTmp.Range.End >= item.Range.End)
+                    )
                     {
                         afterTmp = item;
                     }

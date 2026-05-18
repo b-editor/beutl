@@ -124,8 +124,19 @@ public class CounterTests
     {
         var order = new List<string>();
         var fake = new Fake();
-        fake.OnDispose = () => { lock (order) order.Add("dispose"); };
-        var counter = new Counter<Fake>(fake, () => { lock (order) order.Add("onRelease"); });
+        fake.OnDispose = () =>
+        {
+            lock (order)
+                order.Add("dispose");
+        };
+        var counter = new Counter<Fake>(
+            fake,
+            () =>
+            {
+                lock (order)
+                    order.Add("onRelease");
+            }
+        );
 
         counter.Release();
 
@@ -141,14 +152,20 @@ public class CounterTests
         var fake = new Fake();
         var counter = new Counter<Fake>(fake, null);
 
-        await Task.WhenAll(Enumerable.Range(0, Threads).Select(_ => Task.Run(() =>
-        {
-            for (int i = 0; i < Iterations; i++)
-            {
-                counter.AddRef();
-                counter.Release();
-            }
-        })));
+        await Task.WhenAll(
+            Enumerable
+                .Range(0, Threads)
+                .Select(_ =>
+                    Task.Run(() =>
+                    {
+                        for (int i = 0; i < Iterations; i++)
+                        {
+                            counter.AddRef();
+                            counter.Release();
+                        }
+                    })
+                )
+        );
 
         Assert.That(counter.RefCount, Is.EqualTo(1));
         Assert.That(fake.DisposeCount, Is.EqualTo(0));
@@ -219,8 +236,16 @@ public class CounterTests
 
             Task.WaitAll(consumer, releaser);
 
-            Assert.That(observedDisposed, Is.Zero, $"Trial {trial}: TryAddRef succeeded but observed disposed value");
-            Assert.That(fake.DisposeCount, Is.EqualTo(1), $"Trial {trial}: value not disposed exactly once");
+            Assert.That(
+                observedDisposed,
+                Is.Zero,
+                $"Trial {trial}: TryAddRef succeeded but observed disposed value"
+            );
+            Assert.That(
+                fake.DisposeCount,
+                Is.EqualTo(1),
+                $"Trial {trial}: value not disposed exactly once"
+            );
             totalTryAddRefSuccesses += tryAddRefSuccesses;
         }
 
@@ -229,7 +254,10 @@ public class CounterTests
         // Release lands. Require at least Trials/2 successful hits across
         // 200 trials: large enough to fail if the race window collapses,
         // small enough to stay reliable under noisy CI schedulers.
-        Assert.That(totalTryAddRefSuccesses, Is.GreaterThan(Trials / 2),
-            $"Race window collapsed: only {totalTryAddRefSuccesses} TryAddRef hits across {Trials} trials");
+        Assert.That(
+            totalTryAddRefSuccesses,
+            Is.GreaterThan(Trials / 2),
+            $"Race window collapsed: only {totalTryAddRefSuccesses} TryAddRef hits across {Trials} trials"
+        );
     }
 }

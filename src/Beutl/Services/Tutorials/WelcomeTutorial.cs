@@ -27,7 +27,10 @@ public static class WelcomeTutorial
                     Id = "welcome-menubar",
                     Title = TutorialStrings.Tutorial_Welcome_MenuBar_Title,
                     Content = TutorialStrings.Tutorial_Welcome_MenuBar_Content,
-                    TargetElements = [new TargetElementDefinition { ElementName = "MenuBar", IsPrimary = true }],
+                    TargetElements =
+                    [
+                        new TargetElementDefinition { ElementName = "MenuBar", IsPrimary = true },
+                    ],
                     PreferredPlacement = TutorialStepPlacement.Bottom,
                 },
                 new TutorialStep
@@ -35,10 +38,17 @@ public static class WelcomeTutorial
                     Id = "welcome-create",
                     Title = TutorialStrings.Tutorial_Welcome_Create_Title,
                     Content = TutorialStrings.Tutorial_Welcome_Create_Content,
-                    TargetElements = [new TargetElementDefinition { ElementName = "createNewButton", IsPrimary = true }],
+                    TargetElements =
+                    [
+                        new TargetElementDefinition
+                        {
+                            ElementName = "createNewButton",
+                            IsPrimary = true,
+                        },
+                    ],
                     PreferredPlacement = TutorialStepPlacement.Bottom,
                 },
-            ]
+            ],
         };
     }
 }

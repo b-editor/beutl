@@ -31,9 +31,12 @@ public sealed class HistoryManager : IDisposable
     public HistoryManager(CoreObject root, OperationSequenceGenerator sequenceGenerator)
     {
         Root = root ?? throw new ArgumentNullException(nameof(root));
-        _sequenceGenerator = sequenceGenerator ?? throw new ArgumentNullException(nameof(sequenceGenerator));
+        _sequenceGenerator =
+            sequenceGenerator ?? throw new ArgumentNullException(nameof(sequenceGenerator));
         _context = new OperationExecutionContext(root);
-        _currentTransaction = new HistoryTransaction(Interlocked.Increment(ref _transactionIdCounter));
+        _currentTransaction = new HistoryTransaction(
+            Interlocked.Increment(ref _transactionIdCounter)
+        );
         _entries.Add(HistoryEntry.CreateInitial());
         _readOnlyEntries = new ReadOnlyObservableCollection<HistoryEntry>(_entries);
     }
@@ -84,8 +87,11 @@ public sealed class HistoryManager : IDisposable
     /// A tuple containing the unsubscribe disposable, the initial snapshot,
     /// and the current index captured atomically with the snapshot.
     /// </returns>
-    public (IDisposable Subscription, HistoryEntry[] InitialSnapshot, int InitialCurrentIndex) SubscribeEntries(
-        NotifyCollectionChangedEventHandler handler)
+    public (
+        IDisposable Subscription,
+        HistoryEntry[] InitialSnapshot,
+        int InitialCurrentIndex
+    ) SubscribeEntries(NotifyCollectionChangedEventHandler handler)
     {
         ThrowIfDisposed();
         ArgumentNullException.ThrowIfNull(handler);
@@ -113,7 +119,10 @@ public sealed class HistoryManager : IDisposable
         return (subscription, snapshot, currentIndex);
     }
 
-    public void Commit(string? name = null, [CallerArgumentExpression(nameof(name))] string? expression = null)
+    public void Commit(
+        string? name = null,
+        [CallerArgumentExpression(nameof(name))] string? expression = null
+    )
     {
         ThrowIfDisposed();
 
@@ -123,14 +132,20 @@ public sealed class HistoryManager : IDisposable
             {
                 _currentTransaction.Name = expression;
                 _currentTransaction.DisplayName = name;
-                _logger.LogDebug("Committing transaction: {TransactionName} (ID: {TransactionId}, Operations: {OperationCount})",
-                    expression, _currentTransaction.Id, _currentTransaction.OperationCount);
+                _logger.LogDebug(
+                    "Committing transaction: {TransactionName} (ID: {TransactionId}, Operations: {OperationCount})",
+                    expression,
+                    _currentTransaction.Id,
+                    _currentTransaction.OperationCount
+                );
                 int currentEntryIndex = _undoStack.Count;
                 _undoStack.Push(_currentTransaction);
                 _redoStack.Clear();
                 TruncateEntriesAfter(currentEntryIndex);
                 _entries.Add(HistoryEntry.FromTransaction(_currentTransaction));
-                _currentTransaction = new HistoryTransaction(Interlocked.Increment(ref _transactionIdCounter));
+                _currentTransaction = new HistoryTransaction(
+                    Interlocked.Increment(ref _transactionIdCounter)
+                );
             }
             else
             {
@@ -149,15 +164,20 @@ public sealed class HistoryManager : IDisposable
         {
             if (_currentTransaction.HasOperations)
             {
-                _logger.LogDebug("Rolling back current transaction (ID: {TransactionId}, Operations: {OperationCount})",
-                    _currentTransaction.Id, _currentTransaction.OperationCount);
+                _logger.LogDebug(
+                    "Rolling back current transaction (ID: {TransactionId}, Operations: {OperationCount})",
+                    _currentTransaction.Id,
+                    _currentTransaction.OperationCount
+                );
                 using (SuppressRecording())
                 {
                     _currentTransaction.Revert(_context);
                 }
             }
 
-            _currentTransaction = new HistoryTransaction(Interlocked.Increment(ref _transactionIdCounter));
+            _currentTransaction = new HistoryTransaction(
+                Interlocked.Increment(ref _transactionIdCounter)
+            );
         }
     }
 
@@ -170,7 +190,10 @@ public sealed class HistoryManager : IDisposable
         {
             if (RecordingSuppression.IsSuppressed)
             {
-                _logger.LogDebug("Recording suppressed, ignoring operation: {OperationType}", operation.GetType().Name);
+                _logger.LogDebug(
+                    "Recording suppressed, ignoring operation: {OperationType}",
+                    operation.GetType().Name
+                );
                 return;
             }
 
@@ -195,7 +218,11 @@ public sealed class HistoryManager : IDisposable
             }
 
             HistoryTransaction transaction = _undoStack.Pop();
-            _logger.LogDebug("Undoing transaction: {TransactionName} (ID: {TransactionId})", transaction.Name, transaction.Id);
+            _logger.LogDebug(
+                "Undoing transaction: {TransactionName} (ID: {TransactionId})",
+                transaction.Name,
+                transaction.Id
+            );
 
             using (SuppressRecording())
             {
@@ -226,7 +253,11 @@ public sealed class HistoryManager : IDisposable
             }
 
             HistoryTransaction transaction = _redoStack.Pop();
-            _logger.LogDebug("Redoing transaction: {TransactionName} (ID: {TransactionId})", transaction.Name, transaction.Id);
+            _logger.LogDebug(
+                "Redoing transaction: {TransactionName} (ID: {TransactionId})",
+                transaction.Name,
+                transaction.Id
+            );
 
             using (SuppressRecording())
             {
@@ -270,7 +301,11 @@ public sealed class HistoryManager : IDisposable
                 }
             }
 
-            _logger.LogDebug("Cleared history stacks (Undo: {UndoCount}, Redo: {RedoCount})", undoCount, redoCount);
+            _logger.LogDebug(
+                "Cleared history stacks (Undo: {UndoCount}, Redo: {RedoCount})",
+                undoCount,
+                redoCount
+            );
         }
 
         NotifyStateChanged();
@@ -292,8 +327,11 @@ public sealed class HistoryManager : IDisposable
             {
                 if (index < 0 || index >= _entries.Count)
                 {
-                    _logger.LogDebug("JumpTo requested with out-of-range index: {Index} (Entries: {EntryCount})",
-                        index, _entries.Count);
+                    _logger.LogDebug(
+                        "JumpTo requested with out-of-range index: {Index} (Entries: {EntryCount})",
+                        index,
+                        _entries.Count
+                    );
                     return false;
                 }
 
@@ -311,7 +349,9 @@ public sealed class HistoryManager : IDisposable
                     }
                     finally
                     {
-                        _currentTransaction = new HistoryTransaction(Interlocked.Increment(ref _transactionIdCounter));
+                        _currentTransaction = new HistoryTransaction(
+                            Interlocked.Increment(ref _transactionIdCounter)
+                        );
                         stateMutated = true;
                     }
                 }
@@ -324,7 +364,11 @@ public sealed class HistoryManager : IDisposable
                     while (_undoStack.Count > index)
                     {
                         HistoryTransaction transaction = _undoStack.Peek();
-                        _logger.LogDebug("JumpTo undoing transaction: {TransactionName} (ID: {TransactionId})", transaction.Name, transaction.Id);
+                        _logger.LogDebug(
+                            "JumpTo undoing transaction: {TransactionName} (ID: {TransactionId})",
+                            transaction.Name,
+                            transaction.Id
+                        );
                         using (SuppressRecording())
                         {
                             transaction.Revert(_context);
@@ -338,7 +382,11 @@ public sealed class HistoryManager : IDisposable
                     while (_undoStack.Count < index && _redoStack.Count > 0)
                     {
                         HistoryTransaction transaction = _redoStack.Peek();
-                        _logger.LogDebug("JumpTo redoing transaction: {TransactionName} (ID: {TransactionId})", transaction.Name, transaction.Id);
+                        _logger.LogDebug(
+                            "JumpTo redoing transaction: {TransactionName} (ID: {TransactionId})",
+                            transaction.Name,
+                            transaction.Id
+                        );
                         using (SuppressRecording())
                         {
                             transaction.Apply(_context);
@@ -351,8 +399,13 @@ public sealed class HistoryManager : IDisposable
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogError(ex, "JumpTo failed at undo={UndoCount}, redo={RedoCount}, target={Target}; history is in a partial state",
-                        _undoStack.Count, _redoStack.Count, index);
+                    _logger.LogError(
+                        ex,
+                        "JumpTo failed at undo={UndoCount}, redo={RedoCount}, target={Target}; history is in a partial state",
+                        _undoStack.Count,
+                        _redoStack.Count,
+                        index
+                    );
                     failure = ex;
                 }
 
@@ -363,9 +416,13 @@ public sealed class HistoryManager : IDisposable
                 {
                     _logger.LogError(
                         "JumpTo could not reach target index {Target} (undo={UndoCount}, redo={RedoCount}); stacks are out of sync with entries",
-                        index, _undoStack.Count, _redoStack.Count);
+                        index,
+                        _undoStack.Count,
+                        _redoStack.Count
+                    );
                     failure = new InvalidOperationException(
-                        $"JumpTo could not reach target index {index} (undo={_undoStack.Count}, redo={_redoStack.Count}).");
+                        $"JumpTo could not reach target index {index} (undo={_undoStack.Count}, redo={_redoStack.Count})."
+                    );
                 }
             }
         }
@@ -405,7 +462,11 @@ public sealed class HistoryManager : IDisposable
         return subscription;
     }
 
-    public void ExecuteInTransaction(Action action, string? name = null, [CallerArgumentExpression(nameof(name))] string? expression = null)
+    public void ExecuteInTransaction(
+        Action action,
+        string? name = null,
+        [CallerArgumentExpression(nameof(name))] string? expression = null
+    )
     {
         ThrowIfDisposed();
         ArgumentNullException.ThrowIfNull(action);
@@ -446,20 +507,32 @@ public sealed class HistoryManager : IDisposable
         ArgumentNullException.ThrowIfNull(doAction);
         ArgumentNullException.ThrowIfNull(undoAction);
 
-        var operation = CustomOperation.Create(doAction, undoAction, _sequenceGenerator, description);
+        var operation = CustomOperation.Create(
+            doAction,
+            undoAction,
+            _sequenceGenerator,
+            description
+        );
         Record(operation);
     }
 
     public RecordingScope<TState> BeginRecordingScope<TState>(
         Func<TState> captureState,
         Action<TState> applyState,
-        string? description = null)
+        string? description = null
+    )
     {
         ThrowIfDisposed();
         ArgumentNullException.ThrowIfNull(captureState);
         ArgumentNullException.ThrowIfNull(applyState);
 
-        return new RecordingScope<TState>(this, captureState, applyState, _sequenceGenerator, description);
+        return new RecordingScope<TState>(
+            this,
+            captureState,
+            applyState,
+            _sequenceGenerator,
+            description
+        );
     }
 
     private void NotifyStateChanged()
@@ -478,7 +551,10 @@ public sealed class HistoryManager : IDisposable
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "BeforeMutation subscriber threw; continuing with the pending Undo/Redo.");
+            _logger.LogError(
+                ex,
+                "BeforeMutation subscriber threw; continuing with the pending Undo/Redo."
+            );
         }
     }
 
@@ -516,4 +592,9 @@ public sealed class HistoryManager : IDisposable
     }
 }
 
-public readonly record struct HistoryState(bool CanUndo, bool CanRedo, int UndoCount, int RedoCount);
+public readonly record struct HistoryState(
+    bool CanUndo,
+    bool CanRedo,
+    int UndoCount,
+    int RedoCount
+);

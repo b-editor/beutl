@@ -25,35 +25,50 @@ public sealed partial class GradientStopsEditor : UserControl
 
     private void OnSliderAdded(object? sender, (int Index, AM.GradientStop Object) e)
     {
-        if (DataContext is not GradientStopsEditorViewModel { IsDisposed: false } viewModel) return;
+        if (DataContext is not GradientStopsEditorViewModel { IsDisposed: false } viewModel)
+            return;
 
         viewModel.InsertGradientStop(e.Index, e.Object.ToBtlGradientStop());
     }
 
     private void OnSliderDeleted(object? sender, (int Index, AM.GradientStop Object) e)
     {
-        if (DataContext is not GradientStopsEditorViewModel { IsDisposed: false } viewModel) return;
+        if (DataContext is not GradientStopsEditorViewModel { IsDisposed: false } viewModel)
+            return;
 
         viewModel.RemoveGradientStop(e.Index);
     }
 
     private void OnSliderConfirmed(
         object? sender,
-        (int OldIndex, int NewIndex, AM.GradientStop Object, ImmutableGradientStop OldObject) e)
+        (int OldIndex, int NewIndex, AM.GradientStop Object, ImmutableGradientStop OldObject) e
+    )
     {
-        if (DataContext is not GradientStopsEditorViewModel { Value.Value: { } list } viewModel) return;
-        if (viewModel.IsDisposed) return;
+        if (DataContext is not GradientStopsEditorViewModel { Value.Value: { } list } viewModel)
+            return;
+        if (viewModel.IsDisposed)
+            return;
 
         if (e.NewIndex != e.OldIndex)
             list.Move(e.NewIndex, e.OldIndex);
         GradientStop obj = list[e.OldIndex];
-        viewModel.ConfirmeGradientStop(e.OldIndex, e.NewIndex, e.OldObject.ToBtlImmutableGradientStop(), obj);
+        viewModel.ConfirmeGradientStop(
+            e.OldIndex,
+            e.NewIndex,
+            e.OldObject.ToBtlImmutableGradientStop(),
+            obj
+        );
     }
 
-    private void OnSliderChanged(object? sender, (int OldIndex, int NewIndex, AM.GradientStop Object) e)
+    private void OnSliderChanged(
+        object? sender,
+        (int OldIndex, int NewIndex, AM.GradientStop Object) e
+    )
     {
-        if (DataContext is not GradientStopsEditorViewModel { Value.Value: { } list } viewModel) return;
-        if (viewModel.IsDisposed) return;
+        if (DataContext is not GradientStopsEditorViewModel { Value.Value: { } list } viewModel)
+            return;
+        if (viewModel.IsDisposed)
+            return;
 
         GradientStop obj = list[e.OldIndex];
         obj.Offset.CurrentValue = (float)e.Object.Offset;
@@ -64,32 +79,41 @@ public sealed partial class GradientStopsEditor : UserControl
 
     private void Delete_Click(object? sender, RoutedEventArgs e)
     {
-        if (DataContext is GradientStopsEditorViewModel viewModel
-            && viewModel.SelectedItem.Value is AM.GradientStop astop)
+        if (
+            DataContext is GradientStopsEditorViewModel viewModel
+            && viewModel.SelectedItem.Value is AM.GradientStop astop
+        )
         {
             int index = viewModel.Stops.Value.IndexOf(astop);
             viewModel.RemoveGradientStop(index);
         }
     }
 
-    private void ColorPicker_FlyoutConfirmed(ColorPickerButton sender, ColorButtonColorChangedEventArgs args)
+    private void ColorPicker_FlyoutConfirmed(
+        ColorPickerButton sender,
+        ColorButtonColorChangedEventArgs args
+    )
     {
-        if (DataContext is GradientStopsEditorViewModel viewModel
+        if (
+            DataContext is GradientStopsEditorViewModel viewModel
             && viewModel.SelectedItem.Value is AM.GradientStop astop
             && args.NewColor.HasValue
-            && args.OldColor.HasValue)
+            && args.OldColor.HasValue
+        )
         {
             int index = viewModel.Stops.Value.IndexOf(astop);
             var bstop = viewModel.Value.Value[index];
             bstop.Color.CurrentValue = args.NewColor.Value.ToBtlColor();
             viewModel.ConfirmeGradientStop(
-                index, index,
+                index,
+                index,
                 new GradientStop.Resource
                 {
                     Offset = bstop.Offset.CurrentValue,
-                    Color = args.OldColor.Value.ToBtlColor()
+                    Color = args.OldColor.Value.ToBtlColor(),
                 },
-                bstop);
+                bstop
+            );
         }
     }
 }

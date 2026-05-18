@@ -36,8 +36,17 @@ public partial class KeyMapSettingsPage : UserControl
 
     private void OnButtonKeyDown(object? sender, KeyEventArgs e)
     {
-        if (e.Key is Key.LeftAlt or Key.RightAlt or Key.LeftShift or Key.RightShift or Key.LeftCtrl
-            or Key.RightCtrl or Key.LWin or Key.RWin)
+        if (
+            e.Key
+            is Key.LeftAlt
+                or Key.RightAlt
+                or Key.LeftShift
+                or Key.RightShift
+                or Key.LeftCtrl
+                or Key.RightCtrl
+                or Key.LWin
+                or Key.RWin
+        )
         {
             return;
         }
@@ -48,8 +57,10 @@ public partial class KeyMapSettingsPage : UserControl
 
 public sealed class KeyMapFlyout : PickerFlyoutBase
 {
-    public static readonly StyledProperty<KeyGesture?> GestureProperty =
-        AvaloniaProperty.Register<KeyMapFlyout, KeyGesture?>(nameof(Gesture));
+    public static readonly StyledProperty<KeyGesture?> GestureProperty = AvaloniaProperty.Register<
+        KeyMapFlyout,
+        KeyGesture?
+    >(nameof(Gesture));
 
     public KeyGesture? Gesture
     {
@@ -64,19 +75,23 @@ public sealed class KeyMapFlyout : PickerFlyoutBase
         var pfp = new PickerFlyoutPresenter();
         pfp.Padding = new Thickness(8);
         var textBox = new TextBox();
-        textBox.Bind(TextBox.TextProperty, this.GetObservable(GestureProperty)
-            .Select(i => i?.ToString() ?? "(None)"));
+        textBox.Bind(
+            TextBox.TextProperty,
+            this.GetObservable(GestureProperty).Select(i => i?.ToString() ?? "(None)")
+        );
         textBox.IsReadOnly = true;
         var deleteButton = new Button
         {
             Content = new SymbolIcon { Symbol = Symbol.Delete },
             Theme = Application.Current?.FindResource("TransparentButton") as ControlTheme,
-            Margin = new(4, 0, 0, 0)
+            Margin = new(4, 0, 0, 0),
         };
         Grid.SetColumn(deleteButton, 1);
         deleteButton.Click += (_, _) => Gesture = null;
         var grid = new Grid();
-        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        grid.ColumnDefinitions.Add(
+            new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) }
+        );
         grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         grid.Children.Add(textBox);
         grid.Children.Add(deleteButton);
@@ -91,8 +106,17 @@ public sealed class KeyMapFlyout : PickerFlyoutBase
             }
             else
             {
-                if (e.Key is Key.LeftAlt or Key.RightAlt or Key.LeftShift or Key.RightShift or Key.LeftCtrl
-                    or Key.RightCtrl or Key.LWin or Key.RWin)
+                if (
+                    e.Key
+                    is Key.LeftAlt
+                        or Key.RightAlt
+                        or Key.LeftShift
+                        or Key.RightShift
+                        or Key.LeftCtrl
+                        or Key.RightCtrl
+                        or Key.LWin
+                        or Key.RWin
+                )
                 {
                     return;
                 }

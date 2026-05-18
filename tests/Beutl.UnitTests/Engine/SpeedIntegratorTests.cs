@@ -10,18 +10,22 @@ public class SpeedIntegratorTests
     private static KeyFrameAnimation<float> ConstantSpeed(float value)
     {
         var animation = new KeyFrameAnimation<float>();
-        animation.KeyFrames.Add(new KeyFrame<float>
-        {
-            KeyTime = TimeSpan.Zero,
-            Value = value,
-            Easing = new LinearEasing()
-        });
-        animation.KeyFrames.Add(new KeyFrame<float>
-        {
-            KeyTime = TimeSpan.FromSeconds(10),
-            Value = value,
-            Easing = new LinearEasing()
-        });
+        animation.KeyFrames.Add(
+            new KeyFrame<float>
+            {
+                KeyTime = TimeSpan.Zero,
+                Value = value,
+                Easing = new LinearEasing(),
+            }
+        );
+        animation.KeyFrames.Add(
+            new KeyFrame<float>
+            {
+                KeyTime = TimeSpan.FromSeconds(10),
+                Value = value,
+                Easing = new LinearEasing(),
+            }
+        );
         return animation;
     }
 

@@ -20,12 +20,14 @@ internal static class FFmpegWorkerCodecCache
     public static IReadOnlyList<object> GetVideoCodecs()
     {
         var cached = _videoCodecs;
-        if (cached != null) return cached;
+        if (cached != null)
+            return cached;
 
         lock (s_lock)
         {
             cached = _videoCodecs;
-            if (cached != null) return cached;
+            if (cached != null)
+                return cached;
             return RefreshVideoCodecs();
         }
     }
@@ -33,12 +35,14 @@ internal static class FFmpegWorkerCodecCache
     public static IReadOnlyList<object> GetAudioCodecs()
     {
         var cached = _audioCodecs;
-        if (cached != null) return cached;
+        if (cached != null)
+            return cached;
 
         lock (s_lock)
         {
             cached = _audioCodecs;
-            if (cached != null) return cached;
+            if (cached != null)
+                return cached;
             return RefreshAudioCodecs();
         }
     }
@@ -47,12 +51,21 @@ internal static class FFmpegWorkerCodecCache
     {
         try
         {
-            var connection = FFmpegWorkerProcess.DecodingInstance.EnsureStartedAsync().GetAwaiter().GetResult();
-            var response = connection.RequestAsync<QueryCodecsRequest, QueryCodecsResponse>(
-                MessageType.QueryCodecs, MessageType.QueryCodecsResult,
-                new QueryCodecsRequest { MediaType = "video" }).AsTask().GetAwaiter().GetResult();
-            var result = response.Codecs
-                .Select(c => (object)new CodecRecord(c.Name, c.LongName))
+            var connection = FFmpegWorkerProcess
+                .DecodingInstance.EnsureStartedAsync()
+                .GetAwaiter()
+                .GetResult();
+            var response = connection
+                .RequestAsync<QueryCodecsRequest, QueryCodecsResponse>(
+                    MessageType.QueryCodecs,
+                    MessageType.QueryCodecsResult,
+                    new QueryCodecsRequest { MediaType = "video" }
+                )
+                .AsTask()
+                .GetAwaiter()
+                .GetResult();
+            var result = response
+                .Codecs.Select(c => (object)new CodecRecord(c.Name, c.LongName))
                 .Prepend(CodecRecord.Default)
                 .ToArray();
             _videoCodecs = result;
@@ -69,12 +82,21 @@ internal static class FFmpegWorkerCodecCache
     {
         try
         {
-            var connection = FFmpegWorkerProcess.DecodingInstance.EnsureStartedAsync().GetAwaiter().GetResult();
-            var response = connection.RequestAsync<QueryCodecsRequest, QueryCodecsResponse>(
-                MessageType.QueryCodecs, MessageType.QueryCodecsResult,
-                new QueryCodecsRequest { MediaType = "audio" }).AsTask().GetAwaiter().GetResult();
-            var result = response.Codecs
-                .Select(c => (object)new CodecRecord(c.Name, c.LongName))
+            var connection = FFmpegWorkerProcess
+                .DecodingInstance.EnsureStartedAsync()
+                .GetAwaiter()
+                .GetResult();
+            var response = connection
+                .RequestAsync<QueryCodecsRequest, QueryCodecsResponse>(
+                    MessageType.QueryCodecs,
+                    MessageType.QueryCodecsResult,
+                    new QueryCodecsRequest { MediaType = "audio" }
+                )
+                .AsTask()
+                .GetAwaiter()
+                .GetResult();
+            var result = response
+                .Codecs.Select(c => (object)new CodecRecord(c.Name, c.LongName))
                 .Prepend(CodecRecord.Default)
                 .ToArray();
             _audioCodecs = result;

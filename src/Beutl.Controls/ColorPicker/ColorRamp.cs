@@ -28,8 +28,7 @@ public partial class ColorRamp : ColorPickerComponent
     protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
     {
         base.OnPropertyChanged(change);
-        if (change.Property == BorderBrushProperty ||
-            change.Property == BorderThicknessProperty)
+        if (change.Property == BorderBrushProperty || change.Property == BorderThicknessProperty)
         {
             RecreateBorderPen();
             InvalidateVisual();
@@ -72,16 +71,22 @@ public partial class ColorRamp : ColorPickerComponent
             var hHgt = rect.Height - 2;
             var x = GetMarkerPosition(Component, rect.Width - hHgt, false);
             var y = 1;
-            context.DrawRectangle(GetLightness(Color) >= 0.5 ? BlackPen : WhitePen,
-                new Rect(x, y + 1, hHgt, hHgt), radius);
+            context.DrawRectangle(
+                GetLightness(Color) >= 0.5 ? BlackPen : WhitePen,
+                new Rect(x, y + 1, hHgt, hHgt),
+                radius
+            );
         }
         else
         {
             var hWid = rect.Width - 2;
             var y = GetMarkerPosition(Component, rect.Height - hWid, true);
             var x = 1;
-            context.DrawRectangle(GetLightness(Color) >= 0.5 ? BlackPen : WhitePen,
-                new Rect(x + 1, y, hWid, hWid), radius);
+            context.DrawRectangle(
+                GetLightness(Color) >= 0.5 ? BlackPen : WhitePen,
+                new Rect(x + 1, y, hWid, hWid),
+                radius
+            );
         }
     }
 
@@ -165,11 +170,13 @@ public partial class ColorRamp : ColorPickerComponent
                 _lgb.GradientStops.Clear();
                 for (int i = 0; i <= 360; i += 60)
                 {
-                    _lgb.GradientStops.Add(new GradientStop
-                    {
-                        Color = Color.WithHue(i).WithAlpha(255),
-                        Offset = i / 360.0
-                    });
+                    _lgb.GradientStops.Add(
+                        new GradientStop
+                        {
+                            Color = Color.WithHue(i).WithAlpha(255),
+                            Offset = i / 360.0,
+                        }
+                    );
                 }
             }
             else
@@ -179,7 +186,7 @@ public partial class ColorRamp : ColorPickerComponent
                     _lgb.GradientStops[idx] = new GradientStop
                     {
                         Color = Color.WithHue(i).WithAlpha(255),
-                        Offset = i / 360.0
+                        Offset = i / 360.0,
                     };
                 }
             }
@@ -245,7 +252,6 @@ public partial class ColorRamp : ColorPickerComponent
         }
     }
 
-
     private void SetComponentFromPosition(Point pt)
     {
         double perc = 0;
@@ -295,7 +301,7 @@ public partial class ColorRamp : ColorPickerComponent
         switch (Component)
         {
             case ColorComponent.Hue:
-                Color = Color.WithHue(Hue + (increment ? 1 : -1));// Color2.FromHSV(Hue + (increment ? 1 : -1), Color.Saturation, Color.Value);
+                Color = Color.WithHue(Hue + (increment ? 1 : -1)); // Color2.FromHSV(Hue + (increment ? 1 : -1), Color.Saturation, Color.Value);
                 break;
 
             case ColorComponent.Saturation:
@@ -332,7 +338,9 @@ public partial class ColorRamp : ColorPickerComponent
                 return vertical ? 1 + (1 - (Hue / 360f)) * length : 1 + (Hue / 360f) * length;
 
             case ColorComponent.Saturation:
-                return vertical ? 1 + (1 - Color.Saturationf) * length : 1 + Color.Saturationf * length;
+                return vertical
+                    ? 1 + (1 - Color.Saturationf) * length
+                    : 1 + Color.Saturationf * length;
 
             case ColorComponent.Value:
                 return vertical ? 1 + (1 - Color.Valuef) * length : 1 + Color.Valuef * length;
@@ -422,7 +430,6 @@ public partial class ColorRamp : ColorPickerComponent
         //return b.ToImmutable();
 
         ////_checkBrush = b;//.ToImmutable();
-
     }
 
     private static readonly IPen BlackPen = new ImmutablePen(Brushes.Black, 3);

@@ -53,7 +53,8 @@ public class SourceVideoSpeedTest
     {
         // Arrange
         _sourceVideo!.Speed.CurrentValue = 100f;
-        _sourceVideoResource = (SourceVideo.Resource)_sourceVideo.ToResource(CompositionContext.Default);
+        _sourceVideoResource = (SourceVideo.Resource)
+            _sourceVideo.ToResource(CompositionContext.Default);
 
         // 1秒時点でリソースを更新
         var context = new CompositionContext(TimeSpan.FromSeconds(1));
@@ -61,7 +62,10 @@ public class SourceVideoSpeedTest
         _sourceVideoResource.Update(_sourceVideo, context, ref updateOnly);
 
         // Assert: Speed=100なので、1秒の再生時刻 = 1秒の映像時刻
-        Assert.That(_sourceVideoResource.RequestedPosition.TotalSeconds, Is.EqualTo(1.0).Within(0.1));
+        Assert.That(
+            _sourceVideoResource.RequestedPosition.TotalSeconds,
+            Is.EqualTo(1.0).Within(0.1)
+        );
     }
 
     [Test]
@@ -69,7 +73,8 @@ public class SourceVideoSpeedTest
     {
         // Arrange
         _sourceVideo!.Speed.CurrentValue = 200f;
-        _sourceVideoResource = (SourceVideo.Resource)_sourceVideo.ToResource(CompositionContext.Default);
+        _sourceVideoResource = (SourceVideo.Resource)
+            _sourceVideo.ToResource(CompositionContext.Default);
 
         // 1秒時点でリソースを更新
         var context = new CompositionContext(TimeSpan.FromSeconds(1));
@@ -77,7 +82,10 @@ public class SourceVideoSpeedTest
         _sourceVideoResource.Update(_sourceVideo, context, ref updateOnly);
 
         // Assert: Speed=200なので、1秒の再生時刻 = 2秒の映像時刻
-        Assert.That(_sourceVideoResource.RequestedPosition.TotalSeconds, Is.EqualTo(2.0).Within(0.1));
+        Assert.That(
+            _sourceVideoResource.RequestedPosition.TotalSeconds,
+            Is.EqualTo(2.0).Within(0.1)
+        );
     }
 
     [Test]
@@ -85,7 +93,8 @@ public class SourceVideoSpeedTest
     {
         // Arrange
         _sourceVideo!.Speed.CurrentValue = 50f;
-        _sourceVideoResource = (SourceVideo.Resource)_sourceVideo.ToResource(CompositionContext.Default);
+        _sourceVideoResource = (SourceVideo.Resource)
+            _sourceVideo.ToResource(CompositionContext.Default);
 
         // 2秒時点でリソースを更新
         var context = new CompositionContext(TimeSpan.FromSeconds(2));
@@ -93,7 +102,10 @@ public class SourceVideoSpeedTest
         _sourceVideoResource.Update(_sourceVideo, context, ref updateOnly);
 
         // Assert: Speed=50なので、2秒の再生時刻 = 1秒の映像時刻
-        Assert.That(_sourceVideoResource.RequestedPosition.TotalSeconds, Is.EqualTo(1.0).Within(0.1));
+        Assert.That(
+            _sourceVideoResource.RequestedPosition.TotalSeconds,
+            Is.EqualTo(1.0).Within(0.1)
+        );
     }
 
     [Test]
@@ -102,10 +114,13 @@ public class SourceVideoSpeedTest
         // Arrange: 0秒で速度100、2秒で速度200の線形アニメーション
         var animation = new KeyFrameAnimation<float>();
         animation.KeyFrames.Add(new KeyFrame<float> { Value = 100f, KeyTime = TimeSpan.Zero });
-        animation.KeyFrames.Add(new KeyFrame<float> { Value = 200f, KeyTime = TimeSpan.FromSeconds(2) });
+        animation.KeyFrames.Add(
+            new KeyFrame<float> { Value = 200f, KeyTime = TimeSpan.FromSeconds(2) }
+        );
         _sourceVideo!.Speed.Animation = animation;
 
-        _sourceVideoResource = (SourceVideo.Resource)_sourceVideo.ToResource(CompositionContext.Default);
+        _sourceVideoResource = (SourceVideo.Resource)
+            _sourceVideo.ToResource(CompositionContext.Default);
 
         // 1秒時点でリソースを更新
         var context = new CompositionContext(TimeSpan.FromSeconds(1));
@@ -115,7 +130,10 @@ public class SourceVideoSpeedTest
         // Assert: 0-1秒の平均速度は150%なので、映像時刻は約1.5秒
         // 積分計算: ∫(100 + 50t)dt from 0 to 1 = [100t + 25t²] = 100 + 25 = 125% → 1.25秒
         // ただし線形補間なので実際は: (100 + 150) / 2 * 1 = 125% → 1.25秒
-        Assert.That(_sourceVideoResource.RequestedPosition.TotalSeconds, Is.EqualTo(1.25).Within(0.1));
+        Assert.That(
+            _sourceVideoResource.RequestedPosition.TotalSeconds,
+            Is.EqualTo(1.25).Within(0.1)
+        );
     }
 
     [Test]
@@ -124,10 +142,13 @@ public class SourceVideoSpeedTest
         // Arrange: 0秒で速度100、4秒で速度300の線形アニメーション
         var animation = new KeyFrameAnimation<float>();
         animation.KeyFrames.Add(new KeyFrame<float> { Value = 100f, KeyTime = TimeSpan.Zero });
-        animation.KeyFrames.Add(new KeyFrame<float> { Value = 300f, KeyTime = TimeSpan.FromSeconds(4) });
+        animation.KeyFrames.Add(
+            new KeyFrame<float> { Value = 300f, KeyTime = TimeSpan.FromSeconds(4) }
+        );
         _sourceVideo!.Speed.Animation = animation;
 
-        _sourceVideoResource = (SourceVideo.Resource)_sourceVideo.ToResource(CompositionContext.Default);
+        _sourceVideoResource = (SourceVideo.Resource)
+            _sourceVideo.ToResource(CompositionContext.Default);
 
         // 2秒時点でリソースを更新
         var context = new CompositionContext(TimeSpan.FromSeconds(2));
@@ -137,7 +158,10 @@ public class SourceVideoSpeedTest
         // Assert: 0-2秒の積分
         // 速度関数: s(t) = 100 + 50t (線形)
         // 積分: ∫s(t)dt from 0 to 2 = [100t + 25t²] from 0 to 2 = 200 + 100 = 300% → 3秒
-        Assert.That(_sourceVideoResource.RequestedPosition.TotalSeconds, Is.EqualTo(3.0).Within(0.2));
+        Assert.That(
+            _sourceVideoResource.RequestedPosition.TotalSeconds,
+            Is.EqualTo(3.0).Within(0.2)
+        );
     }
 
     [Test]
@@ -146,10 +170,13 @@ public class SourceVideoSpeedTest
         // Arrange: 一定速度150のアニメーション
         var animation = new KeyFrameAnimation<float>();
         animation.KeyFrames.Add(new KeyFrame<float> { Value = 150f, KeyTime = TimeSpan.Zero });
-        animation.KeyFrames.Add(new KeyFrame<float> { Value = 150f, KeyTime = TimeSpan.FromSeconds(10) });
+        animation.KeyFrames.Add(
+            new KeyFrame<float> { Value = 150f, KeyTime = TimeSpan.FromSeconds(10) }
+        );
         _sourceVideo!.Speed.Animation = animation;
 
-        _sourceVideoResource = (SourceVideo.Resource)_sourceVideo.ToResource(CompositionContext.Default);
+        _sourceVideoResource = (SourceVideo.Resource)
+            _sourceVideo.ToResource(CompositionContext.Default);
 
         // 2秒時点でリソースを更新
         var context = new CompositionContext(TimeSpan.FromSeconds(2));
@@ -157,7 +184,10 @@ public class SourceVideoSpeedTest
         _sourceVideoResource.Update(_sourceVideo, context, ref updateOnly);
 
         // Assert: Speed=150なので、2秒の再生時刻 = 3秒の映像時刻
-        Assert.That(_sourceVideoResource.RequestedPosition.TotalSeconds, Is.EqualTo(3.0).Within(0.1));
+        Assert.That(
+            _sourceVideoResource.RequestedPosition.TotalSeconds,
+            Is.EqualTo(3.0).Within(0.1)
+        );
     }
 
     [Test]
@@ -168,7 +198,8 @@ public class SourceVideoSpeedTest
         animation1.KeyFrames.Add(new KeyFrame<float> { Value = 200f, KeyTime = TimeSpan.Zero });
         _sourceVideo!.Speed.Animation = animation1;
 
-        _sourceVideoResource = (SourceVideo.Resource)_sourceVideo.ToResource(CompositionContext.Default);
+        _sourceVideoResource = (SourceVideo.Resource)
+            _sourceVideo.ToResource(CompositionContext.Default);
 
         // 最初の更新
         var context1 = new CompositionContext(TimeSpan.FromSeconds(1));
@@ -202,7 +233,8 @@ public class SourceVideoSpeedTest
         _sourceVideo!.Speed.CurrentValue = 150f;
         // アニメーションを設定しない（PostUpdateはelseブランチを通る）
 
-        _sourceVideoResource = (SourceVideo.Resource)_sourceVideo.ToResource(CompositionContext.Default);
+        _sourceVideoResource = (SourceVideo.Resource)
+            _sourceVideo.ToResource(CompositionContext.Default);
 
         // 2秒時点でリソースを更新
         var context = new CompositionContext(TimeSpan.FromSeconds(2));
@@ -210,7 +242,10 @@ public class SourceVideoSpeedTest
         _sourceVideoResource.Update(_sourceVideo, context, ref updateOnly);
 
         // Assert: Speed=150なので、2秒の再生時刻 = 3秒の映像時刻
-        Assert.That(_sourceVideoResource.RequestedPosition.TotalSeconds, Is.EqualTo(3.0).Within(0.1));
+        Assert.That(
+            _sourceVideoResource.RequestedPosition.TotalSeconds,
+            Is.EqualTo(3.0).Within(0.1)
+        );
     }
 
     [Test]
@@ -221,7 +256,8 @@ public class SourceVideoSpeedTest
         animation.KeyFrames.Add(new KeyFrame<float> { Value = 200f, KeyTime = TimeSpan.Zero });
         _sourceVideo!.Speed.Animation = animation;
 
-        _sourceVideoResource = (SourceVideo.Resource)_sourceVideo.ToResource(CompositionContext.Default);
+        _sourceVideoResource = (SourceVideo.Resource)
+            _sourceVideo.ToResource(CompositionContext.Default);
 
         // 1秒時点でリソースを更新
         var context = new CompositionContext(TimeSpan.FromSeconds(1));
@@ -229,7 +265,10 @@ public class SourceVideoSpeedTest
         _sourceVideoResource.Update(_sourceVideo, context, ref updateOnly);
 
         // Assert: Speed=200なので、1秒の再生時刻 = 2秒の映像時刻
-        Assert.That(_sourceVideoResource.RequestedPosition.TotalSeconds, Is.EqualTo(2.0).Within(0.1));
+        Assert.That(
+            _sourceVideoResource.RequestedPosition.TotalSeconds,
+            Is.EqualTo(2.0).Within(0.1)
+        );
     }
 
     [Test]
@@ -238,10 +277,13 @@ public class SourceVideoSpeedTest
         // Arrange: 線形アニメーション
         var animation = new KeyFrameAnimation<float>();
         animation.KeyFrames.Add(new KeyFrame<float> { Value = 100f, KeyTime = TimeSpan.Zero });
-        animation.KeyFrames.Add(new KeyFrame<float> { Value = 200f, KeyTime = TimeSpan.FromSeconds(10) });
+        animation.KeyFrames.Add(
+            new KeyFrame<float> { Value = 200f, KeyTime = TimeSpan.FromSeconds(10) }
+        );
         _sourceVideo!.Speed.Animation = animation;
 
-        _sourceVideoResource = (SourceVideo.Resource)_sourceVideo.ToResource(CompositionContext.Default);
+        _sourceVideoResource = (SourceVideo.Resource)
+            _sourceVideo.ToResource(CompositionContext.Default);
 
         // 連続した時間での更新
         var positions = new List<double>();
@@ -256,8 +298,11 @@ public class SourceVideoSpeedTest
         // Assert: 位置が単調増加していることを確認
         for (int i = 1; i < positions.Count; i++)
         {
-            Assert.That(positions[i], Is.GreaterThan(positions[i - 1]),
-                $"Position at {i}s should be greater than position at {i - 1}s");
+            Assert.That(
+                positions[i],
+                Is.GreaterThan(positions[i - 1]),
+                $"Position at {i}s should be greater than position at {i - 1}s"
+            );
         }
     }
 
@@ -266,7 +311,8 @@ public class SourceVideoSpeedTest
     {
         // Arrange
         _sourceVideo!.Speed.CurrentValue = 200f;
-        _sourceVideoResource = (SourceVideo.Resource)_sourceVideo.ToResource(CompositionContext.Default);
+        _sourceVideoResource = (SourceVideo.Resource)
+            _sourceVideo.ToResource(CompositionContext.Default);
 
         // 初期化のための更新
         var initContext = new CompositionContext(TimeSpan.Zero);
@@ -287,10 +333,13 @@ public class SourceVideoSpeedTest
         // Arrange: 線形アニメーション
         var animation = new KeyFrameAnimation<float>();
         animation.KeyFrames.Add(new KeyFrame<float> { Value = 100f, KeyTime = TimeSpan.Zero });
-        animation.KeyFrames.Add(new KeyFrame<float> { Value = 200f, KeyTime = TimeSpan.FromSeconds(10) });
+        animation.KeyFrames.Add(
+            new KeyFrame<float> { Value = 200f, KeyTime = TimeSpan.FromSeconds(10) }
+        );
         _sourceVideo!.Speed.Animation = animation;
 
-        _sourceVideoResource = (SourceVideo.Resource)_sourceVideo.ToResource(CompositionContext.Default);
+        _sourceVideoResource = (SourceVideo.Resource)
+            _sourceVideo.ToResource(CompositionContext.Default);
 
         // 初期化のための更新
         var initContext = new CompositionContext(TimeSpan.Zero);
@@ -313,7 +362,8 @@ public class SourceVideoSpeedTest
         animation.KeyFrames.Add(new KeyFrame<float> { Value = 200f, KeyTime = TimeSpan.Zero });
         _sourceVideo!.Speed.Animation = animation;
 
-        _sourceVideoResource = (SourceVideo.Resource)_sourceVideo.ToResource(CompositionContext.Default);
+        _sourceVideoResource = (SourceVideo.Resource)
+            _sourceVideo.ToResource(CompositionContext.Default);
 
         // 1ミリ秒時点でリソースを更新（1/60秒 ≈ 16.67ミリ秒より小さい）
         var context = new CompositionContext(TimeSpan.FromMilliseconds(1));
@@ -322,7 +372,10 @@ public class SourceVideoSpeedTest
 
         // Assert: 非常に小さい値でも正しく計算される
         // Speed=200なので、1ミリ秒の再生時刻 = 2ミリ秒の映像時刻
-        Assert.That(_sourceVideoResource.RequestedPosition.TotalMilliseconds, Is.EqualTo(2.0).Within(0.5));
+        Assert.That(
+            _sourceVideoResource.RequestedPosition.TotalMilliseconds,
+            Is.EqualTo(2.0).Within(0.5)
+        );
     }
 
     [Test]
@@ -333,7 +386,8 @@ public class SourceVideoSpeedTest
         animation.KeyFrames.Add(new KeyFrame<float> { Value = 5f, KeyTime = TimeSpan.Zero });
         _sourceVideo!.Speed.Animation = animation;
 
-        _sourceVideoResource = (SourceVideo.Resource)_sourceVideo.ToResource(CompositionContext.Default);
+        _sourceVideoResource = (SourceVideo.Resource)
+            _sourceVideo.ToResource(CompositionContext.Default);
 
         // 2秒時点でリソースを更新
         var context = new CompositionContext(TimeSpan.FromSeconds(2));
@@ -341,7 +395,10 @@ public class SourceVideoSpeedTest
         _sourceVideoResource.Update(_sourceVideo, context, ref updateOnly);
 
         // Assert: Speed=5なので、2秒の再生時刻 = 0.1秒の映像時刻
-        Assert.That(_sourceVideoResource.RequestedPosition.TotalSeconds, Is.EqualTo(0.1).Within(0.02));
+        Assert.That(
+            _sourceVideoResource.RequestedPosition.TotalSeconds,
+            Is.EqualTo(0.1).Within(0.02)
+        );
     }
 
     [Test]
@@ -350,22 +407,25 @@ public class SourceVideoSpeedTest
         // Arrange: 要素を 5s 開始、UseGlobalClock=true で speed=100% 一定。
         // 期待: 要素ローカル 1s 時点でビデオ時刻も 1s になること (要素開始前の積分は引かれる)。
         _sourceVideo!.TimeRange = new TimeRange(TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(10));
-        var animation = new KeyFrameAnimation<float>
-        {
-            UseGlobalClock = true
-        };
+        var animation = new KeyFrameAnimation<float> { UseGlobalClock = true };
         animation.KeyFrames.Add(new KeyFrame<float> { Value = 100f, KeyTime = TimeSpan.Zero });
-        animation.KeyFrames.Add(new KeyFrame<float> { Value = 100f, KeyTime = TimeSpan.FromSeconds(15) });
+        animation.KeyFrames.Add(
+            new KeyFrame<float> { Value = 100f, KeyTime = TimeSpan.FromSeconds(15) }
+        );
         _sourceVideo.Speed.Animation = animation;
 
-        _sourceVideoResource = (SourceVideo.Resource)_sourceVideo.ToResource(CompositionContext.Default);
+        _sourceVideoResource = (SourceVideo.Resource)
+            _sourceVideo.ToResource(CompositionContext.Default);
 
         // グローバル 6s = 要素ローカル 1s
         var context = new CompositionContext(TimeSpan.FromSeconds(6));
         var updateOnly = false;
         _sourceVideoResource.Update(_sourceVideo, context, ref updateOnly);
 
-        Assert.That(_sourceVideoResource.RequestedPosition.TotalSeconds, Is.EqualTo(1.0).Within(0.1));
+        Assert.That(
+            _sourceVideoResource.RequestedPosition.TotalSeconds,
+            Is.EqualTo(1.0).Within(0.1)
+        );
     }
 
     [Test]
@@ -375,15 +435,15 @@ public class SourceVideoSpeedTest
         // 速度は global 0s..15s で 100% → 200% に線形補間。
         // s(t) = 100 + (100/15)*t [%] を要素開始 (5s) ～ 要素ローカル 1s (=global 6s) で積分。
         _sourceVideo!.TimeRange = new TimeRange(TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(10));
-        var animation = new KeyFrameAnimation<float>
-        {
-            UseGlobalClock = true
-        };
+        var animation = new KeyFrameAnimation<float> { UseGlobalClock = true };
         animation.KeyFrames.Add(new KeyFrame<float> { Value = 100f, KeyTime = TimeSpan.Zero });
-        animation.KeyFrames.Add(new KeyFrame<float> { Value = 200f, KeyTime = TimeSpan.FromSeconds(15) });
+        animation.KeyFrames.Add(
+            new KeyFrame<float> { Value = 200f, KeyTime = TimeSpan.FromSeconds(15) }
+        );
         _sourceVideo.Speed.Animation = animation;
 
-        _sourceVideoResource = (SourceVideo.Resource)_sourceVideo.ToResource(CompositionContext.Default);
+        _sourceVideoResource = (SourceVideo.Resource)
+            _sourceVideo.ToResource(CompositionContext.Default);
 
         var context = new CompositionContext(TimeSpan.FromSeconds(6));
         var updateOnly = false;
@@ -391,7 +451,10 @@ public class SourceVideoSpeedTest
 
         // 解析解: ∫_{5}^{6} (1 + t/15) dt = [t + t²/30]_{5}^{6}
         // = (6 + 36/30) - (5 + 25/30) = 1 + 11/30 ≒ 1.3667 s
-        Assert.That(_sourceVideoResource.RequestedPosition.TotalSeconds, Is.EqualTo(1.3667).Within(0.05));
+        Assert.That(
+            _sourceVideoResource.RequestedPosition.TotalSeconds,
+            Is.EqualTo(1.3667).Within(0.05)
+        );
     }
 
     [Test]
@@ -402,7 +465,8 @@ public class SourceVideoSpeedTest
         animation.KeyFrames.Add(new KeyFrame<float> { Value = 5f, KeyTime = TimeSpan.Zero });
         _sourceVideo!.Speed.Animation = animation;
 
-        _sourceVideoResource = (SourceVideo.Resource)_sourceVideo.ToResource(CompositionContext.Default);
+        _sourceVideoResource = (SourceVideo.Resource)
+            _sourceVideo.ToResource(CompositionContext.Default);
 
         // 初期化のための更新
         var initContext = new CompositionContext(TimeSpan.Zero);

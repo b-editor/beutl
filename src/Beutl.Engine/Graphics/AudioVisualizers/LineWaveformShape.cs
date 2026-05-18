@@ -14,15 +14,24 @@ public sealed partial class LineWaveformShape : WaveformShape
         ScanProperties<LineWaveformShape>();
     }
 
-    [Display(Name = nameof(GraphicsStrings.SpectrumShape_Thickness), ResourceType = typeof(GraphicsStrings))]
+    [Display(
+        Name = nameof(GraphicsStrings.SpectrumShape_Thickness),
+        ResourceType = typeof(GraphicsStrings)
+    )]
     [Range(0.5f, 50f)]
     public IProperty<float> Thickness { get; } = Property.CreateAnimatable(1.5f);
 
-    [Display(Name = nameof(GraphicsStrings.SpectrumShape_Smoothness), ResourceType = typeof(GraphicsStrings))]
+    [Display(
+        Name = nameof(GraphicsStrings.SpectrumShape_Smoothness),
+        ResourceType = typeof(GraphicsStrings)
+    )]
     [Range(0f, 100f)]
     public IProperty<float> Smoothness { get; } = Property.CreateAnimatable(0f);
 
-    [Display(Name = nameof(GraphicsStrings.WaveformShape_Mirrored), ResourceType = typeof(GraphicsStrings))]
+    [Display(
+        Name = nameof(GraphicsStrings.WaveformShape_Mirrored),
+        ResourceType = typeof(GraphicsStrings)
+    )]
     public IProperty<bool> Mirrored { get; } = Property.Create(false);
 
     public new partial class Resource
@@ -38,10 +47,12 @@ public sealed partial class LineWaveformShape : WaveformShape
             ReadOnlySpan<float> mins,
             ReadOnlySpan<float> maxs,
             float gain,
-            Brush.Resource fill)
+            Brush.Resource fill
+        )
         {
             int barCount = mins.Length;
-            if (barCount < 2) return;
+            if (barCount < 2)
+                return;
 
             float width = (float)bounds.Width;
             float height = (float)bounds.Height;
@@ -62,7 +73,8 @@ public sealed partial class LineWaveformShape : WaveformShape
             if (_lastCornerRadius != cornerRadius)
             {
                 _cornerEffect?.Dispose();
-                _cornerEffect = cornerRadius > 0.01f ? SKPathEffect.CreateCorner(cornerRadius) : null;
+                _cornerEffect =
+                    cornerRadius > 0.01f ? SKPathEffect.CreateCorner(cornerRadius) : null;
                 _lastCornerRadius = cornerRadius;
             }
             _paint.PathEffect = _cornerEffect;
@@ -76,8 +88,10 @@ public sealed partial class LineWaveformShape : WaveformShape
                 float max = Math.Clamp(maxs[i] * gain, -1f, 1f);
                 float x = (float)bounds.X + i * slotWidth + slotWidth * 0.5f;
                 float y = centerY - max * halfHeight;
-                if (i == 0) _path.MoveTo(x, y);
-                else _path.LineTo(x, y);
+                if (i == 0)
+                    _path.MoveTo(x, y);
+                else
+                    _path.LineTo(x, y);
             }
 
             if (mirrored)
@@ -88,8 +102,10 @@ public sealed partial class LineWaveformShape : WaveformShape
                     float min = Math.Clamp(mins[i] * gain, -1f, 1f);
                     float x = (float)bounds.X + i * slotWidth + slotWidth * 0.5f;
                     float y = centerY - min * halfHeight;
-                    if (i == 0) _path.MoveTo(x, y);
-                    else _path.LineTo(x, y);
+                    if (i == 0)
+                        _path.MoveTo(x, y);
+                    else
+                        _path.LineTo(x, y);
                 }
             }
 

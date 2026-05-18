@@ -2,8 +2,10 @@
 
 #if BEUTL_FFMPEG_WORKER
 namespace Beutl.FFmpegWorker.Decoding;
+
 #else
 namespace Beutl.Extensions.FFmpeg.Decoding;
+
 #endif
 
 public sealed class FFmpegDecodingSettings : ExtensionSettings
@@ -18,15 +20,23 @@ public sealed class FFmpegDecodingSettings : ExtensionSettings
             .DefaultValue(-1)
             .Register();
 
-        AccelerationProperty = ConfigureProperty<AccelerationOptions, FFmpegDecodingSettings>(nameof(Acceleration))
+        AccelerationProperty = ConfigureProperty<AccelerationOptions, FFmpegDecodingSettings>(
+                nameof(Acceleration)
+            )
             .DefaultValue(AccelerationOptions.Software)
             .Register();
 
-        ForceSrgbGammaProperty = ConfigureProperty<bool, FFmpegDecodingSettings>(nameof(ForceSrgbGamma))
+        ForceSrgbGammaProperty = ConfigureProperty<bool, FFmpegDecodingSettings>(
+                nameof(ForceSrgbGamma)
+            )
             .DefaultValue(true)
             .Register();
 
-        AffectsConfig<FFmpegDecodingSettings>(ThreadCountProperty, AccelerationProperty, ForceSrgbGammaProperty);
+        AffectsConfig<FFmpegDecodingSettings>(
+            ThreadCountProperty,
+            AccelerationProperty,
+            ForceSrgbGammaProperty
+        );
     }
 
     public int ThreadCount
@@ -61,6 +71,6 @@ public sealed class FFmpegDecodingSettings : ExtensionSettings
         DRM,
         OpenCL,
         MediaCodec,
-        Vulkan
+        Vulkan,
     }
 }

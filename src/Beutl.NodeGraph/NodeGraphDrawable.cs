@@ -16,7 +16,15 @@ public sealed partial class NodeGraphDrawable : Drawable
     public NodeGraphDrawable()
     {
         ScanProperties<NodeGraphDrawable>();
-        HideProperties(Transform, AlignmentX, AlignmentY, TransformOrigin, FilterEffect, BlendMode, Opacity);
+        HideProperties(
+            Transform,
+            AlignmentX,
+            AlignmentY,
+            TransformOrigin,
+            FilterEffect,
+            BlendMode,
+            Opacity
+        );
         Model.CurrentValue = new GraphModel();
     }
 
@@ -30,11 +38,10 @@ public sealed partial class NodeGraphDrawable : Drawable
         return resource;
     }
 
-    protected override Size MeasureCore(Size availableSize, Drawable.Resource resource) => availableSize;
+    protected override Size MeasureCore(Size availableSize, Drawable.Resource resource) =>
+        availableSize;
 
-    protected override void OnDraw(GraphicsContext2D context, Drawable.Resource resource)
-    {
-    }
+    protected override void OnDraw(GraphicsContext2D context, Drawable.Resource resource) { }
 
     public override void Render(GraphicsContext2D context, Drawable.Resource resource)
     {
@@ -44,7 +51,8 @@ public sealed partial class NodeGraphDrawable : Drawable
             context.DrawNode(
                 output,
                 n => new ReferencesChildRenderNode(n),
-                (refNode, n) => refNode.Update(n));
+                (refNode, n) => refNode.Update(n)
+            );
         }
     }
 
@@ -55,7 +63,11 @@ public sealed partial class NodeGraphDrawable : Drawable
 
         public List<RenderNode> OutputRenderNode { get; private set; } = [];
 
-        public override void Update(EngineObject obj, CompositionContext context, ref bool updateOnly)
+        public override void Update(
+            EngineObject obj,
+            CompositionContext context,
+            ref bool updateOnly
+        )
         {
             base.Update(obj, context, ref updateOnly);
             OutputRenderNode.Clear();
@@ -100,10 +112,12 @@ public sealed partial class NodeGraphDrawable : Drawable
                 if (node is OutputNode outputNode)
                 {
                     int slotIndex = _snapshot.FindSlotIndex(outputNode);
-                    if (slotIndex < 0) continue;
+                    if (slotIndex < 0)
+                        continue;
 
                     var resource = _snapshot.GetResource(slotIndex);
-                    if (resource == null) continue;
+                    if (resource == null)
+                        continue;
 
                     if (!resource.ItemIndexMap.TryGetValue(outputNode.InputPort, out int itemIndex))
                         continue;
@@ -121,7 +135,8 @@ public sealed partial class NodeGraphDrawable : Drawable
         {
             _model?.TopologyChanged -= OnModelTopologyChanged;
             _model = null;
-            if (disposing) _snapshot.Dispose();
+            if (disposing)
+                _snapshot.Dispose();
             base.Dispose(disposing);
         }
     }

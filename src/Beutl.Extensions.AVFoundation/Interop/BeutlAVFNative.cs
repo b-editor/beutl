@@ -35,19 +35,32 @@ internal static partial class BeutlAVFNative
         string path,
         int modeFlags,
         ref BeutlReaderOptions options,
-        out AVFReaderSafeHandle outHandle);
+        out AVFReaderSafeHandle outHandle
+    );
 
     [LibraryImport(DllName)]
-    internal static partial int beutl_avf_reader_has_video(AVFReaderSafeHandle handle, out int outHasVideo);
+    internal static partial int beutl_avf_reader_has_video(
+        AVFReaderSafeHandle handle,
+        out int outHasVideo
+    );
 
     [LibraryImport(DllName)]
-    internal static partial int beutl_avf_reader_has_audio(AVFReaderSafeHandle handle, out int outHasAudio);
+    internal static partial int beutl_avf_reader_has_audio(
+        AVFReaderSafeHandle handle,
+        out int outHasAudio
+    );
 
     [LibraryImport(DllName)]
-    internal static partial int beutl_avf_reader_get_video_info(AVFReaderSafeHandle handle, out BeutlVideoInfo outInfo);
+    internal static partial int beutl_avf_reader_get_video_info(
+        AVFReaderSafeHandle handle,
+        out BeutlVideoInfo outInfo
+    );
 
     [LibraryImport(DllName)]
-    internal static partial int beutl_avf_reader_get_audio_info(AVFReaderSafeHandle handle, out BeutlAudioInfo outInfo);
+    internal static partial int beutl_avf_reader_get_audio_info(
+        AVFReaderSafeHandle handle,
+        out BeutlAudioInfo outInfo
+    );
 
     [LibraryImport(DllName)]
     internal static partial int beutl_avf_reader_read_video(
@@ -55,7 +68,8 @@ internal static partial class BeutlAVFNative
         long frameIndex,
         IntPtr outBuffer,
         int capacityBytes,
-        int rowBytes);
+        int rowBytes
+    );
 
     [LibraryImport(DllName)]
     internal static partial int beutl_avf_reader_read_audio(
@@ -63,7 +77,8 @@ internal static partial class BeutlAVFNative
         long startSample,
         int lengthSamples,
         IntPtr outBuffer,
-        int capacityBytes);
+        int capacityBytes
+    );
 
     // Used by SafeHandle.ReleaseHandle; operates on the raw IntPtr after the SafeHandle has flipped to invalid.
     [LibraryImport(DllName)]
@@ -76,16 +91,22 @@ internal static partial class BeutlAVFNative
         string path,
         ref BeutlVideoEncoderConfig videoConfig,
         ref BeutlAudioEncoderConfig audioConfig,
-        out AVFWriterSafeHandle outHandle);
+        out AVFWriterSafeHandle outHandle
+    );
 
     // Overloads for the optional-config case: we can't pass `null` through a managed `ref`,
     // so Swift's nullable C pointers are expressed via separate IntPtr-based P/Invokes.
-    [LibraryImport(DllName, EntryPoint = "beutl_avf_writer_create", StringMarshalling = StringMarshalling.Utf8)]
+    [LibraryImport(
+        DllName,
+        EntryPoint = "beutl_avf_writer_create",
+        StringMarshalling = StringMarshalling.Utf8
+    )]
     internal static partial int beutl_avf_writer_create_raw(
         string path,
         IntPtr videoConfig,
         IntPtr audioConfig,
-        out AVFWriterSafeHandle outHandle);
+        out AVFWriterSafeHandle outHandle
+    );
 
     [LibraryImport(DllName)]
     internal static partial int beutl_avf_writer_start(AVFWriterSafeHandle handle);
@@ -98,7 +119,8 @@ internal static partial class BeutlAVFNative
         int height,
         int rowBytes,
         long ptsNum,
-        int ptsDen);
+        int ptsDen
+    );
 
     [LibraryImport(DllName)]
     internal static partial int beutl_avf_writer_append_audio(
@@ -106,7 +128,8 @@ internal static partial class BeutlAVFNative
         IntPtr pcm,
         int numSamples,
         long ptsSamples,
-        int sampleRate);
+        int sampleRate
+    );
 
     [LibraryImport(DllName)]
     internal static partial int beutl_avf_writer_finish(AVFWriterSafeHandle handle);
@@ -116,7 +139,8 @@ internal static partial class BeutlAVFNative
 
     internal static string FourCCToString(int fourCC)
     {
-        if (fourCC == 0) return string.Empty;
+        if (fourCC == 0)
+            return string.Empty;
         Span<byte> bytes = stackalloc byte[4];
         bytes[0] = (byte)((fourCC >> 24) & 0xFF);
         bytes[1] = (byte)((fourCC >> 16) & 0xFF);

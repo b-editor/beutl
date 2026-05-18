@@ -3,5 +3,5 @@
 public enum ScopeColorSpace
 {
     Gamma = 0,
-    Linear = 1
+    Linear = 1,
 }

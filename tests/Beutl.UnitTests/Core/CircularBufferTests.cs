@@ -23,8 +23,10 @@ public class CircularBufferTests
     [Test]
     public void Constructor_ItemsExceedCapacity_Throws()
     {
-        Assert.That(() => new CircularBuffer<int>(2, [1, 2, 3]),
-            Throws.TypeOf<ArgumentOutOfRangeException>());
+        Assert.That(
+            () => new CircularBuffer<int>(2, [1, 2, 3]),
+            Throws.TypeOf<ArgumentOutOfRangeException>()
+        );
     }
 
     [Test]

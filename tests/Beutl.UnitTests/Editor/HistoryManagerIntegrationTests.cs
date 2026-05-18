@@ -272,11 +272,14 @@ public class HistoryManagerIntegrationTests
         _historyManager.Commit("Set initial");
 
         // Act
-        _historyManager.ExecuteInTransaction(() =>
-        {
-            _root.IntValue = 100;
-            _root.StringValue = "Modified";
-        }, "Transaction");
+        _historyManager.ExecuteInTransaction(
+            () =>
+            {
+                _root.IntValue = 100;
+                _root.StringValue = "Modified";
+            },
+            "Transaction"
+        );
 
         // Assert
         Assert.Multiple(() =>
@@ -304,11 +307,14 @@ public class HistoryManagerIntegrationTests
         // Act & Assert
         Assert.Throws<InvalidOperationException>(() =>
         {
-            _historyManager.ExecuteInTransaction(() =>
-            {
-                _root.IntValue = 100;
-                throw new InvalidOperationException("Test exception");
-            }, "Transaction");
+            _historyManager.ExecuteInTransaction(
+                () =>
+                {
+                    _root.IntValue = 100;
+                    throw new InvalidOperationException("Test exception");
+                },
+                "Transaction"
+            );
         });
 
         // Should be rolled back
@@ -494,7 +500,11 @@ public class HistoryManagerIntegrationTests
     {
         // Arrange
         var modelWithList = new TestModelWithList();
-        using var listObserver = new CoreObjectOperationObserver(null, modelWithList, _sequenceGenerator);
+        using var listObserver = new CoreObjectOperationObserver(
+            null,
+            modelWithList,
+            _sequenceGenerator
+        );
         _historyManager.Subscribe(listObserver);
 
         // Act
@@ -515,7 +525,11 @@ public class HistoryManagerIntegrationTests
     {
         // Arrange
         var modelWithList = new TestModelWithList();
-        using var listObserver = new CoreObjectOperationObserver(null, modelWithList, _sequenceGenerator);
+        using var listObserver = new CoreObjectOperationObserver(
+            null,
+            modelWithList,
+            _sequenceGenerator
+        );
         _historyManager.Subscribe(listObserver);
 
         // Act
@@ -542,7 +556,11 @@ public class HistoryManagerIntegrationTests
         modelWithList.Items.Add(item1);
         modelWithList.Items.Add(item2);
 
-        using var listObserver = new CoreObjectOperationObserver(null, modelWithList, _sequenceGenerator);
+        using var listObserver = new CoreObjectOperationObserver(
+            null,
+            modelWithList,
+            _sequenceGenerator
+        );
         _historyManager.Subscribe(listObserver);
 
         // Act
@@ -567,7 +585,11 @@ public class HistoryManagerIntegrationTests
         modelWithList.Items.Add(new TestItem { Value = "Item1" });
         modelWithList.Items.Add(new TestItem { Value = "Item3" });
 
-        using var listObserver = new CoreObjectOperationObserver(null, modelWithList, _sequenceGenerator);
+        using var listObserver = new CoreObjectOperationObserver(
+            null,
+            modelWithList,
+            _sequenceGenerator
+        );
         _historyManager.Subscribe(listObserver);
 
         // Act - Insert in the middle
@@ -593,7 +615,11 @@ public class HistoryManagerIntegrationTests
         modelWithList.Items.Add(new TestItem { Value = "Item2" });
         modelWithList.Items.Add(new TestItem { Value = "Item3" });
 
-        using var listObserver = new CoreObjectOperationObserver(null, modelWithList, _sequenceGenerator);
+        using var listObserver = new CoreObjectOperationObserver(
+            null,
+            modelWithList,
+            _sequenceGenerator
+        );
         _historyManager.Subscribe(listObserver);
 
         // Act - Move first item to last
@@ -623,7 +649,11 @@ public class HistoryManagerIntegrationTests
         modelWithList.Items.Add(new TestItem { Value = "Item2" });
         modelWithList.Items.Add(new TestItem { Value = "Item3" });
 
-        using var listObserver = new CoreObjectOperationObserver(null, modelWithList, _sequenceGenerator);
+        using var listObserver = new CoreObjectOperationObserver(
+            null,
+            modelWithList,
+            _sequenceGenerator
+        );
         _historyManager.Subscribe(listObserver);
 
         // Act
@@ -646,7 +676,11 @@ public class HistoryManagerIntegrationTests
         var item = new TestItem { Value = "Original" };
         modelWithList.Items.Add(item);
 
-        using var listObserver = new CoreObjectOperationObserver(null, modelWithList, _sequenceGenerator);
+        using var listObserver = new CoreObjectOperationObserver(
+            null,
+            modelWithList,
+            _sequenceGenerator
+        );
         _historyManager.Subscribe(listObserver);
         _historyManager.Commit("Add item"); // Commit the add first
 
@@ -671,7 +705,11 @@ public class HistoryManagerIntegrationTests
         var item2 = new TestItem { Value = "NewItem" };
         modelWithList.Items.Add(item1);
 
-        using var listObserver = new CoreObjectOperationObserver(null, modelWithList, _sequenceGenerator);
+        using var listObserver = new CoreObjectOperationObserver(
+            null,
+            modelWithList,
+            _sequenceGenerator
+        );
         _historyManager.Subscribe(listObserver);
 
         // Act - Replace item
@@ -692,25 +730,33 @@ public class HistoryManagerIntegrationTests
 
     private class TestModel : CoreObject
     {
-        public static readonly CoreProperty<int> IntValueProperty =
-            ConfigureProperty<int, TestModel>(nameof(IntValue))
-                .DefaultValue(0)
-                .Register();
+        public static readonly CoreProperty<int> IntValueProperty = ConfigureProperty<
+            int,
+            TestModel
+        >(nameof(IntValue))
+            .DefaultValue(0)
+            .Register();
 
-        public static readonly CoreProperty<string?> StringValueProperty =
-            ConfigureProperty<string?, TestModel>(nameof(StringValue))
-                .DefaultValue(null)
-                .Register();
+        public static readonly CoreProperty<string?> StringValueProperty = ConfigureProperty<
+            string?,
+            TestModel
+        >(nameof(StringValue))
+            .DefaultValue(null)
+            .Register();
 
-        public static readonly CoreProperty<double> DoubleValueProperty =
-            ConfigureProperty<double, TestModel>(nameof(DoubleValue))
-                .DefaultValue(0.0)
-                .Register();
+        public static readonly CoreProperty<double> DoubleValueProperty = ConfigureProperty<
+            double,
+            TestModel
+        >(nameof(DoubleValue))
+            .DefaultValue(0.0)
+            .Register();
 
-        public static readonly CoreProperty<int?> NullableValueProperty =
-            ConfigureProperty<int?, TestModel>(nameof(NullableValue))
-                .DefaultValue(null)
-                .Register();
+        public static readonly CoreProperty<int?> NullableValueProperty = ConfigureProperty<
+            int?,
+            TestModel
+        >(nameof(NullableValue))
+            .DefaultValue(null)
+            .Register();
 
         public static readonly CoreProperty<TestNestedModel?> NestedObjectProperty =
             ConfigureProperty<TestNestedModel?, TestModel>(nameof(NestedObject))
@@ -750,15 +796,19 @@ public class HistoryManagerIntegrationTests
 
     private class TestNestedModel : CoreObject
     {
-        public static readonly CoreProperty<int> NestedIntValueProperty =
-            ConfigureProperty<int, TestNestedModel>(nameof(NestedIntValue))
-                .DefaultValue(0)
-                .Register();
+        public static readonly CoreProperty<int> NestedIntValueProperty = ConfigureProperty<
+            int,
+            TestNestedModel
+        >(nameof(NestedIntValue))
+            .DefaultValue(0)
+            .Register();
 
-        public static readonly CoreProperty<string?> NestedStringValueProperty =
-            ConfigureProperty<string?, TestNestedModel>(nameof(NestedStringValue))
-                .DefaultValue(null)
-                .Register();
+        public static readonly CoreProperty<string?> NestedStringValueProperty = ConfigureProperty<
+            string?,
+            TestNestedModel
+        >(nameof(NestedStringValue))
+            .DefaultValue(null)
+            .Register();
 
         public int NestedIntValue
         {
@@ -775,10 +825,12 @@ public class HistoryManagerIntegrationTests
 
     private class TestModelWithList : CoreObject
     {
-        public static readonly CoreProperty<CoreList<TestItem>> ItemsProperty =
-            ConfigureProperty<CoreList<TestItem>, TestModelWithList>(nameof(Items))
-                .DefaultValue(null!)
-                .Register();
+        public static readonly CoreProperty<CoreList<TestItem>> ItemsProperty = ConfigureProperty<
+            CoreList<TestItem>,
+            TestModelWithList
+        >(nameof(Items))
+            .DefaultValue(null!)
+            .Register();
 
         public TestModelWithList()
         {
@@ -794,10 +846,12 @@ public class HistoryManagerIntegrationTests
 
     private class TestItem : CoreObject
     {
-        public static readonly CoreProperty<string?> ValueProperty =
-            ConfigureProperty<string?, TestItem>(nameof(Value))
-                .DefaultValue(null)
-                .Register();
+        public static readonly CoreProperty<string?> ValueProperty = ConfigureProperty<
+            string?,
+            TestItem
+        >(nameof(Value))
+            .DefaultValue(null)
+            .Register();
 
         public string? Value
         {

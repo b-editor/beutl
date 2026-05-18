@@ -8,6 +8,9 @@ public class RenderNodeContext(RenderNodeOperation[] input)
 
     public Rect CalculateBounds()
     {
-        return Input.Aggregate<RenderNodeOperation, Rect>(default, (current, operation) => current.Union(operation.Bounds));
+        return Input.Aggregate<RenderNodeOperation, Rect>(
+            default,
+            (current, operation) => current.Union(operation.Bounds)
+        );
     }
 }

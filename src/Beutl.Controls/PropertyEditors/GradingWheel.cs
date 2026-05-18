@@ -9,8 +9,10 @@ namespace Beutl.Controls.PropertyEditors;
 
 public class GradingWheel : Thumb
 {
-    public static readonly StyledProperty<double> TickOffsetProperty =
-        AvaloniaProperty.Register<GradingWheel, double>(nameof(TickOffset), 0.0);
+    public static readonly StyledProperty<double> TickOffsetProperty = AvaloniaProperty.Register<
+        GradingWheel,
+        double
+    >(nameof(TickOffset), 0.0);
 
     private const int TickCount = 40;
     private const double TickSpacing = 0.025;
@@ -72,7 +74,11 @@ public class GradingWheel : Thumb
             if (thickness > 0)
             {
                 Pen borderPen = new Pen(borderBrush, thickness);
-                context.DrawRectangle(null, borderPen, new RoundedRect(bounds.Deflate(thickness / 2), cornerRadius));
+                context.DrawRectangle(
+                    null,
+                    borderPen,
+                    new RoundedRect(bounds.Deflate(thickness / 2), cornerRadius)
+                );
             }
         }
     }
@@ -92,8 +98,10 @@ public class GradingWheel : Thumb
             double normalizedPos = (i - TickCount / 2) * TickSpacing + TickOffset;
 
             // Wrap around
-            while (normalizedPos > 0.5) normalizedPos -= 1.0;
-            while (normalizedPos < -0.5) normalizedPos += 1.0;
+            while (normalizedPos > 0.5)
+                normalizedPos -= 1.0;
+            while (normalizedPos < -0.5)
+                normalizedPos += 1.0;
 
             double x = centerX + normalizedPos * bounds.Width;
 

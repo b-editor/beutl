@@ -20,7 +20,8 @@ public static class MediaExtensions
         this Stretch stretch,
         Size destinationSize,
         Size sourceSize,
-        StretchDirection stretchDirection = StretchDirection.Both)
+        StretchDirection stretchDirection = StretchDirection.Both
+    )
     {
         float scaleX = 1.0f;
         float scaleY = 1.0f;
@@ -28,12 +29,21 @@ public static class MediaExtensions
         bool isConstrainedWidth = !float.IsPositiveInfinity(destinationSize.Width);
         bool isConstrainedHeight = !float.IsPositiveInfinity(destinationSize.Height);
 
-        if ((stretch == Stretch.Uniform || stretch == Stretch.UniformToFill || stretch == Stretch.Fill)
-             && (isConstrainedWidth || isConstrainedHeight))
+        if (
+            (
+                stretch == Stretch.Uniform
+                || stretch == Stretch.UniformToFill
+                || stretch == Stretch.Fill
+            ) && (isConstrainedWidth || isConstrainedHeight)
+        )
         {
             // Compute scaling factors for both axes
-            scaleX = MathUtilities.IsZero(sourceSize.Width) ? 0.0f : destinationSize.Width / sourceSize.Width;
-            scaleY = MathUtilities.IsZero(sourceSize.Height) ? 0.0f : destinationSize.Height / sourceSize.Height;
+            scaleX = MathUtilities.IsZero(sourceSize.Width)
+                ? 0.0f
+                : destinationSize.Width / sourceSize.Width;
+            scaleY = MathUtilities.IsZero(sourceSize.Height)
+                ? 0.0f
+                : destinationSize.Height / sourceSize.Height;
 
             if (!isConstrainedWidth)
             {
@@ -109,7 +119,8 @@ public static class MediaExtensions
         this Stretch stretch,
         Size destinationSize,
         Size sourceSize,
-        StretchDirection stretchDirection = StretchDirection.Both)
+        StretchDirection stretchDirection = StretchDirection.Both
+    )
     {
         return sourceSize * stretch.CalculateScaling(destinationSize, sourceSize, stretchDirection);
     }

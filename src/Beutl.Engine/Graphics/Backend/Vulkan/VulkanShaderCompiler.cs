@@ -46,7 +46,8 @@ internal sealed unsafe class VulkanShaderCompiler : IShaderCompiler, IDisposable
                 ConvertShaderKind(stage),
                 fileNamePtr,
                 entryPointPtr,
-                _options);
+                _options
+            );
 
             try
             {
@@ -54,10 +55,13 @@ internal sealed unsafe class VulkanShaderCompiler : IShaderCompiler, IDisposable
                 if (status != CompilationStatus.Success)
                 {
                     var errorMessagePtr = _shaderc.ResultGetErrorMessage(result);
-                    var errorMessage = errorMessagePtr != null
-                        ? Marshal.PtrToStringUTF8((IntPtr)errorMessagePtr) ?? "Unknown error"
-                        : "Unknown error";
-                    throw new InvalidOperationException($"Shader compilation failed: {errorMessage}");
+                    var errorMessage =
+                        errorMessagePtr != null
+                            ? Marshal.PtrToStringUTF8((IntPtr)errorMessagePtr) ?? "Unknown error"
+                            : "Unknown error";
+                    throw new InvalidOperationException(
+                        $"Shader compilation failed: {errorMessage}"
+                    );
                 }
 
                 var length = _shaderc.ResultGetLength(result);
@@ -81,7 +85,7 @@ internal sealed unsafe class VulkanShaderCompiler : IShaderCompiler, IDisposable
             ShaderStage.Vertex => ShaderKind.VertexShader,
             ShaderStage.Fragment => ShaderKind.FragmentShader,
             ShaderStage.Compute => ShaderKind.ComputeShader,
-            _ => throw new ArgumentOutOfRangeException(nameof(stage), stage, null)
+            _ => throw new ArgumentOutOfRangeException(nameof(stage), stage, null),
         };
     }
 
@@ -92,13 +96,14 @@ internal sealed unsafe class VulkanShaderCompiler : IShaderCompiler, IDisposable
             ShaderStage.Vertex => "shader.vert",
             ShaderStage.Fragment => "shader.frag",
             ShaderStage.Compute => "shader.comp",
-            _ => "shader.glsl"
+            _ => "shader.glsl",
         };
     }
 
     public void Dispose()
     {
-        if (_disposed) return;
+        if (_disposed)
+            return;
         _disposed = true;
 
         if (_options != null)

@@ -1,11 +1,8 @@
 ﻿using System.Reactive.Subjects;
 using System.Text.Json;
-
 using Beutl.Logging;
 using Beutl.Reactive;
-
 using Microsoft.Extensions.Logging;
-
 using NuGet.Packaging;
 using NuGet.Packaging.Core;
 using NuGet.Versioning;
@@ -16,7 +13,9 @@ public class InstalledPackageRepository : IBeutlApiResource
 {
     private readonly ILogger _logger = Log.CreateLogger<InstalledPackageRepository>();
     private readonly HashSet<PackageIdentity> _packages = [];
-    private readonly Dictionary<string, string?> _resolvedBeutlVersions = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, string?> _resolvedBeutlVersions = new(
+        StringComparer.OrdinalIgnoreCase
+    );
     private readonly Subject<(PackageIdentity Package, bool Exists)> _subject = new();
     private const string FileName = "installedPackages.json";
 
@@ -37,7 +36,11 @@ public class InstalledPackageRepository : IBeutlApiResource
 
     public void UpgradePackages(PackageIdentity package)
     {
-        _logger.LogInformation("Upgrading package: {PackageId} to version: {PackageVersion}", package.Id, package.Version);
+        _logger.LogInformation(
+            "Upgrading package: {PackageId} to version: {PackageVersion}",
+            package.Id,
+            package.Version
+        );
         PackageIdentity[] removedItems = [];
         if (_subject.HasObservers)
         {
@@ -54,17 +57,29 @@ public class InstalledPackageRepository : IBeutlApiResource
         }
 
         _subject.OnNext((package, true));
-        _logger.LogInformation("Upgraded package: {PackageId} to version: {PackageVersion}", package.Id, package.Version);
+        _logger.LogInformation(
+            "Upgraded package: {PackageId} to version: {PackageVersion}",
+            package.Id,
+            package.Version
+        );
     }
 
     public void AddPackage(string name, string version)
     {
-        _logger.LogInformation("Adding package: {PackageName} with version: {PackageVersion}", name, version);
+        _logger.LogInformation(
+            "Adding package: {PackageName} with version: {PackageVersion}",
+            name,
+            version
+        );
         var package = new PackageIdentity(name, new NuGetVersion(version));
         string installedPath = Helper.PackagePathResolver.GetInstalledPath(package);
         if (!Directory.Exists(installedPath))
         {
-            _logger.LogError("Directory not found for package: {PackageName} with version: {PackageVersion}", name, version);
+            _logger.LogError(
+                "Directory not found for package: {PackageName} with version: {PackageVersion}",
+                name,
+                version
+            );
             throw new DirectoryNotFoundException();
         }
 
@@ -75,16 +90,28 @@ public class InstalledPackageRepository : IBeutlApiResource
             _subject.OnNext((package, true));
         }
 
-        _logger.LogInformation("Added package: {PackageName} with version: {PackageVersion}", name, version);
+        _logger.LogInformation(
+            "Added package: {PackageName} with version: {PackageVersion}",
+            name,
+            version
+        );
     }
 
     public void AddPackage(PackageIdentity package)
     {
-        _logger.LogInformation("Adding package: {PackageId} with version: {PackageVersion}", package.Id, package.Version);
+        _logger.LogInformation(
+            "Adding package: {PackageId} with version: {PackageVersion}",
+            package.Id,
+            package.Version
+        );
         string installedPath = Helper.PackagePathResolver.GetInstalledPath(package);
         if (!Directory.Exists(installedPath))
         {
-            _logger.LogError("Directory not found for package: {PackageId} with version: {PackageVersion}", package.Id, package.Version);
+            _logger.LogError(
+                "Directory not found for package: {PackageId} with version: {PackageVersion}",
+                package.Id,
+                package.Version
+            );
             throw new DirectoryNotFoundException();
         }
 
@@ -94,34 +121,55 @@ public class InstalledPackageRepository : IBeutlApiResource
             Save();
             _subject.OnNext((package, true));
         }
-        _logger.LogInformation("Added package: {PackageId} with version: {PackageVersion}", package.Id, package.Version);
+        _logger.LogInformation(
+            "Added package: {PackageId} with version: {PackageVersion}",
+            package.Id,
+            package.Version
+        );
     }
 
     public void RemovePackage(string name, string version)
     {
-        _logger.LogInformation("Removing package: {PackageName} with version: {PackageVersion}", name, version);
+        _logger.LogInformation(
+            "Removing package: {PackageName} with version: {PackageVersion}",
+            name,
+            version
+        );
         var nugetVersion = new NuGetVersion(version);
-        PackageIdentity? package = _packages.FirstOrDefault(
-            x => StringComparer.OrdinalIgnoreCase.Equals(x.Id, name) && x.Version == nugetVersion);
+        PackageIdentity? package = _packages.FirstOrDefault(x =>
+            StringComparer.OrdinalIgnoreCase.Equals(x.Id, name) && x.Version == nugetVersion
+        );
         if (package != null && _packages.Remove(package))
         {
             _resolvedBeutlVersions.Remove(name);
             Save();
             _subject.OnNext((package, false));
         }
-        _logger.LogInformation("Removed package: {PackageName} with version: {PackageVersion}", name, version);
+        _logger.LogInformation(
+            "Removed package: {PackageName} with version: {PackageVersion}",
+            name,
+            version
+        );
     }
 
     public void RemovePackage(PackageIdentity package)
     {
-        _logger.LogInformation("Removing package: {PackageId} with version: {PackageVersion}", package.Id, package.Version);
+        _logger.LogInformation(
+            "Removing package: {PackageId} with version: {PackageVersion}",
+            package.Id,
+            package.Version
+        );
         if (_packages.Remove(package))
         {
             _resolvedBeutlVersions.Remove(package.Id);
             Save();
             _subject.OnNext((package, false));
         }
-        _logger.LogInformation("Removed package: {PackageId} with version: {PackageVersion}", package.Id, package.Version);
+        _logger.LogInformation(
+            "Removed package: {PackageId} with version: {PackageVersion}",
+            package.Id,
+            package.Version
+        );
     }
 
     public void RemovePackages(string name)
@@ -139,7 +187,11 @@ public class InstalledPackageRepository : IBeutlApiResource
         {
             _subject.OnNext((package, false));
         }
-        _logger.LogInformation("Removed {Count} packages with name: {PackageName}", removed.Length, name);
+        _logger.LogInformation(
+            "Removed {Count} packages with name: {PackageName}",
+            removed.Length,
+            name
+        );
     }
 
     public bool ExistsPackage(PackageIdentity package)
@@ -150,8 +202,9 @@ public class InstalledPackageRepository : IBeutlApiResource
     public bool ExistsPackage(string name, string version)
     {
         var nugetVersion = new NuGetVersion(version);
-        return _packages.Any(
-            x => StringComparer.OrdinalIgnoreCase.Equals(x.Id, name) && x.Version == nugetVersion);
+        return _packages.Any(x =>
+            StringComparer.OrdinalIgnoreCase.Equals(x.Id, name) && x.Version == nugetVersion
+        );
     }
 
     public bool ExistsPackage(string name)
@@ -167,11 +220,14 @@ public class InstalledPackageRepository : IBeutlApiResource
     public PackageIdentity[] GetPackagesNeedingDependencyReResolution()
     {
         string currentVersion = BeutlApplication.Version;
-        return [.. _packages.Where(p =>
-        {
-            _resolvedBeutlVersions.TryGetValue(p.Id, out string? ver);
-            return ver != currentVersion;
-        })];
+        return
+        [
+            .. _packages.Where(p =>
+            {
+                _resolvedBeutlVersions.TryGetValue(p.Id, out string? ver);
+                return ver != currentVersion;
+            }),
+        ];
     }
 
     public void SetResolvedBeutlVersion(string packageId, string beutlVersion)
@@ -186,12 +242,16 @@ public class InstalledPackageRepository : IBeutlApiResource
         string fileName = Path.Combine(Helper.AppRoot, FileName);
         using (FileStream stream = File.Create(fileName))
         {
-            JsonSerializer.Serialize(stream, _packages
-                .Select(x => new S_Package(
-                    x.Id,
-                    x.Version.ToString(),
-                    _resolvedBeutlVersions.GetValueOrDefault(x.Id)))
-                .ToArray());
+            JsonSerializer.Serialize(
+                stream,
+                _packages
+                    .Select(x => new S_Package(
+                        x.Id,
+                        x.Version.ToString(),
+                        _resolvedBeutlVersions.GetValueOrDefault(x.Id)
+                    ))
+                    .ToArray()
+            );
         }
         _logger.LogInformation("Saved {Count} packages to file.", _packages.Count);
     }
@@ -211,7 +271,12 @@ public class InstalledPackageRepository : IBeutlApiResource
                         _packages.Clear();
                         _resolvedBeutlVersions.Clear();
 
-                        _packages.AddRange(packages.Select(x => new PackageIdentity(x.Name, new NuGetVersion(x.Version))));
+                        _packages.AddRange(
+                            packages.Select(x => new PackageIdentity(
+                                x.Name,
+                                new NuGetVersion(x.Version)
+                            ))
+                        );
 
                         foreach (S_Package pkg in packages)
                         {
@@ -277,14 +342,15 @@ public class InstalledPackageRepository : IBeutlApiResource
 
         protected override void Initialize()
         {
-            _disposable = _repository._subject
-                .Subscribe(OnReceived);
+            _disposable = _repository._subject.Subscribe(OnReceived);
         }
 
         private void OnReceived((PackageIdentity Package, bool Exists) obj)
         {
-            if ((_packageIdentity != null && _packageIdentity == obj.Package)
-                || StringComparer.OrdinalIgnoreCase.Equals(obj.Package.Id, _name))
+            if (
+                (_packageIdentity != null && _packageIdentity == obj.Package)
+                || StringComparer.OrdinalIgnoreCase.Equals(obj.Package.Id, _name)
+            )
             {
                 PublishNext(obj.Exists);
             }

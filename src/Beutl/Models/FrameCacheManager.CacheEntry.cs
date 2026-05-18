@@ -1,10 +1,8 @@
 ﻿using System.Buffers;
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.InteropServices;
-
 using Beutl.Media;
 using Beutl.Media.Source;
-
 using SkiaSharp;
 
 namespace Beutl.Models;
@@ -47,8 +45,13 @@ public partial class FrameCacheManager
             return Ref<Bitmap>.Create(ToBitmap());
         }
 
-        private static unsafe (byte[] Data, int DataLength, int Width, int Height, bool IsYuv) ToCacheData(
-            Ref<Bitmap> bitmapRef, FrameCacheOptions options)
+        private static unsafe (
+            byte[] Data,
+            int DataLength,
+            int Width,
+            int Height,
+            bool IsYuv
+        ) ToCacheData(Ref<Bitmap> bitmapRef, FrameCacheOptions options)
         {
             var bitmap = bitmapRef.Value;
             PixelSize size = new(bitmap.Width, bitmap.Height);
@@ -59,20 +62,30 @@ public partial class FrameCacheManager
             try
             {
                 // Resize if needed
-                if (newSize.Width < size.Width ||
-                    newSize.Height < size.Height ||
-                    bitmap.ColorType != BitmapColorType.Bgra8888 ||
-                    bitmap.ColorSpace != BitmapColorSpace.Srgb)
+                if (
+                    newSize.Width < size.Width
+                    || newSize.Height < size.Height
+                    || bitmap.ColorType != BitmapColorType.Bgra8888
+                    || bitmap.ColorSpace != BitmapColorSpace.Srgb
+                )
                 {
                     var newWidth = Math.Min(size.Width, newSize.Width);
                     var newHeight = Math.Min(size.Height, newSize.Height);
                     var resized = current.SKBitmap.Resize(
-                        new SKImageInfo(newWidth, newHeight, SKColorType.Bgra8888, SKAlphaType.Premul, SKColorSpace.CreateSrgb()),
-                        new SKSamplingOptions(SKFilterMode.Linear));
+                        new SKImageInfo(
+                            newWidth,
+                            newHeight,
+                            SKColorType.Bgra8888,
+                            SKAlphaType.Premul,
+                            SKColorSpace.CreateSrgb()
+                        ),
+                        new SKSamplingOptions(SKFilterMode.Linear)
+                    );
                     if (resized != null)
                     {
                         var resizedBitmap = new Bitmap(resized);
-                        if (ownsCurrentBitmap) bitmapRef.Dispose();
+                        if (ownsCurrentBitmap)
+                            bitmapRef.Dispose();
                         current = resizedBitmap;
                         ownsCurrentBitmap = true;
                     }
@@ -87,7 +100,13 @@ public partial class FrameCacheManager
 
                     fixed (byte* yuvPtr = yuvData)
                     {
-                        YuvConversion.BgraToI420((byte*)current.Data, current.RowBytes, yuvPtr, w, h);
+                        YuvConversion.BgraToI420(
+                            (byte*)current.Data,
+                            current.RowBytes,
+                            yuvPtr,
+                            w,
+                            h
+                        );
                     }
 
                     return (yuvData, yuvSize, w, h, true);
@@ -115,7 +134,9 @@ public partial class FrameCacheManager
                                 Buffer.MemoryCopy(
                                     srcBase + (long)y * srcStride,
                                     dstBase + (long)y * dstStride,
-                                    dstStride, dstStride);
+                                    dstStride,
+                                    dstStride
+                                );
                             }
                         }
                     }
@@ -125,7 +146,8 @@ public partial class FrameCacheManager
             }
             finally
             {
-                if (ownsCurrentBitmap) current.Dispose();
+                if (ownsCurrentBitmap)
+                    current.Dispose();
             }
         }
 
@@ -151,7 +173,9 @@ public partial class FrameCacheManager
                             Buffer.MemoryCopy(
                                 srcBase + (long)y * srcStride,
                                 dstBase + (long)y * dstStride,
-                                srcStride, srcStride);
+                                srcStride,
+                                srcStride
+                            );
                         }
                     }
                 }
@@ -163,7 +187,13 @@ public partial class FrameCacheManager
                 var bitmap = new Bitmap(_width, _height);
                 fixed (byte* yuvPtr = _data)
                 {
-                    YuvConversion.I420ToBgra(yuvPtr, (byte*)bitmap.Data, bitmap.RowBytes, _width, _height);
+                    YuvConversion.I420ToBgra(
+                        yuvPtr,
+                        (byte*)bitmap.Data,
+                        bitmap.RowBytes,
+                        _width,
+                        _height
+                    );
                 }
 
                 return bitmap;

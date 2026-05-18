@@ -1,5 +1,4 @@
-﻿
-namespace Beutl.Threading;
+﻿namespace Beutl.Threading;
 
 internal sealed class DispatcherOperation
 {

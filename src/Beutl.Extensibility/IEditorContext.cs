@@ -22,9 +22,7 @@ public interface IEditorContext : IDisposable, IAsyncDisposable, IServiceProvide
 
     void CloseToolTab(IToolContext item);
 
-    void IDisposable.Dispose()
-    {
-    }
+    void IDisposable.Dispose() { }
 
     ValueTask IAsyncDisposable.DisposeAsync()
     {

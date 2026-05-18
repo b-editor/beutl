@@ -10,11 +10,11 @@ internal sealed partial class AnimationSamplerTestRoot : EngineObject, IHierarch
     public event EventHandler<IHierarchical>? DescendantAttached;
     public event EventHandler<IHierarchical>? DescendantDetached;
 
-    public void OnDescendantAttached(IHierarchical descendant)
-        => DescendantAttached?.Invoke(this, descendant);
+    public void OnDescendantAttached(IHierarchical descendant) =>
+        DescendantAttached?.Invoke(this, descendant);
 
-    public void OnDescendantDetached(IHierarchical descendant)
-        => DescendantDetached?.Invoke(this, descendant);
+    public void OnDescendantDetached(IHierarchical descendant) =>
+        DescendantDetached?.Invoke(this, descendant);
 }
 
 [TestFixture]
@@ -26,24 +26,33 @@ public class AnimationSamplerTests
         property.SetAttributes("Value", []);
 
         var animation = new KeyFrameAnimation<float>();
-        animation.KeyFrames.Add(new KeyFrame<float>
-        {
-            KeyTime = TimeSpan.Zero,
-            Value = from,
-            Easing = new LinearEasing()
-        });
-        animation.KeyFrames.Add(new KeyFrame<float>
-        {
-            KeyTime = TimeSpan.FromSeconds(durationSeconds),
-            Value = to,
-            Easing = new LinearEasing()
-        });
+        animation.KeyFrames.Add(
+            new KeyFrame<float>
+            {
+                KeyTime = TimeSpan.Zero,
+                Value = from,
+                Easing = new LinearEasing(),
+            }
+        );
+        animation.KeyFrames.Add(
+            new KeyFrame<float>
+            {
+                KeyTime = TimeSpan.FromSeconds(durationSeconds),
+                Value = to,
+                Easing = new LinearEasing(),
+            }
+        );
         property.Animation = animation;
         return property;
     }
 
     private static (IProperty<float> Property, EngineObject Owner) AttachedAnimatedFloat(
-        float from, float to, double durationSeconds, TimeRange ownerTimeRange, bool useGlobalClock)
+        float from,
+        float to,
+        double durationSeconds,
+        TimeRange ownerTimeRange,
+        bool useGlobalClock
+    )
     {
         var owner = new AnimationSamplerTestRoot { TimeRange = ownerTimeRange };
 
@@ -51,18 +60,22 @@ public class AnimationSamplerTests
         property.SetAttributes("Value", []);
 
         var animation = new KeyFrameAnimation<float> { UseGlobalClock = useGlobalClock };
-        animation.KeyFrames.Add(new KeyFrame<float>
-        {
-            KeyTime = TimeSpan.Zero,
-            Value = from,
-            Easing = new LinearEasing()
-        });
-        animation.KeyFrames.Add(new KeyFrame<float>
-        {
-            KeyTime = TimeSpan.FromSeconds(durationSeconds),
-            Value = to,
-            Easing = new LinearEasing()
-        });
+        animation.KeyFrames.Add(
+            new KeyFrame<float>
+            {
+                KeyTime = TimeSpan.Zero,
+                Value = from,
+                Easing = new LinearEasing(),
+            }
+        );
+        animation.KeyFrames.Add(
+            new KeyFrame<float>
+            {
+                KeyTime = TimeSpan.FromSeconds(durationSeconds),
+                Value = to,
+                Easing = new LinearEasing(),
+            }
+        );
         property.Animation = animation;
         property.SetOwnerObject(owner);
         return (property, owner);
@@ -80,7 +93,12 @@ public class AnimationSamplerTests
         static void Invoke(AnimationSampler sampler)
         {
             Span<float> b = stackalloc float[8];
-            sampler.SampleBuffer<float>(null!, new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(1)), 8, b);
+            sampler.SampleBuffer<float>(
+                null!,
+                new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(1)),
+                8,
+                b
+            );
         }
     }
 
@@ -93,7 +111,12 @@ public class AnimationSamplerTests
         property.CurrentValue = 9.5f;
 
         Span<float> buffer = stackalloc float[4];
-        sampler.SampleBuffer(property, new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(1)), 4, buffer);
+        sampler.SampleBuffer(
+            property,
+            new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(1)),
+            4,
+            buffer
+        );
 
         for (int i = 0; i < buffer.Length; i++)
         {
@@ -108,7 +131,12 @@ public class AnimationSamplerTests
         var property = AnimatedFloat(0f, 10f, 1.0);
 
         Span<float> buffer = stackalloc float[10];
-        sampler.SampleBuffer(property, new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(1)), 10, buffer);
+        sampler.SampleBuffer(
+            property,
+            new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(1)),
+            10,
+            buffer
+        );
 
         Assert.That(buffer[0], Is.EqualTo(0f).Within(1e-3));
         // Linearly interpolated => values should monotonically increase.
@@ -125,7 +153,12 @@ public class AnimationSamplerTests
         var property = AnimatedFloat(0f, 100f, 1.0);
 
         Span<float> buffer = stackalloc float[1];
-        sampler.SampleBuffer(property, new TimeRange(TimeSpan.FromSeconds(0.5), TimeSpan.FromSeconds(0.5)), 4, buffer);
+        sampler.SampleBuffer(
+            property,
+            new TimeRange(TimeSpan.FromSeconds(0.5), TimeSpan.FromSeconds(0.5)),
+            4,
+            buffer
+        );
 
         Assert.That(buffer[0], Is.EqualTo(50f).Within(1f));
     }
@@ -136,8 +169,14 @@ public class AnimationSamplerTests
         var sampler = new AnimationSampler();
         var property = AnimatedFloat(0f, 10f, 1.0);
 
-        Assert.DoesNotThrow(() => sampler.SampleBuffer(
-            property, new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(1)), 4, Span<float>.Empty));
+        Assert.DoesNotThrow(() =>
+            sampler.SampleBuffer(
+                property,
+                new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(1)),
+                4,
+                Span<float>.Empty
+            )
+        );
     }
 
     // 音声グラフでは ClipNode が要素ローカル時刻に変換した context を下流に流すため、
@@ -151,7 +190,8 @@ public class AnimationSamplerTests
             to: 100f,
             durationSeconds: 1.0,
             ownerTimeRange: new TimeRange(TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(1)),
-            useGlobalClock: false);
+            useGlobalClock: false
+        );
 
         Span<float> buffer = stackalloc float[10];
         // production と同じく ClipNode 通過後のローカル range (0..1s) を渡す。
@@ -159,7 +199,8 @@ public class AnimationSamplerTests
             property,
             new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(1)),
             10,
-            buffer);
+            buffer
+        );
 
         // UseGlobalClock=false かつローカル時刻のキーフレーム (0s=0, 1s=100) なので 0..90 に補間されるべき。
         Assert.That(buffer[0], Is.EqualTo(0f).Within(1e-3));
@@ -179,7 +220,8 @@ public class AnimationSamplerTests
             to: 100f,
             durationSeconds: 1.0,
             ownerTimeRange: new TimeRange(TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(1)),
-            useGlobalClock: true);
+            useGlobalClock: true
+        );
 
         Span<float> buffer = stackalloc float[10];
         // production と同じくローカル range (0..1s) を渡す。owner が 5s に置かれているため、
@@ -189,7 +231,8 @@ public class AnimationSamplerTests
             property,
             new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(1)),
             10,
-            buffer);
+            buffer
+        );
 
         for (int i = 0; i < buffer.Length; i++)
         {

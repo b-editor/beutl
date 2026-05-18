@@ -2,7 +2,6 @@
 using System.Numerics;
 using System.Text.Json;
 using System.Text.Json.Serialization;
-
 using Beutl.Validation;
 
 namespace Beutl;
@@ -15,7 +14,8 @@ public class CorePropertyMetadata<T> : CorePropertyMetadata
     public CorePropertyMetadata(
         Optional<T> defaultValue = default,
         bool shouldSerialize = true,
-        params Attribute[] attributes)
+        params Attribute[] attributes
+    )
         : base(shouldSerialize, attributes)
     {
         _defaultValue = defaultValue;
@@ -59,20 +59,43 @@ public class CorePropertyMetadata<T> : CorePropertyMetadata
                 Type[] interfaces = propType.GetInterfaces();
                 if (propType.IsValueType)
                 {
-                    if (interfaces.Any(x => x.IsGenericType && x.GetGenericTypeDefinition() == typeof(INumber<>))
-                        && interfaces.Any(x => x.IsGenericType && x.GetGenericTypeDefinition() == typeof(IMinMaxValue<>)))
+                    if (
+                        interfaces.Any(x =>
+                            x.IsGenericType && x.GetGenericTypeDefinition() == typeof(INumber<>)
+                        )
+                        && interfaces.Any(x =>
+                            x.IsGenericType
+                            && x.GetGenericTypeDefinition() == typeof(IMinMaxValue<>)
+                        )
+                    )
                     {
-                        Type validatorType = typeof(RangeDataAnnotationValidater<>).MakeGenericType(propType);
-                        if (Activator.CreateInstance(validatorType, rangeAttribute) is IValidator<T> validator)
+                        Type validatorType = typeof(RangeDataAnnotationValidater<>).MakeGenericType(
+                            propType
+                        );
+                        if (
+                            Activator.CreateInstance(validatorType, rangeAttribute)
+                            is IValidator<T> validator
+                        )
                         {
                             return validator;
                         }
                     }
-                    else if (interfaces.FirstOrDefault(x => x.IsGenericType && x.GetGenericTypeDefinition() == typeof(ITupleConvertible<,>)) is { } interfaceType)
+                    else if (
+                        interfaces.FirstOrDefault(x =>
+                            x.IsGenericType
+                            && x.GetGenericTypeDefinition() == typeof(ITupleConvertible<,>)
+                        ) is
+                        { } interfaceType
+                    )
                     {
                         Type validatorType = typeof(TupleRangeDataAnnotationValidater<,>);
-                        validatorType = validatorType.MakeGenericType(interfaceType.GetGenericArguments());
-                        if (Activator.CreateInstance(validatorType, rangeAttribute) is IValidator<T> validator)
+                        validatorType = validatorType.MakeGenericType(
+                            interfaceType.GetGenericArguments()
+                        );
+                        if (
+                            Activator.CreateInstance(validatorType, rangeAttribute)
+                            is IValidator<T> validator
+                        )
                         {
                             return validator;
                         }
@@ -98,16 +121,21 @@ public class CorePropertyMetadata<T> : CorePropertyMetadata
     {
         if (Attributes != null)
         {
-            IValidator<T>[] validations = Attributes.OfType<ValidationAttribute>()
+            IValidator<T>[] validations = Attributes
+                .OfType<ValidationAttribute>()
                 .Select(ConvertValidator)
                 .ToArray();
 
             Validator = new MultipleValidator<T>(validations);
 
-            JsonConverterAttribute? jsonConverter = Attributes.OfType<JsonConverterAttribute>().FirstOrDefault();
+            JsonConverterAttribute? jsonConverter = Attributes
+                .OfType<JsonConverterAttribute>()
+                .FirstOrDefault();
             if (jsonConverter is { ConverterType: { } })
             {
-                JsonConverter = JsonHelper.GetOrCreateConverterInstance(jsonConverter.ConverterType) as JsonConverter<T>;
+                JsonConverter =
+                    JsonHelper.GetOrCreateConverterInstance(jsonConverter.ConverterType)
+                    as JsonConverter<T>;
             }
             else
             {

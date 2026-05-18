@@ -5,7 +5,10 @@ using Beutl.Language;
 
 namespace Beutl.Media;
 
-[Display(Name = nameof(GraphicsStrings.QuadraticBezierSegment), ResourceType = typeof(GraphicsStrings))]
+[Display(
+    Name = nameof(GraphicsStrings.QuadraticBezierSegment),
+    ResourceType = typeof(GraphicsStrings)
+)]
 public sealed partial class QuadraticBezierSegment : PathSegment
 {
     public QuadraticBezierSegment()
@@ -13,13 +16,17 @@ public sealed partial class QuadraticBezierSegment : PathSegment
         ScanProperties<QuadraticBezierSegment>();
     }
 
-    public QuadraticBezierSegment(Point controlPoint, Point endPoint) : this()
+    public QuadraticBezierSegment(Point controlPoint, Point endPoint)
+        : this()
     {
         ControlPoint.CurrentValue = controlPoint;
         EndPoint.CurrentValue = endPoint;
     }
 
-    [Display(Name = nameof(GraphicsStrings.QuadraticBezierSegment_ControlPoint), ResourceType = typeof(GraphicsStrings))]
+    [Display(
+        Name = nameof(GraphicsStrings.QuadraticBezierSegment_ControlPoint),
+        ResourceType = typeof(GraphicsStrings)
+    )]
     public IProperty<Point> ControlPoint { get; } = Property.CreateAnimatable<Point>();
 
     [Display(Name = nameof(GraphicsStrings.EndPoint), ResourceType = typeof(GraphicsStrings))]

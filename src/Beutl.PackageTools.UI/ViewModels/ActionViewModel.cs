@@ -1,7 +1,5 @@
 ﻿using System.Reactive.Linq;
-
 using Beutl.PackageTools.UI.Models;
-
 using Reactive.Bindings;
 
 namespace Beutl.PackageTools.UI.ViewModels;
@@ -13,22 +11,26 @@ public class ActionViewModel
         Model = model;
         if (model.Action == PackageChangeAction.Install)
         {
-            Title = $"{Strings.Install} ({changesModel.InstallItems.IndexOf(model) + 1}/{changesModel.InstallItems.Count})";
+            Title =
+                $"{Strings.Install} ({changesModel.InstallItems.IndexOf(model) + 1}/{changesModel.InstallItems.Count})";
         }
         else if (model.Action == PackageChangeAction.Uninstall)
         {
-            Title = $"{Strings.Uninstall} ({changesModel.UninstallItems.IndexOf(model) + 1}/{changesModel.UninstallItems.Count})";
+            Title =
+                $"{Strings.Uninstall} ({changesModel.UninstallItems.IndexOf(model) + 1}/{changesModel.UninstallItems.Count})";
         }
         else if (model.Action == PackageChangeAction.Update)
         {
-            Title = $"{Strings.Update} ({changesModel.UpdateItems.IndexOf(model) + 1}/{changesModel.UpdateItems.Count})";
+            Title =
+                $"{Strings.Update} ({changesModel.UpdateItems.IndexOf(model) + 1}/{changesModel.UpdateItems.Count})";
         }
         else
         {
             Title = "";
         }
 
-        Finished = Succeeded.CombineLatest(Failed, Canceled)
+        Finished = Succeeded
+            .CombineLatest(Failed, Canceled)
             .Select(t => t.First || t.Second || t.Third)
             .ToReadOnlyReactiveProperty();
     }

@@ -17,7 +17,8 @@ internal sealed unsafe class VulkanSampler : ISampler
         SamplerFilter minFilter = SamplerFilter.Linear,
         SamplerFilter magFilter = SamplerFilter.Linear,
         SamplerAddressMode addressModeU = SamplerAddressMode.ClampToEdge,
-        SamplerAddressMode addressModeV = SamplerAddressMode.ClampToEdge)
+        SamplerAddressMode addressModeV = SamplerAddressMode.ClampToEdge
+    )
     {
         _context = context;
         MinFilter = minFilter;
@@ -45,7 +46,7 @@ internal sealed unsafe class VulkanSampler : ISampler
             MipmapMode = SamplerMipmapMode.Linear,
             MipLodBias = 0.0f,
             MinLod = 0.0f,
-            MaxLod = 0.0f
+            MaxLod = 0.0f,
         };
 
         Sampler sampler;
@@ -67,25 +68,30 @@ internal sealed unsafe class VulkanSampler : ISampler
 
     public SamplerAddressMode AddressModeV { get; }
 
-    private static Filter ToVulkanFilter(SamplerFilter filter) => filter switch
-    {
-        SamplerFilter.Nearest => Filter.Nearest,
-        SamplerFilter.Linear => Filter.Linear,
-        _ => Filter.Linear
-    };
+    private static Filter ToVulkanFilter(SamplerFilter filter) =>
+        filter switch
+        {
+            SamplerFilter.Nearest => Filter.Nearest,
+            SamplerFilter.Linear => Filter.Linear,
+            _ => Filter.Linear,
+        };
 
-    private static Silk.NET.Vulkan.SamplerAddressMode ToVulkanAddressMode(SamplerAddressMode mode) => mode switch
-    {
-        SamplerAddressMode.Repeat => Silk.NET.Vulkan.SamplerAddressMode.Repeat,
-        SamplerAddressMode.MirroredRepeat => Silk.NET.Vulkan.SamplerAddressMode.MirroredRepeat,
-        SamplerAddressMode.ClampToEdge => Silk.NET.Vulkan.SamplerAddressMode.ClampToEdge,
-        SamplerAddressMode.ClampToBorder => Silk.NET.Vulkan.SamplerAddressMode.ClampToBorder,
-        _ => Silk.NET.Vulkan.SamplerAddressMode.ClampToEdge
-    };
+    private static Silk.NET.Vulkan.SamplerAddressMode ToVulkanAddressMode(
+        SamplerAddressMode mode
+    ) =>
+        mode switch
+        {
+            SamplerAddressMode.Repeat => Silk.NET.Vulkan.SamplerAddressMode.Repeat,
+            SamplerAddressMode.MirroredRepeat => Silk.NET.Vulkan.SamplerAddressMode.MirroredRepeat,
+            SamplerAddressMode.ClampToEdge => Silk.NET.Vulkan.SamplerAddressMode.ClampToEdge,
+            SamplerAddressMode.ClampToBorder => Silk.NET.Vulkan.SamplerAddressMode.ClampToBorder,
+            _ => Silk.NET.Vulkan.SamplerAddressMode.ClampToEdge,
+        };
 
     public void Dispose()
     {
-        if (_disposed) return;
+        if (_disposed)
+            return;
         _disposed = true;
 
         _context.Vk.DestroySampler(_context.Device, _sampler, null);

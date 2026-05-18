@@ -1,12 +1,14 @@
 ﻿using System.ComponentModel;
-
 using Beutl.Reactive;
 
 namespace Beutl;
 
 public static class CoreObjectExtensions
 {
-    public static IObservable<CorePropertyChangedEventArgs<T>> GetPropertyChangedObservable<T>(this ICoreObject obj, CoreProperty<T> property)
+    public static IObservable<CorePropertyChangedEventArgs<T>> GetPropertyChangedObservable<T>(
+        this ICoreObject obj,
+        CoreProperty<T> property
+    )
     {
         ArgumentNullException.ThrowIfNull(obj);
         ArgumentNullException.ThrowIfNull(property);
@@ -27,12 +29,21 @@ public static class CoreObjectExtensions
         return obj.Find(o => (o as ICoreObject)?.Id == id, includeSelf) as ICoreObject;
     }
 
-    public static object? Find(this ICoreObject obj, Predicate<object?> predicate, bool includeSelf = true)
+    public static object? Find(
+        this ICoreObject obj,
+        Predicate<object?> predicate,
+        bool includeSelf = true
+    )
     {
         return obj.Find(predicate, includeSelf, []);
     }
 
-    public static object? Find(this ICoreObject obj, Predicate<object?> predicate, bool includeSelf, HashSet<object> hashSet)
+    public static object? Find(
+        this ICoreObject obj,
+        Predicate<object?> predicate,
+        bool includeSelf,
+        HashSet<object> hashSet
+    )
     {
         ArgumentNullException.ThrowIfNull(predicate);
 
@@ -73,7 +84,11 @@ public static class CoreObjectExtensions
         return null;
     }
 
-    private static object? FindHierarchy(this IHierarchical hierarchical, Predicate<object?> predicate, HashSet<object> hashSet)
+    private static object? FindHierarchy(
+        this IHierarchical hierarchical,
+        Predicate<object?> predicate,
+        HashSet<object> hashSet
+    )
     {
         foreach (IHierarchical item in hierarchical.HierarchicalChildren)
         {

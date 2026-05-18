@@ -15,11 +15,15 @@ public class FileSourceJsonConverter : JsonConverter<IFileSource>
     public virtual IFileSource? CreateInstance(Type typeToConvert)
     {
         return typeToConvert == typeof(IFileSource)
-                ? new BlobFileSource()
-                : Activator.CreateInstance(typeToConvert) as IFileSource;
+            ? new BlobFileSource()
+            : Activator.CreateInstance(typeToConvert) as IFileSource;
     }
 
-    public override IFileSource? Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    public override IFileSource? Read(
+        ref Utf8JsonReader reader,
+        Type typeToConvert,
+        JsonSerializerOptions options
+    )
     {
         var jsonNode = JsonNode.Parse(ref reader);
         var parentContext = ThreadLocalSerializationContext.Current;
@@ -34,7 +38,9 @@ public class FileSourceJsonConverter : JsonConverter<IFileSource>
             if (!uri.IsAbsoluteUri)
             {
                 if (parentContext == null)
-                    throw new JsonException("Cannot resolve relative URI without a parent context.");
+                    throw new JsonException(
+                        "Cannot resolve relative URI without a parent context."
+                    );
 
                 if (!Uri.TryCreate(parentContext.BaseUri, uriString, out uri))
                 {
@@ -45,7 +51,9 @@ public class FileSourceJsonConverter : JsonConverter<IFileSource>
             IFileSource? instance = CreateInstance(typeToConvert);
             if (instance == null)
             {
-                throw new JsonException($"Could not create instance of type {typeToConvert.FullName}.");
+                throw new JsonException(
+                    $"Could not create instance of type {typeToConvert.FullName}."
+                );
             }
 
             instance.ReadFrom(uri);
@@ -57,10 +65,15 @@ public class FileSourceJsonConverter : JsonConverter<IFileSource>
         }
     }
 
-    public override void Write(Utf8JsonWriter writer, IFileSource value, JsonSerializerOptions options)
+    public override void Write(
+        Utf8JsonWriter writer,
+        IFileSource value,
+        JsonSerializerOptions options
+    )
     {
         var parentContext = ThreadLocalSerializationContext.Current;
-        if (parentContext == null) throw new JsonException("Cannot serialize IFileSource without a parent context.");
+        if (parentContext == null)
+            throw new JsonException("Cannot serialize IFileSource without a parent context.");
 
         var serializedUri = value.Uri;
         if (parentContext.BaseUri?.Scheme == value.Uri.Scheme)

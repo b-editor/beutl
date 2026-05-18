@@ -1,7 +1,6 @@
 ﻿using Avalonia;
 using Avalonia.Controls;
 using Beutl.ViewModels.SettingsPages;
-
 using Reactive.Bindings.Extensions;
 
 namespace Beutl.Pages.SettingsPages;
@@ -11,11 +10,15 @@ public sealed partial class AccountSettingsPage : UserControl
     public AccountSettingsPage()
     {
         InitializeComponent();
-        IObservable<AccountSettingsPageViewModel?> viewModel = this.GetObservable(DataContextProperty)
+        IObservable<AccountSettingsPageViewModel?> viewModel = this.GetObservable(
+                DataContextProperty
+            )
             .Select(v => v as AccountSettingsPageViewModel);
 
         IObservable<bool?> signedIn = viewModel
-            .Select(v => v?.SignedIn.Select(v => (bool?)v) ?? Observable.ReturnThenNever<bool?>(null))
+            .Select(v =>
+                v?.SignedIn.Select(v => (bool?)v) ?? Observable.ReturnThenNever<bool?>(null)
+            )
             .Switch();
 
         signedIn

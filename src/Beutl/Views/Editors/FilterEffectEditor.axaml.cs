@@ -31,14 +31,17 @@ public partial class FilterEffectEditor : UserControl
         EditorMenuHelper.AttachCopyPasteAndTemplateMenus(
             this,
             (FAMenuFlyout)expandToggle.ContextFlyout!,
-            (FAMenuFlyout)ReferenceMenuButton.Flyout!);
+            (FAMenuFlyout)ReferenceMenuButton.Flyout!
+        );
     }
 
     private void Drop(object? sender, DragEventArgs e)
     {
-        if (DataContext is not FilterEffectEditorViewModel { IsDisposed: false } viewModel) return;
+        if (DataContext is not FilterEffectEditorViewModel { IsDisposed: false } viewModel)
+            return;
 
-        if (EditorDragDropHelper.TryHandleEditorDrop<FilterEffect>(
+        if (
+            EditorDragDropHelper.TryHandleEditorDrop<FilterEffect>(
                 e,
                 BeutlDataFormats.FilterEffect,
                 tryPasteJson: viewModel.TryPasteJson,
@@ -56,7 +59,9 @@ public partial class FilterEffectEditor : UserControl
                     else
                         viewModel.ChangeFilterType(type);
                     return true;
-                }))
+                }
+            )
+        )
         {
             e.Handled = true;
         }
@@ -69,7 +74,8 @@ public partial class FilterEffectEditor : UserControl
 
     private async void Tag_Click(object? sender, RoutedEventArgs e)
     {
-        if (DataContext is not FilterEffectEditorViewModel { IsDisposed: false } viewModel) return;
+        if (DataContext is not FilterEffectEditorViewModel { IsDisposed: false } viewModel)
+            return;
 
         if (viewModel.IsGroup.Value)
         {
@@ -83,7 +89,9 @@ public partial class FilterEffectEditor : UserControl
                         viewModel.AddItem(type);
                         break;
                     case FilterEffect fe:
-                        Type? presenterType = PresenterTypeAttribute.GetPresenterType(typeof(FilterEffect));
+                        Type? presenterType = PresenterTypeAttribute.GetPresenterType(
+                            typeof(FilterEffect)
+                        );
                         if (presenterType != null)
                         {
                             viewModel.AddTarget(presenterType, fe);
@@ -104,21 +112,28 @@ public partial class FilterEffectEditor : UserControl
 
     private async Task<object?> SelectTypeOrReference()
     {
-        if (_flyoutOpen) return null;
+        if (_flyoutOpen)
+            return null;
 
         try
         {
             _flyoutOpen = true;
             var selectVm = new SelectFilterEffectTypeViewModel();
 
-            if (DataContext is FilterEffectEditorViewModel { IsDisposed: false } vm
-                && PresenterTypeAttribute.GetPresenterType(typeof(FilterEffect)) != null)
+            if (
+                DataContext is FilterEffectEditorViewModel { IsDisposed: false } vm
+                && PresenterTypeAttribute.GetPresenterType(typeof(FilterEffect)) != null
+            )
             {
                 var targets = vm.GetAvailableTargets();
                 selectVm.InitializeReferences(targets);
             }
 
-            return await LibraryItemPickerHelper.ShowAsync(this, selectVm, KnownLibraryItemFormats.FilterEffect);
+            return await LibraryItemPickerHelper.ShowAsync(
+                this,
+                selectVm,
+                KnownLibraryItemFormats.FilterEffect
+            );
         }
         finally
         {
@@ -128,7 +143,8 @@ public partial class FilterEffectEditor : UserControl
 
     private async void ChangeFilterTypeClick(object? sender, RoutedEventArgs e)
     {
-        if (DataContext is not FilterEffectEditorViewModel { IsDisposed: false } viewModel) return;
+        if (DataContext is not FilterEffectEditorViewModel { IsDisposed: false } viewModel)
+            return;
 
         object? result = await SelectTypeOrReference();
 
@@ -140,7 +156,9 @@ public partial class FilterEffectEditor : UserControl
                     viewModel.ChangeFilterType(type);
                     break;
                 case FilterEffect target:
-                    Type? presenterType = PresenterTypeAttribute.GetPresenterType(typeof(FilterEffect));
+                    Type? presenterType = PresenterTypeAttribute.GetPresenterType(
+                        typeof(FilterEffect)
+                    );
                     if (presenterType != null)
                     {
                         viewModel.ChangeFilterType(presenterType);
@@ -157,24 +175,26 @@ public partial class FilterEffectEditor : UserControl
 
     private void SetNullClick(object? sender, RoutedEventArgs e)
     {
-        if (DataContext is not FilterEffectEditorViewModel { IsDisposed: false } viewModel) return;
+        if (DataContext is not FilterEffectEditorViewModel { IsDisposed: false } viewModel)
+            return;
 
         viewModel.SetNull();
     }
 
     private async void SelectTarget_Requested(object? sender, RoutedEventArgs e)
     {
-        if (DataContext is not FilterEffectEditorViewModel { IsDisposed: false } vm) return;
-        if (_flyoutOpen) return;
+        if (DataContext is not FilterEffectEditorViewModel { IsDisposed: false } vm)
+            return;
+        if (_flyoutOpen)
+            return;
 
         try
         {
             _flyoutOpen = true;
-            await TargetSelectionHelper.HandleSelectTargetRequestAsync<FilterEffectEditorViewModel, FilterEffect>(
-                this,
-                vm,
-                vm => vm.GetAvailableTargets(),
-                (vm, target) => vm.SetTarget(target));
+            await TargetSelectionHelper.HandleSelectTargetRequestAsync<
+                FilterEffectEditorViewModel,
+                FilterEffect
+            >(this, vm, vm => vm.GetAvailableTargets(), (vm, target) => vm.SetTarget(target));
         }
         finally
         {

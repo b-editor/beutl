@@ -91,14 +91,20 @@ public interface IListEditorViewModel
 
 public sealed class ListItemEditorViewModel<TItem> : IDisposable, IListItemEditorViewModel
 {
-    public ListItemEditorViewModel(ListEditorViewModel<TItem> parent, ListItemAccessorImpl<TItem?> itemAccessor)
+    public ListItemEditorViewModel(
+        ListEditorViewModel<TItem> parent,
+        ListItemAccessorImpl<TItem?> itemAccessor
+    )
     {
         Parent = parent;
         ItemAccessor = itemAccessor;
 
         var tmp = new IPropertyAdapter[] { itemAccessor };
         (_, PropertyEditorExtension? ext) = PropertyEditorService.MatchProperty(tmp);
-        if (ext?.TryCreateContextForListItem(itemAccessor, out IPropertyEditorContext? context) == true)
+        if (
+            ext?.TryCreateContextForListItem(itemAccessor, out IPropertyEditorContext? context)
+            == true
+        )
         {
             Context = context;
         }
@@ -133,20 +139,23 @@ public sealed class ListItemEditorViewModel<TItem> : IDisposable, IListItemEdito
 
 public sealed class ListEditorViewModel<TItem> : BaseEditorViewModel, IListEditorViewModel
 {
-    private static readonly NotifyCollectionChangedEventArgs s_resetCollectionChanged =
-        new(NotifyCollectionChangedAction.Reset);
+    private static readonly NotifyCollectionChangedEventArgs s_resetCollectionChanged = new(
+        NotifyCollectionChangedAction.Reset
+    );
 
     private INotifyCollectionChanged? _incc;
 
     public ListEditorViewModel(IPropertyAdapter property)
         : base(property)
     {
-        List = property.GetObservable()
+        List = property
+            .GetObservable()
             .Select(x => x as IList<TItem?>)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(Disposables);
 
-        IsExpanded.Skip(1)
+        IsExpanded
+            .Skip(1)
             .Take(1)
             .Subscribe(_ =>
                 List.Subscribe(list =>
@@ -166,11 +175,13 @@ public sealed class ListEditorViewModel<TItem> : BaseEditorViewModel, IListEdito
                             var args = new NotifyCollectionChangedEventArgs(
                                 action: NotifyCollectionChangedAction.Add,
                                 changedItems: list.ToArray(),
-                                startingIndex: 0);
+                                startingIndex: 0
+                            );
                             OnCollectionChanged(args);
                         }
                     })
-                    .DisposeWith(Disposables))
+                    .DisposeWith(Disposables)
+            )
             .DisposeWith(Disposables);
     }
 
@@ -316,9 +327,7 @@ public sealed class ListEditorViewModel<TItem> : BaseEditorViewModel, IListEdito
         {
             Initialize();
         }
-        catch (InvalidOperationException)
-        {
-        }
+        catch (InvalidOperationException) { }
     }
 
     public void AddItem(Type type)
@@ -364,10 +373,16 @@ public sealed class ListEditorViewModel<TItem> : BaseEditorViewModel, IListEdito
         {
             IsExpanded.Value = (bool)json[nameof(IsExpanded)]!;
 
-            if (json.TryGetPropertyValue(nameof(Items), out JsonNode? propsNode)
-                && propsNode is JsonArray propsArray)
+            if (
+                json.TryGetPropertyValue(nameof(Items), out JsonNode? propsNode)
+                && propsNode is JsonArray propsArray
+            )
             {
-                foreach ((JsonNode? node, ListItemEditorViewModel<TItem>? context) in propsArray.Zip(Items))
+                foreach (
+                    (JsonNode? node, ListItemEditorViewModel<TItem>? context) in propsArray.Zip(
+                        Items
+                    )
+                )
                 {
                     if (context != null && node != null)
                     {
@@ -376,9 +391,7 @@ public sealed class ListEditorViewModel<TItem> : BaseEditorViewModel, IListEdito
                 }
             }
         }
-        catch
-        {
-        }
+        catch { }
     }
 
     public override void WriteToJson(JsonObject json)
@@ -406,9 +419,7 @@ public sealed class ListEditorViewModel<TItem> : BaseEditorViewModel, IListEdito
 
             json[nameof(Items)] = array;
         }
-        catch
-        {
-        }
+        catch { }
     }
 
     public override void Accept(IPropertyEditorContextVisitor visitor)
@@ -441,15 +452,15 @@ public sealed class ListEditorViewModel<TItem> : BaseEditorViewModel, IListEdito
         }
     }
 
-    private sealed record Visitor(ListEditorViewModel<TItem> Obj) : IServiceProvider, IPropertyEditorContextVisitor
+    private sealed record Visitor(ListEditorViewModel<TItem> Obj)
+        : IServiceProvider,
+            IPropertyEditorContextVisitor
     {
         public object? GetService(Type serviceType)
         {
             return Obj.GetService(serviceType);
         }
 
-        public void Visit(IPropertyEditorContext context)
-        {
-        }
+        public void Visit(IPropertyEditorContext context) { }
     }
 }

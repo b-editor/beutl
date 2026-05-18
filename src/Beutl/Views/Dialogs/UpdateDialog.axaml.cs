@@ -15,7 +15,8 @@ public partial class UpdateDialog : ContentDialog
     protected override void OnCloseButtonClick(ContentDialogButtonClickEventArgs args)
     {
         base.OnCloseButtonClick(args);
-        if (DataContext is not UpdateDialogViewModel vm) return;
+        if (DataContext is not UpdateDialogViewModel vm)
+            return;
         vm.Cancel();
     }
 }

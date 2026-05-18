@@ -46,7 +46,11 @@ public static class TimelineBasicsTutorial
                     Content = TutorialStrings.Tutorial_SceneEdit_Step1_Content,
                     TargetElements =
                     [
-                        new TargetElementDefinition { ToolTabType = typeof(TimelineTabExtension), IsPrimary = true },
+                        new TargetElementDefinition
+                        {
+                            ToolTabType = typeof(TimelineTabExtension),
+                            IsPrimary = true,
+                        },
                         new TargetElementDefinition { ToolTabType = typeof(LibraryTabExtension) },
                     ],
                     PreferredPlacement = TutorialStepPlacement.Top,
@@ -54,11 +58,13 @@ public static class TimelineBasicsTutorial
                     OnShown = () =>
                     {
                         EditViewModel? editVm = TutorialHelpers.GetEditViewModel();
-                        if (editVm == null) return;
+                        if (editVm == null)
+                            return;
 
                         step1Subscription = TutorialHelpers.SubscribeToElementAdded<EllipseShape>(
                             editVm.Scene,
-                            () => TutorialService.Current.AdvanceStep());
+                            () => TutorialService.Current.AdvanceStep()
+                        );
                     },
                     OnDismissed = () =>
                     {
@@ -66,14 +72,20 @@ public static class TimelineBasicsTutorial
                         step1Subscription = null;
                     },
                 },
-
                 // Step 2: Select the element in the timeline
                 new TutorialStep
                 {
                     Id = "scene-select-element",
                     Title = TutorialStrings.Tutorial_SceneEdit_Step2_Title,
                     Content = TutorialStrings.Tutorial_SceneEdit_Step2_Content,
-                    TargetElements = [new TargetElementDefinition { ToolTabType = typeof(TimelineTabExtension), IsPrimary = true }],
+                    TargetElements =
+                    [
+                        new TargetElementDefinition
+                        {
+                            ToolTabType = typeof(TimelineTabExtension),
+                            IsPrimary = true,
+                        },
+                    ],
                     PreferredPlacement = TutorialStepPlacement.Top,
                     IsActionRequired = true,
                     OnShown = () =>
@@ -81,7 +93,8 @@ public static class TimelineBasicsTutorial
                         EditViewModel? editVm = TutorialHelpers.GetEditViewModel();
                         step2Subscription = TutorialHelpers.SubscribeToElementSelection(
                             editVm,
-                            () => TutorialService.Current.AdvanceStep());
+                            () => TutorialService.Current.AdvanceStep()
+                        );
                     },
                     OnDismissed = () =>
                     {
@@ -89,17 +102,22 @@ public static class TimelineBasicsTutorial
                         step2Subscription = null;
                     },
                 },
-
                 // Step 3: Introduce the Source Operators tab
                 new TutorialStep
                 {
                     Id = "scene-element-properties",
                     Title = TutorialStrings.Tutorial_SceneEdit_Step3_Title,
                     Content = TutorialStrings.Tutorial_SceneEdit_Step3_Content,
-                    TargetElements = [new TargetElementDefinition { ToolTabType = typeof(ElementPropertyTabExtension), IsPrimary = true }],
+                    TargetElements =
+                    [
+                        new TargetElementDefinition
+                        {
+                            ToolTabType = typeof(ElementPropertyTabExtension),
+                            IsPrimary = true,
+                        },
+                    ],
                     PreferredPlacement = TutorialStepPlacement.Left,
                 },
-
                 // Step 4: Highlight Width property and prompt to enable animation
                 new TutorialStep
                 {
@@ -108,19 +126,31 @@ public static class TimelineBasicsTutorial
                     Content = TutorialStrings.Tutorial_SceneEdit_Step4_Content,
                     PreferredPlacement = TutorialStepPlacement.Bottom,
                     IsActionRequired = true,
-                    TargetElements = [new TargetElementDefinition { ElementResolver = FindWidthPropertyEditor, IsPrimary = true }],
+                    TargetElements =
+                    [
+                        new TargetElementDefinition
+                        {
+                            ElementResolver = FindWidthPropertyEditor,
+                            IsPrimary = true,
+                        },
+                    ],
                     OnShown = () =>
                     {
                         EditViewModel? editVm = TutorialHelpers.GetEditViewModel();
-                        if (editVm == null) return;
+                        if (editVm == null)
+                            return;
 
-                        Element? element = TutorialHelpers.FindElementWithObject<EllipseShape>(editVm.Scene);
+                        Element? element = TutorialHelpers.FindElementWithObject<EllipseShape>(
+                            editVm.Scene
+                        );
                         EllipseShape? ellipseOp = TutorialHelpers.GetObject<EllipseShape>(element);
-                        if (ellipseOp == null) return;
+                        if (ellipseOp == null)
+                            return;
 
                         step3Subscription = TutorialHelpers.SubscribeToAnimationEnabled(
                             ellipseOp.Width,
-                            () => TutorialService.Current.AdvanceStep());
+                            () => TutorialService.Current.AdvanceStep()
+                        );
                     },
                     OnDismissed = () =>
                     {
@@ -128,7 +158,6 @@ public static class TimelineBasicsTutorial
                         step3Subscription = null;
                     },
                 },
-
                 // Step 5: Move current time and prompt to add a keyframe
                 new TutorialStep
                 {
@@ -137,26 +166,40 @@ public static class TimelineBasicsTutorial
                     Content = TutorialStrings.Tutorial_SceneEdit_Step5_Content,
                     PreferredPlacement = TutorialStepPlacement.Bottom,
                     IsActionRequired = true,
-                    TargetElements = [new TargetElementDefinition { ElementResolver = FindWidthPropertyEditor, IsPrimary = true }],
+                    TargetElements =
+                    [
+                        new TargetElementDefinition
+                        {
+                            ElementResolver = FindWidthPropertyEditor,
+                            IsPrimary = true,
+                        },
+                    ],
                     OnShown = () =>
                     {
                         EditViewModel? editVm = TutorialHelpers.GetEditViewModel();
-                        if (editVm == null) return;
+                        if (editVm == null)
+                            return;
 
                         var clock = editVm.GetService<IEditorClock>();
-                        if (clock == null) return;
+                        if (clock == null)
+                            return;
 
-                        Element? element = TutorialHelpers.FindElementWithObject<EllipseShape>(editVm.Scene);
+                        Element? element = TutorialHelpers.FindElementWithObject<EllipseShape>(
+                            editVm.Scene
+                        );
                         EllipseShape? ellipseOp = TutorialHelpers.GetObject<EllipseShape>(element);
-                        if (ellipseOp == null || element == null) return;
+                        if (ellipseOp == null || element == null)
+                            return;
 
                         IProperty<float> widthProp = ellipseOp.Width;
-                        if (widthProp.Animation is not KeyFrameAnimation<float> animation) return;
+                        if (widthProp.Animation is not KeyFrameAnimation<float> animation)
+                            return;
 
                         // すでにキーフレームが2つ以上ある場合は現在時間を変更し、次のステップに進む
                         if (animation.KeyFrames.Count >= 2)
                         {
-                            clock.CurrentTime.Value = animation.KeyFrames[1].KeyTime + element.Start;
+                            clock.CurrentTime.Value =
+                                animation.KeyFrames[1].KeyTime + element.Start;
                             Dispatcher.UIThread.Post(() => TutorialService.Current.AdvanceStep());
                         }
                         else
@@ -165,7 +208,8 @@ public static class TimelineBasicsTutorial
                             step4Subscription = TutorialHelpers.SubscribeToKeyFrameAdded(
                                 animation,
                                 2,
-                                () => TutorialService.Current.AdvanceStep());
+                                () => TutorialService.Current.AdvanceStep()
+                            );
                         }
                     },
                     OnDismissed = () =>
@@ -174,7 +218,6 @@ public static class TimelineBasicsTutorial
                         step4Subscription = null;
                     },
                 },
-
                 // Step 6: Change the value (auto-change if default)
                 new TutorialStep
                 {
@@ -182,43 +225,59 @@ public static class TimelineBasicsTutorial
                     Title = TutorialStrings.Tutorial_SceneEdit_Step6_Title,
                     Content = TutorialStrings.Tutorial_SceneEdit_Step6_Content,
                     PreferredPlacement = TutorialStepPlacement.Bottom,
-                    TargetElements = [new TargetElementDefinition { ElementResolver = FindWidthPropertyEditor, IsPrimary = true }],
+                    TargetElements =
+                    [
+                        new TargetElementDefinition
+                        {
+                            ElementResolver = FindWidthPropertyEditor,
+                            IsPrimary = true,
+                        },
+                    ],
                     OnDismissed = () =>
                     {
                         EditViewModel? editVm = TutorialHelpers.GetEditViewModel();
-                        if (editVm == null) return;
+                        if (editVm == null)
+                            return;
 
-                        Element? element = TutorialHelpers.FindElementWithObject<EllipseShape>(editVm.Scene);
+                        Element? element = TutorialHelpers.FindElementWithObject<EllipseShape>(
+                            editVm.Scene
+                        );
                         EllipseShape? ellipseOp = TutorialHelpers.GetObject<EllipseShape>(element);
                         if (ellipseOp != null)
                         {
                             IProperty<float> widthProp = ellipseOp.Width;
-                            if (widthProp.Animation is KeyFrameAnimation<float> animation
-                                && animation.KeyFrames.LastOrDefault() is { Value: 100f or <= 100f } lastKeyFrame)
+                            if (
+                                widthProp.Animation is KeyFrameAnimation<float> animation
+                                && animation.KeyFrames.LastOrDefault()
+                                    is { Value: 100f or <= 100f } lastKeyFrame
+                            )
                             {
                                 lastKeyFrame.Value = 300f;
                                 editVm.HistoryManager.Commit(CommandNames.EditKeyFrame);
                             }
                         }
-                    }
+                    },
                 },
-
                 // Step 7: Highlight the Player and prompt to play
                 new TutorialStep
                 {
                     Id = "scene-preview-animation",
                     Title = TutorialStrings.Tutorial_SceneEdit_Step7_Title,
                     Content = TutorialStrings.Tutorial_SceneEdit_Step7_Content,
-                    TargetElements = [new TargetElementDefinition { ElementName = "Player", IsPrimary = true }],
+                    TargetElements =
+                    [
+                        new TargetElementDefinition { ElementName = "Player", IsPrimary = true },
+                    ],
                     PreferredPlacement = TutorialStepPlacement.Bottom,
                     OnShown = () =>
                     {
                         EditViewModel? editVm = TutorialHelpers.GetEditViewModel();
-                        Element? element = TutorialHelpers.FindElementWithObject<EllipseShape>(editVm?.Scene);
+                        Element? element = TutorialHelpers.FindElementWithObject<EllipseShape>(
+                            editVm?.Scene
+                        );
                         TutorialHelpers.PrepareForPlayback(editVm, element);
                     },
                 },
-
                 // Step 8: Completion
                 new TutorialStep
                 {
@@ -227,19 +286,21 @@ public static class TimelineBasicsTutorial
                     Content = TutorialStrings.Tutorial_SceneEdit_Step8_Content,
                     PreferredPlacement = TutorialStepPlacement.Center,
                 },
-            ]
+            ],
         };
     }
 
     private static Control? FindWidthPropertyEditor()
     {
         TopLevel? topLevel = AppHelper.GetTopLevel();
-        return topLevel?.GetVisualDescendants()
+        return topLevel
+            ?.GetVisualDescendants()
             .OfType<NumberEditor<float>>()
             .FirstOrDefault(c =>
-                c.DataContext is BaseEditorViewModel vm &&
-                vm.PropertyAdapter.GetEngineProperty() is IProperty prop &&
-                prop.GetOwnerObject() is EllipseShape &&
-                prop.Name == nameof(EllipseShape.Width));
+                c.DataContext is BaseEditorViewModel vm
+                && vm.PropertyAdapter.GetEngineProperty() is IProperty prop
+                && prop.GetOwnerObject() is EllipseShape
+                && prop.Name == nameof(EllipseShape.Width)
+            );
     }
 }

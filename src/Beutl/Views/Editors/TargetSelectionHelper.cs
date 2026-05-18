@@ -9,7 +9,8 @@ public static class TargetSelectionHelper
 {
     public static async Task<T?> ShowTargetPickerAsync<T>(
         Control host,
-        Func<IReadOnlyList<TargetObjectInfo>> getAvailableTargets)
+        Func<IReadOnlyList<TargetObjectInfo>> getAvailableTargets
+    )
         where T : CoreObject
     {
         var targets = getAvailableTargets();
@@ -21,8 +22,10 @@ public static class TargetSelectionHelper
 
         var tcs = new TaskCompletionSource<T?>();
         flyout.Dismissed += (_, _) => tcs.TrySetResult(null);
-        flyout.Confirmed += (_, _) => tcs.TrySetResult(
-            (pickerVm.SelectedItem.Value?.UserData as TargetObjectInfo)?.Object as T);
+        flyout.Confirmed += (_, _) =>
+            tcs.TrySetResult(
+                (pickerVm.SelectedItem.Value?.UserData as TargetObjectInfo)?.Object as T
+            );
 
         return await tcs.Task;
     }
@@ -31,15 +34,18 @@ public static class TargetSelectionHelper
         Control host,
         TViewModel? viewModel,
         Func<TViewModel, IReadOnlyList<TargetObjectInfo>> getAvailableTargets,
-        Action<TViewModel, TTarget?> setTarget)
+        Action<TViewModel, TTarget?> setTarget
+    )
         where TViewModel : class
         where TTarget : CoreObject
     {
-        if (viewModel == null) return;
+        if (viewModel == null)
+            return;
 
         var result = await ShowTargetPickerAsync<TTarget>(
             host,
-            () => getAvailableTargets(viewModel));
+            () => getAvailableTargets(viewModel)
+        );
 
         if (result != null)
         {

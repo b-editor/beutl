@@ -19,7 +19,7 @@ internal enum PlatformIDs : ushort
     Macintosh = 1,
     ISO = 2,
     Windows = 3,
-    Custom = 4 // Custom  None
+    Custom = 4, // Custom  None
 }
 
 internal enum KnownNameIds : ushort
@@ -62,7 +62,8 @@ internal record FontName(
     string? LicenseInfoUrl,
     string? TypographicFamilyName,
     string? TypographicSubfamilyName,
-    string? SampleText)
+    string? SampleText
+)
 {
     private static ushort ReadUInt16(BinaryReader reader)
     {
@@ -88,7 +89,8 @@ internal record FontName(
 
     public static FontName ReadFontName(Stream stream)
     {
-        var entry = new List<(PlatformIDs Platform, ushort Language, KnownNameIds Name, string Value)>();
+        var entry =
+            new List<(PlatformIDs Platform, ushort Language, KnownNameIds Name, string Value)>();
 
         using (var reader = new BinaryReader(stream))
         {
@@ -117,9 +119,15 @@ internal record FontName(
         }
 
         return new FontName(
-            CopyrightNotice: GetNameById(CultureInfo.CurrentUICulture, KnownNameIds.CopyrightNotice),
+            CopyrightNotice: GetNameById(
+                CultureInfo.CurrentUICulture,
+                KnownNameIds.CopyrightNotice
+            ),
             FontFamilyName: GetNameById(CultureInfo.CurrentUICulture, KnownNameIds.FontFamilyName),
-            FontSubfamilyName: GetNameById(CultureInfo.CurrentUICulture, KnownNameIds.FontSubfamilyName),
+            FontSubfamilyName: GetNameById(
+                CultureInfo.CurrentUICulture,
+                KnownNameIds.FontSubfamilyName
+            ),
             UniqueFontID: GetNameById(CultureInfo.CurrentUICulture, KnownNameIds.UniqueFontID),
             FullFontName: GetNameById(CultureInfo.CurrentUICulture, KnownNameIds.FullFontName),
             Version: GetNameById(CultureInfo.CurrentUICulture, KnownNameIds.Version),
@@ -130,10 +138,19 @@ internal record FontName(
             Description: GetNameById(CultureInfo.CurrentUICulture, KnownNameIds.Description),
             VendorUrl: GetNameById(CultureInfo.CurrentUICulture, KnownNameIds.VendorUrl),
             DesignerUrl: GetNameById(CultureInfo.CurrentUICulture, KnownNameIds.DesignerUrl),
-            LicenseDescription: GetNameById(CultureInfo.CurrentUICulture, KnownNameIds.LicenseDescription),
+            LicenseDescription: GetNameById(
+                CultureInfo.CurrentUICulture,
+                KnownNameIds.LicenseDescription
+            ),
             LicenseInfoUrl: GetNameById(CultureInfo.CurrentUICulture, KnownNameIds.LicenseInfoUrl),
-            TypographicFamilyName: GetNameById(CultureInfo.CurrentUICulture, KnownNameIds.TypographicFamilyName),
-            TypographicSubfamilyName: GetNameById(CultureInfo.CurrentUICulture, KnownNameIds.TypographicSubfamilyName),
+            TypographicFamilyName: GetNameById(
+                CultureInfo.CurrentUICulture,
+                KnownNameIds.TypographicFamilyName
+            ),
+            TypographicSubfamilyName: GetNameById(
+                CultureInfo.CurrentUICulture,
+                KnownNameIds.TypographicSubfamilyName
+            ),
             SampleText: GetNameById(CultureInfo.CurrentUICulture, KnownNameIds.SampleText)
         );
 

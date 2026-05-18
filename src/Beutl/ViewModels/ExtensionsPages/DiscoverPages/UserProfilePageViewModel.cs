@@ -1,5 +1,4 @@
 ﻿using Avalonia.Collections;
-
 using Beutl.Api.Objects;
 using Beutl.Logging;
 using Beutl.Services;

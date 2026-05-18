@@ -12,24 +12,20 @@ public sealed class EditWellKnownSizeTabViewModel(ToolTabExtension extension) : 
 
     public string Header => "Edit Well known size";
 
-    public AddWellKnownSizeScreenViewModel AddScreen { get; } = new AddWellKnownSizeScreenViewModel();
+    public AddWellKnownSizeScreenViewModel AddScreen { get; } =
+        new AddWellKnownSizeScreenViewModel();
 
-    public RemoveWellKnownSizeScreenViewModel RemoveScreen { get; } = new RemoveWellKnownSizeScreenViewModel();
+    public RemoveWellKnownSizeScreenViewModel RemoveScreen { get; } =
+        new RemoveWellKnownSizeScreenViewModel();
 
-    public void Dispose()
-    {
-    }
+    public void Dispose() { }
 
     public object? GetService(Type serviceType)
     {
         return null;
     }
 
-    public void ReadFromJson(JsonObject json)
-    {
-    }
+    public void ReadFromJson(JsonObject json) { }
 
-    public void WriteToJson(JsonObject json)
-    {
-    }
+    public void WriteToJson(JsonObject json) { }
 }

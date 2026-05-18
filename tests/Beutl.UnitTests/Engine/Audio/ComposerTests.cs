@@ -21,7 +21,11 @@ public class ComposerTests
         const int sampleRate = 44100;
         var oneSampleTicksFloor = TimeSpan.TicksPerSecond / sampleRate;
         var range = new TimeRange(TimeSpan.Zero, TimeSpan.FromTicks(oneSampleTicksFloor + 1));
-        var frame = new CompositionFrame(ImmutableArray<EngineObject.Resource>.Empty, range, default);
+        var frame = new CompositionFrame(
+            ImmutableArray<EngineObject.Resource>.Empty,
+            range,
+            default
+        );
 
         using var composer = new Composer { SampleRate = sampleRate };
         using AudioBuffer? buffer = composer.Compose(range, frame);
@@ -29,7 +33,10 @@ public class ComposerTests
         Assert.That(buffer, Is.Not.Null);
         Assert.That(buffer!.SampleRate, Is.EqualTo(sampleRate));
         Assert.That(buffer.ChannelCount, Is.EqualTo(2));
-        Assert.That(buffer.SampleCount, Is.EqualTo(AudioProcessContext.GetSampleCount(range, sampleRate)));
+        Assert.That(
+            buffer.SampleCount,
+            Is.EqualTo(AudioProcessContext.GetSampleCount(range, sampleRate))
+        );
         Assert.That(buffer.SampleCount, Is.EqualTo(2));
     }
 
@@ -38,7 +45,11 @@ public class ComposerTests
     {
         const int sampleRate = 48000;
         var range = new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(1));
-        var frame = new CompositionFrame(ImmutableArray<EngineObject.Resource>.Empty, range, default);
+        var frame = new CompositionFrame(
+            ImmutableArray<EngineObject.Resource>.Empty,
+            range,
+            default
+        );
 
         using var composer = new Composer { SampleRate = sampleRate };
         using AudioBuffer? buffer = composer.Compose(range, frame);
@@ -46,6 +57,9 @@ public class ComposerTests
         Assert.That(buffer, Is.Not.Null);
         // ヘルパー経由で取得した値とそのまま比較し、Composer の silence fallback がヘルパーと
         // 乖離した場合 (整数秒入力でも) に検出できるようにする。
-        Assert.That(buffer!.SampleCount, Is.EqualTo(AudioProcessContext.GetSampleCount(range, sampleRate)));
+        Assert.That(
+            buffer!.SampleCount,
+            Is.EqualTo(AudioProcessContext.GetSampleCount(range, sampleRate))
+        );
     }
 }

@@ -1,11 +1,8 @@
 ﻿using System.Text.Json.Nodes;
-
 using Beutl.Editor;
 using Beutl.Editor.Services;
 using Beutl.ProjectSystem;
-
 using Microsoft.Extensions.DependencyInjection;
-
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
 
@@ -24,21 +21,20 @@ public sealed class SceneSettingsTabViewModel : IToolContext
         _scene = editorContext.GetService<Scene>()!;
         _optionsProvider = editorContext.GetService<ITimelineOptionsProvider>()!;
         IObservable<Media.PixelSize> frameSize = _scene.GetObservable(Scene.FrameSizeProperty);
-        Width = frameSize.Select(v => v.Width)
-            .ToReactiveProperty()
-            .DisposeWith(_disposable);
-        Height = frameSize.Select(v => v.Height)
-            .ToReactiveProperty()
-            .DisposeWith(_disposable);
-        StartInput = _scene.GetObservable(Scene.StartProperty)
+        Width = frameSize.Select(v => v.Width).ToReactiveProperty().DisposeWith(_disposable);
+        Height = frameSize.Select(v => v.Height).ToReactiveProperty().DisposeWith(_disposable);
+        StartInput = _scene
+            .GetObservable(Scene.StartProperty)
             .Select(v => v.ToString())
             .ToReactiveProperty()
             .DisposeWith(_disposable)!;
-        DurationInput = _scene.GetObservable(Scene.DurationProperty)
+        DurationInput = _scene
+            .GetObservable(Scene.DurationProperty)
             .Select(v => v.ToString())
             .ToReactiveProperty()
             .DisposeWith(_disposable)!;
-        LayerCount = _optionsProvider.Options.Select(x => x.MaxLayerCount)
+        LayerCount = _optionsProvider
+            .Options.Select(x => x.MaxLayerCount)
             .ToReactiveProperty()
             .DisposeWith(_disposable);
 
@@ -49,18 +45,22 @@ public sealed class SceneSettingsTabViewModel : IToolContext
         StartInput.SetValidateNotifyError(StartValidator);
         DurationInput.SetValidateNotifyError(DurationValidator);
 
-        CanApply = Width.CombineLatest(Height, StartInput, DurationInput, LayerCount).Select(t =>
+        CanApply = Width
+            .CombineLatest(Height, StartInput, DurationInput, LayerCount)
+            .Select(t =>
             {
                 int width = t.First;
                 int height = t.Second;
 
                 string startTime = t.Third;
                 string durationTime = t.Fourth;
-                return width > 0 &&
-                    height > 0 &&
-                    TimeSpan.TryParse(startTime, out TimeSpan ts1) && ts1 >= TimeSpan.Zero &&
-                    TimeSpan.TryParse(durationTime, out TimeSpan ts2) && ts2 > TimeSpan.Zero &&
-                    t.Fifth > 0;
+                return width > 0
+                    && height > 0
+                    && TimeSpan.TryParse(startTime, out TimeSpan ts1)
+                    && ts1 >= TimeSpan.Zero
+                    && TimeSpan.TryParse(durationTime, out TimeSpan ts2)
+                    && ts2 > TimeSpan.Zero
+                    && t.Fifth > 0;
             })
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposable);
@@ -68,13 +68,17 @@ public sealed class SceneSettingsTabViewModel : IToolContext
         Apply = new ReactiveCommand(CanApply)
             .WithSubscribe(() =>
             {
-                if (TimeSpan.TryParse(StartInput.Value, out TimeSpan start)
-                    && TimeSpan.TryParse(DurationInput.Value, out TimeSpan duration))
+                if (
+                    TimeSpan.TryParse(StartInput.Value, out TimeSpan start)
+                    && TimeSpan.TryParse(DurationInput.Value, out TimeSpan duration)
+                )
                 {
-                    if (Width.Value != _scene.FrameSize.Width
+                    if (
+                        Width.Value != _scene.FrameSize.Width
                         || Height.Value != _scene.FrameSize.Height
                         || start != _scene.Start
-                        || duration != _scene.Duration)
+                        || duration != _scene.Duration
+                    )
                     {
                         HistoryManager history = _editorContext.GetService<HistoryManager>()!;
                         _scene.FrameSize = new Media.PixelSize(Width.Value, Height.Value);
@@ -85,7 +89,7 @@ public sealed class SceneSettingsTabViewModel : IToolContext
 
                     _optionsProvider.Options.Value = _optionsProvider.Options.Value with
                     {
-                        MaxLayerCount = LayerCount.Value
+                        MaxLayerCount = LayerCount.Value,
                     };
                 }
             })
@@ -176,13 +180,9 @@ public sealed class SceneSettingsTabViewModel : IToolContext
         _optionsProvider = null!;
     }
 
-    public void WriteToJson(JsonObject json)
-    {
-    }
+    public void WriteToJson(JsonObject json) { }
 
-    public void ReadFromJson(JsonObject json)
-    {
-    }
+    public void ReadFromJson(JsonObject json) { }
 
     public object? GetService(Type serviceType)
     {

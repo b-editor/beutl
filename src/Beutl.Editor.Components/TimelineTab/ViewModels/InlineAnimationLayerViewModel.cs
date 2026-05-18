@@ -19,8 +19,8 @@ namespace Beutl.Editor.Components.TimelineTab.ViewModels;
 public sealed class InlineAnimationLayerViewModel<T>(
     IAnimatablePropertyAdapter<T> property,
     TimelineTabViewModel timeline,
-    ElementViewModel element)
-    : InlineAnimationLayerViewModel(property, timeline, element)
+    ElementViewModel element
+) : InlineAnimationLayerViewModel(property, timeline, element)
 {
     public override void DropEasing(Easing easing, TimeSpan keyTime)
     {
@@ -33,11 +33,13 @@ public sealed class InlineAnimationLayerViewModel<T>(
 
             TimeSpan threshold = TimeSpan.FromSeconds(1d / rate) * 3;
 
-            IKeyFrame? keyFrame =
-                kfAnimation.KeyFrames.FirstOrDefault(v => Math.Abs(v.KeyTime.Ticks - keyTime.Ticks) <= threshold.Ticks);
+            IKeyFrame? keyFrame = kfAnimation.KeyFrames.FirstOrDefault(v =>
+                Math.Abs(v.KeyTime.Ticks - keyTime.Ticks) <= threshold.Ticks
+            );
             if (keyFrame != null)
             {
-                HistoryManager history = Timeline.EditorContext.GetRequiredService<HistoryManager>();
+                HistoryManager history =
+                    Timeline.EditorContext.GetRequiredService<HistoryManager>();
                 keyFrame.Easing = easing;
                 history.Commit(CommandNames.ChangeEasing);
             }
@@ -50,14 +52,16 @@ public sealed class InlineAnimationLayerViewModel<T>(
 
     public override void InsertKeyFrame(Easing easing, TimeSpan keyTime)
     {
-        if (Property.Animation is not KeyFrameAnimation<T> animation) return;
+        if (Property.Animation is not KeyFrameAnimation<T> animation)
+            return;
         HistoryManager history = Timeline.EditorContext.GetRequiredService<HistoryManager>();
 
         AnimationOperations.InsertKeyFrame(
             animation: animation,
             easing: easing,
             keyTime: keyTime,
-            logger: _logger);
+            logger: _logger
+        );
         history.Commit(CommandNames.InsertKeyFrame);
     }
 }
@@ -74,7 +78,8 @@ public abstract class InlineAnimationLayerViewModel : IDisposable
     protected InlineAnimationLayerViewModel(
         IAnimatablePropertyAdapter property,
         TimelineTabViewModel timeline,
-        ElementViewModel element)
+        ElementViewModel element
+    )
     {
         Property = property;
         Timeline = timeline;
@@ -82,7 +87,8 @@ public abstract class InlineAnimationLayerViewModel : IDisposable
 
         Element.LayerHeader.Subscribe(OnLayerHeaderChanged).DisposeWith(_disposables);
 
-        LeftMargin = _useGlobalClock.Select(v => !v ? element.BorderMargin : Observable.ReturnThenNever<Thickness>(default))
+        LeftMargin = _useGlobalClock
+            .Select(v => !v ? element.BorderMargin : Observable.ReturnThenNever<Thickness>(default))
             .Switch()
             .ToReactiveProperty()
             .DisposeWith(_disposables);
@@ -94,8 +100,10 @@ public abstract class InlineAnimationLayerViewModel : IDisposable
             .ToReactiveProperty()
             .DisposeWith(_disposables);
 
-        ObserveHeight = Element.LayerHeader
-            .Select(lh => lh?.Height ?? Observable.Return(FrameNumberHelper.LayerHeight))
+        ObserveHeight = Element
+            .LayerHeader.Select(lh =>
+                lh?.Height ?? Observable.Return(FrameNumberHelper.LayerHeight)
+            )
             .Switch()
             .ToReadOnlyReactivePropertySlim(FrameNumberHelper.LayerHeight)
             .DisposeWith(_disposables);
@@ -127,7 +135,8 @@ public abstract class InlineAnimationLayerViewModel : IDisposable
             })
             .DisposeWith(_disposables);
 
-        Property.ObserveAnimation.CombineWithPrevious()
+        Property
+            .ObserveAnimation.CombineWithPrevious()
             .Subscribe(t =>
             {
                 if (t.OldValue != null)
@@ -142,19 +151,26 @@ public abstract class InlineAnimationLayerViewModel : IDisposable
                     t.NewValue.Edited += OnAnimationEdited;
                     if (t.NewValue is IKeyFrameAnimation kfAnimation)
                     {
-                        kfAnimation.KeyFrames.ForEachItem(
-                                (idx, item) => Items.Insert(idx, new InlineKeyFrameViewModel(item, kfAnimation, this)),
+                        kfAnimation
+                            .KeyFrames.ForEachItem(
+                                (idx, item) =>
+                                    Items.Insert(
+                                        idx,
+                                        new InlineKeyFrameViewModel(item, kfAnimation, this)
+                                    ),
                                 (idx, _) =>
                                 {
                                     InlineKeyFrameViewModel item = Items[idx];
                                     item.Dispose();
                                     Items.RemoveAt(idx);
                                 },
-                                ClearItems)
+                                ClearItems
+                            )
                             .DisposeWith(_innerDisposables);
                     }
 
-                    ((CoreObject)t.NewValue).GetObservable(KeyFrameAnimation.UseGlobalClockProperty)
+                    ((CoreObject)t.NewValue)
+                        .GetObservable(KeyFrameAnimation.UseGlobalClockProperty)
                         .Subscribe(v => _useGlobalClock.Value = v)
                         .DisposeWith(_innerDisposables);
 
@@ -162,7 +178,11 @@ public abstract class InlineAnimationLayerViewModel : IDisposable
                     if (t.NewValue is IHierarchical hierarchical)
                     {
                         hierarchical.DetachedFromHierarchy += OnAnimationDetached;
-                        Disposable.Create(hierarchical, h => h.DetachedFromHierarchy -= OnAnimationDetached)
+                        Disposable
+                            .Create(
+                                hierarchical,
+                                h => h.DetachedFromHierarchy -= OnAnimationDetached
+                            )
                             .DisposeWith(_innerDisposables);
                     }
                 }
@@ -220,7 +240,9 @@ public abstract class InlineAnimationLayerViewModel : IDisposable
         TimeSpan localKeyTime = globalkeyTime - Element.Model.Start;
         TimeSpan keyTime = animation.UseGlobalClock ? globalkeyTime : localKeyTime;
 
-        int rate = Timeline.Scene?.FindHierarchicalParent<Project>() is { } proj ? proj.GetFrameRate() : 30;
+        int rate = Timeline.Scene?.FindHierarchicalParent<Project>() is { } proj
+            ? proj.GetFrameRate()
+            : 30;
 
         return keyTime.RoundToRate(rate);
     }
@@ -238,14 +260,20 @@ public abstract class InlineAnimationLayerViewModel : IDisposable
         if (!newJson.TryGetDiscriminator(out Type? discriminator))
         {
             _logger.LogError("Invalid JSON: missing $type");
-            NotificationService.ShowError(Strings.GraphEditor, MessageStrings.InvalidJSON_MissingType);
+            NotificationService.ShowError(
+                Strings.GraphEditor,
+                MessageStrings.InvalidJSON_MissingType
+            );
             return;
         }
 
         if (!discriminator.IsAssignableTo(typeof(IKeyFrameAnimation)))
         {
             _logger.LogError("Invalid JSON: $type is not a KeyFrameAnimation");
-            NotificationService.ShowError(Strings.GraphEditor, MessageStrings.InvalidJSON_TypeIsNotKeyFrameAnimation);
+            NotificationService.ShowError(
+                Strings.GraphEditor,
+                MessageStrings.InvalidJSON_TypeIsNotKeyFrameAnimation
+            );
             return;
         }
 
@@ -257,7 +285,14 @@ public abstract class InlineAnimationLayerViewModel : IDisposable
             if (discriminator.GenericTypeArguments[0] != animation.ValueType)
             {
                 _logger.LogError("The property type of the pasted animation does not match.");
-                NotificationService.ShowError(Strings.GraphEditor, string.Format(MessageStrings.AnimationPropertyTypeMismatch, animation.ValueType.Name, discriminator.GenericTypeArguments[0].Name));
+                NotificationService.ShowError(
+                    Strings.GraphEditor,
+                    string.Format(
+                        MessageStrings.AnimationPropertyTypeMismatch,
+                        animation.ValueType.Name,
+                        discriminator.GenericTypeArguments[0].Name
+                    )
+                );
                 return;
             }
 
@@ -291,14 +326,20 @@ public abstract class InlineAnimationLayerViewModel : IDisposable
         if (!newJson.TryGetDiscriminator(out Type? discriminator))
         {
             _logger.LogError("Invalid JSON: missing $type");
-            NotificationService.ShowError(Strings.GraphEditor, MessageStrings.InvalidJSON_MissingType);
+            NotificationService.ShowError(
+                Strings.GraphEditor,
+                MessageStrings.InvalidJSON_MissingType
+            );
             return;
         }
 
         if (!discriminator.IsAssignableTo(typeof(KeyFrame)))
         {
             _logger.LogError("Invalid JSON: $type is not a KeyFrame");
-            NotificationService.ShowError(Strings.GraphEditor, MessageStrings.InvalidJSON_TypeIsNotKeyFrame);
+            NotificationService.ShowError(
+                Strings.GraphEditor,
+                MessageStrings.InvalidJSON_TypeIsNotKeyFrame
+            );
             return;
         }
 
@@ -313,20 +354,27 @@ public abstract class InlineAnimationLayerViewModel : IDisposable
             if (discriminator.GenericTypeArguments[0] != animation.ValueType)
             {
                 InsertKeyFrame(newKeyFrame.Easing, pointerPosition);
-                NotificationService.ShowWarning(Strings.GraphEditor,
-                    MessageStrings.KeyframePropertyTypeMismatch_EasingApplied);
+                NotificationService.ShowWarning(
+                    Strings.GraphEditor,
+                    MessageStrings.KeyframePropertyTypeMismatch_EasingApplied
+                );
                 return;
             }
 
             var keyTime = ConvertKeyTime(pointerPosition, animation);
-            if (animation.KeyFrames.FirstOrDefault(k => k.KeyTime == keyTime) is { } existingKeyFrame)
+            if (
+                animation.KeyFrames.FirstOrDefault(k => k.KeyTime == keyTime) is
+                { } existingKeyFrame
+            )
             {
                 // イージングと値を変更
                 existingKeyFrame.Easing = newKeyFrame.Easing;
                 existingKeyFrame.Value = ((IKeyFrame)newKeyFrame).Value;
                 history.Commit(CommandNames.PasteKeyFrame);
-                NotificationService.ShowWarning(Strings.GraphEditor,
-                    MessageStrings.KeyframeExistsAtPastePosition);
+                NotificationService.ShowWarning(
+                    Strings.GraphEditor,
+                    MessageStrings.KeyframeExistsAtPastePosition
+                );
             }
             else
             {
@@ -353,7 +401,8 @@ public abstract class InlineAnimationLayerViewModel : IDisposable
     private async Task CopyAllKeyFramesAsync()
     {
         IClipboard? clipboard = ClipboardHelper.GetClipboard();
-        if (clipboard == null) return;
+        if (clipboard == null)
+            return;
 
         try
         {
@@ -375,8 +424,10 @@ public abstract class InlineAnimationLayerViewModel : IDisposable
     private async Task PasteKeyFrameAtPositionAsync(TimeSpan pointerPosition)
     {
         IClipboard? clipboard = ClipboardHelper.GetClipboard();
-        if (clipboard == null) return;
-        if (Property.Animation is not IKeyFrameAnimation) return;
+        if (clipboard == null)
+            return;
+        if (Property.Animation is not IKeyFrameAnimation)
+            return;
 
         try
         {
@@ -385,13 +436,19 @@ public abstract class InlineAnimationLayerViewModel : IDisposable
                 PasteKeyFrame(keyFrameJson, pointerPosition);
                 return;
             }
-            else if (await clipboard.TryGetValueAsync(BeutlDataFormats.KeyFrameAnimation) is { } keyFrameAnimationJson)
+            else if (
+                await clipboard.TryGetValueAsync(BeutlDataFormats.KeyFrameAnimation) is
+                { } keyFrameAnimationJson
+            )
             {
                 PasteAnimation(keyFrameAnimationJson);
                 return;
             }
 
-            NotificationService.ShowWarning(Strings.Paste, MessageStrings.InvalidKeyframeDataFormat);
+            NotificationService.ShowWarning(
+                Strings.Paste,
+                MessageStrings.InvalidKeyframeDataFormat
+            );
         }
         catch (Exception ex)
         {
@@ -402,7 +459,8 @@ public abstract class InlineAnimationLayerViewModel : IDisposable
 
     public bool HandleDragOver(DragEventArgs e)
     {
-        if (!e.DataTransfer.Contains(BeutlDataFormats.Easing)) return false;
+        if (!e.DataTransfer.Contains(BeutlDataFormats.Easing))
+            return false;
 
         e.DragEffects = DragDropEffects.Copy;
         return true;
@@ -410,9 +468,12 @@ public abstract class InlineAnimationLayerViewModel : IDisposable
 
     public bool HandleDrop(DragEventArgs e, double positionX)
     {
-        if (e.DataTransfer.TryGetValue(BeutlDataFormats.Easing) is not { } typeName) return false;
-        if (TypeFormat.ToType(typeName) is not { } type) return false;
-        if (Activator.CreateInstance(type) is not Easing easing) return false;
+        if (e.DataTransfer.TryGetValue(BeutlDataFormats.Easing) is not { } typeName)
+            return false;
+        if (TypeFormat.ToType(typeName) is not { } type)
+            return false;
+        if (Activator.CreateInstance(type) is not Easing easing)
+            return false;
 
         float scale = Timeline.Options.Value.Scale;
         TimeSpan time = positionX.PixelToTimeSpan(scale);
@@ -454,15 +515,21 @@ public abstract class InlineAnimationLayerViewModel : IDisposable
         return new PrepareAnimationContext(Margin.Value, LeftMargin.Value);
     }
 
-    public async void AnimationRequest(PrepareAnimationContext context, Thickness layerMargin, Thickness leftMargin,
-        CancellationToken cancellationToken = default)
+    public async void AnimationRequest(
+        PrepareAnimationContext context,
+        Thickness layerMargin,
+        Thickness leftMargin,
+        CancellationToken cancellationToken = default
+    )
     {
         if (LayerHeader.Value is { } layerHeader)
         {
             Index.Value = layerHeader.Inlines.IndexOf(this);
-            double top = layerHeader.CalculateInlineTop(Index.Value) + FrameNumberHelper.LayerHeight;
+            double top =
+                layerHeader.CalculateInlineTop(Index.Value) + FrameNumberHelper.LayerHeight;
             Thickness newMargin = new Thickness(0, top, 0, 0) + layerMargin;
-            Thickness newLeftMargin = Property.Animation?.UseGlobalClock == true ? default : leftMargin;
+            Thickness newLeftMargin =
+                Property.Animation?.UseGlobalClock == true ? default : leftMargin;
 
             Margin.Value = context.Margin;
             LeftMargin.Value = context.LeftMargin;
@@ -521,8 +588,7 @@ public abstract class InlineAnimationLayerViewModel : IDisposable
 
         protected override void Initialize()
         {
-            _disposable1 = inline.LayerHeader
-                .Subscribe(OnLayerHeaderChanged);
+            _disposable1 = inline.LayerHeader.Subscribe(OnLayerHeaderChanged);
 
             _disposable2 = inline.Index.Subscribe(OnIndexChanged);
         }
@@ -563,7 +629,8 @@ public abstract class InlineAnimationLayerViewModel : IDisposable
             {
                 _prevIndex = _prevLayerHeader.Inlines.IndexOf(inline);
 
-                double value = _prevLayerHeader.CalculateInlineTop(_prevIndex) + FrameNumberHelper.LayerHeight;
+                double value =
+                    _prevLayerHeader.CalculateInlineTop(_prevIndex) + FrameNumberHelper.LayerHeight;
                 if (observer == null)
                 {
                     PublishNext(value);

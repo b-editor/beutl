@@ -1,5 +1,4 @@
 <Project Sdk="Microsoft.NET.Sdk">
-
   <PropertyGroup>
     <Nullable>disable</Nullable>
     <NoWarn>AVP1002</NoWarn>
@@ -34,5 +33,4 @@
     <ProjectReference Include="..\Beutl.Language\Beutl.Language.csproj" />
     <ProjectReference Include="..\Beutl.Engine\Beutl.Engine.csproj" />
   </ItemGroup>
-
 </Project>

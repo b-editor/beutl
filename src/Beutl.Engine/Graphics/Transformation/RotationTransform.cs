@@ -14,7 +14,8 @@ public sealed partial class RotationTransform : Transform
         ScanProperties<RotationTransform>();
     }
 
-    public RotationTransform(float rotation) : this()
+    public RotationTransform(float rotation)
+        : this()
     {
         Rotation.CurrentValue = rotation;
     }

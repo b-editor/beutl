@@ -1,5 +1,4 @@
 <Project Sdk="Microsoft.NET.Sdk">
-
   <PropertyGroup>
     <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
   </PropertyGroup>
@@ -28,5 +27,4 @@
     <PackageReference Include="Xaml.Behaviors.Avalonia" />
     <PackageReference Include="Xaml.Behaviors.Interactivity" />
   </ItemGroup>
-
 </Project>

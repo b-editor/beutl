@@ -92,7 +92,7 @@ public class AutoSaveServiceTests
 
         var operation = new UpdatePropertyValueOperation<int>(obj, "Value", 10, 0)
         {
-            SequenceNumber = 1
+            SequenceNumber = 1,
         };
 
         var objectsToSave = new HashSet<CoreObject>();
@@ -113,7 +113,7 @@ public class AutoSaveServiceTests
 
         var operation = new UpdatePropertyValueOperation<int>(obj, "Value", 10, 0)
         {
-            SequenceNumber = 1
+            SequenceNumber = 1,
         };
 
         var objectsToSave = new HashSet<CoreObject>();
@@ -137,7 +137,7 @@ public class AutoSaveServiceTests
 
         var operation = new UpdatePropertyValueOperation<int>(child, "Value", 10, 0)
         {
-            SequenceNumber = 1
+            SequenceNumber = 1,
         };
 
         var objectsToSave = new HashSet<CoreObject>();
@@ -166,7 +166,7 @@ public class AutoSaveServiceTests
             PropertyPath = "Items",
             Item = "NewItem",
             Index = 0,
-            SequenceNumber = 1
+            SequenceNumber = 1,
         };
 
         var objectsToSave = new HashSet<CoreObject>();
@@ -190,7 +190,7 @@ public class AutoSaveServiceTests
 
         var operation = new TestCollectionOperationWithCoreObjectItems(owner, [item])
         {
-            SequenceNumber = 1
+            SequenceNumber = 1,
         };
 
         var objectsToSave = new HashSet<CoreObject>();
@@ -217,7 +217,7 @@ public class AutoSaveServiceTests
 
         var operation = new TestCollectionOperationWithCoreObjectItems(owner, [item])
         {
-            SequenceNumber = 1
+            SequenceNumber = 1,
         };
 
         var objectsToSave = new HashSet<CoreObject>();
@@ -242,7 +242,7 @@ public class AutoSaveServiceTests
             PropertyPath = "Items",
             Item = "StringItem", // Not a CoreObject
             Index = 0,
-            SequenceNumber = 1
+            SequenceNumber = 1,
         };
 
         var objectsToSave = new HashSet<CoreObject>();
@@ -267,7 +267,7 @@ public class AutoSaveServiceTests
         var operation = new UpdateSplineEasingOperation(easing, "X1", 0.5f, 0f)
         {
             Parent = parent,
-            SequenceNumber = 1
+            SequenceNumber = 1,
         };
 
         var objectsToSave = new HashSet<CoreObject>();
@@ -287,7 +287,7 @@ public class AutoSaveServiceTests
         var operation = new UpdateSplineEasingOperation(easing, "X1", 0.5f, 0f)
         {
             Parent = null,
-            SequenceNumber = 1
+            SequenceNumber = 1,
         };
 
         var objectsToSave = new HashSet<CoreObject>();
@@ -310,7 +310,7 @@ public class AutoSaveServiceTests
 
         var operation = new UpdateNodeMemberOperation(nodeMember, "Property", "new", "old")
         {
-            SequenceNumber = 1
+            SequenceNumber = 1,
         };
 
         var objectsToSave = new HashSet<CoreObject>();
@@ -330,7 +330,7 @@ public class AutoSaveServiceTests
 
         var operation = new UpdateNodeMemberOperation(nodeMember, "Property", 10, 5)
         {
-            SequenceNumber = 1
+            SequenceNumber = 1,
         };
 
         var objectsToSave = new HashSet<CoreObject>();
@@ -350,10 +350,7 @@ public class AutoSaveServiceTests
     public void CollectObjectsToSave_WithUnknownOperationType_ShouldNotThrow()
     {
         // Arrange
-        var operation = new TestUnknownChangeOperation
-        {
-            SequenceNumber = 1
-        };
+        var operation = new TestUnknownChangeOperation { SequenceNumber = 1 };
 
         var objectsToSave = new HashSet<CoreObject>();
 
@@ -487,11 +484,11 @@ public class AutoSaveServiceTests
 
         var op1 = new UpdatePropertyValueOperation<int>(obj1, "Value", 10, 0)
         {
-            SequenceNumber = 1
+            SequenceNumber = 1,
         };
         var op2 = new UpdatePropertyValueOperation<int>(obj2, "Value", 20, 0)
         {
-            SequenceNumber = 2
+            SequenceNumber = 2,
         };
 
         var errorCount = 0;
@@ -639,13 +636,13 @@ public class AutoSaveServiceTests
                 PropertyPath = "Items",
                 Item = "Item",
                 Index = 0,
-                SequenceNumber = 2
+                SequenceNumber = 2,
             },
             new UpdateSplineEasingOperation(new SplineEasing(), "X1", 0.5f, 0f)
             {
                 Parent = splineParent,
-                SequenceNumber = 3
-            }
+                SequenceNumber = 3,
+            },
         };
 
         var objectsToSave = new HashSet<CoreObject>();
@@ -670,7 +667,10 @@ public class AutoSaveServiceTests
         obj.SetUri(new Uri("file:///test.json"));
 
         var op1 = new UpdatePropertyValueOperation<int>(obj, "Value", 10, 0) { SequenceNumber = 1 };
-        var op2 = new UpdatePropertyValueOperation<int>(obj, "Value", 20, 10) { SequenceNumber = 2 };
+        var op2 = new UpdatePropertyValueOperation<int>(obj, "Value", 20, 10)
+        {
+            SequenceNumber = 2,
+        };
 
         var objectsToSave = new HashSet<CoreObject>();
 
@@ -769,7 +769,9 @@ public class AutoSaveServiceTests
 
         static TestCoreObjectWithListAndUri()
         {
-            ItemsProperty = ConfigureProperty<CoreList<string>, TestCoreObjectWithListAndUri>(nameof(Items))
+            ItemsProperty = ConfigureProperty<CoreList<string>, TestCoreObjectWithListAndUri>(
+                    nameof(Items)
+                )
                 .Accessor(o => o.Items, (o, v) => o.Items = v)
                 .Register();
         }
@@ -795,7 +797,9 @@ public class AutoSaveServiceTests
         }
     }
 
-    private class TestCollectionOperationWithCoreObjectItems : ChangeOperation, ICollectionChangeOperation
+    private class TestCollectionOperationWithCoreObjectItems
+        : ChangeOperation,
+            ICollectionChangeOperation
     {
         private readonly CoreObject _owner;
         private readonly CoreObject[] _items;

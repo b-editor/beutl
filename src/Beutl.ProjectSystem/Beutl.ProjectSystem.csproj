@@ -8,12 +8,16 @@
     <ProjectReference Include="..\Beutl.Extensibility\Beutl.Extensibility.csproj" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\Beutl.Engine.SourceGenerators\Beutl.Engine.SourceGenerators.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
+    <ProjectReference
+      Include="..\Beutl.Engine.SourceGenerators\Beutl.Engine.SourceGenerators.csproj"
+      OutputItemType="Analyzer"
+      ReferenceOutputAssembly="false"
+    />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.CodeAnalysis.CSharp.Scripting" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
     <PackageReference Include="Microsoft.Extensions.FileSystemGlobbing" />
-  <PackageReference Include="Microsoft.Extensions.Logging" />
+    <PackageReference Include="Microsoft.Extensions.Logging" />
   </ItemGroup>
 </Project>

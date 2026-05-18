@@ -16,8 +16,7 @@ public partial class ChromaKey : FilterEffect
 
     static ChromaKey()
     {
-        string sksl =
-            """
+        string sksl = """
             uniform shader src;
             uniform float4 color;
             uniform float hueRange;
@@ -104,27 +103,46 @@ public partial class ChromaKey : FilterEffect
     [Display(Name = nameof(GraphicsStrings.Color), ResourceType = typeof(GraphicsStrings))]
     public IProperty<Color> Color { get; } = Property.CreateAnimatable<Color>();
 
-    [Display(Name = nameof(GraphicsStrings.ChromaKey_HueRange), ResourceType = typeof(GraphicsStrings))]
+    [Display(
+        Name = nameof(GraphicsStrings.ChromaKey_HueRange),
+        ResourceType = typeof(GraphicsStrings)
+    )]
     public IProperty<float> HueRange { get; } = Property.CreateAnimatable<float>();
 
-    [Display(Name = nameof(GraphicsStrings.ChromaKey_SaturationRange), ResourceType = typeof(GraphicsStrings))]
+    [Display(
+        Name = nameof(GraphicsStrings.ChromaKey_SaturationRange),
+        ResourceType = typeof(GraphicsStrings)
+    )]
     public IProperty<float> SaturationRange { get; } = Property.CreateAnimatable<float>();
 
-    [Display(Name = nameof(GraphicsStrings.ChromaKey_Boundary), ResourceType = typeof(GraphicsStrings))]
+    [Display(
+        Name = nameof(GraphicsStrings.ChromaKey_Boundary),
+        ResourceType = typeof(GraphicsStrings)
+    )]
     public IProperty<float> Boundary { get; } = Property.CreateAnimatable(2f);
 
     public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
     {
         var r = (Resource)resource;
         context.CustomEffect(
-            (color: r.Color, hueRange: r.HueRange, satRange: r.SaturationRange, boundary: r.Boundary),
+            (
+                color: r.Color,
+                hueRange: r.HueRange,
+                satRange: r.SaturationRange,
+                boundary: r.Boundary
+            ),
             OnApplyTo,
-            static (_, r) => r);
+            static (_, r) => r
+        );
     }
 
-    private static void OnApplyTo((Color color, float hueRange, float satRange, float boundary) data, CustomFilterEffectContext c)
+    private static void OnApplyTo(
+        (Color color, float hueRange, float satRange, float boundary) data,
+        CustomFilterEffectContext c
+    )
     {
-        if (s_shader is null) return;
+        if (s_shader is null)
+            return;
         for (int i = 0; i < c.Targets.Count; i++)
         {
             using EffectTarget effectTarget = c.Targets[i];

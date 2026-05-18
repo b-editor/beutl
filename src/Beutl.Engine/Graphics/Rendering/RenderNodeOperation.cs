@@ -24,51 +24,85 @@ public abstract class RenderNodeOperation : IDisposable
         }
     }
 
-    protected virtual void OnDispose(bool disposing)
-    {
-    }
+    protected virtual void OnDispose(bool disposing) { }
 
     public static RenderNodeOperation CreateDecorator(
-        RenderNodeOperation child, Action<ImmediateCanvas> render,
+        RenderNodeOperation child,
+        Action<ImmediateCanvas> render,
         Func<Point, bool>? hitTest = null,
-        Action? onDispose = null)
+        Action? onDispose = null
+    )
     {
-        return CreateLambda(child.Bounds, render, hitTest: hitTest ?? child.HitTest, onDispose: () =>
-        {
-            child.Dispose();
-            onDispose?.Invoke();
-        });
+        return CreateLambda(
+            child.Bounds,
+            render,
+            hitTest: hitTest ?? child.HitTest,
+            onDispose: () =>
+            {
+                child.Dispose();
+                onDispose?.Invoke();
+            }
+        );
     }
 
     public static RenderNodeOperation CreateLambda(
-        Rect bounds, Action<ImmediateCanvas> render,
+        Rect bounds,
+        Action<ImmediateCanvas> render,
         Func<Point, bool>? hitTest = null,
-        Action? onDispose = null)
+        Action? onDispose = null
+    )
     {
         return new LambdaRenderNodeOperation(bounds, render, hitTest, onDispose);
     }
 
-    public static RenderNodeOperation CreateFromRenderTarget(Rect bounds, Point position, RenderTarget renderTarget)
+    public static RenderNodeOperation CreateFromRenderTarget(
+        Rect bounds,
+        Point position,
+        RenderTarget renderTarget
+    )
     {
-        return CreateLambda(bounds, canvas => canvas.DrawRenderTarget(renderTarget, position), bounds.Contains, renderTarget.Dispose);
+        return CreateLambda(
+            bounds,
+            canvas => canvas.DrawRenderTarget(renderTarget, position),
+            bounds.Contains,
+            renderTarget.Dispose
+        );
     }
 
-    public static RenderNodeOperation CreateFromSurface(Rect bounds, Point position, SKSurface surface)
+    public static RenderNodeOperation CreateFromSurface(
+        Rect bounds,
+        Point position,
+        SKSurface surface
+    )
     {
-        return CreateLambda(bounds, canvas => canvas.DrawSurface(surface, position), bounds.Contains, surface.Dispose);
+        return CreateLambda(
+            bounds,
+            canvas => canvas.DrawSurface(surface, position),
+            bounds.Contains,
+            surface.Dispose
+        );
     }
 
-    public static RenderNodeOperation CreateFromSurface(Rect bounds, Point position, Ref<SKSurface> surface)
+    public static RenderNodeOperation CreateFromSurface(
+        Rect bounds,
+        Point position,
+        Ref<SKSurface> surface
+    )
     {
-        return CreateLambda(bounds, canvas => canvas.DrawSurface(surface.Value, position), bounds.Contains, surface.Dispose);
+        return CreateLambda(
+            bounds,
+            canvas => canvas.DrawSurface(surface.Value, position),
+            bounds.Contains,
+            surface.Dispose
+        );
     }
 
     private class LambdaRenderNodeOperation(
         Rect bounds,
         Action<ImmediateCanvas> render,
         Func<Point, bool>? hitTest,
-        Action? onDispose)
-        : RenderNodeOperation
+        Action? onDispose
+    ) : RenderNodeOperation
     {
         public override Rect Bounds => bounds;
 

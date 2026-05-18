@@ -47,7 +47,10 @@ public sealed partial class ElementView : UserControl
         cm?.Attach(this, TimelineTabExtension.Instance);
         (border.ContextFlyout as FAMenuFlyout)!.Opening += OnContextFlyoutOpening;
         textBox.LostFocus += OnTextBoxLostFocus;
-        this.SubscribeDataContextChange<ElementViewModel>(OnDataContextAttached, OnDataContextDetached);
+        this.SubscribeDataContextChange<ElementViewModel>(
+            OnDataContextAttached,
+            OnDataContextDetached
+        );
     }
 
     private ElementViewModel ViewModel => (ElementViewModel)DataContext!;
@@ -63,10 +66,13 @@ public sealed partial class ElementView : UserControl
 
     private void OnContextFlyoutOpening(object? sender, EventArgs e)
     {
-        if (DataContext is not ElementViewModel viewModel) return;
+        if (DataContext is not ElementViewModel viewModel)
+            return;
 
         change2OriginalDuration.IsEnabled = viewModel.HasOriginalDuration();
-        splitByCurrent.IsEnabled = viewModel.Model.Range.Contains(viewModel.Timeline.EditorContext.GetRequiredService<IEditorClock>().CurrentTime.Value);
+        splitByCurrent.IsEnabled = viewModel.Model.Range.Contains(
+            viewModel.Timeline.EditorContext.GetRequiredService<IEditorClock>().CurrentTime.Value
+        );
         groupSelectedElements.IsEnabled = viewModel.CanGroupSelectedElements();
         ungroupSelectedElements.IsEnabled = viewModel.CanUngroupSelectedElements();
     }
@@ -94,8 +100,52 @@ public sealed partial class ElementView : UserControl
         {
             await Dispatcher.UIThread.InvokeAsync(async () =>
             {
-                var animation1 = new Avalonia.Animation.Animation { Easing = new SplineEasing(0.1, 0.9, 0.2, 1.0), Duration = TimeSpan.FromSeconds(0.25), FillMode = FillMode.Forward, Children = { new KeyFrame() { Cue = new Cue(0), Setters = { new Setter(MarginProperty, border.Margin), new Setter(WidthProperty, border.Width), } }, new KeyFrame() { Cue = new Cue(1), Setters = { new Setter(MarginProperty, args.BorderMargin), new Setter(WidthProperty, args.Width) } } } };
-                var animation2 = new Avalonia.Animation.Animation { Easing = new SplineEasing(0.1, 0.9, 0.2, 1.0), Duration = TimeSpan.FromSeconds(0.25), FillMode = FillMode.Forward, Children = { new KeyFrame() { Cue = new Cue(0), Setters = { new Setter(MarginProperty, obj.Margin.Value) } }, new KeyFrame() { Cue = new Cue(1), Setters = { new Setter(MarginProperty, args.Margin) } } } };
+                var animation1 = new Avalonia.Animation.Animation
+                {
+                    Easing = new SplineEasing(0.1, 0.9, 0.2, 1.0),
+                    Duration = TimeSpan.FromSeconds(0.25),
+                    FillMode = FillMode.Forward,
+                    Children =
+                    {
+                        new KeyFrame()
+                        {
+                            Cue = new Cue(0),
+                            Setters =
+                            {
+                                new Setter(MarginProperty, border.Margin),
+                                new Setter(WidthProperty, border.Width),
+                            },
+                        },
+                        new KeyFrame()
+                        {
+                            Cue = new Cue(1),
+                            Setters =
+                            {
+                                new Setter(MarginProperty, args.BorderMargin),
+                                new Setter(WidthProperty, args.Width),
+                            },
+                        },
+                    },
+                };
+                var animation2 = new Avalonia.Animation.Animation
+                {
+                    Easing = new SplineEasing(0.1, 0.9, 0.2, 1.0),
+                    Duration = TimeSpan.FromSeconds(0.25),
+                    FillMode = FillMode.Forward,
+                    Children =
+                    {
+                        new KeyFrame()
+                        {
+                            Cue = new Cue(0),
+                            Setters = { new Setter(MarginProperty, obj.Margin.Value) },
+                        },
+                        new KeyFrame()
+                        {
+                            Cue = new Cue(1),
+                            Setters = { new Setter(MarginProperty, args.Margin) },
+                        },
+                    },
+                };
 
                 Task task1 = animation1.RunAsync(border, token);
                 Task task2 = animation2.RunAsync(this, token);
@@ -108,8 +158,7 @@ public sealed partial class ElementView : UserControl
         obj.GetMissingThumbnailIndices = thumbnailStrip.GetMissingIndices;
         thumbnailStrip.VisibleRangeChanged += obj.OnVisibleRangeChanged;
 
-        obj.IsSelected
-            .ObserveOnUIDispatcher()
+        obj.IsSelected.ObserveOnUIDispatcher()
             .Subscribe(v => ZIndex = v ? 5 : 0)
             .DisposeWith(_disposables);
 
@@ -171,7 +220,8 @@ public sealed partial class ElementView : UserControl
     private void EnableElementClick(object? sender, RoutedEventArgs e)
     {
         Element model = ViewModel.Model;
-        HistoryManager history = ViewModel.Timeline.EditorContext.GetRequiredService<HistoryManager>();
+        HistoryManager history =
+            ViewModel.Timeline.EditorContext.GetRequiredService<HistoryManager>();
         model.IsEnabled = !model.IsEnabled;
         history.Commit(CommandNames.ChangeElementEnabled);
     }
@@ -192,7 +242,8 @@ public sealed partial class ElementView : UserControl
 
     private void SaveAsTemplate_Click(object? sender, RoutedEventArgs e)
     {
-        if (DataContext is not ElementViewModel viewModel) return;
+        if (DataContext is not ElementViewModel viewModel)
+            return;
 
         string defaultName = !string.IsNullOrWhiteSpace(viewModel.Model.Name)
             ? viewModel.Model.Name
@@ -212,7 +263,8 @@ public sealed partial class ElementView : UserControl
 
     private void ChangeColor_Click(object? sender, RoutedEventArgs e)
     {
-        if (DataContext is not ElementViewModel viewModel) return;
+        if (DataContext is not ElementViewModel viewModel)
+            return;
 
         // ContextMenuから開いているので、閉じるのを待つ
         s_colorPickerFlyout ??= new ColorPickerFlyout();
@@ -223,8 +275,10 @@ public sealed partial class ElementView : UserControl
         s_colorPickerFlyout.ColorPicker.IsMoreButtonVisible = true;
         s_colorPickerFlyout.Placement = PlacementMode.Top;
 
-        if (this.TryFindResource("PaletteColors", out object? colors)
-            && colors is IEnumerable<Color> tcolors)
+        if (
+            this.TryFindResource("PaletteColors", out object? colors)
+            && colors is IEnumerable<Color> tcolors
+        )
         {
             s_colorPickerFlyout.ColorPicker.CustomPaletteColors = tcolors;
         }
@@ -277,7 +331,8 @@ public sealed partial class ElementView : UserControl
             Element? Before,
             Element? After,
             TimeSpan RecordedEndTime,
-            TimeSpan? OriginalDuration);
+            TimeSpan? OriginalDuration
+        );
 
         private bool _pressed;
         private AlignmentX _resizeType;
@@ -296,7 +351,8 @@ public sealed partial class ElementView : UserControl
         protected override void OnAttached()
         {
             base.OnAttached();
-            if (AssociatedObject == null) return;
+            if (AssociatedObject == null)
+                return;
 
             AssociatedObject.AddHandler(PointerMovedEvent, OnPointerMoved);
             AssociatedObject.border.AddHandler(PointerPressedEvent, OnBorderPointerPressed);
@@ -311,7 +367,10 @@ public sealed partial class ElementView : UserControl
             {
                 AssociatedObject.RemoveHandler(PointerMovedEvent, OnPointerMoved);
                 AssociatedObject.border.RemoveHandler(PointerPressedEvent, OnBorderPointerPressed);
-                AssociatedObject.border.RemoveHandler(PointerReleasedEvent, OnBorderPointerReleased);
+                AssociatedObject.border.RemoveHandler(
+                    PointerReleasedEvent,
+                    OnBorderPointerReleased
+                );
                 AssociatedObject.border.RemoveHandler(PointerMovedEvent, OnBorderPointerMoved);
             }
         }
@@ -326,9 +385,15 @@ public sealed partial class ElementView : UserControl
 
                 if (view._timeline is { } timeline && _pressed)
                 {
-                    pointerFrame = view.RoundStartTime(pointerFrame, scale, e.KeyModifiers.HasFlag(KeyModifiers.Alt));
+                    pointerFrame = view.RoundStartTime(
+                        pointerFrame,
+                        scale,
+                        e.KeyModifiers.HasFlag(KeyModifiers.Alt)
+                    );
                     point = point.WithX(pointerFrame.TimeToPixel(scale));
-                    int rate = viewModel.Scene.FindHierarchicalParent<Project>() is { } proj ? proj.GetFrameRate() : 30;
+                    int rate = viewModel.Scene.FindHierarchicalParent<Project>() is { } proj
+                        ? proj.GetFrameRate()
+                        : 30;
                     double minWidth = TimeSpan.FromSeconds(1d / rate).TimeToPixel(scale);
 
                     if (view.Cursor != Cursors.Arrow && view.Cursor is { })
@@ -340,7 +405,10 @@ public sealed partial class ElementView : UserControl
                             if (_resizeType == AlignmentX.Right)
                             {
                                 // 右
-                                double x = ctx.After == null ? point.X : Math.Min(ctx.After.Start.TimeToPixel(scale), point.X);
+                                double x =
+                                    ctx.After == null
+                                        ? point.X
+                                        : Math.Min(ctx.After.Start.TimeToPixel(scale), point.X);
 
                                 if (ctx.OriginalDuration.HasValue)
                                 {
@@ -350,10 +418,19 @@ public sealed partial class ElementView : UserControl
 
                                 ctx.ViewModel.Width.Value = Math.Max(x - left, minWidth);
                             }
-                            else if (_resizeType == AlignmentX.Left && pointerFrame >= TimeSpan.Zero)
+                            else if (
+                                _resizeType == AlignmentX.Left
+                                && pointerFrame >= TimeSpan.Zero
+                            )
                             {
                                 // 左
-                                double x = ctx.Before == null ? point.X : Math.Max(ctx.Before.Range.End.TimeToPixel(scale), point.X);
+                                double x =
+                                    ctx.Before == null
+                                        ? point.X
+                                        : Math.Max(
+                                            ctx.Before.Range.End.TimeToPixel(scale),
+                                            point.X
+                                        );
 
                                 double endPos = ctx.RecordedEndTime.TimeToPixel(scale);
 
@@ -366,7 +443,12 @@ public sealed partial class ElementView : UserControl
                                 else
                                 {
                                     ctx.ViewModel.Width.Value = minWidth;
-                                    ctx.ViewModel.BorderMargin.Value = new Thickness(endPos - minWidth, 0, 0, 0);
+                                    ctx.ViewModel.BorderMargin.Value = new Thickness(
+                                        endPos - minWidth,
+                                        0,
+                                        0,
+                                        0
+                                    );
                                 }
                             }
                         }
@@ -387,10 +469,15 @@ public sealed partial class ElementView : UserControl
                 }
 
                 PointerPoint point = e.GetCurrentPoint(view.border);
-                if (point.Properties.IsLeftButtonPressed && e.KeyModifiers is KeyModifiers.None or KeyModifiers.Alt
-                                                         && view.Cursor != Cursors.Arrow && view.Cursor is not null)
+                if (
+                    point.Properties.IsLeftButtonPressed
+                    && e.KeyModifiers is KeyModifiers.None or KeyModifiers.Alt
+                    && view.Cursor != Cursors.Arrow
+                    && view.Cursor is not null
+                )
                 {
-                    IReadOnlyList<ElementViewModel> relatedElements = viewModel.GetGroupOrSelectedElements();
+                    IReadOnlyList<ElementViewModel> relatedElements =
+                        viewModel.GetGroupOrSelectedElements();
 
                     // リサイズタイプに応じて、同じ時間の要素のみをフィルタリング
                     IEnumerable<ElementViewModel> filteredElements;
@@ -398,38 +485,50 @@ public sealed partial class ElementView : UserControl
                     {
                         // 右端リサイズ: 同じEnd時間の要素のみ
                         TimeSpan targetEndTime = viewModel.Model.Range.End;
-                        filteredElements = relatedElements.Where(elem => elem.Model.Range.End == targetEndTime);
+                        filteredElements = relatedElements.Where(elem =>
+                            elem.Model.Range.End == targetEndTime
+                        );
                     }
                     else if (_resizeType == AlignmentX.Left)
                     {
                         // 左端リサイズ: 同じStart時間の要素のみ
                         TimeSpan targetStartTime = viewModel.Model.Start;
-                        filteredElements = relatedElements.Where(elem => elem.Model.Start == targetStartTime);
+                        filteredElements = relatedElements.Where(elem =>
+                            elem.Model.Start == targetStartTime
+                        );
                     }
                     else
                     {
                         filteredElements = [viewModel];
                     }
 
-                    bool clampToOriginal = GlobalConfiguration.Instance.EditorConfig.ClampResizeToOriginalLength;
+                    bool clampToOriginal = GlobalConfiguration
+                        .Instance
+                        .EditorConfig
+                        .ClampResizeToOriginalLength;
 
-                    _resizeContexts = filteredElements.Select(elem =>
-                    {
-                        TimeSpan? originalDuration = null;
-                        if (clampToOriginal
-                            && elem.Model.HasOriginalDuration()
-                            && elem.Model.TryGetOriginalDuration(out TimeSpan ts))
+                    _resizeContexts = filteredElements
+                        .Select(elem =>
                         {
-                            originalDuration = ts;
-                        }
+                            TimeSpan? originalDuration = null;
+                            if (
+                                clampToOriginal
+                                && elem.Model.HasOriginalDuration()
+                                && elem.Model.TryGetOriginalDuration(out TimeSpan ts)
+                            )
+                            {
+                                originalDuration = ts;
+                            }
 
-                        return new ElementResizeContext(
-                            ViewModel: elem,
-                            Before: elem.Model.GetBefore(elem.Model.ZIndex, elem.Model.Start),
-                            After: elem.Model.GetAfter(elem.Model.ZIndex, elem.Model.Range.End),
-                            RecordedEndTime: elem.Model.Range.End,
-                            OriginalDuration: originalDuration);
-                    }).ToArray();
+                            return new ElementResizeContext(
+                                ViewModel: elem,
+                                Before: elem.Model.GetBefore(elem.Model.ZIndex, elem.Model.Start),
+                                After: elem.Model.GetAfter(elem.Model.ZIndex, elem.Model.Range.End),
+                                RecordedEndTime: elem.Model.Range.End,
+                                OriginalDuration: originalDuration
+                            );
+                        })
+                        .ToArray();
 
                     _pressed = true;
                     e.Handled = true;
@@ -454,21 +553,37 @@ public sealed partial class ElementView : UserControl
                     }
                     else if (_resizeContexts.Length > 1)
                     {
-                        HistoryManager history = viewModel.Timeline.EditorContext.GetRequiredService<HistoryManager>();
+                        HistoryManager history =
+                            viewModel.Timeline.EditorContext.GetRequiredService<HistoryManager>();
                         var animations = _resizeContexts
-                            .Select(x => (ViewModel: x.ViewModel, Context: x.ViewModel.PrepareAnimation()))
+                            .Select(x =>
+                                (ViewModel: x.ViewModel, Context: x.ViewModel.PrepareAnimation())
+                            )
                             .ToArray();
 
                         float scale = viewModel.Timeline.Options.Value.Scale;
-                        int rate = viewModel.Scene.FindHierarchicalParent<Project>() is { } proj ? proj.GetFrameRate() : 30;
+                        int rate = viewModel.Scene.FindHierarchicalParent<Project>() is { } proj
+                            ? proj.GetFrameRate()
+                            : 30;
 
                         foreach (ElementResizeContext ctx in _resizeContexts)
                         {
-                            TimeSpan newStart = ctx.ViewModel.BorderMargin.Value.Left.PixelToTimeSpan(scale).RoundToRate(rate);
-                            TimeSpan newLength = ctx.ViewModel.Width.Value.PixelToTimeSpan(scale).RoundToRate(rate);
-                            int zindex = viewModel.Timeline.ToLayerNumber(ctx.ViewModel.Margin.Value);
+                            TimeSpan newStart = ctx
+                                .ViewModel.BorderMargin.Value.Left.PixelToTimeSpan(scale)
+                                .RoundToRate(rate);
+                            TimeSpan newLength = ctx
+                                .ViewModel.Width.Value.PixelToTimeSpan(scale)
+                                .RoundToRate(rate);
+                            int zindex = viewModel.Timeline.ToLayerNumber(
+                                ctx.ViewModel.Margin.Value
+                            );
 
-                            viewModel.Scene.MoveChild(zindex, newStart, newLength, ctx.ViewModel.Model);
+                            viewModel.Scene.MoveChild(
+                                zindex,
+                                newStart,
+                                newLength,
+                                ctx.ViewModel.Model
+                            );
                         }
 
                         history.Commit(CommandNames.MoveElement);
@@ -503,7 +618,9 @@ public sealed partial class ElementView : UserControl
                 else if (!_pressed)
                 {
                     float scale = viewModel.Timeline.Options.Value.Scale;
-                    int rate = viewModel.Scene.FindHierarchicalParent<Project>() is { } proj ? proj.GetFrameRate() : 30;
+                    int rate = viewModel.Scene.FindHierarchicalParent<Project>() is { } proj
+                        ? proj.GetFrameRate()
+                        : 30;
                     double minWidth = TimeSpan.FromSeconds(1d / rate).TimeToPixel(scale);
 
                     Point point = e.GetPosition(border);
@@ -544,7 +661,8 @@ public sealed partial class ElementView : UserControl
         protected override void OnAttached()
         {
             base.OnAttached();
-            if (AssociatedObject == null) return;
+            if (AssociatedObject == null)
+                return;
 
             AssociatedObject.AddHandler(PointerMovedEvent, OnPointerMoved);
             AssociatedObject.border.AddHandler(PointerPressedEvent, OnBorderPointerPressed);
@@ -554,7 +672,8 @@ public sealed partial class ElementView : UserControl
         protected override void OnDetaching()
         {
             base.OnDetaching();
-            if (AssociatedObject == null) return;
+            if (AssociatedObject == null)
+                return;
 
             AssociatedObject.RemoveHandler(PointerMovedEvent, OnPointerMoved);
             AssociatedObject.border.RemoveHandler(PointerPressedEvent, OnBorderPointerPressed);
@@ -563,13 +682,20 @@ public sealed partial class ElementView : UserControl
 
         private void OnPointerMoved(object? sender, PointerEventArgs e)
         {
-            if (AssociatedObject is { ViewModel: { } viewModel, _timeline: { } timeline } view && _pressed)
+            if (
+                AssociatedObject is { ViewModel: { } viewModel, _timeline: { } timeline } view
+                && _pressed
+            )
             {
                 Point point = e.GetPosition(view);
                 float scale = viewModel.Timeline.Options.Value.Scale;
                 TimeSpan pointerFrame = point.X.PixelToTimeSpan(scale);
 
-                pointerFrame = view.RoundStartTime(pointerFrame, scale, e.KeyModifiers.HasFlag(KeyModifiers.Alt));
+                pointerFrame = view.RoundStartTime(
+                    pointerFrame,
+                    scale,
+                    e.KeyModifiers.HasFlag(KeyModifiers.Alt)
+                );
 
                 TimeSpan newframe = pointerFrame - _start.X.PixelToTimeSpan(scale);
 
@@ -583,12 +709,18 @@ public sealed partial class ElementView : UserControl
                 viewModel.Margin.Value = new(0, newTop, 0, 0);
                 viewModel.BorderMargin.Value = new Thickness(newLeft, 0, 0, 0);
 
-                IReadOnlyList<ElementViewModel> relatedElements = viewModel.GetGroupOrSelectedElements();
+                IReadOnlyList<ElementViewModel> relatedElements =
+                    viewModel.GetGroupOrSelectedElements();
 
                 foreach (ElementViewModel item in relatedElements.Where(i => i != viewModel))
                 {
                     item.Margin.Value = new(0, item.Margin.Value.Top + deltaTop, 0, 0);
-                    item.BorderMargin.Value = new(item.BorderMargin.Value.Left + deltaLeft, 0, 0, 0);
+                    item.BorderMargin.Value = new(
+                        item.BorderMargin.Value.Left + deltaLeft,
+                        0,
+                        0,
+                        0
+                    );
                 }
 
                 e.Handled = true;
@@ -605,8 +737,10 @@ public sealed partial class ElementView : UserControl
                 }
 
                 PointerPoint point = e.GetCurrentPoint(view.border);
-                if (point.Properties.IsLeftButtonPressed
-                    && (view.Cursor == Cursors.Arrow || view.Cursor == null))
+                if (
+                    point.Properties.IsLeftButtonPressed
+                    && (view.Cursor == Cursors.Arrow || view.Cursor == null)
+                )
                 {
                     _pressed = true;
                     _start = point.Position;
@@ -624,9 +758,11 @@ public sealed partial class ElementView : UserControl
                 if (AssociatedObject is { ViewModel: { } viewModel })
                 {
                     viewModel.Timeline.SnapBarPosition.Value = null;
-                    HistoryManager history = viewModel.Timeline.EditorContext.GetRequiredService<HistoryManager>();
+                    HistoryManager history =
+                        viewModel.Timeline.EditorContext.GetRequiredService<HistoryManager>();
                     e.Handled = true;
-                    IReadOnlyList<ElementViewModel> relatedElements = viewModel.GetGroupOrSelectedElements();
+                    IReadOnlyList<ElementViewModel> relatedElements =
+                        viewModel.GetGroupOrSelectedElements();
                     var elems = relatedElements.Select(x => x.Model).ToArray();
 
                     if (elems.Length == 1)
@@ -640,8 +776,12 @@ public sealed partial class ElementView : UserControl
                             .ToArray();
 
                         float scale = viewModel.Timeline.Options.Value.Scale;
-                        int rate = viewModel.Scene.FindHierarchicalParent<Project>() is { } proj ? proj.GetFrameRate() : 30;
-                        TimeSpan newStart = viewModel.BorderMargin.Value.Left.PixelToTimeSpan(scale).RoundToRate(rate);
+                        int rate = viewModel.Scene.FindHierarchicalParent<Project>() is { } proj
+                            ? proj.GetFrameRate()
+                            : 30;
+                        TimeSpan newStart = viewModel
+                            .BorderMargin.Value.Left.PixelToTimeSpan(scale)
+                            .RoundToRate(rate);
                         TimeSpan deltaStart = newStart - viewModel.Model.Start;
                         int newIndex = viewModel.Timeline.ToLayerNumber(viewModel.Margin.Value);
                         int deltaIndex = newIndex - viewModel.Model.ZIndex;
@@ -667,9 +807,14 @@ public sealed partial class ElementView : UserControl
         protected override void OnAttached()
         {
             base.OnAttached();
-            if (AssociatedObject == null) return;
+            if (AssociatedObject == null)
+                return;
 
-            AssociatedObject.AddHandler(PointerPressedEvent, OnPointerPressed, RoutingStrategies.Tunnel);
+            AssociatedObject.AddHandler(
+                PointerPressedEvent,
+                OnPointerPressed,
+                RoutingStrategies.Tunnel
+            );
             AssociatedObject.border.AddHandler(PointerPressedEvent, OnBorderPointerPressed);
             AssociatedObject.border.AddHandler(PointerReleasedEvent, OnBorderPointerReleased);
         }
@@ -677,7 +822,8 @@ public sealed partial class ElementView : UserControl
         protected override void OnDetaching()
         {
             base.OnDetaching();
-            if (AssociatedObject == null) return;
+            if (AssociatedObject == null)
+                return;
 
             AssociatedObject.RemoveHandler(PointerPressedEvent, OnPointerPressed);
             AssociatedObject.border.RemoveHandler(PointerPressedEvent, OnBorderPointerPressed);
@@ -686,7 +832,8 @@ public sealed partial class ElementView : UserControl
 
         private void OnPointerPressed(object? sender, PointerPressedEventArgs e)
         {
-            if (AssociatedObject is not { } obj) return;
+            if (AssociatedObject is not { } obj)
+                return;
 
             if (!obj.textBox.IsFocused)
             {
@@ -714,13 +861,17 @@ public sealed partial class ElementView : UserControl
         {
             if (AssociatedObject is { _timeline.ViewModel: { } timelineVm } obj)
             {
-                if (timelineVm.IsRazorMode.Value && e.GetCurrentPoint(obj.border).Properties.IsLeftButtonPressed)
+                if (
+                    timelineVm.IsRazorMode.Value
+                    && e.GetCurrentPoint(obj.border).Properties.IsLeftButtonPressed
+                )
                 {
                     if (obj.ViewModel is { } elementVm)
                     {
                         PointerPoint pt = e.GetCurrentPoint(obj.border);
                         float scale = timelineVm.Options.Value.Scale;
-                        TimeSpan clickedTime = elementVm.Model.Start + pt.Position.X.PixelToTimeSpan(scale);
+                        TimeSpan clickedTime =
+                            elementVm.Model.Start + pt.Position.X.PixelToTimeSpan(scale);
                         elementVm.SplitAt(clickedTime);
                     }
 
@@ -772,8 +923,7 @@ public sealed partial class ElementView : UserControl
                     Thickness margin = obj.ViewModel.Margin.Value;
                     Thickness borderMargin = obj.ViewModel.BorderMargin.Value;
                     // ReSharper disable CompareOfFloatsByEqualityOperator
-                    if (borderMargin.Left == _snapshot.Left
-                        && margin.Top == _snapshot.Top)
+                    if (borderMargin.Left == _snapshot.Left && margin.Top == _snapshot.Top)
                     {
                         obj.ViewModel.Timeline.SwitchSelectedElement(obj.ViewModel);
                     }

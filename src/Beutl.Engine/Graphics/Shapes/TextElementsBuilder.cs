@@ -1,8 +1,6 @@
 ﻿using System.Runtime.InteropServices;
-
 using Beutl.Media;
 using Beutl.Media.TextFormatting;
-
 using static Beutl.Media.TextFormatting.FormattedTextParser;
 using static Beutl.Media.TextFormatting.FormattedTextTokenizer;
 
@@ -115,18 +113,20 @@ public class TextElementsBuilder(FormattedTextInfo initialOptions)
 
     public void Append(string text)
     {
-        _elements.Add(new TextElement()
-        {
-            Text = text,
-            FontFamily = _curFontFamily,
-            FontStyle = _curFontStyle,
-            FontWeight = _curFontWeight,
-            Size = _curSize,
-            Brush = _curBrush,
-            Spacing = _curSpacing,
-            IgnoreLineBreaks = _singleLine,
-            Pen = _curPen,
-        });
+        _elements.Add(
+            new TextElement()
+            {
+                Text = text,
+                FontFamily = _curFontFamily,
+                FontStyle = _curFontStyle,
+                FontWeight = _curFontWeight,
+                Size = _curSize,
+                Brush = _curBrush,
+                Spacing = _curSpacing,
+                IgnoreLineBreaks = _singleLine,
+                Pen = _curPen,
+            }
+        );
     }
 
     public void AppendTokens(Span<Token> tokens)
@@ -135,8 +135,11 @@ public class TextElementsBuilder(FormattedTextInfo initialOptions)
 
         foreach (Token token in tokens)
         {
-            if (!noParse && token.Type == TokenType.TagStart &&
-                TryParseTag(token.Text, out TagInfo tag))
+            if (
+                !noParse
+                && token.Type == TokenType.TagStart
+                && TryParseTag(token.Text, out TagInfo tag)
+            )
             {
                 // 開始タグ
                 if (tag.TryGetFont(out FontFamily? font1))
@@ -193,7 +196,7 @@ public class TextElementsBuilder(FormattedTextInfo initialOptions)
             TagType.FontWeightBold or TagType.FontWeight => Options.FontWeight,
             TagType.FontStyle or TagType.FontStyleItalic => Options.FontStyle,
             TagType.SingleLine => Options.SingleLine,
-            _ => Options.Unknown
+            _ => Options.Unknown,
         };
     }
 
@@ -207,6 +210,6 @@ public class TextElementsBuilder(FormattedTextInfo initialOptions)
         Pen,
         Spacing,
         SingleLine,
-        Unknown
+        Unknown,
     }
 }

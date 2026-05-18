@@ -48,7 +48,8 @@ public abstract class RenderNode3D : IDisposable
 
     public void Dispose()
     {
-        if (_disposed) return;
+        if (_disposed)
+            return;
         _disposed = true;
         OnDispose();
         GC.SuppressFinalize(this);

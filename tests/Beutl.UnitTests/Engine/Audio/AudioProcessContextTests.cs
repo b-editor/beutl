@@ -44,8 +44,10 @@ public class AudioProcessContextTests
 
         var instance = new AudioProcessContext(range, sampleRate, new AnimationSampler(), null);
 
-        Assert.That(AudioProcessContext.GetSampleCount(range, sampleRate),
-            Is.EqualTo(instance.GetSampleCount()));
+        Assert.That(
+            AudioProcessContext.GetSampleCount(range, sampleRate),
+            Is.EqualTo(instance.GetSampleCount())
+        );
     }
 
     [Test]
@@ -87,8 +89,9 @@ public class AudioProcessContextTests
     {
         var range = new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(1));
 
-        var ex = Assert.Throws<ArgumentOutOfRangeException>(
-            () => AudioProcessContext.GetSampleCount(range, sampleRate));
+        var ex = Assert.Throws<ArgumentOutOfRangeException>(() =>
+            AudioProcessContext.GetSampleCount(range, sampleRate)
+        );
         Assert.That(ex!.ParamName, Is.EqualTo("sampleRate"));
     }
 
@@ -101,8 +104,9 @@ public class AudioProcessContextTests
         // 例: ~14 時間 @ 48000Hz は 2.4e9 サンプルで Int32.MaxValue (~2.15e9) を超える。
         var range = new TimeRange(TimeSpan.Zero, TimeSpan.FromHours(14));
 
-        var ex = Assert.Throws<ArgumentOutOfRangeException>(
-            () => AudioProcessContext.GetSampleCount(range, 48000));
+        var ex = Assert.Throws<ArgumentOutOfRangeException>(() =>
+            AudioProcessContext.GetSampleCount(range, 48000)
+        );
         Assert.That(ex!.ParamName, Is.EqualTo("range"));
     }
 
@@ -115,8 +119,9 @@ public class AudioProcessContextTests
         // エラーの帰属を正しく保つ。
         var range = new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(-1));
 
-        var ex = Assert.Throws<ArgumentOutOfRangeException>(
-            () => AudioProcessContext.GetSampleCount(range, 44100));
+        var ex = Assert.Throws<ArgumentOutOfRangeException>(() =>
+            AudioProcessContext.GetSampleCount(range, 44100)
+        );
         Assert.That(ex!.ParamName, Is.EqualTo("range"));
     }
 }

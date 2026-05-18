@@ -1,5 +1,4 @@
 ﻿using System.Numerics;
-
 using Beutl.Media;
 
 namespace Beutl.UnitTests.Engine;
@@ -191,14 +190,14 @@ public class ColorExtraTests
         Assert.That(color, Is.EqualTo(Color.Parse("Red")));
     }
 
-    private static T ParseViaInterface<T>(string s) where T : IParsable<T>
-        => T.Parse(s, null);
+    private static T ParseViaInterface<T>(string s)
+        where T : IParsable<T> => T.Parse(s, null);
 
-    private static bool TryParseViaInterface<T>(string? s, out T? result) where T : IParsable<T>
-        => T.TryParse(s, null, out result);
+    private static bool TryParseViaInterface<T>(string? s, out T? result)
+        where T : IParsable<T> => T.TryParse(s, null, out result);
 
-    private static T SpanParseViaInterface<T>(ReadOnlySpan<char> s) where T : ISpanParsable<T>
-        => T.Parse(s, null);
+    private static T SpanParseViaInterface<T>(ReadOnlySpan<char> s)
+        where T : ISpanParsable<T> => T.Parse(s, null);
 
     [Test]
     public void ToBrushExtension_CreatesBrush()

@@ -1,5 +1,4 @@
 ﻿using System.Collections;
-
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Presenters;
@@ -35,8 +34,10 @@ public class GenericDragBehavior : Behavior<Control>
     public static readonly StyledProperty<double> VerticalDragThresholdProperty =
         AvaloniaProperty.Register<GenericDragBehavior, double>(nameof(VerticalDragThreshold), 3);
 
-    public static readonly StyledProperty<Control> DragControlProperty =
-        AvaloniaProperty.Register<GenericDragBehavior, Control>(nameof(DragControl));
+    public static readonly StyledProperty<Control> DragControlProperty = AvaloniaProperty.Register<
+        GenericDragBehavior,
+        Control
+    >(nameof(DragControl));
 
     public Orientation Orientation
     {
@@ -69,10 +70,22 @@ public class GenericDragBehavior : Behavior<Control>
 
         if (DragControl is { })
         {
-            DragControl.AddHandler(InputElement.PointerReleasedEvent, Released, RoutingStrategies.Tunnel);
-            DragControl.AddHandler(InputElement.PointerPressedEvent, Pressed, RoutingStrategies.Tunnel);
+            DragControl.AddHandler(
+                InputElement.PointerReleasedEvent,
+                Released,
+                RoutingStrategies.Tunnel
+            );
+            DragControl.AddHandler(
+                InputElement.PointerPressedEvent,
+                Pressed,
+                RoutingStrategies.Tunnel
+            );
             DragControl.AddHandler(InputElement.PointerMovedEvent, Moved, RoutingStrategies.Tunnel);
-            DragControl.AddHandler(InputElement.PointerCaptureLostEvent, CaptureLost, RoutingStrategies.Tunnel);
+            DragControl.AddHandler(
+                InputElement.PointerCaptureLostEvent,
+                CaptureLost,
+                RoutingStrategies.Tunnel
+            );
         }
     }
 
@@ -94,19 +107,17 @@ public class GenericDragBehavior : Behavior<Control>
         return AssociatedObject?.FindAncestorOfType<ContentPresenter>();
     }
 
-    protected virtual void OnStartedDragging()
-    {
-    }
+    protected virtual void OnStartedDragging() { }
 
-    protected virtual void OnFinishedDragging()
-    {
-    }
+    protected virtual void OnFinishedDragging() { }
 
     private void Pressed(object? sender, PointerPressedEventArgs e)
     {
         PointerPointProperties properties = e.GetCurrentPoint(AssociatedObject).Properties;
-        if (properties.IsLeftButtonPressed
-            && AssociatedObject?.FindLogicalAncestorOfType<ItemsControl>() is { } itemsControl)
+        if (
+            properties.IsLeftButtonPressed
+            && AssociatedObject?.FindLogicalAncestorOfType<ItemsControl>() is { } itemsControl
+        )
         {
             _enableDrag = true;
             _dragStarted = false;
@@ -165,7 +176,12 @@ public class GenericDragBehavior : Behavior<Control>
             }
         }
 
-        if (_dragStarted && _draggedIndex >= 0 && _targetIndex >= 0 && _draggedIndex != _targetIndex)
+        if (
+            _dragStarted
+            && _draggedIndex >= 0
+            && _targetIndex >= 0
+            && _draggedIndex != _targetIndex
+        )
         {
             OnMoveDraggedItem(_itemsControl, _draggedIndex, _targetIndex);
             OnFinishedDragging();
@@ -255,17 +271,23 @@ public class GenericDragBehavior : Behavior<Control>
     private void Moved(object? sender, PointerEventArgs e)
     {
         PointerPointProperties? properties = e.GetCurrentPoint(AssociatedObject).Properties;
-        if (Equals(e.Pointer.Captured, DragControl)
-            && properties?.IsLeftButtonPressed == true)
+        if (Equals(e.Pointer.Captured, DragControl) && properties?.IsLeftButtonPressed == true)
         {
-            if (_itemsControl?.ItemsSource is null || _draggedContainer?.RenderTransform is null || !_enableDrag)
+            if (
+                _itemsControl?.ItemsSource is null
+                || _draggedContainer?.RenderTransform is null
+                || !_enableDrag
+            )
             {
                 return;
             }
 
             Orientation orientation = Orientation;
             Point position = e.GetPosition(_itemsControl);
-            double delta = orientation == Orientation.Horizontal ? position.X - _start.X : position.Y - _start.Y;
+            double delta =
+                orientation == Orientation.Horizontal
+                    ? position.X - _start.X
+                    : position.Y - _start.Y;
 
             if (!_dragStarted)
             {
@@ -313,22 +335,28 @@ public class GenericDragBehavior : Behavior<Control>
 
             Rect draggedBounds = _draggedContainer.Bounds;
 
-            double draggedStart = orientation == Orientation.Horizontal ? draggedBounds.X : draggedBounds.Y;
+            double draggedStart =
+                orientation == Orientation.Horizontal ? draggedBounds.X : draggedBounds.Y;
 
-            double draggedDeltaStart = orientation == Orientation.Horizontal
-                ? draggedBounds.X + delta
-                : draggedBounds.Y + delta;
+            double draggedDeltaStart =
+                orientation == Orientation.Horizontal
+                    ? draggedBounds.X + delta
+                    : draggedBounds.Y + delta;
 
-            double draggedDeltaEnd = orientation == Orientation.Horizontal
-                ? draggedBounds.X + delta + draggedBounds.Width
-                : draggedBounds.Y + delta + draggedBounds.Height;
+            double draggedDeltaEnd =
+                orientation == Orientation.Horizontal
+                    ? draggedBounds.X + delta + draggedBounds.Width
+                    : draggedBounds.Y + delta + draggedBounds.Height;
 
             int i = 0;
 
             foreach (object? _ in _itemsControl.ItemsSource)
             {
                 Control? targetContainer = _itemsControl.ContainerFromIndex(i);
-                if (targetContainer?.RenderTransform is null || ReferenceEquals(targetContainer, _draggedContainer))
+                if (
+                    targetContainer?.RenderTransform is null
+                    || ReferenceEquals(targetContainer, _draggedContainer)
+                )
                 {
                     i++;
                     continue;
@@ -336,11 +364,13 @@ public class GenericDragBehavior : Behavior<Control>
 
                 Rect targetBounds = targetContainer.Bounds;
 
-                double targetStart = orientation == Orientation.Horizontal ? targetBounds.X : targetBounds.Y;
+                double targetStart =
+                    orientation == Orientation.Horizontal ? targetBounds.X : targetBounds.Y;
 
-                double targetMid = orientation == Orientation.Horizontal
-                    ? targetBounds.X + targetBounds.Width / 2
-                    : targetBounds.Y + targetBounds.Height / 2;
+                double targetMid =
+                    orientation == Orientation.Horizontal
+                        ? targetBounds.X + targetBounds.Width / 2
+                        : targetBounds.Y + targetBounds.Height / 2;
 
                 int targetIndex = _itemsControl.IndexFromContainer(targetContainer);
 
@@ -355,8 +385,10 @@ public class GenericDragBehavior : Behavior<Control>
                         SetTranslateTransform(targetContainer, 0, -draggedBounds.Height);
                     }
 
-                    _targetIndex = _targetIndex == -1 ? targetIndex :
-                        targetIndex > _targetIndex ? targetIndex : _targetIndex;
+                    _targetIndex =
+                        _targetIndex == -1 ? targetIndex
+                        : targetIndex > _targetIndex ? targetIndex
+                        : _targetIndex;
                 }
                 else if (targetStart < draggedStart && draggedDeltaStart <= targetMid)
                 {
@@ -369,8 +401,10 @@ public class GenericDragBehavior : Behavior<Control>
                         SetTranslateTransform(targetContainer, 0, draggedBounds.Height);
                     }
 
-                    _targetIndex = _targetIndex == -1 ? targetIndex :
-                        targetIndex < _targetIndex ? targetIndex : _targetIndex;
+                    _targetIndex =
+                        _targetIndex == -1 ? targetIndex
+                        : targetIndex < _targetIndex ? targetIndex
+                        : _targetIndex;
                 }
                 else
                 {

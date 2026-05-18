@@ -11,9 +11,17 @@ public class GeometryRenderNodeTest
     [Test]
     public void Update_ShouldReturnFalse_WhenAllPropertiesMatch()
     {
-        var geometry = new EllipseGeometry { Width = { CurrentValue = 100 }, Height = { CurrentValue = 100 } };
+        var geometry = new EllipseGeometry
+        {
+            Width = { CurrentValue = 100 },
+            Height = { CurrentValue = 100 },
+        };
         Brush fill = new SolidColorBrush(Colors.Red);
-        Pen pen = new Pen { Brush = { CurrentValue = Brushes.Black }, Thickness = { CurrentValue = 1 } };
+        Pen pen = new Pen
+        {
+            Brush = { CurrentValue = Brushes.Black },
+            Thickness = { CurrentValue = 1 },
+        };
         var geometryResource = geometry.ToResource(CompositionContext.Default);
         var fillResource = fill.ToResource(CompositionContext.Default);
         var penResource = pen.ToResource(CompositionContext.Default);
@@ -26,12 +34,28 @@ public class GeometryRenderNodeTest
     [Test]
     public void Update_ShouldReturnTrue_WhenPropertiesDoNotMatch()
     {
-        var geometry1 = new EllipseGeometry { Width = { CurrentValue = 100 }, Height = { CurrentValue = 100 } };
-        var geometry2 = new EllipseGeometry { Width = { CurrentValue = 100 }, Height = { CurrentValue = 100 } };
+        var geometry1 = new EllipseGeometry
+        {
+            Width = { CurrentValue = 100 },
+            Height = { CurrentValue = 100 },
+        };
+        var geometry2 = new EllipseGeometry
+        {
+            Width = { CurrentValue = 100 },
+            Height = { CurrentValue = 100 },
+        };
         Brush fill1 = new SolidColorBrush(Colors.Red);
         Brush fill2 = new SolidColorBrush(Colors.Blue);
-        Pen pen1 = new Pen { Brush = { CurrentValue = Brushes.Black }, Thickness = { CurrentValue = 1 } };
-        Pen pen2 = new Pen { Brush = { CurrentValue = Brushes.Black }, Thickness = { CurrentValue = 2 } };
+        Pen pen1 = new Pen
+        {
+            Brush = { CurrentValue = Brushes.Black },
+            Thickness = { CurrentValue = 1 },
+        };
+        Pen pen2 = new Pen
+        {
+            Brush = { CurrentValue = Brushes.Black },
+            Thickness = { CurrentValue = 2 },
+        };
         var geometryResource1 = geometry1.ToResource(CompositionContext.Default);
         var geometryResource2 = geometry2.ToResource(CompositionContext.Default);
         var fillResource1 = fill1.ToResource(CompositionContext.Default);
@@ -49,9 +73,17 @@ public class GeometryRenderNodeTest
     [Test]
     public void Process_ShouldReturnCorrectRenderNodeOperation()
     {
-        var geometry = new EllipseGeometry { Width = { CurrentValue = 100 }, Height = { CurrentValue = 100 } };
+        var geometry = new EllipseGeometry
+        {
+            Width = { CurrentValue = 100 },
+            Height = { CurrentValue = 100 },
+        };
         Brush fill = new SolidColorBrush(Colors.Red);
-        Pen pen = new Pen { Brush = { CurrentValue = Brushes.Black }, Thickness = { CurrentValue = 1 } };
+        Pen pen = new Pen
+        {
+            Brush = { CurrentValue = Brushes.Black },
+            Thickness = { CurrentValue = 1 },
+        };
         var geometryResource = geometry.ToResource(CompositionContext.Default);
         var fillResource = fill.ToResource(CompositionContext.Default);
         var penResource = pen.ToResource(CompositionContext.Default);
@@ -67,9 +99,17 @@ public class GeometryRenderNodeTest
     [Test]
     public void HitTest_ShouldReturnTrue_WhenPointIsInsideGeometry()
     {
-        var geometry = new EllipseGeometry { Width = { CurrentValue = 100 }, Height = { CurrentValue = 100 } };
+        var geometry = new EllipseGeometry
+        {
+            Width = { CurrentValue = 100 },
+            Height = { CurrentValue = 100 },
+        };
         Brush fill = new SolidColorBrush(Colors.Red);
-        Pen pen = new Pen { Brush = { CurrentValue = Brushes.Black }, Thickness = { CurrentValue = 1 } };
+        Pen pen = new Pen
+        {
+            Brush = { CurrentValue = Brushes.Black },
+            Thickness = { CurrentValue = 1 },
+        };
         var geometryResource = geometry.ToResource(CompositionContext.Default);
         var fillResource = fill.ToResource(CompositionContext.Default);
         var penResource = pen.ToResource(CompositionContext.Default);
@@ -85,9 +125,17 @@ public class GeometryRenderNodeTest
     [Test]
     public void HitTest_ShouldReturnFalse_WhenPointIsOutsideGeometry()
     {
-        var geometry = new EllipseGeometry { Width = { CurrentValue = 100 }, Height = { CurrentValue = 100 } };
+        var geometry = new EllipseGeometry
+        {
+            Width = { CurrentValue = 100 },
+            Height = { CurrentValue = 100 },
+        };
         Brush fill = new SolidColorBrush(Colors.Red);
-        Pen pen = new Pen { Brush = { CurrentValue = Brushes.Black }, Thickness = { CurrentValue = 1 } };
+        Pen pen = new Pen
+        {
+            Brush = { CurrentValue = Brushes.Black },
+            Thickness = { CurrentValue = 1 },
+        };
         var geometryResource = geometry.ToResource(CompositionContext.Default);
         var fillResource = fill.ToResource(CompositionContext.Default);
         var penResource = pen.ToResource(CompositionContext.Default);
@@ -103,8 +151,16 @@ public class GeometryRenderNodeTest
     [Test]
     public void HitTest_ShouldReturnTrue_WhenPointIsInsideGeometryStroke()
     {
-        var geometry = new EllipseGeometry { Width = { CurrentValue = 100 }, Height = { CurrentValue = 100 } };
-        Pen pen = new Pen { Brush = { CurrentValue = Brushes.Black }, Thickness = { CurrentValue = 50 } };
+        var geometry = new EllipseGeometry
+        {
+            Width = { CurrentValue = 100 },
+            Height = { CurrentValue = 100 },
+        };
+        Pen pen = new Pen
+        {
+            Brush = { CurrentValue = Brushes.Black },
+            Thickness = { CurrentValue = 50 },
+        };
         var geometryResource = geometry.ToResource(CompositionContext.Default);
         var penResource = pen.ToResource(CompositionContext.Default);
         var context = new RenderNodeContext([]);

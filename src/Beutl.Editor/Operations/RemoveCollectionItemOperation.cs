@@ -2,7 +2,9 @@
 
 namespace Beutl.Editor.Operations;
 
-public sealed class RemoveCollectionItemOperation<T> : CollectionChangeOperation<T>, ICollectionChangeOperation
+public sealed class RemoveCollectionItemOperation<T>
+    : CollectionChangeOperation<T>,
+        ICollectionChangeOperation
 {
     public required T Item { get; set; }
 

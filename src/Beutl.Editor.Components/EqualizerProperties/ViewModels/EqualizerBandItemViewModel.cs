@@ -18,16 +18,27 @@ public sealed class EqualizerBandItemViewModel : IDisposable
     private readonly Element? _element;
     private readonly IServiceProvider? _services;
 
-    public EqualizerBandItemViewModel(EqualizerBand band, int index, IPropertyEditorFactory factory,
-        Element? element, IServiceProvider? services)
+    public EqualizerBandItemViewModel(
+        EqualizerBand band,
+        int index,
+        IPropertyEditorFactory factory,
+        Element? element,
+        IServiceProvider? services
+    )
     {
         Band = band;
         Index = index;
         _element = element;
         _services = services;
 
-        FrequencyAdapter = new AnimatablePropertyAdapter<float>((AnimatableProperty<float>)band.Frequency, band);
-        GainAdapter = new AnimatablePropertyAdapter<float>((AnimatableProperty<float>)band.Gain, band);
+        FrequencyAdapter = new AnimatablePropertyAdapter<float>(
+            (AnimatableProperty<float>)band.Frequency,
+            band
+        );
+        GainAdapter = new AnimatablePropertyAdapter<float>(
+            (AnimatableProperty<float>)band.Gain,
+            band
+        );
         QAdapter = new AnimatablePropertyAdapter<float>((AnimatableProperty<float>)band.Q, band);
         FilterTypeAdapter = new EnginePropertyAdapter<BiQuadFilterType>(band.FilterType, band);
 
@@ -36,14 +47,16 @@ public sealed class EqualizerBandItemViewModel : IDisposable
         QEditor = factory.CreateEditor(QAdapter);
         FilterTypeEditor = factory.CreateEditor(FilterTypeAdapter);
 
-        Label = band.Frequency.SubscribeCurrentValueChange()
+        Label = band
+            .Frequency.SubscribeCurrentValueChange()
             .Select(FormatFrequencyLabel)
             .ToReadOnlyReactivePropertySlim(FormatFrequencyLabel(band.Frequency.CurrentValue))!
             .AddTo(_disposables);
 
         // BiQuadFilter ignores gainDb for LowPass/HighPass/BandPass/Notch, so showing the gain
         // editor for those types would just produce misleading no-op history entries.
-        IsGainVisible = band.FilterType.SubscribeCurrentValueChange()
+        IsGainVisible = band
+            .FilterType.SubscribeCurrentValueChange()
             .Select(IsGainUsed)
             .ToReadOnlyReactivePropertySlim(IsGainUsed(band.FilterType.CurrentValue))!
             .AddTo(_disposables);
@@ -106,24 +119,32 @@ public sealed class EqualizerBandItemViewModel : IDisposable
 
     public bool CanEditProperty(IProperty<float> property, TimeSpan globalTime)
     {
-        if (property.HasExpression) return false;
-        if (property.Animation is null) return true;
+        if (property.HasExpression)
+            return false;
+        if (property.Animation is null)
+            return true;
         return GetEditingKeyFrame(property, globalTime) is not null;
     }
 
     public KeyFrame<float>? GetEditingKeyFrame(IProperty<float> property, TimeSpan globalTime)
     {
-        var adapter = ReferenceEquals(property, Band.Frequency) ? FrequencyAdapter
+        var adapter =
+            ReferenceEquals(property, Band.Frequency) ? FrequencyAdapter
             : ReferenceEquals(property, Band.Gain) ? GainAdapter
             : ReferenceEquals(property, Band.Q) ? QAdapter
             : null;
-        if (adapter == null) return null;
+        if (adapter == null)
+            return null;
         return FindEditingKeyFrame(adapter, globalTime);
     }
 
-    private KeyFrame<float>? FindEditingKeyFrame(AnimatablePropertyAdapter<float> adapter, TimeSpan globalTime)
+    private KeyFrame<float>? FindEditingKeyFrame(
+        AnimatablePropertyAdapter<float> adapter,
+        TimeSpan globalTime
+    )
     {
-        if (adapter.Expression != null) return null;
+        if (adapter.Expression != null)
+            return null;
         if (adapter.Animation is not IKeyFrameAnimation { KeyFrames: { Count: > 0 } keyFrames })
             return null;
 

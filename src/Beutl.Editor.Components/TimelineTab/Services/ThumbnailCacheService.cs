@@ -8,7 +8,9 @@ namespace Beutl.Editor.Components.TimelineTab.Services;
 
 public sealed class ThumbnailCacheService : IThumbnailCacheService
 {
-    private static readonly Lazy<ThumbnailCacheService> s_instance = new(() => new ThumbnailCacheService());
+    private static readonly Lazy<ThumbnailCacheService> s_instance = new(() =>
+        new ThumbnailCacheService()
+    );
 
     private readonly ILogger _logger = Log.CreateLogger<ThumbnailCacheService>();
     private readonly ConcurrentDictionary<string, CacheIndex> _indices = new();
@@ -73,11 +75,22 @@ public sealed class ThumbnailCacheService : IThumbnailCacheService
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Failed to save thumbnail cache: {CacheKey} at {Time}", cacheKey, time);
+            _logger.LogWarning(
+                ex,
+                "Failed to save thumbnail cache: {CacheKey} at {Time}",
+                cacheKey,
+                time
+            );
         }
     }
 
-    public bool TryGetWaveform(string cacheKey, TimeSpan time, TimeSpan threshold, out float minValue, out float maxValue)
+    public bool TryGetWaveform(
+        string cacheKey,
+        TimeSpan time,
+        TimeSpan threshold,
+        out float minValue,
+        out float maxValue
+    )
     {
         minValue = 0;
         maxValue = 0;
@@ -146,14 +159,19 @@ public sealed class ThumbnailCacheService : IThumbnailCacheService
         return _waveformIndices.GetOrAdd(cacheKey, _ => new WaveformCacheIndex());
     }
 
-    private static (float Min, float Max)? FindNearestWaveform(SortedList<long, (float Min, float Max)> entries, long targetTicks, long thresholdTicks)
+    private static (float Min, float Max)? FindNearestWaveform(
+        SortedList<long, (float Min, float Max)> entries,
+        long targetTicks,
+        long thresholdTicks
+    )
     {
         if (entries.Count == 0)
             return null;
 
         var keys = entries.Keys;
 
-        int lo = 0, hi = keys.Count - 1;
+        int lo = 0,
+            hi = keys.Count - 1;
         while (lo <= hi)
         {
             int mid = lo + (hi - lo) / 2;
@@ -179,7 +197,11 @@ public sealed class ThumbnailCacheService : IThumbnailCacheService
         return bestDiff <= thresholdTicks ? best : null;
     }
 
-    private static Bitmap? FindNearest(SortedList<long, Bitmap> entries, long targetTicks, long thresholdTicks)
+    private static Bitmap? FindNearest(
+        SortedList<long, Bitmap> entries,
+        long targetTicks,
+        long thresholdTicks
+    )
     {
         if (entries.Count == 0)
             return null;
@@ -187,7 +209,8 @@ public sealed class ThumbnailCacheService : IThumbnailCacheService
         var keys = entries.Keys;
 
         // バイナリサーチ
-        int lo = 0, hi = keys.Count - 1;
+        int lo = 0,
+            hi = keys.Count - 1;
         while (lo <= hi)
         {
             int mid = lo + (hi - lo) / 2;
@@ -238,8 +261,12 @@ public sealed class ThumbnailCacheService : IThumbnailCacheService
             return;
 
         // LRU: bitmap と waveform 両方のアクセス時間で古い順にソートして削除
-        var sortedBitmaps = _indices.Select(kvp => (Key: kvp.Key, Time: kvp.Value.LastAccessTime, IsBitmap: true)).ToList();
-        var sortedWaveforms = _waveformIndices.Select(kvp => (Key: kvp.Key, Time: kvp.Value.LastAccessTime, IsBitmap: false)).ToList();
+        var sortedBitmaps = _indices
+            .Select(kvp => (Key: kvp.Key, Time: kvp.Value.LastAccessTime, IsBitmap: true))
+            .ToList();
+        var sortedWaveforms = _waveformIndices
+            .Select(kvp => (Key: kvp.Key, Time: kvp.Value.LastAccessTime, IsBitmap: false))
+            .ToList();
         var sorted = sortedBitmaps.Concat(sortedWaveforms).OrderBy(x => x.Time).ToList();
 
         foreach (var item in sorted)

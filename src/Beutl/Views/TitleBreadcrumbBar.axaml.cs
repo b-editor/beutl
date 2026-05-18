@@ -39,8 +39,12 @@ public partial class TitleBreadcrumbBar : UserControl
 
     private void OnListBoxTapped(object? sender, TappedEventArgs e)
     {
-        if (FileButton.Flyout is not Flyout flyout) return;
-        if ((e.Source as StyledElement)?.GetSelfAndLogicalAncestors().Any(i => i is ListBoxItem) == true)
+        if (FileButton.Flyout is not Flyout flyout)
+            return;
+        if (
+            (e.Source as StyledElement)?.GetSelfAndLogicalAncestors().Any(i => i is ListBoxItem)
+            == true
+        )
         {
             flyout.Hide();
         }

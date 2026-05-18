@@ -20,9 +20,7 @@ public class HistoryManagerTests
     }
 
     [TearDown]
-    public void TearDown()
-    {
-    }
+    public void TearDown() { }
 
     [Test]
     public void Constructor_ShouldInitializeWithCorrectDefaults()
@@ -151,7 +149,8 @@ public class HistoryManagerTests
             () => _root.Value = 100,
             () => _root.Value = 0,
             _sequenceGenerator,
-            "Set Value");
+            "Set Value"
+        );
 
         manager.Record(operation);
         operation.Apply(new OperationExecutionContext(_root));
@@ -179,7 +178,8 @@ public class HistoryManagerTests
             () => _root.Value = 100,
             () => _root.Value = 0,
             _sequenceGenerator,
-            "Set Value");
+            "Set Value"
+        );
 
         operation.Apply(new OperationExecutionContext(_root));
         manager.Record(operation);
@@ -222,7 +222,8 @@ public class HistoryManagerTests
             () => _root.Value = 100,
             () => _root.Value = 0,
             _sequenceGenerator,
-            "Set Value");
+            "Set Value"
+        );
 
         operation.Apply(new OperationExecutionContext(_root));
         manager.Record(operation);
@@ -346,16 +347,20 @@ public class HistoryManagerTests
         _root.Value = 0;
 
         // Act
-        manager.ExecuteInTransaction(() =>
-        {
-            var operation = CustomOperation.Create(
-                () => _root.Value = 100,
-                () => _root.Value = 0,
-                _sequenceGenerator,
-                "Set Value");
-            operation.Apply(new OperationExecutionContext(_root));
-            manager.Record(operation);
-        }, "Transaction");
+        manager.ExecuteInTransaction(
+            () =>
+            {
+                var operation = CustomOperation.Create(
+                    () => _root.Value = 100,
+                    () => _root.Value = 0,
+                    _sequenceGenerator,
+                    "Set Value"
+                );
+                operation.Apply(new OperationExecutionContext(_root));
+                manager.Record(operation);
+            },
+            "Transaction"
+        );
 
         // Assert
         Assert.Multiple(() =>
@@ -375,17 +380,21 @@ public class HistoryManagerTests
         // Act & Assert
         Assert.Throws<InvalidOperationException>(() =>
         {
-            manager.ExecuteInTransaction(() =>
-            {
-                var operation = CustomOperation.Create(
-                    () => _root.Value = 100,
-                    () => _root.Value = 0,
-                    _sequenceGenerator,
-                    "Set Value");
-                operation.Apply(new OperationExecutionContext(_root));
-                manager.Record(operation);
-                throw new InvalidOperationException("Test exception");
-            }, "Transaction");
+            manager.ExecuteInTransaction(
+                () =>
+                {
+                    var operation = CustomOperation.Create(
+                        () => _root.Value = 100,
+                        () => _root.Value = 0,
+                        _sequenceGenerator,
+                        "Set Value"
+                    );
+                    operation.Apply(new OperationExecutionContext(_root));
+                    manager.Record(operation);
+                    throw new InvalidOperationException("Test exception");
+                },
+                "Transaction"
+            );
         });
 
         Assert.Multiple(() =>
@@ -405,9 +414,17 @@ public class HistoryManagerTests
 
         // Act
         manager.Record(
-            () => { doExecuted = true; _root.Value = 100; },
-            () => { _root.Value = 0; },
-            "Custom Action");
+            () =>
+            {
+                doExecuted = true;
+                _root.Value = 100;
+            },
+            () =>
+            {
+                _root.Value = 0;
+            },
+            "Custom Action"
+        );
         manager.Commit("Test");
 
         // Assert
@@ -541,7 +558,8 @@ public class HistoryManagerTests
                 () => _root.Value = value,
                 () => _root.Value = prevValue,
                 _sequenceGenerator,
-                $"Set to {value}");
+                $"Set to {value}"
+            );
             operation.Apply(new OperationExecutionContext(_root));
             manager.Record(operation);
             manager.Commit($"Step {i}");
@@ -569,20 +587,22 @@ public class HistoryManagerTests
 
     private CustomOperation CreateTestOperation()
     {
-        return CustomOperation.Create(
-            () => { },
-            () => { },
-            _sequenceGenerator,
-            "Test Operation");
+        return CustomOperation.Create(() => { }, () => { }, _sequenceGenerator, "Test Operation");
     }
 
-    private CustomOperation CreateValueOperation(HistoryManager manager, int targetValue, int previousValue, string description)
+    private CustomOperation CreateValueOperation(
+        HistoryManager manager,
+        int targetValue,
+        int previousValue,
+        string description
+    )
     {
         var op = CustomOperation.Create(
             () => _root.Value = targetValue,
             () => _root.Value = previousValue,
             _sequenceGenerator,
-            description);
+            description
+        );
         op.Apply(new OperationExecutionContext(_root));
         manager.Record(op);
         return op;
@@ -772,7 +792,8 @@ public class HistoryManagerTests
             () => _root.Value = 999,
             () => _root.Value = 100,
             _sequenceGenerator,
-            "Pending");
+            "Pending"
+        );
         pending.Apply(new OperationExecutionContext(_root));
         manager.Record(pending);
 
@@ -911,7 +932,8 @@ public class HistoryManagerTests
             },
             () => _root.Value = 200,
             _sequenceGenerator,
-            "Faulty");
+            "Faulty"
+        );
         faulty.Apply(new OperationExecutionContext(_root));
         manager.Record(faulty);
         manager.Commit("Faulty");
@@ -949,7 +971,8 @@ public class HistoryManagerTests
             () => _root.Value = 100,
             () => throw new InvalidOperationException("Boom"),
             _sequenceGenerator,
-            "Faulty");
+            "Faulty"
+        );
         faulty.Apply(new OperationExecutionContext(_root));
         manager.Record(faulty);
         manager.Commit("Faulty");
@@ -989,7 +1012,8 @@ public class HistoryManagerTests
             () => _root.Value = 999,
             () => throw new InvalidOperationException("PendingRevertFailed"),
             _sequenceGenerator,
-            "Pending");
+            "Pending"
+        );
         pending.Apply(new OperationExecutionContext(_root));
         manager.Record(pending);
 
@@ -1074,7 +1098,9 @@ public class HistoryManagerTests
         manager.Commit("Step1");
 
         var received = new List<NotifyCollectionChangedAction>();
-        var (sub, snapshot, currentIndex) = manager.SubscribeEntries((_, e) => received.Add(e.Action));
+        var (sub, snapshot, currentIndex) = manager.SubscribeEntries(
+            (_, e) => received.Add(e.Action)
+        );
         using (sub)
         {
             Assert.Multiple(() =>
@@ -1113,8 +1139,7 @@ public class HistoryManagerTests
         var manager = new HistoryManager(_root, _sequenceGenerator);
         manager.Dispose();
 
-        Assert.Throws<ObjectDisposedException>(() =>
-            manager.SubscribeEntries((_, _) => { }));
+        Assert.Throws<ObjectDisposedException>(() => manager.SubscribeEntries((_, _) => { }));
     }
 
     [Test]
@@ -1122,8 +1147,7 @@ public class HistoryManagerTests
     {
         using var manager = new HistoryManager(_root, _sequenceGenerator);
 
-        Assert.Throws<ArgumentNullException>(() =>
-            manager.SubscribeEntries(null!));
+        Assert.Throws<ArgumentNullException>(() => manager.SubscribeEntries(null!));
     }
 
     [Test]
@@ -1164,7 +1188,8 @@ public class HistoryManagerTests
         using var scope = manager.BeginRecordingScope(
             () => _root.Value,
             value => _root.Value = value,
-            "Test Scope");
+            "Test Scope"
+        );
 
         // Assert
         Assert.That(scope, Is.Not.Null);
@@ -1178,10 +1203,8 @@ public class HistoryManagerTests
 
         // Act & Assert
         Assert.Throws<ArgumentNullException>(() =>
-            manager.BeginRecordingScope<int>(
-                null!,
-                value => _root.Value = value,
-                "Test"));
+            manager.BeginRecordingScope<int>(null!, value => _root.Value = value, "Test")
+        );
     }
 
     [Test]
@@ -1192,10 +1215,8 @@ public class HistoryManagerTests
 
         // Act & Assert
         Assert.Throws<ArgumentNullException>(() =>
-            manager.BeginRecordingScope(
-                () => _root.Value,
-                null!,
-                "Test"));
+            manager.BeginRecordingScope(() => _root.Value, null!, "Test")
+        );
     }
 
     [Test]
@@ -1207,10 +1228,8 @@ public class HistoryManagerTests
 
         // Act & Assert
         Assert.Throws<ObjectDisposedException>(() =>
-            manager.BeginRecordingScope(
-                () => _root.Value,
-                value => _root.Value = value,
-                "Test"));
+            manager.BeginRecordingScope(() => _root.Value, value => _root.Value = value, "Test")
+        );
     }
 
     [Test]
@@ -1221,10 +1240,13 @@ public class HistoryManagerTests
         _root.Value = 10;
 
         // Act
-        using (var scope = manager.BeginRecordingScope(
-            () => _root.Value,
-            value => _root.Value = value,
-            "Set Value"))
+        using (
+            var scope = manager.BeginRecordingScope(
+                () => _root.Value,
+                value => _root.Value = value,
+                "Set Value"
+            )
+        )
         {
             _root.Value = 50;
             scope.Complete();
@@ -1247,10 +1269,13 @@ public class HistoryManagerTests
         _root.Value = 10;
 
         // Act
-        using (var scope = manager.BeginRecordingScope(
-            () => _root.Value,
-            value => _root.Value = value,
-            "Set Value"))
+        using (
+            var scope = manager.BeginRecordingScope(
+                () => _root.Value,
+                value => _root.Value = value,
+                "Set Value"
+            )
+        )
         {
             _root.Value = 50;
             scope.Complete();
@@ -1277,10 +1302,13 @@ public class HistoryManagerTests
         _root.Value = 10;
 
         // Act
-        using (var scope = manager.BeginRecordingScope(
-            () => _root.Value,
-            value => _root.Value = value,
-            "Set Value"))
+        using (
+            var scope = manager.BeginRecordingScope(
+                () => _root.Value,
+                value => _root.Value = value,
+                "Set Value"
+            )
+        )
         {
             _root.Value = 50;
             scope.Cancel();
@@ -1300,10 +1328,13 @@ public class HistoryManagerTests
         _root.Value = 10;
 
         // Act - Using statement will auto-dispose and auto-complete
-        using (var scope = manager.BeginRecordingScope(
-            () => _root.Value,
-            value => _root.Value = value,
-            "Set Value"))
+        using (
+            var scope = manager.BeginRecordingScope(
+                () => _root.Value,
+                value => _root.Value = value,
+                "Set Value"
+            )
+        )
         {
             _root.Value = 50;
             // No explicit Complete() or Cancel()
@@ -1330,10 +1361,13 @@ public class HistoryManagerTests
         _root.Value = 10;
 
         // Act
-        using (var scope = manager.BeginRecordingScope(
-            () => _root.Value,
-            value => _root.Value = value,
-            "Set Value"))
+        using (
+            var scope = manager.BeginRecordingScope(
+                () => _root.Value,
+                value => _root.Value = value,
+                "Set Value"
+            )
+        )
         {
             _root.Value = 50;
             scope.Cancel();
@@ -1353,10 +1387,13 @@ public class HistoryManagerTests
         _root.Value = 10;
 
         // Act
-        using (var scope = manager.BeginRecordingScope(
-            () => _root.Value,
-            value => _root.Value = value,
-            "Set Value"))
+        using (
+            var scope = manager.BeginRecordingScope(
+                () => _root.Value,
+                value => _root.Value = value,
+                "Set Value"
+            )
+        )
         {
             _root.Value = 50;
             scope.Complete();
@@ -1376,10 +1413,13 @@ public class HistoryManagerTests
         _root.Value = 10;
 
         // Act
-        using (var scope = manager.BeginRecordingScope(
-            () => _root.Value,
-            value => _root.Value = value,
-            "Set Value"))
+        using (
+            var scope = manager.BeginRecordingScope(
+                () => _root.Value,
+                value => _root.Value = value,
+                "Set Value"
+            )
+        )
         {
             _root.Value = 50;
             scope.Cancel();
@@ -1399,10 +1439,17 @@ public class HistoryManagerTests
         var state = new TestState { Value1 = 1, Value2 = "A" };
 
         // Act
-        using (var scope = manager.BeginRecordingScope(
-            () => new TestState { Value1 = state.Value1, Value2 = state.Value2 },
-            s => { state.Value1 = s.Value1; state.Value2 = s.Value2; },
-            "Change State"))
+        using (
+            var scope = manager.BeginRecordingScope(
+                () => new TestState { Value1 = state.Value1, Value2 = state.Value2 },
+                s =>
+                {
+                    state.Value1 = s.Value1;
+                    state.Value2 = s.Value2;
+                },
+                "Change State"
+            )
+        )
         {
             state.Value1 = 100;
             state.Value2 = "Z";
@@ -1442,9 +1489,9 @@ public class HistoryManagerTests
         _root.Value = 10;
 
         // Act
-        using (var scope = manager.BeginRecordingScope(
-            () => _root.Value,
-            value => _root.Value = value))
+        using (
+            var scope = manager.BeginRecordingScope(() => _root.Value, value => _root.Value = value)
+        )
         {
             _root.Value = 50;
             scope.Complete();
@@ -1463,10 +1510,13 @@ public class HistoryManagerTests
         _root.Value = 10;
 
         // Act - No actual state change
-        using (var scope = manager.BeginRecordingScope(
-            () => _root.Value,
-            value => _root.Value = value,
-            "No Change"))
+        using (
+            var scope = manager.BeginRecordingScope(
+                () => _root.Value,
+                value => _root.Value = value,
+                "No Change"
+            )
+        )
         {
             // Don't change anything
             scope.Complete();
@@ -1487,20 +1537,20 @@ public class HistoryManagerTests
         int value2 = 0;
 
         // Act - First scope
-        using (var scope1 = manager.BeginRecordingScope(
-            () => _root.Value,
-            v => _root.Value = v,
-            "First"))
+        using (
+            var scope1 = manager.BeginRecordingScope(
+                () => _root.Value,
+                v => _root.Value = v,
+                "First"
+            )
+        )
         {
             _root.Value = 10;
             scope1.Complete();
         }
 
         // Second scope
-        using (var scope2 = manager.BeginRecordingScope(
-            () => value2,
-            v => value2 = v,
-            "Second"))
+        using (var scope2 = manager.BeginRecordingScope(() => value2, v => value2 = v, "Second"))
         {
             value2 = 20;
             scope2.Complete();
@@ -1528,10 +1578,13 @@ public class HistoryManagerTests
         _root.Value = 0;
 
         // Act - Mix scope with regular operations
-        using (var scope = manager.BeginRecordingScope(
-            () => _root.Value,
-            v => _root.Value = v,
-            "Scope Op"))
+        using (
+            var scope = manager.BeginRecordingScope(
+                () => _root.Value,
+                v => _root.Value = v,
+                "Scope Op"
+            )
+        )
         {
             _root.Value = 10;
             scope.Complete();
@@ -1542,7 +1595,8 @@ public class HistoryManagerTests
             () => _root.Value = 100,
             () => _root.Value = 10,
             _sequenceGenerator,
-            "Direct Op");
+            "Direct Op"
+        );
         operation.Apply(new OperationExecutionContext(_root));
         manager.Record(operation);
 
@@ -1565,10 +1619,17 @@ public class HistoryManagerTests
         var data = new List<int> { 1, 2, 3 };
 
         // Act
-        using (var scope = manager.BeginRecordingScope(
-            () => data.ToList(), // Capture a snapshot
-            state => { data.Clear(); data.AddRange(state); },
-            "Modify List"))
+        using (
+            var scope = manager.BeginRecordingScope(
+                () => data.ToList(), // Capture a snapshot
+                state =>
+                {
+                    data.Clear();
+                    data.AddRange(state);
+                },
+                "Modify List"
+            )
+        )
         {
             data.Add(4);
             data.Add(5);
@@ -1599,7 +1660,9 @@ public class HistoryManagerTests
             manager.BeginRecordingScope<int>(
                 () => throw new InvalidOperationException("Capture failed"),
                 value => _root.Value = value,
-                "Test"));
+                "Test"
+            )
+        );
     }
 
     [Test]
@@ -1611,14 +1674,17 @@ public class HistoryManagerTests
         _root.Value = 10;
 
         // Act
-        using (var scope = manager.BeginRecordingScope(
-            () => _root.Value,
-            value =>
-            {
-                applyCount++;
-                _root.Value = value;
-            },
-            "Test"))
+        using (
+            var scope = manager.BeginRecordingScope(
+                () => _root.Value,
+                value =>
+                {
+                    applyCount++;
+                    _root.Value = value;
+                },
+                "Test"
+            )
+        )
         {
             _root.Value = 50;
             scope.Complete();
@@ -1654,17 +1720,17 @@ public class HistoryManagerTests
         int value2 = 0;
 
         // Act - Nested scopes
-        using (var outer = manager.BeginRecordingScope(
-            () => _root.Value,
-            v => _root.Value = v,
-            "Outer"))
+        using (
+            var outer = manager.BeginRecordingScope(
+                () => _root.Value,
+                v => _root.Value = v,
+                "Outer"
+            )
+        )
         {
             _root.Value = 10;
 
-            using (var inner = manager.BeginRecordingScope(
-                () => value2,
-                v => value2 = v,
-                "Inner"))
+            using (var inner = manager.BeginRecordingScope(() => value2, v => value2 = v, "Inner"))
             {
                 value2 = 20;
                 inner.Complete();
@@ -1699,10 +1765,13 @@ public class HistoryManagerTests
         int? nullableValue = null;
 
         // Act
-        using (var scope = manager.BeginRecordingScope(
-            () => nullableValue,
-            v => nullableValue = v,
-            "Set Nullable"))
+        using (
+            var scope = manager.BeginRecordingScope(
+                () => nullableValue,
+                v => nullableValue = v,
+                "Set Nullable"
+            )
+        )
         {
             nullableValue = 42;
             scope.Complete();
@@ -1727,10 +1796,13 @@ public class HistoryManagerTests
         string? stringValue = null;
 
         // Act
-        using (var scope = manager.BeginRecordingScope(
-            () => stringValue,
-            v => stringValue = v,
-            "Set String"))
+        using (
+            var scope = manager.BeginRecordingScope(
+                () => stringValue,
+                v => stringValue = v,
+                "Set String"
+            )
+        )
         {
             stringValue = "Hello";
             scope.Complete();
@@ -1752,10 +1824,13 @@ public class HistoryManagerTests
         _root.Value = 0;
 
         // Act - First transaction
-        using (var scope = manager.BeginRecordingScope(
-            () => _root.Value,
-            v => _root.Value = v,
-            "First"))
+        using (
+            var scope = manager.BeginRecordingScope(
+                () => _root.Value,
+                v => _root.Value = v,
+                "First"
+            )
+        )
         {
             _root.Value = 10;
             scope.Complete();
@@ -1763,10 +1838,13 @@ public class HistoryManagerTests
         manager.Commit("First Transaction");
 
         // Second transaction
-        using (var scope = manager.BeginRecordingScope(
-            () => _root.Value,
-            v => _root.Value = v,
-            "Second"))
+        using (
+            var scope = manager.BeginRecordingScope(
+                () => _root.Value,
+                v => _root.Value = v,
+                "Second"
+            )
+        )
         {
             _root.Value = 20;
             scope.Complete();
@@ -1796,10 +1874,9 @@ public class HistoryManagerTests
         using var manager = new HistoryManager(_root, _sequenceGenerator);
         _root.Value = 0;
 
-        using (var scope = manager.BeginRecordingScope(
-            () => _root.Value,
-            v => _root.Value = v,
-            "Test"))
+        using (
+            var scope = manager.BeginRecordingScope(() => _root.Value, v => _root.Value = v, "Test")
+        )
         {
             _root.Value = 100;
             scope.Complete();
@@ -1919,7 +1996,8 @@ public class HistoryManagerTests
         manager.Commit("Step");
 
         using var subscription = manager.BeforeMutation.Subscribe(_ =>
-            throw new InvalidOperationException("subscriber blew up"));
+            throw new InvalidOperationException("subscriber blew up")
+        );
 
         Assert.DoesNotThrow(() => manager.Undo());
         Assert.That(manager.CanUndo, Is.False);
@@ -1960,9 +2038,7 @@ public class HistoryManagerTests
         var manager = new HistoryManager(_root, _sequenceGenerator);
 
         bool completed = false;
-        using var subscription = manager.BeforeMutation.Subscribe(
-            _ => { },
-            () => completed = true);
+        using var subscription = manager.BeforeMutation.Subscribe(_ => { }, () => completed = true);
 
         manager.Dispose();
 

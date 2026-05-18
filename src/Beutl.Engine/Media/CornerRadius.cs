@@ -1,7 +1,6 @@
 ﻿using System.ComponentModel;
 using System.Globalization;
 using System.Text.Json.Serialization;
-
 using Beutl.Converters;
 using Beutl.Utilities;
 
@@ -12,12 +11,13 @@ namespace Beutl.Media;
 /// </summary>
 [JsonConverter(typeof(CornerRadiusJsonConverter))]
 [TypeConverter(typeof(CornerRadiusConverter))]
-public readonly struct CornerRadius : IEquatable<CornerRadius>, ITupleConvertible<CornerRadius, float>
+public readonly struct CornerRadius
+    : IEquatable<CornerRadius>,
+        ITupleConvertible<CornerRadius, float>
 {
     public CornerRadius(float uniformRadius)
     {
         TopLeft = TopRight = BottomLeft = BottomRight = uniformRadius;
-
     }
 
     public CornerRadius(float top, float bottom)
@@ -62,7 +62,8 @@ public readonly struct CornerRadius : IEquatable<CornerRadius>, ITupleConvertibl
     /// <summary>
     /// Gets a value indicating whether all corner radii are equal.
     /// </summary>
-    public bool IsUniform => TopLeft.Equals(TopRight) && BottomLeft.Equals(BottomRight) && TopRight.Equals(BottomRight);
+    public bool IsUniform =>
+        TopLeft.Equals(TopRight) && BottomLeft.Equals(BottomRight) && TopRight.Equals(BottomRight);
 
     static int ITupleConvertible<CornerRadius, float>.TupleLength => 4;
 
@@ -73,10 +74,10 @@ public readonly struct CornerRadius : IEquatable<CornerRadius>, ITupleConvertibl
     /// <returns>True if this corner radius is equal to other; False otherwise.</returns>
     public bool Equals(CornerRadius other)
     {
-        return TopLeft == other.TopLeft &&
-               TopRight == other.TopRight &&
-               BottomRight == other.BottomRight &&
-               BottomLeft == other.BottomLeft;
+        return TopLeft == other.TopLeft
+            && TopRight == other.TopRight
+            && BottomRight == other.BottomRight
+            && BottomLeft == other.BottomLeft;
     }
 
     /// <summary>
@@ -127,7 +128,13 @@ public readonly struct CornerRadius : IEquatable<CornerRadius>, ITupleConvertibl
     {
         const string exceptionMessage = "Invalid CornerRadius.";
 
-        using (var tokenizer = new RefStringTokenizer(s, CultureInfo.InvariantCulture, exceptionMessage))
+        using (
+            var tokenizer = new RefStringTokenizer(
+                s,
+                CultureInfo.InvariantCulture,
+                exceptionMessage
+            )
+        )
         {
             if (tokenizer.TryReadSingle(out float a))
             {
@@ -178,7 +185,10 @@ public readonly struct CornerRadius : IEquatable<CornerRadius>, ITupleConvertibl
         return new CornerRadius(TopLeft, TopRight, bottom, bottom);
     }
 
-    static void ITupleConvertible<CornerRadius, float>.ConvertTo(CornerRadius self, Span<float> tuple)
+    static void ITupleConvertible<CornerRadius, float>.ConvertTo(
+        CornerRadius self,
+        Span<float> tuple
+    )
     {
         tuple[0] = self.TopLeft;
         tuple[1] = self.TopRight;
@@ -186,7 +196,10 @@ public readonly struct CornerRadius : IEquatable<CornerRadius>, ITupleConvertibl
         tuple[3] = self.BottomLeft;
     }
 
-    static void ITupleConvertible<CornerRadius, float>.ConvertFrom(Span<float> tuple, out CornerRadius self)
+    static void ITupleConvertible<CornerRadius, float>.ConvertFrom(
+        Span<float> tuple,
+        out CornerRadius self
+    )
     {
         self = new CornerRadius(tuple[0], tuple[1], tuple[2], tuple[3]);
     }

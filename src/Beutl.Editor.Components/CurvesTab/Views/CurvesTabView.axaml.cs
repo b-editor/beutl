@@ -27,7 +27,10 @@ public partial class CurvesTabView : UserControl
         }
     }
 
-    private static CurvePresenterViewModel? GetCurvePresenter(CurveEditor editor, CurvesTabViewModel viewModel)
+    private static CurvePresenterViewModel? GetCurvePresenter(
+        CurveEditor editor,
+        CurvesTabViewModel viewModel
+    )
     {
         return editor.Visualization switch
         {
@@ -40,7 +43,7 @@ public partial class CurvesTabView : UserControl
             CurveVisualization.HueVsLuminance => viewModel.HueVsLuminance.Value,
             CurveVisualization.LuminanceVsSaturation => viewModel.LuminanceVsSaturation.Value,
             CurveVisualization.SaturationVsSaturation => viewModel.SaturationVsSaturation.Value,
-            _ => null
+            _ => null,
         };
     }
 }

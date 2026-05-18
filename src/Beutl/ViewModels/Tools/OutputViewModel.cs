@@ -45,17 +45,30 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
             {
                 var (newEncoder, newFile) = obj.NewValue;
                 var (oldEncoder, _) = obj.OldValue;
-                if (newEncoder == null || newFile == null) return null;
+                if (newEncoder == null || newFile == null)
+                    return null;
 
-                if (oldEncoder == newEncoder
+                if (
+                    oldEncoder == newEncoder
                     && newEncoder.IsSupported(newFile)
-                    && Controller?.Value != null)
+                    && Controller?.Value != null
+                )
                 {
                     var newController = newEncoder.CreateController(newFile);
-                    var videoSettings = CoreSerializer.SerializeToJsonObject(Controller.Value.VideoSettings);
-                    CoreSerializer.PopulateFromJsonObject(newController.VideoSettings, videoSettings);
-                    var audioSettings = CoreSerializer.SerializeToJsonObject(Controller.Value.AudioSettings);
-                    CoreSerializer.PopulateFromJsonObject(newController.AudioSettings, audioSettings);
+                    var videoSettings = CoreSerializer.SerializeToJsonObject(
+                        Controller.Value.VideoSettings
+                    );
+                    CoreSerializer.PopulateFromJsonObject(
+                        newController.VideoSettings,
+                        videoSettings
+                    );
+                    var audioSettings = CoreSerializer.SerializeToJsonObject(
+                        Controller.Value.AudioSettings
+                    );
+                    CoreSerializer.PopulateFromJsonObject(
+                        newController.AudioSettings,
+                        audioSettings
+                    );
                     return newController;
                 }
 
@@ -64,11 +77,13 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposable);
 
-        VideoSettings = Controller.Select(c => c?.VideoSettings)
+        VideoSettings = Controller
+            .Select(c => c?.VideoSettings)
             .DistinctUntilChanged()
             .Select(s =>
             {
-                if (s == null) return null;
+                if (s == null)
+                    return null;
 
                 s.SourceSize = Model.FrameSize;
                 s.DestinationSize = Model.FrameSize;
@@ -78,24 +93,28 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposable);
 
-        AudioSettings = Controller.Select(c => c?.AudioSettings)
+        AudioSettings = Controller
+            .Select(c => c?.AudioSettings)
             .DistinctUntilChanged()
             .Select(s => s == null ? null : new EncoderSettingsViewModel(s))
             .DisposePreviousValue()
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposable);
 
-        CanEncode = DestinationFile.Select(x => x != null)
+        CanEncode = DestinationFile
+            .Select(x => x != null)
             .AreTrue(SelectedEncoder.Select(x => x != null))
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposable);
 
-        ExtensionProvider.Current
-            .GetExtensions<ControllableEncodingExtension>()
+        ExtensionProvider
+            .Current.GetExtensions<ControllableEncodingExtension>()
             .AsObservableChangeSet()
-            .Filter(DestinationFile.Select<string?, Func<ControllableEncodingExtension, bool>>(f => f == null
-                ? _ => false
-                : ext => ext.IsSupported(f)))
+            .Filter(
+                DestinationFile.Select<string?, Func<ControllableEncodingExtension, bool>>(f =>
+                    f == null ? _ => false : ext => ext.IsSupported(f)
+                )
+            )
             .Bind(out _encoders)
             .Subscribe()
             .DisposeWith(_disposable);
@@ -172,7 +191,8 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
     {
         static string[] ToPatterns(ControllableEncodingExtension encoder)
         {
-            return encoder.SupportExtensions()
+            return encoder
+                .SupportExtensions()
                 .Select(x =>
                 {
                     if (x.Contains('*', StringComparison.Ordinal))
@@ -194,8 +214,8 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
                 .ToArray();
         }
 
-        return ExtensionProvider.Current
-            .GetExtensions<ControllableEncodingExtension>()
+        return ExtensionProvider
+            .Current.GetExtensions<ControllableEncodingExtension>()
             .Select(x => new FilePickerFileType(x.Name) { Patterns = ToPatterns(x) })
             .ToArray();
     }
@@ -230,11 +250,16 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
             await Task.Run(async () =>
             {
                 _isIndeterminate.Value = false;
-                if (VideoSettings.Value?.Settings is not VideoEncoderSettings videoSettings
-                    || AudioSettings.Value?.Settings is not AudioEncoderSettings audioSettings)
+                if (
+                    VideoSettings.Value?.Settings is not VideoEncoderSettings videoSettings
+                    || AudioSettings.Value?.Settings is not AudioEncoderSettings audioSettings
+                )
                 {
                     ProgressText.Value = MessageStrings.UnexpectedError;
-                    _logger.LogWarning("Encoder settings are null. (Encoder: {Encoder})", SelectedEncoder.Value);
+                    _logger.LogWarning(
+                        "Encoder settings are null. (Encoder: {Encoder})",
+                        SelectedEncoder.Value
+                    );
                     return;
                 }
 
@@ -243,7 +268,8 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
                 ProgressMax.Value = Model.Duration.TotalSeconds * 2;
 
                 double frameRate = videoSettings.FrameRate.ToDouble();
-                if (!double.IsFinite(frameRate) || frameRate <= 0) frameRate = 30;
+                if (!double.IsFinite(frameRate) || frameRate <= 0)
+                    frameRate = 30;
                 long totalFrames = (long)Math.Round(Model.Duration.TotalSeconds * frameRate);
                 TotalFrames.Value = totalFrames;
                 FrameProgressText.Value = $"0 / {totalFrames}";
@@ -264,30 +290,50 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
                 using var renderer = new SceneRenderer(Model, disableResourceShare: true);
                 renderer.CacheOptions = RenderCacheOptions.Disabled;
                 var frameProgress = new Subject<TimeSpan>();
-                using var frameProvider = new FrameProviderImpl(Model, videoSettings.FrameRate, renderer, frameProgress);
-                using var composer = new SceneComposer(Model, disableResourceShare: true) { SampleRate = audioSettings.SampleRate };
+                using var frameProvider = new FrameProviderImpl(
+                    Model,
+                    videoSettings.FrameRate,
+                    renderer,
+                    frameProgress
+                );
+                using var composer = new SceneComposer(Model, disableResourceShare: true)
+                {
+                    SampleRate = audioSettings.SampleRate,
+                };
                 var sampleProgress = new Subject<TimeSpan>();
                 using var sampleProvider = new SampleProviderImpl(
-                    Model, composer, audioSettings.SampleRate, sampleProgress);
+                    Model,
+                    composer,
+                    audioSettings.SampleRate,
+                    sampleProgress
+                );
 
                 string? destinationPath = _activeDestination;
 
-                using (frameProgress
-                           .Subscribe(t =>
-                           {
-                               long frame = (long)Math.Round(t.TotalSeconds * frameRate);
-                               CurrentFrame.Value = frame;
-                               FrameProgressText.Value = totalFrames > 0
-                                   ? $"{frame} / {totalFrames}"
-                                   : $"{frame}";
-                           }))
-                using (frameProgress.CombineLatest(sampleProgress)
-                           .Subscribe(t =>
-                           {
-                               double value = t.Item1.TotalSeconds + t.Item2.TotalSeconds;
-                               ProgressValue.Value = value;
-                               UpdateProgressIndicators(stopwatch.Elapsed, value, ProgressMax.Value, destinationPath);
-                           }))
+                using (
+                    frameProgress.Subscribe(t =>
+                    {
+                        long frame = (long)Math.Round(t.TotalSeconds * frameRate);
+                        CurrentFrame.Value = frame;
+                        FrameProgressText.Value =
+                            totalFrames > 0 ? $"{frame} / {totalFrames}" : $"{frame}";
+                    })
+                )
+                using (
+                    frameProgress
+                        .CombineLatest(sampleProgress)
+                        .Subscribe(t =>
+                        {
+                            double value = t.Item1.TotalSeconds + t.Item2.TotalSeconds;
+                            ProgressValue.Value = value;
+                            UpdateProgressIndicators(
+                                stopwatch.Elapsed,
+                                value,
+                                ProgressMax.Value,
+                                destinationPath
+                            );
+                        })
+                )
                 {
                     await controller.Encode(frameProvider, sampleProvider, _lastCts.Token);
                 }
@@ -298,9 +344,10 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
             {
                 ProgressValue.Value = ProgressMax.Value;
                 CurrentFrame.Value = TotalFrames.Value;
-                FrameProgressText.Value = TotalFrames.Value > 0
-                    ? $"{TotalFrames.Value} / {TotalFrames.Value}"
-                    : FrameProgressText.Value;
+                FrameProgressText.Value =
+                    TotalFrames.Value > 0
+                        ? $"{TotalFrames.Value} / {TotalFrames.Value}"
+                        : FrameProgressText.Value;
                 ProgressText.Value = Strings.Completed;
                 ProgressMain.Value = Strings.Completed;
                 ProgressSub.Value = string.Empty;
@@ -351,7 +398,12 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
         TryDeletePartialFile(_activeDestination);
     }
 
-    private void UpdateProgressIndicators(TimeSpan elapsed, double value, double max, string? destinationPath)
+    private void UpdateProgressIndicators(
+        TimeSpan elapsed,
+        double value,
+        double max,
+        string? destinationPath
+    )
     {
         Elapsed.Value = FormatDuration(elapsed);
 
@@ -361,7 +413,8 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
             try
             {
                 var info = new FileInfo(destinationPath);
-                if (info.Exists) currentBytes = info.Length;
+                if (info.Exists)
+                    currentBytes = info.Length;
             }
             catch (Exception ex)
             {
@@ -399,14 +452,17 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
 
     private static string FormatDuration(TimeSpan span)
     {
-        if (span < TimeSpan.Zero) span = TimeSpan.Zero;
-        if (span.TotalHours >= 100) return @"99:59:59";
+        if (span < TimeSpan.Zero)
+            span = TimeSpan.Zero;
+        if (span.TotalHours >= 100)
+            return @"99:59:59";
         return span.ToString(@"hh\:mm\:ss");
     }
 
     private static string FormatBytes(long bytes)
     {
-        if (bytes <= 0) return "0 MB";
+        if (bytes <= 0)
+            return "0 MB";
         const double kb = 1024.0;
         const double mb = kb * 1024.0;
         const double gb = mb * 1024.0;
@@ -414,13 +470,14 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
         {
             < (long)mb => $"{bytes / kb:0.0} KB",
             < (long)gb => $"{bytes / mb:0.0} MB",
-            _ => $"{bytes / gb:0.00} GB"
+            _ => $"{bytes / gb:0.00} GB",
         };
     }
 
     private void TryDeletePartialFile(string? path)
     {
-        if (string.IsNullOrEmpty(path)) return;
+        if (string.IsNullOrEmpty(path))
+            return;
         if (!string.Equals(path, DestinationFile.Value, StringComparison.Ordinal))
         {
             _logger.LogDebug("Skip deleting partial file because destination changed.");
@@ -451,7 +508,8 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
                 string.Format(MessageStrings.ExportCompleted_File, fileName),
                 expiration: TimeSpan.FromSeconds(5),
                 onActionButtonClick: () => OpenContainingFolder(path),
-                actionButtonText: Strings.OpenFolder);
+                actionButtonText: Strings.OpenFolder
+            );
         }
         catch (Exception ex)
         {
@@ -464,7 +522,8 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
         try
         {
             string? folder = Path.GetDirectoryName(filePath);
-            if (string.IsNullOrEmpty(folder)) return;
+            if (string.IsNullOrEmpty(folder))
+                return;
 
             if (OperatingSystem.IsWindows())
             {
@@ -526,10 +585,16 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
     {
         _logger.LogInformation("Encoding settings:");
         _logger.LogInformation("SelectedEncoder: {SelectedEncoder}", SelectedEncoder.Value?.Name);
-        _logger.LogInformation("VideoSettings: {VideoSettings}",
-            SerializeEncoderSettings(VideoSettings.Value?.Settings)?.ToJsonString(JsonHelper.SerializerOptions));
-        _logger.LogInformation("AudioSettings: {AudioSettings}",
-            SerializeEncoderSettings(AudioSettings.Value?.Settings)?.ToJsonString(JsonHelper.SerializerOptions));
+        _logger.LogInformation(
+            "VideoSettings: {VideoSettings}",
+            SerializeEncoderSettings(VideoSettings.Value?.Settings)
+                ?.ToJsonString(JsonHelper.SerializerOptions)
+        );
+        _logger.LogInformation(
+            "AudioSettings: {AudioSettings}",
+            SerializeEncoderSettings(AudioSettings.Value?.Settings)
+                ?.ToJsonString(JsonHelper.SerializerOptions)
+        );
     }
 
     public void Dispose()
@@ -541,7 +606,8 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
 
     private JsonObject? SerializeEncoderSettings(MediaEncoderSettings? settings)
     {
-        if (settings == null) return null;
+        if (settings == null)
+            return null;
         try
         {
             return CoreSerializer.SerializeToJsonObject(settings);
@@ -577,7 +643,8 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
     {
         void Deserialize(MediaEncoderSettings? settings, JsonObject json)
         {
-            if (settings == null) return;
+            if (settings == null)
+                return;
             try
             {
                 CoreSerializer.PopulateFromJsonObject(settings, settings.GetType(), json);
@@ -593,40 +660,51 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
             string path = Model.Uri!.LocalPath;
             DestinationFile.Value = Path.Combine(
                 Path.GetDirectoryName(path)!,
-                $"{Path.GetFileNameWithoutExtension(path)}.mp4");
+                $"{Path.GetFileNameWithoutExtension(path)}.mp4"
+            );
         }
 
         if (!applyingPreset)
         {
-            if (json.TryGetPropertyValue(nameof(DestinationFile), out JsonNode? dstFileNode)
+            if (
+                json.TryGetPropertyValue(nameof(DestinationFile), out JsonNode? dstFileNode)
                 && dstFileNode is JsonValue dstFileValue
-                && dstFileValue.TryGetValue(out string? dstFile))
+                && dstFileValue.TryGetValue(out string? dstFile)
+            )
             {
                 DestinationFile.Value = dstFile;
             }
 
-            if (json.TryGetPropertyValue(nameof(Name), out JsonNode? nameNode)
+            if (
+                json.TryGetPropertyValue(nameof(Name), out JsonNode? nameNode)
                 && nameNode is JsonValue nameValue
-                && nameValue.TryGetValue(out string? name))
+                && nameValue.TryGetValue(out string? name)
+            )
             {
                 Name.Value = name;
             }
         }
 
-        if (json.TryGetPropertyValue(nameof(SelectedEncoder), out JsonNode? encoderNode)
+        if (
+            json.TryGetPropertyValue(nameof(SelectedEncoder), out JsonNode? encoderNode)
             && encoderNode is JsonValue encoderValue
             && encoderValue.TryGetValue(out string? encoderStr)
             && TypeFormat.ToType(encoderStr) is { } encoderType
-            && ExtensionProvider.Current.GetExtensions<ControllableEncodingExtension>()
-                .FirstOrDefault(x => x.GetType() == encoderType) is { } encoder)
+            && ExtensionProvider
+                .Current.GetExtensions<ControllableEncodingExtension>()
+                .FirstOrDefault(x => x.GetType() == encoderType)
+                is { } encoder
+        )
         {
             SelectedEncoder.Value = encoder;
         }
 
         // 上のSelectedEncoder.Value = encoder;でnull以外が指定された場合、VideoSettings, AudioSettingsもnullじゃなくなる。
-        if (json.TryGetPropertyValue(nameof(VideoSettings), out JsonNode? videoNode)
+        if (
+            json.TryGetPropertyValue(nameof(VideoSettings), out JsonNode? videoNode)
             && videoNode is JsonObject videoObj
-            && VideoSettings.Value?.Settings is VideoEncoderSettings videoSettings)
+            && VideoSettings.Value?.Settings is VideoEncoderSettings videoSettings
+        )
         {
             PixelSize srcSize = default;
             PixelSize dstSize = default;
@@ -647,9 +725,11 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
             }
         }
 
-        if (json.TryGetPropertyValue(nameof(AudioSettings), out JsonNode? audioNode)
+        if (
+            json.TryGetPropertyValue(nameof(AudioSettings), out JsonNode? audioNode)
             && audioNode is JsonObject audioObj
-            && AudioSettings.Value?.Settings is AudioEncoderSettings audioSettings)
+            && AudioSettings.Value?.Settings is AudioEncoderSettings audioSettings
+        )
         {
             int sampleRate = 0;
             if (applyingPreset)

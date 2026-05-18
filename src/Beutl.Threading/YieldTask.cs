@@ -18,7 +18,9 @@ public readonly struct YieldTaskAwaiter(DispatchPriority priority) : INotifyComp
         {
             if (SynchronizationContext.Current is not QueueSynchronizationContext context)
             {
-                throw new DispatcherException("Awaiting Dispatcher.Yield outside of QueueSynchronizationContext");
+                throw new DispatcherException(
+                    "Awaiting Dispatcher.Yield outside of QueueSynchronizationContext"
+                );
             }
 
             return !context.HasQueuedTasks(priority);
@@ -29,12 +31,13 @@ public readonly struct YieldTaskAwaiter(DispatchPriority priority) : INotifyComp
     {
         if (SynchronizationContext.Current is not QueueSynchronizationContext context)
         {
-            throw new DispatcherException("Awaiting Dispatcher.Yield outside of QueueSynchronizationContext");
+            throw new DispatcherException(
+                "Awaiting Dispatcher.Yield outside of QueueSynchronizationContext"
+            );
         }
 
         context.Post(priority, continuation, default);
     }
 
-    public void GetResult()
-    { }
+    public void GetResult() { }
 }

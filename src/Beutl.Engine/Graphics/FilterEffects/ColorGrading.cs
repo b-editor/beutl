@@ -17,8 +17,7 @@ public sealed partial class ColorGrading : FilterEffect
 
     static ColorGrading()
     {
-        const string sksl =
-            """
+        const string sksl = """
             uniform shader src;
             uniform float exposure; // EV stops (-5 to +5)
             uniform float contrast; // -1 to +1
@@ -155,65 +154,117 @@ public sealed partial class ColorGrading : FilterEffect
         ScanProperties<ColorGrading>();
     }
 
-    [Display(Name = nameof(GraphicsStrings.ColorGrading_Temperature), ResourceType = typeof(GraphicsStrings))]
+    [Display(
+        Name = nameof(GraphicsStrings.ColorGrading_Temperature),
+        ResourceType = typeof(GraphicsStrings)
+    )]
     [Range(-100, 100)]
     public IProperty<float> Temperature { get; } = Property.CreateAnimatable<float>();
 
-    [Display(Name = nameof(GraphicsStrings.ColorGrading_Tint), ResourceType = typeof(GraphicsStrings))]
+    [Display(
+        Name = nameof(GraphicsStrings.ColorGrading_Tint),
+        ResourceType = typeof(GraphicsStrings)
+    )]
     [Range(-100, 100)]
     public IProperty<float> Tint { get; } = Property.CreateAnimatable<float>();
 
-    [Display(Name = nameof(GraphicsStrings.ColorGrading_Exposure), ResourceType = typeof(GraphicsStrings))]
+    [Display(
+        Name = nameof(GraphicsStrings.ColorGrading_Exposure),
+        ResourceType = typeof(GraphicsStrings)
+    )]
     [Range(-5, 5), NumberStep(0.1, 0.01)]
     public IProperty<float> Exposure { get; } = Property.CreateAnimatable<float>();
 
-    [Display(Name = nameof(GraphicsStrings.ColorGrading_Contrast), ResourceType = typeof(GraphicsStrings))]
+    [Display(
+        Name = nameof(GraphicsStrings.ColorGrading_Contrast),
+        ResourceType = typeof(GraphicsStrings)
+    )]
     [Range(-100, 100)]
     public IProperty<float> Contrast { get; } = Property.CreateAnimatable<float>();
 
-    [Display(Name = nameof(GraphicsStrings.ColorGrading_ContrastPivot), ResourceType = typeof(GraphicsStrings))]
+    [Display(
+        Name = nameof(GraphicsStrings.ColorGrading_ContrastPivot),
+        ResourceType = typeof(GraphicsStrings)
+    )]
     [Range(0, 1), NumberStep(0.1, 0.01)]
     public IProperty<float> ContrastPivot { get; } = Property.CreateAnimatable(0.5f);
 
-    [Display(Name = nameof(GraphicsStrings.ColorGrading_Saturation), ResourceType = typeof(GraphicsStrings))]
+    [Display(
+        Name = nameof(GraphicsStrings.ColorGrading_Saturation),
+        ResourceType = typeof(GraphicsStrings)
+    )]
     [Range(-100, 100)]
     public IProperty<float> Saturation { get; } = Property.CreateAnimatable<float>();
 
-    [Display(Name = nameof(GraphicsStrings.ColorGrading_Vibrance), ResourceType = typeof(GraphicsStrings))]
+    [Display(
+        Name = nameof(GraphicsStrings.ColorGrading_Vibrance),
+        ResourceType = typeof(GraphicsStrings)
+    )]
     [Range(-100, 100)]
     public IProperty<float> Vibrance { get; } = Property.CreateAnimatable<float>();
 
-    [Display(Name = nameof(GraphicsStrings.ColorGrading_Hue), ResourceType = typeof(GraphicsStrings))]
+    [Display(
+        Name = nameof(GraphicsStrings.ColorGrading_Hue),
+        ResourceType = typeof(GraphicsStrings)
+    )]
     [Range(-180, 180)]
     public IProperty<float> Hue { get; } = Property.CreateAnimatable<float>();
 
-    [Display(Name = nameof(GraphicsStrings.ColorGrading_LowRange), ResourceType = typeof(GraphicsStrings))]
+    [Display(
+        Name = nameof(GraphicsStrings.ColorGrading_LowRange),
+        ResourceType = typeof(GraphicsStrings)
+    )]
     [Range(0, 100)]
     public IProperty<float> LowRange { get; } = Property.CreateAnimatable(40f);
 
-    [Display(Name = nameof(GraphicsStrings.ColorGrading_HighRange), ResourceType = typeof(GraphicsStrings))]
+    [Display(
+        Name = nameof(GraphicsStrings.ColorGrading_HighRange),
+        ResourceType = typeof(GraphicsStrings)
+    )]
     [Range(0, 100)]
     public IProperty<float> HighRange { get; } = Property.CreateAnimatable(60f);
 
-    [Display(Name = nameof(GraphicsStrings.ColorGrading_Shadows), ResourceType = typeof(GraphicsStrings))]
+    [Display(
+        Name = nameof(GraphicsStrings.ColorGrading_Shadows),
+        ResourceType = typeof(GraphicsStrings)
+    )]
     public IProperty<GradingColor> Shadows { get; } = Property.CreateAnimatable(GradingColor.Zero);
 
-    [Display(Name = nameof(GraphicsStrings.ColorGrading_Midtones), ResourceType = typeof(GraphicsStrings))]
+    [Display(
+        Name = nameof(GraphicsStrings.ColorGrading_Midtones),
+        ResourceType = typeof(GraphicsStrings)
+    )]
     public IProperty<GradingColor> Midtones { get; } = Property.CreateAnimatable(GradingColor.Zero);
 
-    [Display(Name = nameof(GraphicsStrings.ColorGrading_Highlights), ResourceType = typeof(GraphicsStrings))]
-    public IProperty<GradingColor> Highlights { get; } = Property.CreateAnimatable(GradingColor.Zero);
+    [Display(
+        Name = nameof(GraphicsStrings.ColorGrading_Highlights),
+        ResourceType = typeof(GraphicsStrings)
+    )]
+    public IProperty<GradingColor> Highlights { get; } =
+        Property.CreateAnimatable(GradingColor.Zero);
 
-    [Display(Name = nameof(GraphicsStrings.ColorGrading_Lift), ResourceType = typeof(GraphicsStrings))]
+    [Display(
+        Name = nameof(GraphicsStrings.ColorGrading_Lift),
+        ResourceType = typeof(GraphicsStrings)
+    )]
     public IProperty<GradingColor> Lift { get; } = Property.CreateAnimatable(GradingColor.Zero);
 
-    [Display(Name = nameof(GraphicsStrings.ColorGrading_Gamma), ResourceType = typeof(GraphicsStrings))]
+    [Display(
+        Name = nameof(GraphicsStrings.ColorGrading_Gamma),
+        ResourceType = typeof(GraphicsStrings)
+    )]
     public IProperty<GradingColor> Gamma { get; } = Property.CreateAnimatable(GradingColor.One);
 
-    [Display(Name = nameof(GraphicsStrings.ColorGrading_Gain), ResourceType = typeof(GraphicsStrings))]
+    [Display(
+        Name = nameof(GraphicsStrings.ColorGrading_Gain),
+        ResourceType = typeof(GraphicsStrings)
+    )]
     public IProperty<GradingColor> Gain { get; } = Property.CreateAnimatable(GradingColor.One);
 
-    [Display(Name = nameof(GraphicsStrings.ColorGrading_Offset), ResourceType = typeof(GraphicsStrings))]
+    [Display(
+        Name = nameof(GraphicsStrings.ColorGrading_Offset),
+        ResourceType = typeof(GraphicsStrings)
+    )]
     public IProperty<GradingColor> Offset { get; } = Property.CreateAnimatable(GradingColor.Zero);
 
     public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
@@ -228,12 +279,14 @@ public sealed partial class ColorGrading : FilterEffect
         context.CustomEffect(
             (r, Unit.Default),
             (t, c) => OnApply(t.r, c),
-            static (_, rect) => rect);
+            static (_, rect) => rect
+        );
     }
 
     private static void OnApply(Resource data, CustomFilterEffectContext context)
     {
-        if (s_shader is null) return;
+        if (s_shader is null)
+            return;
 
         for (int i = 0; i < context.Targets.Count; i++)
         {
@@ -241,7 +294,10 @@ public sealed partial class ColorGrading : FilterEffect
             var renderTarget = target.RenderTarget!;
 
             using SKImage image = renderTarget.Value.Snapshot();
-            using SKShader baseShader = image.ToShader(SKShaderTileMode.Decal, SKShaderTileMode.Decal);
+            using SKShader baseShader = image.ToShader(
+                SKShaderTileMode.Decal,
+                SKShaderTileMode.Decal
+            );
             var builder = s_shader.CreateBuilder();
 
             builder.Children["src"] = baseShader;
@@ -276,12 +332,16 @@ public sealed partial class ColorGrading : FilterEffect
         }
     }
 
-    private static SKColorF ToColorVector(GradingColor value, float minValue = float.NegativeInfinity)
+    private static SKColorF ToColorVector(
+        GradingColor value,
+        float minValue = float.NegativeInfinity
+    )
     {
         return new SKColorF(
             Math.Max(value.R, minValue),
             Math.Max(value.G, minValue),
             Math.Max(value.B, minValue),
-            1f);
+            1f
+        );
     }
 }

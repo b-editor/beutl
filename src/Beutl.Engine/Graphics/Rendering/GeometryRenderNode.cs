@@ -3,10 +3,14 @@ using Beutl.Media;
 
 namespace Beutl.Graphics.Rendering;
 
-public sealed class GeometryRenderNode(Geometry.Resource geometry, Brush.Resource? fill, Pen.Resource? pen)
-    : BrushRenderNode(fill, pen)
+public sealed class GeometryRenderNode(
+    Geometry.Resource geometry,
+    Brush.Resource? fill,
+    Pen.Resource? pen
+) : BrushRenderNode(fill, pen)
 {
-    public (Geometry.Resource Resource, int Version)? Geometry { get; private set; } = geometry.Capture();
+    public (Geometry.Resource Resource, int Version)? Geometry { get; private set; } =
+        geometry.Capture();
 
     public bool Update(Geometry.Resource geometry, Brush.Resource? fill, Pen.Resource? pen)
     {
@@ -26,10 +30,14 @@ public sealed class GeometryRenderNode(Geometry.Resource geometry, Brush.Resourc
         return
         [
             RenderNodeOperation.CreateLambda(
-                bounds: PenHelper.CalculateBoundsWithStrokeCap(Geometry!.Value.Resource.GetRenderBounds(Pen?.Resource), Pen?.Resource),
-                render: canvas => canvas.DrawGeometry(Geometry!.Value.Resource, Fill?.Resource, Pen?.Resource),
+                bounds: PenHelper.CalculateBoundsWithStrokeCap(
+                    Geometry!.Value.Resource.GetRenderBounds(Pen?.Resource),
+                    Pen?.Resource
+                ),
+                render: canvas =>
+                    canvas.DrawGeometry(Geometry!.Value.Resource, Fill?.Resource, Pen?.Resource),
                 hitTest: HitTest
-            )
+            ),
         ];
     }
 
@@ -42,6 +50,6 @@ public sealed class GeometryRenderNode(Geometry.Resource geometry, Brush.Resourc
     private bool HitTest(Point point)
     {
         return (Fill != null && Geometry!.Value.Resource.FillContains(point))
-               || (Pen != null && Geometry!.Value.Resource.StrokeContains(Pen?.Resource, point));
+            || (Pen != null && Geometry!.Value.Resource.StrokeContains(Pen?.Resource, point));
     }
 }

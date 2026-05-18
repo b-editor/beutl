@@ -2,7 +2,6 @@
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
-
 using Beutl.Editor.Components.LibraryTab.ViewModels;
 
 namespace Beutl.Editor.Components.LibraryTab.Views.LibraryViews;
@@ -45,7 +44,11 @@ public partial class SearchView : UserControl
     {
         if (e.Container is ListBoxItem listItem)
         {
-            listItem.AddHandler(PointerPressedEvent, ListBoxItemPointerPressed, RoutingStrategies.Tunnel);
+            listItem.AddHandler(
+                PointerPressedEvent,
+                ListBoxItemPointerPressed,
+                RoutingStrategies.Tunnel
+            );
         }
     }
 
@@ -62,7 +65,9 @@ public partial class SearchView : UserControl
         KeyValuePair<int, LibraryItemViewModel>? item;
         if (e.GetCurrentPoint(searchResult).Properties.IsLeftButtonPressed)
         {
-            item = (e.Source as StyledElement)?.DataContext as KeyValuePair<int, LibraryItemViewModel>?;
+            item =
+                (e.Source as StyledElement)?.DataContext
+                as KeyValuePair<int, LibraryItemViewModel>?;
             searchResult.SelectedItem = item;
         }
         else

@@ -10,7 +10,8 @@ public static class DecoderRegistry
 
     static DecoderRegistry()
     {
-        GlobalConfiguration.Instance.ExtensionConfig.DecoderPriority.CollectionChanged += (_, _) => InvalidateCache();
+        GlobalConfiguration.Instance.ExtensionConfig.DecoderPriority.CollectionChanged += (_, _) =>
+            InvalidateCache();
     }
 
     private static void InvalidateCache()
@@ -28,7 +29,8 @@ public static class DecoderRegistry
             if (s_ordered.Count == 0)
             {
                 ExtensionConfig extensionConfig = GlobalConfiguration.Instance.ExtensionConfig;
-                IDecoderInfo[] preferred = extensionConfig.DecoderPriority.Select(v => v.Type)
+                IDecoderInfo[] preferred = extensionConfig
+                    .DecoderPriority.Select(v => v.Type)
                     .Where(v => v != null)
                     .Select(t => s_registered.FirstOrDefault(v => v.GetType() == t))
                     .Where(v => v != null)

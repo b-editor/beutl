@@ -3,9 +3,7 @@
 
 using System.Runtime.InteropServices;
 using System.Runtime.Versioning;
-
 using FluentAvalonia.UI.Media;
-
 using static Beutl.Controls.CoreGraphics;
 
 namespace Beutl.Controls.PropertyEditors;
@@ -13,12 +11,12 @@ namespace Beutl.Controls.PropertyEditors;
 public partial class ColorDropper
 {
     [SupportedOSPlatform("macos")]
-    private static bool MacOSIsClickDown()
-        => CGEventSourceButtonState(kCGEventSourceStateCombinedSessionState, kCGMouseButtonLeft);
+    private static bool MacOSIsClickDown() =>
+        CGEventSourceButtonState(kCGEventSourceStateCombinedSessionState, kCGMouseButtonLeft);
 
     [SupportedOSPlatform("macos")]
-    private static bool MacOSIsEscapeDown()
-        => CGEventSourceKeyState(kCGEventSourceStateCombinedSessionState, kVK_Escape);
+    private static bool MacOSIsEscapeDown() =>
+        CGEventSourceKeyState(kCGEventSourceStateCombinedSessionState, kVK_Escape);
 
     [SupportedOSPlatform("macos")]
     private static (int X, int Y) MacOSGetCursorPosition()
@@ -98,8 +96,8 @@ public partial class ColorDropper
         }
     }
 
-    private static byte Unpremultiply(byte c, byte a)
-        => (byte)Math.Min(255, (int)Math.Round(c * 255.0 / a));
+    private static byte Unpremultiply(byte c, byte a) =>
+        (byte)Math.Min(255, (int)Math.Round(c * 255.0 / a));
 }
 
 #endif

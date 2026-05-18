@@ -14,7 +14,9 @@ public abstract class Hierarchical : CoreObject, IHierarchical, IModifiableHiera
 
     static Hierarchical()
     {
-        HierarchicalParentProperty = ConfigureProperty<IHierarchical?, Hierarchical>(nameof(HierarchicalParent))
+        HierarchicalParentProperty = ConfigureProperty<IHierarchical?, Hierarchical>(
+                nameof(HierarchicalParent)
+            )
             .Accessor(o => o.HierarchicalParent, (o, v) => o.HierarchicalParent = v)
             .Register();
     }
@@ -24,7 +26,7 @@ public abstract class Hierarchical : CoreObject, IHierarchical, IModifiableHiera
         _root = this as IHierarchicalRoot;
         _hierarchicalChildren = new CoreList<IHierarchical>()
         {
-            ResetBehavior = ResetBehavior.Remove
+            ResetBehavior = ResetBehavior.Remove,
         };
         _hierarchicalChildren.CollectionChanged += HierarchicalChildrenCollectionChanged;
     }
@@ -71,7 +73,10 @@ public abstract class Hierarchical : CoreObject, IHierarchical, IModifiableHiera
         }
     }
 
-    protected virtual void HierarchicalChildrenCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
+    protected virtual void HierarchicalChildrenCollectionChanged(
+        object? sender,
+        NotifyCollectionChangedEventArgs e
+    )
     {
         void SetParent(IList children)
         {
@@ -123,20 +128,17 @@ public abstract class Hierarchical : CoreObject, IHierarchical, IModifiableHiera
         }
     }
 
-    protected virtual void OnAttachedToHierarchy(in HierarchyAttachmentEventArgs args)
-    {
-    }
+    protected virtual void OnAttachedToHierarchy(in HierarchyAttachmentEventArgs args) { }
 
-    protected virtual void OnDetachedFromHierarchy(in HierarchyAttachmentEventArgs args)
-    {
-    }
+    protected virtual void OnDetachedFromHierarchy(in HierarchyAttachmentEventArgs args) { }
 
     private void OnAttachedToHierarchyCore(in HierarchyAttachmentEventArgs e)
     {
         if (_parent == null && this is not IHierarchicalRoot)
         {
             throw new InvalidOperationException(
-                $"OnAttachedToHierarchyCore called for '{GetType().Name}' but element has no logical parent.");
+                $"OnAttachedToHierarchyCore called for '{GetType().Name}' but element has no logical parent."
+            );
         }
 
         if (_root == null)
@@ -190,7 +192,8 @@ public abstract class Hierarchical : CoreObject, IHierarchical, IModifiableHiera
                 throw new InvalidOperationException("This logical element already has a parent.");
             }
 
-            IHierarchicalRoot? newRoot = parent?.FindHierarchicalRoot() ?? (this as IHierarchicalRoot);
+            IHierarchicalRoot? newRoot =
+                parent?.FindHierarchicalRoot() ?? (this as IHierarchicalRoot);
             HierarchicalParent = parent;
 
             if (_root != null)

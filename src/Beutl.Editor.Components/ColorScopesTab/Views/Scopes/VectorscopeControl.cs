@@ -21,8 +21,12 @@ namespace Beutl.Editor.Components.ColorScopesTab.Views.Scopes;
 public class VectorscopeControl : ScopeControlBase
 {
     public static readonly DirectProperty<VectorscopeControl, bool> ShowColorTargetsProperty =
-        AvaloniaProperty.RegisterDirect<VectorscopeControl, bool>(nameof(ShowColorTargets), o => o.ShowColorTargets,
-            (o, v) => o.ShowColorTargets = v, true);
+        AvaloniaProperty.RegisterDirect<VectorscopeControl, bool>(
+            nameof(ShowColorTargets),
+            o => o.ShowColorTargets,
+            (o, v) => o.ShowColorTargets = v,
+            true
+        );
 
     // Cached brushes and pens for rendering
     private static readonly SolidColorBrush s_gridBrush = new(Color.FromArgb(160, 40, 40, 40));
@@ -31,12 +35,30 @@ public class VectorscopeControl : ScopeControlBase
     private static readonly Pen s_innerGridPen = new(s_innerGridBrush, 1.5);
 
     // Cached color target pens
-    private static readonly Pen s_redTargetPen = new(new SolidColorBrush(Color.FromArgb(180, 255, 0, 0)), 1.5);
-    private static readonly Pen s_greenTargetPen = new(new SolidColorBrush(Color.FromArgb(180, 0, 255, 0)), 1.5);
-    private static readonly Pen s_blueTargetPen = new(new SolidColorBrush(Color.FromArgb(180, 0, 0, 255)), 1.5);
-    private static readonly Pen s_cyanTargetPen = new(new SolidColorBrush(Color.FromArgb(180, 0, 255, 255)), 1.5);
-    private static readonly Pen s_magentaTargetPen = new(new SolidColorBrush(Color.FromArgb(180, 255, 0, 255)), 1.5);
-    private static readonly Pen s_yellowTargetPen = new(new SolidColorBrush(Color.FromArgb(180, 255, 255, 0)), 1.5);
+    private static readonly Pen s_redTargetPen = new(
+        new SolidColorBrush(Color.FromArgb(180, 255, 0, 0)),
+        1.5
+    );
+    private static readonly Pen s_greenTargetPen = new(
+        new SolidColorBrush(Color.FromArgb(180, 0, 255, 0)),
+        1.5
+    );
+    private static readonly Pen s_blueTargetPen = new(
+        new SolidColorBrush(Color.FromArgb(180, 0, 0, 255)),
+        1.5
+    );
+    private static readonly Pen s_cyanTargetPen = new(
+        new SolidColorBrush(Color.FromArgb(180, 0, 255, 255)),
+        1.5
+    );
+    private static readonly Pen s_magentaTargetPen = new(
+        new SolidColorBrush(Color.FromArgb(180, 255, 0, 255)),
+        1.5
+    );
+    private static readonly Pen s_yellowTargetPen = new(
+        new SolidColorBrush(Color.FromArgb(180, 255, 255, 0)),
+        1.5
+    );
 
     public bool ShowColorTargets
     {
@@ -53,20 +75,24 @@ public class VectorscopeControl : ScopeControlBase
         BtlBitmap sourceBitmap,
         int targetWidth,
         int targetHeight,
-        WriteableBitmap? existingBitmap)
+        WriteableBitmap? existingBitmap
+    )
     {
         // Use square size for vectorscope
         int size = Math.Min(targetWidth, targetHeight);
-        if (size <= 0) return null;
+        if (size <= 0)
+            return null;
 
         // Reuse existing bitmap if size matches
-        WriteableBitmap bitmap = existingBitmap?.PixelSize.Width == size && existingBitmap.PixelSize.Height == size
-            ? existingBitmap
-            : new WriteableBitmap(
-                new PixelSize(size, size),
-                new Vector(96, 96),
-                PixelFormat.Bgra8888,
-                AlphaFormat.Premul);
+        WriteableBitmap bitmap =
+            existingBitmap?.PixelSize.Width == size && existingBitmap.PixelSize.Height == size
+                ? existingBitmap
+                : new WriteableBitmap(
+                    new PixelSize(size, size),
+                    new Vector(96, 96),
+                    PixelFormat.Bgra8888,
+                    AlphaFormat.Premul
+                );
 
         using ILockedFramebuffer fb = bitmap.Lock();
         uint* destPtr = (uint*)fb.Address;
@@ -79,18 +105,25 @@ public class VectorscopeControl : ScopeControlBase
         int sourceHeight = sourceBitmap.Height;
         int step = Math.Max(1, Math.Max(sourceWidth, sourceHeight) / size);
 
-        BitmapColorSpace targetColorSpace = ColorSpace == ViewModels.ScopeColorSpace.Linear
-            ? BitmapColorSpace.LinearSrgb
-            : BitmapColorSpace.Srgb;
+        BitmapColorSpace targetColorSpace =
+            ColorSpace == ViewModels.ScopeColorSpace.Linear
+                ? BitmapColorSpace.LinearSrgb
+                : BitmapColorSpace.Srgb;
         BtlBitmap rgbaConverted;
         bool requireDispose = false;
-        if (sourceBitmap.ColorType == BitmapColorType.RgbaF16 && sourceBitmap.ColorSpace == targetColorSpace)
+        if (
+            sourceBitmap.ColorType == BitmapColorType.RgbaF16
+            && sourceBitmap.ColorSpace == targetColorSpace
+        )
         {
             rgbaConverted = sourceBitmap;
         }
         else
         {
-            rgbaConverted = sourceBitmap.Convert(BitmapColorType.RgbaF16, colorSpace: targetColorSpace);
+            rgbaConverted = sourceBitmap.Convert(
+                BitmapColorType.RgbaF16,
+                colorSpace: targetColorSpace
+            );
             requireDispose = true;
         }
 
@@ -105,44 +138,49 @@ public class VectorscopeControl : ScopeControlBase
             // pixel. This is a deliberate trade-off: collisions are rare (230K samples → 262K pixels),
             // and the visual impact of occasionally losing one sample contribution is imperceptible
             // on a dense vectorscope display.
-            Parallel.For(0, rowCount, yi =>
-            {
-                int y = yi * step;
-                if (y >= sourceHeight) return;
-                // ReSharper disable once AccessToDisposedClosure
-                var row = rgbaConvertedLocal.GetRow<RgbaF16>(y);
-                for (int x = 0; x < sourceWidth; x += step)
+            Parallel.For(
+                0,
+                rowCount,
+                yi =>
                 {
-                    RgbaF16 pixel = row[x];
-                    float r = (float)pixel.R;
-                    float g = (float)pixel.G;
-                    float b = (float)pixel.B;
-
-                    // Convert RGB to CbCr (YCbCr color space)
-                    float cb = -0.11457f * r - 0.38543f * g + 0.5f * b;
-                    float cr = 0.5f * r - 0.45415f * g - 0.04585f * b;
-
-                    byte cb8 = (byte)Math.Clamp(MathF.Round(cb * 255f + 128f), 0, 255);
-                    byte cr8 = (byte)Math.Clamp(MathF.Round(cr * 255f + 128f), 0, 255);
-
-                    int vx = cb8 * sizeMinus1 / 255;
-                    int vy = (255 - cr8) * sizeMinus1 / 255;
-
-                    // Inline byte conversion (no Color.FromRgb allocation)
-                    byte r8 = (byte)Math.Clamp((int)(r * 255f), 0, 255);
-                    byte g8 = (byte)Math.Clamp((int)(g * 255f), 0, 255);
-                    byte b8 = (byte)Math.Clamp((int)(b * 255f), 0, 255);
-                    uint color = PackColor(r8, g8, b8, 180);
-
-                    if ((uint)vx < (uint)stridePixels && (uint)vy < (uint)destHeight)
+                    int y = yi * step;
+                    if (y >= sourceHeight)
+                        return;
+                    // ReSharper disable once AccessToDisposedClosure
+                    var row = rgbaConvertedLocal.GetRow<RgbaF16>(y);
+                    for (int x = 0; x < sourceWidth; x += step)
                     {
-                        int idx = vy * stridePixels + vx;
-                        uint existing = destPtr[idx];
-                        byte existingA = (byte)(existing >> 24);
-                        destPtr[idx] = 180 > existingA ? color : BlendAdd(existing, color);
+                        RgbaF16 pixel = row[x];
+                        float r = (float)pixel.R;
+                        float g = (float)pixel.G;
+                        float b = (float)pixel.B;
+
+                        // Convert RGB to CbCr (YCbCr color space)
+                        float cb = -0.11457f * r - 0.38543f * g + 0.5f * b;
+                        float cr = 0.5f * r - 0.45415f * g - 0.04585f * b;
+
+                        byte cb8 = (byte)Math.Clamp(MathF.Round(cb * 255f + 128f), 0, 255);
+                        byte cr8 = (byte)Math.Clamp(MathF.Round(cr * 255f + 128f), 0, 255);
+
+                        int vx = cb8 * sizeMinus1 / 255;
+                        int vy = (255 - cr8) * sizeMinus1 / 255;
+
+                        // Inline byte conversion (no Color.FromRgb allocation)
+                        byte r8 = (byte)Math.Clamp((int)(r * 255f), 0, 255);
+                        byte g8 = (byte)Math.Clamp((int)(g * 255f), 0, 255);
+                        byte b8 = (byte)Math.Clamp((int)(b * 255f), 0, 255);
+                        uint color = PackColor(r8, g8, b8, 180);
+
+                        if ((uint)vx < (uint)stridePixels && (uint)vy < (uint)destHeight)
+                        {
+                            int idx = vy * stridePixels + vx;
+                            uint existing = destPtr[idx];
+                            byte existingA = (byte)(existing >> 24);
+                            destPtr[idx] = 180 > existingA ? color : BlendAdd(existing, color);
+                        }
                     }
                 }
-            });
+            );
         }
         finally
         {
@@ -197,8 +235,14 @@ public class VectorscopeControl : ScopeControlBase
         DrawVectorscopeAxes(context, bounds, axisMargin, offsetX, offsetY, squareSize);
     }
 
-    private void DrawVectorscopeAxes(DrawingContext context, Rect bounds, double axisMargin, double offsetX,
-        double offsetY, double squareSize)
+    private void DrawVectorscopeAxes(
+        DrawingContext context,
+        Rect bounds,
+        double axisMargin,
+        double offsetX,
+        double offsetY,
+        double squareSize
+    )
     {
         var labelBrush = LabelBrush ?? Brushes.Gray;
 
@@ -209,8 +253,12 @@ public class VectorscopeControl : ScopeControlBase
             FlowDirection.LeftToRight,
             DefaultTypeface,
             10,
-            labelBrush);
-        context.DrawText(cbLabel, new Point(offsetX + squareSize / 2 - cbLabel.Width / 2, offsetY + squareSize + 4));
+            labelBrush
+        );
+        context.DrawText(
+            cbLabel,
+            new Point(offsetX + squareSize / 2 - cbLabel.Width / 2, offsetY + squareSize + 4)
+        );
 
         // Draw Cr label (vertical - red-cyan axis)
         var crLabel = new FormattedText(
@@ -219,38 +267,71 @@ public class VectorscopeControl : ScopeControlBase
             FlowDirection.LeftToRight,
             DefaultTypeface,
             10,
-            labelBrush);
-        context.DrawText(crLabel,
-            new Point(axisMargin - crLabel.Width - 4, offsetY + squareSize / 2 - crLabel.Height / 2));
+            labelBrush
+        );
+        context.DrawText(
+            crLabel,
+            new Point(axisMargin - crLabel.Width - 4, offsetY + squareSize / 2 - crLabel.Height / 2)
+        );
     }
 
-    private void DrawVectorscopeGridOnContext(DrawingContext context, double offsetX, double offsetY, double size)
+    private void DrawVectorscopeGridOnContext(
+        DrawingContext context,
+        double offsetX,
+        double offsetY,
+        double size
+    )
     {
         double center = size / 2;
         double radius = size / 2 - 6;
 
         // Draw crosshairs
-        context.DrawLine(s_gridPen, new Point(offsetX, offsetY + center), new Point(offsetX + size, offsetY + center));
-        context.DrawLine(s_gridPen, new Point(offsetX + center, offsetY), new Point(offsetX + center, offsetY + size));
+        context.DrawLine(
+            s_gridPen,
+            new Point(offsetX, offsetY + center),
+            new Point(offsetX + size, offsetY + center)
+        );
+        context.DrawLine(
+            s_gridPen,
+            new Point(offsetX + center, offsetY),
+            new Point(offsetX + center, offsetY + size)
+        );
 
         // Draw outer circle
-        context.DrawEllipse(null, s_gridPen, new Point(offsetX + center, offsetY + center), radius, radius);
+        context.DrawEllipse(
+            null,
+            s_gridPen,
+            new Point(offsetX + center, offsetY + center),
+            radius,
+            radius
+        );
 
         // Draw 75% radius circle
         double radius75 = radius * 0.75;
-        context.DrawEllipse(null, s_innerGridPen, new Point(offsetX + center, offsetY + center), radius75, radius75);
+        context.DrawEllipse(
+            null,
+            s_innerGridPen,
+            new Point(offsetX + center, offsetY + center),
+            radius75,
+            radius75
+        );
     }
 
-    private void DrawColorTargetsOnContext(DrawingContext context, double offsetX, double offsetY, double size)
+    private void DrawColorTargetsOnContext(
+        DrawingContext context,
+        double offsetX,
+        double offsetY,
+        double size
+    )
     {
         var colorTargets = new (int Cb, int Cr, Pen Pen)[]
         {
-            (90, 240, s_redTargetPen),      // Red
-            (54, 34, s_greenTargetPen),     // Green
-            (240, 110, s_blueTargetPen),    // Blue
-            (166, 16, s_cyanTargetPen),     // Cyan
+            (90, 240, s_redTargetPen), // Red
+            (54, 34, s_greenTargetPen), // Green
+            (240, 110, s_blueTargetPen), // Blue
+            (166, 16, s_cyanTargetPen), // Cyan
             (202, 222, s_magentaTargetPen), // Magenta
-            (16, 146, s_yellowTargetPen)    // Yellow
+            (16, 146, s_yellowTargetPen), // Yellow
         };
 
         double sizeD = size;
@@ -260,7 +341,11 @@ public class VectorscopeControl : ScopeControlBase
             double x = offsetX + cb * (sizeD - 1) / 255;
             double y = offsetY + (255 - cr) * (sizeD - 1) / 255;
 
-            context.DrawRectangle(null, pen, new Rect(x - boxSize / 2, y - boxSize / 2, boxSize, boxSize));
+            context.DrawRectangle(
+                null,
+                pen,
+                new Rect(x - boxSize / 2, y - boxSize / 2, boxSize, boxSize)
+            );
         }
     }
 }

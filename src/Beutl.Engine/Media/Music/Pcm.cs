@@ -1,6 +1,5 @@
 ﻿using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
-
 using Beutl.Media.Music.Samples;
 
 namespace Beutl.Media.Music;
@@ -75,10 +74,14 @@ public sealed unsafe class Pcm<T> : IPcm
     {
         var result = new Pcm<TConvert>(SampleRate, NumSamples);
 
-        Parallel.For(0, NumSamples, i =>
-        {
-            result.DataSpan[i] = TConvert.ConvertFrom(T.ConvertTo(DataSpan[i]));
-        });
+        Parallel.For(
+            0,
+            NumSamples,
+            i =>
+            {
+                result.DataSpan[i] = TConvert.ConvertFrom(T.ConvertTo(DataSpan[i]));
+            }
+        );
 
         return result;
     }
@@ -91,10 +94,14 @@ public sealed unsafe class Pcm<T> : IPcm
             throw new Exception("Sounds with different SampleRates cannot be synthesized.");
         }
 
-        Parallel.For(0, Math.Min(NumSamples, dst.NumSamples), i =>
-        {
-            dst.DataSpan[i] = TConvert.ConvertFrom(T.ConvertTo(DataSpan[i]));
-        });
+        Parallel.For(
+            0,
+            Math.Min(NumSamples, dst.NumSamples),
+            i =>
+            {
+                dst.DataSpan[i] = TConvert.ConvertFrom(T.ConvertTo(DataSpan[i]));
+            }
+        );
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -129,28 +136,35 @@ public sealed unsafe class Pcm<T> : IPcm
 
     public void Compound(Pcm<T> sound)
     {
-        if (sound.SampleRate != SampleRate) throw new Exception("Sounds with different SampleRates cannot be synthesized.");
+        if (sound.SampleRate != SampleRate)
+            throw new Exception("Sounds with different SampleRates cannot be synthesized.");
 
         Compound(0, sound);
     }
 
     public void Compound(int start, Pcm<T> sound)
     {
-        if (sound.SampleRate != SampleRate) throw new Exception("Sounds with different SampleRates cannot be synthesized.");
+        if (sound.SampleRate != SampleRate)
+            throw new Exception("Sounds with different SampleRates cannot be synthesized.");
 
-        Parallel.For(start, NumSamples, i =>
-        {
-            int j = i - start;
-            if (j < sound.NumSamples)
+        Parallel.For(
+            start,
+            NumSamples,
+            i =>
             {
-                DataSpan[i] = T.Compound(DataSpan[i], sound.DataSpan[j]);
+                int j = i - start;
+                if (j < sound.NumSamples)
+                {
+                    DataSpan[i] = T.Compound(DataSpan[i], sound.DataSpan[j]);
+                }
             }
-        });
+        );
     }
 
     public Pcm<T> Resamples(int frequency)
     {
-        if (SampleRate == frequency) return Clone();
+        if (SampleRate == frequency)
+            return Clone();
 
         // 比率
         double ratio = SampleRate / (double)frequency;

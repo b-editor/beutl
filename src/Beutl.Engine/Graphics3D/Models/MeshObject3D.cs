@@ -19,7 +19,10 @@ public sealed partial class MeshObject3D : Object3D
     /// <summary>
     /// Gets or sets the mesh for this object.
     /// </summary>
-    [Display(Name = nameof(GraphicsStrings.MeshObject3D_Mesh), ResourceType = typeof(GraphicsStrings))]
+    [Display(
+        Name = nameof(GraphicsStrings.MeshObject3D_Mesh),
+        ResourceType = typeof(GraphicsStrings)
+    )]
     public IProperty<Mesh?> Mesh { get; } = Property.Create<Mesh?>(null);
 
     public partial class Resource

@@ -54,34 +54,41 @@ public sealed class App : Application
 
         activity?.AddEvent(new ActivityEvent("Xaml_Loaded"));
 
-        view.GetObservable(ViewConfig.ThemeProperty).Subscribe(v =>
-        {
-            Dispatcher.UIThread.InvokeAsync(() =>
+        view.GetObservable(ViewConfig.ThemeProperty)
+            .Subscribe(v =>
             {
-                switch (v)
-                {
-                    case ViewConfig.ViewTheme.Light:
-                        RequestedThemeVariant = ThemeVariant.Light;
-                        break;
-                    case ViewConfig.ViewTheme.Dark:
-                        RequestedThemeVariant = ThemeVariant.Dark;
-                        break;
-                    case ViewConfig.ViewTheme.HighContrast:
-                        RequestedThemeVariant = FluentAvaloniaTheme.HighContrastTheme;
-                        break;
-                    case ViewConfig.ViewTheme.System:
-                        _theme.PreferSystemTheme = true;
-                        break;
-                }
-            }, DispatcherPriority.Send);
-        });
+                Dispatcher.UIThread.InvokeAsync(
+                    () =>
+                    {
+                        switch (v)
+                        {
+                            case ViewConfig.ViewTheme.Light:
+                                RequestedThemeVariant = ThemeVariant.Light;
+                                break;
+                            case ViewConfig.ViewTheme.Dark:
+                                RequestedThemeVariant = ThemeVariant.Dark;
+                                break;
+                            case ViewConfig.ViewTheme.HighContrast:
+                                RequestedThemeVariant = FluentAvaloniaTheme.HighContrastTheme;
+                                break;
+                            case ViewConfig.ViewTheme.System:
+                                _theme.PreferSystemTheme = true;
+                                break;
+                        }
+                    },
+                    DispatcherPriority.Send
+                );
+            });
 
         if (!OperatingSystem.IsWindows())
         {
             _theme.RemoveRange(1, _theme.Count - 1);
         }
 
-        if (view.UseCustomAccentColor && Color.TryParse(view.CustomAccentColor, out Color customColor))
+        if (
+            view.UseCustomAccentColor
+            && Color.TryParse(view.CustomAccentColor, out Color customColor)
+        )
         {
             activity?.SetTag("CustomAccentColor", customColor.ToString());
 
@@ -122,7 +129,8 @@ public sealed class App : Application
 
         base.RegisterServices();
 
-        PropertyEditorExtension.DefaultHandler = new PropertyEditorService.PropertyEditorExtensionImpl();
+        PropertyEditorExtension.DefaultHandler =
+            new PropertyEditorService.PropertyEditorExtensionImpl();
         NotificationService.Handler = new NotificationServiceHandler();
         TutorialService.Current = new TutorialServiceHandler();
 
@@ -133,7 +141,8 @@ public sealed class App : Application
         Parallel.Invoke(
             () => GetMainViewModel().RegisterServices(),
             LibraryRegistrar.RegisterAll,
-            NodesRegistrar.RegisterAll);
+            NodesRegistrar.RegisterAll
+        );
 
         ReactivePropertyScheduler.SetDefault(AvaloniaScheduler.Instance);
     }
@@ -144,18 +153,18 @@ public sealed class App : Application
         {
             if (OperatingSystem.IsMacOS())
             {
-                desktop.MainWindow = new MacWindow { DataContext = GetMainViewModel(), };
+                desktop.MainWindow = new MacWindow { DataContext = GetMainViewModel() };
             }
             else
             {
-                desktop.MainWindow = new MainWindow { DataContext = GetMainViewModel(), };
+                desktop.MainWindow = new MainWindow { DataContext = GetMainViewModel() };
             }
 
             desktop.MainWindow.Opened += (_, _) => _windowOpenTcs.SetResult();
         }
         else if (ApplicationLifetime is ISingleViewApplicationLifetime singleViewPlatform)
         {
-            singleViewPlatform.MainView = new MainView { DataContext = GetMainViewModel(), };
+            singleViewPlatform.MainView = new MainView { DataContext = GetMainViewModel() };
         }
 
         base.OnFrameworkInitializationCompleted();
@@ -202,8 +211,11 @@ public sealed class App : Application
 
     private async void AboutBeutlClicked(object? sender, EventArgs e)
     {
-        if (_mainViewModel != null
-            && ApplicationLifetime is IClassicDesktopStyleApplicationLifetime { MainWindow: { } window })
+        if (
+            _mainViewModel != null
+            && ApplicationLifetime
+                is IClassicDesktopStyleApplicationLifetime { MainWindow: { } window }
+        )
         {
             using var dialogViewModel = _mainViewModel.CreateSettingsDialog();
             var dialog = new SettingsDialog { DataContext = dialogViewModel };
@@ -214,8 +226,11 @@ public sealed class App : Application
 
     private async void OpenSettingsClicked(object? sender, EventArgs e)
     {
-        if (_mainViewModel != null
-            && ApplicationLifetime is IClassicDesktopStyleApplicationLifetime { MainWindow: { } window })
+        if (
+            _mainViewModel != null
+            && ApplicationLifetime
+                is IClassicDesktopStyleApplicationLifetime { MainWindow: { } window }
+        )
         {
             using var dialogViewModel = _mainViewModel.CreateSettingsDialog();
             var dialog = new SettingsDialog { DataContext = dialogViewModel };

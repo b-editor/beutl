@@ -14,31 +14,32 @@ public sealed class TextureSourceEditorViewModel : BaseEditorViewModel
     public TextureSourceEditorViewModel(IPropertyAdapter<TextureSource?> property)
         : base(property)
     {
-        Value = property.GetObservable()
-            .ToReadOnlyReactiveProperty()
-            .DisposeWith(Disposables);
+        Value = property.GetObservable().ToReadOnlyReactiveProperty().DisposeWith(Disposables);
 
-        IsImageTextureSource = Value.Select(v => v is ImageTextureSource)
+        IsImageTextureSource = Value
+            .Select(v => v is ImageTextureSource)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(Disposables);
 
-        IsDrawableTextureSource = Value.Select(v => v is DrawableTextureSource)
+        IsDrawableTextureSource = Value
+            .Select(v => v is DrawableTextureSource)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(Disposables);
 
-        ChildContext = Value.Select(v => v)
+        ChildContext = Value
+            .Select(v => v)
             .Select(x => x != null ? new PropertiesEditorViewModel(x) : null)
             .DisposePreviousValue()
             .Do(AcceptChildren)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(Disposables);
 
-        DrawableName = Value.Select(v => v as DrawableTextureSource)
+        DrawableName = Value
+            .Select(v => v as DrawableTextureSource)
             .Select(x => x?.Drawable.CurrentValue?.GetType())
             .Select(GetDrawableDisplayName)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(Disposables);
-
     }
 
     public ReadOnlyReactiveProperty<TextureSource?> Value { get; }
@@ -125,10 +126,12 @@ public sealed class TextureSourceEditorViewModel : BaseEditorViewModel
     public void SetDrawableTarget(Drawable target)
     {
         Type? presenterType = PresenterTypeAttribute.GetPresenterType(typeof(Drawable));
-        if (presenterType != null
+        if (
+            presenterType != null
             && Activator.CreateInstance(presenterType) is Drawable presenterDrawable
             && presenterDrawable is IPresenter<Drawable> presenterInterface
-            && Value.Value is DrawableTextureSource drawableSource)
+            && Value.Value is DrawableTextureSource drawableSource
+        )
         {
             var expression = Expression.CreateReference<Drawable>(target.Id);
             presenterInterface.Target.Expression = expression;
@@ -151,17 +154,17 @@ public sealed class TextureSourceEditorViewModel : BaseEditorViewModel
         base.ReadFromJson(json);
         try
         {
-            if (json.TryGetPropertyValue(nameof(IsExpanded), out JsonNode? isExpandedNode)
-                && isExpandedNode is JsonValue isExpanded)
+            if (
+                json.TryGetPropertyValue(nameof(IsExpanded), out JsonNode? isExpandedNode)
+                && isExpandedNode is JsonValue isExpanded
+            )
             {
                 IsExpanded.Value = (bool)isExpanded;
             }
 
             ChildContext.Value?.ReadFromJson(json);
         }
-        catch
-        {
-        }
+        catch { }
     }
 
     public override void WriteToJson(JsonObject json)
@@ -172,9 +175,7 @@ public sealed class TextureSourceEditorViewModel : BaseEditorViewModel
             json[nameof(IsExpanded)] = IsExpanded.Value;
             ChildContext.Value?.WriteToJson(json);
         }
-        catch
-        {
-        }
+        catch { }
     }
 
     protected override void Dispose(bool disposing)
@@ -183,15 +184,15 @@ public sealed class TextureSourceEditorViewModel : BaseEditorViewModel
         ChildContext.Value?.Dispose();
     }
 
-    private sealed record Visitor(TextureSourceEditorViewModel Obj) : IServiceProvider, IPropertyEditorContextVisitor
+    private sealed record Visitor(TextureSourceEditorViewModel Obj)
+        : IServiceProvider,
+            IPropertyEditorContextVisitor
     {
         public object? GetService(Type serviceType)
         {
             return Obj.GetService(serviceType);
         }
 
-        public void Visit(IPropertyEditorContext context)
-        {
-        }
+        public void Visit(IPropertyEditorContext context) { }
     }
 }

@@ -16,12 +16,16 @@ public sealed partial class AudioVisualizerTabView : UserControl
     // declarative in XAML without needing per-control click handlers.
     private void OnSettingPointerPressed(object? sender, PointerPressedEventArgs e)
     {
-        if (sender is not Control control) return;
-        if (control.Tag is not string propertyName) return;
-        if (DataContext is not AudioVisualizerTabViewModel vm) return;
+        if (sender is not Control control)
+            return;
+        if (control.Tag is not string propertyName)
+            return;
+        if (DataContext is not AudioVisualizerTabViewModel vm)
+            return;
 
         var props = e.GetCurrentPoint(control).Properties;
-        if (!props.IsRightButtonPressed) return;
+        if (!props.IsRightButtonPressed)
+            return;
 
         vm.ResetSetting(propertyName);
         e.Handled = true;

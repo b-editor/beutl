@@ -11,8 +11,11 @@ public static class Expression
         return new StringExpression<T>(expressionString);
     }
 
-    public static bool TryParse<T>(string expressionString, [NotNullWhen(true)] out StringExpression<T>? expression,
-        [NotNullWhen(false)] out string? error)
+    public static bool TryParse<T>(
+        string expressionString,
+        [NotNullWhen(true)] out StringExpression<T>? expression,
+        [NotNullWhen(false)] out string? error
+    )
     {
         expression = new StringExpression<T>(expressionString);
         if (expression.Validate(out error))
@@ -48,13 +51,17 @@ public static class Expression
                 return JsonSerializer.Deserialize(objNode, type) as IExpression<T>;
             }
 
-            if (objNode.TryGetPropertyValue("ObjectId", out JsonNode? objectIdNode) &&
-                objectIdNode is JsonValue objectIdValueNode &&
-                objectIdValueNode.TryGetValue(out Guid objectId))
+            if (
+                objNode.TryGetPropertyValue("ObjectId", out JsonNode? objectIdNode)
+                && objectIdNode is JsonValue objectIdValueNode
+                && objectIdValueNode.TryGetValue(out Guid objectId)
+            )
             {
                 string? propertyPath = null;
-                if (objNode.TryGetPropertyValue("PropertyPath", out JsonNode? propertyPathNode) &&
-                    propertyPathNode is JsonValue propertyPathValueNode)
+                if (
+                    objNode.TryGetPropertyValue("PropertyPath", out JsonNode? propertyPathNode)
+                    && propertyPathNode is JsonValue propertyPathValueNode
+                )
                 {
                     propertyPathValueNode.TryGetValue(out propertyPath);
                 }
@@ -76,7 +83,7 @@ public static class Expression
         {
             var obj = new JsonObject
             {
-                ["ObjectId"] = JsonValue.Create(referenceExpression.ObjectId)
+                ["ObjectId"] = JsonValue.Create(referenceExpression.ObjectId),
             };
 
             if (referenceExpression.HasPropertyPath)

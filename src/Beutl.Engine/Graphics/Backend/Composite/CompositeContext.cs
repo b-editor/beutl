@@ -52,7 +52,12 @@ internal sealed class CompositeContext : IGraphicsContext
         return Vulkan.CreateTextureCube(size, format);
     }
 
-    public ITextureArray CreateTextureArray(int width, int height, uint arraySize, TextureFormat format)
+    public ITextureArray CreateTextureArray(
+        int width,
+        int height,
+        uint arraySize,
+        TextureFormat format
+    )
     {
         return Vulkan.CreateTextureArray(width, height, arraySize, format);
     }
@@ -76,12 +81,17 @@ internal sealed class CompositeContext : IGraphicsContext
         IReadOnlyList<TextureFormat> colorFormats,
         TextureFormat depthFormat = TextureFormat.Depth32Float,
         AttachmentLoadOp colorLoadOp = AttachmentLoadOp.Clear,
-        AttachmentLoadOp depthLoadOp = AttachmentLoadOp.Clear)
+        AttachmentLoadOp depthLoadOp = AttachmentLoadOp.Clear
+    )
     {
         return Vulkan.CreateRenderPass3D(colorFormats, depthFormat, colorLoadOp, depthLoadOp);
     }
 
-    public IFramebuffer3D CreateFramebuffer3D(IRenderPass3D renderPass, IReadOnlyList<ITexture2D> colorTextures, ITexture2D depthTexture)
+    public IFramebuffer3D CreateFramebuffer3D(
+        IRenderPass3D renderPass,
+        IReadOnlyList<ITexture2D> colorTextures,
+        ITexture2D depthTexture
+    )
     {
         return Vulkan.CreateFramebuffer3D(renderPass, colorTextures, depthTexture);
     }
@@ -92,9 +102,17 @@ internal sealed class CompositeContext : IGraphicsContext
         byte[] fragmentShaderSpirv,
         DescriptorBinding[] descriptorBindings,
         VertexInputDescription vertexInput,
-        PipelineOptions? options = null)
+        PipelineOptions? options = null
+    )
     {
-        return Vulkan.CreatePipeline3D(renderPass, vertexShaderSpirv, fragmentShaderSpirv, descriptorBindings, vertexInput, options);
+        return Vulkan.CreatePipeline3D(
+            renderPass,
+            vertexShaderSpirv,
+            fragmentShaderSpirv,
+            descriptorBindings,
+            vertexInput,
+            options
+        );
     }
 
     public IDescriptorSet CreateDescriptorSet(IPipeline3D pipeline, DescriptorPoolSize[] poolSizes)
@@ -106,7 +124,8 @@ internal sealed class CompositeContext : IGraphicsContext
         SamplerFilter minFilter = SamplerFilter.Linear,
         SamplerFilter magFilter = SamplerFilter.Linear,
         SamplerAddressMode addressModeU = SamplerAddressMode.ClampToEdge,
-        SamplerAddressMode addressModeV = SamplerAddressMode.ClampToEdge)
+        SamplerAddressMode addressModeV = SamplerAddressMode.ClampToEdge
+    )
     {
         return Vulkan.CreateSampler(minFilter, magFilter, addressModeU, addressModeV);
     }
@@ -115,7 +134,6 @@ internal sealed class CompositeContext : IGraphicsContext
     {
         Vulkan.CopyBuffer(source, destination, size);
     }
-
 
     public void CopyTexture(ITexture2D source, ITexture2D destination)
     {
@@ -127,13 +145,21 @@ internal sealed class CompositeContext : IGraphicsContext
         Vulkan.CopyTextureToCubeFace(source, destination, faceIndex);
     }
 
-
-    public void CopyTextureToArrayLayer(ITexture2D source, ITextureArray destination, int layerIndex)
+    public void CopyTextureToArrayLayer(
+        ITexture2D source,
+        ITextureArray destination,
+        int layerIndex
+    )
     {
         Vulkan.CopyTextureToArrayLayer(source, destination, layerIndex);
     }
 
-    public void CopyTextureToCubeArrayFace(ITexture2D source, ITextureCubeArray destination, int arrayIndex, int faceIndex)
+    public void CopyTextureToCubeArrayFace(
+        ITexture2D source,
+        ITextureCubeArray destination,
+        int arrayIndex,
+        int faceIndex
+    )
     {
         Vulkan.CopyTextureToCubeArrayFace(source, destination, arrayIndex, faceIndex);
     }
@@ -146,7 +172,8 @@ internal sealed class CompositeContext : IGraphicsContext
 
     public void Dispose()
     {
-        if (_disposed) return;
+        if (_disposed)
+            return;
         _disposed = true;
 
         Vulkan.Dispose();

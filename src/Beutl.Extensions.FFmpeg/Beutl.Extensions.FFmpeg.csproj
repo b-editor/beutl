@@ -1,5 +1,4 @@
 <Project Sdk="Microsoft.NET.Sdk">
-
   <PropertyGroup>
     <RepositoryUrl>https://github.com/b-editor/beutl</RepositoryUrl>
     <Description>FFmpeg for beutl</Description>
@@ -7,10 +6,14 @@
     <Authors>b-editor</Authors>
 
     <FFmpegBuildIn Condition="'$(FFmpegBuildIn)' == ''">True</FFmpegBuildIn>
-    <DefineConstants Condition="'$(FFmpegBuildIn)'=='True'">$(DefineConstants);FFMPEG_BUILD_IN</DefineConstants>
+    <DefineConstants Condition="'$(FFmpegBuildIn)'=='True'"
+      >$(DefineConstants);FFMPEG_BUILD_IN</DefineConstants
+    >
 
     <FFmpegOutOfProcess Condition="'$(FFmpegOutOfProcess)' == ''">True</FFmpegOutOfProcess>
-    <DefineConstants Condition="'$(FFmpegOutOfProcess)'=='True'">$(DefineConstants);FFMPEG_OUT_OF_PROCESS</DefineConstants>
+    <DefineConstants Condition="'$(FFmpegOutOfProcess)'=='True'"
+      >$(DefineConstants);FFMPEG_OUT_OF_PROCESS</DefineConstants
+    >
   </PropertyGroup>
   <PropertyGroup Condition="'$(FFmpegOutOfProcess)'=='True'">
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
@@ -72,5 +75,4 @@
     <EnableDynamicLoading>true</EnableDynamicLoading>
     <OutputPath>$([System.Environment]::GetFolderPath(SpecialFolder.UserProfile))\.beutl\sideloads\$(AssemblyName)</OutputPath>
   </PropertyGroup>
-
 </Project>

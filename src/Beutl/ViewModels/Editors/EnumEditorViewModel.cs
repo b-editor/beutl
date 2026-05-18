@@ -1,6 +1,5 @@
 ﻿using Avalonia;
 using Avalonia.Interactivity;
-
 using Beutl.Controls.PropertyEditors;
 using Reactive.Bindings;
 
@@ -12,7 +11,8 @@ public sealed class EnumEditorViewModel<T> : ValueEditorViewModel<T>
     private readonly T[] _enumValues;
     private readonly EnumItem[] _enumItems;
 
-    public EnumEditorViewModel(IPropertyAdapter<T> property) : base(property)
+    public EnumEditorViewModel(IPropertyAdapter<T> property)
+        : base(property)
     {
         _enumValues = Enum.GetValues<T>();
         _enumItems = Enum.GetNames<T>()
@@ -25,18 +25,17 @@ public sealed class EnumEditorViewModel<T> : ValueEditorViewModel<T>
                     return new EnumItem(
                         TypeDisplayHelpers.GetLocalizedName(t.First),
                         TypeDisplayHelpers.GetLocalizedDescription(t.First),
-                        t.Second);
+                        t.Second
+                    );
                 }
                 else
                 {
-                    return new EnumItem(
-                        t.Second.ToString(),
-                        null,
-                        t.Second);
+                    return new EnumItem(t.Second.ToString(), null, t.Second);
                 }
             })
             .ToArray();
-        SelectedIndex = Value.Select(v => _enumValues.IndexOf(v))
+        SelectedIndex = Value
+            .Select(v => _enumValues.IndexOf(v))
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(Disposables);
     }
@@ -49,9 +48,11 @@ public sealed class EnumEditorViewModel<T> : ValueEditorViewModel<T>
         if (visitor is EnumEditor editor && !Disposables.IsDisposed)
         {
             editor.Items = _enumItems;
-            editor.Bind(EnumEditor.SelectedIndexProperty, SelectedIndex.ToBinding())
+            editor
+                .Bind(EnumEditor.SelectedIndexProperty, SelectedIndex.ToBinding())
                 .DisposeWith(Disposables);
-            editor.AddDisposableHandler(PropertyEditor.ValueConfirmedEvent, OnValueConfirmed)
+            editor
+                .AddDisposableHandler(PropertyEditor.ValueConfirmedEvent, OnValueConfirmed)
                 .DisposeWith(Disposables);
         }
     }

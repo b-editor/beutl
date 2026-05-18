@@ -21,15 +21,15 @@ public sealed class PathEditorTabViewModel : IDisposable, IPathEditorContext, IT
         _clock = editorContext.GetRequiredService<IEditorClock>();
         var player = editorContext.GetRequiredService<IPreviewPlayer>();
 
-        IsPlaying = player.IsPlaying
-            .ToReadOnlyReactiveProperty()
-            .DisposeWith(_disposables);
+        IsPlaying = player.IsPlaying.ToReadOnlyReactiveProperty().DisposeWith(_disposables);
 
-        Context = FigureContext.Select(v => v?.GetParentContext() ?? null)
+        Context = FigureContext
+            .Select(v => v?.GetParentContext() ?? null)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
 
-        Geometry = Context.Select(v => v?.Value ?? Observable.ReturnThenNever<Geometry?>(null))
+        Geometry = Context
+            .Select(v => v?.Value ?? Observable.ReturnThenNever<Geometry?>(null))
             .Switch()
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
@@ -38,35 +38,41 @@ public sealed class PathEditorTabViewModel : IDisposable, IPathEditorContext, IT
             .Select(v => v as PathGeometry)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
-        PathFigure = FigureContext.Select(v => v?.Value ?? Observable.ReturnThenNever<PathFigure?>(null))
+        PathFigure = FigureContext
+            .Select(v => v?.Value ?? Observable.ReturnThenNever<PathFigure?>(null))
             .Switch()
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
-        Element = Context.Select(v => v?.GetService<Element>())
+        Element = Context
+            .Select(v => v?.GetService<Element>())
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
 
         GeometryResource = PathGeometry
             .Select(d =>
                 d?.SubscribeEngineVersionedResource(_clock.CurrentTime, (o, c) => o.ToResource(c))
-                    .Select(t => ((PathGeometry.Resource, int)?)t) ??
-                Observable.ReturnThenNever<(PathGeometry.Resource, int)?>(null))
+                    .Select(t => ((PathGeometry.Resource, int)?)t)
+                ?? Observable.ReturnThenNever<(PathGeometry.Resource, int)?>(null)
+            )
             .Switch()
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
 
-        IsClosed = PathFigure.Select(f => f != null
-                ? f.IsClosed.SubscribeEngineProperty(f, _clock.CurrentTime)
-                : Observable.ReturnThenNever(false))
+        IsClosed = PathFigure
+            .Select(f =>
+                f != null
+                    ? f.IsClosed.SubscribeEngineProperty(f, _clock.CurrentTime)
+                    : Observable.ReturnThenNever(false)
+            )
             .Switch()
             .ToReadOnlyReactiveProperty()
             .DisposeWith(_disposables);
 
-        FigureContext.Subscribe(_ => SelectedOperation.Value = null)
-            .DisposeWith(_disposables);
+        FigureContext.Subscribe(_ => SelectedOperation.Value = null).DisposeWith(_disposables);
 
         // PathFigure の DetachedFromHierarchy を購読し、detach 時に FigureContext をクリア
-        PathFigure.CombineWithPrevious()
+        PathFigure
+            .CombineWithPrevious()
             .Subscribe(v =>
             {
                 if (v.OldValue is IHierarchical old)
@@ -94,7 +100,8 @@ public sealed class PathEditorTabViewModel : IDisposable, IPathEditorContext, IT
 
     public IReadOnlyReactiveProperty<Element?> Element { get; }
 
-    public IReactiveProperty<PathSegment?> SelectedOperation { get; } = new ReactiveProperty<PathSegment?>();
+    public IReactiveProperty<PathSegment?> SelectedOperation { get; } =
+        new ReactiveProperty<PathSegment?>();
 
     public ReadOnlyReactiveProperty<bool> IsClosed { get; }
 
@@ -140,13 +147,9 @@ public sealed class PathEditorTabViewModel : IDisposable, IPathEditorContext, IT
         FigureContext.Value = null;
     }
 
-    public void WriteToJson(JsonObject json)
-    {
-    }
+    public void WriteToJson(JsonObject json) { }
 
-    public void ReadFromJson(JsonObject json)
-    {
-    }
+    public void ReadFromJson(JsonObject json) { }
 
     public object? GetService(Type serviceType)
     {

@@ -36,19 +36,24 @@ internal static class VulkanTestEnvironment
     /// </summary>
     public static void EnsureInitialized()
     {
-        if (s_initialized) return;
+        if (s_initialized)
+            return;
 
         lock (s_lock)
         {
-            if (s_initialized) return;
+            if (s_initialized)
+                return;
 
             try
             {
-                SharedContext = RenderThread.Dispatcher.Invoke(GraphicsContextFactory.GetOrCreateShared)!;
+                SharedContext = RenderThread.Dispatcher.Invoke(
+                    GraphicsContextFactory.GetOrCreateShared
+                )!;
                 if (SharedContext == null)
                 {
                     s_isAvailable = false;
-                    s_unavailableReason = "GraphicsContextFactory.GetOrCreateShared returned null. "
+                    s_unavailableReason =
+                        "GraphicsContextFactory.GetOrCreateShared returned null. "
                         + "Vulkan/MoltenVK が初期化できない環境です。";
                 }
                 else
@@ -59,7 +64,8 @@ internal static class VulkanTestEnvironment
             catch (Exception ex)
             {
                 s_isAvailable = false;
-                s_unavailableReason = $"Vulkan initialization threw: {ex.GetType().Name}: {ex.Message}";
+                s_unavailableReason =
+                    $"Vulkan initialization threw: {ex.GetType().Name}: {ex.Message}";
             }
             finally
             {
@@ -68,9 +74,8 @@ internal static class VulkanTestEnvironment
         }
     }
 
-    public static T InvokeOnRenderThread<T>(Func<T> func)
-        => RenderThread.Dispatcher.Invoke(func);
+    public static T InvokeOnRenderThread<T>(Func<T> func) => RenderThread.Dispatcher.Invoke(func);
 
-    public static void InvokeOnRenderThread(Action action)
-        => RenderThread.Dispatcher.Invoke(action);
+    public static void InvokeOnRenderThread(Action action) =>
+        RenderThread.Dispatcher.Invoke(action);
 }

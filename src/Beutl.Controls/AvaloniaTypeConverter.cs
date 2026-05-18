@@ -29,17 +29,31 @@ public static class AvaloniaTypeConverter
     public static Matrix ToAvaMatrix(this in Graphics.Matrix matrix)
     {
         return new Matrix(
-            matrix.M11, matrix.M12, matrix.M13,
-            matrix.M21, matrix.M22, matrix.M23,
-            matrix.M31, matrix.M32, matrix.M33);
+            matrix.M11,
+            matrix.M12,
+            matrix.M13,
+            matrix.M21,
+            matrix.M22,
+            matrix.M23,
+            matrix.M31,
+            matrix.M32,
+            matrix.M33
+        );
     }
 
     public static Graphics.Matrix ToBtlMatrix(this in Matrix matrix)
     {
         return new Graphics.Matrix(
-            (float)matrix.M11, (float)matrix.M12, (float)matrix.M13,
-            (float)matrix.M21, (float)matrix.M22, (float)matrix.M23,
-            (float)matrix.M31, (float)matrix.M32, (float)matrix.M33);
+            (float)matrix.M11,
+            (float)matrix.M12,
+            (float)matrix.M13,
+            (float)matrix.M21,
+            (float)matrix.M22,
+            (float)matrix.M23,
+            (float)matrix.M31,
+            (float)matrix.M32,
+            (float)matrix.M33
+        );
     }
 
     public static Point ToAvaPoint(this in Graphics.Point point)
@@ -89,7 +103,12 @@ public static class AvaloniaTypeConverter
 
     public static Graphics.Rect ToBtlRect(this in Rect rect)
     {
-        return new Graphics.Rect((float)rect.X, (float)rect.Y, (float)rect.Width, (float)rect.Height);
+        return new Graphics.Rect(
+            (float)rect.X,
+            (float)rect.Y,
+            (float)rect.Width,
+            (float)rect.Height
+        );
     }
 
     public static PixelRect ToAvaPixelRect(this in Media.PixelRect rect)
@@ -109,7 +128,8 @@ public static class AvaloniaTypeConverter
             pt.Point.Y,
             pt.Unit == Graphics.RelativeUnit.Relative
                 ? RelativeUnit.Relative
-                : RelativeUnit.Absolute);
+                : RelativeUnit.Absolute
+        );
     }
 
     public static PixelFormat? ToAvaPixelFormat(this BitmapColorType colorType)
@@ -120,7 +140,7 @@ public static class AvaloniaTypeConverter
             BitmapColorType.Rgba8888 => PixelFormats.Rgba8888,
             BitmapColorType.Rgb565 => PixelFormats.Rgb565,
             BitmapColorType.Gray8 => PixelFormats.Gray8,
-            _ => null
+            _ => null,
         };
     }
 
@@ -130,11 +150,14 @@ public static class AvaloniaTypeConverter
         {
             BitmapAlphaType.Premul => AlphaFormat.Premul,
             BitmapAlphaType.Unpremul => AlphaFormat.Unpremul,
-            _ => null
+            _ => null,
         };
     }
 
-    private static unsafe void CopyBitmapToFramebuffer(Media.Bitmap bitmap, ILockedFramebuffer locked)
+    private static unsafe void CopyBitmapToFramebuffer(
+        Media.Bitmap bitmap,
+        ILockedFramebuffer locked
+    )
     {
         int srcRowBytes = bitmap.RowBytes;
         int dstRowBytes = locked.RowBytes;
@@ -142,7 +165,12 @@ public static class AvaloniaTypeConverter
 
         if (srcRowBytes == dstRowBytes)
         {
-            Buffer.MemoryCopy((void*)bitmap.Data, (void*)locked.Address, bitmap.ByteCount, bitmap.ByteCount);
+            Buffer.MemoryCopy(
+                (void*)bitmap.Data,
+                (void*)locked.Address,
+                bitmap.ByteCount,
+                bitmap.ByteCount
+            );
         }
         else
         {
@@ -150,26 +178,40 @@ public static class AvaloniaTypeConverter
             byte* dst = (byte*)locked.Address;
             for (int y = 0; y < bitmap.Height; y++)
             {
-                Buffer.MemoryCopy(src + (long)y * srcRowBytes, dst + (long)y * dstRowBytes, copyBytes, copyBytes);
+                Buffer.MemoryCopy(
+                    src + (long)y * srcRowBytes,
+                    dst + (long)y * dstRowBytes,
+                    copyBytes,
+                    copyBytes
+                );
             }
         }
     }
 
-    public static unsafe WriteableBitmap ToAvaWriteableBitmap(this Media.Bitmap bitmap, WriteableBitmap previous = null)
+    public static unsafe WriteableBitmap ToAvaWriteableBitmap(
+        this Media.Bitmap bitmap,
+        WriteableBitmap previous = null
+    )
     {
         var pixelFormat = bitmap.ColorType.ToAvaPixelFormat();
         var alphaFormat = bitmap.AlphaType.ToAvaAlphaFormat();
         if (pixelFormat == null || alphaFormat == null)
         {
-            using var converted = bitmap.Convert(BitmapColorType.Bgra8888, BitmapAlphaType.Premul, BitmapColorSpace.Srgb);
+            using var converted = bitmap.Convert(
+                BitmapColorType.Bgra8888,
+                BitmapAlphaType.Premul,
+                BitmapColorSpace.Srgb
+            );
             return converted.ToAvaWriteableBitmap(previous);
         }
 
-        if (previous != null &&
-            previous.PixelSize.Width == bitmap.Width &&
-            previous.PixelSize.Height == bitmap.Height &&
-            previous.Format == pixelFormat &&
-            previous.AlphaFormat == alphaFormat)
+        if (
+            previous != null
+            && previous.PixelSize.Width == bitmap.Width
+            && previous.PixelSize.Height == bitmap.Height
+            && previous.Format == pixelFormat
+            && previous.AlphaFormat == alphaFormat
+        )
         {
             using var locked = previous.Lock();
             CopyBitmapToFramebuffer(bitmap, locked);
@@ -178,7 +220,12 @@ public static class AvaloniaTypeConverter
         else
         {
             var pixelSize = new PixelSize(bitmap.Width, bitmap.Height);
-            var writeableBitmap = new WriteableBitmap(pixelSize, new Vector(96, 96), pixelFormat, alphaFormat);
+            var writeableBitmap = new WriteableBitmap(
+                pixelSize,
+                new Vector(96, 96),
+                pixelFormat,
+                alphaFormat
+            );
 
             using (var locked = writeableBitmap.Lock())
             {

@@ -5,8 +5,10 @@ using Windows.Win32.Media.MediaFoundation;
 
 #if MF_BUILD_IN
 namespace Beutl.Embedding.MediaFoundation.Decoding;
+
 #else
 namespace Beutl.Extensions.MediaFoundation.Decoding;
+
 #endif
 
 internal struct MFMediaInfo
@@ -15,7 +17,7 @@ internal struct MFMediaInfo
     public int AudioStreamIndex; // -1 で音声は存在しない
 
     public MFRatio Fps;
-    public long HnsDuration;    // 100ns units
+    public long HnsDuration; // 100ns units
     public int TotalFrameCount;
     public BitmapInfoHeader ImageFormat;
     public int OutImageBufferSize;
@@ -23,7 +25,6 @@ internal struct MFMediaInfo
 
     public int TotalAudioSampleCount;
     public WaveFormat AudioFormat;
-
 
     public readonly string GetMediaInfoText()
     {

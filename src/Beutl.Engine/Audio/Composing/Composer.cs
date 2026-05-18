@@ -99,8 +99,14 @@ public class Composer : IComposer
         // Process each context
         foreach (var item in _currentEntry)
         {
-            if (item.OutputNodes is not { } outputNodes) continue;
-            var processContext = new AudioProcessContext(range, SampleRate, _animationSampler, range);
+            if (item.OutputNodes is not { } outputNodes)
+                continue;
+            var processContext = new AudioProcessContext(
+                range,
+                SampleRate,
+                _animationSampler,
+                range
+            );
             foreach (var outputNode in outputNodes)
             {
                 buffers.Add(outputNode.Process(processContext));
@@ -118,7 +124,11 @@ public class Composer : IComposer
 
         if (mixedBuffer == null)
         {
-            return new AudioBuffer(SampleRate, 2, AudioProcessContext.GetSampleCount(range, SampleRate));
+            return new AudioBuffer(
+                SampleRate,
+                2,
+                AudioProcessContext.GetSampleCount(range, SampleRate)
+            );
         }
 
         // Apply master effects
@@ -134,7 +144,11 @@ public class Composer : IComposer
             return null;
 
         var firstBuffer = buffers[0];
-        var mixedBuffer = new AudioBuffer(firstBuffer.SampleRate, firstBuffer.ChannelCount, firstBuffer.SampleCount);
+        var mixedBuffer = new AudioBuffer(
+            firstBuffer.SampleRate,
+            firstBuffer.ChannelCount,
+            firstBuffer.SampleCount
+        );
 
         // Mix all buffers
         for (int ch = 0; ch < mixedBuffer.ChannelCount; ch++)

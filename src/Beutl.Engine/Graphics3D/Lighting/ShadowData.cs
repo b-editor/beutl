@@ -21,7 +21,7 @@ public enum ShadowType : int
     /// <summary>
     /// Cube shadow map (for point lights).
     /// </summary>
-    Cube = 2
+    Cube = 2,
 }
 
 /// <summary>
@@ -34,52 +34,52 @@ public struct ShadowInfo
     /// <summary>
     /// Light view-projection matrix for 2D shadow mapping.
     /// </summary>
-    public Matrix4x4 LightViewProjection;  // 64 bytes, offset 0
+    public Matrix4x4 LightViewProjection; // 64 bytes, offset 0
 
     /// <summary>
     /// Light position for point light shadows.
     /// </summary>
-    public Vector3 LightPosition;          // 12 bytes, offset 64
+    public Vector3 LightPosition; // 12 bytes, offset 64
 
     /// <summary>
     /// Far plane distance for point light shadows.
     /// </summary>
-    public float FarPlane;                 // 4 bytes, offset 76
+    public float FarPlane; // 4 bytes, offset 76
 
     /// <summary>
     /// Depth bias to prevent shadow acne.
     /// </summary>
-    public float Bias;                     // 4 bytes, offset 80
+    public float Bias; // 4 bytes, offset 80
 
     /// <summary>
     /// Normal bias to prevent shadow acne on surfaces facing away from light.
     /// </summary>
-    public float NormalBias;               // 4 bytes, offset 84
+    public float NormalBias; // 4 bytes, offset 84
 
     /// <summary>
     /// Index into the shadow map array (-1 = no shadow).
     /// </summary>
-    public int ShadowMapIndex;             // 4 bytes, offset 88
+    public int ShadowMapIndex; // 4 bytes, offset 88
 
     /// <summary>
     /// Type of shadow mapping used.
     /// </summary>
-    public int ShadowType;                 // 4 bytes, offset 92
+    public int ShadowType; // 4 bytes, offset 92
 
     /// <summary>
     /// Shadow strength (0 = no shadow, 1 = full shadow).
     /// </summary>
-    public float ShadowStrength;           // 4 bytes, offset 96
+    public float ShadowStrength; // 4 bytes, offset 96
 
     // Padding to align struct to 128 bytes (GLSL std140 requires struct arrays
     // to have elements aligned to 16 bytes, and vec3 requires 16-byte alignment)
-    private float _pad1;                   // 4 bytes, offset 100
-    private float _pad2;                   // 4 bytes, offset 104
-    private float _pad3;                   // 4 bytes, offset 108
-    private float _pad4;                   // 4 bytes, offset 112
-    private float _pad5;                   // 4 bytes, offset 116
-    private float _pad6;                   // 4 bytes, offset 120
-    private float _pad7;                   // 4 bytes, offset 124
+    private float _pad1; // 4 bytes, offset 100
+    private float _pad2; // 4 bytes, offset 104
+    private float _pad3; // 4 bytes, offset 108
+    private float _pad4; // 4 bytes, offset 112
+    private float _pad5; // 4 bytes, offset 116
+    private float _pad6; // 4 bytes, offset 120
+    private float _pad7; // 4 bytes, offset 124
     // Total: 128 bytes
 }
 
@@ -129,31 +129,49 @@ public struct ShadowInfoArray
 
     public ShadowInfo this[int index]
     {
-        readonly get => index switch
-        {
-            0 => Shadow0,
-            1 => Shadow1,
-            2 => Shadow2,
-            3 => Shadow3,
-            4 => Shadow4,
-            5 => Shadow5,
-            6 => Shadow6,
-            7 => Shadow7,
-            _ => throw new ArgumentOutOfRangeException(nameof(index))
-        };
+        readonly get =>
+            index switch
+            {
+                0 => Shadow0,
+                1 => Shadow1,
+                2 => Shadow2,
+                3 => Shadow3,
+                4 => Shadow4,
+                5 => Shadow5,
+                6 => Shadow6,
+                7 => Shadow7,
+                _ => throw new ArgumentOutOfRangeException(nameof(index)),
+            };
         set
         {
             switch (index)
             {
-                case 0: Shadow0 = value; break;
-                case 1: Shadow1 = value; break;
-                case 2: Shadow2 = value; break;
-                case 3: Shadow3 = value; break;
-                case 4: Shadow4 = value; break;
-                case 5: Shadow5 = value; break;
-                case 6: Shadow6 = value; break;
-                case 7: Shadow7 = value; break;
-                default: throw new ArgumentOutOfRangeException(nameof(index));
+                case 0:
+                    Shadow0 = value;
+                    break;
+                case 1:
+                    Shadow1 = value;
+                    break;
+                case 2:
+                    Shadow2 = value;
+                    break;
+                case 3:
+                    Shadow3 = value;
+                    break;
+                case 4:
+                    Shadow4 = value;
+                    break;
+                case 5:
+                    Shadow5 = value;
+                    break;
+                case 6:
+                    Shadow6 = value;
+                    break;
+                case 7:
+                    Shadow7 = value;
+                    break;
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(index));
             }
         }
     }

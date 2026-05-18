@@ -25,7 +25,8 @@ public sealed class ParsableEditorViewModel<T> : BaseEditorViewModel<T>, IParsab
     public ParsableEditorViewModel(IPropertyAdapter<T> property)
         : base(property)
     {
-        Value = property.GetObservable()
+        Value = property
+            .GetObservable()
             .Select(x => x?.ToString() ?? "")
             .ToReadOnlyReactiveProperty()
             .DisposeWith(Disposables)!;

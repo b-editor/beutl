@@ -28,7 +28,12 @@ internal static unsafe class VulkanSurfaceHelper
 {
     private static readonly ILogger s_logger = Log.CreateLogger(typeof(VulkanSurfaceHelper));
 
-    public static VulkanSurfaceInfo CreateSurface(Vk vk, Instance instance, IntPtr nativeHandle, string handleDescriptor)
+    public static VulkanSurfaceInfo CreateSurface(
+        Vk vk,
+        Instance instance,
+        IntPtr nativeHandle,
+        string handleDescriptor
+    )
     {
         if (OperatingSystem.IsWindows())
             return new VulkanSurfaceInfo(CreateWin32Surface(vk, instance, nativeHandle));
@@ -39,7 +44,9 @@ internal static unsafe class VulkanSurfaceHelper
         if (OperatingSystem.IsLinux())
             return CreateXlibSurface(vk, instance, nativeHandle);
 
-        throw new PlatformNotSupportedException($"Vulkan surface creation is not supported on this platform");
+        throw new PlatformNotSupportedException(
+            $"Vulkan surface creation is not supported on this platform"
+        );
     }
 
     public static void DestroySurface(Vk vk, Instance instance, VulkanSurfaceInfo surfaceInfo)
@@ -74,7 +81,7 @@ internal static unsafe class VulkanSurfaceHelper
         {
             SType = StructureType.Win32SurfaceCreateInfoKhr,
             Hinstance = hinstance,
-            Hwnd = hwnd
+            Hwnd = hwnd,
         };
 
         SurfaceKHR surface;
@@ -99,7 +106,7 @@ internal static unsafe class VulkanSurfaceHelper
         var createInfo = new MetalSurfaceCreateInfoEXT
         {
             SType = StructureType.MetalSurfaceCreateInfoExt,
-            PLayer = (nint*)metalLayer
+            PLayer = (nint*)metalLayer,
         };
 
         SurfaceKHR surface;
@@ -124,7 +131,7 @@ internal static unsafe class VulkanSurfaceHelper
         {
             SType = StructureType.XlibSurfaceCreateInfoKhr,
             Dpy = (nint*)display,
-            Window = (nint)xWindow
+            Window = (nint)xWindow,
         };
 
         SurfaceKHR surface;
@@ -163,7 +170,8 @@ internal static unsafe class VulkanSurfaceHelper
 
         // Set colorspace to extended linear sRGB
         var colorSpaceName = CGColorSpaceCreateWithName(
-            CoreFoundationString("kCGColorSpaceExtendedLinearSRGB"));
+            CoreFoundationString("kCGColorSpaceExtendedLinearSRGB")
+        );
         if (colorSpaceName != IntPtr.Zero)
         {
             var setColorspaceSel = sel_getUid("setColorspace:");
@@ -185,7 +193,11 @@ internal static unsafe class VulkanSurfaceHelper
 
     private static IntPtr CoreFoundationString(string value)
     {
-        return CFStringCreateWithCString(IntPtr.Zero, value, 0x08000100 /* kCFStringEncodingUTF8 */);
+        return CFStringCreateWithCString(
+            IntPtr.Zero,
+            value,
+            0x08000100 /* kCFStringEncodingUTF8 */
+        );
     }
 
     [DllImport("/usr/lib/libobjc.dylib")]
@@ -204,7 +216,11 @@ internal static unsafe class VulkanSurfaceHelper
     private static extern void objc_msgSend_nuint(IntPtr receiver, IntPtr selector, nuint value);
 
     [DllImport("/usr/lib/libobjc.dylib", EntryPoint = "objc_msgSend")]
-    private static extern IntPtr objc_msgSend_IntPtr_arg(IntPtr receiver, IntPtr selector, IntPtr arg);
+    private static extern IntPtr objc_msgSend_IntPtr_arg(
+        IntPtr receiver,
+        IntPtr selector,
+        IntPtr arg
+    );
 
     [DllImport("/System/Library/Frameworks/CoreGraphics.framework/CoreGraphics")]
     private static extern IntPtr CGColorSpaceCreateWithName(IntPtr name);
@@ -213,7 +229,11 @@ internal static unsafe class VulkanSurfaceHelper
     private static extern void CGColorSpaceRelease(IntPtr colorSpace);
 
     [DllImport("/System/Library/Frameworks/CoreFoundation.framework/CoreFoundation")]
-    private static extern IntPtr CFStringCreateWithCString(IntPtr allocator, string cStr, uint encoding);
+    private static extern IntPtr CFStringCreateWithCString(
+        IntPtr allocator,
+        string cStr,
+        uint encoding
+    );
 
     #endregion
 

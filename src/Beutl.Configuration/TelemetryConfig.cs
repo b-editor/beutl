@@ -15,15 +15,21 @@ public sealed class TelemetryConfig : ConfigurationBase
             .DefaultValue(null)
             .Register();
 
-        Beutl_ApplicationProperty = ConfigureProperty<bool?, TelemetryConfig>(nameof(Beutl_Application))
+        Beutl_ApplicationProperty = ConfigureProperty<bool?, TelemetryConfig>(
+                nameof(Beutl_Application)
+            )
             .DefaultValue(null)
             .Register();
 
-        Beutl_PackageManagementProperty = ConfigureProperty<bool?, TelemetryConfig>(nameof(Beutl_PackageManagement))
+        Beutl_PackageManagementProperty = ConfigureProperty<bool?, TelemetryConfig>(
+                nameof(Beutl_PackageManagement)
+            )
             .DefaultValue(null)
             .Register();
 
-        Beutl_Api_ClientProperty = ConfigureProperty<bool?, TelemetryConfig>(nameof(Beutl_Api_Client))
+        Beutl_Api_ClientProperty = ConfigureProperty<bool?, TelemetryConfig>(
+                nameof(Beutl_Api_Client)
+            )
             .DefaultValue(null)
             .Register();
     }

@@ -1,9 +1,7 @@
 ﻿using System.Diagnostics.CodeAnalysis;
 using System.Text.Json.Nodes;
-
 using Avalonia.Controls;
 using Avalonia.Layout;
-
 using Beutl.Extensibility;
 using Reactive.Bindings;
 
@@ -21,7 +19,10 @@ public sealed class SampleToolTabExtension : ToolTabExtension
 
     public override string Header => "Sample tab";
 
-    public override bool TryCreateContent(IEditorContext editorContext, [NotNullWhen(true)] out Control? control)
+    public override bool TryCreateContent(
+        IEditorContext editorContext,
+        [NotNullWhen(true)] out Control? control
+    )
     {
         control = new TextBlock()
         {
@@ -32,7 +33,10 @@ public sealed class SampleToolTabExtension : ToolTabExtension
         return true;
     }
 
-    public override bool TryCreateContext(IEditorContext editorContext, [NotNullWhen(true)] out IToolContext? context)
+    public override bool TryCreateContext(
+        IEditorContext editorContext,
+        [NotNullWhen(true)] out IToolContext? context
+    )
     {
         context = new Context(this);
         return true;
@@ -46,21 +50,15 @@ public sealed class SampleToolTabExtension : ToolTabExtension
 
         public string Header => "Sample tab";
 
-        public void Dispose()
-        {
-        }
+        public void Dispose() { }
 
         public object? GetService(Type serviceType)
         {
             return null;
         }
 
-        public void ReadFromJson(JsonObject json)
-        {
-        }
+        public void ReadFromJson(JsonObject json) { }
 
-        public void WriteToJson(JsonObject json)
-        {
-        }
+        public void WriteToJson(JsonObject json) { }
     }
 }

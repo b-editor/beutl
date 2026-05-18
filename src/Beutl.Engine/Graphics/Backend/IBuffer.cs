@@ -17,7 +17,8 @@ public interface IBuffer : IDisposable
     /// </summary>
     /// <typeparam name="T">The type of data to upload.</typeparam>
     /// <param name="data">The data to upload.</param>
-    void Upload<T>(ReadOnlySpan<T> data) where T : unmanaged;
+    void Upload<T>(ReadOnlySpan<T> data)
+        where T : unmanaged;
 
     /// <summary>
     /// Maps the buffer memory for CPU access.

@@ -1,13 +1,16 @@
 ﻿using System.Text.Json;
 using System.Text.Json.Serialization;
-
 using Beutl.Media;
 
 namespace Beutl.Converters;
 
 internal sealed class TypefaceJsonConverter : JsonConverter<Typeface>
 {
-    public override Typeface Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    public override Typeface Read(
+        ref Utf8JsonReader reader,
+        Type typeToConvert,
+        JsonSerializerOptions options
+    )
     {
         if (reader.TokenType != JsonTokenType.StartObject)
             throw new Exception("Invalid Typeface.");

@@ -10,7 +10,7 @@ public sealed class WellKnownSizesProvider : IChoicesProvider
     [
         new("WQHD", new(2560, 1440)),
         new("Full HD", new(1920, 1080)),
-        new("HD", new(1280, 720))
+        new("HD", new(1280, 720)),
     ];
 
     public static void AddChoice(string name, PixelSize size)

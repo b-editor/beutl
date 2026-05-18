@@ -17,9 +17,19 @@ public interface ICanvas : IDisposable, IPopable
 
     void DrawImageSource(ImageSource.Resource source, Brush.Resource? fill, Pen.Resource? pen);
 
-    void DrawVideoSource(VideoSource.Resource source, TimeSpan frame, Brush.Resource? fill, Pen.Resource? pen);
+    void DrawVideoSource(
+        VideoSource.Resource source,
+        TimeSpan frame,
+        Brush.Resource? fill,
+        Pen.Resource? pen
+    );
 
-    void DrawVideoSource(VideoSource.Resource source, int frame, Brush.Resource? fill, Pen.Resource? pen);
+    void DrawVideoSource(
+        VideoSource.Resource source,
+        int frame,
+        Brush.Resource? fill,
+        Pen.Resource? pen
+    );
 
     void DrawEllipse(Rect rect, Brush.Resource? fill, Pen.Resource? pen);
 
@@ -43,7 +53,10 @@ public interface ICanvas : IDisposable, IPopable
 
     PushedState PushClip(Rect clip, ClipOperation operation = ClipOperation.Intersect);
 
-    PushedState PushClip(Geometry.Resource geometry, ClipOperation operation = ClipOperation.Intersect);
+    PushedState PushClip(
+        Geometry.Resource geometry,
+        ClipOperation operation = ClipOperation.Intersect
+    );
 
     PushedState PushOpacity(float opacity);
 
@@ -51,7 +64,10 @@ public interface ICanvas : IDisposable, IPopable
 
     PushedState PushBlendMode(BlendMode blendMode);
 
-    PushedState PushTransform(Matrix matrix, TransformOperator transformOperator = TransformOperator.Prepend);
+    PushedState PushTransform(
+        Matrix matrix,
+        TransformOperator transformOperator = TransformOperator.Prepend
+    );
 }
 
 public enum TransformOperator
@@ -60,7 +76,7 @@ public enum TransformOperator
 
     Append,
 
-    Set
+    Set,
 }
 
 public interface IBackdrop

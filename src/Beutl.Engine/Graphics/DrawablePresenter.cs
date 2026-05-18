@@ -22,9 +22,7 @@ public sealed partial class DrawablePresenter : Drawable, IPresenter<Drawable>
         r.Target?.GetOriginal().Render(context, r.Target);
     }
 
-    protected override void OnDraw(GraphicsContext2D context, Drawable.Resource resource)
-    {
-    }
+    protected override void OnDraw(GraphicsContext2D context, Drawable.Resource resource) { }
 
     protected override Size MeasureCore(Size availableSize, Drawable.Resource resource)
     {

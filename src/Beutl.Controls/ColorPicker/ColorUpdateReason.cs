@@ -23,7 +23,7 @@ public enum ColorUpdateReason
     Spectrum,
 
     /// <summary>
-    /// The color change was caused by interaction with the third component slider of the 
+    /// The color change was caused by interaction with the third component slider of the
     /// ColorSpectrum
     /// </summary>
     ThirdComponent,
@@ -96,7 +96,7 @@ public enum ColorUpdateReason
     /// <summary>
     /// The Color change was caused by interaction with the alpha ramp in the text entry area
     /// </summary>
-    AlphaRamp,//Part of text entry area
+    AlphaRamp, //Part of text entry area
 
     /// <summary>
     /// The Color change was caused by interaction with the Alpha TextBox
@@ -106,5 +106,5 @@ public enum ColorUpdateReason
     /// <summary>
     /// The Color change was caused by interaction with the Hex/RGB input TextBox
     /// </summary>
-    HexBox
+    HexBox,
 }

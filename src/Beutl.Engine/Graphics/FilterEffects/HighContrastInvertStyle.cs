@@ -4,5 +4,5 @@ public enum HighContrastInvertStyle
 {
     NoInvert = 0,
     InvertBrightness = 1,
-    InvertLightness = 2
+    InvertLightness = 2,
 }

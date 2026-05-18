@@ -21,9 +21,7 @@ public class UpdateNodeMemberOperationTests
     }
 
     [TearDown]
-    public void TearDown()
-    {
-    }
+    public void TearDown() { }
 
     #region Helper Classes
 
@@ -54,12 +52,11 @@ public class UpdateNodeMemberOperationTests
     private sealed class TestChangeOperation : ChangeOperation
     {
         public override void Apply(OperationExecutionContext context) { }
+
         public override void Revert(OperationExecutionContext context) { }
     }
 
-    private sealed class TestCoreObject : CoreObject
-    {
-    }
+    private sealed class TestCoreObject : CoreObject { }
 
     #endregion
 
@@ -69,11 +66,12 @@ public class UpdateNodeMemberOperationTests
         INodeMember nodeMember,
         string propertyPath,
         object? newValue,
-        object? oldValue)
+        object? oldValue
+    )
     {
         return new UpdateNodeMemberOperation(nodeMember, propertyPath, newValue, oldValue)
         {
-            SequenceNumber = _sequenceGenerator.GetNext()
+            SequenceNumber = _sequenceGenerator.GetNext(),
         };
     }
 

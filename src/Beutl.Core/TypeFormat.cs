@@ -1,6 +1,5 @@
 ﻿using System.Reflection;
 using System.Text;
-
 using Beutl.JsonDiscriminator;
 
 namespace Beutl
@@ -96,7 +95,10 @@ namespace Beutl
             private Assembly? _assembly;
             private string? _namespace;
 
-            public TypeNameParser(List<Token> tokens, Func<string, Assembly?>? assemblyResolver = null)
+            public TypeNameParser(
+                List<Token> tokens,
+                Func<string, Assembly?>? assemblyResolver = null
+            )
             {
                 _tokens = tokens;
                 _assemblyResolver = assemblyResolver ?? DefaultAssemblyResolver;
@@ -105,15 +107,21 @@ namespace Beutl
             private static Assembly? DefaultAssemblyResolver(string s)
             {
                 //AssemblyLoadContext.Default.Assemblies
-                return AppDomain.CurrentDomain.GetAssemblies().FirstOrDefault(x => x.GetName().Name == s);
+                return AppDomain
+                    .CurrentDomain.GetAssemblies()
+                    .FirstOrDefault(x => x.GetName().Name == s);
             }
 
             public Type? Parse()
             {
                 Token[] asmTokens = TakeAssemblyTokens(_tokens).ToArray();
-                _assemblyName = string.Concat(asmTokens
-                    .Where(x => x.Type is not (TokenType.BeginAssembly or TokenType.EndAssembly))
-                    .Select(x => x.Text));
+                _assemblyName = string.Concat(
+                    asmTokens
+                        .Where(x =>
+                            x.Type is not (TokenType.BeginAssembly or TokenType.EndAssembly)
+                        )
+                        .Select(x => x.Text)
+                );
                 _assembly = _assemblyResolver(_assemblyName);
 
                 Token[] nsTokens = TakeNamespaceTokens(_tokens.Skip(asmTokens.Length)).ToArray();
@@ -138,7 +146,13 @@ namespace Beutl
             {
                 foreach (Token item in tokens)
                 {
-                    if (item.Type is TokenType.BeginAssembly or TokenType.EndAssembly or TokenType.Part or TokenType.Period)
+                    if (
+                        item.Type
+                        is TokenType.BeginAssembly
+                            or TokenType.EndAssembly
+                            or TokenType.Part
+                            or TokenType.Period
+                    )
                     {
                         yield return item;
                         if (item.Type is TokenType.EndAssembly)
@@ -190,11 +204,12 @@ namespace Beutl
 
                 if (tokens.Length >= 2)
                 {
-                    if (tokens[^1].Type == TokenType.Colon
-                        && tokens[^2] is { Text: "global" })
+                    if (tokens[^1].Type == TokenType.Colon && tokens[^2] is { Text: "global" })
                     {
                         if (tokens.Length > 2)
-                            throw new InvalidOperationException($"Invalid Tokens: {ConcatTokens(tokens)}");
+                            throw new InvalidOperationException(
+                                $"Invalid Tokens: {ConcatTokens(tokens)}"
+                            );
 
                         return null;
                     }
@@ -207,7 +222,10 @@ namespace Beutl
                 return ConcatTokens(tokens);
             }
 
-            private static void TakeGenericArguments(Span<Token> tokens, out Span<Token> genericArgs)
+            private static void TakeGenericArguments(
+                Span<Token> tokens,
+                out Span<Token> genericArgs
+            )
             {
                 // リストパターンにするとNestedTypeの親にGeneric引数がある場合、壊れる
                 if (tokens[^1].Type == TokenType.EndGenericArguments)
@@ -239,7 +257,9 @@ namespace Beutl
                     }
 
                     if (genericRange.Start.IsFromEnd)
-                        throw new InvalidOperationException($"Invalid Tokens: {ConcatTokens(tokens)}");
+                        throw new InvalidOperationException(
+                            $"Invalid Tokens: {ConcatTokens(tokens)}"
+                        );
 
                     genericArgs = tokens[genericRange];
                 }
@@ -256,11 +276,18 @@ namespace Beutl
 
                 var list = new List<Type?>();
 
-                if (tokens is [{ Type: TokenType.BeginGenericArguments }, .. var generics, { Type: TokenType.EndGenericArguments }])
+                if (
+                    tokens
+                    is [
+                        { Type: TokenType.BeginGenericArguments },
+                        .. var generics,
+                        { Type: TokenType.EndGenericArguments },
+                    ]
+                )
                 {
                     int start = 0;
                     int innerGenericCount = 0;
-                    for (int i = 0; i < generics.Length;)
+                    for (int i = 0; i < generics.Length; )
                     {
                         Token item = generics[i];
                         TokenType type = item.Type;
@@ -273,7 +300,10 @@ namespace Beutl
                             innerGenericCount--;
                         }
 
-                        if (++i == generics.Length || (innerGenericCount == 0 && item.Type is TokenType.Comma))
+                        if (
+                            ++i == generics.Length
+                            || (innerGenericCount == 0 && item.Type is TokenType.Comma)
+                        )
                         {
                             Span<Token> genericType = generics[start..i];
                             var parser = new TypeNameParser([.. genericType]);
@@ -289,13 +319,24 @@ namespace Beutl
             }
 
             // ":List<[System.Runtime]:Int32>"を解析
-            private static string TakeTypeNameTokens(Span<Token> tokens, out Span<Token> genericTokens, out Span<Token> parents)
+            private static string TakeTypeNameTokens(
+                Span<Token> tokens,
+                out Span<Token> genericTokens,
+                out Span<Token> parents
+            )
             {
                 TakeGenericArguments(tokens, out genericTokens);
 
                 Span<Token> nokoriToken = tokens.Slice(0, tokens.Length - genericTokens.Length);
 
-                if (nokoriToken is [.. var parentTokens, { Type: TokenType.Colon }, { Type: TokenType.Part, Text: string typeName }])
+                if (
+                    nokoriToken
+                    is [
+                        .. var parentTokens,
+                        { Type: TokenType.Colon },
+                        { Type: TokenType.Part, Text: string typeName },
+                    ]
+                )
                 {
                     parents = parentTokens;
                     return typeName;
@@ -308,7 +349,11 @@ namespace Beutl
 
             private Type? ParseNestedType(Span<Token> tokens)
             {
-                string typeName = TakeTypeNameTokens(tokens, out Span<Token> genericTokens, out Span<Token> parents);
+                string typeName = TakeTypeNameTokens(
+                    tokens,
+                    out Span<Token> genericTokens,
+                    out Span<Token> parents
+                );
                 Type[] genericArgs = ParseGenericTypes(genericTokens);
                 string suffix = genericArgs.Length > 0 ? $"`{genericArgs.Length}" : "";
 
@@ -316,7 +361,11 @@ namespace Beutl
                 if (parents.Length != 0)
                 {
                     Type? parent = ParseNestedType(parents);
-                    const BindingFlags flags = BindingFlags.Instance | BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic;
+                    const BindingFlags flags =
+                        BindingFlags.Instance
+                        | BindingFlags.Static
+                        | BindingFlags.Public
+                        | BindingFlags.NonPublic;
                     type = parent?.GetNestedType($"{typeName}{suffix}", flags)!;
                 }
                 else
@@ -379,7 +428,7 @@ namespace Beutl
             {
                 sb.Append('<');
                 Type[] array = type.GetGenericArguments();
-                for (int i = 0; i < array.Length;)
+                for (int i = 0; i < array.Length; )
                 {
                     Type? item = array[i];
                     var formatter = new TypeNameFormatter(item);

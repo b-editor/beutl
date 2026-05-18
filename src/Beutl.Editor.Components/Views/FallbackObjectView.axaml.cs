@@ -3,11 +3,9 @@ using Avalonia.Animation;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Interactivity;
-
 using Beutl.Editor.Services;
 using Beutl.Logging;
 using Beutl.Services;
-
 using Microsoft.Extensions.Logging;
 
 namespace Beutl.Editor.Components.Views;
@@ -25,7 +23,8 @@ public partial class FallbackObjectView : UserControl
     public FallbackObjectView()
     {
         InitializeComponent();
-        editJsonToggle.GetObservable(ToggleButton.IsCheckedProperty)
+        editJsonToggle
+            .GetObservable(ToggleButton.IsCheckedProperty)
             .Subscribe(v =>
             {
                 _lastTransitionCts?.Cancel();
@@ -71,17 +70,25 @@ public partial class FallbackObjectView : UserControl
 
     private async void Show(CancellationToken cts)
     {
-        if (DataContext is IFallbackObjectViewModel viewModel
-            && _textBindingRevoker == null)
+        if (DataContext is IFallbackObjectViewModel viewModel && _textBindingRevoker == null)
         {
-            _textBindingRevoker = jsonTextBox.Bind(TextBox.TextProperty, viewModel.GetJsonString().ToBinding());
+            _textBindingRevoker = jsonTextBox.Bind(
+                TextBox.TextProperty,
+                viewModel.GetJsonString().ToBinding()
+            );
         }
 
-        await Task.WhenAll(s_transition.Start(null, jsonSaveButton, cts), s_transition.Start(null, jsonTextBox, cts));
+        await Task.WhenAll(
+            s_transition.Start(null, jsonSaveButton, cts),
+            s_transition.Start(null, jsonTextBox, cts)
+        );
     }
 
     private async void Hide(CancellationToken cts)
     {
-        await Task.WhenAll(s_transition.Start(jsonSaveButton, null, cts), s_transition.Start(jsonTextBox, null, cts));
+        await Task.WhenAll(
+            s_transition.Start(jsonSaveButton, null, cts),
+            s_transition.Start(jsonTextBox, null, cts)
+        );
     }
 }

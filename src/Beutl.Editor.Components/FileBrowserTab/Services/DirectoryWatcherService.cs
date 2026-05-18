@@ -33,9 +33,10 @@ internal sealed class DirectoryWatcherService : IDisposable
         {
             _watcher = new FileSystemWatcher(path)
             {
-                NotifyFilter = NotifyFilters.FileName | NotifyFilters.DirectoryName | NotifyFilters.LastWrite,
+                NotifyFilter =
+                    NotifyFilters.FileName | NotifyFilters.DirectoryName | NotifyFilters.LastWrite,
                 IncludeSubdirectories = true,
-                EnableRaisingEvents = true
+                EnableRaisingEvents = true,
             };
 
             _watcher.Created += OnFileSystemEvent;
@@ -58,21 +59,26 @@ internal sealed class DirectoryWatcherService : IDisposable
             return false;
         }
 
-        return path.EndsWith(".bep", StringComparison.OrdinalIgnoreCase) ||
-               path.EndsWith(".scene", StringComparison.OrdinalIgnoreCase) ||
-               path.EndsWith(".belm", StringComparison.OrdinalIgnoreCase) ||
-               path.Contains(".beutl");
+        return path.EndsWith(".bep", StringComparison.OrdinalIgnoreCase)
+            || path.EndsWith(".scene", StringComparison.OrdinalIgnoreCase)
+            || path.EndsWith(".belm", StringComparison.OrdinalIgnoreCase)
+            || path.Contains(".beutl");
     }
 
     private static bool IsUnderDirectory(string path, string directory)
     {
-        string normalizedDir = Path.GetFullPath(directory)
-            .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
+        string normalizedDir =
+            Path.GetFullPath(directory)
+                .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
             + Path.DirectorySeparatorChar;
         string normalizedPath = Path.GetFullPath(path);
 
         return normalizedPath.StartsWith(normalizedDir, StringComparison.OrdinalIgnoreCase)
-            || string.Equals(normalizedPath + Path.DirectorySeparatorChar, normalizedDir, StringComparison.OrdinalIgnoreCase);
+            || string.Equals(
+                normalizedPath + Path.DirectorySeparatorChar,
+                normalizedDir,
+                StringComparison.OrdinalIgnoreCase
+            );
     }
 
     private void OnFileSystemEvent(object sender, FileSystemEventArgs e)
@@ -85,13 +91,22 @@ internal sealed class DirectoryWatcherService : IDisposable
         _debounceCts = new CancellationTokenSource();
         var token = _debounceCts.Token;
 
-        Task.Delay(s_debounceInterval, token).ContinueWith(_ =>
-        {
-            if (!token.IsCancellationRequested)
-            {
-                Dispatcher.UIThread.Post(() => Changed?.Invoke(), DispatcherPriority.Background);
-            }
-        }, token, TaskContinuationOptions.OnlyOnRanToCompletion, TaskScheduler.Default);
+        Task.Delay(s_debounceInterval, token)
+            .ContinueWith(
+                _ =>
+                {
+                    if (!token.IsCancellationRequested)
+                    {
+                        Dispatcher.UIThread.Post(
+                            () => Changed?.Invoke(),
+                            DispatcherPriority.Background
+                        );
+                    }
+                },
+                token,
+                TaskContinuationOptions.OnlyOnRanToCompletion,
+                TaskScheduler.Default
+            );
     }
 
     public void Dispose()

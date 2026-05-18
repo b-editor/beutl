@@ -1,12 +1,10 @@
 ﻿using System.Collections;
 using System.Reactive.Disposables;
-
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Metadata;
 using Avalonia.Controls.Primitives;
 using Avalonia.Interactivity;
-
 using Beutl.Reactive;
 
 namespace Beutl.Controls.PropertyEditors;
@@ -19,7 +17,8 @@ public class AutoCompleteStringEditor : StringEditor
 
     public static readonly StyledProperty<AutoCompleteFilterMode> FilterModeProperty =
         AvaloniaProperty.Register<AutoCompleteStringEditor, AutoCompleteFilterMode>(
-            nameof(FilterMode));
+            nameof(FilterMode)
+        );
 
     private readonly CompositeDisposable _acDisposables = [];
     private AutoCompleteBox _autoCompleteBox;
@@ -48,7 +47,8 @@ public class AutoCompleteStringEditor : StringEditor
         _acOldValue = Text;
         if (_autoCompleteBox != null)
         {
-            _autoCompleteBox.GetPropertyChangedObservable(AutoCompleteBox.TextProperty)
+            _autoCompleteBox
+                .GetPropertyChangedObservable(AutoCompleteBox.TextProperty)
                 .Subscribe(args =>
                 {
                     if (args is AvaloniaPropertyChangedEventArgs<string> typed)
@@ -62,27 +62,46 @@ public class AutoCompleteStringEditor : StringEditor
 
                         if (_autoCompleteBox.IsKeyboardFocusWithin)
                         {
-                            RaiseEvent(new PropertyEditorValueChangedEventArgs<string>(
-                                newVal, oldVal, ValueChangedEvent));
+                            RaiseEvent(
+                                new PropertyEditorValueChangedEventArgs<string>(
+                                    newVal,
+                                    oldVal,
+                                    ValueChangedEvent
+                                )
+                            );
                         }
                     }
                 })
                 .DisposeWith(_acDisposables);
 
-            _autoCompleteBox.AddDisposableHandler(GotFocusEvent, (_, _) =>
-                {
-                    _acOldValue = Text;
-                })
+            _autoCompleteBox
+                .AddDisposableHandler(
+                    GotFocusEvent,
+                    (_, _) =>
+                    {
+                        _acOldValue = Text;
+                    }
+                )
                 .DisposeWith(_acDisposables);
 
-            _autoCompleteBox.AddDisposableHandler(LostFocusEvent, (_, _) =>
-                {
-                    if (Text != _acOldValue)
+            _autoCompleteBox
+                .AddDisposableHandler(
+                    LostFocusEvent,
+                    (_, _) =>
                     {
-                        RaiseEvent(new PropertyEditorValueChangedEventArgs<string>(
-                            Text, _acOldValue, ValueConfirmedEvent));
-                    }
-                }, handledEventsToo: true)
+                        if (Text != _acOldValue)
+                        {
+                            RaiseEvent(
+                                new PropertyEditorValueChangedEventArgs<string>(
+                                    Text,
+                                    _acOldValue,
+                                    ValueConfirmedEvent
+                                )
+                            );
+                        }
+                    },
+                    handledEventsToo: true
+                )
                 .DisposeWith(_acDisposables);
         }
     }

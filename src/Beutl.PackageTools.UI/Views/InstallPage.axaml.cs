@@ -1,12 +1,10 @@
 ﻿using System.Reactive.Linq;
-
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
-
 using Beutl.PackageTools.UI.Models;
 using Beutl.PackageTools.UI.ViewModels;
 using Beutl.Reactive;
@@ -15,7 +13,6 @@ using FluentAvalonia.UI.Controls.Primitives;
 using FluentAvalonia.UI.Navigation;
 
 namespace Beutl.PackageTools.UI.Views;
-
 
 public partial class InstallPage : PackageToolPage
 {
@@ -32,12 +29,9 @@ public partial class InstallPage : PackageToolPage
             var panel = new TaskDialogButtonsPanel
             {
                 [KeyboardNavigation.TabNavigationProperty] = KeyboardNavigationMode.Continue,
-                Spacing = 8
+                Spacing = 8,
             };
-            var backButton = new TaskDialogButtonHost()
-            {
-                Content = Strings.Back
-            };
+            var backButton = new TaskDialogButtonHost() { Content = Strings.Back };
             backButton.Click += (s, e) =>
             {
                 Frame? frame = this.FindAncestorOfType<Frame>();
@@ -53,12 +47,9 @@ public partial class InstallPage : PackageToolPage
             var panel = new TaskDialogButtonsPanel
             {
                 [KeyboardNavigation.TabNavigationProperty] = KeyboardNavigationMode.Continue,
-                Spacing = 8
+                Spacing = 8,
             };
-            var button = new TaskDialogButtonHost()
-            {
-                Content = Strings.Cancel
-            };
+            var button = new TaskDialogButtonHost() { Content = Strings.Cancel };
             button.Click += (_, _) =>
             {
                 _cts?.Cancel();
@@ -73,40 +64,57 @@ public partial class InstallPage : PackageToolPage
 
         // 現在のタスクに応じて、スクロールする
         this.GetObservable(DataContextProperty)
-            .Select(v => (v as InstallViewModel)?.CurrentRunningTask ?? Observable.ReturnThenNever<object?>(null))
+            .Select(v =>
+                (v as InstallViewModel)?.CurrentRunningTask
+                ?? Observable.ReturnThenNever<object?>(null)
+            )
             .Switch()
-            .Select(obj => obj switch
-            {
-                DownloadTaskModel => DownloadView,
-                VerifyTaskModel => VerifyView,
-                ResolveTaskModel => ResolveView,
-                AcceptLicenseTaskModel => AcceptLicenseView,
-                _ => (Control?)null,
-            })
+            .Select(obj =>
+                obj switch
+                {
+                    DownloadTaskModel => DownloadView,
+                    VerifyTaskModel => VerifyView,
+                    ResolveTaskModel => ResolveView,
+                    AcceptLicenseTaskModel => AcceptLicenseView,
+                    _ => (Control?)null,
+                }
+            )
             .Where(c => c != null)
-            .Select(c => Observable.FromEventPattern<SizeChangedEventArgs>(h => c!.SizeChanged += h, h => c!.SizeChanged -= h)
-                .Select(e => (Control?)e.Sender)
-                .Publish(c)
-                .RefCount())
+            .Select(c =>
+                Observable
+                    .FromEventPattern<SizeChangedEventArgs>(
+                        h => c!.SizeChanged += h,
+                        h => c!.SizeChanged -= h
+                    )
+                    .Select(e => (Control?)e.Sender)
+                    .Publish(c)
+                    .RefCount()
+            )
             .Switch()
             .Subscribe(control =>
             {
-                Dispatcher.UIThread.Post(() =>
-                {
-                    if (Scroll.Content is Visual c)
+                Dispatcher.UIThread.Post(
+                    () =>
                     {
-                        Matrix? mat = control?.TransformToVisual(c);
-
-                        if (mat.HasValue)
+                        if (Scroll.Content is Visual c)
                         {
-                            double y = mat.Value.M32;
-                            if (Scroll.Offset.Y < y)
+                            Matrix? mat = control?.TransformToVisual(c);
+
+                            if (mat.HasValue)
                             {
-                                Scroll.SetCurrentValue(ScrollViewer.OffsetProperty, new Vector(0, y));
+                                double y = mat.Value.M32;
+                                if (Scroll.Offset.Y < y)
+                                {
+                                    Scroll.SetCurrentValue(
+                                        ScrollViewer.OffsetProperty,
+                                        new Vector(0, y)
+                                    );
+                                }
                             }
                         }
-                    }
-                }, DispatcherPriority.Background);
+                    },
+                    DispatcherPriority.Background
+                );
             });
     }
 

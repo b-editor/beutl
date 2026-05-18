@@ -1,18 +1,30 @@
 <Project Sdk="Microsoft.NET.Sdk">
-
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
     <RuntimeIdentifiers>win-x64;linux-x64;osx-x64;osx-arm64</RuntimeIdentifiers>
     <FFmpegBuildIn Condition="'$(FFmpegBuildIn)' == ''">True</FFmpegBuildIn>
-    <MFBuildIn Condition="'$(MFBuildIn)' == '' And $(TargetFramework.Contains('windows'))">True</MFBuildIn>
+    <MFBuildIn Condition="'$(MFBuildIn)' == '' And $(TargetFramework.Contains('windows'))"
+      >True</MFBuildIn
+    >
     <!-- AVFoundationはmacOS専用。osx-* RID向けpublish時、または非Windows TFMの開発ビルド
          (RID未指定) のときに含める。Linux/Windows向けpublishでは除外する。 -->
-    <AVFBuildIn Condition="'$(AVFBuildIn)' == '' And !$(TargetFramework.Contains('windows')) And ('$(RuntimeIdentifier)' == '' Or $(RuntimeIdentifier.StartsWith('osx')))">True</AVFBuildIn>
+    <AVFBuildIn
+      Condition="'$(AVFBuildIn)' == '' And !$(TargetFramework.Contains('windows')) And ('$(RuntimeIdentifier)' == '' Or $(RuntimeIdentifier.StartsWith('osx')))"
+      >True</AVFBuildIn
+    >
     <FFmpegOutOfProcess Condition="'$(FFmpegOutOfProcess)' == ''">True</FFmpegOutOfProcess>
-    <DefineConstants Condition="'$(FFmpegBuildIn)'=='True'">$(DefineConstants);FFMPEG_BUILD_IN</DefineConstants>
-    <DefineConstants Condition="'$(MFBuildIn)'=='True'">$(DefineConstants);MF_BUILD_IN</DefineConstants>
-    <DefineConstants Condition="'$(AVFBuildIn)'=='True'">$(DefineConstants);AVF_BUILD_IN</DefineConstants>
-    <DefineConstants Condition="'$(FFmpegOutOfProcess)'=='True'">$(DefineConstants);FFMPEG_OUT_OF_PROCESS</DefineConstants>
+    <DefineConstants Condition="'$(FFmpegBuildIn)'=='True'"
+      >$(DefineConstants);FFMPEG_BUILD_IN</DefineConstants
+    >
+    <DefineConstants Condition="'$(MFBuildIn)'=='True'"
+      >$(DefineConstants);MF_BUILD_IN</DefineConstants
+    >
+    <DefineConstants Condition="'$(AVFBuildIn)'=='True'"
+      >$(DefineConstants);AVF_BUILD_IN</DefineConstants
+    >
+    <DefineConstants Condition="'$(FFmpegOutOfProcess)'=='True'"
+      >$(DefineConstants);FFMPEG_OUT_OF_PROCESS</DefineConstants
+    >
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <ApplicationIcon>..\Beutl.Controls\Assets\logo.ico</ApplicationIcon>
   </PropertyGroup>
@@ -92,12 +104,18 @@
     <ProjectReference Include="..\Beutl.Controls\Beutl.Controls.csproj" />
     <ProjectReference Include="..\Beutl.Editor\Beutl.Editor.csproj" />
     <ProjectReference Include="..\Beutl.Editor.Components\Beutl.Editor.Components.csproj" />
-    <ProjectReference Condition="'$(NukePublish)'!='True'"
-      Include="..\Beutl.PackageTools.UI\Beutl.PackageTools.UI.csproj" />
-    <ProjectReference Condition="'$(NukePublish)'!='True'"
-      Include="..\Beutl.WaitingDialog\Beutl.WaitingDialog.csproj" />
-    <ProjectReference Condition="'$(NukePublish)'!='True'"
-      Include="..\Beutl.ExceptionHandler\Beutl.ExceptionHandler.csproj" />
+    <ProjectReference
+      Condition="'$(NukePublish)'!='True'"
+      Include="..\Beutl.PackageTools.UI\Beutl.PackageTools.UI.csproj"
+    />
+    <ProjectReference
+      Condition="'$(NukePublish)'!='True'"
+      Include="..\Beutl.WaitingDialog\Beutl.WaitingDialog.csproj"
+    />
+    <ProjectReference
+      Condition="'$(NukePublish)'!='True'"
+      Include="..\Beutl.ExceptionHandler\Beutl.ExceptionHandler.csproj"
+    />
   </ItemGroup>
 
   <ItemGroup Condition="'$(FFmpegBuildIn)'=='True'">
@@ -109,43 +127,45 @@
   </ItemGroup>
 
   <ItemGroup Condition="'$(MFBuildIn)'=='True'">
-    <ProjectReference
-      Include="..\Beutl.Extensions.MediaFoundation\Beutl.Extensions.MediaFoundation.csproj" />
+    <ProjectReference Include="..\Beutl.Extensions.MediaFoundation\Beutl.Extensions.MediaFoundation.csproj" />
   </ItemGroup>
 
   <ItemGroup Condition="'$(AVFBuildIn)'=='True'">
-    <ProjectReference
-      Include="..\Beutl.Extensions.AVFoundation\Beutl.Extensions.AVFoundation.csproj" />
+    <ProjectReference Include="..\Beutl.Extensions.AVFoundation\Beutl.Extensions.AVFoundation.csproj" />
   </ItemGroup>
 
   <!-- ProjectReferences don't transitively copy native runtime assets (runtimes/<rid>/native),
        so mirror the Swift dylib from the referenced project's runtimes/ folder into this
        project's output. Gated on AVFBuildIn so Linux/Windows publishes don't pick up the
        macOS-only dylibs. -->
-  <Target Name="CopyBeutlAVFDylibsForApp"
-          AfterTargets="Build"
-          Condition="'$(AVFBuildIn)'=='True'">
+  <Target Name="CopyBeutlAVFDylibsForApp" AfterTargets="Build" Condition="'$(AVFBuildIn)'=='True'">
     <PropertyGroup>
       <_BeutlAVFSourceRuntimes>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)../Beutl.Extensions.AVFoundation/runtimes'))</_BeutlAVFSourceRuntimes>
     </PropertyGroup>
     <ItemGroup>
       <_BeutlAVFDylib Include="$(_BeutlAVFSourceRuntimes)/**/*.dylib" />
     </ItemGroup>
-    <Copy SourceFiles="@(_BeutlAVFDylib)"
-          DestinationFiles="@(_BeutlAVFDylib->'$(OutDir)runtimes/%(RecursiveDir)%(Filename)%(Extension)')"
-          SkipUnchangedFiles="true" />
+    <Copy
+      SourceFiles="@(_BeutlAVFDylib)"
+      DestinationFiles="@(_BeutlAVFDylib->'$(OutDir)runtimes/%(RecursiveDir)%(Filename)%(Extension)')"
+      SkipUnchangedFiles="true"
+    />
   </Target>
 
-  <Target Name="CopyBeutlAVFDylibForPublish"
-          AfterTargets="Publish"
-          Condition="'$(AVFBuildIn)'=='True' And '$(RuntimeIdentifier)' != '' And $(RuntimeIdentifier.StartsWith('osx'))">
+  <Target
+    Name="CopyBeutlAVFDylibForPublish"
+    AfterTargets="Publish"
+    Condition="'$(AVFBuildIn)'=='True' And '$(RuntimeIdentifier)' != '' And $(RuntimeIdentifier.StartsWith('osx'))"
+  >
     <PropertyGroup>
       <_BeutlAVFPublishSource>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)../Beutl.Extensions.AVFoundation/runtimes/$(RuntimeIdentifier)/native/libBeutlAVF.dylib'))</_BeutlAVFPublishSource>
     </PropertyGroup>
-    <Copy SourceFiles="$(_BeutlAVFPublishSource)"
-          DestinationFolder="$(PublishDir)"
-          SkipUnchangedFiles="true"
-          Condition="Exists('$(_BeutlAVFPublishSource)')" />
+    <Copy
+      SourceFiles="$(_BeutlAVFPublishSource)"
+      DestinationFolder="$(PublishDir)"
+      SkipUnchangedFiles="true"
+      Condition="Exists('$(_BeutlAVFPublishSource)')"
+    />
 
     <!-- Sweep every libBeutlAVF.dylib that Build mirrored into runtimes/, then
          drop any folders left empty by the cleanup. CopyBeutlAVFDylibsForApp
@@ -159,8 +179,10 @@
     <ItemGroup>
       <_BeutlAVFPublishRuntimesRemain Include="$(PublishDir)runtimes/**" />
     </ItemGroup>
-    <RemoveDir Directories="$(PublishDir)runtimes"
-               Condition="Exists('$(PublishDir)runtimes') And '@(_BeutlAVFPublishRuntimesRemain)' == ''" />
+    <RemoveDir
+      Directories="$(PublishDir)runtimes"
+      Condition="Exists('$(PublishDir)runtimes') And '@(_BeutlAVFPublishRuntimesRemain)' == ''"
+    />
   </Target>
 
   <ItemGroup>

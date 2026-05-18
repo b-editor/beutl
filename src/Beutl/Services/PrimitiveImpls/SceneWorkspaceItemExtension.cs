@@ -10,7 +10,8 @@ namespace Beutl.Services.PrimitiveImpls;
 [PrimitiveImpl]
 public sealed class SceneProjectItemExtension : ProjectItemExtension
 {
-    private readonly ILogger<SceneProjectItemExtension> _logger = Log.CreateLogger<SceneProjectItemExtension>();
+    private readonly ILogger<SceneProjectItemExtension> _logger =
+        Log.CreateLogger<SceneProjectItemExtension>();
     public static readonly SceneProjectItemExtension Instance = new();
 
     public override string Name => "Make the scene a project item.";
@@ -19,18 +20,15 @@ public sealed class SceneProjectItemExtension : ProjectItemExtension
 
     public override FilePickerFileType GetFilePickerFileType()
     {
-        return new FilePickerFileType(Strings.SceneFile)
-        {
-            Patterns =
-            [
-                "*.scene"
-            ]
-        };
+        return new FilePickerFileType(Strings.SceneFile) { Patterns = ["*.scene"] };
     }
 
     public override bool IsSupported(string file)
     {
-        return file.EndsWith($".{Constants.SceneFileExtension}", StringComparison.OrdinalIgnoreCase);
+        return file.EndsWith(
+            $".{Constants.SceneFileExtension}",
+            StringComparison.OrdinalIgnoreCase
+        );
     }
 
     public override bool TryCreateItem(string file, [NotNullWhen(true)] out ProjectItem? result)

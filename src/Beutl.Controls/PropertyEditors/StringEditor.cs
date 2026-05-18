@@ -1,5 +1,4 @@
 ﻿using System.Reactive.Disposables;
-
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Metadata;
@@ -7,7 +6,6 @@ using Avalonia.Controls.Primitives;
 using Avalonia.Data;
 using Avalonia.Input;
 using Avalonia.Interactivity;
-
 using Beutl.Reactive;
 
 namespace Beutl.Controls.PropertyEditors;
@@ -20,7 +18,8 @@ public class StringEditor : PropertyEditor
             nameof(Text),
             o => o.Text,
             (o, v) => o.Text = v,
-            defaultBindingMode: BindingMode.TwoWay);
+            defaultBindingMode: BindingMode.TwoWay
+        );
 
     private readonly CompositeDisposable _disposables = [];
     private string _text;
@@ -43,16 +42,22 @@ public class StringEditor : PropertyEditor
         InnerTextBox = e.NameScope.Find<TextBox>("PART_InnerTextBox");
         if (InnerTextBox != null)
         {
-            InnerTextBox.AddDisposableHandler(GotFocusEvent, (_, e) => OnTextBoxGotFocus(e))
+            InnerTextBox
+                .AddDisposableHandler(GotFocusEvent, (_, e) => OnTextBoxGotFocus(e))
                 .DisposeWith(_disposables);
-            InnerTextBox.AddDisposableHandler(LostFocusEvent, (_, e) => OnTextBoxLostFocus(e))
+            InnerTextBox
+                .AddDisposableHandler(LostFocusEvent, (_, e) => OnTextBoxLostFocus(e))
                 .DisposeWith(_disposables);
-            InnerTextBox.GetPropertyChangedObservable(TextBox.TextProperty)
+            InnerTextBox
+                .GetPropertyChangedObservable(TextBox.TextProperty)
                 .Subscribe(e =>
                 {
                     if (e is AvaloniaPropertyChangedEventArgs<string> args)
                     {
-                        OnTextBoxTextChanged(args.NewValue.GetValueOrDefault(), args.OldValue.GetValueOrDefault());
+                        OnTextBoxTextChanged(
+                            args.NewValue.GetValueOrDefault(),
+                            args.OldValue.GetValueOrDefault()
+                        );
                     }
                 })
                 .DisposeWith(_disposables);
@@ -90,7 +95,13 @@ public class StringEditor : PropertyEditor
     {
         if (Text != _oldValue)
         {
-            RaiseEvent(new PropertyEditorValueChangedEventArgs<string>(Text, _oldValue, ValueConfirmedEvent));
+            RaiseEvent(
+                new PropertyEditorValueChangedEventArgs<string>(
+                    Text,
+                    _oldValue,
+                    ValueConfirmedEvent
+                )
+            );
         }
     }
 
@@ -98,7 +109,13 @@ public class StringEditor : PropertyEditor
     {
         if (InnerTextBox?.IsKeyboardFocusWithin == true)
         {
-            RaiseEvent(new PropertyEditorValueChangedEventArgs<string>(newValue, oldValue, ValueChangedEvent));
+            RaiseEvent(
+                new PropertyEditorValueChangedEventArgs<string>(
+                    newValue,
+                    oldValue,
+                    ValueChangedEvent
+                )
+            );
         }
     }
 }

@@ -1,20 +1,19 @@
 ﻿using Avalonia;
 using Avalonia.Interactivity;
-
 using Beutl.Controls.PropertyEditors;
 using Beutl.Media;
 
 namespace Beutl.ViewModels.Editors;
 
-public sealed class AlignmentYEditorViewModel(IPropertyAdapter<AlignmentY> property) : ValueEditorViewModel<AlignmentY>(property)
+public sealed class AlignmentYEditorViewModel(IPropertyAdapter<AlignmentY> property)
+    : ValueEditorViewModel<AlignmentY>(property)
 {
     public override void Accept(IPropertyEditorContextVisitor visitor)
     {
         base.Accept(visitor);
         if (visitor is AlignmentYEditor view && !Disposables.IsDisposed)
         {
-            view.Bind(AlignmentYEditor.ValueProperty, Value.ToBinding())
-                .DisposeWith(Disposables);
+            view.Bind(AlignmentYEditor.ValueProperty, Value.ToBinding()).DisposeWith(Disposables);
             view.AddDisposableHandler(PropertyEditor.ValueConfirmedEvent, OnValueConfirmed)
                 .DisposeWith(Disposables);
         }

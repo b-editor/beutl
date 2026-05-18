@@ -4,7 +4,8 @@ namespace Beutl.ProjectSystem;
 
 public readonly record struct BpmGridOptions
 {
-    public BpmGridOptions() : this(120.0, 4, TimeSpan.Zero, false) { }
+    public BpmGridOptions()
+        : this(120.0, 4, TimeSpan.Zero, false) { }
 
     public BpmGridOptions(double bpm, int subdivisions, TimeSpan offset, bool isEnabled)
     {
@@ -26,14 +27,10 @@ public readonly record struct TimelineOptions
     private readonly Vector2 _offset;
 
     public TimelineOptions()
-        : this(1, Vector2.Zero)
-    {
-    }
+        : this(1, Vector2.Zero) { }
 
     public TimelineOptions(float scale, Vector2 offset)
-        : this(scale, offset, 50)
-    {
-    }
+        : this(scale, offset, 50) { }
 
     public TimelineOptions(float scale, Vector2 offset, int maxLayerCount)
     {

@@ -5,10 +5,15 @@ namespace Beutl.Engine;
 public static class ResourceReconciler
 {
     public static void ReconcileListFromFlow<TItem, TResource>(
-        CompositionContext context, IListProperty<TItem> property,
-        IList<TResource> consumed, List<TResource> field,
-        IList<int> versions, ref bool changed)
-        where TItem : EngineObject where TResource : EngineObject.Resource
+        CompositionContext context,
+        IListProperty<TItem> property,
+        IList<TResource> consumed,
+        List<TResource> field,
+        IList<int> versions,
+        ref bool changed
+    )
+        where TItem : EngineObject
+        where TResource : EngineObject.Resource
     {
         // consumedを先頭から追加していき、後ろにpropertyの残りを追加する
         if (consumed.Count != versions.Count)
@@ -63,9 +68,14 @@ public static class ResourceReconciler
     }
 
     public static void ReconcileListFromProperty<TItem, TResource>(
-        CompositionContext context, IListProperty<TItem> prop,
-        int offsetIndex, IList<TResource> field, ref bool changed)
-        where TItem : EngineObject where TResource : EngineObject.Resource
+        CompositionContext context,
+        IListProperty<TItem> prop,
+        int offsetIndex,
+        IList<TResource> field,
+        ref bool changed
+    )
+        where TItem : EngineObject
+        where TResource : EngineObject.Resource
     {
         for (int i = 0; i < prop.Count; i++)
         {
@@ -115,9 +125,13 @@ public static class ResourceReconciler
     }
 
     public static void ReconcileResource<TObject, TResource>(
-        CompositionContext context, TObject value,
-        ref TResource? field, ref bool changed)
-        where TObject : EngineObject? where TResource : EngineObject.Resource
+        CompositionContext context,
+        TObject value,
+        ref TResource? field,
+        ref bool changed
+    )
+        where TObject : EngineObject?
+        where TResource : EngineObject.Resource
     {
         if (value is null)
         {
@@ -157,5 +171,4 @@ public static class ResourceReconciler
             }
         }
     }
-
 }

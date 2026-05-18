@@ -1,6 +1,7 @@
 ﻿using Beutl.Engine;
 
 namespace SourceGeneratorTest;
+
 public partial class Derived : EngineObject
 {
     public IProperty<float> X { get; } = Property.Create(0f);

@@ -112,8 +112,10 @@ public partial class LayerInputNode : GraphNode, IDynamicPortNode
         {
             foreach (JsonObject itemJson in itemsArray.OfType<JsonObject>())
             {
-                if (CoreSerializer.DeserializeFromJsonObject(itemJson, typeof(ILayerInputPort)) is ILayerInputPort
-                    port)
+                if (
+                    CoreSerializer.DeserializeFromJsonObject(itemJson, typeof(ILayerInputPort))
+                    is ILayerInputPort port
+                )
                 {
                     Items.Add(port);
                 }
@@ -132,8 +134,10 @@ public partial class LayerInputNode : GraphNode, IDynamicPortNode
             for (int i = 0; i < node.Items.Count; i++)
             {
                 INodeMember item = node.Items[i];
-                if (item.Property is IAnimatablePropertyAdapter animAdapter
-                    && animAdapter.Animation is { UseGlobalClock: false } animation)
+                if (
+                    item.Property is IAnimatablePropertyAdapter animAdapter
+                    && animAdapter.Animation is { UseGlobalClock: false } animation
+                )
                 {
                     var time = context.Time - node.Start;
                     ItemValues[i].TryLoadFromAnimation(animation, time);

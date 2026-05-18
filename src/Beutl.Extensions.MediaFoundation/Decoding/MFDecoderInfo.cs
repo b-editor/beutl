@@ -3,8 +3,10 @@ using Beutl.Media.Decoding;
 
 #if MF_BUILD_IN
 namespace Beutl.Embedding.MediaFoundation.Decoding;
+
 #else
 namespace Beutl.Extensions.MediaFoundation.Decoding;
+
 #endif
 
 public sealed class MFDecoderInfo(MFDecodingExtension extension) : IDecoderInfo

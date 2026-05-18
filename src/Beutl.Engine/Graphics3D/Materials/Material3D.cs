@@ -46,6 +46,10 @@ public abstract partial class Material3D : EngineObject
         /// <param name="context">The 3D rendering context.</param>
         /// <param name="obj">The object being rendered.</param>
         /// <param name="worldMatrix">The world matrix to use for rendering.</param>
-        public abstract void Bind(RenderContext3D context, Object3D.Resource obj, Matrix4x4 worldMatrix);
+        public abstract void Bind(
+            RenderContext3D context,
+            Object3D.Resource obj,
+            Matrix4x4 worldMatrix
+        );
     }
 }

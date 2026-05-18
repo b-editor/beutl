@@ -20,7 +20,8 @@ public static class TutorialHelpers
     public static bool OpenLibraryTabIfNeeded()
     {
         var editVm = GetEditViewModel();
-        if (editVm == null) return false;
+        if (editVm == null)
+            return false;
 
         var tab = editVm.FindToolTab<LibraryTabViewModel>() ?? new LibraryTabViewModel(editVm);
         editVm.OpenToolTab(tab);
@@ -36,7 +37,10 @@ public static class TutorialHelpers
             // ~/.beutl/tmp/tutorials フォルダに保存
             string tutorialDir = Path.Combine(
                 Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
-                ".beutl", "tmp", "tutorials");
+                ".beutl",
+                "tmp",
+                "tutorials"
+            );
             Directory.CreateDirectory(tutorialDir);
 
             string fullProjectName = $"{projectName}_{DateTime.Now:yyyyMMddHHmmss}";
@@ -48,7 +52,8 @@ public static class TutorialHelpers
                 framerate: 30,
                 samplerate: 44100,
                 name: fullProjectName,
-                location: tutorialDir);
+                location: tutorialDir
+            );
 
             if (currentProject == null)
             {
@@ -70,7 +75,8 @@ public static class TutorialHelpers
 
     public static IDisposable? SubscribeToElementSelection(EditViewModel? editVm, Action onSelected)
     {
-        if (editVm?.GetService<IEditorSelection>() is not { } editorSelection) return null;
+        if (editVm?.GetService<IEditorSelection>() is not { } editorSelection)
+            return null;
 
         // Already selected?
         if (editorSelection.SelectedObject.Value != null)
@@ -79,17 +85,20 @@ public static class TutorialHelpers
             return null;
         }
 
-        return editorSelection.SelectedObject.Where(obj => obj != null)
+        return editorSelection
+            .SelectedObject.Where(obj => obj != null)
             .Take(1)
             .Subscribe(_ => Dispatcher.UIThread.Post(onSelected));
     }
 
     public static IDisposable? SubscribeToAnimationEnabled<T>(
         IProperty<T>? property,
-        Action onAnimationEnabled)
+        Action onAnimationEnabled
+    )
         where T : struct
     {
-        if (property == null) return null;
+        if (property == null)
+            return null;
 
         if (property.Animation != null)
         {
@@ -117,10 +126,12 @@ public static class TutorialHelpers
     public static IDisposable? SubscribeToKeyFrameAdded<T>(
         KeyFrameAnimation<T>? animation,
         int requiredKeyFrameCount,
-        Action onKeyFrameAdded)
+        Action onKeyFrameAdded
+    )
         where T : struct
     {
-        if (animation == null) return null;
+        if (animation == null)
+            return null;
 
         // すでに十分なキーフレームがある場合
         if (animation.KeyFrames.Count >= requiredKeyFrameCount)
@@ -143,12 +154,14 @@ public static class TutorialHelpers
 
     public static CompositeDisposable SubscribeToEasingChanged<T>(
         KeyFrameAnimation<T>? animation,
-        Action onEasingChanged)
+        Action onEasingChanged
+    )
         where T : struct
     {
         var disposables = new CompositeDisposable();
 
-        if (animation == null) return disposables;
+        if (animation == null)
+            return disposables;
 
         void Handler(IKeyFrame _)
         {
@@ -168,8 +181,7 @@ public static class TutorialHelpers
         }
 
         animation.KeyFrames.Attached += Handler;
-        Disposable.Create(() => animation.KeyFrames.Attached -= Handler)
-            .DisposeWith(disposables);
+        Disposable.Create(() => animation.KeyFrames.Attached -= Handler).DisposeWith(disposables);
 
         return disposables;
     }
@@ -177,10 +189,12 @@ public static class TutorialHelpers
     public static void PrepareForPlayback(
         EditViewModel? editVm,
         Element? element,
-        TimeSpan? additionalDuration = null)
+        TimeSpan? additionalDuration = null
+    )
     {
         var clock = editVm?.GetService<IEditorClock>();
-        if (editVm == null || element == null || clock == null) return;
+        if (editVm == null || element == null || clock == null)
+            return;
 
         var duration = additionalDuration ?? TimeSpan.FromSeconds(1);
         editVm.Scene.Duration = element.Range.End + duration;
@@ -191,8 +205,7 @@ public static class TutorialHelpers
     public static Element? FindElementWithObject<TEngineObject>(Scene? scene)
         where TEngineObject : EngineObject
     {
-        return scene?.Children.FirstOrDefault(e =>
-            e.Objects.OfType<TEngineObject>().Any());
+        return scene?.Children.FirstOrDefault(e => e.Objects.OfType<TEngineObject>().Any());
     }
 
     public static TEngineObject? GetObject<TEngineObject>(Element? element)
@@ -209,10 +222,12 @@ public static class TutorialHelpers
 
     public static IDisposable? SubscribeToElementAdded<TEngineObject>(
         Scene? scene,
-        Action onElementAdded)
+        Action onElementAdded
+    )
         where TEngineObject : EngineObject
     {
-        if (scene == null) return null;
+        if (scene == null)
+            return null;
 
         // Already has element?
         if (HasElementWithObject<TEngineObject>(scene))
@@ -246,11 +261,11 @@ public static class TutorialHelpers
 
     public static Drawable? GetDrawable(EditViewModel? editVm)
     {
-        if (editVm?.GetService<IEditorSelection>() is not { } editorSelection) return null;
+        if (editVm?.GetService<IEditorSelection>() is not { } editorSelection)
+            return null;
 
         Element? element = editorSelection.SelectedObject.Value as Element;
-        element ??= editVm.Scene.Children.FirstOrDefault(e =>
-            e.Objects.OfType<Drawable>().Any());
+        element ??= editVm.Scene.Children.FirstOrDefault(e => e.Objects.OfType<Drawable>().Any());
 
         return element?.Objects.OfType<Drawable>().FirstOrDefault();
     }

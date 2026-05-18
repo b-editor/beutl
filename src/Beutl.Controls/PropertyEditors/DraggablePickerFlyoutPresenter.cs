@@ -17,8 +17,10 @@ namespace Beutl.Controls.PropertyEditors;
 // PickerFlyoutPresenter.cs
 public class DraggablePickerFlyoutPresenter : ContentControl
 {
-    public static readonly StyledProperty<bool> ShowHideButtonsProperty =
-        AvaloniaProperty.Register<DraggablePickerFlyoutPresenter, bool>(nameof(ShowHideButtons));
+    public static readonly StyledProperty<bool> ShowHideButtonsProperty = AvaloniaProperty.Register<
+        DraggablePickerFlyoutPresenter,
+        bool
+    >(nameof(ShowHideButtons));
 
     private readonly CompositeDisposable _disposables = [];
     private Panel? _dragArea;
@@ -35,9 +37,7 @@ public class DraggablePickerFlyoutPresenter : ContentControl
     private const string CloseButton = "CloseButton";
     private const string DragArea = "DragArea";
 
-    public DraggablePickerFlyoutPresenter()
-    {
-    }
+    public DraggablePickerFlyoutPresenter() { }
 
     public event TypedEventHandler<DraggablePickerFlyoutPresenter, EventArgs>? Confirmed;
 
@@ -61,24 +61,31 @@ public class DraggablePickerFlyoutPresenter : ContentControl
         _dragArea = e.NameScope.Find<Panel>(DragArea);
         _closebutton = e.NameScope.Find<Button>(CloseButton);
 
-        _acceptButton?.AddDisposableHandler(Button.ClickEvent, OnAcceptClick)
+        _acceptButton
+            ?.AddDisposableHandler(Button.ClickEvent, OnAcceptClick)
             .DisposeWith(_disposables);
 
-        _dismissButton?.AddDisposableHandler(Button.ClickEvent, OnDismissClick)
+        _dismissButton
+            ?.AddDisposableHandler(Button.ClickEvent, OnDismissClick)
             .DisposeWith(_disposables);
 
-        _closebutton?.AddDisposableHandler(Button.ClickEvent, OnCloseClick)
+        _closebutton
+            ?.AddDisposableHandler(Button.ClickEvent, OnCloseClick)
             .DisposeWith(_disposables);
 
         if (_dragArea != null)
         {
-            _dragArea.AddDisposableHandler(PointerPressedEvent, OnDragAreaPointerPressed)
+            _dragArea
+                .AddDisposableHandler(PointerPressedEvent, OnDragAreaPointerPressed)
                 .DisposeWith(_disposables);
-            _dragArea.AddDisposableHandler(PointerReleasedEvent, OnDragAreaPointerReleased)
+            _dragArea
+                .AddDisposableHandler(PointerReleasedEvent, OnDragAreaPointerReleased)
                 .DisposeWith(_disposables);
-            _dragArea.AddDisposableHandler(PointerMovedEvent, OnDragAreaPointerMoved)
+            _dragArea
+                .AddDisposableHandler(PointerMovedEvent, OnDragAreaPointerMoved)
                 .DisposeWith(_disposables);
-            _dragArea.AddDisposableHandler(PointerExitedEvent, OnDragAreaPointerExited)
+            _dragArea
+                .AddDisposableHandler(PointerExitedEvent, OnDragAreaPointerExited)
                 .DisposeWith(_disposables);
         }
     }
@@ -127,7 +134,8 @@ public class DraggablePickerFlyoutPresenter : ContentControl
 
     private void OnDragAreaPointerMoved(object? sender, PointerEventArgs e)
     {
-        if (_dragArea == null || !_pressed) return;
+        if (_dragArea == null || !_pressed)
+            return;
 
         if (this.FindLogicalAncestorOfType<Popup>() is { } popup)
         {
@@ -146,7 +154,8 @@ public class DraggablePickerFlyoutPresenter : ContentControl
 
     private void OnDragAreaPointerPressed(object? sender, PointerPressedEventArgs e)
     {
-        if (_dragArea == null) return;
+        if (_dragArea == null)
+            return;
 
         var root = this.FindAncestorOfType<PopupRoot>();
         PointerPoint pointer = e.GetCurrentPoint(null);

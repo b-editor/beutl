@@ -1,11 +1,9 @@
 ﻿using System.ComponentModel;
-
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Data;
 using Avalonia.Data.Converters;
 using Avalonia.Xaml.Interactivity;
-
 using Beutl.ViewModels.Editors;
 
 namespace Beutl.Views.Editors;
@@ -24,11 +22,21 @@ public partial class ListItemEditor : UserControl
     {
         public static readonly ViewModelToViewConverter Instance = new();
 
-        public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
+        public object? Convert(
+            object? value,
+            Type targetType,
+            object? parameter,
+            CultureInfo culture
+        )
         {
             if (value is IPropertyEditorContext viewModel)
             {
-                if (viewModel.Extension.TryCreateControlForListItem(viewModel, out IListItemEditor? control))
+                if (
+                    viewModel.Extension.TryCreateControlForListItem(
+                        viewModel,
+                        out IListItemEditor? control
+                    )
+                )
                 {
                     if (control is StyledElement s)
                         s.DataContext = viewModel;
@@ -41,7 +49,7 @@ public partial class ListItemEditor : UserControl
                     {
                         Height = 24,
                         Margin = new Thickness(0, 4),
-                        Content = viewModel.Extension.DisplayName
+                        Content = viewModel.Extension.DisplayName,
                     };
                 }
             }
@@ -51,7 +59,12 @@ public partial class ListItemEditor : UserControl
             }
         }
 
-        public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
+        public object? ConvertBack(
+            object? value,
+            Type targetType,
+            object? parameter,
+            CultureInfo culture
+        )
         {
             return BindingNotification.Null;
         }
@@ -85,8 +98,10 @@ public partial class ListItemEditor : UserControl
 
     private void OnInnerPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
-        if (e.PropertyName is nameof(IListItemEditor.ReorderHandle)
-            && sender is IListItemEditor typedSender)
+        if (
+            e.PropertyName is nameof(IListItemEditor.ReorderHandle)
+            && sender is IListItemEditor typedSender
+        )
         {
             BehaviorCollection behaviors = Interaction.GetBehaviors(this);
             behaviors.Clear();

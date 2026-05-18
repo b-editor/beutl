@@ -24,11 +24,17 @@ public class RefStringTokenizerTests
     [TestCase("   ")]
     public void ReadInt32_ShouldThrowFormatExceptionForInvalidInteger(string input)
     {
-        Assert.That(() =>
-        {
-            var tokenizer = new RefStringTokenizer(input.AsSpan(), CultureInfo.InvariantCulture);
-            tokenizer.ReadInt32();
-        }, Throws.TypeOf<FormatException>());
+        Assert.That(
+            () =>
+            {
+                var tokenizer = new RefStringTokenizer(
+                    input.AsSpan(),
+                    CultureInfo.InvariantCulture
+                );
+                tokenizer.ReadInt32();
+            },
+            Throws.TypeOf<FormatException>()
+        );
     }
 
     [Test]
@@ -49,11 +55,17 @@ public class RefStringTokenizerTests
     [TestCase("   ")]
     public void ReadDouble_ShouldThrowFormatExceptionForInvalidDouble(string input)
     {
-        Assert.That(() =>
-        {
-            var tokenizer = new RefStringTokenizer(input.AsSpan(), CultureInfo.InvariantCulture);
-            tokenizer.ReadDouble();
-        }, Throws.TypeOf<FormatException>());
+        Assert.That(
+            () =>
+            {
+                var tokenizer = new RefStringTokenizer(
+                    input.AsSpan(),
+                    CultureInfo.InvariantCulture
+                );
+                tokenizer.ReadDouble();
+            },
+            Throws.TypeOf<FormatException>()
+        );
     }
 
     [Test]
@@ -74,11 +86,17 @@ public class RefStringTokenizerTests
     [TestCase("   ")]
     public void ReadSingle_ShouldThrowFormatExceptionForInvalidFloat(string input)
     {
-        Assert.That(() =>
-        {
-            var tokenizer = new RefStringTokenizer(input.AsSpan(), CultureInfo.InvariantCulture);
-            tokenizer.ReadSingle();
-        }, Throws.TypeOf<FormatException>());
+        Assert.That(
+            () =>
+            {
+                var tokenizer = new RefStringTokenizer(
+                    input.AsSpan(),
+                    CultureInfo.InvariantCulture
+                );
+                tokenizer.ReadSingle();
+            },
+            Throws.TypeOf<FormatException>()
+        );
     }
 
     [Test]
@@ -96,34 +114,52 @@ public class RefStringTokenizerTests
     [TestCase("   ")]
     public void ReadString_ShouldThrowFormatExceptionForInvalidString(string input)
     {
-        Assert.That(() =>
-        {
-            var tokenizer = new RefStringTokenizer(input.AsSpan(), CultureInfo.InvariantCulture);
-            tokenizer.ReadString();
-        }, Throws.TypeOf<FormatException>());
+        Assert.That(
+            () =>
+            {
+                var tokenizer = new RefStringTokenizer(
+                    input.AsSpan(),
+                    CultureInfo.InvariantCulture
+                );
+                tokenizer.ReadString();
+            },
+            Throws.TypeOf<FormatException>()
+        );
     }
 
     [Test]
     public void Dispose_ShouldThrowFormatExceptionIfNotAllTokensRead()
     {
-        Assert.That(() =>
-        {
-            // ref structなのでラムダ式内で初期化
-            var tokenizer = new RefStringTokenizer("123,456".AsSpan(), CultureInfo.InvariantCulture);
-            tokenizer.Dispose();
-        }, Throws.TypeOf<FormatException>());
+        Assert.That(
+            () =>
+            {
+                // ref structなのでラムダ式内で初期化
+                var tokenizer = new RefStringTokenizer(
+                    "123,456".AsSpan(),
+                    CultureInfo.InvariantCulture
+                );
+                tokenizer.Dispose();
+            },
+            Throws.TypeOf<FormatException>()
+        );
     }
 
     [Test]
     public void Dispose_ShouldNotThrowIfAllTokensRead()
     {
-        Assert.That(() =>
-        {
-            // ref structなのでラムダ式内で初期化
-            var tokenizer = new RefStringTokenizer("123".AsSpan(), CultureInfo.InvariantCulture);
-            tokenizer.TryReadInt32(out _);
+        Assert.That(
+            () =>
+            {
+                // ref structなのでラムダ式内で初期化
+                var tokenizer = new RefStringTokenizer(
+                    "123".AsSpan(),
+                    CultureInfo.InvariantCulture
+                );
+                tokenizer.TryReadInt32(out _);
 
-            tokenizer.Dispose();
-        }, Throws.Nothing);
+                tokenizer.Dispose();
+            },
+            Throws.Nothing
+        );
     }
 }

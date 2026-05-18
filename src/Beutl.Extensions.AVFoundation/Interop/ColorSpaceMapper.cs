@@ -11,16 +11,18 @@ internal static class ColorSpaceMapper
     public static BitmapColorSpace BuildColorSpace(
         bool isHdr,
         BeutlTransferFunction transfer,
-        BeutlColorPrimaries primaries)
+        BeutlColorPrimaries primaries
+    )
     {
         BitmapColorSpaceTransferFn transferFn = MapTransfer(transfer);
         // For HDR streams without an explicit primaries tag, default to Rec.2020 — that's
         // what the Swift writer stamps (Writer.mapPrimaries) and what both HDR10 and HLG
         // spec-wise assume. Falling back to sRGB here would produce a Rec.2020-tagged file
         // whose pixel values were converted through an sRGB gamut matrix, i.e. wrong colors.
-        BitmapColorSpaceXyz gamut = (isHdr && primaries == BeutlColorPrimaries.Unknown)
-            ? BitmapColorSpaceXyz.Rec2020
-            : MapPrimaries(primaries);
+        BitmapColorSpaceXyz gamut =
+            (isHdr && primaries == BeutlColorPrimaries.Unknown)
+                ? BitmapColorSpaceXyz.Rec2020
+                : MapPrimaries(primaries);
 
         if (isHdr)
         {
@@ -63,35 +65,37 @@ internal static class ColorSpaceMapper
         return 1f / eotfValue;
     }
 
-    private static BitmapColorSpaceTransferFn MapTransfer(BeutlTransferFunction transfer) => transfer switch
-    {
-        BeutlTransferFunction.Srgb => BitmapColorSpaceTransferFn.Srgb,
-        BeutlTransferFunction.Linear => BitmapColorSpaceTransferFn.Linear,
-        BeutlTransferFunction.Bt709 => BitmapColorSpaceTransferFn.Bt709,
-        BeutlTransferFunction.Pq => BitmapColorSpaceTransferFn.Pq,
-        BeutlTransferFunction.Hlg => BitmapColorSpaceTransferFn.Hlg,
-        BeutlTransferFunction.Rec2020 => BitmapColorSpaceTransferFn.Rec2020,
-        BeutlTransferFunction.TwoDotTwo => BitmapColorSpaceTransferFn.TwoDotTwo,
-        BeutlTransferFunction.Gamma28 => BitmapColorSpaceTransferFn.Gamma28,
-        BeutlTransferFunction.Smpte240M => BitmapColorSpaceTransferFn.Smpte240M,
-        BeutlTransferFunction.Smpte428 => BitmapColorSpaceTransferFn.Smpte428,
-        _ => BitmapColorSpaceTransferFn.Srgb,
-    };
+    private static BitmapColorSpaceTransferFn MapTransfer(BeutlTransferFunction transfer) =>
+        transfer switch
+        {
+            BeutlTransferFunction.Srgb => BitmapColorSpaceTransferFn.Srgb,
+            BeutlTransferFunction.Linear => BitmapColorSpaceTransferFn.Linear,
+            BeutlTransferFunction.Bt709 => BitmapColorSpaceTransferFn.Bt709,
+            BeutlTransferFunction.Pq => BitmapColorSpaceTransferFn.Pq,
+            BeutlTransferFunction.Hlg => BitmapColorSpaceTransferFn.Hlg,
+            BeutlTransferFunction.Rec2020 => BitmapColorSpaceTransferFn.Rec2020,
+            BeutlTransferFunction.TwoDotTwo => BitmapColorSpaceTransferFn.TwoDotTwo,
+            BeutlTransferFunction.Gamma28 => BitmapColorSpaceTransferFn.Gamma28,
+            BeutlTransferFunction.Smpte240M => BitmapColorSpaceTransferFn.Smpte240M,
+            BeutlTransferFunction.Smpte428 => BitmapColorSpaceTransferFn.Smpte428,
+            _ => BitmapColorSpaceTransferFn.Srgb,
+        };
 
-    private static BitmapColorSpaceXyz MapPrimaries(BeutlColorPrimaries primaries) => primaries switch
-    {
-        BeutlColorPrimaries.Srgb => BitmapColorSpaceXyz.Srgb,
-        BeutlColorPrimaries.Bt709 => BitmapColorSpaceXyz.Bt709,
-        BeutlColorPrimaries.Bt470M => BitmapColorSpaceXyz.Bt470M,
-        BeutlColorPrimaries.Bt470BG => BitmapColorSpaceXyz.Bt470BG,
-        BeutlColorPrimaries.Smpte170M => BitmapColorSpaceXyz.Smpte170M,
-        BeutlColorPrimaries.Smpte240M => BitmapColorSpaceXyz.Smpte240M,
-        BeutlColorPrimaries.Film => BitmapColorSpaceXyz.Film,
-        BeutlColorPrimaries.Rec2020 => BitmapColorSpaceXyz.Rec2020,
-        BeutlColorPrimaries.Xyz => BitmapColorSpaceXyz.Xyz,
-        BeutlColorPrimaries.Smpte431 => BitmapColorSpaceXyz.Smpte431,
-        BeutlColorPrimaries.Dcip3 => BitmapColorSpaceXyz.Dcip3,
-        BeutlColorPrimaries.Ebu3213 => BitmapColorSpaceXyz.Ebu3213,
-        _ => BitmapColorSpaceXyz.Srgb,
-    };
+    private static BitmapColorSpaceXyz MapPrimaries(BeutlColorPrimaries primaries) =>
+        primaries switch
+        {
+            BeutlColorPrimaries.Srgb => BitmapColorSpaceXyz.Srgb,
+            BeutlColorPrimaries.Bt709 => BitmapColorSpaceXyz.Bt709,
+            BeutlColorPrimaries.Bt470M => BitmapColorSpaceXyz.Bt470M,
+            BeutlColorPrimaries.Bt470BG => BitmapColorSpaceXyz.Bt470BG,
+            BeutlColorPrimaries.Smpte170M => BitmapColorSpaceXyz.Smpte170M,
+            BeutlColorPrimaries.Smpte240M => BitmapColorSpaceXyz.Smpte240M,
+            BeutlColorPrimaries.Film => BitmapColorSpaceXyz.Film,
+            BeutlColorPrimaries.Rec2020 => BitmapColorSpaceXyz.Rec2020,
+            BeutlColorPrimaries.Xyz => BitmapColorSpaceXyz.Xyz,
+            BeutlColorPrimaries.Smpte431 => BitmapColorSpaceXyz.Smpte431,
+            BeutlColorPrimaries.Dcip3 => BitmapColorSpaceXyz.Dcip3,
+            BeutlColorPrimaries.Ebu3213 => BitmapColorSpaceXyz.Ebu3213,
+            _ => BitmapColorSpaceXyz.Srgb,
+        };
 }

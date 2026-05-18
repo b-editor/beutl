@@ -13,7 +13,11 @@ public class EllipseRenderNodeTest
     {
         var rect = new Rect(0, 0, 100, 100);
         Brush fill = new SolidColorBrush(Colors.Red);
-        Pen pen = new Pen { Brush = { CurrentValue = Brushes.Black }, Thickness = { CurrentValue = 1 } };
+        Pen pen = new Pen
+        {
+            Brush = { CurrentValue = Brushes.Black },
+            Thickness = { CurrentValue = 1 },
+        };
         var fillResource = fill.ToResource(CompositionContext.Default);
         var penResource = pen.ToResource(CompositionContext.Default);
 
@@ -29,8 +33,16 @@ public class EllipseRenderNodeTest
         var rect2 = new Rect(0, 0, 200, 200);
         Brush fill1 = new SolidColorBrush(Colors.Red);
         Brush fill2 = new SolidColorBrush(Colors.Blue);
-        Pen pen1 = new Pen { Brush = { CurrentValue = Brushes.Black }, Thickness = { CurrentValue = 1 } };
-        Pen pen2 = new Pen { Brush = { CurrentValue = Brushes.Black }, Thickness = { CurrentValue = 2 } };
+        Pen pen1 = new Pen
+        {
+            Brush = { CurrentValue = Brushes.Black },
+            Thickness = { CurrentValue = 1 },
+        };
+        Pen pen2 = new Pen
+        {
+            Brush = { CurrentValue = Brushes.Black },
+            Thickness = { CurrentValue = 2 },
+        };
         var fillResource1 = fill1.ToResource(CompositionContext.Default);
         var fillResource2 = fill2.ToResource(CompositionContext.Default);
         var penResource1 = pen1.ToResource(CompositionContext.Default);
@@ -48,7 +60,11 @@ public class EllipseRenderNodeTest
     {
         var rect = new Rect(0, 0, 100, 100);
         Brush fill = new SolidColorBrush(Colors.Red);
-        Pen pen = new Pen { Brush = { CurrentValue = Brushes.Black }, Thickness = { CurrentValue = 1 } };
+        Pen pen = new Pen
+        {
+            Brush = { CurrentValue = Brushes.Black },
+            Thickness = { CurrentValue = 1 },
+        };
         var fillResource = fill.ToResource(CompositionContext.Default);
         var penResource = pen.ToResource(CompositionContext.Default);
         var context = new RenderNodeContext([]);
@@ -65,7 +81,11 @@ public class EllipseRenderNodeTest
     {
         var rect = new Rect(0, 0, 100, 100);
         Brush fill = new SolidColorBrush(Colors.Red);
-        Pen pen = new Pen { Brush = { CurrentValue = Brushes.Black }, Thickness = { CurrentValue = 1 } };
+        Pen pen = new Pen
+        {
+            Brush = { CurrentValue = Brushes.Black },
+            Thickness = { CurrentValue = 1 },
+        };
         var fillResource = fill.ToResource(CompositionContext.Default);
         var penResource = pen.ToResource(CompositionContext.Default);
         var context = new RenderNodeContext([]);
@@ -82,7 +102,11 @@ public class EllipseRenderNodeTest
     {
         var rect = new Rect(0, 0, 100, 100);
         Brush fill = new SolidColorBrush(Colors.Red);
-        Pen pen = new Pen { Brush = { CurrentValue = Brushes.Black }, Thickness = { CurrentValue = 1 } };
+        Pen pen = new Pen
+        {
+            Brush = { CurrentValue = Brushes.Black },
+            Thickness = { CurrentValue = 1 },
+        };
         var fillResource = fill.ToResource(CompositionContext.Default);
         var penResource = pen.ToResource(CompositionContext.Default);
         var context = new RenderNodeContext([]);
@@ -98,7 +122,11 @@ public class EllipseRenderNodeTest
     public void HitTest_ShouldReturnTrue_WhenPointIsInsideEllipseStroke()
     {
         var rect = new Rect(25, 25, 75, 75);
-        Pen pen = new Pen { Brush = { CurrentValue = Brushes.Black }, Thickness = { CurrentValue = 50 } };
+        Pen pen = new Pen
+        {
+            Brush = { CurrentValue = Brushes.Black },
+            Thickness = { CurrentValue = 50 },
+        };
         var penResource = pen.ToResource(CompositionContext.Default);
         var context = new RenderNodeContext([]);
 

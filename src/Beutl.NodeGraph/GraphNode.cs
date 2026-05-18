@@ -65,7 +65,8 @@ public abstract partial class GraphNode : EngineObject
         RaiseTopologyChanged();
     }
 
-    [NotAutoSerialized] public ICoreList<INodeMember> Items => _items;
+    [NotAutoSerialized]
+    public ICoreList<INodeMember> Items => _items;
 
     public bool IsExpanded
     {
@@ -156,7 +157,11 @@ public abstract partial class GraphNode : EngineObject
         return port;
     }
 
-    protected IListOutputPort AddListOutput(string name, Type type, DisplayAttribute? display = null)
+    protected IListOutputPort AddListOutput(
+        string name,
+        Type type,
+        DisplayAttribute? display = null
+    )
     {
         var portType = typeof(ListOutputPort<>).MakeGenericType(type);
         var port = (IListOutputPort)Activator.CreateInstance(portType)!;
@@ -184,11 +189,18 @@ public abstract partial class GraphNode : EngineObject
         return port;
     }
 
-    protected NodeMonitor<T> AddMonitor<T>(string name,
+    protected NodeMonitor<T> AddMonitor<T>(
+        string name,
         NodeMonitorContentKind contentKind = NodeMonitorContentKind.Text,
-        DisplayAttribute? display = null)
+        DisplayAttribute? display = null
+    )
     {
-        var monitor = new NodeMonitor<T>() { Name = name, Display = display, ContentKind = contentKind };
+        var monitor = new NodeMonitor<T>()
+        {
+            Name = name,
+            Display = display,
+            ContentKind = contentKind,
+        };
         Items.Add(monitor);
         return monitor;
     }
@@ -198,7 +210,10 @@ public abstract partial class GraphNode : EngineObject
         return AddMonitor<string?>(name, NodeMonitorContentKind.Text, display);
     }
 
-    protected NodeMonitor<Ref<Bitmap>?> AddImageMonitor(string name, DisplayAttribute? display = null)
+    protected NodeMonitor<Ref<Bitmap>?> AddImageMonitor(
+        string name,
+        DisplayAttribute? display = null
+    )
     {
         return AddMonitor<Ref<Bitmap>?>(name, NodeMonitorContentKind.Image, display);
     }
@@ -215,8 +230,12 @@ public abstract partial class GraphNode : EngineObject
 
     protected IInputPort CreateInput(string name, Type type, DisplayAttribute? display = null)
     {
-        var adapter = Activator.CreateInstance(typeof(NodePropertyAdapter<>).MakeGenericType(type), name)!;
-        var port = (IDefaultInputPort)Activator.CreateInstance(typeof(DefaultInputPort<>).MakeGenericType(type))!;
+        var adapter = Activator.CreateInstance(
+            typeof(NodePropertyAdapter<>).MakeGenericType(type),
+            name
+        )!;
+        var port = (IDefaultInputPort)
+            Activator.CreateInstance(typeof(DefaultInputPort<>).MakeGenericType(type))!;
         port.SetPropertyAdapter(adapter);
         port.Name = name;
         if (port is NodeMember nodeMember)
@@ -234,7 +253,8 @@ public abstract partial class GraphNode : EngineObject
 
     protected IOutputPort CreateOutput(string name, Type type, DisplayAttribute? display = null)
     {
-        var port = (IOutputPort)Activator.CreateInstance(typeof(OutputPort<>).MakeGenericType(type))!;
+        var port = (IOutputPort)
+            Activator.CreateInstance(typeof(OutputPort<>).MakeGenericType(type))!;
         if (port is NodeMember nodeMember)
         {
             nodeMember.Name = name;
@@ -260,8 +280,7 @@ public abstract partial class GraphNode : EngineObject
         if (context.GetValue<string>(nameof(Position)) is { } posStr)
         {
             var tokenizer = new RefStringTokenizer(posStr);
-            if (tokenizer.TryReadDouble(out double x)
-                && tokenizer.TryReadDouble(out double y))
+            if (tokenizer.TryReadDouble(out double x) && tokenizer.TryReadDouble(out double y))
             {
                 Position = (x, y);
             }
@@ -271,10 +290,12 @@ public abstract partial class GraphNode : EngineObject
         {
             foreach (JsonNode? item in itemsArray)
             {
-                if (item is JsonObject itemObj
+                if (
+                    item is JsonObject itemObj
                     && itemObj.TryGetPropertyValue("Name", out var nameNode)
                     && nameNode is JsonValue nameValue
-                    && nameValue.TryGetValue(out string? itemName))
+                    && nameValue.TryGetValue(out string? itemName)
+                )
                 {
                     INodeMember? nodeMember = Items.FirstOrDefault(x => x.Name == itemName);
                     if (nodeMember is ICoreSerializable serializable)
@@ -301,20 +322,12 @@ public abstract partial class GraphNode : EngineObject
         public IRenderer? Renderer { get; internal set; }
         public Dictionary<INodeMember, int> ItemIndexMap { get; set; } = new();
 
-        public virtual void Initialize(GraphCompositionContext context)
-        {
-        }
+        public virtual void Initialize(GraphCompositionContext context) { }
 
-        public virtual void Uninitialize()
-        {
-        }
+        public virtual void Uninitialize() { }
 
-        public virtual void BindNodePortValues()
-        {
-        }
+        public virtual void BindNodePortValues() { }
 
-        public virtual void Update(GraphCompositionContext context)
-        {
-        }
+        public virtual void Update(GraphCompositionContext context) { }
     }
 }

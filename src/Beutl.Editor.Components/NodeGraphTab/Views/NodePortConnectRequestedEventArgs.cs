@@ -2,7 +2,8 @@
 
 namespace Beutl.Editor.Components.NodeGraphTab.Views;
 
-public class NodePortConnectRequestedEventArgs(NodePortViewModel target, bool isConnected) : EventArgs
+public class NodePortConnectRequestedEventArgs(NodePortViewModel target, bool isConnected)
+    : EventArgs
 {
     public NodePortViewModel Target { get; } = target;
 

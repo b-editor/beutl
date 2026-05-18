@@ -1,9 +1,6 @@
 ﻿using Beutl.Logging;
-
 using Microsoft.Extensions.Logging;
-
 using Reactive.Bindings;
-
 using Strings = Beutl.Extensions.FFmpeg.Properties.Strings;
 
 namespace Beutl.Extensions.FFmpeg;
@@ -41,12 +38,13 @@ public class FFmpegInstallDialogViewModel : IDisposable
 
     public ReactiveProperty<string> CloseButtonText { get; } = new(Beutl.Language.Strings.Cancel);
 
-    public string InstallMethodDescription => InstallMethod switch
-    {
-        FFmpegInstallMethod.BtbNBuilds => Strings.Download_FFmpeg_from_BtbN,
-        FFmpegInstallMethod.Homebrew => Strings.Install_FFmpeg_using_Homebrew,
-        _ => Strings.Unknown_method
-    };
+    public string InstallMethodDescription =>
+        InstallMethod switch
+        {
+            FFmpegInstallMethod.BtbNBuilds => Strings.Download_FFmpeg_from_BtbN,
+            FFmpegInstallMethod.Homebrew => Strings.Install_FFmpeg_using_Homebrew,
+            _ => Strings.Unknown_method,
+        };
 
     public void Start()
     {
@@ -86,7 +84,8 @@ public class FFmpegInstallDialogViewModel : IDisposable
 
     public void Dispose()
     {
-        if (_disposed) return;
+        if (_disposed)
+            return;
         _disposed = true;
 
         _installService.ProgressTextChanged -= OnProgressTextChanged;

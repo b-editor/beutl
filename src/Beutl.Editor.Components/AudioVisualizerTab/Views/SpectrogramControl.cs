@@ -9,14 +9,20 @@ namespace Beutl.Editor.Components.AudioVisualizerTab.Views;
 
 public sealed class SpectrogramControl : AudioVisualizerControlBase
 {
-    public static readonly StyledProperty<int> FftSizeProperty =
-        AvaloniaProperty.Register<SpectrogramControl, int>(nameof(FftSize), 1024);
+    public static readonly StyledProperty<int> FftSizeProperty = AvaloniaProperty.Register<
+        SpectrogramControl,
+        int
+    >(nameof(FftSize), 1024);
 
-    public static readonly StyledProperty<float> MinDecibelsProperty =
-        AvaloniaProperty.Register<SpectrogramControl, float>(nameof(MinDecibels), -90f);
+    public static readonly StyledProperty<float> MinDecibelsProperty = AvaloniaProperty.Register<
+        SpectrogramControl,
+        float
+    >(nameof(MinDecibels), -90f);
 
-    public static readonly StyledProperty<float> WindowSecondsProperty =
-        AvaloniaProperty.Register<SpectrogramControl, float>(nameof(WindowSeconds), 4f);
+    public static readonly StyledProperty<float> WindowSecondsProperty = AvaloniaProperty.Register<
+        SpectrogramControl,
+        float
+    >(nameof(WindowSeconds), 4f);
 
     private const int TimeColumns = 192;
     private const int VerticalBands = 96;
@@ -54,10 +60,12 @@ public sealed class SpectrogramControl : AudioVisualizerControlBase
         context.FillRectangle(Brushes.Transparent, bounds);
 
         AudioSampleRingBuffer? buffer = RingBuffer;
-        if (buffer == null || bounds.Width < 8 || bounds.Height < 8) return;
+        if (buffer == null || bounds.Width < 8 || bounds.Height < 8)
+            return;
 
         int sampleRate = buffer.SampleRate;
-        if (sampleRate <= 0) return;
+        if (sampleRate <= 0)
+            return;
 
         int fftSize = Fft.ClampToPowerOfTwo(FftSize, min: 256, max: 4096);
         float windowSec = Math.Clamp(WindowSeconds, 0.5f, 30f);
@@ -68,7 +76,8 @@ public sealed class SpectrogramControl : AudioVisualizerControlBase
         // Read a continuous window ending at the playhead — same convention used by
         // SpectrumControl so the rightmost column visually aligns with "now".
         int got = buffer.ReadAroundTime(PlayheadTime, _samplesL, _samplesR, totalSamples);
-        if (got < fftSize) return;
+        if (got < fftSize)
+            return;
 
         Span<float> mono = _mono.AsSpan(0, totalSamples);
         for (int i = 0; i < totalSamples; i++)
@@ -114,31 +123,43 @@ public sealed class SpectrogramControl : AudioVisualizerControlBase
             for (int b = 0; b < VerticalBands; b++)
             {
                 // Logarithmic frequency axis: row b covers bin range [bins^(b/B), bins^((b+1)/B)]
-                int binLow = Math.Max(1, (int)Math.Floor(Math.Pow(bins, (double)b / VerticalBands)));
-                int binHigh = Math.Min(bins, (int)Math.Ceiling(Math.Pow(bins, (b + 1.0) / VerticalBands)));
-                if (binHigh <= binLow) binHigh = Math.Min(bins, binLow + 1);
+                int binLow = Math.Max(
+                    1,
+                    (int)Math.Floor(Math.Pow(bins, (double)b / VerticalBands))
+                );
+                int binHigh = Math.Min(
+                    bins,
+                    (int)Math.Ceiling(Math.Pow(bins, (b + 1.0) / VerticalBands))
+                );
+                if (binHigh <= binLow)
+                    binHigh = Math.Min(bins, binLow + 1);
 
                 float maxMag = 0f;
                 for (int k = binLow; k < binHigh; k++)
                 {
-                    if (mags[k] > maxMag) maxMag = mags[k];
+                    if (mags[k] > maxMag)
+                        maxMag = mags[k];
                 }
 
                 float db = MathF.Max(Fft.MagnitudeToDb(maxMag, referenceMag), minDb);
                 float norm = (db - minDb) / rangeDb;
-                if (norm <= 0f) continue;
+                if (norm <= 0f)
+                    continue;
 
                 byte alpha = (byte)Math.Clamp(norm * 255f, 0f, 255f);
-                if (alpha == 0) continue;
+                if (alpha == 0)
+                    continue;
 
                 // Higher frequencies on top: row b=0 → bottom, b=B-1 → top.
                 double y = bounds.Height - (b + 1) * rowHeight;
-                ImmutableSolidColorBrush brush = _brushCache[alpha]
-                    ??= new ImmutableSolidColorBrush(
-                        Color.FromArgb(alpha, baseColor.R, baseColor.G, baseColor.B));
+                ImmutableSolidColorBrush brush = _brushCache[alpha] ??=
+                    new ImmutableSolidColorBrush(
+                        Color.FromArgb(alpha, baseColor.R, baseColor.G, baseColor.B)
+                    );
                 context.FillRectangle(
                     brush,
-                    new Rect(colX, y, drawColWidth, Math.Max(1.0, rowHeight + 0.5)));
+                    new Rect(colX, y, drawColWidth, Math.Max(1.0, rowHeight + 0.5))
+                );
             }
         }
     }

@@ -33,7 +33,11 @@ public sealed class EqualizerNode : AudioNode
         }
 
         // Initialize or reinitialize filters
-        if (_filters == null || _lastChannelCount != input.ChannelCount || _lastBandCount != Bands.Count)
+        if (
+            _filters == null
+            || _lastChannelCount != input.ChannelCount
+            || _lastBandCount != Bands.Count
+        )
         {
             InitializeFilters(input.ChannelCount);
             _lastChannelCount = input.ChannelCount;
@@ -51,9 +55,10 @@ public sealed class EqualizerNode : AudioNode
 
         // Check if any band has an actual animation assigned
         bool hasAnimation = Bands.Any(band =>
-            band.Frequency.Animation != null ||
-            band.Gain.Animation != null ||
-            band.Q.Animation != null);
+            band.Frequency.Animation != null
+            || band.Gain.Animation != null
+            || band.Q.Animation != null
+        );
 
         if (!hasAnimation)
         {
@@ -92,7 +97,9 @@ public sealed class EqualizerNode : AudioNode
 
             for (int ch = 0; ch < input.ChannelCount; ch++)
             {
-                _filters![bandIndex][ch].CalculateCoefficients(filterType, frequency, q, gain, context.SampleRate);
+                _filters!
+                    [bandIndex][ch]
+                    .CalculateCoefficients(filterType, frequency, q, gain, context.SampleRate);
             }
         }
 
@@ -161,15 +168,36 @@ public sealed class EqualizerNode : AudioNode
                     var filterType = band.FilterType.CurrentValue;
 
                     // Sample animation values
-                    context.AnimationSampler.SampleBuffer(band.Frequency, chunkRange, context.SampleRate, frequencies[..chunkSize]);
-                    context.AnimationSampler.SampleBuffer(band.Gain, chunkRange, context.SampleRate, gains[..chunkSize]);
-                    context.AnimationSampler.SampleBuffer(band.Q, chunkRange, context.SampleRate, qs[..chunkSize]);
+                    context.AnimationSampler.SampleBuffer(
+                        band.Frequency,
+                        chunkRange,
+                        context.SampleRate,
+                        frequencies[..chunkSize]
+                    );
+                    context.AnimationSampler.SampleBuffer(
+                        band.Gain,
+                        chunkRange,
+                        context.SampleRate,
+                        gains[..chunkSize]
+                    );
+                    context.AnimationSampler.SampleBuffer(
+                        band.Q,
+                        chunkRange,
+                        context.SampleRate,
+                        qs[..chunkSize]
+                    );
 
                     // Process each sample
                     for (int i = 0; i < chunkSize; i++)
                     {
                         // Update coefficients
-                        filter.CalculateCoefficients(filterType, frequencies[i], qs[i], gains[i], context.SampleRate);
+                        filter.CalculateCoefficients(
+                            filterType,
+                            frequencies[i],
+                            qs[i],
+                            gains[i],
+                            context.SampleRate
+                        );
                         // Apply filter
                         outData[i] = filter.Process(outData[i]);
                     }

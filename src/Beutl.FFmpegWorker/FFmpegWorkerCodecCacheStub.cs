@@ -9,6 +9,8 @@ namespace Beutl.FFmpegWorker;
 internal static class FFmpegWorkerCodecCache
 {
     public static IReadOnlyList<object> GetVideoCodecs() => [CodecRecord.Default];
+
     public static IReadOnlyList<object> GetAudioCodecs() => [CodecRecord.Default];
+
     public static void Invalidate() { }
 }

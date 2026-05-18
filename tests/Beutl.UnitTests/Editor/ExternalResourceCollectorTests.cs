@@ -35,7 +35,8 @@ public class ExternalResourceCollectorTests
     {
         // Arrange & Act & Assert
         Assert.Throws<ArgumentNullException>(() =>
-            ExternalResourceCollector.Collect(null!, _testProjectDir));
+            ExternalResourceCollector.Collect(null!, _testProjectDir)
+        );
     }
 
     [Test]
@@ -45,8 +46,7 @@ public class ExternalResourceCollectorTests
         var root = new TestHierarchical();
 
         // Act & Assert
-        Assert.Throws<ArgumentNullException>(() =>
-            ExternalResourceCollector.Collect(root, null!));
+        Assert.Throws<ArgumentNullException>(() => ExternalResourceCollector.Collect(root, null!));
     }
 
     [Test]
@@ -56,7 +56,10 @@ public class ExternalResourceCollectorTests
         var root = new TestHierarchical();
 
         // Act
-        ExternalResourceCollector collector = ExternalResourceCollector.Collect(root, _testProjectDir);
+        ExternalResourceCollector collector = ExternalResourceCollector.Collect(
+            root,
+            _testProjectDir
+        );
 
         // Assert
         Assert.Multiple(() =>
@@ -79,7 +82,10 @@ public class ExternalResourceCollectorTests
         root.AddChild(engineObj);
 
         // Act
-        ExternalResourceCollector collector = ExternalResourceCollector.Collect(root, _testProjectDir);
+        ExternalResourceCollector collector = ExternalResourceCollector.Collect(
+            root,
+            _testProjectDir
+        );
 
         // Assert
         Assert.That(collector.FileSources, Has.Count.EqualTo(1));
@@ -100,7 +106,10 @@ public class ExternalResourceCollectorTests
         root.AddChild(engineObj);
 
         // Act
-        ExternalResourceCollector collector = ExternalResourceCollector.Collect(root, _testProjectDir);
+        ExternalResourceCollector collector = ExternalResourceCollector.Collect(
+            root,
+            _testProjectDir
+        );
 
         // Assert
         Assert.That(collector.FileSources, Is.Empty);
@@ -116,7 +125,10 @@ public class ExternalResourceCollectorTests
         root.AddChild(engineObj);
 
         // Act
-        ExternalResourceCollector collector = ExternalResourceCollector.Collect(root, _testProjectDir);
+        ExternalResourceCollector collector = ExternalResourceCollector.Collect(
+            root,
+            _testProjectDir
+        );
 
         // Assert
         Assert.That(collector.FontFamilies, Has.Count.EqualTo(1));
@@ -132,7 +144,10 @@ public class ExternalResourceCollectorTests
         root.AddChild(engineObj);
 
         // Act
-        ExternalResourceCollector collector = ExternalResourceCollector.Collect(root, _testProjectDir);
+        ExternalResourceCollector collector = ExternalResourceCollector.Collect(
+            root,
+            _testProjectDir
+        );
 
         // Assert
         Assert.That(collector.FontFamilies, Is.Empty);
@@ -155,7 +170,10 @@ public class ExternalResourceCollectorTests
         root.AddChild(engineObj2);
 
         // Act
-        ExternalResourceCollector collector = ExternalResourceCollector.Collect(root, _testProjectDir);
+        ExternalResourceCollector collector = ExternalResourceCollector.Collect(
+            root,
+            _testProjectDir
+        );
 
         // Assert
         Assert.That(collector.FileSources, Has.Count.EqualTo(2));
@@ -174,7 +192,10 @@ public class ExternalResourceCollectorTests
         root.AddChild(engineObj2);
 
         // Act
-        ExternalResourceCollector collector = ExternalResourceCollector.Collect(root, _testProjectDir);
+        ExternalResourceCollector collector = ExternalResourceCollector.Collect(
+            root,
+            _testProjectDir
+        );
 
         // Assert
         Assert.That(collector.FontFamilies, Has.Count.EqualTo(1));
@@ -191,7 +212,10 @@ public class ExternalResourceCollectorTests
         var root = new TestEngineObjectWithFileSource(fileSource);
 
         // Act
-        ExternalResourceCollector collector = ExternalResourceCollector.Collect(root, _testProjectDir);
+        ExternalResourceCollector collector = ExternalResourceCollector.Collect(
+            root,
+            _testProjectDir
+        );
 
         // Assert
         Assert.That(collector.FileSources, Has.Count.EqualTo(1));
@@ -215,7 +239,10 @@ public class ExternalResourceCollectorTests
         root.AddChild(parent);
 
         // Act
-        ExternalResourceCollector collector = ExternalResourceCollector.Collect(root, _testProjectDir);
+        ExternalResourceCollector collector = ExternalResourceCollector.Collect(
+            root,
+            _testProjectDir
+        );
 
         // Assert
         Assert.That(collector.FileSources, Has.Count.EqualTo(2));
@@ -231,7 +258,10 @@ public class ExternalResourceCollectorTests
         root.AddChild(engineObj);
 
         // Act
-        ExternalResourceCollector collector = ExternalResourceCollector.Collect(root, _testProjectDir);
+        ExternalResourceCollector collector = ExternalResourceCollector.Collect(
+            root,
+            _testProjectDir
+        );
 
         // Assert
         Assert.That(collector.FileSources, Is.Empty);
@@ -247,7 +277,10 @@ public class ExternalResourceCollectorTests
         root.AddChild(engineObj);
 
         // Act
-        ExternalResourceCollector collector = ExternalResourceCollector.Collect(root, _testProjectDir);
+        ExternalResourceCollector collector = ExternalResourceCollector.Collect(
+            root,
+            _testProjectDir
+        );
 
         // Assert
         Assert.That(collector.FileSources, Is.Empty);
@@ -263,7 +296,10 @@ public class ExternalResourceCollectorTests
         root.AddChild(engineObj);
 
         // Act
-        ExternalResourceCollector collector = ExternalResourceCollector.Collect(root, _testProjectDir);
+        ExternalResourceCollector collector = ExternalResourceCollector.Collect(
+            root,
+            _testProjectDir
+        );
 
         // Assert
         Assert.That(collector.FontFamilies, Has.Count.EqualTo(1));
@@ -283,7 +319,10 @@ public class ExternalResourceCollectorTests
         root.AddChild(engineObjWithNested);
 
         // Act
-        ExternalResourceCollector collector = ExternalResourceCollector.Collect(root, _testProjectDir);
+        ExternalResourceCollector collector = ExternalResourceCollector.Collect(
+            root,
+            _testProjectDir
+        );
 
         // Assert
         Assert.That(collector.FileSources, Has.Count.EqualTo(1));
@@ -310,7 +349,10 @@ public class ExternalResourceCollectorTests
         root.AddChild(engineObjWithNested);
 
         // Act
-        ExternalResourceCollector collector = ExternalResourceCollector.Collect(root, _testProjectDir);
+        ExternalResourceCollector collector = ExternalResourceCollector.Collect(
+            root,
+            _testProjectDir
+        );
 
         // Assert
         Assert.That(collector.FileSources, Has.Count.EqualTo(1));
@@ -325,7 +367,10 @@ public class ExternalResourceCollectorTests
         root.AddChild(engineObj);
 
         // Act
-        ExternalResourceCollector collector = ExternalResourceCollector.Collect(root, _testProjectDir);
+        ExternalResourceCollector collector = ExternalResourceCollector.Collect(
+            root,
+            _testProjectDir
+        );
 
         // Assert
         Assert.Multiple(() =>
@@ -346,16 +391,25 @@ public class ExternalResourceCollectorTests
         File.WriteAllText(externalFile2, "content 2");
         File.WriteAllText(externalFile3, "content 3");
 
-        var engineObj1 = new TestEngineObjectWithFileSource(new TestFileSource(new Uri(externalFile1)));
-        var engineObj2 = new TestEngineObjectWithFileSource(new TestFileSource(new Uri(externalFile2)));
-        var engineObj3 = new TestEngineObjectWithFileSource(new TestFileSource(new Uri(externalFile3)));
+        var engineObj1 = new TestEngineObjectWithFileSource(
+            new TestFileSource(new Uri(externalFile1))
+        );
+        var engineObj2 = new TestEngineObjectWithFileSource(
+            new TestFileSource(new Uri(externalFile2))
+        );
+        var engineObj3 = new TestEngineObjectWithFileSource(
+            new TestFileSource(new Uri(externalFile3))
+        );
         var root = new TestHierarchical();
         root.AddChild(engineObj1);
         root.AddChild(engineObj2);
         root.AddChild(engineObj3);
 
         // Act
-        ExternalResourceCollector collector = ExternalResourceCollector.Collect(root, _testProjectDir);
+        ExternalResourceCollector collector = ExternalResourceCollector.Collect(
+            root,
+            _testProjectDir
+        );
 
         // Assert
         Assert.That(collector.FileSources, Has.Count.EqualTo(3));
@@ -374,7 +428,10 @@ public class ExternalResourceCollectorTests
         root.AddChild(engineObj3);
 
         // Act
-        ExternalResourceCollector collector = ExternalResourceCollector.Collect(root, _testProjectDir);
+        ExternalResourceCollector collector = ExternalResourceCollector.Collect(
+            root,
+            _testProjectDir
+        );
 
         // Assert
         Assert.That(collector.FontFamilies, Has.Count.EqualTo(3));
@@ -385,7 +442,10 @@ public class ExternalResourceCollectorTests
     {
         // Arrange
         // Create /tmp/proj and /tmp/projbar to test path boundary detection
-        string baseDir = Path.Combine(Path.GetTempPath(), $"beutl_boundary_test_{Guid.NewGuid():N}");
+        string baseDir = Path.Combine(
+            Path.GetTempPath(),
+            $"beutl_boundary_test_{Guid.NewGuid():N}"
+        );
         string projectDir = Path.Combine(baseDir, "proj");
         string siblingDir = Path.Combine(baseDir, "projbar");
         Directory.CreateDirectory(projectDir);
@@ -402,7 +462,10 @@ public class ExternalResourceCollectorTests
             root.AddChild(engineObj);
 
             // Act
-            ExternalResourceCollector collector = ExternalResourceCollector.Collect(root, projectDir);
+            ExternalResourceCollector collector = ExternalResourceCollector.Collect(
+                root,
+                projectDir
+            );
 
             // Assert - file in /tmp/projbar should be external relative to /tmp/proj
             Assert.That(collector.FileSources, Has.Count.EqualTo(1));

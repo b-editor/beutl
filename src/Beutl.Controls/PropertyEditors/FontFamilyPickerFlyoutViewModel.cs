@@ -23,14 +23,14 @@ public class FontFamilyPickerFlyoutViewModel
             .Select(s => new FontFamily(s))
             .ToList();
 
-        _items = FontManager.Instance.FontFamilies
-            .Select(v =>
-                new PinnableLibraryItem(
-                    FontManager.Instance._fontNames.TryGetValue(v, out var name)
-                        ? name.FontFamilyName ?? v.Name
-                        : v.Name,
-                    false,
-                    v))
+        _items = FontManager
+            .Instance.FontFamilies.Select(v => new PinnableLibraryItem(
+                FontManager.Instance._fontNames.TryGetValue(v, out var name)
+                    ? name.FontFamilyName ?? v.Name
+                    : v.Name,
+                false,
+                v
+            ))
             .OrderBy(i => i.DisplayName)
             .ToArray();
         ShowAll.Subscribe(_ => ProcessSearchText());
@@ -53,24 +53,22 @@ public class FontFamilyPickerFlyoutViewModel
 
     public void Pin(PinnableLibraryItem item)
     {
-        if (item.UserData is not FontFamily font) return;
+        if (item.UserData is not FontFamily font)
+            return;
 
         _pinnedItems.Add(font);
-        string[] array = _pinnedItems
-            .Select(f => f.Name)
-            .ToArray();
+        string[] array = _pinnedItems.Select(f => f.Name).ToArray();
         Preferences.Default.Set("FontManager.PinnedItems", JsonSerializer.Serialize(array));
         ProcessSearchText();
     }
 
     public void Unpin(PinnableLibraryItem item)
     {
-        if (item.UserData is not FontFamily font) return;
+        if (item.UserData is not FontFamily font)
+            return;
 
         _pinnedItems.Remove(font);
-        string[] array = _pinnedItems
-            .Select(f => f.Name)
-            .ToArray();
+        string[] array = _pinnedItems.Select(f => f.Name).ToArray();
         Preferences.Default.Set("FontManager.PinnedItems", JsonSerializer.Serialize(array));
         ProcessSearchText();
     }
@@ -84,7 +82,12 @@ public class FontFamilyPickerFlyoutViewModel
     {
         Items.ClearOnScheduler();
         var items = _items;
-        items = items.Select(i => new PinnableLibraryItem(i.DisplayName, IsPinned((FontFamily)i.UserData), i.UserData))
+        items = items
+            .Select(i => new PinnableLibraryItem(
+                i.DisplayName,
+                IsPinned((FontFamily)i.UserData),
+                i.UserData
+            ))
             .OrderByDescending(t => t.IsPinned)
             .ToArray();
 
@@ -94,15 +97,22 @@ public class FontFamilyPickerFlyoutViewModel
         }
         else
         {
-            string[] segments = SearchText.Value.Split(' ')
+            string[] segments = SearchText
+                .Value.Split(' ')
                 .Select(x => x.Trim())
                 .Where(x => !string.IsNullOrWhiteSpace(x))
                 .ToArray();
 
-            var newItems = items.Where(x =>
-                    segments.Any(item
-                        => x.DisplayName.Contains(item, StringComparison.OrdinalIgnoreCase)
-                           || ((FontFamily)x.UserData).Name.Contains(item, StringComparison.OrdinalIgnoreCase)))
+            var newItems = items
+                .Where(x =>
+                    segments.Any(item =>
+                        x.DisplayName.Contains(item, StringComparison.OrdinalIgnoreCase)
+                        || ((FontFamily)x.UserData).Name.Contains(
+                            item,
+                            StringComparison.OrdinalIgnoreCase
+                        )
+                    )
+                )
                 .OrderByDescending(t => t.IsPinned)
                 .ToArray();
             Items.AddRange(newItems);

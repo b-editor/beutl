@@ -1,83 +1,101 @@
 ﻿using System.Text.Json.Nodes;
-
 using Avalonia.Input;
 using Beutl.Audio.Effects;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Engine;
 using Beutl.PropertyAdapters;
 using Beutl.Serialization;
-
 using Reactive.Bindings;
 
 namespace Beutl.ViewModels.Editors;
 
-public sealed class AudioEffectEditorViewModel : ValueEditorViewModel<AudioEffect?>, IFallbackObjectViewModel
+public sealed class AudioEffectEditorViewModel
+    : ValueEditorViewModel<AudioEffect?>,
+        IFallbackObjectViewModel
 {
     public AudioEffectEditorViewModel(IPropertyAdapter<AudioEffect?> property)
         : base(property)
     {
-        CanCopy = Value.Select(v => v is AudioEffect and not FallbackAudioEffect)
+        CanCopy = Value
+            .Select(v => v is AudioEffect and not FallbackAudioEffect)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(Disposables);
 
-        IsFallback = Value.Select(v => v is IFallback)
+        IsFallback = Value
+            .Select(v => v is IFallback)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(Disposables);
 
-        ActualTypeName = Value.Select(FallbackHelper.GetTypeName)
+        ActualTypeName = Value
+            .Select(FallbackHelper.GetTypeName)
             .ToReadOnlyReactivePropertySlim(Strings.Unknown)
             .DisposeWith(Disposables);
 
-        FallbackMessage = Value.Select(FallbackHelper.GetFallbackMessage)
+        FallbackMessage = Value
+            .Select(FallbackHelper.GetFallbackMessage)
             .ToReadOnlyReactivePropertySlim(MessageStrings.RestoreFailedTypeNotFound)
             .DisposeWith(Disposables);
 
-        FilterName = Value.Select(v => v != null ? TypeDisplayHelpers.GetLocalizedName(v.GetType()) : "Null")
+        FilterName = Value
+            .Select(v => v != null ? TypeDisplayHelpers.GetLocalizedName(v.GetType()) : "Null")
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(Disposables);
 
-        IsGroup = Value.Select(v => v is AudioEffectGroup)
+        IsGroup = Value
+            .Select(v => v is AudioEffectGroup)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(Disposables);
 
-        IsGroupOrNull = Value.Select(v => v is AudioEffectGroup || v == null)
+        IsGroupOrNull = Value
+            .Select(v => v is AudioEffectGroup || v == null)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(Disposables);
 
-        IsExpanded.SkipWhile(v => !v)
+        IsExpanded
+            .SkipWhile(v => !v)
             .Take(1)
             .Subscribe(_ =>
-                Value.Subscribe(v =>
-                {
-                    Properties.Value?.Dispose();
-                    Properties.Value = null;
-                    Group.Value?.Dispose();
-                    Group.Value = null;
-
-                    if (v is AudioEffectGroup group)
+                Value
+                    .Subscribe(v =>
                     {
-                        var prop = new EnginePropertyAdapter<ICoreList<AudioEffect>>(group.Children, group);
-                        Group.Value = new ListEditorViewModel<AudioEffect>(prop)
+                        Properties.Value?.Dispose();
+                        Properties.Value = null;
+                        Group.Value?.Dispose();
+                        Group.Value = null;
+
+                        if (v is AudioEffectGroup group)
                         {
-                            IsExpanded = { Value = true }
-                        };
-                    }
-                    else if (v != null)
-                    {
-                        Properties.Value = new PropertiesEditorViewModel(v);
-                    }
+                            var prop = new EnginePropertyAdapter<ICoreList<AudioEffect>>(
+                                group.Children,
+                                group
+                            );
+                            Group.Value = new ListEditorViewModel<AudioEffect>(prop)
+                            {
+                                IsExpanded = { Value = true },
+                            };
+                        }
+                        else if (v != null)
+                        {
+                            Properties.Value = new PropertiesEditorViewModel(v);
+                        }
 
-                    AcceptChild();
-                })
-                .DisposeWith(Disposables))
+                        AcceptChild();
+                    })
+                    .DisposeWith(Disposables)
+            )
             .DisposeWith(Disposables);
 
-        IsEnabled = Value.Select(x => x?.GetObservable(EngineObject.IsEnabledProperty) ?? Observable.ReturnThenNever(x?.IsEnabled ?? false))
+        IsEnabled = Value
+            .Select(x =>
+                x?.GetObservable(EngineObject.IsEnabledProperty)
+                ?? Observable.ReturnThenNever(x?.IsEnabled ?? false)
+            )
             .Switch()
             .ToReactiveProperty()
             .DisposeWith(Disposables);
 
-        IsEnabled.Skip(1)
+        IsEnabled
+            .Skip(1)
             .Subscribe(v =>
             {
                 if (Value.Value is { } effect)
@@ -87,7 +105,6 @@ public sealed class AudioEffectEditorViewModel : ValueEditorViewModel<AudioEffec
                 }
             })
             .DisposeWith(Disposables);
-
     }
 
     public override IReadOnlyReactiveProperty<bool> CanCopy { get; }
@@ -133,7 +150,11 @@ public sealed class AudioEffectEditorViewModel : ValueEditorViewModel<AudioEffec
 
     private void AcceptChild()
     {
-        NestedEditorContextHelper.AcceptChildren(new ChildVisitor(this), Group.Value, Properties.Value);
+        NestedEditorContextHelper.AcceptChildren(
+            new ChildVisitor(this),
+            Group.Value,
+            Properties.Value
+        );
     }
 
     public void ChangeAudioEffect(AudioEffect instance)
@@ -148,16 +169,19 @@ public sealed class AudioEffectEditorViewModel : ValueEditorViewModel<AudioEffec
             ChangeAudioEffect(instance);
     }
 
-    protected override ICoreSerializable? GetCopyTarget()
-        => Value.Value is AudioEffect ae and not FallbackAudioEffect ? ae : null;
+    protected override ICoreSerializable? GetCopyTarget() =>
+        Value.Value is AudioEffect ae and not FallbackAudioEffect ? ae : null;
 
     protected override ICoreSerializable? GetTemplateTarget() => GetCopyTarget();
 
     public override bool TryPasteJson(string json)
     {
         return GroupedEditorHelper.TryPasteJson(
-            json, this, IsExpanded,
-            (Value.Value as AudioEffectGroup)?.Children);
+            json,
+            this,
+            IsExpanded,
+            (Value.Value as AudioEffectGroup)?.Children
+        );
     }
 
     public override bool IsTemplateGroup => Value.Value is AudioEffectGroup;
@@ -165,9 +189,13 @@ public sealed class AudioEffectEditorViewModel : ValueEditorViewModel<AudioEffec
     public override bool ApplyTemplate(ObjectTemplateItem template)
     {
         return GroupedEditorHelper.ApplyTemplate(
-            template, this, IsExpanded,
+            template,
+            this,
+            IsExpanded,
             Value.Value is AudioEffectGroup,
-            AddItem, ChangeAudioEffect);
+            AddItem,
+            ChangeAudioEffect
+        );
     }
 
     public void AddItem(AudioEffect instance)
@@ -209,6 +237,11 @@ public sealed class AudioEffectEditorViewModel : ValueEditorViewModel<AudioEffec
     public override void WriteToJson(JsonObject json)
     {
         base.WriteToJson(json);
-        NestedEditorContextHelper.WriteNestedJson(json, IsExpanded.Value, Properties.Value, Group.Value);
+        NestedEditorContextHelper.WriteNestedJson(
+            json,
+            IsExpanded.Value,
+            Properties.Value,
+            Group.Value
+        );
     }
 }

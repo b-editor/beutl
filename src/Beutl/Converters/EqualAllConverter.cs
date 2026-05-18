@@ -6,7 +6,12 @@ public sealed class EqualAllConverter : IMultiValueConverter
 {
     public static readonly EqualAllConverter Instance = new();
 
-    public object? Convert(IList<object?> values, Type targetType, object? parameter, CultureInfo culture)
+    public object? Convert(
+        IList<object?> values,
+        Type targetType,
+        object? parameter,
+        CultureInfo culture
+    )
     {
         if (values.Count == 0)
         {

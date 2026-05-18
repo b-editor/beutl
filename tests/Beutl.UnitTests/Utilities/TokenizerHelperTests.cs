@@ -37,7 +37,11 @@ public class TokenizerHelperTests
     public void GetSeparator_USEnglishCulture_ReturnsComma()
     {
         CultureInfo? en = TryGetCulture("en-US");
-        Assume.That(en, Is.Not.Null, "en-US culture not available (globalization-invariant runtime)");
+        Assume.That(
+            en,
+            Is.Not.Null,
+            "en-US culture not available (globalization-invariant runtime)"
+        );
         char c = TokenizerHelper.GetSeparatorFromFormatProvider(en);
         Assert.That(c, Is.EqualTo(','));
     }
@@ -48,7 +52,11 @@ public class TokenizerHelperTests
         // ドイツ語ロケールでは小数点の区切り文字がカンマなので、
         // セパレーターはセミコロンへ切り替わる
         CultureInfo? de = TryGetCulture("de-DE");
-        Assume.That(de, Is.Not.Null, "de-DE culture not available (globalization-invariant runtime)");
+        Assume.That(
+            de,
+            Is.Not.Null,
+            "de-DE culture not available (globalization-invariant runtime)"
+        );
         char c = TokenizerHelper.GetSeparatorFromFormatProvider(de);
         Assert.That(c, Is.EqualTo(';'));
     }
@@ -57,7 +65,11 @@ public class TokenizerHelperTests
     public void GetSeparator_FrenchCulture_ReturnsSemicolon()
     {
         CultureInfo? fr = TryGetCulture("fr-FR");
-        Assume.That(fr, Is.Not.Null, "fr-FR culture not available (globalization-invariant runtime)");
+        Assume.That(
+            fr,
+            Is.Not.Null,
+            "fr-FR culture not available (globalization-invariant runtime)"
+        );
         char c = TokenizerHelper.GetSeparatorFromFormatProvider(fr);
         Assert.That(c, Is.EqualTo(';'));
     }

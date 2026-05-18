@@ -27,12 +27,11 @@ public class KeyMapSettingsItem
     {
         _commandManager = commandManager;
         Command = command;
-        OSPlatform os = OperatingSystem.IsWindows() ? OSPlatform.Windows :
-            OperatingSystem.IsLinux() ? OSPlatform.Linux :
-            OSPlatform.OSX;
-        var gesture = command.KeyGestures
-            .FirstOrDefault(i => i.Platform == os)
-            ?.KeyGesture;
+        OSPlatform os =
+            OperatingSystem.IsWindows() ? OSPlatform.Windows
+            : OperatingSystem.IsLinux() ? OSPlatform.Linux
+            : OSPlatform.OSX;
+        var gesture = command.KeyGestures.FirstOrDefault(i => i.Platform == os)?.KeyGesture;
         KeyGesture = new ReactiveProperty<KeyGesture?>(gesture);
     }
 
@@ -43,10 +42,11 @@ public class KeyMapSettingsItem
     public void SetKeyGesture(KeyGesture? gesture)
     {
         KeyGesture.Value = gesture;
-        OSPlatform os = OperatingSystem.IsWindows() ? OSPlatform.Windows :
-            OperatingSystem.IsLinux() ? OSPlatform.Linux :
-            OperatingSystem.IsMacOS() ? OSPlatform.OSX :
-            throw new NotSupportedException();
+        OSPlatform os =
+            OperatingSystem.IsWindows() ? OSPlatform.Windows
+            : OperatingSystem.IsLinux() ? OSPlatform.Linux
+            : OperatingSystem.IsMacOS() ? OSPlatform.OSX
+            : throw new NotSupportedException();
         _commandManager.ChangeKeyGesture(Command, gesture, os);
     }
 }
@@ -58,12 +58,13 @@ public class KeyMapSettingsPageViewModel : PageContext
     public KeyMapSettingsPageViewModel(ContextCommandManager commandManager)
     {
         _commandManager = commandManager;
-        Group = _commandManager.GetDefinitions()
+        Group = _commandManager
+            .GetDefinitions()
             .GroupBy(i => i.ExtensionType)
-            .Select(i =>
-                new KeyMapSettingsGroup(
-                    ExtensionProvider.Current.AllExtensions.First(j => j.GetType() == i.Key),
-                    i.Select(j => new KeyMapSettingsItem(j, _commandManager)).ToArray()))
+            .Select(i => new KeyMapSettingsGroup(
+                ExtensionProvider.Current.AllExtensions.First(j => j.GetType() == i.Key),
+                i.Select(j => new KeyMapSettingsItem(j, _commandManager)).ToArray()
+            ))
             .ToArray();
     }
 

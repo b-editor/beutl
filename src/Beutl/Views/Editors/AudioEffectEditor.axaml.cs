@@ -25,14 +25,19 @@ public partial class AudioEffectEditor : UserControl
         AddHandler(DragDrop.DragOverEvent, DragOver);
         AddHandler(DragDrop.DropEvent, Drop);
 
-        EditorMenuHelper.AttachCopyPasteAndTemplateMenus(this, (FAMenuFlyout)expandToggle.ContextFlyout!);
+        EditorMenuHelper.AttachCopyPasteAndTemplateMenus(
+            this,
+            (FAMenuFlyout)expandToggle.ContextFlyout!
+        );
     }
 
     private void Drop(object? sender, DragEventArgs e)
     {
-        if (DataContext is not AudioEffectEditorViewModel { IsDisposed: false } viewModel) return;
+        if (DataContext is not AudioEffectEditorViewModel { IsDisposed: false } viewModel)
+            return;
 
-        if (EditorDragDropHelper.TryHandleEditorDrop<AudioEffect>(
+        if (
+            EditorDragDropHelper.TryHandleEditorDrop<AudioEffect>(
                 e,
                 BeutlDataFormats.AudioEffect,
                 tryPasteJson: viewModel.TryPasteJson,
@@ -50,7 +55,9 @@ public partial class AudioEffectEditor : UserControl
                     else
                         viewModel.ChangeFilterType(type);
                     return true;
-                }))
+                }
+            )
+        )
         {
             e.Handled = true;
         }
@@ -63,7 +70,8 @@ public partial class AudioEffectEditor : UserControl
 
     private async void Tag_Click(object? sender, RoutedEventArgs e)
     {
-        if (DataContext is not AudioEffectEditorViewModel { IsDisposed: false } viewModel) return;
+        if (DataContext is not AudioEffectEditorViewModel { IsDisposed: false } viewModel)
+            return;
 
         if (viewModel.IsGroup.Value)
         {
@@ -88,13 +96,18 @@ public partial class AudioEffectEditor : UserControl
 
     private async Task<Type?> SelectType()
     {
-        if (_flyoutOpen) return null;
+        if (_flyoutOpen)
+            return null;
 
         try
         {
             _flyoutOpen = true;
             var viewModel = new SelectAudioEffectTypeViewModel();
-            return await LibraryItemPickerHelper.ShowTypeOnlyAsync(this, viewModel, KnownLibraryItemFormats.AudioEffect);
+            return await LibraryItemPickerHelper.ShowTypeOnlyAsync(
+                this,
+                viewModel,
+                KnownLibraryItemFormats.AudioEffect
+            );
         }
         finally
         {
@@ -104,7 +117,8 @@ public partial class AudioEffectEditor : UserControl
 
     private async void ChangeEffectTypeClick(object? sender, RoutedEventArgs e)
     {
-        if (DataContext is not AudioEffectEditorViewModel { IsDisposed: false } viewModel) return;
+        if (DataContext is not AudioEffectEditorViewModel { IsDisposed: false } viewModel)
+            return;
 
         Type? type = await SelectType();
         if (type != null)

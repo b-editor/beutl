@@ -28,19 +28,29 @@ public sealed partial class SphereMesh : Mesh
     /// <summary>
     /// Gets the number of horizontal segments (longitude).
     /// </summary>
-    [Display(Name = nameof(GraphicsStrings.SphereMesh_Segments), ResourceType = typeof(GraphicsStrings))]
+    [Display(
+        Name = nameof(GraphicsStrings.SphereMesh_Segments),
+        ResourceType = typeof(GraphicsStrings)
+    )]
     [Range(3, 128), NumberStep(1, 1)]
     public IProperty<int> Segments { get; } = Property.CreateAnimatable(32);
 
     /// <summary>
     /// Gets the number of vertical rings (latitude).
     /// </summary>
-    [Display(Name = nameof(GraphicsStrings.SphereMesh_Rings), ResourceType = typeof(GraphicsStrings))]
+    [Display(
+        Name = nameof(GraphicsStrings.SphereMesh_Rings),
+        ResourceType = typeof(GraphicsStrings)
+    )]
     [Range(2, 128), NumberStep(1, 1)]
     public IProperty<int> Rings { get; } = Property.CreateAnimatable(16);
 
     /// <inheritdoc />
-    public override void ApplyTo(Mesh.Resource resource, out Vertex3D[] vertices, out uint[] indices)
+    public override void ApplyTo(
+        Mesh.Resource resource,
+        out Vertex3D[] vertices,
+        out uint[] indices
+    )
     {
         var r = (Resource)resource;
         GenerateSphere(r.Radius, r.Segments, r.Rings, out vertices, out indices);
@@ -49,7 +59,13 @@ public sealed partial class SphereMesh : Mesh
     /// <summary>
     /// Generates UV sphere mesh data with the specified parameters.
     /// </summary>
-    public static void GenerateSphere(float radius, int segments, int rings, out Vertex3D[] vertices, out uint[] indices)
+    public static void GenerateSphere(
+        float radius,
+        int segments,
+        int rings,
+        out Vertex3D[] vertices,
+        out uint[] indices
+    )
     {
         var vertexList = new List<Vertex3D>();
         var indexList = new List<uint>();

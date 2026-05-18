@@ -12,7 +12,7 @@ public class ElementBehaviorTests
         var element = new Element
         {
             Start = TimeSpan.FromSeconds(1),
-            Length = TimeSpan.FromSeconds(2)
+            Length = TimeSpan.FromSeconds(2),
         };
 
         Assert.That(element.Range.Start, Is.EqualTo(TimeSpan.FromSeconds(1)));
@@ -176,9 +176,7 @@ public class ElementBehaviorTests
     }
 
     [SuppressResourceClassGeneration]
-    private class TestFlowOperator : EngineObject, IFlowOperator
-    {
-    }
+    private class TestFlowOperator : EngineObject, IFlowOperator { }
 
     [SuppressResourceClassGeneration]
     private class TestDurationObject : EngineObject, IOriginalDurationProvider

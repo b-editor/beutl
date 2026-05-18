@@ -121,8 +121,5 @@ public class BaseUriHelperTests
         }
     }
 
-    private class NonHierarchicalCoreObject : CoreObject
-    {
-    }
+    private class NonHierarchicalCoreObject : CoreObject { }
 }
-

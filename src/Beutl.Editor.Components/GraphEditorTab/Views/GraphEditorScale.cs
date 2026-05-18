@@ -8,22 +8,33 @@ namespace Beutl.Editor.Components.GraphEditorTab.Views;
 
 public sealed class GraphEditorScale : Control
 {
-    public static readonly DirectProperty<GraphEditorScale, double> ScaleProperty
-        = AvaloniaProperty.RegisterDirect<GraphEditorScale, double>(
+    public static readonly DirectProperty<GraphEditorScale, double> ScaleProperty =
+        AvaloniaProperty.RegisterDirect<GraphEditorScale, double>(
             nameof(Scale),
-            o => o.Scale, (o, v) => o.Scale = v,
-            1d);
+            o => o.Scale,
+            (o, v) => o.Scale = v,
+            1d
+        );
 
-    public static readonly DirectProperty<GraphEditorScale, double> BaselineProperty
-        = AvaloniaProperty.RegisterDirect<GraphEditorScale, double>(
+    public static readonly DirectProperty<GraphEditorScale, double> BaselineProperty =
+        AvaloniaProperty.RegisterDirect<GraphEditorScale, double>(
             nameof(Baseline),
-            o => o.Baseline, (o, v) => o.Baseline = v);
+            o => o.Baseline,
+            (o, v) => o.Baseline = v
+        );
 
-    public static readonly DirectProperty<GraphEditorScale, Vector> OffsetProperty
-        = AvaloniaProperty.RegisterDirect<GraphEditorScale, Vector>(
-            nameof(Offset), o => o.Offset, (o, v) => o.Offset = v);
+    public static readonly DirectProperty<GraphEditorScale, Vector> OffsetProperty =
+        AvaloniaProperty.RegisterDirect<GraphEditorScale, Vector>(
+            nameof(Offset),
+            o => o.Offset,
+            (o, v) => o.Offset = v
+        );
 
-    private static readonly Typeface s_typeface = new(FontFamily.Default, FontStyle.Normal, FontWeight.Medium);
+    private static readonly Typeface s_typeface = new(
+        FontFamily.Default,
+        FontStyle.Normal,
+        FontWeight.Medium
+    );
     private readonly Pen _pen;
     private IBrush _brush = Brushes.White;
     private double _scale = 1;
@@ -39,10 +50,7 @@ public sealed class GraphEditorScale : Control
     public GraphEditorScale()
     {
         ClipToBounds = false;
-        _pen = new Pen()
-        {
-            Brush = _brush
-        };
+        _pen = new Pen() { Brush = _brush };
     }
 
     public double Scale
@@ -66,15 +74,16 @@ public sealed class GraphEditorScale : Control
     protected override void OnLoaded(RoutedEventArgs e)
     {
         base.OnLoaded(e);
-        _disposable = this.GetResourceObservable("GraphEditorScaleTextBrush").Subscribe(b =>
-        {
-            if (b is IBrush brush)
+        _disposable = this.GetResourceObservable("GraphEditorScaleTextBrush")
+            .Subscribe(b =>
             {
-                _brush = brush;
-                _pen.Brush = brush;
-                InvalidateVisual();
-            }
-        });
+                if (b is IBrush brush)
+                {
+                    _brush = brush;
+                    _pen.Brush = brush;
+                    InvalidateVisual();
+                }
+            });
     }
 
     protected override void OnUnloaded(RoutedEventArgs e)
@@ -105,7 +114,11 @@ public sealed class GraphEditorScale : Control
             context.FillRectangle(Brushes.Transparent, viewport);
             double value = PixelsPer100;
 
-            for (double y = originY - PixelsPer100; y >= viewport.Y - PixelsPer100; y -= PixelsPer100)
+            for (
+                double y = originY - PixelsPer100;
+                y >= viewport.Y - PixelsPer100;
+                y -= PixelsPer100
+            )
             {
                 if (viewport.Contains(new Point(width, y)))
                 {
@@ -115,9 +128,11 @@ public sealed class GraphEditorScale : Control
                 double ll = y + PixelsPer100;
                 for (double yy = y + PixelsPer5; yy < ll; yy += PixelsPer5)
                 {
-                    if (!viewport.Contains(new Point(width, yy))) continue;
+                    if (!viewport.Contains(new Point(width, yy)))
+                        continue;
 
-                    if (viewport.Bottom < yy) return;
+                    if (viewport.Bottom < yy)
+                        return;
 
                     context.DrawLine(_pen, new(left, yy), new(width, yy));
                 }
@@ -140,9 +155,11 @@ public sealed class GraphEditorScale : Control
                 double ll = y + PixelsPer100;
                 for (double yy = y + PixelsPer5; yy < ll; yy += PixelsPer5)
                 {
-                    if (!viewport.Contains(new Point(width, yy))) continue;
+                    if (!viewport.Contains(new Point(width, yy)))
+                        continue;
 
-                    if (viewport.Bottom < yy) return;
+                    if (viewport.Bottom < yy)
+                        return;
 
                     context.DrawLine(_pen, new(left, yy), new(width, yy));
                 }

@@ -28,9 +28,7 @@ public class FormattedText : IEquatable<FormattedText>
     private SKPath? _strokePath;
     private List<SKPathGeometry.Resource> _pathList = [];
 
-    public FormattedText()
-    {
-    }
+    public FormattedText() { }
 
     public FontWeight Weight
     {
@@ -186,7 +184,7 @@ public class FormattedText : IEquatable<FormattedText>
         {
             Edging = SKFontEdging.Antialias,
             Subpixel = true,
-            Hinting = SKFontHinting.Full
+            Hinting = SKFontHinting.Full,
         };
 
         return font;
@@ -263,7 +261,12 @@ public class FormattedText : IEquatable<FormattedText>
 
         SKPath? strokePath = null;
         // 空白で開始または、終了した場合
-        var bounds = new Rect(0, 0, (glyphs.Length - 1) * Spacing + result.Width, fillPath.TightBounds.Height);
+        var bounds = new Rect(
+            0,
+            0,
+            (glyphs.Length - 1) * Spacing + result.Width,
+            fillPath.TightBounds.Height
+        );
         Rect actualBounds = fillPath.TightBounds.ToGraphicsRect();
         SKTextBlob? textBlob = builder.Build();
 
@@ -308,14 +311,14 @@ public class FormattedText : IEquatable<FormattedText>
     public bool Equals(FormattedText? other)
     {
         return Weight == other?.Weight
-               && Style == other?.Style
-               && Font.Equals(other?.Font)
-               && Size == other?.Size
-               && Spacing == other?.Spacing
-               && Text.Equals(other?.Text)
-               && BeginOnNewLine == other?.BeginOnNewLine
-               && EqualityComparer<Brush.Resource>.Default.Equals(Brush, other?.Brush)
-               && EqualityComparer<Pen.Resource>.Default.Equals(Pen, other?.Pen);
+            && Style == other?.Style
+            && Font.Equals(other?.Font)
+            && Size == other?.Size
+            && Spacing == other?.Spacing
+            && Text.Equals(other?.Text)
+            && BeginOnNewLine == other?.BeginOnNewLine
+            && EqualityComparer<Brush.Resource>.Default.Equals(Brush, other?.Brush)
+            && EqualityComparer<Pen.Resource>.Default.Equals(Pen, other?.Pen);
     }
 
     public override int GetHashCode()

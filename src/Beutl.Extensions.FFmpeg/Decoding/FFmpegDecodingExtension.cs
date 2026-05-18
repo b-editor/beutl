@@ -58,9 +58,14 @@ public class FFmpegDecodingExtension : DecodingExtension
         {
             try
             {
-                if (e.PropertyName is not (nameof(FFmpegDecodingSettings.ThreadCount)
-                    or nameof(FFmpegDecodingSettings.Acceleration)
-                    or nameof(FFmpegDecodingSettings.ForceSrgbGamma)))
+                if (
+                    e.PropertyName
+                    is not (
+                        nameof(FFmpegDecodingSettings.ThreadCount)
+                        or nameof(FFmpegDecodingSettings.Acceleration)
+                        or nameof(FFmpegDecodingSettings.ForceSrgbGamma)
+                    )
+                )
                 {
                     return;
                 }
@@ -76,7 +81,13 @@ public class FFmpegDecodingExtension : DecodingExtension
                         Acceleration = (int)Settings.Acceleration,
                     };
 
-                    await connection.SendAndReceiveAsync(IpcMessage.Create(connection.NextId(), MessageType.UpdateDecoderSettings, request));
+                    await connection.SendAndReceiveAsync(
+                        IpcMessage.Create(
+                            connection.NextId(),
+                            MessageType.UpdateDecoderSettings,
+                            request
+                        )
+                    );
                 }
             }
             catch (Exception ex)

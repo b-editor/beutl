@@ -12,12 +12,19 @@ public class ChangesModel
 
     public async Task Load(
         BeutlApiApplication apiApp,
-        string[] installItems, string[] uninstallItems, string[] updateItems)
+        string[] installItems,
+        string[] uninstallItems,
+        string[] updateItems
+    )
     {
         var hash = new HashSet<string>();
         foreach (string item in installItems)
         {
-            PackageChangeModel? itemViewModel = await PackageChangeModel.TryParse(apiApp, item, PackageChangeAction.Install);
+            PackageChangeModel? itemViewModel = await PackageChangeModel.TryParse(
+                apiApp,
+                item,
+                PackageChangeAction.Install
+            );
 
             if (itemViewModel != null && hash.Add(itemViewModel.Id))
             {
@@ -28,7 +35,11 @@ public class ChangesModel
         hash.Clear();
         foreach (string item in updateItems)
         {
-            PackageChangeModel? itemViewModel = await PackageChangeModel.TryParse(apiApp, item, PackageChangeAction.Uninstall);
+            PackageChangeModel? itemViewModel = await PackageChangeModel.TryParse(
+                apiApp,
+                item,
+                PackageChangeAction.Uninstall
+            );
 
             if (itemViewModel != null && hash.Add(itemViewModel.Id))
             {
@@ -39,7 +50,11 @@ public class ChangesModel
         hash.Clear();
         foreach (string item in uninstallItems)
         {
-            PackageChangeModel? itemViewModel = await PackageChangeModel.TryParse(apiApp, item, PackageChangeAction.Uninstall);
+            PackageChangeModel? itemViewModel = await PackageChangeModel.TryParse(
+                apiApp,
+                item,
+                PackageChangeAction.Uninstall
+            );
 
             if (itemViewModel != null && hash.Add(itemViewModel.Id))
             {

@@ -16,7 +16,11 @@ public class NodePortViewModel : NodeMemberViewModel
     private readonly CompositeDisposable _disposables = new();
     private IDisposable? _connectionsSubscription;
 
-    public NodePortViewModel(INodePort? port, IPropertyEditorContext? propertyEditorContext, GraphNodeViewModel nodeViewModel)
+    public NodePortViewModel(
+        INodePort? port,
+        IPropertyEditorContext? propertyEditorContext,
+        GraphNodeViewModel nodeViewModel
+    )
         : base(port, propertyEditorContext, nodeViewModel)
     {
         if (port != null)
@@ -32,7 +36,8 @@ public class NodePortViewModel : NodeMemberViewModel
         _connectionsSubscription = Connections.ForEachItem(
             (_, _) => IsConnected.Value = Connections.Count > 0,
             (_, _) => IsConnected.Value = Connections.Count > 0,
-            () => IsConnected.Value = false);
+            () => IsConnected.Value = false
+        );
 
         _editorContext = nodeViewModel.EditorContext;
     }
@@ -65,20 +70,24 @@ public class NodePortViewModel : NodeMemberViewModel
         {
             IOutputPort outputNodePort => outputNodePort.Connections,
             IListPort outputNodePort => outputNodePort.Connections,
-            _ => null
+            _ => null,
         };
 
         if (connections != null)
         {
-            connections.ForEachItem(
+            connections
+                .ForEachItem(
                     connection =>
                     {
                         var graph = GraphNodeViewModel.NodeGraphViewModel;
                         // すでに存在する場合はスキップする
-                        var connVM = graph.AllConnections.FirstOrDefault(i => i.Connection.Id == connection.Id);
+                        var connVM = graph.AllConnections.FirstOrDefault(i =>
+                            i.Connection.Id == connection.Id
+                        );
                         if (connVM == null)
                         {
-                            if (connection.Value == null) return;
+                            if (connection.Value == null)
+                                return;
 
                             connVM = new ConnectionViewModel(graph, connection.Value);
                             graph.AllConnections.Add(connVM);
@@ -92,19 +101,23 @@ public class NodePortViewModel : NodeMemberViewModel
                     },
                     connection =>
                     {
-                        var connVM = Connections.FirstOrDefault(c => c.Connection.Id == connection.Id);
+                        var connVM = Connections.FirstOrDefault(c =>
+                            c.Connection.Id == connection.Id
+                        );
                         if (connVM != null)
                         {
                             Connections.Remove(connVM);
                             // NodeGraphViewModel側でDisposeされるのでDisposeしない
                         }
                     },
-                    () => Connections.Clear())
+                    () => Connections.Clear()
+                )
                 .DisposeWith(_disposables);
         }
         else if (Model is IInputPort inputNodePort)
         {
-            inputNodePort.GetConnectionObservable()
+            inputNodePort
+                .GetConnectionObservable()
                 .Subscribe(connection =>
                 {
                     if (connection.IsNull)
@@ -114,7 +127,9 @@ public class NodePortViewModel : NodeMemberViewModel
                     else
                     {
                         var graph = GraphNodeViewModel.NodeGraphViewModel;
-                        var connVM = graph.AllConnections.FirstOrDefault(i => i.Connection.Id == connection.Id);
+                        var connVM = graph.AllConnections.FirstOrDefault(i =>
+                            i.Connection.Id == connection.Id
+                        );
                         if (connVM == null)
                         {
                             if (connection.Value == null)
@@ -140,12 +155,15 @@ public class NodePortViewModel : NodeMemberViewModel
         {
             IOutputPort outputNodePort => outputNodePort.Connections,
             IListPort outputNodePort => outputNodePort.Connections,
-            _ => null
+            _ => null,
         };
         if (connections == null)
             return Connections.Count;
 
-        int targetOrder = connections.Index().FirstOrDefault(i => i.Item.Id == id, (-1, null)).Index;
+        int targetOrder = connections
+            .Index()
+            .FirstOrDefault(i => i.Item.Id == id, (-1, null))
+            .Index;
         if (targetOrder < 0)
             return Connections.Count;
 
@@ -161,9 +179,11 @@ public class NodePortViewModel : NodeMemberViewModel
     }
 
     private static bool SortNodePort(
-        INodePort first, INodePort second,
+        INodePort first,
+        INodePort second,
         [NotNullWhen(true)] out IInputPort? inputNodePort,
-        [NotNullWhen(true)] out IOutputPort? outputNodePort)
+        [NotNullWhen(true)] out IOutputPort? outputNodePort
+    )
     {
         if (first is IInputPort input)
         {
@@ -200,17 +220,23 @@ public class NodePortViewModel : NodeMemberViewModel
                     break;
             }
 
-            if (groupNode != null && port != null
-                                  && groupNode.AddNodePort(port, out _))
+            if (groupNode != null && port != null && groupNode.AddNodePort(port, out _))
             {
                 history.Commit(CommandNames.AddPort);
             }
 
             return false;
         }
-        else if (Model != null && target.Model != null
-                               && SortNodePort(Model, target.Model, out IInputPort? inputNodePort,
-                                   out IOutputPort? outputNodePort))
+        else if (
+            Model != null
+            && target.Model != null
+            && SortNodePort(
+                Model,
+                target.Model,
+                out IInputPort? inputNodePort,
+                out IOutputPort? outputNodePort
+            )
+        )
         {
             var graph = GraphNodeViewModel.NodeGraphViewModel.NodeGraph;
             graph.Connect(inputNodePort, outputNodePort);
@@ -229,12 +255,21 @@ public class NodePortViewModel : NodeMemberViewModel
         HistoryManager history = _editorContext.GetRequiredService<HistoryManager>();
         var graph = GraphNodeViewModel.NodeGraphViewModel.NodeGraph;
         var conn = connection?.Connection;
-        if (conn == null && Model != null && target.Model != null
-            && SortNodePort(Model, target.Model, out IInputPort? inputNodePort,
-                out IOutputPort? outputNodePort))
+        if (
+            conn == null
+            && Model != null
+            && target.Model != null
+            && SortNodePort(
+                Model,
+                target.Model,
+                out IInputPort? inputNodePort,
+                out IOutputPort? outputNodePort
+            )
+        )
         {
             conn = graph.AllConnections.FirstOrDefault(c =>
-                c.Input.Id == inputNodePort.Id && c.Output.Id == outputNodePort.Id);
+                c.Input.Id == inputNodePort.Id && c.Output.Id == outputNodePort.Id
+            );
         }
 
         if (conn != null)
@@ -259,7 +294,7 @@ public class NodePortViewModel : NodeMemberViewModel
         {
             IOutputPort outputNodePort => outputNodePort.Connections,
             IListPort outputNodePort => outputNodePort.Connections,
-            _ => null
+            _ => null,
         };
 
         if (connections != null)
@@ -282,17 +317,19 @@ public class NodePortViewModel : NodeMemberViewModel
 
     public void Remove()
     {
-        if (Model is not IDynamicPort generatedNodePort) return;
+        if (Model is not IDynamicPort generatedNodePort)
+            return;
 
         GraphModel? tree = GraphNode.FindHierarchicalParent<GraphModel>();
-        if (tree == null) return;
+        if (tree == null)
+            return;
 
         var connections = generatedNodePort switch
         {
             IOutputPort outputNodePort => outputNodePort.Connections,
             IListPort listNodePort => listNodePort.Connections,
             IInputPort { Connection: var connection } => [connection],
-            _ => []
+            _ => [],
         };
         foreach (var connection in connections.ToArray())
         {

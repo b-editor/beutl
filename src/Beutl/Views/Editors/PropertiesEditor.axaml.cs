@@ -1,5 +1,4 @@
 ﻿using Avalonia.Controls;
-
 using Beutl.Controls.Converters;
 
 namespace Beutl.Views.Editors;

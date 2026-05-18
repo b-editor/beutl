@@ -28,15 +28,15 @@ public sealed partial class CSharpScriptEffect : FilterEffect
     private static string GetDefaultScript()
     {
         return """
-               // Available variables:
-               // Context - FilterEffectContext
-               // Progress - 0.0 to 1.0
-               // Duration - total duration in seconds
-               // Time - current time in seconds
+            // Available variables:
+            // Context - FilterEffectContext
+            // Progress - 0.0 to 1.0
+            // Duration - total duration in seconds
+            // Time - current time in seconds
 
-               // Example: Apply a blur effect
-               // Context.Blur(new Size(10, 10));
-               """;
+            // Example: Apply a blur effect
+            // Context.Blur(new Size(10, 10));
+            """;
     }
 
     internal static string? ValidateScript(string script)
@@ -49,7 +49,8 @@ public sealed partial class CSharpScriptEffect : FilterEffect
             var roslynScript = CSharpScript.Create<object>(
                 script,
                 s_scriptOptions,
-                typeof(CSharpScriptEffectGlobals));
+                typeof(CSharpScriptEffectGlobals)
+            );
 
             var diagnostics = roslynScript.Compile();
             var errors = diagnostics.Where(d => d.Severity == DiagnosticSeverity.Error).ToList();
@@ -69,14 +70,15 @@ public sealed partial class CSharpScriptEffect : FilterEffect
 
     private static ScriptOptions CreateScriptOptions()
     {
-        return ScriptOptions.Default
-            .AddReferences(
+        return ScriptOptions
+            .Default.AddReferences(
                 typeof(object).Assembly,
                 typeof(Math).Assembly,
                 typeof(Console).Assembly,
                 typeof(Enumerable).Assembly,
                 typeof(CoreObject).Assembly,
-                typeof(FilterEffectContext).Assembly)
+                typeof(FilterEffectContext).Assembly
+            )
             .AddImports(
                 "System",
                 "System.Linq",
@@ -84,7 +86,8 @@ public sealed partial class CSharpScriptEffect : FilterEffect
                 "Beutl.Engine",
                 "Beutl.Graphics",
                 "Beutl.Graphics.Rendering",
-                "Beutl.Graphics.Effects");
+                "Beutl.Graphics.Effects"
+            );
     }
 
     public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
@@ -147,14 +150,20 @@ public sealed partial class CSharpScriptEffect : FilterEffect
                 var roslynScript = CSharpScript.Create<object>(
                     script,
                     s_scriptOptions,
-                    typeof(CSharpScriptEffectGlobals));
+                    typeof(CSharpScriptEffectGlobals)
+                );
 
                 var diagnostics = roslynScript.Compile();
-                var errors = diagnostics.Where(d => d.Severity == DiagnosticSeverity.Error).ToList();
+                var errors = diagnostics
+                    .Where(d => d.Severity == DiagnosticSeverity.Error)
+                    .ToList();
 
                 if (errors.Count > 0)
                 {
-                    _compileError = string.Join(Environment.NewLine, errors.Select(e => e.GetMessage()));
+                    _compileError = string.Join(
+                        Environment.NewLine,
+                        errors.Select(e => e.GetMessage())
+                    );
                     s_logger.LogError("Failed to compile C# script: {ErrorText}", _compileError);
                 }
                 else
@@ -168,6 +177,5 @@ public sealed partial class CSharpScriptEffect : FilterEffect
                 s_logger.LogError(ex, "Failed to compile C# script");
             }
         }
-
     }
 }

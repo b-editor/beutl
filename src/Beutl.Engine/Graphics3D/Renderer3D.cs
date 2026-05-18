@@ -65,7 +65,11 @@ internal sealed class Renderer3D : IRenderer3D
         _lightingPass.Initialize(width, height);
 
         // Create transparent pass (uses depth texture from geometry pass for depth testing)
-        _transparentPass = new TransparentPass(_context, _shaderCompiler, _geometryPass.DepthTexture!);
+        _transparentPass = new TransparentPass(
+            _context,
+            _shaderCompiler,
+            _geometryPass.DepthTexture!
+        );
         _transparentPass.Initialize(width, height);
 
         // Create gizmo pass (uses depth texture from geometry pass)
@@ -103,7 +107,11 @@ internal sealed class Renderer3D : IRenderer3D
         _transparentPass?.Dispose();
         if (_geometryPass?.DepthTexture != null)
         {
-            _transparentPass = new TransparentPass(_context, _shaderCompiler, _geometryPass.DepthTexture);
+            _transparentPass = new TransparentPass(
+                _context,
+                _shaderCompiler,
+                _geometryPass.DepthTexture
+            );
             _transparentPass.Initialize(width, height);
         }
 
@@ -132,12 +140,19 @@ internal sealed class Renderer3D : IRenderer3D
         Color ambientColor,
         float ambientIntensity,
         Object3D.Resource? gizmoTarget = null,
-        GizmoMode gizmoMode = GizmoMode.None)
+        GizmoMode gizmoMode = GizmoMode.None
+    )
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
 
-        if (_geometryPass == null || _lightingPass == null || _transparentPass == null ||
-            _gizmoPass == null || _flipPass == null || _shadowManager == null)
+        if (
+            _geometryPass == null
+            || _lightingPass == null
+            || _transparentPass == null
+            || _gizmoPass == null
+            || _flipPass == null
+            || _shadowManager == null
+        )
             return;
 
         // Cache for hit testing
@@ -156,7 +171,12 @@ internal sealed class Renderer3D : IRenderer3D
         var (sceneCenter, sceneRadius) = CalculateSceneBounds(objects);
 
         // === SHADOW PASS ===
-        var lightToShadowIndex = _shadowManager.RenderShadows(lights, objects, sceneCenter, sceneRadius);
+        var lightToShadowIndex = _shadowManager.RenderShadows(
+            lights,
+            objects,
+            sceneCenter,
+            sceneRadius
+        );
         var shadowUbo = _shadowManager.GetShadowUBO();
         _shadowManager.PrepareForSampling();
 
@@ -187,13 +207,28 @@ internal sealed class Renderer3D : IRenderer3D
         }
 
         // === GEOMETRY PASS (opaque objects only) ===
-        _geometryPass.Execute(compositionContext, camera, opaqueObjects, aspectRatio, lightDataList, ambientColor, ambientIntensity);
+        _geometryPass.Execute(
+            compositionContext,
+            camera,
+            opaqueObjects,
+            aspectRatio,
+            lightDataList,
+            ambientColor,
+            ambientIntensity
+        );
         _geometryPass.PrepareForSampling();
 
         // === LIGHTING PASS ===
         _lightingPass.BindGBuffer(_geometryPass);
         _lightingPass.BindShadowMaps(_shadowManager);
-        _lightingPass.Execute(camera, lightDataList, backgroundColor, ambientColor, ambientIntensity, shadowUbo);
+        _lightingPass.Execute(
+            camera,
+            lightDataList,
+            backgroundColor,
+            ambientColor,
+            ambientIntensity,
+            shadowUbo
+        );
         _lightingPass.PrepareForSampling();
 
         // Determine the texture to pass to subsequent passes
@@ -203,7 +238,15 @@ internal sealed class Renderer3D : IRenderer3D
         if (transparentObjects.Count > 0)
         {
             _transparentPass.SetColorTexture(_lightingPass.OutputTexture!);
-            _transparentPass.Execute(compositionContext, camera, transparentObjects, lightDataList, ambientColor, ambientIntensity, aspectRatio);
+            _transparentPass.Execute(
+                compositionContext,
+                camera,
+                transparentObjects,
+                lightDataList,
+                ambientColor,
+                ambientIntensity,
+                aspectRatio
+            );
             _transparentPass.PrepareForSampling();
             colorOutput = _transparentPass.OutputTexture;
         }
@@ -231,8 +274,11 @@ internal sealed class Renderer3D : IRenderer3D
     /// Transparent objects are sorted by distance from camera (far to near).
     /// </summary>
     private static void SeparateObjectsByTransparency(
-        IReadOnlyList<Object3D.Resource> objects, Camera3D.Resource camera,
-        PooledList<Object3D.Resource> opaqueObjects, PooledList<TransparentObjectEntry> transparentEntries)
+        IReadOnlyList<Object3D.Resource> objects,
+        Camera3D.Resource camera,
+        PooledList<Object3D.Resource> opaqueObjects,
+        PooledList<TransparentObjectEntry> transparentEntries
+    )
     {
         foreach (var obj in objects)
         {
@@ -243,12 +289,14 @@ internal sealed class Renderer3D : IRenderer3D
             {
                 // Calculate distance to camera for sorting
                 float distance = Vector3.Distance(obj.Position, camera.Position);
-                transparentEntries.Add(new TransparentObjectEntry
-                {
-                    Object = obj,
-                    WorldMatrix = obj.GetWorldMatrix(),
-                    DistanceToCamera = distance
-                });
+                transparentEntries.Add(
+                    new TransparentObjectEntry
+                    {
+                        Object = obj,
+                        WorldMatrix = obj.GetWorldMatrix(),
+                        DistanceToCamera = distance,
+                    }
+                );
             }
             else
             {
@@ -273,7 +321,9 @@ internal sealed class Renderer3D : IRenderer3D
     /// Calculates the bounding sphere of all visible objects in the scene.
     /// Used for directional light shadow mapping.
     /// </summary>
-    private static (Vector3 Center, float Radius) CalculateSceneBounds(IReadOnlyList<Object3D.Resource> objects)
+    private static (Vector3 Center, float Radius) CalculateSceneBounds(
+        IReadOnlyList<Object3D.Resource> objects
+    )
     {
         if (objects.Count == 0)
             return (Vector3.Zero, 10f);
@@ -353,7 +403,11 @@ internal sealed class Renderer3D : IRenderer3D
         return HitTester3D.HitTestWithPath(screenPoint, Width, Height, _lastCamera, _lastObjects);
     }
 
-    public GizmoAxis GizmoHitTest(Point screenPoint, Object3D.Resource? gizmoTarget, GizmoMode gizmoMode)
+    public GizmoAxis GizmoHitTest(
+        Point screenPoint,
+        Object3D.Resource? gizmoTarget,
+        GizmoMode gizmoMode
+    )
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
 
@@ -367,12 +421,14 @@ internal sealed class Renderer3D : IRenderer3D
             _lastCamera,
             gizmoTarget.Position,
             gizmoTarget.Rotation,
-            gizmoMode);
+            gizmoMode
+        );
     }
 
     public void Dispose()
     {
-        if (_disposed) return;
+        if (_disposed)
+            return;
         _disposed = true;
 
         _flipPass?.Dispose();

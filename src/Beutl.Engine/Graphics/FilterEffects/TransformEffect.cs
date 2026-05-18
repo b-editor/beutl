@@ -18,11 +18,19 @@ public sealed partial class TransformEffect : FilterEffect
     [Display(Name = nameof(GraphicsStrings.Transform), ResourceType = typeof(GraphicsStrings))]
     public IProperty<Transform?> Transform { get; } = Property.Create<Transform?>();
 
-    [Display(Name = nameof(GraphicsStrings.TransformOrigin), ResourceType = typeof(GraphicsStrings))]
-    public IProperty<RelativePoint> TransformOrigin { get; } = Property.CreateAnimatable(RelativePoint.Center);
+    [Display(
+        Name = nameof(GraphicsStrings.TransformOrigin),
+        ResourceType = typeof(GraphicsStrings)
+    )]
+    public IProperty<RelativePoint> TransformOrigin { get; } =
+        Property.CreateAnimatable(RelativePoint.Center);
 
-    [Display(Name = nameof(GraphicsStrings.TransformEffect_BitmapInterpolationMode), ResourceType = typeof(GraphicsStrings))]
-    public IProperty<BitmapInterpolationMode> BitmapInterpolationMode { get; } = Property.CreateAnimatable(Media.BitmapInterpolationMode.Default);
+    [Display(
+        Name = nameof(GraphicsStrings.TransformEffect_BitmapInterpolationMode),
+        ResourceType = typeof(GraphicsStrings)
+    )]
+    public IProperty<BitmapInterpolationMode> BitmapInterpolationMode { get; } =
+        Property.CreateAnimatable(Media.BitmapInterpolationMode.Default);
 
     public IProperty<bool> ApplyToTarget { get; } = Property.CreateAnimatable(true);
 
@@ -44,29 +52,44 @@ public sealed partial class TransformEffect : FilterEffect
             }
             else
             {
-                context.CustomEffect((mat, originPoint), static (data, effectContext) =>
-                {
-                    effectContext.ForEach((_, target) =>
+                context.CustomEffect(
+                    (mat, originPoint),
+                    static (data, effectContext) =>
                     {
-                        Vector origin = data.originPoint.ToPixels(target.Bounds.Size);
-                        Matrix offset1 = Matrix.CreateTranslation(origin + target.Bounds.Position);
-                        Matrix offset2 = Matrix.CreateTranslation(origin);
-                        Matrix m1 = -offset1 * data.mat * offset1;
-                        Matrix m2 = -offset2 * data.mat * offset2;
+                        effectContext.ForEach(
+                            (_, target) =>
+                            {
+                                Vector origin = data.originPoint.ToPixels(target.Bounds.Size);
+                                Matrix offset1 = Matrix.CreateTranslation(
+                                    origin + target.Bounds.Position
+                                );
+                                Matrix offset2 = Matrix.CreateTranslation(origin);
+                                Matrix m1 = -offset1 * data.mat * offset1;
+                                Matrix m2 = -offset2 * data.mat * offset2;
 
-                        EffectTarget newTarget = effectContext.CreateTarget(target.Bounds.TransformToAABB(m1));
-                        using var canvas = effectContext.Open(newTarget);
-                        using (canvas.PushTransform(Matrix.CreateTranslation(target.Bounds.Position - newTarget.Bounds.Position)))
-                        using (canvas.PushTransform(m2))
-                        {
-                            canvas.Clear();
-                            canvas.DrawRenderTarget(target.RenderTarget!, default);
-                        }
+                                EffectTarget newTarget = effectContext.CreateTarget(
+                                    target.Bounds.TransformToAABB(m1)
+                                );
+                                using var canvas = effectContext.Open(newTarget);
+                                using (
+                                    canvas.PushTransform(
+                                        Matrix.CreateTranslation(
+                                            target.Bounds.Position - newTarget.Bounds.Position
+                                        )
+                                    )
+                                )
+                                using (canvas.PushTransform(m2))
+                                {
+                                    canvas.Clear();
+                                    canvas.DrawRenderTarget(target.RenderTarget!, default);
+                                }
 
-                        target.Dispose();
-                        return newTarget;
-                    });
-                });
+                                target.Dispose();
+                                return newTarget;
+                            }
+                        );
+                    }
+                );
             }
         }
     }

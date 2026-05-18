@@ -1,24 +1,21 @@
 ﻿using System.Globalization;
 using System.Numerics;
 using System.Text;
-
 using static Beutl.Utilities.MathUtilities;
 
 namespace Beutl;
 
 public readonly partial struct Rational(long numerator, long denominator)
     : IEquatable<Rational>,
-      IEqualityOperators<Rational, Rational, bool>,
-      IMultiplyOperators<Rational, Rational, Rational>,
-      IDivisionOperators<Rational, Rational, Rational>,
-      IUnaryNegationOperators<Rational, Rational>,
-      IAdditionOperators<Rational, Rational, Rational>,
-      ISubtractionOperators<Rational, Rational, Rational>
+        IEqualityOperators<Rational, Rational, bool>,
+        IMultiplyOperators<Rational, Rational, Rational>,
+        IDivisionOperators<Rational, Rational, Rational>,
+        IUnaryNegationOperators<Rational, Rational>,
+        IAdditionOperators<Rational, Rational, Rational>,
+        ISubtractionOperators<Rational, Rational, Rational>
 {
     public Rational(long value)
-      : this(value, 1)
-    {
-    }
+        : this(value, 1) { }
 
     public long Numerator { get; } = numerator;
 
@@ -87,7 +84,12 @@ public readonly partial struct Rational(long numerator, long denominator)
         return ToString(formatProvider);
     }
 
-    public bool TryFormat(Span<char> destination, out int charsWritten, ReadOnlySpan<char> format, IFormatProvider? provider)
+    public bool TryFormat(
+        Span<char> destination,
+        out int charsWritten,
+        ReadOnlySpan<char> format,
+        IFormatProvider? provider
+    )
     {
         if (IsNaN(this))
         {
@@ -239,11 +241,13 @@ public readonly partial struct Rational(long numerator, long denominator)
 
     public Rational Simplify()
     {
-        if (IsNaN(this) ||
-            IsNegativeInfinity(this) ||
-            IsPositiveInfinity(this) ||
-            IsInteger(this) ||
-            IsZero(this))
+        if (
+            IsNaN(this)
+            || IsNegativeInfinity(this)
+            || IsPositiveInfinity(this)
+            || IsInteger(this)
+            || IsZero(this)
+        )
         {
             return this;
         }

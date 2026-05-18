@@ -53,14 +53,20 @@ public sealed class StringExpression<T> : IExpression<T>
             var script = CSharpScript.Create<object>(
                 ExpressionString,
                 s_scriptOptions,
-                typeof(ExpressionGlobals));
+                typeof(ExpressionGlobals)
+            );
 
             var diagnostics = script.Compile();
-            var errors = diagnostics.Where(d => d.Severity == Microsoft.CodeAnalysis.DiagnosticSeverity.Error).ToList();
+            var errors = diagnostics
+                .Where(d => d.Severity == Microsoft.CodeAnalysis.DiagnosticSeverity.Error)
+                .ToList();
 
             if (errors.Count > 0)
             {
-                return new ParseResult(null, string.Join(Environment.NewLine, errors.Select(e => e.GetMessage())));
+                return new ParseResult(
+                    null,
+                    string.Join(Environment.NewLine, errors.Select(e => e.GetMessage()))
+                );
             }
             else
             {
@@ -75,20 +81,16 @@ public sealed class StringExpression<T> : IExpression<T>
 
     private static ScriptOptions CreateScriptOptions()
     {
-        return ScriptOptions.Default
-            .AddReferences(
+        return ScriptOptions
+            .Default.AddReferences(
                 typeof(object).Assembly,
                 typeof(Math).Assembly,
                 typeof(Console).Assembly,
                 typeof(Enumerable).Assembly,
                 typeof(BeutlApplication).Assembly,
-                typeof(ExpressionGlobals).Assembly)
-            .AddImports(
-                "System",
-                "System.Linq",
-                "Beutl.Media",
-                "Beutl.Graphics",
-                "Beutl.Engine");
+                typeof(ExpressionGlobals).Assembly
+            )
+            .AddImports("System", "System.Linq", "Beutl.Media", "Beutl.Graphics", "Beutl.Engine");
     }
 
     private static T ConvertResult(object? value)
@@ -120,17 +122,24 @@ public sealed class StringExpression<T> : IExpression<T>
             return (T)(object)(numValue != 0);
         }
 
-        throw new ExpressionException($"Cannot convert expression result from {sourceType.Name} to {targetType.Name}");
+        throw new ExpressionException(
+            $"Cannot convert expression result from {sourceType.Name} to {targetType.Name}"
+        );
     }
 
     private static bool IsNumericType(Type type)
     {
-        return type == typeof(byte) || type == typeof(sbyte) ||
-               type == typeof(short) || type == typeof(ushort) ||
-               type == typeof(int) || type == typeof(uint) ||
-               type == typeof(long) || type == typeof(ulong) ||
-               type == typeof(float) || type == typeof(double) ||
-               type == typeof(decimal);
+        return type == typeof(byte)
+            || type == typeof(sbyte)
+            || type == typeof(short)
+            || type == typeof(ushort)
+            || type == typeof(int)
+            || type == typeof(uint)
+            || type == typeof(long)
+            || type == typeof(ulong)
+            || type == typeof(float)
+            || type == typeof(double)
+            || type == typeof(decimal);
     }
 
     public override string ToString() => ExpressionString;

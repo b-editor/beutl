@@ -39,7 +39,9 @@ public static class DisposableExtension
         tuple.Item4?.Dispose();
     }
 
-    public static void DisposeAll<T1, T2, T3, T4, T5>(in this ValueTuple<T1?, T2?, T3?, T4?, T5?> tuple)
+    public static void DisposeAll<T1, T2, T3, T4, T5>(
+        in this ValueTuple<T1?, T2?, T3?, T4?, T5?> tuple
+    )
         where T1 : IDisposable
         where T2 : IDisposable
         where T3 : IDisposable
@@ -53,7 +55,9 @@ public static class DisposableExtension
         tuple.Item5?.Dispose();
     }
 
-    public static void DisposeAll<T1, T2, T3, T4, T5, T6>(in this ValueTuple<T1?, T2?, T3?, T4?, T5?, T6?> tuple)
+    public static void DisposeAll<T1, T2, T3, T4, T5, T6>(
+        in this ValueTuple<T1?, T2?, T3?, T4?, T5?, T6?> tuple
+    )
         where T1 : IDisposable
         where T2 : IDisposable
         where T3 : IDisposable
@@ -69,7 +73,9 @@ public static class DisposableExtension
         tuple.Item6?.Dispose();
     }
 
-    public static void DisposeAll<T1, T2, T3, T4, T5, T6, T7>(in this ValueTuple<T1?, T2?, T3?, T4?, T5?, T6?, T7?> tuple)
+    public static void DisposeAll<T1, T2, T3, T4, T5, T6, T7>(
+        in this ValueTuple<T1?, T2?, T3?, T4?, T5?, T6?, T7?> tuple
+    )
         where T1 : IDisposable
         where T2 : IDisposable
         where T3 : IDisposable

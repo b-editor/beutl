@@ -37,7 +37,8 @@ public static class DotNetProcess
             }
         }
 
-        string dotnetHost = Environment.GetEnvironmentVariable("DOTNET_HOST_PATH")
+        string dotnetHost =
+            Environment.GetEnvironmentVariable("DOTNET_HOST_PATH")
             ?? (OperatingSystem.IsWindows() ? "dotnet.exe" : "dotnet");
 
         if (useDotNet)

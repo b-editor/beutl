@@ -28,7 +28,8 @@ public partial class ParsableEditor : UserControl
     {
         Dispatcher.UIThread.InvokeAsync(async () =>
         {
-            if (DataContext is not IParsableEditorViewModel { IsDisposed: false } vm) return;
+            if (DataContext is not IParsableEditorViewModel { IsDisposed: false } vm)
+                return;
 
             await Task.Delay(10);
 

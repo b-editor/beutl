@@ -143,7 +143,12 @@ internal static class Funcs
         }
         else
         {
-            return 0.5f * (MathF.Sin(-13f * HalfPI * ((2f * p - 1f) + 1f)) * MathF.Pow(2f, -10f * (2f * p - 1f)) + 2f);
+            return 0.5f
+                * (
+                    MathF.Sin(-13f * HalfPI * ((2f * p - 1f) + 1f))
+                        * MathF.Pow(2f, -10f * (2f * p - 1f))
+                    + 2f
+                );
         }
     }
 

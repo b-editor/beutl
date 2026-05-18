@@ -30,15 +30,25 @@ public sealed class MixerNode : AudioNode
         for (int i = 1; i < buffers.Length; i++)
         {
             if (buffers[i].SampleRate != firstBuffer.SampleRate)
-                throw new InvalidOperationException($"All inputs must have the same sample rate. Expected {firstBuffer.SampleRate}, but input {i} has {buffers[i].SampleRate}.");
+                throw new InvalidOperationException(
+                    $"All inputs must have the same sample rate. Expected {firstBuffer.SampleRate}, but input {i} has {buffers[i].SampleRate}."
+                );
             if (buffers[i].ChannelCount != firstBuffer.ChannelCount)
-                throw new InvalidOperationException($"All inputs must have the same channel count. Expected {firstBuffer.ChannelCount}, but input {i} has {buffers[i].ChannelCount}.");
+                throw new InvalidOperationException(
+                    $"All inputs must have the same channel count. Expected {firstBuffer.ChannelCount}, but input {i} has {buffers[i].ChannelCount}."
+                );
             if (buffers[i].SampleCount != firstBuffer.SampleCount)
-                throw new InvalidOperationException($"All inputs must have the same sample count. Expected {firstBuffer.SampleCount}, but input {i} has {buffers[i].SampleCount}.");
+                throw new InvalidOperationException(
+                    $"All inputs must have the same sample count. Expected {firstBuffer.SampleCount}, but input {i} has {buffers[i].SampleCount}."
+                );
         }
 
         // Create output buffer
-        var output = new AudioBuffer(firstBuffer.SampleRate, firstBuffer.ChannelCount, firstBuffer.SampleCount);
+        var output = new AudioBuffer(
+            firstBuffer.SampleRate,
+            firstBuffer.ChannelCount,
+            firstBuffer.SampleCount
+        );
 
         // Mix all channels
         for (int ch = 0; ch < output.ChannelCount; ch++)

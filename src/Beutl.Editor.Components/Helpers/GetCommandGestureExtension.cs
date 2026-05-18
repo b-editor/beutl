@@ -30,7 +30,8 @@ public class GetCommandGestureExtension : MarkupExtension
         if (t?.TargetObject is not StyledElement styledElement)
             return null!;
 
-        return styledElement.GetObservable(StyledElement.DataContextProperty)
+        return styledElement
+            .GetObservable(StyledElement.DataContextProperty)
             .Select(dataContext =>
             {
                 ViewExtension? viewExtension = null;
@@ -57,12 +58,12 @@ public class GetCommandGestureExtension : MarkupExtension
         if (e == null)
             return null;
 
-        OSPlatform pid = OperatingSystem.IsWindows() ? OSPlatform.Windows :
-            OperatingSystem.IsMacOS() ? OSPlatform.OSX :
-            OperatingSystem.IsLinux() ? OSPlatform.Linux :
-            throw new NotSupportedException();
+        OSPlatform pid =
+            OperatingSystem.IsWindows() ? OSPlatform.Windows
+            : OperatingSystem.IsMacOS() ? OSPlatform.OSX
+            : OperatingSystem.IsLinux() ? OSPlatform.Linux
+            : throw new NotSupportedException();
 
-        return e.KeyGestures
-            .FirstOrDefault(gesture => gesture.Platform == pid)?.KeyGesture;
+        return e.KeyGestures.FirstOrDefault(gesture => gesture.Platform == pid)?.KeyGesture;
     }
 }

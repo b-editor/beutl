@@ -15,8 +15,9 @@ public partial class SoundSourceEditor : UserControl
     public SoundSourceEditor()
     {
         InitializeComponent();
-        string[] fileExtensions = DecoderFileExtensions.GetFilePatterns(
-            x => x.AudioExtensions().Concat(x.VideoExtensions()));
+        string[] fileExtensions = DecoderFileExtensions.GetFilePatterns(x =>
+            x.AudioExtensions().Concat(x.VideoExtensions())
+        );
         if (fileExtensions.Length == 0)
         {
             message.Text = MessageStrings.NoSupportedExtensionsFound;
@@ -25,24 +26,25 @@ public partial class SoundSourceEditor : UserControl
 
         FileEditor.OpenOptions = new FilePickerOpenOptions
         {
-            FileTypeFilter =
-            [
-                new FilePickerFileType("Audio File") { Patterns = fileExtensions }
-            ]
+            FileTypeFilter = [new FilePickerFileType("Audio File") { Patterns = fileExtensions }],
         };
         FileEditor.ValueConfirmed += FileEditorOnValueConfirmed;
     }
 
     private void FileEditorOnValueConfirmed(object? sender, PropertyEditorValueChangedEventArgs e)
     {
-        if (DataContext is not SoundSourceEditorViewModel { IsDisposed: false } vm) return;
-        if (e.NewValue is not FileInfo fi) return;
+        if (DataContext is not SoundSourceEditorViewModel { IsDisposed: false } vm)
+            return;
+        if (e.NewValue is not FileInfo fi)
+            return;
 
         vm.SetValue(SoundSource.Open(fi.FullName));
 
         // 動画の長さに要素の長さを合わせる
-        if (vm.GetService<Element>() is not { } element) return;
-        TimelineTabViewModel? timeline = vm.GetService<EditViewModel>()?.FindToolTab<TimelineTabViewModel>();
+        if (vm.GetService<Element>() is not { } element)
+            return;
+        TimelineTabViewModel? timeline = vm.GetService<EditViewModel>()
+            ?.FindToolTab<TimelineTabViewModel>();
         ElementViewModel? elmViewModel = timeline?.GetViewModelFor(element);
 
         elmViewModel?.ChangeToOriginalDuration.Execute();

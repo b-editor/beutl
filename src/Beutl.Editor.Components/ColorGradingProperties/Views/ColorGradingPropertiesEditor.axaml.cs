@@ -20,7 +20,8 @@ public sealed partial class ColorGradingPropertiesEditor : UserControl
         Resources["ViewModelToViewConverter"] = PropertyEditorContextToViewConverter.Instance;
         InitializeComponent();
 
-        expandProps.GetObservable(ToggleButton.IsCheckedProperty)
+        expandProps
+            .GetObservable(ToggleButton.IsCheckedProperty)
             .Subscribe(async v =>
             {
                 _lastTransitionCts?.Cancel();
@@ -40,17 +41,19 @@ public sealed partial class ColorGradingPropertiesEditor : UserControl
 
     private void OpenTabClick(object? sender, RoutedEventArgs e)
     {
-        if (DataContext is ColorGradingPropertiesViewModel context &&
-            context.GetService<IEditorContext>() is { } editorContext &&
-            context.TryGetColorGrading() is { } colorGrading)
+        if (
+            DataContext is ColorGradingPropertiesViewModel context
+            && context.GetService<IEditorContext>() is { } editorContext
+            && context.TryGetColorGrading() is { } colorGrading
+        )
         {
-            var toolTab = editorContext.FindToolTab<ColorGradingTabViewModel>() ??
-                          new ColorGradingTabViewModel(editorContext);
+            var toolTab =
+                editorContext.FindToolTab<ColorGradingTabViewModel>()
+                ?? new ColorGradingTabViewModel(editorContext);
 
             toolTab.Effect.Value = colorGrading;
 
             editorContext.OpenToolTab(toolTab);
         }
     }
-
 }

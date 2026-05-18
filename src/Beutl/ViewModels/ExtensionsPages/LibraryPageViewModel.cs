@@ -71,7 +71,9 @@ public sealed class LibraryPageViewModel : BasePageViewModel, ISupportRefreshVie
         CheckUpdate = new AsyncReactiveCommand(IsBusy.Not())
             .WithSubscribe(async () =>
             {
-                using Activity? activity = Services.Telemetry.StartActivity("LibraryPage.CheckUpdate");
+                using Activity? activity = Services.Telemetry.StartActivity(
+                    "LibraryPage.CheckUpdate"
+                );
 
                 try
                 {
@@ -89,23 +91,32 @@ public sealed class LibraryPageViewModel : BasePageViewModel, ISupportRefreshVie
                         foreach (PackageUpdate item in await manager.CheckUpdate())
                         {
                             LocalUserPackageViewModel? localPackage = LocalPackages.FirstOrDefault(
-                                x => x.Package.Name.Equals(item.Package.Name, StringComparison.OrdinalIgnoreCase));
+                                x =>
+                                    x.Package.Name.Equals(
+                                        item.Package.Name,
+                                        StringComparison.OrdinalIgnoreCase
+                                    )
+                            );
 
                             if (localPackage != null)
                             {
                                 localPackage.LatestRelease.Value = item.NewVersion;
                             }
 
-                            RemoteUserPackageViewModel? remotePackage = Packages.OfType<RemoteUserPackageViewModel>()
-                                .FirstOrDefault(
-                                    x => x?.Package?.Name?.Equals(item.Package.Name,
-                                        StringComparison.OrdinalIgnoreCase) == true);
+                            RemoteUserPackageViewModel? remotePackage = Packages
+                                .OfType<RemoteUserPackageViewModel>()
+                                .FirstOrDefault(x =>
+                                    x?.Package?.Name?.Equals(
+                                        item.Package.Name,
+                                        StringComparison.OrdinalIgnoreCase
+                                    ) == true
+                                );
 
                             if (remotePackage != null)
                                 Packages.Remove(remotePackage);
                             remotePackage ??= new RemoteUserPackageViewModel(item.Package, _clients)
                             {
-                                OnRemoveFromLibrary = OnPackageRemoveFromLibrary
+                                OnRemoveFromLibrary = OnPackageRemoveFromLibrary,
                             };
 
                             remotePackage.LatestRelease.Value = item.NewVersion;
@@ -172,13 +183,20 @@ public sealed class LibraryPageViewModel : BasePageViewModel, ISupportRefreshVie
         LocalPackages.Clear();
 
         var dict = new Dictionary<string, LocalPackage>(StringComparer.OrdinalIgnoreCase);
-        foreach (LocalPackage item in manager.GetLocalSourcePackages()
-                     .Concat(await manager.GetPackages()))
+        foreach (
+            LocalPackage item in manager
+                .GetLocalSourcePackages()
+                .Concat(await manager.GetPackages())
+        )
         {
             if (dict.TryGetValue(item.Name, out LocalPackage? localPackage))
             {
                 // itemのほうが新しいバージョン
-                if (NuGetVersion.Parse(item.Version).CompareTo(NuGetVersion.Parse(localPackage.Version)) >= 0)
+                if (
+                    NuGetVersion
+                        .Parse(item.Version)
+                        .CompareTo(NuGetVersion.Parse(localPackage.Version)) >= 0
+                )
                 {
                     dict[item.Name] = item;
                 }
@@ -222,10 +240,12 @@ public sealed class LibraryPageViewModel : BasePageViewModel, ISupportRefreshVie
 
             if (remote != null)
             {
-                Packages.Add(new RemoteUserPackageViewModel(remote, _clients)
-                {
-                    OnRemoveFromLibrary = OnPackageRemoveFromLibrary
-                });
+                Packages.Add(
+                    new RemoteUserPackageViewModel(remote, _clients)
+                    {
+                        OnRemoveFromLibrary = OnPackageRemoveFromLibrary,
+                    }
+                );
             }
         }
     }

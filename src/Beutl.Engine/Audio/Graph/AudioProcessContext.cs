@@ -6,12 +6,20 @@ namespace Beutl.Audio.Graph;
 
 public sealed class AudioProcessContext
 {
-    public AudioProcessContext(TimeRange timeRange, int sampleRate, AnimationSampler animationSampler, TimeRange? originalTimeRange)
+    public AudioProcessContext(
+        TimeRange timeRange,
+        int sampleRate,
+        AnimationSampler animationSampler,
+        TimeRange? originalTimeRange
+    )
     {
         ArgumentNullException.ThrowIfNull(animationSampler);
 
         if (sampleRate <= 0)
-            throw new ArgumentOutOfRangeException(nameof(sampleRate), "Sample rate must be positive.");
+            throw new ArgumentOutOfRangeException(
+                nameof(sampleRate),
+                "Sample rate must be positive."
+            );
 
         OriginalTimeRange = originalTimeRange ?? timeRange;
         TimeRange = timeRange;
@@ -43,13 +51,22 @@ public sealed class AudioProcessContext
     public static int GetSampleCount(TimeRange range, int sampleRate)
     {
         if (sampleRate <= 0)
-            throw new ArgumentOutOfRangeException(nameof(sampleRate), "Sample rate must be positive.");
+            throw new ArgumentOutOfRangeException(
+                nameof(sampleRate),
+                "Sample rate must be positive."
+            );
         if (range.Duration < TimeSpan.Zero)
-            throw new ArgumentOutOfRangeException(nameof(range), $"Duration must be non-negative; was {range.Duration}.");
+            throw new ArgumentOutOfRangeException(
+                nameof(range),
+                $"Duration must be non-negative; was {range.Duration}."
+            );
 
         double samples = Math.Ceiling(range.Duration.TotalSeconds * sampleRate);
         if (samples > int.MaxValue)
-            throw new ArgumentOutOfRangeException(nameof(range), $"Sample count {samples} exceeds Int32.MaxValue at sampleRate={sampleRate}.");
+            throw new ArgumentOutOfRangeException(
+                nameof(range),
+                $"Sample count {samples} exceeds Int32.MaxValue at sampleRate={sampleRate}."
+            );
 
         return (int)samples;
     }
@@ -57,7 +74,10 @@ public sealed class AudioProcessContext
     public TimeSpan GetTimeForSample(int sampleIndex)
     {
         if (sampleIndex < 0)
-            throw new ArgumentOutOfRangeException(nameof(sampleIndex), "Sample index must be non-negative.");
+            throw new ArgumentOutOfRangeException(
+                nameof(sampleIndex),
+                "Sample index must be non-negative."
+            );
 
         var offsetSeconds = (double)sampleIndex / SampleRate;
         return TimeRange.Start + TimeSpan.FromSeconds(offsetSeconds);

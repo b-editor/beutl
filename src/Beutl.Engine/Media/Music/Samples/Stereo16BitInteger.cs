@@ -13,7 +13,8 @@ public struct Stereo16BitInteger(short left, short right) : ISample<Stereo16BitI
     {
         return new Stereo16BitInteger(
             left: (short)MathF.Round(src.Left * short.MaxValue, MidpointRounding.AwayFromZero),
-            right: (short)MathF.Round(src.Right * short.MaxValue, MidpointRounding.AwayFromZero));
+            right: (short)MathF.Round(src.Right * short.MaxValue, MidpointRounding.AwayFromZero)
+        );
     }
 
     public static Sample ConvertTo(Stereo16BitInteger src)
@@ -25,7 +26,8 @@ public struct Stereo16BitInteger(short left, short right) : ISample<Stereo16BitI
     {
         return new Stereo16BitInteger(
             left: (short)MathF.Round(s.Left * level.Left, MidpointRounding.AwayFromZero),
-            right: (short)MathF.Round(s.Right * level.Right, MidpointRounding.AwayFromZero));
+            right: (short)MathF.Round(s.Right * level.Right, MidpointRounding.AwayFromZero)
+        );
     }
 
     public static Stereo16BitInteger Compound(Stereo16BitInteger s1, Stereo16BitInteger s2)
@@ -33,7 +35,12 @@ public struct Stereo16BitInteger(short left, short right) : ISample<Stereo16BitI
         return new Stereo16BitInteger((short)(s1.Left + s2.Left), (short)(s1.Right + s2.Right));
     }
 
-    public static unsafe void GetChannelData(Stereo16BitInteger s, int channel, Span<byte> destination, out int bytesWritten)
+    public static unsafe void GetChannelData(
+        Stereo16BitInteger s,
+        int channel,
+        Span<byte> destination,
+        out int bytesWritten
+    )
     {
         bytesWritten = 0;
         if (channel is 0 or 1)

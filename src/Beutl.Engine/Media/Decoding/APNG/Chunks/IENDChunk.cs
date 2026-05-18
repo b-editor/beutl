@@ -3,17 +3,11 @@
 public class IENDChunk : Chunk
 {
     public IENDChunk(byte[] bytes)
-        : base(bytes)
-    {
-    }
+        : base(bytes) { }
 
     public IENDChunk(MemoryStream ms)
-        : base(ms)
-    {
-    }
+        : base(ms) { }
 
     public IENDChunk(Chunk chunk)
-        : base(chunk)
-    {
-    }
+        : base(chunk) { }
 }

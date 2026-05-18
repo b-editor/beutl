@@ -41,26 +41,30 @@ public sealed partial class EditViewModel : IEditorContext, ISupportAutoSaveEdit
         Scene = scene;
         SceneId = scene.Id.ToString();
 
-        _timelineOptionsProvider = new TimelineOptionsProviderImpl(scene)
-            .DisposeWith(_disposables);
-        _editorClock = new EditorClockImpl(scene)
-            .DisposeWith(_disposables);
-        _editorSelection = new EditorSelectionImpl()
-            .DisposeWith(_disposables);
+        _timelineOptionsProvider = new TimelineOptionsProviderImpl(scene).DisposeWith(_disposables);
+        _editorClock = new EditorClockImpl(scene).DisposeWith(_disposables);
+        _editorSelection = new EditorSelectionImpl().DisposeWith(_disposables);
 
-        Renderer = scene.GetObservable(Scene.FrameSizeProperty).Select(_ => new SceneRenderer(Scene))
+        Renderer = scene
+            .GetObservable(Scene.FrameSizeProperty)
+            .Select(_ => new SceneRenderer(Scene))
             .DisposePreviousValue()
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables)!;
-        Composer = Renderer.Select(v => new SceneComposer(Scene))
+        Composer = Renderer
+            .Select(v => new SceneComposer(Scene))
             .DisposePreviousValue()
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables)!;
 
         EditorConfig config = GlobalConfiguration.Instance.EditorConfig;
 
-        FrameCacheManager = scene.GetObservable(Scene.FrameSizeProperty)
-            .Select(v => new FrameCacheManager(v, CreateFrameCacheOptions()) { IsEnabled = config.IsFrameCacheEnabled })
+        FrameCacheManager = scene
+            .GetObservable(Scene.FrameSizeProperty)
+            .Select(v => new FrameCacheManager(v, CreateFrameCacheOptions())
+            {
+                IsEnabled = config.IsFrameCacheEnabled,
+            })
             .DisposePreviousValue()
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables)!;
@@ -71,28 +75,27 @@ public sealed partial class EditViewModel : IEditorContext, ISupportAutoSaveEdit
         HookCommandStateNotifier();
         Commands = new KnownCommandsImpl(scene, this);
         var sequenceGenerator = new OperationSequenceGenerator();
-        var observer = new CoreObjectOperationObserver(null, Scene, sequenceGenerator)
-            .DisposeWith(_disposables);
+        var observer = new CoreObjectOperationObserver(null, Scene, sequenceGenerator).DisposeWith(
+            _disposables
+        );
         HistoryManager = new HistoryManager(Scene, sequenceGenerator);
-        HistoryManager.Subscribe(observer)
-            .DisposeWith(_disposables);
+        HistoryManager.Subscribe(observer).DisposeWith(_disposables);
 
-        observer.Operations
-            .Buffer(HistoryManager.StateChanged)
+        observer
+            .Operations.Buffer(HistoryManager.StateChanged)
             .Subscribe(OnChangeOperations)
             .DisposeWith(_disposables);
 
-        BufferStatus = new BufferStatusViewModel(this)
-            .DisposeWith(_disposables);
+        BufferStatus = new BufferStatusViewModel(this).DisposeWith(_disposables);
 
-        DockHost = new DockHostViewModel(SceneId, this)
-            .DisposeWith(_disposables);
+        DockHost = new DockHostViewModel(SceneId, this).DisposeWith(_disposables);
 
         _elementAdder = new ElementAdderImpl(this);
 
-        _autoSaveService.SaveError
-            .Subscribe(_ =>
-                NotificationService.ShowError(string.Empty, MessageStrings.FileSaveException))
+        _autoSaveService
+            .SaveError.Subscribe(_ =>
+                NotificationService.ShowError(string.Empty, MessageStrings.FileSaveException)
+            )
             .DisposeWith(_disposables);
         _autoSaveService.DisposeWith(_disposables);
 
@@ -104,37 +107,52 @@ public sealed partial class EditViewModel : IEditorContext, ISupportAutoSaveEdit
     private static FrameCacheOptions CreateFrameCacheOptions()
     {
         EditorConfig config = GlobalConfiguration.Instance.EditorConfig;
-        return new FrameCacheOptions(Scale: (FrameCacheScale)config.FrameCacheScale,
-            ColorType: (FrameCacheColorType)config.FrameCacheColorType);
+        return new FrameCacheOptions(
+            Scale: (FrameCacheScale)config.FrameCacheScale,
+            ColorType: (FrameCacheColorType)config.FrameCacheColorType
+        );
     }
 
     private void OnEditorConfigPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
         if (sender is EditorConfig config)
         {
-            if (e.PropertyName is nameof(EditorConfig.FrameCacheColorType) or nameof(EditorConfig.FrameCacheScale))
+            if (
+                e.PropertyName
+                is nameof(EditorConfig.FrameCacheColorType)
+                    or nameof(EditorConfig.FrameCacheScale)
+            )
             {
-                _logger.LogInformation("Updating FrameCacheManager options due to EditorConfig change.");
+                _logger.LogInformation(
+                    "Updating FrameCacheManager options due to EditorConfig change."
+                );
                 FrameCacheManager.Value.Options = FrameCacheManager.Value.Options with
                 {
                     ColorType = (FrameCacheColorType)config.FrameCacheColorType,
-                    Scale = (FrameCacheScale)config.FrameCacheScale
+                    Scale = (FrameCacheScale)config.FrameCacheScale,
                 };
             }
             else if (e.PropertyName is nameof(EditorConfig.IsFrameCacheEnabled))
             {
-                _logger.LogInformation("Updating FrameCacheManager IsEnabled due to EditorConfig change.");
+                _logger.LogInformation(
+                    "Updating FrameCacheManager IsEnabled due to EditorConfig change."
+                );
                 FrameCacheManager.Value.IsEnabled = config.IsFrameCacheEnabled;
                 if (!config.IsFrameCacheEnabled)
                 {
                     FrameCacheManager.Value.Clear();
                 }
             }
-            else if (e.PropertyName is nameof(EditorConfig.IsNodeCacheEnabled)
-                     or nameof(EditorConfig.NodeCacheMaxPixels)
-                     or nameof(EditorConfig.NodeCacheMinPixels))
+            else if (
+                e.PropertyName
+                is nameof(EditorConfig.IsNodeCacheEnabled)
+                    or nameof(EditorConfig.NodeCacheMaxPixels)
+                    or nameof(EditorConfig.NodeCacheMinPixels)
+            )
             {
-                _logger.LogInformation("Updating RenderNodeCacheHelper options due to EditorConfig change.");
+                _logger.LogInformation(
+                    "Updating RenderNodeCacheHelper options due to EditorConfig change."
+                );
                 Renderer.Value.CacheOptions = RenderCacheOptions.CreateFromGlobalConfiguration();
             }
         }
@@ -156,9 +174,14 @@ public sealed partial class EditViewModel : IEditorContext, ISupportAutoSaveEdit
             Task.Run(() =>
             {
                 int rate = Player.GetFrameRate();
-                FrameCacheManager.Value.DeleteAndUpdateBlocks(affectedRanges
-                    .Select(item => (Start: (int)item.Start.ToFrameNumber(rate),
-                        End: (int)Math.Ceiling(item.End.ToFrameNumber(rate)))));
+                FrameCacheManager.Value.DeleteAndUpdateBlocks(
+                    affectedRanges.Select(item =>
+                        (
+                            Start: (int)item.Start.ToFrameNumber(rate),
+                            End: (int)Math.Ceiling(item.End.ToFrameNumber(rate))
+                        )
+                    )
+                );
             });
         }
 
@@ -189,7 +212,10 @@ public sealed partial class EditViewModel : IEditorContext, ISupportAutoSaveEdit
 
     private List<TimeRange> GetAffectedTimeRanges(IList<ChangeOperation> list)
     {
-        return [.. list.SelectMany(GetAffectedTimeRangesFromOperation).Where(range => !range.IsEmpty)];
+        return
+        [
+            .. list.SelectMany(GetAffectedTimeRangesFromOperation).Where(range => !range.IsEmpty),
+        ];
     }
 
     private IEnumerable<TimeRange> GetAffectedTimeRangesFromOperation(ChangeOperation operation)
@@ -217,16 +243,22 @@ public sealed partial class EditViewModel : IEditorContext, ISupportAutoSaveEdit
             }
 
             // Itemsから複数のElementを探す
-            foreach (Element? item in collectionOp.Items
-                         .Select(i => i is CoreObject coreObj ? FindElementFromObject(coreObj) : null)
-                         .Where(i => i != null))
+            foreach (
+                Element? item in collectionOp
+                    .Items.Select(i =>
+                        i is CoreObject coreObj ? FindElementFromObject(coreObj) : null
+                    )
+                    .Where(i => i != null)
+            )
             {
                 yield return item!.Range;
             }
         }
     }
 
-    private TimeRange? GetAffectedTimeRangeFromUpdateOperation(IUpdatePropertyValueOperation updateOp)
+    private TimeRange? GetAffectedTimeRangeFromUpdateOperation(
+        IUpdatePropertyValueOperation updateOp
+    )
     {
         CoreObject obj = updateOp.Object;
         string propertyPath = updateOp.PropertyPath;
@@ -243,9 +275,10 @@ public sealed partial class EditViewModel : IEditorContext, ISupportAutoSaveEdit
                 // OldValueから変更前の範囲を計算
                 if (updateOp.OldValue is TimeSpan oldTimeSpan)
                 {
-                    TimeRange oldRange = propertyName == nameof(Element.Start)
-                        ? currentRange.WithStart(oldTimeSpan)
-                        : currentRange.WithDuration(oldTimeSpan);
+                    TimeRange oldRange =
+                        propertyName == nameof(Element.Start)
+                            ? currentRange.WithStart(oldTimeSpan)
+                            : currentRange.WithDuration(oldTimeSpan);
                     return currentRange.Union(oldRange);
                 }
 
@@ -393,8 +426,12 @@ public sealed partial class EditViewModel : IEditorContext, ISupportAutoSaveEdit
             {
                 _logger.LogWarning(
                     "Explicit save requested but view state save is suppressed this session ({SceneId}).",
-                    SceneId);
-                NotificationService.ShowWarning(string.Empty, MessageStrings.ViewStateSaveSuppressed);
+                    SceneId
+                );
+                NotificationService.ShowWarning(
+                    string.Empty,
+                    MessageStrings.ViewStateSaveSuppressed
+                );
             }
             return;
         }
@@ -405,14 +442,18 @@ public sealed partial class EditViewModel : IEditorContext, ISupportAutoSaveEdit
             ["selected-object"] = _editorSelection.SelectedObject.Value?.Id,
             ["max-layer-count"] = _timelineOptionsProvider.Options.Value.MaxLayerCount,
             ["scale"] = _timelineOptionsProvider.Options.Value.Scale,
-            ["offset"] = new JsonObject { ["x"] = _timelineOptionsProvider.Options.Value.Offset.X, ["y"] = _timelineOptionsProvider.Options.Value.Offset.Y, },
+            ["offset"] = new JsonObject
+            {
+                ["x"] = _timelineOptionsProvider.Options.Value.Offset.X,
+                ["y"] = _timelineOptionsProvider.Options.Value.Offset.Y,
+            },
             ["bpm-grid"] = new JsonObject
             {
                 ["bpm"] = _timelineOptionsProvider.Options.Value.BpmGrid.Bpm,
                 ["subdivisions"] = _timelineOptionsProvider.Options.Value.BpmGrid.Subdivisions,
                 ["offset"] = _timelineOptionsProvider.Options.Value.BpmGrid.Offset.ToString("c"),
                 ["is-enabled"] = _timelineOptionsProvider.Options.Value.BpmGrid.IsEnabled,
-            }
+            },
         };
 
         DockHost.WriteToJson(json);
@@ -440,12 +481,22 @@ public sealed partial class EditViewModel : IEditorContext, ISupportAutoSaveEdit
         JsonNode? json;
         try
         {
-            using var stream = new FileStream(viewStateFile, FileMode.Open, FileAccess.Read, FileShare.Read);
+            using var stream = new FileStream(
+                viewStateFile,
+                FileMode.Open,
+                FileAccess.Read,
+                FileShare.Read
+            );
             json = JsonNode.Parse(stream);
         }
         catch (JsonException ex)
         {
-            _logger.LogError(ex, "View state file {ViewStateFile} is malformed; quarantining and opening default tabs ({SceneId}).", viewStateFile, SceneId);
+            _logger.LogError(
+                ex,
+                "View state file {ViewStateFile} is malformed; quarantining and opening default tabs ({SceneId}).",
+                viewStateFile,
+                SceneId
+            );
             QuarantineCorruptViewState(viewStateFile);
             SafeOpenDefaultTabs();
             return;
@@ -455,7 +506,12 @@ public sealed partial class EditViewModel : IEditorContext, ISupportAutoSaveEdit
             // File existed at File.Exists() but vanished before FileStream could open it
             // (TOCTOU — another process or a user cleanup). Nothing to protect, so treat
             // this like the no-state-file branch and let SaveState() proceed normally.
-            _logger.LogWarning(ex, "View state file {ViewStateFile} disappeared before it could be read; opening default tabs ({SceneId}).", viewStateFile, SceneId);
+            _logger.LogWarning(
+                ex,
+                "View state file {ViewStateFile} disappeared before it could be read; opening default tabs ({SceneId}).",
+                viewStateFile,
+                SceneId
+            );
             SafeOpenDefaultTabs();
             return;
         }
@@ -465,7 +521,12 @@ public sealed partial class EditViewModel : IEditorContext, ISupportAutoSaveEdit
             // disk error, etc.). The file may still be valid — leave it in place so the next
             // launch can retry, and suppress SaveState() this session so AutoSave does not
             // overwrite it with the default layout before the user gets a chance to recover.
-            _logger.LogError(ex, "Failed to read view state file {ViewStateFile}; opening default tabs and suppressing view state save this session ({SceneId}).", viewStateFile, SceneId);
+            _logger.LogError(
+                ex,
+                "Failed to read view state file {ViewStateFile}; opening default tabs and suppressing view state save this session ({SceneId}).",
+                viewStateFile,
+                SceneId
+            );
             _viewStateSaveSuppressed = true;
             SafeOpenDefaultTabs();
             return;
@@ -480,7 +541,8 @@ public sealed partial class EditViewModel : IEditorContext, ISupportAutoSaveEdit
                 "View state root is not a JSON object (was {Kind}) in {ViewStateFile}; opening default tabs ({SceneId}).",
                 json is null ? nameof(JsonValueKind.Null) : json.GetValueKind().ToString(),
                 viewStateFile,
-                SceneId);
+                SceneId
+            );
             QuarantineCorruptViewState(viewStateFile);
             SafeOpenDefaultTabs();
             return;
@@ -493,43 +555,60 @@ public sealed partial class EditViewModel : IEditorContext, ISupportAutoSaveEdit
                 Guid? id = (Guid?)json["selected-object"];
                 if (id.HasValue)
                 {
-                    var searcher = new ObjectSearcher(Scene, o => o is CoreObject obj && obj.Id == id.Value);
+                    var searcher = new ObjectSearcher(
+                        Scene,
+                        o => o is CoreObject obj && obj.Id == id.Value
+                    );
                     _editorSelection.SelectedObject.Value = searcher.Search() as CoreObject;
                 }
             }
-            catch (Exception ex) when (ex is not OutOfMemoryException and not OperationCanceledException)
+            catch (Exception ex)
+                when (ex is not OutOfMemoryException and not OperationCanceledException)
             {
                 // Selection is non-critical state; let the rest of restore continue.
                 // OOM / cancellation propagate so the deeper catch can quarantine.
-                _logger.LogWarning(ex, "Could not restore the selected object from {ViewStateFile}; selection cleared ({SceneId}).", viewStateFile, SceneId);
+                _logger.LogWarning(
+                    ex,
+                    "Could not restore the selected object from {ViewStateFile}; selection cleared ({SceneId}).",
+                    viewStateFile,
+                    SceneId
+                );
             }
 
             var timelineOptions = new TimelineOptions();
 
-            if (jsonObject.TryGetPropertyValue("max-layer-count", out JsonNode? maxLayer)
+            if (
+                jsonObject.TryGetPropertyValue("max-layer-count", out JsonNode? maxLayer)
                 && maxLayer is JsonValue maxLayerValue
-                && maxLayerValue.TryGetValue(out int maxLayerCount))
+                && maxLayerValue.TryGetValue(out int maxLayerCount)
+            )
             {
                 timelineOptions = timelineOptions with { MaxLayerCount = maxLayerCount };
             }
 
-            if (jsonObject.TryGetPropertyValue("scale", out JsonNode? scaleNode)
+            if (
+                jsonObject.TryGetPropertyValue("scale", out JsonNode? scaleNode)
                 && scaleNode is JsonValue scaleValue
-                && scaleValue.TryGetValue(out float scale))
+                && scaleValue.TryGetValue(out float scale)
+            )
             {
                 timelineOptions = timelineOptions with { Scale = scale };
             }
 
-            if (jsonObject.TryGetPropertyValue("offset", out JsonNode? offsetNode)
+            if (
+                jsonObject.TryGetPropertyValue("offset", out JsonNode? offsetNode)
                 && offsetNode is JsonObject offsetObj
                 && offsetObj.TryGetPropertyValueAsJsonValue("x", out float x)
-                && offsetObj.TryGetPropertyValueAsJsonValue("y", out float y))
+                && offsetObj.TryGetPropertyValueAsJsonValue("y", out float y)
+            )
             {
                 timelineOptions = timelineOptions with { Offset = new Vector2(x, y) };
             }
 
-            if (jsonObject.TryGetPropertyValue("bpm-grid", out JsonNode? bpmGridNode)
-                && bpmGridNode is JsonObject bpmGridObj)
+            if (
+                jsonObject.TryGetPropertyValue("bpm-grid", out JsonNode? bpmGridNode)
+                && bpmGridNode is JsonObject bpmGridObj
+            )
             {
                 var bpmGrid = new BpmGridOptions();
 
@@ -539,8 +618,15 @@ public sealed partial class EditViewModel : IEditorContext, ISupportAutoSaveEdit
                 if (bpmGridObj.TryGetPropertyValueAsJsonValue("subdivisions", out int subdivisions))
                     bpmGrid = bpmGrid with { Subdivisions = subdivisions };
 
-                if (bpmGridObj.TryGetPropertyValueAsJsonValue("offset", out string? bpmOffsetStr)
-                    && TimeSpan.TryParseExact(bpmOffsetStr, "c", CultureInfo.InvariantCulture, out TimeSpan bpmOffset))
+                if (
+                    bpmGridObj.TryGetPropertyValueAsJsonValue("offset", out string? bpmOffsetStr)
+                    && TimeSpan.TryParseExact(
+                        bpmOffsetStr,
+                        "c",
+                        CultureInfo.InvariantCulture,
+                        out TimeSpan bpmOffset
+                    )
+                )
                     bpmGrid = bpmGrid with { Offset = bpmOffset };
 
                 if (bpmGridObj.TryGetPropertyValueAsJsonValue("is-enabled", out bool isEnabled))
@@ -553,20 +639,30 @@ public sealed partial class EditViewModel : IEditorContext, ISupportAutoSaveEdit
 
             DockHost.ReadFromJson(jsonObject);
 
-            if (jsonObject.TryGetPropertyValueAsJsonValue("current-time", out string? currentTimeStr)
-                && TimeSpan.TryParse(currentTimeStr, out TimeSpan currentTime))
+            if (
+                jsonObject.TryGetPropertyValueAsJsonValue(
+                    "current-time",
+                    out string? currentTimeStr
+                ) && TimeSpan.TryParse(currentTimeStr, out TimeSpan currentTime)
+            )
             {
                 _editorClock.CurrentTime.Value = currentTime;
             }
         }
-        catch (Exception ex) when (ex is not OutOfMemoryException and not OperationCanceledException)
+        catch (Exception ex)
+            when (ex is not OutOfMemoryException and not OperationCanceledException)
         {
             // The file parsed as JSON but a deeper restore step blew up — treat the
             // file as effectively corrupt so the next AutoSave does not silently
             // overwrite it with the default layout. OOM / cancellation propagate
             // because they signal "abort this restore", not "the file is bad" —
             // quarantining a valid file on those would permanently lose the layout.
-            _logger.LogError(ex, "Unexpected error while restoring view state from {ViewStateFile}; quarantining and opening default tabs ({SceneId}).", viewStateFile, SceneId);
+            _logger.LogError(
+                ex,
+                "Unexpected error while restoring view state from {ViewStateFile}; quarantining and opening default tabs ({SceneId}).",
+                viewStateFile,
+                SceneId
+            );
             QuarantineCorruptViewState(viewStateFile);
             SafeOpenDefaultTabs();
         }
@@ -581,7 +677,8 @@ public sealed partial class EditViewModel : IEditorContext, ISupportAutoSaveEdit
         {
             DockHost.OpenDefaultTabs();
         }
-        catch (Exception ex) when (ex is not OutOfMemoryException and not OperationCanceledException)
+        catch (Exception ex)
+            when (ex is not OutOfMemoryException and not OperationCanceledException)
         {
             _logger.LogError(ex, "Failed to open default tabs ({SceneId}).", SceneId);
             NotificationService.ShowError(string.Empty, MessageStrings.DefaultTabsOpenFailed);
@@ -598,32 +695,54 @@ public sealed partial class EditViewModel : IEditorContext, ISupportAutoSaveEdit
         try
         {
             string suffix = Guid.NewGuid().ToString("N")[..8];
-            string quarantined = $"{viewStateFile}.corrupt-{DateTime.UtcNow:yyyyMMddHHmmss}-{suffix}";
+            string quarantined =
+                $"{viewStateFile}.corrupt-{DateTime.UtcNow:yyyyMMddHHmmss}-{suffix}";
             File.Move(viewStateFile, quarantined);
-            _logger.LogInformation("Moved unreadable view state to {QuarantinedFile} ({SceneId}).", quarantined, SceneId);
+            _logger.LogInformation(
+                "Moved unreadable view state to {QuarantinedFile} ({SceneId}).",
+                quarantined,
+                SceneId
+            );
         }
         catch (Exception ex) when (ex is FileNotFoundException or DirectoryNotFoundException)
         {
             // The file (or its directory) vanished between the parse failure and the
             // move — nothing left to protect, so do NOT suppress SaveState(); a later
             // save can write fresh state to the now-empty path normally.
-            _logger.LogWarning(ex, "View state file {ViewStateFile} disappeared before it could be quarantined ({SceneId}).", viewStateFile, SceneId);
+            _logger.LogWarning(
+                ex,
+                "View state file {ViewStateFile} disappeared before it could be quarantined ({SceneId}).",
+                viewStateFile,
+                SceneId
+            );
         }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or SecurityException)
+        catch (Exception ex)
+            when (ex is IOException or UnauthorizedAccessException or SecurityException)
         {
             // Expected move failures (sharing violation, permission denied, etc.) where
             // the corrupt file likely still occupies the original path; suppress
             // SaveState() so it does not get overwritten before a developer can recover
             // the original for diagnostics.
-            _logger.LogWarning(ex, "Failed to quarantine view state file {ViewStateFile}; suppressing view state save this session ({SceneId}).", viewStateFile, SceneId);
+            _logger.LogWarning(
+                ex,
+                "Failed to quarantine view state file {ViewStateFile}; suppressing view state save this session ({SceneId}).",
+                viewStateFile,
+                SceneId
+            );
             _viewStateSaveSuppressed = true;
         }
-        catch (Exception ex) when (ex is not OutOfMemoryException and not OperationCanceledException)
+        catch (Exception ex)
+            when (ex is not OutOfMemoryException and not OperationCanceledException)
         {
             // Belt-and-suspenders: any other File.Move failure (NotSupportedException,
             // ArgumentException, etc.) must still leave us in a state where AutoSave
             // cannot overwrite the file we tried to protect.
-            _logger.LogError(ex, "Unexpected failure quarantining view state file {ViewStateFile}; suppressing view state save this session ({SceneId}).", viewStateFile, SceneId);
+            _logger.LogError(
+                ex,
+                "Unexpected failure quarantining view state file {ViewStateFile}; suppressing view state save this session ({SceneId}).",
+                viewStateFile,
+                SceneId
+            );
             _viewStateSaveSuppressed = true;
         }
     }
@@ -651,7 +770,10 @@ public sealed partial class EditViewModel : IEditorContext, ISupportAutoSaveEdit
         if (serviceType.IsAssignableTo(typeof(IElementAdder)))
             return _elementAdder;
 
-        if (serviceType == typeof(PlayerViewModel) || serviceType.IsAssignableTo(typeof(IPreviewPlayer)))
+        if (
+            serviceType == typeof(PlayerViewModel)
+            || serviceType.IsAssignableTo(typeof(IPreviewPlayer))
+        )
             return Player;
 
         if (serviceType == typeof(FrameCacheManager))
@@ -669,7 +791,8 @@ public sealed partial class EditViewModel : IEditorContext, ISupportAutoSaveEdit
         return null;
     }
 
-    private sealed class KnownCommandsImpl(Scene scene, EditViewModel viewModel) : IKnownEditorCommands
+    private sealed class KnownCommandsImpl(Scene scene, EditViewModel viewModel)
+        : IKnownEditorCommands
     {
         public ValueTask<bool> OnSave()
         {

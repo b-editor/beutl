@@ -1,5 +1,3 @@
 ﻿namespace Beutl;
 
-public abstract class ProjectItem : Hierarchical
-{
-}
+public abstract class ProjectItem : Hierarchical { }

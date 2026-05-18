@@ -14,6 +14,7 @@ public struct Stereo32BitFloat(float left, float right) : ISample<Stereo32BitFlo
     {
         return new Stereo32BitFloat(src.Left, src.Right);
     }
+
     public static Sample ConvertTo(Stereo32BitFloat src)
     {
         return new Sample(src.Left, src.Right);
@@ -29,7 +30,12 @@ public struct Stereo32BitFloat(float left, float right) : ISample<Stereo32BitFlo
         return new Stereo32BitFloat(s1.Left + s2.Left, s1.Right + s2.Right);
     }
 
-    public static unsafe void GetChannelData(Stereo32BitFloat s, int channel, Span<byte> destination, out int bytesWritten)
+    public static unsafe void GetChannelData(
+        Stereo32BitFloat s,
+        int channel,
+        Span<byte> destination,
+        out int bytesWritten
+    )
     {
         bytesWritten = 0;
         if (channel is 0 or 1)

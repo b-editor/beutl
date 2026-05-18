@@ -12,13 +12,12 @@ public sealed class VideoSource : MediaSource
 {
     private WeakReference<Counter<MediaReader>>? _mediaReaderRef;
 
-    public VideoSource()
-    {
-    }
+    public VideoSource() { }
 
     public override void ReadFrom(Uri uri)
     {
-        if (!uri.IsFile) throw new NotSupportedException("Only file URIs are supported.");
+        if (!uri.IsFile)
+            throw new NotSupportedException("Only file URIs are supported.");
 
         if (HasUri && Uri != uri)
         {
@@ -75,7 +74,11 @@ public sealed class VideoSource : MediaSource
             return _counter.Value.ReadVideo(frame, out bitmap);
         }
 
-        public override void Update(EngineObject obj, CompositionContext context, ref bool updateOnly)
+        public override void Update(
+            EngineObject obj,
+            CompositionContext context,
+            ref bool updateOnly
+        )
         {
             base.Update(obj, context, ref updateOnly);
             var videoSource = (VideoSource)obj;
@@ -102,7 +105,10 @@ public sealed class VideoSource : MediaSource
                 {
                     try
                     {
-                        var reader = MediaReader.Open(videoSource.Uri.LocalPath, new(MediaMode.Video));
+                        var reader = MediaReader.Open(
+                            videoSource.Uri.LocalPath,
+                            new(MediaMode.Video)
+                        );
                         _counter = new Counter<MediaReader>(reader, null);
                         // DisableResourceShare 時は WeakReference を書き換えない。
                         // 他 Renderer（プレビュー側）の共有カウンタを

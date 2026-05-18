@@ -7,16 +7,13 @@ using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Avalonia.Media.Immutable;
 using Avalonia.Threading;
-
 using Beutl.Configuration;
 using Beutl.Controls;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Components.PathEditorTab.ViewModels;
 using Beutl.Logging;
 using Beutl.ViewModels;
-
 using Microsoft.Extensions.Logging;
-
 using Reactive.Bindings.Extensions;
 
 namespace Beutl.Views;
@@ -39,14 +36,17 @@ public partial class PlayerView : UserControl
         framePanel.PointerPressed += OnFramePointerPressed;
         framePanel.PointerReleased += OnFramePointerReleased;
         framePanel.PointerMoved += OnFramePointerMoved;
-        framePanel.AddHandler(PointerWheelChangedEvent, OnFramePointerWheelChanged, RoutingStrategies.Tunnel);
+        framePanel.AddHandler(
+            PointerWheelChangedEvent,
+            OnFramePointerWheelChanged,
+            RoutingStrategies.Tunnel
+        );
 
         framePanel.Focusable = true;
         framePanel.KeyDown += OnFrameKeyDown;
         framePanel.KeyUp += OnFrameKeyUp;
 
-        framePanel.GetObservable(BoundsProperty)
-            .Subscribe(_ => UpdateMaxFrameSize());
+        framePanel.GetObservable(BoundsProperty).Subscribe(_ => UpdateMaxFrameSize());
 
         // PlayerView.axaxml.DragAndDrop.cs
         DragDrop.SetAllowDrop(framePanel, true);
@@ -59,7 +59,8 @@ public partial class PlayerView : UserControl
         var config = GlobalConfiguration.Instance.EditorConfig;
         SwapImageControl(config.UseHdrPreview);
 
-        _imageConfigSubscription = config.GetObservable(EditorConfig.UseHdrPreviewProperty)
+        _imageConfigSubscription = config
+            .GetObservable(EditorConfig.UseHdrPreviewProperty)
             .Skip(1)
             .Subscribe(useHdr => Dispatcher.UIThread.InvokeAsync(() => SwapImageControl(useHdr)));
     }
@@ -77,17 +78,35 @@ public partial class PlayerView : UserControl
         if (useHdr)
         {
             var hdr = new HdrBitmapView();
-            hdr.Bind(HdrBitmapView.SourceProperty, new Binding("PreviewImage.Value") { Mode = BindingMode.OneWay });
-            hdr.Bind(HdrBitmapView.ToneMappingProperty, new Binding("ToneMappingMode.Value") { Mode = BindingMode.OneWay });
-            hdr.Bind(HdrBitmapView.ToneMappingExposureProperty, new Binding("ToneMappingExposure.Value") { Mode = BindingMode.OneWay });
+            hdr.Bind(
+                HdrBitmapView.SourceProperty,
+                new Binding("PreviewImage.Value") { Mode = BindingMode.OneWay }
+            );
+            hdr.Bind(
+                HdrBitmapView.ToneMappingProperty,
+                new Binding("ToneMappingMode.Value") { Mode = BindingMode.OneWay }
+            );
+            hdr.Bind(
+                HdrBitmapView.ToneMappingExposureProperty,
+                new Binding("ToneMappingExposure.Value") { Mode = BindingMode.OneWay }
+            );
             newImage = hdr;
         }
         else
         {
             var sdr = new BitmapView();
-            sdr.Bind(BitmapView.SourceProperty, new Binding("PreviewImage.Value") { Mode = BindingMode.OneWay });
-            sdr.Bind(BitmapView.ToneMappingProperty, new Binding("ToneMappingMode.Value") { Mode = BindingMode.OneWay });
-            sdr.Bind(BitmapView.ToneMappingExposureProperty, new Binding("ToneMappingExposure.Value") { Mode = BindingMode.OneWay });
+            sdr.Bind(
+                BitmapView.SourceProperty,
+                new Binding("PreviewImage.Value") { Mode = BindingMode.OneWay }
+            );
+            sdr.Bind(
+                BitmapView.ToneMappingProperty,
+                new Binding("ToneMappingMode.Value") { Mode = BindingMode.OneWay }
+            );
+            sdr.Bind(
+                BitmapView.ToneMappingExposureProperty,
+                new Binding("ToneMappingExposure.Value") { Mode = BindingMode.OneWay }
+            );
             newImage = sdr;
         }
 
@@ -96,7 +115,8 @@ public partial class PlayerView : UserControl
         // Insert after imageBackground, before pathEditorView
         framePanel.Children.Insert(1, newImage);
 
-        _boundsSubscription = newImage.GetObservable(BoundsProperty)
+        _boundsSubscription = newImage
+            .GetObservable(BoundsProperty)
             .Subscribe(bounds =>
             {
                 imageBackground.Width = bounds.Width;
@@ -143,7 +163,8 @@ public partial class PlayerView : UserControl
             var size = framePanel.Bounds.Size;
             player.MaxFrameSize = new Beutl.Graphics.Size(
                 (float)(size.Width * topLevel.RenderScaling),
-                (float)(size.Height * topLevel.RenderScaling));
+                (float)(size.Height * topLevel.RenderScaling)
+            );
         }
     }
 
@@ -154,11 +175,11 @@ public partial class PlayerView : UserControl
         if (DataContext is PlayerViewModel vm)
         {
             vm.PreviewInvalidated += Player_PreviewInvalidated;
-            Disposable.Create(vm, x => x.PreviewInvalidated -= Player_PreviewInvalidated)
+            Disposable
+                .Create(vm, x => x.PreviewInvalidated -= Player_PreviewInvalidated)
                 .DisposeWith(_disposables);
 
-            vm.FrameMatrix
-                .ObserveOnUIDispatcher()
+            vm.FrameMatrix.ObserveOnUIDispatcher()
                 .Select(matrix => (matrix, image, framePanel.Children?.FirstOrDefault()!))
                 .Where(t => t.Item3 != null)
                 .Subscribe(t =>
@@ -168,16 +189,23 @@ public partial class PlayerView : UserControl
                     if (DataContext is PlayerViewModel { Scene: { } } vm)
                     {
                         int width = vm.Scene.FrameSize.Width;
-                        if (width == 0) return;
+                        if (width == 0)
+                            return;
                         double actualWidth = t.image.Bounds.Width * t.matrix.M11;
                         double pixelSize = actualWidth / width;
                         if (pixelSize >= 1)
                         {
-                            RenderOptions.SetBitmapInterpolationMode(t.image, BitmapInterpolationMode.None);
+                            RenderOptions.SetBitmapInterpolationMode(
+                                t.image,
+                                BitmapInterpolationMode.None
+                            );
                         }
                         else
                         {
-                            RenderOptions.SetBitmapInterpolationMode(t.image, BitmapInterpolationMode.HighQuality);
+                            RenderOptions.SetBitmapInterpolationMode(
+                                t.image,
+                                BitmapInterpolationMode.HighQuality
+                            );
                         }
                     }
                 })
@@ -210,7 +238,10 @@ public partial class PlayerView : UserControl
 
     private void ToggleDragModeClick(object? sender, RoutedEventArgs e)
     {
-        if (sender is RadioButton button && DataContext is PlayerViewModel { PathEditor: PathEditorViewModel viewModel })
+        if (
+            sender is RadioButton button
+            && DataContext is PlayerViewModel { PathEditor: PathEditorViewModel viewModel }
+        )
         {
             viewModel.Symmetry.Value = false;
             viewModel.Asymmetry.Value = false;

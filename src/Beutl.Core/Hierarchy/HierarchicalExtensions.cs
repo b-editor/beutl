@@ -2,10 +2,14 @@
 
 public static class HierarchicalExtensions
 {
-    public static T FindRequiredHierarchicalParent<T>(this IHierarchical self, bool includeSelf = false)
+    public static T FindRequiredHierarchicalParent<T>(
+        this IHierarchical self,
+        bool includeSelf = false
+    )
     {
         T? parent = self.FindHierarchicalParent<T>(includeSelf);
-        if (parent == null) throw new HierarchyException("Cannot get parent.");
+        if (parent == null)
+            throw new HierarchyException("Cannot get parent.");
 
         return parent;
     }
@@ -41,15 +45,24 @@ public static class HierarchicalExtensions
         }
     }
 
-    public static IHierarchical FindRequiredHierarchicalParent(this IHierarchical self, Type type, bool includeSelf = false)
+    public static IHierarchical FindRequiredHierarchicalParent(
+        this IHierarchical self,
+        Type type,
+        bool includeSelf = false
+    )
     {
         IHierarchical? parent = self.FindHierarchicalParent(type, includeSelf);
-        if (parent == null) throw new HierarchyException("Cannot get parent.");
+        if (parent == null)
+            throw new HierarchyException("Cannot get parent.");
 
         return parent;
     }
 
-    public static IHierarchical? FindHierarchicalParent(this IHierarchical self, Type type, bool includeSelf = false)
+    public static IHierarchical? FindHierarchicalParent(
+        this IHierarchical self,
+        Type type,
+        bool includeSelf = false
+    )
     {
         try
         {
@@ -106,7 +119,8 @@ public static class HierarchicalExtensions
                 yield return innerItem;
             }
 
-            if (item is TResult t) yield return t;
+            if (item is TResult t)
+                yield return t;
         }
     }
 
@@ -116,7 +130,8 @@ public static class HierarchicalExtensions
 
         while (parent != null)
         {
-            if (parent is TResult t) yield return t;
+            if (parent is TResult t)
+                yield return t;
             parent = parent.HierarchicalParent;
         }
     }

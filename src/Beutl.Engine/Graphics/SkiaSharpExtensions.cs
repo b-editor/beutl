@@ -1,20 +1,32 @@
 ﻿using System.Numerics;
 using Beutl.Media;
-
 using SkiaSharp;
 
 namespace Beutl.Graphics;
 
 internal static class SkiaSharpExtensions
 {
-    public static SKSamplingOptions ToSKSamplingOptions(this BitmapInterpolationMode interpolationMode)
+    public static SKSamplingOptions ToSKSamplingOptions(
+        this BitmapInterpolationMode interpolationMode
+    )
     {
         return interpolationMode switch
         {
-            BitmapInterpolationMode.LowQuality => new SKSamplingOptions(SKFilterMode.Linear, SKMipmapMode.None),
-            BitmapInterpolationMode.MediumQuality => new SKSamplingOptions(SKFilterMode.Linear, SKMipmapMode.Linear),
-            BitmapInterpolationMode.HighQuality or BitmapInterpolationMode.Default => new SKSamplingOptions(SKCubicResampler.Mitchell),
-            _ => throw new ArgumentOutOfRangeException(nameof(interpolationMode), interpolationMode, null),
+            BitmapInterpolationMode.LowQuality => new SKSamplingOptions(
+                SKFilterMode.Linear,
+                SKMipmapMode.None
+            ),
+            BitmapInterpolationMode.MediumQuality => new SKSamplingOptions(
+                SKFilterMode.Linear,
+                SKMipmapMode.Linear
+            ),
+            BitmapInterpolationMode.HighQuality or BitmapInterpolationMode.Default =>
+                new SKSamplingOptions(SKCubicResampler.Mitchell),
+            _ => throw new ArgumentOutOfRangeException(
+                nameof(interpolationMode),
+                interpolationMode,
+                null
+            ),
         };
     }
 
@@ -85,7 +97,7 @@ internal static class SkiaSharpExtensions
             TransY = m.M32,
             Persp0 = m.M13,
             Persp1 = m.M23,
-            Persp2 = m.M33
+            Persp2 = m.M33,
         };
 
         return sm;
@@ -126,9 +138,16 @@ internal static class SkiaSharpExtensions
     public static Matrix ToMatrix(this in SKMatrix m)
     {
         return new Matrix(
-            m.ScaleX, m.SkewY, m.Persp0,
-            m.SkewX, m.ScaleY, m.Persp1,
-            m.TransX, m.TransY, m.Persp2);
+            m.ScaleX,
+            m.SkewY,
+            m.Persp0,
+            m.SkewX,
+            m.ScaleY,
+            m.Persp1,
+            m.TransX,
+            m.TransY,
+            m.Persp2
+        );
     }
 
     public static FontMetrics ToFontMetrics(this in SKFontMetrics metrics)
@@ -156,7 +175,7 @@ internal static class SkiaSharpExtensions
             SKFontStyleSlant.Upright => FontStyle.Normal,
             SKFontStyleSlant.Italic => FontStyle.Italic,
             SKFontStyleSlant.Oblique => FontStyle.Oblique,
-            _ => throw new ArgumentOutOfRangeException(nameof(slant), slant, null)
+            _ => throw new ArgumentOutOfRangeException(nameof(slant), slant, null),
         };
     }
 }

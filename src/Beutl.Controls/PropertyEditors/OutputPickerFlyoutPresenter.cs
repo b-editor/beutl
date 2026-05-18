@@ -16,7 +16,8 @@ public sealed class PinnableOutputItem(
     string displayName,
     bool isPinned,
     object userData,
-    string? description = null) : IEquatable<PinnableOutputItem?>
+    string? description = null
+) : IEquatable<PinnableOutputItem?>
 {
     public string DisplayName { get; } = displayName;
 
@@ -28,9 +29,13 @@ public sealed class PinnableOutputItem(
 
     public bool Equals(PinnableOutputItem? other)
     {
-        if (ReferenceEquals(null, other)) return false;
-        if (ReferenceEquals(this, other)) return true;
-        return DisplayName == other.DisplayName && IsPinned == other.IsPinned && Equals(UserData, other.UserData);
+        if (ReferenceEquals(null, other))
+            return false;
+        if (ReferenceEquals(this, other))
+            return true;
+        return DisplayName == other.DisplayName
+            && IsPinned == other.IsPinned
+            && Equals(UserData, other.UserData);
     }
 
     public override bool Equals(object? obj)
@@ -47,25 +52,41 @@ public sealed class PinnableOutputItem(
 public class OutputPickerFlyoutPresenter : DraggablePickerFlyoutPresenter
 {
     public static readonly StyledProperty<ReactiveCollection<PinnableOutputItem>?> ProfileItemsProperty =
-        AvaloniaProperty.Register<OutputPickerFlyoutPresenter, ReactiveCollection<PinnableOutputItem>?>(nameof(ProfileItems));
+        AvaloniaProperty.Register<
+            OutputPickerFlyoutPresenter,
+            ReactiveCollection<PinnableOutputItem>?
+        >(nameof(ProfileItems));
 
     public static readonly StyledProperty<ReactiveCollection<PinnableOutputItem>?> PresetItemsProperty =
-        AvaloniaProperty.Register<OutputPickerFlyoutPresenter, ReactiveCollection<PinnableOutputItem>?>(nameof(PresetItems));
+        AvaloniaProperty.Register<
+            OutputPickerFlyoutPresenter,
+            ReactiveCollection<PinnableOutputItem>?
+        >(nameof(PresetItems));
 
     public static readonly StyledProperty<PinnableOutputItem?> SelectedProfileProperty =
-        AvaloniaProperty.Register<OutputPickerFlyoutPresenter, PinnableOutputItem?>(nameof(SelectedProfile));
+        AvaloniaProperty.Register<OutputPickerFlyoutPresenter, PinnableOutputItem?>(
+            nameof(SelectedProfile)
+        );
 
     public static readonly StyledProperty<PinnableOutputItem?> SelectedPresetProperty =
-        AvaloniaProperty.Register<OutputPickerFlyoutPresenter, PinnableOutputItem?>(nameof(SelectedPreset));
+        AvaloniaProperty.Register<OutputPickerFlyoutPresenter, PinnableOutputItem?>(
+            nameof(SelectedPreset)
+        );
 
-    public static readonly StyledProperty<bool> ShowPresetsProperty =
-        AvaloniaProperty.Register<OutputPickerFlyoutPresenter, bool>(nameof(ShowPresets));
+    public static readonly StyledProperty<bool> ShowPresetsProperty = AvaloniaProperty.Register<
+        OutputPickerFlyoutPresenter,
+        bool
+    >(nameof(ShowPresets));
 
-    public static readonly StyledProperty<bool> ShowSearchBoxProperty =
-        AvaloniaProperty.Register<OutputPickerFlyoutPresenter, bool>(nameof(ShowSearchBox));
+    public static readonly StyledProperty<bool> ShowSearchBoxProperty = AvaloniaProperty.Register<
+        OutputPickerFlyoutPresenter,
+        bool
+    >(nameof(ShowSearchBox));
 
-    public static readonly StyledProperty<string?> SearchTextProperty =
-        AvaloniaProperty.Register<OutputPickerFlyoutPresenter, string?>(nameof(SearchText));
+    public static readonly StyledProperty<string?> SearchTextProperty = AvaloniaProperty.Register<
+        OutputPickerFlyoutPresenter,
+        string?
+    >(nameof(SearchText));
 
     private const string SearchBoxPseudoClass = ":search-box";
     private const string ShowPresetsPseudoClass = ":show-presets";
@@ -136,24 +157,31 @@ public class OutputPickerFlyoutPresenter : DraggablePickerFlyoutPresenter
         _profilesTabButton = e.NameScope.Find<ToggleButton>("ProfilesTabButton");
         _presetsTabButton = e.NameScope.Find<ToggleButton>("PresetsTabButton");
 
-        if (_profileListBox != null) _profileListBox.Focusable = true;
-        if (_presetListBox != null) _presetListBox.Focusable = true;
+        if (_profileListBox != null)
+            _profileListBox.Focusable = true;
+        if (_presetListBox != null)
+            _presetListBox.Focusable = true;
 
-        _profilesTabButton?.AddDisposableHandler(Button.ClickEvent, OnProfilesTabClick)
+        _profilesTabButton
+            ?.AddDisposableHandler(Button.ClickEvent, OnProfilesTabClick)
             .DisposeWith(_keyboardDisposables);
-        _presetsTabButton?.AddDisposableHandler(Button.ClickEvent, OnPresetsTabClick)
+        _presetsTabButton
+            ?.AddDisposableHandler(Button.ClickEvent, OnPresetsTabClick)
             .DisposeWith(_keyboardDisposables);
 
         this.AddDisposableHandler(KeyDownEvent, OnPresenterKeyDown, RoutingStrategies.Tunnel)
             .DisposeWith(_keyboardDisposables);
 
-        _searchTextBox?.AddDisposableHandler(KeyDownEvent, OnSearchBoxKeyDown)
+        _searchTextBox
+            ?.AddDisposableHandler(KeyDownEvent, OnSearchBoxKeyDown)
             .DisposeWith(_keyboardDisposables);
 
-        _profileListBox?.AddDisposableHandler(KeyDownEvent, OnListBoxKeyDown, RoutingStrategies.Tunnel)
+        _profileListBox
+            ?.AddDisposableHandler(KeyDownEvent, OnListBoxKeyDown, RoutingStrategies.Tunnel)
             .DisposeWith(_keyboardDisposables);
 
-        _presetListBox?.AddDisposableHandler(KeyDownEvent, OnListBoxKeyDown, RoutingStrategies.Tunnel)
+        _presetListBox
+            ?.AddDisposableHandler(KeyDownEvent, OnListBoxKeyDown, RoutingStrategies.Tunnel)
             .DisposeWith(_keyboardDisposables);
     }
 
@@ -177,21 +205,21 @@ public class OutputPickerFlyoutPresenter : DraggablePickerFlyoutPresenter
 
     private void OnListBoxKeyDown(object? sender, KeyEventArgs e)
     {
-        if (sender is not ListBox listBox) return;
+        if (sender is not ListBox listBox)
+            return;
 
         switch (e.Key)
         {
             case Key.Up:
-                listBox.SelectedIndex = listBox.SelectedIndex <= 0
-                    ? 0
-                    : listBox.SelectedIndex - 1;
+                listBox.SelectedIndex = listBox.SelectedIndex <= 0 ? 0 : listBox.SelectedIndex - 1;
                 ScrollSelectedIntoView(listBox);
                 e.Handled = true;
                 break;
             case Key.Down:
-                listBox.SelectedIndex = listBox.SelectedIndex >= listBox.ItemCount - 1
-                    ? listBox.ItemCount - 1
-                    : listBox.SelectedIndex + 1;
+                listBox.SelectedIndex =
+                    listBox.SelectedIndex >= listBox.ItemCount - 1
+                        ? listBox.ItemCount - 1
+                        : listBox.SelectedIndex + 1;
                 ScrollSelectedIntoView(listBox);
                 e.Handled = true;
                 break;
@@ -242,7 +270,8 @@ public class OutputPickerFlyoutPresenter : DraggablePickerFlyoutPresenter
     private void FocusListBox()
     {
         var target = GetCurrentListBox();
-        if (target is null) return;
+        if (target is null)
+            return;
         if (target.SelectedIndex < 0 && target.ItemCount > 0)
             target.SelectedIndex = 0;
 

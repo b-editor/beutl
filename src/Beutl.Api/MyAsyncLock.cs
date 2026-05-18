@@ -43,7 +43,8 @@ public sealed class MyAsyncLock
                 state: _releaser.Result,
                 cancellationToken: cancellationToken,
                 continuationOptions: TaskContinuationOptions.ExecuteSynchronously,
-                scheduler: TaskScheduler.Default);
+                scheduler: TaskScheduler.Default
+            );
         }
     }
 

@@ -10,15 +10,22 @@ namespace Beutl.Views.Editors;
 
 public partial class FilterEffectListItemEditor : UserControl, IListItemEditor
 {
-    public static readonly DirectProperty<FilterEffectListItemEditor, Control?> ReorderHandleProperty =
-        AvaloniaProperty.RegisterDirect<FilterEffectListItemEditor, Control?>(
-            nameof(ReorderHandle),
-            o => o.ReorderHandle);
+    public static readonly DirectProperty<
+        FilterEffectListItemEditor,
+        Control?
+    > ReorderHandleProperty = AvaloniaProperty.RegisterDirect<FilterEffectListItemEditor, Control?>(
+        nameof(ReorderHandle),
+        o => o.ReorderHandle
+    );
 
     public FilterEffectListItemEditor()
     {
         InitializeComponent();
-        ExpandTransitionHelper.Attach(reorderHandle, content, ExpandTransitionHelper.ListItemDuration);
+        ExpandTransitionHelper.Attach(
+            reorderHandle,
+            content,
+            ExpandTransitionHelper.ListItemDuration
+        );
         FallbackObjectViewHelper.Attach(this, view => content.Children.Add(view));
 
         this.GetObservable(DataContextProperty)
@@ -29,7 +36,10 @@ public partial class FilterEffectListItemEditor : UserControl, IListItemEditor
             .Subscribe(t => UpdateReorderHandle(t.First, t.Second));
 
         reorderHandle.ContextFlyout = new FAMenuFlyout { Placement = PlacementMode.Pointer };
-        EditorMenuHelper.AttachCopyPasteAndTemplateMenus(this, (FAMenuFlyout)reorderHandle.ContextFlyout);
+        EditorMenuHelper.AttachCopyPasteAndTemplateMenus(
+            this,
+            (FAMenuFlyout)reorderHandle.ContextFlyout
+        );
     }
 
     public Control? ReorderHandle
@@ -40,9 +50,7 @@ public partial class FilterEffectListItemEditor : UserControl, IListItemEditor
 
     private void UpdateReorderHandle(bool isPresenter, Control? presenterReorderHandle)
     {
-        ReorderHandle = isPresenter
-            ? presenterReorderHandle
-            : reorderHandle;
+        ReorderHandle = isPresenter ? presenterReorderHandle : reorderHandle;
     }
 
     public event EventHandler? DeleteRequested;
@@ -54,12 +62,12 @@ public partial class FilterEffectListItemEditor : UserControl, IListItemEditor
 
     private async void SelectTarget_Requested(object? sender, RoutedEventArgs e)
     {
-        if (DataContext is not FilterEffectEditorViewModel { IsDisposed: false } vm) return;
+        if (DataContext is not FilterEffectEditorViewModel { IsDisposed: false } vm)
+            return;
 
-        await TargetSelectionHelper.HandleSelectTargetRequestAsync<FilterEffectEditorViewModel, FilterEffect>(
-            this,
-            vm,
-            vm => vm.GetAvailableTargets(),
-            (vm, target) => vm.SetTarget(target));
+        await TargetSelectionHelper.HandleSelectTargetRequestAsync<
+            FilterEffectEditorViewModel,
+            FilterEffect
+        >(this, vm, vm => vm.GetAvailableTargets(), (vm, target) => vm.SetTarget(target));
     }
 }

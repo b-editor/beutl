@@ -7,7 +7,6 @@ using Beutl.Media;
 using Beutl.PropertyAdapters;
 using Beutl.Serialization;
 using Beutl.Services;
-
 using DynamicData;
 using Reactive.Bindings;
 
@@ -18,21 +17,22 @@ public sealed class PenEditorViewModel : BaseEditorViewModel
     public PenEditorViewModel(IPropertyAdapter<Pen?> property)
         : base(property)
     {
-        Value = property.GetObservable()
-            .ToReadOnlyReactiveProperty()
-            .DisposeWith(Disposables);
+        Value = property.GetObservable().ToReadOnlyReactiveProperty().DisposeWith(Disposables);
 
-        CanCopy = Value.Select(v => v is Pen)
+        CanCopy = Value
+            .Select(v => v is Pen)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(Disposables);
 
-        Value.Subscribe(Update)
-            .DisposeWith(Disposables);
+        Value.Subscribe(Update).DisposeWith(Disposables);
     }
 
     private void Update(Pen? pen)
     {
-        static void CreateContexts(PooledList<IPropertyAdapter> props, CoreList<IPropertyEditorContext> dst)
+        static void CreateContexts(
+            PooledList<IPropertyAdapter> props,
+            CoreList<IPropertyEditorContext> dst
+        )
         {
             IPropertyAdapter[]? foundItems;
             PropertyEditorExtension? extension;
@@ -58,23 +58,56 @@ public sealed class PenEditorViewModel : BaseEditorViewModel
         {
             using var props = new PooledList<IPropertyAdapter>();
             Span<IPropertyAdapter> span = props.AddSpan(4);
-            span[0] = new AnimatablePropertyAdapter<float>((AnimatableProperty<float>)pen.Thickness, pen);
-            span[1] = new SimplePropertyAdapter<StrokeJoin>((SimpleProperty<StrokeJoin>)pen.StrokeJoin, pen);
-            span[2] = new SimplePropertyAdapter<StrokeAlignment>((SimpleProperty<StrokeAlignment>)pen.StrokeAlignment, pen);
+            span[0] = new AnimatablePropertyAdapter<float>(
+                (AnimatableProperty<float>)pen.Thickness,
+                pen
+            );
+            span[1] = new SimplePropertyAdapter<StrokeJoin>(
+                (SimpleProperty<StrokeJoin>)pen.StrokeJoin,
+                pen
+            );
+            span[2] = new SimplePropertyAdapter<StrokeAlignment>(
+                (SimpleProperty<StrokeAlignment>)pen.StrokeAlignment,
+                pen
+            );
             span[3] = new SimplePropertyAdapter<Brush?>((SimpleProperty<Brush?>)pen.Brush, pen);
 
             CreateContexts(props, MajorProperties);
 
             props.Clear();
             span = props.AddSpan(8);
-            span[0] = new AnimatablePropertyAdapter<float>((AnimatableProperty<float>)pen.MiterLimit, pen);
-            span[1] = new SimplePropertyAdapter<StrokeCap>((SimpleProperty<StrokeCap>)pen.StrokeCap, pen);
-            span[2] = new SimplePropertyAdapter<CoreList<float>?>((SimpleProperty<CoreList<float>?>)pen.DashArray, pen);
-            span[3] = new AnimatablePropertyAdapter<float>((AnimatableProperty<float>)pen.DashOffset, pen);
-            span[4] = new AnimatablePropertyAdapter<float>((AnimatableProperty<float>)pen.TrimStart, pen);
-            span[5] = new AnimatablePropertyAdapter<float>((AnimatableProperty<float>)pen.TrimEnd, pen);
-            span[6] = new AnimatablePropertyAdapter<float>((AnimatableProperty<float>)pen.TrimOffset, pen);
-            span[7] = new AnimatablePropertyAdapter<float>((AnimatableProperty<float>)pen.Offset, pen);
+            span[0] = new AnimatablePropertyAdapter<float>(
+                (AnimatableProperty<float>)pen.MiterLimit,
+                pen
+            );
+            span[1] = new SimplePropertyAdapter<StrokeCap>(
+                (SimpleProperty<StrokeCap>)pen.StrokeCap,
+                pen
+            );
+            span[2] = new SimplePropertyAdapter<CoreList<float>?>(
+                (SimpleProperty<CoreList<float>?>)pen.DashArray,
+                pen
+            );
+            span[3] = new AnimatablePropertyAdapter<float>(
+                (AnimatableProperty<float>)pen.DashOffset,
+                pen
+            );
+            span[4] = new AnimatablePropertyAdapter<float>(
+                (AnimatableProperty<float>)pen.TrimStart,
+                pen
+            );
+            span[5] = new AnimatablePropertyAdapter<float>(
+                (AnimatableProperty<float>)pen.TrimEnd,
+                pen
+            );
+            span[6] = new AnimatablePropertyAdapter<float>(
+                (AnimatableProperty<float>)pen.TrimOffset,
+                pen
+            );
+            span[7] = new AnimatablePropertyAdapter<float>(
+                (AnimatableProperty<float>)pen.Offset,
+                pen
+            );
 
             CreateContexts(props, MinorProperties);
         }
@@ -137,7 +170,8 @@ public sealed class PenEditorViewModel : BaseEditorViewModel
 
     public override bool ApplyTemplate(ObjectTemplateItem template)
     {
-        if (template.CreateInstance() is not Pen instance) return false;
+        if (template.CreateInstance() is not Pen instance)
+            return false;
         IsExpanded.Value = true;
         PropertyAdapter.SetValue(instance);
         Commit(CommandNames.ApplyTemplate);
@@ -146,7 +180,8 @@ public sealed class PenEditorViewModel : BaseEditorViewModel
 
     public override bool TryPasteJson(string json)
     {
-        if (!CoreObjectClipboard.TryDeserializeJson<Pen>(json, out var pasted)) return false;
+        if (!CoreObjectClipboard.TryDeserializeJson<Pen>(json, out var pasted))
+            return false;
 
         IsExpanded.Value = true;
         PropertyAdapter.SetValue(pasted);
@@ -167,8 +202,10 @@ public sealed class PenEditorViewModel : BaseEditorViewModel
     public override void ReadFromJson(JsonObject json)
     {
         base.ReadFromJson(json);
-        if (json.TryGetPropertyValue(nameof(IsExpanded), out JsonNode? isExpandedNode)
-            && isExpandedNode is JsonValue isExpanded)
+        if (
+            json.TryGetPropertyValue(nameof(IsExpanded), out JsonNode? isExpandedNode)
+            && isExpandedNode is JsonValue isExpanded
+        )
         {
             IsExpanded.Value = (bool)isExpanded;
         }
@@ -181,9 +218,7 @@ public sealed class PenEditorViewModel : BaseEditorViewModel
         {
             json[nameof(IsExpanded)] = IsExpanded.Value;
         }
-        catch
-        {
-        }
+        catch { }
     }
 
     protected override void Dispose(bool disposing)
@@ -199,15 +234,15 @@ public sealed class PenEditorViewModel : BaseEditorViewModel
         }
     }
 
-    private sealed record Visitor(PenEditorViewModel Obj) : IServiceProvider, IPropertyEditorContextVisitor
+    private sealed record Visitor(PenEditorViewModel Obj)
+        : IServiceProvider,
+            IPropertyEditorContextVisitor
     {
         public object? GetService(Type serviceType)
         {
             return Obj.GetService(serviceType);
         }
 
-        public void Visit(IPropertyEditorContext context)
-        {
-        }
+        public void Visit(IPropertyEditorContext context) { }
     }
 }

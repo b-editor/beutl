@@ -9,7 +9,7 @@ internal sealed class OperationQueue
     [
         new Queue<DispatcherOperation>(),
         new Queue<DispatcherOperation>(),
-        new Queue<DispatcherOperation>()
+        new Queue<DispatcherOperation>(),
     ];
 
     public void Enqueue(DispatcherOperation operation)
@@ -24,7 +24,11 @@ internal sealed class OperationQueue
     {
         lock (_lock)
         {
-            for (DispatchPriority priority = DispatchPriority.High; priority >= DispatchPriority.Low; --priority)
+            for (
+                DispatchPriority priority = DispatchPriority.High;
+                priority >= DispatchPriority.Low;
+                --priority
+            )
             {
                 Queue<DispatcherOperation> queue = _queuedOperations[(int)priority];
                 if (queue.Count > 0)
@@ -45,7 +49,11 @@ internal sealed class OperationQueue
 
         lock (_lock)
         {
-            for (DispatchPriority priority = DispatchPriority.High; priority >= minPriority; --priority)
+            for (
+                DispatchPriority priority = DispatchPriority.High;
+                priority >= minPriority;
+                --priority
+            )
             {
                 count += _queuedOperations[(int)priority].Count;
             }

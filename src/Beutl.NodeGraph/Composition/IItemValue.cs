@@ -7,7 +7,7 @@ public enum PropagateResult
 {
     Success,
     Converted,
-    Failed
+    Failed,
 }
 
 public interface IItemValue : IDisposable

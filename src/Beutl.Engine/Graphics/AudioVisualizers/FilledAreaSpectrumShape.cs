@@ -6,7 +6,10 @@ using SkiaSharp;
 
 namespace Beutl.Graphics.AudioVisualizers;
 
-[Display(Name = nameof(GraphicsStrings.SpectrumShape_FilledArea), ResourceType = typeof(GraphicsStrings))]
+[Display(
+    Name = nameof(GraphicsStrings.SpectrumShape_FilledArea),
+    ResourceType = typeof(GraphicsStrings)
+)]
 public sealed partial class FilledAreaSpectrumShape : SpectrumShape
 {
     public FilledAreaSpectrumShape()
@@ -14,7 +17,10 @@ public sealed partial class FilledAreaSpectrumShape : SpectrumShape
         ScanProperties<FilledAreaSpectrumShape>();
     }
 
-    [Display(Name = nameof(GraphicsStrings.SpectrumShape_Smoothness), ResourceType = typeof(GraphicsStrings))]
+    [Display(
+        Name = nameof(GraphicsStrings.SpectrumShape_Smoothness),
+        ResourceType = typeof(GraphicsStrings)
+    )]
     [Range(0f, 100f)]
     public IProperty<float> Smoothness { get; } = Property.CreateAnimatable(0f);
 
@@ -29,10 +35,12 @@ public sealed partial class FilledAreaSpectrumShape : SpectrumShape
             ImmediateCanvas canvas,
             Rect bounds,
             ReadOnlySpan<float> normalizedBars,
-            Brush.Resource fill)
+            Brush.Resource fill
+        )
         {
             int barCount = normalizedBars.Length;
-            if (barCount < 2) return;
+            if (barCount < 2)
+                return;
 
             float width = (float)bounds.Width;
             float height = (float)bounds.Height;
@@ -46,7 +54,8 @@ public sealed partial class FilledAreaSpectrumShape : SpectrumShape
             if (_lastCornerRadius != cornerRadius)
             {
                 _cornerEffect?.Dispose();
-                _cornerEffect = cornerRadius > 0.01f ? SKPathEffect.CreateCorner(cornerRadius) : null;
+                _cornerEffect =
+                    cornerRadius > 0.01f ? SKPathEffect.CreateCorner(cornerRadius) : null;
                 _lastCornerRadius = cornerRadius;
             }
             _paint.PathEffect = _cornerEffect;

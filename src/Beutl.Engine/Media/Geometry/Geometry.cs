@@ -14,19 +14,18 @@ public sealed partial class FallbackGeometry : Geometry, IFallback;
 [FallbackType(typeof(FallbackGeometry))]
 public abstract partial class Geometry : EngineObject
 {
-    public Geometry()
-    {
-    }
+    public Geometry() { }
 
-    [Display(Name = nameof(GraphicsStrings.Geometry_FillType), ResourceType = typeof(GraphicsStrings))]
+    [Display(
+        Name = nameof(GraphicsStrings.Geometry_FillType),
+        ResourceType = typeof(GraphicsStrings)
+    )]
     public IProperty<PathFillType> FillType { get; } = Property.Create<PathFillType>();
 
     [Display(Name = nameof(GraphicsStrings.Transform), ResourceType = typeof(GraphicsStrings))]
     public IProperty<Transform?> Transform { get; } = Property.Create<Transform?>(null);
 
-    public virtual void ApplyTo(IGeometryContext context, Resource resource)
-    {
-    }
+    public virtual void ApplyTo(IGeometryContext context, Resource resource) { }
 
     public partial class Resource
     {
@@ -62,12 +61,14 @@ public abstract partial class Geometry : EngineObject
         internal SKPath GetCachedStrokePath(Pen.Resource pen)
         {
             ObjectDisposedException.ThrowIf(IsDisposed, this);
-            if (_capturedVersion != Version
+            if (
+                _capturedVersion != Version
                 || _cachedPath == null
                 || _cachedStrokePath == null
                 || _cachedPen == null
                 || _cachedPen?.Resource.GetOriginal() != pen.GetOriginal()
-                || _cachedPen?.Version != pen.Version)
+                || _cachedPen?.Version != pen.Version
+            )
             {
                 _cachedStrokePath?.Dispose();
                 _cachedPen = (pen, pen.Version);
@@ -105,7 +106,8 @@ public abstract partial class Geometry : EngineObject
         public bool StrokeContains(Pen.Resource? pen, Point point)
         {
             ObjectDisposedException.ThrowIf(IsDisposed, this);
-            if (pen == null) return false;
+            if (pen == null)
+                return false;
 
             SKPath? strokePath = GetCachedStrokePath(pen);
 

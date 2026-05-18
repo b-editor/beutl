@@ -1,5 +1,3 @@
 ﻿namespace Beutl.NodeGraph;
 
-public interface IListInputPort : IInputPort, IListPort
-{
-}
+public interface IListInputPort : IInputPort, IListPort { }

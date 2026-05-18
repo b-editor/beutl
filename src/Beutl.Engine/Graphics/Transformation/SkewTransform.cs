@@ -9,7 +9,8 @@ namespace Beutl.Graphics.Transformation;
 [Display(Name = nameof(GraphicsStrings.SkewTransform), ResourceType = typeof(GraphicsStrings))]
 public sealed partial class SkewTransform : Transform
 {
-    public SkewTransform(float skewX, float skewY) : this()
+    public SkewTransform(float skewX, float skewY)
+        : this()
     {
         SkewX.CurrentValue = skewX;
         SkewY.CurrentValue = skewY;
@@ -20,10 +21,16 @@ public sealed partial class SkewTransform : Transform
         ScanProperties<SkewTransform>();
     }
 
-    [Display(Name = nameof(GraphicsStrings.SkewTransform_SkewX), ResourceType = typeof(GraphicsStrings))]
+    [Display(
+        Name = nameof(GraphicsStrings.SkewTransform_SkewX),
+        ResourceType = typeof(GraphicsStrings)
+    )]
     public IProperty<float> SkewX { get; } = Property.CreateAnimatable<float>();
 
-    [Display(Name = nameof(GraphicsStrings.SkewTransform_SkewY), ResourceType = typeof(GraphicsStrings))]
+    [Display(
+        Name = nameof(GraphicsStrings.SkewTransform_SkewY),
+        ResourceType = typeof(GraphicsStrings)
+    )]
     public IProperty<float> SkewY { get; } = Property.CreateAnimatable<float>();
 
     public override Matrix CreateMatrix(CompositionContext context)

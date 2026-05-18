@@ -24,9 +24,11 @@ public class RenderNodeProcessor(RenderNode root, bool useRenderCache)
         foreach (var op in ops)
         {
             var rect = PixelRect.FromRect(op.Bounds);
-            if (rect.Width <= 0 || rect.Height <= 0) continue;
-            var renderTarget = RenderTarget.Create(rect.Width, rect.Height) ??
-                               throw new Exception("RenderTarget is null");
+            if (rect.Width <= 0 || rect.Height <= 0)
+                continue;
+            var renderTarget =
+                RenderTarget.Create(rect.Width, rect.Height)
+                ?? throw new Exception("RenderTarget is null");
 
             using var canvas = new ImmediateCanvas(renderTarget);
             canvas.Clear();
@@ -50,8 +52,9 @@ public class RenderNodeProcessor(RenderNode root, bool useRenderCache)
         foreach (var op in ops)
         {
             var rect = PixelRect.FromRect(op.Bounds);
-            using var renderTarget = RenderTarget.Create(rect.Width, rect.Height)
-                                     ?? throw new Exception("RenderTarget is null");
+            using var renderTarget =
+                RenderTarget.Create(rect.Width, rect.Height)
+                ?? throw new Exception("RenderTarget is null");
 
             using var canvas = new ImmediateCanvas(renderTarget);
             canvas.Clear();
@@ -74,7 +77,8 @@ public class RenderNodeProcessor(RenderNode root, bool useRenderCache)
         var bounds = ops.Aggregate(Rect.Empty, (a, n) => a.Union(n.Bounds));
         var rect = PixelRect.FromRect(bounds);
         using var renderTarget =
-            RenderTarget.Create(rect.Width, rect.Height) ?? throw new Exception("RenderTarget is null");
+            RenderTarget.Create(rect.Width, rect.Height)
+            ?? throw new Exception("RenderTarget is null");
         using var canvas = new ImmediateCanvas(renderTarget);
         canvas.Clear();
         using (canvas.PushTransform(Matrix.CreateTranslation(-bounds.X, -bounds.Y)))
@@ -98,11 +102,15 @@ public class RenderNodeProcessor(RenderNode root, bool useRenderCache)
     {
         if (useRenderCache && node.Cache is { IsCached: true } cache)
         {
-            return cache.UseCache()
-                .Select(i => RenderNodeOperation.CreateFromRenderTarget(
-                    bounds: i.Bounds,
-                    position: i.Bounds.Position,
-                    renderTarget: i.RenderTarget))
+            return cache
+                .UseCache()
+                .Select(i =>
+                    RenderNodeOperation.CreateFromRenderTarget(
+                        bounds: i.Bounds,
+                        position: i.Bounds.Position,
+                        renderTarget: i.RenderTarget
+                    )
+                )
                 .ToArray();
         }
 

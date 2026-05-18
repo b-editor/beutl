@@ -5,7 +5,10 @@ using Beutl.Language;
 
 namespace Beutl.Graphics.Effects;
 
-[Display(Name = nameof(GraphicsStrings.DelayAnimationEffect), ResourceType = typeof(GraphicsStrings))]
+[Display(
+    Name = nameof(GraphicsStrings.DelayAnimationEffect),
+    ResourceType = typeof(GraphicsStrings)
+)]
 [SuppressResourceClassGeneration]
 public partial class DelayAnimationEffect : FilterEffect
 {
@@ -15,22 +18,34 @@ public partial class DelayAnimationEffect : FilterEffect
         Effect.CurrentValue = new FilterEffectGroup();
     }
 
-    [Display(Name = nameof(GraphicsStrings.DelayAnimationEffect_Delay), ResourceType = typeof(GraphicsStrings))]
+    [Display(
+        Name = nameof(GraphicsStrings.DelayAnimationEffect_Delay),
+        ResourceType = typeof(GraphicsStrings)
+    )]
     public IProperty<float> Delay { get; } = Property.CreateAnimatable(0f);
 
-    [Display(Name = nameof(GraphicsStrings.DelayAnimationEffect_Effect), ResourceType = typeof(GraphicsStrings))]
+    [Display(
+        Name = nameof(GraphicsStrings.DelayAnimationEffect_Effect),
+        ResourceType = typeof(GraphicsStrings)
+    )]
     public IProperty<FilterEffect?> Effect { get; } = Property.Create<FilterEffect?>();
 
     public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
     {
         var r = (Resource)resource;
-        if (r.Effect == null) return;
+        if (r.Effect == null)
+            return;
 
         var childEffect = r.Effect.GetOriginal();
 
         context.CustomEffect(
-            (delay: r.Delay, globalTime: r.GlobalTime, childEffect, cache: r.DelayedResources,
-             disableResourceShare: r.DisableResourceShare),
+            (
+                delay: r.Delay,
+                globalTime: r.GlobalTime,
+                childEffect,
+                cache: r.DelayedResources,
+                disableResourceShare: r.DisableResourceShare
+            ),
             static (data, effectContext) =>
             {
                 int targetCount = effectContext.Targets.Count;
@@ -38,11 +53,16 @@ public partial class DelayAnimationEffect : FilterEffect
                 // キャッシュを必要数まで成長
                 for (int i = data.cache.Count; i < targetCount; i++)
                 {
-                    TimeSpan delayedTime = data.globalTime - TimeSpan.FromMilliseconds(data.delay * i);
-                    data.cache.Add(data.childEffect.ToResource(new CompositionContext(delayedTime)
-                    {
-                        DisableResourceShare = data.disableResourceShare,
-                    }));
+                    TimeSpan delayedTime =
+                        data.globalTime - TimeSpan.FromMilliseconds(data.delay * i);
+                    data.cache.Add(
+                        data.childEffect.ToResource(
+                            new CompositionContext(delayedTime)
+                            {
+                                DisableResourceShare = data.disableResourceShare,
+                            }
+                        )
+                    );
                 }
 
                 // 余分なキャッシュを縮小
@@ -55,10 +75,12 @@ public partial class DelayAnimationEffect : FilterEffect
                 for (int i = 0, j = 0; i < targetCount; i++, j++)
                 {
                     EffectTarget target = effectContext.Targets[i];
-                    if (target.IsEmpty) continue;
+                    if (target.IsEmpty)
+                        continue;
 
                     // 既存Resourceを遅延時刻で更新
-                    TimeSpan delayedTime = data.globalTime - TimeSpan.FromMilliseconds(data.delay * j);
+                    TimeSpan delayedTime =
+                        data.globalTime - TimeSpan.FromMilliseconds(data.delay * j);
                     var delayedContext = new CompositionContext(delayedTime)
                     {
                         DisableResourceShare = data.disableResourceShare,
@@ -66,7 +88,8 @@ public partial class DelayAnimationEffect : FilterEffect
                     var updateOnly = false;
                     data.cache[j].Update(data.childEffect, delayedContext, ref updateOnly);
 
-                    if (!data.cache[j].IsEnabled) continue;
+                    if (!data.cache[j].IsEnabled)
+                        continue;
 
                     using var childFEContext = new FilterEffectContext(target.Bounds);
                     data.childEffect.ApplyTo(childFEContext, data.cache[j]);
@@ -93,7 +116,8 @@ public partial class DelayAnimationEffect : FilterEffect
                         targetCount = effectContext.Targets.Count;
                     }
                 }
-            });
+            }
+        );
     }
 
     public override Resource ToResource(CompositionContext context)
@@ -122,14 +146,21 @@ public partial class DelayAnimationEffect : FilterEffect
 
         public List<FilterEffect.Resource> DelayedResources => _delayedResources;
 
-        public override void Update(EngineObject obj, CompositionContext context, ref bool updateOnly)
+        public override void Update(
+            EngineObject obj,
+            CompositionContext context,
+            ref bool updateOnly
+        )
         {
             base.Update(obj, context, ref updateOnly);
 
             var typed = (DelayAnimationEffect)obj;
             CompareAndUpdate(context, typed.Delay, ref _delay, ref updateOnly);
             CompareAndUpdateObject(context, typed.Effect, ref _effect, ref updateOnly);
-            if (_delayedResources.Count > 0 && _delayedResources[0].GetOriginal() != Effect?.GetOriginal())
+            if (
+                _delayedResources.Count > 0
+                && _delayedResources[0].GetOriginal() != Effect?.GetOriginal()
+            )
             {
                 foreach (var r in _delayedResources)
                     r.Dispose();

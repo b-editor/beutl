@@ -11,8 +11,8 @@ namespace Beutl.Controls;
 
 public sealed class RenameFlyout : PickerFlyoutBase
 {
-    public static readonly StyledProperty<string?> TextProperty
-        = TextBox.TextProperty.AddOwner<RenameFlyout>();
+    public static readonly StyledProperty<string?> TextProperty =
+        TextBox.TextProperty.AddOwner<RenameFlyout>();
 
     private TextBox? _textBox;
 
@@ -36,13 +36,10 @@ public sealed class RenameFlyout : PickerFlyoutBase
                 Spacing = 4,
                 Children =
                 {
-                    new TextBlock
-                    {
-                        Text = Strings.Rename
-                    },
-                    _textBox
-                }
-            }
+                    new TextBlock { Text = Strings.Rename },
+                    _textBox,
+                },
+            },
         };
         pfp.Confirmed += OnFlyoutConfirmed;
         pfp.Dismissed += OnFlyoutDismissed;

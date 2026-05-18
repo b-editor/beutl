@@ -20,6 +20,7 @@ public sealed class PixelRectAnimator : Animator<PixelRect>
             (int)MathF.Round(newX),
             (int)MathF.Round(newY),
             (int)MathF.Round(newWidth),
-            (int)MathF.Round(newHeight));
+            (int)MathF.Round(newHeight)
+        );
     }
 }

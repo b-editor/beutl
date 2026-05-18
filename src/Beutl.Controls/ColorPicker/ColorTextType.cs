@@ -23,5 +23,5 @@ public enum ColorTextType
     /// <summary>
     /// The color should display in CSS rgba format: rgba (R, G, B, A)
     /// </summary>
-    RGBA
+    RGBA,
 }

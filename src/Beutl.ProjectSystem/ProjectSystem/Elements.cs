@@ -4,11 +4,9 @@ namespace Beutl.ProjectSystem;
 
 public sealed class Elements : HierarchicalList<Element>
 {
-    public Elements(IModifiableHierarchical parent) : base(parent)
-    {
-    }
+    public Elements(IModifiableHierarchical parent)
+        : base(parent) { }
 
-    public Elements() : base()
-    {
-    }
+    public Elements()
+        : base() { }
 }

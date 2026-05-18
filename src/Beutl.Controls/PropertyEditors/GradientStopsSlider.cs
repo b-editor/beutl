@@ -11,21 +11,20 @@ using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Media;
 using Avalonia.Media.Immutable;
-
 using Beutl.Language;
 using Beutl.Reactive;
 using Beutl.Utilities;
-
 using FluentAvalonia.UI.Controls;
-
 using Reactive.Bindings.Extensions;
 
 namespace Beutl.Controls.PropertyEditors;
 
 public class GradientStopsSlider : TemplatedControl
 {
-    public static readonly StyledProperty<GradientStops?> StopsProperty =
-        AvaloniaProperty.Register<GradientStopsSlider, GradientStops?>(nameof(Stops));
+    public static readonly StyledProperty<GradientStops?> StopsProperty = AvaloniaProperty.Register<
+        GradientStopsSlider,
+        GradientStops?
+    >(nameof(Stops));
 
     public static readonly StyledProperty<GradientStop?> SelectedStopProperty =
         AvaloniaProperty.Register<GradientStopsSlider, GradientStop?>(nameof(SelectedStop));
@@ -57,7 +56,12 @@ public class GradientStopsSlider : TemplatedControl
     public event EventHandler<(int OldIndex, int NewIndex, GradientStop Object)>? Changed;
 
     // ドラッグ操作完了
-    public event EventHandler<(int OldIndex, int NewIndex, GradientStop Object, ImmutableGradientStop OldObject)>? Confirmed;
+    public event EventHandler<(
+        int OldIndex,
+        int NewIndex,
+        GradientStop Object,
+        ImmutableGradientStop OldObject
+    )>? Confirmed;
 
     public event EventHandler<(int Index, GradientStop Object)>? Deleted;
 
@@ -78,24 +82,38 @@ public class GradientStopsSlider : TemplatedControl
             _itemsControl.ItemsSource = _unorderedStops;
             _itemsControl.ContainerPrepared += OnItemsControlContainerPrepared;
             _itemsControl.ContainerClearing += OnItemsControlContainerClearing;
-            _disposables.Add(Disposable.Create(_itemsControl, c =>
-            {
-                c.ContainerPrepared -= OnItemsControlContainerPrepared;
-                c.ContainerClearing -= OnItemsControlContainerClearing;
-            }));
+            _disposables.Add(
+                Disposable.Create(
+                    _itemsControl,
+                    c =>
+                    {
+                        c.ContainerPrepared -= OnItemsControlContainerPrepared;
+                        c.ContainerClearing -= OnItemsControlContainerClearing;
+                    }
+                )
+            );
         }
 
         if (_itemsControl != null)
         {
-            _itemsControl.AddDisposableHandler(SizeChangedEvent, OnItemsControlSizeChanged)
+            _itemsControl
+                .AddDisposableHandler(SizeChangedEvent, OnItemsControlSizeChanged)
                 .DisposeWith(_disposables);
-            _itemsControl.AddDisposableHandler(PointerPressedEvent, OnItemsControlPointerPressed)
+            _itemsControl
+                .AddDisposableHandler(PointerPressedEvent, OnItemsControlPointerPressed)
                 .DisposeWith(_disposables);
-            _itemsControl.AddDisposableHandler(PointerMovedEvent, OnItemsControlPointerMoved)
+            _itemsControl
+                .AddDisposableHandler(PointerMovedEvent, OnItemsControlPointerMoved)
                 .DisposeWith(_disposables);
-            _itemsControl.AddDisposableHandler(PointerReleasedEvent, OnItemsControlPointerReleased, handledEventsToo: true)
+            _itemsControl
+                .AddDisposableHandler(
+                    PointerReleasedEvent,
+                    OnItemsControlPointerReleased,
+                    handledEventsToo: true
+                )
                 .DisposeWith(_disposables);
-            _itemsControl.AddDisposableHandler(PointerExitedEvent, OnItemsControlPointerExited)
+            _itemsControl
+                .AddDisposableHandler(PointerExitedEvent, OnItemsControlPointerExited)
                 .DisposeWith(_disposables);
         }
 
@@ -105,7 +123,7 @@ public class GradientStopsSlider : TemplatedControl
             {
                 StartPoint = new RelativePoint(0, 0.5, RelativeUnit.Relative),
                 EndPoint = new RelativePoint(1, 0.5, RelativeUnit.Relative),
-                GradientStops = _backgroundStops
+                GradientStops = _backgroundStops,
             };
         }
     }
@@ -121,23 +139,28 @@ public class GradientStopsSlider : TemplatedControl
             if (change.NewValue is GradientStops stops)
             {
                 var d = new CompositeDisposable();
-                stops.ForEachItem(
-                    _backgroundStops.Insert,
-                    (i, o) => _backgroundStops.RemoveAt(i),
-                    _backgroundStops.Clear)
+                stops
+                    .ForEachItem(
+                        _backgroundStops.Insert,
+                        (i, o) => _backgroundStops.RemoveAt(i),
+                        _backgroundStops.Clear
+                    )
                     .DisposeWith(d);
 
                 _unorderedStops.AddRange(stops);
 
-                stops.ObserveAddChangedItems<GradientStop>()
+                stops
+                    .ObserveAddChangedItems<GradientStop>()
                     .Subscribe(_unorderedStops.AddRange)
                     .DisposeWith(d);
 
-                stops.ObserveRemoveChangedItems<GradientStop>()
+                stops
+                    .ObserveRemoveChangedItems<GradientStop>()
                     .Subscribe(_unorderedStops.RemoveAll)
                     .DisposeWith(d);
 
-                stops.ObserveReplaceChangedItems<GradientStop>()
+                stops
+                    .ObserveReplaceChangedItems<GradientStop>()
                     .Subscribe(p =>
                     {
                         _unorderedStops.RemoveAll(p.OldItem);
@@ -145,7 +168,8 @@ public class GradientStopsSlider : TemplatedControl
                     })
                     .DisposeWith(d);
 
-                stops.ObserveResetChanged<GradientStop>()
+                stops
+                    .ObserveResetChanged<GradientStop>()
                     .Subscribe(_ => _unorderedStops.Clear())
                     .DisposeWith(d);
 
@@ -206,7 +230,10 @@ public class GradientStopsSlider : TemplatedControl
         }
     }
 
-    private void OnContentPresenterPropertyChanged(object? sender, AvaloniaPropertyChangedEventArgs e)
+    private void OnContentPresenterPropertyChanged(
+        object? sender,
+        AvaloniaPropertyChangedEventArgs e
+    )
     {
         if (e.Property == ContentPresenter.ChildProperty)
         {
@@ -252,8 +279,7 @@ public class GradientStopsSlider : TemplatedControl
     private void UpdateThumb(Thumb thumb, GradientStop item, ContentPresenter? presenter = null)
     {
         presenter ??= thumb.Parent as ContentPresenter;
-        if (_itemsControl != null
-            && presenter != null)
+        if (_itemsControl != null && presenter != null)
         {
             double relativeLeft = DragWidth * Math.Clamp(item.Offset, 0, 1);
             Canvas.SetLeft(presenter, relativeLeft);
@@ -300,13 +326,9 @@ public class GradientStopsSlider : TemplatedControl
         thumb.KeyUp += ThumbKeyUp;
     }
 
-    private void ThumbKeyUp(object? sender, KeyEventArgs e)
-    {
-    }
+    private void ThumbKeyUp(object? sender, KeyEventArgs e) { }
 
-    private void ThumbKeyDown(object? sender, KeyEventArgs e)
-    {
-    }
+    private void ThumbKeyDown(object? sender, KeyEventArgs e) { }
 
     private void ThumbDragStarted(object? sender, VectorEventArgs e)
     {
@@ -320,11 +342,18 @@ public class GradientStopsSlider : TemplatedControl
 
     private void ThumbDragDelta(object? sender, VectorEventArgs e)
     {
-        if (sender is not Thumb { Parent: ContentPresenter presenter, DataContext: GradientStop stop } || _itemsControl == null) return;
-        if (Stops == null) return;
+        if (
+            sender
+                is not Thumb { Parent: ContentPresenter presenter, DataContext: GradientStop stop }
+            || _itemsControl == null
+        )
+            return;
+        if (Stops == null)
+            return;
 
         double old = Canvas.GetLeft(presenter);
-        if (!double.IsFinite(old)) old = 0;
+        if (!double.IsFinite(old))
+            old = 0;
 
         double x = Math.Clamp(old + e.Vector.X, 0, DragWidth);
         Canvas.SetLeft(presenter, x);
@@ -332,7 +361,8 @@ public class GradientStopsSlider : TemplatedControl
         stop.Offset = x / DragWidth;
 
         int oldIndex = Stops.IndexOf(stop);
-        if (oldIndex < 0) return;
+        if (oldIndex < 0)
+            return;
 
         int newIndex = oldIndex;
         if (oldIndex > 0 && Stops[oldIndex - 1].Offset > stop.Offset)
@@ -349,28 +379,33 @@ public class GradientStopsSlider : TemplatedControl
 
     private void ThumbDragCompleted(object? sender, VectorEventArgs e)
     {
-        if (sender is Thumb { DataContext: GradientStop stop }
+        if (
+            sender is Thumb { DataContext: GradientStop stop }
             && Stops != null
-            && _itemsControl != null)
+            && _itemsControl != null
+        )
         {
             int index = Stops.IndexOf(stop);
-            if (index < 0 || _oldIndex < 0 || _oldIndex >= Stops.Count) return;
+            if (index < 0 || _oldIndex < 0 || _oldIndex >= Stops.Count)
+                return;
 
             Confirmed?.Invoke(this, (_oldIndex, index, stop, new(_oldOffset, stop.Color)));
         }
     }
 
-    private void OnItemsControlPointerExited(object? sender, PointerEventArgs e)
-    {
-    }
+    private void OnItemsControlPointerExited(object? sender, PointerEventArgs e) { }
 
     private void OnItemsControlPointerReleased(object? sender, PointerReleasedEventArgs e)
     {
-        if (e.InitialPressMouseButton == MouseButton.Right
+        if (
+            e.InitialPressMouseButton == MouseButton.Right
             && _itemsControl != null
-            && Stops != null)
+            && Stops != null
+        )
         {
-            GradientStop? hovered = Stops.FirstOrDefault(i => _itemsControl.ContainerFromItem(i)?.IsPointerOver == true);
+            GradientStop? hovered = Stops.FirstOrDefault(i =>
+                _itemsControl.ContainerFromItem(i)?.IsPointerOver == true
+            );
 
             if (_menuFlyout == null || _deleteMenuItem == null)
             {
@@ -378,10 +413,7 @@ public class GradientStopsSlider : TemplatedControl
                 _deleteMenuItem = new MenuFlyoutItem
                 {
                     Text = Strings.Delete,
-                    IconSource = new SymbolIconSource
-                    {
-                        Symbol = Symbol.Delete
-                    }
+                    IconSource = new SymbolIconSource { Symbol = Symbol.Delete },
                 };
                 _deleteMenuItem.Click += (s, e) =>
                 {
@@ -390,9 +422,10 @@ public class GradientStopsSlider : TemplatedControl
                         int index = Stops.IndexOf(obj);
                         if (ReferenceEquals(SelectedStop, obj))
                         {
-                            SelectedStop = Stops.Count > 0
-                                ? Stops[index >= Stops.Count ? Stops.Count - 1 : index]
-                                : null;
+                            SelectedStop =
+                                Stops.Count > 0
+                                    ? Stops[index >= Stops.Count ? Stops.Count - 1 : index]
+                                    : null;
                         }
 
                         Deleted?.Invoke(this, (index, obj));
@@ -411,20 +444,22 @@ public class GradientStopsSlider : TemplatedControl
         }
     }
 
-    private void OnItemsControlPointerMoved(object? sender, PointerEventArgs e)
-    {
-    }
+    private void OnItemsControlPointerMoved(object? sender, PointerEventArgs e) { }
 
     private void OnItemsControlPointerPressed(object? sender, PointerPressedEventArgs e)
     {
         //https://github.com/AvaloniaUI/Avalonia/blob/master/src/Avalonia.Base/Animation/Animators/ColorAnimator.cs
         static double OECF_sRGB(double linear)
         {
-            return linear <= 0.0031308d ? linear * 12.92d : (double)(Math.Pow(linear, 1.0d / 2.4d) * 1.055d - 0.055d);
+            return linear <= 0.0031308d
+                ? linear * 12.92d
+                : (double)(Math.Pow(linear, 1.0d / 2.4d) * 1.055d - 0.055d);
         }
         static double EOCF_sRGB(double srgb)
         {
-            return srgb <= 0.04045d ? srgb / 12.92d : (double)Math.Pow((srgb + 0.055d) / 1.055d, 2.4d);
+            return srgb <= 0.04045d
+                ? srgb / 12.92d
+                : (double)Math.Pow((srgb + 0.055d) / 1.055d, 2.4d);
         }
         static Color InterpolateCore(double progress, Color oldValue, Color newValue)
         {
@@ -459,7 +494,12 @@ public class GradientStopsSlider : TemplatedControl
             g = OECF_sRGB(g) * 255d;
             b = OECF_sRGB(b) * 255d;
 
-            return new Color((byte)Math.Round(a), (byte)Math.Round(r), (byte)Math.Round(g), (byte)Math.Round(b));
+            return new Color(
+                (byte)Math.Round(a),
+                (byte)Math.Round(r),
+                (byte)Math.Round(g),
+                (byte)Math.Round(b)
+            );
         }
         static Color Interpolate(GradientStop prev, GradientStop next, double offset)
         {
@@ -468,8 +508,7 @@ public class GradientStopsSlider : TemplatedControl
         }
 
         PointerPoint point = e.GetCurrentPoint(_itemsControl);
-        if (point.Properties.IsLeftButtonPressed
-            && _itemsControl != null && Stops != null)
+        if (point.Properties.IsLeftButtonPressed && _itemsControl != null && Stops != null)
         {
             double width = DragWidth;
             double x = point.Position.X;

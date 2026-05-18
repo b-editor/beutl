@@ -58,12 +58,14 @@ public sealed class Startup
     private void RegisterAll()
     {
         Register(() => new AuthenticationTask(_apiApp));
-        Register(() => new ResolvePackageDependenciesTask(
-            _apiApp.GetResource<InstalledPackageRepository>(),
-            _apiApp.GetResource<PackageInstaller>()));
+        Register(() =>
+            new ResolvePackageDependenciesTask(
+                _apiApp.GetResource<InstalledPackageRepository>(),
+                _apiApp.GetResource<PackageInstaller>()
+            )
+        );
         Register(() => new CrashRecoveryPromptTask());
-        Register(() => new LoadInstalledExtensionTask(
-            _apiApp.GetResource<PackageManager>(), this));
+        Register(() => new LoadInstalledExtensionTask(_apiApp.GetResource<PackageManager>(), this));
         Register(() => new LoadPrimitiveExtensionTask(_apiApp.GetResource<PackageManager>()));
         Register(() => new LoadSideloadExtensionTask(_apiApp.GetResource<PackageManager>()));
         Register(() => new AfterLoadingExtensionsTask(this));

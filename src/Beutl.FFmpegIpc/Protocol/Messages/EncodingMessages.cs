@@ -56,6 +56,7 @@ public sealed class EncodeStartAckMessage
 public sealed class RequestFrameMessage
 {
     public long FrameIndex { get; set; }
+
     // ダブルバッファリング: 書き込み先バッファのインデックス (0 or 1)
     public int BufferIndex { get; set; }
 }
@@ -73,6 +74,7 @@ public sealed class RequestSampleMessage
 {
     public long Offset { get; set; }
     public long Length { get; set; }
+
     // ダブルバッファリング: 書き込み先バッファのインデックス (0 or 1)
     public int BufferIndex { get; set; }
 }

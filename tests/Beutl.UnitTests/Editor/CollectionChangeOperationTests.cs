@@ -35,7 +35,7 @@ public class CollectionChangeOperationTests
             PropertyPath = "Items",
             Item = "X",
             Index = 1,
-            SequenceNumber = 1
+            SequenceNumber = 1,
         };
 
         // Act
@@ -60,7 +60,7 @@ public class CollectionChangeOperationTests
             PropertyPath = "Items",
             Item = "X",
             Index = -1,
-            SequenceNumber = 1
+            SequenceNumber = 1,
         };
 
         // Act
@@ -84,7 +84,7 @@ public class CollectionChangeOperationTests
             PropertyPath = "Items",
             Item = "X",
             Index = 100,
-            SequenceNumber = 1
+            SequenceNumber = 1,
         };
 
         // Act
@@ -108,7 +108,7 @@ public class CollectionChangeOperationTests
             PropertyPath = "Items",
             Item = "X",
             Index = 1,
-            SequenceNumber = 1
+            SequenceNumber = 1,
         };
 
         // Act
@@ -130,7 +130,7 @@ public class CollectionChangeOperationTests
             PropertyPath = "Items",
             Item = "X",
             Index = 0,
-            SequenceNumber = 1
+            SequenceNumber = 1,
         };
 
         // Act
@@ -154,7 +154,7 @@ public class CollectionChangeOperationTests
             PropertyPath = "Items",
             Item = "X",
             Index = 1,
-            SequenceNumber = 1
+            SequenceNumber = 1,
         };
 
         // Act
@@ -178,7 +178,7 @@ public class CollectionChangeOperationTests
             PropertyPath = "Items",
             Item = "X",
             Index = -1,
-            SequenceNumber = 1
+            SequenceNumber = 1,
         };
 
         // Act
@@ -204,7 +204,7 @@ public class CollectionChangeOperationTests
             PropertyPath = "Items",
             Item = "X",
             Index = 1,
-            SequenceNumber = 1
+            SequenceNumber = 1,
         };
 
         // Act
@@ -233,7 +233,7 @@ public class CollectionChangeOperationTests
             PropertyPath = "Items",
             Items = ["B", "C"],
             Index = 1,
-            SequenceNumber = 1
+            SequenceNumber = 1,
         };
 
         // Act
@@ -257,7 +257,7 @@ public class CollectionChangeOperationTests
             PropertyPath = "Items",
             Items = ["X", "Y"],
             Index = -1,
-            SequenceNumber = 1
+            SequenceNumber = 1,
         };
 
         // Act
@@ -281,7 +281,7 @@ public class CollectionChangeOperationTests
             PropertyPath = "Items",
             Items = ["X", "Y"],
             Index = 100,
-            SequenceNumber = 1
+            SequenceNumber = 1,
         };
 
         // Act
@@ -305,7 +305,7 @@ public class CollectionChangeOperationTests
             PropertyPath = "Items",
             Items = ["B", "C"],
             Index = 1,
-            SequenceNumber = 1
+            SequenceNumber = 1,
         };
 
         // Act
@@ -328,7 +328,7 @@ public class CollectionChangeOperationTests
             PropertyPath = "Items",
             Items = items,
             Index = 0,
-            SequenceNumber = 1
+            SequenceNumber = 1,
         };
 
         // Act
@@ -352,7 +352,7 @@ public class CollectionChangeOperationTests
             PropertyPath = "Items",
             Items = ["B", "C"],
             Index = 1,
-            SequenceNumber = 1
+            SequenceNumber = 1,
         };
 
         // Act
@@ -382,7 +382,7 @@ public class CollectionChangeOperationTests
             PropertyPath = "Items",
             Items = ["B", "C"],
             Index = 1,
-            SequenceNumber = 1
+            SequenceNumber = 1,
         };
 
         // Act
@@ -411,7 +411,7 @@ public class CollectionChangeOperationTests
             PropertyPath = "Items",
             Item = "B",
             Index = 1,
-            SequenceNumber = 1
+            SequenceNumber = 1,
         };
 
         // Act
@@ -435,7 +435,7 @@ public class CollectionChangeOperationTests
             PropertyPath = "Items",
             Item = "B",
             Index = 1,
-            SequenceNumber = 1
+            SequenceNumber = 1,
         };
 
         // Act
@@ -457,7 +457,7 @@ public class CollectionChangeOperationTests
             PropertyPath = "Items",
             Item = "X",
             Index = 0,
-            SequenceNumber = 1
+            SequenceNumber = 1,
         };
 
         // Act
@@ -482,7 +482,7 @@ public class CollectionChangeOperationTests
             PropertyPath = "Items",
             Item = "B",
             Index = 1,
-            SequenceNumber = 1
+            SequenceNumber = 1,
         };
 
         // Act
@@ -508,7 +508,7 @@ public class CollectionChangeOperationTests
             PropertyPath = "Items",
             Item = "B",
             Index = 1,
-            SequenceNumber = 1
+            SequenceNumber = 1,
         };
 
         // Act
@@ -538,7 +538,7 @@ public class CollectionChangeOperationTests
             PropertyPath = "Items",
             Items = ["B", "C"],
             Index = 1,
-            SequenceNumber = 1
+            SequenceNumber = 1,
         };
 
         // Act
@@ -562,7 +562,7 @@ public class CollectionChangeOperationTests
             PropertyPath = "Items",
             Items = ["B", "C"],
             Index = 1,
-            SequenceNumber = 1
+            SequenceNumber = 1,
         };
 
         // Act
@@ -585,7 +585,7 @@ public class CollectionChangeOperationTests
             PropertyPath = "Items",
             Items = items,
             Index = 0,
-            SequenceNumber = 1
+            SequenceNumber = 1,
         };
 
         // Act
@@ -611,7 +611,7 @@ public class CollectionChangeOperationTests
             PropertyPath = "Items",
             Items = ["B", "C"],
             Index = 1,
-            SequenceNumber = 1
+            SequenceNumber = 1,
         };
 
         // Act
@@ -637,7 +637,7 @@ public class CollectionChangeOperationTests
             PropertyPath = "Items",
             Items = ["B", "C"],
             Index = 1,
-            SequenceNumber = 1
+            SequenceNumber = 1,
         };
 
         // Act
@@ -668,7 +668,7 @@ public class CollectionChangeOperationTests
             PropertyPath = "Items",
             OldIndex = 0,
             NewIndex = 2,
-            SequenceNumber = 1
+            SequenceNumber = 1,
         };
 
         // Act
@@ -691,7 +691,7 @@ public class CollectionChangeOperationTests
             PropertyPath = "Items",
             OldIndex = 0,
             NewIndex = 2,
-            SequenceNumber = 1
+            SequenceNumber = 1,
         };
 
         // Act
@@ -712,7 +712,7 @@ public class CollectionChangeOperationTests
             PropertyPath = "Items",
             OldIndex = 0,
             NewIndex = 2,
-            SequenceNumber = 1
+            SequenceNumber = 1,
         };
 
         // Act
@@ -737,7 +737,7 @@ public class CollectionChangeOperationTests
             PropertyPath = "Items",
             OldIndex = 0,
             NewIndex = 2,
-            SequenceNumber = 1
+            SequenceNumber = 1,
         };
 
         // Act
@@ -764,7 +764,7 @@ public class CollectionChangeOperationTests
             PropertyPath = "Items",
             OldIndex = 0,
             NewIndex = 2,
-            SequenceNumber = 1
+            SequenceNumber = 1,
         };
 
         // Act
@@ -794,7 +794,7 @@ public class CollectionChangeOperationTests
             OldIndex = 0,
             NewIndex = 3,
             Count = 2,
-            SequenceNumber = 1
+            SequenceNumber = 1,
         };
 
         // Act
@@ -818,7 +818,7 @@ public class CollectionChangeOperationTests
             OldIndex = 3,
             NewIndex = 1,
             Count = 2,
-            SequenceNumber = 1
+            SequenceNumber = 1,
         };
 
         // Act
@@ -842,7 +842,7 @@ public class CollectionChangeOperationTests
             OldIndex = 0,
             NewIndex = 3,
             Count = 2,
-            SequenceNumber = 1
+            SequenceNumber = 1,
         };
 
         // Act
@@ -864,7 +864,7 @@ public class CollectionChangeOperationTests
             OldIndex = 0,
             NewIndex = 3,
             Count = 2,
-            SequenceNumber = 1
+            SequenceNumber = 1,
         };
 
         // Act
@@ -892,7 +892,7 @@ public class CollectionChangeOperationTests
             OldIndex = 0,
             NewIndex = 3,
             Count = 2,
-            SequenceNumber = 1
+            SequenceNumber = 1,
         };
 
         // Act
@@ -924,7 +924,7 @@ public class CollectionChangeOperationTests
             OldIndex = 0,
             NewIndex = 3,
             Count = 2,
-            SequenceNumber = 1
+            SequenceNumber = 1,
         };
 
         // Act
@@ -954,7 +954,7 @@ public class CollectionChangeOperationTests
             PropertyPath = "Title",
             Item = "X",
             Index = 0,
-            SequenceNumber = 1
+            SequenceNumber = 1,
         };
 
         // Act & Assert
@@ -973,7 +973,7 @@ public class CollectionChangeOperationTests
             PropertyPath = "NonExistentProperty",
             Item = "X",
             Index = 0,
-            SequenceNumber = 1
+            SequenceNumber = 1,
         };
 
         // Act - Should not throw, just silently fail to find property
@@ -992,7 +992,7 @@ public class CollectionChangeOperationTests
             PropertyPath = "Title",
             Item = "X",
             Index = 0,
-            SequenceNumber = 1
+            SequenceNumber = 1,
         };
 
         // Act & Assert
@@ -1011,7 +1011,7 @@ public class CollectionChangeOperationTests
             PropertyPath = "Title",
             Item = "X",
             Index = 0,
-            SequenceNumber = 1
+            SequenceNumber = 1,
         };
 
         // Act & Assert
@@ -1030,7 +1030,7 @@ public class CollectionChangeOperationTests
             PropertyPath = "NonExistentProperty",
             Item = "X",
             Index = 0,
-            SequenceNumber = 1
+            SequenceNumber = 1,
         };
 
         // Act & Assert
@@ -1048,7 +1048,7 @@ public class CollectionChangeOperationTests
             PropertyPath = "Items",
             Item = "X",
             Index = 0,
-            SequenceNumber = 1
+            SequenceNumber = 1,
         };
 
         // Act
@@ -1069,7 +1069,7 @@ public class CollectionChangeOperationTests
             PropertyPath = "Items",
             Item = "X",
             Index = 0,
-            SequenceNumber = 1
+            SequenceNumber = 1,
         };
 
         // Act
@@ -1098,7 +1098,7 @@ public class CollectionChangeOperationTests
             PropertyPath = "Property",
             Item = "X",
             Index = 1,
-            SequenceNumber = 1
+            SequenceNumber = 1,
         };
 
         // Act
@@ -1125,7 +1125,7 @@ public class CollectionChangeOperationTests
             PropertyPath = "Property",
             Item = "X",
             Index = 1,
-            SequenceNumber = 1
+            SequenceNumber = 1,
         };
 
         // Act
@@ -1151,7 +1151,7 @@ public class CollectionChangeOperationTests
             PropertyPath = "Property",
             Items = ["B", "C"],
             Index = 1,
-            SequenceNumber = 1
+            SequenceNumber = 1,
         };
 
         // Act
@@ -1177,7 +1177,7 @@ public class CollectionChangeOperationTests
             PropertyPath = "Property",
             Items = ["B", "C"],
             Index = 1,
-            SequenceNumber = 1
+            SequenceNumber = 1,
         };
 
         // Act
@@ -1203,7 +1203,7 @@ public class CollectionChangeOperationTests
             PropertyPath = "Property",
             Item = "B",
             Index = 1,
-            SequenceNumber = 1
+            SequenceNumber = 1,
         };
 
         // Act
@@ -1229,7 +1229,7 @@ public class CollectionChangeOperationTests
             PropertyPath = "Property",
             Item = "B",
             Index = 1,
-            SequenceNumber = 1
+            SequenceNumber = 1,
         };
 
         // Act
@@ -1255,7 +1255,7 @@ public class CollectionChangeOperationTests
             PropertyPath = "Property",
             Items = ["B", "C"],
             Index = 1,
-            SequenceNumber = 1
+            SequenceNumber = 1,
         };
 
         // Act
@@ -1281,7 +1281,7 @@ public class CollectionChangeOperationTests
             PropertyPath = "Property",
             Items = ["B", "C"],
             Index = 1,
-            SequenceNumber = 1
+            SequenceNumber = 1,
         };
 
         // Act
@@ -1307,7 +1307,7 @@ public class CollectionChangeOperationTests
             PropertyPath = "Property",
             OldIndex = 0,
             NewIndex = 2,
-            SequenceNumber = 1
+            SequenceNumber = 1,
         };
 
         // Act
@@ -1332,7 +1332,7 @@ public class CollectionChangeOperationTests
             PropertyPath = "Property",
             OldIndex = 0,
             NewIndex = 2,
-            SequenceNumber = 1
+            SequenceNumber = 1,
         };
 
         // Act
@@ -1358,7 +1358,7 @@ public class CollectionChangeOperationTests
             OldIndex = 0,
             NewIndex = 3,
             Count = 2,
-            SequenceNumber = 1
+            SequenceNumber = 1,
         };
 
         // Act
@@ -1384,7 +1384,7 @@ public class CollectionChangeOperationTests
             OldIndex = 0,
             NewIndex = 3,
             Count = 2,
-            SequenceNumber = 1
+            SequenceNumber = 1,
         };
 
         // Act
@@ -1407,7 +1407,7 @@ public class CollectionChangeOperationTests
             PropertyPath = "Property",
             Item = "X",
             Index = 0,
-            SequenceNumber = 1
+            SequenceNumber = 1,
         };
 
         // Act & Assert
@@ -1428,7 +1428,7 @@ public class CollectionChangeOperationTests
             PropertyPath = "Property",
             Item = "X",
             Index = 0,
-            SequenceNumber = 1
+            SequenceNumber = 1,
         };
 
         // Act & Assert
@@ -1450,7 +1450,7 @@ public class CollectionChangeOperationTests
             PropertyPath = "OtherProperty", // Not "Property"
             Item = "X",
             Index = 0,
-            SequenceNumber = 1
+            SequenceNumber = 1,
         };
 
         // Act & Assert
@@ -1469,7 +1469,9 @@ public class CollectionChangeOperationTests
 
         static TestCoreObjectWithList()
         {
-            ItemsProperty = ConfigureProperty<CoreList<string>, TestCoreObjectWithList>(nameof(Items))
+            ItemsProperty = ConfigureProperty<CoreList<string>, TestCoreObjectWithList>(
+                    nameof(Items)
+                )
                 .Accessor(o => o.Items, (o, v) => o.Items = v)
                 .Register();
         }
@@ -1489,7 +1491,9 @@ public class CollectionChangeOperationTests
 
         static TestCoreObjectWithScalarProperty()
         {
-            TitleProperty = ConfigureProperty<string, TestCoreObjectWithScalarProperty>(nameof(Title))
+            TitleProperty = ConfigureProperty<string, TestCoreObjectWithScalarProperty>(
+                    nameof(Title)
+                )
                 .Accessor(o => o.Title, (o, v) => o.Title = v)
                 .Register();
         }

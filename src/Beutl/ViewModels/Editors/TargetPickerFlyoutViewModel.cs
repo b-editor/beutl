@@ -27,9 +27,7 @@ public class TargetPickerFlyoutViewModel
 
     public void Initialize(IReadOnlyList<TargetObjectInfo> targets)
     {
-        _allItems = targets
-            .Select(t => new PinnableLibraryItem(t.DisplayName, false, t))
-            .ToArray();
+        _allItems = targets.Select(t => new PinnableLibraryItem(t.DisplayName, false, t)).ToArray();
 
         ProcessSearchText();
     }
@@ -44,14 +42,16 @@ public class TargetPickerFlyoutViewModel
         }
         else
         {
-            string[] segments = SearchText.Value.Split(' ')
+            string[] segments = SearchText
+                .Value.Split(' ')
                 .Select(x => x.Trim())
                 .Where(x => !string.IsNullOrWhiteSpace(x))
                 .ToArray();
 
             var filtered = _allItems
-                .Where(x => segments.Any(s =>
-                    x.DisplayName.Contains(s, StringComparison.OrdinalIgnoreCase)))
+                .Where(x =>
+                    segments.Any(s => x.DisplayName.Contains(s, StringComparison.OrdinalIgnoreCase))
+                )
                 .ToArray();
 
             Items.AddRange(filtered);

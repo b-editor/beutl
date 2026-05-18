@@ -1,7 +1,5 @@
 ﻿using System.Diagnostics.CodeAnalysis;
-
 using Avalonia.Controls;
-
 using Beutl.Editor.Components.ColorGradingTab.ViewModels;
 using Beutl.Editor.Components.ColorGradingTab.Views;
 
@@ -20,13 +18,19 @@ public sealed class ColorGradingTabExtension : ToolTabExtension
 
     public override string Header => Strings.ColorGrading;
 
-    public override bool TryCreateContent(IEditorContext editorContext, [NotNullWhen(true)] out Control? control)
+    public override bool TryCreateContent(
+        IEditorContext editorContext,
+        [NotNullWhen(true)] out Control? control
+    )
     {
         control = new ColorGradingTabView();
         return true;
     }
 
-    public override bool TryCreateContext(IEditorContext editorContext, [NotNullWhen(true)] out IToolContext? context)
+    public override bool TryCreateContext(
+        IEditorContext editorContext,
+        [NotNullWhen(true)] out IToolContext? context
+    )
     {
         context = new ColorGradingTabViewModel(editorContext);
         return true;

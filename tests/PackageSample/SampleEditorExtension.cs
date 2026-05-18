@@ -1,5 +1,4 @@
 ﻿using System.Diagnostics.CodeAnalysis;
-
 using Avalonia.Controls;
 using Avalonia.Data;
 using Avalonia.Platform.Storage;
@@ -7,7 +6,6 @@ using Beutl;
 using Beutl.Extensibility;
 using Beutl.ProjectSystem;
 using FluentAvalonia.UI.Controls;
-
 using Reactive.Bindings;
 
 namespace PackageSample;
@@ -32,20 +30,18 @@ public sealed class TextEditorContext : IEditorContext
 
     public IReactiveProperty<bool> IsEnabled { get; } = new ReactiveProperty<bool>(true);
 
-    public void CloseToolTab(IToolContext item)
-    {
-    }
+    public void CloseToolTab(IToolContext item) { }
 
-    public void Dispose()
-    {
-    }
+    public void Dispose() { }
 
-    public T? FindToolTab<T>(Func<T, bool> condition) where T : IToolContext
+    public T? FindToolTab<T>(Func<T, bool> condition)
+        where T : IToolContext
     {
         return default;
     }
 
-    public T? FindToolTab<T>() where T : IToolContext
+    public T? FindToolTab<T>()
+        where T : IToolContext
     {
         return default;
     }
@@ -96,18 +92,12 @@ public sealed class SampleEditorExtension : EditorExtension
 
     public override FilePickerFileType GetFilePickerFileType()
     {
-        return new FilePickerFileType("Text File")
-        {
-            Patterns = ["*.txt", "*.scene"]
-        };
+        return new FilePickerFileType("Text File") { Patterns = ["*.txt", "*.scene"] };
     }
 
     public override IconSource? GetIcon()
     {
-        return new SymbolIconSource
-        {
-            Symbol = Symbol.Add
-        };
+        return new SymbolIconSource { Symbol = Symbol.Add };
     }
 
     public override bool MatchFileExtension(string ext)
@@ -115,7 +105,10 @@ public sealed class SampleEditorExtension : EditorExtension
         return ext is ".txt" or ".scene";
     }
 
-    public override bool TryCreateContext(CoreObject obj, [NotNullWhen(true)] out IEditorContext? context)
+    public override bool TryCreateContext(
+        CoreObject obj,
+        [NotNullWhen(true)] out IEditorContext? context
+    )
     {
         context = null;
         if (obj is Scene)

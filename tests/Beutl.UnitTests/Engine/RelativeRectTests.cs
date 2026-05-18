@@ -22,7 +22,11 @@ public class RelativeRectTests
         var rect = new Rect(1, 2, 3, 4);
         var fromComponents = new RelativeRect(1, 2, 3, 4, RelativeUnit.Absolute);
         var fromRect = new RelativeRect(rect, RelativeUnit.Absolute);
-        var fromPositionSize = new RelativeRect(new Point(1, 2), new Size(3, 4), RelativeUnit.Absolute);
+        var fromPositionSize = new RelativeRect(
+            new Point(1, 2),
+            new Size(3, 4),
+            RelativeUnit.Absolute
+        );
         var fromCorners = new RelativeRect(new Point(1, 2), new Point(4, 6), RelativeUnit.Absolute);
         var fromSizeOnly = new RelativeRect(new Size(3, 4), RelativeUnit.Absolute);
 
@@ -195,8 +199,14 @@ public class RelativeRectTests
 
         foreach (RelativeRect rr in rects)
         {
-            Assert.That(rr.TryFormat(chars, out int cw, default, CultureInfo.InvariantCulture), Is.True);
-            Assert.That(rr.TryFormat(bytes, out int bw, default, CultureInfo.InvariantCulture), Is.True);
+            Assert.That(
+                rr.TryFormat(chars, out int cw, default, CultureInfo.InvariantCulture),
+                Is.True
+            );
+            Assert.That(
+                rr.TryFormat(bytes, out int bw, default, CultureInfo.InvariantCulture),
+                Is.True
+            );
 
             Assert.That(chars[..cw].ToString(), Is.EqualTo(Encoding.UTF8.GetString(bytes[..bw])));
         }

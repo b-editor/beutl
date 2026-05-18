@@ -1,5 +1,4 @@
 ﻿using System.Numerics;
-
 using Beutl.Animation.Animators;
 using Beutl.Graphics;
 using Beutl.Media;
@@ -45,7 +44,8 @@ public static class AnimatorRegistry
 
     public static Animator<T> CreateAnimator<T>()
     {
-        return (Activator.CreateInstance(GetAnimatorType(typeof(T))) as Animator<T>) ?? new _Animator<T>();
+        return (Activator.CreateInstance(GetAnimatorType(typeof(T))) as Animator<T>)
+            ?? new _Animator<T>();
     }
 
     public static Type GetAnimatorType(Type type)

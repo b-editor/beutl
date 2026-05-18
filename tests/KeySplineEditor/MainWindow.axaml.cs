@@ -24,9 +24,17 @@ public partial class MainWindow : Window
         SetControlPoint(_keySpline);
         panel.AddHandler(PointerMovedEvent, Panel_PointerMoved, RoutingStrategies.Tunnel);
         controlPt1.AddHandler(PointerPressedEvent, Point1_PointerPressed, RoutingStrategies.Tunnel);
-        controlPt1.AddHandler(PointerReleasedEvent, Point1_PointerReleased, RoutingStrategies.Tunnel);
+        controlPt1.AddHandler(
+            PointerReleasedEvent,
+            Point1_PointerReleased,
+            RoutingStrategies.Tunnel
+        );
         controlPt2.AddHandler(PointerPressedEvent, Point2_PointerPressed, RoutingStrategies.Tunnel);
-        controlPt2.AddHandler(PointerReleasedEvent, Point2_PointerReleased, RoutingStrategies.Tunnel);
+        controlPt2.AddHandler(
+            PointerReleasedEvent,
+            Point2_PointerReleased,
+            RoutingStrategies.Tunnel
+        );
 
         _keySplineDrawing = new KeySplineDrawing(panel, _keySpline);
         panel.Children.Insert(0, _keySplineDrawing);
@@ -44,7 +52,8 @@ public partial class MainWindow : Window
     private void Panel_PointerMoved(object? sender, PointerEventArgs e)
     {
         Point point = e.GetPosition(panel);
-        point = point.WithX(Math.Clamp(point.X, 0, panel.Bounds.Width))
+        point = point
+            .WithX(Math.Clamp(point.X, 0, panel.Bounds.Width))
             .WithY(Math.Clamp(point.Y, 0, panel.Bounds.Height));
 
         Thickness pt1 = controlPt1.Margin;
@@ -103,12 +112,14 @@ public partial class MainWindow : Window
             keySpline.ControlPointX1 * width,
             Math.Abs(keySpline.ControlPointY1 - 1) * height,
             0,
-            0);
+            0
+        );
         controlPt2.Margin = new Thickness(
             keySpline.ControlPointX2 * width,
             Math.Abs(keySpline.ControlPointY2 - 1) * height,
             0,
-            0);
+            0
+        );
     }
 
     private void SetControlPoint(Thickness ctrlPt1, Thickness ctrlPt2)
@@ -144,9 +155,16 @@ public partial class MainWindow : Window
                 ctxt.BeginFigure(new Point(0, height), false);
 
                 ctxt.CubicBezierTo(
-                    new Point(keySpline.ControlPointX1 * width, (1 - keySpline.ControlPointY1) * height),
-                    new Point(keySpline.ControlPointX2 * width, (1 - keySpline.ControlPointY2) * height),
-                    new Point(width, 0));
+                    new Point(
+                        keySpline.ControlPointX1 * width,
+                        (1 - keySpline.ControlPointY1) * height
+                    ),
+                    new Point(
+                        keySpline.ControlPointX2 * width,
+                        (1 - keySpline.ControlPointY2) * height
+                    ),
+                    new Point(width, 0)
+                );
 
                 ctxt.EndFigure(false);
             }

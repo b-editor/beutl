@@ -33,20 +33,37 @@ public sealed partial class DrawableDecorator : Drawable, IFlowOperator
             foreach (var child in r.Children)
             {
                 using (context.PushBlendMode(r.BlendMode))
-                using (context.PushNode(
-                           transformParams,
-                           b => new DrawableGroup.CustomTransformRenderNode(
-                               b.Transform, b.TransformOrigin, b.availableSize,
-                               Media.AlignmentX.Left, Media.AlignmentY.Top, b.boundsMemory),
-                           (n, b) => n.Update(
-                               b.Transform, b.TransformOrigin, b.availableSize,
-                               Media.AlignmentX.Left, Media.AlignmentY.Top, b.boundsMemory)))
+                using (
+                    context.PushNode(
+                        transformParams,
+                        b => new DrawableGroup.CustomTransformRenderNode(
+                            b.Transform,
+                            b.TransformOrigin,
+                            b.availableSize,
+                            Media.AlignmentX.Left,
+                            Media.AlignmentY.Top,
+                            b.boundsMemory
+                        ),
+                        (n, b) =>
+                            n.Update(
+                                b.Transform,
+                                b.TransformOrigin,
+                                b.availableSize,
+                                Media.AlignmentX.Left,
+                                Media.AlignmentY.Top,
+                                b.boundsMemory
+                            )
+                    )
+                )
                 using (context.PushOpacity(resource.Opacity / 100f))
                 using (r.FilterEffect == null ? new() : context.PushFilterEffect(r.FilterEffect))
-                using (context.PushNode(
-                           boundsMemory,
-                           b => new DrawableGroup.BoundsObserveNode(b),
-                           (n, b) => n.Update(b)))
+                using (
+                    context.PushNode(
+                        boundsMemory,
+                        b => new DrawableGroup.BoundsObserveNode(b),
+                        (n, b) => n.Update(b)
+                    )
+                )
                 {
                     context.DrawDrawable(child);
                 }
@@ -54,9 +71,7 @@ public sealed partial class DrawableDecorator : Drawable, IFlowOperator
         }
     }
 
-    protected override void OnDraw(GraphicsContext2D context, Drawable.Resource resource)
-    {
-    }
+    protected override void OnDraw(GraphicsContext2D context, Drawable.Resource resource) { }
 
     protected override Size MeasureCore(Size availableSize, Drawable.Resource resource)
     {
@@ -96,7 +111,8 @@ public sealed partial class DrawableDecorator : Drawable, IFlowOperator
                 consumed: consumed,
                 field: _children,
                 versions: _childrenVersion,
-                changed: ref changed);
+                changed: ref changed
+            );
 
             if (changed)
                 Version++;

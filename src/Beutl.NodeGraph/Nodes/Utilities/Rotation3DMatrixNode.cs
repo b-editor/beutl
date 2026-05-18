@@ -1,5 +1,4 @@
 ﻿using System.Numerics;
-
 using Beutl.Graphics;
 using Beutl.NodeGraph.Composition;
 using Beutl.Utilities;
@@ -34,9 +33,14 @@ public partial class Rotation3DMatrixNode : MatrixNode
     public InputPort<float> Depth { get; }
 
     private static Matrix ComputeMatrix(
-        float rotX, float rotY, float rotZ,
-        float centerX, float centerY, float centerZ,
-        float depth)
+        float rotX,
+        float rotY,
+        float rotZ,
+        float centerX,
+        float centerY,
+        float centerZ,
+        float depth
+    )
     {
         Matrix4x4 matrix44 = Matrix4x4.Identity;
         float centerSum = centerX + centerY + centerZ;
@@ -44,9 +48,12 @@ public partial class Rotation3DMatrixNode : MatrixNode
         if (MathF.Abs(centerSum) > float.Epsilon)
             matrix44 *= Matrix4x4.CreateTranslation(-centerX, -centerY, -centerZ);
 
-        if (rotX != 0) matrix44 *= Matrix4x4.CreateRotationX(MathUtilities.Deg2Rad(rotX));
-        if (rotY != 0) matrix44 *= Matrix4x4.CreateRotationY(MathUtilities.Deg2Rad(rotY));
-        if (rotZ != 0) matrix44 *= Matrix4x4.CreateRotationZ(MathUtilities.Deg2Rad(rotZ));
+        if (rotX != 0)
+            matrix44 *= Matrix4x4.CreateRotationX(MathUtilities.Deg2Rad(rotX));
+        if (rotY != 0)
+            matrix44 *= Matrix4x4.CreateRotationY(MathUtilities.Deg2Rad(rotY));
+        if (rotZ != 0)
+            matrix44 *= Matrix4x4.CreateRotationZ(MathUtilities.Deg2Rad(rotZ));
 
         if (MathF.Abs(centerSum) > float.Epsilon)
             matrix44 *= Matrix4x4.CreateTranslation(centerX, centerY, centerZ);
@@ -59,19 +66,23 @@ public partial class Rotation3DMatrixNode : MatrixNode
         }
 
         return new Matrix(
-            matrix44.M11, matrix44.M12, matrix44.M14,
-            matrix44.M21, matrix44.M22, matrix44.M24,
-            matrix44.M41, matrix44.M42, matrix44.M44);
+            matrix44.M11,
+            matrix44.M12,
+            matrix44.M14,
+            matrix44.M21,
+            matrix44.M22,
+            matrix44.M24,
+            matrix44.M41,
+            matrix44.M42,
+            matrix44.M44
+        );
     }
 
     public partial class Resource
     {
         protected override Matrix GetMatrix(GraphCompositionContext context, MatrixNode node)
         {
-            return ComputeMatrix(
-                RotationX, RotationY, RotationZ,
-                CenterX, CenterY, CenterZ,
-                Depth);
+            return ComputeMatrix(RotationX, RotationY, RotationZ, CenterX, CenterY, CenterZ, Depth);
         }
     }
 }

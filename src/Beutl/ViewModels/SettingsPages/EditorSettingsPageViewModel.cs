@@ -17,112 +17,144 @@ public sealed class EditorSettingsPageViewModel : IDisposable
         _editorConfig = GlobalConfiguration.Instance.EditorConfig;
         _graphicsConfig = GlobalConfiguration.Instance.GraphicsConfig;
 
-        AutoAdjustSceneDuration = _editorConfig.GetObservable(EditorConfig.AutoAdjustSceneDurationProperty)
+        AutoAdjustSceneDuration = _editorConfig
+            .GetObservable(EditorConfig.AutoAdjustSceneDurationProperty)
             .ToReactiveProperty()
             .DisposeWith(_disposables);
-        AutoAdjustSceneDuration.Subscribe(b => _editorConfig.AutoAdjustSceneDuration = b)
+        AutoAdjustSceneDuration
+            .Subscribe(b => _editorConfig.AutoAdjustSceneDuration = b)
             .DisposeWith(_disposables);
 
-        EnableAutoSave = _editorConfig.GetObservable(EditorConfig.IsAutoSaveEnabledProperty)
+        EnableAutoSave = _editorConfig
+            .GetObservable(EditorConfig.IsAutoSaveEnabledProperty)
             .ToReactiveProperty()
             .DisposeWith(_disposables);
-        EnableAutoSave.Subscribe(b => _editorConfig.IsAutoSaveEnabled = b)
+        EnableAutoSave
+            .Subscribe(b => _editorConfig.IsAutoSaveEnabled = b)
             .DisposeWith(_disposables);
 
-        ShowExactBoundaries = _viewConfig.GetObservable(ViewConfig.ShowExactBoundariesProperty)
+        ShowExactBoundaries = _viewConfig
+            .GetObservable(ViewConfig.ShowExactBoundariesProperty)
             .ToReactiveProperty()
             .DisposeWith(_disposables);
-        ShowExactBoundaries.Subscribe(b => _viewConfig.ShowExactBoundaries = b)
+        ShowExactBoundaries
+            .Subscribe(b => _viewConfig.ShowExactBoundaries = b)
             .DisposeWith(_disposables);
 
-        IsFrameCacheEnabled = _editorConfig.GetObservable(EditorConfig.IsFrameCacheEnabledProperty)
+        IsFrameCacheEnabled = _editorConfig
+            .GetObservable(EditorConfig.IsFrameCacheEnabledProperty)
             .ToReactiveProperty()
             .DisposeWith(_disposables);
-        IsFrameCacheEnabled.Subscribe(b => _editorConfig.IsFrameCacheEnabled = b)
+        IsFrameCacheEnabled
+            .Subscribe(b => _editorConfig.IsFrameCacheEnabled = b)
             .DisposeWith(_disposables);
 
-        FrameCacheMaxSize = _editorConfig.GetObservable(EditorConfig.FrameCacheMaxSizeProperty)
+        FrameCacheMaxSize = _editorConfig
+            .GetObservable(EditorConfig.FrameCacheMaxSizeProperty)
             .ToReactiveProperty()
             .DisposeWith(_disposables);
-        FrameCacheMaxSize.Subscribe(b => _editorConfig.FrameCacheMaxSize = b)
+        FrameCacheMaxSize
+            .Subscribe(b => _editorConfig.FrameCacheMaxSize = b)
             .DisposeWith(_disposables);
 
-        FrameCacheScale = _editorConfig.GetObservable(EditorConfig.FrameCacheScaleProperty)
+        FrameCacheScale = _editorConfig
+            .GetObservable(EditorConfig.FrameCacheScaleProperty)
             .Select(v => (int)v)
             .ToReactiveProperty()
             .DisposeWith(_disposables);
-        FrameCacheScale.Subscribe(b => _editorConfig.FrameCacheScale = (FrameCacheConfigScale)b)
+        FrameCacheScale
+            .Subscribe(b => _editorConfig.FrameCacheScale = (FrameCacheConfigScale)b)
             .DisposeWith(_disposables);
 
-        FrameCacheColorType = _editorConfig.GetObservable(EditorConfig.FrameCacheColorTypeProperty)
+        FrameCacheColorType = _editorConfig
+            .GetObservable(EditorConfig.FrameCacheColorTypeProperty)
             .Select(v => (int)v)
             .ToReactiveProperty()
             .DisposeWith(_disposables);
-        FrameCacheColorType.Subscribe(b => _editorConfig.FrameCacheColorType = (FrameCacheConfigColorType)b)
+        FrameCacheColorType
+            .Subscribe(b => _editorConfig.FrameCacheColorType = (FrameCacheConfigColorType)b)
             .DisposeWith(_disposables);
 
-        IsNodeCacheEnabled = _editorConfig.GetObservable(EditorConfig.IsNodeCacheEnabledProperty)
+        IsNodeCacheEnabled = _editorConfig
+            .GetObservable(EditorConfig.IsNodeCacheEnabledProperty)
             .ToReactiveProperty()
             .DisposeWith(_disposables);
-        IsNodeCacheEnabled.Subscribe(b => _editorConfig.IsNodeCacheEnabled = b)
+        IsNodeCacheEnabled
+            .Subscribe(b => _editorConfig.IsNodeCacheEnabled = b)
             .DisposeWith(_disposables);
 
-        NodeCacheMaxPixels = _editorConfig.GetObservable(EditorConfig.NodeCacheMaxPixelsProperty)
+        NodeCacheMaxPixels = _editorConfig
+            .GetObservable(EditorConfig.NodeCacheMaxPixelsProperty)
             .ToReactiveProperty()
             .DisposeWith(_disposables);
-        NodeCacheMaxPixels.Subscribe(b => _editorConfig.NodeCacheMaxPixels = b)
+        NodeCacheMaxPixels
+            .Subscribe(b => _editorConfig.NodeCacheMaxPixels = b)
             .DisposeWith(_disposables);
 
-        NodeCacheMinPixels = _editorConfig.GetObservable(EditorConfig.NodeCacheMinPixelsProperty)
+        NodeCacheMinPixels = _editorConfig
+            .GetObservable(EditorConfig.NodeCacheMinPixelsProperty)
             .ToReactiveProperty()
             .DisposeWith(_disposables);
-        NodeCacheMinPixels.Subscribe(b => _editorConfig.NodeCacheMinPixels = b)
+        NodeCacheMinPixels
+            .Subscribe(b => _editorConfig.NodeCacheMinPixels = b)
             .DisposeWith(_disposables);
 
-        EnablePointerLockInProperty = _editorConfig.GetObservable(EditorConfig.EnablePointerLockInPropertyProperty)
+        EnablePointerLockInProperty = _editorConfig
+            .GetObservable(EditorConfig.EnablePointerLockInPropertyProperty)
             .ToReactiveProperty()
             .DisposeWith(_disposables);
-        EnablePointerLockInProperty.Subscribe(b => _editorConfig.EnablePointerLockInProperty = b)
+        EnablePointerLockInProperty
+            .Subscribe(b => _editorConfig.EnablePointerLockInProperty = b)
             .DisposeWith(_disposables);
 
-        SwapTimelineScrollDirection = _editorConfig.GetObservable(EditorConfig.SwapTimelineScrollDirectionProperty)
+        SwapTimelineScrollDirection = _editorConfig
+            .GetObservable(EditorConfig.SwapTimelineScrollDirectionProperty)
             .ToReactiveProperty()
             .DisposeWith(_disposables);
-        SwapTimelineScrollDirection.Subscribe(b => _editorConfig.SwapTimelineScrollDirection = b)
+        SwapTimelineScrollDirection
+            .Subscribe(b => _editorConfig.SwapTimelineScrollDirection = b)
             .DisposeWith(_disposables);
 
-        ClampResizeToOriginalLength = _editorConfig.GetObservable(EditorConfig.ClampResizeToOriginalLengthProperty)
+        ClampResizeToOriginalLength = _editorConfig
+            .GetObservable(EditorConfig.ClampResizeToOriginalLengthProperty)
             .ToReactiveProperty()
             .DisposeWith(_disposables);
-        ClampResizeToOriginalLength.Subscribe(b => _editorConfig.ClampResizeToOriginalLength = b)
+        ClampResizeToOriginalLength
+            .Subscribe(b => _editorConfig.ClampResizeToOriginalLength = b)
             .DisposeWith(_disposables);
 
-        TimelineAutoScrollMode = _editorConfig.GetObservable(EditorConfig.TimelineAutoScrollModeProperty)
+        TimelineAutoScrollMode = _editorConfig
+            .GetObservable(EditorConfig.TimelineAutoScrollModeProperty)
             .Select(v => (int)v)
             .ToReactiveProperty()
             .DisposeWith(_disposables);
-        TimelineAutoScrollMode.Subscribe(b => _editorConfig.TimelineAutoScrollMode = (TimelineAutoScrollMode)b)
+        TimelineAutoScrollMode
+            .Subscribe(b => _editorConfig.TimelineAutoScrollMode = (TimelineAutoScrollMode)b)
             .DisposeWith(_disposables);
 
-        ToneMappingMode = _editorConfig.GetObservable(EditorConfig.ToneMappingModeProperty)
+        ToneMappingMode = _editorConfig
+            .GetObservable(EditorConfig.ToneMappingModeProperty)
             .Select(v => (int)v)
             .ToReactiveProperty()
             .DisposeWith(_disposables);
-        ToneMappingMode.Subscribe(b => _editorConfig.ToneMappingMode = (UIToneMappingOperator)b)
+        ToneMappingMode
+            .Subscribe(b => _editorConfig.ToneMappingMode = (UIToneMappingOperator)b)
             .DisposeWith(_disposables);
 
-        ToneMappingExposure = _editorConfig.GetObservable(EditorConfig.ToneMappingExposureProperty)
+        ToneMappingExposure = _editorConfig
+            .GetObservable(EditorConfig.ToneMappingExposureProperty)
             .Select(v => (double)v)
             .ToReactiveProperty()
             .DisposeWith(_disposables);
-        ToneMappingExposure.Subscribe(b => _editorConfig.ToneMappingExposure = (float)b)
+        ToneMappingExposure
+            .Subscribe(b => _editorConfig.ToneMappingExposure = (float)b)
             .DisposeWith(_disposables);
 
-        UseHdrPreview = _editorConfig.GetObservable(EditorConfig.UseHdrPreviewProperty)
+        UseHdrPreview = _editorConfig
+            .GetObservable(EditorConfig.UseHdrPreviewProperty)
             .ToReactiveProperty()
             .DisposeWith(_disposables);
-        UseHdrPreview.Subscribe(b => _editorConfig.UseHdrPreview = b)
-            .DisposeWith(_disposables);
+        UseHdrPreview.Subscribe(b => _editorConfig.UseHdrPreview = b).DisposeWith(_disposables);
 
         // GPU selection
         InitializeGpuSelection();
@@ -150,13 +182,15 @@ public sealed class EditorSettingsPageViewModel : IDisposable
         }
 
         SelectedGpuIndex = new ReactiveProperty<int>(selectedIndex).DisposeWith(_disposables);
-        SelectedGpuIndex.Subscribe(index =>
-        {
-            if (index >= 0 && index < AvailableGpus.Count)
+        SelectedGpuIndex
+            .Subscribe(index =>
             {
-                _graphicsConfig.SelectedGpuName = AvailableGpus[index].Name;
-            }
-        }).DisposeWith(_disposables);
+                if (index >= 0 && index < AvailableGpus.Count)
+                {
+                    _graphicsConfig.SelectedGpuName = AvailableGpus[index].Name;
+                }
+            })
+            .DisposeWith(_disposables);
     }
 
     public ReactiveProperty<bool> AutoAdjustSceneDuration { get; }

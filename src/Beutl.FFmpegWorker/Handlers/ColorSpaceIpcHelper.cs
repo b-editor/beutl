@@ -9,18 +9,31 @@ internal static class ColorSpaceIpcHelper
         var transferFn = colorSpace.GetNumericalTransferFunction();
         var xyz = colorSpace.ToColorSpaceXyz();
 
-        float[] tfn = [transferFn.G, transferFn.A, transferFn.B, transferFn.C, transferFn.D, transferFn.E, transferFn.F];
+        float[] tfn =
+        [
+            transferFn.G,
+            transferFn.A,
+            transferFn.B,
+            transferFn.C,
+            transferFn.D,
+            transferFn.E,
+            transferFn.F,
+        ];
         float[] toXyzD50 = xyz.Values.ToArray();
 
         return (tfn, toXyzD50);
     }
 
     public static bool CheckAndUpdate(
-        float[] currentTransferFn, float[] currentToXyzD50,
-        ref float[]? lastTransferFn, ref float[]? lastToXyzD50)
+        float[] currentTransferFn,
+        float[] currentToXyzD50,
+        ref float[]? lastTransferFn,
+        ref float[]? lastToXyzD50
+    )
     {
-        bool changed = !currentTransferFn.AsSpan().SequenceEqual(lastTransferFn)
-                       || !currentToXyzD50.AsSpan().SequenceEqual(lastToXyzD50);
+        bool changed =
+            !currentTransferFn.AsSpan().SequenceEqual(lastTransferFn)
+            || !currentToXyzD50.AsSpan().SequenceEqual(lastToXyzD50);
         if (changed)
         {
             lastTransferFn = currentTransferFn;

@@ -17,7 +17,7 @@ public enum FileBrowserViewMode
 {
     List,
     Tree,
-    Icon
+    Icon,
 }
 
 public sealed class FileBrowserTabViewModel : IToolContext
@@ -58,35 +58,41 @@ public sealed class FileBrowserTabViewModel : IToolContext
         // プロジェクトディレクトリの取得
         _projectDirectory = GetProjectDirectory();
 
-        RootPath.Subscribe(path =>
-        {
-            _rootPath = path;
-            if (!string.IsNullOrEmpty(path))
+        RootPath
+            .Subscribe(path =>
             {
-                IsHomeView.Value = false;
-            }
-            UpdateBreadcrumbItems(path);
-            RefreshItems();
-            _directoryWatcher.Watch(path);
-        }).AddTo(_disposables);
-
-        IsHomeView.Subscribe(isHome =>
-        {
-            if (isHome)
-            {
-                RootPath.Value = string.Empty;
-                RefreshHomeView();
-                _directoryWatcher.Watch(_projectDirectory);
-            }
-        }).AddTo(_disposables);
-
-        ViewMode.Subscribe(_ =>
-        {
-            if (!IsHomeView.Value)
-            {
+                _rootPath = path;
+                if (!string.IsNullOrEmpty(path))
+                {
+                    IsHomeView.Value = false;
+                }
+                UpdateBreadcrumbItems(path);
                 RefreshItems();
-            }
-        }).AddTo(_disposables);
+                _directoryWatcher.Watch(path);
+            })
+            .AddTo(_disposables);
+
+        IsHomeView
+            .Subscribe(isHome =>
+            {
+                if (isHome)
+                {
+                    RootPath.Value = string.Empty;
+                    RefreshHomeView();
+                    _directoryWatcher.Watch(_projectDirectory);
+                }
+            })
+            .AddTo(_disposables);
+
+        ViewMode
+            .Subscribe(_ =>
+            {
+                if (!IsHomeView.Value)
+                {
+                    RefreshItems();
+                }
+            })
+            .AddTo(_disposables);
 
         // 初期化: ホームビューで起動（RootPathは設定しない）
         RefreshHomeView();
@@ -117,11 +123,13 @@ public sealed class FileBrowserTabViewModel : IToolContext
 
     public ObservableCollection<string> Favorites => _favoritesManager.Favorites;
 
-    public ObservableCollection<FileSystemItemViewModel> FavoriteItems => _favoritesManager.FavoriteItems;
+    public ObservableCollection<FileSystemItemViewModel> FavoriteItems =>
+        _favoritesManager.FavoriteItems;
 
     public ObservableCollection<FileSystemItemViewModel> ProjectDirectoryItems { get; } = [];
 
-    public ObservableCollection<FileSystemItemViewModel> MediaFileItems => _mediaSearcher.MediaFileItems;
+    public ObservableCollection<FileSystemItemViewModel> MediaFileItems =>
+        _mediaSearcher.MediaFileItems;
 
     public ReactivePropertySlim<bool> IsLoadingMediaFiles => _mediaSearcher.IsLoadingMediaFiles;
 
@@ -137,9 +145,8 @@ public sealed class FileBrowserTabViewModel : IToolContext
     {
         var scene = _editorContext.GetService<Scene>();
         var project = scene?.FindHierarchicalParent<Project>();
-        var projectDirectory = project?.Uri != null
-            ? Path.GetDirectoryName(project.Uri.LocalPath)
-            : null;
+        var projectDirectory =
+            project?.Uri != null ? Path.GetDirectoryName(project.Uri.LocalPath) : null;
 
         if (!string.IsNullOrEmpty(projectDirectory))
         {
@@ -211,7 +218,10 @@ public sealed class FileBrowserTabViewModel : IToolContext
 
         // ルート以降のセグメントを分割して追加
         string relativePart = path[root.Length..];
-        string[] segments = relativePart.Split(Path.DirectorySeparatorChar, StringSplitOptions.RemoveEmptyEntries);
+        string[] segments = relativePart.Split(
+            Path.DirectorySeparatorChar,
+            StringSplitOptions.RemoveEmptyEntries
+        );
 
         string accumulated = root;
         foreach (string segment in segments)
@@ -243,10 +253,7 @@ public sealed class FileBrowserTabViewModel : IToolContext
     {
         try
         {
-            Process.Start(new ProcessStartInfo(path)
-            {
-                UseShellExecute = true
-            });
+            Process.Start(new ProcessStartInfo(path) { UseShellExecute = true });
         }
         catch (Exception ex)
         {
@@ -263,7 +270,7 @@ public sealed class FileBrowserTabViewModel : IToolContext
             Content = string.Format(MessageStrings.ConfirmDeleteFile, item.Name.Value),
             PrimaryButtonText = Strings.Yes,
             CloseButtonText = Strings.No,
-            DefaultButton = ContentDialogButton.Close
+            DefaultButton = ContentDialogButton.Close,
         };
 
         var result = await dialog.ShowAsync();
@@ -305,7 +312,7 @@ public sealed class FileBrowserTabViewModel : IToolContext
             Content = string.Format(Strings.DeleteSelectedItems, items.Count),
             PrimaryButtonText = Strings.Yes,
             CloseButtonText = Strings.No,
-            DefaultButton = ContentDialogButton.Close
+            DefaultButton = ContentDialogButton.Close,
         };
 
         var result = await dialog.ShowAsync();
@@ -372,7 +379,7 @@ public sealed class FileBrowserTabViewModel : IToolContext
             {
                 Title = Strings.Error,
                 Content = string.Format(MessageStrings.RenameConflict, item.Name.Value, newName),
-                CloseButtonText = Strings.Close
+                CloseButtonText = Strings.Close,
             };
             await dialog.ShowAsync();
             return;
@@ -425,7 +432,11 @@ public sealed class FileBrowserTabViewModel : IToolContext
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Failed to enumerate project directory {Path}", _projectDirectory);
+                _logger.LogError(
+                    ex,
+                    "Failed to enumerate project directory {Path}",
+                    _projectDirectory
+                );
                 NotificationService.ShowWarning(Strings.FileBrowser, ex.Message);
             }
         }
@@ -459,7 +470,10 @@ public sealed class FileBrowserTabViewModel : IToolContext
         }
     }
 
-    public void CopyFilesToDirectory(IEnumerable<(string LocalPath, bool IsDirectory)> files, string targetDir)
+    public void CopyFilesToDirectory(
+        IEnumerable<(string LocalPath, bool IsDirectory)> files,
+        string targetDir
+    )
     {
         foreach (var (localPath, isDir) in files)
         {
@@ -500,10 +514,14 @@ public sealed class FileBrowserTabViewModel : IToolContext
         CopyFilesToDirectory(files, resourcesDir);
     }
 
-    public void MoveFilesToDirectory(IEnumerable<(string LocalPath, bool IsDirectory)> files, string targetDir)
+    public void MoveFilesToDirectory(
+        IEnumerable<(string LocalPath, bool IsDirectory)> files,
+        string targetDir
+    )
     {
         string normalizedTargetDir = Path.GetFullPath(targetDir);
-        string targetDirWithSep = normalizedTargetDir.TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar;
+        string targetDirWithSep =
+            normalizedTargetDir.TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar;
 
         foreach (var (localPath, isDir) in files)
         {
@@ -511,11 +529,14 @@ public sealed class FileBrowserTabViewModel : IToolContext
 
             // 同じ親ディレクトリ内での自己ドロップはスキップ
             string? sourceParent = Path.GetDirectoryName(normalizedSource);
-            if (sourceParent != null
+            if (
+                sourceParent != null
                 && string.Equals(
                     Path.GetFullPath(sourceParent).TrimEnd(Path.DirectorySeparatorChar),
                     normalizedTargetDir.TrimEnd(Path.DirectorySeparatorChar),
-                    StringComparison.OrdinalIgnoreCase))
+                    StringComparison.OrdinalIgnoreCase
+                )
+            )
             {
                 continue;
             }
@@ -523,10 +544,15 @@ public sealed class FileBrowserTabViewModel : IToolContext
             // ディレクトリを自身または子孫に移動することはできない
             if (isDir)
             {
-                string sourceWithSep = normalizedSource.TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar;
+                string sourceWithSep =
+                    normalizedSource.TrimEnd(Path.DirectorySeparatorChar)
+                    + Path.DirectorySeparatorChar;
                 if (targetDirWithSep.StartsWith(sourceWithSep, StringComparison.OrdinalIgnoreCase))
                 {
-                    _logger.LogError("Cannot move {Source} into itself or a descendant directory.", normalizedSource);
+                    _logger.LogError(
+                        "Cannot move {Source} into itself or a descendant directory.",
+                        normalizedSource
+                    );
                     NotificationService.ShowError(Strings.Move, MessageStrings.OperationFailed);
                     continue;
                 }
@@ -553,7 +579,12 @@ public sealed class FileBrowserTabViewModel : IToolContext
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Failed to move {Source} to {Dest}", normalizedSource, destPath);
+                _logger.LogError(
+                    ex,
+                    "Failed to move {Source} to {Dest}",
+                    normalizedSource,
+                    destPath
+                );
                 NotificationService.ShowError(Strings.Move, MessageStrings.OperationFailed);
             }
         }
@@ -581,7 +612,10 @@ public sealed class FileBrowserTabViewModel : IToolContext
 
     public void ReadFromJson(JsonObject json)
     {
-        if (json.TryGetPropertyValue("RootPath", out var rootPathNode) && rootPathNode is JsonValue rootPathValue)
+        if (
+            json.TryGetPropertyValue("RootPath", out var rootPathNode)
+            && rootPathNode is JsonValue rootPathValue
+        )
         {
             string? rootPath = rootPathValue.GetValue<string>();
             if (!string.IsNullOrEmpty(rootPath) && Directory.Exists(rootPath))
@@ -590,38 +624,48 @@ public sealed class FileBrowserTabViewModel : IToolContext
             }
         }
 
-        if (json.TryGetPropertyValue("ViewMode", out var viewModeNode)
+        if (
+            json.TryGetPropertyValue("ViewMode", out var viewModeNode)
             && viewModeNode is JsonValue viewModeValue
             && viewModeValue.TryGetValue(out int viewModeInt)
-            && Enum.IsDefined(typeof(FileBrowserViewMode), viewModeInt))
+            && Enum.IsDefined(typeof(FileBrowserViewMode), viewModeInt)
+        )
         {
             ViewMode.Value = (FileBrowserViewMode)viewModeInt;
         }
 
-        if (json.TryGetPropertyValue("IsHomeView", out var isHomeViewNode)
+        if (
+            json.TryGetPropertyValue("IsHomeView", out var isHomeViewNode)
             && isHomeViewNode is JsonValue isHomeViewValue
-            && isHomeViewValue.TryGetValue(out bool isHome))
+            && isHomeViewValue.TryGetValue(out bool isHome)
+        )
         {
             IsHomeView.Value = isHome;
         }
 
-        if (json.TryGetPropertyValue("IsFavoritesIconView", out var favIconNode)
+        if (
+            json.TryGetPropertyValue("IsFavoritesIconView", out var favIconNode)
             && favIconNode is JsonValue favIconVal
-            && favIconVal.TryGetValue(out bool favIcon))
+            && favIconVal.TryGetValue(out bool favIcon)
+        )
         {
             IsFavoritesIconView.Value = favIcon;
         }
 
-        if (json.TryGetPropertyValue("IsProjectDirIconView", out var projIconNode)
+        if (
+            json.TryGetPropertyValue("IsProjectDirIconView", out var projIconNode)
             && projIconNode is JsonValue projIconVal
-            && projIconVal.TryGetValue(out bool projIcon))
+            && projIconVal.TryGetValue(out bool projIcon)
+        )
         {
             IsProjectDirIconView.Value = projIcon;
         }
 
-        if (json.TryGetPropertyValue("IsMediaFilesIconView", out var mediaIconNode)
+        if (
+            json.TryGetPropertyValue("IsMediaFilesIconView", out var mediaIconNode)
             && mediaIconNode is JsonValue mediaIconVal
-            && mediaIconVal.TryGetValue(out bool mediaIcon))
+            && mediaIconVal.TryGetValue(out bool mediaIcon)
+        )
         {
             IsMediaFilesIconView.Value = mediaIcon;
         }
@@ -658,11 +702,13 @@ public static class FileBrowserViewModeConverters
         new(mode => mode == FileBrowserViewMode.Icon);
 
     public static FuncValueConverter<FileBrowserViewMode, string> ToDisplayName { get; } =
-        new(mode => mode switch
-        {
-            FileBrowserViewMode.List => Strings.ListView,
-            FileBrowserViewMode.Tree => Strings.TreeView,
-            FileBrowserViewMode.Icon => Strings.IconView,
-            _ => string.Empty
-        });
+        new(mode =>
+            mode switch
+            {
+                FileBrowserViewMode.List => Strings.ListView,
+                FileBrowserViewMode.Tree => Strings.TreeView,
+                FileBrowserViewMode.Icon => Strings.IconView,
+                _ => string.Empty,
+            }
+        );
 }

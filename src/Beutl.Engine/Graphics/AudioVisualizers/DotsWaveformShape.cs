@@ -20,11 +20,17 @@ public sealed partial class DotsWaveformShape : WaveformShape
         ScanProperties<DotsWaveformShape>();
     }
 
-    [Display(Name = nameof(GraphicsStrings.WaveformShape_DotRadius), ResourceType = typeof(GraphicsStrings))]
+    [Display(
+        Name = nameof(GraphicsStrings.WaveformShape_DotRadius),
+        ResourceType = typeof(GraphicsStrings)
+    )]
     [Range(0.5f, 100f)]
     public IProperty<float> DotRadius { get; } = Property.CreateAnimatable(2f);
 
-    [Display(Name = nameof(GraphicsStrings.WaveformShape_DotMode), ResourceType = typeof(GraphicsStrings))]
+    [Display(
+        Name = nameof(GraphicsStrings.WaveformShape_DotMode),
+        ResourceType = typeof(GraphicsStrings)
+    )]
     public IProperty<DotsWaveformMode> Mode { get; } = Property.Create(DotsWaveformMode.MinMax);
 
     public new partial class Resource
@@ -38,10 +44,12 @@ public sealed partial class DotsWaveformShape : WaveformShape
             ReadOnlySpan<float> mins,
             ReadOnlySpan<float> maxs,
             float gain,
-            Brush.Resource fill)
+            Brush.Resource fill
+        )
         {
             int barCount = mins.Length;
-            if (barCount == 0) return;
+            if (barCount == 0)
+                return;
 
             float width = (float)bounds.Width;
             float height = (float)bounds.Height;

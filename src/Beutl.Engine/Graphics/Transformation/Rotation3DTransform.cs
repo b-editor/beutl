@@ -7,7 +7,10 @@ using Beutl.Utilities;
 
 namespace Beutl.Graphics.Transformation;
 
-[Display(Name = nameof(GraphicsStrings.Rotation3DTransform), ResourceType = typeof(GraphicsStrings))]
+[Display(
+    Name = nameof(GraphicsStrings.Rotation3DTransform),
+    ResourceType = typeof(GraphicsStrings)
+)]
 public sealed partial class Rotation3DTransform : Transform
 {
     public Rotation3DTransform()
@@ -21,7 +24,9 @@ public sealed partial class Rotation3DTransform : Transform
         float rotationZ,
         float centerX,
         float centerY,
-        float centerZ) : this()
+        float centerZ
+    )
+        : this()
     {
         RotationX.CurrentValue = rotationX;
         RotationY.CurrentValue = rotationY;
@@ -31,13 +36,22 @@ public sealed partial class Rotation3DTransform : Transform
         CenterZ.CurrentValue = centerZ;
     }
 
-    [Display(Name = nameof(GraphicsStrings.Rotation3DTransform_RotationX), ResourceType = typeof(GraphicsStrings))]
+    [Display(
+        Name = nameof(GraphicsStrings.Rotation3DTransform_RotationX),
+        ResourceType = typeof(GraphicsStrings)
+    )]
     public IProperty<float> RotationX { get; } = Property.CreateAnimatable<float>();
 
-    [Display(Name = nameof(GraphicsStrings.Rotation3DTransform_RotationY), ResourceType = typeof(GraphicsStrings))]
+    [Display(
+        Name = nameof(GraphicsStrings.Rotation3DTransform_RotationY),
+        ResourceType = typeof(GraphicsStrings)
+    )]
     public IProperty<float> RotationY { get; } = Property.CreateAnimatable<float>();
 
-    [Display(Name = nameof(GraphicsStrings.Rotation3DTransform_RotationZ), ResourceType = typeof(GraphicsStrings))]
+    [Display(
+        Name = nameof(GraphicsStrings.Rotation3DTransform_RotationZ),
+        ResourceType = typeof(GraphicsStrings)
+    )]
     public IProperty<float> RotationZ { get; } = Property.CreateAnimatable<float>();
 
     [Display(Name = nameof(GraphicsStrings.CenterX), ResourceType = typeof(GraphicsStrings))]
@@ -46,7 +60,10 @@ public sealed partial class Rotation3DTransform : Transform
     [Display(Name = nameof(GraphicsStrings.CenterY), ResourceType = typeof(GraphicsStrings))]
     public IProperty<float> CenterY { get; } = Property.CreateAnimatable<float>();
 
-    [Display(Name = nameof(GraphicsStrings.Rotation3DTransform_CenterZ), ResourceType = typeof(GraphicsStrings))]
+    [Display(
+        Name = nameof(GraphicsStrings.Rotation3DTransform_CenterZ),
+        ResourceType = typeof(GraphicsStrings)
+    )]
     public IProperty<float> CenterZ { get; } = Property.CreateAnimatable<float>();
 
     [Display(Name = nameof(GraphicsStrings.Depth), ResourceType = typeof(GraphicsStrings))]
@@ -65,13 +82,18 @@ public sealed partial class Rotation3DTransform : Transform
         Matrix4x4 matrix44 = Matrix4x4.Identity;
         float centerSum = centerX + centerY + centerZ;
 
-        if (MathF.Abs(centerSum) > float.Epsilon) matrix44 *= Matrix4x4.CreateTranslation(-centerX, -centerY, -centerZ);
+        if (MathF.Abs(centerSum) > float.Epsilon)
+            matrix44 *= Matrix4x4.CreateTranslation(-centerX, -centerY, -centerZ);
 
-        if (rotationX != 0) matrix44 *= Matrix4x4.CreateRotationX(MathUtilities.Deg2Rad(rotationX));
-        if (rotationY != 0) matrix44 *= Matrix4x4.CreateRotationY(MathUtilities.Deg2Rad(rotationY));
-        if (rotationZ != 0) matrix44 *= Matrix4x4.CreateRotationZ(MathUtilities.Deg2Rad(rotationZ));
+        if (rotationX != 0)
+            matrix44 *= Matrix4x4.CreateRotationX(MathUtilities.Deg2Rad(rotationX));
+        if (rotationY != 0)
+            matrix44 *= Matrix4x4.CreateRotationY(MathUtilities.Deg2Rad(rotationY));
+        if (rotationZ != 0)
+            matrix44 *= Matrix4x4.CreateRotationZ(MathUtilities.Deg2Rad(rotationZ));
 
-        if (MathF.Abs(centerSum) > float.Epsilon) matrix44 *= Matrix4x4.CreateTranslation(centerX, centerY, centerZ);
+        if (MathF.Abs(centerSum) > float.Epsilon)
+            matrix44 *= Matrix4x4.CreateTranslation(centerX, centerY, centerZ);
 
         if (depth != 0)
         {
@@ -89,7 +111,8 @@ public sealed partial class Rotation3DTransform : Transform
             matrix44.M24,
             matrix44.M41,
             matrix44.M42,
-            matrix44.M44);
+            matrix44.M44
+        );
 
         return matrix;
     }

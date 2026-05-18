@@ -28,9 +28,7 @@ public class ResourceRelocationService
     /// <summary>
     /// Default constructor.
     /// </summary>
-    public ResourceRelocationService()
-    {
-    }
+    public ResourceRelocationService() { }
 
     /// <summary>
     /// Constructor for testing. Allows customizing the font file search logic.
@@ -53,7 +51,8 @@ public class ResourceRelocationService
         IEnumerable<(Guid Object, string PropertyName, Uri OriginalUri)> sources,
         Project stagingProject,
         string projectDirectory,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default
+    )
     {
         string resourcesDir = Path.Combine(projectDirectory, "resources");
         Directory.CreateDirectory(resourcesDir);
@@ -97,11 +96,21 @@ public class ResourceRelocationService
                 {
                     UpdateUri(stagingProject, id, prop, new Uri(destFilePath));
                     count++;
-                    _logger.LogDebug("Relocated file: {OriginalPath} -> {NewPath}", sourceFilePath, destFilePath);
+                    _logger.LogDebug(
+                        "Relocated file: {OriginalPath} -> {NewPath}",
+                        sourceFilePath,
+                        destFilePath
+                    );
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogError(ex, "Failed to update URI for {Id}.{Property}: {Uri}", id, prop, originalUri);
+                    _logger.LogError(
+                        ex,
+                        "Failed to update URI for {Id}.{Property}: {Uri}",
+                        id,
+                        prop,
+                        originalUri
+                    );
                     failedResources.Add($"{originalUri} ({id}.{prop})");
                 }
             }
@@ -155,7 +164,8 @@ public class ResourceRelocationService
     public virtual async Task<RelocationResult> RelocateFontsAsync(
         IEnumerable<FontFamily> fontFamilies,
         string projectDirectory,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default
+    )
     {
         string fontsDir = Path.Combine(projectDirectory, "resources", "fonts");
         Directory.CreateDirectory(fontsDir);
@@ -170,9 +180,10 @@ public class ResourceRelocationService
 
             try
             {
-                IEnumerable<string> fontFiles = _fontFileFinder != null
-                    ? _fontFileFinder(fontFamily.Name)
-                    : FindFontFiles(fontFamily.Name);
+                IEnumerable<string> fontFiles =
+                    _fontFileFinder != null
+                        ? _fontFileFinder(fontFamily.Name)
+                        : FindFontFiles(fontFamily.Name);
                 bool foundAnyFile = false;
                 foreach (string sourceFilePath in fontFiles)
                 {
@@ -186,12 +197,19 @@ public class ResourceRelocationService
                     await CopyFileAsync(sourceFilePath, destFilePath, cancellationToken);
 
                     count++;
-                    _logger.LogDebug("Relocated font: {OriginalPath} -> {NewPath}", sourceFilePath, destFilePath);
+                    _logger.LogDebug(
+                        "Relocated font: {OriginalPath} -> {NewPath}",
+                        sourceFilePath,
+                        destFilePath
+                    );
                 }
 
                 if (!foundAnyFile)
                 {
-                    _logger.LogWarning("No font files found for family: {FontFamily}", fontFamily.Name);
+                    _logger.LogWarning(
+                        "No font files found for family: {FontFamily}",
+                        fontFamily.Name
+                    );
                     failedResources.Add(fontFamily.Name);
                 }
             }
@@ -230,9 +248,11 @@ public class ResourceRelocationService
             foreach (string file in Directory.GetFiles(fontDir, "*.*", SearchOption.AllDirectories))
             {
                 ReadOnlySpan<char> ext = Path.GetExtension(file.AsSpan());
-                if (!ext.Equals(".ttf", StringComparison.OrdinalIgnoreCase) &&
-                    !ext.Equals(".ttc", StringComparison.OrdinalIgnoreCase) &&
-                    !ext.Equals(".otf", StringComparison.OrdinalIgnoreCase))
+                if (
+                    !ext.Equals(".ttf", StringComparison.OrdinalIgnoreCase)
+                    && !ext.Equals(".ttc", StringComparison.OrdinalIgnoreCase)
+                    && !ext.Equals(".otf", StringComparison.OrdinalIgnoreCase)
+                )
                 {
                     continue;
                 }
@@ -240,8 +260,14 @@ public class ResourceRelocationService
                 try
                 {
                     using SKTypeface? typeface = SKTypeface.FromFile(file);
-                    if (typeface != null &&
-                        string.Equals(typeface.FamilyName, fontFamilyName, StringComparison.OrdinalIgnoreCase))
+                    if (
+                        typeface != null
+                        && string.Equals(
+                            typeface.FamilyName,
+                            fontFamilyName,
+                            StringComparison.OrdinalIgnoreCase
+                        )
+                    )
                     {
                         foundFiles.Add(file);
                     }
@@ -262,12 +288,16 @@ public class ResourceRelocationService
 
             try
             {
-                foreach (string file in Directory.GetFiles(fontDir, "*.*", SearchOption.AllDirectories))
+                foreach (
+                    string file in Directory.GetFiles(fontDir, "*.*", SearchOption.AllDirectories)
+                )
                 {
                     ReadOnlySpan<char> ext = Path.GetExtension(file.AsSpan());
-                    if (!ext.Equals(".ttf", StringComparison.OrdinalIgnoreCase) &&
-                        !ext.Equals(".ttc", StringComparison.OrdinalIgnoreCase) &&
-                        !ext.Equals(".otf", StringComparison.OrdinalIgnoreCase))
+                    if (
+                        !ext.Equals(".ttf", StringComparison.OrdinalIgnoreCase)
+                        && !ext.Equals(".ttc", StringComparison.OrdinalIgnoreCase)
+                        && !ext.Equals(".otf", StringComparison.OrdinalIgnoreCase)
+                    )
                     {
                         continue;
                     }
@@ -275,8 +305,14 @@ public class ResourceRelocationService
                     try
                     {
                         using SKTypeface? typeface = SKTypeface.FromFile(file);
-                        if (typeface != null &&
-                            string.Equals(typeface.FamilyName, fontFamilyName, StringComparison.OrdinalIgnoreCase))
+                        if (
+                            typeface != null
+                            && string.Equals(
+                                typeface.FamilyName,
+                                fontFamilyName,
+                                StringComparison.OrdinalIgnoreCase
+                            )
+                        )
                         {
                             foundFiles.Add(file);
                         }
@@ -311,8 +347,12 @@ public class ResourceRelocationService
             return
             [
                 Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Fonts)),
-                Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Microsoft",
-                    "Windows", "Fonts")
+                Path.Combine(
+                    Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                    "Microsoft",
+                    "Windows",
+                    "Fonts"
+                ),
             ];
         }
         else if (OperatingSystem.IsMacOS())
@@ -321,7 +361,10 @@ public class ResourceRelocationService
             [
                 "/System/Library/Fonts",
                 "/Library/Fonts",
-                Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Library/Fonts")
+                Path.Combine(
+                    Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
+                    "Library/Fonts"
+                ),
             ];
         }
         else if (OperatingSystem.IsLinux())
@@ -330,8 +373,14 @@ public class ResourceRelocationService
             [
                 "/usr/share/fonts",
                 "/usr/local/share/fonts",
-                Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".fonts"),
-                Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".local/share/fonts")
+                Path.Combine(
+                    Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
+                    ".fonts"
+                ),
+                Path.Combine(
+                    Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
+                    ".local/share/fonts"
+                ),
             ];
         }
 
@@ -363,12 +412,28 @@ public class ResourceRelocationService
     /// <summary>
     /// Copies a file asynchronously.
     /// </summary>
-    private static async Task CopyFileAsync(string sourcePath, string destPath, CancellationToken cancellationToken)
+    private static async Task CopyFileAsync(
+        string sourcePath,
+        string destPath,
+        CancellationToken cancellationToken
+    )
     {
-        await using FileStream sourceStream = new(sourcePath, FileMode.Open, FileAccess.Read, FileShare.Read, 81920,
-            FileOptions.Asynchronous | FileOptions.SequentialScan);
-        await using FileStream destStream = new(destPath, FileMode.Create, FileAccess.Write, FileShare.None, 81920,
-            FileOptions.Asynchronous | FileOptions.SequentialScan);
+        await using FileStream sourceStream = new(
+            sourcePath,
+            FileMode.Open,
+            FileAccess.Read,
+            FileShare.Read,
+            81920,
+            FileOptions.Asynchronous | FileOptions.SequentialScan
+        );
+        await using FileStream destStream = new(
+            destPath,
+            FileMode.Create,
+            FileAccess.Write,
+            FileShare.None,
+            81920,
+            FileOptions.Asynchronous | FileOptions.SequentialScan
+        );
         await sourceStream.CopyToAsync(destStream, cancellationToken);
     }
 }

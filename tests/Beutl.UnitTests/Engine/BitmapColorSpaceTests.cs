@@ -41,8 +41,10 @@ public class BitmapColorSpaceTests
     [Test]
     public void GetHashCode_StableForSameInstance()
     {
-        Assert.That(BitmapColorSpace.Srgb.GetHashCode(),
-            Is.EqualTo(BitmapColorSpace.Srgb.GetHashCode()));
+        Assert.That(
+            BitmapColorSpace.Srgb.GetHashCode(),
+            Is.EqualTo(BitmapColorSpace.Srgb.GetHashCode())
+        );
     }
 
     [Test]

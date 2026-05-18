@@ -14,29 +14,39 @@ public class ConnectionViewModel : IDisposable
     {
         _nodeGraph = nodeGraph;
         Connection = connection;
-        InputPortVM = connection.GetObservable(Connection.InputProperty)
-            .Select(i => i.Value is IInputPort input
-                ? _nodeGraph.FindNodePortViewModel(input) as InputPortViewModel
-                : null)
+        InputPortVM = connection
+            .GetObservable(Connection.InputProperty)
+            .Select(i =>
+                i.Value is IInputPort input
+                    ? _nodeGraph.FindNodePortViewModel(input) as InputPortViewModel
+                    : null
+            )
             .ToReactiveProperty()
             .DisposeWith(_disposables);
-        OutputPortVM = connection.GetObservable(Connection.OutputProperty)
-            .Select(i => i.Value is IOutputPort output
-                ? _nodeGraph.FindNodePortViewModel(output) as OutputPortViewModel
-                : null)
+        OutputPortVM = connection
+            .GetObservable(Connection.OutputProperty)
+            .Select(i =>
+                i.Value is IOutputPort output
+                    ? _nodeGraph.FindNodePortViewModel(output) as OutputPortViewModel
+                    : null
+            )
             .ToReactiveProperty()
             .DisposeWith(_disposables);
-        InputBrush = InputPortVM.Select(vm => vm?.Color)
+        InputBrush = InputPortVM
+            .Select(vm => vm?.Color)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
-        OutputBrush = OutputPortVM.Select(vm => vm?.Color)
+        OutputBrush = OutputPortVM
+            .Select(vm => vm?.Color)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
-        Status = connection.GetObservable(Connection.StatusProperty)
+        Status = connection
+            .GetObservable(Connection.StatusProperty)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
 
-        InputPortVM.CombineWithPrevious()
+        InputPortVM
+            .CombineWithPrevious()
             .Subscribe(tuple =>
             {
                 if (tuple.OldValue != null)
@@ -52,7 +62,8 @@ public class ConnectionViewModel : IDisposable
             })
             .DisposeWith(_disposables);
 
-        OutputPortVM.CombineWithPrevious()
+        OutputPortVM
+            .CombineWithPrevious()
             .Subscribe(tuple =>
             {
                 if (tuple.OldValue != null)

@@ -1,5 +1,4 @@
 ﻿using Avalonia.Controls;
-
 using Beutl.Media;
 
 namespace Beutl.Editor.Components.PathEditorTab.Views;
@@ -10,9 +9,12 @@ internal static class ControlPointVisibilityHelper
         Panel canvas,
         PathSegment? selectedOperation,
         PathFigure? pathFigure,
-        bool isClosed)
+        bool isClosed
+    )
     {
-        Control[] controlPoints = canvas.Children.Where(i => i.Classes.Contains("control")).ToArray();
+        Control[] controlPoints = canvas
+            .Children.Where(i => i.Classes.Contains("control"))
+            .ToArray();
         foreach (Control item in controlPoints)
         {
             item.IsVisible = false;

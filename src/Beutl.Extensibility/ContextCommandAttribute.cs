@@ -41,7 +41,8 @@ public class ContextCommandDefinition(
     string name,
     string? displayName = null,
     string? description = null,
-    ContextCommandKeyGesture[]? keyGestures = null)
+    ContextCommandKeyGesture[]? keyGestures = null
+)
 {
     public string Name { get; init; } = name;
 
@@ -53,7 +54,8 @@ public class ContextCommandDefinition(
 
     private static ContextCommandKeyGesture[]? Normalize(ContextCommandKeyGesture[]? keyGestures)
     {
-        if (keyGestures == null) return keyGestures;
+        if (keyGestures == null)
+            return keyGestures;
 
         ContextCommandKeyGesture? fallbackGesture = null;
         ContextCommandKeyGesture? windows = null;
@@ -62,10 +64,14 @@ public class ContextCommandDefinition(
 
         foreach (ContextCommandKeyGesture gesture in keyGestures)
         {
-            if (gesture.Platform == null) fallbackGesture = gesture;
-            else if (gesture.Platform == OSPlatform.Windows) windows = gesture;
-            else if (gesture.Platform == OSPlatform.Linux) linux = gesture;
-            else if (gesture.Platform == OSPlatform.OSX) osx = gesture;
+            if (gesture.Platform == null)
+                fallbackGesture = gesture;
+            else if (gesture.Platform == OSPlatform.Windows)
+                windows = gesture;
+            else if (gesture.Platform == OSPlatform.Linux)
+                linux = gesture;
+            else if (gesture.Platform == OSPlatform.OSX)
+                osx = gesture;
         }
 
         if (windows == null && fallbackGesture != null)

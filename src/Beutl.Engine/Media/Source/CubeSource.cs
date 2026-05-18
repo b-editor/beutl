@@ -32,7 +32,11 @@ public sealed class CubeSource : MediaSource
 
         public CubeFile? Cube => _cube;
 
-        public override void Update(EngineObject obj, CompositionContext context, ref bool updateOnly)
+        public override void Update(
+            EngineObject obj,
+            CompositionContext context,
+            ref bool updateOnly
+        )
         {
             base.Update(obj, context, ref updateOnly);
             var cubeSource = (CubeSource)obj;

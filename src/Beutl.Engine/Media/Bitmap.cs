@@ -1,8 +1,6 @@
 ﻿using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
-
 using Beutl.Graphics;
-
 using SkiaSharp;
 
 namespace Beutl.Media;
@@ -13,14 +11,23 @@ public sealed class Bitmap : ICloneable, IDisposable
     private readonly BitmapColorSpace _colorSpace;
     private readonly bool _ownsData;
 
-    public Bitmap(int width, int height,
+    public Bitmap(
+        int width,
+        int height,
         BitmapColorType colorType = BitmapColorType.Bgra8888,
         BitmapAlphaType alphaType = BitmapAlphaType.Unpremul,
-        BitmapColorSpace? colorSpace = null)
+        BitmapColorSpace? colorSpace = null
+    )
     {
         ThrowOutOfRange(width, height);
         _colorSpace = colorSpace ?? BitmapColorSpace.Srgb;
-        var info = new SKImageInfo(width, height, colorType.ToSKColorType(), alphaType.ToSKAlphaType(), _colorSpace.SKColorSpace);
+        var info = new SKImageInfo(
+            width,
+            height,
+            colorType.ToSKColorType(),
+            alphaType.ToSKAlphaType(),
+            _colorSpace.SKColorSpace
+        );
         _skBitmap = new SKBitmap(info);
         _skBitmap.Erase(SKColor.Empty);
         _ownsData = true;
@@ -41,13 +48,25 @@ public sealed class Bitmap : ICloneable, IDisposable
         _ownsData = ownsData;
     }
 
-    internal Bitmap(IntPtr data, int width, int height, int rowBytes,
-        BitmapColorType colorType, BitmapAlphaType alphaType, BitmapColorSpace? colorSpace)
+    internal Bitmap(
+        IntPtr data,
+        int width,
+        int height,
+        int rowBytes,
+        BitmapColorType colorType,
+        BitmapAlphaType alphaType,
+        BitmapColorSpace? colorSpace
+    )
     {
         ThrowOutOfRange(width, height);
         _colorSpace = colorSpace ?? BitmapColorSpace.Srgb;
-        var info = new SKImageInfo(width, height, colorType.ToSKColorType(),
-            alphaType.ToSKAlphaType(), _colorSpace.SKColorSpace);
+        var info = new SKImageInfo(
+            width,
+            height,
+            colorType.ToSKColorType(),
+            alphaType.ToSKAlphaType(),
+            _colorSpace.SKColorSpace
+        );
         _skBitmap = new SKBitmap();
         if (!_skBitmap.InstallPixels(info, data, rowBytes))
             throw new InvalidOperationException("Failed to install external pixels into SKBitmap.");
@@ -71,9 +90,11 @@ public sealed class Bitmap : ICloneable, IDisposable
 
     public IntPtr Data => _skBitmap.GetPixels();
 
-    public BitmapColorType ColorType => BitmapColorTypeExtensions.FromSKColorType(_skBitmap.ColorType);
+    public BitmapColorType ColorType =>
+        BitmapColorTypeExtensions.FromSKColorType(_skBitmap.ColorType);
 
-    public BitmapAlphaType AlphaType => BitmapAlphaTypeExtensions.FromSKAlphaType(_skBitmap.AlphaType);
+    public BitmapAlphaType AlphaType =>
+        BitmapAlphaTypeExtensions.FromSKAlphaType(_skBitmap.AlphaType);
 
     public BitmapColorSpace ColorSpace => _colorSpace;
 
@@ -81,7 +102,8 @@ public sealed class Bitmap : ICloneable, IDisposable
 
     internal SKBitmap SKBitmap => _skBitmap;
 
-    public BitmapInfo Info => new(Width, Height, ByteCount, BytesPerPixel, ColorType, AlphaType, _colorSpace);
+    public BitmapInfo Info =>
+        new(Width, Height, ByteCount, BytesPerPixel, ColorType, AlphaType, _colorSpace);
 
     public unsafe Span<byte> GetPixelSpan()
     {
@@ -89,7 +111,8 @@ public sealed class Bitmap : ICloneable, IDisposable
         return new Span<byte>((void*)Data, ByteCount);
     }
 
-    public unsafe Span<T> GetPixelSpan<T>() where T : unmanaged
+    public unsafe Span<T> GetPixelSpan<T>()
+        where T : unmanaged
     {
         ThrowIfDisposed();
         return MemoryMarshal.Cast<byte, T>(new Span<byte>((void*)Data, ByteCount));
@@ -103,7 +126,8 @@ public sealed class Bitmap : ICloneable, IDisposable
         return new Span<byte>(ptr, Width * BytesPerPixel);
     }
 
-    public unsafe Span<T> GetRow<T>(int y) where T : unmanaged
+    public unsafe Span<T> GetRow<T>(int y)
+        where T : unmanaged
     {
         ThrowIfDisposed();
         ThrowRowOutOfRange(y);
@@ -123,12 +147,17 @@ public sealed class Bitmap : ICloneable, IDisposable
         {
             byte* srcBase = (byte*)Data;
             byte* dstBase = (byte*)result.Data;
-            Parallel.For(0, roi.Height, y =>
-            {
-                byte* src = srcBase + (long)(y + roi.Y) * RowBytes + (long)roi.X * BytesPerPixel;
-                byte* dst = dstBase + (long)y * result.RowBytes;
-                Buffer.MemoryCopy(src, dst, bytesPerRow, bytesPerRow);
-            });
+            Parallel.For(
+                0,
+                roi.Height,
+                y =>
+                {
+                    byte* src =
+                        srcBase + (long)(y + roi.Y) * RowBytes + (long)roi.X * BytesPerPixel;
+                    byte* dst = dstBase + (long)y * result.RowBytes;
+                    Buffer.MemoryCopy(src, dst, bytesPerRow, bytesPerRow);
+                }
+            );
         }
 
         return result;
@@ -139,7 +168,10 @@ public sealed class Bitmap : ICloneable, IDisposable
         ThrowIfDisposed();
         source.ThrowIfDisposed();
         if (source.BytesPerPixel != BytesPerPixel)
-            throw new ArgumentException($"Pixel format mismatch: source has {source.BytesPerPixel} bytes per pixel, destination has {BytesPerPixel}.", nameof(source));
+            throw new ArgumentException(
+                $"Pixel format mismatch: source has {source.BytesPerPixel} bytes per pixel, destination has {BytesPerPixel}.",
+                nameof(source)
+            );
         ThrowOutOfRange(destRoi);
 
         int bytesPerRow = Math.Min(source.Width, destRoi.Width) * BytesPerPixel;
@@ -149,12 +181,19 @@ public sealed class Bitmap : ICloneable, IDisposable
             byte* srcBase = (byte*)source.Data;
             byte* dstBase = (byte*)Data;
             int rowsToCopy = Math.Min(source.Height, destRoi.Height);
-            Parallel.For(0, rowsToCopy, y =>
-            {
-                byte* src = srcBase + (long)y * source.RowBytes;
-                byte* dst = dstBase + (long)(y + destRoi.Y) * RowBytes + (long)destRoi.X * BytesPerPixel;
-                Buffer.MemoryCopy(src, dst, bytesPerRow, bytesPerRow);
-            });
+            Parallel.For(
+                0,
+                rowsToCopy,
+                y =>
+                {
+                    byte* src = srcBase + (long)y * source.RowBytes;
+                    byte* dst =
+                        dstBase
+                        + (long)(y + destRoi.Y) * RowBytes
+                        + (long)destRoi.X * BytesPerPixel;
+                    Buffer.MemoryCopy(src, dst, bytesPerRow, bytesPerRow);
+                }
+            );
         }
     }
 
@@ -162,7 +201,8 @@ public sealed class Bitmap : ICloneable, IDisposable
     {
         ArgumentNullException.ThrowIfNull(stream);
         var skBitmap = SKBitmap.Decode(stream);
-        if (skBitmap == null) throw new InvalidOperationException("Failed to decode bitmap from stream.");
+        if (skBitmap == null)
+            throw new InvalidOperationException("Failed to decode bitmap from stream.");
 
         return new Bitmap(skBitmap);
     }
@@ -170,15 +210,21 @@ public sealed class Bitmap : ICloneable, IDisposable
     public static Bitmap FromFile(string file)
     {
         ArgumentNullException.ThrowIfNull(file);
-        if (!File.Exists(file)) throw new FileNotFoundException(null, file);
+        if (!File.Exists(file))
+            throw new FileNotFoundException(null, file);
 
         var skBitmap = SKBitmap.Decode(file);
-        if (skBitmap == null) throw new InvalidOperationException($"Failed to decode bitmap from file: {file}");
+        if (skBitmap == null)
+            throw new InvalidOperationException($"Failed to decode bitmap from file: {file}");
 
         return new Bitmap(skBitmap);
     }
 
-    public bool Save(string file, EncodedImageFormat format = EncodedImageFormat.Default, int quality = 100)
+    public bool Save(
+        string file,
+        EncodedImageFormat format = EncodedImageFormat.Default,
+        int quality = 100
+    )
     {
         ArgumentNullException.ThrowIfNull(file);
         ThrowIfDisposed();
@@ -196,7 +242,11 @@ public sealed class Bitmap : ICloneable, IDisposable
         return _skBitmap.Encode(stream, (SKEncodedImageFormat)format, quality);
     }
 
-    public bool Save(Stream stream, EncodedImageFormat format = EncodedImageFormat.Default, int quality = 100)
+    public bool Save(
+        Stream stream,
+        EncodedImageFormat format = EncodedImageFormat.Default,
+        int quality = 100
+    )
     {
         ArgumentNullException.ThrowIfNull(stream);
         ThrowIfDisposed();
@@ -212,13 +262,23 @@ public sealed class Bitmap : ICloneable, IDisposable
         return _skBitmap.Encode(stream, (SKEncodedImageFormat)format, quality);
     }
 
-    public Bitmap Convert(BitmapColorType colorType, BitmapAlphaType? alphaType = null, BitmapColorSpace? colorSpace = null)
+    public Bitmap Convert(
+        BitmapColorType colorType,
+        BitmapAlphaType? alphaType = null,
+        BitmapColorSpace? colorSpace = null
+    )
     {
         ThrowIfDisposed();
         var destAlpha = alphaType ?? AlphaType;
         var destColorSpace = colorSpace ?? _colorSpace;
 
-        var destInfo = new SKImageInfo(Width, Height, colorType.ToSKColorType(), destAlpha.ToSKAlphaType(), destColorSpace.SKColorSpace);
+        var destInfo = new SKImageInfo(
+            Width,
+            Height,
+            colorType.ToSKColorType(),
+            destAlpha.ToSKAlphaType(),
+            destColorSpace.SKColorSpace
+        );
         var destBitmap = new SKBitmap(destInfo);
         using var canvas = new SKCanvas(destBitmap);
         using var paint = new SKPaint { BlendMode = SKBlendMode.Src };
@@ -249,33 +309,41 @@ public sealed class Bitmap : ICloneable, IDisposable
         {
             byte* basePtr = (byte*)Data;
             int bpp = BytesPerPixel;
-            Parallel.For(0, Height, y =>
-            {
-                var row = new Span<byte>(basePtr + (long)y * RowBytes, rowBytes);
-                Span<byte> tmp = stackalloc byte[bpp];
-                for (int left = 0, right = Width - 1; left < right; left++, right--)
+            Parallel.For(
+                0,
+                Height,
+                y =>
                 {
-                    row.Slice(left * bpp, bpp).CopyTo(tmp);
-                    row.Slice(right * bpp, bpp).CopyTo(row.Slice(left * bpp, bpp));
-                    tmp.CopyTo(row.Slice(right * bpp, bpp));
+                    var row = new Span<byte>(basePtr + (long)y * RowBytes, rowBytes);
+                    Span<byte> tmp = stackalloc byte[bpp];
+                    for (int left = 0, right = Width - 1; left < right; left++, right--)
+                    {
+                        row.Slice(left * bpp, bpp).CopyTo(tmp);
+                        row.Slice(right * bpp, bpp).CopyTo(row.Slice(left * bpp, bpp));
+                        tmp.CopyTo(row.Slice(right * bpp, bpp));
+                    }
                 }
-            });
+            );
         }
 
         if (mode is FlipMode.X or FlipMode.XY)
         {
             byte* basePtr = (byte*)Data;
-            Parallel.For(0, Height / 2, top =>
-            {
-                int bottom = Height - top - 1;
-                Span<byte> tmp = stackalloc byte[rowBytes];
-                var topSpan = new Span<byte>(basePtr + (long)top * RowBytes, rowBytes);
-                var bottomSpan = new Span<byte>(basePtr + (long)bottom * RowBytes, rowBytes);
+            Parallel.For(
+                0,
+                Height / 2,
+                top =>
+                {
+                    int bottom = Height - top - 1;
+                    Span<byte> tmp = stackalloc byte[rowBytes];
+                    var topSpan = new Span<byte>(basePtr + (long)top * RowBytes, rowBytes);
+                    var bottomSpan = new Span<byte>(basePtr + (long)bottom * RowBytes, rowBytes);
 
-                topSpan.CopyTo(tmp);
-                bottomSpan.CopyTo(topSpan);
-                tmp.CopyTo(bottomSpan);
-            });
+                    topSpan.CopyTo(tmp);
+                    bottomSpan.CopyTo(topSpan);
+                    tmp.CopyTo(bottomSpan);
+                }
+            );
         }
     }
 
@@ -336,7 +404,10 @@ public sealed class Bitmap : ICloneable, IDisposable
         if (y < 0)
             throw new ArgumentOutOfRangeException(nameof(y), "'y' is less than 0.");
         else if (y >= Height)
-            throw new ArgumentOutOfRangeException(nameof(y), $"'y' is more than or equal to {Height}");
+            throw new ArgumentOutOfRangeException(
+                nameof(y),
+                $"'y' is more than or equal to {Height}"
+            );
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -344,7 +415,9 @@ public sealed class Bitmap : ICloneable, IDisposable
     {
         if (roi.X < 0 || roi.Y < 0 || roi.Width < 0 || roi.Height < 0)
             throw new ArgumentOutOfRangeException(nameof(roi));
-        if (roi.Bottom > Height) throw new ArgumentOutOfRangeException(nameof(roi));
-        if (roi.Right > Width) throw new ArgumentOutOfRangeException(nameof(roi));
+        if (roi.Bottom > Height)
+            throw new ArgumentOutOfRangeException(nameof(roi));
+        if (roi.Right > Width)
+            throw new ArgumentOutOfRangeException(nameof(roi));
     }
 }

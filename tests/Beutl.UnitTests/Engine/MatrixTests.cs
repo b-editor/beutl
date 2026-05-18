@@ -135,7 +135,10 @@ public class MatrixTests
     {
         Matrix m = Matrix.CreateScale(2, 3) * Matrix.CreateTranslation(5, 6);
 
-        Assert.That(m.TryDecomposeTransform(out Vector translate, out Vector scale, out _, out _), Is.True);
+        Assert.That(
+            m.TryDecomposeTransform(out Vector translate, out Vector scale, out _, out _),
+            Is.True
+        );
         Assert.That(translate.X, Is.EqualTo(5).Within(1e-4f));
         Assert.That(translate.Y, Is.EqualTo(6).Within(1e-4f));
         Assert.That(scale.X, Is.EqualTo(2).Within(1e-4f));

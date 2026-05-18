@@ -83,7 +83,5 @@ public class Chunk
         ModifyChunkData(position, BitConverter.GetBytes(newData));
     }
 
-    protected virtual void ParseData(MemoryStream ms)
-    {
-    }
+    protected virtual void ParseData(MemoryStream ms) { }
 }

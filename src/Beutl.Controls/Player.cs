@@ -9,57 +9,73 @@ namespace Beutl.Controls;
 
 public class Player : RangeBase
 {
-    public static readonly StyledProperty<string> DurationProperty = AvaloniaProperty.Register<Player, string>(nameof(Duration));
-    public static readonly StyledProperty<object> ContentProperty = AvaloniaProperty.Register<Player, object>(nameof(InnerLeftContent));
-    public static readonly StyledProperty<object> InnerLeftContentProperty = AvaloniaProperty.Register<Player, object>(nameof(InnerLeftContent));
-    public static readonly StyledProperty<object> InnerRightContentProperty = AvaloniaProperty.Register<Player, object>(nameof(InnerRightContent));
+    public static readonly StyledProperty<string> DurationProperty = AvaloniaProperty.Register<
+        Player,
+        string
+    >(nameof(Duration));
+    public static readonly StyledProperty<object> ContentProperty = AvaloniaProperty.Register<
+        Player,
+        object
+    >(nameof(InnerLeftContent));
+    public static readonly StyledProperty<object> InnerLeftContentProperty =
+        AvaloniaProperty.Register<Player, object>(nameof(InnerLeftContent));
+    public static readonly StyledProperty<object> InnerRightContentProperty =
+        AvaloniaProperty.Register<Player, object>(nameof(InnerRightContent));
     public static readonly DirectProperty<Player, string> CurrentTimeProperty =
         AvaloniaProperty.RegisterDirect<Player, string>(
             nameof(CurrentTime),
             owner => owner.CurrentTime,
-            (owner, obj) => owner.CurrentTime = obj);
+            (owner, obj) => owner.CurrentTime = obj
+        );
     public static readonly DirectProperty<Player, bool> IsPlayingProperty =
         AvaloniaProperty.RegisterDirect<Player, bool>(
             nameof(IsPlaying),
             owner => owner.IsPlaying,
-            (owner, obj) => owner.IsPlaying = obj);
+            (owner, obj) => owner.IsPlaying = obj
+        );
 
     public static readonly DirectProperty<Player, bool> IsLoopEnabledProperty =
         AvaloniaProperty.RegisterDirect<Player, bool>(
             nameof(IsLoopEnabled),
             owner => owner.IsLoopEnabled,
             (owner, obj) => owner.IsLoopEnabled = obj,
-            defaultBindingMode: BindingMode.TwoWay);
+            defaultBindingMode: BindingMode.TwoWay
+        );
 
     public static readonly DirectProperty<Player, ICommand> PlayButtonCommandProperty =
         AvaloniaProperty.RegisterDirect<Player, ICommand>(
             nameof(PlayButtonCommand),
             owner => owner.PlayButtonCommand,
-            (owner, obj) => owner.PlayButtonCommand = obj);
+            (owner, obj) => owner.PlayButtonCommand = obj
+        );
 
     public static readonly DirectProperty<Player, ICommand> NextButtonCommandProperty =
         AvaloniaProperty.RegisterDirect<Player, ICommand>(
             nameof(NextButtonCommand),
             owner => owner.NextButtonCommand,
-            (owner, obj) => owner.NextButtonCommand = obj);
+            (owner, obj) => owner.NextButtonCommand = obj
+        );
 
     public static readonly DirectProperty<Player, ICommand> PreviousButtonCommandProperty =
         AvaloniaProperty.RegisterDirect<Player, ICommand>(
             nameof(PreviousButtonCommand),
             owner => owner.PreviousButtonCommand,
-            (owner, obj) => owner.PreviousButtonCommand = obj);
+            (owner, obj) => owner.PreviousButtonCommand = obj
+        );
 
     public static readonly DirectProperty<Player, ICommand> EndButtonCommandProperty =
         AvaloniaProperty.RegisterDirect<Player, ICommand>(
             nameof(EndButtonCommand),
             owner => owner.EndButtonCommand,
-            (owner, obj) => owner.EndButtonCommand = obj);
+            (owner, obj) => owner.EndButtonCommand = obj
+        );
 
     public static readonly DirectProperty<Player, ICommand> StartButtonCommandProperty =
         AvaloniaProperty.RegisterDirect<Player, ICommand>(
             nameof(StartButtonCommand),
             owner => owner.StartButtonCommand,
-            (owner, obj) => owner.StartButtonCommand = obj);
+            (owner, obj) => owner.StartButtonCommand = obj
+        );
 
     private string _currentTime = string.Empty;
     private bool _isPlaying;

@@ -51,12 +51,7 @@ public partial class CubeFile : IEquatable<CubeFile>
 
         int index = pos[0] + pos[1] * lut_size + pos[2] * lut_size_2;
 
-        Span<int> next_index =
-        [
-            1,
-            lut_size,
-            lut_size_2
-        ];
+        Span<int> next_index = [1, lut_size, lut_size_2];
 
         if (index % lut_size == lut_size - 1)
         {
@@ -141,7 +136,8 @@ public partial class CubeFile : IEquatable<CubeFile>
             out CubeFileDimension dim,
             out int size,
             out Vector3 min,
-            out Vector3 max);
+            out Vector3 max
+        );
 
         int length = (int)Math.Pow(size, (int)dim);
         Vector3[] data = new Vector3[length];
@@ -152,11 +148,29 @@ public partial class CubeFile : IEquatable<CubeFile>
             if (line is not null && !line.StartsWith('#'))
             {
                 string[] values = line.Split(' ');
-                if (values.Length != 3) continue;
+                if (values.Length != 3)
+                    continue;
 
-                if (float.TryParse(values[0], NumberStyles.Float, CultureInfo.InvariantCulture, out float r) &&
-                    float.TryParse(values[1], NumberStyles.Float, CultureInfo.InvariantCulture, out float g) &&
-                    float.TryParse(values[2], NumberStyles.Float, CultureInfo.InvariantCulture, out float b))
+                if (
+                    float.TryParse(
+                        values[0],
+                        NumberStyles.Float,
+                        CultureInfo.InvariantCulture,
+                        out float r
+                    )
+                    && float.TryParse(
+                        values[1],
+                        NumberStyles.Float,
+                        CultureInfo.InvariantCulture,
+                        out float g
+                    )
+                    && float.TryParse(
+                        values[2],
+                        NumberStyles.Float,
+                        CultureInfo.InvariantCulture,
+                        out float b
+                    )
+                )
                 {
                     data[i] = new(r, g, b);
                     i++;
@@ -171,11 +185,18 @@ public partial class CubeFile : IEquatable<CubeFile>
             Size = size,
             Min = min,
             Max = max,
-            Data = data
+            Data = data,
         };
     }
 
-    private static void ReadInfo(StreamReader reader, out string title, out CubeFileDimension dim, out int size, out Vector3 min, out Vector3 max)
+    private static void ReadInfo(
+        StreamReader reader,
+        out string title,
+        out CubeFileDimension dim,
+        out int size,
+        out Vector3 min,
+        out Vector3 max
+    )
     {
         title = string.Empty;
         dim = CubeFileDimension.ThreeDimension;
@@ -189,7 +210,8 @@ public partial class CubeFile : IEquatable<CubeFile>
 
         while (!reader.EndOfStream)
         {
-            if (titleFound && lutSizeFound && minFound && maxFound) break;
+            if (titleFound && lutSizeFound && minFound && maxFound)
+                break;
             string? line = reader.ReadLine();
             if (line is not null)
             {
@@ -229,7 +251,10 @@ public partial class CubeFile : IEquatable<CubeFile>
                     maxFound = true;
                     Match match = s_domainMaxReg.Match(line);
                     float r = float.Parse(match.Groups["red"].Value, CultureInfo.InvariantCulture);
-                    float g = float.Parse(match.Groups["green"].Value, CultureInfo.InvariantCulture);
+                    float g = float.Parse(
+                        match.Groups["green"].Value,
+                        CultureInfo.InvariantCulture
+                    );
                     float b = float.Parse(match.Groups["blue"].Value, CultureInfo.InvariantCulture);
                     max = new(r, g, b);
                 }
@@ -238,7 +263,10 @@ public partial class CubeFile : IEquatable<CubeFile>
                     minFound = true;
                     Match match = s_domainMinReg.Match(line);
                     float r = float.Parse(match.Groups["red"].Value, CultureInfo.InvariantCulture);
-                    float g = float.Parse(match.Groups["green"].Value, CultureInfo.InvariantCulture);
+                    float g = float.Parse(
+                        match.Groups["green"].Value,
+                        CultureInfo.InvariantCulture
+                    );
                     float b = float.Parse(match.Groups["blue"].Value, CultureInfo.InvariantCulture);
                     min = new(r, g, b);
                 }

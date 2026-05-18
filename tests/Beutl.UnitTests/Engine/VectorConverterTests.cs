@@ -43,7 +43,8 @@ public class VectorConverterTests
     public void ConvertTo_Tuple_ReturnsXY()
     {
         var v = new Vector(3, 4);
-        var result = (Tuple<float, float>)_converter.ConvertTo(null, null, v, typeof(Tuple<float, float>))!;
+        var result =
+            (Tuple<float, float>)_converter.ConvertTo(null, null, v, typeof(Tuple<float, float>))!;
         Assert.That(result, Is.EqualTo(new Tuple<float, float>(3, 4)));
     }
 

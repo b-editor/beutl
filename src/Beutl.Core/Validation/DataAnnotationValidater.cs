@@ -4,9 +4,7 @@ namespace Beutl.Validation;
 
 public sealed class DataAnnotationValidater<T> : IValidator<T>
 {
-    public DataAnnotationValidater()
-    {
-    }
+    public DataAnnotationValidater() { }
 
     public DataAnnotationValidater(ValidationAttribute? attribute)
     {
@@ -40,7 +38,9 @@ public sealed class DataAnnotationValidater<T> : IValidator<T>
         }
         else
         {
-            throw new InvalidOperationException("System.ComponentModel.DataAnnotations.ValidationContext required validation is not yet supported.");
+            throw new InvalidOperationException(
+                "System.ComponentModel.DataAnnotations.ValidationContext required validation is not yet supported."
+            );
         }
     }
 }

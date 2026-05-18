@@ -58,7 +58,9 @@ public static class GradingColorHelper
         var hue = color.H;
         var sat = color.S;
         var val = color.V;
-        float r, g, b;
+        float r,
+            g,
+            b;
         r = g = b = val;
 
         if (hue >= 0 && sat >= EPSILON)

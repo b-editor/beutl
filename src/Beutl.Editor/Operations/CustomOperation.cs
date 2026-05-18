@@ -8,7 +8,8 @@ public sealed class CustomOperation : ChangeOperation
     public CustomOperation(
         Action<OperationExecutionContext> apply,
         Action<OperationExecutionContext> revert,
-        string? description = null)
+        string? description = null
+    )
     {
         _apply = apply ?? throw new ArgumentNullException(nameof(apply));
         _revert = revert ?? throw new ArgumentNullException(nameof(revert));
@@ -31,24 +32,25 @@ public sealed class CustomOperation : ChangeOperation
         Action doAction,
         Action undoAction,
         OperationSequenceGenerator sequenceGenerator,
-        string? description = null)
+        string? description = null
+    )
     {
         ArgumentNullException.ThrowIfNull(doAction);
         ArgumentNullException.ThrowIfNull(undoAction);
         ArgumentNullException.ThrowIfNull(sequenceGenerator);
 
-        return new CustomOperation(
-            _ => doAction(),
-            _ => undoAction(),
-            description)
-        { SequenceNumber = sequenceGenerator.GetNext() };
+        return new CustomOperation(_ => doAction(), _ => undoAction(), description)
+        {
+            SequenceNumber = sequenceGenerator.GetNext(),
+        };
     }
 
     public static StateCapturingOperationBuilder<TState> CaptureState<TState>(
         Func<TState> captureState,
         Action<TState> applyState,
         OperationSequenceGenerator sequenceGenerator,
-        string? description = null)
+        string? description = null
+    )
     {
         ArgumentNullException.ThrowIfNull(captureState);
         ArgumentNullException.ThrowIfNull(applyState);
@@ -58,7 +60,8 @@ public sealed class CustomOperation : ChangeOperation
             captureState,
             applyState,
             sequenceGenerator,
-            description);
+            description
+        );
     }
 }
 
@@ -74,7 +77,8 @@ public sealed class StateCapturingOperationBuilder<TState>
         Func<TState> captureState,
         Action<TState> applyState,
         OperationSequenceGenerator sequenceGenerator,
-        string? description)
+        string? description
+    )
     {
         _captureState = captureState;
         _applyState = applyState;
@@ -94,7 +98,10 @@ public sealed class StateCapturingOperationBuilder<TState>
         return new CustomOperation(
             _ => _applyState(toState),
             _ => _applyState(fromState),
-            _description)
-        { SequenceNumber = _sequenceGenerator.GetNext() };
+            _description
+        )
+        {
+            SequenceNumber = _sequenceGenerator.GetNext(),
+        };
     }
 }

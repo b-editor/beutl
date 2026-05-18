@@ -28,9 +28,11 @@ public abstract class ToolTabExtension : ViewExtension
 
     public abstract bool TryCreateContent(
         IEditorContext editorContext,
-        [NotNullWhen(true)] out Control? control);
+        [NotNullWhen(true)] out Control? control
+    );
 
     public abstract bool TryCreateContext(
         IEditorContext editorContext,
-        [NotNullWhen(true)] out IToolContext? context);
+        [NotNullWhen(true)] out IToolContext? context
+    );
 }

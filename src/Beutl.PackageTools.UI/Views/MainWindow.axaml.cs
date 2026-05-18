@@ -1,7 +1,5 @@
 ﻿using Avalonia.Controls;
-
 using Beutl.PackageTools.UI.ViewModels;
-
 using FluentAvalonia.UI.Controls;
 
 namespace Beutl.PackageTools.UI.Views;
@@ -40,7 +38,7 @@ public partial class MainWindow : Window
                 UninstallViewModel => new UninstallPage() { DataContext = target },
                 ResultViewModel => new ResultPage() { DataContext = target },
                 CleanViewModel => new CleanPage() { DataContext = target },
-                _ => null!
+                _ => null!,
             };
         }
     }

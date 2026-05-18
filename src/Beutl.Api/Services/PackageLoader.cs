@@ -1,5 +1,4 @@
 ﻿using System.Reflection;
-
 using NuGet.Frameworks;
 using NuGet.Packaging;
 
@@ -16,9 +15,11 @@ public abstract class PackageLoader : IBeutlApiResource
         NuGetFramework framework = Helper.GetFrameworkName();
         var reader = new PackageFolderReader(installedPath);
 
-        NuGetFramework nearest = Helper.FrameworkReducer
-            .GetNearest(framework, reader.GetPackageDependencies().Select(x => x.TargetFramework))
-            ?? throw new Exception("Unknown Framework");
+        NuGetFramework nearest =
+            Helper.FrameworkReducer.GetNearest(
+                framework,
+                reader.GetPackageDependencies().Select(x => x.TargetFramework)
+            ) ?? throw new Exception("Unknown Framework");
 
         string name = Path.GetFileName(installedPath);
 

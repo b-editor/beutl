@@ -10,7 +10,8 @@ public sealed class PathOperationEditorViewModel : ValueEditorViewModel<PathSegm
     public PathOperationEditorViewModel(IPropertyAdapter<PathSegment?> property)
         : base(property)
     {
-        OpName = Value.Select(v =>
+        OpName = Value
+            .Select(v =>
             {
                 if (v != null)
                 {
@@ -40,13 +41,14 @@ public sealed class PathOperationEditorViewModel : ValueEditorViewModel<PathSegm
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(Disposables);
 
-        IsExpanded.Subscribe(_ => ProgrammaticallyExpanded = false)
-            .DisposeWith(Disposables);
+        IsExpanded.Subscribe(_ => ProgrammaticallyExpanded = false).DisposeWith(Disposables);
 
-        IsExpanded.SkipWhile(v => !v)
+        IsExpanded
+            .SkipWhile(v => !v)
             .Take(1)
             .Subscribe(_ =>
-                Value.Subscribe(v =>
+                Value
+                    .Subscribe(v =>
                     {
                         Properties.Value?.Dispose();
                         Properties.Value = null;
@@ -58,9 +60,9 @@ public sealed class PathOperationEditorViewModel : ValueEditorViewModel<PathSegm
 
                         AcceptProperties();
                     })
-                    .DisposeWith(Disposables))
+                    .DisposeWith(Disposables)
+            )
             .DisposeWith(Disposables);
-
     }
 
     public ReadOnlyReactivePropertySlim<string?> OpName { get; }
@@ -108,23 +110,25 @@ public sealed class PathOperationEditorViewModel : ValueEditorViewModel<PathSegm
         base.ReadFromJson(json);
         try
         {
-            if (json.TryGetPropertyValue(nameof(IsExpanded), out var isExpandedNode)
-                && isExpandedNode is JsonValue isExpanded)
+            if (
+                json.TryGetPropertyValue(nameof(IsExpanded), out var isExpandedNode)
+                && isExpandedNode is JsonValue isExpanded
+            )
             {
                 IsExpanded.Value = (bool)isExpanded;
             }
 
-            if (json.TryGetPropertyValue(nameof(ProgrammaticallyExpanded), out var pExpandedNode)
-                && isExpandedNode is JsonValue pExpanded)
+            if (
+                json.TryGetPropertyValue(nameof(ProgrammaticallyExpanded), out var pExpandedNode)
+                && isExpandedNode is JsonValue pExpanded
+            )
             {
                 ProgrammaticallyExpanded = (bool)pExpanded;
             }
 
             Properties.Value?.ReadFromJson(json);
         }
-        catch
-        {
-        }
+        catch { }
     }
 
     public override void WriteToJson(JsonObject json)
@@ -136,9 +140,7 @@ public sealed class PathOperationEditorViewModel : ValueEditorViewModel<PathSegm
             json[nameof(ProgrammaticallyExpanded)] = ProgrammaticallyExpanded;
             Properties.Value?.WriteToJson(json);
         }
-        catch
-        {
-        }
+        catch { }
     }
 
     protected override void Dispose(bool disposing)
@@ -147,15 +149,15 @@ public sealed class PathOperationEditorViewModel : ValueEditorViewModel<PathSegm
         Properties.Value?.Dispose();
     }
 
-    private sealed record Visitor(PathOperationEditorViewModel Obj) : IServiceProvider, IPropertyEditorContextVisitor
+    private sealed record Visitor(PathOperationEditorViewModel Obj)
+        : IServiceProvider,
+            IPropertyEditorContextVisitor
     {
         public object? GetService(Type serviceType)
         {
             return Obj.GetService(serviceType);
         }
 
-        public void Visit(IPropertyEditorContext context)
-        {
-        }
+        public void Visit(IPropertyEditorContext context) { }
     }
 }

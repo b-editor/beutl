@@ -6,8 +6,10 @@ using Beutl.Serialization;
 
 #if BEUTL_FFMPEG_WORKER
 namespace Beutl.FFmpegWorker.Encoding;
+
 #else
 namespace Beutl.Extensions.FFmpeg.Encoding;
+
 #endif
 
 public sealed class AdditionalOption : CoreObject
@@ -21,12 +23,11 @@ public sealed class AdditionalOption : CoreObject
             .Register();
 
         NameProperty.OverrideMetadata<AdditionalOption>(
-            new CorePropertyMetadata<string>(attributes: [new BrowsableAttribute(true)]));
+            new CorePropertyMetadata<string>(attributes: [new BrowsableAttribute(true)])
+        );
     }
 
-    public AdditionalOption()
-    {
-    }
+    public AdditionalOption() { }
 
     public AdditionalOption(string name, string value)
     {
@@ -70,23 +71,33 @@ public sealed class FFmpegVideoEncoderSettings : VideoEncoderSettings
             .DefaultValue(CodecRecord.Default)
             .Register();
 
-        ColorPrimariesProperty = ConfigureProperty<FFColorPrimaries, FFmpegVideoEncoderSettings>(nameof(ColorPrimaries))
+        ColorPrimariesProperty = ConfigureProperty<FFColorPrimaries, FFmpegVideoEncoderSettings>(
+                nameof(ColorPrimaries)
+            )
             .DefaultValue(FFColorPrimaries.UNSPECIFIED)
             .Register();
 
-        ColorTrcProperty = ConfigureProperty<FFColorTransfer, FFmpegVideoEncoderSettings>(nameof(ColorTrc))
+        ColorTrcProperty = ConfigureProperty<FFColorTransfer, FFmpegVideoEncoderSettings>(
+                nameof(ColorTrc)
+            )
             .DefaultValue(FFColorTransfer.UNSPECIFIED)
             .Register();
 
-        ColorSpaceProperty = ConfigureProperty<FFColorSpace, FFmpegVideoEncoderSettings>(nameof(ColorSpace))
+        ColorSpaceProperty = ConfigureProperty<FFColorSpace, FFmpegVideoEncoderSettings>(
+                nameof(ColorSpace)
+            )
             .DefaultValue(FFColorSpace.UNSPECIFIED)
             .Register();
 
-        ColorRangeProperty = ConfigureProperty<FFColorRange, FFmpegVideoEncoderSettings>(nameof(ColorRange))
+        ColorRangeProperty = ConfigureProperty<FFColorRange, FFmpegVideoEncoderSettings>(
+                nameof(ColorRange)
+            )
             .DefaultValue(FFColorRange.UNSPECIFIED)
             .Register();
 
-        OptionsProperty = ConfigureProperty<CoreList<AdditionalOption>, FFmpegVideoEncoderSettings>(nameof(Options))
+        OptionsProperty = ConfigureProperty<CoreList<AdditionalOption>, FFmpegVideoEncoderSettings>(
+                nameof(Options)
+            )
             .Register();
     }
 
@@ -97,7 +108,7 @@ public sealed class FFmpegVideoEncoderSettings : VideoEncoderSettings
             new("preset", "medium"),
             new("crf", "22"),
             new("profile", "high"),
-            new("level", "4.0")
+            new("level", "4.0"),
         ];
     }
 
@@ -153,7 +164,8 @@ public sealed class FFmpegVideoEncoderSettings : VideoEncoderSettings
         string? codecName = context.GetValue<string>(nameof(Codec));
         if (codecName != null)
         {
-            Codec = VideoCodecChoicesProvider.GetChoices()
+            Codec = VideoCodecChoicesProvider
+                .GetChoices()
                 .Cast<CodecRecord>()
                 .FirstOrDefault(i => i.Name == codecName, CodecRecord.Default);
         }
@@ -172,16 +184,19 @@ public sealed class FFmpegVideoEncoderSettings : VideoEncoderSettings
 
     private void SetOption(ICoreSerializationContext context, string key, string newKey)
     {
-        if (!context.Contains(key)) return;
+        if (!context.Contains(key))
+            return;
 
         string? value = context.GetValue<string>(key);
-        if (string.IsNullOrEmpty(value)) return;
+        if (string.IsNullOrEmpty(value))
+            return;
         bool unset = value.Equals("(unset)", StringComparison.OrdinalIgnoreCase);
 
         AdditionalOption? option = Options.FirstOrDefault(i => i.Name == newKey);
         if (option == null)
         {
-            if (unset) return;
+            if (unset)
+                return;
             option = new AdditionalOption(newKey, value);
             Options.Add(option);
         }
@@ -205,8 +220,12 @@ public class VideoCodecChoicesProvider : IChoicesProvider
 #if FFMPEG_OUT_OF_PROCESS
         return FFmpegWorkerCodecCache.GetVideoCodecs();
 #else
-        return FFmpegSharp.MediaCodec.GetCodecs()
-            .Where(i => i.IsEncoder && i.Type == global::FFmpeg.AutoGen.Abstractions.AVMediaType.AVMEDIA_TYPE_VIDEO)
+        return FFmpegSharp
+            .MediaCodec.GetCodecs()
+            .Where(i =>
+                i.IsEncoder
+                && i.Type == global::FFmpeg.AutoGen.Abstractions.AVMediaType.AVMEDIA_TYPE_VIDEO
+            )
             .Select(i => (object)new CodecRecord(i.Name, i.LongName))
             .Prepend(CodecRecord.Default)
             .ToArray();

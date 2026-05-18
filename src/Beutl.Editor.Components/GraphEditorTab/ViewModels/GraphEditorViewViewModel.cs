@@ -1,13 +1,10 @@
 ﻿using System.Collections;
 using System.Collections.Specialized;
-
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Media;
 using Avalonia.Media.Immutable;
-
 using Beutl.Animation;
-
 using Reactive.Bindings;
 
 namespace Beutl.Editor.Components.GraphEditorTab.ViewModels;
@@ -20,14 +17,20 @@ public sealed class GraphEditorViewViewModel : IDisposable
     private readonly ImmutableSolidColorBrush? _specifiedColor;
 
     public delegate double ConvertToDelegate(object? obj);
-    public delegate bool TryConvertFromDelegate(object? oldValue, double value, Type type, out object? obj);
+    public delegate bool TryConvertFromDelegate(
+        object? oldValue,
+        double value,
+        Type type,
+        out object? obj
+    );
 
     public GraphEditorViewViewModel(
         GraphEditorViewModel parent,
         string? viewName = null,
         ConvertToDelegate? convertTo = null,
         TryConvertFromDelegate? convertFrom = null,
-        Color? color = null)
+        Color? color = null
+    )
     {
         Parent = parent;
         Name = viewName;
@@ -37,7 +40,8 @@ public sealed class GraphEditorViewViewModel : IDisposable
         AddKeyFrames();
         Parent.Animation.KeyFrames.CollectionChanged += OnKeyFramesCollectionChanged;
 
-        IsSelected = parent.SelectedView.Select(x => x == this)
+        IsSelected = parent
+            .SelectedView.Select(x => x == this)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
 
@@ -46,7 +50,8 @@ public sealed class GraphEditorViewViewModel : IDisposable
             _specifiedColor = new ImmutableSolidColorBrush(color.Value);
         }
 
-        Stroke = Application.Current!.GetResourceObservable("TextControlForeground")
+        Stroke = Application
+            .Current!.GetResourceObservable("TextControlForeground")
             .Select(x => _specifiedColor ?? (x as IBrush))
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
@@ -132,8 +137,12 @@ public sealed class GraphEditorViewViewModel : IDisposable
         {
             var viewModel = new GraphEditorKeyFrameViewModel(item, this);
             viewModel.EndY.Subscribe(_ => VerticalRangeChanged?.Invoke(this, EventArgs.Empty));
-            viewModel.ControlPoint1.Subscribe(_ => VerticalRangeChanged?.Invoke(this, EventArgs.Empty));
-            viewModel.ControlPoint2.Subscribe(_ => VerticalRangeChanged?.Invoke(this, EventArgs.Empty));
+            viewModel.ControlPoint1.Subscribe(_ =>
+                VerticalRangeChanged?.Invoke(this, EventArgs.Empty)
+            );
+            viewModel.ControlPoint2.Subscribe(_ =>
+                VerticalRangeChanged?.Invoke(this, EventArgs.Empty)
+            );
             viewModel.SetPrevious(prev);
             KeyFrames.Insert(index++, viewModel);
             prev = viewModel;
@@ -171,8 +180,12 @@ public sealed class GraphEditorViewViewModel : IDisposable
             {
                 var viewModel = new GraphEditorKeyFrameViewModel(item, this);
                 viewModel.EndY.Subscribe(_ => VerticalRangeChanged?.Invoke(this, EventArgs.Empty));
-                viewModel.ControlPoint1.Subscribe(_ => VerticalRangeChanged?.Invoke(this, EventArgs.Empty));
-                viewModel.ControlPoint2.Subscribe(_ => VerticalRangeChanged?.Invoke(this, EventArgs.Empty));
+                viewModel.ControlPoint1.Subscribe(_ =>
+                    VerticalRangeChanged?.Invoke(this, EventArgs.Empty)
+                );
+                viewModel.ControlPoint2.Subscribe(_ =>
+                    VerticalRangeChanged?.Invoke(this, EventArgs.Empty)
+                );
                 viewModel.SetPrevious(TryGet(index - 1));
                 KeyFrames.Insert(index, viewModel);
                 index++;

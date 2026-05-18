@@ -40,7 +40,8 @@ public sealed class LevelMeterControl : AudioVisualizerControlBase
         context.FillRectangle(Brushes.Transparent, bounds);
 
         AudioSampleRingBuffer? buffer = RingBuffer;
-        if (buffer == null || bounds.Width < 20 || bounds.Height < 20) return;
+        if (buffer == null || bounds.Width < 20 || bounds.Height < 20)
+            return;
 
         var (rmsL, rmsR, peakL, peakR) = buffer.ComputeMeters(RmsWindowSamples, PlayheadTime);
         DateTime now = DateTime.UtcNow;
@@ -50,8 +51,10 @@ public sealed class LevelMeterControl : AudioVisualizerControlBase
         _peakLHold = DecayHold(_peakLHold, peakL, elapsed);
         _peakRHold = DecayHold(_peakRHold, peakR, elapsed);
 
-        if (peakL >= ClipThreshold) _clipLAt = now;
-        if (peakR >= ClipThreshold) _clipRAt = now;
+        if (peakL >= ClipThreshold)
+            _clipLAt = now;
+        if (peakR >= ClipThreshold)
+            _clipRAt = now;
         bool clipL = _clipLAt is { } cl && now - cl < s_clipHold;
         bool clipR = _clipRAt is { } cr && now - cr < s_clipHold;
 
@@ -87,7 +90,15 @@ public sealed class LevelMeterControl : AudioVisualizerControlBase
         DrawChannel(context, rightX, topInset, barWidth, barHeight, rmsR, _peakRHold);
         if (scaleWidth > 0)
         {
-            DrawDbScale(context, scaleX, topInset, scaleWidth, barHeight, leftX, leftX + barWidth * 2 + padding);
+            DrawDbScale(
+                context,
+                scaleX,
+                topInset,
+                scaleWidth,
+                barHeight,
+                leftX,
+                leftX + barWidth * 2 + padding
+            );
         }
 
         DrawLoudnessAndTruePeakText(context, leftX, topInset + barHeight + 4);
@@ -101,7 +112,8 @@ public sealed class LevelMeterControl : AudioVisualizerControlBase
             FlowDirection.LeftToRight,
             Typeface.Default,
             fontSize,
-            Brushes.White);
+            Brushes.White
+        );
         return formatted.Height;
     }
 
@@ -113,14 +125,16 @@ public sealed class LevelMeterControl : AudioVisualizerControlBase
             FlowDirection.LeftToRight,
             Typeface.Default,
             LabelFontSize,
-            Brushes.White);
+            Brushes.White
+        );
         context.DrawText(formatted, new Point(centerX - formatted.Width / 2, topY));
     }
 
     private void UpdateLoudnessAndTruePeak(AudioSampleRingBuffer buffer, double elapsed)
     {
         int sampleRate = buffer.SampleRate;
-        if (sampleRate <= 0) return;
+        if (sampleRate <= 0)
+            return;
 
         int n = (int)(LoudnessWindowSeconds * sampleRate);
         if (_loudnessLeft.Length < n)
@@ -129,8 +143,15 @@ public sealed class LevelMeterControl : AudioVisualizerControlBase
             _loudnessRight = new float[n];
         }
 
-        int got = buffer.ReadAroundTime(PlayheadTime, _loudnessLeft, _loudnessRight, n, out int leadingZeros);
-        if (got <= 0) return;
+        int got = buffer.ReadAroundTime(
+            PlayheadTime,
+            _loudnessLeft,
+            _loudnessRight,
+            n,
+            out int leadingZeros
+        );
+        if (got <= 0)
+            return;
 
         // Exclude the zero-padded prefix from LUFS/true-peak analysis — otherwise
         // the silent samples dilute the mean square and pull the reading toward -∞.
@@ -155,13 +176,26 @@ public sealed class LevelMeterControl : AudioVisualizerControlBase
     {
         Typeface tf = Typeface.Default;
 
-        string lufsLabel = _displayLufs <= -159f
-            ? "M  -∞ LUFS"
-            : $"M {_displayLufs,5:0.0} LUFS";
-        string tpLabel = $"TP L {LinearToDbtp(_truePeakLHold),5:0.0}  R {LinearToDbtp(_truePeakRHold),5:0.0}";
+        string lufsLabel = _displayLufs <= -159f ? "M  -∞ LUFS" : $"M {_displayLufs, 5:0.0} LUFS";
+        string tpLabel =
+            $"TP L {LinearToDbtp(_truePeakLHold), 5:0.0}  R {LinearToDbtp(_truePeakRHold), 5:0.0}";
 
-        var lufsText = new FormattedText(lufsLabel, CultureInfo.InvariantCulture, FlowDirection.LeftToRight, tf, LabelFontSize, Brushes.White);
-        var tpText = new FormattedText(tpLabel, CultureInfo.InvariantCulture, FlowDirection.LeftToRight, tf, LabelFontSize, Brushes.White);
+        var lufsText = new FormattedText(
+            lufsLabel,
+            CultureInfo.InvariantCulture,
+            FlowDirection.LeftToRight,
+            tf,
+            LabelFontSize,
+            Brushes.White
+        );
+        var tpText = new FormattedText(
+            tpLabel,
+            CultureInfo.InvariantCulture,
+            FlowDirection.LeftToRight,
+            tf,
+            LabelFontSize,
+            Brushes.White
+        );
 
         context.DrawText(lufsText, new Point(x, y));
         context.DrawText(tpText, new Point(x, y + lufsText.Height));
@@ -169,11 +203,20 @@ public sealed class LevelMeterControl : AudioVisualizerControlBase
 
     private static float LinearToDbtp(float linear)
     {
-        if (linear <= 0f) return -60f;
+        if (linear <= 0f)
+            return -60f;
         return AudioMath.ConvertLinearToDb(linear);
     }
 
-    private void DrawChannel(DrawingContext context, double x, double y, double w, double h, float rms, float peak)
+    private void DrawChannel(
+        DrawingContext context,
+        double x,
+        double y,
+        double w,
+        double h,
+        float rms,
+        float peak
+    )
     {
         // Background
         var bg = new SolidColorBrush(Color.FromArgb(40, 255, 255, 255));
@@ -195,15 +238,28 @@ public sealed class LevelMeterControl : AudioVisualizerControlBase
         }
     }
 
-    private static void DrawClipLed(DrawingContext context, double x, double y, double w, double h, bool active)
+    private static void DrawClipLed(
+        DrawingContext context,
+        double x,
+        double y,
+        double w,
+        double h,
+        bool active
+    )
     {
-        IBrush bg = active
-            ? Brushes.Red
-            : new SolidColorBrush(Color.FromArgb(60, 255, 80, 80));
+        IBrush bg = active ? Brushes.Red : new SolidColorBrush(Color.FromArgb(60, 255, 80, 80));
         context.FillRectangle(bg, new Rect(x, y, w, h));
     }
 
-    private void DrawDbScale(DrawingContext context, double x, double y, double w, double h, double tickStart, double tickEnd)
+    private void DrawDbScale(
+        DrawingContext context,
+        double x,
+        double y,
+        double w,
+        double h,
+        double tickStart,
+        double tickEnd
+    )
     {
         var tickPen = new Pen(new SolidColorBrush(Colors.Gray, 0.4), 0.5);
 
@@ -221,20 +277,24 @@ public sealed class LevelMeterControl : AudioVisualizerControlBase
                 FlowDirection.LeftToRight,
                 Typeface.Default,
                 LabelFontSize,
-                Brushes.LightGray);
+                Brushes.LightGray
+            );
             // Center label on tick when possible; at edges anchor the label so its
             // top (top tick) or bottom (bottom tick) sits on the tick line —
             // otherwise the label appears visibly offset from its tick.
             double labelY = tickY - formatted.Height / 2;
-            if (labelY < y) labelY = tickY;
-            else if (labelY + formatted.Height > y + h) labelY = tickY - formatted.Height;
+            if (labelY < y)
+                labelY = tickY;
+            else if (labelY + formatted.Height > y + h)
+                labelY = tickY - formatted.Height;
             context.DrawText(formatted, new Point(x + w - formatted.Width - 1, labelY));
         }
     }
 
     private static float DecayHold(float current, float instant, double elapsed)
     {
-        if (instant > current) return instant;
+        if (instant > current)
+            return instant;
         // decay ~6 dB/sec
         float decay = (float)(0.5 * elapsed);
         float v = current - decay;
@@ -251,8 +311,10 @@ public sealed class LevelMeterControl : AudioVisualizerControlBase
     private static double NormalizeDb(float db)
     {
         double t = (db - MinDb) / -MinDb;
-        if (t < 0) return 0;
-        if (t > 1) return 1;
+        if (t < 0)
+            return 0;
+        if (t > 1)
+            return 1;
         return t;
     }
 }

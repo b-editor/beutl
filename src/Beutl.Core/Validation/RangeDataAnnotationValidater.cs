@@ -7,9 +7,7 @@ namespace Beutl.Validation;
 public sealed class RangeDataAnnotationValidater<TNumber> : RangeValidator<TNumber>
     where TNumber : struct, INumber<TNumber>, IMinMaxValue<TNumber>
 {
-    public RangeDataAnnotationValidater()
-    {
-    }
+    public RangeDataAnnotationValidater() { }
 
     public RangeDataAnnotationValidater(RangeAttribute attribute)
     {
@@ -24,9 +22,11 @@ public sealed class RangeDataAnnotationValidater<TNumber> : RangeValidator<TNumb
             Maximum = TNumber.CreateTruncating((int)attribute.Maximum);
             Minimum = TNumber.CreateTruncating((int)attribute.Minimum);
         }
-        else if (Attribute.OperandType == typeof(TNumber)
+        else if (
+            Attribute.OperandType == typeof(TNumber)
             && Attribute.Maximum is string maximumStr
-            && Attribute.Minimum is string minimumStr)
+            && Attribute.Minimum is string minimumStr
+        )
         {
             TypeConverter converter = TypeDescriptor.GetConverter(Attribute.OperandType);
             Maximum = (TNumber)converter.ConvertFromInvariantString(maximumStr)!;
@@ -81,7 +81,9 @@ public sealed class RangeDataAnnotationValidater<TNumber> : RangeValidator<TNumb
         }
         else
         {
-            throw new InvalidOperationException("System.ComponentModel.DataAnnotations.ValidationContext required validation is not yet supported.");
+            throw new InvalidOperationException(
+                "System.ComponentModel.DataAnnotations.ValidationContext required validation is not yet supported."
+            );
         }
     }
 }

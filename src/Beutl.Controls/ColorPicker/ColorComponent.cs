@@ -8,5 +8,5 @@ public enum ColorComponent
     Red,
     Green,
     Blue,
-    Alpha
+    Alpha,
 }

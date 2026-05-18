@@ -12,7 +12,12 @@ using Reactive.Bindings;
 
 namespace Beutl.Controls.PropertyEditors;
 
-public class PinnableLibraryItem(string displayName, bool isPinned, object userData, string? description = null) : IEquatable<PinnableLibraryItem?>
+public class PinnableLibraryItem(
+    string displayName,
+    bool isPinned,
+    object userData,
+    string? description = null
+) : IEquatable<PinnableLibraryItem?>
 {
     public string DisplayName { get; } = displayName;
 
@@ -24,9 +29,13 @@ public class PinnableLibraryItem(string displayName, bool isPinned, object userD
 
     public bool Equals(PinnableLibraryItem? other)
     {
-        if (ReferenceEquals(null, other)) return false;
-        if (ReferenceEquals(this, other)) return true;
-        return DisplayName == other.DisplayName && IsPinned == other.IsPinned && Equals(UserData, other.UserData);
+        if (ReferenceEquals(null, other))
+            return false;
+        if (ReferenceEquals(this, other))
+            return true;
+        return DisplayName == other.DisplayName
+            && IsPinned == other.IsPinned
+            && Equals(UserData, other.UserData);
     }
 
     public override bool Equals(object? obj)
@@ -43,32 +52,51 @@ public class PinnableLibraryItem(string displayName, bool isPinned, object userD
 public class LibraryItemPickerFlyoutPresenter : DraggablePickerFlyoutPresenter
 {
     public static readonly StyledProperty<PinnableLibraryItem?> SelectedItemProperty =
-        AvaloniaProperty.Register<LibraryItemPickerFlyoutPresenter, PinnableLibraryItem?>(nameof(SelectedItem));
+        AvaloniaProperty.Register<LibraryItemPickerFlyoutPresenter, PinnableLibraryItem?>(
+            nameof(SelectedItem)
+        );
 
     public static readonly StyledProperty<ReactiveCollection<PinnableLibraryItem>?> ItemsProperty =
-        AvaloniaProperty.Register<LibraryItemPickerFlyoutPresenter, ReactiveCollection<PinnableLibraryItem>?>(
-            nameof(Items));
+        AvaloniaProperty.Register<
+            LibraryItemPickerFlyoutPresenter,
+            ReactiveCollection<PinnableLibraryItem>?
+        >(nameof(Items));
 
-    public static readonly StyledProperty<bool> IsBusyProperty =
-        AvaloniaProperty.Register<LibraryItemPickerFlyoutPresenter, bool>(nameof(IsBusy));
+    public static readonly StyledProperty<bool> IsBusyProperty = AvaloniaProperty.Register<
+        LibraryItemPickerFlyoutPresenter,
+        bool
+    >(nameof(IsBusy));
 
-    public static readonly StyledProperty<bool> ShowAllProperty =
-        AvaloniaProperty.Register<LibraryItemPickerFlyoutPresenter, bool>(nameof(ShowAll));
+    public static readonly StyledProperty<bool> ShowAllProperty = AvaloniaProperty.Register<
+        LibraryItemPickerFlyoutPresenter,
+        bool
+    >(nameof(ShowAll));
 
-    public static readonly StyledProperty<bool> ShowSearchBoxProperty =
-        AvaloniaProperty.Register<LibraryItemPickerFlyoutPresenter, bool>(nameof(ShowSearchBox));
+    public static readonly StyledProperty<bool> ShowSearchBoxProperty = AvaloniaProperty.Register<
+        LibraryItemPickerFlyoutPresenter,
+        bool
+    >(nameof(ShowSearchBox));
 
-    public static readonly StyledProperty<string?> SearchTextProperty =
-        AvaloniaProperty.Register<LibraryItemPickerFlyoutPresenter, string?>(nameof(SearchText));
+    public static readonly StyledProperty<string?> SearchTextProperty = AvaloniaProperty.Register<
+        LibraryItemPickerFlyoutPresenter,
+        string?
+    >(nameof(SearchText));
 
     public static readonly StyledProperty<bool> ShowReferencesTabProperty =
-        AvaloniaProperty.Register<LibraryItemPickerFlyoutPresenter, bool>(nameof(ShowReferencesTab));
+        AvaloniaProperty.Register<LibraryItemPickerFlyoutPresenter, bool>(
+            nameof(ShowReferencesTab)
+        );
 
-    public static readonly StyledProperty<bool> ShowReferencesProperty =
-        AvaloniaProperty.Register<LibraryItemPickerFlyoutPresenter, bool>(nameof(ShowReferences));
+    public static readonly StyledProperty<bool> ShowReferencesProperty = AvaloniaProperty.Register<
+        LibraryItemPickerFlyoutPresenter,
+        bool
+    >(nameof(ShowReferences));
 
     public static readonly StyledProperty<ReactiveCollection<PinnableLibraryItem>?> ReferenceItemsProperty =
-        AvaloniaProperty.Register<LibraryItemPickerFlyoutPresenter, ReactiveCollection<PinnableLibraryItem>?>(nameof(ReferenceItems));
+        AvaloniaProperty.Register<
+            LibraryItemPickerFlyoutPresenter,
+            ReactiveCollection<PinnableLibraryItem>?
+        >(nameof(ReferenceItems));
 
     private const string SearchBoxPseudoClass = ":search-box";
     private const string IsBusyPseudoClass = ":busy";
@@ -152,13 +180,16 @@ public class LibraryItemPickerFlyoutPresenter : DraggablePickerFlyoutPresenter
         this.AddDisposableHandler(KeyDownEvent, OnPresenterKeyDown, RoutingStrategies.Tunnel)
             .DisposeWith(_keyboardDisposables);
 
-        _searchTextBox?.AddDisposableHandler(KeyDownEvent, OnSearchBoxKeyDown)
+        _searchTextBox
+            ?.AddDisposableHandler(KeyDownEvent, OnSearchBoxKeyDown)
             .DisposeWith(_keyboardDisposables);
 
-        _listBox?.AddDisposableHandler(KeyDownEvent, OnListBoxKeyDown, RoutingStrategies.Tunnel)
+        _listBox
+            ?.AddDisposableHandler(KeyDownEvent, OnListBoxKeyDown, RoutingStrategies.Tunnel)
             .DisposeWith(_keyboardDisposables);
 
-        _referenceListBox?.AddDisposableHandler(KeyDownEvent, OnListBoxKeyDown, RoutingStrategies.Tunnel)
+        _referenceListBox
+            ?.AddDisposableHandler(KeyDownEvent, OnListBoxKeyDown, RoutingStrategies.Tunnel)
             .DisposeWith(_keyboardDisposables);
     }
 
@@ -174,7 +205,10 @@ public class LibraryItemPickerFlyoutPresenter : DraggablePickerFlyoutPresenter
         }
 
         // Tab / Shift+Tab: 型タブと参照タブを切り替え
-        if (ShowReferencesTab && e is { Key: Key.Tab, KeyModifiers: KeyModifiers.None or KeyModifiers.Shift })
+        if (
+            ShowReferencesTab
+            && e is { Key: Key.Tab, KeyModifiers: KeyModifiers.None or KeyModifiers.Shift }
+        )
         {
             ShowReferences = !ShowReferences;
             e.Handled = true;
@@ -184,21 +218,21 @@ public class LibraryItemPickerFlyoutPresenter : DraggablePickerFlyoutPresenter
 
     private void OnListBoxKeyDown(object? sender, KeyEventArgs e)
     {
-        if (sender is not ListBox listBox) return;
+        if (sender is not ListBox listBox)
+            return;
 
         switch (e.Key)
         {
             case Key.Up:
-                listBox.SelectedIndex = listBox.SelectedIndex <= 0
-                    ? 0
-                    : listBox.SelectedIndex - 1;
+                listBox.SelectedIndex = listBox.SelectedIndex <= 0 ? 0 : listBox.SelectedIndex - 1;
                 ScrollSelectedIntoView(listBox);
                 e.Handled = true;
                 break;
             case Key.Down:
-                listBox.SelectedIndex = listBox.SelectedIndex >= listBox.ItemCount - 1
-                    ? listBox.ItemCount - 1
-                    : listBox.SelectedIndex + 1;
+                listBox.SelectedIndex =
+                    listBox.SelectedIndex >= listBox.ItemCount - 1
+                        ? listBox.ItemCount - 1
+                        : listBox.SelectedIndex + 1;
                 ScrollSelectedIntoView(listBox);
                 e.Handled = true;
                 break;
@@ -240,7 +274,8 @@ public class LibraryItemPickerFlyoutPresenter : DraggablePickerFlyoutPresenter
     private void FocusListBox()
     {
         var target = GetCurrentListBox();
-        if (target is null) return;
+        if (target is null)
+            return;
         if (target.SelectedIndex < 0 && target.ItemCount > 0)
             target.SelectedIndex = 0;
 

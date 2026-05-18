@@ -73,7 +73,10 @@ public partial class ImmediateCanvas : ICanvas
         Canvas.ClipRect(clip.ToSKRect(), operation.ToSKClipOperation());
     }
 
-    public void ClipPath(Geometry.Resource geometry, ClipOperation operation = ClipOperation.Intersect)
+    public void ClipPath(
+        Geometry.Resource geometry,
+        ClipOperation operation = ClipOperation.Intersect
+    )
     {
         VerifyAccess();
         Canvas.ClipPath(geometry.GetCachedPath(), operation.ToSKClipOperation(), true);
@@ -163,10 +166,20 @@ public partial class ImmediateCanvas : ICanvas
 
         using var img = SKImage.FromBitmap(bmp.SKBitmap);
 
-        Canvas.DrawImage(img, 0, 0, new SKSamplingOptions(SKCubicResampler.Mitchell), _sharedFillPaint);
+        Canvas.DrawImage(
+            img,
+            0,
+            0,
+            new SKSamplingOptions(SKCubicResampler.Mitchell),
+            _sharedFillPaint
+        );
     }
 
-    public void DrawImageSource(ImageSource.Resource source, Brush.Resource? fill, Pen.Resource? pen)
+    public void DrawImageSource(
+        ImageSource.Resource source,
+        Brush.Resource? fill,
+        Pen.Resource? pen
+    )
     {
         var bitmap = source.Bitmap;
         if (bitmap != null)
@@ -175,14 +188,24 @@ public partial class ImmediateCanvas : ICanvas
         }
     }
 
-    public void DrawVideoSource(VideoSource.Resource source, TimeSpan frame, Brush.Resource? fill, Pen.Resource? pen)
+    public void DrawVideoSource(
+        VideoSource.Resource source,
+        TimeSpan frame,
+        Brush.Resource? fill,
+        Pen.Resource? pen
+    )
     {
         Rational rate = source.FrameRate;
         double frameNum = frame.TotalSeconds * (rate.Numerator / (double)rate.Denominator);
         DrawVideoSource(source, (int)frameNum, fill, pen);
     }
 
-    public void DrawVideoSource(VideoSource.Resource source, int frame, Brush.Resource? fill, Pen.Resource? pen)
+    public void DrawVideoSource(
+        VideoSource.Resource source,
+        int frame,
+        Brush.Resource? fill,
+        Pen.Resource? pen
+    )
     {
         if (source.Read(frame, out var bitmapRef))
         {
@@ -233,16 +256,19 @@ public partial class ImmediateCanvas : ICanvas
         ConfigureFillPaint(text.Bounds, fill);
         Canvas.DrawText(textBlob, 0, 0, _sharedFillPaint);
 
-        if (pen != null
-            && pen.Thickness > 0
-            && text.GetStrokePath() is { } stroke)
+        if (pen != null && pen.Thickness > 0 && text.GetStrokePath() is { } stroke)
         {
             ConfigureStrokePaint(new(text.Bounds.Size), pen);
             Canvas.DrawPath(stroke, _sharedStrokePaint);
         }
     }
 
-    internal void DrawSKPath(SKPath skPath, bool strokeOnly, Brush.Resource? fill, Pen.Resource? pen)
+    internal void DrawSKPath(
+        SKPath skPath,
+        bool strokeOnly,
+        Brush.Resource? fill,
+        Pen.Resource? pen
+    )
     {
         Rect rect = skPath.Bounds.ToGraphicsRect();
 
@@ -287,8 +313,7 @@ public partial class ImmediateCanvas : ICanvas
 
         if (count < 0)
         {
-            while (count < 0
-                   && _states.TryPop(out CanvasPushedState? state))
+            while (count < 0 && _states.TryPop(out CanvasPushedState? state))
             {
                 state.Pop(this);
                 count++;
@@ -296,8 +321,7 @@ public partial class ImmediateCanvas : ICanvas
         }
         else
         {
-            while (_states.Count >= count
-                   && _states.TryPop(out CanvasPushedState? state))
+            while (_states.Count >= count && _states.TryPop(out CanvasPushedState? state))
             {
                 state.Pop(this);
             }
@@ -356,7 +380,10 @@ public partial class ImmediateCanvas : ICanvas
         return new PushedState(this, _states.Count);
     }
 
-    public PushedState PushClip(Geometry.Resource geometry, ClipOperation operation = ClipOperation.Intersect)
+    public PushedState PushClip(
+        Geometry.Resource geometry,
+        ClipOperation operation = ClipOperation.Intersect
+    )
     {
         VerifyAccess();
         int count = Canvas.Save();
@@ -390,7 +417,10 @@ public partial class ImmediateCanvas : ICanvas
         return new PushedState(this, _states.Count);
     }
 
-    public PushedState PushTransform(Matrix matrix, TransformOperator transformOperator = TransformOperator.Prepend)
+    public PushedState PushTransform(
+        Matrix matrix,
+        TransformOperator transformOperator = TransformOperator.Prepend
+    )
     {
         VerifyAccess();
         int count = Canvas.Save();
@@ -432,7 +462,11 @@ public partial class ImmediateCanvas : ICanvas
         _dispatcher?.VerifyAccess();
     }
 
-    private void ConfigureStrokePaint(Rect bounds, Pen.Resource? pen, BlendMode blendMode = BlendMode.SrcOver)
+    private void ConfigureStrokePaint(
+        Rect bounds,
+        Pen.Resource? pen,
+        BlendMode blendMode = BlendMode.SrcOver
+    )
     {
         _sharedStrokePaint.Reset();
 
@@ -443,7 +477,11 @@ public partial class ImmediateCanvas : ICanvas
         }
     }
 
-    private void ConfigureFillPaint(Rect bounds, Brush.Resource? brush, BlendMode blendMode = BlendMode.SrcOver)
+    private void ConfigureFillPaint(
+        Rect bounds,
+        Brush.Resource? brush,
+        BlendMode blendMode = BlendMode.SrcOver
+    )
     {
         _sharedFillPaint.Reset();
         new BrushConstructor(bounds, brush, blendMode).ConfigurePaint(_sharedFillPaint);

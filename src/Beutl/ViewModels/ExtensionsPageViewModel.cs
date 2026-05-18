@@ -14,19 +14,22 @@ public sealed class ExtensionsPageViewModel : IToolWindowContext
 
     public ExtensionsPageViewModel(BeutlApiApplication clients)
     {
-        IsAuthenticated = clients.AuthenticatedUser
-            .Select(x => x != null)
+        IsAuthenticated = clients
+            .AuthenticatedUser.Select(x => x != null)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
 
-        clients.AuthenticatedUser.Subscribe(user =>
+        clients
+            .AuthenticatedUser.Subscribe(user =>
             {
                 _authDisposables.Clear();
-                _discover = new(() => new DiscoverPageViewModel(clients)
-                    .DisposeWith(_authDisposables));
+                _discover = new(() =>
+                    new DiscoverPageViewModel(clients).DisposeWith(_authDisposables)
+                );
 
-                _library = new(() => new LibraryPageViewModel(user, clients)
-                    .DisposeWith(_authDisposables));
+                _library = new(() =>
+                    new LibraryPageViewModel(user, clients).DisposeWith(_authDisposables)
+                );
             })
             .DisposeWith(_disposables);
     }

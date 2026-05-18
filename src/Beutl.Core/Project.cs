@@ -26,7 +26,9 @@ public sealed class Project : Hierarchical
             .Accessor(o => o.Items, (o, v) => o.Items = v)
             .Register();
 
-        VariablesProperty = ConfigureProperty<Dictionary<string, string>, Project>(nameof(Variables))
+        VariablesProperty = ConfigureProperty<Dictionary<string, string>, Project>(
+                nameof(Variables)
+            )
             .Accessor(o => o.Variables)
             .Register();
 
@@ -62,7 +64,9 @@ public sealed class Project : Hierarchical
 
     public override void Deserialize(ICoreSerializationContext context)
     {
-        using Activity? activity = BeutlApplication.ActivitySource.StartActivity("Project.Deserialize");
+        using Activity? activity = BeutlApplication.ActivitySource.StartActivity(
+            "Project.Deserialize"
+        );
         base.Deserialize(context);
 
         if (context.GetValue<ProjectItem[]>("items") is { } items)
@@ -86,7 +90,9 @@ public sealed class Project : Hierarchical
 
     public override void Serialize(ICoreSerializationContext context)
     {
-        using Activity? activity = BeutlApplication.ActivitySource.StartActivity("Project.Serialize");
+        using Activity? activity = BeutlApplication.ActivitySource.StartActivity(
+            "Project.Serialize"
+        );
         activity?.SetTag("appVersion", BeutlApplication.Version);
         activity?.SetTag("minAppVersion", DefaultMinAppVersion);
         activity?.SetTag("itemsCount", Items.Count);

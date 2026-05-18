@@ -42,10 +42,11 @@ public sealed class DelayNode : AudioNode
         }
 
         // If no animations, use static processing
-        bool hasAnimation = DelayTime?.IsAnimatable == true ||
-                            Feedback?.IsAnimatable == true ||
-                            DryMix?.IsAnimatable == true ||
-                            WetMix?.IsAnimatable == true;
+        bool hasAnimation =
+            DelayTime?.IsAnimatable == true
+            || Feedback?.IsAnimatable == true
+            || DryMix?.IsAnimatable == true
+            || WetMix?.IsAnimatable == true;
 
         if (!hasAnimation)
         {
@@ -128,10 +129,30 @@ public sealed class DelayNode : AudioNode
             var chunkRange = new TimeRange(chunkStart, chunkEnd - chunkStart);
 
             // Sample animation values for this chunk
-            context.AnimationSampler.SampleBuffer(DelayTime, chunkRange, context.SampleRate, delayTimes[..chunkSize]);
-            context.AnimationSampler.SampleBuffer(Feedback, chunkRange, context.SampleRate, feedbacks[..chunkSize]);
-            context.AnimationSampler.SampleBuffer(DryMix, chunkRange, context.SampleRate, dryMixes[..chunkSize]);
-            context.AnimationSampler.SampleBuffer(WetMix, chunkRange, context.SampleRate, wetMixes[..chunkSize]);
+            context.AnimationSampler.SampleBuffer(
+                DelayTime,
+                chunkRange,
+                context.SampleRate,
+                delayTimes[..chunkSize]
+            );
+            context.AnimationSampler.SampleBuffer(
+                Feedback,
+                chunkRange,
+                context.SampleRate,
+                feedbacks[..chunkSize]
+            );
+            context.AnimationSampler.SampleBuffer(
+                DryMix,
+                chunkRange,
+                context.SampleRate,
+                dryMixes[..chunkSize]
+            );
+            context.AnimationSampler.SampleBuffer(
+                WetMix,
+                chunkRange,
+                context.SampleRate,
+                wetMixes[..chunkSize]
+            );
 
             // Process each channel
             for (int ch = 0; ch < Math.Min(input.ChannelCount, _delayLines!.Length); ch++)

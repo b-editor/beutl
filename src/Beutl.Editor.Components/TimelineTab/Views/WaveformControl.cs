@@ -8,8 +8,10 @@ namespace Beutl.Editor.Components.TimelineTab.Views;
 
 public sealed class WaveformControl : Control
 {
-    public static readonly StyledProperty<int> ChunkCountProperty =
-        AvaloniaProperty.Register<WaveformControl, int>(nameof(ChunkCount));
+    public static readonly StyledProperty<int> ChunkCountProperty = AvaloniaProperty.Register<
+        WaveformControl,
+        int
+    >(nameof(ChunkCount));
 
     public static readonly StyledProperty<IBrush?> WaveformBrushProperty =
         AvaloniaProperty.Register<WaveformControl, IBrush?>(nameof(WaveformBrush), Brushes.White);
@@ -144,8 +146,10 @@ public sealed class WaveformControl : Control
 
     private void OnScrollViewerPropertyChanged(object? sender, AvaloniaPropertyChangedEventArgs e)
     {
-        if (e.Property == ScrollViewer.OffsetProperty ||
-            e.Property == ScrollViewer.ViewportProperty)
+        if (
+            e.Property == ScrollViewer.OffsetProperty
+            || e.Property == ScrollViewer.ViewportProperty
+        )
         {
             InvalidateVisual();
         }

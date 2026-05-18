@@ -32,8 +32,8 @@ public struct GizmoVertex
                 {
                     Binding = 0,
                     Stride = (uint)Marshal.SizeOf<GizmoVertex>(),
-                    InputRate = VertexInputRate.Vertex
-                }
+                    InputRate = VertexInputRate.Vertex,
+                },
             ],
             Attributes =
             [
@@ -42,16 +42,16 @@ public struct GizmoVertex
                     Binding = 0,
                     Location = 0,
                     Format = VertexFormat.Float3,
-                    Offset = 0
+                    Offset = 0,
                 },
                 new VertexAttributeDescription
                 {
                     Binding = 0,
                     Location = 1,
                     Format = VertexFormat.Float3,
-                    Offset = (uint)Marshal.OffsetOf<GizmoVertex>(nameof(Color))
-                }
-            ]
+                    Offset = (uint)Marshal.OffsetOf<GizmoVertex>(nameof(Color)),
+                },
+            ],
         };
     }
 }
@@ -168,12 +168,19 @@ internal static class GizmoMesh
         indices = indexList.ToArray();
     }
 
-    private static void CreateArrow(Vector3 origin, Vector3 direction, Vector3 color, List<GizmoVertex> vertices, List<uint> indices)
+    private static void CreateArrow(
+        Vector3 origin,
+        Vector3 direction,
+        Vector3 color,
+        List<GizmoVertex> vertices,
+        List<uint> indices
+    )
     {
         uint baseIndex = (uint)vertices.Count;
 
         // Calculate perpendicular vectors for cylinder/cone
-        var up = Math.Abs(Vector3.Dot(direction, Vector3.UnitY)) < 0.99f ? Vector3.UnitY : Vector3.UnitX;
+        var up =
+            Math.Abs(Vector3.Dot(direction, Vector3.UnitY)) < 0.99f ? Vector3.UnitY : Vector3.UnitX;
         var right = Vector3.Normalize(Vector3.Cross(direction, up));
         up = Vector3.Normalize(Vector3.Cross(right, direction));
 
@@ -256,7 +263,12 @@ internal static class GizmoMesh
         }
     }
 
-    private static void CreateRing(Vector3 axis, Vector3 color, List<GizmoVertex> vertices, List<uint> indices)
+    private static void CreateRing(
+        Vector3 axis,
+        Vector3 color,
+        List<GizmoVertex> vertices,
+        List<uint> indices
+    )
     {
         uint baseIndex = (uint)vertices.Count;
 
@@ -274,7 +286,8 @@ internal static class GizmoMesh
             float majorCos = MathF.Cos(majorAngle);
             float majorSin = MathF.Sin(majorAngle);
 
-            var ringCenter = tangent1 * majorCos * RotateRingRadius + tangent2 * majorSin * RotateRingRadius;
+            var ringCenter =
+                tangent1 * majorCos * RotateRingRadius + tangent2 * majorSin * RotateRingRadius;
             var ringDir = Vector3.Normalize(ringCenter);
 
             // Create small circle around the ring center (tube cross-section)
@@ -284,7 +297,9 @@ internal static class GizmoMesh
                 float minorCos = MathF.Cos(minorAngle);
                 float minorSin = MathF.Sin(minorAngle);
 
-                var tubeOffset = ringDir * minorCos * RotateRingThickness + axis * minorSin * RotateRingThickness;
+                var tubeOffset =
+                    ringDir * minorCos * RotateRingThickness
+                    + axis * minorSin * RotateRingThickness;
                 vertices.Add(new GizmoVertex(ringCenter + tubeOffset, color));
             }
         }
@@ -309,12 +324,18 @@ internal static class GizmoMesh
         }
     }
 
-    private static void CreateScaleAxis(Vector3 direction, Vector3 color, List<GizmoVertex> vertices, List<uint> indices)
+    private static void CreateScaleAxis(
+        Vector3 direction,
+        Vector3 color,
+        List<GizmoVertex> vertices,
+        List<uint> indices
+    )
     {
         uint baseIndex = (uint)vertices.Count;
 
         // Calculate perpendicular vectors
-        var up = Math.Abs(Vector3.Dot(direction, Vector3.UnitY)) < 0.99f ? Vector3.UnitY : Vector3.UnitX;
+        var up =
+            Math.Abs(Vector3.Dot(direction, Vector3.UnitY)) < 0.99f ? Vector3.UnitY : Vector3.UnitX;
         var right = Vector3.Normalize(Vector3.Cross(direction, up));
         up = Vector3.Normalize(Vector3.Cross(right, direction));
 
@@ -351,7 +372,13 @@ internal static class GizmoMesh
         CreateCube(direction * ScaleLineLength, ScaleCubeSize, color, vertices, indices);
     }
 
-    private static void CreateCube(Vector3 center, float size, Vector3 color, List<GizmoVertex> vertices, List<uint> indices)
+    private static void CreateCube(
+        Vector3 center,
+        float size,
+        Vector3 color,
+        List<GizmoVertex> vertices,
+        List<uint> indices
+    )
     {
         uint baseIndex = (uint)vertices.Count;
         float half = size * 0.5f;
@@ -366,7 +393,7 @@ internal static class GizmoMesh
             center + new Vector3(half, -half, -half),
             center + new Vector3(-half, -half, -half),
             center + new Vector3(-half, half, -half),
-            center + new Vector3(half, half, -half)
+            center + new Vector3(half, half, -half),
         ];
 
         foreach (var v in cubeVerts)
@@ -377,12 +404,42 @@ internal static class GizmoMesh
         // 12 triangles (36 indices)
         uint[] cubeIndices =
         [
-            0, 2, 1, 0, 3, 2,
-            4, 6, 5, 4, 7, 6,
-            3, 7, 2, 3, 6, 7,
-            5, 1, 4, 5, 0, 1,
-            1, 7, 4, 1, 2, 7,
-            5, 3, 0, 5, 6, 3
+            0,
+            2,
+            1,
+            0,
+            3,
+            2,
+            4,
+            6,
+            5,
+            4,
+            7,
+            6,
+            3,
+            7,
+            2,
+            3,
+            6,
+            7,
+            5,
+            1,
+            4,
+            5,
+            0,
+            1,
+            1,
+            7,
+            4,
+            1,
+            2,
+            7,
+            5,
+            3,
+            0,
+            5,
+            6,
+            3,
         ];
 
         foreach (var idx in cubeIndices)
@@ -395,7 +452,13 @@ internal static class GizmoMesh
     /// Creates a plane indicator quad for translation gizmo.
     /// The quad is positioned at (PlaneOffset, PlaneOffset) in the plane defined by axis1 and axis2.
     /// </summary>
-    private static void CreatePlaneQuad(Vector3 axis1, Vector3 axis2, Vector3 color, List<GizmoVertex> vertices, List<uint> indices)
+    private static void CreatePlaneQuad(
+        Vector3 axis1,
+        Vector3 axis2,
+        Vector3 color,
+        List<GizmoVertex> vertices,
+        List<uint> indices
+    )
     {
         uint baseIndex = (uint)vertices.Count;
 

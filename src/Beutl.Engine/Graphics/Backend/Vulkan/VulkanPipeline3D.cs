@@ -36,7 +36,8 @@ internal sealed unsafe class VulkanPipeline3D : IPipeline3D
         Silk.NET.Vulkan.BlendFactor srcAlphaBlendFactor = Silk.NET.Vulkan.BlendFactor.One,
         Silk.NET.Vulkan.BlendFactor dstAlphaBlendFactor = Silk.NET.Vulkan.BlendFactor.Zero,
         Silk.NET.Vulkan.BlendOp colorBlendOp = Silk.NET.Vulkan.BlendOp.Add,
-        Silk.NET.Vulkan.BlendOp alphaBlendOp = Silk.NET.Vulkan.BlendOp.Add)
+        Silk.NET.Vulkan.BlendOp alphaBlendOp = Silk.NET.Vulkan.BlendOp.Add
+    )
     {
         _context = context;
         var vk = context.Vk;
@@ -53,7 +54,7 @@ internal sealed unsafe class VulkanPipeline3D : IPipeline3D
             {
                 SType = StructureType.DescriptorSetLayoutCreateInfo,
                 BindingCount = (uint)descriptorBindings.Length,
-                PBindings = bindingsPtr
+                PBindings = bindingsPtr,
             };
 
             DescriptorSetLayout descriptorLayout;
@@ -61,7 +62,9 @@ internal sealed unsafe class VulkanPipeline3D : IPipeline3D
             if (result != Result.Success)
             {
                 CleanupShaderModules(vk, device);
-                throw new InvalidOperationException($"Failed to create descriptor set layout: {result}");
+                throw new InvalidOperationException(
+                    $"Failed to create descriptor set layout: {result}"
+                );
             }
             _descriptorSetLayout = descriptorLayout;
         }
@@ -72,7 +75,7 @@ internal sealed unsafe class VulkanPipeline3D : IPipeline3D
         {
             StageFlags = ShaderStageFlags.VertexBit | ShaderStageFlags.FragmentBit,
             Offset = 0,
-            Size = 128
+            Size = 128,
         };
 
         var layouts = stackalloc DescriptorSetLayout[] { _descriptorSetLayout };
@@ -82,25 +85,45 @@ internal sealed unsafe class VulkanPipeline3D : IPipeline3D
             SetLayoutCount = 1,
             PSetLayouts = layouts,
             PushConstantRangeCount = 1,
-            PPushConstantRanges = &pushConstantRange
+            PPushConstantRanges = &pushConstantRange,
         };
 
         PipelineLayout pipelineLayout;
-        var layoutResult = vk.CreatePipelineLayout(device, &pipelineLayoutInfo, null, &pipelineLayout);
+        var layoutResult = vk.CreatePipelineLayout(
+            device,
+            &pipelineLayoutInfo,
+            null,
+            &pipelineLayout
+        );
         if (layoutResult != Result.Success)
         {
             vk.DestroyDescriptorSetLayout(device, _descriptorSetLayout, null);
             CleanupShaderModules(vk, device);
-            throw new InvalidOperationException($"Failed to create pipeline layout: {layoutResult}");
+            throw new InvalidOperationException(
+                $"Failed to create pipeline layout: {layoutResult}"
+            );
         }
         _pipelineLayout = pipelineLayout;
 
         // Create graphics pipeline
         _pipeline = CreateGraphicsPipeline(
-            vk, device, renderPass, vertexInputDescription, colorAttachmentCount,
-            depthTestEnabled, depthWriteEnabled, cullMode, frontFace,
-            blendEnabled, srcColorBlendFactor, dstColorBlendFactor,
-            srcAlphaBlendFactor, dstAlphaBlendFactor, colorBlendOp, alphaBlendOp);
+            vk,
+            device,
+            renderPass,
+            vertexInputDescription,
+            colorAttachmentCount,
+            depthTestEnabled,
+            depthWriteEnabled,
+            cullMode,
+            frontFace,
+            blendEnabled,
+            srcColorBlendFactor,
+            dstColorBlendFactor,
+            srcAlphaBlendFactor,
+            dstAlphaBlendFactor,
+            colorBlendOp,
+            alphaBlendOp
+        );
     }
 
     public Pipeline Handle => _pipeline;
@@ -110,13 +133,23 @@ internal sealed unsafe class VulkanPipeline3D : IPipeline3D
     public DescriptorSetLayout DescriptorSetLayoutHandle => _descriptorSetLayout;
 
     private Pipeline CreateGraphicsPipeline(
-        Vk vk, Device device, RenderPass renderPass, VulkanVertexInputDescription vertexInput,
-        int colorAttachmentCount, bool depthTestEnabled, bool depthWriteEnabled,
-        CullModeFlags cullMode, Silk.NET.Vulkan.FrontFace frontFace,
-        bool blendEnabled, Silk.NET.Vulkan.BlendFactor srcColorBlendFactor,
-        Silk.NET.Vulkan.BlendFactor dstColorBlendFactor, Silk.NET.Vulkan.BlendFactor srcAlphaBlendFactor,
-        Silk.NET.Vulkan.BlendFactor dstAlphaBlendFactor, Silk.NET.Vulkan.BlendOp colorBlendOp,
-        Silk.NET.Vulkan.BlendOp alphaBlendOp)
+        Vk vk,
+        Device device,
+        RenderPass renderPass,
+        VulkanVertexInputDescription vertexInput,
+        int colorAttachmentCount,
+        bool depthTestEnabled,
+        bool depthWriteEnabled,
+        CullModeFlags cullMode,
+        Silk.NET.Vulkan.FrontFace frontFace,
+        bool blendEnabled,
+        Silk.NET.Vulkan.BlendFactor srcColorBlendFactor,
+        Silk.NET.Vulkan.BlendFactor dstColorBlendFactor,
+        Silk.NET.Vulkan.BlendFactor srcAlphaBlendFactor,
+        Silk.NET.Vulkan.BlendFactor dstAlphaBlendFactor,
+        Silk.NET.Vulkan.BlendOp colorBlendOp,
+        Silk.NET.Vulkan.BlendOp alphaBlendOp
+    )
     {
         var mainBytes = System.Text.Encoding.UTF8.GetBytes("main\0");
         fixed (byte* mainPtr = mainBytes)
@@ -127,14 +160,14 @@ internal sealed unsafe class VulkanPipeline3D : IPipeline3D
                 SType = StructureType.PipelineShaderStageCreateInfo,
                 Stage = ShaderStageFlags.VertexBit,
                 Module = _vertexShader,
-                PName = mainPtr
+                PName = mainPtr,
             };
             shaderStages[1] = new PipelineShaderStageCreateInfo
             {
                 SType = StructureType.PipelineShaderStageCreateInfo,
                 Stage = ShaderStageFlags.FragmentBit,
                 Module = _fragmentShader,
-                PName = mainPtr
+                PName = mainPtr,
             };
 
             // Vertex input state
@@ -147,21 +180,21 @@ internal sealed unsafe class VulkanPipeline3D : IPipeline3D
                     VertexBindingDescriptionCount = (uint)vertexInput.Bindings.Length,
                     PVertexBindingDescriptions = bindingsPtr,
                     VertexAttributeDescriptionCount = (uint)vertexInput.Attributes.Length,
-                    PVertexAttributeDescriptions = attributesPtr
+                    PVertexAttributeDescriptions = attributesPtr,
                 };
 
                 var inputAssembly = new PipelineInputAssemblyStateCreateInfo
                 {
                     SType = StructureType.PipelineInputAssemblyStateCreateInfo,
                     Topology = PrimitiveTopology.TriangleList,
-                    PrimitiveRestartEnable = Vk.False
+                    PrimitiveRestartEnable = Vk.False,
                 };
 
                 var viewportState = new PipelineViewportStateCreateInfo
                 {
                     SType = StructureType.PipelineViewportStateCreateInfo,
                     ViewportCount = 1,
-                    ScissorCount = 1
+                    ScissorCount = 1,
                 };
 
                 var rasterizer = new PipelineRasterizationStateCreateInfo
@@ -173,14 +206,14 @@ internal sealed unsafe class VulkanPipeline3D : IPipeline3D
                     LineWidth = 1.0f,
                     CullMode = cullMode,
                     FrontFace = frontFace,
-                    DepthBiasEnable = Vk.False
+                    DepthBiasEnable = Vk.False,
                 };
 
                 var multisampling = new PipelineMultisampleStateCreateInfo
                 {
                     SType = StructureType.PipelineMultisampleStateCreateInfo,
                     SampleShadingEnable = Vk.False,
-                    RasterizationSamples = SampleCountFlags.Count1Bit
+                    RasterizationSamples = SampleCountFlags.Count1Bit,
                 };
 
                 var depthStencil = new PipelineDepthStencilStateCreateInfo
@@ -190,24 +223,28 @@ internal sealed unsafe class VulkanPipeline3D : IPipeline3D
                     DepthWriteEnable = depthWriteEnabled ? Vk.True : Vk.False,
                     DepthCompareOp = CompareOp.Less,
                     DepthBoundsTestEnable = Vk.False,
-                    StencilTestEnable = Vk.False
+                    StencilTestEnable = Vk.False,
                 };
 
                 // Create color blend attachments for each color attachment
-                var colorBlendAttachments = stackalloc PipelineColorBlendAttachmentState[colorAttachmentCount];
+                var colorBlendAttachments =
+                    stackalloc PipelineColorBlendAttachmentState[colorAttachmentCount];
                 for (int i = 0; i < colorAttachmentCount; i++)
                 {
                     colorBlendAttachments[i] = new PipelineColorBlendAttachmentState
                     {
-                        ColorWriteMask = ColorComponentFlags.RBit | ColorComponentFlags.GBit |
-                                         ColorComponentFlags.BBit | ColorComponentFlags.ABit,
+                        ColorWriteMask =
+                            ColorComponentFlags.RBit
+                            | ColorComponentFlags.GBit
+                            | ColorComponentFlags.BBit
+                            | ColorComponentFlags.ABit,
                         BlendEnable = blendEnabled ? Vk.True : Vk.False,
                         SrcColorBlendFactor = srcColorBlendFactor,
                         DstColorBlendFactor = dstColorBlendFactor,
                         ColorBlendOp = colorBlendOp,
                         SrcAlphaBlendFactor = srcAlphaBlendFactor,
                         DstAlphaBlendFactor = dstAlphaBlendFactor,
-                        AlphaBlendOp = alphaBlendOp
+                        AlphaBlendOp = alphaBlendOp,
                     };
                 }
 
@@ -216,15 +253,19 @@ internal sealed unsafe class VulkanPipeline3D : IPipeline3D
                     SType = StructureType.PipelineColorBlendStateCreateInfo,
                     LogicOpEnable = Vk.False,
                     AttachmentCount = (uint)colorAttachmentCount,
-                    PAttachments = colorBlendAttachments
+                    PAttachments = colorBlendAttachments,
                 };
 
-                var dynamicStates = stackalloc DynamicState[] { DynamicState.Viewport, DynamicState.Scissor };
+                var dynamicStates = stackalloc DynamicState[]
+                {
+                    DynamicState.Viewport,
+                    DynamicState.Scissor,
+                };
                 var dynamicState = new PipelineDynamicStateCreateInfo
                 {
                     SType = StructureType.PipelineDynamicStateCreateInfo,
                     DynamicStateCount = 2,
-                    PDynamicStates = dynamicStates
+                    PDynamicStates = dynamicStates,
                 };
 
                 var pipelineInfo = new GraphicsPipelineCreateInfo
@@ -242,14 +283,23 @@ internal sealed unsafe class VulkanPipeline3D : IPipeline3D
                     PDynamicState = &dynamicState,
                     Layout = _pipelineLayout,
                     RenderPass = renderPass,
-                    Subpass = 0
+                    Subpass = 0,
                 };
 
                 Pipeline pipeline;
-                var result = vk.CreateGraphicsPipelines(device, default, 1, &pipelineInfo, null, &pipeline);
+                var result = vk.CreateGraphicsPipelines(
+                    device,
+                    default,
+                    1,
+                    &pipelineInfo,
+                    null,
+                    &pipeline
+                );
                 if (result != Result.Success)
                 {
-                    throw new InvalidOperationException($"Failed to create graphics pipeline: {result}");
+                    throw new InvalidOperationException(
+                        $"Failed to create graphics pipeline: {result}"
+                    );
                 }
                 return pipeline;
             }
@@ -264,7 +314,7 @@ internal sealed unsafe class VulkanPipeline3D : IPipeline3D
             {
                 SType = StructureType.ShaderModuleCreateInfo,
                 CodeSize = (nuint)spirv.Length,
-                PCode = (uint*)codePtr
+                PCode = (uint*)codePtr,
             };
 
             ShaderModule module;
@@ -293,7 +343,8 @@ internal sealed unsafe class VulkanPipeline3D : IPipeline3D
 
     public void Dispose()
     {
-        if (_disposed) return;
+        if (_disposed)
+            return;
         _disposed = true;
 
         var vk = _context.Vk;
@@ -320,4 +371,3 @@ internal struct VulkanVertexInputDescription
     public VertexInputBindingDescription[] Bindings;
     public VertexInputAttributeDescription[] Attributes;
 }
-

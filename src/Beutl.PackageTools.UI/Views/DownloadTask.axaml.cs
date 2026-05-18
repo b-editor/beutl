@@ -1,6 +1,5 @@
 ﻿using Avalonia.Controls;
 using Avalonia.Input;
-
 using Beutl.PackageTools.UI.Models;
 
 namespace Beutl.PackageTools.UI.Views;

@@ -3,7 +3,6 @@ using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Text.Json.Serialization;
 using System.Text.Unicode;
-
 using Beutl.Converters;
 using Beutl.Utilities;
 
@@ -21,14 +20,13 @@ namespace Beutl.Graphics;
 [TypeConverter(typeof(VectorConverter))]
 public readonly struct Vector(float x, float y)
     : IEquatable<Vector>,
-      IParsable<Vector>,
-      ISpanParsable<Vector>,
-      ISpanFormattable,
-      IUtf8SpanFormattable,
-      IUtf8SpanParsable<Vector>,
-      ITupleConvertible<Vector, float>
+        IParsable<Vector>,
+        ISpanParsable<Vector>,
+        ISpanFormattable,
+        IUtf8SpanFormattable,
+        IUtf8SpanParsable<Vector>,
+        ITupleConvertible<Vector, float>
 {
-
     /// <summary>
     /// Gets the X component.
     /// </summary>
@@ -143,7 +141,11 @@ public readonly struct Vector(float x, float y)
         return Parse(s.AsSpan(), provider);
     }
 
-    public static bool TryParse([NotNullWhen(true)] string? s, IFormatProvider? provider, out Vector result)
+    public static bool TryParse(
+        [NotNullWhen(true)] string? s,
+        IFormatProvider? provider,
+        out Vector result
+    )
     {
         return TryParse(s.AsSpan(), provider, out result);
     }
@@ -165,12 +167,15 @@ public readonly struct Vector(float x, float y)
     /// <returns>The <see cref="Vector"/>.</returns>
     public static Vector Parse(ReadOnlySpan<char> s, IFormatProvider? provider)
     {
-        using (var tokenizer = new RefStringTokenizer(s, provider ?? CultureInfo.InvariantCulture, exceptionMessage: "Invalid Vector."))
+        using (
+            var tokenizer = new RefStringTokenizer(
+                s,
+                provider ?? CultureInfo.InvariantCulture,
+                exceptionMessage: "Invalid Vector."
+            )
+        )
         {
-            return new Vector(
-                tokenizer.ReadSingle(),
-                tokenizer.ReadSingle()
-            );
+            return new Vector(tokenizer.ReadSingle(), tokenizer.ReadSingle());
         }
     }
 
@@ -270,8 +275,7 @@ public readonly struct Vector(float x, float y)
     /// <returns>True if vectors are nearly equal.</returns>
     public bool NearlyEquals(Vector other)
     {
-        return MathUtilities.AreClose(X, other.X) &&
-               MathUtilities.AreClose(Y, other.Y);
+        return MathUtilities.AreClose(X, other.X) && MathUtilities.AreClose(Y, other.Y);
     }
 
     public override bool Equals(object? obj)
@@ -464,7 +468,12 @@ public readonly struct Vector(float x, float y)
         self = new Vector(tuple[0], tuple[1]);
     }
 
-    public bool TryFormat(Span<byte> utf8Destination, out int bytesWritten, ReadOnlySpan<char> format = default, IFormatProvider? provider = null)
+    public bool TryFormat(
+        Span<byte> utf8Destination,
+        out int bytesWritten,
+        ReadOnlySpan<char> format = default,
+        IFormatProvider? provider = null
+    )
     {
         char separator = TokenizerHelper.GetSeparatorFromFormatProvider(provider);
         return Utf8.TryWrite(utf8Destination, provider, $"{X}{separator} {Y}", out bytesWritten);
@@ -472,16 +481,23 @@ public readonly struct Vector(float x, float y)
 
     public static Vector Parse(ReadOnlySpan<byte> utf8Text, IFormatProvider? provider = null)
     {
-        using (var tokenizer = new RefUtf8StringTokenizer(utf8Text, provider ?? CultureInfo.InvariantCulture, exceptionMessage: "Invalid Vector."))
+        using (
+            var tokenizer = new RefUtf8StringTokenizer(
+                utf8Text,
+                provider ?? CultureInfo.InvariantCulture,
+                exceptionMessage: "Invalid Vector."
+            )
+        )
         {
-            return new Vector(
-                tokenizer.ReadSingle(),
-                tokenizer.ReadSingle()
-            );
+            return new Vector(tokenizer.ReadSingle(), tokenizer.ReadSingle());
         }
     }
 
-    public static bool TryParse(ReadOnlySpan<byte> utf8Text, IFormatProvider? provider, out Vector result)
+    public static bool TryParse(
+        ReadOnlySpan<byte> utf8Text,
+        IFormatProvider? provider,
+        out Vector result
+    )
     {
         try
         {
@@ -495,10 +511,20 @@ public readonly struct Vector(float x, float y)
         }
     }
 
-    public bool TryFormat(Span<char> destination, out int charsWritten, ReadOnlySpan<char> format = default, IFormatProvider? provider = null)
+    public bool TryFormat(
+        Span<char> destination,
+        out int charsWritten,
+        ReadOnlySpan<char> format = default,
+        IFormatProvider? provider = null
+    )
     {
         char separator = TokenizerHelper.GetSeparatorFromFormatProvider(provider);
-        return MemoryExtensions.TryWrite(destination, provider, $"{X}{separator} {Y}", out charsWritten);
+        return MemoryExtensions.TryWrite(
+            destination,
+            provider,
+            $"{X}{separator} {Y}",
+            out charsWritten
+        );
     }
 
     public string ToString(IFormatProvider? formatProvider)

@@ -25,14 +25,19 @@ public abstract class Transform : EngineObject
     {
         public Matrix Matrix { get; set; } = Matrix.Identity;
 
-        public override void Update(EngineObject obj, CompositionContext context, ref bool updateOnly)
+        public override void Update(
+            EngineObject obj,
+            CompositionContext context,
+            ref bool updateOnly
+        )
         {
             base.Update(obj, context, ref updateOnly);
             var transform = (Transform)obj;
 
             var oldMatrix = Matrix;
             Matrix = transform.CreateMatrix(context);
-            if (updateOnly) return;
+            if (updateOnly)
+                return;
 
             if (oldMatrix != Matrix)
             {

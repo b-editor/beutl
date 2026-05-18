@@ -52,12 +52,15 @@ public class PixelPointTests
     [Test]
     public void FromPoint_TruncatesToInteger()
     {
-        Assert.That(PixelPoint.FromPoint(new Point(1.7f, 2.9f)),
-            Is.EqualTo(new PixelPoint(1, 2)));
-        Assert.That(PixelPoint.FromPoint(new Point(1.5f, 2.5f), 2f),
-            Is.EqualTo(new PixelPoint(3, 5)));
-        Assert.That(PixelPoint.FromPoint(new Point(1.5f, 2.5f), new Vector(2, 4)),
-            Is.EqualTo(new PixelPoint(3, 10)));
+        Assert.That(PixelPoint.FromPoint(new Point(1.7f, 2.9f)), Is.EqualTo(new PixelPoint(1, 2)));
+        Assert.That(
+            PixelPoint.FromPoint(new Point(1.5f, 2.5f), 2f),
+            Is.EqualTo(new PixelPoint(3, 5))
+        );
+        Assert.That(
+            PixelPoint.FromPoint(new Point(1.5f, 2.5f), new Vector(2, 4)),
+            Is.EqualTo(new PixelPoint(3, 10))
+        );
     }
 
     [Test]
@@ -92,8 +95,7 @@ public class PixelSizeTests
     [Test]
     public void AspectRatio_DividesWidthByHeight()
     {
-        Assert.That(new PixelSize(1920, 1080).AspectRatio,
-            Is.EqualTo(1920f / 1080f).Within(1e-5f));
+        Assert.That(new PixelSize(1920, 1080).AspectRatio, Is.EqualTo(1920f / 1080f).Within(1e-5f));
     }
 
     [Test]
@@ -128,10 +130,11 @@ public class PixelSizeTests
     [Test]
     public void FromSize_CeilsValues()
     {
-        Assert.That(PixelSize.FromSize(new Size(1.1f, 2.2f), 1f),
-            Is.EqualTo(new PixelSize(2, 3)));
-        Assert.That(PixelSize.FromSize(new Size(1f, 2f), new Vector(2, 3)),
-            Is.EqualTo(new PixelSize(2, 6)));
+        Assert.That(PixelSize.FromSize(new Size(1.1f, 2.2f), 1f), Is.EqualTo(new PixelSize(2, 3)));
+        Assert.That(
+            PixelSize.FromSize(new Size(1f, 2f), new Vector(2, 3)),
+            Is.EqualTo(new PixelSize(2, 6))
+        );
     }
 
     [Test]

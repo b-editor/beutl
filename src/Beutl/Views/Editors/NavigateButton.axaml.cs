@@ -17,17 +17,11 @@ public partial class NavigateButton : UserControl
         InitializeComponent();
     }
 
-    protected virtual void OnNavigate()
-    {
-    }
+    protected virtual void OnNavigate() { }
 
-    protected virtual void OnNew()
-    {
-    }
+    protected virtual void OnNew() { }
 
-    protected virtual void OnDelete()
-    {
-    }
+    protected virtual void OnDelete() { }
 
     private void Navigate_Click(object? sender, RoutedEventArgs e)
     {
@@ -53,12 +47,14 @@ public sealed class NavigateButton<T> : NavigateButton
 {
     protected override void OnNavigate()
     {
-        if (this.FindLogicalAncestorOfType<EditView>()?.DataContext is EditViewModel editViewModel
-            && DataContext is NavigationButtonViewModel<T> { IsDisposed: false } viewModel)
+        if (
+            this.FindLogicalAncestorOfType<EditView>()?.DataContext is EditViewModel editViewModel
+            && DataContext is NavigationButtonViewModel<T> { IsDisposed: false } viewModel
+        )
         {
-            ObjectPropertyTabViewModel objViewModel
-                = editViewModel.FindToolTab<ObjectPropertyTabViewModel>()
-                  ?? new ObjectPropertyTabViewModel(editViewModel);
+            ObjectPropertyTabViewModel objViewModel =
+                editViewModel.FindToolTab<ObjectPropertyTabViewModel>()
+                ?? new ObjectPropertyTabViewModel(editViewModel);
 
             objViewModel.NavigateCore(viewModel.Value.Value, false, viewModel);
             editViewModel.OpenToolTab(objViewModel);
@@ -73,12 +69,15 @@ public sealed class NavigateButton<T> : NavigateButton
             await Task.Run(async () =>
             {
                 Type type = viewModel.PropertyAdapter.PropertyType;
-                Type[] types = AppDomain.CurrentDomain.GetAssemblies()
+                Type[] types = AppDomain
+                    .CurrentDomain.GetAssemblies()
                     .SelectMany(x => x.GetTypes())
-                    .Where(x => !x.IsAbstract
-                                && x.IsPublic
-                                && x.IsAssignableTo(type)
-                                && x.GetConstructor([]) != null)
+                    .Where(x =>
+                        !x.IsAbstract
+                        && x.IsPublic
+                        && x.IsAssignableTo(type)
+                        && x.GetConstructor([]) != null
+                    )
                     .ToArray();
                 Type? type2 = null;
                 ConstructorInfo? constructorInfo = null;
@@ -98,7 +97,7 @@ public sealed class NavigateButton<T> : NavigateButton
                             Content = combobox,
                             Title = MessageStrings.MultipleTypesAvailable,
                             PrimaryButtonText = Strings.OK,
-                            CloseButtonText = Strings.Cancel
+                            CloseButtonText = Strings.Cancel,
                         };
 
                         if (await dialog.ShowAsync() == ContentDialogResult.Primary)
@@ -120,7 +119,9 @@ public sealed class NavigateButton<T> : NavigateButton
 
                 if (constructorInfo?.Invoke(null) is T typed)
                 {
-                    await Dispatcher.UIThread.InvokeAsync(() => viewModel.SetValue(viewModel.Value.Value, typed));
+                    await Dispatcher.UIThread.InvokeAsync(() =>
+                        viewModel.SetValue(viewModel.Value.Value, typed)
+                    );
                 }
             });
         }

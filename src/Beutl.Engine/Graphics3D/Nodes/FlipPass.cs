@@ -16,9 +16,7 @@ public sealed class FlipPass : GraphicsNode3D
     private ITexture2D? _depthTexture;
 
     public FlipPass(IGraphicsContext context, IShaderCompiler shaderCompiler)
-        : base(context, shaderCompiler)
-    {
-    }
+        : base(context, shaderCompiler) { }
 
     /// <summary>
     /// Gets the output texture with corrected orientation.
@@ -51,7 +49,10 @@ public sealed class FlipPass : GraphicsNode3D
         _depthTexture = Context.CreateTexture2D(width, height, TextureFormat.Depth32Float);
 
         // Create render pass and framebuffer
-        RenderPass = Context.CreateRenderPass3D([TextureFormat.RGBA8Unorm], TextureFormat.Depth32Float);
+        RenderPass = Context.CreateRenderPass3D(
+            [TextureFormat.RGBA8Unorm],
+            TextureFormat.Depth32Float
+        );
         Framebuffer = Context.CreateFramebuffer3D(RenderPass, [OutputTexture], _depthTexture);
 
         // Create pipeline
@@ -65,7 +66,8 @@ public sealed class FlipPass : GraphicsNode3D
             SamplerFilter.Linear,
             SamplerFilter.Linear,
             SamplerAddressMode.ClampToEdge,
-            SamplerAddressMode.ClampToEdge);
+            SamplerAddressMode.ClampToEdge
+        );
 
         // Compile shaders
         var vertexSpirv = ShaderCompiler.CompileToSpirv(FlipVertexShader, ShaderStage.Vertex);
@@ -74,7 +76,7 @@ public sealed class FlipPass : GraphicsNode3D
         // Descriptor bindings: 1 input texture sampler
         var descriptorBindings = new DescriptorBinding[]
         {
-            new(0, DescriptorType.CombinedImageSampler, 1, ShaderStage.Fragment)
+            new(0, DescriptorType.CombinedImageSampler, 1, ShaderStage.Fragment),
         };
 
         // Use fullscreen pipeline
@@ -84,13 +86,11 @@ public sealed class FlipPass : GraphicsNode3D
             fragmentSpirv,
             descriptorBindings,
             VertexInputDescription.Empty,
-            PipelineOptions.Fullscreen);
+            PipelineOptions.Fullscreen
+        );
 
         // Create descriptor set
-        var poolSizes = new DescriptorPoolSize[]
-        {
-            new(DescriptorType.CombinedImageSampler, 1)
-        };
+        var poolSizes = new DescriptorPoolSize[] { new(DescriptorType.CombinedImageSampler, 1) };
 
         _descriptorSet = Context.CreateDescriptorSet(_pipeline, poolSizes);
     }
@@ -113,7 +113,13 @@ public sealed class FlipPass : GraphicsNode3D
     /// </summary>
     public void Execute()
     {
-        if (Framebuffer == null || RenderPass == null || _pipeline == null || _descriptorSet == null || _inputTexture == null)
+        if (
+            Framebuffer == null
+            || RenderPass == null
+            || _pipeline == null
+            || _descriptorSet == null
+            || _inputTexture == null
+        )
             return;
 
         // Begin flip pass
@@ -143,42 +149,44 @@ public sealed class FlipPass : GraphicsNode3D
 
     // === Flip Pass Shaders ===
 
-    private static string FlipVertexShader => """
-        #version 450
+    private static string FlipVertexShader =>
+        """
+            #version 450
 
-        layout(location = 0) out vec2 fragTexCoord;
+            layout(location = 0) out vec2 fragTexCoord;
 
-        void main() {
-            // Generate fullscreen triangle vertices
-            vec2 positions[3] = vec2[](
-                vec2(-1.0, -1.0),
-                vec2(3.0, -1.0),
-                vec2(-1.0, 3.0)
-            );
+            void main() {
+                // Generate fullscreen triangle vertices
+                vec2 positions[3] = vec2[](
+                    vec2(-1.0, -1.0),
+                    vec2(3.0, -1.0),
+                    vec2(-1.0, 3.0)
+                );
 
-            // Flipped texture coordinates (Y is inverted)
-            vec2 texCoords[3] = vec2[](
-                vec2(0.0, 1.0),  // Bottom-left -> Top-left of texture
-                vec2(2.0, 1.0),  // Bottom-right -> Top-right of texture
-                vec2(0.0, -1.0)  // Top-left -> Bottom-left of texture
-            );
+                // Flipped texture coordinates (Y is inverted)
+                vec2 texCoords[3] = vec2[](
+                    vec2(0.0, 1.0),  // Bottom-left -> Top-left of texture
+                    vec2(2.0, 1.0),  // Bottom-right -> Top-right of texture
+                    vec2(0.0, -1.0)  // Top-left -> Bottom-left of texture
+                );
 
-            gl_Position = vec4(positions[gl_VertexIndex], 0.0, 1.0);
-            fragTexCoord = texCoords[gl_VertexIndex];
-        }
-        """;
+                gl_Position = vec4(positions[gl_VertexIndex], 0.0, 1.0);
+                fragTexCoord = texCoords[gl_VertexIndex];
+            }
+            """;
 
-    private static string FlipFragmentShader => """
-        #version 450
+    private static string FlipFragmentShader =>
+        """
+            #version 450
 
-        layout(location = 0) in vec2 fragTexCoord;
+            layout(location = 0) in vec2 fragTexCoord;
 
-        layout(binding = 0) uniform sampler2D inputTexture;
+            layout(binding = 0) uniform sampler2D inputTexture;
 
-        layout(location = 0) out vec4 outColor;
+            layout(location = 0) out vec4 outColor;
 
-        void main() {
-            outColor = texture(inputTexture, fragTexCoord);
-        }
-        """;
+            void main() {
+                outColor = texture(inputTexture, fragTexCoord);
+            }
+            """;
 }

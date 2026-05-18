@@ -27,9 +27,18 @@ public class IpcConnectionMultiplexedTests
     {
         string name = NewPipeName();
         var server = new NamedPipeServerStream(
-            name, PipeDirection.InOut, 1, PipeTransmissionMode.Byte, PipeOptions.Asynchronous);
+            name,
+            PipeDirection.InOut,
+            1,
+            PipeTransmissionMode.Byte,
+            PipeOptions.Asynchronous
+        );
         var client = new NamedPipeClientStream(
-            ".", name, PipeDirection.InOut, PipeOptions.Asynchronous);
+            ".",
+            name,
+            PipeDirection.InOut,
+            PipeOptions.Asynchronous
+        );
 
         var serverConnectTask = server.WaitForConnectionAsync();
         client.Connect(TimeSpan.FromSeconds(5));
@@ -55,7 +64,8 @@ public class IpcConnectionMultiplexedTests
             while (!workerCts.IsCancellationRequested)
             {
                 var req = await MessageSerializer.ReadMessageAsync(server, workerCts.Token);
-                if (req == null) return;
+                if (req == null)
+                    return;
                 received.Add(req);
                 if (received.Count == 5)
                 {
@@ -79,7 +89,11 @@ public class IpcConnectionMultiplexedTests
                 tasks.Add((id, conn.SendAndReceiveAsync(req).AsTask()));
             }
 
-            await AwaitWithTimeout(Task.WhenAll(tasks.Select(t => t.Task)), TimeSpan.FromSeconds(10), "all 5 concurrent requests complete");
+            await AwaitWithTimeout(
+                Task.WhenAll(tasks.Select(t => t.Task)),
+                TimeSpan.FromSeconds(10),
+                "all 5 concurrent requests complete"
+            );
             foreach (var (id, t) in tasks)
             {
                 Assert.That(t.Result.Id, Is.EqualTo(id));
@@ -92,7 +106,10 @@ public class IpcConnectionMultiplexedTests
         {
             workerCts.Cancel();
             server.Dispose();
-            try { await workerTask; }
+            try
+            {
+                await workerTask;
+            }
             catch (OperationCanceledException) { }
             catch (IOException) { }
             catch (ObjectDisposedException) { }
@@ -113,8 +130,9 @@ public class IpcConnectionMultiplexedTests
         int id = conn.NextId();
         var req = IpcMessage.CreateSimple(id, RequestType);
         // ct.ThrowIfCancellationRequested が _pendingRequests への登録より先に走る。
-        Assert.CatchAsync<OperationCanceledException>(
-            async () => await conn.SendAndReceiveAsync(req, cts.Token));
+        Assert.CatchAsync<OperationCanceledException>(async () =>
+            await conn.SendAndReceiveAsync(req, cts.Token)
+        );
 
         Assert.That(PendingCount(conn), Is.EqualTo(0));
     }
@@ -136,13 +154,21 @@ public class IpcConnectionMultiplexedTests
 
             // 送信完了 (= pending に積まれた) を観測してからキャンセル。
             // 固定 Task.Delay だと CI 環境差でフレーキーになるため、PendingRequestCount を直接ポーリング。
-            await WaitUntil(() => PendingCount(conn) == 1, TimeSpan.FromSeconds(5), "request enters pending dict");
+            await WaitUntil(
+                () => PendingCount(conn) == 1,
+                TimeSpan.FromSeconds(5),
+                "request enters pending dict"
+            );
             cts.Cancel();
 
             var oce = Assert.CatchAsync<OperationCanceledException>(async () => await requestTask);
             Assert.That(oce!.CancellationToken, Is.EqualTo(cts.Token));
 
-            await WaitUntil(() => PendingCount(conn) == 0, TimeSpan.FromSeconds(5), "pending dict drains after cancel");
+            await WaitUntil(
+                () => PendingCount(conn) == 0,
+                TimeSpan.FromSeconds(5),
+                "pending dict drains after cancel"
+            );
             Assert.That(PendingCount(conn), Is.EqualTo(0));
         }
         finally
@@ -170,17 +196,29 @@ public class IpcConnectionMultiplexedTests
             var req = IpcMessage.CreateSimple(id, RequestType);
             var requestTask = conn.SendAndReceiveAsync(req, cts.Token).AsTask();
 
-            await WaitUntil(() => PendingCount(conn) == 1, TimeSpan.FromSeconds(5), "request enters pending dict");
+            await WaitUntil(
+                () => PendingCount(conn) == 1,
+                TimeSpan.FromSeconds(5),
+                "request enters pending dict"
+            );
             cts.Cancel();
             Assert.CatchAsync<OperationCanceledException>(async () => await requestTask);
-            await WaitUntil(() => PendingCount(conn) == 0, TimeSpan.FromSeconds(5), "pending dict drains after cancel");
+            await WaitUntil(
+                () => PendingCount(conn) == 0,
+                TimeSpan.FromSeconds(5),
+                "pending dict drains after cancel"
+            );
 
             // 遅延レスポンスを送り込む → dropped ハンドラに来るはず。
             // cts は既に発火済みなので渡せるトークンが無く、無トークン書き込みでよい。
             var resp = IpcMessage.CreateSimple(id, ResponseType);
             await MessageSerializer.WriteMessageAsync(server, resp);
 
-            await WaitUntil(() => dropped.Count >= 1, TimeSpan.FromSeconds(5), "DroppedResponseHandler is invoked for late response");
+            await WaitUntil(
+                () => dropped.Count >= 1,
+                TimeSpan.FromSeconds(5),
+                "DroppedResponseHandler is invoked for late response"
+            );
             Assert.That(dropped.Count, Is.EqualTo(1));
             Assert.That(dropped.TryDequeue(out var dropMsg), Is.True);
             Assert.That(dropMsg!.Id, Is.EqualTo(id));
@@ -216,14 +254,26 @@ public class IpcConnectionMultiplexedTests
             var firstReq = IpcMessage.CreateSimple(firstId, RequestType);
             var firstTask = conn.SendAndReceiveAsync(firstReq, cts.Token).AsTask();
 
-            await WaitUntil(() => PendingCount(conn) == 1, TimeSpan.FromSeconds(5), "first request enters pending dict");
+            await WaitUntil(
+                () => PendingCount(conn) == 1,
+                TimeSpan.FromSeconds(5),
+                "first request enters pending dict"
+            );
             cts.Cancel();
             Assert.CatchAsync<OperationCanceledException>(async () => await firstTask);
-            await WaitUntil(() => PendingCount(conn) == 0, TimeSpan.FromSeconds(5), "pending dict drains after cancel");
+            await WaitUntil(
+                () => PendingCount(conn) == 0,
+                TimeSpan.FromSeconds(5),
+                "pending dict drains after cancel"
+            );
 
             var lateResp = IpcMessage.CreateSimple(firstId, ResponseType);
             await MessageSerializer.WriteMessageAsync(server, lateResp);
-            await WaitUntil(() => Volatile.Read(ref handlerCalls) >= 1, TimeSpan.FromSeconds(5), "dropped handler is invoked");
+            await WaitUntil(
+                () => Volatile.Read(ref handlerCalls) >= 1,
+                TimeSpan.FromSeconds(5),
+                "dropped handler is invoked"
+            );
         }
 
         // 2) 二本目のリクエストが正常応答を受け取る = 受信ループ生存中。
@@ -231,7 +281,11 @@ public class IpcConnectionMultiplexedTests
         var secondReq = IpcMessage.CreateSimple(secondId, RequestType);
         var secondTask = conn.SendAndReceiveAsync(secondReq).AsTask();
 
-        await WaitUntil(() => PendingCount(conn) == 1, TimeSpan.FromSeconds(5), "second request enters pending dict");
+        await WaitUntil(
+            () => PendingCount(conn) == 1,
+            TimeSpan.FromSeconds(5),
+            "second request enters pending dict"
+        );
 
         // ハンドラを差し替えてから応答を返す (二本目で再度発火させない)。
         conn.DroppedResponseHandler = null;
@@ -263,7 +317,8 @@ public class IpcConnectionMultiplexedTests
             var workerTask = Task.Run(async () =>
             {
                 var req = await MessageSerializer.ReadMessageAsync(server, workerCts.Token);
-                if (req == null) return;
+                if (req == null)
+                    return;
                 var resp = IpcMessage.CreateSimple(req.Id, ResponseType);
                 await MessageSerializer.WriteMessageAsync(server, resp, workerCts.Token);
             });
@@ -279,7 +334,11 @@ public class IpcConnectionMultiplexedTests
                 cts.Cancel();
 
                 // キャンセル経路がリークすると await が返らなくなるため上限を切る。
-                await AwaitWithTimeout(requestTask, TimeSpan.FromSeconds(5), $"iter={iter}: requestTask");
+                await AwaitWithTimeout(
+                    requestTask,
+                    TimeSpan.FromSeconds(5),
+                    $"iter={iter}: requestTask"
+                );
             }
             catch (OperationCanceledException) { }
             catch (IOException) { }
@@ -290,13 +349,24 @@ public class IpcConnectionMultiplexedTests
                 // worker は書き込み中に server.Dispose() を踏むと
                 // ObjectDisposedException を投げうる。stress テストでは
                 // この競合は不可避なので想定例外として許容する。
-                try { await AwaitWithTimeout(workerTask, TimeSpan.FromSeconds(5), $"iter={iter}: workerTask"); }
+                try
+                {
+                    await AwaitWithTimeout(
+                        workerTask,
+                        TimeSpan.FromSeconds(5),
+                        $"iter={iter}: workerTask"
+                    );
+                }
                 catch (OperationCanceledException) { }
                 catch (IOException) { }
                 catch (ObjectDisposedException) { }
             }
 
-            await WaitUntil(() => PendingCount(conn) == 0, TimeSpan.FromSeconds(2), $"iter={iter}: pending dict drains");
+            await WaitUntil(
+                () => PendingCount(conn) == 0,
+                TimeSpan.FromSeconds(2),
+                $"iter={iter}: pending dict drains"
+            );
             Assert.That(PendingCount(conn), Is.EqualTo(0), $"iter={iter}");
 
             // dropped に乗ったメッセージはすべて送信した id と一致するはず。
@@ -323,16 +393,25 @@ public class IpcConnectionMultiplexedTests
         var second = IpcMessage.CreateSimple(fixedId, RequestType);
 
         var firstTask = conn.SendAndReceiveAsync(first, cts.Token).AsTask();
-        await WaitUntil(() => PendingCount(conn) == 1, TimeSpan.FromSeconds(5), "first request enters pending dict");
+        await WaitUntil(
+            () => PendingCount(conn) == 1,
+            TimeSpan.FromSeconds(5),
+            "first request enters pending dict"
+        );
 
-        var ex = Assert.ThrowsAsync<InvalidOperationException>(
-            async () => await conn.SendAndReceiveAsync(second));
+        var ex = Assert.ThrowsAsync<InvalidOperationException>(async () =>
+            await conn.SendAndReceiveAsync(second)
+        );
         Assert.That(ex!.Message, Does.Contain("already in flight"));
         Assert.That(PendingCount(conn), Is.EqualTo(1));
 
         cts.Cancel();
         Assert.CatchAsync<OperationCanceledException>(async () => await firstTask);
-        await WaitUntil(() => PendingCount(conn) == 0, TimeSpan.FromSeconds(5), "pending dict drains after cancel");
+        await WaitUntil(
+            () => PendingCount(conn) == 0,
+            TimeSpan.FromSeconds(5),
+            "pending dict drains after cancel"
+        );
     }
 
     [Test]
@@ -377,7 +456,8 @@ public class IpcConnectionMultiplexedTests
         var workerTask = Task.Run(async () =>
         {
             var req = await MessageSerializer.ReadMessageAsync(server, workerCts.Token);
-            if (req == null) return;
+            if (req == null)
+                return;
             var resp = IpcMessage.CreateError(req.Id, "boom", "stack-here");
             await MessageSerializer.WriteMessageAsync(server, resp, workerCts.Token);
         });
@@ -386,18 +466,26 @@ public class IpcConnectionMultiplexedTests
         {
             int id = conn.NextId();
             var req = IpcMessage.CreateSimple(id, RequestType);
-            var ex = Assert.ThrowsAsync<FFmpegWorkerException>(
-                async () => await conn.SendAndReceiveAsync(req));
+            var ex = Assert.ThrowsAsync<FFmpegWorkerException>(async () =>
+                await conn.SendAndReceiveAsync(req)
+            );
             Assert.That(ex!.Message, Is.EqualTo("boom"));
 
-            await WaitUntil(() => PendingCount(conn) == 0, TimeSpan.FromSeconds(5), "pending dict drains after error response");
+            await WaitUntil(
+                () => PendingCount(conn) == 0,
+                TimeSpan.FromSeconds(5),
+                "pending dict drains after error response"
+            );
             Assert.That(PendingCount(conn), Is.EqualTo(0));
         }
         finally
         {
             workerCts.Cancel();
             server.Dispose();
-            try { await workerTask; }
+            try
+            {
+                await workerTask;
+            }
             catch (OperationCanceledException) { }
             catch (IOException) { }
             catch (ObjectDisposedException) { }
@@ -419,7 +507,11 @@ public class IpcConnectionMultiplexedTests
         var req = IpcMessage.CreateSimple(id, RequestType);
         var requestTask = conn.SendAndReceiveAsync(req).AsTask();
 
-        await WaitUntil(() => PendingCount(conn) == 1, TimeSpan.FromSeconds(5), "request enters pending dict");
+        await WaitUntil(
+            () => PendingCount(conn) == 1,
+            TimeSpan.FromSeconds(5),
+            "request enters pending dict"
+        );
 
         // 長さ -1 は MessageSerializer.ReadMessageAsync で
         // "Invalid message length" の InvalidOperationException を引き起こす。
@@ -431,7 +523,11 @@ public class IpcConnectionMultiplexedTests
         Assert.That(ex!.Message, Does.Contain("unexpected protocol or deserialization error"));
         Assert.That(ex.InnerException, Is.InstanceOf<InvalidOperationException>());
 
-        await WaitUntil(() => PendingCount(conn) == 0, TimeSpan.FromSeconds(5), "pending dict drains after protocol error");
+        await WaitUntil(
+            () => PendingCount(conn) == 0,
+            TimeSpan.FromSeconds(5),
+            "pending dict drains after protocol error"
+        );
         Assert.That(PendingCount(conn), Is.EqualTo(0));
     }
 
@@ -448,7 +544,11 @@ public class IpcConnectionMultiplexedTests
         int firstId = conn.NextId();
         var firstReq = IpcMessage.CreateSimple(firstId, RequestType);
         var firstTask = conn.SendAndReceiveAsync(firstReq).AsTask();
-        await WaitUntil(() => PendingCount(conn) == 1, TimeSpan.FromSeconds(5), "first request enters pending dict");
+        await WaitUntil(
+            () => PendingCount(conn) == 1,
+            TimeSpan.FromSeconds(5),
+            "first request enters pending dict"
+        );
 
         byte[] badLength = [0xFF, 0xFF, 0xFF, 0xFF];
         await server.WriteAsync(badLength);
@@ -483,13 +583,20 @@ public class IpcConnectionMultiplexedTests
             int id = conn.NextId();
             var req = IpcMessage.CreateSimple(id, RequestType);
             var requestTask = conn.SendAndReceiveAsync(req).AsTask();
-            await WaitUntil(() => PendingCount(conn) == 1, TimeSpan.FromSeconds(5), "request enters pending dict");
+            await WaitUntil(
+                () => PendingCount(conn) == 1,
+                TimeSpan.FromSeconds(5),
+                "request enters pending dict"
+            );
 
             conn.Dispose();
 
             var ex = Assert.CatchAsync(async () => await requestTask);
-            Assert.That(ex, Is.InstanceOf<OperationCanceledException>(),
-                $"expected OperationCanceledException (self-dispose), got {ex?.GetType().Name}: {ex?.Message}");
+            Assert.That(
+                ex,
+                Is.InstanceOf<OperationCanceledException>(),
+                $"expected OperationCanceledException (self-dispose), got {ex?.GetType().Name}: {ex?.Message}"
+            );
         }
         finally
         {
@@ -530,16 +637,26 @@ public class IpcConnectionMultiplexedTests
         int id = conn.NextId();
         var req = IpcMessage.CreateSimple(id, RequestType);
         _ = Task.Run(() => conn.SendAndReceiveAsync(req).AsTask());
-        await WaitUntil(() => PendingCount(conn) == 1, TimeSpan.FromSeconds(2), "request enters pending dict");
+        await WaitUntil(
+            () => PendingCount(conn) == 1,
+            TimeSpan.FromSeconds(2),
+            "request enters pending dict"
+        );
 
         var sw = Stopwatch.StartNew();
         Assert.DoesNotThrow(() => conn.Dispose());
         sw.Stop();
 
-        Assert.That(sw.Elapsed, Is.GreaterThanOrEqualTo(TimeSpan.FromSeconds(4)),
-            "Dispose must wait for the receive loop until the timeout fires");
-        Assert.That(sw.Elapsed, Is.LessThan(TimeSpan.FromSeconds(8)),
-            "Dispose must give up after the timeout instead of hanging indefinitely");
+        Assert.That(
+            sw.Elapsed,
+            Is.GreaterThanOrEqualTo(TimeSpan.FromSeconds(4)),
+            "Dispose must wait for the receive loop until the timeout fires"
+        );
+        Assert.That(
+            sw.Elapsed,
+            Is.LessThan(TimeSpan.FromSeconds(8)),
+            "Dispose must give up after the timeout instead of hanging indefinitely"
+        );
     }
 
     [Test]
@@ -563,7 +680,11 @@ public class IpcConnectionMultiplexedTests
         // 「OCE を clean-cancel として握り潰すかどうか」だけが本テストの本質。
         Assert.That(ex!.InnerException, Is.InstanceOf<OperationCanceledException>());
 
-        await WaitUntil(() => PendingCount(conn) == 0, TimeSpan.FromSeconds(5), "pending dict drains after foreign-token OCE");
+        await WaitUntil(
+            () => PendingCount(conn) == 0,
+            TimeSpan.FromSeconds(5),
+            "pending dict drains after foreign-token OCE"
+        );
     }
 
     [Test]
@@ -612,20 +733,37 @@ public class IpcConnectionMultiplexedTests
             tasks.Add(conn.SendAndReceiveAsync(req).AsTask());
         }
 
-        await WaitUntil(() => PendingCount(conn) == 3, TimeSpan.FromSeconds(5), "all 3 requests enter pending dict");
+        await WaitUntil(
+            () => PendingCount(conn) == 3,
+            TimeSpan.FromSeconds(5),
+            "all 3 requests enter pending dict"
+        );
 
         server.Dispose();
 
-        var exceptions = await Task.WhenAll(tasks.Select(async t =>
-        {
-            try { await t; return (Exception?)null; }
-            catch (Exception ex) { return ex; }
-        }));
+        var exceptions = await Task.WhenAll(
+            tasks.Select(async t =>
+            {
+                try
+                {
+                    await t;
+                    return (Exception?)null;
+                }
+                catch (Exception ex)
+                {
+                    return ex;
+                }
+            })
+        );
 
         Assert.That(exceptions, Has.All.Not.Null);
         // 全タスクが broken-pipe 例外として観測される (OperationCanceledException ではない)。
         Assert.That(exceptions, Has.All.InstanceOf<IOException>());
-        await WaitUntil(() => PendingCount(conn) == 0, TimeSpan.FromSeconds(5), "pending dict drains after broken pipe");
+        await WaitUntil(
+            () => PendingCount(conn) == 0,
+            TimeSpan.FromSeconds(5),
+            "pending dict drains after broken pipe"
+        );
         Assert.That(PendingCount(conn), Is.EqualTo(0));
     }
 
@@ -675,27 +813,38 @@ public class IpcConnectionMultiplexedTests
     /// </summary>
     private sealed class HangingPipeStream : PipeStream
     {
-        public HangingPipeStream() : base(PipeDirection.InOut, 4096) { }
+        public HangingPipeStream()
+            : base(PipeDirection.InOut, 4096) { }
 
         public override int Read(byte[] buffer, int offset, int count)
         {
             // 同期 Read は使わない想定だが、最低限ハングさせる。
-            new TaskCompletionSource<int>().Task.GetAwaiter().GetResult();
+            new TaskCompletionSource<int>()
+                .Task.GetAwaiter()
+                .GetResult();
             return 0;
         }
 
         public override int Read(Span<byte> buffer) => Read(Array.Empty<byte>(), 0, 0);
 
-        public override ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken = default)
-            => new ValueTask<int>(new TaskCompletionSource<int>().Task);
+        public override ValueTask<int> ReadAsync(
+            Memory<byte> buffer,
+            CancellationToken cancellationToken = default
+        ) => new ValueTask<int>(new TaskCompletionSource<int>().Task);
 
-        public override Task<int> ReadAsync(byte[] buffer, int offset, int count, CancellationToken cancellationToken)
-            => new TaskCompletionSource<int>().Task;
+        public override Task<int> ReadAsync(
+            byte[] buffer,
+            int offset,
+            int count,
+            CancellationToken cancellationToken
+        ) => new TaskCompletionSource<int>().Task;
 
         public override void Write(byte[] buffer, int offset, int count) { }
 
-        public override ValueTask WriteAsync(ReadOnlyMemory<byte> buffer, CancellationToken cancellationToken = default)
-            => ValueTask.CompletedTask;
+        public override ValueTask WriteAsync(
+            ReadOnlyMemory<byte> buffer,
+            CancellationToken cancellationToken = default
+        ) => ValueTask.CompletedTask;
     }
 
     /// <summary>
@@ -716,15 +865,23 @@ public class IpcConnectionMultiplexedTests
 
         public override int Read(Span<byte> buffer) => throw _factory();
 
-        public override ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken = default)
-            => throw _factory();
+        public override ValueTask<int> ReadAsync(
+            Memory<byte> buffer,
+            CancellationToken cancellationToken = default
+        ) => throw _factory();
 
-        public override Task<int> ReadAsync(byte[] buffer, int offset, int count, CancellationToken cancellationToken)
-            => throw _factory();
+        public override Task<int> ReadAsync(
+            byte[] buffer,
+            int offset,
+            int count,
+            CancellationToken cancellationToken
+        ) => throw _factory();
 
         public override void Write(byte[] buffer, int offset, int count) { }
 
-        public override ValueTask WriteAsync(ReadOnlyMemory<byte> buffer, CancellationToken cancellationToken = default)
-            => ValueTask.CompletedTask;
+        public override ValueTask WriteAsync(
+            ReadOnlyMemory<byte> buffer,
+            CancellationToken cancellationToken = default
+        ) => ValueTask.CompletedTask;
     }
 }

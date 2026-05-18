@@ -9,7 +9,8 @@ public partial class LayerEffect : FilterEffect
 {
     public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
     {
-        context.CustomEffect(Unit.Default,
+        context.CustomEffect(
+            Unit.Default,
             (_, ctx) =>
             {
                 var bounds = ctx.Targets.CalculateBounds();
@@ -19,7 +20,11 @@ public partial class LayerEffect : FilterEffect
                     canvas.Clear();
                     foreach (var t in ctx.Targets)
                     {
-                        using (canvas.PushTransform(Matrix.CreateTranslation(t.Bounds.Position - bounds.Position)))
+                        using (
+                            canvas.PushTransform(
+                                Matrix.CreateTranslation(t.Bounds.Position - bounds.Position)
+                            )
+                        )
                         {
                             t.Draw(canvas);
                         }
@@ -33,6 +38,7 @@ public partial class LayerEffect : FilterEffect
                 }
 
                 ctx.Targets.Add(newTarget);
-            });
+            }
+        );
     }
 }

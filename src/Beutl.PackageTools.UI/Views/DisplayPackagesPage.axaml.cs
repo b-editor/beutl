@@ -1,8 +1,6 @@
 ﻿using Avalonia.Interactivity;
 using Avalonia.VisualTree;
-
 using Beutl.PackageTools.UI.ViewModels;
-
 using FluentAvalonia.UI.Controls;
 using FluentAvalonia.UI.Navigation;
 
@@ -27,7 +25,8 @@ public partial class DisplayPackagesPage : PackageToolPage
     private void OnNextClick(object? sender, RoutedEventArgs e)
     {
         Frame? frame = this.FindAncestorOfType<Frame>();
-        if (frame == null) return;
+        if (frame == null)
+            return;
 
         if (frame.CanGoForward)
         {

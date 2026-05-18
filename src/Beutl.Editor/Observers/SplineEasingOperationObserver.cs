@@ -1,5 +1,4 @@
 ﻿using System.Reactive.Subjects;
-
 using Beutl.Animation.Easings;
 using Beutl.Editor.Infrastructure;
 using Beutl.Editor.Operations;
@@ -28,7 +27,8 @@ public sealed class SplineEasingOperationObserver : IOperationObserver
         OperationSequenceGenerator sequenceNumberGenerator,
         CoreObject? parent,
         string propertyPath = "",
-        HashSet<string>? propertyPathsToTrack = null)
+        HashSet<string>? propertyPathsToTrack = null
+    )
     {
         _easing = easing;
         _sequenceNumberGenerator = sequenceNumberGenerator;
@@ -46,7 +46,8 @@ public sealed class SplineEasingOperationObserver : IOperationObserver
             _subscription = _operations.Subscribe(observer);
         }
 
-        _propertiesToTrack = _propertyPathsToTrack?.Where(i => i.Contains(_propertyPath))
+        _propertiesToTrack = _propertyPathsToTrack
+            ?.Where(i => i.Contains(_propertyPath))
             .Select(i => i.Substring(_propertyPath.Length).TrimStart('.').Split('.').First())
             .Where(i => !string.IsNullOrEmpty(i))
             .ToHashSet();
@@ -109,7 +110,7 @@ public sealed class SplineEasingOperationObserver : IOperationObserver
         var operation = new UpdateSplineEasingOperation(_easing, fullPath, newValue, oldValue)
         {
             SequenceNumber = _sequenceNumberGenerator.GetNext(),
-            Parent = _parent
+            Parent = _parent,
         };
         _operations.OnNext(operation);
     }

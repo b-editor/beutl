@@ -24,11 +24,16 @@ public class UpdatePropertyValueOperationTests
         _sequenceGenerator = new OperationSequenceGenerator();
     }
 
-    private UpdatePropertyValueOperation<T> CreateOp<T>(CoreObject obj, string propertyPath, T newValue, T oldValue)
+    private UpdatePropertyValueOperation<T> CreateOp<T>(
+        CoreObject obj,
+        string propertyPath,
+        T newValue,
+        T oldValue
+    )
     {
         return new UpdatePropertyValueOperation<T>(obj, propertyPath, newValue, oldValue)
         {
-            SequenceNumber = _sequenceGenerator.GetNext()
+            SequenceNumber = _sequenceGenerator.GetNext(),
         };
     }
 
@@ -373,7 +378,12 @@ public class UpdatePropertyValueOperationTests
         var engineObj = new TestAnimatableEngineObject();
         var expression = new TestExpression<float>(100f);
         var context = new OperationExecutionContext(engineObj);
-        var op = CreateOp<IExpression<float>?>(engineObj, "FloatValue.Expression", expression, null);
+        var op = CreateOp<IExpression<float>?>(
+            engineObj,
+            "FloatValue.Expression",
+            expression,
+            null
+        );
 
         // Act
         op.Apply(context);
@@ -438,7 +448,12 @@ public class UpdatePropertyValueOperationTests
         var oldAnimation = new KeyFrameAnimation<float>();
         engineObj.FloatValue.Animation = newAnimation;
         var context = new OperationExecutionContext(engineObj);
-        var op = CreateOp<IAnimation<float>?>(engineObj, "FloatValue.Animation", newAnimation, oldAnimation);
+        var op = CreateOp<IAnimation<float>?>(
+            engineObj,
+            "FloatValue.Animation",
+            newAnimation,
+            oldAnimation
+        );
 
         // Act
         op.Revert(context);
@@ -473,7 +488,12 @@ public class UpdatePropertyValueOperationTests
         var oldExpression = new TestExpression<float>(50f);
         engineObj.FloatValue.Expression = newExpression;
         var context = new OperationExecutionContext(engineObj);
-        var op = CreateOp<IExpression<float>?>(engineObj, "FloatValue.Expression", newExpression, oldExpression);
+        var op = CreateOp<IExpression<float>?>(
+            engineObj,
+            "FloatValue.Expression",
+            newExpression,
+            oldExpression
+        );
 
         // Act
         op.Revert(context);
@@ -681,7 +701,12 @@ public class UpdatePropertyValueOperationTests
         var engineObj = new TestAnimatableEngineObject();
         var expression = new TestExpression<float>(100f);
         var context = new OperationExecutionContext(engineObj);
-        var op = CreateOp<IExpression<float>?>(engineObj, "FloatValue.Expression", expression, null);
+        var op = CreateOp<IExpression<float>?>(
+            engineObj,
+            "FloatValue.Expression",
+            expression,
+            null
+        );
 
         // Act
         op.Apply(context);
@@ -697,7 +722,12 @@ public class UpdatePropertyValueOperationTests
         var engineObj = new TestAnimatableEngineObject();
         var animation = new KeyFrameAnimation<float>();
         var context = new OperationExecutionContext(engineObj);
-        var op = CreateOp<IAnimation<float>?>(engineObj, "Parent.Child.FloatValue.Animation", animation, null);
+        var op = CreateOp<IAnimation<float>?>(
+            engineObj,
+            "Parent.Child.FloatValue.Animation",
+            animation,
+            null
+        );
 
         // Act
         op.Apply(context);
@@ -713,7 +743,12 @@ public class UpdatePropertyValueOperationTests
         var engineObj = new TestAnimatableEngineObject();
         var expression = new TestExpression<float>(100f);
         var context = new OperationExecutionContext(engineObj);
-        var op = CreateOp<IExpression<float>?>(engineObj, "Parent.Child.FloatValue.Expression", expression, null);
+        var op = CreateOp<IExpression<float>?>(
+            engineObj,
+            "Parent.Child.FloatValue.Expression",
+            expression,
+            null
+        );
 
         // Act
         op.Apply(context);
@@ -888,6 +923,7 @@ public class UpdatePropertyValueOperationTests
     private class TestChangeOperation : ChangeOperation
     {
         public override void Apply(OperationExecutionContext context) { }
+
         public override void Revert(OperationExecutionContext context) { }
     }
 

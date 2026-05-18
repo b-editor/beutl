@@ -6,7 +6,9 @@ using Reactive.Bindings.Extensions;
 
 namespace Beutl.ViewModels.Editors;
 
-public sealed class RelativePointEditorViewModel : ValueEditorViewModel<Graphics.RelativePoint>, IConfigureUniformEditor
+public sealed class RelativePointEditorViewModel
+    : ValueEditorViewModel<Graphics.RelativePoint>,
+        IConfigureUniformEditor
 {
     public RelativePointEditorViewModel(IPropertyAdapter<Graphics.RelativePoint> property)
         : base(property)
@@ -21,10 +23,7 @@ public sealed class RelativePointEditorViewModel : ValueEditorViewModel<Graphics
             .ToReadOnlyReactivePropertySlim()
             .AddTo(Disposables);
 
-        UnitValue = Value
-            .Select(x => x.Unit)
-            .ToReadOnlyReactivePropertySlim()
-            .AddTo(Disposables);
+        UnitValue = Value.Select(x => x.Unit).ToReadOnlyReactivePropertySlim().AddTo(Disposables);
     }
 
     public ReadOnlyReactivePropertySlim<float> FirstValue { get; }
@@ -40,17 +39,23 @@ public sealed class RelativePointEditorViewModel : ValueEditorViewModel<Graphics
         base.Accept(visitor);
         if (visitor is RelativePointEditor editor && !Disposables.IsDisposed)
         {
-            editor.Bind(RelativePointEditor.FirstValueProperty, FirstValue.ToBinding())
+            editor
+                .Bind(RelativePointEditor.FirstValueProperty, FirstValue.ToBinding())
                 .DisposeWith(Disposables);
-            editor.Bind(RelativePointEditor.SecondValueProperty, SecondValue.ToBinding())
+            editor
+                .Bind(RelativePointEditor.SecondValueProperty, SecondValue.ToBinding())
                 .DisposeWith(Disposables);
-            editor.Bind(RelativePointEditor.UnitProperty, UnitValue.ToBinding())
+            editor
+                .Bind(RelativePointEditor.UnitProperty, UnitValue.ToBinding())
                 .DisposeWith(Disposables);
-            editor.Bind(Vector2Editor.IsUniformProperty, IsUniformEditorEnabled.ToBinding())
+            editor
+                .Bind(Vector2Editor.IsUniformProperty, IsUniformEditorEnabled.ToBinding())
                 .DisposeWith(Disposables);
-            editor.AddDisposableHandler(PropertyEditor.ValueConfirmedEvent, OnValueConfirmed)
+            editor
+                .AddDisposableHandler(PropertyEditor.ValueConfirmedEvent, OnValueConfirmed)
                 .DisposeWith(Disposables);
-            editor.AddDisposableHandler(PropertyEditor.ValueChangedEvent, OnValueChanged)
+            editor
+                .AddDisposableHandler(PropertyEditor.ValueChangedEvent, OnValueChanged)
                 .DisposeWith(Disposables);
         }
     }
@@ -65,8 +70,10 @@ public sealed class RelativePointEditorViewModel : ValueEditorViewModel<Graphics
 
     private void OnValueChanged(object? sender, PropertyEditorValueChangedEventArgs e)
     {
-        if (e is PropertyEditorValueChangedEventArgs<Graphics.RelativePoint> args
-            && sender is RelativePointEditor editor)
+        if (
+            e is PropertyEditorValueChangedEventArgs<Graphics.RelativePoint> args
+            && sender is RelativePointEditor editor
+        )
         {
             Graphics.RelativePoint coerced = SetCurrentValueAndGetCoerced(args.NewValue);
             editor.FirstValue = coerced.Point.X;

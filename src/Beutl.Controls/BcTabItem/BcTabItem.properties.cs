@@ -5,17 +5,23 @@ namespace Beutl.Controls;
 
 public partial class BcTabItem
 {
-    public static readonly StyledProperty<Control> IconProperty =
-        AvaloniaProperty.Register<BcTabItem, Control>(nameof(Icon));
+    public static readonly StyledProperty<Control> IconProperty = AvaloniaProperty.Register<
+        BcTabItem,
+        Control
+    >(nameof(Icon));
 
-    public static readonly StyledProperty<bool> IsClosableProperty =
-        AvaloniaProperty.Register<BcTabItem, bool>(nameof(IsClosable), true);
+    public static readonly StyledProperty<bool> IsClosableProperty = AvaloniaProperty.Register<
+        BcTabItem,
+        bool
+    >(nameof(IsClosable), true);
 
     public static readonly DirectProperty<BcTabItem, bool> IsClosingProperty =
         AvaloniaProperty.RegisterDirect<BcTabItem, bool>(nameof(IsClosing), o => o.IsClosing);
 
-    public static readonly StyledProperty<bool> CanBeDraggedProperty =
-        AvaloniaProperty.Register<BcTabItem, bool>(nameof(CanBeDragged), true);
+    public static readonly StyledProperty<bool> CanBeDraggedProperty = AvaloniaProperty.Register<
+        BcTabItem,
+        bool
+    >(nameof(CanBeDragged), true);
 
     private bool _isclosing = false;
 

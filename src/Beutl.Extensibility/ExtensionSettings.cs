@@ -2,6 +2,4 @@
 
 namespace Beutl.Extensibility;
 
-public abstract class ExtensionSettings : ConfigurationBase
-{
-}
+public abstract class ExtensionSettings : ConfigurationBase { }

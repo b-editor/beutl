@@ -32,14 +32,20 @@ public sealed class AVFReader : MediaReader
         bool wantsAudio = options.StreamsToLoad.HasFlag(MediaMode.Audio);
 
         int modeFlags = 0;
-        if (wantsVideo) modeFlags |= 1;
-        if (wantsAudio) modeFlags |= 2;
+        if (wantsVideo)
+            modeFlags |= 1;
+        if (wantsAudio)
+            modeFlags |= 2;
 
         int r = BeutlAVFNative.beutl_avf_reader_open(file, modeFlags, ref opts, out _handle);
         BeutlAVFException.ThrowIfFailed(r);
 
-        BeutlAVFException.ThrowIfFailed(BeutlAVFNative.beutl_avf_reader_has_video(_handle, out int hasVideo));
-        BeutlAVFException.ThrowIfFailed(BeutlAVFNative.beutl_avf_reader_has_audio(_handle, out int hasAudio));
+        BeutlAVFException.ThrowIfFailed(
+            BeutlAVFNative.beutl_avf_reader_has_video(_handle, out int hasVideo)
+        );
+        BeutlAVFException.ThrowIfFailed(
+            BeutlAVFNative.beutl_avf_reader_has_audio(_handle, out int hasAudio)
+        );
 
         HasVideo = hasVideo != 0;
         HasAudio = hasAudio != 0;
@@ -62,33 +68,40 @@ public sealed class AVFReader : MediaReader
         if (HasVideo)
         {
             BeutlAVFException.ThrowIfFailed(
-                BeutlAVFNative.beutl_avf_reader_get_video_info(_handle, out var vi));
+                BeutlAVFNative.beutl_avf_reader_get_video_info(_handle, out var vi)
+            );
             VideoInfo = new VideoStreamInfo(
                 BeutlAVFNative.FourCCToString(vi.CodecFourCC),
                 vi.NominalFrameCount,
                 new PixelSize(vi.Width, vi.Height),
-                new Rational(vi.FrameRateNum, vi.FrameRateDen));
+                new Rational(vi.FrameRateNum, vi.FrameRateDen)
+            );
 
             bool isHdr = vi.IsHdr != 0;
             _videoColorType = isHdr ? BitmapColorType.Rgba16161616 : BitmapColorType.Bgra8888;
             _videoColorSpace = ColorSpaceMapper.BuildColorSpace(
                 isHdr,
                 (BeutlTransferFunction)vi.TransferFunction,
-                (BeutlColorPrimaries)vi.ColorPrimaries);
+                (BeutlColorPrimaries)vi.ColorPrimaries
+            );
             _logger.LogInformation(
                 "Video color space: {ColorSpace} ({Hdr})",
-                _videoColorSpace, isHdr ? "HDR" : "SDR");
+                _videoColorSpace,
+                isHdr ? "HDR" : "SDR"
+            );
         }
 
         if (HasAudio)
         {
             BeutlAVFException.ThrowIfFailed(
-                BeutlAVFNative.beutl_avf_reader_get_audio_info(_handle, out var ai));
+                BeutlAVFNative.beutl_avf_reader_get_audio_info(_handle, out var ai)
+            );
             AudioInfo = new AudioStreamInfo(
                 BeutlAVFNative.FourCCToString(ai.CodecFourCC),
                 new Rational(ai.DurationNum, ai.DurationDen),
                 ai.SampleRate,
-                ai.ChannelCount);
+                ai.ChannelCount
+            );
         }
     }
 
@@ -109,17 +122,28 @@ public sealed class AVFReader : MediaReader
         }
 
         var bitmap = new Bitmap(
-            VideoInfo.FrameSize.Width, VideoInfo.FrameSize.Height,
-            _videoColorType, _videoAlphaType, _videoColorSpace);
+            VideoInfo.FrameSize.Width,
+            VideoInfo.FrameSize.Height,
+            _videoColorType,
+            _videoAlphaType,
+            _videoColorSpace
+        );
         try
         {
             int result = BeutlAVFNative.beutl_avf_reader_read_video(
-                _handle, frame, bitmap.Data, bitmap.ByteCount, bitmap.RowBytes);
+                _handle,
+                frame,
+                bitmap.Data,
+                bitmap.ByteCount,
+                bitmap.RowBytes
+            );
             if (result != 0)
             {
                 _logger.LogWarning(
                     "beutl_avf_reader_read_video failed (code={Code}): {Message}",
-                    result, BeutlAVFNative.GetLastErrorMessage());
+                    result,
+                    BeutlAVFNative.GetLastErrorMessage()
+                );
                 bitmap.Dispose();
                 return false;
             }
@@ -147,12 +171,19 @@ public sealed class AVFReader : MediaReader
         {
             int capacityBytes = length * (int)buffer.SampleSize;
             int result = BeutlAVFNative.beutl_avf_reader_read_audio(
-                _handle, start, length, buffer.Data, capacityBytes);
+                _handle,
+                start,
+                length,
+                buffer.Data,
+                capacityBytes
+            );
             if (result != 0)
             {
                 _logger.LogWarning(
                     "beutl_avf_reader_read_audio failed (code={Code}): {Message}",
-                    result, BeutlAVFNative.GetLastErrorMessage());
+                    result,
+                    BeutlAVFNative.GetLastErrorMessage()
+                );
                 buffer.Dispose();
                 return false;
             }

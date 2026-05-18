@@ -19,7 +19,10 @@ public partial class FlatShadow : FilterEffect
     [Display(Name = nameof(GraphicsStrings.Angle), ResourceType = typeof(GraphicsStrings))]
     public IProperty<float> Angle { get; } = Property.CreateAnimatable<float>();
 
-    [Display(Name = nameof(GraphicsStrings.FlatShadow_Length), ResourceType = typeof(GraphicsStrings))]
+    [Display(
+        Name = nameof(GraphicsStrings.FlatShadow_Length),
+        ResourceType = typeof(GraphicsStrings)
+    )]
     public IProperty<float> Length { get; } = Property.CreateAnimatable<float>();
 
     [Display(Name = nameof(GraphicsStrings.Brush), ResourceType = typeof(GraphicsStrings))]
@@ -34,8 +37,10 @@ public partial class FlatShadow : FilterEffect
         context.CustomEffect((r.Angle, r.Length, r.Brush, r.ShadowOnly), Apply, TransformBounds);
     }
 
-    private static Rect TransformBounds((float Angle, float Length, Brush.Resource? Brush, bool ShadowOnly) data,
-        Rect rect)
+    private static Rect TransformBounds(
+        (float Angle, float Length, Brush.Resource? Brush, bool ShadowOnly) data,
+        Rect rect
+    )
     {
         float length = data.Length;
         float radian = MathUtilities.Deg2Rad(data.Angle);
@@ -50,8 +55,10 @@ public partial class FlatShadow : FilterEffect
         return new Rect(rect.X - (xAbs - x) / 2, rect.Y - (yAbs - y) / 2, width, height);
     }
 
-    private static void Apply((float Angle, float Length, Brush.Resource? Brush, bool ShadowOnly) data,
-        CustomFilterEffectContext context)
+    private static void Apply(
+        (float Angle, float Length, Brush.Resource? Brush, bool ShadowOnly) data,
+        CustomFilterEffectContext context
+    )
     {
         static SKPath CreatePath(Bitmap src)
         {
@@ -96,31 +103,55 @@ public partial class FlatShadow : FilterEffect
                     target.Bounds.X - (x2Abs - x2) / 2,
                     target.Bounds.Y - (y2Abs - y2) / 2,
                     (size.Width + x2Abs),
-                    (size.Height + y2Abs)));
-            using (var paint = new SKPaint { Color = SKColors.White, IsAntialias = true, Style = SKPaintStyle.Fill })
+                    (size.Height + y2Abs)
+                )
+            );
+            using (
+                var paint = new SKPaint
+                {
+                    Color = SKColors.White,
+                    IsAntialias = true,
+                    Style = SKPaintStyle.Fill,
+                }
+            )
             using (var brushPaint = new SKPaint())
             using (SKPath path = CreatePath(srcBitmap))
             using (ImmediateCanvas newCanvas = context.Open(newTarget))
             {
                 newCanvas.Clear();
-                using (newCanvas.PushTransform(Matrix.CreateTranslation((x2Abs - x2) / 2, (y2Abs - y2) / 2)))
+                using (
+                    newCanvas.PushTransform(
+                        Matrix.CreateTranslation((x2Abs - x2) / 2, (y2Abs - y2) / 2)
+                    )
+                )
                 {
-                    var c = new BrushConstructor(new(newTarget.Bounds.Size), brush, BlendMode.SrcIn);
+                    var c = new BrushConstructor(
+                        new(newTarget.Bounds.Size),
+                        brush,
+                        BlendMode.SrcIn
+                    );
                     c.ConfigurePaint(brushPaint);
 
                     float lenAbs = Math.Abs(length);
                     int unit = Math.Sign(length);
                     for (int i = 0; i < lenAbs; i++)
                     {
-                        newCanvas.Transform = Matrix.CreateTranslation(x1 * unit, y1 * unit) * newCanvas.Transform;
+                        newCanvas.Transform =
+                            Matrix.CreateTranslation(x1 * unit, y1 * unit) * newCanvas.Transform;
                         newCanvas.Canvas.DrawPath(path, paint);
                     }
                 }
 
-                newCanvas.Canvas.DrawRect(SKRect.Create(newTarget.Bounds.Size.ToSKSize()), brushPaint);
+                newCanvas.Canvas.DrawRect(
+                    SKRect.Create(newTarget.Bounds.Size.ToSKSize()),
+                    brushPaint
+                );
 
                 if (!data.ShadowOnly)
-                    newCanvas.DrawRenderTarget(target.RenderTarget!, new((x2Abs - x2) / 2, (y2Abs - y2) / 2));
+                    newCanvas.DrawRenderTarget(
+                        target.RenderTarget!,
+                        new((x2Abs - x2) / 2, (y2Abs - y2) / 2)
+                    );
             }
 
             target.Dispose();

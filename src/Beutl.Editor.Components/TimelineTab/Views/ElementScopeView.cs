@@ -7,7 +7,6 @@ using Avalonia.Media;
 using Avalonia.Media.Immutable;
 using Avalonia.Styling;
 using Avalonia.Threading;
-
 using Beutl.Editor.Components.TimelineTab.ViewModels;
 
 namespace Beutl.Editor.Components.TimelineTab.Views;
@@ -18,7 +17,9 @@ public sealed class ElementScopeView : Rectangle
 
     static ElementScopeView()
     {
-        HorizontalAlignmentProperty.OverrideDefaultValue<ElementScopeView>(HorizontalAlignment.Left);
+        HorizontalAlignmentProperty.OverrideDefaultValue<ElementScopeView>(
+            HorizontalAlignment.Left
+        );
         VerticalAlignmentProperty.OverrideDefaultValue<ElementScopeView>(VerticalAlignment.Top);
         ZIndexProperty.OverrideDefaultValue<ElementScopeView>(-1);
     }
@@ -28,13 +29,28 @@ public sealed class ElementScopeView : Rectangle
         IObservable<ElementScopeViewModel?> dataContext = this.GetObservable(DataContextProperty)
             .Select(v => v as ElementScopeViewModel);
 
-        Bind(MarginProperty, dataContext.Select(v => v?.Margin ?? Observable.ReturnThenNever((Thickness)default)).Switch());
-        Bind(WidthProperty, dataContext.Select(v => v?.Width ?? Observable.ReturnThenNever(0d)).Switch());
-        Bind(HeightProperty, dataContext.Select(v => v?.Height ?? Observable.ReturnThenNever(0d)).Switch());
+        Bind(
+            MarginProperty,
+            dataContext
+                .Select(v => v?.Margin ?? Observable.ReturnThenNever((Thickness)default))
+                .Switch()
+        );
+        Bind(
+            WidthProperty,
+            dataContext.Select(v => v?.Width ?? Observable.ReturnThenNever(0d)).Switch()
+        );
+        Bind(
+            HeightProperty,
+            dataContext.Select(v => v?.Height ?? Observable.ReturnThenNever(0d)).Switch()
+        );
 
-        Bind(FillProperty, dataContext.Select(v => v?.Parent?.Color ?? Observable.ReturnThenNever(Colors.Transparent))
-            .Switch()
-            .Select(v => new ImmutableSolidColorBrush(v, 0.1)));
+        Bind(
+            FillProperty,
+            dataContext
+                .Select(v => v?.Parent?.Color ?? Observable.ReturnThenNever(Colors.Transparent))
+                .Switch()
+                .Select(v => new ImmutableSolidColorBrush(v, 0.1))
+        );
     }
 
     protected override void OnDataContextChanged(EventArgs e)
@@ -51,7 +67,10 @@ public sealed class ElementScopeView : Rectangle
         }
     }
 
-    private async Task OnAnimationRequested((Thickness Margin, double Width, double Height) args, CancellationToken token)
+    private async Task OnAnimationRequested(
+        (Thickness Margin, double Width, double Height) args,
+        CancellationToken token
+    )
     {
         await Dispatcher.UIThread.InvokeAsync(async () =>
         {
@@ -70,7 +89,7 @@ public sealed class ElementScopeView : Rectangle
                             new Setter(MarginProperty, Margin),
                             new Setter(WidthProperty, Width),
                             new Setter(HeightProperty, Height),
-                        }
+                        },
                     },
                     new KeyFrame()
                     {
@@ -80,9 +99,9 @@ public sealed class ElementScopeView : Rectangle
                             new Setter(MarginProperty, args.Margin),
                             new Setter(WidthProperty, args.Width),
                             new Setter(HeightProperty, args.Height),
-                        }
-                    }
-                }
+                        },
+                    },
+                },
             };
 
             await animation.RunAsync(this, token);

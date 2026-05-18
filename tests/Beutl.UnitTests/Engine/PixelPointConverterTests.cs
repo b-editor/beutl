@@ -128,7 +128,8 @@ public class PixelPointConverterTests
     [Test]
     public void ConvertFrom_Rect_UsesXY()
     {
-        PixelPoint p = (PixelPoint)_converter.ConvertFrom(null, null, new Rect(3.2f, 4.8f, 10, 20))!;
+        PixelPoint p = (PixelPoint)
+            _converter.ConvertFrom(null, null, new Rect(3.2f, 4.8f, 10, 20))!;
         Assert.That(p, Is.EqualTo(new PixelPoint(3, 4)));
     }
 

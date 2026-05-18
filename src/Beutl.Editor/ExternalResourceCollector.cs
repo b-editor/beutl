@@ -12,14 +12,13 @@ public sealed class ExternalResourceCollector
     private readonly HashSet<(Guid Object, string PropertyName, Uri OriginalUri)> _fileSources = [];
     private readonly HashSet<FontFamily> _fontFamilies = [];
 
-    private ExternalResourceCollector()
-    {
-    }
+    private ExternalResourceCollector() { }
 
     /// <summary>
     /// The list of collected file sources.
     /// </summary>
-    public IEnumerable<(Guid Object, string PropertyName, Uri OriginalUri)> FileSources => _fileSources;
+    public IEnumerable<(Guid Object, string PropertyName, Uri OriginalUri)> FileSources =>
+        _fileSources;
 
     /// <summary>
     /// The list of collected font families.
@@ -69,7 +68,8 @@ public sealed class ExternalResourceCollector
         var props = PropertyRegistry.GetRegistered(obj.GetType());
         foreach (var prop in props)
         {
-            if (prop.PropertyType.IsValueType) continue;
+            if (prop.PropertyType.IsValueType)
+                continue;
             object? value = obj.GetValue(prop);
             switch (value)
             {
@@ -123,6 +123,7 @@ public sealed class ExternalResourceCollector
             fullProjectPath += Path.DirectorySeparatorChar;
 
         // Files outside the project directory are considered external
-        return !Path.GetFullPath(filePath).StartsWith(fullProjectPath, StringComparison.OrdinalIgnoreCase);
+        return !Path.GetFullPath(filePath)
+            .StartsWith(fullProjectPath, StringComparison.OrdinalIgnoreCase);
     }
 }

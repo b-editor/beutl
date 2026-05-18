@@ -11,7 +11,9 @@ namespace Beutl.ViewModels.SettingsPages;
 
 public sealed class EditorExtensionPriorityPageViewModel : BasePageViewModel
 {
-    private readonly ExtensionConfig _extensionConfig = GlobalConfiguration.Instance.ExtensionConfig;
+    private readonly ExtensionConfig _extensionConfig = GlobalConfiguration
+        .Instance
+        .ExtensionConfig;
     private readonly ReadOnlyObservableCollection<EditorExtension> _loadedExtensions;
     private readonly CompositeDisposable _disposables = [];
     private IDisposable? _disposable1;
@@ -23,7 +25,8 @@ public sealed class EditorExtensionPriorityPageViewModel : BasePageViewModel
         ICoreReadOnlyList<Extension> allExtension = ExtensionProvider.Current.AllExtensions;
 
         var comparer = SortExpressionComparer<Extension>.Ascending(i => i.Name);
-        allExtension.ToObservableChangeSet<ICoreReadOnlyList<Extension>, Extension>()
+        allExtension
+            .ToObservableChangeSet<ICoreReadOnlyList<Extension>, Extension>()
             .Filter(i => i is EditorExtension)
             .Cast(item => (EditorExtension)item)
             .Sort(comparer)
@@ -32,7 +35,8 @@ public sealed class EditorExtensionPriorityPageViewModel : BasePageViewModel
             .DisposeWith(_disposables);
 
         FileExtensions.AddRange(_extensionConfig.EditorExtensions.Keys);
-        SelectedFileExtension.Subscribe(fext =>
+        SelectedFileExtension
+            .Subscribe(fext =>
             {
                 _disposable1?.Dispose();
                 _disposable1 = null;
@@ -40,51 +44,66 @@ public sealed class EditorExtensionPriorityPageViewModel : BasePageViewModel
                 EditorExtensions2.Clear();
                 if (fext != null)
                 {
-                    if (_extensionConfig.EditorExtensions.TryGetValue(fext,
-                            out ICoreList<ExtensionConfig.TypeLazy>? list))
+                    if (
+                        _extensionConfig.EditorExtensions.TryGetValue(
+                            fext,
+                            out ICoreList<ExtensionConfig.TypeLazy>? list
+                        )
+                    )
                     {
-                        EditorExtensions1.AddRange(list.Select(type =>
-                        {
-                            string? displayName = null;
-                            string? name = null;
-                            string typeName = type.FormattedTypeName;
-
-                            if (type.Type != null)
+                        EditorExtensions1.AddRange(
+                            list.Select(type =>
                             {
-                                Extension? ext =
-                                    ExtensionProvider.Current.AllExtensions.FirstOrDefault(item =>
-                                        item.GetType() == type.Type);
-                                displayName = ext?.DisplayName;
-                                name = ext?.Name;
-                            }
+                                string? displayName = null;
+                                string? name = null;
+                                string typeName = type.FormattedTypeName;
 
-                            return new EditorExtensionWrapper(
-                                displayName ?? Strings.Unknown,
-                                name ?? Strings.Unknown,
-                                typeName);
-                        }));
+                                if (type.Type != null)
+                                {
+                                    Extension? ext =
+                                        ExtensionProvider.Current.AllExtensions.FirstOrDefault(
+                                            item => item.GetType() == type.Type
+                                        );
+                                    displayName = ext?.DisplayName;
+                                    name = ext?.Name;
+                                }
+
+                                return new EditorExtensionWrapper(
+                                    displayName ?? Strings.Unknown,
+                                    name ?? Strings.Unknown,
+                                    typeName
+                                );
+                            })
+                        );
                     }
 
-                    EditorExtensions2.AddRange(_loadedExtensions
-                        .Where(item => item.MatchFileExtension(fext))
-                        .Select(item =>
-                            new EditorExtensionWrapper(item.DisplayName, item.Name,
-                                TypeFormat.ToString(item.GetType()))));
+                    EditorExtensions2.AddRange(
+                        _loadedExtensions
+                            .Where(item => item.MatchFileExtension(fext))
+                            .Select(item => new EditorExtensionWrapper(
+                                item.DisplayName,
+                                item.Name,
+                                TypeFormat.ToString(item.GetType())
+                            ))
+                    );
 
                     _disposable1 = EditorExtensions1.ForEachItem(
                         (idx, item) =>
                         {
                             if (_disposable1 != null)
-                                _extensionConfig.EditorExtensions[fext]
+                                _extensionConfig
+                                    .EditorExtensions[fext]
                                     .Insert(idx, new ExtensionConfig.TypeLazy(item.TypeName));
                         },
                         (idx, _) => _extensionConfig.EditorExtensions[fext].RemoveAt(idx),
-                        () => _extensionConfig.EditorExtensions[fext].Clear());
+                        () => _extensionConfig.EditorExtensions[fext].Clear()
+                    );
                 }
             })
             .DisposeWith(_disposables);
 
-        HighPriority.Subscribe(item =>
+        HighPriority
+            .Subscribe(item =>
             {
                 int idx = EditorExtensions1.IndexOf(item);
                 if (idx >= 1 && idx < EditorExtensions1.Count)
@@ -93,7 +112,8 @@ public sealed class EditorExtensionPriorityPageViewModel : BasePageViewModel
                 }
             })
             .DisposeWith(_disposables);
-        LowPriority.Subscribe(item =>
+        LowPriority
+            .Subscribe(item =>
             {
                 int idx = EditorExtensions1.IndexOf(item);
                 if (idx >= 0 && idx < EditorExtensions1.Count - 1)
@@ -102,9 +122,9 @@ public sealed class EditorExtensionPriorityPageViewModel : BasePageViewModel
                 }
             })
             .DisposeWith(_disposables);
-        RemoveExt.Subscribe(item => EditorExtensions1.Remove(item))
-            .DisposeWith(_disposables);
-        AddExt.Subscribe(item =>
+        RemoveExt.Subscribe(item => EditorExtensions1.Remove(item)).DisposeWith(_disposables);
+        AddExt
+            .Subscribe(item =>
             {
                 if (!EditorExtensions1.Contains(item))
                 {
@@ -122,15 +142,17 @@ public sealed class EditorExtensionPriorityPageViewModel : BasePageViewModel
             {
                 return SettingsStrings.Please_enter_a_file_extension;
             }
-            else if (str.Contains('"')
-                     || str.Contains('>')
-                     || str.Contains('<')
-                     || str.Contains('|')
-                     || str.Contains(':')
-                     || str.Contains('?')
-                     || str.Contains('*')
-                     || str.Contains('\\')
-                     || str.Contains('/'))
+            else if (
+                str.Contains('"')
+                || str.Contains('>')
+                || str.Contains('<')
+                || str.Contains('|')
+                || str.Contains(':')
+                || str.Contains('?')
+                || str.Contains('*')
+                || str.Contains('\\')
+                || str.Contains('/')
+            )
             {
                 return SettingsStrings.The_following_characters_are_not_allowed;
             }
@@ -146,8 +168,8 @@ public sealed class EditorExtensionPriorityPageViewModel : BasePageViewModel
             return null;
         });
 
-        CanAddFileExtension = FileExtensionInput.ObserveHasErrors
-            .Select(v => !v)
+        CanAddFileExtension = FileExtensionInput
+            .ObserveHasErrors.Select(v => !v)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
         AddFileExtension = new ReactiveCommand()
@@ -155,7 +177,10 @@ public sealed class EditorExtensionPriorityPageViewModel : BasePageViewModel
             {
                 string str = FileExtensionInput.Value;
                 str = str.StartsWith('.') ? str : $".{str}";
-                _extensionConfig.EditorExtensions.Add(str, new CoreList<ExtensionConfig.TypeLazy>());
+                _extensionConfig.EditorExtensions.Add(
+                    str,
+                    new CoreList<ExtensionConfig.TypeLazy>()
+                );
                 FileExtensionInput.Value = string.Empty;
 
                 FileExtensions.Add(str);
@@ -175,7 +200,8 @@ public sealed class EditorExtensionPriorityPageViewModel : BasePageViewModel
             })
             .DisposeWith(_disposables);
 
-        NavigateParent.Subscribe(async () =>
+        NavigateParent
+            .Subscribe(async () =>
             {
                 INavigationProvider nav = await GetNavigation();
                 await nav.NavigateAsync<ExtensionsSettingsPageViewModel>();

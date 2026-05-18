@@ -22,6 +22,7 @@ public abstract partial class WaveformShape : EngineObject
             ReadOnlySpan<float> mins,
             ReadOnlySpan<float> maxs,
             float gain,
-            Brush.Resource fill);
+            Brush.Resource fill
+        );
     }
 }

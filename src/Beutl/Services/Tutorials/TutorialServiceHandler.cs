@@ -64,20 +64,30 @@ public sealed class TutorialServiceHandler : ITutorialService
 
                 if (!fulfilled)
                 {
-                    _logger.LogWarning("Failed to fulfill prerequisites for: {TutorialId}", tutorialId);
+                    _logger.LogWarning(
+                        "Failed to fulfill prerequisites for: {TutorialId}",
+                        tutorialId
+                    );
                     return;
                 }
 
                 // 前提条件が満たされたか再確認
                 if (!tutorial.CanStart())
                 {
-                    _logger.LogWarning("Prerequisites still not met after fulfillment for: {TutorialId}", tutorialId);
+                    _logger.LogWarning(
+                        "Prerequisites still not met after fulfillment for: {TutorialId}",
+                        tutorialId
+                    );
                     return;
                 }
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Exception during prerequisite fulfillment for: {TutorialId}", tutorialId);
+                _logger.LogError(
+                    ex,
+                    "Exception during prerequisite fulfillment for: {TutorialId}",
+                    tutorialId
+                );
                 return;
             }
         }
@@ -158,7 +168,9 @@ public sealed class TutorialServiceHandler : ITutorialService
 
     public bool IsTutorialCompleted(string tutorialId)
     {
-        return GlobalConfiguration.Instance.TutorialConfig.CompletedTutorialIds.Contains(tutorialId);
+        return GlobalConfiguration.Instance.TutorialConfig.CompletedTutorialIds.Contains(
+            tutorialId
+        );
     }
 
     public IReadOnlyList<TutorialDefinition> GetAvailableTutorials()

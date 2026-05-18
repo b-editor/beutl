@@ -14,7 +14,8 @@ public static class ExpandTransitionHelper
         var transition = new CrossFade(duration ?? DefaultDuration);
         CancellationTokenSource? cts = null;
 
-        return toggle.GetObservable(ToggleButton.IsCheckedProperty)
+        return toggle
+            .GetObservable(ToggleButton.IsCheckedProperty)
             .Subscribe(async v =>
             {
                 cts?.Cancel();

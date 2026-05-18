@@ -26,7 +26,6 @@ public class Release
         AssetUrl = _response.Select(x => x.FileUrl).ToReadOnlyReactivePropertySlim();
     }
 
-
     public Package Package { get; }
 
     public string Id { get; }
@@ -47,7 +46,10 @@ public class Release
 
     public async Task RefreshAsync()
     {
-        using Activity? activity = _clients.ActivitySource.StartActivity("Release.Refresh", ActivityKind.Client);
+        using Activity? activity = _clients.ActivitySource.StartActivity(
+            "Release.Refresh",
+            ActivityKind.Client
+        );
 
         _response.Value = await _clients.Releases.GetRelease(Package.Name, _response.Value.Version);
 
@@ -56,7 +58,10 @@ public class Release
 
     public async Task<FileResponse> GetAssetAsync()
     {
-        using Activity? activity = _clients.ActivitySource.StartActivity("Release.GetAsset", ActivityKind.Client);
+        using Activity? activity = _clients.ActivitySource.StartActivity(
+            "Release.GetAsset",
+            ActivityKind.Client
+        );
 
         if (AssetId.Value == null)
             throw new InvalidOperationException("This release has no assets.");
@@ -64,4 +69,3 @@ public class Release
         return await _clients.Files.GetFile(AssetId.Value!);
     }
 }
-

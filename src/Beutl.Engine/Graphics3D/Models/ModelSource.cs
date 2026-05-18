@@ -99,16 +99,21 @@ public class ModelSource : EngineObject, IFileSource
 
         var scene = assimp.ImportFile(
             path,
-            (uint)(PostProcessSteps.Triangulate |
-                   PostProcessSteps.GenerateNormals |
-                   PostProcessSteps.CalculateTangentSpace |
-                   PostProcessSteps.JoinIdenticalVertices |
-                   PostProcessSteps.FlipWindingOrder |
-                   PostProcessSteps.FlipUVs));
+            (uint)(
+                PostProcessSteps.Triangulate
+                | PostProcessSteps.GenerateNormals
+                | PostProcessSteps.CalculateTangentSpace
+                | PostProcessSteps.JoinIdenticalVertices
+                | PostProcessSteps.FlipWindingOrder
+                | PostProcessSteps.FlipUVs
+            )
+        );
 
-        if (scene == null ||
-            (scene->MFlags & (uint)SceneFlags.Incomplete) != 0 ||
-            scene->MRootNode == null)
+        if (
+            scene == null
+            || (scene->MFlags & (uint)SceneFlags.Incomplete) != 0
+            || scene->MRootNode == null
+        )
         {
             var error = assimp.GetErrorStringS();
             throw new InvalidOperationException($"Failed to load model: {error}");
@@ -150,7 +155,14 @@ public class ModelSource : EngineObject, IFileSource
         // Get shininess (convert to roughness)
         float shininess = 0f;
         uint max = 1;
-        assimp.GetMaterialFloatArray(material, Assimp.MatkeyShininess, 0, 0, ref shininess, ref max);
+        assimp.GetMaterialFloatArray(
+            material,
+            Assimp.MatkeyShininess,
+            0,
+            0,
+            ref shininess,
+            ref max
+        );
         // Convert shininess to roughness: roughness = 1 - sqrt(shininess / 256)
         float roughness = shininess > 0 ? 1f - MathF.Sqrt(MathF.Min(shininess, 256f) / 256f) : 0.5f;
 
@@ -163,16 +175,41 @@ public class ModelSource : EngineObject, IFileSource
         float metallic = 0f;
         max = 1;
         // Try to get metallic factor from PBR materials (gltf, etc.)
-        if (assimp.GetMaterialFloatArray(material, Assimp.MatkeyMetallicFactor, 0, 0, ref metallic, ref max) != Return.Success)
+        if (
+            assimp.GetMaterialFloatArray(
+                material,
+                Assimp.MatkeyMetallicFactor,
+                0,
+                0,
+                ref metallic,
+                ref max
+            ) != Return.Success
+        )
         {
             // Fall back to reflectivity as a proxy for metallic
-            assimp.GetMaterialFloatArray(material, Assimp.MatkeyReflectivity, 0, 0, ref metallic, ref max);
+            assimp.GetMaterialFloatArray(
+                material,
+                Assimp.MatkeyReflectivity,
+                0,
+                0,
+                ref metallic,
+                ref max
+            );
         }
 
         // Try to get roughness from PBR materials
         float pbrRoughness = roughness;
         max = 1;
-        if (assimp.GetMaterialFloatArray(material, Assimp.MatkeyRoughnessFactor, 0, 0, ref pbrRoughness, ref max) == Return.Success)
+        if (
+            assimp.GetMaterialFloatArray(
+                material,
+                Assimp.MatkeyRoughnessFactor,
+                0,
+                0,
+                ref pbrRoughness,
+                ref max
+            ) == Return.Success
+        )
         {
             roughness = pbrRoughness;
         }
@@ -198,26 +235,31 @@ public class ModelSource : EngineObject, IFileSource
         if (aoMapPath == null)
             aoMapPath = GetTexturePath(assimp, material, TextureType.Lightmap);
 
-        _materialDataList.Add(new MaterialData(
-            Color.FromArgb(
-                (byte)(opacity * 255),
-                (byte)(diffuseColor.X * 255),
-                (byte)(diffuseColor.Y * 255),
-                (byte)(diffuseColor.Z * 255)),
-            Color.FromArgb(
-                255,
-                (byte)(emissiveColor.X * 255),
-                (byte)(emissiveColor.Y * 255),
-                (byte)(emissiveColor.Z * 255)),
-            metallic,
-            roughness,
-            opacity,
-            albedoMapPath,
-            normalMapPath,
-            metallicRoughnessMapPath,
-            emissiveMapPath,
-            aoMapPath,
-            name));
+        _materialDataList.Add(
+            new MaterialData(
+                Color.FromArgb(
+                    (byte)(opacity * 255),
+                    (byte)(diffuseColor.X * 255),
+                    (byte)(diffuseColor.Y * 255),
+                    (byte)(diffuseColor.Z * 255)
+                ),
+                Color.FromArgb(
+                    255,
+                    (byte)(emissiveColor.X * 255),
+                    (byte)(emissiveColor.Y * 255),
+                    (byte)(emissiveColor.Z * 255)
+                ),
+                metallic,
+                roughness,
+                opacity,
+                albedoMapPath,
+                normalMapPath,
+                metallicRoughnessMapPath,
+                emissiveMapPath,
+                aoMapPath,
+                name
+            )
+        );
     }
 
     private unsafe string? GetTexturePath(Assimp assimp, Material* material, TextureType type)
@@ -228,13 +270,25 @@ public class ModelSource : EngineObject, IFileSource
 
         AssimpString pathStr = default;
         var result = assimp.GetMaterialTexture(
-            material, type, 0, ref pathStr,
-            null, null, null, null, null, null);
+            material,
+            type,
+            0,
+            ref pathStr,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null
+        );
 
         if (result != Return.Success || pathStr.Length == 0)
             return null;
 
-        string texturePath = pathStr.AsString.Replace(@"\\", Path.DirectorySeparatorChar.ToString());
+        string texturePath = pathStr.AsString.Replace(
+            @"\\",
+            Path.DirectorySeparatorChar.ToString()
+        );
 
         // If path is relative, resolve it relative to the model file
         if (!Path.IsPathRooted(texturePath) && _basePath != null)
@@ -277,18 +331,18 @@ public class ModelSource : EngineObject, IFileSource
             var position = new Vector3(
                 mesh->MVertices[i].X,
                 mesh->MVertices[i].Y,
-                mesh->MVertices[i].Z);
+                mesh->MVertices[i].Z
+            );
 
-            var normal = mesh->MNormals != null
-                ? new Vector3(mesh->MNormals[i].X, mesh->MNormals[i].Y, mesh->MNormals[i].Z)
-                : Vector3.UnitY;
+            var normal =
+                mesh->MNormals != null
+                    ? new Vector3(mesh->MNormals[i].X, mesh->MNormals[i].Y, mesh->MNormals[i].Z)
+                    : Vector3.UnitY;
 
             var texCoord = Vector2.Zero;
             if (mesh->MTextureCoords[0] != null)
             {
-                texCoord = new Vector2(
-                    mesh->MTextureCoords[0][i].X,
-                    mesh->MTextureCoords[0][i].Y);
+                texCoord = new Vector2(mesh->MTextureCoords[0][i].X, mesh->MTextureCoords[0][i].Y);
             }
 
             var tangent = new Vector4(1, 0, 0, 1);
@@ -297,11 +351,13 @@ public class ModelSource : EngineObject, IFileSource
                 var t = new Vector3(
                     mesh->MTangents[i].X,
                     mesh->MTangents[i].Y,
-                    mesh->MTangents[i].Z);
+                    mesh->MTangents[i].Z
+                );
                 var b = new Vector3(
                     mesh->MBitangents[i].X,
                     mesh->MBitangents[i].Y,
-                    mesh->MBitangents[i].Z);
+                    mesh->MBitangents[i].Z
+                );
 
                 // Calculate handedness
                 float handedness = Vector3.Dot(Vector3.Cross(normal, t), b) < 0 ? -1f : 1f;
@@ -322,14 +378,10 @@ public class ModelSource : EngineObject, IFileSource
         }
 
         // Get mesh name
-        string? meshName = mesh->MName.Length > 0
-            ? mesh->MName.AsString
-            : null;
+        string? meshName = mesh->MName.Length > 0 ? mesh->MName.AsString : null;
 
-        _meshDataList.Add(new MeshData(
-            [.. vertices],
-            [.. indices],
-            (int)mesh->MMaterialIndex,
-            meshName));
+        _meshDataList.Add(
+            new MeshData([.. vertices], [.. indices], (int)mesh->MMaterialIndex, meshName)
+        );
     }
 }

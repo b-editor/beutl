@@ -21,13 +21,19 @@ public sealed class AudioVisualizerTabExtension : ToolTabExtension
 
     public override DockAnchor DefaultAnchor => DockAnchor.Bottom;
 
-    public override bool TryCreateContent(IEditorContext editorContext, [NotNullWhen(true)] out Control? control)
+    public override bool TryCreateContent(
+        IEditorContext editorContext,
+        [NotNullWhen(true)] out Control? control
+    )
     {
         control = new AudioVisualizerTabView();
         return true;
     }
 
-    public override bool TryCreateContext(IEditorContext editorContext, [NotNullWhen(true)] out IToolContext? context)
+    public override bool TryCreateContext(
+        IEditorContext editorContext,
+        [NotNullWhen(true)] out IToolContext? context
+    )
     {
         context = new AudioVisualizerTabViewModel(editorContext, Instance);
         return true;

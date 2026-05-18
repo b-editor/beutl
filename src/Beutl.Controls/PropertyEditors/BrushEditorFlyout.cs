@@ -25,22 +25,28 @@ public enum BrushType
 
     DrawableBrush,
 
-    Presenter
+    Presenter,
 }
 
 public sealed class BrushEditorFlyout : PickerFlyoutBase
 {
-    public static readonly StyledProperty<Brush?> BrushProperty =
-        AvaloniaProperty.Register<BrushEditorFlyout, Brush?>(nameof(Brush));
+    public static readonly StyledProperty<Brush?> BrushProperty = AvaloniaProperty.Register<
+        BrushEditorFlyout,
+        Brush?
+    >(nameof(Brush));
 
     public static readonly StyledProperty<Media.Brush?> OriginalBrushProperty =
         AvaloniaProperty.Register<BrushEditorFlyout, Media.Brush?>(nameof(OriginalBrush));
 
-    public static readonly StyledProperty<string?> DrawableNameProperty =
-        AvaloniaProperty.Register<BrushEditorFlyout, string?>(nameof(DrawableName));
+    public static readonly StyledProperty<string?> DrawableNameProperty = AvaloniaProperty.Register<
+        BrushEditorFlyout,
+        string?
+    >(nameof(DrawableName));
 
-    public static readonly StyledProperty<bool> CanEditDrawableProperty =
-        AvaloniaProperty.Register<BrushEditorFlyout, bool>(nameof(CanEditDrawable), false);
+    public static readonly StyledProperty<bool> CanEditDrawableProperty = AvaloniaProperty.Register<
+        BrushEditorFlyout,
+        bool
+    >(nameof(CanEditDrawable), false);
 
     public Brush? Brush
     {
@@ -67,10 +73,19 @@ public sealed class BrushEditorFlyout : PickerFlyoutBase
     }
 
     // ドラッグ操作中または、Colorプロパティの変更
-    public event EventHandler<(int OldIndex, int NewIndex, GradientStop Object)>? GradientStopChanged;
+    public event EventHandler<(
+        int OldIndex,
+        int NewIndex,
+        GradientStop Object
+    )>? GradientStopChanged;
 
     // ドラッグ操作完了または、Colorプロパティの確定
-    public event EventHandler<(int OldIndex, int NewIndex, GradientStop Object, ImmutableGradientStop OldObject)>? GradientStopConfirmed;
+    public event EventHandler<(
+        int OldIndex,
+        int NewIndex,
+        GradientStop Object,
+        ImmutableGradientStop OldObject
+    )>? GradientStopConfirmed;
 
     public event EventHandler<(int Index, GradientStop Object)>? GradientStopDeleted;
 
@@ -94,7 +109,7 @@ public sealed class BrushEditorFlyout : PickerFlyoutBase
             Brush = Brush,
             OriginalBrush = OriginalBrush,
             DrawableName = DrawableName,
-            CanEditDrawable = CanEditDrawable
+            CanEditDrawable = CanEditDrawable,
         };
         pfp.CloseClicked += (_, _) => Hide();
         pfp.KeyDown += (_, e) =>
@@ -113,8 +128,7 @@ public sealed class BrushEditorFlyout : PickerFlyoutBase
         pfp.BrushTypeChanged += (_, t) => BrushTypeChanged?.Invoke(this, t);
         pfp.ChangeDrawableClicked += (_, t) => ChangeDrawableClicked?.Invoke(this, t);
         pfp.EditDrawableClicked += (_, _) => EditDrawableClicked?.Invoke(this, EventArgs.Empty);
-        pfp.GetObservable(BrushEditorFlyoutPresenter.BrushProperty)
-            .Subscribe(b => Brush = b);
+        pfp.GetObservable(BrushEditorFlyoutPresenter.BrushProperty).Subscribe(b => Brush = b);
 
         return pfp;
     }

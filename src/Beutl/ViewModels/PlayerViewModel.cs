@@ -52,6 +52,7 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
     private Size _maxFrameSize;
     private Task _playbackTask = Task.CompletedTask;
     private bool _isShuttling;
+
     // Published snapshots carry the start time of the buffer that was just *queued*
     // to the audio backend, which is ahead of the current playhead. Replay several
     // recent snapshots so a visualizer tab opened mid-playback also receives the
@@ -84,7 +85,9 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
             .WithSubscribe(() =>
             {
                 int rate = GetFrameRate();
-                UpdateCurrentFrame(_editorClock.CurrentTime.Value + TimeSpan.FromSeconds(1d / rate));
+                UpdateCurrentFrame(
+                    _editorClock.CurrentTime.Value + TimeSpan.FromSeconds(1d / rate)
+                );
             })
             .DisposeWith(_disposables);
 
@@ -92,7 +95,9 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
             .WithSubscribe(() =>
             {
                 int rate = GetFrameRate();
-                UpdateCurrentFrame(_editorClock.CurrentTime.Value - TimeSpan.FromSeconds(1d / rate));
+                UpdateCurrentFrame(
+                    _editorClock.CurrentTime.Value - TimeSpan.FromSeconds(1d / rate)
+                );
             })
             .DisposeWith(_disposables);
 
@@ -103,11 +108,9 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
                 var endTime = Scene.Start + Scene.Duration - TimeSpan.FromSeconds(1d / rate);
                 // 現在の時間がスタートと同じ場合、0に移動
                 _editorClock.CurrentTime.Value =
-                    _editorClock.CurrentTime.Value > endTime
-                        ? endTime
-                        : _editorClock.CurrentTime.Value > Scene.Start
-                            ? Scene.Start
-                            : TimeSpan.Zero;
+                    _editorClock.CurrentTime.Value > endTime ? endTime
+                    : _editorClock.CurrentTime.Value > Scene.Start ? Scene.Start
+                    : TimeSpan.Zero;
             })
             .DisposeWith(_disposables);
 
@@ -117,19 +120,19 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
                 int rate = GetFrameRate();
                 var endTime = Scene.Start + Scene.Duration - TimeSpan.FromSeconds(1d / rate);
                 _editorClock.CurrentTime.Value =
-                    _editorClock.CurrentTime.Value < Scene.Start
-                        ? Scene.Start
-                        : _editorClock.CurrentTime.Value < endTime
-                            ? endTime
-                            : Scene.Children.Count > 0
-                                ? Scene.Children.Max(i => i.Start + i.Length) - TimeSpan.FromSeconds(1d / rate)
-                                : TimeSpan.Zero;
+                    _editorClock.CurrentTime.Value < Scene.Start ? Scene.Start
+                    : _editorClock.CurrentTime.Value < endTime ? endTime
+                    : Scene.Children.Count > 0
+                        ? Scene.Children.Max(i => i.Start + i.Length)
+                            - TimeSpan.FromSeconds(1d / rate)
+                    : TimeSpan.Zero;
             })
             .DisposeWith(_disposables);
 
         Scene.Edited += OnSceneEdited;
 
-        _isEnabled.Subscribe(async v =>
+        _isEnabled
+            .Subscribe(async v =>
             {
                 if (!v && IsPlaying.Value)
                 {
@@ -138,30 +141,37 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
             })
             .DisposeWith(_disposables);
 
-        CurrentFrame = _editorClock.CurrentTime
-            .ToReactiveProperty()
-            .DisposeWith(_disposables);
+        CurrentFrame = _editorClock.CurrentTime.ToReactiveProperty().DisposeWith(_disposables);
         _currentFrameSubscription = CurrentFrame.Subscribe(UpdateCurrentFrame);
 
-        Duration = _editorClock.MaximumTime
-            .CombineLatest(Scene.GetObservable(Scene.DurationProperty), Scene.GetObservable(Scene.StartProperty),
-                CurrentFrame)
+        Duration = _editorClock
+            .MaximumTime.CombineLatest(
+                Scene.GetObservable(Scene.DurationProperty),
+                Scene.GetObservable(Scene.StartProperty),
+                CurrentFrame
+            )
             .Select(i =>
             {
                 // このDurationはSliderの最大値に使うので、一フレーム分を引く
                 var frame = TimeSpan.FromSeconds(1.0 / GetFrameRate());
-                return TimeSpan.FromTicks(Math.Max(
-                    Math.Max(i.First.Ticks - frame.Ticks, i.Second.Ticks + i.Third.Ticks - frame.Ticks),
-                    i.Fourth.Ticks));
+                return TimeSpan.FromTicks(
+                    Math.Max(
+                        Math.Max(
+                            i.First.Ticks - frame.Ticks,
+                            i.Second.Ticks + i.Third.Ticks - frame.Ticks
+                        ),
+                        i.Fourth.Ticks
+                    )
+                );
             })
             .ToReadOnlyReactiveProperty()
             .DisposeWith(_disposables);
 
-        PathEditor = new PathEditorViewModel(_editViewModel, this)
-            .DisposeWith(_disposables);
+        PathEditor = new PathEditorViewModel(_editViewModel, this).DisposeWith(_disposables);
 
         // カメラモードが解除されたらGizmoを非表示にする
-        IsCameraMode.Subscribe(isCameraMode =>
+        IsCameraMode
+            .Subscribe(isCameraMode =>
             {
                 if (!isCameraMode)
                 {
@@ -171,7 +181,8 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
             .DisposeWith(_disposables);
 
         // GizmoModeが変更されたらScene3Dに反映する
-        SelectedGizmoMode.Subscribe(mode =>
+        SelectedGizmoMode
+            .Subscribe(mode =>
             {
                 if (IsCameraMode.Value)
                 {
@@ -180,11 +191,13 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
             })
             .DisposeWith(_disposables);
 
-        ToneMappingMode = GlobalConfiguration.Instance.EditorConfig.GetObservable(EditorConfig.ToneMappingModeProperty)
+        ToneMappingMode = GlobalConfiguration
+            .Instance.EditorConfig.GetObservable(EditorConfig.ToneMappingModeProperty)
             .ToReactiveProperty()
             .DisposeWith(_disposables);
 
-        ToneMappingExposure = GlobalConfiguration.Instance.EditorConfig.GetObservable(EditorConfig.ToneMappingExposureProperty)
+        ToneMappingExposure = GlobalConfiguration
+            .Instance.EditorConfig.GetObservable(EditorConfig.ToneMappingExposureProperty)
             .ToReactiveProperty()
             .DisposeWith(_disposables);
     }
@@ -206,12 +219,15 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
 
     private void UpdateAllGizmoModes(GizmoMode mode)
     {
-        if (Scene == null) return;
+        if (Scene == null)
+            return;
 
-        foreach (var scene3D in Scene.Children
-                     .SelectMany(e => e.Objects)
-                     .OfType<Graphics3D.Scene3D>()
-                     .Where(s => s.GizmoTarget.CurrentValue.HasValue))
+        foreach (
+            var scene3D in Scene
+                .Children.SelectMany(e => e.Objects)
+                .OfType<Graphics3D.Scene3D>()
+                .Where(s => s.GizmoTarget.CurrentValue.HasValue)
+        )
         {
             // GizmoTargetが設定されている場合のみモードを更新
             scene3D.GizmoMode.CurrentValue = mode;
@@ -250,7 +266,8 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
 
     private void PublishAudioSnapshot(Pcm<Stereo32BitFloat>? pcm, TimeSpan startTime)
     {
-        if (pcm == null) return;
+        if (pcm == null)
+            return;
 
         // Always publish so the ReplaySubject retains the latest snapshot — a
         // visualizer tab opened after this point can replay it on subscribe.
@@ -258,41 +275,53 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
         int channels = pcm.NumChannels;
         var interleaved = new float[samples * channels];
         MemoryMarshal.Cast<Stereo32BitFloat, float>(pcm.DataSpan).CopyTo(interleaved);
-        _audioFramePushed.OnNext(new AudioFrameSnapshot(interleaved, pcm.SampleRate, channels, startTime));
+        _audioFramePushed.OnNext(
+            new AudioFrameSnapshot(interleaved, pcm.SampleRate, channels, startTime)
+        );
     }
 
-    Task<AudioFrameSnapshot?> IPreviewPlayer.ComposeAudioAsync(TimeSpan start, TimeSpan duration, CancellationToken ct)
+    Task<AudioFrameSnapshot?> IPreviewPlayer.ComposeAudioAsync(
+        TimeSpan start,
+        TimeSpan duration,
+        CancellationToken ct
+    )
     {
         SceneComposer? composer = EditViewModel.Composer.Value;
         if (composer == null || composer.IsDisposed)
             return Task.FromResult<AudioFrameSnapshot?>(null);
 
-        return ComposeThread.Dispatcher.InvokeAsync(() =>
-        {
-            ct.ThrowIfCancellationRequested();
-            using AudioBuffer? audio = composer.Compose(new TimeRange(start, duration));
-            if (audio == null) return (AudioFrameSnapshot?)null;
-
-            int samples = audio.SampleCount;
-            int channels = audio.ChannelCount;
-            var interleaved = new float[samples * channels];
-            for (int c = 0; c < channels; c++)
+        return ComposeThread.Dispatcher.InvokeAsync(
+            () =>
             {
-                Span<float> src = audio.GetChannelData(c);
-                for (int f = 0; f < samples; f++)
+                ct.ThrowIfCancellationRequested();
+                using AudioBuffer? audio = composer.Compose(new TimeRange(start, duration));
+                if (audio == null)
+                    return (AudioFrameSnapshot?)null;
+
+                int samples = audio.SampleCount;
+                int channels = audio.ChannelCount;
+                var interleaved = new float[samples * channels];
+                for (int c = 0; c < channels; c++)
                 {
-                    interleaved[f * channels + c] = src[f];
+                    Span<float> src = audio.GetChannelData(c);
+                    for (int f = 0; f < samples; f++)
+                    {
+                        interleaved[f * channels + c] = src[f];
+                    }
                 }
-            }
-            return (AudioFrameSnapshot?)new AudioFrameSnapshot(interleaved, audio.SampleRate, channels, start);
-        }, ct: ct);
+                return (AudioFrameSnapshot?)
+                    new AudioFrameSnapshot(interleaved, audio.SampleRate, channels, start);
+            },
+            ct: ct
+        );
     }
 
     public ReactivePropertySlim<bool> IsPlaying { get; } = new();
 
     public ReactivePropertySlim<float> PlaybackSpeed { get; } = new(1.0f);
 
-    public ReactivePropertySlim<PlaybackDirection> PlaybackDirection { get; } = new(ViewModels.PlaybackDirection.Stopped);
+    public ReactivePropertySlim<PlaybackDirection> PlaybackDirection { get; } =
+        new(ViewModels.PlaybackDirection.Stopped);
 
     public ReactivePropertySlim<bool> IsLoopEnabled { get; } = new(false);
 
@@ -334,7 +363,8 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
         get => _maxFrameSize;
         set
         {
-            if (_maxFrameSize == value) return;
+            if (_maxFrameSize == value)
+                return;
             _maxFrameSize = value;
 
             FrameCacheManager frameCacheManager = EditViewModel.FrameCacheManager.Value;
@@ -353,7 +383,7 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
 
                 frameCacheManager.Options = frameCacheManager.Options with
                 {
-                    Size = PixelSize.FromSize(frameSize, 1f / den)
+                    Size = PixelSize.FromSize(frameSize, 1f / den),
                 };
             }
             else
@@ -371,7 +401,8 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
 
     public void Play()
     {
-        if (IsPlaying.Value) return;
+        if (IsPlaying.Value)
+            return;
 
         PlaybackSpeed.Value = 1.0f;
         PlaybackDirection.Value = ViewModels.PlaybackDirection.Forward;
@@ -412,13 +443,18 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
         bufferStatus.EndTime.Value = startTime;
         frameCacheManager.Options = frameCacheManager.Options with
         {
-            DeletionStrategy = FrameCacheDeletionStrategy.BackwardBlock
+            DeletionStrategy = FrameCacheDeletionStrategy.BackwardBlock,
         };
 
         frameCacheManager.CurrentFrame = startFrame;
         using var playerImpl = new BufferedPlayer(EditViewModel, Scene, IsPlaying, rate);
-        _logger.LogInformation("Start the playback. ({SceneId}, {Rate}, {Start}, {Duration})",
-            _editViewModel.SceneId, rate, startFrame, durationFrame);
+        _logger.LogInformation(
+            "Start the playback. ({SceneId}, {Rate}, {Start}, {Duration})",
+            _editViewModel.SceneId,
+            rate,
+            startFrame,
+            durationFrame
+        );
         playerImpl.Start();
 
         var clock = new AudioPlaybackClock();
@@ -441,65 +477,72 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
             TimeSpan elapsed = clock.GetTime() is { } audioTime
                 ? audioTime - startTime
                 : DateTime.UtcNow - startDateTime;
-            if (elapsed < TimeSpan.Zero) elapsed = TimeSpan.Zero;
+            if (elapsed < TimeSpan.Zero)
+                elapsed = TimeSpan.Zero;
             return (int)(elapsed.Ticks / tick.Ticks) + startFrame;
         }
 
-        await using var timer = new Timer(_ =>
-        {
-            if (Interlocked.Exchange(ref processing, 1) != 0) return;
-            try
+        await using var timer = new Timer(
+            _ =>
             {
-                var expectFrame = ComputeExpectFrame();
-                if (!IsPlaying.Value || expectFrame >= endFrame)
-                {
-                    // ループ用に endFrame で打ち切る場合、音声側にも停止を伝える
-                    if (IsLoopEnabled.Value && expectFrame >= endFrame)
-                    {
-                        reachedNaturalEnd = true;
-                        IsPlaying.Value = false;
-                    }
-                    tcs.TrySetResult(true);
+                if (Interlocked.Exchange(ref processing, 1) != 0)
                     return;
-                }
-
-                if (expectFrame < nextExpectedFrame)
+                try
                 {
-                    return;
-                }
-
-                while (playerImpl.TryDequeue(out IPlayer.Frame frame))
-                {
-                    using (frame.Bitmap)
+                    var expectFrame = ComputeExpectFrame();
+                    if (!IsPlaying.Value || expectFrame >= endFrame)
                     {
-                        UpdateImage(frame.Bitmap.Clone());
-
-                        if (Scene != null)
+                        // ループ用に endFrame で打ち切る場合、音声側にも停止を伝える
+                        if (IsLoopEnabled.Value && expectFrame >= endFrame)
                         {
-                            _editorClock.CurrentTime.Value = frame.Time.ToTimeSpan(rate);
-                            EditViewModel.FrameCacheManager.Value.CurrentFrame = frame.Time;
+                            reachedNaturalEnd = true;
+                            IsPlaying.Value = false;
                         }
+                        tcs.TrySetResult(true);
+                        return;
                     }
 
-                    // タイマーが正確じゃないから、だんだんとフレームがずれてくる
-                    // そのため、フレームを消費しすぎたら、そのフレーム番号とexpectFrameが一致するまでスキップする
-                    // 逆に、フレームを消費しすぎない場合は、そのまま次のフレームを取得する
-                    if (expectFrame <= frame.Time)
+                    if (expectFrame < nextExpectedFrame)
                     {
-                        nextExpectedFrame = frame.Time + 1;
-                        break;
+                        return;
                     }
 
-                    // 期待していたフレームよりも前のフレームが来た場合
-                }
+                    while (playerImpl.TryDequeue(out IPlayer.Frame frame))
+                    {
+                        using (frame.Bitmap)
+                        {
+                            UpdateImage(frame.Bitmap.Clone());
 
-                playerImpl.Skipped(ComputeExpectFrame() + 1);
-            }
-            finally
-            {
-                Interlocked.Exchange(ref processing, 0);
-            }
-        }, null, tick, tick);
+                            if (Scene != null)
+                            {
+                                _editorClock.CurrentTime.Value = frame.Time.ToTimeSpan(rate);
+                                EditViewModel.FrameCacheManager.Value.CurrentFrame = frame.Time;
+                            }
+                        }
+
+                        // タイマーが正確じゃないから、だんだんとフレームがずれてくる
+                        // そのため、フレームを消費しすぎたら、そのフレーム番号とexpectFrameが一致するまでスキップする
+                        // 逆に、フレームを消費しすぎない場合は、そのまま次のフレームを取得する
+                        if (expectFrame <= frame.Time)
+                        {
+                            nextExpectedFrame = frame.Time + 1;
+                            break;
+                        }
+
+                        // 期待していたフレームよりも前のフレームが来た場合
+                    }
+
+                    playerImpl.Skipped(ComputeExpectFrame() + 1);
+                }
+                finally
+                {
+                    Interlocked.Exchange(ref processing, 0);
+                }
+            },
+            null,
+            tick,
+            tick
+        );
 
         await Task.WhenAll(tcs.Task, audioTask);
 
@@ -509,7 +552,7 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
         bufferStatus.EndTime.Value = TimeSpan.Zero;
         frameCacheManager.Options = frameCacheManager.Options with
         {
-            DeletionStrategy = FrameCacheDeletionStrategy.Old
+            DeletionStrategy = FrameCacheDeletionStrategy.Old,
         };
 
         _currentFrameSubscription = CurrentFrame.Subscribe(UpdateCurrentFrame);
@@ -589,7 +632,8 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
 
     private async Task ShuttleCore(bool forward, bool fineGrain)
     {
-        if (!_isEnabled.Value || Scene == null) return;
+        if (!_isEnabled.Value || Scene == null)
+            return;
         var newDirection = forward
             ? ViewModels.PlaybackDirection.Forward
             : ViewModels.PlaybackDirection.Backward;
@@ -639,7 +683,8 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
 
     private void StartShuttle()
     {
-        if (_isShuttling || Scene == null) return;
+        if (_isShuttling || Scene == null)
+            return;
         _isShuttling = true;
         IsPlaying.Value = true;
 
@@ -683,24 +728,41 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
                         TimeSpan maxTime = sceneEnd - tick;
                         if (IsLoopEnabled.Value)
                         {
-                            if (next > sceneEnd) next = minTime;
-                            if (next < sceneStart) next = maxTime;
+                            if (next > sceneEnd)
+                                next = minTime;
+                            if (next < sceneStart)
+                                next = maxTime;
                         }
                         else
                         {
-                            if (next >= sceneEnd) { next = maxTime; break; }
-                            if (next < sceneStart) { next = minTime; break; }
+                            if (next >= sceneEnd)
+                            {
+                                next = maxTime;
+                                break;
+                            }
+                            if (next < sceneStart)
+                            {
+                                next = minTime;
+                                break;
+                            }
                         }
 
-                        if (next < minTime) next = minTime;
-                        if (next > maxTime) next = maxTime;
+                        if (next < minTime)
+                            next = minTime;
+                        if (next > maxTime)
+                            next = maxTime;
                     }
                     else
                     {
                         // 範囲外: シーン範囲に向かう方向のみ進行を許可する。
                         bool movingTowardRange = currentTime >= sceneEnd ? sign < 0 : sign > 0;
-                        if (!movingTowardRange) break;
-                        if (next < TimeSpan.Zero) { next = TimeSpan.Zero; break; }
+                        if (!movingTowardRange)
+                            break;
+                        if (next < TimeSpan.Zero)
+                        {
+                            next = TimeSpan.Zero;
+                            break;
+                        }
                     }
 
                     TimeSpan target = next;
@@ -749,8 +811,10 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
         }
         catch (Exception ex)
         {
-            NotificationService.ShowError(MessageStrings.UnexpectedError,
-                MessageStrings.AudioPlaybackException);
+            NotificationService.ShowError(
+                MessageStrings.UnexpectedError,
+                MessageStrings.AudioPlaybackException
+            );
             _logger.LogError(ex, "An exception occurred during audio playback.");
             IsPlaying.Value = false;
         }
@@ -761,7 +825,10 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
     }
 
     private static Pcm<Stereo32BitFloat>? FillAudioData(
-        TimeSpan f, TimeSpan sceneEndTime, SceneComposer composer)
+        TimeSpan f,
+        TimeSpan sceneEndTime,
+        SceneComposer composer
+    )
     {
         return ComposeThread.Dispatcher.Invoke(() =>
         {
@@ -782,7 +849,10 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
     // Scene.Start + Duration を超えた末尾サンプルをゼロ埋めする。
     // 編集中に Duration が縮んでバッファ全体が範囲外になるケースもありうる。
     private static void SilenceTailBeyondSceneEnd(
-        Pcm<Stereo32BitFloat> pcm, TimeSpan bufferStart, TimeSpan sceneEndTime)
+        Pcm<Stereo32BitFloat> pcm,
+        TimeSpan bufferStart,
+        TimeSpan sceneEndTime
+    )
     {
         if (sceneEndTime <= bufferStart)
         {
@@ -791,7 +861,8 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
         }
 
         TimeSpan bufferEnd = bufferStart + pcm.Duration;
-        if (bufferEnd <= sceneEndTime) return;
+        if (bufferEnd <= sceneEndTime)
+            return;
 
         double keepSeconds = (sceneEndTime - bufferStart).TotalSeconds;
         int keepSamples = (int)Math.Ceiling(keepSeconds * pcm.SampleRate);
@@ -813,14 +884,20 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
     // 期限内に進行が観測できなかった場合は false を返し、呼び出し側は音声クロックを諦めて
     // 壁時計にフォールバックする (サスペンド/切断中のデバイスで無期限ハングするのを防ぐため)。
     private static async Task<bool> WaitForFirstSampleAsync(
-        Func<bool> hasProgressed, bool hasAudio, CancellationToken token)
+        Func<bool> hasProgressed,
+        bool hasAudio,
+        CancellationToken token
+    )
     {
-        if (!hasAudio) return false;
+        if (!hasAudio)
+            return false;
         long deadline = Stopwatch.GetTimestamp() + Stopwatch.Frequency * 2; // 2s
         while (!token.IsCancellationRequested)
         {
-            if (hasProgressed()) return true;
-            if (Stopwatch.GetTimestamp() >= deadline) return false;
+            if (hasProgressed())
+                return true;
+            if (Stopwatch.GetTimestamp() >= deadline)
+                return false;
             try
             {
                 await Task.Delay(1, token).ConfigureAwait(false);
@@ -833,8 +910,12 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
         return false;
     }
 
-    private async Task PlayWithXA2(XAudioContext audioContext, Scene scene,
-        AudioPlaybackClock clock, TimeSpan startTime)
+    private async Task PlayWithXA2(
+        XAudioContext audioContext,
+        Scene scene,
+        AudioPlaybackClock clock,
+        TimeSpan startTime
+    )
     {
         var composer = EditViewModel.Composer.Value;
         int sampleRate = composer.SampleRate;
@@ -869,13 +950,15 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
 
         void AnchorClock()
         {
-            if (!hasAudio || !audioClockValid) return;
+            if (!hasAudio || !audioClockValid)
+                return;
             double seconds = (double)source.SamplesPlayed / sampleRate;
             clock.Anchor(startTime + TimeSpan.FromSeconds(seconds));
         }
 
         var cts = new CancellationTokenSource();
-        IDisposable revoker = IsPlaying.Where(v => !v)
+        IDisposable revoker = IsPlaying
+            .Where(v => !v)
             .Take(1)
             .Subscribe(_ =>
             {
@@ -899,12 +982,16 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
             // タイムアウトした場合はバックエンドがハングしている可能性が高いので、
             // 音声クロックを諦めて壁時計にフォールバックする。
             audioClockValid = await WaitForFirstSampleAsync(
-                    () => source.SamplesPlayed > 0, hasAudio, cts.Token)
+                    () => source.SamplesPlayed > 0,
+                    hasAudio,
+                    cts.Token
+                )
                 .ConfigureAwait(false);
             if (hasAudio && !audioClockValid)
             {
                 _logger.LogWarning(
-                    "XAudio2 backend did not advance SamplesPlayed within the startup deadline; falling back to wall-clock timing.");
+                    "XAudio2 backend did not advance SamplesPlayed within the startup deadline; falling back to wall-clock timing."
+                );
             }
             AnchorClock();
             // 壁時計フォールバック時や音声なしの場合は AnchorClock が no-op のため、
@@ -951,13 +1038,15 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
         }
     }
 
-    private async Task PlayWithOpenAL(AudioContext audioContext, Scene scene,
-        AudioPlaybackClock clock, TimeSpan startTime)
+    private async Task PlayWithOpenAL(
+        AudioContext audioContext,
+        Scene scene,
+        AudioPlaybackClock clock,
+        TimeSpan startTime
+    )
     {
         var cts = new CancellationTokenSource();
-        IDisposable revoker = IsPlaying.Where(v => !v)
-            .Take(1)
-            .Subscribe(_ => cts.Cancel());
+        IDisposable revoker = IsPlaying.Where(v => !v).Take(1).Subscribe(_ => cts.Cancel());
 
         try
         {
@@ -975,7 +1064,8 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
 
             void AnchorClock()
             {
-                if (!hasAudio || !audioClockValid) return;
+                if (!hasAudio || !audioClockValid)
+                    return;
                 audioContext.GetSource(source, GetSourceInteger.SampleOffset, out int sampleOffset);
                 long pos = totalProcessedSamples + sampleOffset;
                 double seconds = (double)pos / sampleRate;
@@ -998,7 +1088,12 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
                         sampleRate = pcm.SampleRate;
                     }
 
-                    audioContext.BufferData(buffer, BufferFormat.Stereo16, pcm.DataSpan, pcm.SampleRate);
+                    audioContext.BufferData(
+                        buffer,
+                        BufferFormat.Stereo16,
+                        pcm.DataSpan,
+                        pcm.SampleRate
+                    );
                     fillSamples = pcm.DataSpan.Length;
                     hasAudio = true;
                     PublishAudioSnapshot(pcmf, bufferStartTime);
@@ -1021,11 +1116,16 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
                         () =>
                         {
                             audioContext.MakeCurrent();
-                            audioContext.GetSource(source, GetSourceInteger.SampleOffset, out int offset);
+                            audioContext.GetSource(
+                                source,
+                                GetSourceInteger.SampleOffset,
+                                out int offset
+                            );
                             return offset > 0;
                         },
                         hasAudio,
-                        cts.Token)
+                        cts.Token
+                    )
                     .ConfigureAwait(false);
                 // await 後は別のプールスレッドで継続する可能性があり、
                 // OpenAL コンテキストはスレッド固有のため再バインドが必要。
@@ -1033,7 +1133,8 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
                 if (hasAudio && !audioClockValid)
                 {
                     _logger.LogWarning(
-                        "OpenAL backend did not advance SampleOffset within the startup deadline; falling back to wall-clock timing.");
+                        "OpenAL backend did not advance SampleOffset within the startup deadline; falling back to wall-clock timing."
+                    );
                 }
                 AnchorClock();
                 // 壁時計フォールバック時や音声なしの場合は AnchorClock が no-op のため、
@@ -1043,12 +1144,20 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
                 while (IsPlaying.Value)
                 {
                     audioContext.MakeCurrent();
-                    audioContext.GetSource(source, GetSourceInteger.BuffersProcessed, out int processed);
+                    audioContext.GetSource(
+                        source,
+                        GetSourceInteger.BuffersProcessed,
+                        out int processed
+                    );
                     while (processed > 0)
                     {
                         TimeSpan bufferStartTime = cur;
                         TimeSpan sceneEndTime = scene.Start + scene.Duration;
-                        using Pcm<Stereo32BitFloat>? pcmf = FillAudioData(cur, sceneEndTime, composer);
+                        using Pcm<Stereo32BitFloat>? pcmf = FillAudioData(
+                            cur,
+                            sceneEndTime,
+                            composer
+                        );
                         cur += s_second;
                         uint buffer = audioContext.SourceUnqueueBuffer(source);
                         int fillSamples = 0;
@@ -1061,7 +1170,12 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
                                 sampleRate = pcm.SampleRate;
                             }
 
-                            audioContext.BufferData(buffer, BufferFormat.Stereo16, pcm.DataSpan, pcm.SampleRate);
+                            audioContext.BufferData(
+                                buffer,
+                                BufferFormat.Stereo16,
+                                pcm.DataSpan,
+                                pcm.SampleRate
+                            );
                             fillSamples = pcm.DataSpan.Length;
                             hasAudio = true;
                             PublishAudioSnapshot(pcmf, bufferStartTime);
@@ -1086,10 +1200,16 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
                         break;
                 }
 
-                while (audioContext.GetSourceState(source) == SourceState.Playing && IsPlaying.Value)
+                while (
+                    audioContext.GetSourceState(source) == SourceState.Playing && IsPlaying.Value
+                )
                 {
                     audioContext.MakeCurrent();
-                    audioContext.GetSource(source, GetSourceInteger.BuffersProcessed, out int drainProcessed);
+                    audioContext.GetSource(
+                        source,
+                        GetSourceInteger.BuffersProcessed,
+                        out int drainProcessed
+                    );
                     while (drainProcessed > 0 && queuedBufferSamples.Count > 0)
                     {
                         audioContext.SourceUnqueueBuffer(source);
@@ -1100,9 +1220,7 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
                     await Task.Delay(100, cts.Token).ConfigureAwait(false);
                 }
             }
-            catch (OperationCanceledException)
-            {
-            }
+            catch (OperationCanceledException) { }
 
             audioContext.SourceStop(source);
             // https://hamken100.blogspot.com/2014/04/aldeletebuffersalinvalidoperation.html
@@ -1118,7 +1236,8 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
 
     public async Task Pause()
     {
-        if (!IsPlaying.Value) return;
+        if (!IsPlaying.Value)
+            return;
 
         _logger.LogInformation("Pause the playback. ({SceneId})", _editViewModel.SceneId);
         _isShuttling = false;
@@ -1137,7 +1256,12 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
         PreviewInvalidated?.Invoke(this, EventArgs.Empty);
     }
 
-    private void DrawBoundaries(Renderer renderer, SKCanvas canvas, Size canvasSize, bool recalculate = false)
+    private void DrawBoundaries(
+        Renderer renderer,
+        SKCanvas canvas,
+        Size canvasSize,
+        bool recalculate = false
+    )
     {
         int? selected = _editorSelection.SelectedLayerNumber.Value;
         if (selected.HasValue)
@@ -1158,7 +1282,7 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
                 {
                     Color = SKColors.White,
                     Style = SKPaintStyle.Stroke,
-                    StrokeWidth = strokeScale
+                    StrokeWidth = strokeScale,
                 };
                 bool exactBounds = GlobalConfiguration.Instance.ViewConfig.ShowExactBoundaries;
 
@@ -1187,74 +1311,90 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
             if (token.IsCancellationRequested)
                 return;
 
-            RenderThread.Dispatcher.Dispatch(() =>
-            {
-                try
+            RenderThread.Dispatcher.Dispatch(
+                () =>
                 {
-                    SceneRenderer renderer = EditViewModel.Renderer.Value;
-                    FrameCacheManager cacheManager = EditViewModel.FrameCacheManager.Value;
-                    if (renderer is not { IsDisposed: false, IsGraphicsRendering: false })
-                        return;
-
-                    int rate = GetFrameRate();
-                    TimeSpan time = _editorClock.CurrentTime.Value;
-                    int frame = (int)Math.Round(time.ToFrameNumber(rate), MidpointRounding.AwayFromZero);
-                    time = frame.ToTimeSpan(rate);
-                    Ref<Bitmap>? bitmapRef;
-
-                    if (cacheManager.TryGet(frame, out var cache))
+                    try
                     {
-                        using (cache)
+                        SceneRenderer renderer = EditViewModel.Renderer.Value;
+                        FrameCacheManager cacheManager = EditViewModel.FrameCacheManager.Value;
+                        if (renderer is not { IsDisposed: false, IsGraphicsRendering: false })
+                            return;
+
+                        int rate = GetFrameRate();
+                        TimeSpan time = _editorClock.CurrentTime.Value;
+                        int frame = (int)
+                            Math.Round(time.ToFrameNumber(rate), MidpointRounding.AwayFromZero);
+                        time = frame.ToTimeSpan(rate);
+                        Ref<Bitmap>? bitmapRef;
+
+                        if (cacheManager.TryGet(frame, out var cache))
+                        {
+                            using (cache)
+                            {
+                                var compositionFrame = renderer.Compositor.EvaluateGraphics(time);
+
+                                renderer.UpdateFrame(compositionFrame);
+                                var bitmap = cache.Value.Clone();
+                                bitmapRef = Ref<Bitmap>.Create(bitmap);
+
+                                using (var canvas = new SKCanvas(bitmap.SKBitmap))
+                                {
+                                    DrawBoundaries(
+                                        renderer,
+                                        canvas,
+                                        new(bitmap.Width, bitmap.Height),
+                                        true
+                                    );
+                                }
+                            }
+                        }
+                        else
                         {
                             var compositionFrame = renderer.Compositor.EvaluateGraphics(time);
-
-                            renderer.UpdateFrame(compositionFrame);
-                            var bitmap = cache.Value.Clone();
+                            renderer.Render(compositionFrame);
+                            var bitmap = renderer.Snapshot();
                             bitmapRef = Ref<Bitmap>.Create(bitmap);
+
+                            if (cacheManager.IsEnabled)
+                            {
+                                cacheManager.Add(frame, bitmapRef);
+                                cacheManager.UpdateBlocks();
+                            }
 
                             using (var canvas = new SKCanvas(bitmap.SKBitmap))
                             {
-                                DrawBoundaries(renderer, canvas, new(bitmap.Width, bitmap.Height), true);
+                                DrawBoundaries(
+                                    renderer,
+                                    canvas,
+                                    new(bitmap.Width, bitmap.Height),
+                                    true
+                                );
                             }
                         }
+
+                        UpdateImage(bitmapRef);
+
+                        // Dispose と並走した場合に AfterRendered が破棄されている可能性があるためトークンを確認する
+                        if (!token.IsCancellationRequested)
+                            AfterRendered.OnNext(Unit.Default);
                     }
-                    else
+                    catch (ObjectDisposedException) when (token.IsCancellationRequested)
                     {
-                        var compositionFrame = renderer.Compositor.EvaluateGraphics(time);
-                        renderer.Render(compositionFrame);
-                        var bitmap = renderer.Snapshot();
-                        bitmapRef = Ref<Bitmap>.Create(bitmap);
-
-                        if (cacheManager.IsEnabled)
-                        {
-                            cacheManager.Add(frame, bitmapRef);
-                            cacheManager.UpdateBlocks();
-                        }
-
-                        using (var canvas = new SKCanvas(bitmap.SKBitmap))
-                        {
-                            DrawBoundaries(renderer, canvas, new(bitmap.Width, bitmap.Height), true);
-                        }
+                        // Dispose 中のレースで AfterRendered などが破棄された場合のみ無視する。
+                        // 通常再生中の予期しない ObjectDisposedException は下の catch で表面化させる。
                     }
-
-                    UpdateImage(bitmapRef);
-
-                    // Dispose と並走した場合に AfterRendered が破棄されている可能性があるためトークンを確認する
-                    if (!token.IsCancellationRequested)
-                        AfterRendered.OnNext(Unit.Default);
-                }
-                catch (ObjectDisposedException) when (token.IsCancellationRequested)
-                {
-                    // Dispose 中のレースで AfterRendered などが破棄された場合のみ無視する。
-                    // 通常再生中の予期しない ObjectDisposedException は下の catch で表面化させる。
-                }
-                catch (Exception ex)
-                {
-                    NotificationService.ShowError(MessageStrings.UnexpectedError,
-                        MessageStrings.FrameDrawingException);
-                    _logger.LogError(ex, "An exception occurred while drawing the frame.");
-                }
-            }, ct: token);
+                    catch (Exception ex)
+                    {
+                        NotificationService.ShowError(
+                            MessageStrings.UnexpectedError,
+                            MessageStrings.FrameDrawingException
+                        );
+                        _logger.LogError(ex, "An exception occurred while drawing the frame.");
+                    }
+                },
+                ct: token
+            );
         }
 
         _cts?.Cancel();
@@ -1263,14 +1403,16 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
         Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(
             () => RenderOnRenderThread(_cts.Token),
             Avalonia.Threading.DispatcherPriority.Background,
-            _cts.Token);
+            _cts.Token
+        );
     }
 
     private void UpdateCurrentFrame(TimeSpan timeSpan)
     {
         QueueRender();
 
-        if (Scene == null) return;
+        if (Scene == null)
+            return;
 
         if (_editorClock.CurrentTime.Value != timeSpan)
         {
@@ -1328,7 +1470,8 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
 
         return await RenderThread.Dispatcher.InvokeAsync(() =>
         {
-            if (Scene == null) throw new Exception("Scene is null.");
+            if (Scene == null)
+                throw new Exception("Scene is null.");
             // TODO: Rendererに特定のDrawableのみを描画するクラスを追加する
             SceneRenderer renderer = EditViewModel.Renderer.Value;
             var resource = drawable.ToResource(new CompositionContext(CurrentFrame.Value));
@@ -1350,7 +1493,8 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
 
         return await RenderThread.Dispatcher.InvokeAsync(() =>
         {
-            if (Scene == null) throw new Exception("Scene is null.");
+            if (Scene == null)
+                throw new Exception("Scene is null.");
             SceneRenderer renderer = EditViewModel.Renderer.Value;
 
             RenderCacheOptions restoreCacheOptions = renderer.CacheOptions;

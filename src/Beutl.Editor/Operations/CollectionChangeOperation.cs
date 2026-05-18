@@ -15,7 +15,8 @@ public abstract class CollectionChangeOperation<T> : ChangeOperation, IPropertyP
         if (list is not IList<T> list2)
         {
             throw new InvalidOperationException(
-                $"Property {PropertyPath} is not a list on type {obj.GetType().FullName}.");
+                $"Property {PropertyPath} is not a list on type {obj.GetType().FullName}."
+            );
         }
 
         return list2;
@@ -23,14 +24,17 @@ public abstract class CollectionChangeOperation<T> : ChangeOperation, IPropertyP
 
     private IListProperty<T> FindListProperty(EngineObject engineObj, string name)
     {
-        var engineProperty = engineObj.Properties.FirstOrDefault(p => p.Name == name)
-                             ?? throw new InvalidOperationException(
-                                 $"Engine property {PropertyPath} not found on type {engineObj.GetType().FullName}.");
+        var engineProperty =
+            engineObj.Properties.FirstOrDefault(p => p.Name == name)
+            ?? throw new InvalidOperationException(
+                $"Engine property {PropertyPath} not found on type {engineObj.GetType().FullName}."
+            );
 
         if (engineProperty is not IListProperty<T> listProperty)
         {
             throw new InvalidOperationException(
-                $"Engine property {PropertyPath} is not a list on type {engineObj.GetType().FullName}.");
+                $"Engine property {PropertyPath} is not a list on type {engineObj.GetType().FullName}."
+            );
         }
 
         return listProperty;

@@ -1,5 +1,4 @@
 ﻿using Beutl.Logging;
-
 using Reactive.Bindings;
 using Reactive.Bindings.TinyLinq;
 
@@ -16,8 +15,7 @@ public class VerifyTaskModel : IProgress<double>
     {
         _app = app;
         _context = context;
-        IsContinuedNull = IsContinued.Select(v => v.HasValue)
-            .ToReadOnlyReactivePropertySlim();
+        IsContinuedNull = IsContinued.Select(v => v.HasValue).ToReadOnlyReactivePropertySlim();
     }
 
     public ReactiveProperty<bool> ShowDetails { get; } = new(false);
@@ -61,21 +59,28 @@ public class VerifyTaskModel : IProgress<double>
 
         try
         {
-            if (_context.Asset is { } asset
-                && _context.NuGetPackageFile != null)
+            if (_context.Asset is { } asset && _context.NuGetPackageFile != null)
             {
                 IsProgressBarVisible.Value = true;
                 IsIndeterminate.Value = true;
 
                 VerifyMessage.Value = Strings.VerifyingHashCode;
-                _logger.LogInformation("Verifying hash code for package: {PackageName}, version: {Version}", _context.PackageName, _context.Version);
+                _logger.LogInformation(
+                    "Verifying hash code for package: {PackageName}, version: {Version}",
+                    _context.PackageName,
+                    _context.Version
+                );
                 await installer.VerifyPackageFile(_context, this, token);
                 VerifyMessage.Value = Strings.Verified;
 
                 FailedToVerify.Value = !_context.HashVerified;
                 if (!_context.HashVerified)
                 {
-                    _logger.LogWarning("Hash verification failed for package: {PackageName}, version: {Version}", _context.PackageName, _context.Version);
+                    _logger.LogWarning(
+                        "Hash verification failed for package: {PackageName}, version: {Version}",
+                        _context.PackageName,
+                        _context.Version
+                    );
 
                     Task<bool>? task;
                     if (!IsContinued.Value.HasValue)
@@ -90,7 +95,9 @@ public class VerifyTaskModel : IProgress<double>
 
                     if (!await task.WaitAsync(token))
                     {
-                        _logger.LogInformation("User chose not to continue after verification failure.");
+                        _logger.LogInformation(
+                            "User chose not to continue after verification failure."
+                        );
                         Failed.Value = false;
                         return false;
                     }
@@ -98,11 +105,17 @@ public class VerifyTaskModel : IProgress<double>
             }
             else
             {
-                _logger.LogInformation("Verification skipped due to missing asset or package file.");
+                _logger.LogInformation(
+                    "Verification skipped due to missing asset or package file."
+                );
                 Skipped.Value = true;
             }
 
-            _logger.LogInformation("Verification succeeded for package: {PackageName}, version: {Version}", _context.PackageName, _context.Version);
+            _logger.LogInformation(
+                "Verification succeeded for package: {PackageName}, version: {Version}",
+                _context.PackageName,
+                _context.Version
+            );
             Succeeded.Value = true;
             return true;
         }
@@ -115,7 +128,12 @@ public class VerifyTaskModel : IProgress<double>
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "An exception occurred while verifying the hash code for package: {PackageName}, version: {Version}", _context.PackageName, _context.Version);
+            _logger.LogError(
+                ex,
+                "An exception occurred while verifying the hash code for package: {PackageName}, version: {Version}",
+                _context.PackageName,
+                _context.Version
+            );
             ErrorMessage.Value = ex.Message;
             Failed.Value = true;
             return false;

@@ -1,7 +1,6 @@
 ﻿using Avalonia;
 using Avalonia.Controls.Metadata;
 using Avalonia.Data;
-
 using Beutl.Media;
 
 namespace Beutl.Controls.PropertyEditors;
@@ -14,7 +13,8 @@ public class AlignmentYEditor : ThreeOptionRadioEditor<AlignmentY>
             nameof(Value),
             o => o.Value,
             (o, v) => o.Value = v,
-            defaultBindingMode: BindingMode.TwoWay);
+            defaultBindingMode: BindingMode.TwoWay
+        );
 
     private const string TopSelected = ":top-selected";
     private const string CenterSelected = ":center-selected";

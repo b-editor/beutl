@@ -21,7 +21,12 @@ public sealed class FrameProviderImpl : IFrameProvider, IDisposable
     private readonly Task _producerTask;
     private bool _disposed;
 
-    public FrameProviderImpl(Scene scene, Rational rate, SceneRenderer renderer, Subject<TimeSpan> progress)
+    public FrameProviderImpl(
+        Scene scene,
+        Rational rate,
+        SceneRenderer renderer,
+        Subject<TimeSpan> progress
+    )
     {
         _scene = scene;
         _rate = rate;
@@ -35,7 +40,8 @@ public sealed class FrameProviderImpl : IFrameProvider, IDisposable
                 FullMode = BoundedChannelFullMode.Wait,
                 SingleReader = true,
                 SingleWriter = true,
-            });
+            }
+        );
 
         _producerTask = Task.Run(RenderFramesAsync, _cts.Token);
     }
@@ -55,7 +61,9 @@ public sealed class FrameProviderImpl : IFrameProvider, IDisposable
     {
         // rate.Numerator, rate.Denominatorを使ってできるだけ正確に
         // (frame / (rate.Numerator / rate.Denominator)) * TimeSpan.TicksPerSecond
-        var time = TimeSpan.FromTicks(frame * _rate.Denominator * TimeSpan.TicksPerSecond / _rate.Numerator);
+        var time = TimeSpan.FromTicks(
+            frame * _rate.Denominator * TimeSpan.TicksPerSecond / _rate.Numerator
+        );
 
         if (RenderThread.Dispatcher.CheckAccess())
         {
@@ -63,7 +71,10 @@ public sealed class FrameProviderImpl : IFrameProvider, IDisposable
         }
         else
         {
-            return await RenderThread.Dispatcher.InvokeAsync(() => RenderCore(time), ct: cancellationToken);
+            return await RenderThread.Dispatcher.InvokeAsync(
+                () => RenderCore(time),
+                ct: cancellationToken
+            );
         }
     }
 
@@ -96,7 +107,9 @@ public sealed class FrameProviderImpl : IFrameProvider, IDisposable
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
 
-        var time = TimeSpan.FromTicks(frame * _rate.Denominator * TimeSpan.TicksPerSecond / _rate.Numerator);
+        var time = TimeSpan.FromTicks(
+            frame * _rate.Denominator * TimeSpan.TicksPerSecond / _rate.Numerator
+        );
         _progress.OnNext(time);
 
         while (await _channel.Reader.WaitToReadAsync(_cts.Token))
@@ -109,7 +122,11 @@ public sealed class FrameProviderImpl : IFrameProvider, IDisposable
                 }
 
                 item.Bitmap.Dispose();
-                _logger.LogWarning("The frame is misaligned. Requested frame: {RequestedFrame}, Received frame: {ReceivedFrame}", frame, item.Frame);
+                _logger.LogWarning(
+                    "The frame is misaligned. Requested frame: {RequestedFrame}, Received frame: {ReceivedFrame}",
+                    frame,
+                    item.Frame
+                );
                 return await RenderFrameCore(frame, _cts.Token);
             }
         }
@@ -120,7 +137,8 @@ public sealed class FrameProviderImpl : IFrameProvider, IDisposable
 
     public void Dispose()
     {
-        if (_disposed) return;
+        if (_disposed)
+            return;
         _disposed = true;
         _cts.Cancel();
 

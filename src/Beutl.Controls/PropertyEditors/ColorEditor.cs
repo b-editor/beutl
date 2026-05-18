@@ -4,7 +4,6 @@ using Avalonia.Controls.Primitives;
 using Avalonia.Data;
 using Avalonia.Interactivity;
 using Avalonia.Media;
-
 using FluentAvalonia.UI.Media;
 
 namespace Beutl.Controls.PropertyEditors;
@@ -16,7 +15,8 @@ public class ColorEditor : PropertyEditor
             nameof(Value),
             o => o.Value,
             (o, v) => o.Value = v,
-            defaultBindingMode: BindingMode.TwoWay);
+            defaultBindingMode: BindingMode.TwoWay
+        );
 
     public static readonly StyledProperty<bool> IsLivePreviewEnabledProperty =
         AvaloniaProperty.Register<ColorEditor, bool>(nameof(IsLivePreviewEnabled));
@@ -94,13 +94,21 @@ public class ColorEditor : PropertyEditor
             _oldValue = _value;
     }
 
-    private void OnColorPickerColorChanged(SimpleColorPicker sender, (Color2 OldValue, Color2 NewValue) args)
+    private void OnColorPickerColorChanged(
+        SimpleColorPicker sender,
+        (Color2 OldValue, Color2 NewValue) args
+    )
     {
         if (IsLivePreviewEnabled)
         {
             Value = args.NewValue;
-            RaiseEvent(new PropertyEditorValueChangedEventArgs<Color>(
-                args.NewValue, args.OldValue, ValueChangedEvent));
+            RaiseEvent(
+                new PropertyEditorValueChangedEventArgs<Color>(
+                    args.NewValue,
+                    args.OldValue,
+                    ValueChangedEvent
+                )
+            );
         }
     }
 
@@ -109,8 +117,13 @@ public class ColorEditor : PropertyEditor
         if (_flyoutActive)
         {
             Value = _flyout.ColorPicker.Color;
-            RaiseEvent(new PropertyEditorValueChangedEventArgs<Color>(
-                Value, _oldValue, ValueConfirmedEvent));
+            RaiseEvent(
+                new PropertyEditorValueChangedEventArgs<Color>(
+                    Value,
+                    _oldValue,
+                    ValueConfirmedEvent
+                )
+            );
         }
     }
 
@@ -119,8 +132,13 @@ public class ColorEditor : PropertyEditor
         if (IsLivePreviewEnabled)
         {
             _flyout.ColorPicker.ColorChanged -= OnColorPickerColorChanged;
-            RaiseEvent(new PropertyEditorValueChangedEventArgs<Color>(
-                Value, _oldValue, ValueConfirmedEvent));
+            RaiseEvent(
+                new PropertyEditorValueChangedEventArgs<Color>(
+                    Value,
+                    _oldValue,
+                    ValueConfirmedEvent
+                )
+            );
         }
 
         _flyoutActive = false;

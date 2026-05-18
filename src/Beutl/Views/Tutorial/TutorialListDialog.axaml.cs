@@ -1,8 +1,6 @@
 ﻿using Avalonia.Controls;
 using Avalonia.Interactivity;
-
 using Beutl.Services.Tutorials;
-
 using FluentAvalonia.UI.Controls;
 
 namespace Beutl.Views.Tutorial;

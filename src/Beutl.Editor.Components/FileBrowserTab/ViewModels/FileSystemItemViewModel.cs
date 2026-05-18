@@ -33,15 +33,18 @@ public class FileSystemItemViewModel : IDisposable
             AddPlaceholderIfNeeded();
         }
 
-        IsExpanded.Subscribe(value =>
-        {
-            if (value && !_childrenLoaded)
+        IsExpanded
+            .Subscribe(value =>
             {
-                LoadChildren();
-            }
-        }).AddTo(_disposables);
+                if (value && !_childrenLoaded)
+                {
+                    LoadChildren();
+                }
+            })
+            .AddTo(_disposables);
 
-        HasThumbnail = Thumbnail.Select(t => t != null)
+        HasThumbnail = Thumbnail
+            .Select(t => t != null)
             .ToReadOnlyReactivePropertySlim()
             .AddTo(_disposables);
 
@@ -122,12 +125,8 @@ public class FileSystemItemViewModel : IDisposable
                 Thumbnail.Value = bitmap;
             }
         }
-        catch (OperationCanceledException)
-        {
-        }
-        catch
-        {
-        }
+        catch (OperationCanceledException) { }
+        catch { }
     }
 
     private Symbol GetIconSymbol()
@@ -140,12 +139,18 @@ public class FileSystemItemViewModel : IDisposable
         return Extension switch
         {
             // Image files
-            ".png" or ".jpg" or ".jpeg" or ".gif" or ".bmp" or ".webp" or ".ico" or ".tiff" or ".tif" =>
-                Symbol.Image,
+            ".png"
+            or ".jpg"
+            or ".jpeg"
+            or ".gif"
+            or ".bmp"
+            or ".webp"
+            or ".ico"
+            or ".tiff"
+            or ".tif" => Symbol.Image,
 
             // Video files
-            ".mp4" or ".avi" or ".mov" or ".mkv" or ".wmv" or ".flv" or ".webm" =>
-                Symbol.Video,
+            ".mp4" or ".avi" or ".mov" or ".mkv" or ".wmv" or ".flv" or ".webm" => Symbol.Video,
 
             // Audio files
             ".mp3" or ".wav" or ".ogg" or ".flac" or ".aac" or ".wma" or ".m4a" =>
@@ -157,19 +162,26 @@ public class FileSystemItemViewModel : IDisposable
             ".txt" or ".md" or ".json" or ".xml" or ".yaml" or ".yml" => Symbol.DocumentText,
 
             // Code files
-            ".cs" or ".fs" or ".vb" or ".py" or ".js" or ".ts" or ".html" or ".css" or ".xaml" or ".axaml" =>
-                Symbol.Code,
+            ".cs"
+            or ".fs"
+            or ".vb"
+            or ".py"
+            or ".js"
+            or ".ts"
+            or ".html"
+            or ".css"
+            or ".xaml"
+            or ".axaml" => Symbol.Code,
 
             // Archive files
-            ".zip" or ".rar" or ".7z" or ".tar" or ".gz" =>
-                Symbol.FolderZip,
+            ".zip" or ".rar" or ".7z" or ".tar" or ".gz" => Symbol.FolderZip,
 
             // Beutl project files
             ".bepj" => Symbol.Folder,
             ".besc" => Symbol.Filmstrip,
 
             // Default
-            _ => Symbol.Document
+            _ => Symbol.Document,
         };
     }
 
@@ -225,7 +237,11 @@ public class FileSystemItemViewModel : IDisposable
         try
         {
             var dirInfo = new DirectoryInfo(FullPath);
-            if (dirInfo.EnumerateFileSystemInfos().Any(e => (e.Attributes & FileAttributes.Hidden) == 0))
+            if (
+                dirInfo
+                    .EnumerateFileSystemInfos()
+                    .Any(e => (e.Attributes & FileAttributes.Hidden) == 0)
+            )
             {
                 // プレースホルダーを追加して展開矢印を表示させる
                 Children!.Add(new FileSystemItemViewModel(FullPath, false));

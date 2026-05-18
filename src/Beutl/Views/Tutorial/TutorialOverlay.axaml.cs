@@ -5,7 +5,6 @@ using Avalonia.Interactivity;
 using Avalonia.Media;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
-
 using Beutl.Language;
 using Beutl.Services;
 using Beutl.Services.Tutorials;
@@ -41,11 +40,17 @@ public partial class TutorialOverlay : UserControl
 
         TipTitle.Text = step.Title;
         TipContent.Text = step.Content;
-        StepCounter.Text = string.Format(TutorialStrings.TutorialStep, state.CurrentStepIndex + 1, state.TotalSteps);
+        StepCounter.Text = string.Format(
+            TutorialStrings.TutorialStep,
+            state.CurrentStepIndex + 1,
+            state.TotalSteps
+        );
 
         PreviousButton.IsVisible = !state.IsFirstStep;
         NextButton.IsVisible = !step.IsActionRequired || state.IsLastStep;
-        NextButton.Content = state.IsLastStep ? TutorialStrings.TutorialFinish : TutorialStrings.TutorialNext;
+        NextButton.Content = state.IsLastStep
+            ? TutorialStrings.TutorialFinish
+            : TutorialStrings.TutorialNext;
 
         UpdateTargetHighlight(step);
     }
@@ -121,7 +126,8 @@ public partial class TutorialOverlay : UserControl
 
         if (definition.ElementName != null)
         {
-            return topLevel.GetVisualDescendants()
+            return topLevel
+                .GetVisualDescendants()
                 .OfType<Control>()
                 .FirstOrDefault(c => c.Name == definition.ElementName);
         }
@@ -131,11 +137,13 @@ public partial class TutorialOverlay : UserControl
 
     private static Control? ResolveToolTabElement(Type extensionType, TopLevel topLevel)
     {
-        return topLevel.GetVisualDescendants()
+        return topLevel
+            .GetVisualDescendants()
             .OfType<ToolTabContent>()
             .FirstOrDefault(ttc =>
-                ttc.DataContext is BeutlToolDockable dockable &&
-                extensionType.IsInstanceOfType(dockable.ToolContext.Extension));
+                ttc.DataContext is BeutlToolDockable dockable
+                && extensionType.IsInstanceOfType(dockable.ToolContext.Extension)
+            );
     }
 
     private void PositionHighlights()
@@ -161,9 +169,14 @@ public partial class TutorialOverlay : UserControl
                     border.Width = target.Bounds.Width + 8;
                     border.Height = target.Bounds.Height + 8;
 
-                    targetRects.Add(new Rect(
-                        pos.Value.X - 4, pos.Value.Y - 4,
-                        target.Bounds.Width + 8, target.Bounds.Height + 8));
+                    targetRects.Add(
+                        new Rect(
+                            pos.Value.X - 4,
+                            pos.Value.Y - 4,
+                            target.Bounds.Width + 8,
+                            target.Bounds.Height + 8
+                        )
+                    );
                 }
                 else
                 {
@@ -192,10 +205,11 @@ public partial class TutorialOverlay : UserControl
         {
             var border = new Border
             {
-                BorderBrush = Application.Current?.FindResource("AccentFillColorDefaultBrush") as IBrush,
+                BorderBrush =
+                    Application.Current?.FindResource("AccentFillColorDefaultBrush") as IBrush,
                 BorderThickness = new Thickness(2),
                 CornerRadius = new CornerRadius(4),
-                IsVisible = false
+                IsVisible = false,
             };
             _highlightBorders.Add(border);
             HighlightCanvas.Children.Add(border);
@@ -209,7 +223,10 @@ public partial class TutorialOverlay : UserControl
         {
             if (dispatchUpdate)
             {
-                Dispatcher.UIThread.Post(() => UpdateOverlayClip(targetRects, false), DispatcherPriority.Render);
+                Dispatcher.UIThread.Post(
+                    () => UpdateOverlayClip(targetRects, false),
+                    DispatcherPriority.Render
+                );
             }
 
             return;

@@ -33,9 +33,7 @@ public abstract class CoreObject : ICoreObject
     private Dictionary<int, IEntry>? _values;
     private Dictionary<int, string>? _errors;
 
-    internal interface IEntry
-    {
-    }
+    internal interface IEntry { }
 
     internal sealed class Entry<T> : IEntry
     {
@@ -89,7 +87,9 @@ public abstract class CoreObject : ICoreObject
         return new CorePropertyBuilder<T, TOwner>(name);
     }
 
-    public static CorePropertyBuilder<T, TOwner> ConfigureProperty<T, TOwner>(Expression<Func<TOwner, T>> exp)
+    public static CorePropertyBuilder<T, TOwner> ConfigureProperty<T, TOwner>(
+        Expression<Func<TOwner, T>> exp
+    )
     {
         return new CorePropertyBuilder<T, TOwner>(exp);
     }
@@ -132,8 +132,10 @@ public abstract class CoreObject : ICoreObject
             return staticProperty.RouteGetTypedValue(this)!;
         }
 
-        if (_values?.TryGetValue(property.Id, out IEntry? entry) == true &&
-                 entry is Entry<TValue> entryT)
+        if (
+            _values?.TryGetValue(property.Id, out IEntry? entry) == true
+            && entry is Entry<TValue> entryT
+        )
         {
             return entryT.Value!;
         }
@@ -149,17 +151,23 @@ public abstract class CoreObject : ICoreObject
     }
 
     private void ValidateProperty<TValue>(
-        CorePropertyMetadata<TValue> metadata, CoreProperty<TValue> property, ref TValue? value)
+        CorePropertyMetadata<TValue> metadata,
+        CoreProperty<TValue> property,
+        ref TValue? value
+    )
     {
         if (metadata.Validator is IValidator<TValue> validator)
         {
             bool oldHasErrors = HasErrors;
-            string? oldError = _errors != null && _errors.TryGetValue(property.Id, out string? v) ? v : null;
+            string? oldError =
+                _errors != null && _errors.TryGetValue(property.Id, out string? v) ? v : null;
             string? newError;
 
             var vcontext = new ValidationContext(this, property);
-            if (!validator.TryCoerce(vcontext, ref value)
-                && validator.Validate(vcontext, value) is string message)
+            if (
+                !validator.TryCoerce(vcontext, ref value)
+                && validator.Validate(vcontext, value) is string message
+            )
             {
                 // 値の強制が失敗、検証に失敗した場合、エラーメッセージを設定
                 Errors[property.Id] = message;
@@ -188,7 +196,8 @@ public abstract class CoreObject : ICoreObject
         if (value != null && !value.GetType().IsAssignableTo(property.PropertyType))
         {
             throw new InvalidOperationException(
-                $"{nameof(value)} of type {value.GetType().Name} cannot be assigned to type {property.PropertyType}.");
+                $"{nameof(value)} of type {value.GetType().Name} cannot be assigned to type {property.PropertyType}."
+            );
         }
 
         Type ownerType = GetType();
@@ -203,12 +212,16 @@ public abstract class CoreObject : ICoreObject
             return;
         }
 
-        CorePropertyMetadata<TValue>? metadata = property.GetMetadata<CorePropertyMetadata<TValue>>(ownerType);
+        CorePropertyMetadata<TValue>? metadata = property.GetMetadata<CorePropertyMetadata<TValue>>(
+            ownerType
+        );
         ValidateProperty(metadata, property, ref value);
 
-        if (_values != null &&
-            _values.TryGetValue(property.Id, out IEntry? oldEntry) &&
-            oldEntry is Entry<TValue> entryT)
+        if (
+            _values != null
+            && _values.TryGetValue(property.Id, out IEntry? oldEntry)
+            && oldEntry is Entry<TValue> entryT
+        )
         {
             TValue? oldValue = entryT.Value;
             if (!EqualityComparer<TValue>.Default.Equals(oldValue, value))
@@ -221,7 +234,7 @@ public abstract class CoreObject : ICoreObject
         {
             if (!EqualityComparer<TValue>.Default.Equals(metadata.DefaultValue, value))
             {
-                entryT = new Entry<TValue> { Value = value, };
+                entryT = new Entry<TValue> { Value = value };
                 Values[property.Id] = entryT;
                 RaisePropertyChanged(property, metadata, value, metadata.DefaultValue);
             }
@@ -237,7 +250,9 @@ public abstract class CoreObject : ICoreObject
 
     public void ClearValue<TValue>(CoreProperty<TValue> property)
     {
-        CorePropertyMetadata<TValue> metadata = property.GetMetadata<CorePropertyMetadata<TValue>>(GetType());
+        CorePropertyMetadata<TValue> metadata = property.GetMetadata<CorePropertyMetadata<TValue>>(
+            GetType()
+        );
         if (metadata.HasDefaultValue)
         {
             SetValue(property, metadata.DefaultValue);
@@ -271,7 +286,9 @@ public abstract class CoreObject : ICoreObject
 
     protected bool SetAndRaise<T>(CoreProperty<T> property, ref T field, T value)
     {
-        CorePropertyMetadata<T>? metadata = property.GetMetadata<CorePropertyMetadata<T>>(GetType());
+        CorePropertyMetadata<T>? metadata = property.GetMetadata<CorePropertyMetadata<T>>(
+            GetType()
+        );
         ValidateProperty(metadata, property, ref value!);
 
         bool result = !EqualityComparer<T>.Default.Equals(field, value);
@@ -286,10 +303,20 @@ public abstract class CoreObject : ICoreObject
         return result;
     }
 
-    private void RaisePropertyChanged<T>(CoreProperty<T> property, CorePropertyMetadata metadata, T? newValue,
-        T? oldValue)
+    private void RaisePropertyChanged<T>(
+        CoreProperty<T> property,
+        CorePropertyMetadata metadata,
+        T? newValue,
+        T? oldValue
+    )
     {
-        var eventArgs = new CorePropertyChangedEventArgs<T>(this, property, metadata, newValue, oldValue);
+        var eventArgs = new CorePropertyChangedEventArgs<T>(
+            this,
+            property,
+            metadata,
+            newValue,
+            oldValue
+        );
 
         OnPropertyChanged(eventArgs);
     }
@@ -319,8 +346,10 @@ public abstract class CoreObject : ICoreObject
             {
                 if (value.Value is IReference { IsNull: false } reference)
                 {
-                    context.Resolve(reference.Id,
-                        resolved => SetValue(item, reference.Resolved((CoreObject)resolved)));
+                    context.Resolve(
+                        reference.Id,
+                        resolved => SetValue(item, reference.Resolved((CoreObject)resolved))
+                    );
                 }
 
                 SetValue(item, value.Value);

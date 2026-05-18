@@ -1,7 +1,9 @@
 ﻿#if !Beutl_ExceptionHandler
 namespace Beutl;
+
 #else
 namespace Beutl.ExceptionHandler;
+
 #endif
 
 public static class BeutlEnvironment
@@ -14,7 +16,10 @@ public static class BeutlEnvironment
         if (Directory.Exists(dir))
             return dir;
 
-        return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".beutl");
+        return Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
+            ".beutl"
+        );
     }
 
     // $BEUTL_HOME/packages

@@ -7,4 +7,5 @@ namespace Beutl.Composition;
 public readonly record struct CompositionFrame(
     ImmutableArray<EngineObject.Resource> Objects,
     TimeRange Time,
-    PixelSize Size);
+    PixelSize Size
+);

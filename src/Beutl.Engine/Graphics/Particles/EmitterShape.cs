@@ -5,5 +5,5 @@ public enum EmitterShape
     Point,
     Line,
     Circle,
-    Box
+    Box,
 }

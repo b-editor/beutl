@@ -10,7 +10,8 @@ public static class LibraryItemPickerHelper
     public static Task<object?> ShowAsync(
         Control host,
         SelectLibraryItemDialogViewModel selectVm,
-        string multipleTypeFormat)
+        string multipleTypeFormat
+    )
     {
         var dialog = new LibraryItemPickerFlyout(selectVm);
         dialog.ShowAt(host, true);
@@ -43,7 +44,8 @@ public static class LibraryItemPickerHelper
     public static async Task<Type?> ShowTypeOnlyAsync(
         Control host,
         SelectLibraryItemDialogViewModel selectVm,
-        string multipleTypeFormat)
+        string multipleTypeFormat
+    )
     {
         var dialog = new LibraryItemPickerFlyout(selectVm);
         dialog.ShowAt(host, true);

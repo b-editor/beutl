@@ -12,13 +12,15 @@ public class NodeMonitorViewModel : NodeMemberViewModel
     private readonly CompositeDisposable _disposables = [];
 
     public NodeMonitorViewModel(
-        INodeMonitor model, IPropertyEditorContext? propertyEditorContext, GraphNodeViewModel nodeViewModel)
+        INodeMonitor model,
+        IPropertyEditorContext? propertyEditorContext,
+        GraphNodeViewModel nodeViewModel
+    )
         : base(model, propertyEditorContext, nodeViewModel)
     {
         // ContentChanged->UI更新
-        Observable.FromEventPattern(
-                h => model.ContentChanged += h,
-                h => model.ContentChanged -= h)
+        Observable
+            .FromEventPattern(h => model.ContentChanged += h, h => model.ContentChanged -= h)
             .ObserveOnUIDispatcher()
             .Subscribe(_ => UpdateDisplay())
             .DisposeWith(_disposables);
@@ -26,7 +28,8 @@ public class NodeMonitorViewModel : NodeMemberViewModel
         // IsPlaying, IsExpanded -> IsEnabled 連動
         var previewPlayer = nodeViewModel.EditorContext.GetRequiredService<IPreviewPlayer>();
 
-        previewPlayer.IsPlaying.CombineLatest(nodeViewModel.IsExpanded)
+        previewPlayer
+            .IsPlaying.CombineLatest(nodeViewModel.IsExpanded)
             // IsPlayingがfalseで、かつIsExpandedがtrueのときのみ有効
             .Select(t => t is { First: false, Second: true })
             .DistinctUntilChanged()
@@ -52,7 +55,8 @@ public class NodeMonitorViewModel : NodeMemberViewModel
             case NodeMonitorContentKind.Text when Model is NodeMonitor<string?> textMonitor:
                 DisplayText.Value = textMonitor.Value;
                 break;
-            case NodeMonitorContentKind.Image when Model is NodeMonitor<Ref<Media.Bitmap>?> imageMonitor:
+            case NodeMonitorContentKind.Image
+                when Model is NodeMonitor<Ref<Media.Bitmap>?> imageMonitor:
                 UpdateImage(imageMonitor.Value);
                 break;
         }

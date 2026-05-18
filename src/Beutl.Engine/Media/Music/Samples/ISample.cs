@@ -9,7 +9,12 @@ public interface ISample<T>
 
     static abstract int GetNumChannels();
 
-    static abstract void GetChannelData(T s, int channel, Span<byte> destination, out int bytesWritten);
+    static abstract void GetChannelData(
+        T s,
+        int channel,
+        Span<byte> destination,
+        out int bytesWritten
+    );
 
     static abstract T ConvertFrom(Sample src);
 

@@ -8,10 +8,13 @@ namespace Beutl.Graphics.AudioVisualizers;
 public enum RadialSpectrumDirection
 {
     Outward,
-    Inward
+    Inward,
 }
 
-[Display(Name = nameof(GraphicsStrings.SpectrumShape_Radial), ResourceType = typeof(GraphicsStrings))]
+[Display(
+    Name = nameof(GraphicsStrings.SpectrumShape_Radial),
+    ResourceType = typeof(GraphicsStrings)
+)]
 public sealed partial class RadialSpectrumShape : SpectrumShape
 {
     public RadialSpectrumShape()
@@ -19,18 +22,30 @@ public sealed partial class RadialSpectrumShape : SpectrumShape
         ScanProperties<RadialSpectrumShape>();
     }
 
-    [Display(Name = nameof(GraphicsStrings.SpectrumShape_InnerRadius), ResourceType = typeof(GraphicsStrings))]
+    [Display(
+        Name = nameof(GraphicsStrings.SpectrumShape_InnerRadius),
+        ResourceType = typeof(GraphicsStrings)
+    )]
     [Range(0f, 10000f)]
     public IProperty<float> InnerRadius { get; } = Property.CreateAnimatable(40f);
 
-    [Display(Name = nameof(GraphicsStrings.SpectrumShape_StartAngle), ResourceType = typeof(GraphicsStrings))]
+    [Display(
+        Name = nameof(GraphicsStrings.SpectrumShape_StartAngle),
+        ResourceType = typeof(GraphicsStrings)
+    )]
     public IProperty<float> StartAngle { get; } = Property.CreateAnimatable(-90f);
 
-    [Display(Name = nameof(GraphicsStrings.SpectrumShape_BarWidth), ResourceType = typeof(GraphicsStrings))]
+    [Display(
+        Name = nameof(GraphicsStrings.SpectrumShape_BarWidth),
+        ResourceType = typeof(GraphicsStrings)
+    )]
     [Range(0.5f, 100f)]
     public IProperty<float> BarWidth { get; } = Property.CreateAnimatable(4f);
 
-    [Display(Name = nameof(GraphicsStrings.SpectrumShape_Direction), ResourceType = typeof(GraphicsStrings))]
+    [Display(
+        Name = nameof(GraphicsStrings.SpectrumShape_Direction),
+        ResourceType = typeof(GraphicsStrings)
+    )]
     public IProperty<RadialSpectrumDirection> Direction { get; } =
         Property.Create(RadialSpectrumDirection.Outward);
 
@@ -40,10 +55,12 @@ public sealed partial class RadialSpectrumShape : SpectrumShape
             ImmediateCanvas canvas,
             Rect bounds,
             ReadOnlySpan<float> normalizedBars,
-            Brush.Resource fill)
+            Brush.Resource fill
+        )
         {
             int barCount = normalizedBars.Length;
-            if (barCount == 0) return;
+            if (barCount == 0)
+                return;
 
             float width = (float)bounds.Width;
             float height = (float)bounds.Height;
@@ -51,9 +68,11 @@ public sealed partial class RadialSpectrumShape : SpectrumShape
             float cy = (float)bounds.Y + height * 0.5f;
             float outerRadius = MathF.Min(width, height) * 0.5f;
             float innerRadius = MathF.Min(InnerRadius, outerRadius - 1f);
-            if (innerRadius < 0f) innerRadius = 0f;
+            if (innerRadius < 0f)
+                innerRadius = 0f;
             float maxLen = outerRadius - innerRadius;
-            if (maxLen <= 0f) return;
+            if (maxLen <= 0f)
+                return;
 
             float barWidth = MathF.Max(0.5f, BarWidth);
             float startAngleDeg = StartAngle;
@@ -65,7 +84,8 @@ public sealed partial class RadialSpectrumShape : SpectrumShape
                 float magnitude = normalizedBars[i];
                 float len = MathF.Max(1f, magnitude * maxLen);
 
-                float r1, r2;
+                float r1,
+                    r2;
                 if (outward)
                 {
                     r1 = innerRadius;
@@ -83,7 +103,9 @@ public sealed partial class RadialSpectrumShape : SpectrumShape
                 float translateX = cx + r1 * MathF.Cos(angleRad);
                 float translateY = cy + r1 * MathF.Sin(angleRad);
 
-                Matrix transform = Matrix.CreateRotation(angleRad) * Matrix.CreateTranslation(translateX, translateY);
+                Matrix transform =
+                    Matrix.CreateRotation(angleRad)
+                    * Matrix.CreateTranslation(translateX, translateY);
                 using (canvas.PushTransform(transform))
                 {
                     float half = barWidth * 0.5f;

@@ -11,15 +11,18 @@ public static class CopyPasteMenuHelper
 {
     public static void AddMenus(FAMenuFlyout menuFlyout, Control control)
     {
-        var dataContext = control.GetObservable(StyledElement.DataContextProperty)
+        var dataContext = control
+            .GetObservable(StyledElement.DataContextProperty)
             .Select(obj => obj as BaseEditorViewModel);
         var copyMenu = new MenuFlyoutItem { Text = Strings.Copy };
         copyMenu.Bind(
             InputElement.IsEnabledProperty,
-            dataContext.Select(d => d?.CanCopy ?? Observable.ReturnThenNever(false)).Switch());
+            dataContext.Select(d => d?.CanCopy ?? Observable.ReturnThenNever(false)).Switch()
+        );
         copyMenu.Click += async (_, _) =>
         {
-            if (control.DataContext is not BaseEditorViewModel { IsDisposed: false } vm) return;
+            if (control.DataContext is not BaseEditorViewModel { IsDisposed: false } vm)
+                return;
             try
             {
                 await vm.CopyAsync();
@@ -32,15 +35,20 @@ public static class CopyPasteMenuHelper
         var pasteMenu = new MenuFlyoutItem { Text = Strings.Paste };
         pasteMenu.Bind(
             InputElement.IsEnabledProperty,
-            dataContext.Select(d => d?.CanPaste ?? Observable.ReturnThenNever(false)).Switch());
+            dataContext.Select(d => d?.CanPaste ?? Observable.ReturnThenNever(false)).Switch()
+        );
         pasteMenu.Click += async (_, _) =>
         {
-            if (control.DataContext is not BaseEditorViewModel { IsDisposed: false } vm) return;
+            if (control.DataContext is not BaseEditorViewModel { IsDisposed: false } vm)
+                return;
             try
             {
                 if (!await vm.PasteAsync())
                 {
-                    NotificationService.ShowInformation(Strings.Paste, MessageStrings.CannotPasteFromClipboard);
+                    NotificationService.ShowInformation(
+                        Strings.Paste,
+                        MessageStrings.CannotPasteFromClipboard
+                    );
                 }
             }
             catch (Exception ex)
@@ -63,10 +71,16 @@ public static class CopyPasteMenuHelper
             separator.Bind(
                 Visual.IsVisibleProperty,
                 dataContext
-                    .Select(d => d != null
-                        ? d.CanCopy.CombineLatest(d.CanPaste, (canCopy, canPaste) => canCopy || canPaste)
-                        : Observable.ReturnThenNever(false))
-                    .Switch());
+                    .Select(d =>
+                        d != null
+                            ? d.CanCopy.CombineLatest(
+                                d.CanPaste,
+                                (canCopy, canPaste) => canCopy || canPaste
+                            )
+                            : Observable.ReturnThenNever(false)
+                    )
+                    .Switch()
+            );
             menuFlyout.Items.Add(separator);
         }
 

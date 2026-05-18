@@ -63,57 +63,60 @@ public struct PipelineOptions
     /// <summary>
     /// Gets the default pipeline options for 3D rendering.
     /// </summary>
-    public static PipelineOptions Default => new()
-    {
-        DepthTestEnabled = true,
-        DepthWriteEnabled = true,
-        CullMode = CullMode.Back,
-        FrontFace = FrontFace.CounterClockwise,
-        BlendEnabled = false,
-        SrcColorBlendFactor = BlendFactor.One,
-        DstColorBlendFactor = BlendFactor.Zero,
-        SrcAlphaBlendFactor = BlendFactor.One,
-        DstAlphaBlendFactor = BlendFactor.Zero,
-        ColorBlendOp = BlendOp.Add,
-        AlphaBlendOp = BlendOp.Add
-    };
+    public static PipelineOptions Default =>
+        new()
+        {
+            DepthTestEnabled = true,
+            DepthWriteEnabled = true,
+            CullMode = CullMode.Back,
+            FrontFace = FrontFace.CounterClockwise,
+            BlendEnabled = false,
+            SrcColorBlendFactor = BlendFactor.One,
+            DstColorBlendFactor = BlendFactor.Zero,
+            SrcAlphaBlendFactor = BlendFactor.One,
+            DstAlphaBlendFactor = BlendFactor.Zero,
+            ColorBlendOp = BlendOp.Add,
+            AlphaBlendOp = BlendOp.Add,
+        };
 
     /// <summary>
     /// Gets pipeline options for fullscreen/post-processing passes.
     /// </summary>
-    public static PipelineOptions Fullscreen => new()
-    {
-        DepthTestEnabled = false,
-        DepthWriteEnabled = false,
-        CullMode = CullMode.None,
-        FrontFace = FrontFace.CounterClockwise,
-        BlendEnabled = false,
-        SrcColorBlendFactor = BlendFactor.One,
-        DstColorBlendFactor = BlendFactor.Zero,
-        SrcAlphaBlendFactor = BlendFactor.One,
-        DstAlphaBlendFactor = BlendFactor.Zero,
-        ColorBlendOp = BlendOp.Add,
-        AlphaBlendOp = BlendOp.Add
-    };
+    public static PipelineOptions Fullscreen =>
+        new()
+        {
+            DepthTestEnabled = false,
+            DepthWriteEnabled = false,
+            CullMode = CullMode.None,
+            FrontFace = FrontFace.CounterClockwise,
+            BlendEnabled = false,
+            SrcColorBlendFactor = BlendFactor.One,
+            DstColorBlendFactor = BlendFactor.Zero,
+            SrcAlphaBlendFactor = BlendFactor.One,
+            DstAlphaBlendFactor = BlendFactor.Zero,
+            ColorBlendOp = BlendOp.Add,
+            AlphaBlendOp = BlendOp.Add,
+        };
 
     /// <summary>
     /// Gets pipeline options for transparent object rendering.
     /// Depth test enabled but depth write disabled, standard alpha blending.
     /// </summary>
-    public static PipelineOptions Transparent => new()
-    {
-        DepthTestEnabled = true,
-        DepthWriteEnabled = false,
-        CullMode = CullMode.Back,
-        FrontFace = FrontFace.CounterClockwise,
-        BlendEnabled = true,
-        SrcColorBlendFactor = BlendFactor.One,
-        DstColorBlendFactor = BlendFactor.OneMinusSrcAlpha,
-        SrcAlphaBlendFactor = BlendFactor.One,
-        DstAlphaBlendFactor = BlendFactor.OneMinusSrcAlpha,
-        ColorBlendOp = BlendOp.Add,
-        AlphaBlendOp = BlendOp.Add
-    };
+    public static PipelineOptions Transparent =>
+        new()
+        {
+            DepthTestEnabled = true,
+            DepthWriteEnabled = false,
+            CullMode = CullMode.Back,
+            FrontFace = FrontFace.CounterClockwise,
+            BlendEnabled = true,
+            SrcColorBlendFactor = BlendFactor.One,
+            DstColorBlendFactor = BlendFactor.OneMinusSrcAlpha,
+            SrcAlphaBlendFactor = BlendFactor.One,
+            DstAlphaBlendFactor = BlendFactor.OneMinusSrcAlpha,
+            ColorBlendOp = BlendOp.Add,
+            AlphaBlendOp = BlendOp.Add,
+        };
 }
 
 /// <summary>
@@ -134,7 +137,7 @@ public enum CullMode
     /// <summary>
     /// Cull back-facing triangles.
     /// </summary>
-    Back = 2
+    Back = 2,
 }
 
 /// <summary>
@@ -150,7 +153,7 @@ public enum FrontFace
     /// <summary>
     /// Triangles with clockwise winding are front-facing.
     /// </summary>
-    Clockwise = 1
+    Clockwise = 1,
 }
 
 /// <summary>
@@ -206,7 +209,7 @@ public enum BlendFactor
     /// <summary>
     /// Factor is (1-Ad, 1-Ad, 1-Ad, 1-Ad) - one minus destination alpha.
     /// </summary>
-    OneMinusDstAlpha = 9
+    OneMinusDstAlpha = 9,
 }
 
 /// <summary>
@@ -237,5 +240,5 @@ public enum BlendOp
     /// <summary>
     /// Result = max(Source, Destination).
     /// </summary>
-    Max = 4
+    Max = 4,
 }

@@ -1,18 +1,17 @@
 ﻿using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Xaml.Interactivity;
-
 using FluentAvalonia.UI.Controls;
 
 namespace Beutl.Controls;
 
 public class NavItemHelper : Behavior<NavigationViewItem>
 {
-    public static readonly StyledProperty<IconSource> RegularIconProperty
-        = AvaloniaProperty.Register<NavItemHelper, IconSource>("RegularIcon");
+    public static readonly StyledProperty<IconSource> RegularIconProperty =
+        AvaloniaProperty.Register<NavItemHelper, IconSource>("RegularIcon");
 
-    public static readonly StyledProperty<IconSource> FilledIconProperty
-        = AvaloniaProperty.Register<NavItemHelper, IconSource>("FilledIcon");
+    public static readonly StyledProperty<IconSource> FilledIconProperty =
+        AvaloniaProperty.Register<NavItemHelper, IconSource>("FilledIcon");
     private IDisposable _disposable;
     private IconSourceElement _regular;
     private IconSourceElement _filled;
@@ -34,7 +33,8 @@ public class NavItemHelper : Behavior<NavigationViewItem>
         base.OnAttached();
         SetFontSize(RegularIcon);
         SetFontSize(FilledIcon);
-        _disposable = AssociatedObject.GetPropertyChangedObservable(ListBoxItem.IsSelectedProperty)
+        _disposable = AssociatedObject
+            .GetPropertyChangedObservable(ListBoxItem.IsSelectedProperty)
             .Subscribe(e => SelectionChanged((NavigationViewItem)e.Sender));
 
         SelectionChanged(AssociatedObject);

@@ -26,10 +26,9 @@ internal unsafe class VulkanTexture2D : ITexture2D
         int width,
         int height,
         TextureFormat format,
-        ImageUsageFlags usage = ImageUsageFlags.SampledBit | ImageUsageFlags.TransferDstBit)
-        : this(context, width, height, format, usage, null)
-    {
-    }
+        ImageUsageFlags usage = ImageUsageFlags.SampledBit | ImageUsageFlags.TransferDstBit
+    )
+        : this(context, width, height, format, usage, null) { }
 
     protected VulkanTexture2D(
         VulkanContext context,
@@ -37,7 +36,8 @@ internal unsafe class VulkanTexture2D : ITexture2D
         int height,
         TextureFormat format,
         ImageUsageFlags usage,
-        void* pNext)
+        void* pNext
+    )
     {
         _context = context;
         _width = width;
@@ -61,7 +61,7 @@ internal unsafe class VulkanTexture2D : ITexture2D
             Tiling = ImageTiling.Optimal,
             Usage = usage,
             SharingMode = SharingMode.Exclusive,
-            InitialLayout = ImageLayout.Undefined
+            InitialLayout = ImageLayout.Undefined,
         };
 
         Silk.NET.Vulkan.Image image;
@@ -83,7 +83,10 @@ internal unsafe class VulkanTexture2D : ITexture2D
         {
             SType = StructureType.MemoryAllocateInfo,
             AllocationSize = memReqs.Size,
-            MemoryTypeIndex = context.FindMemoryType(memReqs.MemoryTypeBits, MemoryPropertyFlags.DeviceLocalBit)
+            MemoryTypeIndex = context.FindMemoryType(
+                memReqs.MemoryTypeBits,
+                MemoryPropertyFlags.DeviceLocalBit
+            ),
         };
 
         DeviceMemory memory;
@@ -91,7 +94,9 @@ internal unsafe class VulkanTexture2D : ITexture2D
         if (result != Result.Success)
         {
             vk.DestroyImage(device, _image, null);
-            throw new InvalidOperationException($"Failed to allocate Vulkan image memory: {result}");
+            throw new InvalidOperationException(
+                $"Failed to allocate Vulkan image memory: {result}"
+            );
         }
 
         _memory = memory;
@@ -118,8 +123,8 @@ internal unsafe class VulkanTexture2D : ITexture2D
                 BaseMipLevel = 0,
                 LevelCount = 1,
                 BaseArrayLayer = 0,
-                LayerCount = 1
-            }
+                LayerCount = 1,
+            },
         };
 
         ImageView imageView;
@@ -157,7 +162,8 @@ internal unsafe class VulkanTexture2D : ITexture2D
             _context,
             (ulong)data.Length,
             BufferUsage.TransferSource,
-            MemoryProperty.HostVisible | MemoryProperty.HostCoherent);
+            MemoryProperty.HostVisible | MemoryProperty.HostCoherent
+        );
 
         // Copy data to staging buffer
         stagingBuffer.Upload(data);
@@ -178,15 +184,21 @@ internal unsafe class VulkanTexture2D : ITexture2D
                     AspectMask = ImageAspectFlags.ColorBit,
                     MipLevel = 0,
                     BaseArrayLayer = 0,
-                    LayerCount = 1
+                    LayerCount = 1,
                 },
                 ImageOffset = new Offset3D(0, 0, 0),
-                ImageExtent = new Extent3D((uint)_width, (uint)_height, 1)
+                ImageExtent = new Extent3D((uint)_width, (uint)_height, 1),
             };
 
             // ReSharper disable once AccessToDisposedClosure
             _context.Vk.CmdCopyBufferToImage(
-                cmd, stagingBuffer.Handle, _image, ImageLayout.TransferDstOptimal, 1, &region);
+                cmd,
+                stagingBuffer.Handle,
+                _image,
+                ImageLayout.TransferDstOptimal,
+                1,
+                &region
+            );
         });
 
         // Transition to shader read
@@ -208,7 +220,7 @@ internal unsafe class VulkanTexture2D : ITexture2D
             TextureFormat.R8Unorm => 1,
             TextureFormat.R16Float => 2,
             TextureFormat.R32Float => 4,
-            _ => 4
+            _ => 4,
         };
 
         ulong bufferSize = (ulong)(_width * _height * bytesPerPixel);
@@ -219,7 +231,8 @@ internal unsafe class VulkanTexture2D : ITexture2D
             _context,
             bufferSize,
             BufferUsage.TransferDestination,
-            MemoryProperty.HostVisible | MemoryProperty.HostCoherent);
+            MemoryProperty.HostVisible | MemoryProperty.HostCoherent
+        );
 
         // Copy image to buffer
         _context.SubmitImmediateCommands(cmd =>
@@ -234,15 +247,21 @@ internal unsafe class VulkanTexture2D : ITexture2D
                     AspectMask = ImageAspectFlags.ColorBit,
                     MipLevel = 0,
                     BaseArrayLayer = 0,
-                    LayerCount = 1
+                    LayerCount = 1,
                 },
                 ImageOffset = new Offset3D(0, 0, 0),
-                ImageExtent = new Extent3D((uint)_width, (uint)_height, 1)
+                ImageExtent = new Extent3D((uint)_width, (uint)_height, 1),
             };
 
             // ReSharper disable once AccessToDisposedClosure
             _context.Vk.CmdCopyImageToBuffer(
-                cmd, _image, ImageLayout.TransferSrcOptimal, stagingBuffer.Handle, 1, &region);
+                cmd,
+                _image,
+                ImageLayout.TransferSrcOptimal,
+                stagingBuffer.Handle,
+                1,
+                &region
+            );
         });
 
         // Read data from staging buffer
@@ -263,35 +282,57 @@ internal unsafe class VulkanTexture2D : ITexture2D
         // On macOS, use raster surface (Metal interop handles rendering separately)
         if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
         {
-            var info = new SKImageInfo(_width, _height, _format.ToSkiaColorType(), SKAlphaType.Premul, SKColorSpace.CreateSrgbLinear());
+            var info = new SKImageInfo(
+                _width,
+                _height,
+                _format.ToSkiaColorType(),
+                SKAlphaType.Premul,
+                SKColorSpace.CreateSrgbLinear()
+            );
             return SKSurface.Create(info);
         }
 
         var vkImageInfo = new GRVkImageInfo
         {
             Image = _image.Handle,
-            Alloc = new GRVkAlloc { Memory = (ulong)_memory.Handle, Offset = 0, Size = _allocationSize },
+            Alloc = new GRVkAlloc
+            {
+                Memory = (ulong)_memory.Handle,
+                Offset = 0,
+                Size = _allocationSize,
+            },
             ImageTiling = (uint)ImageTiling.Optimal,
             ImageLayout = (uint)ImageLayout.ColorAttachmentOptimal,
             Format = (uint)_format.ToVulkanFormat(),
-            ImageUsageFlags = (uint)(ImageUsageFlags.ColorAttachmentBit | ImageUsageFlags.SampledBit |
-                                     ImageUsageFlags.TransferSrcBit | ImageUsageFlags.TransferDstBit),
+            ImageUsageFlags = (uint)(
+                ImageUsageFlags.ColorAttachmentBit
+                | ImageUsageFlags.SampledBit
+                | ImageUsageFlags.TransferSrcBit
+                | ImageUsageFlags.TransferDstBit
+            ),
             SampleCount = 1,
             LevelCount = 1,
             CurrentQueueFamily = _context.GraphicsQueueFamilyIndex,
             Protected = false,
-            SharingMode = (uint)SharingMode.Exclusive
+            SharingMode = (uint)SharingMode.Exclusive,
         };
 
         using var backendRenderTarget = new GRBackendRenderTarget(_width, _height, vkImageInfo);
 
         var grContext = _context.SkiaContext;
-        var surface = SKSurface.Create(grContext, backendRenderTarget, GRSurfaceOrigin.TopLeft,
-            _format.ToSkiaColorType(), SKColorSpace.CreateSrgbLinear());
+        var surface = SKSurface.Create(
+            grContext,
+            backendRenderTarget,
+            GRSurfaceOrigin.TopLeft,
+            _format.ToSkiaColorType(),
+            SKColorSpace.CreateSrgbLinear()
+        );
 
         if (surface == null)
         {
-            throw new InvalidOperationException("Failed to create SkiaSharp surface from Vulkan backend render target");
+            throw new InvalidOperationException(
+                "Failed to create SkiaSharp surface from Vulkan backend render target"
+            );
         }
 
         return surface;
@@ -318,7 +359,8 @@ internal unsafe class VulkanTexture2D : ITexture2D
 
     public virtual void Dispose()
     {
-        if (_disposed) return;
+        if (_disposed)
+            return;
         _disposed = true;
 
         var vk = _context.Vk;

@@ -1,5 +1,4 @@
 ﻿using System.Numerics;
-
 using Beutl.Animation.Animators;
 using Beutl.Graphics;
 using Beutl.Media;
@@ -17,7 +16,10 @@ public class AnimatorInterpolateTests
     public void FloatAnimator_Linear(float oldVal, float newVal, float progress, float expected)
     {
         var animator = new FloatAnimator();
-        Assert.That(animator.Interpolate(progress, oldVal, newVal), Is.EqualTo(expected).Within(1e-6));
+        Assert.That(
+            animator.Interpolate(progress, oldVal, newVal),
+            Is.EqualTo(expected).Within(1e-6)
+        );
     }
 
     [Test]
@@ -26,7 +28,10 @@ public class AnimatorInterpolateTests
     public void DoubleAnimator_Linear(double oldVal, double newVal, float progress, double expected)
     {
         var animator = new DoubleAnimator();
-        Assert.That(animator.Interpolate(progress, oldVal, newVal), Is.EqualTo(expected).Within(1e-6));
+        Assert.That(
+            animator.Interpolate(progress, oldVal, newVal),
+            Is.EqualTo(expected).Within(1e-6)
+        );
     }
 
     [Test]
@@ -151,7 +156,11 @@ public class AnimatorInterpolateTests
     public void VectorAnimator_Linear()
     {
         var animator = new VectorAnimator();
-        var result = animator.Interpolate(0.5f, new Beutl.Graphics.Vector(0, 0), new Beutl.Graphics.Vector(10, 10));
+        var result = animator.Interpolate(
+            0.5f,
+            new Beutl.Graphics.Vector(0, 0),
+            new Beutl.Graphics.Vector(10, 10)
+        );
         Assert.That(result.X, Is.EqualTo(5f).Within(1e-6));
         Assert.That(result.Y, Is.EqualTo(5f).Within(1e-6));
     }
@@ -182,7 +191,11 @@ public class AnimatorInterpolateTests
     public void CornerRadiusAnimator_Linear()
     {
         var animator = new CornerRadiusAnimator();
-        var result = animator.Interpolate(0.5f, new CornerRadius(0), new CornerRadius(10, 20, 30, 40));
+        var result = animator.Interpolate(
+            0.5f,
+            new CornerRadius(0),
+            new CornerRadius(10, 20, 30, 40)
+        );
         Assert.That(result.TopLeft, Is.EqualTo(5f).Within(1e-6));
         Assert.That(result.TopRight, Is.EqualTo(10f).Within(1e-6));
         Assert.That(result.BottomRight, Is.EqualTo(15f).Within(1e-6));
@@ -211,7 +224,11 @@ public class AnimatorInterpolateTests
     public void PixelRectAnimator_LinearIntegerInterpolation()
     {
         var animator = new PixelRectAnimator();
-        var result = animator.Interpolate(0.5f, new PixelRect(0, 0, 0, 0), new PixelRect(10, 20, 30, 40));
+        var result = animator.Interpolate(
+            0.5f,
+            new PixelRect(0, 0, 0, 0),
+            new PixelRect(10, 20, 30, 40)
+        );
         Assert.That(result.X, Is.EqualTo(5));
         Assert.That(result.Y, Is.EqualTo(10));
         Assert.That(result.Width, Is.EqualTo(15));
@@ -225,7 +242,8 @@ public class AnimatorInterpolateTests
         var result = animator.Interpolate(
             0.5f,
             new RelativePoint(0f, 0f, RelativeUnit.Relative),
-            new RelativePoint(1f, 1f, RelativeUnit.Relative));
+            new RelativePoint(1f, 1f, RelativeUnit.Relative)
+        );
         Assert.That(result.Unit, Is.EqualTo(RelativeUnit.Relative));
         Assert.That(result.Point.X, Is.EqualTo(0.5f).Within(1e-6));
         Assert.That(result.Point.Y, Is.EqualTo(0.5f).Within(1e-6));
@@ -250,7 +268,8 @@ public class AnimatorInterpolateTests
         var result = animator.Interpolate(
             0.5f,
             new RelativeRect(0, 0, 0, 0, RelativeUnit.Relative),
-            new RelativeRect(1, 1, 1, 1, RelativeUnit.Relative));
+            new RelativeRect(1, 1, 1, 1, RelativeUnit.Relative)
+        );
         Assert.That(result.Unit, Is.EqualTo(RelativeUnit.Relative));
         Assert.That(result.Rect.X, Is.EqualTo(0.5f).Within(1e-6));
         Assert.That(result.Rect.Width, Is.EqualTo(0.5f).Within(1e-6));

@@ -19,31 +19,31 @@ public sealed class InlineKeyFrameViewModel : IDisposable
     private readonly ILogger _logger = Log.CreateLogger<InlineKeyFrameViewModel>();
     private readonly CompositeDisposable _disposables = [];
 
-    public InlineKeyFrameViewModel(IKeyFrame keyframe, IKeyFrameAnimation animation,
-        InlineAnimationLayerViewModel parent)
+    public InlineKeyFrameViewModel(
+        IKeyFrame keyframe,
+        IKeyFrameAnimation animation,
+        InlineAnimationLayerViewModel parent
+    )
     {
         Model = keyframe;
         Animation = animation;
         Timeline = parent.Timeline;
         Parent = parent;
 
-        Left = keyframe.GetObservable(KeyFrame.KeyTimeProperty)
+        Left = keyframe
+            .GetObservable(KeyFrame.KeyTimeProperty)
             .CombineLatest(Timeline.Options)
             .Select(item => item.First.TimeToPixel(item.Second.Scale))
             .ToReactiveProperty()
             .DisposeWith(_disposables);
 
-        CopyCommand = new AsyncReactiveCommand()
-            .WithSubscribe(CopyAsync)
-            .DisposeWith(_disposables);
+        CopyCommand = new AsyncReactiveCommand().WithSubscribe(CopyAsync).DisposeWith(_disposables);
 
         PasteCommand = new AsyncReactiveCommand()
             .WithSubscribe(PasteAsync)
             .DisposeWith(_disposables);
 
-        RemoveCommand = new ReactiveCommand()
-            .WithSubscribe(Remove)
-            .DisposeWith(_disposables);
+        RemoveCommand = new ReactiveCommand().WithSubscribe(Remove).DisposeWith(_disposables);
     }
 
     public InlineAnimationLayerViewModel Parent { get; }
@@ -65,7 +65,8 @@ public sealed class InlineKeyFrameViewModel : IDisposable
     private async Task CopyAsync()
     {
         IClipboard? clipboard = ClipboardHelper.GetClipboard();
-        if (clipboard == null) return;
+        if (clipboard == null)
+            return;
 
         try
         {
@@ -86,36 +87,48 @@ public sealed class InlineKeyFrameViewModel : IDisposable
     private async Task PasteAsync()
     {
         IClipboard? clipboard = ClipboardHelper.GetClipboard();
-        if (clipboard == null) return;
+        if (clipboard == null)
+            return;
 
         try
         {
-            if (await clipboard.TryGetValueAsync(BeutlDataFormats.KeyFrame) is { } json
-                && JsonNode.Parse(json) is JsonObject jsonObj)
+            if (
+                await clipboard.TryGetValueAsync(BeutlDataFormats.KeyFrame) is { } json
+                && JsonNode.Parse(json) is JsonObject jsonObj
+            )
             {
                 if (!jsonObj.TryGetDiscriminator(out Type? type))
                 {
-                    NotificationService.ShowWarning(Strings.Paste, MessageStrings.InvalidKeyframeDataFormat_MissingType);
+                    NotificationService.ShowWarning(
+                        Strings.Paste,
+                        MessageStrings.InvalidKeyframeDataFormat_MissingType
+                    );
                     return;
                 }
 
                 if (!type.IsAssignableTo(typeof(KeyFrame)))
                 {
-                    NotificationService.ShowWarning(Strings.Paste, MessageStrings.InvalidKeyframeDataFormat_TypeIsNotKeyFrame);
+                    NotificationService.ShowWarning(
+                        Strings.Paste,
+                        MessageStrings.InvalidKeyframeDataFormat_TypeIsNotKeyFrame
+                    );
                     return;
                 }
 
                 KeyFrame newKeyFrame = (KeyFrame)Activator.CreateInstance(type)!;
                 CoreSerializer.PopulateFromJsonObject(newKeyFrame, jsonObj);
-                HistoryManager history = Timeline.EditorContext.GetRequiredService<HistoryManager>();
+                HistoryManager history =
+                    Timeline.EditorContext.GetRequiredService<HistoryManager>();
 
                 if (type.GenericTypeArguments[0] != Parent.Property.PropertyType)
                 {
                     // イージングのみ変更
                     Model.Easing = newKeyFrame.Easing;
                     history.Commit(CommandNames.ChangeEasing);
-                    NotificationService.ShowWarning(Strings.GraphEditor,
-                        MessageStrings.KeyframePropertyTypeMismatch_EasingApplied);
+                    NotificationService.ShowWarning(
+                        Strings.GraphEditor,
+                        MessageStrings.KeyframePropertyTypeMismatch_EasingApplied
+                    );
                 }
                 else
                 {
@@ -129,7 +142,10 @@ public sealed class InlineKeyFrameViewModel : IDisposable
                 return;
             }
 
-            NotificationService.ShowWarning(Strings.Paste, MessageStrings.InvalidKeyframeDataFormat);
+            NotificationService.ShowWarning(
+                Strings.Paste,
+                MessageStrings.InvalidKeyframeDataFormat
+            );
         }
         catch (Exception ex)
         {
@@ -141,10 +157,7 @@ public sealed class InlineKeyFrameViewModel : IDisposable
     private void Remove()
     {
         HistoryManager history = Timeline.EditorContext.GetRequiredService<HistoryManager>();
-        AnimationOperations.RemoveKeyFrame(
-            animation: Animation,
-            keyframe: Model,
-            logger: _logger);
+        AnimationOperations.RemoveKeyFrame(animation: Animation, keyframe: Model, logger: _logger);
         history.Commit(CommandNames.RemoveKeyFrame);
     }
 

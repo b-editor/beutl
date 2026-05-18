@@ -102,7 +102,8 @@ public class AnimatedImageReader : MediaReader
             // 端数で最終フレームを超えた判定になった場合は最終フレームを返す。
             detectedFrame = _frameCount - 1;
 
-        BreakNestedLoop:;
+            BreakNestedLoop:
+            ;
         }
 
         if (detectedFrame == -1)
@@ -141,11 +142,13 @@ public class AnimatedImageReader : MediaReader
         for (int i = index; i >= 0; i--)
         {
             var info = _frameInfo[i];
-            if (i != index && info.DisposalMethod == SKCodecAnimationDisposalMethod.RestoreBackgroundColor)
+            if (
+                i != index
+                && info.DisposalMethod == SKCodecAnimationDisposalMethod.RestoreBackgroundColor
+            )
                 break;
 
-            if (_lastFrame is not null &&
-                _lastFrame.Index == i)
+            if (_lastFrame is not null && _lastFrame.Index == i)
             {
                 stack.Push((info, i));
                 break;
@@ -158,16 +161,18 @@ public class AnimatedImageReader : MediaReader
         using var canvas = new SKCanvas(frameBitmap);
         foreach ((SKCodecFrameInfo info, int i) in stack)
         {
-            if (_lastFrame is not null &&
-                _lastFrame.Index == i)
+            if (_lastFrame is not null && _lastFrame.Index == i)
             {
                 canvas.DrawBitmap(_lastFrame.Bitmap, 0, 0);
                 continue;
             }
 
             using var tmp = new SKBitmap(_codec!.Info.WithAlphaType(info.AlphaType));
-            var result = _codec.GetPixels(tmp.Info, tmp.GetPixels(),
-                new SKCodecOptions(i) { ZeroInitialized = SKZeroInitialized.Yes });
+            var result = _codec.GetPixels(
+                tmp.Info,
+                tmp.GetPixels(),
+                new SKCodecOptions(i) { ZeroInitialized = SKZeroInitialized.Yes }
+            );
             if (result != SKCodecResult.Success)
                 throw new Exception($"Failed to decode frame {i}: {result}");
 
@@ -192,7 +197,8 @@ public class AnimatedImageReader : MediaReader
         _lastFrame = null;
     }
 
-    private record Frame(SKBitmap Bitmap, SKCodecAnimationDisposalMethod DisposalMethod, int Index) : IDisposable
+    private record Frame(SKBitmap Bitmap, SKCodecAnimationDisposalMethod DisposalMethod, int Index)
+        : IDisposable
     {
         public void Dispose()
         {

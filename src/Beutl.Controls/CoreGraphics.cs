@@ -7,7 +7,8 @@ namespace Beutl.Controls;
 internal static partial class CoreGraphics
 {
     private const string CGLib = "/System/Library/Frameworks/CoreGraphics.framework/CoreGraphics";
-    private const string CFLib = "/System/Library/Frameworks/CoreFoundation.framework/CoreFoundation";
+    private const string CFLib =
+        "/System/Library/Frameworks/CoreFoundation.framework/CoreFoundation";
 
     public const int kCGEventSourceStateCombinedSessionState = 0;
     public const uint kCGMouseButtonLeft = 0;
@@ -42,11 +43,11 @@ internal static partial class CoreGraphics
 
     [LibraryImport(CGLib)]
     public static partial int CGAssociateMouseAndMouseCursorPosition(
-        [MarshalAs(UnmanagedType.I1)] bool connected);
+        [MarshalAs(UnmanagedType.I1)] bool connected
+    );
 
     [LibraryImport(CGLib)]
-    public static partial void CGGetLastMouseDelta(
-        out int deltaX, out int deltaY);
+    public static partial void CGGetLastMouseDelta(out int deltaX, out int deltaY);
 
     [LibraryImport(CGLib)]
     public static partial uint CGMainDisplayID();

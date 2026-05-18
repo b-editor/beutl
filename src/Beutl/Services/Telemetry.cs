@@ -35,10 +35,14 @@ internal class Telemetry : IDisposable
     {
         static string GetSystemType()
         {
-            if (OperatingSystem.IsWindows()) return "windows";
-            else if (OperatingSystem.IsLinux()) return "linux";
-            else if (OperatingSystem.IsMacOS()) return "macos";
-            else return Environment.OSVersion.Platform.ToString();
+            if (OperatingSystem.IsWindows())
+                return "windows";
+            else if (OperatingSystem.IsLinux())
+                return "linux";
+            else if (OperatingSystem.IsMacOS())
+                return "macos";
+            else
+                return Environment.OSVersion.Platform.ToString();
         }
 
         var asm = Assembly.GetEntryAssembly()!;
@@ -50,10 +54,13 @@ internal class Telemetry : IDisposable
             new("service.version", s_version),
             new("os.type", GetSystemType()),
             new("os.description", Environment.OSVersion.VersionString),
-            new("os.name", OperatingSystem.IsLinux() ? LinuxDistro.Id
-                : OperatingSystem.IsWindows() ? "Windows"
-                : OperatingSystem.IsMacOS() ? "Mac OS X"
-                : "Unknown"),
+            new(
+                "os.name",
+                OperatingSystem.IsLinux() ? LinuxDistro.Id
+                    : OperatingSystem.IsWindows() ? "Windows"
+                    : OperatingSystem.IsMacOS() ? "Mac OS X"
+                    : "Unknown"
+            ),
         ];
     }
 
@@ -62,7 +69,8 @@ internal class Telemetry : IDisposable
         _sessionId = sessionId ?? Guid.NewGuid().ToString();
         _resourceBuilder = new(() =>
         {
-            return ResourceBuilder.CreateDefault()
+            return ResourceBuilder
+                .CreateDefault()
                 .AddService("Beutl", serviceVersion: s_version, serviceInstanceId: _sessionId)
                 .AddAttributes(s_attributes);
         });
@@ -114,8 +122,10 @@ internal class Telemetry : IDisposable
         return Instance;
     }
 
-    public static Activity? StartActivity([CallerMemberName] string name = "",
-        ActivityKind kind = ActivityKind.Internal)
+    public static Activity? StartActivity(
+        [CallerMemberName] string name = "",
+        ActivityKind kind = ActivityKind.Internal
+    )
     {
         return Applilcation.StartActivity(name, kind);
     }
@@ -140,11 +150,18 @@ internal class Telemetry : IDisposable
             .MinimumLevel.Verbose();
 
 #if DEBUG && !Beutl_PackageTools
-        config = config
-            .WriteTo.Debug(outputTemplate: OutputTemplate, restrictedToMinimumLevel: LogEventLevel.Verbose);
+        config = config.WriteTo.Debug(
+            outputTemplate: OutputTemplate,
+            restrictedToMinimumLevel: LogEventLevel.Verbose
+        );
 #endif
-        config = config
-            .WriteTo.Async(b => b.File(logFile, outputTemplate: OutputTemplate, restrictedToMinimumLevel: LogEventLevel.Information));
+        config = config.WriteTo.Async(b =>
+            b.File(
+                logFile,
+                outputTemplate: OutputTemplate,
+                restrictedToMinimumLevel: LogEventLevel.Information
+            )
+        );
 
         Log.Logger = config.CreateLogger();
 
@@ -161,11 +178,13 @@ internal class Telemetry : IDisposable
                     o.SetResourceBuilder(_resourceBuilder.Value);
                     o.AddProcessor(new AddVersionLogProcessor());
                     o.AddProcessor(new RemoveSensitiveDataLogProcessor());
-                    o.AddOtlpExporter((exporterOptions, _) =>
-                    {
-                        exporterOptions.Endpoint = new Uri($"{BaseUrl}/v1/logs");
-                        exporterOptions.Protocol = OtlpExportProtocol.HttpProtobuf;
-                    });
+                    o.AddOtlpExporter(
+                        (exporterOptions, _) =>
+                        {
+                            exporterOptions.Endpoint = new Uri($"{BaseUrl}/v1/logs");
+                            exporterOptions.Protocol = OtlpExportProtocol.HttpProtobuf;
+                        }
+                    );
                 });
             }
         });
@@ -175,8 +194,9 @@ internal class Telemetry : IDisposable
     {
         Dispatcher.UIThread.Invoke(async () =>
         {
-            Microsoft.Extensions.Logging.ILogger log
-                = Logging.Log.LoggerFactory.CreateLogger(typeof(Telemetry));
+            Microsoft.Extensions.Logging.ILogger log = Logging.Log.LoggerFactory.CreateLogger(
+                typeof(Telemetry)
+            );
             var mutex = new Mutex(false, "Beutl.Logging.Compression", out bool createdNew);
             try
             {
@@ -184,11 +204,16 @@ internal class Telemetry : IDisposable
                 {
                     await Task.Run(() =>
                     {
-                        string logDir = Path.Combine(BeutlEnvironment.GetHomeDirectoryPath(), "log");
+                        string logDir = Path.Combine(
+                            BeutlEnvironment.GetHomeDirectoryPath(),
+                            "log"
+                        );
                         if (Directory.Exists(logDir))
                         {
                             var files = Directory.GetFiles(logDir).ToList();
-                            files.Sort((x, y) => string.Compare(x, y, StringComparison.OrdinalIgnoreCase));
+                            files.Sort(
+                                (x, y) => string.Compare(x, y, StringComparison.OrdinalIgnoreCase)
+                            );
 
                             if (files.Count > 10)
                             {
@@ -199,9 +224,7 @@ internal class Telemetry : IDisposable
                                     {
                                         File.Delete(item);
                                     }
-                                    catch
-                                    {
-                                    }
+                                    catch { }
                                 }
 
                                 files.RemoveRange(0, deleteCount);
@@ -236,8 +259,12 @@ internal class Telemetry : IDisposable
     {
         try
         {
-            using (var srcStream = new FileStream(file, FileMode.Open, FileAccess.Read, FileShare.None))
-            using (var dstStream = new FileStream(Path.ChangeExtension(file, "gz"), FileMode.Create))
+            using (
+                var srcStream = new FileStream(file, FileMode.Open, FileAccess.Read, FileShare.None)
+            )
+            using (
+                var dstStream = new FileStream(Path.ChangeExtension(file, "gz"), FileMode.Create)
+            )
             using (var dstGZipStream = new GZipStream(dstStream, CompressionLevel.SmallestSize))
             {
                 srcStream.CopyTo(dstGZipStream);
@@ -245,9 +272,7 @@ internal class Telemetry : IDisposable
 
             File.Delete(file);
         }
-        catch
-        {
-        }
+        catch { }
     }
 
     internal class AddVersionActivityProcessor : BaseProcessor<Activity>
@@ -320,12 +345,14 @@ internal class Telemetry : IDisposable
             // パスセグメント (\, /, ., 空白等) や行頭・行末でのみマッチさせる。
             return new Regex(
                 $@"(?<![A-Za-z0-9_]){Regex.Escape(value)}(?![A-Za-z0-9_])",
-                RegexOptions.IgnoreCase | RegexOptions.CultureInvariant | RegexOptions.Compiled);
+                RegexOptions.IgnoreCase | RegexOptions.CultureInvariant | RegexOptions.Compiled
+            );
         }
 
         public static string? Sanitize(string? input)
         {
-            if (string.IsNullOrEmpty(input)) return input;
+            if (string.IsNullOrEmpty(input))
+                return input;
 
             string current = input;
             foreach (Pattern pattern in s_patterns)
@@ -338,7 +365,11 @@ internal class Telemetry : IDisposable
                 {
                     if (current.IndexOf(pattern.Value, StringComparison.OrdinalIgnoreCase) < 0)
                         continue;
-                    current = current.Replace(pattern.Value, pattern.Token, StringComparison.OrdinalIgnoreCase);
+                    current = current.Replace(
+                        pattern.Value,
+                        pattern.Token,
+                        StringComparison.OrdinalIgnoreCase
+                    );
                 }
             }
             return current;
@@ -406,8 +437,7 @@ internal class Telemetry : IDisposable
                 bool changed = false;
                 foreach (KeyValuePair<string, object?> kv in attrs)
                 {
-                    if (kv.Value is string s &&
-                        !ReferenceEquals(SensitiveData.Sanitize(s), s))
+                    if (kv.Value is string s && !ReferenceEquals(SensitiveData.Sanitize(s), s))
                     {
                         changed = true;
                         break;
@@ -418,9 +448,14 @@ internal class Telemetry : IDisposable
                 {
                     data.Attributes =
                     [
-                        ..attrs.Select(kv => kv.Value is string s
-                            ? new KeyValuePair<string, object?>(kv.Key, SensitiveData.Sanitize(s))
-                            : kv)
+                        .. attrs.Select(kv =>
+                            kv.Value is string s
+                                ? new KeyValuePair<string, object?>(
+                                    kv.Key,
+                                    SensitiveData.Sanitize(s)
+                                )
+                                : kv
+                        ),
                     ];
                 }
             }
@@ -429,16 +464,20 @@ internal class Telemetry : IDisposable
             {
                 var extra = new[]
                 {
-                    new KeyValuePair<string, object?>("exception.type",
-                        ex.GetType().FullName ?? ex.GetType().Name),
-                    new KeyValuePair<string, object?>("exception.message",
-                        SensitiveData.Sanitize(ex.Message) ?? string.Empty),
-                    new KeyValuePair<string, object?>("exception.stacktrace",
-                        SensitiveData.Sanitize(ex.ToString()) ?? string.Empty),
+                    new KeyValuePair<string, object?>(
+                        "exception.type",
+                        ex.GetType().FullName ?? ex.GetType().Name
+                    ),
+                    new KeyValuePair<string, object?>(
+                        "exception.message",
+                        SensitiveData.Sanitize(ex.Message) ?? string.Empty
+                    ),
+                    new KeyValuePair<string, object?>(
+                        "exception.stacktrace",
+                        SensitiveData.Sanitize(ex.ToString()) ?? string.Empty
+                    ),
                 };
-                data.Attributes = data.Attributes is null
-                    ? extra
-                    : [.. data.Attributes, .. extra];
+                data.Attributes = data.Attributes is null ? extra : [.. data.Attributes, .. extra];
                 data.Exception = null;
             }
         }

@@ -53,13 +53,17 @@ public sealed partial class MainView : UserControl
 
             Titlebar.PointerPressed += (s, e) =>
             {
-                if (TopLevel.GetTopLevel(this) is Window window && window.WindowState != WindowState.FullScreen)
+                if (
+                    TopLevel.GetTopLevel(this) is Window window
+                    && window.WindowState != WindowState.FullScreen
+                )
                 {
                     if (e.ClickCount == 2)
                     {
-                        window.WindowState = window.WindowState == WindowState.Maximized
-                            ? WindowState.Normal
-                            : WindowState.Maximized;
+                        window.WindowState =
+                            window.WindowState == WindowState.Maximized
+                                ? WindowState.Normal
+                                : WindowState.Maximized;
                     }
                     else
                     {
@@ -125,8 +129,12 @@ public sealed partial class MainView : UserControl
 
     private static async Task CheckDifferentVersion()
     {
-        if (NuGetVersion.TryParse(GlobalConfiguration.Instance.LastStartedVersion, out var lastStartedVersion) &&
-            NuGetVersion.TryParse(BeutlApplication.Version, out var currentVersion))
+        if (
+            NuGetVersion.TryParse(
+                GlobalConfiguration.Instance.LastStartedVersion,
+                out var lastStartedVersion
+            ) && NuGetVersion.TryParse(BeutlApplication.Version, out var currentVersion)
+        )
         {
             if (lastStartedVersion.IsPrerelease || currentVersion.IsPrerelease)
             {
@@ -136,7 +144,7 @@ public sealed partial class MainView : UserControl
                     {
                         Title = MessageStrings.CheckDifferentVersion_Title,
                         Content = MessageStrings.CheckDifferentVersion_Content,
-                        PrimaryButtonText = Strings.Close
+                        PrimaryButtonText = Strings.Close,
                     };
                     await dialog.ShowAsync();
                 }
@@ -147,10 +155,14 @@ public sealed partial class MainView : UserControl
     private static async Task ShowTelemetryDialog()
     {
         TelemetryConfig tconfig = GlobalConfiguration.Instance.TelemetryConfig;
-        if (!(tconfig.Beutl_Api_Client.HasValue
-              && tconfig.Beutl_Application.HasValue
-              && tconfig.Beutl_PackageManagement.HasValue
-              && tconfig.Beutl_Logging.HasValue))
+        if (
+            !(
+                tconfig.Beutl_Api_Client.HasValue
+                && tconfig.Beutl_Application.HasValue
+                && tconfig.Beutl_PackageManagement.HasValue
+                && tconfig.Beutl_Logging.HasValue
+            )
+        )
         {
             var dialog = new TelemetryDialog();
 
@@ -172,9 +184,12 @@ public sealed partial class MainView : UserControl
 
             menuItem.Click += (s, e) =>
             {
-                if (EditorService.Current.SelectedTabItem.Value?.Context.Value is IEditorContext editorContext
+                if (
+                    EditorService.Current.SelectedTabItem.Value?.Context.Value
+                        is IEditorContext editorContext
                     && s is MenuItem { DataContext: ToolTabExtension ext }
-                    && ext.TryCreateContext(editorContext, out IToolContext? toolContext))
+                    && ext.TryCreateContext(editorContext, out IToolContext? toolContext)
+                )
                 {
                     bool result = editorContext.OpenToolTab(toolContext);
                     if (!result)
@@ -187,7 +202,8 @@ public sealed partial class MainView : UserControl
             return menuItem;
         }
 
-        viewModel.ToolTabExtensions.ToObservableChangeSet()
+        viewModel
+            .ToolTabExtensions.ToObservableChangeSet()
             .ObserveOnUIDispatcher()
             .Filter(i => i.Header != null)
             .Cast(CreateToolTabMenuItem)
@@ -205,14 +221,16 @@ public sealed partial class MainView : UserControl
                 Header = item.DisplayName,
                 DataContext = item,
                 IsVisible = false,
-                Icon = item.GetIcon()
+                Icon = item.GetIcon(),
             };
 
             menuItem.Click += async (s, e) =>
             {
                 EditorTabItem? selectedTab = EditorService.Current.SelectedTabItem.Value;
-                if (s is MenuItem { DataContext: EditorExtension editorExtension } menuItem
-                    && selectedTab != null)
+                if (
+                    s is MenuItem { DataContext: EditorExtension editorExtension } menuItem
+                    && selectedTab != null
+                )
                 {
                     IKnownEditorCommands? commands = selectedTab.Commands.Value;
                     if (commands != null)
@@ -220,7 +238,12 @@ public sealed partial class MainView : UserControl
                         await commands.OnSave();
                     }
 
-                    if (editorExtension.TryCreateContext(selectedTab.Context.Value.Object, out IEditorContext? context))
+                    if (
+                        editorExtension.TryCreateContext(
+                            selectedTab.Context.Value.Object,
+                            out IEditorContext? context
+                        )
+                    )
                     {
                         selectedTab.Context.Value.Dispose();
                         selectedTab.Context.Value = context;
@@ -232,7 +255,9 @@ public sealed partial class MainView : UserControl
                             message: string.Format(
                                 format: MessageStrings.FailedToOpenFileWithExtension,
                                 arg0: editorExtension.DisplayName,
-                                arg1: selectedTab.FileName.Value));
+                                arg1: selectedTab.FileName.Value
+                            )
+                        );
                     }
                 }
             };
@@ -240,7 +265,8 @@ public sealed partial class MainView : UserControl
             return menuItem;
         }
 
-        viewModel.EditorExtensions.ToObservableChangeSet()
+        viewModel
+            .EditorExtensions.ToObservableChangeSet()
             .ObserveOnUIDispatcher()
             .Cast(CreateEditorMenuItem)
             .Bind(out ReadOnlyObservableCollection<MenuItem>? list2)
@@ -286,7 +312,7 @@ public sealed partial class MainView : UserControl
             {
                 Header = item.DisplayName,
                 DataContext = item,
-                Icon = item.GetIcon()
+                Icon = item.GetIcon(),
             };
 
             menuItem.Click += async (s, e) =>
@@ -308,7 +334,7 @@ public sealed partial class MainView : UserControl
             {
                 Header = item.DisplayName,
                 DataContext = item,
-                Icon = item.GetRegularIcon()
+                Icon = item.GetRegularIcon(),
             };
 
             menuItem.Click += async (s, e) =>
@@ -330,7 +356,11 @@ public sealed partial class MainView : UserControl
                     }
                     else
                     {
-                        var window = new Window { Content = controlOrDialog, Title = dataContext.Header };
+                        var window = new Window
+                        {
+                            Content = controlOrDialog,
+                            Title = dataContext.Header,
+                        };
                         await window.ShowDialog(topLevel);
                     }
                 }
@@ -343,15 +373,18 @@ public sealed partial class MainView : UserControl
             return menuItem;
         }
 
-        var toolWindowSource = viewModel.ToolWindowExtensions.ToObservableChangeSet()
+        var toolWindowSource = viewModel
+            .ToolWindowExtensions.ToObservableChangeSet()
             .ObserveOnUIDispatcher()
             .Transform<ToolWindowExtension, MenuItem>(CreateToolWindowMenuItem);
-        var pageSource = viewModel.PageExtensions.ToObservableChangeSet()
+        var pageSource = viewModel
+            .PageExtensions.ToObservableChangeSet()
             .ObserveOnUIDispatcher()
             .Transform<PageExtension, MenuItem>(CreatePageMenuItem);
 #pragma warning restore CS0618
 
-        toolWindowSource.Or(pageSource)
+        toolWindowSource
+            .Or(pageSource)
             .Bind(out ReadOnlyObservableCollection<MenuItem>? list3)
             .Subscribe()
             .DisposeWith(_disposables);
@@ -367,10 +400,12 @@ public sealed partial class MainView : UserControl
                 return;
 
             // 非モーダル・単一インスタンスの場合、既存があればアクティブ化するだけ
-            if (extension.Mode == ToolWindowMode.Window
+            if (
+                extension.Mode == ToolWindowMode.Window
                 && !extension.CanMultiple
                 && _openToolWindows.TryGetValue(extension, out List<Window>? existingList)
-                && existingList.Count > 0)
+                && existingList.Count > 0
+            )
             {
                 existingList[0].Activate();
                 return;
@@ -450,11 +485,13 @@ public sealed partial class MainView : UserControl
 
         NotificationService.ShowInformation(
             Strings.Result,
-            $"{Strings.ElapsedTime}: {elapsed.TotalMilliseconds}ms\n{Strings.Difference}: {str}");
+            $"{Strings.ElapsedTime}: {elapsed.TotalMilliseconds}ms\n{Strings.Difference}: {str}"
+        );
     }
 
     [Conditional("DEBUG")]
-    private void MonitorKeyModifier_Click(object? sender, RoutedEventArgs e) => OpenKeyModifierMonitor();
+    private void MonitorKeyModifier_Click(object? sender, RoutedEventArgs e) =>
+        OpenKeyModifierMonitor();
 
     internal void OpenKeyModifierMonitor()
     {
@@ -465,7 +502,8 @@ public sealed partial class MainView : UserControl
     }
 
     [Conditional("DEBUG")]
-    private void ThrowUnhandledException_Click(object? sender, RoutedEventArgs e) => ThrowDebugException();
+    private void ThrowUnhandledException_Click(object? sender, RoutedEventArgs e) =>
+        ThrowDebugException();
 
     internal void ThrowDebugException()
     {
@@ -473,7 +511,8 @@ public sealed partial class MainView : UserControl
     }
 
     [Conditional("DEBUG")]
-    private async void StartWindowCapture_Click(object? sender, RoutedEventArgs e) => await StartWindowCaptureAsync();
+    private async void StartWindowCapture_Click(object? sender, RoutedEventArgs e) =>
+        await StartWindowCaptureAsync();
 
     internal async Task StartWindowCaptureAsync()
     {
@@ -481,7 +520,8 @@ public sealed partial class MainView : UserControl
         {
             NotificationService.ShowWarning(
                 "Window Capture",
-                "A capture session is already running. Stop it before starting a new one.");
+                "A capture session is already running. Stop it before starting a new one."
+            );
             return;
         }
 
@@ -495,7 +535,8 @@ public sealed partial class MainView : UserControl
         {
             NotificationService.ShowError(
                 "Window Capture",
-                "ffmpeg executable was not found. Install ffmpeg and ensure it is on PATH.");
+                "ffmpeg executable was not found. Install ffmpeg and ensure it is on PATH."
+            );
             return;
         }
 
@@ -513,28 +554,40 @@ public sealed partial class MainView : UserControl
                 dialogVm.Scale.Value,
                 dialogVm.FrameRate.Value,
                 dialogVm.OutputPath.Value!,
-                ffmpegPath);
+                ffmpegPath
+            );
             session.Start();
             _captureSession = session;
 
             NotificationService.ShowInformation(
                 "Window Capture",
-                $"Recording started: {session.Width}x{session.Height} @ {session.FrameRate}fps");
+                $"Recording started: {session.Width}x{session.Height} @ {session.FrameRate}fps"
+            );
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to start window capture.");
             if (session is not null)
             {
-                try { await session.DisposeAsync(); }
-                catch (Exception disposeEx) { _logger.LogWarning(disposeEx, "Failed to dispose capture session after start failure."); }
+                try
+                {
+                    await session.DisposeAsync();
+                }
+                catch (Exception disposeEx)
+                {
+                    _logger.LogWarning(
+                        disposeEx,
+                        "Failed to dispose capture session after start failure."
+                    );
+                }
             }
             NotificationService.ShowError("Window Capture", ex.Message);
         }
     }
 
     [Conditional("DEBUG")]
-    private async void StopWindowCapture_Click(object? sender, RoutedEventArgs e) => await StopWindowCaptureAsync();
+    private async void StopWindowCapture_Click(object? sender, RoutedEventArgs e) =>
+        await StopWindowCaptureAsync();
 
     internal async Task StopWindowCaptureAsync()
     {
@@ -542,7 +595,8 @@ public sealed partial class MainView : UserControl
         // otherwise re-enter with the same session, call StopAsync() (which returns
         // immediately because _stopped=true), and emit a duplicate "Saved" toast
         // while the first stop is still finalizing.
-        if (_captureStopInProgress) return;
+        if (_captureStopInProgress)
+            return;
         WindowCaptureSession? session = _captureSession;
         if (session is null)
         {
@@ -557,7 +611,8 @@ public sealed partial class MainView : UserControl
             _captureSession = null;
             NotificationService.ShowSuccess(
                 "Window Capture",
-                $"Saved: {session.OutputPath}\nCaptured {session.CapturedFrameCount} frames (dropped {session.DroppedFrameCount}).");
+                $"Saved: {session.OutputPath}\nCaptured {session.CapturedFrameCount} frames (dropped {session.DroppedFrameCount})."
+            );
         }
         catch (Exception ex)
         {
@@ -585,13 +640,24 @@ public sealed partial class MainView : UserControl
         }
 
         WindowCaptureSession? session = _captureSession;
-        if (session is null) return;
-        try { await session.StopAsync(); }
-        catch (Exception ex) { _logger.LogWarning(ex, "Failed to stop capture during shutdown."); }
-        finally { _captureSession = null; }
+        if (session is null)
+            return;
+        try
+        {
+            await session.StopAsync();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to stop capture during shutdown.");
+        }
+        finally
+        {
+            _captureSession = null;
+        }
     }
 
-    private async void GoToInformationPage(object? sender, RoutedEventArgs e) => await GoToInformationPageAsync();
+    private async void GoToInformationPage(object? sender, RoutedEventArgs e) =>
+        await GoToInformationPageAsync();
 
     internal async Task GoToInformationPageAsync()
     {
@@ -605,15 +671,14 @@ public sealed partial class MainView : UserControl
     }
 
     private void OpenFeedbackClick(object? sender, RoutedEventArgs e)
-    {//FluentIcons.Common.Symbol.Chat
+    { //FluentIcons.Common.Symbol.Chat
         string url = $"https://beutl.beditor.net/feedback?traceId={Telemetry.Instance._sessionId}";
         Process.Start(new ProcessStartInfo(url) { UseShellExecute = true });
     }
 
     private void OpenNotificationsClick(object? sender, RoutedEventArgs e)
     {
-        if (HiddenNotificationPanel.Children.Count > 0
-            && sender is Button btn)
+        if (HiddenNotificationPanel.Children.Count > 0 && sender is Button btn)
         {
             btn.Flyout?.ShowAt(btn);
         }
@@ -633,7 +698,8 @@ public sealed partial class MainView : UserControl
         await dialog.ShowDialog(window);
     }
 
-    private async void OpenTutorialsDialog(object? sender, RoutedEventArgs e) => await ShowTutorialsDialogAsync();
+    private async void OpenTutorialsDialog(object? sender, RoutedEventArgs e) =>
+        await ShowTutorialsDialogAsync();
 
     internal async Task ShowTutorialsDialogAsync()
     {

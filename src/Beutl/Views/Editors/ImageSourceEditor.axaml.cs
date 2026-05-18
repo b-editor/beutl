@@ -16,8 +16,10 @@ public partial class ImageSourceEditor : UserControl
 
     private void FileEditorOnValueConfirmed(object? sender, PropertyEditorValueChangedEventArgs e)
     {
-        if (DataContext is not ImageSourceEditorViewModel { IsDisposed: false } vm) return;
-        if (e.NewValue is not FileInfo fi) return;
+        if (DataContext is not ImageSourceEditorViewModel { IsDisposed: false } vm)
+            return;
+        if (e.NewValue is not FileInfo fi)
+            return;
 
         vm.SetValue(ImageSource.Open(fi.FullName));
     }

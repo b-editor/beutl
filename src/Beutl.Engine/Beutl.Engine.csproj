@@ -17,7 +17,11 @@
     <ProjectReference Include="..\Beutl.Threading\Beutl.Threading.csproj" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\Beutl.Engine.SourceGenerators\Beutl.Engine.SourceGenerators.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
+    <ProjectReference
+      Include="..\Beutl.Engine.SourceGenerators\Beutl.Engine.SourceGenerators.csproj"
+      OutputItemType="Analyzer"
+      ReferenceOutputAssembly="false"
+    />
   </ItemGroup>
   <ItemGroup>
     <Service Include="{508349b6-6b84-4df5-91f0-309beebad82d}" />
@@ -60,15 +64,38 @@
     指定されるので、それを優先して使う。未指定時のみホスト OS/アーキを検出してフォールバックする。
   -->
   <PropertyGroup>
-    <_ShadercNativeRid Condition="'$(RuntimeIdentifier)' != ''">$(RuntimeIdentifier)</_ShadercNativeRid>
+    <_ShadercNativeRid Condition="'$(RuntimeIdentifier)' != ''"
+      >$(RuntimeIdentifier)</_ShadercNativeRid
+    >
 
-    <_ShadercNativeRid Condition="'$(_ShadercNativeRid)' == '' And '$([System.Runtime.InteropServices.RuntimeInformation]::IsOSPlatform($([System.Runtime.InteropServices.OSPlatform]::Linux)))' == 'true' And '$([System.Runtime.InteropServices.RuntimeInformation]::ProcessArchitecture)' == 'X64'">linux-x64</_ShadercNativeRid>
-    <_ShadercNativeRid Condition="'$(_ShadercNativeRid)' == '' And '$([System.Runtime.InteropServices.RuntimeInformation]::IsOSPlatform($([System.Runtime.InteropServices.OSPlatform]::Linux)))' == 'true' And '$([System.Runtime.InteropServices.RuntimeInformation]::ProcessArchitecture)' == 'Arm64'">linux-arm64</_ShadercNativeRid>
-    <_ShadercNativeRid Condition="'$(_ShadercNativeRid)' == '' And '$([System.Runtime.InteropServices.RuntimeInformation]::IsOSPlatform($([System.Runtime.InteropServices.OSPlatform]::OSX)))' == 'true' And '$([System.Runtime.InteropServices.RuntimeInformation]::ProcessArchitecture)' == 'X64'">osx-x64</_ShadercNativeRid>
-    <_ShadercNativeRid Condition="'$(_ShadercNativeRid)' == '' And '$([System.Runtime.InteropServices.RuntimeInformation]::IsOSPlatform($([System.Runtime.InteropServices.OSPlatform]::OSX)))' == 'true' And '$([System.Runtime.InteropServices.RuntimeInformation]::ProcessArchitecture)' == 'Arm64'">osx-arm64</_ShadercNativeRid>
-    <_ShadercNativeRid Condition="'$(_ShadercNativeRid)' == '' And '$([System.Runtime.InteropServices.RuntimeInformation]::IsOSPlatform($([System.Runtime.InteropServices.OSPlatform]::Windows)))' == 'true' And '$([System.Runtime.InteropServices.RuntimeInformation]::ProcessArchitecture)' == 'X64'">win-x64</_ShadercNativeRid>
-    <_ShadercNativeRid Condition="'$(_ShadercNativeRid)' == '' And '$([System.Runtime.InteropServices.RuntimeInformation]::IsOSPlatform($([System.Runtime.InteropServices.OSPlatform]::Windows)))' == 'true' And '$([System.Runtime.InteropServices.RuntimeInformation]::ProcessArchitecture)' == 'Arm64'">win-arm64</_ShadercNativeRid>
-    <_ShadercNativeRid Condition="'$(_ShadercNativeRid)' == '' And '$([System.Runtime.InteropServices.RuntimeInformation]::IsOSPlatform($([System.Runtime.InteropServices.OSPlatform]::Windows)))' == 'true' And '$([System.Runtime.InteropServices.RuntimeInformation]::ProcessArchitecture)' == 'X86'">win-x86</_ShadercNativeRid>
+    <_ShadercNativeRid
+      Condition="'$(_ShadercNativeRid)' == '' And '$([System.Runtime.InteropServices.RuntimeInformation]::IsOSPlatform($([System.Runtime.InteropServices.OSPlatform]::Linux)))' == 'true' And '$([System.Runtime.InteropServices.RuntimeInformation]::ProcessArchitecture)' == 'X64'"
+      >linux-x64</_ShadercNativeRid
+    >
+    <_ShadercNativeRid
+      Condition="'$(_ShadercNativeRid)' == '' And '$([System.Runtime.InteropServices.RuntimeInformation]::IsOSPlatform($([System.Runtime.InteropServices.OSPlatform]::Linux)))' == 'true' And '$([System.Runtime.InteropServices.RuntimeInformation]::ProcessArchitecture)' == 'Arm64'"
+      >linux-arm64</_ShadercNativeRid
+    >
+    <_ShadercNativeRid
+      Condition="'$(_ShadercNativeRid)' == '' And '$([System.Runtime.InteropServices.RuntimeInformation]::IsOSPlatform($([System.Runtime.InteropServices.OSPlatform]::OSX)))' == 'true' And '$([System.Runtime.InteropServices.RuntimeInformation]::ProcessArchitecture)' == 'X64'"
+      >osx-x64</_ShadercNativeRid
+    >
+    <_ShadercNativeRid
+      Condition="'$(_ShadercNativeRid)' == '' And '$([System.Runtime.InteropServices.RuntimeInformation]::IsOSPlatform($([System.Runtime.InteropServices.OSPlatform]::OSX)))' == 'true' And '$([System.Runtime.InteropServices.RuntimeInformation]::ProcessArchitecture)' == 'Arm64'"
+      >osx-arm64</_ShadercNativeRid
+    >
+    <_ShadercNativeRid
+      Condition="'$(_ShadercNativeRid)' == '' And '$([System.Runtime.InteropServices.RuntimeInformation]::IsOSPlatform($([System.Runtime.InteropServices.OSPlatform]::Windows)))' == 'true' And '$([System.Runtime.InteropServices.RuntimeInformation]::ProcessArchitecture)' == 'X64'"
+      >win-x64</_ShadercNativeRid
+    >
+    <_ShadercNativeRid
+      Condition="'$(_ShadercNativeRid)' == '' And '$([System.Runtime.InteropServices.RuntimeInformation]::IsOSPlatform($([System.Runtime.InteropServices.OSPlatform]::Windows)))' == 'true' And '$([System.Runtime.InteropServices.RuntimeInformation]::ProcessArchitecture)' == 'Arm64'"
+      >win-arm64</_ShadercNativeRid
+    >
+    <_ShadercNativeRid
+      Condition="'$(_ShadercNativeRid)' == '' And '$([System.Runtime.InteropServices.RuntimeInformation]::IsOSPlatform($([System.Runtime.InteropServices.OSPlatform]::Windows)))' == 'true' And '$([System.Runtime.InteropServices.RuntimeInformation]::ProcessArchitecture)' == 'X86'"
+      >win-x86</_ShadercNativeRid
+    >
   </PropertyGroup>
 
   <!--

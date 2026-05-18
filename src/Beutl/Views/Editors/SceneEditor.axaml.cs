@@ -16,8 +16,10 @@ public partial class SceneEditor : UserControl
 
     private async void SelectTarget_Requested(object? sender, RoutedEventArgs e)
     {
-        if (DataContext is not SceneEditorViewModel { IsDisposed: false } vm) return;
-        if (_flyoutOpen) return;
+        if (DataContext is not SceneEditorViewModel { IsDisposed: false } vm)
+            return;
+        if (_flyoutOpen)
+            return;
 
         try
         {
@@ -31,8 +33,10 @@ public partial class SceneEditor : UserControl
 
             var tcs = new TaskCompletionSource<Scene?>();
             flyout.Dismissed += (_, _) => tcs.TrySetResult(null);
-            flyout.Confirmed += (_, _) => tcs.TrySetResult(
-                (pickerVm.SelectedItem.Value?.UserData as TargetObjectInfo)?.Object as Scene);
+            flyout.Confirmed += (_, _) =>
+                tcs.TrySetResult(
+                    (pickerVm.SelectedItem.Value?.UserData as TargetObjectInfo)?.Object as Scene
+                );
 
             var result = await tcs.Task;
             if (result != null)
@@ -48,7 +52,8 @@ public partial class SceneEditor : UserControl
 
     private void SetNullClick(object? sender, RoutedEventArgs e)
     {
-        if (DataContext is not SceneEditorViewModel { IsDisposed: false } vm) return;
+        if (DataContext is not SceneEditorViewModel { IsDisposed: false } vm)
+            return;
         vm.SetNull();
     }
 }

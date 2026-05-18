@@ -171,7 +171,10 @@ public class RelativePointTests
         Assert.That(buffer[..absWritten].ToString(), Is.EqualTo(absolute.ToString()));
 
         var relative = new RelativePoint(0.25f, 0.5f, RelativeUnit.Relative);
-        Assert.That(relative.TryFormat(buffer, out int relWritten, default, CultureInfo.InvariantCulture), Is.True);
+        Assert.That(
+            relative.TryFormat(buffer, out int relWritten, default, CultureInfo.InvariantCulture),
+            Is.True
+        );
         Assert.That(buffer[..relWritten].ToString(), Is.EqualTo("25%, 50%"));
     }
 
@@ -182,8 +185,14 @@ public class RelativePointTests
         Span<char> chars = stackalloc char[32];
         Span<byte> bytes = stackalloc byte[32];
 
-        Assert.That(relative.TryFormat(chars, out int cw, default, CultureInfo.InvariantCulture), Is.True);
-        Assert.That(relative.TryFormat(bytes, out int bw, default, CultureInfo.InvariantCulture), Is.True);
+        Assert.That(
+            relative.TryFormat(chars, out int cw, default, CultureInfo.InvariantCulture),
+            Is.True
+        );
+        Assert.That(
+            relative.TryFormat(bytes, out int bw, default, CultureInfo.InvariantCulture),
+            Is.True
+        );
 
         Assert.That(Encoding.UTF8.GetString(bytes[..bw]), Is.EqualTo(chars[..cw].ToString()));
     }
@@ -191,7 +200,10 @@ public class RelativePointTests
     [Test]
     public void TryParse_StringWithProvider_DelegatesToSpan()
     {
-        Assert.That(RelativePoint.TryParse("10,20", CultureInfo.InvariantCulture, out RelativePoint result), Is.True);
+        Assert.That(
+            RelativePoint.TryParse("10,20", CultureInfo.InvariantCulture, out RelativePoint result),
+            Is.True
+        );
         Assert.That(result, Is.EqualTo(new RelativePoint(10, 20, RelativeUnit.Absolute)));
     }
 }

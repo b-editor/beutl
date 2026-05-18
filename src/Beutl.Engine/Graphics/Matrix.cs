@@ -2,7 +2,6 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Numerics;
 using System.Text.Json.Serialization;
-
 using Beutl.Converters;
 using Beutl.Graphics.Transformation;
 using Beutl.Utilities;
@@ -17,7 +16,7 @@ namespace Beutl.Graphics;
 /// 1st row | scaleX  | skewY   | persX  |
 /// 2nd row | skewX   | scaleY  | persY  |
 /// 3rd row | transX  | transY  | persZ  |
-/// 
+///
 /// Note: Skia.SkMatrix uses a transposed layout (where for example skewX/skewY and perspp0/tranX are swapped).
 /// </remakrs>
 /// <remarks>
@@ -35,15 +34,22 @@ namespace Beutl.Graphics;
 [JsonConverter(typeof(MatrixJsonConverter))]
 [TypeConverter(typeof(MatrixConverter))]
 public readonly struct Matrix(
-    float scaleX, float skewY, float persX,
-    float skewX, float scaleY, float persY,
-    float offsetX, float offsetY, float persZ)
+    float scaleX,
+    float skewY,
+    float persX,
+    float skewX,
+    float scaleY,
+    float persY,
+    float offsetX,
+    float offsetY,
+    float persZ
+)
     : IEquatable<Matrix>,
-      IParsable<Matrix>,
-      ISpanParsable<Matrix>,
-      IMultiplyOperators<Matrix, Matrix, Matrix>,
-      IUnaryNegationOperators<Matrix, Matrix>,
-      ITupleConvertible<Matrix, float>
+        IParsable<Matrix>,
+        ISpanParsable<Matrix>,
+        IMultiplyOperators<Matrix, Matrix, Matrix>,
+        IUnaryNegationOperators<Matrix, Matrix>,
+        ITupleConvertible<Matrix, float>
 {
     /// <summary>
     /// Initializes a new instance of the <see cref="Matrix"/> struct (equivalent to a 2x3 Matrix without perspective).
@@ -55,23 +61,20 @@ public readonly struct Matrix(
     /// <param name="offsetX">The first element of the third row.</param>
     /// <param name="offsetY">The second element of the third row.</param>
     public Matrix(
-        float scaleX, float skewY,
-        float skewX, float scaleY,
-        float offsetX, float offsetY)
-        : this(
-              scaleX, skewY, 0,
-              skewX, scaleY, 0,
-              offsetX, offsetY, 1)
-    {
-    }
+        float scaleX,
+        float skewY,
+        float skewX,
+        float scaleY,
+        float offsetX,
+        float offsetY
+    )
+        : this(scaleX, skewY, 0, skewX, scaleY, 0, offsetX, offsetY, 1) { }
 
     /// <summary>
     /// Returns the multiplicative identity matrix.
     /// </summary>
-    public static Matrix Identity { get; } = new Matrix(
-        1.0f, 0.0f, 0.0f,
-        0.0f, 1.0f, 0.0f,
-        0.0f, 0.0f, 1.0f);
+    public static Matrix Identity { get; } =
+        new Matrix(1.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 1.0f);
 
     /// <summary>
     /// Returns whether the matrix is the identity matrix.
@@ -147,7 +150,8 @@ public readonly struct Matrix(
             (value1.M21 * value2.M13) + (value1.M22 * value2.M23) + (value1.M23 * value2.M33),
             (value1.M31 * value2.M11) + (value1.M32 * value2.M21) + (value1.M33 * value2.M31),
             (value1.M31 * value2.M12) + (value1.M32 * value2.M22) + (value1.M33 * value2.M32),
-            (value1.M31 * value2.M13) + (value1.M32 * value2.M23) + (value1.M33 * value2.M33));
+            (value1.M31 * value2.M13) + (value1.M32 * value2.M23) + (value1.M33 * value2.M33)
+        );
     }
 
     /// <summary>
@@ -283,8 +287,8 @@ public readonly struct Matrix(
     {
         // implemented using "Laplace expansion":
         return M11 * (M22 * M33 - M23 * M32)
-             - M12 * (M21 * M33 - M23 * M31)
-             + M13 * (M21 * M32 - M22 * M31);
+            - M12 * (M21 * M33 - M23 * M31)
+            + M13 * (M21 * M32 - M22 * M31);
     }
 
     /// <summary>
@@ -304,10 +308,22 @@ public readonly struct Matrix(
         if (ContainsPerspective())
         {
             var m44 = new Matrix4x4(
-                M11, M12, M13, 0,
-                M21, M22, M23, 0,
-                M31, M32, M33, 0,
-                0, 0, 0, 1
+                M11,
+                M12,
+                M13,
+                0,
+                M21,
+                M22,
+                M23,
+                0,
+                M31,
+                M32,
+                M33,
+                0,
+                0,
+                0,
+                0,
+                1
             );
 
             var vector = new Vector3(p.X, p.Y, 1);
@@ -318,9 +334,7 @@ public readonly struct Matrix(
         }
         else
         {
-            return new Point(
-                (p.X * M11) + (p.Y * M21) + M31,
-                (p.X * M12) + (p.Y * M22) + M32);
+            return new Point((p.X * M11) + (p.Y * M21) + M31, (p.X * M12) + (p.Y * M22) + M32);
         }
 
         return transformedResult;
@@ -333,15 +347,15 @@ public readonly struct Matrix(
     /// <returns>True if this matrix is equal to other; False otherwise.</returns>
     public bool Equals(Matrix other)
     {
-        return M11 == other.M11 &&
-               M12 == other.M12 &&
-               M13 == other.M13 &&
-               M21 == other.M21 &&
-               M22 == other.M22 &&
-               M23 == other.M23 &&
-               M31 == other.M31 &&
-               M32 == other.M32 &&
-               M33 == other.M33;
+        return M11 == other.M11
+            && M12 == other.M12
+            && M13 == other.M13
+            && M21 == other.M21
+            && M22 == other.M22
+            && M23 == other.M23
+            && M31 == other.M31
+            && M32 == other.M32
+            && M33 == other.M33;
     }
 
     /// <summary>
@@ -389,7 +403,9 @@ public readonly struct Matrix(
     {
         if (ContainsPerspective())
         {
-            return FormattableString.Invariant($"matrix({M11}, {M12}, {M13}, {M21}, {M22}, {M23}, {M31}, {M32}, {M33})");
+            return FormattableString.Invariant(
+                $"matrix({M11}, {M12}, {M13}, {M21}, {M22}, {M23}, {M31}, {M32}, {M33})"
+            );
         }
         else
         {
@@ -423,7 +439,8 @@ public readonly struct Matrix(
             (M21 * M13 - M11 * M23) * invdet,
             (M21 * M32 - M31 * M22) * invdet,
             (M31 * M12 - M11 * M32) * invdet,
-            (M11 * M22 - M21 * M12) * invdet);
+            (M11 * M22 - M21 * M12) * invdet
+        );
 
         return true;
     }
@@ -499,7 +516,11 @@ public readonly struct Matrix(
         return Parse(s);
     }
 
-    static bool IParsable<Matrix>.TryParse([NotNullWhen(true)] string? s, IFormatProvider? provider, [MaybeNullWhen(false)] out Matrix result)
+    static bool IParsable<Matrix>.TryParse(
+        [NotNullWhen(true)] string? s,
+        IFormatProvider? provider,
+        [MaybeNullWhen(false)] out Matrix result
+    )
     {
         result = default;
         return s != null && TryParse(s, out result);
@@ -510,7 +531,11 @@ public readonly struct Matrix(
         return Parse(s);
     }
 
-    static bool ISpanParsable<Matrix>.TryParse([NotNullWhen(true)] ReadOnlySpan<char> s, IFormatProvider? provider, [MaybeNullWhen(false)] out Matrix result)
+    static bool ISpanParsable<Matrix>.TryParse(
+        [NotNullWhen(true)] ReadOnlySpan<char> s,
+        IFormatProvider? provider,
+        [MaybeNullWhen(false)] out Matrix result
+    )
     {
         return TryParse(s, out result);
     }
@@ -520,8 +545,13 @@ public readonly struct Matrix(
     /// </summary>
     /// <param name="matrix">Matrix to decompose.</param>
     /// <param name="decomposed">Decomposed matrix.</param>
-    /// <returns>The status of the operation.</returns>        
-    public bool TryDecomposeTransform(out Vector translate, out Vector scale, out Vector skew, out float angle)
+    /// <returns>The status of the operation.</returns>
+    public bool TryDecomposeTransform(
+        out Vector translate,
+        out Vector scale,
+        out Vector skew,
+        out float angle
+    )
     {
         float determinant = GetDeterminant();
 
@@ -604,11 +634,16 @@ public readonly struct Matrix(
 
     static void ITupleConvertible<Matrix, float>.ConvertFrom(Span<float> tuple, out Matrix self)
     {
-        self = new Matrix
-        (
-            tuple[0], tuple[1], tuple[2],
-            tuple[3], tuple[4], tuple[5],
-            tuple[6], tuple[7], tuple[8]
+        self = new Matrix(
+            tuple[0],
+            tuple[1],
+            tuple[2],
+            tuple[3],
+            tuple[4],
+            tuple[5],
+            tuple[6],
+            tuple[7],
+            tuple[8]
         );
     }
 }

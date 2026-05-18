@@ -9,7 +9,8 @@ public static class NestedEditorContextHelper
     public static void AcceptChildren(
         IPropertyEditorContextVisitor visitor,
         IPropertyEditorContext? group,
-        IPropertiesEditorViewModel? properties)
+        IPropertiesEditorViewModel? properties
+    )
     {
         group?.Accept(visitor);
         if (properties != null)
@@ -25,35 +26,39 @@ public static class NestedEditorContextHelper
         JsonObject json,
         ReactivePropertySlim<bool> isExpanded,
         IPropertiesEditorViewModel? properties,
-        IJsonSerializable? group = null)
+        IJsonSerializable? group = null
+    )
     {
         try
         {
-            if (json.TryGetPropertyValue("IsExpanded", out JsonNode? isExpandedNode)
-                && isExpandedNode is JsonValue isExpandedValue)
+            if (
+                json.TryGetPropertyValue("IsExpanded", out JsonNode? isExpandedNode)
+                && isExpandedNode is JsonValue isExpandedValue
+            )
             {
                 isExpanded.Value = (bool)isExpandedValue;
             }
 
             properties?.ReadFromJson(json);
 
-            if (group != null
+            if (
+                group != null
                 && json.TryGetPropertyValue("Group", out JsonNode? groupNode)
-                && groupNode is JsonObject groupJson)
+                && groupNode is JsonObject groupJson
+            )
             {
                 group.ReadFromJson(groupJson);
             }
         }
-        catch
-        {
-        }
+        catch { }
     }
 
     public static void WriteNestedJson(
         JsonObject json,
         bool isExpanded,
         IPropertiesEditorViewModel? properties,
-        IJsonSerializable? group = null)
+        IJsonSerializable? group = null
+    )
     {
         try
         {
@@ -67,17 +72,15 @@ public static class NestedEditorContextHelper
                 json["Group"] = groupJson;
             }
         }
-        catch
-        {
-        }
+        catch { }
     }
 }
 
-public sealed record ChildVisitor(IServiceProvider Owner) : IServiceProvider, IPropertyEditorContextVisitor
+public sealed record ChildVisitor(IServiceProvider Owner)
+    : IServiceProvider,
+        IPropertyEditorContextVisitor
 {
     public object? GetService(Type serviceType) => Owner.GetService(serviceType);
 
-    public void Visit(IPropertyEditorContext context)
-    {
-    }
+    public void Visit(IPropertyEditorContext context) { }
 }

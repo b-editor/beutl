@@ -10,7 +10,11 @@ public sealed class DispatcherLocalScheduler(Dispatcher dispatcher) : LocalSched
 
     private int _reentrancyGuard;
 
-    public override IDisposable Schedule<TState>(TState state, TimeSpan dueTime, Func<IScheduler, TState, IDisposable> action)
+    public override IDisposable Schedule<TState>(
+        TState state,
+        TimeSpan dueTime,
+        Func<IScheduler, TState, IDisposable> action
+    )
     {
         Func<IScheduler, TState, IDisposable> action2 = action;
         TState state2 = state;
@@ -19,13 +23,16 @@ public sealed class DispatcherLocalScheduler(Dispatcher dispatcher) : LocalSched
         {
             var composite2 = new CompositeDisposable(2);
             var cancellation = new CancellationDisposable();
-            dispatcher.Dispatch(() =>
-            {
-                if (!cancellation.Token.IsCancellationRequested)
+            dispatcher.Dispatch(
+                () =>
                 {
-                    composite2.Add(action2(this, state2));
-                }
-            }, DispatchPriority.Low);
+                    if (!cancellation.Token.IsCancellationRequested)
+                    {
+                        composite2.Add(action2(this, state2));
+                    }
+                },
+                DispatchPriority.Low
+            );
             composite2.Add(cancellation);
             return composite2;
         }
@@ -55,10 +62,14 @@ public sealed class DispatcherLocalScheduler(Dispatcher dispatcher) : LocalSched
 
         var composite = new CompositeDisposable(2);
         var cts = new CancellationTokenSource();
-        dispatcher.Schedule(dueTime, () =>
-        {
-            composite.Add(action2(this, state2));
-        }, ct: cts.Token);
+        dispatcher.Schedule(
+            dueTime,
+            () =>
+            {
+                composite.Add(action2(this, state2));
+            },
+            ct: cts.Token
+        );
         composite.Add(Disposable.Create(cts, cts => cts.Cancel()));
 
         return composite;

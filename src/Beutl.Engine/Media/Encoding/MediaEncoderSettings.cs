@@ -10,7 +10,9 @@ public abstract class MediaEncoderSettings : CoreObject
     [Obsolete]
     static MediaEncoderSettings()
     {
-        CodecOptionsProperty = ConfigureProperty<JsonNode?, MediaEncoderSettings>(nameof(CodecOptions))
+        CodecOptionsProperty = ConfigureProperty<JsonNode?, MediaEncoderSettings>(
+                nameof(CodecOptions)
+            )
             .Register();
     }
 

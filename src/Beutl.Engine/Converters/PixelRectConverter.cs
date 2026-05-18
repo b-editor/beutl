@@ -1,7 +1,6 @@
 ﻿using System.ComponentModel;
 using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
-
 using Beutl.Graphics;
 using Beutl.Media;
 
@@ -9,7 +8,10 @@ namespace Beutl.Converters;
 
 public sealed class PixelRectConverter : TypeConverter
 {
-    public override bool CanConvertTo(ITypeDescriptorContext? context, [NotNullWhen(true)] Type? destinationType)
+    public override bool CanConvertTo(
+        ITypeDescriptorContext? context,
+        [NotNullWhen(true)] Type? destinationType
+    )
     {
         return destinationType == typeof(int[])
             || destinationType == typeof(Tuple<int, int, int, int>)
@@ -21,7 +23,12 @@ public sealed class PixelRectConverter : TypeConverter
             || base.CanConvertTo(context, destinationType);
     }
 
-    public override object? ConvertTo(ITypeDescriptorContext? context, CultureInfo? culture, object? value, Type destinationType)
+    public override object? ConvertTo(
+        ITypeDescriptorContext? context,
+        CultureInfo? culture,
+        object? value,
+        Type destinationType
+    )
     {
         if (value is PixelRect pxrect)
         {
@@ -31,7 +38,12 @@ public sealed class PixelRectConverter : TypeConverter
             }
             else if (destinationType == typeof(Tuple<int, int, int, int>))
             {
-                return new Tuple<int, int, int, int>(pxrect.X, pxrect.Y, pxrect.Width, pxrect.Width);
+                return new Tuple<int, int, int, int>(
+                    pxrect.X,
+                    pxrect.Y,
+                    pxrect.Width,
+                    pxrect.Width
+                );
             }
             else if (destinationType == typeof(Point))
             {
@@ -58,7 +70,10 @@ public sealed class PixelRectConverter : TypeConverter
         return base.ConvertTo(context, culture, value, destinationType);
     }
 
-    public override bool CanConvertFrom(ITypeDescriptorContext? context, [NotNullWhen(true)] Type? sourceType)
+    public override bool CanConvertFrom(
+        ITypeDescriptorContext? context,
+        [NotNullWhen(true)] Type? sourceType
+    )
     {
         return sourceType == typeof(float[])
             || sourceType == typeof(Tuple<int, int, int, int>)
@@ -70,7 +85,11 @@ public sealed class PixelRectConverter : TypeConverter
             || sourceType == typeof(string);
     }
 
-    public override object? ConvertFrom(ITypeDescriptorContext? context, CultureInfo? culture, object value)
+    public override object? ConvertFrom(
+        ITypeDescriptorContext? context,
+        CultureInfo? culture,
+        object value
+    )
     {
         if (value is int[] { Length: >= 4 } array)
         {

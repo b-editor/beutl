@@ -25,7 +25,11 @@ public class TextElement
 
     public bool IgnoreLineBreaks { get; set; }
 
-    internal int GetFormattedTexts(Span<FormattedText> span, bool startWithNewLine, out bool endWithNewLine)
+    internal int GetFormattedTexts(
+        Span<FormattedText> span,
+        bool startWithNewLine,
+        out bool endWithNewLine
+    )
     {
         int prevIdx = 0;
         int ii = 0;
@@ -42,14 +46,15 @@ public class TextElement
             if (isReturnCode || isLast)
             {
                 FormattedText item = span[ii];
-                SetFields(item, new StringSpan(Text, prevIdx, (isReturnCode ? i : nextIdx) - prevIdx));
+                SetFields(
+                    item,
+                    new StringSpan(Text, prevIdx, (isReturnCode ? i : nextIdx) - prevIdx)
+                );
                 item.BeginOnNewLine = nextReturn;
                 nextReturn = !IgnoreLineBreaks && isReturnCode;
 
                 ii++;
-                if (c is '\r'
-                    && nextIdx < Text.Length
-                    && Text[nextIdx] is '\n')
+                if (c is '\r' && nextIdx < Text.Length && Text[nextIdx] is '\n')
                 {
                     i++;
                     isLast = (nextIdx + 1) == Text.Length;
@@ -79,9 +84,7 @@ public class TextElement
 
             if (isReturnCode || isLast)
             {
-                if (c is '\r'
-                    && nextIdx < Text.Length
-                    && Text[nextIdx] is '\n')
+                if (c is '\r' && nextIdx < Text.Length && Text[nextIdx] is '\n')
                 {
                     i++;
                 }
@@ -105,4 +108,3 @@ public class TextElement
         text.Pen = Pen;
     }
 }
-

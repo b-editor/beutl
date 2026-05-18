@@ -24,9 +24,7 @@ public class NodeMemberOperationObserverTests
     }
 
     [TearDown]
-    public void TearDown()
-    {
-    }
+    public void TearDown() { }
 
     #region Helper Classes
 
@@ -175,7 +173,12 @@ public class NodeMemberOperationObserverTests
         var receivedOperations = new List<ChangeOperation>();
         var observer = Observer.Create<ChangeOperation>(op => receivedOperations.Add(op));
 
-        using var sut = new NodeMemberOperationObserver(observer, nodeMember, _sequenceGenerator, "Parent");
+        using var sut = new NodeMemberOperationObserver(
+            observer,
+            nodeMember,
+            _sequenceGenerator,
+            "Parent"
+        );
 
         nodeMember.SetPropertyValue(20);
 
@@ -385,7 +388,12 @@ public class NodeMemberOperationObserverTests
         var receivedOperations = new List<ChangeOperation>();
         var observer = Observer.Create<ChangeOperation>(op => receivedOperations.Add(op));
 
-        using var sut = new NodeMemberOperationObserver(observer, nodeMember, _sequenceGenerator, "Parent");
+        using var sut = new NodeMemberOperationObserver(
+            observer,
+            nodeMember,
+            _sequenceGenerator,
+            "Parent"
+        );
 
         var newAnimation = new KeyFrameAnimation<float>();
         nodeMember.SetAnimation(newAnimation);
@@ -410,7 +418,8 @@ public class NodeMemberOperationObserverTests
         using var subscription = sut.Operations.Subscribe(
             _ => { },
             _ => { },
-            () => completed = true);
+            () => completed = true
+        );
 
         sut.Dispose();
 
@@ -513,7 +522,13 @@ public class NodeMemberOperationObserverTests
         var observer = Observer.Create<ChangeOperation>(op => receivedOperations.Add(op));
         var pathsToTrack = new HashSet<string> { "Animation" };
 
-        using var sut = new NodeMemberOperationObserver(observer, nodeMember, _sequenceGenerator, "", pathsToTrack);
+        using var sut = new NodeMemberOperationObserver(
+            observer,
+            nodeMember,
+            _sequenceGenerator,
+            "",
+            pathsToTrack
+        );
 
         nodeMember.SetPropertyValue(20);
 
@@ -529,7 +544,13 @@ public class NodeMemberOperationObserverTests
         var observer = Observer.Create<ChangeOperation>(op => receivedOperations.Add(op));
         var pathsToTrack = new HashSet<string> { "Property" };
 
-        using var sut = new NodeMemberOperationObserver(observer, nodeMember, _sequenceGenerator, "", pathsToTrack);
+        using var sut = new NodeMemberOperationObserver(
+            observer,
+            nodeMember,
+            _sequenceGenerator,
+            "",
+            pathsToTrack
+        );
 
         nodeMember.SetAnimation(new KeyFrameAnimation<float>());
 
@@ -545,7 +566,13 @@ public class NodeMemberOperationObserverTests
         var observer = Observer.Create<ChangeOperation>(op => receivedOperations.Add(op));
         var pathsToTrack = new HashSet<string> { "Property", "Animation" };
 
-        using var sut = new NodeMemberOperationObserver(observer, nodeMember, _sequenceGenerator, "", pathsToTrack);
+        using var sut = new NodeMemberOperationObserver(
+            observer,
+            nodeMember,
+            _sequenceGenerator,
+            "",
+            pathsToTrack
+        );
 
         nodeMember.SetPropertyValue(2.0f);
         nodeMember.SetAnimation(new KeyFrameAnimation<float>());
@@ -561,7 +588,13 @@ public class NodeMemberOperationObserverTests
         var receivedOperations = new List<ChangeOperation>();
         var observer = Observer.Create<ChangeOperation>(op => receivedOperations.Add(op));
 
-        using var sut = new NodeMemberOperationObserver(observer, nodeMember, _sequenceGenerator, "", null);
+        using var sut = new NodeMemberOperationObserver(
+            observer,
+            nodeMember,
+            _sequenceGenerator,
+            "",
+            null
+        );
 
         nodeMember.SetPropertyValue(2.0f);
         nodeMember.SetAnimation(new KeyFrameAnimation<float>());
@@ -586,8 +619,14 @@ public class NodeMemberOperationObserverTests
         nodeMember.SetPropertyValue(30);
         nodeMember.SetPropertyValue(40);
 
-        Assert.That(receivedOperations[0].SequenceNumber, Is.LessThan(receivedOperations[1].SequenceNumber));
-        Assert.That(receivedOperations[1].SequenceNumber, Is.LessThan(receivedOperations[2].SequenceNumber));
+        Assert.That(
+            receivedOperations[0].SequenceNumber,
+            Is.LessThan(receivedOperations[1].SequenceNumber)
+        );
+        Assert.That(
+            receivedOperations[1].SequenceNumber,
+            Is.LessThan(receivedOperations[2].SequenceNumber)
+        );
     }
 
     [Test]
@@ -603,7 +642,10 @@ public class NodeMemberOperationObserverTests
         nodeMember.SetPropertyValue(2.0f);
         nodeMember.SetAnimation(new KeyFrameAnimation<float>());
 
-        Assert.That(receivedOperations[0].SequenceNumber, Is.LessThan(receivedOperations[1].SequenceNumber));
+        Assert.That(
+            receivedOperations[0].SequenceNumber,
+            Is.LessThan(receivedOperations[1].SequenceNumber)
+        );
     }
 
     #endregion

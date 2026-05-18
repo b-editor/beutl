@@ -4,7 +4,6 @@ using System.Reflection;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
-
 using Beutl.Serialization;
 
 namespace Beutl;
@@ -24,7 +23,8 @@ public abstract class CoreProperty : ICoreProperty
         string name,
         Type propertyType,
         Type ownerType,
-        CorePropertyMetadata metadata)
+        CorePropertyMetadata metadata
+    )
     {
         _ = name ?? throw new ArgumentNullException(nameof(name));
 
@@ -58,8 +58,7 @@ public abstract class CoreProperty : ICoreProperty
 
     internal PropertyInfo? GetPropertyInfo()
     {
-        if (PropertyInfo == null
-            && !_isTryedToGetPropertyInfo)
+        if (PropertyInfo == null && !_isTryedToGetPropertyInfo)
         {
             PropertyInfo = OwnerType.GetProperty(Name);
             _isTryedToGetPropertyInfo = true;
@@ -97,7 +96,8 @@ public abstract class CoreProperty : ICoreProperty
                 return (TMetadata)_defaultMetadata;
             }
 
-            return GetMetadataWithOverrides<TMetadata>(type) ?? throw new InvalidOperationException();
+            return GetMetadataWithOverrides<TMetadata>(type)
+                ?? throw new InvalidOperationException();
         }
     }
 
@@ -127,7 +127,7 @@ public abstract class CoreProperty : ICoreProperty
     }
 
     public void OverrideMetadata<T>(CorePropertyMetadata metadata)
-         where T : ICoreObject
+        where T : ICoreObject
     {
         OverrideMetadata(typeof(T), metadata);
     }
@@ -145,7 +145,8 @@ public abstract class CoreProperty : ICoreProperty
             if (_metadata.ContainsKey(type))
             {
                 throw new InvalidOperationException(
-                    $"Metadata is already set for {Name} on {type}.");
+                    $"Metadata is already set for {Name} on {type}."
+                );
             }
 
             CorePropertyMetadata? baseMetadata = GetMetadata<CorePropertyMetadata>(type);
@@ -164,7 +165,10 @@ public abstract class CoreProperty : ICoreProperty
         {
             ArgumentNullException.ThrowIfNull(type);
 
-            if (_metadataCache.TryGetValue(type, out ICorePropertyMetadata? result) && result is TMetadata resultT)
+            if (
+                _metadataCache.TryGetValue(type, out ICorePropertyMetadata? result)
+                && result is TMetadata resultT
+            )
             {
                 return resultT;
             }
@@ -212,10 +216,7 @@ public abstract class CoreProperty : ICoreProperty
     }
 }
 
-public class CoreProperty<T>(
-    string name,
-    Type ownerType,
-    CorePropertyMetadata<T> metadata)
+public class CoreProperty<T>(string name, Type ownerType, CorePropertyMetadata<T> metadata)
     : CoreProperty(name, typeof(T), ownerType, metadata)
 {
     private readonly Subject<CorePropertyChangedEventArgs<T>> _changed = new();
@@ -223,7 +224,7 @@ public class CoreProperty<T>(
     public new IObservable<CorePropertyChangedEventArgs<T>> Changed => _changed;
 
     public void OverrideDefaultValue<TOverride>(Optional<T> defaultValue)
-         where TOverride : ICoreObject
+        where TOverride : ICoreObject
     {
         OverrideMetadata<TOverride>(new CorePropertyMetadata<T>(defaultValue));
     }
@@ -267,9 +268,11 @@ public class CoreProperty<T>(
         CorePropertyMetadata<T> metadata = GetMetadata<CorePropertyMetadata<T>>(context.OwnerType);
         if (metadata.ShouldSerialize && (this is not IStaticProperty sprop || sprop.CanWrite))
         {
-            if (context is IJsonSerializationContext jsonCtxt
+            if (
+                context is IJsonSerializationContext jsonCtxt
                 && metadata.JsonConverter is { }
-                && value != null)
+                && value != null
+            )
             {
                 JsonSerializerOptions options = metadata.GetSerializerOptions();
                 JsonNode? node = JsonSerializer.SerializeToNode(value, PropertyType, options);
@@ -287,8 +290,7 @@ public class CoreProperty<T>(
         CorePropertyMetadata<T> metadata = GetMetadata<CorePropertyMetadata<T>>(context.OwnerType);
         if (metadata.ShouldSerialize && (this is not IStaticProperty sprop || sprop.CanWrite))
         {
-            if (context is IJsonSerializationContext jsonCtxt
-                && metadata.JsonConverter is { })
+            if (context is IJsonSerializationContext jsonCtxt && metadata.JsonConverter is { })
             {
                 Type type = PropertyType;
                 JsonNode? node = jsonCtxt.GetNode(Name);

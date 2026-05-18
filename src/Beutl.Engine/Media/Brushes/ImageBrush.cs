@@ -22,7 +22,8 @@ public partial class ImageBrush : TileBrush
     /// Initializes a new instance of the <see cref="ImageBrush"/> class.
     /// </summary>
     /// <param name="source">The image to draw.</param>
-    public ImageBrush(ImageSource source) : this()
+    public ImageBrush(ImageSource source)
+        : this()
     {
         Source.CurrentValue = source;
     }

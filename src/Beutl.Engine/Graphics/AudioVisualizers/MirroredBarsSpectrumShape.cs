@@ -5,7 +5,10 @@ using Beutl.Media;
 
 namespace Beutl.Graphics.AudioVisualizers;
 
-[Display(Name = nameof(GraphicsStrings.SpectrumShape_MirroredBars), ResourceType = typeof(GraphicsStrings))]
+[Display(
+    Name = nameof(GraphicsStrings.SpectrumShape_MirroredBars),
+    ResourceType = typeof(GraphicsStrings)
+)]
 public sealed partial class MirroredBarsSpectrumShape : SpectrumShape
 {
     public MirroredBarsSpectrumShape()
@@ -13,7 +16,10 @@ public sealed partial class MirroredBarsSpectrumShape : SpectrumShape
         ScanProperties<MirroredBarsSpectrumShape>();
     }
 
-    [Display(Name = nameof(GraphicsStrings.SpectrumShape_BarWidth), ResourceType = typeof(GraphicsStrings))]
+    [Display(
+        Name = nameof(GraphicsStrings.SpectrumShape_BarWidth),
+        ResourceType = typeof(GraphicsStrings)
+    )]
     [Range(0.5f, 10000f)]
     public IProperty<float> BarWidth { get; } = Property.CreateAnimatable(6f);
 
@@ -23,10 +29,12 @@ public sealed partial class MirroredBarsSpectrumShape : SpectrumShape
             ImmediateCanvas canvas,
             Rect bounds,
             ReadOnlySpan<float> normalizedBars,
-            Brush.Resource fill)
+            Brush.Resource fill
+        )
         {
             int barCount = normalizedBars.Length;
-            if (barCount == 0) return;
+            if (barCount == 0)
+                return;
 
             float width = (float)bounds.Width;
             float height = (float)bounds.Height;

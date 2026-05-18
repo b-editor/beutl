@@ -38,7 +38,10 @@ public class Profile
 
     public async Task RefreshAsync(bool self = false)
     {
-        using Activity? activity = _clients.ActivitySource.StartActivity("Profile.Refresh", ActivityKind.Client);
+        using Activity? activity = _clients.ActivitySource.StartActivity(
+            "Profile.Refresh",
+            ActivityKind.Client
+        );
 
         if (self)
         {
@@ -53,7 +56,10 @@ public class Profile
 
     public async Task<Package[]> GetPackagesAsync(int start = 0, int count = 30)
     {
-        using Activity? activity = _clients.ActivitySource.StartActivity("Profile.GetPackages", ActivityKind.Client);
+        using Activity? activity = _clients.ActivitySource.StartActivity(
+            "Profile.GetPackages",
+            ActivityKind.Client
+        );
         activity?.SetTag("start", start);
         activity?.SetTag("count", count);
 

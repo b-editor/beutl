@@ -15,7 +15,8 @@ public partial class AddOutputProfileDialog : ContentDialog
     protected override void OnPrimaryButtonClick(ContentDialogButtonClickEventArgs args)
     {
         base.OnPrimaryButtonClick(args);
-        if (DataContext is not AddOutputProfileViewModel vm) return;
+        if (DataContext is not AddOutputProfileViewModel vm)
+            return;
         vm.Add();
     }
 }

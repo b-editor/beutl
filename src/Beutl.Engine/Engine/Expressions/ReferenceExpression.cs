@@ -48,7 +48,14 @@ public sealed class ReferenceExpression<T> : IExpression<T>
         if (HasPropertyPath)
         {
             // PropertyLookupでネストしたプロパティを解決
-            if (context.PropertyLookup.TryGetPropertyValue(ObjectId, PropertyPath, context, out T? value))
+            if (
+                context.PropertyLookup.TryGetPropertyValue(
+                    ObjectId,
+                    PropertyPath,
+                    context,
+                    out T? value
+                )
+            )
             {
                 return value!;
             }

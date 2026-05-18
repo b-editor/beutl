@@ -22,7 +22,10 @@ public class EnumEditor : PropertyEditor
 
     public static readonly DirectProperty<EnumEditor, int> SelectedIndexProperty =
         SelectingItemsControl.SelectedIndexProperty.AddOwner<EnumEditor>(
-            o => o.SelectedIndex, (o, v) => o.SelectedIndex = v, defaultBindingMode: BindingMode.TwoWay);
+            o => o.SelectedIndex,
+            (o, v) => o.SelectedIndex = v,
+            defaultBindingMode: BindingMode.TwoWay
+        );
 
     private int _selectedIndex;
     private IDisposable _disposable;
@@ -49,7 +52,10 @@ public class EnumEditor : PropertyEditor
         base.OnApplyTemplate(e);
         InnerComboBox = e.NameScope.Get<ComboBox>("PART_InnerComboBox");
 
-        _disposable = InnerComboBox.AddDisposableHandler(SelectingItemsControl.SelectionChangedEvent, OnComboBoxSelectionChanged);
+        _disposable = InnerComboBox.AddDisposableHandler(
+            SelectingItemsControl.SelectionChangedEvent,
+            OnComboBoxSelectionChanged
+        );
 
         PrevSelectedIndex = SelectedIndex;
     }
@@ -81,7 +87,13 @@ public class EnumEditor : PropertyEditor
         // 必ず選択されている
         if (e.AddedItems.Count > 0)
         {
-            RaiseEvent(new PropertyEditorValueChangedEventArgs<int>(InnerComboBox.SelectedIndex, PrevSelectedIndex, ValueConfirmedEvent));
+            RaiseEvent(
+                new PropertyEditorValueChangedEventArgs<int>(
+                    InnerComboBox.SelectedIndex,
+                    PrevSelectedIndex,
+                    ValueConfirmedEvent
+                )
+            );
             PrevSelectedIndex = SelectedIndex;
         }
     }

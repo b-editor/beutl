@@ -11,12 +11,16 @@ public sealed class TupleRangeDataAnnotationValidater<TTuple, TNumber> : RangeVa
     public TupleRangeDataAnnotationValidater(RangeAttribute attribute)
     {
         if (attribute.MaximumIsExclusive || attribute.MinimumIsExclusive)
-            throw new NotSupportedException("'MaximumIsExclusive' or 'MinimumIsExclusive' cannot be set to True.");
+            throw new NotSupportedException(
+                "'MaximumIsExclusive' or 'MinimumIsExclusive' cannot be set to True."
+            );
 
         Attribute = attribute;
-        if (Attribute.OperandType == typeof(TTuple)
+        if (
+            Attribute.OperandType == typeof(TTuple)
             && Attribute.Maximum is string maximumStr
-            && Attribute.Minimum is string minimumStr)
+            && Attribute.Minimum is string minimumStr
+        )
         {
             TypeConverter converter = TypeDescriptor.GetConverter(Attribute.OperandType);
             Maximum = (TTuple)converter.ConvertFromInvariantString(maximumStr)!;

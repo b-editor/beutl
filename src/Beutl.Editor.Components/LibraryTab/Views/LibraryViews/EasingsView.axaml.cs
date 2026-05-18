@@ -1,7 +1,6 @@
 ﻿using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
-
 using Beutl.Services;
 
 namespace Beutl.Editor.Components.LibraryTab.Views.LibraryViews;
@@ -12,14 +11,27 @@ public partial class EasingsView : UserControl
     {
         InitializeComponent();
 
-        itemsControl.AddHandler(PointerPressedEvent, OnEasingsPointerPressed, RoutingStrategies.Tunnel);
-        splineEasing.AddHandler(PointerPressedEvent, OnSplineEasingPointerPressed, RoutingStrategies.Tunnel);
+        itemsControl.AddHandler(
+            PointerPressedEvent,
+            OnEasingsPointerPressed,
+            RoutingStrategies.Tunnel
+        );
+        splineEasing.AddHandler(
+            PointerPressedEvent,
+            OnSplineEasingPointerPressed,
+            RoutingStrategies.Tunnel
+        );
     }
 
     private async void OnSplineEasingPointerPressed(object? sender, PointerPressedEventArgs e)
     {
         var data = new DataTransfer();
-        data.Add(DataTransferItem.Create(BeutlDataFormats.Easing, TypeFormat.ToString(typeof(Animation.Easings.SplineEasing))));
+        data.Add(
+            DataTransferItem.Create(
+                BeutlDataFormats.Easing,
+                TypeFormat.ToString(typeof(Animation.Easings.SplineEasing))
+            )
+        );
         await DragDrop.DoDragDropAsync(e, data, DragDropEffects.Copy | DragDropEffects.Link);
     }
 
@@ -34,8 +46,17 @@ public partial class EasingsView : UserControl
                 if (control?.IsPointerOver == true)
                 {
                     var data = new DataTransfer();
-                    data.Add(DataTransferItem.Create(BeutlDataFormats.Easing, TypeFormat.ToString(item.GetType())));
-                    await DragDrop.DoDragDropAsync(e, data, DragDropEffects.Copy | DragDropEffects.Link);
+                    data.Add(
+                        DataTransferItem.Create(
+                            BeutlDataFormats.Easing,
+                            TypeFormat.ToString(item.GetType())
+                        )
+                    );
+                    await DragDrop.DoDragDropAsync(
+                        e,
+                        data,
+                        DragDropEffects.Copy | DragDropEffects.Link
+                    );
                     return;
                 }
             }

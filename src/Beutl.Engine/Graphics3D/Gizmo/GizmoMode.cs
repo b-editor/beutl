@@ -23,5 +23,5 @@ public enum GizmoMode
     /// <summary>
     /// Scale gizmo with cubes at the end of each axis.
     /// </summary>
-    Scale = 3
+    Scale = 3,
 }

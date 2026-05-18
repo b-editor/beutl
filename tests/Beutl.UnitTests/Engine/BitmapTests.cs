@@ -121,8 +121,10 @@ public class BitmapTests
     public void ExtractSubset_OutOfRange_Throws()
     {
         using var bitmap = new Bitmap(4, 4);
-        Assert.That(() => bitmap.ExtractSubset(new PixelRect(0, 0, 10, 10)),
-            Throws.InstanceOf<ArgumentException>().Or.InstanceOf<ArgumentOutOfRangeException>());
+        Assert.That(
+            () => bitmap.ExtractSubset(new PixelRect(0, 0, 10, 10)),
+            Throws.InstanceOf<ArgumentException>().Or.InstanceOf<ArgumentOutOfRangeException>()
+        );
     }
 
     [Test]

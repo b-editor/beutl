@@ -28,24 +28,40 @@ public sealed partial class AudioSpectrogramDrawable : AudioVisualizerDrawable
         MoveProperty(Height, 9);
     }
 
-    [Display(Name = nameof(GraphicsStrings.AudioVisualizer_WindowSeconds), ResourceType = typeof(GraphicsStrings))]
+    [Display(
+        Name = nameof(GraphicsStrings.AudioVisualizer_WindowSeconds),
+        ResourceType = typeof(GraphicsStrings)
+    )]
     [Range(0.01f, 3600f)]
     public IProperty<float> WindowSeconds { get; } = Property.CreateAnimatable(4f);
 
-    [Display(Name = nameof(GraphicsStrings.AudioVisualizer_FftSize), ResourceType = typeof(GraphicsStrings))]
+    [Display(
+        Name = nameof(GraphicsStrings.AudioVisualizer_FftSize),
+        ResourceType = typeof(GraphicsStrings)
+    )]
     [Range(64, 16384)]
     public IProperty<int> FftSize { get; } = Property.Create(512);
 
-    [Display(Name = nameof(GraphicsStrings.AudioVisualizer_FloorDb), ResourceType = typeof(GraphicsStrings))]
+    [Display(
+        Name = nameof(GraphicsStrings.AudioVisualizer_FloorDb),
+        ResourceType = typeof(GraphicsStrings)
+    )]
     [Range(-200f, 0f)]
     public IProperty<float> FloorDb { get; } = Property.CreateAnimatable(-80f);
 
-    [Display(Name = nameof(GraphicsStrings.AudioVisualizer_TimeColumns), ResourceType = typeof(GraphicsStrings))]
+    [Display(
+        Name = nameof(GraphicsStrings.AudioVisualizer_TimeColumns),
+        ResourceType = typeof(GraphicsStrings)
+    )]
     [Range(2, 2048)]
     public IProperty<int> TimeColumns { get; } = Property.Create(256);
 
-    [Display(Name = nameof(GraphicsStrings.AudioVisualizer_FrequencyScale), ResourceType = typeof(GraphicsStrings))]
-    public IProperty<FrequencyScale> FrequencyScale { get; } = Property.Create(AudioVisualizers.FrequencyScale.Logarithmic);
+    [Display(
+        Name = nameof(GraphicsStrings.AudioVisualizer_FrequencyScale),
+        ResourceType = typeof(GraphicsStrings)
+    )]
+    public IProperty<FrequencyScale> FrequencyScale { get; } =
+        Property.Create(AudioVisualizers.FrequencyScale.Logarithmic);
 
     public new partial class Resource
     {
@@ -56,7 +72,9 @@ public sealed partial class AudioSpectrogramDrawable : AudioVisualizerDrawable
         private int[] _rowBinHi = [];
         private SKPaint? _paint;
 
-        protected override (TimeSpan Start, TimeSpan Duration) ComputeSampleWindow(TimeSpan currentTime)
+        protected override (TimeSpan Start, TimeSpan Duration) ComputeSampleWindow(
+            TimeSpan currentTime
+        )
         {
             TimeSpan window = TimeSpan.FromSeconds(Math.Max(0.01, WindowSeconds));
             return (currentTime - window, window);
@@ -73,10 +91,12 @@ public sealed partial class AudioSpectrogramDrawable : AudioVisualizerDrawable
 
         protected override void RenderForeground(ImmediateCanvas canvas, Rect bounds)
         {
-            if (CachedSampleLength == 0 || CachedSampleRate <= 0 || Fill is null) return;
+            if (CachedSampleLength == 0 || CachedSampleRate <= 0 || Fill is null)
+                return;
 
             int fftSize = Fft.ClampToPowerOfTwo(FftSize);
-            if (fftSize < 2) return;
+            if (fftSize < 2)
+                return;
 
             int columns = Math.Max(2, TimeColumns);
             int bins = fftSize / 2;
@@ -89,9 +109,12 @@ public sealed partial class AudioSpectrogramDrawable : AudioVisualizerDrawable
             float floorDb = MathF.Min(FloorDb, -0.001f);
             FrequencyScale freqScale = FrequencyScale;
 
-            if (_fftReal.Length < fftSize) _fftReal = new float[fftSize];
-            if (_fftImag.Length < fftSize) _fftImag = new float[fftSize];
-            if (_fftMagnitudes.Length < bins) _fftMagnitudes = new float[bins];
+            if (_fftReal.Length < fftSize)
+                _fftReal = new float[fftSize];
+            if (_fftImag.Length < fftSize)
+                _fftImag = new float[fftSize];
+            if (_fftMagnitudes.Length < bins)
+                _fftMagnitudes = new float[bins];
             Span<float> real = _fftReal.AsSpan(0, fftSize);
             Span<float> imag = _fftImag.AsSpan(0, fftSize);
             Span<float> mags = _fftMagnitudes.AsSpan(0, bins);
@@ -110,30 +133,39 @@ public sealed partial class AudioSpectrogramDrawable : AudioVisualizerDrawable
             // y=0 が最高周波数、y=height が最低周波数として配置。
             float fMax = CachedSampleRate * 0.5f;
             float fMin = MathF.Max(20f, fMax / bins);
-            double melMin = freqScale == FrequencyScale.Mel ? 2595.0 * Math.Log10(1 + fMin / 700.0) : 0;
-            double melMax = freqScale == FrequencyScale.Mel ? 2595.0 * Math.Log10(1 + fMax / 700.0) : 0;
+            double melMin =
+                freqScale == FrequencyScale.Mel ? 2595.0 * Math.Log10(1 + fMin / 700.0) : 0;
+            double melMax =
+                freqScale == FrequencyScale.Mel ? 2595.0 * Math.Log10(1 + fMax / 700.0) : 0;
 
             int pixelRows = Math.Max(1, (int)MathF.Ceiling(height));
             float rowHeight = height / pixelRows;
 
             // 各行がカバーする FFT bin 範囲 [lo, hi) を事前計算。
             // pixelRows < bins の場合でも bin の取りこぼしが発生しないよう bin 範囲全体を描画時に max 集約する。
-            if (_rowBinLo.Length < pixelRows) _rowBinLo = new int[pixelRows];
-            if (_rowBinHi.Length < pixelRows) _rowBinHi = new int[pixelRows];
+            if (_rowBinLo.Length < pixelRows)
+                _rowBinLo = new int[pixelRows];
+            if (_rowBinHi.Length < pixelRows)
+                _rowBinHi = new int[pixelRows];
             for (int row = 0; row < pixelRows; row++)
             {
                 // row=0 が最高周波数。下端は t_low (低周波)、上端は t_high (高周波)。
                 double tLow = 1.0 - (row + 1) / (double)pixelRows;
                 double tHigh = 1.0 - row / (double)pixelRows;
-                if (tLow < 0) tLow = 0;
-                if (tHigh > 1) tHigh = 1;
+                if (tLow < 0)
+                    tLow = 0;
+                if (tHigh > 1)
+                    tHigh = 1;
                 double f1 = FreqForT(tLow, freqScale, fMin, fMax, melMin, melMax);
                 double f2 = FreqForT(tHigh, freqScale, fMin, fMax, melMin, melMax);
                 int bLo = (int)Math.Floor(f1 / fMax * bins);
                 int bHi = (int)Math.Ceiling(f2 / fMax * bins);
-                if (bLo < 0) bLo = 0;
-                if (bHi > bins) bHi = bins;
-                if (bHi <= bLo) bHi = Math.Min(bLo + 1, bins);
+                if (bLo < 0)
+                    bLo = 0;
+                if (bHi > bins)
+                    bHi = bins;
+                if (bHi <= bLo)
+                    bHi = Math.Min(bLo + 1, bins);
                 _rowBinLo[row] = bLo;
                 _rowBinHi[row] = bHi;
             }
@@ -162,31 +194,48 @@ public sealed partial class AudioSpectrogramDrawable : AudioVisualizerDrawable
                     for (int b = bLo; b < bHi; b++)
                     {
                         float m = mags[b];
-                        if (m > peak) peak = m;
+                        if (m > peak)
+                            peak = m;
                     }
 
                     float db = Fft.MagnitudeToDb(peak * gain, reference);
                     float normalized = (db - floorDb) / (0f - floorDb);
                     normalized = Math.Clamp(normalized, 0f, 1f);
-                    if (normalized <= 0f) continue;
+                    if (normalized <= 0f)
+                        continue;
 
                     byte alpha = (byte)(baseAlpha * normalized);
-                    if (alpha == 0) continue;
+                    if (alpha == 0)
+                        continue;
                     _paint.Color = baseColor.WithAlpha(alpha);
 
                     float y = (float)bounds.Y + row * rowHeight;
                     canvas.Canvas.DrawRect(
-                        new SKRect(colX, y, colX + drawColWidth, y + MathF.Max(1f, rowHeight + 0.5f)),
-                        _paint);
+                        new SKRect(
+                            colX,
+                            y,
+                            colX + drawColWidth,
+                            y + MathF.Max(1f, rowHeight + 0.5f)
+                        ),
+                        _paint
+                    );
                 }
             }
         }
 
-        private static double FreqForT(double t, FrequencyScale scale, float fMin, float fMax, double melMin, double melMax)
-            => scale switch
+        private static double FreqForT(
+            double t,
+            FrequencyScale scale,
+            float fMin,
+            float fMax,
+            double melMin,
+            double melMax
+        ) =>
+            scale switch
             {
                 FrequencyScale.Logarithmic => fMin * Math.Pow(fMax / fMin, t),
-                FrequencyScale.Mel => 700.0 * (Math.Pow(10, (melMin + (melMax - melMin) * t) / 2595.0) - 1),
+                FrequencyScale.Mel => 700.0
+                    * (Math.Pow(10, (melMin + (melMax - melMin) * t) / 2595.0) - 1),
                 _ => t * fMax,
             };
     }

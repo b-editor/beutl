@@ -24,12 +24,14 @@ public class BeutlToolDockable : Tool, IDisposable
 
         IsSelected = context.IsSelected.Value;
 
-        _isSelectedSubscription = context.IsSelected
-            .DistinctUntilChanged()
+        _isSelectedSubscription = context
+            .IsSelected.DistinctUntilChanged()
             .Subscribe(v =>
             {
-                if (_isDisposed) return;
-                if (IsSelected != v) IsSelected = v;
+                if (_isDisposed)
+                    return;
+                if (IsSelected != v)
+                    IsSelected = v;
             });
 
         PropertyChanged += OnPropertyChanged;
@@ -41,8 +43,10 @@ public class BeutlToolDockable : Tool, IDisposable
 
     private void OnPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
-        if (_isDisposed) return;
-        if (e.PropertyName != nameof(IsSelected)) return;
+        if (_isDisposed)
+            return;
+        if (e.PropertyName != nameof(IsSelected))
+            return;
 
         if (ToolContext.IsSelected.Value != IsSelected)
             ToolContext.IsSelected.Value = IsSelected;
@@ -50,7 +54,8 @@ public class BeutlToolDockable : Tool, IDisposable
 
     public void Dispose()
     {
-        if (_isDisposed) return;
+        if (_isDisposed)
+            return;
         _isDisposed = true;
         PropertyChanged -= OnPropertyChanged;
         _isSelectedSubscription.Dispose();
@@ -61,8 +66,6 @@ public class BeutlToolDockable : Tool, IDisposable
     {
         // Unique id per instance for CanMultiple tools, stable id for singletons.
         var typeName = context.Extension.GetType().FullName ?? context.Extension.Name;
-        return context.Extension.CanMultiple
-            ? $"{typeName}#{Guid.NewGuid():N}"
-            : typeName;
+        return context.Extension.CanMultiple ? $"{typeName}#{Guid.NewGuid():N}" : typeName;
     }
 }

@@ -1,12 +1,12 @@
 ﻿using NuGet.Common;
-
 using Reactive.Bindings;
 
 namespace Beutl.PackageTools.UI.Models;
 
 public class ResolveTaskModel : NuGet.Common.LoggerBase
 {
-    private readonly Microsoft.Extensions.Logging.ILogger _logger = Logging.Log.CreateLogger<ResolveTaskModel>();
+    private readonly Microsoft.Extensions.Logging.ILogger _logger =
+        Logging.Log.CreateLogger<ResolveTaskModel>();
     private readonly BeutlApiApplication _app;
     private readonly PackageInstallContext _context;
 

@@ -6,5 +6,5 @@ public enum TutorialStepPlacement
     Bottom,
     Left,
     Right,
-    Center
+    Center,
 }

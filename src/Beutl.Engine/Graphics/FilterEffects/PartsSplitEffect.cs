@@ -83,10 +83,15 @@ public partial class PartsSplitEffect : FilterEffect
                             target.Bounds.X + pathBounds.Left,
                             target.Bounds.Y + pathBounds.Top,
                             pathBounds.Width,
-                            pathBounds.Height);
+                            pathBounds.Height
+                        );
                         EffectTarget newTarget = context.CreateTarget(bounds);
                         using (ImmediateCanvas newCanvas = context.Open(newTarget))
-                        using (newCanvas.PushTransform(Matrix.CreateTranslation(-pathBounds.Left, -pathBounds.Top)))
+                        using (
+                            newCanvas.PushTransform(
+                                Matrix.CreateTranslation(-pathBounds.Left, -pathBounds.Top)
+                            )
+                        )
                         {
                             newCanvas.Clear();
                             newCanvas.Canvas.ClipPath(skpath, antialias: true);

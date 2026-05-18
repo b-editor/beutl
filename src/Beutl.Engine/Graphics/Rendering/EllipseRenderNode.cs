@@ -32,7 +32,7 @@ public sealed class EllipseRenderNode(Rect rect, Brush.Resource? fill, Pen.Resou
                 PenHelper.GetBounds(Rect, Pen?.Resource),
                 canvas => canvas.DrawEllipse(Rect, Fill?.Resource, Pen?.Resource),
                 HitTest
-            )
+            ),
         ];
     }
 

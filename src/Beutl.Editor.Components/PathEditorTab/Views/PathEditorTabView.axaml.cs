@@ -28,11 +28,12 @@ namespace Beutl.Editor.Components.PathEditorTab.Views;
 public partial class PathEditorTabView : UserControl, IPathEditorView
 {
     public static readonly DirectProperty<PathEditorTabView, double> ScaleProperty =
-        AvaloniaProperty.RegisterDirect<PathEditorTabView, double>(nameof(Scale),
-            o => o.Scale);
+        AvaloniaProperty.RegisterDirect<PathEditorTabView, double>(nameof(Scale), o => o.Scale);
 
-    public static readonly StyledProperty<Matrix> MatrixProperty =
-        AvaloniaProperty.Register<PathEditorTabView, Matrix>(nameof(Matrix), Matrix.Identity);
+    public static readonly StyledProperty<Matrix> MatrixProperty = AvaloniaProperty.Register<
+        PathEditorTabView,
+        Matrix
+    >(nameof(Matrix), Matrix.Identity);
 
     private double _scale = 1;
     private Point _clickPoint;
@@ -59,25 +60,29 @@ public partial class PathEditorTabView : UserControl, IPathEditorView
         view.GetObservable(PathGeometryControl.FigureProperty)
             .Subscribe(geo =>
             {
-                canvas.Children.RemoveAll(canvas.Children
-                    .Where(c => c is Thumb)
-                    .Do(t => t.DataContext = null));
+                canvas.Children.RemoveAll(
+                    canvas.Children.Where(c => c is Thumb).Do(t => t.DataContext = null)
+                );
 
                 _disposable?.Dispose();
                 _disposable = geo?.Segments.ForEachItem(
                     OnOperationAttached,
                     OnOperationDetached,
-                    () => canvas.Children.RemoveAll(canvas.Children
-                        .Where(c => c is Thumb)
-                        .Do(t => t.DataContext = null)));
+                    () =>
+                        canvas.Children.RemoveAll(
+                            canvas.Children.Where(c => c is Thumb).Do(t => t.DataContext = null)
+                        )
+                );
             });
 
         // 選択されているアンカーまたは、PathGeometry.IsClosedが変更されたとき、
         // アンカーの可視性を変更する
         this.GetObservable(DataContextProperty)
             .Select(v => v as PathEditorTabViewModel)
-            .Select(v => v?.SelectedOperation.CombineLatest(v.IsClosed).ToUnit()
-                         ?? Observable.ReturnThenNever<Unit>(default))
+            .Select(v =>
+                v?.SelectedOperation.CombineLatest(v.IsClosed).ToUnit()
+                ?? Observable.ReturnThenNever<Unit>(default)
+            )
             .Switch()
             .ObserveOnUIDispatcher()
             .Subscribe(_ => UpdateControlPointVisibility());
@@ -85,22 +90,28 @@ public partial class PathEditorTabView : UserControl, IPathEditorView
         // 個別にBindingするのではなく、一括で位置を変更する
         this.GetObservable(DataContextProperty)
             .Select(v => v as PathEditorTabViewModel)
-            .Select(v => v?.EditorContext.GetService<IPreviewPlayer>()?.AfterRendered ?? Observable.ReturnThenNever(Unit.Default))
+            .Select(v =>
+                v?.EditorContext.GetService<IPreviewPlayer>()?.AfterRendered
+                ?? Observable.ReturnThenNever(Unit.Default)
+            )
             .Switch()
             .CombineLatest(this.GetObservable(ScaleProperty), this.GetObservable(MatrixProperty))
             .Subscribe(_ => UpdateThumbPosition());
 
         this.GetObservable(DataContextProperty)
             .Select(v => v as PathEditorTabViewModel)
-            .Select(v => v?.EditorContext.GetService<IPreviewPlayer>()?.AfterRendered ?? Observable.ReturnThenNever(Unit.Default))
+            .Select(v =>
+                v?.EditorContext.GetService<IPreviewPlayer>()?.AfterRendered
+                ?? Observable.ReturnThenNever(Unit.Default)
+            )
             .Switch()
             .CombineLatest(view.GetObservable(PathGeometryControl.FigureProperty))
             .Subscribe(_ => UpdateBackgroundGeometry());
 
-        this.GetObservable(MatrixProperty)
-            .Subscribe(m => path.StrokeThickness = 2 / m.M11);
+        this.GetObservable(MatrixProperty).Subscribe(m => path.StrokeThickness = 2 / m.M11);
 
-        StrokeToggleButton.GetObservable(ToggleButton.IsCheckedProperty)
+        StrokeToggleButton
+            .GetObservable(ToggleButton.IsCheckedProperty)
             .Subscribe(v =>
             {
                 _strokeBindingRevoker?.Dispose();
@@ -109,7 +120,8 @@ public partial class PathEditorTabView : UserControl, IPathEditorView
                 {
                     _strokeBindingRevoker = path.Bind(
                         Shape.StrokeProperty,
-                        new DynamicResourceExtension("AccentFillColorDefaultBrush"));
+                        new DynamicResourceExtension("AccentFillColorDefaultBrush")
+                    );
                 }
                 else
                 {
@@ -117,7 +129,8 @@ public partial class PathEditorTabView : UserControl, IPathEditorView
                 }
             });
 
-        FillToggleButton.GetObservable(ToggleButton.IsCheckedProperty)
+        FillToggleButton
+            .GetObservable(ToggleButton.IsCheckedProperty)
             .Subscribe(v =>
             {
                 _fillBindingRevoker?.Dispose();
@@ -126,7 +139,8 @@ public partial class PathEditorTabView : UserControl, IPathEditorView
                 {
                     _fillBindingRevoker = path.Bind(
                         Shape.FillProperty,
-                        new DynamicResourceExtension("ControlFillColorDefaultBrush"));
+                        new DynamicResourceExtension("ControlFillColorDefaultBrush")
+                    );
                 }
                 else
                 {
@@ -143,7 +157,8 @@ public partial class PathEditorTabView : UserControl, IPathEditorView
                 canvas,
                 viewModel.SelectedOperation.Value,
                 viewModel.PathFigure.Value,
-                viewModel.IsClosed.Value);
+                viewModel.IsClosed.Value
+            );
         }
     }
 
@@ -151,7 +166,9 @@ public partial class PathEditorTabView : UserControl, IPathEditorView
     {
         Dispatcher.UIThread.Post(() =>
         {
-            if (DataContext is PathEditorTabViewModel { GeometryResource.Value.Item1: { } geometry })
+            if (
+                DataContext is PathEditorTabViewModel { GeometryResource.Value.Item1: { } geometry }
+            )
             {
                 using (var context = new GeometryContext { FillType = geometry.FillType })
                 {
@@ -159,9 +176,10 @@ public partial class PathEditorTabView : UserControl, IPathEditorView
                     string s = context.NativeObject.ToSvgPathData();
 
                     var newGeometry = Avalonia.Media.PathGeometry.Parse(s);
-                    newGeometry.FillRule = geometry.FillType == PathFillType.Winding
-                        ? Avalonia.Media.FillRule.NonZero
-                        : Avalonia.Media.FillRule.EvenOdd;
+                    newGeometry.FillRule =
+                        geometry.FillType == PathFillType.Winding
+                            ? Avalonia.Media.FillRule.NonZero
+                            : Avalonia.Media.FillRule.EvenOdd;
                     path.Data = newGeometry;
                 }
             }
@@ -174,32 +192,37 @@ public partial class PathEditorTabView : UserControl, IPathEditorView
 
     public void UpdateThumbPosition()
     {
-        if (SkipUpdatePosition) return;
+        if (SkipUpdatePosition)
+            return;
 
-        Dispatcher.UIThread.Post(() =>
-        {
-            if (DataContext is PathEditorTabViewModel viewModel)
+        Dispatcher.UIThread.Post(
+            () =>
             {
-                var clock = viewModel.EditorContext.GetRequiredService<IEditorClock>();
-                foreach (Thumb thumb in canvas.Children.OfType<Thumb>())
+                if (DataContext is PathEditorTabViewModel viewModel)
                 {
-                    if (thumb.DataContext is PathSegment segment)
+                    var clock = viewModel.EditorContext.GetRequiredService<IEditorClock>();
+                    foreach (Thumb thumb in canvas.Children.OfType<Thumb>())
                     {
-                        IProperty<BtlPoint>? prop = PathEditorHelper.GetProperty(thumb);
-                        if (prop != null)
+                        if (thumb.DataContext is PathSegment segment)
                         {
-                            TimeSpan currentTime = clock.CurrentTime.Value;
-                            Point point = prop.GetValue(new CompositionContext(currentTime)).ToAvaPoint();
-                            point = point.Transform(Matrix);
-                            point *= Scale;
+                            IProperty<BtlPoint>? prop = PathEditorHelper.GetProperty(thumb);
+                            if (prop != null)
+                            {
+                                TimeSpan currentTime = clock.CurrentTime.Value;
+                                Point point = prop.GetValue(new CompositionContext(currentTime))
+                                    .ToAvaPoint();
+                                point = point.Transform(Matrix);
+                                point *= Scale;
 
-                            Canvas.SetLeft(thumb, point.X);
-                            Canvas.SetTop(thumb, point.Y);
+                                Canvas.SetLeft(thumb, point.X);
+                                Canvas.SetTop(thumb, point.Y);
+                            }
                         }
                     }
                 }
-            }
-        }, DispatcherPriority.MaxValue);
+            },
+            DispatcherPriority.MaxValue
+        );
     }
 
     public bool SkipUpdatePosition { get; set; }
@@ -250,8 +273,11 @@ public partial class PathEditorTabView : UserControl, IPathEditorView
                 _rangeSelectionBorder.Width = rect.Width;
                 _rangeSelectionBorder.Height = rect.Height;
 
-                foreach (Thumb? item in canvas.Children.OfType<Thumb>()
-                             .Where(c => !c.Classes.Contains("control")))
+                foreach (
+                    Thumb? item in canvas
+                        .Children.OfType<Thumb>()
+                        .Where(c => !c.Classes.Contains("control"))
+                )
                 {
                     Point p = PathEditorHelper.GetCanvasPosition(item);
                     PathPointDragBehavior.SetIsSelected(item, rect.Contains(p));
@@ -308,7 +334,7 @@ public partial class PathEditorTabView : UserControl, IPathEditorView
                     BorderThickness = new(0.5),
                     Background = TimelineSharedObject.SelectionFillBrush,
                     HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Left,
-                    VerticalAlignment = Avalonia.Layout.VerticalAlignment.Top
+                    VerticalAlignment = Avalonia.Layout.VerticalAlignment.Top,
                 };
                 panel.Children.Add(_rangeSelectionBorder);
             }
@@ -320,11 +346,15 @@ public partial class PathEditorTabView : UserControl, IPathEditorView
     protected override void OnKeyUp(KeyEventArgs e)
     {
         base.OnKeyUp(e);
-        if (e.Key is Key.Left or Key.Up or Key.Right or Key.Down
+        if (
+            e.Key is Key.Left or Key.Up or Key.Right or Key.Down
             && DataContext is PathEditorTabViewModel { Element.Value: { } element } viewModel
-            && _dragStates?.Count > 0)
+            && _dragStates?.Count > 0
+        )
         {
-            viewModel.EditorContext.GetRequiredService<HistoryManager>().Commit(CommandNames.EditPathPoint);
+            viewModel
+                .EditorContext.GetRequiredService<HistoryManager>()
+                .Commit(CommandNames.EditPathPoint);
         }
 
         _dragStates = null;
@@ -335,15 +365,15 @@ public partial class PathEditorTabView : UserControl, IPathEditorView
         base.OnKeyDown(e);
         if (e.Key == Key.Escape)
         {
-            GetSelectedAnchors()
-                .ForEach(i => PathPointDragBehavior.SetIsSelected(i, false));
+            GetSelectedAnchors().ForEach(i => PathPointDragBehavior.SetIsSelected(i, false));
             e.Handled = true;
         }
 
         var modifier = OperatingSystem.IsMacOS() ? KeyModifiers.Meta : KeyModifiers.Control;
         if (e.KeyModifiers == modifier && e.Key == Key.A)
         {
-            canvas.Children.OfType<Thumb>()
+            canvas
+                .Children.OfType<Thumb>()
                 .Where(c => !c.Classes.Contains("control"))
                 .ForEach(i => PathPointDragBehavior.SetIsSelected(i, true));
 
@@ -352,12 +382,16 @@ public partial class PathEditorTabView : UserControl, IPathEditorView
 
         if (e.Key is Key.Left or Key.Up or Key.Right or Key.Down)
         {
-            if (_dragStates == null
-                && DataContext is PathEditorTabViewModel
-                {
-                    SelectedOperation.Value: { } segment, PathFigure.Value: { } figure
-                } viewModel
-                && FindAnchorThumb(segment) is Thumb thumb)
+            if (
+                _dragStates == null
+                && DataContext
+                    is PathEditorTabViewModel
+                    {
+                        SelectedOperation.Value: { } segment,
+                        PathFigure.Value: { } figure
+                    } viewModel
+                && FindAnchorThumb(segment) is Thumb thumb
+            )
             {
                 _dragStates = CreateDragState(thumb, figure, segment);
             }
@@ -370,7 +404,7 @@ public partial class PathEditorTabView : UserControl, IPathEditorView
                     Key.Up => new(0, -1),
                     Key.Right => new(1, 0),
                     Key.Down => new(0, 1),
-                    _ => default
+                    _ => default,
                 };
 
                 _dragStates.ForEach(d => d.Move(vector));
@@ -379,37 +413,69 @@ public partial class PathEditorTabView : UserControl, IPathEditorView
         }
     }
 
-    private List<PathPointDragState> CreateDragState(Thumb thumb, PathFigure figure, PathSegment segment)
+    private List<PathPointDragState> CreateDragState(
+        Thumb thumb,
+        PathFigure figure,
+        PathSegment segment
+    )
     {
         IProperty<BtlPoint>? prop = PathEditorHelper.GetProperty(thumb);
         var list = new List<PathPointDragState>();
         if (prop != null && DataContext is PathEditorTabViewModel viewModel)
         {
-            PathPointDragState dragState = PathPointDragBehavior.CreateThumbDragState(viewModel, segment, prop);
+            PathPointDragState dragState = PathPointDragBehavior.CreateThumbDragState(
+                viewModel,
+                segment,
+                prop
+            );
             dragState.Thumb = thumb;
             list.Add(dragState);
 
             if (!thumb.Classes.Contains("control"))
             {
-                PathPointDragBehavior.CoordinateControlPoint(list, this, viewModel, figure, segment);
+                PathPointDragBehavior.CoordinateControlPoint(
+                    list,
+                    this,
+                    viewModel,
+                    figure,
+                    segment
+                );
                 foreach (Thumb anchor in GetSelectedAnchors())
                 {
-                    if (anchor == thumb) continue;
+                    if (anchor == thumb)
+                        continue;
 
                     IProperty<BtlPoint>? prop2 = PathEditorHelper.GetProperty(anchor);
                     if (anchor.DataContext is PathSegment s && prop2 != null)
                     {
-                        PathPointDragState d = PathPointDragBehavior.CreateThumbDragState(viewModel, s, prop2);
+                        PathPointDragState d = PathPointDragBehavior.CreateThumbDragState(
+                            viewModel,
+                            s,
+                            prop2
+                        );
                         d.Thumb = anchor;
                         list.Add(d);
 
-                        PathPointDragBehavior.CoordinateControlPoint(list, this, viewModel, figure, s);
+                        PathPointDragBehavior.CoordinateControlPoint(
+                            list,
+                            this,
+                            viewModel,
+                            figure,
+                            s
+                        );
                     }
                 }
             }
             else
             {
-                PathPointDragBehavior.CoordinateAnotherControlPoint(list, this, viewModel, figure, segment, prop);
+                PathPointDragBehavior.CoordinateAnotherControlPoint(
+                    list,
+                    this,
+                    viewModel,
+                    figure,
+                    segment,
+                    prop
+                );
             }
         }
 
@@ -418,9 +484,11 @@ public partial class PathEditorTabView : UserControl, IPathEditorView
 
     private void OnOperationDetached(int index, PathSegment obj)
     {
-        canvas.Children.RemoveAll(canvas.Children
-            .Where(c => c is Thumb t && t.DataContext == obj)
-            .Do(t => t.DataContext = null));
+        canvas.Children.RemoveAll(
+            canvas
+                .Children.Where(c => c is Thumb t && t.DataContext == obj)
+                .Do(t => t.DataContext = null)
+        );
     }
 
     private void OnOperationAttached(int index, PathSegment obj)
@@ -436,13 +504,13 @@ public partial class PathEditorTabView : UserControl, IPathEditorView
     {
         var thumb = new Thumb()
         {
-            [!ThemeProperty] = new DynamicResourceExtension("PathEditorControlPointThumbTheme")
+            [!ThemeProperty] = new DynamicResourceExtension("PathEditorControlPointThumbTheme"),
         };
         var flyout = new FAMenuFlyout();
         var delete = new MenuFlyoutItem
         {
             Text = Strings.Delete,
-            IconSource = new SymbolIconSource { Symbol = Symbol.Delete }
+            IconSource = new SymbolIconSource { Symbol = Symbol.Delete },
         };
         delete.Click += OnDeleteClicked;
         flyout.ItemsSource = new[] { delete };
@@ -456,9 +524,11 @@ public partial class PathEditorTabView : UserControl, IPathEditorView
 
     private void OnDeleteClicked(object? sender, RoutedEventArgs e)
     {
-        if (sender is MenuFlyoutItem { DataContext: PathSegment op }
+        if (
+            sender is MenuFlyoutItem { DataContext: PathSegment op }
             && DataContext is PathEditorTabViewModel viewModel
-            && viewModel.FigureContext.Value is IPathFigureEditorContext figureContext)
+            && viewModel.FigureContext.Value is IPathFigureEditorContext figureContext
+        )
         {
             int index = figureContext.GetSegmentIndex(op);
             if (index >= 0)
@@ -510,10 +580,12 @@ public partial class PathEditorTabView : UserControl, IPathEditorView
 
     private void AddOpClicked(object? sender, RoutedEventArgs e)
     {
-        if (sender is MenuFlyoutItem item
+        if (
+            sender is MenuFlyoutItem item
             && DataContext is PathEditorTabViewModel viewModel
             && viewModel.PathFigure.Value is { } figure
-            && viewModel.FigureContext.Value is IPathFigureEditorContext figureContext)
+            && viewModel.FigureContext.Value is IPathFigureEditorContext figureContext
+        )
         {
             var clock = viewModel.GetRequiredService<IEditorClock>();
             int index = figure.Segments.Count;
@@ -521,7 +593,9 @@ public partial class PathEditorTabView : UserControl, IPathEditorView
             if (index > 0)
             {
                 PathSegment lastOp = figure.Segments[index - 1];
-                lastPoint = lastOp.GetEndPoint().GetValue(new CompositionContext(clock.CurrentTime.Value));
+                lastPoint = lastOp
+                    .GetEndPoint()
+                    .GetValue(new CompositionContext(clock.CurrentTime.Value));
             }
 
             BtlPoint point = (_clickPoint / Scale).ToBtlPoint();
@@ -542,18 +616,21 @@ public partial class PathEditorTabView : UserControl, IPathEditorView
     public Thumb? FindThumb(PathSegment segment, IProperty<BtlPoint> property)
     {
         return canvas.Children.FirstOrDefault(v =>
-            ReferenceEquals(v.DataContext, segment) && Equals(v.Tag, property.Name)) as Thumb;
+                ReferenceEquals(v.DataContext, segment) && Equals(v.Tag, property.Name)
+            ) as Thumb;
     }
 
     public Thumb? FindAnchorThumb(PathSegment segment)
     {
         return canvas.Children.FirstOrDefault(v =>
-            ReferenceEquals(v.DataContext, segment) && !v.Classes.Contains("control")) as Thumb;
+                ReferenceEquals(v.DataContext, segment) && !v.Classes.Contains("control")
+            ) as Thumb;
     }
 
     public Thumb[] GetSelectedAnchors()
     {
-        return canvas.Children.OfType<Thumb>()
+        return canvas
+            .Children.OfType<Thumb>()
             .Where(c => !c.Classes.Contains("control") && PathPointDragBehavior.GetIsSelected(c))
             .ToArray();
     }

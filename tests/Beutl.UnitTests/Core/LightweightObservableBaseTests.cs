@@ -27,7 +27,9 @@ public class LightweightObservableBaseTests
         public int CompletedCount;
 
         public void OnCompleted() => CompletedCount++;
+
         public void OnError(Exception error) => Error = error;
+
         public void OnNext(int value) => Values.Add(value);
     }
 

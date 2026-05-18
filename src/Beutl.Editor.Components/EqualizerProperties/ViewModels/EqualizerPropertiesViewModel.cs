@@ -46,7 +46,8 @@ public sealed class EqualizerPropertiesViewModel : IPropertyEditorContext, IServ
 
     public EqualizerEffect? TryGetEqualizerEffect()
     {
-        if (_props.Count == 0) return null;
+        if (_props.Count == 0)
+            return null;
         return _props[0].GetEngineProperty()?.GetOwnerObject() as EqualizerEffect;
     }
 
@@ -65,7 +66,8 @@ public sealed class EqualizerPropertiesViewModel : IPropertyEditorContext, IServ
             CreateEditors();
             AcceptChildren();
             AttachClock();
-            SampleRate.Value = _element?.FindHierarchicalParent<Project>()?.GetSampleRate() ?? 44100;
+            SampleRate.Value =
+                _element?.FindHierarchicalParent<Project>()?.GetSampleRate() ?? 44100;
         }
     }
 
@@ -78,13 +80,9 @@ public sealed class EqualizerPropertiesViewModel : IPropertyEditorContext, IServ
         }
     }
 
-    public void ReadFromJson(JsonObject json)
-    {
-    }
+    public void ReadFromJson(JsonObject json) { }
 
-    public void WriteToJson(JsonObject json)
-    {
-    }
+    public void WriteToJson(JsonObject json) { }
 
     public void Dispose()
     {
@@ -111,16 +109,21 @@ public sealed class EqualizerPropertiesViewModel : IPropertyEditorContext, IServ
 
     private void CreateEditors()
     {
-        if (_editorsCreated) return;
+        if (_editorsCreated)
+            return;
         _editorsCreated = true;
 
         var factory = _parentServices?.GetService<IPropertyEditorFactory>();
-        if (factory == null) return;
+        if (factory == null)
+            return;
 
         var equalizer = TryGetEqualizerEffect();
-        if (equalizer == null) return;
+        if (equalizer == null)
+            return;
 
-        _bandCountAdapter = _props.FirstOrDefault(p => p.GetEngineProperty() == equalizer.BandCountOption);
+        _bandCountAdapter = _props.FirstOrDefault(p =>
+            p.GetEngineProperty() == equalizer.BandCountOption
+        );
         if (_bandCountAdapter != null)
         {
             BandCountEditor.Value = factory.CreateEditor(_bandCountAdapter);
@@ -151,7 +154,8 @@ public sealed class EqualizerPropertiesViewModel : IPropertyEditorContext, IServ
     {
         var equalizer = TryGetEqualizerEffect();
         var factory = _parentServices?.GetService<IPropertyEditorFactory>();
-        if (equalizer == null || factory == null) return;
+        if (equalizer == null || factory == null)
+            return;
         RebuildBands(equalizer, factory);
     }
 
@@ -165,7 +169,15 @@ public sealed class EqualizerPropertiesViewModel : IPropertyEditorContext, IServ
 
         for (int i = 0; i < equalizer.Bands.Count; i++)
         {
-            Bands.Add(new EqualizerBandItemViewModel(equalizer.Bands[i], i, factory, _element, _parentServices));
+            Bands.Add(
+                new EqualizerBandItemViewModel(
+                    equalizer.Bands[i],
+                    i,
+                    factory,
+                    _element,
+                    _parentServices
+                )
+            );
         }
 
         // Re-evaluate SelectedBand so it points to a freshly created ViewModel
@@ -207,9 +219,12 @@ public sealed class EqualizerPropertiesViewModel : IPropertyEditorContext, IServ
         }
     }
 
-    private sealed record Visitor(EqualizerPropertiesViewModel Obj) : IServiceProvider, IPropertyEditorContextVisitor
+    private sealed record Visitor(EqualizerPropertiesViewModel Obj)
+        : IServiceProvider,
+            IPropertyEditorContextVisitor
     {
         public object? GetService(Type serviceType) => Obj._parentServices?.GetService(serviceType);
+
         public void Visit(IPropertyEditorContext context) { }
     }
 }

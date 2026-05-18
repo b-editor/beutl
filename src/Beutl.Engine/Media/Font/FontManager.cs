@@ -27,7 +27,8 @@ public sealed class FontManager
             {
                 var output = new StringBuilder();
                 string applicationPath = "/usr/bin/fc-match";
-                var paths = Environment.GetEnvironmentVariable("PATH")?.Split(Path.PathSeparator) ?? [];
+                var paths =
+                    Environment.GetEnvironmentVariable("PATH")?.Split(Path.PathSeparator) ?? [];
                 foreach (var path in paths)
                 {
                     var fullPath = Path.Combine(path, "fc-match");
@@ -37,10 +38,12 @@ public sealed class FontManager
                         break;
                     }
                 }
-                using Process process = Process.Start(new ProcessStartInfo(applicationPath, "--format %{file}")
-                {
-                    RedirectStandardOutput = true
-                })!;
+                using Process process = Process.Start(
+                    new ProcessStartInfo(applicationPath, "--format %{file}")
+                    {
+                        RedirectStandardOutput = true,
+                    }
+                )!;
                 process.OutputDataReceived += (sender, e) =>
                 {
                     if (e.Data != null)
@@ -73,17 +76,19 @@ public sealed class FontManager
         _fontDirs = [.. GlobalConfiguration.Instance.FontConfig.FontDirectories];
         var list = new List<SKTypeface>();
 
-        foreach (string file in _fontDirs
-            .Where(dir => Directory.Exists(dir))
-            .Select(dir => Directory.GetFiles(dir, "*.*", SearchOption.AllDirectories))
-            .SelectMany(files => files)
-            .Where(file =>
-            {
-                ReadOnlySpan<char> ext = Path.GetExtension(file.AsSpan());
-                return ext.Equals(".ttf", StringComparison.OrdinalIgnoreCase)
-                    || ext.Equals(".ttc", StringComparison.OrdinalIgnoreCase)
-                    || ext.Equals(".otf", StringComparison.OrdinalIgnoreCase);
-            }))
+        foreach (
+            string file in _fontDirs
+                .Where(dir => Directory.Exists(dir))
+                .Select(dir => Directory.GetFiles(dir, "*.*", SearchOption.AllDirectories))
+                .SelectMany(files => files)
+                .Where(file =>
+                {
+                    ReadOnlySpan<char> ext = Path.GetExtension(file.AsSpan());
+                    return ext.Equals(".ttf", StringComparison.OrdinalIgnoreCase)
+                        || ext.Equals(".ttc", StringComparison.OrdinalIgnoreCase)
+                        || ext.Equals(".otf", StringComparison.OrdinalIgnoreCase);
+                })
+        )
         {
             SKTypeface? face = LoadFont(file);
 
@@ -97,7 +102,8 @@ public sealed class FontManager
         {
             var family = new FontFamily(item.Key);
             SKTypeface[] typefaces = [.. item];
-            if (typefaces.Length == 0) continue;
+            if (typefaces.Length == 0)
+                continue;
             _fonts.Add(family, TypefaceCollection.Create(typefaces));
 
             if (!_fontNames.ContainsKey(family))
@@ -137,7 +143,8 @@ public sealed class FontManager
     {
         get
         {
-            lock (_gate) return _fonts.Count;
+            lock (_gate)
+                return _fonts.Count;
         }
     }
 
@@ -146,7 +153,8 @@ public sealed class FontManager
     public void AddFont(Stream stream)
     {
         SKTypeface? typeface = SKTypeface.FromStream(stream);
-        if (typeface == null) return;
+        if (typeface == null)
+            return;
         // 重複登録された SKTypeface は AddFont 側で false が返るので、
         // 戻り値を無視せず必ず Dispose する。
         if (!AddFont(typeface))
@@ -162,8 +170,8 @@ public sealed class FontManager
 
         lock (_gate)
         {
-            ref FrozenDictionary<Typeface, SKTypeface>? value
-                = ref CollectionsMarshal.GetValueRefOrAddDefault(_fonts, fontFamily, out bool exists);
+            ref FrozenDictionary<Typeface, SKTypeface>? value =
+                ref CollectionsMarshal.GetValueRefOrAddDefault(_fonts, fontFamily, out bool exists);
 
             if (exists)
             {
@@ -171,8 +179,7 @@ public sealed class FontManager
 
                 if (!value!.ContainsKey(tf))
                 {
-                    value = value.Append(new(tf, typeface))
-                        .ToFrozenDictionary();
+                    value = value.Append(new(tf, typeface)).ToFrozenDictionary();
 
                     return true;
                 }
@@ -234,12 +241,18 @@ internal static class TypefaceCollection
         return list.ToFrozenDictionary();
     }
 
-    public static SKTypeface Get(this FrozenDictionary<Typeface, SKTypeface> typefaces, Typeface typeface)
+    public static SKTypeface Get(
+        this FrozenDictionary<Typeface, SKTypeface> typefaces,
+        Typeface typeface
+    )
     {
         return GetNearestMatch(typefaces, typeface);
     }
 
-    private static SKTypeface GetNearestMatch(FrozenDictionary<Typeface, SKTypeface> typefaces, Typeface key)
+    private static SKTypeface GetNearestMatch(
+        FrozenDictionary<Typeface, SKTypeface> typefaces,
+        Typeface key
+    )
     {
         if (typefaces.TryGetValue(key, out SKTypeface? typeface))
         {
@@ -258,7 +271,12 @@ internal static class TypefaceCollection
             {
                 if (weight - j >= 100)
                 {
-                    if (typefaces.TryGetValue(new Typeface(key.FontFamily, (FontStyle)i, (FontWeight)(weight - j)), out typeface))
+                    if (
+                        typefaces.TryGetValue(
+                            new Typeface(key.FontFamily, (FontStyle)i, (FontWeight)(weight - j)),
+                            out typeface
+                        )
+                    )
                     {
                         return typeface;
                     }
@@ -269,7 +287,12 @@ internal static class TypefaceCollection
                     continue;
                 }
 
-                if (typefaces.TryGetValue(new Typeface(key.FontFamily, (FontStyle)i, (FontWeight)(weight + j)), out typeface))
+                if (
+                    typefaces.TryGetValue(
+                        new Typeface(key.FontFamily, (FontStyle)i, (FontWeight)(weight + j)),
+                        out typeface
+                    )
+                )
                 {
                     return typeface;
                 }
@@ -277,6 +300,8 @@ internal static class TypefaceCollection
         }
 
         //Nothing was found so we try to get a regular typeface.
-        return typefaces.TryGetValue(new Typeface(key.FontFamily), out typeface) ? typeface : typefaces.Values[0];
+        return typefaces.TryGetValue(new Typeface(key.FontFamily), out typeface)
+            ? typeface
+            : typefaces.Values[0];
     }
 }

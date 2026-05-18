@@ -13,7 +13,9 @@ public sealed class ObjectTemplateService
     private readonly CoreList<ObjectTemplateItem> _items = [];
 
     private readonly string _directoryPath = Path.Combine(
-        BeutlEnvironment.GetHomeDirectoryPath(), "templates");
+        BeutlEnvironment.GetHomeDirectoryPath(),
+        "templates"
+    );
 
     private static readonly TimeSpan s_debounceInterval = TimeSpan.FromMilliseconds(300);
 
@@ -74,7 +76,8 @@ public sealed class ObjectTemplateService
     private bool NameExistsLocked(string name)
     {
         string filePath = Path.Combine(_directoryPath, name + ".json");
-        if (File.Exists(filePath)) return true;
+        if (File.Exists(filePath))
+            return true;
 
         foreach (ObjectTemplateItem item in _items)
         {
@@ -91,7 +94,8 @@ public sealed class ObjectTemplateService
         {
             foreach (ObjectTemplateItem item in _items)
             {
-                if (item.Id == id) return item;
+                if (item.Id == id)
+                    return item;
             }
         }
 
@@ -149,15 +153,27 @@ public sealed class ObjectTemplateService
     {
         try
         {
-            if (!File.Exists(filePath)) return null;
+            if (!File.Exists(filePath))
+                return null;
 
             string name = Path.GetFileNameWithoutExtension(filePath);
             DateTime lastWriteTime = File.GetLastWriteTimeUtc(filePath);
-            using FileStream stream = File.Open(filePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+            using FileStream stream = File.Open(
+                filePath,
+                FileMode.Open,
+                FileAccess.Read,
+                FileShare.ReadWrite
+            );
             var jsonNode = JsonNode.Parse(stream);
-            if (jsonNode == null) return null;
+            if (jsonNode == null)
+                return null;
 
-            ObjectTemplateItem? item = ObjectTemplateItem.FromJson(jsonNode, name, filePath, _logger);
+            ObjectTemplateItem? item = ObjectTemplateItem.FromJson(
+                jsonNode,
+                name,
+                filePath,
+                _logger
+            );
             if (item != null)
             {
                 item.LastWriteTimeUtc = lastWriteTime;
@@ -193,7 +209,9 @@ public sealed class ObjectTemplateService
             JsonNode json = ObjectTemplateItem.ToJson(item);
 
             using (FileStream stream = File.Create(filePath))
-            using (var writer = new Utf8JsonWriter(stream, new JsonWriterOptions { Indented = true }))
+            using (
+                var writer = new Utf8JsonWriter(stream, new JsonWriterOptions { Indented = true })
+            )
             {
                 json.WriteTo(writer);
             }
@@ -216,7 +234,10 @@ public sealed class ObjectTemplateService
         {
             if (!Directory.Exists(_directoryPath))
             {
-                _logger.LogInformation("Templates directory not found: {DirectoryPath}", _directoryPath);
+                _logger.LogInformation(
+                    "Templates directory not found: {DirectoryPath}",
+                    _directoryPath
+                );
                 return;
             }
 
@@ -224,8 +245,13 @@ public sealed class ObjectTemplateService
             {
                 _items.Clear();
 
-                foreach (string filePath in Directory.EnumerateFiles(
-                             _directoryPath, "*.json", SearchOption.AllDirectories))
+                foreach (
+                    string filePath in Directory.EnumerateFiles(
+                        _directoryPath,
+                        "*.json",
+                        SearchOption.AllDirectories
+                    )
+                )
                 {
                     var item = LoadFromFile(filePath);
                     if (item != null)
@@ -234,8 +260,11 @@ public sealed class ObjectTemplateService
                     }
                 }
 
-                _logger.LogInformation("Restored {Count} ObjectTemplateItem from directory: {DirectoryPath}",
-                    _items.Count, _directoryPath);
+                _logger.LogInformation(
+                    "Restored {Count} ObjectTemplateItem from directory: {DirectoryPath}",
+                    _items.Count,
+                    _directoryPath
+                );
             }
         }
         catch (Exception ex)
@@ -254,7 +283,7 @@ public sealed class ObjectTemplateService
                 NotifyFilter = NotifyFilters.FileName | NotifyFilters.LastWrite,
                 Filter = "*.json",
                 IncludeSubdirectories = true,
-                EnableRaisingEvents = true
+                EnableRaisingEvents = true,
             };
 
             _watcher.Created += OnFileSystemEvent;
@@ -262,7 +291,10 @@ public sealed class ObjectTemplateService
             _watcher.Renamed += OnFileSystemEvent;
             _watcher.Changed += OnFileSystemEvent;
 
-            _logger.LogInformation("Started watching templates directory: {DirectoryPath}", _directoryPath);
+            _logger.LogInformation(
+                "Started watching templates directory: {DirectoryPath}",
+                _directoryPath
+            );
         }
         catch (Exception ex)
         {
@@ -290,16 +322,19 @@ public sealed class ObjectTemplateService
             _debounceCts = new CancellationTokenSource();
             CancellationToken token = _debounceCts.Token;
 
-            Task.Delay(s_debounceInterval, token).ContinueWith(_ =>
-                {
-                    if (!token.IsCancellationRequested)
+            Task.Delay(s_debounceInterval, token)
+                .ContinueWith(
+                    _ =>
                     {
-                        RefreshFromFileSystem();
-                    }
-                },
-                token,
-                TaskContinuationOptions.OnlyOnRanToCompletion,
-                TaskScheduler.Default);
+                        if (!token.IsCancellationRequested)
+                        {
+                            RefreshFromFileSystem();
+                        }
+                    },
+                    token,
+                    TaskContinuationOptions.OnlyOnRanToCompletion,
+                    TaskScheduler.Default
+                );
         }
     }
 
@@ -307,11 +342,13 @@ public sealed class ObjectTemplateService
     {
         try
         {
-            if (!Directory.Exists(_directoryPath)) return;
+            if (!Directory.Exists(_directoryPath))
+                return;
 
             var diskFiles = new HashSet<string>(
                 Directory.EnumerateFiles(_directoryPath, "*.json", SearchOption.AllDirectories),
-                StringComparer.OrdinalIgnoreCase);
+                StringComparer.OrdinalIgnoreCase
+            );
 
             lock (_lock)
             {
@@ -322,7 +359,10 @@ public sealed class ObjectTemplateService
                     if (item.FilePath == null || !diskFiles.Contains(item.FilePath))
                     {
                         _items.RemoveAt(i);
-                        _logger.LogInformation("Removed template (file gone): {FilePath}", item.FilePath);
+                        _logger.LogInformation(
+                            "Removed template (file gone): {FilePath}",
+                            item.FilePath
+                        );
                     }
                 }
 
@@ -331,7 +371,8 @@ public sealed class ObjectTemplateService
                 for (int i = 0; i < _items.Count; i++)
                 {
                     ObjectTemplateItem item = _items[i];
-                    if (item.FilePath == null) continue;
+                    if (item.FilePath == null)
+                        continue;
 
                     loadedPaths.Add(item.FilePath);
 
@@ -343,14 +384,18 @@ public sealed class ObjectTemplateService
                     if (reloaded != null)
                     {
                         _items[i] = reloaded;
-                        _logger.LogInformation("Reloaded template (file changed): {FilePath}", item.FilePath);
+                        _logger.LogInformation(
+                            "Reloaded template (file changed): {FilePath}",
+                            item.FilePath
+                        );
                     }
                 }
 
                 // 新しいファイルを読み込んで追加
                 foreach (string filePath in diskFiles)
                 {
-                    if (loadedPaths.Contains(filePath)) continue;
+                    if (loadedPaths.Contains(filePath))
+                        continue;
 
                     ObjectTemplateItem? newItem = LoadFromFile(filePath);
                     if (newItem != null)

@@ -28,11 +28,15 @@ internal sealed unsafe class VulkanFramebuffer3D : IFramebuffer3D
         IReadOnlyList<VulkanTexture2D> colorTextures,
         VulkanTexture2D depthTexture,
         bool ownsColorTextures = false,
-        bool ownsDepthTexture = false)
+        bool ownsDepthTexture = false
+    )
     {
         if (colorTextures.Count == 0)
         {
-            throw new ArgumentException("At least one color texture is required", nameof(colorTextures));
+            throw new ArgumentException(
+                "At least one color texture is required",
+                nameof(colorTextures)
+            );
         }
 
         _context = context;
@@ -64,7 +68,7 @@ internal sealed unsafe class VulkanFramebuffer3D : IFramebuffer3D
             PAttachments = attachments,
             Width = (uint)_width,
             Height = (uint)_height,
-            Layers = 1
+            Layers = 1,
         };
 
         Framebuffer framebuffer;
@@ -106,7 +110,8 @@ internal sealed unsafe class VulkanFramebuffer3D : IFramebuffer3D
 
     public void Dispose()
     {
-        if (_disposed) return;
+        if (_disposed)
+            return;
         _disposed = true;
 
         _context.Vk.DestroyFramebuffer(_context.Device, _framebuffer, null);

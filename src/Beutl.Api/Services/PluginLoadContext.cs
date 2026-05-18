@@ -1,14 +1,19 @@
 ﻿using System.Reflection;
 using System.Runtime.Loader;
-
 using NuGet.Packaging;
 
 namespace Beutl.Api.Services;
 
-public class PluginLoadContext(string mainDirectory, PackageFolderReader? reader = null) : AssemblyLoadContext(isCollectible: true)
+public class PluginLoadContext(string mainDirectory, PackageFolderReader? reader = null)
+    : AssemblyLoadContext(isCollectible: true)
 {
-    private readonly AssemblyDependencyResolver _resolver = new AssemblyDependencyResolver(AppContext.BaseDirectory);
-    private readonly PluginDependencyResolver _pluginResolver = new PluginDependencyResolver(mainDirectory, reader);
+    private readonly AssemblyDependencyResolver _resolver = new AssemblyDependencyResolver(
+        AppContext.BaseDirectory
+    );
+    private readonly PluginDependencyResolver _pluginResolver = new PluginDependencyResolver(
+        mainDirectory,
+        reader
+    );
 
     protected override Assembly? Load(AssemblyName name)
     {

@@ -38,11 +38,7 @@ public sealed class GainNode : AudioNode
             var chunkRange = new Media.TimeRange(chunkStart, chunkEnd - chunkStart);
 
             // Sample animation values
-            context.AnimationSampler.SampleBuffer(
-                Gain,
-                chunkRange,
-                context.SampleRate,
-                chunkGains);
+            context.AnimationSampler.SampleBuffer(Gain, chunkRange, context.SampleRate, chunkGains);
 
             // Convert from percentage (0-100) to factor (0-1)
             for (int i = 0; i < chunkSize; i++)

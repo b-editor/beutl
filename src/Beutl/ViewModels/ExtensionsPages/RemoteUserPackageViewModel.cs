@@ -30,19 +30,25 @@ public sealed class RemoteUserPackageViewModel : BaseViewModel, IUserPackageView
         _library = app.GetResource<LibraryService>();
         _discover = app.GetResource<DiscoverService>();
 
-        IObservable<PackageChangesQueue.EventType> observable = _handler.Queue.GetObservable(package.Name);
-        CanCancel = observable.Select(x => x != PackageChangesQueue.EventType.None)
+        IObservable<PackageChangesQueue.EventType> observable = _handler.Queue.GetObservable(
+            package.Name
+        );
+        CanCancel = observable
+            .Select(x => x != PackageChangesQueue.EventType.None)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
 
-        IObservable<bool> installed = _handler.InstalledPackageRepository.GetObservable(package.Name);
+        IObservable<bool> installed = _handler.InstalledPackageRepository.GetObservable(
+            package.Name
+        );
         IsInstallButtonVisible = installed
             .AnyTrue(CanCancel)
             .Not()
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
 
-        IsUpdateButtonVisible = LatestRelease.Select(x => x != null)
+        IsUpdateButtonVisible = LatestRelease
+            .Select(x => x != null)
             .AreTrue(CanCancel.Not())
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
@@ -71,24 +77,36 @@ public sealed class RemoteUserPackageViewModel : BaseViewModel, IUserPackageView
                         }
 
                         Release release = await AcquirePackage();
-                        var packageId = new PackageIdentity(Package.Name, new NuGetVersion(release.Version.Value));
+                        var packageId = new PackageIdentity(
+                            Package.Name,
+                            new NuGetVersion(release.Version.Value)
+                        );
 
                         try
                         {
                             await _handler.DownloadAndLoadPackage(release, packageId);
                             NotificationService.ShowInformation(
                                 title: ExtensionsStrings.PackageInstaller,
-                                message: string.Format(ExtensionsStrings.PackageInstaller_Installed,
-                                    packageId.Id));
+                                message: string.Format(
+                                    ExtensionsStrings.PackageInstaller_Installed,
+                                    packageId.Id
+                                )
+                            );
                         }
                         catch (Exception ex)
                         {
-                            _logger.LogWarning(ex, "Immediate install failed, falling back to queue.");
+                            _logger.LogWarning(
+                                ex,
+                                "Immediate install failed, falling back to queue."
+                            );
                             _handler.Queue.InstallQueue(packageId);
                             NotificationService.ShowInformation(
                                 title: ExtensionsStrings.PackageInstaller,
-                                message: string.Format(ExtensionsStrings.PackageInstaller_ScheduledInstallation,
-                                    packageId.Id));
+                                message: string.Format(
+                                    ExtensionsStrings.PackageInstaller_ScheduledInstallation,
+                                    packageId.Id
+                                )
+                            );
                         }
                     }
                 }
@@ -127,7 +145,10 @@ public sealed class RemoteUserPackageViewModel : BaseViewModel, IUserPackageView
                         }
 
                         Release release = await AcquirePackage();
-                        var packageId = new PackageIdentity(Package.Name, new NuGetVersion(release.Version.Value));
+                        var packageId = new PackageIdentity(
+                            Package.Name,
+                            new NuGetVersion(release.Version.Value)
+                        );
 
                         try
                         {
@@ -138,15 +159,26 @@ public sealed class RemoteUserPackageViewModel : BaseViewModel, IUserPackageView
                             await _handler.DownloadAndLoadPackage(release, packageId);
                             NotificationService.ShowInformation(
                                 title: ExtensionsStrings.PackageInstaller,
-                                message: string.Format(ExtensionsStrings.PackageInstaller_Updated, packageId.Id));
+                                message: string.Format(
+                                    ExtensionsStrings.PackageInstaller_Updated,
+                                    packageId.Id
+                                )
+                            );
                         }
                         catch (Exception ex)
                         {
-                            _logger.LogWarning(ex, "Immediate update failed, falling back to queue.");
+                            _logger.LogWarning(
+                                ex,
+                                "Immediate update failed, falling back to queue."
+                            );
                             _handler.Queue.InstallQueue(packageId);
                             NotificationService.ShowInformation(
                                 title: ExtensionsStrings.PackageInstaller,
-                                message: string.Format(ExtensionsStrings.PackageInstaller_ScheduledUpdate, packageId.Id));
+                                message: string.Format(
+                                    ExtensionsStrings.PackageInstaller_ScheduledUpdate,
+                                    packageId.Id
+                                )
+                            );
                         }
                     }
                 }
@@ -179,20 +211,30 @@ public sealed class RemoteUserPackageViewModel : BaseViewModel, IUserPackageView
 
                     if (!await _handler.UnloadPackages(Package.Name))
                     {
-                        throw new Exception("Failed to unload the package. It may still be in use. Uninstallation has been scheduled.");
+                        throw new Exception(
+                            "Failed to unload the package. It may still be in use. Uninstallation has been scheduled."
+                        );
                     }
 
                     if (_handler.UninstallWithFallback(Package.Name))
                     {
                         NotificationService.ShowInformation(
                             title: ExtensionsStrings.PackageInstaller,
-                            message: string.Format(ExtensionsStrings.PackageInstaller_Uninstalled, Package.Name));
+                            message: string.Format(
+                                ExtensionsStrings.PackageInstaller_Uninstalled,
+                                Package.Name
+                            )
+                        );
                     }
                     else
                     {
                         NotificationService.ShowInformation(
                             title: ExtensionsStrings.PackageInstaller,
-                            message: string.Format(ExtensionsStrings.PackageInstaller_ScheduledUninstallation, Package.Name));
+                            message: string.Format(
+                                ExtensionsStrings.PackageInstaller_ScheduledUninstallation,
+                                Package.Name
+                            )
+                        );
                     }
                 }
                 catch (Exception e)
@@ -202,7 +244,11 @@ public sealed class RemoteUserPackageViewModel : BaseViewModel, IUserPackageView
                     _handler.QueueUninstallAll(Package.Name);
                     NotificationService.ShowInformation(
                         title: ExtensionsStrings.PackageInstaller,
-                        message: string.Format(ExtensionsStrings.PackageInstaller_ScheduledUninstallation, Package.Name));
+                        message: string.Format(
+                            ExtensionsStrings.PackageInstaller_ScheduledUninstallation,
+                            Package.Name
+                        )
+                    );
                 }
                 finally
                 {
@@ -232,10 +278,14 @@ public sealed class RemoteUserPackageViewModel : BaseViewModel, IUserPackageView
             })
             .DisposeWith(_disposables);
 
-        RemoveFromLibrary = new AsyncReactiveCommand(IsBusy.Not().AreTrue(_app.AuthenticatedUser.Select(i => i != null)))
+        RemoveFromLibrary = new AsyncReactiveCommand(
+            IsBusy.Not().AreTrue(_app.AuthenticatedUser.Select(i => i != null))
+        )
             .WithSubscribe(async () =>
             {
-                using Activity? activity = Telemetry.StartActivity("RemoteUserPackage.RemoveFromLibrary");
+                using Activity? activity = Telemetry.StartActivity(
+                    "RemoteUserPackage.RemoveFromLibrary"
+                );
 
                 try
                 {
@@ -250,11 +300,14 @@ public sealed class RemoteUserPackageViewModel : BaseViewModel, IUserPackageView
                             Title = ExtensionsStrings.RemoveFromLibrary_Title,
                             Content = new TextBlock
                             {
-                                Text = string.Format(ExtensionsStrings.RemoveFromLibrary_PaidConfirmation, priceText),
-                                TextWrapping = Avalonia.Media.TextWrapping.Wrap
+                                Text = string.Format(
+                                    ExtensionsStrings.RemoveFromLibrary_PaidConfirmation,
+                                    priceText
+                                ),
+                                TextWrapping = Avalonia.Media.TextWrapping.Wrap,
                             },
                             PrimaryButtonText = ExtensionsStrings.RemoveFromLibrary,
-                            CloseButtonText = Strings.Cancel
+                            CloseButtonText = Strings.Cancel,
                         };
 
                         if (await dialog.ShowAsync() is not ContentDialogResult.Primary)
@@ -334,7 +387,8 @@ public sealed class RemoteUserPackageViewModel : BaseViewModel, IUserPackageView
 
     public Action<RemoteUserPackageViewModel>? OnRemoveFromLibrary { get; set; }
 
-    IReadOnlyReactiveProperty<bool> IUserPackageViewModel.IsUpdateButtonVisible => IsUpdateButtonVisible;
+    IReadOnlyReactiveProperty<bool> IUserPackageViewModel.IsUpdateButtonVisible =>
+        IsUpdateButtonVisible;
 
     bool IUserPackageViewModel.IsRemote => true;
 

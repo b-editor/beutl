@@ -36,10 +36,22 @@ public class PredefinedColorsAndBrushesTests
     [Test]
     public void Brushes_BasicBrushes_HaveMatchingColors()
     {
-        Assert.That(Brushes.Black.Color.GetValue(Composition.CompositionContext.Default), Is.EqualTo(Colors.Black));
-        Assert.That(Brushes.White.Color.GetValue(Composition.CompositionContext.Default), Is.EqualTo(Colors.White));
-        Assert.That(Brushes.Red.Color.GetValue(Composition.CompositionContext.Default), Is.EqualTo(Colors.Red));
-        Assert.That(Brushes.Transparent.Color.GetValue(Composition.CompositionContext.Default), Is.EqualTo(Colors.Transparent));
+        Assert.That(
+            Brushes.Black.Color.GetValue(Composition.CompositionContext.Default),
+            Is.EqualTo(Colors.Black)
+        );
+        Assert.That(
+            Brushes.White.Color.GetValue(Composition.CompositionContext.Default),
+            Is.EqualTo(Colors.White)
+        );
+        Assert.That(
+            Brushes.Red.Color.GetValue(Composition.CompositionContext.Default),
+            Is.EqualTo(Colors.Red)
+        );
+        Assert.That(
+            Brushes.Transparent.Color.GetValue(Composition.CompositionContext.Default),
+            Is.EqualTo(Colors.Transparent)
+        );
     }
 
     [Test]
@@ -62,7 +74,9 @@ public class PredefinedColorsAndBrushesTests
     {
         var b1 = Brushes.Black;
         var b2 = Brushes.Black;
-        Assert.That(b1.Color.GetValue(Composition.CompositionContext.Default),
-            Is.EqualTo(b2.Color.GetValue(Composition.CompositionContext.Default)));
+        Assert.That(
+            b1.Color.GetValue(Composition.CompositionContext.Default),
+            Is.EqualTo(b2.Color.GetValue(Composition.CompositionContext.Default))
+        );
     }
 }

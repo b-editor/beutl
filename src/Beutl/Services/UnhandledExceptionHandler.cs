@@ -32,7 +32,11 @@ public static class UnhandledExceptionHandler
         {
             if (e.ExceptionObject is Exception ex)
             {
-                s_logger?.LogCritical(ex, "An unhandled exception occurred. (IsTerminating: {IsTerminating})", e.IsTerminating);
+                s_logger?.LogCritical(
+                    ex,
+                    "An unhandled exception occurred. (IsTerminating: {IsTerminating})",
+                    e.IsTerminating
+                );
                 SaveException(ex);
 
                 //var stack = new StackTrace();
@@ -42,33 +46,27 @@ public static class UnhandledExceptionHandler
 
             PrivateExit();
 
-            string exePath = Path.Combine(
-                AppContext.BaseDirectory,
-                "Beutl.ExceptionHandler");
+            string exePath = Path.Combine(AppContext.BaseDirectory, "Beutl.ExceptionHandler");
 
-            var startInfo = new ProcessStartInfo()
-            {
-                UseShellExecute = true
-            };
+            var startInfo = new ProcessStartInfo() { UseShellExecute = true };
             DotNetProcess.Configure(startInfo, exePath);
             startInfo.ArgumentList.Add("--session-id");
             startInfo.ArgumentList.Add(Telemetry.Instance._sessionId);
             Process.Start(startInfo);
         }
-        catch
-        {
-        }
+        catch { }
     }
 
     private static void SaveException(Exception ex)
     {
         try
         {
-            File.WriteAllText(Path.Combine(Helper.AppRoot, LastUnhandledExeptionFileName), ex.ToString());
+            File.WriteAllText(
+                Path.Combine(Helper.AppRoot, LastUnhandledExeptionFileName),
+                ex.ToString()
+            );
         }
-        catch
-        {
-        }
+        catch { }
     }
 
     private static void PrivateExit()

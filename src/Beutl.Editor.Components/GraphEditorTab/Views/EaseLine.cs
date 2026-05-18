@@ -8,23 +8,43 @@ namespace Beutl.Editor.Components.GraphEditorTab.Views;
 
 public sealed class EaseLine : Line
 {
-    public static readonly DirectProperty<EaseLine, double> StartXProperty
-        = AvaloniaProperty.RegisterDirect<EaseLine, double>(nameof(StartX), o => o.StartX, (o, v) => o.StartX = v);
+    public static readonly DirectProperty<EaseLine, double> StartXProperty =
+        AvaloniaProperty.RegisterDirect<EaseLine, double>(
+            nameof(StartX),
+            o => o.StartX,
+            (o, v) => o.StartX = v
+        );
 
-    public static readonly DirectProperty<EaseLine, double> StartYProperty
-        = AvaloniaProperty.RegisterDirect<EaseLine, double>(nameof(StartY), o => o.StartY, (o, v) => o.StartY = v);
+    public static readonly DirectProperty<EaseLine, double> StartYProperty =
+        AvaloniaProperty.RegisterDirect<EaseLine, double>(
+            nameof(StartY),
+            o => o.StartY,
+            (o, v) => o.StartY = v
+        );
 
-    public static readonly DirectProperty<EaseLine, double> EndXProperty
-        = AvaloniaProperty.RegisterDirect<EaseLine, double>(nameof(EndX), o => o.EndX, (o, v) => o.EndX = v);
+    public static readonly DirectProperty<EaseLine, double> EndXProperty =
+        AvaloniaProperty.RegisterDirect<EaseLine, double>(
+            nameof(EndX),
+            o => o.EndX,
+            (o, v) => o.EndX = v
+        );
 
-    public static readonly DirectProperty<EaseLine, double> EndYProperty
-        = AvaloniaProperty.RegisterDirect<EaseLine, double>(nameof(EndY), o => o.EndY, (o, v) => o.EndY = v);
+    public static readonly DirectProperty<EaseLine, double> EndYProperty =
+        AvaloniaProperty.RegisterDirect<EaseLine, double>(
+            nameof(EndY),
+            o => o.EndY,
+            (o, v) => o.EndY = v
+        );
 
-    public static readonly DirectProperty<EaseLine, double> BaselineProperty
-        = AvaloniaProperty.RegisterDirect<EaseLine, double>(nameof(Baseline), o => o.Baseline, (o, v) => o.Baseline = v);
+    public static readonly DirectProperty<EaseLine, double> BaselineProperty =
+        AvaloniaProperty.RegisterDirect<EaseLine, double>(
+            nameof(Baseline),
+            o => o.Baseline,
+            (o, v) => o.Baseline = v
+        );
 
-    public static readonly StyledProperty<Animation.Easings.Easing> EasingProperty
-        = AvaloniaProperty.Register<EaseLine, Animation.Easings.Easing>(nameof(Easing));
+    public static readonly StyledProperty<Animation.Easings.Easing> EasingProperty =
+        AvaloniaProperty.Register<EaseLine, Animation.Easings.Easing>(nameof(Easing));
 
     private double _baseline;
 
@@ -140,9 +160,16 @@ public sealed class EaseLine : Line
             if (easing is Animation.Easings.SplineEasing splineEasing)
             {
                 context.CubicBezierTo(
-                    new Point((splineEasing.X1 * width) + startX, -(splineEasing.Y1 * height) + baseY),
-                    new Point((splineEasing.X2 * width) + startX, -(splineEasing.Y2 * height) + baseY),
-                    new Point(endX, -endY + baseline));
+                    new Point(
+                        (splineEasing.X1 * width) + startX,
+                        -(splineEasing.Y1 * height) + baseY
+                    ),
+                    new Point(
+                        (splineEasing.X2 * width) + startX,
+                        -(splineEasing.Y2 * height) + baseY
+                    ),
+                    new Point(endX, -endY + baseline)
+                );
             }
             else if (easing is Animation.Easings.LinearEasing)
             {
@@ -156,7 +183,9 @@ public sealed class EaseLine : Line
                 for (float x = 0F; MathUtilities.LessThanOrClose(x, widthF); x += increment)
                 {
                     float progress = x / widthF;
-                    context.LineTo(new Point(x + startX, -(easing.Ease(progress) * height) + baseY));
+                    context.LineTo(
+                        new Point(x + startX, -(easing.Ease(progress) * height) + baseY)
+                    );
                 }
 
                 context.LineTo(new Point(widthF + startX, -(easing.Ease(1) * height) + baseY));

@@ -1,5 +1,4 @@
 ﻿using Beutl.Graphics;
-
 using SkiaSharp;
 
 namespace Beutl.Media;
@@ -14,9 +13,7 @@ internal sealed partial class SKPathGeometry : Geometry
         SetSKPath(path, clone);
     }
 
-    public SKPathGeometry()
-    {
-    }
+    public SKPathGeometry() { }
 
     public void SetSKPath(SKPath? path, bool clone)
     {
@@ -39,7 +36,8 @@ internal sealed partial class SKPathGeometry : Geometry
     {
         base.ApplyTo(context, resource);
         var r = (Resource)resource;
-        if (_path == null) return;
+        if (_path == null)
+            return;
 
         if (context is GeometryContext typed)
         {
@@ -63,13 +61,24 @@ internal sealed partial class SKPathGeometry : Geometry
                         context.LineTo(points[1].ToGraphicsPoint());
                         break;
                     case SKPathVerb.Quad:
-                        context.QuadraticTo(points[1].ToGraphicsPoint(), points[2].ToGraphicsPoint());
+                        context.QuadraticTo(
+                            points[1].ToGraphicsPoint(),
+                            points[2].ToGraphicsPoint()
+                        );
                         break;
                     case SKPathVerb.Conic:
-                        context.ConicTo(points[1].ToGraphicsPoint(), points[2].ToGraphicsPoint(), it.ConicWeight());
+                        context.ConicTo(
+                            points[1].ToGraphicsPoint(),
+                            points[2].ToGraphicsPoint(),
+                            it.ConicWeight()
+                        );
                         break;
                     case SKPathVerb.Cubic:
-                        context.CubicTo(points[1].ToGraphicsPoint(), points[2].ToGraphicsPoint(), points[3].ToGraphicsPoint());
+                        context.CubicTo(
+                            points[1].ToGraphicsPoint(),
+                            points[2].ToGraphicsPoint(),
+                            points[3].ToGraphicsPoint()
+                        );
                         break;
                     case SKPathVerb.Close:
                         context.Close();
@@ -79,7 +88,6 @@ internal sealed partial class SKPathGeometry : Geometry
                         break;
                 }
             } while (pathVerb != SKPathVerb.Done);
-
         }
     }
 }

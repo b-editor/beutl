@@ -37,9 +37,7 @@ public sealed class Connection : Hierarchical
         Output = new Reference<NodeMember>((NodeMember)output);
     }
 
-    public Connection()
-    {
-    }
+    public Connection() { }
 
     public ConnectionStatus Status
     {
@@ -61,7 +59,10 @@ public sealed class Connection : Hierarchical
 
     public void Connect()
     {
-        if (Output.Value is not IOutputPort outputNodePort || Input.Value is not IInputPort inputNodePort)
+        if (
+            Output.Value is not IOutputPort outputNodePort
+            || Input.Value is not IInputPort inputNodePort
+        )
             throw new InvalidOperationException();
         outputNodePort.NotifyConnected(this);
         inputNodePort.NotifyConnected(this);
@@ -69,7 +70,10 @@ public sealed class Connection : Hierarchical
 
     public void Disconnect()
     {
-        if (Output.Value is not IOutputPort outputNodePort || Input.Value is not IInputPort inputNodePort)
+        if (
+            Output.Value is not IOutputPort outputNodePort
+            || Input.Value is not IInputPort inputNodePort
+        )
             throw new InvalidOperationException();
         outputNodePort.NotifyDisconnected(this);
         inputNodePort.NotifyDisconnected(this);

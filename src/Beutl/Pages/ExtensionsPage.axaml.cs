@@ -9,7 +9,6 @@ using Beutl.ViewModels.ExtensionsPages;
 using FluentAvalonia.UI.Controls;
 using FluentAvalonia.UI.Media.Animation;
 using FluentAvalonia.UI.Navigation;
-
 using Microsoft.Extensions.Logging;
 
 namespace Beutl.Pages;
@@ -62,19 +61,13 @@ public sealed partial class ExtensionsPage : Window
             {
                 Content = "Home",
                 Tag = typeof(DiscoverPage),
-                IconSource = new SymbolIconSource
-                {
-                    Symbol = Symbol.Home
-                }
+                IconSource = new SymbolIconSource { Symbol = Symbol.Home },
             },
             new NavigationViewItem()
             {
                 Content = "Library",
                 Tag = typeof(LibraryPage),
-                IconSource = new SymbolIconSource
-                {
-                    Symbol = Symbol.Library
-                }
+                IconSource = new SymbolIconSource { Symbol = Symbol.Library },
             },
         ];
     }
@@ -94,8 +87,7 @@ public sealed partial class ExtensionsPage : Window
 
     private void OnItemInvoked(NavigationViewItem nvi)
     {
-        if (nvi.Tag is Type typ
-            && DataContext is ExtensionsPageViewModel viewModel)
+        if (nvi.Tag is Type typ && DataContext is ExtensionsPageViewModel viewModel)
         {
             NavigationTransitionInfo transitionInfo = SharedNavigationTransitionInfo.Instance;
             if (typ == typeof(LibraryPage))
@@ -115,9 +107,12 @@ public sealed partial class ExtensionsPage : Window
         Type type1 = frame.CurrentSourcePageType;
         Type type2 = e.SourcePageType;
 
-        if (type1 == type2
-            && frame.Content is Control { DataContext: ISupportRefreshViewModel { Refresh: { } refreshCommand } }
-            && refreshCommand.CanExecute())
+        if (
+            type1 == type2
+            && frame.Content
+                is Control { DataContext: ISupportRefreshViewModel { Refresh: { } refreshCommand } }
+            && refreshCommand.CanExecute()
+        )
         {
             refreshCommand.Execute();
         }

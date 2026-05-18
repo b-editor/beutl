@@ -1,10 +1,10 @@
-﻿#if FFMPEG_OUT_OF_PROCESS
+﻿using Beutl.Logging;
+using Beutl.Media.Decoding;
+using Microsoft.Extensions.Logging;
+#if FFMPEG_OUT_OF_PROCESS
 using Beutl.FFmpegIpc.Protocol;
 using Beutl.FFmpegIpc.Protocol.Messages;
 #endif
-using Beutl.Logging;
-using Beutl.Media.Decoding;
-using Microsoft.Extensions.Logging;
 
 namespace Beutl.Extensions.FFmpeg.Decoding;
 
@@ -43,8 +43,14 @@ public sealed class FFmpegDecoderInfo(FFmpegDecodingSettings settings) : IDecode
                 ForceSrgbGamma = settings.ForceSrgbGamma,
             };
 
-            var response = connection.RequestAsync<OpenFileRequest, OpenFileResponse>(
-                MessageType.OpenFile, MessageType.OpenFileResult, request).GetAwaiter().GetResult();
+            var response = connection
+                .RequestAsync<OpenFileRequest, OpenFileResponse>(
+                    MessageType.OpenFile,
+                    MessageType.OpenFileResult,
+                    request
+                )
+                .GetAwaiter()
+                .GetResult();
 
             return new FFmpegReaderProxy(connection, response.ReaderId, response);
 #else

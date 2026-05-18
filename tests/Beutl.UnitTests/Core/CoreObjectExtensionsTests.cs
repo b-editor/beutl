@@ -6,8 +6,13 @@ public class CoreObjectExtensionsTests
     public void GetPropertyChangedObservable_NullObj_Throws()
     {
         Assert.That(
-            () => CoreObjectExtensions.GetPropertyChangedObservable<string>(null!, CoreObject.NameProperty),
-            Throws.ArgumentNullException);
+            () =>
+                CoreObjectExtensions.GetPropertyChangedObservable<string>(
+                    null!,
+                    CoreObject.NameProperty
+                ),
+            Throws.ArgumentNullException
+        );
     }
 
     [Test]
@@ -17,7 +22,8 @@ public class CoreObjectExtensionsTests
 
         Assert.That(
             () => obj.GetPropertyChangedObservable<string>(null!),
-            Throws.ArgumentNullException);
+            Throws.ArgumentNullException
+        );
     }
 
     [Test]
@@ -40,7 +46,8 @@ public class CoreObjectExtensionsTests
     {
         Assert.That(
             () => CoreObjectExtensions.GetObservable<string>(null!, CoreObject.NameProperty),
-            Throws.ArgumentNullException);
+            Throws.ArgumentNullException
+        );
     }
 
     [Test]
@@ -48,9 +55,7 @@ public class CoreObjectExtensionsTests
     {
         var obj = new TestCoreObject();
 
-        Assert.That(
-            () => obj.GetObservable<string>(null!),
-            Throws.ArgumentNullException);
+        Assert.That(() => obj.GetObservable<string>(null!), Throws.ArgumentNullException);
     }
 
     [Test]
@@ -59,7 +64,8 @@ public class CoreObjectExtensionsTests
         var obj = new TestCoreObject { Name = "init" };
         string? captured = null;
 
-        using IDisposable sub = obj.GetObservable(CoreObject.NameProperty).Subscribe(v => captured = v);
+        using IDisposable sub = obj.GetObservable(CoreObject.NameProperty)
+            .Subscribe(v => captured = v);
 
         Assert.That(captured, Is.EqualTo("init"));
 

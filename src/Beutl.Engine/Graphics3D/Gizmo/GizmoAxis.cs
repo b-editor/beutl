@@ -43,5 +43,5 @@ public enum GizmoAxis
     /// <summary>
     /// All axes - for uniform scale mode.
     /// </summary>
-    All = 7
+    All = 7,
 }

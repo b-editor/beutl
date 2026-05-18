@@ -13,7 +13,7 @@ public class DefaultTutorialExtension : TutorialExtension
         [
             WelcomeTutorial.Create(),
             TimelineBasicsTutorial.Create(),
-            AnimationEditTutorial.Create()
+            AnimationEditTutorial.Create(),
         ];
     }
 }

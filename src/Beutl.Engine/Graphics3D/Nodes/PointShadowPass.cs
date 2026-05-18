@@ -21,7 +21,8 @@ public sealed class PointShadowPass : GraphicsNode3D
     // Shader sources - outputs linear depth for omnidirectional shadows
     // Push constants: Model (64 bytes) + LightViewProjection (64 bytes) = 128 bytes
     // UBO: LightPos + FarPlane
-    private const string PointShadowVertexShader = @"
+    private const string PointShadowVertexShader =
+        @"
 #version 450
 
 layout(location = 0) in vec3 inPosition;
@@ -42,7 +43,8 @@ void main() {
 }
 ";
 
-    private const string PointShadowFragmentShader = @"
+    private const string PointShadowFragmentShader =
+        @"
 #version 450
 
 layout(location = 0) in vec3 fragWorldPos;
@@ -81,12 +83,12 @@ void main() {
     // Cube face directions and up vectors
     private static readonly (Vector3 Direction, Vector3 Up)[] s_cubeFaceDirections =
     [
-        (Vector3.UnitX, -Vector3.UnitY),   // +X (Right)
-        (-Vector3.UnitX, -Vector3.UnitY),  // -X (Left)
-        (Vector3.UnitY, Vector3.UnitZ),    // +Y (Up)
-        (-Vector3.UnitY, -Vector3.UnitZ),  // -Y (Down)
-        (Vector3.UnitZ, -Vector3.UnitY),   // +Z (Front)
-        (-Vector3.UnitZ, -Vector3.UnitY)   // -Z (Back)
+        (Vector3.UnitX, -Vector3.UnitY), // +X (Right)
+        (-Vector3.UnitX, -Vector3.UnitY), // -X (Left)
+        (Vector3.UnitY, Vector3.UnitZ), // +Y (Up)
+        (-Vector3.UnitY, -Vector3.UnitZ), // -Y (Down)
+        (Vector3.UnitZ, -Vector3.UnitY), // +Z (Front)
+        (-Vector3.UnitZ, -Vector3.UnitY), // -Z (Back)
     ];
 
     private IPipeline3D? _shadowPipeline;
@@ -108,9 +110,7 @@ void main() {
     private static readonly TextureFormat[] s_shadowPassFormats = [TextureFormat.R8Unorm];
 
     public PointShadowPass(IGraphicsContext context, IShaderCompiler shaderCompiler)
-        : base(context, shaderCompiler)
-    {
-    }
+        : base(context, shaderCompiler) { }
 
     /// <summary>
     /// Gets the shadow cube map texture.
@@ -181,16 +181,25 @@ void main() {
         for (int i = 0; i < 6; i++)
         {
             // Create dummy color texture for this face
-            _faceDummyTextures[i] = Context.CreateTexture2D(faceSize, faceSize, TextureFormat.R8Unorm);
+            _faceDummyTextures[i] = Context.CreateTexture2D(
+                faceSize,
+                faceSize,
+                TextureFormat.R8Unorm
+            );
 
             // Create depth texture for this face
-            _faceDepthTextures[i] = Context.CreateTexture2D(faceSize, faceSize, TextureFormat.Depth32Float);
+            _faceDepthTextures[i] = Context.CreateTexture2D(
+                faceSize,
+                faceSize,
+                TextureFormat.Depth32Float
+            );
 
             // Create framebuffer with the face's depth texture
             _faceFramebuffers[i] = Context.CreateFramebuffer3D(
                 RenderPass,
                 [_faceDummyTextures[i]!],
-                _faceDepthTextures[i]!);
+                _faceDepthTextures[i]!
+            );
         }
     }
 
@@ -209,8 +218,14 @@ void main() {
 
     private void CompileShaders()
     {
-        _vertexShaderSpirv = ShaderCompiler.CompileToSpirv(PointShadowVertexShader, ShaderStage.Vertex);
-        _fragmentShaderSpirv = ShaderCompiler.CompileToSpirv(PointShadowFragmentShader, ShaderStage.Fragment);
+        _vertexShaderSpirv = ShaderCompiler.CompileToSpirv(
+            PointShadowVertexShader,
+            ShaderStage.Vertex
+        );
+        _fragmentShaderSpirv = ShaderCompiler.CompileToSpirv(
+            PointShadowFragmentShader,
+            ShaderStage.Fragment
+        );
     }
 
     private void CreatePipeline()
@@ -224,14 +239,14 @@ void main() {
         // Descriptor binding for light data UBO
         var descriptorBindings = new DescriptorBinding[]
         {
-            new(0, DescriptorType.UniformBuffer, 1, ShaderStage.Fragment)
+            new(0, DescriptorType.UniformBuffer, 1, ShaderStage.Fragment),
         };
 
         var options = new PipelineOptions
         {
             DepthTestEnabled = true,
             DepthWriteEnabled = true,
-            CullMode = CullMode.Back
+            CullMode = CullMode.Back,
         };
 
         _shadowPipeline = Context.CreatePipeline3D(
@@ -240,13 +255,11 @@ void main() {
             _fragmentShaderSpirv,
             descriptorBindings,
             Vertex3D.GetVertexInputDescription(),
-            options);
+            options
+        );
 
         // Create descriptor set for light data
-        var poolSizes = new DescriptorPoolSize[]
-        {
-            new(DescriptorType.UniformBuffer, 1)
-        };
+        var poolSizes = new DescriptorPoolSize[] { new(DescriptorType.UniformBuffer, 1) };
         _descriptorSet = Context.CreateDescriptorSet(_shadowPipeline, poolSizes);
     }
 
@@ -256,7 +269,8 @@ void main() {
         _lightDataBuffer = Context.CreateBuffer(
             (ulong)Marshal.SizeOf<LightDataUBO>(),
             BufferUsage.UniformBuffer,
-            MemoryProperty.HostVisible | MemoryProperty.HostCoherent);
+            MemoryProperty.HostVisible | MemoryProperty.HostCoherent
+        );
 
         // Bind to descriptor set
         _descriptorSet?.UpdateBuffer(0, _lightDataBuffer);
@@ -267,11 +281,7 @@ void main() {
         if (_lightDataBuffer == null)
             return;
 
-        var lightData = new LightDataUBO
-        {
-            LightPos = _lightPosition,
-            FarPlane = _farPlane
-        };
+        var lightData = new LightDataUBO { LightPos = _lightPosition, FarPlane = _farPlane };
         _lightDataBuffer.Upload(new ReadOnlySpan<LightDataUBO>(ref lightData));
     }
 
@@ -288,10 +298,11 @@ void main() {
 
         // 90 degree FOV for cube faces
         _lightProjectionMatrix = Matrix4x4.CreatePerspectiveFieldOfView(
-            MathF.PI / 2f,  // 90 degrees
-            1.0f,           // Square faces
+            MathF.PI / 2f, // 90 degrees
+            1.0f, // Square faces
             0.1f,
-            _farPlane);
+            _farPlane
+        );
 
         // Create view matrices for each cube face
         for (int i = 0; i < 6; i++)
@@ -383,7 +394,7 @@ void main() {
         var pushConstants = new PointShadowPushConstants
         {
             Model = worldMatrix,
-            LightViewProjection = lightVP
+            LightViewProjection = lightVP,
         };
         RenderPass!.SetPushConstants(pushConstants);
 

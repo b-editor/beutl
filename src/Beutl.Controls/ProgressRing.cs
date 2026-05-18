@@ -16,17 +16,25 @@ public class ProgressRing : RangeBase
     public static readonly StyledProperty<bool> IsIndeterminateProperty =
         ProgressBar.IsIndeterminateProperty.AddOwner<ProgressRing>();
 
-    public static readonly StyledProperty<bool> PreserveAspectProperty =
-        AvaloniaProperty.Register<ProgressRing, bool>(nameof(PreserveAspect), true);
+    public static readonly StyledProperty<bool> PreserveAspectProperty = AvaloniaProperty.Register<
+        ProgressRing,
+        bool
+    >(nameof(PreserveAspect), true);
 
-    public static readonly StyledProperty<double> ValueAngleProperty =
-        AvaloniaProperty.Register<ProgressRing, double>(nameof(ValueAngle), 0);
+    public static readonly StyledProperty<double> ValueAngleProperty = AvaloniaProperty.Register<
+        ProgressRing,
+        double
+    >(nameof(ValueAngle), 0);
 
-    public static readonly StyledProperty<double> StartAngleProperty =
-        AvaloniaProperty.Register<ProgressRing, double>(nameof(StartAngle), 0);
+    public static readonly StyledProperty<double> StartAngleProperty = AvaloniaProperty.Register<
+        ProgressRing,
+        double
+    >(nameof(StartAngle), 0);
 
-    public static readonly StyledProperty<double> EndAngleProperty =
-        AvaloniaProperty.Register<ProgressRing, double>(nameof(EndAngle), 360);
+    public static readonly StyledProperty<double> EndAngleProperty = AvaloniaProperty.Register<
+        ProgressRing,
+        double
+    >(nameof(EndAngle), 360);
 
     static ProgressRing()
     {
@@ -75,7 +83,8 @@ public class ProgressRing : RangeBase
     protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
     {
         base.OnPropertyChanged(change);
-        if (change is not AvaloniaPropertyChangedEventArgs<bool> e) return;
+        if (change is not AvaloniaPropertyChangedEventArgs<bool> e)
+            return;
 
         if (e.Property == IsIndeterminateProperty)
         {
@@ -87,9 +96,7 @@ public class ProgressRing : RangeBase
         }
     }
 
-    private void UpdatePseudoClasses(
-        bool? isIndeterminate,
-        bool? preserveAspect)
+    private void UpdatePseudoClasses(bool? isIndeterminate, bool? preserveAspect)
     {
         if (isIndeterminate.HasValue)
         {
@@ -114,7 +121,10 @@ public class ProgressRing : RangeBase
 
     static void OnValuePropertyChanged(ProgressRing sender, AvaloniaPropertyChangedEventArgs e)
     {
-        sender.ValueAngle = ((double)e.NewValue - sender.Minimum) * (sender.EndAngle - sender.StartAngle) / (sender.Maximum - sender.Minimum);
+        sender.ValueAngle =
+            ((double)e.NewValue - sender.Minimum)
+            * (sender.EndAngle - sender.StartAngle)
+            / (sender.Maximum - sender.Minimum);
     }
 
     static void OnStartAnglePropertyChanged(ProgressRing sender, AvaloniaPropertyChangedEventArgs e)

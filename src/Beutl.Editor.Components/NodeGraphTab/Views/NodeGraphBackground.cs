@@ -7,14 +7,15 @@ namespace Beutl.Editor.Components.NodeGraphTab.Views;
 
 public sealed class NodeGraphBackground : Control
 {
-    public static readonly DirectProperty<NodeGraphBackground, ZoomBorder> ZoomBorderProperty
-        = AvaloniaProperty.RegisterDirect<NodeGraphBackground, ZoomBorder>(
+    public static readonly DirectProperty<NodeGraphBackground, ZoomBorder> ZoomBorderProperty =
+        AvaloniaProperty.RegisterDirect<NodeGraphBackground, ZoomBorder>(
             nameof(ZoomBorder),
             o => o.ZoomBorder,
-            (o, v) => o.ZoomBorder = v);
+            (o, v) => o.ZoomBorder = v
+        );
 
-    public static readonly StyledProperty<IBrush?> BorderBrushProperty
-        = Border.BorderBrushProperty.AddOwner<NodeGraphBackground>();
+    public static readonly StyledProperty<IBrush?> BorderBrushProperty =
+        Border.BorderBrushProperty.AddOwner<NodeGraphBackground>();
 
     private ZoomBorder _zoomBorder = null!;
 
@@ -68,19 +69,30 @@ public sealed class NodeGraphBackground : Control
         double amariX = offsetX % DotSize;
         double amariY = offsetY % DotSize;
 
-        using (context.PushTransform(Matrix.CreateTranslation(amariX, amariY) * Matrix.CreateScale(_zoomBorder.ZoomX, _zoomBorder.ZoomY)))
+        using (
+            context.PushTransform(
+                Matrix.CreateTranslation(amariX, amariY)
+                    * Matrix.CreateScale(_zoomBorder.ZoomX, _zoomBorder.ZoomY)
+            )
+        )
         {
             IBrush brush = BorderBrush ?? Brushes.Gray;
             for (int i = -1; i < hsplit; i++)
             {
                 double x = i * DotSize;
-                context.FillRectangle(brush, new Rect(x, 0, 1, height).Inflate(new Thickness(0, DotSize)));
+                context.FillRectangle(
+                    brush,
+                    new Rect(x, 0, 1, height).Inflate(new Thickness(0, DotSize))
+                );
             }
 
             for (int i = -1; i < vsplit; i++)
             {
                 double y = i * DotSize;
-                context.FillRectangle(brush, new Rect(0, y, width, 1).Inflate(new Thickness(DotSize, 0)));
+                context.FillRectangle(
+                    brush,
+                    new Rect(0, y, width, 1).Inflate(new Thickness(DotSize, 0))
+                );
             }
         }
     }

@@ -18,7 +18,10 @@ public sealed partial class SceneSound : Sound
         ScanProperties<SceneSound>();
     }
 
-    [Display(Name = nameof(AudioStrings.SceneSound_ReferencedScene), ResourceType = typeof(AudioStrings))]
+    [Display(
+        Name = nameof(AudioStrings.SceneSound_ReferencedScene),
+        ResourceType = typeof(AudioStrings)
+    )]
     public IProperty<Scene?> ReferencedScene { get; } = Property.Create<Scene?>();
 
     public override void Compose(AudioContext context, Sound.Resource resource)
@@ -86,8 +89,10 @@ public sealed partial class SceneSound : Sound
 
         partial void PostUpdate(SceneSound obj, CompositionContext context)
         {
-            if (_compositor?.Scene != ReferencedScene
-                || _compositor?.DisableResourceShare != context.DisableResourceShare)
+            if (
+                _compositor?.Scene != ReferencedScene
+                || _compositor?.DisableResourceShare != context.DisableResourceShare
+            )
             {
                 _compositor?.Dispose();
                 _compositor = null;

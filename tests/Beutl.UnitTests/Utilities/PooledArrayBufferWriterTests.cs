@@ -24,7 +24,10 @@ public class PooledArrayBufferWriterTests
     {
         using var writer = new PooledArrayBufferWriter<int>(10);
         writer.Advance(5);
-        Assert.That(() => writer.Advance(writer.FreeCapacity + 1), Throws.TypeOf<InvalidOperationException>());
+        Assert.That(
+            () => writer.Advance(writer.FreeCapacity + 1),
+            Throws.TypeOf<InvalidOperationException>()
+        );
     }
 
     [Test]
@@ -85,7 +88,10 @@ public class PooledArrayBufferWriterTests
     [Test]
     public void Constructor_ShouldThrowArgumentOutOfRangeExceptionForNegativeInitialCapacity()
     {
-        Assert.That(() => new PooledArrayBufferWriter<int>(-1), Throws.TypeOf<ArgumentOutOfRangeException>());
+        Assert.That(
+            () => new PooledArrayBufferWriter<int>(-1),
+            Throws.TypeOf<ArgumentOutOfRangeException>()
+        );
     }
 
     [Test]

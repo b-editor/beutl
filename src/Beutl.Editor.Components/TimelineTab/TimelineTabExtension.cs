@@ -26,101 +26,158 @@ public sealed class TimelineTabExtension : ToolTabExtension
     public override int DefaultOrder => 0;
 
     public override IEnumerable<ContextCommandDefinition> ContextCommands =>
-    [
-        new ContextCommandDefinition("Paste", Strings.Paste, Strings.Paste_Description,
         [
-            new ContextCommandKeyGesture("Ctrl+V"),
-            new ContextCommandKeyGesture("Cmd+V", OSPlatform.OSX),
-        ]),
-        new ContextCommandDefinition("Rename", Strings.Rename, Strings.Rename_Description,
-        [
-            new ContextCommandKeyGesture("F2"),
-            new ContextCommandKeyGesture("Enter", OSPlatform.OSX),
-        ]),
-        new ContextCommandDefinition("Exclude", Strings.Exclude, Strings.Exclude_Description,
-        [
-            new ContextCommandKeyGesture("Delete"),
-            new ContextCommandKeyGesture("Back", OSPlatform.OSX),
-        ]),
-        new ContextCommandDefinition("Delete", Strings.Delete, Strings.Delete_Description,
-        [
-            new ContextCommandKeyGesture("Ctrl+Delete"),
-            new ContextCommandKeyGesture("Cmd+Back", OSPlatform.OSX),
-        ]),
-        new ContextCommandDefinition("Copy", Strings.Copy, Strings.Copy_Description,
-        [
-            new ContextCommandKeyGesture("Ctrl+C"),
-            new ContextCommandKeyGesture("Cmd+C", OSPlatform.OSX),
-        ]),
-        new ContextCommandDefinition("Cut", Strings.Cut, Strings.Cut_Description,
-        [
-            new ContextCommandKeyGesture("Ctrl+X"),
-            new ContextCommandKeyGesture("Cmd+X", OSPlatform.OSX),
-        ]),
-        new ContextCommandDefinition("Split", Strings.SplitByCurrentFrame, "",
-        [
-            new ContextCommandKeyGesture("Ctrl+K"),
-            new ContextCommandKeyGesture("Cmd+K", OSPlatform.OSX),
-        ]),
-        new ContextCommandDefinition("SetStartTime", Strings.SetStartTime, "",
-        [
-            new ContextCommandKeyGesture("OemOpenBrackets")
-        ]),
-        new ContextCommandDefinition("SetEndTime", Strings.SetEndTime, "",
-        [
-            new ContextCommandKeyGesture("OemCloseBrackets")
-        ]),
-        // Nudge は矢印キーを避けて , / . に割り当てる。Premiere/DaVinci/Final Cut の
-        // 慣例に合わせるとともに、シーン側 Previous/Next (Left/Right), SeekStart/SeekEnd
-        // (Cmd+Left/Right on macOS), Marker nav (Ctrl+Left/Right, macOS Alt+Left/Right)
-        // との shortcut 衝突を完全に排除する。
-        new ContextCommandDefinition("NudgeLeftFrame", Strings.NudgeLeftFrame, "",
-        [
-            new ContextCommandKeyGesture("OemComma"),
-        ]),
-        new ContextCommandDefinition("NudgeRightFrame", Strings.NudgeRightFrame, "",
-        [
-            new ContextCommandKeyGesture("OemPeriod"),
-        ]),
-        new ContextCommandDefinition("NudgeLeftLarge", Strings.NudgeLeftLarge, "",
-        [
-            new ContextCommandKeyGesture("Shift+OemComma"),
-        ]),
-        new ContextCommandDefinition("NudgeRightLarge", Strings.NudgeRightLarge, "",
-        [
-            new ContextCommandKeyGesture("Shift+OemPeriod"),
-        ]),
-        new ContextCommandDefinition("NudgeLeftSecond", Strings.NudgeLeftSecond, "",
-        [
-            new ContextCommandKeyGesture("Alt+OemComma"),
-        ]),
-        new ContextCommandDefinition("NudgeRightSecond", Strings.NudgeRightSecond, "",
-        [
-            new ContextCommandKeyGesture("Alt+OemPeriod"),
-        ]),
-        new ContextCommandDefinition("ToggleGroup", Strings.Group, "",
-        [
-            new ContextCommandKeyGesture("Ctrl+G"),
-            new ContextCommandKeyGesture("Cmd+G", OSPlatform.OSX),
-        ]),
-        new ContextCommandDefinition("ToggleRazorMode", Strings.RazorTool, Strings.RazorTool_Description,
-        [
-            new ContextCommandKeyGesture("C"),
-        ]),
-        new ContextCommandDefinition("ExitRazorMode", Strings.ExitRazorTool, Strings.ExitRazorTool_Description,
-        [
-            new ContextCommandKeyGesture("V"),
-            new ContextCommandKeyGesture("Escape"),
-        ]),
-    ];
+            new ContextCommandDefinition(
+                "Paste",
+                Strings.Paste,
+                Strings.Paste_Description,
+                [
+                    new ContextCommandKeyGesture("Ctrl+V"),
+                    new ContextCommandKeyGesture("Cmd+V", OSPlatform.OSX),
+                ]
+            ),
+            new ContextCommandDefinition(
+                "Rename",
+                Strings.Rename,
+                Strings.Rename_Description,
+                [
+                    new ContextCommandKeyGesture("F2"),
+                    new ContextCommandKeyGesture("Enter", OSPlatform.OSX),
+                ]
+            ),
+            new ContextCommandDefinition(
+                "Exclude",
+                Strings.Exclude,
+                Strings.Exclude_Description,
+                [
+                    new ContextCommandKeyGesture("Delete"),
+                    new ContextCommandKeyGesture("Back", OSPlatform.OSX),
+                ]
+            ),
+            new ContextCommandDefinition(
+                "Delete",
+                Strings.Delete,
+                Strings.Delete_Description,
+                [
+                    new ContextCommandKeyGesture("Ctrl+Delete"),
+                    new ContextCommandKeyGesture("Cmd+Back", OSPlatform.OSX),
+                ]
+            ),
+            new ContextCommandDefinition(
+                "Copy",
+                Strings.Copy,
+                Strings.Copy_Description,
+                [
+                    new ContextCommandKeyGesture("Ctrl+C"),
+                    new ContextCommandKeyGesture("Cmd+C", OSPlatform.OSX),
+                ]
+            ),
+            new ContextCommandDefinition(
+                "Cut",
+                Strings.Cut,
+                Strings.Cut_Description,
+                [
+                    new ContextCommandKeyGesture("Ctrl+X"),
+                    new ContextCommandKeyGesture("Cmd+X", OSPlatform.OSX),
+                ]
+            ),
+            new ContextCommandDefinition(
+                "Split",
+                Strings.SplitByCurrentFrame,
+                "",
+                [
+                    new ContextCommandKeyGesture("Ctrl+K"),
+                    new ContextCommandKeyGesture("Cmd+K", OSPlatform.OSX),
+                ]
+            ),
+            new ContextCommandDefinition(
+                "SetStartTime",
+                Strings.SetStartTime,
+                "",
+                [new ContextCommandKeyGesture("OemOpenBrackets")]
+            ),
+            new ContextCommandDefinition(
+                "SetEndTime",
+                Strings.SetEndTime,
+                "",
+                [new ContextCommandKeyGesture("OemCloseBrackets")]
+            ),
+            // Nudge は矢印キーを避けて , / . に割り当てる。Premiere/DaVinci/Final Cut の
+            // 慣例に合わせるとともに、シーン側 Previous/Next (Left/Right), SeekStart/SeekEnd
+            // (Cmd+Left/Right on macOS), Marker nav (Ctrl+Left/Right, macOS Alt+Left/Right)
+            // との shortcut 衝突を完全に排除する。
+            new ContextCommandDefinition(
+                "NudgeLeftFrame",
+                Strings.NudgeLeftFrame,
+                "",
+                [new ContextCommandKeyGesture("OemComma")]
+            ),
+            new ContextCommandDefinition(
+                "NudgeRightFrame",
+                Strings.NudgeRightFrame,
+                "",
+                [new ContextCommandKeyGesture("OemPeriod")]
+            ),
+            new ContextCommandDefinition(
+                "NudgeLeftLarge",
+                Strings.NudgeLeftLarge,
+                "",
+                [new ContextCommandKeyGesture("Shift+OemComma")]
+            ),
+            new ContextCommandDefinition(
+                "NudgeRightLarge",
+                Strings.NudgeRightLarge,
+                "",
+                [new ContextCommandKeyGesture("Shift+OemPeriod")]
+            ),
+            new ContextCommandDefinition(
+                "NudgeLeftSecond",
+                Strings.NudgeLeftSecond,
+                "",
+                [new ContextCommandKeyGesture("Alt+OemComma")]
+            ),
+            new ContextCommandDefinition(
+                "NudgeRightSecond",
+                Strings.NudgeRightSecond,
+                "",
+                [new ContextCommandKeyGesture("Alt+OemPeriod")]
+            ),
+            new ContextCommandDefinition(
+                "ToggleGroup",
+                Strings.Group,
+                "",
+                [
+                    new ContextCommandKeyGesture("Ctrl+G"),
+                    new ContextCommandKeyGesture("Cmd+G", OSPlatform.OSX),
+                ]
+            ),
+            new ContextCommandDefinition(
+                "ToggleRazorMode",
+                Strings.RazorTool,
+                Strings.RazorTool_Description,
+                [new ContextCommandKeyGesture("C")]
+            ),
+            new ContextCommandDefinition(
+                "ExitRazorMode",
+                Strings.ExitRazorTool,
+                Strings.ExitRazorTool_Description,
+                [new ContextCommandKeyGesture("V"), new ContextCommandKeyGesture("Escape")]
+            ),
+        ];
 
-    public override bool TryCreateContent(IEditorContext editorContext, [NotNullWhen(true)] out Control? control)
+    public override bool TryCreateContent(
+        IEditorContext editorContext,
+        [NotNullWhen(true)] out Control? control
+    )
     {
         control = new TimelineTabView();
         return true;
     }
 
-    public override bool TryCreateContext(IEditorContext editorContext, [NotNullWhen(true)] out IToolContext? context)
+    public override bool TryCreateContext(
+        IEditorContext editorContext,
+        [NotNullWhen(true)] out IToolContext? context
+    )
     {
         context = new TimelineTabViewModel(editorContext);
         return true;

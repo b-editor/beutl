@@ -1,25 +1,57 @@
 ﻿using System.Globalization;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
-
 using Beutl.Media;
 
 namespace Beutl.Graphics;
 
 [StructLayout(LayoutKind.Sequential)]
 public readonly struct ColorMatrix(
-    float m11, float m12, float m13, float m14, float m15,
-    float m21, float m22, float m23, float m24, float m25,
-    float m31, float m32, float m33, float m34, float m35,
-    float m41, float m42, float m43, float m44, float m45)
-    : IEquatable<ColorMatrix>
+    float m11,
+    float m12,
+    float m13,
+    float m14,
+    float m15,
+    float m21,
+    float m22,
+    float m23,
+    float m24,
+    float m25,
+    float m31,
+    float m32,
+    float m33,
+    float m34,
+    float m35,
+    float m41,
+    float m42,
+    float m43,
+    float m44,
+    float m45
+) : IEquatable<ColorMatrix>
 {
     public static ColorMatrix Identity { get; } =
         new ColorMatrix(
-            1F, 0F, 0F, 0F, 0F,
-            0F, 1F, 0F, 0F, 0F,
-            0F, 0F, 1F, 0F, 0F,
-            0F, 0F, 0F, 1F, 0F);
+            1F,
+            0F,
+            0F,
+            0F,
+            0F,
+            0F,
+            1F,
+            0F,
+            0F,
+            0F,
+            0F,
+            0F,
+            1F,
+            0F,
+            0F,
+            0F,
+            0F,
+            0F,
+            1F,
+            0F
+        );
 
     public bool IsIdentity => Equals(Identity);
 
@@ -69,10 +101,27 @@ public readonly struct ColorMatrix(
             throw new ArgumentException("'span'の長さは20以上である必要がある");
 
         return new ColorMatrix(
-            span[0], span[1], span[2], span[3], span[4],
-            span[5], span[6], span[7], span[8], span[9],
-            span[10], span[11], span[12], span[13], span[14],
-            span[15], span[16], span[17], span[18], span[19]);
+            span[0],
+            span[1],
+            span[2],
+            span[3],
+            span[4],
+            span[5],
+            span[6],
+            span[7],
+            span[8],
+            span[9],
+            span[10],
+            span[11],
+            span[12],
+            span[13],
+            span[14],
+            span[15],
+            span[16],
+            span[17],
+            span[18],
+            span[19]
+        );
     }
 
     public static ColorMatrix CreateSaturate(float s)
@@ -172,9 +221,11 @@ public readonly struct ColorMatrix(
         array[19] = M45 * 255;
     }
 
-    public static bool operator ==(in ColorMatrix value1, in ColorMatrix value2) => value1.Equals(value2);
+    public static bool operator ==(in ColorMatrix value1, in ColorMatrix value2) =>
+        value1.Equals(value2);
 
-    public static bool operator !=(in ColorMatrix value1, in ColorMatrix value2) => !value1.Equals(value2);
+    public static bool operator !=(in ColorMatrix value1, in ColorMatrix value2) =>
+        !value1.Equals(value2);
 
     public static Color operator *(in ColorMatrix left, Color right)
     {
@@ -191,7 +242,8 @@ public readonly struct ColorMatrix(
             (byte)MathF.Round(newA * 255),
             (byte)MathF.Round(newR * 255),
             (byte)MathF.Round(newG * 255),
-            (byte)MathF.Round(newB * 255));
+            (byte)MathF.Round(newB * 255)
+        );
     }
 
     public static ColorMatrix operator *(in ColorMatrix left, in ColorMatrix right)
@@ -259,11 +311,30 @@ public readonly struct ColorMatrix(
     {
         CultureInfo ci = CultureInfo.CurrentCulture;
 
-        return string.Format(ci, "{{ {{M00:{0} M01:{1} M02:{2} M03:{3} M04:{4}}} {{M10:{5} M11:{6} M12:{7} M13:{8} M14:{9}}} {{M20:{10} M21:{11} M22:{12} M23:{13} M24:{14}}} {{M30:{15} M31:{16} M32:{17} M33:{18} M34:{19}}} }}",
-                             M11.ToString(ci), M12.ToString(ci), M13.ToString(ci), M14.ToString(ci), M15.ToString(ci),
-                             M21.ToString(ci), M22.ToString(ci), M23.ToString(ci), M24.ToString(ci), M25.ToString(ci),
-                             M31.ToString(ci), M32.ToString(ci), M33.ToString(ci), M34.ToString(ci), M35.ToString(ci),
-                             M41.ToString(ci), M42.ToString(ci), M43.ToString(ci), M44.ToString(ci), M45.ToString(ci));
+        return string.Format(
+            ci,
+            "{{ {{M00:{0} M01:{1} M02:{2} M03:{3} M04:{4}}} {{M10:{5} M11:{6} M12:{7} M13:{8} M14:{9}}} {{M20:{10} M21:{11} M22:{12} M23:{13} M24:{14}}} {{M30:{15} M31:{16} M32:{17} M33:{18} M34:{19}}} }}",
+            M11.ToString(ci),
+            M12.ToString(ci),
+            M13.ToString(ci),
+            M14.ToString(ci),
+            M15.ToString(ci),
+            M21.ToString(ci),
+            M22.ToString(ci),
+            M23.ToString(ci),
+            M24.ToString(ci),
+            M25.ToString(ci),
+            M31.ToString(ci),
+            M32.ToString(ci),
+            M33.ToString(ci),
+            M34.ToString(ci),
+            M35.ToString(ci),
+            M41.ToString(ci),
+            M42.ToString(ci),
+            M43.ToString(ci),
+            M44.ToString(ci),
+            M45.ToString(ci)
+        );
     }
 
     internal static void CreateSaturateMatrix(float s, Span<float> span)
@@ -283,7 +354,6 @@ public readonly struct ColorMatrix(
         span[15] = span[16] = span[17] = 0;
         span[18] = 1;
         span[19] = 0;
-
     }
 
     internal static void CreateHueRotateMatrix(float hue, Span<float> span)
@@ -403,7 +473,8 @@ public readonly struct ColorMatrix(
         public Vector5 Z = z;
         public Vector5 W = w;
 
-        public readonly ColorMatrix AsColorMatrix() => Unsafe.As<Matrix4x5, ColorMatrix>(ref Unsafe.AsRef(in this));
+        public readonly ColorMatrix AsColorMatrix() =>
+            Unsafe.As<Matrix4x5, ColorMatrix>(ref Unsafe.AsRef(in this));
 
         public static Matrix4x5 operator *(in Matrix4x5 left, float right)
         {
@@ -412,7 +483,7 @@ public readonly struct ColorMatrix(
                 X = left.X * right,
                 Y = left.Y * right,
                 Z = left.Z * right,
-                W = left.W * right
+                W = left.W * right,
             };
         }
 

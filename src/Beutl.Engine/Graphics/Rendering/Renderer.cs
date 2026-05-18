@@ -43,9 +43,11 @@ public class Renderer : IRenderer
         FrameSize = new PixelSize(width, height);
         (_immediateCanvas, _surface) = RenderThread.Dispatcher.Invoke(() =>
         {
-            RenderTarget surface = RenderTarget.Create(width, height)
-                                   ?? throw new InvalidOperationException(
-                                       $"Could not create a canvas of this size. (width: {width}, height: {height})");
+            RenderTarget surface =
+                RenderTarget.Create(width, height)
+                ?? throw new InvalidOperationException(
+                    $"Could not create a canvas of this size. (width: {width}, height: {height})"
+                );
 
             var canvas = new ImmediateCanvas(surface);
             return (canvas, surface);
@@ -106,9 +108,7 @@ public class Renderer : IRenderer
         }
     }
 
-    protected virtual void OnDispose(bool disposing)
-    {
-    }
+    protected virtual void OnDispose(bool disposing) { }
 
     public void Render(CompositionFrame frame)
     {
@@ -188,10 +188,13 @@ public class Renderer : IRenderer
 
         void Handler(object? sender, HierarchyAttachmentEventArgs e)
         {
-            if (sender is not Drawable senderDrawable) return;
+            if (sender is not Drawable senderDrawable)
+                return;
 
-            if (weakRef.TryGetTarget(out Renderer? renderer)
-                && renderer._nodeCache.TryGetValue(senderDrawable, out Entry? entry))
+            if (
+                weakRef.TryGetTarget(out Renderer? renderer)
+                && renderer._nodeCache.TryGetValue(senderDrawable, out Entry? entry)
+            )
             {
                 RenderNodeCacheHelper.ClearCache(entry.Node);
                 entry.Dispose();
@@ -298,24 +301,34 @@ public class Renderer : IRenderer
 
     public Rect[] GetBoundaries(int zIndex)
     {
-        return [.. _allCurrentEntries.Where(e => e.Node.Drawable?.Resource.GetOriginal().ZIndex == zIndex).Select(e => e.Bounds)];
+        return
+        [
+            .. _allCurrentEntries
+                .Where(e => e.Node.Drawable?.Resource.GetOriginal().ZIndex == zIndex)
+                .Select(e => e.Bounds),
+        ];
     }
 
     public Rect[] RecalculateBoundaries(int zIndex)
     {
-        return [.. _allCurrentEntries.Where(e => e.Node.Drawable?.Resource.GetOriginal().ZIndex == zIndex).Select(e =>
-        {
-            var processor = new RenderNodeProcessor(e.Node, CacheOptions.IsEnabled);
-            var ops = processor.PullToRoot();
-            Rect bounds = Rect.Empty;
-            foreach (var op in ops)
-            {
-                bounds = bounds.Union(op.Bounds);
-                op.Dispose();
-            }
-            e.Bounds = bounds;
-            return bounds;
-        })];
+        return
+        [
+            .. _allCurrentEntries
+                .Where(e => e.Node.Drawable?.Resource.GetOriginal().ZIndex == zIndex)
+                .Select(e =>
+                {
+                    var processor = new RenderNodeProcessor(e.Node, CacheOptions.IsEnabled);
+                    var ops = processor.PullToRoot();
+                    Rect bounds = Rect.Empty;
+                    foreach (var op in ops)
+                    {
+                        bounds = bounds.Union(op.Bounds);
+                        op.Dispose();
+                    }
+                    e.Bounds = bounds;
+                    return bounds;
+                }),
+        ];
     }
 
     public DrawableRenderNode? FindRenderNode(Drawable drawable)
@@ -328,7 +341,8 @@ public class Renderer : IRenderer
         // Recursive search
         foreach (var item in _nodeCache)
         {
-            if (item.Value.Node is not ContainerRenderNode container) continue;
+            if (item.Value.Node is not ContainerRenderNode container)
+                continue;
 
             var result = FindChildRenderNode(container, drawable);
             if (result != null)
@@ -338,7 +352,10 @@ public class Renderer : IRenderer
         return null;
     }
 
-    private static DrawableRenderNode? FindChildRenderNode(ContainerRenderNode container, Drawable drawable)
+    private static DrawableRenderNode? FindChildRenderNode(
+        ContainerRenderNode container,
+        Drawable drawable
+    )
     {
         foreach (var child in container.Children)
         {
@@ -348,8 +365,10 @@ public class Renderer : IRenderer
                 if (result != null)
                     return result;
             }
-            else if (child is DrawableRenderNode childDrawable &&
-                     childDrawable.Drawable?.Resource.GetOriginal() == drawable)
+            else if (
+                child is DrawableRenderNode childDrawable
+                && childDrawable.Drawable?.Resource.GetOriginal() == drawable
+            )
             {
                 return childDrawable;
             }

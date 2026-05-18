@@ -1,13 +1,11 @@
 ﻿using System.IO.Compression;
 using System.Reflection;
 using System.Runtime.Versioning;
-
 using NuGet.Common;
 using NuGet.Frameworks;
 using NuGet.Packaging;
 using NuGet.Packaging.Core;
 using NuGet.Protocol.Core.Types;
-
 using static Beutl.Api.Services.CoreLibraries;
 
 namespace Beutl.Api.Services;
@@ -35,8 +33,12 @@ internal static class Helper
 
     public static NuGetFramework GetFrameworkName()
     {
-        TargetFrameworkAttribute fx = Assembly.GetExecutingAssembly().GetCustomAttribute<TargetFrameworkAttribute>()!;
-        TargetPlatformAttribute? platform = Assembly.GetExecutingAssembly().GetCustomAttribute<TargetPlatformAttribute>();
+        TargetFrameworkAttribute fx = Assembly
+            .GetExecutingAssembly()
+            .GetCustomAttribute<TargetFrameworkAttribute>()!;
+        TargetPlatformAttribute? platform = Assembly
+            .GetExecutingAssembly()
+            .GetCustomAttribute<TargetPlatformAttribute>();
         var frameworkName = new FrameworkName(fx.FrameworkName);
 
         if (platform != null)
@@ -47,51 +49,65 @@ internal static class Helper
         return NuGetFramework.Parse(frameworkName.FullName);
     }
 
-    public static async Task GetPackageDependencies(PackageIdentity package,
+    public static async Task GetPackageDependencies(
+        PackageIdentity package,
         NuGetFramework framework,
         SourceCacheContext cacheContext,
         ILogger logger,
         IEnumerable<SourceRepository> repositories,
         ISet<SourcePackageDependencyInfo> availablePackages,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default
+    )
     {
-        if (availablePackages.Contains(package) || IncludedInPackageDependencies(package.Id, package.Version)) return;
+        if (
+            availablePackages.Contains(package)
+            || IncludedInPackageDependencies(package.Id, package.Version)
+        )
+            return;
 
         foreach (SourceRepository sourceRepository in repositories)
         {
-            DependencyInfoResource dependencyInfoResource
-                = await sourceRepository.GetResourceAsync<DependencyInfoResource>(cancellationToken)
-                    .ConfigureAwait(false);
+            DependencyInfoResource dependencyInfoResource = await sourceRepository
+                .GetResourceAsync<DependencyInfoResource>(cancellationToken)
+                .ConfigureAwait(false);
 
-            SourcePackageDependencyInfo dependencyInfo
-                = await dependencyInfoResource.ResolvePackage(
-                    package, framework, cacheContext, logger, cancellationToken)
-                        .ConfigureAwait(false);
+            SourcePackageDependencyInfo dependencyInfo = await dependencyInfoResource
+                .ResolvePackage(package, framework, cacheContext, logger, cancellationToken)
+                .ConfigureAwait(false);
 
-            if (dependencyInfo == null) continue;
+            if (dependencyInfo == null)
+                continue;
 
-            if (dependencyInfo.Dependencies.Any(x => IncludedInPackageDependencies(x.Id, x.VersionRange)))
+            if (
+                dependencyInfo.Dependencies.Any(x =>
+                    IncludedInPackageDependencies(x.Id, x.VersionRange)
+                )
+            )
             {
                 dependencyInfo = new SourcePackageDependencyInfo(
                     dependencyInfo,
-                    dependencyInfo.Dependencies.Where(x => !IncludedInPackageDependencies(x.Id, x.VersionRange)),
+                    dependencyInfo.Dependencies.Where(x =>
+                        !IncludedInPackageDependencies(x.Id, x.VersionRange)
+                    ),
                     dependencyInfo.Listed,
                     dependencyInfo.Source,
                     dependencyInfo.DownloadUri,
-                    dependencyInfo.PackageHash);
+                    dependencyInfo.PackageHash
+                );
             }
 
             availablePackages.Add(dependencyInfo);
             foreach (PackageDependency? dependency in dependencyInfo.Dependencies)
             {
                 await GetPackageDependencies(
-                    new PackageIdentity(dependency.Id, dependency.VersionRange.MinVersion),
-                    framework,
-                    cacheContext,
-                    logger,
-                    repositories,
-                    availablePackages,
-                    cancellationToken)
+                        new PackageIdentity(dependency.Id, dependency.VersionRange.MinVersion),
+                        framework,
+                        cacheContext,
+                        logger,
+                        repositories,
+                        availablePackages,
+                        cancellationToken
+                    )
                     .ConfigureAwait(false);
             }
         }
@@ -100,15 +116,23 @@ internal static class Helper
     public static void GetPackageDependencies(
         PackageDependencyInfo package,
         NuGetFramework framework,
-        ISet<PackageDependencyInfo> availablePackages)
+        ISet<PackageDependencyInfo> availablePackages
+    )
     {
-        if (availablePackages.Contains(package) || IncludedInPackageDependencies(package.Id, package.Version)) return;
+        if (
+            availablePackages.Contains(package)
+            || IncludedInPackageDependencies(package.Id, package.Version)
+        )
+            return;
 
         availablePackages.Add(package);
 
         foreach (var dependency in package.Dependencies)
         {
-            var dependentPackage = new PackageIdentity(dependency.Id, dependency.VersionRange.MinVersion);
+            var dependentPackage = new PackageIdentity(
+                dependency.Id,
+                dependency.VersionRange.MinVersion
+            );
             var path = PackagePathResolver.GetInstalledPath(dependentPackage);
             if (path != null)
             {
@@ -117,14 +141,17 @@ internal static class Helper
                 var deps = reader.GetPackageDependencies();
                 var nearest = FrameworkReducer.GetNearest(
                     framework,
-                    deps.Select(x => x.TargetFramework));
+                    deps.Select(x => x.TargetFramework)
+                );
 
                 GetPackageDependencies(
                     new PackageDependencyInfo(
                         dependentPackage,
-                        deps.Where(x => x.TargetFramework == nearest)
-                            .SelectMany(x => x.Packages)),
-                    framework, availablePackages);
+                        deps.Where(x => x.TargetFramework == nearest).SelectMany(x => x.Packages)
+                    ),
+                    framework,
+                    availablePackages
+                );
             }
         }
     }
@@ -172,7 +199,9 @@ internal static class Helper
     {
         using var zip = new ZipArchive(stream);
 
-        ZipArchiveEntry? nuspecEntry = zip.Entries.FirstOrDefault(x => x.Name.EndsWith(".nuspec") && !x.FullName.Contains('/'));
+        ZipArchiveEntry? nuspecEntry = zip.Entries.FirstOrDefault(x =>
+            x.Name.EndsWith(".nuspec") && !x.FullName.Contains('/')
+        );
         if (nuspecEntry is { })
         {
             using (Stream nuspecStream = nuspecEntry.Open())

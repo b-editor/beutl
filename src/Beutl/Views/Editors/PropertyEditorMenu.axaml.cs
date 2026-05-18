@@ -16,19 +16,27 @@ public sealed partial class PropertyEditorMenu : UserControl
     public PropertyEditorMenu()
     {
         InitializeComponent();
-        Bind(ToolTip.TipProperty, this.GetObservable(DataContextProperty)
-            .Select(v => v is BaseEditorViewModel viewModel
-                ? viewModel.HasAnimation
-                    .CombineLatest(viewModel.HasExpression)
-                    .Select(t => t switch
-                    {
-                        (true, _) =>
-                            $"- {MessageStrings.RightClickToShowMenu}\n- {MessageStrings.AnimationIsEnabled}",
-                        (_, true) => $"- {MessageStrings.RightClickToShowMenu}\n- {MessageStrings.ExpressionIsSet}",
-                        _ => null
-                    })
-                : Observable.ReturnThenNever<string?>(null))
-            .Switch());
+        Bind(
+            ToolTip.TipProperty,
+            this.GetObservable(DataContextProperty)
+                .Select(v =>
+                    v is BaseEditorViewModel viewModel
+                        ? viewModel
+                            .HasAnimation.CombineLatest(viewModel.HasExpression)
+                            .Select(t =>
+                                t switch
+                                {
+                                    (true, _) =>
+                                        $"- {MessageStrings.RightClickToShowMenu}\n- {MessageStrings.AnimationIsEnabled}",
+                                    (_, true) =>
+                                        $"- {MessageStrings.RightClickToShowMenu}\n- {MessageStrings.ExpressionIsSet}",
+                                    _ => null,
+                                }
+                            )
+                        : Observable.ReturnThenNever<string?>(null)
+                )
+                .Switch()
+        );
     }
 
     protected override void OnDataContextChanged(EventArgs e)
@@ -38,19 +46,22 @@ public sealed partial class PropertyEditorMenu : UserControl
         uniformEditorToggle.IsVisible = DataContext is IConfigureUniformEditor;
 
         // アニメーションの編集メニューはIAnimatablePropertyAdapterをサポートするプロパティでのみ表示
-        bool supportsAnimation = DataContext is BaseEditorViewModel { PropertyAdapter: IAnimatablePropertyAdapter };
+        bool supportsAnimation =
+            DataContext is BaseEditorViewModel { PropertyAdapter: IAnimatablePropertyAdapter };
         editAnimationItem.IsVisible = supportsAnimation;
         editInlineAnimationItem.IsVisible = supportsAnimation;
         removeAnimationItem.IsVisible = supportsAnimation;
 
         // 式の編集メニューはIExpressionPropertyAdapterをサポートするプロパティでのみ表示
-        bool supportsExpression = DataContext is BaseEditorViewModel { PropertyAdapter: IExpressionPropertyAdapter };
+        bool supportsExpression =
+            DataContext is BaseEditorViewModel { PropertyAdapter: IExpressionPropertyAdapter };
         expressionSeparator.IsVisible = supportsExpression;
         editExpressionItem.IsVisible = supportsExpression;
         removeExpressionItem.IsVisible = supportsExpression;
 
         // プロパティパスのコピーはEnginePropertyの場合のみ表示
-        bool isEngineProperty = (DataContext as BaseEditorViewModel)?.PropertyAdapter.GetEngineProperty() != null;
+        bool isEngineProperty =
+            (DataContext as BaseEditorViewModel)?.PropertyAdapter.GetEngineProperty() != null;
         copyPropertyPathSeparator.IsVisible = isEngineProperty;
         copyPropertyPathItem.IsVisible = isEngineProperty;
         copyGetPropertyCodeItem.IsVisible = isEngineProperty;
@@ -64,7 +75,10 @@ public sealed partial class PropertyEditorMenu : UserControl
             {
                 EditExpression_Click(sender, e);
             }
-            else if (viewModel.HasAnimation.Value && viewModel.GetService<IEditorClock>() is { } editorClock)
+            else if (
+                viewModel.HasAnimation.Value
+                && viewModel.GetService<IEditorClock>() is { } editorClock
+            )
             {
                 TimeSpan keyTime = editorClock.CurrentTime.Value;
                 if (symbolIcon.IsFilled)
@@ -85,9 +99,11 @@ public sealed partial class PropertyEditorMenu : UserControl
 
     private void EditAnimation_Click(object? sender, RoutedEventArgs e)
     {
-        if (DataContext is BaseEditorViewModel { IsDisposed: false } viewModel
+        if (
+            DataContext is BaseEditorViewModel { IsDisposed: false } viewModel
             && viewModel.PropertyAdapter is IAnimatablePropertyAdapter animatableProperty
-            && viewModel.GetService<EditViewModel>() is { } editViewModel)
+            && viewModel.GetService<EditViewModel>() is { } editViewModel
+        )
         {
             viewModel.PrepareToEditAnimation();
 
@@ -109,11 +125,13 @@ public sealed partial class PropertyEditorMenu : UserControl
 
     private void EditInlineAnimation_Click(object? sender, RoutedEventArgs e)
     {
-        if (DataContext is BaseEditorViewModel { IsDisposed: false } viewModel
+        if (
+            DataContext is BaseEditorViewModel { IsDisposed: false } viewModel
             && viewModel.PropertyAdapter is IAnimatablePropertyAdapter animatableProperty
             && viewModel.GetService<EditViewModel>() is { } editViewModel
             && viewModel.GetService<Element>() is { } element
-            && editViewModel.FindToolTab<TimelineTabViewModel>() is { } timeline)
+            && editViewModel.FindToolTab<TimelineTabViewModel>() is { } timeline
+        )
         {
             viewModel.PrepareToEditAnimation();
 
@@ -155,10 +173,12 @@ public sealed partial class PropertyEditorMenu : UserControl
 
     private async void CopyPropertyPath_Click(object? sender, RoutedEventArgs e)
     {
-        if (DataContext is BaseEditorViewModel { IsDisposed: false } viewModel
+        if (
+            DataContext is BaseEditorViewModel { IsDisposed: false } viewModel
             && viewModel.PropertyAdapter.GetEngineProperty() is { } engineProperty
             && engineProperty.GetOwnerObject() is { } engineObject
-            && TopLevel.GetTopLevel(this)?.Clipboard is { } clipboard)
+            && TopLevel.GetTopLevel(this)?.Clipboard is { } clipboard
+        )
         {
             string propertyPath = $"{{{engineObject.Id}}}.{engineProperty.Name}";
             await clipboard.SetTextAsync(propertyPath);
@@ -167,13 +187,16 @@ public sealed partial class PropertyEditorMenu : UserControl
 
     private async void CopyGetPropertyCode_Click(object? sender, RoutedEventArgs e)
     {
-        if (DataContext is BaseEditorViewModel { IsDisposed: false } viewModel
+        if (
+            DataContext is BaseEditorViewModel { IsDisposed: false } viewModel
             && viewModel.PropertyAdapter.GetEngineProperty() is { } engineProperty
             && engineProperty.GetOwnerObject() is { } engineObject
-            && TopLevel.GetTopLevel(this)?.Clipboard is { } clipboard)
+            && TopLevel.GetTopLevel(this)?.Clipboard is { } clipboard
+        )
         {
             string typeName = GetTypeAlias(engineProperty.ValueType);
-            string code = $"GetProperty<{typeName}>(\"{{{engineObject.Id}}}.{engineProperty.Name}\")";
+            string code =
+                $"GetProperty<{typeName}>(\"{{{engineObject.Id}}}.{engineProperty.Name}\")";
             await clipboard.SetTextAsync(code);
         }
     }
@@ -198,7 +221,7 @@ public sealed partial class PropertyEditorMenu : UserControl
             _ when type == typeof(decimal) => "decimal",
             _ when type == typeof(string) => "string",
             _ when type == typeof(object) => "object",
-            _ => type.FullName ?? type.Name
+            _ => type.FullName ?? type.Name,
         };
     }
 }

@@ -31,7 +31,10 @@ using Reactive.Bindings.Extensions;
 
 namespace Beutl.Editor.Components.TimelineTab.ViewModels;
 
-public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler, IContextCommandStateNotifier
+public sealed class TimelineTabViewModel
+    : IToolContext,
+        IContextCommandHandler,
+        IContextCommandStateNotifier
 {
     private readonly ILogger _logger = Log.CreateLogger<TimelineTabViewModel>();
     private readonly CompositeDisposable _disposables = [];
@@ -57,18 +60,25 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
 
         SeekBarMargin = CurrentTime
             .CombineLatest(Scale)
-            .Select(item => new Thickness(Math.Max(item.First.TimeToPixel(item.Second), 0), 0, 0, 0))
+            .Select(item => new Thickness(
+                Math.Max(item.First.TimeToPixel(item.Second), 0),
+                0,
+                0,
+                0
+            ))
             .ToReadOnlyReactivePropertySlim()
             .AddTo(_disposables);
 
-        StartingBarMargin = Scene.GetObservable(Scene.StartProperty)
+        StartingBarMargin = Scene
+            .GetObservable(Scene.StartProperty)
             .CombineLatest(Scale)
             .Select(item => item.First.TimeToPixel(item.Second))
             .Select(p => new Thickness(p, 0, 0, 0))
             .ToReadOnlyReactivePropertySlim()
             .AddTo(_disposables);
 
-        EndingBarMargin = Scene.GetObservable(Scene.DurationProperty)
+        EndingBarMargin = Scene
+            .GetObservable(Scene.DurationProperty)
             .CombineLatest(Scale, StartingBarMargin)
             .Select(item => item.First.TimeToPixel(item.Second) + item.Third.Left)
             .Select(p => new Thickness(p, 0, 0, 0))
@@ -79,24 +89,33 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
             .CombineLatest(
                 Scene.GetObservable(Scene.DurationProperty),
                 Scene.GetObservable(Scene.StartProperty),
-                CurrentTime)
-            .Select(i => TimeSpan.FromTicks(
-                Math.Max(
-                    Math.Max(i.First.Ticks, i.Second.Ticks + i.Third.Ticks),
-                    i.Fourth.Ticks)))
+                CurrentTime
+            )
+            .Select(i =>
+                TimeSpan.FromTicks(
+                    Math.Max(
+                        Math.Max(i.First.Ticks, i.Second.Ticks + i.Third.Ticks),
+                        i.Fourth.Ticks
+                    )
+                )
+            )
             .CombineLatest(Scale)
             .Select(i => i.First.TimeToPixel(i.Second) + 500)
             .ToReadOnlyReactivePropertySlim()
             .AddTo(_disposables);
 
-        AddElement.Subscribe(desc => editorContext.GetRequiredService<IElementAdder>().AddElement(desc)).AddTo(_disposables);
-
-        Paste.Subscribe(PasteCore)
+        AddElement
+            .Subscribe(desc => editorContext.GetRequiredService<IElementAdder>().AddElement(desc))
             .AddTo(_disposables);
 
+        Paste.Subscribe(PasteCore).AddTo(_disposables);
+
         TimelineOptions options = Options.Value;
-        LayerHeaders.AddRange(Enumerable.Range(0, options.MaxLayerCount)
-            .Select(num => new LayerHeaderViewModel(num, this)));
+        LayerHeaders.AddRange(
+            Enumerable
+                .Range(0, options.MaxLayerCount)
+                .Select(num => new LayerHeaderViewModel(num, this))
+        );
         if (Scene.Children.Count > 0)
         {
             AddLayerHeaders(Scene.Children.Max(i => i.ZIndex) + 1);
@@ -104,7 +123,8 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
             Elements.AddRange(Scene.Children.Select(item => new ElementViewModel(item, this)));
         }
 
-        Scene.Children.TrackCollectionChanged(
+        Scene
+            .Children.TrackCollectionChanged(
                 (idx, item) =>
                 {
                     _logger.LogDebug("Element added {Id}.", item.Id);
@@ -129,12 +149,11 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
                     {
                         item.Dispose();
                     }
-                })
+                }
+            )
             .AddTo(_disposables);
 
-        Options.Select(x => x.MaxLayerCount)
-            .DistinctUntilChanged()
-            .Subscribe(TryApplyLayerCount);
+        Options.Select(x => x.MaxLayerCount).DistinctUntilChanged().Subscribe(TryApplyLayerCount);
 
         SetStartTimeToPointerPosition.Subscribe(OnSetStartTimeToPointerPosition);
         SetEndTimeToPointerPosition.Subscribe(OnSetEndTimeToPointerPosition);
@@ -142,7 +161,8 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
         SetEndTimeToCurrentTime.Subscribe(OnSetEndTimeToCurrentTime);
         EditorConfig editorConfig = GlobalConfiguration.Instance.EditorConfig;
 
-        AutoAdjustSceneDuration = editorConfig.GetObservable(EditorConfig.AutoAdjustSceneDurationProperty)
+        AutoAdjustSceneDuration = editorConfig
+            .GetObservable(EditorConfig.AutoAdjustSceneDurationProperty)
             .ToReactiveProperty()
             .DisposeWith(_disposables);
         AutoAdjustSceneDuration.Subscribe(b =>
@@ -151,78 +171,94 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
             editorConfig.AutoAdjustSceneDuration = b;
         });
 
-        IsSnapEnabled = editorConfig.GetObservable(EditorConfig.IsTimelineSnapEnabledProperty)
+        IsSnapEnabled = editorConfig
+            .GetObservable(EditorConfig.IsTimelineSnapEnabledProperty)
             .ToReactiveProperty()
             .DisposeWith(_disposables);
-        IsSnapEnabled.Subscribe(b => editorConfig.IsTimelineSnapEnabled = b)
+        IsSnapEnabled
+            .Subscribe(b => editorConfig.IsTimelineSnapEnabled = b)
             .DisposeWith(_disposables);
 
-        IsLockCacheButtonEnabled = HoveredCacheBlock.Select(v => v is { IsLocked: false })
+        IsLockCacheButtonEnabled = HoveredCacheBlock
+            .Select(v => v is { IsLocked: false })
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
 
-        IsUnlockCacheButtonEnabled = HoveredCacheBlock.Select(v => v is { IsLocked: true })
+        IsUnlockCacheButtonEnabled = HoveredCacheBlock
+            .Select(v => v is { IsLocked: true })
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
 
-        DeleteAllFrameCache = new ReactiveCommandSlim()
-            .WithSubscribe(() =>
-            {
-                _logger.LogInformation("Deleting all frame cache.");
-                BufferStatus.ClearCache();
-            });
+        DeleteAllFrameCache = new ReactiveCommandSlim().WithSubscribe(() =>
+        {
+            _logger.LogInformation("Deleting all frame cache.");
+            BufferStatus.ClearCache();
+        });
 
-        DeleteFrameCache = HoveredCacheBlock.Select(v => v != null)
+        DeleteFrameCache = HoveredCacheBlock
+            .Select(v => v != null)
             .ToReactiveCommandSlim()
             .WithSubscribe(() =>
             {
-                if (HoveredCacheBlock.Value is not { } block) return;
+                if (HoveredCacheBlock.Value is not { } block)
+                    return;
 
-                _logger.LogInformation("Deleting frame cache for block starting at frame {StartFrame}.",
-                    block.StartFrame);
+                _logger.LogInformation(
+                    "Deleting frame cache for block starting at frame {StartFrame}.",
+                    block.StartFrame
+                );
                 if (block.IsLocked)
                 {
-                    BufferStatus.UnlockCache(block.StartFrame, block.StartFrame + block.LengthFrame);
+                    BufferStatus.UnlockCache(
+                        block.StartFrame,
+                        block.StartFrame + block.LengthFrame
+                    );
                 }
 
                 BufferStatus.DeleteCache(block.StartFrame, block.StartFrame + block.LengthFrame);
             });
 
-        LockFrameCache = HoveredCacheBlock.Select(v => v?.IsLocked == false)
+        LockFrameCache = HoveredCacheBlock
+            .Select(v => v?.IsLocked == false)
             .ToReactiveCommandSlim()
             .WithSubscribe(() =>
             {
-                if (HoveredCacheBlock.Value is not { } block) return;
+                if (HoveredCacheBlock.Value is not { } block)
+                    return;
 
-                _logger.LogInformation("Locking frame cache for block starting at frame {StartFrame}.",
-                    block.StartFrame);
+                _logger.LogInformation(
+                    "Locking frame cache for block starting at frame {StartFrame}.",
+                    block.StartFrame
+                );
                 BufferStatus.LockCache(block.StartFrame, block.StartFrame + block.LengthFrame);
                 BufferStatus.UpdateBlocks();
             });
 
-        UnlockFrameCache = HoveredCacheBlock.Select(v => v?.IsLocked == true)
+        UnlockFrameCache = HoveredCacheBlock
+            .Select(v => v?.IsLocked == true)
             .ToReactiveCommandSlim()
             .WithSubscribe(() =>
             {
-                if (HoveredCacheBlock.Value is not { } block) return;
+                if (HoveredCacheBlock.Value is not { } block)
+                    return;
 
-                _logger.LogInformation("Unlocking frame cache for block starting at frame {StartFrame}.",
-                    block.StartFrame);
+                _logger.LogInformation(
+                    "Unlocking frame cache for block starting at frame {StartFrame}.",
+                    block.StartFrame
+                );
                 BufferStatus.UnlockCache(block.StartFrame, block.StartFrame + block.LengthFrame);
                 BufferStatus.UpdateBlocks();
             });
 
         // CanExecute がレイザーモード切替に追従するよう変更通知へ流す。
-        IsRazorMode
-            .Subscribe(_ => RaiseCanExecuteChanged())
-            .AddTo(_disposables);
+        IsRazorMode.Subscribe(_ => RaiseCanExecuteChanged()).AddTo(_disposables);
 
         // Undo/Redo の直前で debounce 中の Nudge を必ず Commit する。
         // 未コミットのままだと、Undo が先に未確定 transaction を revert してから
         // 前回コミットを Pop するため 2 アクション分が同時に取り消されてしまう。
-        editorContext.GetRequiredService<HistoryManager>()
-            .BeforeMutation
-            .Subscribe(_ => FlushPendingNudgeCommit())
+        editorContext
+            .GetRequiredService<HistoryManager>()
+            .BeforeMutation.Subscribe(_ => FlushPendingNudgeCommit())
             .AddTo(_disposables);
 
         _logger.LogInformation("TimelineTabViewModel initialized successfully.");
@@ -261,9 +297,12 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
                 time = Scene.Duration + Scene.Start - TimeSpan.FromSeconds(1d / rate);
             }
 
-            Scene.Duration = TimeSpan.FromTicks(Math.Max(
-                (Scene.Duration + Scene.Start -
-                 time).Ticks, TimeSpan.FromSeconds(1d / rate).Ticks));
+            Scene.Duration = TimeSpan.FromTicks(
+                Math.Max(
+                    (Scene.Duration + Scene.Start - time).Ticks,
+                    TimeSpan.FromSeconds(1d / rate).Ticks
+                )
+            );
             Scene.Start = time;
         }
 
@@ -292,7 +331,9 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
 
             Scene.Duration = Scene.Start - time;
             Scene.Start = time;
-            EditorContext.GetRequiredService<HistoryManager>().Commit(CommandNames.ChangeSceneDuration);
+            EditorContext
+                .GetRequiredService<HistoryManager>()
+                .Commit(CommandNames.ChangeSceneDuration);
         }
         else
         {
@@ -304,7 +345,9 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
             }
 
             Scene.Duration = time;
-            EditorContext.GetRequiredService<HistoryManager>().Commit(CommandNames.ChangeSceneDuration);
+            EditorContext
+                .GetRequiredService<HistoryManager>()
+                .Commit(CommandNames.ChangeSceneDuration);
             _logger.LogInformation("Scene duration adjusted to {Time}.", time);
         }
     }
@@ -499,11 +542,19 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
             newZIndex += dz[dir];
 
             // 必要なら境界処理（例：負の時間を禁止）
-            if (newStart < TimeSpan.Zero) newStart = TimeSpan.Zero;
-            if (newZIndex < 0) newZIndex = 0;
+            if (newStart < TimeSpan.Zero)
+                newStart = TimeSpan.Zero;
+            if (newZIndex < 0)
+                newZIndex = 0;
 
             // 空きが見つかったら終了
-            if (!IsOverlapping(new TimeRange(newStart, length), newZIndex, newZIndex + layerCount - 1))
+            if (
+                !IsOverlapping(
+                    new TimeRange(newStart, length),
+                    newZIndex,
+                    newZIndex + layerCount - 1
+                )
+            )
                 break;
 
             // 歩数管理：指定歩数進んだら時計回りに方向転換
@@ -524,16 +575,25 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
         bool IsOverlapping(TimeRange range, int minZIndex, int maxZIndex)
         {
             return Elements.Any(e =>
-                (e.Model.Range == range || e.Model.Range.Intersects(range) ||
-                 e.Model.Range.Contains(range) || range.Contains(e.Model.Range))
-                && e.Model.ZIndex >= minZIndex && e.Model.ZIndex <= maxZIndex);
+                (
+                    e.Model.Range == range
+                    || e.Model.Range.Intersects(range)
+                    || e.Model.Range.Contains(range)
+                    || range.Contains(e.Model.Range)
+                )
+                && e.Model.ZIndex >= minZIndex
+                && e.Model.ZIndex <= maxZIndex
+            );
         }
     }
 
     private async Task PasteElementList(IClipboard clipboard)
     {
-        if (await clipboard.TryGetValueAsync(BeutlDataFormats.Elements) is not { } json
-            || JsonNode.Parse(json) is not JsonArray jsonArray) return;
+        if (
+            await clipboard.TryGetValueAsync(BeutlDataFormats.Elements) is not { } json
+            || JsonNode.Parse(json) is not JsonArray jsonArray
+        )
+            return;
 
         var oldElements = jsonArray
             .Select(node => (node, element: new Element()))
@@ -553,7 +613,8 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
         var (newStart, newZIndex) = CorrectPosition(
             new TimeRange(minStart, length),
             minZIndex,
-            maxZIndex);
+            maxZIndex
+        );
 
         // 新しい位置に移動して保存、シーンに追加
         foreach (Element newElement in newElements)
@@ -561,8 +622,10 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
             newElement.Start = newElement.Start - minStart + newStart;
             newElement.ZIndex = newElement.ZIndex - minZIndex + newZIndex;
 
-            CoreSerializer.StoreToUri(newElement,
-                RandomFileNameGenerator.GenerateUri(Scene.Uri!, Constants.ElementFileExtension));
+            CoreSerializer.StoreToUri(
+                newElement,
+                RandomFileNameGenerator.GenerateUri(Scene.Uri!, Constants.ElementFileExtension)
+            );
         }
 
         HistoryManager history = EditorContext.GetRequiredService<HistoryManager>();
@@ -575,10 +638,12 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
 
         // コピーする要素が含まれるグループを取得
         var scene = Scene;
-        List<ImmutableHashSet<Guid>> newGroups = Scene.Groups
-            .Select(g => g.Where(id => idMapping.ContainsKey(id))
-                .Select(id => idMapping[id])
-                .ToImmutableHashSet())
+        List<ImmutableHashSet<Guid>> newGroups = Scene
+            .Groups.Select(g =>
+                g.Where(id => idMapping.ContainsKey(id))
+                    .Select(id => idMapping[id])
+                    .ToImmutableHashSet()
+            )
             .Where(g => g.Count >= 2)
             .ToList();
         if (newGroups.Count > 0)
@@ -598,8 +663,10 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
 
     private async Task PasteElement(IClipboard clipboard)
     {
-        if (await clipboard.TryGetValueAsync(BeutlDataFormats.Element) is not { } json) return;
-        if (JsonNode.Parse(json) is not JsonObject jsonObject) return;
+        if (await clipboard.TryGetValueAsync(BeutlDataFormats.Element) is not { } json)
+            return;
+        if (JsonNode.Parse(json) is not JsonObject jsonObject)
+            return;
 
         var oldElement = new Element();
 
@@ -610,8 +677,10 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
         newElement.Start = ClickedFrame;
         newElement.ZIndex = CalculateClickedLayer();
 
-        CoreSerializer.StoreToUri(newElement, RandomFileNameGenerator.GenerateUri(
-            Scene.Uri!, Constants.ElementFileExtension));
+        CoreSerializer.StoreToUri(
+            newElement,
+            RandomFileNameGenerator.GenerateUri(Scene.Uri!, Constants.ElementFileExtension)
+        );
 
         HistoryManager history = EditorContext.GetRequiredService<HistoryManager>();
         Scene.AddChild(newElement);
@@ -623,7 +692,8 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
     private async Task PasteImageElement(IClipboard clipboard)
     {
         var imageData = await clipboard.TryGetBitmapAsync();
-        if (imageData == null) return;
+        if (imageData == null)
+            return;
 
         string dir = Path.GetDirectoryName(Scene.Uri!.LocalPath)!;
         // 画像を保存
@@ -644,12 +714,14 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
             Length = TimeSpan.FromSeconds(5),
             ZIndex = CalculateClickedLayer(),
             AccentColor = ColorGenerator.GenerateColor(typeof(Graphics.SourceImage).FullName!),
-            Name = Path.GetFileName(imageFile)
+            Name = Path.GetFileName(imageFile),
         };
         newElement.AddObject(sourceImage);
 
-        CoreSerializer.StoreToUri(newElement, RandomFileNameGenerator.GenerateUri(
-            dir, Constants.ElementFileExtension));
+        CoreSerializer.StoreToUri(
+            newElement,
+            RandomFileNameGenerator.GenerateUri(dir, Constants.ElementFileExtension)
+        );
 
         HistoryManager history = EditorContext.GetRequiredService<HistoryManager>();
         Scene.AddChild(newElement);
@@ -660,17 +732,19 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
 
     private async Task PasteFiles(IClipboard clipboard)
     {
-        if (await clipboard.TryGetFilesAsync() is not { } files) return;
+        if (await clipboard.TryGetFilesAsync() is not { } files)
+            return;
 
         var frame = ClickedFrame;
         int layer = CalculateClickedLayer();
         foreach (IStorageItem item in files)
         {
-            if (item.TryGetLocalPath() is not { } fileName) continue;
+            if (item.TryGetLocalPath() is not { } fileName)
+                continue;
 
-            AddElement.Execute(new ElementDescription(
-                frame, TimeSpan.FromSeconds(5), layer,
-                FileName: fileName));
+            AddElement.Execute(
+                new ElementDescription(frame, TimeSpan.FromSeconds(5), layer, FileName: fileName)
+            );
         }
     }
 
@@ -679,7 +753,8 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
         try
         {
             IClipboard? clipboard = ClipboardHelper.GetClipboard();
-            if (clipboard == null) return;
+            if (clipboard == null)
+                return;
 
             var formats = await clipboard.GetDataFormatsAsync();
 
@@ -754,7 +829,10 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
             {
                 Options.Value = Options.Value with { MaxLayerCount = LayerHeaders.Count };
 
-                _logger.LogDebug("The number of layers has been changed. ({Count})", LayerHeaders.Count);
+                _logger.LogDebug(
+                    "The number of layers has been changed. ({Count})",
+                    LayerHeaders.Count
+                );
             }
         }
         else
@@ -767,42 +845,58 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
     {
         _logger.LogInformation("Reading TimelineViewModel state from JSON.");
 
-        if (json.TryGetPropertyValue(nameof(LayerHeaders), out JsonNode? layersNode)
-            && layersNode is JsonArray layersArray)
+        if (
+            json.TryGetPropertyValue(nameof(LayerHeaders), out JsonNode? layersNode)
+            && layersNode is JsonArray layersArray
+        )
         {
-            foreach ((LayerHeaderViewModel layer, JsonObject item) in layersArray.OfType<JsonObject>()
-                         .Select(v =>
-                             v.TryGetPropertyValueAsJsonValue(nameof(LayerHeaderViewModel.Number), out int number)
-                                 ? (number, v)
-                                 : (-1, null))
-                         .Where(v => v.Item2 != null)
-                         .Join(
-                             LayerHeaders,
-                             x => x.Item1,
-                             y => y.Number.Value,
-                             (x, y) => (y, x.Item2!)))
+            foreach (
+                (LayerHeaderViewModel layer, JsonObject item) in layersArray
+                    .OfType<JsonObject>()
+                    .Select(v =>
+                        v.TryGetPropertyValueAsJsonValue(
+                            nameof(LayerHeaderViewModel.Number),
+                            out int number
+                        )
+                            ? (number, v)
+                            : (-1, null)
+                    )
+                    .Where(v => v.Item2 != null)
+                    .Join(LayerHeaders, x => x.Item1, y => y.Number.Value, (x, y) => (y, x.Item2!))
+            )
             {
                 layer.ReadFromJson(item);
-                _logger.LogDebug("LayerHeader {Number} state restored from JSON.", layer.Number.Value);
+                _logger.LogDebug(
+                    "LayerHeader {Number} state restored from JSON.",
+                    layer.Number.Value
+                );
             }
         }
 
-        if (json.TryGetPropertyValue(nameof(Inlines), out JsonNode? inlinesNode)
-            && inlinesNode is JsonArray inlinesArray)
+        if (
+            json.TryGetPropertyValue(nameof(Inlines), out JsonNode? inlinesNode)
+            && inlinesNode is JsonArray inlinesArray
+        )
         {
             RestoreInlineAnimation(inlinesArray);
         }
 
-        if (json.TryGetPropertyValue(nameof(ThumbnailsDisabledElements), out JsonNode? ThumbnailsDisabledNode)
-            && ThumbnailsDisabledNode is JsonArray thumbnailsDisabledArray)
+        if (
+            json.TryGetPropertyValue(
+                nameof(ThumbnailsDisabledElements),
+                out JsonNode? ThumbnailsDisabledNode
+            ) && ThumbnailsDisabledNode is JsonArray thumbnailsDisabledArray
+        )
         {
             ThumbnailsDisabledElements.Clear();
             foreach (JsonNode? item in thumbnailsDisabledArray)
             {
-                if (item is JsonValue value
+                if (
+                    item is JsonValue value
                     && value.TryGetValue(out string? guidStr)
                     && Guid.TryParse(guidStr, out Guid id)
-                    && Scene.Children.Any(e => e.Id == id))
+                    && Scene.Children.Any(e => e.Id == id)
+                )
                 {
                     ThumbnailsDisabledElements.Add(id);
                 }
@@ -818,19 +912,20 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
 
         static (Guid ElementId, Guid AnimationId) GetIds(JsonObject v)
         {
-            return v.TryGetPropertyValueAsJsonValue("ElementId", out Guid elementId)
-                   && v.TryGetPropertyValueAsJsonValue("AnimationId", out Guid anmId)
+            return
+                v.TryGetPropertyValueAsJsonValue("ElementId", out Guid elementId)
+                && v.TryGetPropertyValueAsJsonValue("AnimationId", out Guid anmId)
                 ? (elementId, anmId)
                 : (Guid.Empty, Guid.Empty);
         }
 
-        foreach ((Element element, Guid anmId) in inlinesArray.OfType<JsonObject>()
-                     .Select(GetIds)
-                     .Where(x => x.AnimationId != Guid.Empty && x.ElementId != Guid.Empty)
-                     .Join(Scene.Children,
-                         x => x.ElementId,
-                         y => y.Id,
-                         (x, y) => (y, x.AnimationId)))
+        foreach (
+            (Element element, Guid anmId) in inlinesArray
+                .OfType<JsonObject>()
+                .Select(GetIds)
+                .Where(x => x.AnimationId != Guid.Empty && x.ElementId != Guid.Empty)
+                .Join(Scene.Children, x => x.ElementId, y => y.Id, (x, y) => (y, x.AnimationId))
+        )
         {
             IAnimatablePropertyAdapter? anmProp = null;
             EngineObject? engineObject = null;
@@ -841,7 +936,8 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
                 {
                     switch (span[i])
                     {
-                        case IAnimatablePropertyAdapter anmProp2 when ReferenceEquals(anmProp2.Animation, kfAnm):
+                        case IAnimatablePropertyAdapter anmProp2
+                            when ReferenceEquals(anmProp2.Animation, kfAnm):
                             anmProp = anmProp2;
                             return;
                         case EngineObject engineObject2:
@@ -877,26 +973,36 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
                 if (anmProp != null)
                 {
                     AttachInline(anmProp, element);
-                    _logger.LogDebug("Inline animation attached for element {ElementId} and animation {AnimationId}.",
-                        element.Id, anmId);
+                    _logger.LogDebug(
+                        "Inline animation attached for element {ElementId} and animation {AnimationId}.",
+                        element.Id,
+                        anmId
+                    );
                 }
                 else if (engineObject != null)
                 {
                     try
                     {
-                        Type type = typeof(AnimatablePropertyAdapter<>).MakeGenericType(anm.ValueType);
-                        var createdProp =
-                            (IAnimatablePropertyAdapter)Activator.CreateInstance(type, prop, engineObject)!;
+                        Type type = typeof(AnimatablePropertyAdapter<>).MakeGenericType(
+                            anm.ValueType
+                        );
+                        var createdProp = (IAnimatablePropertyAdapter)
+                            Activator.CreateInstance(type, prop, engineObject)!;
                         AttachInline(createdProp, element);
                         _logger.LogDebug(
                             "Inline animation created and attached for element {ElementId} and animation {AnimationId}.",
-                            element.Id, anmId);
+                            element.Id,
+                            anmId
+                        );
                     }
                     catch (Exception ex)
                     {
-                        _logger.LogError(ex,
+                        _logger.LogError(
+                            ex,
                             "An exception occurred while restoring the inline animation for element {ElementId} and animation {AnimationId}.",
-                            element.Id, anmId);
+                            element.Id,
+                            anmId
+                        );
                     }
                 }
             }
@@ -919,7 +1025,9 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
                 inlines.Add(new JsonObject { ["AnimationId"] = anmId, ["ElementId"] = elementId });
                 _logger.LogDebug(
                     "Inline animation state written to JSON for element {ElementId} and animation {AnimationId}.",
-                    elementId, anmId);
+                    elementId,
+                    anmId
+                );
             }
         }
 
@@ -938,37 +1046,57 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
 
     public void AttachInline(IAnimatablePropertyAdapter property, Element element)
     {
-        _logger.LogInformation("Attaching inline animation for element {ElementId} and property {Property}.",
-            element.Id, property);
+        _logger.LogInformation(
+            "Attaching inline animation for element {ElementId} and property {Property}.",
+            element.Id,
+            property
+        );
         if (Inlines.Any(x => x.Element.Model == element && x.Property == property))
         {
-            _logger.LogWarning("Inline animation already attached for element {ElementId}.", element.Id);
+            _logger.LogWarning(
+                "Inline animation already attached for element {ElementId}.",
+                element.Id
+            );
             return;
         }
 
         if (GetViewModelFor(element) is not { } viewModel)
         {
-            _logger.LogError("Failed to attach inline animation for element {ElementId}.", element.Id);
+            _logger.LogError(
+                "Failed to attach inline animation for element {ElementId}.",
+                element.Id
+            );
             return;
         }
 
         // タイムラインのタブを開く
         Type type = typeof(InlineAnimationLayerViewModel<>).MakeGenericType(property.PropertyType);
-        if (Activator.CreateInstance(type, property, this, viewModel) is InlineAnimationLayerViewModel
-            anmTimelineViewModel)
+        if (
+            Activator.CreateInstance(type, property, this, viewModel)
+            is InlineAnimationLayerViewModel anmTimelineViewModel
+        )
         {
             Inlines.Add(anmTimelineViewModel);
-            _logger.LogInformation("Inline animation attached successfully for element {ElementId}.", element.Id);
+            _logger.LogInformation(
+                "Inline animation attached successfully for element {ElementId}.",
+                element.Id
+            );
         }
         else
         {
-            _logger.LogError("Failed to attach inline animation for element {ElementId}.", element.Id);
+            _logger.LogError(
+                "Failed to attach inline animation for element {ElementId}.",
+                element.Id
+            );
         }
     }
 
     public void DetachInline(InlineAnimationLayerViewModel item)
     {
-        _logger.LogInformation("Detaching inline animation for element {ElementId}.", item.Element.Model.Id);
+        _logger.LogInformation(
+            "Detaching inline animation for element {ElementId}.",
+            item.Element.Model.Id
+        );
         if (item.LayerHeader.Value is { } layerHeader)
         {
             layerHeader.Inlines.Remove(item);
@@ -976,8 +1104,10 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
 
         Inlines.Remove(item);
         item.Dispose();
-        _logger.LogInformation("Inline animation detached successfully for element {ElementId}.",
-            item.Element.Model.Id);
+        _logger.LogInformation(
+            "Inline animation detached successfully for element {ElementId}.",
+            item.Element.Model.Id
+        );
     }
 
     public IObservable<double> GetTrackedLayerTopObservable(IObservable<int> layer)
@@ -1108,9 +1238,12 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
         return execution.CommandName switch
         {
             "Copy" or "Cut" or "Delete" or "Exclude" => SelectedElements.Count > 0,
-            "NudgeLeftFrame" or "NudgeRightFrame"
-                or "NudgeLeftLarge" or "NudgeRightLarge"
-                or "NudgeLeftSecond" or "NudgeRightSecond" => SelectedElements.Count > 0,
+            "NudgeLeftFrame"
+            or "NudgeRightFrame"
+            or "NudgeLeftLarge"
+            or "NudgeRightLarge"
+            or "NudgeLeftSecond"
+            or "NudgeRightSecond" => SelectedElements.Count > 0,
             "ToggleGroup" => SelectedElements.FirstOrDefault() is { } first
                 && (first.CanUngroupSelectedElements() || first.CanGroupSelectedElements()),
             "ExitRazorMode" => IsRazorMode.Value,
@@ -1260,11 +1393,17 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
     // ancestor 連鎖を辿って TextBox を探す。
     private static bool IsTextInputFocused(KeyEventArgs? args)
     {
-        if (args?.Source is not Visual visual) return false;
+        if (args?.Source is not Visual visual)
+            return false;
         return visual.FindAncestorOfType<TextBox>(includeSelf: true) is not null;
     }
 
-    private enum NudgeUnit { Frame, Large, Second }
+    private enum NudgeUnit
+    {
+        Frame,
+        Large,
+        Second,
+    }
 
     private void NudgeSelectedElements(int direction, NudgeUnit unit)
     {
@@ -1275,12 +1414,14 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
             .OrderBy(e => e.Model.Start)
             .ThenBy(e => e.Model.ZIndex)
             .FirstOrDefault();
-        if (first is null) return;
+        if (first is null)
+            return;
 
         // 他の編集操作との一貫性と、グループの位置関係が崩れることを防ぐため、
         // メンバーが 1 つだけ選択されていてもグループ全体を移動対象にする。
         IReadOnlyList<ElementViewModel> targets = first.GetGroupOrSelectedElements();
-        if (targets.Count == 0) return;
+        if (targets.Count == 0)
+            return;
 
         int rate = Scene.FindHierarchicalParent<Project>()?.GetFrameRate() ?? 30;
         int frames = unit switch
@@ -1291,7 +1432,8 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
             _ => throw new ArgumentOutOfRangeException(nameof(unit), unit, "Unhandled NudgeUnit."),
         };
 
-        if (frames == 0) return;
+        if (frames == 0)
+            return;
 
         // ドラッグ移動と同じく、結果がフレームグリッドに乗るようアンカー要素
         // (= 最初の選択) の現在 Start を一旦 RoundToRate で丸めてから N フレーム分シフトする。
@@ -1300,10 +1442,12 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
         // 整数 tick 計算にする。
         Element anchor = first.Model;
         TimeSpan anchoredStart = anchor.Start.RoundToRate(rate) + frames.ToTimeSpan(rate);
-        if (anchoredStart < TimeSpan.Zero) return;
+        if (anchoredStart < TimeSpan.Zero)
+            return;
 
         TimeSpan delta = anchoredStart - anchor.Start;
-        if (delta == TimeSpan.Zero) return;
+        if (delta == TimeSpan.Zero)
+            return;
 
         Scene.MoveChildren(0, delta, targets.Select(x => x.Model).ToArray());
         ScheduleNudgeCommit();
@@ -1325,7 +1469,8 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
             _nudgeCommitTimer = new DispatcherTimer(
                 TimeSpan.FromMilliseconds(300),
                 DispatcherPriority.Background,
-                OnNudgeCommitTick);
+                OnNudgeCommitTick
+            );
         }
 
         _nudgeCommitTimer.Stop();
@@ -1335,7 +1480,8 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
     private void OnNudgeCommitTick(object? sender, EventArgs e)
     {
         _nudgeCommitTimer?.Stop();
-        if (_isDisposed) return;
+        if (_isDisposed)
+            return;
         // Shutdown では HistoryManager が VM より先に Dispose されることがあり、
         // その場合 Commit が ObjectDisposedException を投げる。Tick はバックグラウンド
         // から UI スレッドに上がってくる経路なので、未捕捉例外を回避するため
@@ -1346,7 +1492,10 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
         }
         catch (ObjectDisposedException ex)
         {
-            _logger.LogWarning(ex, "Pending nudge commit dropped: HistoryManager already disposed.");
+            _logger.LogWarning(
+                ex,
+                "Pending nudge commit dropped: HistoryManager already disposed."
+            );
         }
     }
 
@@ -1355,7 +1504,8 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
         // Timer が止まっている = コミット待ちの Nudge は無い (Tick 実行済み、既に Flush 済み、
         // または未スタート)。同じ debounce ウィンドウを Undo / 他コマンド実行 / Dispose の
         // 各経路から重ねて Flush しても二重コミットにならないようガードする。
-        if (_nudgeCommitTimer is null || !_nudgeCommitTimer.IsEnabled) return;
+        if (_nudgeCommitTimer is null || !_nudgeCommitTimer.IsEnabled)
+            return;
         _nudgeCommitTimer.Stop();
         EditorContext.GetRequiredService<HistoryManager>().Commit(CommandNames.MoveElement);
     }
@@ -1364,7 +1514,11 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
     {
         IReadOnlyList<ElementViewModel> targets = acrossAllLayers
             ? Elements.Where(e => e.Model.Range.Contains(time)).ToArray()
-            : Elements.Where(e => e.Model.Range.Contains(time) && e.Model.ZIndex == CalculateClickedLayer()).ToArray();
+            : Elements
+                .Where(e =>
+                    e.Model.Range.Contains(time) && e.Model.ZIndex == CalculateClickedLayer()
+                )
+                .ToArray();
 
         if (targets.Count == 0)
         {
@@ -1375,7 +1529,8 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
     }
 
     private sealed class TrackedLayerTopObservable(int layerNum, TimelineTabViewModel timeline)
-        : LightweightObservableBase<double>, IDisposable
+        : LightweightObservableBase<double>,
+            IDisposable
     {
         private IDisposable? _disposable1;
         private IDisposable? _disposable2;
@@ -1389,7 +1544,8 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
 
         protected override void Initialize()
         {
-            _disposable1 = timeline.LayerHeaders.CollectionChangedAsObservable()
+            _disposable1 = timeline
+                .LayerHeaders.CollectionChangedAsObservable()
                 .Subscribe(OnCollectionChanged);
 
             _disposable2 = timeline.LayerHeightChanged.Subscribe(OnLayerHeightChanged);
@@ -1412,9 +1568,13 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
         {
             if (obj.Action == NotifyCollectionChangedAction.Move)
             {
-                if (layerNum != obj.OldStartingIndex
-                    && ((layerNum > obj.OldStartingIndex && layerNum <= obj.NewStartingIndex)
-                        || (layerNum < obj.OldStartingIndex && layerNum >= obj.NewStartingIndex)))
+                if (
+                    layerNum != obj.OldStartingIndex
+                    && (
+                        (layerNum > obj.OldStartingIndex && layerNum <= obj.NewStartingIndex)
+                        || (layerNum < obj.OldStartingIndex && layerNum >= obj.NewStartingIndex)
+                    )
+                )
                 {
                     PublishNext(timeline.CalculateLayerTop(layerNum));
                 }

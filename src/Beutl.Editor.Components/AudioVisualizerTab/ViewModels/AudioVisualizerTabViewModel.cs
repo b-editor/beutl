@@ -21,32 +21,32 @@ public sealed class AudioVisualizerTabViewModel : IToolContext
     private readonly AudioVisualizerTabExtension _extension;
     private int _composeInFlight;
 
-    public AudioVisualizerTabViewModel(IEditorContext editorContext, AudioVisualizerTabExtension extension)
+    public AudioVisualizerTabViewModel(
+        IEditorContext editorContext,
+        AudioVisualizerTabExtension extension
+    )
     {
         _editorContext = editorContext;
         _extension = extension;
         _player = editorContext.GetRequiredService<IPreviewPlayer>();
         _clock = editorContext.GetRequiredService<IEditorClock>();
 
-        _player.AudioFramePushed
-            .Subscribe(OnAudioFrameReceived)
-            .DisposeWith(_disposables);
+        _player.AudioFramePushed.Subscribe(OnAudioFrameReceived).DisposeWith(_disposables);
 
-        _clock.CurrentTime
-            .Subscribe(t => PlayheadTime.Value = t)
-            .DisposeWith(_disposables);
+        _clock.CurrentTime.Subscribe(t => PlayheadTime.Value = t).DisposeWith(_disposables);
 
         // Drives the paused compose path. Including IsSelected in the combined
         // tuple ensures that opening the tab while paused triggers an initial
         // snapshot even when CurrentTime hasn't changed since. SelectedMode is
         // included so that switching modes (e.g. Waveform → Spectrogram) runs a
         // fresh compose with the new mode's window length.
-        _clock.CurrentTime
-            .CombineLatest(
+        _clock
+            .CurrentTime.CombineLatest(
                 _player.IsPlaying,
                 IsSelected,
                 SelectedMode,
-                (time, playing, selected, mode) => (time, playing, selected, mode))
+                (time, playing, selected, mode) => (time, playing, selected, mode)
+            )
             .Where(t => t.selected)
             .Throttle(TimeSpan.FromMilliseconds(40))
             .Subscribe(t => _ = ComposeSnapshotOnIdleAsync())
@@ -59,7 +59,8 @@ public sealed class AudioVisualizerTabViewModel : IToolContext
 
     public ReactivePropertySlim<TimeSpan> PlayheadTime { get; } = new(TimeSpan.Zero);
 
-    public ReactivePropertySlim<AudioVisualizerMode> SelectedMode { get; } = new(AudioVisualizerMode.Waveform);
+    public ReactivePropertySlim<AudioVisualizerMode> SelectedMode { get; } =
+        new(AudioVisualizerMode.Waveform);
 
     public ReactivePropertySlim<int> FftSize { get; } = new(DefaultFftSize);
 
@@ -67,11 +68,13 @@ public sealed class AudioVisualizerTabViewModel : IToolContext
 
     public ReactivePropertySlim<float> Smoothing { get; } = new(DefaultSmoothing);
 
-    public ReactivePropertySlim<SpectrumDisplayShape> SpectrumShape { get; } = new(DefaultSpectrumShape);
+    public ReactivePropertySlim<SpectrumDisplayShape> SpectrumShape { get; } =
+        new(DefaultSpectrumShape);
 
     public IReadOnlyList<int> AvailableFftSizes { get; } = [256, 512, 1024, 2048, 4096, 8192];
 
-    public IReadOnlyList<SpectrumDisplayShape> AvailableSpectrumShapes { get; } = Enum.GetValues<SpectrumDisplayShape>();
+    public IReadOnlyList<SpectrumDisplayShape> AvailableSpectrumShapes { get; } =
+        Enum.GetValues<SpectrumDisplayShape>();
 
     public string Header => Strings.AudioVisualizer;
 
@@ -83,10 +86,18 @@ public sealed class AudioVisualizerTabViewModel : IToolContext
     {
         switch (name)
         {
-            case nameof(FftSize): FftSize.Value = DefaultFftSize; break;
-            case nameof(MinDecibels): MinDecibels.Value = DefaultMinDecibels; break;
-            case nameof(Smoothing): Smoothing.Value = DefaultSmoothing; break;
-            case nameof(SpectrumShape): SpectrumShape.Value = DefaultSpectrumShape; break;
+            case nameof(FftSize):
+                FftSize.Value = DefaultFftSize;
+                break;
+            case nameof(MinDecibels):
+                MinDecibels.Value = DefaultMinDecibels;
+                break;
+            case nameof(Smoothing):
+                Smoothing.Value = DefaultSmoothing;
+                break;
+            case nameof(SpectrumShape):
+                SpectrumShape.Value = DefaultSpectrumShape;
+                break;
         }
     }
 
@@ -96,7 +107,8 @@ public sealed class AudioVisualizerTabViewModel : IToolContext
             snapshot.Interleaved,
             snapshot.ChannelCount,
             snapshot.SampleRate,
-            snapshot.StartTime);
+            snapshot.StartTime
+        );
         SnapshotUpdated?.Invoke(this, EventArgs.Empty);
     }
 
@@ -105,8 +117,8 @@ public sealed class AudioVisualizerTabViewModel : IToolContext
     // the remaining modes only need the short default window. Composing only what
     // the active mode needs keeps paused scrub cost low for waveform/spectrum
     // while letting spectrogram stop flickering during frame-step.
-    private TimeSpan GetComposeWindowForMode(AudioVisualizerMode mode)
-        => mode switch
+    private TimeSpan GetComposeWindowForMode(AudioVisualizerMode mode) =>
+        mode switch
         {
             AudioVisualizerMode.Spectrogram => TimeSpan.FromSeconds(4),
             AudioVisualizerMode.Meter => TimeSpan.FromMilliseconds(500),
@@ -115,8 +127,10 @@ public sealed class AudioVisualizerTabViewModel : IToolContext
 
     private async Task ComposeSnapshotOnIdleAsync()
     {
-        if (_player.IsPlaying.Value) return;
-        if (Interlocked.Exchange(ref _composeInFlight, 1) != 0) return;
+        if (_player.IsPlaying.Value)
+            return;
+        if (Interlocked.Exchange(ref _composeInFlight, 1) != 0)
+            return;
         try
         {
             // Bounded retry loop: a long compose (e.g. 4s for Spectrogram) can
@@ -127,7 +141,8 @@ public sealed class AudioVisualizerTabViewModel : IToolContext
             // once the user actually pauses for 40ms.
             for (int attempt = 0; attempt < 3; attempt++)
             {
-                if (_player.IsPlaying.Value) break;
+                if (_player.IsPlaying.Value)
+                    break;
 
                 TimeSpan targetTime = _clock.CurrentTime.Value;
                 TimeSpan window = GetComposeWindowForMode(SelectedMode.Value);
@@ -135,9 +150,11 @@ public sealed class AudioVisualizerTabViewModel : IToolContext
                 // Compose a window ending AT the playhead so that ReadAroundTime
                 // finds the samples the user would be hearing if playback resumed.
                 TimeSpan windowStart = targetTime - window;
-                if (windowStart < TimeSpan.Zero) windowStart = TimeSpan.Zero;
+                if (windowStart < TimeSpan.Zero)
+                    windowStart = TimeSpan.Zero;
                 TimeSpan duration = targetTime - windowStart;
-                if (duration <= TimeSpan.Zero) duration = window;
+                if (duration <= TimeSpan.Zero)
+                    duration = window;
 
                 AudioFrameSnapshot? snapshot = await _player
                     .ComposeAudioAsync(windowStart, duration)
@@ -147,7 +164,10 @@ public sealed class AudioVisualizerTabViewModel : IToolContext
                     OnAudioFrameReceived(snapshot);
                 }
 
-                if ((_clock.CurrentTime.Value - targetTime).Duration() < TimeSpan.FromMilliseconds(10))
+                if (
+                    (_clock.CurrentTime.Value - targetTime).Duration()
+                    < TimeSpan.FromMilliseconds(10)
+                )
                     break;
             }
         }
@@ -174,32 +194,56 @@ public sealed class AudioVisualizerTabViewModel : IToolContext
 
     public void ReadFromJson(JsonObject json)
     {
-        if (json.TryGetPropertyValue("mode", out var modeNode) && modeNode is JsonValue modeValue
-            && modeValue.TryGetValue(out int mode) && Enum.IsDefined(typeof(AudioVisualizerMode), mode))
+        if (
+            json.TryGetPropertyValue("mode", out var modeNode)
+            && modeNode is JsonValue modeValue
+            && modeValue.TryGetValue(out int mode)
+            && Enum.IsDefined(typeof(AudioVisualizerMode), mode)
+        )
         {
             SelectedMode.Value = (AudioVisualizerMode)mode;
         }
 
-        if (json.TryGetPropertyValue("fftSize", out var fftNode) && fftNode is JsonValue fftValue
-            && fftValue.TryGetValue(out int fft) && IsPowerOfTwo(fft) && fft >= 256 && fft <= 8192)
+        if (
+            json.TryGetPropertyValue("fftSize", out var fftNode)
+            && fftNode is JsonValue fftValue
+            && fftValue.TryGetValue(out int fft)
+            && IsPowerOfTwo(fft)
+            && fft >= 256
+            && fft <= 8192
+        )
         {
             FftSize.Value = fft;
         }
 
-        if (json.TryGetPropertyValue("minDecibels", out var minDbNode) && minDbNode is JsonValue minDbValue
-            && minDbValue.TryGetValue(out float minDb) && minDb < 0f && minDb >= -120f)
+        if (
+            json.TryGetPropertyValue("minDecibels", out var minDbNode)
+            && minDbNode is JsonValue minDbValue
+            && minDbValue.TryGetValue(out float minDb)
+            && minDb < 0f
+            && minDb >= -120f
+        )
         {
             MinDecibels.Value = minDb;
         }
 
-        if (json.TryGetPropertyValue("smoothing", out var smoothingNode) && smoothingNode is JsonValue smoothingValue
-            && smoothingValue.TryGetValue(out float smoothing) && smoothing >= 0f && smoothing <= 95f)
+        if (
+            json.TryGetPropertyValue("smoothing", out var smoothingNode)
+            && smoothingNode is JsonValue smoothingValue
+            && smoothingValue.TryGetValue(out float smoothing)
+            && smoothing >= 0f
+            && smoothing <= 95f
+        )
         {
             Smoothing.Value = smoothing;
         }
 
-        if (json.TryGetPropertyValue("spectrumShape", out var shapeNode) && shapeNode is JsonValue shapeValue
-            && shapeValue.TryGetValue(out int shape) && Enum.IsDefined(typeof(SpectrumDisplayShape), shape))
+        if (
+            json.TryGetPropertyValue("spectrumShape", out var shapeNode)
+            && shapeNode is JsonValue shapeValue
+            && shapeValue.TryGetValue(out int shape)
+            && Enum.IsDefined(typeof(SpectrumDisplayShape), shape)
+        )
         {
             SpectrumShape.Value = (SpectrumDisplayShape)shape;
         }

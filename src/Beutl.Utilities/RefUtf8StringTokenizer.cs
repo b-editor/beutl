@@ -15,13 +15,21 @@ public ref struct RefUtf8StringTokenizer
     private int _tokenIndex;
     private int _tokenLength;
 
-    public RefUtf8StringTokenizer(ReadOnlySpan<byte> s, IFormatProvider formatProvider, string exceptionMessage = "")
+    public RefUtf8StringTokenizer(
+        ReadOnlySpan<byte> s,
+        IFormatProvider formatProvider,
+        string exceptionMessage = ""
+    )
         : this(s, TokenizerHelper.GetSeparatorFromFormatProvider(formatProvider), exceptionMessage)
     {
         _formatProvider = formatProvider;
     }
 
-    public RefUtf8StringTokenizer(ReadOnlySpan<byte> s, char separator = TokenizerHelper.DefaultSeparatorChar, string exceptionMessage = "")
+    public RefUtf8StringTokenizer(
+        ReadOnlySpan<byte> s,
+        char separator = TokenizerHelper.DefaultSeparatorChar,
+        string exceptionMessage = ""
+    )
     {
         _s = s;
         _length = s.Length;
@@ -35,12 +43,21 @@ public ref struct RefUtf8StringTokenizer
         int index = 0;
         while (index < _length)
         {
-            OperationStatus status = Rune.DecodeFromUtf8(_s.Slice(index), out Rune rune, out var bytesConsumed);
+            OperationStatus status = Rune.DecodeFromUtf8(
+                _s.Slice(index),
+                out Rune rune,
+                out var bytesConsumed
+            );
             index += bytesConsumed;
             if (status == OperationStatus.Done)
             {
                 UnicodeCategory category = CharUnicodeInfo.GetUnicodeCategory(rune.Value);
-                if (category is UnicodeCategory.SpaceSeparator or UnicodeCategory.LineSeparator or UnicodeCategory.ParagraphSeparator)
+                if (
+                    category
+                    is UnicodeCategory.SpaceSeparator
+                        or UnicodeCategory.LineSeparator
+                        or UnicodeCategory.ParagraphSeparator
+                )
                 {
                     _index = index;
                 }
@@ -56,7 +73,8 @@ public ref struct RefUtf8StringTokenizer
         }
     }
 
-    public ReadOnlySpan<byte> CurrentToken => _tokenIndex < 0 ? default : _s.Slice(_tokenIndex, _tokenLength);
+    public ReadOnlySpan<byte> CurrentToken =>
+        _tokenIndex < 0 ? default : _s.Slice(_tokenIndex, _tokenLength);
 
     public void Dispose()
     {
@@ -237,12 +255,21 @@ public ref struct RefUtf8StringTokenizer
 
         while (_index < _length)
         {
-            OperationStatus status = Rune.DecodeFromUtf8(_s.Slice(_index), out Rune rune, out int bytesConsumed);
+            OperationStatus status = Rune.DecodeFromUtf8(
+                _s.Slice(_index),
+                out Rune rune,
+                out int bytesConsumed
+            );
             if (status == OperationStatus.Done)
             {
                 UnicodeCategory category = CharUnicodeInfo.GetUnicodeCategory(rune.Value);
-                if (category is UnicodeCategory.SpaceSeparator or UnicodeCategory.LineSeparator or UnicodeCategory.ParagraphSeparator
-                    || rune == separatorRune)
+                if (
+                    category
+                        is UnicodeCategory.SpaceSeparator
+                            or UnicodeCategory.LineSeparator
+                            or UnicodeCategory.ParagraphSeparator
+                    || rune == separatorRune
+                )
                 {
                     break;
                 }
@@ -270,12 +297,23 @@ public ref struct RefUtf8StringTokenizer
         Rune separatorRune = new(separator);
         if (_index < _length)
         {
-            OperationStatus status = Rune.DecodeFromUtf8(_s.Slice(_index), out Rune rune, out int bytesConsumed);
+            OperationStatus status = Rune.DecodeFromUtf8(
+                _s.Slice(_index),
+                out Rune rune,
+                out int bytesConsumed
+            );
             if (status == OperationStatus.Done)
             {
                 UnicodeCategory category = CharUnicodeInfo.GetUnicodeCategory(rune.Value);
-                if (!(category is UnicodeCategory.SpaceSeparator or UnicodeCategory.LineSeparator or UnicodeCategory.ParagraphSeparator
-                    || rune == separatorRune))
+                if (
+                    !(
+                        category
+                            is UnicodeCategory.SpaceSeparator
+                                or UnicodeCategory.LineSeparator
+                                or UnicodeCategory.ParagraphSeparator
+                        || rune == separatorRune
+                    )
+                )
                 {
                     throw GetFormatException();
                 }
@@ -300,7 +338,14 @@ public ref struct RefUtf8StringTokenizer
                         else
                         {
                             category = CharUnicodeInfo.GetUnicodeCategory(rune.Value);
-                            if (!(category is UnicodeCategory.SpaceSeparator or UnicodeCategory.LineSeparator or UnicodeCategory.ParagraphSeparator))
+                            if (
+                                !(
+                                    category
+                                    is UnicodeCategory.SpaceSeparator
+                                        or UnicodeCategory.LineSeparator
+                                        or UnicodeCategory.ParagraphSeparator
+                                )
+                            )
                             {
                                 break;
                             }

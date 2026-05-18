@@ -1,14 +1,14 @@
 ﻿using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
-
 using Beutl.Threading;
-
 using Vortice.MediaFoundation;
 
 #if MF_BUILD_IN
 namespace Beutl.Embedding.MediaFoundation.Decoding;
+
 #else
 namespace Beutl.Extensions.MediaFoundation.Decoding;
+
 #endif
 
 public static class MFThread
@@ -32,7 +32,10 @@ public static class MFThread
 
     public static Dispatcher Dispatcher { get; }
 
-    private static void OnApplicationExit(object? sender, ControlledApplicationLifetimeExitEventArgs e)
+    private static void OnApplicationExit(
+        object? sender,
+        ControlledApplicationLifetimeExitEventArgs e
+    )
     {
         Shutdown();
     }

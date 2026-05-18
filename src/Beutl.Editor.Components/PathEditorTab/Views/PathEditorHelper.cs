@@ -16,7 +16,10 @@ public static class PathEditorHelper
         {
             ConicSegment conicSegment => [conicSegment.ControlPoint],
             CubicBezierSegment cubicBezierSegment =>
-                [cubicBezierSegment.ControlPoint1, cubicBezierSegment.ControlPoint2],
+            [
+                cubicBezierSegment.ControlPoint1,
+                cubicBezierSegment.ControlPoint2,
+            ],
             QuadraticBezierSegment quadraticBezierSegment => [quadraticBezierSegment.ControlPoint],
             _ => [],
         };
@@ -95,22 +98,28 @@ public static class PathEditorHelper
                 EndPoint = { CurrentValue = point },
                 ControlPoint =
                 {
-                    CurrentValue = new(float.Lerp(point.X, lastPoint.X, 0.5f),
-                        float.Lerp(point.Y, lastPoint.Y, 0.5f))
-                }
+                    CurrentValue = new(
+                        float.Lerp(point.X, lastPoint.X, 0.5f),
+                        float.Lerp(point.Y, lastPoint.Y, 0.5f)
+                    ),
+                },
             },
             "Cubic" => new CubicBezierSegment()
             {
                 EndPoint = { CurrentValue = point },
                 ControlPoint1 =
                 {
-                    CurrentValue = new(float.Lerp(point.X, lastPoint.X, 0.66f),
-                        float.Lerp(point.Y, lastPoint.Y, 0.66f))
+                    CurrentValue = new(
+                        float.Lerp(point.X, lastPoint.X, 0.66f),
+                        float.Lerp(point.Y, lastPoint.Y, 0.66f)
+                    ),
                 },
                 ControlPoint2 =
                 {
-                    CurrentValue = new(float.Lerp(point.X, lastPoint.X, 0.33f),
-                        float.Lerp(point.Y, lastPoint.Y, 0.33f))
+                    CurrentValue = new(
+                        float.Lerp(point.X, lastPoint.X, 0.33f),
+                        float.Lerp(point.Y, lastPoint.Y, 0.33f)
+                    ),
                 },
             },
             "Line" => new LineSegment() { Point = { CurrentValue = point } },
@@ -119,9 +128,11 @@ public static class PathEditorHelper
                 EndPoint = { CurrentValue = point },
                 ControlPoint =
                 {
-                    CurrentValue = new(float.Lerp(point.X, lastPoint.X, 0.5f),
-                        float.Lerp(point.Y, lastPoint.Y, 0.5f))
-                }
+                    CurrentValue = new(
+                        float.Lerp(point.X, lastPoint.X, 0.5f),
+                        float.Lerp(point.Y, lastPoint.Y, 0.5f)
+                    ),
+                },
             },
             _ => null,
         };
@@ -132,67 +143,67 @@ public static class PathEditorHelper
         switch (obj)
         {
             case ArcSegment:
-                {
-                    Thumb t = create();
-                    t.DataContext = obj;
+            {
+                Thumb t = create();
+                t.DataContext = obj;
 
-                    return [t];
-                }
+                return [t];
+            }
 
             case ConicSegment:
-                {
-                    Thumb c1 = create();
-                    c1.Tag = "ControlPoint";
-                    c1.Classes.Add("control");
-                    c1.DataContext = obj;
+            {
+                Thumb c1 = create();
+                c1.Tag = "ControlPoint";
+                c1.Classes.Add("control");
+                c1.DataContext = obj;
 
-                    Thumb e = create();
-                    e.Tag = "EndPoint";
-                    e.DataContext = obj;
+                Thumb e = create();
+                e.Tag = "EndPoint";
+                e.DataContext = obj;
 
-                    return [e, c1];
-                }
+                return [e, c1];
+            }
 
             case CubicBezierSegment:
-                {
-                    Thumb c1 = create();
-                    c1.Classes.Add("control");
-                    c1.Tag = "ControlPoint1";
-                    c1.DataContext = obj;
+            {
+                Thumb c1 = create();
+                c1.Classes.Add("control");
+                c1.Tag = "ControlPoint1";
+                c1.DataContext = obj;
 
-                    Thumb c2 = create();
-                    c2.Classes.Add("control");
-                    c2.Tag = "ControlPoint2";
-                    c2.DataContext = obj;
+                Thumb c2 = create();
+                c2.Classes.Add("control");
+                c2.Tag = "ControlPoint2";
+                c2.DataContext = obj;
 
-                    Thumb e = create();
-                    e.Tag = "EndPoint";
-                    e.DataContext = obj;
+                Thumb e = create();
+                e.Tag = "EndPoint";
+                e.DataContext = obj;
 
-                    return [e, c2, c1];
-                }
+                return [e, c2, c1];
+            }
 
             case LineSegment:
-                {
-                    Thumb t = create();
-                    t.DataContext = obj;
+            {
+                Thumb t = create();
+                t.DataContext = obj;
 
-                    return [t];
-                }
+                return [t];
+            }
 
             case QuadraticBezierSegment:
-                {
-                    Thumb c1 = create();
-                    c1.Tag = "ControlPoint";
-                    c1.Classes.Add("control");
-                    c1.DataContext = obj;
+            {
+                Thumb c1 = create();
+                c1.Tag = "ControlPoint";
+                c1.Classes.Add("control");
+                c1.DataContext = obj;
 
-                    Thumb e = create();
-                    e.Tag = "EndPoint";
-                    e.DataContext = obj;
+                Thumb e = create();
+                e.Tag = "EndPoint";
+                e.DataContext = obj;
 
-                    return [e, c1];
-                }
+                return [e, c1];
+            }
 
             default:
                 return [];

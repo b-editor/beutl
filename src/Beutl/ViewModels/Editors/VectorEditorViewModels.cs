@@ -1,6 +1,5 @@
 ﻿using Avalonia;
 using Avalonia.Interactivity;
-
 using Beutl.Controls.PropertyEditors;
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
@@ -8,15 +7,14 @@ using Reactive.Bindings.Extensions;
 namespace Beutl.ViewModels.Editors
 {
     // Vector2
-    public sealed class PixelPointEditorViewModel : ValueEditorViewModel<Media.PixelPoint>, IConfigureUniformEditor
+    public sealed class PixelPointEditorViewModel
+        : ValueEditorViewModel<Media.PixelPoint>,
+            IConfigureUniformEditor
     {
         public PixelPointEditorViewModel(IPropertyAdapter<Media.PixelPoint> property)
             : base(property)
         {
-            FirstValue = Value
-                .Select(x => x.X)
-                .ToReadOnlyReactivePropertySlim()
-                .AddTo(Disposables);
+            FirstValue = Value.Select(x => x.X).ToReadOnlyReactivePropertySlim().AddTo(Disposables);
 
             SecondValue = Value
                 .Select(x => x.Y)
@@ -39,15 +37,20 @@ namespace Beutl.ViewModels.Editors
 
                 editor.FirstHeader = "X";
                 editor.SecondHeader = "Y";
-                editor.Bind(Vector2Editor<int>.FirstValueProperty, FirstValue.ToBinding())
+                editor
+                    .Bind(Vector2Editor<int>.FirstValueProperty, FirstValue.ToBinding())
                     .DisposeWith(Disposables);
-                editor.Bind(Vector2Editor<int>.SecondValueProperty, SecondValue.ToBinding())
+                editor
+                    .Bind(Vector2Editor<int>.SecondValueProperty, SecondValue.ToBinding())
                     .DisposeWith(Disposables);
-                editor.Bind(Vector2Editor.IsUniformProperty, IsUniformEditorEnabled.ToBinding())
+                editor
+                    .Bind(Vector2Editor.IsUniformProperty, IsUniformEditorEnabled.ToBinding())
                     .DisposeWith(Disposables);
-                editor.AddDisposableHandler(PropertyEditor.ValueConfirmedEvent, OnValueConfirmed)
+                editor
+                    .AddDisposableHandler(PropertyEditor.ValueConfirmedEvent, OnValueConfirmed)
                     .DisposeWith(Disposables);
-                editor.AddDisposableHandler(PropertyEditor.ValueChangedEvent, ValueChanged)
+                editor
+                    .AddDisposableHandler(PropertyEditor.ValueChangedEvent, ValueChanged)
                     .DisposeWith(Disposables);
             }
         }
@@ -56,8 +59,10 @@ namespace Beutl.ViewModels.Editors
         {
             if (e is PropertyEditorValueChangedEventArgs<(int X, int Y)> args)
             {
-                SetValue(new Media.PixelPoint(args.OldValue.X, args.OldValue.Y),
-                         new Media.PixelPoint(args.NewValue.X, args.NewValue.Y));
+                SetValue(
+                    new Media.PixelPoint(args.OldValue.X, args.OldValue.Y),
+                    new Media.PixelPoint(args.NewValue.X, args.NewValue.Y)
+                );
             }
         }
 
@@ -66,13 +71,17 @@ namespace Beutl.ViewModels.Editors
             if (sender is Vector2Editor<int> editor)
             {
                 Media.PixelPoint coerced = SetCurrentValueAndGetCoerced(
-                    new Media.PixelPoint(editor.FirstValue, editor.SecondValue));
+                    new Media.PixelPoint(editor.FirstValue, editor.SecondValue)
+                );
                 editor.FirstValue = coerced.X;
                 editor.SecondValue = coerced.Y;
             }
         }
     }
-    public sealed class PixelSizeEditorViewModel : ValueEditorViewModel<Media.PixelSize>, IConfigureUniformEditor
+
+    public sealed class PixelSizeEditorViewModel
+        : ValueEditorViewModel<Media.PixelSize>,
+            IConfigureUniformEditor
     {
         public PixelSizeEditorViewModel(IPropertyAdapter<Media.PixelSize> property)
             : base(property)
@@ -103,15 +112,20 @@ namespace Beutl.ViewModels.Editors
 
                 editor.FirstHeader = Strings.Width;
                 editor.SecondHeader = Strings.Height;
-                editor.Bind(Vector2Editor<int>.FirstValueProperty, FirstValue.ToBinding())
+                editor
+                    .Bind(Vector2Editor<int>.FirstValueProperty, FirstValue.ToBinding())
                     .DisposeWith(Disposables);
-                editor.Bind(Vector2Editor<int>.SecondValueProperty, SecondValue.ToBinding())
+                editor
+                    .Bind(Vector2Editor<int>.SecondValueProperty, SecondValue.ToBinding())
                     .DisposeWith(Disposables);
-                editor.Bind(Vector2Editor.IsUniformProperty, IsUniformEditorEnabled.ToBinding())
+                editor
+                    .Bind(Vector2Editor.IsUniformProperty, IsUniformEditorEnabled.ToBinding())
                     .DisposeWith(Disposables);
-                editor.AddDisposableHandler(PropertyEditor.ValueConfirmedEvent, OnValueConfirmed)
+                editor
+                    .AddDisposableHandler(PropertyEditor.ValueConfirmedEvent, OnValueConfirmed)
                     .DisposeWith(Disposables);
-                editor.AddDisposableHandler(PropertyEditor.ValueChangedEvent, ValueChanged)
+                editor
+                    .AddDisposableHandler(PropertyEditor.ValueChangedEvent, ValueChanged)
                     .DisposeWith(Disposables);
             }
         }
@@ -120,8 +134,10 @@ namespace Beutl.ViewModels.Editors
         {
             if (e is PropertyEditorValueChangedEventArgs<(int Width, int Height)> args)
             {
-                SetValue(new Media.PixelSize(args.OldValue.Width, args.OldValue.Height),
-                         new Media.PixelSize(args.NewValue.Width, args.NewValue.Height));
+                SetValue(
+                    new Media.PixelSize(args.OldValue.Width, args.OldValue.Height),
+                    new Media.PixelSize(args.NewValue.Width, args.NewValue.Height)
+                );
             }
         }
 
@@ -130,21 +146,22 @@ namespace Beutl.ViewModels.Editors
             if (sender is Vector2Editor<int> editor)
             {
                 Media.PixelSize coerced = SetCurrentValueAndGetCoerced(
-                    new Media.PixelSize(editor.FirstValue, editor.SecondValue));
+                    new Media.PixelSize(editor.FirstValue, editor.SecondValue)
+                );
                 editor.FirstValue = coerced.Width;
                 editor.SecondValue = coerced.Height;
             }
         }
     }
-    public sealed class PointEditorViewModel : ValueEditorViewModel<Graphics.Point>, IConfigureUniformEditor
+
+    public sealed class PointEditorViewModel
+        : ValueEditorViewModel<Graphics.Point>,
+            IConfigureUniformEditor
     {
         public PointEditorViewModel(IPropertyAdapter<Graphics.Point> property)
             : base(property)
         {
-            FirstValue = Value
-                .Select(x => x.X)
-                .ToReadOnlyReactivePropertySlim()
-                .AddTo(Disposables);
+            FirstValue = Value.Select(x => x.X).ToReadOnlyReactivePropertySlim().AddTo(Disposables);
 
             SecondValue = Value
                 .Select(x => x.Y)
@@ -167,15 +184,20 @@ namespace Beutl.ViewModels.Editors
 
                 editor.FirstHeader = "X";
                 editor.SecondHeader = "Y";
-                editor.Bind(Vector2Editor<float>.FirstValueProperty, FirstValue.ToBinding())
+                editor
+                    .Bind(Vector2Editor<float>.FirstValueProperty, FirstValue.ToBinding())
                     .DisposeWith(Disposables);
-                editor.Bind(Vector2Editor<float>.SecondValueProperty, SecondValue.ToBinding())
+                editor
+                    .Bind(Vector2Editor<float>.SecondValueProperty, SecondValue.ToBinding())
                     .DisposeWith(Disposables);
-                editor.Bind(Vector2Editor.IsUniformProperty, IsUniformEditorEnabled.ToBinding())
+                editor
+                    .Bind(Vector2Editor.IsUniformProperty, IsUniformEditorEnabled.ToBinding())
                     .DisposeWith(Disposables);
-                editor.AddDisposableHandler(PropertyEditor.ValueConfirmedEvent, OnValueConfirmed)
+                editor
+                    .AddDisposableHandler(PropertyEditor.ValueConfirmedEvent, OnValueConfirmed)
                     .DisposeWith(Disposables);
-                editor.AddDisposableHandler(PropertyEditor.ValueChangedEvent, ValueChanged)
+                editor
+                    .AddDisposableHandler(PropertyEditor.ValueChangedEvent, ValueChanged)
                     .DisposeWith(Disposables);
             }
         }
@@ -184,8 +206,10 @@ namespace Beutl.ViewModels.Editors
         {
             if (e is PropertyEditorValueChangedEventArgs<(float X, float Y)> args)
             {
-                SetValue(new Graphics.Point(args.OldValue.X, args.OldValue.Y),
-                         new Graphics.Point(args.NewValue.X, args.NewValue.Y));
+                SetValue(
+                    new Graphics.Point(args.OldValue.X, args.OldValue.Y),
+                    new Graphics.Point(args.NewValue.X, args.NewValue.Y)
+                );
             }
         }
 
@@ -194,13 +218,17 @@ namespace Beutl.ViewModels.Editors
             if (sender is Vector2Editor<float> editor)
             {
                 Graphics.Point coerced = SetCurrentValueAndGetCoerced(
-                    new Graphics.Point(editor.FirstValue, editor.SecondValue));
+                    new Graphics.Point(editor.FirstValue, editor.SecondValue)
+                );
                 editor.FirstValue = coerced.X;
                 editor.SecondValue = coerced.Y;
             }
         }
     }
-    public sealed class SizeEditorViewModel : ValueEditorViewModel<Graphics.Size>, IConfigureUniformEditor
+
+    public sealed class SizeEditorViewModel
+        : ValueEditorViewModel<Graphics.Size>,
+            IConfigureUniformEditor
     {
         public SizeEditorViewModel(IPropertyAdapter<Graphics.Size> property)
             : base(property)
@@ -231,15 +259,20 @@ namespace Beutl.ViewModels.Editors
 
                 editor.FirstHeader = Strings.Width;
                 editor.SecondHeader = Strings.Height;
-                editor.Bind(Vector2Editor<float>.FirstValueProperty, FirstValue.ToBinding())
+                editor
+                    .Bind(Vector2Editor<float>.FirstValueProperty, FirstValue.ToBinding())
                     .DisposeWith(Disposables);
-                editor.Bind(Vector2Editor<float>.SecondValueProperty, SecondValue.ToBinding())
+                editor
+                    .Bind(Vector2Editor<float>.SecondValueProperty, SecondValue.ToBinding())
                     .DisposeWith(Disposables);
-                editor.Bind(Vector2Editor.IsUniformProperty, IsUniformEditorEnabled.ToBinding())
+                editor
+                    .Bind(Vector2Editor.IsUniformProperty, IsUniformEditorEnabled.ToBinding())
                     .DisposeWith(Disposables);
-                editor.AddDisposableHandler(PropertyEditor.ValueConfirmedEvent, OnValueConfirmed)
+                editor
+                    .AddDisposableHandler(PropertyEditor.ValueConfirmedEvent, OnValueConfirmed)
                     .DisposeWith(Disposables);
-                editor.AddDisposableHandler(PropertyEditor.ValueChangedEvent, ValueChanged)
+                editor
+                    .AddDisposableHandler(PropertyEditor.ValueChangedEvent, ValueChanged)
                     .DisposeWith(Disposables);
             }
         }
@@ -248,8 +281,10 @@ namespace Beutl.ViewModels.Editors
         {
             if (e is PropertyEditorValueChangedEventArgs<(float Width, float Height)> args)
             {
-                SetValue(new Graphics.Size(args.OldValue.Width, args.OldValue.Height),
-                         new Graphics.Size(args.NewValue.Width, args.NewValue.Height));
+                SetValue(
+                    new Graphics.Size(args.OldValue.Width, args.OldValue.Height),
+                    new Graphics.Size(args.NewValue.Width, args.NewValue.Height)
+                );
             }
         }
 
@@ -258,21 +293,22 @@ namespace Beutl.ViewModels.Editors
             if (sender is Vector2Editor<float> editor)
             {
                 Graphics.Size coerced = SetCurrentValueAndGetCoerced(
-                    new Graphics.Size(editor.FirstValue, editor.SecondValue));
+                    new Graphics.Size(editor.FirstValue, editor.SecondValue)
+                );
                 editor.FirstValue = coerced.Width;
                 editor.SecondValue = coerced.Height;
             }
         }
     }
-    public sealed class VectorEditorViewModel : ValueEditorViewModel<Graphics.Vector>, IConfigureUniformEditor
+
+    public sealed class VectorEditorViewModel
+        : ValueEditorViewModel<Graphics.Vector>,
+            IConfigureUniformEditor
     {
         public VectorEditorViewModel(IPropertyAdapter<Graphics.Vector> property)
             : base(property)
         {
-            FirstValue = Value
-                .Select(x => x.X)
-                .ToReadOnlyReactivePropertySlim()
-                .AddTo(Disposables);
+            FirstValue = Value.Select(x => x.X).ToReadOnlyReactivePropertySlim().AddTo(Disposables);
 
             SecondValue = Value
                 .Select(x => x.Y)
@@ -295,15 +331,20 @@ namespace Beutl.ViewModels.Editors
 
                 editor.FirstHeader = "X";
                 editor.SecondHeader = "Y";
-                editor.Bind(Vector2Editor<float>.FirstValueProperty, FirstValue.ToBinding())
+                editor
+                    .Bind(Vector2Editor<float>.FirstValueProperty, FirstValue.ToBinding())
                     .DisposeWith(Disposables);
-                editor.Bind(Vector2Editor<float>.SecondValueProperty, SecondValue.ToBinding())
+                editor
+                    .Bind(Vector2Editor<float>.SecondValueProperty, SecondValue.ToBinding())
                     .DisposeWith(Disposables);
-                editor.Bind(Vector2Editor.IsUniformProperty, IsUniformEditorEnabled.ToBinding())
+                editor
+                    .Bind(Vector2Editor.IsUniformProperty, IsUniformEditorEnabled.ToBinding())
                     .DisposeWith(Disposables);
-                editor.AddDisposableHandler(PropertyEditor.ValueConfirmedEvent, OnValueConfirmed)
+                editor
+                    .AddDisposableHandler(PropertyEditor.ValueConfirmedEvent, OnValueConfirmed)
                     .DisposeWith(Disposables);
-                editor.AddDisposableHandler(PropertyEditor.ValueChangedEvent, ValueChanged)
+                editor
+                    .AddDisposableHandler(PropertyEditor.ValueChangedEvent, ValueChanged)
                     .DisposeWith(Disposables);
             }
         }
@@ -312,8 +353,10 @@ namespace Beutl.ViewModels.Editors
         {
             if (e is PropertyEditorValueChangedEventArgs<(float X, float Y)> args)
             {
-                SetValue(new Graphics.Vector(args.OldValue.X, args.OldValue.Y),
-                         new Graphics.Vector(args.NewValue.X, args.NewValue.Y));
+                SetValue(
+                    new Graphics.Vector(args.OldValue.X, args.OldValue.Y),
+                    new Graphics.Vector(args.NewValue.X, args.NewValue.Y)
+                );
             }
         }
 
@@ -322,21 +365,22 @@ namespace Beutl.ViewModels.Editors
             if (sender is Vector2Editor<float> editor)
             {
                 Graphics.Vector coerced = SetCurrentValueAndGetCoerced(
-                    new Graphics.Vector(editor.FirstValue, editor.SecondValue));
+                    new Graphics.Vector(editor.FirstValue, editor.SecondValue)
+                );
                 editor.FirstValue = coerced.X;
                 editor.SecondValue = coerced.Y;
             }
         }
     }
-    public sealed class Vector2EditorViewModel : ValueEditorViewModel<System.Numerics.Vector2>, IConfigureUniformEditor
+
+    public sealed class Vector2EditorViewModel
+        : ValueEditorViewModel<System.Numerics.Vector2>,
+            IConfigureUniformEditor
     {
         public Vector2EditorViewModel(IPropertyAdapter<System.Numerics.Vector2> property)
             : base(property)
         {
-            FirstValue = Value
-                .Select(x => x.X)
-                .ToReadOnlyReactivePropertySlim()
-                .AddTo(Disposables);
+            FirstValue = Value.Select(x => x.X).ToReadOnlyReactivePropertySlim().AddTo(Disposables);
 
             SecondValue = Value
                 .Select(x => x.Y)
@@ -359,15 +403,20 @@ namespace Beutl.ViewModels.Editors
 
                 editor.FirstHeader = "X";
                 editor.SecondHeader = "Y";
-                editor.Bind(Vector2Editor<float>.FirstValueProperty, FirstValue.ToBinding())
+                editor
+                    .Bind(Vector2Editor<float>.FirstValueProperty, FirstValue.ToBinding())
                     .DisposeWith(Disposables);
-                editor.Bind(Vector2Editor<float>.SecondValueProperty, SecondValue.ToBinding())
+                editor
+                    .Bind(Vector2Editor<float>.SecondValueProperty, SecondValue.ToBinding())
                     .DisposeWith(Disposables);
-                editor.Bind(Vector2Editor.IsUniformProperty, IsUniformEditorEnabled.ToBinding())
+                editor
+                    .Bind(Vector2Editor.IsUniformProperty, IsUniformEditorEnabled.ToBinding())
                     .DisposeWith(Disposables);
-                editor.AddDisposableHandler(PropertyEditor.ValueConfirmedEvent, OnValueConfirmed)
+                editor
+                    .AddDisposableHandler(PropertyEditor.ValueConfirmedEvent, OnValueConfirmed)
                     .DisposeWith(Disposables);
-                editor.AddDisposableHandler(PropertyEditor.ValueChangedEvent, ValueChanged)
+                editor
+                    .AddDisposableHandler(PropertyEditor.ValueChangedEvent, ValueChanged)
                     .DisposeWith(Disposables);
             }
         }
@@ -376,8 +425,10 @@ namespace Beutl.ViewModels.Editors
         {
             if (e is PropertyEditorValueChangedEventArgs<(float X, float Y)> args)
             {
-                SetValue(new System.Numerics.Vector2(args.OldValue.X, args.OldValue.Y),
-                         new System.Numerics.Vector2(args.NewValue.X, args.NewValue.Y));
+                SetValue(
+                    new System.Numerics.Vector2(args.OldValue.X, args.OldValue.Y),
+                    new System.Numerics.Vector2(args.NewValue.X, args.NewValue.Y)
+                );
             }
         }
 
@@ -386,7 +437,8 @@ namespace Beutl.ViewModels.Editors
             if (sender is Vector2Editor<float> editor)
             {
                 System.Numerics.Vector2 coerced = SetCurrentValueAndGetCoerced(
-                    new System.Numerics.Vector2(editor.FirstValue, editor.SecondValue));
+                    new System.Numerics.Vector2(editor.FirstValue, editor.SecondValue)
+                );
                 editor.FirstValue = coerced.X;
                 editor.SecondValue = coerced.Y;
             }
@@ -394,25 +446,21 @@ namespace Beutl.ViewModels.Editors
     }
 
     // Vector3
-    public sealed class Vector3EditorViewModel : ValueEditorViewModel<System.Numerics.Vector3>, IConfigureUniformEditor
+    public sealed class Vector3EditorViewModel
+        : ValueEditorViewModel<System.Numerics.Vector3>,
+            IConfigureUniformEditor
     {
         public Vector3EditorViewModel(IPropertyAdapter<System.Numerics.Vector3> property)
             : base(property)
         {
-            FirstValue = Value
-                .Select(x => x.X)
-                .ToReadOnlyReactivePropertySlim()
-                .AddTo(Disposables);
+            FirstValue = Value.Select(x => x.X).ToReadOnlyReactivePropertySlim().AddTo(Disposables);
 
             SecondValue = Value
                 .Select(x => x.Y)
                 .ToReadOnlyReactivePropertySlim()
                 .AddTo(Disposables);
 
-            ThirdValue = Value
-                .Select(x => x.Z)
-                .ToReadOnlyReactivePropertySlim()
-                .AddTo(Disposables);
+            ThirdValue = Value.Select(x => x.Z).ToReadOnlyReactivePropertySlim().AddTo(Disposables);
         }
 
         public ReadOnlyReactivePropertySlim<float> FirstValue { get; }
@@ -434,17 +482,23 @@ namespace Beutl.ViewModels.Editors
                 editor.SecondHeader = "Y";
                 editor.ThirdHeader = "Z";
 
-                editor.Bind(Vector3Editor<float>.FirstValueProperty, FirstValue.ToBinding())
+                editor
+                    .Bind(Vector3Editor<float>.FirstValueProperty, FirstValue.ToBinding())
                     .DisposeWith(Disposables);
-                editor.Bind(Vector3Editor<float>.SecondValueProperty, SecondValue.ToBinding())
+                editor
+                    .Bind(Vector3Editor<float>.SecondValueProperty, SecondValue.ToBinding())
                     .DisposeWith(Disposables);
-                editor.Bind(Vector3Editor<float>.ThirdValueProperty, ThirdValue.ToBinding())
+                editor
+                    .Bind(Vector3Editor<float>.ThirdValueProperty, ThirdValue.ToBinding())
                     .DisposeWith(Disposables);
-                editor.Bind(Vector3Editor.IsUniformProperty, IsUniformEditorEnabled.ToBinding())
+                editor
+                    .Bind(Vector3Editor.IsUniformProperty, IsUniformEditorEnabled.ToBinding())
                     .DisposeWith(Disposables);
-                editor.AddDisposableHandler(PropertyEditor.ValueConfirmedEvent, OnValueConfirmed)
+                editor
+                    .AddDisposableHandler(PropertyEditor.ValueConfirmedEvent, OnValueConfirmed)
                     .DisposeWith(Disposables);
-                editor.AddDisposableHandler(PropertyEditor.ValueChangedEvent, ValueChanged)
+                editor
+                    .AddDisposableHandler(PropertyEditor.ValueChangedEvent, ValueChanged)
                     .DisposeWith(Disposables);
             }
         }
@@ -453,8 +507,10 @@ namespace Beutl.ViewModels.Editors
         {
             if (e is PropertyEditorValueChangedEventArgs<(float X, float Y, float Z)> args)
             {
-                SetValue(new System.Numerics.Vector3(args.OldValue.X, args.OldValue.Y, args.OldValue.Z),
-                         new System.Numerics.Vector3(args.NewValue.X, args.NewValue.Y, args.NewValue.Z));
+                SetValue(
+                    new System.Numerics.Vector3(args.OldValue.X, args.OldValue.Y, args.OldValue.Z),
+                    new System.Numerics.Vector3(args.NewValue.X, args.NewValue.Y, args.NewValue.Z)
+                );
             }
         }
 
@@ -463,7 +519,12 @@ namespace Beutl.ViewModels.Editors
             if (sender is Vector3Editor<float> editor)
             {
                 System.Numerics.Vector3 coerced = SetCurrentValueAndGetCoerced(
-                    new System.Numerics.Vector3(editor.FirstValue, editor.SecondValue, editor.ThirdValue));
+                    new System.Numerics.Vector3(
+                        editor.FirstValue,
+                        editor.SecondValue,
+                        editor.ThirdValue
+                    )
+                );
                 editor.FirstValue = coerced.X;
                 editor.SecondValue = coerced.Y;
                 editor.ThirdValue = coerced.Z;
@@ -472,15 +533,14 @@ namespace Beutl.ViewModels.Editors
     }
 
     // Vector4
-    public sealed class PixelRectEditorViewModel : ValueEditorViewModel<Media.PixelRect>, IConfigureUniformEditor
+    public sealed class PixelRectEditorViewModel
+        : ValueEditorViewModel<Media.PixelRect>,
+            IConfigureUniformEditor
     {
         public PixelRectEditorViewModel(IPropertyAdapter<Media.PixelRect> property)
             : base(property)
         {
-            FirstValue = Value
-                .Select(x => x.X)
-                .ToReadOnlyReactivePropertySlim()
-                .AddTo(Disposables);
+            FirstValue = Value.Select(x => x.X).ToReadOnlyReactivePropertySlim().AddTo(Disposables);
 
             SecondValue = Value
                 .Select(x => x.Y)
@@ -520,29 +580,50 @@ namespace Beutl.ViewModels.Editors
                 editor.ThirdHeader = Strings.Width;
                 editor.FourthHeader = Strings.Height;
 
-                editor.Bind(Vector4Editor<int>.FirstValueProperty, FirstValue.ToBinding())
+                editor
+                    .Bind(Vector4Editor<int>.FirstValueProperty, FirstValue.ToBinding())
                     .DisposeWith(Disposables);
-                editor.Bind(Vector4Editor<int>.SecondValueProperty, SecondValue.ToBinding())
+                editor
+                    .Bind(Vector4Editor<int>.SecondValueProperty, SecondValue.ToBinding())
                     .DisposeWith(Disposables);
-                editor.Bind(Vector4Editor<int>.ThirdValueProperty, ThirdValue.ToBinding())
+                editor
+                    .Bind(Vector4Editor<int>.ThirdValueProperty, ThirdValue.ToBinding())
                     .DisposeWith(Disposables);
-                editor.Bind(Vector4Editor<int>.FourthValueProperty, FourthValue.ToBinding())
+                editor
+                    .Bind(Vector4Editor<int>.FourthValueProperty, FourthValue.ToBinding())
                     .DisposeWith(Disposables);
-                editor.Bind(Vector4Editor.IsUniformProperty, IsUniformEditorEnabled.ToBinding())
+                editor
+                    .Bind(Vector4Editor.IsUniformProperty, IsUniformEditorEnabled.ToBinding())
                     .DisposeWith(Disposables);
-                editor.AddDisposableHandler(PropertyEditor.ValueConfirmedEvent, OnValueConfirmed)
+                editor
+                    .AddDisposableHandler(PropertyEditor.ValueConfirmedEvent, OnValueConfirmed)
                     .DisposeWith(Disposables);
-                editor.AddDisposableHandler(PropertyEditor.ValueChangedEvent, OnValueChanged)
+                editor
+                    .AddDisposableHandler(PropertyEditor.ValueChangedEvent, OnValueChanged)
                     .DisposeWith(Disposables);
             }
         }
 
         private void OnValueConfirmed(object? sender, PropertyEditorValueChangedEventArgs e)
         {
-            if (e is PropertyEditorValueChangedEventArgs<(int X, int Y, int Width, int Height)> args)
+            if (
+                e is PropertyEditorValueChangedEventArgs<(int X, int Y, int Width, int Height)> args
+            )
             {
-                SetValue(new Media.PixelRect(args.OldValue.X, args.OldValue.Y, args.OldValue.Width, args.OldValue.Height),
-                         new Media.PixelRect(args.NewValue.X, args.NewValue.Y, args.NewValue.Width, args.NewValue.Height));
+                SetValue(
+                    new Media.PixelRect(
+                        args.OldValue.X,
+                        args.OldValue.Y,
+                        args.OldValue.Width,
+                        args.OldValue.Height
+                    ),
+                    new Media.PixelRect(
+                        args.NewValue.X,
+                        args.NewValue.Y,
+                        args.NewValue.Width,
+                        args.NewValue.Height
+                    )
+                );
             }
         }
 
@@ -551,7 +632,13 @@ namespace Beutl.ViewModels.Editors
             if (sender is Vector4Editor<int> editor)
             {
                 Media.PixelRect coerced = SetCurrentValueAndGetCoerced(
-                    new Media.PixelRect(editor.FirstValue, editor.SecondValue, editor.ThirdValue, editor.FourthValue));
+                    new Media.PixelRect(
+                        editor.FirstValue,
+                        editor.SecondValue,
+                        editor.ThirdValue,
+                        editor.FourthValue
+                    )
+                );
                 editor.FirstValue = coerced.X;
                 editor.SecondValue = coerced.Y;
                 editor.ThirdValue = coerced.Width;
@@ -559,15 +646,15 @@ namespace Beutl.ViewModels.Editors
             }
         }
     }
-    public sealed class RectEditorViewModel : ValueEditorViewModel<Graphics.Rect>, IConfigureUniformEditor
+
+    public sealed class RectEditorViewModel
+        : ValueEditorViewModel<Graphics.Rect>,
+            IConfigureUniformEditor
     {
         public RectEditorViewModel(IPropertyAdapter<Graphics.Rect> property)
             : base(property)
         {
-            FirstValue = Value
-                .Select(x => x.X)
-                .ToReadOnlyReactivePropertySlim()
-                .AddTo(Disposables);
+            FirstValue = Value.Select(x => x.X).ToReadOnlyReactivePropertySlim().AddTo(Disposables);
 
             SecondValue = Value
                 .Select(x => x.Y)
@@ -607,29 +694,56 @@ namespace Beutl.ViewModels.Editors
                 editor.ThirdHeader = Strings.Width;
                 editor.FourthHeader = Strings.Height;
 
-                editor.Bind(Vector4Editor<float>.FirstValueProperty, FirstValue.ToBinding())
+                editor
+                    .Bind(Vector4Editor<float>.FirstValueProperty, FirstValue.ToBinding())
                     .DisposeWith(Disposables);
-                editor.Bind(Vector4Editor<float>.SecondValueProperty, SecondValue.ToBinding())
+                editor
+                    .Bind(Vector4Editor<float>.SecondValueProperty, SecondValue.ToBinding())
                     .DisposeWith(Disposables);
-                editor.Bind(Vector4Editor<float>.ThirdValueProperty, ThirdValue.ToBinding())
+                editor
+                    .Bind(Vector4Editor<float>.ThirdValueProperty, ThirdValue.ToBinding())
                     .DisposeWith(Disposables);
-                editor.Bind(Vector4Editor<float>.FourthValueProperty, FourthValue.ToBinding())
+                editor
+                    .Bind(Vector4Editor<float>.FourthValueProperty, FourthValue.ToBinding())
                     .DisposeWith(Disposables);
-                editor.Bind(Vector4Editor.IsUniformProperty, IsUniformEditorEnabled.ToBinding())
+                editor
+                    .Bind(Vector4Editor.IsUniformProperty, IsUniformEditorEnabled.ToBinding())
                     .DisposeWith(Disposables);
-                editor.AddDisposableHandler(PropertyEditor.ValueConfirmedEvent, OnValueConfirmed)
+                editor
+                    .AddDisposableHandler(PropertyEditor.ValueConfirmedEvent, OnValueConfirmed)
                     .DisposeWith(Disposables);
-                editor.AddDisposableHandler(PropertyEditor.ValueChangedEvent, OnValueChanged)
+                editor
+                    .AddDisposableHandler(PropertyEditor.ValueChangedEvent, OnValueChanged)
                     .DisposeWith(Disposables);
             }
         }
 
         private void OnValueConfirmed(object? sender, PropertyEditorValueChangedEventArgs e)
         {
-            if (e is PropertyEditorValueChangedEventArgs<(float X, float Y, float Width, float Height)> args)
+            if (
+                e
+                is PropertyEditorValueChangedEventArgs<(
+                    float X,
+                    float Y,
+                    float Width,
+                    float Height
+                )> args
+            )
             {
-                SetValue(new Graphics.Rect(args.OldValue.X, args.OldValue.Y, args.OldValue.Width, args.OldValue.Height),
-                         new Graphics.Rect(args.NewValue.X, args.NewValue.Y, args.NewValue.Width, args.NewValue.Height));
+                SetValue(
+                    new Graphics.Rect(
+                        args.OldValue.X,
+                        args.OldValue.Y,
+                        args.OldValue.Width,
+                        args.OldValue.Height
+                    ),
+                    new Graphics.Rect(
+                        args.NewValue.X,
+                        args.NewValue.Y,
+                        args.NewValue.Width,
+                        args.NewValue.Height
+                    )
+                );
             }
         }
 
@@ -638,7 +752,13 @@ namespace Beutl.ViewModels.Editors
             if (sender is Vector4Editor<float> editor)
             {
                 Graphics.Rect coerced = SetCurrentValueAndGetCoerced(
-                    new Graphics.Rect(editor.FirstValue, editor.SecondValue, editor.ThirdValue, editor.FourthValue));
+                    new Graphics.Rect(
+                        editor.FirstValue,
+                        editor.SecondValue,
+                        editor.ThirdValue,
+                        editor.FourthValue
+                    )
+                );
                 editor.FirstValue = coerced.X;
                 editor.SecondValue = coerced.Y;
                 editor.ThirdValue = coerced.Width;
@@ -646,25 +766,22 @@ namespace Beutl.ViewModels.Editors
             }
         }
     }
-    public sealed class Vector4EditorViewModel : ValueEditorViewModel<System.Numerics.Vector4>, IConfigureUniformEditor
+
+    public sealed class Vector4EditorViewModel
+        : ValueEditorViewModel<System.Numerics.Vector4>,
+            IConfigureUniformEditor
     {
         public Vector4EditorViewModel(IPropertyAdapter<System.Numerics.Vector4> property)
             : base(property)
         {
-            FirstValue = Value
-                .Select(x => x.X)
-                .ToReadOnlyReactivePropertySlim()
-                .AddTo(Disposables);
+            FirstValue = Value.Select(x => x.X).ToReadOnlyReactivePropertySlim().AddTo(Disposables);
 
             SecondValue = Value
                 .Select(x => x.Y)
                 .ToReadOnlyReactivePropertySlim()
                 .AddTo(Disposables);
 
-            ThirdValue = Value
-                .Select(x => x.Z)
-                .ToReadOnlyReactivePropertySlim()
-                .AddTo(Disposables);
+            ThirdValue = Value.Select(x => x.Z).ToReadOnlyReactivePropertySlim().AddTo(Disposables);
 
             FourthValue = Value
                 .Select(x => x.W)
@@ -694,19 +811,26 @@ namespace Beutl.ViewModels.Editors
                 editor.ThirdHeader = "Z";
                 editor.FourthHeader = "W";
 
-                editor.Bind(Vector4Editor<float>.FirstValueProperty, FirstValue.ToBinding())
+                editor
+                    .Bind(Vector4Editor<float>.FirstValueProperty, FirstValue.ToBinding())
                     .DisposeWith(Disposables);
-                editor.Bind(Vector4Editor<float>.SecondValueProperty, SecondValue.ToBinding())
+                editor
+                    .Bind(Vector4Editor<float>.SecondValueProperty, SecondValue.ToBinding())
                     .DisposeWith(Disposables);
-                editor.Bind(Vector4Editor<float>.ThirdValueProperty, ThirdValue.ToBinding())
+                editor
+                    .Bind(Vector4Editor<float>.ThirdValueProperty, ThirdValue.ToBinding())
                     .DisposeWith(Disposables);
-                editor.Bind(Vector4Editor<float>.FourthValueProperty, FourthValue.ToBinding())
+                editor
+                    .Bind(Vector4Editor<float>.FourthValueProperty, FourthValue.ToBinding())
                     .DisposeWith(Disposables);
-                editor.Bind(Vector4Editor.IsUniformProperty, IsUniformEditorEnabled.ToBinding())
+                editor
+                    .Bind(Vector4Editor.IsUniformProperty, IsUniformEditorEnabled.ToBinding())
                     .DisposeWith(Disposables);
-                editor.AddDisposableHandler(PropertyEditor.ValueConfirmedEvent, OnValueConfirmed)
+                editor
+                    .AddDisposableHandler(PropertyEditor.ValueConfirmedEvent, OnValueConfirmed)
                     .DisposeWith(Disposables);
-                editor.AddDisposableHandler(PropertyEditor.ValueChangedEvent, OnValueChanged)
+                editor
+                    .AddDisposableHandler(PropertyEditor.ValueChangedEvent, OnValueChanged)
                     .DisposeWith(Disposables);
             }
         }
@@ -715,8 +839,20 @@ namespace Beutl.ViewModels.Editors
         {
             if (e is PropertyEditorValueChangedEventArgs<(float X, float Y, float Z, float W)> args)
             {
-                SetValue(new System.Numerics.Vector4(args.OldValue.X, args.OldValue.Y, args.OldValue.Z, args.OldValue.W),
-                         new System.Numerics.Vector4(args.NewValue.X, args.NewValue.Y, args.NewValue.Z, args.NewValue.W));
+                SetValue(
+                    new System.Numerics.Vector4(
+                        args.OldValue.X,
+                        args.OldValue.Y,
+                        args.OldValue.Z,
+                        args.OldValue.W
+                    ),
+                    new System.Numerics.Vector4(
+                        args.NewValue.X,
+                        args.NewValue.Y,
+                        args.NewValue.Z,
+                        args.NewValue.W
+                    )
+                );
             }
         }
 
@@ -725,7 +861,13 @@ namespace Beutl.ViewModels.Editors
             if (sender is Vector4Editor<float> editor)
             {
                 System.Numerics.Vector4 coerced = SetCurrentValueAndGetCoerced(
-                    new System.Numerics.Vector4(editor.FirstValue, editor.SecondValue, editor.ThirdValue, editor.FourthValue));
+                    new System.Numerics.Vector4(
+                        editor.FirstValue,
+                        editor.SecondValue,
+                        editor.ThirdValue,
+                        editor.FourthValue
+                    )
+                );
                 editor.FirstValue = coerced.X;
                 editor.SecondValue = coerced.Y;
                 editor.ThirdValue = coerced.Z;

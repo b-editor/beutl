@@ -36,8 +36,14 @@ public class GraphicsContext2DTests
         drawable.Width.CurrentValue = 100;
         drawable.Height.CurrentValue = 100;
         drawable.Fill.CurrentValue = Brushes.White;
-        drawable.FilterEffect.CurrentValue = new FilterEffectGroup { Children = { new SplitEffect(), new InnerShadow() } };
-        drawable.Transform.CurrentValue = new TransformGroup { Children = { new RotationTransform(), new ScaleTransform() } };
+        drawable.FilterEffect.CurrentValue = new FilterEffectGroup
+        {
+            Children = { new SplitEffect(), new InnerShadow() },
+        };
+        drawable.Transform.CurrentValue = new TransformGroup
+        {
+            Children = { new RotationTransform(), new ScaleTransform() },
+        };
         var resource = drawable.ToResource(CompositionContext.Default);
 
         var node = new DrawableRenderNode(resource);
@@ -340,7 +346,10 @@ public class GraphicsContext2DTests
     {
         var node = new ContainerRenderNode();
         var context = new GraphicsContext2D(node, new PixelSize(1920, 1080));
-        var transform = new TransformGroup { Children = { new RotationTransform(), new ScaleTransform() } };
+        var transform = new TransformGroup
+        {
+            Children = { new RotationTransform(), new ScaleTransform() },
+        };
         var resource = transform.ToResource(CompositionContext.Default);
 
         context.PushTransform(resource).Dispose();

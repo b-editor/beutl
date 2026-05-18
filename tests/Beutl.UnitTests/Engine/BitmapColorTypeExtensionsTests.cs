@@ -48,21 +48,27 @@ public class BitmapColorTypeExtensionsTests
     [Test]
     public void Unknown_From_Sk_ReturnsUnknown()
     {
-        Assert.That(BitmapColorTypeExtensions.FromSKColorType(SKColorType.Unknown),
-            Is.EqualTo(BitmapColorType.Unknown));
+        Assert.That(
+            BitmapColorTypeExtensions.FromSKColorType(SKColorType.Unknown),
+            Is.EqualTo(BitmapColorType.Unknown)
+        );
     }
 
     [Test]
     public void OutOfRange_BeutlValue_ReturnsSkUnknown()
     {
-        Assert.That(((BitmapColorType)int.MaxValue).ToSKColorType(),
-            Is.EqualTo(SKColorType.Unknown));
+        Assert.That(
+            ((BitmapColorType)int.MaxValue).ToSKColorType(),
+            Is.EqualTo(SKColorType.Unknown)
+        );
     }
 
     [Test]
     public void OutOfRange_SkValue_ReturnsBeutlUnknown()
     {
-        Assert.That(BitmapColorTypeExtensions.FromSKColorType((SKColorType)int.MaxValue),
-            Is.EqualTo(BitmapColorType.Unknown));
+        Assert.That(
+            BitmapColorTypeExtensions.FromSKColorType((SKColorType)int.MaxValue),
+            Is.EqualTo(BitmapColorType.Unknown)
+        );
     }
 }

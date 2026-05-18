@@ -259,14 +259,15 @@ internal static class CrcHelper
         0xb40bbe37,
         0xc30c8ea1,
         0x5a05df1b,
-        0x2d02ef8d
+        0x2d02ef8d,
     ];
 
     public static uint Calculate(byte[] what)
     {
         uint crc = what.Aggregate(
             0xffffffff,
-            (current, t) => (current >> 8) ^ s_crcTable[(current & 0xff) ^ t]);
+            (current, t) => (current >> 8) ^ s_crcTable[(current & 0xff) ^ t]
+        );
         crc ^= 0xffffffff;
 
         return crc;

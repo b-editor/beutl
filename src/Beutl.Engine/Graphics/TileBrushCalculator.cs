@@ -9,16 +9,15 @@ internal readonly struct TileBrushCalculator
 
     public TileBrushCalculator(TileBrush.Resource brush, Size contentSize, Size targetSize)
         : this(
-              brush.TileMode,
-              brush.Stretch,
-              brush.AlignmentX,
-              brush.AlignmentY,
-              brush.SourceRect,
-              brush.DestinationRect,
-              contentSize,
-              targetSize)
-    {
-    }
+            brush.TileMode,
+            brush.Stretch,
+            brush.AlignmentX,
+            brush.AlignmentY,
+            brush.SourceRect,
+            brush.DestinationRect,
+            contentSize,
+            targetSize
+        ) { }
 
     public TileBrushCalculator(
         TileMode tileMode,
@@ -28,7 +27,8 @@ internal readonly struct TileBrushCalculator
         RelativeRect sourceRect,
         RelativeRect destinationRect,
         Size contentSize,
-        Size targetSize)
+        Size targetSize
+    )
     {
         _imageSize = contentSize;
 
@@ -36,7 +36,13 @@ internal readonly struct TileBrushCalculator
         DestinationRect = destinationRect.ToPixels(targetSize);
 
         Vector scale = stretch.CalculateScaling(DestinationRect.Size, SourceRect.Size);
-        Vector translate = CalculateTranslate(alignmentX, alignmentY, SourceRect, DestinationRect, scale);
+        Vector translate = CalculateTranslate(
+            alignmentX,
+            alignmentY,
+            SourceRect,
+            DestinationRect,
+            scale
+        );
 
         IntermediateSize = tileMode == TileMode.None ? targetSize : DestinationRect.Size;
         IntermediateTransform = CalculateIntermediateTransform(
@@ -45,7 +51,8 @@ internal readonly struct TileBrushCalculator
             DestinationRect,
             scale,
             translate,
-            out _drawRect);
+            out _drawRect
+        );
     }
 
     public Rect DestinationRect { get; }
@@ -66,8 +73,7 @@ internal readonly struct TileBrushCalculator
                 return true;
             if (SourceRect.Size.AspectRatio == _imageSize.AspectRatio)
                 return false;
-            if (SourceRect.Width != _imageSize.Width ||
-                SourceRect.Height != _imageSize.Height)
+            if (SourceRect.Width != _imageSize.Width || SourceRect.Height != _imageSize.Height)
                 return true;
             return false;
         }
@@ -80,7 +86,8 @@ internal readonly struct TileBrushCalculator
         AlignmentY alignmentY,
         Rect sourceRect,
         Rect destinationRect,
-        Vector scale)
+        Vector scale
+    )
     {
         float x = 0.0f;
         float y = 0.0f;
@@ -115,11 +122,13 @@ internal readonly struct TileBrushCalculator
         Rect destinationRect,
         Vector scale,
         Vector translate,
-        out Rect drawRect)
+        out Rect drawRect
+    )
     {
-        Matrix transform = Matrix.CreateTranslation(-sourceRect.Position) *
-                           Matrix.CreateScale(scale) *
-                           Matrix.CreateTranslation(translate);
+        Matrix transform =
+            Matrix.CreateTranslation(-sourceRect.Position)
+            * Matrix.CreateScale(scale)
+            * Matrix.CreateTranslation(translate);
         Rect dr;
 
         if (tileMode == TileMode.None)

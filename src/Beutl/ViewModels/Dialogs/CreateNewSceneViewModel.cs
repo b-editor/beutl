@@ -45,27 +45,37 @@ public sealed class CreateNewSceneViewModel
             }
         });
 
-        CanCreate = Name.CombineLatest(Location, Size).Select(t =>
-        {
-            string name = t.First;
-            string location = t.Second;
-            PixelSize size = t.Third;
-
-            if (location != null && name != null)
+        CanCreate = Name.CombineLatest(Location, Size)
+            .Select(t =>
             {
-                return !Directory.Exists(Path.Combine(location, name)) &&
-                       size.Width > 0 &&
-                       size.Height > 0;
-            }
-            else return false;
-        }).ToReadOnlyReactivePropertySlim();
+                string name = t.First;
+                string location = t.Second;
+                PixelSize size = t.Third;
+
+                if (location != null && name != null)
+                {
+                    return !Directory.Exists(Path.Combine(location, name))
+                        && size.Width > 0
+                        && size.Height > 0;
+                }
+                else
+                    return false;
+            })
+            .ToReadOnlyReactivePropertySlim();
         Create = new ReactiveCommand(CanCreate);
         Create.Subscribe(() =>
         {
             var scene = new Scene(Size.Value.Width, Size.Value.Height, Name.Value);
-            CoreSerializer.StoreToUri(scene,
-                UriHelper.CreateFromPath(Path.Combine(Location.Value, Name.Value,
-                    $"{Name.Value}.{Constants.SceneFileExtension}")));
+            CoreSerializer.StoreToUri(
+                scene,
+                UriHelper.CreateFromPath(
+                    Path.Combine(
+                        Location.Value,
+                        Name.Value,
+                        $"{Name.Value}.{Constants.SceneFileExtension}"
+                    )
+                )
+            );
 
             if (_proj != null)
             {

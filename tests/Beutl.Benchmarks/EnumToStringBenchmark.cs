@@ -44,7 +44,7 @@ public class EnumToStringBenchmark
         Alpha,
         Beta,
         Gamma,
-        Delta
+        Delta,
     }
 
     private static string ToStringEx(MyEnum myEnum)

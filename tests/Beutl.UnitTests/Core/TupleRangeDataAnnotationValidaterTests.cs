@@ -23,25 +23,21 @@ public class TupleRangeDataAnnotationValidaterTests
     [Test]
     public void Constructor_RejectsExclusiveBounds()
     {
-        var attr = new RangeAttribute(typeof(Vector), "0,0", "10,10")
-        {
-            MaximumIsExclusive = true
-        };
+        var attr = new RangeAttribute(typeof(Vector), "0,0", "10,10") { MaximumIsExclusive = true };
 
-        Assert.Throws<NotSupportedException>(
-            () => new TupleRangeDataAnnotationValidater<Vector, float>(attr));
+        Assert.Throws<NotSupportedException>(() =>
+            new TupleRangeDataAnnotationValidater<Vector, float>(attr)
+        );
     }
 
     [Test]
     public void Constructor_RejectsExclusiveMinimum()
     {
-        var attr = new RangeAttribute(typeof(Vector), "0,0", "10,10")
-        {
-            MinimumIsExclusive = true
-        };
+        var attr = new RangeAttribute(typeof(Vector), "0,0", "10,10") { MinimumIsExclusive = true };
 
-        Assert.Throws<NotSupportedException>(
-            () => new TupleRangeDataAnnotationValidater<Vector, float>(attr));
+        Assert.Throws<NotSupportedException>(() =>
+            new TupleRangeDataAnnotationValidater<Vector, float>(attr)
+        );
     }
 
     [Test]
