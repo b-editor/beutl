@@ -1,5 +1,4 @@
-﻿using System.Collections.Immutable;
-using System.Collections.Specialized;
+﻿using System.Collections.Specialized;
 using System.Reactive.Subjects;
 using System.Text.Json.Nodes;
 using Avalonia;
@@ -92,6 +91,9 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
         AddElement.Subscribe(desc => editorContext.GetRequiredService<IElementAdder>().AddElement(desc)).AddTo(_disposables);
 
         Paste.Subscribe(PasteCore)
+            .AddTo(_disposables);
+
+        Duplicate.Subscribe(DuplicateSelectedElements)
             .AddTo(_disposables);
 
         TimelineOptions options = Options.Value;
@@ -363,6 +365,8 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
 
     public ReactiveCommand Paste { get; } = new();
 
+    public ReactiveCommand Duplicate { get; } = new();
+
     public ReactiveCommand<(TimeRange Range, int ZIndex)> ScrollTo { get; } = new();
 
     public ReactiveCommandSlim SetStartTimeToPointerPosition { get; } = new();
@@ -491,6 +495,13 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
         int stepped = 0; // その方向で進んだ歩数
         int turnCount = 0; // 方向転換回数（2回ごとに stepLen を+1）
 
+        // Cap the spiral so a densely-packed timeline cannot hang the UI thread.
+        // On cap we return the last candidate (may overlap) and notify the user —
+        // overlap is recoverable, a hang is not.
+        const int MaxSearchSteps = 100_000;
+        int searchSteps = 0;
+        bool capped = false;
+
         while (true)
         {
             // 1歩進ませる
@@ -506,6 +517,12 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
             if (!IsOverlapping(new TimeRange(newStart, length), newZIndex, newZIndex + layerCount - 1))
                 break;
 
+            if (++searchSteps >= MaxSearchSteps)
+            {
+                capped = true;
+                break;
+            }
+
             // 歩数管理：指定歩数進んだら時計回りに方向転換
             stepped++;
             if (stepped == stepLen)
@@ -516,6 +533,14 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
                 if ((turnCount & 1) == 0)
                     stepLen++; // 2回方向転換するごとに 1,1,2,2,3,3,… と広がる
             }
+        }
+
+        if (capped)
+        {
+            _logger.LogWarning(
+                "CorrectPosition gave up after {Steps} steps without finding a non-overlapping slot; using last candidate at start={Start}, zIndex={ZIndex}.",
+                searchSteps, newStart, newZIndex);
+            NotificationService.ShowWarning(Strings.Duplicate, Strings.Duplicate_NoEmptySlot);
         }
 
         return (newStart, newZIndex);
@@ -532,8 +557,16 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
 
     private async Task PasteElementList(IClipboard clipboard)
     {
-        if (await clipboard.TryGetValueAsync(BeutlDataFormats.Elements) is not { } json
-            || JsonNode.Parse(json) is not JsonArray jsonArray) return;
+        if (await clipboard.TryGetValueAsync(BeutlDataFormats.Elements) is not { } json)
+        {
+            _logger.LogWarning("Paste skipped: clipboard advertises Elements format but returned null.");
+            return;
+        }
+        if (JsonNode.Parse(json) is not JsonArray jsonArray)
+        {
+            _logger.LogWarning("Paste skipped: clipboard Elements payload is not a JsonArray. Length={Length}", json.Length);
+            return;
+        }
 
         var oldElements = jsonArray
             .Select(node => (node, element: new Element()))
@@ -541,65 +574,117 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
             .Select(t => t.element)
             .ToArray();
 
+        if (oldElements.Length == 0)
+        {
+            _logger.LogWarning("Paste skipped: clipboard Elements payload is an empty array.");
+            return;
+        }
+
+        RegenerateAndPlaceAtCorrectedPosition(oldElements, CommandNames.PasteElement);
+    }
+
+    private void DuplicateSelectedElements()
+    {
+        try
+        {
+            if (SelectedElements.Count == 0) return;
+
+            HashSet<Guid> ids = DuplicateHelper.ExpandWithGroupSiblings(
+                SelectedElements.Select(s => s.Model.Id),
+                Scene.Groups);
+
+            var sourceVMs = Elements.Where(x => ids.Contains(x.Model.Id)).ToArray();
+            if (sourceVMs.Length == 0)
+            {
+                _logger.LogWarning(
+                    "Duplicate skipped: selected element IDs did not resolve to Elements. Ids={Ids}",
+                    string.Join(", ", ids));
+                return;
+            }
+
+            RegenerateAndPlaceAtCorrectedPosition(
+                sourceVMs.Select(x => x.Model).ToArray(),
+                CommandNames.DuplicateElement);
+        }
+        catch (Exception ex)
+        {
+            HandleDuplicateException(ex, "duplicating elements");
+        }
+    }
+
+    private void RegenerateAndPlaceAtCorrectedPosition(Element[] oldElements, string commandName)
+    {
         ObjectRegenerator.Regenerate(oldElements, out Element[] newElements);
 
-        // 時間の範囲、レイヤーの範囲を計算
-        TimeSpan minStart = newElements.Min(e => e.Start);
-        int minZIndex = newElements.Min(e => e.ZIndex);
-        TimeSpan maxStart = newElements.Max(e => e.Start);
-        int maxZIndex = newElements.Max(e => e.ZIndex);
-        TimeSpan length = maxStart - minStart;
+        (TimeRange seedRange, int minZIndex, int maxZIndex) = DuplicateHelper.ComputePlacementRange(newElements);
+        (TimeSpan newStart, int newZIndex) = CorrectPosition(seedRange, minZIndex, maxZIndex);
 
-        var (newStart, newZIndex) = CorrectPosition(
-            new TimeRange(minStart, length),
-            minZIndex,
-            maxZIndex);
+        DuplicateHelper.PlaceDuplicates(Scene, newElements, oldElements, newStart, newZIndex);
+        EditorContext.GetRequiredService<HistoryManager>().Commit(commandName);
 
-        // 新しい位置に移動して保存、シーンに追加
-        foreach (Element newElement in newElements)
+        ScrollTo.Execute((new TimeRange(newStart, seedRange.Duration), newZIndex));
+    }
+
+    /// <summary>
+    /// Returns true when a duplicate was placed and committed. Alt+drag uses the
+    /// return value to decide whether to fall back to a plain move.
+    /// </summary>
+    internal bool DuplicateElementsAt(IReadOnlyList<Element> sourceElements, TimeSpan anchorStart, int anchorZIndex)
+    {
+        if (sourceElements.Count == 0)
         {
-            newElement.Start = newElement.Start - minStart + newStart;
-            newElement.ZIndex = newElement.ZIndex - minZIndex + newZIndex;
-
-            CoreSerializer.StoreToUri(newElement,
-                RandomFileNameGenerator.GenerateUri(Scene.Uri!, Constants.ElementFileExtension));
+            _logger.LogWarning("DuplicateElementsAt called with empty sourceElements; investigate caller.");
+            return false;
         }
 
-        HistoryManager history = EditorContext.GetRequiredService<HistoryManager>();
-
-        var idMapping = new Dictionary<Guid, Guid>();
-        for (int i = 0; i < oldElements.Length; i++)
+        try
         {
-            idMapping[oldElements[i].Id] = newElements[i].Id;
-        }
+            var src = sourceElements.ToArray();
+            ObjectRegenerator.Regenerate(src, out Element[] newElements);
 
-        // コピーする要素が含まれるグループを取得
-        var scene = Scene;
-        List<ImmutableHashSet<Guid>> newGroups = Scene.Groups
-            .Select(g => g.Where(id => idMapping.ContainsKey(id))
-                .Select(id => idMapping[id])
-                .ToImmutableHashSet())
-            .Where(g => g.Count >= 2)
-            .ToList();
-        if (newGroups.Count > 0)
+            DuplicateHelper.PlaceDuplicates(Scene, newElements, src, anchorStart, Math.Max(anchorZIndex, 0));
+            EditorContext.GetRequiredService<HistoryManager>().Commit(CommandNames.DuplicateElement);
+            return true;
+        }
+        catch (Exception ex)
         {
-            scene.Groups.AddRange(newGroups);
+            HandleDuplicateException(ex, "duplicating elements at position");
+            return false;
         }
+    }
 
-        foreach (Element newElement in newElements)
+    private void HandleDuplicateException(Exception ex, string context)
+    {
+        switch (ex)
         {
-            Scene.AddChild(newElement);
+            case InvalidOperationException when Scene.Uri is null:
+                _logger.LogWarning(ex, "Duplicate skipped while {Context}: project has no Uri.", context);
+                NotificationService.ShowWarning(Strings.Duplicate_Failed, Strings.Duplicate_ProjectNotSaved);
+                break;
+            case IOException:
+            case UnauthorizedAccessException:
+                _logger.LogError(ex, "Duplicate failed while {Context}: I/O error.", context);
+                NotificationService.ShowError(Strings.Duplicate_Failed, Strings.Duplicate_IOFailed);
+                break;
+            default:
+                _logger.LogError(ex, "An exception has occurred while {Context}.", context);
+                NotificationService.ShowError(MessageStrings.UnexpectedError, ex.Message);
+                break;
         }
-
-        history.Commit(CommandNames.PasteElement);
-
-        ScrollTo.Execute((new TimeRange(newStart, maxStart - minStart), newZIndex));
     }
 
     private async Task PasteElement(IClipboard clipboard)
     {
-        if (await clipboard.TryGetValueAsync(BeutlDataFormats.Element) is not { } json) return;
-        if (JsonNode.Parse(json) is not JsonObject jsonObject) return;
+        if (await clipboard.TryGetValueAsync(BeutlDataFormats.Element) is not { } json)
+        {
+            _logger.LogWarning("Paste skipped: clipboard advertises Element format but returned null.");
+            return;
+        }
+        if (JsonNode.Parse(json) is not JsonObject jsonObject)
+        {
+            _logger.LogWarning("Paste skipped: clipboard Element payload is not a JsonObject. Length={Length}", json.Length);
+            return;
+        }
 
         var oldElement = new Element();
 
@@ -1107,7 +1192,7 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
     {
         return execution.CommandName switch
         {
-            "Copy" or "Cut" or "Delete" or "Exclude" => SelectedElements.Count > 0,
+            "Copy" or "Cut" or "Delete" or "Exclude" or "Duplicate" => SelectedElements.Count > 0,
             "NudgeLeftFrame" or "NudgeRightFrame"
                 or "NudgeLeftLarge" or "NudgeRightLarge"
                 or "NudgeLeftSecond" or "NudgeRightSecond" => SelectedElements.Count > 0,
@@ -1141,6 +1226,14 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
                 {
                     execution.KeyEventArgs.Handled = true;
                     _logger.LogDebug("Paste command executed and KeyEventArgs handled.");
+                }
+
+                break;
+            case "Duplicate":
+                Duplicate.Execute();
+                if (execution.KeyEventArgs != null)
+                {
+                    execution.KeyEventArgs.Handled = true;
                 }
 
                 break;
