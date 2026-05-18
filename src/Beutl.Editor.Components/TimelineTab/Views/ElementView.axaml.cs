@@ -15,10 +15,13 @@ using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Components.TimelineTab.ViewModels;
 using Beutl.Editor.Services;
 using Beutl.Engine;
+using Beutl.Logging;
 using Beutl.ProjectSystem;
+using Beutl.Services;
 using Beutl.Services.PrimitiveImpls;
 using FluentAvalonia.UI.Controls;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using Reactive.Bindings.Extensions;
 using Setter = Avalonia.Styling.Setter;
 
@@ -538,6 +541,11 @@ public sealed partial class ElementView : UserControl
 
     private sealed class _MoveBehavior : Behavior<ElementView>
     {
+        // OnBorderPointerReleased は async void なので例外が UI スレッドの
+        // SynchronizationContext へ伝播してアプリを落としうる。ハンドラ内部で
+        // 必ず捕捉して logger + 通知へ流すためにここで logger を確保しておく。
+        private static readonly ILogger s_logger = Log.CreateLogger<ElementView>();
+
         private bool _pressed;
         private bool _duplicateMode;
         private Point _start;
@@ -617,6 +625,20 @@ public sealed partial class ElementView : UserControl
             }
         }
 
+        // AnimationRequest が例外で途中終了すると BorderMargin/Margin/Width が
+        // ドラッグ中の視覚値のまま残ってしまうので、Model 由来の正しい値で上書きする。
+        // ElementViewModel.AnimationRequest が成功時末尾でセットしている値と同じ。
+        private static void ForceRestoreVisualToModel(IEnumerable<ElementViewModel> targets)
+        {
+            foreach (ElementViewModel vm in targets)
+            {
+                float scale = vm.Timeline.Options.Value.Scale;
+                vm.BorderMargin.Value = new Thickness(vm.Model.Start.TimeToPixel(scale), 0, 0, 0);
+                vm.Margin.Value = new Thickness(0, vm.Timeline.CalculateLayerTop(vm.Model.ZIndex), 0, 0);
+                vm.Width.Value = vm.Model.Length.TimeToPixel(scale);
+            }
+        }
+
         private async void OnBorderPointerReleased(object? sender, PointerReleasedEventArgs e)
         {
             if (_pressed)
@@ -647,22 +669,35 @@ public sealed partial class ElementView : UserControl
                             .Select(x => (ViewModel: x, Context: x.PrepareAnimation()))
                             .ToArray();
 
-                        TimeSpan minFrame = TimeSpan.FromSeconds(1d / rate);
-                        bool hasDrag = Math.Abs(deltaStart.Ticks) >= minFrame.Ticks || deltaIndex != 0;
-                        if (hasDrag && elems.Length > 0)
+                        try
                         {
-                            TimeSpan minSourceStart = elems.Min(m => m.Start);
-                            int minSourceZIndex = elems.Min(m => m.ZIndex);
-                            TimeSpan anchorStart = minSourceStart + deltaStart;
-                            if (anchorStart < TimeSpan.Zero) anchorStart = TimeSpan.Zero;
-                            int anchorZIndex = Math.Max(minSourceZIndex + deltaIndex, 0);
+                            TimeSpan minFrame = TimeSpan.FromSeconds(1d / rate);
+                            bool hasDrag = Math.Abs(deltaStart.Ticks) >= minFrame.Ticks || deltaIndex != 0;
+                            if (hasDrag && elems.Length > 0)
+                            {
+                                TimeSpan minSourceStart = elems.Min(m => m.Start);
+                                int minSourceZIndex = elems.Min(m => m.ZIndex);
+                                TimeSpan anchorStart = minSourceStart + deltaStart;
+                                if (anchorStart < TimeSpan.Zero) anchorStart = TimeSpan.Zero;
+                                int anchorZIndex = Math.Max(minSourceZIndex + deltaIndex, 0);
 
-                            viewModel.Timeline.DuplicateElementsAt(elems, anchorStart, anchorZIndex);
+                                viewModel.Timeline.DuplicateElementsAt(elems, anchorStart, anchorZIndex);
+                            }
+
+                            // 旧実装は fire-and-forget で AnimationRequest を投げており、
+                            // Task 内の例外が unobserved となって視覚位置がドラッグ中のまま
+                            // 取り残されることがあった。await + 失敗時の強制リストアで防ぐ。
+                            await Task.WhenAll(
+                                animations.Select(a => a.ViewModel.AnimationRequest(a.Context)));
                         }
-
-                        foreach (var (item, context) in animations)
+                        catch (Exception ex)
                         {
-                            _ = item.AnimationRequest(context);
+                            // 例外が起きるとソースクリップが BorderMargin/Margin = ドラッグ後の
+                            // 視覚位置のまま残り、モデルとずれた表示が次の操作まで続いてしまう。
+                            // Model から再計算して強制的に視覚を巻き戻す。
+                            ForceRestoreVisualToModel(animations.Select(a => a.ViewModel));
+                            s_logger.LogError(ex, "Failed to complete duplicate drag.");
+                            NotificationService.ShowError(MessageStrings.UnexpectedError, ex.Message);
                         }
                     }
                     else if (elems.Length == 1)
