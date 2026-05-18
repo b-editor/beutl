@@ -23,7 +23,10 @@ public static class ObjectRegenerator
             .ToArray();
 
         // JsonObjectに変換
-        var jsonObject = CoreSerializer.SerializeToJsonObject(obj);
+        var jsonObject = CoreSerializer.SerializeToJsonObject(obj, new CoreSerializerOptions
+        {
+            Mode = CoreSerializationMode.EmbedReferencedObjects
+        });
 
         // UTF-8に書き込む
         JsonSerializerOptions options = JsonHelper.SerializerOptions;
