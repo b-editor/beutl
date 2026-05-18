@@ -36,14 +36,15 @@ namespace Beutl.Views;
 
 public partial class PlayerView : UserControl
 {
+    private const int MaxScannedDrawablesPerElement = 16;
+
     private readonly CompositeDisposable _disposables = [];
     private readonly ILogger _logger = Log.CreateLogger<PlayerView>();
     private IDisposable? _imageConfigSubscription;
     private IDisposable? _boundsSubscription;
     internal Control image = null!;
 
-    // Resource snapshot for the TransformHandle overlay (access only from inside RenderThread.Dispatcher).
-    // Reuses Update for in-place refresh on the same Drawable; recreates via ToResource when the Drawable changes.
+    // _transformHandleResource is RenderThread-owned: only mutate inside RenderThread.Dispatcher.
     private BtlDrawable.Resource? _transformHandleResource;
     private BtlDrawable? _transformHandleResourceTarget;
 
@@ -232,20 +233,18 @@ public partial class PlayerView : UserControl
                 .Subscribe(_ => UpdateTransformHandles())
                 .DisposeWith(_disposables);
 
-            // The overlay is only shown in Move mode AND while not playing. During playback we give up on shape tracking and suppress updates
-            // (a synchronous Invoke onto RenderThread every frame would tank playback throughput).
-            vm.IsMoveMode.CombineLatest(vm.IsPlaying, (move, playing) => (move, playing))
+            // RenderThread.Invoke during playback would stall frame generation, so suppress overlay
+            // updates outside Move mode + paused state.
+            vm.IsMoveMode.CombineLatest(vm.IsPlaying, (move, playing) => move && !playing)
+                .DistinctUntilChanged()
                 .ObserveOnUIDispatcher()
-                .Subscribe(t =>
+                .Subscribe(visible =>
                 {
-                    bool visible = t.move && !t.playing;
                     transformHandlesOverlay.IsVisible = visible;
                     if (visible) UpdateTransformHandles();
                     else ClearTransformHandleOverlay();
                 })
                 .DisposeWith(_disposables);
-
-            // Overlay updates on time changes go through PreviewInvalidated.
         }
     }
 
@@ -283,26 +282,19 @@ public partial class PlayerView : UserControl
 
         double frameScale = image.Bounds.Width / scene.FrameSize.Width;
         // Prefer the last hit-tested drawable so the overlay tracks the visual object the user actually
-        // clicked on. Without this, an Element with multiple drawables would always show handles around
-        // the first one, even after hit-testing resolves a different one.
-        BtlDrawable? hitTested = null;
-        if (_lastSelected.TryGetTarget(out BtlDrawable? cached))
-        {
-            hitTested = cached;
-        }
+        // clicked on, not just the element's first drawable.
+        BtlDrawable? hitTested = _lastSelected.TryGetTarget(out BtlDrawable? cached) ? cached : null;
         BtlDrawable? drawable = null;
         int drawableCount = 0;
         foreach (BtlDrawable d in element.Objects.OfType<BtlDrawable>())
         {
-            if (drawableCount == 0) drawable = d;
+            drawable ??= d;
             if (ReferenceEquals(d, hitTested))
             {
                 drawable = d;
-                drawableCount = -1; // marker: matched the cached selection, no need to keep iterating
                 break;
             }
-            drawableCount++;
-            if (drawableCount > 16) break; // cap iteration; multi-drawable elements rarely exceed this
+            if (++drawableCount > MaxScannedDrawablesPerElement) break;
         }
         if (drawable == null)
         {
@@ -310,8 +302,8 @@ public partial class PlayerView : UserControl
             return;
         }
 
-        // Build an independent Resource on RenderThread and compute userMatrix / localSize / pivot
-        // (evaluate animations against the ctx time, without depending on the renderer's cached render node).
+        // Use an independent Resource on RenderThread so we evaluate animations against ctxTime
+        // without piggybacking on the renderer's cached render node.
         (BtlSize localSize, BtlMatrix userMatrix, BtlPoint pivotLocal)? snap;
         try
         {
@@ -332,7 +324,8 @@ public partial class PlayerView : UserControl
                 }
                 else
                 {
-                    // Used solely for overlay display, so do not propagate Version changes downstream (updateOnly=true).
+                    // updateOnly=true: this is a read-only view for the overlay, so don't bump Version
+                    // and invalidate downstream consumers.
                     bool updateOnly = true;
                     _transformHandleResource.Update(target, ctx, ref updateOnly);
                 }
@@ -344,7 +337,7 @@ public partial class PlayerView : UserControl
                 BtlMatrix userMatrix = target.GetTransformMatrix(availableSize, localSize, resource);
                 BtlPoint pivot = resource.TransformOrigin.ToPixels(localSize);
 
-                // transform.Matrix does not include the FilterEffect offset, so correct it with the difference against bounds.
+                // userMatrix omits FilterEffect-induced offsets; align against rendered bounds.
                 BtlMatrix adjusted = TransformHandleMath.AlignUserMatrixToRenderedBounds(userMatrix, localSize, bounds.Value);
 
                 return ((BtlSize, BtlMatrix, BtlPoint)?)(localSize, adjusted, pivot);
@@ -356,7 +349,7 @@ public partial class PlayerView : UserControl
                 ex,
                 "GetBoundary/MeasureInternal called from invalid thread for {DrawableType} on element '{Element}'.",
                 drawable.GetType().Name, element.Name);
-            // A partially-updated cache may remain, so dispose it and let it be rebuilt.
+            // Partially-updated cache may remain — dispose and let it rebuild.
             ClearTransformHandleOverlay();
             return;
         }

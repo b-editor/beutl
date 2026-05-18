@@ -46,7 +46,6 @@ public partial class PlayerView
         public KeyFrame<T>? Next { get; } = next;
     }
 
-    // If localStart is non-null, convert to local time (e.g. Element/Scene3D); if null, use globalKeyTime as-is.
     private static KeyFrameState<T>? FindKeyFramePair<T>(
         IProperty<T> property, IEditorClock clock, Scene scene, TimeSpan? localStart)
     {
@@ -165,12 +164,9 @@ public partial class PlayerView
     private sealed class MouseControlTransformHandles : IMouseControlHandler
     {
         // Drag lifecycle: Press → (first OnMoved → Ensure) → Move* → Release.
-        //   _press == null  : pre-press state
-        //   _ensured == null: pre-drag (Press received but no mouse movement yet)
-
-        // When Kind == None, LocalSize/StartUserMatrix/InvStartUserMatrix/PivotLocal/PivotImage are
-        // filled with default/Identity (harmless because only HandleTranslate is invoked, which does not reference them).
-        // PressTransform: anchor for detecting whether undo/redo replaced the Transform right before the first OnMoved.
+        // _ensured == null means Press fired but no mouse movement yet — Ensure (which mutates the
+        // document) is deferred to the first OnMoved so a bare click leaves the Transform alone.
+        // PressTransform anchors detection of undo/redo replacing the Transform before that first move.
         private sealed record PressState(
             Drawable Drawable,
             Element? Element,
@@ -215,12 +211,10 @@ public partial class PlayerView
         private PressState? _press;
         private EnsuredState? _ensured;
 
-        // Stored so that ResetSession can release the capture during normal or aborted teardown.
-        // Without releasing, framePanel would keep stealing pointer events from sibling controls after the drag.
+        // Avalonia does not auto-release pointer capture on button-up; without ResetSession releasing it
+        // explicitly, framePanel would keep stealing pointer events from sibling controls after the drag.
         private IPointer? _capturedPointer;
 
-        // _changed is drag-scoped (cleared by ResetSession); _shift stays live outside of a drag too
-        // (synced from KeyDown/Up and pointer-event KeyModifiers, reset to false only in OnReleased).
         private bool _changed;
         private bool _shift;
 
@@ -243,7 +237,6 @@ public partial class PlayerView
         private KeyFrameState<float>? FindKf(IProperty<float> property)
             => FindKeyFramePair(property, Clock, EditViewModel.Scene, _press?.Element?.Start);
 
-        // On invariant violation, leave a more actionable log than an NRE and short-circuit subsequent OnMoved calls via ResetSession.
         private bool TryGetSession(
             [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out PressState? press,
             [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out EnsuredState? ensured)
@@ -255,8 +248,6 @@ public partial class PlayerView
                 "MouseControlTransformHandles handler invoked without session (press={HasPress}, ensured={HasEnsured}, kind={Kind}). Aborting drag.",
                 press != null, ensured != null, Kind);
             ResetSession();
-            press = null;
-            ensured = null;
             return false;
         }
 
@@ -265,6 +256,19 @@ public partial class PlayerView
 
         private static (float prev, float next) CaptureStartValues(KeyFrameState<float>? kf, float fallback)
             => KeyFrameDeltaHelper.CaptureStartValues(kf?.Previous, kf?.Next, fallback);
+
+        // Writes to surrounding keyframes when present, otherwise to CurrentValue. The two write paths
+        // are intentionally mutually exclusive so a single drag does not double-write the same axis.
+        private static void WriteScalar(
+            IProperty<float> property,
+            KeyFrameState<float>? kf,
+            (float prev, float next) kfStart,
+            float delta,
+            float newValue)
+        {
+            if (!ApplyDelta(kf, kfStart, delta))
+                property.CurrentValue = newValue;
+        }
 
         public void OnPressed(PointerPressedEventArgs e)
         {
@@ -316,8 +320,6 @@ public partial class PlayerView
                 StartImagePos: startImagePos,
                 PressTransform: drawable.Transform.CurrentValue);
 
-            // Ensure (= inserting R/S/T) is a document mutation, so defer it until the first OnMoved
-            // (if the user only clicks and releases, the structure is left untouched).
             _ensured = null;
 
             EditorSelection.SelectedObject.Value = element;
@@ -332,8 +334,7 @@ public partial class PlayerView
             e.Handled = true;
         }
 
-        // Click outside the overlay region (Kind == None). Resolve the drawable via renderer hit-test;
-        // toggle selection, launch path editor on double-click of a shape, and start a translate drag on the first OnMoved.
+        // Kind == None path: resolve the drawable via renderer hit-test instead of consuming a handle.
         private void OnPressedHitTest(PointerPressedEventArgs e, PointerPoint pp)
         {
             Scene scene = EditViewModel.Scene;
@@ -341,7 +342,7 @@ public partial class PlayerView
             double frameScale = Image.Bounds.Size.Width / scene.FrameSize.Width;
             if (frameScale <= 0)
             {
-                // Layout race: e.g. the click arrived before framePanel had laid out the image.
+                // Click arrived before framePanel laid out the image (layout race) — swallow it.
                 _logger.LogDebug(
                     "OnPressedHitTest: frameScale={FrameScale} <= 0 (imageBounds={ImageBounds}, frameSize={FrameSize}), swallowing click.",
                     frameScale, Image.Bounds.Size, scene.FrameSize);
@@ -365,8 +366,7 @@ public partial class PlayerView
             }
             catch (OperationCanceledException ocex)
             {
-                // Pointer event delivered during shutdown. Propagating it can kill the UI thread,
-                // so log and discard the click instead.
+                // Likely shutdown — propagating would crash the UI-thread pointer pipeline.
                 _logger.LogDebug(
                     ocex,
                     "OnPressedHitTest: hit-test cancelled (likely shutdown). Swallowing click.");
@@ -377,10 +377,10 @@ public partial class PlayerView
             catch (Exception ex) when (
                 ex is not OutOfMemoryException
                 and not StackOverflowException
-                and not System.Runtime.InteropServices.SEHException  // propagate things like GPU driver crashes
-                and not AccessViolationException)                    // CSE (defense-in-depth)
+                and not System.Runtime.InteropServices.SEHException  // propagate GPU driver crashes
+                and not AccessViolationException)                    // CSE defense-in-depth
             {
-                // Swallow the exception; propagating it would crash the editor via the pointer-event pipeline.
+                // Avoid crashing the editor via the pointer-event pipeline.
                 _logger.LogError(
                     ex,
                     "OnPressedHitTest: renderer hit-test threw at scaledPos={ScaledPos}.",
@@ -390,17 +390,16 @@ public partial class PlayerView
                 return;
             }
 
-            // Fall through on an empty click so other handlers / the normal selection logic can run
-            // (setting _press=non-null + Handled=true would make the click look unresponsive).
+            // Empty click: let normal selection logic run instead of swallowing it.
             if (drawable == null)
             {
                 _press = null;
                 return;
             }
 
-            // Resolve the owning Element via the hierarchical parent chain so that overlapping
-            // ZIndex elements do not alias to each other. Fall back to a ZIndex/time-window search
-            // only when the drawable's parent is outside this scene (e.g. nested SceneDrawable).
+            // Walk hierarchical parents so overlapping ZIndex elements don't alias to each other; fall
+            // back to a ZIndex/time-window search only when the drawable's parent is outside this scene
+            // (e.g. nested SceneDrawable).
             Element? element = drawable.FindHierarchicalParent<Element>();
             if (element == null || !scene.Children.Contains(element))
             {
@@ -463,10 +462,9 @@ public partial class PlayerView
 
             var ctx = new CompositionContext(Clock.CurrentTime.Value);
 
-            // Ensure performs a document mutation, so first take a mutation-free snapshot and verify finiteness.
-            // If any value is invalid, abort without invoking Ensure to avoid leaving a non-undoable mutation behind.
-            // The defaults used to fill missing axes must match the property defaults of the R/S/T that Ensure inserts
-            // (TranslateTransform.X/Y=0, ScaleTransform.ScaleX/Y=100, RotationTransform.Rotation=0).
+            // Snapshot before Ensure mutates the document — a non-finite value here aborts the drag so
+            // we don't leave a structural mutation that the user can't fix via undo. Fallbacks must match
+            // the property defaults of the R/S/T inserted by Ensure (T=0, S=100, R=0).
             var (probeR, probeS, probeT) = CanonicalTransformLayout.FindCanonicalTransforms(_press.Drawable.Transform.GetValue(ctx));
             float startTransX = probeT?.X.GetValue(ctx) ?? 0f;
             float startTransY = probeT?.Y.GetValue(ctx) ?? 0f;
@@ -521,7 +519,7 @@ public partial class PlayerView
                 KfStartRotation = CaptureStartValues(kfRotation, startRotation),
             };
 
-            // If a structural change (group wrap or R/S/T insertion) happened, commit even if delta is tiny.
+            // Commit even on a zero-delta drag so the structural change is undoable on its own.
             if (ensured.StructureChanged)
             {
                 _changed = true;
@@ -532,10 +530,9 @@ public partial class PlayerView
         {
             if (_press == null) return;
 
-            // Pre-Ensure guard: detect the case where undo/redo replaces the entire Transform between
-            // OnPressed and the first OnMoved. If this is not checked before Ensure runs, structural
-            // mutations would be applied to the post-undo Transform. After Ensure, PressTransform is
-            // expected to differ, so gate on _ensured==null (the post-Ensure guard below watches _ensured.Group).
+            // If undo/redo replaced the Transform between OnPressed and the first OnMoved, run Ensure
+            // against the wrong instance — abort the drag instead. After Ensure, PressTransform may
+            // legitimately differ, so the post-Ensure guard below watches _ensured.Group instead.
             if (_ensured == null
                 && !ReferenceEquals(_press.Drawable.Transform.CurrentValue, _press.PressTransform))
             {
@@ -551,9 +548,9 @@ public partial class PlayerView
             EnsureOnFirstMove();
             if (_ensured == null) return;
 
-            // Post-Ensure guard: if undo/redo replaces the entire TransformGroup mid-drag, _ensured.Group
-            // would still point at the detached group, causing silent write loss — abort instead.
-            // Undoing a child keyframe value does not change this reference, so it still passes through the gate.
+            // If undo/redo replaces the TransformGroup mid-drag, _ensured.Group is now detached and
+            // writes would be silently dropped. Undoing a child keyframe value keeps the group ref,
+            // so this only catches whole-Transform replacements.
             if (!ReferenceEquals(_press.Drawable.Transform.CurrentValue, _ensured.Group))
             {
                 AbortDrag(
@@ -595,12 +592,11 @@ public partial class PlayerView
                     HandleRotate(currentImg);
                     break;
                 default:
-                    // Fail-fast detection for forgotten branches when the enum is extended.
                     throw new System.ArgumentOutOfRangeException(nameof(Kind), Kind, "Unhandled HandleKind in OnMoved switch.");
             }
 
-            // On the frame where AbortDrag tore the session down, skip the postlude and let the
-            // pointer event flow through to the parent routing.
+            // AbortDrag in any branch nulls _press; in that case the pointer event should bubble up
+            // to the parent routing rather than be marked as handled.
             if (_press == null) return;
 
             _changed = true;
@@ -612,7 +608,6 @@ public partial class PlayerView
         {
             if (!TryGetSession(out PressState? press, out EnsuredState? ensured)) return;
 
-            // Convert the image-pixel delta back to scene space and map it into T's value space via InvPostMatrixOfT.
             double scale = press.FrameScale;
             AvaPoint scaledCurrent = new(currentImg.X / scale, currentImg.Y / scale);
             AvaPoint scaledStart = new(press.StartImagePos.X / scale, press.StartImagePos.Y / scale);
@@ -632,7 +627,6 @@ public partial class PlayerView
 
             float newX = ensured.StartTransX + dx;
             float newY = ensured.StartTransY + dy;
-            // Prevent NaN/Inf from being written to Translate through an ill-conditioned PostMatrixOfT.
             if (!float.IsFinite(newX) || !float.IsFinite(newY))
             {
                 AbortDrag(
@@ -640,22 +634,18 @@ public partial class PlayerView
                     newX, newY);
                 return;
             }
-            if (!ApplyDelta(ensured.KfTransX, ensured.KfStartTransX, dx))
-                ensured.Translate.X.CurrentValue = newX;
-            if (!ApplyDelta(ensured.KfTransY, ensured.KfStartTransY, dy))
-                ensured.Translate.Y.CurrentValue = newY;
+            WriteScalar(ensured.Translate.X, ensured.KfTransX, ensured.KfStartTransX, dx, newX);
+            WriteScalar(ensured.Translate.Y, ensured.KfTransY, ensured.KfStartTransY, dy, newY);
         }
 
         private void HandleCorner(AvaPoint currentImg)
         {
             if (!TryGetSession(out PressState? press, out EnsuredState? ensured)) return;
 
-            // Inverse-transform with the userMatrix captured at press time (do not recompute M every frame during the drag).
             BtlPoint currentLocal = ImagePointToStartLocal(press, currentImg);
             (double anchorX, double anchorY) = CornerAnchorLocal(press, Kind);
 
-            // Grow the signed distance from the anchor in the "positive" direction. Crossing the
-            // diagonal makes ratio negative and flips the object, which is accepted by design.
+            // Crossing the diagonal flips ratio sign and so flips the object — accepted by design.
             bool grabLeft = Kind is TransformHandlesOverlay.HandleKind.TopLeft or TransformHandlesOverlay.HandleKind.BottomLeft;
             bool grabTop = Kind is TransformHandlesOverlay.HandleKind.TopLeft or TransformHandlesOverlay.HandleKind.TopRight;
 
@@ -713,7 +703,6 @@ public partial class PlayerView
             ApplyScaleWithPivotCorrection(press, ensured, newScaleX, newScaleY, anchorX, anchorY);
         }
 
-        // Centralizes LogWarning → ResetSession → cursor release. The OnMoved postlude (`_press == null`) catches the abort frame.
         private void AbortDrag(string reasonTemplate, params object?[] args)
         {
             _logger.LogWarning(reasonTemplate, args);
@@ -732,7 +721,6 @@ public partial class PlayerView
             double angleStart = Math.Atan2(sy, sx);
             double angleCurrent = Math.Atan2(cy, cx);
             double deltaRad = TransformHandleMath.NormalizeAngleDelta(angleCurrent - angleStart);
-            // If PivotImage is degenerate the whole drag would freeze, so abort the session and surface feedback.
             if (!double.IsFinite(deltaRad))
             {
                 AbortDrag(
@@ -748,11 +736,9 @@ public partial class PlayerView
                 newRot = (float)(Math.Round(newRot / 15.0) * 15.0);
             }
 
-            // newRot is invariantly finite (guaranteed by the upstream gates on StartRotation/deltaRad and by Math.Round).
             // Derive delta from the post-Shift-snap value (deltaDeg is the pre-snap value).
             float effectiveDelta = newRot - ensured.StartRotation;
-            if (!ApplyDelta(ensured.KfRotation, ensured.KfStartRotation, effectiveDelta))
-                ensured.Rotation.Rotation.CurrentValue = newRot;
+            WriteScalar(ensured.Rotation.Rotation, ensured.KfRotation, ensured.KfStartRotation, effectiveDelta, newRot);
         }
 
         private void ApplyScale(EnsuredState ensured, float newScaleX, float newScaleY)
@@ -766,14 +752,12 @@ public partial class PlayerView
             }
             float deltaScaleX = newScaleX - ensured.StartScaleX;
             float deltaScaleY = newScaleY - ensured.StartScaleY;
-            if (!ApplyDelta(ensured.KfScaleX, ensured.KfStartScaleX, deltaScaleX))
-                ensured.Scale.ScaleX.CurrentValue = newScaleX;
-            if (!ApplyDelta(ensured.KfScaleY, ensured.KfStartScaleY, deltaScaleY))
-                ensured.Scale.ScaleY.CurrentValue = newScaleY;
+            WriteScalar(ensured.Scale.ScaleX, ensured.KfScaleX, ensured.KfStartScaleX, deltaScaleX, newScaleX);
+            WriteScalar(ensured.Scale.ScaleY, ensured.KfScaleY, ensured.KfStartScaleY, deltaScaleY, newScaleY);
         }
 
-        // Compensate the anchor shift caused by a scale change via the operative Translate.
-        // See <see cref="TransformHandleMath.ComputePivotTranslationDelta"/> for the math. Specific to the new [T, R, S] layout.
+        // Compensate the anchor shift caused by a scale change via the operative Translate; see
+        // <see cref="TransformHandleMath.ComputePivotTranslationDelta"/> for the derivation.
         private void ApplyScaleWithPivotCorrection(
             PressState press, EnsuredState ensured,
             float newScaleX, float newScaleY, double anchorX, double anchorY)
@@ -790,7 +774,6 @@ public partial class PlayerView
             float newTx = ensured.StartTransX + deltaTx;
             float newTy = ensured.StartTransY + deltaTy;
 
-            // Block the path where an ill-conditioned anchor/origin rounds to Inf via the (float) cast.
             if (!float.IsFinite(newTx) || !float.IsFinite(newTy))
             {
                 AbortDrag(
@@ -799,10 +782,8 @@ public partial class PlayerView
                 return;
             }
 
-            if (!ApplyDelta(ensured.KfTransX, ensured.KfStartTransX, deltaTx))
-                ensured.Translate.X.CurrentValue = newTx;
-            if (!ApplyDelta(ensured.KfTransY, ensured.KfStartTransY, deltaTy))
-                ensured.Translate.Y.CurrentValue = newTy;
+            WriteScalar(ensured.Translate.X, ensured.KfTransX, ensured.KfStartTransX, deltaTx, newTx);
+            WriteScalar(ensured.Translate.Y, ensured.KfTransY, ensured.KfStartTransY, deltaTy, newTy);
         }
 
         private static BtlPoint ImagePointToStartLocal(PressState press, AvaPoint img)
@@ -812,36 +793,36 @@ public partial class PlayerView
             return press.InvStartUserMatrix.Transform(new BtlPoint((float)sceneX, (float)sceneY));
         }
 
-        // Anchor coordinates are local-rect-relative (0,0)-(w,h). Drawable.GetTransformMatrix shares
-        // this assumption, treating the size as starting from (0,0). When a Shape has
-        // Geometry.Bounds.Position != (0,0) the overlay can misalign, but that is a limitation of the
-        // existing rendering model and out of scope for this file.
+        // Anchors are local-rect coordinates (0,0)-(w,h). Drawable.GetTransformMatrix assumes the same
+        // origin; for Shapes whose Geometry.Bounds.Position != (0,0) the overlay can misalign — that is
+        // a rendering-model limitation, out of scope here. Each anchor is the OPPOSITE corner/edge of
+        // the grabbed handle (so the grabbed side moves while the anchor stays put).
         private static (double X, double Y) CornerAnchorLocal(PressState press, TransformHandlesOverlay.HandleKind kind)
         {
             BtlSize size = press.LocalSize;
             double w = size.Width, h = size.Height;
             return kind switch
             {
-                TransformHandlesOverlay.HandleKind.TopLeft => (w, h),       // opposite = BottomRight
-                TransformHandlesOverlay.HandleKind.TopRight => (0, h),       // opposite = BottomLeft
-                TransformHandlesOverlay.HandleKind.BottomRight => (0, 0),    // opposite = TopLeft
-                TransformHandlesOverlay.HandleKind.BottomLeft => (w, 0),     // opposite = TopRight
+                TransformHandlesOverlay.HandleKind.TopLeft => (w, h),
+                TransformHandlesOverlay.HandleKind.TopRight => (0, h),
+                TransformHandlesOverlay.HandleKind.BottomRight => (0, 0),
+                TransformHandlesOverlay.HandleKind.BottomLeft => (w, 0),
                 _ => throw new System.ArgumentOutOfRangeException(nameof(kind), kind, "Corner anchor requested for non-corner HandleKind."),
             };
         }
 
-        // Anchor at the center of the opposite edge so that proportional (Shift) edge-resize stays centered
-        // on the orthogonal axis. Using a corner here makes Shift-dragging an edge introduce sideways drift.
+        // Edge anchors are at the OPPOSITE edge's center, not a corner — using a corner would make
+        // Shift-dragging an edge introduce sideways drift on the orthogonal axis.
         private static (double X, double Y) EdgeAnchorLocal(PressState press, TransformHandlesOverlay.HandleKind kind)
         {
             BtlSize size = press.LocalSize;
             double w = size.Width, h = size.Height;
             return kind switch
             {
-                TransformHandlesOverlay.HandleKind.Top => (w * 0.5, h),       // opposite = Bottom edge center
-                TransformHandlesOverlay.HandleKind.Bottom => (w * 0.5, 0),    // opposite = Top edge center
-                TransformHandlesOverlay.HandleKind.Left => (w, h * 0.5),      // opposite = Right edge center
-                TransformHandlesOverlay.HandleKind.Right => (0, h * 0.5),     // opposite = Left edge center
+                TransformHandlesOverlay.HandleKind.Top => (w * 0.5, h),
+                TransformHandlesOverlay.HandleKind.Bottom => (w * 0.5, 0),
+                TransformHandlesOverlay.HandleKind.Left => (w, h * 0.5),
+                TransformHandlesOverlay.HandleKind.Right => (0, h * 0.5),
                 _ => throw new System.ArgumentOutOfRangeException(nameof(kind), kind, "Edge anchor requested for non-edge HandleKind."),
             };
         }
@@ -850,8 +831,9 @@ public partial class PlayerView
         {
             if (_press == null) return;
 
-            // If the Transform was replaced between OnMoved and OnReleased, _ensured.Group now points
-            // at a detached group, so discard the pending commit. Skip this check for click-only sessions (Ensure never ran).
+            // If undo/redo replaced the Transform mid-drag (after the post-Ensure guard already ran),
+            // _ensured.Group is detached — discard the pending commit. Click-only sessions skip this
+            // since Ensure never ran.
             if (_ensured != null
                 && !ReferenceEquals(_press.Drawable.Transform.CurrentValue, _ensured.Group))
             {
@@ -876,12 +858,9 @@ public partial class PlayerView
             e.Handled = true;
         }
 
-        // Always roll back any pending operations recorded during the drag. ResetSession is reached on:
-        //   - successful Release after Commit: Rollback becomes a no-op because Commit already cleared the current transaction.
-        //   - abort/discard paths (AbortDrag, OnReleased discard branch): pending Ensure-driven structure changes and
-        //     handle-applied deltas would otherwise leak into the next unrelated Commit, breaking undo grouping.
-        // Also releases any pointer capture taken in OnPressed; otherwise framePanel keeps stealing
-        // pointer events from sibling controls after the drag ends (capture does NOT auto-release on button up).
+        // Rollback is a no-op after Commit (Commit clears the current transaction), but on abort/discard
+        // paths it must run so pending Ensure-driven structural changes and handle deltas don't leak into
+        // an unrelated next Commit.
         private void ResetSession()
         {
             if (_changed || _ensured != null)
@@ -890,8 +869,7 @@ public partial class PlayerView
             }
             if (_capturedPointer != null)
             {
-                // Capture(null) when the captured target is still framePanel; the PointerCaptureLost
-                // path may already have done the release for us, so guard against double-clearing.
+                // PointerCaptureLost may have already released for us; guard against double-clearing.
                 if (ReferenceEquals(_capturedPointer.Captured, View.framePanel))
                 {
                     _capturedPointer.Capture(null);
@@ -909,8 +887,8 @@ public partial class PlayerView
 
         public void OnPointerCaptureLost(PointerCaptureLostEventArgs e)
         {
-            // In the normal Release flow, OnReleased clears _press before this fires, so this is a no-op.
-            // It only does work when capture was taken away externally (focus stolen, system event, etc.).
+            // OnReleased clears _press on the normal path, so this only fires when capture was taken
+            // away externally (focus stolen, system event, etc.).
             if (_press == null) return;
             _logger.LogDebug(
                 "OnPointerCaptureLost: capture lost mid-drag (Drawable={DrawableType}, Kind={Kind}); discarding pending changes.",
@@ -1858,8 +1836,8 @@ public partial class PlayerView
 
     private void OnFramePointerCaptureLost(object? sender, PointerCaptureLostEventArgs e)
     {
-        // On a normal Release, OnFramePointerReleased already nulled out _mouseState, so this is a no-op.
-        // It only does work when capture was taken away externally before Release reached us.
+        // OnFramePointerReleased nulls _mouseState on the normal path; this only fires when capture
+        // was taken away externally before Release reached us.
         if (_mouseState == null) return;
         _mouseState.OnPointerCaptureLost(e);
         _mouseState = null;
@@ -1883,8 +1861,8 @@ public partial class PlayerView
     {
         if (viewModel.IsMoveMode.Value)
         {
-            // Mouse interactions in Move mode are routed directly to MouseControlTransformHandles in OnFramePointerPressed.
-            // Only wheel events reach this method through CreateMouseHandler, where a no-op is acceptable.
+            // Move-mode pointer-down is handled directly in OnFramePointerPressed; this path only
+            // serves wheel events, where a no-op handler is fine.
             return new MouseControlTransformHandles
             {
                 View = this,
@@ -1939,8 +1917,8 @@ public partial class PlayerView
                     viewModel.IsHandMode.Value = true;
                 }
 
-                // In Move mode the left button funnels through MouseControlTransformHandles regardless of whether the click hit a handle.
-                // When Kind == None it takes the renderer hit-test + double-click + translate-drag path.
+                // In Move mode, left button funnels through MouseControlTransformHandles whether or not
+                // it hit a handle (Kind == None takes the hit-test/double-click/translate-drag path).
                 if (viewModel.IsMoveMode.Value && point.Properties.IsLeftButtonPressed)
                 {
                     AvaPoint imagePoint = e.GetCurrentPoint(image).Position;

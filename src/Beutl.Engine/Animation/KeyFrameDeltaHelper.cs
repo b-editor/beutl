@@ -39,8 +39,7 @@ internal static class KeyFrameDeltaHelper
         T fallback)
         where T : notnull
     {
-        // KeyFrame<T>.Value's declared type is T?. The single current caller uses T=float (struct), so the
-        // value is never actually null and `!` is used to suppress nullability. Revisit if ref types start being accepted.
+        // KeyFrame<T>.Value is T? for nullability; current callers pin T to struct types so `!` is safe.
         T prev = previous != null ? previous.Value! : fallback;
         T nextVal = next != null ? next.Value! : fallback;
         return (prev, nextVal);

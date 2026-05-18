@@ -26,19 +26,32 @@ internal sealed class TransformHandlesOverlay : Control
     private const double RotateOuterDistance = 18.0;
     private const double CenterMarkerRadius = 4.0;
 
-    private static readonly IBrush s_handleFill = new ImmutableSolidColorBrush(Color.FromRgb(0xF0, 0xF0, 0xF0));
-    private static readonly IPen s_handleStroke = new ImmutablePen(new ImmutableSolidColorBrush(Color.FromRgb(0x1E, 0x90, 0xFF)), 1.5);
-    private static readonly IPen s_boxStroke = new ImmutablePen(new ImmutableSolidColorBrush(Color.FromRgb(0x1E, 0x90, 0xFF)), 1.0);
-    private static readonly IBrush s_centerFill = new ImmutableSolidColorBrush(Color.FromRgb(0x1E, 0x90, 0xFF));
+    private static readonly ImmutableSolidColorBrush s_handleFill = new(Color.FromRgb(0xF0, 0xF0, 0xF0));
+    private static readonly ImmutableSolidColorBrush s_accentFill = new(Color.FromRgb(0x1E, 0x90, 0xFF));
+    private static readonly IPen s_handleStroke = new ImmutablePen(s_accentFill, 1.5);
+    private static readonly IPen s_boxStroke = new ImmutablePen(s_accentFill, 1.0);
+
+    private static readonly Cursor s_cursorCorner1 = new(StandardCursorType.TopLeftCorner);
+    private static readonly Cursor s_cursorCorner2 = new(StandardCursorType.TopRightCorner);
+    private static readonly Cursor s_cursorNS = new(StandardCursorType.SizeNorthSouth);
+    private static readonly Cursor s_cursorWE = new(StandardCursorType.SizeWestEast);
+    private static readonly Cursor s_cursorRotate = new(StandardCursorType.Hand);
+    private static readonly Cursor s_cursorMove = new(StandardCursorType.SizeAll);
 
     private BtlDrawable? _drawable;
     private Element? _element;
     private BtlSize _localSize;
     private BtlMatrix _userMatrix = BtlMatrix.Identity;
     private double _frameScale = 1.0;
-    private bool _hasShape;
     private readonly AvaPoint[] _imageCorners = new AvaPoint[4];
     private AvaPoint _pivotImage;
+
+    private bool HasShape =>
+        _drawable != null
+        && _localSize.Width > 0
+        && _localSize.Height > 0
+        && _frameScale > 0
+        && _userMatrix.HasInverse;
 
     public enum HandleKind
     {
@@ -83,20 +96,28 @@ internal sealed class TransformHandlesOverlay : Control
         AvaSize imageSize,
         double frameScale)
     {
+        if (ReferenceEquals(_drawable, drawable)
+            && ReferenceEquals(_element, element)
+            && _localSize == localSize
+            && _userMatrix == userMatrix
+            && _frameScale == frameScale
+            && PivotLocal == pivotLocal)
+        {
+            return;
+        }
+
         _drawable = drawable;
         _element = element;
         _localSize = localSize;
         _userMatrix = userMatrix;
         _frameScale = frameScale;
         PivotLocal = pivotLocal;
-        _hasShape = drawable != null && localSize.Width > 0 && localSize.Height > 0 && frameScale > 0;
 
-        if (_hasShape && !_userMatrix.HasInverse)
+        if (drawable != null && localSize.Width > 0 && localSize.Height > 0 && frameScale > 0 && !userMatrix.HasInverse)
         {
             s_logger.LogDebug(
                 "TransformHandlesOverlay: userMatrix non-invertible, hiding overlay. Drawable={DrawableType}",
-                drawable?.GetType().Name ?? "null");
-            _hasShape = false;
+                drawable.GetType().Name);
         }
 
         RecomputeImageGeometry();
@@ -109,13 +130,12 @@ internal sealed class TransformHandlesOverlay : Control
         _element = null;
         _localSize = default;
         _userMatrix = BtlMatrix.Identity;
-        _hasShape = false;
         InvalidateVisual();
     }
 
     private void RecomputeImageGeometry()
     {
-        if (!_hasShape || _drawable == null) return;
+        if (!HasShape) return;
 
         double w = _localSize.Width;
         double h = _localSize.Height;
@@ -142,7 +162,7 @@ internal sealed class TransformHandlesOverlay : Control
     public override void Render(DrawingContext context)
     {
         base.Render(context);
-        if (!_hasShape) return;
+        if (!HasShape) return;
 
         var geom = new StreamGeometry();
         using (var ctx = geom.Open())
@@ -155,7 +175,7 @@ internal sealed class TransformHandlesOverlay : Control
         }
         context.DrawGeometry(null, s_boxStroke, geom);
 
-        context.DrawEllipse(s_centerFill, null,
+        context.DrawEllipse(s_accentFill, null,
             new AvaRect(
                 _pivotImage.X - CenterMarkerRadius,
                 _pivotImage.Y - CenterMarkerRadius,
@@ -198,7 +218,7 @@ internal sealed class TransformHandlesOverlay : Control
 
     public HandleKind HitTest(AvaPoint imagePoint)
     {
-        if (!_hasShape) return HandleKind.None;
+        if (!HasShape) return HandleKind.None;
 
         double tol = HandleSize / 2 + 2;
         double centerTol = CenterMarkerRadius + 2;
@@ -265,12 +285,12 @@ internal sealed class TransformHandlesOverlay : Control
     {
         return kind switch
         {
-            HandleKind.TopLeft or HandleKind.BottomRight => new Cursor(StandardCursorType.TopLeftCorner),
-            HandleKind.TopRight or HandleKind.BottomLeft => new Cursor(StandardCursorType.TopRightCorner),
-            HandleKind.Top or HandleKind.Bottom => new Cursor(StandardCursorType.SizeNorthSouth),
-            HandleKind.Left or HandleKind.Right => new Cursor(StandardCursorType.SizeWestEast),
-            HandleKind.Rotate => new Cursor(StandardCursorType.Hand),
-            HandleKind.Center => new Cursor(StandardCursorType.SizeAll),
+            HandleKind.TopLeft or HandleKind.BottomRight => s_cursorCorner1,
+            HandleKind.TopRight or HandleKind.BottomLeft => s_cursorCorner2,
+            HandleKind.Top or HandleKind.Bottom => s_cursorNS,
+            HandleKind.Left or HandleKind.Right => s_cursorWE,
+            HandleKind.Rotate => s_cursorRotate,
+            HandleKind.Center => s_cursorMove,
             _ => Cursor.Default
         };
     }

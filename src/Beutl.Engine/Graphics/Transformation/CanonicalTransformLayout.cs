@@ -39,17 +39,7 @@ internal static class CanonicalTransformLayout
             groupChanged = true;
         }
 
-        // Only adopt enabled T/R/S; disabled children are ignored by TransformGroup.CreateMatrix,
-        // so editing them would leave the preview unchanged. Treat absence and "disabled-only" the same way.
-        int rIdx = -1, sIdx = -1, tIdx = -1;
-        for (int i = 0; i < tg.Children.Count; i++)
-        {
-            Transform c = tg.Children[i];
-            if (!c.IsEnabled) continue;
-            if (rIdx < 0 && c is RotationTransform) rIdx = i;
-            if (sIdx < 0 && c is ScaleTransform) sIdx = i;
-            if (tIdx < 0 && c is TranslateTransform) tIdx = i;
-        }
+        (int rIdx, int sIdx, int tIdx) = FindFirstEnabledIndices(tg.Children);
 
         bool added = false;
 
@@ -82,8 +72,8 @@ internal static class CanonicalTransformLayout
         var scale = (ScaleTransform)tg.Children[sIdx];
         var translate = (TranslateTransform)tg.Children[tIdx];
 
-        // PostMatrixOfT = matrix applied after T in application order (= composition of children near the head of the list).
-        // Identity under the new [T, R, S]; S · R under the old [R, S, T].
+        // Matrix applied after T in application order — composition of children to the left of T in the
+        // list. Identity for canonical [T, R, S] layouts; non-identity only for legacy [R, S, T] data.
         Matrix postMatrixOfT = Matrix.Identity;
         for (int i = 0; i < tIdx; i++)
         {
@@ -105,15 +95,7 @@ internal static class CanonicalTransformLayout
     {
         if (t is TransformGroup tg)
         {
-            int rIdx = -1, sIdx = -1, tIdx = -1;
-            for (int i = 0; i < tg.Children.Count; i++)
-            {
-                Transform c = tg.Children[i];
-                if (!c.IsEnabled) continue;
-                if (rIdx < 0 && c is RotationTransform) rIdx = i;
-                if (sIdx < 0 && c is ScaleTransform) sIdx = i;
-                if (tIdx < 0 && c is TranslateTransform) tIdx = i;
-            }
+            (int rIdx, int sIdx, int tIdx) = FindFirstEnabledIndices(tg.Children);
             return (
                 rIdx >= 0 ? (RotationTransform)tg.Children[rIdx] : null,
                 sIdx >= 0 ? (ScaleTransform)tg.Children[sIdx] : null,
@@ -126,6 +108,22 @@ internal static class CanonicalTransformLayout
             TranslateTransform tr when tr.IsEnabled => (null, null, tr),
             _ => (null, null, null)
         };
+    }
+
+    // Disabled children are ignored by TransformGroup.CreateMatrix, so they cannot serve as the
+    // operative T/R/S — editing them would leave the preview unchanged.
+    private static (int rIdx, int sIdx, int tIdx) FindFirstEnabledIndices(IReadOnlyList<Transform> children)
+    {
+        int rIdx = -1, sIdx = -1, tIdx = -1;
+        for (int i = 0; i < children.Count; i++)
+        {
+            Transform c = children[i];
+            if (!c.IsEnabled) continue;
+            if (rIdx < 0 && c is RotationTransform) rIdx = i;
+            if (sIdx < 0 && c is ScaleTransform) sIdx = i;
+            if (tIdx < 0 && c is TranslateTransform) tIdx = i;
+        }
+        return (rIdx, sIdx, tIdx);
     }
 }
 
