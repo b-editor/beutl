@@ -543,13 +543,12 @@ public sealed partial class ElementView : UserControl
 
     private sealed class _MoveBehavior : Behavior<ElementView>
     {
-        // Logger for the async void handler; see OnBorderPointerReleased.
         private static readonly ILogger s_logger = Log.CreateLogger<ElementView>();
 
         private bool _pressed;
         private bool _duplicateMode;
-        private bool _duplicateGhostShown;
         private readonly List<Control> _ghosts = [];
+        private IReadOnlyList<ElementViewModel> _relatedElements = [];
         private Point _start;
 
         protected override void OnAttached()
@@ -568,6 +567,7 @@ public sealed partial class ElementView : UserControl
             if (AssociatedObject == null) return;
 
             if (AssociatedObject._timeline is { } timeline) RemoveGhosts(timeline);
+            _relatedElements = [];
 
             AssociatedObject.RemoveHandler(PointerMovedEvent, OnPointerMoved);
             AssociatedObject.border.RemoveHandler(PointerPressedEvent, OnBorderPointerPressed);
@@ -596,15 +596,14 @@ public sealed partial class ElementView : UserControl
                 viewModel.Margin.Value = new(0, newTop, 0, 0);
                 viewModel.BorderMargin.Value = new Thickness(newLeft, 0, 0, 0);
 
-                IReadOnlyList<ElementViewModel> relatedElements = viewModel.GetGroupOrSelectedElements();
-
-                foreach (ElementViewModel item in relatedElements.Where(i => i != viewModel))
+                foreach (ElementViewModel item in _relatedElements)
                 {
+                    if (item == viewModel) continue;
                     item.Margin.Value = new(0, item.Margin.Value.Top + deltaTop, 0, 0);
                     item.BorderMargin.Value = new(item.BorderMargin.Value.Left + deltaLeft, 0, 0, 0);
                 }
 
-                if (_duplicateMode && !_duplicateGhostShown)
+                if (_duplicateMode && _ghosts.Count == 0)
                 {
                     int rate = viewModel.Scene.FindHierarchicalParent<Project>() is { } proj ? proj.GetFrameRate() : 30;
                     TimeSpan minFrame = TimeSpan.FromSeconds(1d / rate);
@@ -614,8 +613,7 @@ public sealed partial class ElementView : UserControl
                     int deltaIndex = modelIndex - viewModel.Model.ZIndex;
                     if (Math.Abs(deltaStart.Ticks) >= minFrame.Ticks || deltaIndex != 0)
                     {
-                        SpawnGhostsForRelatedElements(relatedElements, timeline);
-                        _duplicateGhostShown = true;
+                        SpawnGhostsForRelatedElements(_relatedElements, timeline);
                     }
                 }
 
@@ -638,8 +636,8 @@ public sealed partial class ElementView : UserControl
                 {
                     _pressed = true;
                     _duplicateMode = e.KeyModifiers.HasFlag(KeyModifiers.Alt);
-                    _duplicateGhostShown = false;
-                    // Drop any orphan ghosts left by a previous Released that took an early return.
+                    _relatedElements = viewModel.GetGroupOrSelectedElements();
+                    // Defensive: clear any ghosts orphaned by a prior Released early-return.
                     RemoveGhosts(timeline);
                     _start = point.Position;
                     e.Handled = true;
@@ -674,9 +672,10 @@ public sealed partial class ElementView : UserControl
 
             _pressed = false;
             bool duplicate = _duplicateMode;
-            bool ghostShown = _duplicateGhostShown;
+            bool ghostShown = _ghosts.Count > 0;
             _duplicateMode = false;
-            _duplicateGhostShown = false;
+            IReadOnlyList<ElementViewModel> relatedElements = _relatedElements;
+            _relatedElements = [];
 
             if (AssociatedObject is not { ViewModel: { } viewModel, _timeline: { } timeline }) return;
 
@@ -685,7 +684,6 @@ public sealed partial class ElementView : UserControl
             viewModel.Timeline.SnapBarPosition.Value = null;
             HistoryManager history = viewModel.Timeline.EditorContext.GetRequiredService<HistoryManager>();
             e.Handled = true;
-            IReadOnlyList<ElementViewModel> relatedElements = viewModel.GetGroupOrSelectedElements();
             var elems = relatedElements.Select(x => x.Model).ToArray();
 
             float scale = viewModel.Timeline.Options.Value.Scale;

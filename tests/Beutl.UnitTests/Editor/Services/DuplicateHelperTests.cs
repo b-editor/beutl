@@ -121,8 +121,7 @@ public class DuplicateHelperTests
                 newElements: [newA, newB, newC],
                 sourceElements: [a, b, c],
                 anchorStart: TimeSpan.FromSeconds(10),
-                anchorZIndex: 1,
-                elementFileExtension: "belm");
+                anchorZIndex: 1);
 
             ClassicAssert.AreEqual(6, scene.Children.Count);
             ClassicAssert.AreEqual(2, scene.Groups.Count);
@@ -178,8 +177,7 @@ public class DuplicateHelperTests
                 newElements: [newX, newY],
                 sourceElements: [x, y],
                 anchorStart: TimeSpan.FromSeconds(20),
-                anchorZIndex: 0,
-                elementFileExtension: "belm");
+                anchorZIndex: 0);
 
             // sourceX の新規 ID は newX.Id でなければならない (位置 zip)。
             // 順序が swap してしまうと sourceX -> newY.Id になり、後続のグループ remap で
@@ -275,8 +273,7 @@ public class DuplicateHelperTests
                 newElements: [newOne],
                 sourceElements: [source],
                 anchorStart: TimeSpan.Zero,
-                anchorZIndex: 0,
-                elementFileExtension: "belm"));
+                anchorZIndex: 0));
     }
 
     [Test]
@@ -297,8 +294,7 @@ public class DuplicateHelperTests
                     newElements: [newA, newB],
                     sourceElements: [source],
                     anchorStart: TimeSpan.Zero,
-                    anchorZIndex: 0,
-                    elementFileExtension: "belm"));
+                    anchorZIndex: 0));
         }
         finally
         {
@@ -335,8 +331,7 @@ public class DuplicateHelperTests
                     newElements: [newOne],
                     sourceElements: [source],
                     anchorStart: TimeSpan.Zero,
-                    anchorZIndex: 0,
-                    elementFileExtension: "belm"));
+                    anchorZIndex: 0));
 
             // Scene 状態は無変更で抜けている
             ClassicAssert.AreEqual(sceneChildrenBefore, scene.Children.Count);

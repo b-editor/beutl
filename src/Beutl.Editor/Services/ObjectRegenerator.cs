@@ -57,8 +57,8 @@ public static class ObjectRegenerator
             int index;
             while ((index = localBuffer.IndexOf(oldStr)) >= 0)
             {
-                localBuffer = localBuffer.Slice(index);
-                newStr.CopyTo(localBuffer);
+                newStr.CopyTo(localBuffer.Slice(index));
+                localBuffer = localBuffer.Slice(index + newStr.Length);
             }
         }
     }

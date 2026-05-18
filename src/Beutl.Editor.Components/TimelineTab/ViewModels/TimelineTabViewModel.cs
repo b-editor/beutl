@@ -495,9 +495,9 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
         int stepped = 0; // その方向で進んだ歩数
         int turnCount = 0; // 方向転換回数（2回ごとに stepLen を+1）
 
-        // Cap to prevent UI freeze when the timeline is densely packed. Spiral radius
-        // is ~sqrt(MaxSearchSteps / 4) frames; on cap we return the last candidate
-        // (may overlap) and notify the user — overlap is recoverable, a hang is not.
+        // Cap the spiral so a densely-packed timeline cannot hang the UI thread.
+        // On cap we return the last candidate (may overlap) and notify the user —
+        // overlap is recoverable, a hang is not.
         const int MaxSearchSteps = 100_000;
         int searchSteps = 0;
         bool capped = false;
@@ -557,7 +557,6 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
 
     private async Task PasteElementList(IClipboard clipboard)
     {
-        // Format was advertised by PasteCore; a missing/invalid payload here is an anomaly.
         if (await clipboard.TryGetValueAsync(BeutlDataFormats.Elements) is not { } json)
         {
             _logger.LogWarning("Paste skipped: clipboard advertises Elements format but returned null.");
@@ -581,16 +580,7 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
             return;
         }
 
-        ObjectRegenerator.Regenerate(oldElements, out Element[] newElements);
-
-        (TimeRange seedRange, int minZIndex, int maxZIndex) = DuplicateHelper.ComputePlacementRange(newElements);
-        var (newStart, newZIndex) = CorrectPosition(seedRange, minZIndex, maxZIndex);
-
-        DuplicateHelper.PlaceDuplicates(
-            Scene, newElements, oldElements, newStart, newZIndex, Constants.ElementFileExtension);
-        EditorContext.GetRequiredService<HistoryManager>().Commit(CommandNames.PasteElement);
-
-        ScrollTo.Execute((new TimeRange(newStart, seedRange.Duration), newZIndex));
+        RegenerateAndPlaceAtCorrectedPosition(oldElements, CommandNames.PasteElement);
     }
 
     private void DuplicateSelectedElements()
@@ -606,24 +596,15 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
             var sourceVMs = Elements.Where(x => ids.Contains(x.Model.Id)).ToArray();
             if (sourceVMs.Length == 0)
             {
-                // Selected IDs do not resolve in Elements — should not happen.
                 _logger.LogWarning(
                     "Duplicate skipped: selected element IDs did not resolve to Elements. Ids={Ids}",
                     string.Join(", ", ids));
                 return;
             }
 
-            var oldElements = sourceVMs.Select(x => x.Model).ToArray();
-            ObjectRegenerator.Regenerate(oldElements, out Element[] newElements);
-
-            (TimeRange seedRange, int minZIndex, int maxZIndex) = DuplicateHelper.ComputePlacementRange(newElements);
-            var (newStart, newZIndex) = CorrectPosition(seedRange, minZIndex, maxZIndex);
-
-            DuplicateHelper.PlaceDuplicates(
-                Scene, newElements, oldElements, newStart, newZIndex, Constants.ElementFileExtension);
-            EditorContext.GetRequiredService<HistoryManager>().Commit(CommandNames.DuplicateElement);
-
-            ScrollTo.Execute((new TimeRange(newStart, seedRange.Duration), newZIndex));
+            RegenerateAndPlaceAtCorrectedPosition(
+                sourceVMs.Select(x => x.Model).ToArray(),
+                CommandNames.DuplicateElement);
         }
         catch (Exception ex)
         {
@@ -631,14 +612,27 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
         }
     }
 
-    // Returns true if a duplicate was placed and committed. Caller (Alt+drag) uses
-    // this to decide whether to fall back to a plain move.
+    private void RegenerateAndPlaceAtCorrectedPosition(Element[] oldElements, string commandName)
+    {
+        ObjectRegenerator.Regenerate(oldElements, out Element[] newElements);
+
+        (TimeRange seedRange, int minZIndex, int maxZIndex) = DuplicateHelper.ComputePlacementRange(newElements);
+        (TimeSpan newStart, int newZIndex) = CorrectPosition(seedRange, minZIndex, maxZIndex);
+
+        DuplicateHelper.PlaceDuplicates(Scene, newElements, oldElements, newStart, newZIndex);
+        EditorContext.GetRequiredService<HistoryManager>().Commit(commandName);
+
+        ScrollTo.Execute((new TimeRange(newStart, seedRange.Duration), newZIndex));
+    }
+
+    /// <summary>
+    /// Returns true when a duplicate was placed and committed. Alt+drag uses the
+    /// return value to decide whether to fall back to a plain move.
+    /// </summary>
     internal bool DuplicateElementsAt(IReadOnlyList<Element> sourceElements, TimeSpan anchorStart, int anchorZIndex)
     {
         if (sourceElements.Count == 0)
         {
-            // Caller (ElementView.OnBorderPointerReleased) already guards this — if we
-            // get here, the caller has a bug worth surfacing.
             _logger.LogWarning("DuplicateElementsAt called with empty sourceElements; investigate caller.");
             return false;
         }
@@ -648,8 +642,7 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
             var src = sourceElements.ToArray();
             ObjectRegenerator.Regenerate(src, out Element[] newElements);
 
-            DuplicateHelper.PlaceDuplicates(
-                Scene, newElements, src, anchorStart, Math.Max(anchorZIndex, 0), Constants.ElementFileExtension);
+            DuplicateHelper.PlaceDuplicates(Scene, newElements, src, anchorStart, Math.Max(anchorZIndex, 0));
             EditorContext.GetRequiredService<HistoryManager>().Commit(CommandNames.DuplicateElement);
             return true;
         }
@@ -660,8 +653,6 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
         }
     }
 
-    // Map expected failures (no project Uri / I/O) to localized messages; otherwise
-    // surface the raw exception as a generic unexpected error.
     private void HandleDuplicateException(Exception ex, string context)
     {
         switch (ex)

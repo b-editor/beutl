@@ -10,6 +10,7 @@ namespace Beutl.Editor.Services;
 
 public static class DuplicateHelper
 {
+    private const string ElementFileExtension = "belm";
     private static readonly ILogger s_logger = Log.CreateLogger(typeof(DuplicateHelper));
 
     /// <summary>
@@ -46,8 +47,7 @@ public static class DuplicateHelper
         ArgumentNullException.ThrowIfNull(sourceElements);
         if (sourceElements.Count == 0) return false;
 
-        TimeSpan minStart = sourceElements.Min(e => e.Start);
-        int minZIndex = sourceElements.Min(e => e.ZIndex);
+        (TimeSpan minStart, int minZIndex) = ComputeMinOrigin(sourceElements);
 
         foreach (Element src in sourceElements)
         {
@@ -81,12 +81,33 @@ public static class DuplicateHelper
             throw new ArgumentException("Elements must not be empty.", nameof(elements));
         }
 
-        TimeSpan minStart = elements.Min(e => e.Start);
-        int minZIndex = elements.Min(e => e.ZIndex);
-        TimeSpan maxEnd = elements.Max(e => e.Range.End);
-        int maxZIndex = elements.Max(e => e.ZIndex);
+        TimeSpan minStart = TimeSpan.MaxValue;
+        TimeSpan maxEnd = TimeSpan.MinValue;
+        int minZIndex = int.MaxValue;
+        int maxZIndex = int.MinValue;
+        foreach (Element e in elements)
+        {
+            if (e.Start < minStart) minStart = e.Start;
+            TimeSpan end = e.Range.End;
+            if (end > maxEnd) maxEnd = end;
+            if (e.ZIndex < minZIndex) minZIndex = e.ZIndex;
+            if (e.ZIndex > maxZIndex) maxZIndex = e.ZIndex;
+        }
 
         return (new TimeRange(minStart, maxEnd - minStart), minZIndex, maxZIndex);
+    }
+
+    private static (TimeSpan MinStart, int MinZIndex) ComputeMinOrigin(IReadOnlyList<Element> elements)
+    {
+        TimeSpan minStart = TimeSpan.MaxValue;
+        int minZIndex = int.MaxValue;
+        foreach (Element e in elements)
+        {
+            if (e.Start < minStart) minStart = e.Start;
+            if (e.ZIndex < minZIndex) minZIndex = e.ZIndex;
+        }
+
+        return (minStart, minZIndex);
     }
 
     /// <summary>
@@ -109,13 +130,11 @@ public static class DuplicateHelper
         Element[] newElements,
         Element[] sourceElements,
         TimeSpan anchorStart,
-        int anchorZIndex,
-        string elementFileExtension)
+        int anchorZIndex)
     {
         ArgumentNullException.ThrowIfNull(scene);
         ArgumentNullException.ThrowIfNull(newElements);
         ArgumentNullException.ThrowIfNull(sourceElements);
-        ArgumentNullException.ThrowIfNull(elementFileExtension);
 
         if (newElements.Length == 0) return;
         if (newElements.Length != sourceElements.Length)
@@ -131,8 +150,7 @@ public static class DuplicateHelper
                 "Cannot place duplicates: scene has no Uri. Save the project before duplicating.");
         }
 
-        TimeSpan minStart = newElements.Min(e => e.Start);
-        int minZIndex = newElements.Min(e => e.ZIndex);
+        (TimeSpan minStart, int minZIndex) = ComputeMinOrigin(newElements);
 
         var stagedFiles = new List<string>(newElements.Length);
         try
@@ -142,7 +160,7 @@ public static class DuplicateHelper
                 newElement.Start = newElement.Start - minStart + anchorStart;
                 newElement.ZIndex = newElement.ZIndex - minZIndex + anchorZIndex;
 
-                Uri uri = RandomFileNameGenerator.GenerateUri(scene.Uri, elementFileExtension);
+                Uri uri = RandomFileNameGenerator.GenerateUri(scene.Uri, ElementFileExtension);
                 CoreSerializer.StoreToUri(newElement, uri);
                 stagedFiles.Add(uri.LocalPath);
             }
