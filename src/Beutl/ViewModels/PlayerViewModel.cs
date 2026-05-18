@@ -7,6 +7,7 @@ using Beutl.Composition;
 using Beutl.Configuration;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Components.PathEditorTab.ViewModels;
+using Beutl.Editor.Components.TimelineTab.ViewModels;
 using Beutl.Graphics;
 using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Rendering.Cache;
@@ -610,6 +611,15 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
     {
         // target is already frame-snapped by TryParseTimecode.
         _editorClock.CurrentTime.Value = target;
+
+        // 再生ヘッドがビューポート外へ飛ぶ場合に追従する。EditViewModel.CommandHandler の
+        // 既存スクロール呼び出しと同形。
+        if (_editViewModel.FindToolTab<TimelineTabViewModel>() is { } timeline)
+        {
+            int currentZIndex = timeline.ToLayerNumber(timeline.Options.Value.Offset.Y);
+            timeline.ScrollTo.Execute(
+                (new Beutl.Media.TimeRange(target, TimeSpan.FromTicks(1)), currentZIndex));
+        }
     }
 
     public void ToggleLoop()
