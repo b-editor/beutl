@@ -1,4 +1,4 @@
-#nullable enable
+﻿#nullable enable
 namespace Beutl.Controls;
 
 public sealed class PlayerMarkerEntry
