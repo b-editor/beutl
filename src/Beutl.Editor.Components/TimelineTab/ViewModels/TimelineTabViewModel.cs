@@ -495,6 +495,16 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
         int stepped = 0; // その方向で進んだ歩数
         int turnCount = 0; // 方向転換回数（2回ごとに stepLen を+1）
 
+        // タイムラインが要素で隙間なく埋め尽くされた病的なケースで UI スレッドが
+        // 永久ループに陥らないよう、探索回数に上限を設ける。100_000 ステップは
+        // 30fps なら ±1500 フレーム ≒ ±50 秒分の渦巻きをカバーするので、
+        // 実運用で到達することは想定していない。到達した場合は最後に検査した
+        // 候補位置をそのまま返す (Overlap している可能性があるが、UI フリーズより
+        // 既存要素と重なる方が回復可能)。
+        const int MaxSearchSteps = 100_000;
+        int searchSteps = 0;
+        bool capped = false;
+
         while (true)
         {
             // 1歩進ませる
@@ -510,6 +520,12 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
             if (!IsOverlapping(new TimeRange(newStart, length), newZIndex, newZIndex + layerCount - 1))
                 break;
 
+            if (++searchSteps >= MaxSearchSteps)
+            {
+                capped = true;
+                break;
+            }
+
             // 歩数管理：指定歩数進んだら時計回りに方向転換
             stepped++;
             if (stepped == stepLen)
@@ -520,6 +536,13 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
                 if ((turnCount & 1) == 0)
                     stepLen++; // 2回方向転換するごとに 1,1,2,2,3,3,… と広がる
             }
+        }
+
+        if (capped)
+        {
+            _logger.LogWarning(
+                "CorrectPosition gave up after {Steps} steps without finding a non-overlapping slot; using last candidate at start={Start}, zIndex={ZIndex}.",
+                searchSteps, newStart, newZIndex);
         }
 
         return (newStart, newZIndex);
