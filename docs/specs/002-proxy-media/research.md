@@ -1,0 +1,208 @@
+# Research: Proxy Media Workflow
+
+**Feature**: 002-proxy-media | **Phase**: 0 | **Date**: 2026-05-20
+
+Phase 0 resolves the open items left after `/speckit-clarify` so that Phase 1 (contracts + data model) and `/speckit-tasks` have concrete inputs. Each section follows: **Decision → Rationale → Alternatives considered**.
+
+---
+
+## R-1: Preview vs. export pipeline separation in `Beutl.Engine`
+
+**Decision**: The spec-level assumption holds — preview and export decode paths are distinct and meet only at `DecoderRegistry.OpenMediaFile(file, options)`. The route the spec is asking for is implemented by adding a new boolean `PreferProxy` to `MediaOptions`, threading it through `MediaSource.Resource.Update` (which is what callers use to construct decoders against a `MediaSource`), and consulting a registered `IProxyResolver` inside `DecoderRegistry.OpenMediaFile` only when that flag is true.
+
+- `SceneRenderer.cs` (preview) constructs `MediaOptions` with `PreferProxy = (Scene.PreviewSourceMode == PreferProxy)`.
+- `SceneComposer.cs` (export) constructs `MediaOptions` with `PreferProxy = false`, **always**, regardless of project setting. This is the safety floor for FR-002 / FR-004.
+
+**Rationale**: `DecoderRegistry.OpenMediaFile` is the only public choke point through which all media open requests pass; intercepting there guarantees consistent behavior without sprinkling proxy-awareness across decoder implementations. `MediaOptions` already exists as the per-open parameter bag, so adding one boolean is the minimum-surface change. Keeping the export path explicitly setting `false` (rather than relying on default) prevents future regressions: a `git grep PreferProxy` immediately shows both sites.
+
+**Alternatives considered**:
+
+- **Wrap the returned `MediaReader` with a "proxy or original" `MediaReader` decorator.** Rejected: pushes proxy logic into the hot decode path on every frame, and the decorator either always opens both readers (wasteful) or proxies dynamically (complex). The "decide once at open time" model is simpler and matches how `FFmpegReaderProxy` is selected today.
+- **Add a separate `OpenMediaFileForPreview` method.** Rejected: duplicates the registry surface, and the export call site still has to know to call the non-preview variant — same coupling, more API. Reusing `MediaOptions` is more orthogonal (one method, one bag of options).
+- **Make `MediaSource` itself carry a proxy mode.** Rejected: `MediaSource` is shared across preview and export; per-call routing belongs in `MediaOptions`, not on the source object.
+
+**Verification step before merge**: grep for every call to `DecoderRegistry.OpenMediaFile` and `MediaSource.Resource.Update` and audit the surrounding `MediaOptions` construction; ensure the export pass cannot accidentally inherit a `PreferProxy = true` from a previously-built `MediaOptions`.
+
+---
+
+## R-2: Proxy generation orchestration (no new IPC verbs)
+
+**Decision**: A new `ProxyGenerationOrchestrator` in `Beutl.Engine.Media.Proxy` drives proxy generation by:
+
+1. Opening the source via `DecoderRegistry.OpenMediaFile(source, options with PreferProxy = false)` to get a `MediaReader`.
+2. Wrapping that reader as a frame provider that reads at native rate.
+3. Instantiating `FFmpegEncodingControllerProxy` with `FFmpegVideoEncoderSettings` populated from the chosen `ProxyPreset`.
+4. Calling `Encode(frameProvider, NullSampleProvider, cancellationToken)` (audio is dropped — see FR-020).
+5. On success: atomic-rename the output, then call `IProxyStore.Register(entry)`.
+6. On failure or cancel: delete partial files and mark the entry `Failed` / removed.
+
+**Rationale**: The existing `FFmpegEncodingControllerProxy` already runs the GPL encoder over IPC. Reusing it satisfies the License Firewall principle (no new MIT → GPL edges) and means we ship zero new IPC messages. The orchestrator is pure MIT, lives in `Beutl.Engine`, and never touches `Beutl.FFmpegWorker`.
+
+**Alternatives considered**:
+
+- **Add a dedicated `GenerateProxyRequest` IPC verb.** Rejected: would introduce a new payload that, by definition, has to round-trip metadata the worker already knows how to derive from `EncodeStartRequest`. Pure cost, no benefit.
+- **Use FFmpeg directly in-process for proxy generation.** Rejected: violates Principle I (License Firewall) — would force a `ProjectReference` from MIT to GPL.
+- **Spawn a dedicated short-lived `Beutl.FFmpegWorker` process per job.** Implicitly accepted: `FFmpegWorkerProcess.CreateForEncoding()` already does this; we inherit its lifecycle. No new design needed.
+
+---
+
+## R-3: Default LRU cap value
+
+**Decision**: Default global cap = **50 GB**. User-configurable range: 5 GB ↔ 500 GB via `ProxyStoreConfig.MaxTotalBytes`. Cap is enforced after each successful generation and on startup.
+
+**Rationale**:
+- 50 GB holds roughly 5–10 hours of 1/2-resolution H.264 proxy footage at the bitrates picked in R-5 — enough for typical projects without immediately evicting fresh work.
+- Lower bound 5 GB lets users on small SSDs participate.
+- Upper bound 500 GB is a sanity ceiling against runaway config; users with larger needs can edit `ProxyStoreConfig.cs` defaults in a follow-up.
+
+**Alternatives considered**:
+
+- **No default cap.** Rejected: disk-full surprises are exactly what the LRU feature is meant to prevent.
+- **% of free disk at startup.** Rejected: surprising behavior — proxies that fit yesterday might be evicted today because someone else filled the disk. A fixed configurable cap is predictable.
+- **Per-project cap rather than global.** Rejected: clarification Q5 explicitly picked **global LRU**. Per-project would also force the eviction service to enumerate all projects, fighting Beutl's project-portability model.
+
+---
+
+## R-4: Source identity / fingerprint
+
+**Decision**: `ProxyFingerprint = (AbsolutePath, FileSizeBytes, MtimeUtc)`. Two fingerprints are equal iff all three components match exactly. No content hashing in MVP (per clarification Q2).
+
+**Rationale**: Cheap (one `FileInfo` call), accurate enough in the common case, and matches the convention used by other NLEs. The known failure mode (sync tools that bump mtime without changing content) leads to a regenerated proxy — slow but never wrong. The dangerous failure mode (content changes but mtime preserved) is rare in practice and surfaced by the manual "regenerate" affordance.
+
+**Alternatives considered**: covered in clarification Q2; not re-litigated here.
+
+**Implementation note**: `AbsolutePath` is normalized via `Path.GetFullPath` and case-normalized on Windows / macOS to avoid spurious mismatches. Symlinks are followed at fingerprint time so that a project moving between drives with a stable symlink works; this is documented as a known nuance.
+
+---
+
+## R-5: H.264 preset definitions
+
+**Decision**: Ship **three presets** in MVP: `Half`, `Quarter`, and `Eighth`. All use H.264 in MP4 container, `yuv420p` 8-bit, single-pass `crf`-rate (constant quality), `tune=fastdecode`, `preset=fast`, audio dropped.
+
+| Preset | Scale factor | Long-edge clamp | CRF | Approx. bitrate at 1080p source |
+|---|---|---|---|---|
+| `Half` | 1/2 | max 1920 long-edge | 25 | ~4–6 Mbps |
+| `Quarter` (default) | 1/4 | max 1280 long-edge | 26 | ~1.5–2.5 Mbps |
+| `Eighth` | 1/8 | max 854 long-edge | 28 | ~0.6–1 Mbps |
+
+**Rationale**:
+- `Quarter` is the default because it gives the biggest editor responsiveness win for the smallest disk cost. `Half` is the "high-fidelity scrub" option for color-attentive workflows; `Eighth` is the "any decode is good enough" option for laptops on battery.
+- `crf` (constant-quality) is preferred over `b:v` (constant bitrate) for proxies — quality matters more than predictable file size, and constant-quality scales naturally with source complexity.
+- `tune=fastdecode` minimizes CPU during preview playback (the whole point); `preset=fast` keeps encode time reasonable.
+- All three keep the `Beutl.FFmpegWorker` x264 path; no codec discovery work in MVP.
+
+**Alternatives considered**:
+
+- **ProRes Proxy / DNxHR LB.** Rejected for MVP: requires verifying encoder availability across platforms in the bundled FFmpeg and would significantly inflate proxy file sizes (intra-only). Excellent decode performance, but the disk-vs-decode tradeoff favors H.264 for MVP.
+- **HEVC (x265).** Rejected: slower to encode for marginal preview benefit; harder to play back on some hardware. Save for follow-up.
+- **Two presets only (`Half` + `Quarter`).** Considered. Compromise: keep all three but document `Eighth` as "drop if it slips the schedule" — coding/test cost is small because the preset table is a single source-of-truth `ProxyPresetDefinitions.cs`.
+
+**Open implementation tuning**: exact CRF and bitrate ceilings are subject to a one-pass tuning round during implementation. The values above are starting points.
+
+---
+
+## R-6: Proxy store layout and metadata format
+
+**Decision**: One **store root directory** per machine (default `<app cache>/Beutl/proxies/`). Inside the root:
+
+```text
+<store-root>/
+├── index.json                     # single JSON file: array of ProxyEntry
+├── <fingerprint-hash>/
+│   ├── half.mp4
+│   ├── quarter.mp4
+│   └── eighth.mp4
+└── <next-fingerprint-hash>/...
+```
+
+- `<fingerprint-hash>` = short non-cryptographic hash of `ProxyFingerprint` (e.g., 16-hex of xxhash64 of "path|size|mtime"); collision risk is acceptable because the actual identity check still uses the full triple on load.
+- The hash is used **only** for directory naming; it is not the staleness key (R-4 already settled that).
+- One proxy file per preset coexists per source — letting users switch presets without forcing a regenerate of every variant on disk.
+- `index.json` is the authoritative metadata; on parse failure the store rebuilds it by scanning the directory tree.
+
+**Rationale**: A single JSON file is human-readable, trivially `git`-diffable for debug, and avoids dragging in a database dependency. Grouping per source under a hashed subdirectory keeps the filesystem entries manageable even with thousands of sources. Multi-preset-per-source supports the realistic flow where the user starts on `Quarter` and later switches to `Half` for a precision check.
+
+**Alternatives considered**:
+
+- **SQLite.** Rejected: adds a dependency for what is fundamentally a flat list. Recovery from corruption is harder than "delete and rescan".
+- **Per-entry sidecar `.json`.** Rejected: more files to fsync, less atomic for batch updates.
+- **Flat directory with hashed filenames, no subdirs.** Rejected: makes "delete all proxies for one source" expensive (you'd need to enumerate the whole flat dir).
+
+**Atomic write protocol**: generation writes to `<dir>/quarter.mp4.tmp`, fsyncs, then renames to `quarter.mp4`. `index.json` is updated last via the same temp-then-rename pattern (`index.json.tmp` → `index.json`). Boot scan looks for orphan `*.tmp` files and removes them.
+
+---
+
+## R-7: Serial job queue implementation
+
+**Decision**: `ProxyJobQueue` is implemented as a single-consumer `Channel<ProxyJob>` (`BoundedChannelOptions { FullMode = Wait, Capacity = 256 }`) drained by one async loop. Each job's `Run` returns a `Task` whose lifecycle is tracked separately so cancel / progress observers don't need access to the channel itself.
+
+**Rationale**: `Channel<T>` is the idiomatic .NET pattern for producer–consumer with structured cancellation; one consumer enforces serial execution out of the box. The capacity bound (256) prevents unbounded queue growth when the user invokes "generate for all clips" on a project with thousands of sources — additional enqueue calls await space rather than allocating without limit.
+
+**Alternatives considered**:
+
+- **`SemaphoreSlim(1, 1)` around a `List<ProxyJob>`.** Rejected: requires hand-rolling FIFO ordering and cancellation propagation; `Channel<T>` already gives both.
+- **`TaskScheduler.LimitedConcurrencyLevel`.** Rejected: harder to wire cancellation per job and harder to enumerate the pending queue for UI display.
+- **Per-job `Task.Run`.** Rejected: doesn't enforce serial execution; would violate the MVP concurrency=1 clarification answer.
+
+**Design provision for future parallelism**: the queue accepts a `maxConcurrency` parameter (default 1) so a future change can lift the cap without rewriting the queue API.
+
+---
+
+## R-8: Project-level `PreviewSourceMode` storage and propagation
+
+**Decision**: Add `PreviewSourceMode PreviewSourceMode { get; set; }` to `Scene` with default `PreferProxy`. Persisted in the existing `Scene` JSON via the existing serialization pipeline. `SceneRenderer` reads it at the start of each render pass and stamps it onto the `MediaOptions` it constructs.
+
+**Rationale**: `Scene` is already the per-project state object and is already serialized. Putting the toggle there is the smallest possible change and matches how `TimelineOptions` is stored. A project-level (not global) toggle matches the user's mental model — different projects can have different needs (color-grading project wants `ForceOriginal`, rough-cut wants `PreferProxy`).
+
+**Alternatives considered**:
+
+- **Global setting in `ProxyStoreConfig`.** Rejected: doesn't match user mental model. A user opening a color project should not have to remember to flip a global switch.
+- **Per-clip override.** Considered as enhancement; out of scope for MVP. The current "global fallback to original when proxy is missing" already covers the spot-check case.
+
+---
+
+## R-9: UI surface
+
+**Decision**: Two UI surfaces in MVP:
+
+1. **Project Settings → "Preview source" toggle** (radio: Proxy / Original) — bound to `Scene.PreviewSourceMode`.
+2. **New tool tab: "Proxies"** — implemented as a `ToolTabExtension` registered via the existing extensibility surface. Contents: per-project clip list with proxy state badge (None / Generating / Ready / Stale / Failed), action buttons (Generate / Regenerate / Delete) for selection, current/pending job list with progress bars, current store totals (per-project size, global size, % of cap), "Delete all for this project" button.
+
+A small per-clip badge on the timeline strip is captured as a stretch goal and left for `/speckit-tasks` to slot.
+
+**Rationale**: Tool tab is the established Beutl pattern for "auxiliary feature with its own state" (see `beutl-tooltab-extension` skill). Putting visibility behind a tab keeps the timeline UI uncluttered for users who don't use proxies.
+
+**Alternatives considered**:
+
+- **Modal dialog for proxy management.** Rejected: editors hate modal dialogs in a long-running workflow.
+- **Status-bar-only UI.** Rejected: not enough surface area for selection, regen, deletion.
+
+---
+
+## R-10: FFmpeg availability gating
+
+**Decision**: When a `ProxyJob` is enqueued and `FFmpegInstallService.IsInstalled` is false, the orchestrator marks the job `Failed` with reason `FFmpegMissing`, surfaces the existing `FFmpegInstallNotifier`, and stops draining the queue until install completes. Other queued jobs remain queued, not lost.
+
+**Rationale**: Reuses the existing install-prompt pattern (`FFmpegInstallDialog`) so the proxy feature behaves consistently with export, which already requires FFmpeg.
+
+**Alternatives considered**:
+
+- **Silently fail.** Rejected: violates the spec's "no surprises" tone; user won't know why proxies never appear.
+- **Block enqueue.** Rejected: would force users to install FFmpeg before they can even click "Generate", which is a worse onboarding moment than a clear "install needed" dialog.
+
+---
+
+## Summary of resolved unknowns
+
+| Unknown | Resolution |
+|---|---|
+| Preview vs. export pipeline separation | R-1: distinct, gated by `MediaOptions.PreferProxy` |
+| Proxy generation IPC | R-2: reuse existing `FFmpegEncodingControllerProxy` |
+| Default LRU cap | R-3: 50 GB default, 5–500 GB configurable |
+| Source fingerprint | R-4: `(path, size, mtime)` triple |
+| Preset shape | R-5: 3 H.264 presets (Half / Quarter default / Eighth) |
+| On-disk layout | R-6: store root with `index.json` + per-source subdirs |
+| Queue implementation | R-7: `Channel<ProxyJob>` with bounded capacity, single consumer |
+| Project toggle storage | R-8: `Scene.PreviewSourceMode` |
+| UI surface | R-9: project settings toggle + new Proxies tool tab |
+| FFmpeg-missing UX | R-10: reuse existing install prompt; jobs stay queued |
