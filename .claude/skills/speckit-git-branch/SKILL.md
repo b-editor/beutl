@@ -4,7 +4,7 @@ description: |
   Development flow. Invoked from `.specify/extensions.yml` as the `before_specify`
   hook (`speckit.git.branch`), but you can also run it manually:
   `/speckit-git-branch <slug>` or `/speckit-git-branch <NNN>-<slug>`.
-allowed-tools: Bash(git rev-parse:*) Bash(git status:*) Bash(git branch:*) Bash(git switch:*) Bash(git checkout:*) Bash(git for-each-ref:*) Bash(git show-ref:*) Bash(ls:*) Bash(printf:*) Bash(grep:*) Bash(awk:*) Bash(sort:*) Bash(tail:*) Bash(sed:*)
+allowed-tools: Bash(git rev-parse:*) Bash(git status:*) Bash(git branch:*) Bash(git switch:*) Bash(git checkout:*) Bash(git for-each-ref:*) Bash(git show-ref:*) Bash(ls:*) Bash(printf:*) Bash(grep:*) Bash(awk:*) Bash(sort:*) Bash(head:*) Bash(tail:*) Bash(sed:*)
 argument-hint: "<slug-or-NNN-slug>"
 ---
 
@@ -18,21 +18,61 @@ calling `/speckit-*` skill can record `BRANCH_NAME`, `FEATURE_NUM`, and
 
 Resolve the input in this order:
 
-1. `$ARGUMENTS` (the literal text after the slash command).
-2. The `GIT_BRANCH_NAME` env / context value, if the parent skill passed it.
+1. **`GIT_BRANCH_NAME` env / context value, when the parent skill explicitly
+   passed it.** Per the upstream `/speckit-specify` contract this is the
+   **exact branch name**, not a slug. If it is set, take it verbatim:
+   - `BRANCH_NAME="$GIT_BRANCH_NAME"`
+   - If `BRANCH_NAME` matches `^speckit/[0-9]{3}-[a-z0-9-]+$`, derive
+     `FEATURE_NUM` and `SLUG` from it and set
+     `SPECIFY_FEATURE_DIRECTORY="docs/specs/${BRANCH_NAME#speckit/}"`.
+   - Otherwise leave `FEATURE_NUM` / `SPECIFY_FEATURE_DIRECTORY` empty and
+     note in the report that the parent skill is responsible for picking
+     a feature directory that matches its own conventions.
+   Skip §3 entirely in this case and jump to §4 with the supplied
+   `BRANCH_NAME`. (The pre-flight checks in §2 still run.)
+2. `$ARGUMENTS` (the literal text after the slash command).
 3. The "short name" the parent `/speckit-specify` skill already computed (2-4
    word kebab-case). Ask the user to paste it if it is not in scope.
+
+For sources #2 and #3 (slug-style input):
 
 If the input matches `^[0-9]{3}-[a-z0-9-]+$` (the form advertised as
 `/speckit-git-branch <NNN>-<slug>`), split it into `EXPLICIT_NNN` and `SLUG`
 and **keep** the user-supplied number — Codex flagged that silently
 re-allocating it makes the documented form misbehave. Otherwise treat the
-whole input as `SLUG` and let §2 allocate `<NNN>`.
+whole input as `SLUG` and let §3 allocate `<NNN>`.
 
 Reject any slug that contains characters outside `[a-z0-9-]` and stop with a
-clear error.
+clear error. (Validation only applies to slug-style input from sources #2
+and #3; the exact-name source #1 path is unrestricted by design.)
 
-## 2. Number the feature
+## 2. Pre-flight checks
+
+Run pre-flight **before** allocating `<NNN>`. If the user is on an older
+feature branch that is missing spec directories that already exist on
+`main`, scanning for the next free number from the current branch would
+pick a `<NNN>` that collides with a directory on `main`; switching to
+`main` first ensures `ls docs/specs` reflects the canonical set.
+
+```bash
+git rev-parse --is-inside-work-tree   # must be true
+git status --porcelain                # report dirty count
+git rev-parse --abbrev-ref HEAD       # current branch
+```
+
+If the working tree is **dirty** (porcelain output non-empty):
+
+> Warn the user that uncommitted changes will follow them onto the new branch.
+> Confirm via AskUserQuestion before proceeding (default: cancel).
+
+If the current branch is **not** `main`:
+
+> Inform the user, list the current branch, and confirm via AskUserQuestion
+> whether to branch from here anyway or switch to `main` first. If the user
+> picks "switch to `main`", run `git switch main` here so the subsequent
+> `<NNN>` scan in §3 sees the canonical spec directories.
+
+## 3. Number the feature
 
 If `EXPLICIT_NNN` was provided in §1:
 
@@ -43,6 +83,7 @@ NNN="$EXPLICIT_NNN"
 # slug, refuse rather than silently colliding.
 clash=$( {
   ls -1 docs/specs 2>/dev/null | grep -E "^${NNN}-"
+  ls -1      specs 2>/dev/null | grep -E "^${NNN}-"
   git for-each-ref --format='%(refname:short)' \
       'refs/heads/speckit/*' 'refs/remotes/*/speckit/*' 2>/dev/null \
     | sed -E 's|.*speckit/||; s|/.*||' \
@@ -61,14 +102,19 @@ Otherwise allocate. The next `<NNN>` must avoid collisions with **both**
 existing spec directories **and** already-allocated `speckit/<NNN>-*`
 branches (local or remote). A cancelled run can leave a `speckit/<NNN>-*`
 branch behind without its `docs/specs/<NNN>-*` directory, so directory-only
-numbering would re-issue the same `<NNN>`.
+numbering would re-issue the same `<NNN>`. Scan both spec roots — the
+Beutl-local default (`docs/specs/`) and the upstream Spec-Kit default
+(`specs/`) — because an explicit `SPECIFY_FEATURE_DIRECTORY` or a
+pre-patch run can leave a feature under `specs/`.
 
 ```bash
-# Highest NNN from spec directories.
-spec_max=$( ls -1 docs/specs 2>/dev/null \
-  | grep -E '^[0-9]{3}-' \
-  | awk -F- '{print $1}' \
-  | sort -n | tail -1 )
+# Highest NNN from spec directories under either root.
+spec_max=$( {
+    ls -1 docs/specs 2>/dev/null
+    ls -1      specs 2>/dev/null
+  } | grep -E '^[0-9]{3}-' \
+    | awk -F- '{print $1}' \
+    | sort -n | tail -1 )
 
 # Highest NNN from local + remote speckit/ branches.
 branch_max=$( git for-each-ref --format='%(refname:short)' \
@@ -90,24 +136,6 @@ Compose:
 - `BRANCH_NAME="speckit/<NNN>-<slug>"`
 - `FEATURE_NUM="<NNN>"`
 - `SPECIFY_FEATURE_DIRECTORY="docs/specs/<NNN>-<slug>"`
-
-## 3. Pre-flight checks
-
-```bash
-git rev-parse --is-inside-work-tree   # must be true
-git status --porcelain                # report dirty count
-git rev-parse --abbrev-ref HEAD       # current branch
-```
-
-If the working tree is **dirty** (porcelain output non-empty):
-
-> Warn the user that uncommitted changes will follow them onto the new branch.
-> Confirm via AskUserQuestion before proceeding (default: cancel).
-
-If the current branch is **not** `main`:
-
-> Inform the user, list the current branch, and confirm via AskUserQuestion
-> whether to branch from here anyway or switch to `main` first.
 
 ## 4. Create or switch the branch
 
@@ -147,6 +175,11 @@ SKILL can parse it:
 ```json
 {"BRANCH_NAME":"speckit/<NNN>-<slug>","FEATURE_NUM":"<NNN>","SPECIFY_FEATURE_DIRECTORY":"docs/specs/<NNN>-<slug>"}
 ```
+
+When §1 took the exact-name `GIT_BRANCH_NAME` path and the branch does not
+match `^speckit/[0-9]{3}-[a-z0-9-]+$`, emit `"FEATURE_NUM":""` and
+`"SPECIFY_FEATURE_DIRECTORY":""` rather than fabricating values; the parent
+skill picks its own feature directory.
 
 > **Important: `SPECIFY_FEATURE_DIRECTORY` is informational.** The
 > upstream `/speckit-specify` workflow generates its own spec directory

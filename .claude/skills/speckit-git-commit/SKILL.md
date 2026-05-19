@@ -5,7 +5,7 @@ description: |
   (`docs(specs): <phase> NNN-<slug>`). Invoked from `.specify/extensions.yml`
   as the `after_specify` / `after_plan` / `after_tasks` hooks; also runnable
   manually: `/speckit-git-commit spec | plan | tasks | checklist | analyze`.
-allowed-tools: Bash(git rev-parse:*) Bash(git status:*) Bash(git diff:*) Bash(git add:*) Bash(git commit:*) Bash(git reset:*) Bash(git log:*) Bash(git ls-files:*) Bash(ls:*) Bash(head:*) Bash(awk:*) Bash(sed:*) Bash(grep:*) Bash(basename:*) Bash(sort:*) Bash(tail:*) Bash(test:*) Bash(jq:*) Bash(python3:*) Bash(find:*)
+allowed-tools: Bash(git rev-parse:*) Bash(git status:*) Bash(git diff:*) Bash(git add:*) Bash(git commit:*) Bash(git reset:*) Bash(git log:*) Bash(git ls-files:*) Bash(ls:*) Bash(head:*) Bash(awk:*) Bash(sed:*) Bash(grep:*) Bash(basename:*) Bash(printf:*) Bash(sort:*) Bash(tail:*) Bash(test:*) Bash(jq:*) Bash(python3:*) Bash(find:*)
 argument-hint: "spec|plan|tasks|checklist|analyze"
 ---
 
@@ -82,6 +82,19 @@ NNN=${NNN_SLUG%%-*}                # 001
 SLUG=${NNN_SLUG#*-}                # add-foo-button
 ```
 
+Also compute the repo-relative form of `SPEC_DIR` once so later steps can
+match it against `git diff --cached --name-only` and `git ls-files --deleted`
+output, both of which report repo-relative paths even when `SPEC_DIR` was
+resolved from an absolute `SPECIFY_FEATURE_DIRECTORY`:
+
+```bash
+repo_root=$(git rev-parse --show-toplevel)
+case "$SPEC_DIR" in
+  "$repo_root"/*) SPEC_DIR_REL="${SPEC_DIR#$repo_root/}" ;;
+  *)              SPEC_DIR_REL="$SPEC_DIR" ;;
+esac
+```
+
 ## 3. Verify the target file(s)
 
 Build the `TARGETS` list from the phase → files mapping in §1. For the
@@ -154,10 +167,10 @@ done
 #     deletion outside the mapping is never picked up.
 prefix_re=""
 for f in $MAPPED_FILES; do
-  prefix_re="${prefix_re:+$prefix_re|}$(printf '%s/%s' "$SPEC_DIR" "$f" | sed 's|[].[*^$/\\]|\\&|g')\$"
+  prefix_re="${prefix_re:+$prefix_re|}$(printf '%s/%s' "$SPEC_DIR_REL" "$f" | sed 's|[].[*^$/\\]|\\&|g')\$"
 done
 for d in $MAPPED_DIRS; do
-  prefix_re="${prefix_re:+$prefix_re|}$(printf '%s/%s/' "$SPEC_DIR" "$d" | sed 's|[].[*^$/\\]|\\&|g').*"
+  prefix_re="${prefix_re:+$prefix_re|}$(printf '%s/%s/' "$SPEC_DIR_REL" "$d" | sed 's|[].[*^$/\\]|\\&|g').*"
 done
 if [ -n "$prefix_re" ]; then
   while IFS= read -r dl; do
@@ -173,10 +186,20 @@ PENDING="${PENDING# }"
 
 `git add -- "$SPEC_DIR"` would sweep in any other pending edits inside the
 spec directory (the user's draft notes, an old `checklist.md`, a stray
-`scratch.md`). Stage only the pending subset of the mapping. `git add -A`
-on a path also records deletions, which is what we want:
+`scratch.md`). Stage only the pending subset of the mapping.
+
+Before staging, **snapshot the user's pre-existing index**. If the
+staged-set check fails later, the abort path must only un-stage what this
+skill added — Codex flagged that a blanket `git reset -- $PENDING` would
+wipe phase files the user had already `git add`-ed before invoking us.
+
+`git add -A` on a path also records deletions, which is what we want:
 
 ```bash
+# 4.1 Snapshot what was already staged before we touch the index.
+prestaged=$(git diff --cached --name-only | sort -u)
+
+# 4.2 Stage the pending subset of the mapping.
 # shellcheck disable=SC2086
 git add -A -- $PENDING
 ```
@@ -188,10 +211,7 @@ Then verify the staged set matches the pending subset — no more, no less.
 `git diff --cached --name-only` always reports repo-relative paths.
 
 ```bash
-repo_root=$(git rev-parse --show-toplevel)
-
-# Strip the repo prefix from any absolute path; leave repo-relative
-# paths untouched.
+# 4.3 Use repo_root computed in §2 to normalize PENDING entries.
 to_rel() {
   case "$1" in
     "$repo_root"/*) printf '%s' "${1#$repo_root/}" ;;
@@ -202,12 +222,34 @@ to_rel() {
 expected=$(for p in $PENDING; do to_rel "$p"; echo; done | sort -u | grep -v '^$')
 actual=$(git diff --cached --name-only | sort -u)
 
+# Anything that was staged *before* we ran but is also a pending phase
+# target is fine — it just means the user pre-staged a phase file. Treat
+# those as already accounted for when comparing.
+prestaged_phase=$(printf '%s\n' "$prestaged" | grep -Fx -f <(printf '%s\n' "$expected") || true)
+prestaged_other=$(printf '%s\n' "$prestaged" | grep -Fxv -f <(printf '%s\n' "$expected") || true)
+
+if [ -n "$prestaged_other" ]; then
+  echo "Aborting — unrelated files were already staged before this skill ran:"
+  echo "$prestaged_other"
+  # Only un-stage what *this skill* added (expected - prestaged_phase).
+  added_by_us=$(printf '%s\n' "$expected" | grep -Fxv -f <(printf '%s\n' "$prestaged_phase") || true)
+  if [ -n "$added_by_us" ]; then
+    # shellcheck disable=SC2086
+    git reset --quiet -- $added_by_us
+  fi
+  exit 1
+fi
+
 if [ "$expected" != "$actual" ]; then
   echo "Aborting — staged set differs from the pending phase targets."
   echo "Expected:"; echo "$expected"
   echo "Got:";      echo "$actual"
-  # shellcheck disable=SC2086
-  git reset --quiet -- $PENDING
+  # Restore only the paths we added; leave whatever the user pre-staged.
+  added_by_us=$(printf '%s\n' "$expected" | grep -Fxv -f <(printf '%s\n' "$prestaged_phase") || true)
+  if [ -n "$added_by_us" ]; then
+    # shellcheck disable=SC2086
+    git reset --quiet -- $added_by_us
+  fi
   exit 1
 fi
 ```
