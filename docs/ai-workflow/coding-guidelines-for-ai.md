@@ -21,7 +21,7 @@ This page only lists rules that need human judgment.
 
 ## Tests
 
-- **NUnit + Moq** under `tests/`. Tests are split across per-area projects (e.g. `tests/Beutl.UnitTests/`, `tests/Beutl.Engine.Tests/`, `tests/SourceGeneratorTest/`, `tests/Beutl.FFmpegIpc.Tests/`); add new tests to the one that matches the code you changed. Do not introduce another test framework.
+- **NUnit + Moq** under `tests/`. Tests are split across per-area projects (e.g. `tests/Beutl.UnitTests/`, `tests/Beutl.Graphics3DTests/`, `tests/SourceGeneratorTest/`, `tests/Beutl.FFmpegIpc.Tests/`); add new tests to the one that matches the code you changed. Do not introduce another test framework.
 - **New logic ships with a test.** A PR without a corresponding test is incomplete.
 - **`isolation: worktree`** — the `beutl-test-runner` subagent lets you try fixes against a worktree copy of the repo without polluting your real branch.
 
@@ -40,3 +40,8 @@ Follow Conventional Commits, as used in the existing history (`git log --oneline
 - Do not change existing CI workflows under `.github/workflows/*` without explicit approval.
 - Do not blur `Beutl.FFmpegWorker`'s independence (GPL boundary).
 - Do not run `git push --force origin main` (the hook denies it).
+- Do not hand-edit anything under `.specify/scripts/` or `.specify/templates/`. Those files are vendored from upstream [github/spec-kit](https://github.com/github/spec-kit); changes are overwritten by `specify init --force` and must instead go upstream. **Sole exception**: the `SPECS_DIR` override that points Spec-Kit at `docs/specs/` instead of `specs/` (see the `# Beutl local:` markers in `.specify/scripts/bash/common.sh` and `create-new-feature.sh`). Re-apply this patch after every upstream resync, and pursue an upstream-friendly env-var override so the patch can eventually go away.
+
+## Environment requirements
+
+- The Spec-Kit bash scripts under `.specify/scripts/bash/*.sh` use Bash 4+ features (e.g. `${var^^}` uppercase expansion). macOS ships with Bash 3.2 at `/bin/bash`; install a newer Bash via Homebrew (`brew install bash`) so the `#!/usr/bin/env bash` shebang resolves to Bash 4+. The hooks under `.claude/hooks/` are Bash 3.2 compatible.

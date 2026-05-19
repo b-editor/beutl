@@ -15,10 +15,10 @@ beutl/
 │   ├── skills/              # Domain skills + canned command skills
 │   ├── agents/              # 5 specialized subagents
 │   └── hooks/               # Dangerous-command deny, dotnet auto-allow, GPL/MIT deny, context injection
-├── .specify/                # Spec-Kit (spec-driven development)
+├── .specify/                # Spec-Kit templates / scripts / workflows (vendored, locally patched)
 └── docs/
     ├── ai-workflow/         # This directory
-    └── specs/               # Where Spec-Kit drops feature specs
+    └── specs/               # Where Spec-Kit drops per-feature spec / plan / tasks
 ```
 
 ## When to use what
@@ -27,10 +27,10 @@ beutl/
 |---|---|
 | Drive a large feature from design to implementation | `/speckit-specify` → `/speckit-plan` → `/speckit-tasks` → `/speckit-implement` |
 | Implement a new FilterEffect / Drawable / ToolTab | Just describe it in plain language — the skill fires automatically |
-| Build / test / format / coverage | Plain language works (the skill fires automatically); Claude asks via AskUserQuestion which scope to use (whole solution vs single project, verify vs apply, etc.) before running. Pass an argument, e.g. `/beutl-test Beutl.Engine.Tests.X`, to skip the confirmation |
+| Build / test / format / coverage | Plain language works (the skill fires automatically); Claude asks via AskUserQuestion which scope to use (whole solution vs single project, verify vs apply, etc.) before running. Pass an argument, e.g. `/beutl-test Beutl.UnitTests.Engine.Animation`, to skip the confirmation |
 | Final pre-PR review | `beutl-reviewer` subagent (auto-delegated) |
 | Investigate a red test | `beutl-test-runner` subagent (runs in an isolated worktree) |
-| Touched something under `SourceGenerators/` | `beutl-source-generator-impact` subagent |
+| Touched something under `src/Beutl.Engine.SourceGenerators/` | `beutl-source-generator-impact` subagent |
 | "Is there a spec for this?" | `beutl-spec-explorer` subagent |
 | Added or changed several `.axaml` files | `beutl-xaml-binder` subagent |
 

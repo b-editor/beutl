@@ -4,10 +4,14 @@ Large features in Beutl start as a spec and let the AI implement them from there
 
 ## One-time setup (repository)
 
+> The `.specify/` tree is already checked in — **regular contributors do not run this**. The block below documents how the directory was bootstrapped and how a maintainer resyncs it after upstream [github/spec-kit](https://github.com/github/spec-kit) updates. The vendored files under `.specify/scripts/` and `.specify/templates/` should not be hand-edited; changes go upstream.
+
 ```bash
 uv tool install specify-cli --from git+https://github.com/github/spec-kit.git
-specify init . --ai claude --force
+specify init . --ai claude --force   # only when resyncing against upstream
 ```
+
+After every resync, **re-apply the Beutl-local `SPECS_DIR` patch** (search for `# Beutl local:` in `.specify/scripts/bash/common.sh` and `create-new-feature.sh`) — that patch is what redirects Spec-Kit output from upstream's `specs/` to Beutl's `docs/specs/`.
 
 What it creates (as of specify-cli 0.8):
 
@@ -36,6 +40,8 @@ What it creates (as of specify-cli 0.8):
 ```
 
 Because `specify init . --ai claude` installs as skills under `.claude/skills/speckit-*/`, they show up in the skills menu too (hyphenated names, e.g. `speckit-specify`).
+
+Spec output lands under `docs/specs/<NNN>-<feature-slug>/` (Beutl-local override of the Spec-Kit default `specs/`).
 
 ## When to use which path
 

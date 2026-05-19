@@ -13,7 +13,7 @@ Beutl is a cross-platform video editing / compositing application built on Avalo
 
 - License: the main app is **MIT**; `Beutl.FFmpegWorker` alone is **GPL-3.0-or-later** (a separate process)
 - UI: Avalonia (XAML + ViewModel)
-- Tests: NUnit + Moq under `tests/` (per-area projects, e.g. `tests/Beutl.UnitTests/`, `tests/Beutl.Engine.Tests/`, `tests/SourceGeneratorTest/`, `tests/Beutl.FFmpegIpc.Tests/`)
+- Tests: NUnit + Moq under `tests/` (per-area projects, e.g. `tests/Beutl.UnitTests/`, `tests/Beutl.Graphics3DTests/`, `tests/SourceGeneratorTest/`, `tests/Beutl.FFmpegIpc.Tests/`)
 - Build: Nuke (`nukebuild/`) or `dotnet` directly
 
 ## Build / test / format
@@ -48,7 +48,7 @@ Claude Code skills are provided as `/beutl-build`, `/beutl-test`, `/beutl-format
 3. **New logic ships with a NUnit test** — add tests under `tests/` in the matching test project (e.g. `tests/Beutl.UnitTests/` for general unit tests, `tests/SourceGeneratorTest/` for generator changes).
 4. **Do not ask the AI to do the linter's job** — `.editorconfig` / `xamlstyler.json` / `dotnet format` own style.
 5. **Do not change existing CI workflows (`.github/workflows/*`) without explicit approval.**
-6. **Force-pushing to `main` / `master` is forbidden** — the hook denies any `git push` with `--force`, `-f`, or `--force-with-lease` that targets `main`/`master`, including refspec forms like `HEAD:main`. Push to a feature branch instead.
+6. **Force-pushing to `main` / `master` is forbidden** — the hook denies the literal `git push (--force | -f | --force-with-lease) origin (main | master)` forms. Bypass routes (refspec forms like `HEAD:main`, variable expansion, etc.) are explicitly out of scope for the hook and are guarded by GitHub branch protection. Push to a feature branch instead.
 
 ## Commit convention
 

@@ -203,7 +203,8 @@ fi
 
 cd "$REPO_ROOT"
 
-SPECS_DIR="$REPO_ROOT/specs"
+# Beutl local: SPECS_DIR is redirected to docs/specs/ (see docs/ai-workflow/spec-driven-development.md).
+SPECS_DIR="$REPO_ROOT/docs/specs"
 if [ "$DRY_RUN" != true ]; then
     mkdir -p "$SPECS_DIR"
 fi
