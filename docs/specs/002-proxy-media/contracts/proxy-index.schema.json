@@ -1,0 +1,75 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/b-editor/beutl/specs/002-proxy-media/contracts/proxy-index.schema.json",
+  "title": "Beutl Proxy Store Index",
+  "description": "Persisted in <store-root>/index.json. Authoritative metadata for the on-disk proxy cache. Per-source meta.json sidecars mirror entries[*] for recovery.",
+  "type": "object",
+  "required": ["version", "entries"],
+  "additionalProperties": false,
+  "properties": {
+    "version": {
+      "type": "integer",
+      "const": 1,
+      "description": "Schema version. Unknown versions trigger a directory rescan and rewrite."
+    },
+    "entries": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/proxyEntry" }
+    },
+    "lastEvictionUtc": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Wall-clock time of the most recent LRU eviction sweep. Optional."
+    }
+  },
+  "$defs": {
+    "proxyEntry": {
+      "type": "object",
+      "required": ["source", "preset", "state", "proxyFileRelative", "proxyFileSizeBytes", "generatedAtUtc", "lastUsedUtc"],
+      "additionalProperties": false,
+      "properties": {
+        "source": { "$ref": "#/$defs/proxyFingerprint" },
+        "preset": { "$ref": "#/$defs/proxyPreset" },
+        "state": { "$ref": "#/$defs/proxyState" },
+        "proxyFileRelative": {
+          "type": "string",
+          "description": "Forward-slash relative path under store root. Never starts with '/'.",
+          "pattern": "^[^/].*$"
+        },
+        "proxyFileSizeBytes": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "0 is permitted only while state is Generating or Partial."
+        },
+        "generatedAtUtc": { "type": "string", "format": "date-time" },
+        "lastUsedUtc":   { "type": "string", "format": "date-time" },
+        "failureReason": {
+          "type": ["string", "null"],
+          "description": "Non-null iff state == Failed."
+        }
+      }
+    },
+    "proxyFingerprint": {
+      "type": "object",
+      "required": ["absolutePath", "fileSizeBytes", "mtimeUtc"],
+      "additionalProperties": false,
+      "properties": {
+        "absolutePath": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Absolute, OS-normalized path to the source media file."
+        },
+        "fileSizeBytes": { "type": "integer", "minimum": 1 },
+        "mtimeUtc": { "type": "string", "format": "date-time" }
+      }
+    },
+    "proxyPreset": {
+      "type": "string",
+      "enum": ["Half", "Quarter", "Eighth"]
+    },
+    "proxyState": {
+      "type": "string",
+      "enum": ["None", "Generating", "Ready", "Stale", "Failed", "Partial"]
+    }
+  }
+}
