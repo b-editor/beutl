@@ -236,14 +236,8 @@ public partial class EditViewModel : IContextCommandHandler, IContextCommandStat
         TimeSpan? target = null;
         foreach (Element el in roots)
         {
-            foreach (KeyFrameAnimation anim in EnumerateKeyFrameAnimations(el))
+            foreach ((KeyFrameAnimation anim, TimeSpan offset) in EnumerateKeyFrameAnimations(el))
             {
-                // UseGlobalClock=false の場合、KeyFrameAnimation<T>.GetAnimatedValue は直近の親
-                // EngineObject.TimeRange.Start でローカル時刻を解釈する。実際の owner から offset を取り、
-                // owner が見つからない場合は GetAnimatedValue の挙動 (_parent==null 時はグローバル扱い) に揃える。
-                TimeSpan offset = anim.UseGlobalClock
-                    ? TimeSpan.Zero
-                    : anim.FindHierarchicalParent<EngineObject>()?.TimeRange.Start ?? TimeSpan.Zero;
                 foreach (IKeyFrame kf in anim.KeyFrames)
                 {
                     TimeSpan time = kf.KeyTime + offset;
@@ -278,12 +272,19 @@ public partial class EditViewModel : IContextCommandHandler, IContextCommandStat
         }
     }
 
-    // GraphEditorTabViewModel.Refresh と同じ二段サーチで KeyFrameAnimation を収集する:
-    //   1. EngineObject.Properties.Animation (通常プロパティのアニメーション)
-    //   2. IDynamicPort 経由の INodeMember.Property.Animation (ノードグラフ動的ポートのアニメーション)
-    // 後者は NodePropertyAdapter.Animation を hierarchical child として attach しないため、
-    // EngineObject.Properties だけを辿るパスからは取りこぼされる。
-    private static IEnumerable<KeyFrameAnimation> EnumerateKeyFrameAnimations(Element root)
+    // KeyFrameAnimation をタイムライン絶対時刻に正規化するための offset と一緒に列挙する。
+    //   1. EngineObject.Properties.Animation (通常プロパティ): AnimatableProperty.SetOwnerObject
+    //      で animation が hierarchical child として attach されるため、所有 EngineObject の
+    //      TimeRange.Start を offset に使う (UseGlobalClock=false 時)。これは
+    //      KeyFrameAnimation<T>.GetAnimatedValue の挙動と一致する。
+    //   2. INodeMember.Property.Animation (ノードグラフ): NodePropertyAdapter.Animation は
+    //      hierarchical child として attach されないため、animation 経由では owner を辿れない。
+    //      代わりに NodeMember の親 GraphNode を辿り、GraphSnapshot.LoadAnimatedValues
+    //      ("time - node.Start" でローカル時刻を解釈する) と同じ offset を使う。
+    //      IEnginePropertyBackedInputPort はエンジン側プロパティが pass 1 で拾われるため、
+    //      二重カウントしないよう除外する。
+    private static IEnumerable<(KeyFrameAnimation Animation, TimeSpan Offset)>
+        EnumerateKeyFrameAnimations(Element root)
     {
         var visited = new HashSet<KeyFrameAnimation>();
 
@@ -293,17 +294,28 @@ public partial class EditViewModel : IContextCommandHandler, IContextCommandStat
             foreach (IProperty property in obj.Properties)
             {
                 if (property.Animation is KeyFrameAnimation kfa && visited.Add(kfa))
-                    yield return kfa;
+                {
+                    TimeSpan offset = kfa.UseGlobalClock
+                        ? TimeSpan.Zero
+                        : kfa.FindHierarchicalParent<EngineObject>()?.TimeRange.Start ?? TimeSpan.Zero;
+                    yield return (kfa, offset);
+                }
             }
         }
 
-        var portPass = new ObjectSearcher(root, v => v is IDynamicPort);
-        foreach (INodeMember member in portPass.SearchAll().OfType<INodeMember>())
+        var memberPass = new ObjectSearcher(root, v => v is INodeMember);
+        foreach (INodeMember member in memberPass.SearchAll().OfType<INodeMember>())
         {
+            if (member is IEnginePropertyBackedInputPort)
+                continue;
+
             if (member.Property is IAnimatablePropertyAdapter { Animation: KeyFrameAnimation kfa }
                 && visited.Add(kfa))
             {
-                yield return kfa;
+                TimeSpan offset = kfa.UseGlobalClock
+                    ? TimeSpan.Zero
+                    : member.FindHierarchicalParent<GraphNode>()?.Start ?? TimeSpan.Zero;
+                yield return (kfa, offset);
             }
         }
     }
