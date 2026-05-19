@@ -55,10 +55,38 @@ the pending paths all live under *one* root. If the same `<NNN>-<slug>`
 feature appears under both `docs/specs/` *and* `specs/` (e.g. someone
 ran `/speckit-specify` once before and once after the Beutl-local
 `SPECS_DIR` patch landed), §2's resolver would pick a single root and
-silently commit only half the artifacts. Detect this by extracting
-`<root>/<NNN>-<slug>/` prefixes from the union output above; if two
-different roots map to the same `<NNN>-<slug>`, stop and ask the user
-which root to use rather than guessing.
+silently commit only half the artifacts. Detect with concrete bash —
+do not eyeball the union output, because `git status --porcelain` lines
+carry a 2-char `XY` status column (and a ` -> ` arrow for renames) that
+must be stripped before path matching:
+
+```bash
+# Strip the porcelain XY+space prefix and split rename arrows. Spec
+# slugs are kebab-case ([a-z0-9-]), so we do not bother handling
+# porcelain's `-z` NUL-terminated form or quoted paths.
+porcelain_paths=$(git status --porcelain -- docs/specs/ specs/ \
+  | sed -E 's|^...||' \
+  | sed -E 's| -> |\n|')
+untracked_paths=$(git ls-files --others --exclude-standard -- docs/specs/ specs/)
+
+pending_features=$(printf '%s\n%s\n' "$porcelain_paths" "$untracked_paths" \
+  | grep -oE '^(docs/specs|specs)/[0-9]{3}-[a-z0-9-]+/' \
+  | sort -u)
+
+# If the same NNN-slug appears under both roots, that is the ambiguity.
+mixed=$(printf '%s\n' "$pending_features" \
+  | sed -E 's|^(docs/specs|specs)/||' \
+  | sort \
+  | uniq -d)
+
+if [ -n "$mixed" ]; then
+  echo "Aborting — these features have pending files under both"
+  echo "docs/specs/ AND specs/ (mixed-root):"
+  printf '%s\n' "$mixed" | sed 's/^/  /'
+  echo "Move or remove one copy of each before re-running this skill."
+  exit 1
+fi
+```
 
 If `$ARGUMENTS` is empty **and** neither command shows anything pending
 under either root, exit 0 with `nothing to commit — no spec-kit
@@ -225,13 +253,19 @@ for d in $MAPPED_DIRS; do
   prefix_re="${prefix_re:+$prefix_re|}$(printf '%s/%s/' "$SPEC_DIR_REL" "$d" | sed 's|[].[*^$/\\]|\\&|g').*"
 done
 if [ -n "$prefix_re" ]; then
-  # Separate `git ls-files --deleted` from the grep filter so a real
-  # failure inside git (corrupt index, permission error, etc.) is not
-  # masked by grep's "no match" exit code via a single trailing
-  # `|| true` over the whole pipeline. We only want to swallow the
-  # "zero deletions matched" case (grep returning 1), not the rare
-  # case where git itself errors out — that should surface and abort.
-  deleted_all=$(git ls-files --deleted)
+  # Run `git ls-files --deleted` in its own statement and **check the
+  # exit code explicitly**. A bare `deleted_all=$(git ls-files --deleted)`
+  # discards git's status, so a real failure (corrupt index, lock
+  # contention, permission error) would silently degrade to "no
+  # deletions" — the same class of silent failure as the prior
+  # `|| true` over the whole pipeline. The brace-grouped `|| true`
+  # around grep below is still required: grep returning 1 on "zero
+  # matches" is the normal case (most invocations have no deletions).
+  if ! deleted_all=$(git ls-files --deleted 2>&1); then
+    echo "Aborting — git ls-files --deleted failed:"
+    printf '%s\n' "$deleted_all"
+    exit 1
+  fi
   while IFS= read -r dl; do
     [ -n "$dl" ] && PENDING="$PENDING $dl"
   done < <(printf '%s\n' "$deleted_all" | { grep -E "^(${prefix_re})$" || true; })
@@ -301,7 +335,11 @@ if [ -n "$prestaged_other" ]; then
   echo "$prestaged_other"
   if [ -n "$added_by_us" ]; then
     # shellcheck disable=SC2086
-    git reset --quiet -- $added_by_us
+    if ! reset_err=$(git reset --quiet -- $added_by_us 2>&1); then
+      echo "Warning — rollback (git reset) failed:"
+      printf '%s\n' "$reset_err"
+      echo "The index may be partially staged. Inspect with \`git status\`."
+    fi
   fi
   exit 1
 fi
@@ -312,7 +350,11 @@ if [ "$expected" != "$actual" ]; then
   echo "Got:";      echo "$actual"
   if [ -n "$added_by_us" ]; then
     # shellcheck disable=SC2086
-    git reset --quiet -- $added_by_us
+    if ! reset_err=$(git reset --quiet -- $added_by_us 2>&1); then
+      echo "Warning — rollback (git reset) failed:"
+      printf '%s\n' "$reset_err"
+      echo "The index may be partially staged. Inspect with \`git status\`."
+    fi
   fi
   exit 1
 fi
@@ -391,11 +433,15 @@ if [ "$commit_status" -ne 0 ]; then
   echo "Aborting — git commit exited with status $commit_status."
   echo "A pre-commit hook, GPG signing, or the commit-msg hook likely"
   echo "rejected the commit. Re-staging is left alone, but anything"
-  echo "this skill added on top of the user's pre-staged set is rolled back"
-  echo "to mirror the symmetric §4.3 abort path."
+  echo "this skill added on top of the user's pre-staged set is rolled"
+  echo "back using the same path as §4.3's abort branches."
   if [ -n "$added_by_us" ]; then
     # shellcheck disable=SC2086
-    git reset --quiet -- $added_by_us
+    if ! reset_err=$(git reset --quiet -- $added_by_us 2>&1); then
+      echo "Warning — rollback (git reset) failed:"
+      printf '%s\n' "$reset_err"
+      echo "The index may be partially staged. Inspect with \`git status\`."
+    fi
   fi
   exit "$commit_status"
 fi
