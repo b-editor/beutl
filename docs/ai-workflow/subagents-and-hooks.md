@@ -33,11 +33,11 @@ All hooks are team-shared (loaded via `.claude/settings.json`). On first launch,
 | `SessionStart` → `session-start-context.sh` | At startup, inject branch, last 5 commits, and uncommitted changes into context. | no |
 | `PreToolUse(Bash)` → `block-dangerous-bash.sh` | Deny obvious literal forms of `rm -rf /`, `rm -rf ~`, `rm -rf $HOME` / `${HOME}`, and `git push (--force / -f / --force-with-lease) origin (main / master)`. | **deny** |
 | `PreToolUse(Bash)` → `allow-dotnet-commands.sh` | Auto-allow `dotnet build/test/format/restore/run`, `./build.sh`. | **allow** |
+| `PreToolUse(Edit\|Write\|MultiEdit)` → `check-gpl-mit-boundary.sh` | Inspect the new content fragments of a `.csproj` edit (`new_string`, `content`, `edits[].new_string`) and deny when they include a `<ProjectReference ... Beutl.FFmpegWorker`. | **deny** |
 
 **Ordering invariant** (`.claude/settings.json`): the deny hook (`block-dangerous-bash.sh`) **must run before** the allow hook (`allow-dotnet-commands.sh`) for the `Bash` matcher. Claude Code evaluates hooks in declaration order, and a later allow can override an earlier deny on the same call. Do not reorder the array without updating this doc.
 
-**Fail-closed contract** for `block-dangerous-bash.sh` and `check-gpl-mit-boundary.sh`: both scripts use `set -euo pipefail` plus an `ERR` trap that emits a deny JSON, so any unexpected error (malformed input, missing `jq`, etc.) is converted to a deny rather than silently allowing.
-| `PreToolUse(Edit\|Write\|MultiEdit)` → `check-gpl-mit-boundary.sh` | Inspect the new content fragments of a `.csproj` edit (`new_string`, `content`, `edits[].new_string`) and deny when they include a `<ProjectReference ... Beutl.FFmpegWorker`. | **deny** |
+**Fail-closed contract** for `block-dangerous-bash.sh` and `check-gpl-mit-boundary.sh`: both scripts use `set -euo pipefail` plus an `ERR` trap that emits a deny JSON, and they short-circuit to a hardcoded deny JSON when `jq` itself is missing from `PATH`. Any unexpected error (malformed input, missing `jq`, etc.) is converted to a deny rather than silently allowing.
 
 ### Scope
 
