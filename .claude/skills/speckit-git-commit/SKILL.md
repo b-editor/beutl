@@ -64,11 +64,23 @@ must be stripped before path matching:
 # Strip the porcelain XY+space prefix and split rename arrows. Spec
 # slugs are kebab-case ([a-z0-9-]), so we do not bother handling
 # porcelain's `-z` NUL-terminated form or quoted paths.
+#
+# Use awk (not `sed s/ -> /\n/`) for the rename split — BSD sed (macOS,
+# default on contributor machines) treats `\n` in the *replacement* as
+# the two literal characters `\n`, not a newline, which would have
+# silently merged `old.md -> new.md` into a single line and dropped the
+# post-rename path from `pending_features`. awk's `split(...)` is
+# portable across BSD and GNU.
 porcelain_paths=$(git status --porcelain -- docs/specs/ specs/ \
   | sed -E 's|^...||' \
-  | sed -E 's| -> |\n|')
+  | awk '{ n = split($0, parts, " -> "); for (i = 1; i <= n; i++) print parts[i] }')
 untracked_paths=$(git ls-files --others --exclude-standard -- docs/specs/ specs/)
 
+# `[a-z0-9-]+` matches the slugs that §1 of speckit-git-branch validates;
+# non-conforming spec directories (e.g. a user-supplied `GIT_BRANCH_NAME`
+# whose suffix has uppercase or underscores) silently fall outside the
+# regex and are skipped here — that is an accepted limitation, not a
+# silent commit, because §2's resolver still picks the directory.
 pending_features=$(printf '%s\n%s\n' "$porcelain_paths" "$untracked_paths" \
   | grep -oE '^(docs/specs|specs)/[0-9]{3}-[a-z0-9-]+/' \
   | sort -u)
@@ -261,6 +273,12 @@ if [ -n "$prefix_re" ]; then
   # `|| true` over the whole pipeline. The brace-grouped `|| true`
   # around grep below is still required: grep returning 1 on "zero
   # matches" is the normal case (most invocations have no deletions).
+  #
+  # `2>&1` folds stderr into the captured stream so that on the error
+  # branch `$deleted_all` carries git's diagnostic; on the success
+  # branch git never writes to stderr, so $deleted_all is the plain
+  # newline-separated list of deleted paths that the loop below
+  # consumes verbatim.
   if ! deleted_all=$(git ls-files --deleted 2>&1); then
     echo "Aborting — git ls-files --deleted failed:"
     printf '%s\n' "$deleted_all"
