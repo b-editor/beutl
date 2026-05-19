@@ -1,0 +1,71 @@
+# Spec-Kit extension hooks for Beutl.
+#
+# This file is consumed by the `/speckit-*` skills under `.claude/skills/`. Each
+# skill checks for `.specify/extensions.yml`, looks up its `hooks.before_<phase>`
+# and `hooks.after_<phase>` entries, and surfaces an "Optional Pre-Hook" / "Optional
+# Post-Hook" prompt to the user. A hook command like `speckit.git.commit` maps to
+# the slash command `/speckit-git-commit`.
+#
+# All hooks here are `optional: true` — the SKILL offers the slash command and
+# waits for the user to opt in. Removing or renaming this file disables every
+# hook silently — that is the documented "off switch", but it is also a
+# footgun for typos. If hooks "stopped working" unexpectedly, the first thing
+# to verify is that this file still exists at the path above. The
+# `/speckit-git-commit` skill exposes `checklist` and `analyze` phases too,
+# but they are manual-only by design — there is no `after_checklist` /
+# `after_analyze` hook because those phases run on demand, not on every
+# Spec-Kit cycle.
+
+extensions:
+  beutl-git:
+    description: Beutl-local git automation for the Spec-Driven Development flow.
+    version: 1
+
+hooks:
+  before_specify:
+    - extension: beutl-git
+      command: speckit.git.branch
+      optional: true
+      description: >-
+        Offer to create a `speckit/<NNN>-<slug>` feature branch before writing
+        the spec. The slug comes from the parent skill's short-name generation.
+      prompt: >-
+        Create a speckit feature branch now? Beutl convention is
+        `speckit/<NNN>-<slug>`, where `<NNN>` matches the spec directory.
+
+  after_specify:
+    - extension: beutl-git
+      command: speckit.git.commit
+      optional: true
+      description: >-
+        Stage and commit the freshly generated spec-phase artifacts under
+        docs/specs/<NNN>-<slug>/ as `docs(specs): scaffold NNN-<slug>`. The
+        spec phase covers spec.md plus checklists/requirements.md when
+        `/speckit-specify` also writes the validation checklist.
+      prompt: >-
+        Commit the spec-phase artifacts (spec.md plus
+        checklists/requirements.md if it was generated) as one commit?
+
+  after_plan:
+    - extension: beutl-git
+      command: speckit.git.commit
+      optional: true
+      description: >-
+        Stage and commit the plan-phase artifacts in a single commit as
+        `docs(specs): plan NNN-<slug>`. `/speckit-plan` typically produces
+        plan.md, research.md, data-model.md, quickstart.md, and any
+        contracts/ files; the skill commits all that exist together. Pass
+        the `plan` argument when running it: `/speckit-git-commit plan`.
+      prompt: >-
+        Commit the plan-phase artifacts (plan.md plus any of research.md,
+        data-model.md, quickstart.md, contracts/* that were generated) as
+        one commit?
+
+  after_tasks:
+    - extension: beutl-git
+      command: speckit.git.commit
+      optional: true
+      description: >-
+        Stage and commit the freshly generated tasks.md as
+        `docs(specs): tasks NNN-<slug>`.
+      prompt: Commit tasks.md now?

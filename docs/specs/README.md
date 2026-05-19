@@ -12,8 +12,14 @@ docs/specs/
 ├── 001-<short-feature-slug>/
 │   ├── spec.md               # /speckit-specify output
 │   ├── plan.md               # /speckit-plan output
+│   ├── research.md           # /speckit-plan (when produced)
+│   ├── data-model.md         # /speckit-plan (when produced)
+│   ├── quickstart.md         # /speckit-plan (when produced)
+│   ├── contracts/            # /speckit-plan API/IPC contracts (when produced)
 │   ├── tasks.md              # /speckit-tasks output
-│   ├── checklist.md          # optional /speckit-checklist output
+│   ├── analysis.md           # /speckit-analyze (optional)
+│   ├── checklists/           # /speckit-specify writes requirements.md here;
+│   │                         #   /speckit-checklist adds ux.md / api.md / etc.
 │   └── notes/                # free-form supplementary material
 └── 002-<short-feature-slug>/
     └── ...
@@ -42,6 +48,17 @@ For small bug fixes or behaviour-preserving refactors, skip Spec-Kit entirely.
 ```
 
 `docs/ai-workflow/spec-driven-development.md` has the long-form reference, including how the Beutl-local `SPECS_DIR` patch redirects Spec-Kit's default output path here.
+
+## Git workflow (optional)
+
+`.specify/extensions.yml` registers optional git hooks for the flow:
+
+- `before_specify` offers `/speckit-git-branch`, which creates a `speckit/<NNN>-<slug>` branch tied to the spec directory.
+- `after_specify` / `after_plan` / `after_tasks` offer `/speckit-git-commit`, which makes one Conventional Commit per phase (`docs(specs): <phase> <NNN>-<slug>`; the `spec` phase uses the verb `scaffold`).
+
+The `checklist` and `analyze` phases of `/speckit-git-commit` are **manual-only** — `.specify/extensions.yml` deliberately has no `after_checklist` / `after_analyze` hook, so files like `analysis.md` and ad-hoc `checklists/*.md` are not auto-committed. Run `/speckit-git-commit checklist` or `/speckit-git-commit analyze` explicitly when you are ready to stage them.
+
+The hooks are presented as Optional Pre/Post-Hooks and only run when you accept. To skip git automation for a run, just decline; to disable it project-wide, delete or rename `.specify/extensions.yml`. See [`docs/ai-workflow/spec-driven-development.md`](../ai-workflow/spec-driven-development.md#git-extension-hooks-optional) for the full contract.
 
 ## Reviewing a spec without driving the flow
 
