@@ -1,8 +1,12 @@
 #!/bin/bash
-# Stop hook: suggest /beutl-ai-self-review when the current session has
-# touched the AI workflow surface (.claude/, AGENTS.md, CLAUDE.md,
-# docs/ai-workflow/) or 3+ tracked files in total, and the workflow scope
-# has changed since the last self-review.
+# Stop hook: suggest /beutl-ai-self-review when the working tree currently
+# carries uncommitted changes that touch the AI workflow surface (.claude/,
+# AGENTS.md, CLAUDE.md, docs/ai-workflow/) or 3+ files in total.
+#
+# The hook deliberately ignores commits — once work is committed, it has a
+# stable home and the next session sees it as "already there". This avoids
+# the false-positive case where checking out or pulling someone else's
+# recent commits would otherwise trigger the reminder on every Stop event.
 #
 # The hook only emits a `systemMessage` — it never blocks the Stop event.
 # A missing `jq`, a non-git cwd, or any other failure degrades to silence.
@@ -17,13 +21,33 @@ cd "$repo_root"
 
 marker="$repo_root/.claude/.last-self-review"
 
-# All tracked changes vs HEAD (committed, staged, or unstaged). diff-tree-like.
-changed=$(git status --porcelain 2>/dev/null | awk '{print $2}' )
-# Include very recent commits in this session — Stop fires after each
-# assistant turn so commits made in this session should also count.
-recent_commits=$(git log --since="2 hours ago" --name-only --pretty=format: 2>/dev/null | sort -u | grep -v '^$' || true)
+# Working-tree changes vs HEAD (staged, unstaged, untracked, deleted, renamed).
+# Status codes from `git status --porcelain` form a fixed alphabet:
+#   M=modified A=added D=deleted R=renamed C=copied ?=untracked U=unmerged
+# We do NOT consult `git log` — committing then resuming on the same branch
+# is a session boundary, and a freshly pulled branch with someone else's
+# recent commits should not be misread as work this session produced.
+changed_raw=$(git status --porcelain 2>/dev/null || true)
 
-all_touched=$(printf '%s\n%s\n' "$changed" "$recent_commits" | sort -u | grep -v '^$' || true)
+# Extract paths, including the post-arrow target of renames.
+changed=$(printf '%s\n' "$changed_raw" \
+  | awk '{
+      if ($1 == "R" || $1 == "RM" || $1 == "RD" || $1 == "C")
+        # rename/copy: "old -> new"; we care about new
+        { for (i = 1; i <= NF; i++) if ($i == "->") { print $(i+1); next } }
+      else
+        # everything else: path is field 2
+        { print $2 }
+    }' \
+  | sort -u | grep -v '^$' || true)
+
+# Also note paths that have been deleted, since they no longer exist on
+# disk but still represent fresh work the user has not yet committed.
+deleted=$(printf '%s\n' "$changed_raw" \
+  | awk '$1 == "D" || $1 == " D" || $1 == "AD" { print $2 }' \
+  | sort -u | grep -v '^$' || true)
+
+all_touched=$changed
 [ -z "$all_touched" ] && exit 0
 
 count=$(printf '%s\n' "$all_touched" | wc -l | tr -d ' ')
@@ -52,15 +76,22 @@ if [ -f "$marker" ]; then
   marker_mtime=$(stat -c %Y "$marker" 2>/dev/null || stat -f %m "$marker" 2>/dev/null || echo 0)
   head_time=$(git log -1 --format=%ct HEAD 2>/dev/null || echo 0)
 
-  latest_touched_mtime=0
-  while IFS= read -r f; do
-    [ -z "$f" ] && continue
-    [ -e "$f" ] || continue
-    m=$(stat -c %Y "$f" 2>/dev/null || stat -f %m "$f" 2>/dev/null || echo 0)
-    [ "$m" -gt "$latest_touched_mtime" ] && latest_touched_mtime="$m"
-  done <<EOF
+  # If any path was deleted, treat it as a fresh signal — the user's edit
+  # is real even though the file no longer exists for stat. Without this,
+  # a single later deletion would suppress reminders forever.
+  if [ -n "$deleted" ]; then
+    latest_touched_mtime=$(date +%s)
+  else
+    latest_touched_mtime=0
+    while IFS= read -r f; do
+      [ -z "$f" ] && continue
+      [ -e "$f" ] || continue
+      m=$(stat -c %Y "$f" 2>/dev/null || stat -f %m "$f" 2>/dev/null || echo 0)
+      [ "$m" -gt "$latest_touched_mtime" ] && latest_touched_mtime="$m"
+    done <<EOF
 $all_touched
 EOF
+  fi
 
   if [ "$marker_mtime" -gt "$head_time" ] \
     && [ "$marker_mtime" -gt "$latest_touched_mtime" ]; then

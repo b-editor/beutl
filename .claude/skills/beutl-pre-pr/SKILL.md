@@ -55,11 +55,23 @@ The PreToolUse hook `.claude/hooks/check-gpl-mit-boundary.sh` only inspects frag
 ```bash
 # Filter to .csproj / .cs files in changed paths, then grep only for the
 # forbidden linkage forms — not the bare namespace.
+#
+# `tr '\n' ' '` flattens each file before matching so multi-line MSBuild
+# elements (e.g. `<ProjectReference\n  Include="..\\Beutl.FFmpegWorker\\..."`)
+# are caught even though grep is otherwise line-oriented. We restore line
+# numbers via grep -no on the original file as a follow-up.
 candidates=$(printf '%s\n' "$CHANGED" | grep -E '\.(csproj|cs)$' || true)
 for f in $candidates; do
   [ -f "$f" ] || continue
-  grep -nE '<(ProjectReference|Compile)[^>]*Beutl\.FFmpegWorker' "$f" \
-    | sed "s|^|$f:|"
+  # Step 1: detect — flatten newlines and run the linkage pattern.
+  if tr '\n' ' ' < "$f" \
+    | grep -qE '<(ProjectReference|Compile)[^>]*Beutl\.FFmpegWorker'; then
+    # Step 2: locate — print every line in the original file that names a
+    # linkage element OR mentions FFmpegWorker, so multi-line cases show
+    # both halves.
+    grep -nE '(<(ProjectReference|Compile)\b|Beutl\.FFmpegWorker)' "$f" \
+      | sed "s|^|$f:|"
+  fi
 done
 ```
 
