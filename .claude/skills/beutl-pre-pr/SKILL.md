@@ -25,13 +25,20 @@ Skip the prompt if the user already said which one in this turn, or if `$ARGUMEN
 
 ### 0. Discover the diff
 
+`/beutl-pre-pr` should also catch changes the user has not committed yet — otherwise running it before the final commit silently skips the most likely cause of CI failures. Union four sets: committed-but-unpushed, staged, unstaged, and untracked.
+
 ```bash
 git fetch origin main --quiet
 BASE=$(git merge-base HEAD origin/main)
-CHANGED=$(git diff --name-only "$BASE"...HEAD)
+CHANGED=$( {
+  git diff --name-only "$BASE"...HEAD        # committed on this branch
+  git diff --name-only --cached              # staged
+  git diff --name-only                       # unstaged
+  git ls-files --others --exclude-standard   # untracked
+} | sort -u )
 ```
 
-If `CHANGED` is empty, report `Nothing to check — HEAD is at origin/main` and stop.
+If `CHANGED` is empty, report `Nothing to check — branch and working tree are clean against origin/main` and stop.
 
 ### 1. Format verification (always)
 
@@ -43,15 +50,20 @@ If this fails: stop here and offer to run `dotnet format Beutl.slnx` (writing). 
 
 ### 2. GPL/MIT boundary scan (always)
 
-The PreToolUse hook `.claude/hooks/check-gpl-mit-boundary.sh` only inspects fragments from `Edit` / `Write` tool calls (`new_string`, `content`, `edits[].new_string`) — it cannot scan the working tree retroactively. So this step does an equivalent diff-side grep:
+The PreToolUse hook `.claude/hooks/check-gpl-mit-boundary.sh` only inspects fragments from `Edit` / `Write` tool calls (`new_string`, `content`, `edits[].new_string`) — it cannot scan the working tree retroactively. So this step does an equivalent diff-side scan targeting only the two forbidden linkage forms (`ProjectReference` and `Compile Include`); a bare mention of the `Beutl.FFmpegWorker` namespace in a comment, doc string, or already-linked source file is fine.
 
 ```bash
-for f in $(echo "$CHANGED" | grep -E '\.(csproj|cs)$'); do
-  echo "$f"
-done | xargs -I{} grep -l -E 'Beutl\.FFmpegWorker' {} 2>/dev/null
+# Filter to .csproj / .cs files in changed paths, then grep only for the
+# forbidden linkage forms — not the bare namespace.
+candidates=$(printf '%s\n' "$CHANGED" | grep -E '\.(csproj|cs)$' || true)
+for f in $candidates; do
+  [ -f "$f" ] || continue
+  grep -nE '<(ProjectReference|Compile)[^>]*Beutl\.FFmpegWorker' "$f" \
+    | sed "s|^|$f:|"
+done
 ```
 
-Only `src/Beutl.FFmpegWorker/` itself is allowed to reference `Beutl.FFmpegWorker`. Every other project — including the MIT IPC layer at `src/Beutl.FFmpegIpc/` — must reach the worker through the IPC protocol, never via `ProjectReference` or `<Compile Include="...FFmpegWorker..." />`. Any match outside the GPL subtree is a violation — list each `file:line` and stop.
+Only `src/Beutl.FFmpegWorker/` itself is allowed to ship `Beutl.FFmpegWorker` linkages. Every other project — including the MIT IPC layer at `src/Beutl.FFmpegIpc/` — must reach the worker through the IPC protocol, never via `ProjectReference` or `<Compile Include="...FFmpegWorker..." />`. Any match outside the GPL subtree is a violation — list each `file:line` and stop.
 
 ### 3. Targeted build (always)
 

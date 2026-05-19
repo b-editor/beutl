@@ -49,14 +49,14 @@ fi
 # fresh signal too — otherwise a long-running session that bumps the marker
 # once would silence later workflow edits.
 if [ -f "$marker" ]; then
-  marker_mtime=$(stat -f %m "$marker" 2>/dev/null || stat -c %Y "$marker" 2>/dev/null || echo 0)
+  marker_mtime=$(stat -c %Y "$marker" 2>/dev/null || stat -f %m "$marker" 2>/dev/null || echo 0)
   head_time=$(git log -1 --format=%ct HEAD 2>/dev/null || echo 0)
 
   latest_touched_mtime=0
   while IFS= read -r f; do
     [ -z "$f" ] && continue
     [ -e "$f" ] || continue
-    m=$(stat -f %m "$f" 2>/dev/null || stat -c %Y "$f" 2>/dev/null || echo 0)
+    m=$(stat -c %Y "$f" 2>/dev/null || stat -f %m "$f" 2>/dev/null || echo 0)
     [ "$m" -gt "$latest_touched_mtime" ] && latest_touched_mtime="$m"
   done <<EOF
 $all_touched

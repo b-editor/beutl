@@ -26,30 +26,33 @@ The full list lives in `.mcp.json`'s server description; tools surface under nam
 
 | Mode | When to use | Requires |
 |---|---|---|
-| `attach-to-app` | Beutl is already running and you want to debug live behaviour | Beutl built with the dev-tools package referenced and `AttachDeveloperTools()` called at startup |
+| `attach-to-app` | Beutl is already running and you want to debug live behaviour | Beutl built with the `AvaloniaMcp.Diagnostics` package referenced and `.UseMcpDiagnostics()` invoked on the `AppBuilder` |
 | `attach-to-file` | You are iterating on one `.axaml` in isolation and want a headless preview | Nothing app-side; the MCP server hosts the file |
 
 Prefer `attach-to-app` for any state-dependent issue (data binding, command wiring, focus, conditional styles). Prefer `attach-to-file` for pure layout work.
 
 ## Enabling app-side support
 
-Beutl already references `Avalonia.Diagnostics` (Debug only) for the F12 overlay. The MCP additionally needs the `AvaloniaUI.DiagnosticsSupport` package (2.2.1+) and an explicit `AttachDeveloperTools()` call.
+Beutl already references `Avalonia.Diagnostics` (Debug only) for the F12 overlay. The MCP additionally needs [`AvaloniaMcp.Diagnostics`](https://www.nuget.org/packages/AvaloniaMcp.Diagnostics) — the companion package for the same [`adirh3/AvaloniaMcp`](https://github.com/adirh3/AvaloniaMcp) tool we pinned in `.config/dotnet-tools.json` — and an explicit `.UseMcpDiagnostics()` call on the `AppBuilder`.
 
 This package is **not** referenced by default — it adds startup cost we do not want in normal Debug runs. Enable it only when you intend to drive Beutl from the MCP:
 
-1. In `src/Beutl/Beutl.csproj`, add (Debug-only):
+1. Pin the version in `Directory.Packages.props`, then add a Debug-only reference in `src/Beutl/Beutl.csproj`:
    ```xml
-   <PackageReference Include="AvaloniaUI.DiagnosticsSupport"
+   <PackageReference Include="AvaloniaMcp.Diagnostics"
                      Condition="'$(Configuration)' == 'Debug'" />
    ```
-   Pin the version in `Directory.Packages.props`.
-2. In `src/Beutl/App.axaml.cs`, inside `OnFrameworkInitializationCompleted` (or equivalent), gate the attach behind `#if DEBUG`:
+2. In `src/Beutl/Program.cs` (the `BuildAvaloniaApp()` chain), add the call inside a `#if DEBUG` gate:
    ```csharp
+   return AppBuilder.Configure<App>()
+       .UsePlatformDetect()
+       // …
    #if DEBUG
-       this.AttachDeveloperTools();
+       .UseMcpDiagnostics()
    #endif
+       ;
    ```
-3. Rebuild and run Beutl. The MCP server will discover the process via the standard Avalonia DevTools protocol.
+3. Rebuild and run Beutl. The MCP server discovers the process via a named pipe (`avalonia-mcp-{pid}`) and a discovery file written to `$TMPDIR/avalonia-mcp/{pid}.json`.
 
 Do **not** commit step 1 + 2 unless the team agrees to take the extra startup cost as a permanent dependency in Debug builds.
 
