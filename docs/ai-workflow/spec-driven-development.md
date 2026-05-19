@@ -52,6 +52,29 @@ Spec output lands under `docs/specs/<NNN>-<feature-slug>/` (Beutl-local override
 | Bug fix | Skip Spec-Kit. Fix, then add a regression test. |
 | Trivial refactor / typo fix | Skip Spec-Kit. |
 
+## Git extension hooks (optional)
+
+Spec-Kit ships a hook framework that each `/speckit-*` skill consults before / after running. Beutl registers two hooks under `.specify/extensions.yml`:
+
+- **`before_specify` → `/speckit-git-branch`** — creates a `speckit/<NNN>-<slug>` feature branch matched to the spec directory.
+- **`after_specify` / `after_plan` / `after_tasks` → `/speckit-git-commit`** — commits the freshly generated `spec.md` / `plan.md` / `tasks.md` as a single Conventional Commit (`docs(specs): <phase> <NNN>-<slug>`).
+
+All hooks are declared `optional: true`. The parent skill prints an "Optional Pre-Hook" / "Optional Post-Hook" prompt and waits for you to opt in — declining keeps the legacy "no git automation" behaviour intact. The slash commands are also runnable manually:
+
+```bash
+/speckit-git-branch <slug>          # create speckit/<NNN>-<slug>
+/speckit-git-commit spec            # commit docs/specs/<NNN>-<slug>/spec.md
+/speckit-git-commit plan            # ... plan.md
+/speckit-git-commit tasks           # ... tasks.md
+```
+
+Safety rails (enforced inside each skill):
+
+- `/speckit-git-branch` warns when the working tree is dirty or when you are not branching from `main`. It never deletes or force-resets a branch.
+- `/speckit-git-commit` stages **only** files inside `docs/specs/<NNN>-<slug>/`. If any other file ends up staged, the commit aborts. It never pushes, never amends, never runs linters.
+
+To disable the extension entirely, delete or rename `.specify/extensions.yml`. Every skill skips its hook lookup silently when the file is missing.
+
 ## Beutl-specific constraints
 
 The Beutl `constitution.md` records invariants that every spec must respect:

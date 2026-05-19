@@ -1,0 +1,54 @@
+# Spec-Kit extension hooks for Beutl.
+#
+# This file is consumed by the `/speckit-*` skills under `.claude/skills/`. Each
+# skill checks for `.specify/extensions.yml`, looks up its `hooks.before_<phase>`
+# and `hooks.after_<phase>` entries, and surfaces an "Optional Pre-Hook" / "Optional
+# Post-Hook" prompt to the user. A hook command like `speckit.git.commit` maps to
+# the slash command `/speckit-git-commit`.
+#
+# All hooks here are `optional: true` — the SKILL offers the slash command and
+# waits for the user to opt in. Removing this file disables every hook silently.
+
+extensions:
+  beutl-git:
+    description: Beutl-local git automation for the Spec-Driven Development flow.
+    version: 1
+
+hooks:
+  before_specify:
+    - extension: beutl-git
+      command: speckit.git.branch
+      optional: true
+      description: >-
+        Offer to create a `speckit/<NNN>-<slug>` feature branch before writing
+        the spec. The slug comes from the parent skill's short-name generation.
+      prompt: >-
+        Create a speckit feature branch now? Beutl convention is
+        `speckit/<NNN>-<slug>`, where `<NNN>` matches the spec directory.
+
+  after_specify:
+    - extension: beutl-git
+      command: speckit.git.commit
+      optional: true
+      description: >-
+        Stage and commit the freshly generated spec.md under
+        docs/specs/<NNN>-<slug>/ as `docs(specs): scaffold NNN-<slug>`.
+      prompt: Commit the new spec.md now?
+
+  after_plan:
+    - extension: beutl-git
+      command: speckit.git.commit
+      optional: true
+      description: >-
+        Stage and commit the freshly generated plan.md as
+        `docs(specs): plan NNN-<slug>`.
+      prompt: Commit plan.md now?
+
+  after_tasks:
+    - extension: beutl-git
+      command: speckit.git.commit
+      optional: true
+      description: >-
+        Stage and commit the freshly generated tasks.md as
+        `docs(specs): tasks NNN-<slug>`.
+      prompt: Commit tasks.md now?
