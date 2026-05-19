@@ -14,6 +14,18 @@ This page only lists rules that need human judgment.
   - `Beutl.Editor` / `Beutl.Editor.Components` / `Beutl.Controls` form the Avalonia UI layer
   - `Beutl.Extensibility` is the plugin abstraction
 
+## Design priorities — adopt better designs eagerly
+
+Beutl's policy: if there is a clearly better design, we want to adopt it, and backward compatibility is a cost to weigh against that improvement — not a default to preserve. When the cleaner design wins on the merits, take it and migrate the call sites in the same change. The full statement lives in [`AGENTS.md` → "Design priorities"](../../AGENTS.md). The headline rules:
+
+- **Orthogonality first.** Split overlapping responsibilities; unify duplicated abstractions. Do not paper over a muddled design with an extra overload or a "legacy" parameter.
+- **Library-user flexibility first.** On public surface (`Beutl.Engine`, `Beutl.Extensibility`, `Beutl.NodeGraph`, `Beutl.FFmpegIpc`, etc.) bias toward interfaces / virtual hooks / composable primitives so plugin authors can substitute pieces we did not anticipate.
+- **No silent compat shims.** Do not introduce `[Obsolete]` members, `V2` types, or duplicate overloads to avoid touching call sites — update the call sites in the same diff. The single exception is a published extensibility contract used by out-of-tree plugins **with explicit user approval and a documented removal target**.
+- **Mark breaking changes loudly.** Use `feat!:` / `refactor!:` Conventional Commits with a `BREAKING CHANGE:` footer describing the migration and the affected projects.
+- **When the trade-off is non-obvious**, surface it to the user. Do not silently pick "keep the old API" just because it is the smaller diff.
+
+The `beutl-design-reviewer` subagent audits public-surface diffs against these rules — it auto-delegates when a change touches public types in the modules above.
+
 ## UI / XAML
 
 - **Split out behavior**: when an event handler in a UserControl gets complicated, factor it into an Avalonia `Behavior` class or a `partial` code-behind file. A code-behind file pushing 200 lines is a warning sign.

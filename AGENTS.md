@@ -50,6 +50,18 @@ Claude Code skills are provided as `/beutl-build`, `/beutl-test`, `/beutl-format
 5. **Do not change existing CI workflows (`.github/workflows/*`) without explicit approval.**
 6. **Force-pushing to `main` / `master` is forbidden** — the hook denies the literal `git push (--force | -f | --force-with-lease) origin (main | master)` forms. Bypass routes (refspec forms like `HEAD:main`, variable expansion, etc.) are explicitly out of scope for the hook and are guarded by GitHub branch protection. Push to a feature branch instead.
 
+## Design priorities (adopt better designs eagerly)
+
+Beutl's policy: **if there is a clearly better design, we want to adopt it.** Backward compatibility is a cost to weigh against that improvement, not a default to preserve. When the cleaner design wins on the merits, take it and migrate the call sites in the same change. Specifically:
+
+- **Orthogonality first.** If two abstractions overlap or a single type has multiple unrelated responsibilities, split / unify / rename — even if it means renaming public types, moving members between projects, or changing constructor signatures. Do not paper over a muddled design with an extra overload or a "legacy" parameter.
+- **Library-user flexibility first.** When designing public surface in `Beutl.Engine`, `Beutl.Extensibility`, `Beutl.NodeGraph`, `Beutl.FFmpegIpc`, etc., prefer extensibility points (interfaces, virtual hooks, composable primitives) over a single closed implementation that happens to fit current callers. Ask "could a plugin author do something we did not anticipate?" and bias toward yes.
+- **Do not introduce `[Obsolete]` shims, duplicate "v2" types, or compatibility wrappers** to avoid touching call sites. Update the call sites in the same change. The only exception is a published extensibility contract used by out-of-tree plugins where the user has explicitly asked for a deprecation window — in that case, document the removal target in the PR description.
+- **Breaking changes need a `feat!:` / `refactor!:` Conventional Commit and a `BREAKING CHANGE:` footer** describing the migration. Mention the affected projects so downstream consumers see it in the changelog.
+- **When the choice is non-obvious** (e.g. the cleaner design has a real cost — large diff, ripple into many plugins, in-flight feature branches), surface the trade-off to the user and let them decide. Do not silently pick "keep the old API" just because it is the smaller diff, and equally do not silently force a sweeping rewrite when the gain is marginal.
+
+`beutl-design-reviewer` (see `.claude/agents/`) audits non-trivial public-API changes against these priorities; auto-delegate when a change touches public surface or extensibility points.
+
 ## Commit convention
 
 Conventional Commits, following the existing history:
@@ -68,7 +80,7 @@ For large features (a new filter category, an IPC protocol change, a new editor 
 - **Automatic PR review**: opening a PR triggers `.github/workflows/claude-code-review.yml`, which runs Claude Code and posts a structured review.
 - **Daily scheduled review**: `.github/workflows/scheduled-code-review.yml` reviews recent diffs or a given scope and files Draft items into GitHub Projects v2.
 - **`@claude` mentions**: writing `@claude` in an issue/PR/review comment triggers `.github/workflows/claude.yml`.
-- **Local subagents**: `beutl-reviewer` / `beutl-test-runner` / `beutl-source-generator-impact` / `beutl-spec-explorer` / `beutl-xaml-binder` live in `.claude/agents/`.
+- **Local subagents**: `beutl-reviewer` / `beutl-test-runner` / `beutl-source-generator-impact` / `beutl-spec-explorer` / `beutl-xaml-binder` / `beutl-design-reviewer` live in `.claude/agents/`.
 - **Local hooks**: dangerous-command deny / dotnet auto-allow / GPL-MIT boundary deny / session-start context injection live in `.claude/hooks/`. Details: `docs/ai-workflow/subagents-and-hooks.md`.
 
 ## Self-improvement

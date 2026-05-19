@@ -9,6 +9,7 @@
 | `beutl-source-generator-impact` | Before/after editing `src/Beutl.Engine.SourceGenerators/` | sonnet | Reports blast radius, dependencies, test coverage. |
 | `beutl-spec-explorer` | "Is there a spec for this?" | haiku | Walks `docs/specs/` (the Spec-Kit output dir for Beutl). Preloads the Beutl skills. |
 | `beutl-xaml-binder` | After adding/changing many `.axaml` files | haiku | Confirms compiled bindings are in place. |
+| `beutl-design-reviewer` | When public types / extensibility surface change | sonnet | Enforces the "adopt better designs eagerly" priority from AGENTS.md (orthogonality, plugin-author flexibility, no compat-only shims). Complements — does not duplicate — `beutl-reviewer`. |
 
 ### Output style: `beutl-review`
 

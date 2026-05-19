@@ -33,6 +33,7 @@ beutl/
 | Touched something under `src/Beutl.Engine.SourceGenerators/` | `beutl-source-generator-impact` subagent |
 | "Is there a spec for this?" | `beutl-spec-explorer` subagent |
 | Added or changed several `.axaml` files | `beutl-xaml-binder` subagent |
+| Changed a public type / extensibility surface | `beutl-design-reviewer` subagent (orthogonality, plugin-author flexibility, no compat shims) |
 
 ## Detailed guides
 

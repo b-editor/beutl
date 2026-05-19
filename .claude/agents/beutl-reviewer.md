@@ -51,5 +51,6 @@ high | medium | low
 ## Notes
 
 - Do **not** raise stylistic nits (indentation, trailing newlines, `var` vs explicit, etc.). Those belong to `.editorconfig` / `xamlstyler.json` / `dotnet format`.
+- Do **not** review **design quality** (orthogonality, public-API shape, extensibility, compat shims) here — that is `beutl-design-reviewer`'s job. If the diff touches public types, suggest delegating there.
 - Do **not** run `git push` or `git commit`. The reviewer only reports.
 - Skip lone `low` severity findings unless they are part of a cluster; prioritize `medium` and `high`.
