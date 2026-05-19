@@ -43,13 +43,29 @@ fi
 
 [ "$needs_review" = "true" ] || exit 0
 
-# Suppress if the marker is newer than the most-recently-modified
-# AI workflow file (when scoped) or newer than HEAD's commit time.
+# Suppress only when the marker is newer than every signal that would
+# otherwise trigger a reminder: HEAD's commit time AND every touched file's
+# mtime. A non-empty working tree (uncommitted changes) is treated as a
+# fresh signal too — otherwise a long-running session that bumps the marker
+# once would silence later workflow edits.
 if [ -f "$marker" ]; then
   marker_mtime=$(stat -f %m "$marker" 2>/dev/null || stat -c %Y "$marker" 2>/dev/null || echo 0)
   head_time=$(git log -1 --format=%ct HEAD 2>/dev/null || echo 0)
-  if [ "$marker_mtime" -gt "$head_time" ]; then
-    # Last review happened after the latest commit — assume current.
+
+  latest_touched_mtime=0
+  while IFS= read -r f; do
+    [ -z "$f" ] && continue
+    [ -e "$f" ] || continue
+    m=$(stat -f %m "$f" 2>/dev/null || stat -c %Y "$f" 2>/dev/null || echo 0)
+    [ "$m" -gt "$latest_touched_mtime" ] && latest_touched_mtime="$m"
+  done <<EOF
+$all_touched
+EOF
+
+  if [ "$marker_mtime" -gt "$head_time" ] \
+    && [ "$marker_mtime" -gt "$latest_touched_mtime" ]; then
+    # Marker postdates both the last commit and every modified file —
+    # genuinely up to date, stay silent.
     exit 0
   fi
 fi

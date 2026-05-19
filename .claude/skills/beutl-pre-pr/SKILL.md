@@ -43,7 +43,7 @@ If this fails: stop here and offer to run `dotnet format Beutl.slnx` (writing). 
 
 ### 2. GPL/MIT boundary scan (always)
 
-For each changed `.csproj` and `.cs` file, run `.claude/hooks/check-gpl-mit-boundary.sh` against the diff (the hook is normally a PreToolUse gate; here we invoke it directly):
+The PreToolUse hook `.claude/hooks/check-gpl-mit-boundary.sh` only inspects fragments from `Edit` / `Write` tool calls (`new_string`, `content`, `edits[].new_string`) — it cannot scan the working tree retroactively. So this step does an equivalent diff-side grep:
 
 ```bash
 for f in $(echo "$CHANGED" | grep -E '\.(csproj|cs)$'); do
@@ -51,7 +51,7 @@ for f in $(echo "$CHANGED" | grep -E '\.(csproj|cs)$'); do
 done | xargs -I{} grep -l -E 'Beutl\.FFmpegWorker' {} 2>/dev/null
 ```
 
-Any hit outside the GPL subtree (`src/Beutl.FFmpegWorker/`, `src/Beutl.FFmpegIpc/` is fine) is a violation — list each `file:line` and stop.
+Only `src/Beutl.FFmpegWorker/` itself is allowed to reference `Beutl.FFmpegWorker`. Every other project — including the MIT IPC layer at `src/Beutl.FFmpegIpc/` — must reach the worker through the IPC protocol, never via `ProjectReference` or `<Compile Include="...FFmpegWorker..." />`. Any match outside the GPL subtree is a violation — list each `file:line` and stop.
 
 ### 3. Targeted build (always)
 

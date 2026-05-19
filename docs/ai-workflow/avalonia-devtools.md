@@ -1,6 +1,16 @@
 # Avalonia DevTools MCP
 
-Beutl ships an Avalonia DevTools MCP server in `.mcp.json` so any AI agent (Claude Code, Codex, Cursor, etc.) can attach to a running Beutl instance and inspect the visual tree, styles, bindings, and dependency-property values without screenshots.
+Beutl wires an Avalonia DevTools MCP server in `.mcp.json` so any AI agent (Claude Code, Codex, Cursor, etc.) can attach to a running Beutl instance and inspect the visual tree, styles, bindings, and dependency-property values without screenshots.
+
+## Prerequisite: restore the dotnet tool
+
+`.mcp.json` invokes the MCP server via `dotnet tool run avalonia-mcp`. The tool is pinned in `.config/dotnet-tools.json` as [`AvaloniaMcp`](https://www.nuget.org/packages/AvaloniaMcp) (MIT, [`adirh3/AvaloniaMcp`](https://github.com/adirh3/AvaloniaMcp)). It is **not** restored automatically by `dotnet build`; on a fresh checkout run:
+
+```bash
+dotnet tool restore
+```
+
+Once the tool is restored, the MCP server starts on demand whenever an AI agent issues an `mcp__avalonia_devtools__*` call. If the tool was never restored you will see `Could not execute because the specified command or file was not found` — re-run `dotnet tool restore` and the MCP entry recovers without restarting the agent.
 
 ## What it gives you
 
