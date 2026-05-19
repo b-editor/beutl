@@ -43,12 +43,22 @@ If `$ARGUMENTS` is empty, infer from the union of:
 - `git ls-files --others --exclude-standard -- docs/specs/ specs/`
 
 Scan both roots — the Beutl-local default (`docs/specs/`) and the upstream
-Spec-Kit default (`specs/`) — for the same reason §2 step 5 scans both:
+Spec-Kit default (`specs/`) — for the same reason §2 step 4 scans both:
 an explicit `SPECIFY_FEATURE_DIRECTORY` or a pre-patch run can leave a
 feature under `specs/`. Pick the phase whose file(s) are pending. If
 files from multiple distinct phases are pending, **stop** and ask the
 user to specify which phase to commit — this skill deliberately commits
 one phase at a time.
+
+**Mixed-root ambiguity check.** Before picking a phase, also verify that
+the pending paths all live under *one* root. If the same `<NNN>-<slug>`
+feature appears under both `docs/specs/` *and* `specs/` (e.g. someone
+ran `/speckit-specify` once before and once after the Beutl-local
+`SPECS_DIR` patch landed), §2's resolver would pick a single root and
+silently commit only half the artifacts. Detect this by extracting
+`<root>/<NNN>-<slug>/` prefixes from the union output above; if two
+different roots map to the same `<NNN>-<slug>`, stop and ask the user
+which root to use rather than guessing.
 
 If `$ARGUMENTS` is empty **and** neither command shows anything pending
 under either root, exit 0 with `nothing to commit — no spec-kit
@@ -147,7 +157,9 @@ case "$PHASE" in
   checklist) MAPPED_FILES=""
              MAPPED_DIRS="checklists" ;;
   analyze)   MAPPED_FILES="analysis.md"; MAPPED_DIRS="" ;;
-  *)         echo "Unknown phase: $PHASE"; exit 1 ;;
+  *)         echo "Unknown phase: $PHASE"
+             echo "Valid phases: spec | plan | tasks | checklist | analyze"
+             exit 1 ;;
 esac
 
 TARGETS=""
@@ -202,9 +214,9 @@ done
 #     Compose grep alternation from MAPPED_FILES / MAPPED_DIRS so a stray
 #     deletion outside the mapping is never picked up. The `grep -E
 #     "^(${prefix_re})$"` below already anchors at both ends, so each
-#     alternative is unanchored (no trailing `$` on file entries, no
-#     leading `^` either) — adding a literal `\$` here would produce a
-#     double `$$` anchor that can never match `git ls-files --deleted`.
+#     alternative carries no trailing `$` — adding a literal `\$` here
+#     would produce a double `$$` anchor that can never match
+#     `git ls-files --deleted`.
 prefix_re=""
 for f in $MAPPED_FILES; do
   prefix_re="${prefix_re:+$prefix_re|}$(printf '%s/%s' "$SPEC_DIR_REL" "$f" | sed 's|[].[*^$/\\]|\\&|g')"
@@ -213,9 +225,16 @@ for d in $MAPPED_DIRS; do
   prefix_re="${prefix_re:+$prefix_re|}$(printf '%s/%s/' "$SPEC_DIR_REL" "$d" | sed 's|[].[*^$/\\]|\\&|g').*"
 done
 if [ -n "$prefix_re" ]; then
+  # Separate `git ls-files --deleted` from the grep filter so a real
+  # failure inside git (corrupt index, permission error, etc.) is not
+  # masked by grep's "no match" exit code via a single trailing
+  # `|| true` over the whole pipeline. We only want to swallow the
+  # "zero deletions matched" case (grep returning 1), not the rare
+  # case where git itself errors out — that should surface and abort.
+  deleted_all=$(git ls-files --deleted)
   while IFS= read -r dl; do
     [ -n "$dl" ] && PENDING="$PENDING $dl"
-  done < <(git ls-files --deleted | grep -E "^(${prefix_re})$" || true)
+  done < <(printf '%s\n' "$deleted_all" | { grep -E "^(${prefix_re})$" || true; })
 fi
 
 PENDING="${PENDING# }"
