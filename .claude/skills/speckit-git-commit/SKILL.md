@@ -1,11 +1,14 @@
 ---
 description: |
-  Stage and commit the freshly generated spec / plan / tasks file under
-  `docs/specs/<NNN>-<slug>/` as a single Conventional Commit
-  (`docs(specs): <phase> NNN-<slug>`). Invoked from `.specify/extensions.yml`
-  as the `after_specify` / `after_plan` / `after_tasks` hooks; also runnable
-  manually: `/speckit-git-commit spec | plan | tasks | checklist | analyze`.
-allowed-tools: Bash(git rev-parse:*) Bash(git status:*) Bash(git diff:*) Bash(git add:*) Bash(git commit:*) Bash(git reset:*) Bash(git log:*) Bash(git ls-files:*) Bash(ls:*) Bash(head:*) Bash(awk:*) Bash(sed:*) Bash(grep:*) Bash(basename:*) Bash(printf:*) Bash(sort:*) Bash(tail:*) Bash(test:*) Bash(jq:*) Bash(python3:*) Bash(find:*)
+  Stage and commit the freshly generated phase artifacts under
+  `docs/specs/<NNN>-<slug>/` as a single Conventional Commit. The subject is
+  `docs(specs): <phase> NNN-<slug>`, with one exception: the `spec` phase
+  uses the verb `scaffold` (so the subject reads `docs(specs): scaffold
+  NNN-<slug>`). Invoked from `.specify/extensions.yml` as the
+  `after_specify` / `after_plan` / `after_tasks` hooks; the `checklist` and
+  `analyze` phases are manual-only and have no hook entry.
+  Runnable manually: `/speckit-git-commit spec | plan | tasks | checklist | analyze`.
+allowed-tools: Bash(git rev-parse:*) Bash(git status:*) Bash(git diff:*) Bash(git add:*) Bash(git commit:*) Bash(git reset:*) Bash(git log:*) Bash(git ls-files:*) Bash(ls:*) Bash(head:*) Bash(awk:*) Bash(sed:*) Bash(grep:*) Bash(basename:*) Bash(printf:*) Bash(sort:*) Bash(tail:*) Bash(test:*) Bash(jq:*) Bash(python3:*)
 argument-hint: "spec|plan|tasks|checklist|analyze"
 ---
 
@@ -40,6 +43,11 @@ docs/specs/`: pick the phase whose file(s) are pending. If files from
 multiple distinct phases are pending, **stop** and ask the user to specify
 which phase to commit — this skill deliberately commits one phase at a time.
 
+If `$ARGUMENTS` is empty **and** neither command shows anything pending
+under `docs/specs/` / `specs/`, exit 0 with `nothing to commit — no
+spec-kit artifacts are pending`. Do not guess a phase, do not prompt;
+this is a no-op completion, not a failure.
+
 ## 2. Locate the spec directory
 
 Resolve `SPEC_DIR` in this order, mirroring how `setup-plan.sh` /
@@ -51,8 +59,23 @@ over branch name; we then add Beutl-specific fallbacks):
    active feature. Read it with `jq` (or `python3` / `grep+sed` fallback)
    and use the value if the directory exists.
 2. **`SPECIFY_FEATURE_DIRECTORY` from env / context.** If the parent skill
-   or the user passed it explicitly, honour it (sanity-check that it lives
-   under `docs/specs/` or `specs/`).
+   or the user passed it explicitly, honour it — but first verify the path
+   lives under `docs/specs/` or `specs/` (relative or absolute under the
+   repo root). A value pointing elsewhere is almost certainly a typo or an
+   injected override; refuse rather than commit outside the spec tree:
+
+   ```bash
+   repo_root=$(git rev-parse --show-toplevel)
+   case "$SPECIFY_FEATURE_DIRECTORY" in
+     docs/specs/*|specs/*) ;;
+     "$repo_root"/docs/specs/*|"$repo_root"/specs/*) ;;
+     "") ;;  # not set — fall through to the next resolution step.
+     *)
+       echo "Refusing — SPECIFY_FEATURE_DIRECTORY ($SPECIFY_FEATURE_DIRECTORY)"
+       echo "must live under docs/specs/ or specs/."
+       exit 1 ;;
+   esac
+   ```
 3. **Current branch.** If `git rev-parse --abbrev-ref HEAD` matches
    `speckit/<NNN>-<slug>`, prefer `docs/specs/<NNN>-<slug>` (Beutl
    convention) and fall back to `specs/<NNN>-<slug>` only when the former
@@ -99,10 +122,13 @@ esac
 
 Build the `TARGETS` list from the phase → files mapping in §1. For the
 `plan` phase, the mapping includes the whole `contracts/` directory; expand
-it to its leaf files via `find` so the staged set is comparable to what
-`git diff --cached --name-only` reports later. Skip mapped paths that do
-not actually exist (e.g. `analyze` may produce no file at all, `contracts/`
-may be absent for a UI-only plan):
+it to its leaf files via `git ls-files` (cached + untracked, honouring
+`.gitignore`) so editor scratch files / `.DS_Store` / OS junk never leak
+into the staged set the way `find -type f` would. The output is also what
+`git diff --cached --name-only` will report later, so the comparison in §4.3
+stays apples-to-apples. Skip mapped paths that do not actually exist (e.g.
+`analyze` may produce no file at all, `contracts/` may be absent for a
+UI-only plan):
 
 ```bash
 case "$PHASE" in
@@ -125,9 +151,12 @@ done
 for d in $MAPPED_DIRS; do
   dp="$SPEC_DIR/$d"
   [ -d "$dp" ] || continue
+  # cached: tracked files under $dp; others + --exclude-standard: untracked
+  # files that are NOT .gitignore-d. Together this is "files git would touch
+  # if you ran `git add -A -- $dp`", which is exactly the set we want.
   while IFS= read -r leaf; do
     [ -n "$leaf" ] && TARGETS="$TARGETS $leaf"
-  done < <(find "$dp" -type f)
+  done < <(git ls-files --cached --others --exclude-standard -- "$dp")
 done
 TARGETS="${TARGETS# }"
 
@@ -200,6 +229,10 @@ wipe phase files the user had already `git add`-ed before invoking us.
 prestaged=$(git diff --cached --name-only | sort -u)
 
 # 4.2 Stage the pending subset of the mapping.
+# Every entry in $PENDING is a *leaf file path* (TARGETS expansion in §3
+# enumerates leaves via `git ls-files`; §4b adds leaves from
+# `git ls-files --deleted`). `git add -A` on a directory would sweep in
+# sibling files, so never let $PENDING grow to contain a directory.
 # shellcheck disable=SC2086
 git add -A -- $PENDING
 ```
@@ -228,11 +261,14 @@ actual=$(git diff --cached --name-only | sort -u)
 prestaged_phase=$(printf '%s\n' "$prestaged" | grep -Fx -f <(printf '%s\n' "$expected") || true)
 prestaged_other=$(printf '%s\n' "$prestaged" | grep -Fxv -f <(printf '%s\n' "$expected") || true)
 
+# Compute "what this skill added" once, up front. §6's rollback path
+# reuses the same variable so a failed `git commit` un-stages exactly
+# what we added — never what the user pre-staged.
+added_by_us=$(printf '%s\n' "$expected" | grep -Fxv -f <(printf '%s\n' "$prestaged_phase") || true)
+
 if [ -n "$prestaged_other" ]; then
   echo "Aborting — unrelated files were already staged before this skill ran:"
   echo "$prestaged_other"
-  # Only un-stage what *this skill* added (expected - prestaged_phase).
-  added_by_us=$(printf '%s\n' "$expected" | grep -Fxv -f <(printf '%s\n' "$prestaged_phase") || true)
   if [ -n "$added_by_us" ]; then
     # shellcheck disable=SC2086
     git reset --quiet -- $added_by_us
@@ -244,8 +280,6 @@ if [ "$expected" != "$actual" ]; then
   echo "Aborting — staged set differs from the pending phase targets."
   echo "Expected:"; echo "$expected"
   echo "Got:";      echo "$actual"
-  # Restore only the paths we added; leave whatever the user pre-staged.
-  added_by_us=$(printf '%s\n' "$expected" | grep -Fxv -f <(printf '%s\n' "$prestaged_phase") || true)
   if [ -n "$added_by_us" ]; then
     # shellcheck disable=SC2086
     git reset --quiet -- $added_by_us
@@ -299,7 +333,10 @@ else
   fi
 fi
 if [ -n "$PRIMARY" ] && [ -f "$PRIMARY" ]; then
-  SUMMARY=$(awk 'NR>1 && NF && $0 !~ /^#/ {print; exit}' "$PRIMARY" | head -c 200)
+  # First non-empty, non-heading line. We deliberately do NOT skip line 1 —
+  # markdown files that begin with a paragraph (no leading `# Title`) would
+  # otherwise yield an empty summary.
+  SUMMARY=$(awk 'NF && $0 !~ /^#/ {print; exit}' "$PRIMARY" | head -c 200)
 else
   SUMMARY=""
 fi
@@ -307,11 +344,34 @@ fi
 
 ## 6. Commit
 
+Run the commit. Pass `$SUMMARY` as a second `-m` **only when it is
+non-empty** — passing an empty `-m ""` produces a noisy trailing blank
+paragraph in the commit body.
+
 ```bash
-git commit -m "$SUBJECT" -m "$SUMMARY"
+if [ -n "$SUMMARY" ]; then
+  commit_status=0
+  git commit -m "$SUBJECT" -m "$SUMMARY" || commit_status=$?
+else
+  commit_status=0
+  git commit -m "$SUBJECT" || commit_status=$?
+fi
+
+if [ "$commit_status" -ne 0 ]; then
+  echo "Aborting — git commit exited with status $commit_status."
+  echo "A pre-commit hook, GPG signing, or the commit-msg hook likely"
+  echo "rejected the commit. Re-staging is left alone, but anything"
+  echo "this skill added on top of the user's pre-staged set is rolled back"
+  echo "to mirror the symmetric §4.3 abort path."
+  if [ -n "$added_by_us" ]; then
+    # shellcheck disable=SC2086
+    git reset --quiet -- $added_by_us
+  fi
+  exit "$commit_status"
+fi
 ```
 
-Do not use `--amend` and do not use `--allow-empty`. Do not push.
+Do not use `--amend`, `--allow-empty`, or `--no-verify`. Do not push.
 
 ## 7. Report
 

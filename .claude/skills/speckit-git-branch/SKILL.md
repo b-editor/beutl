@@ -81,14 +81,26 @@ NNN="$EXPLICIT_NNN"
 
 # Sanity: if a different feature already claims this NNN under a different
 # slug, refuse rather than silently colliding.
-clash=$( {
-  ls -1 docs/specs 2>/dev/null | grep -E "^${NNN}-"
-  ls -1      specs 2>/dev/null | grep -E "^${NNN}-"
+#
+# Each `grep -E` below returns 1 on "zero matches", which is the normal
+# case. We swallow *only* that exit code per-source with `|| true`, so a
+# real failure inside any single source still surfaces — unlike a single
+# trailing `|| true` over the whole compound, which would also hide
+# pipeline failures (e.g. git for-each-ref erroring for permission
+# reasons) and let the skill conclude "no clash" by accident.
+clash_candidates=$( {
+  ls -1 docs/specs 2>/dev/null | grep -E "^${NNN}-" || true
+  ls -1      specs 2>/dev/null | grep -E "^${NNN}-" || true
   git for-each-ref --format='%(refname:short)' \
       'refs/heads/speckit/*' 'refs/remotes/*/speckit/*' 2>/dev/null \
     | sed -E 's|.*speckit/||; s|/.*||' \
-    | grep -E "^${NNN}-"
-} | sort -u | grep -v "^${NNN}-${SLUG}\$" || true)
+    | { grep -E "^${NNN}-" || true; }
+} | sort -u)
+
+# Filter out our own intended branch — anything that remains is a clash.
+clash=$(printf '%s\n' "$clash_candidates" \
+        | grep -vFx "${NNN}-${SLUG}" \
+        | grep -v '^$' || true)
 
 if [ -n "$clash" ]; then
   echo "Aborting — NNN $NNN is already used by:"
@@ -144,28 +156,49 @@ when `origin/speckit/<NNN>-<slug>` has been fetched (e.g. you pulled the
 repo without checking the branch out) — silently creating a fresh orphan
 branch with the same name leads to a rejected/divergent push later.
 
+Each `git switch` invocation captures stderr so we can report the real
+reason when something goes wrong. The auto-track path is allowed to fail
+silently (multiple remotes own the same name → fall through to explicit
+`--track`); every other failure aborts and surfaces git's own message.
+
 ```bash
 if git show-ref --verify --quiet "refs/heads/$BRANCH_NAME"; then
   # Local branch already exists — just switch.
-  git switch "$BRANCH_NAME"
+  if ! switch_err=$(git switch "$BRANCH_NAME" 2>&1 >/dev/null); then
+    echo "Aborting — git switch failed:"
+    printf '%s\n' "$switch_err"
+    exit 1
+  fi
 elif git for-each-ref --format='%(refname)' \
        "refs/remotes/*/$BRANCH_NAME" 2>/dev/null | grep -q .; then
   # Only a remote tracking ref exists; `git switch <name>` auto-creates a
   # local branch and sets up tracking when exactly one remote has the
   # branch. When multiple remotes share the name git refuses; in that
-  # case fall through to the explicit `--track` form.
-  if ! git switch "$BRANCH_NAME" 2>/dev/null; then
+  # case fall through to the explicit `--track` form. The auto-track
+  # failure is benign here (the fallback is what handles it) so we
+  # intentionally discard its stderr; the explicit --track call below
+  # is the one that must surface errors.
+  if ! git switch "$BRANCH_NAME" >/dev/null 2>&1; then
     remote_ref=$(git for-each-ref --format='%(refname)' \
       "refs/remotes/*/$BRANCH_NAME" 2>/dev/null | head -1)
-    git switch --track "${remote_ref#refs/remotes/}"
+    if ! switch_err=$(git switch --track "${remote_ref#refs/remotes/}" 2>&1 >/dev/null); then
+      echo "Aborting — git switch --track failed:"
+      printf '%s\n' "$switch_err"
+      exit 1
+    fi
   fi
 else
-  git switch -c "$BRANCH_NAME"
+  if ! switch_err=$(git switch -c "$BRANCH_NAME" 2>&1 >/dev/null); then
+    echo "Aborting — git switch -c failed:"
+    printf '%s\n' "$switch_err"
+    exit 1
+  fi
 fi
 ```
 
-If branch creation fails (e.g. detached HEAD, locked index), abort with the
-captured stderr — do **not** retry, do **not** force.
+Do **not** retry, do **not** force (`git checkout -B`, `git switch -C`,
+or anything similar). The user can resolve whatever git is complaining
+about (detached HEAD, locked index, dirty tree) and re-run the skill.
 
 ## 5. Emit the JSON contract
 

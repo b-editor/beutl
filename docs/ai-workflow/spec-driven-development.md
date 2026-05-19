@@ -59,7 +59,7 @@ Spec-Kit ships a hook framework that each `/speckit-*` skill consults before / a
 - **`before_specify` → `/speckit-git-branch`** — creates a `speckit/<NNN>-<slug>` feature branch matched to the spec directory.
 - **`after_specify` / `after_plan` / `after_tasks` → `/speckit-git-commit`** — commits the freshly generated phase artifacts as a single Conventional Commit. The subject is `docs(specs): <phase> <NNN>-<slug>`, with one exception: the `spec` phase uses the verb `scaffold` (reads more naturally for the very first commit), so subjects look like `docs(specs): scaffold 001-foo` / `docs(specs): plan 001-foo` / `docs(specs): tasks 001-foo`.
 
-All hooks are declared `optional: true`. The parent skill prints an "Optional Pre-Hook" / "Optional Post-Hook" prompt and waits for you to opt in — declining keeps the legacy "no git automation" behaviour intact. The slash commands are also runnable manually:
+All hooks are declared `optional: true`. The parent skill prints an "Optional Pre-Hook" / "Optional Post-Hook" prompt and waits for you to opt in — declining keeps the legacy "no git automation" behaviour intact. The slash commands are also runnable manually, and `/speckit-git-commit` accepts two extra phases (`checklist`, `analyze`) that are **manual-only** — there is no corresponding `after_checklist` / `after_analyze` hook in `.specify/extensions.yml`, so the user must invoke them explicitly when those artifacts are ready:
 
 ```bash
 /speckit-git-branch <slug>          # create speckit/<NNN>-<slug>
@@ -70,6 +70,12 @@ All hooks are declared `optional: true`. The parent skill prints an "Optional Pr
                                     #   + quickstart.md + contracts/* (when present)
 /speckit-git-commit tasks           # docs(specs): tasks <NNN>-<slug>
                                     #   stages tasks.md
+/speckit-git-commit checklist       # docs(specs): checklist <NNN>-<slug>
+                                    #   stages every file under checklists/
+                                    #   (manual only — no after_checklist hook)
+/speckit-git-commit analyze         # docs(specs): analyze <NNN>-<slug>
+                                    #   stages analysis.md
+                                    #   (manual only — no after_analyze hook)
 ```
 
 Safety rails (enforced inside each skill):
