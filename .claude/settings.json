@@ -43,6 +43,19 @@
           }
         ]
       }
+    ],
+    "Stop": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash",
+            "args": ["${CLAUDE_PROJECT_DIR}/.claude/hooks/remind-self-review.sh"],
+            "timeout": 5
+          }
+        ]
+      }
     ]
   }
 }
