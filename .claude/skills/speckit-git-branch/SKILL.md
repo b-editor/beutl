@@ -14,26 +14,54 @@ Create / switch to a `speckit/<NNN>-<slug>` branch and report it back so the
 calling `/speckit-*` skill can record `BRANCH_NAME`, `FEATURE_NUM`, and
 `SPECIFY_FEATURE_DIRECTORY`.
 
-## 1. Parse the slug
+## 1. Parse the slug (and the optional explicit NNN)
 
-Resolve the slug in this order:
+Resolve the input in this order:
 
 1. `$ARGUMENTS` (the literal text after the slash command).
 2. The `GIT_BRANCH_NAME` env / context value, if the parent skill passed it.
 3. The "short name" the parent `/speckit-specify` skill already computed (2-4
    word kebab-case). Ask the user to paste it if it is not in scope.
 
-Strip a leading `NNN-` if present — the numbering step below re-derives it from
-`docs/specs/`. Whatever remains is `<slug>`. Reject anything that contains
-characters outside `[a-z0-9-]` and stop with a clear error.
+If the input matches `^[0-9]{3}-[a-z0-9-]+$` (the form advertised as
+`/speckit-git-branch <NNN>-<slug>`), split it into `EXPLICIT_NNN` and `SLUG`
+and **keep** the user-supplied number — Codex flagged that silently
+re-allocating it makes the documented form misbehave. Otherwise treat the
+whole input as `SLUG` and let §2 allocate `<NNN>`.
+
+Reject any slug that contains characters outside `[a-z0-9-]` and stop with a
+clear error.
 
 ## 2. Number the feature
 
-The next `<NNN>` must avoid collisions with **both** existing spec directories
-**and** already-allocated `speckit/<NNN>-*` branches (local or remote). A
-cancelled run can leave a `speckit/<NNN>-*` branch behind without its
-`docs/specs/<NNN>-*` directory, so directory-only numbering would re-issue
-the same `<NNN>`.
+If `EXPLICIT_NNN` was provided in §1:
+
+```bash
+NNN="$EXPLICIT_NNN"
+
+# Sanity: if a different feature already claims this NNN under a different
+# slug, refuse rather than silently colliding.
+clash=$( {
+  ls -1 docs/specs 2>/dev/null | grep -E "^${NNN}-"
+  git for-each-ref --format='%(refname:short)' \
+      'refs/heads/speckit/*' 'refs/remotes/*/speckit/*' 2>/dev/null \
+    | sed -E 's|.*speckit/||; s|/.*||' \
+    | grep -E "^${NNN}-"
+} | sort -u | grep -v "^${NNN}-${SLUG}\$" || true)
+
+if [ -n "$clash" ]; then
+  echo "Aborting — NNN $NNN is already used by:"
+  echo "$clash"
+  echo "Re-run without the explicit NNN to allocate the next free number."
+  exit 1
+fi
+```
+
+Otherwise allocate. The next `<NNN>` must avoid collisions with **both**
+existing spec directories **and** already-allocated `speckit/<NNN>-*`
+branches (local or remote). A cancelled run can leave a `speckit/<NNN>-*`
+branch behind without its `docs/specs/<NNN>-*` directory, so directory-only
+numbering would re-issue the same `<NNN>`.
 
 ```bash
 # Highest NNN from spec directories.

@@ -5,31 +5,34 @@ description: |
   (`docs(specs): <phase> NNN-<slug>`). Invoked from `.specify/extensions.yml`
   as the `after_specify` / `after_plan` / `after_tasks` hooks; also runnable
   manually: `/speckit-git-commit spec | plan | tasks | checklist | analyze`.
-allowed-tools: Bash(git rev-parse:*) Bash(git status:*) Bash(git diff:*) Bash(git add:*) Bash(git commit:*) Bash(git log:*) Bash(git ls-files:*) Bash(ls:*) Bash(head:*) Bash(awk:*) Bash(sed:*) Bash(grep:*) Bash(basename:*) Bash(sort:*) Bash(tail:*) Bash(test:*)
+allowed-tools: Bash(git rev-parse:*) Bash(git status:*) Bash(git diff:*) Bash(git add:*) Bash(git commit:*) Bash(git reset:*) Bash(git log:*) Bash(git ls-files:*) Bash(ls:*) Bash(head:*) Bash(awk:*) Bash(sed:*) Bash(grep:*) Bash(basename:*) Bash(sort:*) Bash(tail:*) Bash(test:*) Bash(jq:*) Bash(python3:*) Bash(find:*)
 argument-hint: "spec|plan|tasks|checklist|analyze"
 ---
 
 # Spec-Kit git: phase commit
 
-Make exactly one commit per phase, scoped to `docs/specs/<NNN>-<slug>/`.
+Make exactly one commit per phase, scoped to the spec directory of the
+active feature. The Beutl-local SPECS_DIR patch redirects to `docs/specs/`,
+but the upstream `/speckit-specify` SKILL still defaults to `specs/` in its
+documented prose, so this skill checks both layouts.
 
 ## 1. Identify the phase
 
 `$ARGUMENTS` is one of: `spec`, `plan`, `tasks`, `checklist`, `analyze`.
 
-Each phase maps to one or more Markdown artifacts:
+Each phase maps to one or more artifact paths under the spec directory:
 
-| Phase | Files committed |
+| Phase | Artifacts committed |
 |---|---|
 | `spec` | `spec.md` |
-| `plan` | `plan.md`, `research.md`, `data-model.md`, `quickstart.md` |
+| `plan` | `plan.md`, `research.md`, `data-model.md`, `quickstart.md`, plus the entire `contracts/` directory (when `/speckit-plan` generated API/IPC contracts for the feature) |
 | `tasks` | `tasks.md` |
 | `checklist` | `checklist.md` |
 | `analyze` | `analysis.md` (only when `/speckit-analyze` wrote one) |
 
 `spec` / `tasks` / `checklist` are one-file commits. `plan` is the only
-multi-file phase because `/speckit-plan` produces the design pack alongside
-the plan itself.
+multi-artifact phase because `/speckit-plan` produces the design pack
+alongside the plan itself.
 
 If `$ARGUMENTS` is empty, infer from `git status --porcelain --
 docs/specs/` and `git ls-files --others --exclude-standard --
@@ -39,26 +42,37 @@ which phase to commit — this skill deliberately commits one phase at a time.
 
 ## 2. Locate the spec directory
 
-Resolve `SPEC_DIR` in this order — falling through silently to the wrong
-directory is the most common way this skill could commit the wrong feature:
+Resolve `SPEC_DIR` in this order, mirroring how `setup-plan.sh` /
+`setup-tasks.sh` resolve `SPECIFY_FEATURE_DIRECTORY` (feature.json wins
+over branch name; we then add Beutl-specific fallbacks):
 
-1. **Current branch.** If `git rev-parse --abbrev-ref HEAD` matches
-   `speckit/<NNN>-<slug>`, use `docs/specs/<NNN>-<slug>`.
-2. **`SPECIFY_FEATURE_DIRECTORY` from context.** If the parent skill or the
-   user passed it via env / argument, honour it (after a sanity check that
-   it lives under `docs/specs/`).
-3. **The phase file's actual location.** Look at `git status --porcelain --
-   docs/specs/` and pick the directory whose `<phase>.md` is pending.
-4. **Last resort** — and only when steps 1-3 yield no answer: take the
-   highest-numbered `docs/specs/<NNN>-*/` directory:
+1. **`.specify/feature.json` `feature_directory`.** When the upstream
+   `/speckit-specify` writes this file, it is the canonical handle on the
+   active feature. Read it with `jq` (or `python3` / `grep+sed` fallback)
+   and use the value if the directory exists.
+2. **`SPECIFY_FEATURE_DIRECTORY` from env / context.** If the parent skill
+   or the user passed it explicitly, honour it (sanity-check that it lives
+   under `docs/specs/` or `specs/`).
+3. **Current branch.** If `git rev-parse --abbrev-ref HEAD` matches
+   `speckit/<NNN>-<slug>`, prefer `docs/specs/<NNN>-<slug>` (Beutl
+   convention) and fall back to `specs/<NNN>-<slug>` only when the former
+   does not exist.
+4. **The phase file's actual location.** Look at `git status --porcelain`
+   and `git ls-files --others --exclude-standard` under both `docs/specs/`
+   and `specs/` and pick the directory whose mapped phase file is pending.
+5. **Last resort** — and only when steps 1-4 yield no answer: take the
+   highest-numbered `<root>/<NNN>-*/` directory across both roots:
 
    ```bash
-   SPEC_DIR=$(ls -1d docs/specs/[0-9][0-9][0-9]-* 2>/dev/null | sort | tail -1)
+   SPEC_DIR=$( {
+     ls -1d docs/specs/[0-9][0-9][0-9]-* 2>/dev/null
+     ls -1d      specs/[0-9][0-9][0-9]-* 2>/dev/null
+   } | sort | tail -1 )
    ```
 
-If the resolved `SPEC_DIR` is empty or the expected `<phase>.md` does not
-live under it, stop and report the mismatch — do not commit to the wrong
-directory by inertia.
+If the resolved `SPEC_DIR` is empty or the expected `<phase>` file(s) do
+not live under it, stop and report the mismatch — do not commit to the
+wrong directory by inertia.
 
 Extract the slug:
 
@@ -70,68 +84,88 @@ SLUG=${NNN_SLUG#*-}                # add-foo-button
 
 ## 3. Verify the target file(s)
 
-Build the `TARGETS` list from the phase → files mapping in §1. Skip any
-mapped file that does not actually exist (e.g. `analyze` may produce no
-file at all in some runs):
+Build the `TARGETS` list from the phase → files mapping in §1. For the
+`plan` phase, the mapping includes the whole `contracts/` directory; expand
+it to its leaf files via `find` so the staged set is comparable to what
+`git diff --cached --name-only` reports later. Skip mapped paths that do
+not actually exist (e.g. `analyze` may produce no file at all, `contracts/`
+may be absent for a UI-only plan):
 
 ```bash
 case "$PHASE" in
-  spec)      MAPPED="spec.md" ;;
-  plan)      MAPPED="plan.md research.md data-model.md quickstart.md" ;;
-  tasks)     MAPPED="tasks.md" ;;
-  checklist) MAPPED="checklist.md" ;;
-  analyze)   MAPPED="analysis.md" ;;
+  spec)      MAPPED_FILES="spec.md"; MAPPED_DIRS="" ;;
+  plan)      MAPPED_FILES="plan.md research.md data-model.md quickstart.md"
+             MAPPED_DIRS="contracts" ;;
+  tasks)     MAPPED_FILES="tasks.md"; MAPPED_DIRS="" ;;
+  checklist) MAPPED_FILES="checklist.md"; MAPPED_DIRS="" ;;
+  analyze)   MAPPED_FILES="analysis.md"; MAPPED_DIRS="" ;;
   *)         echo "Unknown phase: $PHASE"; exit 1 ;;
 esac
 
 TARGETS=""
-for f in $MAPPED; do
+for f in $MAPPED_FILES; do
   p="$SPEC_DIR/$f"
   [ -f "$p" ] && TARGETS="$TARGETS $p"
+done
+for d in $MAPPED_DIRS; do
+  dp="$SPEC_DIR/$d"
+  [ -d "$dp" ] || continue
+  while IFS= read -r leaf; do
+    [ -n "$leaf" ] && TARGETS="$TARGETS $leaf"
+  done < <(find "$dp" -type f)
 done
 TARGETS="${TARGETS# }"
 
 [ -n "$TARGETS" ] || { echo "No $PHASE artifacts under $SPEC_DIR"; exit 1; }
 ```
 
-Check whether at least one target file is actually pending. **Untracked
-files do not show up in `git diff`**, but newly generated files are
-typically untracked on their first commit. Test all three states across
-all targets:
+Check whether at least one target file is **pending** (untracked, modified,
+or staged). The pending subset is what we will compare against the staged
+set after `git add` — Codex flagged that requiring the full `TARGETS`
+list to match the staged set wrongly aborted partial-file edits in the
+plan phase (e.g. editing only `plan.md` and leaving `research.md`
+unchanged).
 
 ```bash
-pending=""
+PENDING=""
 for t in $TARGETS; do
+  is_pending=""
   if git ls-files --others --exclude-standard -- "$t" | grep -q .; then
-    pending="yes"; break
+    is_pending="yes"
+  elif ! git diff --quiet -- "$t"; then
+    is_pending="yes"
+  elif ! git diff --cached --quiet -- "$t"; then
+    is_pending="yes"
   fi
-  if ! git diff --quiet -- "$t" ; then pending="yes"; break; fi
-  if ! git diff --cached --quiet -- "$t" ; then pending="yes"; break; fi
+  [ -n "$is_pending" ] && PENDING="$PENDING $t"
 done
-[ -n "$pending" ] || { echo "No pending changes for phase $PHASE"; exit 0; }
+PENDING="${PENDING# }"
+
+[ -n "$PENDING" ] || { echo "No pending changes for phase $PHASE"; exit 0; }
 ```
 
-## 4. Stage **only** the mapped phase files
+## 4. Stage **only** the pending phase files
 
 `git add -- "$SPEC_DIR"` would sweep in any other pending edits inside the
 spec directory (the user's draft notes, an old `checklist.md`, a stray
-`scratch.md`). Stage only the mapped files:
+`scratch.md`). Stage only the pending subset of the mapping:
 
 ```bash
 # shellcheck disable=SC2086
-git add -- $TARGETS
+git add -- $PENDING
 ```
 
-Then verify the staged set is exactly the targets — no more, no less:
+Then verify the staged set matches the pending subset — no more, no less:
 
 ```bash
-expected=$(printf '%s\n' $TARGETS | sort -u)
+expected=$(printf '%s\n' $PENDING | sort -u)
 actual=$(git diff --cached --name-only | sort -u)
 if [ "$expected" != "$actual" ]; then
-  echo "Aborting — staged set differs from the mapped phase targets."
+  echo "Aborting — staged set differs from the pending phase targets."
   echo "Expected:"; echo "$expected"
   echo "Got:";      echo "$actual"
-  git reset --quiet -- $TARGETS
+  # shellcheck disable=SC2086
+  git reset --quiet -- $PENDING
   exit 1
 fi
 ```
@@ -165,8 +199,8 @@ it. For the multi-file `plan` phase, list the additional artifacts after
 the summary line.
 
 ```bash
-# Primary file is always the first entry in $MAPPED.
-PRIMARY="$SPEC_DIR/$(printf '%s' "$MAPPED" | awk '{print $1}')"
+# Primary file is always the first entry in $MAPPED_FILES.
+PRIMARY="$SPEC_DIR/$(printf '%s' "$MAPPED_FILES" | awk '{print $1}')"
 SUMMARY=$(awk 'NR>1 && NF && $0 !~ /^#/ {print; exit}' "$PRIMARY" | head -c 200)
 ```
 
@@ -190,8 +224,8 @@ files in one commit:
 
 ## Refusals
 
-- Never `git add` outside `docs/specs/<NNN>-<slug>/`.
+- Never `git add` outside the resolved `SPEC_DIR`.
 - Never `git push`. The user pushes when they are ready.
 - Never amend a previous commit.
 - Never run `dotnet format` / linters / tests as part of this skill — its
-  scope is exactly one commit of exactly one Markdown file.
+  scope is exactly one commit of one phase's artifact(s).
