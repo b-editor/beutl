@@ -62,9 +62,4 @@ fi
 
 msg="Reminder: $reason. Consider running \`/beutl-ai-self-review\` to keep AGENTS.md, agents, skills, rules, hooks, and docs/ai-workflow in sync before wrapping up. (Run \`touch .claude/.last-self-review\` to silence until the next change.)"
 
-jq -n --arg m "$msg" '{
-  hookSpecificOutput: {
-    hookEventName: "Stop",
-    systemMessage: $m
-  }
-}'
+jq -n --arg m "$msg" '{ systemMessage: $m }'
