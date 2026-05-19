@@ -37,16 +37,23 @@ Each phase maps to one or more artifact paths under the spec directory:
 multi-artifact because the upstream `/speckit-*` SKILLs produce design
 packs and checklist suites alongside the headline file.
 
-If `$ARGUMENTS` is empty, infer from `git status --porcelain --
-docs/specs/` and `git ls-files --others --exclude-standard --
-docs/specs/`: pick the phase whose file(s) are pending. If files from
-multiple distinct phases are pending, **stop** and ask the user to specify
-which phase to commit — this skill deliberately commits one phase at a time.
+If `$ARGUMENTS` is empty, infer from the union of:
+
+- `git status --porcelain -- docs/specs/ specs/`
+- `git ls-files --others --exclude-standard -- docs/specs/ specs/`
+
+Scan both roots — the Beutl-local default (`docs/specs/`) and the upstream
+Spec-Kit default (`specs/`) — for the same reason §2 step 5 scans both:
+an explicit `SPECIFY_FEATURE_DIRECTORY` or a pre-patch run can leave a
+feature under `specs/`. Pick the phase whose file(s) are pending. If
+files from multiple distinct phases are pending, **stop** and ask the
+user to specify which phase to commit — this skill deliberately commits
+one phase at a time.
 
 If `$ARGUMENTS` is empty **and** neither command shows anything pending
-under `docs/specs/` / `specs/`, exit 0 with `nothing to commit — no
-spec-kit artifacts are pending`. Do not guess a phase, do not prompt;
-this is a no-op completion, not a failure.
+under either root, exit 0 with `nothing to commit — no spec-kit
+artifacts are pending`. Do not guess a phase, do not prompt; this is a
+no-op completion, not a failure.
 
 ## 2. Locate the spec directory
 
@@ -193,10 +200,14 @@ done
 
 # 4b. PENDING also includes deletions of mapped paths.
 #     Compose grep alternation from MAPPED_FILES / MAPPED_DIRS so a stray
-#     deletion outside the mapping is never picked up.
+#     deletion outside the mapping is never picked up. The `grep -E
+#     "^(${prefix_re})$"` below already anchors at both ends, so each
+#     alternative is unanchored (no trailing `$` on file entries, no
+#     leading `^` either) — adding a literal `\$` here would produce a
+#     double `$$` anchor that can never match `git ls-files --deleted`.
 prefix_re=""
 for f in $MAPPED_FILES; do
-  prefix_re="${prefix_re:+$prefix_re|}$(printf '%s/%s' "$SPEC_DIR_REL" "$f" | sed 's|[].[*^$/\\]|\\&|g')\$"
+  prefix_re="${prefix_re:+$prefix_re|}$(printf '%s/%s' "$SPEC_DIR_REL" "$f" | sed 's|[].[*^$/\\]|\\&|g')"
 done
 for d in $MAPPED_DIRS; do
   prefix_re="${prefix_re:+$prefix_re|}$(printf '%s/%s/' "$SPEC_DIR_REL" "$d" | sed 's|[].[*^$/\\]|\\&|g').*"
