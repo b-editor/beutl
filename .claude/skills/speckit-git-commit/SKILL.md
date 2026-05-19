@@ -79,8 +79,14 @@ untracked_paths=$(git ls-files --others --exclude-standard -- docs/specs/ specs/
 # `[a-z0-9-]+` matches the slugs that §1 of speckit-git-branch validates;
 # non-conforming spec directories (e.g. a user-supplied `GIT_BRANCH_NAME`
 # whose suffix has uppercase or underscores) silently fall outside the
-# regex and are skipped here — that is an accepted limitation, not a
-# silent commit, because §2's resolver still picks the directory.
+# regex and are skipped here. That is an accepted limitation, not a
+# silent commit: §2's resolver (feature.json / env var / branch name /
+# pending-file location / highest-NNN glob) never re-applies this
+# regex, so a non-conforming directory is still picked up and
+# committed normally. The corollary is that **the mixed-root duplicate
+# check cannot catch a clash whose slug is non-conforming** — a future
+# maintainer relying on §1's safety net for those features should
+# widen the regex (e.g. `[A-Za-z0-9_-]+`) instead of over-trusting it.
 pending_features=$(printf '%s\n%s\n' "$porcelain_paths" "$untracked_paths" \
   | grep -oE '^(docs/specs|specs)/[0-9]{3}-[a-z0-9-]+/' \
   | sort -u)
