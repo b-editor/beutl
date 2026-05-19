@@ -12,6 +12,16 @@
 # allow when its own preconditions break.
 set -euo pipefail
 
+# Preflight: the deny path below depends on `jq`. If `jq` is missing,
+# `deny` would itself fail (recursing the ERR trap) and the script would
+# exit non-zero, which Claude Code's hook protocol treats as non-blocking
+# — i.e. the tool call would proceed (silent allow). Emit a hardcoded
+# deny JSON so the hook can fail closed even without jq.
+if ! command -v jq >/dev/null 2>&1; then
+  printf '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny","permissionDecisionReason":"check-gpl-mit-boundary.sh requires jq but it is not on PATH; denying to fail closed. Install jq (brew install jq / apt install jq) to restore normal hook operation."}}\n'
+  exit 0
+fi
+
 deny() {
   jq -n --arg reason "$1" '{
     hookSpecificOutput: {
