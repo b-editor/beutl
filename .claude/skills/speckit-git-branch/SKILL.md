@@ -111,9 +111,26 @@ If the current branch is **not** `main`:
 
 ## 4. Create or switch the branch
 
+Try local first, then remote tracking, then create. The remote case matters
+when `origin/speckit/<NNN>-<slug>` has been fetched (e.g. you pulled the
+repo without checking the branch out) — silently creating a fresh orphan
+branch with the same name leads to a rejected/divergent push later.
+
 ```bash
 if git show-ref --verify --quiet "refs/heads/$BRANCH_NAME"; then
+  # Local branch already exists — just switch.
   git switch "$BRANCH_NAME"
+elif git for-each-ref --format='%(refname)' \
+       "refs/remotes/*/$BRANCH_NAME" 2>/dev/null | grep -q .; then
+  # Only a remote tracking ref exists; `git switch <name>` auto-creates a
+  # local branch and sets up tracking when exactly one remote has the
+  # branch. When multiple remotes share the name git refuses; in that
+  # case fall through to the explicit `--track` form.
+  if ! git switch "$BRANCH_NAME" 2>/dev/null; then
+    remote_ref=$(git for-each-ref --format='%(refname)' \
+      "refs/remotes/*/$BRANCH_NAME" 2>/dev/null | head -1)
+    git switch --track "${remote_ref#refs/remotes/}"
+  fi
 else
   git switch -c "$BRANCH_NAME"
 fi

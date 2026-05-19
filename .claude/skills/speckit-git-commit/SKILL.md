@@ -24,15 +24,15 @@ Each phase maps to one or more artifact paths under the spec directory:
 
 | Phase | Artifacts committed |
 |---|---|
-| `spec` | `spec.md` |
+| `spec` | `spec.md` + `checklists/requirements.md` (the requirements checklist `/speckit-specify` writes in the same flow) |
 | `plan` | `plan.md`, `research.md`, `data-model.md`, `quickstart.md`, plus the entire `contracts/` directory (when `/speckit-plan` generated API/IPC contracts for the feature) |
 | `tasks` | `tasks.md` |
-| `checklist` | `checklist.md` |
+| `checklist` | the entire `checklists/` directory (`/speckit-checklist` writes files like `ux.md`, `api.md`, `security.md` under it, not a single `checklist.md`) |
 | `analyze` | `analysis.md` (only when `/speckit-analyze` wrote one) |
 
-`spec` / `tasks` / `checklist` are one-file commits. `plan` is the only
-multi-artifact phase because `/speckit-plan` produces the design pack
-alongside the plan itself.
+`tasks` is a one-file commit. `spec`, `plan`, `checklist` are
+multi-artifact because the upstream `/speckit-*` SKILLs produce design
+packs and checklist suites alongside the headline file.
 
 If `$ARGUMENTS` is empty, infer from `git status --porcelain --
 docs/specs/` and `git ls-files --others --exclude-standard --
@@ -93,11 +93,13 @@ may be absent for a UI-only plan):
 
 ```bash
 case "$PHASE" in
-  spec)      MAPPED_FILES="spec.md"; MAPPED_DIRS="" ;;
+  spec)      MAPPED_FILES="spec.md checklists/requirements.md"
+             MAPPED_DIRS="" ;;
   plan)      MAPPED_FILES="plan.md research.md data-model.md quickstart.md"
              MAPPED_DIRS="contracts" ;;
   tasks)     MAPPED_FILES="tasks.md"; MAPPED_DIRS="" ;;
-  checklist) MAPPED_FILES="checklist.md"; MAPPED_DIRS="" ;;
+  checklist) MAPPED_FILES=""
+             MAPPED_DIRS="checklists" ;;
   analyze)   MAPPED_FILES="analysis.md"; MAPPED_DIRS="" ;;
   *)         echo "Unknown phase: $PHASE"; exit 1 ;;
 esac
@@ -120,13 +122,20 @@ TARGETS="${TARGETS# }"
 ```
 
 Check whether at least one target file is **pending** (untracked, modified,
-or staged). The pending subset is what we will compare against the staged
-set after `git add` — Codex flagged that requiring the full `TARGETS`
-list to match the staged set wrongly aborted partial-file edits in the
-plan phase (e.g. editing only `plan.md` and leaving `research.md`
+staged, or **deleted**). The pending subset is what we will compare against
+the staged set after `git add` — Codex flagged that requiring the full
+`TARGETS` list to match the staged set wrongly aborted partial-file edits
+in the plan phase (e.g. editing only `plan.md` and leaving `research.md`
 unchanged).
 
+Also pick up files that **used to exist** in the mapped layout but were
+deleted in the current working tree (e.g. `quickstart.md` removed during a
+plan rewrite, an obsolete `contracts/*.md`). `TARGETS` is populated only
+from files that still exist, so the deleted set has to come from
+`git ls-files --deleted` filtered by the same mapping prefixes.
+
 ```bash
+# 4a. PENDING from still-existing TARGETS.
 PENDING=""
 for t in $TARGETS; do
   is_pending=""
@@ -139,8 +148,24 @@ for t in $TARGETS; do
   fi
   [ -n "$is_pending" ] && PENDING="$PENDING $t"
 done
-PENDING="${PENDING# }"
 
+# 4b. PENDING also includes deletions of mapped paths.
+#     Compose grep alternation from MAPPED_FILES / MAPPED_DIRS so a stray
+#     deletion outside the mapping is never picked up.
+prefix_re=""
+for f in $MAPPED_FILES; do
+  prefix_re="${prefix_re:+$prefix_re|}$(printf '%s/%s' "$SPEC_DIR" "$f" | sed 's|[].[*^$/\\]|\\&|g')\$"
+done
+for d in $MAPPED_DIRS; do
+  prefix_re="${prefix_re:+$prefix_re|}$(printf '%s/%s/' "$SPEC_DIR" "$d" | sed 's|[].[*^$/\\]|\\&|g').*"
+done
+if [ -n "$prefix_re" ]; then
+  while IFS= read -r dl; do
+    [ -n "$dl" ] && PENDING="$PENDING $dl"
+  done < <(git ls-files --deleted | grep -E "^(${prefix_re})$" || true)
+fi
+
+PENDING="${PENDING# }"
 [ -n "$PENDING" ] || { echo "No pending changes for phase $PHASE"; exit 0; }
 ```
 
@@ -148,18 +173,35 @@ PENDING="${PENDING# }"
 
 `git add -- "$SPEC_DIR"` would sweep in any other pending edits inside the
 spec directory (the user's draft notes, an old `checklist.md`, a stray
-`scratch.md`). Stage only the pending subset of the mapping:
+`scratch.md`). Stage only the pending subset of the mapping. `git add -A`
+on a path also records deletions, which is what we want:
 
 ```bash
 # shellcheck disable=SC2086
-git add -- $PENDING
+git add -A -- $PENDING
 ```
 
-Then verify the staged set matches the pending subset — no more, no less:
+Then verify the staged set matches the pending subset — no more, no less.
+**Normalize both sides to repo-relative paths** before comparing: when
+`SPEC_DIR` came from an absolute `SPECIFY_FEATURE_DIRECTORY` or
+`.specify/feature.json` value, `PENDING` will hold absolute paths, but
+`git diff --cached --name-only` always reports repo-relative paths.
 
 ```bash
-expected=$(printf '%s\n' $PENDING | sort -u)
+repo_root=$(git rev-parse --show-toplevel)
+
+# Strip the repo prefix from any absolute path; leave repo-relative
+# paths untouched.
+to_rel() {
+  case "$1" in
+    "$repo_root"/*) printf '%s' "${1#$repo_root/}" ;;
+    *)              printf '%s' "$1" ;;
+  esac
+}
+
+expected=$(for p in $PENDING; do to_rel "$p"; echo; done | sort -u | grep -v '^$')
 actual=$(git diff --cached --name-only | sort -u)
+
 if [ "$expected" != "$actual" ]; then
   echo "Aborting — staged set differs from the pending phase targets."
   echo "Expected:"; echo "$expected"
