@@ -4,7 +4,7 @@ description: |
   Development flow. Invoked from `.specify/extensions.yml` as the `before_specify`
   hook (`speckit.git.branch`), but you can also run it manually:
   `/speckit-git-branch <slug>` or `/speckit-git-branch <NNN>-<slug>`.
-allowed-tools: Bash(git rev-parse:*) Bash(git status:*) Bash(git branch:*) Bash(git switch:*) Bash(git checkout:*) Bash(ls:*) Bash(printf:*)
+allowed-tools: Bash(git rev-parse:*) Bash(git status:*) Bash(git branch:*) Bash(git switch:*) Bash(git checkout:*) Bash(git for-each-ref:*) Bash(git show-ref:*) Bash(ls:*) Bash(printf:*) Bash(grep:*) Bash(awk:*) Bash(sort:*) Bash(tail:*) Bash(sed:*)
 argument-hint: "<slug-or-NNN-slug>"
 ---
 
@@ -29,15 +29,33 @@ characters outside `[a-z0-9-]` and stop with a clear error.
 
 ## 2. Number the feature
 
+The next `<NNN>` must avoid collisions with **both** existing spec directories
+**and** already-allocated `speckit/<NNN>-*` branches (local or remote). A
+cancelled run can leave a `speckit/<NNN>-*` branch behind without its
+`docs/specs/<NNN>-*` directory, so directory-only numbering would re-issue
+the same `<NNN>`.
+
 ```bash
-ls -1 docs/specs 2>/dev/null \
+# Highest NNN from spec directories.
+spec_max=$( ls -1 docs/specs 2>/dev/null \
   | grep -E '^[0-9]{3}-' \
   | awk -F- '{print $1}' \
-  | sort -n | tail -1
+  | sort -n | tail -1 )
+
+# Highest NNN from local + remote speckit/ branches.
+branch_max=$( git for-each-ref --format='%(refname:short)' \
+    'refs/heads/speckit/*' 'refs/remotes/*/speckit/*' 2>/dev/null \
+  | sed -E 's|.*speckit/||; s|/.*||' \
+  | grep -E '^[0-9]{3}-' \
+  | awk -F- '{print $1}' \
+  | sort -n | tail -1 )
+
+current_max=$(printf '%s\n%s\n' "$spec_max" "$branch_max" \
+  | grep -E '^[0-9]+$' | sort -n | tail -1)
 ```
 
-Increment by one, zero-pad to 3 digits → `<NNN>`. If `docs/specs/` is missing
-or has no numbered entries yet, start at `001`.
+Increment by one, zero-pad to 3 digits → `<NNN>`. If both lookups are empty,
+start at `001`.
 
 Compose:
 
@@ -85,10 +103,27 @@ SKILL can parse it:
 {"BRANCH_NAME":"speckit/<NNN>-<slug>","FEATURE_NUM":"<NNN>","SPECIFY_FEATURE_DIRECTORY":"docs/specs/<NNN>-<slug>"}
 ```
 
-Then, in human-readable text below it, summarise:
+> **Important: `SPECIFY_FEATURE_DIRECTORY` is informational.** The
+> upstream `/speckit-specify` workflow generates its own spec directory
+> name (`Auto-generate it under specs/` — see the SKILL's resolution
+> order) and does **not** auto-consume hook output. To force matching
+> directory and branch numbers, the user must either:
+>
+> 1. Pass `SPECIFY_FEATURE_DIRECTORY=docs/specs/<NNN>-<slug>` (or the
+>    equivalent argument the parent skill accepts) before re-entering
+>    `/speckit-specify`, **or**
+> 2. Accept that the spec directory may use a different `<NNN>` than
+>    the branch when a stray `speckit/<NNN>-*` branch already exists.
+>
+> The Beutl-local `SPECS_DIR` patch in `.specify/scripts/bash/common.sh`
+> only redirects the *root* (`specs/` → `docs/specs/`); the numbering
+> logic upstream is untouched.
+
+Then, in human-readable text below the JSON, summarise:
 
 - branch name and whether it was created or switched
-- the proposed spec directory path
+- the proposed spec directory path (with a one-line note when it differs
+  from what the parent skill is about to generate)
 - whether the working tree had to be carried over
 
 ## Refusals
