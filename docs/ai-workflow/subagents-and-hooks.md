@@ -10,6 +10,10 @@
 | `beutl-spec-explorer` | "Is there a spec for this?" | haiku | Walks `docs/specs/` (the Spec-Kit output dir for Beutl). Preloads the Beutl skills. |
 | `beutl-xaml-binder` | After adding/changing many `.axaml` files | haiku | Confirms compiled bindings are in place. |
 
+### Output style: `beutl-review`
+
+For interactive review sessions (without going through a subagent), pick the `Beutl review` output style via `/output-style` to lock Claude's response into the same four-axis shape (`GPL/MIT`, `XAML compiled bindings`, `NUnit conventions`, `SourceGenerator impact`) that `beutl-reviewer` produces. Definition: `.claude/output-styles/beutl-review.md`.
+
 ### Invoking them
 
 Speak naturally — Claude Code auto-delegates based on each agent's description (especially the ones that say "use proactively"). To force a specific agent:
@@ -34,6 +38,7 @@ All hooks are team-shared (loaded via `.claude/settings.json`). On first launch,
 | `PreToolUse(Bash)` → `block-dangerous-bash.sh` | Deny obvious literal forms of `rm -rf /`, `rm -rf ~`, `rm -rf $HOME` / `${HOME}`, and `git push (--force / -f / --force-with-lease) origin (main / master)`. | **deny** |
 | `PreToolUse(Bash)` → `allow-dotnet-commands.sh` | Auto-allow `dotnet build/test/format/restore/run`, `./build.sh`. | **allow** |
 | `PreToolUse(Edit\|Write\|MultiEdit)` → `check-gpl-mit-boundary.sh` | Inspect the new content fragments of a `.csproj` edit (`new_string`, `content`, `edits[].new_string`) and deny when they include a `<ProjectReference ... Beutl.FFmpegWorker`. | **deny** |
+| `Stop` → `remind-self-review.sh` | When the session has touched the AI workflow surface (`.claude/`, `AGENTS.md`, `CLAUDE.md`, `docs/ai-workflow/`) or 3+ tracked files, emit a one-line reminder to run `/beutl-ai-self-review`. Suppresses itself if `.claude/.last-self-review` is newer than HEAD. | no |
 
 **Ordering invariant** (`.claude/settings.json`): the deny hook (`block-dangerous-bash.sh`) **must run before** the allow hook (`allow-dotnet-commands.sh`) for the `Bash` matcher. Claude Code evaluates hooks in declaration order, and a later allow can override an earlier deny on the same call. Do not reorder the array without updating this doc.
 

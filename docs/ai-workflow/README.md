@@ -37,7 +37,7 @@ beutl/
 ## Detailed guides
 
 - [coding-guidelines-for-ai.md](./coding-guidelines-for-ai.md) — only the rules that require human judgment (linters cover the rest)
-- [subagents-and-hooks.md](./subagents-and-hooks.md) — walkthrough of the 5 subagents and 4 hooks
+- [subagents-and-hooks.md](./subagents-and-hooks.md) — walkthrough of the 5 subagents and 5 hooks
 - [spec-driven-development.md](./spec-driven-development.md) — how to use Spec-Kit
 - [gpl-mit-boundary.md](./gpl-mit-boundary.md) — IPC boundary around `Beutl.FFmpegWorker`
 

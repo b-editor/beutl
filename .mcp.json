@@ -1,0 +1,9 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-mcp.json",
+  "mcpServers": {
+    "context7": {
+      "type": "http",
+      "url": "https://mcp.context7.com/mcp"
+    }
+  }
+}

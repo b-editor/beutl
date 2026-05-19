@@ -1,5 +1,9 @@
 {
   "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "statusLine": {
+    "type": "command",
+    "command": "bash \"${CLAUDE_PROJECT_DIR}/.claude/statusline.sh\""
+  },
   "hooks": {
     "SessionStart": [
       {
@@ -39,6 +43,19 @@
             "type": "command",
             "command": "bash",
             "args": ["${CLAUDE_PROJECT_DIR}/.claude/hooks/check-gpl-mit-boundary.sh"],
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash",
+            "args": ["${CLAUDE_PROJECT_DIR}/.claude/hooks/remind-self-review.sh"],
             "timeout": 5
           }
         ]
