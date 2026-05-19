@@ -2,9 +2,12 @@
 using Avalonia.Controls;
 using Beutl.Animation;
 using Beutl.Editor.Components.TimelineTab.ViewModels;
+using Beutl.Editor.Services;
 using Beutl.Engine;
+using Beutl.Extensibility;
 using Beutl.Language;
 using Beutl.Media;
+using Beutl.NodeGraph;
 using Beutl.ProjectSystem;
 using Beutl.Services;
 using Microsoft.Extensions.Logging;
@@ -233,9 +236,6 @@ public partial class EditViewModel : IContextCommandHandler, IContextCommandStat
         TimeSpan? target = null;
         foreach (Element el in roots)
         {
-            // KeyFrameAnimation は AnimatableProperty.SetOwnerObject 等で HierarchicalChildren に
-            // attach されるため、ObjectSearcher (CoreProperty/EngineObject.Properties.CurrentValue 経由)
-            // では届かない。Hierarchical ツリーを直接辿る必要がある。
             foreach (KeyFrameAnimation anim in EnumerateKeyFrameAnimations(el))
             {
                 // UseGlobalClock=false の場合、KeyFrameAnimation<T>.GetAnimatedValue は直近の親
@@ -278,22 +278,33 @@ public partial class EditViewModel : IContextCommandHandler, IContextCommandStat
         }
     }
 
-    private static IEnumerable<KeyFrameAnimation> EnumerateKeyFrameAnimations(IHierarchical root)
+    // GraphEditorTabViewModel.Refresh と同じ二段サーチで KeyFrameAnimation を収集する:
+    //   1. EngineObject.Properties.Animation (通常プロパティのアニメーション)
+    //   2. IDynamicPort 経由の INodeMember.Property.Animation (ノードグラフ動的ポートのアニメーション)
+    // 後者は NodePropertyAdapter.Animation を hierarchical child として attach しないため、
+    // EngineObject.Properties だけを辿るパスからは取りこぼされる。
+    private static IEnumerable<KeyFrameAnimation> EnumerateKeyFrameAnimations(Element root)
     {
-        var visited = new HashSet<IHierarchical>();
-        var stack = new Stack<IHierarchical>();
-        stack.Push(root);
-        while (stack.Count > 0)
+        var visited = new HashSet<KeyFrameAnimation>();
+
+        var enginePass = new ObjectSearcher(root, v => v is EngineObject);
+        foreach (EngineObject obj in enginePass.SearchAll().OfType<EngineObject>())
         {
-            IHierarchical node = stack.Pop();
-            if (!visited.Add(node))
-                continue;
+            foreach (IProperty property in obj.Properties)
+            {
+                if (property.Animation is KeyFrameAnimation kfa && visited.Add(kfa))
+                    yield return kfa;
+            }
+        }
 
-            if (node is KeyFrameAnimation kfa)
+        var portPass = new ObjectSearcher(root, v => v is IDynamicPort);
+        foreach (INodeMember member in portPass.SearchAll().OfType<INodeMember>())
+        {
+            if (member.Property is IAnimatablePropertyAdapter { Animation: KeyFrameAnimation kfa }
+                && visited.Add(kfa))
+            {
                 yield return kfa;
-
-            foreach (IHierarchical child in node.HierarchicalChildren)
-                stack.Push(child);
+            }
         }
     }
 }

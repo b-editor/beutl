@@ -789,19 +789,19 @@
     <value>Seek to the previous marker.</value>
   </data>
   <data name="NextKeyFrame" xml:space="preserve">
-    <value>Next key frame</value>
+    <value>Next keyframe</value>
   </data>
   <data name="NextKeyFrame_Description" xml:space="preserve">
-    <value>Seek to the next key frame within the selected element (or scene-wide if none).</value>
+    <value>Seek to the next keyframe within the selected element (or scene-wide if none).</value>
   </data>
   <data name="PreviousKeyFrame" xml:space="preserve">
-    <value>Previous key frame</value>
+    <value>Previous keyframe</value>
   </data>
   <data name="PreviousKeyFrame_Description" xml:space="preserve">
-    <value>Seek to the previous key frame within the selected element (or scene-wide if none).</value>
+    <value>Seek to the previous keyframe within the selected element (or scene-wide if none).</value>
   </data>
   <data name="NoKeyFrameToSeek" xml:space="preserve">
-    <value>No key frame to seek.</value>
+    <value>No keyframe to seek.</value>
   </data>
   <data name="ShuttleForward" xml:space="preserve">
     <value>Shuttle forward</value>
