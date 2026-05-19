@@ -40,16 +40,6 @@ You are the Avalonia XAML bindings auditor.
 <minimal diff>
 ```
 
-## Optional: runtime cross-check via Avalonia DevTools MCP
-
-If `mcp__avalonia_devtools__*` tools are available **and** a Beutl instance is reachable (the tools must be granted to this subagent first — they are not in the default `tools:` list), you may upgrade the lightweight name check into a live one for changed views:
-
-1. `mcp__avalonia_devtools__attach-to-app` — connect to the running Beutl. If it fails, skip this section silently and rely on the static audit only.
-2. For each changed view, `mcp__avalonia_devtools__search` by the control type name, then `mcp__avalonia_devtools__props` on the matched node to compare its actual `DataContext` against the declared `x:DataType`.
-3. Report a mismatch as a separate "Runtime DataContext mismatch" subsection — do not merge it into the static violations list.
-
-Skip the runtime check for design-only files (resources, styles) and any view that does not appear in the running window. Static audit results are always reported even if runtime attach fails.
-
 ## Notes
 
 - Style issues owned by `.editorconfig` / `xamlstyler.json` (indentation, attribute ordering) are out of scope.

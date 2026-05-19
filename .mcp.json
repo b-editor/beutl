@@ -4,11 +4,6 @@
     "context7": {
       "type": "http",
       "url": "https://mcp.context7.com/mcp"
-    },
-    "avalonia-devtools": {
-      "type": "stdio",
-      "command": "dotnet",
-      "args": ["tool", "run", "avalonia-mcp"]
     }
   }
 }

@@ -8,7 +8,7 @@ Beutl is set up to work with AI coding agents (Claude Code, Codex, Cursor, etc.)
 beutl/
 ├── AGENTS.md                # Shared instructions for every AI agent (primary)
 ├── CLAUDE.md                # Imports @AGENTS.md + Claude Code-specific notes
-├── .mcp.json                # Team-shared MCP (context7 + avalonia-devtools)
+├── .mcp.json                # Team-shared MCP (context7)
 ├── .claude/
 │   ├── settings.json        # Team-shared hook config
 │   ├── rules/               # Path-scoped rules (xaml / csharp / gpl-mit)
@@ -33,7 +33,6 @@ beutl/
 | Touched something under `src/Beutl.Engine.SourceGenerators/` | `beutl-source-generator-impact` subagent |
 | "Is there a spec for this?" | `beutl-spec-explorer` subagent |
 | Added or changed several `.axaml` files | `beutl-xaml-binder` subagent |
-| Inspect a running Beutl window's visual tree / bindings | Avalonia DevTools MCP — see [avalonia-devtools.md](./avalonia-devtools.md) |
 
 ## Detailed guides
 
@@ -41,7 +40,6 @@ beutl/
 - [subagents-and-hooks.md](./subagents-and-hooks.md) — walkthrough of the 5 subagents and 5 hooks
 - [spec-driven-development.md](./spec-driven-development.md) — how to use Spec-Kit
 - [gpl-mit-boundary.md](./gpl-mit-boundary.md) — IPC boundary around `Beutl.FFmpegWorker`
-- [avalonia-devtools.md](./avalonia-devtools.md) — enabling and using the Avalonia DevTools MCP
 
 ## First-run note
 
