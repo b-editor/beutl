@@ -10,6 +10,10 @@
 | `beutl-spec-explorer` | "Is there a spec for this?" | haiku | Walks `docs/specs/` (the Spec-Kit output dir for Beutl). Preloads the Beutl skills. |
 | `beutl-xaml-binder` | After adding/changing many `.axaml` files | haiku | Confirms compiled bindings are in place. |
 
+### Output style: `beutl-review`
+
+For interactive review sessions (without going through a subagent), pick the `Beutl review` output style via `/output-style` to lock Claude's response into the same four-axis shape (`GPL/MIT`, `XAML compiled bindings`, `NUnit conventions`, `SourceGenerator impact`) that `beutl-reviewer` produces. Definition: `.claude/output-styles/beutl-review.md`.
+
 ### Invoking them
 
 Speak naturally — Claude Code auto-delegates based on each agent's description (especially the ones that say "use proactively"). To force a specific agent:
