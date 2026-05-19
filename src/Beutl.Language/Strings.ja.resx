@@ -783,6 +783,21 @@
   <data name="PreviousMarker_Description" xml:space="preserve">
     <value>前のマーカーへ移動します。</value>
   </data>
+  <data name="NextKeyFrame" xml:space="preserve">
+    <value>次のキーフレーム</value>
+  </data>
+  <data name="NextKeyFrame_Description" xml:space="preserve">
+    <value>選択中の要素（未選択の場合はシーン全体）内で次のキーフレームへ移動します。</value>
+  </data>
+  <data name="PreviousKeyFrame" xml:space="preserve">
+    <value>前のキーフレーム</value>
+  </data>
+  <data name="PreviousKeyFrame_Description" xml:space="preserve">
+    <value>選択中の要素（未選択の場合はシーン全体）内で前のキーフレームへ移動します。</value>
+  </data>
+  <data name="NoKeyFrameToSeek" xml:space="preserve">
+    <value>移動先のキーフレームがありません。</value>
+  </data>
   <data name="ShuttleForward" xml:space="preserve">
     <value>シャトル早送り</value>
   </data>

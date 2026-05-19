@@ -1,8 +1,15 @@
 ﻿using System.Reactive.Subjects;
 using Avalonia.Controls;
+using Beutl.Animation;
 using Beutl.Editor.Components.TimelineTab.ViewModels;
+using Beutl.Editor.Services;
+using Beutl.Engine;
+using Beutl.Extensibility;
+using Beutl.Language;
 using Beutl.Media;
+using Beutl.NodeGraph;
 using Beutl.ProjectSystem;
+using Beutl.Services;
 using Microsoft.Extensions.Logging;
 
 namespace Beutl.ViewModels;
@@ -143,6 +150,12 @@ public partial class EditViewModel : IContextCommandHandler, IContextCommandStat
             case "GotoTimecode" when !isFromTextBox:
                 Player.RequestEditTimecode();
                 break;
+            case "NextKeyFrame" when !isFromTextBox:
+                SeekToAdjacentKeyFrame(forward: true);
+                break;
+            case "PreviousKeyFrame" when !isFromTextBox:
+                SeekToAdjacentKeyFrame(forward: false);
+                break;
             default:
                 if (execution.KeyEventArgs != null)
                     execution.KeyEventArgs.Handled = false;
@@ -198,13 +211,111 @@ public partial class EditViewModel : IContextCommandHandler, IContextCommandStat
 
         if (target != null)
         {
-            _editorClock.CurrentTime.Value = target.Value;
+            SeekAndScroll(target.Value);
+        }
+    }
 
-            // ターゲットの位置までタイムラインを横スクロールさせる
-            if (FindToolTab<TimelineTabViewModel>() is { } timeline)
+    private void SeekToAdjacentKeyFrame(bool forward)
+    {
+        TimeSpan current = _editorClock.CurrentTime.Value;
+
+        // 探索範囲のフォールバックチェーン: 選択中の Element → 直近の親 Element → Scene 全 Element (Scene のみ複数 root)
+        CoreObject? sel = _editorSelection.SelectedObject.Value;
+        Element? scope = sel as Element
+            ?? (sel as IHierarchical)?.FindHierarchicalParent<Element>();
+        if (sel != null && scope == null)
+        {
+            _logger.LogDebug(
+                "Key frame seek: selection ({Type}) could not be resolved to an Element; falling back to scene-wide search.",
+                sel.GetType().Name);
+        }
+        IReadOnlyList<Element> roots = scope != null
+            ? new[] { scope }
+            : Scene.Children.ToArray();
+
+        TimeSpan? target = null;
+        foreach (Element el in roots)
+        {
+            foreach ((KeyFrameAnimation anim, TimeSpan offset) in EnumerateKeyFrameAnimations(el))
             {
-                int currentZIndex = timeline.ToLayerNumber(timeline.Options.Value.Offset.Y);
-                timeline.ScrollTo.Execute((new TimeRange(target.Value, TimeSpan.FromTicks(1)), currentZIndex));
+                foreach (IKeyFrame kf in anim.KeyFrames)
+                {
+                    TimeSpan time = kf.KeyTime + offset;
+                    bool inDirection = forward ? time > current : time < current;
+                    bool isCloser = target == null
+                        || (forward ? time < target.Value : time > target.Value);
+                    if (inDirection && isCloser)
+                        target = time;
+                }
+            }
+        }
+
+        if (target == null)
+        {
+            NotificationService.ShowInformation(
+                forward ? Strings.NextKeyFrame : Strings.PreviousKeyFrame,
+                Strings.NoKeyFrameToSeek);
+            return;
+        }
+
+        SeekAndScroll(target.Value);
+    }
+
+    private void SeekAndScroll(TimeSpan time)
+    {
+        _editorClock.CurrentTime.Value = time;
+
+        if (FindToolTab<TimelineTabViewModel>() is { } timeline)
+        {
+            int currentZIndex = timeline.ToLayerNumber(timeline.Options.Value.Offset.Y);
+            timeline.ScrollTo.Execute((new TimeRange(time, TimeSpan.FromTicks(1)), currentZIndex));
+        }
+    }
+
+    // KeyFrameAnimation をタイムライン絶対時刻に正規化するための offset と一緒に列挙する。
+    //   1. EngineObject.Properties.Animation (通常プロパティ): AnimatableProperty.SetOwnerObject
+    //      で animation が hierarchical child として attach されるため、所有 EngineObject の
+    //      TimeRange.Start を offset に使う (UseGlobalClock=false 時)。これは
+    //      KeyFrameAnimation<T>.GetAnimatedValue の挙動と一致する。
+    //   2. INodeMember.Property.Animation (ノードグラフ): NodePropertyAdapter.Animation は
+    //      hierarchical child として attach されないため、animation 経由では owner を辿れない。
+    //      代わりに NodeMember の親 GraphNode を辿り、GraphSnapshot.LoadAnimatedValues
+    //      ("time - node.Start" でローカル時刻を解釈する) と同じ offset を使う。
+    //      IEnginePropertyBackedInputPort はエンジン側プロパティが pass 1 で拾われるため、
+    //      二重カウントしないよう除外する。
+    private static IEnumerable<(KeyFrameAnimation Animation, TimeSpan Offset)>
+        EnumerateKeyFrameAnimations(Element root)
+    {
+        var visited = new HashSet<KeyFrameAnimation>();
+
+        var enginePass = new ObjectSearcher(root, v => v is EngineObject);
+        foreach (EngineObject obj in enginePass.SearchAll().OfType<EngineObject>())
+        {
+            foreach (IProperty property in obj.Properties)
+            {
+                if (property.Animation is KeyFrameAnimation kfa && visited.Add(kfa))
+                {
+                    TimeSpan offset = kfa.UseGlobalClock
+                        ? TimeSpan.Zero
+                        : kfa.FindHierarchicalParent<EngineObject>()?.TimeRange.Start ?? TimeSpan.Zero;
+                    yield return (kfa, offset);
+                }
+            }
+        }
+
+        var memberPass = new ObjectSearcher(root, v => v is INodeMember);
+        foreach (INodeMember member in memberPass.SearchAll().OfType<INodeMember>())
+        {
+            if (member is IEnginePropertyBackedInputPort)
+                continue;
+
+            if (member.Property is IAnimatablePropertyAdapter { Animation: KeyFrameAnimation kfa }
+                && visited.Add(kfa))
+            {
+                TimeSpan offset = kfa.UseGlobalClock
+                    ? TimeSpan.Zero
+                    : member.FindHierarchicalParent<GraphNode>()?.Start ?? TimeSpan.Zero;
+                yield return (kfa, offset);
             }
         }
     }
