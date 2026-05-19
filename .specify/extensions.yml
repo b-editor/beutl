@@ -31,9 +31,13 @@ hooks:
       command: speckit.git.commit
       optional: true
       description: >-
-        Stage and commit the freshly generated spec.md under
-        docs/specs/<NNN>-<slug>/ as `docs(specs): scaffold NNN-<slug>`.
-      prompt: Commit the new spec.md now?
+        Stage and commit the freshly generated spec-phase artifacts under
+        docs/specs/<NNN>-<slug>/ as `docs(specs): scaffold NNN-<slug>`. The
+        spec phase covers spec.md plus checklists/requirements.md when
+        `/speckit-specify` also writes the validation checklist.
+      prompt: >-
+        Commit the spec-phase artifacts (spec.md plus
+        checklists/requirements.md if it was generated) as one commit?
 
   after_plan:
     - extension: beutl-git
@@ -42,12 +46,13 @@ hooks:
       description: >-
         Stage and commit the plan-phase artifacts in a single commit as
         `docs(specs): plan NNN-<slug>`. `/speckit-plan` typically produces
-        plan.md, research.md, data-model.md, and quickstart.md; the skill
-        commits all that exist together. Pass the `plan` argument when
-        running it: `/speckit-git-commit plan`.
+        plan.md, research.md, data-model.md, quickstart.md, and any
+        contracts/ files; the skill commits all that exist together. Pass
+        the `plan` argument when running it: `/speckit-git-commit plan`.
       prompt: >-
         Commit the plan-phase artifacts (plan.md plus any of research.md,
-        data-model.md, quickstart.md that were generated) as one commit?
+        data-model.md, quickstart.md, contracts/* that were generated) as
+        one commit?
 
   after_tasks:
     - extension: beutl-git

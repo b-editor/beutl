@@ -277,15 +277,32 @@ naturally for the very first commit of a spec. For other phases, use the
 phase name as-is.
 
 Body (optional but recommended): copy the first non-heading line from the
-**primary** file (`spec.md` / `plan.md` / `tasks.md` / `checklist.md` /
-`analysis.md`) so reviewers see what the commit is about without opening
-it. For the multi-file `plan` phase, list the additional artifacts after
-the summary line.
+**primary** file (`spec.md` / `plan.md` / `tasks.md` / `analysis.md`, or —
+for the `checklist` phase — `checklists/requirements.md` when present, else
+the most recently modified file under `checklists/`) so reviewers see what
+the commit is about without opening it. For the multi-file `plan` phase,
+list the additional artifacts after the summary line.
 
 ```bash
-# Primary file is always the first entry in $MAPPED_FILES.
-PRIMARY="$SPEC_DIR/$(printf '%s' "$MAPPED_FILES" | awk '{print $1}')"
-SUMMARY=$(awk 'NR>1 && NF && $0 !~ /^#/ {print; exit}' "$PRIMARY" | head -c 200)
+# For phases with a primary mapped file, use the first entry in $MAPPED_FILES.
+# The `checklist` phase has no mapped file (only $MAPPED_DIRS=checklists), so
+# resolve a primary file from the checklists/ directory.
+if [ -n "$MAPPED_FILES" ]; then
+  PRIMARY="$SPEC_DIR/$(printf '%s' "$MAPPED_FILES" | awk '{print $1}')"
+else
+  # checklist phase: prefer checklists/requirements.md, else newest checklist file.
+  if [ -f "$SPEC_DIR/checklists/requirements.md" ]; then
+    PRIMARY="$SPEC_DIR/checklists/requirements.md"
+  else
+    # newest checklist .md file (BSD/GNU ls both honour -t for mtime sort)
+    PRIMARY=$(ls -t "$SPEC_DIR/checklists/"*.md 2>/dev/null | head -n 1)
+  fi
+fi
+if [ -n "$PRIMARY" ] && [ -f "$PRIMARY" ]; then
+  SUMMARY=$(awk 'NR>1 && NF && $0 !~ /^#/ {print; exit}' "$PRIMARY" | head -c 200)
+else
+  SUMMARY=""
+fi
 ```
 
 ## 6. Commit

@@ -57,15 +57,19 @@ Spec output lands under `docs/specs/<NNN>-<feature-slug>/` (Beutl-local override
 Spec-Kit ships a hook framework that each `/speckit-*` skill consults before / after running. Beutl registers two hooks under `.specify/extensions.yml`:
 
 - **`before_specify` → `/speckit-git-branch`** — creates a `speckit/<NNN>-<slug>` feature branch matched to the spec directory.
-- **`after_specify` / `after_plan` / `after_tasks` → `/speckit-git-commit`** — commits the freshly generated `spec.md` / `plan.md` / `tasks.md` as a single Conventional Commit (`docs(specs): <phase> <NNN>-<slug>`).
+- **`after_specify` / `after_plan` / `after_tasks` → `/speckit-git-commit`** — commits the freshly generated phase artifacts as a single Conventional Commit. The subject is `docs(specs): <phase> <NNN>-<slug>`, with one exception: the `spec` phase uses the verb `scaffold` (reads more naturally for the very first commit), so subjects look like `docs(specs): scaffold 001-foo` / `docs(specs): plan 001-foo` / `docs(specs): tasks 001-foo`.
 
 All hooks are declared `optional: true`. The parent skill prints an "Optional Pre-Hook" / "Optional Post-Hook" prompt and waits for you to opt in — declining keeps the legacy "no git automation" behaviour intact. The slash commands are also runnable manually:
 
 ```bash
 /speckit-git-branch <slug>          # create speckit/<NNN>-<slug>
-/speckit-git-commit spec            # commit docs/specs/<NNN>-<slug>/spec.md
-/speckit-git-commit plan            # ... plan.md
-/speckit-git-commit tasks           # ... tasks.md
+/speckit-git-commit spec            # docs(specs): scaffold <NNN>-<slug>
+                                    #   stages spec.md + checklists/requirements.md
+/speckit-git-commit plan            # docs(specs): plan <NNN>-<slug>
+                                    #   stages plan.md + research.md + data-model.md
+                                    #   + quickstart.md + contracts/* (when present)
+/speckit-git-commit tasks           # docs(specs): tasks <NNN>-<slug>
+                                    #   stages tasks.md
 ```
 
 Safety rails (enforced inside each skill):

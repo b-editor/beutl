@@ -12,8 +12,14 @@ docs/specs/
 ├── 001-<short-feature-slug>/
 │   ├── spec.md               # /speckit-specify output
 │   ├── plan.md               # /speckit-plan output
+│   ├── research.md           # /speckit-plan (when produced)
+│   ├── data-model.md         # /speckit-plan (when produced)
+│   ├── quickstart.md         # /speckit-plan (when produced)
+│   ├── contracts/            # /speckit-plan API/IPC contracts (when produced)
 │   ├── tasks.md              # /speckit-tasks output
-│   ├── checklist.md          # optional /speckit-checklist output
+│   ├── analysis.md           # /speckit-analyze (optional)
+│   ├── checklists/           # /speckit-specify writes requirements.md here;
+│   │                         #   /speckit-checklist adds ux.md / api.md / etc.
 │   └── notes/                # free-form supplementary material
 └── 002-<short-feature-slug>/
     └── ...
