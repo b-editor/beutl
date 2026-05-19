@@ -2,12 +2,30 @@
 # PreToolUse(Edit|Write|MultiEdit) hook: deny MIT .csproj edits that add a
 # <ProjectReference> to Beutl.FFmpegWorker (GPL-3.0-or-later).
 #
-# Intentionally simple: inspects only the new content fragments supplied by
-# the tool call (`new_string`, `content`, `edits[].new_string`). Edits that
-# rewrite a fragment of an existing reference, or Bash-based writes (sed,
-# tee, `dotnet add reference`, etc.), are out of scope and rely on PR
+# Inspects only the new content fragments supplied by the tool call
+# (`new_string`, `content`, `edits[].new_string`). Bash-based writes (sed,
+# tee, `dotnet add reference`, etc.) are out of scope and rely on PR
 # review + the GPL boundary doc for enforcement.
-set -eu
+#
+# Fail-closed: any unexpected error (malformed JSON, missing `jq`, etc.)
+# is converted to a deny by the ERR trap, so the hook can never silently
+# allow when its own preconditions break.
+set -euo pipefail
+
+deny() {
+  jq -n --arg reason "$1" '{
+    hookSpecificOutput: {
+      hookEventName: "PreToolUse",
+      permissionDecision: "deny",
+      permissionDecisionReason: $reason
+    }
+  }'
+  exit 0
+}
+
+# Disable further ERR trapping inside the handler so a failing `deny`
+# (e.g. missing jq) cannot recurse.
+trap 'trap - ERR; deny "check-gpl-mit-boundary.sh failed unexpectedly; denying to fail closed. See .claude/hooks/check-gpl-mit-boundary.sh."' ERR
 
 input=$(cat)
 file=$(printf '%s' "$input" | jq -r '.tool_input.file_path // ""')
@@ -32,14 +50,12 @@ new_text=$(printf '%s' "$input" | jq -r '
   ] | .[]
 ')
 
-if printf '%s' "$new_text" | grep -Eq '<ProjectReference[^>]*Beutl\.FFmpegWorker'; then
-  jq -n '{
-    hookSpecificOutput: {
-      hookEventName: "PreToolUse",
-      permissionDecision: "deny",
-      permissionDecisionReason: "GPL/MIT boundary violation: MIT projects must not ProjectReference Beutl.FFmpegWorker (GPL-3.0). Use Beutl.FFmpegIpc for IPC. See docs/ai-workflow/gpl-mit-boundary.md."
-    }
-  }'
+# Normalise to a single line so multi-line `<ProjectReference …\n Include="…\Beutl.FFmpegWorker.csproj" />`
+# tags cannot slip through the regex below.
+new_text_oneline=$(printf '%s' "$new_text" | tr '\n' ' ')
+
+if printf '%s' "$new_text_oneline" | grep -Eq '<ProjectReference[^>]*Beutl\.FFmpegWorker'; then
+  deny "GPL/MIT boundary violation: MIT projects must not ProjectReference Beutl.FFmpegWorker (GPL-3.0). Use Beutl.FFmpegIpc for IPC. See docs/ai-workflow/gpl-mit-boundary.md."
 fi
 
 exit 0
