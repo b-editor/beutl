@@ -14,6 +14,12 @@
             "command": "bash",
             "args": ["${CLAUDE_PROJECT_DIR}/.claude/hooks/session-start-context.sh"],
             "timeout": 10
+          },
+          {
+            "type": "command",
+            "command": "bash",
+            "args": ["${CLAUDE_PROJECT_DIR}/.claude/hooks/install-dotnet.sh"],
+            "timeout": 1800
           }
         ]
       }
