@@ -1,5 +1,9 @@
 @AGENTS.md
 
+<!-- SPECKIT START -->
+**Active Spec-Kit feature**: [003-resolution-independent-effects](docs/specs/003-resolution-independent-effects/plan.md) — make pixel-absolute filter-effect parameters resolution-independent so a future proxy-preview can match export. See `docs/specs/003-resolution-independent-effects/{spec,plan,research,data-model,quickstart}.md` and `contracts/`.
+<!-- SPECKIT END -->
+
 ## Claude Code-specific notes
 
 - For large explorations, prefer Claude Code's built-in **Explore** subagent (read-only code search); for long-running tasks, use **Plan mode**. The Beutl-specific `beutl-spec-explorer` is narrower — it only walks `docs/specs/`.

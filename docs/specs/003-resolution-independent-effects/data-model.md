@@ -187,26 +187,47 @@ Mirror the `SceneDrawable` pattern when activating its sub-graph.
 
 Each row below lists the existing parameter, the new wrapper type, and the test that must accompany the migration. **Files live in `src/Beutl.Engine/Graphics/FilterEffects/` unless noted.**
 
-| Effect file | Existing property | New property | Test (under `tests/Beutl.UnitTests/Engine/Graphics/FilterEffects/`) |
-|---|---|---|---|
-| `Blur.cs` | `Sigma: IProperty<Size>` | `Sigma: IProperty<PixelExtent>` | `BlurResolutionTests.cs` |
-| `DropShadow.cs` | `Position: IProperty<Point>`, `Sigma: IProperty<Size>` | `Position: IProperty<PixelOffset>`, `Sigma: IProperty<PixelExtent>` | `DropShadowResolutionTests.cs` |
-| `InnerShadow.cs` | `Position: IProperty<Point>`, `Sigma: IProperty<Size>` | `Position: IProperty<PixelOffset>`, `Sigma: IProperty<PixelExtent>` | `InnerShadowResolutionTests.cs` |
-| `StrokeEffect.cs` | `Offset: IProperty<Point>` | `Offset: IProperty<PixelOffset>` (Pen thickness → follow-up, see research R6) | `StrokeEffectResolutionTests.cs` |
-| `Erode.cs` | `RadiusX/Y: IProperty<float>` | `RadiusX/Y: IProperty<PixelLength>` | `ErodeResolutionTests.cs` |
-| `Dilate.cs` | `RadiusX/Y: IProperty<float>` | `RadiusX/Y: IProperty<PixelLength>` | `DilateResolutionTests.cs` |
-| `FlatShadow.cs` | `Length: IProperty<float>` | `Length: IProperty<PixelLength>` (Angle stays float) | `FlatShadowResolutionTests.cs` |
-| `ColorShift.cs` | per-channel offsets | per-channel `PixelOffset` | `ColorShiftResolutionTests.cs` |
-| `DisplacementMapTransform.cs` | `X/Y/CenterX/CenterY: IProperty<float>` | `X/Y/CenterX/CenterY: IProperty<PixelLength>` | `DisplacementMapTransformResolutionTests.cs` |
-| `MosaicEffect.cs` | tile size | `PixelLength` | `MosaicEffectResolutionTests.cs` |
-| `ShakeEffect.cs` | amplitude | `PixelLength` | `ShakeEffectResolutionTests.cs` |
-| `SplitEffect.cs` | `HorizontalSpacing / VerticalSpacing: IProperty<float>` | `PixelLength` | `SplitEffectResolutionTests.cs` |
-| `PartsSplitEffect.cs` | spacing | `PixelLength` | `PartsSplitEffectResolutionTests.cs` |
-| `Clipping.cs` | pixel `Rect` | `Rect` resolved as `PixelOffset` + `PixelExtent` (or a dedicated `PixelRect` if the audit shows it's worth one) | `ClippingResolutionTests.cs` |
-| `TransformEffect.cs` | translation in matrix | translation accepted as `PixelOffset`; matrix re-assembled at apply time | `TransformEffectResolutionTests.cs` |
-| Out-of-scope | `Brightness`, `Saturate`, `HueRotate`, `Gamma`, `Invert`, `Threshold`, `Negaposi`, `ColorGrading`, `HighContrast`, `ColorKey`, `ChromaKey`, `LutEffect`, `DelayAnimationEffect`, `PathFollowEffect`, `PixelSortEffect` | dimensionless / non-pixel — no migration |
+> Table updated by the **T001 audit** against the actual code in `src/Beutl.Engine/Graphics/FilterEffects/`. Items the audit corrected or removed are tagged in the **Source** column. The audit walked every file in the directory and inspected each `IProperty<…>` declaration.
 
-If `tasks.md` discovers a missed pixel-absolute parameter during the audit, it MUST be added to this table and given a test.
+| Effect file | Existing property (verified) | New property | Test (under `tests/Beutl.UnitTests/Engine/Graphics/FilterEffects/`) | Source |
+|---|---|---|---|---|
+| `Blur.cs` | `Sigma: IProperty<Size>` | `Sigma: IProperty<PixelExtent>` | `BlurResolutionTests.cs` | plan |
+| `DropShadow.cs` | `Position: IProperty<Point>`, `Sigma: IProperty<Size>` | `Position: IProperty<PixelOffset>`, `Sigma: IProperty<PixelExtent>` | `DropShadowResolutionTests.cs` | plan |
+| `InnerShadow.cs` | `Position: IProperty<Point>`, `Sigma: IProperty<Size>` | `Position: IProperty<PixelOffset>`, `Sigma: IProperty<PixelExtent>` | `InnerShadowResolutionTests.cs` | plan |
+| `StrokeEffect.cs` | `Offset: IProperty<Point>` (Pen stays raw) | `Offset: IProperty<PixelOffset>` (Pen thickness → follow-up, see research R6) | `StrokeEffectResolutionTests.cs` | plan |
+| `Erode.cs` | `RadiusX / RadiusY: IProperty<float>` | `RadiusX / RadiusY: IProperty<PixelLength>` | `ErodeResolutionTests.cs` | plan |
+| `Dilate.cs` | `RadiusX / RadiusY: IProperty<float>` | `RadiusX / RadiusY: IProperty<PixelLength>` | `DilateResolutionTests.cs` | plan |
+| `FlatShadow.cs` | `Length: IProperty<float>` (Angle stays raw, Brush stays raw, ShadowOnly stays raw) | `Length: IProperty<PixelLength>` | `FlatShadowResolutionTests.cs` | plan |
+| `ColorShift.cs` | `RedOffset / GreenOffset / BlueOffset / AlphaOffset: IProperty<Beutl.Media.PixelPoint>` **(integer)** | each → `IProperty<PixelOffset>` (float). Wire-compatible: legacy `{"x":3,"y":5}` deserializes cleanly into floats. | `ColorShiftResolutionTests.cs` | **audit (corrected — type changes from integer to float; the old "per-channel offsets" wording hid this)** |
+| `DisplacementMapTransform.cs` | File holds **three subclasses**: `DisplacementMapTranslateTransform.X / Y: IProperty<float>`; `DisplacementMapScaleTransform.Scale / ScaleX / ScaleY: IProperty<float>` (% — stay raw) + `CenterX / CenterY: IProperty<float>`; `DisplacementMapRotationTransform.Rotation: IProperty<float>` (deg — stays raw) + `CenterX / CenterY: IProperty<float>`. | each `X / Y / CenterX / CenterY` (5 properties × 3 classes) → `IProperty<PixelLength>` | `DisplacementMapTransformResolutionTests.cs` | **audit (corrected — three sibling classes, not one; `Scale*` and `Rotation` are confirmed dimensionless)** |
+| `MosaicEffect.cs` | `TileSize: IProperty<Size>` (`Origin: IProperty<RelativePoint>` is normalized 0..1 and stays raw) | `TileSize: IProperty<PixelExtent>` | `MosaicEffectResolutionTests.cs` | **audit (corrected — explicit `TileSize: Size`; `Origin` is out of scope)** |
+| `ShakeEffect.cs` | `StrengthX: IProperty<float>`, `StrengthY: IProperty<float>` (`Speed: IProperty<float>` is frequency, dimensionless, stays raw) | `StrengthX / StrengthY: IProperty<PixelLength>` | `ShakeEffectResolutionTests.cs` | **audit (corrected — two distinct strength axes; `Speed` is out of scope)** |
+| `SplitEffect.cs` | `HorizontalSpacing / VerticalSpacing: IProperty<float>` (`Horizontal/VerticalDivisions: IProperty<int>` are counts, stay raw) | `HorizontalSpacing / VerticalSpacing: IProperty<PixelLength>` | `SplitEffectResolutionTests.cs` | plan |
+| `Clipping.cs` | `Left / Top / Right / Bottom: IProperty<float>` (`AutoCenter / AutoClip: IProperty<bool>` stay raw) | each `Left / Top / Right / Bottom` → `IProperty<PixelLength>` | `ClippingResolutionTests.cs` | **audit (corrected — 4 individual `float` edges, not a single `Rect`; no dedicated `PixelRect` is needed)** |
+| `PartsSplitEffect.cs` | **No public pixel-absolute properties** — operation is purely contour-driven, no user-tunable lengths | — | — | **audit (REMOVED — false entry in the original plan; T034 should be dropped from `tasks.md`)** |
+| `TransformEffect.cs` | `Transform: IProperty<Transform?>`, `TransformOrigin: IProperty<RelativePoint>`, `BitmapInterpolationMode`, `ApplyToTarget: IProperty<bool>`. **No direct pixel-absolute property on the effect itself.** Pixel translation lives inside the referenced `Transform` (in `Beutl.Graphics.Transformation.*`, out of scope for this feature). | — (deferred; see "Deferred follow-ups" below) | — | **audit (REMOVED from this PR — T037 should be dropped from `tasks.md`)** |
+| Out-of-scope (verified by audit) | `Brightness`, `Saturate`, `HueRotate`, `Gamma`, `Invert`, `Threshold`, `Negaposi`, `ColorGrading`, `HighContrast`, `ColorKey`, `ChromaKey`, `LutEffect`, `DelayAnimationEffect`, `PathFollowEffect`, `PixelSortEffect`, `Lighting`, `BlendEffect`, `Curves`, `PerlinNoise`, `DisplacementMapEffect` (wrapper; its `Transform` child is migrated above) | dimensionless / non-pixel / parameter-less — no migration | — | audit |
+
+**Effect-count summary after audit**: **13 effects in scope** — `Blur`, `DropShadow`, `InnerShadow`, `StrokeEffect`, `Erode`, `Dilate`, `FlatShadow`, `ColorShift`, `DisplacementMapTransform` (3 subclasses), `MosaicEffect`, `ShakeEffect`, `SplitEffect`, `Clipping`. Was 15 in the original plan; the audit dropped `PartsSplitEffect` (no pixel-absolute props) and `TransformEffect` (pixel translation lives in `Transform`, out of scope). Corresponding `tasks.md` rows `T034 PartsSplitEffect` and `T037 TransformEffect` should be removed during implementation.
+
+### Property-editor registration (audit finding — NEW)
+
+Beutl's editor dispatches property editors via an **exact `Type` → editor** lookup in `src/Beutl/Services/PropertyEditorService.cs` (the `s_editors` `FrozenDictionary<Type, Editor>`). Adding the three wrapper types without registering them leaves their property fields rendered as unknown / fallback. The audit therefore adds a new foundational obligation:
+
+| Type | Existing analog used as template | Registration to add | New ViewModel file under `src/Beutl/ViewModels/Editors/` |
+|---|---|---|---|
+| `PixelLength` | `typeof(float) → NumberEditor<float>` (line 121) | `new(typeof(PixelLength), new(_ => new NumberEditor<float>(), s => new PixelLengthEditorViewModel(s.ToTyped<PixelLength>())))` | `PixelLengthEditorViewModel.cs` (model: unwrap `ReferencePixels`, edit, re-wrap; show "px @ ref" unit suffix in the label if practical) |
+| `PixelExtent` | `typeof(Size) → Vector2Editor<float> + SizeEditorViewModel` (line 144) | `new(typeof(PixelExtent), new(_ => new Vector2Editor<float>(), s => new PixelExtentEditorViewModel(s.ToTyped<PixelExtent>())))` | `PixelExtentEditorViewModel.cs` (Width/Height edits like `SizeEditorViewModel`) |
+| `PixelOffset` | `typeof(Point) → Vector2Editor<float> + PointEditorViewModel` (line 143) | `new(typeof(PixelOffset), new(_ => new Vector2Editor<float>(), s => new PixelOffsetEditorViewModel(s.ToTyped<PixelOffset>())))` | `PixelOffsetEditorViewModel.cs` (X/Y edits like `PointEditorViewModel`) |
+
+This work belongs to **Phase 2 (Foundational)** in `tasks.md` — it must land **before** any per-effect migration so a half-migrated build does not break property-editor UI for the migrated effects. The cost is small (3 entries + 3 short ViewModel classes that delegate to the underlying primitive editor's logic).
+
+### Deferred follow-ups discovered by the audit
+
+- **`Beutl.Graphics.Transformation.*` (e.g. `TranslateTransform`, `RotateTransform`, `ScaleTransform`)**: same `PixelLength` / `PixelOffset` treatment is appropriate but they ship with `Beutl.Graphics`-level Drawables, not just FilterEffects. Bundling here would balloon scope — track as a follow-up feature alongside `Pen.Thickness`.
+- **`Pen.Thickness`**: already deferred per research R6.
+
+If a later code change introduces a new pixel-absolute parameter, it MUST be added to this table and given a test.
 
 ## Serialization
 

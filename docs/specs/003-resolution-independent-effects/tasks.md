@@ -29,7 +29,7 @@ This feature touches existing single-solution layout. Engine code lives under `s
 
 **Purpose**: Confirm the audit list is complete before writing code. No new project / dependency is added.
 
-- [ ] T001 Walk `src/Beutl.Engine/Graphics/FilterEffects/` end-to-end and reconcile the in-scope effect list in `docs/specs/003-resolution-independent-effects/data-model.md` against the actual code. Add any pixel-absolute parameter missed by the audit (or document why it stays raw) by editing the migration table. Also spot-check `src/Beutl.Editor.Components/...PropertyEditor*` to confirm `PixelLength` / `PixelExtent` / `PixelOffset` will display sensibly via the existing typed-property-editor dispatch; if not, file a follow-up note in the table.
+- [X] T001 Walk `src/Beutl.Engine/Graphics/FilterEffects/` end-to-end and reconcile the in-scope effect list in `docs/specs/003-resolution-independent-effects/data-model.md` against the actual code. **Done — see `data-model.md` § "In-scope built-in effect migrations" (audit corrections tagged in the `Source` column) and § "Property-editor registration (audit finding — NEW)".** Net: 15 → 13 effects (dropped `PartsSplitEffect` and `TransformEffect`); 7 row corrections; 1 new foundational obligation (3 entries in `src/Beutl/Services/PropertyEditorService.cs` + 3 new ViewModel files) that must land in Phase 2 before per-effect migration begins.
 
 ---
 
