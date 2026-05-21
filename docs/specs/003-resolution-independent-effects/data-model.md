@@ -139,7 +139,7 @@ Mirror the `SceneDrawable` pattern when activating its sub-graph.
 | `Blur.cs` | `Sigma: IProperty<Size>` | `context.Blur(Size)` | — |
 | `DropShadow.cs` | `Position: IProperty<Point>`, `Sigma: IProperty<Size>` | `context.DropShadow(Point, Size, Color)`, `context.DropShadowOnly(Point, Size, Color)` | — |
 | `InnerShadow.cs` | `Position: IProperty<Point>`, `Sigma: IProperty<Size>` | `context.InnerShadow(Point, Size, Color)`, `context.InnerShadowOnly(Point, Size, Color)` | — |
-| `StrokeEffect.cs` | `Offset: IProperty<Point>` | scaling helper used for the offset translation | `Pen.Thickness` follow-up — research R6. Stroke draws via `Canvas` not via a `FilterEffectContext` length helper, so thickness stays raw-pixel. |
+| `StrokeEffect.cs` | `Offset: IProperty<Point>`; consumes `Pen.Thickness` / `DashOffset` / `Offset` | scaling helper for the offset translation; `PenHelper.GetScaledThickness / GetScaledDashOffset / GetScaledOffset` for the stroke parameters | Both the effect's `Offset` and the consumed `Pen` thickness scale automatically (scope expansion 2026-05-21; see Pen section below). `MiterLimit` / `TrimStart` / `TrimEnd` / `TrimOffset` on `Pen` stay raw — dimensionless. |
 | `Erode.cs` | `RadiusX / RadiusY: IProperty<float>` | `context.Erode(float, float)` | — |
 | `Dilate.cs` | `RadiusX / RadiusY: IProperty<float>` | `context.Dilate(float, float)` | — |
 | `FlatShadow.cs` | `Length: IProperty<float>` (Angle stays raw) | the scaled custom-effect helper FlatShadow already uses | Angle, Brush, ShadowOnly stay raw. |
@@ -219,7 +219,7 @@ No source change to `Shape.cs`, `RectShape.cs`, `EllipseShape.cs`, `RoundedRectS
 - **`Geometry` path coordinates** — `Geometry.Resource` carries path data in raw-raster pixels; `DrawGeometry(Geometry.Resource)` and `PushClip(Geometry.Resource)` in the table above stay raw-raster. Scaling geometry paths requires either rewriting the underlying `SKPath` at materialization (expensive) or wrapping every Geometry consumer in an implicit `PushTransform(scale)` (subtle interaction with explicit transforms). Tracked as a separate follow-up feature.
 - **`TextBlock.Size / Spacing`** — font size and inter-glyph spacing pass through typeface materialization, which has its own DPI / hinting / subpixel-positioning interaction. Tracked as a separate follow-up feature.
 - **`Brush` pixel rectangles** — `TileBrush` source rect, `ImageBrush.SourceRect / DestinationRect`. These flow through `Brush.Resource` materialization. Tracked as a separate follow-up feature.
-- **`Pen.Thickness` raw at non-rendering call sites** — bounding-box calculation paths that read `pen.Thickness` directly without going through `PenHelper.GetScaledThickness`. Audit during implementation; document each retained-raw call site explicitly.
+- *(Implementation audit, not a deferred feature)*: project-space `pen.Thickness` reads at non-rendering call sites (e.g. `PenHelper.GetBounds` for bounding-box math) intentionally stay raw — this is the design (see `contracts/pen-scaling.md` § "Project-space vs render-space bounds"), and the per-call-site classification is performed by tasks.md T014 during implementation. Listed here only so the PR review sees the intentionally-retained raw reads in one place.
 
 If a later code change introduces a new pixel-absolute parameter, it MUST be added to one of the tables above (or to a new follow-up entry) and given a test.
 

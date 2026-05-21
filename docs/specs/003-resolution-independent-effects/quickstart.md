@@ -121,7 +121,8 @@ This runs the same checks `claude-code-review.yml` and `beutl-reviewer` would ru
 
 Once this lands:
 
-- Proxy preview workflow (render at smaller raster while editing) can be added as a UI feature without touching any effect code or `FilterEffectContext`. It just constructs the renderer with `new Renderer(proxyW, proxyH, scene.FrameSize)`.
-- `Pen.Thickness` resolution-independence (a separate "what does Drawable scaling mean" discussion, since `Pen` is used outside FilterEffects).
-- `Beutl.Graphics.Transformation.*` (`TranslateTransform`, `RotateTransform`, …) resolution-independence — same shape as this feature but a layer up; `TransformEffect`'s pixel translation will benefit once that lands.
-- A "multi-resolution master" template feature, since effects now scale proportionally when the user changes the project's `FrameSize`.
+- **Proxy preview workflow** (render at smaller raster while editing) can be added as a UI feature without touching any effect / drawable / transform code or `FilterEffectContext` / `GraphicsContext2D` / `ImmediateCanvas`. It just constructs the renderer with `new Renderer(proxyW, proxyH, scene.FrameSize)`.
+- **A "multi-resolution master" template feature**, since the entire rendering pipeline now scales proportionally when the user changes the project's `FrameSize`.
+- **The deferred follow-ups** (the surfaces this PR does NOT cover — see § 8 "Out of scope, follow-up PRs"): `Geometry` path coordinates, `TextBlock.Size / Spacing` (typography), and `Brush` pixel rectangles (`TileBrush`, `ImageBrush` SourceRect / DestinationRect). Each becomes its own spec when prioritized.
+
+> **NOT future work** (already covered by this PR): `Pen.Thickness` / `DashOffset` / `Offset` scaling via `PenHelper.GetScaled*` (Pen contract); `Beutl.Graphics.Transformation.*` automatic scaling via `ImmediateCanvas.PushTransform` (Transform contract). Earlier drafts of this quickstart listed both as follow-ups; they are now in scope and shipping in this PR.

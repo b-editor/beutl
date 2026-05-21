@@ -129,7 +129,7 @@ So a `.scene` file that previously serialized `"sigma": { "width": 20, "height":
 
 ## R6 — `StrokeEffect` thickness path
 
-> **Update (post-T001-audit design pivot)**: With scaling living inside `FilterEffectContext` helpers, the question becomes "does the helper that `StrokeEffect` calls scale the `Pen` thickness?" The answer is: only if `StrokeEffect`'s code path runs the thickness through a scaling helper. Today it draws via `Canvas` / `Pen`, not through a `FilterEffectContext.Stroke*` helper. So thickness still stays raw-pixel in this PR — same conclusion as the original analysis, different mechanism.
+> **Update (post-scope-expansion 2026-05-21, supersedes both the original and the T001-audit-pivot drafts below)**: `Pen.Thickness` is now **in scope** for this PR. The scope expansion (research § R8) pulled `Pen` into the rendering surface via `PenHelper.GetScaled*` at every rendering consumption site, including `StrokeEffect.cs`. So `StrokeEffect` benefits **both** in offset (scaled at the FilterEffectContext helper) **and** in thickness (scaled at the StrokeEffect → `PenHelper.GetScaledThickness` consumption site). US1 acceptance scenario #3 "covers the same proportion of the underlying shape" is now fully covered, not partial. The R6 historical analysis below describes an earlier draft where `Pen` was deferred; that has been superseded.
 
 **Question**: `StrokeEffect` uses a `Pen.Resource` (with `Thickness`) for the stroke. `Pen.Thickness` is a `float` shared with all `Pen` consumers (geometries, paths). Should `Pen.Thickness` itself become resolution-independent, or only `StrokeEffect`'s use of it?
 
