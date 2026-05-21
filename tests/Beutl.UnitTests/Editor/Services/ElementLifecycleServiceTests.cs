@@ -202,18 +202,25 @@ public class ElementLifecycleServiceTests
     }
 
     [Test]
-    public void Group_SingleId_DoesNotGroup()
+    public void Group_SingleId_DoesNotCreateGroup()
     {
         Element element = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
-        int before = _history.UndoCount;
 
         GroupOutcome outcome = _service.Group(_scene, [element.Id]);
 
-        Assert.Multiple(() =>
-        {
-            Assert.That(outcome.Created, Is.False);
-            Assert.That(_history.UndoCount, Is.EqualTo(before));
-        });
+        Assert.That(outcome.Created, Is.False);
+    }
+
+    [Test]
+    public void Group_SingleId_PullsOutOfExistingGroup()
+    {
+        Element e1 = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
+        Element e2 = AddElement(TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(2));
+        _service.Group(_scene, [e1.Id, e2.Id]);
+
+        _service.Group(_scene, [e1.Id]);
+
+        Assert.That(_scene.Groups, Is.Empty);
     }
 
     [Test]

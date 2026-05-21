@@ -74,6 +74,7 @@ public sealed class ElementLifecycleService : IElementLifecycleService
         int rate = SceneTimeRangeService.GetFrameRate(scene);
         TimeSpan minDuration = TimeSpan.FromSeconds(1d / rate);
         var newElements = new List<Element>();
+        var groupUpdates = new Dictionary<int, List<Guid>>();
 
         foreach (Element target in targets)
         {
@@ -95,9 +96,41 @@ public sealed class ElementLifecycleService : IElementLifecycleService
             target.NotifySplitted(false, TimeSpan.Zero, -backwardDuration);
 
             newElements.Add(backward);
+
+            // Track group membership so the resulting back-clips stay in the
+            // same group as their source.
+            int groupIndex = -1;
+            for (int i = 0; i < scene.Groups.Count; i++)
+            {
+                if (scene.Groups[i].Contains(target.Id))
+                {
+                    groupIndex = i;
+                    break;
+                }
+            }
+
+            if (groupIndex >= 0)
+            {
+                if (!groupUpdates.TryGetValue(groupIndex, out List<Guid>? newIds))
+                {
+                    newIds = [];
+                    groupUpdates.Add(groupIndex, newIds);
+                }
+
+                newIds.Add(backward.Id);
+            }
         }
 
         if (newElements.Count == 0) return SplitOutcome.Empty;
+
+        foreach ((int index, List<Guid> value) in groupUpdates.OrderByDescending(x => x.Key))
+        {
+            ImmutableHashSet<Guid> newGroup = [.. value];
+            if (newGroup.Count >= 2)
+            {
+                scene.Groups.Insert(index + 1, newGroup);
+            }
+        }
 
         _historyManager.Commit(CommandNames.SplitElement);
         return new SplitOutcome(newElements);
@@ -107,16 +140,22 @@ public sealed class ElementLifecycleService : IElementLifecycleService
     {
         ArgumentNullException.ThrowIfNull(scene);
         ArgumentNullException.ThrowIfNull(ids);
-        if (ids.Count < 2) return GroupOutcome.NotCreated;
+        if (ids.Count == 0) return GroupOutcome.NotCreated;
 
+        // Always remove the ids from existing groups first — when only one id is
+        // passed this is effectively an "ungroup this element from its set",
+        // which matches the previous in-VM behavior.
         RemoveIdsFromGroups(scene, ids);
 
-        ImmutableHashSet<Guid> newGroup = [.. ids];
         bool created = false;
-        if (!scene.Groups.Any(g => g.SetEquals(newGroup)))
+        if (ids.Count >= 2)
         {
-            scene.Groups.Add(newGroup);
-            created = true;
+            ImmutableHashSet<Guid> newGroup = [.. ids];
+            if (!scene.Groups.Any(g => g.SetEquals(newGroup)))
+            {
+                scene.Groups.Add(newGroup);
+                created = true;
+            }
         }
 
         _historyManager.Commit(CommandNames.GroupElements);
