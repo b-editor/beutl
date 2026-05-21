@@ -475,15 +475,9 @@ public sealed partial class ElementView : UserControl
                             requests[i] = new ElementResizeRequest(ctx.ViewModel.Model, newStart, newLength, zindex);
                         }
 
-                        IElementResizeService service = viewModel.Timeline.EditorContext
-                            .GetRequiredService<IElementResizeService>();
-                        IElementResizeDragSession session = service.BeginResize(
-                            viewModel.Scene,
-                            _resizeContexts.Select(c => c.ViewModel.Model).ToArray(),
-                            _resizeType == AlignmentX.Left ? ResizeEdge.Left : ResizeEdge.Right,
-                            clampToOriginalDuration: GlobalConfiguration.Instance.EditorConfig.ClampResizeToOriginalLength);
-                        session.Commit(requests);
-                        session.Dispose();
+                        viewModel.Timeline.EditorContext
+                            .GetRequiredService<IElementResizeService>()
+                            .Resize(viewModel.Scene, requests);
 
                         foreach (var (item, context) in animations)
                         {
@@ -723,12 +717,12 @@ public sealed partial class ElementView : UserControl
 
             IElementMoveService moveService = viewModel.Timeline.EditorContext
                 .GetRequiredService<IElementMoveService>();
-            using IElementMoveDragSession session = moveService.BeginMove(
-                viewModel.Scene, elems, viewModel.Model, duplicate);
             ElementMoveOutcome outcome;
             try
             {
-                outcome = session.Commit(deltaStart, deltaIndex);
+                outcome = duplicate
+                    ? moveService.DuplicateOrMove(viewModel.Scene, elems, deltaStart, deltaIndex)
+                    : moveService.Move(viewModel.Scene, elems, deltaStart, deltaIndex);
             }
             catch (Exception ex)
             {

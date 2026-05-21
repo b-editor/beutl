@@ -38,7 +38,6 @@ public sealed partial class TimelineTabView : UserControl
     internal TimeSpan _pointerFrame;
     private TimeSpan _initialStart;
     private TimeSpan _initialDuration;
-    private ISceneTimeRangeDragSession? _timeRangeDragSession;
     private bool _rightButtonPressed;
     private SceneMarker? _pressedMarker;
     private TimeSpan _markerInitialTime;
@@ -286,7 +285,9 @@ public sealed partial class TimelineTabView : UserControl
         }
         else if (_mouseFlag == MouseFlags.EndingBarMarkerPressed)
         {
-            _timeRangeDragSession?.Update(_pointerFrame);
+            viewModel.EditorContext
+                .GetRequiredService<ISceneTimeRangeService>()
+                .UpdateEndDrag(viewModel.Scene, _pointerFrame);
         }
         else if (_mouseFlag == MouseFlags.MarkerPressed && _pressedMarker is { } draggingMarker)
         {
@@ -303,7 +304,9 @@ public sealed partial class TimelineTabView : UserControl
         }
         else if (_mouseFlag == MouseFlags.StartingBarMarkerPressed)
         {
-            _timeRangeDragSession?.Update(_pointerFrame);
+            viewModel.EditorContext
+                .GetRequiredService<ISceneTimeRangeService>()
+                .UpdateStartDrag(viewModel.Scene, _pointerFrame, _initialStart, _initialDuration);
         }
         else
         {
@@ -349,12 +352,17 @@ public sealed partial class TimelineTabView : UserControl
             {
                 overlay.SelectionRange = default;
             }
-            else if (_mouseFlag == MouseFlags.EndingBarMarkerPressed
-                     || _mouseFlag == MouseFlags.StartingBarMarkerPressed)
+            else if (_mouseFlag == MouseFlags.EndingBarMarkerPressed)
             {
-                _timeRangeDragSession?.Commit();
-                _timeRangeDragSession?.Dispose();
-                _timeRangeDragSession = null;
+                ViewModel.EditorContext
+                    .GetRequiredService<ISceneTimeRangeService>()
+                    .CommitEndChange();
+            }
+            else if (_mouseFlag == MouseFlags.StartingBarMarkerPressed)
+            {
+                ViewModel.EditorContext
+                    .GetRequiredService<ISceneTimeRangeService>()
+                    .CommitStartChange();
             }
             else if (_mouseFlag == MouseFlags.MarkerPressed && _pressedMarker is { } releasedMarker)
             {
@@ -474,19 +482,14 @@ public sealed partial class TimelineTabView : UserControl
                 if (TimelineHelper.IsPointInTimelineScaleEndingMarker(pointerPt.Position.X, scalePoint.Y, endingBarX))
                 {
                     _mouseFlag = MouseFlags.EndingBarMarkerPressed;
+                    _initialStart = viewModel.Scene.Start;
                     _initialDuration = viewModel.Scene.Duration;
-                    _timeRangeDragSession = viewModel.EditorContext
-                        .GetRequiredService<ISceneTimeRangeService>()
-                        .BeginDragEnd(viewModel.Scene);
                 }
                 else if (TimelineHelper.IsPointInTimelineScaleStartingMarker(pointerPt.Position.X, scalePoint.Y, startingBarX))
                 {
                     _mouseFlag = MouseFlags.StartingBarMarkerPressed;
                     _initialStart = viewModel.Scene.Start;
                     _initialDuration = viewModel.Scene.Duration;
-                    _timeRangeDragSession = viewModel.EditorContext
-                        .GetRequiredService<ISceneTimeRangeService>()
-                        .BeginDragStart(viewModel.Scene);
                 }
                 else
                 {

@@ -1,4 +1,4 @@
-using Beutl.Editor;
+﻿using Beutl.Editor;
 using Beutl.Editor.Observers;
 using Beutl.Editor.Services;
 using Beutl.Media;
@@ -70,13 +70,12 @@ public class ElementMoveServiceTests
     }
 
     [Test]
-    public void Commit_ZeroDelta_ReturnsNone_NoCommit()
+    public void Move_ZeroDelta_ReturnsNone_NoCommit()
     {
         Element element = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
         int before = _history.UndoCount;
 
-        using IElementMoveDragSession session = _service.BeginMove(_scene, [element], element, duplicateMode: false);
-        ElementMoveOutcome outcome = session.Commit(TimeSpan.Zero, 0);
+        ElementMoveOutcome outcome = _service.Move(_scene, [element], TimeSpan.Zero, 0);
 
         Assert.Multiple(() =>
         {
@@ -86,14 +85,13 @@ public class ElementMoveServiceTests
     }
 
     [Test]
-    public void Commit_MoveDelta_AppliesAndCommitsOnce()
+    public void Move_NonZeroDelta_AppliesAndCommitsOnce()
     {
         Element element = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
         int before = _history.UndoCount;
         TimeSpan originalStart = element.Start;
 
-        using IElementMoveDragSession session = _service.BeginMove(_scene, [element], element, duplicateMode: false);
-        ElementMoveOutcome outcome = session.Commit(TimeSpan.FromSeconds(2), 1);
+        ElementMoveOutcome outcome = _service.Move(_scene, [element], TimeSpan.FromSeconds(2), 1);
 
         Assert.Multiple(() =>
         {
@@ -105,14 +103,13 @@ public class ElementMoveServiceTests
     }
 
     [Test]
-    public void Commit_MultipleElements_OneHistoryEntry()
+    public void Move_MultipleElements_OneHistoryEntry()
     {
         Element e1 = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2), 0);
         Element e2 = AddElement(TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(2), 1);
         int before = _history.UndoCount;
 
-        using IElementMoveDragSession session = _service.BeginMove(_scene, [e1, e2], e1, duplicateMode: false);
-        ElementMoveOutcome outcome = session.Commit(TimeSpan.FromSeconds(1), 0);
+        ElementMoveOutcome outcome = _service.Move(_scene, [e1, e2], TimeSpan.FromSeconds(1), 0);
 
         Assert.Multiple(() =>
         {
@@ -124,14 +121,13 @@ public class ElementMoveServiceTests
     }
 
     [Test]
-    public void Commit_DuplicateMode_OverlappingSources_ReturnsOverlap_NoCommit()
+    public void DuplicateOrMove_OverlappingSources_ReturnsOverlap_NoCommit()
     {
-        // Two adjacent elements; duplicating with zero delta lands the copy on top of self.
+        // Duplicating with zero delta lands the copy on top of self.
         Element element = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
         int before = _history.UndoCount;
 
-        using IElementMoveDragSession session = _service.BeginMove(_scene, [element], element, duplicateMode: true);
-        ElementMoveOutcome outcome = session.Commit(TimeSpan.Zero, 0);
+        ElementMoveOutcome outcome = _service.DuplicateOrMove(_scene, [element], TimeSpan.Zero, 0);
 
         Assert.Multiple(() =>
         {
@@ -141,38 +137,30 @@ public class ElementMoveServiceTests
     }
 
     [Test]
-    public void Commit_AfterCommit_IsNoOp()
+    public void Move_EmptyElements_ReturnsNone()
     {
-        Element element = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
-
-        using IElementMoveDragSession session = _service.BeginMove(_scene, [element], element, duplicateMode: false);
-        session.Commit(TimeSpan.FromSeconds(2), 0);
-        int afterFirst = _history.UndoCount;
-        TimeSpan committedStart = element.Start;
-
-        ElementMoveOutcome outcome = session.Commit(TimeSpan.FromSeconds(5), 0);
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(outcome, Is.EqualTo(ElementMoveOutcome.None));
-            Assert.That(element.Start, Is.EqualTo(committedStart));
-            Assert.That(_history.UndoCount, Is.EqualTo(afterFirst));
-        });
-    }
-
-    [Test]
-    public void Commit_EmptyElements_ReturnsNone()
-    {
-        Element placeholder = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
         int before = _history.UndoCount;
 
-        using IElementMoveDragSession session = _service.BeginMove(_scene, [], placeholder, duplicateMode: false);
-        ElementMoveOutcome outcome = session.Commit(TimeSpan.FromSeconds(2), 0);
+        ElementMoveOutcome outcome = _service.Move(_scene, [], TimeSpan.FromSeconds(2), 0);
 
         Assert.Multiple(() =>
         {
             Assert.That(outcome, Is.EqualTo(ElementMoveOutcome.None));
             Assert.That(_history.UndoCount, Is.EqualTo(before));
+        });
+    }
+
+    [Test]
+    public void Move_NullArguments_Throw()
+    {
+        Element placeholder = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
+
+        Assert.Multiple(() =>
+        {
+            Assert.Throws<ArgumentNullException>(() => _service.Move(null!, [placeholder], TimeSpan.Zero, 0));
+            Assert.Throws<ArgumentNullException>(() => _service.Move(_scene, null!, TimeSpan.Zero, 0));
+            Assert.Throws<ArgumentNullException>(() => _service.DuplicateOrMove(null!, [placeholder], TimeSpan.Zero, 0));
+            Assert.Throws<ArgumentNullException>(() => _service.DuplicateOrMove(_scene, null!, TimeSpan.Zero, 0));
         });
     }
 }

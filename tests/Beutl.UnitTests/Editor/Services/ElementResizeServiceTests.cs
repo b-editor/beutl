@@ -1,4 +1,4 @@
-using Beutl.Editor;
+﻿using Beutl.Editor;
 using Beutl.Editor.Observers;
 using Beutl.Editor.Services;
 using Beutl.ProjectSystem;
@@ -61,25 +61,24 @@ public class ElementResizeServiceTests
     }
 
     [Test]
-    public void BeginResize_NullScene_Throws()
+    public void Resize_NullScene_Throws()
     {
-        Assert.Throws<ArgumentNullException>(() => _service.BeginResize(null!, [], ResizeEdge.Right, false));
+        Assert.Throws<ArgumentNullException>(() => _service.Resize(null!, []));
     }
 
     [Test]
-    public void BeginResize_NullElements_Throws()
+    public void Resize_NullRequests_Throws()
     {
-        Assert.Throws<ArgumentNullException>(() => _service.BeginResize(_scene, null!, ResizeEdge.Right, false));
+        Assert.Throws<ArgumentNullException>(() => _service.Resize(_scene, null!));
     }
 
     [Test]
-    public void Commit_SingleElement_AppliesNewSizeAndCommitsOnce()
+    public void Resize_SingleElement_AppliesNewSizeAndCommitsOnce()
     {
         Element element = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
         int before = _history.UndoCount;
 
-        using IElementResizeDragSession session = _service.BeginResize(_scene, [element], ResizeEdge.Right, false);
-        session.Commit([new ElementResizeRequest(element, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(5), 0)]);
+        _service.Resize(_scene, [new ElementResizeRequest(element, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(5), 0)]);
 
         Assert.Multiple(() =>
         {
@@ -90,14 +89,13 @@ public class ElementResizeServiceTests
     }
 
     [Test]
-    public void Commit_MultipleElements_CommitsSingleHistoryEntry()
+    public void Resize_MultipleElements_CommitsSingleHistoryEntry()
     {
         Element e1 = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2), 0);
         Element e2 = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2), 1);
         int before = _history.UndoCount;
 
-        using IElementResizeDragSession session = _service.BeginResize(_scene, [e1, e2], ResizeEdge.Right, false);
-        session.Commit(
+        _service.Resize(_scene,
         [
             new ElementResizeRequest(e1, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(4), 0),
             new ElementResizeRequest(e2, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(6), 1),
@@ -112,64 +110,27 @@ public class ElementResizeServiceTests
     }
 
     [Test]
-    public void Commit_EmptyList_DoesNotCommit()
+    public void Resize_EmptyList_DoesNotCommit()
     {
-        Element element = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
         int before = _history.UndoCount;
 
-        using IElementResizeDragSession session = _service.BeginResize(_scene, [element], ResizeEdge.Right, false);
-        session.Commit([]);
+        _service.Resize(_scene, []);
 
         Assert.That(_history.UndoCount, Is.EqualTo(before));
     }
 
     [Test]
-    public void Cancel_RestoresInitialStartAndLength()
+    public void Resize_ZIndexChange_AppliesAndCommits()
     {
-        Element element = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
-        TimeSpan initialStart = element.Start;
-        TimeSpan initialLength = element.Length;
+        Element element = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2), 0);
         int before = _history.UndoCount;
 
-        using IElementResizeDragSession session = _service.BeginResize(_scene, [element], ResizeEdge.Right, false);
-        element.Start = TimeSpan.FromSeconds(5);
-        element.Length = TimeSpan.FromSeconds(10);
-        session.Cancel();
+        _service.Resize(_scene, [new ElementResizeRequest(element, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2), 2)]);
 
         Assert.Multiple(() =>
         {
-            Assert.That(element.Start, Is.EqualTo(initialStart));
-            Assert.That(element.Length, Is.EqualTo(initialLength));
-            Assert.That(_history.UndoCount, Is.EqualTo(before));
+            Assert.That(element.ZIndex, Is.EqualTo(2));
+            Assert.That(_history.UndoCount, Is.EqualTo(before + 1));
         });
-    }
-
-    [Test]
-    public void Commit_AfterCommit_IsNoOp()
-    {
-        Element element = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
-
-        using IElementResizeDragSession session = _service.BeginResize(_scene, [element], ResizeEdge.Right, false);
-        session.Commit([new ElementResizeRequest(element, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(3), 0)]);
-        TimeSpan committedLength = element.Length;
-        int afterFirst = _history.UndoCount;
-
-        session.Commit([new ElementResizeRequest(element, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(7), 0)]);
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(element.Length, Is.EqualTo(committedLength));
-            Assert.That(_history.UndoCount, Is.EqualTo(afterFirst));
-        });
-    }
-
-    [Test]
-    public void DragSession_ExposesEdgeAndClampOption()
-    {
-        Element element = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
-
-        using IElementResizeDragSession session = _service.BeginResize(_scene, [element], ResizeEdge.Left, true);
-
-        Assert.That(session, Is.InstanceOf<IElementResizeDragSession>());
     }
 }

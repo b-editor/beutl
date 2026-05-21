@@ -1,4 +1,4 @@
-using Beutl.Editor;
+﻿using Beutl.Editor;
 using Beutl.Editor.Observers;
 using Beutl.Editor.Services;
 using Beutl.ProjectSystem;
@@ -101,14 +101,23 @@ public class SceneTimeRangeServiceTests
     }
 
     [Test]
-    public void DragEnd_UpdateThenCommit_RecordsOneEntry()
+    public void UpdateEndDrag_Alone_DoesNotCommit()
     {
         int before = _history.UndoCount;
-        using ISceneTimeRangeDragSession session = _service.BeginDragEnd(_scene);
 
-        session.Update(TimeSpan.FromSeconds(8));
-        session.Update(TimeSpan.FromSeconds(10));
-        session.Commit();
+        _service.UpdateEndDrag(_scene, TimeSpan.FromSeconds(10));
+
+        Assert.That(_history.UndoCount, Is.EqualTo(before));
+    }
+
+    [Test]
+    public void UpdateEndDrag_ThenCommitEndChange_RecordsOneEntry()
+    {
+        int before = _history.UndoCount;
+
+        _service.UpdateEndDrag(_scene, TimeSpan.FromSeconds(8));
+        _service.UpdateEndDrag(_scene, TimeSpan.FromSeconds(10));
+        _service.CommitEndChange();
 
         Assert.Multiple(() =>
         {
@@ -118,52 +127,37 @@ public class SceneTimeRangeServiceTests
     }
 
     [Test]
-    public void DragEnd_Cancel_RestoresInitialDuration()
+    public void UpdateStartDrag_PreservesInitialSceneEnd_AcrossPointerFrames()
     {
-        TimeSpan initialDuration = _scene.Duration;
         TimeSpan initialStart = _scene.Start;
-        int before = _history.UndoCount;
-        using ISceneTimeRangeDragSession session = _service.BeginDragEnd(_scene);
+        TimeSpan initialDuration = _scene.Duration;
+        TimeSpan initialEnd = initialStart + initialDuration;
 
-        session.Update(TimeSpan.FromSeconds(20));
-        session.Cancel();
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(_scene.Duration, Is.EqualTo(initialDuration));
-            Assert.That(_scene.Start, Is.EqualTo(initialStart));
-            Assert.That(_history.UndoCount, Is.EqualTo(before));
-        });
-    }
-
-    [Test]
-    public void DragStart_UpdateThenCommit_PreservesSceneEnd()
-    {
-        TimeSpan initialEnd = _scene.Start + _scene.Duration;
-        int before = _history.UndoCount;
-        using ISceneTimeRangeDragSession session = _service.BeginDragStart(_scene);
-
-        session.Update(TimeSpan.FromSeconds(3));
-        session.Commit();
+        _service.UpdateStartDrag(_scene, TimeSpan.FromSeconds(2), initialStart, initialDuration);
+        _service.UpdateStartDrag(_scene, TimeSpan.FromSeconds(3), initialStart, initialDuration);
+        _service.CommitStartChange();
 
         Assert.Multiple(() =>
         {
             Assert.That(_scene.Start, Is.EqualTo(TimeSpan.FromSeconds(3)));
+            // The Start/Duration delta must always cancel back to the original
+            // end — without this guard, each drag frame would compound the
+            // previous frame's mutation.
             Assert.That(_scene.Start + _scene.Duration, Is.EqualTo(initialEnd));
-            Assert.That(_history.UndoCount, Is.EqualTo(before + 1));
         });
     }
 
     [Test]
-    public void DragStart_Cancel_RestoresInitialStartAndDuration()
+    public void UpdateStartDrag_ThenRollback_RestoresInitialValues()
     {
         TimeSpan initialStart = _scene.Start;
         TimeSpan initialDuration = _scene.Duration;
         int before = _history.UndoCount;
-        using ISceneTimeRangeDragSession session = _service.BeginDragStart(_scene);
 
-        session.Update(TimeSpan.FromSeconds(4));
-        session.Cancel();
+        _service.UpdateStartDrag(_scene, TimeSpan.FromSeconds(4), initialStart, initialDuration);
+        // The caller (View) cancels by re-driving UpdateStartDrag with the initial
+        // values — there is no Cancel method.
+        _service.UpdateStartDrag(_scene, initialStart, initialStart, initialDuration);
 
         Assert.Multiple(() =>
         {
@@ -171,18 +165,5 @@ public class SceneTimeRangeServiceTests
             Assert.That(_scene.Duration, Is.EqualTo(initialDuration));
             Assert.That(_history.UndoCount, Is.EqualTo(before));
         });
-    }
-
-    [Test]
-    public void DragSession_Update_AfterCommit_IsNoOp()
-    {
-        using ISceneTimeRangeDragSession session = _service.BeginDragEnd(_scene);
-        session.Update(TimeSpan.FromSeconds(8));
-        session.Commit();
-        TimeSpan committedDuration = _scene.Duration;
-
-        session.Update(TimeSpan.FromSeconds(20));
-
-        Assert.That(_scene.Duration, Is.EqualTo(committedDuration));
     }
 }

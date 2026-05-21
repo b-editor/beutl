@@ -1,4 +1,4 @@
-using Beutl.Language;
+﻿using Beutl.Language;
 using Beutl.ProjectSystem;
 
 namespace Beutl.Editor.Services;
@@ -14,105 +14,64 @@ public sealed class ElementMoveService : IElementMoveService
         _duplicateService = duplicateService ?? throw new ArgumentNullException(nameof(duplicateService));
     }
 
-    public IElementMoveDragSession BeginMove(
+    public ElementMoveOutcome Move(
         Scene scene,
         IReadOnlyList<Element> elements,
-        Element anchor,
-        bool duplicateMode)
+        TimeSpan deltaStart,
+        int deltaZIndex)
     {
         ArgumentNullException.ThrowIfNull(scene);
         ArgumentNullException.ThrowIfNull(elements);
-        ArgumentNullException.ThrowIfNull(anchor);
-        return new DragSession(_historyManager, _duplicateService, scene, elements, anchor, duplicateMode);
+
+        if (elements.Count == 0) return ElementMoveOutcome.None;
+        if (deltaStart == TimeSpan.Zero && deltaZIndex == 0) return ElementMoveOutcome.None;
+
+        scene.MoveChildren(deltaZIndex, deltaStart, elements.ToArray());
+        _historyManager.Commit(CommandNames.MoveElement);
+        return ElementMoveOutcome.Moved;
     }
 
-    private sealed class DragSession : IElementMoveDragSession
+    public ElementMoveOutcome DuplicateOrMove(
+        Scene scene,
+        IReadOnlyList<Element> elements,
+        TimeSpan deltaStart,
+        int deltaZIndex)
     {
-        private readonly HistoryManager _historyManager;
-        private readonly IElementDuplicateService _duplicateService;
-        private readonly Scene _scene;
-        private readonly Element[] _elements;
-        private readonly Element _anchor;
-        private readonly bool _duplicateMode;
-        private bool _disposed;
-        private bool _settled;
+        ArgumentNullException.ThrowIfNull(scene);
+        ArgumentNullException.ThrowIfNull(elements);
 
-        public DragSession(
-            HistoryManager historyManager,
-            IElementDuplicateService duplicateService,
-            Scene scene,
-            IReadOnlyList<Element> elements,
-            Element anchor,
-            bool duplicateMode)
+        if (elements.Count == 0) return ElementMoveOutcome.None;
+
+        Element[] source = elements.ToArray();
+        TimeSpan minSourceStart = TimeSpan.MaxValue;
+        int minSourceZIndex = int.MaxValue;
+        foreach (Element e in source)
         {
-            _historyManager = historyManager;
-            _duplicateService = duplicateService;
-            _scene = scene;
-            _elements = elements.ToArray();
-            _anchor = anchor;
-            _duplicateMode = duplicateMode;
+            if (e.Start < minSourceStart) minSourceStart = e.Start;
+            if (e.ZIndex < minSourceZIndex) minSourceZIndex = e.ZIndex;
         }
 
-        public ElementMoveOutcome Commit(TimeSpan deltaStart, int deltaZIndex)
+        TimeSpan anchorStart = minSourceStart + deltaStart;
+        if (anchorStart < TimeSpan.Zero) anchorStart = TimeSpan.Zero;
+        int anchorZIndex = Math.Max(minSourceZIndex + deltaZIndex, 0);
+
+        if (_duplicateService.WouldOverlap(source, anchorStart, anchorZIndex))
         {
-            if (_disposed || _settled) return ElementMoveOutcome.None;
-            _settled = true;
-
-            if (_elements.Length == 0) return ElementMoveOutcome.None;
-            if (deltaStart == TimeSpan.Zero && deltaZIndex == 0 && !_duplicateMode)
-            {
-                return ElementMoveOutcome.None;
-            }
-
-            if (_duplicateMode)
-            {
-                TimeSpan minSourceStart = TimeSpan.MaxValue;
-                int minSourceZIndex = int.MaxValue;
-                foreach (Element e in _elements)
-                {
-                    if (e.Start < minSourceStart) minSourceStart = e.Start;
-                    if (e.ZIndex < minSourceZIndex) minSourceZIndex = e.ZIndex;
-                }
-
-                TimeSpan anchorStart = minSourceStart + deltaStart;
-                if (anchorStart < TimeSpan.Zero) anchorStart = TimeSpan.Zero;
-                int anchorZIndex = Math.Max(minSourceZIndex + deltaZIndex, 0);
-
-                if (_duplicateService.WouldOverlap(_elements, anchorStart, anchorZIndex))
-                {
-                    return ElementMoveOutcome.DuplicateOverlapsSource;
-                }
-
-                if (_duplicateService.DuplicateAtPosition(_scene, _elements, anchorStart, anchorZIndex))
-                {
-                    return ElementMoveOutcome.Duplicated;
-                }
-
-                if (deltaStart == TimeSpan.Zero && deltaZIndex == 0)
-                {
-                    return ElementMoveOutcome.None;
-                }
-
-                _scene.MoveChildren(deltaZIndex, deltaStart, _elements);
-                _historyManager.Commit(CommandNames.MoveElement);
-                return ElementMoveOutcome.FellBackToMove;
-            }
-
-            _scene.MoveChildren(deltaZIndex, deltaStart, _elements);
-            _historyManager.Commit(CommandNames.MoveElement);
-            return ElementMoveOutcome.Moved;
+            return ElementMoveOutcome.DuplicateOverlapsSource;
         }
 
-        public void Cancel()
+        if (_duplicateService.DuplicateAtPosition(scene, source, anchorStart, anchorZIndex))
         {
-            if (_disposed || _settled) return;
-            _settled = true;
+            return ElementMoveOutcome.Duplicated;
         }
 
-        public void Dispose()
+        if (deltaStart == TimeSpan.Zero && deltaZIndex == 0)
         {
-            if (_disposed) return;
-            _disposed = true;
+            return ElementMoveOutcome.None;
         }
+
+        scene.MoveChildren(deltaZIndex, deltaStart, source);
+        _historyManager.Commit(CommandNames.MoveElement);
+        return ElementMoveOutcome.FellBackToMove;
     }
 }

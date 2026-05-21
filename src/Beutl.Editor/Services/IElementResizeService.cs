@@ -1,33 +1,16 @@
-using Beutl.ProjectSystem;
+﻿using Beutl.ProjectSystem;
 
 namespace Beutl.Editor.Services;
 
 /// <summary>
-/// Resizes the left/right edges of one or more <see cref="Element"/>s. The
-/// <see cref="IElementResizeDragSession"/> owns the history commit. When
-/// <see cref="BeginResize"/> is called with <c>clampToOriginalDuration</c>
-/// the session refuses to extend an element past its source media length.
+/// Applies resize requests to one or more <see cref="Element"/>s and commits
+/// a single MoveElement history entry. The View handles the per-pointer-frame
+/// preview by writing the VM reactive properties; the service is invoked once
+/// on drag release with the final (start, length, zIndex) per element.
 /// </summary>
 public interface IElementResizeService
 {
-    IElementResizeDragSession BeginResize(
-        Scene scene,
-        IReadOnlyList<Element> elements,
-        ResizeEdge edge,
-        bool clampToOriginalDuration);
-}
-
-public interface IElementResizeDragSession : IDisposable
-{
-    void Commit(IReadOnlyList<ElementResizeRequest> finalSizes);
-
-    void Cancel();
-}
-
-public enum ResizeEdge
-{
-    Left,
-    Right,
+    void Resize(Scene scene, IReadOnlyList<ElementResizeRequest> requests);
 }
 
 public readonly record struct ElementResizeRequest(

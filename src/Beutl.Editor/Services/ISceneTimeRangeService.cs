@@ -1,12 +1,18 @@
-using Beutl.ProjectSystem;
+﻿using Beutl.ProjectSystem;
 
 namespace Beutl.Editor.Services;
 
 /// <summary>
 /// Edits the <see cref="Scene.Start"/> and <see cref="Scene.Duration"/> range.
-/// Drag interactions are expressed as a <see cref="ISceneTimeRangeDragSession"/>:
-/// the session mutates the scene without committing while the user drags, and
-/// finalizes a single history entry on <see cref="ISceneTimeRangeDragSession.Commit"/>.
+/// <para>
+/// <see cref="SetStart"/> / <see cref="SetEnd"/> are one-shot mutate+commit
+/// methods for keyboard / menu callers. <see cref="UpdateStartDrag"/> and
+/// <see cref="UpdateEndDrag"/> mutate the scene without committing — call them
+/// per pointer frame during a drag, then finalize the history entry with
+/// <see cref="CommitStartChange"/> / <see cref="CommitEndChange"/>. Callers
+/// that abandon a drag (pointer-exit, ESC) re-call the matching UpdateXxxDrag
+/// with the initial values to restore state instead of committing.
+/// </para>
 /// </summary>
 public interface ISceneTimeRangeService
 {
@@ -14,16 +20,11 @@ public interface ISceneTimeRangeService
 
     void SetEnd(Scene scene, TimeSpan newEnd);
 
-    ISceneTimeRangeDragSession BeginDragStart(Scene scene);
+    void UpdateStartDrag(Scene scene, TimeSpan pointerTime, TimeSpan initialStart, TimeSpan initialDuration);
 
-    ISceneTimeRangeDragSession BeginDragEnd(Scene scene);
-}
+    void UpdateEndDrag(Scene scene, TimeSpan pointerTime);
 
-public interface ISceneTimeRangeDragSession : IDisposable
-{
-    void Update(TimeSpan pointerFrame);
+    void CommitStartChange();
 
-    void Commit();
-
-    void Cancel();
+    void CommitEndChange();
 }

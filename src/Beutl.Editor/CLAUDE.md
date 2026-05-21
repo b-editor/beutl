@@ -18,9 +18,9 @@ This subtree is the **non-UI editor logic** — undo / redo, project packaging, 
 
 Located under `Services/`:
 
-- `ISceneTimeRangeService` — Scene Start / Duration edits. Drag interactions go through `BeginDragStart` / `BeginDragEnd` → `Update` → `Commit`/`Cancel`.
-- `IElementMoveService` — single / multi-element move + Alt+drag duplicate. `Commit(deltaStart, deltaZIndex)` returns an `ElementMoveOutcome` (`Moved`, `Duplicated`, `FellBackToMove`, `DuplicateOverlapsSource`, `None`).
-- `IElementResizeService` — left / right resize, optional clamp to `OriginalDuration`. `Commit(IReadOnlyList<ElementResizeRequest>)` writes the final sizes in one transaction.
+- `ISceneTimeRangeService` — Scene Start / Duration edits. `SetStart` / `SetEnd` are one-shot mutate+commit for keyboard / menu callers; drag callers use `UpdateStartDrag` / `UpdateEndDrag` per pointer frame then call `CommitStartChange` / `CommitEndChange` once on release. No session object; cancellation is the caller re-driving Update with the initial values.
+- `IElementMoveService` — single / multi-element move + Alt+drag duplicate. `Move(...)` returns `Moved` / `None`; `DuplicateOrMove(...)` returns `Duplicated`, `FellBackToMove`, or `DuplicateOverlapsSource` and falls back to a plain move when the duplicate cannot be staged.
+- `IElementResizeService` — `Resize(scene, IReadOnlyList<ElementResizeRequest>)` writes the final sizes (per element: start, length, zIndex) in one transaction. The View handles per-frame preview via VM reactive properties; the service is invoked once on drag release.
 - `IElementClipboardService` — Copy / Cut / Paste. Dispatches on `IClipboardGateway` formats (`Elements`, `Element`, `Files`, `Bitmap`) so `Beutl.Editor` stays Avalonia-free.
 - `IElementDuplicateService` — selection duplicate + Alt+drag position duplicate. Wraps the existing `DuplicateHelper`; `DuplicateAtClickedPosition` runs a bounded spiral search (`<= 100_000` steps) so a packed timeline cannot hang the caller.
 - `IElementLifecycleService` — Exclude / Delete / Split / Group / Ungroup / SetEnabled / SetAccentColor.
