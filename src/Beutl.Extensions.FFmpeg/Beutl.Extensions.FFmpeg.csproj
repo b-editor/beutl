@@ -60,6 +60,10 @@
   </ItemGroup>
 
   <ItemGroup>
+    <InternalsVisibleTo Include="Beutl.UnitTests" />
+  </ItemGroup>
+
+  <ItemGroup>
     <EmbeddedResource Update="Properties\Strings.resx" />
     <EmbeddedResource Include="Properties\askpass.js">
       <LogicalName>askpass.js</LogicalName>

@@ -16,18 +16,26 @@ internal static class FFmpegInstallNotifier
     public static void NotifyMissing()
     {
         s_librariesMissing = true;
-
-        long now = Environment.TickCount64;
-        long last = Interlocked.Read(ref s_lastNotifiedTicks);
-        if (last != 0 && now - last < ThrottleMs)
+        if (!TryAcquireNotifySlot(Environment.TickCount64))
             return;
-        Interlocked.Exchange(ref s_lastNotifiedTicks, now);
 
         NotificationService.ShowError(
             Strings.FFmpegError,
             Strings.Make_sure_you_have_FFmpeg_installed,
             onActionButtonClick: ShowInstallDialog,
             actionButtonText: Strings.Install);
+    }
+
+    // CAS guard: only the thread whose CompareExchange swaps `last` -> `now`
+    // wins the right to fire the notification. Concurrent losers bail so a
+    // single failure observed on multiple background threads (extension load
+    // / encoder setup / FFmpegLoader.Initialize) yields one toast, not many.
+    internal static bool TryAcquireNotifySlot(long now)
+    {
+        long last = Interlocked.Read(ref s_lastNotifiedTicks);
+        if (last != 0 && now - last < ThrottleMs)
+            return false;
+        return Interlocked.CompareExchange(ref s_lastNotifiedTicks, now, last) == last;
     }
 
     public static void MarkInstalled()
