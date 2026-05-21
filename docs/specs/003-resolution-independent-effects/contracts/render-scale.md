@@ -19,19 +19,49 @@
 ```
 Renderer (FrameSize, ReferenceFrame)
         │
-        └─► GraphicsContext2D (initial = renderer's pair)
+        ├─► GraphicsContext2D (initial = renderer's pair)
+        │       │
+        │       ├─ PushReferenceFrame(subSceneFrame)  ┐
+        │       │  …draw nested scene…                 │  scoped via using
+        │       │  Dispose()                           ┘
+        │       │
+        │       ├─► FilterEffectContext snapshotted
+        │       │     on PushNode(...)
+        │       │
+        │       └─► TransformRenderNode (recorded with authoring-space matrix)
+        │
+        └─► ImmediateCanvas (RenderScale mirrored from Renderer)
                 │
-                ├─ PushReferenceFrame(subSceneFrame)   ┐
-                │  …draw nested scene…                  │  scoped via using
-                │  Dispose()                            ┘
-                │
-                └─► FilterEffectContext snapshotted
-                        on PushNode(...)
+                └─► PushTransform(matrix, op, isRaw)
+                       │
+                       └─ if !isRaw: matrix.translation *= RenderScale
+                          push to SKCanvas
 ```
+
+**Three propagation paths share the same `RenderScale`**:
+
+1. **`FilterEffectContext` path** — `GraphicsContext2D.PushNode(...)` snapshots `(ReferenceFrame, RenderScale)` into the new `FilterEffectContext` at construction. Effects read `context.RenderScale` inside their helpers and scale their length arguments. Captured at construction; immutable for the lifetime of the context.
+
+2. **`GraphicsContext2D` direct-helper path** — `DrawRectangle(Rect)`, `PushClip(Rect)`, etc. read `this.RenderScale` (top of stack) and scale their length arguments at API call time.
+
+3. **Transform / render-node-application path** — `GraphicsContext2D.PushTransform(Matrix | Transform.Resource)` records the matrix verbatim into a `TransformRenderNode`. At render-graph processing time, `ImmediateCanvas.PushTransform(matrix, op, isRaw)` (one layer below `GraphicsContext2D`) reads the renderer-supplied `RenderScale` and multiplies the translation column before pushing to SKCanvas. The matrix in the node is authoring-space, never scaled by the API layer.
+
+### Stack discipline (push / pop)
 
 - `SceneDrawable.Render(ctx, r)` MUST wrap its draw in `using (ctx.PushReferenceFrame(r.ReferencedScene.FrameSize)) { ... }`.
 - `LayerEffect`, and any future container that materializes a sub-raster (e.g. an "isolation" effect), MUST do the same.
 - `FilterEffectContext.Activate` / `Apply` read the snapshotted values; an effect's `ApplyTo` MUST NOT mutate them.
+
+### Nested-scene Transform consistency (the case Codex flagged)
+
+Because Transforms are scaled at `ImmediateCanvas.PushTransform` time (not at materialization), nested scenes work as follows:
+
+- The outer scene's draw eventually reaches `ImmediateCanvas.PushTransform` with the outer `RenderScale`. Transform translations are scaled by the outer ratio.
+- When `SceneDrawable.Render` enters a sub-scene, it calls `ctx.PushReferenceFrame(subScene.FrameSize)` and then draws the sub-scene's drawables. Inside that scope, `ctx.RenderScale` reflects the **inner** scene's ratio.
+- Sub-scene Transforms recorded inside the scope produce `TransformRenderNode`s whose matrix is authoring-space (inner-scene authoring values). At render-graph processing, `ImmediateCanvas` is still the outer renderer's `ImmediateCanvas` — but the sub-scene's draw operations are typically materialized to a separate sub-raster (per the existing `SceneDrawable` rendering path), at which point a sub-scene `ImmediateCanvas` is constructed with the sub-scene's own `RenderScale`. That sub-canvas applies the inner ratio to the Transform.
+- The contract: **the `RenderScale` used at `ImmediateCanvas.PushTransform` is always the `RenderScale` of the canvas materializing that node — never the outermost canvas's**. Implementations of `SceneDrawable.Render` that allocate a sub-canvas MUST construct it with `referenceFrame = subScene.FrameSize` so its `RenderScale` is the inner ratio.
+
+This is the propagation chain Codex flagged as not being explicitly written down. It is the same chain that `effect-helper-scaling.md` and `graphics-context-scaling.md` rely on for FilterEffectContext / GraphicsContext2D paths — Transform now joins the chain at the lower `ImmediateCanvas` layer.
 
 ## Renderer construction
 

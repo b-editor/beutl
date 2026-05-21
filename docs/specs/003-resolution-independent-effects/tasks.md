@@ -35,7 +35,7 @@ Engine code under `src/Beutl.Engine/`; project-system under `src/Beutl.ProjectSy
 
 ## Phase 2: Foundational (Blocking Prerequisites)
 
-**Purpose**: New `RenderScale` value type + reference-frame plumbing + modified `FilterEffectContext` (scaled helpers + `*Raw` twins) + modified `GraphicsContext2D` (scaled helpers + `*Raw` twins) + Pen scaling helpers + Transform `CreateMatrix` scaling + `CompositionContext.RenderScale` plumbing + test infrastructure.
+**Purpose**: New `RenderScale` value type + reference-frame plumbing + modified `FilterEffectContext` (scaled helpers + `*Raw` twins) + modified `GraphicsContext2D` (scaled helpers + `*Raw` twins) + Pen scaling helpers + `TransformRenderNode.IsRaw` + `ImmediateCanvas.PushTransform` scaling + test infrastructure.
 
 **⚠️ CRITICAL**: No user-story work begins until Phase 2 is complete.
 
@@ -53,23 +53,28 @@ Engine code under `src/Beutl.Engine/`; project-system under `src/Beutl.ProjectSy
 - [ ] T008 **Modify every length-taking helper on `FilterEffectContext`** (`Blur(Size)`, `DropShadow(Point, Size, Color)`, `DropShadowOnly`, `InnerShadow`, `InnerShadowOnly`, `Erode(float, float)`, `Dilate(float, float)`) to multiply by `this.RenderScale` before forwarding. Signatures unchanged. Add `NaN` / negative-length guards.
 - [ ] T009 Add `*Raw` twin for every helper modified in T008 (`BlurRaw`, `DropShadowRaw`, `DropShadowOnlyRaw`, `InnerShadowRaw`, `InnerShadowOnlyRaw`, `ErodeRaw`, `DilateRaw`). XML doc on each references `contracts/effect-helper-scaling.md`.
 
-### Block C — `GraphicsContext2D` direct-helper scaling
+### Block C — `GraphicsContext2D` Rect-helper scaling
 
-- [ ] T010 **Modify every length-taking helper on `GraphicsContext2D`** (`DrawRectangle(Rect)`, `DrawEllipse(Rect)`, `PushTransform(Matrix)`, `PushClip(Rect)`, `PushLayer(Rect)`, `PushOpacityMask(..., Rect, ...)`) to multiply Rect / Matrix-translation by `this.RenderScale` before forwarding. Signatures unchanged. `PushTransform(Transform.Resource)` reads `transform.Matrix` **verbatim** — the Transform already scaled at `CreateMatrix` time per T015–T017 (see `contracts/graphics-context-scaling.md` "no re-scaling" note).
-- [ ] T011 Add `*Raw` twin for every helper modified in T010 (`DrawRectangleRaw`, `DrawEllipseRaw`, `PushTransformRaw(Matrix)`, `PushTransformRaw(Transform.Resource)`, `PushClipRaw(Rect)`, `PushLayerRaw(Rect)`, `PushOpacityMaskRaw`). XML doc on each references `contracts/graphics-context-scaling.md`.
+- [ ] T010 **Modify Rect-taking helpers on `GraphicsContext2D`** (`DrawRectangle(Rect)`, `DrawEllipse(Rect)`, `PushClip(Rect)`, `PushLayer(Rect)`, `PushOpacityMask(..., Rect, ...)`) to multiply Rect by `this.RenderScale` (per axis — `X * ScaleX`, `Y * ScaleY`, `Width * ScaleX`, `Height * ScaleY`) before forwarding. Signatures unchanged.
+- [ ] T011 Add `*Raw` twin for every helper modified in T010 (`DrawRectangleRaw`, `DrawEllipseRaw`, `PushClipRaw(Rect)`, `PushLayerRaw(Rect)`, `PushOpacityMaskRaw`). XML doc on each references `contracts/graphics-context-scaling.md`.
+- [ ] T011a **`PushTransform(Matrix | Transform.Resource)` records matrix verbatim** — no API-time scaling. Construct `TransformRenderNode` with `IsRaw = false`. The actual scaling happens later in `ImmediateCanvas.PushTransform` (Block E). This is the exception to "scale at API call time" per `contracts/transform-scaling.md` and `research.md` § R10.
+- [ ] T011b Add `PushTransformRaw(Matrix)` / `PushTransformRaw(Transform.Resource)` that construct `TransformRenderNode` with `IsRaw = true`. `ImmediateCanvas.PushTransform` consults `IsRaw` to bypass scaling.
 
-### Block D — `Pen` scaling
+### Block D — `Pen` scaling + bounds audit
 
-- [ ] T012 Add `PenHelper.GetScaledThickness(pen, scale)`, `GetScaledDashOffset(pen, scale)`, `GetScaledOffset(pen, scale)`, `GetScaledRealThickness(alignment, pen, scale)` to `src/Beutl.Engine/Graphics/Rendering/PenHelper.cs` per `contracts/pen-scaling.md`. Existing `GetRealThickness` and `GetBounds` stay (used by non-rendering callers).
-- [ ] T013 Update consumption sites to use the scaled helpers: `src/Beutl.Engine/Graphics/ImmediateCanvas.cs` (5 reads of `pen.Thickness` in rendering paths), `src/Beutl.Engine/Graphics/Shapes/Shape.cs` (`GetRealThickness` → `GetScaledRealThickness`), `src/Beutl.Engine/Graphics/FilterEffects/StrokeEffect.cs` (thickness read for Skia stroke). Each site uses the `RenderScale` from the surrounding `GraphicsContext2D` / `FilterEffectContext` snapshot.
-- [ ] T014 Leave `pen.Thickness` raw at non-rendering call sites (e.g. `PenHelper.GetBounds(rect, pen)`) — bounds calculation lives in project space, not render space. Document the kept-raw call sites in `contracts/pen-scaling.md`.
+- [ ] T012 Add `PenHelper.GetScaledThickness(pen, scale)`, `GetScaledDashOffset(pen, scale)`, `GetScaledOffset(pen, scale)`, `GetScaledRealThickness(alignment, pen, scale)`, and **`GetScaledBounds(rect, pen, scale)`** to `src/Beutl.Engine/Graphics/Rendering/PenHelper.cs` per `contracts/pen-scaling.md`. Existing `GetRealThickness` and `GetBounds` stay (used by project-space callers).
+- [ ] T013 Update rendering consumption sites to use the scaled helpers: `src/Beutl.Engine/Graphics/ImmediateCanvas.cs` (5 reads of `pen.Thickness` in rendering paths), `src/Beutl.Engine/Graphics/Shapes/Shape.cs` (`GetRealThickness` → `GetScaledRealThickness`), `src/Beutl.Engine/Graphics/FilterEffects/StrokeEffect.cs` (thickness read for Skia stroke). Each site uses the `RenderScale` from the surrounding `GraphicsContext2D` / `FilterEffectContext` / `ImmediateCanvas` snapshot.
+- [ ] T014 **Audit every call site of `PenHelper.GetBounds(rect, pen)`** and classify each as project-space (keeps `GetBounds`) or render-space (migrates to `GetScaledBounds`). Per `contracts/pen-scaling.md` § "Project-space vs render-space bounds". Expected sites: invalidation regions submitted to the compositor, render-time clip rectangles, effect-extent calculations that feed into raster filters. Record the classification result in the PR description.
+- [ ] T014a [P] **Bounds-vs-render regression test** in `tests/Beutl.UnitTests/Engine/Graphics/Rendering/PenBoundsScalingTests.cs`: for each render-space bounds call site identified by T014, render a stroked shape at proxy and at export and assert that any clip / invalidation / effect bounds computed from the new `GetScaledBounds` matches the actual rendered stroke extent within 1 px tolerance.
 
-### Block E — `Transform.CreateMatrix` scaling + `CompositionContext` plumbing
+### Block E — Transform scaling at render-node application (revised after design review)
 
-- [ ] T015 Add `RenderScale RenderScale { get; }` to `CompositionContext` (`src/Beutl.Engine/Graphics/Effects/CompositionContext.cs` or wherever the type lives). Source from the active scene's `(FrameSize, ReferenceFrame)` pair. Plumb via `SceneCompositor` / `SceneRenderer` so a top-level scene gets `Identity` (today's behavior) and nested scenes / `LayerEffect` carry their own scale.
-- [ ] T016 Modify `TranslateTransform.CreateMatrix(CompositionContext)` to scale `X * context.RenderScale.ScaleX`, `Y * context.RenderScale.ScaleY` before constructing the translation matrix.
-- [ ] T017 Modify `Rotation3DTransform.CreateMatrix(CompositionContext)` to scale `CenterX / CenterY / CenterZ / Depth` by the appropriate axis of `context.RenderScale` (rotation angles unchanged).
-- [ ] T018 Modify `MatrixTransform.CreateMatrix(CompositionContext)` to scale the translation column (`M31 * ScaleX`, `M32 * ScaleY`) of the materialized matrix (other columns unchanged).
+> **Revised design** per `research.md` § R10: scaling moves from `Transform.CreateMatrix` to `ImmediateCanvas.PushTransform`. **No `Transform` subclass is modified.** `CompositionContext` is unchanged.
+
+- [ ] T015 Add `bool IsRaw` ctor parameter / property to `TransformRenderNode` (`src/Beutl.Engine/Graphics/Rendering/TransformRenderNode.cs`). Default `false`. Update `Process` so the lambda that pushes the matrix forwards `IsRaw` to `ImmediateCanvas.PushTransform`.
+- [ ] T016 Add `RenderScale RenderScale { get; }` to `ImmediateCanvas` (mirror from the constructing `Renderer`). Modify the existing `ImmediateCanvas.PushTransform(Matrix matrix, TransformOperator op)` to add an `isRaw` parameter (default `false`); when `!isRaw`, multiply `matrix.M31 *= RenderScale.ScaleX`, `matrix.M32 *= RenderScale.ScaleY` before forwarding to `SKCanvas`. Other matrix columns unchanged.
+- [ ] T017 **No `Transform` subclass modifications.** Verify (with a brief grep / read) that `TranslateTransform.CreateMatrix`, `Rotation3DTransform.CreateMatrix`, `MatrixTransform.CreateMatrix` still return authoring-space matrices verbatim. Add an XML doc note on each `CreateMatrix` saying "returns authoring-space matrix; render-time scaling happens at `ImmediateCanvas.PushTransform`".
+- [ ] T018 **No `CompositionContext` modifications.** Roll back any incidental edits from earlier drafts that added `CompositionContext.RenderScale`. Confirm `SceneCompositor` / `SceneRenderer` are unchanged on this front.
 
 ### Block F — Foundational tests (TDD — write before Block B–E implementation)
 
@@ -78,7 +83,13 @@ Engine code under `src/Beutl.Engine/`; project-system under `src/Beutl.ProjectSy
 - [ ] T021 [P] `FilterEffectContextScalingTests.cs` in `tests/Beutl.UnitTests/Engine/Graphics/FilterEffects/`: for each scaled helper — Identity = pre-feature; non-identity = scaled; `*Raw` bypasses; zero passes through; sub-pixel passes through; NaN throws; negative-length on Blur/Erode/Dilate throws (scaled), `*Raw` does not.
 - [ ] T022 [P] `GraphicsContext2DScalingTests.cs` in `tests/Beutl.UnitTests/Engine/Graphics/Rendering/`: for each scaled helper — Identity = pre-feature; non-identity Rect is per-axis scaled (X, Y, Width, Height); Matrix translation column scaled, other columns unchanged; `*Raw` bypasses; `PushTransform(Transform.Resource)` does NOT re-scale (since Transform already scaled at materialization).
 - [ ] T023 [P] `PenScalingTests.cs` in `tests/Beutl.UnitTests/Engine/Graphics/Rendering/`: `PenHelper.GetScaledThickness(pen, scale)` returns `pen.Thickness * scale.ApplyUniform(1)`; same for DashOffset / Offset; `GetScaledRealThickness` combines alignment + scale; raw `pen.Thickness` read is unchanged.
-- [ ] T024 [P] `TransformScalingTests.cs` in `tests/Beutl.UnitTests/Engine/Graphics/Transformation/`: `TranslateTransform.CreateMatrix(ctx)` translation = `(X * ctx.RenderScale.ScaleX, Y * ctx.RenderScale.ScaleY)`; `Rotation3DTransform.CreateMatrix` Center scaled; `MatrixTransform.CreateMatrix` translation column scaled (rotation / scale / skew columns untouched); pure-rotation / pure-scale / pure-skew transforms unchanged.
+- [ ] T024 [P] `TransformScalingTests.cs` in `tests/Beutl.UnitTests/Engine/Graphics/Rendering/`:
+  - `TranslateTransform.CreateMatrix` returns authoring-space matrix (`Matrix.CreateTranslation(X, Y)`) regardless of any context state.
+  - `TransformRenderNode(matrix, op)` defaults `IsRaw = false`; the `(matrix, op, isRaw)` ctor stores the flag.
+  - `ImmediateCanvas.PushTransform(matrix, op, isRaw: false)` with `RenderScale.Identity` produces the same SKCanvas matrix as pre-feature.
+  - With a 0.25 / 4.0 non-identity scale, the SKCanvas matrix's translation column is the input translation × scale (per axis); rotation / scale / skew columns unchanged.
+  - With `isRaw: true`, the SKCanvas matrix is the input verbatim regardless of `RenderScale`.
+  - End-to-end nested-scene test: outer canvas at Identity, inner canvas at 0.5; a `TransformRenderNode` recorded inside the inner scope produces a matrix scaled by 0.5 (inner ratio), not by 1.0 (outer) — proves the chain in `contracts/render-scale.md` § "Nested-scene Transform consistency".
 
 ### Block G — Test infrastructure (shared by Phases 3 / 4 / 5)
 
@@ -142,7 +153,7 @@ Engine code under `src/Beutl.Engine/`; project-system under `src/Beutl.ProjectSy
 - [ ] T048 Run `/beutl-build` and `/beutl-test` on the full solution.
 - [ ] T049 Run `/beutl-coverage Beutl.Engine`; confirm no regression on `Graphics/FilterEffects/FilterEffectContext.cs`, `Graphics/Rendering/GraphicsContext2D.cs`, `Graphics/Rendering/PenHelper.cs`, `Graphics/Transformation/*`.
 - [ ] T050 Run `/beutl-pre-pr`.
-- [ ] T051 Open PR with `@beutl-design-reviewer` mentioned, focusing the design-priorities audit on the public surface (`RenderScale`, `IRenderer.ReferenceFrame`, `GraphicsContext2D.PushReferenceFrame` + scaled helpers + `*Raw` twins, `FilterEffectContext` scaled helpers + `*Raw` twins, `PenHelper.GetScaled*` helpers, `CompositionContext.RenderScale`, `Transform.CreateMatrix` semantic change).
+- [ ] T051 Open PR with `@beutl-design-reviewer` mentioned, focusing the design-priorities audit on the public surface (`RenderScale`, `IRenderer.ReferenceFrame`, `GraphicsContext2D.PushReferenceFrame`, `GraphicsContext2D` scaled Rect helpers + `*Raw` twins, `GraphicsContext2D.PushTransform` records verbatim + `PushTransformRaw`, `FilterEffectContext` scaled helpers + `*Raw` twins, `PenHelper.GetScaled*` helpers, `PenHelper.GetScaledBounds`, `TransformRenderNode.IsRaw`, `ImmediateCanvas.PushTransform(matrix, op, isRaw)` semantic change).
 - [ ] T052 Update `checklists/requirements.md` Notes with summary + forward pointers to deferred follow-ups (`Geometry`, `TextBlock`, `Brush rects`).
 
 ---
@@ -168,6 +179,7 @@ Engine code under `src/Beutl.Engine/`; project-system under `src/Beutl.ProjectSy
 ### Parallel Opportunities
 
 - Blocks B / C / D / E in Phase 2 are largely independent of each other (different files); after Block A lands, all four can be worked in parallel by separate engineers.
+  - **Caveat** (revised after Codex design review): `T011a` / `T011b` in Block C (which record into `TransformRenderNode` with `IsRaw`) depend on `T015` in Block E (which adds the `IsRaw` flag). Land `T015` before `T011a`/`T011b` even if Block C otherwise runs in parallel with Block E.
 - Block F tests (T019–T024) are all in different files — parallel.
 - Block G infra (T025–T027) — parallel.
 - Phase 3 fixtures (T029–T033) — parallel; only T028 (the harness file) needs to land first.

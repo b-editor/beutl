@@ -169,8 +169,8 @@ The 2026-05-21 scope expansion (see `spec.md` § Clarifications) pulled `Transfo
 |---|---|---|---|
 | `DrawRectangle(Rect rect, Brush.Resource?, Pen.Resource?)` | `rect` (X, Y, Width, Height) | `DrawRectangleRaw(Rect, ...)` | `Pen.Resource.Thickness` is scaled separately at consumption — see Pen section. |
 | `DrawEllipse(Rect rect, Brush.Resource?, Pen.Resource?)` | `rect` | `DrawEllipseRaw(Rect, ...)` | Same Pen note. |
-| `PushTransform(Matrix matrix, TransformOperator)` | translation column of `matrix` (M31, M32) | `PushTransformRaw(Matrix, ...)` | Rotation / scale / skew columns of the matrix stay raw. |
-| `PushTransform(Transform.Resource transform, TransformOperator)` | translation column of `transform.Matrix` | `PushTransformRaw(Transform.Resource, ...)` | The `Transform` itself already scaled at `CreateMatrix` time per R10; this push site does NOT re-scale (would double-scale). The `*Raw` twin reads the resource's matrix verbatim. |
+| `PushTransform(Matrix matrix, TransformOperator)` | **deferred to render-node application** — records `matrix` verbatim into `TransformRenderNode` (`IsRaw = false`); `ImmediateCanvas.PushTransform` scales the translation column. | `PushTransformRaw(Matrix, ...)` — records `matrix` into `TransformRenderNode` with `IsRaw = true`; `ImmediateCanvas` bypasses scaling. | The Transform path is the one exception to "scale at API call time". See `contracts/transform-scaling.md` and `research.md` § R10. |
+| `PushTransform(Transform.Resource transform, TransformOperator)` | **deferred to render-node application** — records `transform.Matrix` verbatim into `TransformRenderNode`. | `PushTransformRaw(Transform.Resource, ...)` — `IsRaw = true`. | Both `PushTransform(Matrix)` and `PushTransform(Transform.Resource)` produce identical `TransformRenderNode` shapes; the only difference is the source of the matrix. |
 | `PushClip(Rect clip, ClipOperation)` | `clip` | `PushClipRaw(Rect, ...)` | — |
 | `PushLayer(Rect limit)` | `limit` | `PushLayerRaw(Rect)` | — |
 | `PushOpacityMask(Brush.Resource mask, Rect bounds, bool invert)` | `bounds` | `PushOpacityMaskRaw(Brush.Resource, Rect, bool)` | The brush's interior coordinates are out of scope (deferred follow-up). |
@@ -190,17 +190,25 @@ The 2026-05-21 scope expansion (see `spec.md` § Clarifications) pulled `Transfo
 
 Opt-out: callers that want raw-raster thickness call `pen.Thickness` directly (the underlying property) rather than via `PenHelper.GetScaledThickness(...)`. Documented on `Pen.Resource.Thickness` XML doc.
 
-### `Transform` — `src/Beutl.Engine/Graphics/Transformation/`
+**Project-space vs render-space bounds**: `PenHelper.GetBounds(rect, pen)` returns the project-space bounds (uses raw `pen.Thickness`) for non-rendering callers — bounding-box for project-level math, hit-testing against authored geometry, animation evaluation. A new `PenHelper.GetScaledBounds(rect, pen, scale)` returns render-space bounds for invalidation regions, render-time clip rectangles, and effect-extent calculations. Every call site of the existing `GetBounds(...)` MUST be classified during Phase 2 Block D and either retained (project-space) or migrated to `GetScaledBounds` (render-space) — see `contracts/pen-scaling.md` § "Project-space vs render-space bounds".
 
-| Transform subclass | Scaling at `CreateMatrix(CompositionContext)` | Notes |
-|---|---|---|
-| `TranslateTransform` | `Matrix.CreateTranslation(X * scale.ScaleX, Y * scale.ScaleY)` | Was: `Matrix.CreateTranslation(X, Y)`. |
-| `Rotation3DTransform` | scale `CenterX / CenterY / CenterZ` and `Depth` by the appropriate axis of `scale` before constructing the perspective matrix | `RotationX / RotationY / RotationZ` are degrees — unchanged. |
-| `MatrixTransform` | scale the matrix's translation column (M31, M32) by `scale.ScaleX` and `scale.ScaleY` respectively | Rotation / scale / skew columns unchanged. |
-| `RotationTransform`, `ScaleTransform`, `SkewTransform` | no translation component — unchanged | Pure dimensionless. |
-| `TransformPresenter` | wraps a `Transform?` — delegates | — |
+### `Transform` — `src/Beutl.Engine/Graphics/Transformation/` (no source changes — scaling at render-node application)
 
-`CompositionContext` gains a `RenderScale RenderScale { get; }` property, sourced from the active Scene's `(FrameSize, ReferenceFrame)` pair. This is the only `CompositionContext` change. See `contracts/transform-scaling.md`.
+**`Transform` subclasses are unchanged.** Per the revised design (`research.md` § R10), scaling moves out of `CreateMatrix` and into `ImmediateCanvas.PushTransform`. No subclass is modified; no `CompositionContext` property is added.
+
+| Site | Change |
+|---|---|
+| `TranslateTransform.CreateMatrix` | Unchanged — returns `Matrix.CreateTranslation(X.Value, Y.Value)` in authoring space. |
+| `Rotation3DTransform.CreateMatrix` | Unchanged — uses raw `CenterX / CenterY / CenterZ / Depth` values. |
+| `MatrixTransform.CreateMatrix` | Unchanged — returns the authored `Matrix.Value` verbatim. |
+| `RotationTransform`, `ScaleTransform`, `SkewTransform` | Unchanged. |
+| `Transform.Resource.Matrix` | Authoring-space — bounding-box / animation / non-rendering consumers read it verbatim. |
+| `TransformRenderNode` | **MODIFIED** — gains a `bool IsRaw` ctor parameter / property. `GraphicsContext2D.PushTransform(Matrix \| Transform.Resource)` constructs nodes with `IsRaw = false`; `PushTransformRaw(...)` constructs with `IsRaw = true`. |
+| `ImmediateCanvas.PushTransform(matrix, op, isRaw)` | **MODIFIED** — if `!isRaw`, multiplies `matrix.M31 *= RenderScale.ScaleX`, `matrix.M32 *= RenderScale.ScaleY` before forwarding to `SKCanvas`. Other matrix columns unchanged. |
+
+Custom `Transform` subclasses (third-party plugins): no opt-in required. Their `CreateMatrix` continues to return authoring-space; `ImmediateCanvas` scales at the end.
+
+See `contracts/transform-scaling.md` for the full contract.
 
 ### `Shape` — `src/Beutl.Engine/Graphics/Shapes/`
 

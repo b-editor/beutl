@@ -51,6 +51,30 @@ The audit identified ~7 sites that read `pen.Thickness` directly for rendering:
 
 Bounding-box computation paths (`PenHelper.GetBounds(rect, pen)`) intentionally keep using `pen.Thickness` directly — bounds are project-space and should not include rendering-time scale.
 
+### Project-space vs render-space bounds (audit obligation)
+
+The design review surfaced a risk: stroke-thickness scaling at render time can diverge from raw-thickness bounds, and that divergence can quietly break invalidation, clipping, hit-testing, or effect-extent calculations if any of those paths uses `PenHelper.GetBounds(...)` (project-space) but the actual rendering uses a scaled stroke. To keep the divergence safe, every consumer of `PenHelper.GetBounds(...)` (and any other API that returns "the rectangle a stroke covers") MUST be classified as one of:
+
+- **Project-space consumer** (raw thickness is correct) — bounding-box for project-level math, animation evaluation, hit-testing against authored geometry. These read `pen.Thickness` (raw) directly via the existing `GetBounds`.
+- **Render-space consumer** (scaled thickness is correct) — invalidation regions submitted to the raster compositor, clip rectangles enforced at render time, effect-extent calculations that feed into raster filters. These MUST switch to a new `PenHelper.GetScaledBounds(rect, pen, renderScale)` that applies the same `RenderScale` multiplication as `GetScaledThickness` before computing the bounds.
+
+The audit is part of Phase 2 Block D (`tasks.md` T014) — enumerate every call site of `PenHelper.GetBounds(...)`, classify it, and either keep raw or migrate to `GetScaledBounds`. The PR description records the classification result; reviewers can sanity-check it against this contract.
+
+### `PenHelper.GetScaledBounds` (new helper)
+
+```csharp
+public static partial class PenHelper
+{
+    // Project-space (existing — unchanged):
+    public static Rect GetBounds(Rect rect, Pen.Resource? pen);
+
+    // Render-space (new — applies RenderScale before computing stroke expansion):
+    public static Rect GetScaledBounds(Rect rect, Pen.Resource? pen, RenderScale scale);
+}
+```
+
+`GetScaledBounds` internally uses `GetScaledThickness(pen, scale)` so the expansion of `rect` matches what the rasterizer will actually draw.
+
 ## Opt-out for raw thickness in a rendering path
 
 A custom effect or drawable that explicitly wants raw-raster thickness reads `pen.Thickness` directly and does not call `PenHelper.GetScaledThickness`. There is no separate `*Raw` API method on `Pen` itself — the raw read *is* the opt-out.

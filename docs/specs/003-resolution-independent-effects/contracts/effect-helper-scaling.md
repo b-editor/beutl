@@ -93,15 +93,23 @@ Imagine a plugin that needs the user-typed value to mean "5 raster pixels regard
 
 That is the entirety of the opt-out path.
 
-## Plugin author migration
+## Plugin author migration (authoritative cross-surface table)
 
-For 99% of plugins: **do nothing**. Rebuild against the new `Beutl.Engine` and the plugin automatically becomes resolution-independent the day a proxy-preview UX ships.
+This is the single source of truth for the plugin migration contract. If anything in `spec.md` or another contract document disagrees with this table, the table wins and the other document must be reconciled.
 
-For the niche raw-raster case: rename the helper call sites to their `*Raw` twin (one method-name change per call site, mechanical).
+| Plugin-code shape | Action required to benefit | Opt-out path | Notes |
+|---|---|---|---|
+| Calls a `FilterEffectContext` helper (`Blur(Size)`, `DropShadow(Point, Size, Color)`, `Erode(float, float)`, …) | **None** — automatic on rebuild. | Switch the call to its `*Raw` twin (`BlurRaw`, `DropShadowRaw`, `ErodeRaw`, …). One method-name change per call site. | This is the 99% case for filter-effect plugins. |
+| Calls a `GraphicsContext2D` direct helper (`DrawRectangle(Rect)`, `DrawEllipse(Rect)`, `PushClip(Rect)`, `PushLayer(Rect)`, `PushOpacityMask(...)`) | **None** — automatic on rebuild. | Switch to the corresponding `*Raw` twin. | Covers most custom `Drawable` subclasses. |
+| Calls `GraphicsContext2D.PushTransform(Matrix)` or `PushTransform(Transform.Resource)` | **None** — automatic. Scaling happens at render-node application (`ImmediateCanvas`), not at `PushTransform` call time. | Switch to `PushTransformRaw(Matrix)` / `PushTransformRaw(Transform.Resource)`. The raw node records `IsRaw = true` and skips render-time scaling. | The Transform path is special — see `transform-scaling.md` and `research.md` § R10. |
+| Custom `Transform` subclass with a non-trivial `CreateMatrix` override (returning a project-space matrix) | **None** — automatic on rebuild. `CreateMatrix` continues to return project-space matrices; `ImmediateCanvas.PushTransform` scales the result. | Wrap the matrix in a `MatrixTransform` and push via `PushTransformRaw(Transform.Resource)`. | Earlier draft of this contract required custom Transforms to opt in by reading `context.RenderScale` inside `CreateMatrix`. That requirement is **gone** under the render-node-application design. |
+| Reads `pen.Thickness` (or `DashOffset` / `Offset`) directly in a rendering path | **Manual** — switch the read to `PenHelper.GetScaledThickness(pen, renderScale)` (or `GetScaledDashOffset` / `GetScaledOffset`). | Keep the raw `pen.Thickness` read — that **is** the opt-out for raw-raster behavior. | Pen is the one surface where opt-in is manual; see `research.md` § R9 for why. Bounds-computing code that reads `pen.Thickness` for project-space math is fine as-is — see `pen-scaling.md` § "Project-space vs render-space bounds". |
+| Reads `Transform.Resource.Matrix` directly (for bounding-box / animation / non-rendering math) | **None** — `Matrix` is authoring-space, which is what these consumers want. | n/a — they read authoring-space by definition. | If you need a render-space matrix, multiply the translation column by the surrounding `RenderScale` yourself. |
+| Calls a `Geometry` / `TextBlock` / `Brush`-rectangle API | **Deferred** — out of scope this PR. | n/a (no scaling, no opt-out). | These surfaces become resolution-independent in follow-up PRs. See `data-model.md` § "Deferred follow-ups". |
 
 For scripting users:
 
-- `CSharpScriptEffect`: same as compiled plugins. Existing scripts pick up the scaling on the next `Beutl.Engine` upgrade.
+- `CSharpScriptEffect`: rows 1–4 of the table above apply. Existing scripts pick up the new scaling on the next `Beutl.Engine` upgrade.
 - `GLSLScriptEffect` / `SKSLScriptEffect`: shader uniforms whose units are pixels and that are bound by the host should pass through the same `RenderScale` multiplication. Documented in the shader-binding section of the script-effect guide (separate work, tracked as a Phase 6 task).
 
 ## Sub-pixel / zero handling (FR-009)

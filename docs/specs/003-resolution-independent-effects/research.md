@@ -236,24 +236,43 @@ For `DashOffset` and `Offset`, mirror with `PenHelper.GetScaledDashOffset(...)` 
 - *Mutate `Pen.Resource.Thickness` to be a method that takes `RenderScale`.* Rejected — would propagate signature change to every Pen consumer.
 - *Introduce a `ScaledPen.Resource` wrapper at consumption.* Rejected — yet another type to track; helper is simpler.
 
-## R10 — Transform scaling: at CreateMatrix vs at PushTransform
+## R10 — Transform scaling: at CreateMatrix vs at PushTransform vs at render-node application
 
 **Question**: `Transform.CreateMatrix(CompositionContext)` materializes a `Matrix`. Where should the translation column be scaled?
 
-**Finding** — two options:
+**Finding** — three options:
 
-- **(a) Inside `CreateMatrix`** — each concrete Transform subclass that has a translation (TranslateTransform, Rotation3DTransform.Center*, MatrixTransform.Matrix) produces a pre-scaled Matrix. `CompositionContext` carries `RenderScale`.
-- **(b) Inside `GraphicsContext2D.PushTransform(Transform.Resource)`** — read `transform.Matrix`, decompose, multiply translation column by `RenderScale`, push. `Transform.Resource.Matrix` stays in unscaled "authoring space".
+- **(a) Inside `CreateMatrix`** — each concrete Transform subclass produces a pre-scaled Matrix. `CompositionContext` carries `RenderScale`.
+- **(b) Inside `GraphicsContext2D.PushTransform(Transform.Resource)`** — at the API consume site, read `transform.Matrix`, multiply translation column by `RenderScale`, push. `Transform.Resource.Matrix` stays unscaled.
+- **(c) Inside `ImmediateCanvas.PushTransform` (render-node application)** — `TransformRenderNode` stores the project-space matrix verbatim; when the node is processed and the matrix is actually pushed to the underlying `SKCanvas`, `ImmediateCanvas.PushTransform` multiplies the translation column by its own `RenderScale`. `Transform.Resource.Matrix` and `TransformRenderNode.Transform` are both authoring-space; only the final SKCanvas push is scaled.
 
-**Decision**: (a) — inside `CreateMatrix`. Reasons:
+**Decision (revised 2026-05-21 after design review)**: **(c)** — at `ImmediateCanvas` / render-node application time.
 
-- `Transform.Resource.Matrix` is consumed in places besides `PushTransform(Transform.Resource)` — bounding-box computation, animation evaluation, etc. If the Matrix stays unscaled at materialization, every consumer has to remember to scale, which is the FR-009 fragility we want to avoid.
-- `CompositionContext` already represents "the context in which a transform is materialized"; carrying `RenderScale` on it is a small addition.
-- The bare-matrix overload `PushTransform(Matrix matrix)` still scales internally per FR-008 (caller passes raw pixel translation → helper applies scale), so the two `PushTransform` overloads remain consistent at their entry-point boundary.
+**Reasons for (c) over (a) and (b)**:
 
-**`*Raw` opt-out for Transform**: not needed at the Transform layer — there is no use case for "I want a TranslateTransform whose X means raw raster pixels at this current proxy size". `PushTransformRaw(Matrix)` on `GraphicsContext2D` covers the explicit-Matrix case for callers who want to bypass scaling.
+- **`CompositionContext` stays unchanged.** No new property, no plumbing through `SceneCompositor` / `SceneRenderer`. Lower blast radius and avoids the propagation gap the design review flagged (`CompositionContext.RenderScale` was specified to come from "the active scene's `(FrameSize, ReferenceFrame)` pair" but the precise chain from `PushReferenceFrame` to `CompositionContext` was never closed — see `render-scale.md` propagation update).
+- **Custom Transform subclasses automatically benefit.** Third-party plugins that override `CreateMatrix` no longer need to remember to multiply by `context.RenderScale` themselves — they just return a project-space matrix and the rendering pipeline scales at the end. This resolves the inconsistency the design review flagged in the plugin migration contract.
+- **`Transform.Resource.Matrix` is semantically clean.** Bounding-box computation, animation evaluation, and any other non-rendering consumer reads the authored matrix verbatim. The "raw-Pen-thickness for bounds" pattern from R9 carries through symmetrically to Transform.
+- **`TransformRenderNode` caches survive `RenderScale` changes.** Today nothing changes `RenderScale` at runtime, but when proxy preview ships and the user toggles proxy resolution, render-node caches stay valid — they're authoring-space.
+- **`PushTransform(Matrix)` and `PushTransform(Transform.Resource)` become symmetric** at the render-application boundary: both record an unscaled `TransformRenderNode` at the `GraphicsContext2D` layer; both are scaled at `ImmediateCanvas.PushTransform` time. No "one overload scales at API time, the other doesn't" asymmetry.
+
+**Where the scaling literally lives**: `ImmediateCanvas.PushTransform(Matrix matrix, …)` (the lowest-level matrix-push that talks to `SKCanvas`). The translation column is multiplied by `this.RenderScale` before the underlying `SKCanvas.SetMatrix` / `Concat` call. `ImmediateCanvas` exposes `RenderScale` as a property mirrored from the constructing `Renderer`.
+
+**API-layer `GraphicsContext2D` consequences**:
+
+- `GraphicsContext2D.PushTransform(Matrix matrix, …)` records `matrix` **verbatim** into `TransformRenderNode`. **No API-time scaling for the Transform path.** This is the one exception to "scale at the helper API call site" — the Transform-specific behavior the user requested.
+- `GraphicsContext2D.PushTransform(Transform.Resource transform, …)` similarly records `transform.Matrix` verbatim.
+- `GraphicsContext2D.PushTransformRaw(Matrix matrix, …)` / `PushTransformRaw(Transform.Resource, …)` records into a `TransformRenderNode` flagged "raw"; `ImmediateCanvas.PushTransform` consults the flag and skips scaling for raw nodes.
+- Other `GraphicsContext2D` helpers (`DrawRectangle(Rect)`, `PushClip(Rect)`, …) continue to scale at API time — they're not on the Transform path and don't share the caching / consumer-flexibility benefit.
+
+**`*Raw` opt-out for Transform**: implemented as a flag on `TransformRenderNode` ("don't scale at application time"). `GraphicsContext2D.PushTransformRaw(Matrix)` constructs a raw node; `ImmediateCanvas` bypasses scaling. Realistic use cases for raw transforms exist when a caller has already authored a matrix in raw-raster coordinates (e.g. snap-to-pixel-grid effects) and wants the result preserved.
 
 **Alternatives considered**:
 
-- *(b) at PushTransform.* Rejected — leaks raw-matrix semantic into `Transform.Resource.Matrix`.
-- *Add a `[NoScale]` attribute to Transform subclasses that want to opt out.* Rejected — every dimensionless Transform (`RotationTransform`, `ScaleTransform`, `SkewTransform`) has no translation, so the question is moot for them. No real use case exists.
+- *(a) Materialize-time scaling in `CreateMatrix`.* Rejected after review:
+  - Required `CompositionContext.RenderScale` plumbing whose propagation chain from `PushReferenceFrame` to `CompositionContext` was never closed.
+  - Bounding-box computation and other non-rendering consumers of `Transform.Resource.Matrix` would silently observe scaled values.
+  - Third-party `Transform` subclasses would have to opt in manually by editing their `CreateMatrix` overrides — surface-by-surface inconsistency with the rest of the plugin contract.
+- *(b) `GraphicsContext2D.PushTransform(Transform.Resource)` consume-site scaling.* Rejected:
+  - Asymmetric with `PushTransform(Matrix)` (which would either also scale at API time, double-scaling problems, or not scale, divergence problems).
+  - Render-node caches would contain pre-scaled matrices and need invalidation on `RenderScale` change.
