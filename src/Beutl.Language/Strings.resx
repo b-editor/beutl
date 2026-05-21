@@ -1080,6 +1080,18 @@ Example: GetProperty&lt;double&gt;("{GUID}.Opacity")</value>
   <data name="CropSelection" xml:space="preserve">
     <value>Crop selection</value>
   </data>
+  <data name="Camera3DControl" xml:space="preserve">
+    <value>3D camera control</value>
+  </data>
+  <data name="Gizmo_Translate" xml:space="preserve">
+    <value>Translate</value>
+  </data>
+  <data name="Gizmo_Rotate" xml:space="preserve">
+    <value>Rotate</value>
+  </data>
+  <data name="Gizmo_Scale" xml:space="preserve">
+    <value>Scale</value>
+  </data>
   <data name="Portal" xml:space="preserve">
     <value>Portal</value>
   </data>
