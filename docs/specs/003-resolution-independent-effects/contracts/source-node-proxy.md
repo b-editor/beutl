@@ -24,7 +24,9 @@ public override RenderNodeOperation[] Process(RenderNodeContext context)
 {
     var decodedRaster = decoder.Decode(currentFrame, /* size hint */ proxyConfig.TargetRaster);
     var bounds = ComputeBoundsInParentAuthoringSpace();
-    var correctionScale = RenderScale.FromFrames(decodedRaster.PixelSize, bounds.PixelSize);
+    var correctionScale = RenderScale.FromFrames(
+        raster: decodedRaster.PixelSize,
+        bounds: bounds.PixelSize);   // = bounds / raster (≥ 1)
 
     return new[]
     {
@@ -50,14 +52,18 @@ public override RenderNodeOperation[] Process(RenderNodeContext context)
 {
     var bounds = ComputeBoundsInAuthoringSpace();
     var (rasterSize, correctionScale) = ResolveProxy(bounds, proxyConfig);
-        // For no proxy: rasterSize = bounds.PixelSize, correctionScale = Identity.
-        // For proxy 1/4: rasterSize = bounds.PixelSize / 4, correctionScale = (4, 4).
+        // For no proxy: rasterSize = bounds.PixelSize, correctionScale = Identity (1, 1).
+        // For proxy 1/4: rasterSize = bounds.PixelSize / 4, correctionScale = (4, 4)
+        //                = bounds / raster, the upscale ratio.
 
     using var renderTarget = RenderTarget.Create(rasterSize.Width, rasterSize.Height);
     using var canvas = new ImmediateCanvas(renderTarget, rasterSize);
     using (canvas.SKCanvas.PushPreTransform(SKMatrix.CreateScale(
         1f / correctionScale.ScaleX, 1f / correctionScale.ScaleY)))
     {
+        // The inner pass draws in authoring space; SKCanvas matrix transforms
+        // to the smaller raster automatically. SKCanvas.Scale here is the
+        // *inverse* of CorrectionScale because we are mapping authoring → raster.
         // Run the inner render pass in authoring space — Skia transforms to raster space.
         innerDrawable.Render(canvas);
     }
@@ -101,11 +107,12 @@ private (PixelSize raster, RenderScale scale) ResolveProxy(Rect bounds, ProxyCon
     if (config?.Enabled != true)
         return (bounds.PixelSize, RenderScale.Identity);
 
-    var ratio = config.Ratio;   // e.g. 0.25 for 1/4
+    var rasterShrinkRatio = config.RasterShrinkRatio;   // e.g. 0.25 for "1/4 resolution"
     var raster = new PixelSize(
-        Math.Max(1, (int)(bounds.PixelSize.Width  * ratio)),
-        Math.Max(1, (int)(bounds.PixelSize.Height * ratio)));
+        Math.Max(1, (int)(bounds.PixelSize.Width  * rasterShrinkRatio)),
+        Math.Max(1, (int)(bounds.PixelSize.Height * rasterShrinkRatio)));
     return (raster, RenderScale.FromFrames(raster, bounds.PixelSize));
+    // CorrectionScale = bounds / raster ≈ 1 / rasterShrinkRatio (e.g. 4 for 1/4 proxy).
 }
 ```
 

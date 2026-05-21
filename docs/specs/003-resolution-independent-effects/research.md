@@ -48,7 +48,7 @@ This document resolves the unknowns referenced by `plan.md` Phase 0.
 
 **Question**: When `FilterEffectRenderNode` receives an upstream operation with `CorrectionScale = s` and the filter has authored parameter `p`, what does Skia receive?
 
-**Decision**: For length-typed filter parameters, Skia receives `p / s.ApplyUniform(1)` (for scalars like sigma, radius) or `(p.X / s.ScaleX, p.Y / s.ScaleY)` (for 2D position / extent).
+**Decision**: For length-typed filter parameters, Skia receives `p / s.ToRasterUniform(1)` (for scalars like sigma, radius) or `(p.X / s.ScaleX, p.Y / s.ScaleY)` (for 2D position / extent).
 
 **Rationale**:
 
@@ -65,7 +65,7 @@ This document resolves the unknowns referenced by `plan.md` Phase 0.
 | `InnerShadow` | `Position`, `Sigma` | same as DropShadow |
 | `StrokeEffect` | `Offset: Point`, Pen (`Thickness`, `DashOffset`, `Offset`) | `Skia` stroke geometry at `Offset/s`, `Thickness/s`, etc. |
 | `Erode`, `Dilate` | `RadiusX`, `RadiusY: float` | `Skia.Erode/Dilate(rx/s.ScaleX, ry/s.ScaleY)` |
-| `FlatShadow` | `Length: float` (Angle dimensionless) | `length / s.ApplyUniform(1)` |
+| `FlatShadow` | `Length: float` (Angle dimensionless) | `length / s.ToRasterUniform(1)` |
 | `ColorShift` | per-channel `PixelPoint` offsets | `(rx/s.ScaleX, ry/s.ScaleY)` per channel |
 | `DisplacementMapTransform` (×3 subclasses) | `X / Y / CenterX / CenterY / Depth: float` | each scalar divided by the appropriate axis |
 | `MosaicEffect` | `TileSize: Size` | `(w/s.ScaleX, h/s.ScaleY)` |

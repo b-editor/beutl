@@ -6,7 +6,7 @@
 
 ## The contract in one paragraph
 
-The compositor (final render pass) walks the produced `RenderNodeOperation`s and, for each, blits the operation's raster into the output canvas at the operation's `Bounds`, applying an upscale transform equal to the operation's `CorrectionScale`. When `CorrectionScale = Identity`, the blit is the existing pre-feature path (no transform). When `CorrectionScale ≠ Identity`, the raster is upscaled per axis to fill the bounds.
+The compositor (final render pass) walks the produced `RenderNodeOperation`s and, for each, blits the operation's raster into the output canvas at the operation's `Bounds`, applying an upscale transform equal to the operation's `CorrectionScale`. When `CorrectionScale = Identity` (= `(1, 1)`), the blit is the existing pre-feature path (no transform). When `CorrectionScale > Identity` (≥ 1 per axis), the raster is upscaled per axis to fill the bounds via `SKCanvas.Scale(CorrectionScale.ScaleX, CorrectionScale.ScaleY, …)`. The numeric convention is `CorrectionScale = bounds.Size / raster.Size`, so multiplying by it at blit time is mathematically the inverse of the smaller-raster downscale that the source applied.
 
 ## Pattern
 

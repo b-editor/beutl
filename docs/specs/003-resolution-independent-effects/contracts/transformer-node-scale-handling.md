@@ -6,7 +6,7 @@
 
 ## The contract in one paragraph
 
-A transformer RenderNode reads its upstream operation(s)' `CorrectionScale`, divides its own length-typed internal parameters by that scale before invoking Skia (which operates on the raster), computes its output `Bounds` in authoring space using the **authored** (un-divided) parameters, and propagates `CorrectionScale` on its output operation. The transformer **does not** re-rasterize; it operates in place on the upstream raster.
+A transformer RenderNode reads its upstream operation(s)' `CorrectionScale`, converts its own length-typed internal parameters from authoring space to raster space (`p_raster = scale.ToRasterX(p_authoring) = p_authoring / scale.ScaleX`) before invoking Skia, computes its output `Bounds` in **authoring space** using the **authored** (un-converted) parameters, and propagates `CorrectionScale` on its output operation. The transformer **does not** re-rasterize; it operates in place on the upstream raster. The numeric convention is fixed in `render-node-operation-scale.md` — `CorrectionScale ≥ 1` is the bounds-over-raster upscale ratio.
 
 ## Pattern
 
@@ -76,11 +76,52 @@ When the clip / layer is applied to the upstream raster (which is at smaller res
 
 The exception: if a `PushLayer` materializes a new raster (via SKCanvas.SaveLayer), then it's effectively source-producing for downstream and can choose its own raster size and CorrectionScale. This is rare and treated case-by-case during the audit (see `tasks.md`).
 
-## Special cases
+## Multiple upstream — authoritative policy
 
-- **No upstream** (transformer with zero inputs — shouldn't happen for transformer nodes, but if a node hybrid behaves as both transformer and source): treat as a source-producing node and declare CorrectionScale directly.
-- **Multiple upstream with different `CorrectionScale`**: the transformer should handle each independently or composite them at a unified scale. The unified scale is chosen by the transformer (often = max or = Identity if compositing in authoring space). Composition transformers (e.g. blend modes) should generally upscale all inputs to a common authoring space before compositing. The audit task identifies any such case.
-- **Operations that need to materialize a new raster (saveLayer, group filtering, complex compositing)**: the node becomes hybrid — read upstream CorrectionScale (to know the input scale), produce a new raster at a chosen resolution, declare its own CorrectionScale for downstream. This is described in `source-node-proxy.md` Type B.
+When a transformer has more than one upstream operation, the policy is **fixed and authoritative** (no per-node case-by-case discretion). Two patterns are recognized:
+
+### Pattern X — Independent-children container (forward each upstream verbatim)
+
+`ContainerRenderNode` is the canonical example. It aggregates child operations that **do not interact** at the container level (they are placed side-by-side / overlapped, but the container itself does not blend or composite them into a single new raster). Behavior:
+
+- Each child operation flows through unchanged. Its `Bounds` and `CorrectionScale` are forwarded verbatim.
+- The container's "output" is the *set* of forwarded operations.
+- Different children CAN report different `CorrectionScale` values; that is by design (the whole point of per-clip proxy).
+- The final compositor handles each child operation independently per `compositor-blit.md`.
+
+### Pattern Y — Multi-input compositing (unify at MAX upstream `CorrectionScale`)
+
+For transformers that actually composite multiple upstream rasters into a single output raster — blend modes (`BlendEffect`), displacement maps (`DisplacementMapEffect`), composite filter chains, opacity-mask nodes that consume both a content raster and a mask raster — the policy is:
+
+1. Compute `unifiedCorrectionScale = ComponentWiseMax(upstream.Select(u => u.CorrectionScale))` — the largest `ScaleX` and largest `ScaleY` across all upstream. Concretely: if upstream A is `(4, 4)` and upstream B is `(2, 2)`, the unified scale is `(4, 4)`.
+2. For each upstream whose `CorrectionScale ≠ unifiedCorrectionScale`, **downsample** that upstream's raster to match the unified scale before compositing. Concretely: B's raster (which was at 1/2 of authoring) is downsampled to 1/4 of authoring to align with A. This loses some quality from B, but the trade-off is intentional — proxy is opt-in for performance, and the lowest-resolution upstream sets the effective ceiling for the composite.
+3. Composite the now-aligned rasters using Skia at the unified scale; the transformer's own length-typed parameters use `unifiedCorrectionScale.ToRaster*` for adjustment.
+4. The output operation reports `CorrectionScale = unifiedCorrectionScale`.
+
+**Why max, not min**: choosing the max (lowest-resolution upstream) means downsampling other upstream rasters, which is cheap (Skia bilinear filter). Choosing the min would require upsampling at least one upstream — wasteful, since the upstream already chose to live at proxy resolution for performance.
+
+**Why a fixed policy, not per-node discretion**: prior drafts of this contract left the policy "TBD during audit", which Codex review flagged as a critical risk (implementations would diverge). The fixed policy here is the design contract; nodes that genuinely cannot follow it (e.g. a hypothetical filter whose output quality is intolerable at the unified scale) must document the deviation in their own contract.
+
+## Hybrid nodes — authoritative policy
+
+A "hybrid" node is one that:
+- Reads one or more upstream operations (consumes their CorrectionScale).
+- Materializes a **new** raster at a chosen resolution via `SKSurface.Create` / `SaveLayer` etc.
+- Produces an output operation whose raster is that new raster (its own CorrectionScale, potentially different from any upstream).
+
+Examples: `PushLayer` paths that allocate a backing surface, group filtering that pre-rasterizes a sub-graph, screen-space distortion filters that need an explicit intermediate.
+
+Policy:
+
+1. Compute the unified upstream scale per Pattern Y above (or take the single upstream's scale if there is only one).
+2. Choose the hybrid's **own** raster size and `CorrectionScale` for output. By default, match the unified upstream — i.e. the hybrid does not re-rasterize at a finer scale than upstream supports. A hybrid that needs to materialize at a different scale (e.g. always at Identity for a quality-critical layer) must document the choice in its own contract.
+3. Apply the unified-scale parameter conversion (`ToRaster*`) when invoking Skia on the materialized raster.
+4. Report the hybrid's chosen `CorrectionScale` on the output operation. Downstream transformers see this value, not the upstream's.
+
+## Other special cases
+
+- **No upstream** (transformer with zero inputs): treat as a source-producing node and declare CorrectionScale directly per `source-node-proxy.md` Type B.
+- **Identity-only upstream**: the conversion math is a no-op (`p / 1 = p`), so transformers that branch on `CorrectionScale == Identity` to skip work for backward compatibility are encouraged but not required.
 
 ## Sub-pixel / zero handling
 

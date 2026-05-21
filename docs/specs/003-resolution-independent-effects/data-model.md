@@ -14,24 +14,33 @@ A small value type carrying a 2D scale ratio:
 public readonly struct RenderScale : IEquatable<RenderScale>
 {
     public RenderScale(float scaleX, float scaleY);
-    public float ScaleX { get; }
-    public float ScaleY { get; }
+    public float ScaleX { get; }   // bounds.Width / raster.Width  (always ≥ 1; = 1 means no proxy)
+    public float ScaleY { get; }   // bounds.Height / raster.Height
 
     public static RenderScale Identity { get; }                    // (1, 1)
-    public static RenderScale FromRatio(float ratio);              // uniform (ratio, ratio)
+    public static RenderScale FromRatio(float ratio);              // uniform (ratio, ratio); ratio ≥ 1 for proxy
     public static RenderScale FromFrames(PixelSize raster, PixelSize bounds);
+        // Per-axis: bounds / raster. Validates ScaleX ≥ 1 and ScaleY ≥ 1.
 
-    public float ApplyX(float lengthAuthoringSpace);               // = length / ScaleX
-    public float ApplyY(float lengthAuthoringSpace);
-    public float ApplyUniform(float lengthAuthoringSpace);
-    public Size  Apply(Size sizeAuthoringSpace);
-    public Point Apply(Point pointAuthoringSpace);
+    // Authoring-space length → raster-space (smaller). Used by transformers.
+    public float ToRasterX(float lengthAuthoring);                 // = lengthAuthoring / ScaleX
+    public float ToRasterY(float lengthAuthoring);                 // = lengthAuthoring / ScaleY
+    public float ToRasterUniform(float lengthAuthoring);
+    public Size  ToRaster(Size sizeAuthoring);
+    public Point ToRaster(Point pointAuthoring);
+
+    // Raster-space length → authoring-space (larger). Symmetric helper.
+    public float ToAuthoringX(float lengthRaster);                 // = lengthRaster * ScaleX
+    public float ToAuthoringY(float lengthRaster);
 }
 ```
 
+**Numeric convention (fixed and authoritative)**: `CorrectionScale = bounds.Size / raster.Size` per axis. `CorrectionScale = (4, 4)` means "the upstream produced a raster 1/4 the linear size of its bounds; the compositor upscales 4× when blitting". `Identity = (1, 1)` means "no proxy; raster matches bounds 1:1".
+
 - **Validation**:
-  - Constructor: `ScaleX > 0`, `ScaleY > 0`, both finite. Throws `ArgumentOutOfRangeException` otherwise.
-  - `FromFrames(raster, bounds)`: requires per-axis ratios > 0; uniform-scale check (`|sx − sy| ≤ 1e-3 * max(sx, sy)`) emits a warning log (per-clip proxy may have minor non-uniformity due to integer rounding; not an error).
+  - Constructor: `ScaleX ≥ 1`, `ScaleY ≥ 1`, both finite. Throws `ArgumentOutOfRangeException` otherwise. Values < 1 would mean "raster is larger than bounds" — that is not what `CorrectionScale` represents and is rejected.
+  - `FromFrames(raster, bounds)`: requires `raster.PixelSize > 0`, `bounds.PixelSize > 0`, `raster.Width ≤ bounds.Width`, `raster.Height ≤ bounds.Height`. Throws `ArgumentException` otherwise.
+  - Non-uniformity (`|ScaleX − ScaleY| > 1e-3 * max(ScaleX, ScaleY)`) is allowed by the type — per-clip proxy may have minor non-uniformity due to integer rounding. Source nodes that intentionally produce non-square-pixel proxies are responsible for that decision.
 - **`Identity`**: `(1, 1)`; the default reported by every `RenderNodeOperation.CorrectionScale` until proxy is enabled.
 
 ### `RenderNodeOperation.CorrectionScale` (new virtual property)
@@ -174,12 +183,13 @@ FR-005 ("no project-file migration step") is satisfied trivially: there are no e
 
 | Rule | Enforced where |
 |---|---|
-| `RenderScale.ScaleX > 0`, `ScaleY > 0`, both finite | `RenderScale` constructor |
-| `FromFrames(raster, bounds)` validates `raster.PixelSize > 0` and `bounds.PixelSize > 0` | `FromFrames` factory |
-| `NaN` rejected on filter parameter arguments | At each `FilterEffectRenderNode` parameter snapshot before division |
+| `RenderScale.ScaleX ≥ 1`, `ScaleY ≥ 1`, both finite | `RenderScale` constructor |
+| `FromFrames(raster, bounds)` validates `raster ≤ bounds` per axis and both > 0 | `FromFrames` factory |
+| `NaN` rejected on filter parameter arguments | At each `FilterEffectRenderNode` parameter snapshot before division by `CorrectionScale` |
 | Negative-where-nonsensical rejected (sigma, radius — not positional offsets) | Same |
 | Zero passes through exactly | `0 / scale == 0`; no clamping |
 | Sub-pixel positive passes through to Skia | No clamping; Skia handles |
+| Numeric convention: `CorrectionScale = bounds / raster` (≥ 1, upscale ratio); transformer divide; compositor multiply (via `SKCanvas.Scale`) | Documented in `contracts/render-node-operation-scale.md` |
 
 ## State transitions
 

@@ -132,6 +132,9 @@ A user opens a project saved before this feature. The project has no per-clip pr
 - The existing render-node graph architecture is suitable for carrying `CorrectionScale` without major refactor — the audit step (T001-equivalent) confirms which nodes are source vs transformer.
 - Per-clip proxy settings persistence is out of scope here; a follow-up feature handles that and the UI to toggle proxy.
 - The `Geometry` / `TextBlock.Size` / `Brush` rectangle surfaces previously listed as "deferred follow-ups" are no longer deferred — they participate automatically via the per-clip proxy mechanism (their containing source's renderer renders them at the source's resolution).
+- **`Beutl.Graphics3D` (3D rendering pipeline) is out of scope for this PR**. The 3D pipeline has its own resolution / framebuffer story; per-clip proxy for 3D clips is a separate follow-up feature. A 2D filter applied to the output of a 3D render is in scope (the 3D output appears to the 2D pipeline as a source raster with its own `CorrectionScale`, just like a video or image source).
+- **Audio rendering is out of scope for this PR**. Audio has no concept of resolution / raster scale; the per-clip proxy mechanism does not apply. Audio code paths in `Beutl.Engine/Audio/` are not touched.
+- **`Beutl.NodeGraph` (node editor UI) is out of scope for this PR**. The node-graph editor visualises and manipulates the render graph but does not participate in rendering itself; no node-graph changes are required for per-clip proxy.
 
 ## Design history (chronological)
 

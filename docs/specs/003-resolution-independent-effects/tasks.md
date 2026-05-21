@@ -41,14 +41,14 @@ Engine code: `src/Beutl.Engine/Graphics/Rendering/`. Tests: `tests/Beutl.UnitTes
 
 ### Block A — Core types
 
-- [ ] T002 Add `RenderScale` struct in `src/Beutl.Engine/Graphics/Rendering/RenderScale.cs` per `contracts/render-node-operation-scale.md` (constructor validation `> 0 && finite`; `Identity`; `FromRatio`; `FromFrames(raster, bounds)`; `ApplyX/Y/Uniform`; `Apply(Size)`; `Apply(Point)`; `IEquatable<RenderScale>`).
+- [ ] T002 Add `RenderScale` struct in `src/Beutl.Engine/Graphics/Rendering/RenderScale.cs` per `contracts/render-node-operation-scale.md` (constructor validation `≥ 1 && finite`; `Identity = (1, 1)`; `FromRatio(float)`; `FromFrames(raster, bounds) = bounds / raster`; `ToRasterX / ToRasterY / ToRasterUniform`; `ToRaster(Size)`; `ToRaster(Point)`; `ToAuthoringX / ToAuthoringY`; `IEquatable<RenderScale>`). The numeric convention is fixed: `CorrectionScale ≥ 1` is the bounds-over-raster upscale ratio.
 - [ ] T003 Add `virtual CorrectionScale` property to `src/Beutl.Engine/Graphics/Rendering/RenderNodeOperation.cs` (default = `RenderScale.Identity`); update `LambdaRenderNodeOperation` private class to store a `_correctionScale` field and override the virtual.
 - [ ] T004 Add `CorrectionScale` parameter (default `Identity`) to the four `RenderNodeOperation` factory methods: `CreateLambda`, `CreateFromRenderTarget`, two `CreateFromSurface` overloads. Normalize `default(RenderScale) == (0, 0)` to `Identity` inside the factories so existing callers stay byte-identical without specifying the new parameter.
 - [ ] T005 Add `CreateDecorator` semantics: inherits `CorrectionScale` from the wrapped child operation. No new parameter; the factory reads `child.CorrectionScale` and constructs the wrapper accordingly.
 
 ### Block A tests (TDD — write before Block A implementation)
 
-- [ ] T006 [P] `RenderScaleTests.cs` in `tests/Beutl.UnitTests/Engine/Graphics/Rendering/`: `Identity` is `(1, 1)`, `FromRatio(0.25)` is `(0.25, 0.25)`, `FromFrames(480×270, 1920×1080) ≈ (0.25, 0.25)`, validation rejects zero / negative / NaN / Infinity, `Apply*` per axis math, equality.
+- [ ] T006 [P] `RenderScaleTests.cs` in `tests/Beutl.UnitTests/Engine/Graphics/Rendering/`: `Identity` is `(1, 1)`; `FromRatio(4.0)` is `(4.0, 4.0)`; `FromFrames(raster: 480×270, bounds: 1920×1080) = (4.0, 4.0)` (the upscale ratio); validation rejects `< 1` (raster larger than bounds), zero, negative, NaN, Infinity; `ToRasterX(20)` with `ScaleX = 4` returns `5` (authoring → raster divide); `ToAuthoringX(5)` with `ScaleX = 4` returns `20` (raster → authoring multiply); equality.
 - [ ] T007 [P] `RenderNodeOperationCorrectionScaleTests.cs` in `tests/Beutl.UnitTests/Engine/Graphics/Rendering/`: default virtual returns `Identity`; `CreateLambda(...)` without the new arg → `Identity`; `CreateLambda(..., correctionScale: (4, 4))` → reports `(4, 4)`; `CreateDecorator(child, ...)` inherits child's `CorrectionScale`; `CreateFromRenderTarget` and `CreateFromSurface` overloads honour the arg.
 
 ---
@@ -194,6 +194,29 @@ With 2–3 engineers:
 6. Phase 6 split across team.
 
 ---
+
+## FR / SC coverage map
+
+Explicit mapping from each functional requirement and success criterion in `spec.md` to the task(s) that verify it. Reviewers should be able to read down the table and confirm every requirement has at least one verifier.
+
+| Requirement | Verifying tasks | Notes |
+|---|---|---|
+| FR-001 (`CorrectionScale` carried on operation, ratio = `bounds / raster`) | T002, T003, T006, T007 | Type + factory + virtual + tests. |
+| FR-002 (source nodes declare CorrectionScale) | T008, T009, T010, T018 | Per source-node modification + test. |
+| FR-003 (transformer nodes consume + propagate) | T012, T013, T014, T015, T019 | Per transformer-subclass + parameter math test. |
+| FR-004 (compositor consumes via upscale blit) | T016, T017, T020 | Compositor change + test. |
+| FR-005 (existing projects unchanged, Identity default) | T003, T007, T031, T032 | Default virtual + factory normalize + legacy corpus + JSON round-trip. |
+| FR-006 (13 in-scope effects participate automatically) | T012, T023, T024 | FilterEffectRenderNode handles per-effect math; SSIM tests cover the 13. |
+| FR-007 (Shape / TextBlock / Geometry / Brush automatic) | T010, T025 | Type B SKCanvas.Scale + fixtures for each surface. |
+| FR-008 (plugin authors don't change code) | T026, T027, T028 | Code-review checks + ExtensionAuthorNoOpTests. |
+| FR-009 (sub-pixel / zero / NaN guards) | T012, T019 | Guards inside FilterEffectRenderNode + tests. |
+| FR-010 (nested scenes) | T010, T019, T023, T030 | DrawableRenderNode Type B + transformer chain test + nested-scene fixture in corpus. |
+| FR-011 (existing tests pass + new tests cover) | T026 (verify), T031, T032, all Block A–E tests | Full-suite green + corpus. |
+| SC-001 (proxy ↔ full SSIM ≥ 0.97 per effect) | T023, T024 | ResolutionEquivalenceTests parameterised across 13 effects. |
+| SC-002 (legacy corpus SSIM ≥ 0.97; JSON byte-equal) | T029, T030, T031, T032 | Baseline capture + corpus curation + LegacyRendering / LegacyRoundTrip tests. |
+| SC-003 (mixed-resolution scene renders correctly) | T019 (multi-upstream Container test), T020 (compositor mixed input) | Tested at both layers — transformer propagation + compositor blit. |
+| SC-004 (extension authors verified, including scripting) | T026, T027, T028 | Code-review + at least one CSharpScriptEffect sample exercised. |
+| SC-005 (RenderNode-author migration documented + example) | T033 (migration guide) | New `docs/extensibility/render-node-correction-scale.md`. |
 
 ## Notes
 
