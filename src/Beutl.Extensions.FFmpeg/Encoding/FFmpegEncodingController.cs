@@ -309,15 +309,40 @@ public class FFmpegEncodingController(string outputFile, FFmpegEncodingSettings 
             {
                 if (headerWritten)
                 {
-                    muxer.FlushCodecs(encoders.Select(i => i.Item1));
-                    muxer.WriteTrailer();
+                    try
+                    {
+                        muxer.FlushCodecs(encoders.Select(i => i.Item1));
+                        muxer.WriteTrailer();
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "Failed to finalize muxer output for {OutputFile}.", OutputFile);
+                    }
                 }
-                encoders.ForEach(t => t.Item1.Dispose());
-                swr?.Dispose();
-                _filterGraph?.Dispose();
+
+                foreach (var (encoder, _) in encoders)
+                {
+                    DisposeQuietly(encoder, nameof(MediaEncoder));
+                }
+                DisposeQuietly(swr, nameof(SampleConverter));
+                DisposeQuietly(_filterGraph, nameof(MediaFilterGraph));
+
                 _filterGraph = null;
                 _bufferSrcCtx = null;
                 _bufferSinkCtx = null;
+
+                void DisposeQuietly(IDisposable? disposable, string resourceName)
+                {
+                    if (disposable is null) return;
+                    try
+                    {
+                        disposable.Dispose();
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex, "Failed to dispose {Resource} during FFmpeg encoding cleanup.", resourceName);
+                    }
+                }
             }
         }
     }
