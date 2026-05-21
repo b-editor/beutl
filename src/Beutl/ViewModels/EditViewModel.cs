@@ -38,7 +38,8 @@ public sealed partial class EditViewModel : IEditorContext, ISupportAutoSaveEdit
     private ElementDuplicateService? _elementDuplicateService;
     private ElementMoveService? _elementMoveService;
     private ElementClipboardService? _elementClipboardService;
-    private ElementLifecycleService? _elementLifecycleService;
+    private ElementStructureService? _elementStructureService;
+    private ElementAttributeService? _elementAttributeService;
     private ElementNudgeService? _elementNudgeService;
     private LayerMoveService? _layerMoveService;
     private KeyFrameMoveService? _keyFrameMoveService;
@@ -692,8 +693,11 @@ public sealed partial class EditViewModel : IEditorContext, ISupportAutoSaveEdit
                         typeof(Beutl.Graphics.SourceImage).FullName!),
                     _elementAdder);
 
-        if (serviceType.IsAssignableTo(typeof(IElementLifecycleService)))
-            return _elementLifecycleService ??= new ElementLifecycleService(HistoryManager);
+        if (serviceType.IsAssignableTo(typeof(IElementStructureService)))
+            return _elementStructureService ??= new ElementStructureService(HistoryManager);
+
+        if (serviceType.IsAssignableTo(typeof(IElementAttributeService)))
+            return _elementAttributeService ??= new ElementAttributeService(HistoryManager);
 
         if (serviceType.IsAssignableTo(typeof(IElementNudgeService)))
             return _elementNudgeService ??= CreateNudgeService();

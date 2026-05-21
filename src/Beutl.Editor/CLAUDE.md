@@ -23,7 +23,8 @@ Located under `Services/`:
 - `IElementResizeService` — `Resize(scene, IReadOnlyList<ElementResizeRequest>)` writes the final sizes (per element: start, length, zIndex) in one transaction. The View handles per-frame preview via VM reactive properties; the service is invoked once on drag release.
 - `IElementClipboardService` — Copy / Cut / Paste. Dispatches on `IClipboardGateway` formats (`Elements`, `Element`, `Files`, `Bitmap`) so `Beutl.Editor` stays Avalonia-free.
 - `IElementDuplicateService` — selection duplicate + Alt+drag position duplicate. Wraps the existing `DuplicateHelper`; `DuplicateAtClickedPosition` runs a bounded spiral search (`<= 100_000` steps) so a packed timeline cannot hang the caller.
-- `IElementLifecycleService` — Exclude / Delete / Split / Group / Ungroup / SetEnabled / SetAccentColor.
+- `IElementStructureService` — Exclude / Delete / Split / Group / Ungroup. Structural ops that mutate `Scene.Children` / `Scene.Groups` and may touch disk (regenerate-and-stage paths).
+- `IElementAttributeService` — SetEnabled / SetAccentColor. Single-element property writes; no file I/O. Split from structure service so a plugin replacing one does not inherit the other.
 - `IElementNudgeService` — debounced keyboard nudge. `System.Threading.Timer` (not `DispatcherTimer`) keeps it Avalonia-free; `Flush` is wired to `HistoryManager.BeforeMutation` inside `EditViewModel` so Undo / Redo never absorbs a pending nudge.
 - `ILayerMoveService` — `PlanMove` enumerates affected elements, `CommitMove` is a pure commit boundary (the caller still drives ZIndex writes so the LayerHeader ViewModel and element animations stay in sync).
 - `IKeyFrameMoveService` — commit boundary for InlineAnimation drag releases. The View mutates `KeyTime` while dragging, then calls `CommitMove`.

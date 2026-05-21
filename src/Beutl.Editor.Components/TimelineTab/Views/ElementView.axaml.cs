@@ -176,7 +176,7 @@ public sealed partial class ElementView : UserControl
     private void EnableElementClick(object? sender, RoutedEventArgs e)
     {
         Element model = ViewModel.Model;
-        ViewModel.Timeline.EditorContext.GetRequiredService<IElementLifecycleService>()
+        ViewModel.Timeline.EditorContext.GetRequiredService<IElementAttributeService>()
             .SetEnabled(model, !model.IsEnabled);
     }
 

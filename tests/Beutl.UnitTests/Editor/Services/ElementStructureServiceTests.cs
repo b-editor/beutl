@@ -1,19 +1,18 @@
 ﻿using Beutl.Editor;
 using Beutl.Editor.Observers;
 using Beutl.Editor.Services;
-using Beutl.Media;
 using Beutl.ProjectSystem;
 
 namespace Beutl.UnitTests.Editor.Services;
 
 [TestFixture]
-public class ElementLifecycleServiceTests
+public class ElementStructureServiceTests
 {
     private string _basePath = null!;
     private Scene _scene = null!;
     private HistoryManager _history = null!;
     private CoreObjectOperationObserver _observer = null!;
-    private ElementLifecycleService _service = null!;
+    private ElementStructureService _service = null!;
 
     [SetUp]
     public void Setup()
@@ -31,7 +30,7 @@ public class ElementLifecycleServiceTests
         _history = new HistoryManager(_scene, sequence);
         _observer = new CoreObjectOperationObserver(null, _scene, sequence);
         _history.Subscribe(_observer);
-        _service = new ElementLifecycleService(_history);
+        _service = new ElementStructureService(_history);
     }
 
     [TearDown]
@@ -59,7 +58,7 @@ public class ElementLifecycleServiceTests
     [Test]
     public void Constructor_NullHistoryManager_Throws()
     {
-        Assert.Throws<ArgumentNullException>(() => new ElementLifecycleService(null!));
+        Assert.Throws<ArgumentNullException>(() => new ElementStructureService(null!));
     }
 
     [Test]
@@ -102,48 +101,6 @@ public class ElementLifecycleServiceTests
         _service.Exclude(_scene, []);
 
         Assert.That(_history.UndoCount, Is.EqualTo(before));
-    }
-
-    [Test]
-    public void SetEnabled_TogglesAndCommitsOnce()
-    {
-        Element element = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
-        int before = _history.UndoCount;
-
-        _service.SetEnabled(element, false);
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(element.IsEnabled, Is.False);
-            Assert.That(_history.UndoCount, Is.EqualTo(before + 1));
-        });
-    }
-
-    [Test]
-    public void SetEnabled_NoChange_NoCommit()
-    {
-        Element element = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
-        int before = _history.UndoCount;
-
-        _service.SetEnabled(element, element.IsEnabled);
-
-        Assert.That(_history.UndoCount, Is.EqualTo(before));
-    }
-
-    [Test]
-    public void SetAccentColor_AppliesAndCommitsOnce()
-    {
-        Element element = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
-        int before = _history.UndoCount;
-        var target = Color.FromArgb(255, 10, 20, 30);
-
-        _service.SetAccentColor(element, target);
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(element.AccentColor, Is.EqualTo(target));
-            Assert.That(_history.UndoCount, Is.EqualTo(before + 1));
-        });
     }
 
     [Test]

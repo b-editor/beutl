@@ -1,23 +1,19 @@
-﻿using Beutl.Media;
-using Beutl.ProjectSystem;
+﻿using Beutl.ProjectSystem;
 
 namespace Beutl.Editor.Services;
 
 /// <summary>
-/// Lifecycle commands invoked from element context menus: enable toggle,
-/// remove from scene, delete from disk, split at a timestamp, group / ungroup.
-/// Each operation commits a single history entry, removing the per-call
-/// boilerplate that used to be scattered across <c>ElementViewModel</c>.
+/// Structural commands that mutate the scene graph (`Scene.Children` and
+/// `Scene.Groups`). Distinct from <see cref="IElementAttributeService"/>:
+/// these operations frequently touch the file-system (regenerate, store
+/// to URI) and produce different history command names per call. Each
+/// method commits exactly one history entry.
 /// </summary>
-public interface IElementLifecycleService
+public interface IElementStructureService
 {
     void Exclude(Scene scene, IReadOnlyList<Element> elements);
 
     void Delete(Scene scene, IReadOnlyList<Element> elements);
-
-    void SetEnabled(Element element, bool isEnabled);
-
-    void SetAccentColor(Element element, Color color);
 
     SplitOutcome Split(Scene scene, IReadOnlyList<Element> targets, TimeSpan at);
 

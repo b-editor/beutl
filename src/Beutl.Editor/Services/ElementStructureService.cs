@@ -1,18 +1,17 @@
 ﻿using System.Collections.Immutable;
 using Beutl.Animation;
 using Beutl.Language;
-using Beutl.Media;
 using Beutl.ProjectSystem;
 using Beutl.Serialization;
 using Beutl.Utilities;
 
 namespace Beutl.Editor.Services;
 
-public sealed class ElementLifecycleService : IElementLifecycleService
+public sealed class ElementStructureService : IElementStructureService
 {
     private readonly HistoryManager _historyManager;
 
-    public ElementLifecycleService(HistoryManager historyManager)
+    public ElementStructureService(HistoryManager historyManager)
     {
         _historyManager = historyManager ?? throw new ArgumentNullException(nameof(historyManager));
     }
@@ -43,24 +42,6 @@ public sealed class ElementLifecycleService : IElementLifecycleService
         }
 
         _historyManager.Commit(CommandNames.DeleteElement);
-    }
-
-    public void SetEnabled(Element element, bool isEnabled)
-    {
-        ArgumentNullException.ThrowIfNull(element);
-        if (element.IsEnabled == isEnabled) return;
-
-        element.IsEnabled = isEnabled;
-        _historyManager.Commit(CommandNames.ChangeElementEnabled);
-    }
-
-    public void SetAccentColor(Element element, Color color)
-    {
-        ArgumentNullException.ThrowIfNull(element);
-        if (element.AccentColor == color) return;
-
-        element.AccentColor = color;
-        _historyManager.Commit(CommandNames.ChangeElementColor);
     }
 
     public SplitOutcome Split(Scene scene, IReadOnlyList<Element> targets, TimeSpan at)

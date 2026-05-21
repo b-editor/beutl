@@ -114,7 +114,7 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
             .AddTo(_disposables);
 
         Color.Skip(1)
-            .Subscribe(c => Timeline.EditorContext.GetRequiredService<IElementLifecycleService>()
+            .Subscribe(c => Timeline.EditorContext.GetRequiredService<IElementAttributeService>()
                 .SetAccentColor(Model, c.ToBtlColor()))
             .AddTo(_disposables);
 
@@ -474,13 +474,13 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
     private void OnExclude()
     {
         Element[] targets = GetGroupOrSelectedElements().Select(e => e.Model).ToArray();
-        Timeline.EditorContext.GetRequiredService<IElementLifecycleService>().Exclude(Scene, targets);
+        Timeline.EditorContext.GetRequiredService<IElementStructureService>().Exclude(Scene, targets);
     }
 
     private void OnDelete()
     {
         Element[] targets = GetGroupOrSelectedElements().Select(e => e.Model).ToArray();
-        Timeline.EditorContext.GetRequiredService<IElementLifecycleService>().Delete(Scene, targets);
+        Timeline.EditorContext.GetRequiredService<IElementStructureService>().Delete(Scene, targets);
     }
 
     private void OnBringAnimationToTop()
@@ -525,13 +525,13 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
     private void OnGroupSelectedElements()
     {
         IReadOnlyCollection<Guid> ids = GetSelectedIdsOrSelf();
-        Timeline.EditorContext.GetRequiredService<IElementLifecycleService>().Group(Scene, ids);
+        Timeline.EditorContext.GetRequiredService<IElementStructureService>().Group(Scene, ids);
     }
 
     private void OnUngroupSelectedElements()
     {
         IReadOnlyCollection<Guid> ids = GetSelectedIdsOrSelf();
-        Timeline.EditorContext.GetRequiredService<IElementLifecycleService>().Ungroup(Scene, ids);
+        Timeline.EditorContext.GetRequiredService<IElementStructureService>().Ungroup(Scene, ids);
     }
 
     private void OnSetAttached(ImmutableHashSet<Guid> group)
@@ -590,7 +590,7 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
         TimeSpan at = timeSpan.RoundToRate(rate);
 
         Element[] models = targets.Select(t => t.Model).ToArray();
-        Timeline.EditorContext.GetRequiredService<IElementLifecycleService>().Split(Scene, models, at);
+        Timeline.EditorContext.GetRequiredService<IElementStructureService>().Split(Scene, models, at);
     }
 
     private async void OnChangeToOriginalDuration()
