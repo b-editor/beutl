@@ -166,4 +166,46 @@ public class SceneTimeRangeServiceTests
             Assert.That(_history.UndoCount, Is.EqualTo(before));
         });
     }
+
+    [Test]
+    public void UpdateEndDrag_PointerBeforeStart_KeepsStartPinned()
+    {
+        // Dragging the end marker left past Scene.Start must not pull
+        // Start backward — only clamp duration to >= 1 frame. The previous
+        // implementation re-used the one-shot SetEnd logic, which would
+        // jerk the entire scene's absolute time range backward as soon as
+        // the pointer crossed Start (Codex review #r3278970042).
+        TimeSpan initialStart = _scene.Start;
+
+        _service.UpdateEndDrag(_scene, TimeSpan.Zero);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(_scene.Start, Is.EqualTo(initialStart));
+            // duration clamped to one frame (default rate = 30 fps)
+            Assert.That(_scene.Duration, Is.EqualTo(TimeSpan.FromSeconds(1d / 30)));
+        });
+    }
+
+    [Test]
+    public void UpdateStartDrag_PointerAfterInitialEnd_ClampsToOneFrameBeforeEnd()
+    {
+        // Dragging the start marker past the initial end must clamp it
+        // to (initialEnd - 1 frame), NOT shift the end forward. The
+        // one-shot SetStart path does shift the end forward, but the drag
+        // loop should never re-extend the scene's absolute time range
+        // (same family of regression as the end-marker case).
+        TimeSpan initialStart = _scene.Start;
+        TimeSpan initialDuration = _scene.Duration;
+        TimeSpan initialEnd = initialStart + initialDuration;
+        TimeSpan frame = TimeSpan.FromSeconds(1d / 30);
+
+        _service.UpdateStartDrag(_scene, TimeSpan.FromSeconds(100), initialStart, initialDuration);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(_scene.Start, Is.EqualTo(initialEnd - frame));
+            Assert.That(_scene.Start + _scene.Duration, Is.EqualTo(initialEnd));
+        });
+    }
 }
