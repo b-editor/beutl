@@ -7,6 +7,7 @@ using Beutl.Configuration;
 using Beutl.Editor;
 using Beutl.Editor.Observers;
 using Beutl.Editor.Operations;
+using Beutl.Editor.Services;
 using Beutl.Graphics.Rendering.Cache;
 using Beutl.Logging;
 using Beutl.Media;
@@ -32,6 +33,8 @@ public sealed partial class EditViewModel : IEditorContext, ISupportAutoSaveEdit
     private readonly EditorClockImpl _editorClock;
     private readonly EditorSelectionImpl _editorSelection;
     private readonly ElementAdderImpl _elementAdder;
+    private SceneTimeRangeService? _sceneTimeRangeService;
+    private ElementResizeService? _elementResizeService;
     private volatile bool _viewStateSaveSuppressed;
 
     public EditViewModel(Scene scene)
@@ -650,6 +653,12 @@ public sealed partial class EditViewModel : IEditorContext, ISupportAutoSaveEdit
 
         if (serviceType.IsAssignableTo(typeof(IElementAdder)))
             return _elementAdder;
+
+        if (serviceType.IsAssignableTo(typeof(ISceneTimeRangeService)))
+            return _sceneTimeRangeService ??= new SceneTimeRangeService(HistoryManager);
+
+        if (serviceType.IsAssignableTo(typeof(IElementResizeService)))
+            return _elementResizeService ??= new ElementResizeService(HistoryManager);
 
         if (serviceType == typeof(PlayerViewModel) || serviceType.IsAssignableTo(typeof(IPreviewPlayer)))
             return Player;
