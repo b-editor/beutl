@@ -59,84 +59,87 @@ public class LayerMoveServiceTests
     }
 
     [Test]
-    public void PlanMove_SameLayer_ReturnsNoop()
+    public void ApplyMove_SameLayer_ReturnsNoop_NoCommit()
     {
         Element element = AddElement(2);
+        int before = _history.UndoCount;
 
-        LayerMovePlan plan = _service.PlanMove(_scene, 2, 2, [element]);
+        LayerMovePlan plan = _service.ApplyMove(_scene, 2, 2, [element]);
 
-        Assert.That(plan.IsNoop, Is.True);
+        Assert.Multiple(() =>
+        {
+            Assert.That(plan.IsNoop, Is.True);
+            Assert.That(_history.UndoCount, Is.EqualTo(before));
+        });
     }
 
     [Test]
-    public void PlanMove_DownToHigherLayer_IncludesElementsBetween()
+    public void ApplyMove_DownToHigherLayer_AppliesShiftAndCommits()
     {
         Element l0 = AddElement(0);
         Element l1 = AddElement(1);
         Element l2 = AddElement(2);
         Element l3 = AddElement(3);
+        int before = _history.UndoCount;
 
-        LayerMovePlan plan = _service.PlanMove(_scene, 1, 3, [l1]);
+        LayerMovePlan plan = _service.ApplyMove(_scene, 1, 3, [l1]);
 
         Assert.Multiple(() =>
         {
+            // l1 moves to layer 3; l2 and l3 shift down by 1.
+            Assert.That(l0.ZIndex, Is.EqualTo(0));
+            Assert.That(l1.ZIndex, Is.EqualTo(3));
+            Assert.That(l2.ZIndex, Is.EqualTo(1));
+            Assert.That(l3.ZIndex, Is.EqualTo(2));
             Assert.That(plan.ShiftedElements, Does.Contain(l2));
             Assert.That(plan.ShiftedElements, Does.Contain(l3));
             Assert.That(plan.ShiftedElements, Does.Not.Contain(l0));
             Assert.That(plan.ShiftedElements, Does.Not.Contain(l1));
-        });
-    }
-
-    [Test]
-    public void PlanMove_UpToLowerLayer_IncludesElementsBetween()
-    {
-        Element l0 = AddElement(0);
-        Element l1 = AddElement(1);
-        Element l2 = AddElement(2);
-        Element l3 = AddElement(3);
-
-        LayerMovePlan plan = _service.PlanMove(_scene, 3, 1, [l3]);
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(plan.ShiftedElements, Does.Contain(l1));
-            Assert.That(plan.ShiftedElements, Does.Contain(l2));
-            Assert.That(plan.ShiftedElements, Does.Not.Contain(l0));
-            Assert.That(plan.ShiftedElements, Does.Not.Contain(l3));
-        });
-    }
-
-    [Test]
-    public void CommitMove_AppliesCallerDrivenZIndexShifts_AndCommits()
-    {
-        Element l0 = AddElement(0);
-        Element l1 = AddElement(1);
-        Element l2 = AddElement(2);
-        int before = _history.UndoCount;
-
-        LayerMovePlan plan = _service.PlanMove(_scene, 0, 2, [l0]);
-        // Caller writes the ZIndex updates (the View does this through
-        // LayerHeaderViewModel.UpdateZIndex / ElementViewModel.AnimationRequest).
-        l0.ZIndex = 2;
-        foreach (Element shifted in plan.ShiftedElements) shifted.ZIndex -= 1;
-        _service.CommitMove(plan);
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(l0.ZIndex, Is.EqualTo(2));
-            Assert.That(l1.ZIndex, Is.EqualTo(0));
-            Assert.That(l2.ZIndex, Is.EqualTo(1));
             Assert.That(_history.UndoCount, Is.EqualTo(before + 1));
         });
     }
 
     [Test]
-    public void CommitMove_Noop_DoesNotCommit()
+    public void ApplyMove_UpToLowerLayer_AppliesShiftAndCommits()
     {
+        Element l0 = AddElement(0);
+        Element l1 = AddElement(1);
+        Element l2 = AddElement(2);
+        Element l3 = AddElement(3);
         int before = _history.UndoCount;
 
-        _service.CommitMove(LayerMovePlan.Noop);
+        LayerMovePlan plan = _service.ApplyMove(_scene, 3, 1, [l3]);
 
-        Assert.That(_history.UndoCount, Is.EqualTo(before));
+        Assert.Multiple(() =>
+        {
+            // l3 moves to layer 1; l1 and l2 shift up by 1.
+            Assert.That(l0.ZIndex, Is.EqualTo(0));
+            Assert.That(l1.ZIndex, Is.EqualTo(2));
+            Assert.That(l2.ZIndex, Is.EqualTo(3));
+            Assert.That(l3.ZIndex, Is.EqualTo(1));
+            Assert.That(plan.ShiftedElements, Does.Contain(l1));
+            Assert.That(plan.ShiftedElements, Does.Contain(l2));
+            Assert.That(plan.ShiftedElements, Does.Not.Contain(l0));
+            Assert.That(plan.ShiftedElements, Does.Not.Contain(l3));
+            Assert.That(_history.UndoCount, Is.EqualTo(before + 1));
+        });
+    }
+
+    [Test]
+    public void ApplyMove_AfterUndo_RestoresOriginalZIndexes()
+    {
+        Element l0 = AddElement(0);
+        Element l1 = AddElement(1);
+        Element l2 = AddElement(2);
+
+        _service.ApplyMove(_scene, 0, 2, [l0]);
+        _history.Undo();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(l0.ZIndex, Is.EqualTo(0));
+            Assert.That(l1.ZIndex, Is.EqualTo(1));
+            Assert.That(l2.ZIndex, Is.EqualTo(2));
+        });
     }
 }

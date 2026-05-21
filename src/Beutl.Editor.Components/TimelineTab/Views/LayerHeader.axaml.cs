@@ -88,24 +88,72 @@ public sealed partial class LayerHeader : UserControl
 
     private void Border_PointerReleased(object? sender, PointerReleasedEventArgs e)
     {
-        // Border_PointerPressed で _pressed = true にされるのは左ボタンドラッグ開始時のみ。
-        // 右クリックや単発の左クリックで本ハンドラを通すと _newLayer = 0 のまま
-        // MoveLayerCommand が走り、レイヤーが ZIndex=0 に移動して履歴に commit される。
+        // Border_PointerPressed sets _pressed = true only on a left-button drag start.
+        // Right-click and single-click left-release reach this handler with
+        // _pressed = false and _newLayer = 0 (its initial value), so guarding here
+        // prevents an accidental MoveLayer to ZIndex 0.
         if (!_pressed) return;
 
         _pressed = false;
 
+        LayerHeaderViewModel vm = ViewModel;
         int newLayerNum = _newLayer;
-        int oldLayerNum = ViewModel.Number.Value;
-        ILayerMoveService service = ViewModel.Timeline.EditorContext.GetRequiredService<ILayerMoveService>();
-        LayerMovePlan plan = service.PlanMove(
-            ViewModel.Timeline.Scene,
+        int oldLayerNum = vm.Number.Value;
+        ElementViewModel[] directElements = _elements;
+        _elements = [];
+
+        if (newLayerNum == oldLayerNum)
+        {
+            vm.PosY.Value = 0;
+            return;
+        }
+
+        // Snapshot the affected LayerHeaderViewModels (between old and new layer
+        // inclusive of newLayer) against the pre-move state, so the View can update
+        // their Number.Value after the service has rewritten Element.ZIndex.
+        List<LayerHeaderViewModel> shiftedHeaders = [];
+        foreach (LayerHeaderViewModel item in vm.Timeline.LayerHeaders.GetMarshal().Value)
+        {
+            int n = item.Number.Value;
+            if (n == oldLayerNum) continue;
+            if ((oldLayerNum < newLayerNum && n > oldLayerNum && n <= newLayerNum)
+                || (oldLayerNum > newLayerNum && n < oldLayerNum && n >= newLayerNum))
+            {
+                shiftedHeaders.Add(item);
+            }
+        }
+
+        ILayerMoveService service = vm.Timeline.EditorContext.GetRequiredService<ILayerMoveService>();
+        LayerMovePlan plan = service.ApplyMove(
+            vm.Timeline.Scene,
             oldLayerNum,
             newLayerNum,
-            _elements.Select(e => e.Model).ToArray());
-        new MoveLayerCommand(ViewModel, newLayerNum, oldLayerNum, _elements).Do();
-        service.CommitMove(plan);
-        _elements = [];
+            directElements.Select(x => x.Model).ToArray());
+
+        // The service already wrote Element.ZIndex on every model in the plan
+        // and committed history. Now update VM-side state (Number.Value, layer
+        // header collection order) and animate the affected element views.
+        int headerShift = oldLayerNum < newLayerNum ? -1 : 1;
+        vm.UpdateZIndex(newLayerNum);
+        foreach (LayerHeaderViewModel item in CollectionsMarshal.AsSpan(shiftedHeaders))
+        {
+            item.UpdateZIndex(item.Number.Value + headerShift);
+        }
+
+        vm.Timeline.LayerHeaders.Move(oldLayerNum, newLayerNum);
+
+        // affectModel: false — Element.ZIndex was already written by the
+        // service; the animation hook just needs to drive the visual.
+        foreach (ElementViewModel item in directElements)
+        {
+            item.AnimationRequest(newLayerNum, affectModel: false);
+        }
+
+        foreach (Element shifted in plan.ShiftedElements)
+        {
+            ElementViewModel? shiftedVm = vm.Timeline.Elements.FirstOrDefault(v => v.Model == shifted);
+            shiftedVm?.AnimationRequest(shifted.ZIndex, affectModel: false);
+        }
     }
 
     private void Border_PointerPressed(object? sender, PointerPressedEventArgs e)
@@ -139,71 +187,6 @@ public sealed partial class LayerHeader : UserControl
         if (DataContext is LayerHeaderViewModel viewModel && args.NewColor.HasValue)
         {
             viewModel.SetColor(args.NewColor.Value);
-        }
-    }
-
-    private sealed class MoveLayerCommand
-    {
-        private readonly int _newLayerNum;
-        private readonly int _oldLayerNum;
-        private readonly ElementViewModel[] _items1;
-        private readonly List<ElementViewModel> _items2;
-        private readonly LayerHeaderViewModel _viewModel;
-        private readonly List<LayerHeaderViewModel> _viewModels;
-
-        public MoveLayerCommand(LayerHeaderViewModel viewModel, int newLayerNum, int oldLayerNum, ElementViewModel[] items)
-        {
-            _viewModel = viewModel;
-            _newLayerNum = newLayerNum;
-            _oldLayerNum = oldLayerNum;
-            _items1 = items;
-            _items2 = [];
-            CoreListMarshal<ElementViewModel> span1 = _viewModel.Timeline.Elements.GetMarshal();
-            CoreListMarshal<LayerHeaderViewModel> span2 = _viewModel.Timeline.LayerHeaders.GetMarshal();
-
-            foreach (ElementViewModel item in span1.Value)
-            {
-                if (item.Model.ZIndex != oldLayerNum
-                    && ((item.Model.ZIndex > oldLayerNum && item.Model.ZIndex <= newLayerNum)
-                    || (item.Model.ZIndex < oldLayerNum && item.Model.ZIndex >= newLayerNum)))
-                {
-                    _items2.Add(item);
-                }
-            }
-
-            _viewModels = [];
-            foreach (LayerHeaderViewModel item in span2.Value)
-            {
-                if (item.Number.Value != oldLayerNum
-                    && ((item.Number.Value > oldLayerNum && item.Number.Value <= newLayerNum)
-                    || (item.Number.Value < oldLayerNum && item.Number.Value >= newLayerNum)))
-                {
-                    _viewModels.Add(item);
-                }
-            }
-        }
-
-        public void Do()
-        {
-            int x = _newLayerNum > _oldLayerNum ? -1 : 1;
-            _viewModel.UpdateZIndex(_newLayerNum);
-            foreach (LayerHeaderViewModel item in CollectionsMarshal.AsSpan(_viewModels))
-            {
-                item.UpdateZIndex(item.Number.Value + x);
-            }
-
-            _viewModel.Timeline.LayerHeaders.Move(_oldLayerNum, _newLayerNum);
-
-            // ZIndexを更新しアニメーションする
-            foreach (ElementViewModel item in _items1)
-            {
-                item.AnimationRequest(_newLayerNum);
-            }
-
-            foreach (ElementViewModel item in CollectionsMarshal.AsSpan(_items2))
-            {
-                item.AnimationRequest(item.Model.ZIndex + x);
-            }
         }
     }
 }

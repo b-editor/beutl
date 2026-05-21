@@ -12,7 +12,7 @@ public sealed class LayerMoveService : ILayerMoveService
         _historyManager = historyManager ?? throw new ArgumentNullException(nameof(historyManager));
     }
 
-    public LayerMovePlan PlanMove(
+    public LayerMovePlan ApplyMove(
         Scene scene,
         int oldLayer,
         int newLayer,
@@ -22,6 +22,8 @@ public sealed class LayerMoveService : ILayerMoveService
         ArgumentNullException.ThrowIfNull(directElements);
         if (oldLayer == newLayer) return LayerMovePlan.Noop;
 
+        // Enumerate the shift-range before mutating, so the range is
+        // captured against the pre-write state.
         var shifted = new List<Element>();
         foreach (Element child in scene.Children)
         {
@@ -36,14 +38,17 @@ public sealed class LayerMoveService : ILayerMoveService
             }
         }
 
-        return new LayerMovePlan(oldLayer, newLayer, directElements, shifted);
-    }
-
-    public void CommitMove(LayerMovePlan plan)
-    {
-        ArgumentNullException.ThrowIfNull(plan);
-        if (plan.IsNoop) return;
+        int shiftDelta = oldLayer < newLayer ? -1 : 1;
+        foreach (Element e in directElements)
+        {
+            e.ZIndex = newLayer;
+        }
+        foreach (Element e in shifted)
+        {
+            e.ZIndex += shiftDelta;
+        }
 
         _historyManager.Commit(CommandNames.MoveLayer);
+        return new LayerMovePlan(oldLayer, newLayer, directElements, shifted);
     }
 }

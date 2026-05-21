@@ -3,22 +3,20 @@
 namespace Beutl.Editor.Services;
 
 /// <summary>
-/// Reorders layers by shifting <see cref="Element.ZIndex"/> values and
-/// committing a single history entry. <see cref="PlanMove"/> enumerates the
-/// elements between the old and new layer so the View can drive matching
-/// animations; the View is responsible for writing the new <see cref="Element.ZIndex"/>
-/// values (the same writes drive the animation), then <see cref="CommitMove"/>
-/// closes the transaction with a single MoveLayer entry.
+/// Reorders layers: the elements at <c>oldLayer</c> move to <c>newLayer</c>
+/// and every layer between them shifts by one. <see cref="ApplyMove"/>
+/// owns the model writes (<see cref="Element.ZIndex"/> on the direct and
+/// shifted sets) and commits a single <c>MoveLayer</c> history entry.
+/// The returned <see cref="LayerMovePlan"/> lists the affected elements so
+/// the View can drive matching animations after the call.
 /// </summary>
 public interface ILayerMoveService
 {
-    LayerMovePlan PlanMove(
+    LayerMovePlan ApplyMove(
         Scene scene,
         int oldLayer,
         int newLayer,
         IReadOnlyList<Element> directElements);
-
-    void CommitMove(LayerMovePlan plan);
 }
 
 public sealed record LayerMovePlan(

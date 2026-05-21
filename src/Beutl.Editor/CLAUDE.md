@@ -26,7 +26,7 @@ Located under `Services/`:
 - `IElementStructureService` — Exclude / Delete / Split / Group / Ungroup. Structural ops that mutate `Scene.Children` / `Scene.Groups` and may touch disk (regenerate-and-stage paths).
 - `IElementAttributeService` — SetEnabled / SetAccentColor. Single-element property writes; no file I/O. Split from structure service so a plugin replacing one does not inherit the other.
 - `IElementNudgeService` — debounced keyboard nudge. `System.Threading.Timer` (not `DispatcherTimer`) keeps it Avalonia-free; `Flush` is wired to `HistoryManager.BeforeMutation` inside `EditViewModel` so Undo / Redo never absorbs a pending nudge.
-- `ILayerMoveService` — `PlanMove` enumerates affected elements, `CommitMove` is a pure commit boundary (the caller still drives ZIndex writes so the LayerHeader ViewModel and element animations stay in sync).
+- `ILayerMoveService` — `ApplyMove(scene, oldLayer, newLayer, directElements)` owns the `Element.ZIndex` writes for the direct and shifted sets and commits one `MoveLayer` entry. Returns a `LayerMovePlan` listing the affected elements; the caller (LayerHeader View) drives matching animations afterward.
 - `IKeyFrameMoveService` — commit boundary for InlineAnimation drag releases. The View mutates `KeyTime` while dragging, then calls `CommitMove`.
 - `IClipboardGateway` + `ClipboardEntry` + `BeutlClipboardFormats` — Avalonia-free clipboard abstraction. The concrete `AvaloniaClipboardGateway` lives in `Beutl.Editor.Components/Services/`.
 
