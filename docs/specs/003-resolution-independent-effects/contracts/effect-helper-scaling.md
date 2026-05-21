@@ -16,7 +16,7 @@ Every existing `FilterEffectContext` helper that takes a length-typed argument (
 
 ## When the new behavior triggers
 
-Today every `Renderer` is constructed with `RenderScale.Identity`, so the multiplication is a no-op and behavior is byte-identical to before. The behavior change becomes observable only when a future proxy-preview UX (out of scope for this feature — see `research.md` § R1) constructs a renderer with `RenderScale ≠ Identity`. At that point all existing built-in effects and all plugins that use the standard helpers become resolution-independent automatically.
+Today every `Renderer` is constructed with `RenderScale.Identity`, so the multiplication is a no-op and rendered output is visually equivalent to before (SSIM ≥ 0.97 per FR-003 / SC-002; the new `NaN` / negative-length guards apply only to previously-undefined inputs). The behavior change becomes observable only when a future proxy-preview UX (out of scope for this feature — see `research.md` § R1) constructs a renderer with `RenderScale ≠ Identity`. At that point all existing built-in effects and all plugins that use the standard helpers become resolution-independent automatically.
 
 ## Surface — scaled helpers
 
@@ -125,8 +125,8 @@ Inside each scaled helper, after multiplying by `RenderScale`:
 
 ## Backward compatibility guarantees
 
-- **Today (`RenderScale == Identity` everywhere)**: behavior is byte-identical to before this feature. No plugin can observe the change.
+- **Today (`RenderScale == Identity` everywhere)**: rendered output is visually equivalent to before this feature (SSIM ≥ 0.97 per FR-003 / SC-002). The new `NaN` / negative-length guards apply only to previously-undefined inputs, so well-formed projects observe no change.
 - **After proxy-preview UX ships**: any plugin that calls standard helpers gets correct resolution-independent behavior automatically. The only plugins that break are ones that intentionally depended on raw-raster pixels — those switch to `*Raw` (one method-name change per call site).
-- **No project file format change.** `Size` is still serialized as `{ width, height }`; `Point` as `{ x, y }`; `float` as a number. Legacy projects open and render at export resolution byte-identically to the previous build.
+- **No project file format change.** `Size` is still serialized as `{ width, height }`; `Point` as `{ x, y }`; `float` as a number. Legacy projects open and render at export resolution with SSIM ≥ 0.97 against the previous build's output (FR-003 / SC-002). The JSON byte-equality check applies to serialization round-trip (`LegacyRoundTripTests`), not to rendered raster output.
 - **No new property type.** `IProperty<Size>` / `IProperty<Point>` / `IProperty<float>` declarations on every effect stay verbatim. No new animator. No new property editor.
 - **No `[Obsolete]` markers** — there is no API renamed or replaced.

@@ -38,7 +38,7 @@ Expected new tests (created during `tasks.md`):
 - `tests/Beutl.UnitTests/Engine/Graphics/Rendering/ReferenceFramePropagationTests.cs`
 - `tests/Beutl.UnitTests/Engine/Graphics/Rendering/GraphicsContext2DScalingTests.cs` (Rect / Matrix translation scaling + `*Raw` twins)
 - `tests/Beutl.UnitTests/Engine/Graphics/Rendering/PenScalingTests.cs` (`PenHelper.GetScaled*` helpers)
-- `tests/Beutl.UnitTests/Engine/Graphics/Transformation/TransformScalingTests.cs` (TranslateTransform / Rotation3D / MatrixTransform CreateMatrix scaling)
+- `tests/Beutl.UnitTests/Engine/Graphics/Rendering/TransformScalingTests.cs` (`TransformRenderNode.IsRaw` flag, `ImmediateCanvas.PushTransform` translation-column scaling, nested-scene inner-canvas consistency)
 - `tests/Beutl.UnitTests/Engine/Graphics/FilterEffects/FilterEffectContextScalingTests.cs` (scaled helpers + `*Raw` + sub-pixel/zero/NaN guards)
 - `tests/Beutl.UnitTests/Engine/Graphics/FilterEffects/ResolutionEquivalenceTests.cs` (per-primitive `[TestCase]`s — effects, shapes, transforms, direct draws, combined)
 - `tests/Beutl.UnitTests/Engine/Graphics/FilterEffects/LegacyRenderingTests.cs` (corpus-driven regression vs. baseline)
@@ -113,8 +113,8 @@ This runs the same checks `claude-code-review.yml` and `beutl-reviewer` would ru
 
 ## 8. PR conventions
 
-- Title: `feat: make rendering helpers resolution-independent` (Conventional Commit per `AGENTS.md`). The title says "rendering helpers", not "effects" — the change covers `FilterEffectContext`, `GraphicsContext2D`, `Pen` helpers, and `Transform.CreateMatrix`.
-- The PR's biggest behavioural surface is the modified scaled helpers + their `*Raw` twins across `FilterEffectContext` and `GraphicsContext2D`, plus the `PenHelper.GetScaled*` helpers and the `Transform.CreateMatrix` translation scaling. Mention `@beutl-design-reviewer` in the PR body.
+- Title: `feat: make rendering helpers resolution-independent` (Conventional Commit per `AGENTS.md`). The change covers `FilterEffectContext` length helpers, `GraphicsContext2D` Rect helpers, `PenHelper.GetScaled*`, and the Transform path (`TransformRenderNode.IsRaw` + `ImmediateCanvas.PushTransform`).
+- The PR's biggest behavioural surface is the modified scaled helpers + their `*Raw` twins across `FilterEffectContext` and `GraphicsContext2D` Rect helpers, the `PenHelper.GetScaled*` family (including the new `GetScaledBounds`), and the `ImmediateCanvas.PushTransform` translation-column scaling. Mention `@beutl-design-reviewer` in the PR body.
 - **Out of scope, follow-up PRs**: `Geometry` path coordinates, `TextBlock.Size / Spacing`, `Brush` pixel rectangles. Each gets its own design discussion.
 
 ## 9. Future work this enables

@@ -12,7 +12,7 @@
 
 ## When the new behavior triggers
 
-Today `RenderScale.Identity` everywhere → the multiplication is a no-op → behavior is byte-identical to before. Becomes observable when a future proxy-preview UX constructs a renderer with `RenderScale ≠ Identity`.
+Today `RenderScale.Identity` everywhere → the multiplication is a no-op → rendered output is visually equivalent to before (SSIM ≥ 0.97 per FR-003 / SC-002). Becomes observable when a future proxy-preview UX constructs a renderer with `RenderScale ≠ Identity`.
 
 ## Surface — `Transform` (unchanged from pre-feature)
 

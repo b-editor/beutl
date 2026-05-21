@@ -42,14 +42,14 @@ A proxy-preview *workflow* (rendering at less than 100% during editing) is **not
 - MIT / GPL boundary unchanged — all work is inside MIT projects. No `Beutl.FFmpegWorker` touched.
 - Dual-target build must keep passing (`net10.0` + `net10.0-windows`).
 - Existing project files MUST load and render the same at export resolution (no migration step on disk — see FR-003).
-- Out-of-tree plugins that keep using plain `Size` / `Point` / `float` parameters MUST keep their current raw-pixel behavior (opt-in is type change, per FR-008).
+- Out-of-tree plugins automatically benefit on rebuild — see `contracts/effect-helper-scaling.md` § "Plugin author migration (authoritative cross-surface table)" for the per-surface contract (automatic vs manual-opt-in vs `*Raw` opt-out). The one surface that requires manual opt-in is direct `pen.Thickness` reads in rendering paths (switch to `PenHelper.GetScaledThickness`).
 
 **Scale/Scope**:
 - **Zero built-in filter-effect / shape files modified.** All 13 in-scope effects + the Shape subclasses (`RectShape`, `EllipseShape`, `RoundedRectShape`) automatically benefit because their helper calls scale internally.
 - 1 new `RenderScale` value type in `Beutl.Engine`.
 - 1 modified `FilterEffectContext.cs` — every length-taking helper applies `RenderScale` internally; each gets a `*Raw` twin.
 - 1 modified `GraphicsContext2D.cs` — every length-taking helper applies `RenderScale` internally; each gets a `*Raw` twin.
-- 3 modified `Transform` subclasses (`TranslateTransform.cs`, `Rotation3DTransform.cs`, `MatrixTransform.cs`) — `CreateMatrix` scales translation columns; `CompositionContext` gains a `RenderScale` property.
+- **No `Transform` subclass modifications.** `TranslateTransform`, `Rotation3DTransform`, `MatrixTransform`, etc. continue to return authoring-space matrices. `TransformRenderNode` gains an `IsRaw` flag and `ImmediateCanvas.PushTransform` does the translation-column scaling at render-node application time. `CompositionContext` is unchanged.
 - 1 modified `PenHelper.cs` (new scaled helpers) + ~3 consumer files updated (`ImmediateCanvas.cs`, `Shape.cs`, `StrokeEffect.cs`) to call the scaled helpers.
 - `IRenderer.ReferenceFrame` + `GraphicsContext2D.PushReferenceFrame` plumbing additions.
 - 1 documentation entry for plugin authors under `docs/extensibility/`.
@@ -170,7 +170,7 @@ Open questions resolved by Phase 0 (full content in `research.md`):
 4. **Source-generator impact** — no new property types means no generator changes expected. Spot-checked: confirmed.
 5. ~~**Animator registration**~~ — moot under the helper-internal design. No new animators needed.
 6. **How is `Pen.Thickness` (used by `StrokeEffect`) reached?** — `StrokeEffect` draws via `Canvas`/`Pen` rather than a `FilterEffectContext` length helper, so thickness stays raw-pixel in this PR. Tracked as a follow-up alongside `Beutl.Graphics.Transformation.*`.
-7. **Scope expansion (2026-05-21)**: Should non-FilterEffect surfaces (`GraphicsContext2D` direct draw, `Pen.Thickness`, `Transform.CreateMatrix`, `Shape.Width/Height`) also become resolution-independent? → Yes. Same helper-internal-scaling pattern applies. See `research.md` § R8.
+7. **Scope expansion (2026-05-21)**: Should non-FilterEffect surfaces (`GraphicsContext2D` direct draw, `Pen.Thickness`, `Transform` translations, `Shape.Width/Height`) also become resolution-independent? → Yes. Helper-internal-scaling pattern applies to most; the Transform path uses render-node-application scaling instead (see R10). See `research.md` § R8.
 8. **Pen scaling strategy**: At Pen materialization vs at consumption vs via helper? → Via `PenHelper.GetScaled*` helpers; opt-in at each rendering call site; bounds-computation paths intentionally keep using raw `pen.Thickness`. See `research.md` § R9.
 9. **Transform scaling strategy**: Scale at `CreateMatrix` vs at API consume site vs at render-node application? → **Scale at render-node application time** inside `ImmediateCanvas.PushTransform`. `Transform.CreateMatrix` returns project-space; `TransformRenderNode` carries an `IsRaw` flag; `CompositionContext` does NOT gain a `RenderScale` property (rolled back from earlier draft after design review). See `research.md` § R10 (revised).
 10. **What stays raw / deferred**: `Geometry` path coordinates, `TextBlock.Size / Spacing`, `Brush` rectangles. Tracked as separate follow-up features in `data-model.md` § "Deferred follow-ups".

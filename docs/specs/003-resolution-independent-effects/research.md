@@ -197,7 +197,7 @@ If pushback is strong during PR review, a follow-up feature can introduce `Pixel
 
 2. **`Pen`** — scale `Thickness`, `DashOffset`, `Offset` at the consumption sites in the rendering pipeline (`ImmediateCanvas`, `PenHelper.GetRealThickness`, `Shape.GetRealThickness`, `StrokeEffect`). A shared `PenHelper.GetScaledThickness(pen, renderScale)` provides one place that knows the rule. Existing `pen.Thickness` reads in non-rendering code paths stay unchanged. `MiterLimit`, `TrimStart`, `TrimEnd`, `TrimOffset` stay raw.
 
-3. **`Transform.CreateMatrix(CompositionContext)`** — for `TranslateTransform`, `Rotation3DTransform`, and `MatrixTransform`, the translation component of the returned `Matrix` is scaled by `context.RenderScale`. The `CompositionContext` is extended to carry `RenderScale` from the scene level. `ScaleTransform`, `RotationTransform`, and `SkewTransform` have no translation component and are unchanged.
+3. **Transform path (revised by R10 below)** — `Transform.CreateMatrix(CompositionContext)` returns the authoring-space matrix unchanged from pre-feature. The translation column is scaled later, at render-node application time, inside `ImmediateCanvas.PushTransform(matrix, op, isRaw)`. `TransformRenderNode` gains an `IsRaw` flag for opt-out. `CompositionContext` is **not** extended. The original draft of this R8 section proposed scaling inside `CreateMatrix`; that was abandoned by R10 — see § R10 for rationale.
 
 4. **`Shape` subclasses** — no code change needed. `RectShape.Width / Height`, `EllipseShape.Width / Height`, `RoundedRectShape.Width / Height / Smoothing / CornerRadius` flow into `DrawRectangle` / `DrawEllipse` and benefit automatically once those scale.
 

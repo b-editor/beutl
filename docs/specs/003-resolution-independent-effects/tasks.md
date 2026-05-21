@@ -44,8 +44,9 @@ Engine code under `src/Beutl.Engine/`; project-system under `src/Beutl.ProjectSy
 - [ ] T002 Add `RenderScale` struct in `src/Beutl.Engine/Graphics/Rendering/RenderScale.cs` per `contracts/render-scale.md` (constructor validation; `Identity`; `FromFrames` with uniform-scale enforcement `|sx − sy| ≤ 1e-3 * max(sx, sy)`; `ApplyX / Y / Uniform`; `Apply(Size)`; `Apply(Point)`; `IEquatable<RenderScale>`).
 - [ ] T003 Add `ReferenceFrame` to `IRenderer` (default-interface returns `FrameSize`) in `IRenderer.cs`. Add `Renderer(int, int, PixelSize referenceFrame)` overload in `Renderer.cs`.
 - [ ] T004 Add `(ReferenceFrame, RenderScale)` stack + `PushReferenceFrame(PixelSize)` to `GraphicsContext2D.cs`, initialized from the constructing `Renderer`'s pair.
-- [ ] T005 In `src/Beutl.ProjectSystem/ProjectSystem/SceneDrawable.cs`, wrap inner `Render` draw in `using (context.PushReferenceFrame(r.ReferencedScene.FrameSize))` (FR-010).
+- [ ] T005 In `src/Beutl.ProjectSystem/ProjectSystem/SceneDrawable.cs`, wrap inner `Render` draw in `using (context.PushReferenceFrame(r.ReferencedScene.FrameSize))` (FR-010). **Additionally**, when `SceneDrawable.Render` (or any sub-raster materialization helper it calls — audit the existing path) constructs a `Renderer` / `ImmediateCanvas` for the sub-scene, it MUST pass `referenceFrame = r.ReferencedScene.FrameSize` to that constructor so the inner `ImmediateCanvas.RenderScale` reflects the inner scene's ratio. Without this, `PushReferenceFrame` alone is not sufficient — `GraphicsContext2D` and `FilterEffectContext` paths use it, but the Transform path consults the **inner `ImmediateCanvas`'s** `RenderScale` at render-node application time. See `contracts/render-scale.md` § "Nested-scene Transform consistency".
 - [ ] T006 In `src/Beutl.Engine/Graphics/FilterEffects/LayerEffect.cs`, push the inner reference frame before activating the sub-pipeline. Document the rule on `GraphicsContext2D.PushReferenceFrame` XML doc.
+- [ ] T006a **(Block-A prerequisite for Block C and Block E)** Add `bool IsRaw` ctor parameter / property to `TransformRenderNode` (`src/Beutl.Engine/Graphics/Rendering/TransformRenderNode.cs`). Default `false`. Update `Process` so the lambda that pushes the matrix forwards `IsRaw` to `ImmediateCanvas.PushTransform`. This single foundational change is needed by **both** Block C `T011a` / `T011b` (which construct the node) and Block E `T016` (which consults the flag at apply time); landing it in Block A removes the cross-block ordering trap the design review flagged.
 
 ### Block B — `FilterEffectContext` scaling
 
@@ -71,7 +72,7 @@ Engine code under `src/Beutl.Engine/`; project-system under `src/Beutl.ProjectSy
 
 > **Revised design** per `research.md` § R10: scaling moves from `Transform.CreateMatrix` to `ImmediateCanvas.PushTransform`. **No `Transform` subclass is modified.** `CompositionContext` is unchanged.
 
-- [ ] T015 Add `bool IsRaw` ctor parameter / property to `TransformRenderNode` (`src/Beutl.Engine/Graphics/Rendering/TransformRenderNode.cs`). Default `false`. Update `Process` so the lambda that pushes the matrix forwards `IsRaw` to `ImmediateCanvas.PushTransform`.
+- [x] ~~T015~~ **MOVED to T006a (Block A)** — `TransformRenderNode.IsRaw` is foundational for both Block C `T011a`/`T011b` (record) and Block E `T016` (apply). See T006a above.
 - [ ] T016 Add `RenderScale RenderScale { get; }` to `ImmediateCanvas` (mirror from the constructing `Renderer`). Modify the existing `ImmediateCanvas.PushTransform(Matrix matrix, TransformOperator op)` to add an `isRaw` parameter (default `false`); when `!isRaw`, multiply `matrix.M31 *= RenderScale.ScaleX`, `matrix.M32 *= RenderScale.ScaleY` before forwarding to `SKCanvas`. Other matrix columns unchanged.
 - [ ] T017 **No `Transform` subclass modifications.** Verify (with a brief grep / read) that `TranslateTransform.CreateMatrix`, `Rotation3DTransform.CreateMatrix`, `MatrixTransform.CreateMatrix` still return authoring-space matrices verbatim. Add an XML doc note on each `CreateMatrix` saying "returns authoring-space matrix; render-time scaling happens at `ImmediateCanvas.PushTransform`".
 - [ ] T018 **No `CompositionContext` modifications.** Roll back any incidental edits from earlier drafts that added `CompositionContext.RenderScale`. Confirm `SceneCompositor` / `SceneRenderer` are unchanged on this front.
@@ -81,7 +82,7 @@ Engine code under `src/Beutl.Engine/`; project-system under `src/Beutl.ProjectSy
 - [ ] T019 [P] `RenderScaleTests.cs` in `tests/Beutl.UnitTests/Engine/Graphics/Rendering/`: `Identity`, `FromFrames` happy path, `Apply*`, equality, NaN / zero / negative rejection, `FromFrames` rejects non-uniform per-axis ratios within / outside the 1e-3 tolerance.
 - [ ] T020 [P] `ReferenceFramePropagationTests.cs` in `tests/Beutl.UnitTests/Engine/Graphics/Rendering/`: stack discipline, `FilterEffectContext` / `GraphicsContext2D` snapshot semantics, `SceneDrawable` nested-scene rule.
 - [ ] T021 [P] `FilterEffectContextScalingTests.cs` in `tests/Beutl.UnitTests/Engine/Graphics/FilterEffects/`: for each scaled helper — Identity = pre-feature; non-identity = scaled; `*Raw` bypasses; zero passes through; sub-pixel passes through; NaN throws; negative-length on Blur/Erode/Dilate throws (scaled), `*Raw` does not.
-- [ ] T022 [P] `GraphicsContext2DScalingTests.cs` in `tests/Beutl.UnitTests/Engine/Graphics/Rendering/`: for each scaled helper — Identity = pre-feature; non-identity Rect is per-axis scaled (X, Y, Width, Height); Matrix translation column scaled, other columns unchanged; `*Raw` bypasses; `PushTransform(Transform.Resource)` does NOT re-scale (since Transform already scaled at materialization).
+- [ ] T022 [P] `GraphicsContext2DScalingTests.cs` in `tests/Beutl.UnitTests/Engine/Graphics/Rendering/`: for each scaled **Rect helper** (`DrawRectangle`, `DrawEllipse`, `PushClip`, `PushLayer`, `PushOpacityMask`) — Identity = pre-feature; non-identity Rect is per-axis scaled (X, Y, Width, Height); `*Raw` Rect helper bypasses; `NaN` / negative-extent guards. For the **Transform path** (`PushTransform(Matrix)`, `PushTransform(Transform.Resource)`, and their `*Raw` twins) — assert the API does NOT scale at this layer; the `TransformRenderNode` it produces holds the input matrix verbatim with the expected `IsRaw` value. The translation-column scaling itself is verified in `TransformScalingTests.cs` (T024).
 - [ ] T023 [P] `PenScalingTests.cs` in `tests/Beutl.UnitTests/Engine/Graphics/Rendering/`: `PenHelper.GetScaledThickness(pen, scale)` returns `pen.Thickness * scale.ApplyUniform(1)`; same for DashOffset / Offset; `GetScaledRealThickness` combines alignment + scale; raw `pen.Thickness` read is unchanged.
 - [ ] T024 [P] `TransformScalingTests.cs` in `tests/Beutl.UnitTests/Engine/Graphics/Rendering/`:
   - `TranslateTransform.CreateMatrix` returns authoring-space matrix (`Matrix.CreateTranslation(X, Y)`) regardless of any context state.
@@ -97,7 +98,7 @@ Engine code under `src/Beutl.Engine/`; project-system under `src/Beutl.ProjectSy
 - [ ] T026 [P] Bicubic upscale helper in `tests/Beutl.UnitTests/Engine/Graphics/Testing/BicubicResampler.cs`.
 - [ ] T027 `ResolutionTestHarness` in `tests/Beutl.UnitTests/Engine/Graphics/Testing/ResolutionTestHarness.cs` + fixture loader for `tests/Beutl.UnitTests/Engine/Graphics/Fixtures/ResolutionIndependence/`.
 
-**Checkpoint**: Foundation is ready. With `RenderScale.Identity` everywhere today, behavior is byte-identical to before.
+**Checkpoint**: Foundation is ready. With `RenderScale.Identity` everywhere today, rendering output is visually equivalent to before (SSIM ≥ 0.97 per FR-003 / SC-002; new `NaN` / negative-extent guards excepted).
 
 ---
 
@@ -121,7 +122,7 @@ Engine code under `src/Beutl.Engine/`; project-system under `src/Beutl.ProjectSy
 
 ## Phase 4: User Story 2 - Existing projects keep their current appearance (Priority: P1)
 
-**Goal**: Pre-feature project files render byte-identically at export resolution; no on-disk migration.
+**Goal**: Pre-feature project files render with SSIM ≥ 0.97 against the captured baseline at export resolution; no on-disk migration. Strict byte-equality applies only to JSON serialization round-trip (`LegacyRoundTripTests`), not to rendered output (which is gated by SSIM).
 
 **Independent Test**: `dotnet test --filter "LegacyRenderingTests|LegacyRoundTripTests"`.
 
@@ -178,8 +179,7 @@ Engine code under `src/Beutl.Engine/`; project-system under `src/Beutl.ProjectSy
 
 ### Parallel Opportunities
 
-- Blocks B / C / D / E in Phase 2 are largely independent of each other (different files); after Block A lands, all four can be worked in parallel by separate engineers.
-  - **Caveat** (revised after Codex design review): `T011a` / `T011b` in Block C (which record into `TransformRenderNode` with `IsRaw`) depend on `T015` in Block E (which adds the `IsRaw` flag). Land `T015` before `T011a`/`T011b` even if Block C otherwise runs in parallel with Block E.
+- Blocks B / C / D / E in Phase 2 are largely independent of each other (different files); after **Block A (including T006a — the `TransformRenderNode.IsRaw` foundational change moved up from Block E)** lands, all four can be worked in parallel by separate engineers. Cross-block ordering traps eliminated.
 - Block F tests (T019–T024) are all in different files — parallel.
 - Block G infra (T025–T027) — parallel.
 - Phase 3 fixtures (T029–T033) — parallel; only T028 (the harness file) needs to land first.
