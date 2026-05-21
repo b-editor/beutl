@@ -1,4 +1,5 @@
-﻿using Beutl.Extensibility;
+﻿using System.Runtime.ExceptionServices;
+using Beutl.Extensibility;
 using Beutl.Logging;
 using Beutl.Media;
 using FFmpeg.AutoGen.Abstractions;
@@ -264,6 +265,7 @@ public class FFmpegEncodingController(string outputFile, FFmpegEncodingSettings 
             (MediaEncoder Encoder, MediaStream Stream)? audioRef = null;
             (MediaEncoder Encoder, MediaStream Stream)? videoRef = null;
             bool headerWritten = false;
+            bool encodeCompletedSuccessfully = false;
             try
             {
                 if (outFormat.AudioCodec != AVCodecID.AV_CODEC_ID_NONE)
@@ -304,20 +306,58 @@ public class FFmpegEncodingController(string outputFile, FFmpegEncodingSettings 
                             muxer, swr!, audioRef!.Value.Encoder, audioRef!.Value.Stream, audioFrame, audioState, sampleProvider);
                     }
                 }
+
+                encodeCompletedSuccessfully = true;
             }
             finally
             {
+                Exception? muxerFinalizationError = null;
                 if (headerWritten)
                 {
-                    muxer.FlushCodecs(encoders.Select(i => i.Item1));
-                    muxer.WriteTrailer();
+                    try
+                    {
+                        muxer.FlushCodecs(encoders.Select(i => i.Item1));
+                        muxer.WriteTrailer();
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "Failed to finalize muxer output for {OutputFile}.", OutputFile);
+                        muxerFinalizationError = ex;
+                    }
                 }
-                encoders.ForEach(t => t.Item1.Dispose());
-                swr?.Dispose();
-                _filterGraph?.Dispose();
+
+                foreach (var (encoder, _) in encoders)
+                {
+                    DisposeQuietly(encoder, nameof(MediaEncoder));
+                }
+                DisposeQuietly(swr, nameof(SampleConverter));
+                DisposeQuietly(_filterGraph, nameof(MediaFilterGraph));
+
                 _filterGraph = null;
                 _bufferSrcCtx = null;
                 _bufferSinkCtx = null;
+
+                // Surface muxer finalization failures to the caller so a truncated
+                // output file is not reported as a successful encode. If the try
+                // block already failed, let that original exception propagate
+                // instead of overwriting it.
+                if (encodeCompletedSuccessfully && muxerFinalizationError is not null)
+                {
+                    ExceptionDispatchInfo.Capture(muxerFinalizationError).Throw();
+                }
+
+                void DisposeQuietly(IDisposable? disposable, string resourceName)
+                {
+                    if (disposable is null) return;
+                    try
+                    {
+                        disposable.Dispose();
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex, "Failed to dispose {Resource} during FFmpeg encoding cleanup.", resourceName);
+                    }
+                }
             }
         }
     }
