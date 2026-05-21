@@ -38,6 +38,10 @@ public sealed partial class EditViewModel : IEditorContext, ISupportAutoSaveEdit
     private ElementDuplicateService? _elementDuplicateService;
     private ElementMoveService? _elementMoveService;
     private ElementClipboardService? _elementClipboardService;
+    private ElementLifecycleService? _elementLifecycleService;
+    private ElementNudgeService? _elementNudgeService;
+    private LayerMoveService? _layerMoveService;
+    private KeyFrameMoveService? _keyFrameMoveService;
     private IClipboardGateway? _clipboardGateway;
     private volatile bool _viewStateSaveSuppressed;
 
@@ -339,6 +343,7 @@ public sealed partial class EditViewModel : IEditorContext, ISupportAutoSaveEdit
         // Player を破棄する前にイベント購読を外し、Subject 破棄後の OnNext を抑止する。
         DisposeCommandStateNotifier();
         await Player.DisposeAsync();
+        _elementNudgeService?.Dispose();
         _disposables.Dispose();
         IsEnabled.Dispose();
         Player = null!;
@@ -685,6 +690,18 @@ public sealed partial class EditViewModel : IEditorContext, ISupportAutoSaveEdit
                     (IElementDuplicateService)GetService(typeof(IElementDuplicateService))!,
                     _elementAdder);
 
+        if (serviceType.IsAssignableTo(typeof(IElementLifecycleService)))
+            return _elementLifecycleService ??= new ElementLifecycleService(HistoryManager);
+
+        if (serviceType.IsAssignableTo(typeof(IElementNudgeService)))
+            return _elementNudgeService ??= CreateNudgeService();
+
+        if (serviceType.IsAssignableTo(typeof(ILayerMoveService)))
+            return _layerMoveService ??= new LayerMoveService(HistoryManager);
+
+        if (serviceType.IsAssignableTo(typeof(IKeyFrameMoveService)))
+            return _keyFrameMoveService ??= new KeyFrameMoveService(HistoryManager);
+
         if (serviceType == typeof(PlayerViewModel) || serviceType.IsAssignableTo(typeof(IPreviewPlayer)))
             return Player;
 
@@ -701,6 +718,17 @@ public sealed partial class EditViewModel : IEditorContext, ISupportAutoSaveEdit
             return Services.Adapters.PropertiesEditorFactoryImpl.Instance;
 
         return null;
+    }
+
+    private ElementNudgeService CreateNudgeService()
+    {
+        var nudge = new ElementNudgeService(HistoryManager);
+        // BeforeMutation fires just before Undo / Redo / JumpTo: drain pending
+        // nudges so they don't merge into the next history transaction.
+        HistoryManager.BeforeMutation
+            .Subscribe(_ => nudge.Flush())
+            .DisposeWith(_disposables);
+        return nudge;
     }
 
     private sealed class KnownCommandsImpl(Scene scene, EditViewModel viewModel) : IKnownEditorCommands
