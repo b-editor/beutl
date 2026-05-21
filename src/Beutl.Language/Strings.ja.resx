@@ -1075,6 +1075,18 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
   <data name="CropSelection" xml:space="preserve">
     <value>範囲選択</value>
   </data>
+  <data name="Camera3DControl" xml:space="preserve">
+    <value>3Dカメラ操作</value>
+  </data>
+  <data name="Gizmo_Translate" xml:space="preserve">
+    <value>移動</value>
+  </data>
+  <data name="Gizmo_Rotate" xml:space="preserve">
+    <value>回転</value>
+  </data>
+  <data name="Gizmo_Scale" xml:space="preserve">
+    <value>スケール</value>
+  </data>
   <data name="Portal" xml:space="preserve">
     <value>ポータル</value>
   </data>
