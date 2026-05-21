@@ -1,4 +1,5 @@
-﻿using Beutl.Extensibility;
+﻿using System.Runtime.ExceptionServices;
+using Beutl.Extensibility;
 using Beutl.Logging;
 using Beutl.Media;
 using FFmpeg.AutoGen.Abstractions;
@@ -264,6 +265,7 @@ public class FFmpegEncodingController(string outputFile, FFmpegEncodingSettings 
             (MediaEncoder Encoder, MediaStream Stream)? audioRef = null;
             (MediaEncoder Encoder, MediaStream Stream)? videoRef = null;
             bool headerWritten = false;
+            bool encodeCompletedSuccessfully = false;
             try
             {
                 if (outFormat.AudioCodec != AVCodecID.AV_CODEC_ID_NONE)
@@ -304,9 +306,12 @@ public class FFmpegEncodingController(string outputFile, FFmpegEncodingSettings 
                             muxer, swr!, audioRef!.Value.Encoder, audioRef!.Value.Stream, audioFrame, audioState, sampleProvider);
                     }
                 }
+
+                encodeCompletedSuccessfully = true;
             }
             finally
             {
+                Exception? muxerFinalizationError = null;
                 if (headerWritten)
                 {
                     try
@@ -317,6 +322,7 @@ public class FFmpegEncodingController(string outputFile, FFmpegEncodingSettings 
                     catch (Exception ex)
                     {
                         _logger.LogError(ex, "Failed to finalize muxer output for {OutputFile}.", OutputFile);
+                        muxerFinalizationError = ex;
                     }
                 }
 
@@ -330,6 +336,15 @@ public class FFmpegEncodingController(string outputFile, FFmpegEncodingSettings 
                 _filterGraph = null;
                 _bufferSrcCtx = null;
                 _bufferSinkCtx = null;
+
+                // Surface muxer finalization failures to the caller so a truncated
+                // output file is not reported as a successful encode. If the try
+                // block already failed, let that original exception propagate
+                // instead of overwriting it.
+                if (encodeCompletedSuccessfully && muxerFinalizationError is not null)
+                {
+                    ExceptionDispatchInfo.Capture(muxerFinalizationError).Throw();
+                }
 
                 void DisposeQuietly(IDisposable? disposable, string resourceName)
                 {
