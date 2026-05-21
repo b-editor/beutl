@@ -5,9 +5,10 @@ using Avalonia.Input;
 using Avalonia.Styling;
 using Avalonia.Threading;
 using Avalonia.Xaml.Interactivity;
-using Beutl.Editor;
+using Beutl.Animation;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Components.TimelineTab.ViewModels;
+using Beutl.Editor.Services;
 using Microsoft.Extensions.DependencyInjection;
 using KeyFrame = Avalonia.Animation.KeyFrame;
 
@@ -168,13 +169,15 @@ public partial class InlineAnimationLayer : UserControl
 
             if (_items != null)
             {
+                var keyFrames = new List<IKeyFrame>(_items.Length + 1);
                 foreach (InlineKeyFrameViewModel item in _items)
                 {
                     item.ReflectModelKeyTime();
+                    keyFrames.Add(item.Model);
                 }
                 viewModel.ReflectModelKeyTime();
-                var history = viewModel.Timeline.EditorContext.GetRequiredService<HistoryManager>();
-                history.Commit(CommandNames.MoveKeyFrame);
+                keyFrames.Add(viewModel.Model);
+                viewModel.Timeline.EditorContext.GetRequiredService<IKeyFrameMoveService>().CommitMove(keyFrames);
             }
             else
             {

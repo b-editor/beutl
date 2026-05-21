@@ -38,6 +38,7 @@ public sealed partial class TimelineTabView : UserControl
     internal TimeSpan _pointerFrame;
     private TimeSpan _initialStart;
     private TimeSpan _initialDuration;
+    private ISceneTimeRangeDragSession? _timeRangeDragSession;
     private bool _rightButtonPressed;
     private SceneMarker? _pressedMarker;
     private TimeSpan _markerInitialTime;
@@ -285,15 +286,7 @@ public sealed partial class TimelineTabView : UserControl
         }
         else if (_mouseFlag == MouseFlags.EndingBarMarkerPressed)
         {
-            // ポインタ位置に基づいてシーンDurationを更新
-            TimeSpan newDuration = _pointerFrame - viewModel.Scene.Start;
-            if (newDuration < TimeSpan.Zero)
-            {
-                newDuration = TimeSpan.FromSeconds(1d / rate);
-            }
-
-            // 直接値を更新（コマンド記録なし）
-            viewModel.Scene.Duration = newDuration;
+            _timeRangeDragSession?.Update(_pointerFrame);
         }
         else if (_mouseFlag == MouseFlags.MarkerPressed && _pressedMarker is { } draggingMarker)
         {
@@ -310,23 +303,7 @@ public sealed partial class TimelineTabView : UserControl
         }
         else if (_mouseFlag == MouseFlags.StartingBarMarkerPressed)
         {
-            // Calculate the new starting point for the scene based on the pointer frame
-            TimeSpan clampedStart = _pointerFrame;
-
-            // Ensure the new start time is not negative
-            if (clampedStart < TimeSpan.Zero)
-            {
-                clampedStart = TimeSpan.Zero;
-            }
-            // Ensure the new start time does not exceed the total duration
-            else if (clampedStart > _initialDuration + _initialStart)
-            {
-                clampedStart = _initialDuration + _initialStart - TimeSpan.FromSeconds(1d / rate);
-            }
-
-            // Update the scene's start and duration based on the clamped start time
-            viewModel.Scene.Start = clampedStart;
-            viewModel.Scene.Duration = _initialDuration + _initialStart - clampedStart;
+            _timeRangeDragSession?.Update(_pointerFrame);
         }
         else
         {
@@ -372,13 +349,12 @@ public sealed partial class TimelineTabView : UserControl
             {
                 overlay.SelectionRange = default;
             }
-            else if (_mouseFlag == MouseFlags.EndingBarMarkerPressed)
+            else if (_mouseFlag == MouseFlags.EndingBarMarkerPressed
+                     || _mouseFlag == MouseFlags.StartingBarMarkerPressed)
             {
-                history.Commit(CommandNames.ChangeSceneDuration);
-            }
-            else if (_mouseFlag == MouseFlags.StartingBarMarkerPressed)
-            {
-                history.Commit(CommandNames.ChangeSceneStart);
+                _timeRangeDragSession?.Commit();
+                _timeRangeDragSession?.Dispose();
+                _timeRangeDragSession = null;
             }
             else if (_mouseFlag == MouseFlags.MarkerPressed && _pressedMarker is { } releasedMarker)
             {
@@ -498,14 +474,19 @@ public sealed partial class TimelineTabView : UserControl
                 if (TimelineHelper.IsPointInTimelineScaleEndingMarker(pointerPt.Position.X, scalePoint.Y, endingBarX))
                 {
                     _mouseFlag = MouseFlags.EndingBarMarkerPressed;
-                    // 初期値を保存
                     _initialDuration = viewModel.Scene.Duration;
+                    _timeRangeDragSession = viewModel.EditorContext
+                        .GetRequiredService<ISceneTimeRangeService>()
+                        .BeginDragEnd(viewModel.Scene);
                 }
                 else if (TimelineHelper.IsPointInTimelineScaleStartingMarker(pointerPt.Position.X, scalePoint.Y, startingBarX))
                 {
                     _mouseFlag = MouseFlags.StartingBarMarkerPressed;
-                    _initialStart = viewModel.Scene.Start; // 初期値を保存
+                    _initialStart = viewModel.Scene.Start;
                     _initialDuration = viewModel.Scene.Duration;
+                    _timeRangeDragSession = viewModel.EditorContext
+                        .GetRequiredService<ISceneTimeRangeService>()
+                        .BeginDragStart(viewModel.Scene);
                 }
                 else
                 {

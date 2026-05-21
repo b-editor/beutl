@@ -176,9 +176,8 @@ public sealed partial class ElementView : UserControl
     private void EnableElementClick(object? sender, RoutedEventArgs e)
     {
         Element model = ViewModel.Model;
-        HistoryManager history = ViewModel.Timeline.EditorContext.GetRequiredService<HistoryManager>();
-        model.IsEnabled = !model.IsEnabled;
-        history.Commit(CommandNames.ChangeElementEnabled);
+        ViewModel.Timeline.EditorContext.GetRequiredService<IElementLifecycleService>()
+            .SetEnabled(model, !model.IsEnabled);
     }
 
     private void OnTextBoxLostFocus(object? sender, RoutedEventArgs e)
@@ -459,7 +458,6 @@ public sealed partial class ElementView : UserControl
                     }
                     else if (_resizeContexts.Length > 1)
                     {
-                        HistoryManager history = viewModel.Timeline.EditorContext.GetRequiredService<HistoryManager>();
                         var animations = _resizeContexts
                             .Select(x => (ViewModel: x.ViewModel, Context: x.ViewModel.PrepareAnimation()))
                             .ToArray();
@@ -467,16 +465,25 @@ public sealed partial class ElementView : UserControl
                         float scale = viewModel.Timeline.Options.Value.Scale;
                         int rate = viewModel.Scene.FindHierarchicalParent<Project>() is { } proj ? proj.GetFrameRate() : 30;
 
-                        foreach (ElementResizeContext ctx in _resizeContexts)
+                        var requests = new ElementResizeRequest[_resizeContexts.Length];
+                        for (int i = 0; i < _resizeContexts.Length; i++)
                         {
+                            ElementResizeContext ctx = _resizeContexts[i];
                             TimeSpan newStart = ctx.ViewModel.BorderMargin.Value.Left.PixelToTimeSpan(scale).RoundToRate(rate);
                             TimeSpan newLength = ctx.ViewModel.Width.Value.PixelToTimeSpan(scale).RoundToRate(rate);
                             int zindex = viewModel.Timeline.ToLayerNumber(ctx.ViewModel.Margin.Value);
-
-                            viewModel.Scene.MoveChild(zindex, newStart, newLength, ctx.ViewModel.Model);
+                            requests[i] = new ElementResizeRequest(ctx.ViewModel.Model, newStart, newLength, zindex);
                         }
 
-                        history.Commit(CommandNames.MoveElement);
+                        IElementResizeService service = viewModel.Timeline.EditorContext
+                            .GetRequiredService<IElementResizeService>();
+                        IElementResizeDragSession session = service.BeginResize(
+                            viewModel.Scene,
+                            _resizeContexts.Select(c => c.ViewModel.Model).ToArray(),
+                            _resizeType == AlignmentX.Left ? ResizeEdge.Left : ResizeEdge.Right,
+                            clampToOriginalDuration: GlobalConfiguration.Instance.EditorConfig.ClampResizeToOriginalLength);
+                        session.Commit(requests);
+                        session.Dispose();
 
                         foreach (var (item, context) in animations)
                         {
@@ -682,7 +689,6 @@ public sealed partial class ElementView : UserControl
             RemoveGhosts(timeline);
 
             viewModel.Timeline.SnapBarPosition.Value = null;
-            HistoryManager history = viewModel.Timeline.EditorContext.GetRequiredService<HistoryManager>();
             e.Handled = true;
             var elems = relatedElements.Select(x => x.Model).ToArray();
 
@@ -693,92 +699,67 @@ public sealed partial class ElementView : UserControl
             int newIndex = viewModel.Timeline.ToLayerNumber(viewModel.Margin.Value);
             int deltaIndex = newIndex - viewModel.Model.ZIndex;
 
-            if (duplicate && ghostShown)
-            {
-                var animations = relatedElements
-                    .Select(x => (ViewModel: x, Context: x.PrepareAnimation()))
-                    .ToArray();
-
-                bool duplicated = false;
-                if (elems.Length > 0)
-                {
-                    TimeSpan minSourceStart = elems.Min(m => m.Start);
-                    int minSourceZIndex = elems.Min(m => m.ZIndex);
-                    TimeSpan anchorStart = minSourceStart + deltaStart;
-                    if (anchorStart < TimeSpan.Zero) anchorStart = TimeSpan.Zero;
-                    int anchorZIndex = Math.Max(minSourceZIndex + deltaIndex, 0);
-
-                    // Skip the duplicate when the copy would land on top of any source clip.
-                    if (DuplicateHelper.WouldOverlapSources(elems, anchorStart, anchorZIndex))
-                    {
-                        s_logger.LogDebug(
-                            "Alt+drag duplicate cancelled: copy would overlap source clip(s) at start={Start}, zIndex={ZIndex}.",
-                            anchorStart, anchorZIndex);
-                        ForceRestoreVisualToModel(animations.Select(a => a.ViewModel));
-                        return;
-                    }
-
-                    duplicated = viewModel.Timeline.DuplicateElementsAt(elems, anchorStart, anchorZIndex);
-                }
-
-                if (!duplicated && elems.Length > 0 && (deltaStart != TimeSpan.Zero || deltaIndex != 0))
-                {
-                    // Duplicate failed (notification already raised by ViewModel). Alt is
-                    // a copy gesture, so fall back to a plain move so the drag is not lost.
-                    try
-                    {
-                        viewModel.Scene.MoveChildren(deltaIndex, deltaStart, elems);
-                        history.Commit(CommandNames.MoveElement);
-                        NotificationService.ShowWarning(Strings.Duplicate_Failed, Strings.Duplicate_FallbackToMove);
-                    }
-                    catch (Exception ex)
-                    {
-                        ForceRestoreVisualToModel(animations.Select(a => a.ViewModel));
-                        s_logger.LogError(ex, "Move fallback also failed.");
-                        NotificationService.ShowError(Strings.Duplicate_Failed, Strings.Duplicate_FallbackFailed);
-                        return;
-                    }
-                }
-
-                try
-                {
-                    // Must await: a fire-and-forget AnimationRequest swallows exceptions
-                    // and leaves the visual stuck at the dragged position.
-                    await Task.WhenAll(
-                        animations.Select(a => a.ViewModel.AnimationRequest(a.Context)));
-                }
-                catch (Exception ex)
-                {
-                    // Model state is already committed; just snap the visuals back.
-                    s_logger.LogWarning(ex, "Animation failed after duplicate/move; snapping visuals to model.");
-                    ForceRestoreVisualToModel(animations.Select(a => a.ViewModel));
-                }
-            }
-            else if (duplicate)
+            if (duplicate && !ghostShown)
             {
                 // PointerMoved may have shifted the visual already; snap it back.
                 s_logger.LogDebug(
                     "Alt+drag duplicate cancelled below threshold (deltaStart={DeltaStart}, deltaIndex={DeltaIndex}).",
                     deltaStart, deltaIndex);
                 ForceRestoreVisualToModel(relatedElements);
+                return;
             }
-            else if (elems.Length == 1)
+
+            if (!duplicate && elems.Length == 1)
             {
                 await viewModel.SubmitViewModelChanges();
+                return;
             }
-            else if (elems.Length > 1)
+
+            if (elems.Length == 0) return;
+
+            var animations = relatedElements
+                .Select(x => (ViewModel: x, Context: x.PrepareAnimation()))
+                .ToArray();
+
+            IElementMoveService moveService = viewModel.Timeline.EditorContext
+                .GetRequiredService<IElementMoveService>();
+            using IElementMoveDragSession session = moveService.BeginMove(
+                viewModel.Scene, elems, viewModel.Model, duplicate);
+            ElementMoveOutcome outcome;
+            try
             {
-                var animations = relatedElements
-                    .Select(x => (ViewModel: x, Context: x.PrepareAnimation()))
-                    .ToArray();
+                outcome = session.Commit(deltaStart, deltaIndex);
+            }
+            catch (Exception ex)
+            {
+                ForceRestoreVisualToModel(animations.Select(a => a.ViewModel));
+                s_logger.LogError(ex, "Element move/duplicate failed.");
+                NotificationService.ShowError(Strings.Duplicate_Failed, Strings.Duplicate_FallbackFailed);
+                return;
+            }
 
-                viewModel.Scene.MoveChildren(deltaIndex, deltaStart, elems);
-                history.Commit(CommandNames.MoveElement);
+            switch (outcome)
+            {
+                case ElementMoveOutcome.DuplicateOverlapsSource:
+                    ForceRestoreVisualToModel(animations.Select(a => a.ViewModel));
+                    return;
+                case ElementMoveOutcome.FellBackToMove:
+                    NotificationService.ShowWarning(Strings.Duplicate_Failed, Strings.Duplicate_FallbackToMove);
+                    break;
+                case ElementMoveOutcome.None:
+                    return;
+            }
 
-                foreach (var (item, context) in animations)
-                {
-                    _ = item.AnimationRequest(context);
-                }
+            try
+            {
+                // Must await: a fire-and-forget AnimationRequest swallows exceptions
+                // and leaves the visual stuck at the dragged position.
+                await Task.WhenAll(animations.Select(a => a.ViewModel.AnimationRequest(a.Context)));
+            }
+            catch (Exception ex)
+            {
+                s_logger.LogWarning(ex, "Animation failed after duplicate/move; snapping visuals to model.");
+                ForceRestoreVisualToModel(animations.Select(a => a.ViewModel));
             }
         }
 

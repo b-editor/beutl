@@ -4,10 +4,11 @@ namespace Beutl.Editor.Services;
 
 /// <summary>
 /// Reorders layers by shifting <see cref="Element.ZIndex"/> values and
-/// committing a single history entry. The service produces a
-/// <see cref="LayerMovePlan"/> describing the affected elements so the View
-/// can drive ZIndex animations before <see cref="CommitMove"/> finalizes the
-/// model state.
+/// committing a single history entry. <see cref="PlanMove"/> enumerates the
+/// elements between the old and new layer so the View can drive matching
+/// animations; the View is responsible for writing the new <see cref="Element.ZIndex"/>
+/// values (the same writes drive the animation), then <see cref="CommitMove"/>
+/// closes the transaction with a single MoveLayer entry.
 /// </summary>
 public interface ILayerMoveService
 {

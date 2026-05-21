@@ -107,7 +107,7 @@ public class LayerMoveServiceTests
     }
 
     [Test]
-    public void CommitMove_AppliesZIndexShiftsAndCommits()
+    public void CommitMove_AppliesCallerDrivenZIndexShifts_AndCommits()
     {
         Element l0 = AddElement(0);
         Element l1 = AddElement(1);
@@ -115,6 +115,10 @@ public class LayerMoveServiceTests
         int before = _history.UndoCount;
 
         LayerMovePlan plan = _service.PlanMove(_scene, 0, 2, [l0]);
+        // Caller writes the ZIndex updates (the View does this through
+        // LayerHeaderViewModel.UpdateZIndex / ElementViewModel.AnimationRequest).
+        l0.ZIndex = 2;
+        foreach (Element shifted in plan.ShiftedElements) shifted.ZIndex -= 1;
         _service.CommitMove(plan);
 
         Assert.Multiple(() =>

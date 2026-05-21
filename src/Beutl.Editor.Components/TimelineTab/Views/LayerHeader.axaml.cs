@@ -4,8 +4,8 @@ using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.LogicalTree;
 using Avalonia.Media;
-using Beutl.Editor;
 using Beutl.Editor.Components.TimelineTab.ViewModels;
+using Beutl.Editor.Services;
 using FluentAvalonia.UI.Controls;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -97,9 +97,14 @@ public sealed partial class LayerHeader : UserControl
 
         int newLayerNum = _newLayer;
         int oldLayerNum = ViewModel.Number.Value;
-        HistoryManager history = ViewModel.Timeline.EditorContext.GetRequiredService<HistoryManager>();
+        ILayerMoveService service = ViewModel.Timeline.EditorContext.GetRequiredService<ILayerMoveService>();
+        LayerMovePlan plan = service.PlanMove(
+            ViewModel.Timeline.Scene,
+            oldLayerNum,
+            newLayerNum,
+            _elements.Select(e => e.Model).ToArray());
         new MoveLayerCommand(ViewModel, newLayerNum, oldLayerNum, _elements).Do();
-        history.Commit(CommandNames.MoveLayer);
+        service.CommitMove(plan);
         _elements = [];
     }
 

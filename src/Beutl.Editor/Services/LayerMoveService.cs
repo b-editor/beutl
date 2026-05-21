@@ -44,17 +44,6 @@ public sealed class LayerMoveService : ILayerMoveService
         ArgumentNullException.ThrowIfNull(plan);
         if (plan.IsNoop) return;
 
-        int direction = plan.Old < plan.New ? -1 : 1;
-        foreach (Element element in plan.ShiftedElements)
-        {
-            element.ZIndex += direction;
-        }
-
-        foreach (Element element in plan.DirectElements)
-        {
-            element.ZIndex = plan.New;
-        }
-
         _historyManager.Commit(CommandNames.MoveLayer);
     }
 }
