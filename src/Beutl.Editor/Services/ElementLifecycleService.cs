@@ -143,7 +143,7 @@ public sealed class ElementLifecycleService : IElementLifecycleService
         // Always remove the ids from existing groups first — when only one id is
         // passed this is effectively an "ungroup this element from its set",
         // which matches the previous in-VM behavior.
-        RemoveIdsFromGroups(scene, ids);
+        bool removed = RemoveIdsFromGroups(scene, ids);
 
         bool created = false;
         if (ids.Count >= 2)
@@ -156,7 +156,15 @@ public sealed class ElementLifecycleService : IElementLifecycleService
             }
         }
 
-        _historyManager.Commit(CommandNames.GroupElements);
+        // Commit only when the call actually mutated something. An
+        // unconditional Commit would close the current transaction and pull
+        // in any unrelated pending operations (e.g. a Scene.Children.Add
+        // staged just before this call), creating a phantom undo entry.
+        if (removed || created)
+        {
+            _historyManager.Commit(CommandNames.GroupElements);
+        }
+
         return new GroupOutcome(created);
     }
 
@@ -166,12 +174,15 @@ public sealed class ElementLifecycleService : IElementLifecycleService
         ArgumentNullException.ThrowIfNull(ids);
         if (ids.Count == 0) return;
 
-        RemoveIdsFromGroups(scene, ids);
-        _historyManager.Commit(CommandNames.UngroupElements);
+        if (RemoveIdsFromGroups(scene, ids))
+        {
+            _historyManager.Commit(CommandNames.UngroupElements);
+        }
     }
 
-    private static void RemoveIdsFromGroups(Scene scene, IReadOnlyCollection<Guid> ids)
+    private static bool RemoveIdsFromGroups(Scene scene, IReadOnlyCollection<Guid> ids)
     {
+        bool removed = false;
         for (int i = scene.Groups.Count - 1; i >= 0; i--)
         {
             ImmutableHashSet<Guid> group = scene.Groups[i];
@@ -186,7 +197,11 @@ public sealed class ElementLifecycleService : IElementLifecycleService
             {
                 scene.Groups.RemoveAt(i);
             }
+
+            removed = true;
         }
+
+        return removed;
     }
 
     private static void ShiftLocalKeyFrames(Element element, TimeSpan delta)

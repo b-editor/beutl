@@ -234,6 +234,25 @@ public class ElementLifecycleServiceTests
     }
 
     [Test]
+    public void Ungroup_IdsNotInAnyGroup_IsNoOp()
+    {
+        Element element = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
+        int beforeUndo = _history.UndoCount;
+        int beforeGroups = _scene.Groups.Count;
+
+        _service.Ungroup(_scene, [element.Id]);
+
+        Assert.Multiple(() =>
+        {
+            // Same contract as Group_SingleId: no group touched, no
+            // history entry. An unconditional Commit would close the
+            // pending transaction and pull in unrelated mutations.
+            Assert.That(_scene.Groups.Count, Is.EqualTo(beforeGroups));
+            Assert.That(_history.UndoCount, Is.EqualTo(beforeUndo));
+        });
+    }
+
+    [Test]
     public void Ungroup_RemovesIdsFromGroups_AndCommits()
     {
         Element e1 = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
