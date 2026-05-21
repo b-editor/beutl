@@ -1,4 +1,4 @@
-using Beutl.Extensions.FFmpeg;
+﻿using Beutl.Extensions.FFmpeg;
 
 namespace Beutl.UnitTests.Extensions.FFmpeg;
 
