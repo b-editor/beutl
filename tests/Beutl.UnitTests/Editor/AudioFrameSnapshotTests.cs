@@ -1,4 +1,4 @@
-﻿using Beutl.Editor.Services;
+﻿using Beutl.Editor.Models;
 
 namespace Beutl.UnitTests.Editor;
 

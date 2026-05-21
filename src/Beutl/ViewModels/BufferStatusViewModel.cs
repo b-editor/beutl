@@ -2,6 +2,7 @@
 
 using Avalonia.Threading;
 using Beutl.Editor.Components.Helpers;
+using Beutl.Editor.Models;
 using Beutl.Models;
 using Microsoft.Extensions.DependencyInjection;
 using Reactive.Bindings;

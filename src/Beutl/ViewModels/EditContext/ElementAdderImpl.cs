@@ -2,6 +2,7 @@
 using Beutl.Composition;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Components.TimelineTab.ViewModels;
+using Beutl.Editor.Models;
 using Beutl.Engine;
 using Beutl.Graphics;
 using Beutl.Graphics.Rendering;

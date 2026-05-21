@@ -9,6 +9,7 @@ using Beutl.Animation;
 using Beutl.Configuration;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Components.TimelineTab.Models;
+using Beutl.Editor.Models;
 using Beutl.Editor.Services;
 using Beutl.Engine;
 using Beutl.Logging;

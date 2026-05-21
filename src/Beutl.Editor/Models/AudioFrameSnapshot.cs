@@ -1,4 +1,4 @@
-﻿namespace Beutl.Editor.Services;
+﻿namespace Beutl.Editor.Models;
 
 public sealed record class AudioFrameSnapshot(
     float[] Interleaved,

@@ -1,8 +1,8 @@
 ﻿using System.Reactive;
 using System.Reactive.Linq;
+using Beutl.Editor.Models;
 using Beutl.Media;
 using Beutl.Media.Source;
-
 using Reactive.Bindings;
 
 namespace Beutl.Editor.Services;

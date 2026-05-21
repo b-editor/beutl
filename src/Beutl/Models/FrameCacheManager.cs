@@ -1,10 +1,9 @@
 ﻿using System.Collections.Immutable;
 using System.Diagnostics.CodeAnalysis;
-
 using Beutl.Configuration;
+using Beutl.Editor.Models;
 using Beutl.Media;
 using Beutl.Media.Source;
-
 using Reactive.Bindings;
 
 namespace Beutl.Models;

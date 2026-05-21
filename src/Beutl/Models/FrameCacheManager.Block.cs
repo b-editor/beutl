@@ -1,5 +1,7 @@
 ﻿using System.Collections.Immutable;
 
+using Beutl.Editor.Models;
+
 namespace Beutl.Models;
 
 public partial class FrameCacheManager

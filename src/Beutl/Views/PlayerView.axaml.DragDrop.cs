@@ -1,5 +1,6 @@
 ﻿using Avalonia.Input;
 using Avalonia.Platform.Storage;
+using Beutl.Editor.Models;
 using Beutl.Graphics;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering;
