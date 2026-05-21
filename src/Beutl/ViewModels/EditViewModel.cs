@@ -35,6 +35,10 @@ public sealed partial class EditViewModel : IEditorContext, ISupportAutoSaveEdit
     private readonly ElementAdderImpl _elementAdder;
     private SceneTimeRangeService? _sceneTimeRangeService;
     private ElementResizeService? _elementResizeService;
+    private ElementDuplicateService? _elementDuplicateService;
+    private ElementMoveService? _elementMoveService;
+    private ElementClipboardService? _elementClipboardService;
+    private IClipboardGateway? _clipboardGateway;
     private volatile bool _viewStateSaveSuppressed;
 
     public EditViewModel(Scene scene)
@@ -92,6 +96,7 @@ public sealed partial class EditViewModel : IEditorContext, ISupportAutoSaveEdit
             .DisposeWith(_disposables);
 
         _elementAdder = new ElementAdderImpl(this);
+        _clipboardGateway = new Beutl.Editor.Components.Services.AvaloniaClipboardGateway();
 
         _autoSaveService.SaveError
             .Subscribe(_ =>
@@ -659,6 +664,26 @@ public sealed partial class EditViewModel : IEditorContext, ISupportAutoSaveEdit
 
         if (serviceType.IsAssignableTo(typeof(IElementResizeService)))
             return _elementResizeService ??= new ElementResizeService(HistoryManager);
+
+        if (serviceType.IsAssignableTo(typeof(IElementDuplicateService)))
+            return _elementDuplicateService ??= new ElementDuplicateService(HistoryManager);
+
+        if (serviceType.IsAssignableTo(typeof(IElementMoveService)))
+            return _elementMoveService ??= new ElementMoveService(
+                HistoryManager,
+                (IElementDuplicateService)GetService(typeof(IElementDuplicateService))!);
+
+        if (serviceType.IsAssignableTo(typeof(IClipboardGateway)))
+            return _clipboardGateway;
+
+        if (serviceType.IsAssignableTo(typeof(IElementClipboardService)))
+            return _elementClipboardService ??= _clipboardGateway is null
+                ? null!
+                : new ElementClipboardService(
+                    HistoryManager,
+                    _clipboardGateway,
+                    (IElementDuplicateService)GetService(typeof(IElementDuplicateService))!,
+                    _elementAdder);
 
         if (serviceType == typeof(PlayerViewModel) || serviceType.IsAssignableTo(typeof(IPreviewPlayer)))
             return Player;

@@ -1,0 +1,231 @@
+using System.Text.Json.Nodes;
+using Beutl.Graphics;
+using Beutl.Language;
+using Beutl.Logging;
+using Beutl.Media;
+using Beutl.Media.Source;
+using Beutl.ProjectSystem;
+using Beutl.Serialization;
+using Beutl.Utilities;
+using Microsoft.Extensions.Logging;
+
+namespace Beutl.Editor.Services;
+
+public sealed class ElementClipboardService : IElementClipboardService
+{
+    private const string ElementFileExtension = "belm";
+
+    private static readonly ILogger s_logger = Log.CreateLogger<ElementClipboardService>();
+
+    private readonly HistoryManager _historyManager;
+    private readonly IClipboardGateway _clipboard;
+    private readonly IElementDuplicateService _duplicateService;
+    private readonly IElementAdder? _elementAdder;
+    private readonly Func<Color>? _imageAccentColorFactory;
+
+    public ElementClipboardService(
+        HistoryManager historyManager,
+        IClipboardGateway clipboard,
+        IElementDuplicateService duplicateService,
+        IElementAdder? elementAdder = null,
+        Func<Color>? imageAccentColorFactory = null)
+    {
+        _historyManager = historyManager ?? throw new ArgumentNullException(nameof(historyManager));
+        _clipboard = clipboard ?? throw new ArgumentNullException(nameof(clipboard));
+        _duplicateService = duplicateService ?? throw new ArgumentNullException(nameof(duplicateService));
+        _elementAdder = elementAdder;
+        _imageAccentColorFactory = imageAccentColorFactory;
+    }
+
+    public async Task CopyAsync(IReadOnlyList<Element> elements)
+    {
+        ArgumentNullException.ThrowIfNull(elements);
+        if (elements.Count == 0) return;
+
+        string singleJson = CoreSerializer.SerializeToJsonString(elements[0]);
+        var entries = new List<ClipboardEntry>(3)
+        {
+            new(BeutlClipboardFormats.Element, singleJson, null),
+            new("text/plain", singleJson, null),
+        };
+
+        if (elements.Count > 1)
+        {
+            JsonNode multiNode = new JsonArray(
+                elements.Select(JsonNode (e) => CoreSerializer.SerializeToJsonObject(e)).ToArray());
+            entries.Add(new ClipboardEntry(BeutlClipboardFormats.Elements, multiNode.ToJsonString(), null));
+        }
+
+        await _clipboard.SetAsync(entries);
+    }
+
+    public async Task<bool> CutAsync(Scene scene, IReadOnlyList<Element> elements)
+    {
+        ArgumentNullException.ThrowIfNull(scene);
+        ArgumentNullException.ThrowIfNull(elements);
+        if (elements.Count == 0) return false;
+
+        await CopyAsync(elements);
+
+        foreach (Element element in elements.ToArray())
+        {
+            scene.RemoveChild(element);
+        }
+
+        _historyManager.Commit(CommandNames.CutElement);
+        return true;
+    }
+
+    public async Task<ElementPasteOutcome> PasteAsync(Scene scene, TimeSpan clickedFrame, int clickedLayer)
+    {
+        ArgumentNullException.ThrowIfNull(scene);
+
+        IReadOnlyList<string> formats = await _clipboard.GetFormatsAsync();
+
+        if (formats.Contains(BeutlClipboardFormats.Elements))
+        {
+            return await PasteElementsAsync(scene);
+        }
+
+        if (formats.Contains(BeutlClipboardFormats.Element))
+        {
+            return await PasteSingleElementAsync(scene, clickedFrame, clickedLayer);
+        }
+
+        if (formats.Contains(BeutlClipboardFormats.Files))
+        {
+            return await PasteFilesAsync(scene, clickedFrame, clickedLayer);
+        }
+
+        if (formats.Contains(BeutlClipboardFormats.Bitmap))
+        {
+            return await PasteBitmapAsync(scene, clickedFrame, clickedLayer);
+        }
+
+        return ElementPasteOutcome.Empty;
+    }
+
+    private async Task<ElementPasteOutcome> PasteElementsAsync(Scene scene)
+    {
+        string? json = await _clipboard.TryGetStringAsync(BeutlClipboardFormats.Elements);
+        if (json is null) return ElementPasteOutcome.Empty;
+        if (JsonNode.Parse(json) is not JsonArray array || array.Count == 0)
+        {
+            return ElementPasteOutcome.Empty;
+        }
+
+        var oldElements = new Element[array.Count];
+        for (int i = 0; i < array.Count; i++)
+        {
+            var element = new Element();
+            CoreSerializer.PopulateFromJsonObject(element, array[i]!.AsObject());
+            oldElements[i] = element;
+        }
+
+        DuplicateOutcome outcome = _duplicateService.DuplicateAtClickedPosition(
+            scene, oldElements, TimeSpan.Zero, 0);
+
+        if (!outcome.Success) return ElementPasteOutcome.Empty;
+
+        return new ElementPasteOutcome
+        {
+            Pasted = true,
+            NewElements = [],
+            ScrollTo = outcome.ScrollToRange,
+            ScrollToZIndex = outcome.ScrollToZIndex,
+        };
+    }
+
+    private async Task<ElementPasteOutcome> PasteSingleElementAsync(Scene scene, TimeSpan clickedFrame, int clickedLayer)
+    {
+        if (scene.Uri is null)
+        {
+            s_logger.LogWarning("PasteSingleElementAsync skipped: scene has no Uri.");
+            return ElementPasteOutcome.Empty;
+        }
+
+        string? json = await _clipboard.TryGetStringAsync(BeutlClipboardFormats.Element);
+        if (json is null) return ElementPasteOutcome.Empty;
+        if (JsonNode.Parse(json) is not JsonObject obj) return ElementPasteOutcome.Empty;
+
+        var oldElement = new Element();
+        CoreSerializer.PopulateFromJsonObject(oldElement, obj);
+
+        ObjectRegenerator.Regenerate(oldElement, out Element newElement);
+        newElement.Start = clickedFrame;
+        newElement.ZIndex = clickedLayer;
+
+        CoreSerializer.StoreToUri(newElement, RandomFileNameGenerator.GenerateUri(scene.Uri, ElementFileExtension));
+
+        scene.AddChild(newElement);
+        _historyManager.Commit(CommandNames.PasteElement);
+
+        return new ElementPasteOutcome
+        {
+            Pasted = true,
+            NewElements = [newElement],
+            ScrollTo = newElement.Range,
+            ScrollToZIndex = newElement.ZIndex,
+        };
+    }
+
+    private async Task<ElementPasteOutcome> PasteFilesAsync(Scene scene, TimeSpan clickedFrame, int clickedLayer)
+    {
+        if (_elementAdder is null) return ElementPasteOutcome.Empty;
+
+        IReadOnlyList<string>? files = await _clipboard.TryGetFilePathsAsync();
+        if (files is null || files.Count == 0) return ElementPasteOutcome.Empty;
+
+        foreach (string file in files)
+        {
+            _elementAdder.AddElement(new ElementDescription(
+                clickedFrame, TimeSpan.FromSeconds(5), clickedLayer, FileName: file));
+        }
+
+        return new ElementPasteOutcome { Pasted = true };
+    }
+
+    private async Task<ElementPasteOutcome> PasteBitmapAsync(Scene scene, TimeSpan clickedFrame, int clickedLayer)
+    {
+        if (scene.Uri is null)
+        {
+            s_logger.LogWarning("PasteBitmapAsync skipped: scene has no Uri.");
+            return ElementPasteOutcome.Empty;
+        }
+
+        ReadOnlyMemory<byte>? png = await _clipboard.TryGetBitmapPngAsync();
+        if (png is null) return ElementPasteOutcome.Empty;
+
+        string dir = Path.GetDirectoryName(scene.Uri.LocalPath)!;
+        string resDir = Path.Combine(dir, "resources");
+        Directory.CreateDirectory(resDir);
+
+        string imageFile = RandomFileNameGenerator.Generate(resDir, "png");
+        await File.WriteAllBytesAsync(imageFile, png.Value.ToArray());
+
+        var sourceImage = new SourceImage();
+        sourceImage.Source.CurrentValue = ImageSource.Open(imageFile);
+        var newElement = new Element
+        {
+            Start = clickedFrame,
+            Length = TimeSpan.FromSeconds(5),
+            ZIndex = clickedLayer,
+            AccentColor = _imageAccentColorFactory?.Invoke() ?? Colors.Teal,
+            Name = Path.GetFileName(imageFile),
+        };
+        newElement.AddObject(sourceImage);
+
+        CoreSerializer.StoreToUri(newElement, RandomFileNameGenerator.GenerateUri(dir, ElementFileExtension));
+
+        scene.AddChild(newElement);
+        _historyManager.Commit(CommandNames.PasteElement);
+
+        return new ElementPasteOutcome
+        {
+            Pasted = true,
+            NewElements = [newElement],
+            ScrollTo = newElement.Range,
+            ScrollToZIndex = newElement.ZIndex,
+        };
+    }
+}
