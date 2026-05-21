@@ -43,6 +43,7 @@ public sealed partial class EditViewModel : IEditorContext, ISupportAutoSaveEdit
     private ElementNudgeService? _elementNudgeService;
     private LayerMoveService? _layerMoveService;
     private LayerAttributeService? _layerAttributeService;
+    private SceneSettingsService? _sceneSettingsService;
     private IClipboardGateway? _clipboardGateway;
     private volatile bool _viewStateSaveSuppressed;
 
@@ -707,6 +708,9 @@ public sealed partial class EditViewModel : IEditorContext, ISupportAutoSaveEdit
 
         if (serviceType.IsAssignableTo(typeof(ILayerAttributeService)))
             return _layerAttributeService ??= new LayerAttributeService(HistoryManager);
+
+        if (serviceType.IsAssignableTo(typeof(ISceneSettingsService)))
+            return _sceneSettingsService ??= new SceneSettingsService(HistoryManager);
 
         if (serviceType == typeof(PlayerViewModel) || serviceType.IsAssignableTo(typeof(IPreviewPlayer)))
             return Player;
