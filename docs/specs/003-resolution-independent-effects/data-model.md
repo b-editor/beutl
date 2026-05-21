@@ -2,6 +2,8 @@
 
 This document enumerates the new types, modified types, and effect-property migrations introduced by this feature.
 
+> **Design pivot (post-T001-audit)**: The original design introduced three wrapper structs (`PixelLength` / `PixelExtent` / `PixelOffset`) plus matching animators and property editors, with a per-effect property-type migration. **That approach has been replaced.** The current design adds **only `RenderScale`** as a new type; scaling is applied inside the existing `FilterEffectContext` helper methods (`Blur(Size)`, `DropShadow(Point, Size, Color)`, …), with a `*Raw` variant of each helper as an opt-out. Effects keep their existing `IProperty<Size>` / `IProperty<Point>` / `IProperty<float>` declarations verbatim. See `research.md` § R2 for the rationale. The sections below have been updated accordingly; the obsolete wrapper-type definitions are removed.
+
 ## New types
 
 ### `RenderScale` — `Beutl.Graphics.Rendering.RenderScale`
@@ -34,71 +36,9 @@ public readonly struct RenderScale : IEquatable<RenderScale>
   - `FromFrames(renderTarget, referenceFrame)` requires the per-axis ratios to be uniform within tolerance: `|sx − sy| ≤ 1e-3 * max(sx, sy)`. Non-uniform ratios throw `ArgumentException` with a message naming both ratios. This enforces the spec's "proxy must be a uniform scale of export" rule at the API boundary, so any future proxy-preview UI that forgets to snap is caught immediately rather than producing silently warped output.
 - **Equality**: bitwise on the two floats.
 
-### `PixelLength` — `Beutl.Graphics.PixelLength`
+### (No further new types)
 
-Single-axis length measured in **reference-frame pixels** (i.e. pixels at the project's export resolution).
-
-```csharp
-public readonly struct PixelLength : IEquatable<PixelLength>, IFormattable
-{
-    public PixelLength(float referencePixels);
-    public float ReferencePixels { get; }
-
-    public static PixelLength Zero { get; }
-    public static implicit operator PixelLength(float referencePixels); // ergonomic
-    public float ResolveX(RenderScale scale);    // = ReferencePixels * scale.ScaleX
-    public float ResolveY(RenderScale scale);
-    public float ResolveUniform(RenderScale scale);
-}
-```
-
-### `PixelExtent` — `Beutl.Graphics.PixelExtent`
-
-2-D anisotropic extent (`Width` × `Height`) in reference-frame pixels. Used for symmetric "spread"-style parameters such as blur sigma or mosaic tile size. Named with the geometric noun **Extent** so it doesn't collide with the existing integer `Beutl.Media.PixelSize` (raster dimensions). See `research.md` § R2.
-
-```csharp
-public readonly struct PixelExtent : IEquatable<PixelExtent>, IFormattable
-{
-    public PixelExtent(float width, float height);
-    public PixelExtent(Size referencePixels);
-
-    public float Width  { get; }
-    public float Height { get; }
-    public Size ToSize();
-
-    public static PixelExtent Empty { get; }
-    public Size Resolve(RenderScale scale); // (Width * scale.ScaleX, Height * scale.ScaleY)
-}
-```
-
-### `PixelOffset` — `Beutl.Graphics.PixelOffset`
-
-2-D directional offset (`X`, `Y`) in reference-frame pixels. Used for positional translations such as a drop-shadow's offset from origin. Named with the geometric noun **Offset** so it doesn't collide with the existing integer `Beutl.Media.PixelPoint` (raster coordinates).
-
-```csharp
-public readonly struct PixelOffset : IEquatable<PixelOffset>, IFormattable
-{
-    public PixelOffset(float xReferencePixels, float yReferencePixels);
-    public PixelOffset(Point referencePixels);
-
-    public float X { get; }
-    public float Y { get; }
-    public Point ToPoint();
-
-    public static PixelOffset Zero { get; }
-    public Point Resolve(RenderScale scale); // (X * scale.ScaleX, Y * scale.ScaleY)
-}
-```
-
-### Animators
-
-For each wrapper, an `Animator<T>` is registered in `AnimatorRegistry`:
-
-- `PixelLengthAnimator : Animator<PixelLength>` — linear interpolation on `ReferencePixels`.
-- `PixelExtentAnimator : Animator<PixelExtent>` — linear per component.
-- `PixelOffsetAnimator : Animator<PixelOffset>` — linear per component.
-
-Registered in `AnimatorRegistry`'s static initialization (existing pattern for built-in types).
+The earlier draft of this document introduced three wrapper structs and three matching animators. The current design needs none of them — see § "Design pivot" above and `research.md` § R2.
 
 ## Modified types
 
@@ -138,7 +78,7 @@ Initial values come from the constructing `Renderer`. `PushReferenceFrame(...)` 
 
 ### `FilterEffectContext`
 
-Add scale-aware overloads:
+Change the semantics of every existing length-taking helper to apply `RenderScale` internally, and add a `*Raw` opt-out variant of each:
 
 ```csharp
 public sealed class FilterEffectContext : IDisposable
@@ -146,27 +86,34 @@ public sealed class FilterEffectContext : IDisposable
     public RenderScale RenderScale     { get; } // snapshot at construction
     public PixelSize  ReferenceFrame   { get; }
 
-    // existing overloads kept (raw pixels) for back-compat / non-pixel uses
+    // CHANGED — every length-typed argument is now interpreted as
+    // "pixels at the project's export resolution"; the implementation
+    // multiplies by RenderScale before forwarding to the underlying
+    // Skia / EffectActivator path.
     public void Blur(Size sigma);
     public void DropShadow(Point position, Size sigma, Color color);
+    public void DropShadowOnly(Point position, Size sigma, Color color);
+    public void InnerShadow(Point position, Size sigma, Color color);
+    public void InnerShadowOnly(Point position, Size sigma, Color color);
     public void Erode(float radiusX, float radiusY);
     public void Dilate(float radiusX, float radiusY);
-    // …
+    // … plus any other existing helpers whose arguments include lengths.
 
-    // NEW overloads that take wrappers and resolve internally
-    public void Blur(PixelExtent sigma);
-    public void DropShadow(PixelOffset position, PixelExtent sigma, Color color);
-    public void DropShadowOnly(PixelOffset position, PixelExtent sigma, Color color);
-    public void InnerShadow(PixelOffset position, PixelExtent sigma, Color color);
-    public void InnerShadowOnly(PixelOffset position, PixelExtent sigma, Color color);
-    public void Erode(PixelLength radiusX, PixelLength radiusY);
-    public void Dilate(PixelLength radiusX, PixelLength radiusY);
-    public void ColorShift(PixelOffset r, PixelOffset g, PixelOffset b);
-    // …
+    // NEW — explicit opt-out for the niche case where a plugin wants
+    // raw-raster pixel semantics (e.g. snap to physical pixel grid).
+    // These forward verbatim without applying RenderScale.
+    public void BlurRaw(Size sigma);
+    public void DropShadowRaw(Point position, Size sigma, Color color);
+    public void DropShadowOnlyRaw(Point position, Size sigma, Color color);
+    public void InnerShadowRaw(Point position, Size sigma, Color color);
+    public void InnerShadowOnlyRaw(Point position, Size sigma, Color color);
+    public void ErodeRaw(float radiusX, float radiusY);
+    public void DilateRaw(float radiusX, float radiusY);
+    // … pair every newly-scaled helper with a *Raw twin.
 }
 ```
 
-Effects migrate from the raw overloads to the wrapper overloads. Plugins can keep calling the raw overloads (raw-pixel behavior) or move to wrappers when they want resolution independence.
+The signatures of the scaled helpers are byte-identical to their pre-feature versions — call sites do not change. The behavior change is invisible while `RenderScale == Identity` (the only state that exists today, since no proxy preview UX has shipped) and silently produces correct output once a future proxy-preview feature constructs a renderer with `RenderScale ≠ Identity`. Plugins that wanted raw-raster behavior on purpose switch one method-name letter group (e.g. `Blur` → `BlurRaw`).
 
 ### `SceneDrawable`
 
@@ -183,61 +130,47 @@ using (context.PushReferenceFrame(r.ReferencedScene.FrameSize))
 
 Mirror the `SceneDrawable` pattern when activating its sub-graph.
 
-## In-scope built-in effect migrations
+## In-scope built-in effects (no source migration; helper contract suffices)
 
-Each row below lists the existing parameter, the new wrapper type, and the test that must accompany the migration. **Files live in `src/Beutl.Engine/Graphics/FilterEffects/` unless noted.**
+> **Design pivot**: Under the helper-internal-scaling design, "in scope" no longer means "the effect's source has to change" — every column except "Effect file" and "Helpers called" is **purely descriptive**. The effect's `*.cs` file is **not edited**. The table is kept so that test fixtures and reviewers can confirm which helpers must scale correctly for each effect.
 
-> Table updated by the **T001 audit** against the actual code in `src/Beutl.Engine/Graphics/FilterEffects/`. Items the audit corrected or removed are tagged in the **Source** column. The audit walked every file in the directory and inspected each `IProperty<…>` declaration.
-
-| Effect file | Existing property (verified) | New property | Test (under `tests/Beutl.UnitTests/Engine/Graphics/FilterEffects/`) | Source |
-|---|---|---|---|---|
-| `Blur.cs` | `Sigma: IProperty<Size>` | `Sigma: IProperty<PixelExtent>` | `BlurResolutionTests.cs` | plan |
-| `DropShadow.cs` | `Position: IProperty<Point>`, `Sigma: IProperty<Size>` | `Position: IProperty<PixelOffset>`, `Sigma: IProperty<PixelExtent>` | `DropShadowResolutionTests.cs` | plan |
-| `InnerShadow.cs` | `Position: IProperty<Point>`, `Sigma: IProperty<Size>` | `Position: IProperty<PixelOffset>`, `Sigma: IProperty<PixelExtent>` | `InnerShadowResolutionTests.cs` | plan |
-| `StrokeEffect.cs` | `Offset: IProperty<Point>` (Pen stays raw) | `Offset: IProperty<PixelOffset>` (Pen thickness → follow-up, see research R6) | `StrokeEffectResolutionTests.cs` | plan |
-| `Erode.cs` | `RadiusX / RadiusY: IProperty<float>` | `RadiusX / RadiusY: IProperty<PixelLength>` | `ErodeResolutionTests.cs` | plan |
-| `Dilate.cs` | `RadiusX / RadiusY: IProperty<float>` | `RadiusX / RadiusY: IProperty<PixelLength>` | `DilateResolutionTests.cs` | plan |
-| `FlatShadow.cs` | `Length: IProperty<float>` (Angle stays raw, Brush stays raw, ShadowOnly stays raw) | `Length: IProperty<PixelLength>` | `FlatShadowResolutionTests.cs` | plan |
-| `ColorShift.cs` | `RedOffset / GreenOffset / BlueOffset / AlphaOffset: IProperty<Beutl.Media.PixelPoint>` **(integer)** | each → `IProperty<PixelOffset>` (float). Wire-compatible: legacy `{"x":3,"y":5}` deserializes cleanly into floats. | `ColorShiftResolutionTests.cs` | **audit (corrected — type changes from integer to float; the old "per-channel offsets" wording hid this)** |
-| `DisplacementMapTransform.cs` | File holds **three subclasses**: `DisplacementMapTranslateTransform.X / Y: IProperty<float>`; `DisplacementMapScaleTransform.Scale / ScaleX / ScaleY: IProperty<float>` (% — stay raw) + `CenterX / CenterY: IProperty<float>`; `DisplacementMapRotationTransform.Rotation: IProperty<float>` (deg — stays raw) + `CenterX / CenterY: IProperty<float>`. | each `X / Y / CenterX / CenterY` (5 properties × 3 classes) → `IProperty<PixelLength>` | `DisplacementMapTransformResolutionTests.cs` | **audit (corrected — three sibling classes, not one; `Scale*` and `Rotation` are confirmed dimensionless)** |
-| `MosaicEffect.cs` | `TileSize: IProperty<Size>` (`Origin: IProperty<RelativePoint>` is normalized 0..1 and stays raw) | `TileSize: IProperty<PixelExtent>` | `MosaicEffectResolutionTests.cs` | **audit (corrected — explicit `TileSize: Size`; `Origin` is out of scope)** |
-| `ShakeEffect.cs` | `StrengthX: IProperty<float>`, `StrengthY: IProperty<float>` (`Speed: IProperty<float>` is frequency, dimensionless, stays raw) | `StrengthX / StrengthY: IProperty<PixelLength>` | `ShakeEffectResolutionTests.cs` | **audit (corrected — two distinct strength axes; `Speed` is out of scope)** |
-| `SplitEffect.cs` | `HorizontalSpacing / VerticalSpacing: IProperty<float>` (`Horizontal/VerticalDivisions: IProperty<int>` are counts, stay raw) | `HorizontalSpacing / VerticalSpacing: IProperty<PixelLength>` | `SplitEffectResolutionTests.cs` | plan |
-| `Clipping.cs` | `Left / Top / Right / Bottom: IProperty<float>` (`AutoCenter / AutoClip: IProperty<bool>` stay raw) | each `Left / Top / Right / Bottom` → `IProperty<PixelLength>` | `ClippingResolutionTests.cs` | **audit (corrected — 4 individual `float` edges, not a single `Rect`; no dedicated `PixelRect` is needed)** |
-| `PartsSplitEffect.cs` | **No public pixel-absolute properties** — operation is purely contour-driven, no user-tunable lengths | — | — | **audit (REMOVED — false entry in the original plan; T034 should be dropped from `tasks.md`)** |
-| `TransformEffect.cs` | `Transform: IProperty<Transform?>`, `TransformOrigin: IProperty<RelativePoint>`, `BitmapInterpolationMode`, `ApplyToTarget: IProperty<bool>`. **No direct pixel-absolute property on the effect itself.** Pixel translation lives inside the referenced `Transform` (in `Beutl.Graphics.Transformation.*`, out of scope for this feature). | — (deferred; see "Deferred follow-ups" below) | — | **audit (REMOVED from this PR — T037 should be dropped from `tasks.md`)** |
-| Out-of-scope (verified by audit) | `Brightness`, `Saturate`, `HueRotate`, `Gamma`, `Invert`, `Threshold`, `Negaposi`, `ColorGrading`, `HighContrast`, `ColorKey`, `ChromaKey`, `LutEffect`, `DelayAnimationEffect`, `PathFollowEffect`, `PixelSortEffect`, `Lighting`, `BlendEffect`, `Curves`, `PerlinNoise`, `DisplacementMapEffect` (wrapper; its `Transform` child is migrated above) | dimensionless / non-pixel / parameter-less — no migration | — | audit |
-
-**Effect-count summary after audit**: **13 effects in scope** — `Blur`, `DropShadow`, `InnerShadow`, `StrokeEffect`, `Erode`, `Dilate`, `FlatShadow`, `ColorShift`, `DisplacementMapTransform` (3 subclasses), `MosaicEffect`, `ShakeEffect`, `SplitEffect`, `Clipping`. Was 15 in the original plan; the audit dropped `PartsSplitEffect` (no pixel-absolute props) and `TransformEffect` (pixel translation lives in `Transform`, out of scope). Corresponding `tasks.md` rows `T034 PartsSplitEffect` and `T037 TransformEffect` should be removed during implementation.
-
-### Property-editor registration (audit finding — NEW)
-
-Beutl's editor dispatches property editors via an **exact `Type` → editor** lookup in `src/Beutl/Services/PropertyEditorService.cs` (the `s_editors` `FrozenDictionary<Type, Editor>`). Adding the three wrapper types without registering them leaves their property fields rendered as unknown / fallback. The audit therefore adds a new foundational obligation:
-
-| Type | Existing analog used as template | Registration to add | New ViewModel file under `src/Beutl/ViewModels/Editors/` |
+| Effect file | Length-typed property | `FilterEffectContext` helper(s) that scale it | Notes |
 |---|---|---|---|
-| `PixelLength` | `typeof(float) → NumberEditor<float>` (line 121) | `new(typeof(PixelLength), new(_ => new NumberEditor<float>(), s => new PixelLengthEditorViewModel(s.ToTyped<PixelLength>())))` | `PixelLengthEditorViewModel.cs` (model: unwrap `ReferencePixels`, edit, re-wrap; show "px @ ref" unit suffix in the label if practical) |
-| `PixelExtent` | `typeof(Size) → Vector2Editor<float> + SizeEditorViewModel` (line 144) | `new(typeof(PixelExtent), new(_ => new Vector2Editor<float>(), s => new PixelExtentEditorViewModel(s.ToTyped<PixelExtent>())))` | `PixelExtentEditorViewModel.cs` (Width/Height edits like `SizeEditorViewModel`) |
-| `PixelOffset` | `typeof(Point) → Vector2Editor<float> + PointEditorViewModel` (line 143) | `new(typeof(PixelOffset), new(_ => new Vector2Editor<float>(), s => new PixelOffsetEditorViewModel(s.ToTyped<PixelOffset>())))` | `PixelOffsetEditorViewModel.cs` (X/Y edits like `PointEditorViewModel`) |
+| `Blur.cs` | `Sigma: IProperty<Size>` | `context.Blur(Size)` | — |
+| `DropShadow.cs` | `Position: IProperty<Point>`, `Sigma: IProperty<Size>` | `context.DropShadow(Point, Size, Color)`, `context.DropShadowOnly(Point, Size, Color)` | — |
+| `InnerShadow.cs` | `Position: IProperty<Point>`, `Sigma: IProperty<Size>` | `context.InnerShadow(Point, Size, Color)`, `context.InnerShadowOnly(Point, Size, Color)` | — |
+| `StrokeEffect.cs` | `Offset: IProperty<Point>` | scaling helper used for the offset translation | `Pen.Thickness` follow-up — research R6. Stroke draws via `Canvas` not via a `FilterEffectContext` length helper, so thickness stays raw-pixel. |
+| `Erode.cs` | `RadiusX / RadiusY: IProperty<float>` | `context.Erode(float, float)` | — |
+| `Dilate.cs` | `RadiusX / RadiusY: IProperty<float>` | `context.Dilate(float, float)` | — |
+| `FlatShadow.cs` | `Length: IProperty<float>` (Angle stays raw) | the scaled custom-effect helper FlatShadow already uses | Angle, Brush, ShadowOnly stay raw. |
+| `ColorShift.cs` | `RedOffset / GreenOffset / BlueOffset / AlphaOffset: IProperty<Beutl.Media.PixelPoint>` (integer) | the scaled custom-effect / SKSL uniform binding | Integer offsets pass through the same scaling rule (multiply by `RenderScale`, then truncate / round at the rasterizer). Project file shape unchanged. |
+| `DisplacementMapTransform.cs` | Three subclasses: `Translate.X/Y`, `Scale.CenterX/CenterY`, `Rotation.CenterX/CenterY` (each `IProperty<float>`) | the scaled SKSL-uniform binding for each subclass | `Scale*` (percent) and `Rotation` (degrees) stay raw. |
+| `MosaicEffect.cs` | `TileSize: IProperty<Size>` | the scaled custom-effect helper MosaicEffect uses | `Origin: RelativePoint` is normalized 0..1 — stays raw. |
+| `ShakeEffect.cs` | `StrengthX: IProperty<float>`, `StrengthY: IProperty<float>` | the scaled custom-effect helper ShakeEffect uses | `Speed: float` is a frequency — stays raw. |
+| `SplitEffect.cs` | `HorizontalSpacing / VerticalSpacing: IProperty<float>` | the scaled custom-effect helper SplitEffect uses | `HorizontalDivisions / VerticalDivisions: int` are counts — stay raw. |
+| `Clipping.cs` | `Left / Top / Right / Bottom: IProperty<float>` | the scaled custom-effect helper Clipping uses | `AutoCenter / AutoClip: bool` stay raw. |
+| `PartsSplitEffect.cs` | — | — | No public pixel-absolute properties — operation is purely contour-driven. |
+| `TransformEffect.cs` | — (direct) | — | Pixel translation lives inside the referenced `Transform` (in `Beutl.Graphics.Transformation.*`, out of scope). |
+| Out-of-scope (verified by audit) | `Brightness`, `Saturate`, `HueRotate`, `Gamma`, `Invert`, `Threshold`, `Negaposi`, `ColorGrading`, `HighContrast`, `ColorKey`, `ChromaKey`, `LutEffect`, `DelayAnimationEffect`, `PathFollowEffect`, `PixelSortEffect`, `Lighting`, `BlendEffect`, `Curves`, `PerlinNoise`, `DisplacementMapEffect` (wrapper) | n/a | dimensionless / non-pixel / parameter-less — nothing to scale. |
 
-This work belongs to **Phase 2 (Foundational)** in `tasks.md` — it must land **before** any per-effect migration so a half-migrated build does not break property-editor UI for the migrated effects. The cost is small (3 entries + 3 short ViewModel classes that delegate to the underlying primitive editor's logic).
+**Effect-count summary**: **13 effects benefit automatically** — `Blur`, `DropShadow`, `InnerShadow`, `StrokeEffect`, `Erode`, `Dilate`, `FlatShadow`, `ColorShift`, `DisplacementMapTransform` (3 subclasses), `MosaicEffect`, `ShakeEffect`, `SplitEffect`, `Clipping`. `PartsSplitEffect` and `TransformEffect` have no length-typed helpers in scope (see T001 audit). **None of these effects' `*.cs` files are edited by this feature** — they automatically become resolution-independent the moment `FilterEffectContext`'s helpers gain the scaling step.
+
+### Property-editor registration
+
+> **Design pivot**: Not applicable. With no new wrapper types, no new editor registrations are needed. The existing `typeof(float)` / `typeof(Point)` / `typeof(Size)` editor entries in `src/Beutl/Services/PropertyEditorService.cs` keep handling the unchanged property types. **No source change** in `src/Beutl/Services/` or `src/Beutl/ViewModels/Editors/`.
 
 ### Deferred follow-ups discovered by the audit
 
-- **`Beutl.Graphics.Transformation.*` (e.g. `TranslateTransform`, `RotateTransform`, `ScaleTransform`)**: same `PixelLength` / `PixelOffset` treatment is appropriate but they ship with `Beutl.Graphics`-level Drawables, not just FilterEffects. Bundling here would balloon scope — track as a follow-up feature alongside `Pen.Thickness`.
+- **`Beutl.Graphics.Transformation.*` (e.g. `TranslateTransform`, `RotateTransform`, `ScaleTransform`)**: same helper-internal-scaling treatment is appropriate but the equivalent helpers (e.g. `Canvas.PushTransform`) ship with `Beutl.Graphics`-level Drawables, not just FilterEffects. Bundling here would balloon scope — track as a follow-up feature alongside `Pen.Thickness`.
 - **`Pen.Thickness`**: already deferred per research R6.
 
 If a later code change introduces a new pixel-absolute parameter, it MUST be added to this table and given a test.
 
 ## Serialization
 
-`PixelLength` / `PixelExtent` / `PixelOffset` serialize as the same JSON numeric shape as the primitives they replace:
+**Project files do not change shape.** No property type is renamed; `Size` stays `Size`, `Point` stays `Point`, `float` stays `float`. FR-003 ("no project-file migration step") is satisfied automatically because nothing on disk needs to round-trip into a different schema.
 
-- `PixelLength { ReferencePixels = 4.0 }` → `4.0` (single number).
-- `PixelExtent { Width = 10, Height = 5 }` → `{ "width": 10, "height": 5 }` (same shape as `Size`).
-- `PixelOffset { X = 3, Y = 4 }` → `{ "x": 3, "y": 4 }` (same shape as `Point`).
-
-This is the key to FR-003 (no migration step): a project file that previously had `"sigma": { "width": 20, "height": 20 }` deserializes into either `Size` (legacy plugin code) or `PixelExtent` (migrated built-in) **with the same numeric value**, and renders the same at the scene's export resolution because `RenderScale.Identity` makes `Resolve` a no-op.
+The behavioural guarantee that legacy projects render identically at export resolution comes from the fact that `RenderScale.Identity` makes the new helper-internal multiplication a no-op: `sigma * Identity == sigma`.
 
 ## Reference-frame contract (summary, full text in `contracts/render-scale.md`)
 
@@ -253,10 +186,10 @@ This is the key to FR-003 (no migration step): a project file that previously ha
 |---|---|
 | `RenderScale.ScaleX > 0`, `ScaleY > 0`, both finite | `RenderScale` constructor |
 | `RenderScale.FromFrames` uniform-scale enforcement (`|sx − sy| ≤ 1e-3 * max(sx, sy)`) | `RenderScale.FromFrames` factory — throws `ArgumentException` otherwise |
-| `PixelLength.ReferencePixels >= 0` for parameters where negative is nonsensical (sigma, radius, length) | per-property validator passed to `Property.CreateAnimatable<PixelLength>(..., validator)` |
-| Wrapper construction rejects `NaN` on every numeric field | `PixelLength` / `PixelExtent` / `PixelOffset` constructors |
-| Resolved value clamps to rasterizer minimum (FR-009) | per-effect `ApplyTo` after `Resolve(scale)` — using `Math.Max(resolved, MinSupported)` where `MinSupported = 0` for zero-preservation or 1 for "must-not-be-invisible" |
-| Zero stays zero (FR-009) | `Resolve` returns `0` when input is `0` (multiplication is exact for finite scales) |
+| `NaN` / negative-length rejection on length-typed arguments to scaled helpers | inside each `FilterEffectContext` scaled helper — argument guard before multiplication |
+| Resolved value clamps to rasterizer minimum (FR-009) | inside each scaled helper — `Math.Max(scaled, MinSupported)` where `MinSupported = 0` for zero-preservation or 1 for "must-not-be-invisible" |
+| Zero stays zero (FR-009) | scaled-helper multiplication preserves `0` exactly (`0 * scale == 0`) |
+| `*Raw` helpers bypass every scaling step and pass through verbatim | `*Raw` helper implementations — single forwarding call to the underlying Skia builder |
 
 ## State transitions
 

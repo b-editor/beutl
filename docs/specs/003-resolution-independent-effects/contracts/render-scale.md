@@ -1,5 +1,7 @@
 # Contract: RenderScale and Reference-Frame Propagation
 
+> **Design pivot**: This document still describes the `RenderScale` plumbing (which is unchanged). What changed is **who applies the scale**: instead of wrapper types' `Resolve(scale)` methods at call sites, every length-taking helper on `FilterEffectContext` (`Blur(Size)`, etc.) applies the multiplication internally. See `effect-helper-scaling.md` for the helper-side contract and `research.md` § R2 for why the wrapper approach was abandoned.
+
 **Surface**: `Beutl.Graphics.Rendering.RenderScale`, `IRenderer.ReferenceFrame`, `GraphicsContext2D.PushReferenceFrame`, `FilterEffectContext.RenderScale` / `.ReferenceFrame`.
 
 **Audience**: anyone implementing a custom `Renderer`, a custom container that materializes its own raster, or an effect that needs to know the scale.
@@ -65,15 +67,19 @@ If a container forgets step 2, inner effects will use the outer reference frame 
 
 ## Sub-pixel and zero handling
 
-After `Resolve(scale)`, the rasterizer-facing code MUST guard against:
+After the internal `arg * RenderScale` multiplication inside a scaled helper, the rasterizer-facing code MUST guard against:
 
-- **Zero values**: pass through exactly (do not clamp to a minimum) — see FR-009. A `PixelLength.Zero` stays zero.
-- **Sub-pixel positive values** (`0 < resolved < 1`): allowed to pass through. The rasterizer (Skia for most effects) clamps as appropriate. For effects where a sub-pixel value would produce visually invisible output that a user probably did not intend (e.g. stroke width < 1 px), the effect itself MAY clamp using `Math.Max(resolved, 1.0f)` after `Resolve` — this is per-effect policy and is called out in that effect's test.
+- **Zero values**: pass through exactly (do not clamp to a minimum) — see FR-009. A `0` input stays `0`.
+- **Sub-pixel positive values** (`0 < scaled < 1`): allowed to pass through. The rasterizer (Skia for most effects) clamps as appropriate. Helpers that wrap an operation where a sub-pixel value would produce visually invisible output that a user probably did not intend (e.g. stroke width < 1 px) MAY clamp using `Math.Max(scaled, 1.0f)` — this is per-helper policy and is called out in that helper's test.
 
 ## NaN / infinity
 
-`RenderScale` constructor rejects non-positive values. `Resolve(...)` therefore cannot produce `NaN` or `±∞` from finite wrapper inputs. Wrapper values are themselves expected to be finite; the property validators (see `data-model.md` § Validation summary) reject `NaN`.
+`RenderScale` constructor rejects non-positive and non-finite values, so the multiplication inside a scaled helper cannot produce `NaN` or `±∞` from finite arguments. Each scaled helper additionally guards its incoming argument against `NaN` (`ArgumentException`) and against negative lengths where negative is nonsensical (sigma, radius — `ArgumentOutOfRangeException`).
 
 ## Versioning
 
-`RenderScale`, `IRenderer.ReferenceFrame`, `GraphicsContext2D.PushReferenceFrame`, and the `FilterEffectContext` snapshotted properties are all new public API on `Beutl.Engine`. Adding them is a backward-compatible source change (`IRenderer.ReferenceFrame` ships with a default-interface implementation returning `FrameSize`, so existing `IRenderer` implementors don't break). Removing or renaming any of these later is a breaking change requiring `refactor!:` / `feat!:` and a `BREAKING CHANGE:` footer per `AGENTS.md`.
+`RenderScale`, `IRenderer.ReferenceFrame`, `GraphicsContext2D.PushReferenceFrame`, the `FilterEffectContext` snapshotted properties, and the `*Raw` helper variants are all new public API on `Beutl.Engine`. Adding them is a backward-compatible source change (`IRenderer.ReferenceFrame` ships with a default-interface implementation returning `FrameSize`, so existing `IRenderer` implementors don't break; the `*Raw` helpers are pure additions).
+
+The **semantic change** to existing scaled helpers (`Blur(Size)` etc.) is not a signature change but is a behavior change. It only becomes observable when `RenderScale ≠ Identity`, which today never happens. When a future proxy-preview UX ships, that PR carries the behavior change in its changelog. Plugins that intentionally relied on raw-raster semantics opt out via the `*Raw` twin (one method-name change per call site).
+
+Removing or renaming any of these later is a breaking change requiring `refactor!:` / `feat!:` and a `BREAKING CHANGE:` footer per `AGENTS.md`.

@@ -32,5 +32,6 @@
 ## Notes
 
 - Items marked incomplete require spec updates before `/speckit-clarify` or `/speckit-plan`.
-- `/speckit-clarify` session on 2026-05-20 pinned: unit semantic (pixels-at-export), nested-frame rule (innermost scene), plugin contract (typed wrappers `PixelLength`/`PixelSize`/`PixelPoint`), tolerance metric (SSIM ≥ 0.97 after bicubic upscale), and proxy-uniformity rule (uniform scale enforced). See `spec.md` → Clarifications.
-- The exact in-scope effect list (FR-002) is enumerated at a "must include at minimum" level; the plan phase will finalize it by walking `src/Beutl.Engine/Graphics/FilterEffects/`.
+- `/speckit-clarify` session on 2026-05-20 pinned: unit semantic (pixels-at-export), nested-frame rule (innermost scene), plugin contract, tolerance metric (SSIM ≥ 0.97 after bicubic upscale), and proxy-uniformity rule (uniform scale enforced). See `spec.md` → Clarifications.
+- **Design pivot (post-T001 audit)**: The original plugin-contract clarification ("typed wrappers `PixelLength`/`PixelSize`/`PixelPoint`") was replaced with a simpler approach — scaling is applied inside the existing `FilterEffectContext` helpers, with `*Raw` twins as an opt-out. No new wrapper types, no per-effect property migration, no animator or property-editor work. See `research.md` § R2 and `contracts/effect-helper-scaling.md`. FR-008 in `spec.md` is updated accordingly.
+- The exact in-scope effect list (FR-002) was finalized by the T001 audit at 13 effects; see `data-model.md` § "In-scope built-in effects (no source migration; helper contract suffices)".

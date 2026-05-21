@@ -20,7 +20,23 @@ This document resolves the unknowns called out in `plan.md` § Phase 0 before an
 - *Build proxy preview now too.* Rejected — out of scope per the spec's wording ("一致させる" is about correctness of the math, not adding a preview workflow). Doubles the surface area.
 - *Defer this work until proxy preview is designed.* Rejected — the engine fix unblocks the UX work, and is itself independently testable (a unit-test can construct a `Renderer` with a smaller target than `ReferenceFrame` and assert visual equivalence).
 
-## R2 — Wrapper naming (collision with existing integer `Beutl.Media` types)
+## R2 — Helper-internal scaling vs. typed parameter wrappers
+
+> **Update (post-T001-audit design pivot)**: The original analysis below evaluated three naming families for new wrapper types (`PixelLength` / `PixelExtent` / `PixelOffset`). That whole approach has been **abandoned in favour of a simpler design**: scaling is applied implicitly inside the existing `FilterEffectContext` helper methods (`Blur(Size)`, `DropShadow(Point, Size, Color)`, …), with a `*Raw` variant of each helper as an opt-out. No new wrapper types, no per-effect property migration, no new animators, no property-editor changes. The discussion below is retained for historical context.
+>
+> **Decision (current)**: scaling lives inside `FilterEffectContext` helpers. Each helper multiplies its length-typed argument by `RenderScale` before forwarding to the underlying Skia builder. `*Raw` variants (`BlurRaw(Size)`, `DropShadowRaw(Point, Size, Color)`, …) skip the multiplication and pass values through verbatim. Effect property declarations are untouched.
+>
+> **Why this design wins**:
+> - **Zero churn at the EngineObject layer.** No `IProperty<T>` change, no animator registration, no property-editor work, no project-file migration concern.
+> - **Universal coverage for free.** Every existing built-in effect *and* every third-party plugin that calls a standard helper automatically becomes resolution-independent — no plugin author has to do anything.
+> - **Opt-out is explicit, opt-in is implicit.** The 99% case (just call `Blur(sigma)` and get resolution-independent behavior) needs no syntax; the 1% case (raw-raster-pixel semantics) is one method-name change to `BlurRaw`.
+> - **Smaller surface, smaller blast radius.** The scaling logic lives in ~one file (`FilterEffectContext.cs`) with one tested rule, instead of being distributed across 3 wrapper structs + 3 animators + 3 editor viewmodels + 1 service registration + 13 per-effect call sites.
+>
+> **Cost accepted**: A casual reader of `Blur.cs` does not see "this is resolution-independent" in the type. Discoverability of the contract relies on `FilterEffectContext` documentation. We mitigate by documenting the rule prominently on every scaled helper's XML doc and on the plugin-author migration guide.
+>
+> The remainder of this section preserves the original wrapper-naming research for reference.
+
+### Historical: wrapper naming (collision with existing integer `Beutl.Media` types)
 
 **Question**: `Beutl.Media.PixelSize` (integer raster width × height) and `Beutl.Media.PixelPoint` (integer raster coordinate) already exist and are used inside `Beutl.Graphics.FilterEffects/` (e.g. `ContourTracer.cs`, `PartsSplitEffect.cs`). New wrappers called `PixelSize` / `PixelPoint` in `Beutl.Graphics` would collide. What names should the new wrappers take?
 
@@ -95,6 +111,8 @@ So a `.scene` file that previously serialized `"sigma": { "width": 20, "height":
 
 ## R5 — Animator registration
 
+> **Update (post-T001-audit design pivot)**: With no new wrapper types, no new animators are needed. The existing `Size` / `Point` / `float` animators continue to drive the unchanged property declarations. **R5 is moot under the current design.** Retained for historical context.
+
 **Question**: How are new value types animated through keyframes?
 
 **Finding**: `AnimatorRegistry.CreateAnimator<T>()` (`src/Beutl.Engine/Animation/AnimatorRegistry.cs:46`) returns either a registered explicit `Animator<T>` or the fallback `_Animator<T>` (linear interp via runtime reflection / typed math). For numeric structs we can either:
@@ -111,6 +129,8 @@ So a `.scene` file that previously serialized `"sigma": { "width": 20, "height":
 
 ## R6 — `StrokeEffect` thickness path
 
+> **Update (post-T001-audit design pivot)**: With scaling living inside `FilterEffectContext` helpers, the question becomes "does the helper that `StrokeEffect` calls scale the `Pen` thickness?" The answer is: only if `StrokeEffect`'s code path runs the thickness through a scaling helper. Today it draws via `Canvas` / `Pen`, not through a `FilterEffectContext.Stroke*` helper. So thickness still stays raw-pixel in this PR — same conclusion as the original analysis, different mechanism.
+
 **Question**: `StrokeEffect` uses a `Pen.Resource` (with `Thickness`) for the stroke. `Pen.Thickness` is a `float` shared with all `Pen` consumers (geometries, paths). Should `Pen.Thickness` itself become resolution-independent, or only `StrokeEffect`'s use of it?
 
 **Finding**: `Pen` is used throughout the graphics layer (`DrawGeometry`, `DrawRectangle`, `DrawEllipse`, image / video source decoration, …). Changing `Pen.Thickness` would ripple into Drawables and is a much larger surface.
@@ -126,6 +146,8 @@ If pushback is strong during PR review, a follow-up feature can introduce `Pixel
 - *Drop `StrokeEffect` from scope entirely.* Rejected — the position fix is still valuable and isolated.
 
 ## R7 — Definitive in-scope effect list
+
+> **Update (post-T001-audit design pivot)**: Under the helper-internal-scaling design, "in scope" no longer means "needs a property-type migration" — it means "the helpers this effect calls will silently scale length arguments". The audit-corrected list of 13 effects (per `data-model.md` § "In-scope built-in effect migrations") is still the reference set, but the per-effect change is **zero source modification**. What we instead need to enumerate is the set of `FilterEffectContext` helpers that those 13 effects call (`Blur`, `DropShadow(Only)`, `InnerShadow(Only)`, `Erode`, `Dilate`, …) — that is the surface to which we add `RenderScale` multiplication and `*Raw` counterparts. Original audit table below is retained.
 
 **Question**: Which built-in effects under `src/Beutl.Engine/Graphics/FilterEffects/` have pixel-absolute parameters?
 

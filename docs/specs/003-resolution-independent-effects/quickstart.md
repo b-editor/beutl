@@ -29,17 +29,18 @@ Or scope-narrowed via the skill:
 ```text
 /beutl-test ResolutionEquivalence
 /beutl-test RenderScaleTests
-/beutl-test PixelLengthTests
+/beutl-test FilterEffectContextScaling
 ```
 
 Expected new tests (created during `tasks.md`):
 
-- `tests/Beutl.UnitTests/Engine/Graphics/PixelLengthTests.cs`
-- `tests/Beutl.UnitTests/Engine/Graphics/PixelExtentTests.cs`
-- `tests/Beutl.UnitTests/Engine/Graphics/PixelOffsetTests.cs`
 - `tests/Beutl.UnitTests/Engine/Graphics/Rendering/RenderScaleTests.cs`
-- `tests/Beutl.UnitTests/Engine/Graphics/FilterEffects/ResolutionEquivalenceTests.cs` (one `[TestCase]` per migrated effect)
+- `tests/Beutl.UnitTests/Engine/Graphics/Rendering/ReferenceFramePropagationTests.cs`
+- `tests/Beutl.UnitTests/Engine/Graphics/FilterEffects/FilterEffectContextScalingTests.cs` (covers scaled helpers + `*Raw` twins + sub-pixel/zero/NaN guards)
+- `tests/Beutl.UnitTests/Engine/Graphics/FilterEffects/ResolutionEquivalenceTests.cs` (one `[TestCase]` per in-scope built-in effect)
 - `tests/Beutl.UnitTests/Engine/Graphics/FilterEffects/LegacyRenderingTests.cs` (corpus-driven regression vs. baseline)
+- `tests/Beutl.UnitTests/Engine/Graphics/FilterEffects/LegacyRoundTripTests.cs` (proves no project-file rewrite on load)
+- `tests/Beutl.Graphics3DTests/FilterEffects/Render3DWithFilterResolutionTests.cs`
 
 Each `ResolutionEquivalenceTests` case follows this pattern:
 
@@ -108,14 +109,15 @@ This runs the same checks `claude-code-review.yml` and `beutl-reviewer` would ru
 
 ## 8. PR conventions
 
-- Title: `feat: make pixel-absolute filter effects resolution-independent` (Conventional Commit per `AGENTS.md`).
-- The plan's "adopt better designs eagerly" principle expects new types (`PixelLength` / `PixelExtent` / `PixelOffset`) to be reviewed by `@beutl-design-reviewer` — auto-delegates on `Beutl.Engine` public-surface changes, but mentioning the agent explicitly in the PR body speeds up the cycle.
-- If `Pen.Thickness` ends up being touched as a follow-up (per research R6), that is a **separate PR** with its own design discussion, not a snowball on this one.
+- Title: `feat: make filter-effect helpers resolution-independent` (Conventional Commit per `AGENTS.md`). The title says "helpers", not "effects" — the change is in `FilterEffectContext` helpers, not in the effect classes.
+- The PR's biggest behavioural surface is the modified `FilterEffectContext` helpers + their new `*Raw` twins. Mention `@beutl-design-reviewer` in the PR body so the design-priorities audit (orthogonality, library-user flexibility, no compat shims) runs explicitly against that surface.
+- If `Pen.Thickness` or `Beutl.Graphics.Transformation.*` end up being touched as follow-ups, those are **separate PRs** with their own design discussions, not a snowball on this one.
 
 ## 9. Future work this enables
 
 Once this lands:
 
-- Proxy preview workflow (render at smaller raster while editing) can be added as a UI feature without touching any effect code. It just constructs the renderer with `referenceFrame = scene.FrameSize`.
-- `Pen.Thickness` resolution-independence (a separate "what does Drawable scaling mean" discussion).
+- Proxy preview workflow (render at smaller raster while editing) can be added as a UI feature without touching any effect code or `FilterEffectContext`. It just constructs the renderer with `new Renderer(proxyW, proxyH, scene.FrameSize)`.
+- `Pen.Thickness` resolution-independence (a separate "what does Drawable scaling mean" discussion, since `Pen` is used outside FilterEffects).
+- `Beutl.Graphics.Transformation.*` (`TranslateTransform`, `RotateTransform`, …) resolution-independence — same shape as this feature but a layer up; `TransformEffect`'s pixel translation will benefit once that lands.
 - A "multi-resolution master" template feature, since effects now scale proportionally when the user changes the project's `FrameSize`.
