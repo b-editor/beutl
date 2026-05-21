@@ -76,6 +76,19 @@ This feature touches existing single-solution layout. Engine code lives under `s
 - [ ] T021 [P] Add a bicubic upscale helper in `tests/Beutl.UnitTests/Engine/Graphics/Testing/BicubicResampler.cs` (`SKBitmap UpscaleTo(SKBitmap src, SKSizeI target)`).
 - [ ] T022 Add a `ResolutionTestHarness` in `tests/Beutl.UnitTests/Engine/Graphics/Testing/ResolutionTestHarness.cs` exposing `Render(Scene, PixelSize renderSize)` that constructs a `Renderer` with the given size and `referenceFrame = scene.FrameSize`. Include a fixture loader for JSON scene files under `tests/Beutl.UnitTests/Engine/Graphics/Fixtures/ResolutionIndependence/`.
 
+### Property-editor registration (audit finding from T001)
+
+Beutl's editor dispatches editors via an **exact `Type` → editor** lookup in `src/Beutl/Services/PropertyEditorService.cs`. The three new wrapper types need explicit registrations + new ViewModel files, otherwise per-effect migration in Phase 3 leaves the migrated properties without an editor. These tasks MUST land before any Phase 3 effect migration.
+
+- [ ] T022a [P] Add `PixelLengthEditorViewModel` in `src/Beutl/ViewModels/Editors/PixelLengthEditorViewModel.cs` modelled on `NumberEditorViewModel<float>`. Unwrap `ReferencePixels` for the underlying number-editor, re-wrap on commit. If practical, surface a "px @ ref" unit suffix in the label so the user sees the unit semantic.
+- [ ] T022b [P] Add `PixelExtentEditorViewModel` in `src/Beutl/ViewModels/Editors/PixelExtentEditorViewModel.cs` modelled on `SizeEditorViewModel` (`Width` / `Height`).
+- [ ] T022c [P] Add `PixelOffsetEditorViewModel` in `src/Beutl/ViewModels/Editors/PixelOffsetEditorViewModel.cs` modelled on `PointEditorViewModel` (`X` / `Y`).
+- [ ] T022d Register the three new types in `src/Beutl/Services/PropertyEditorService.cs` `s_editors` dictionary, alongside the existing `Point` / `Size` / `float` entries (see lines 121 / 143 / 144):
+  - `new(typeof(PixelLength), new(_ => new NumberEditor<float>(), s => new PixelLengthEditorViewModel(s.ToTyped<PixelLength>())))`
+  - `new(typeof(PixelExtent), new(_ => new Vector2Editor<float>(), s => new PixelExtentEditorViewModel(s.ToTyped<PixelExtent>())))`
+  - `new(typeof(PixelOffset), new(_ => new Vector2Editor<float>(), s => new PixelOffsetEditorViewModel(s.ToTyped<PixelOffset>())))`
+- [ ] T022e [P] Smoke test in `tests/PropertyEditorViewTests/` (or the closest viewmodel test project) that constructs each of the three new viewmodels and asserts unwrap/edit/re-wrap round-trips preserve the wrapper's value bit-for-bit.
+
 **Checkpoint**: Foundation is ready — all per-effect work in Phase 3+ can now proceed in parallel.
 
 ---
@@ -95,22 +108,22 @@ This feature touches existing single-solution layout. Engine code lives under `s
 - [ ] T027 [P] [US1] Migrate `Erode.RadiusX / RadiusY` to `IProperty<PixelLength>` in `src/Beutl.Engine/Graphics/FilterEffects/Erode.cs`. Add fixture `erode-default.json` + `[TestCase]`.
 - [ ] T028 [P] [US1] Migrate `Dilate.RadiusX / RadiusY` to `IProperty<PixelLength>` in `src/Beutl.Engine/Graphics/FilterEffects/Dilate.cs`. Add fixture `dilate-default.json` + `[TestCase]`.
 - [ ] T029 [P] [US1] Migrate `FlatShadow.Length` to `IProperty<PixelLength>` in `src/Beutl.Engine/Graphics/FilterEffects/FlatShadow.cs` (keep `Angle` as raw `float`, dimensionless). Add fixture `flatshadow-default.json` + `[TestCase]`.
-- [ ] T030 [P] [US1] Migrate `ColorShift` per-channel offsets to `PixelOffset` (or `PixelLength` per channel if axis-symmetric) in `src/Beutl.Engine/Graphics/FilterEffects/ColorShift.cs`. Add fixture `colorshift-default.json` + `[TestCase]`.
-- [ ] T031 [P] [US1] Migrate `DisplacementMapTransform.X / Y / CenterX / CenterY` to `IProperty<PixelLength>` in `src/Beutl.Engine/Graphics/FilterEffects/DisplacementMapTransform.cs` (keep `Scale / ScaleX / ScaleY` as raw `float`, dimensionless percentages). Add fixture `displacementmap-default.json` + `[TestCase]`.
-- [ ] T032 [P] [US1] Migrate `MosaicEffect` tile size to `PixelLength` (or `PixelExtent` if anisotropic) in `src/Beutl.Engine/Graphics/FilterEffects/MosaicEffect.cs`. Add fixture `mosaic-default.json` + `[TestCase]`.
-- [ ] T033 [P] [US1] Migrate `ShakeEffect` amplitude to `PixelLength` in `src/Beutl.Engine/Graphics/FilterEffects/ShakeEffect.cs`. Add fixture `shake-default.json` + `[TestCase]`.
-- [ ] T034 [P] [US1] Migrate `SplitEffect.HorizontalSpacing / VerticalSpacing` to `IProperty<PixelLength>` in `src/Beutl.Engine/Graphics/FilterEffects/SplitEffect.cs`. Add fixture `split-default.json` + `[TestCase]`.
-- [ ] T035 [P] [US1] Migrate `PartsSplitEffect` spacing to `IProperty<PixelLength>` in `src/Beutl.Engine/Graphics/FilterEffects/PartsSplitEffect.cs`. Add fixture `partssplit-default.json` + `[TestCase]`.
-- [ ] T036 [P] [US1] Migrate `Clipping` pixel `Rect` to `PixelOffset + PixelExtent` (or introduce a dedicated `PixelRect` if T001 found it warranted) in `src/Beutl.Engine/Graphics/FilterEffects/Clipping.cs`. Add fixture `clipping-default.json` + `[TestCase]`.
-- [ ] T037 [P] [US1] Migrate `TransformEffect` translation component to `PixelOffset` while keeping rotation/scale dimensionless in `src/Beutl.Engine/Graphics/FilterEffects/TransformEffect.cs`. Add fixture `transform-translate.json` + `[TestCase]`.
-- [ ] T038 [US1] **Audit follow-up** — for each effect added in T001 beyond this list, append a parallel-able task to the same pattern (source change + fixture + `[TestCase]`). Use the next free T-number after T038a (i.e. T038b, T038c, …) so the existing numbering above stays stable.
+- [ ] T030 [P] [US1] Migrate `ColorShift` in `src/Beutl.Engine/Graphics/FilterEffects/ColorShift.cs`: change `RedOffset / GreenOffset / BlueOffset / AlphaOffset` from `IProperty<Beutl.Media.PixelPoint>` (integer) to `IProperty<PixelOffset>` (float). Wire-compatible: legacy `{"x":3,"y":5}` deserializes cleanly into floats — confirm via `LegacyDeserializationTests` in Phase 4. Add fixture `colorshift-default.json` + `[TestCase]`. **Note from T001 audit**: the type changes from int → float, not just the wrapper name.
+- [ ] T031 [P] [US1] Migrate `DisplacementMapTransform.cs` — the file holds **three subclasses**: `DisplacementMapTranslateTransform` (`X`, `Y`), `DisplacementMapScaleTransform` (`CenterX`, `CenterY` — `Scale / ScaleX / ScaleY` stay raw % values), and `DisplacementMapRotationTransform` (`CenterX`, `CenterY` — `Rotation` stays raw degrees). Migrate every `X / Y / CenterX / CenterY: IProperty<float>` to `IProperty<PixelLength>` (5 properties across 3 classes). Add three fixtures (`displacementmap-translate-default.json`, `displacementmap-scale-default.json`, `displacementmap-rotation-default.json`) + one `[TestCase]` each.
+- [ ] T032 [P] [US1] Migrate `MosaicEffect.TileSize` from `IProperty<Size>` to `IProperty<PixelExtent>` in `src/Beutl.Engine/Graphics/FilterEffects/MosaicEffect.cs`. Keep `Origin: IProperty<RelativePoint>` raw — it is a normalized 0..1 anchor, not a pixel-absolute value. Add fixture `mosaic-default.json` + `[TestCase]`.
+- [ ] T033 [P] [US1] Migrate `ShakeEffect` in `src/Beutl.Engine/Graphics/FilterEffects/ShakeEffect.cs`: change `StrengthX: IProperty<float>` and `StrengthY: IProperty<float>` to `IProperty<PixelLength>`. Keep `Speed: IProperty<float>` raw — it is a frequency, dimensionless. Add fixture `shake-default.json` + `[TestCase]`.
+- [ ] T034 [P] [US1] Migrate `SplitEffect.HorizontalSpacing / VerticalSpacing` from `IProperty<float>` to `IProperty<PixelLength>` in `src/Beutl.Engine/Graphics/FilterEffects/SplitEffect.cs`. Keep `HorizontalDivisions / VerticalDivisions: IProperty<int>` raw — counts. Add fixture `split-default.json` + `[TestCase]`.
+- [ ] ~~T035~~ **DROPPED — `PartsSplitEffect` has no public pixel-absolute properties (operation is purely contour-driven; T001 audit confirmed). No migration work.**
+- [ ] T036 [P] [US1] Migrate `Clipping` in `src/Beutl.Engine/Graphics/FilterEffects/Clipping.cs`: change `Left / Top / Right / Bottom` each from `IProperty<float>` to `IProperty<PixelLength>` (four individual edges, not a single `Rect` — no dedicated `PixelRect` is needed per the T001 audit). Keep `AutoCenter / AutoClip: IProperty<bool>` raw. Add fixture `clipping-default.json` + `[TestCase]`.
+- [ ] ~~T037~~ **DROPPED — `TransformEffect` has no direct pixel-absolute property (T001 audit). Pixel translation lives inside the referenced `Transform` (in `Beutl.Graphics.Transformation.*`), which is out of scope for this feature. Tracked as a follow-up; see `data-model.md` § "Deferred follow-ups".**
+- [X] T038 [US1] **Audit follow-up** — T001 audit is complete and found no additional pixel-absolute parameters beyond the migrated set (in fact, it dropped two: `PartsSplitEffect`, `TransformEffect`). This task is a no-op unless a future change introduces a new in-scope effect; if that happens, add a T038b / T038c / … task following the same source-change + fixture + `[TestCase]` pattern.
 - [ ] T038a [P] [US1] 3D-with-2D-filter resolution-equivalence test in `tests/Beutl.Graphics3DTests/FilterEffects/Render3DWithFilterResolutionTests.cs`: render a minimal 3D scene whose output has a `Blur` and a `DropShadow` applied, at full export size and at 1/4 size; upscale and assert SSIM ≥ 0.97. Confirms the 2D filter path correctly reads the outer `GraphicsContext2D`'s `RenderScale` when its source is a 3D framebuffer.
 
 ### US1 test harness
 
-- [ ] T039 [US1] Create `tests/Beutl.UnitTests/Engine/Graphics/FilterEffects/ResolutionEquivalenceTests.cs` with a parameterized test method that takes a fixture filename, renders at export size and at 1/4 size via `ResolutionTestHarness`, upscales the proxy with `BicubicResampler`, and asserts `SsimHelper.Compute(...) >= 0.97f`. Tasks T023–T037 add `[TestCase("…json")]` rows to this file.
+- [ ] T039 [US1] Create `tests/Beutl.UnitTests/Engine/Graphics/FilterEffects/ResolutionEquivalenceTests.cs` with a parameterized test method that takes a fixture filename, renders at export size and at 1/4 size via `ResolutionTestHarness`, upscales the proxy with `BicubicResampler`, and asserts `SsimHelper.Compute(...) >= 0.97f`. Tasks T023–T034 and T036 add `[TestCase("…json")]` rows to this file (T035 and T037 are dropped per T001 audit).
 
-**Checkpoint**: `dotnet test --filter "ResolutionEquivalenceTests|Render3DWithFilterResolutionTests"` is green. The MVP (US1) is done — a proxy-preview workflow (not built here) would now produce correct visuals.
+**Checkpoint**: `dotnet test --filter "ResolutionEquivalenceTests|Render3DWithFilterResolutionTests"` is green for the 13 in-scope effects (Blur, DropShadow, InnerShadow, StrokeEffect, Erode, Dilate, FlatShadow, ColorShift, DisplacementMapTranslate/Scale/Rotation, MosaicEffect, ShakeEffect, SplitEffect, Clipping). The MVP (US1) is done — a proxy-preview workflow (not built here) would now produce correct visuals.
 
 ---
 
@@ -171,9 +184,9 @@ This feature touches existing single-solution layout. Engine code lives under `s
 
 ### Phase Dependencies
 
-- **Phase 1 (Setup, T001)**: starts immediately.
-- **Phase 2 (Foundational, T002–T022)**: depends on T001. Blocks every user story.
-- **Phase 3 (US1, T023–T039 + T038a)**: depends on Phase 2. All per-effect tasks T023–T037 can run in parallel; T038 sweeps any audit additions; T038a (3D-with-2D) is independent of the others; T039 is the harness file that the per-effect tasks add `[TestCase]` rows to (light dependency: harness file must exist when first `[TestCase]` lands — write T039 early in the parallel batch, then add rows).
+- **Phase 1 (Setup, T001)**: ✓ DONE — audit applied to `data-model.md` and propagated to Phase 3 task descriptions.
+- **Phase 2 (Foundational, T002–T022 + T022a–T022e)**: depends on T001. Blocks every user story. T022a–T022e are property-editor registration work surfaced by the T001 audit — they must land before Phase 3 begins so migrated effects have working editors.
+- **Phase 3 (US1, T023–T034 + T036 + T038 + T038a + T039)**: depends on Phase 2. T035 (`PartsSplitEffect`) and T037 (`TransformEffect`) are DROPPED per T001 audit. T038 is a no-op marker. All remaining per-effect tasks can run in parallel; T038a (3D-with-2D) is independent of the others; T039 is the harness file that the per-effect tasks add `[TestCase]` rows to (light dependency: harness file must exist when first `[TestCase]` lands — write T039 early in the parallel batch, then add rows).
 - **Phase 4 (US2, T040–T045)**: depends on Phase 2 (it needs the new types + serialization). Can run concurrently with Phase 3 once T002–T010 are done — T041 needs a baseline captured from `main` so plan that capture before merging Phase 3.
 - **Phase 5 (US3, T046–T047)**: depends on Phase 3 fixtures (reuses them).
 - **Phase 6 (Polish, T048–T058)**: depends on all previous phases.
@@ -189,10 +202,11 @@ This feature touches existing single-solution layout. Engine code lives under `s
 - T011 / T012 (nested-scene push) depend on T008.
 - T013–T018 tests follow their respective sources; T019 (sub-pixel/zero/NaN) depends on T002–T005.
 - T020 / T021 / T022 (test infra) can run in parallel with everything else in Phase 2 as long as T009 / T022 (`FilterEffectContext` snapshot, harness) is ready before per-effect tests in Phase 3.
+- T022a / T022b / T022c (new ViewModels) depend on T003 / T004 / T005 respectively (each unwraps the underlying wrapper). T022d (`PropertyEditorService.cs` registration) depends on T022a + T022b + T022c. T022e (round-trip smoke test) depends on T022a–T022c.
 
 ### Within Each User Story
 
-- US1: each effect migration (T023–T037) is independent of the others; only T039 (test harness file) needs to land first. T038a (3D-with-2D) is independent of T023–T037 and can run in parallel.
+- US1: each effect migration (T023–T034, T036) is independent of the others; only T039 (test harness file) needs to land first. T038a (3D-with-2D) is independent and can run in parallel. T035 and T037 are DROPPED.
 - US2: T040 + T042 are infrastructure; T041 (baseline capture) gates T043; T044 / T045 are independent of T043.
 - US3: T046 + T047 are mostly independent (T047 adds a `[TestCase]` to T046's file).
 
@@ -201,7 +215,8 @@ This feature touches existing single-solution layout. Engine code lives under `s
 - T003, T004, T005 — three wrapper structs (different files).
 - T013, T014, T015, T016, T017, T019 — six test files (different files).
 - T020, T021 — SSIM + bicubic helpers (different files).
-- T023 – T037 — fifteen effect migrations, all different files.
+- T022a, T022b, T022c — three ViewModel files (different files); T022d depends on all three, T022e on a–c.
+- T023–T034 and T036 — **13 effect migrations** (T035 and T037 are DROPPED), all different files.
 - T038a — 3D-with-2D test, independent of every Phase 3 task.
 - T042 — corpus curation can run alongside infrastructure (T040) and harness (T043).
 - T048, T049, T050, T051 — four polish/docs/sample tasks (different files).
@@ -226,15 +241,22 @@ Task: "Sub-pixel/zero/NaN tests in tests/Beutl.UnitTests/Engine/Graphics/SubPixe
 ## Parallel Example: Phase 3 effect migrations + 3D coverage
 
 ```bash
-# After Phase 2 + T039 (harness) are in place:
-Task: "Migrate Blur.Sigma to PixelExtent"                 # T023
-Task: "Migrate DropShadow to PixelOffset/PixelExtent"     # T024
-Task: "Migrate InnerShadow to PixelOffset/PixelExtent"    # T025
-Task: "Migrate StrokeEffect.Offset to PixelOffset"        # T026
-Task: "Migrate Erode radius to PixelLength"               # T027
-Task: "Migrate Dilate radius to PixelLength"              # T028
-# … T029–T037 in parallel …
-Task: "3D-with-2D resolution-equivalence test"            # T038a
+# After Phase 2 (including T022a–T022e) + T039 (harness) are in place:
+Task: "Migrate Blur.Sigma to PixelExtent"                              # T023
+Task: "Migrate DropShadow to PixelOffset/PixelExtent"                  # T024
+Task: "Migrate InnerShadow to PixelOffset/PixelExtent"                 # T025
+Task: "Migrate StrokeEffect.Offset to PixelOffset"                     # T026
+Task: "Migrate Erode radius to PixelLength"                            # T027
+Task: "Migrate Dilate radius to PixelLength"                           # T028
+Task: "Migrate FlatShadow.Length to PixelLength"                       # T029
+Task: "Migrate ColorShift offsets (int → float) to PixelOffset"        # T030
+Task: "Migrate DisplacementMapTransform (3 subclasses) to PixelLength" # T031
+Task: "Migrate MosaicEffect.TileSize to PixelExtent"                   # T032
+Task: "Migrate ShakeEffect StrengthX/Y to PixelLength"                 # T033
+Task: "Migrate SplitEffect spacing to PixelLength"                     # T034
+Task: "Migrate Clipping 4 edges to PixelLength"                        # T036
+Task: "3D-with-2D resolution-equivalence test"                         # T038a
+# T035 (PartsSplitEffect) and T037 (TransformEffect) are DROPPED per T001 audit.
 ```
 
 ---
@@ -243,9 +265,9 @@ Task: "3D-with-2D resolution-equivalence test"            # T038a
 
 ### MVP First (User Story 1 Only)
 
-1. Complete Phase 1: T001 (audit).
-2. Complete Phase 2: T002–T022 (foundational types + plumbing + edge-case tests + test infra).
-3. Complete Phase 3: T023–T039 + T038a (effect migrations + ResolutionEquivalenceTests + 3D coverage).
+1. Complete Phase 1: T001 (audit) — ✓ DONE; results applied to `data-model.md` and Phase 3 task descriptions.
+2. Complete Phase 2: T002–T022 + T022a–T022e (foundational types + plumbing + edge-case tests + test infra + property-editor registration).
+3. Complete Phase 3: T023–T034 + T036 + T038 + T038a + T039 (effect migrations + ResolutionEquivalenceTests + 3D coverage). T035 and T037 are DROPPED.
 4. **STOP and VALIDATE**: `dotnet test --filter "ResolutionEquivalenceTests|Render3DWithFilterResolutionTests"` is green; eyeball verification per `quickstart.md` § 5 confirms parity.
 5. Ship as a `feat: make pixel-absolute filter effects resolution-independent` PR. The mechanism is correct even though no proxy-preview UX consumes it yet — this is intentional (see `research.md` § R1).
 
@@ -261,9 +283,9 @@ Task: "3D-with-2D resolution-equivalence test"            # T038a
 
 With two engineers:
 
-1. Engineer A drives Phase 2 source (T002, T006, T007, T008, T009, T010, T011, T012).
-2. Engineer B drives Phase 2 tests + infra (T013–T022) in parallel with A.
-3. Once Phase 2 lands, both fan out across T023–T037 + T038a (Phase 3) and US2 infrastructure (T040–T042) concurrently.
+1. Engineer A drives Phase 2 source + property-editor registration (T002, T006, T007, T008, T009, T010, T011, T012, T022a–T022d).
+2. Engineer B drives Phase 2 tests + infra (T013–T022, T022e) in parallel with A.
+3. Once Phase 2 lands, both fan out across T023–T034 + T036 + T038a (Phase 3) and US2 infrastructure (T040–T042) concurrently.
 4. Engineer A captures baselines (T041) from `main` while Engineer B closes out effect migrations.
 5. Phase 5 / Phase 6 are short and can be done by either engineer.
 
