@@ -384,7 +384,7 @@ public sealed partial class EditViewModel : IEditorContext, ISupportAutoSaveEdit
     {
         string directory = Path.GetDirectoryName(Scene.Uri!.LocalPath)!;
 
-        directory = Path.Combine(directory, Constants.BeutlFolder, Constants.ViewStateFolder);
+        directory = Path.Combine(directory, EditorConstants.BeutlFolder, EditorConstants.ViewStateFolder);
         if (!Directory.Exists(directory))
         {
             Directory.CreateDirectory(directory);

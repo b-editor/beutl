@@ -1,6 +1,7 @@
 ﻿using System.Reactive.Subjects;
 using System.Text.Json.Nodes;
 using Beutl.Configuration;
+using Beutl.Editor;
 using Beutl.Logging;
 using Beutl.Models;
 using Beutl.ProjectSystem;
@@ -119,12 +120,12 @@ public sealed class ProjectService
             location = Path.Combine(location, name);
             var scene = new Scene(width, height, name)
             {
-                Uri = UriHelper.CreateFromPath(Path.Combine(location, name, $"{name}.{Constants.SceneFileExtension}")),
+                Uri = UriHelper.CreateFromPath(Path.Combine(location, name, $"{name}.{EditorConstants.SceneFileExtension}")),
             };
             var project = new Project()
             {
                 Items = { scene },
-                Uri = UriHelper.CreateFromPath(Path.Combine(location, $"{name}.{Constants.ProjectFileExtension}")),
+                Uri = UriHelper.CreateFromPath(Path.Combine(location, $"{name}.{EditorConstants.ProjectFileExtension}")),
                 Variables =
                 {
                     [ProjectVariableKeys.FrameRate] = framerate.ToString(),

@@ -1,5 +1,6 @@
 ﻿using System.Text.Json.Nodes;
 using Beutl.Collections.Pooled;
+using Beutl.Editor;
 using Beutl.NodeGraph;
 using Beutl.ProjectSystem;
 using Microsoft.Extensions.DependencyInjection;
@@ -219,7 +220,7 @@ public sealed class NodeGraphTabViewModel : IToolContext
         Scene scene = _editorContext.GetRequiredService<Scene>();
         string directory = Path.GetDirectoryName(scene.Uri!.LocalPath)!;
 
-        directory = Path.Combine(directory, Constants.BeutlFolder, Constants.ViewStateFolder);
+        directory = Path.Combine(directory, EditorConstants.BeutlFolder, EditorConstants.ViewStateFolder);
         if (!Directory.Exists(directory))
         {
             Directory.CreateDirectory(directory);

@@ -199,7 +199,7 @@ public partial class MainView
                 [
                     new FilePickerFileType(Strings.ProjectFile)
                     {
-                        Patterns = [$"*.{Constants.ProjectFileExtension}"]
+                        Patterns = [$"*.{EditorConstants.ProjectFileExtension}"]
                     }
                 ]
             };
@@ -230,12 +230,12 @@ public partial class MainView
         var options = new FilePickerSaveOptions
         {
             SuggestedFileName = defaultFileName,
-            DefaultExtension = Constants.ProjectPackageExtension,
+            DefaultExtension = EditorConstants.ProjectPackageExtension,
             FileTypeChoices =
             [
                 new FilePickerFileType(Strings.ProjectPackage)
                 {
-                    Patterns = [$"*.{Constants.ProjectPackageExtension}"]
+                    Patterns = [$"*.{EditorConstants.ProjectPackageExtension}"]
                 }
             ]
         };
@@ -301,7 +301,7 @@ public partial class MainView
             [
                 new FilePickerFileType(Strings.ProjectPackage)
                 {
-                    Patterns = [$"*.{Constants.ProjectPackageExtension}"]
+                    Patterns = [$"*.{EditorConstants.ProjectPackageExtension}"]
                 }
             ]
         };

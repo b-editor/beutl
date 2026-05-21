@@ -10,6 +10,7 @@ using Avalonia.Styling;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 using Beutl.Configuration;
+using Beutl.Editor;
 using Beutl.Helpers;
 using Beutl.Models;
 using Beutl.Services;
@@ -162,7 +163,7 @@ public partial class EditorHostFallback : UserControl
 
             try
             {
-                if (fileName.EndsWith($".{Constants.ProjectFileExtension}", StringComparison.OrdinalIgnoreCase))
+                if (fileName.EndsWith($".{EditorConstants.ProjectFileExtension}", StringComparison.OrdinalIgnoreCase))
                 {
                     viewModel.MenuBar.OpenRecentProject.Execute(fileName);
                 }
@@ -226,8 +227,8 @@ public partial class EditorHostFallback : UserControl
         viewConfig.RecentFiles.ToObservableChangeSet<CoreList<string>, string>()
             .Filter(filter.Select<int, Func<string, bool>>(
                 f => (x) => f == 0
-                        || (f == 1 && x.EndsWith($".{Constants.ProjectFileExtension}", StringComparison.OrdinalIgnoreCase))
-                        || (f == 2 && !x.EndsWith($".{Constants.ProjectFileExtension}", StringComparison.OrdinalIgnoreCase))))
+                        || (f == 1 && x.EndsWith($".{EditorConstants.ProjectFileExtension}", StringComparison.OrdinalIgnoreCase))
+                        || (f == 2 && !x.EndsWith($".{EditorConstants.ProjectFileExtension}", StringComparison.OrdinalIgnoreCase))))
             .AddKey(x => x)
             .Cast(x => new FileInfo(x))
             .SortBy(x => x.LastAccessTimeUtc, sortOrder: SortDirection.Descending)

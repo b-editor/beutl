@@ -1,5 +1,6 @@
 ﻿using System.Text.Json.Nodes;
 using Beutl.Api.Services;
+using Beutl.Editor;
 using Beutl.Logging;
 using Beutl.Models;
 using Beutl.ViewModels;
@@ -124,7 +125,7 @@ public sealed class OutputService(EditViewModel editViewModel) : IDisposable
 
     private readonly string _filePath = Path.Combine(
         Path.GetDirectoryName(editViewModel.Scene.Uri!.LocalPath)!,
-        Constants.BeutlFolder, "output-profile.json");
+        EditorConstants.BeutlFolder, "output-profile.json");
 
     private readonly ILogger _logger = Log.CreateLogger<OutputService>();
     private bool _isRestored;

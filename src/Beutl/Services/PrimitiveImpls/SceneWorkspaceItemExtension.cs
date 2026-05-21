@@ -1,5 +1,6 @@
 ﻿using System.Diagnostics.CodeAnalysis;
 using Avalonia.Platform.Storage;
+using Beutl.Editor;
 using Beutl.Logging;
 using Beutl.ProjectSystem;
 using Beutl.Serialization;
@@ -30,13 +31,13 @@ public sealed class SceneProjectItemExtension : ProjectItemExtension
 
     public override bool IsSupported(string file)
     {
-        return file.EndsWith($".{Constants.SceneFileExtension}", StringComparison.OrdinalIgnoreCase);
+        return file.EndsWith($".{EditorConstants.SceneFileExtension}", StringComparison.OrdinalIgnoreCase);
     }
 
     public override bool TryCreateItem(string file, [NotNullWhen(true)] out ProjectItem? result)
     {
         result = null;
-        if (file.EndsWith($".{Constants.SceneFileExtension}", StringComparison.OrdinalIgnoreCase))
+        if (file.EndsWith($".{EditorConstants.SceneFileExtension}", StringComparison.OrdinalIgnoreCase))
         {
             Scene? scene;
             try
