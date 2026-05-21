@@ -184,3 +184,76 @@ If pushback is strong during PR review, a follow-up feature can introduce `Pixel
 
 **Alternatives considered**:
 - *Migrate all effects in one pass without an audit.* Rejected — dimensionless effects (ColorGrading, Saturate, etc.) would get pointless churn and risk regressions.
+
+## R8 — Scope expansion to non-FilterEffect rendering primitives
+
+**Question**: Does the resolution-independent contract live solely on `FilterEffectContext`, or must it extend to other rendering API surfaces (`GraphicsContext2D` direct draw, `Pen.Thickness`, `Transform.CreateMatrix` translation, `Shape` width/height)?
+
+**Finding**: Without extending the contract, the user-visible proxy-vs-export equivalence promised by US1 fails the moment a project uses anything other than filter effects. A `RectShape` of "200 px wide" draws as 200 raster pixels regardless of `RenderScale`, so on a 1/4 proxy it occupies 200 / 480 = 41% of the frame, while at export resolution the same project draws it at 200 / 1920 = 10% — completely different proportions.
+
+**Decision**: Extend the same helper-internal-scaling design pattern to:
+
+1. **`GraphicsContext2D` direct API** — every length-taking method (`DrawRectangle(Rect)`, `DrawEllipse(Rect)`, `PushTransform(Matrix)` translation column, `PushTransform(Transform.Resource)` via materialized matrix, `PushClip(Rect)`, `PushLayer(Rect)`, `PushOpacityMask(..., Rect bounds, ...)`) multiplies internally; pair each with a `*Raw` twin.
+
+2. **`Pen`** — scale `Thickness`, `DashOffset`, `Offset` at the consumption sites in the rendering pipeline (`ImmediateCanvas`, `PenHelper.GetRealThickness`, `Shape.GetRealThickness`, `StrokeEffect`). A shared `PenHelper.GetScaledThickness(pen, renderScale)` provides one place that knows the rule. Existing `pen.Thickness` reads in non-rendering code paths stay unchanged. `MiterLimit`, `TrimStart`, `TrimEnd`, `TrimOffset` stay raw.
+
+3. **`Transform.CreateMatrix(CompositionContext)`** — for `TranslateTransform`, `Rotation3DTransform`, and `MatrixTransform`, the translation component of the returned `Matrix` is scaled by `context.RenderScale`. The `CompositionContext` is extended to carry `RenderScale` from the scene level. `ScaleTransform`, `RotationTransform`, and `SkewTransform` have no translation component and are unchanged.
+
+4. **`Shape` subclasses** — no code change needed. `RectShape.Width / Height`, `EllipseShape.Width / Height`, `RoundedRectShape.Width / Height / Smoothing / CornerRadius` flow into `DrawRectangle` / `DrawEllipse` and benefit automatically once those scale.
+
+**Out-of-scope (deferred follow-ups)**:
+
+- **`Geometry` path coordinates** — path data flows through `Geometry.Resource` into Skia paths; scaling requires either rewriting paths at materialization (expensive, breaks identity sharing) or wrapping every `DrawGeometry` / `PushClip(Geometry)` in an implicit `PushTransform(scale)` (subtle interaction with explicit transforms). Treated as a separate feature.
+- **`TextBlock.Size / Spacing`** — font size scaling touches the typeface materialization path and glyph caching. Typography rendering has its own non-trivial interaction with DPI, hinting, and subpixel positioning. Treated as a separate feature.
+- **`Brush` rectangles** — `TileBrush` source rect, `ImageBrush.SourceRect / DestinationRect`. These flow through `Brush.Resource` materialization and brush-application paths. Treated as a separate feature.
+
+**Rationale**: The helper-internal-scaling pattern is already proven for FilterEffects. Extending it horizontally (more API surfaces) is mechanically the same change at each surface. The cost of including Shapes / Transforms / Pen / direct-draw helpers in this PR is moderate; the cost of *excluding* them is that US1 fails for any non-effect project. Geometry / Text / Brush have separate materialization paths whose design needs its own analysis; deferring them keeps this PR tractable while still delivering the bulk of the user-visible win.
+
+**Alternatives considered**:
+
+- *Restrict to FilterEffects only.* Rejected — fails US1 end-to-end. Users would observe broken parity the moment a project uses a transform.
+- *All-in including Geometry / Text / Brush.* Rejected — Geometry and Text touch much larger materialization paths and risk regressions in typography rendering. Better to land in stages.
+- *Scale at the SKCanvas level (the bottom of Skia)* — would require us to instrument every Skia call site or wrap `SKCanvas`. Rejected — too invasive and would conflict with the existing `*Raw` opt-out (we'd lose the per-helper bypass).
+
+## R9 — Pen scaling implementation strategy
+
+**Question**: `Pen.Thickness` is read at multiple consumption sites (`ImmediateCanvas.DrawEllipse`, `DrawRectangle`, `DrawGeometry`, `DrawText`; `PenHelper.GetRealThickness`; `Shape.GetRealThickness`; `StrokeEffect`). Where does the scaling happen?
+
+**Finding** — three options:
+
+- **(a) At materialization** — modify `Pen.Resource.Update` to capture `Thickness * renderScale`. Requires `CompositionContext` to expose `RenderScale`. Single point of scaling. **But**: `Pen.Resource.Thickness` then holds the *scaled* value, which is surprising for code that reads it for non-rendering reasons (e.g. computing bounding boxes). Bounds calculations would silently use scaled thickness.
+- **(b) At every consumption site** — every `pen.Thickness` read in a rendering call path multiplies by the active `RenderScale`. Distributes the change across ~7 files. Fragile to future Pen consumers forgetting to scale.
+- **(c) Via a shared helper** — add `PenHelper.GetScaledThickness(pen, renderScale)` and rewrite every consumption site to call it. Mixes (a)'s single-rule-in-one-place with (b)'s opt-in clarity. Future Pen consumers see the helper in code review.
+
+**Decision**: (c) — shared helper, opt-in at each consumption site. Add `PenHelper.GetScaledThickness(Pen.Resource pen, RenderScale scale)` returning `pen.Thickness * scale.ApplyUniform(1)` (uniform scale since stroke thickness is a single number, not anisotropic). For Pen consumers that explicitly want raw thickness (e.g. bounding-box calculation that happens at the *project* level and should not include scaling), they call `pen.Thickness` directly. Document the rule on `Pen.Resource.Thickness` XML doc.
+
+For `DashOffset` and `Offset`, mirror with `PenHelper.GetScaledDashOffset(...)` and `PenHelper.GetScaledOffset(...)`.
+
+**Rationale**: (a) is leaky — `pen.Thickness` reading semantically shifts. (b) is fragile. (c) is the orthogonality-respecting middle ground: data stays raw on the resource, the rendering pipeline applies scaling at known boundaries via a single helper.
+
+**Alternatives considered**:
+
+- *Mutate `Pen.Resource.Thickness` to be a method that takes `RenderScale`.* Rejected — would propagate signature change to every Pen consumer.
+- *Introduce a `ScaledPen.Resource` wrapper at consumption.* Rejected — yet another type to track; helper is simpler.
+
+## R10 — Transform scaling: at CreateMatrix vs at PushTransform
+
+**Question**: `Transform.CreateMatrix(CompositionContext)` materializes a `Matrix`. Where should the translation column be scaled?
+
+**Finding** — two options:
+
+- **(a) Inside `CreateMatrix`** — each concrete Transform subclass that has a translation (TranslateTransform, Rotation3DTransform.Center*, MatrixTransform.Matrix) produces a pre-scaled Matrix. `CompositionContext` carries `RenderScale`.
+- **(b) Inside `GraphicsContext2D.PushTransform(Transform.Resource)`** — read `transform.Matrix`, decompose, multiply translation column by `RenderScale`, push. `Transform.Resource.Matrix` stays in unscaled "authoring space".
+
+**Decision**: (a) — inside `CreateMatrix`. Reasons:
+
+- `Transform.Resource.Matrix` is consumed in places besides `PushTransform(Transform.Resource)` — bounding-box computation, animation evaluation, etc. If the Matrix stays unscaled at materialization, every consumer has to remember to scale, which is the FR-009 fragility we want to avoid.
+- `CompositionContext` already represents "the context in which a transform is materialized"; carrying `RenderScale` on it is a small addition.
+- The bare-matrix overload `PushTransform(Matrix matrix)` still scales internally per FR-008 (caller passes raw pixel translation → helper applies scale), so the two `PushTransform` overloads remain consistent at their entry-point boundary.
+
+**`*Raw` opt-out for Transform**: not needed at the Transform layer — there is no use case for "I want a TranslateTransform whose X means raw raster pixels at this current proxy size". `PushTransformRaw(Matrix)` on `GraphicsContext2D` covers the explicit-Matrix case for callers who want to bypass scaling.
+
+**Alternatives considered**:
+
+- *(b) at PushTransform.* Rejected — leaks raw-matrix semantic into `Transform.Resource.Matrix`.
+- *Add a `[NoScale]` attribute to Transform subclasses that want to opt out.* Rejected — every dimensionless Transform (`RotationTransform`, `ScaleTransform`, `SkewTransform`) has no translation, so the question is moot for them. No real use case exists.

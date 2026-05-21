@@ -1,4 +1,4 @@
-# Implementation Plan: Resolution-Independent Pixel-Absolute Effects
+# Implementation Plan: Resolution-Independent Pixel-Absolute Rendering
 
 **Branch**: `speckit/003-resolution-independent-effects` | **Date**: 2026-05-20 | **Spec**: [spec.md](./spec.md)
 
@@ -6,13 +6,13 @@
 
 ## Summary
 
-Make pixel-absolute parameters on built-in filter effects (blur sigma, drop-shadow offset / sigma, stroke offset, dilate / erode radius, etc.) interpret as "pixels at the project's export resolution" regardless of the actual raster size being rendered into. Today every effect uses values literally against the current render target, so a hypothetical proxy preview at 1/4 resolution would not match the export.
+Make pixel-absolute parameters on built-in **rendering primitives** — filter effects, transforms, pens, shapes, and the direct `GraphicsContext2D` length-typed API (`DrawRectangle`, `DrawEllipse`, `PushTransform`, `PushClip`, `PushLayer`, `PushOpacityMask`) — interpret as "pixels at the project's export resolution" regardless of the actual raster size being rendered into. Today every primitive uses values literally against the current render target, so a hypothetical proxy preview at 1/4 resolution would not match the export.
 
-The implementation introduces (a) a new `RenderScale` carried by `FilterEffectContext` / `GraphicsContext2D` whose value is `currentRaster / referenceFrame`, and (b) **internal scaling inside the existing `FilterEffectContext` helpers** (`Blur(Size)`, `DropShadow(Point, Size, Color)`, `Erode(float, float)`, …) — each length-taking helper now multiplies its argument by `RenderScale` before forwarding to Skia. A `*Raw` twin (`BlurRaw(Size)`, …) provides an explicit opt-out for plugins that need raw-raster pixel semantics. **Effect property declarations are not touched, no wrapper types are introduced, no animator / property-editor work is needed**, and project files keep their numeric values verbatim — at the default `RenderScale = Identity` (the current state of every renderer) the new multiplication is a no-op, so legacy projects render byte-identically at export resolution.
+The implementation introduces (a) a new `RenderScale` carried by `FilterEffectContext` / `GraphicsContext2D` whose value is `currentRaster / referenceFrame`, and (b) **internal scaling inside every length-taking entry point of the rendering API** — `FilterEffectContext` helpers (`Blur(Size)`, `DropShadow(Point, Size, Color)`, `Erode(float, float)`, …); `GraphicsContext2D` direct helpers (`DrawRectangle(Rect)`, `PushTransform(Matrix)`, `PushClip(Rect)`, …); `Transform.CreateMatrix` translation columns; and `Pen` consumption via `PenHelper.GetScaledThickness` / `GetScaledDashOffset` / `GetScaledOffset`. Each length-taking helper multiplies by `RenderScale` before forwarding to Skia. A `*Raw` twin (`BlurRaw(Size)`, `DrawRectangleRaw(Rect)`, `PushTransformRaw(Matrix)`, …) is added wherever it makes sense for plugins that need raw-raster pixel semantics. **No new property types, no `IProperty<...>` declaration churn, no animator / property-editor work, no project-file migration**: legacy projects render byte-identically at export resolution because `RenderScale = Identity` makes the new multiplication a no-op.
 
-A proxy-preview *workflow* (rendering at less than 100% during editing) is **not** built by this feature — it remains a separate, future feature. What this feature ships is the plumbing that makes that future feature visually correct.
+A proxy-preview *workflow* (rendering at less than 100% during editing) is **not** built by this feature — it remains a separate, future feature. What this feature ships is the rendering-layer plumbing that makes that future feature visually correct.
 
-> **Design pivot recorded in `research.md` § R2**: An earlier draft of this plan introduced three wrapper structs (`PixelLength` / `PixelExtent` / `PixelOffset`) plus 3 animators, 3 property editors, and a per-effect property-type migration across ~13 effects. That plan has been replaced by the simpler helper-internal-scaling design described above — same external behavior, far smaller blast radius (≈ 1 file touched in the engine, no plugin work needed, no UI work needed).
+> **Design pivot history** — `research.md` § R2 records the first pivot (from typed wrappers to helper-internal scaling on `FilterEffectContext`). `research.md` § R8 records the second expansion (from FilterEffects-only to the broader rendering surface — Transform, Pen, Shape, direct `GraphicsContext2D` helpers). § R9 / R10 cover the Pen and Transform sub-decisions. **Geometry / Text / Brush** content scaling remains explicitly deferred to follow-up features (see `data-model.md` § "Deferred follow-ups").
 
 ## Technical Context
 
@@ -37,9 +37,12 @@ A proxy-preview *workflow* (rendering at less than 100% during editing) is **not
 - Out-of-tree plugins that keep using plain `Size` / `Point` / `float` parameters MUST keep their current raw-pixel behavior (opt-in is type change, per FR-008).
 
 **Scale/Scope**:
-- **Zero built-in filter effect files modified.** All 13 in-scope effects (Blur, DropShadow, InnerShadow, StrokeEffect, Erode, Dilate, ColorShift, FlatShadow, SplitEffect, DisplacementMapTransform × 3, MosaicEffect, ShakeEffect, Clipping — see `data-model.md`) automatically benefit from helper-internal scaling without source change.
+- **Zero built-in filter-effect / shape files modified.** All 13 in-scope effects + the Shape subclasses (`RectShape`, `EllipseShape`, `RoundedRectShape`) automatically benefit because their helper calls scale internally.
 - 1 new `RenderScale` value type in `Beutl.Engine`.
 - 1 modified `FilterEffectContext.cs` — every length-taking helper applies `RenderScale` internally; each gets a `*Raw` twin.
+- 1 modified `GraphicsContext2D.cs` — every length-taking helper applies `RenderScale` internally; each gets a `*Raw` twin.
+- 3 modified `Transform` subclasses (`TranslateTransform.cs`, `Rotation3DTransform.cs`, `MatrixTransform.cs`) — `CreateMatrix` scales translation columns; `CompositionContext` gains a `RenderScale` property.
+- 1 modified `PenHelper.cs` (new scaled helpers) + ~3 consumer files updated (`ImmediateCanvas.cs`, `Shape.cs`, `StrokeEffect.cs`) to call the scaled helpers.
 - `IRenderer.ReferenceFrame` + `GraphicsContext2D.PushReferenceFrame` plumbing additions.
 - 1 documentation entry for plugin authors under `docs/extensibility/`.
 
@@ -70,7 +73,10 @@ docs/specs/003-resolution-independent-effects/
 ├── data-model.md        # Phase 1 output — new types, scope-of-effects list
 ├── quickstart.md        # Phase 1 output — how to build / test / verify
 ├── contracts/
-│   ├── effect-helper-scaling.md   # FilterEffectContext scaled helpers + *Raw twins
+│   ├── effect-helper-scaling.md      # FilterEffectContext scaled helpers + *Raw twins
+│   ├── graphics-context-scaling.md   # GraphicsContext2D scaled helpers + *Raw twins (Rect, Matrix)
+│   ├── pen-scaling.md                # Pen thickness / DashOffset / Offset via PenHelper.GetScaled*
+│   ├── transform-scaling.md          # Transform.CreateMatrix scales translation column via CompositionContext.RenderScale
 │   └── render-scale.md         # RenderScale propagation contract
 ├── checklists/
 │   └── requirements.md  # /speckit-specify quality checklist (already exists)
@@ -84,18 +90,35 @@ src/Beutl.Engine/
 ├── Graphics/
 │   ├── Rendering/
 │   │   ├── RenderScale.cs       # NEW small struct (ScaleX, ScaleY); FromFrames enforces uniform scale
-│   │   ├── GraphicsContext2D.cs # MODIFIED — exposes ReferenceFrame / RenderScale; adds PushReferenceFrame
+│   │   ├── GraphicsContext2D.cs # MODIFIED — exposes ReferenceFrame / RenderScale; adds PushReferenceFrame;
+│   │   │                        #   every length-taking helper (DrawRectangle, DrawEllipse, PushTransform,
+│   │   │                        #   PushClip, PushLayer, PushOpacityMask) applies RenderScale internally;
+│   │   │                        #   each gets a *Raw twin for opt-out.
 │   │   ├── Renderer.cs          # MODIFIED — adds (int w, int h, PixelSize referenceFrame) ctor overload
-│   │   └── IRenderer.cs         # MODIFIED — adds ReferenceFrame (default-interface impl returns FrameSize)
-│   └── FilterEffects/
-│       └── FilterEffectContext.cs   # MODIFIED — snapshots (ReferenceFrame, RenderScale);
-│                                    #   every length-taking helper applies RenderScale internally;
-│                                    #   adds *Raw twin (BlurRaw, DropShadowRaw, ErodeRaw, …) for opt-out.
-│                                    #   No other file under FilterEffects/ is touched.
+│   │   ├── IRenderer.cs         # MODIFIED — adds ReferenceFrame (default-interface impl returns FrameSize)
+│   │   └── PenHelper.cs         # MODIFIED — adds GetScaledThickness / GetScaledDashOffset / GetScaledOffset /
+│   │                            #   GetScaledRealThickness; existing helpers unchanged.
+│   ├── ImmediateCanvas.cs       # MODIFIED — pen.Thickness reads in rendering paths switch to PenHelper.GetScaledThickness
+│   ├── FilterEffects/
+│   │   ├── FilterEffectContext.cs   # MODIFIED — snapshots (ReferenceFrame, RenderScale);
+│   │   │                            #   every length-taking helper (Blur, DropShadow, InnerShadow, Erode, Dilate, …)
+│   │   │                            #   applies RenderScale internally; adds *Raw twin per helper.
+│   │   └── StrokeEffect.cs          # MODIFIED — thickness read switches to PenHelper.GetScaledThickness
+│   ├── Shapes/
+│   │   └── Shape.cs             # MODIFIED — GetRealThickness switches to PenHelper.GetScaledRealThickness;
+│   │                            #   RectShape / EllipseShape / RoundedRectShape unchanged (they call DrawRectangle / DrawEllipse).
+│   └── Transformation/
+│       ├── TranslateTransform.cs    # MODIFIED — CreateMatrix scales X / Y by context.RenderScale
+│       ├── Rotation3DTransform.cs   # MODIFIED — CreateMatrix scales CenterX/Y/Z and Depth
+│       ├── MatrixTransform.cs       # MODIFIED — CreateMatrix scales translation column (M31, M32)
+│       └── (RotationTransform / ScaleTransform / SkewTransform unchanged — no translation component)
+└── Effects/                     # CompositionContext gains a RenderScale property (sourced from SceneCompositor)
+    └── CompositionContext.cs    # MODIFIED — exposes RenderScale; plumbed from SceneCompositor.
 
 src/Beutl.ProjectSystem/
-└── ProjectSystem/
-    └── SceneDrawable.cs          # MODIFIED — wraps inner draw in ctx.PushReferenceFrame(ReferencedScene.FrameSize)
+├── ProjectSystem/
+│   └── SceneDrawable.cs          # MODIFIED — wraps inner draw in ctx.PushReferenceFrame(ReferencedScene.FrameSize)
+└── SceneCompositor.cs            # MODIFIED — supplies the active scene's RenderScale to the CompositionContext it builds
 
 src/Beutl.Extensibility/
 └── (no changes)
@@ -139,6 +162,10 @@ Open questions resolved by Phase 0 (full content in `research.md`):
 4. **Source-generator impact** — no new property types means no generator changes expected. Spot-checked: confirmed.
 5. ~~**Animator registration**~~ — moot under the helper-internal design. No new animators needed.
 6. **How is `Pen.Thickness` (used by `StrokeEffect`) reached?** — `StrokeEffect` draws via `Canvas`/`Pen` rather than a `FilterEffectContext` length helper, so thickness stays raw-pixel in this PR. Tracked as a follow-up alongside `Beutl.Graphics.Transformation.*`.
+7. **Scope expansion (2026-05-21)**: Should non-FilterEffect surfaces (`GraphicsContext2D` direct draw, `Pen.Thickness`, `Transform.CreateMatrix`, `Shape.Width/Height`) also become resolution-independent? → Yes. Same helper-internal-scaling pattern applies. See `research.md` § R8.
+8. **Pen scaling strategy**: At Pen materialization vs at consumption vs via helper? → Via `PenHelper.GetScaled*` helpers; opt-in at each rendering call site; bounds-computation paths intentionally keep using raw `pen.Thickness`. See `research.md` § R9.
+9. **Transform scaling strategy**: Scale at `CreateMatrix` vs at `PushTransform`? → Scale at `CreateMatrix` so the materialized `Transform.Resource.Matrix` is already in render-space. `CompositionContext` gains a `RenderScale` property. See `research.md` § R10.
+10. **What stays raw / deferred**: `Geometry` path coordinates, `TextBlock.Size / Spacing`, `Brush` rectangles. Tracked as separate follow-up features in `data-model.md` § "Deferred follow-ups".
 
 ## Phase 1 — Design & Contracts
 
@@ -152,6 +179,9 @@ Open questions resolved by Phase 0 (full content in `research.md`):
 
 2. **Public contracts** in `contracts/`:
    - `effect-helper-scaling.md` — the new semantics of `FilterEffectContext` helpers, the `*Raw` opt-out, and the (mostly null) plugin-author migration recipe.
+   - `graphics-context-scaling.md` — `GraphicsContext2D` direct-draw / `Push*` helper scaling rules + `*Raw` twins.
+   - `pen-scaling.md` — `Pen.Thickness` / `DashOffset` / `Offset` scaling via `PenHelper.GetScaled*` at consumption sites.
+   - `transform-scaling.md` — `Transform.CreateMatrix` translation-column scaling via `CompositionContext.RenderScale`.
    - `render-scale.md` — how `RenderScale` flows from `Renderer` → `GraphicsContext2D` → `FilterEffectContext` and how nested scenes override it.
 
 3. **Quickstart** in `quickstart.md` — concrete commands for build / test / SSIM-fixture regeneration, plus a "smoke project" the developer can render at two resolutions to eyeball-verify.

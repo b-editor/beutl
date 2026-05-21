@@ -36,10 +36,14 @@ Expected new tests (created during `tasks.md`):
 
 - `tests/Beutl.UnitTests/Engine/Graphics/Rendering/RenderScaleTests.cs`
 - `tests/Beutl.UnitTests/Engine/Graphics/Rendering/ReferenceFramePropagationTests.cs`
-- `tests/Beutl.UnitTests/Engine/Graphics/FilterEffects/FilterEffectContextScalingTests.cs` (covers scaled helpers + `*Raw` twins + sub-pixel/zero/NaN guards)
-- `tests/Beutl.UnitTests/Engine/Graphics/FilterEffects/ResolutionEquivalenceTests.cs` (one `[TestCase]` per in-scope built-in effect)
+- `tests/Beutl.UnitTests/Engine/Graphics/Rendering/GraphicsContext2DScalingTests.cs` (Rect / Matrix translation scaling + `*Raw` twins)
+- `tests/Beutl.UnitTests/Engine/Graphics/Rendering/PenScalingTests.cs` (`PenHelper.GetScaled*` helpers)
+- `tests/Beutl.UnitTests/Engine/Graphics/Transformation/TransformScalingTests.cs` (TranslateTransform / Rotation3D / MatrixTransform CreateMatrix scaling)
+- `tests/Beutl.UnitTests/Engine/Graphics/FilterEffects/FilterEffectContextScalingTests.cs` (scaled helpers + `*Raw` + sub-pixel/zero/NaN guards)
+- `tests/Beutl.UnitTests/Engine/Graphics/FilterEffects/ResolutionEquivalenceTests.cs` (per-primitive `[TestCase]`s — effects, shapes, transforms, direct draws, combined)
 - `tests/Beutl.UnitTests/Engine/Graphics/FilterEffects/LegacyRenderingTests.cs` (corpus-driven regression vs. baseline)
 - `tests/Beutl.UnitTests/Engine/Graphics/FilterEffects/LegacyRoundTripTests.cs` (proves no project-file rewrite on load)
+- `tests/Beutl.UnitTests/Engine/Graphics/FilterEffects/CrossResolutionTests.cs` (US3 — same project at different export sizes)
 - `tests/Beutl.Graphics3DTests/FilterEffects/Render3DWithFilterResolutionTests.cs`
 
 Each `ResolutionEquivalenceTests` case follows this pattern:
@@ -109,9 +113,9 @@ This runs the same checks `claude-code-review.yml` and `beutl-reviewer` would ru
 
 ## 8. PR conventions
 
-- Title: `feat: make filter-effect helpers resolution-independent` (Conventional Commit per `AGENTS.md`). The title says "helpers", not "effects" — the change is in `FilterEffectContext` helpers, not in the effect classes.
-- The PR's biggest behavioural surface is the modified `FilterEffectContext` helpers + their new `*Raw` twins. Mention `@beutl-design-reviewer` in the PR body so the design-priorities audit (orthogonality, library-user flexibility, no compat shims) runs explicitly against that surface.
-- If `Pen.Thickness` or `Beutl.Graphics.Transformation.*` end up being touched as follow-ups, those are **separate PRs** with their own design discussions, not a snowball on this one.
+- Title: `feat: make rendering helpers resolution-independent` (Conventional Commit per `AGENTS.md`). The title says "rendering helpers", not "effects" — the change covers `FilterEffectContext`, `GraphicsContext2D`, `Pen` helpers, and `Transform.CreateMatrix`.
+- The PR's biggest behavioural surface is the modified scaled helpers + their `*Raw` twins across `FilterEffectContext` and `GraphicsContext2D`, plus the `PenHelper.GetScaled*` helpers and the `Transform.CreateMatrix` translation scaling. Mention `@beutl-design-reviewer` in the PR body.
+- **Out of scope, follow-up PRs**: `Geometry` path coordinates, `TextBlock.Size / Spacing`, `Brush` pixel rectangles. Each gets its own design discussion.
 
 ## 9. Future work this enables
 

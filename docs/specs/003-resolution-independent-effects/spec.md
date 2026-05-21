@@ -1,12 +1,12 @@
-# Feature Specification: Resolution-Independent Pixel-Absolute Effects
+# Feature Specification: Resolution-Independent Pixel-Absolute Rendering
 
-**Feature Branch**: `speckit/003-resolution-independent-effects`
+**Feature Branch**: `speckit/003-resolution-independent-effects` (slug retained for history continuity; scope broadened from "effects" to "rendering" during the design pivot — see Clarifications)
 
 **Created**: 2026-05-20
 
 **Status**: Draft
 
-**Input**: User description: "ピクセル絶対値エフェクトを resolution-independent 化して proxy preview と export の見た目を一致させる。"
+**Input**: Original — "ピクセル絶対値エフェクトを resolution-independent 化して proxy preview と export の見た目を一致させる。" Scope-expansion follow-up — "エフェクト以外の部分も resolution-independent にする必要があります" (Transform / Pen / Shape / direct `GraphicsContext2D` draw calls also need to be resolution-independent for the proxy-preview vs. export match to hold end-to-end).
 
 ## Clarifications
 
@@ -18,29 +18,43 @@
 - Q: What is the acceptance metric for "visually equivalent" between proxy (upscaled) and export? → A: SSIM ≥ 0.97 per scene on the test corpus, computed after upscaling the proxy frame to export size with bicubic resampling. The same metric and threshold also gate the legacy-vs-new comparison.
 - Q: How are proxy resolutions handled when they would otherwise be a non-uniform scale of the export resolution? → A: Proxy must be a uniform scale of export. Requests that would result in a non-uniform ratio are snapped to the nearest uniform scale (with the chosen ratio observable to the user). Non-square-pixel handling is explicitly out of scope.
 
+### Session 2026-05-21 (scope expansion)
+
+- Q: Does the scope include non-FilterEffect pixel-absolute rendering primitives — `Transform` translations, `Pen.Thickness`, `Shape.Width/Height`, direct `GraphicsContext2D.DrawRectangle / PushTransform / PushClip` calls? → A: **Yes — they must all be resolution-independent for proxy preview vs. export to actually match end-to-end.** The same helper-internal-scaling design pattern applies: every API entry point that accepts a length-typed argument scales internally by the context's `RenderScale`, paired with a `*Raw` opt-out twin. `Pen.Thickness` is scaled at Pen materialization / consumption; `Transform.CreateMatrix` scales its translation component; `GraphicsContext2D` direct-draw and `Push*` helpers scale Rect / Matrix arguments. `Shape` subclasses (`RectShape`, `EllipseShape`, `RoundedRectShape`) benefit automatically because they call `DrawRectangle` / `DrawEllipse` internally.
+- Q: Which surfaces remain out of scope for this PR? → A: **`Geometry` path coordinates**, **`TextBlock.Size` / `Spacing` (text typeface materialization)**, **`Brush` rectangles (TileBrush, ImageBrush SourceRect/DestinationRect)** — these have larger materialization paths or touch typography rendering. Tracked as follow-ups in `data-model.md` § "Deferred follow-ups".
+
 ## Background
 
-Several built-in filter effects in Beutl express their parameters as **absolute pixel values** — most notably blur sigma, drop-shadow position and sigma, stroke offset and width, dilate/erode radius, and any effect whose size is measured in raster pixels. Beutl supports working at a lower-resolution **proxy preview** during editing (for performance) and rendering the final output at the project's full export resolution.
+A wide range of rendering primitives in Beutl express their parameters as **absolute pixel values**:
 
-Today, a parameter such as "blur sigma = 20 px" is interpreted *literally* against whatever raster the renderer is currently writing into. The proxy preview is a smaller raster than the export raster, so the same project file produces visibly different output between the two: a blur that looks subtle on the proxy becomes a soft haze in the export, a 4 px stroke shrinks to a thin line on the proxy, etc. Users currently have no reliable way to author and check work on the proxy and trust that the export will match.
+- Filter effects — blur sigma, drop-shadow position and sigma, stroke offset, dilate / erode radius, etc.
+- Transforms — `TranslateTransform.X / Y`, `Rotation3DTransform.Center*` and `Depth`, the translation component of `MatrixTransform`.
+- Pens — `Pen.Thickness`, `Pen.DashOffset`, `Pen.Offset` flow into Skia stroke parameters.
+- Shapes — `RectShape.Width / Height`, `EllipseShape.Width / Height`, `RoundedRectShape.Width / Height / Smoothing / CornerRadius`.
+- Direct `GraphicsContext2D` API — `DrawRectangle(Rect)`, `DrawEllipse(Rect)`, `PushTransform(Matrix)`, `PushClip(Rect)`, `PushLayer(Rect)`, `PushOpacityMask(..., Rect)`.
 
-This feature makes the pixel-absolute parameters of built-in filter effects **resolution-independent**, so that the *visual* result of a project at proxy resolution and at export resolution is the same up to sampling differences.
+Beutl supports working at a lower-resolution **proxy preview** during editing (for performance) and rendering the final output at the project's full export resolution.
+
+Today, every one of those length-typed values is interpreted *literally* against whatever raster the renderer is currently writing into. The proxy preview is a smaller raster than the export raster, so the same project file produces visibly different output between the two: a blur that looks subtle on the proxy becomes a soft haze in the export; a 4 px stroke shrinks to a hairline; a rectangle drawn at "200 px wide" stays the same nominal width in raster pixels even as the surrounding picture shrinks. Users currently have no reliable way to author and check work on the proxy and trust that the export will match.
+
+This feature makes every in-scope pixel-absolute parameter **resolution-independent**, so that the *visual* result of a project at proxy resolution and at export resolution is the same up to sampling differences. The mechanism is uniform: every API entry point that accepts a length-typed argument multiplies by the current `RenderScale` before forwarding to the rasterizer; a `*Raw` twin of each such entry point provides an explicit opt-out for the niche case where raw-raster pixel semantics are desired.
 
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Proxy preview visually matches export (Priority: P1)
 
-A user edits a project at a reduced proxy resolution (for example, a 1920×1080 project previewed at 480×270 to keep playback smooth) and adjusts blur, drop-shadow, and stroke effects until the look is right. They then export at full resolution. The exported video has the same visual character — blur softness, shadow spread, stroke thickness, dilation amount — as what they saw in the preview, just sharper because of the higher pixel count.
+A user edits a project at a reduced proxy resolution (for example, a 1920×1080 project previewed at 480×270 to keep playback smooth) and composes their scene — blur and drop-shadow effects, translation transforms, stroked shapes drawn through `RectShape` / `EllipseShape`, dynamic `PushClip` regions — until the look is right. They then export at full resolution. The exported video has the same visual character — blur softness, shadow spread, stroke thickness, transform offsets, shape sizes, clip regions — as what they saw in the preview, just sharper because of the higher pixel count.
 
-**Why this priority**: This is the entire reason the feature exists. Without it, every user who relies on proxy preview discovers their export looks different and either gives up on proxy or wastes time re-rendering at full resolution to verify. Fixing this unlocks the proxy workflow.
+**Why this priority**: This is the entire reason the feature exists. Without it, every user who relies on proxy preview discovers their export looks different and either gives up on proxy or wastes time re-rendering at full resolution to verify. Fixing this unlocks the proxy workflow end-to-end — not just for effects but for the whole rendering pipeline.
 
-**Independent Test**: Take a single project containing each affected effect, render it once at proxy resolution and once at export resolution, scale the proxy frame up to export size with simple resampling, and compare side-by-side. The two should agree on the qualitative look (same softness, same shadow shape, same stroke proportion) — not pixel-identical, but visually equivalent.
+**Independent Test**: Take a single project containing each affected primitive (effects, transforms, pens, shapes, direct `GraphicsContext2D` calls), render it once at proxy resolution and once at export resolution, scale the proxy frame up to export size with simple resampling, and compare side-by-side. The two should agree on the qualitative look — not pixel-identical, but visually equivalent.
 
 **Acceptance Scenarios**:
 
 1. **Given** a project with a Blur effect of a specific strength applied to a graphic, **When** the user renders it at 1/4 proxy resolution and at full export resolution, **Then** the perceived blur softness is the same in both outputs (after scaling the proxy up for comparison).
 2. **Given** a project with a DropShadow effect, **When** the user renders at proxy and at export, **Then** the shadow's offset, blur, and color shape match between the two outputs in relative terms.
-3. **Given** a project with a StrokeEffect, **When** the user renders at proxy and at export, **Then** the stroke covers the same proportion of the underlying shape at both resolutions.
+3. **Given** a project with a `TranslateTransform` of `(X = 100, Y = 50)` applied to a `RectShape` of `(Width = 200, Height = 100)` stroked with a `Pen` of `Thickness = 4`, **When** the user renders at 1/4 proxy and at export, **Then** the rectangle's position relative to the frame, its size relative to the frame, and the stroke's thickness as a fraction of the rectangle all match across the two outputs.
+4. **Given** a project that pushes a `PushClip(Rect)` region and draws inside it, **When** rendered at proxy and at export, **Then** the clip region covers the same proportion of the frame at both resolutions.
 
 ---
 
@@ -81,21 +95,33 @@ A user duplicates a 1920×1080 project as a 3840×2160 master version. They expe
 - **Composed / nested effects**: Effects applied inside a nested scene, layer effect, or container must be evaluated against the appropriate reference frame, not the outer raster, so that a nested composition keeps its intended look when the outer raster is at a different resolution.
 - **3D / Graphics3D content**: The 3D pipeline already renders into a target framebuffer at whatever size the renderer chose; any 2D filter effects applied to 3D output must follow the same resolution-independent rule. Verified by `tests/Beutl.Graphics3DTests/FilterEffects/Render3DWithFilterResolutionTests.cs` (see tasks T038a).
 - **Plugin / user-authored effects**: Third-party effects (`CSharpScriptEffect`, `GLSLScriptEffect`, custom `FilterEffect` subclasses) cannot be automatically migrated; the system must surface a documented contract so plugin authors know how to opt in.
-- **Sub-pixel parameters**: Effects whose authored value is below 1 px at proxy resolution (e.g. a 0.4 px stroke after scaling) must degrade gracefully — typically by clamping to the minimum the underlying rasterizer supports — without producing zero-width or invisible output.
-- **Zero / disabled effects**: A parameter of 0 must remain 0 at any resolution (no division-by-zero, no spurious minimum width).
+- **Sub-pixel parameters**: Any length whose authored value is below 1 px at proxy resolution (e.g. a 0.4 px stroke or shape edge after scaling) must degrade gracefully — typically by clamping to the minimum the underlying rasterizer supports — without producing zero-width or invisible output.
+- **Zero / disabled values**: A length of 0 must remain 0 at any resolution (no division-by-zero, no spurious minimum width).
+- **Out-of-scope surfaces (this PR)**: `Geometry` path coordinates, `TextBlock.Size / Spacing` (font and glyph metrics), and `Brush` rectangles (`TileBrush`, `ImageBrush` SourceRect / DestinationRect) remain raw-raster in this PR — see Assumptions and `data-model.md` § "Deferred follow-ups". These are tracked as separate features.
 
 ## Requirements *(mandatory)*
 
 ### Functional Requirements
 
-- **FR-001**: All built-in filter effects whose parameters are currently expressed in raster pixels MUST produce visually equivalent output regardless of the resolution of the raster they are rendered into, given the same project.
-- **FR-002**: The set of in-scope built-in effects MUST include at minimum: Blur (Sigma), DropShadow (Position, Sigma), InnerShadow, StrokeEffect (Offset, stroke width), Dilate / Erode (Radius), Border, ColorShift offsets, and any other built-in effect whose parameter has length units of pixels. The final in-scope list MUST be enumerated in the plan and matched by tests.
+- **FR-001**: All in-scope pixel-absolute rendering primitives MUST produce visually equivalent output regardless of the resolution of the raster they are rendered into, given the same project. The in-scope set covers FilterEffects, Transforms, Pens, Shapes, and direct `GraphicsContext2D` length-typed entry points (`DrawRectangle`, `DrawEllipse`, `PushTransform` translation, `PushClip`, `PushLayer`, `PushOpacityMask` bounds).
+- **FR-002**: The exact in-scope surface MUST be enumerated in `data-model.md` and each entry MUST be matched by a test. At a minimum the surface includes:
+  - **FilterEffects** — Blur, DropShadow, InnerShadow, StrokeEffect.Offset, Erode, Dilate, FlatShadow, ColorShift, DisplacementMapTransform (3 subclasses), MosaicEffect, ShakeEffect, SplitEffect, Clipping. (13 effects per T001 audit.)
+  - **Transforms** — `TranslateTransform.X / Y`, `Rotation3DTransform.CenterX / CenterY / CenterZ / Depth`, the translation column of `MatrixTransform.Matrix`. (Pure rotation, scale (%), and skew (deg) stay raw — dimensionless.)
+  - **Pen** — `Thickness`, `DashOffset`, `Offset`. (`MiterLimit` is a multiplier; `TrimStart / TrimEnd / TrimOffset` are %.)
+  - **Shapes** — `RectShape`, `EllipseShape`, `RoundedRectShape` `Width / Height / Smoothing / CornerRadius`. These flow through `DrawRectangle` / `DrawEllipse` and benefit automatically once those helpers scale.
+  - **`GraphicsContext2D` direct API** — `DrawRectangle(Rect)`, `DrawEllipse(Rect)`, `PushTransform(Matrix)` translation column, `PushTransform(Transform.Resource)` materialized matrix translation, `PushClip(Rect)`, `PushLayer(Rect)`, `PushOpacityMask(..., Rect)`.
 - **FR-003**: A project saved before this feature MUST, when opened on the new build, produce export-resolution output that is visually equivalent (SSIM ≥ 0.97 per scene against the previous build's output for the same file) without any project-file migration step. Numeric parameter values in the project file MUST NOT be rewritten on load.
 - **FR-004**: Proxy-resolution rendering of any project (legacy or new) MUST produce output visually equivalent to that project's export-resolution rendering, measured as SSIM ≥ 0.97 after upscaling the proxy frame to the export size with bicubic resampling.
 - **FR-005**: Effect parameters that carry pixel-absolute lengths MUST be interpreted as "pixels measured against the project's export resolution" at both edit time and render time. No new parameter types are introduced — existing `IProperty<Size>` / `IProperty<Point>` / `IProperty<float>` declarations on effects stay verbatim, and the property editor displays them exactly as it does today. The unit semantic is established by the `FilterEffectContext` helper contract (see FR-008): a numeric value of `N` shown in the property editor means `N` pixels in the exported frame, regardless of the resolution currently being previewed.
 - **FR-006**: The system MUST handle anisotropic parameters (2D sizes, 2D offsets) by scaling each axis independently against the corresponding axis of the reference frame.
 - **FR-007**: The system MUST scale animated parameter values (keyframes, easings) consistently with static values, so that animation timing and amplitude are preserved across resolutions.
-- **FR-008**: The system MUST apply resolution-independent scaling implicitly inside the existing `FilterEffectContext` helper methods (`Blur(Size)`, `DropShadow(Point, Size, Color)`, `InnerShadow(...)`, `Erode(float, float)`, `Dilate(float, float)`, and any other helper whose parameter has length units of pixels). Each such helper MUST multiply its length-typed argument by the context's current `RenderScale` before forwarding to the underlying rasterizer. The same system MUST also expose a `*Raw` variant of every scaled helper (e.g. `BlurRaw(Size)`, `DropShadowRaw(Point, Size, Color)`) that bypasses the scaling step, for the niche case where a plugin needs raw-raster pixel semantics. Existing effects — built-in or third-party — that call the scaled helpers automatically become resolution-independent on upgrade; no source change is required on the effect side.
+- **FR-008**: The system MUST apply resolution-independent scaling implicitly inside the existing length-taking rendering API entry points:
+  - **`FilterEffectContext` helpers** — `Blur(Size)`, `DropShadow(Point, Size, Color)`, `DropShadowOnly`, `InnerShadow`, `InnerShadowOnly`, `Erode(float, float)`, `Dilate(float, float)`, etc. Each multiplies its length argument by `this.RenderScale` before forwarding.
+  - **`GraphicsContext2D` direct helpers** — `DrawRectangle(Rect)`, `DrawEllipse(Rect)`, `PushTransform(Matrix)` (translation column), `PushClip(Rect)`, `PushLayer(Rect)`, `PushOpacityMask(..., Rect)` and `PushTransform(Transform.Resource)` (read `transform.Matrix`, scale translation column). Same multiplication rule.
+  - **`Pen` materialization** — `Pen.Resource.Thickness`, `DashOffset`, `Offset` are scaled at materialization time (or, equivalently, at every consumption site via a shared helper). `MiterLimit`, `TrimStart`, `TrimEnd`, `TrimOffset` stay raw.
+  - **`Transform.CreateMatrix`** — for `TranslateTransform`, `Rotation3DTransform`, and `MatrixTransform`, the translation component of the produced `Matrix` is multiplied by the composition context's `RenderScale`. Pure rotation / scale (%) / skew (deg) classes are unchanged.
+
+  The same system MUST also expose a `*Raw` variant of every scaled API entry point (e.g. `BlurRaw(Size)`, `DrawRectangleRaw(Rect)`, `PushTransformRaw(Matrix)`, `PushClipRaw(Rect)`) that bypasses the scaling step, for the niche case where a caller needs raw-raster pixel semantics. Existing effects, drawables, transforms, and pens — built-in or third-party — that call the scaled API automatically become resolution-independent on upgrade; no source change is required on the caller side.
 - **FR-009**: For sub-pixel and zero-valued cases, the system MUST degrade gracefully (clamp to the rasterizer's minimum, preserve zero exactly) without producing invisible or unbounded output.
 - **FR-010**: For nested compositions (scene-within-scene, layer effects), pixel-absolute parameters MUST resolve against the **innermost containing scene's own configured frame size**, not the outer raster. The outer project then composes/scales the sub-scene's result like any other source, so a sub-scene's internal look is preserved when reused in a different outer resolution.
 - **FR-011**: Existing automated tests covering these effects MUST continue to pass, and new tests MUST cover the proxy-vs-export visual-equivalence acceptance criterion and the legacy-file equivalence criterion (FR-003, FR-004).
@@ -125,4 +151,5 @@ A user duplicates a 1920×1080 project as a 3840×2160 master version. They expe
 - The previous-version visual baseline used by FR-003 is captured before this change ships, so that comparisons are against the actual prior behavior rather than a written description of it.
 - Effects whose parameters are *already* dimensionless (color, opacity, blend mode, boolean toggles, etc.) are out of scope and continue to behave exactly as before.
 - 3D-specific parameters (camera, lighting, geometry units in `Beutl.Graphics3D`) are out of scope; only 2D filter effects applied to the 3D output are in scope.
-- Third-party plugins shipped today are not silently rewritten; they keep their current behavior until they explicitly adopt the new contract (FR-008). Documenting and announcing the migration path is part of this feature; rewriting other people's code is not.
+- Third-party plugins shipped today are not silently rewritten; they automatically benefit from helper-internal scaling without source change. Plugins that need to opt out use the `*Raw` variant of the helper (one method-name suffix change per call site).
+- **Out-of-scope surfaces** explicitly deferred to follow-up PRs: `Geometry` path coordinates (touches `Geometry.Resource` and Skia path materialization), `TextBlock.Size / Spacing` (touches typeface materialization and glyph layout), and pixel-absolute `Brush` rectangles (`TileBrush`, `ImageBrush.SourceRect / DestinationRect`).

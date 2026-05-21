@@ -159,12 +159,61 @@ Mirror the `SceneDrawable` pattern when activating its sub-graph.
 
 > **Design pivot**: Not applicable. With no new wrapper types, no new editor registrations are needed. The existing `typeof(float)` / `typeof(Point)` / `typeof(Size)` editor entries in `src/Beutl/Services/PropertyEditorService.cs` keep handling the unchanged property types. **No source change** in `src/Beutl/Services/` or `src/Beutl/ViewModels/Editors/`.
 
-### Deferred follow-ups discovered by the audit
+## In-scope non-effect surfaces (scope expansion 2026-05-21)
 
-- **`Beutl.Graphics.Transformation.*` (e.g. `TranslateTransform`, `RotateTransform`, `ScaleTransform`)**: same helper-internal-scaling treatment is appropriate but the equivalent helpers (e.g. `Canvas.PushTransform`) ship with `Beutl.Graphics`-level Drawables, not just FilterEffects. Bundling here would balloon scope — track as a follow-up feature alongside `Pen.Thickness`.
-- **`Pen.Thickness`**: already deferred per research R6.
+The 2026-05-21 scope expansion (see `spec.md` § Clarifications) pulled `Transform`, `Pen`, `Shape`, and direct `GraphicsContext2D` length-typed entry points into this PR. Same helper-internal-scaling pattern as FilterEffects; same `*Raw` opt-out twin per scaled entry point. See `research.md` § R8 / R9 / R10 for the design rationale and `contracts/graphics-context-scaling.md`, `contracts/pen-scaling.md`, `contracts/transform-scaling.md` for the contracts.
 
-If a later code change introduces a new pixel-absolute parameter, it MUST be added to this table and given a test.
+### `GraphicsContext2D` direct API
+
+| Method (signature unchanged) | Length-typed argument scaled internally | `*Raw` twin | Notes |
+|---|---|---|---|
+| `DrawRectangle(Rect rect, Brush.Resource?, Pen.Resource?)` | `rect` (X, Y, Width, Height) | `DrawRectangleRaw(Rect, ...)` | `Pen.Resource.Thickness` is scaled separately at consumption — see Pen section. |
+| `DrawEllipse(Rect rect, Brush.Resource?, Pen.Resource?)` | `rect` | `DrawEllipseRaw(Rect, ...)` | Same Pen note. |
+| `PushTransform(Matrix matrix, TransformOperator)` | translation column of `matrix` (M31, M32) | `PushTransformRaw(Matrix, ...)` | Rotation / scale / skew columns of the matrix stay raw. |
+| `PushTransform(Transform.Resource transform, TransformOperator)` | translation column of `transform.Matrix` | `PushTransformRaw(Transform.Resource, ...)` | The `Transform` itself already scaled at `CreateMatrix` time per R10; this push site does NOT re-scale (would double-scale). The `*Raw` twin reads the resource's matrix verbatim. |
+| `PushClip(Rect clip, ClipOperation)` | `clip` | `PushClipRaw(Rect, ...)` | — |
+| `PushLayer(Rect limit)` | `limit` | `PushLayerRaw(Rect)` | — |
+| `PushOpacityMask(Brush.Resource mask, Rect bounds, bool invert)` | `bounds` | `PushOpacityMaskRaw(Brush.Resource, Rect, bool)` | The brush's interior coordinates are out of scope (deferred follow-up). |
+| `DrawImageSource(...)`, `DrawVideoSource(...)` | n/a — source intrinsic size; layout uses the surrounding transform stack | — | No direct scaling needed; the surrounding `PushTransform` carries the scale. |
+| `DrawGeometry(Geometry.Resource, ...)`, `PushClip(Geometry.Resource, ...)` | n/a in this PR — Geometry coordinates are deferred (see "Deferred follow-ups"). | — | Geometry consumers stay raw-raster in this PR; tracked as a follow-up. |
+| `DrawText(FormattedText, ...)` | n/a in this PR — text typeface materialization deferred. | — | Tracked as a follow-up. |
+
+### `Pen` — `src/Beutl.Engine/Media/Pen.cs` and consumers
+
+| Property | Scaling | Consumer files updated |
+|---|---|---|
+| `Pen.Thickness: IProperty<float>` | scaled by `RenderScale` (uniform) at every consumption site via `PenHelper.GetScaledThickness(pen, scale)` | `src/Beutl.Engine/Graphics/ImmediateCanvas.cs`, `src/Beutl.Engine/Graphics/Shapes/Shape.cs`, `src/Beutl.Engine/Graphics/Rendering/PenHelper.cs`, `src/Beutl.Engine/Graphics/FilterEffects/StrokeEffect.cs`. The IProperty stays raw — `Pen.Resource.Thickness` continues to hold the user-authored value; the scaling helper reads it on demand. |
+| `Pen.DashOffset: IProperty<float>` | scaled by uniform `RenderScale` via `PenHelper.GetScaledDashOffset(pen, scale)` | Same set of files. |
+| `Pen.Offset: IProperty<float>` | scaled by uniform `RenderScale` via `PenHelper.GetScaledOffset(pen, scale)` | Same set of files. |
+| `Pen.MiterLimit: IProperty<float>` | NOT scaled — multiplier, dimensionless | — |
+| `Pen.TrimStart / TrimEnd / TrimOffset: IProperty<float>` | NOT scaled — percentages (0..100) | — |
+
+Opt-out: callers that want raw-raster thickness call `pen.Thickness` directly (the underlying property) rather than via `PenHelper.GetScaledThickness(...)`. Documented on `Pen.Resource.Thickness` XML doc.
+
+### `Transform` — `src/Beutl.Engine/Graphics/Transformation/`
+
+| Transform subclass | Scaling at `CreateMatrix(CompositionContext)` | Notes |
+|---|---|---|
+| `TranslateTransform` | `Matrix.CreateTranslation(X * scale.ScaleX, Y * scale.ScaleY)` | Was: `Matrix.CreateTranslation(X, Y)`. |
+| `Rotation3DTransform` | scale `CenterX / CenterY / CenterZ` and `Depth` by the appropriate axis of `scale` before constructing the perspective matrix | `RotationX / RotationY / RotationZ` are degrees — unchanged. |
+| `MatrixTransform` | scale the matrix's translation column (M31, M32) by `scale.ScaleX` and `scale.ScaleY` respectively | Rotation / scale / skew columns unchanged. |
+| `RotationTransform`, `ScaleTransform`, `SkewTransform` | no translation component — unchanged | Pure dimensionless. |
+| `TransformPresenter` | wraps a `Transform?` — delegates | — |
+
+`CompositionContext` gains a `RenderScale RenderScale { get; }` property, sourced from the active Scene's `(FrameSize, ReferenceFrame)` pair. This is the only `CompositionContext` change. See `contracts/transform-scaling.md`.
+
+### `Shape` — `src/Beutl.Engine/Graphics/Shapes/`
+
+No source change to `Shape.cs`, `RectShape.cs`, `EllipseShape.cs`, `RoundedRectShape.cs`. They call `context.DrawRectangle` / `DrawEllipse` internally and benefit automatically once those scale (above). `Shape.GetRealThickness` updates to use `PenHelper.GetScaledThickness` (one line). `TextBlock.cs` stays unchanged (font-size scaling is deferred — see follow-ups).
+
+### Deferred follow-ups (out of this PR)
+
+- **`Geometry` path coordinates** — `Geometry.Resource` carries path data in raw-raster pixels; `DrawGeometry(Geometry.Resource)` and `PushClip(Geometry.Resource)` in the table above stay raw-raster. Scaling geometry paths requires either rewriting the underlying `SKPath` at materialization (expensive) or wrapping every Geometry consumer in an implicit `PushTransform(scale)` (subtle interaction with explicit transforms). Tracked as a separate follow-up feature.
+- **`TextBlock.Size / Spacing`** — font size and inter-glyph spacing pass through typeface materialization, which has its own DPI / hinting / subpixel-positioning interaction. Tracked as a separate follow-up feature.
+- **`Brush` pixel rectangles** — `TileBrush` source rect, `ImageBrush.SourceRect / DestinationRect`. These flow through `Brush.Resource` materialization. Tracked as a separate follow-up feature.
+- **`Pen.Thickness` raw at non-rendering call sites** — bounding-box calculation paths that read `pen.Thickness` directly without going through `PenHelper.GetScaledThickness`. Audit during implementation; document each retained-raw call site explicitly.
+
+If a later code change introduces a new pixel-absolute parameter, it MUST be added to one of the tables above (or to a new follow-up entry) and given a test.
 
 ## Serialization
 

@@ -1,19 +1,19 @@
 ---
 
-description: "Task list for Resolution-Independent Pixel-Absolute Effects"
+description: "Task list for Resolution-Independent Pixel-Absolute Rendering"
 ---
 
-# Tasks: Resolution-Independent Pixel-Absolute Effects
+# Tasks: Resolution-Independent Pixel-Absolute Rendering
 
 **Input**: Design documents from `docs/specs/003-resolution-independent-effects/`
 
-**Prerequisites**: `plan.md`, `spec.md`, `research.md`, `data-model.md`, `contracts/effect-helper-scaling.md`, `contracts/render-scale.md`, `quickstart.md`
+**Prerequisites**: `plan.md`, `spec.md`, `research.md`, `data-model.md`, `contracts/effect-helper-scaling.md`, `contracts/graphics-context-scaling.md`, `contracts/pen-scaling.md`, `contracts/transform-scaling.md`, `contracts/render-scale.md`, `quickstart.md`
 
-**Tests**: Tests are REQUIRED (Constitution III, FR-011). Every implementation task is paired with a test task that MUST be written first and fail before the implementation lands.
+**Tests**: Tests are REQUIRED (Constitution III, FR-011). Every implementation task is paired with a test task written first.
 
 **Organization**: Tasks are grouped by user story. US1 + US2 are both P1; US3 is P2.
 
-> **Design pivot (after T001 audit)**: Earlier drafts of `tasks.md` (committed history `1b7e32fe1` and prior) contained ~62 tasks built around three new wrapper structs (`PixelLength` / `PixelExtent` / `PixelOffset`), 3 animators, 3 property editors, and per-effect property-type migrations across 13 effects. **That entire approach has been replaced.** The current design applies scaling inside the existing `FilterEffectContext` helper methods, with `*Raw` twins as an opt-out — no new wrapper types, no per-effect property migration, no property-editor work. The task list below is renumbered (T001..T036) to reflect the simpler design; see `research.md` § R2 for the rationale.
+> **History**: Original draft (`2ad7bb5ae`, 57 tasks) was wrapper-type design. First pivot (`1b7e32fe1`, 62 → 36 tasks) moved to helper-internal scaling on `FilterEffectContext`. Second expansion (this commit) broadens scope to `GraphicsContext2D` / `Pen` / `Transform` / `Shape` per `spec.md` § Clarifications 2026-05-21 and `research.md` § R8 / R9 / R10. Net: ~48 tasks.
 
 ## Format: `[ID] [P?] [Story] Description`
 
@@ -29,122 +29,121 @@ Engine code under `src/Beutl.Engine/`; project-system under `src/Beutl.ProjectSy
 
 ## Phase 1: Setup
 
-- [X] T001 Walk `src/Beutl.Engine/Graphics/FilterEffects/` end-to-end and reconcile the in-scope effect list in `data-model.md` against the actual code. **Done** — see `data-model.md` § "In-scope built-in effects (no source migration; helper contract suffices)". Net: 13 effects benefit automatically; 0 source modifications under FilterEffects/; under the new design no property-editor work is required.
+- [X] T001 Walk `src/Beutl.Engine/Graphics/FilterEffects/` end-to-end and reconcile the in-scope effect list in `data-model.md`. **Done** — see `data-model.md` § "In-scope built-in effects". 13 effects; 0 effect-source modifications.
 
 ---
 
 ## Phase 2: Foundational (Blocking Prerequisites)
 
-**Purpose**: The new `RenderScale` value type + reference-frame plumbing + the modified `FilterEffectContext` (scaled helpers + `*Raw` twins) + test infrastructure. Every Phase 3+ task depends on these.
+**Purpose**: New `RenderScale` value type + reference-frame plumbing + modified `FilterEffectContext` (scaled helpers + `*Raw` twins) + modified `GraphicsContext2D` (scaled helpers + `*Raw` twins) + Pen scaling helpers + Transform `CreateMatrix` scaling + `CompositionContext.RenderScale` plumbing + test infrastructure.
 
 **⚠️ CRITICAL**: No user-story work begins until Phase 2 is complete.
 
-### Core types and plumbing
+### Block A — Core types and reference-frame plumbing
 
-- [ ] T002 Add `RenderScale` struct in `src/Beutl.Engine/Graphics/Rendering/RenderScale.cs` per `contracts/render-scale.md` (constructor validation — `ScaleX > 0`, `ScaleY > 0`, both finite; `Identity`; `FromFrames(renderTarget, referenceFrame)` **with uniform-scale enforcement (throw `ArgumentException` when `|sx − sy| > 1e-3 * max(sx, sy)`)**; `ApplyX / Y / Uniform`; `Apply(Size)`; `Apply(Point)`; `IEquatable<RenderScale>`).
-- [ ] T003 Add `ReferenceFrame` to `IRenderer` (with a default-interface implementation returning `FrameSize`) in `src/Beutl.Engine/Graphics/Rendering/IRenderer.cs`. Add `Renderer(int width, int height, PixelSize referenceFrame)` overload in `src/Beutl.Engine/Graphics/Rendering/Renderer.cs`; keep existing constructor with `ReferenceFrame == FrameSize`.
-- [ ] T004 Add `(ReferenceFrame, RenderScale)` stack + `PushReferenceFrame(PixelSize)` to `src/Beutl.Engine/Graphics/Rendering/GraphicsContext2D.cs`, initialized from the constructing `Renderer`'s pair. Expose `ReferenceFrame` and `RenderScale` as read-only properties returning the top of the stack.
-- [ ] T005 Snapshot `(ReferenceFrame, RenderScale)` into `FilterEffectContext` at construction in `src/Beutl.Engine/Graphics/FilterEffects/FilterEffectContext.cs`; expose as `RenderScale` / `ReferenceFrame` read-only properties. Update `FilterEffectContext(Rect bounds)` and `Clone()` to carry the values forward (snapshot is immutable for the lifetime of the context).
-- [ ] T006 **Modify every length-taking helper on `FilterEffectContext`** (`src/Beutl.Engine/Graphics/FilterEffects/FilterEffectContext.cs`) so each multiplies its length-typed argument by `this.RenderScale` before forwarding to the existing Skia / `EffectActivator` path. In-scope helpers (per `contracts/effect-helper-scaling.md`): `Blur(Size)`, `DropShadow(Point, Size, Color)`, `DropShadowOnly(Point, Size, Color)`, `InnerShadow(Point, Size, Color)`, `InnerShadowOnly(Point, Size, Color)`, `Erode(float, float)`, `Dilate(float, float)`. **Signatures do not change** — call sites in `Blur.cs` / `DropShadow.cs` / `InnerShadow.cs` / `Erode.cs` / `Dilate.cs` etc. stay byte-identical. Each helper also guards against `NaN` (`ArgumentException`) and against negative lengths where negative is nonsensical (`ArgumentOutOfRangeException`).
-- [ ] T007 In the same file, **add a `*Raw` twin** for every helper modified in T006: `BlurRaw(Size)`, `DropShadowRaw(Point, Size, Color)`, `DropShadowOnlyRaw(Point, Size, Color)`, `InnerShadowRaw(Point, Size, Color)`, `InnerShadowOnlyRaw(Point, Size, Color)`, `ErodeRaw(float, float)`, `DilateRaw(float, float)`. `*Raw` variants forward verbatim without multiplying by `RenderScale`. They share the same `NaN` guard but skip the negative-length guard (Raw is opt-out and means "I know what I'm doing"). XML doc on every `*Raw` member explains the opt-out semantic and references `contracts/effect-helper-scaling.md`.
-- [ ] T008 In `src/Beutl.ProjectSystem/ProjectSystem/SceneDrawable.cs`, wrap the inner draw of `Render` in `using (context.PushReferenceFrame(r.ReferencedScene.FrameSize))` so nested scenes resolve against their own frame (FR-010).
-- [ ] T009 In `src/Beutl.Engine/Graphics/FilterEffects/LayerEffect.cs` (and any other container that materializes a sub-raster), push the inner reference frame before activating the sub-pipeline. Document the rule in inline XML doc on `GraphicsContext2D.PushReferenceFrame`.
+- [ ] T002 Add `RenderScale` struct in `src/Beutl.Engine/Graphics/Rendering/RenderScale.cs` per `contracts/render-scale.md` (constructor validation; `Identity`; `FromFrames` with uniform-scale enforcement `|sx − sy| ≤ 1e-3 * max(sx, sy)`; `ApplyX / Y / Uniform`; `Apply(Size)`; `Apply(Point)`; `IEquatable<RenderScale>`).
+- [ ] T003 Add `ReferenceFrame` to `IRenderer` (default-interface returns `FrameSize`) in `IRenderer.cs`. Add `Renderer(int, int, PixelSize referenceFrame)` overload in `Renderer.cs`.
+- [ ] T004 Add `(ReferenceFrame, RenderScale)` stack + `PushReferenceFrame(PixelSize)` to `GraphicsContext2D.cs`, initialized from the constructing `Renderer`'s pair.
+- [ ] T005 In `src/Beutl.ProjectSystem/ProjectSystem/SceneDrawable.cs`, wrap inner `Render` draw in `using (context.PushReferenceFrame(r.ReferencedScene.FrameSize))` (FR-010).
+- [ ] T006 In `src/Beutl.Engine/Graphics/FilterEffects/LayerEffect.cs`, push the inner reference frame before activating the sub-pipeline. Document the rule on `GraphicsContext2D.PushReferenceFrame` XML doc.
 
-### Foundational tests (TDD — write before the implementation in T002–T009)
+### Block B — `FilterEffectContext` scaling
 
-- [ ] T010 [P] Tests for `RenderScale` in `tests/Beutl.UnitTests/Engine/Graphics/Rendering/RenderScaleTests.cs`: `Identity`, `FromFrames` happy path, `Apply*` per axis, equality, NaN / zero / negative rejection in constructor, and **`FromFrames` rejects non-uniform per-axis ratios** (e.g. `FromFrames(480×270, 1920×1081)` throws `ArgumentException`) while accepting off-by-one rounding within the 1e-3 tolerance.
-- [ ] T011 [P] Reference-frame propagation tests in `tests/Beutl.UnitTests/Engine/Graphics/Rendering/ReferenceFramePropagationTests.cs`: `PushReferenceFrame` stack discipline (push/pop nesting), `FilterEffectContext` snapshot does not observe later pushes, `SceneDrawable` nested-scene rule (FR-010) by constructing a sub-scene of a different size and asserting an effect inside sees the inner frame.
-- [ ] T012 [P] **`FilterEffectContext` scaling tests** in `tests/Beutl.UnitTests/Engine/Graphics/FilterEffects/FilterEffectContextScalingTests.cs`. For each scaled helper (`Blur`, `DropShadow(Only)`, `InnerShadow(Only)`, `Erode`, `Dilate`):
-  - With `RenderScale.Identity`, the helper produces the same Skia filter as the pre-feature implementation (bit-identical SHA of the filter blob, or — pragmatically — same rendered output on a small fixture).
-  - With a 0.25 / 4.0 non-identity scale, the helper produces a Skia filter whose effective length argument equals `input * scale`.
-  - The `*Raw` twin always produces the pre-feature filter regardless of `RenderScale` (proves the bypass).
-  - Zero passes through exactly (`0 * scale == 0`).
-  - Sub-pixel positive (`0 < scaled < 1`) is forwarded, not clamped to zero.
-  - `NaN` input throws `ArgumentException`.
-  - Negative length on scaled `Blur` / `Erode` / `Dilate` throws `ArgumentOutOfRangeException`; the corresponding `*Raw` variant does NOT (Raw is opt-out).
-  - Negative length on `DropShadow.Position` (offset, not length) passes through for both scaled and raw paths.
+- [ ] T007 Snapshot `(ReferenceFrame, RenderScale)` into `FilterEffectContext` at construction. Update `FilterEffectContext(Rect bounds)` and `Clone()` to carry the values.
+- [ ] T008 **Modify every length-taking helper on `FilterEffectContext`** (`Blur(Size)`, `DropShadow(Point, Size, Color)`, `DropShadowOnly`, `InnerShadow`, `InnerShadowOnly`, `Erode(float, float)`, `Dilate(float, float)`) to multiply by `this.RenderScale` before forwarding. Signatures unchanged. Add `NaN` / negative-length guards.
+- [ ] T009 Add `*Raw` twin for every helper modified in T008 (`BlurRaw`, `DropShadowRaw`, `DropShadowOnlyRaw`, `InnerShadowRaw`, `InnerShadowOnlyRaw`, `ErodeRaw`, `DilateRaw`). XML doc on each references `contracts/effect-helper-scaling.md`.
 
-### Test infrastructure (shared by Phases 3 / 4 / 5)
+### Block C — `GraphicsContext2D` direct-helper scaling
 
-- [ ] T013 [P] Add SSIM helper in `tests/Beutl.UnitTests/Engine/Graphics/Testing/SsimHelper.cs` (`float Compute(SKBitmap a, SKBitmap b)`). Self-contained reference implementation, no model dependency.
-- [ ] T014 [P] Add bicubic upscale helper in `tests/Beutl.UnitTests/Engine/Graphics/Testing/BicubicResampler.cs` (`SKBitmap UpscaleTo(SKBitmap src, SKSizeI target)`).
-- [ ] T015 Add `ResolutionTestHarness` in `tests/Beutl.UnitTests/Engine/Graphics/Testing/ResolutionTestHarness.cs` exposing `Render(Scene scene, PixelSize renderSize)` that constructs a `Renderer` with the given size and `referenceFrame = scene.FrameSize`. Include a fixture loader for JSON scene files under `tests/Beutl.UnitTests/Engine/Graphics/Fixtures/ResolutionIndependence/`.
+- [ ] T010 **Modify every length-taking helper on `GraphicsContext2D`** (`DrawRectangle(Rect)`, `DrawEllipse(Rect)`, `PushTransform(Matrix)`, `PushClip(Rect)`, `PushLayer(Rect)`, `PushOpacityMask(..., Rect, ...)`) to multiply Rect / Matrix-translation by `this.RenderScale` before forwarding. Signatures unchanged. `PushTransform(Transform.Resource)` reads `transform.Matrix` **verbatim** — the Transform already scaled at `CreateMatrix` time per T015–T017 (see `contracts/graphics-context-scaling.md` "no re-scaling" note).
+- [ ] T011 Add `*Raw` twin for every helper modified in T010 (`DrawRectangleRaw`, `DrawEllipseRaw`, `PushTransformRaw(Matrix)`, `PushTransformRaw(Transform.Resource)`, `PushClipRaw(Rect)`, `PushLayerRaw(Rect)`, `PushOpacityMaskRaw`). XML doc on each references `contracts/graphics-context-scaling.md`.
 
-**Checkpoint**: Foundation is ready. The new scaling is functional but unused (today every renderer is `RenderScale.Identity`, so behavior is byte-identical to before).
+### Block D — `Pen` scaling
+
+- [ ] T012 Add `PenHelper.GetScaledThickness(pen, scale)`, `GetScaledDashOffset(pen, scale)`, `GetScaledOffset(pen, scale)`, `GetScaledRealThickness(alignment, pen, scale)` to `src/Beutl.Engine/Graphics/Rendering/PenHelper.cs` per `contracts/pen-scaling.md`. Existing `GetRealThickness` and `GetBounds` stay (used by non-rendering callers).
+- [ ] T013 Update consumption sites to use the scaled helpers: `src/Beutl.Engine/Graphics/ImmediateCanvas.cs` (5 reads of `pen.Thickness` in rendering paths), `src/Beutl.Engine/Graphics/Shapes/Shape.cs` (`GetRealThickness` → `GetScaledRealThickness`), `src/Beutl.Engine/Graphics/FilterEffects/StrokeEffect.cs` (thickness read for Skia stroke). Each site uses the `RenderScale` from the surrounding `GraphicsContext2D` / `FilterEffectContext` snapshot.
+- [ ] T014 Leave `pen.Thickness` raw at non-rendering call sites (e.g. `PenHelper.GetBounds(rect, pen)`) — bounds calculation lives in project space, not render space. Document the kept-raw call sites in `contracts/pen-scaling.md`.
+
+### Block E — `Transform.CreateMatrix` scaling + `CompositionContext` plumbing
+
+- [ ] T015 Add `RenderScale RenderScale { get; }` to `CompositionContext` (`src/Beutl.Engine/Graphics/Effects/CompositionContext.cs` or wherever the type lives). Source from the active scene's `(FrameSize, ReferenceFrame)` pair. Plumb via `SceneCompositor` / `SceneRenderer` so a top-level scene gets `Identity` (today's behavior) and nested scenes / `LayerEffect` carry their own scale.
+- [ ] T016 Modify `TranslateTransform.CreateMatrix(CompositionContext)` to scale `X * context.RenderScale.ScaleX`, `Y * context.RenderScale.ScaleY` before constructing the translation matrix.
+- [ ] T017 Modify `Rotation3DTransform.CreateMatrix(CompositionContext)` to scale `CenterX / CenterY / CenterZ / Depth` by the appropriate axis of `context.RenderScale` (rotation angles unchanged).
+- [ ] T018 Modify `MatrixTransform.CreateMatrix(CompositionContext)` to scale the translation column (`M31 * ScaleX`, `M32 * ScaleY`) of the materialized matrix (other columns unchanged).
+
+### Block F — Foundational tests (TDD — write before Block B–E implementation)
+
+- [ ] T019 [P] `RenderScaleTests.cs` in `tests/Beutl.UnitTests/Engine/Graphics/Rendering/`: `Identity`, `FromFrames` happy path, `Apply*`, equality, NaN / zero / negative rejection, `FromFrames` rejects non-uniform per-axis ratios within / outside the 1e-3 tolerance.
+- [ ] T020 [P] `ReferenceFramePropagationTests.cs` in `tests/Beutl.UnitTests/Engine/Graphics/Rendering/`: stack discipline, `FilterEffectContext` / `GraphicsContext2D` snapshot semantics, `SceneDrawable` nested-scene rule.
+- [ ] T021 [P] `FilterEffectContextScalingTests.cs` in `tests/Beutl.UnitTests/Engine/Graphics/FilterEffects/`: for each scaled helper — Identity = pre-feature; non-identity = scaled; `*Raw` bypasses; zero passes through; sub-pixel passes through; NaN throws; negative-length on Blur/Erode/Dilate throws (scaled), `*Raw` does not.
+- [ ] T022 [P] `GraphicsContext2DScalingTests.cs` in `tests/Beutl.UnitTests/Engine/Graphics/Rendering/`: for each scaled helper — Identity = pre-feature; non-identity Rect is per-axis scaled (X, Y, Width, Height); Matrix translation column scaled, other columns unchanged; `*Raw` bypasses; `PushTransform(Transform.Resource)` does NOT re-scale (since Transform already scaled at materialization).
+- [ ] T023 [P] `PenScalingTests.cs` in `tests/Beutl.UnitTests/Engine/Graphics/Rendering/`: `PenHelper.GetScaledThickness(pen, scale)` returns `pen.Thickness * scale.ApplyUniform(1)`; same for DashOffset / Offset; `GetScaledRealThickness` combines alignment + scale; raw `pen.Thickness` read is unchanged.
+- [ ] T024 [P] `TransformScalingTests.cs` in `tests/Beutl.UnitTests/Engine/Graphics/Transformation/`: `TranslateTransform.CreateMatrix(ctx)` translation = `(X * ctx.RenderScale.ScaleX, Y * ctx.RenderScale.ScaleY)`; `Rotation3DTransform.CreateMatrix` Center scaled; `MatrixTransform.CreateMatrix` translation column scaled (rotation / scale / skew columns untouched); pure-rotation / pure-scale / pure-skew transforms unchanged.
+
+### Block G — Test infrastructure (shared by Phases 3 / 4 / 5)
+
+- [ ] T025 [P] SSIM helper in `tests/Beutl.UnitTests/Engine/Graphics/Testing/SsimHelper.cs`.
+- [ ] T026 [P] Bicubic upscale helper in `tests/Beutl.UnitTests/Engine/Graphics/Testing/BicubicResampler.cs`.
+- [ ] T027 `ResolutionTestHarness` in `tests/Beutl.UnitTests/Engine/Graphics/Testing/ResolutionTestHarness.cs` + fixture loader for `tests/Beutl.UnitTests/Engine/Graphics/Fixtures/ResolutionIndependence/`.
+
+**Checkpoint**: Foundation is ready. With `RenderScale.Identity` everywhere today, behavior is byte-identical to before.
 
 ---
 
 ## Phase 3: User Story 1 - Proxy preview visually matches export (Priority: P1) 🎯 MVP
 
-**Goal**: Demonstrate via SSIM that every in-scope built-in effect produces visually equivalent output at proxy (1/4) and at export resolution — **without modifying any effect's `.cs` file**. The scaling work landed in Phase 2 (T006); this phase only adds test fixtures + a parameterized harness to prove it.
+**Goal**: Demonstrate via SSIM that every in-scope primitive (FilterEffects, GraphicsContext2D direct draws, Pen-stroked shapes, Transforms) produces visually equivalent output at proxy (1/4) and at export resolution. **No effect / shape `.cs` files are modified** — Phase 2 changes inside the helpers do all the work.
 
-**Independent Test**: `dotnet test --filter "ResolutionEquivalenceTests|Render3DWithFilterResolutionTests"`. Every `[TestCase]` (one per in-scope effect — 13 effects per the T001 audit; the 3 `DisplacementMapTransform` subclasses count separately, so 15 fixtures total) renders at full export size and at 1/4 size via `ResolutionTestHarness`, upscales the proxy with `BicubicResampler`, and asserts SSIM ≥ 0.97.
+**Independent Test**: `dotnet test --filter "ResolutionEquivalenceTests|Render3DWithFilterResolutionTests"`. Every `[TestCase]` renders at full export size and at 1/4 size via `ResolutionTestHarness`, upscales the proxy, and asserts SSIM ≥ 0.97.
 
-- [ ] T016 [US1] Create `tests/Beutl.UnitTests/Engine/Graphics/FilterEffects/ResolutionEquivalenceTests.cs` with a parameterized test method `Effect_ProxyMatchesExport_WithinSSIMTolerance(string fixture)` per the pattern in `quickstart.md` § 2.
-- [ ] T017 [P] [US1] Add fixture JSON for each in-scope built-in effect under `tests/Beutl.UnitTests/Engine/Graphics/Fixtures/ResolutionIndependence/` and add a `[TestCase(...)]` to T016 for each:
-  - `blur-soft.json` (Blur, Sigma ≈ 20 px)
-  - `dropshadow-default.json` (DropShadow, Position ≈ (10,10), Sigma ≈ (15,15))
-  - `innershadow-default.json` (InnerShadow, mirror of dropshadow)
-  - `stroke-offset.json` (StrokeEffect, Offset ≈ (4,4); thickness is raw-pixel — known partial-coverage caveat per research R6)
-  - `erode-default.json` (Erode, R ≈ 3)
-  - `dilate-default.json` (Dilate, R ≈ 3)
-  - `flatshadow-default.json` (FlatShadow, Length ≈ 12, Angle ≈ 45)
-  - `colorshift-default.json` (ColorShift, channel offsets ≈ (3, 0))
-  - `displacementmap-translate-default.json`, `displacementmap-scale-default.json`, `displacementmap-rotation-default.json`
-  - `mosaic-default.json` (MosaicEffect, TileSize ≈ (10,10))
-  - `shake-default.json` (ShakeEffect, StrengthX/Y ≈ 5)
-  - `split-default.json` (SplitEffect, spacing ≈ 4)
-  - `clipping-default.json` (Clipping, edges ≈ 8)
-- [ ] T018 [P] [US1] 3D-with-2D-filter resolution-equivalence test in `tests/Beutl.Graphics3DTests/FilterEffects/Render3DWithFilterResolutionTests.cs`: render a minimal 3D scene whose output has `Blur` and `DropShadow` applied, at full export size and at 1/4 size; upscale and assert SSIM ≥ 0.97. Confirms the 2D filter path correctly reads the outer `GraphicsContext2D`'s `RenderScale` when its source is a 3D framebuffer.
+- [ ] T028 [US1] Create `tests/Beutl.UnitTests/Engine/Graphics/FilterEffects/ResolutionEquivalenceTests.cs` with parameterized `Effect_ProxyMatchesExport_WithinSSIMTolerance(string fixture)`.
+- [ ] T029 [P] [US1] Add FilterEffect fixtures + `[TestCase]` rows for the 13 in-scope effects (Blur, DropShadow, InnerShadow, StrokeEffect, Erode, Dilate, FlatShadow, ColorShift, DisplacementMapTransform × 3 subclasses, MosaicEffect, ShakeEffect, SplitEffect, Clipping). Fixture filenames per `data-model.md`.
+- [ ] T030 [P] [US1] Add **Shape fixtures** (`rectshape-default.json`, `ellipseshape-default.json`, `roundedrect-default.json`) — each draws a 200×100 shape stroked with a 4 px pen, asserts proxy and export look proportional.
+- [ ] T031 [P] [US1] Add **Transform fixtures** — `translate-100-50.json` (TranslateTransform applied to a shape), `rotation3d-default.json`, `matrixtransform-translate.json` — each verifies the translation component scales.
+- [ ] T032 [P] [US1] Add **direct-draw fixtures** — `pushclip-rect.json` (drawable that calls PushClip with a Rect and draws inside it), `pushlayer-bounded.json`, `pushtransform-raw-matrix.json` (a custom drawable that directly pushes a Matrix translation).
+- [ ] T033 [P] [US1] Add **combined fixture** — `combined-shape-transform-pen-effect.json` covering RectShape + TranslateTransform + stroked Pen + Blur effect in one scene. Demonstrates end-to-end resolution independence.
+- [ ] T034 [P] [US1] 3D-with-2D-filter resolution-equivalence test in `tests/Beutl.Graphics3DTests/FilterEffects/Render3DWithFilterResolutionTests.cs`.
 
-**Checkpoint**: `dotnet test --filter "ResolutionEquivalenceTests|Render3DWithFilterResolutionTests"` is green for all 13 in-scope effects. The MVP (US1) is done — a proxy-preview workflow (not built here) would now produce correct visuals.
+**Checkpoint**: `dotnet test --filter "ResolutionEquivalenceTests|Render3DWithFilterResolutionTests"` is green across FilterEffects, Shapes, Transforms, direct draws. MVP done.
 
 ---
 
 ## Phase 4: User Story 2 - Existing projects keep their current appearance (Priority: P1)
 
-**Goal**: Prove that pre-feature project files render at export resolution byte-identically to the previous build, and that no project-file migration step is introduced.
+**Goal**: Pre-feature project files render byte-identically at export resolution; no on-disk migration.
 
-**Independent Test**: `dotnet test --filter "LegacyRenderingTests|LegacyRoundTripTests"`. All cases must pass.
+**Independent Test**: `dotnet test --filter "LegacyRenderingTests|LegacyRoundTripTests"`.
 
-- [ ] T019 [US2] Add legacy fixture loader in `tests/Beutl.UnitTests/Engine/Graphics/Testing/LegacyCorpusLoader.cs` that walks `tests/Beutl.UnitTests/Engine/Graphics/Fixtures/LegacyResolutionCorpus/` and yields `(projectFile, baselinePng)` pairs.
-- [ ] T020 [US2] Capture baseline PNGs by checking out `main` (pre-feature), rendering each curated legacy project at export resolution via a one-shot helper, and committing the resulting PNGs alongside their project files. Document the capture procedure in `tests/Beutl.UnitTests/Engine/Graphics/Fixtures/LegacyResolutionCorpus/README.md`.
-- [ ] T021 [P] [US2] Curate the legacy corpus (≥ 1 project per in-scope effect, ideally identical to the Phase 3 fixtures so a single project can serve both purposes) under `tests/Beutl.UnitTests/Engine/Graphics/Fixtures/LegacyResolutionCorpus/`.
-- [ ] T022 [US2] Create `tests/Beutl.UnitTests/Engine/Graphics/FilterEffects/LegacyRenderingTests.cs` that uses `LegacyCorpusLoader` to assert `SsimHelper.Compute(newRender, baseline) >= 0.97f` at the saved export resolution for every fixture.
-- [ ] T023 [US2] Add `LegacyRoundTripTests.cs` in `tests/Beutl.UnitTests/Engine/Graphics/FilterEffects/` that loads a legacy fixture, serializes it back via `Beutl.Serialization`, and asserts the resulting JSON is byte-equal to the original (modulo insignificant whitespace) — proves there is no silent rewrite and confirms the unchanged on-disk shape promised by FR-003.
+- [ ] T035 [US2] `LegacyCorpusLoader.cs` in `tests/Beutl.UnitTests/Engine/Graphics/Testing/`.
+- [ ] T036 [US2] Baseline PNG capture from `main` (pre-feature). Document in `tests/Beutl.UnitTests/Engine/Graphics/Fixtures/LegacyResolutionCorpus/README.md`. Include shapes / transforms / pens in the corpus.
+- [ ] T037 [P] [US2] Curate the legacy corpus — ≥ 1 project per in-scope primitive (effect, shape, transform, pen-stroke, direct-draw).
+- [ ] T038 [US2] `LegacyRenderingTests.cs` asserting SSIM ≥ 0.97 vs baseline at export resolution.
+- [ ] T039 [US2] `LegacyRoundTripTests.cs` asserting JSON byte-equality on serialization round-trip — proves no rewrite.
 
-**Checkpoint**: `dotnet test --filter "LegacyRenderingTests|LegacyRoundTripTests"` is green. US1 and US2 are both deliverable.
-
-> No separate `LegacyDeserializationTests` is needed under the new design: since no property type is renamed, the existing `Beutl.Serialization` round-trips are sufficient. T023 is the proof.
+**Checkpoint**: US1 + US2 both deliverable.
 
 ---
 
 ## Phase 5: User Story 3 - Authoring units predictable across project sizes (Priority: P2)
 
-**Goal**: Show that changing a project's export resolution (e.g. 1920×1080 → 3840×2160) preserves the relative visual strength of every effect without re-tuning parameters.
-
-**Independent Test**: `dotnet test --filter CrossResolutionTests`.
-
-- [ ] T024 [US3] Create `tests/Beutl.UnitTests/Engine/Graphics/FilterEffects/CrossResolutionTests.cs`. Reuse `ResolutionTestHarness` and `SsimHelper`. Parameterize over the same fixtures US1 uses; for each, render at `scene.FrameSize` and at `2 * scene.FrameSize` (with `referenceFrame = 2 * scene.FrameSize` on the larger one to mimic "user changed the export size"). Assert SSIM ≥ 0.97 between the upscaled small render and the larger render.
-- [ ] T025 [P] [US3] Add a focused fixture `cross-resolution-multi-effect.json` combining Blur, DropShadow, and StrokeEffect on a single shape, demonstrating proportional scaling end-to-end. Add as a `[TestCase]` in `CrossResolutionTests.cs`.
-
-**Checkpoint**: All three user stories are independently validated.
+- [ ] T040 [US3] `CrossResolutionTests.cs` in `tests/Beutl.UnitTests/Engine/Graphics/FilterEffects/`. Render at `scene.FrameSize` and at `2 * scene.FrameSize` (with `referenceFrame = 2 * scene.FrameSize` on the larger). Assert SSIM ≥ 0.97 between upscaled-small and large.
+- [ ] T041 [P] [US3] `cross-resolution-multi-primitive.json` combining Blur + DropShadow + RectShape + TranslateTransform + stroked Pen on a single scene.
 
 ---
 
 ## Phase 6: Polish & Cross-Cutting Concerns
 
-- [ ] T026 [P] Add plugin-author migration guide `docs/extensibility/resolution-independent-effects.md` based on `contracts/effect-helper-scaling.md` § "Plugin author migration". Headline: "do nothing; here is `*Raw` if you need raw-raster behavior". Link from `docs/extensibility/README.md` if one exists; otherwise create one.
-- [ ] T027 [P] Update `docs/ai-workflow/coding-guidelines-for-ai.md` to mention: "new built-in or plugin effects that take length-typed arguments via `FilterEffectContext.Blur` / `DropShadow` / `Erode` / `Dilate` etc. automatically receive resolution-independent scaling. Use the `*Raw` twin only when you specifically need raw-raster pixel semantics."
-- [ ] T028 [P] Update `.claude/skills/beutl-filter-effect/SKILL.md` to teach the helper contract so new-effect scaffolds describe the scaling behavior in their generated XML doc.
-- [ ] T029 [P] Demonstrate the helper contract in scripting samples: extend `tests/PackageSample/` with at least one `CSharpScriptEffect` that calls scaled helpers (and one that calls `*Raw` for the opt-out demonstration). For `GLSLScriptEffect`, file a follow-up note (shader-uniform binding is a separate change). Satisfies SC-004.
-- [ ] T030 Add a microbenchmark in `tests/Beutl.Benchmarks/FilterEffects/RenderScaleOverheadBench.cs` measuring per-frame overhead of the new scale path on a Blur + DropShadow scene; assert (manually, in PR review) ≤ 0.5% wall-clock vs. raw-overload baseline. Document the baseline number in the PR description.
-- [ ] T031 Run `/beutl-format` (verify mode) and address any formatter findings (no stylistic-only edits per Constitution V).
-- [ ] T032 Run `/beutl-build` and `/beutl-test` on the full solution; address any failures.
-- [ ] T033 Run `/beutl-coverage Beutl.Engine` and confirm coverage on `src/Beutl.Engine/Graphics/FilterEffects/FilterEffectContext.cs` and `src/Beutl.Engine/Graphics/Rendering/` does not regress versus the pre-feature baseline.
-- [ ] T034 Run `/beutl-pre-pr` to surface anything `claude-code-review.yml` would flag locally; fix or document each finding.
-- [ ] T035 Open the PR with `@beutl-design-reviewer` mentioned in the body so the design-priorities audit (orthogonality, library-user flexibility, no compat shims) runs against the new public surface (`RenderScale`, `IRenderer.ReferenceFrame`, `GraphicsContext2D.PushReferenceFrame`, `FilterEffectContext` snapshot props, and the `*Raw` helper twins).
-- [ ] T036 Update `docs/specs/003-resolution-independent-effects/checklists/requirements.md` Notes section with a one-line summary of the shipped behavior and forward pointers to the `Pen.Thickness` follow-up (research R6), the `Beutl.Graphics.Transformation.*` follow-up (audit), and the proxy-preview UX follow-up (research R1).
+- [ ] T042 [P] Plugin-author migration guide `docs/extensibility/resolution-independent-rendering.md` based on the four contract docs. Headline: "do nothing for default behavior; here are the `*Raw` opt-outs and the `PenHelper.GetScaled*` helpers if you need raw-raster".
+- [ ] T043 [P] Update `docs/ai-workflow/coding-guidelines-for-ai.md` to mention the helper-internal-scaling contract and the convention for new rendering primitives.
+- [ ] T044 [P] Update `.claude/skills/beutl-filter-effect/SKILL.md` and `.claude/skills/beutl-drawable/SKILL.md` to teach the helper contract.
+- [ ] T045 [P] Demonstrate the helper contract in scripting samples: extend `tests/PackageSample/` with a `CSharpScriptEffect` using scaled helpers and one using `*Raw`. Satisfies SC-004.
+- [ ] T046 Microbenchmark in `tests/Beutl.Benchmarks/Rendering/RenderScaleOverheadBench.cs` measuring per-frame overhead on a scene that exercises every scaled API (RectShape + TranslateTransform + stroked Pen + Blur). Target ≤ 0.5% wall-clock.
+- [ ] T047 Run `/beutl-format` (verify mode).
+- [ ] T048 Run `/beutl-build` and `/beutl-test` on the full solution.
+- [ ] T049 Run `/beutl-coverage Beutl.Engine`; confirm no regression on `Graphics/FilterEffects/FilterEffectContext.cs`, `Graphics/Rendering/GraphicsContext2D.cs`, `Graphics/Rendering/PenHelper.cs`, `Graphics/Transformation/*`.
+- [ ] T050 Run `/beutl-pre-pr`.
+- [ ] T051 Open PR with `@beutl-design-reviewer` mentioned, focusing the design-priorities audit on the public surface (`RenderScale`, `IRenderer.ReferenceFrame`, `GraphicsContext2D.PushReferenceFrame` + scaled helpers + `*Raw` twins, `FilterEffectContext` scaled helpers + `*Raw` twins, `PenHelper.GetScaled*` helpers, `CompositionContext.RenderScale`, `Transform.CreateMatrix` semantic change).
+- [ ] T052 Update `checklists/requirements.md` Notes with summary + forward pointers to deferred follow-ups (`Geometry`, `TextBlock`, `Brush rects`).
 
 ---
 
@@ -152,96 +151,62 @@ Engine code under `src/Beutl.Engine/`; project-system under `src/Beutl.ProjectSy
 
 ### Phase Dependencies
 
-- **Phase 1 (Setup, T001)**: ✓ DONE.
-- **Phase 2 (Foundational, T002–T015)**: depends on T001. Blocks every user story.
-- **Phase 3 (US1, T016–T018)**: depends on Phase 2. T017 and T018 can run in parallel; T016 (harness) is light-weight and lands first.
-- **Phase 4 (US2, T019–T023)**: depends on Phase 2. T020 (baseline capture) requires the pre-feature `main` build; capture it before Phase 2 lands on `main`.
-- **Phase 5 (US3, T024–T025)**: depends on Phase 3 fixtures.
-- **Phase 6 (Polish, T026–T036)**: depends on all previous phases.
-
-### Within Phase 2
-
-- T002 (`RenderScale`) is the linchpin — everything else in Phase 2 depends on it.
-- T003 → T004 → T005 chain: each builds on the previous.
-- T006 + T007 share the same file (`FilterEffectContext.cs`) and must land together; T006 is the semantic change to existing helpers, T007 is the additive `*Raw` twins.
-- T008 / T009 (push) depend on T004.
-- T010 / T011 / T012 (tests) follow their respective sources but should be **written first** per TDD; ensure failing baselines before implementing T002 / T004–T005 / T006–T007 respectively.
-- T013 / T014 / T015 (test infra) can land any time in Phase 2 but T015 must be ready before Phase 3 begins.
+- **Phase 1 (T001)**: ✓ DONE.
+- **Phase 2 (T002–T027)**: depends on T001.
+  - Block A (T002–T006) is the linchpin — everything else in Phase 2 depends on `RenderScale` + `ReferenceFrame` plumbing.
+  - Block B (T007–T009 = FilterEffectContext) depends on A.
+  - Block C (T010–T011 = GraphicsContext2D) depends on A.
+  - Block D (T012–T014 = Pen) depends on A.
+  - Block E (T015–T018 = Transform / CompositionContext) depends on A (for `RenderScale`) and on `SceneCompositor` plumbing (T015 itself).
+  - Block F tests (T019–T024) — TDD: write before the corresponding implementation block.
+  - Block G test infra (T025–T027) — parallel with everything else.
+- **Phase 3 (T028–T034)**: depends on Phase 2.
+- **Phase 4 (T035–T039)**: depends on Phase 2 + baseline capture from `main` before Phase 2 lands.
+- **Phase 5 (T040–T041)**: depends on Phase 3 fixtures.
+- **Phase 6 (T042–T052)**: depends on all previous phases.
 
 ### Parallel Opportunities
 
-- T010, T011, T012, T013, T014 — five test/infra files (different files); can all run in parallel once their dependencies are unblocked.
-- T017, T018 — fixture authoring + 3D test (different files); parallel.
-- T021 — corpus curation runs alongside infrastructure (T019, T020).
-- T026, T027, T028, T029 — four polish/docs/sample tasks (different files); parallel.
-
----
-
-## Parallel Example: Phase 2 tests-first TDD
-
-```bash
-# Write failing tests first:
-Task: "RenderScaleTests in tests/Beutl.UnitTests/Engine/Graphics/Rendering/RenderScaleTests.cs"                                # T010
-Task: "ReferenceFramePropagationTests in tests/Beutl.UnitTests/Engine/Graphics/Rendering/ReferenceFramePropagationTests.cs"   # T011
-Task: "FilterEffectContextScalingTests in tests/Beutl.UnitTests/Engine/Graphics/FilterEffects/FilterEffectContextScalingTests.cs"  # T012
-
-# Confirm red.
-
-# Then implement:
-Task: "Add RenderScale struct"                                                # T002
-Task: "Add IRenderer.ReferenceFrame + Renderer overload"                      # T003
-Task: "Add GraphicsContext2D.PushReferenceFrame stack"                        # T004
-Task: "Snapshot RenderScale into FilterEffectContext"                         # T005
-Task: "Modify FilterEffectContext scaled helpers"                             # T006
-Task: "Add *Raw twin helpers on FilterEffectContext"                          # T007
-```
-
-## Parallel Example: Phase 3 fixture authoring
-
-```bash
-# After T016 (harness file) is in place:
-Task: "Add Phase 3 fixtures + [TestCase] rows for all 13 effects"             # T017
-Task: "3D-with-2D resolution-equivalence test"                                # T018
-```
+- Blocks B / C / D / E in Phase 2 are largely independent of each other (different files); after Block A lands, all four can be worked in parallel by separate engineers.
+- Block F tests (T019–T024) are all in different files — parallel.
+- Block G infra (T025–T027) — parallel.
+- Phase 3 fixtures (T029–T033) — parallel; only T028 (the harness file) needs to land first.
 
 ---
 
 ## Implementation Strategy
 
-### MVP First (User Story 1 Only)
+### MVP (User Story 1)
 
-1. ✓ Phase 1 (T001 audit).
-2. Phase 2: T002–T015 (foundational types + plumbing + modified `FilterEffectContext` + tests + test infra).
-3. Phase 3: T016–T018 (`ResolutionEquivalenceTests` harness + fixtures + 3D coverage).
-4. **STOP and VALIDATE**: `dotnet test --filter "ResolutionEquivalenceTests|Render3DWithFilterResolutionTests"` is green; eyeball verification per `quickstart.md` § 5 confirms parity.
-5. Ship as a `feat: make filter-effect helpers resolution-independent` PR. (Note: the title intentionally says "filter-effect helpers" rather than "filter effects" — the change is in the helpers, not in the effects.)
-
-### Incremental Delivery (recommended)
-
-1. Phase 1 + Phase 2 → foundation merge-ready (new types and plumbing are publicly visible; `RenderScale.Identity` everywhere means no observable behavior change).
-2. Phase 3 → MVP ships; future proxy-preview UX would now produce correct visuals.
-3. Phase 4 → backward-compat proof: `LegacyRenderingTests` go green; safe to declare backward-compatible.
-4. Phase 5 → cross-resolution authoring story.
-5. Phase 6 → docs, plugin samples, benchmark, design-review.
+1. ✓ Phase 1 (T001).
+2. Phase 2 Block A (foundational plumbing).
+3. Phase 2 Blocks B–E in parallel (FilterEffectContext / GraphicsContext2D / Pen / Transform).
+4. Phase 2 Block F (tests) — TDD, written first per block.
+5. Phase 2 Block G (test infra).
+6. Phase 3 (T028–T034).
+7. **STOP, VALIDATE**: `dotnet test --filter "ResolutionEquivalenceTests|Render3DWithFilterResolutionTests"` green.
+8. Ship as `feat: make rendering helpers resolution-independent` PR.
 
 ### Parallel Team Strategy
 
-With two engineers:
+With 3 engineers:
 
-1. Engineer A drives Phase 2 source (T002–T009).
-2. Engineer B drives Phase 2 tests + infra (T010–T015) in parallel — and importantly writes T010–T012 first to enforce TDD.
-3. Once Phase 2 lands, both fan out across Phase 3 (T016–T018) and Phase 4 infrastructure (T019–T021) concurrently.
-4. Engineer A captures baselines (T020) from `main` while Engineer B closes out Phase 3.
-5. Phase 5 / Phase 6 are short and can be done by either engineer.
+1. All three drive Phase 2 Block A together (~1 day).
+2. Engineer A: Block B (FilterEffectContext, T007–T009, T021).
+3. Engineer B: Block C (GraphicsContext2D, T010–T011, T022) + Block D (Pen, T012–T014, T023).
+4. Engineer C: Block E (Transform / CompositionContext, T015–T018, T024) + Block G (test infra, T025–T027).
+5. Reconvene for Phase 3 fixture authoring (T029–T033 parallel).
+6. Engineer A drives Phase 4 baseline capture (T036) — can start as soon as `main` is identified.
+7. Phase 5 / 6 short, either engineer.
 
 ---
 
 ## Notes
 
 - `[P]` tasks live in different files and have no incomplete dependencies on each other.
-- **TDD discipline (Constitution III)**: for every (implementation, test) pair in Phase 2, write the test first, confirm it fails, then implement.
-- The single biggest change in this PR is **T006 + T007** — the semantic change to `FilterEffectContext` helpers plus the additive `*Raw` twins. `beutl-design-reviewer` should focus its attention there.
-- `Pen.Thickness` resolution-independence is **out of scope** (research R6) — `StrokeEffect.Offset` benefits automatically via the scaled helper but thickness stays raw-pixel until a follow-up.
-- Proxy-preview *UX* is **out of scope** (research R1) — this feature ships the plumbing only.
-- Commit after each task or per logical group (foundational struct, foundational plumbing, FilterEffectContext modifications, test infra, regression corpus, polish). Use Conventional Commits per `AGENTS.md` (`feat:`, `test:`, `docs:`, etc.); the umbrella PR title is `feat: make filter-effect helpers resolution-independent`.
-- Stop at the checkpoint after Phase 3 to validate the MVP independently before continuing.
+- **TDD discipline (Constitution III)**: in Phase 2 write test (Block F) before the matching implementation (Blocks B / C / D / E).
+- The single biggest change is **Phase 2 Blocks B + C + D + E**. `beutl-design-reviewer` should focus there.
+- `Geometry` / `TextBlock.Size` / `Brush rects` are explicitly out of scope (`data-model.md` § "Deferred follow-ups"). Each is a candidate for a separate spec when prioritized.
+- Proxy-preview *UX* is out of scope (research R1) — this feature ships the rendering-layer plumbing only.
+- Commit per Block or logical group. Conventional Commits per `AGENTS.md`. Umbrella PR title: `feat: make rendering helpers resolution-independent`.
+- Stop at the Phase 3 checkpoint to validate the MVP before continuing.
