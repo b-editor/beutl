@@ -372,112 +372,75 @@ public abstract class GraphEditorViewModel : IDisposable
     private void PasteAnimation(string json)
     {
         _logger.LogInformation("Pasting JSON");
-        if (JsonNode.Parse(json) is not JsonObject newJson)
-        {
-            _logger.LogError("Invalid JSON");
-            NotificationService.ShowError(Strings.GraphEditor, MessageStrings.InvalidJson);
-            return;
-        }
+        KeyFrameAnimation animation = (KeyFrameAnimation)Animation;
+        IKeyFrameClipboardService service = EditorContext.GetRequiredService<IKeyFrameClipboardService>();
+        KeyFrameAnimationPasteOutcome outcome = service.PasteAnimation(animation, json);
 
-        if (!newJson.TryGetDiscriminator(out Type? discriminator))
+        switch (outcome)
         {
-            _logger.LogError("Invalid JSON: missing $type");
-            NotificationService.ShowError(Strings.GraphEditor, MessageStrings.InvalidJSON_MissingType);
-            return;
-        }
-
-        if (!discriminator.IsAssignableTo(typeof(IKeyFrameAnimation)))
-        {
-            _logger.LogError("Invalid JSON: $type is not a KeyFrameAnimation");
-            NotificationService.ShowError(Strings.GraphEditor, MessageStrings.InvalidJSON_TypeIsNotKeyFrameAnimation);
-            return;
-        }
-
-        try
-        {
-            KeyFrameAnimation animation = (KeyFrameAnimation)Animation;
-
-            if (discriminator.GenericTypeArguments[0] != animation.ValueType)
-            {
+            case KeyFrameAnimationPasteOutcome.Pasted:
+                break;
+            case KeyFrameAnimationPasteOutcome.InvalidJson:
+                _logger.LogError("Invalid JSON");
+                NotificationService.ShowError(Strings.GraphEditor, MessageStrings.InvalidJson);
+                break;
+            case KeyFrameAnimationPasteOutcome.MissingType:
+                _logger.LogError("Invalid JSON: missing $type");
+                NotificationService.ShowError(Strings.GraphEditor, MessageStrings.InvalidJSON_MissingType);
+                break;
+            case KeyFrameAnimationPasteOutcome.TypeIsNotKeyFrameAnimation:
+                _logger.LogError("Invalid JSON: $type is not a KeyFrameAnimation");
+                NotificationService.ShowError(Strings.GraphEditor, MessageStrings.InvalidJSON_TypeIsNotKeyFrameAnimation);
+                break;
+            case KeyFrameAnimationPasteOutcome.GenericTypeMismatch:
                 _logger.LogError("The property type of the pasted animation does not match.");
-                NotificationService.ShowError(Strings.GraphEditor, string.Format(MessageStrings.AnimationPropertyTypeMismatch, animation.ValueType.Name, discriminator.GenericTypeArguments[0].Name));
-                return;
-            }
-
-            Guid id = animation.Id;
-            CoreSerializer.PopulateFromJsonObject(animation, newJson);
-            animation.Id = id;
-            foreach (IKeyFrame item in animation.KeyFrames)
-            {
-                item.Id = Guid.NewGuid();
-            }
-            HistoryManager.Commit(CommandNames.PasteAnimation);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "An exception occurred while pasting JSON.");
-            NotificationService.ShowError(Strings.GraphEditor, ex.Message);
+                NotificationService.ShowError(
+                    Strings.GraphEditor,
+                    string.Format(MessageStrings.AnimationPropertyTypeMismatch, animation.ValueType.Name, "?"));
+                break;
+            case KeyFrameAnimationPasteOutcome.UnexpectedError:
+                NotificationService.ShowError(Strings.GraphEditor, MessageStrings.FailedToPasteKeyframe);
+                break;
         }
     }
 
     private void PasteKeyFrame(string json, TimeSpan pointerPosition)
     {
         _logger.LogInformation("Pasting JSON");
-        if (JsonNode.Parse(json) is not JsonObject newJson)
+        KeyFrameAnimation animation = (KeyFrameAnimation)Animation;
+        TimeSpan keyTime = ConvertKeyTime(pointerPosition);
+        IKeyFrameClipboardService service = EditorContext.GetRequiredService<IKeyFrameClipboardService>();
+        KeyFramePasteResult result = service.PasteKeyFrame(animation, json, keyTime);
+
+        switch (result.Outcome)
         {
-            _logger.LogError("Invalid JSON");
-            NotificationService.ShowError(Strings.GraphEditor, MessageStrings.InvalidJson);
-            return;
-        }
-
-        if (!newJson.TryGetDiscriminator(out Type? discriminator))
-        {
-            _logger.LogError("Invalid JSON: missing $type");
-            NotificationService.ShowError(Strings.GraphEditor, MessageStrings.InvalidJSON_MissingType);
-            return;
-        }
-
-        if (!discriminator.IsAssignableTo(typeof(KeyFrame)))
-        {
-            _logger.LogError("Invalid JSON: $type is not a KeyFrame");
-            NotificationService.ShowError(Strings.GraphEditor, MessageStrings.InvalidJSON_TypeIsNotKeyFrame);
-            return;
-        }
-
-        try
-        {
-            KeyFrameAnimation animation = (KeyFrameAnimation)Animation;
-
-            KeyFrame newKeyFrame = (KeyFrame)Activator.CreateInstance(discriminator)!;
-            CoreSerializer.PopulateFromJsonObject(newKeyFrame, newJson);
-
-            if (discriminator.GenericTypeArguments[0] != animation.ValueType)
-            {
-                InsertKeyFrame(newKeyFrame.Easing, pointerPosition);
-                NotificationService.ShowWarning(Strings.GraphEditor, MessageStrings.KeyframePropertyTypeMismatch_EasingApplied);
-                return;
-            }
-
-            var keyTime = ConvertKeyTime(pointerPosition);
-            if (animation.KeyFrames.FirstOrDefault(k => k.KeyTime == keyTime) is { } existingKeyFrame)
-            {
-                // イージングと値を変更
-                existingKeyFrame.Easing = newKeyFrame.Easing;
-                existingKeyFrame.Value = ((IKeyFrame)newKeyFrame).Value;
-                HistoryManager.Commit(CommandNames.PasteKeyFrame);
+            case KeyFramePasteOutcome.Inserted:
+                break;
+            case KeyFramePasteOutcome.ReplacedExisting:
                 NotificationService.ShowWarning(Strings.GraphEditor, MessageStrings.KeyframeExistsAtPastePosition);
-            }
-            else
-            {
-                newKeyFrame.KeyTime = keyTime;
-                animation.KeyFrames.Add((IKeyFrame)newKeyFrame, out _);
-                HistoryManager.Commit(CommandNames.PasteKeyFrame);
-            }
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "An exception occurred while pasting JSON.");
-            NotificationService.ShowError(Strings.GraphEditor, ex.Message);
+                break;
+            case KeyFramePasteOutcome.GenericTypeMismatch when result.EasingForFallback is { } easing:
+                // Type does not match — fall back to creating a new keyframe at
+                // pointerPosition using the View's typed insert path, applying
+                // only the easing the clipboard carried.
+                InsertKeyFrame(easing, pointerPosition);
+                NotificationService.ShowWarning(Strings.GraphEditor, MessageStrings.KeyframePropertyTypeMismatch_EasingApplied);
+                break;
+            case KeyFramePasteOutcome.InvalidJson:
+                _logger.LogError("Invalid JSON");
+                NotificationService.ShowError(Strings.GraphEditor, MessageStrings.InvalidJson);
+                break;
+            case KeyFramePasteOutcome.MissingType:
+                _logger.LogError("Invalid JSON: missing $type");
+                NotificationService.ShowError(Strings.GraphEditor, MessageStrings.InvalidJSON_MissingType);
+                break;
+            case KeyFramePasteOutcome.TypeIsNotKeyFrame:
+                _logger.LogError("Invalid JSON: $type is not a KeyFrame");
+                NotificationService.ShowError(Strings.GraphEditor, MessageStrings.InvalidJSON_TypeIsNotKeyFrame);
+                break;
+            case KeyFramePasteOutcome.UnexpectedError:
+                NotificationService.ShowError(Strings.GraphEditor, MessageStrings.FailedToPasteKeyframe);
+                break;
         }
     }
 }
