@@ -1,4 +1,4 @@
-using System.Text.Json.Nodes;
+﻿using System.Text.Json.Nodes;
 using Beutl.Graphics;
 using Beutl.Language;
 using Beutl.Logging;
@@ -13,28 +13,30 @@ namespace Beutl.Editor.Services;
 
 public sealed class ElementClipboardService : IElementClipboardService
 {
-    private const string ElementFileExtension = "belm";
-
     private static readonly ILogger s_logger = Log.CreateLogger<ElementClipboardService>();
 
     private readonly HistoryManager _historyManager;
     private readonly IClipboardGateway _clipboard;
     private readonly IElementDuplicateService _duplicateService;
     private readonly IElementAdder? _elementAdder;
-    private readonly Func<Color>? _imageAccentColorFactory;
+    private readonly Func<Color> _imageAccentColorFactory;
 
+    /// <param name="imageAccentColorFactory">Supplies the accent color for an
+    /// element created from a clipboard bitmap paste. The production wiring
+    /// passes <c>ColorGenerator.GenerateColor</c> so the deterministic color
+    /// matches the rest of the application; tests can pass a fixed color.</param>
     public ElementClipboardService(
         HistoryManager historyManager,
         IClipboardGateway clipboard,
         IElementDuplicateService duplicateService,
-        IElementAdder? elementAdder = null,
-        Func<Color>? imageAccentColorFactory = null)
+        Func<Color> imageAccentColorFactory,
+        IElementAdder? elementAdder = null)
     {
         _historyManager = historyManager ?? throw new ArgumentNullException(nameof(historyManager));
         _clipboard = clipboard ?? throw new ArgumentNullException(nameof(clipboard));
         _duplicateService = duplicateService ?? throw new ArgumentNullException(nameof(duplicateService));
+        _imageAccentColorFactory = imageAccentColorFactory ?? throw new ArgumentNullException(nameof(imageAccentColorFactory));
         _elementAdder = elementAdder;
-        _imageAccentColorFactory = imageAccentColorFactory;
     }
 
     public async Task CopyAsync(IReadOnlyList<Element> elements)
@@ -127,13 +129,11 @@ public sealed class ElementClipboardService : IElementClipboardService
 
         if (!outcome.Success) return ElementPasteOutcome.Empty;
 
-        return new ElementPasteOutcome
-        {
-            Pasted = true,
-            NewElements = [],
-            ScrollTo = outcome.ScrollToRange,
-            ScrollToZIndex = outcome.ScrollToZIndex,
-        };
+        return new ElementPasteOutcome(
+            Pasted: true,
+            NewElements: [],
+            ScrollTo: outcome.ScrollToRange,
+            ScrollToZIndex: outcome.ScrollToZIndex);
     }
 
     private async Task<ElementPasteOutcome> PasteSingleElementAsync(Scene scene, TimeSpan clickedFrame, int clickedLayer)
@@ -155,18 +155,16 @@ public sealed class ElementClipboardService : IElementClipboardService
         newElement.Start = clickedFrame;
         newElement.ZIndex = clickedLayer;
 
-        CoreSerializer.StoreToUri(newElement, RandomFileNameGenerator.GenerateUri(scene.Uri, ElementFileExtension));
+        CoreSerializer.StoreToUri(newElement, RandomFileNameGenerator.GenerateUri(scene.Uri, EditorConstants.ElementFileExtension));
 
         scene.AddChild(newElement);
         _historyManager.Commit(CommandNames.PasteElement);
 
-        return new ElementPasteOutcome
-        {
-            Pasted = true,
-            NewElements = [newElement],
-            ScrollTo = newElement.Range,
-            ScrollToZIndex = newElement.ZIndex,
-        };
+        return new ElementPasteOutcome(
+            Pasted: true,
+            NewElements: [newElement],
+            ScrollTo: newElement.Range,
+            ScrollToZIndex: newElement.ZIndex);
     }
 
     private async Task<ElementPasteOutcome> PasteFilesAsync(Scene scene, TimeSpan clickedFrame, int clickedLayer)
@@ -182,7 +180,7 @@ public sealed class ElementClipboardService : IElementClipboardService
                 clickedFrame, TimeSpan.FromSeconds(5), clickedLayer, FileName: file));
         }
 
-        return new ElementPasteOutcome { Pasted = true };
+        return new ElementPasteOutcome(true, [], default, 0);
     }
 
     private async Task<ElementPasteOutcome> PasteBitmapAsync(Scene scene, TimeSpan clickedFrame, int clickedLayer)
@@ -210,22 +208,20 @@ public sealed class ElementClipboardService : IElementClipboardService
             Start = clickedFrame,
             Length = TimeSpan.FromSeconds(5),
             ZIndex = clickedLayer,
-            AccentColor = _imageAccentColorFactory?.Invoke() ?? Colors.Teal,
+            AccentColor = _imageAccentColorFactory(),
             Name = Path.GetFileName(imageFile),
         };
         newElement.AddObject(sourceImage);
 
-        CoreSerializer.StoreToUri(newElement, RandomFileNameGenerator.GenerateUri(dir, ElementFileExtension));
+        CoreSerializer.StoreToUri(newElement, RandomFileNameGenerator.GenerateUri(dir, EditorConstants.ElementFileExtension));
 
         scene.AddChild(newElement);
         _historyManager.Commit(CommandNames.PasteElement);
 
-        return new ElementPasteOutcome
-        {
-            Pasted = true,
-            NewElements = [newElement],
-            ScrollTo = newElement.Range,
-            ScrollToZIndex = newElement.ZIndex,
-        };
+        return new ElementPasteOutcome(
+            Pasted: true,
+            NewElements: [newElement],
+            ScrollTo: newElement.Range,
+            ScrollToZIndex: newElement.ZIndex);
     }
 }

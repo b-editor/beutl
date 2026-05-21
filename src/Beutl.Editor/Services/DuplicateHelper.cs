@@ -10,7 +10,6 @@ namespace Beutl.Editor.Services;
 
 public static class DuplicateHelper
 {
-    private const string ElementFileExtension = "belm";
     private static readonly ILogger s_logger = Log.CreateLogger(typeof(DuplicateHelper));
 
     /// <summary>
@@ -160,7 +159,7 @@ public static class DuplicateHelper
                 newElement.Start = newElement.Start - minStart + anchorStart;
                 newElement.ZIndex = newElement.ZIndex - minZIndex + anchorZIndex;
 
-                Uri uri = RandomFileNameGenerator.GenerateUri(scene.Uri, ElementFileExtension);
+                Uri uri = RandomFileNameGenerator.GenerateUri(scene.Uri, EditorConstants.ElementFileExtension);
                 CoreSerializer.StoreToUri(newElement, uri);
                 stagedFiles.Add(uri.LocalPath);
             }

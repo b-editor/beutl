@@ -1,4 +1,4 @@
-using Beutl.Editor;
+﻿using Beutl.Editor;
 using Beutl.Editor.Observers;
 using Beutl.Editor.Services;
 using Beutl.Media;
@@ -205,10 +205,20 @@ public class ElementLifecycleServiceTests
     public void Group_SingleId_DoesNotCreateGroup()
     {
         Element element = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
+        int beforeUndo = _history.UndoCount;
+        int beforeGroups = _scene.Groups.Count;
 
         GroupOutcome outcome = _service.Group(_scene, [element.Id]);
 
-        Assert.That(outcome.Created, Is.False);
+        Assert.Multiple(() =>
+        {
+            Assert.That(outcome.Created, Is.False);
+            // No group change and no observable mutation should reach the
+            // history stack — Commit() must silently no-op when the
+            // current transaction has no recorded operations.
+            Assert.That(_scene.Groups.Count, Is.EqualTo(beforeGroups));
+            Assert.That(_history.UndoCount, Is.EqualTo(beforeUndo));
+        });
     }
 
     [Test]

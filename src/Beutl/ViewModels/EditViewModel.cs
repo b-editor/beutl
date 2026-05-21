@@ -688,6 +688,8 @@ public sealed partial class EditViewModel : IEditorContext, ISupportAutoSaveEdit
                     HistoryManager,
                     _clipboardGateway,
                     (IElementDuplicateService)GetService(typeof(IElementDuplicateService))!,
+                    static () => Beutl.Editor.Components.Helpers.ColorGenerator.GenerateColor(
+                        typeof(Beutl.Graphics.SourceImage).FullName!),
                     _elementAdder);
 
         if (serviceType.IsAssignableTo(typeof(IElementLifecycleService)))

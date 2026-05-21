@@ -1,8 +1,10 @@
-﻿namespace Beutl.Editor.Components;
+﻿using Beutl.Editor;
+
+namespace Beutl.Editor.Components;
 
 public static class Constants
 {
-    public const string ElementFileExtension = "belm";
+    public const string ElementFileExtension = EditorConstants.ElementFileExtension;
     public const string SceneFileExtension = "scene";
     public const string ProjectFileExtension = "bep";
     public const string BeutlFolder = ".beutl";

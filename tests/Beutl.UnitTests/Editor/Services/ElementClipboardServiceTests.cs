@@ -1,6 +1,7 @@
-using Beutl.Editor;
+﻿using Beutl.Editor;
 using Beutl.Editor.Observers;
 using Beutl.Editor.Services;
+using Beutl.Media;
 using Beutl.ProjectSystem;
 using Beutl.Serialization;
 
@@ -35,7 +36,11 @@ public class ElementClipboardServiceTests
         _history.Subscribe(_observer);
         _clipboard = new InMemoryClipboardGateway();
         _duplicateService = new ElementDuplicateService(_history);
-        _service = new ElementClipboardService(_history, _clipboard, _duplicateService);
+        _service = new ElementClipboardService(
+            _history,
+            _clipboard,
+            _duplicateService,
+            imageAccentColorFactory: () => Colors.Magenta);
     }
 
     [TearDown]

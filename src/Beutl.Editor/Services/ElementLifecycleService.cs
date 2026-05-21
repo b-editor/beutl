@@ -1,4 +1,4 @@
-using System.Collections.Immutable;
+﻿using System.Collections.Immutable;
 using Beutl.Animation;
 using Beutl.Language;
 using Beutl.Media;
@@ -10,8 +10,6 @@ namespace Beutl.Editor.Services;
 
 public sealed class ElementLifecycleService : IElementLifecycleService
 {
-    private const string ElementFileExtension = "belm";
-
     private readonly HistoryManager _historyManager;
 
     public ElementLifecycleService(HistoryManager historyManager)
@@ -90,7 +88,7 @@ public sealed class ElementLifecycleService : IElementLifecycleService
 
             ShiftLocalKeyFrames(backward, -forwardDuration);
 
-            CoreSerializer.StoreToUri(backward, RandomFileNameGenerator.GenerateUri(scene.Uri, ElementFileExtension));
+            CoreSerializer.StoreToUri(backward, RandomFileNameGenerator.GenerateUri(scene.Uri, EditorConstants.ElementFileExtension));
             scene.AddChild(backward);
             backward.NotifySplitted(true, forwardDuration, -forwardDuration);
             target.NotifySplitted(false, TimeSpan.Zero, -backwardDuration);

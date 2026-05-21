@@ -1,4 +1,4 @@
-using Beutl.Media;
+﻿using Beutl.Media;
 using Beutl.ProjectSystem;
 
 namespace Beutl.Editor.Services;
@@ -19,15 +19,11 @@ public interface IElementClipboardService
     Task<ElementPasteOutcome> PasteAsync(Scene scene, TimeSpan clickedFrame, int clickedLayer);
 }
 
-public sealed class ElementPasteOutcome
+public sealed record ElementPasteOutcome(
+    bool Pasted,
+    IReadOnlyList<Element> NewElements,
+    TimeRange ScrollTo,
+    int ScrollToZIndex)
 {
-    public static readonly ElementPasteOutcome Empty = new();
-
-    public bool Pasted { get; init; }
-
-    public IReadOnlyList<Element> NewElements { get; init; } = [];
-
-    public TimeRange ScrollTo { get; init; }
-
-    public int ScrollToZIndex { get; init; }
+    public static readonly ElementPasteOutcome Empty = new(false, [], default, 0);
 }

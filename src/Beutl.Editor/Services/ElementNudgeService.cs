@@ -1,4 +1,4 @@
-using Beutl.Language;
+﻿using Beutl.Language;
 using Beutl.Logging;
 using Beutl.ProjectSystem;
 using Microsoft.Extensions.Logging;
@@ -18,7 +18,10 @@ public sealed class ElementNudgeService : IElementNudgeService
     private readonly Timer _timer;
     private readonly object _gate = new();
     private bool _pending;
-    private bool _disposed;
+    // volatile so a Nudge() racing with Dispose() on another thread sees the
+    // flag immediately. The lock-protected re-check inside Schedule() is the
+    // primary guard against ObjectDisposedException on _timer.Change.
+    private volatile bool _disposed;
 
     public ElementNudgeService(HistoryManager historyManager)
     {
@@ -56,7 +59,10 @@ public sealed class ElementNudgeService : IElementNudgeService
         {
             if (!_pending) return;
             _pending = false;
-            _timer.Change(Timeout.Infinite, Timeout.Infinite);
+            if (!_disposed)
+            {
+                _timer.Change(Timeout.Infinite, Timeout.Infinite);
+            }
         }
 
         CommitPending();
@@ -64,8 +70,15 @@ public sealed class ElementNudgeService : IElementNudgeService
 
     public void Dispose()
     {
-        if (_disposed) return;
-        _disposed = true;
+        // _disposed is volatile, but the lock pairs Flush()/Schedule() against
+        // Dispose() so a concurrent Schedule cannot reach _timer.Change after
+        // _timer.Dispose has run.
+        lock (_gate)
+        {
+            if (_disposed) return;
+            _disposed = true;
+        }
+
         Flush();
         _timer.Dispose();
     }
@@ -74,6 +87,11 @@ public sealed class ElementNudgeService : IElementNudgeService
     {
         lock (_gate)
         {
+            // Recheck under the lock: Dispose may have flipped _disposed between
+            // the unlocked guard in Nudge() and reaching this line. Without this
+            // recheck _timer.Change throws ObjectDisposedException.
+            if (_disposed) return;
+
             _pending = true;
             _timer.Change(DebounceWindow, Timeout.InfiniteTimeSpan);
         }
