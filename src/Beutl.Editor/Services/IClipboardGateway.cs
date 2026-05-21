@@ -17,7 +17,16 @@ public interface IClipboardGateway
 
     Task<ReadOnlyMemory<byte>?> TryGetBitmapPngAsync();
 
-    Task SetAsync(IReadOnlyList<ClipboardEntry> entries);
+    /// <summary>
+    /// Publishes <paramref name="entries"/> to the platform clipboard.
+    /// Returns <see langword="true"/> when the entries were committed,
+    /// <see langword="false"/> when the platform clipboard is unavailable
+    /// (e.g. no top-level <c>Avalonia</c> window). Destructive callers
+    /// (Cut / Move-to-clipboard) MUST check the return and abort the
+    /// destructive half when this is <see langword="false"/>, otherwise
+    /// the user loses data they cannot paste back.
+    /// </summary>
+    Task<bool> SetAsync(IReadOnlyList<ClipboardEntry> entries);
 
     Task ClearAsync();
 }

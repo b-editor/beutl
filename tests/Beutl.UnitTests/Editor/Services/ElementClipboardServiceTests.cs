@@ -147,6 +147,28 @@ public class ElementClipboardServiceTests
     }
 
     [Test]
+    public async Task CutAsync_ClipboardUnavailable_PreservesScene()
+    {
+        Element element = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
+        int childrenBefore = _scene.Children.Count;
+        int historyBefore = _history.UndoCount;
+        _clipboard.SimulateUnavailable = true;
+
+        bool result = await _service.CutAsync(_scene, [element]);
+
+        // Without this guard, Cut would remove the element and commit a
+        // history entry even though the clipboard write silently failed —
+        // user-visible data loss.
+        Assert.Multiple(() =>
+        {
+            Assert.That(result, Is.False);
+            Assert.That(_scene.Children, Does.Contain(element));
+            Assert.That(_scene.Children.Count, Is.EqualTo(childrenBefore));
+            Assert.That(_history.UndoCount, Is.EqualTo(historyBefore));
+        });
+    }
+
+    [Test]
     public async Task PasteAsync_ElementsFormat_RespectsClickedPosition()
     {
         Element e1 = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2), 0);
@@ -197,6 +219,13 @@ public class ElementClipboardServiceTests
         private IReadOnlyList<string>? _filePaths;
         private byte[]? _bitmapPng;
 
+        /// <summary>
+        /// Simulates an unavailable platform clipboard (e.g. no top-level
+        /// window). When true, <see cref="SetAsync"/> returns false and
+        /// drops the entries.
+        /// </summary>
+        public bool SimulateUnavailable { get; set; }
+
         public void SetSingle(string format, string content) => _entries[format] = content;
 
         public void SetFiles(IReadOnlyList<string> files) => _filePaths = files;
@@ -219,15 +248,17 @@ public class ElementClipboardServiceTests
         public Task<ReadOnlyMemory<byte>?> TryGetBitmapPngAsync()
             => Task.FromResult<ReadOnlyMemory<byte>?>(_bitmapPng is null ? null : _bitmapPng);
 
-        public Task SetAsync(IReadOnlyList<ClipboardEntry> entries)
+        public Task<bool> SetAsync(IReadOnlyList<ClipboardEntry> entries)
         {
+            if (SimulateUnavailable) return Task.FromResult(false);
+
             _entries.Clear();
             foreach (ClipboardEntry entry in entries)
             {
                 if (entry.Text is not null) _entries[entry.Format] = entry.Text;
             }
 
-            return Task.CompletedTask;
+            return Task.FromResult(true);
         }
 
         public Task ClearAsync()

@@ -39,10 +39,10 @@ public sealed class ElementClipboardService : IElementClipboardService
         _elementAdder = elementAdder;
     }
 
-    public async Task CopyAsync(IReadOnlyList<Element> elements)
+    public async Task<bool> CopyAsync(IReadOnlyList<Element> elements)
     {
         ArgumentNullException.ThrowIfNull(elements);
-        if (elements.Count == 0) return;
+        if (elements.Count == 0) return false;
 
         string singleJson = CoreSerializer.SerializeToJsonString(elements[0]);
         var entries = new List<ClipboardEntry>(3)
@@ -58,7 +58,7 @@ public sealed class ElementClipboardService : IElementClipboardService
             entries.Add(new ClipboardEntry(BeutlClipboardFormats.Elements, multiNode.ToJsonString(), null));
         }
 
-        await _clipboard.SetAsync(entries);
+        return await _clipboard.SetAsync(entries);
     }
 
     public async Task<bool> CutAsync(Scene scene, IReadOnlyList<Element> elements)
@@ -67,7 +67,17 @@ public sealed class ElementClipboardService : IElementClipboardService
         ArgumentNullException.ThrowIfNull(elements);
         if (elements.Count == 0) return false;
 
-        await CopyAsync(elements);
+        // Abort the destructive half when the clipboard write failed —
+        // otherwise the user loses the elements with no way to paste them
+        // back (the platform clipboard is unavailable, e.g. no top-level
+        // window).
+        if (!await CopyAsync(elements))
+        {
+            s_logger.LogWarning(
+                "CutAsync aborted: clipboard unavailable, preserving {Count} element(s).",
+                elements.Count);
+            return false;
+        }
 
         foreach (Element element in elements.ToArray())
         {
@@ -127,7 +137,16 @@ public sealed class ElementClipboardService : IElementClipboardService
         DuplicateOutcome outcome = _duplicateService.DuplicateAtClickedPosition(
             scene, oldElements, clickedFrame, clickedLayer);
 
-        if (!outcome.Success) return ElementPasteOutcome.Empty;
+        if (!outcome.Success)
+        {
+            // Match the diagnostic surface of the single-element / bitmap
+            // paths so the user can see why a multi-element paste did
+            // nothing (e.g. unsaved scene, I/O failure staging duplicates).
+            s_logger.LogWarning(
+                "PasteElementsAsync skipped: DuplicateAtClickedPosition failed for {Count} element(s) at ({Frame}, layer {Layer}).",
+                oldElements.Length, clickedFrame, clickedLayer);
+            return ElementPasteOutcome.Empty;
+        }
 
         return new ElementPasteOutcome(
             Pasted: true,

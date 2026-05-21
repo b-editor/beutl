@@ -76,10 +76,10 @@ public sealed class AvaloniaClipboardGateway : IClipboardGateway
         return ms.ToArray();
     }
 
-    public async Task SetAsync(IReadOnlyList<ClipboardEntry> entries)
+    public async Task<bool> SetAsync(IReadOnlyList<ClipboardEntry> entries)
     {
         IClipboard? clipboard = ClipboardHelper.GetClipboard();
-        if (clipboard is null) return;
+        if (clipboard is null) return false;
 
         var data = new DataTransfer();
         foreach (ClipboardEntry entry in entries)
@@ -102,6 +102,7 @@ public sealed class AvaloniaClipboardGateway : IClipboardGateway
         }
 
         await clipboard.SetDataAsync(data);
+        return true;
     }
 
     public async Task ClearAsync()

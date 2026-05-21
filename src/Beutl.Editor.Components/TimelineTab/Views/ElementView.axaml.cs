@@ -741,6 +741,12 @@ public sealed partial class ElementView : UserControl
                     NotificationService.ShowWarning(Strings.Duplicate_Failed, Strings.Duplicate_FallbackToMove);
                     break;
                 case ElementMoveOutcome.None:
+                    // Sub-frame drag round to zero delta: the model is
+                    // unchanged but Margin/BorderMargin were already
+                    // mutated during OnPointerMoved. Snap visuals back so
+                    // the clips do not stay visibly offset until a later
+                    // model/scale change rebinds them.
+                    ForceRestoreVisualToModel(animations.Select(a => a.ViewModel));
                     return;
             }
 

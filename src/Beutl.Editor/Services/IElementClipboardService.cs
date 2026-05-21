@@ -12,7 +12,13 @@ namespace Beutl.Editor.Services;
 /// </summary>
 public interface IElementClipboardService
 {
-    Task CopyAsync(IReadOnlyList<Element> elements);
+    /// <summary>
+    /// Publishes <paramref name="elements"/> to the platform clipboard.
+    /// Returns <see langword="false"/> when the platform clipboard is
+    /// unavailable; callers that destroy the source after a successful
+    /// copy (e.g. Cut) MUST check the return value.
+    /// </summary>
+    Task<bool> CopyAsync(IReadOnlyList<Element> elements);
 
     Task<bool> CutAsync(Scene scene, IReadOnlyList<Element> elements);
 
