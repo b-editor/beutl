@@ -1,4 +1,4 @@
-using Beutl.Language;
+﻿using Beutl.Language;
 using Beutl.Logging;
 using Beutl.Media;
 using Beutl.ProjectSystem;

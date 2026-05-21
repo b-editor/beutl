@@ -1,4 +1,4 @@
-namespace Beutl.Editor.Services;
+﻿namespace Beutl.Editor.Services;
 
 /// <summary>
 /// Avalonia-free abstraction over the platform clipboard. The concrete

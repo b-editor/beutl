@@ -1,4 +1,4 @@
-namespace Beutl.Editor.Services;
+﻿namespace Beutl.Editor.Services;
 
 /// <summary>
 /// Format identifiers used on the platform clipboard for Beutl-specific

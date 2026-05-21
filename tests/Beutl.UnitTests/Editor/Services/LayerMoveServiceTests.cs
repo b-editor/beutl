@@ -1,4 +1,4 @@
-using Beutl.Editor;
+﻿using Beutl.Editor;
 using Beutl.Editor.Observers;
 using Beutl.Editor.Services;
 using Beutl.ProjectSystem;

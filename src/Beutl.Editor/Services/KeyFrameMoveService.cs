@@ -1,4 +1,4 @@
-using Beutl.Animation;
+﻿using Beutl.Animation;
 using Beutl.Language;
 
 namespace Beutl.Editor.Services;
