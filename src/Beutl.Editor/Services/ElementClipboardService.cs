@@ -48,7 +48,7 @@ public sealed class ElementClipboardService : IElementClipboardService
         var entries = new List<ClipboardEntry>(3)
         {
             new(BeutlClipboardFormats.Element, singleJson, null),
-            new("text/plain", singleJson, null),
+            new(BeutlClipboardFormats.Text, singleJson, null),
         };
 
         if (elements.Count > 1)
@@ -86,7 +86,7 @@ public sealed class ElementClipboardService : IElementClipboardService
 
         if (formats.Contains(BeutlClipboardFormats.Elements))
         {
-            return await PasteElementsAsync(scene);
+            return await PasteElementsAsync(scene, clickedFrame, clickedLayer);
         }
 
         if (formats.Contains(BeutlClipboardFormats.Element))
@@ -107,7 +107,7 @@ public sealed class ElementClipboardService : IElementClipboardService
         return ElementPasteOutcome.Empty;
     }
 
-    private async Task<ElementPasteOutcome> PasteElementsAsync(Scene scene)
+    private async Task<ElementPasteOutcome> PasteElementsAsync(Scene scene, TimeSpan clickedFrame, int clickedLayer)
     {
         string? json = await _clipboard.TryGetStringAsync(BeutlClipboardFormats.Elements);
         if (json is null) return ElementPasteOutcome.Empty;
@@ -125,7 +125,7 @@ public sealed class ElementClipboardService : IElementClipboardService
         }
 
         DuplicateOutcome outcome = _duplicateService.DuplicateAtClickedPosition(
-            scene, oldElements, TimeSpan.Zero, 0);
+            scene, oldElements, clickedFrame, clickedLayer);
 
         if (!outcome.Success) return ElementPasteOutcome.Empty;
 

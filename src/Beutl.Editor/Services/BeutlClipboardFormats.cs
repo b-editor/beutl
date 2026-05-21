@@ -15,4 +15,12 @@ public static class BeutlClipboardFormats
     public const string Files = "Files";
 
     public const string Bitmap = "Bitmap";
+
+    /// <summary>
+    /// MIME identifier for a plain-text payload. Mapped to the platform's
+    /// native text clipboard slot (<c>DataTransferItem.CreateText</c> on
+    /// Avalonia) so a Copy that exposes a JSON payload also leaves a
+    /// human-pasteable string for other applications.
+    /// </summary>
+    public const string Text = "text/plain";
 }

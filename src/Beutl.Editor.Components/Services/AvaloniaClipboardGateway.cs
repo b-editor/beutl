@@ -1,4 +1,4 @@
-using Avalonia.Input;
+﻿using Avalonia.Input;
 using Avalonia.Input.Platform;
 using Avalonia.Platform.Storage;
 using Beutl.Editor.Components.Helpers;
@@ -85,6 +85,15 @@ public sealed class AvaloniaClipboardGateway : IClipboardGateway
         foreach (ClipboardEntry entry in entries)
         {
             if (entry.Text is null) continue;
+
+            if (entry.Format == BeutlClipboardFormats.Text)
+            {
+                // Route plain-text payloads through the platform's native
+                // text slot so other apps see them on a normal "Paste".
+                data.Add(DataTransferItem.CreateText(entry.Text));
+                continue;
+            }
+
             DataFormat? format = MapFromString(entry.Format);
             if (format is DataFormat<string> stringFormat)
             {

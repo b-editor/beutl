@@ -146,6 +146,51 @@ public class ElementClipboardServiceTests
         });
     }
 
+    [Test]
+    public async Task PasteAsync_ElementsFormat_RespectsClickedPosition()
+    {
+        Element e1 = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2), 0);
+        Element e2 = AddElement(TimeSpan.FromSeconds(3), TimeSpan.FromSeconds(2), 0);
+        var array = new System.Text.Json.Nodes.JsonArray(
+            CoreSerializer.SerializeToJsonObject(e1),
+            CoreSerializer.SerializeToJsonObject(e2));
+        _clipboard.SetSingle(BeutlClipboardFormats.Elements, array.ToJsonString());
+
+        TimeSpan clicked = TimeSpan.FromSeconds(20);
+        int clickedLayer = 3;
+
+        ElementPasteOutcome outcome = await _service.PasteAsync(_scene, clicked, clickedLayer);
+
+        // The spiral search anchors at (clickedFrame, clickedLayer); with an
+        // empty timeline area around (20s, layer 3) the duplicates land
+        // exactly there. Previously this test would have placed copies at
+        // (0s, layer 0) regardless of the click — the regression Copilot
+        // flagged.
+        Assert.Multiple(() =>
+        {
+            Assert.That(outcome.Pasted, Is.True);
+            Assert.That(outcome.ScrollTo.Start, Is.EqualTo(clicked));
+            Assert.That(outcome.ScrollToZIndex, Is.EqualTo(clickedLayer));
+        });
+    }
+
+    [Test]
+    public async Task CopyAsync_ExposesPlainTextAlongsideElementJson()
+    {
+        Element element = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
+
+        await _service.CopyAsync([element]);
+
+        // Both the JSON format and the platform text slot must carry the
+        // payload — the gateway used to drop "text/plain" silently.
+        IReadOnlyList<string> formats = await _clipboard.GetFormatsAsync();
+        Assert.Multiple(() =>
+        {
+            Assert.That(formats, Contains.Item(BeutlClipboardFormats.Element));
+            Assert.That(formats, Contains.Item(BeutlClipboardFormats.Text));
+        });
+    }
+
     private sealed class InMemoryClipboardGateway : IClipboardGateway
     {
         private readonly Dictionary<string, string> _entries = new();
