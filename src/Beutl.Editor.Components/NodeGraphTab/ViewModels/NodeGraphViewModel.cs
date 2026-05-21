@@ -1,7 +1,7 @@
 ﻿using System.Text.Json.Nodes;
 using Avalonia;
+using Beutl.Editor.Services;
 using Beutl.NodeGraph;
-using Beutl.NodeGraph.Nodes.Group;
 using Microsoft.Extensions.DependencyInjection;
 using Reactive.Bindings;
 
@@ -97,23 +97,8 @@ public sealed class NodeGraphViewModel : IDisposable, IJsonSerializable
     public void AddNodePort(Type type, Point point)
     {
         var node = (GraphNode)Activator.CreateInstance(type)!;
-        node.Position = (point.X, point.Y);
-        if (NodeGraph is GraphGroup nodeGroup)
-        {
-            if (node is GroupInput
-                && nodeGroup.Nodes.Any(x => x is GroupInput))
-            {
-                return;
-            }
-            else if (node is GroupOutput
-                     && nodeGroup.Nodes.Any(x => x is GroupOutput))
-            {
-                return;
-            }
-        }
-
-        NodeGraph.Nodes.Add(node);
-        EditorContext.GetRequiredService<HistoryManager>().Commit(CommandNames.AddNode);
+        EditorContext.GetRequiredService<INodeGraphMutationService>()
+            .AddNode(NodeGraph, node, point.X, point.Y);
     }
 
     public void Dispose()

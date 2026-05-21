@@ -45,6 +45,7 @@ public sealed partial class EditViewModel : IEditorContext, ISupportAutoSaveEdit
     private LayerAttributeService? _layerAttributeService;
     private SceneSettingsService? _sceneSettingsService;
     private KeyFrameClipboardService? _keyFrameClipboardService;
+    private NodeGraphMutationService? _nodeGraphMutationService;
     private IClipboardGateway? _clipboardGateway;
     private volatile bool _viewStateSaveSuppressed;
 
@@ -715,6 +716,9 @@ public sealed partial class EditViewModel : IEditorContext, ISupportAutoSaveEdit
 
         if (serviceType.IsAssignableTo(typeof(IKeyFrameClipboardService)))
             return _keyFrameClipboardService ??= new KeyFrameClipboardService(HistoryManager);
+
+        if (serviceType.IsAssignableTo(typeof(INodeGraphMutationService)))
+            return _nodeGraphMutationService ??= new NodeGraphMutationService(HistoryManager);
 
         if (serviceType == typeof(PlayerViewModel) || serviceType.IsAssignableTo(typeof(IPreviewPlayer)))
             return Player;
