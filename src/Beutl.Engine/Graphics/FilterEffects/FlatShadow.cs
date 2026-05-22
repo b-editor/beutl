@@ -53,13 +53,6 @@ public partial class FlatShadow : FilterEffect
     private static void Apply((float Angle, float Length, Brush.Resource? Brush, bool ShadowOnly) data,
         CustomFilterEffectContext context)
     {
-        // TODO(per-clip-proxy): FlatShadow traces contours from the upstream snapshot and replays them
-        // as a chain of `DrawPath` calls at unit-pixel offsets. To respond visually to non-Identity
-        // upstream CorrectionScale, the contour coords and the inner-loop offset/length need to be
-        // expressed in physical raster pixels (= authored / scale). The structural support for that —
-        // `CustomFilterEffectContext.CreateTarget` allocating at upstream scale — is in place; the
-        // per-effect adjustment (multiply contour coords by scale or divide loop offsets by scale)
-        // is left for a follow-up so this PR stays focused on the engine plumbing.
         static SKPath CreatePath(Bitmap src)
         {
             using var contours = ContourTracer.FindContours(src);
@@ -85,6 +78,15 @@ public partial class FlatShadow : FilterEffect
         float length = data.Length;
         float radian = MathUtilities.Deg2Rad(data.Angle);
 
+        // The new EffectTarget is at upstream raster scale (CreateTarget allocates physical size as
+        // bounds.PixelSize / CorrectionScale). Contour coords from the upstream snapshot are already
+        // in physical-pixel units of that same scale, so the contour path needs no transformation;
+        // only the authored translations (outer offset, per-iteration step, final blit offset) need
+        // to be divided by CorrectionScale so they land at physical raster pixels of the new RT.
+        var scale = context.CorrectionScale;
+        float invSx = scale.IsIdentity ? 1f : 1f / scale.ScaleX;
+        float invSy = scale.IsIdentity ? 1f : 1f / scale.ScaleY;
+
         for (int ii = 0; ii < context.Targets.Count; ii++)
         {
             var target = context.Targets[ii];
@@ -104,22 +106,30 @@ public partial class FlatShadow : FilterEffect
                     target.Bounds.Y - (y2Abs - y2) / 2,
                     (size.Width + x2Abs),
                     (size.Height + y2Abs)));
+            float outerTx = (x2Abs - x2) / 2 * invSx;
+            float outerTy = (y2Abs - y2) / 2 * invSy;
             using (var paint = new SKPaint { Color = SKColors.White, IsAntialias = true, Style = SKPaintStyle.Fill })
             using (var brushPaint = new SKPaint())
             using (SKPath path = CreatePath(srcBitmap))
             using (ImmediateCanvas newCanvas = context.Open(newTarget))
             {
                 newCanvas.Clear();
-                using (newCanvas.PushTransform(Matrix.CreateTranslation((x2Abs - x2) / 2, (y2Abs - y2) / 2)))
+                using (newCanvas.PushTransform(Matrix.CreateTranslation(outerTx, outerTy)))
                 {
                     var c = new BrushConstructor(new(newTarget.Bounds.Size), brush, BlendMode.SrcIn);
                     c.ConfigurePaint(brushPaint);
 
                     float lenAbs = Math.Abs(length);
                     int unit = Math.Sign(length);
+                    // Per-iteration step in physical raster pixels of the new RT. lenAbs stays at the
+                    // authored length so the total displacement = lenAbs × (x1*unit/scale, y1*unit/scale)
+                    // physical = length × (cos, sin) / scale physical, which is length authoring units
+                    // after the compositor's final upscale.
+                    float stepX = x1 * unit * invSx;
+                    float stepY = y1 * unit * invSy;
                     for (int i = 0; i < lenAbs; i++)
                     {
-                        newCanvas.Transform = Matrix.CreateTranslation(x1 * unit, y1 * unit) * newCanvas.Transform;
+                        newCanvas.Transform = Matrix.CreateTranslation(stepX, stepY) * newCanvas.Transform;
                         newCanvas.Canvas.DrawPath(path, paint);
                     }
                 }
@@ -127,7 +137,7 @@ public partial class FlatShadow : FilterEffect
                 newCanvas.Canvas.DrawRect(SKRect.Create(newTarget.Bounds.Size.ToSKSize()), brushPaint);
 
                 if (!data.ShadowOnly)
-                    newCanvas.DrawRenderTarget(target.RenderTarget!, new((x2Abs - x2) / 2, (y2Abs - y2) / 2));
+                    newCanvas.DrawRenderTarget(target.RenderTarget!, new(outerTx, outerTy));
             }
 
             target.Dispose();

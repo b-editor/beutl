@@ -197,20 +197,20 @@ This loosens the original "zero FilterEffectContext modification" constraint but
 | MosaicEffect | CustomEffect (SKSL shader) | `TileSize` uniform divided in effect's action; ApplyToNewTarget now draws at physical extent | ✓ |
 | ColorShift | CustomEffect (SKSL shader) | All 4 offset uniforms divided in effect's action | ✓ |
 | ShakeEffect | CustomEffect (authoring-bounds translation) | None — translates bounds in authoring space, CorrectionScale-agnostic by design | ✓ |
-| FlatShadow | CustomEffect (contour trace + pixel draws) | TODO marker placed; needs raster-coord remediation in the contour-drawing inner loop. | Pending |
+| FlatShadow | CustomEffect (contour trace + pixel draws) | Outer translate / per-iter step / final blit offset all divided by CorrectionScale; contour path stays in raster pixels (already physical of the new RT) | ✓ |
 | Clipping | CustomEffect (pixel-extent edit + DrawRenderTarget) | DrawRenderTarget offsets and inner translate divided by CorrectionScale | ✓ |
 | SplitEffect | CustomEffect (multi-RT split via DrawRenderTarget at authoring offsets) | Per-cell DrawRenderTarget offsets divided by CorrectionScale | ✓ |
-| StrokeEffect | CustomEffect (contour trace + DrawRenderTarget) | Not modified. Needs raster-coord remediation in the contour-trace path (same shape as FlatShadow). | Pending |
+| StrokeEffect | CustomEffect (contour trace + DrawRenderTarget) | Contour path lifted to authoring (multiply by scale); `DrawSKPath` wrapped in Scale(1/scale) push so Skia scales `pen.Thickness` automatically; outer origin / inner offset translates divided by CorrectionScale | ✓ |
 | DisplacementMapTranslateTransform | CustomEffect (SKSL shader) | `uTranslation` divided in effect's action | ✓ |
 | DisplacementMapScaleTransform | CustomEffect (SKSL shader, dimensionless ratio) | `uPivot` divided in effect's action; `uScale` stays dimensionless | ✓ |
 | DisplacementMapRotationTransform | CustomEffect (SKSL shader, dimensionless angle) | `uPivot` divided in effect's action; `uAngle` stays dimensionless | ✓ |
 
-11 of 13 in-scope effects now respond correctly to non-Identity upstream `CorrectionScale`. The 2 remaining (FlatShadow and StrokeEffect) both follow the "snapshot upstream → trace contour → replay via `DrawPath`" pattern. Their contour points come back in raster pixel coords (from `ContourTracer.FindContours` against the upstream snapshot) and are drawn into the new `EffectTarget` whose canvas operates in physical raster units. To make them visually correct at non-Identity upstream, the contour-drawing loop needs to:
+**All 13 in-scope effects now respond correctly to non-Identity upstream `CorrectionScale`.** The 2 contour-trace effects took different conventions:
 
-1. Multiply contour pixel coords by `CorrectionScale` before drawing (lifting them into authoring units), and divide the per-iteration unit offset by `CorrectionScale` (so the `length` iterations advance by 1 raster pixel each).
-2. **Or** keep contour coords in raster pixels and divide outer translation offsets by `CorrectionScale` instead.
+- `FlatShadow` (no pen, fills via path): contour stays in raster-pixel coords (= physical pixels of the new RT since both are at upstream scale). The outer translate, per-iteration step, and final blit offset are divided by `CorrectionScale` so authored units map to physical raster pixels.
+- `StrokeEffect` (pen-based stroke): contour is lifted into authoring coords (multiply by `CorrectionScale`), and `DrawSKPath` is wrapped in a `Scale(1/scale)` push. Skia evaluates `pen.Thickness` in the current canvas's unit system, so the same Scale push automatically scales the stroke width — `Thickness` authoring units render as `Thickness/scale` physical pixels of the new RT, which is `Thickness` authoring units in the final composited frame after the compositor's upscale.
 
-Either approach is local to the effect's `Apply` action and does not require further engine plumbing. Left as a small follow-up.
+Both effects expose this via per-effect adjustments in their `Apply` actions; no further engine plumbing is required.
 
 ### Structural plumbing (Phase 4 cleanup, 2026-05-22)
 
