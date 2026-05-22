@@ -104,7 +104,7 @@ Engine code: `src/Beutl.Engine/Graphics/Rendering/`. Tests: `tests/Beutl.UnitTes
 
 - [ ] T026 [US2] Verify in code review that no `*.cs` file under `src/Beutl.Engine/Graphics/FilterEffects/` (Blur, DropShadow, InnerShadow, StrokeEffect, Erode, Dilate, FlatShadow, ColorShift, DisplacementMapTransform, MosaicEffect, ShakeEffect, SplitEffect, Clipping) has been modified by this PR. The only file there that may be modified is the FilterEffect base / Resource / Activator if a small adapter is needed — and even that should be minimal.
 - [ ] T027 [US2] Verify no Shape / Drawable / Brush / Pen / Transform / TextBlock files under `src/Beutl.Engine/Graphics/` (outside `Rendering/`) are modified.
-- [ ] T028 [US2] Add `ExtensionAuthorNoOpTests.cs` in `tests/Beutl.UnitTests/`: load the 13 in-scope effects + sample CSharpScriptEffect; verify each produces correct output under `CorrectionScale = (4, 4)` via the test harness. No assertion on the effect's `.cs` content other than via git history check ("unchanged from main").
+- [X] T028 [US2] Add `ExtensionAuthorNoOpTests.cs` in `tests/Beutl.UnitTests/`: load the 13 in-scope effects + sample CSharpScriptEffect; verify each produces correct output under `CorrectionScale = (4, 4)` via the test harness. No assertion on the effect's `.cs` content other than via git history check ("unchanged from main").
 
 **Checkpoint (US2)**: extension authors have zero code to write to benefit.
 

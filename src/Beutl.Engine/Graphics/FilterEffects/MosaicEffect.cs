@@ -62,6 +62,13 @@ public partial class MosaicEffect : FilterEffect
     {
         if (s_shader is null) return;
 
+        // tileSize is authored in scene pixels; the shader operates on the upstream raster, so divide
+        // by the upstream's CorrectionScale to express it in raster pixels.
+        var scale = c.CorrectionScale;
+        var rasterTileSize = scale.IsIdentity
+            ? data.tileSize
+            : new Size(data.tileSize.Width / scale.ScaleX, data.tileSize.Height / scale.ScaleY);
+
         for (int i = 0; i < c.Targets.Count; i++)
         {
             using var effectTarget = c.Targets[i];
@@ -75,7 +82,8 @@ public partial class MosaicEffect : FilterEffect
 
             // child shaderとしてテクスチャ用のシェーダーを設定
             builder.Children["src"] = baseShader;
-            builder.Uniforms["tileSize"] = data.tileSize.ToSKSize();
+            builder.Uniforms["tileSize"] = rasterTileSize.ToSKSize();
+            // origin is a RelativePoint converted via image's raster dimensions → already raster space.
             builder.Uniforms["origin"] = data.origin.ToPixels(new(image.Width, image.Height)).ToSKPoint();
 
             // 新しいターゲットに適用

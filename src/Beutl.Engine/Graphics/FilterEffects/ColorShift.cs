@@ -95,6 +95,14 @@ public partial class ColorShift : FilterEffect
         CustomFilterEffectContext context)
     {
         if (s_shader is null) return;
+
+        // PixelPoint offsets are authored in scene pixels; the SKSL shader operates on the upstream raster,
+        // so divide by upstream CorrectionScale to express them in raster pixels.
+        var scale = context.CorrectionScale;
+        SKPoint ToRasterOffset(PixelPoint p) => scale.IsIdentity
+            ? new SKPoint(p.X, p.Y)
+            : new SKPoint(p.X / scale.ScaleX, p.Y / scale.ScaleY);
+
         for (int i = 0; i < context.Targets.Count; i++)
         {
             using var effectTarget = context.Targets[i];
@@ -113,11 +121,11 @@ public partial class ColorShift : FilterEffect
 
             // child shaderとしてテクスチャ用のシェーダーを設定
             builder.Children["src"] = baseShader;
-            builder.Uniforms["redOffset"] = new SKPoint(data.RedOffset.X, data.RedOffset.Y);
-            builder.Uniforms["greenOffset"] = new SKPoint(data.GreenOffset.X, data.GreenOffset.Y);
-            builder.Uniforms["blueOffset"] = new SKPoint(data.BlueOffset.X, data.BlueOffset.Y);
-            builder.Uniforms["alphaOffset"] = new SKPoint(data.AlphaOffset.X, data.AlphaOffset.Y);
-            builder.Uniforms["minOffset"] = new SKPoint(minOffsetX, minOffsetY);
+            builder.Uniforms["redOffset"] = ToRasterOffset(data.RedOffset);
+            builder.Uniforms["greenOffset"] = ToRasterOffset(data.GreenOffset);
+            builder.Uniforms["blueOffset"] = ToRasterOffset(data.BlueOffset);
+            builder.Uniforms["alphaOffset"] = ToRasterOffset(data.AlphaOffset);
+            builder.Uniforms["minOffset"] = ToRasterOffset(new PixelPoint(minOffsetX, minOffsetY));
 
             // 新しいターゲットに適用
             context.Targets[i] = s_shader.ApplyToNewTarget(context, builder, bounds);
