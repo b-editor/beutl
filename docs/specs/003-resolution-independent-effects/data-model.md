@@ -185,6 +185,34 @@ Adopted policy (Phase 3 implementation):
 
 This loosens the original "zero FilterEffectContext modification" constraint but preserves the spirit of `FR-008` for the 5 pure-primitive in-scope effects. The 8 CustomEffect-based effects opt in via a single property read.
 
+### Per-effect status (Phase 4 cleanup, 2026-05-22)
+
+| Effect | Type | Length-typed parameter handling | Visual correctness at non-Identity upstream |
+|---|---|---|---|
+| Blur | Primitive | Divided in `FilterEffectContext.Blur` | ✓ |
+| DropShadow | Primitive | Divided in `FilterEffectContext.DropShadow` | ✓ |
+| InnerShadow | Primitive (via `InnerShadowCore`) | Divided in `FilterEffectContext.InnerShadowCore` | ✓ |
+| Erode | Primitive | Divided in `FilterEffectContext.Erode` | ✓ |
+| Dilate | Primitive | Divided in `FilterEffectContext.Dilate` | ✓ |
+| MosaicEffect | CustomEffect (SKSL shader) | `TileSize` uniform divided in effect's action | Pending — also blocked on `CreateTarget` allocating at upstream scale (follow-up). Pipeline + propagation verified. |
+| ColorShift | CustomEffect (SKSL shader) | All 4 offset uniforms divided in effect's action | Pending — same blocker as Mosaic. Pipeline + propagation verified. |
+| ShakeEffect | CustomEffect (authoring-bounds translation) | None — translates bounds in authoring space, CorrectionScale-agnostic by design | ✓ |
+| FlatShadow | CustomEffect (contour trace + pixel draws) | Not modified. TODO marker placed; needs the structural follow-up + raster-coord remediation in the contour-drawing inner loop. | Pending |
+| Clipping | CustomEffect (pixel-extent edit + DrawRenderTarget) | Not modified. Same structural blocker. | Pending |
+| SplitEffect | CustomEffect (multi-RT split via DrawRenderTarget at authoring offsets) | Not modified. Same structural blocker. | Pending |
+| StrokeEffect | CustomEffect (contour trace + DrawRenderTarget) | Not modified. Same structural blocker. | Pending |
+| DisplacementMapTranslateTransform | CustomEffect (SKSL shader) | Not modified. Same structural blocker; uniform divisions ready to land with the structural fix. | Pending |
+| DisplacementMapScaleTransform | CustomEffect (SKSL shader, dimensionless ratio) | Pivot uniform needs raster mapping when structural fix lands. | Pending |
+| DisplacementMapRotationTransform | CustomEffect (SKSL shader, dimensionless angle) | Pivot uniform needs raster mapping when structural fix lands. | Pending |
+
+The pending rows above represent the **follow-up needed before SC-001 (SSIM ≥ 0.97 per effect) can be claimed for the full 13-effect set**. The pipeline (propagation through `FilterEffectRenderNode`, unified-scale output) is verified for all 13 by `ExtensionAuthorNoOpTests` (`tests/Beutl.UnitTests/Engine/Graphics/Rendering/ExtensionAuthorNoOpTests.cs`); visual correctness at non-Identity upstream is verified only for 6 of 13 (5 primitive-based + ShakeEffect). The remaining 7 need:
+
+1. `CustomFilterEffectContext.CreateTarget(bounds)` to allocate the new `RenderTarget` at `bounds.PixelSize / CorrectionScale` and propagate `CorrectionScale` via a new `EffectTarget.CorrectionScale` field (or equivalent).
+2. `CustomFilterEffectContext.Open(target)` to pre-apply `SKCanvas.Scale(1/ScaleX, 1/ScaleY)` so existing actions that draw at authoring offsets compose into the smaller raster automatically.
+3. Per-effect adjustments for actions that operate on raster-pixel data (snapshot pixel scans, contour tracing) — these need to either convert raster coords to authoring before drawing, or be exempt from the auto-scale matrix.
+
+Tracked as a follow-up; the order of attack should be the structural change first, then DisplacementMap (uniform-only, no pixel work), then Clipping (DrawRenderTarget-only, no pixel work), then the contour-trace effects (FlatShadow, Stroke, Split) last.
+
 ## NOT modified
 
 These types are still **left unchanged** by this PR:
