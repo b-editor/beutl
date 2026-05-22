@@ -123,6 +123,53 @@ See `contracts/transformer-node-scale-handling.md`.
 
 Add `DrawRenderTarget` / `DrawSurface` variants (or a new helper `DrawScaled(...)`) that accept a `CorrectionScale` and apply the upscale transform during the blit. Used by the compositor; see `contracts/compositor-blit.md`.
 
+## T001 audit — RenderNode subclasses under `src/Beutl.Engine/Graphics/Rendering/`
+
+End-to-end walk of every `RenderNode` subclass actually present in the tree, with the proxy-handling category each one falls into. **Categories**:
+
+- **Source A (media-decoding)**: the node's operation contains an already-rasterized pixel array (decoded frame, image bitmap). Per-clip proxy means decoding at proxy resolution and shipping the smaller raster.
+- **Source B (sub-canvas)**: the node allocates a fresh raster (e.g. `RenderTarget`), constructs an inner `ImmediateCanvas`, runs an inner render pass, and ships the result. Per-clip proxy means allocating the raster at proxy resolution with `SKCanvas.Scale(1/CorrectionScale)` pre-applied so the inner pass renders in authoring space.
+- **Source direct-draw**: the node's operation simply records a `DrawXxx(...)` call against whatever surrounding `ImmediateCanvas` the compositor passes in. It does not pre-rasterize. `CorrectionScale = Identity` from this node's own perspective; per-clip proxy participation happens implicitly via the surrounding Source-B canvas's `SKCanvas.Scale` matrix.
+- **Transformer**: the node consumes upstream operations, applies SkImageFilter / matrix / clip / push-state, and emits a new operation. Reads upstream `CorrectionScale`, divides length-typed parameters before invoking Skia, computes output `Bounds` in authoring space, propagates `CorrectionScale` unchanged (unless it materializes a fresh raster, in which case it becomes Source-B-like for downstream).
+- **Passthrough**: the node forwards upstream operations unchanged.
+- **N/A**: debug / inert nodes — no proxy participation needed.
+
+| File | Category | Phase-3 responsibility |
+|---|---|---|
+| `VideoSourceRenderNode.cs` | Source A | Today it records a `Lambda` that calls `canvas.DrawBitmap` against the parent canvas. Phase-3 wiring: when proxy is enabled, decode at proxy resolution and either rasterize to a `RenderTarget` (then ship via `CreateFromRenderTarget(..., correctionScale)`) or keep the draw-into-canvas op but declare the appropriate `CorrectionScale`. Default `Identity`. |
+| `ImageSourceRenderNode.cs` | Source A | Same pattern as Video. Static images default to `Identity` (proxy rarely useful) but the mechanism is wired. |
+| `DrawableRenderNode.cs` | Source B (Container-derived; renders a `Drawable` sub-tree) | Phase-3: when the wrapped `Drawable` opts into proxy (e.g. `SceneDrawable` for a nested Scene), allocate inner raster at `bounds.PixelSize / scale`, construct inner `ImmediateCanvas` with `SKCanvas.Scale(1/scale)`, run inner pass, emit operation with `CorrectionScale = scale`. Default `Identity`. |
+| `RectangleRenderNode.cs` | Source direct-draw | No change. `CreateLambda(..., canvas => canvas.DrawRectangle(...))` participates via the surrounding canvas matrix. |
+| `EllipseRenderNode.cs` | Source direct-draw | No change. |
+| `GeometryRenderNode.cs` | Source direct-draw | No change. |
+| `TextRenderNode.cs` | Source direct-draw | No change. |
+| `ClearRenderNode.cs` | Source direct-draw | No change. Clears the surrounding canvas. |
+| `DrawBackdropRenderNode.cs` | Source direct-draw | No change. Backdrop bitmap drawn into surrounding canvas. |
+| `SnapshotBackdropRenderNode.cs` | Source B (snapshot path) | If the surrounding canvas is at proxy scale, the snapshot is at proxy resolution; declares `CorrectionScale` matching the surrounding render. Default `Identity` until snapshot path participates. |
+| `BrushRenderNode.cs` (abstract) | n/a — base for direct-draw shapes | No change. |
+| `FilterEffectRenderNode.cs` | Transformer | Phase-3: read upstream `CorrectionScale`; per-effect parameter division (see `research.md` § R3); output `Bounds` in authoring space; propagate `CorrectionScale`. |
+| `TransformRenderNode.cs` | Transformer (matrix) | Phase-3: bounds transform in authoring space; propagate `CorrectionScale`. Matrix translation column stays in authoring units. |
+| `ContainerRenderNode.cs` | Transformer (aggregator) | Phase-3: each child's `CorrectionScale` flows through independently. Mixed-scale composition is supported by the compositor at blit time. |
+| `BlendModeRenderNode.cs` | Transformer (push-state — blend mode) | Phase-3: propagate. |
+| `OpacityRenderNode.cs` | Transformer (push-state — alpha) | Phase-3: propagate. |
+| `OpacityMaskRenderNode.cs` | Transformer (push-state — mask) | Phase-3: mask bounds in authoring space; propagate. The mask brush's own internal matrices compose through the surrounding canvas scale. |
+| `RectClipRenderNode.cs` | Transformer (push-state — rect clip) | Phase-3: clip rect in authoring space; propagate. |
+| `GeometryClipRenderNode.cs` | Transformer (push-state — geometry clip) | Phase-3: clip path in authoring space; propagate. |
+| `LayerRenderNode.cs` | Transformer (push-state — saveLayer) | Phase-3: if `saveLayer` materializes a new raster, the new raster is at the surrounding canvas's scale → behaves Source-B-like for downstream. Default propagate. |
+| `PushRenderNode.cs` | Transformer (push-state — generic Push) | Phase-3: propagate. |
+| `OperationWrapperRenderNode.cs` | Passthrough | No change. Wraps pre-built operations; their `CorrectionScale` is reported unchanged. |
+| `ReferencesChildRenderNode.cs` | Passthrough | No change. |
+| `MemoryNode.cs` (generic) | N/A (no operations) | No change. |
+| `FpsText.cs` (internal) | N/A (debug overlay drawn at compositor scale) | No change. |
+| `RenderNode.cs` (abstract base) | n/a | Base class; no override. |
+| `RenderNodeOperation.cs` | n/a (the carrier) | This file gets `RenderScale CorrectionScale` virtual + factory-method overloads (Phase 2 — Block A). |
+| `RenderNodeContext.cs` | n/a | No change. |
+| `RenderNodeProcessor.cs` | n/a (orchestrator) | Phase-3: blit path consumes `CorrectionScale`. |
+| `Renderer.cs` | Compositor | Phase-3: compositor walks operations and pushes `SKCanvas.Scale(scaleX, scaleY, bounds.X, bounds.Y)` per non-Identity op before calling `Render`. |
+| `ImmediateCanvas.cs` (in `Graphics/`, used here) | Compositor blit helper | Phase-3: extended to accept the upscale during `DrawRenderTarget` / `DrawSurface`. |
+
+**No unclassified subclass**: every `RenderNode`-derived class in `src/Beutl.Engine/Graphics/Rendering/` was inspected and falls into one of the categories above. No follow-up is required from the audit.
+
 ## NOT modified (compared to earlier draft, intentionally rolled back)
 
 These types were modified in earlier drafts (commits `a0c20556e` through `d4728ede9`) and are now **left unchanged** by this PR:

@@ -29,7 +29,7 @@ Engine code: `src/Beutl.Engine/Graphics/Rendering/`. Tests: `tests/Beutl.UnitTes
 
 ## Phase 1: Setup / Audit
 
-- [ ] T001 **RenderNode classification audit** — walk `src/Beutl.Engine/Graphics/Rendering/` end-to-end and classify every `RenderNode` subclass as: source-producing (Type A media-decoding or Type B sub-canvas-rendering), transformer (filter / transform / container / push-state), or N/A. For each, record the proxy-handling responsibility in `data-model.md` § "Modified types" tables. Use the initial classification from `research.md` § R2 as the starting point; verify against actual code; file follow-ups for any unclassified case.
+- [X] T001 **RenderNode classification audit** — walk `src/Beutl.Engine/Graphics/Rendering/` end-to-end and classify every `RenderNode` subclass as: source-producing (Type A media-decoding or Type B sub-canvas-rendering), transformer (filter / transform / container / push-state), or N/A. For each, record the proxy-handling responsibility in `data-model.md` § "Modified types" tables. Use the initial classification from `research.md` § R2 as the starting point; verify against actual code; file follow-ups for any unclassified case.
 
 ---
 
@@ -41,15 +41,15 @@ Engine code: `src/Beutl.Engine/Graphics/Rendering/`. Tests: `tests/Beutl.UnitTes
 
 ### Block A — Core types
 
-- [ ] T002 Add `RenderScale` struct in `src/Beutl.Engine/Graphics/Rendering/RenderScale.cs` per `contracts/render-node-operation-scale.md` (constructor validation `≥ 1 && finite`; `Identity = (1, 1)`; `FromRatio(float)`; `FromFrames(raster, bounds) = bounds / raster`; `ToRasterX / ToRasterY / ToRasterUniform`; `ToRaster(Size)`; `ToRaster(Point)`; `ToAuthoringX / ToAuthoringY`; `IEquatable<RenderScale>`). The numeric convention is fixed: `CorrectionScale ≥ 1` is the bounds-over-raster upscale ratio.
-- [ ] T003 Add `virtual CorrectionScale` property to `src/Beutl.Engine/Graphics/Rendering/RenderNodeOperation.cs` (default = `RenderScale.Identity`); update `LambdaRenderNodeOperation` private class to store a `_correctionScale` field and override the virtual.
-- [ ] T004 Add `CorrectionScale` parameter (default `Identity`) to the four `RenderNodeOperation` factory methods: `CreateLambda`, `CreateFromRenderTarget`, two `CreateFromSurface` overloads. Normalize `default(RenderScale) == (0, 0)` to `Identity` inside the factories so existing callers stay byte-identical without specifying the new parameter.
-- [ ] T005 Add `CreateDecorator` semantics: inherits `CorrectionScale` from the wrapped child operation. No new parameter; the factory reads `child.CorrectionScale` and constructs the wrapper accordingly.
+- [X] T002 Add `RenderScale` struct in `src/Beutl.Engine/Graphics/Rendering/RenderScale.cs` per `contracts/render-node-operation-scale.md` (constructor validation `≥ 1 && finite`; `Identity = (1, 1)`; `FromRatio(float)`; `FromFrames(raster, bounds) = bounds / raster`; `ToRasterX / ToRasterY / ToRasterUniform`; `ToRaster(Size)`; `ToRaster(Point)`; `ToAuthoringX / ToAuthoringY`; `IEquatable<RenderScale>`). The numeric convention is fixed: `CorrectionScale ≥ 1` is the bounds-over-raster upscale ratio.
+- [X] T003 Add `virtual CorrectionScale` property to `src/Beutl.Engine/Graphics/Rendering/RenderNodeOperation.cs` (default = `RenderScale.Identity`); update `LambdaRenderNodeOperation` private class to store a `_correctionScale` field and override the virtual.
+- [X] T004 Add `CorrectionScale` parameter (default `Identity`) to the four `RenderNodeOperation` factory methods: `CreateLambda`, `CreateFromRenderTarget`, two `CreateFromSurface` overloads. Normalize `default(RenderScale) == (0, 0)` to `Identity` inside the factories so existing callers stay byte-identical without specifying the new parameter.
+- [X] T005 Add `CreateDecorator` semantics: inherits `CorrectionScale` from the wrapped child operation. No new parameter; the factory reads `child.CorrectionScale` and constructs the wrapper accordingly.
 
 ### Block A tests (TDD — write before Block A implementation)
 
-- [ ] T006 [P] `RenderScaleTests.cs` in `tests/Beutl.UnitTests/Engine/Graphics/Rendering/`: `Identity` is `(1, 1)`; `FromRatio(4.0)` is `(4.0, 4.0)`; `FromFrames(raster: 480×270, bounds: 1920×1080) = (4.0, 4.0)` (the upscale ratio); validation rejects `< 1` (raster larger than bounds), zero, negative, NaN, Infinity; `ToRasterX(20)` with `ScaleX = 4` returns `5` (authoring → raster divide); `ToAuthoringX(5)` with `ScaleX = 4` returns `20` (raster → authoring multiply); equality.
-- [ ] T007 [P] `RenderNodeOperationCorrectionScaleTests.cs` in `tests/Beutl.UnitTests/Engine/Graphics/Rendering/`: default virtual returns `Identity`; `CreateLambda(...)` without the new arg → `Identity`; `CreateLambda(..., correctionScale: (4, 4))` → reports `(4, 4)`; `CreateDecorator(child, ...)` inherits child's `CorrectionScale`; `CreateFromRenderTarget` and `CreateFromSurface` overloads honour the arg.
+- [X] T006 [P] `RenderScaleTests.cs` in `tests/Beutl.UnitTests/Engine/Graphics/Rendering/`: `Identity` is `(1, 1)`; `FromRatio(4.0)` is `(4.0, 4.0)`; `FromFrames(raster: 480×270, bounds: 1920×1080) = (4.0, 4.0)` (the upscale ratio); validation rejects `< 1` (raster larger than bounds), zero, negative, NaN, Infinity; `ToRasterX(20)` with `ScaleX = 4` returns `5` (authoring → raster divide); `ToAuthoringX(5)` with `ScaleX = 4` returns `20` (raster → authoring multiply); equality.
+- [X] T007 [P] `RenderNodeOperationCorrectionScaleTests.cs` in `tests/Beutl.UnitTests/Engine/Graphics/Rendering/`: default virtual returns `Identity`; `CreateLambda(...)` without the new arg → `Identity`; `CreateLambda(..., correctionScale: (4, 4))` → reports `(4, 4)`; `CreateDecorator(child, ...)` inherits child's `CorrectionScale`; `CreateFromRenderTarget` and `CreateFromSurface` overloads honour the arg.
 
 ---
 
