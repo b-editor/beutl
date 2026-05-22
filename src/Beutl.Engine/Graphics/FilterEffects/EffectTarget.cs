@@ -83,9 +83,33 @@ public sealed class EffectTarget : IDisposable
         {
             canvas.DrawRenderTarget(RenderTarget, default);
         }
-        else
+        else if (NodeOperation is { } op)
         {
-            NodeOperation?.Render(canvas);
+            // When the wrapped operation declares a non-Identity CorrectionScale, its raster lives at
+            // upstream proxy scale anchored at `op.Bounds.TopLeft`. Push a Scale matrix around that
+            // anchor before invoking `op.Render` so the small raster expands to fill the operation's
+            // authoring bounds inside the surrounding context (e.g. a `FilterEffectRenderNode` Lambda's
+            // `PushPaint` SaveLayer). The top-level compositor in `RenderNodeProcessor` does the same
+            // for operations emitted at the root; this mirror keeps embedded usage correct.
+            RenderScale scale = op.CorrectionScale;
+            if (scale.IsIdentity)
+            {
+                op.Render(canvas);
+            }
+            else
+            {
+                Matrix scaleMatrix = BuildScaleAroundPivot(scale.ScaleX, scale.ScaleY, op.Bounds.X, op.Bounds.Y);
+                using (canvas.PushTransform(scaleMatrix))
+                {
+                    op.Render(canvas);
+                }
+            }
         }
+    }
+
+    private static Matrix BuildScaleAroundPivot(float sx, float sy, float px, float py)
+    {
+        // T(px,py) * S(sx,sy) * T(-px,-py)
+        return new Matrix(sx, 0, 0, sy, px * (1 - sx), py * (1 - sy));
     }
 }

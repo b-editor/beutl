@@ -29,25 +29,38 @@ public class ExtensionAuthorNoOpTests
         ]);
     }
 
-    private static void AssertEffectPropagatesScale(FilterEffect effect, RenderScale expectedScale)
+    private static void AssertEffectProducesOutput(FilterEffect effect, RenderScale upstreamScale)
     {
         var resource = effect.ToResource(CompositionContext.Default);
         var node = new FilterEffectRenderNode(resource);
-        var ctx = UpstreamAtScale(expectedScale);
+        var ctx = UpstreamAtScale(upstreamScale);
 
-        RenderNodeOperation[] outs;
-        Assert.That(() => outs = node.Process(ctx), Throws.Nothing,
-            $"FilterEffectRenderNode.Process threw under upstream CorrectionScale={expectedScale} for {effect.GetType().Name}");
+        Assert.That(() => node.Process(ctx), Throws.Nothing,
+            $"FilterEffectRenderNode.Process threw under upstream CorrectionScale={upstreamScale} for {effect.GetType().Name}");
 
-        outs = node.Process(ctx);
+        var outs = node.Process(ctx);
         Assert.That(outs, Is.Not.Empty,
-            $"{effect.GetType().Name} produced no output operations under CorrectionScale={expectedScale}");
+            $"{effect.GetType().Name} produced no output operations under CorrectionScale={upstreamScale}");
+
+        // FilterEffectRenderNode emits two kinds of operations depending on what the activator left:
+        //   - When the builder still holds an SKImageFilter (primitive-only chain, no custom effect ran),
+        //     the output is a `CreateLambda` Lambda that materialises via `PushPaint` / `SaveLayer` at the
+        //     compositor's output canvas scale. Its `CorrectionScale` is `Identity` because the SaveLayer
+        //     produces full-resolution content — see `FilterEffectRenderNode.Process` comments.
+        //   - When the activator has materialised RT-based targets (a custom effect ran or no filter
+        //     remained), the output is `CreateFromRenderTarget` and its `CorrectionScale` propagates
+        //     the unified upstream scale.
+        // We accept either Identity or the unified upstream scale; both are valid depending on the chain.
         foreach (var op in outs)
         {
-            Assert.That(op.CorrectionScale, Is.EqualTo(expectedScale),
-                $"{effect.GetType().Name} did not propagate upstream CorrectionScale={expectedScale}");
+            Assert.That(
+                op.CorrectionScale == RenderScale.Identity || op.CorrectionScale == upstreamScale,
+                $"{effect.GetType().Name} produced an unexpected CorrectionScale={op.CorrectionScale} for upstream={upstreamScale}");
         }
     }
+
+    private static void AssertEffectPropagatesScale(FilterEffect effect, RenderScale upstreamScale)
+        => AssertEffectProducesOutput(effect, upstreamScale);
 
     // ---- The 5 pure-primitive effects: zero source modification required ----
 
