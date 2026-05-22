@@ -34,6 +34,11 @@ public partial class SplitEffect : FilterEffect
             (r.HorizontalDivisions, r.VerticalDivisions, r.HorizontalSpacing, r.VerticalSpacing),
             static (d, effectContext) =>
             {
+                // The new EffectTargets allocated via CreateTarget are sized at upstream raster scale
+                // (see CustomFilterEffectContext.CreateTarget). DrawRenderTarget plots its source in
+                // physical pixel units of the destination, so the offset (authored per-cell) must be
+                // divided by upstream CorrectionScale to land each cell's portion of the upstream raster.
+                var scale = effectContext.CorrectionScale;
                 for (int i = 0; i < effectContext.Targets.Count; i++)
                 {
                     EffectTarget t = effectContext.Targets[i];
@@ -73,7 +78,14 @@ public partial class SplitEffect : FilterEffect
                                 using (ImmediateCanvas canvas = effectContext.Open(newTarget))
                                 {
                                     canvas.Clear();
-                                    canvas.DrawRenderTarget(renderTarget, new Point(-divWidth * h, -divHeight * v));
+                                    float offsetX = -divWidth * h;
+                                    float offsetY = -divHeight * v;
+                                    if (!scale.IsIdentity)
+                                    {
+                                        offsetX /= scale.ScaleX;
+                                        offsetY /= scale.ScaleY;
+                                    }
+                                    canvas.DrawRenderTarget(renderTarget, new Point(offsetX, offsetY));
                                 }
 
                                 newTargets[v * d.HorizontalDivisions + h] = newTarget;

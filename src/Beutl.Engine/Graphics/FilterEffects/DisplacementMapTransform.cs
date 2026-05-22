@@ -104,7 +104,13 @@ public partial class DisplacementMapTranslateTransform : DisplacementMapTransfor
                     builder.Children["uBaseTexture"] = baseShader;
                     builder.Children["uDisplacementMap"] = displacementMapShader;
 
-                    builder.Uniforms["uTranslation"] = new SKPoint(x, y);
+                    // uTranslation is an authored pixel-space displacement applied to the shader's `coord`,
+                    // which runs in the output raster's physical pixel space. Divide by upstream
+                    // CorrectionScale so the visual translation length matches authoring at any proxy.
+                    var scale = c.CorrectionScale;
+                    builder.Uniforms["uTranslation"] = scale.IsIdentity
+                        ? new SKPoint(x, y)
+                        : new SKPoint(x / scale.ScaleX, y / scale.ScaleY);
                     builder.Uniforms["uChannel"] = (int)ch;
                     builder.Uniforms["uSigned"] = isSigned ? 1 : 0;
 
@@ -213,10 +219,16 @@ public partial class DisplacementMapScaleTransform : DisplacementMapTransform
                     builder.Children["uBaseTexture"] = baseShader;
                     builder.Children["uDisplacementMap"] = displacementMapShader;
 
+                    // uScale is a dimensionless ratio — no CorrectionScale conversion.
+                    // uPivot is in authored pixel space (bounds + center); the shader's `coord` runs in
+                    // the output raster's physical pixel space, so divide pivot by upstream CorrectionScale.
+                    var scale = c.CorrectionScale;
+                    float pivotX = effectTarget.Bounds.Width / 2 + center.X;
+                    float pivotY = effectTarget.Bounds.Height / 2 + center.Y;
                     builder.Uniforms["uScale"] = new SKPoint(scaleX, scaleY);
-                    builder.Uniforms["uPivot"] = new SKPoint(
-                        effectTarget.Bounds.Width / 2 + center.X,
-                        effectTarget.Bounds.Height / 2 + center.Y);
+                    builder.Uniforms["uPivot"] = scale.IsIdentity
+                        ? new SKPoint(pivotX, pivotY)
+                        : new SKPoint(pivotX / scale.ScaleX, pivotY / scale.ScaleY);
                     builder.Uniforms["uChannel"] = (int)ch;
                     builder.Uniforms["uSigned"] = isSigned ? 1 : 0;
 
@@ -321,10 +333,16 @@ public partial class DisplacementMapRotationTransform : DisplacementMapTransform
                     builder.Children["uBaseTexture"] = baseShader;
                     builder.Children["uDisplacementMap"] = displacementMapShader;
 
+                    // uAngle is in radians — dimensionless, no scale conversion.
+                    // uPivot is in authored pixel space; divide by upstream CorrectionScale so the
+                    // shader's `coord` (physical raster pixels) and uPivot share a coordinate space.
+                    var scale = c.CorrectionScale;
+                    float pivotX = effectTarget.Bounds.Width / 2 + center.X;
+                    float pivotY = effectTarget.Bounds.Height / 2 + center.Y;
                     builder.Uniforms["uAngle"] = MathUtilities.Deg2Rad(rotation);
-                    builder.Uniforms["uPivot"] = new SKPoint(
-                        effectTarget.Bounds.Width / 2 + center.X,
-                        effectTarget.Bounds.Height / 2 + center.Y);
+                    builder.Uniforms["uPivot"] = scale.IsIdentity
+                        ? new SKPoint(pivotX, pivotY)
+                        : new SKPoint(pivotX / scale.ScaleX, pivotY / scale.ScaleY);
                     builder.Uniforms["uChannel"] = (int)ch;
                     builder.Uniforms["uSigned"] = isSigned ? 1 : 0;
 

@@ -15,13 +15,20 @@ public sealed class EffectTarget : IDisposable
         _target = node;
         OriginalBounds = node.Bounds;
         Bounds = node.Bounds;
+        CorrectionScale = node.CorrectionScale;
     }
 
     public EffectTarget(RenderTarget renderTarget, Rect originalBounds)
+        : this(renderTarget, originalBounds, RenderScale.Identity)
+    {
+    }
+
+    public EffectTarget(RenderTarget renderTarget, Rect originalBounds, RenderScale correctionScale)
     {
         _target = renderTarget.ShallowCopy();
         OriginalBounds = originalBounds;
         Bounds = originalBounds;
+        CorrectionScale = correctionScale;
     }
 
     public EffectTarget()
@@ -31,6 +38,14 @@ public sealed class EffectTarget : IDisposable
     public Rect OriginalBounds { get; set; }
 
     public Rect Bounds { get; set; }
+
+    /// <summary>
+    /// The raster-vs-authoring ratio at which this target's underlying <see cref="RenderTarget"/>
+    /// (or wrapped <see cref="RenderNodeOperation"/>) was produced. <see cref="RenderScale.Identity"/>
+    /// means the raster matches the bounds 1:1; <c>(4, 4)</c> means the raster is 1/4 linear size and
+    /// the compositor will upscale 4× when blitting downstream.
+    /// </summary>
+    public RenderScale CorrectionScale { get; internal set; } = RenderScale.Identity;
 
     [Obsolete]
     [EditorBrowsable(EditorBrowsableState.Never)]
@@ -46,7 +61,7 @@ public sealed class EffectTarget : IDisposable
     {
         if (RenderTarget != null)
         {
-            return new EffectTarget(RenderTarget, OriginalBounds) { Bounds = Bounds };
+            return new EffectTarget(RenderTarget, OriginalBounds, CorrectionScale) { Bounds = Bounds };
         }
         else
         {

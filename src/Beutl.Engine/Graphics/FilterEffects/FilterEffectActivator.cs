@@ -26,13 +26,31 @@ public sealed class FilterEffectActivator(EffectTargets targets, SKImageFilterBu
             for (int i = 0; i < CurrentTargets.Count; i++)
             {
                 EffectTarget target = CurrentTargets[i];
-                using RenderTarget? surface = RenderTarget.Create((int)target.OriginalBounds.Width, (int)target.OriginalBounds.Height);
+                // Allocate the materialised raster at the target's CorrectionScale so the chain stays
+                // consistent with upstream proxy. OriginalBounds is in authoring; the RT is sized down.
+                RenderScale scale = target.CorrectionScale;
+                int rasterW, rasterH;
+                if (scale.IsIdentity)
+                {
+                    rasterW = (int)target.OriginalBounds.Width;
+                    rasterH = (int)target.OriginalBounds.Height;
+                }
+                else
+                {
+                    rasterW = Math.Max(1, (int)MathF.Ceiling(target.OriginalBounds.Width / scale.ScaleX));
+                    rasterH = Math.Max(1, (int)MathF.Ceiling(target.OriginalBounds.Height / scale.ScaleY));
+                }
+                using RenderTarget? surface = RenderTarget.Create(rasterW, rasterH);
 
                 if (surface != null)
                 {
                     using (var canvas = new ImmediateCanvas(surface))
                     {
                         canvas.Clear();
+                        // The materialised RT is at upstream scale (rasterW/H). The translate is in
+                        // authoring units but lands correctly because the upstream NodeOperation's
+                        // raster is sized in physical pixels equal to the new RT, so authoring units
+                        // and physical pixel units of the new RT compose 1:1 along the translation.
                         using (canvas.PushTransform(Matrix.CreateTranslation(-target.OriginalBounds.X, -target.OriginalBounds.Y)))
                         using (paint != null ? canvas.PushPaint(paint) : default)
                         {
@@ -40,7 +58,7 @@ public sealed class FilterEffectActivator(EffectTargets targets, SKImageFilterBu
                         }
                     }
 
-                    var newTarget = new EffectTarget(surface, target.Bounds)
+                    var newTarget = new EffectTarget(surface, target.Bounds, scale)
                     {
                         OriginalBounds = target.OriginalBounds
                     };

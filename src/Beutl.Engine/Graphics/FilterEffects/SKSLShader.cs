@@ -79,7 +79,13 @@ public sealed class SKSLShader : IDisposable
             {
                 paint.Shader = finalShader;
                 canvas.Clear();
-                canvas.Canvas.DrawRect(new SKRect(0, 0, bounds.Width, bounds.Height), paint);
+                // Draw across the new RT's physical pixel extent. At Identity that equals `bounds`;
+                // at upstream proxy scale, the new RT is smaller and the rect must cover the smaller
+                // raster so the shader's `coord` runs over every physical pixel.
+                var scale = newTarget.CorrectionScale;
+                float rectW = scale.IsIdentity ? bounds.Width : bounds.Width / scale.ScaleX;
+                float rectH = scale.IsIdentity ? bounds.Height : bounds.Height / scale.ScaleY;
+                canvas.Canvas.DrawRect(new SKRect(0, 0, rectW, rectH), paint);
             }
 
             return newTarget;

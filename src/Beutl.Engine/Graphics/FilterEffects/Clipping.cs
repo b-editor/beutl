@@ -86,6 +86,10 @@ public sealed partial class Clipping : FilterEffect
     {
         Thickness originalThickness = data.thickness;
         bool autoCenter = data.autoCenter;
+        // The new EffectTargets are at upstream raster scale (CreateTarget allocates physical size as
+        // bounds.PixelSize / CorrectionScale). DrawRenderTarget offsets and the inner translate need to
+        // be in physical raster units, so divide the authored values by the upstream scale.
+        var scale = context.CorrectionScale;
         for (int i = 0; i < context.Targets.Count; i++)
         {
             Thickness thickness = originalThickness;
@@ -126,27 +130,38 @@ public sealed partial class Clipping : FilterEffect
                     pointY = 0;
                 }
 
+                float rasterPointX = scale.IsIdentity ? pointX : pointX / scale.ScaleX;
+                float rasterPointY = scale.IsIdentity ? pointY : pointY / scale.ScaleY;
+
                 EffectTarget newTarget;
                 if (autoCenter)
                 {
                     Rect centeredRect = originalRect.CenterRect(clipRect);
                     newTarget = context.CreateTarget(centeredRect.Translate(target.Bounds.Position));
                     using (ImmediateCanvas newCanvas = context.Open(newTarget))
-                    using (newCanvas.PushTransform(Matrix.CreateTranslation(pointX, pointY)))
+                    using (newCanvas.PushTransform(Matrix.CreateTranslation(rasterPointX, rasterPointY)))
                     {
                         newCanvas.Clear();
-                        newCanvas.DrawRenderTarget(target.RenderTarget!, new(centeredRect.X, centeredRect.Y));
+                        float offX = scale.IsIdentity ? centeredRect.X : centeredRect.X / scale.ScaleX;
+                        float offY = scale.IsIdentity ? centeredRect.Y : centeredRect.Y / scale.ScaleY;
+                        newCanvas.DrawRenderTarget(target.RenderTarget!, new(offX, offY));
                     }
                 }
                 else
                 {
                     newTarget = context.CreateTarget(newBounds);
                     using (ImmediateCanvas newCanvas = context.Open(newTarget))
-                    using (newCanvas.PushTransform(Matrix.CreateTranslation(pointX, pointY)))
+                    using (newCanvas.PushTransform(Matrix.CreateTranslation(rasterPointX, rasterPointY)))
                     {
                         newCanvas.Clear();
-                        newCanvas.DrawRenderTarget(target.RenderTarget!,
-                            new(target.Bounds.X - newBounds.X, target.Bounds.Y - newBounds.Y));
+                        float dx = target.Bounds.X - newBounds.X;
+                        float dy = target.Bounds.Y - newBounds.Y;
+                        if (!scale.IsIdentity)
+                        {
+                            dx /= scale.ScaleX;
+                            dy /= scale.ScaleY;
+                        }
+                        newCanvas.DrawRenderTarget(target.RenderTarget!, new(dx, dy));
                     }
                 }
 

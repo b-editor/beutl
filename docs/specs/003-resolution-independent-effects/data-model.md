@@ -194,24 +194,33 @@ This loosens the original "zero FilterEffectContext modification" constraint but
 | InnerShadow | Primitive (via `InnerShadowCore`) | Divided in `FilterEffectContext.InnerShadowCore` | ✓ |
 | Erode | Primitive | Divided in `FilterEffectContext.Erode` | ✓ |
 | Dilate | Primitive | Divided in `FilterEffectContext.Dilate` | ✓ |
-| MosaicEffect | CustomEffect (SKSL shader) | `TileSize` uniform divided in effect's action | Pending — also blocked on `CreateTarget` allocating at upstream scale (follow-up). Pipeline + propagation verified. |
-| ColorShift | CustomEffect (SKSL shader) | All 4 offset uniforms divided in effect's action | Pending — same blocker as Mosaic. Pipeline + propagation verified. |
+| MosaicEffect | CustomEffect (SKSL shader) | `TileSize` uniform divided in effect's action; ApplyToNewTarget now draws at physical extent | ✓ |
+| ColorShift | CustomEffect (SKSL shader) | All 4 offset uniforms divided in effect's action | ✓ |
 | ShakeEffect | CustomEffect (authoring-bounds translation) | None — translates bounds in authoring space, CorrectionScale-agnostic by design | ✓ |
-| FlatShadow | CustomEffect (contour trace + pixel draws) | Not modified. TODO marker placed; needs the structural follow-up + raster-coord remediation in the contour-drawing inner loop. | Pending |
-| Clipping | CustomEffect (pixel-extent edit + DrawRenderTarget) | Not modified. Same structural blocker. | Pending |
-| SplitEffect | CustomEffect (multi-RT split via DrawRenderTarget at authoring offsets) | Not modified. Same structural blocker. | Pending |
-| StrokeEffect | CustomEffect (contour trace + DrawRenderTarget) | Not modified. Same structural blocker. | Pending |
-| DisplacementMapTranslateTransform | CustomEffect (SKSL shader) | Not modified. Same structural blocker; uniform divisions ready to land with the structural fix. | Pending |
-| DisplacementMapScaleTransform | CustomEffect (SKSL shader, dimensionless ratio) | Pivot uniform needs raster mapping when structural fix lands. | Pending |
-| DisplacementMapRotationTransform | CustomEffect (SKSL shader, dimensionless angle) | Pivot uniform needs raster mapping when structural fix lands. | Pending |
+| FlatShadow | CustomEffect (contour trace + pixel draws) | TODO marker placed; needs raster-coord remediation in the contour-drawing inner loop. | Pending |
+| Clipping | CustomEffect (pixel-extent edit + DrawRenderTarget) | DrawRenderTarget offsets and inner translate divided by CorrectionScale | ✓ |
+| SplitEffect | CustomEffect (multi-RT split via DrawRenderTarget at authoring offsets) | Per-cell DrawRenderTarget offsets divided by CorrectionScale | ✓ |
+| StrokeEffect | CustomEffect (contour trace + DrawRenderTarget) | Not modified. Needs raster-coord remediation in the contour-trace path (same shape as FlatShadow). | Pending |
+| DisplacementMapTranslateTransform | CustomEffect (SKSL shader) | `uTranslation` divided in effect's action | ✓ |
+| DisplacementMapScaleTransform | CustomEffect (SKSL shader, dimensionless ratio) | `uPivot` divided in effect's action; `uScale` stays dimensionless | ✓ |
+| DisplacementMapRotationTransform | CustomEffect (SKSL shader, dimensionless angle) | `uPivot` divided in effect's action; `uAngle` stays dimensionless | ✓ |
 
-The pending rows above represent the **follow-up needed before SC-001 (SSIM ≥ 0.97 per effect) can be claimed for the full 13-effect set**. The pipeline (propagation through `FilterEffectRenderNode`, unified-scale output) is verified for all 13 by `ExtensionAuthorNoOpTests` (`tests/Beutl.UnitTests/Engine/Graphics/Rendering/ExtensionAuthorNoOpTests.cs`); visual correctness at non-Identity upstream is verified only for 6 of 13 (5 primitive-based + ShakeEffect). The remaining 7 need:
+11 of 13 in-scope effects now respond correctly to non-Identity upstream `CorrectionScale`. The 2 remaining (FlatShadow and StrokeEffect) both follow the "snapshot upstream → trace contour → replay via `DrawPath`" pattern. Their contour points come back in raster pixel coords (from `ContourTracer.FindContours` against the upstream snapshot) and are drawn into the new `EffectTarget` whose canvas operates in physical raster units. To make them visually correct at non-Identity upstream, the contour-drawing loop needs to:
 
-1. `CustomFilterEffectContext.CreateTarget(bounds)` to allocate the new `RenderTarget` at `bounds.PixelSize / CorrectionScale` and propagate `CorrectionScale` via a new `EffectTarget.CorrectionScale` field (or equivalent).
-2. `CustomFilterEffectContext.Open(target)` to pre-apply `SKCanvas.Scale(1/ScaleX, 1/ScaleY)` so existing actions that draw at authoring offsets compose into the smaller raster automatically.
-3. Per-effect adjustments for actions that operate on raster-pixel data (snapshot pixel scans, contour tracing) — these need to either convert raster coords to authoring before drawing, or be exempt from the auto-scale matrix.
+1. Multiply contour pixel coords by `CorrectionScale` before drawing (lifting them into authoring units), and divide the per-iteration unit offset by `CorrectionScale` (so the `length` iterations advance by 1 raster pixel each).
+2. **Or** keep contour coords in raster pixels and divide outer translation offsets by `CorrectionScale` instead.
 
-Tracked as a follow-up; the order of attack should be the structural change first, then DisplacementMap (uniform-only, no pixel work), then Clipping (DrawRenderTarget-only, no pixel work), then the contour-trace effects (FlatShadow, Stroke, Split) last.
+Either approach is local to the effect's `Apply` action and does not require further engine plumbing. Left as a small follow-up.
+
+### Structural plumbing (Phase 4 cleanup, 2026-05-22)
+
+The structural support these effects rely on is now in place:
+
+- `EffectTarget.CorrectionScale` — every EffectTarget carries the raster-vs-authoring ratio. Constructed-from-NodeOperation EffectTargets pick it up from the wrapped operation; constructed-from-RenderTarget EffectTargets take it as a constructor parameter.
+- `CustomFilterEffectContext.CreateTarget(bounds)` allocates the new `RenderTarget` at `bounds.PixelSize / CorrectionScale` (rounded up, minimum 1 pixel per axis) and returns an EffectTarget carrying that scale. At Identity it stays byte-equivalent to the pre-feature allocation.
+- `FilterEffectActivator.Flush` materializes upstream targets at the upstream raster scale (so the chain stays at proxy resolution end-to-end instead of upscaling on the first primitive-driven flush).
+- `SKSLShader.ApplyToNewTarget` draws across the new RT's physical extent (`bounds.W / scale.X × bounds.H / scale.Y`) so the shader's `coord` runs over every physical pixel of the upstream-scale raster.
+- `CustomFilterEffectContext.Open(target)` returns the canvas unchanged — actions are expected to operate in physical raster units. The natural mental model is "the EffectTarget is already at upstream scale, so authored-pixel offsets need to be divided by `CorrectionScale` before being passed to `DrawRenderTarget` / `PushTransform`". A `Scale(1/scale)` matrix push on `Open` was tried and rejected because it interacts badly with `DrawRenderTarget`'s pixel-size semantics (the source image's pixel dimensions are treated as logical units and get further shrunk by the matrix).
 
 ## NOT modified
 

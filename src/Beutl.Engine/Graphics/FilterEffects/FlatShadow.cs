@@ -53,6 +53,13 @@ public partial class FlatShadow : FilterEffect
     private static void Apply((float Angle, float Length, Brush.Resource? Brush, bool ShadowOnly) data,
         CustomFilterEffectContext context)
     {
+        // TODO(per-clip-proxy): FlatShadow traces contours from the upstream snapshot and replays them
+        // as a chain of `DrawPath` calls at unit-pixel offsets. To respond visually to non-Identity
+        // upstream CorrectionScale, the contour coords and the inner-loop offset/length need to be
+        // expressed in physical raster pixels (= authored / scale). The structural support for that —
+        // `CustomFilterEffectContext.CreateTarget` allocating at upstream scale — is in place; the
+        // per-effect adjustment (multiply contour coords by scale or divide loop offsets by scale)
+        // is left for a follow-up so this PR stays focused on the engine plumbing.
         static SKPath CreatePath(Bitmap src)
         {
             using var contours = ContourTracer.FindContours(src);
@@ -76,12 +83,6 @@ public partial class FlatShadow : FilterEffect
 
         Brush.Resource? brush = data.Brush;
         float length = data.Length;
-        // TODO(per-clip-proxy): FlatShadow traces contours from the upstream RT snapshot and draws them
-        // back into a freshly-created EffectTarget. To respond visually to upstream CorrectionScale,
-        // both (a) CustomFilterEffectContext.CreateTarget allocating at upstream scale and (b) the
-        // contour/Length math being re-expressed in raster pixels need to land together. For now
-        // FlatShadow propagates upstream CorrectionScale on its output (via the rest of the chain)
-        // but the visual shadow length is correct only at Identity upstream.
         float radian = MathUtilities.Deg2Rad(data.Angle);
 
         for (int ii = 0; ii < context.Targets.Count; ii++)

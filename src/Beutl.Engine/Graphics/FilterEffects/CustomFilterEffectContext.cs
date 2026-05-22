@@ -58,10 +58,25 @@ public class CustomFilterEffectContext
 
     public EffectTarget CreateTarget(Rect bounds)
     {
-        using var renderTarget = RenderTarget.Create((int)bounds.Width, (int)bounds.Height);
+        // Allocate the new raster at upstream scale so the CustomEffect chain stays consistent
+        // with the upstream's proxy raster. The EffectTarget's logical Bounds stay in authoring;
+        // its CorrectionScale carries the relationship.
+        int rasterWidth, rasterHeight;
+        if (CorrectionScale.IsIdentity)
+        {
+            rasterWidth = (int)bounds.Width;
+            rasterHeight = (int)bounds.Height;
+        }
+        else
+        {
+            rasterWidth = Math.Max(1, (int)MathF.Ceiling(bounds.Width / CorrectionScale.ScaleX));
+            rasterHeight = Math.Max(1, (int)MathF.Ceiling(bounds.Height / CorrectionScale.ScaleY));
+        }
+
+        using var renderTarget = RenderTarget.Create(rasterWidth, rasterHeight);
         if (renderTarget != null)
         {
-            return new EffectTarget(renderTarget, bounds);
+            return new EffectTarget(renderTarget, bounds, CorrectionScale);
         }
         else
         {
@@ -76,6 +91,12 @@ public class CustomFilterEffectContext
             throw new InvalidOperationException("無効なEffectTarget");
         }
 
+        // The canvas operates directly on the underlying raster. When `target.CorrectionScale`
+        // is non-Identity, the raster is sized at upstream proxy scale and the action is
+        // expected to operate in raster-pixel-equivalent units (e.g. `DrawRenderTarget` offsets
+        // pre-divided by scale, shader uniforms pre-divided by scale). This keeps the API
+        // honest about what the underlying buffer is, rather than imposing a hidden inverse
+        // scale that interacts badly with `DrawRenderTarget`'s pixel-size semantics.
         return new ImmediateCanvas(target.RenderTarget);
     }
 }
