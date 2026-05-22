@@ -47,16 +47,40 @@ public class FilterEffectRenderNode(FilterEffect.Resource filterEffect) : Contai
 
             if (builder.HasFilter())
             {
+                Rect upstreamBounds = feContext.OriginalBounds;
                 var imageFilter = builder.GetFilter();
                 return activator.CurrentTargets.Select(t =>
                 {
                     var paint = new SKPaint();
                     paint.ImageFilter = imageFilter;
+                    // Compositor pivot compensation. The compositor in `RenderNodeProcessor` applies
+                    // `Scale(unifiedScale.ScaleX, unifiedScale.ScaleY)` around `op.Bounds.TopLeft` —
+                    // but for filter-halo-extended bounds (Blur, DropShadow, etc.) that pivot is the
+                    // *extended* top-left, not the upstream raster's anchor. Drawing the upstream raster
+                    // at its own origin under that pivot lands it off-canvas. We compute the translate
+                    // that converts the compositor's `Scale-around(op.Bounds.TopLeft)` into the
+                    // logically-correct `Scale-around(upstreamBounds.TopLeft)`. At Identity scale the
+                    // compensation collapses to (0, 0) and this Push is a no-op.
+                    // Derivation in Beutl's row-vector matrix convention:
+                    // existing compositor matrix M31 = op.Bounds.X * (1 - scaleX). Desired pivot at
+                    // `upstreamBounds.X` gives target M31 = upstreamBounds.X * (1 - scaleX).
+                    // `Transform.Prepend(translate(tx, ty))` produces `new * existing` whose
+                    // `M31 = tx * existing.M11 + existing.M31 = tx * scaleX + existing.M31`. Solving
+                    // for tx: `tx = (target.M31 - existing.M31) / scaleX = ((upstreamBounds.X - op.Bounds.X) * (1 - scaleX)) / scaleX`.
+                    // At Identity (scaleX = 1) the numerator is zero and the formula collapses to 0.
+                    float compensateX = !unifiedScale.IsIdentity
+                        ? (upstreamBounds.X - t.Bounds.X) * (1f - unifiedScale.ScaleX) / unifiedScale.ScaleX
+                        : 0f;
+                    float compensateY = !unifiedScale.IsIdentity
+                        ? (upstreamBounds.Y - t.Bounds.Y) * (1f - unifiedScale.ScaleY) / unifiedScale.ScaleY
+                        : 0f;
+
                     return RenderNodeOperation.CreateLambda(
                         bounds: t.Bounds,
                         render: canvas =>
                         {
                             using (canvas.PushBlendMode(BlendMode.SrcOver))
+                            using (canvas.PushTransform(Matrix.CreateTranslation(compensateX, compensateY)))
                             using (canvas.PushTransform(Matrix.CreateTranslation(
                                        t.Bounds.X - t.OriginalBounds.X,
                                        t.Bounds.Y - t.OriginalBounds.Y)))

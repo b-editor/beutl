@@ -104,10 +104,21 @@ public class ResolutionEquivalenceTests
         return ssim;
     }
 
+    private static void AssertSsimAboveThreshold(FilterEffect effect, double threshold)
+    {
+        double ssim = MeasureSsim(effect);
+        Assert.That(ssim, Is.GreaterThanOrEqualTo(threshold),
+            $"{effect.GetType().Name}: SSIM {ssim:F4} < {threshold:F2} — proxy diverges from full-resolution reference.");
+    }
+
     // Per-effect harness exercises. Each test renders both paths and logs the SSIM value.
     // No threshold is asserted; see class remarks for rationale. A future engine refactor
     // that aligns the filter application scale with the divided primitive sigma should
     // flip these into proper SC-001 ≥ 0.97 assertions.
+
+    [Test]
+    public void Blur_ProxyMatchesFullResolution()
+        => AssertSsimAboveThreshold(new Blur { Sigma = { CurrentValue = new Size(8, 8) } }, threshold: 0.97);
 
     [Test]
     public void Blur_HarnessLogsSsim() => MeasureSsim(new Blur { Sigma = { CurrentValue = new Size(8, 8) } });
