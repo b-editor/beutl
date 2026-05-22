@@ -70,15 +70,8 @@ public class FilterEffectRenderNode(FilterEffect.Resource filterEffect) : Contai
                         {
                             t.Dispose();
                             paint.Dispose();
-                        }
-                        // CorrectionScale: this Lambda materialises the filter via PushPaint / SaveLayer,
-                        // which Skia allocates at the compositor canvas's output scale rather than at the
-                        // upstream raster scale. The Lambda's content is therefore already full-resolution
-                        // by the time it reaches the compositor — emit Identity (the factory default) so
-                        // the compositor's blit doesn't add a second upscale that would push the rendered
-                        // content off-canvas via the Scale-around-bounds-pivot. The no-filter branch below
-                        // returns rasters that ARE at upstream scale (via primitive-driven Flush or
-                        // CustomEffect-allocated RTs), so it keeps `unifiedScale`.
+                        },
+                        correctionScale: unifiedScale
                     );
                 }).ToArray();
             }
