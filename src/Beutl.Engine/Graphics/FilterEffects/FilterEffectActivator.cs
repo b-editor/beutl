@@ -86,7 +86,7 @@ public sealed class FilterEffectActivator(EffectTargets targets, SKImageFilterBu
                         Flush();
                         if (CurrentTargets.Count == 0) return;
 
-                        var customContext = new CustomFilterEffectContext(CurrentTargets);
+                        var customContext = new CustomFilterEffectContext(CurrentTargets, context.CorrectionScale);
                         custom.Accepts(customContext);
 
                         foreach (EffectTarget t in CurrentTargets)
@@ -103,7 +103,10 @@ public sealed class FilterEffectActivator(EffectTargets targets, SKImageFilterBu
 
         Flush(false);
         if (CurrentTargets.Count == 0) return;
-        using var ctx = new FilterEffectContext(CurrentTargets.CalculateBounds());
+        using var ctx = new FilterEffectContext(CurrentTargets.CalculateBounds())
+        {
+            CorrectionScale = context.CorrectionScale,
+        };
 
         foreach (IFEItem item in context._renderTimeItems)
         {

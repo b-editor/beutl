@@ -43,7 +43,9 @@ public sealed class TransformRenderNode(Matrix transform, TransformOperator tran
                         point *= Transform.Invert();
                     return r.HitTest(point);
                 },
-                onDispose: r.Dispose))
+                onDispose: r.Dispose,
+                // Transform does not re-rasterize; the upstream raster scale propagates through.
+                correctionScale: r.CorrectionScale))
             .ToArray();
     }
 }

@@ -170,22 +170,34 @@ End-to-end walk of every `RenderNode` subclass actually present in the tree, wit
 
 **No unclassified subclass**: every `RenderNode`-derived class in `src/Beutl.Engine/Graphics/Rendering/` was inspected and falls into one of the categories above. No follow-up is required from the audit.
 
-## NOT modified (compared to earlier draft, intentionally rolled back)
+## Implementation deviation (2026-05-22, Phase 3 session)
 
-These types were modified in earlier drafts (commits `a0c20556e` through `d4728ede9`) and are now **left unchanged** by this PR:
+The original "no FilterEffectContext modification" constraint did not survive contact with the actual code. `FilterEffectContext` builds `SKImageFilter` through closed factory lambdas embedded in `FEItem_Skia<T>` items, and `FilterEffectRenderNode` invokes them via `FilterEffectActivator`. There is no clean injection point that divides length-typed parameters from outside the effect-helper chain. The user's directive on this session resolved the gap:
 
-- `FilterEffectContext` — no scaled helpers, no `*Raw` twins, no `RenderScale` snapshot, no `ReferenceFrame`.
+> **"FilterEffectContext で実装されるプリミティブなエフェクトは FilterEffectContext でスケールを適用し、それ以外の CustomEffect は FilterEffect でスケールしてください"**
+
+Adopted policy (Phase 3 implementation):
+
+- `FilterEffectContext` **gains** `RenderScale CorrectionScale { get; internal set; } = RenderScale.Identity`. Its length-typed primitives (`Blur`, `DropShadow`, `DropShadowOnly`, `InnerShadow{Core,Only}`, `Transform`, `Erode`, `Dilate`) divide their length-typed authored parameters by `CorrectionScale` at call site before storing into `FEItem_Skia<T>`. The data tuple embeds *both* the raster-divided params (consumed by the Skia factory) and the authored params (consumed by `transformBounds`) so output bounds stay in authoring space.
+- `CustomFilterEffectContext` **gains** a public `RenderScale CorrectionScale { get; }`. CustomEffect-based effects (effects whose `ApplyTo` calls `context.CustomEffect(...)` to build their own filter / shader) **must read this value and divide their own length-typed authored parameters** before invoking Skia. Among the 13 in-scope effects, this applies to: `StrokeEffect`, `ColorShift`, `DisplacementMapTransform`, `FlatShadow`, `Clipping`, `SplitEffect`, `ShakeEffect`, `MosaicEffect`. Those source files must be updated in a follow-up pass (out of scope for this session). Pure-primitive in-scope effects (`Blur`, `DropShadow`, `InnerShadow`, `Erode`, `Dilate`) participate **automatically** through `FilterEffectContext` and need **no source change**.
+- `FilterEffectRenderNode.Process` reads `ComponentWiseMax` of upstream `CorrectionScale` (Pattern Y from `contracts/transformer-node-scale-handling.md`), sets `feContext.CorrectionScale` to that value, and propagates the same `CorrectionScale` on output operations.
+- `MatrixConvolution` (power-user, not in the 13 in-scope effects) is **deferred**.
+
+This loosens the original "zero FilterEffectContext modification" constraint but preserves the spirit of `FR-008` for the 5 pure-primitive in-scope effects. The 8 CustomEffect-based effects opt in via a single property read.
+
+## NOT modified
+
+These types are still **left unchanged** by this PR:
+
 - `GraphicsContext2D` — no scaled helpers, no `*Raw` twins, no `PushReferenceFrame`. `DrawRectangle(Rect)` etc. record verbatim.
 - `IRenderer` — no `ReferenceFrame` property.
 - `Renderer` — no new constructor overload taking `referenceFrame`. Constructor signature unchanged.
 - `Pen.cs`, `PenHelper.cs` — no `GetScaledThickness` / `GetScaledBounds` family.
 - `Transform` subclasses (`TranslateTransform`, `Rotation3DTransform`, `MatrixTransform`, …) — no source changes, no scaling in `CreateMatrix`.
 - `CompositionContext` — no `RenderScale` property.
-- All `FilterEffect` subclasses (Blur, DropShadow, …) — no source changes (FR-008).
+- The 5 pure-primitive in-scope `FilterEffect` subclasses (Blur, DropShadow, InnerShadow, Erode, Dilate) — no source changes (FR-008 preserved for these).
 - All `Drawable` / `Shape` subclasses — no source changes.
 - `Property` system, animators, property editors — no source changes.
-
-This is a much narrower change surface than prior drafts proposed.
 
 ## In-scope effects (the 13 from T001 audit) — descriptive, no source change
 

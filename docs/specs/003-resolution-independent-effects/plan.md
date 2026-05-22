@@ -41,7 +41,8 @@ The user-facing proxy toggle UX, per-clip proxy persistence schema, and automati
 - ~3 source-producing RenderNode classes audit-modified to declare their `CorrectionScale` (Video, Image, Drawable-as-source).
 - ~5 transformer RenderNode classes audit-modified to consume upstream `CorrectionScale` (FilterEffect, Transform, Container, push-state nodes).
 - 1 compositor blit path extended in `Renderer` / `ImmediateCanvas` to apply the upscale transform.
-- **Zero modifications** to: `FilterEffectContext`, `GraphicsContext2D` (other than verifying it still works), `Pen`, `PenHelper`, `Transform` subclasses, `CompositionContext`, every `FilterEffect` subclass (13 in-scope effects), every `Shape` subclass, every animator, every property editor, project-file schema.
+- **Zero modifications** to: `GraphicsContext2D` (other than verifying it still works), `Pen`, `PenHelper`, `Transform` subclasses, `CompositionContext`, every `Shape` subclass, every animator, every property editor, project-file schema.
+- **`FilterEffectContext` gains `CorrectionScale` + length-typed primitives divide internally** (deviation from earlier drafts — see `data-model.md` § "Implementation deviation" and `contracts/transformer-node-scale-handling.md`). The 5 pure-primitive in-scope `FilterEffect` subclasses (Blur, DropShadow, InnerShadow, Erode, Dilate) stay unmodified; the 8 CustomEffect-based in-scope subclasses (StrokeEffect, ColorShift, DisplacementMapTransform × 3, FlatShadow, Clipping, SplitEffect, ShakeEffect, MosaicEffect) need to read `CustomFilterEffectContext.CorrectionScale` and divide their own length-typed parameters — a single-line opt-in.
 
 ## Constitution Check
 

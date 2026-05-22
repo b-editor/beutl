@@ -161,5 +161,5 @@ public class GLSLShaderTests
     }
 
     private static CustomFilterEffectContext CreateCustomContext(EffectTargets targets)
-        => new CustomFilterEffectContext(targets);
+        => new CustomFilterEffectContext(targets, RenderScale.Identity);
 }

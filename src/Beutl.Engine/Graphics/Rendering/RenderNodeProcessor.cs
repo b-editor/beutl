@@ -12,7 +12,7 @@ public class RenderNodeProcessor(RenderNode root, bool useRenderCache)
         var ops = PullToRoot();
         foreach (var op in ops)
         {
-            op.Render(canvas);
+            RenderOperation(canvas, op);
             op.Dispose();
         }
     }
@@ -33,7 +33,7 @@ public class RenderNodeProcessor(RenderNode root, bool useRenderCache)
 
             using (canvas.PushTransform(Matrix.CreateTranslation(-op.Bounds.X, -op.Bounds.Y)))
             {
-                op.Render(canvas);
+                RenderOperation(canvas, op);
                 op.Dispose();
             }
 
@@ -58,7 +58,7 @@ public class RenderNodeProcessor(RenderNode root, bool useRenderCache)
 
             using (canvas.PushTransform(Matrix.CreateTranslation(-op.Bounds.X, -op.Bounds.Y)))
             {
-                op.Render(canvas);
+                RenderOperation(canvas, op);
                 op.Dispose();
             }
 
@@ -81,12 +81,38 @@ public class RenderNodeProcessor(RenderNode root, bool useRenderCache)
         {
             foreach (var op in ops)
             {
-                op.Render(canvas);
+                RenderOperation(canvas, op);
                 op.Dispose();
             }
         }
 
         return renderTarget.Snapshot();
+    }
+
+    // Compositor blit per contracts/compositor-blit.md: when an operation declares a non-Identity
+    // CorrectionScale, the raster it produced is at op.Bounds.Size / CorrectionScale; push a
+    // matrix that scales by CorrectionScale around the bounds' top-left so the raster fills the
+    // bounds in authoring space.
+    private static void RenderOperation(ImmediateCanvas canvas, RenderNodeOperation op)
+    {
+        RenderScale scale = op.CorrectionScale;
+        if (scale.IsIdentity)
+        {
+            op.Render(canvas);
+            return;
+        }
+
+        Matrix scaleMatrix = BuildScaleAroundPivot(scale.ScaleX, scale.ScaleY, op.Bounds.X, op.Bounds.Y);
+        using (canvas.PushTransform(scaleMatrix))
+        {
+            op.Render(canvas);
+        }
+    }
+
+    private static Matrix BuildScaleAroundPivot(float sx, float sy, float px, float py)
+    {
+        // T(px,py) * S(sx,sy) * T(-px,-py)
+        return new Matrix(sx, 0, 0, sy, px * (1 - sx), py * (1 - sy));
     }
 
     public RenderNodeOperation[] PullToRoot()

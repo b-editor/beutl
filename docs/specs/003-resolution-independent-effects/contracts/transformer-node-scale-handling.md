@@ -49,12 +49,19 @@ RenderNodeOperation.CreateLambda(bounds, render, hitTest, onDispose, correctionS
 
 The largest beneficiary of this pattern. Per-effect adjustment math is enumerated in `research.md` § R3. The key rule: any length-typed parameter is divided by upstream `CorrectionScale` before the Skia call; output bounds are extended by the authored parameter (not the divided one).
 
+**Phase 3 implementation split (2026-05-22)**: the actual injection point depends on whether the effect uses `FilterEffectContext`'s primitive helpers or builds a custom filter via `CustomEffect`:
+
+- **Primitive-helper effects** (e.g. `Blur` calls `context.Blur(sigma)`, `DropShadow` calls `context.DropShadow(...)`): the division happens **inside `FilterEffectContext`**. `FilterEffectRenderNode` sets `feContext.CorrectionScale = unifiedUpstreamScale` before invoking `effect.ApplyTo(feContext, resource)`. The primitive method body divides at the call site (e.g. `Blur(sigma)` builds its data tuple with `rasterSigma = DivideLength(sigma)`; the Skia factory consumes the raster sigma; `transformBounds` consumes the authored sigma). The effect's `.cs` file is **unmodified**.
+- **CustomEffect-based effects** (e.g. `StrokeEffect`, `ColorShift`, `DisplacementMapTransform`, `FlatShadow`, `Clipping`, `SplitEffect`, `ShakeEffect`, `MosaicEffect` — 8 of the 13 in-scope): `FilterEffectActivator` exposes the active `CorrectionScale` on `CustomFilterEffectContext.CorrectionScale`. The effect's custom action reads it and divides its own length-typed parameters before invoking Skia. **The effect's `.cs` file is modified.** This is the carve-out from FR-008 documented in `spec.md`.
+
 Worked example — `DropShadow(Position = (10, 10), Sigma = (15, 15))` on input `CorrectionScale = (4, 4)`:
 
-- Authored Position = (10, 10), authored Sigma = (15, 15).
-- Output Bounds = `Rect.Union(input.Bounds, input.Bounds.Translate(10, 10).Inflate(15, 15))` — extended in authoring space using authored values.
-- Skia call: `SKImageFilter.CreateDropShadow(dx: 10/4, dy: 10/4, sigmaX: 15/4, sigmaY: 15/4, color)` — divided by upstream CorrectionScale.
-- Output CorrectionScale = (4, 4) — same as input.
+- `FilterEffectRenderNode` sets `feContext.CorrectionScale = (4, 4)` before `effect.ApplyTo`.
+- `effect.ApplyTo` calls `feContext.DropShadow(position, sigma, color)` — unmodified.
+- `FilterEffectContext.DropShadow` divides: `rasterPosition = (10/4, 10/4) = (2.5, 2.5)`, `rasterSigma = (15/4, 15/4) = (3.75, 3.75)`. Embeds `(rasterPosition, rasterSigma, authoredPosition, authoredSigma, color)` into the data tuple.
+- Skia factory uses raster values: `SKImageFilter.CreateDropShadow(dx: 2.5, dy: 2.5, sigmaX: 3.75, sigmaY: 3.75, color)`.
+- `transformBounds` uses authored values: `bounds.Union(bounds.Translate(10, 10).Inflate(15, 15))` — in authoring space.
+- Output Bounds extends by the authored sigma; output `CorrectionScale = (4, 4)` — propagated unchanged.
 
 ### `TransformRenderNode`
 

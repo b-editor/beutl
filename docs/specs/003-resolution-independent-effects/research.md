@@ -50,6 +50,8 @@ This document resolves the unknowns referenced by `plan.md` Phase 0.
 
 **Decision**: For length-typed filter parameters, Skia receives `p / s.ToRasterUniform(1)` (for scalars like sigma, radius) or `(p.X / s.ScaleX, p.Y / s.ScaleY)` (for 2D position / extent).
 
+**Phase 3 implementation note (2026-05-22)**: the original "no FilterEffectContext modification" constraint could not be implemented against the real code (closed factory lambdas inside `FEItem_Skia<T>` have no external injection point). The adopted split is: **primitive-helper effects** (`Blur`, `DropShadow`, `InnerShadow`, `Erode`, `Dilate`) divide inside `FilterEffectContext` itself — the helper methods consume `FilterEffectContext.CorrectionScale` and embed both raster-divided and authored values in the data tuple. **CustomEffect-based effects** (`StrokeEffect`, `ColorShift`, `DisplacementMapTransform`, `FlatShadow`, `Clipping`, `SplitEffect`, `ShakeEffect`, `MosaicEffect`) read `CustomFilterEffectContext.CorrectionScale` and divide in their own action. See `data-model.md` § "Implementation deviation" and `contracts/transformer-node-scale-handling.md`.
+
 **Rationale**:
 
 - Skia filter parameters are interpreted in the **current raster's pixel units**. If the raster is at `1/s` of authoring resolution, then 1 raster pixel = `s` authoring pixels.

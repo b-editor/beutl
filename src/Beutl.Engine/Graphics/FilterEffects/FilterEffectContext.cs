@@ -1,6 +1,7 @@
 ﻿using System.ComponentModel;
 using System.Reactive;
 using Beutl.Collections.Pooled;
+using Beutl.Graphics.Rendering;
 using Beutl.Media;
 using Microsoft.Extensions.ObjectPool;
 using SkiaSharp;
@@ -47,6 +48,7 @@ public sealed class FilterEffectContext : IDisposable
     {
         OriginalBounds = obj.OriginalBounds;
         Bounds = obj.Bounds;
+        CorrectionScale = obj.CorrectionScale;
         _renderTimeItems = new PooledList<IFEItem>(obj._renderTimeItems);
         _items = new PooledList<IFEItem>(obj._items);
     }
@@ -54,6 +56,22 @@ public sealed class FilterEffectContext : IDisposable
     public Rect Bounds { get; internal set; }
 
     public Rect OriginalBounds { get; }
+
+    /// <summary>
+    /// The upstream raster's scale ratio (<see cref="RenderScale.Identity"/> when no per-clip proxy is active).
+    /// Built-in length-typed primitives (Blur, DropShadow, etc.) on this context automatically divide their
+    /// authored parameters by this value before invoking Skia. <see cref="CustomEffect{T}(T, Action{T, CustomFilterEffectContext})"/>
+    /// based effects can read the scale via <see cref="CustomFilterEffectContext.CorrectionScale"/> and apply it themselves.
+    /// </summary>
+    public RenderScale CorrectionScale { get; internal set; } = RenderScale.Identity;
+
+    private Size DivideLength(Size sizeAuthoring) => CorrectionScale.IsIdentity
+        ? sizeAuthoring
+        : new Size(sizeAuthoring.Width / CorrectionScale.ScaleX, sizeAuthoring.Height / CorrectionScale.ScaleY);
+
+    private Point DivideLength(Point pointAuthoring) => CorrectionScale.IsIdentity
+        ? pointAuthoring
+        : new Point(pointAuthoring.X / CorrectionScale.ScaleX, pointAuthoring.Y / CorrectionScale.ScaleY);
 
     public FilterEffectContext Clone()
     {
@@ -96,24 +114,28 @@ public sealed class FilterEffectContext : IDisposable
 
     public void DropShadowOnly(Point position, Size sigma, Color color)
     {
+        Point rasterPosition = DivideLength(position);
+        Size rasterSigma = DivideLength(sigma);
         AppendSkiaFilter(
-            data: (position, sigma, color),
-            factory: static (t, input, _) => SKImageFilter.CreateDropShadowOnly(t.position.X, t.position.Y,
-                t.sigma.Width, t.sigma.Height, t.color.ToSKColor(), input),
+            data: (rasterPosition, rasterSigma, authoredPosition: position, authoredSigma: sigma, color),
+            factory: static (t, input, _) => SKImageFilter.CreateDropShadowOnly(t.rasterPosition.X, t.rasterPosition.Y,
+                t.rasterSigma.Width, t.rasterSigma.Height, t.color.ToSKColor(), input),
             transformBounds: static (t, bounds) => bounds
-                .Translate(t.position)
-                .Inflate(new Thickness(t.sigma.Width * 3, t.sigma.Height * 3)));
+                .Translate(t.authoredPosition)
+                .Inflate(new Thickness(t.authoredSigma.Width * 3, t.authoredSigma.Height * 3)));
     }
 
     public void DropShadow(Point position, Size sigma, Color color)
     {
+        Point rasterPosition = DivideLength(position);
+        Size rasterSigma = DivideLength(sigma);
         AppendSkiaFilter(
-            data: (position, sigma, color),
-            factory: static (t, input, _) => SKImageFilter.CreateDropShadow(t.position.X, t.position.Y, t.sigma.Width,
-                t.sigma.Height, t.color.ToSKColor(), input),
+            data: (rasterPosition, rasterSigma, authoredPosition: position, authoredSigma: sigma, color),
+            factory: static (t, input, _) => SKImageFilter.CreateDropShadow(t.rasterPosition.X, t.rasterPosition.Y, t.rasterSigma.Width,
+                t.rasterSigma.Height, t.color.ToSKColor(), input),
             transformBounds: static (t, bounds) => bounds.Union(bounds
-                .Translate(t.position)
-                .Inflate(new Thickness(t.sigma.Width * 3, t.sigma.Height * 3))));
+                .Translate(t.authoredPosition)
+                .Inflate(new Thickness(t.authoredSigma.Width * 3, t.authoredSigma.Height * 3))));
     }
 
     public void Blur(Size sigma)
@@ -123,17 +145,18 @@ public sealed class FilterEffectContext : IDisposable
         if (sigma.Height < 0)
             sigma = sigma.WithHeight(0);
 
+        Size rasterSigma = DivideLength(sigma);
         AppendSkiaFilter(
-            data: sigma,
-            factory: static (sigma, input, _) =>
+            data: (raster: rasterSigma, authored: sigma),
+            factory: static (t, input, _) =>
             {
-                if (sigma.Width == 0 && sigma.Height == 0)
+                if (t.raster.Width == 0 && t.raster.Height == 0)
                     return null;
 
-                return SKImageFilter.CreateBlur(sigma.Width, sigma.Height, input);
+                return SKImageFilter.CreateBlur(t.raster.Width, t.raster.Height, input);
             },
-            transformBounds: static (sigma, bounds) =>
-                bounds.Inflate(new Thickness(sigma.Width * 3, sigma.Height * 3)));
+            transformBounds: static (t, bounds) =>
+                bounds.Inflate(new Thickness(t.authored.Width * 3, t.authored.Height * 3)));
     }
 
     // https://github.com/Shopify/react-native-skia/blob/c7740e30234e6b0a49721ab954c4a848e42d7edb/package/src/dom/nodes/paint/ImageFilters.ts#L25
@@ -145,8 +168,12 @@ public sealed class FilterEffectContext : IDisposable
 
     private void InnerShadowCore(Point position, Size sigma, Color color, Graphics.BlendMode blendMode)
     {
+        // Pre-divide for the raster math. The CustomEffect action reads the raster pair;
+        // the authored pair would be used here only if we computed extended bounds (we don't).
+        Point rasterPosition = DivideLength(position);
+        Size rasterSigma = DivideLength(sigma);
         CustomEffect(
-            data: (position, sigma, color, blendMode),
+            data: (rasterPosition, rasterSigma, color, blendMode),
             action: (data, context) =>
             {
                 for (int i = 0; i < context.Targets.Count; i++)
@@ -159,14 +186,14 @@ public sealed class FilterEffectContext : IDisposable
                         using (ImmediateCanvas canvas = context.Open(newTarget))
                         {
                             canvas.Clear();
-                            using var blur = SKImageFilter.CreateBlur(data.sigma.Width, data.sigma.Height);
+                            using var blur = SKImageFilter.CreateBlur(data.rasterSigma.Width, data.rasterSigma.Height);
                             using var blend = SKColorFilter.CreateBlendMode(data.color.ToSKColor(), SKBlendMode.SrcOut);
                             using var filter = SKImageFilter.CreateColorFilter(blend, blur);
                             using var paint = new SKPaint { ImageFilter = filter };
 
                             using (canvas.PushPaint(paint))
                             {
-                                canvas.DrawRenderTarget(target.RenderTarget, data.position);
+                                canvas.DrawRenderTarget(target.RenderTarget, data.rasterPosition);
                             }
 
                             using (canvas.PushBlendMode(data.blendMode))
@@ -185,11 +212,23 @@ public sealed class FilterEffectContext : IDisposable
 
     public void Transform(Matrix matrix, BitmapInterpolationMode bitmapInterpolationMode)
     {
+        // Translation column is in authoring pixels; divide so Skia (which acts on the
+        // upstream's raster space) gets translation in raster pixels. Bounds use the authored matrix.
+        Matrix rasterMatrix = matrix;
+        if (!CorrectionScale.IsIdentity)
+        {
+            rasterMatrix = new Matrix(
+                matrix.M11, matrix.M12,
+                matrix.M21, matrix.M22,
+                matrix.M31 / CorrectionScale.ScaleX,
+                matrix.M32 / CorrectionScale.ScaleY);
+        }
+
         AppendSkiaFilter(
-            (matrix, bitmapInterpolationMode),
-            (data, input, _) => SKImageFilter.CreateMatrix(data.matrix.ToSKMatrix(),
+            (rasterMatrix, authoredMatrix: matrix, bitmapInterpolationMode),
+            (data, input, _) => SKImageFilter.CreateMatrix(data.rasterMatrix.ToSKMatrix(),
                 data.bitmapInterpolationMode.ToSKSamplingOptions(), input),
-            (data, rect) => rect.TransformToAABB(data.matrix));
+            (data, rect) => rect.TransformToAABB(data.authoredMatrix));
     }
 
     public void MatrixConvolution(
@@ -228,18 +267,22 @@ public sealed class FilterEffectContext : IDisposable
 
     public void Erode(float radiusX, float radiusY)
     {
+        float rasterRx = CorrectionScale.IsIdentity ? radiusX : radiusX / CorrectionScale.ScaleX;
+        float rasterRy = CorrectionScale.IsIdentity ? radiusY : radiusY / CorrectionScale.ScaleY;
         AppendSkiaFilter(
-            (radiusX, radiusY),
-            (data, input, _) => SKImageFilter.CreateErode(data.radiusX, data.radiusY, input),
+            (rasterRx, rasterRy, authoredX: radiusX, authoredY: radiusY),
+            (data, input, _) => SKImageFilter.CreateErode(data.rasterRx, data.rasterRy, input),
             (data, rect) => rect);
     }
 
     public void Dilate(float radiusX, float radiusY)
     {
+        float rasterRx = CorrectionScale.IsIdentity ? radiusX : radiusX / CorrectionScale.ScaleX;
+        float rasterRy = CorrectionScale.IsIdentity ? radiusY : radiusY / CorrectionScale.ScaleY;
         AppendSkiaFilter(
-            (radiusX, radiusY),
-            (data, input, _) => SKImageFilter.CreateDilate(data.radiusX, data.radiusY, input),
-            (data, rect) => rect.Inflate(new Thickness(data.radiusX, data.radiusY)));
+            (rasterRx, rasterRy, authoredX: radiusX, authoredY: radiusY),
+            (data, input, _) => SKImageFilter.CreateDilate(data.rasterRx, data.rasterRy, input),
+            (data, rect) => rect.Inflate(new Thickness(data.authoredX, data.authoredY)));
     }
 
     public void ColorMatrix(in ColorMatrix matrix)

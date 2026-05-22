@@ -27,7 +27,15 @@ public class FilterEffectRenderNode(FilterEffect.Resource filterEffect) : Contai
             return context.Input;
         }
 
-        using var feContext = new FilterEffectContext(context.CalculateBounds());
+        // Pattern Y from contracts/transformer-node-scale-handling.md: a filter that composites
+        // multiple upstream rasters into one unified output picks ComponentWiseMax of upstream scales
+        // so the lowest-resolution input sets the effective ceiling.
+        RenderScale unifiedScale = ComputeUnifiedScale(context.Input);
+
+        using var feContext = new FilterEffectContext(context.CalculateBounds())
+        {
+            CorrectionScale = unifiedScale,
+        };
         FilterEffect.Value.Resource.GetOriginal().ApplyTo(feContext, FilterEffect.Value.Resource);
         var effectTargets = new EffectTargets();
         effectTargets.AddRange(context.Input.Select(i => new EffectTarget(i)));
@@ -62,7 +70,8 @@ public class FilterEffectRenderNode(FilterEffect.Resource filterEffect) : Contai
                         {
                             t.Dispose();
                             paint.Dispose();
-                        }
+                        },
+                        correctionScale: unifiedScale
                     );
                 }).ToArray();
             }
@@ -70,9 +79,22 @@ public class FilterEffectRenderNode(FilterEffect.Resource filterEffect) : Contai
             {
                 return activator.CurrentTargets.Select(i =>
                     i.NodeOperation ??
-                    RenderNodeOperation.CreateFromRenderTarget(i.Bounds, i.Bounds.Position, i.RenderTarget!))
+                    RenderNodeOperation.CreateFromRenderTarget(i.Bounds, i.Bounds.Position, i.RenderTarget!, correctionScale: unifiedScale))
                     .ToArray();
             }
         }
+    }
+
+    private static RenderScale ComputeUnifiedScale(RenderNodeOperation[] inputs)
+    {
+        if (inputs.Length == 0) return RenderScale.Identity;
+        float sx = 1f, sy = 1f;
+        foreach (var op in inputs)
+        {
+            var s = op.CorrectionScale;
+            if (s.ScaleX > sx) sx = s.ScaleX;
+            if (s.ScaleY > sy) sy = s.ScaleY;
+        }
+        return sx == 1f && sy == 1f ? RenderScale.Identity : new RenderScale(sx, sy);
     }
 }
