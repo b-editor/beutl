@@ -9,13 +9,17 @@ on:
 jobs:
   build:
     permissions:
+      contents: read
       pull-requests: write
+      code-quality: write
 
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout
         uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
 
       - name: Setup .NET
         uses: actions/setup-dotnet@v5
@@ -56,10 +60,18 @@ jobs:
           path: code-coverage-results.md
 
       - name: Generate Report
-        run: reportgenerator -reports:`find tests/Beutl.UnitTests/TestResults/*/coverage.cobertura.xml | head -n 1 ` -targetdir:coveragereport -reporttypes:Html
+        run: reportgenerator -reports:'tests/**/coverage.cobertura.xml' -targetdir:coveragereport -reporttypes:'Html;Cobertura'
 
       - name: Save
         uses: actions/upload-artifact@v7
         with:
           name: Coverage
           path: coveragereport
+
+      - name: Upload coverage to GitHub Code Quality
+        if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+        uses: actions/upload-code-coverage@v1
+        with:
+          report: coveragereport/Cobertura.xml
+          language: CSharp
+          label: code-coverage/dotnet
