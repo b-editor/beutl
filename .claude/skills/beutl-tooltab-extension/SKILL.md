@@ -139,12 +139,12 @@ public static readonly Extension[] PrimitiveExtensions =
 ### Step 4: Add string resources
 
 ```xml
-<!-- src/Beutl.Language/Resources/Strings.resx -->
+<!-- src/Beutl.Language/Strings.resx -->
 <data name="MyToolTab" xml:space="preserve">
   <value>My Tool Tab</value>
 </data>
 
-<!-- src/Beutl.Language/Resources/Strings.ja.resx -->
+<!-- src/Beutl.Language/Strings.ja.resx -->
 <data name="MyToolTab" xml:space="preserve">
   <value>マイツールタブ</value>
 </data>
