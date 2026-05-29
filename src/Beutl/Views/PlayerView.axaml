@@ -139,6 +139,7 @@
                                               OffContent="{x:Static lang:Strings.OnionSkin}"
                                               OnContent="{x:Static lang:Strings.OnionSkin}" />
                                 <Grid ColumnDefinitions="*,Auto"
+                                      IsEnabled="{Binding IsOnionSkinEnabled.Value}"
                                       RowDefinitions="Auto,Auto,Auto,Auto"
                                       RowSpacing="4">
                                     <TextBlock Grid.Row="0"
