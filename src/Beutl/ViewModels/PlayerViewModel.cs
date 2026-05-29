@@ -1318,6 +1318,17 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
             if (token.IsCancellationRequested)
                 return;
 
+            // Snapshot the onion-skin config here on the UI thread (RenderOnRenderThread is
+            // invoked via Dispatcher.UIThread). Reading these CoreProperty getters inside the
+            // render-thread dispatch below would race the UI-thread write-back subscriptions
+            // against CoreObject's non-synchronized value dictionary.
+            EditorConfig editorConfig = GlobalConfiguration.Instance.EditorConfig;
+            bool onionEnabled = editorConfig.IsOnionSkinEnabled;
+            int onionPrevCount = editorConfig.OnionSkinPrevCount;
+            int onionNextCount = editorConfig.OnionSkinNextCount;
+            float onionPrevOpacity = editorConfig.OnionSkinPrevOpacity;
+            float onionNextOpacity = editorConfig.OnionSkinNextOpacity;
+
             RenderThread.Dispatcher.Dispatch(() =>
             {
                 int frame = 0;
@@ -1338,18 +1349,17 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
                     time = frame.ToTimeSpan(rate);
                     Ref<Bitmap>? bitmapRef;
 
-                    EditorConfig editorConfig = GlobalConfiguration.Instance.EditorConfig;
-                    useOnionSkin = editorConfig.IsOnionSkinEnabled
+                    useOnionSkin = onionEnabled
                         && !IsPlaying.Value
-                        && (editorConfig.OnionSkinPrevCount > 0 || editorConfig.OnionSkinNextCount > 0);
+                        && (onionPrevCount > 0 || onionNextCount > 0);
 
                     IReadOnlyList<OnionSkinSample> onionSamples = [];
                     if (useOnionSkin)
                     {
                         onionSamples = OnionSkinHelper.EnumerateOnionSkinTimes(
                             time, Scene.Start, Scene.Duration, rate,
-                            editorConfig.OnionSkinPrevCount, editorConfig.OnionSkinNextCount,
-                            editorConfig.OnionSkinPrevOpacity, editorConfig.OnionSkinNextOpacity);
+                            onionPrevCount, onionNextCount,
+                            onionPrevOpacity, onionNextOpacity);
                         onionSampleCount = onionSamples.Count;
                         if (onionSamples.Count == 0)
                         {
