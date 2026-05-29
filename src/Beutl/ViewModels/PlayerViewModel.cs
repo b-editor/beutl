@@ -1389,6 +1389,14 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
                             {
                                 foreach (var sample in onionSamples)
                                 {
+                                    // A newer QueueRender has superseded this pass (e.g. the user
+                                    // kept scrubbing); stop re-rendering samples instead of grinding
+                                    // through all of them. Break (not return) so the playhead restore
+                                    // and boundary draw below still run, leaving the renderer on the
+                                    // current frame; the partial composite is replaced by the queued render.
+                                    if (token.IsCancellationRequested)
+                                        break;
+
                                     var compFrame = renderer.Compositor.EvaluateGraphics(sample.Time);
                                     renderer.Render(compFrame);
                                     using var snap = renderer.Snapshot();
