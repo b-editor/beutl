@@ -276,4 +276,66 @@ public class OnionSkinTests
         // Closest prev frame uses the full base opacity.
         Assert.That(samples[^1].Alpha, Is.EqualTo(0.8f).Within(0.0001f));
     }
+
+    [Test]
+    public void EnumerateOnionSkinTimes_NextOnly_ClosestFrameUsesFullBaseOpacity()
+    {
+        TimeSpan current = TimeSpan.FromSeconds(10);
+        int rate = 30;
+        TimeSpan tick = TimeSpan.FromSeconds(1d / rate);
+
+        var samples = OnionSkinHelper.EnumerateOnionSkinTimes(
+            current: current,
+            sceneStart: TimeSpan.Zero,
+            sceneDuration: TimeSpan.FromMinutes(1),
+            frameRate: rate,
+            prevCount: 0,
+            nextCount: 2,
+            prevBaseOpacity: 0f,
+            nextBaseOpacity: 0.4f);
+
+        // 2 next samples, ordered closest → farthest.
+        Assert.That(samples, Has.Count.EqualTo(2));
+
+        Assert.That(samples[0].IsPrev, Is.False);
+        Assert.That(samples[0].Time, Is.EqualTo(current + tick));
+        Assert.That(samples[1].IsPrev, Is.False);
+        Assert.That(samples[1].Time, Is.EqualTo(current + TimeSpan.FromTicks(tick.Ticks * 2)));
+
+        // Next-side falloff direction: the closest next frame gets the full base opacity and the
+        // farther one fades. Guards against a reversed/off-by-one next-side formula (the prev tests
+        // exercise a structurally different expression and cannot protect this branch).
+        Assert.That(samples[0].Alpha, Is.EqualTo(0.4f).Within(0.0001f));
+        Assert.That(samples[1].Alpha, Is.EqualTo(0.4f * 0.5f).Within(0.0001f));
+        Assert.That(samples[0].Alpha, Is.GreaterThan(samples[1].Alpha));
+    }
+
+    [Test]
+    public void EnumerateOnionSkinTimes_PartialNextClamp_RenormalizesAlpha()
+    {
+        int rate = 30;
+        TimeSpan tick = TimeSpan.FromSeconds(1d / rate);
+        TimeSpan duration = TimeSpan.FromSeconds(2);
+        // current = duration - 3*tick, nextCount=3 → i=1 and i=2 fall inside [0, duration), while
+        // i=3 lands exactly on duration (excluded by the exclusive end), so 2 next samples emit.
+        TimeSpan current = duration - TimeSpan.FromTicks(tick.Ticks * 3);
+
+        var samples = OnionSkinHelper.EnumerateOnionSkinTimes(
+            current: current,
+            sceneStart: TimeSpan.Zero,
+            sceneDuration: duration,
+            frameRate: rate,
+            prevCount: 0,
+            nextCount: 3,
+            prevBaseOpacity: 0f,
+            nextBaseOpacity: 0.8f);
+
+        Assert.That(samples, Has.Count.EqualTo(2));
+        // Closest survivor lands on the full base opacity, not (3-0)/3 of a phantom 3rd sample.
+        Assert.That(samples[0].Time, Is.EqualTo(current + tick));
+        Assert.That(samples[0].Alpha, Is.EqualTo(0.8f).Within(0.0001f));
+        // Farther survivor dims against the emitted count (2), not the requested count (3).
+        Assert.That(samples[1].Time, Is.EqualTo(current + TimeSpan.FromTicks(tick.Ticks * 2)));
+        Assert.That(samples[1].Alpha, Is.EqualTo(0.8f * 0.5f).Within(0.0001f));
+    }
 }
