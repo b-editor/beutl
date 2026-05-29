@@ -188,6 +188,51 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
         ToneMappingExposure = GlobalConfiguration.Instance.EditorConfig.GetObservable(EditorConfig.ToneMappingExposureProperty)
             .ToReactiveProperty()
             .DisposeWith(_disposables);
+
+        EditorConfig editorConfig = GlobalConfiguration.Instance.EditorConfig;
+
+        IsOnionSkinEnabled = editorConfig.GetObservable(EditorConfig.IsOnionSkinEnabledProperty)
+            .ToReactiveProperty()
+            .DisposeWith(_disposables);
+        IsOnionSkinEnabled.Subscribe(v => editorConfig.IsOnionSkinEnabled = v).DisposeWith(_disposables);
+
+        // NumericUpDown / Slider expose decimal? and double, so the UI-bound ReactiveProperty
+        // types are widened here and cast back to int / float at the EditorConfig boundary.
+        OnionSkinPrevCount = editorConfig.GetObservable(EditorConfig.OnionSkinPrevCountProperty)
+            .Select(v => (decimal)v)
+            .ToReactiveProperty()
+            .DisposeWith(_disposables);
+        OnionSkinPrevCount.Subscribe(v => editorConfig.OnionSkinPrevCount = (int)v).DisposeWith(_disposables);
+
+        OnionSkinNextCount = editorConfig.GetObservable(EditorConfig.OnionSkinNextCountProperty)
+            .Select(v => (decimal)v)
+            .ToReactiveProperty()
+            .DisposeWith(_disposables);
+        OnionSkinNextCount.Subscribe(v => editorConfig.OnionSkinNextCount = (int)v).DisposeWith(_disposables);
+
+        OnionSkinPrevOpacity = editorConfig.GetObservable(EditorConfig.OnionSkinPrevOpacityProperty)
+            .Select(v => (double)v)
+            .ToReactiveProperty()
+            .DisposeWith(_disposables);
+        OnionSkinPrevOpacity.Subscribe(v => editorConfig.OnionSkinPrevOpacity = (float)v).DisposeWith(_disposables);
+
+        OnionSkinNextOpacity = editorConfig.GetObservable(EditorConfig.OnionSkinNextOpacityProperty)
+            .Select(v => (double)v)
+            .ToReactiveProperty()
+            .DisposeWith(_disposables);
+        OnionSkinNextOpacity.Subscribe(v => editorConfig.OnionSkinNextOpacity = (float)v).DisposeWith(_disposables);
+
+        // Re-render preview whenever any onion-skin setting changes.
+        IsOnionSkinEnabled.CombineLatest(OnionSkinPrevCount, OnionSkinNextCount, OnionSkinPrevOpacity, OnionSkinNextOpacity)
+            .Skip(1)
+            .Subscribe(_ =>
+            {
+                if (!IsPlaying.Value)
+                {
+                    QueueRender();
+                }
+            })
+            .DisposeWith(_disposables);
     }
 
     private void ClearAllGizmoTargets()
@@ -326,6 +371,16 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
     public ReactiveProperty<UIToneMappingOperator> ToneMappingMode { get; }
 
     public ReactiveProperty<float> ToneMappingExposure { get; }
+
+    public ReactiveProperty<bool> IsOnionSkinEnabled { get; }
+
+    public ReactiveProperty<decimal> OnionSkinPrevCount { get; }
+
+    public ReactiveProperty<decimal> OnionSkinNextCount { get; }
+
+    public ReactiveProperty<double> OnionSkinPrevOpacity { get; }
+
+    public ReactiveProperty<double> OnionSkinNextOpacity { get; }
 
     public event EventHandler? PreviewInvalidated;
 
@@ -1265,20 +1320,108 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
 
             RenderThread.Dispatcher.Dispatch(() =>
             {
+                int frame = 0;
+                bool useOnionSkin = false;
+                int onionSampleCount = 0;
                 try
                 {
                     SceneRenderer renderer = EditViewModel.Renderer.Value;
                     FrameCacheManager cacheManager = EditViewModel.FrameCacheManager.Value;
                     if (renderer is not { IsDisposed: false, IsGraphicsRendering: false })
                         return;
+                    if (Scene is null)
+                        return;
 
                     int rate = GetFrameRate();
                     TimeSpan time = _editorClock.CurrentTime.Value;
-                    int frame = (int)Math.Round(time.ToFrameNumber(rate), MidpointRounding.AwayFromZero);
+                    frame = (int)Math.Round(time.ToFrameNumber(rate), MidpointRounding.AwayFromZero);
                     time = frame.ToTimeSpan(rate);
                     Ref<Bitmap>? bitmapRef;
 
-                    if (cacheManager.TryGet(frame, out var cache))
+                    EditorConfig editorConfig = GlobalConfiguration.Instance.EditorConfig;
+                    useOnionSkin = editorConfig.IsOnionSkinEnabled
+                        && !IsPlaying.Value
+                        && (editorConfig.OnionSkinPrevCount > 0 || editorConfig.OnionSkinNextCount > 0);
+
+                    IReadOnlyList<OnionSkinSample> onionSamples = [];
+                    if (useOnionSkin)
+                    {
+                        onionSamples = OnionSkinHelper.EnumerateOnionSkinTimes(
+                            time, Scene.Start, Scene.Duration, rate,
+                            editorConfig.OnionSkinPrevCount, editorConfig.OnionSkinNextCount,
+                            editorConfig.OnionSkinPrevOpacity, editorConfig.OnionSkinNextOpacity);
+                        onionSampleCount = onionSamples.Count;
+                        if (onionSamples.Count == 0)
+                        {
+                            // Range clamp emptied everything — fall back to the cache-aware path
+                            // instead of taking the heavier (cache-less) onion branch for nothing.
+                            _logger.LogDebug(
+                                "Onion skin enabled but no samples in range at frame {Frame}; using normal preview.",
+                                frame);
+                            useOnionSkin = false;
+                        }
+                    }
+
+                    if (useOnionSkin)
+                    {
+                        // Render the current frame; its Snapshot bitmap doubles as the composition
+                        // canvas. Onion-composited frames are intentionally NOT pushed into
+                        // cacheManager: the cache is keyed on frame number alone, and an
+                        // onion-disabled re-render would otherwise return the composite.
+                        var currentCompositionFrame = renderer.Compositor.EvaluateGraphics(time);
+                        renderer.Render(currentCompositionFrame);
+                        Bitmap? currentBitmap = null;
+
+                        try
+                        {
+                            currentBitmap = renderer.Snapshot();
+                            using (var canvas = new SKCanvas(currentBitmap.SKBitmap))
+                            {
+                                foreach (var sample in onionSamples)
+                                {
+                                    var compFrame = renderer.Compositor.EvaluateGraphics(sample.Time);
+                                    renderer.Render(compFrame);
+                                    using var snap = renderer.Snapshot();
+                                    using var paint = new SKPaint
+                                    {
+                                        Color = new SKColor(255, 255, 255, (byte)Math.Round(sample.Alpha * 255)),
+                                        BlendMode = SKBlendMode.SrcOver,
+                                    };
+                                    canvas.DrawBitmap(snap.SKBitmap, 0, 0, paint);
+                                }
+
+                                // Restore renderer entries to the playhead BEFORE drawing
+                                // boundaries so the selection box uses the current frame's
+                                // geometry, not the last onion sample's.
+                                renderer.UpdateFrame(renderer.Compositor.EvaluateGraphics(time));
+
+                                DrawBoundaries(renderer, canvas, new(currentBitmap.Width, currentBitmap.Height), true);
+                            }
+
+                            bitmapRef = Ref<Bitmap>.Create(currentBitmap);
+                            currentBitmap = null; // ownership transferred to bitmapRef
+                        }
+                        catch
+                        {
+                            currentBitmap?.Dispose();
+                            // Best-effort: restore the playhead even on failure so later
+                            // HitTest / GetBoundary use the current frame, not a leftover onion
+                            // sample. Guard the restore so it can't mask the original exception.
+                            try
+                            {
+                                renderer.UpdateFrame(renderer.Compositor.EvaluateGraphics(time));
+                            }
+                            catch (Exception restoreEx)
+                            {
+                                _logger.LogError(restoreEx,
+                                    "Failed to restore playhead after onion-skin render failure at frame {Frame}.",
+                                    frame);
+                            }
+
+                            throw;
+                        }
+                    }
+                    else if (cacheManager.TryGet(frame, out var cache))
                     {
                         using (cache)
                         {
@@ -1328,7 +1471,9 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
                 {
                     NotificationService.ShowError(MessageStrings.UnexpectedError,
                         MessageStrings.FrameDrawingException);
-                    _logger.LogError(ex, "An exception occurred while drawing the frame.");
+                    _logger.LogError(ex,
+                        "An exception occurred while drawing the frame. onionSkin={UseOnionSkin}, sampleCount={Count}, frame={Frame}.",
+                        useOnionSkin, onionSampleCount, frame);
                 }
             }, ct: token);
         }

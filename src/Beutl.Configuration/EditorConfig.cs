@@ -68,6 +68,11 @@ public sealed partial class EditorConfig : ConfigurationBase
     public static readonly CoreProperty<UIToneMappingOperator> ToneMappingModeProperty;
     public static readonly CoreProperty<float> ToneMappingExposureProperty;
     public static readonly CoreProperty<bool> UseHdrPreviewProperty;
+    public static readonly CoreProperty<bool> IsOnionSkinEnabledProperty;
+    public static readonly CoreProperty<int> OnionSkinPrevCountProperty;
+    public static readonly CoreProperty<int> OnionSkinNextCountProperty;
+    public static readonly CoreProperty<float> OnionSkinPrevOpacityProperty;
+    public static readonly CoreProperty<float> OnionSkinNextOpacityProperty;
 
     static EditorConfig()
     {
@@ -144,6 +149,26 @@ public sealed partial class EditorConfig : ConfigurationBase
 
         UseHdrPreviewProperty = ConfigureProperty<bool, EditorConfig>(nameof(UseHdrPreview))
             .DefaultValue(false)
+            .Register();
+
+        IsOnionSkinEnabledProperty = ConfigureProperty<bool, EditorConfig>(nameof(IsOnionSkinEnabled))
+            .DefaultValue(false)
+            .Register();
+
+        OnionSkinPrevCountProperty = ConfigureProperty<int, EditorConfig>(nameof(OnionSkinPrevCount))
+            .DefaultValue(1)
+            .Register();
+
+        OnionSkinNextCountProperty = ConfigureProperty<int, EditorConfig>(nameof(OnionSkinNextCount))
+            .DefaultValue(0)
+            .Register();
+
+        OnionSkinPrevOpacityProperty = ConfigureProperty<float, EditorConfig>(nameof(OnionSkinPrevOpacity))
+            .DefaultValue(0.35f)
+            .Register();
+
+        OnionSkinNextOpacityProperty = ConfigureProperty<float, EditorConfig>(nameof(OnionSkinNextOpacity))
+            .DefaultValue(0.35f)
             .Register();
     }
 
@@ -252,6 +277,36 @@ public sealed partial class EditorConfig : ConfigurationBase
     {
         get => GetValue(UseHdrPreviewProperty);
         set => SetValue(UseHdrPreviewProperty, value);
+    }
+
+    public bool IsOnionSkinEnabled
+    {
+        get => GetValue(IsOnionSkinEnabledProperty);
+        set => SetValue(IsOnionSkinEnabledProperty, value);
+    }
+
+    public int OnionSkinPrevCount
+    {
+        get => GetValue(OnionSkinPrevCountProperty);
+        set => SetValue(OnionSkinPrevCountProperty, value);
+    }
+
+    public int OnionSkinNextCount
+    {
+        get => GetValue(OnionSkinNextCountProperty);
+        set => SetValue(OnionSkinNextCountProperty, value);
+    }
+
+    public float OnionSkinPrevOpacity
+    {
+        get => GetValue(OnionSkinPrevOpacityProperty);
+        set => SetValue(OnionSkinPrevOpacityProperty, value);
+    }
+
+    public float OnionSkinNextOpacity
+    {
+        get => GetValue(OnionSkinNextOpacityProperty);
+        set => SetValue(OnionSkinNextOpacityProperty, value);
     }
 
     public CoreDictionary<string, LibraryTabDisplayMode> LibraryTabDisplayModes { get; } = new()
