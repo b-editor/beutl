@@ -7,7 +7,6 @@ using Beutl.Configuration;
 using Beutl.Editor;
 using Beutl.Editor.Observers;
 using Beutl.Editor.Operations;
-using Beutl.Editor.Services;
 using Beutl.Graphics.Rendering.Cache;
 using Beutl.Logging;
 using Beutl.Media;
@@ -744,7 +743,9 @@ public sealed partial class EditViewModel : IEditorContext, ISupportAutoSaveEdit
 
     private ElementNudgeService CreateNudgeService()
     {
-        var nudge = new ElementNudgeService(HistoryManager);
+        // The nudge debounce timer fires on a thread-pool thread; post its commit
+        // back to the UI thread so it serializes with every other editing op.
+        var nudge = new ElementNudgeService(HistoryManager, action => Dispatcher.UIThread.Post(action));
         // BeforeMutation fires just before Undo / Redo / JumpTo: drain pending
         // nudges so they don't merge into the next history transaction.
         HistoryManager.BeforeMutation

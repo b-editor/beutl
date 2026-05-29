@@ -28,13 +28,29 @@ public sealed class LayerMoveService : ILayerMoveService
         foreach (Element child in scene.Children)
         {
             if (child.ZIndex == oldLayer) continue;
-            if (oldLayer < newLayer && child.ZIndex > oldLayer && child.ZIndex <= newLayer)
+            if (InShiftRange(child.ZIndex, oldLayer, newLayer))
             {
                 shifted.Add(child);
             }
-            else if (oldLayer > newLayer && child.ZIndex < oldLayer && child.ZIndex >= newLayer)
+        }
+
+        // TimelineLayer carries the layer's persisted color / name and its own
+        // recorded ZIndex. Its writes must land in the SAME transaction as the
+        // Element.ZIndex writes; otherwise an Undo of MoveLayer reverts the
+        // elements but leaves the header model desynced, and the stray writes
+        // leak into the next history entry. Snapshot before mutating, like the
+        // Element pass above.
+        var directLayers = new List<TimelineLayer>();
+        var shiftedLayers = new List<TimelineLayer>();
+        foreach (TimelineLayer layer in scene.Layers)
+        {
+            if (layer.ZIndex == oldLayer)
             {
-                shifted.Add(child);
+                directLayers.Add(layer);
+            }
+            else if (InShiftRange(layer.ZIndex, oldLayer, newLayer))
+            {
+                shiftedLayers.Add(layer);
             }
         }
 
@@ -48,7 +64,23 @@ public sealed class LayerMoveService : ILayerMoveService
             e.ZIndex += shiftDelta;
         }
 
+        foreach (TimelineLayer layer in directLayers)
+        {
+            layer.ZIndex = newLayer;
+        }
+        foreach (TimelineLayer layer in shiftedLayers)
+        {
+            layer.ZIndex += shiftDelta;
+        }
+
         _historyManager.Commit(CommandNames.MoveLayer);
         return new LayerMovePlan(oldLayer, newLayer, directElements, shifted);
     }
+
+    // A ZIndex is shifted when it sits strictly between the old layer and the
+    // new layer, inclusive of the new layer (the slot the moved layer vacates).
+    private static bool InShiftRange(int zIndex, int oldLayer, int newLayer)
+        => oldLayer < newLayer
+            ? zIndex > oldLayer && zIndex <= newLayer
+            : zIndex < oldLayer && zIndex >= newLayer;
 }

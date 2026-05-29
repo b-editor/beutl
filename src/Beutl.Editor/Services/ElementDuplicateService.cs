@@ -41,8 +41,9 @@ public sealed class ElementDuplicateService : IElementDuplicateService
         {
             DuplicateHelper.PlaceDuplicates(scene, regenerated, sourceArray, anchorStart, anchorZIndex);
         }
-        catch (Exception)
+        catch (Exception ex)
         {
+            s_logger.LogWarning(ex, "DuplicateAtClickedPosition failed for {Count} elements.", sourceArray.Length);
             return DuplicateOutcome.Failed;
         }
 

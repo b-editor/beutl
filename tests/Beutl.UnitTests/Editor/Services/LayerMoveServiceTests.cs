@@ -52,6 +52,13 @@ public class LayerMoveServiceTests
         return element;
     }
 
+    private TimelineLayer AddLayer(int zIndex)
+    {
+        var layer = new TimelineLayer { ZIndex = zIndex };
+        _scene.Layers.Add(layer);
+        return layer;
+    }
+
     [Test]
     public void Constructor_NullHistoryManager_Throws()
     {
@@ -140,6 +147,55 @@ public class LayerMoveServiceTests
             Assert.That(l0.ZIndex, Is.EqualTo(0));
             Assert.That(l1.ZIndex, Is.EqualTo(1));
             Assert.That(l2.ZIndex, Is.EqualTo(2));
+        });
+    }
+
+    [Test]
+    public void ApplyMove_ShiftsTimelineLayerModels_InSingleCommit()
+    {
+        Element e1 = AddElement(1);
+        AddElement(2);
+        AddElement(3);
+        TimelineLayer layer1 = AddLayer(1);
+        TimelineLayer layer2 = AddLayer(2);
+        TimelineLayer layer3 = AddLayer(3);
+        int before = _history.UndoCount;
+
+        _service.ApplyMove(_scene, 1, 3, [e1]);
+
+        Assert.Multiple(() =>
+        {
+            // The header models track their elements: layer1 -> 3, layer2/3 shift down.
+            Assert.That(layer1.ZIndex, Is.EqualTo(3));
+            Assert.That(layer2.ZIndex, Is.EqualTo(1));
+            Assert.That(layer3.ZIndex, Is.EqualTo(2));
+            // TimelineLayer writes share the Element transaction: still one entry.
+            Assert.That(_history.UndoCount, Is.EqualTo(before + 1));
+        });
+    }
+
+    [Test]
+    public void ApplyMove_AfterUndo_RestoresTimelineLayerZIndexes()
+    {
+        // Regression: TimelineLayer.ZIndex is a recorded property. If its writes
+        // landed outside the committed MoveLayer transaction, this Undo would
+        // revert the Element.ZIndex but leave the header models desynced.
+        Element e1 = AddElement(1);
+        AddElement(2);
+        AddElement(3);
+        TimelineLayer layer1 = AddLayer(1);
+        TimelineLayer layer2 = AddLayer(2);
+        TimelineLayer layer3 = AddLayer(3);
+
+        _service.ApplyMove(_scene, 1, 3, [e1]);
+        _history.Undo();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(layer1.ZIndex, Is.EqualTo(1));
+            Assert.That(layer2.ZIndex, Is.EqualTo(2));
+            Assert.That(layer3.ZIndex, Is.EqualTo(3));
+            Assert.That(e1.ZIndex, Is.EqualTo(1));
         });
     }
 }

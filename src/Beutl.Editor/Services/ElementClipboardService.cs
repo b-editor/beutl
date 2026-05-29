@@ -122,7 +122,7 @@ public sealed class ElementClipboardService : IElementClipboardService
     {
         string? json = await _clipboard.TryGetStringAsync(BeutlClipboardFormats.Elements);
         if (json is null) return ElementPasteOutcome.Empty;
-        if (JsonNode.Parse(json) is not JsonArray array || array.Count == 0)
+        if (ClipboardJson.TryParse(json) is not JsonArray array || array.Count == 0)
         {
             return ElementPasteOutcome.Empty;
         }
@@ -166,7 +166,7 @@ public sealed class ElementClipboardService : IElementClipboardService
 
         string? json = await _clipboard.TryGetStringAsync(BeutlClipboardFormats.Element);
         if (json is null) return ElementPasteOutcome.Empty;
-        if (JsonNode.Parse(json) is not JsonObject obj) return ElementPasteOutcome.Empty;
+        if (ClipboardJson.TryParse(json) is not JsonObject obj) return ElementPasteOutcome.Empty;
 
         var oldElement = new Element();
         CoreSerializer.PopulateFromJsonObject(oldElement, obj);

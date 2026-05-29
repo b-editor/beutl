@@ -144,8 +144,17 @@ public sealed class LayerHeaderViewModel : IDisposable
 
     public void UpdateZIndex(int layerNum)
     {
-        Number.Value = layerNum;
-        _model.Value?.ZIndex = layerNum;
+        // When a TimelineLayer backs this header, LayerMoveService writes its
+        // recorded ZIndex inside the committed MoveLayer transaction and the
+        // reactive Number binding already reflects layerNum. Writing the model
+        // again here would (a) re-touch a recorded property outside that
+        // transaction — leaking it into the next history entry — and (b)
+        // double-apply the shift for shifted headers. Only a model-less header
+        // needs its Number pushed manually.
+        if (_model.Value is null)
+        {
+            Number.Value = layerNum;
+        }
 
         PosY.Value = 0;
     }

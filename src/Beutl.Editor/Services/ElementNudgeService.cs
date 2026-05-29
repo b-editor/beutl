@@ -15,6 +15,7 @@ public sealed class ElementNudgeService : IElementNudgeService
     private static readonly ILogger s_logger = Log.CreateLogger<ElementNudgeService>();
 
     private readonly HistoryManager _historyManager;
+    private readonly Action<Action>? _postToUi;
     private readonly Timer _timer;
     private readonly object _gate = new();
     private bool _pending;
@@ -23,9 +24,17 @@ public sealed class ElementNudgeService : IElementNudgeService
     // primary guard against ObjectDisposedException on _timer.Change.
     private volatile bool _disposed;
 
-    public ElementNudgeService(HistoryManager historyManager)
+    /// <param name="postToUi">
+    /// Posts the deferred commit onto the UI thread. The debounce timer fires on
+    /// a thread-pool thread, but <see cref="HistoryManager.Commit"/> and its
+    /// reactive fan-out must run where every other editing service commits.
+    /// Pass <see langword="null"/> (the default) to commit inline on the timer
+    /// thread — tests rely on this and drive <see cref="Flush"/> synchronously.
+    /// </param>
+    public ElementNudgeService(HistoryManager historyManager, Action<Action>? postToUi = null)
     {
         _historyManager = historyManager ?? throw new ArgumentNullException(nameof(historyManager));
+        _postToUi = postToUi;
         _timer = new Timer(OnTimerTick, state: null, Timeout.Infinite, Timeout.Infinite);
     }
 
@@ -98,6 +107,22 @@ public sealed class ElementNudgeService : IElementNudgeService
     }
 
     private void OnTimerTick(object? state)
+    {
+        // Runs on a thread-pool thread. Marshal the drain to the UI thread when a
+        // post is available so the commit's reactive fan-out is serialized with
+        // every other UI-thread editing operation; the _gate re-check inside
+        // DrainPending keeps it correct against a concurrent Flush / Dispose.
+        if (_postToUi is { } post)
+        {
+            post(DrainPending);
+        }
+        else
+        {
+            DrainPending();
+        }
+    }
+
+    private void DrainPending()
     {
         lock (_gate)
         {

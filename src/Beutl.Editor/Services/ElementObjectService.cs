@@ -67,7 +67,7 @@ public sealed class ElementObjectService : IElementObjectService
         ArgumentNullException.ThrowIfNull(json);
         if (index < 0 || index >= element.Objects.Count) return ObjectPasteOutcome.InvalidJson;
 
-        if (JsonNode.Parse(json) is not JsonObject newJson)
+        if (ClipboardJson.TryParse(json) is not JsonObject newJson)
         {
             return ObjectPasteOutcome.InvalidJson;
         }

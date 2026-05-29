@@ -6,6 +6,7 @@ using Avalonia.LogicalTree;
 using Avalonia.Media;
 using Beutl.Editor.Components.TimelineTab.ViewModels;
 using Beutl.Editor.Services;
+using Beutl.ProjectSystem;
 using FluentAvalonia.UI.Controls;
 using Microsoft.Extensions.DependencyInjection;
 

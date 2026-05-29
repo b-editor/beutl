@@ -1,6 +1,5 @@
 ﻿using System.Text.Json.Nodes;
 using Beutl.Animation;
-using Beutl.Animation.Easings;
 using Beutl.Language;
 using Beutl.Logging;
 using Beutl.Serialization;
@@ -24,7 +23,7 @@ public sealed class KeyFrameClipboardService : IKeyFrameClipboardService
         ArgumentNullException.ThrowIfNull(target);
         ArgumentNullException.ThrowIfNull(json);
 
-        if (JsonNode.Parse(json) is not JsonObject newJson)
+        if (ClipboardJson.TryParse(json) is not JsonObject newJson)
         {
             return KeyFrameAnimationPasteOutcome.InvalidJson;
         }
@@ -74,7 +73,7 @@ public sealed class KeyFrameClipboardService : IKeyFrameClipboardService
         ArgumentNullException.ThrowIfNull(target);
         ArgumentNullException.ThrowIfNull(json);
 
-        if (JsonNode.Parse(json) is not JsonObject newJson)
+        if (ClipboardJson.TryParse(json) is not JsonObject newJson)
         {
             return new KeyFramePasteResult(KeyFramePasteOutcome.InvalidJson);
         }

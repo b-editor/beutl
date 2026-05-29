@@ -1,5 +1,7 @@
-﻿using Beutl.Language;
+﻿using System.Diagnostics.CodeAnalysis;
+using Beutl.Language;
 using Beutl.NodeGraph;
+using Beutl.NodeGraph.Nodes.Group;
 
 namespace Beutl.Editor.Services;
 
@@ -43,7 +45,7 @@ public sealed class NodeGraphMutationService : INodeGraphMutationService
         // Collect every connection touching the node before mutating so
         // the iteration is not invalidated by the disconnect calls.
         Connection[] touching = node.Items
-            .SelectMany<INodeItem, Reference<Connection>>(i => i switch
+            .SelectMany(i => i switch
             {
                 IOutputPort output => output.Connections,
                 IListPort list => list.Connections,
@@ -255,7 +257,7 @@ public sealed class NodeGraphMutationService : INodeGraphMutationService
     }
 
     private static bool SortPortDirection(INodePort a, INodePort b,
-        out IInputPort? input, out IOutputPort? output)
+        [NotNullWhen(true)] out IInputPort? input, [NotNullWhen(true)] out IOutputPort? output)
     {
         if (a is IInputPort ai && b is IOutputPort bo)
         {
