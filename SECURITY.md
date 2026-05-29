@@ -2,9 +2,9 @@
 
 ## Supported Versions
 
-Security fixes are applied to the latest release line. Beutl is currently in a
-`2.0.0` preview cycle; older `1.x` releases receive fixes on a best-effort basis
-only.
+Security fixes are applied to the current preview line (`2.0.x`) and the latest
+stable line (`1.1.x`). Beutl is currently in a `2.0.0` preview cycle. Releases
+older than `1.1` (`< 1.1`) are no longer supported.
 
 | Version          | Supported          |
 | ---------------- | ------------------ |
