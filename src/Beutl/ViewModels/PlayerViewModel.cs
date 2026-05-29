@@ -1349,16 +1349,21 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
                     time = frame.ToTimeSpan(rate);
                     Ref<Bitmap>? bitmapRef;
 
+                    // A side contributes nothing when its opacity is 0, so fold opacity into the
+                    // effective count. When both sides are invisible useOnionSkin stays false and
+                    // the empty-samples fallback below routes through the cheaper cache-aware path.
+                    int effectivePrevCount = onionPrevOpacity > 0f ? onionPrevCount : 0;
+                    int effectiveNextCount = onionNextOpacity > 0f ? onionNextCount : 0;
                     useOnionSkin = onionEnabled
                         && !IsPlaying.Value
-                        && (onionPrevCount > 0 || onionNextCount > 0);
+                        && (effectivePrevCount > 0 || effectiveNextCount > 0);
 
                     IReadOnlyList<OnionSkinSample> onionSamples = [];
                     if (useOnionSkin)
                     {
                         onionSamples = OnionSkinHelper.EnumerateOnionSkinTimes(
                             time, Scene.Start, Scene.Duration, rate,
-                            onionPrevCount, onionNextCount,
+                            effectivePrevCount, effectiveNextCount,
                             onionPrevOpacity, onionNextOpacity);
                         onionSampleCount = onionSamples.Count;
                         if (onionSamples.Count == 0)
@@ -1396,6 +1401,12 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
                                     // current frame; the partial composite is replaced by the queued render.
                                     if (token.IsCancellationRequested)
                                         break;
+
+                                    // Belt-and-suspenders for the mixed case (one side opaque, the
+                                    // other at zero opacity): skip the render/snapshot/blend for any
+                                    // sample that would composite nothing.
+                                    if (sample.Alpha <= 0f)
+                                        continue;
 
                                     var compFrame = renderer.Compositor.EvaluateGraphics(sample.Time);
                                     renderer.Render(compFrame);
