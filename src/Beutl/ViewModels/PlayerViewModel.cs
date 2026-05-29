@@ -266,16 +266,50 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
 
     private void OnSceneEdited(object? sender, EventArgs e)
     {
-        if (e is ElementEditedEventArgs elementEdited)
+        if (e is ElementEditedEventArgs elementEdited
+            && !IsEditAffectingPreview(elementEdited.AffectedRange))
         {
-            TimeSpan time = _editorClock.CurrentTime.Value;
-            if (!elementEdited.AffectedRange.Any(v => v.Contains(time)))
-            {
-                return;
-            }
+            return;
         }
 
         QueueRender();
+    }
+
+    // The preview only needs to re-render when an edit touches a currently visible frame.
+    // Normally that is just the playhead frame, but while the onion-skin overlay is active the
+    // neighboring sample frames are visible too, so an edit confined to one of them must still
+    // invalidate the preview.
+    private bool IsEditAffectingPreview(IReadOnlyList<TimeRange> affectedRange)
+    {
+        TimeSpan time = _editorClock.CurrentTime.Value;
+        if (affectedRange.Any(v => v.Contains(time)))
+        {
+            return true;
+        }
+
+        EditorConfig editorConfig = GlobalConfiguration.Instance.EditorConfig;
+        if (!editorConfig.IsOnionSkinEnabled || IsPlaying.Value || Scene is null)
+        {
+            return false;
+        }
+
+        // Mirror the opacity-folding the render path uses: a zero-opacity side contributes
+        // nothing, so it should not keep the preview alive either.
+        int prevCount = editorConfig.OnionSkinPrevOpacity > 0f ? editorConfig.OnionSkinPrevCount : 0;
+        int nextCount = editorConfig.OnionSkinNextOpacity > 0f ? editorConfig.OnionSkinNextCount : 0;
+        if (prevCount == 0 && nextCount == 0)
+        {
+            return false;
+        }
+
+        int rate = GetFrameRate();
+        int frame = (int)Math.Round(time.ToFrameNumber(rate), MidpointRounding.AwayFromZero);
+        IReadOnlyList<OnionSkinSample> samples = OnionSkinHelper.EnumerateOnionSkinTimes(
+            frame, Scene.Start, Scene.Duration, rate,
+            prevCount, nextCount,
+            editorConfig.OnionSkinPrevOpacity, editorConfig.OnionSkinNextOpacity);
+
+        return samples.Any(s => affectedRange.Any(v => v.Contains(s.Time)));
     }
 
     public Subject<Unit> AfterRendered { get; } = new();
@@ -1362,7 +1396,7 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
                     if (useOnionSkin)
                     {
                         onionSamples = OnionSkinHelper.EnumerateOnionSkinTimes(
-                            time, Scene.Start, Scene.Duration, rate,
+                            frame, Scene.Start, Scene.Duration, rate,
                             effectivePrevCount, effectiveNextCount,
                             onionPrevOpacity, onionNextOpacity);
                         onionSampleCount = onionSamples.Count;
@@ -1427,8 +1461,10 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
                                 DrawBoundaries(renderer, canvas, new(currentBitmap.Width, currentBitmap.Height), true);
                             }
 
+                            // Ownership moves to bitmapRef here; this is the last statement in the
+                            // try, so the catch below only ever disposes currentBitmap on a path
+                            // before this point (no double-dispose).
                             bitmapRef = Ref<Bitmap>.Create(currentBitmap);
-                            currentBitmap = null; // ownership transferred to bitmapRef
                         }
                         catch
                         {

@@ -10,8 +10,13 @@ public static class OnionSkinHelper
     // Alpha is re-normalized against the number of samples actually emitted so a partial
     // clamp (e.g. prevCount=3 near the scene start) does not leave a near frame at a lower
     // opacity than baseOpacity.
+    //
+    // Sample times are derived from absolute frame numbers via the shared frame<->time
+    // conversion (int.ToTimeSpan(rate)), so they land on exactly the same frame grid the
+    // player uses. Stepping by a single rounded per-frame tick would instead accumulate a
+    // sub-frame drift at rates whose frame duration is fractional in ticks (e.g. 24/60 fps).
     public static IReadOnlyList<OnionSkinSample> EnumerateOnionSkinTimes(
-        TimeSpan current, TimeSpan sceneStart, TimeSpan sceneDuration,
+        int currentFrame, TimeSpan sceneStart, TimeSpan sceneDuration,
         int frameRate, int prevCount, int nextCount,
         float prevBaseOpacity, float nextBaseOpacity)
     {
@@ -22,7 +27,6 @@ public static class OnionSkinHelper
         if (prevCount == 0 && nextCount == 0)
             return [];
 
-        long tickPerFrame = TimeSpan.FromSeconds(1d / frameRate).Ticks;
         TimeSpan minTime = sceneStart;
         TimeSpan maxTime = sceneStart + sceneDuration; // exclusive
 
@@ -32,7 +36,7 @@ public static class OnionSkinHelper
         var prevTimes = new List<TimeSpan>(prevCount);
         for (int i = prevCount; i >= 1; i--)
         {
-            TimeSpan t = current - TimeSpan.FromTicks(tickPerFrame * i);
+            TimeSpan t = (currentFrame - i).ToTimeSpan(frameRate);
             if (t < minTime || t >= maxTime)
                 continue;
             prevTimes.Add(t);
@@ -41,7 +45,7 @@ public static class OnionSkinHelper
         var nextTimes = new List<TimeSpan>(nextCount);
         for (int i = 1; i <= nextCount; i++)
         {
-            TimeSpan t = current + TimeSpan.FromTicks(tickPerFrame * i);
+            TimeSpan t = (currentFrame + i).ToTimeSpan(frameRate);
             if (t < minTime || t >= maxTime)
                 continue;
             nextTimes.Add(t);
