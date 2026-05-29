@@ -1,0 +1,14 @@
+# Code owners for Beutl.
+# Owners are requested for review automatically when matching files change.
+# Docs: https://docs.github.com/articles/about-code-owners
+#
+# NOTE: For this to gate merges, enable
+# "Require review from Code Owners" in branch protection for `main`.
+
+# Default owner for everything in the repository.
+*       @yuto-trd
+
+# Area-specific owners can be added below as the maintainer team grows, e.g.:
+# /src/Beutl.Engine/         @yuto-trd
+# /src/Beutl.NodeGraph/      @yuto-trd
+# /.github/workflows/        @yuto-trd
