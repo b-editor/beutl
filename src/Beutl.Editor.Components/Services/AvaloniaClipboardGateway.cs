@@ -81,7 +81,7 @@ public sealed class AvaloniaClipboardGateway : IClipboardGateway
         IClipboard? clipboard = ClipboardHelper.GetClipboard();
         if (clipboard is null) return false;
 
-        var data = new DataTransfer();
+        using var data = new DataTransfer();
         foreach (ClipboardEntry entry in entries)
         {
             if (entry.Text is null) continue;

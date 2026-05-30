@@ -30,15 +30,21 @@ public sealed class ElementDuplicateService : IElementDuplicateService
         if (sources.Count == 0) return DuplicateOutcome.Failed;
 
         var sourceArray = sources.ToArray();
-        ObjectRegenerator.Regenerate(sourceArray, out Element[] regenerated);
 
-        (TimeRange seedRange, int minZIndex, int maxZIndex) =
-            DuplicateHelper.ComputePlacementRange(regenerated);
-        (TimeSpan anchorStart, int anchorZIndex) =
-            CorrectPosition(scene, seedRange, minZIndex, maxZIndex, clickedFrame, clickedLayer);
-
+        Element[] regenerated;
+        TimeRange seedRange;
+        int minZIndex, maxZIndex;
+        TimeSpan anchorStart;
+        int anchorZIndex;
         try
         {
+            // Regeneration can throw on a corrupt / unknown-plugin element, so it
+            // belongs inside the guarded region alongside placement (matching
+            // DuplicateAtPosition) instead of escaping the paste command.
+            ObjectRegenerator.Regenerate(sourceArray, out regenerated);
+            (seedRange, minZIndex, maxZIndex) = DuplicateHelper.ComputePlacementRange(regenerated);
+            (anchorStart, anchorZIndex) =
+                CorrectPosition(scene, seedRange, minZIndex, maxZIndex, clickedFrame, clickedLayer);
             DuplicateHelper.PlaceDuplicates(scene, regenerated, sourceArray, anchorStart, anchorZIndex);
         }
         catch (Exception ex)
