@@ -156,6 +156,9 @@ public partial class EditViewModel : IContextCommandHandler, IContextCommandStat
             case "PreviousKeyFrame" when !isFromTextBox:
                 SeekToAdjacentKeyFrame(forward: false);
                 break;
+            case "ToggleOnionSkin" when !isFromTextBox:
+                Player.IsOnionSkinEnabled.Value = !Player.IsOnionSkinEnabled.Value;
+                break;
             default:
                 if (execution.KeyEventArgs != null)
                     execution.KeyEventArgs.Handled = false;

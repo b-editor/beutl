@@ -22,5 +22,6 @@ Other:
 
 - Expression-bodied members are preferred when the body is a single statement.
 - New logic without a corresponding test under `tests/` (NUnit + Moq, in the matching test project) is incomplete.
+  - The top-level `src/Beutl/` app project is not referenced by any test project, so logic that needs tests belongs in a referenced library (e.g. `Beutl.Editor`, `Beutl.Engine`) — not in `src/Beutl/` ViewModels/Views.
 - Source generators live in `src/Beutl.Engine.SourceGenerators/`; if you change them, run `/beutl-build` and verify downstream projects still resolve generated symbols.
 - Style nits (spacing, ordering, var vs explicit) are owned by `.editorconfig` and `dotnet format`. Don't argue with the linter.

@@ -1231,4 +1231,28 @@ Example: GetProperty&lt;double&gt;("{GUID}.Opacity")</value>
   <data name="CommandPalette_MenuCategory" xml:space="preserve">
     <value>Menu</value>
   </data>
+  <data name="OnionSkin" xml:space="preserve">
+    <value>Onion skin</value>
+  </data>
+  <data name="OnionSkin_Description" xml:space="preserve">
+    <value>Show semi-transparent previous and next frames overlaid on the current frame.</value>
+  </data>
+  <data name="ToggleOnionSkin" xml:space="preserve">
+    <value>Toggle onion skin</value>
+  </data>
+  <data name="ToggleOnionSkin_Description" xml:space="preserve">
+    <value>Toggle the onion skin overlay in the preview.</value>
+  </data>
+  <data name="OnionSkinPrevCount" xml:space="preserve">
+    <value>Previous frames</value>
+  </data>
+  <data name="OnionSkinNextCount" xml:space="preserve">
+    <value>Next frames</value>
+  </data>
+  <data name="OnionSkinPrevOpacity" xml:space="preserve">
+    <value>Previous opacity</value>
+  </data>
+  <data name="OnionSkinNextOpacity" xml:space="preserve">
+    <value>Next opacity</value>
+  </data>
 </root>

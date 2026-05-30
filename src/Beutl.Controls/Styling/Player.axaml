@@ -24,6 +24,11 @@
                                       VerticalAlignment="Stretch"
                                       Content="{TemplateBinding InnerLeftContent}" />
 
+                    <ContentPresenter Name="InnerRightPresenter"
+                                      HorizontalAlignment="Right"
+                                      VerticalAlignment="Stretch"
+                                      Content="{TemplateBinding InnerRightContent}" />
+
                     <Grid Grid.Row="1" RowDefinitions="Auto,Auto">
                         <Grid.Styles>
                             <Style Selector="icons|SymbolIcon">

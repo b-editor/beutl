@@ -96,6 +96,10 @@ public sealed class SceneEditorExtension : EditorExtension
         [
             new ContextCommandKeyGesture("G")
         ]),
+        new("ToggleOnionSkin", Strings.ToggleOnionSkin, Strings.ToggleOnionSkin_Description,
+        [
+            new ContextCommandKeyGesture("Alt+O")
+        ]),
     ];
 
     public override bool TryCreateEditor(CoreObject obj, [NotNullWhen(true)] out Control? editor)

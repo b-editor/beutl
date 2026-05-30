@@ -1225,4 +1225,28 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
   <data name="CommandPalette_MenuCategory" xml:space="preserve">
     <value>メニュー</value>
   </data>
+  <data name="OnionSkin" xml:space="preserve">
+    <value>オニオンスキン</value>
+  </data>
+  <data name="OnionSkin_Description" xml:space="preserve">
+    <value>前後のフレームを半透明で重ねて表示します。</value>
+  </data>
+  <data name="ToggleOnionSkin" xml:space="preserve">
+    <value>オニオンスキンを切り替え</value>
+  </data>
+  <data name="ToggleOnionSkin_Description" xml:space="preserve">
+    <value>プレビューでオニオンスキン表示を切り替えます。</value>
+  </data>
+  <data name="OnionSkinPrevCount" xml:space="preserve">
+    <value>前フレーム数</value>
+  </data>
+  <data name="OnionSkinNextCount" xml:space="preserve">
+    <value>後フレーム数</value>
+  </data>
+  <data name="OnionSkinPrevOpacity" xml:space="preserve">
+    <value>前フレーム不透明度</value>
+  </data>
+  <data name="OnionSkinNextOpacity" xml:space="preserve">
+    <value>後フレーム不透明度</value>
+  </data>
 </root>
