@@ -84,11 +84,11 @@ The pipeline cleanly separates three things that are conflated today: a source's
 
 **Why this priority**: This is the stated motivation ("将来的にプロキシワークフロー"). Getting the seams right now is what makes the future proxy feature a localized addition rather than another pipeline rewrite.
 
-**Independent Test**: Back a source with two different pixel-resolution bitmaps of the same content; assert the drawable's logical bounds and hit region are identical for both. Assert `MediaOptions` (and the decode path) compiles and behaves identically with no decode-scale hint supplied (default = native), proving the extension point is additive.
+**Independent Test**: At a fixed logical size, back a source with two different pixel-resolution bitmaps of the same content; assert the drawable's logical bounds and hit region are identical and only the op's `EffectiveScale` differs (the seam). Assert `MediaOptions` (and the decode path) compiles and behaves identically with no decode-scale hint supplied (default = native), proving the extension point is additive. (Deriving a *stable* logical size from a source independent of its decoded resolution is deferred with proxy decode.)
 
 **Acceptance Scenarios**:
 
-1. **Given** a media source, **When** its logical size is queried, **Then** it is independent of the decoded bitmap's pixel dimensions.
+1. **Given** a media source at a fixed logical size, **When** it is rendered, **Then** the decoded bitmap's resolution appears only as the op's `EffectiveScale` (supply density), not as a change to the logical bounds — the seam that lets a future proxy swap resolution without moving content.
 2. **Given** the media-open path, **When** no decode-scale hint is supplied, **Then** behavior is identical to today (native-resolution decode) and the document is unaffected.
 3. **Given** a source drawn into a frame at render scale s, **When** rendered, **Then** its decoded pixels are mapped into a logical destination rect of `logicalSize × s`, so swapping the backing media changes only resolution, not position or size.
 
@@ -166,8 +166,8 @@ Selecting a layer, dragging a transform handle, and hit-testing all behave ident
 
 **Media source decoupling (proxy foundation)**
 
-- **FR-023**: A media source's **logical** size MUST be decoupled from its **decoded pixel** size so that the drawable's bounds and hit region are identical regardless of the backing media's resolution.
-- **FR-024**: Decoded source pixels MUST be drawn into a logical destination rect of `logicalSize × renderScale` (not blitted 1:1 at native pixel size).
+- **FR-023**: The media render path MUST map a source's **logical** size to its **decoded pixel** size through an explicit destination rect (not a 1:1 native blit), so the decoded resolution is a *supply* density (the op's `EffectiveScale`) distinct from the drawable's logical footprint. **In 003, a source's logical size is still derived from its (full) decoded `FrameSize`** — 003 delivers the *seam* (the dest-rect mapping + `EffectiveScale` on the source op), NOT a separate stable intrinsic-logical-size channel, so a **future** reduced-decode supply (a smaller decoded bitmap with an unchanged logical footprint) drops in without further pipeline change.
+- **FR-024**: Decoded source pixels MUST be drawn into a logical destination rect (mapping `logicalSize` to the op's working scale, not a 1:1 native-pixel blit), and the source op MUST report `EffectiveScale = decodedPixels / logicalSize` so the compositor reconciles it via the supply-driven rule (FR-016/FR-036).
 - **FR-025**: `MediaOptions` and the media-open path MUST remain additively extensible for a future optional decode-target-size/scale hint (default = native). This feature MUST NOT add the decode-scale hint to the FFmpeg IPC protocol or worker, but MUST NOT structurally foreclose it.
 
 **Output, editor, and API**
@@ -212,7 +212,7 @@ Selecting a layer, dragging a transform handle, and hit-testing all behave ident
 - **SC-004**: A per-effect / per-property **test manifest** (the completed FR-009 matrix, including particles and audio visualizers) classifies every item as "exact" or "best-effort" with its scaled params, invariant params, and acceptance threshold. Scale 1.0 is an **exact byte-equality gate** (per SC-001). Every "exact" item matches its scale-1.0 reference (rendered at scale 0.5× and upscaled) within an **SSIM threshold**; every "best-effort" item has a documented, asserted behavior and is full-fidelity at scale 1.0. The exact / best-effort lists and the SSIM threshold value MUST be pinned in `/speckit-plan`.
 - **SC-005**: A mixed-scale scenario (full-scale content composited over reduced-scale nested content) composites without visible seams or registration drift beyond the rounding tolerance, verified against a full-scale reference.
 - **SC-006**: Hit-testing the same logical point and performing an equivalent handle drag at two different render scales yield the same selected drawable and identical resulting document Transform values.
-- **SC-007**: A media source backed by two different pixel-resolution bitmaps of the same content reports identical logical bounds and hit region; the media-open path with no decode-scale hint is behaviorally identical to today.
+- **SC-007**: With a media source at a **fixed logical size** (an explicitly-sized drawable or a synthetic source double), backing it with two different pixel-resolution bitmaps of the same content changes only the op's `EffectiveScale` — not its position or logical bounds — and both composite correctly into the logical dest rect; the media-open path with no decode-scale hint is behaviorally identical to today. (Two backing files reporting the *same* logical size **without** an explicit size — i.e. an intrinsic-logical-size channel — is deferred with proxy decode, FR-025.)
 - **SC-008**: No `ToSize(1)` call and no unguarded integer truncation / `(int)`-cast of logical bounds remain on the 2D render path — scoped to the render-path directories of `Beutl.Engine` (graphics rendering, filter effects, particles, audio visualizers, brushes, text formatting) and excluding UI / display-zoom paths and non-render helpers, with any approved exception annotated — enforced by a search-based test, proving the migration is not partial.
 - **SC-009**: Exporting with supersampling (`s > 1`) produces output at exactly the configured output resolution and measurably reduces aliasing versus `s = 1` on a defined high-frequency test pattern (e.g. higher SSIM against a natively-high-resolution reference, or a lower aliasing-energy metric). The supersample factors offered and the aliasing metric / threshold MUST be pinned in `/speckit-plan`.
 

@@ -36,7 +36,7 @@
 - The four scope/behavior decisions that materially shape this spec were confirmed with the maintainer before writing:
   1. **Scope** = render-scale plumbing only (decoder-level proxy deferred; `MediaOptions` kept extensible).
   2. **Resolution-sensitive effects** = parameter scaling only ("プロパティにスケールを乗算する"); reduced-scale preview is best-effort, full-fidelity at export.
-  3. **Mixed-scale** = composite at `max` child scale capped at output scale (Mitchell resample).
+  3. **Mixed-scale** = composite at `max` child scale (Mitchell resample). *(This clarify-session decision originally said "capped at output scale"; the later supply-driven refinement — see the note below — defers the cap to the final root normalization, so `s_out` does not clamp intermediates. FR-016/FR-036.)*
   4. **Logical unit** = `1 unit = 1 px at FrameSize`; no file migration; scale 1.0 byte-identical.
 - Remaining decisions are plan-level and tracked under **Open Questions for Planning** in the spec; they do not block `/speckit-plan` but should be resolved there (a subset may warrant `/speckit-clarify`).
 - The acceptance tolerance numbers (SC-004) are intentionally left as "a fixed threshold" pending the plan-phase decision on exact SSIM/PSNR values and the byte-identical gate.

@@ -45,8 +45,8 @@ All `float` for v1 (the `Beutl.Graphics.Vector` primitive overloads exist for th
 - **`PreserveSource` floor carrier**: the floor travels as a per-pull `float PreserveFloor` on `RenderNodeContext` (default `0`; raised by a `PreserveSource` descendant) that lower-bounds an ancestor `ClampToOutput`'s result (`w = max(min(baseline, s_out), PreserveFloor)`). Inert (`0`) unless a `PreserveSource` effect is in the subtree.
 
 ### Shared rounding helper (FR-007)
-**Decision: there is no new helper type — the canonical helper *is* `PixelRect.FromRect(Rect, float scale)` / `PixelSize.FromSize(Size, float)`** (`PixelRect.cs:391`, `PixelSize.cs:209`), which already implement "ceil sizes (ceil'd bottom-right), toward-zero origins". The work is *adopting* them at every sink, not writing a new one.
-- **Invariant (byte-equality)**: origins round **toward zero** (`(int)` cast), NOT floor; extents **ceil**. At `scale=1.0` this reproduces today's output exactly, including negative-origin effect bounds. The two filter-effect sinks that currently do component-wise `(int)Width`/`(int)Height` truncation must migrate to this helper and are flagged scale-1.0-sensitive (golden-tested).
+**Decision: there is no new helper type — the canonical helper *is* `PixelRect.FromRect(Rect, float scale)` / `PixelSize.FromSize(Size, float)`** (`PixelRect.cs:391`, `PixelSize.cs:209`), which already implement "ceil sizes (ceil'd bottom-right), toward-zero origins". The work is *adopting* the `× w` scaling at every sink with a consistent convention, not writing a new helper.
+- **Invariant (byte-equality)**: origins round **toward zero** (`(int)` cast), NOT floor; extents **ceil**. **At `w = 1.0` each sink preserves its current rounding**: the main rasterization sink already uses `PixelRect.FromRect` (unchanged at scale 1); the two filter-effect sinks **keep their component-wise `(int)Width`/`(int)Height` truncation at `w = 1.0`** and apply `ceil(× w)` only for `w ≠ 1.0` — they are NOT unified with `FromRect` at scale 1 (that would change scale-1.0 output and break byte-identity). Golden-test the filter-target paths at `w = 1.0` (FR-005/FR-007).
 
 ---
 
@@ -141,10 +141,10 @@ All `float` for v1 (the `Beutl.Graphics.Vector` primitive overloads exist for th
 | Member | Change | Rule |
 |---|---|---|
 | `WorkingScale` | **+ `float WorkingScale { get; }`** (renamed from `RenderScale`) | FR-015 accessor for custom/shader effects. |
-| `CreateTarget(Rect)` | size `ceil(bounds × WorkingScale)` (shared helper, not raw `(int)`); `Open` returns a `WorkingScale`-prescaled canvas | FR-009; migrate off the `(int)` cast. |
+| `CreateTarget(Rect)` | size `ceil(bounds × WorkingScale)` for `w ≠ 1.0`, keeping component-wise `(int)` at `w = 1.0` (byte-identity); `Open` returns a `WorkingScale`-prescaled canvas | FR-009/FR-007. |
 
 ### `FilterEffectActivator` *(changed)* — `Graphics/FilterEffects/FilterEffectActivator.cs`
-`Flush` (`:29`) sizes targets `ceil(OriginalBounds × w)` via the shared helper (was `(int)Width`/`(int)Height`); pushes `Matrix.CreateScale(w)`. **Before the shared `SKImageFilterBuilder`/flatten, normalize each `EffectTarget` whose `Scale ≠ w` to `w`** (FR-019); `Apply` reads `CurrentTargets.MaxScale()` for `w`. Scale-1.0-sensitive (golden-tested).
+`Flush` (`:29`) sizes targets `ceil(OriginalBounds × w)` for `w ≠ 1.0`, **keeping the current component-wise `(int)Width`/`(int)Height` truncation at `w = 1.0`** (byte-identity); pushes `Matrix.CreateScale(w)`. **Before the shared `SKImageFilterBuilder`/flatten, normalize each `EffectTarget` whose `Scale ≠ w` to `w`** (FR-019); `Apply` reads `CurrentTargets.MaxScale()` for `w`. Scale-1.0-sensitive (golden-tested).
 
 ### `EffectTarget` *(changed)* — `Graphics/FilterEffects/EffectTarget.cs`
 | Member | Change | Rule |
