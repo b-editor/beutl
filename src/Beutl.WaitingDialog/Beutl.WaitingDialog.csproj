@@ -12,6 +12,7 @@
 
   <ItemGroup>
     <PackageReference Include="DynamicData" />
+    <PackageReference Include="HarfBuzzSharp" />
     <PackageReference Include="SkiaSharp" />
     <PackageReference Include="System.CommandLine" />
 

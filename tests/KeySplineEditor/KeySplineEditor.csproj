@@ -10,5 +10,7 @@
     <PackageReference Include="Avalonia.Desktop" />
     <PackageReference Include="Avalonia.Themes.Fluent" />
     <PackageReference Condition="'$(Configuration)' == 'Debug'" Include="Avalonia.Diagnostics" />
+    <PackageReference Include="HarfBuzzSharp" />
+    <PackageReference Include="SkiaSharp" />
   </ItemGroup>
 </Project>

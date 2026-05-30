@@ -11,9 +11,12 @@
     <ProjectReference Include="..\Beutl.Engine.SourceGenerators\Beutl.Engine.SourceGenerators.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
   </ItemGroup>
   <ItemGroup>
+    <PackageReference Include="HarfBuzzSharp" />
     <PackageReference Include="Microsoft.CodeAnalysis.CSharp.Scripting" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
     <PackageReference Include="Microsoft.Extensions.FileSystemGlobbing" />
   <PackageReference Include="Microsoft.Extensions.Logging" />
+  <PackageReference Include="SkiaSharp" />
+  <PackageReference Include="SkiaSharp.HarfBuzz" />
   </ItemGroup>
 </Project>

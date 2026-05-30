@@ -18,6 +18,7 @@
     <PackageReference Include="Avalonia.Desktop" />
     <PackageReference Condition="'$(Configuration)' == 'Debug'" Include="Avalonia.Diagnostics" />
     <PackageReference Include="FluentAvaloniaUI" />
+    <PackageReference Include="HarfBuzzSharp" />
     <PackageReference Include="ReactiveProperty" />
     <PackageReference Include="SkiaSharp" />
   </ItemGroup>
