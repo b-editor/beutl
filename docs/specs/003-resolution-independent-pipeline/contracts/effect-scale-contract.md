@@ -54,7 +54,7 @@ Each effect/node declares a `ResolutionPolicy` (default `Inherit`) that decides 
 | **`Oversample(k)`** | `max(supply, k·s_out)` | **quality opt-in**: force ≥ k× the final target even from a low input (SSAA-on-demand). |
 | **`PreserveSource`** | input supply density, **floors any ancestor `ClampToOutput`** | keep a high source's detail through a quality effect. |
 
-`w` is finally capped by a global ceiling `MaxWorkingScale` (FR-037, memory backstop). The **default is `Inherit` for every effect** (built-in and plugin); declare a different policy by overriding `FilterEffect.ResolutionPolicy`. **Built-in assignments** (pinned in the FR-009 manifest): resolution-sensitive effects (below) → `PreserveSource`; heavy effects MAY override to `ClampToOutput`; everything else stays `Inherit`. A policy MUST NOT change the `s_out = 1.0` output.
+`w` is finally capped by the global ceiling `MaxWorkingScale` (FR-037; **preview default `2 × s_out`, export unbounded**). The **default is `Inherit` for every effect** (built-in and plugin); declare a different policy by overriding `FilterEffect.ResolutionPolicy`. **Pinned built-in assignments**: `PreserveSource` = the FR-013 resolution-sensitive set (`PixelSort`, contour `Stroke`/`FlatShadow`/`PartsSplit`, `AutoClip`, `Dilate`, `Erode`, `Mosaic`, Perlin-driven, custom SKSL/GLSL, image-map `Displacement`); **everything else = `Inherit`**; **no built-in defaults to `ClampToOutput`** (it is user/opt-in only). A policy MUST NOT change the `s_out = 1.0` output.
 
 ## Resolution-sensitive effects (FR-013)
 

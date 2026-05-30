@@ -25,6 +25,8 @@ All `float` for v1 (the `Beutl.Graphics.Vector` primitive overloads exist for th
 - **`e`** (effective scale) — per-op supply density (`EffectiveScale`, below).
 - **`w`** (working scale) — computed per buffer-allocating boundary via `ResolveWorkingScale` (FR-036); the scale an effect runs at and that spatial-length params multiply by (FR-008).
 
+> **Glossary (naming)**: `Renderer.RenderScale` (on the renderer) `==` `RenderNodeContext.OutputScale` (on the context) `== s_out` — the same render-request output scale under two names (the context calls it `OutputScale` to stress it is *not* the working scale). The editor-facing **`RenderScale` enum** (`Full`/`Half`/`Quarter`/`FitToPreviewer`, FR-035) is a **distinct type** that *resolves to* `s_out` via `ToFloat`.
+
 ### `EffectiveScale` *(new value type)* — `Graphics/Rendering/EffectiveScale.cs`
 `readonly record struct EffectiveScale(float Value, bool IsUnbounded)` — the supply density an op's pixels exist at.
 | Member | Rule |
@@ -192,7 +194,7 @@ All `float` for v1 (the `Beutl.Graphics.Vector` primitive overloads exist for th
 | `EffectiveScale` (value) | FR-018 per-op supply density | `Unbounded`, `At(float)`, `Value`, `IsUnbounded` |
 | `ResolutionPolicy` (value) | FR-036 per-effect/node policy | `Inherit`/`ClampToOutput`/`Oversample(k)`/`PreserveSource` |
 | `FilterEffect.ResolutionPolicy` / `RenderNode.ResolutionPolicy` | virtual; default `Inherit` | quality effects override |
-| `MaxWorkingScale` (config) | FR-037 global ceiling | configurable; value pinned in tasks |
+| `MaxWorkingScale` (config) | FR-037 global ceiling | `EditorConfig`; **preview default `2 × s_out`, export unbounded** |
 
 ---
 
