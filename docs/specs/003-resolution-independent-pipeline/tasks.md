@@ -21,8 +21,8 @@ Single-repo .NET solution. Engine: `src/Beutl.Engine/`; project system: `src/Beu
 
 **Purpose**: value types + test harness every later phase needs. No behavior change.
 
-- [ ] T001 [P] Create `EffectiveScale` value type (`readonly record struct`; `Unbounded`/`At(float)`/`Value`/`IsUnbounded`; `default == Unbounded`) in `src/Beutl.Engine/Graphics/Rendering/EffectiveScale.cs`
-- [ ] T002 [P] Create `ResolutionPolicy` value type + `ResolutionPolicyKind` enum (`Inherit`/`ClampToOutput`/`Oversample`/`PreserveSource`; statics + `Oversample(factor)`) in `src/Beutl.Engine/Graphics/Rendering/ResolutionPolicy.cs`
+- [X] T001 [P] Create `EffectiveScale` value type (`readonly record struct`; `Unbounded`/`At(float)`/`Value`/`IsUnbounded`; `default == Unbounded` via an inverted `_bounded` flag) in `src/Beutl.Engine/Graphics/Rendering/EffectiveScale.cs`
+- [X] T002 [P] Create `ResolutionPolicy` value type + `ResolutionPolicyKind` enum (`Inherit`/`ClampToOutput`/`Oversample`/`PreserveSource`; statics + `Oversample(factor)`) in `src/Beutl.Engine/Graphics/Rendering/ResolutionPolicy.cs`
 - [ ] T003 [P] Create Vulkan-gated golden harness `GoldenImageHarness` (`RenderAtScale`, `MitchellResampleTo`, `AssertByteIdentical`, `AssertReducedScaleExact`, `AssertSupersampleReducesAliasing`; bodies wrapped in `VulkanTestEnvironment.EnsureAvailable()` + `InvokeOnRenderThread`) in `tests/Beutl.UnitTests/Engine/Graphics/Rendering/Golden/GoldenImageHarness.cs`
 - [ ] T004 [P] Create `ImageMetrics` (`Ssim`/`MeanAbsoluteError`/`AliasingEnergy` over `Bitmap.GetPixelSpan<ushort>()` RgbaF16 linear) in `tests/Beutl.UnitTests/Engine/Graphics/Rendering/Golden/ImageMetrics.cs`
 - [ ] T005 [P] Create `GoldenThresholds` constants (`ExactSsimMin=0.985`, `ExactMaeMax=0.02`, `SeamMaxDelta=0.05`, `SupersampleSsimMargin=0.01`, `SupersampleFactors={1.5,2.0,4.0}`) in `tests/Beutl.UnitTests/Engine/Graphics/Rendering/Golden/GoldenThresholds.cs`
