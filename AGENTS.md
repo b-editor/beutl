@@ -25,7 +25,7 @@ dotnet format Beutl.slnx                                           # format
 ./build.sh <Target>                                                # Nuke (same as CI)
 ```
 
-Claude Code skills are provided as `/beutl-build`, `/beutl-test`, `/beutl-format`, `/beutl-coverage`. They also fire on natural-language requests like "run the tests", "does this still build?", and they will **confirm scope** with AskUserQuestion (whole solution vs single project, verify vs apply, etc.) before executing. Pass arguments (e.g. `/beutl-test <FQN-substring>`) to skip the confirmation.
+Claude Code skills are provided as `/beutl-build`, `/beutl-test`, `/beutl-format`, `/beutl-coverage`. They also fire on natural-language requests like "run the tests", "does this still build?", and they will **confirm scope** with AskUserQuestion (whole solution vs single project, verify vs apply, etc.) before executing. Pass arguments (e.g. `/beutl-test <FQN-substring>`) to skip the confirmation. Before opening a PR, `/beutl-pre-pr` runs the same checks locally that the CI review and the `beutl-reviewer` subagent will run.
 
 ## Module boundary map
 
@@ -34,7 +34,8 @@ Claude Code skills are provided as `/beutl-build`, `/beutl-test`, `/beutl-format
 | `Beutl.Engine` | Core rendering / scene / track (no project dependencies) |
 | `Beutl.Engine.SourceGenerators` | Roslyn source generators |
 | `Beutl.ProjectSystem` | Project / document persistence |
-| `Beutl.Editor`, `Beutl.Editor.Components`, `Beutl.Controls` | Avalonia UI layer |
+| `Beutl.Editor` | Non-UI editor logic — undo/redo, packaging, editing-pipeline services (no Avalonia) |
+| `Beutl.Editor.Components`, `Beutl.Controls` | Avalonia UI layer (views / controls / ViewModels) |
 | `Beutl.Extensibility` | Plugin abstractions |
 | `Beutl.NodeGraph` | Node editor |
 | `Beutl.FFmpegIpc` | **MIT** IPC layer |
