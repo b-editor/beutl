@@ -4,10 +4,12 @@ using Beutl.Audio;
 using Beutl.Audio.Graph;
 using Beutl.Audio.Graph.Nodes;
 using Beutl.Engine;
+using Beutl.Engine.Expressions;
 using Beutl.Media;
 
 namespace Beutl.UnitTests.Engine.Audio;
 
+[TestFixture]
 public class CompressorNodeTests
 {
     private const int SampleRate = 48000;
@@ -824,7 +826,8 @@ public class CompressorNodeTests
         var anim = new KeyFrameAnimation<float>();
         anim.KeyFrames.Add(new KeyFrame<float> { Easing = new LinearEasing(), Value = float.NaN, KeyTime = TimeSpan.Zero });
         anim.KeyFrames.Add(new KeyFrame<float> { Easing = new LinearEasing(), Value = float.NaN, KeyTime = TimeSpan.FromSeconds(0.25) });
-        ((AnimatableProperty<float>)target).Animation = anim;
+        // IProperty<float> exposes the Animation setter directly; no concrete-type cast needed.
+        target.Animation = anim;
 
         var node = new CompressorNode
         {
@@ -882,8 +885,10 @@ public class CompressorNodeTests
     [Test]
     public void Process_ZeroLengthInput_Animated_ReturnsEmptyBuffer()
     {
-        // Same as above but on the animated path: a stackalloc[0] would otherwise be allocated
-        // and the chunk loop must handle SampleCount == 0 cleanly.
+        // Same as above, but with an animated parameter. The zero-length early-return in Process()
+        // intercepts BOTH the static and animated paths before ProcessAnimated (and its
+        // stackalloc float[bufferSize]) is ever entered, so this asserts the early-return contract
+        // — not the animated chunk loop itself, which is unreachable for SampleCount == 0.
         using var input = new AudioBuffer(SampleRate, 2, 0);
 
         var thresholdAnim = new KeyFrameAnimation<float>();
@@ -1083,5 +1088,140 @@ public class CompressorNodeTests
         float steadyPeakDb = PeakDb(output, sampleCount / 2);
         Assert.That(steadyPeakDb, Is.GreaterThan(-25f),
             $"Both NaN parameters must fall back so output remains audible; got {steadyPeakDb:F2} dB");
+    }
+
+    [Test]
+    public void Process_StaticAndAnimatedPaths_ProduceIdenticalOutputForConstantParameters()
+    {
+        // ProcessStatic and ProcessAnimated deliberately share ComputeCoeff / ComputeGainReductionDb
+        // / ComputeGainLinear so the two paths cannot drift. This pins that parity directly: with a
+        // constant-valued (two identical keyframes) Threshold animation, the animated path runs but
+        // every sampled parameter equals what the static path reads, so the outputs must be
+        // sample-for-sample identical. A coefficient-cache off-by-one, a chunk-boundary coefficient
+        // reset, or a slope re-derivation bug that uniformly scaled the animated output would break
+        // this even though Process_AnimatedPath_SmoothAcrossChunkBoundary (smoothness only) passes.
+        const int sampleCount = SampleRate / 2; // straddles many 1024-sample chunks
+        var duration = TimeSpan.FromSeconds(sampleCount / (double)SampleRate);
+        using var input = CreateSineBuffer(0.9f, 1000f, sampleCount);
+
+        // Static reference path (knee>0 and makeup!=0 so both branches are exercised in both paths).
+        var staticNode = CreateNode(threshold: -20f, ratio: 4f, attack: 5f, release: 50f, knee: 6f, makeup: 3f);
+        staticNode.AddInput(new StubSourceNode { Buffer = input });
+        using var staticOut = staticNode.Process(CreateContext(TimeSpan.Zero, duration));
+
+        // Animated path forced on via a constant Threshold animation (-20 → -20). The remaining
+        // parameters have no animation, so AnimationSampler fills each with the same CurrentValue
+        // the static path reads.
+        var thresholdAnim = new KeyFrameAnimation<float>();
+        thresholdAnim.KeyFrames.Add(new KeyFrame<float> { Easing = new LinearEasing(), Value = -20f, KeyTime = TimeSpan.Zero });
+        thresholdAnim.KeyFrames.Add(new KeyFrame<float> { Easing = new LinearEasing(), Value = -20f, KeyTime = duration });
+        var thresholdProperty = Property.CreateAnimatable(-20f);
+        thresholdProperty.Animation = thresholdAnim;
+
+        var animatedNode = new CompressorNode
+        {
+            Threshold = thresholdProperty,
+            Ratio = Property.CreateAnimatable(4f),
+            Attack = Property.CreateAnimatable(5f),
+            Release = Property.CreateAnimatable(50f),
+            Knee = Property.CreateAnimatable(6f),
+            MakeupGain = Property.CreateAnimatable(3f)
+        };
+        animatedNode.AddInput(new StubSourceNode { Buffer = input });
+        using var animatedOut = animatedNode.Process(CreateContext(TimeSpan.Zero, duration));
+
+        for (int ch = 0; ch < staticOut.ChannelCount; ch++)
+        {
+            var s = staticOut.GetChannelData(ch);
+            var a = animatedOut.GetChannelData(ch);
+            for (int i = 0; i < sampleCount; i++)
+            {
+                Assert.That(a[i], Is.EqualTo(s[i]).Within(1e-4f),
+                    $"Static and animated paths diverged at [{ch}][{i}]: static={s[i]}, animated={a[i]}");
+            }
+        }
+    }
+
+    [Test]
+    public void Process_SoftKnee_InKneeReductionMatchesClosedForm()
+    {
+        // Validate the soft-knee quadratic numerically, not just "soft < hard". A DC signal whose
+        // peak level equals the threshold drives the envelope to a known value (= thresholdDb), so
+        // diff = 0, landing in the middle of the knee. The closed form there is
+        //   GR = slope * x^2 / (2*knee)  with x = diff + halfKnee = halfKnee.
+        // The hard-knee formula would give 0 dB at diff == 0, so this point distinctively exercises
+        // the quadratic branch of CompressorNode.ComputeGainReductionDb.
+        const int sampleCount = SampleRate / 2; // long enough for the envelope to settle to inputDb
+        const float thresholdDb = -20f;
+        const float ratio = 4f;
+        const float kneeDb = 12f;
+        float amplitude = MathF.Pow(10f, thresholdDb / 20f); // 0.1 → peak dB == threshold
+        using var input = CreateConstantBuffer(amplitude, sampleCount);
+
+        var node = CreateNode(threshold: thresholdDb, ratio: ratio, attack: 1f, release: 1f, knee: kneeDb, makeup: 0f);
+        node.AddInput(new StubSourceNode { Buffer = input });
+        using var output = node.Process(CreateContext(TimeSpan.Zero, TimeSpan.FromSeconds(sampleCount / (double)SampleRate)));
+
+        // After settling, output[last] = amplitude * 10^(-GR/20). Recover GR and compare to the
+        // closed-form value at diff = 0.
+        float settled = MathF.Abs(output.GetChannelData(0)[sampleCount - 1]);
+        float measuredGrDb = -20f * MathF.Log10(settled / amplitude);
+
+        float slope = 1f - 1f / ratio;                            // 0.75
+        float halfKnee = kneeDb * 0.5f;                           // 6
+        float expectedGrDb = slope * halfKnee * halfKnee / (2f * kneeDb); // 1.125 dB
+
+        Assert.That(measuredGrDb, Is.EqualTo(expectedGrDb).Within(0.1f),
+            $"In-knee reduction at the threshold must match the quadratic closed form " +
+            $"(expected {expectedGrDb:F3} dB, got {measuredGrDb:F3} dB)");
+    }
+
+    [Test]
+    public void Process_ExpressionBackedParameter_RoutesToStaticPathAndIgnoresExpression()
+    {
+        // hasAnimation keys solely on Animation != null, so an expression-backed property
+        // (Animation == null, HasExpression == true) routes to ProcessStatic, which reads
+        // CurrentValue and does NOT evaluate the expression per-sample. This pins that documented
+        // contract: the output must equal a fully-static node with the same CurrentValue even
+        // though the expression evaluates to a different number. If a future change flips the gate
+        // to treat HasExpression as live (the FIXME's eventual goal), this test forces a deliberate
+        // update instead of silently changing rendered audio.
+        const int sampleCount = SampleRate / 2;
+        var duration = TimeSpan.FromSeconds(sampleCount / (double)SampleRate);
+        using var input = CreateSineBuffer(0.9f, 1000f, sampleCount);
+
+        var staticNode = CreateNode(threshold: -20f);
+        staticNode.AddInput(new StubSourceNode { Buffer = input });
+        using var staticOut = staticNode.Process(CreateContext(TimeSpan.Zero, duration));
+
+        // CurrentValue stays -20; the expression evaluates to -40 (which would compress harder).
+        // Because the static path ignores the expression, -40 must NOT take effect.
+        var thresholdProperty = Property.CreateAnimatable(-20f);
+        thresholdProperty.Expression = new StringExpression<float>("-40");
+        Assert.That(thresholdProperty.HasExpression, Is.True);
+        Assert.That(thresholdProperty.Animation, Is.Null);
+
+        var exprNode = new CompressorNode
+        {
+            Threshold = thresholdProperty,
+            Ratio = Property.CreateAnimatable(4f),
+            Attack = Property.CreateAnimatable(5f),
+            Release = Property.CreateAnimatable(50f),
+            Knee = Property.CreateAnimatable(0f),
+            MakeupGain = Property.CreateAnimatable(0f)
+        };
+        exprNode.AddInput(new StubSourceNode { Buffer = input });
+        using var exprOut = exprNode.Process(CreateContext(TimeSpan.Zero, duration));
+
+        for (int ch = 0; ch < staticOut.ChannelCount; ch++)
+        {
+            var s = staticOut.GetChannelData(ch);
+            var e = exprOut.GetChannelData(ch);
+            for (int i = 0; i < sampleCount; i++)
+            {
+                Assert.That(e[i], Is.EqualTo(s[i]).Within(1e-6f),
+                    $"Expression-backed parameter must route to the static path and ignore the expression; mismatch at [{ch}][{i}]");
+            }
+        }
     }
 }

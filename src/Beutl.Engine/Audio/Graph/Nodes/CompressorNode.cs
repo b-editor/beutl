@@ -18,6 +18,14 @@ public sealed class CompressorNode : AudioNode
     private int _lastSampleRate;
     private TimeSpan? _lastTimeRangeEnd;
 
+    // Per-channel handles into the current input/output buffers, cached so the per-sample hot loops
+    // avoid GetChannelData's disposed/bounds checks and re-slicing on every access. Span<float>[]
+    // cannot be used (Span is a ref struct), so we hold Memory<float> and materialize the span per
+    // channel. The backing arrays are reused across Process() calls and only reallocated when the
+    // channel count changes, mirroring EqualizerNode's channel-keyed filter cache.
+    private Memory<float>[]? _inputChannelCache;
+    private Memory<float>[]? _outputChannelCache;
+
     // Latched per node instance so the warning only fires once per non-finite event class, even
     // when the corruption persists across thousands of samples.
     private bool _loggedNonFiniteEnvelope;
@@ -46,19 +54,26 @@ public sealed class CompressorNode : AudioNode
 
         var input = Inputs[0].Process(context);
 
+        // A sample-rate change is a genuine reconfiguration (coefficients must be recomputed for
+        // the new rate), so treat it as a full session boundary: reset both the envelope and the
+        // one-shot diagnostic latches.
         if (_lastSampleRate != context.SampleRate)
         {
             Reset();
             _lastSampleRate = context.SampleRate;
         }
 
-        // Reset on the very first call (no prior end recorded) and whenever the new chunk does
-        // not start exactly where the previous one ended. The node instance is cached across
-        // Compose() calls, so without this guard stale envelope state would bleed into the first
-        // samples after a seek or stop/restart.
+        // Reset the envelope on the very first call (no prior end recorded) and whenever the new
+        // chunk does not start exactly where the previous one ended. The node instance is cached
+        // across Compose() calls, so without this guard stale envelope state would bleed into the
+        // first samples after a seek or stop/restart. Only the DSP state is reset here, NOT the
+        // diagnostic latches: a stuttering scrubber produces many discontinuities within a single
+        // session, and re-arming the one-shot warnings on every one of them would let a persistent
+        // non-finite condition re-log once per Process call. Diagnostics re-arm only on a
+        // sample-rate change or an explicit Reset() (e.g. a deliberate re-render).
         if (!_lastTimeRangeEnd.HasValue || _lastTimeRangeEnd.Value != context.TimeRange.Start)
         {
-            Reset();
+            ResetEnvelope();
         }
         _lastTimeRangeEnd = context.TimeRange.Start + context.TimeRange.Duration;
 
@@ -101,12 +116,13 @@ public sealed class CompressorNode : AudioNode
         float slope = 1f - 1f / p.Ratio;
 
         int channels = input.ChannelCount;
+        var (inputChannels, outputChannels) = MapChannels(input, output);
         for (int i = 0; i < input.SampleCount; i++)
         {
             float peak = 0f;
             for (int ch = 0; ch < channels; ch++)
             {
-                float a = MathF.Abs(input.GetChannelData(ch)[i]);
+                float a = MathF.Abs(inputChannels[ch].Span[i]);
                 if (a > peak) peak = a;
             }
 
@@ -124,8 +140,8 @@ public sealed class CompressorNode : AudioNode
 
             for (int ch = 0; ch < channels; ch++)
             {
-                float sample = input.GetChannelData(ch)[i] * gainLinear;
-                output.GetChannelData(ch)[i] = SanitizeOutput(sample);
+                float sample = inputChannels[ch].Span[i] * gainLinear;
+                outputChannels[ch].Span[i] = SanitizeOutput(sample);
             }
         }
 
@@ -151,6 +167,7 @@ public sealed class CompressorNode : AudioNode
         EffectiveParameters fallback = ReadStaticParameters();
 
         int channels = input.ChannelCount;
+        var (inputChannels, outputChannels) = MapChannels(input, output);
         int processed = 0;
 
         // lastAttackMs/lastReleaseMs are seeded with NaN so the first comparison is always
@@ -182,7 +199,7 @@ public sealed class CompressorNode : AudioNode
                 float peak = 0f;
                 for (int ch = 0; ch < channels; ch++)
                 {
-                    float a = MathF.Abs(input.GetChannelData(ch)[idx]);
+                    float a = MathF.Abs(inputChannels[ch].Span[idx]);
                     if (a > peak) peak = a;
                 }
 
@@ -212,8 +229,8 @@ public sealed class CompressorNode : AudioNode
 
                 for (int ch = 0; ch < channels; ch++)
                 {
-                    float sample = input.GetChannelData(ch)[idx] * gainLinear;
-                    output.GetChannelData(ch)[idx] = SanitizeOutput(sample);
+                    float sample = inputChannels[ch].Span[idx] * gainLinear;
+                    outputChannels[ch].Span[idx] = SanitizeOutput(sample);
                 }
             }
 
@@ -221,6 +238,27 @@ public sealed class CompressorNode : AudioNode
         }
 
         return output;
+    }
+
+    // Caches per-channel Memory handles for the current input/output buffers, reusing the backing
+    // arrays across calls (only reallocated on a channel-count change). The hot loops then index
+    // the cached handles instead of calling GetChannelData per sample. See the field comment.
+    private (Memory<float>[] Inputs, Memory<float>[] Outputs) MapChannels(AudioBuffer input, AudioBuffer output)
+    {
+        int channels = input.ChannelCount;
+        if (_inputChannelCache is null || _inputChannelCache.Length != channels)
+        {
+            _inputChannelCache = new Memory<float>[channels];
+            _outputChannelCache = new Memory<float>[channels];
+        }
+
+        for (int ch = 0; ch < channels; ch++)
+        {
+            _inputChannelCache[ch] = input.GetChannelMemory(ch);
+            _outputChannelCache![ch] = output.GetChannelMemory(ch);
+        }
+
+        return (_inputChannelCache, _outputChannelCache!);
     }
 
     private EffectiveParameters ReadStaticParameters()
@@ -347,17 +385,19 @@ public sealed class CompressorNode : AudioNode
         return envelopeDb > thresholdDb ? slope * (envelopeDb - thresholdDb) : 0f;
     }
 
-    // Internal so tests can drive an explicit reset, but not part of the public API: external
-    // callers must not zero the envelope mid-buffer (it would produce an audible click).
-    // Reset() corresponds to a "new render session" boundary (sample-rate change, seek), and
-    // unifies two concerns:
-    //   - DSP state (the envelope follower) — see ResetEnvelope
-    //   - Diagnostic latches (one-shot warnings) — see ResetDiagnostics
-    // They are always invoked together in production callers because every session boundary is
-    // also a fresh diagnostic window: we want operators to see warnings re-fire after fixing a
-    // bad keyframe and re-rendering. Splitting them into named helpers makes the dual
-    // responsibility legible at the call site instead of buried in this comment.
-    internal void Reset()
+    /// <summary>
+    /// Resets the compressor to a clean "new render session" state: zeroes the envelope follower
+    /// and re-arms the one-shot non-finite diagnostic warnings.
+    /// </summary>
+    /// <remarks>
+    /// Do not call this mid-buffer during continuous playback — zeroing the envelope there produces
+    /// an audible click. <see cref="Reset"/> is for genuine session boundaries (a deliberate
+    /// re-render, or an explicit stop/seek driven by an orchestrator). <see cref="Process"/> already
+    /// resets the envelope automatically on a sample-rate change or a time-range discontinuity, so
+    /// routine seeking does not require an external call. Public to match the sibling stateful nodes
+    /// <c>EqualizerNode</c> and <c>DelayNode</c>, which expose <c>Reset()</c> for the same purpose.
+    /// </remarks>
+    public void Reset()
     {
         ResetEnvelope();
         ResetDiagnostics();
@@ -373,6 +413,19 @@ public sealed class CompressorNode : AudioNode
         _loggedNonFiniteEnvelope = false;
         _loggedNonFiniteSample = false;
         _loggedNonFiniteParameters.Clear();
+    }
+
+    protected override void Dispose(bool disposing)
+    {
+        if (disposing)
+        {
+            // Drop the cached handles so we do not keep the last processed buffers' pooled memory
+            // referenced after disposal. They are re-filled at the start of the next Process() call.
+            _inputChannelCache = null;
+            _outputChannelCache = null;
+        }
+
+        base.Dispose(disposing);
     }
 
     private struct EffectiveParameters

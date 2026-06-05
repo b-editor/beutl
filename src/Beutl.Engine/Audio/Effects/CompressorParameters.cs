@@ -41,6 +41,13 @@ internal static class CompressorParameters
     // call site — neither `using static CompressorParameters;` nor `[Range(MinX, MaxX)]` triggers
     // type initialization. The module initializer sidesteps that and guarantees the asserts
     // below execute on every Debug-build run (production builds elide Debug.Assert anyway).
+    //
+    // CA2255 warns against [ModuleInitializer] in libraries because a library author cannot control
+    // initialization order relative to the host. That concern does not apply here: Validate only
+    // runs Debug.Assert checks over compile-time constants, has no ordering dependency, and produces
+    // no observable side effect. The suppression is kept method-local (rather than a project-wide
+    // NoWarn) so any future, less-benign [ModuleInitializer] elsewhere in the engine still warns.
+#pragma warning disable CA2255 // The 'ModuleInitializer' attribute should not be used in libraries
     [ModuleInitializer]
     internal static void Validate()
     {
@@ -51,6 +58,7 @@ internal static class CompressorParameters
         AssertRange(MinKneeDb, DefaultKneeDb, MaxKneeDb, "Knee");
         AssertRange(MinMakeupGainDb, DefaultMakeupGainDb, MaxMakeupGainDb, "MakeupGain");
     }
+#pragma warning restore CA2255
 
     private static void AssertRange(float min, float def, float max, string name)
     {

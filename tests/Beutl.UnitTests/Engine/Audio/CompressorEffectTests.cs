@@ -6,8 +6,11 @@ using Beutl.Audio.Graph;
 using Beutl.Audio.Graph.Nodes;
 using Beutl.Engine;
 
+using static Beutl.Audio.Effects.CompressorParameters;
+
 namespace Beutl.UnitTests.Engine.Audio;
 
+[TestFixture]
 public class CompressorEffectTests
 {
     private sealed class StubInputNode : AudioNode
@@ -78,6 +81,40 @@ public class CompressorEffectTests
         Assert.That(effect.Release.CurrentValue, Is.EqualTo(100f));
         Assert.That(effect.Knee.CurrentValue, Is.EqualTo(6f));
         Assert.That(effect.MakeupGain.CurrentValue, Is.EqualTo(0f));
+    }
+
+    [Test]
+    public void ScanProperties_RegistersNamesAndRangeValidatorsForEveryProperty()
+    {
+        // ScanProperties<CompressorEffect>() runs in the constructor and is expected to (a) name
+        // each IProperty<float> after its CLR member and (b) attach the [Range] validator so
+        // out-of-range assignments are coerced at the engine layer — not just visually constrained
+        // in the UI. A validator-absent property would silently accept any value. We assert the
+        // name and exercise the coercion (clamp) at both bounds for every property.
+        var effect = new CompressorEffect();
+
+        AssertNameAndRange(effect.Threshold, nameof(effect.Threshold), MinThresholdDb, MaxThresholdDb);
+        AssertNameAndRange(effect.Ratio, nameof(effect.Ratio), MinRatio, MaxRatio);
+        AssertNameAndRange(effect.Attack, nameof(effect.Attack), MinAttackMs, MaxAttackMs);
+        AssertNameAndRange(effect.Release, nameof(effect.Release), MinReleaseMs, MaxReleaseMs);
+        AssertNameAndRange(effect.Knee, nameof(effect.Knee), MinKneeDb, MaxKneeDb);
+        AssertNameAndRange(effect.MakeupGain, nameof(effect.MakeupGain), MinMakeupGainDb, MaxMakeupGainDb);
+    }
+
+    private static void AssertNameAndRange(IProperty<float> property, string expectedName, float min, float max)
+    {
+        Assert.That(property.Name, Is.EqualTo(expectedName),
+            $"ScanProperties must name the property '{expectedName}'.");
+
+        // Above-max assignment must clamp down to max (proves the [Range] validator is wired).
+        property.CurrentValue = max + 1000f;
+        Assert.That(property.CurrentValue, Is.EqualTo(max),
+            $"{expectedName}: a value above the max must be coerced to {max}; validator appears unwired.");
+
+        // Below-min assignment must clamp up to min.
+        property.CurrentValue = min - 1000f;
+        Assert.That(property.CurrentValue, Is.EqualTo(min),
+            $"{expectedName}: a value below the min must be coerced to {min}; validator appears unwired.");
     }
 
     [Test]
