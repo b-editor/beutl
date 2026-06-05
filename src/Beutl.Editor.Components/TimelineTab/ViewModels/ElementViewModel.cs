@@ -104,7 +104,7 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
         Cut.Subscribe(OnCut)
             .AddTo(_disposables);
 
-        Copy.Subscribe(async () => await SetClipboard([.. GetGroupOrSelectedElements()]))
+        Copy.Subscribe(async () => await OnCopy())
             .AddTo(_disposables);
 
         Exclude.Subscribe(OnExclude)
@@ -114,11 +114,8 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
             .AddTo(_disposables);
 
         Color.Skip(1)
-            .Subscribe(c =>
-            {
-                Model.AccentColor = c.ToBtlColor();
-                Timeline.EditorContext.GetRequiredService<HistoryManager>().Commit(CommandNames.ChangeElementColor);
-            })
+            .Subscribe(c => Timeline.EditorContext.GetRequiredService<IElementAttributeService>()
+                .SetAccentColor(Model, c.ToBtlColor()))
             .AddTo(_disposables);
 
         FinishEditingAnimation.Subscribe(OnFinishEditingAnimation)
@@ -445,32 +442,6 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
         await AnimationRequest(context);
     }
 
-    private async ValueTask<bool> SetClipboard(HashSet<ElementViewModel> selected)
-    {
-        IClipboard? clipboard = ClipboardHelper.GetClipboard();
-        if (clipboard == null) return false;
-
-        var skipMulti = selected.Count == 1 && selected.First() == this;
-
-        string singleJson = CoreSerializer.SerializeToJsonString(Model);
-        string? multiJson = !skipMulti
-            ? new JsonArray(selected
-                    .Select(JsonNode (i) => CoreSerializer.SerializeToJsonObject(i.Model))
-                    .ToArray())
-                .ToJsonString()
-            : null;
-        var data = new DataTransfer();
-        data.Add(DataTransferItem.CreateText(singleJson));
-        data.Add(DataTransferItem.Create(BeutlDataFormats.Element, singleJson));
-        if (!skipMulti)
-        {
-            data.Add(DataTransferItem.Create(BeutlDataFormats.Elements, multiJson));
-        }
-
-        await clipboard.SetDataAsync(data);
-        return true;
-    }
-
     public PrepareAnimationContext PrepareAnimation()
     {
         return new PrepareAnimationContext(
@@ -502,23 +473,14 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
 
     private void OnExclude()
     {
-        var history = Timeline.EditorContext.GetRequiredService<HistoryManager>();
-        // IsSelectedがtrueのものをまとめて削除する。
-        foreach (ElementViewModel element in GetGroupOrSelectedElements())
-        {
-            Scene.RemoveChild(element.Model);
-        }
-        history.Commit(CommandNames.RemoveElement);
+        Element[] targets = GetGroupOrSelectedElements().Select(e => e.Model).ToArray();
+        Timeline.EditorContext.GetRequiredService<IElementStructureService>().Exclude(Scene, targets);
     }
 
     private void OnDelete()
     {
-        var history = Timeline.EditorContext.GetRequiredService<HistoryManager>();
-        foreach (ElementViewModel element in GetGroupOrSelectedElements())
-        {
-            Scene.DeleteChild(element.Model);
-        }
-        history.Commit(CommandNames.DeleteElement);
+        Element[] targets = GetGroupOrSelectedElements().Select(e => e.Model).ToArray();
+        Timeline.EditorContext.GetRequiredService<IElementStructureService>().Delete(Scene, targets);
     }
 
     private void OnBringAnimationToTop()
@@ -560,52 +522,16 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
         return ids;
     }
 
-    private void RemoveIdsFromElementSets(IReadOnlyCollection<Guid> ids)
-    {
-        for (int i = Scene.Groups.Count - 1; i >= 0; i--)
-        {
-            ImmutableHashSet<Guid> group = Scene.Groups[i];
-
-            if (!group.Overlaps(ids))
-                continue;
-
-            ImmutableHashSet<Guid> updatedGroup = group.Except(ids);
-            var index = i;
-            if (updatedGroup.Count >= 2)
-            {
-                Scene.Groups[index] = updatedGroup;
-            }
-            else
-            {
-                Scene.Groups.RemoveAt(index);
-            }
-        }
-    }
-
     private void OnGroupSelectedElements()
     {
         IReadOnlyCollection<Guid> ids = GetSelectedIdsOrSelf();
-
-        RemoveIdsFromElementSets(ids);
-
-        ImmutableHashSet<Guid> newGroup = [.. ids];
-        if (newGroup.Count >= 2)
-        {
-            if (!Scene.Groups.Any(x => x.SetEquals(newGroup)))
-            {
-                Scene.Groups.Add(newGroup);
-            }
-        }
-
-        Timeline.EditorContext.GetRequiredService<HistoryManager>().Commit(CommandNames.GroupElements);
+        Timeline.EditorContext.GetRequiredService<IElementStructureService>().Group(Scene, ids);
     }
 
     private void OnUngroupSelectedElements()
     {
         IReadOnlyCollection<Guid> ids = GetSelectedIdsOrSelf();
-        RemoveIdsFromElementSets(ids);
-
-        Timeline.EditorContext.GetRequiredService<HistoryManager>().Commit(CommandNames.UngroupElements);
+        Timeline.EditorContext.GetRequiredService<IElementStructureService>().Ungroup(Scene, ids);
     }
 
     private void OnSetAttached(ImmutableHashSet<Guid> group)
@@ -624,30 +550,17 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
         }
     }
 
+    private async Task OnCopy()
+    {
+        Element[] models = GetGroupOrSelectedElements().Select(e => e.Model).ToArray();
+        await Timeline.EditorContext.GetRequiredService<IElementClipboardService>().CopyAsync(models);
+    }
+
     private async Task OnCut()
     {
-        var targets = GetGroupOrSelectedElements();
-
-        if (targets.Count == 1 && ReferenceEquals(targets[0], this))
-        {
-            if (await SetClipboard([this]))
-            {
-                Exclude.Execute();
-            }
-        }
-        else
-        {
-            if (await SetClipboard([.. targets]))
-            {
-                var history = Timeline.EditorContext.GetRequiredService<HistoryManager>();
-                foreach (ElementViewModel target in targets)
-                {
-                    Scene.RemoveChild(target.Model);
-                }
-
-                history.Commit(CommandNames.CutElement);
-            }
-        }
+        Element[] models = GetGroupOrSelectedElements().Select(e => e.Model).ToArray();
+        if (models.Length == 0) return;
+        await Timeline.EditorContext.GetRequiredService<IElementClipboardService>().CutAsync(Scene, models);
     }
 
     public void SplitAt(TimeSpan timeSpan)
@@ -674,73 +587,10 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
     private void SplitCore(IReadOnlyList<ElementViewModel> targets, TimeSpan timeSpan)
     {
         int rate = Scene.FindHierarchicalParent<Project>() is { } proj ? proj.GetFrameRate() : 30;
-        TimeSpan minDuration = TimeSpan.FromSeconds(1d / rate);
-        TimeSpan absTime = timeSpan.RoundToRate(rate);
+        TimeSpan at = timeSpan.RoundToRate(rate);
 
-        var groupUpdates = new Dictionary<int, List<Guid>>();
-
-        foreach (ElementViewModel target in targets)
-        {
-            TimeSpan forwardDuration = absTime - target.Model.Start;
-            TimeSpan backwardDuration = target.Model.Length - forwardDuration;
-
-            if (forwardDuration < minDuration || backwardDuration < minDuration)
-                continue;
-
-            ObjectRegenerator.Regenerate(target.Model, out Element backward);
-
-            target.Scene.MoveChild(
-                target.Model.ZIndex,
-                target.Model.Start,
-                forwardDuration,
-                target.Model);
-            backward.Start = absTime;
-            backward.Length = backwardDuration;
-            foreach (KeyFrameAnimation item in new ObjectSearcher(backward,
-                             o => o is KeyFrameAnimation { UseGlobalClock: false })
-                         .SearchAll()
-                         .OfType<KeyFrameAnimation>())
-            {
-                foreach (IKeyFrame keyframe in item.KeyFrames)
-                {
-                    keyframe.KeyTime -= forwardDuration;
-                }
-            }
-
-            CoreSerializer.StoreToUri(
-                backward,
-                RandomFileNameGenerator.GenerateUri(Scene.Uri!, Constants.ElementFileExtension));
-            target.Scene.AddChild(backward);
-            backward.NotifySplitted(true, forwardDuration, -forwardDuration);
-            target.Model.NotifySplitted(false, TimeSpan.Zero, -backwardDuration);
-
-            if (target._elementGroup is { } set)
-            {
-                int index = target.Scene.Groups.IndexOf(set);
-                if (index >= 0)
-                {
-                    if (!groupUpdates.TryGetValue(index, out List<Guid>? newIds))
-                    {
-                        newIds = [];
-                        groupUpdates.Add(index, newIds);
-                    }
-
-                    newIds.Add(backward.Id);
-                }
-            }
-        }
-
-        foreach ((int index, List<Guid> value) in groupUpdates.OrderByDescending(x => x.Key))
-        {
-            ImmutableHashSet<Guid> newGroup = value.ToImmutableHashSet();
-            if (newGroup.Count >= 2)
-            {
-                var scene = Scene;
-                scene.Groups.Insert(index + 1, newGroup);
-            }
-        }
-
-        Timeline.EditorContext.GetRequiredService<HistoryManager>().Commit(CommandNames.SplitElement);
+        Element[] models = targets.Select(t => t.Model).ToArray();
+        Timeline.EditorContext.GetRequiredService<IElementStructureService>().Split(Scene, models, at);
     }
 
     private async void OnChangeToOriginalDuration()

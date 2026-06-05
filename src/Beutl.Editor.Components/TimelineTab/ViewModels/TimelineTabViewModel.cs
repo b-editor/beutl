@@ -4,25 +4,20 @@ using System.Text.Json.Nodes;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
-using Avalonia.Input.Platform;
-using Avalonia.Platform.Storage;
-using Avalonia.Threading;
 using Avalonia.VisualTree;
 using Beutl.Animation;
 using Beutl.Configuration;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Components.TimelineTab.Models;
+using Beutl.Editor.Models;
 using Beutl.Editor.Services;
 using Beutl.Engine;
 using Beutl.Logging;
 using Beutl.Media;
-using Beutl.Media.Source;
 using Beutl.ProjectSystem;
 using Beutl.PropertyAdapters;
-using Beutl.Serialization;
 using Beutl.Services;
 using Beutl.Services.PrimitiveImpls;
-using Beutl.Utilities;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Reactive.Bindings;
@@ -37,7 +32,6 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
     private readonly Subject<LayerHeaderViewModel> _layerHeightChanged = new();
     private readonly Subject<System.Reactive.Unit> _canExecuteChangedSubject = new();
     private readonly Dictionary<int, TrackedLayerTopObservable> _trackerCache = [];
-    private DispatcherTimer? _nudgeCommitTimer;
     private bool _isDisposed;
 
     public TimelineTabViewModel(IEditorContext editorContext)
@@ -219,13 +213,8 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
             .Subscribe(_ => RaiseCanExecuteChanged())
             .AddTo(_disposables);
 
-        // Undo/Redo の直前で debounce 中の Nudge を必ず Commit する。
-        // 未コミットのままだと、Undo が先に未確定 transaction を revert してから
-        // 前回コミットを Pop するため 2 アクション分が同時に取り消されてしまう。
-        editorContext.GetRequiredService<HistoryManager>()
-            .BeforeMutation
-            .Subscribe(_ => FlushPendingNudgeCommit())
-            .AddTo(_disposables);
+        // ElementNudgeService is the owner of the Undo/Redo flush hook; it
+        // is wired to HistoryManager.BeforeMutation by the editor context.
 
         _logger.LogInformation("TimelineTabViewModel initialized successfully.");
     }
@@ -238,97 +227,28 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
         }
     }
 
-    private void SetStartTimeCore(TimeSpan time)
-    {
-        _logger.LogInformation("Adjusting scene start to pointer position.");
-        if (time > Scene.Duration + Scene.Start)
-        {
-            int rate = Scene.FindHierarchicalParent<Project>().GetFrameRate();
-            var endTime = Scene.Duration + Scene.Start;
-            time -= endTime;
-            time += TimeSpan.FromSeconds(1d / rate);
-
-            Scene.Duration = time;
-            Scene.Start = endTime;
-        }
-        else
-        {
-            int rate = Scene.FindHierarchicalParent<Project>().GetFrameRate();
-            if (time < TimeSpan.Zero)
-            {
-                time = TimeSpan.Zero;
-            }
-            else if (time > Scene.Duration + Scene.Start)
-            {
-                time = Scene.Duration + Scene.Start - TimeSpan.FromSeconds(1d / rate);
-            }
-
-            Scene.Duration = TimeSpan.FromTicks(Math.Max(
-                (Scene.Duration + Scene.Start -
-                 time).Ticks, TimeSpan.FromSeconds(1d / rate).Ticks));
-            Scene.Start = time;
-        }
-
-        EditorContext.GetRequiredService<HistoryManager>().Commit(CommandNames.ChangeSceneStart);
-
-        _logger.LogInformation("Scene start adjusted to {Time}.", time);
-    }
-
     private void OnSetStartTimeToPointerPosition()
     {
-        TimeSpan time = ClickedFrame;
-        SetStartTimeCore(time);
-    }
-
-    private void SetEndTimeCore(TimeSpan time)
-    {
-        _logger.LogInformation("Adjusting scene duration to pointer position.");
-        if (time < Scene.Start)
-        {
-            int rate = Scene.FindHierarchicalParent<Project>().GetFrameRate();
-            time -= TimeSpan.FromSeconds(1d / rate);
-            if (time < TimeSpan.Zero)
-            {
-                time = TimeSpan.Zero;
-            }
-
-            Scene.Duration = Scene.Start - time;
-            Scene.Start = time;
-            EditorContext.GetRequiredService<HistoryManager>().Commit(CommandNames.ChangeSceneDuration);
-        }
-        else
-        {
-            int rate = Scene.FindHierarchicalParent<Project>().GetFrameRate();
-            time -= Scene.Start;
-            if (time <= TimeSpan.Zero)
-            {
-                time = TimeSpan.FromSeconds(1d / rate);
-            }
-
-            Scene.Duration = time;
-            EditorContext.GetRequiredService<HistoryManager>().Commit(CommandNames.ChangeSceneDuration);
-            _logger.LogInformation("Scene duration adjusted to {Time}.", time);
-        }
+        EditorContext.GetRequiredService<ISceneTimeRangeService>().SetStart(Scene, ClickedFrame);
     }
 
     private void OnSetEndTimeToPointerPosition()
     {
         int rate = Scene.FindHierarchicalParent<Project>().GetFrameRate();
         TimeSpan time = ClickedFrame + TimeSpan.FromSeconds(1d / rate);
-        SetEndTimeCore(time);
+        EditorContext.GetRequiredService<ISceneTimeRangeService>().SetEnd(Scene, time);
     }
 
     private void OnSetStartTimeToCurrentTime()
     {
-        TimeSpan time = CurrentTime.Value;
-        SetStartTimeCore(time);
+        EditorContext.GetRequiredService<ISceneTimeRangeService>().SetStart(Scene, CurrentTime.Value);
     }
 
     private void OnSetEndTimeToCurrentTime()
     {
         int rate = Scene.FindHierarchicalParent<Project>().GetFrameRate();
         TimeSpan time = CurrentTime.Value + TimeSpan.FromSeconds(1d / rate);
-        SetEndTimeCore(time);
+        EditorContext.GetRequiredService<ISceneTimeRangeService>().SetEnd(Scene, time);
     }
 
     public Scene Scene { get; }
@@ -469,160 +389,49 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
         _logger.LogInformation("TimelineViewModel disposed successfully.");
     }
 
-    private (TimeSpan, int) CorrectPosition(TimeRange range, int minZIndex, int maxZIndex)
-    {
-        // クリック位置の近傍を「時計回りの渦巻き」で探索し、重ならない最初の位置に移動
-        var fps = Scene.FindHierarchicalParent<Project>()!.GetFrameRate();
-        var length = range.Duration;
-        var layerCount = maxZIndex - minZIndex + 1;
-        var step = TimeSpan.FromSeconds(1d / fps);
-
-        TimeSpan newStart = ClickedFrame;
-        int newZIndex = CalculateClickedLayer();
-
-        // 時計回り: 右->下->左->上
-        int[] dx = [1, 0, -1, 0]; // 時間方向
-        int[] dz = [0, 1, 0, -1]; // レイヤー方向
-
-        // まずはクリック位置を試す
-        if (!IsOverlapping(new TimeRange(newStart, length), newZIndex, newZIndex + layerCount - 1))
-        {
-            return (newStart, newZIndex);
-        }
-
-        int dir = 0; // 進行方向のインデックス
-        int stepLen = 1; // 現在の方向に進む歩数
-        int stepped = 0; // その方向で進んだ歩数
-        int turnCount = 0; // 方向転換回数（2回ごとに stepLen を+1）
-
-        // Cap the spiral so a densely-packed timeline cannot hang the UI thread.
-        // On cap we return the last candidate (may overlap) and notify the user —
-        // overlap is recoverable, a hang is not.
-        const int MaxSearchSteps = 100_000;
-        int searchSteps = 0;
-        bool capped = false;
-
-        while (true)
-        {
-            // 1歩進ませる
-            long dtTicks = step.Ticks * dx[dir];
-            newStart += TimeSpan.FromTicks(dtTicks);
-            newZIndex += dz[dir];
-
-            // 必要なら境界処理（例：負の時間を禁止）
-            if (newStart < TimeSpan.Zero) newStart = TimeSpan.Zero;
-            if (newZIndex < 0) newZIndex = 0;
-
-            // 空きが見つかったら終了
-            if (!IsOverlapping(new TimeRange(newStart, length), newZIndex, newZIndex + layerCount - 1))
-                break;
-
-            if (++searchSteps >= MaxSearchSteps)
-            {
-                capped = true;
-                break;
-            }
-
-            // 歩数管理：指定歩数進んだら時計回りに方向転換
-            stepped++;
-            if (stepped == stepLen)
-            {
-                stepped = 0;
-                dir = (dir + 1) & 3; // 0..3 の循環
-                turnCount++;
-                if ((turnCount & 1) == 0)
-                    stepLen++; // 2回方向転換するごとに 1,1,2,2,3,3,… と広がる
-            }
-        }
-
-        if (capped)
-        {
-            _logger.LogWarning(
-                "CorrectPosition gave up after {Steps} steps without finding a non-overlapping slot; using last candidate at start={Start}, zIndex={ZIndex}.",
-                searchSteps, newStart, newZIndex);
-            NotificationService.ShowWarning(Strings.Duplicate, Strings.Duplicate_NoEmptySlot);
-        }
-
-        return (newStart, newZIndex);
-
-        // TimeRangeとレイヤーの範囲(max, min)を与えると、重なるかどうかを調べる関数
-        bool IsOverlapping(TimeRange range, int minZIndex, int maxZIndex)
-        {
-            return Elements.Any(e =>
-                (e.Model.Range == range || e.Model.Range.Intersects(range) ||
-                 e.Model.Range.Contains(range) || range.Contains(e.Model.Range))
-                && e.Model.ZIndex >= minZIndex && e.Model.ZIndex <= maxZIndex);
-        }
-    }
-
-    private async Task PasteElementList(IClipboard clipboard)
-    {
-        if (await clipboard.TryGetValueAsync(BeutlDataFormats.Elements) is not { } json)
-        {
-            _logger.LogWarning("Paste skipped: clipboard advertises Elements format but returned null.");
-            return;
-        }
-        if (JsonNode.Parse(json) is not JsonArray jsonArray)
-        {
-            _logger.LogWarning("Paste skipped: clipboard Elements payload is not a JsonArray. Length={Length}", json.Length);
-            return;
-        }
-
-        var oldElements = jsonArray
-            .Select(node => (node, element: new Element()))
-            .Do(t => CoreSerializer.PopulateFromJsonObject(t.element, t.node!.AsObject()))
-            .Select(t => t.element)
-            .ToArray();
-
-        if (oldElements.Length == 0)
-        {
-            _logger.LogWarning("Paste skipped: clipboard Elements payload is an empty array.");
-            return;
-        }
-
-        RegenerateAndPlaceAtCorrectedPosition(oldElements, CommandNames.PasteElement);
-    }
-
     private void DuplicateSelectedElements()
     {
+        if (SelectedElements.Count == 0) return;
+
+        if (Scene.Uri is null)
+        {
+            NotificationService.ShowWarning(Strings.Duplicate_Failed, Strings.Duplicate_ProjectNotSaved);
+            return;
+        }
+
+        HashSet<Guid> ids = DuplicateHelper.ExpandWithGroupSiblings(
+            SelectedElements.Select(s => s.Model.Id),
+            Scene.Groups);
+
+        var sources = Elements
+            .Where(x => ids.Contains(x.Model.Id))
+            .Select(x => x.Model)
+            .ToArray();
+        if (sources.Length == 0)
+        {
+            _logger.LogWarning(
+                "Duplicate skipped: selected element IDs did not resolve to Elements. Ids={Ids}",
+                string.Join(", ", ids));
+            return;
+        }
+
         try
         {
-            if (SelectedElements.Count == 0) return;
-
-            HashSet<Guid> ids = DuplicateHelper.ExpandWithGroupSiblings(
-                SelectedElements.Select(s => s.Model.Id),
-                Scene.Groups);
-
-            var sourceVMs = Elements.Where(x => ids.Contains(x.Model.Id)).ToArray();
-            if (sourceVMs.Length == 0)
+            DuplicateOutcome outcome = EditorContext.GetRequiredService<IElementDuplicateService>()
+                .DuplicateAtClickedPosition(Scene, sources, ClickedFrame, CalculateClickedLayer());
+            if (outcome.Success)
             {
-                _logger.LogWarning(
-                    "Duplicate skipped: selected element IDs did not resolve to Elements. Ids={Ids}",
-                    string.Join(", ", ids));
-                return;
+                ScrollTo.Execute((outcome.ScrollToRange, outcome.ScrollToZIndex));
             }
-
-            RegenerateAndPlaceAtCorrectedPosition(
-                sourceVMs.Select(x => x.Model).ToArray(),
-                CommandNames.DuplicateElement);
+            else
+            {
+                NotificationService.ShowError(Strings.Duplicate_Failed, string.Empty);
+            }
         }
         catch (Exception ex)
         {
-            HandleDuplicateException(ex, "duplicating elements");
+            HandleDuplicateException(ex);
         }
-    }
-
-    private void RegenerateAndPlaceAtCorrectedPosition(Element[] oldElements, string commandName)
-    {
-        ObjectRegenerator.Regenerate(oldElements, out Element[] newElements);
-
-        (TimeRange seedRange, int minZIndex, int maxZIndex) = DuplicateHelper.ComputePlacementRange(newElements);
-        (TimeSpan newStart, int newZIndex) = CorrectPosition(seedRange, minZIndex, maxZIndex);
-
-        DuplicateHelper.PlaceDuplicates(Scene, newElements, oldElements, newStart, newZIndex);
-        EditorContext.GetRequiredService<HistoryManager>().Commit(commandName);
-
-        ScrollTo.Execute((new TimeRange(newStart, seedRange.Duration), newZIndex));
     }
 
     /// <summary>
@@ -637,125 +446,37 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
             return false;
         }
 
+        if (Scene.Uri is null)
+        {
+            NotificationService.ShowWarning(Strings.Duplicate_Failed, Strings.Duplicate_ProjectNotSaved);
+            return false;
+        }
+
         try
         {
-            var src = sourceElements.ToArray();
-            ObjectRegenerator.Regenerate(src, out Element[] newElements);
-
-            DuplicateHelper.PlaceDuplicates(Scene, newElements, src, anchorStart, Math.Max(anchorZIndex, 0));
-            EditorContext.GetRequiredService<HistoryManager>().Commit(CommandNames.DuplicateElement);
-            return true;
+            return EditorContext.GetRequiredService<IElementDuplicateService>()
+                .DuplicateAtPosition(Scene, sourceElements, anchorStart, anchorZIndex);
         }
         catch (Exception ex)
         {
-            HandleDuplicateException(ex, "duplicating elements at position");
+            HandleDuplicateException(ex);
             return false;
         }
     }
 
-    private void HandleDuplicateException(Exception ex, string context)
+    private void HandleDuplicateException(Exception ex)
     {
         switch (ex)
         {
-            case InvalidOperationException when Scene.Uri is null:
-                _logger.LogWarning(ex, "Duplicate skipped while {Context}: project has no Uri.", context);
-                NotificationService.ShowWarning(Strings.Duplicate_Failed, Strings.Duplicate_ProjectNotSaved);
-                break;
             case IOException:
             case UnauthorizedAccessException:
-                _logger.LogError(ex, "Duplicate failed while {Context}: I/O error.", context);
+                _logger.LogError(ex, "Duplicate failed: I/O error.");
                 NotificationService.ShowError(Strings.Duplicate_Failed, Strings.Duplicate_IOFailed);
                 break;
             default:
-                _logger.LogError(ex, "An exception has occurred while {Context}.", context);
+                _logger.LogError(ex, "An exception has occurred while duplicating.");
                 NotificationService.ShowError(MessageStrings.UnexpectedError, ex.Message);
                 break;
-        }
-    }
-
-    private async Task PasteElement(IClipboard clipboard)
-    {
-        if (await clipboard.TryGetValueAsync(BeutlDataFormats.Element) is not { } json)
-        {
-            _logger.LogWarning("Paste skipped: clipboard advertises Element format but returned null.");
-            return;
-        }
-        if (JsonNode.Parse(json) is not JsonObject jsonObject)
-        {
-            _logger.LogWarning("Paste skipped: clipboard Element payload is not a JsonObject. Length={Length}", json.Length);
-            return;
-        }
-
-        var oldElement = new Element();
-
-        CoreSerializer.PopulateFromJsonObject(oldElement, jsonObject);
-
-        ObjectRegenerator.Regenerate(oldElement, out Element newElement);
-
-        newElement.Start = ClickedFrame;
-        newElement.ZIndex = CalculateClickedLayer();
-
-        CoreSerializer.StoreToUri(newElement, RandomFileNameGenerator.GenerateUri(
-            Scene.Uri!, Constants.ElementFileExtension));
-
-        HistoryManager history = EditorContext.GetRequiredService<HistoryManager>();
-        Scene.AddChild(newElement);
-        history.Commit(CommandNames.PasteElement);
-
-        ScrollTo.Execute((newElement.Range, newElement.ZIndex));
-    }
-
-    private async Task PasteImageElement(IClipboard clipboard)
-    {
-        var imageData = await clipboard.TryGetBitmapAsync();
-        if (imageData == null) return;
-
-        string dir = Path.GetDirectoryName(Scene.Uri!.LocalPath)!;
-        // 画像を保存
-        string resDir = Path.Combine(dir, "resources");
-        if (!Directory.Exists(resDir))
-        {
-            Directory.CreateDirectory(resDir);
-        }
-
-        string imageFile = RandomFileNameGenerator.Generate(resDir, "png");
-        imageData.Save(imageFile);
-
-        var sourceImage = new Graphics.SourceImage();
-        sourceImage.Source.CurrentValue = ImageSource.Open(imageFile);
-        var newElement = new Element
-        {
-            Start = ClickedFrame,
-            Length = TimeSpan.FromSeconds(5),
-            ZIndex = CalculateClickedLayer(),
-            AccentColor = ColorGenerator.GenerateColor(typeof(Graphics.SourceImage).FullName!),
-            Name = Path.GetFileName(imageFile)
-        };
-        newElement.AddObject(sourceImage);
-
-        CoreSerializer.StoreToUri(newElement, RandomFileNameGenerator.GenerateUri(
-            dir, Constants.ElementFileExtension));
-
-        HistoryManager history = EditorContext.GetRequiredService<HistoryManager>();
-        Scene.AddChild(newElement);
-        history.Commit(CommandNames.PasteElement);
-
-        ScrollTo.Execute((newElement.Range, newElement.ZIndex));
-    }
-
-    private async Task PasteFiles(IClipboard clipboard)
-    {
-        if (await clipboard.TryGetFilesAsync() is not { } files) return;
-
-        var frame = ClickedFrame;
-        int layer = CalculateClickedLayer();
-        foreach (IStorageItem item in files)
-        {
-            if (item.TryGetLocalPath() is not { } fileName) continue;
-
-            AddElement.Execute(new ElementDescription(
-                frame, TimeSpan.FromSeconds(5), layer,
-                FileName: fileName));
         }
     }
 
@@ -763,26 +484,12 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
     {
         try
         {
-            IClipboard? clipboard = ClipboardHelper.GetClipboard();
-            if (clipboard == null) return;
+            ElementPasteOutcome outcome = await EditorContext.GetRequiredService<IElementClipboardService>()
+                .PasteAsync(Scene, ClickedFrame, CalculateClickedLayer());
 
-            var formats = await clipboard.GetDataFormatsAsync();
-
-            if (formats.Contains(BeutlDataFormats.Elements))
+            if (outcome.Pasted && outcome.ScrollTo.Duration > TimeSpan.Zero)
             {
-                await PasteElementList(clipboard);
-            }
-            else if (formats.Contains(BeutlDataFormats.Element))
-            {
-                await PasteElement(clipboard);
-            }
-            else if (formats.Contains(DataFormat.File))
-            {
-                await PasteFiles(clipboard);
-            }
-            else if (formats.Contains(DataFormat.Bitmap))
-            {
-                await PasteImageElement(clipboard);
+                ScrollTo.Execute((outcome.ScrollTo, outcome.ScrollToZIndex));
             }
         }
         catch (Exception ex)
@@ -1361,17 +1068,14 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
 
     private void NudgeSelectedElements(int direction, NudgeUnit unit)
     {
-        // SelectedElements は HashSet で順序不定。RoundToRate を適用する anchor を
-        // 決定論的にするため Start (副: ZIndex) でソートして最も左の要素を選ぶ。
-        // 異なる off-grid Start を持つ要素間で実行毎にシフト量が変わるのを防ぐ。
+        // Anchor on the leftmost selected element so the resulting delta lands
+        // on the frame grid regardless of HashSet iteration order.
         ElementViewModel? first = SelectedElements
             .OrderBy(e => e.Model.Start)
             .ThenBy(e => e.Model.ZIndex)
             .FirstOrDefault();
         if (first is null) return;
 
-        // 他の編集操作との一貫性と、グループの位置関係が崩れることを防ぐため、
-        // メンバーが 1 つだけ選択されていてもグループ全体を移動対象にする。
         IReadOnlyList<ElementViewModel> targets = first.GetGroupOrSelectedElements();
         if (targets.Count == 0) return;
 
@@ -1384,73 +1088,21 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
             _ => throw new ArgumentOutOfRangeException(nameof(unit), unit, "Unhandled NudgeUnit."),
         };
 
-        if (frames == 0) return;
-
-        // ドラッグ移動と同じく、結果がフレームグリッドに乗るようアンカー要素
-        // (= 最初の選択) の現在 Start を一旦 RoundToRate で丸めてから N フレーム分シフトする。
-        // TimeSpan.FromSeconds は repeating fraction を tick へ丸めるため、
-        // 連打で sub-frame ドリフトする可能性があるので int.ToTimeSpan(rate) で
-        // 整数 tick 計算にする。
-        Element anchor = first.Model;
-        TimeSpan anchoredStart = anchor.Start.RoundToRate(rate) + frames.ToTimeSpan(rate);
-        if (anchoredStart < TimeSpan.Zero) return;
-
-        TimeSpan delta = anchoredStart - anchor.Start;
-        if (delta == TimeSpan.Zero) return;
-
-        Scene.MoveChildren(0, delta, targets.Select(x => x.Model).ToArray());
-        ScheduleNudgeCommit();
-    }
-
-    // 連続押下を 1 つの Undo にまとめるための debounce。
-    // 典型的なキーリピート間隔 (~30-50ms) より十分長く、かつ単発の意図的な
-    // ナッジとリピート押下のひとかたまりを分離できる値として 300ms を採用 (経験則)。
-    //
-    // 既知の制約: debounce 中 (~300ms 以内) に Timeline 外の経路 (例:
-    // ElementViewModel の色変更が直接 Commit する) が走ると、その操作の Record と
-    // 未コミット nudge ops が同じ HistoryTransaction にマージしてしまう。
-    // 完全に分離するには nudge 専用 transaction の導入が必要だが、UI 上 300ms 以内
-    // にダイアログを伴う操作が完結することは稀なため、現状はこの制約を受け入れる。
-    private void ScheduleNudgeCommit()
-    {
-        if (_nudgeCommitTimer is null)
-        {
-            _nudgeCommitTimer = new DispatcherTimer(
-                TimeSpan.FromMilliseconds(300),
-                DispatcherPriority.Background,
-                OnNudgeCommitTick);
-        }
-
-        _nudgeCommitTimer.Stop();
-        _nudgeCommitTimer.Start();
-    }
-
-    private void OnNudgeCommitTick(object? sender, EventArgs e)
-    {
-        _nudgeCommitTimer?.Stop();
-        if (_isDisposed) return;
-        // Shutdown では HistoryManager が VM より先に Dispose されることがあり、
-        // その場合 Commit が ObjectDisposedException を投げる。Tick はバックグラウンド
-        // から UI スレッドに上がってくる経路なので、未捕捉例外を回避するため
-        // Dispose 経路と同様に防御する。
-        try
-        {
-            EditorContext.GetRequiredService<HistoryManager>().Commit(CommandNames.MoveElement);
-        }
-        catch (ObjectDisposedException ex)
-        {
-            _logger.LogWarning(ex, "Pending nudge commit dropped: HistoryManager already disposed.");
-        }
+        EditorContext.GetRequiredService<IElementNudgeService>()
+            .Nudge(Scene, targets.Select(x => x.Model).ToArray(), frames);
     }
 
     private void FlushPendingNudgeCommit()
     {
-        // Timer が止まっている = コミット待ちの Nudge は無い (Tick 実行済み、既に Flush 済み、
-        // または未スタート)。同じ debounce ウィンドウを Undo / 他コマンド実行 / Dispose の
-        // 各経路から重ねて Flush しても二重コミットにならないようガードする。
-        if (_nudgeCommitTimer is null || !_nudgeCommitTimer.IsEnabled) return;
-        _nudgeCommitTimer.Stop();
-        EditorContext.GetRequiredService<HistoryManager>().Commit(CommandNames.MoveElement);
+        if (_isDisposed) return;
+        try
+        {
+            EditorContext.GetRequiredService<IElementNudgeService>().Flush();
+        }
+        catch (ObjectDisposedException ex)
+        {
+            _logger.LogWarning(ex, "Pending nudge flush dropped: editor context already disposed.");
+        }
     }
 
     public void RazorSplitAt(TimeSpan time, bool acrossAllLayers)

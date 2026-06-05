@@ -52,11 +52,9 @@ public sealed partial class EngineObjectPropertyView : UserControl
     {
         if (DataContext is EngineObjectPropertyViewModel viewModel2)
         {
-            HistoryManager history = viewModel2.GetRequiredService<HistoryManager>();
             EngineObject obj = viewModel2.Model;
             Element element = obj.FindRequiredHierarchicalParent<Element>();
-            element.RemoveObject(obj);
-            history.Commit(CommandNames.RemoveObject);
+            viewModel2.GetRequiredService<IElementObjectService>().Remove(element, obj);
         }
     }
 
@@ -66,7 +64,6 @@ public sealed partial class EngineObjectPropertyView : UserControl
             && TypeFormat.ToType(typeName) is { } item2
             && DataContext is EngineObjectPropertyViewModel viewModel2)
         {
-            HistoryManager history = viewModel2.GetRequiredService<HistoryManager>();
             EngineObject obj = viewModel2.Model;
             Element element = obj.FindRequiredHierarchicalParent<Element>();
             Rect bounds = Bounds;
@@ -74,16 +71,9 @@ public sealed partial class EngineObjectPropertyView : UserControl
             double half = bounds.Height / 2;
             int index = element.Objects.IndexOf(obj);
 
-            if (half < position.Y)
-            {
-                element.InsertObject(index + 1, (EngineObject)Activator.CreateInstance(item2)!);
-            }
-            else
-            {
-                element.InsertObject(index, (EngineObject)Activator.CreateInstance(item2)!);
-            }
-
-            history.Commit(CommandNames.AddObject);
+            int insertIndex = half < position.Y ? index + 1 : index;
+            viewModel2.GetRequiredService<IElementObjectService>()
+                .InsertAt(element, insertIndex, (EngineObject)Activator.CreateInstance(item2)!);
 
             e.Handled = true;
         }
@@ -135,9 +125,8 @@ public sealed partial class EngineObjectPropertyView : UserControl
                     Element.Value: { } element
                 } viewModel)
             {
-                HistoryManager history = viewModel.GetRequiredService<HistoryManager>();
-                element.Objects.Move(oldIndex, newIndex);
-                history.Commit(CommandNames.MoveObject);
+                viewModel.GetRequiredService<IElementObjectService>()
+                    .Move(element, oldIndex, newIndex);
             }
         }
     }

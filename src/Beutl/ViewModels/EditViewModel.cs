@@ -32,6 +32,21 @@ public sealed partial class EditViewModel : IEditorContext, ISupportAutoSaveEdit
     private readonly EditorClockImpl _editorClock;
     private readonly EditorSelectionImpl _editorSelection;
     private readonly ElementAdderImpl _elementAdder;
+    private SceneTimeRangeService? _sceneTimeRangeService;
+    private ElementResizeService? _elementResizeService;
+    private ElementDuplicateService? _elementDuplicateService;
+    private ElementMoveService? _elementMoveService;
+    private ElementClipboardService? _elementClipboardService;
+    private ElementStructureService? _elementStructureService;
+    private ElementAttributeService? _elementAttributeService;
+    private ElementNudgeService? _elementNudgeService;
+    private LayerMoveService? _layerMoveService;
+    private LayerAttributeService? _layerAttributeService;
+    private SceneSettingsService? _sceneSettingsService;
+    private KeyFrameClipboardService? _keyFrameClipboardService;
+    private NodeGraphMutationService? _nodeGraphMutationService;
+    private ElementObjectService? _elementObjectService;
+    private IClipboardGateway? _clipboardGateway;
     private volatile bool _viewStateSaveSuppressed;
 
     public EditViewModel(Scene scene)
@@ -89,6 +104,7 @@ public sealed partial class EditViewModel : IEditorContext, ISupportAutoSaveEdit
             .DisposeWith(_disposables);
 
         _elementAdder = new ElementAdderImpl(this);
+        _clipboardGateway = new Beutl.Editor.Components.Services.AvaloniaClipboardGateway();
 
         _autoSaveService.SaveError
             .Subscribe(_ =>
@@ -331,6 +347,7 @@ public sealed partial class EditViewModel : IEditorContext, ISupportAutoSaveEdit
         // Player を破棄する前にイベント購読を外し、Subject 破棄後の OnNext を抑止する。
         DisposeCommandStateNotifier();
         await Player.DisposeAsync();
+        _elementNudgeService?.Dispose();
         _disposables.Dispose();
         IsEnabled.Dispose();
         Player = null!;
@@ -371,7 +388,7 @@ public sealed partial class EditViewModel : IEditorContext, ISupportAutoSaveEdit
     {
         string directory = Path.GetDirectoryName(Scene.Uri!.LocalPath)!;
 
-        directory = Path.Combine(directory, Constants.BeutlFolder, Constants.ViewStateFolder);
+        directory = Path.Combine(directory, EditorConstants.BeutlFolder, EditorConstants.ViewStateFolder);
         if (!Directory.Exists(directory))
         {
             Directory.CreateDirectory(directory);
@@ -651,6 +668,61 @@ public sealed partial class EditViewModel : IEditorContext, ISupportAutoSaveEdit
         if (serviceType.IsAssignableTo(typeof(IElementAdder)))
             return _elementAdder;
 
+        if (serviceType.IsAssignableTo(typeof(ISceneTimeRangeService)))
+            return _sceneTimeRangeService ??= new SceneTimeRangeService(HistoryManager);
+
+        if (serviceType.IsAssignableTo(typeof(IElementResizeService)))
+            return _elementResizeService ??= new ElementResizeService(HistoryManager);
+
+        if (serviceType.IsAssignableTo(typeof(IElementDuplicateService)))
+            return _elementDuplicateService ??= new ElementDuplicateService(HistoryManager);
+
+        if (serviceType.IsAssignableTo(typeof(IElementMoveService)))
+            return _elementMoveService ??= new ElementMoveService(
+                HistoryManager,
+                (IElementDuplicateService)GetService(typeof(IElementDuplicateService))!);
+
+        if (serviceType.IsAssignableTo(typeof(IClipboardGateway)))
+            return _clipboardGateway;
+
+        if (serviceType.IsAssignableTo(typeof(IElementClipboardService)))
+            return _elementClipboardService ??= _clipboardGateway is null
+                ? null!
+                : new ElementClipboardService(
+                    HistoryManager,
+                    _clipboardGateway,
+                    (IElementDuplicateService)GetService(typeof(IElementDuplicateService))!,
+                    static () => Beutl.Editor.Components.Helpers.ColorGenerator.GenerateColor(
+                        typeof(Beutl.Graphics.SourceImage).FullName!),
+                    _elementAdder);
+
+        if (serviceType.IsAssignableTo(typeof(IElementStructureService)))
+            return _elementStructureService ??= new ElementStructureService(HistoryManager);
+
+        if (serviceType.IsAssignableTo(typeof(IElementAttributeService)))
+            return _elementAttributeService ??= new ElementAttributeService(HistoryManager);
+
+        if (serviceType.IsAssignableTo(typeof(IElementNudgeService)))
+            return _elementNudgeService ??= CreateNudgeService();
+
+        if (serviceType.IsAssignableTo(typeof(ILayerMoveService)))
+            return _layerMoveService ??= new LayerMoveService(HistoryManager);
+
+        if (serviceType.IsAssignableTo(typeof(ILayerAttributeService)))
+            return _layerAttributeService ??= new LayerAttributeService(HistoryManager);
+
+        if (serviceType.IsAssignableTo(typeof(ISceneSettingsService)))
+            return _sceneSettingsService ??= new SceneSettingsService(HistoryManager);
+
+        if (serviceType.IsAssignableTo(typeof(IKeyFrameClipboardService)))
+            return _keyFrameClipboardService ??= new KeyFrameClipboardService(HistoryManager);
+
+        if (serviceType.IsAssignableTo(typeof(INodeGraphMutationService)))
+            return _nodeGraphMutationService ??= new NodeGraphMutationService(HistoryManager);
+
+        if (serviceType.IsAssignableTo(typeof(IElementObjectService)))
+            return _elementObjectService ??= new ElementObjectService(HistoryManager);
+
         if (serviceType == typeof(PlayerViewModel) || serviceType.IsAssignableTo(typeof(IPreviewPlayer)))
             return Player;
 
@@ -667,6 +739,19 @@ public sealed partial class EditViewModel : IEditorContext, ISupportAutoSaveEdit
             return Services.Adapters.PropertiesEditorFactoryImpl.Instance;
 
         return null;
+    }
+
+    private ElementNudgeService CreateNudgeService()
+    {
+        // The nudge debounce timer fires on a thread-pool thread; post its commit
+        // back to the UI thread so it serializes with every other editing op.
+        var nudge = new ElementNudgeService(HistoryManager, action => Dispatcher.UIThread.Post(action));
+        // BeforeMutation fires just before Undo / Redo / JumpTo: drain pending
+        // nudges so they don't merge into the next history transaction.
+        HistoryManager.BeforeMutation
+            .Subscribe(_ => nudge.Flush())
+            .DisposeWith(_disposables);
+        return nudge;
     }
 
     private sealed class KnownCommandsImpl(Scene scene, EditViewModel viewModel) : IKnownEditorCommands

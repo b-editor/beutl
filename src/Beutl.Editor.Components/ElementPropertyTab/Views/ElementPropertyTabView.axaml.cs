@@ -1,6 +1,7 @@
 ﻿using Avalonia.Controls;
 using Avalonia.Input;
 using Beutl.Editor.Components.ElementPropertyTab.ViewModels;
+using Beutl.Editor.Services;
 using Beutl.Engine;
 using Beutl.ProjectSystem;
 using Microsoft.Extensions.DependencyInjection;
@@ -58,9 +59,8 @@ public sealed partial class ElementPropertyTabView : UserControl
             && DataContext is ElementPropertyTabViewModel vm
             && vm.Element.Value is Element element)
         {
-            HistoryManager history = vm.GetRequiredService<HistoryManager>();
-            element.AddObject((EngineObject)Activator.CreateInstance(item)!);
-            history.Commit(CommandNames.AddObject);
+            vm.GetRequiredService<IElementObjectService>()
+                .Add(element, (EngineObject)Activator.CreateInstance(item)!);
 
             e.Handled = true;
         }

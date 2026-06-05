@@ -1,15 +1,15 @@
 ﻿using Avalonia.Input;
+using Beutl.Editor.Services;
 using Beutl.Services;
 
 namespace Beutl.Editor.Components;
 
 public static class BeutlDataFormats
 {
-    private const string ElementFormat = "BeutlElementJson";
-    private const string ElementsFormat = "BeutlElementsJson";
-
-    public static readonly DataFormat<string> Element = DataFormat.CreateStringApplicationFormat(ElementFormat);
-    public static readonly DataFormat<string> Elements = DataFormat.CreateStringApplicationFormat(ElementsFormat);
+    // Format strings come from BeutlClipboardFormats so the Avalonia-free
+    // layer and this Avalonia-typed layer can never drift apart.
+    public static readonly DataFormat<string> Element = DataFormat.CreateStringApplicationFormat(BeutlClipboardFormats.Element);
+    public static readonly DataFormat<string> Elements = DataFormat.CreateStringApplicationFormat(BeutlClipboardFormats.Elements);
     public static readonly DataFormat<string> KeyFrame = DataFormat.CreateStringApplicationFormat(nameof(Animation.KeyFrame));
     public static readonly DataFormat<string> KeyFrameAnimation = DataFormat.CreateStringApplicationFormat(nameof(Animation.KeyFrameAnimation));
     public static readonly DataFormat<string> EngineObject = DataFormat.CreateStringApplicationFormat(KnownLibraryItemFormats.EngineObject);

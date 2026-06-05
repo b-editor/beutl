@@ -1,9 +1,9 @@
-﻿using System.Diagnostics.CodeAnalysis;
-using Avalonia;
+﻿using Avalonia;
 using Avalonia.Media;
 using Avalonia.Media.Immutable;
 using Beutl.Collections;
 using Beutl.Controls;
+using Beutl.Editor.Services;
 using Beutl.NodeGraph;
 using Microsoft.Extensions.DependencyInjection;
 using Reactive.Bindings;
@@ -160,171 +160,62 @@ public class NodePortViewModel : NodeMemberViewModel
         return Connections.Count;
     }
 
-    private static bool SortNodePort(
-        INodePort first, INodePort second,
-        [NotNullWhen(true)] out IInputPort? inputNodePort,
-        [NotNullWhen(true)] out IOutputPort? outputNodePort)
-    {
-        if (first is IInputPort input)
-        {
-            inputNodePort = input;
-            outputNodePort = second as IOutputPort;
-        }
-        else
-        {
-            inputNodePort = second as IInputPort;
-            outputNodePort = first as IOutputPort;
-        }
-
-        return outputNodePort != null && inputNodePort != null;
-    }
-
     public bool TryConnect(NodePortViewModel target)
     {
-        HistoryManager history = _editorContext.GetRequiredService<HistoryManager>();
-        if (target.Model == null ^ Model == null)
-        {
-            // どちらかがNull
-            IDynamicPortNode? groupNode = null;
-            INodePort? port = null;
-            switch ((GraphNode, target.GraphNode))
-            {
-                case (IDynamicPortNode node1, _):
-                    groupNode = node1;
-                    port = target.Model;
-                    break;
+        GraphModel graph = GraphNodeViewModel.NodeGraphViewModel.NodeGraph;
+        INodeGraphMutationService service = _editorContext.GetRequiredService<INodeGraphMutationService>();
 
-                case (_, IDynamicPortNode node2):
-                    groupNode = node2;
-                    port = Model;
-                    break;
-            }
-
-            if (groupNode != null && port != null
-                                  && groupNode.AddNodePort(port, out _))
-            {
-                history.Commit(CommandNames.AddPort);
-            }
-
-            return false;
-        }
-        else if (Model != null && target.Model != null
-                               && SortNodePort(Model, target.Model, out IInputPort? inputNodePort,
-                                   out IOutputPort? outputNodePort))
-        {
-            var graph = GraphNodeViewModel.NodeGraphViewModel.NodeGraph;
-            graph.Connect(inputNodePort, outputNodePort);
-            history.Commit(CommandNames.ConnectPort);
-
-            return true;
-        }
-        else
-        {
-            return false;
-        }
+        NodeConnectOutcome outcome = service.TryConnect(graph, GraphNode, Model, target.GraphNode, target.Model);
+        return outcome == NodeConnectOutcome.Connected;
     }
 
     public bool TryDisconnect(NodePortViewModel target, ConnectionViewModel? connection)
     {
-        HistoryManager history = _editorContext.GetRequiredService<HistoryManager>();
-        var graph = GraphNodeViewModel.NodeGraphViewModel.NodeGraph;
-        var conn = connection?.Connection;
-        if (conn == null && Model != null && target.Model != null
-            && SortNodePort(Model, target.Model, out IInputPort? inputNodePort,
-                out IOutputPort? outputNodePort))
-        {
-            conn = graph.AllConnections.FirstOrDefault(c =>
-                c.Input.Id == inputNodePort.Id && c.Output.Id == outputNodePort.Id);
-        }
+        if (Model == null || target.Model == null) return false;
 
-        if (conn != null)
-        {
-            graph.Disconnect(conn);
-            history.Commit(CommandNames.DisconnectPort);
-
-            return true;
-        }
-        else
-        {
-            return false;
-        }
+        GraphModel graph = GraphNodeViewModel.NodeGraphViewModel.NodeGraph;
+        return _editorContext.GetRequiredService<INodeGraphMutationService>()
+            .TryDisconnect(graph, Model, target.Model, connection?.Connection);
     }
 
     public void DisconnectAll()
     {
-        HistoryManager history = _editorContext.GetRequiredService<HistoryManager>();
-        var graph = GraphNodeViewModel.NodeGraphViewModel.NodeGraph;
+        if (Model == null) return;
 
-        var connections = Model switch
-        {
-            IOutputPort outputNodePort => outputNodePort.Connections,
-            IListPort outputNodePort => outputNodePort.Connections,
-            _ => null
-        };
-
-        if (connections != null)
-        {
-            // Disconnect内でConnectionsから要素を削除するのでToArrayする必要がある
-            foreach (Reference<Connection> connection in connections.ToArray())
-            {
-                if (connection.Value != null)
-                    graph.Disconnect(connection.Value);
-            }
-
-            history.Commit(CommandNames.DisconnectPort);
-        }
-        else if (Model is IInputPort { Connection.Value: { } connection })
-        {
-            graph.Disconnect(connection);
-            history.Commit(CommandNames.DisconnectPort);
-        }
+        GraphModel graph = GraphNodeViewModel.NodeGraphViewModel.NodeGraph;
+        _editorContext.GetRequiredService<INodeGraphMutationService>()
+            .DisconnectAll(graph, Model);
     }
 
     public void Remove()
     {
-        if (Model is not IDynamicPort generatedNodePort) return;
+        if (Model == null) return;
 
-        GraphModel? tree = GraphNode.FindHierarchicalParent<GraphModel>();
-        if (tree == null) return;
-
-        var connections = generatedNodePort switch
-        {
-            IOutputPort outputNodePort => outputNodePort.Connections,
-            IListPort listNodePort => listNodePort.Connections,
-            IInputPort { Connection: var connection } => [connection],
-            _ => []
-        };
-        foreach (var connection in connections.ToArray())
-        {
-            if (connection.Value != null)
-                tree.Disconnect(connection.Value);
-        }
-
-        GraphNode.Items.Remove(generatedNodePort);
-        _editorContext.GetRequiredService<HistoryManager>().Commit(CommandNames.RemovePort);
+        _editorContext.GetRequiredService<INodeGraphMutationService>()
+            .RemovePort(GraphNode, Model);
     }
 
     public void MoveConnectionSlot(int oldIndex, int newIndex)
     {
-        if (Model is IListPort listNodePort)
-        {
-            listNodePort.MoveConnection(oldIndex, newIndex);
-            _editorContext.GetRequiredService<HistoryManager>().Commit(CommandNames.MoveConnection);
-        }
+        if (Model == null) return;
+
+        _editorContext.GetRequiredService<INodeGraphMutationService>()
+            .MoveConnectionSlot(Model, oldIndex, newIndex);
     }
 
     public void DisconnectConnection(ConnectionViewModel connVM)
     {
-        var graph = GraphNodeViewModel.NodeGraphViewModel.NodeGraph;
-        Connection connection = connVM.Connection;
-        graph.Disconnect(connection);
-        _editorContext.GetRequiredService<HistoryManager>().Commit(CommandNames.DisconnectPort);
+        GraphModel graph = GraphNodeViewModel.NodeGraphViewModel.NodeGraph;
+        _editorContext.GetRequiredService<INodeGraphMutationService>()
+            .DisconnectConnection(graph, connVM.Connection);
     }
 
     public void UpdateName(string? e)
     {
-        Model!.Name = e!;
-        _editorContext.GetRequiredService<HistoryManager>().Commit(CommandNames.RenamePort);
+        if (Model == null || e == null) return;
+
+        _editorContext.GetRequiredService<INodeGraphMutationService>()
+            .RenamePort(Model, e);
     }
 
     protected override void OnDispose()

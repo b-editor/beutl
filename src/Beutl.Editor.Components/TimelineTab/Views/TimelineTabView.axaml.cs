@@ -16,6 +16,7 @@ using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Components.SceneSettingsTab.ViewModels;
 using Beutl.Editor.Components.TimelineTab.ViewModels;
 using Beutl.Editor.Components.Views;
+using Beutl.Editor.Models;
 using Beutl.Editor.Services;
 using Beutl.Engine;
 using Beutl.Logging;
@@ -285,15 +286,9 @@ public sealed partial class TimelineTabView : UserControl
         }
         else if (_mouseFlag == MouseFlags.EndingBarMarkerPressed)
         {
-            // ポインタ位置に基づいてシーンDurationを更新
-            TimeSpan newDuration = _pointerFrame - viewModel.Scene.Start;
-            if (newDuration < TimeSpan.Zero)
-            {
-                newDuration = TimeSpan.FromSeconds(1d / rate);
-            }
-
-            // 直接値を更新（コマンド記録なし）
-            viewModel.Scene.Duration = newDuration;
+            viewModel.EditorContext
+                .GetRequiredService<ISceneTimeRangeService>()
+                .UpdateEndDrag(viewModel.Scene, _pointerFrame);
         }
         else if (_mouseFlag == MouseFlags.MarkerPressed && _pressedMarker is { } draggingMarker)
         {
@@ -310,23 +305,9 @@ public sealed partial class TimelineTabView : UserControl
         }
         else if (_mouseFlag == MouseFlags.StartingBarMarkerPressed)
         {
-            // Calculate the new starting point for the scene based on the pointer frame
-            TimeSpan clampedStart = _pointerFrame;
-
-            // Ensure the new start time is not negative
-            if (clampedStart < TimeSpan.Zero)
-            {
-                clampedStart = TimeSpan.Zero;
-            }
-            // Ensure the new start time does not exceed the total duration
-            else if (clampedStart > _initialDuration + _initialStart)
-            {
-                clampedStart = _initialDuration + _initialStart - TimeSpan.FromSeconds(1d / rate);
-            }
-
-            // Update the scene's start and duration based on the clamped start time
-            viewModel.Scene.Start = clampedStart;
-            viewModel.Scene.Duration = _initialDuration + _initialStart - clampedStart;
+            viewModel.EditorContext
+                .GetRequiredService<ISceneTimeRangeService>()
+                .UpdateStartDrag(viewModel.Scene, _pointerFrame, _initialStart, _initialDuration);
         }
         else
         {
@@ -374,11 +355,15 @@ public sealed partial class TimelineTabView : UserControl
             }
             else if (_mouseFlag == MouseFlags.EndingBarMarkerPressed)
             {
-                history.Commit(CommandNames.ChangeSceneDuration);
+                ViewModel.EditorContext
+                    .GetRequiredService<ISceneTimeRangeService>()
+                    .CommitEndChange();
             }
             else if (_mouseFlag == MouseFlags.StartingBarMarkerPressed)
             {
-                history.Commit(CommandNames.ChangeSceneStart);
+                ViewModel.EditorContext
+                    .GetRequiredService<ISceneTimeRangeService>()
+                    .CommitStartChange();
             }
             else if (_mouseFlag == MouseFlags.MarkerPressed && _pressedMarker is { } releasedMarker)
             {
@@ -498,13 +483,13 @@ public sealed partial class TimelineTabView : UserControl
                 if (TimelineHelper.IsPointInTimelineScaleEndingMarker(pointerPt.Position.X, scalePoint.Y, endingBarX))
                 {
                     _mouseFlag = MouseFlags.EndingBarMarkerPressed;
-                    // 初期値を保存
+                    _initialStart = viewModel.Scene.Start;
                     _initialDuration = viewModel.Scene.Duration;
                 }
                 else if (TimelineHelper.IsPointInTimelineScaleStartingMarker(pointerPt.Position.X, scalePoint.Y, startingBarX))
                 {
                     _mouseFlag = MouseFlags.StartingBarMarkerPressed;
-                    _initialStart = viewModel.Scene.Start; // 初期値を保存
+                    _initialStart = viewModel.Scene.Start;
                     _initialDuration = viewModel.Scene.Duration;
                 }
                 else

@@ -4,6 +4,7 @@ using Avalonia.Input.Platform;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Components.SceneSettingsTab.ViewModels;
 using Beutl.Editor.Components.TimelineTab.ViewModels;
+using Beutl.Editor.Services;
 using Beutl.ProjectSystem;
 using Beutl.Serialization;
 using Beutl.Services;
@@ -102,23 +103,19 @@ public partial class MenuBarViewModel
             && viewModel.Scene is Scene scene
             && viewModel.GetService<IEditorSelection>()?.SelectedObject.Value is Element element)
         {
-            scene.RemoveChild(element);
-            viewModel.HistoryManager.Commit(CommandNames.RemoveElement);
+            viewModel.GetRequiredService<IElementStructureService>()
+                .Exclude(scene, [element]);
         }
     }
 
     private async Task OnCutElement()
     {
-        if (ClipboardHelper.GetClipboard() is IClipboard clipboard
-            && TryGetSelectedEditViewModel(out EditViewModel? viewModel)
+        if (TryGetSelectedEditViewModel(out EditViewModel? viewModel)
             && viewModel.Scene is Scene scene
             && viewModel.GetService<IEditorSelection>()?.SelectedObject.Value is Element element)
         {
-            DataTransfer data = CreateElementDataObject(element);
-
-            await clipboard.SetDataAsync(data);
-            scene.RemoveChild(element);
-            viewModel.HistoryManager.Commit(CommandNames.CutElement);
+            await viewModel.GetRequiredService<IElementClipboardService>()
+                .CutAsync(scene, [element]);
         }
     }
 

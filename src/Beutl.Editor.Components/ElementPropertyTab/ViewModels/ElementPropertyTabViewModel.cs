@@ -1,6 +1,7 @@
 ﻿using System.Collections.Specialized;
 using System.Text.Json.Nodes;
 
+using Beutl.Editor;
 using Beutl.Editor.Services;
 using Beutl.Engine;
 using Beutl.ProjectSystem;
@@ -139,7 +140,7 @@ public sealed class ElementPropertyTabViewModel : IToolContext
     {
         string directory = Path.GetDirectoryName(element.Uri!.LocalPath)!;
 
-        directory = Path.Combine(directory, Constants.BeutlFolder, Constants.ViewStateFolder);
+        directory = Path.Combine(directory, EditorConstants.BeutlFolder, EditorConstants.ViewStateFolder);
         if (!Directory.Exists(directory))
         {
             Directory.CreateDirectory(directory);

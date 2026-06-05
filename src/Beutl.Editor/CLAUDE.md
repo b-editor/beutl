@@ -12,6 +12,24 @@ This subtree is the **non-UI editor logic** — undo / redo, project packaging, 
 - `ProjectPackageService.cs` / `ResourceRelocationService.cs` — `.beutlpkg` import / export, asset relocation
 - `Observers/` / `Infrastructure/` — change-tracking glue between model and view
 - `VirtualProjectRoot.cs` — in-memory project root used by tests and packaging
+- `Services/I*Service.cs` — **editing pipeline** consumed by the Timeline View and ViewModel. The View calls a service instead of writing `Scene` properties and calling `history.Commit` itself. Services own the single-commit boundary per user-visible operation.
+
+## Editing services
+
+Located under `Services/`:
+
+- `ISceneTimeRangeService` — Scene Start / Duration edits. `SetStart` / `SetEnd` are one-shot mutate+commit for keyboard / menu callers; drag callers use `UpdateStartDrag` / `UpdateEndDrag` per pointer frame then call `CommitStartChange` / `CommitEndChange` once on release. No session object; cancellation is the caller re-driving Update with the initial values.
+- `IElementMoveService` — single / multi-element move + Alt+drag duplicate. `Move(...)` returns `Moved` / `None`; `DuplicateOrMove(...)` returns `Duplicated`, `FellBackToMove`, or `DuplicateOverlapsSource` and falls back to a plain move when the duplicate cannot be staged.
+- `IElementResizeService` — `Resize(scene, IReadOnlyList<ElementResizeRequest>)` writes the final sizes (per element: start, length, zIndex) in one transaction. The View handles per-frame preview via VM reactive properties; the service is invoked once on drag release.
+- `IElementClipboardService` — Copy / Cut / Paste. Dispatches on `IClipboardGateway` formats (`Elements`, `Element`, `Files`, `Bitmap`) so `Beutl.Editor` stays Avalonia-free.
+- `IElementDuplicateService` — selection duplicate + Alt+drag position duplicate. Wraps the existing `DuplicateHelper`; `DuplicateAtClickedPosition` runs a bounded spiral search (`<= 100_000` steps) so a packed timeline cannot hang the caller.
+- `IElementStructureService` — Exclude / Delete / Split / Group / Ungroup. Structural ops that mutate `Scene.Children` / `Scene.Groups` and may touch disk (regenerate-and-stage paths).
+- `IElementAttributeService` — SetEnabled / SetAccentColor. Single-element property writes; no file I/O. Split from structure service so a plugin replacing one does not inherit the other.
+- `IElementNudgeService` — debounced keyboard nudge. `System.Threading.Timer` (not `DispatcherTimer`) keeps it Avalonia-free; `Flush` is wired to `HistoryManager.BeforeMutation` inside `EditViewModel` so Undo / Redo never absorbs a pending nudge.
+- `ILayerMoveService` — `ApplyMove(scene, oldLayer, newLayer, directElements)` owns the `Element.ZIndex` writes for the direct and shifted sets and commits one `MoveLayer` entry. Returns a `LayerMovePlan` listing the affected elements; the caller (LayerHeader View) drives matching animations afterward.
+- `IClipboardGateway` + `ClipboardEntry` + `BeutlClipboardFormats` — Avalonia-free clipboard abstraction. The concrete `AvaloniaClipboardGateway` lives in `Beutl.Editor.Components/Services/`.
+
+Add new edit-pipeline services here, not in `Beutl.Editor.Components`. The View / ViewModel must reach them through `IEditorContext.GetRequiredService<...>`.
 
 ## Mandatory rules
 

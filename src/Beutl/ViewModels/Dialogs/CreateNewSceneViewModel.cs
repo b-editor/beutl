@@ -1,4 +1,5 @@
 ﻿using Avalonia;
+using Beutl.Editor;
 using Beutl.Models;
 using Beutl.ProjectSystem;
 using Beutl.Serialization;
@@ -65,7 +66,7 @@ public sealed class CreateNewSceneViewModel
             var scene = new Scene(Size.Value.Width, Size.Value.Height, Name.Value);
             CoreSerializer.StoreToUri(scene,
                 UriHelper.CreateFromPath(Path.Combine(Location.Value, Name.Value,
-                    $"{Name.Value}.{Constants.SceneFileExtension}")));
+                    $"{Name.Value}.{EditorConstants.SceneFileExtension}")));
 
             if (_proj != null)
             {

@@ -1,4 +1,6 @@
-﻿namespace Beutl.Editor.Services;
+﻿using Beutl.Editor.Models;
+
+namespace Beutl.Editor.Services;
 
 public interface IElementAdder
 {

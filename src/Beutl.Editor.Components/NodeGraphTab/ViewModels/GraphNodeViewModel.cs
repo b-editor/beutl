@@ -66,23 +66,8 @@ public sealed class GraphNodeViewModel : IDisposable, IJsonSerializable, IProper
             GraphModel? tree = GraphNode.FindHierarchicalParent<GraphModel>();
             if (tree != null)
             {
-                Connection[] allConnections = GraphNode.Items
-                    .SelectMany(i => i switch
-                    {
-                        IOutputPort outputNodePort => outputNodePort.Connections,
-                        IListPort listNodePort => listNodePort.Connections,
-                        IInputPort { Connection: var connection } => [connection],
-                        _ => []
-                    })
-                    .Select(conn => tree.AllConnections.FirstOrDefault(a => a.Id == conn.Id))
-                    .Where(a => a != null)
-                    .ToArray()!;
-                foreach (Connection connection in allConnections)
-                {
-                    tree.Disconnect(connection);
-                }
-                tree.Nodes.Remove(GraphNode);
-                EditorContext.GetRequiredService<HistoryManager>().Commit(CommandNames.RemoveNode);
+                EditorContext.GetRequiredService<INodeGraphMutationService>()
+                    .RemoveNode(tree, GraphNode);
             }
         });
 
@@ -213,20 +198,20 @@ public sealed class GraphNodeViewModel : IDisposable, IJsonSerializable, IProper
 
     public void UpdatePosition(IEnumerable<GraphNodeViewModel> selection)
     {
-        foreach (var item in selection)
+        var moves = new List<(GraphNode Node, double X, double Y)>();
+        foreach (GraphNodeViewModel item in selection)
         {
-            item.GraphNode.Position = (item.Position.Value.X, item.Position.Value.Y);
+            moves.Add((item.GraphNode, item.Position.Value.X, item.Position.Value.Y));
         }
+        moves.Add((GraphNode, Position.Value.X, Position.Value.Y));
 
-        GraphNode.Position = (Position.Value.X, Position.Value.Y);
-
-        EditorContext.GetRequiredService<HistoryManager>().Commit(CommandNames.MoveNode);
+        EditorContext.GetRequiredService<INodeGraphMutationService>().MoveNodes(moves);
     }
 
     public void UpdateName(string? name)
     {
-        GraphNode.Name = name!;
-        EditorContext.GetRequiredService<HistoryManager>().Commit(CommandNames.RenameNode);
+        if (name == null) return;
+        EditorContext.GetRequiredService<INodeGraphMutationService>().RenameNode(GraphNode, name);
     }
 
     public void WriteToJson(JsonObject json)

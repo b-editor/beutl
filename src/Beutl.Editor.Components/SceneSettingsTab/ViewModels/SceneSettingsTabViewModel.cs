@@ -71,17 +71,11 @@ public sealed class SceneSettingsTabViewModel : IToolContext
                 if (TimeSpan.TryParse(StartInput.Value, out TimeSpan start)
                     && TimeSpan.TryParse(DurationInput.Value, out TimeSpan duration))
                 {
-                    if (Width.Value != _scene.FrameSize.Width
-                        || Height.Value != _scene.FrameSize.Height
-                        || start != _scene.Start
-                        || duration != _scene.Duration)
-                    {
-                        HistoryManager history = _editorContext.GetService<HistoryManager>()!;
-                        _scene.FrameSize = new Media.PixelSize(Width.Value, Height.Value);
-                        _scene.Start = start;
-                        _scene.Duration = duration;
-                        history.Commit(CommandNames.ChangeSceneSettings);
-                    }
+                    _editorContext.GetRequiredService<ISceneSettingsService>().Apply(
+                        _scene,
+                        new Media.PixelSize(Width.Value, Height.Value),
+                        start,
+                        duration);
 
                     _optionsProvider.Options.Value = _optionsProvider.Options.Value with
                     {

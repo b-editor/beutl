@@ -7,6 +7,7 @@ using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Platform.Storage;
 using Beutl.Api.Services;
 using Beutl.Editor;
+using Beutl.Editor.Services;
 using Beutl.Models;
 using Beutl.ProjectSystem;
 using Beutl.Serialization;
@@ -128,8 +129,8 @@ public partial class MainView
 
             if (await dialog.ShowAsync() == ContentDialogResult.Primary)
             {
-                scene.DeleteChild(element);
-                viewModel.HistoryManager.Commit(CommandNames.DeleteElement);
+                viewModel.GetRequiredService<IElementStructureService>()
+                    .Delete(scene, [element]);
             }
         }
     }
@@ -199,7 +200,7 @@ public partial class MainView
                 [
                     new FilePickerFileType(Strings.ProjectFile)
                     {
-                        Patterns = [$"*.{Constants.ProjectFileExtension}"]
+                        Patterns = [$"*.{EditorConstants.ProjectFileExtension}"]
                     }
                 ]
             };
@@ -230,12 +231,12 @@ public partial class MainView
         var options = new FilePickerSaveOptions
         {
             SuggestedFileName = defaultFileName,
-            DefaultExtension = Constants.ProjectPackageExtension,
+            DefaultExtension = EditorConstants.ProjectPackageExtension,
             FileTypeChoices =
             [
                 new FilePickerFileType(Strings.ProjectPackage)
                 {
-                    Patterns = [$"*.{Constants.ProjectPackageExtension}"]
+                    Patterns = [$"*.{EditorConstants.ProjectPackageExtension}"]
                 }
             ]
         };
@@ -301,7 +302,7 @@ public partial class MainView
             [
                 new FilePickerFileType(Strings.ProjectPackage)
                 {
-                    Patterns = [$"*.{Constants.ProjectPackageExtension}"]
+                    Patterns = [$"*.{EditorConstants.ProjectPackageExtension}"]
                 }
             ]
         };

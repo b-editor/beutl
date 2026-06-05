@@ -22,12 +22,8 @@ public sealed class EngineObjectPropertyViewModel : IDisposable, IPropertyEditor
             .ToReactiveProperty();
         IsEnabled.Skip(1).Subscribe(v =>
         {
-            HistoryManager? history = this.GetService<HistoryManager>();
-            if (history != null)
-            {
-                Model.IsEnabled = v;
-                history.Commit(CommandNames.ChangeObjectEnabled);
-            }
+            IElementObjectService? service = this.GetService<IElementObjectService>();
+            service?.SetEnabled(Model, v);
         });
 
         Init();
@@ -154,23 +150,13 @@ public sealed class EngineObjectPropertyViewModel : IDisposable, IPropertyEditor
         if (index < 0) return;
 
         string message = MessageStrings.InvalidJson;
-        _ = str ?? throw new Exception(message);
-        JsonObject json = (JsonNode.Parse(str) as JsonObject) ?? throw new Exception(message);
+        if (str is null) throw new Exception(message);
 
-        Type? type = json.GetDiscriminator();
-        EngineObject? obj = null;
-        if (type?.IsAssignableTo(typeof(EngineObject)) ?? false)
+        ObjectPasteOutcome outcome = this.GetRequiredService<IElementObjectService>()
+            .PasteOver(element, index, str);
+        if (outcome != ObjectPasteOutcome.Pasted)
         {
-            obj = Activator.CreateInstance(type) as EngineObject;
+            throw new Exception(message);
         }
-
-        if (obj == null) throw new Exception(message);
-
-        CoreSerializer.PopulateFromJsonObject(obj, type!, json);
-
-        HistoryManager history = this.GetRequiredService<HistoryManager>();
-
-        element.Objects[index] = obj;
-        history.Commit(CommandNames.PasteObject);
     }
 }

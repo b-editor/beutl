@@ -1,6 +1,6 @@
 ﻿using Beutl.Graphics;
 
-namespace Beutl.Editor.Services;
+namespace Beutl.Editor.Models;
 
 public record struct ElementDescription(
     TimeSpan Start,

@@ -1,7 +1,9 @@
 ﻿using Beutl.Audio;
 using Beutl.Composition;
+using Beutl.Editor;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Components.TimelineTab.ViewModels;
+using Beutl.Editor.Models;
 using Beutl.Engine;
 using Beutl.Graphics;
 using Beutl.Graphics.Rendering;
@@ -39,7 +41,7 @@ internal sealed class ElementAdderImpl(EditViewModel context) : IElementAdder
                 Start = desc.Start,
                 Length = desc.Length,
                 ZIndex = desc.Layer,
-                Uri = RandomFileNameGenerator.GenerateUri(scene.Uri!, Constants.ElementFileExtension)
+                Uri = RandomFileNameGenerator.GenerateUri(scene.Uri!, EditorConstants.ElementFileExtension)
             };
         }
 
@@ -244,7 +246,7 @@ internal sealed class ElementAdderImpl(EditViewModel context) : IElementAdder
             return;
         }
 
-        newElement.Uri = RandomFileNameGenerator.GenerateUri(scene.Uri!, Constants.ElementFileExtension);
+        newElement.Uri = RandomFileNameGenerator.GenerateUri(scene.Uri!, EditorConstants.ElementFileExtension);
 
         CoreSerializer.StoreToUri(newElement, newElement.Uri!);
         scene.AddChild(newElement);

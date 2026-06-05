@@ -3,6 +3,7 @@ using System.Text.Json.Nodes;
 using Avalonia.Media;
 using Beutl.Controls;
 using Beutl.Editor.Components.Helpers;
+using Beutl.Editor.Services;
 using Beutl.ProjectSystem;
 using Microsoft.Extensions.DependencyInjection;
 using Reactive.Bindings;
@@ -43,18 +44,13 @@ public sealed class LayerHeaderViewModel : IDisposable
         SwitchEnabledCommand = new ReactiveCommand()
             .WithSubscribe(() =>
             {
-                HistoryManager history = Timeline.EditorContext.GetRequiredService<HistoryManager>();
                 try
                 {
                     _skipSubscription = true;
-                    IsEnabled.Value = !IsEnabled.Value;
-                    foreach (Element element in Timeline.Scene.Children.Where(i =>
-                                 i.ZIndex == Number.Value && i.IsEnabled != IsEnabled.Value))
-                    {
-                        element.IsEnabled = IsEnabled.Value;
-                    }
-
-                    history.Commit(CommandNames.ChangeLayerEnabled);
+                    bool target = !IsEnabled.Value;
+                    IsEnabled.Value = target;
+                    Timeline.EditorContext.GetRequiredService<ILayerAttributeService>()
+                        .SetEnabled(Timeline.Scene, Number.Value, target);
                 }
                 finally
                 {
@@ -148,8 +144,17 @@ public sealed class LayerHeaderViewModel : IDisposable
 
     public void UpdateZIndex(int layerNum)
     {
-        Number.Value = layerNum;
-        _model.Value?.ZIndex = layerNum;
+        // When a TimelineLayer backs this header, LayerMoveService writes its
+        // recorded ZIndex inside the committed MoveLayer transaction and the
+        // reactive Number binding already reflects layerNum. Writing the model
+        // again here would (a) re-touch a recorded property outside that
+        // transaction — leaking it into the next history entry — and (b)
+        // double-apply the shift for shifted headers. Only a model-less header
+        // needs its Number pushed manually.
+        if (_model.Value is null)
+        {
+            Number.Value = layerNum;
+        }
 
         PosY.Value = 0;
     }
@@ -213,10 +218,13 @@ public sealed class LayerHeaderViewModel : IDisposable
 
     public void SetColor(Color color)
     {
-        HistoryManager history = Timeline.EditorContext.GetRequiredService<HistoryManager>();
-        var model = GetOrCreateModel();
-        model.Color = color.ToBtlColor();
-        history.Commit(CommandNames.ChangeLayerColor);
+        Timeline.EditorContext.GetRequiredService<ILayerAttributeService>()
+            .SetColor(Timeline.Scene, Number.Value, color.ToBtlColor(), Name.Value);
+
+        // Sync the local TimelineLayer reference back from the scene so future
+        // bindings (Name, Color observables) track the same model the service
+        // either created or updated.
+        _model.Value = Timeline.Scene.Layers.FirstOrDefault(l => l.ZIndex == Number.Value);
     }
 
     private TimelineLayer GetOrCreateModel()
