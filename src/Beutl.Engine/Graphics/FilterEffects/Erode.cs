@@ -18,6 +18,10 @@ public sealed partial class Erode : FilterEffect
     [Display(Name = nameof(GraphicsStrings.Erode_RadiusY), ResourceType = typeof(GraphicsStrings))]
     public IProperty<float> RadiusY { get; } = Property.CreateAnimatable<float>();
 
+    // feature 003 (FR-013): resolution-sensitive effect — keep a high source's density through it.
+    public override Beutl.Graphics.Rendering.ResolutionPolicy ResolutionPolicy
+        => Beutl.Graphics.Rendering.ResolutionPolicy.PreserveSource;
+
     public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
     {
         var r = (Resource)resource;

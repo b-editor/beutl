@@ -10,6 +10,10 @@ namespace Beutl.Graphics.Effects;
 [Display(Name = nameof(GraphicsStrings.PartsSplitEffect), ResourceType = typeof(GraphicsStrings))]
 public partial class PartsSplitEffect : FilterEffect
 {
+    // feature 003 (FR-013): resolution-sensitive effect — keep a high source's density through it.
+    public override Beutl.Graphics.Rendering.ResolutionPolicy ResolutionPolicy
+        => Beutl.Graphics.Rendering.ResolutionPolicy.PreserveSource;
+
     public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
     {
         context.CustomEffect(Unit.Default, ApplyCore);
