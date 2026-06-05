@@ -14,7 +14,7 @@ argument-hint: "[item-number | title-keyword | bug|diff|design]"
 
 The `scheduled-code-review.yml` and `claude-code-review.yml` workflows file findings into the
 GitHub Project **#9 "AI Review"** (`b-editor/projects/9`). This skill turns one of those
-findings into a merged-ready PR, end to end. It deliberately targets **non-feature** work
+findings into a merge-ready PR, end to end. It deliberately targets **non-feature** work
 (bugs, perf/quality, design improvements) — those are concrete, verifiable, and low-risk.
 
 ## Board coordinates (project #9)
@@ -49,9 +49,11 @@ for i,it in enumerate(d['items']):
 
 **Non-feature filter.** Prefer titles prefixed with `[Bug]`, `[YYYY-MM-DD][diff]`, or
 `設計改善:`. Skip plain feature titles (e.g. "リップル削除", "マルチカム編集", "ショートカット: ...").
-Skip items already `Done` / `False positive`. Among open ones (`Backlog` / `Todo` / `In Progress`),
-bias toward **engine/core, low-risk, high-confidence, testable** items over UI-layer items that
-are hard to unit-test.
+Only **unclaimed** items are candidates: `Backlog` and `Todo`. Skip `Done` / `False positive`,
+and skip `In Progress` too — on this board `In Progress` means another agent/contributor has
+already claimed it, so treating it as a candidate invites duplicate work. Among the unclaimed
+ones, bias toward **engine/core, low-risk, high-confidence, testable** items over UI-layer items
+that are hard to unit-test.
 
 If `$ARGUMENTS` is an index/number or a title keyword, jump straight to that item. Otherwise,
 present the top non-feature candidates to the user with AskUserQuestion before committing to one
@@ -60,6 +62,8 @@ present the top non-feature candidates to the user with AskUserQuestion before c
 Read the chosen item's full body — it carries the exact file:line and a suggested fix:
 
 ```bash
+# Set INDEX to the row number printed by the list command above (the leading integer).
+INDEX=12
 gh project item-list 9 --owner b-editor --limit 100 --format json \
   | python3 -c "
 import json,sys
@@ -91,6 +95,19 @@ gh project item-edit --project-id PVT_kwDOBLw8Fs4BW4g5 \
 Get `<ITEM_ID>` from the `id` field of the chosen item in the JSON above. Then return to Step 1
 for another candidate. **Do not** silently keep the smaller diff or fabricate a fix for a wrong
 finding.
+
+### Claim the item immediately
+
+Once the finding is confirmed valid (and after the user has confirmed the pick), move the item to
+`In Progress` **right away** — before planning/implementing, not after the PR opens. The board is
+shared, so claiming late leaves a long window where another agent can start the same task.
+
+```bash
+gh project item-edit --project-id PVT_kwDOBLw8Fs4BW4g5 \
+  --id <ITEM_ID> \
+  --field-id PVTSSF_lADOBLw8Fs4BW4g5zhSJTXk \
+  --single-select-option-id 47fc9ee4   # In Progress
+```
 
 ## Step 3 — Plan
 
@@ -150,10 +167,30 @@ output file with an `until grep -qE "成功!|失敗!|error " "$f"; do sleep 3; d
 
 ## Step 6 — Commit, push, PR
 
-Use Conventional Commits matching the change kind (`perf:` / `fix:` / `refactor:` / `refactor!:`).
-Reference the board item in the body. Example:
+**Create / switch to the feature branch BEFORE committing.** `git push -u origin <branch>` treats
+the argument after the remote as a refspec — it only pushes an *already existing* local ref, it
+does not move the just-made commit onto a new branch. So if you commit while still on `main` (or
+any unrelated branch) and only name the branch at push time, the work lands on the wrong branch
+and `gh pr create --head <branch>` fails because that head has no commit. Branch first, then commit.
+
+Pick the branch name from the branch you are currently on:
+
+- **Already on a personal feature branch shaped `<prefix>/<feature>`** (e.g. a worktree branch like
+  `yuto-trd/tmp-1`): **keep the `<prefix>/` and replace only the `<feature>` part** with a
+  descriptive slug — e.g. `yuto-trd/tmp-1` → `yuto-trd/speednode-arraypool`. Do not invent a new
+  top-level prefix.
+- **On `main`/`master` or a detached/unrelated branch**: create a fresh `<prefix>/<slug>` using the
+  same personal prefix convention.
 
 ```bash
+# Derive the prefix from the current branch and swap the feature part.
+CURRENT=$(git branch --show-current)
+PREFIX=${CURRENT%%/*}                       # e.g. "yuto-trd"; falls back to CURRENT if no "/"
+case "$CURRENT" in main|master|"") PREFIX="<your-prefix>";; esac
+FEATURE=<descriptive-slug>                  # e.g. speednode-arraypool
+BRANCH="$PREFIX/$FEATURE"
+
+git switch -c "$BRANCH" origin/main         # branch off the latest main, BEFORE committing
 git add <changed files>
 git commit -F - <<'EOF'
 perf(engine): <imperative summary>
@@ -162,8 +199,8 @@ perf(engine): <imperative summary>
 
 Refs: Project #9 "AI Review" item "<exact finding title>"
 EOF
-git push -u origin <feature-branch>     # never push to main/master
-gh pr create --base main --head <feature-branch> \
+git push -u origin "$BRANCH"                # never push to main/master
+gh pr create --base main --head "$BRANCH" \
   --title "<conventional-commit title>" \
   --body "<filled-in .github/PULL_REQUEST_TEMPLATE.md>"
 ```
@@ -175,14 +212,18 @@ Fill the PR template's **Affected areas**, **Breaking changes** (`None` for beha
 
 ## Step 7 — Update the board
 
-Move the item `Backlog` → `In Progress` once the PR is open (and to `Done` after merge):
+The item was already moved to `In Progress` when you claimed it (see "Claim the item immediately"
+in Step 2), so nothing changes here while the PR is open. **After the PR merges**, move it to `Done`:
 
 ```bash
 gh project item-edit --project-id PVT_kwDOBLw8Fs4BW4g5 \
   --id <ITEM_ID> \
   --field-id PVTSSF_lADOBLw8Fs4BW4g5zhSJTXk \
-  --single-select-option-id 47fc9ee4   # In Progress  (98236657 = Done)
+  --single-select-option-id 98236657   # Done
 ```
+
+(If for some reason the item was not claimed earlier — e.g. it was already `In Progress` because you
+resumed work — just ensure it is `In Progress` now, option id `47fc9ee4`.)
 
 ## Guardrails
 
