@@ -123,13 +123,13 @@ Single-repo .NET solution. Engine: `src/Beutl.Engine/`; project system: `src/Beu
 ### Tests for User Story 3
 
 - [ ] T047 [P] [US3] SC-007 seam test (fixed logical size, two-resolution bitmaps → same bounds/hit region, differing `EffectiveScale`; composites into `logicalSize×s`) in `tests/Beutl.UnitTests/Engine/Graphics/Rendering/MediaScaleSeamTests.cs`
-- [ ] T048 [P] [US3] `MediaOptions` additive test (no decode-scale hint → behaviorally identical to today) in `tests/Beutl.UnitTests/Engine/Media/MediaOptionsExtensibilityTests.cs`
+- [X] T048 [P] [US3] `MediaOptions` additive test (no decode-scale hint → behaviorally identical to today) in `tests/Beutl.UnitTests/Engine/Media/MediaOptionsExtensibilityTests.cs`
 
 ### Implementation for User Story 3
 
 - [ ] T049 [US3] Map source logical size → decoded pixel size via a dest rect (not 1:1); `ImageSourceRenderNode`/`VideoSourceRenderNode` emit `EffectiveScale = decodedPixels / logicalSize` (FR-023/FR-024) in `src/Beutl.Engine/Graphics/Rendering/ImageSourceRenderNode.cs`, `src/Beutl.Engine/Graphics/Rendering/VideoSourceRenderNode.cs`, `src/Beutl.Engine/Graphics/SourceImage.cs`, `src/Beutl.Engine/Graphics/SourceVideo.cs`
 - [ ] T050 [US3] `DrawBitmap`/`DrawImageSource`/`DrawVideoSource`: draw into a logical dest rect `logicalSize×w` (not native-px 1:1) in `src/Beutl.Engine/Graphics/ImmediateCanvas.cs`
-- [ ] T051 [US3] Confirm `MediaOptions` stays additively extensible for a future decode-scale hint; document the seam (no IPC/worker change in 003) in `src/Beutl.Engine/Media/Decoding/MediaOptions.cs`
+- [X] T051 [US3] Confirm `MediaOptions` stays additively extensible for a future decode-scale hint; document the seam (no IPC/worker change in 003) in `src/Beutl.Engine/Media/Decoding/MediaOptions.cs`
 
 **Checkpoint**: T047–T048 green; proxy/optimized-media can later slot in by lowering the decoded size without touching layout.
 
