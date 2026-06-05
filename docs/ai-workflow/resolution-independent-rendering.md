@@ -30,10 +30,16 @@ the CTM handles it, and adding a manual `× w` would double-scale and regress th
 ## When scale matters
 
 - **Reading the working scale.** A `CustomEffect` / SKSL / GLSL author who hand-allocates an
-  intermediate or hard-codes a pixel literal can read `CustomFilterEffectContext.WorkingScale`
-  (or `FilterEffectContext.WorkingScale`); both default to `1.0`. Multiply absolute pixel literals
-  by it and you stay resolution-correct. `CreateTarget(bounds)` is intended to allocate at the
-  working scale.
+  intermediate or hard-codes a pixel literal reads `CustomFilterEffectContext.WorkingScale`
+  (or `FilterEffectContext.WorkingScale`); both default to `1.0`. `CreateTarget(bounds)` **already**
+  allocates a `ceil(bounds × w)` device buffer and tags it `EffectiveScale.At(w)`; the runtime shader
+  therefore evaluates in DEVICE pixels, so you must multiply any **absolute-length** pixel literal
+  (tile size, displacement amount, split offset, a hard-coded `iResolution`-style constant) by `w` to
+  stay logically constant. Content-relative logic (a luminance pixel-sort, a normalized-uv shader)
+  needs nothing. The built-ins already do this — Mosaic (`tileSize × w`), DisplacementMap
+  (translate/pivot `× w`), PartsSplit (contour bounds `/ w`), SKSL/GLSL (`iResolution × w`, `iScale = w`)
+  — and are verified by `CustomEffectSupersampleTests` (2×-delivered vs 1:1 SSIM 1.0000; closer to
+  ground truth than 1:1).
 - **Resolution policy.** An effect declares how its working scale is chosen by overriding
   `FilterEffect.ResolutionPolicy` (default `Inherit` = run at the input supply density; `s_out` is
   **not** a ceiling). Resolution-sensitive effects (PixelSort, Dilate/Erode, Mosaic, contour
@@ -41,8 +47,19 @@ the CTM handles it, and adding a manual `× w` would double-scale and regress th
   so a high-resolution source keeps its detail through them. `ClampToOutput` is user/opt-in only.
 - **Bitmap sources.** A decoded image/video op reports its decoded density as `EffectiveScale.At(...)`,
   distinct from its logical footprint. Mixed-scale compositing resamples off-target bitmaps via
-  `ImmediateCanvas.DrawRenderTargetScaled` (Mitchell). (The proxy / reduced-decode workflow that
-  exploits this is a future feature; 003 ships the seam only — see `MediaOptions`.)
+  `ImmediateCanvas.DrawRenderTargetScaled` / `DrawSurfaceScaled` (Mitchell). (The proxy / reduced-decode
+  workflow that exploits this is a future feature; 003 ships the seam only — see `MediaOptions`.)
+- **3D scenes.** `Scene3DRenderNode` renders at `ceil(size × s_out)` and reports `EffectiveScale.At(s_out)`,
+  so 3D content is crisp under supersampled export instead of being upscaled by the root CTM.
+
+## Known limitation
+
+`DrawableBrush` / `TileBrush` FILL content (`BrushConstructor`) is still rasterized at LOGICAL density,
+so a tile-/drawable-brush fill is soft-upscaled by the root CTM at `s_out > 1` — the filled shape's
+**edges stay crisp** (vector), only the fill texture is soft. Solid/gradient/image-shader brushes are
+resolution-independent and unaffected. Full TileBrush density requires threading `s_out` through the
+`TileBrushCalculator` + intermediate + shader local-matrix for every `TileMode`/`Transform`, each with
+its own golden, and is a scoped follow-up.
 
 ## The one hard invariant
 
