@@ -6,6 +6,7 @@ using Beutl.Logging;
 using Beutl.Media;
 using Beutl.ProjectSystem;
 using Microsoft.Extensions.Logging;
+using SkiaSharp;
 
 namespace Beutl.Models;
 
@@ -48,7 +49,42 @@ public sealed class FrameProviderImpl : IFrameProvider, IDisposable
     {
         var frame = _renderer.Compositor.EvaluateGraphics(time + _scene.Start);
         _renderer.Render(frame);
-        return _renderer.Snapshot();
+        Bitmap snapshot = _renderer.Snapshot();
+
+        // Export supersampling (feature 003, FR-026/FR-034): the renderer drew at ceil(FrameSize ×
+        // RenderScale). Downscale to EXACTLY FrameSize before encode so the delivered frame is always
+        // output resolution. RenderScale == 1 leaves the snapshot untouched (byte-identical export).
+        PixelSize target = _renderer.FrameSize;
+        if (snapshot.Width == target.Width && snapshot.Height == target.Height)
+        {
+            return snapshot;
+        }
+
+        using (snapshot)
+        {
+            return DownscaleTo(snapshot, target, _renderer.RenderScale);
+        }
+    }
+
+    private static Bitmap DownscaleTo(Bitmap src, PixelSize target, float scale)
+    {
+        var info = new SKImageInfo(target.Width, target.Height,
+            src.SKBitmap.ColorType, src.SKBitmap.AlphaType, src.SKBitmap.ColorSpace);
+        var dst = new SKBitmap(info);
+        // Mitchell for moderate supersampling; trilinear + mipmaps for large factors (≥ ~4×) to
+        // avoid undersampling artifacts.
+        SKSamplingOptions sampling = scale > 2f
+            ? new SKSamplingOptions(SKFilterMode.Linear, SKMipmapMode.Linear)
+            : new SKSamplingOptions(SKCubicResampler.Mitchell);
+
+        using (var canvas = new SKCanvas(dst))
+        using (SKImage img = SKImage.FromBitmap(src.SKBitmap))
+        {
+            canvas.Clear(SKColors.Transparent);
+            canvas.DrawImage(img, new SKRect(0, 0, target.Width, target.Height), sampling);
+        }
+
+        return new Bitmap(dst);
     }
 
     private async ValueTask<Bitmap> RenderFrameCore(long frame, CancellationToken cancellationToken)

@@ -118,6 +118,15 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
 
     public ReactivePropertySlim<ControllableEncodingExtension?> SelectedEncoder { get; } = new();
 
+    /// <summary>
+    /// Export supersampling factor (feature 003, US4 / SC-009). Off (1) / 2× / 4×. The scene renders
+    /// at <c>ceil(FrameSize × factor)</c> and <see cref="FrameProviderImpl"/> downscales to FrameSize
+    /// before encode, so the delivered resolution is always FrameSize with reduced aliasing.
+    /// </summary>
+    public int[] SupersampleFactors { get; } = [1, 2, 4];
+
+    public ReactivePropertySlim<int> SupersampleFactor { get; } = new(1);
+
     public ReadOnlyObservableCollection<ControllableEncodingExtension> Encoders => _encoders;
 
     public ReadOnlyReactivePropertySlim<bool> CanEncode { get; }
@@ -261,7 +270,10 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
 
                 ClearEditViewModelCaches();
 
-                using var renderer = new SceneRenderer(Model, disableResourceShare: true);
+                // Export supersampling (feature 003): render at factor×, FrameProviderImpl downscales
+                // to FrameSize. SourceSize stays FrameSize (above), so the encoded size is unchanged.
+                float renderScale = Math.Max(1, SupersampleFactor.Value);
+                using var renderer = new SceneRenderer(Model, renderScale, disableResourceShare: true);
                 renderer.CacheOptions = RenderCacheOptions.Disabled;
                 var frameProgress = new Subject<TimeSpan>();
                 using var frameProvider = new FrameProviderImpl(Model, videoSettings.FrameRate, renderer, frameProgress);
