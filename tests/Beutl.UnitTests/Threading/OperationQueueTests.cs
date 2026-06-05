@@ -80,6 +80,38 @@ public class OperationQueueTests
         Assert.That(dequeued2, Is.SameAs(second));
     }
 
+    [Test]
+    public void TryDequeue_OrdersByPriorityThenFifoWhenInterleaved()
+    {
+        var queue = new OperationQueue();
+
+        var medium1 = NewOperation("medium1", DispatchPriority.Medium);
+        var high1 = NewOperation("high1", DispatchPriority.High);
+        var low1 = NewOperation("low1", DispatchPriority.Low);
+        var medium2 = NewOperation("medium2", DispatchPriority.Medium);
+        var high2 = NewOperation("high2", DispatchPriority.High);
+
+        queue.Enqueue(medium1);
+        queue.Enqueue(high1);
+        queue.Enqueue(low1);
+        queue.Enqueue(medium2);
+        queue.Enqueue(high2);
+
+        // High (FIFO) -> Medium (FIFO) -> Low
+        Assert.That(Drain(queue), Is.EqualTo(new[] { high1, high2, medium1, medium2, low1 }));
+    }
+
+    private static DispatcherOperation[] Drain(OperationQueue queue)
+    {
+        var result = new List<DispatcherOperation>();
+        while (queue.TryDequeue(out var operation))
+        {
+            result.Add(operation);
+        }
+
+        return [.. result];
+    }
+
     private static DispatcherOperation NewOperation(string label, DispatchPriority priority)
     {
         return new DispatcherOperation(() => { _ = label; }, priority, CancellationToken.None);

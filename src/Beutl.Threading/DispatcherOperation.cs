@@ -32,8 +32,15 @@ internal sealed class DispatcherOperation
 
         if (ExecutionContext is { } ctx)
         {
-            ExecutionContext.Run(ctx, _ => Action(), null);
-            ctx.Dispose();
+            try
+            {
+                ExecutionContext.Run(ctx, _ => Action(), null);
+            }
+            finally
+            {
+                // Action() が例外を投げても ExecutionContext を確実に解放する。
+                ctx.Dispose();
+            }
         }
         else
         {

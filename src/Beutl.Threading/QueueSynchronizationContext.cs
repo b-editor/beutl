@@ -73,28 +73,36 @@ internal sealed class QueueSynchronizationContext(Dispatcher dispatcher, TimePro
         if (!_running)
             return;
 
+        CancellationTokenSource cts;
         lock (this)
         {
             // このロックに入る前にPostされた可能性があるため、再度確認する
             if (_operationQueue.Any(DispatchPriority.Low))
             {
-                _waitToken?.Cancel();
-                _waitToken = null;
                 return;
             }
 
-            _waitToken = new CancellationTokenSource();
+            cts = new CancellationTokenSource();
+            _waitToken = cts;
 
             if (_timerQueue.Next is { } next)
-                _waitToken.CancelAfter(next - timeProvider.GetUtcNow());
+            {
+                // 期限が既に過ぎている場合 next - now は負になり、CancelAfter は
+                // ArgumentOutOfRangeException を投げる。Zero にクランプして即時起床させる。
+                TimeSpan delay = next - timeProvider.GetUtcNow();
+                cts.CancelAfter(delay < TimeSpan.Zero ? TimeSpan.Zero : delay);
+            }
         }
 
-        _waitToken.Token.WaitHandle.WaitOne();
+        cts.Token.WaitHandle.WaitOne();
 
         lock (this)
         {
             _waitToken = null;
         }
+
+        // _waitToken を null にした後に破棄する。他スレッドは null を見て Cancel しないため競合しない。
+        cts.Dispose();
     }
 
     public override void Send(SendOrPostCallback d, object? state)
