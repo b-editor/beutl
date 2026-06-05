@@ -23,7 +23,7 @@ Single-repo .NET solution. Engine: `src/Beutl.Engine/`; project system: `src/Beu
 
 - [X] T001 [P] Create `EffectiveScale` value type (`readonly record struct`; `Unbounded`/`At(float)`/`Value`/`IsUnbounded`; `default == Unbounded` via an inverted `_bounded` flag) in `src/Beutl.Engine/Graphics/Rendering/EffectiveScale.cs`
 - [X] T002 [P] Create `ResolutionPolicy` value type + `ResolutionPolicyKind` enum (`Inherit`/`ClampToOutput`/`Oversample`/`PreserveSource`; statics + `Oversample(factor)`) in `src/Beutl.Engine/Graphics/Rendering/ResolutionPolicy.cs`
-- [ ] T003 [P] Create Vulkan-gated golden harness `GoldenImageHarness` (`RenderAtScale`, `MitchellResampleTo`, `AssertByteIdentical`, `AssertReducedScaleExact`, `AssertSupersampleReducesAliasing`; bodies wrapped in `VulkanTestEnvironment.EnsureAvailable()` + `InvokeOnRenderThread`) in `tests/Beutl.UnitTests/Engine/Graphics/Rendering/Golden/GoldenImageHarness.cs`
+- [X] T003 [P] Create Vulkan-gated golden harness `GoldenImageHarness` (`RenderAtScale`, `MitchellResampleTo`, `AssertByteIdentical`, `AssertReducedScaleExact`, `AssertSupersampleReducesAliasing`; bodies wrapped in `VulkanTestEnvironment.EnsureAvailable()` + `InvokeOnRenderThread`) in `tests/Beutl.UnitTests/Engine/Graphics/Rendering/Golden/GoldenImageHarness.cs`
 - [X] T004 [P] Create `ImageMetrics` (`Ssim`/`MeanAbsoluteError`/`AliasingEnergy` over `Bitmap.GetPixelSpan<ushort>()` RgbaF16 linear) in `tests/Beutl.UnitTests/Engine/Graphics/Rendering/Golden/ImageMetrics.cs`
 - [X] T005 [P] Create `GoldenThresholds` constants (`ExactSsimMin=0.985`, `ExactMaeMax=0.02`, `SeamMaxDelta=0.05`, `SupersampleSsimMargin=0.01`, `SupersampleFactors={1.5,2.0,4.0}`) in `tests/Beutl.UnitTests/Engine/Graphics/Rendering/Golden/GoldenThresholds.cs`
 - [ ] T006 [P] Add `BEUTL_GOLDEN_UPDATE=1` baseline-regeneration switch + `Assets/Golden/**` embedded-resource wiring (raw RgbaF16 `.bin`, not PNG) in `tests/Beutl.UnitTests/Beutl.UnitTests.csproj`
@@ -62,8 +62,8 @@ Single-repo .NET solution. Engine: `src/Beutl.Engine/`; project system: `src/Beu
 ### Tests for User Story 1
 
 - [ ] T020 [P] [US1] Golden byte-identity @ 1.0 for a vector + Skia-filter scene in `tests/Beutl.UnitTests/Engine/Graphics/Rendering/Golden/Slice1ByteIdentityTests.cs`
-- [ ] T021 [P] [US1] SSIM @ 0.5 reduced-scale-exact for shapes/text/gradients/Blur/DropShadow/color effects, **including a Fit-derived fractional scale (e.g. 0.333)** so non-power-of-two preview renders correctly (FR-035), in `tests/Beutl.UnitTests/Engine/Graphics/Rendering/Golden/Slice1ReducedScaleTests.cs`
-- [ ] T022 [P] [US1] Root-surface sizing assertion `surface == ceil(FrameSize×s)` for `s ∈ {1, 0.5, 0.25, 0.333, 1.5, 2}` in `tests/Beutl.UnitTests/Engine/Graphics/Rendering/RootSurfaceSizingTests.cs`
+- [X] T021 [P] [US1] SSIM @ 0.5 reduced-scale-exact for shapes/text/gradients/Blur/DropShadow/color effects, **including a Fit-derived fractional scale (e.g. 0.333)** so non-power-of-two preview renders correctly (FR-035), in `tests/Beutl.UnitTests/Engine/Graphics/Rendering/Golden/Slice1ReducedScaleTests.cs`
+- [X] T022 [P] [US1] Root-surface sizing assertion `surface == ceil(FrameSize×s)` for `s ∈ {1, 0.5, 0.25, 0.333, 1.5, 2}` in `tests/Beutl.UnitTests/Engine/Graphics/Rendering/RootSurfaceSizingTests.cs`
 
 ### Implementation for User Story 1
 

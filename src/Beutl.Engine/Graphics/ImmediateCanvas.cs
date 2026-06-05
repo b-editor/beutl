@@ -125,6 +125,24 @@ public partial class ImmediateCanvas : ICanvas
         renderTarget.Value.Flush(true, true);
     }
 
+    // feature 003 (FR-017/T034): draw a concrete-scale buffer into a LOGICAL destination rect, so the
+    // active CTM maps it to the device surface. Mitchell resample handles working-scale != output-scale;
+    // when the buffer pixel size already equals the destination's device size the bare point-based blit
+    // above must be used instead (the exact equal-scale short-circuit is the caller's responsibility).
+    // Distinct name (not an overload) to avoid ambiguity with the Point overload at `default` call sites.
+    public void DrawRenderTargetScaled(RenderTarget renderTarget, Rect dest)
+    {
+        renderTarget.VerifyAccess();
+        _sharedFillPaint.Reset();
+        _sharedFillPaint.IsAntialias = true;
+
+        using SKImage image = renderTarget.Value.Snapshot();
+        var src = SKRect.Create(renderTarget.Width, renderTarget.Height);
+        Canvas.DrawImage(image, src, dest.ToSKRect(), new SKSamplingOptions(SKCubicResampler.Mitchell), _sharedFillPaint);
+
+        renderTarget.Value.Flush(true, true);
+    }
+
     public void DrawDrawable(Drawable.Resource drawable)
     {
         using var node = new DrawableRenderNode(drawable);
