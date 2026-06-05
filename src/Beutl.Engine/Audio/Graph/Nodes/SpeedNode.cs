@@ -94,15 +94,17 @@ public sealed class SpeedNode : AudioNode
             sourceStartTime = _integrator.Integrate(context.TimeRange.Start, keyFrameAnimation);
         }
 
-        // per-sample速度収集（オーディオ固有のロジック）
-        // この配列はアニメーション速度クリップのレンダーごとに最大 SampleRate 要素になりホットパスで
-        // GC 圧力を生むため、ArrayPool から借用して再利用する。ProcessBufferWithVariableSpeed は
-        // ReadOnlySpan<double> を同期的に消費するだけで保持しないため、呼び出し後に安全に返却できる。
+        // Per-sample speed collection (audio-specific logic).
+        // This buffer is sized to expectedOutputSampleCount (ceil(render-duration * SampleRate)),
+        // which can be large, and it is allocated on every render of an animated-speed audio clip,
+        // so it adds GC pressure on the hot path. Rent it from ArrayPool and reuse instead.
+        // ProcessBufferWithVariableSpeed consumes the ReadOnlySpan<double> synchronously and does
+        // not retain it, so the array can be safely returned after the call.
         var startInSamples = (int)(context.TimeRange.Start.TotalSeconds * context.SampleRate);
         double[] speedsArray = ArrayPool<double>.Shared.Rent(expectedOutputSampleCount);
         try
         {
-            // 借用配列は要求長より大きいことがあるため必ずスライスして渡す。
+            // The rented array can be larger than requested, so always slice before passing it.
             Span<double> speeds = speedsArray.AsSpan(0, expectedOutputSampleCount);
             double sum = 0;
             for (int i = 0; i < expectedOutputSampleCount; i++)
