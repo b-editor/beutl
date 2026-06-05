@@ -2,6 +2,9 @@
 
 internal sealed class QueueSynchronizationContext(Dispatcher dispatcher, TimeProvider timeProvider) : SynchronizationContext
 {
+    // CancelAfter throws when the delay exceeds int.MaxValue milliseconds; clamp to it.
+    private static readonly TimeSpan s_maxCancelAfter = TimeSpan.FromMilliseconds(int.MaxValue);
+
     private readonly OperationQueue _operationQueue = new();
     private readonly TimerQueue _timerQueue = new(timeProvider);
 
@@ -76,7 +79,13 @@ internal sealed class QueueSynchronizationContext(Dispatcher dispatcher, TimePro
         CancellationTokenSource cts;
         lock (this)
         {
-            // このロックに入る前にPostされた可能性があるため、再度確認する
+            // Shutdown() may have set _running to false between the check above and
+            // acquiring this lock. Bail out so we do not assign a fresh _waitToken that
+            // nothing will cancel and then block on WaitOne() forever.
+            if (!_running)
+                return;
+
+            // An operation may have been posted before we took the lock; re-check.
             if (_operationQueue.Any(DispatchPriority.Low))
             {
                 return;
@@ -87,10 +96,18 @@ internal sealed class QueueSynchronizationContext(Dispatcher dispatcher, TimePro
 
             if (_timerQueue.Next is { } next)
             {
-                // 期限が既に過ぎている場合 next - now は負になり、CancelAfter は
-                // ArgumentOutOfRangeException を投げる。Zero にクランプして即時起床させる。
                 TimeSpan delay = next - timeProvider.GetUtcNow();
-                cts.CancelAfter(delay < TimeSpan.Zero ? TimeSpan.Zero : delay);
+                if (delay <= TimeSpan.Zero)
+                {
+                    // The deadline has already passed; wake immediately without arming a timer.
+                    cts.Cancel();
+                }
+                else
+                {
+                    // CancelAfter throws for delays longer than int.MaxValue ms, so clamp
+                    // far-future timers; the wait is re-armed each cycle until the real deadline.
+                    cts.CancelAfter(delay < s_maxCancelAfter ? delay : s_maxCancelAfter);
+                }
             }
         }
 
@@ -101,7 +118,7 @@ internal sealed class QueueSynchronizationContext(Dispatcher dispatcher, TimePro
             _waitToken = null;
         }
 
-        // _waitToken を null にした後に破棄する。他スレッドは null を見て Cancel しないため競合しない。
+        // Dispose after clearing _waitToken: other threads see null and won't cancel it.
         cts.Dispose();
     }
 

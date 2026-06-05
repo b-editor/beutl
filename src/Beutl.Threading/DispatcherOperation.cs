@@ -38,7 +38,7 @@ internal sealed class DispatcherOperation
             }
             finally
             {
-                // Action() が例外を投げても ExecutionContext を確実に解放する。
+                // Release the ExecutionContext even if Action() throws.
                 ctx.Dispose();
             }
         }
