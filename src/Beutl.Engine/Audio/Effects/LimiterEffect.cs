@@ -26,9 +26,19 @@ namespace Beutl.Audio.Effects;
 /// its internal state, so the still-buffered tail of the previous run is discarded
 /// and the same number of samples are effectively dropped at the boundary. This is
 /// because Beutl's audio graph processes effects inline (output length equals input
-/// length) and has no latency-reporting/compensation hook. Use 0 ms when
-/// sample-accurate timing matters; non-zero values trade transient transparency
-/// for a fixed delay matching standard external lookahead limiters.
+/// length) and has no latency-reporting/compensation hook. The default is therefore
+/// 0 ms, which keeps audio sample-accurate and A/V-synchronized out of the box and
+/// degrades the algorithm to a zero-latency brick wall; raise it to trade a fixed
+/// delay for the transient transparency of a standard external lookahead limiter.
+/// </para>
+/// <para>
+/// A master limiter (<see cref="Beutl.Audio.Composing.Composer"/>) is always applied
+/// to the mixed bus after this effect. It re-limits anything above 0 dBFS with different
+/// (ratio-based) characteristics, so the brick-wall ceiling configured here is only
+/// guaranteed end-to-end when the summed bus — this effect's output plus everything mixed
+/// alongside it — stays at or below 0 dBFS. That can be exceeded even when a single limiter's
+/// <see cref="Threshold"/> + <see cref="MakeupGain"/> is at or below 0 dBFS, because multiple
+/// sounds sum on the master bus.
 /// </para>
 /// </remarks>
 [Display(Name = nameof(AudioStrings.LimiterEffect), ResourceType = typeof(AudioStrings))]
@@ -45,7 +55,7 @@ public sealed partial class LimiterEffect : AudioEffect
 
     internal const float DefaultThresholdDb = -1.0f;
     internal const float DefaultReleaseMs = 50f;
-    internal const float DefaultLookaheadMs = 5f;
+    internal const float DefaultLookaheadMs = 0f;
     internal const float DefaultMakeupGainDb = 0f;
 
     public LimiterEffect()

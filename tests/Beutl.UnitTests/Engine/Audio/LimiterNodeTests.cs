@@ -11,7 +11,12 @@ namespace Beutl.UnitTests.Engine.Audio;
 public class LimiterNodeTests
 {
     private const int SampleRate = 48000;
-    private const float LookaheadMs = LimiterEffect.DefaultLookaheadMs;
+
+    // A fixed non-zero lookahead used as the default for these tests, deliberately decoupled from
+    // LimiterEffect.DefaultLookaheadMs (which is 0 for sample-accurate A/V sync). Keeping a non-zero
+    // value here ensures the delay-line / lookahead-window behavior stays exercised regardless of
+    // the production default. Tests that specifically need the zero-lookahead path pass lookaheadMs: 0f.
+    private const float LookaheadMs = 5f;
 
     private static int LookaheadSamples(int sampleRate = SampleRate, float lookaheadMs = LookaheadMs)
         => (int)(lookaheadMs / 1000f * sampleRate);
@@ -41,7 +46,7 @@ public class LimiterNodeTests
     private static LimiterNode CreateNode(
         float thresholdDb = LimiterEffect.DefaultThresholdDb,
         float releaseMs = LimiterEffect.DefaultReleaseMs,
-        float lookaheadMs = LimiterEffect.DefaultLookaheadMs,
+        float lookaheadMs = LookaheadMs,
         float makeupGainDb = LimiterEffect.DefaultMakeupGainDb)
     {
         return new LimiterNode
@@ -1019,7 +1024,7 @@ public class LimiterNodeTests
     public void Process_NaNInputSamples_AreSanitizedToZero()
     {
         // Asserts that NaN/Inf input samples are sanitized; rationale lives in
-        // LimiterNode.ProcessSingleSample.
+        // LimiterNode.IngestSample.
         const int sampleCount = 1024;
 
         using var input = CreateBuffer(2, sampleCount, (ch, i) =>
@@ -1307,5 +1312,218 @@ public class LimiterNodeTests
         Assert.That(effect.Release.CurrentValue, Is.EqualTo(LimiterEffect.DefaultReleaseMs));
         Assert.That(effect.Lookahead.CurrentValue, Is.EqualTo(LimiterEffect.DefaultLookaheadMs));
         Assert.That(effect.MakeupGain.CurrentValue, Is.EqualTo(LimiterEffect.DefaultMakeupGainDb));
+    }
+
+    [Test]
+    public void LimiterEffect_DefaultLookahead_IsZeroForSampleAccurateSync()
+    {
+        // The default is intentionally 0 ms so that adding the effect does not shift audio or drop
+        // boundary samples in a video editor that has no plugin-delay-compensation. Guards against
+        // an accidental revert to a non-zero default.
+        Assert.That(LimiterEffect.DefaultLookaheadMs, Is.EqualTo(0f));
+        Assert.That(new LimiterEffect().Lookahead.CurrentValue, Is.EqualTo(0f));
+    }
+
+    [Test]
+    public void Process_LimitingWithPositiveMakeup_ReachesThresholdPlusMakeupCeiling()
+    {
+        // Documented contract (LimiterEffect XML): the final peak settles at Threshold + MakeupGain
+        // dB — the limiter caps to Threshold, then makeup scales it back up. The second case pushes
+        // the ceiling above 0 dBFS on purpose. A makeup-before-limiting bug would fail the lower bound.
+        foreach (var (thresholdDb, makeupDb) in new[] { (-6f, 6f), (-6f, 12f) })
+        {
+            const int sampleCount = 8192;
+            float thresholdLin = MathF.Pow(10f, thresholdDb / 20f);
+            float makeupLin = MathF.Pow(10f, makeupDb / 20f);
+            float ceiling = thresholdLin * makeupLin;
+
+            using var input = CreateBuffer(2, sampleCount,
+                (_, i) => 2.0f * MathF.Sin(2f * MathF.PI * 440f * i / SampleRate));
+
+            using var node = CreateNode(thresholdDb: thresholdDb, makeupGainDb: makeupDb);
+            node.AddInput(new StubInputNode(input));
+
+            using var output = node.Process(CreateContext(sampleCount));
+
+            float maxPeak = 0f;
+            for (int ch = 0; ch < 2; ch++)
+            {
+                var data = output.GetChannelData(ch);
+                for (int i = sampleCount / 2; i < sampleCount; i++)
+                {
+                    maxPeak = MathF.Max(maxPeak, MathF.Abs(data[i]));
+                }
+            }
+
+            // Brick wall: never exceeds the ceiling (makeup only scales the capped signal).
+            Assert.That(maxPeak, Is.LessThanOrEqualTo(ceiling + 1e-3f),
+                $"threshold={thresholdDb}dB makeup={makeupDb}dB: {maxPeak} exceeded ceiling {ceiling}.");
+            // ...and actually reaches it (guards a makeup-before-limiting or wrong-ceiling bug).
+            Assert.That(maxPeak, Is.GreaterThan(ceiling * 0.95f),
+                $"threshold={thresholdDb}dB makeup={makeupDb}dB: {maxPeak} did not reach ceiling {ceiling}.");
+        }
+    }
+
+    [Test]
+    public void Process_ContiguousChannelCountChange_ReinitializesBuffersWithoutDiscontinuity()
+    {
+        // A channel-count change reallocates the per-channel buffers even when the chunk is
+        // contiguous (no discontinuity reset fires). Exercises shrink (stereo->mono) and grow
+        // (mono->stereo) and confirms the output adopts the new channel count, stays finite, and
+        // still limits.
+        const int chunkSamples = 1024;
+        const float thresholdDb = -6f;
+        float thresholdLin = MathF.Pow(10f, thresholdDb / 20f);
+
+        using var node = CreateNode(thresholdDb: thresholdDb, lookaheadMs: 0f);
+
+        int[] channelSequence = [2, 1, 2];
+        TimeSpan start = TimeSpan.Zero;
+        foreach (int channels in channelSequence)
+        {
+            using var input = CreateBuffer(channels, chunkSamples,
+                (_, i) => 2.0f * MathF.Sin(2f * MathF.PI * 440f * i / SampleRate));
+            var ctx = CreateContext(chunkSamples, start: start);
+            node.ClearInputs();
+            node.AddInput(new StubInputNode(input));
+            using var output = node.Process(ctx);
+
+            Assert.That(output.ChannelCount, Is.EqualTo(channels));
+            for (int ch = 0; ch < channels; ch++)
+            {
+                var data = output.GetChannelData(ch);
+                for (int i = 0; i < chunkSamples; i++)
+                {
+                    Assert.That(float.IsFinite(data[i]), Is.True,
+                        $"channels={channels} ch={ch} sample {i} must be finite.");
+                    Assert.That(MathF.Abs(data[i]), Is.LessThanOrEqualTo(thresholdLin + 1e-4f),
+                        $"channels={channels} ch={ch} sample {i} must respect threshold.");
+                }
+            }
+
+            start += ctx.TimeRange.Duration;
+        }
+    }
+
+    [Test]
+    public void Process_AnimatedLookahead_StaysFiniteAndBoundedByThreshold()
+    {
+        // Animating Lookahead varies the delay tap and window length per sample (the animated scan
+        // path). Confirm the output stays finite and within the brick-wall ceiling throughout.
+        const int sampleCount = 8192;
+        const float thresholdDb = -1f;
+        float thresholdLin = MathF.Pow(10f, thresholdDb / 20f);
+        var duration = TimeSpan.FromSeconds((double)sampleCount / SampleRate);
+
+        using var input = CreateBuffer(2, sampleCount,
+            (_, i) => 2.0f * MathF.Sin(2f * MathF.PI * 440f * i / SampleRate));
+
+        using var node = new LimiterNode
+        {
+            Threshold = Property.CreateAnimatable(thresholdDb),
+            Release = Property.CreateAnimatable(50f),
+            Lookahead = CreateAnimatedRamp(0f, LimiterEffect.MaxLookaheadMs, duration),
+            MakeupGain = Property.CreateAnimatable(0f),
+        };
+        node.AddInput(new StubInputNode(input));
+
+        using var output = node.Process(CreateContext(sampleCount));
+
+        for (int ch = 0; ch < 2; ch++)
+        {
+            var data = output.GetChannelData(ch);
+            for (int i = 0; i < sampleCount; i++)
+            {
+                Assert.That(float.IsFinite(data[i]), Is.True,
+                    $"animated-lookahead ch={ch} sample {i} must be finite.");
+                Assert.That(MathF.Abs(data[i]), Is.LessThanOrEqualTo(thresholdLin + 1e-3f),
+                    $"animated-lookahead ch={ch} sample {i} must respect threshold.");
+            }
+        }
+    }
+
+    [Test]
+    public void Process_MultiChannel_LinksGainAcrossAllChannels()
+    {
+        // Channel-linked detection: a peak on any single channel reduces ALL channels by the same
+        // gain (preserving inter-channel ratios). Exercises N > 2 (6-channel surround).
+        const int channels = 6;
+        const int sampleCount = 4096;
+        const int hotChannel = 3;
+        const float thresholdDb = -6f;
+        float thresholdLin = MathF.Pow(10f, thresholdDb / 20f);
+
+        using var input = CreateBuffer(channels, sampleCount, (ch, i) =>
+        {
+            float wave = MathF.Sin(2f * MathF.PI * 440f * i / SampleRate);
+            return ch == hotChannel ? 2.0f * wave : 0.1f * wave;
+        });
+
+        using var node = CreateNode(thresholdDb: thresholdDb, lookaheadMs: 0f);
+        node.AddInput(new StubInputNode(input));
+
+        using var output = node.Process(CreateContext(sampleCount));
+
+        Assert.That(output.ChannelCount, Is.EqualTo(channels));
+
+        var hotIn = input.GetChannelData(hotChannel);
+        var hotOut = output.GetChannelData(hotChannel);
+        for (int i = 0; i < sampleCount; i++)
+        {
+            Assert.That(MathF.Abs(hotOut[i]), Is.LessThanOrEqualTo(thresholdLin + 1e-4f),
+                $"hot channel sample {i} must respect threshold.");
+
+            if (MathF.Abs(hotIn[i]) > 1e-6f)
+            {
+                float linkedGain = hotOut[i] / hotIn[i];
+                for (int ch = 0; ch < channels; ch++)
+                {
+                    if (ch == hotChannel) continue;
+                    var quietOut = output.GetChannelData(ch)[i];
+                    var quietIn = input.GetChannelData(ch)[i];
+                    Assert.That(quietOut, Is.EqualTo(quietIn * linkedGain).Within(1e-4f),
+                        $"channel {ch} sample {i} must share the hot channel's linked gain.");
+                }
+            }
+        }
+    }
+
+    [Test]
+    public void Process_LargeLookaheadBurst_GainRecoversAfterPeakLeavesWindow()
+    {
+        // Guards the static-path sliding-window-max (monotonic deque): after a short loud burst
+        // leaves the lookahead window, the tracked window peak must drop so the gain recovers. A
+        // deque that failed to evict the stale max would keep attenuating the trailing quiet signal.
+        const int sampleCount = 16384;
+        const int burstLen = 64;
+        const float thresholdDb = -6f;
+        const float quietAmp = 0.2f; // below thresholdLin (~0.501)
+
+        using var input = CreateBuffer(2, sampleCount, (_, i) =>
+        {
+            float wave = MathF.Sin(2f * MathF.PI * 440f * i / SampleRate);
+            return i < burstLen ? 4.0f * wave : quietAmp * wave;
+        });
+
+        using var node = CreateNode(thresholdDb: thresholdDb, releaseMs: 1f,
+            lookaheadMs: LimiterEffect.MaxLookaheadMs);
+        node.AddInput(new StubInputNode(input));
+
+        using var output = node.Process(CreateContext(sampleCount));
+
+        float tailPeak = 0f;
+        for (int ch = 0; ch < 2; ch++)
+        {
+            var data = output.GetChannelData(ch);
+            for (int i = sampleCount / 2; i < sampleCount; i++)
+            {
+                tailPeak = MathF.Max(tailPeak, MathF.Abs(data[i]));
+            }
+        }
+
+        Assert.That(tailPeak, Is.GreaterThan(0.18f),
+            "Quiet tail must recover after the burst leaves the window (deque must evict the stale max).");
+        Assert.That(tailPeak, Is.LessThanOrEqualTo(quietAmp + 1e-3f),
+            "Quiet tail is below threshold and must not be amplified.");
     }
 }

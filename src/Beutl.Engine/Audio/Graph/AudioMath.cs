@@ -67,6 +67,13 @@ public static class AudioMath
         return peak;
     }
 
+    /// <summary>
+    /// Soft, ratio-based downward compressor applied in place: samples above <paramref name="threshold"/>
+    /// are reduced toward <c>threshold + (excess / ratio)</c> but are NOT held at a hard ceiling, so the
+    /// output can still exceed the threshold. Despite the name this is NOT a brick-wall peak limiter;
+    /// for that, see <see cref="Beutl.Audio.Effects.LimiterEffect"/> / <see cref="Beutl.Audio.Graph.Nodes.LimiterNode"/>.
+    /// It is used as the always-on master clip-protection backstop in <see cref="Beutl.Audio.Composing.Composer"/>.
+    /// </summary>
     public static void ApplyLimiter(Span<float> buffer, float threshold = 1.0f, float ratio = 10.0f)
     {
         for (int i = 0; i < buffer.Length; i++)
