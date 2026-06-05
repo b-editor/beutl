@@ -170,7 +170,7 @@ Single-repo .NET solution. Engine: `src/Beutl.Engine/`; project system: `src/Beu
 
 ## Phase 7: Polish & Cross-Cutting Concerns
 
-- [ ] T060 [P] SC-003 benchmark: committed `bench.scene` + ratio test (`median(0.5)/median(1.0) < 0.6`) `[Explicit][Category("Benchmark")]` in `tests/Beutl.UnitTests/Engine/Graphics/Rendering/Golden/RenderScaleBenchmarkTests.cs` + a BenchmarkDotNet entry in `tests/Beutl.Benchmarks/RenderScaleBenchmark.cs`
+- [~] T060 [P] SC-003 benchmark: committed `bench.scene` + ratio test (`median(0.5)/median(1.0) < 0.6`) `[Explicit][Category("Benchmark")]` in `tests/Beutl.UnitTests/Engine/Graphics/Rendering/Golden/RenderScaleBenchmarkTests.cs` + a BenchmarkDotNet entry in `tests/Beutl.Benchmarks/RenderScaleBenchmark.cs`
 - [ ] T061 [P] Wire the pinned values into config — `MaxWorkingScale` = **`2 × s_out` preview / unbounded export** (FR-037), the built-in `ResolutionPolicy` manifest (FR-036: FR-013 set → `PreserveSource`, else `Inherit`, no built-in `ClampToOutput`), the offered supersample factors **Off / 2× / 4×** (SC-009) — in `src/Beutl.Configuration/EditorConfig.cs` and `src/Beutl/ViewModels/Tools/OutputViewModel.cs`
 - [ ] T062 [P] Document `iScale`/`uScale` + the working-scale shader contract for authors in `docs/ai-workflow/` (reference `contracts/shader-uniforms.md`)
 - [ ] T063 If any effect property's type/unit changes (e.g. `ColorShift` `PixelPoint`→`Point`): keep the source generator green with a compile-only case in `tests/SourceGeneratorTest/RenderContext.cs` plus behavioral coverage in `tests/Beutl.UnitTests/`
