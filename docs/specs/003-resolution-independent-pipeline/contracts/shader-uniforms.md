@@ -17,17 +17,18 @@ Existing uniforms **keep their device-pixel meaning** = the size of the *scaled*
 
 Author rule: a UV-normalized shader (`fragCoord / iResolution`) auto-corrects across scales. A shader with an absolute pixel literal multiplies it by `iScale`, e.g. `float radius = 10.0 * iScale;`. Per-texel kernels (blur/edge/sharpen) are inherently resolution-sensitive (FR-013): reduced-scale preview is best-effort, full fidelity at export (`w=1`, i.e. `s_out=1.0` over a unit-scale input).
 
-## GLSL (`GLSLScriptEffect.cs:91-109`)
+## GLSL (`GLSLScriptEffect.cs`)
+
+**As shipped, GLSL adds NO new push constant** (no ABI/`StructLayout` change — the `PushConstants` struct stays `Progress`/`Duration`/`Time`/`Width`/`Height`). The resolution constants instead carry the working density:
 
 | Push constant | Meaning | Under working scale `w` |
 |---|---|---|
-| `Width`, `Height` | target size, device px | `ceil(logicalBounds.W/H × w)` |
-| **`Scale` / `uScale`** *(new)* | working scale `w` | `w` (default `1.0`) |
+| `Width`, `Height` | target size, device px (× w) | `ceil(logicalBounds.W/H × w)` |
 
-The new push-constant field is a `StructLayout` + `push_constant` block change. **GLSL runs in `Beutl.FFmpegWorker`? No** — GLSL effects run in-process via the engine's Vulkan/SkSL pipeline (not the FFmpeg GPL worker), so this is an MIT-side ABI change, not a GPL/MIT boundary change. (The license firewall is unaffected by feature 003.)
+A GLSL author derives the working scale from the device-px `Width`/`Height` (e.g. relative to the logical size the shader expects); there is no `uScale`/`Scale` uniform. If a dedicated GLSL scale push constant is wanted for parity with SKSL's `iScale`, add it as a follow-up (it would be an MIT-side ABI change — GLSL effects run in-process via the engine's Vulkan/SkSL pipeline, NOT the FFmpeg GPL worker, so the license firewall is unaffected).
 
 ## Backward-compatibility rule
 
-- A shader that does not reference `iScale`/`uScale` produces identical output to today at `w=1.0` and renders at the (smaller/larger) device target at `w≠1.0` — i.e. it behaves exactly as if scale were 1.0 in its own pixel space.
+- A shader that does not reference `iScale` (SKSL) — or the device-px `Width`/`Height` (GLSL) — produces identical output to today at `w=1.0` and renders at the (smaller/larger) device target at `w≠1.0` — i.e. it behaves exactly as if scale were 1.0 in its own pixel space.
 - Existing uniforms are **never** silently redefined to logical units.
 - Document `iScale`/`uScale` in the shader-authoring docs; add a golden test asserting a scale-unaware shader is byte-identical at `w=1.0` and a scale-aware shader (`radius = N * iScale`) matches its 1.0 reference within the SSIM threshold at a reduced scale.

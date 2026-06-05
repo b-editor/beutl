@@ -36,10 +36,12 @@ the CTM handles it, and adding a manual `× w` would double-scale and regress th
   therefore evaluates in DEVICE pixels, so you must multiply any **absolute-length** pixel literal
   (tile size, displacement amount, split offset, a hard-coded `iResolution`-style constant) by `w` to
   stay logically constant. Content-relative logic (a luminance pixel-sort, a normalized-uv shader)
-  needs nothing. The built-ins already do this — Mosaic (`tileSize × w`), DisplacementMap
-  (translate/pivot `× w`), PartsSplit (contour bounds `/ w`), SKSL/GLSL (`iResolution × w`, `iScale = w`)
-  — and are verified by `CustomEffectSupersampleTests` (2×-delivered vs 1:1 SSIM 1.0000; closer to
-  ground truth than 1:1).
+  needs nothing. The built-ins already do this — Mosaic (`tileSize × w`), DisplacementMap (translate /
+  pivot `× w`, and the displacement-map shader gets a `CreateScale(w)` local matrix so it shares the base
+  texture's device-px coord space), PartsSplit (contour bounds `/ w`), SKSL (`iResolution`/`width`/`height`
+  `× w` + `iScale = w`), GLSL (`Width`/`Height` push constants `× w` — there is NO `iScale`/`uScale` in
+  GLSL) — verified by `CustomEffectSupersampleTests` (Mosaic + DisplacementMap 2×-delivered vs 1:1 SSIM
+  1.0000; Mosaic strictly closer to ground truth than 1:1).
 - **Resolution policy.** An effect declares how its working scale is chosen by overriding
   `FilterEffect.ResolutionPolicy` (default `Inherit` = run at the input supply density; `s_out` is
   **not** a ceiling). Resolution-sensitive effects (PixelSort, Dilate/Erode, Mosaic, contour

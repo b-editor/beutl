@@ -22,7 +22,7 @@ This feature ships as a **breaking change**: `refactor!:` / `feat!:` with a `BRE
 | `CustomFilterEffectContext` | `FilterEffects/CustomFilterEffectContext.cs:52` | `CreateTarget` `(int)bounds.W/H` | + `float WorkingScale { get; }`; `CreateTarget` `ceil(bounds×WorkingScale)`; `Open` pre-scaled | FR-009/FR-015; migrate off `(int)` cast (scale-1.0-sensitive) |
 | `FilterEffectActivator.Flush` | `FilterEffects/FilterEffectActivator.cs:29` | `(int)OriginalBounds.W/H` | `ceil(×w)` via shared helper + `CreateScale(w)`; normalize divergent `EffectTarget.Scale` to `w` first | FR-009/FR-019; scale-1.0-sensitive |
 | `EffectTarget` | `FilterEffects/EffectTarget.cs:6` | `Empty`/`Size` (obsolete) | + `EffectiveScale Scale { get; set; }` (default `Unbounded`); **remove** `Empty`/`Size` | FR-019; LayerEffect mixed-scale detection (dossier §4.5) |
-| `SKSLScriptEffect` / `GLSLScriptEffect` | `FilterEffects/SKSLScriptEffect.cs:99` / `GLSLScriptEffect.cs:91` | device-px uniforms | keep device meaning; **add** `iScale` (SKSL) / `Scale`/`uScale` PushConstants (GLSL `:37-43`) | FR-014; see `shader-uniforms.md` |
+| `SKSLScriptEffect` / `GLSLScriptEffect` | `FilterEffects/SKSLScriptEffect.cs` / `GLSLScriptEffect.cs` | device-px uniforms | **As shipped:** both run over a `ceil(bounds × w)` device buffer, so resolution uniforms report device px (`width`/`height`/`iResolution` × w). **SKSL also exposes `iScale = w`** for absolute-px author logic. **GLSL adds NO new push constant** (its `PushConstants` struct is unchanged: `Progress`/`Duration`/`Time`/`Width`/`Height`); a GLSL author derives the working scale from the device-px `Width`/`Height` (there is no `uScale`/`Scale`). | FR-014; see `shader-uniforms.md` |
 
 ## Rounding-helper migration (scale-1.0-sensitive)
 
