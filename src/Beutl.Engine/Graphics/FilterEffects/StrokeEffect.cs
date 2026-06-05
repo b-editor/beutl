@@ -47,7 +47,15 @@ public partial class StrokeEffect : FilterEffect
     private static Rect TransformBounds((Point Offset, Pen.Resource? Pen, StrokeStyles Style) data, Rect rect)
     {
         Rect borderBounds = PenHelper.GetBounds(rect, data.Pen);
-        return rect.Union(borderBounds.Translate(new Vector(data.Offset.X, data.Offset.Y)));
+        // Keep the output box CENTERED on the source. Inflate the stroked bounds symmetrically by the offset
+        // magnitude instead of unioning with the one-directional translated border: the union grows the box
+        // only toward the offset, leaving the source pinned to the opposite corner (it "sticks to the
+        // top-left" for a positive offset, which reads as the object jumping to the corner of its selection
+        // box in the editor). Symmetric inflation keeps the source centered while still enclosing the
+        // offset stroke. Offset == 0 → borderBounds, byte-identical to the previous behavior.
+        return borderBounds.Inflate(new Thickness(
+            Math.Abs(data.Offset.X), Math.Abs(data.Offset.Y),
+            Math.Abs(data.Offset.X), Math.Abs(data.Offset.Y)));
     }
 
     private static void Apply((Point Offset, Pen.Resource? Pen, StrokeStyles Style) data, CustomFilterEffectContext context)
@@ -89,10 +97,13 @@ public partial class StrokeEffect : FilterEffect
                 if (w != 1f) borderPath.Transform(SKMatrix.CreateScale(1f / w, 1f / w));
 
                 Rect transformedBounds = TransformBounds(data, target.Bounds);
-                float thickness = PenHelper.GetRealThickness(pen.StrokeAlignment, pen.Thickness);
+                // Place the source at its original position WITHIN the (now symmetric) output box: the box
+                // top-left moved out by thickness + |offset| on each side, so the source origin shifts by the
+                // same amount. This keeps the rendered source / stroke at the exact same absolute positions as
+                // before — only the box is re-centered. Offset == 0 → (thickness, thickness), unchanged.
                 var origin = Matrix.CreateTranslation(
-                    thickness - Math.Min(data.Offset.X, thickness),
-                    thickness - Math.Min(data.Offset.Y, thickness));
+                    target.Bounds.X - transformedBounds.X,
+                    target.Bounds.Y - transformedBounds.Y);
 
                 EffectTarget newTarget = context.CreateTarget(transformedBounds);
                 using (ImmediateCanvas newCanvas = context.Open(newTarget))
