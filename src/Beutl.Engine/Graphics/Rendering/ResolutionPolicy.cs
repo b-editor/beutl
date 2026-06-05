@@ -1,4 +1,4 @@
-namespace Beutl.Graphics.Rendering;
+﻿namespace Beutl.Graphics.Rendering;
 
 /// <summary>
 /// How a buffer-allocating boundary derives its working scale from its inputs'

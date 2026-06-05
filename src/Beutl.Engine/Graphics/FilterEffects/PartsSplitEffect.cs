@@ -80,14 +80,19 @@ public partial class PartsSplitEffect : FilterEffect
                         }
                     }
 
+                    // feature 003: contours are traced in the source buffer's DEVICE pixels (the buffer is
+                    // ceil(bounds × w) when w != 1), so convert path bounds back to LOGICAL units (/ w)
+                    // before composing them with the logical target bounds; CreateTarget re-densifies by w.
+                    // The clip + draw below stay in device px (the source buffer and skpath share that space).
+                    float w = context.WorkingScale;
                     foreach ((SKPath skpath, _, _) in pathes)
                     {
                         SKRect pathBounds = skpath.TightBounds;
                         var bounds = new Rect(
-                            target.Bounds.X + pathBounds.Left,
-                            target.Bounds.Y + pathBounds.Top,
-                            pathBounds.Width,
-                            pathBounds.Height);
+                            target.Bounds.X + pathBounds.Left / w,
+                            target.Bounds.Y + pathBounds.Top / w,
+                            pathBounds.Width / w,
+                            pathBounds.Height / w);
                         EffectTarget newTarget = context.CreateTarget(bounds);
                         using (ImmediateCanvas newCanvas = context.Open(newTarget))
                         using (newCanvas.PushTransform(Matrix.CreateTranslation(-pathBounds.Left, -pathBounds.Top)))

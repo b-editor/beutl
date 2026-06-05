@@ -29,9 +29,10 @@ public class FilterEffectRenderNode(FilterEffect.Resource filterEffect) : Contai
 
         // Resolve this effect's working scale w from its inputs' supply densities, the output
         // scale, and the effect's resolution policy (feature 003, FR-036). Threaded into the
-        // context so authors can read WorkingScale/OutputScale (FR-015). At output scale 1.0 with
-        // vector inputs, w == 1 (byte-identical). The buffer/sigma activation of w (force-flush +
-        // ceil(bounds*w) + concrete-scale resample) is realized by the effect-buffer slice.
+        // context (FR-015) AND into the activator, which sizes render-target / Custom buffers
+        // ceil(bounds × w) and resamples them once at the final blit (FilterEffectActivator,
+        // CustomFilterEffectContext, EffectTarget.Draw). At output scale 1.0 with vector inputs,
+        // w == 1, so every buffer keeps its (int)-truncation point-blit path (byte-identical).
         var inputScales = new EffectiveScale[context.Input.Length];
         for (int i = 0; i < context.Input.Length; i++)
         {
@@ -47,7 +48,7 @@ public class FilterEffectRenderNode(FilterEffect.Resource filterEffect) : Contai
         effectTargets.AddRange(context.Input.Select(i => new EffectTarget(i)));
 
         using (var builder = new SKImageFilterBuilder())
-        using (var activator = new FilterEffectActivator(effectTargets, builder))
+        using (var activator = new FilterEffectActivator(effectTargets, builder, workingScale))
         {
             activator.Apply(feContext);
 
@@ -84,7 +85,7 @@ public class FilterEffectRenderNode(FilterEffect.Resource filterEffect) : Contai
             {
                 return activator.CurrentTargets.Select(i =>
                     i.NodeOperation ??
-                    RenderNodeOperation.CreateFromRenderTarget(i.Bounds, i.Bounds.Position, i.RenderTarget!))
+                    RenderNodeOperation.CreateFromRenderTarget(i.Bounds, i.Bounds.Position, i.RenderTarget!, i.Scale))
                     .ToArray();
             }
         }

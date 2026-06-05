@@ -100,12 +100,18 @@ public sealed partial class SKSLScriptEffect : FilterEffect
                 builder.Uniforms["duration"] = data.duration;
             if (effect.Uniforms.Contains("time"))
                 builder.Uniforms["time"] = data.time;
+            // feature 003 (FR-014): the user shader evaluates in DEVICE pixels over a ceil(bounds × w)
+            // buffer, so resolution uniforms report device px (× w). Normalized-uv shaders are unaffected;
+            // absolute-px shaders can read iScale = w. At w == 1 every value is unchanged (byte-identical).
+            float w = c.WorkingScale;
             if (effect.Uniforms.Contains("width"))
-                builder.Uniforms["width"] = effectTarget.Bounds.Width;
+                builder.Uniforms["width"] = effectTarget.Bounds.Width * w;
             if (effect.Uniforms.Contains("height"))
-                builder.Uniforms["height"] = effectTarget.Bounds.Height;
+                builder.Uniforms["height"] = effectTarget.Bounds.Height * w;
             if (effect.Uniforms.Contains("iResolution"))
-                builder.Uniforms["iResolution"] = new SKPoint(effectTarget.Bounds.Width, effectTarget.Bounds.Height);
+                builder.Uniforms["iResolution"] = new SKPoint(effectTarget.Bounds.Width * w, effectTarget.Bounds.Height * w);
+            if (effect.Uniforms.Contains("iScale"))
+                builder.Uniforms["iScale"] = w;
             if (effect.Uniforms.Contains("iTime"))
                 builder.Uniforms["iTime"] = data.time;
 

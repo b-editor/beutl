@@ -72,9 +72,16 @@ public partial class DisplacementMapEffect : FilterEffect
                         {
                             paint.Shader = displacementMapShader;
                             canvas.Clear();
-                            canvas.Canvas.DrawRect(
-                                new SKRect(0, 0, effectTarget.Bounds.Width, effectTarget.Bounds.Height),
-                                paint);
+                            // feature 003: fill the full ceil(bounds × w) device buffer. At w != 1 prescale so
+                            // the logical DrawRect + brush shader render at working density; w == 1 keeps the
+                            // bare logical rect (byte-identical).
+                            float w = effectContext.WorkingScale;
+                            using (w == 1f ? default : canvas.PushTransform(Matrix.CreateScale(w, w)))
+                            {
+                                canvas.Canvas.DrawRect(
+                                    new SKRect(0, 0, effectTarget.Bounds.Width, effectTarget.Bounds.Height),
+                                    paint);
+                            }
 
                             effectContext.Targets[i] = newTarget;
                         }

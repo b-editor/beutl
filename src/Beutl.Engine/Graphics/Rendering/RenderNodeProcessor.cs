@@ -1,4 +1,4 @@
-using Beutl.Collections.Pooled;
+﻿using Beutl.Collections.Pooled;
 using Beutl.Media;
 
 namespace Beutl.Graphics.Rendering;

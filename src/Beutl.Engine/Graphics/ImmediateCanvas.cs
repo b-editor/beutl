@@ -40,6 +40,13 @@ public partial class ImmediateCanvas : ICanvas
 
     public PixelSize Size { get; }
 
+    /// <summary>
+    /// The root output scale <c>s_out</c> this canvas renders at (feature 003), set by the renderer on the
+    /// root canvas. <c>1.0</c> = logical == device. Consumed where a device-resolution capture must be
+    /// mapped back to logical space (the snapshot-backdrop path); intermediate canvases keep the default.
+    /// </summary>
+    public float OutputScale { get; set; } = 1f;
+
     public Matrix Transform
     {
         get { return _currentTransform; }
@@ -143,6 +150,21 @@ public partial class ImmediateCanvas : ICanvas
         renderTarget.Value.Flush(true, true);
     }
 
+    // feature 003: SKSurface counterpart of DrawRenderTargetScaled — draw a concrete-scale surface into a
+    // LOGICAL destination rect so the active CTM maps it to the device surface (used for nested-scene /
+    // 3D bitmap ops whose backing surface is denser than the destination).
+    public void DrawSurfaceScaled(SKSurface surface, Rect dest)
+    {
+        _sharedFillPaint.Reset();
+        _sharedFillPaint.IsAntialias = true;
+
+        using SKImage image = surface.Snapshot();
+        var src = SKRect.Create(image.Width, image.Height);
+        Canvas.DrawImage(image, src, dest.ToSKRect(), new SKSamplingOptions(SKCubicResampler.Mitchell), _sharedFillPaint);
+
+        surface.Flush(true, true);
+    }
+
     public void DrawDrawable(Drawable.Resource drawable)
     {
         using var node = new DrawableRenderNode(drawable);
@@ -182,6 +204,25 @@ public partial class ImmediateCanvas : ICanvas
         using var img = SKImage.FromBitmap(bmp.SKBitmap);
 
         Canvas.DrawImage(img, 0, 0, new SKSamplingOptions(SKCubicResampler.Mitchell), _sharedFillPaint);
+    }
+
+    // feature 003: draw a bitmap into a LOGICAL destination rect (rather than blitting it at pixel-extent),
+    // so a device-resolution capture is mapped back to its logical footprint by the active CTM instead of
+    // being double-scaled. Used by the snapshot-backdrop path at s_out != 1.
+    public void DrawBitmapScaled(Bitmap bmp, Rect dest, Brush.Resource? fill)
+    {
+        ObjectDisposedException.ThrowIf(bmp.IsDisposed, bmp);
+
+        if (bmp.ByteCount <= 0)
+            return;
+
+        VerifyAccess();
+        ConfigureFillPaint(new(dest.Size), fill);
+
+        using var img = SKImage.FromBitmap(bmp.SKBitmap);
+        var src = SKRect.Create(bmp.Width, bmp.Height);
+
+        Canvas.DrawImage(img, src, dest.ToSKRect(), new SKSamplingOptions(SKCubicResampler.Mitchell), _sharedFillPaint);
     }
 
     public void DrawImageSource(ImageSource.Resource source, Brush.Resource? fill, Pen.Resource? pen)

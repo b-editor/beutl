@@ -1,4 +1,4 @@
-namespace Beutl.Graphics.Rendering;
+﻿namespace Beutl.Graphics.Rendering;
 
 public class RenderNodeContext(RenderNodeOperation[] input, float outputScale = 1f)
 {
@@ -12,18 +12,6 @@ public class RenderNodeContext(RenderNodeOperation[] input, float outputScale = 
     /// It is the final target only — never a ceiling on an intermediate boundary's working scale.
     /// </summary>
     public float OutputScale { get; } = outputScale;
-
-    /// <summary>
-    /// A per-pull floor propagated downward by an ancestor <see cref="ResolutionPolicyKind.PreserveSource"/>
-    /// so a descendant boundary keeps a high source's density even under a clamp. <c>0</c> = no floor.
-    /// </summary>
-    /// <remarks>
-    /// Each <see cref="RenderNodeProcessor.Pull"/> creates a fresh context per node, so writing this
-    /// setter does NOT automatically reach descendant contexts — downward propagation is the puller's
-    /// responsibility (wired in when live <see cref="ResolutionPolicyKind.PreserveSource"/> lands, FR-036).
-    /// In Slice 0 it is inert (<c>w = 1</c> everywhere).
-    /// </remarks>
-    public float PreserveFloor { get; set; }
 
     public Rect CalculateBounds()
     {

@@ -1,4 +1,4 @@
-namespace Beutl.Graphics.Rendering;
+﻿namespace Beutl.Graphics.Rendering;
 
 /// <summary>
 /// The supply density an operation's backing pixels actually exist at, for the

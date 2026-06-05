@@ -4,12 +4,22 @@ namespace Beutl.Graphics.Effects;
 
 public class CustomFilterEffectContext
 {
-    internal CustomFilterEffectContext(EffectTargets targets)
+    internal CustomFilterEffectContext(EffectTargets targets, float workingScale = 1f)
     {
         Targets = targets;
+        WorkingScale = workingScale;
     }
 
     public EffectTargets Targets { get; }
+
+    /// <summary>
+    /// The working density <c>w</c> this effect's buffers are allocated at (feature 003, FR-009):
+    /// <see cref="CreateTarget"/> sizes them <c>ceil(bounds × w)</c> device px. A custom effect MUST
+    /// multiply any ABSOLUTE-length pixel parameter (tile size, displacement amount, split offset) by
+    /// this so the parameter stays logical; content-relative effects (e.g. a luminance pixel-sort) need
+    /// no change. <c>1.0</c> is the pre-feature path (byte-identical).
+    /// </summary>
+    public float WorkingScale { get; }
 
     public void ForEach(Action<int, EffectTarget> action)
     {
@@ -49,10 +59,16 @@ public class CustomFilterEffectContext
 
     public EffectTarget CreateTarget(Rect bounds)
     {
-        using var renderTarget = RenderTarget.Create((int)bounds.Width, (int)bounds.Height);
+        // feature 003: at w != 1 allocate a ceil(bounds × w) device buffer and tag it At(w) so the final
+        // blit resamples it into logical space; w == 1 keeps the exact (int)-truncation + untagged
+        // (Unbounded) path (byte-identical).
+        float w = WorkingScale;
+        int bw = w == 1f ? (int)bounds.Width : (int)MathF.Ceiling(bounds.Width * w);
+        int bh = w == 1f ? (int)bounds.Height : (int)MathF.Ceiling(bounds.Height * w);
+        using var renderTarget = RenderTarget.Create(bw, bh);
         if (renderTarget != null)
         {
-            return new EffectTarget(renderTarget, bounds);
+            return new EffectTarget(renderTarget, bounds, w == 1f ? default : EffectiveScale.At(w));
         }
         else
         {

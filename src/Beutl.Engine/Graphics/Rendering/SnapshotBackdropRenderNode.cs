@@ -24,7 +24,18 @@ public class SnapshotBackdropRenderNode : RenderNode, IBackdrop
     {
         if (_bitmap != null)
         {
-            canvas.DrawBitmap(_bitmap, Brushes.Resource.White, null);
+            // feature 003: the snapshot is the device-sized backing surface (ceil(frame × s_out)); at
+            // s_out != 1 draw it into its LOGICAL footprint so the active root CTM maps it back 1:1
+            // instead of double-scaling. s_out == 1 keeps the bare pixel-extent blit (byte-identical).
+            if (canvas.OutputScale == 1f)
+            {
+                canvas.DrawBitmap(_bitmap, Brushes.Resource.White, null);
+            }
+            else
+            {
+                var dest = new Rect(0, 0, _bitmap.Width / canvas.OutputScale, _bitmap.Height / canvas.OutputScale);
+                canvas.DrawBitmapScaled(_bitmap, dest, Brushes.Resource.White);
+            }
         }
     }
 

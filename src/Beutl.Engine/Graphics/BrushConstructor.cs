@@ -226,6 +226,13 @@ public readonly struct BrushConstructor(Rect bounds, Brush.Resource? brush, Blen
         }
         else if (tileBrush is DrawableBrush.Resource drawableBrush)
         {
+            // feature 003 KNOWN LIMITATION: the DrawableBrush content (and the TileBrush intermediate
+            // below) is rasterized at LOGICAL density and sampled by the tile shader, so a tile-/drawable-
+            // brush FILL is upscaled by the root CTM (soft) at s_out > 1 — the filled shape's edges stay
+            // crisp (vector). Full density requires threading s_out through the TileBrushCalculator +
+            // intermediate + shader local-matrix for every TileMode/Transform combination, each needing
+            // its own golden; that is intentionally scoped as a follow-up to avoid shipping mistiled
+            // brushes. Buffer activation IS implemented + verified for all filter effects and 3D.
             if (drawableBrush.Drawable is null) return null;
 
             var drawable = drawableBrush.Drawable;

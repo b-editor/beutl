@@ -4,11 +4,17 @@ using SkiaSharp;
 
 namespace Beutl.Graphics.Effects;
 
-public sealed class FilterEffectActivator(EffectTargets targets, SKImageFilterBuilder builder) : IDisposable
+public sealed class FilterEffectActivator(EffectTargets targets, SKImageFilterBuilder builder, float workingScale = 1f) : IDisposable
 {
     public SKImageFilterBuilder Builder { get; } = builder;
 
     public EffectTargets CurrentTargets { get; } = targets;
+
+    /// <summary>
+    /// The working density <c>w</c> at which buffer-allocating boundaries rasterize (feature 003,
+    /// FR-009). <c>1.0</c> keeps the exact pre-feature <c>(int)</c>-truncation path (byte-identical).
+    /// </summary>
+    public float WorkingScale { get; } = workingScale;
 
     public void Dispose()
     {
@@ -23,24 +29,33 @@ public sealed class FilterEffectActivator(EffectTargets targets, SKImageFilterBu
             using var paint = Builder.HasFilter() ? new SKPaint() : null;
             paint?.ImageFilter = Builder.GetFilter();
 
+            float w = WorkingScale;
             for (int i = 0; i < CurrentTargets.Count; i++)
             {
                 EffectTarget target = CurrentTargets[i];
-                using RenderTarget? surface = RenderTarget.Create((int)target.OriginalBounds.Width, (int)target.OriginalBounds.Height);
+                // feature 003: at w != 1 size the flattened buffer ceil(OriginalBounds × w) device px and
+                // prescale by w, so the chain rasterizes at working density; w == 1 keeps the exact
+                // (int)-truncation + translation-only path (byte-identical).
+                int bw = w == 1f ? (int)target.OriginalBounds.Width : (int)MathF.Ceiling(target.OriginalBounds.Width * w);
+                int bh = w == 1f ? (int)target.OriginalBounds.Height : (int)MathF.Ceiling(target.OriginalBounds.Height * w);
+                using RenderTarget? surface = RenderTarget.Create(bw, bh);
 
                 if (surface != null)
                 {
                     using (var canvas = new ImmediateCanvas(surface))
                     {
                         canvas.Clear();
-                        using (canvas.PushTransform(Matrix.CreateTranslation(-target.OriginalBounds.X, -target.OriginalBounds.Y)))
+                        Matrix transform = w == 1f
+                            ? Matrix.CreateTranslation(-target.OriginalBounds.X, -target.OriginalBounds.Y)
+                            : Matrix.CreateTranslation(-target.OriginalBounds.X, -target.OriginalBounds.Y) * Matrix.CreateScale(w, w);
+                        using (canvas.PushTransform(transform))
                         using (paint != null ? canvas.PushPaint(paint) : default)
                         {
                             target.Draw(canvas);
                         }
                     }
 
-                    var newTarget = new EffectTarget(surface, target.Bounds)
+                    var newTarget = new EffectTarget(surface, target.Bounds, w == 1f ? target.Scale : EffectiveScale.At(w))
                     {
                         OriginalBounds = target.OriginalBounds
                     };
@@ -86,7 +101,7 @@ public sealed class FilterEffectActivator(EffectTargets targets, SKImageFilterBu
                         Flush();
                         if (CurrentTargets.Count == 0) return;
 
-                        var customContext = new CustomFilterEffectContext(CurrentTargets);
+                        var customContext = new CustomFilterEffectContext(CurrentTargets, WorkingScale);
                         custom.Accepts(customContext);
 
                         foreach (EffectTarget t in CurrentTargets)
@@ -103,7 +118,7 @@ public sealed class FilterEffectActivator(EffectTargets targets, SKImageFilterBu
 
         Flush(false);
         if (CurrentTargets.Count == 0) return;
-        using var ctx = new FilterEffectContext(CurrentTargets.CalculateBounds());
+        using var ctx = new FilterEffectContext(CurrentTargets.CalculateBounds(), workingScale: WorkingScale);
 
         foreach (IFEItem item in context._renderTimeItems)
         {
@@ -119,7 +134,7 @@ public sealed class FilterEffectActivator(EffectTargets targets, SKImageFilterBu
 
         using EffectTargets cloned = CurrentTargets.Clone();
         using var builder = new SKImageFilterBuilder();
-        using var activator = new FilterEffectActivator(cloned, builder);
+        using var activator = new FilterEffectActivator(cloned, builder, WorkingScale);
 
         activator.Apply(context);
         activator.Flush(false);
@@ -134,14 +149,18 @@ public sealed class FilterEffectActivator(EffectTargets targets, SKImageFilterBu
             SKSurface innerSurface = t.RenderTarget.Value;
             using SKImage skImage = innerSurface.Snapshot();
 
-            if (filter == null)
-            {
-                filter = SKImageFilter.CreateImage(skImage);
-            }
-            else
-            {
-                filter = SKImageFilter.CreateCompose(filter, SKImageFilter.CreateImage(skImage));
-            }
+            // feature 003: a buffer captured At(w) is ceil(bounds × w) device px; map it back into its
+            // logical footprint so the composed filter stays in logical space. Unbounded / unit-scale
+            // keeps the bare CreateImage (byte-identical).
+            SKImageFilter image = t.Scale.IsUnbounded || t.Scale.Value == 1f
+                ? SKImageFilter.CreateImage(skImage)
+                : SKImageFilter.CreateImage(
+                    skImage,
+                    new SKRect(0, 0, skImage.Width, skImage.Height),
+                    t.Bounds.ToSKRect(),
+                    new SKSamplingOptions(SKCubicResampler.Mitchell));
+
+            filter = filter == null ? image : SKImageFilter.CreateCompose(filter, image);
         }
 
         return filter;

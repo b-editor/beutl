@@ -61,19 +61,30 @@ public abstract class RenderNodeOperation : IDisposable
     public static RenderNodeOperation CreateFromRenderTarget(
         Rect bounds, Point position, RenderTarget renderTarget, EffectiveScale effectiveScale = default)
     {
-        return CreateLambda(bounds, canvas => canvas.DrawRenderTarget(renderTarget, position), bounds.Contains, renderTarget.Dispose, effectiveScale);
+        // feature 003: a concrete-density buffer (At(w)) is drawn into its LOGICAL bounds so the active
+        // CTM resamples it once; an Unbounded buffer keeps the bare point blit (byte-identical at scale 1).
+        Action<ImmediateCanvas> render = effectiveScale.IsUnbounded
+            ? canvas => canvas.DrawRenderTarget(renderTarget, position)
+            : canvas => canvas.DrawRenderTargetScaled(renderTarget, bounds);
+        return CreateLambda(bounds, render, bounds.Contains, renderTarget.Dispose, effectiveScale);
     }
 
     public static RenderNodeOperation CreateFromSurface(
         Rect bounds, Point position, SKSurface surface, EffectiveScale effectiveScale = default)
     {
-        return CreateLambda(bounds, canvas => canvas.DrawSurface(surface, position), bounds.Contains, surface.Dispose, effectiveScale);
+        Action<ImmediateCanvas> render = effectiveScale.IsUnbounded
+            ? canvas => canvas.DrawSurface(surface, position)
+            : canvas => canvas.DrawSurfaceScaled(surface, bounds);
+        return CreateLambda(bounds, render, bounds.Contains, surface.Dispose, effectiveScale);
     }
 
     public static RenderNodeOperation CreateFromSurface(
         Rect bounds, Point position, Ref<SKSurface> surface, EffectiveScale effectiveScale = default)
     {
-        return CreateLambda(bounds, canvas => canvas.DrawSurface(surface.Value, position), bounds.Contains, surface.Dispose, effectiveScale);
+        Action<ImmediateCanvas> render = effectiveScale.IsUnbounded
+            ? canvas => canvas.DrawSurface(surface.Value, position)
+            : canvas => canvas.DrawSurfaceScaled(surface.Value, bounds);
+        return CreateLambda(bounds, render, bounds.Contains, surface.Dispose, effectiveScale);
     }
 
     private class LambdaRenderNodeOperation(

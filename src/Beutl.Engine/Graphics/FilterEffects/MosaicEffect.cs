@@ -79,7 +79,11 @@ public partial class MosaicEffect : FilterEffect
 
             // child shaderとしてテクスチャ用のシェーダーを設定
             builder.Children["src"] = baseShader;
-            builder.Uniforms["tileSize"] = data.tileSize.ToSKSize();
+            // feature 003 (FR-013): the shader runs in device-pixel space over a ceil(bounds × w) buffer,
+            // so the LOGICAL tile size scales by the working density to stay logically constant. The
+            // origin is already in device px (ToPixels over the buffer's pixel size), so it needs no scale.
+            float w = c.WorkingScale;
+            builder.Uniforms["tileSize"] = new Size(data.tileSize.Width * w, data.tileSize.Height * w).ToSKSize();
             builder.Uniforms["origin"] = data.origin.ToPixels(new(image.Width, image.Height)).ToSKPoint();
 
             // 新しいターゲットに適用

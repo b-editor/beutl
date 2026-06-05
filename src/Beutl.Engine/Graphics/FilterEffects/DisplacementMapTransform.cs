@@ -104,7 +104,10 @@ public partial class DisplacementMapTranslateTransform : DisplacementMapTransfor
                     builder.Children["uBaseTexture"] = baseShader;
                     builder.Children["uDisplacementMap"] = displacementMapShader;
 
-                    builder.Uniforms["uTranslation"] = new SKPoint(x, y);
+                    // feature 003: the shader samples uBaseTexture in device px over a ceil(bounds × w)
+                    // buffer, so the absolute-px displacement translation scales by the working density.
+                    float w = c.WorkingScale;
+                    builder.Uniforms["uTranslation"] = new SKPoint(x * w, y * w);
                     builder.Uniforms["uChannel"] = (int)ch;
                     builder.Uniforms["uSigned"] = isSigned ? 1 : 0;
 
@@ -213,10 +216,13 @@ public partial class DisplacementMapScaleTransform : DisplacementMapTransform
                     builder.Children["uBaseTexture"] = baseShader;
                     builder.Children["uDisplacementMap"] = displacementMapShader;
 
+                    // feature 003: uScale is a ratio (density-independent); the pivot is a logical-px center
+                    // mapped into the device-px shader space, so it scales by the working density.
+                    float w = c.WorkingScale;
                     builder.Uniforms["uScale"] = new SKPoint(scaleX, scaleY);
                     builder.Uniforms["uPivot"] = new SKPoint(
-                        effectTarget.Bounds.Width / 2 + center.X,
-                        effectTarget.Bounds.Height / 2 + center.Y);
+                        (effectTarget.Bounds.Width / 2 + center.X) * w,
+                        (effectTarget.Bounds.Height / 2 + center.Y) * w);
                     builder.Uniforms["uChannel"] = (int)ch;
                     builder.Uniforms["uSigned"] = isSigned ? 1 : 0;
 
@@ -321,10 +327,13 @@ public partial class DisplacementMapRotationTransform : DisplacementMapTransform
                     builder.Children["uBaseTexture"] = baseShader;
                     builder.Children["uDisplacementMap"] = displacementMapShader;
 
+                    // feature 003: the pivot is a logical-px center mapped into the device-px shader space,
+                    // so it scales by the working density (the rotation angle is density-independent).
+                    float w = c.WorkingScale;
                     builder.Uniforms["uAngle"] = MathUtilities.Deg2Rad(rotation);
                     builder.Uniforms["uPivot"] = new SKPoint(
-                        effectTarget.Bounds.Width / 2 + center.X,
-                        effectTarget.Bounds.Height / 2 + center.Y);
+                        (effectTarget.Bounds.Width / 2 + center.X) * w,
+                        (effectTarget.Bounds.Height / 2 + center.Y) * w);
                     builder.Uniforms["uChannel"] = (int)ch;
                     builder.Uniforms["uSigned"] = isSigned ? 1 : 0;
 

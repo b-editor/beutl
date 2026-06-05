@@ -72,6 +72,16 @@ internal sealed class TmpBackdrop(Bitmap bitmap) : IBackdrop
 {
     public void Draw(ImmediateCanvas canvas)
     {
-        canvas.DrawBitmap(bitmap, Brushes.Resource.White, null);
+        // feature 003: see SnapshotBackdropRenderNode.Draw — map the device-sized capture back to its
+        // logical footprint at s_out != 1; the bare blit at s_out == 1 stays byte-identical.
+        if (canvas.OutputScale == 1f)
+        {
+            canvas.DrawBitmap(bitmap, Brushes.Resource.White, null);
+        }
+        else
+        {
+            var dest = new Rect(0, 0, bitmap.Width / canvas.OutputScale, bitmap.Height / canvas.OutputScale);
+            canvas.DrawBitmapScaled(bitmap, dest, Brushes.Resource.White);
+        }
     }
 }

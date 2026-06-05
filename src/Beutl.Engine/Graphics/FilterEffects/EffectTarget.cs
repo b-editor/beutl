@@ -67,7 +67,17 @@ public sealed class EffectTarget : IDisposable
     {
         if (RenderTarget != null)
         {
-            canvas.DrawRenderTarget(RenderTarget, default);
+            // feature 003: a buffer captured At(w) is ceil(footprint × w) device px; draw it into its
+            // LOGICAL footprint (origin-anchored, mirroring the point-blit at (0,0)) so the ambient CTM
+            // maps it. Unbounded / unit-scale keeps the bare point blit (byte-identical).
+            if (Scale.IsUnbounded || Scale.Value == 1f)
+            {
+                canvas.DrawRenderTarget(RenderTarget, default);
+            }
+            else
+            {
+                canvas.DrawRenderTargetScaled(RenderTarget, new Rect(0, 0, OriginalBounds.Width, OriginalBounds.Height));
+            }
         }
         else
         {

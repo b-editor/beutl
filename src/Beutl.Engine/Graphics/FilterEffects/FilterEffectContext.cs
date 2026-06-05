@@ -64,9 +64,13 @@ public sealed class FilterEffectContext : IDisposable
     public float OutputScale { get; }
 
     /// <summary>
-    /// The density <c>w</c> this effect's intermediate buffers are allocated at (feature 003):
-    /// spatial-length params (blur sigma, shadow offset, dilate/erode radius) multiply by it, and
-    /// buffers are sized <c>ceil(bounds × w)</c>. <c>1.0</c> keeps the exact pre-feature path
+    /// The density <c>w</c> this effect's intermediate render-target / Custom buffers are allocated at
+    /// (feature 003, FR-009). <see cref="FilterEffectActivator"/> sizes flushed buffers
+    /// <c>ceil(bounds × w)</c> and <see cref="CustomFilterEffectContext.CreateTarget"/> does the same; a
+    /// Custom effect multiplies its absolute-length pixel parameters (tile size, displacement, split
+    /// offset) by <see cref="CustomFilterEffectContext.WorkingScale"/>. Skia <c>SKImageFilter</c>
+    /// primitives (blur sigma, shadow offset, dilate/erode radius) are NOT multiplied here — they ride
+    /// the root CTM and re-rasterize crisply for free. <c>1.0</c> keeps the exact pre-feature path
     /// (byte-identical). Resolved per-effect via <see cref="Beutl.Graphics.Rendering.RenderNodeContext.ResolveWorkingScale"/>.
     /// </summary>
     public float WorkingScale { get; }

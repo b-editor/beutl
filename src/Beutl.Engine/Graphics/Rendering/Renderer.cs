@@ -55,7 +55,7 @@ public class Renderer : IRenderer
                                    ?? throw new InvalidOperationException(
                                        $"Could not create a canvas of this size. (width: {DeviceSize.Width}, height: {DeviceSize.Height})");
 
-            var canvas = new ImmediateCanvas(surface);
+            var canvas = new ImmediateCanvas(surface) { OutputScale = renderScale };
             return (canvas, surface);
         });
     }

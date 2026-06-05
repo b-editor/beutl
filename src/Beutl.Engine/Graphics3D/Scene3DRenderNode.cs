@@ -52,18 +52,26 @@ internal sealed class Scene3DRenderNode(Scene3D.Resource scene) : RenderNode
         if (width <= 0 || height <= 0)
             return [];
 
+        // feature 003: render the 3D scene at the output density (ceil(size × s_out)) so it stays crisp
+        // under supersampled export / full-scale preview rather than being upscaled by the root CTM;
+        // the aspect ratio is preserved so the camera projection is unchanged. w == 1 keeps the exact
+        // logical-size surface + point-blit path (byte-identical).
+        float w = context.OutputScale;
+        int dw = w == 1f ? width : (int)MathF.Ceiling(width * w);
+        int dh = w == 1f ? height : (int)MathF.Ceiling(height * w);
+
         // Get or create renderer
         var renderer = scene.Renderer ??= new Renderer3D(graphicsContext);
 
         // Initialize or resize if needed
-        if (renderer.Width != width || renderer.Height != height)
+        if (renderer.Width != dw || renderer.Height != dh)
         {
             if (renderer.Width == 0 || renderer.Height == 0)
             {
-                renderer.Initialize(width, height);
+                renderer.Initialize(dw, dh);
             }
 
-            renderer.Resize(width, height);
+            renderer.Resize(dw, dh);
         }
 
         var objectResources = new List<Object3D.Resource>();
@@ -98,11 +106,13 @@ internal sealed class Scene3DRenderNode(Scene3D.Resource scene) : RenderNode
         if (surface == null)
             return [];
 
-        // Create the render operation that will draw the 3D scene
+        // Create the render operation that will draw the 3D scene. At s_out != 1 the surface is denser
+        // than Bounds, so tag it At(w) for a resampled blit; at w == 1 it stays Unbounded (point blit).
         var operation = RenderNodeOperation.CreateFromSurface(
             Bounds,
             new Point(0, 0),
-            surface);
+            surface,
+            w == 1f ? default : EffectiveScale.At(w));
 
         return [operation];
     }
