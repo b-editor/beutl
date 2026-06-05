@@ -10,7 +10,7 @@
     <PackageVersion Include="PanAndZoom" Version="11.3.9.1" />
     <PackageVersion Include="Avalonia.Desktop" Version="11.3.17" />
     <PackageVersion Include="Avalonia.Diagnostics" Version="11.3.17" />
-    <PackageVersion Include="ReactiveUI.Avalonia" Version="11.4.12" />
+    <PackageVersion Include="ReactiveUI.Avalonia" Version="11.4.13" />
     <PackageVersion Include="Silk.NET.MoltenVK.Native" Version="2.23.0" />
     <PackageVersion Include="Silk.NET.OpenAL" Version="2.23.0" />
     <PackageVersion Include="Silk.NET.OpenAL.Soft.Native" Version="1.23.1" />
@@ -24,8 +24,8 @@
     <PackageVersion Include="Silk.NET.Assimp" Version="2.23.0" />
     <PackageVersion Include="Svg.Controls.Skia.Avalonia" Version="11.3.9.5" />
     <PackageVersion Include="Avalonia.Themes.Fluent" Version="11.3.17" />
-    <PackageVersion Include="Xaml.Behaviors.Avalonia" Version="11.3.9.5" />
-    <PackageVersion Include="Xaml.Behaviors.Interactivity" Version="11.3.9.5" />
+    <PackageVersion Include="Xaml.Behaviors.Avalonia" Version="11.3.9.6" />
+    <PackageVersion Include="Xaml.Behaviors.Interactivity" Version="11.3.9.6" />
     <PackageVersion Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="1.15.3" />
     <PackageVersion Include="BenchmarkDotNet" Version="0.15.8" />
     <PackageVersion Include="coverlet.collector" Version="10.0.1" />
@@ -66,9 +66,9 @@
     <PackageVersion Include="OpenTK.OpenAL" Version="5.0.0-pre.8" />
     <PackageVersion Include="PanelExtension" Version="1.0.0" />
     <PackageVersion Include="ReactiveProperty" Version="9.8.0" />
-    <PackageVersion Include="Dock.Avalonia" Version="11.3.11.22" />
-    <PackageVersion Include="Dock.Model.Inpc" Version="11.3.11.22" />
-    <PackageVersion Include="Dock.Avalonia.Themes.Fluent" Version="11.3.11.22" />
+    <PackageVersion Include="Dock.Avalonia" Version="11.3.12.1" />
+    <PackageVersion Include="Dock.Model.Inpc" Version="11.3.12.1" />
+    <PackageVersion Include="Dock.Avalonia.Themes.Fluent" Version="11.3.12.1" />
     <PackageVersion Include="Dock.Serializer.SystemTextJson" Version="11.3.11.22" />
     <PackageVersion Include="Refit" Version="10.1.6" />
     <PackageVersion Include="Roslynator.Analyzers" Version="4.15.0" />
