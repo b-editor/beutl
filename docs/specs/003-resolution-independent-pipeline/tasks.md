@@ -150,7 +150,7 @@ Single-repo .NET solution. Engine: `src/Beutl.Engine/`; project system: `src/Beu
 ### Tests for User Story 4
 
 - [ ] T052 [P] [US4] Hit-test parity (same logical point → same drawable) + handle-drag parity (identical serialized `Transform`) across two render scales in `tests/Beutl.UnitTests/Engine/Graphics/Rendering/HitTestParityTests.cs`
-- [ ] T053 [P] [US4] Export size guard (`s>1` → snapshot == `FrameSize` before encode, FR-026) + SSAA aliasing reduction (SC-009) in `tests/Beutl.UnitTests/Engine/Graphics/Rendering/Golden/ExportSupersampleTests.cs`
+- [X] T053 [P] [US4] Export size guard (`s>1` → snapshot == `FrameSize` before encode, FR-026) + SSAA aliasing reduction (SC-009) in `tests/Beutl.UnitTests/Engine/Graphics/Rendering/Golden/ExportSupersampleTests.cs`
 - [ ] T054 [P] [US4] `PreviewScale` non-persistence test (set Quarter → `SaveState`/`RestoreState` → resets to Full; no scale key in `.config`) in `tests/Beutl.UnitTests/ViewModels/EditViewModelPreviewScaleTests.cs`
 
 ### Implementation for User Story 4
