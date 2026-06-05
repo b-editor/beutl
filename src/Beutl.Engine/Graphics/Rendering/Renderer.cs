@@ -42,14 +42,18 @@ public class Renderer : IRenderer
         }
     }
 
-    public Renderer(int width, int height)
+    public Renderer(int width, int height, float renderScale = 1f)
     {
         FrameSize = new PixelSize(width, height);
+        RenderScale = renderScale;
+        DeviceSize = new PixelSize(
+            (int)MathF.Ceiling(width * renderScale),
+            (int)MathF.Ceiling(height * renderScale));
         (_immediateCanvas, _surface) = RenderThread.Dispatcher.Invoke(() =>
         {
-            RenderTarget surface = RenderTarget.Create(width, height)
+            RenderTarget surface = RenderTarget.Create(DeviceSize.Width, DeviceSize.Height)
                                    ?? throw new InvalidOperationException(
-                                       $"Could not create a canvas of this size. (width: {width}, height: {height})");
+                                       $"Could not create a canvas of this size. (width: {DeviceSize.Width}, height: {DeviceSize.Height})");
 
             var canvas = new ImmediateCanvas(surface);
             return (canvas, surface);
@@ -94,6 +98,15 @@ public class Renderer : IRenderer
     public TimeSpan Time { get; internal set; }
 
     public PixelSize FrameSize { get; }
+
+    /// <summary>
+    /// The output scale <c>s_out</c> this renderer targets (feature 003): device pixels per logical
+    /// unit at the root. <c>1.0</c> = logical == device. <see cref="FrameSize"/> stays logical.
+    /// </summary>
+    public float RenderScale { get; }
+
+    /// <summary>The physical backing-surface size, <c>ceil(FrameSize × RenderScale)</c>.</summary>
+    public PixelSize DeviceSize { get; }
 
     public void Dispose()
     {
@@ -166,12 +179,12 @@ public class Renderer : IRenderer
 
         if (shouldRender)
         {
-            using var ctx = new GraphicsContext2D(entry.Node, FrameSize);
+            using var ctx = new GraphicsContext2D(entry.Node, FrameSize, RenderScale);
             drawable.Render(ctx, resource);
         }
 
         RevalidateAll(entry.Node);
-        var processor = new RenderNodeProcessor(entry.Node, CacheOptions.IsEnabled);
+        var processor = new RenderNodeProcessor(entry.Node, CacheOptions.IsEnabled, RenderScale);
         var ops = processor.PullToRoot();
         Rect bounds = Rect.Empty;
         foreach (var op in ops)
@@ -262,7 +275,7 @@ public class Renderer : IRenderer
 
             if (shouldRender)
             {
-                using var ctx = new GraphicsContext2D(entry.Node, FrameSize);
+                using var ctx = new GraphicsContext2D(entry.Node, FrameSize, RenderScale);
                 drawable.Render(ctx, drawableResource);
             }
 

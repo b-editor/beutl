@@ -1,11 +1,17 @@
-﻿using Beutl.Collections.Pooled;
+using Beutl.Collections.Pooled;
 using Beutl.Media;
 
 namespace Beutl.Graphics.Rendering;
 
-public class RenderNodeProcessor(RenderNode root, bool useRenderCache)
+public class RenderNodeProcessor(RenderNode root, bool useRenderCache, float outputScale = 1f)
 {
     public RenderNode Root { get; } = root;
+
+    /// <summary>
+    /// The output scale <c>s_out</c> seeded into every <see cref="RenderNodeContext"/> this processor
+    /// pulls (feature 003). <c>1.0</c> = logical == device (byte-identical to pre-feature).
+    /// </summary>
+    public float OutputScale { get; } = outputScale;
 
     public void Render(ImmediateCanvas canvas)
     {
@@ -17,27 +23,46 @@ public class RenderNodeProcessor(RenderNode root, bool useRenderCache)
         }
     }
 
+    /// <summary>
+    /// Rasterizes a single operation into its own render target at working scale <paramref name="w"/>.
+    /// The <c>w == 1</c> path is the exact pre-feature path (byte-identical); for <c>w != 1</c> the
+    /// target is sized <c>ceil(bounds × w)</c> and a <see cref="Matrix.CreateScale"/> is pushed.
+    /// Returns <see langword="null"/> for an empty (zero-area) target. The op is disposed once rendered.
+    /// </summary>
+    internal (RenderTarget RenderTarget, Rect Bounds)? RasterizeAt(RenderNodeOperation op, float w)
+    {
+        var rect = w == 1f ? PixelRect.FromRect(op.Bounds) : PixelRect.FromRect(op.Bounds, w);
+        if (rect.Width <= 0 || rect.Height <= 0) return null;
+
+        var renderTarget = RenderTarget.Create(rect.Width, rect.Height) ??
+                           throw new Exception("RenderTarget is null");
+
+        using var canvas = new ImmediateCanvas(renderTarget);
+        canvas.Clear();
+
+        var transform = w == 1f
+            ? Matrix.CreateTranslation(-op.Bounds.X, -op.Bounds.Y)
+            : Matrix.CreateTranslation(-op.Bounds.X, -op.Bounds.Y) * Matrix.CreateScale(w, w);
+
+        using (canvas.PushTransform(transform))
+        {
+            op.Render(canvas);
+            op.Dispose();
+        }
+
+        return (renderTarget, op.Bounds);
+    }
+
     internal List<(RenderTarget RenderTarget, Rect Bounds)> RasterizeToRenderTargets()
     {
         var list = new List<(RenderTarget, Rect)>();
         var ops = PullToRoot();
         foreach (var op in ops)
         {
-            var rect = PixelRect.FromRect(op.Bounds);
-            if (rect.Width <= 0 || rect.Height <= 0) continue;
-            var renderTarget = RenderTarget.Create(rect.Width, rect.Height) ??
-                               throw new Exception("RenderTarget is null");
-
-            using var canvas = new ImmediateCanvas(renderTarget);
-            canvas.Clear();
-
-            using (canvas.PushTransform(Matrix.CreateTranslation(-op.Bounds.X, -op.Bounds.Y)))
+            if (RasterizeAt(op, OutputScale) is { } result)
             {
-                op.Render(canvas);
-                op.Dispose();
+                list.Add(result);
             }
-
-            list.Add((renderTarget, op.Bounds));
         }
 
         return list;
@@ -47,16 +72,21 @@ public class RenderNodeProcessor(RenderNode root, bool useRenderCache)
     {
         var list = new List<Bitmap>();
         var ops = PullToRoot();
+        float w = OutputScale;
         foreach (var op in ops)
         {
-            var rect = PixelRect.FromRect(op.Bounds);
+            var rect = w == 1f ? PixelRect.FromRect(op.Bounds) : PixelRect.FromRect(op.Bounds, w);
             using var renderTarget = RenderTarget.Create(rect.Width, rect.Height)
                                      ?? throw new Exception("RenderTarget is null");
 
             using var canvas = new ImmediateCanvas(renderTarget);
             canvas.Clear();
 
-            using (canvas.PushTransform(Matrix.CreateTranslation(-op.Bounds.X, -op.Bounds.Y)))
+            var transform = w == 1f
+                ? Matrix.CreateTranslation(-op.Bounds.X, -op.Bounds.Y)
+                : Matrix.CreateTranslation(-op.Bounds.X, -op.Bounds.Y) * Matrix.CreateScale(w, w);
+
+            using (canvas.PushTransform(transform))
             {
                 op.Render(canvas);
                 op.Dispose();
@@ -72,12 +102,18 @@ public class RenderNodeProcessor(RenderNode root, bool useRenderCache)
     {
         var ops = PullToRoot();
         var bounds = ops.Aggregate(Rect.Empty, (a, n) => a.Union(n.Bounds));
-        var rect = PixelRect.FromRect(bounds);
+        float w = OutputScale;
+        var rect = w == 1f ? PixelRect.FromRect(bounds) : PixelRect.FromRect(bounds, w);
         using var renderTarget =
             RenderTarget.Create(rect.Width, rect.Height) ?? throw new Exception("RenderTarget is null");
         using var canvas = new ImmediateCanvas(renderTarget);
         canvas.Clear();
-        using (canvas.PushTransform(Matrix.CreateTranslation(-bounds.X, -bounds.Y)))
+
+        var transform = w == 1f
+            ? Matrix.CreateTranslation(-bounds.X, -bounds.Y)
+            : Matrix.CreateTranslation(-bounds.X, -bounds.Y) * Matrix.CreateScale(w, w);
+
+        using (canvas.PushTransform(transform))
         {
             foreach (var op in ops)
             {
@@ -118,7 +154,7 @@ public class RenderNodeProcessor(RenderNode root, bool useRenderCache)
             input = operations.ToArray();
         }
 
-        var context = new RenderNodeContext(input);
+        var context = new RenderNodeContext(input, OutputScale);
         var result = node.Process(context);
         if (useRenderCache && !context.IsRenderCacheEnabled)
         {

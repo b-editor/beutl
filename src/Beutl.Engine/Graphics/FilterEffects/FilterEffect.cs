@@ -10,6 +10,13 @@ public sealed partial class FallbackFilterEffect : FilterEffect, IFallback;
 [PresenterType(typeof(FilterEffectPresenter))]
 public abstract partial class FilterEffect : EngineObject
 {
+    /// <summary>
+    /// How this effect's buffer-allocating boundary derives its working scale (feature 003).
+    /// Defaults to <see cref="ResolutionPolicy.Inherit"/> (supply-driven); contour / morphology
+    /// effects override to <see cref="ResolutionPolicy.PreserveSource"/>.
+    /// </summary>
+    public virtual ResolutionPolicy ResolutionPolicy => ResolutionPolicy.Inherit;
+
     public abstract void ApplyTo(FilterEffectContext context, Resource resource);
 
     public abstract partial class Resource

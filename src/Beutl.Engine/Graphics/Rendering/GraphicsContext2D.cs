@@ -8,7 +8,8 @@ namespace Beutl.Graphics.Rendering;
 
 public sealed class GraphicsContext2D(
     ContainerRenderNode container,
-    PixelSize canvasSize = default)
+    PixelSize canvasSize = default,
+    float outputScale = 1f)
     : IDisposable, IPopable
 {
     private readonly Stack<(ContainerRenderNode, int)> _nodes = [];
@@ -20,6 +21,12 @@ public sealed class GraphicsContext2D(
     private bool _hasChanges;
 
     public PixelSize Size => canvasSize;
+
+    /// <summary>
+    /// The output scale <c>s_out</c> for this context (feature 003). <see cref="Size"/> stays logical;
+    /// the scale is consumed where a logical canvas footprint must become a device size (e.g. backdrops).
+    /// </summary>
+    public float OutputScale => outputScale;
 
     internal Action<RenderNode>? OnUntracked { get; set; }
 
@@ -342,6 +349,9 @@ public sealed class GraphicsContext2D(
 
         DrawBackdropRenderNode? next = Next<DrawBackdropRenderNode>();
 
+        // The backdrop's bounds are LOGICAL (feature 003): canvasSize is the logical FrameSize and the
+        // root CTM applies OutputScale, so this region must not be pre-scaled here. Capture-scale
+        // reconciliation (FR-021) is handled by the backdrop render node, not by scaling these bounds.
         var b = new Rect(canvasSize.ToSize(1));
         if (next == null)
         {

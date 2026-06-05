@@ -24,6 +24,13 @@ public abstract class RenderNode : INode
 
     public RenderNodeCache Cache { get; }
 
+    /// <summary>
+    /// How this node's buffer-allocating boundary derives its working scale from its
+    /// inputs' supply densities and the render request's output scale (feature 003).
+    /// Defaults to <see cref="ResolutionPolicy.Inherit"/> (supply-driven).
+    /// </summary>
+    public virtual ResolutionPolicy ResolutionPolicy => ResolutionPolicy.Inherit;
+
     public abstract RenderNodeOperation[] Process(RenderNodeContext context);
 
     public void Dispose()

@@ -39,7 +39,7 @@ internal class NodeGraphFilterEffectRenderNode(NodeGraphFilterEffect.Resource re
         var allResults = new List<RenderNodeOperation>();
         foreach (RenderNode outputNode in outputRenderNodes)
         {
-            var processor = new RenderNodeProcessor(outputNode, context.IsRenderCacheEnabled);
+            var processor = new RenderNodeProcessor(outputNode, context.IsRenderCacheEnabled, context.OutputScale);
             allResults.AddRange(processor.PullToRoot());
         }
 

@@ -8,6 +8,12 @@ public interface IRenderer : IDisposable
 {
     PixelSize FrameSize { get; }
 
+    // Default implementations for source compatibility with third-party IRenderer implementations (feature 003).
+    // A renderer that does not opt into resolution-independent output behaves as output scale 1.0.
+    float RenderScale => 1f;
+
+    PixelSize DeviceSize => FrameSize;
+
     TimeSpan Time { get; }
 
     bool DrawFps { get; set; }

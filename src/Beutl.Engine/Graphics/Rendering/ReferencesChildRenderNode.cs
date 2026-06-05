@@ -22,7 +22,7 @@ public class ReferencesChildRenderNode(RenderNode? child) : RenderNode
     {
         if (Child != null && !Child.IsDisposed)
         {
-            var processor = new RenderNodeProcessor(Child, context.IsRenderCacheEnabled);
+            var processor = new RenderNodeProcessor(Child, context.IsRenderCacheEnabled, context.OutputScale);
             return processor.PullToRoot();
         }
 
