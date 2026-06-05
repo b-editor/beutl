@@ -34,9 +34,11 @@ public sealed class FilterEffectContext : IDisposable
         s_colorMatPool = new DefaultObjectPool<float[]>(new ArrayPooledObjectPolicy<float>(20));
     }
 
-    public FilterEffectContext(Rect bounds)
+    public FilterEffectContext(Rect bounds, float outputScale = 1f, float workingScale = 1f)
     {
         Bounds = OriginalBounds = bounds;
+        OutputScale = outputScale;
+        WorkingScale = workingScale;
         _renderTimeItems = [];
         _items = [];
     }
@@ -45,6 +47,8 @@ public sealed class FilterEffectContext : IDisposable
     {
         OriginalBounds = obj.OriginalBounds;
         Bounds = obj.Bounds;
+        OutputScale = obj.OutputScale;
+        WorkingScale = obj.WorkingScale;
         _renderTimeItems = new PooledList<IFEItem>(obj._renderTimeItems);
         _items = new PooledList<IFEItem>(obj._items);
     }
@@ -52,6 +56,20 @@ public sealed class FilterEffectContext : IDisposable
     public Rect Bounds { get; internal set; }
 
     public Rect OriginalBounds { get; }
+
+    /// <summary>
+    /// The render request's output scale <c>s_out</c> (feature 003). The final target only; not a
+    /// ceiling on this effect's working scale.
+    /// </summary>
+    public float OutputScale { get; }
+
+    /// <summary>
+    /// The density <c>w</c> this effect's intermediate buffers are allocated at (feature 003):
+    /// spatial-length params (blur sigma, shadow offset, dilate/erode radius) multiply by it, and
+    /// buffers are sized <c>ceil(bounds × w)</c>. <c>1.0</c> keeps the exact pre-feature path
+    /// (byte-identical). Resolved per-effect via <see cref="Beutl.Graphics.Rendering.RenderNodeContext.ResolveWorkingScale"/>.
+    /// </summary>
+    public float WorkingScale { get; }
 
     public FilterEffectContext Clone()
     {
@@ -61,7 +79,7 @@ public sealed class FilterEffectContext : IDisposable
     public FilterEffectContext CreateChildContext()
     {
         // 今はnewしているが、キャッシュする予定
-        return new FilterEffectContext(Bounds);
+        return new FilterEffectContext(Bounds, OutputScale, WorkingScale);
     }
 
     private void AddItem(IFEItem item)
