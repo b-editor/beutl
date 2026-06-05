@@ -67,16 +67,20 @@ public sealed class EffectTarget : IDisposable
     {
         if (RenderTarget != null)
         {
-            // feature 003: a buffer captured At(w) is ceil(footprint × w) device px; draw it into its
-            // LOGICAL footprint (origin-anchored, mirroring the point-blit at (0,0)) so the ambient CTM
-            // maps it. Unbounded / unit-scale keeps the bare point blit (byte-identical).
+            // feature 003: a buffer captured At(w) is ceil(footprint × w) device px; draw it into its OWN
+            // LOGICAL footprint = pixel size ÷ w (origin-anchored, mirroring the point-blit at (0,0)) so the
+            // ambient CTM maps it. The footprint is derived from the buffer, NOT OriginalBounds, because a
+            // downstream filter (e.g. a blur/shadow wrapped in DelayAnimation) can inflate OriginalBounds while
+            // the buffer still represents the original area — using OriginalBounds would stretch it. Unbounded /
+            // unit-scale keeps the bare point blit (byte-identical).
             if (Scale.IsUnbounded || Scale.Value == 1f)
             {
                 canvas.DrawRenderTarget(RenderTarget, default);
             }
             else
             {
-                canvas.DrawRenderTargetScaled(RenderTarget, new Rect(0, 0, OriginalBounds.Width, OriginalBounds.Height));
+                canvas.DrawRenderTargetScaled(RenderTarget,
+                    new Rect(0, 0, RenderTarget.Width / Scale.Value, RenderTarget.Height / Scale.Value));
             }
         }
         else

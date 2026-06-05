@@ -59,6 +59,23 @@ public class DelayAnimationScaleTests
         return shape.ToResource(CompositionContext.Default);
     }
 
+    // A DropShadow (a bounds-INFLATING Skia filter) wrapped in DelayAnimationEffect. The nested re-application
+    // re-flushes the source buffer; if EffectTarget.Draw stretched it to the (now inflated) OriginalBounds, the
+    // content would render ~w× too large and clip at the frame at s_out > 1. This guards that footprint fix.
+    private static Drawable.Resource MakeDelayWrappedDropShadow()
+    {
+        var shape = BaseShape();
+        var shadow = new DropShadow();
+        shadow.Position.CurrentValue = new Point(14, 14);
+        shadow.Sigma.CurrentValue = new Size(8, 8);
+        shadow.Color.CurrentValue = Colors.Black;
+        var delay = new DelayAnimationEffect();
+        delay.Delay.CurrentValue = 0f;
+        delay.Effect.CurrentValue = shadow;
+        shape.FilterEffect.CurrentValue = delay;
+        return shape.ToResource(CompositionContext.Default);
+    }
+
     [Test]
     public void DelayWrapped_ScaleOne_IsDeterministic()
     {
@@ -100,6 +117,26 @@ public class DelayAnimationScaleTests
             TestContext.WriteLine($"Delay-wrapped vs direct @2x SSIM={ssimVsDirect:F4}");
             Assert.That(ssimVsDirect, Is.GreaterThan(0.98),
                 "delay-wrapped diverged from the direct effect at supersample — nested re-application lost the working density");
+        });
+    }
+
+    [Test]
+    public void DelayWrapped_BoundsInflatingChild_KeepsLogicalSize()
+    {
+        VulkanTestEnvironment.EnsureAvailable();
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            using Bitmap r1 = GoldenImageHarness.RenderAtScale(MakeDelayWrappedDropShadow(), Frame, 1f);
+            using Bitmap hi = GoldenImageHarness.RenderAtScale(MakeDelayWrappedDropShadow(), Frame, 2f);
+            using Bitmap delivered = GoldenImageHarness.MitchellResampleTo(hi, Frame);
+
+            // The DropShadow inflates the bounds inside the nested re-flush; the supersampled result must keep the
+            // SAME logical SIZE as the 1:1 render (no ~w× enlargement / clipping). Regressed to ~0.47 when
+            // EffectTarget.Draw stretched the source buffer to the inflated OriginalBounds.
+            double ssim = ImageMetrics.Ssim(r1, delivered);
+            TestContext.WriteLine($"Delay+DropShadow 2x-delivered vs 1:1 SSIM={ssim:F4}");
+            Assert.That(ssim, Is.GreaterThan(0.95),
+                "delay-wrapped bounds-inflating child rendered too large at s_out>1 — the source buffer was stretched to the inflated OriginalBounds");
         });
     }
 }
