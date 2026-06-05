@@ -144,18 +144,37 @@ public class Renderer : IRenderer
             {
                 _immediateCanvas.Clear();
 
-                foreach (var obj in frame.Objects)
+                // Root output scale (feature 003): one CTM scale maps logical content onto the
+                // ceil(FrameSize × RenderScale) device surface. Vector / text / Skia-filter content
+                // re-rasterizes crisply for free. RenderScale == 1 keeps the exact pre-feature path
+                // (byte-identical). The FPS overlay stays unscaled (outside this push).
+                if (RenderScale == 1f)
                 {
-                    if (obj is not Drawable.Resource drawableResource)
-                        continue;
-                    var entry = RenderDrawable(drawableResource);
-                    _allCurrentEntries.Add(entry);
+                    RenderObjects(frame);
+                }
+                else
+                {
+                    using (_immediateCanvas.PushTransform(Matrix.CreateScale(RenderScale, RenderScale)))
+                    {
+                        RenderObjects(frame);
+                    }
                 }
             }
         }
         finally
         {
             IsGraphicsRendering = false;
+        }
+    }
+
+    private void RenderObjects(CompositionFrame frame)
+    {
+        foreach (var obj in frame.Objects)
+        {
+            if (obj is not Drawable.Resource drawableResource)
+                continue;
+            var entry = RenderDrawable(drawableResource);
+            _allCurrentEntries.Add(entry);
         }
     }
 
