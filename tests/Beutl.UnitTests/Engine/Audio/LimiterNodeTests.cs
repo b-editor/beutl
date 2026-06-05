@@ -1365,12 +1365,13 @@ public class LimiterNodeTests
     }
 
     [Test]
-    public void Process_ContiguousChannelCountChange_ReinitializesBuffersWithoutDiscontinuity()
+    public void Process_ContiguousChannelCountChange_ReinitializesBuffersAndStillLimits()
     {
-        // A channel-count change reallocates the per-channel buffers even when the chunk is
-        // contiguous (no discontinuity reset fires). Exercises shrink (stereo->mono) and grow
-        // (mono->stereo) and confirms the output adopts the new channel count, stays finite, and
-        // still limits.
+        // A channel-count change reallocates the per-channel buffers (InitializeBuffers) regardless of
+        // time-range contiguity, so the resulting state is always fresh and there is no carried-over
+        // envelope to observe (this test cannot, by design, distinguish a discontinuity reset from the
+        // buffer re-init). It asserts the observable contract: across shrink (stereo->mono) and grow
+        // (mono->stereo) the output adopts the new channel count, stays finite, and still limits.
         const int chunkSamples = 1024;
         const float thresholdDb = -6f;
         float thresholdLin = MathF.Pow(10f, thresholdDb / 20f);
@@ -1525,5 +1526,217 @@ public class LimiterNodeTests
             "Quiet tail must recover after the burst leaves the window (deque must evict the stale max).");
         Assert.That(tailPeak, Is.LessThanOrEqualTo(quietAmp + 1e-3f),
             "Quiet tail is below threshold and must not be amplified.");
+    }
+
+    // Step animation: holds `first` for the whole [0, boundary) range and switches to `second` from
+    // `boundary` onward. Used to drive the animated/scan path with a per-chunk-constant lookahead so it
+    // can serve as an independent oracle for the static deque path across a lookahead change.
+    private static IProperty<float> CreateAnimatedStep(float first, float second, TimeSpan boundary)
+    {
+        var prop = Property.CreateAnimatable(first);
+        var animation = new KeyFrameAnimation<float>();
+        animation.KeyFrames.Add(new KeyFrame<float> { Value = first, KeyTime = TimeSpan.Zero });
+        animation.KeyFrames.Add(new KeyFrame<float> { Value = first, KeyTime = boundary - TimeSpan.FromTicks(1) });
+        animation.KeyFrames.Add(new KeyFrame<float> { Value = second, KeyTime = boundary });
+        prop.Animation = animation;
+        return prop;
+    }
+
+    [Test]
+    public void Process_StaticDeque_MatchesAnimatedScan_ForEqualConstantLookahead()
+    {
+        // Pins the perf commit's core correctness claim: the static path's O(1) monotonic-deque window
+        // maximum (PushWindowPeak) must produce output bit-identical to the animated path's direct
+        // O(lookahead) scan (ScanWindowPeak) when the lookahead is an equal constant. A constant
+        // KeyFrameAnimation on Lookahead forces the animated/scan path; everything else is identical, so
+        // any divergence is a deque bug. Runs multiple contiguous chunks to also cover deque persistence.
+        const int chunkSamples = 2048;
+        const int chunks = 3;
+        const float thresholdDb = -6f;
+        const float releaseMs = 80f;
+        const float lookaheadMs = LimiterEffect.MaxLookaheadMs; // large window stresses the window-max
+
+        // Deterministic, transient-rich signal so the window maximum changes often (spikes force evictions).
+        static float Gen(int ch, int i)
+        {
+            float tone = MathF.Sin(2f * MathF.PI * 523f * i / SampleRate);
+            float env = 0.6f + 0.4f * MathF.Sin(2f * MathF.PI * 3f * i / SampleRate);
+            float spike = (i % 311 == 0) ? 3.0f : 0f;
+            return (1.4f * tone * env + spike) * (ch == 0 ? 1.0f : 0.85f);
+        }
+
+        using var staticNode = CreateNode(thresholdDb: thresholdDb, releaseMs: releaseMs, lookaheadMs: lookaheadMs);
+        using var animatedNode = new LimiterNode
+        {
+            Threshold = Property.CreateAnimatable(thresholdDb),
+            Release = Property.CreateAnimatable(releaseMs),
+            Lookahead = CreateAnimatedConstant(lookaheadMs), // forces ProcessAnimated/ScanWindowPeak
+            MakeupGain = Property.CreateAnimatable(0f),
+        };
+
+        TimeSpan start = TimeSpan.Zero;
+        for (int c = 0; c < chunks; c++)
+        {
+            int baseIndex = c * chunkSamples;
+            using var inStatic = CreateBuffer(2, chunkSamples, (ch, i) => Gen(ch, baseIndex + i));
+            using var inAnimated = CreateBuffer(2, chunkSamples, (ch, i) => Gen(ch, baseIndex + i));
+            var ctx = CreateContext(chunkSamples, start: start);
+
+            staticNode.ClearInputs();
+            staticNode.AddInput(new StubInputNode(inStatic));
+            animatedNode.ClearInputs();
+            animatedNode.AddInput(new StubInputNode(inAnimated));
+
+            using var outStatic = staticNode.Process(ctx);
+            using var outAnimated = animatedNode.Process(ctx);
+
+            for (int ch = 0; ch < 2; ch++)
+            {
+                var s = outStatic.GetChannelData(ch);
+                var a = outAnimated.GetChannelData(ch);
+                for (int i = 0; i < chunkSamples; i++)
+                {
+                    Assert.That(s[i], Is.EqualTo(a[i]).Within(1e-6f),
+                        $"deque vs scan mismatch chunk {c} ch {ch} sample {i}: static={s[i]} animated={a[i]}.");
+                }
+            }
+
+            start += ctx.TimeRange.Duration;
+        }
+    }
+
+    [Test]
+    public void Process_StaticLookaheadChange_RebuildsDequeToMatchScan()
+    {
+        // Exercises the EnsureDeque rebuild-from-peak-ring branch: changing a STATIC lookahead between
+        // two contiguous chunks on a reused node forces a deque rebuild. The reused deque node is
+        // compared against an independent animated/scan node fed the identical signal with a step
+        // lookahead schedule (lookA during chunk 1, lookB during chunk 2). Equal output on chunk 2
+        // proves the rebuild reconstructs the correct window state for the new lookahead.
+        const int chunkSamples = 2048;
+        const float thresholdDb = -6f;
+        const float releaseMs = 80f;
+        const float lookA = 3f;
+        const float lookB = LimiterEffect.MaxLookaheadMs;
+
+        static float Gen(int ch, int i)
+        {
+            float tone = MathF.Sin(2f * MathF.PI * 523f * i / SampleRate);
+            float spike = (i % 167 == 0) ? 3.0f : 0f;
+            return (1.4f * tone + spike) * (ch == 0 ? 1.0f : 0.8f);
+        }
+
+        var dur1 = TimeSpan.FromSeconds((double)chunkSamples / SampleRate);
+
+        // Deque node: chunk 1 @ lookA (builds deque for A), chunk 2 @ lookB (rebuild for B).
+        using var dequeNode = CreateNode(thresholdDb: thresholdDb, releaseMs: releaseMs, lookaheadMs: lookA);
+        // Scan oracle: animated step lookahead A -> B at the chunk boundary.
+        using var scanNode = new LimiterNode
+        {
+            Threshold = Property.CreateAnimatable(thresholdDb),
+            Release = Property.CreateAnimatable(releaseMs),
+            Lookahead = CreateAnimatedStep(lookA, lookB, dur1),
+            MakeupGain = Property.CreateAnimatable(0f),
+        };
+
+        // Chunk 1 (both nodes @ lookA).
+        using (var inDeque1 = CreateBuffer(2, chunkSamples, (ch, i) => Gen(ch, i)))
+        using (var inScan1 = CreateBuffer(2, chunkSamples, (ch, i) => Gen(ch, i)))
+        {
+            dequeNode.AddInput(new StubInputNode(inDeque1));
+            scanNode.AddInput(new StubInputNode(inScan1));
+            using var _d = dequeNode.Process(CreateContext(chunkSamples, start: TimeSpan.Zero));
+            using var _s = scanNode.Process(CreateContext(chunkSamples, start: TimeSpan.Zero));
+        }
+
+        // Switch the deque node's static lookahead to B; the scan node steps to B automatically.
+        dequeNode.Lookahead.CurrentValue = lookB;
+
+        using var inDeque2 = CreateBuffer(2, chunkSamples, (ch, i) => Gen(ch, chunkSamples + i));
+        using var inScan2 = CreateBuffer(2, chunkSamples, (ch, i) => Gen(ch, chunkSamples + i));
+        dequeNode.ClearInputs();
+        dequeNode.AddInput(new StubInputNode(inDeque2));
+        scanNode.ClearInputs();
+        scanNode.AddInput(new StubInputNode(inScan2));
+
+        using var outDeque = dequeNode.Process(CreateContext(chunkSamples, start: dur1));
+        using var outScan = scanNode.Process(CreateContext(chunkSamples, start: dur1));
+
+        for (int ch = 0; ch < 2; ch++)
+        {
+            var d = outDeque.GetChannelData(ch);
+            var s = outScan.GetChannelData(ch);
+            for (int i = 0; i < chunkSamples; i++)
+            {
+                Assert.That(d[i], Is.EqualTo(s[i]).Within(1e-6f),
+                    $"rebuild deque vs scan mismatch ch {ch} sample {i}: deque={d[i]} scan={s[i]}.");
+            }
+        }
+    }
+
+    [Test]
+    public void Process_TinyAboveThreshold_LimitsAndStaysFinite()
+    {
+        // Drives the limiting branch (windowPeak > thresholdLin) at a tiny magnitude just above the
+        // minimum threshold (-60 dB -> ~0.001 linear), confirming the gain math stays finite and capped
+        // for sub-mill scale signals (no denormal/precision blow-up).
+        const int sampleCount = 2048;
+        const float thresholdDb = LimiterEffect.MinThresholdDb; // -60 dB
+        float thresholdLin = MathF.Pow(10f, thresholdDb / 20f);  // ~0.001
+        float amp = thresholdLin * 1.1f;                          // just above threshold
+
+        using var input = CreateBuffer(2, sampleCount,
+            (_, i) => amp * MathF.Sin(2f * MathF.PI * 440f * i / SampleRate));
+
+        using var node = CreateNode(thresholdDb: thresholdDb, lookaheadMs: 0f);
+        node.AddInput(new StubInputNode(input));
+
+        using var output = node.Process(CreateContext(sampleCount));
+
+        for (int ch = 0; ch < 2; ch++)
+        {
+            var data = output.GetChannelData(ch);
+            for (int i = 0; i < sampleCount; i++)
+            {
+                Assert.That(float.IsFinite(data[i]), Is.True, $"ch {ch} sample {i} must be finite.");
+                Assert.That(MathF.Abs(data[i]), Is.LessThanOrEqualTo(thresholdLin + 1e-6f),
+                    $"ch {ch} sample {i} must be capped at the tiny threshold.");
+            }
+        }
+    }
+
+    [Test]
+    public void Process_NonFiniteAnimatedParameters_AreClampedOnPerSamplePath()
+    {
+        // Mirrors the static non-finite-parameter test on the ANIMATED per-sample Derive path. All four
+        // parameters are animated to non-finite values. Release is the load-bearing one: without
+        // ClampFinite a NaN Release makes releaseCoef = Exp(NaN) = NaN, which poisons _currentGain
+        // through the IIR and turns the output NaN — so this test genuinely fails if per-sample coercion
+        // is removed (a Threshold/Lookahead-only variant would pass even uncoerced and prove nothing).
+        const int sampleCount = 2048;
+
+        using var input = CreateBuffer(2, sampleCount,
+            (_, i) => 2.0f * MathF.Sin(2f * MathF.PI * 440f * i / SampleRate));
+
+        using var node = new LimiterNode
+        {
+            Threshold = CreateAnimatedConstant(float.NaN),
+            Release = CreateAnimatedConstant(float.NaN),
+            Lookahead = CreateAnimatedConstant(float.PositiveInfinity),
+            MakeupGain = CreateAnimatedConstant(float.NaN),
+        };
+        node.AddInput(new StubInputNode(input));
+
+        using var output = node.Process(CreateContext(sampleCount));
+
+        for (int ch = 0; ch < 2; ch++)
+        {
+            var data = output.GetChannelData(ch);
+            for (int i = 0; i < sampleCount; i++)
+            {
+                Assert.That(float.IsFinite(data[i]), Is.True,
+                    $"animated non-finite params ch {ch} sample {i} must be sanitized.");
+            }
+        }
     }
 }

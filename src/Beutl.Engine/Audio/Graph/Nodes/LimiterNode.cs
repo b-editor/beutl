@@ -1,4 +1,5 @@
-﻿using Beutl.Audio.Effects;
+﻿using System.Diagnostics;
+using Beutl.Audio.Effects;
 using Beutl.Engine;
 using Beutl.Logging;
 using Beutl.Media;
@@ -322,6 +323,9 @@ public sealed class LimiterNode : AudioNode
 
             for (int i = 0; i < chunkSize; i++)
             {
+                // Derive recomputes one Exp + two Pow per sample here. That per-sample transcendental
+                // cost is a deliberate trade-off for sample-accurate parameter automation; the common
+                // no-animation case takes ProcessStatic, which derives the coefficients once per call.
                 var c = Derive(thresholds[i], releases[i], lookaheads[i], makeups[i], context.SampleRate);
                 int idx = processed + i;
                 float currentPeak = IngestSample(inRaw, sampleCount, channelCount, idx);
@@ -459,6 +463,13 @@ public sealed class LimiterNode : AudioNode
 
         while (_dqCount > 0 && _dqVal[(_dqHead + _dqCount - 1) % cap] <= value)
             _dqCount--;
+
+        // After the monotonic back-eviction the deque holds at most the in-window count =
+        // lookaheadSamples + 1 <= _maxLookaheadSamples = cap - 2, so a free slot for this push is
+        // guaranteed (_dqCount < cap, i.e. tail != _dqHead). Assert BEFORE the write so a future change
+        // that breaks the bound is caught before it overwrites the front, not one step after the
+        // corruption (Debug-only; compiled out of Release).
+        Debug.Assert(_dqCount < cap, "LimiterNode deque overflow: no free slot, front would be overwritten.");
 
         int tail = (_dqHead + _dqCount) % cap;
         _dqVal[tail] = value;
