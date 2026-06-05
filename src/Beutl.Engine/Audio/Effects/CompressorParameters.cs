@@ -1,4 +1,4 @@
-namespace Beutl.Audio.Effects;
+﻿namespace Beutl.Audio.Effects;
 
 // Single source of truth for the compressor's parameter ranges and defaults. CompressorEffect
 // references these in its [Range] / Property.CreateAnimatable declarations and CompressorNode
