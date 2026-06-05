@@ -16,6 +16,7 @@ using Beutl.Serialization;
 using Beutl.Services;
 using Beutl.Services.PrimitiveImpls;
 using Microsoft.Extensions.Logging;
+using System.Reactive.Linq;
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
 using Dispatcher = Avalonia.Threading.Dispatcher;
@@ -63,7 +64,17 @@ public sealed partial class EditViewModel : IEditorContext, ISupportAutoSaveEdit
         _editorSelection = new EditorSelectionImpl()
             .DisposeWith(_disposables);
 
-        Renderer = scene.GetObservable(Scene.FrameSizeProperty).Select(_ => new SceneRenderer(Scene))
+        // feature 003 (US4): per-edit-view, NON-persisted preview render quality. Changing it rebuilds
+        // the renderer + frame cache at the new output scale (SaveState/RestoreState never touch it).
+        PreviewScale = new ReactivePropertySlim<RenderScale>(RenderScale.Full)
+            .DisposeWith(_disposables);
+
+        IObservable<(PixelSize FrameSize, RenderScale Scale)> frameSizeAndScale =
+            scene.GetObservable(Scene.FrameSizeProperty)
+                .CombineLatest(PreviewScale, (frameSize, scale) => (frameSize, scale));
+
+        Renderer = frameSizeAndScale
+            .Select(t => new SceneRenderer(Scene, t.Scale.ToFloat(t.FrameSize, t.FrameSize.ToSize(1))))
             .DisposePreviousValue()
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables)!;
@@ -74,8 +85,8 @@ public sealed partial class EditViewModel : IEditorContext, ISupportAutoSaveEdit
 
         EditorConfig config = GlobalConfiguration.Instance.EditorConfig;
 
-        FrameCacheManager = scene.GetObservable(Scene.FrameSizeProperty)
-            .Select(v => new FrameCacheManager(v, CreateFrameCacheOptions()) { IsEnabled = config.IsFrameCacheEnabled })
+        FrameCacheManager = frameSizeAndScale
+            .Select(t => new FrameCacheManager(t.FrameSize, CreateFrameCacheOptions()) { IsEnabled = config.IsFrameCacheEnabled })
             .DisposePreviousValue()
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables)!;
@@ -314,6 +325,13 @@ public sealed partial class EditViewModel : IEditorContext, ISupportAutoSaveEdit
     public Scene Scene { get; private set; }
 
     public ReadOnlyReactivePropertySlim<SceneRenderer> Renderer { get; }
+
+    /// <summary>
+    /// Per-edit-view preview render quality (feature 003, US4). Non-persisted: defaults to
+    /// <see cref="RenderScale.Full"/> every session and is never written by SaveState/RestoreState.
+    /// Changing it atomically rebuilds <see cref="Renderer"/> and <see cref="FrameCacheManager"/>.
+    /// </summary>
+    public ReactivePropertySlim<RenderScale> PreviewScale { get; }
 
     public ReadOnlyReactivePropertySlim<SceneComposer> Composer { get; }
 

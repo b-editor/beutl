@@ -1,4 +1,5 @@
-﻿using System.Reactive.Subjects;
+﻿using System.Reactive.Linq;
+using System.Reactive.Subjects;
 using System.Runtime.InteropServices;
 using Beutl.Audio;
 using Beutl.Audio.Composing;
@@ -69,6 +70,14 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
         _editorSelection = editViewModel.GetRequiredService<IEditorSelection>();
         Scene = editViewModel.Scene;
         _isEnabled = editViewModel.IsEnabled;
+
+        // feature 003 (US4): re-render when preview quality changes. The render path reads the freshly
+        // rebuilt Renderer/Composer/FrameCacheManager inside the dispatcher, so the swap is atomic.
+        editViewModel.PreviewScale
+            .Skip(1)
+            .Subscribe(_ => QueueRender())
+            .DisposeWith(_disposables);
+
         PlayPause = new AsyncReactiveCommand(_isEnabled.AsObservable())
             .WithSubscribe(async () =>
             {
