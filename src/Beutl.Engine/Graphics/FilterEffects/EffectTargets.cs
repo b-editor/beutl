@@ -28,6 +28,28 @@ public sealed class EffectTargets : IList<EffectTarget>, IDisposable
     {
         return this.Aggregate<EffectTarget, Rect>(default, (x, y) => x.Union(y.Bounds));
     }
+
+    /// <summary>
+    /// The densest concrete supply scale among these targets (feature 003), or
+    /// <see cref="Beutl.Graphics.Rendering.EffectiveScale.Unbounded"/> when every target is vector.
+    /// Used to pick a common working scale for a mixed-scale effect boundary.
+    /// </summary>
+    public Beutl.Graphics.Rendering.EffectiveScale MaxScale()
+    {
+        Beutl.Graphics.Rendering.EffectiveScale max = Beutl.Graphics.Rendering.EffectiveScale.Unbounded;
+        float best = 0f;
+        foreach (EffectTarget t in _targets)
+        {
+            if (t.Scale.IsUnbounded) continue;
+            if (t.Scale.Value > best)
+            {
+                best = t.Scale.Value;
+                max = t.Scale;
+            }
+        }
+
+        return max;
+    }
     public EffectTargets Clone() => new(this);
     public void Add(EffectTarget item) => ((ICollection<EffectTarget>)_targets).Add(item);
     public void AddRange(IEnumerable<EffectTarget> collection) => _targets.AddRange(collection);

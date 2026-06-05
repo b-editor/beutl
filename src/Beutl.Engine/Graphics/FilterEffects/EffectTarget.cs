@@ -11,13 +11,15 @@ public sealed class EffectTarget : IDisposable
         _target = node;
         OriginalBounds = node.Bounds;
         Bounds = node.Bounds;
+        Scale = node.EffectiveScale;
     }
 
-    public EffectTarget(RenderTarget renderTarget, Rect originalBounds)
+    public EffectTarget(RenderTarget renderTarget, Rect originalBounds, EffectiveScale scale = default)
     {
         _target = renderTarget.ShallowCopy();
         OriginalBounds = originalBounds;
         Bounds = originalBounds;
+        Scale = scale;
     }
 
     public EffectTarget()
@@ -27,6 +29,13 @@ public sealed class EffectTarget : IDisposable
     public Rect OriginalBounds { get; set; }
 
     public Rect Bounds { get; set; }
+
+    /// <summary>
+    /// The supply density of this target's backing pixels (feature 003). <see cref="EffectiveScale.Unbounded"/>
+    /// for a vector <see cref="NodeOperation"/>; a concrete <see cref="EffectiveScale.At"/> for a flushed
+    /// <see cref="RenderTarget"/> buffer rendered at a working scale. Drives mixed-scale reconciliation.
+    /// </summary>
+    public EffectiveScale Scale { get; set; }
 
     public RenderNodeOperation? NodeOperation => _target as RenderNodeOperation;
 
@@ -38,7 +47,7 @@ public sealed class EffectTarget : IDisposable
     {
         if (RenderTarget != null)
         {
-            return new EffectTarget(RenderTarget, OriginalBounds) { Bounds = Bounds };
+            return new EffectTarget(RenderTarget, OriginalBounds, Scale) { Bounds = Bounds };
         }
         else
         {
