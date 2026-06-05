@@ -1,7 +1,6 @@
 ﻿using Beutl.Composition;
 using Beutl.Graphics;
 using Beutl.Graphics.Effects;
-using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Shapes;
 using Beutl.Graphics.Transformation;
 using Beutl.Media;
