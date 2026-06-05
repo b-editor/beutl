@@ -107,12 +107,16 @@ public partial class FlatShadow : FilterEffect
             using (ImmediateCanvas newCanvas = context.Open(newTarget))
             {
                 newCanvas.Clear();
-                using (newCanvas.PushTransform(Matrix.CreateTranslation((x2Abs - x2) / 2, (y2Abs - y2) / 2)))
+                // feature 003: the contour path is DEVICE px (traced from the ceil(bounds × w) source), so the
+                // shadow offset, the per-step extrusion COUNT, the SrcIn brush rect and the source-blit offset all
+                // scale to device by the working density to stay consistent with it. w == 1 = pre-feature path.
+                float w = context.WorkingScale;
+                using (newCanvas.PushTransform(Matrix.CreateTranslation((x2Abs - x2) / 2 * w, (y2Abs - y2) / 2 * w)))
                 {
-                    var c = new BrushConstructor(new(newTarget.Bounds.Size), brush, BlendMode.SrcIn);
+                    var c = new BrushConstructor(new(new Size(newTarget.Bounds.Width * w, newTarget.Bounds.Height * w)), brush, BlendMode.SrcIn);
                     c.ConfigurePaint(brushPaint);
 
-                    float lenAbs = Math.Abs(length);
+                    float lenAbs = Math.Abs(length) * w;
                     int unit = Math.Sign(length);
                     for (int i = 0; i < lenAbs; i++)
                     {
@@ -121,10 +125,10 @@ public partial class FlatShadow : FilterEffect
                     }
                 }
 
-                newCanvas.Canvas.DrawRect(SKRect.Create(newTarget.Bounds.Size.ToSKSize()), brushPaint);
+                newCanvas.Canvas.DrawRect(SKRect.Create((float)(newTarget.Bounds.Width * w), (float)(newTarget.Bounds.Height * w)), brushPaint);
 
                 if (!data.ShadowOnly)
-                    newCanvas.DrawRenderTarget(target.RenderTarget!, new((x2Abs - x2) / 2, (y2Abs - y2) / 2));
+                    newCanvas.DrawRenderTarget(target.RenderTarget!, new((x2Abs - x2) / 2 * w, (y2Abs - y2) / 2 * w));
             }
 
             target.Dispose();

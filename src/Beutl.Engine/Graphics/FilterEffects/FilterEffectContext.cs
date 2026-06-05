@@ -179,14 +179,18 @@ public sealed class FilterEffectContext : IDisposable
                         using (ImmediateCanvas canvas = context.Open(newTarget))
                         {
                             canvas.Clear();
-                            using var blur = SKImageFilter.CreateBlur(data.sigma.Width, data.sigma.Height);
+                            // feature 003: the target buffer is ceil(bounds × w) DEVICE px and the source At(w) is
+                            // point-blitted into it, so the blur sigma and the shadow offset (both absolute logical
+                            // px) scale by the working density. w == 1 keeps the pre-feature path (byte-identical).
+                            float w = context.WorkingScale;
+                            using var blur = SKImageFilter.CreateBlur(data.sigma.Width * w, data.sigma.Height * w);
                             using var blend = SKColorFilter.CreateBlendMode(data.color.ToSKColor(), SKBlendMode.SrcOut);
                             using var filter = SKImageFilter.CreateColorFilter(blend, blur);
                             using var paint = new SKPaint { ImageFilter = filter };
 
                             using (canvas.PushPaint(paint))
                             {
-                                canvas.DrawRenderTarget(target.RenderTarget, data.position);
+                                canvas.DrawRenderTarget(target.RenderTarget, new Point(data.position.X * w, data.position.Y * w));
                             }
 
                             using (canvas.PushBlendMode(data.blendMode))
@@ -449,7 +453,14 @@ public sealed class FilterEffectContext : IDisposable
                     {
                         newCanvas.Clear();
                         newCanvas.DrawRenderTarget(target.RenderTarget, default);
-                        newCanvas.Canvas.DrawRect(SKRect.Create(size.ToSKSize()), brushPaint);
+                        // feature 003: the source above is device-px (point-blit, unchanged); the brush + its LOGICAL
+                        // coverage rect are prescaled by w so they fill the full ceil(bounds × w) device buffer at
+                        // working density. w == 1 keeps the bare path (byte-identical).
+                        float w = context.WorkingScale;
+                        using (w == 1f ? default : newCanvas.PushTransform(Matrix.CreateScale(w, w)))
+                        {
+                            newCanvas.Canvas.DrawRect(SKRect.Create(size.ToSKSize()), brushPaint);
+                        }
                     }
 
                     target.Dispose();

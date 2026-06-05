@@ -14,7 +14,12 @@ public partial class LayerEffect : FilterEffect
             {
                 var bounds = ctx.Targets.CalculateBounds();
                 var newTarget = ctx.CreateTarget(bounds);
+                // feature 003: the buffer is ceil(bounds × w) DEVICE px while the child placement is LOGICAL and
+                // t.Draw maps an At(w) child into its logical rect, so prescale the canvas by w to map the logical
+                // composite onto the full device buffer. w == 1 keeps the bare identity path (byte-identical).
+                float w = ctx.WorkingScale;
                 using (var canvas = ctx.Open(newTarget))
+                using (w == 1f ? default : canvas.PushTransform(Matrix.CreateScale(w, w)))
                 {
                     canvas.Clear();
                     foreach (var t in ctx.Targets)

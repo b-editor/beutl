@@ -82,7 +82,12 @@ public sealed partial class PathFollowEffect : FilterEffect
 
                 var newBounds = target.Bounds.TransformToAABB(m1);
                 var newTarget = effectContext.CreateTarget(newBounds);
+                // feature 003: the buffer is ceil(newBounds × w) DEVICE px while the follow translate/rotation are
+                // LOGICAL and target.Draw maps an At(w) source into its logical rect, so prescale by w to map the
+                // logical placement onto the full device buffer. w == 1 keeps the bare path (byte-identical).
+                float w = effectContext.WorkingScale;
                 using (var canvas = effectContext.Open(newTarget))
+                using (w == 1f ? default : canvas.PushTransform(Matrix.CreateScale(w, w)))
                 using (canvas.PushTransform(Matrix.CreateTranslation(target.Bounds.Position - newTarget.Bounds.Position)))
                 using (canvas.PushTransform(m2))
                 {

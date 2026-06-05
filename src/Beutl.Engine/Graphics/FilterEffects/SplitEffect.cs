@@ -38,6 +38,9 @@ public partial class SplitEffect : FilterEffect
                 {
                     EffectTarget t = effectContext.Targets[i];
                     RenderTarget renderTarget = t.RenderTarget!;
+                    // feature 003: the source At(w) is point-blitted into each ceil(tile × w) device tile, so the
+                    // per-tile crop offset (logical px) scales by the working density. w == 1 = pre-feature path.
+                    float w = effectContext.WorkingScale;
 
                     float divWidth = t.Bounds.Width / d.HorizontalDivisions;
                     float divHeight = t.Bounds.Height / d.VerticalDivisions;
@@ -73,7 +76,7 @@ public partial class SplitEffect : FilterEffect
                                 using (ImmediateCanvas canvas = effectContext.Open(newTarget))
                                 {
                                     canvas.Clear();
-                                    canvas.DrawRenderTarget(renderTarget, new Point(-divWidth * h, -divHeight * v));
+                                    canvas.DrawRenderTarget(renderTarget, new Point(-divWidth * h * w, -divHeight * v * w));
                                 }
 
                                 newTargets[v * d.HorizontalDivisions + h] = newTarget;

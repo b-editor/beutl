@@ -81,7 +81,12 @@ public partial class StrokeEffect : FilterEffect
                 RenderTarget srcRenderTarget = target.RenderTarget!;
                 using var src = srcRenderTarget.Snapshot();
 
+                // feature 003: the contour path + source are DEVICE px. Map the path to LOGICAL (× 1/w) and prescale
+                // the canvas by w, so the logical pen width / offsets / origin map to device at working density, and
+                // draw the source via the scale-aware target.Draw. w == 1 keeps the pre-feature path (byte-identical).
+                float w = context.WorkingScale;
                 using SKPath borderPath = CreateBorderPath(src);
+                if (w != 1f) borderPath.Transform(SKMatrix.CreateScale(1f / w, 1f / w));
 
                 Rect transformedBounds = TransformBounds(data, target.Bounds);
                 float thickness = PenHelper.GetRealThickness(pen.StrokeAlignment, pen.Thickness);
@@ -91,12 +96,13 @@ public partial class StrokeEffect : FilterEffect
 
                 EffectTarget newTarget = context.CreateTarget(transformedBounds);
                 using (ImmediateCanvas newCanvas = context.Open(newTarget))
+                using (w == 1f ? default : newCanvas.PushTransform(Matrix.CreateScale(w, w)))
                 using (newCanvas.PushTransform(origin))
                 {
                     newCanvas.Clear();
                     if (data.Style == StrokeStyles.Background)
                     {
-                        newCanvas.DrawRenderTarget(srcRenderTarget, default);
+                        target.Draw(newCanvas);
                     }
 
                     using (newCanvas.PushTransform(Matrix.CreateTranslation(data.Offset.X, data.Offset.Y)))
@@ -106,7 +112,7 @@ public partial class StrokeEffect : FilterEffect
 
                     if (data.Style == StrokeStyles.Foreground)
                     {
-                        newCanvas.DrawRenderTarget(srcRenderTarget, default);
+                        target.Draw(newCanvas);
                     }
                 }
 
