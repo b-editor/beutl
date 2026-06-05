@@ -27,7 +27,21 @@ public class FilterEffectRenderNode(FilterEffect.Resource filterEffect) : Contai
             return context.Input;
         }
 
-        using var feContext = new FilterEffectContext(context.CalculateBounds());
+        // Resolve this effect's working scale w from its inputs' supply densities, the output
+        // scale, and the effect's resolution policy (feature 003, FR-036). Threaded into the
+        // context so authors can read WorkingScale/OutputScale (FR-015). At output scale 1.0 with
+        // vector inputs, w == 1 (byte-identical). The buffer/sigma activation of w (force-flush +
+        // ceil(bounds*w) + concrete-scale resample) is realized by the effect-buffer slice.
+        var inputScales = new EffectiveScale[context.Input.Length];
+        for (int i = 0; i < context.Input.Length; i++)
+        {
+            inputScales[i] = context.Input[i].EffectiveScale;
+        }
+
+        float workingScale = RenderNodeContext.ResolveWorkingScale(
+            inputScales, context.OutputScale, FilterEffect.Value.Resource.GetOriginal().ResolutionPolicy);
+
+        using var feContext = new FilterEffectContext(context.CalculateBounds(), context.OutputScale, workingScale);
         FilterEffect.Value.Resource.GetOriginal().ApplyTo(feContext, FilterEffect.Value.Resource);
         var effectTargets = new EffectTargets();
         effectTargets.AddRange(context.Input.Select(i => new EffectTarget(i)));
