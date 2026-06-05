@@ -333,6 +333,9 @@ public sealed partial class EditViewModel : IEditorContext, ISupportAutoSaveEdit
     /// </summary>
     public ReactivePropertySlim<RenderScale> PreviewScale { get; }
 
+    /// <summary>Selectable preview-quality options for the preview-scale picker (feature 003, US4).</summary>
+    public RenderScale[] PreviewScaleOptions { get; } = Enum.GetValues<RenderScale>();
+
     public ReadOnlyReactivePropertySlim<SceneComposer> Composer { get; }
 
     public ReactivePropertySlim<bool> IsEnabled { get; } = new(true);

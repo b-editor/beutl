@@ -119,6 +119,16 @@
                               Stretch="Uniform" />
                     </Border>
                 </RadioButton>
+
+                <!--  Preview render quality (feature 003, US4): non-persisted per edit view  -->
+                <Border Margin="0,8,0,0"
+                        BorderBrush="{DynamicResource DividerStrokeColorDefaultBrush}"
+                        BorderThickness="0,1,0,0" />
+                <ComboBox Margin="0,8,0,0"
+                          MinWidth="72"
+                          ItemsSource="{Binding EditViewModel.PreviewScaleOptions}"
+                          SelectedItem="{Binding EditViewModel.PreviewScale.Value}"
+                          ToolTip.Tip="Preview render quality" />
             </StackPanel>
         </Player.InnerLeftContent>
         <Player.InnerRightContent>

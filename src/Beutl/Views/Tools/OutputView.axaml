@@ -97,6 +97,29 @@
             </ComboBox>
         </Grid>
 
+        <Grid Margin="8,0" ToolTip.Tip="Render at N× and downscale to the output resolution for smoother edges (feature 003).">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="2*" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="150" SharedSizeGroup="TextBox_SizeGroup" />
+            </Grid.ColumnDefinitions>
+
+            <TextBlock HorizontalAlignment="Left"
+                       VerticalAlignment="Center"
+                       ClipToBounds="False"
+                       Text="Supersampling"
+                       TextTrimming="CharacterEllipsis" />
+
+            <GridSplitter Grid.Column="1" Background="Transparent" />
+
+            <ComboBox Grid.Column="2"
+                      MinWidth="120"
+                      Margin="0,4"
+                      HorizontalAlignment="Stretch"
+                      ItemsSource="{Binding SupersampleFactors}"
+                      SelectedItem="{Binding SupersampleFactor.Value}" />
+        </Grid>
+
         <TextBlock Margin="8,16,0,0"
                    Text="{x:Static lang:Strings.Video}"
                    Theme="{StaticResource BodyStrongTextBlockStyle}" />
