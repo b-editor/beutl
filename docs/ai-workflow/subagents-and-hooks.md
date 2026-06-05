@@ -36,6 +36,7 @@ All hooks are team-shared (loaded via `.claude/settings.json`). On first launch,
 | Hook | Role | Blocking? |
 |---|---|---|
 | `SessionStart` → `session-start-context.sh` | At startup, inject branch, last 5 commits, and uncommitted changes into context. | no |
+| `SessionStart` → `install-dotnet.sh` | On Claude Code web/cloud sessions, install the .NET SDK if it is missing. | no |
 | `PreToolUse(Bash)` → `block-dangerous-bash.sh` | Deny obvious literal forms of `rm -rf /`, `rm -rf ~`, `rm -rf $HOME` / `${HOME}`, and `git push (--force / -f / --force-with-lease) origin (main / master)`. | **deny** |
 | `PreToolUse(Bash)` → `allow-dotnet-commands.sh` | Auto-allow `dotnet build/test/format/restore/run`, `./build.sh`. | **allow** |
 | `PreToolUse(Edit\|Write\|MultiEdit)` → `check-gpl-mit-boundary.sh` | Inspect the new content fragments of a `.csproj` edit (`new_string`, `content`, `edits[].new_string`) and deny when they include a `<ProjectReference ... Beutl.FFmpegWorker`. | **deny** |

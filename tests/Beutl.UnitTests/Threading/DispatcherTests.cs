@@ -503,4 +503,43 @@ public class DispatcherTests
 
         dispatcher.Shutdown();
     }
+
+    // Regression test: WaitForPendingOperations passed `next - now` to CancellationTokenSource
+    // .CancelAfter without guarding against a negative value. With a monotonically advancing
+    // clock the next timer slips from "future" at FlushTimerQueue to "past" at the wait
+    // computation, which used to throw ArgumentOutOfRangeException and kill the dispatcher thread.
+    [Test]
+    public void Schedule_WhenTimerElapsesBetweenFlushAndWait_DoesNotCrashDispatcher()
+    {
+        // step (10ms) < delay (15ms) < 2*step (20ms): after the flush read (now = +10, timer
+        // still future) the wait read (now = +20) makes the delay negative by construction.
+        var timeProvider = new AdvancingTimeProvider(DateTimeOffset.UtcNow, TimeSpan.FromMilliseconds(10));
+        var dispatcher = Dispatcher.Spawn(timeProvider);
+        var tcs = new TaskCompletionSource();
+
+        dispatcher.Schedule(TimeSpan.FromMilliseconds(15), () => tcs.SetResult());
+
+        Assert.That(tcs.Task.Wait(TimeSpan.FromSeconds(5)), Is.True,
+            "Scheduled operation did not run; the dispatcher likely crashed on CancelAfter with a negative delay.");
+
+        dispatcher.Shutdown();
+    }
+
+    // Advances by a fixed step on every GetUtcNow() call, so a scheduled timer deterministically
+    // slips from "future" to "past" across the dispatcher's flush and wait reads of the clock.
+    private sealed class AdvancingTimeProvider(DateTimeOffset start, TimeSpan step) : TimeProvider
+    {
+        private readonly object _lock = new();
+        private DateTimeOffset _now = start;
+
+        public override DateTimeOffset GetUtcNow()
+        {
+            lock (_lock)
+            {
+                DateTimeOffset now = _now;
+                _now += step;
+                return now;
+            }
+        }
+    }
 }
