@@ -64,8 +64,54 @@ public class CustomEffectSupersampleTests
             double maeSS = ImageMetrics.MeanAbsoluteError(delivered, truth);
             double mae11 = ImageMetrics.MeanAbsoluteError(oneToOne, truth);
             TestContext.WriteLine($"Mosaic vs truth: MAE ss={maeSS:F4} 1:1={mae11:F4}");
-            Assert.That(maeSS, Is.LessThanOrEqualTo(mae11 + 1e-4),
-                "supersampled mosaic not closer to ground truth than 1:1 — buffer activation gave no density");
+            Assert.That(maeSS, Is.LessThan(mae11),
+                "supersampled mosaic not strictly closer to ground truth than 1:1 — buffer activation gave no density");
+        });
+    }
+
+    // A spatially-varying displacement map (the default RadialGradientBrush) plus a non-zero translate. This
+    // is the case that the constant-map control cannot catch: the map is laid out in LOGICAL space but
+    // cross-sampled at the device-px coord of the base, so without the per-effect local-matrix x w the warp
+    // is misaligned/zoomed at w != 1 (a structurally different image, not a denser one).
+    private static Drawable.Resource MakeDisplacedShape()
+    {
+        var shape = new RectShape();
+        shape.AlignmentX.CurrentValue = AlignmentX.Center;
+        shape.AlignmentY.CurrentValue = AlignmentY.Center;
+        shape.TransformOrigin.CurrentValue = RelativePoint.Center;
+        shape.Width.CurrentValue = 150;
+        shape.Height.CurrentValue = 40;
+        shape.Fill.CurrentValue = Brushes.White;
+        var rotation = new RotationTransform();
+        rotation.Rotation.CurrentValue = 21f;
+        shape.Transform.CurrentValue = rotation;
+
+        var effect = new DisplacementMapEffect();          // default DisplacementMap = RadialGradientBrush (spatially varying)
+        var transform = new DisplacementMapTranslateTransform();
+        transform.X.CurrentValue = 40;
+        transform.Y.CurrentValue = 40;
+        effect.Transform.CurrentValue = transform;
+        shape.FilterEffect.CurrentValue = effect;
+        return shape.ToResource(CompositionContext.Default);
+    }
+
+    [Test]
+    public void DisplacementMap_Supersampled_KeepsLogicalWarp()
+    {
+        VulkanTestEnvironment.EnsureAvailable();
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            using Bitmap oneToOne = GoldenImageHarness.RenderAtScale(MakeDisplacedShape(), Frame, 1f);
+            using Bitmap superHi = GoldenImageHarness.RenderAtScale(MakeDisplacedShape(), Frame, 2f);
+            using Bitmap delivered = GoldenImageHarness.MitchellResampleTo(superHi, Frame);
+
+            // The supersampled-then-downscaled warp must be the SAME logical image as the 1:1 warp (the
+            // displacement map shares the base texture's coord space). The map-vs-base sampling-space bug
+            // drops this well below 0.95 (empirically ~0.84) for a spatially-varying map.
+            double ssim = ImageMetrics.Ssim(oneToOne, delivered);
+            TestContext.WriteLine($"DisplacementMap 2x-delivered vs 1:1 SSIM={ssim:F4}");
+            Assert.That(ssim, Is.GreaterThan(0.95),
+                "supersampled displacement warp diverged from 1:1 — the displacement map is sampled in the wrong space at w != 1");
         });
     }
 }

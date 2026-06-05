@@ -356,11 +356,13 @@ public sealed partial class EditViewModel : IEditorContext, ISupportAutoSaveEdit
     /// </summary>
     public ReactivePropertySlim<Beutl.Graphics.Size> PreviewSurfaceSize { get; }
 
-    // feature 003 (US4): resolve s_out; snap FitToPreviewer to 0.05 steps to bound renderer-rebuild churn.
+    // feature 003 (US4): resolve s_out; snap FitToPreviewer to 0.05 steps to bound renderer-rebuild churn,
+    // then re-floor to MinScale (1/64) — the round-to-step can otherwise drive a tiny-panel / large-frame fit
+    // ratio to exactly 0, sizing the render surface 0x0 and throwing on renderer construction.
     private static float ResolveOutputScale(RenderScale scale, PixelSize frameSize, Beutl.Graphics.Size previewSurface)
     {
         float s = scale.ToFloat(frameSize, previewSurface);
-        return scale == RenderScale.FitToPreviewer ? MathF.Round(s * 20f) / 20f : s;
+        return scale == RenderScale.FitToPreviewer ? MathF.Max(MathF.Round(s * 20f) / 20f, 1f / 64f) : s;
     }
 
     public ReadOnlyReactivePropertySlim<SceneComposer> Composer { get; }

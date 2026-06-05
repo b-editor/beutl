@@ -63,7 +63,7 @@ public abstract class RenderNodeOperation : IDisposable
     {
         // feature 003: a concrete-density buffer (At(w)) is drawn into its LOGICAL bounds so the active
         // CTM resamples it once; an Unbounded buffer keeps the bare point blit (byte-identical at scale 1).
-        Action<ImmediateCanvas> render = effectiveScale.IsUnbounded
+        Action<ImmediateCanvas> render = effectiveScale.IsUnbounded || effectiveScale.Value == 1f
             ? canvas => canvas.DrawRenderTarget(renderTarget, position)
             : canvas => canvas.DrawRenderTargetScaled(renderTarget, bounds);
         return CreateLambda(bounds, render, bounds.Contains, renderTarget.Dispose, effectiveScale);
@@ -72,7 +72,7 @@ public abstract class RenderNodeOperation : IDisposable
     public static RenderNodeOperation CreateFromSurface(
         Rect bounds, Point position, SKSurface surface, EffectiveScale effectiveScale = default)
     {
-        Action<ImmediateCanvas> render = effectiveScale.IsUnbounded
+        Action<ImmediateCanvas> render = effectiveScale.IsUnbounded || effectiveScale.Value == 1f
             ? canvas => canvas.DrawSurface(surface, position)
             : canvas => canvas.DrawSurfaceScaled(surface, bounds);
         return CreateLambda(bounds, render, bounds.Contains, surface.Dispose, effectiveScale);
@@ -81,7 +81,7 @@ public abstract class RenderNodeOperation : IDisposable
     public static RenderNodeOperation CreateFromSurface(
         Rect bounds, Point position, Ref<SKSurface> surface, EffectiveScale effectiveScale = default)
     {
-        Action<ImmediateCanvas> render = effectiveScale.IsUnbounded
+        Action<ImmediateCanvas> render = effectiveScale.IsUnbounded || effectiveScale.Value == 1f
             ? canvas => canvas.DrawSurface(surface.Value, position)
             : canvas => canvas.DrawSurfaceScaled(surface.Value, bounds);
         return CreateLambda(bounds, render, bounds.Contains, surface.Dispose, effectiveScale);

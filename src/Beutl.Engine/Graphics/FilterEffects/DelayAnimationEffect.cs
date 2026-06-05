@@ -68,14 +68,16 @@ public partial class DelayAnimationEffect : FilterEffect
 
                     if (!data.cache[j].IsEnabled) continue;
 
-                    using var childFEContext = new FilterEffectContext(target.Bounds);
+                    // feature 003: carry the working density into the nested delay re-application so a
+                    // delay-wrapped buffer effect keeps its density instead of collapsing to w=1 (w==1 is unchanged).
+                    using var childFEContext = new FilterEffectContext(target.Bounds, workingScale: effectContext.WorkingScale);
                     data.childEffect.ApplyTo(childFEContext, data.cache[j]);
 
                     target.OriginalBounds = target.Bounds.WithX(0).WithY(0);
                     using var singleTargets = new EffectTargets();
                     singleTargets.Add(target.Clone());
                     using var builder = new SKImageFilterBuilder();
-                    using var activator = new FilterEffectActivator(singleTargets, builder);
+                    using var activator = new FilterEffectActivator(singleTargets, builder, effectContext.WorkingScale);
                     activator.Apply(childFEContext);
                     activator.Flush(false);
 

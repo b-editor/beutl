@@ -222,8 +222,13 @@ public partial class PlayerView : UserControl
                 (float)(size.Width * topLevel.RenderScaling),
                 (float)(size.Height * topLevel.RenderScaling));
             player.MaxFrameSize = deviceSize;
-            // feature 003 (US4): feed the live previewer size so RenderScale.FitToPreviewer can fit.
-            player.EditViewModel.PreviewSurfaceSize.Value = deviceSize;
+            // feature 003 (US4): feed the live previewer size so RenderScale.FitToPreviewer can fit — but NOT
+            // during playback: a resize-driven rebuild would dispose the SceneRenderer the playback loop holds
+            // (the quality combo is likewise disabled while playing). The fit refreshes on the next resize once paused.
+            if (!player.IsPlaying.Value)
+            {
+                player.EditViewModel.PreviewSurfaceSize.Value = deviceSize;
+            }
         }
     }
 
