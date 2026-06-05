@@ -1,4 +1,4 @@
-namespace Beutl.UnitTests.Engine.Graphics.Rendering.Golden;
+﻿namespace Beutl.UnitTests.Engine.Graphics.Rendering.Golden;
 
 // Pinned tolerances for the feature-003 golden suite (plan.md / data-model.md).
 internal static class GoldenThresholds

@@ -1,4 +1,4 @@
-using System.Diagnostics;
+﻿using System.Diagnostics;
 using Beutl.Composition;
 using Beutl.Graphics;
 using Beutl.Graphics.Effects;

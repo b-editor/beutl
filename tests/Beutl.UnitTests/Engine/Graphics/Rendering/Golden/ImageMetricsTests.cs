@@ -1,4 +1,4 @@
-using Beutl.Media;
+﻿using Beutl.Media;
 
 namespace Beutl.UnitTests.Engine.Graphics.Rendering.Golden;
 

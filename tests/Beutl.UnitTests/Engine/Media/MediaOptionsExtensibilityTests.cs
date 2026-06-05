@@ -1,4 +1,4 @@
-using Beutl.Media.Decoding;
+﻿using Beutl.Media.Decoding;
 
 namespace Beutl.UnitTests.Engine.Media;
 

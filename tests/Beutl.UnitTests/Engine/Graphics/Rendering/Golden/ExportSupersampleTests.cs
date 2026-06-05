@@ -1,4 +1,4 @@
-using Beutl.Composition;
+﻿using Beutl.Composition;
 using Beutl.Graphics;
 using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Shapes;
@@ -44,7 +44,9 @@ public class ExportSupersampleTests
 
             using Bitmap oneToOne = GoldenImageHarness.RenderAtScale(MakeAliasingProne(), Frame, 1f);
             using Bitmap supersampledHi = GoldenImageHarness.RenderAtScale(MakeAliasingProne(), Frame, factor);
-            using Bitmap delivered = GoldenImageHarness.MitchellResampleTo(supersampledHi, Frame);
+            // Downscale through the SAME kernel production uses (SupersampleDownscaler), so the 4x case
+            // exercises the trilinear + mipmaps branch (scale > 2) rather than a test-only Mitchell.
+            using Bitmap delivered = SupersampleDownscaler.ToFrameSize(supersampledHi, Frame, factor);
 
             // Export delivers exactly FrameSize (FR-026).
             Assert.That(delivered.Width, Is.EqualTo(Frame.Width), "delivered width == FrameSize");
