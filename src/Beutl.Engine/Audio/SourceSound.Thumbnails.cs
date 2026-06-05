@@ -116,10 +116,22 @@ public sealed partial class SourceSound : IThumbnailsProvider
 
             int startSample = (int)((long)chunkIndex * totalSamples / chunkCount);
             int endSample = (int)((long)(chunkIndex + 1) * totalSamples / chunkCount);
-            int sampleCount = Math.Min(endSample - startSample, samplesPerChunk);
+            int fullSpan = endSample - startSample;
+            int sampleCount = Math.Min(fullSpan, samplesPerChunk);
             var chunkTime = TimeSpan.FromSeconds((double)startSample / sampleRate);
             TimeSpan startTime = TimeRange.Start + chunkTime;
-            TimeSpan durationTime = TimeSpan.FromSeconds((double)sampleCount / sampleRate);
+
+            // Derive the chunk duration from the difference between adjacent chunk-boundary
+            // timestamps rather than rounding sampleCount independently. Rounding Start and
+            // Duration separately makes chunkN.Start + chunkN.Duration drift ~1 tick from
+            // chunkN+1.Start, which a stateful effect (e.g. LimiterNode) reads as a
+            // discontinuity and resets mid-stream, glitching the rendered waveform.
+            // Subtracting two FromSeconds-rounded boundaries keeps successive chunks
+            // tick-contiguous. When samplesPerChunk caps the span we intentionally skip
+            // samples, so contiguity does not apply and the sampleCount-based duration is used.
+            TimeSpan durationTime = sampleCount < fullSpan
+                ? TimeSpan.FromSeconds((double)sampleCount / sampleRate)
+                : TimeSpan.FromSeconds((double)endSample / sampleRate) - chunkTime;
 
             if (sampleCount <= 0)
                 continue;
