@@ -50,6 +50,19 @@ public class CompressorNodeTests
         return buffer;
     }
 
+    // A normal sine buffer with a single +Infinity head sample on every channel. Feeding it drives
+    // the envelope non-finite (recovered to MinDb) and the product non-finite (zeroed by
+    // SanitizeOutput), emitting the one-shot non-finite-sample warning exactly once per armed period.
+    private static AudioBuffer MakeInfinityHeadBuffer(int sampleCount, int sampleRate = SampleRate)
+    {
+        var buffer = CreateSineBuffer(0.9f, 1000f, sampleCount, 2, sampleRate);
+        for (int ch = 0; ch < buffer.ChannelCount; ch++)
+        {
+            buffer.GetChannelData(ch)[0] = float.PositiveInfinity;
+        }
+        return buffer;
+    }
+
     private static float PeakDb(AudioBuffer buffer, int startSample)
     {
         float peak = 0f;
@@ -216,8 +229,10 @@ public class CompressorNodeTests
     public void Process_BelowThreshold_LeavesSignalUnchanged()
     {
         // Amplitude 0.05 ≈ -26 dB peak, well below the -20 dB threshold, so output should be a
-        // bit-identical pass-through. We verify per-sample equality (not just peak) so that any
-        // unexpected residual gain reduction is caught immediately.
+        // bit-identical pass-through: the envelope never crosses the threshold, gainReductionDb is
+        // always 0, makeup is 0, so gainLinear = 10^0 = 1.0f exactly and output == input bit-for-bit.
+        // We assert exact equality (no tolerance) so any future bug injecting a near-zero residual
+        // gain is caught immediately.
         const int sampleCount = SampleRate / 2;
         using var input = CreateSineBuffer(0.05f, 1000f, sampleCount);
         var source = new StubSourceNode { Buffer = input };
@@ -235,7 +250,7 @@ public class CompressorNodeTests
             var outData = output.GetChannelData(ch);
             for (int i = 0; i < sampleCount; i++)
             {
-                Assert.That(outData[i], Is.EqualTo(inData[i]).Within(1e-5f));
+                Assert.That(outData[i], Is.EqualTo(inData[i]));
             }
         }
     }
@@ -243,10 +258,12 @@ public class CompressorNodeTests
     [Test]
     public void Process_AboveThreshold_AppliesExpectedGainReduction()
     {
-        // Sine well above the threshold: the per-sample peak detector dips at every zero crossing
-        // so the steady-state reduction is somewhat below the textbook ratio formula. Tolerance
-        // is loose enough to absorb that envelope ripple but tight enough to catch a slope sign
-        // flip or a missing makeup application.
+        // Sine well above the threshold. The analytic steady-state for a 0.9 peak (-0.92 dB) at
+        // threshold -20, ratio 4 is -0.92 - 0.75*(-0.92+20) = -15.23 dB, but the per-sample peak
+        // detector dips at every zero crossing so the measured peak sits a little above that, near
+        // -13.5 dB. The band [-16, -11] (center -13.5, ±2.5) intentionally spans BOTH the analytic
+        // ratio value and the ripple-attenuated measurement, so it stays sensitive to a slope sign
+        // flip or a missing makeup while not encoding a peak-detector-specific magic number.
         const int sampleCount = SampleRate;
         using var input = CreateSineBuffer(0.9f, 1000f, sampleCount);
         var source = new StubSourceNode { Buffer = input };
@@ -261,7 +278,7 @@ public class CompressorNodeTests
         float steadyStartSample = SampleRate / 2;
         float outputPeakDb = PeakDb(output, (int)steadyStartSample);
 
-        Assert.That(outputPeakDb, Is.EqualTo(-13.5f).Within(1.5f));
+        Assert.That(outputPeakDb, Is.EqualTo(-13.5f).Within(2.5f));
     }
 
     [Test]
@@ -281,8 +298,9 @@ public class CompressorNodeTests
         float steadyStartSample = SampleRate / 2;
         float outputPeakDb = PeakDb(output, (int)steadyStartSample);
 
-        // Makeup gain should add directly on top of the compressed level.
-        Assert.That(outputPeakDb, Is.EqualTo(-7.5f).Within(1.5f));
+        // Makeup gain should add directly on top of the compressed level. Same ±2.5 band as the
+        // no-makeup case, shifted up by the +6 dB makeup (analytic -9.23 dB, measured near -7.5 dB).
+        Assert.That(outputPeakDb, Is.EqualTo(-7.5f).Within(2.5f));
     }
 
     [Test]
@@ -362,8 +380,8 @@ public class CompressorNodeTests
         float leftPeakDb = ChannelPeakDb(output, 0, steadyStart);
         float rightPeakDb = ChannelPeakDb(output, 1, steadyStart);
 
-        // L should be compressed to ~-13.5 dB (same as the steady-state test above).
-        Assert.That(leftPeakDb, Is.EqualTo(-13.5f).Within(1.5f),
+        // L should be compressed to ~-13.5 dB (same ±2.5 band as the steady-state test above).
+        Assert.That(leftPeakDb, Is.EqualTo(-13.5f).Within(2.5f),
             "Sanity check: this test relies on L being compressed; if this fails the linked-gain expectation below is moot.");
 
         // The L-channel gain reduction (positive dB number) inferred from the measurement is
@@ -670,7 +688,7 @@ public class CompressorNodeTests
 
         Assert.That(output.ChannelCount, Is.EqualTo(1));
         float steadyPeakDb = PeakDb(output, sampleCount / 2);
-        Assert.That(steadyPeakDb, Is.EqualTo(-13.5f).Within(1.5f));
+        Assert.That(steadyPeakDb, Is.EqualTo(-13.5f).Within(2.5f));
     }
 
     [Test]
@@ -801,8 +819,10 @@ public class CompressorNodeTests
     {
         // A KeyFrame with NaN or Infinity on any animated parameter must not propagate to the
         // output sanitizer (which would silently mute the entire chunk). Instead each parameter
-        // must fall back to its DefaultValue. We test every animated parameter so the
-        // SafeParameter call cannot be silently dropped from any one of them.
+        // must fall back to the value ReadStaticParameters supplies — i.e. the property's static
+        // CurrentValue (which itself only drops to DefaultValue if CurrentValue is non-finite). We
+        // test every animated parameter so the SafeParameter call cannot be silently dropped from
+        // any one of them.
         const int sampleCount = SampleRate / 4;
         using var input = CreateSineBuffer(0.9f, 1000f, sampleCount);
 
@@ -1223,5 +1243,163 @@ public class CompressorNodeTests
                     $"Expression-backed parameter must route to the static path and ignore the expression; mismatch at [{ch}][{i}]");
             }
         }
+    }
+
+    [Test]
+    public void Process_NonFiniteSampleLatch_SurvivesSeekDiscontinuity()
+    {
+        // The diagnostic latch must be PRESERVED across a time-range discontinuity (seek). A
+        // stuttering scrubber produces many discontinuities within one session; re-arming the
+        // one-shot warning on each would let a persistent fault re-log once per Process() call.
+        // The seek path calls ResetEnvelope() only (not ResetDiagnostics), so a second seeked chunk
+        // carrying the same fault must emit NO second warning. This pins the node's most heavily
+        // justified design decision (the 8-line comment at CompressorNode.Process).
+        var node = CreateNode();
+        const int chunkSamples = SampleRate / 10;
+        var chunkDuration = TimeSpan.FromSeconds(chunkSamples / (double)SampleRate);
+
+        using var first = MakeInfinityHeadBuffer(chunkSamples);
+        node.AddInput(new StubSourceNode { Buffer = first });
+        using var firstOut = node.Process(CreateContext(TimeSpan.Zero, chunkDuration));
+        Assert.That(node.NonFiniteSampleWarnings, Is.EqualTo(1),
+            "The first non-finite sample must emit exactly one warning.");
+
+        node.ClearInputs();
+        using var second = MakeInfinityHeadBuffer(chunkSamples);
+        node.AddInput(new StubSourceNode { Buffer = second });
+        // Non-contiguous start time → ResetEnvelope only; diagnostics are deliberately NOT re-armed.
+        using var seekedOut = node.Process(CreateContext(TimeSpan.FromSeconds(5.0), chunkDuration));
+        Assert.That(node.NonFiniteSampleWarnings, Is.EqualTo(1),
+            "A seek discontinuity must NOT re-arm the latch, so no second warning should be emitted.");
+    }
+
+    [Test]
+    public void Process_NonFiniteSampleLatch_ReArmsOnSampleRateChange()
+    {
+        // A sample-rate change is a genuine session boundary: Process() calls the full Reset(),
+        // which DOES re-arm diagnostics. The same fault at the new rate must therefore warn again.
+        var node = CreateNode();
+        const int chunkSamples = SampleRate / 10;
+        var chunkDuration = TimeSpan.FromSeconds(chunkSamples / (double)SampleRate);
+
+        using var first = MakeInfinityHeadBuffer(chunkSamples);
+        node.AddInput(new StubSourceNode { Buffer = first });
+        using var firstOut = node.Process(CreateContext(TimeSpan.Zero, chunkDuration));
+        Assert.That(node.NonFiniteSampleWarnings, Is.EqualTo(1));
+
+        node.ClearInputs();
+        const int altSampleRate = 44100;
+        using var second = MakeInfinityHeadBuffer(altSampleRate / 10, altSampleRate);
+        node.AddInput(new StubSourceNode { Buffer = second });
+        using var secondOut = node.Process(new AudioProcessContext(
+            new TimeRange(chunkDuration, TimeSpan.FromSeconds(0.1)),
+            altSampleRate, new AnimationSampler(), null));
+        Assert.That(node.NonFiniteSampleWarnings, Is.EqualTo(2),
+            "A sample-rate change re-arms the latch, so the recurring fault must warn a second time.");
+    }
+
+    [Test]
+    public void Reset_ReArmsNonFiniteSampleLatch()
+    {
+        // Explicit Reset() (deliberate re-render / orchestrated stop) re-arms diagnostics too. We
+        // keep the second chunk CONTIGUOUS in time so only the explicit Reset() — not a
+        // discontinuity — can be responsible for re-arming the latch.
+        var node = CreateNode();
+        const int chunkSamples = SampleRate / 10;
+        var chunkDuration = TimeSpan.FromSeconds(chunkSamples / (double)SampleRate);
+
+        using var first = MakeInfinityHeadBuffer(chunkSamples);
+        node.AddInput(new StubSourceNode { Buffer = first });
+        using var firstOut = node.Process(CreateContext(TimeSpan.Zero, chunkDuration));
+        Assert.That(node.NonFiniteSampleWarnings, Is.EqualTo(1));
+
+        node.Reset();
+        node.ClearInputs();
+        using var second = MakeInfinityHeadBuffer(chunkSamples);
+        node.AddInput(new StubSourceNode { Buffer = second });
+        using var secondOut = node.Process(CreateContext(chunkDuration, chunkDuration));
+        Assert.That(node.NonFiniteSampleWarnings, Is.EqualTo(2),
+            "Explicit Reset() re-arms the latch, so the recurring fault must warn a second time.");
+    }
+
+    [Test]
+    public void Process_LinkedSurround_AppliesLoudestChannelGainToAllChannels()
+    {
+        // Peak detection links across ALL channels (not just the first two) and MapChannels
+        // reallocates its caches for a >2-channel count, exercising the channel-major fallback loop.
+        // We drive a 4-channel buffer where the loudest channel is channel 2 (NOT channel 0); the
+        // other three sit below threshold. Linked behaviour must attenuate every channel by channel
+        // 2's gain reduction — a peak loop that only scanned channels 0..1, or an off-by-one in the
+        // channel bound, would fail here.
+        const int sampleCount = SampleRate;
+        const int channels = 4;
+        using var input = new AudioBuffer(SampleRate, channels, sampleCount);
+        float[] amps = [0.05f, 0.05f, 0.9f, 0.05f]; // loudest is channel 2
+        for (int ch = 0; ch < channels; ch++)
+        {
+            var data = input.GetChannelData(ch);
+            for (int i = 0; i < sampleCount; i++)
+            {
+                data[i] = amps[ch] * MathF.Sin(2f * MathF.PI * 1000f * i / SampleRate);
+            }
+        }
+
+        var node = CreateNode();
+        node.AddInput(new StubSourceNode { Buffer = input });
+        using var output = node.Process(CreateContext(TimeSpan.Zero, TimeSpan.FromSeconds(1.0)));
+
+        Assert.That(output.ChannelCount, Is.EqualTo(channels));
+
+        int steadyStart = SampleRate / 2;
+        // Channel 2 drives compression to ~-13.5 dB (same ±2.5 band as the stereo case).
+        float loudestPeakDb = ChannelPeakDb(output, 2, steadyStart);
+        Assert.That(loudestPeakDb, Is.EqualTo(-13.5f).Within(2.5f),
+            "Sanity check: the loudest channel (2) must be compressed for the linked-gain expectation to be meaningful.");
+
+        float loudestInputPeakDb = 20f * MathF.Log10(0.9f);
+        float gainReductionDb = loudestInputPeakDb - loudestPeakDb;
+        float quietInputPeakDb = 20f * MathF.Log10(0.05f);
+        float expectedQuietDb = quietInputPeakDb - gainReductionDb;
+
+        // Every quiet channel must receive the SAME gain reduction derived from channel 2.
+        foreach (int ch in new[] { 0, 1, 3 })
+        {
+            float quietPeakDb = ChannelPeakDb(output, ch, steadyStart);
+            Assert.That(quietPeakDb, Is.EqualTo(expectedQuietDb).Within(1.5f),
+                $"Channel {ch} should be attenuated by channel 2's linked gain reduction.");
+        }
+    }
+
+    [Test]
+    public void Process_AnimatedOutOfRangeParameter_LogsClampWarningOncePerParameter()
+    {
+        // A finite but out-of-[Range] animated value (Attack = 1e9 ms) is clamped to keep the DSP
+        // safe, and must emit exactly one clamp warning for that parameter — not zero (a silently
+        // hidden misconfiguration) and not one-per-sample (audio-thread spam). The other five
+        // parameters stay in range, so the count isolates the single offending parameter.
+        const int sampleCount = SampleRate / 4;
+        using var input = CreateSineBuffer(0.9f, 1000f, sampleCount);
+
+        var attackAnim = new KeyFrameAnimation<float>();
+        attackAnim.KeyFrames.Add(new KeyFrame<float> { Easing = new LinearEasing(), Value = 1e9f, KeyTime = TimeSpan.Zero });
+        attackAnim.KeyFrames.Add(new KeyFrame<float> { Easing = new LinearEasing(), Value = 1e9f, KeyTime = TimeSpan.FromSeconds(0.25) });
+        var attackProperty = Property.CreateAnimatable(5f);
+        attackProperty.Animation = attackAnim;
+
+        var node = new CompressorNode
+        {
+            Threshold = Property.CreateAnimatable(-20f),
+            Ratio = Property.CreateAnimatable(4f),
+            Attack = attackProperty,
+            Release = Property.CreateAnimatable(50f),
+            Knee = Property.CreateAnimatable(0f),
+            MakeupGain = Property.CreateAnimatable(0f)
+        };
+        node.AddInput(new StubSourceNode { Buffer = input });
+
+        using var output = node.Process(CreateContext(TimeSpan.Zero, TimeSpan.FromSeconds(0.25)));
+
+        Assert.That(node.ClampWarnings, Is.EqualTo(1),
+            "An out-of-range animated Attack must warn exactly once for the whole chunk, not zero and not per-sample.");
     }
 }

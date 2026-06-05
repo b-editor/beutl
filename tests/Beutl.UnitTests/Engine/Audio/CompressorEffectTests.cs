@@ -1,6 +1,4 @@
-﻿using System.Reflection;
-using System.Runtime.CompilerServices;
-using Beutl.Audio;
+﻿using Beutl.Audio;
 using Beutl.Audio.Effects;
 using Beutl.Audio.Graph;
 using Beutl.Audio.Graph.Nodes;
@@ -117,22 +115,25 @@ public class CompressorEffectTests
             $"{expectedName}: a value below the min must be coerced to {min}; validator appears unwired.");
     }
 
-    [Test]
-    public void CompressorParameters_Validate_IsAnnotatedAsModuleInitializer()
+    private static IEnumerable<TestCaseData> ParameterRanges()
     {
-        // CompressorParameters.Validate is the only execution path for the Min/Default/Max
-        // consistency asserts. Because every consumer references const fields (which the C#
-        // compiler inlines), no `ldsfld` against CompressorParameters is ever emitted, so a
-        // plain static constructor would not run. The class instead relies on
-        // [ModuleInitializer] to invoke Validate at module load. If a future refactor removes
-        // the attribute or renames the method without updating the contract, the asserts
-        // become silent dead code. This reflection check fails fast if either invariant breaks.
-        var method = typeof(CompressorParameters).GetMethod(
-            "Validate",
-            BindingFlags.Static | BindingFlags.NonPublic);
-        Assert.That(method, Is.Not.Null,
-            "CompressorParameters.Validate must exist; it is the only carrier of the [ModuleInitializer] attribute.");
-        Assert.That(method!.GetCustomAttribute<ModuleInitializerAttribute>(), Is.Not.Null,
-            "CompressorParameters.Validate must be annotated [ModuleInitializer] so the Min/Default/Max asserts run at module load. Without it, the asserts become unreachable.");
+        yield return new TestCaseData(MinThresholdDb, DefaultThresholdDb, MaxThresholdDb).SetName("Threshold");
+        yield return new TestCaseData(MinRatio, DefaultRatio, MaxRatio).SetName("Ratio");
+        yield return new TestCaseData(MinAttackMs, DefaultAttackMs, MaxAttackMs).SetName("Attack");
+        yield return new TestCaseData(MinReleaseMs, DefaultReleaseMs, MaxReleaseMs).SetName("Release");
+        yield return new TestCaseData(MinKneeDb, DefaultKneeDb, MaxKneeDb).SetName("Knee");
+        yield return new TestCaseData(MinMakeupGainDb, DefaultMakeupGainDb, MaxMakeupGainDb).SetName("MakeupGain");
+    }
+
+    [TestCaseSource(nameof(ParameterRanges))]
+    public void CompressorParameters_RangeIsConsistent(float min, float def, float max)
+    {
+        // CompressorParameters is the single source of truth shared between CompressorEffect's
+        // [Range] declarations and CompressorNode's per-sample clamps. These asserts catch an edit
+        // that puts a default outside its range, or inverts a min/max, at CI time with a named
+        // failing case — the role formerly served by a [ModuleInitializer] + Debug.Assert, which
+        // was invisible in Release builds and ran on every Debug host load for no benefit.
+        Assert.That(min, Is.LessThan(max), "Min must be strictly less than Max.");
+        Assert.That(def, Is.InRange(min, max), "Default must lie within [Min, Max].");
     }
 }

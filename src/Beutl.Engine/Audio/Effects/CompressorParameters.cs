@@ -1,11 +1,13 @@
-﻿using System.Diagnostics;
-using System.Runtime.CompilerServices;
-
 namespace Beutl.Audio.Effects;
 
 // Single source of truth for the compressor's parameter ranges and defaults. CompressorEffect
 // references these in its [Range] / Property.CreateAnimatable declarations and CompressorNode
 // references the same values when clamping per-sample animated inputs, so the two cannot drift.
+//
+// The Min/Default/Max consistency of every entry below is asserted by
+// CompressorEffectTests.CompressorParameters_RangeIsConsistent — a plain unit test, not a runtime
+// hook — so a future edit that puts a default outside its range fails CI with a named test rather
+// than a load-time Debug.Assert.
 internal static class CompressorParameters
 {
     public const float MinThresholdDb = -60f;
@@ -34,35 +36,4 @@ internal static class CompressorParameters
     public const float MinMakeupGainDb = -24f;
     public const float MaxMakeupGainDb = 24f;
     public const float DefaultMakeupGainDb = 0f;
-
-    // [ModuleInitializer] runs once at module load regardless of whether any non-const member
-    // is touched. A static constructor on this class would NOT run, because every consumer
-    // references our `const float` fields, and the C# compiler inlines const literals at the
-    // call site — neither `using static CompressorParameters;` nor `[Range(MinX, MaxX)]` triggers
-    // type initialization. The module initializer sidesteps that and guarantees the asserts
-    // below execute on every Debug-build run (production builds elide Debug.Assert anyway).
-    //
-    // CA2255 warns against [ModuleInitializer] in libraries because a library author cannot control
-    // initialization order relative to the host. That concern does not apply here: Validate only
-    // runs Debug.Assert checks over compile-time constants, has no ordering dependency, and produces
-    // no observable side effect. The suppression is kept method-local (rather than a project-wide
-    // NoWarn) so any future, less-benign [ModuleInitializer] elsewhere in the engine still warns.
-#pragma warning disable CA2255 // The 'ModuleInitializer' attribute should not be used in libraries
-    [ModuleInitializer]
-    internal static void Validate()
-    {
-        AssertRange(MinThresholdDb, DefaultThresholdDb, MaxThresholdDb, "Threshold");
-        AssertRange(MinRatio, DefaultRatio, MaxRatio, "Ratio");
-        AssertRange(MinAttackMs, DefaultAttackMs, MaxAttackMs, "Attack");
-        AssertRange(MinReleaseMs, DefaultReleaseMs, MaxReleaseMs, "Release");
-        AssertRange(MinKneeDb, DefaultKneeDb, MaxKneeDb, "Knee");
-        AssertRange(MinMakeupGainDb, DefaultMakeupGainDb, MaxMakeupGainDb, "MakeupGain");
-    }
-#pragma warning restore CA2255
-
-    private static void AssertRange(float min, float def, float max, string name)
-    {
-        Debug.Assert(min < max, $"{name}: Min ({min}) must be strictly less than Max ({max}).");
-        Debug.Assert(min <= def && def <= max, $"{name}: Default ({def}) must lie in [{min}, {max}].");
-    }
 }

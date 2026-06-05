@@ -33,6 +33,17 @@ public sealed class CompressorNode : AudioNode
     // Per-parameter so a non-finite sample on one parameter (e.g. Attack) does not silently
     // suppress diagnostics for an unrelated parameter (e.g. Threshold) later in the stream.
     private readonly HashSet<string> _loggedNonFiniteParameters = new();
+    // Same once-per-parameter latch for the distinct "finite but out-of-[Range]" case (e.g. an
+    // animation drives Attack to 1e9 ms). Kept separate from _loggedNonFiniteParameters so a
+    // non-finite warning and a clamp warning for the same parameter are not conflated.
+    private readonly HashSet<string> _loggedClampedParameters = new();
+
+    // Test-only counters (observed via InternalsVisibleTo) recording how many warnings were
+    // actually emitted — the only externally visible consequence of the one-shot latches. They let
+    // the latch re-arm semantics (preserved across a seek, re-armed on a sample-rate change or
+    // Reset) be asserted without wiring a logger sink to the static logger.
+    internal int NonFiniteSampleWarnings;
+    internal int ClampWarnings;
 
     public required IProperty<float> Threshold { get; init; }
 
@@ -116,32 +127,60 @@ public sealed class CompressorNode : AudioNode
         float slope = 1f - 1f / p.Ratio;
 
         int channels = input.ChannelCount;
+        int sampleCount = input.SampleCount;
         var (inputChannels, outputChannels) = MapChannels(input, output);
-        for (int i = 0; i < input.SampleCount; i++)
+
+        // The cached Memory handles are loop-invariant for the whole call, so materialize the
+        // channel spans ONCE for the dominant mono/stereo case and index those — this removes the
+        // per-sample Memory<float>.Span getter (called 3x/sample/channel) that the >2-channel
+        // fallback still pays. Span<float>[] is impossible (Span is a ref struct), hence the
+        // explicit locals.
+        if (channels <= 2)
         {
-            float peak = 0f;
-            for (int ch = 0; ch < channels; ch++)
+            Span<float> in0 = inputChannels[0].Span;
+            Span<float> out0 = outputChannels[0].Span;
+            Span<float> in1 = channels == 2 ? inputChannels[1].Span : default;
+            Span<float> out1 = channels == 2 ? outputChannels[1].Span : default;
+
+            for (int i = 0; i < sampleCount; i++)
             {
-                float a = MathF.Abs(inputChannels[ch].Span[i]);
-                if (a > peak) peak = a;
+                float s0 = in0[i];
+                float peak = MathF.Abs(s0);
+                float s1 = 0f;
+                if (channels == 2)
+                {
+                    s1 = in1[i];
+                    float a1 = MathF.Abs(s1);
+                    if (a1 > peak) peak = a1;
+                }
+
+                float gainLinear = NextGain(peak, attackCoeff, releaseCoeff, p, slope);
+
+                out0[i] = SanitizeOutput(s0 * gainLinear);
+                if (channels == 2)
+                {
+                    out1[i] = SanitizeOutput(s1 * gainLinear);
+                }
             }
-
-            // peak == 0 (digital silence) collapses inputDb to MinDb here. The local `peak` is
-            // always finite because the abs/max loop above stays at 0 when MathF.Abs(NaN) > 0
-            // is false; any non-finite envelope state arriving from elsewhere is recovered by
-            // RecoverEnvelopeIfNonFinite below.
-            float inputDb = peak > 0f ? 20f * MathF.Log10(peak) : MinDb;
-            float coeff = inputDb > _envelopeDb ? attackCoeff : releaseCoeff;
-            _envelopeDb = inputDb + coeff * (_envelopeDb - inputDb);
-            RecoverEnvelopeIfNonFinite();
-
-            float gainReductionDb = ComputeGainReductionDb(_envelopeDb, p.Threshold, p.Knee, slope);
-            float gainLinear = ComputeGainLinear(gainReductionDb, p.MakeupGain);
-
-            for (int ch = 0; ch < channels; ch++)
+        }
+        else
+        {
+            for (int i = 0; i < sampleCount; i++)
             {
-                float sample = inputChannels[ch].Span[i] * gainLinear;
-                outputChannels[ch].Span[i] = SanitizeOutput(sample);
+                float peak = 0f;
+                for (int ch = 0; ch < channels; ch++)
+                {
+                    float a = MathF.Abs(inputChannels[ch].Span[i]);
+                    if (a > peak) peak = a;
+                }
+
+                float gainLinear = NextGain(peak, attackCoeff, releaseCoeff, p, slope);
+
+                for (int ch = 0; ch < channels; ch++)
+                {
+                    float sample = inputChannels[ch].Span[i] * gainLinear;
+                    outputChannels[ch].Span[i] = SanitizeOutput(sample);
+                }
             }
         }
 
@@ -167,7 +206,18 @@ public sealed class CompressorNode : AudioNode
         EffectiveParameters fallback = ReadStaticParameters();
 
         int channels = input.ChannelCount;
+        int sampleCount = input.SampleCount;
         var (inputChannels, outputChannels) = MapChannels(input, output);
+
+        // Materialize the channel spans once for the whole call (the cached Memory handles are
+        // stable across the chunk loop), matching ProcessStatic so the per-sample Memory.Span
+        // getter is removed for the dominant mono/stereo case. The >2-channel path keeps the
+        // Memory indexing, where the getter cost is negligible beside the per-sample sampling.
+        Span<float> in0 = channels <= 2 ? inputChannels[0].Span : default;
+        Span<float> out0 = channels <= 2 ? outputChannels[0].Span : default;
+        Span<float> in1 = channels == 2 ? inputChannels[1].Span : default;
+        Span<float> out1 = channels == 2 ? outputChannels[1].Span : default;
+
         int processed = 0;
 
         // lastAttackMs/lastReleaseMs are seeded with NaN so the first comparison is always
@@ -178,9 +228,9 @@ public sealed class CompressorNode : AudioNode
         float attackCoeff = 0f;
         float releaseCoeff = 0f;
 
-        while (processed < input.SampleCount)
+        while (processed < sampleCount)
         {
-            int chunkSize = Math.Min(bufferSize, input.SampleCount - processed);
+            int chunkSize = Math.Min(bufferSize, sampleCount - processed);
 
             var chunkStart = context.GetTimeForSample(processed);
             var chunkEnd = context.GetTimeForSample(processed + chunkSize);
@@ -196,14 +246,6 @@ public sealed class CompressorNode : AudioNode
             for (int i = 0; i < chunkSize; i++)
             {
                 int idx = processed + i;
-                float peak = 0f;
-                for (int ch = 0; ch < channels; ch++)
-                {
-                    float a = MathF.Abs(inputChannels[ch].Span[idx]);
-                    if (a > peak) peak = a;
-                }
-
-                float inputDb = peak > 0f ? 20f * MathF.Log10(peak) : MinDb;
 
                 EffectiveParameters p = SanitizeAnimated(
                     thresholds[i], ratios[i], attacks[i], releases[i], knees[i], makeups[i], fallback);
@@ -220,17 +262,42 @@ public sealed class CompressorNode : AudioNode
                 }
                 float slope = 1f - 1f / p.Ratio;
 
-                float coeff = inputDb > _envelopeDb ? attackCoeff : releaseCoeff;
-                _envelopeDb = inputDb + coeff * (_envelopeDb - inputDb);
-                RecoverEnvelopeIfNonFinite();
-
-                float gainReductionDb = ComputeGainReductionDb(_envelopeDb, p.Threshold, p.Knee, slope);
-                float gainLinear = ComputeGainLinear(gainReductionDb, p.MakeupGain);
-
-                for (int ch = 0; ch < channels; ch++)
+                if (channels <= 2)
                 {
-                    float sample = inputChannels[ch].Span[idx] * gainLinear;
-                    outputChannels[ch].Span[idx] = SanitizeOutput(sample);
+                    float s0 = in0[idx];
+                    float peak = MathF.Abs(s0);
+                    float s1 = 0f;
+                    if (channels == 2)
+                    {
+                        s1 = in1[idx];
+                        float a1 = MathF.Abs(s1);
+                        if (a1 > peak) peak = a1;
+                    }
+
+                    float gainLinear = NextGain(peak, attackCoeff, releaseCoeff, p, slope);
+
+                    out0[idx] = SanitizeOutput(s0 * gainLinear);
+                    if (channels == 2)
+                    {
+                        out1[idx] = SanitizeOutput(s1 * gainLinear);
+                    }
+                }
+                else
+                {
+                    float peak = 0f;
+                    for (int ch = 0; ch < channels; ch++)
+                    {
+                        float a = MathF.Abs(inputChannels[ch].Span[idx]);
+                        if (a > peak) peak = a;
+                    }
+
+                    float gainLinear = NextGain(peak, attackCoeff, releaseCoeff, p, slope);
+
+                    for (int ch = 0; ch < channels; ch++)
+                    {
+                        float sample = inputChannels[ch].Span[idx] * gainLinear;
+                        outputChannels[ch].Span[idx] = SanitizeOutput(sample);
+                    }
                 }
             }
 
@@ -292,10 +359,25 @@ public sealed class CompressorNode : AudioNode
     // Substitute fallback for NaN/Infinity, then clamp to the parameter's declared [Range].
     // The clamp is what guards against an animated value silently bypassing the [Range] declaration
     // on CompressorEffect — without it, e.g. an animated Attack of 1e9 ms would freeze the
-    // envelope without any diagnostic.
+    // envelope. A finite-but-out-of-range value is a real authoring error (a malformed keyframe, a
+    // units mistake, an easing overshoot) distinct from the non-finite case SafeParameter handles,
+    // so it gets its own once-per-parameter warning: the clamp keeps the DSP safe, but without this
+    // breadcrumb the misconfiguration would be indistinguishable from correct in-range automation.
     private float Sanitize(float value, float fallback, float min, float max, string paramName)
     {
-        return Math.Clamp(SafeParameter(value, fallback, paramName), min, max);
+        float safe = SafeParameter(value, fallback, paramName);
+        float clamped = Math.Clamp(safe, min, max);
+        // Only finite values reach here as `safe != clamped` (a non-finite input was already
+        // replaced with the in-range fallback, so it clamps to itself). Latch once per parameter to
+        // keep the audio thread quiet; re-armed only by ResetDiagnostics (sample-rate change / Reset).
+        if (clamped != safe && _loggedClampedParameters.Add(paramName))
+        {
+            ClampWarnings++;
+            s_logger.LogWarning(
+                "Compressor parameter '{Param}' value {Value} is outside its valid range [{Min}, {Max}]; clamping to {Clamped}. Further out-of-range occurrences for this parameter will be suppressed.",
+                paramName, safe, min, max, clamped);
+        }
+        return clamped;
     }
 
     // Without this guard, a single non-finite envelope sample would permanently poison the state
@@ -329,11 +411,35 @@ public sealed class CompressorNode : AudioNode
         if (float.IsFinite(sample)) return sample;
         if (!_loggedNonFiniteSample)
         {
+            NonFiniteSampleWarnings++;
+            // With every parameter clamped and the envelope independently recovered, the computed
+            // gain cannot itself overflow — so a non-finite sample here almost always means an
+            // upstream node emitted NaN/Infinity. We zero it to protect downstream nodes and point
+            // the breadcrumb at the likely culprit rather than implying the compressor produced it.
             s_logger.LogWarning(
-                "Compressor produced a non-finite output sample; replacing with 0 to protect downstream nodes. Further occurrences will be suppressed.");
+                "Compressor encountered a non-finite (NaN/Infinity) sample — with all parameters clamped this almost certainly originates upstream — and replaced it with 0 to protect downstream nodes. Further occurrences will be suppressed.");
             _loggedNonFiniteSample = true;
         }
         return 0f;
+    }
+
+    // Advances the envelope follower by one sample's peak and returns the linear gain to apply.
+    // Shared by ProcessStatic and ProcessAnimated so the envelope/gain math cannot drift between
+    // the two paths: they already shared ComputeGainReductionDb/ComputeGainLinear, and this also
+    // unifies the inputDb derivation and the one-pole envelope update that were previously
+    // duplicated inline in both loops.
+    private float NextGain(float peak, float attackCoeff, float releaseCoeff, in EffectiveParameters p, float slope)
+    {
+        // peak == 0 (digital silence) collapses inputDb to MinDb. The caller's abs/max keeps `peak`
+        // finite (MathF.Abs(NaN) > 0 is false, so a stray NaN never raises peak); any non-finite
+        // envelope state arriving from elsewhere is recovered by RecoverEnvelopeIfNonFinite below.
+        float inputDb = peak > 0f ? 20f * MathF.Log10(peak) : MinDb;
+        float coeff = inputDb > _envelopeDb ? attackCoeff : releaseCoeff;
+        _envelopeDb = inputDb + coeff * (_envelopeDb - inputDb);
+        RecoverEnvelopeIfNonFinite();
+
+        float gainReductionDb = ComputeGainReductionDb(_envelopeDb, p.Threshold, p.Knee, slope);
+        return ComputeGainLinear(gainReductionDb, p.MakeupGain);
     }
 
     // Combined linear gain factor: the dB-domain reduction is subtracted and the makeup gain is
@@ -413,6 +519,7 @@ public sealed class CompressorNode : AudioNode
         _loggedNonFiniteEnvelope = false;
         _loggedNonFiniteSample = false;
         _loggedNonFiniteParameters.Clear();
+        _loggedClampedParameters.Clear();
     }
 
     protected override void Dispose(bool disposing)
@@ -428,13 +535,15 @@ public sealed class CompressorNode : AudioNode
         base.Dispose(disposing);
     }
 
-    private struct EffectiveParameters
+    // readonly + init-only: every instance is built via object initializer and thereafter only read
+    // (it is even passed `in` to NextGain/SanitizeAnimated), so immutability is the real intent.
+    private readonly struct EffectiveParameters
     {
-        public float Threshold;
-        public float Ratio;
-        public float Attack;
-        public float Release;
-        public float Knee;
-        public float MakeupGain;
+        public float Threshold { get; init; }
+        public float Ratio { get; init; }
+        public float Attack { get; init; }
+        public float Release { get; init; }
+        public float Knee { get; init; }
+        public float MakeupGain { get; init; }
     }
 }
