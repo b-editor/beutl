@@ -124,10 +124,15 @@
                 <Border Margin="0,8,0,0"
                         BorderBrush="{DynamicResource DividerStrokeColorDefaultBrush}"
                         BorderThickness="0,1,0,0" />
+                <!--  Disabled during playback: a mid-playback scale change rebuilds + disposes the
+                      renderer/composer/frame-cache the playback loop is actively using (feature 003).  -->
+                <!--  New code uses CompiledBinding (x:DataType is declared on the root) per .claude/rules/xaml.md,
+                      without flipping the file's pre-existing reflection bindings.  -->
                 <ComboBox Margin="0,8,0,0"
                           MinWidth="72"
-                          ItemsSource="{Binding EditViewModel.PreviewScaleOptions}"
-                          SelectedItem="{Binding EditViewModel.PreviewScale.Value}"
+                          IsEnabled="{CompiledBinding !IsPlaying.Value}"
+                          ItemsSource="{CompiledBinding EditViewModel.PreviewScaleOptions}"
+                          SelectedItem="{CompiledBinding EditViewModel.PreviewScale.Value}"
                           ToolTip.Tip="Preview render quality" />
             </StackPanel>
         </Player.InnerLeftContent>

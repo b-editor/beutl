@@ -1,5 +1,6 @@
 ﻿using System.ComponentModel;
 using System.Numerics;
+using System.Reactive.Linq;
 using System.Security;
 using System.Text.Json;
 using System.Text.Json.Nodes;
@@ -16,7 +17,6 @@ using Beutl.Serialization;
 using Beutl.Services;
 using Beutl.Services.PrimitiveImpls;
 using Microsoft.Extensions.Logging;
-using System.Reactive.Linq;
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
 using Dispatcher = Avalonia.Threading.Dispatcher;
@@ -69,12 +69,23 @@ public sealed partial class EditViewModel : IEditorContext, ISupportAutoSaveEdit
         PreviewScale = new ReactivePropertySlim<RenderScale>(RenderScale.Full)
             .DisposeWith(_disposables);
 
-        IObservable<(PixelSize FrameSize, RenderScale Scale)> frameSizeAndScale =
+        // feature 003 (US4): the on-screen previewer size (physical px, pushed by the player view) is
+        // consulted only by RenderScale.FitToPreviewer. Default (unknown) makes Fit fall back to full.
+        PreviewSurfaceSize = new ReactivePropertySlim<Beutl.Graphics.Size>(default)
+            .DisposeWith(_disposables);
+
+        // Resolve the output scale s_out from (frame size, quality, previewer size), then rebuild only
+        // when the RESOLVED scale actually changes (DistinctUntilChanged). For Full/Half/Quarter the
+        // previewer size is irrelevant so panel resizes are absorbed; FitToPreviewer is snapped to 0.05
+        // steps inside ResolveOutputScale so dragging the previewer edge does not thrash the rebuild.
+        IObservable<(PixelSize FrameSize, float OutputScale)> frameSizeAndScale =
             scene.GetObservable(Scene.FrameSizeProperty)
-                .CombineLatest(PreviewScale, (frameSize, scale) => (frameSize, scale));
+                .CombineLatest(PreviewScale, PreviewSurfaceSize,
+                    (frameSize, scale, surface) => (FrameSize: frameSize, OutputScale: ResolveOutputScale(scale, frameSize, surface)))
+                .DistinctUntilChanged();
 
         Renderer = frameSizeAndScale
-            .Select(t => new SceneRenderer(Scene, t.Scale.ToFloat(t.FrameSize, t.FrameSize.ToSize(1))))
+            .Select(t => new SceneRenderer(Scene, t.OutputScale))
             .DisposePreviousValue()
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables)!;
@@ -85,6 +96,8 @@ public sealed partial class EditViewModel : IEditorContext, ISupportAutoSaveEdit
 
         EditorConfig config = GlobalConfiguration.Instance.EditorConfig;
 
+        // Rebuilt whenever (FrameSize, OutputScale) changes, so frames cached at one preview scale are
+        // never served at another (cache-scale invalidation).
         FrameCacheManager = frameSizeAndScale
             .Select(t => new FrameCacheManager(t.FrameSize, CreateFrameCacheOptions()) { IsEnabled = config.IsFrameCacheEnabled })
             .DisposePreviousValue()
@@ -335,6 +348,20 @@ public sealed partial class EditViewModel : IEditorContext, ISupportAutoSaveEdit
 
     /// <summary>Selectable preview-quality options for the preview-scale picker (feature 003, US4).</summary>
     public RenderScale[] PreviewScaleOptions { get; } = Enum.GetValues<RenderScale>();
+
+    /// <summary>
+    /// The on-screen previewer surface size in physical device pixels (feature 003, US4), pushed by the
+    /// player view. Consumed only by <see cref="RenderScale.FitToPreviewer"/> to derive the output scale.
+    /// Non-persisted; <c>default</c> (unknown) makes Fit fall back to full.
+    /// </summary>
+    public ReactivePropertySlim<Beutl.Graphics.Size> PreviewSurfaceSize { get; }
+
+    // feature 003 (US4): resolve s_out; snap FitToPreviewer to 0.05 steps to bound renderer-rebuild churn.
+    private static float ResolveOutputScale(RenderScale scale, PixelSize frameSize, Beutl.Graphics.Size previewSurface)
+    {
+        float s = scale.ToFloat(frameSize, previewSurface);
+        return scale == RenderScale.FitToPreviewer ? MathF.Round(s * 20f) / 20f : s;
+    }
 
     public ReadOnlyReactivePropertySlim<SceneComposer> Composer { get; }
 

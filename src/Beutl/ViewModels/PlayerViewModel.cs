@@ -1640,7 +1640,18 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
                 var compositionFrame = renderer.Compositor.EvaluateGraphics(CurrentFrame.Value);
                 renderer.Render(compositionFrame);
 
-                return renderer.Snapshot();
+                // feature 003 (US4): the preview renderer draws onto a ceil(FrameSize × RenderScale)
+                // surface. Copy / save / region-crop all operate in logical FrameSize coordinates, so
+                // normalize the snapshot to exactly FrameSize first (RenderScale == 1 returns it
+                // unchanged — byte-identical). Without this, Half/Quarter preview corrupts those features.
+                Bitmap snapshot = renderer.Snapshot();
+                Bitmap normalized = SupersampleDownscaler.ToFrameSize(snapshot, renderer.FrameSize, renderer.RenderScale);
+                if (!ReferenceEquals(normalized, snapshot))
+                {
+                    snapshot.Dispose();
+                }
+
+                return normalized;
             }
             finally
             {

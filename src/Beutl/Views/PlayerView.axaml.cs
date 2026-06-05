@@ -218,9 +218,12 @@ public partial class PlayerView : UserControl
         if (DataContext is PlayerViewModel player && TopLevel.GetTopLevel(this) is { } topLevel)
         {
             var size = framePanel.Bounds.Size;
-            player.MaxFrameSize = new BtlSize(
+            var deviceSize = new BtlSize(
                 (float)(size.Width * topLevel.RenderScaling),
                 (float)(size.Height * topLevel.RenderScaling));
+            player.MaxFrameSize = deviceSize;
+            // feature 003 (US4): feed the live previewer size so RenderScale.FitToPreviewer can fit.
+            player.EditViewModel.PreviewSurfaceSize.Value = deviceSize;
         }
     }
 
