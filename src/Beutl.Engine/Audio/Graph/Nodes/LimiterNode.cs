@@ -22,6 +22,18 @@ public sealed class LimiterNode : AudioNode
     private TimeSpan? _lastTimeRangeEnd;
     private float _currentGain = 1f;
 
+    // O(1)-amortized sliding-window maximum for the static path. A monotonic-decreasing deque
+    // (ring buffer over peak positions) replaces the per-sample O(lookahead) rescan. It persists
+    // across contiguous chunks like the delay line, is rebuilt from _peakBuffer only when the
+    // lookahead length changes (rare), and is cleared on Reset/format change. The animated path,
+    // where the lookahead can vary per sample, keeps the direct rescan (ScanWindowPeak).
+    private float[]? _dqVal;
+    private long[]? _dqPos;
+    private int _dqHead;
+    private int _dqCount;
+    private int _dequeLookahead = -1;
+    private long _globalPos;
+
     // Latched warning flags — keep audio-rate logging from spamming the sink. Per-parameter
     // latches so that, for example, a non-finite Threshold does not silence a subsequent
     // non-finite Release. Cleared only on full re-initialization (sample-rate/channel-count
@@ -172,6 +184,17 @@ public sealed class LimiterNode : AudioNode
 
         _maxLookaheadSamples = max;
         _delayLines = lines;
+
+        // Sliding-window-max deque capacity must exceed the largest possible window (max elements)
+        // by two slots: a push transiently holds up to (window + 1) entries before the out-of-window
+        // eviction runs, so sizing to max + 2 guarantees the ring never overwrites its own front.
+        _dqVal = new float[max + 2];
+        _dqPos = new long[max + 2];
+        _dqHead = 0;
+        _dqCount = 0;
+        _dequeLookahead = -1;
+        _globalPos = 0;
+
         // Format change is the one moment where the previous warning history is unrelated to
         // the new state, so re-arm so that a persistent upstream defect surfaces once per
         // format change rather than literally never logging again after the first hit.
@@ -239,9 +262,22 @@ public sealed class LimiterNode : AudioNode
 
         var output = new AudioBuffer(input.SampleRate, input.ChannelCount, input.SampleCount);
 
-        for (int i = 0; i < input.SampleCount; i++)
+        // Lookahead is constant for the whole call, so the window maximum can be tracked with an
+        // O(1)-amortized monotonic deque instead of rescanning the window every sample. Rebuild it
+        // only when the lookahead length differs from what the deque currently tracks (first call
+        // after a reset, or a static parameter edit on a reused node).
+        EnsureDeque(c.LookaheadSamples);
+
+        int channelCount = _delayLines!.Length;
+        int sampleCount = input.SampleCount;
+        ReadOnlySpan<float> inRaw = input.GetRawSpan();
+        Span<float> outRaw = output.GetRawSpan();
+
+        for (int i = 0; i < sampleCount; i++)
         {
-            ProcessSingleSample(input, output, i, c.ThresholdLin, c.MakeupLin, c.LookaheadSamples, c.ReleaseCoef);
+            float currentPeak = IngestSample(inRaw, sampleCount, channelCount, i);
+            float windowPeak = PushWindowPeak(currentPeak, c.LookaheadSamples);
+            EmitSample(outRaw, sampleCount, channelCount, i, windowPeak, c.ThresholdLin, c.MakeupLin, c.LookaheadSamples, c.ReleaseCoef);
         }
 
         return output;
@@ -260,10 +296,20 @@ public sealed class LimiterNode : AudioNode
         Span<float> lookaheads = stackalloc float[AnimationChunkSize];
         Span<float> makeups = stackalloc float[AnimationChunkSize];
 
+        // Lookahead can change per sample here, which the monotonic deque cannot track without
+        // unbounded history, so this path uses the direct window rescan. Invalidate the deque so a
+        // later static chunk on the same (non-reset) node rebuilds it from the retained peak ring.
+        _dequeLookahead = -1;
+
+        int channelCount = _delayLines!.Length;
+        int sampleCount = input.SampleCount;
+        ReadOnlySpan<float> inRaw = input.GetRawSpan();
+        Span<float> outRaw = output.GetRawSpan();
+
         int processed = 0;
-        while (processed < input.SampleCount)
+        while (processed < sampleCount)
         {
-            int chunkSize = Math.Min(AnimationChunkSize, input.SampleCount - processed);
+            int chunkSize = Math.Min(AnimationChunkSize, sampleCount - processed);
 
             var chunkStart = context.GetTimeForSample(processed);
             var chunkEnd = context.GetTimeForSample(processed + chunkSize);
@@ -277,7 +323,10 @@ public sealed class LimiterNode : AudioNode
             for (int i = 0; i < chunkSize; i++)
             {
                 var c = Derive(thresholds[i], releases[i], lookaheads[i], makeups[i], context.SampleRate);
-                ProcessSingleSample(input, output, processed + i, c.ThresholdLin, c.MakeupLin, c.LookaheadSamples, c.ReleaseCoef);
+                int idx = processed + i;
+                float currentPeak = IngestSample(inRaw, sampleCount, channelCount, idx);
+                float windowPeak = ScanWindowPeak(c.LookaheadSamples);
+                EmitSample(outRaw, sampleCount, channelCount, idx, windowPeak, c.ThresholdLin, c.MakeupLin, c.LookaheadSamples, c.ReleaseCoef);
             }
 
             processed += chunkSize;
@@ -286,36 +335,37 @@ public sealed class LimiterNode : AudioNode
         return output;
     }
 
-    private void ProcessSingleSample(
-        AudioBuffer input,
-        AudioBuffer output,
-        int sampleIndex,
-        float thresholdLin,
-        float makeupLin,
-        int lookaheadSamples,
-        float releaseCoef)
+    // Reads one input sample per channel, coerces non-finite values, feeds the delay lines and the
+    // peak-detection ring, advances the global sample position, and returns the channel-linked peak.
+    // inRaw is the channel-major backing span (channel ch sample i lives at ch * sampleCount + i),
+    // fetched once per call so the hot loop avoids AudioBuffer.GetChannelData's per-sample
+    // disposed/bounds/Slice overhead.
+    //
+    // Channel-linked peak detection: take max(|s_ch|) across all channels so that a single shared
+    // gain is applied to every channel — preserves inter-channel phase.
+    //
+    // NaN/Infinity input samples are coerced to 0 here. Without this guard:
+    //   - NaN written into the delay line passes straight through to the output.
+    //   - Inf forces currentPeak → Inf, then targetGain = thresholdLin / Inf = 0,
+    //     and finally `delayed * 0` = `Inf * 0` = NaN once the gain reduction kicks in.
+    // We log at most once per format change so an upstream bug surfaces without flooding the sink
+    // across every chunk discontinuity.
+    private float IngestSample(ReadOnlySpan<float> inRaw, int sampleCount, int channelCount, int sampleIndex)
     {
-        int channelCount = _delayLines!.Length;
-
-        // Channel-linked peak detection: take max(|s_ch|) across all channels so that a
-        // single shared gain is applied to every channel — preserves inter-channel phase.
-        //
-        // NaN/Infinity input samples are coerced to 0 here. Without this guard:
-        //   - NaN written into the delay line passes straight through to the output.
-        //   - Inf forces currentPeak → Inf, then targetGain = thresholdLin / Inf = 0,
-        //     and finally `delayed * 0` = `Inf * 0` = NaN once the gain reduction kicks in.
-        // We log at most once per format change so an upstream bug surfaces without flooding
-        // the sink across every chunk discontinuity.
         float currentPeak = 0f;
         for (int ch = 0; ch < channelCount; ch++)
         {
-            float s = input.GetChannelData(ch)[sampleIndex];
+            float s = inRaw[ch * sampleCount + sampleIndex];
             if (!float.IsFinite(s))
             {
                 if (!_warnedNonFiniteInputSample)
                 {
-                    s_logger.LogWarning(
-                        "LimiterNode: non-finite input sample at channel={Channel}, index={Index}, value={Value}. Likely upstream bug; coercing to 0.",
+                    // Error severity matches the non-finite-parameter path in ClampFinite: a NaN/Inf
+                    // in the audio stream is an upstream DSP defect that would corrupt output, so it
+                    // is surfaced at the same level rather than as a quieter warning.
+                    s_logger.LogError(
+                        "LimiterNode: non-finite input sample at channel={Channel}, index={Index}, value={Value}. " +
+                        "Likely an upstream DSP defect corrupting the audio stream; coercing to 0.",
                         ch, sampleIndex, s);
                     _warnedNonFiniteInputSample = true;
                 }
@@ -327,22 +377,31 @@ public sealed class LimiterNode : AudioNode
             if (abs > currentPeak)
                 currentPeak = abs;
 
-            _delayLines[ch].Write(s);
+            _delayLines![ch].Write(s);
         }
 
         _peakBuffer!.Write(currentPeak);
+        _globalPos++;
+        return currentPeak;
+    }
 
-        // Worst-case future peak that the sample currently exiting the delay line is about to
-        // face — feeds the gain calculation so the reduction is in place before the peak arrives.
-        float windowPeak = 0f;
-        int windowSize = lookaheadSamples + 1;
-        for (int j = 0; j < windowSize; j++)
-        {
-            float v = _peakBuffer.Read(j);
-            if (v > windowPeak)
-                windowPeak = v;
-        }
-
+    // Applies the gain envelope for one output sample and writes it to every channel. outRaw is the
+    // channel-major backing span (see IngestSample).
+    //
+    // With non-zero lookahead the reduction is applied before the offending sample reaches the
+    // output, so a hard attack stays transparent. With lookahead=0 this degrades to a
+    // hard-clipper-style limiter (still correct, just less transparent).
+    private void EmitSample(
+        Span<float> outRaw,
+        int sampleCount,
+        int channelCount,
+        int sampleIndex,
+        float windowPeak,
+        float thresholdLin,
+        float makeupLin,
+        int lookaheadSamples,
+        float releaseCoef)
+    {
         float targetGain;
         if (windowPeak > thresholdLin && windowPeak > 0f)
         {
@@ -353,9 +412,6 @@ public sealed class LimiterNode : AudioNode
             targetGain = 1f;
         }
 
-        // With non-zero lookahead the reduction is applied before the offending sample reaches
-        // the output, so a hard attack stays transparent. With lookahead=0 this degrades to a
-        // hard-clipper-style limiter (still correct, just less transparent).
         if (targetGain < _currentGain)
         {
             _currentGain = targetGain;
@@ -369,9 +425,91 @@ public sealed class LimiterNode : AudioNode
 
         for (int ch = 0; ch < channelCount; ch++)
         {
-            float delayed = _delayLines[ch].Read(lookaheadSamples);
-            output.GetChannelData(ch)[sampleIndex] = delayed * finalGain;
+            float delayed = _delayLines![ch].Read(lookaheadSamples);
+            outRaw[ch * sampleCount + sampleIndex] = delayed * finalGain;
         }
+    }
+
+    // Direct O(lookahead) window maximum over the peak ring [0..lookaheadSamples]. Read(0) is the
+    // just-written peak and Read(lookaheadSamples) is the peak that the sample currently exiting the
+    // delay line is about to face, so the reduction is in place before that peak arrives. Used by the
+    // animated path where the window length varies per sample.
+    private float ScanWindowPeak(int lookaheadSamples)
+    {
+        float windowPeak = 0f;
+        int windowSize = lookaheadSamples + 1;
+        for (int j = 0; j < windowSize; j++)
+        {
+            float v = _peakBuffer!.Read(j);
+            if (v > windowPeak)
+                windowPeak = v;
+        }
+
+        return windowPeak;
+    }
+
+    // O(1)-amortized sliding-window maximum: pushes the just-written peak (at position _globalPos-1)
+    // onto the monotonic-decreasing deque, evicts entries older than the window
+    // [pos - lookaheadSamples, pos], and returns the current maximum (the deque front). Equivalent to
+    // ScanWindowPeak for a constant lookahead. Requires EnsureDeque(lookaheadSamples) first.
+    private float PushWindowPeak(float value, int lookaheadSamples)
+    {
+        int cap = _dqVal!.Length;
+        long pos = _globalPos - 1;
+
+        while (_dqCount > 0 && _dqVal[(_dqHead + _dqCount - 1) % cap] <= value)
+            _dqCount--;
+
+        int tail = (_dqHead + _dqCount) % cap;
+        _dqVal[tail] = value;
+        _dqPos![tail] = pos;
+        _dqCount++;
+
+        long windowStart = pos - lookaheadSamples;
+        while (_dqPos[_dqHead] < windowStart)
+        {
+            _dqHead = (_dqHead + 1) % cap;
+            _dqCount--;
+        }
+
+        return _dqVal[_dqHead];
+    }
+
+    // (Re)builds the monotonic deque so PushWindowPeak can continue incrementally for the given
+    // lookahead. No-op when the deque already tracks this length. After a reset _globalPos is 0 and
+    // the peak history is empty, so the deque simply starts empty; when the lookahead changes on a
+    // reused node the candidate set is reconstructed from the retained peak ring (O(lookahead) once).
+    private void EnsureDeque(int lookaheadSamples)
+    {
+        if (_dequeLookahead == lookaheadSamples)
+            return;
+
+        _dqHead = 0;
+        _dqCount = 0;
+
+        int cap = _dqVal!.Length;
+        long last = _globalPos - 1;
+        if (last >= 0)
+        {
+            int span = (int)Math.Min(lookaheadSamples + 1L, last + 1L);
+            // Iterate the window oldest-to-newest (Read(j) is the peak j samples back) so the deque
+            // ends up ordered front=oldest with values monotonically decreasing front-to-back.
+            for (int j = span - 1; j >= 0; j--)
+            {
+                float v = _peakBuffer!.Read(j);
+                long pos = last - j;
+
+                while (_dqCount > 0 && _dqVal[(_dqHead + _dqCount - 1) % cap] <= v)
+                    _dqCount--;
+
+                int tail = (_dqHead + _dqCount) % cap;
+                _dqVal[tail] = v;
+                _dqPos![tail] = pos;
+                _dqCount++;
+            }
+        }
+
+        _dequeLookahead = lookaheadSamples;
     }
 
     /// <summary>
@@ -395,6 +533,14 @@ public sealed class LimiterNode : AudioNode
         _peakBuffer?.Clear();
         _currentGain = 1f;
         _lastTimeRangeEnd = null;
+
+        // Discard the sliding-window deque along with the peak history it tracks. _globalPos restarts
+        // at 0 so positions stay aligned with the freshly-cleared _peakBuffer, and the lookahead
+        // marker is invalidated so the next static chunk rebuilds the deque from scratch.
+        _dqHead = 0;
+        _dqCount = 0;
+        _dequeLookahead = -1;
+        _globalPos = 0;
     }
 
     protected override void Dispose(bool disposing)
