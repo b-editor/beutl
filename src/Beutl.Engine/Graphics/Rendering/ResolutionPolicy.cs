@@ -35,8 +35,10 @@ public enum ResolutionPolicyKind
 /// <see cref="Inherit"/> (the enum's zero value), so an unset policy is the
 /// supply-driven default.
 /// </summary>
-public readonly record struct ResolutionPolicy(ResolutionPolicyKind Kind, float Factor = 1f)
+public readonly record struct ResolutionPolicy(ResolutionPolicyKind Kind, float Factor = 0f)
 {
+    // Factor defaults to 0 (the struct-zero) so that default(ResolutionPolicy) is value-equal to
+    // Inherit. Only Oversample consumes Factor, and it always supplies one via Oversample(factor).
     /// <summary>Run at the input supply density (default).</summary>
     public static readonly ResolutionPolicy Inherit = new(ResolutionPolicyKind.Inherit);
 
