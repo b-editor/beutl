@@ -1,6 +1,8 @@
 ﻿using System.Collections.ObjectModel;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.Chrome;
+using Avalonia.Input;
 using Avalonia.Interactivity;
 using Beutl.AgentToolkit.Installation;
 using Beutl.Configuration;
@@ -107,10 +109,6 @@ public sealed partial class MainView : UserControl
             if (titleBar != null)
             {
                 titleBar.ExtendsContentIntoTitleBar = true;
-
-                Titlebar.Margin = new Thickness(0, 0, titleBar.LeftInset, 0);
-                FAAppWindow.SetAllowInteractionInTitleBar(MenuBar, true);
-                FAAppWindow.SetAllowInteractionInTitleBar(OpenNotificationsButton, true);
                 NotificationPanel.Margin = new(0, titleBar.Height + 8, 8, 0);
             }
         }

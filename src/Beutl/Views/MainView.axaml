@@ -7,8 +7,8 @@
              xmlns:lang="using:Beutl.Language"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:p="using:Beutl.Services.PrimitiveImpls"
-             xmlns:ui="using:FluentAvalonia.UI.Controls"
              xmlns:tutorial="using:Beutl.Views.Tutorial"
+             xmlns:ui="using:FluentAvalonia.UI.Controls"
              xmlns:views="using:Beutl.Views"
              xmlns:vm="using:Beutl.ViewModels"
              xmlns:wnd="using:FluentAvalonia.UI.Windowing"
@@ -34,7 +34,8 @@
     <Grid RowDefinitions="Auto,1,*">
         <Grid x:Name="Titlebar"
               Background="Transparent"
-              ColumnDefinitions="Auto,Auto,Auto,*">
+              ColumnDefinitions="Auto,Auto,Auto,*"
+              WindowDecorationProperties.ElementRole="TitleBar">
             <Image Name="WindowIcon"
                    MaxWidth="24"
                    MaxHeight="24"
@@ -51,7 +52,7 @@
 
             <Menu x:Name="MenuBar"
                   Grid.Column="1"
-                  wnd:FAAppWindow.AllowInteractionInTitleBar="True">
+                  WindowDecorationProperties.ElementRole="User">
                 <!--  ファイル  -->
                 <MenuItem Header="{x:Static lang:Strings.File}">
                     <!--  新規作成  -->
@@ -63,12 +64,12 @@
                         <MenuItem Command="{CompiledBinding MenuBar.CreateNewProject}"
                                   Header="{x:Static lang:Strings.CreateNewProject}"
                                   InputGesture="{h:GetCommandGesture CreateNewProject,
-                                  ExtensionType={x:Type p:MainViewExtension}}" />
+                                                                     ExtensionType={x:Type p:MainViewExtension}}" />
                         <!--  ファイル  -->
                         <MenuItem Command="{CompiledBinding MenuBar.CreateNew}"
                                   Header="{x:Static lang:Strings.CreateNewScene}"
                                   InputGesture="{h:GetCommandGesture CreateNewFile,
-                                  ExtensionType={x:Type p:MainViewExtension}}" />
+                                                                     ExtensionType={x:Type p:MainViewExtension}}" />
                     </MenuItem>
                     <Separator />
                     <!--  開く  -->
@@ -80,12 +81,12 @@
                         <MenuItem Command="{CompiledBinding MenuBar.OpenProject}"
                                   Header="{x:Static lang:Strings.Project}"
                                   InputGesture="{h:GetCommandGesture OpenProject,
-                                  ExtensionType={x:Type p:MainViewExtension}}" />
+                                                                     ExtensionType={x:Type p:MainViewExtension}}" />
                         <!--  ファイル  -->
                         <MenuItem Command="{CompiledBinding MenuBar.OpenFile}"
                                   Header="{x:Static lang:Strings.File}"
                                   InputGesture="{h:GetCommandGesture OpenFile,
-                                  ExtensionType={x:Type p:MainViewExtension}}" />
+                                                                     ExtensionType={x:Type p:MainViewExtension}}" />
                     </MenuItem>
                     <Separator />
                     <!--  閉じる  -->
@@ -99,7 +100,7 @@
                     <MenuItem Command="{CompiledBinding MenuBar.Save}"
                               Header="{x:Static lang:Strings.Save}"
                               InputGesture="{h:GetCommandGesture Save,
-                              ExtensionType={x:Type p:MainViewExtension}}"
+                                                                 ExtensionType={x:Type p:MainViewExtension}}"
                               IsEnabled="{CompiledBinding IsProjectOpened.Value}">
                         <MenuItem.Icon>
                             <icons:FluentIcon Icon="Save" />
@@ -109,7 +110,7 @@
                     <MenuItem Command="{CompiledBinding MenuBar.SaveAll}"
                               Header="{x:Static lang:Strings.SaveAll}"
                               InputGesture="{h:GetCommandGesture SaveAll,
-                              ExtensionType={x:Type p:MainViewExtension}}"
+                                                                 ExtensionType={x:Type p:MainViewExtension}}"
                               IsEnabled="{CompiledBinding IsProjectOpened.Value}">
                         <MenuItem.Icon>
                             <icons:FluentIcon Icon="SaveMultiple" />
@@ -125,8 +126,7 @@
                         </MenuItem.Icon>
                     </MenuItem>
                     <!--  プロジェクトをインポート  -->
-                    <MenuItem Command="{CompiledBinding MenuBar.ImportProject}"
-                              Header="{x:Static lang:Strings.ImportProject}">
+                    <MenuItem Command="{CompiledBinding MenuBar.ImportProject}" Header="{x:Static lang:Strings.ImportProject}">
                         <MenuItem.Icon>
                             <icons:FluentIcon Icon="ArrowImport" />
                         </MenuItem.Icon>
@@ -143,7 +143,7 @@
                     <MenuItem Command="{CompiledBinding MenuBar.Exit}"
                               Header="{x:Static lang:Strings.Exit}"
                               InputGesture="{h:GetCommandGesture Exit,
-                              ExtensionType={x:Type p:MainViewExtension}}" />
+                                                                 ExtensionType={x:Type p:MainViewExtension}}" />
                 </MenuItem>
                 <!--  編集  -->
                 <MenuItem Header="{x:Static lang:Strings.Edit}">
@@ -151,7 +151,7 @@
                     <MenuItem Command="{CompiledBinding MenuBar.Undo}"
                               Header="{x:Static lang:Strings.Undo}"
                               InputGesture="{h:GetCommandGesture Undo,
-                              ExtensionType={x:Type p:MainViewExtension}}"
+                                                                 ExtensionType={x:Type p:MainViewExtension}}"
                               IsEnabled="{CompiledBinding IsProjectOpened.Value}">
                         <MenuItem.Icon>
                             <icons:FluentIcon Icon="ArrowUndo" />
@@ -161,7 +161,7 @@
                     <MenuItem Command="{CompiledBinding MenuBar.Redo}"
                               Header="{x:Static lang:Strings.Redo}"
                               InputGesture="{h:GetCommandGesture Redo,
-                              ExtensionType={x:Type p:MainViewExtension}}"
+                                                                 ExtensionType={x:Type p:MainViewExtension}}"
                               IsEnabled="{CompiledBinding IsProjectOpened.Value}">
                         <MenuItem.Icon>
                             <icons:FluentIcon Icon="ArrowRedo" />
@@ -173,8 +173,7 @@
                     <MenuItem x:Name="editorTabMenuItem" Header="{x:Static lang:Strings.Editors}" />
                     <MenuItem x:Name="toolTabMenuItem" Header="{x:Static lang:Strings.Tools}" />
                     <Separator />
-                    <MenuItem Command="{CompiledBinding MenuBar.ResetDockLayout}"
-                              Header="{x:Static lang:Strings.ResetDockLayout}" />
+                    <MenuItem Command="{CompiledBinding MenuBar.ResetDockLayout}" Header="{x:Static lang:Strings.ResetDockLayout}" />
                 </MenuItem>
                 <MenuItem x:Name="toolWindowMenuItem" Header="{x:Static lang:Strings.Tools}" />
                 <!--  シーン  -->
@@ -218,8 +217,8 @@
 
             <views:TitleBreadcrumbBar Name="TitleBreadcrumbBar"
                                       Grid.Column="2"
-                                      wnd:FAAppWindow.AllowInteractionInTitleBar="True"
-                                      DataContext="{Binding TitleBreadcrumbBar}" />
+                                      DataContext="{Binding TitleBreadcrumbBar}"
+                                      WindowDecorationProperties.ElementRole="User" />
 
             <StackPanel Grid.Column="3"
                         Margin="0,0,4,0"
@@ -233,9 +232,9 @@
                            Text="Debug" />
 
                 <Border Margin="4,0,0,0"
-                        wnd:FAAppWindow.AllowInteractionInTitleBar="True"
                         Background="Transparent"
-                        ToolTip.Tip="{x:Static lang:Strings.RunningStartupTasks}">
+                        ToolTip.Tip="{x:Static lang:Strings.RunningStartupTasks}"
+                        WindowDecorationProperties.ElementRole="User">
                     <ProgressRing Width="20"
                                   Height="20"
                                   MinWidth="0"
@@ -246,19 +245,19 @@
                 </Border>
 
                 <Button x:Name="OpenFeedbackButton"
-                        wnd:FAAppWindow.AllowInteractionInTitleBar="True"
                         Click="OpenFeedbackClick"
+                        Theme="{StaticResource TitleBarButtonStyle}"
                         ToolTip.Tip="{x:Static lang:Strings.Feedback}"
-                        Theme="{StaticResource TitleBarButtonStyle}">
-                    <icons:FluentIcon Icon="Chat" Margin="0,0,0,2" />
+                        WindowDecorationProperties.ElementRole="User">
+                    <icons:SymbolIcon Margin="0,0,0,2" Symbol="Chat" />
                 </Button>
 
                 <Button x:Name="OpenNotificationsButton"
                         HorizontalContentAlignment="Stretch"
                         VerticalContentAlignment="Stretch"
-                        wnd:FAAppWindow.AllowInteractionInTitleBar="True"
                         Click="OpenNotificationsClick"
-                        Theme="{StaticResource TitleBarButtonStyle}">
+                        Theme="{StaticResource TitleBarButtonStyle}"
+                        WindowDecorationProperties.ElementRole="User">
                     <Button.Flyout>
                         <Flyout FlyoutPresenterTheme="{StaticResource SmallPaddingFlyoutPresenterStyle}">
                             <ScrollViewer>
@@ -339,14 +338,13 @@
             </StackPanel.Styles>
         </StackPanel>
 
-        <!-- チュートリアルオーバーレイ -->
+        <!--  チュートリアルオーバーレイ  -->
         <tutorial:TutorialOverlay x:Name="TutorialOverlayPanel"
                                   Grid.RowSpan="3"
                                   IsVisible="False" />
 
-        <!-- コマンドパレット -->
-        <views:CommandPaletteView Grid.RowSpan="3"
-                                  DataContext="{Binding CommandPalette}" />
+        <!--  コマンドパレット  -->
+        <views:CommandPaletteView Grid.RowSpan="3" DataContext="{Binding CommandPalette}" />
     </Grid>
 
 </UserControl>
