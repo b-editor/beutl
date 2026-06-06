@@ -6,14 +6,14 @@ using FluentAvalonia.UI.Controls;
 
 namespace Beutl.Views.Dialogs;
 
-public partial class WindowCaptureDialog : ContentDialog
+public partial class WindowCaptureDialog : FAContentDialog
 {
     public WindowCaptureDialog()
     {
         InitializeComponent();
     }
 
-    protected override Type StyleKeyOverride => typeof(ContentDialog);
+    protected override Type StyleKeyOverride => typeof(FAContentDialog);
 
     private async void OnBrowseClick(object? sender, RoutedEventArgs e)
     {

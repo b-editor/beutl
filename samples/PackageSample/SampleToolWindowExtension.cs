@@ -28,7 +28,7 @@ public sealed class SampleToolWindowExtension : ToolWindowExtension
 
     public override bool CanMultiple => true;
 
-    public override IconSource? GetIcon() => new SymbolIconSource { Symbol = Symbol.Mail };
+    public override FAIconSource? GetIcon() => new FASymbolIconSource { Symbol = FASymbol.Mail };
 
     public override bool TryCreateContent([NotNullWhen(true)] out Window? window)
     {

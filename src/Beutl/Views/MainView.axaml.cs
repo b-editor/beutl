@@ -440,8 +440,8 @@ public sealed partial class MainView : UserControl
 
         var dialogVm = new WindowCaptureDialogViewModel();
         var dialog = new WindowCaptureDialog { DataContext = dialogVm };
-        ContentDialogResult result = await dialog.ShowAsync();
-        if (result != ContentDialogResult.Primary || !dialogVm.CanStart.Value)
+        FAContentDialogResult result = await dialog.ShowAsync();
+        if (result != FAContentDialogResult.Primary || !dialogVm.CanStart.Value)
             return;
 
         WindowCaptureSession? session = null;
