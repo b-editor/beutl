@@ -24,8 +24,7 @@ public sealed class SimpleTabExtension : ToolTabExtension
 
     public override string? Header => Strings.SimpleTab;
 
-    public override IconSource GetIcon()
-        => new SymbolIconSource { Symbol = Symbol.Info };
+    public override DockAnchor DefaultAnchor => DockAnchor.Right;
 
     public override bool TryCreateContent(IEditorContext editorContext, out Control? control)
     {
@@ -51,10 +50,6 @@ public sealed class SimpleContext : IToolContext
     public ToolTabExtension Extension { get; }
     public IReactiveProperty<bool> IsSelected { get; } = new ReactivePropertySlim<bool>();
     public string Header => Strings.SimpleTab;
-    public IReactiveProperty<TabPlacement> Placement { get; } =
-        new ReactivePropertySlim<TabPlacement>(TabPlacement.RightUpperBottom);
-    public IReactiveProperty<TabDisplayMode> DisplayMode { get; } =
-        new ReactivePropertySlim<TabDisplayMode>();
 
     public void Dispose() { }
     public object? GetService(Type t) => null;
@@ -248,9 +243,6 @@ public sealed class HiddenTabExtension : ToolTabExtension
 
     // Returning null for Header hides the entry from the menu
     public override string? Header => null;
-
-    public override IconSource GetIcon()
-        => new SymbolIconSource { Symbol = Symbol.Code };
 
     // ... rest of the implementation ...
 }
