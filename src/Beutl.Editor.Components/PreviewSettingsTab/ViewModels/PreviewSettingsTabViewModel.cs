@@ -1,6 +1,11 @@
 ﻿using System.Text.Json.Nodes;
 
+using Beutl.Collections;
 using Beutl.Configuration;
+using Beutl.Editor.Services;
+using Beutl.PropertyAdapters;
+
+using Microsoft.Extensions.DependencyInjection;
 
 using Reactive.Bindings;
 
@@ -8,110 +13,41 @@ namespace Beutl.Editor.Components.PreviewSettingsTab.ViewModels;
 
 public sealed class PreviewSettingsTabViewModel : IToolContext
 {
-    private readonly CompositeDisposable _disposables = [];
     private IEditorContext _editorContext;
 
     public PreviewSettingsTabViewModel(IEditorContext editorContext)
     {
         _editorContext = editorContext;
-        EditorConfig editorConfig = GlobalConfiguration.Instance.EditorConfig;
+        var factory = editorContext.GetRequiredService<IPropertyEditorFactory>();
+        EditorConfig config = GlobalConfiguration.Instance.EditorConfig;
 
-        // Onion skin (migrated from PlayerViewModel's settings popup).
-        IsOnionSkinEnabled = editorConfig.GetObservable(EditorConfig.IsOnionSkinEnabledProperty)
-            .ToReactiveProperty()
-            .DisposeWith(_disposables);
-        IsOnionSkinEnabled.Subscribe(v => editorConfig.IsOnionSkinEnabled = v).DisposeWith(_disposables);
+        // Build the editors through the property-editor mechanism so each row reuses the
+        // standard editor for its CoreProperty type (toggle / number / enum). The settings
+        // themselves stay on EditorConfig, which the rest of the app already reacts to.
+        AddEditors(factory, OnionSkinProperties,
+            new CorePropertyAdapter<bool>(EditorConfig.IsOnionSkinEnabledProperty, config),
+            new CorePropertyAdapter<int>(EditorConfig.OnionSkinPrevCountProperty, config),
+            new CorePropertyAdapter<int>(EditorConfig.OnionSkinNextCountProperty, config),
+            new CorePropertyAdapter<float>(EditorConfig.OnionSkinPrevOpacityProperty, config),
+            new CorePropertyAdapter<float>(EditorConfig.OnionSkinNextOpacityProperty, config));
 
-        // NumericUpDown / Slider expose decimal? and double, so the UI-bound ReactiveProperty
-        // types are widened here and cast back to int / float at the EditorConfig boundary.
-        OnionSkinPrevCount = editorConfig.GetObservable(EditorConfig.OnionSkinPrevCountProperty)
-            .Select(v => (decimal)v)
-            .ToReactiveProperty()
-            .DisposeWith(_disposables);
-        OnionSkinPrevCount.Subscribe(v => editorConfig.OnionSkinPrevCount = (int)v).DisposeWith(_disposables);
+        AddEditors(factory, FrameCacheProperties,
+            new CorePropertyAdapter<bool>(EditorConfig.IsFrameCacheEnabledProperty, config),
+            new CorePropertyAdapter<double>(EditorConfig.FrameCacheMaxSizeProperty, config),
+            new CorePropertyAdapter<FrameCacheConfigScale>(EditorConfig.FrameCacheScaleProperty, config),
+            new CorePropertyAdapter<FrameCacheConfigColorType>(EditorConfig.FrameCacheColorTypeProperty, config));
 
-        OnionSkinNextCount = editorConfig.GetObservable(EditorConfig.OnionSkinNextCountProperty)
-            .Select(v => (decimal)v)
-            .ToReactiveProperty()
-            .DisposeWith(_disposables);
-        OnionSkinNextCount.Subscribe(v => editorConfig.OnionSkinNextCount = (int)v).DisposeWith(_disposables);
-
-        OnionSkinPrevOpacity = editorConfig.GetObservable(EditorConfig.OnionSkinPrevOpacityProperty)
-            .Select(v => (double)v)
-            .ToReactiveProperty()
-            .DisposeWith(_disposables);
-        OnionSkinPrevOpacity.Subscribe(v => editorConfig.OnionSkinPrevOpacity = (float)v).DisposeWith(_disposables);
-
-        OnionSkinNextOpacity = editorConfig.GetObservable(EditorConfig.OnionSkinNextOpacityProperty)
-            .Select(v => (double)v)
-            .ToReactiveProperty()
-            .DisposeWith(_disposables);
-        OnionSkinNextOpacity.Subscribe(v => editorConfig.OnionSkinNextOpacity = (float)v).DisposeWith(_disposables);
-
-        // Frame cache (mirrors EditorSettingsPageViewModel; the source of truth stays EditorConfig,
-        // and EditViewModel reacts to these changes to refresh FrameCacheManager / Renderer.CacheOptions).
-        IsFrameCacheEnabled = editorConfig.GetObservable(EditorConfig.IsFrameCacheEnabledProperty)
-            .ToReactiveProperty()
-            .DisposeWith(_disposables);
-        IsFrameCacheEnabled.Subscribe(v => editorConfig.IsFrameCacheEnabled = v).DisposeWith(_disposables);
-
-        FrameCacheMaxSize = editorConfig.GetObservable(EditorConfig.FrameCacheMaxSizeProperty)
-            .ToReactiveProperty()
-            .DisposeWith(_disposables);
-        FrameCacheMaxSize.Subscribe(v => editorConfig.FrameCacheMaxSize = v).DisposeWith(_disposables);
-
-        FrameCacheScale = editorConfig.GetObservable(EditorConfig.FrameCacheScaleProperty)
-            .Select(v => (int)v)
-            .ToReactiveProperty()
-            .DisposeWith(_disposables);
-        FrameCacheScale.Subscribe(v => editorConfig.FrameCacheScale = (FrameCacheConfigScale)v).DisposeWith(_disposables);
-
-        FrameCacheColorType = editorConfig.GetObservable(EditorConfig.FrameCacheColorTypeProperty)
-            .Select(v => (int)v)
-            .ToReactiveProperty()
-            .DisposeWith(_disposables);
-        FrameCacheColorType.Subscribe(v => editorConfig.FrameCacheColorType = (FrameCacheConfigColorType)v).DisposeWith(_disposables);
-
-        // Node (render) cache.
-        IsNodeCacheEnabled = editorConfig.GetObservable(EditorConfig.IsNodeCacheEnabledProperty)
-            .ToReactiveProperty()
-            .DisposeWith(_disposables);
-        IsNodeCacheEnabled.Subscribe(v => editorConfig.IsNodeCacheEnabled = v).DisposeWith(_disposables);
-
-        NodeCacheMaxPixels = editorConfig.GetObservable(EditorConfig.NodeCacheMaxPixelsProperty)
-            .ToReactiveProperty()
-            .DisposeWith(_disposables);
-        NodeCacheMaxPixels.Subscribe(v => editorConfig.NodeCacheMaxPixels = v).DisposeWith(_disposables);
-
-        NodeCacheMinPixels = editorConfig.GetObservable(EditorConfig.NodeCacheMinPixelsProperty)
-            .ToReactiveProperty()
-            .DisposeWith(_disposables);
-        NodeCacheMinPixels.Subscribe(v => editorConfig.NodeCacheMinPixels = v).DisposeWith(_disposables);
+        AddEditors(factory, NodeCacheProperties,
+            new CorePropertyAdapter<bool>(EditorConfig.IsNodeCacheEnabledProperty, config),
+            new CorePropertyAdapter<int>(EditorConfig.NodeCacheMaxPixelsProperty, config),
+            new CorePropertyAdapter<int>(EditorConfig.NodeCacheMinPixelsProperty, config));
     }
 
-    public ReactiveProperty<bool> IsOnionSkinEnabled { get; }
+    public CoreList<IPropertyEditorContext?> OnionSkinProperties { get; } = [];
 
-    public ReactiveProperty<decimal> OnionSkinPrevCount { get; }
+    public CoreList<IPropertyEditorContext?> FrameCacheProperties { get; } = [];
 
-    public ReactiveProperty<decimal> OnionSkinNextCount { get; }
-
-    public ReactiveProperty<double> OnionSkinPrevOpacity { get; }
-
-    public ReactiveProperty<double> OnionSkinNextOpacity { get; }
-
-    public ReactiveProperty<bool> IsFrameCacheEnabled { get; }
-
-    public ReactiveProperty<double> FrameCacheMaxSize { get; }
-
-    public ReactiveProperty<int> FrameCacheScale { get; }
-
-    public ReactiveProperty<int> FrameCacheColorType { get; }
-
-    public ReactiveProperty<bool> IsNodeCacheEnabled { get; }
-
-    public ReactiveProperty<int> NodeCacheMaxPixels { get; }
-
-    public ReactiveProperty<int> NodeCacheMinPixels { get; }
+    public CoreList<IPropertyEditorContext?> NodeCacheProperties { get; } = [];
 
     public ToolTabExtension Extension => PreviewSettingsTabExtension.Instance;
 
@@ -119,9 +55,28 @@ public sealed class PreviewSettingsTabViewModel : IToolContext
 
     public string Header => Strings.PreviewSettings;
 
+    private static void AddEditors(
+        IPropertyEditorFactory factory, CoreList<IPropertyEditorContext?> destination,
+        params IPropertyAdapter[] adapters)
+    {
+        foreach (IPropertyAdapter adapter in adapters)
+        {
+            destination.Add(factory.CreateEditor(adapter));
+        }
+    }
+
     public void Dispose()
     {
-        _disposables.Dispose();
+        foreach (IPropertyEditorContext? context in OnionSkinProperties
+                     .Concat(FrameCacheProperties)
+                     .Concat(NodeCacheProperties))
+        {
+            context?.Dispose();
+        }
+
+        OnionSkinProperties.Clear();
+        FrameCacheProperties.Clear();
+        NodeCacheProperties.Clear();
         _editorContext = null!;
     }
 
@@ -135,6 +90,6 @@ public sealed class PreviewSettingsTabViewModel : IToolContext
 
     public object? GetService(Type serviceType)
     {
-        return null;
+        return _editorContext.GetService(serviceType);
     }
 }

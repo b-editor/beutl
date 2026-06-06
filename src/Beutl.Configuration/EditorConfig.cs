@@ -1,9 +1,11 @@
 ﻿using System.ComponentModel;
+using System.ComponentModel.DataAnnotations;
 using System.Diagnostics;
 using System.Management;
 using System.Runtime.Versioning;
 using System.Text.RegularExpressions;
 using Beutl.Collections;
+using Beutl.Language;
 using Beutl.Serialization;
 
 namespace Beutl.Configuration;
@@ -90,6 +92,7 @@ public sealed partial class EditorConfig : ConfigurationBase
 
         IsFrameCacheEnabledProperty = ConfigureProperty<bool, EditorConfig>(nameof(IsFrameCacheEnabled))
             .DefaultValue(false)
+            .SetAttribute(new DisplayAttribute { Name = nameof(SettingsStrings.EnableFrameCache), ResourceType = typeof(SettingsStrings) })
             .Register();
 
         ulong memSize = OperatingSystem.IsWindows() ? GetWindowsMemoryCapacity()
@@ -101,26 +104,32 @@ public sealed partial class EditorConfig : ConfigurationBase
         // デフォルトはメモリ容量の半分にする
         FrameCacheMaxSizeProperty = ConfigureProperty<double, EditorConfig>(nameof(FrameCacheMaxSize))
             .DefaultValue(memSizeInMG / 2)
+            .SetAttribute(new DisplayAttribute { Name = nameof(SettingsStrings.FrameCacheMaxSize), ResourceType = typeof(SettingsStrings) })
             .Register();
 
         FrameCacheScaleProperty = ConfigureProperty<FrameCacheConfigScale, EditorConfig>(nameof(FrameCacheScale))
             .DefaultValue(FrameCacheConfigScale.FitToPreviewer)
+            .SetAttribute(new DisplayAttribute { Name = nameof(SettingsStrings.FrameCacheScale), ResourceType = typeof(SettingsStrings) })
             .Register();
 
         FrameCacheColorTypeProperty = ConfigureProperty<FrameCacheConfigColorType, EditorConfig>(nameof(FrameCacheColorType))
             .DefaultValue(FrameCacheConfigColorType.RGBA)
+            .SetAttribute(new DisplayAttribute { Name = nameof(SettingsStrings.FrameCacheColorType), ResourceType = typeof(SettingsStrings) })
             .Register();
 
         IsNodeCacheEnabledProperty = ConfigureProperty<bool, EditorConfig>(nameof(IsNodeCacheEnabled))
             .DefaultValue(false)
+            .SetAttribute(new DisplayAttribute { Name = nameof(SettingsStrings.EnableNodeCache), ResourceType = typeof(SettingsStrings) })
             .Register();
 
         NodeCacheMaxPixelsProperty = ConfigureProperty<int, EditorConfig>(nameof(NodeCacheMaxPixels))
             .DefaultValue(1000 * 1000)
+            .SetAttribute(new DisplayAttribute { Name = nameof(SettingsStrings.NodeCacheMaxPixels), ResourceType = typeof(SettingsStrings) })
             .Register();
 
         NodeCacheMinPixelsProperty = ConfigureProperty<int, EditorConfig>(nameof(NodeCacheMinPixels))
             .DefaultValue(1)
+            .SetAttribute(new DisplayAttribute { Name = nameof(SettingsStrings.NodeCacheMinPixels), ResourceType = typeof(SettingsStrings) })
             .Register();
 
         SwapTimelineScrollDirectionProperty = ConfigureProperty<bool, EditorConfig>(nameof(SwapTimelineScrollDirection))
@@ -153,22 +162,27 @@ public sealed partial class EditorConfig : ConfigurationBase
 
         IsOnionSkinEnabledProperty = ConfigureProperty<bool, EditorConfig>(nameof(IsOnionSkinEnabled))
             .DefaultValue(false)
+            .SetAttribute(new DisplayAttribute { Name = nameof(Strings.OnionSkin), ResourceType = typeof(Strings) })
             .Register();
 
         OnionSkinPrevCountProperty = ConfigureProperty<int, EditorConfig>(nameof(OnionSkinPrevCount))
             .DefaultValue(1)
+            .SetAttribute(new DisplayAttribute { Name = nameof(Strings.OnionSkinPrevCount), ResourceType = typeof(Strings) })
             .Register();
 
         OnionSkinNextCountProperty = ConfigureProperty<int, EditorConfig>(nameof(OnionSkinNextCount))
             .DefaultValue(0)
+            .SetAttribute(new DisplayAttribute { Name = nameof(Strings.OnionSkinNextCount), ResourceType = typeof(Strings) })
             .Register();
 
         OnionSkinPrevOpacityProperty = ConfigureProperty<float, EditorConfig>(nameof(OnionSkinPrevOpacity))
             .DefaultValue(0.35f)
+            .SetAttribute(new DisplayAttribute { Name = nameof(Strings.OnionSkinPrevOpacity), ResourceType = typeof(Strings) })
             .Register();
 
         OnionSkinNextOpacityProperty = ConfigureProperty<float, EditorConfig>(nameof(OnionSkinNextOpacity))
             .DefaultValue(0.35f)
+            .SetAttribute(new DisplayAttribute { Name = nameof(Strings.OnionSkinNextOpacity), ResourceType = typeof(Strings) })
             .Register();
     }
 
