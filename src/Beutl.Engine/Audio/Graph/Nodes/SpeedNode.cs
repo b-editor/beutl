@@ -1,4 +1,5 @@
-﻿using Beutl.Animation;
+﻿using System.Buffers;
+using Beutl.Animation;
 using Beutl.Engine;
 using Beutl.Media;
 using NAudio.Dsp;
@@ -93,28 +94,42 @@ public sealed class SpeedNode : AudioNode
             sourceStartTime = _integrator.Integrate(context.TimeRange.Start, keyFrameAnimation);
         }
 
-        // per-sample速度収集（オーディオ固有のロジック）
+        // Per-sample speed collection (audio-specific logic).
+        // This buffer is sized to expectedOutputSampleCount (ceil(render-duration * SampleRate)),
+        // which can be large, and it is allocated on every render of an animated-speed audio clip,
+        // so it adds GC pressure on the hot path. Rent it from ArrayPool and reuse instead.
+        // ProcessBufferWithVariableSpeed consumes the ReadOnlySpan<double> synchronously and does
+        // not retain it, so the array can be safely returned after the call.
         var startInSamples = (int)(context.TimeRange.Start.TotalSeconds * context.SampleRate);
-        Span<double> speeds = new double[expectedOutputSampleCount];
-        double sum = 0;
-        for (int i = 0; i < expectedOutputSampleCount; i++)
+        double[] speedsArray = ArrayPool<double>.Shared.Rent(expectedOutputSampleCount);
+        try
         {
-            var value = animation.GetAnimatedValue(
-                ownerStart + TimeSpan.FromSeconds((startInSamples + i) / (double)context.SampleRate)) / 100.0;
-            speeds[i] = value;
-            sum += value;
+            // The rented array can be larger than requested, so always slice before passing it.
+            Span<double> speeds = speedsArray.AsSpan(0, expectedOutputSampleCount);
+            double sum = 0;
+            for (int i = 0; i < expectedOutputSampleCount; i++)
+            {
+                var value = animation.GetAnimatedValue(
+                    ownerStart + TimeSpan.FromSeconds((startInSamples + i) / (double)context.SampleRate)) / 100.0;
+                speeds[i] = value;
+                sum += value;
+            }
+
+            var sourceEndTime = sourceStartTime + TimeSpan.FromSeconds(sum / context.SampleRate);
+            var sourceTimeRange = TimeRange.FromRange(sourceStartTime, sourceEndTime);
+
+            var inputContext = new AudioProcessContext(
+                sourceTimeRange,
+                context.SampleRate,
+                context.AnimationSampler,
+                context.OriginalTimeRange);
+
+            return _processor!.ProcessBufferWithVariableSpeed(inputContext, speeds, expectedOutputSampleCount);
         }
-
-        var sourceEndTime = sourceStartTime + TimeSpan.FromSeconds(sum / context.SampleRate);
-        var sourceTimeRange = TimeRange.FromRange(sourceStartTime, sourceEndTime);
-
-        var inputContext = new AudioProcessContext(
-            sourceTimeRange,
-            context.SampleRate,
-            context.AnimationSampler,
-            context.OriginalTimeRange);
-
-        return _processor!.ProcessBufferWithVariableSpeed(inputContext, speeds, expectedOutputSampleCount);
+        finally
+        {
+            ArrayPool<double>.Shared.Return(speedsArray);
+        }
     }
 
     private TimeRange CalculateSourceTimeRange(TimeRange outputTimeRange, float speed)
