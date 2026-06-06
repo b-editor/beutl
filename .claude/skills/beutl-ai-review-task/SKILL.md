@@ -144,6 +144,33 @@ Enter plan mode (`EnterPlanMode`) and produce a focused plan. Include:
 Surface non-obvious design trade-offs to the user (AGENTS.md "adopt better designs eagerly").
 For public-surface / extensibility changes, auto-delegate `@beutl-design-reviewer`.
 
+### Create the work branch now — before any edits
+
+Create/switch to the feature branch **before** Step 4/5 touch any files. If you edit and run the
+tests first and only branch at commit time, `git switch -c <branch> origin/main` either drags the
+dirty edits onto a different base (so the PR is built on code you never actually tested) or aborts
+on conflict. Branch first, then edit and test on that branch — what you verify is exactly what ships.
+
+Pick the branch name from the branch you are currently on:
+
+- **Already on a personal feature branch shaped `<prefix>/<feature>`** (e.g. a worktree branch like
+  `yuto-trd/tmp-1`): **keep the `<prefix>/` and replace only the `<feature>` part** with a
+  descriptive slug — e.g. `yuto-trd/tmp-1` → `yuto-trd/speednode-arraypool`. Do not invent a new
+  top-level prefix.
+- **On `main`/`master` or a detached/unrelated branch**: create a fresh `<prefix>/<slug>` using the
+  same personal prefix convention.
+
+```bash
+# Derive the prefix from the current branch and swap the feature part.
+CURRENT=$(git branch --show-current)
+PREFIX=${CURRENT%%/*}                       # e.g. "yuto-trd"; falls back to CURRENT if no "/"
+case "$CURRENT" in main|master|"") PREFIX="<your-prefix>";; esac
+FEATURE=<descriptive-slug>                  # e.g. speednode-arraypool
+BRANCH="$PREFIX/$FEATURE"
+
+git switch -c "$BRANCH" origin/main         # branch off the latest main, before editing
+```
+
 ## Step 4 — Implement
 
 Apply the minimal change that fixes the root cause. Match surrounding style; let `.editorconfig`
@@ -184,47 +211,35 @@ dotnet format Beutl.slnx --include <changed-file-1> <changed-file-2> --verify-no
 ```
 
 Tests are long-running — prefer launching them with `run_in_background: true`; the harness
-re-invokes you on completion, so the task-completion notification is the primary signal. If you do
-poll the output file, **do not grep localized result markers** (`成功!` / `失敗!`): under a non-Japanese
-locale `dotnet test` prints `Passed!` / `Failed!` instead, so the loop can spin forever. Either
-force a known locale so the markers are deterministic, or poll the process exit status:
+re-invokes you on completion, so the task-completion notification is the primary signal.
+
+**Decide pass/fail from the exit code, never from a console string.** A localized marker grep is
+unreliable two ways: under a non-Japanese locale `dotnet test` prints `Passed!` / `Failed!` instead
+of `成功!` / `失敗!` (the loop can spin forever), and matching `Passed!`-or-`Failed!` tells you the run
+*finished*, not that it *succeeded* — proceeding to commit/PR on a failed run. Wait on the process
+and check `$?`:
 
 ```bash
-# Option A — force a deterministic locale, then match its (now stable) markers.
-DOTNET_CLI_UI_LANGUAGE=en dotnet test ... > "$f" 2>&1
-until grep -qE "Passed!|Failed!|error " "$f"; do sleep 3; done
-
-# Option B — locale-independent: wait on the background process itself.
-# (PID is the background job started above; exit code 0 = pass.)
-until ! kill -0 "$PID" 2>/dev/null; do sleep 3; done
+# Launch in the background, then wait and propagate the real exit status.
+dotnet test ... > "$f" 2>&1 &
+PID=$!
+wait "$PID"; status=$?
+if [ "$status" -ne 0 ]; then
+    echo "tests FAILED (exit $status) — stop here, do not commit/PR"; tail -40 "$f"
+fi
+# status == 0 → green; otherwise fix before continuing.
 ```
+
+(If you only want an interim progress peek while it runs, `grep` the output file — but still gate
+the commit/PR decision on `status`, not on any matched string.)
 
 ## Step 6 — Commit, push, PR
 
-**Create / switch to the feature branch BEFORE committing.** `git push -u origin <branch>` treats
-the argument after the remote as a refspec — it only pushes an *already existing* local ref, it
-does not move the just-made commit onto a new branch. So if you commit while still on `main` (or
-any unrelated branch) and only name the branch at push time, the work lands on the wrong branch
-and `gh pr create --head <branch>` fails because that head has no commit. Branch first, then commit.
-
-Pick the branch name from the branch you are currently on:
-
-- **Already on a personal feature branch shaped `<prefix>/<feature>`** (e.g. a worktree branch like
-  `yuto-trd/tmp-1`): **keep the `<prefix>/` and replace only the `<feature>` part** with a
-  descriptive slug — e.g. `yuto-trd/tmp-1` → `yuto-trd/speednode-arraypool`. Do not invent a new
-  top-level prefix.
-- **On `main`/`master` or a detached/unrelated branch**: create a fresh `<prefix>/<slug>` using the
-  same personal prefix convention.
+You are already on `$BRANCH` (created in Step 3 before any edits), so just commit and push it.
+`git push -u origin "$BRANCH"` pushes that existing branch — the refspec form does not create or
+move a branch, which is exactly why the branch had to exist before you started editing.
 
 ```bash
-# Derive the prefix from the current branch and swap the feature part.
-CURRENT=$(git branch --show-current)
-PREFIX=${CURRENT%%/*}                       # e.g. "yuto-trd"; falls back to CURRENT if no "/"
-case "$CURRENT" in main|master|"") PREFIX="<your-prefix>";; esac
-FEATURE=<descriptive-slug>                  # e.g. speednode-arraypool
-BRANCH="$PREFIX/$FEATURE"
-
-git switch -c "$BRANCH" origin/main         # branch off the latest main, BEFORE committing
 git add <changed files>
 git commit -F - <<'EOF'
 perf(engine): <imperative summary>
