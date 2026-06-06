@@ -35,15 +35,25 @@ and by moving the item's `Status`.
 
 ## Step 1 — List candidates and pick one
 
+Fetch the whole board **once** to a file, then drive everything (table, selection, item id, body)
+off that single snapshot. `gh project item-list --limit` is the *maximum number of items fetched*,
+not a page offset — the default is 100, so a board that has grown past that silently drops the tail.
+Pass a limit comfortably above the current item count and warn if the snapshot looks truncated.
+
 ```bash
-# Full board with status + type + title
-gh project item-list 9 --owner b-editor --limit 100 --format json \
-  | python3 -c "
-import json,sys
-d=json.load(sys.stdin)
-for i,it in enumerate(d['items']):
+BOARD=$(mktemp /tmp/ai-review-board.XXXX.json)
+gh project item-list 9 --owner b-editor --limit 2000 --format json > "$BOARD"
+
+# Status + type + title, indexed. Warn if we may have hit the fetch ceiling.
+python3 -c "
+import json
+d=json.load(open('$BOARD'))
+items=d['items']
+for i,it in enumerate(items):
     c=it.get('content',{})
     print(i,'|',it.get('status','?'),'|',c.get('type','?'),'|',c.get('title','')[:90])
+if len(items) >= 2000:
+    print('WARNING: hit the --limit ceiling; raise --limit and re-fetch before trusting this list.')
 "
 ```
 
@@ -59,16 +69,28 @@ If `$ARGUMENTS` is an index/number or a title keyword, jump straight to that ite
 present the top non-feature candidates to the user with AskUserQuestion before committing to one
 (unless the user already told you to just pick one).
 
-Read the chosen item's full body — it carries the exact file:line and a suggested fix:
+Resolve the pick against the **same snapshot** and capture its **stable item id** now. Do not
+re-run `item-list` and re-select by numeric index later — the shared board can have items added,
+archived, or reordered between calls, so the same index can point at a different task. Everything
+downstream (verify, claim, board update) uses `$ITEM_ID`, never the index.
 
 ```bash
-# Set INDEX to the row number printed by the list command above (the leading integer).
+# INDEX = the leading integer printed for the chosen row above.
 INDEX=12
-gh project item-list 9 --owner b-editor --limit 100 --format json \
-  | python3 -c "
-import json,sys
-i=$INDEX
-it=json.load(sys.stdin)['items'][i]; print(it['content']['title']); print(); print(it['content'].get('body',''))
+read -r ITEM_ID ITEM_TITLE <<EOF
+$(python3 -c "
+import json
+it=json.load(open('$BOARD'))['items'][$INDEX]
+print(it['id'], it['content'].get('title',''))
+")
+EOF
+echo "Picked: $ITEM_ID — $ITEM_TITLE"
+
+# Read the chosen item's full body (file:line + suggested fix) from the snapshot.
+python3 -c "
+import json
+it=next(x for x in json.load(open('$BOARD'))['items'] if x['id']=='$ITEM_ID')
+print(it['content'].get('title','')); print(); print(it['content'].get('body',''))
 "
 ```
 
@@ -87,14 +109,14 @@ Before any planning, confirm the finding against the **current** code:
 ```bash
 # Set Status -> "False positive"
 gh project item-edit --project-id PVT_kwDOBLw8Fs4BW4g5 \
-  --id <ITEM_ID> \
+  --id "$ITEM_ID" \
   --field-id PVTSSF_lADOBLw8Fs4BW4g5zhSJTXk \
   --single-select-option-id e6ff360e
 ```
 
-Get `<ITEM_ID>` from the `id` field of the chosen item in the JSON above. Then return to Step 1
-for another candidate. **Do not** silently keep the smaller diff or fabricate a fix for a wrong
-finding.
+`$ITEM_ID` is the stable id captured in Step 1 — reuse it, do not re-derive from an index. Then
+return to Step 1 for another candidate (re-fetch the snapshot). **Do not** silently keep the
+smaller diff or fabricate a fix for a wrong finding.
 
 ### Claim the item immediately
 
@@ -104,7 +126,7 @@ shared, so claiming late leaves a long window where another agent can start the 
 
 ```bash
 gh project item-edit --project-id PVT_kwDOBLw8Fs4BW4g5 \
-  --id <ITEM_ID> \
+  --id "$ITEM_ID" \
   --field-id PVTSSF_lADOBLw8Fs4BW4g5zhSJTXk \
   --single-select-option-id 47fc9ee4   # In Progress
 ```
@@ -162,8 +184,21 @@ Then verify formatting only on the touched files (fast):
 dotnet format Beutl.slnx --include <changed-file-1> <changed-file-2> --verify-no-changes
 ```
 
-Tests are long-running — prefer launching them with `run_in_background: true` and polling the
-output file with an `until grep -qE "成功!|失敗!|error " "$f"; do sleep 3; done` loop.
+Tests are long-running — prefer launching them with `run_in_background: true`; the harness
+re-invokes you on completion, so the task-completion notification is the primary signal. If you do
+poll the output file, **do not grep localized result markers** (`成功!` / `失敗!`): under a non-Japanese
+locale `dotnet test` prints `Passed!` / `Failed!` instead, so the loop can spin forever. Either
+force a known locale so the markers are deterministic, or poll the process exit status:
+
+```bash
+# Option A — force a deterministic locale, then match its (now stable) markers.
+DOTNET_CLI_UI_LANGUAGE=en dotnet test ... > "$f" 2>&1
+until grep -qE "Passed!|Failed!|error " "$f"; do sleep 3; done
+
+# Option B — locale-independent: wait on the background process itself.
+# (PID is the background job started above; exit code 0 = pass.)
+until ! kill -0 "$PID" 2>/dev/null; do sleep 3; done
+```
 
 ## Step 6 — Commit, push, PR
 
@@ -217,7 +252,7 @@ in Step 2), so nothing changes here while the PR is open. **After the PR merges*
 
 ```bash
 gh project item-edit --project-id PVT_kwDOBLw8Fs4BW4g5 \
-  --id <ITEM_ID> \
+  --id "$ITEM_ID" \
   --field-id PVTSSF_lADOBLw8Fs4BW4g5zhSJTXk \
   --single-select-option-id 98236657   # Done
 ```
