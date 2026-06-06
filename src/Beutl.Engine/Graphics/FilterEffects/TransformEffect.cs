@@ -46,6 +46,13 @@ public sealed partial class TransformEffect : FilterEffect
             {
                 context.CustomEffect((mat, originPoint), static (data, effectContext) =>
                 {
+                    // feature 003: the source buffer is ceil(bounds × w) DEVICE px (At(w)); the transform math
+                    // (origin pivot, m2, the re-center translation) is all LOGICAL. Prescale the canvas by w so
+                    // the logical transform maps onto the device buffer, and blit the source via the scale-aware
+                    // target.Draw (it maps the device buffer back into its logical footprint). Without this the
+                    // rotated/scaled content is placed at logical size on a w× device buffer, so it lands off
+                    // position and clips. w == 1 keeps the exact (int)-truncation point-blit (byte-identical).
+                    float w = effectContext.WorkingScale;
                     effectContext.ForEach((_, target) =>
                     {
                         Vector origin = data.originPoint.ToPixels(target.Bounds.Size);
@@ -56,11 +63,12 @@ public sealed partial class TransformEffect : FilterEffect
 
                         EffectTarget newTarget = effectContext.CreateTarget(target.Bounds.TransformToAABB(m1));
                         using var canvas = effectContext.Open(newTarget);
+                        using (w == 1f ? default : canvas.PushTransform(Matrix.CreateScale(w, w)))
                         using (canvas.PushTransform(Matrix.CreateTranslation(target.Bounds.Position - newTarget.Bounds.Position)))
                         using (canvas.PushTransform(m2))
                         {
                             canvas.Clear();
-                            canvas.DrawRenderTarget(target.RenderTarget!, default);
+                            target.Draw(canvas);
                         }
 
                         target.Dispose();

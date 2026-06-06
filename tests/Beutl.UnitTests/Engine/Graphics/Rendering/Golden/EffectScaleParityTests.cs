@@ -87,6 +87,22 @@ public class EffectScaleParityTests
             e.Progress.CurrentValue = 100;
             return e;
         }));
+        yield return new TestCaseData("TransformEffect", (Func<FilterEffect>)(() =>
+        {
+            // Rotate + non-uniform scale: the rotated buffer must be placed at the working density, not at
+            // logical size on a w× device buffer (which shifted it off-position and clipped it before).
+            var group = new TransformGroup();
+            var rot = new RotationTransform();
+            rot.Rotation.CurrentValue = 45f;
+            var scale = new ScaleTransform();
+            scale.ScaleX.CurrentValue = 120f;
+            scale.ScaleY.CurrentValue = 100f;
+            group.Children.Add(rot);
+            group.Children.Add(scale);
+            var e = new TransformEffect();
+            e.Transform.CurrentValue = group;
+            return e;
+        }));
     }
 
     private static Drawable.Resource Make(Func<FilterEffect> makeEffect)
