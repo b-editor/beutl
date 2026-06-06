@@ -2,8 +2,10 @@
 using System.Windows.Input;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.Chrome;
 using Avalonia.Platform;
 using Beutl.Configuration;
+using Beutl.Controls;
 using Beutl.Services;
 using Beutl.ViewModels;
 using DynamicData;
@@ -22,6 +24,7 @@ public sealed partial class MacWindow : Window
         {
             ExtendClientAreaToDecorationsHint = true;
             ExtendClientAreaTitleBarHeightHint = 40;
+            MacOSTitleBar.SetIsThick(this, true);
         }
 
         InitializeComponent();
