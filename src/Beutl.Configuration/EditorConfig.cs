@@ -92,7 +92,6 @@ public sealed partial class EditorConfig : ConfigurationBase
 
         IsFrameCacheEnabledProperty = ConfigureProperty<bool, EditorConfig>(nameof(IsFrameCacheEnabled))
             .DefaultValue(false)
-            .SetAttribute(new DisplayAttribute { Name = nameof(SettingsStrings.EnableFrameCache), ResourceType = typeof(SettingsStrings) })
             .Register();
 
         ulong memSize = OperatingSystem.IsWindows() ? GetWindowsMemoryCapacity()
@@ -104,32 +103,26 @@ public sealed partial class EditorConfig : ConfigurationBase
         // デフォルトはメモリ容量の半分にする
         FrameCacheMaxSizeProperty = ConfigureProperty<double, EditorConfig>(nameof(FrameCacheMaxSize))
             .DefaultValue(memSizeInMG / 2)
-            .SetAttribute(new DisplayAttribute { Name = nameof(SettingsStrings.FrameCacheMaxSize), ResourceType = typeof(SettingsStrings) })
             .Register();
 
         FrameCacheScaleProperty = ConfigureProperty<FrameCacheConfigScale, EditorConfig>(nameof(FrameCacheScale))
             .DefaultValue(FrameCacheConfigScale.FitToPreviewer)
-            .SetAttribute(new DisplayAttribute { Name = nameof(SettingsStrings.FrameCacheScale), ResourceType = typeof(SettingsStrings) })
             .Register();
 
         FrameCacheColorTypeProperty = ConfigureProperty<FrameCacheConfigColorType, EditorConfig>(nameof(FrameCacheColorType))
             .DefaultValue(FrameCacheConfigColorType.RGBA)
-            .SetAttribute(new DisplayAttribute { Name = nameof(SettingsStrings.FrameCacheColorType), ResourceType = typeof(SettingsStrings) })
             .Register();
 
         IsNodeCacheEnabledProperty = ConfigureProperty<bool, EditorConfig>(nameof(IsNodeCacheEnabled))
             .DefaultValue(false)
-            .SetAttribute(new DisplayAttribute { Name = nameof(SettingsStrings.EnableNodeCache), ResourceType = typeof(SettingsStrings) })
             .Register();
 
         NodeCacheMaxPixelsProperty = ConfigureProperty<int, EditorConfig>(nameof(NodeCacheMaxPixels))
             .DefaultValue(1000 * 1000)
-            .SetAttribute(new DisplayAttribute { Name = nameof(SettingsStrings.NodeCacheMaxPixels), ResourceType = typeof(SettingsStrings) })
             .Register();
 
         NodeCacheMinPixelsProperty = ConfigureProperty<int, EditorConfig>(nameof(NodeCacheMinPixels))
             .DefaultValue(1)
-            .SetAttribute(new DisplayAttribute { Name = nameof(SettingsStrings.NodeCacheMinPixels), ResourceType = typeof(SettingsStrings) })
             .Register();
 
         SwapTimelineScrollDirectionProperty = ConfigureProperty<bool, EditorConfig>(nameof(SwapTimelineScrollDirection))
@@ -162,27 +155,22 @@ public sealed partial class EditorConfig : ConfigurationBase
 
         IsOnionSkinEnabledProperty = ConfigureProperty<bool, EditorConfig>(nameof(IsOnionSkinEnabled))
             .DefaultValue(false)
-            .SetAttribute(new DisplayAttribute { Name = nameof(Strings.OnionSkin), ResourceType = typeof(Strings) })
             .Register();
 
         OnionSkinPrevCountProperty = ConfigureProperty<int, EditorConfig>(nameof(OnionSkinPrevCount))
             .DefaultValue(1)
-            .SetAttribute(new DisplayAttribute { Name = nameof(Strings.OnionSkinPrevCount), ResourceType = typeof(Strings) })
             .Register();
 
         OnionSkinNextCountProperty = ConfigureProperty<int, EditorConfig>(nameof(OnionSkinNextCount))
             .DefaultValue(0)
-            .SetAttribute(new DisplayAttribute { Name = nameof(Strings.OnionSkinNextCount), ResourceType = typeof(Strings) })
             .Register();
 
         OnionSkinPrevOpacityProperty = ConfigureProperty<float, EditorConfig>(nameof(OnionSkinPrevOpacity))
             .DefaultValue(0.35f)
-            .SetAttribute(new DisplayAttribute { Name = nameof(Strings.OnionSkinPrevOpacity), ResourceType = typeof(Strings) })
             .Register();
 
         OnionSkinNextOpacityProperty = ConfigureProperty<float, EditorConfig>(nameof(OnionSkinNextOpacity))
             .DefaultValue(0.35f)
-            .SetAttribute(new DisplayAttribute { Name = nameof(Strings.OnionSkinNextOpacity), ResourceType = typeof(Strings) })
             .Register();
     }
 
@@ -209,42 +197,49 @@ public sealed partial class EditorConfig : ConfigurationBase
         set => SetValue(IsAutoSaveEnabledProperty, value);
     }
 
+    [Display(Name = nameof(SettingsStrings.EnableFrameCache), ResourceType = typeof(SettingsStrings))]
     public bool IsFrameCacheEnabled
     {
         get => GetValue(IsFrameCacheEnabledProperty);
         set => SetValue(IsFrameCacheEnabledProperty, value);
     }
 
+    [Display(Name = nameof(SettingsStrings.FrameCacheMaxSize), ResourceType = typeof(SettingsStrings))]
     public double FrameCacheMaxSize
     {
         get => GetValue(FrameCacheMaxSizeProperty);
         set => SetValue(FrameCacheMaxSizeProperty, value);
     }
 
+    [Display(Name = nameof(SettingsStrings.FrameCacheScale), ResourceType = typeof(SettingsStrings))]
     public FrameCacheConfigScale FrameCacheScale
     {
         get => GetValue(FrameCacheScaleProperty);
         set => SetValue(FrameCacheScaleProperty, value);
     }
 
+    [Display(Name = nameof(SettingsStrings.FrameCacheColorType), ResourceType = typeof(SettingsStrings))]
     public FrameCacheConfigColorType FrameCacheColorType
     {
         get => GetValue(FrameCacheColorTypeProperty);
         set => SetValue(FrameCacheColorTypeProperty, value);
     }
 
+    [Display(Name = nameof(SettingsStrings.EnableNodeCache), ResourceType = typeof(SettingsStrings))]
     public bool IsNodeCacheEnabled
     {
         get => GetValue(IsNodeCacheEnabledProperty);
         set => SetValue(IsNodeCacheEnabledProperty, value);
     }
 
+    [Display(Name = nameof(SettingsStrings.NodeCacheMaxPixels), ResourceType = typeof(SettingsStrings))]
     public int NodeCacheMaxPixels
     {
         get => GetValue(NodeCacheMaxPixelsProperty);
         set => SetValue(NodeCacheMaxPixelsProperty, value);
     }
 
+    [Display(Name = nameof(SettingsStrings.NodeCacheMinPixels), ResourceType = typeof(SettingsStrings))]
     public int NodeCacheMinPixels
     {
         get => GetValue(NodeCacheMinPixelsProperty);
@@ -293,30 +288,35 @@ public sealed partial class EditorConfig : ConfigurationBase
         set => SetValue(UseHdrPreviewProperty, value);
     }
 
+    [Display(Name = nameof(Strings.OnionSkin), ResourceType = typeof(Strings))]
     public bool IsOnionSkinEnabled
     {
         get => GetValue(IsOnionSkinEnabledProperty);
         set => SetValue(IsOnionSkinEnabledProperty, value);
     }
 
+    [Display(Name = nameof(Strings.OnionSkinPrevCount), ResourceType = typeof(Strings))]
     public int OnionSkinPrevCount
     {
         get => GetValue(OnionSkinPrevCountProperty);
         set => SetValue(OnionSkinPrevCountProperty, value);
     }
 
+    [Display(Name = nameof(Strings.OnionSkinNextCount), ResourceType = typeof(Strings))]
     public int OnionSkinNextCount
     {
         get => GetValue(OnionSkinNextCountProperty);
         set => SetValue(OnionSkinNextCountProperty, value);
     }
 
+    [Display(Name = nameof(Strings.OnionSkinPrevOpacity), ResourceType = typeof(Strings))]
     public float OnionSkinPrevOpacity
     {
         get => GetValue(OnionSkinPrevOpacityProperty);
         set => SetValue(OnionSkinPrevOpacityProperty, value);
     }
 
+    [Display(Name = nameof(Strings.OnionSkinNextOpacity), ResourceType = typeof(Strings))]
     public float OnionSkinNextOpacity
     {
         get => GetValue(OnionSkinNextOpacityProperty);
