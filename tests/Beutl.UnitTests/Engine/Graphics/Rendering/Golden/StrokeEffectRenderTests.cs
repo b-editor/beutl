@@ -56,9 +56,13 @@ public class StrokeEffectRenderTests
                 rn == 0 ? 0 : rx / rn, rn == 0 ? 0 : ry / rn, rn);
     }
 
-    // The source (white) must stay anchored on the frame centre for every Offset / pen.Offset / style, while
-    // the stroke (red) moves by Offset. The old code re-centred the WHOLE thing on the asymmetric box, so the
-    // source drifted off-centre by Offset/2 (and by pen.Offset for the pen-offset case) — these would fail it.
+    // The source (white) must stay anchored on the frame centre for every Offset / pen.Offset / style, while the
+    // stroke (red) moves by Offset. NOTE on what each case guards: for a plain pen the old code ALREADY rendered
+    // the source centred (its origin compensated the asymmetric box), so the plain positive/negative/Foreground
+    // cases also pass on pre-fix code — they document the contract and guard against FUTURE breakage, while the
+    // box-centering regression itself is guarded by StrokeEffectOffsetBoundsTests. The Stroke_PenOffset case is
+    // the one that distinguishes old from new: the old origin used min(Offset, thickness) and ignored pen.Offset,
+    // so the source drifted by pen.Offset; the fix anchors it (this case fails on the pre-fix code).
     [TestCase(0f, 0f, 0f, StrokeEffect.StrokeStyles.Background, TestName = "Stroke_NoOffset")]
     [TestCase(50f, 50f, 0f, StrokeEffect.StrokeStyles.Background, TestName = "Stroke_PositiveOffset")]
     [TestCase(-50f, -50f, 0f, StrokeEffect.StrokeStyles.Background, TestName = "Stroke_NegativeOffset")]

@@ -41,6 +41,15 @@ public class ResolutionScaleTests
         Assert.That(p.Factor, Is.EqualTo(2f));
     }
 
+    // A zero/negative Oversample factor would resolve identically to Inherit — reject it at the factory rather
+    // than silently degrading (D2).
+    [TestCase(0f)]
+    [TestCase(-1f)]
+    public void ResolutionPolicy_Oversample_RejectsNonPositiveFactor(float factor)
+    {
+        Assert.Throws<ArgumentOutOfRangeException>(() => ResolutionPolicy.Oversample(factor));
+    }
+
     // --- ResolveWorkingScale: the supply-driven core ---------------------------------
 
     [Test]

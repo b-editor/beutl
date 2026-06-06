@@ -48,6 +48,14 @@ public readonly record struct ResolutionPolicy(ResolutionPolicyKind Kind, float 
     /// <summary>Keep a high source's density (quality).</summary>
     public static readonly ResolutionPolicy PreserveSource = new(ResolutionPolicyKind.PreserveSource);
 
-    /// <summary>Force at least <paramref name="factor"/> times the output scale (quality opt-in).</summary>
-    public static ResolutionPolicy Oversample(float factor) => new(ResolutionPolicyKind.Oversample, factor);
+    /// <summary>
+    /// Force at least <paramref name="factor"/> times the output scale (quality opt-in). <paramref name="factor"/>
+    /// MUST be positive — a zero/negative factor would make Oversample resolve identically to <see cref="Inherit"/>
+    /// (supply density), so it is rejected here rather than silently degrading. (The positional primary constructor
+    /// does not enforce this; always build Oversample via this factory.)
+    /// </summary>
+    public static ResolutionPolicy Oversample(float factor)
+        => factor > 0f
+            ? new(ResolutionPolicyKind.Oversample, factor)
+            : throw new ArgumentOutOfRangeException(nameof(factor), factor, "Oversample factor must be positive.");
 }
