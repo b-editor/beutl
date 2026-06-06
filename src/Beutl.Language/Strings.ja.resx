@@ -1153,6 +1153,9 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
   <data name="Preview" xml:space="preserve">
     <value>プレビュー</value>
   </data>
+  <data name="PreviewSettings" xml:space="preserve">
+    <value>プレビュー設定</value>
+  </data>
   <data name="Templates" xml:space="preserve">
     <value>テンプレート</value>
   </data>

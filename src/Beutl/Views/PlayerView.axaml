@@ -124,72 +124,10 @@
         <Player.InnerRightContent>
             <Button Padding="7,6,5,6"
                     VerticalAlignment="Top"
+                    Command="{Binding OpenPreviewSettings}"
                     Theme="{StaticResource TransparentButton}"
-                    ToolTip.Tip="{x:Static lang:Strings.OnionSkin}">
+                    ToolTip.Tip="{x:Static lang:Strings.PreviewSettings}">
                 <icons:SymbolIcon FontSize="16" Symbol="Settings" />
-                    <Button.Flyout>
-                        <Flyout Placement="Left">
-                            <StackPanel MinWidth="240" Spacing="8">
-                                <TextBlock Classes="Body"
-                                           Text="{x:Static lang:Strings.OnionSkin}" />
-                                <TextBlock Classes="Caption"
-                                           Text="{x:Static lang:Strings.OnionSkin_Description}"
-                                           TextWrapping="Wrap" />
-                                <ToggleSwitch IsChecked="{Binding IsOnionSkinEnabled.Value, Mode=TwoWay}"
-                                              OffContent="{x:Static lang:Strings.OnionSkin}"
-                                              OnContent="{x:Static lang:Strings.OnionSkin}" />
-                                <Grid ColumnDefinitions="*,Auto"
-                                      IsEnabled="{Binding IsOnionSkinEnabled.Value}"
-                                      RowDefinitions="Auto,Auto,Auto,Auto"
-                                      RowSpacing="4">
-                                    <TextBlock Grid.Row="0"
-                                               Grid.Column="0"
-                                               VerticalAlignment="Center"
-                                               Text="{x:Static lang:Strings.OnionSkinPrevCount}" />
-                                    <NumericUpDown Grid.Row="0"
-                                                   Grid.Column="1"
-                                                   MinWidth="100"
-                                                   Increment="1"
-                                                   Maximum="10"
-                                                   Minimum="0"
-                                                   Value="{Binding OnionSkinPrevCount.Value, Mode=TwoWay}" />
-                                    <TextBlock Grid.Row="1"
-                                               Grid.Column="0"
-                                               VerticalAlignment="Center"
-                                               Text="{x:Static lang:Strings.OnionSkinNextCount}" />
-                                    <NumericUpDown Grid.Row="1"
-                                                   Grid.Column="1"
-                                                   MinWidth="100"
-                                                   Increment="1"
-                                                   Maximum="10"
-                                                   Minimum="0"
-                                                   Value="{Binding OnionSkinNextCount.Value, Mode=TwoWay}" />
-                                    <TextBlock Grid.Row="2"
-                                               Grid.Column="0"
-                                               VerticalAlignment="Center"
-                                               Text="{x:Static lang:Strings.OnionSkinPrevOpacity}" />
-                                    <Slider Grid.Row="2"
-                                            Grid.Column="1"
-                                            MinWidth="120"
-                                            Maximum="1"
-                                            Minimum="0"
-                                            TickFrequency="0.05"
-                                            Value="{Binding OnionSkinPrevOpacity.Value, Mode=TwoWay}" />
-                                    <TextBlock Grid.Row="3"
-                                               Grid.Column="0"
-                                               VerticalAlignment="Center"
-                                               Text="{x:Static lang:Strings.OnionSkinNextOpacity}" />
-                                    <Slider Grid.Row="3"
-                                            Grid.Column="1"
-                                            MinWidth="120"
-                                            Maximum="1"
-                                            Minimum="0"
-                                            TickFrequency="0.05"
-                                            Value="{Binding OnionSkinNextOpacity.Value, Mode=TwoWay}" />
-                                </Grid>
-                            </StackPanel>
-                        </Flyout>
-                    </Button.Flyout>
             </Button>
         </Player.InnerRightContent>
         <Player.Content>

@@ -1159,6 +1159,9 @@ Example: GetProperty&lt;double&gt;("{GUID}.Opacity")</value>
   <data name="Preview" xml:space="preserve">
     <value>Preview</value>
   </data>
+  <data name="PreviewSettings" xml:space="preserve">
+    <value>Preview Settings</value>
+  </data>
   <data name="Templates" xml:space="preserve">
     <value>Templates</value>
   </data>
