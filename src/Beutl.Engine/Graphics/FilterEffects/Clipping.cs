@@ -135,30 +135,22 @@ public sealed partial class Clipping : FilterEffect
                     pointY = 0;
                 }
 
-                EffectTarget newTarget;
-                if (autoCenter)
+                // AutoCenter only RELOCATES the cropped window to the center of the original bounds; the
+                // content drawn into it is identical to the in-place crop. Both branches therefore blit the
+                // SAME kept region of the source — only the target's bounds differ. The crop offset is buffer
+                // -relative (the buffer is clipRect-sized either way), so it is the same value for both.
+                // (Previously AutoCenter blitted at +centeredRect, which showed the clipped-away corner of the
+                // source at the wrong place.) feature 003: source is device-px (point-blit); offset ×= w.
+                Rect targetBounds = autoCenter
+                    ? originalRect.CenterRect(clipRect).Translate(target.Bounds.Position)
+                    : newBounds;
+                EffectTarget newTarget = context.CreateTarget(targetBounds);
+                using (ImmediateCanvas newCanvas = context.Open(newTarget))
+                using (newCanvas.PushTransform(Matrix.CreateTranslation(pointX * w, pointY * w)))
                 {
-                    Rect centeredRect = originalRect.CenterRect(clipRect);
-                    newTarget = context.CreateTarget(centeredRect.Translate(target.Bounds.Position));
-                    using (ImmediateCanvas newCanvas = context.Open(newTarget))
-                    using (newCanvas.PushTransform(Matrix.CreateTranslation(pointX * w, pointY * w)))
-                    {
-                        newCanvas.Clear();
-                        // feature 003: source is device-px (point-blit); the crop offset scales to device by w.
-                        newCanvas.DrawRenderTarget(target.RenderTarget!, new(centeredRect.X * w, centeredRect.Y * w));
-                    }
-                }
-                else
-                {
-                    newTarget = context.CreateTarget(newBounds);
-                    using (ImmediateCanvas newCanvas = context.Open(newTarget))
-                    using (newCanvas.PushTransform(Matrix.CreateTranslation(pointX * w, pointY * w)))
-                    {
-                        newCanvas.Clear();
-                        // feature 003: source is device-px (point-blit); the crop offset scales to device by w.
-                        newCanvas.DrawRenderTarget(target.RenderTarget!,
-                            new((target.Bounds.X - newBounds.X) * w, (target.Bounds.Y - newBounds.Y) * w));
-                    }
+                    newCanvas.Clear();
+                    newCanvas.DrawRenderTarget(target.RenderTarget!,
+                        new((target.Bounds.X - newBounds.X) * w, (target.Bounds.Y - newBounds.Y) * w));
                 }
 
                 target.Dispose();
