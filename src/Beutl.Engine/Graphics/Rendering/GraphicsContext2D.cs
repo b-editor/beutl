@@ -352,7 +352,8 @@ public sealed class GraphicsContext2D(
         // The backdrop's bounds are LOGICAL (feature 003): canvasSize is the logical FrameSize and the
         // root CTM applies OutputScale, so this region is not pre-scaled here. Capture-scale
         // reconciliation (FR-021) is performed when the snapshot is replayed: SnapshotBackdropRenderNode /
-        // TmpBackdrop map the device-sized capture back to its logical footprint via ImmediateCanvas.OutputScale.
+        // TmpBackdrop map the device-sized capture back to its logical footprint via the scale it was CAPTURED
+        // at (CSM-3) — not the replay canvas's OutputScale, which is 1 on a nested buffer-flush canvas.
         var b = new Rect(canvasSize.ToSize(1));
         if (next == null)
         {

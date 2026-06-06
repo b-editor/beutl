@@ -5,6 +5,7 @@ namespace Beutl.Graphics.Rendering;
 public class SnapshotBackdropRenderNode : RenderNode, IBackdrop
 {
     private Bitmap? _bitmap;
+    private float _captureScale = 1f;
 
     public override RenderNodeOperation[] Process(RenderNodeContext context)
     {
@@ -16,6 +17,9 @@ public class SnapshotBackdropRenderNode : RenderNode, IBackdrop
                 _bitmap?.Dispose();
                 using var renderTarget = RenderTarget.GetRenderTarget(canvas);
                 _bitmap = renderTarget.Snapshot();
+                // feature 003 (CSM-3): record the scale of the surface we captured (the root canvas carries
+                // s_out) so Draw un-scales by it even when replayed on a nested flush canvas (OutputScale == 1).
+                _captureScale = canvas.OutputScale;
             })
         ];
     }
@@ -24,16 +28,18 @@ public class SnapshotBackdropRenderNode : RenderNode, IBackdrop
     {
         if (_bitmap != null)
         {
-            // feature 003: the snapshot is the device-sized backing surface (ceil(frame × s_out)); at
-            // s_out != 1 draw it into its LOGICAL footprint so the active root CTM maps it back 1:1
-            // instead of double-scaling. s_out == 1 keeps the bare pixel-extent blit (byte-identical).
-            if (canvas.OutputScale == 1f)
+            // feature 003 (CSM-3): the snapshot is the device-sized backing surface (ceil(frame × captureScale)).
+            // Un-scale by the CAPTURE scale, not the replay canvas's OutputScale: when this backdrop is replayed
+            // inside a buffer-flushing FilterEffect, Draw runs on a nested canvas whose OutputScale is 1 under a
+            // CreateScale(w) CTM, and keying off that would render the device capture ~s_out× too large. Drawing
+            // into its LOGICAL footprint lets the active CTM map it back. captureScale == 1 keeps the bare blit.
+            if (_captureScale == 1f)
             {
                 canvas.DrawBitmap(_bitmap, Brushes.Resource.White, null);
             }
             else
             {
-                var dest = new Rect(0, 0, _bitmap.Width / canvas.OutputScale, _bitmap.Height / canvas.OutputScale);
+                var dest = new Rect(0, 0, _bitmap.Width / _captureScale, _bitmap.Height / _captureScale);
                 canvas.DrawBitmapScaled(_bitmap, dest, Brushes.Resource.White);
             }
         }

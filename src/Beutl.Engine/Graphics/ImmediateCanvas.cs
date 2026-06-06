@@ -187,7 +187,9 @@ public partial class ImmediateCanvas : ICanvas
 
     public IBackdrop Snapshot()
     {
-        return new TmpBackdrop(_renderTarget.Snapshot());
+        // feature 003 (CSM-3): record the scale this surface was captured at so the backdrop un-scales by it on
+        // replay (a nested flush canvas does not carry OutputScale).
+        return new TmpBackdrop(_renderTarget.Snapshot(), OutputScale);
     }
 
     public void DrawBitmap(Bitmap bmp, Brush.Resource? fill, Pen.Resource? pen)
