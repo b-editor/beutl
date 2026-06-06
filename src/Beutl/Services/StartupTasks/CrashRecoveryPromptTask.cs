@@ -63,7 +63,7 @@ public sealed class CrashRecoveryPromptTask : StartupTask
 
                 stack.Children.Add(restrictedModeCheckBox);
 
-                var dialog = new ContentDialog
+                var dialog = new FAContentDialog
                 {
                     Title = MessageStrings.PreviousSessionErrorTitle,
                     Content = stack,

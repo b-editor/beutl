@@ -58,7 +58,7 @@
                             <int:Interaction.Behaviors>
                                 <behaviors:OutputPickerItemBehavior />
                             </int:Interaction.Behaviors>
-                            <icons:FluentIcon Icon="Pin" />
+                            <ui:FASymbolIcon Symbol="Pin" />
                         </ToggleButton>
 
                         <Button Name="MoreItemButton"
@@ -69,7 +69,7 @@
                             <int:Interaction.Behaviors>
                                 <behaviors:OutputPickerItemMoreButtonBehavior />
                             </int:Interaction.Behaviors>
-                            <icons:FluentIcon Icon="MoreVertical" />
+                            <ui:FASymbolIcon Symbol="MoreVertical" />
                         </Button>
 
                         <Rectangle Name="SelectionIndicator"
@@ -205,17 +205,17 @@
                               ColumnDefinitions="*,Auto">
                             <WrapPanel Name="TabLayout" Margin="4,4,0,4">
                                 <ToggleButton Name="ShowSearchBoxButton" IsChecked="{TemplateBinding ShowSearchBox, Mode=TwoWay}">
-                                    <icons:FluentIcon Icon="Search" />
+                                    <ui:FASymbolIcon Symbol="Find" />
                                 </ToggleButton>
                                 <ToggleButton Name="ProfilesTabButton"
                                               IsChecked="{Binding !$parent[local:OutputPickerFlyoutPresenter].ShowPresets, Mode=OneWay}"
                                               ToolTip.Tip="{x:Static lang:Strings.Profiles}">
-                                    <icons:FluentIcon Icon="Document" />
+                                    <ui:FASymbolIcon Symbol="Document" />
                                 </ToggleButton>
                                 <ToggleButton Name="PresetsTabButton"
                                               IsChecked="{Binding $parent[local:OutputPickerFlyoutPresenter].ShowPresets, Mode=OneWay}"
                                               ToolTip.Tip="{x:Static lang:Strings.Presets}">
-                                    <icons:FluentIcon Icon="Bookmark" />
+                                    <ui:FASymbolIcon Symbol="Bookmark" />
                                 </ToggleButton>
                             </WrapPanel>
 
@@ -229,7 +229,7 @@
                                     HorizontalContentAlignment="Center"
                                     VerticalContentAlignment="Center"
                                     Theme="{StaticResource TransparentButton}">
-                                <ui:FontIcon FontFamily="{DynamicResource SymbolThemeFontFamily}" Glyph="&#xE711;" />
+                                <ui:FAFontIcon FontFamily="{DynamicResource SymbolThemeFontFamily}" Glyph="&#xE711;" />
                             </Button>
                         </Grid>
 
@@ -246,7 +246,7 @@
                                             HorizontalAlignment="Stretch"
                                             VerticalAlignment="Stretch"
                                             Theme="{StaticResource FlyoutAcceptDismiss}">
-                                        <icons:FluentIcon FontSize="18" Icon="Checkmark" />
+                                        <ui:FASymbolIcon FontSize="18" Symbol="Checkmark" />
                                     </Button>
                                     <Button Name="DismissButton"
                                             Grid.Column="1"
@@ -254,7 +254,7 @@
                                             HorizontalAlignment="Stretch"
                                             VerticalAlignment="Stretch"
                                             Theme="{StaticResource FlyoutAcceptDismiss}">
-                                        <icons:FluentIcon FontSize="16" Icon="Dismiss" />
+                                        <ui:FASymbolIcon FontSize="16" Symbol="Dismiss" />
                                     </Button>
                                 </Grid>
 
@@ -330,6 +330,10 @@
                 <Setter Property="Height" Value="32" />
                 <Setter Property="Margin" Value="0,0,4,0" />
                 <Setter Property="Theme" Value="{StaticResource ColorPickerTypeTransparentToggleButtonStyle}" />
+
+                <Style Selector="^ > ui|FAFontIcon">
+                    <Setter Property="FontFamily" Value="{DynamicResource SymbolThemeFontFamily}" />
+                </Style>
             </Style>
         </Style>
     </ControlTheme>

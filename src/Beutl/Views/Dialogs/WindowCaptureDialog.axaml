@@ -1,23 +1,23 @@
-<ui:ContentDialog x:Class="Beutl.Views.Dialogs.WindowCaptureDialog"
-                  xmlns="https://github.com/avaloniaui"
-                  xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-                  xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
-                  xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-                  xmlns:sys="using:System"
-                  xmlns:ui="using:FluentAvalonia.UI.Controls"
-                  xmlns:vm="using:Beutl.ViewModels.Dialogs"
-                  Title="Window Capture (Debug)"
-                  d:DesignHeight="320"
-                  d:DesignWidth="480"
-                  x:CompileBindings="True"
-                  x:DataType="vm:WindowCaptureDialogViewModel"
-                  CloseButtonText="Cancel"
-                  IsPrimaryButtonEnabled="{Binding CanStart.Value}"
-                  PrimaryButtonText="Start"
-                  mc:Ignorable="d">
-    <ui:ContentDialog.Resources>
+<ui:FAContentDialog x:Class="Beutl.Views.Dialogs.WindowCaptureDialog"
+                    xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+                    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+                    xmlns:sys="using:System"
+                    xmlns:ui="using:FluentAvalonia.UI.Controls"
+                    xmlns:vm="using:Beutl.ViewModels.Dialogs"
+                    Title="Window Capture (Debug)"
+                    d:DesignHeight="320"
+                    d:DesignWidth="480"
+                    x:CompileBindings="True"
+                    x:DataType="vm:WindowCaptureDialogViewModel"
+                    CloseButtonText="Cancel"
+                    IsPrimaryButtonEnabled="{Binding CanStart.Value}"
+                    PrimaryButtonText="Start"
+                    mc:Ignorable="d">
+    <ui:FAContentDialog.Resources>
         <StaticResource x:Key="ContentDialogMaxWidth" ResourceKey="ContentDialogMinWidth" />
-    </ui:ContentDialog.Resources>
+    </ui:FAContentDialog.Resources>
 
     <StackPanel Spacing="12">
         <StackPanel Spacing="4">
@@ -54,4 +54,4 @@
             </Grid>
         </StackPanel>
     </StackPanel>
-</ui:ContentDialog>
+</ui:FAContentDialog>

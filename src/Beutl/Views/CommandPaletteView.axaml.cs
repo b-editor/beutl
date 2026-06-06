@@ -85,7 +85,7 @@ public partial class CommandPaletteView : UserControl
                 if (captured is not null
                     && captured.TryGetTarget(out IInputElement? target)
                     && target is Visual { IsEffectivelyVisible: true } visual
-                    && visual.GetVisualRoot() is not null
+                    && visual.IsAttachedToVisualTree()
                     && target.Focus())
                 {
                     return;
