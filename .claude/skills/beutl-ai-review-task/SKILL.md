@@ -6,7 +6,6 @@ description: |
   "projects/9 のタスクをやって", "pick a task from the AI Review board", "consume an
   AI-review backlog item", or similar. If the chosen item turns out to be a false positive,
   set its Status to "False positive" and move to the next candidate.
-allowed-tools: Bash(gh:*) Bash(dotnet:*) Bash(git:*) Bash(./build.sh:*)
 argument-hint: "[item-number | title-keyword | bug|diff|design]"
 ---
 
