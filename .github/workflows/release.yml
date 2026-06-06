@@ -123,7 +123,7 @@ jobs:
       - uses: ncipollo/release-action@v1
         id: create_release
         with:
-          artifacts: "artifacts/**/*.zip,artifacts/**/*.deb,artifacts/**/*.flatpak,artifacts/beutl-setup/beutl-setup.exe,artifacts/beutl-standalone-setup/beutl-standalone-setup.exe"
+          artifacts: "artifacts/**/*.zip,artifacts/**/*.deb,artifacts/**/*.flatpak,artifacts/beutl-setup/beutl-setup.exe,artifacts/beutl-standalone-setup/beutl-standalone-setup.exe,artifacts/beutl-arm64-setup/beutl-arm64-setup.exe,artifacts/beutl-standalone-arm64-setup/beutl-standalone-arm64-setup.exe"
           draft: true
           makeLatest: true
           generateReleaseNotes: true

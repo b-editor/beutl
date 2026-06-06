@@ -80,8 +80,8 @@ class Build : NukeBuild
                 .When(_ => Runtime != null, s => s
                     .SetRuntime(Runtime)
                     .SetSelfContained(SelfContained))
-                .When(_ => Runtime == RuntimeIdentifier.win_x64, s => s.SetFramework($"{tfm}-windows"))
-                .When(_ => Runtime != RuntimeIdentifier.win_x64, s => s.SetFramework(tfm))
+                .When(_ => Runtime?.IsWindows == true, s => s.SetFramework($"{tfm}-windows"))
+                .When(_ => Runtime?.IsWindows != true, s => s.SetFramework(tfm))
                 .SetConfiguration(Configuration)
                 .SetVersions(Version, AssemblyVersion, InformationalVersion)
                 .SetProject(mainProj)
@@ -101,8 +101,8 @@ class Build : NukeBuild
                     .When(_ => Runtime != null, s => s
                         .SetRuntime(Runtime)
                         .SetSelfContained(SelfContained))
-                    .When(_ => Runtime == RuntimeIdentifier.win_x64, s => s.SetFramework($"{tfm}-windows"))
-                    .When(_ => Runtime != RuntimeIdentifier.win_x64, s => s.SetFramework(tfm))
+                    .When(_ => Runtime?.IsWindows == true, s => s.SetFramework($"{tfm}-windows"))
+                    .When(_ => Runtime?.IsWindows != true, s => s.SetFramework(tfm))
                     .EnableNoRestore()
                     .SetConfiguration(Configuration)
                     .SetVersions(Version, AssemblyVersion, InformationalVersion)
@@ -172,6 +172,12 @@ class Build : NukeBuild
         .DependsOn(Publish)
         .Executes(() =>
         {
+            // win-arm64 installers get an "-arm64" suffix and the arm64 Inno Setup
+            // architecture flags; win-x64 keeps its historical, suffix-less filename.
+            bool isArm64 = Runtime == RuntimeIdentifier.win_arm64;
+            string archSuffix = isArm64 ? "-arm64" : "";
+            string architectures = isArm64 ? "arm64" : "x64compatible";
+
             InnoSetup(c => c
                 .SetKeyValueDefinition("MyAppVersion", AssemblyVersion)
                 .SetKeyValueDefinition("MyOutputDir", ArtifactsDirectory)
@@ -179,7 +185,9 @@ class Build : NukeBuild
                 .SetKeyValueDefinition("MyGPLLicenseFile", RootDirectory / "LICENSE.GPL")
                 .SetKeyValueDefinition("MySetupIconFile", RootDirectory / "assets/logos/logo.ico")
                 .SetKeyValueDefinition("MySource", OutputDirectory / "Beutl")
-                .SetKeyValueDefinition("MyOutputBaseFilename", $"beutl{(SelfContained ? "-standalone" : "")}-setup")
+                .SetKeyValueDefinition("MyOutputBaseFilename", $"beutl{(SelfContained ? "-standalone" : "")}{archSuffix}-setup")
+                .SetKeyValueDefinition("MyArchitecturesAllowed", architectures)
+                .SetKeyValueDefinition("MyArchitecturesInstallIn64BitMode", architectures)
                 .SetScriptFile(RootDirectory / "nukebuild/beutl-setup.iss"));
         });
 
