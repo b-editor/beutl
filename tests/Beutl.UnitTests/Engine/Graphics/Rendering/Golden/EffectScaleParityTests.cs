@@ -87,6 +87,30 @@ public class EffectScaleParityTests
             e.Progress.CurrentValue = 100;
             return e;
         }));
+        yield return new TestCaseData("StrokeEffect-Offset", (Func<FilterEffect>)(() =>
+        {
+            // The absolute-length Offset must ride the working density (it is applied inside the w-prescaled
+            // canvas); a non-zero offset is the scale-sensitive case the plain StrokeEffect case omits.
+            var pen = new Pen();
+            pen.Thickness.CurrentValue = 14;
+            pen.Brush.CurrentValue = Brushes.Red;
+            var e = new StrokeEffect();
+            e.Pen.CurrentValue = pen;
+            e.Offset.CurrentValue = new Point(20, 12);
+            return e;
+        }));
+        yield return new TestCaseData("StrokeEffect-Foreground", (Func<FilterEffect>)(() =>
+        {
+            // Foreground draw-ordering branch (source drawn AFTER the stroke) at supersample.
+            var pen = new Pen();
+            pen.Thickness.CurrentValue = 14;
+            pen.Brush.CurrentValue = Brushes.Red;
+            var e = new StrokeEffect();
+            e.Pen.CurrentValue = pen;
+            e.Offset.CurrentValue = new Point(16, 16);
+            e.Style.CurrentValue = StrokeEffect.StrokeStyles.Foreground;
+            return e;
+        }));
         yield return new TestCaseData("TransformEffect", (Func<FilterEffect>)(() =>
         {
             // Rotate + non-uniform scale: the rotated buffer must be placed at the working density, not at
@@ -101,6 +125,23 @@ public class EffectScaleParityTests
             group.Children.Add(scale);
             var e = new TransformEffect();
             e.Transform.CurrentValue = group;
+            return e;
+        }));
+        yield return new TestCaseData("TransformEffect-Filter", (Func<FilterEffect>)(() =>
+        {
+            // ApplyToTarget == false routes through the Skia matrix ImageFilter (rides the root CTM, needs no
+            // ×w). This guards that the non-buffer branch also keeps its logical appearance under supersampling.
+            var group = new TransformGroup();
+            var rot = new RotationTransform();
+            rot.Rotation.CurrentValue = 45f;
+            var scale = new ScaleTransform();
+            scale.ScaleX.CurrentValue = 120f;
+            scale.ScaleY.CurrentValue = 100f;
+            group.Children.Add(rot);
+            group.Children.Add(scale);
+            var e = new TransformEffect();
+            e.Transform.CurrentValue = group;
+            e.ApplyToTarget.CurrentValue = false;
             return e;
         }));
     }

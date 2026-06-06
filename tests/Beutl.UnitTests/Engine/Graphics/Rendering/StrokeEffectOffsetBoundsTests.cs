@@ -15,11 +15,12 @@ public class StrokeEffectOffsetBoundsTests
 {
     private static readonly Rect Source = new(0, 0, 100, 100); // center (50, 50)
 
-    private static Rect TransformedBounds(Point offset)
+    private static Rect TransformedBounds(Point offset, float penOffset = 0f)
     {
         var pen = new Pen();
         pen.Thickness.CurrentValue = 14;
         pen.Brush.CurrentValue = Brushes.Red;
+        pen.Offset.CurrentValue = penOffset;
         var effect = new StrokeEffect();
         effect.Pen.CurrentValue = pen;
         effect.Offset.CurrentValue = offset;
@@ -56,5 +57,16 @@ public class StrokeEffectOffsetBoundsTests
         // It must still ENCLOSE the offset stroke (the box has to grow as the offset grows).
         Assert.That(bounds.Width, Is.GreaterThanOrEqualTo(Source.Width + 2 * MathF.Abs(ox)));
         Assert.That(bounds.Height, Is.GreaterThanOrEqualTo(Source.Height + 2 * MathF.Abs(oy)));
+    }
+
+    // PenHelper.GetBounds inflates by pen.Offset too, so the box must STILL be centered on the source when the
+    // pen has its own Offset (the source-anchoring half of the fix is asserted by the render test).
+    [TestCase(0f)]
+    [TestCase(10f)]
+    public void PenOffset_BoxStaysCenteredOnSource(float penOffset)
+    {
+        Rect bounds = TransformedBounds(default, penOffset);
+        Assert.That(bounds.Center.X, Is.EqualTo(Source.Center.X).Within(0.001));
+        Assert.That(bounds.Center.Y, Is.EqualTo(Source.Center.Y).Within(0.001));
     }
 }
