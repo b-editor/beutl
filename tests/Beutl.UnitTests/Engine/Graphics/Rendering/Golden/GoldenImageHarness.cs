@@ -103,17 +103,4 @@ internal static class GoldenImageHarness
             Assert.That(mae, Is.LessThanOrEqualTo(GoldenThresholds.ExactMaeMax), "MAE");
         });
     }
-
-    /// <summary>
-    /// Asserts a supersampled render (scale &gt; 1) downsampled to the reference size has LESS
-    /// aliasing energy than the 1:1 render (SC-009 export SSAA).
-    /// </summary>
-    public static void AssertSupersampleReducesAliasing(Bitmap oneToOne, Bitmap supersampledDownsampled)
-    {
-        double baseEnergy = ImageMetrics.AliasingEnergy(oneToOne);
-        double ssEnergy = ImageMetrics.AliasingEnergy(supersampledDownsampled);
-        TestContext.WriteLine($"aliasing energy: 1:1={baseEnergy:F5} supersampled={ssEnergy:F5}");
-        Assert.That(ssEnergy, Is.LessThanOrEqualTo(baseEnergy + 1e-6),
-            "supersampling did not reduce aliasing energy");
-    }
 }

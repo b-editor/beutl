@@ -9,12 +9,10 @@ internal static class GoldenThresholds
     /// <summary>Maximum mean-absolute-error (linear) for an exact reduced-scale render.</summary>
     public const double ExactMaeMax = 0.02;
 
-    /// <summary>Maximum per-pixel delta across a mixed-scale composite boundary (no visible seam).</summary>
-    public const double SeamMaxDelta = 0.05;
+    // NOTE: a mixed-scale composite-seam threshold lived here, but a meaningful seam test needs two adjacent
+    // regions at DIFFERENT working densities, which no built-in effect can produce (none uses ClampToOutput /
+    // Oversample, and PreserveSource was removed). It is deferred until a custom-policy test effect exists.
 
     /// <summary>SSIM margin a supersampled render must beat the non-supersampled one by (lower aliasing).</summary>
     public const double SupersampleSsimMargin = 0.01;
-
-    /// <summary>Output scales exercised by the supersample / reduced-scale golden cases.</summary>
-    public static readonly float[] SupersampleFactors = [1.5f, 2.0f, 4.0f];
 }
