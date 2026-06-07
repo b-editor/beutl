@@ -15,11 +15,15 @@
                     Margin="4,8"
                     Orientation="Vertical">
 
-            <TextBlock Margin="8,8,8,4"
-                       Text="{x:Static lang:Strings.OnionSkin}"
-                       Theme="{StaticResource BodyStrongTextBlockStyle}" />
-
-            <ContentControl Content="{CompiledBinding OnionSkinEnabledEditor, Converter={StaticResource ViewModelToViewConverter}}" />
+            <Grid Margin="8,8,8,4" ColumnDefinitions="*,Auto">
+                <TextBlock VerticalAlignment="Center"
+                           Text="{x:Static lang:Strings.OnionSkin}"
+                           Theme="{StaticResource BodyStrongTextBlockStyle}" />
+                <ToggleSwitch Grid.Column="1"
+                              Classes="left"
+                              IsChecked="{CompiledBinding IsOnionSkinEnabled.Value}"
+                              Theme="{StaticResource CompactToggleSwitchStyle}" />
+            </Grid>
 
             <ItemsControl IsEnabled="{CompiledBinding IsOnionSkinEnabled.Value}" ItemsSource="{CompiledBinding OnionSkinProperties}">
                 <ItemsControl.ItemTemplate>
@@ -29,11 +33,15 @@
                 </ItemsControl.ItemTemplate>
             </ItemsControl>
 
-            <TextBlock Margin="8,16,8,4"
-                       Text="{x:Static lang:Strings.FrameCache}"
-                       Theme="{StaticResource BodyStrongTextBlockStyle}" />
-
-            <ContentControl Content="{CompiledBinding FrameCacheEnabledEditor, Converter={StaticResource ViewModelToViewConverter}}" />
+            <Grid Margin="8,16,8,4" ColumnDefinitions="*,Auto">
+                <TextBlock VerticalAlignment="Center"
+                           Text="{x:Static lang:Strings.FrameCache}"
+                           Theme="{StaticResource BodyStrongTextBlockStyle}" />
+                <ToggleSwitch Grid.Column="1"
+                              Classes="left"
+                              IsChecked="{CompiledBinding IsFrameCacheEnabled.Value}"
+                              Theme="{StaticResource CompactToggleSwitchStyle}" />
+            </Grid>
 
             <ItemsControl IsEnabled="{CompiledBinding IsFrameCacheEnabled.Value}" ItemsSource="{CompiledBinding FrameCacheProperties}">
                 <ItemsControl.ItemTemplate>
@@ -43,11 +51,15 @@
                 </ItemsControl.ItemTemplate>
             </ItemsControl>
 
-            <TextBlock Margin="8,16,8,4"
-                       Text="{x:Static lang:SettingsStrings.NodeCache}"
-                       Theme="{StaticResource BodyStrongTextBlockStyle}" />
-
-            <ContentControl Content="{CompiledBinding NodeCacheEnabledEditor, Converter={StaticResource ViewModelToViewConverter}}" />
+            <Grid Margin="8,16,8,4" ColumnDefinitions="*,Auto">
+                <TextBlock VerticalAlignment="Center"
+                           Text="{x:Static lang:SettingsStrings.NodeCache}"
+                           Theme="{StaticResource BodyStrongTextBlockStyle}" />
+                <ToggleSwitch Grid.Column="1"
+                              Classes="left"
+                              IsChecked="{CompiledBinding IsNodeCacheEnabled.Value}"
+                              Theme="{StaticResource CompactToggleSwitchStyle}" />
+            </Grid>
 
             <ItemsControl IsEnabled="{CompiledBinding IsNodeCacheEnabled.Value}" ItemsSource="{CompiledBinding NodeCacheProperties}">
                 <ItemsControl.ItemTemplate>
