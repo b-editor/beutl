@@ -41,11 +41,13 @@ public sealed class DelayNode : AudioNode
             _lastTimeRangeStart = context.TimeRange.Start;
         }
 
-        // If no animations, use static processing
-        bool hasAnimation = DelayTime?.IsAnimatable == true ||
-                            Feedback?.IsAnimatable == true ||
-                            DryMix?.IsAnimatable == true ||
-                            WetMix?.IsAnimatable == true;
+        // If no animations are assigned, use static processing. Guard on Animation (an actual
+        // keyframe animation) rather than IsAnimatable (a capability flag that is always true for
+        // an animatable property), so an unkeyed property skips the per-sample animated path.
+        bool hasAnimation = DelayTime.Animation != null ||
+                            Feedback.Animation != null ||
+                            DryMix.Animation != null ||
+                            WetMix.Animation != null;
 
         if (!hasAnimation)
         {
