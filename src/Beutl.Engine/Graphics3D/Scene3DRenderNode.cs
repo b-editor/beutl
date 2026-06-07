@@ -53,8 +53,10 @@ internal sealed class Scene3DRenderNode(Scene3D.Resource scene) : RenderNode
             return [];
 
         // feature 003: render the 3D scene at the output density (ceil(size × s_out)) so it stays crisp
-        // under supersampled export / full-scale preview rather than being upscaled by the root CTM;
-        // the aspect ratio is preserved so the camera projection is unchanged. w == 1 keeps the exact
+        // under supersampled export / full-scale preview rather than being upscaled by the root CTM. The two
+        // axes are ceil()'d independently, so at a fractional scale the device aspect dw/dh can deviate from
+        // width/height by a sub-pixel amount, nudging the camera projection (aspectRatio = dw/dh) by <~0.001;
+        // the result is then resampled into the correctly-proportioned logical Bounds. w == 1 keeps the exact
         // logical-size surface + point-blit path (byte-identical).
         float w = context.OutputScale;
         int dw = w == 1f ? width : (int)MathF.Ceiling(width * w);

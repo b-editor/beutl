@@ -39,11 +39,11 @@ public override void ApplyTo(FilterEffectContext context)
     });
 }
 
-// a quality effect that wants a high-res source kept through it:
-public override ResolutionPolicy ResolutionPolicy => ResolutionPolicy.PreserveSource;
+// a quality effect that wants SSAA-on-demand even from a low-density input:
+public override ResolutionPolicy ResolutionPolicy => ResolutionPolicy.Oversample(2f);
 ```
 
-## Resolution policy (FR-036) — what scale an effect runs at
+## Resolution policy — what scale an effect runs at
 
 Each effect/node declares a `ResolutionPolicy` (default `Inherit`) that decides its **working scale `w`** from its inputs' effective scales and the output scale `s_out`:
 
@@ -51,14 +51,15 @@ Each effect/node declares a `ResolutionPolicy` (default `Inherit`) that decides 
 |---|---|---|
 | **`Inherit`** (default) | input supply density | preserve input as-is: a 0.5 proxy stays 0.5 (no upsample), a 2.0 source stays 2.0 (no downsample). `s_out` is not a ceiling. |
 | **`ClampToOutput`** | `min(supply, s_out)` | **perf opt-out** for a heavy effect: drop a too-high input early. |
-| **`Oversample(k)`** | `max(supply, k·s_out)` | **quality opt-in**: force ≥ k× the final target even from a low input (SSAA-on-demand). |
-| **`PreserveSource`** | input supply density, **floors any ancestor `ClampToOutput`** | keep a high source's detail through a quality effect. |
+| **`Oversample(k)`** | `max(supply, k·s_out)` | **quality opt-in**: force ≥ k× the final target even from a low input (SSAA-on-demand). `k` must be > 0. |
 
-`w` is finally capped by the global ceiling `MaxWorkingScale` (FR-037; **preview default `2 × s_out`, export unbounded**). The **default is `Inherit` for every effect** (built-in and plugin); declare a different policy by overriding `FilterEffect.ResolutionPolicy`. **Pinned built-in assignments**: `PreserveSource` = the FR-013 resolution-sensitive set (`PixelSort`, contour `Stroke`/`FlatShadow`/`PartsSplit`, `AutoClip`, `Dilate`, `Erode`, `Mosaic`, Perlin-driven, custom SKSL/GLSL, image-map `Displacement`); **everything else = `Inherit`**; **no built-in defaults to `ClampToOutput`** (it is user/opt-in only). A policy MUST NOT change the `s_out = 1.0` output.
+*(A `PreserveSource` policy was specced to keep a high source density and floor an ancestor `ClampToOutput`, but it was identical to `Inherit` once that floor was dropped — `Inherit` already runs at the input supply density — so it was removed. Effects that want to keep a high source's detail simply use the default `Inherit`.)*
+
+`w` is finally capped by the global ceiling `MaxWorkingScale` (FR-037; **preview default `2 × s_out`, export unbounded**) — wired as shipped: `FilterEffectRenderNode` passes `context.MaxWorkingScale`, the editor preview seeds `2 × s_out`, export leaves `+∞`. The **default is `Inherit` for every effect** (built-in and plugin); declare a different policy by overriding `FilterEffect.ResolutionPolicy`. **As shipped, every built-in uses the default `Inherit`** — including the FR-013 resolution-sensitive set (`PixelSort`, contour `Stroke`/`FlatShadow`/`PartsSplit`, `AutoClip`, `Dilate`, `Erode`, `Mosaic`, custom SKSL/GLSL, image-map `Displacement`), since `Inherit` already keeps a high source's density through them; **no built-in uses `ClampToOutput` or `Oversample`** (both are plugin/opt-in only). A policy MUST NOT change the `s_out = 1.0` output.
 
 ## Resolution-sensitive effects (FR-013)
 
-`PixelSort`, contour-based `Stroke`/`FlatShadow`/`PartsSplit`, `AutoClip`, integer `Dilate`/`Erode`, `Mosaic`, Perlin-driven, and custom per-texel shaders **still apply the multiply rule**, but their reduced-scale preview is a **best-effort approximation** (not bit-identical) and is full-fidelity only at export `s_out=1.0`. They MUST declare `PreserveSource` (or `Oversample`) so a higher-resolution source is kept through them and downsampled only at the final stage; `ClampToOutput` on them is forbidden. No force-full-scale subtree mechanism and no warning UI in v1. Their tests assert (a) byte-equality at `s_out=1.0` and (b) a documented structural invariant at a reduced scale (e.g. `mosaic tile == ceil(tileSize × w)` device px), not SSIM.
+`PixelSort`, contour-based `Stroke`/`FlatShadow`/`PartsSplit`, `AutoClip`, integer `Dilate`/`Erode`, `Mosaic`, Perlin-driven, and custom per-texel shaders **still apply the multiply rule**, but their reduced-scale preview is a **best-effort approximation** (not bit-identical) and is full-fidelity only at export `s_out=1.0`. They rely on the default `Inherit` to keep a higher-resolution source through them (downsampled only at the final stage); a plugin should not put `ClampToOutput` on them. No force-full-scale subtree mechanism and no warning UI in v1. Their tests assert (a) byte-equality at `s_out=1.0` and (b) a documented structural invariant at a reduced scale (e.g. `mosaic tile == ceil(tileSize × w)` device px), not SSIM.
 
 ## Mechanism summary
 

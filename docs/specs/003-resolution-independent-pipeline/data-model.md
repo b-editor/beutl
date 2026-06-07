@@ -36,15 +36,14 @@ All `float` for v1 (the `Beutl.Graphics.Vector` primitive overloads exist for th
 - **Replaces** the first draft's separate `RenderNodeOperation.LosslessReRasterizable` bool — `IsUnbounded` subsumes it (one concept, one member; no contradictory "lossless but `e=2.0`" state).
 
 ### `ResolutionPolicy` *(new value type)* — `Graphics/Rendering/ResolutionPolicy.cs`
-`readonly record struct ResolutionPolicy(ResolutionPolicyKind Kind, float Factor = 1f)`; `enum ResolutionPolicyKind { Inherit, ClampToOutput, Oversample, PreserveSource }`.
+`readonly record struct ResolutionPolicy(ResolutionPolicyKind Kind, float Factor = 0f)`; `enum ResolutionPolicyKind { Inherit, ClampToOutput, Oversample }`. *(The `PreserveSource` policy was removed — it was identical to `Inherit` once the FR-036 floor was dropped; see below.)*
 | Member | Rule |
 |---|---|
 | `Inherit` (default, `Kind=0`) | `w = baseline` where `baseline = supply>0 ? supply : s_out` — preserve input density (0.5→0.5, 2.0→2.0); a **vector-only** subtree (no concrete input) falls back to `s_out`. `s_out` is not a ceiling. |
 | `ClampToOutput` | `w = min(supply, s_out)` — perf opt-out. |
-| `Oversample(factor)` | `w = max(supply, factor × s_out)` — quality/SSAA opt-in. |
-| `PreserveSource` | keep a high source density; floors any ancestor clamp. |
-- Declared via `virtual FilterEffect.ResolutionPolicy` and `virtual RenderNode.ResolutionPolicy` (both default `Inherit`). `RenderNodeContext.ResolveWorkingScale(ReadOnlySpan<EffectiveScale> inputs, float outputScale, ResolutionPolicy policy) → float` is the one rule (FR-036), with a final `min(·, MaxWorkingScale)` global ceiling (FR-037; preview-only — export raises/disables it).
-- **`PreserveSource` floor carrier**: the floor travels as a per-pull `float PreserveFloor` on `RenderNodeContext` (default `0`; raised by a `PreserveSource` descendant) that lower-bounds an ancestor `ClampToOutput`'s result (`w = max(min(baseline, s_out), PreserveFloor)`). Inert (`0`) unless a `PreserveSource` effect is in the subtree.
+| `Oversample(factor)` | `w = max(supply, factor × s_out)` — quality/SSAA opt-in. `factor` must be > 0 (the `Oversample(factor)` factory throws otherwise). |
+- Declared via `virtual FilterEffect.ResolutionPolicy` (default `Inherit`). *(As shipped: only `FilterEffect.ResolutionPolicy` exists — a `RenderNode.ResolutionPolicy` was intentionally NOT added; it would have been a dead duplicate. See public-api.md.)* `RenderNodeContext.ResolveWorkingScale(ReadOnlySpan<EffectiveScale> inputs, float outputScale, ResolutionPolicy policy, float maxWorkingScale = +∞) → float` is the one rule, with a final `min(·, maxWorkingScale)` global ceiling (FR-037). **As shipped (T061): the FR-037 ceiling IS wired — `FilterEffectRenderNode` passes `context.MaxWorkingScale`, which the editor preview seeds at `2 × s_out` and export leaves at `+∞`. The FR-036 cross-boundary `PreserveSource` floor was removed entirely (see below) rather than wired.**
+- **FR-036 (`PreserveSource` floor) removed**: an earlier draft routed a per-pull `PreserveFloor` so a `PreserveSource` descendant could lower-bound an ancestor `ClampToOutput`. It was never wired and no built-in uses `ClampToOutput`, so `PreserveSource` was behaviorally identical to `Inherit` (which already runs at the input supply density). Rather than add a floor channel to the core scale path for zero built-in benefit, the policy, its 11 effect overrides, and the `preserveFloor` parameter were all removed.
 
 ### Shared rounding helper (FR-007)
 **Decision: there is no new helper type — the canonical helper *is* `PixelRect.FromRect(Rect, float scale)` / `PixelSize.FromSize(Size, float)`** (`PixelRect.cs:391`, `PixelSize.cs:209`), which already implement "ceil sizes (ceil'd bottom-right), toward-zero origins". The work is *adopting* the `× w` scaling at every sink with a consistent convention, not writing a new helper.
@@ -58,7 +57,7 @@ All `float` for v1 (the `Beutl.Graphics.Vector` primitive overloads exist for th
 | Member | Change | Rule |
 |---|---|---|
 | `OutputScale` | **+ `float OutputScale { get; }`** (get-only, default `1f`; renamed from the first draft's `Scale`) | The render-request final target `s_out` (D1). Seeded once in `RenderNodeProcessor.Pull` from `RenderNodeProcessor.OutputScale`; propagated like `IsRenderCacheEnabled`. **Consumed only at the root final stage and as the fallback/ceiling term of `ResolveWorkingScale` — never as an intermediate's working scale.** Get-only. |
-| `ResolveWorkingScale` | **+ `static float ResolveWorkingScale(ReadOnlySpan<EffectiveScale> inputs, float outputScale, ResolutionPolicy policy)`** (+ instance convenience) | The one working-scale rule (FR-036) incl. the global ceiling (FR-037). |
+| `ResolveWorkingScale` | **+ `static float ResolveWorkingScale(ReadOnlySpan<EffectiveScale> inputs, float outputScale, ResolutionPolicy policy, float maxWorkingScale = +∞)`** (static only — no instance overload was shipped) | The one working-scale rule incl. the global ceiling (FR-037), which `FilterEffectRenderNode` now supplies via `context.MaxWorkingScale` (preview `2 × s_out`, export `+∞`). The `preserveFloor` parameter was removed with FR-036. |
 
 ### `RenderNodeOperation` *(changed)* — `Graphics/Rendering/RenderNodeOperation.cs`
 | Member | Change | Rule |
@@ -192,9 +191,9 @@ All `float` for v1 (the `Beutl.Graphics.Vector` primitive overloads exist for th
 | `RenderScale` (enum/value) | FR-035 preview scale selection | `Full/Half/Quarter/FitToPreviewer`, `ToFloat(...)` |
 | `EditViewModel.PreviewScale` | per-edit-view, non-persisted session state | `ReactivePropertySlim<RenderScale>`, default `Full`; not in `SaveState`/`RestoreState` |
 | `EffectiveScale` (value) | FR-018 per-op supply density | `Unbounded`, `At(float)`, `Value`, `IsUnbounded` |
-| `ResolutionPolicy` (value) | FR-036 per-effect/node policy | `Inherit`/`ClampToOutput`/`Oversample(k)`/`PreserveSource` |
-| `FilterEffect.ResolutionPolicy` / `RenderNode.ResolutionPolicy` | virtual; default `Inherit` | quality effects override |
-| `MaxWorkingScale` (config) | FR-037 global ceiling | `EditorConfig`; **preview default `2 × s_out`, export unbounded** |
+| `ResolutionPolicy` (value) | per-effect policy | `Inherit`/`ClampToOutput`/`Oversample(k)` (`PreserveSource` removed) |
+| `FilterEffect.ResolutionPolicy` | virtual; default `Inherit` | a plugin may override; no built-in does |
+| `MaxWorkingScale` | FR-037 ceiling, threaded `Renderer → RenderNodeContext` | **preview `2 × s_out`, export `+∞`** |
 
 ---
 
