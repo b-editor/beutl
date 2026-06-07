@@ -42,7 +42,11 @@ public sealed class FilterEffectActivator(EffectTargets targets, SKImageFilterBu
 
                 if (surface != null)
                 {
-                    using (var canvas = new ImmediateCanvas(surface))
+                    // feature 003 (CSM3-1): this nested buffer renders at working density w (CreateScale(w) CTM).
+                    // Tag the canvas OutputScale = w so a SourceBackdrop captured HERE records its true device
+                    // density (not the default 1), which the backdrop replay un-scales by. w == 1 keeps the
+                    // default 1 (byte-identical).
+                    using (var canvas = new ImmediateCanvas(surface) { OutputScale = w })
                     {
                         canvas.Clear();
                         Matrix transform = w == 1f

@@ -47,7 +47,8 @@ public class RenderNodeProcessor(
         var renderTarget = RenderTarget.Create(rect.Width, rect.Height) ??
                            throw new Exception("RenderTarget is null");
 
-        using var canvas = new ImmediateCanvas(renderTarget);
+        // feature 003 (CSM3-1): rasterized at density w, so tag OutputScale = w for any backdrop captured here.
+        using var canvas = new ImmediateCanvas(renderTarget) { OutputScale = w };
         canvas.Clear();
 
         var transform = w == 1f
@@ -89,7 +90,8 @@ public class RenderNodeProcessor(
             using var renderTarget = RenderTarget.Create(rect.Width, rect.Height)
                                      ?? throw new Exception("RenderTarget is null");
 
-            using var canvas = new ImmediateCanvas(renderTarget);
+            // feature 003 (CSM3-1): rasterized at density w, so tag OutputScale = w for any backdrop captured here.
+            using var canvas = new ImmediateCanvas(renderTarget) { OutputScale = w };
             canvas.Clear();
 
             var transform = w == 1f
@@ -116,7 +118,8 @@ public class RenderNodeProcessor(
         var rect = w == 1f ? PixelRect.FromRect(bounds) : PixelRect.FromRect(bounds, w);
         using var renderTarget =
             RenderTarget.Create(rect.Width, rect.Height) ?? throw new Exception("RenderTarget is null");
-        using var canvas = new ImmediateCanvas(renderTarget);
+        // feature 003 (CSM3-1): rasterized at density w, so tag OutputScale = w for any backdrop captured here.
+        using var canvas = new ImmediateCanvas(renderTarget) { OutputScale = w };
         canvas.Clear();
 
         var transform = w == 1f

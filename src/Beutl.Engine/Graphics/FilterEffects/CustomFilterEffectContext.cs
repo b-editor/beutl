@@ -83,6 +83,9 @@ public class CustomFilterEffectContext
             throw new InvalidOperationException("無効なEffectTarget");
         }
 
-        return new ImmediateCanvas(target.RenderTarget);
+        // feature 003 (CSM3-1): a custom effect renders logical content into this ceil(bounds × w) buffer
+        // (pushing CreateScale(w) itself), so tag OutputScale = w. A SourceBackdrop captured here then records
+        // its true device density for the replay to un-scale by. w == 1 keeps the default 1 (byte-identical).
+        return new ImmediateCanvas(target.RenderTarget) { OutputScale = WorkingScale };
     }
 }

@@ -73,4 +73,64 @@ public class BackdropScaleTests
             Assert.That(cy, Is.EqualTo(100.0).Within(5.0), $"backdrop double-scaled vertically (cy={cy})");
         });
     }
+
+    // CSM3-1: the production SnapshotBackdropRenderNode path, captured ON a nested flush-style canvas. A buffer-
+    // flushing effect renders its input on a canvas tagged OutputScale = w (CreateScale(w) CTM) — see
+    // FilterEffectActivator.Flush / RenderNodeProcessor.Rasterize. If a SourceBackdrop's snapshot op runs there,
+    // the captured surface is w-dense; capturing OutputScale = w (the fix) lets the replay un-scale by w. Before
+    // the fix the flush canvas left OutputScale = 1, so the capture recorded 1 and the replay double-scaled.
+    [Test]
+    public void SnapshotBackdropRenderNode_CapturedOnNestedFlushCanvas_NotDoubleScaled()
+    {
+        VulkanTestEnvironment.EnsureAvailable();
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            const float w = 2f;
+            const int dev = 200; // ceil(100 logical x w)
+
+            var snapshot = new SnapshotBackdropRenderNode();
+            RenderNodeOperation[] captureOps = snapshot.Process(new RenderNodeContext([]));
+
+            // 1. Run the capture op on a nested flush-style canvas: OutputScale = w under a CreateScale(w) CTM.
+            using RenderTarget captureTarget = RenderTarget.Create(dev, dev)!;
+            using (var capCanvas = new ImmediateCanvas(captureTarget) { OutputScale = w })
+            {
+                capCanvas.Clear(Colors.Black);
+                using (capCanvas.PushTransform(Matrix.CreateScale(w, w)))
+                {
+                    capCanvas.DrawRectangle(new Rect(25, 25, 50, 50), Brushes.Resource.White, null);
+                }
+
+                foreach (RenderNodeOperation op in captureOps)
+                {
+                    op.Render(capCanvas);
+                }
+            }
+
+            // 2. Replay it on a separate canvas under the active CreateScale(w) CTM.
+            using RenderTarget replayTarget = RenderTarget.Create(dev, dev)!;
+            using (var replayCanvas = new ImmediateCanvas(replayTarget))
+            {
+                replayCanvas.Clear(Colors.Black);
+                using (replayCanvas.PushTransform(Matrix.CreateScale(w, w)))
+                {
+                    snapshot.Draw(replayCanvas);
+                }
+            }
+
+            using Bitmap snap = replayTarget.Snapshot();
+            (double cx, double cy, int n) = WhiteCentroid(snap);
+
+            Assert.That(n, Is.GreaterThan(2000), "backdrop content missing/clipped — captured density was wrong");
+            Assert.That(cx, Is.EqualTo(100.0).Within(5.0), $"backdrop double-scaled horizontally (cx={cx})");
+            Assert.That(cy, Is.EqualTo(100.0).Within(5.0), $"backdrop double-scaled vertically (cy={cy})");
+
+            foreach (RenderNodeOperation op in captureOps)
+            {
+                op.Dispose();
+            }
+
+            snapshot.Dispose();
+        });
+    }
 }
