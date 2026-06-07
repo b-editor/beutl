@@ -89,4 +89,33 @@ public class RenderCacheRulesTest
         // Assert
         Assert.That(result, Is.False);
     }
+
+    [Test]
+    public void Create_ShouldClampMinToOne_WhenBelowOne()
+    {
+        var rules = RenderCacheRules.Create(maxPixels: 10000, minPixels: 0);
+
+        Assert.That(rules.MinPixels, Is.EqualTo(1));
+        Assert.That(rules.MaxPixels, Is.EqualTo(10000));
+    }
+
+    [Test]
+    public void Create_ShouldRaiseMaxToMin_WhenMinExceedsMax()
+    {
+        // A mis-ordered configuration (min > max) must not produce a range that matches nothing.
+        var rules = RenderCacheRules.Create(maxPixels: 100, minPixels: 5000);
+
+        Assert.That(rules.MinPixels, Is.EqualTo(5000));
+        Assert.That(rules.MaxPixels, Is.EqualTo(5000));
+        Assert.That(rules.Match(5000), Is.True);
+    }
+
+    [Test]
+    public void Create_ShouldPreserveValidRange()
+    {
+        var rules = RenderCacheRules.Create(maxPixels: 10000, minPixels: 100);
+
+        Assert.That(rules.MinPixels, Is.EqualTo(100));
+        Assert.That(rules.MaxPixels, Is.EqualTo(10000));
+    }
 }
