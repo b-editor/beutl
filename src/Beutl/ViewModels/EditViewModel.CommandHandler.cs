@@ -1,6 +1,7 @@
 ﻿using System.Reactive.Subjects;
 using Avalonia.Controls;
 using Beutl.Animation;
+using Beutl.Configuration;
 using Beutl.Editor.Components.TimelineTab.ViewModels;
 using Beutl.Editor.Services;
 using Beutl.Engine;
@@ -157,8 +158,11 @@ public partial class EditViewModel : IContextCommandHandler, IContextCommandStat
                 SeekToAdjacentKeyFrame(forward: false);
                 break;
             case "ToggleOnionSkin" when !isFromTextBox:
-                Player.IsOnionSkinEnabled.Value = !Player.IsOnionSkinEnabled.Value;
-                break;
+                {
+                    EditorConfig editorConfig = GlobalConfiguration.Instance.EditorConfig;
+                    editorConfig.IsOnionSkinEnabled = !editorConfig.IsOnionSkinEnabled;
+                    break;
+                }
             default:
                 if (execution.KeyEventArgs != null)
                     execution.KeyEventArgs.Handled = false;

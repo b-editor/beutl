@@ -126,13 +126,23 @@ public record RenderCacheOptions(bool IsEnabled, RenderCacheRules Rules)
         EditorConfig config = GlobalConfiguration.Instance.EditorConfig;
         return new RenderCacheOptions(
             config.IsNodeCacheEnabled,
-            new RenderCacheRules(config.NodeCacheMaxPixels, config.NodeCacheMinPixels));
+            RenderCacheRules.Create(config.NodeCacheMaxPixels, config.NodeCacheMinPixels));
     }
 }
 
 public readonly record struct RenderCacheRules(int MaxPixels, int MinPixels)
 {
     public static readonly RenderCacheRules Default = new(1000 * 1000, 1);
+
+    // The settings UI exposes Min/Max through independent number editors that cannot express the
+    // cross-field constraint, so normalize here: MinPixels >= 1 and MaxPixels >= MinPixels. Without
+    // this, MinPixels > MaxPixels would make Match() always false and silently disable all caching.
+    public static RenderCacheRules Create(int maxPixels, int minPixels)
+    {
+        int min = Math.Max(1, minPixels);
+        int max = Math.Max(min, maxPixels);
+        return new RenderCacheRules(max, min);
+    }
 
     public bool Match(PixelSize size)
     {

@@ -7,6 +7,7 @@ using Beutl.Composition;
 using Beutl.Configuration;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Components.PathEditorTab.ViewModels;
+using Beutl.Editor.Components.PreviewSettingsTab.ViewModels;
 using Beutl.Editor.Components.TimelineTab.ViewModels;
 using Beutl.Editor.Models;
 using Beutl.Graphics;
@@ -192,45 +193,34 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
 
         EditorConfig editorConfig = GlobalConfiguration.Instance.EditorConfig;
 
-        IsOnionSkinEnabled = editorConfig.GetObservable(EditorConfig.IsOnionSkinEnabledProperty)
-            .ToReactiveProperty()
-            .DisposeWith(_disposables);
-        IsOnionSkinEnabled.Subscribe(v => editorConfig.IsOnionSkinEnabled = v).DisposeWith(_disposables);
-
-        // NumericUpDown / Slider expose decimal? and double, so the UI-bound ReactiveProperty
-        // types are widened here and cast back to int / float at the EditorConfig boundary.
-        OnionSkinPrevCount = editorConfig.GetObservable(EditorConfig.OnionSkinPrevCountProperty)
-            .Select(v => (decimal)v)
-            .ToReactiveProperty()
-            .DisposeWith(_disposables);
-        OnionSkinPrevCount.Subscribe(v => editorConfig.OnionSkinPrevCount = (int)v).DisposeWith(_disposables);
-
-        OnionSkinNextCount = editorConfig.GetObservable(EditorConfig.OnionSkinNextCountProperty)
-            .Select(v => (decimal)v)
-            .ToReactiveProperty()
-            .DisposeWith(_disposables);
-        OnionSkinNextCount.Subscribe(v => editorConfig.OnionSkinNextCount = (int)v).DisposeWith(_disposables);
-
-        OnionSkinPrevOpacity = editorConfig.GetObservable(EditorConfig.OnionSkinPrevOpacityProperty)
-            .Select(v => (double)v)
-            .ToReactiveProperty()
-            .DisposeWith(_disposables);
-        OnionSkinPrevOpacity.Subscribe(v => editorConfig.OnionSkinPrevOpacity = (float)v).DisposeWith(_disposables);
-
-        OnionSkinNextOpacity = editorConfig.GetObservable(EditorConfig.OnionSkinNextOpacityProperty)
-            .Select(v => (double)v)
-            .ToReactiveProperty()
-            .DisposeWith(_disposables);
-        OnionSkinNextOpacity.Subscribe(v => editorConfig.OnionSkinNextOpacity = (float)v).DisposeWith(_disposables);
-
-        // Re-render preview whenever any onion-skin setting changes.
-        IsOnionSkinEnabled.CombineLatest(OnionSkinPrevCount, OnionSkinNextCount, OnionSkinPrevOpacity, OnionSkinNextOpacity)
+        // The onion-skin settings UI lives in PreviewSettingsTab and writes directly to EditorConfig.
+        // Observe EditorConfig here so the preview re-renders whenever any onion-skin setting changes.
+        editorConfig.GetObservable(EditorConfig.IsOnionSkinEnabledProperty)
+            .CombineLatest(
+                editorConfig.GetObservable(EditorConfig.OnionSkinPrevCountProperty),
+                editorConfig.GetObservable(EditorConfig.OnionSkinNextCountProperty),
+                editorConfig.GetObservable(EditorConfig.OnionSkinPrevOpacityProperty),
+                editorConfig.GetObservable(EditorConfig.OnionSkinNextOpacityProperty))
             .Skip(1)
             .Subscribe(_ =>
             {
                 if (!IsPlaying.Value)
                 {
                     QueueRender();
+                }
+            })
+            .DisposeWith(_disposables);
+
+        OpenPreviewSettings = new ReactiveCommand()
+            .WithSubscribe(() =>
+            {
+                if (_editViewModel.FindToolTab<PreviewSettingsTabViewModel>() is { } tab)
+                {
+                    tab.IsSelected.Value = true;
+                }
+                else
+                {
+                    _editViewModel.OpenToolTab(new PreviewSettingsTabViewModel(_editViewModel));
                 }
             })
             .DisposeWith(_disposables);
@@ -407,15 +397,7 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
 
     public ReactiveProperty<float> ToneMappingExposure { get; }
 
-    public ReactiveProperty<bool> IsOnionSkinEnabled { get; }
-
-    public ReactiveProperty<decimal> OnionSkinPrevCount { get; }
-
-    public ReactiveProperty<decimal> OnionSkinNextCount { get; }
-
-    public ReactiveProperty<double> OnionSkinPrevOpacity { get; }
-
-    public ReactiveProperty<double> OnionSkinNextOpacity { get; }
+    public ReactiveCommand OpenPreviewSettings { get; }
 
     public event EventHandler? PreviewInvalidated;
 

@@ -386,4 +386,45 @@ public class OnionSkinTests
         Assert.That(samples[0].IsPrev, Is.True);
         Assert.That(samples[0].Time, Is.EqualTo(TimeSpan.Zero));
     }
+
+    [Test]
+    public void EditorConfig_ClampsOnionSkinCounts_ViaRangeAttribute()
+    {
+        // The settings tab uses a generic number editor, so the 0..10 bound the old flyout
+        // enforced now lives as a [Range] on the property and is coerced on assignment.
+        var config = new EditorConfig
+        {
+            OnionSkinPrevCount = 1_000_000,
+            OnionSkinNextCount = -5,
+        };
+
+        Assert.That(config.OnionSkinPrevCount, Is.EqualTo(10));
+        Assert.That(config.OnionSkinNextCount, Is.EqualTo(0));
+    }
+
+    [Test]
+    public void EditorConfig_ClampsOnionSkinOpacity_ViaRangeAttribute()
+    {
+        var config = new EditorConfig
+        {
+            OnionSkinPrevOpacity = 5f,
+            OnionSkinNextOpacity = -1f,
+        };
+
+        Assert.That(config.OnionSkinPrevOpacity, Is.EqualTo(1f).Within(0.0001f));
+        Assert.That(config.OnionSkinNextOpacity, Is.EqualTo(0f).Within(0.0001f));
+    }
+
+    [Test]
+    public void EditorConfig_ClampsNodeCachePixels_ViaRangeAttribute()
+    {
+        var config = new EditorConfig
+        {
+            NodeCacheMaxPixels = 0,
+            NodeCacheMinPixels = -10,
+        };
+
+        Assert.That(config.NodeCacheMaxPixels, Is.EqualTo(1));
+        Assert.That(config.NodeCacheMinPixels, Is.EqualTo(1));
+    }
 }

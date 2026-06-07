@@ -1,19 +1,19 @@
 ﻿#nullable enable
 
 using System.Globalization;
-
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Data;
 using Avalonia.Data.Converters;
-
+using Beutl.Controls.PropertyEditors;
 using Beutl.Extensibility;
 
 namespace Beutl.Controls.Converters;
 
-public sealed class PropertyEditorContextToViewConverter : IValueConverter
+public sealed class PropertyEditorContextToViewConverter(bool hideMenu) : IValueConverter
 {
-    public static readonly PropertyEditorContextToViewConverter Instance = new();
+    public static readonly PropertyEditorContextToViewConverter Instance = new(false);
+    public static readonly PropertyEditorContextToViewConverter HideMenu = new(true);
 
     public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
     {
@@ -21,6 +21,11 @@ public sealed class PropertyEditorContextToViewConverter : IValueConverter
         {
             if (viewModel.Extension.TryCreateControl(viewModel, out var control))
             {
+                if (hideMenu && control is PropertyEditor pe)
+                {
+                    pe.MenuContent = null;
+                }
+
                 return control;
             }
             else

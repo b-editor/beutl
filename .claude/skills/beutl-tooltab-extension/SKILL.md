@@ -34,16 +34,13 @@ Extension (base)
 
 ```csharp
 using System.Diagnostics.CodeAnalysis;
-using System.ComponentModel.DataAnnotations;
 using Avalonia.Controls;
 using Beutl.Extensibility;
 using Beutl.Language;
-using FluentAvalonia.UI.Controls;
 
 namespace Beutl.Services.PrimitiveImpls;
 
 [PrimitiveImpl]
-[Display(Name = nameof(Strings.MyToolTab), ResourceType = typeof(Strings))]
 public sealed class MyToolTabExtension : ToolTabExtension
 {
     public static readonly MyToolTabExtension Instance = new();
@@ -51,15 +48,24 @@ public sealed class MyToolTabExtension : ToolTabExtension
     // Whether multiple instances are allowed
     public override bool CanMultiple => false;
 
+    // Stable identifier (not localized)
+    public override string Name => "My tool tab";
+
+    // Localized display name (shown in the "add tool tab" menu)
+    public override string DisplayName => Strings.MyToolTab;
+
     // Tab header (returning null hides it from the menu).
     // Use null when the tab should only be opened from code.
     public override string? Header => Strings.MyToolTab;
 
-    // Tab icon
-    public override IconSource GetIcon()
-    {
-        return new SymbolIconSource { Symbol = Symbol.Settings };
-    }
+    // Default docking position: None / Left / Right / Bottom / Player
+    public override DockAnchor DefaultAnchor => DockAnchor.Right;
+
+    // Sort order among tabs sharing the same anchor (lower = earlier)
+    public override int DefaultOrder => 0;
+
+    // Open automatically when a new editor opens
+    public override bool OpenByDefault => false;
 
     // Create the view (the UI control)
     public override bool TryCreateContent(
@@ -108,13 +114,6 @@ public sealed class MyToolTabViewModel : IToolContext
 
     public string Header => Strings.MyToolTab;
 
-    public IReactiveProperty<ToolTabExtension.TabPlacement> Placement { get; } =
-        new ReactivePropertySlim<ToolTabExtension.TabPlacement>(
-            ToolTabExtension.TabPlacement.RightUpperBottom);
-
-    public IReactiveProperty<ToolTabExtension.TabDisplayMode> DisplayMode { get; } =
-        new ReactivePropertySlim<ToolTabExtension.TabDisplayMode>();
-
     public void Dispose() => _disposables.Dispose();
 
     public void ReadFromJson(JsonObject json) { }
@@ -124,6 +123,11 @@ public sealed class MyToolTabViewModel : IToolContext
         => _editorContext.GetService(serviceType);
 }
 ```
+
+> `IToolContext` itself only requires `Extension`, `IsSelected`, and `Header`
+> (plus `IDisposable` / `IJsonSerializable` / `IServiceProvider`). Docking
+> placement is declared on the **Extension** via `DefaultAnchor` /
+> `DefaultOrder` / `OpenByDefault`, not on the ViewModel.
 
 ### Step 3: Register with `PrimitiveExtensions`
 
@@ -157,11 +161,10 @@ public static readonly Extension[] PrimitiveExtensions =
 ### Step 1: Subclass `ToolTabExtension`
 
 ```csharp
-using System.Diagnostics.CodeAnalysis;
 using System.ComponentModel.DataAnnotations;
+using System.Diagnostics.CodeAnalysis;
 using Avalonia.Controls;
 using Beutl.Extensibility;
-using FluentAvalonia.UI.Controls;
 
 namespace MyExtension;
 
@@ -175,10 +178,8 @@ public sealed class MyToolTabExtension : ToolTabExtension
 
     public override string? Header => Strings.MyToolTab;
 
-    public override IconSource GetIcon()
-    {
-        return new SymbolIconSource { Symbol = Symbol.Settings };
-    }
+    // Default docking position: None / Left / Right / Bottom / Player
+    public override DockAnchor DefaultAnchor => DockAnchor.Right;
 
     public override bool TryCreateContent(
         IEditorContext editorContext,
@@ -227,13 +228,6 @@ public sealed class MyToolTabViewModel : IToolContext
 
     public string Header => Strings.MyToolTab;
 
-    public IReactiveProperty<ToolTabExtension.TabPlacement> Placement { get; } =
-        new ReactivePropertySlim<ToolTabExtension.TabPlacement>(
-            ToolTabExtension.TabPlacement.RightUpperBottom);
-
-    public IReactiveProperty<ToolTabExtension.TabDisplayMode> DisplayMode { get; } =
-        new ReactivePropertySlim<ToolTabExtension.TabDisplayMode>();
-
     public void Dispose() => _disposables.Dispose();
 
     public void ReadFromJson(JsonObject json) { }
@@ -263,18 +257,19 @@ Add `Strings.resx` and `Strings.ja.resx` inside the extension project, generated
 </UserControl>
 ```
 
-## TabPlacement options
+## DockAnchor options
+
+`ToolTabExtension.DefaultAnchor` returns a `DockAnchor` (see
+`src/Beutl.Extensibility/DockAnchor.cs`). It is the default docking position
+when the tab is first opened; the user can re-dock afterwards.
 
 | Value | Meaning |
 |---|---|
-| LeftUpperTop | Left sidebar, upper area, top |
-| LeftUpperBottom | Left sidebar, upper area, bottom |
-| LeftLowerTop | Left sidebar, lower area, top |
-| LeftLowerBottom | Left sidebar, lower area, bottom |
-| RightUpperTop | Right sidebar, upper area, top |
-| RightUpperBottom | Right sidebar, upper area, bottom |
-| RightLowerTop | Right sidebar, lower area, top |
-| RightLowerBottom | Right sidebar, lower area, bottom |
+| None | No fixed anchor — falls back to the first available tool dock |
+| Left | Left sidebar |
+| Right | Right sidebar |
+| Bottom | Bottom panel |
+| Player | The player's own dock area (reserved; don't use for ordinary tabs) |
 
 ## Services available from `IEditorContext`
 

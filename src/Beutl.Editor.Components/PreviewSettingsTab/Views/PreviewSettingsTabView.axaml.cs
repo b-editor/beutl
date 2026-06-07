@@ -1,11 +1,11 @@
 ﻿using Avalonia.Controls;
 using Beutl.Controls.Converters;
 
-namespace Beutl.Views.Tools;
+namespace Beutl.Editor.Components.PreviewSettingsTab.Views;
 
-public partial class OutputPropertiesEditor : UserControl
+public partial class PreviewSettingsTabView : UserControl
 {
-    public OutputPropertiesEditor()
+    public PreviewSettingsTabView()
     {
         Resources["ViewModelToViewConverter"] = PropertyEditorContextToViewConverter.HideMenu;
         InitializeComponent();
