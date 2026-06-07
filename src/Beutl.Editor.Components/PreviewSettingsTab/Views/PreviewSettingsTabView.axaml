@@ -11,9 +11,9 @@
              x:DataType="viewModel:PreviewSettingsTabViewModel"
              mc:Ignorable="d">
     <ScrollViewer>
-        <StackPanel Margin="4,8" Orientation="Vertical">
+        <StackPanel Orientation="Vertical">
 
-            <TextBlock Margin="8,8,8,4"
+            <TextBlock Margin="8,8,0,0"
                        Text="{x:Static lang:Strings.OnionSkin}"
                        Theme="{StaticResource BodyStrongTextBlockStyle}" />
 
@@ -25,7 +25,7 @@
                 </ItemsControl.ItemTemplate>
             </ItemsControl>
 
-            <TextBlock Margin="8,16,8,4"
+            <TextBlock Margin="8,16,0,0"
                        Text="{x:Static lang:Strings.FrameCache}"
                        Theme="{StaticResource BodyStrongTextBlockStyle}" />
 
@@ -37,7 +37,7 @@
                 </ItemsControl.ItemTemplate>
             </ItemsControl>
 
-            <TextBlock Margin="8,16,8,4"
+            <TextBlock Margin="8,16,0,0"
                        Text="{x:Static lang:SettingsStrings.NodeCache}"
                        Theme="{StaticResource BodyStrongTextBlockStyle}" />
 
