@@ -79,10 +79,59 @@ public class SourceEffectiveScaleFlowTests
             Assert.That(ops[0].EffectiveScale.Value, Is.EqualTo(2.0f).Within(1e-4),
                 "a 2.0 source was clamped down by the 0.5 output scale — s_out must not cap an intermediate");
 
-            foreach (RenderNodeOperation op in ops)
-            {
-                op.Dispose();
-            }
+            DisposeAll(ops);
         });
+    }
+
+    // OutputScale >= 1 (export supersampling). Under Inherit, w == the source supply density regardless of the
+    // output scale — the output is NEITHER a ceiling NOR a floor for a concrete source. So a 0.5 proxy stays 0.5
+    // even when the frame is exported at 2x SSAA (it is NOT fake-upsampled to fabricate detail it does not have),
+    // and a 2.0 source stays 2.0 (it is not raised to a 4x output). w == 1 collapses to the Unbounded byte path.
+    [TestCase(0.5f, 2.0f, 0.5f)] // proxy in a 2x SSAA export: NOT upsampled
+    [TestCase(1.0f, 2.0f, 1.0f)] // 1:1 source in a 2x SSAA export: caps at native (the effect-SSAA tradeoff)
+    [TestCase(2.0f, 2.0f, 2.0f)] // 2.0 source matches the 2x output
+    [TestCase(2.0f, 4.0f, 2.0f)] // 2.0 source below a 4x output: NOT upsampled to 4
+    [TestCase(2.0f, 1.5f, 2.0f)] // non-integer output > 1
+    public void ConcreteAtSource_AtSupersampleOutput_StaysAtSupplyDensity(float density, float outputScale, float expectedW)
+    {
+        VulkanTestEnvironment.EnsureAvailable();
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            using FilterEffectRenderNode node = MosaicNode();
+            var context = new RenderNodeContext([SourceOp(density)], outputScale: outputScale);
+
+            RenderNodeOperation[] ops = node.Process(context);
+
+            Assert.That(ops, Is.Not.Empty);
+            Assert.That(ops[0].EffectiveScale.Value, Is.EqualTo(expectedW).Within(1e-4),
+                $"At({density}) @ outputScale {outputScale} resolved the wrong working scale");
+            if (expectedW != 1.0f)
+            {
+                Assert.That(ops[0].EffectiveScale.IsUnbounded, Is.False,
+                    "a non-unit source density was lost at supersample output");
+            }
+
+            DisposeAll(ops);
+        });
+    }
+
+    // An effect can still opt into supersampling ABOVE a low source via Oversample (SSAA-on-demand): a 0.5 proxy
+    // through an Oversample(2) policy at a 2x output runs at max(0.5, 2*2) = 4. This is the effect's choice, not
+    // the source's density — it shows OutputScale >= 1 DOES raise w when the policy asks for it. Pure math (no GPU).
+    [Test]
+    public void OversamplePolicy_RaisesWorkingScaleAboveSource_AtSupersampleOutput()
+    {
+        float w = RenderNodeContext.ResolveWorkingScale(
+            [EffectiveScale.At(0.5f)], outputScale: 2.0f, ResolutionPolicy.Oversample(2f));
+        Assert.That(w, Is.EqualTo(4.0f).Within(1e-4),
+            "Oversample(2) at a 2x output must force w = 4 even from a 0.5 source");
+    }
+
+    private static void DisposeAll(RenderNodeOperation[] ops)
+    {
+        foreach (RenderNodeOperation op in ops)
+        {
+            op.Dispose();
+        }
     }
 }
