@@ -145,6 +145,17 @@ public class ResolutionScaleTests
         Assert.That(w, Is.EqualTo(3.0f));
     }
 
+    // The positional record constructor bypasses the Oversample(factor>0) factory guard; ResolveWorkingScale must
+    // not amplify by a non-positive factor — it degrades to the supply (== Inherit) (F3).
+    [TestCase(0f)]
+    [TestCase(-5f)]
+    public void Resolve_OversamplePositionalCtorNonPositiveFactor_DegradesToSupply(float factor)
+    {
+        var bad = new ResolutionPolicy(ResolutionPolicyKind.Oversample, factor);
+        float w = RenderNodeContext.ResolveWorkingScale([EffectiveScale.At(0.5f)], outputScale: 2.0f, bad);
+        Assert.That(w, Is.EqualTo(0.5f), "Oversample with a non-positive factor must degrade to the supply, not amplify");
+    }
+
     [Test]
     public void Resolve_Inherit_KeepsSourceDensity()
     {

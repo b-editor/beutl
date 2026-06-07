@@ -199,7 +199,7 @@ Selecting a layer, dragging a transform handle, and hit-testing all behave ident
 - **Effective scale (`EffectiveScale`)**: a read-only value on each operation = the density its pixels exist at; **`Unbounded`** for vector / lossless ops (regenerate at any target), `At(scale)` for bitmap ops. Flows bottom-up; the compositor reconciles mismatches against the working scale (FR-018).
 - **Effect target scale**: a per-target scale on effect intermediates enabling mixed-scale normalization before shared filter/flatten steps.
 - **Effect scale contract**: the uniform rule (multiply spatial-length parameters by the working scale `w`; leave magnitude-invariant parameters unchanged) that every effect, brush, pen, and text path follows.
-- **Resolution policy**: a per-effect / per-node declaration (`Inherit` default / `ClampToOutput` / `Oversample(k)` / `PreserveSource`) that drives the working-scale computation (FR-036).
+- **Resolution policy**: a per-effect declaration (`Inherit` default / `ClampToOutput` / `Oversample(k)`) that drives the working-scale computation (FR-036). *(`PreserveSource` was specced but removed — it equaled `Inherit`.)*
 - **Media logical size vs decoded pixel size**: two distinct dimensions of a source; the foundation that lets a future proxy decode at reduced resolution while layout stays fixed.
 
 ## Success Criteria *(mandatory)*

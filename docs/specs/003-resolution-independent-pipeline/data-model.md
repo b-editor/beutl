@@ -28,7 +28,7 @@ All `float` for v1 (the `Beutl.Graphics.Vector` primitive overloads exist for th
 > **Glossary (naming)**: `Renderer.RenderScale` (on the renderer) `==` `RenderNodeContext.OutputScale` (on the context) `== s_out` — the same render-request output scale under two names (the context calls it `OutputScale` to stress it is *not* the working scale). The editor-facing **`RenderScale` enum** (`Full`/`Half`/`Quarter`/`FitToPreviewer`, FR-035) is a **distinct type** that *resolves to* `s_out` via `ToFloat`.
 
 ### `EffectiveScale` *(new value type)* — `Graphics/Rendering/EffectiveScale.cs`
-`readonly record struct EffectiveScale(float Value, bool IsUnbounded)` — the supply density an op's pixels exist at.
+`readonly record struct EffectiveScale` (as shipped: private `_bounded`/`_value`; `Unbounded`/`At(float)`/`IsUnbounded`/`Value`; `default == Unbounded`) — the supply density an op's pixels exist at. *(NOT a positional `(float Value, bool IsUnbounded)` — that form's `default` would wrongly be `At(0)`; see public-api.md.)*
 | Member | Rule |
 |---|---|
 | `Unbounded` (static) | vector/lossless op — re-rasterizable at any target; **excluded from the supply `max`**. `default(EffectiveScale) == Unbounded` (byte-identity anchor: a plugin op ignoring the new param is safe). |
@@ -163,7 +163,7 @@ All `float` for v1 (the `Beutl.Graphics.Vector` primitive overloads exist for th
 |---|---|---|---|
 | `SourceImage` | `Graphics/SourceImage.cs:26` | `Source.FrameSize.ToSize(1)` → logical size decoupled from decoded pixel size; node Bounds logical | FR-023 |
 | `SourceVideo` | `Graphics/SourceVideo.cs:139` | same | FR-023 |
-| `Image/VideoSourceRenderNode` | `Graphics/Rendering/*` | draw into dest rect `logicalSize × scale`; tag `EffectiveScale` | FR-024 |
+| `Image/VideoSourceRenderNode` | `Graphics/Rendering/*` | draw at native pixel extent under the active CTM; tag `EffectiveScale.At(1)` (logical == decoded `FrameSize` in 003, so the ratio is exactly 1). A per-frame `decodedPixels / logicalSize` density arrives with proxy decode (scope note line 169). | FR-024 |
 | `MediaOptions` | `Media/Decoding/MediaOptions.cs` | **unchanged in 003**; kept additively extensible for a future decode-scale hint | FR-025 |
 
 > **003 scope note (logical vs decoded size)**: `ImageSource.Resource.FrameSize` today = the **decoded pixel size** (`new PixelSize(counter.Width, counter.Height)`, `ImageSource.cs:93`); likewise `VideoSource`. Because proxy decode is out of scope (FR-025), in 003 a source's **logical size == its full decoded `FrameSize`** — no separate intrinsic-logical-size channel is added. FR-023/FR-024 establish only the *seam*: a source draws into a `logicalSize × s` destination rect (not a native-px 1:1 blit), so a **future** reduced-decode supply can shrink the decoded bitmap while the logical footprint stays fixed. Pointing a source directly at a smaller optimized file (which would shrink `FrameSize` and thus the logical footprint today) is part of the deferred proxy-lifecycle feature, not 003.
