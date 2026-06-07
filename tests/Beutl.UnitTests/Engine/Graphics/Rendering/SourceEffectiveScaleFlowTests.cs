@@ -149,6 +149,51 @@ public class SourceEffectiveScaleFlowTests
             "Oversample(2) at a 2x output must force w = 4 even from a 0.5 source");
     }
 
+    // FR-018 byte-identity: at s_out == 1 the At(1) source change must be byte-identical to the old Unbounded.
+    // The golden suite only uses vector shapes, so it never exercises an At-tagged source — feed the SAME content
+    // through the SAME effect once tagged At(1) and once Unbounded and assert the rendered pixels are identical.
+    [Test]
+    public void At1Source_IsByteIdenticalToUnbounded_AtOutputScale1()
+    {
+        VulkanTestEnvironment.EnsureAvailable();
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            using Bitmap at1 = RenderThroughMosaicAtScale1(EffectiveScale.At(1f));
+            using Bitmap unbounded = RenderThroughMosaicAtScale1(EffectiveScale.Unbounded);
+
+            ReadOnlySpan<byte> a = at1.GetPixelSpan();
+            ReadOnlySpan<byte> b = unbounded.GetPixelSpan();
+            Assert.That(a.SequenceEqual(b), Is.True,
+                "At(1) source diverged from Unbounded at s_out == 1 — the FR-018 byte-identity claim is broken");
+        });
+    }
+
+    private static Bitmap RenderThroughMosaicAtScale1(EffectiveScale srcScale)
+    {
+        var srcOp = RenderNodeOperation.CreateLambda(
+            new Rect(0, 0, 120, 90),
+            canvas => canvas.DrawRectangle(new Rect(0, 0, 120, 90), Brushes.Resource.White, null),
+            hitTest: _ => false,
+            onDispose: null,
+            effectiveScale: srcScale);
+
+        using FilterEffectRenderNode node = MosaicNode();
+        RenderNodeOperation[] ops = node.Process(new RenderNodeContext([srcOp], outputScale: 1f));
+
+        using RenderTarget target = RenderTarget.Create(120, 90)!;
+        using (var canvas = new ImmediateCanvas(target) { OutputScale = 1f })
+        {
+            canvas.Clear(Colors.Black);
+            foreach (RenderNodeOperation op in ops)
+            {
+                op.Render(canvas);
+                op.Dispose();
+            }
+        }
+
+        return target.Snapshot();
+    }
+
     // TransformRenderNode forwards (does NOT scale) the child's supply density: a pure-CTM transform does not
     // re-rasterize a bitmap-backed child, so At(d) stays At(d) — NOT Unbounded (the old drop, which mis-tagged a
     // bitmap buffer as re-rasterizable) and NOT At(d/scale) (which would change s_out==1 output). Vector stays
