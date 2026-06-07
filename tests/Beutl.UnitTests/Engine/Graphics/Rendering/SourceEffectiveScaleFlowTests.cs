@@ -115,6 +115,28 @@ public class SourceEffectiveScaleFlowTests
         });
     }
 
+    // FR-037 wiring: the FilterEffectRenderNode reads context.MaxWorkingScale and caps the resolved working scale.
+    // An At(4) source under a 2x ceiling (preview) resolves to w == 2 through the real node, vs w == 4 uncapped.
+    [TestCase(float.PositiveInfinity, 4.0f)] // export: no ceiling
+    [TestCase(2.0f, 2.0f)]                   // preview: 2x s_out ceiling caps a 4.0 source to 2.0
+    public void MaxWorkingScale_CapsThroughTheNode(float maxWorkingScale, float expectedW)
+    {
+        VulkanTestEnvironment.EnsureAvailable();
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            using FilterEffectRenderNode node = MosaicNode();
+            var context = new RenderNodeContext([SourceOp(4.0f)], outputScale: 1.0f, maxWorkingScale: maxWorkingScale);
+
+            RenderNodeOperation[] ops = node.Process(context);
+
+            Assert.That(ops, Is.Not.Empty);
+            Assert.That(ops[0].EffectiveScale.Value, Is.EqualTo(expectedW).Within(1e-4),
+                $"maxWorkingScale {maxWorkingScale} did not cap the working scale through the node");
+
+            DisposeAll(ops);
+        });
+    }
+
     // An effect can still opt into supersampling ABOVE a low source via Oversample (SSAA-on-demand): a 0.5 proxy
     // through an Oversample(2) policy at a 2x output runs at max(0.5, 2*2) = 4. This is the effect's choice, not
     // the source's density — it shows OutputScale >= 1 DOES raise w when the policy asks for it. Pure math (no GPU).
