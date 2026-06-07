@@ -11,13 +11,17 @@
              x:DataType="viewModel:PreviewSettingsTabViewModel"
              mc:Ignorable="d">
     <ScrollViewer>
-        <StackPanel Orientation="Vertical">
+        <StackPanel Grid.IsSharedSizeScope="True"
+                    Margin="4,8"
+                    Orientation="Vertical">
 
-            <TextBlock Margin="8,8,0,0"
+            <TextBlock Margin="8,8,8,4"
                        Text="{x:Static lang:Strings.OnionSkin}"
                        Theme="{StaticResource BodyStrongTextBlockStyle}" />
 
-            <ItemsControl Grid.IsSharedSizeScope="True" ItemsSource="{CompiledBinding OnionSkinProperties}">
+            <ContentControl Content="{CompiledBinding OnionSkinEnabledEditor, Converter={StaticResource ViewModelToViewConverter}}" />
+
+            <ItemsControl IsEnabled="{CompiledBinding IsOnionSkinEnabled.Value}" ItemsSource="{CompiledBinding OnionSkinProperties}">
                 <ItemsControl.ItemTemplate>
                     <DataTemplate>
                         <ContentControl Content="{Binding Converter={StaticResource ViewModelToViewConverter}}" />
@@ -25,11 +29,13 @@
                 </ItemsControl.ItemTemplate>
             </ItemsControl>
 
-            <TextBlock Margin="8,16,0,0"
+            <TextBlock Margin="8,16,8,4"
                        Text="{x:Static lang:Strings.FrameCache}"
                        Theme="{StaticResource BodyStrongTextBlockStyle}" />
 
-            <ItemsControl Grid.IsSharedSizeScope="True" ItemsSource="{CompiledBinding FrameCacheProperties}">
+            <ContentControl Content="{CompiledBinding FrameCacheEnabledEditor, Converter={StaticResource ViewModelToViewConverter}}" />
+
+            <ItemsControl IsEnabled="{CompiledBinding IsFrameCacheEnabled.Value}" ItemsSource="{CompiledBinding FrameCacheProperties}">
                 <ItemsControl.ItemTemplate>
                     <DataTemplate>
                         <ContentControl Content="{Binding Converter={StaticResource ViewModelToViewConverter}}" />
@@ -37,11 +43,13 @@
                 </ItemsControl.ItemTemplate>
             </ItemsControl>
 
-            <TextBlock Margin="8,16,0,0"
+            <TextBlock Margin="8,16,8,4"
                        Text="{x:Static lang:SettingsStrings.NodeCache}"
                        Theme="{StaticResource BodyStrongTextBlockStyle}" />
 
-            <ItemsControl Grid.IsSharedSizeScope="True" ItemsSource="{CompiledBinding NodeCacheProperties}">
+            <ContentControl Content="{CompiledBinding NodeCacheEnabledEditor, Converter={StaticResource ViewModelToViewConverter}}" />
+
+            <ItemsControl IsEnabled="{CompiledBinding IsNodeCacheEnabled.Value}" ItemsSource="{CompiledBinding NodeCacheProperties}">
                 <ItemsControl.ItemTemplate>
                     <DataTemplate>
                         <ContentControl Content="{Binding Converter={StaticResource ViewModelToViewConverter}}" />
