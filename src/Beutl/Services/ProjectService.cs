@@ -134,7 +134,21 @@ public sealed class ProjectService
             };
 
             CoreSerializer.StoreToUri(scene, scene.Uri);
-            CoreSerializer.StoreToUri(project, project.Uri);
+            ProjectPersistence.PersistOrRollback(
+                () => CoreSerializer.StoreToUri(project, project.Uri),
+                () =>
+                {
+                    // The project file could not be written, so the scene file just persisted is
+                    // orphaned on disk. Remove it (best-effort) to keep disk consistent.
+                    try
+                    {
+                        File.Delete(scene.Uri.LocalPath);
+                    }
+                    catch (Exception deleteEx)
+                    {
+                        _logger.LogWarning(deleteEx, "Failed to delete orphaned scene file: {Uri}", scene.Uri);
+                    }
+                });
 
             // 値を発行
             _projectObservable.OnNext((New: project, null));

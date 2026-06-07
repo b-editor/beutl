@@ -70,8 +70,7 @@ public sealed class CreateNewSceneViewModel
 
             if (_proj != null)
             {
-                _proj.Items.Add(scene);
-                CoreSerializer.StoreToUri(_proj, _proj.Uri!);
+                _proj.AddAndPersist(scene, () => CoreSerializer.StoreToUri(_proj, _proj.Uri!));
             }
 
             EditorService.Current.ActivateTabItem(scene);

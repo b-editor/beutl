@@ -60,6 +60,55 @@ public sealed class Project : Hierarchical
     [NotAutoSerialized]
     public Dictionary<string, string> Variables { get; } = [];
 
+    /// <summary>
+    /// Adds <paramref name="item"/> to <see cref="Items"/> and runs <paramref name="persist"/>.
+    /// If <paramref name="persist"/> throws, a newly added item is removed again so the in-memory
+    /// project stays consistent with what was actually persisted. Items already present are left
+    /// untouched (and are not added a second time).
+    /// </summary>
+    /// <param name="item">The item to add.</param>
+    /// <param name="persist">Persists the project (e.g. writes it to disk). Rethrown on failure.</param>
+    public void AddAndPersist(ProjectItem item, Action persist)
+    {
+        ArgumentNullException.ThrowIfNull(item);
+        ArgumentNullException.ThrowIfNull(persist);
+
+        if (_items.Contains(item))
+        {
+            // Already a member; nothing to roll back if persisting fails.
+            persist();
+            return;
+        }
+
+        _items.Add(item);
+        ProjectPersistence.PersistOrRollback(persist, () => _items.Remove(item));
+    }
+
+    /// <summary>
+    /// Removes <paramref name="item"/> from <see cref="Items"/> and runs <paramref name="persist"/>.
+    /// If <paramref name="persist"/> throws, the item is re-inserted at its original index so the
+    /// in-memory project stays consistent with what was actually persisted. Items not present are
+    /// left untouched.
+    /// </summary>
+    /// <param name="item">The item to remove.</param>
+    /// <param name="persist">Persists the project (e.g. writes it to disk). Rethrown on failure.</param>
+    public void RemoveAndPersist(ProjectItem item, Action persist)
+    {
+        ArgumentNullException.ThrowIfNull(item);
+        ArgumentNullException.ThrowIfNull(persist);
+
+        int index = _items.IndexOf(item);
+        if (index < 0)
+        {
+            // Not a member; nothing to roll back if persisting fails.
+            persist();
+            return;
+        }
+
+        _items.RemoveAt(index);
+        ProjectPersistence.PersistOrRollback(persist, () => _items.Insert(index, item));
+    }
+
     public override void Deserialize(ICoreSerializationContext context)
     {
         using Activity? activity = BeutlApplication.ActivitySource.StartActivity("Project.Deserialize");

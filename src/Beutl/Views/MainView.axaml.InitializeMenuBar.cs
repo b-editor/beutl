@@ -157,8 +157,7 @@ public partial class MainView
 
             if (await dialog.ShowAsync() == ContentDialogResult.Primary)
             {
-                project.Items.Remove(projItem);
-                CoreSerializer.StoreToUri(project, project.Uri!);
+                project.RemoveAndPersist(projItem, () => CoreSerializer.StoreToUri(project, project.Uri!));
             }
         }
     }
