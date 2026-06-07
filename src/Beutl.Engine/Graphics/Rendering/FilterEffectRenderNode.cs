@@ -40,7 +40,8 @@ public class FilterEffectRenderNode(FilterEffect.Resource filterEffect) : Contai
         }
 
         float workingScale = RenderNodeContext.ResolveWorkingScale(
-            inputScales, context.OutputScale, FilterEffect.Value.Resource.GetOriginal().ResolutionPolicy);
+            inputScales, context.OutputScale, FilterEffect.Value.Resource.GetOriginal().ResolutionPolicy,
+            context.MaxWorkingScale);
 
         using var feContext = new FilterEffectContext(context.CalculateBounds(), context.OutputScale, workingScale);
         FilterEffect.Value.Resource.GetOriginal().ApplyTo(feContext, FilterEffect.Value.Resource);

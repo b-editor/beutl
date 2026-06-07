@@ -1,6 +1,9 @@
 ﻿namespace Beutl.Graphics.Rendering;
 
-public class RenderNodeContext(RenderNodeOperation[] input, float outputScale = 1f)
+public class RenderNodeContext(
+    RenderNodeOperation[] input,
+    float outputScale = 1f,
+    float maxWorkingScale = float.PositiveInfinity)
 {
     public RenderNodeOperation[] Input { get; } = input;
 
@@ -12,6 +15,13 @@ public class RenderNodeContext(RenderNodeOperation[] input, float outputScale = 
     /// It is the final target only — never a ceiling on an intermediate boundary's working scale.
     /// </summary>
     public float OutputScale { get; } = outputScale;
+
+    /// <summary>
+    /// The global working-scale ceiling for this pull (feature 003, FR-037): preview caps it at
+    /// <c>2 × s_out</c> to bound memory; export leaves it <c>+∞</c>. Applied as the final
+    /// <c>min(·, MaxWorkingScale)</c> in <see cref="ResolveWorkingScale"/>. Default <c>+∞</c> = no ceiling.
+    /// </summary>
+    public float MaxWorkingScale { get; } = maxWorkingScale;
 
     public Rect CalculateBounds()
     {

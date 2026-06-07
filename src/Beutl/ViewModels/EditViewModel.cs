@@ -85,7 +85,9 @@ public sealed partial class EditViewModel : IEditorContext, ISupportAutoSaveEdit
                 .DistinctUntilChanged();
 
         Renderer = frameSizeAndScale
-            .Select(t => new SceneRenderer(Scene, t.OutputScale))
+            // feature 003 (FR-037): cap the preview working scale at 2× s_out so an Oversample / high-density
+            // effect cannot blow up preview buffer memory; export (OutputViewModel) leaves the ceiling at +∞.
+            .Select(t => new SceneRenderer(Scene, t.OutputScale, maxWorkingScale: 2f * t.OutputScale))
             .DisposePreviousValue()
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables)!;

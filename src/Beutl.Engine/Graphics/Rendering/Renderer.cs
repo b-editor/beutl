@@ -42,10 +42,11 @@ public class Renderer : IRenderer
         }
     }
 
-    public Renderer(int width, int height, float renderScale = 1f)
+    public Renderer(int width, int height, float renderScale = 1f, float maxWorkingScale = float.PositiveInfinity)
     {
         FrameSize = new PixelSize(width, height);
         RenderScale = renderScale;
+        MaxWorkingScale = maxWorkingScale;
         DeviceSize = new PixelSize(
             (int)MathF.Ceiling(width * renderScale),
             (int)MathF.Ceiling(height * renderScale));
@@ -104,6 +105,13 @@ public class Renderer : IRenderer
     /// unit at the root. <c>1.0</c> = logical == device. <see cref="FrameSize"/> stays logical.
     /// </summary>
     public float RenderScale { get; }
+
+    /// <summary>
+    /// The working-scale ceiling for this renderer (feature 003, FR-037): preview passes <c>2 × s_out</c> to
+    /// bound buffer memory when a high-density / Oversample effect is present; export leaves it <c>+∞</c>
+    /// (default) so fidelity is uncapped. It only caps effects that resolve a working scale above it.
+    /// </summary>
+    public float MaxWorkingScale { get; }
 
     /// <summary>The physical backing-surface size, <c>ceil(FrameSize × RenderScale)</c>.</summary>
     public PixelSize DeviceSize { get; }
@@ -203,7 +211,7 @@ public class Renderer : IRenderer
         }
 
         RevalidateAll(entry.Node);
-        var processor = new RenderNodeProcessor(entry.Node, CacheOptions.IsEnabled, RenderScale);
+        var processor = new RenderNodeProcessor(entry.Node, CacheOptions.IsEnabled, RenderScale, MaxWorkingScale);
         var ops = processor.PullToRoot();
         Rect bounds = Rect.Empty;
         foreach (var op in ops)

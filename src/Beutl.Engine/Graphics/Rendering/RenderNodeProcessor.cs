@@ -3,7 +3,11 @@ using Beutl.Media;
 
 namespace Beutl.Graphics.Rendering;
 
-public class RenderNodeProcessor(RenderNode root, bool useRenderCache, float outputScale = 1f)
+public class RenderNodeProcessor(
+    RenderNode root,
+    bool useRenderCache,
+    float outputScale = 1f,
+    float maxWorkingScale = float.PositiveInfinity)
 {
     public RenderNode Root { get; } = root;
 
@@ -12,6 +16,12 @@ public class RenderNodeProcessor(RenderNode root, bool useRenderCache, float out
     /// pulls (feature 003). <c>1.0</c> = logical == device (byte-identical to pre-feature).
     /// </summary>
     public float OutputScale { get; } = outputScale;
+
+    /// <summary>
+    /// The working-scale ceiling (FR-037) seeded into every <see cref="RenderNodeContext"/> this processor
+    /// pulls. <c>+∞</c> (default) = no ceiling.
+    /// </summary>
+    public float MaxWorkingScale { get; } = maxWorkingScale;
 
     public void Render(ImmediateCanvas canvas)
     {
@@ -154,7 +164,7 @@ public class RenderNodeProcessor(RenderNode root, bool useRenderCache, float out
             input = operations.ToArray();
         }
 
-        var context = new RenderNodeContext(input, OutputScale);
+        var context = new RenderNodeContext(input, OutputScale, MaxWorkingScale);
         var result = node.Process(context);
         if (useRenderCache && !context.IsRenderCacheEnabled)
         {
