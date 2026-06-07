@@ -29,6 +29,7 @@ public sealed partial class MainWindow : FAAppWindow
         }
 
         TitleBar.Height = 40;
+        TitleBar.ExtendsContentIntoTitleBar = true;
     }
 
     private void SetRect(PixelRect rect)

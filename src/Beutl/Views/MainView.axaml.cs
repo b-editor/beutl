@@ -106,7 +106,6 @@ public sealed partial class MainView : UserControl
             FAAppWindowTitleBar titleBar = cw.TitleBar;
             if (titleBar != null)
             {
-                titleBar.ExtendsContentIntoTitleBar = true;
                 NotificationPanel.Margin = new(0, titleBar.Height + 8, 8, 0);
             }
         }
