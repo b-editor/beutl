@@ -59,7 +59,11 @@ public sealed class VideoSourceRenderNode(
                         }
                     }
                 },
-                hitTest: HitTest
+                hitTest: HitTest,
+                // feature 003 (FR-018): a decoded video frame is a bitmap at its native 1:1 density (its logical
+                // bounds == its pixel size), so it reports a concrete supply density rather than Unbounded — same
+                // rationale as ImageSourceRenderNode. At(1) is byte-identical to Unbounded at s_out == 1.
+                effectiveScale: EffectiveScale.At(1f)
             )
         ];
     }

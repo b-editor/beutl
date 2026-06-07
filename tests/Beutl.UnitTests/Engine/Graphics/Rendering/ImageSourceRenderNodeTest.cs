@@ -153,4 +153,21 @@ public class ImageSourceRenderNodeTest
 
         Assert.That(operations[0].HitTest(point), Is.False);
     }
+
+    // feature 003 (FR-018): a decoded image is a bitmap, so its op reports a CONCRETE supply density (At(1) at
+    // its native 1:1), not the vector Unbounded sentinel — so a downstream effect resolves its working scale
+    // against the source's real density (e.g. caps at native under export supersampling) instead of treating
+    // the source as re-rasterizable. At(1) keeps w == 1 at s_out == 1, so it is byte-identical there.
+    [Test]
+    public void Process_OpReportsConcreteNativeDensity_NotUnbounded()
+    {
+        ImageSource.Resource source = GetTestImageSourceResource();
+        var node = new ImageSourceRenderNode(source, Brushes.Resource.White, null);
+        var operations = node.Process(new RenderNodeContext([]));
+
+        Assert.That(operations[0].EffectiveScale.IsUnbounded, Is.False,
+            "an image source must report a concrete density, not the vector Unbounded sentinel");
+        Assert.That(operations[0].EffectiveScale.Value, Is.EqualTo(1f),
+            "an image drawn at its native 1:1 size has supply density 1");
+    }
 }

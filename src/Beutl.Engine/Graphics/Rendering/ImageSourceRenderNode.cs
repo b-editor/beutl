@@ -41,7 +41,13 @@ public sealed class ImageSourceRenderNode(ImageSource.Resource source, Brush.Res
                 {
                     canvas.DrawImageSource(Source.Value.Resource, Fill?.Resource, Pen?.Resource);
                 },
-                hitTest: HitTest
+                hitTest: HitTest,
+                // feature 003 (FR-018): a decoded image is a bitmap at its native 1:1 density (its logical bounds
+                // == its pixel size), so it reports a concrete supply density rather than Unbounded. This caps a
+                // downstream effect at the source's own resolution instead of upsampling it under export SSAA, and
+                // lets a downscaling transform raise the density it carries through effects. At(1) is byte-
+                // identical to Unbounded at s_out == 1 (both resolve w == 1).
+                effectiveScale: EffectiveScale.At(1f)
             )
         ];
     }
