@@ -1,5 +1,4 @@
 ﻿using Avalonia.Controls;
-
 using Beutl.Controls.Converters;
 
 namespace Beutl.Editor.Components.PreviewSettingsTab.Views;
@@ -8,7 +7,7 @@ public partial class PreviewSettingsTabView : UserControl
 {
     public PreviewSettingsTabView()
     {
+        Resources["ViewModelToViewConverter"] = PropertyEditorContextToViewConverter.HideMenu;
         InitializeComponent();
-        Resources["ViewModelToViewConverter"] = PropertyEditorContextToViewConverter.Instance;
     }
 }
