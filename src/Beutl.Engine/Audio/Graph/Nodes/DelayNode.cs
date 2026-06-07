@@ -1,13 +1,12 @@
 ﻿using Beutl.Audio.Effects;
 using Beutl.Engine;
 using Beutl.Media;
+using static Beutl.Audio.Effects.DelayParameters;
 
 namespace Beutl.Audio.Graph.Nodes;
 
 public sealed class DelayNode : AudioNode
 {
-    private const float MaxDelayTime = 5000f; // 5 seconds in milliseconds
-
     private CircularBuffer<float>[]? _delayLines;
     private int _maxDelaySamples;
     private int _lastSampleRate;
@@ -66,7 +65,7 @@ public sealed class DelayNode : AudioNode
             }
         }
 
-        _maxDelaySamples = (int)(MaxDelayTime / 1000f * sampleRate);
+        _maxDelaySamples = (int)(DelayTimeMax / 1000f * sampleRate);
         _delayLines = new CircularBuffer<float>[channelCount];
         for (int i = 0; i < _delayLines.Length; i++)
         {
@@ -76,10 +75,10 @@ public sealed class DelayNode : AudioNode
 
     private AudioBuffer ProcessStatic(AudioBuffer input, AudioProcessContext context)
     {
-        float delayTime = DelayTime?.CurrentValue ?? 200f;
-        float feedback = (Feedback?.CurrentValue ?? 50f) / 100f;
-        float dryMix = (DryMix?.CurrentValue ?? 60f) / 100f;
-        float wetMix = (WetMix?.CurrentValue ?? 40f) / 100f;
+        float delayTime = DelayTime?.CurrentValue ?? DelayTimeDefault;
+        float feedback = (Feedback?.CurrentValue ?? FeedbackDefault) / 100f;
+        float dryMix = (DryMix?.CurrentValue ?? DryMixDefault) / 100f;
+        float wetMix = (WetMix?.CurrentValue ?? WetMixDefault) / 100f;
 
         int delaySamples = (int)(delayTime / 1000f * context.SampleRate);
         delaySamples = System.Math.Clamp(delaySamples, 0, _maxDelaySamples - 1);

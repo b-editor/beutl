@@ -3,38 +3,37 @@ using Beutl.Audio.Graph;
 using Beutl.Audio.Graph.Nodes;
 using Beutl.Engine;
 using Beutl.Language;
+using static Beutl.Audio.Effects.DelayParameters;
 
 namespace Beutl.Audio.Effects;
 
 [Display(Name = nameof(AudioStrings.DelayEffect), ResourceType = typeof(AudioStrings))]
 public sealed partial class DelayEffect : AudioEffect
 {
-    private const float MaxDelayTime = 5000f; // 5 seconds in milliseconds
-
     public DelayEffect()
     {
         ScanProperties<DelayEffect>();
     }
 
-    [Range(0, MaxDelayTime)]
+    [Range(DelayTimeMin, DelayTimeMax)]
     [Display(Name = nameof(AudioStrings.DelayEffect_DelayTime), ResourceType = typeof(AudioStrings))]
     [SuppressResourceClassGeneration]
-    public IProperty<float> DelayTime { get; } = Property.CreateAnimatable(200f);
+    public IProperty<float> DelayTime { get; } = Property.CreateAnimatable(DelayTimeDefault);
 
-    [Range(0, 100)]
+    [Range(FeedbackMin, FeedbackMax)]
     [Display(Name = nameof(AudioStrings.DelayEffect_Feedback), ResourceType = typeof(AudioStrings))]
     [SuppressResourceClassGeneration]
-    public IProperty<float> Feedback { get; } = Property.CreateAnimatable(50f);
+    public IProperty<float> Feedback { get; } = Property.CreateAnimatable(FeedbackDefault);
 
-    [Range(0, 100)]
+    [Range(DryMixMin, DryMixMax)]
     [Display(Name = nameof(AudioStrings.DelayEffect_DryMix), ResourceType = typeof(AudioStrings))]
     [SuppressResourceClassGeneration]
-    public IProperty<float> DryMix { get; } = Property.CreateAnimatable(60f);
+    public IProperty<float> DryMix { get; } = Property.CreateAnimatable(DryMixDefault);
 
-    [Range(0, 100)]
+    [Range(WetMixMin, WetMixMax)]
     [Display(Name = nameof(AudioStrings.DelayEffect_WetMix), ResourceType = typeof(AudioStrings))]
     [SuppressResourceClassGeneration]
-    public IProperty<float> WetMix { get; } = Property.CreateAnimatable(40f);
+    public IProperty<float> WetMix { get; } = Property.CreateAnimatable(WetMixDefault);
 
     public override AudioNode CreateNode(AudioContext context, AudioNode inputNode)
     {
