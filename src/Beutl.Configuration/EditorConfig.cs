@@ -204,6 +204,7 @@ public sealed partial class EditorConfig : ConfigurationBase
         set => SetValue(IsFrameCacheEnabledProperty, value);
     }
 
+    [Range(0.0, double.MaxValue)]
     [Display(Name = nameof(SettingsStrings.FrameCacheMaxSize), ResourceType = typeof(SettingsStrings))]
     public double FrameCacheMaxSize
     {
@@ -232,6 +233,7 @@ public sealed partial class EditorConfig : ConfigurationBase
         set => SetValue(IsNodeCacheEnabledProperty, value);
     }
 
+    [Range(1, int.MaxValue)]
     [Display(Name = nameof(SettingsStrings.NodeCacheMaxPixels), ResourceType = typeof(SettingsStrings))]
     public int NodeCacheMaxPixels
     {
@@ -239,6 +241,7 @@ public sealed partial class EditorConfig : ConfigurationBase
         set => SetValue(NodeCacheMaxPixelsProperty, value);
     }
 
+    [Range(1, int.MaxValue)]
     [Display(Name = nameof(SettingsStrings.NodeCacheMinPixels), ResourceType = typeof(SettingsStrings))]
     public int NodeCacheMinPixels
     {
@@ -295,6 +298,7 @@ public sealed partial class EditorConfig : ConfigurationBase
         set => SetValue(IsOnionSkinEnabledProperty, value);
     }
 
+    [Range(0, 10)]
     [Display(Name = nameof(Strings.OnionSkinPrevCount), ResourceType = typeof(Strings))]
     public int OnionSkinPrevCount
     {
@@ -302,6 +306,7 @@ public sealed partial class EditorConfig : ConfigurationBase
         set => SetValue(OnionSkinPrevCountProperty, value);
     }
 
+    [Range(0, 10)]
     [Display(Name = nameof(Strings.OnionSkinNextCount), ResourceType = typeof(Strings))]
     public int OnionSkinNextCount
     {
@@ -309,6 +314,7 @@ public sealed partial class EditorConfig : ConfigurationBase
         set => SetValue(OnionSkinNextCountProperty, value);
     }
 
+    [Range(0.0, 1.0)]
     [Display(Name = nameof(Strings.OnionSkinPrevOpacity), ResourceType = typeof(Strings))]
     public float OnionSkinPrevOpacity
     {
@@ -316,6 +322,7 @@ public sealed partial class EditorConfig : ConfigurationBase
         set => SetValue(OnionSkinPrevOpacityProperty, value);
     }
 
+    [Range(0.0, 1.0)]
     [Display(Name = nameof(Strings.OnionSkinNextOpacity), ResourceType = typeof(Strings))]
     public float OnionSkinNextOpacity
     {
