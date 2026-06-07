@@ -43,7 +43,13 @@ public sealed class TransformRenderNode(Matrix transform, TransformOperator tran
                         point *= Transform.Invert();
                     return r.HitTest(point);
                 },
-                onDispose: r.Dispose))
+                onDispose: r.Dispose,
+                // feature 003: forward the child's supply density. A pure-CTM transform does not re-rasterize a
+                // bitmap-backed child (a flushed effect buffer / image source), so the child stays At(d) rather
+                // than the re-rasterizable Unbounded — the density it actually has, for a parent composite/effect
+                // to reconcile correctly (FR-019). The density is NOT scaled by the transform (that would change
+                // s_out == 1 output and break byte-identity); At(1)/Unbounded are identical at s_out == 1.
+                effectiveScale: r.EffectiveScale))
             .ToArray();
     }
 }

@@ -149,6 +149,27 @@ public class SourceEffectiveScaleFlowTests
             "Oversample(2) at a 2x output must force w = 4 even from a 0.5 source");
     }
 
+    // TransformRenderNode forwards (does NOT scale) the child's supply density: a pure-CTM transform does not
+    // re-rasterize a bitmap-backed child, so At(d) stays At(d) — NOT Unbounded (the old drop, which mis-tagged a
+    // bitmap buffer as re-rasterizable) and NOT At(d/scale) (which would change s_out==1 output). Vector stays
+    // Unbounded. Pure Process — no GPU.
+    [Test]
+    public void TransformRenderNode_ForwardsChildEffectiveScale_Unscaled()
+    {
+        var transform = new TransformRenderNode(Matrix.CreateScale(0.5f, 0.5f), TransformOperator.Prepend);
+
+        RenderNodeOperation[] concrete = transform.Process(new RenderNodeContext([SourceOp(2.0f)]));
+        Assert.That(concrete[0].EffectiveScale.IsUnbounded, Is.False);
+        Assert.That(concrete[0].EffectiveScale.Value, Is.EqualTo(2.0f).Within(1e-4),
+            "transform must forward the density UNCHANGED (scaling it would break s_out==1 byte-identity)");
+        DisposeAll(concrete);
+
+        var vectorOp = RenderNodeOperation.CreateLambda(new Rect(0, 0, 10, 10), _ => { }, _ => false);
+        RenderNodeOperation[] vector = transform.Process(new RenderNodeContext([vectorOp]));
+        Assert.That(vector[0].EffectiveScale.IsUnbounded, Is.True, "a vector child must stay Unbounded through a transform");
+        DisposeAll(vector);
+    }
+
     private static void DisposeAll(RenderNodeOperation[] ops)
     {
         foreach (RenderNodeOperation op in ops)
