@@ -44,10 +44,6 @@ public partial class DisplacementMapEffect : FilterEffect
     [Display(Name = nameof(GraphicsStrings.DisplacementMapEffect_ShowDisplacementMap), ResourceType = typeof(GraphicsStrings))]
     public IProperty<bool> ShowDisplacementMap { get; } = Property.CreateAnimatable(false);
 
-    // feature 003 (FR-013): resolution-sensitive effect — keep a high source's density through it.
-    public override Beutl.Graphics.Rendering.ResolutionPolicy ResolutionPolicy
-        => Beutl.Graphics.Rendering.ResolutionPolicy.PreserveSource;
-
     public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
     {
         var r = (Resource)resource;

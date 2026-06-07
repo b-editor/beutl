@@ -49,10 +49,6 @@ public partial class MosaicEffect : FilterEffect
     [Display(Name = nameof(GraphicsStrings.MosaicEffect_Origin), ResourceType = typeof(GraphicsStrings))]
     public IProperty<RelativePoint> Origin { get; } = Property.CreateAnimatable(RelativePoint.Center);
 
-    // feature 003 (FR-013): resolution-sensitive effect — keep a high source's density through it.
-    public override Beutl.Graphics.Rendering.ResolutionPolicy ResolutionPolicy
-        => Beutl.Graphics.Rendering.ResolutionPolicy.PreserveSource;
-
     public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
     {
         var r = (Resource)resource;

@@ -28,10 +28,6 @@ public partial class FlatShadow : FilterEffect
     [Display(Name = nameof(GraphicsStrings.ShadowOnly), ResourceType = typeof(GraphicsStrings))]
     public IProperty<bool> ShadowOnly { get; } = Property.CreateAnimatable(false);
 
-    // feature 003 (FR-013): resolution-sensitive effect — keep a high source's density through it.
-    public override Beutl.Graphics.Rendering.ResolutionPolicy ResolutionPolicy
-        => Beutl.Graphics.Rendering.ResolutionPolicy.PreserveSource;
-
     public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
     {
         var r = (Resource)resource;

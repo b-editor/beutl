@@ -20,7 +20,8 @@ public class NoMigrationRegressionTests
         var json = CoreSerializer.SerializeToJsonObject(dilate);
         string s1 = json.ToJsonString();
 
-        // 003 added ResolutionPolicy as a computed override (PreserveSource on Dilate), NOT a property.
+        // 003's ResolutionPolicy is a computed virtual on FilterEffect (not a serialized CoreProperty), so it
+        // must never appear in the JSON.
         Assert.That(s1, Does.Not.Contain("ResolutionPolicy"));
         Assert.That(s1, Does.Not.Contain("WorkingScale"));
         Assert.That(s1, Does.Not.Contain("EffectiveScale"));

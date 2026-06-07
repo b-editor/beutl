@@ -1,7 +1,10 @@
-﻿using Beutl.Graphics;
+using Beutl.Graphics;
 using Beutl.Media;
 
 namespace Beutl.Models;
+
+// NOTE (feature 003): this type lives in Beutl.Editor (not the Beutl app exe) so the pure s_out mapping is unit-
+// testable; the namespace stays Beutl.Models so existing `using Beutl.Models;` call sites are unaffected.
 
 /// <summary>
 /// Preview render-quality selector (feature 003, US4). Per edit view, non-persisted. Resolves to

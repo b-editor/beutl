@@ -125,18 +125,6 @@ public class ResolutionScaleTests
     }
 
     [Test]
-    public void Resolve_ClampToOutput_FlooredByPreserveSourceAncestor()
-    {
-        // A PreserveSource ancestor floors a ClampToOutput so a high source density survives.
-        float w = RenderNodeContext.ResolveWorkingScale(
-            [EffectiveScale.At(2.0f)],
-            outputScale: 1.0f,
-            ResolutionPolicy.ClampToOutput,
-            preserveFloor: 2.0f);
-        Assert.That(w, Is.EqualTo(2.0f));
-    }
-
-    [Test]
     public void Resolve_Oversample_ForcesAboveOutputEvenFromLowSource()
     {
         // SSAA on demand: 2x the 1.0 output even though the supply is only 0.5.
@@ -158,12 +146,13 @@ public class ResolutionScaleTests
     }
 
     [Test]
-    public void Resolve_PreserveSource_KeepsSourceDensity()
+    public void Resolve_Inherit_KeepsSourceDensity()
     {
+        // Inherit runs at the supply density, so a high source density survives the effect.
         float w = RenderNodeContext.ResolveWorkingScale(
             [EffectiveScale.At(2.0f)],
             outputScale: 1.0f,
-            ResolutionPolicy.PreserveSource);
+            ResolutionPolicy.Inherit);
         Assert.That(w, Is.EqualTo(2.0f));
     }
 
@@ -175,7 +164,6 @@ public class ResolutionScaleTests
             [EffectiveScale.At(4.0f)],
             outputScale: 1.0f,
             ResolutionPolicy.Inherit,
-            preserveFloor: 0f,
             maxWorkingScale: 2.0f);
         Assert.That(w, Is.EqualTo(2.0f));
     }

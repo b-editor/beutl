@@ -27,13 +27,11 @@ public class RenderNodeContext(RenderNodeOperation[] input, float outputScale = 
     /// <param name="inputs">The effective scales of the boundary's input operations.</param>
     /// <param name="outputScale">The render request's output scale <c>s_out</c>.</param>
     /// <param name="policy">The boundary's resolution policy.</param>
-    /// <param name="preserveFloor">A minimum working scale forced by an ancestor PreserveSource (0 = none).</param>
     /// <param name="maxWorkingScale">A global ceiling (FR-037: 2×s_out preview, +∞ export).</param>
     public static float ResolveWorkingScale(
         ReadOnlySpan<EffectiveScale> inputs,
         float outputScale,
         ResolutionPolicy policy,
-        float preserveFloor = 0f,
         float maxWorkingScale = float.PositiveInfinity)
     {
         // supply = the densest concrete (bitmap) input. Unbounded (vector) inputs impose no supply.
@@ -51,14 +49,12 @@ public class RenderNodeContext(RenderNodeOperation[] input, float outputScale = 
 
         float w = policy.Kind switch
         {
-            // Perf opt-out: clamp down to the output, but never below an ancestor PreserveSource floor.
-            ResolutionPolicyKind.ClampToOutput => MathF.Max(MathF.Min(supply, outputScale), preserveFloor),
+            // Perf opt-out: clamp the working scale down to the output scale.
+            ResolutionPolicyKind.ClampToOutput => MathF.Min(supply, outputScale),
             // Quality opt-in: at least Factor×output, even from a lower-density input (SSAA on demand).
             ResolutionPolicyKind.Oversample => MathF.Max(supply, policy.Factor * outputScale),
-            // Quality: keep the source density (the floor is carried to descendants by the caller).
-            ResolutionPolicyKind.PreserveSource => MathF.Max(supply, preserveFloor),
             // Inherit (default): run at the supply density. The output scale is not a ceiling.
-            _ => MathF.Max(supply, preserveFloor),
+            _ => supply,
         };
 
         return MathF.Min(w, maxWorkingScale);

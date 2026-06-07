@@ -17,6 +17,29 @@ internal static class VulkanTestEnvironment
     public static IGraphicsContext SharedContext { get; private set; } = null!;
 
     /// <summary>
+    /// Vulkan 共有コンテキストを作成できたか。GPU ゴールデン群全体のサイレントスキップ（<see cref="Assert.Ignore"/>
+    /// により「成功」に見える）を非ゲートの canary で検出するために公開する。
+    /// </summary>
+    public static bool IsAvailable
+    {
+        get
+        {
+            EnsureInitialized();
+            return s_isAvailable;
+        }
+    }
+
+    /// <summary><see cref="IsAvailable"/> が false の理由（利用可能なら null）。</summary>
+    public static string? UnavailableReason
+    {
+        get
+        {
+            EnsureInitialized();
+            return s_unavailableReason;
+        }
+    }
+
+    /// <summary>
     /// Vulkan を必要とするテストの先頭で呼び出す。利用できなければ <see cref="Assert.Ignore"/> を投げてスキップする。
     /// </summary>
     public static IGraphicsContext EnsureAvailable()

@@ -21,12 +21,6 @@ public enum ResolutionPolicyKind
     /// the output scale, even from a lower-density input (SSAA on demand).
     /// </summary>
     Oversample,
-
-    /// <summary>
-    /// Quality: keep a high source's density through the effect and floor any
-    /// ancestor <see cref="ClampToOutput"/>.
-    /// </summary>
-    PreserveSource,
 }
 
 /// <summary>
@@ -44,9 +38,6 @@ public readonly record struct ResolutionPolicy(ResolutionPolicyKind Kind, float 
 
     /// <summary>Clamp the working scale to the output scale (perf opt-out).</summary>
     public static readonly ResolutionPolicy ClampToOutput = new(ResolutionPolicyKind.ClampToOutput);
-
-    /// <summary>Keep a high source's density (quality).</summary>
-    public static readonly ResolutionPolicy PreserveSource = new(ResolutionPolicyKind.PreserveSource);
 
     /// <summary>
     /// Force at least <paramref name="factor"/> times the output scale (quality opt-in). <paramref name="factor"/>
