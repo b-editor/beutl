@@ -32,7 +32,9 @@ public sealed class PropertyEditorContextToViewConverter(bool hideMenu) : IValue
             {
                 return new Label
                 {
-                    Height = 24, Margin = new Thickness(0, 4), Content = viewModel.Extension.DisplayName
+                    Height = 24,
+                    Margin = new Thickness(0, 4),
+                    Content = viewModel.Extension.DisplayName
                 };
             }
         }
