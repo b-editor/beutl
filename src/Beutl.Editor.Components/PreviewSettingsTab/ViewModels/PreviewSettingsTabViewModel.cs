@@ -1,6 +1,7 @@
 ﻿using System.Text.Json.Nodes;
 
 using Beutl.Configuration;
+using Beutl.Editor;
 using Beutl.Editor.Services;
 using Beutl.PropertyAdapters;
 
@@ -10,9 +11,10 @@ using Reactive.Bindings;
 
 namespace Beutl.Editor.Components.PreviewSettingsTab.ViewModels;
 
-public sealed class PreviewSettingsTabViewModel : IToolContext
+public sealed class PreviewSettingsTabViewModel : IToolContext, IPropertyEditorContextVisitor
 {
     private readonly CompositeDisposable _disposables = [];
+    private readonly HistoryManager _history;
     private IEditorContext _editorContext;
 
     public PreviewSettingsTabViewModel(IEditorContext editorContext)
@@ -20,6 +22,11 @@ public sealed class PreviewSettingsTabViewModel : IToolContext
         _editorContext = editorContext;
         var factory = editorContext.GetRequiredService<IPropertyEditorFactory>();
         EditorConfig config = GlobalConfiguration.Instance.EditorConfig;
+
+        // These editors edit the global EditorConfig, not the scene, so route their Commit()
+        // through a dedicated HistoryManager rooted at EditorConfig instead of the editor's
+        // scene history (same approach as the Output / encoder-settings property editors).
+        _history = new HistoryManager(config, new OperationSequenceGenerator());
 
         // Each group's "enabled" flag is shown as a ToggleSwitch next to the section header
         // (bound two-way below), and also drives the IsEnabled of the dependent rows.
@@ -72,14 +79,21 @@ public sealed class PreviewSettingsTabViewModel : IToolContext
         return reactive;
     }
 
-    private static void AddEditors(
+    private void AddEditors(
         IPropertyEditorFactory factory, CoreList<IPropertyEditorContext?> destination,
         params IPropertyAdapter[] adapters)
     {
         foreach (IPropertyAdapter adapter in adapters)
         {
-            destination.Add(factory.CreateEditor(adapter));
+            IPropertyEditorContext? context = factory.CreateEditor(adapter);
+            // Wire the editor's service provider so Commit() resolves our HistoryManager.
+            context?.Accept(this);
+            destination.Add(context);
         }
+    }
+
+    public void Visit(IPropertyEditorContext context)
+    {
     }
 
     public void Dispose()
@@ -95,6 +109,7 @@ public sealed class PreviewSettingsTabViewModel : IToolContext
         FrameCacheProperties.Clear();
         NodeCacheProperties.Clear();
         _disposables.Dispose();
+        _history.Dispose();
         _editorContext = null!;
     }
 
@@ -108,6 +123,13 @@ public sealed class PreviewSettingsTabViewModel : IToolContext
 
     public object? GetService(Type serviceType)
     {
+        // Isolate the settings history: editors Commit() into our EditorConfig-rooted
+        // HistoryManager, never the scene's editor history. Everything else falls through.
+        if (serviceType == typeof(HistoryManager))
+        {
+            return _history;
+        }
+
         return _editorContext.GetService(serviceType);
     }
 }
