@@ -105,9 +105,16 @@ Single-repo .NET solution. Engine: `src/Beutl.Engine/`; project system: `src/Beu
 > Verified: `CustomEffectSupersampleTests` (Mosaic 2×-delivered vs 1:1 SSIM=1.0000 → logical tiles
 > preserved; MAE-to-truth ss<1:1 → real density), all reduced-scale + export goldens still green,
 > byte-identity at s=1 preserved (all `w==1` branches are character-identical to the pre-feature path).
-> **KNOWN LIMITATION (deferred):** DrawableBrush / TileBrush FILL content (`BrushConstructor`) is still
-> logical-density (soft fill at s_out>1; the filled shape's edges stay crisp) — full TileBrush density
-> needs per-TileMode/Transform goldens and is scoped out to avoid shipping mistiled brushes.
+> **KNOWN LIMITATION (deferred — measured low impact, fix attempted+reverted 2026-06-09):** DrawableBrush /
+> TileBrush FILL content (`BrushConstructor`) is still logical-density (soft fill at s_out>1; the filled
+> shape's edges stay crisp). **Measured impact is negligible for typical content** — `TileBrushFillDensityTests`
+> scores a smooth DrawableBrush fill at 2× SSAA at **SSIM 0.998** vs the content drawn directly; it would only
+> matter for high-frequency fill content at large SSAA factors. A density fix (intermediate `ceil(IntermediateSize×s)`
+> + child re-render at `×s` + tile-shader local-matrix `Scale(s)`) was **attempted and reverted** — the
+> multi-scale matrix composition in Skia shader space is subtle and the naive version dropped the test to
+> **SSIM 0.21 (mistiled)**. A correct fix needs a dedicated debugging loop with per-TileMode/Stretch/Transform
+> goldens; deferring it (rather than shipping a mistiled brush) is the correct call. `TileBrushFillDensityTests`
+> stays as the impact characterisation + regression guard.
 
 - [X] T030 [US2] **Landed.** `FilterEffectContext` ctor `(outputScale, workingScale)` + `WorkingScale`/`OutputScale` accessors (FR-015), propagated through `Clone`/`CreateChildContext`; `w` resolved & threaded by `FilterEffectRenderNode` into the activator. (Skia `SKImageFilter` primitives intentionally NOT `×w` — they ride the root CTM; see the note above.)
 - [X] T031 [US2] **Landed.** `CustomFilterEffectContext.WorkingScale` added; `CreateTarget` sizes `ceil(bounds×w)` for `w≠1` keeping `(int)` at `w=1` and tags `EffectiveScale.At(w)`; the Custom effects draw over the device buffer (`SKSLShader.ApplyToNewTarget` device-rect) in `src/Beutl.Engine/Graphics/FilterEffects/CustomFilterEffectContext.cs`
