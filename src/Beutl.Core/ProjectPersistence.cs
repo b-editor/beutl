@@ -7,7 +7,14 @@ namespace Beutl;
 /// Helpers that keep in-memory and on-disk project state consistent when a persist step
 /// can fail partway through.
 /// </summary>
-public static class ProjectPersistence
+/// <remarks>
+/// Internal on purpose: the do/rollback combinator is a generic primitive but its only intended
+/// consumers are the project-persistence call sites in this assembly (<see cref="Project"/>) and the
+/// <c>Beutl</c> app project. Exposing it publicly would put a project-agnostic utility on the
+/// public surface under a project-specific name; if a generic public combinator is ever needed,
+/// promote it deliberately under a name that reflects that.
+/// </remarks>
+internal static class ProjectPersistence
 {
     private static readonly ILogger s_logger = Log.CreateLogger(typeof(ProjectPersistence));
 
@@ -20,8 +27,9 @@ public static class ProjectPersistence
     /// <param name="persist">The persist step that may fail (e.g. writing a file to disk).</param>
     /// <param name="rollback">
     /// Undoes the side effect performed before <paramref name="persist"/> was attempted. A throwing
-    /// rollback is tolerated (logged, not propagated), but callers should still keep it cheap and
-    /// best-effort.
+    /// rollback is tolerated (logged at error level, not propagated), but callers should still keep
+    /// it cheap and best-effort. Note that a throwing rollback leaves in-memory and on-disk state
+    /// divergent in a way the caller cannot detect from the rethrown exception.
     /// </param>
     /// <remarks>
     /// This is intentionally synchronous: all current persistence (<c>CoreSerializer.StoreToUri</c>)
@@ -45,9 +53,10 @@ public static class ProjectPersistence
             }
             catch (Exception rollbackEx)
             {
-                // Surface the original persist failure, not the rollback error; keep the rollback
-                // failure in the log so it is not lost entirely.
-                s_logger.LogWarning(rollbackEx, "Rollback after a failed persist also failed.");
+                // Surface the original persist failure, not the rollback error. Log at error level:
+                // a failed rollback leaves in-memory and on-disk state divergent and unrecoverable,
+                // which is exactly the condition this helper exists to prevent.
+                s_logger.LogError(rollbackEx, "Rollback after a failed persist also failed.");
             }
 
             throw;
