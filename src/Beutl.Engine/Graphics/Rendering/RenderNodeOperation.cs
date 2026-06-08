@@ -61,11 +61,16 @@ public abstract class RenderNodeOperation : IDisposable
     public static RenderNodeOperation CreateFromRenderTarget(
         Rect bounds, Point position, RenderTarget renderTarget, EffectiveScale effectiveScale = default)
     {
-        // feature 003: a concrete-density buffer (At(w)) is drawn into its LOGICAL bounds so the active
-        // CTM resamples it once; an Unbounded buffer keeps the bare point blit (byte-identical at scale 1).
+        // feature 003: a concrete-density buffer (At(w)) is drawn so the active CTM resamples it once; an
+        // Unbounded buffer keeps the bare point blit (byte-identical at scale 1). The scaled dest derives its
+        // SIZE from the buffer footprint (RT pixels ÷ density), NOT from `bounds`, so a downstream filter that
+        // inflated `bounds` while the buffer still holds the original area cannot stretch it (mirrors
+        // EffectTarget.Draw); `bounds.Position` is kept so the buffer lands where it belongs.
         Action<ImmediateCanvas> render = effectiveScale.IsUnbounded || effectiveScale.Value == 1f
             ? canvas => canvas.DrawRenderTarget(renderTarget, position)
-            : canvas => canvas.DrawRenderTargetScaled(renderTarget, bounds);
+            : canvas => canvas.DrawRenderTargetScaled(renderTarget, new Rect(
+                bounds.X, bounds.Y,
+                renderTarget.Width / effectiveScale.Value, renderTarget.Height / effectiveScale.Value));
         return CreateLambda(bounds, render, bounds.Contains, renderTarget.Dispose, effectiveScale);
     }
 

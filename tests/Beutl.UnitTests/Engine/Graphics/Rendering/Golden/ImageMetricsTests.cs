@@ -3,6 +3,7 @@
 namespace Beutl.UnitTests.Engine.Graphics.Rendering.Golden;
 
 // Self-tests for ImageMetrics on synthetic RgbaF16 bitmaps. No GPU required.
+[TestFixture]
 public class ImageMetricsTests
 {
     private static Bitmap Flat(int w, int h, float r, float g, float b, float a = 1f)

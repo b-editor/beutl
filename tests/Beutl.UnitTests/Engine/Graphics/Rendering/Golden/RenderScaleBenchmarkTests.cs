@@ -13,6 +13,7 @@ namespace Beutl.UnitTests.Engine.Graphics.Rendering.Golden;
 // [Explicit] (run on demand) to avoid CI flakiness, but it runs for real on MoltenVK.
 [NonParallelizable]
 [Category("Benchmark")]
+[TestFixture]
 public class RenderScaleBenchmarkTests
 {
     private static readonly PixelSize Frame = new(1280, 720);

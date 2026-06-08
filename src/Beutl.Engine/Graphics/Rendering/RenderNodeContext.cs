@@ -82,9 +82,9 @@ public class RenderNodeContext(
             // Perf opt-out: clamp the working scale down to the output scale.
             ResolutionPolicyKind.ClampToOutput => MathF.Min(supply, outputScale),
             // Quality opt-in: at least Factor×output, even from a lower-density input (SSAA on demand).
-            // Factor must be positive; the Oversample(factor) factory enforces it, but the public positional
-            // record constructor can bypass that — degrade a non-positive factor to the supply (== Inherit),
-            // never amplifying by a <= 0 factor (F3).
+            // Factor is positive by construction (ResolutionPolicy's ctor rejects a non-positive Oversample
+            // factor); the Factor <= 0 arm below stays only as a defensive degrade-to-supply (== Inherit),
+            // so a hypothetical zero factor never amplifies (F3).
             ResolutionPolicyKind.Oversample when policy.Factor > 0f
                 => MathF.Max(supply, policy.Factor * outputScale),
             ResolutionPolicyKind.Oversample => supply,

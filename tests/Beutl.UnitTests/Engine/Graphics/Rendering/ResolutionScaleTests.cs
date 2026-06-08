@@ -3,6 +3,7 @@
 namespace Beutl.UnitTests.Engine.Graphics.Rendering;
 
 // Pure-math tests for the supply-driven scale model (feature 003). No GPU required.
+[TestFixture]
 public class ResolutionScaleTests
 {
     [Test]
@@ -25,6 +26,17 @@ public class ResolutionScaleTests
         Assert.That(e, Is.EqualTo(EffectiveScale.At(0.5f)));
     }
 
+    // At(scale) is a concrete density; a zero/negative/non-finite value has no meaning and would later divide a
+    // buffer footprint by it (EffectTarget.Draw) — reject it at the factory so it can't fail silently downstream.
+    [TestCase(0f)]
+    [TestCase(-1f)]
+    [TestCase(float.NaN)]
+    [TestCase(float.PositiveInfinity)]
+    public void EffectiveScale_At_RejectsNonPositiveOrNonFinite(float scale)
+    {
+        Assert.Throws<ArgumentOutOfRangeException>(() => EffectiveScale.At(scale));
+    }
+
     [Test]
     public void ResolutionPolicy_Default_IsInherit()
     {
@@ -41,10 +53,11 @@ public class ResolutionScaleTests
         Assert.That(p.Factor, Is.EqualTo(2f));
     }
 
-    // A zero/negative Oversample factor would resolve identically to Inherit — reject it at the factory rather
-    // than silently degrading (D2).
+    // A zero/negative/NaN Oversample factor would resolve identically to Inherit — reject it at the only
+    // constructor (the positional record ctor that used to bypass this is gone), so F3 is a type-level guarantee.
     [TestCase(0f)]
     [TestCase(-1f)]
+    [TestCase(float.NaN)]
     public void ResolutionPolicy_Oversample_RejectsNonPositiveFactor(float factor)
     {
         Assert.Throws<ArgumentOutOfRangeException>(() => ResolutionPolicy.Oversample(factor));
@@ -143,17 +156,6 @@ public class ResolutionScaleTests
             outputScale: 1.0f,
             ResolutionPolicy.Oversample(2f));
         Assert.That(w, Is.EqualTo(3.0f));
-    }
-
-    // The positional record constructor bypasses the Oversample(factor>0) factory guard; ResolveWorkingScale must
-    // not amplify by a non-positive factor — it degrades to the supply (== Inherit) (F3).
-    [TestCase(0f)]
-    [TestCase(-5f)]
-    public void Resolve_OversamplePositionalCtorNonPositiveFactor_DegradesToSupply(float factor)
-    {
-        var bad = new ResolutionPolicy(ResolutionPolicyKind.Oversample, factor);
-        float w = RenderNodeContext.ResolveWorkingScale([EffectiveScale.At(0.5f)], outputScale: 2.0f, bad);
-        Assert.That(w, Is.EqualTo(0.5f), "Oversample with a non-positive factor must degrade to the supply, not amplify");
     }
 
     [Test]

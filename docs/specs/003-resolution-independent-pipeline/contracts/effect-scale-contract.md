@@ -21,14 +21,14 @@ When an effect's **working scale** is `w` (the supply-driven scale it actually r
 
 Two accessors, both default `1.0`. **They expose the `WorkingScale` `w`** (what the effect runs at), not the output scale. An effect that needs the eventual delivery target reads `FilterEffectContext.OutputScale`.
 
-1. **`FilterEffectContext.WorkingScale`** — for `CSharpScriptEffect` and out-of-tree `FilterEffect`s built from the context primitives. Built-in primitives (`Blur`/`DropShadow`/`Dilate`/`Erode`/`Transform`/`MatrixConvolution`) already multiply their spatial-length args by `WorkingScale` **centrally**, so an effect that forwards through them inherits scale-correctness for free.
+1. **`FilterEffectContext.WorkingScale`** — for `CSharpScriptEffect` and out-of-tree `FilterEffect`s built from the context primitives. The Skia `SKImageFilter` primitives (`Blur`/`DropShadow`/`Dilate`/`Erode`/`Transform`/`MatrixConvolution`) take their spatial-length args **raw (logical)** — they are **NOT** multiplied by `WorkingScale`; they ride the `CreateScale(w)` CTM that `FilterEffectActivator.Flush` pushes, so Skia scales them for free. An effect that forwards through them inherits scale-correctness **without multiplying anything** (multiplying would double-scale). Only **CustomEffect point-blit** code (Mosaic/InnerShadow/ColorShift/…) multiplies its absolute-length args by `WorkingScale` (those blit into a `ceil(bounds × w)` device buffer instead of riding the CTM).
 2. **`CustomFilterEffectContext.WorkingScale`** — for `CustomEffect` / SKSL / GLSL. `CreateTarget(bounds)` allocates `ceil(bounds × WorkingScale)` and `Open` returns a pre-scaled canvas, so a custom effect drawing into its target gets the right resolution automatically; absolute pixel literals in the author's draw code are multiplied by `WorkingScale`.
 
 ```csharp
 // out-of-tree FilterEffect example
 public override void ApplyTo(FilterEffectContext context)
 {
-    // sigma is a logical length -> the primitive multiplies by context.WorkingScale internally
+    // sigma is a logical length -> pass it RAW; the Skia primitive rides the root CTM, so do NOT multiply by w
     context.Blur(new Size(BlurRadius, BlurRadius));
 
     // a custom step that hand-picks a pixel literal:

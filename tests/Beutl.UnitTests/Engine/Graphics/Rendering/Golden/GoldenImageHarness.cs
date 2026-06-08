@@ -22,7 +22,7 @@ internal static class GoldenImageHarness
         int dh = (int)MathF.Ceiling(logicalSize.Height * scale);
         using RenderTarget target = RenderTarget.Create(dw, dh)
                                     ?? throw new InvalidOperationException("RenderTarget.Create returned null.");
-        using var canvas = new ImmediateCanvas(target) { OutputScale = scale };
+        using var canvas = new ImmediateCanvas(target, scale);
         canvas.Clear(Colors.Black);
 
         // Mirror Renderer.RenderDrawable exactly: layout uses the LOGICAL frame size (so alignment /

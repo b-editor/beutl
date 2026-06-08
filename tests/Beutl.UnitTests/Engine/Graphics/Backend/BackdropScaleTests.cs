@@ -1,4 +1,4 @@
-using Beutl.Graphics;
+﻿using Beutl.Graphics;
 using Beutl.Graphics.Rendering;
 using Beutl.Media;
 
@@ -11,6 +11,7 @@ namespace Beutl.UnitTests.Engine.Graphics.Backend;
 // scaled by w => the backdrop renders ~s_out× too large and clips. The capture must be un-scaled by the scale
 // it was CAPTURED at, regardless of the replay canvas. This reproduces the bug via the TmpBackdrop path.
 [NonParallelizable]
+[TestFixture]
 public class BackdropScaleTests
 {
     private static (double cx, double cy, int n) WhiteCentroid(Bitmap bmp)
@@ -41,7 +42,7 @@ public class BackdropScaleTests
             // 1. Capture a backdrop on a ROOT canvas at OutputScale = s_out: a white square at logical [25,75].
             using RenderTarget root = RenderTarget.Create(dev, dev)!;
             IBackdrop backdrop;
-            using (var canvas = new ImmediateCanvas(root) { OutputScale = sOut })
+            using (var canvas = new ImmediateCanvas(root, sOut))
             {
                 canvas.Clear(Colors.Black);
                 using (canvas.PushTransform(Matrix.CreateScale(sOut, sOut)))
@@ -93,7 +94,7 @@ public class BackdropScaleTests
 
             // 1. Run the capture op on a nested flush-style canvas: OutputScale = w under a CreateScale(w) CTM.
             using RenderTarget captureTarget = RenderTarget.Create(dev, dev)!;
-            using (var capCanvas = new ImmediateCanvas(captureTarget) { OutputScale = w })
+            using (var capCanvas = new ImmediateCanvas(captureTarget, w))
             {
                 capCanvas.Clear(Colors.Black);
                 using (capCanvas.PushTransform(Matrix.CreateScale(w, w)))

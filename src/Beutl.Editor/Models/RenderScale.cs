@@ -1,4 +1,4 @@
-using Beutl.Graphics;
+﻿using Beutl.Graphics;
 using Beutl.Media;
 
 namespace Beutl.Models;
@@ -47,6 +47,19 @@ public static class RenderScaleExtensions
         };
 
         return Math.Clamp(s, MinScale, 1f);
+    }
+
+    /// <summary>
+    /// Resolves the output scale <c>s_out</c> for a render request. Fixed levels pass through
+    /// <see cref="ToFloat"/>; <see cref="RenderScale.FitToPreviewer"/> additionally snaps to 0.05 steps to bound
+    /// renderer-rebuild churn while the previewer edge is dragged, then is re-floored to <c>MinScale</c> so the
+    /// round-to-step can never drive a tiny-panel / large-frame ratio to exactly 0 (which would size the render
+    /// surface 0×0 and throw on renderer construction). Always in <c>[MinScale, 1]</c>.
+    /// </summary>
+    public static float ResolveOutputScale(this RenderScale scale, PixelSize frameSize, Size previewSize)
+    {
+        float s = scale.ToFloat(frameSize, previewSize);
+        return scale == RenderScale.FitToPreviewer ? MathF.Max(MathF.Round(s * 20f) / 20f, MinScale) : s;
     }
 
     private static float FitScale(PixelSize frameSize, Size previewSize)

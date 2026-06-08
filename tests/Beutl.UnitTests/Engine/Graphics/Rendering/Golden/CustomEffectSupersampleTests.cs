@@ -14,6 +14,7 @@ namespace Beutl.UnitTests.Engine.Graphics.Rendering.Golden;
 // This is the faithfulness gate the EffectScaleSurvey could not provide — that one passes purely via the
 // root CTM and would pass unchanged even if the whole WorkingScale machinery were deleted.
 [NonParallelizable]
+[TestFixture]
 public class CustomEffectSupersampleTests
 {
     private static readonly PixelSize Frame = new(200, 200);

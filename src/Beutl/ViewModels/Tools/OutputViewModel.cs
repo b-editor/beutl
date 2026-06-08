@@ -583,6 +583,9 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
         json[nameof(VideoSettings)] = SerializeEncoderSettings(VideoSettings.Value?.Settings);
         json[nameof(AudioSettings)] = SerializeEncoderSettings(AudioSettings.Value?.Settings);
 
+        // feature 003 (US4 / SC-009): persist the export supersampling factor so a reopened profile keeps it.
+        json[nameof(SupersampleFactor)] = SupersampleFactor.Value;
+
         _logger.LogInformation("State written to JSON.");
     }
 
@@ -639,6 +642,15 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
                 .FirstOrDefault(x => x.GetType() == encoderType) is { } encoder)
         {
             SelectedEncoder.Value = encoder;
+        }
+
+        // feature 003 (US4 / SC-009): restore the export supersampling factor, ignoring an out-of-range value.
+        if (json.TryGetPropertyValue(nameof(SupersampleFactor), out JsonNode? ssNode)
+            && ssNode is JsonValue ssValue
+            && ssValue.TryGetValue(out int ssFactor)
+            && SupersampleFactors.Contains(ssFactor))
+        {
+            SupersampleFactor.Value = ssFactor;
         }
 
         // 上のSelectedEncoder.Value = encoder;でnull以外が指定された場合、VideoSettings, AudioSettingsもnullじゃなくなる。

@@ -4,13 +4,21 @@ namespace Beutl.Graphics.Effects;
 
 public class CustomFilterEffectContext
 {
-    internal CustomFilterEffectContext(EffectTargets targets, float workingScale = 1f)
+    internal CustomFilterEffectContext(EffectTargets targets, float outputScale = 1f, float workingScale = 1f)
     {
         Targets = targets;
+        OutputScale = outputScale;
         WorkingScale = workingScale;
     }
 
     public EffectTargets Targets { get; }
+
+    /// <summary>
+    /// The render request's output scale <c>s_out</c> (feature 003, FR-015). The final target only; not a
+    /// ceiling on this effect's working scale. Forwarded so a custom effect that re-applies a nested
+    /// <see cref="FilterEffectContext"/> keeps the real output scale instead of defaulting to <c>1.0</c>.
+    /// </summary>
+    public float OutputScale { get; }
 
     /// <summary>
     /// The working density <c>w</c> this effect's buffers are allocated at (feature 003, FR-009):
@@ -88,6 +96,6 @@ public class CustomFilterEffectContext
         // feature 003 (CSM3-1): a custom effect renders logical content into this ceil(bounds × w) buffer
         // (pushing CreateScale(w) itself), so tag OutputScale = w. A SourceBackdrop captured here then records
         // its true device density for the replay to un-scale by. w == 1 keeps the default 1 (byte-identical).
-        return new ImmediateCanvas(target.RenderTarget) { OutputScale = WorkingScale };
+        return new ImmediateCanvas(target.RenderTarget, WorkingScale);
     }
 }

@@ -1,4 +1,4 @@
-using Beutl.Composition;
+﻿using Beutl.Composition;
 using Beutl.Graphics;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Shapes;
@@ -13,6 +13,7 @@ namespace Beutl.UnitTests.Engine.Graphics.Rendering.Golden;
 // offset, so it showed the clipped-away corner of the source, off-center. These render an asymmetric clip
 // with AutoCenter and assert the kept content lands centered on the frame.
 [NonParallelizable]
+[TestFixture]
 public class ClippingAutoCenterTests
 {
     private static readonly PixelSize Frame = new(200, 200);

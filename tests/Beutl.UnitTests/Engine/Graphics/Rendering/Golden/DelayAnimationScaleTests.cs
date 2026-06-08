@@ -14,6 +14,7 @@ namespace Beutl.UnitTests.Engine.Graphics.Rendering.Golden;
 // scale 1, logical-equivalent under supersampling, and consistent with the direct effect (the buffer is
 // not silently collapsed to w=1 inside the nested re-application). Guards the WorkingScale-threading fix.
 [NonParallelizable]
+[TestFixture]
 public class DelayAnimationScaleTests
 {
     private static readonly PixelSize Frame = new(200, 200);

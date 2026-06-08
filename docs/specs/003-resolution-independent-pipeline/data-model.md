@@ -78,14 +78,10 @@ All `float` for v1 (the `Beutl.Graphics.Vector` primitive overloads exist for th
 | `Pull` (`:121`) | `new RenderNodeContext(input, OutputScale)` | Single production construction site; reaches all overrides. |
 | `RasterizeAt(op, w)` | **+ internal seam** generalizing `RasterizeToRenderTargets` (`:20-44`) to re-rasterize an `Unbounded` subtree at a chosen `w` | feeds FR-017 regenerate. |
 
-### `RenderNodeCache` *(changed)* — `Graphics/Rendering/Cache/RenderNodeCache.cs`
-| Member | Change | Rule |
-|---|---|---|
-| `CachedWorkingScale` | **+ `float CachedWorkingScale { get; private set; }`** (renamed from `CachedScale`) | The `w` a tile was rasterized at. `Pull` **reuses** when `CachedWorkingScale ≥ required` (Mitchell-downsample at blit) and **misses** when `<` (can't invent detail) — so an SSAA export reuses a high preview cache (D6). Participates in change-detection (FR-020). |
-| `StoreCache` | **+ `float workingScale`** param | |
-| `RenderCacheRules.Match` | thresholds expressed `÷ CachedWorkingScale²` | Same logical content caches consistently (FR-020). |
+### `RenderNodeCache` — `Graphics/Rendering/Cache/RenderNodeCache.cs`
+**NOT changed in 003 (deferred — T025 `[~]`).** FR-020 scale invalidation is satisfied at the **manager** level instead: `EditViewModel` rebuilds a fresh `SceneRenderer` **and** `FrameCacheManager` atomically when the resolved `(FrameSize, OutputScale)` changes (`DistinctUntilChanged` + `DisposePreviousValue`), and the per-renderer `RenderNode` cache lives inside the renderer, so it is discarded with the old renderer — a cache can never be served at a different scale within one renderer (`OutputScale`/`RenderScale` are immutable per instance). The supply-aware **reuse** below was specced but **not shipped**:
 
-`RenderNodeCacheHelper.CreateDefaultCache` (`:90-115`) currently builds cache processors with `new RenderNodeProcessor(node, false)` + `RasterizeToRenderTargets()` (no scale) — it MUST thread the working scale into that creation path and record `CachedWorkingScale` + cache-size accounting together.
+> *Deferred (supply-aware reuse, defense-in-depth):* a `CachedWorkingScale` on `RenderNodeCache` + a `workingScale` param on `StoreCache` + `RenderCacheRules.Match` thresholds `÷ CachedWorkingScale²`, so an SSAA export could **reuse** a high preview cache (Mitchell-downsample) and **miss** only when it lacks detail (D6). Lands with the scale-keyed reuse work in a follow-up, not 003. `RenderNodeCacheHelper.CreateDefaultCache` still builds cache processors with `new RenderNodeProcessor(node, false)` (no scale) today.
 
 ### `ImmediateCanvas` *(changed)* — `Graphics/ImmediateCanvas.cs`
 | Member | Change | Rule |
@@ -122,8 +118,8 @@ All `float` for v1 (the `Beutl.Graphics.Vector` primitive overloads exist for th
 ### `GraphicsContext2D` *(changed)* — `Graphics/Rendering/GraphicsContext2D.cs`
 | Member | Change | Rule |
 |---|---|---|
-| ctor | **+ `float outputScale = 1f`**; **+ `float OutputScale { get; }`** | the backdrop uses `s_out` for the device-grid; no working-scale concept needed here. |
-| `DrawBackdrop` (`:345`) | `new Rect(canvasSize.ToSize(1))` → `canvasSize.ToSize(outputScale)` | FR-021 scale-aware backdrop. |
+| ctor | **+ `float outputScale = 1f`**; **+ `float OutputScale { get; }`** | exposes `s_out`; the backdrop op itself stays logical (capture-scale model below). |
+| `DrawBackdrop` (`:357`) | **stays** `new Rect(canvasSize.ToSize(1))` — the snapshot records its capture scale (`ImmediateCanvas.Snapshot` → `TmpBackdrop`) and the replay un-scales by *that*, so the node bounds stay logical and `outputScale` is **not** applied here | FR-021 scale-aware backdrop (capture-scale model). |
 
 ---
 
@@ -135,8 +131,7 @@ All `float` for v1 (the `Beutl.Graphics.Vector` primitive overloads exist for th
 | ctor | **+ `float outputScale, float workingScale`** | `workingScale` = the negotiated `w` (from `FilterEffectRenderNode` via `ResolveWorkingScale`); `outputScale` = `s_out`. |
 | `WorkingScale` | **+ `float WorkingScale { get; }`** | FR-015 read accessor — the `w` the effect runs at. |
 | `OutputScale` | **+ `float OutputScale { get; }`** | the eventual delivery target, for effects that need it. |
-| pixel primitives (Blur/DropShadow/InnerShadow/Dilate/Erode/MatrixConvolution/Transform) | multiply spatial-length args by **`WorkingScale`** centrally; **buffer allocation** uses `sigma × WorkingScale`, but the logical `Bounds`/`OriginalBounds` that hit-test reads inflate by the *unscaled* sigma | FR-009. |
-| `RequestScale(ResolutionPolicy)` | **+ method** | opt into preserve/oversample from a script/custom effect. |
+| Skia `SKImageFilter` primitives (Blur/DropShadow/Dilate/Erode/MatrixConvolution/Transform) | **NOT** multiplied by `WorkingScale` — they ride the `CreateScale(w)` CTM in `FilterEffectActivator.Flush`, so Skia scales their params for free; multiplying here would double-scale. Only **CustomEffect point-blit** code (InnerShadow, Mosaic, ColorShift, …) multiplies absolute-length args by `WorkingScale` | FR-009. |
 
 ### `CustomFilterEffectContext` *(changed)* — `Graphics/FilterEffects/CustomFilterEffectContext.cs`
 | Member | Change | Rule |
@@ -145,7 +140,7 @@ All `float` for v1 (the `Beutl.Graphics.Vector` primitive overloads exist for th
 | `CreateTarget(Rect)` | size `ceil(bounds × WorkingScale)` for `w ≠ 1.0`, keeping component-wise `(int)` at `w = 1.0` (byte-identity); `Open` returns a `WorkingScale`-prescaled canvas | FR-009/FR-007. |
 
 ### `FilterEffectActivator` *(changed)* — `Graphics/FilterEffects/FilterEffectActivator.cs`
-`Flush` (`:29`) sizes targets `ceil(OriginalBounds × w)` for `w ≠ 1.0`, **keeping the current component-wise `(int)Width`/`(int)Height` truncation at `w = 1.0`** (byte-identity); pushes `Matrix.CreateScale(w)`. **Before the shared `SKImageFilterBuilder`/flatten, normalize each `EffectTarget` whose `Scale ≠ w` to `w`** (FR-019); `Apply` reads `CurrentTargets.MaxScale()` for `w`. Scale-1.0-sensitive (golden-tested).
+`Flush` (`:23`) sizes targets `ceil(OriginalBounds × w)` for `w ≠ 1.0`, **keeping the current component-wise `(int)Width`/`(int)Height` truncation at `w = 1.0`** (byte-identity); pushes `Matrix.CreateScale(w)` and tags each flushed buffer `EffectiveScale.At(w)`. `w` (and `s_out`) are supplied to the `FilterEffectActivator` ctor (from `FilterEffectRenderNode` via `ResolveWorkingScale`), not derived from the targets. Scale-1.0-sensitive (golden-tested).
 
 ### `EffectTarget` *(changed)* — `Graphics/FilterEffects/EffectTarget.cs`
 | Member | Change | Rule |
@@ -153,7 +148,7 @@ All `float` for v1 (the `Beutl.Graphics.Vector` primitive overloads exist for th
 | `Scale` | **+ `EffectiveScale Scale { get; set; }`** (default `Unbounded`) | Per-intermediate supply density, set from the producing op's `e`, so divergent-scale inputs normalize to `w` before a shared filter/flatten (FR-019; LayerEffect/DelayAnimation/InnerShadow/Blend/Mosaic). Propagated through `Clone`/flush re-wrap. |
 | `Empty`/`Size` | **removed** (obsolete) | Per AGENTS.md no-shim policy. |
 
-`EffectTargets`: **+ `float MaxScale()`** / **+ `ResolveScale(float outputScale, ResolutionPolicy policy)`** — the composite target for a flatten; `CalculateBounds` (`:27`) stays logical (scale-invariant).
+`EffectTargets`: no scale accessor — `w` is resolved once by `RenderNodeContext.ResolveWorkingScale` and threaded through the activator, so the targets do not derive it. (Earlier drafts added `MaxScale()`/`ResolveScale(...)`; both were dropped.) `CalculateBounds` (`:27`) stays logical (scale-invariant).
 
 ---
 
@@ -169,7 +164,7 @@ All `float` for v1 (the `Beutl.Graphics.Vector` primitive overloads exist for th
 > **003 scope note (logical vs decoded size)**: `ImageSource.Resource.FrameSize` today = the **decoded pixel size** (`new PixelSize(counter.Width, counter.Height)`, `ImageSource.cs:93`); likewise `VideoSource`. Because proxy decode is out of scope (FR-025), in 003 a source's **logical size == its full decoded `FrameSize`** — no separate intrinsic-logical-size channel is added. FR-023/FR-024 establish only the *seam*: a source draws into a `logicalSize × s` destination rect (not a native-px 1:1 blit), so a **future** reduced-decode supply can shrink the decoded bitmap while the logical footprint stays fixed. Pointing a source directly at a smaller optimized file (which would shrink `FrameSize` and thus the logical footprint today) is part of the deferred proxy-lifecycle feature, not 003.
 | `ParticleRenderNode` | `Graphics/Particles/ParticleRenderNode.cs:139` | hard-coded `new PixelSize(1920,1080)` → `ceil(bounds × w)`; inherit the negotiated working scale `w`; pixel-magnitude particle props × `w` | FR-029 |
 | audio-visualizer drawables | `Graphics/AudioVisualizers/*` | classify pixel-magnitude params (`BarWidth`, `BlockGap`, hard-coded minimums) under FR-008 | FR-030 |
-| `Scene3DRenderNode` | `Graphics3D/Scene3DRenderNode.cs:102` | surface op tagged `EffectiveScale.At(1.0)`; resampled at composite boundary; internal lockstep deferred. Nested 2D scene (`SceneDrawable`) inherits the outer `w` and reports `e = At(w)` | FR-033/FR-022 |
+| `Scene3DRenderNode` | `Graphics3D/Scene3DRenderNode.cs` | renders at `ceil(size × s_out)` and tags the surface op `EffectiveScale.At(w)` (w == s_out), resampled at the composite boundary; internal lockstep deferred. Nested 2D scene (`SceneDrawable`) inherits the outer `s_out`/ceiling into its own `Renderer` and reports `e = At(w)` | FR-033/FR-022 |
 
 ---
 

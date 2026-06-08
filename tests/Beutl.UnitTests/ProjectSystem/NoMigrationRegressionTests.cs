@@ -8,6 +8,7 @@ namespace Beutl.UnitTests.ProjectSystem;
 // SC-002 (T018): feature 003 must not change the serialized file format. Its scale machinery
 // (ResolutionPolicy overrides, scale ctor params, WorkingScale/EffectiveScale) is runtime-only, so
 // existing projects load with zero migration and no version bump. Non-GPU.
+[TestFixture]
 public class NoMigrationRegressionTests
 {
     [Test]

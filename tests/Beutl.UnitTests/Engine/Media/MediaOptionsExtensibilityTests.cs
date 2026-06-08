@@ -4,6 +4,7 @@ namespace Beutl.UnitTests.Engine.Media;
 
 // Feature 003 (T048): MediaOptions must stay additively extensible so a future decode-scale hint
 // can be added without changing today's behavior. No GPU required.
+[TestFixture]
 public class MediaOptionsExtensibilityTests
 {
     [Test]

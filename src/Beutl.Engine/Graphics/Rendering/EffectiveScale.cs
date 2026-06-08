@@ -42,8 +42,18 @@ public readonly record struct EffectiveScale
     /// </summary>
     public static EffectiveScale Unbounded => default;
 
-    /// <summary>A concrete bitmap density (device pixels per logical unit).</summary>
-    public static EffectiveScale At(float scale) => new(scale, bounded: true);
+    /// <summary>
+    /// A concrete bitmap density (device pixels per logical unit). <paramref name="scale"/> MUST be
+    /// positive and finite: a zero/negative/NaN/∞ density has no meaning and would later divide a
+    /// buffer footprint by it (<see cref="Beutl.Graphics.Effects.EffectTarget.Draw"/>), yielding an
+    /// ∞-width or zero-area blit. Rejected here rather than failing silently downstream — mirroring
+    /// <see cref="ResolutionPolicy.Oversample"/>'s factor guard.
+    /// </summary>
+    public static EffectiveScale At(float scale)
+        => float.IsFinite(scale) && scale > 0f
+            ? new(scale, bounded: true)
+            : throw new ArgumentOutOfRangeException(
+                nameof(scale), scale, "EffectiveScale.At requires a positive finite density.");
 
     /// <summary>True for the <see cref="Unbounded"/> (vector) sentinel.</summary>
     public bool IsUnbounded => !_bounded;

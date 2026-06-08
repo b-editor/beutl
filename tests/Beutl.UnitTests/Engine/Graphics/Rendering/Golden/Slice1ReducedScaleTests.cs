@@ -9,6 +9,7 @@ namespace Beutl.UnitTests.Engine.Graphics.Rendering.Golden;
 
 // US1: a vector scene renders faithfully at a reduced output scale and byte-identically at 1.0.
 [NonParallelizable]
+[TestFixture]
 public class Slice1ReducedScaleTests
 {
     private static readonly PixelSize Frame = new(250, 250);

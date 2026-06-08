@@ -1,4 +1,4 @@
-using Beutl.Composition;
+﻿using Beutl.Composition;
 using Beutl.Graphics;
 using Beutl.Graphics.Effects;
 using Beutl.Media;
@@ -11,6 +11,7 @@ namespace Beutl.UnitTests.Engine.Graphics.Rendering;
 // transform-handle overlay on those bounds (TransformHandleMath.AlignUserMatrixToRenderedBounds), so an
 // asymmetric box pushed the overlay toward the offset and left the source pinned to the opposite corner.
 // The output box must stay CENTERED on the source for any offset; offset == 0 is unchanged.
+[TestFixture]
 public class StrokeEffectOffsetBoundsTests
 {
     private static readonly Rect Source = new(0, 0, 100, 100); // center (50, 50)

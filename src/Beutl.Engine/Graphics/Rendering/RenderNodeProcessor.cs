@@ -37,18 +37,24 @@ public class RenderNodeProcessor(
     /// Rasterizes a single operation into its own render target at working scale <paramref name="w"/>.
     /// The <c>w == 1</c> path is the exact pre-feature path (byte-identical); for <c>w != 1</c> the
     /// target is sized <c>ceil(bounds × w)</c> and a <see cref="Matrix.CreateScale"/> is pushed.
-    /// Returns <see langword="null"/> for an empty (zero-area) target. The op is disposed once rendered.
+    /// Returns <see langword="null"/> for an empty (zero-area) target. The op is disposed in all cases
+    /// (whether it was rendered or skipped as empty), so the caller never owns it afterward.
     /// </summary>
     internal (RenderTarget RenderTarget, Rect Bounds)? RasterizeAt(RenderNodeOperation op, float w)
     {
         var rect = w == 1f ? PixelRect.FromRect(op.Bounds) : PixelRect.FromRect(op.Bounds, w);
-        if (rect.Width <= 0 || rect.Height <= 0) return null;
+        if (rect.Width <= 0 || rect.Height <= 0)
+        {
+            // A zero-area op still owns a backing surface; dispose it instead of leaking on the empty path.
+            op.Dispose();
+            return null;
+        }
 
         var renderTarget = RenderTarget.Create(rect.Width, rect.Height) ??
                            throw new Exception("RenderTarget is null");
 
         // feature 003 (CSM3-1): rasterized at density w, so tag OutputScale = w for any backdrop captured here.
-        using var canvas = new ImmediateCanvas(renderTarget) { OutputScale = w };
+        using var canvas = new ImmediateCanvas(renderTarget, w);
         canvas.Clear();
 
         var transform = w == 1f
@@ -91,7 +97,7 @@ public class RenderNodeProcessor(
                                      ?? throw new Exception("RenderTarget is null");
 
             // feature 003 (CSM3-1): rasterized at density w, so tag OutputScale = w for any backdrop captured here.
-            using var canvas = new ImmediateCanvas(renderTarget) { OutputScale = w };
+            using var canvas = new ImmediateCanvas(renderTarget, w);
             canvas.Clear();
 
             var transform = w == 1f
@@ -119,7 +125,7 @@ public class RenderNodeProcessor(
         using var renderTarget =
             RenderTarget.Create(rect.Width, rect.Height) ?? throw new Exception("RenderTarget is null");
         // feature 003 (CSM3-1): rasterized at density w, so tag OutputScale = w for any backdrop captured here.
-        using var canvas = new ImmediateCanvas(renderTarget) { OutputScale = w };
+        using var canvas = new ImmediateCanvas(renderTarget, w);
         canvas.Clear();
 
         var transform = w == 1f

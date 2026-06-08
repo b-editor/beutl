@@ -1,4 +1,4 @@
-using Beutl.Composition;
+﻿using Beutl.Composition;
 using Beutl.Graphics;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering;
@@ -14,6 +14,7 @@ namespace Beutl.UnitTests.Engine.Graphics.Rendering;
 // source's supply density end-to-end — R1 (a 0.5 proxy is NOT upsampled to the output) and R2 (a 2.0 source is
 // preserved). The ResolveWorkingScale MATH is unit-tested separately; this guards the actual node pipeline.
 [NonParallelizable]
+[TestFixture]
 public class SourceEffectiveScaleFlowTests
 {
     private static RenderNodeOperation SourceOp(float density)
@@ -180,7 +181,7 @@ public class SourceEffectiveScaleFlowTests
         RenderNodeOperation[] ops = node.Process(new RenderNodeContext([srcOp], outputScale: 1f));
 
         using RenderTarget target = RenderTarget.Create(120, 90)!;
-        using (var canvas = new ImmediateCanvas(target) { OutputScale = 1f })
+        using (var canvas = new ImmediateCanvas(target, 1f))
         {
             canvas.Clear(Colors.Black);
             foreach (RenderNodeOperation op in ops)
@@ -271,6 +272,42 @@ public class SourceEffectiveScaleFlowTests
         RenderNodeOperation[] ops = transform.Process(new RenderNodeContext([vectorOp]));
         Assert.That(ops[0].EffectiveScale.IsUnbounded, Is.True, "a vector child must stay Unbounded through a transform");
         DisposeAll(ops);
+    }
+
+    // feature 003 (FR-004/FR-019b): a custom effect immediately followed by a Skia filter (e.g. [Mosaic, Blur])
+    // leaves FilterEffectRenderNode's HasFilter() branch running over a FLUSHED At(w) buffer. The emitted op MUST
+    // report that concrete At(w) density, never the re-rasterizable Unbounded — otherwise a parent boundary
+    // mistakes the bitmap for vector and re-rasterizes it above the pixels it actually has. At density 1.0 the
+    // distinction is still observable (At(1).IsUnbounded == false), so all three cases guard the fix.
+    [TestCase(0.5f)]
+    [TestCase(1.0f)]
+    [TestCase(2.0f)]
+    public void CustomThenSkiaChain_ReportsConcreteDensity_NotUnbounded(float density)
+    {
+        VulkanTestEnvironment.EnsureAvailable();
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            var group = new FilterEffectGroup();
+            var mosaic = new MosaicEffect();
+            mosaic.TileSize.CurrentValue = new Size(10, 10);
+            var blur = new Blur();
+            blur.Sigma.CurrentValue = new Size(3, 3);
+            group.Children.Add(mosaic);
+            group.Children.Add(blur);
+
+            using var node = new FilterEffectRenderNode(group.ToResource(CompositionContext.Default));
+            var context = new RenderNodeContext([SourceOp(density)], outputScale: 1.0f);
+
+            RenderNodeOperation[] ops = node.Process(context);
+
+            Assert.That(ops, Is.Not.Empty, "the [Mosaic, Blur] chain dropped the input op");
+            Assert.That(ops[0].EffectiveScale.IsUnbounded, Is.False,
+                "a flushed At(w) buffer behind a trailing Skia filter was over-reported as re-rasterizable Unbounded");
+            Assert.That(ops[0].EffectiveScale.Value, Is.EqualTo(density).Within(1e-4),
+                $"the [Mosaic, Blur] chain lost the At({density}) supply density");
+
+            DisposeAll(ops);
+        });
     }
 
     private static void DisposeAll(RenderNodeOperation[] ops)

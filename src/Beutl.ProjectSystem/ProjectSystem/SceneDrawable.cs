@@ -175,22 +175,46 @@ public sealed partial class SceneDrawable : Drawable
             if (frame == null)
                 return [];
 
-            if (_renderer?.FrameSize != frame.Value.Size)
+            // feature 003 (FR-022/FR-019b): the nested scene MUST inherit the outer render scale and working-scale
+            // ceiling — otherwise a supersampled export rasterizes the inner scene at 1x and the root CTM upscales
+            // it (soft). OutputScale/MaxWorkingScale are immutable per outer renderer, so within one outer renderer
+            // this rebuild fires at most once; on an outer-scale change the whole node tree is rebuilt anyway.
+            float w = context.OutputScale;
+            var size = frame.Value.Size;
+            if (_renderer == null
+                || _renderer.FrameSize != size
+                || _renderer.RenderScale != w
+                || _renderer.MaxWorkingScale != context.MaxWorkingScale)
             {
                 _renderer?.Dispose();
-                _renderer = new Renderer(frame.Value.Size.Width, frame.Value.Size.Height);
+                _renderer = new Renderer(size.Width, size.Height, w, context.MaxWorkingScale);
             }
 
+            Renderer renderer = _renderer;
+            var bounds = new Rect(0, 0, size.Width, size.Height);
             return
             [
                 RenderNodeOperation.CreateLambda(
-                    new Rect(0, 0, frame.Value.Size.Width, frame.Value.Size.Height),
+                    bounds,
                     canvas =>
                     {
-                        _renderer.Render(frame.Value);
-                        RenderTarget renderTarget = Renderer.GetInternalRenderTarget(_renderer);
-                        canvas.DrawRenderTarget(renderTarget, default);
-                    })
+                        renderer.Render(frame.Value);
+                        RenderTarget renderTarget = Renderer.GetInternalRenderTarget(renderer);
+                        // The inner surface is ceil(size × w) device px. At w == 1 keep the bare point blit
+                        // (byte-identical); at w != 1 draw it into the LOGICAL bounds so the ambient CreateScale(w)
+                        // CTM maps the denser buffer 1:1 onto the device surface (crisp under SSAA export).
+                        if (w == 1f)
+                        {
+                            canvas.DrawRenderTarget(renderTarget, default);
+                        }
+                        else
+                        {
+                            canvas.DrawRenderTargetScaled(renderTarget, bounds);
+                        }
+                    },
+                    // A fixed-resolution nested-scene buffer is concrete bitmap supply at density w (FR-019b),
+                    // never the re-rasterizable Unbounded — so a parent boundary reconciles it honestly.
+                    effectiveScale: EffectiveScale.At(w))
             ];
         }
 

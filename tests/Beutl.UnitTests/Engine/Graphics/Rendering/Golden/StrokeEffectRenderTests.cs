@@ -1,4 +1,4 @@
-using Beutl.Composition;
+﻿using Beutl.Composition;
 using Beutl.Graphics;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Shapes;
@@ -12,6 +12,7 @@ namespace Beutl.UnitTests.Engine.Graphics.Rendering.Golden;
 // (StrokeEffectOffsetBoundsTests) does not exercise Apply(), so without these the source-placement origin is
 // untested. White fill = the source; red pen = the stroke; the two are measured separately by colour.
 [NonParallelizable]
+[TestFixture]
 public class StrokeEffectRenderTests
 {
     private static readonly PixelSize Frame = new(220, 220);

@@ -49,7 +49,7 @@ public class FilterEffectRenderNode(FilterEffect.Resource filterEffect) : Contai
         effectTargets.AddRange(context.Input.Select(i => new EffectTarget(i)));
 
         using (var builder = new SKImageFilterBuilder())
-        using (var activator = new FilterEffectActivator(effectTargets, builder, workingScale))
+        using (var activator = new FilterEffectActivator(effectTargets, builder, context.OutputScale, workingScale))
         {
             activator.Apply(feContext);
 
@@ -78,7 +78,11 @@ public class FilterEffectRenderNode(FilterEffect.Resource filterEffect) : Contai
                         {
                             t.Dispose();
                             paint.Dispose();
-                        }
+                        },
+                        // feature 003 (FR-004/FR-019b): a flushed buffer is a concrete bitmap at the working
+                        // density it was rasterized at; report its true At(w) so a parent boundary reconciles
+                        // it as bitmap supply, not re-rasterizable Unbounded. Mirrors the else branch below.
+                        effectiveScale: t.Scale
                     );
                 }).ToArray();
             }

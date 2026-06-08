@@ -97,9 +97,15 @@ public partial class DisplacementMapTranslateTransform : DisplacementMapTransfor
                     // feature 003: the map is laid out over LOGICAL extent but is cross-sampled at the SAME
                     // device-px coord as the device-px base texture, so scale its local matrix by w (a device
                     // coord p*w then samples the map at logical p). w == 1 keeps the bare shader (byte-identical).
+                    // feature 003: BrushConstructor.CreateShader() is nullable (null/degenerate/unknown brush),
+                    // so guard before scaling — only the w == 1 path could safely short-circuit a null before.
+                    // A null shader stays null (tolerated downstream, as in the pre-feature path); only the
+                    // dereference for the w != 1 rescale is guarded.
                     using SKShader? displacementMapShaderScaled =
-                        w == 1f ? null : displacementMapShaderRaw.WithLocalMatrix(SKMatrix.CreateScale(w, w));
-                    SKShader displacementMapShader = displacementMapShaderScaled ?? displacementMapShaderRaw;
+                        w != 1f && displacementMapShaderRaw is { } rawShader
+                            ? rawShader.WithLocalMatrix(SKMatrix.CreateScale(w, w))
+                            : null;
+                    SKShader? displacementMapShader = displacementMapShaderScaled ?? displacementMapShaderRaw;
 
                     using var image = renderTarget.Value.Snapshot();
                     using var baseShader = image.ToShader(sm.ToSKShaderTileMode(), sm.ToSKShaderTileMode());
@@ -215,9 +221,15 @@ public partial class DisplacementMapScaleTransform : DisplacementMapTransform
                     // feature 003: the map is laid out over LOGICAL extent but is cross-sampled at the SAME
                     // device-px coord as the device-px base texture, so scale its local matrix by w (a device
                     // coord p*w then samples the map at logical p). w == 1 keeps the bare shader (byte-identical).
+                    // feature 003: BrushConstructor.CreateShader() is nullable (null/degenerate/unknown brush),
+                    // so guard before scaling — only the w == 1 path could safely short-circuit a null before.
+                    // A null shader stays null (tolerated downstream, as in the pre-feature path); only the
+                    // dereference for the w != 1 rescale is guarded.
                     using SKShader? displacementMapShaderScaled =
-                        w == 1f ? null : displacementMapShaderRaw.WithLocalMatrix(SKMatrix.CreateScale(w, w));
-                    SKShader displacementMapShader = displacementMapShaderScaled ?? displacementMapShaderRaw;
+                        w != 1f && displacementMapShaderRaw is { } rawShader
+                            ? rawShader.WithLocalMatrix(SKMatrix.CreateScale(w, w))
+                            : null;
+                    SKShader? displacementMapShader = displacementMapShaderScaled ?? displacementMapShaderRaw;
 
                     using var image = renderTarget.Value.Snapshot();
                     using var baseShader = image.ToShader(sm.ToSKShaderTileMode(), sm.ToSKShaderTileMode());
@@ -332,9 +344,15 @@ public partial class DisplacementMapRotationTransform : DisplacementMapTransform
                     // feature 003: the map is laid out over LOGICAL extent but is cross-sampled at the SAME
                     // device-px coord as the device-px base texture, so scale its local matrix by w (a device
                     // coord p*w then samples the map at logical p). w == 1 keeps the bare shader (byte-identical).
+                    // feature 003: BrushConstructor.CreateShader() is nullable (null/degenerate/unknown brush),
+                    // so guard before scaling — only the w == 1 path could safely short-circuit a null before.
+                    // A null shader stays null (tolerated downstream, as in the pre-feature path); only the
+                    // dereference for the w != 1 rescale is guarded.
                     using SKShader? displacementMapShaderScaled =
-                        w == 1f ? null : displacementMapShaderRaw.WithLocalMatrix(SKMatrix.CreateScale(w, w));
-                    SKShader displacementMapShader = displacementMapShaderScaled ?? displacementMapShaderRaw;
+                        w != 1f && displacementMapShaderRaw is { } rawShader
+                            ? rawShader.WithLocalMatrix(SKMatrix.CreateScale(w, w))
+                            : null;
+                    SKShader? displacementMapShader = displacementMapShaderScaled ?? displacementMapShaderRaw;
 
                     using var image = renderTarget.Value.Snapshot();
                     using var baseShader = image.ToShader(sm.ToSKShaderTileMode(), sm.ToSKShaderTileMode());

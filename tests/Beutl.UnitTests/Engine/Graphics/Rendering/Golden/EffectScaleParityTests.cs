@@ -14,6 +14,7 @@ namespace Beutl.UnitTests.Engine.Graphics.Rendering.Golden;
 // parameter (the DisplacementMap-class bug). White-filled rotated rect: the effect operates on the rect's edges /
 // interior tiling, which is high-frequency enough to expose a wrong-density parameter.
 [NonParallelizable]
+[TestFixture]
 public class EffectScaleParityTests
 {
     private static readonly PixelSize Frame = new(200, 200);

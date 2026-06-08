@@ -9,6 +9,8 @@ internal sealed class ParticleRenderNode(ParticleEmitter.Resource particle) : Re
 {
     private (RenderTarget RT, Drawable.Resource? Resource, int? Version)? _cachedRenderTarget;
     private Rect _drawableBounds;
+    // feature 003 (FR-029): the working density the cached particle-drawable buffer was rasterized at.
+    private float _renderScale = 1f;
 
     public (ParticleEmitter.Resource Resource, int Version)? Particle { get; private set; } = particle.Capture();
 
@@ -31,20 +33,27 @@ internal sealed class ParticleRenderNode(ParticleEmitter.Resource particle) : Re
         var particles = resource.GetAliveParticles();
         if (particles.Length == 0) return [];
 
+        // feature 003 (FR-029): honor the active render scale — rasterize the per-particle drawable into a
+        // ceil(bounds × w) buffer (not a fixed 1x one) so it stays crisp under supersampled export and does not
+        // over-allocate under reduced-scale preview. Particles use the default Inherit policy and have no concrete
+        // bitmap input, so the working density is just the output scale.
+        float w = context.OutputScale;
         if (!_cachedRenderTarget.HasValue ||
+            _renderScale != w ||
             !ReferenceEquals(_cachedRenderTarget.Value.Resource, resource.ParticleDrawable) ||
             _cachedRenderTarget.Value.Version != resource.ParticleDrawable?.Version)
         {
             _cachedRenderTarget?.RT.Dispose();
             _cachedRenderTarget = null;
+            _renderScale = w;
 
             if (resource.ParticleDrawable is { } tracked)
             {
-                _cachedRenderTarget = RenderDrawableToTarget(tracked, out _drawableBounds);
+                _cachedRenderTarget = RenderDrawableToTarget(tracked, w, out _drawableBounds);
             }
             else
             {
-                _cachedRenderTarget = RenderFallbackEllipse(out _drawableBounds);
+                _cachedRenderTarget = RenderFallbackEllipse(w, out _drawableBounds);
             }
         }
 
@@ -77,11 +86,15 @@ internal sealed class ParticleRenderNode(ParticleEmitter.Resource particle) : Re
 
         // Capture references for the lambda
         RenderTarget cachedRT = _cachedRenderTarget.Value.RT;
+        Rect drawableBounds = _drawableBounds;
 
         return
         [
-            RenderNodeOperation.CreateLambda(totalBounds,
-                canvas => DrawAllParticles(canvas, cachedRT, particles, _drawableBounds))
+            RenderNodeOperation.CreateLambda(
+                totalBounds,
+                canvas => DrawAllParticles(canvas, cachedRT, particles, drawableBounds, w),
+                // The composite is bitmap content at the density the cached drawable was rasterized at (FR-019b).
+                effectiveScale: EffectiveScale.At(w))
         ];
     }
 
@@ -89,7 +102,8 @@ internal sealed class ParticleRenderNode(ParticleEmitter.Resource particle) : Re
         ImmediateCanvas canvas,
         RenderTarget cachedRT,
         ReadOnlyMemory<Particle> particles,
-        Rect drawableBounds)
+        Rect drawableBounds,
+        float w)
     {
         var particlesSpan = particles.Span;
         for (int i = 0; i < particles.Length; i++)
@@ -120,32 +134,54 @@ internal sealed class ParticleRenderNode(ParticleEmitter.Resource particle) : Re
 
                     using (canvas.PushPaint(paint))
                     {
-                        canvas.DrawRenderTarget(cachedRT, new(-drawableBounds.Width / 2, -drawableBounds.Height / 2));
+                        DrawCached(canvas, cachedRT, drawableBounds, w);
                     }
                 }
                 else
                 {
-                    canvas.DrawRenderTarget(cachedRT, new(-drawableBounds.Width / 2, -drawableBounds.Height / 2));
+                    DrawCached(canvas, cachedRT, drawableBounds, w);
                 }
             }
         }
     }
 
+    // feature 003: blit the cached particle-drawable buffer. The buffer is ceil(footprint × w) device px; at
+    // w == 1 keep the bare point blit (byte-identical), at w != 1 draw it into its LOGICAL footprint so the
+    // per-particle + ambient CTM resample it once (crisp under SSAA export).
+    private static void DrawCached(ImmediateCanvas canvas, RenderTarget cachedRT, Rect drawableBounds, float w)
+    {
+        var offset = new Point(-drawableBounds.Width / 2, -drawableBounds.Height / 2);
+        if (w == 1f)
+        {
+            canvas.DrawRenderTarget(cachedRT, offset);
+        }
+        else
+        {
+            canvas.DrawRenderTargetScaled(cachedRT,
+                new Rect(offset.X, offset.Y, drawableBounds.Width, drawableBounds.Height));
+        }
+    }
+
     private static (RenderTarget, Drawable.Resource, int)? RenderDrawableToTarget(
         Drawable.Resource drawable,
+        float w,
         out Rect bounds)
     {
         using var node = new DrawableRenderNode(drawable);
-        using (var gctx = new GraphicsContext2D(node, new PixelSize(1920, 1080)))
+        // 1920×1080 is only the LOGICAL measurement canvas (GraphicsContext2D.Size stays logical); the actual
+        // buffer is sized from the drawable bounds below. Thread w as the output scale so the drawable and its
+        // sub-pulls rasterize at the active render density (FR-029).
+        using (var gctx = new GraphicsContext2D(node, new PixelSize(1920, 1080), w))
         {
             drawable.GetOriginal().Render(gctx, drawable);
         }
 
-        var processor = new RenderNodeProcessor(node, false);
+        var processor = new RenderNodeProcessor(node, false, w);
         var ops = processor.PullToRoot();
 
         bounds = ops.Aggregate(Rect.Empty, (a, n) => a.Union(n.Bounds));
-        var rect = PixelRect.FromRect(bounds);
+        // Size the buffer ceil(bounds × w) device px; w == 1 keeps the exact pre-feature 1x size (byte-identical).
+        var rect = w == 1f ? PixelRect.FromRect(bounds) : PixelRect.FromRect(bounds, w);
 
         if (rect.Width <= 0 || rect.Height <= 0)
         {
@@ -162,10 +198,14 @@ internal sealed class ParticleRenderNode(ParticleEmitter.Resource particle) : Re
             return null;
         }
 
-        using (var canvas = new ImmediateCanvas(renderTarget))
+        using (var canvas = new ImmediateCanvas(renderTarget, w))
         {
             canvas.Clear();
-            using (canvas.PushTransform(Matrix.CreateTranslation(-bounds.X, -bounds.Y)))
+            // Translate the LOGICAL origin to (0,0), then prescale by w so logical content fills the denser buffer.
+            Matrix transform = w == 1f
+                ? Matrix.CreateTranslation(-bounds.X, -bounds.Y)
+                : Matrix.CreateTranslation(-bounds.X, -bounds.Y) * Matrix.CreateScale(w, w);
+            using (canvas.PushTransform(transform))
             {
                 foreach (var op in ops)
                 {
@@ -178,17 +218,22 @@ internal sealed class ParticleRenderNode(ParticleEmitter.Resource particle) : Re
         return (renderTarget, drawable, drawable.Version);
     }
 
-    private static (RenderTarget, Drawable.Resource?, int?)? RenderFallbackEllipse(out Rect bounds)
+    private static (RenderTarget, Drawable.Resource?, int?)? RenderFallbackEllipse(float w, out Rect bounds)
     {
         bounds = new Rect(-5, -5, 10, 10);
 
-        var renderTarget = RenderTarget.Create(10, 10);
+        // ceil(10 × w) device px so the placeholder stays crisp under SSAA; w == 1 keeps the exact 10×10 buffer.
+        int dim = w == 1f ? 10 : (int)MathF.Ceiling(10 * w);
+        var renderTarget = RenderTarget.Create(dim, dim);
         if (renderTarget == null) return null;
 
-        using (var canvas = new ImmediateCanvas(renderTarget))
+        using (var canvas = new ImmediateCanvas(renderTarget, w))
         {
             canvas.Clear();
-            using (canvas.PushTransform(Matrix.CreateTranslation(5, 5)))
+            Matrix transform = w == 1f
+                ? Matrix.CreateTranslation(5, 5)
+                : Matrix.CreateTranslation(5, 5) * Matrix.CreateScale(w, w);
+            using (canvas.PushTransform(transform))
             {
                 canvas.DrawEllipse(bounds, Brushes.Resource.White, null);
             }

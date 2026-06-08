@@ -1,4 +1,4 @@
-using Beutl.Composition;
+﻿using Beutl.Composition;
 using Beutl.Graphics;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Shapes;
@@ -14,6 +14,7 @@ namespace Beutl.UnitTests.Engine.Graphics.Rendering.Golden;
 // strongest available guard is this cross-equivalence to the drawable's own Transform at scale 1 (a different,
 // known-correct code path). A regression in the w==1 blit / origin would diverge here.
 [NonParallelizable]
+[TestFixture]
 public class TransformEffectEquivalenceTests
 {
     private static readonly PixelSize Frame = new(240, 240);

@@ -11,6 +11,7 @@ namespace Beutl.UnitTests.Engine.Graphics.Rendering.Golden;
 // US1 / T026: Skia-filter-mode effects (Blur etc.) scale via the root CTM. This empirically checks
 // whether the current inline path already produces faithful reduced-scale output for a blurred shape.
 [NonParallelizable]
+[TestFixture]
 public class Slice1SkiaFilterTests
 {
     private static readonly PixelSize Frame = new(250, 250);

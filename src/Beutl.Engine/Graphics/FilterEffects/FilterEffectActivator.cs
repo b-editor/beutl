@@ -4,11 +4,19 @@ using SkiaSharp;
 
 namespace Beutl.Graphics.Effects;
 
-public sealed class FilterEffectActivator(EffectTargets targets, SKImageFilterBuilder builder, float workingScale = 1f) : IDisposable
+public sealed class FilterEffectActivator(
+    EffectTargets targets, SKImageFilterBuilder builder, float outputScale = 1f, float workingScale = 1f) : IDisposable
 {
     public SKImageFilterBuilder Builder { get; } = builder;
 
     public EffectTargets CurrentTargets { get; } = targets;
+
+    /// <summary>
+    /// The render request's output scale <c>s_out</c> (feature 003, FR-015), forwarded into the nested
+    /// <see cref="FilterEffectContext"/> / <see cref="CustomFilterEffectContext"/> it builds so they expose
+    /// the real output scale rather than defaulting to <c>1.0</c>.
+    /// </summary>
+    public float OutputScale { get; } = outputScale;
 
     /// <summary>
     /// The working density <c>w</c> at which buffer-allocating boundaries rasterize (feature 003,
@@ -46,7 +54,7 @@ public sealed class FilterEffectActivator(EffectTargets targets, SKImageFilterBu
                     // Tag the canvas OutputScale = w so a SourceBackdrop captured HERE records its true device
                     // density (not the default 1), which the backdrop replay un-scales by. w == 1 keeps the
                     // default 1 (byte-identical).
-                    using (var canvas = new ImmediateCanvas(surface) { OutputScale = w })
+                    using (var canvas = new ImmediateCanvas(surface, w))
                     {
                         canvas.Clear();
                         Matrix transform = w == 1f
@@ -109,7 +117,7 @@ public sealed class FilterEffectActivator(EffectTargets targets, SKImageFilterBu
                         Flush();
                         if (CurrentTargets.Count == 0) return;
 
-                        var customContext = new CustomFilterEffectContext(CurrentTargets, WorkingScale);
+                        var customContext = new CustomFilterEffectContext(CurrentTargets, OutputScale, WorkingScale);
                         custom.Accepts(customContext);
 
                         foreach (EffectTarget t in CurrentTargets)
@@ -126,7 +134,7 @@ public sealed class FilterEffectActivator(EffectTargets targets, SKImageFilterBu
 
         Flush(false);
         if (CurrentTargets.Count == 0) return;
-        using var ctx = new FilterEffectContext(CurrentTargets.CalculateBounds(), workingScale: WorkingScale);
+        using var ctx = new FilterEffectContext(CurrentTargets.CalculateBounds(), OutputScale, WorkingScale);
 
         foreach (IFEItem item in context._renderTimeItems)
         {
@@ -142,7 +150,7 @@ public sealed class FilterEffectActivator(EffectTargets targets, SKImageFilterBu
 
         using EffectTargets cloned = CurrentTargets.Clone();
         using var builder = new SKImageFilterBuilder();
-        using var activator = new FilterEffectActivator(cloned, builder, WorkingScale);
+        using var activator = new FilterEffectActivator(cloned, builder, OutputScale, WorkingScale);
 
         activator.Apply(context);
         activator.Flush(false);

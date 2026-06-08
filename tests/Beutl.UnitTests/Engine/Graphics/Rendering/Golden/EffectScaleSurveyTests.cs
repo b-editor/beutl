@@ -11,6 +11,7 @@ namespace Beutl.UnitTests.Engine.Graphics.Rendering.Golden;
 // Empirical FR-009 survey (T027): measure how faithfully each effect category survives a 0.5x reduced
 // render upscaled back to full. Reveals which effects are already CTM-correct vs need buffer activation.
 [NonParallelizable]
+[TestFixture]
 public class EffectScaleSurveyTests
 {
     private static readonly PixelSize Frame = new(250, 250);

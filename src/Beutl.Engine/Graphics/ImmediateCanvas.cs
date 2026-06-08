@@ -17,10 +17,11 @@ public partial class ImmediateCanvas : ICanvas
     private readonly Stack<CanvasPushedState> _states = new();
     private Matrix _currentTransform;
 
-    public ImmediateCanvas(RenderTarget renderTarget)
+    public ImmediateCanvas(RenderTarget renderTarget, float outputScale = 1f)
     {
         _dispatcher = Dispatcher.Current;
         Size = new PixelSize(renderTarget.Width, renderTarget.Height);
+        OutputScale = outputScale;
         _renderTarget = renderTarget;
         Canvas = _renderTarget.Value.Canvas;
         _currentTransform = Canvas.TotalMatrix.ToMatrix();
@@ -41,11 +42,12 @@ public partial class ImmediateCanvas : ICanvas
     public PixelSize Size { get; }
 
     /// <summary>
-    /// The root output scale <c>s_out</c> this canvas renders at (feature 003), set by the renderer on the
-    /// root canvas. <c>1.0</c> = logical == device. Consumed where a device-resolution capture must be
-    /// mapped back to logical space (the snapshot-backdrop path); intermediate canvases keep the default.
+    /// The root output scale <c>s_out</c> this canvas renders at (feature 003), fixed at construction. <c>1.0</c>
+    /// = logical == device. Consumed where a device-resolution capture must be mapped back to logical space (the
+    /// snapshot-backdrop path); intermediate canvases that don't capture backdrops keep the default <c>1.0</c>.
+    /// Immutable so a buffer-allocating path can never silently mis-tag its capture density.
     /// </summary>
-    public float OutputScale { get; set; } = 1f;
+    public float OutputScale { get; }
 
     public Matrix Transform
     {
