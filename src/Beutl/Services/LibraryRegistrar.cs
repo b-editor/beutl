@@ -210,6 +210,7 @@ public static class LibraryRegistrar
             .RegisterGroup(AudioStrings.AudioEffect, g => g
                 .AddAudioEffect<DelayEffect>(AudioStrings.DelayEffect)
                 .AddAudioEffect<EqualizerEffect>(AudioStrings.Equalizer)
+                .AddAudioEffect<CompressorEffect>(AudioStrings.CompressorEffect)
             );
     }
 }
