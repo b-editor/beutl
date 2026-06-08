@@ -43,11 +43,11 @@ public sealed class ImageSourceRenderNode(ImageSource.Resource source, Brush.Res
                 },
                 hitTest: HitTest,
                 // feature 003 (FR-018): a decoded image is a bitmap at its native 1:1 density (its logical bounds
-                // == its pixel size), so it reports a concrete supply density rather than Unbounded. This caps the
-                // effect applied to it at the source's own resolution instead of upsampling it under export SSAA.
-                // (The density is carried UNCHANGED through transforms — TransformRenderNode forwards but does not
-                // scale it, since scaling would change s_out == 1 output.) At(1) is byte-identical to Unbounded at
-                // s_out == 1 (both resolve w == 1).
+                // == its pixel size), so it reports a concrete supply density At(1) rather than the re-rasterizable
+                // Unbounded. This caps an effect applied to it at the source's own resolution instead of fabricating
+                // detail under export SSAA. A downstream TransformRenderNode RE-SCALES this density (a 2× enlarge
+                // → At(0.5), a 0.5× shrink → At(2)), so the density tracks the pixels actually available per logical
+                // unit once the image is transformed.
                 effectiveScale: EffectiveScale.At(1f)
             )
         ];

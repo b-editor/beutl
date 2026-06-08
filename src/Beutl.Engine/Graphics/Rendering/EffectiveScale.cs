@@ -10,14 +10,18 @@
 /// re-rasterized at any target scale and are therefore excluded from the supply
 /// "max" when a container resolves its working scale. Bitmap-backed operations
 /// (decoded media, cached tiles, nested-scene / 3D surfaces, flushed effect
-/// targets) report a concrete density via <see cref="At(float)"/>.
+/// targets) report a concrete density via <see cref="At(float)"/>; a transform
+/// re-scales that density (enlarging lowers it, shrinking raises it) so it tracks
+/// the backing pixels actually available per logical unit.
 /// <para>
 /// <c>default(EffectiveScale)</c> is deliberately <see cref="Unbounded"/> (the
 /// <see cref="_bounded"/> flag defaults to <see langword="false"/>), so an
-/// operation — including an out-of-tree plugin op — that never sets it stays
-/// byte-identical at output scale 1.0. This inverted-flag layout is why the type
-/// is not a positional record over <c>(float Value, bool IsUnbounded)</c>, whose
-/// default would wrongly be <c>At(0)</c>.
+/// operation — including an out-of-tree plugin op — that never sets it is treated
+/// as re-rasterizable vector content (the safe default: it rasterizes at the
+/// consumer's working scale rather than pinning it to an arbitrary density). This
+/// inverted-flag layout is why the type is not a positional record over
+/// <c>(float Value, bool IsUnbounded)</c>, whose default would wrongly be
+/// <c>At(0)</c>.
 /// </para>
 /// </remarks>
 public readonly record struct EffectiveScale

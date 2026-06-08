@@ -59,16 +59,18 @@ public class CustomFilterEffectContext
 
     public EffectTarget CreateTarget(Rect bounds)
     {
-        // feature 003: at w != 1 allocate a ceil(bounds × w) device buffer and tag it At(w) so the final
-        // blit resamples it into logical space; w == 1 keeps the exact (int)-truncation + untagged
-        // (Unbounded) path (byte-identical).
+        // feature 003: allocate a ceil(bounds × w) device buffer and tag it with its TRUE density At(w) — a
+        // custom effect buffer is a concrete bitmap at working density w, including w == 1 (it is not vector
+        // / re-rasterizable). The w == 1 size keeps the exact (int)-truncation fast path; the At(1) tag still
+        // takes the point-blit branch downstream (Value == 1f), so it stays cheap, but it now reports its
+        // density honestly so a consumer caps its working scale at w (no fake upsampling above source detail).
         float w = WorkingScale;
         int bw = w == 1f ? (int)bounds.Width : (int)MathF.Ceiling(bounds.Width * w);
         int bh = w == 1f ? (int)bounds.Height : (int)MathF.Ceiling(bounds.Height * w);
         using var renderTarget = RenderTarget.Create(bw, bh);
         if (renderTarget != null)
         {
-            return new EffectTarget(renderTarget, bounds, w == 1f ? default : EffectiveScale.At(w));
+            return new EffectTarget(renderTarget, bounds, EffectiveScale.At(w));
         }
         else
         {

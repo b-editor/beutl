@@ -48,12 +48,10 @@ public class SourceEffectiveScaleFlowTests
             Assert.That(ops[0].EffectiveScale.Value, Is.EqualTo(density).Within(1e-4),
                 $"At({density}) source did not flow through the effect at its supply density");
 
-            // A non-unit density must be carried CONCRETELY (w == 1 collapses to the Unbounded byte-identity path).
-            if (density != 1.0f)
-            {
-                Assert.That(ops[0].EffectiveScale.IsUnbounded, Is.False,
-                    "a non-unit source density was lost (treated as re-rasterizable vector)");
-            }
+            // A concrete source density is carried concretely through the effect (the effect buffer reports its
+            // true At(w) density, including w == 1 — it is a bitmap, not re-rasterizable vector).
+            Assert.That(ops[0].EffectiveScale.IsUnbounded, Is.False,
+                "a concrete source density was lost (treated as re-rasterizable vector)");
 
             foreach (RenderNodeOperation op in ops)
             {
@@ -86,7 +84,7 @@ public class SourceEffectiveScaleFlowTests
     // OutputScale >= 1 (export supersampling). Under Inherit, w == the source supply density regardless of the
     // output scale — the output is NEITHER a ceiling NOR a floor for a concrete source. So a 0.5 proxy stays 0.5
     // even when the frame is exported at 2x SSAA (it is NOT fake-upsampled to fabricate detail it does not have),
-    // and a 2.0 source stays 2.0 (it is not raised to a 4x output). w == 1 collapses to the Unbounded byte path.
+    // and a 2.0 source stays 2.0 (it is not raised to a 4x output).
     [TestCase(0.5f, 2.0f, 0.5f)] // proxy in a 2x SSAA export: NOT upsampled
     [TestCase(1.0f, 2.0f, 1.0f)] // 1:1 source in a 2x SSAA export: caps at native (the effect-SSAA tradeoff)
     [TestCase(2.0f, 2.0f, 2.0f)] // 2.0 source matches the 2x output
@@ -149,7 +147,8 @@ public class SourceEffectiveScaleFlowTests
             "Oversample(2) at a 2x output must force w = 4 even from a 0.5 source");
     }
 
-    // FR-018 byte-identity: at s_out == 1 the At(1) source change must be byte-identical to the old Unbounded.
+    // FR-018: at w == 1 an At(1)-tagged source and an Unbounded source must render identically — both take the
+    // point-blit fast path (Value == 1f ≡ Unbounded), so tagging a unit-density source concretely costs nothing.
     // The golden suite only uses vector shapes, so it never exercises an At-tagged source — feed the SAME content
     // through the SAME effect once tagged At(1) and once Unbounded and assert the rendered pixels are identical.
     [Test]
@@ -194,25 +193,62 @@ public class SourceEffectiveScaleFlowTests
         return target.Snapshot();
     }
 
-    // TransformRenderNode forwards (does NOT scale) the child's supply density: a pure-CTM transform does not
-    // re-rasterize a bitmap-backed child, so At(d) stays At(d) — NOT Unbounded (the old drop, which mis-tagged a
-    // bitmap buffer as re-rasterizable) and NOT At(d/scale) (which would change s_out==1 output). Vector stays
-    // Unbounded. Pure Process — no GPU.
+    // feature 003 (FR-019, coherent density model): TransformRenderNode RE-SCALES a bitmap child's supply
+    // density by the inverse of the transform scale, because density is "backing px per logical unit". A 0.5×
+    // shrink packs the same pixels into half the logical space → density DOUBLES (R2: a high-res source dropped
+    // small carries its detail into a downstream effect). A 2× enlarge HALVES it (no detail is fabricated).
+    // A pure rotation / translation has scale 1 and leaves the density unchanged. Pure Process — no GPU.
+    [TestCase(0.5f, 2.0f, 4.0f)] // shrink 0.5× : At(2) → At(4)  (R2)
+    [TestCase(2.0f, 2.0f, 1.0f)] // enlarge 2× : At(2) → At(1)
+    [TestCase(1.0f, 2.0f, 2.0f)] // identity scale: density unchanged
+    [TestCase(0.25f, 1.0f, 4.0f)] // shrink 0.25× : At(1) → At(4)
+    public void TransformRenderNode_ScalesChildDensity_ByInverseScale(float scale, float density, float expected)
+    {
+        var transform = new TransformRenderNode(Matrix.CreateScale(scale, scale), TransformOperator.Prepend);
+
+        RenderNodeOperation[] ops = transform.Process(new RenderNodeContext([SourceOp(density)]));
+        Assert.That(ops[0].EffectiveScale.IsUnbounded, Is.False);
+        Assert.That(ops[0].EffectiveScale.Value, Is.EqualTo(expected).Within(1e-4),
+            $"Scale({scale}) on At({density}) must resolve to At({expected}) (density = px / logical unit)");
+        DisposeAll(ops);
+    }
+
+    // An anisotropic transform projects onto the axis that preserves the MOST detail (the smallest scale factor
+    // → the highest density), so a single-float density never under-samples either axis.
     [Test]
-    public void TransformRenderNode_ForwardsChildEffectiveScale_Unscaled()
+    public void TransformRenderNode_AnisotropicScale_TakesDensestAxis()
+    {
+        var transform = new TransformRenderNode(Matrix.CreateScale(0.5f, 0.25f), TransformOperator.Prepend);
+
+        RenderNodeOperation[] ops = transform.Process(new RenderNodeContext([SourceOp(1.0f)]));
+        // min(0.5, 0.25) = 0.25 → At(1 / 0.25) = At(4): the 0.25× axis needs density 4 to keep its detail.
+        Assert.That(ops[0].EffectiveScale.Value, Is.EqualTo(4.0f).Within(1e-4),
+            "an anisotropic transform must project to the densest (most-shrunk) axis");
+        DisposeAll(ops);
+    }
+
+    // A rotation alone carries no scale, so a bitmap's density survives a rotate unchanged.
+    [Test]
+    public void TransformRenderNode_PureRotation_LeavesDensityUnchanged()
+    {
+        var transform = new TransformRenderNode(Matrix.CreateRotation(MathF.PI / 4f), TransformOperator.Prepend);
+
+        RenderNodeOperation[] ops = transform.Process(new RenderNodeContext([SourceOp(2.0f)]));
+        Assert.That(ops[0].EffectiveScale.Value, Is.EqualTo(2.0f).Within(1e-4),
+            "a pure rotation must not change the supply density");
+        DisposeAll(ops);
+    }
+
+    // Vector content re-rasterizes at any scale, so a transform never binds it to a density.
+    [Test]
+    public void TransformRenderNode_VectorChild_StaysUnbounded()
     {
         var transform = new TransformRenderNode(Matrix.CreateScale(0.5f, 0.5f), TransformOperator.Prepend);
 
-        RenderNodeOperation[] concrete = transform.Process(new RenderNodeContext([SourceOp(2.0f)]));
-        Assert.That(concrete[0].EffectiveScale.IsUnbounded, Is.False);
-        Assert.That(concrete[0].EffectiveScale.Value, Is.EqualTo(2.0f).Within(1e-4),
-            "transform must forward the density UNCHANGED (scaling it would break s_out==1 byte-identity)");
-        DisposeAll(concrete);
-
         var vectorOp = RenderNodeOperation.CreateLambda(new Rect(0, 0, 10, 10), _ => { }, _ => false);
-        RenderNodeOperation[] vector = transform.Process(new RenderNodeContext([vectorOp]));
-        Assert.That(vector[0].EffectiveScale.IsUnbounded, Is.True, "a vector child must stay Unbounded through a transform");
-        DisposeAll(vector);
+        RenderNodeOperation[] ops = transform.Process(new RenderNodeContext([vectorOp]));
+        Assert.That(ops[0].EffectiveScale.IsUnbounded, Is.True, "a vector child must stay Unbounded through a transform");
+        DisposeAll(ops);
     }
 
     private static void DisposeAll(RenderNodeOperation[] ops)

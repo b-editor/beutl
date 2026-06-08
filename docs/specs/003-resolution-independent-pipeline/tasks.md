@@ -217,4 +217,4 @@ Single-repo .NET solution. Engine: `src/Beutl.Engine/`; project system: `src/Beu
 4. **Increment 4 = Phase 6 (US4)** — editor preview control + export SSAA.
 5. **Polish (Phase 7)** — benchmark, pinned residuals, docs, breaking-change PR.
 
-**Hard invariant across every phase**: `s_out = 1.0` with unit-scale inputs MUST stay byte-identical (T017 + per-effect `AssertByteIdentical`); the two filter-effect sinks keep their `(int)` rounding at `w = 1.0`.
+**Hard invariant across every phase** *(superseded 2026-06-08 — see the requirements.md amendment log)*: ~~`s_out = 1.0` with unit-scale inputs MUST stay byte-identical~~. The coherent density model abolished universal byte-identity as a design constraint: a transform now re-scales a bitmap's density (FR-019) and a scaled bitmap into an effect is intentionally not byte-identical at `s_out = 1.0`. What REMAINS invariant: vector / Skia-filter / unscaled-bitmap content stays byte-identical at `s_out = 1.0`, and the two filter-effect sinks keep their `(int)` rounding at `w = 1.0` (the per-sink fast paths are untouched).

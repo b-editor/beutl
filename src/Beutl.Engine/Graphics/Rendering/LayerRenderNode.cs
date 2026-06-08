@@ -20,7 +20,8 @@ public class LayerRenderNode(Rect limit) : ContainerRenderNode
     public override RenderNodeOperation[] Process(RenderNodeContext context)
     {
         // feature 003: the flattened layer carries the densest concrete child's supply density (the compositor's
-        // targetScale = max rule); all-vector children stay Unbounded. At(1)/Unbounded are identical at s_out == 1.
+        // targetScale = max rule) — the layer buffer must be dense enough for its finest-detail child. All-vector
+        // children stay Unbounded (they re-rasterize at the consumer's working scale).
         EffectiveScale layerScale = EffectiveScale.Unbounded;
         foreach (RenderNodeOperation op in context.Input)
         {

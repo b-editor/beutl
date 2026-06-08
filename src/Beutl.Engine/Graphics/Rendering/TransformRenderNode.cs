@@ -27,6 +27,22 @@ public sealed class TransformRenderNode(Matrix transform, TransformOperator tran
 
     public override RenderNodeOperation[] Process(RenderNodeContext context)
     {
+        // feature 003 (FR-019): a transform RE-SCALES the supply density of a bitmap-backed child. Density is
+        // "backing pixels per logical unit", so enlarging content (scale > 1) spreads the same backing pixels
+        // over more logical units and LOWERS the density it affords; shrinking RAISES it (a 4K source dropped
+        // into a small box now carries its extra detail into a downstream effect — R2). A single-float density
+        // projects an anisotropic / rotated transform onto the axis that preserves the MOST detail — the
+        // smallest scale factor → the highest density — so it can never under-sample either axis. A pure
+        // translation / rotation has scale 1 on both axes and leaves the density unchanged. Vector (Unbounded)
+        // children re-rasterize at any scale and are unaffected. A degenerate / perspective matrix yields no
+        // clean scale, so the density passes through untouched.
+        float densityFactor = 1f;
+        if (Transform.TryDecomposeTransform(out _, out Vector scale, out _, out _))
+        {
+            float f = MathF.Min(MathF.Abs(scale.X), MathF.Abs(scale.Y));
+            if (f > 0f) densityFactor = f;
+        }
+
         return context.Input.Select(r =>
             RenderNodeOperation.CreateLambda(
                 r.Bounds.TransformToAABB(Transform),
@@ -44,12 +60,9 @@ public sealed class TransformRenderNode(Matrix transform, TransformOperator tran
                     return r.HitTest(point);
                 },
                 onDispose: r.Dispose,
-                // feature 003: forward the child's supply density. A pure-CTM transform does not re-rasterize a
-                // bitmap-backed child (a flushed effect buffer / image source), so the child stays At(d) rather
-                // than the re-rasterizable Unbounded — the density it actually has, for a parent composite/effect
-                // to reconcile correctly (FR-019). The density is NOT scaled by the transform (that would change
-                // s_out == 1 output and break byte-identity); At(1)/Unbounded are identical at s_out == 1.
-                effectiveScale: r.EffectiveScale))
+                effectiveScale: r.EffectiveScale.IsUnbounded
+                    ? EffectiveScale.Unbounded
+                    : EffectiveScale.At(r.EffectiveScale.Value / densityFactor)))
             .ToArray();
     }
 }

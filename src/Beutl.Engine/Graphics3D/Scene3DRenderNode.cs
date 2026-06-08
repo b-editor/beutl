@@ -108,13 +108,15 @@ internal sealed class Scene3DRenderNode(Scene3D.Resource scene) : RenderNode
         if (surface == null)
             return [];
 
-        // Create the render operation that will draw the 3D scene. At s_out != 1 the surface is denser
-        // than Bounds, so tag it At(w) for a resampled blit; at w == 1 it stays Unbounded (point blit).
+        // Create the render operation that will draw the 3D scene. The surface is a concrete bitmap at the
+        // working density w (it is not vector / re-rasterizable), so tag it At(w) honestly — including w == 1,
+        // where the At(1) tag still takes the point-blit branch downstream (Value == 1f) but now reports the
+        // surface's true density so a consumer caps its working scale at the rendered resolution.
         var operation = RenderNodeOperation.CreateFromSurface(
             Bounds,
             new Point(0, 0),
             surface,
-            w == 1f ? default : EffectiveScale.At(w));
+            EffectiveScale.At(w));
 
         return [operation];
     }

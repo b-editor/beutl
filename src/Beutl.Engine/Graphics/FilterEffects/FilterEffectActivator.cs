@@ -59,7 +59,11 @@ public sealed class FilterEffectActivator(EffectTargets targets, SKImageFilterBu
                         }
                     }
 
-                    var newTarget = new EffectTarget(surface, target.Bounds, w == 1f ? target.Scale : EffectiveScale.At(w))
+                    // feature 003: the flattened buffer is a concrete bitmap at the working density it was just
+                    // rasterized at, so tag it At(w) — including w == 1. (The old w == 1 path inherited the
+                    // child's Scale, which over-reported the density of a buffer actually flattened at w == 1,
+                    // e.g. under ClampToOutput.) At(1) still takes the point-blit branch, so it stays cheap.
+                    var newTarget = new EffectTarget(surface, target.Bounds, EffectiveScale.At(w))
                     {
                         OriginalBounds = target.OriginalBounds
                     };
