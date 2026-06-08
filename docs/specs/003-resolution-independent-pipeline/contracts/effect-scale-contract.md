@@ -50,12 +50,22 @@ private sealed class OversampleRenderNode(FilterEffect.Resource fe) : FilterEffe
 {
     public override RenderNodeOperation[] Process(RenderNodeContext context)
     {
-        // compute w yourself: here, at least 2× the output (SSAA-on-demand), then run the base flow.
-        // ... build inputScales, then w = max(RenderNodeContext.ResolveWorkingScale(...), 2f * context.OutputScale)
-        return base.Process(context); // (or a customized copy that uses your w)
+        // base.Process recomputes the supply-driven w itself and ignores any w you compute here,
+        // so to use a custom w you reproduce the Process body with your own value. Until the
+        // separate-PR `protected virtual ResolveWorkingScale(context)` seam lands, this is a full
+        // copy of the base flow — only the `workingScale =` line differs:
+        //
+        //   var inputScales = ...; // = context.Input[i].EffectiveScale
+        //   float supplyW = RenderNodeContext.ResolveWorkingScale(inputScales, context.OutputScale, context.MaxWorkingScale);
+        //   float workingScale = MathF.Min(MathF.Max(supplyW, 2f * context.OutputScale), context.MaxWorkingScale); // SSAA-on-demand
+        //   using var feContext = new FilterEffectContext(context.CalculateBounds(), context.OutputScale, workingScale);
+        //   ... (the rest of FilterEffectRenderNode.Process verbatim) ...
+        return base.Process(context); // placeholder — supply-driven; see the copy above for a custom w
     }
 }
 ```
+
+> **Note (as shipped):** there is currently **no lightweight hook** to inject a custom working scale — `FilterEffectRenderNode.Process` computes the supply-driven `w` inline, so a custom-`w` effect must copy the whole `Process` body. A one-method `protected virtual ResolveWorkingScale(RenderNodeContext)` seam is **deferred to a separate PR**; until then, calling `base.Process(context)` runs supply-driven and silently ignores any `w` the subclass computes.
 
 ## Working scale — what scale an effect runs at
 
