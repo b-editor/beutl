@@ -32,6 +32,20 @@ public class ProjectPersistenceTests
     }
 
     [Test]
+    public void PersistOrRollback_RollbackThrows_OriginalPersistExceptionRethrown()
+    {
+        var persistEx = new InvalidOperationException("disk full");
+
+        InvalidOperationException? caught = Assert.Throws<InvalidOperationException>(() =>
+            ProjectPersistence.PersistOrRollback(
+                () => throw persistEx,
+                () => throw new IOException("rollback failed too")));
+
+        // The rollback failure must not mask the original persist exception.
+        Assert.That(caught, Is.SameAs(persistEx));
+    }
+
+    [Test]
     public void PersistOrRollback_NullPersist_Throws()
     {
         Assert.Throws<ArgumentNullException>(() =>
