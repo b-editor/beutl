@@ -44,10 +44,12 @@ public sealed class DelayNode : AudioNode
         // If no animations are assigned, use static processing. Guard on Animation (an actual
         // keyframe animation) rather than IsAnimatable (a capability flag that is always true for
         // an animatable property), so an unkeyed property skips the per-sample animated path.
-        bool hasAnimation = DelayTime.Animation != null ||
-                            Feedback.Animation != null ||
-                            DryMix.Animation != null ||
-                            WetMix.Animation != null;
+        // The null-conditional keeps a misconfigured (null) property degrading to static defaults
+        // (see ProcessStatic) instead of throwing, matching GainNode.
+        bool hasAnimation = DelayTime?.Animation != null ||
+                            Feedback?.Animation != null ||
+                            DryMix?.Animation != null ||
+                            WetMix?.Animation != null;
 
         if (!hasAnimation)
         {
