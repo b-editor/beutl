@@ -239,6 +239,28 @@ public class SourceEffectiveScaleFlowTests
         DisposeAll(ops);
     }
 
+    // A degenerate transform (zero / non-finite scale) must NOT corrupt the density: a singular matrix can't be
+    // decomposed and an infinite factor would yield At(d / ∞) = At(0) → a zero working scale downstream. The
+    // density falls back to the child's unchanged value rather than producing 0 / NaN / ∞.
+    [Test]
+    public void TransformRenderNode_DegenerateScale_LeavesDensityUnchanged()
+    {
+        // Zero scale: singular matrix, TryDecomposeTransform returns false → density unchanged.
+        var zero = new TransformRenderNode(Matrix.CreateScale(0f, 0f), TransformOperator.Prepend);
+        RenderNodeOperation[] z = zero.Process(new RenderNodeContext([SourceOp(2.0f)]));
+        Assert.That(z[0].EffectiveScale.Value, Is.EqualTo(2.0f).Within(1e-4));
+        Assert.That(float.IsFinite(z[0].EffectiveScale.Value), Is.True);
+        DisposeAll(z);
+
+        // Non-finite scale: the factor is rejected (IsFinite guard) → density unchanged, never At(0).
+        var inf = new TransformRenderNode(
+            Matrix.CreateScale(float.PositiveInfinity, float.PositiveInfinity), TransformOperator.Prepend);
+        RenderNodeOperation[] f = inf.Process(new RenderNodeContext([SourceOp(2.0f)]));
+        Assert.That(f[0].EffectiveScale.Value, Is.EqualTo(2.0f).Within(1e-4),
+            "an infinite transform scale must not collapse the density to At(0)");
+        DisposeAll(f);
+    }
+
     // Vector content re-rasterizes at any scale, so a transform never binds it to a density.
     [Test]
     public void TransformRenderNode_VectorChild_StaysUnbounded()

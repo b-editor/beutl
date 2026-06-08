@@ -40,7 +40,10 @@ public sealed class TransformRenderNode(Matrix transform, TransformOperator tran
         if (Transform.TryDecomposeTransform(out _, out Vector scale, out _, out _))
         {
             float f = MathF.Min(MathF.Abs(scale.X), MathF.Abs(scale.Y));
-            if (f > 0f) densityFactor = f;
+            // Guard a degenerate decomposition: a NaN factor (NaN > 0f is false) or a non-finite / non-positive
+            // one must NOT propagate into the density (an infinite scale would yield At(d / ∞) = At(0) → a zero
+            // working scale downstream). Fall back to the identity factor, leaving the density unchanged.
+            if (float.IsFinite(f) && f > 0f) densityFactor = f;
         }
 
         return context.Input.Select(r =>
