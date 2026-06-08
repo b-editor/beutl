@@ -46,8 +46,7 @@ public readonly record struct EffectiveScale
     /// A concrete bitmap density (device pixels per logical unit). <paramref name="scale"/> MUST be
     /// positive and finite: a zero/negative/NaN/∞ density has no meaning and would later divide a
     /// buffer footprint by it (<see cref="Beutl.Graphics.Effects.EffectTarget.Draw"/>), yielding an
-    /// ∞-width or zero-area blit. Rejected here rather than failing silently downstream — mirroring
-    /// <see cref="ResolutionPolicy.Oversample"/>'s factor guard.
+    /// ∞-width or zero-area blit. Rejected here rather than failing silently downstream.
     /// </summary>
     public static EffectiveScale At(float scale)
         => float.IsFinite(scale) && scale > 0f

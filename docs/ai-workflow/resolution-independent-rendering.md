@@ -44,14 +44,15 @@ the CTM handles it, and adding a manual `× w` would double-scale and regress th
   `× w` + `iScale = w`), GLSL (`Width`/`Height` push constants `× w` — there is NO `iScale`/`uScale` in
   GLSL) — verified by `CustomEffectSupersampleTests` (Mosaic + DisplacementMap 2×-delivered vs 1:1 SSIM
   1.0000; Mosaic strictly closer to ground truth than 1:1).
-- **Resolution policy.** An effect declares how its working scale is chosen by overriding
-  `FilterEffect.ResolutionPolicy` (default `Inherit` = run at the input supply density; `s_out` is
-  **not** a ceiling). Resolution-sensitive effects (PixelSort, Dilate/Erode, Mosaic, contour
-  Stroke/FlatShadow/PartsSplit, Displacement, custom SKSL/GLSL, Clipping) **rely on the default
-  `Inherit`** — a high-resolution source keeps its detail through them with no override needed; declaring
-  `ClampToOutput` on them is forbidden (it would throw that detail away). `ClampToOutput` is a user/opt-in
-  performance choice only, and `Oversample(factor)` is the quality opt-in. (There is no `PreserveSource`
-  policy — it was specced then removed; `Inherit` already does what it promised.)
+- **Working scale (supply-driven).** Every effect runs at its **input supply density** — the densest
+  concrete (bitmap) input, with `s_out` as the floor for vector-only/mixed boundaries, capped only by the
+  global memory ceiling (`MaxWorkingScale`). `s_out` is **not** a ceiling. Resolution-sensitive effects
+  (PixelSort, Dilate/Erode, Mosaic, contour Stroke/FlatShadow/PartsSplit, Displacement, custom SKSL/GLSL,
+  Clipping) get a high-resolution source's detail through them for free — no per-effect knob. There is
+  **no `ResolutionPolicy`** (an earlier `Inherit`/`ClampToOutput`/`Oversample(k)`/`PreserveSource` policy
+  was removed — no built-in needed a non-default value). An effect that genuinely needs a different working
+  scale (clamp-to-output for perf, oversample for SSAA) returns a `FilterEffectRenderNode` subclass from
+  `FilterEffect.Resource.CreateRenderNode()` and overrides `Process` to compute its own `w`.
 - **Bitmap sources.** A decoded image/video op reports its decoded density as `EffectiveScale.At(...)`,
   distinct from its logical footprint. Mixed-scale compositing resamples off-target bitmaps via
   `ImmediateCanvas.DrawRenderTargetScaled` / `DrawSurfaceScaled` (Mitchell). (The proxy / reduced-decode

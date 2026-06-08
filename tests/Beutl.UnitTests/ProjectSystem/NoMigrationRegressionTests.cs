@@ -6,8 +6,8 @@ using Beutl.Serialization;
 namespace Beutl.UnitTests.ProjectSystem;
 
 // SC-002 (T018): feature 003 must not change the serialized file format. Its scale machinery
-// (ResolutionPolicy overrides, scale ctor params, WorkingScale/EffectiveScale) is runtime-only, so
-// existing projects load with zero migration and no version bump. Non-GPU.
+// (scale ctor params, WorkingScale/EffectiveScale, the supply-driven working scale) is runtime-only,
+// so existing projects load with zero migration and no version bump. Non-GPU.
 [TestFixture]
 public class NoMigrationRegressionTests
 {
@@ -21,9 +21,7 @@ public class NoMigrationRegressionTests
         var json = CoreSerializer.SerializeToJsonObject(dilate);
         string s1 = json.ToJsonString();
 
-        // 003's ResolutionPolicy is a computed virtual on FilterEffect (not a serialized CoreProperty), so it
-        // must never appear in the JSON.
-        Assert.That(s1, Does.Not.Contain("ResolutionPolicy"));
+        // 003's scale machinery is runtime-only (no serialized CoreProperty), so none of it leaks into the JSON.
         Assert.That(s1, Does.Not.Contain("WorkingScale"));
         Assert.That(s1, Does.Not.Contain("EffectiveScale"));
         Assert.That(s1, Does.Not.Contain("OutputScale"));

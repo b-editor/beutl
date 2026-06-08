@@ -10,8 +10,9 @@ internal static class GoldenThresholds
     public const double ExactMaeMax = 0.02;
 
     // NOTE: a mixed-scale composite-seam threshold lived here, but a meaningful seam test needs two adjacent
-    // regions at DIFFERENT working densities, which no built-in effect can produce (none uses ClampToOutput /
-    // Oversample, and PreserveSource was removed). It is deferred until a custom-policy test effect exists.
+    // regions at DIFFERENT working densities, which no built-in effect can produce (every boundary runs at its
+    // supply density). It is deferred until a custom FilterEffectRenderNode that overrides ResolveWorkingScale
+    // exists to drive a divergent working scale.
 
     /// <summary>SSIM margin a supersampled render must beat the non-supersampled one by (lower aliasing).</summary>
     public const double SupersampleSsimMargin = 0.01;

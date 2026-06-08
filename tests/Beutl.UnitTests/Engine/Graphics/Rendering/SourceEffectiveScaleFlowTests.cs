@@ -136,18 +136,6 @@ public class SourceEffectiveScaleFlowTests
         });
     }
 
-    // An effect can still opt into supersampling ABOVE a low source via Oversample (SSAA-on-demand): a 0.5 proxy
-    // through an Oversample(2) policy at a 2x output runs at max(0.5, 2*2) = 4. This is the effect's choice, not
-    // the source's density — it shows OutputScale >= 1 DOES raise w when the policy asks for it. Pure math (no GPU).
-    [Test]
-    public void OversamplePolicy_RaisesWorkingScaleAboveSource_AtSupersampleOutput()
-    {
-        float w = RenderNodeContext.ResolveWorkingScale(
-            [EffectiveScale.At(0.5f)], outputScale: 2.0f, ResolutionPolicy.Oversample(2f));
-        Assert.That(w, Is.EqualTo(4.0f).Within(1e-4),
-            "Oversample(2) at a 2x output must force w = 4 even from a 0.5 source");
-    }
-
     // FR-018: at w == 1 an At(1)-tagged source and an Unbounded source must render identically — both take the
     // point-blit fast path (Value == 1f ≡ Unbounded), so tagging a unit-density source concretely costs nothing.
     // The golden suite only uses vector shapes, so it never exercises an At-tagged source — feed the SAME content

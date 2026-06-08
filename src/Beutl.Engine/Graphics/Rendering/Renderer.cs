@@ -108,8 +108,8 @@ public class Renderer : IRenderer
 
     /// <summary>
     /// The working-scale ceiling for this renderer (feature 003, FR-037): preview passes <c>2 × s_out</c> to
-    /// bound buffer memory when a high-density / Oversample effect is present; export leaves it <c>+∞</c>
-    /// (default) so fidelity is uncapped. It only caps effects that resolve a working scale above it.
+    /// bound buffer memory when a high-density source is present; export leaves it <c>+∞</c>
+    /// (default) so fidelity is uncapped. It only caps boundaries that resolve a working scale above it.
     /// </summary>
     public float MaxWorkingScale { get; }
 

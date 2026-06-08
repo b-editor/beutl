@@ -39,28 +39,40 @@ public override void ApplyTo(FilterEffectContext context)
     });
 }
 
-// a quality effect that wants SSAA-on-demand even from a low-density input:
-public override ResolutionPolicy ResolutionPolicy => ResolutionPolicy.Oversample(2f);
+// An effect that needs a working scale OTHER than the supply density (clamp-to-output for perf,
+// oversample for SSAA) overrides the render node instead of declaring a policy:
+public sealed partial class Resource
+{
+    public override FilterEffectRenderNode CreateRenderNode() => new OversampleRenderNode(this);
+}
+
+private sealed class OversampleRenderNode(FilterEffect.Resource fe) : FilterEffectRenderNode(fe)
+{
+    public override RenderNodeOperation[] Process(RenderNodeContext context)
+    {
+        // compute w yourself: here, at least 2× the output (SSAA-on-demand), then run the base flow.
+        // ... build inputScales, then w = max(RenderNodeContext.ResolveWorkingScale(...), 2f * context.OutputScale)
+        return base.Process(context); // (or a customized copy that uses your w)
+    }
+}
 ```
 
-## Resolution policy — what scale an effect runs at
+## Working scale — what scale an effect runs at
 
-Each effect/node declares a `ResolutionPolicy` (default `Inherit`) that decides its **working scale `w`** from its inputs' effective scales and the output scale `s_out`:
+Every effect runs at the **supply-driven working scale `w`**, computed from its inputs' effective scales (there is **no per-effect policy knob**):
 
-| Policy | `w` | Use |
-|---|---|---|
-| **`Inherit`** (default) | input supply density | preserve input as-is: a 0.5 proxy stays 0.5 (no upsample), a 2.0 source stays 2.0 (no downsample). `s_out` is not a ceiling. |
-| **`ClampToOutput`** | `min(supply, s_out)` | **perf opt-out** for a heavy effect: drop a too-high input early. |
-| **`Oversample(k)`** | `max(supply, k·s_out)` | **quality opt-in**: force ≥ k× the final target even from a low input (SSAA-on-demand). `k` must be > 0. |
+- `w` = the densest **concrete** (bitmap) input density. A 0.5 proxy stays 0.5 (no upsample), a 2.0 source stays 2.0 (no downsample). `s_out` is **not** a ceiling.
+- vector-only inputs (`Unbounded`) impose no supply → `w` falls back to `s_out`; a mixed bitmap+vector boundary floors `w` at `s_out` so crisp vector siblings are not dragged down to a low-density bitmap.
+- `w` is finally capped by the global ceiling `MaxWorkingScale` (FR-037; **preview `2 × s_out`, export `max(8, 4 × s_out)`** — a generous finite bound). This is the **sole** upper bound; `FilterEffectRenderNode` passes `context.MaxWorkingScale`.
 
-*(A `PreserveSource` policy was specced to keep a high source density and floor an ancestor `ClampToOutput`, but it was identical to `Inherit` once that floor was dropped — `Inherit` already runs at the input supply density — so it was removed. Effects that want to keep a high source's detail simply use the default `Inherit`.)*
+**Every built-in runs supply-driven** — including the FR-013 resolution-sensitive set (`PixelSort`, contour `Stroke`/`FlatShadow`/`PartsSplit`, `AutoClip`, `Dilate`, `Erode`, `Mosaic`, custom SKSL/GLSL, image-map `Displacement`), since running at the supply density already keeps a high source's density through them. The working scale MUST NOT change the `s_out = 1.0` output.
 
-`w` is finally capped by the global ceiling `MaxWorkingScale` (FR-037; **preview default `2 × s_out`, export unbounded**) — wired as shipped: `FilterEffectRenderNode` passes `context.MaxWorkingScale`, the editor preview seeds `2 × s_out`, export leaves `+∞`. The **default is `Inherit` for every effect** (built-in and plugin); declare a different policy by overriding `FilterEffect.ResolutionPolicy`. **As shipped, every built-in uses the default `Inherit`** — including the FR-013 resolution-sensitive set (`PixelSort`, contour `Stroke`/`FlatShadow`/`PartsSplit`, `AutoClip`, `Dilate`, `Erode`, `Mosaic`, custom SKSL/GLSL, image-map `Displacement`), since `Inherit` already keeps a high source's density through them; **no built-in uses `ClampToOutput` or `Oversample`** (both are plugin/opt-in only). A policy MUST NOT change the `s_out = 1.0` output.
+**Need a different working scale?** An effect that genuinely needs clamp-to-output (perf) or oversampling (SSAA) returns a `FilterEffectRenderNode` subclass from `FilterEffect.Resource.CreateRenderNode()` and overrides `Process` to compute its own `w` (see the example above). There is intentionally no declarative `ResolutionPolicy` — no built-in needed one, and a custom render node is strictly more flexible than a closed enum. *(Earlier drafts had an `Inherit`/`ClampToOutput`/`Oversample(k)`/`PreserveSource` policy; it was removed.)*
 
 ## Resolution-sensitive effects (FR-013)
 
-`PixelSort`, contour-based `Stroke`/`FlatShadow`/`PartsSplit`, `AutoClip`, integer `Dilate`/`Erode`, `Mosaic`, Perlin-driven, and custom per-texel shaders **still apply the multiply rule**, but their reduced-scale preview is a **best-effort approximation** (not bit-identical) and is full-fidelity only at export `s_out=1.0`. They rely on the default `Inherit` to keep a higher-resolution source through them (downsampled only at the final stage); a plugin should not put `ClampToOutput` on them. No force-full-scale subtree mechanism and no warning UI in v1. Their tests assert (a) byte-equality at `s_out=1.0` and (b) a documented structural invariant at a reduced scale (e.g. `mosaic tile == ceil(tileSize × w)` device px), not SSIM.
+`PixelSort`, contour-based `Stroke`/`FlatShadow`/`PartsSplit`, `AutoClip`, integer `Dilate`/`Erode`, `Mosaic`, Perlin-driven, and custom per-texel shaders **still apply the multiply rule**, but their reduced-scale preview is a **best-effort approximation** (not bit-identical) and is full-fidelity only at export `s_out=1.0`. Running supply-driven already keeps a higher-resolution source through them (downsampled only at the final stage). No force-full-scale subtree mechanism and no warning UI in v1. Their tests assert (a) byte-equality at `s_out=1.0` and (b) a documented structural invariant at a reduced scale (e.g. `mosaic tile == ceil(tileSize × w)` device px), not SSIM.
 
 ## Mechanism summary
 
-Centralized scaling lives in the `FilterEffectContext` primitives (covers built-ins and their forwarders for free); the per-effect read accessor (`WorkingScale`) is the escape hatch for pixel-reading custom/shader/script effects, and `ResolutionPolicy` is the declarative knob for *what scale* the effect runs at. A plugin effect that ignores both still renders correctly at `s_out=1.0` (default `Inherit` + `Unbounded` inputs → `w=1.0`); it simply runs supply-driven and won't drive oversampling until it adopts this contract.
+Centralized scaling lives in the `FilterEffectContext` primitives (covers built-ins and their forwarders for free); the per-effect read accessor (`WorkingScale`) is the escape hatch for pixel-reading custom/shader/script effects, and a custom `FilterEffectRenderNode` is the escape hatch for *what scale* the effect runs at. A plugin effect that touches neither still renders correctly at `s_out=1.0` (supply-driven + `Unbounded` inputs → `w=1.0`); it simply runs supply-driven and won't drive oversampling until it adopts this contract.

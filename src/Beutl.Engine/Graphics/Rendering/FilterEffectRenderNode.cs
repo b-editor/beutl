@@ -27,12 +27,14 @@ public class FilterEffectRenderNode(FilterEffect.Resource filterEffect) : Contai
             return context.Input;
         }
 
-        // Resolve this effect's working scale w from its inputs' supply densities, the output
-        // scale, and the effect's resolution policy (feature 003, FR-036). Threaded into the
-        // context (FR-015) AND into the activator, which sizes render-target / Custom buffers
+        // Resolve this effect's working scale w from its inputs' supply densities (feature 003, FR-036).
+        // Supply-driven: w == the densest concrete input, capped by the global memory ceiling. Threaded into
+        // the context (FR-015) AND into the activator, which sizes render-target / Custom buffers
         // ceil(bounds × w) and resamples them once at the final blit (FilterEffectActivator,
-        // CustomFilterEffectContext, EffectTarget.Draw). At output scale 1.0 with vector inputs,
-        // w == 1, so every buffer keeps its (int)-truncation point-blit path (byte-identical).
+        // CustomFilterEffectContext, EffectTarget.Draw). At output scale 1.0 with vector inputs, w == 1, so
+        // every buffer keeps its (int)-truncation point-blit path (byte-identical). An effect that needs a
+        // different w (clamp for perf, oversample for SSAA) overrides Process in a FilterEffectRenderNode
+        // subclass returned from FilterEffect.Resource.CreateRenderNode().
         var inputScales = new EffectiveScale[context.Input.Length];
         for (int i = 0; i < context.Input.Length; i++)
         {
@@ -40,8 +42,7 @@ public class FilterEffectRenderNode(FilterEffect.Resource filterEffect) : Contai
         }
 
         float workingScale = RenderNodeContext.ResolveWorkingScale(
-            inputScales, context.OutputScale, FilterEffect.Value.Resource.GetOriginal().ResolutionPolicy,
-            context.MaxWorkingScale);
+            inputScales, context.OutputScale, context.MaxWorkingScale);
 
         using var feContext = new FilterEffectContext(context.CalculateBounds(), context.OutputScale, workingScale);
         FilterEffect.Value.Resource.GetOriginal().ApplyTo(feContext, FilterEffect.Value.Resource);

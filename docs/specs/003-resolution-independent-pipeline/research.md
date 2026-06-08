@@ -101,7 +101,9 @@ The literal model: ops carry their own scale `e`; intermediates run at `w` deriv
 
 ## D7 — Resolution policy & working-scale negotiation (refinement)
 
-**Decision**: A declarative `ResolutionPolicy` per effect/node drives one shared working-scale rule.
+> **SUPERSEDED (2026-06-09): the `ResolutionPolicy` type was removed.** This section records the original design — a declarative per-effect policy choosing the working scale. In the shipped pipeline there is **no policy**: every boundary runs **supply-driven** (`w` = the densest concrete input, vector/mixed floor at `s_out`, capped by `MaxWorkingScale`), which is exactly the former `Inherit` branch — the only branch any built-in ever used. `ClampToOutput`/`Oversample(k)`/`PreserveSource` had zero in-tree users, and a custom `FilterEffectRenderNode` (from `FilterEffect.Resource.CreateRenderNode()`, overriding `Process`) is strictly more flexible than a closed enum, so the type, the `virtual FilterEffect.ResolutionPolicy`, and the `policy` parameter of `ResolveWorkingScale` were all deleted. Read the rest of this section as the rationale for the supply-driven *rule* (still current); treat every mention of a *policy enum / declaration point / precedence* as historical. The normative rule is **FR-036**; the global ceiling (now finite on export, `max(8, 4×s_out)`) is **FR-037**.
+
+**Decision (historical)**: A declarative `ResolutionPolicy` per effect/node drives one shared working-scale rule.
 
 `ResolutionPolicy = { Inherit (default) | ClampToOutput | Oversample(factor) | PreserveSource }`.
 
@@ -150,7 +152,7 @@ The literal model: ops carry their own scale `e`; intermediates run at `w` deriv
 
 | Spec Open Question | Resolved by |
 |---|---|
-| 1. Scale propagation mechanism | **D1 + D7** — supply-driven: `OutputScale` (final-only) + per-op `EffectiveScale` + computed `WorkingScale` via `ResolveWorkingScale`/`ResolutionPolicy` |
+| 1. Scale propagation mechanism | **D1 + D7** — supply-driven: `OutputScale` (final-only) + per-op `EffectiveScale` + computed `WorkingScale` via `ResolveWorkingScale` (the per-effect `ResolutionPolicy` in D7 was later removed — supply-driven only) |
 | 2. Final normalization attach point | **D2** — root `Renderer` push; no terminal node; export downscale in `FrameProviderImpl` |
 | 3. Stroke geometry space | **D3** — logical space; zero PenHelper/cache change |
 | 4. Renderer/cache rebuild trigger | **D4** — ctor param; widen the FrameSize rebuild observable; structural atomicity |
