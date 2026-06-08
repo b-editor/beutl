@@ -17,6 +17,8 @@ public class ProjectMutateAndPersistTests
 
         Assert.That(project.Items, Does.Contain(item));
         Assert.That(persistCalls, Is.EqualTo(1));
+        // Adding through the HierarchicalList must also attach the parent.
+        Assert.That(item.HierarchicalParent, Is.SameAs(project));
     }
 
     [Test]
@@ -29,6 +31,8 @@ public class ProjectMutateAndPersistTests
             project.AddAndPersist(item, () => throw new InvalidOperationException("disk full")));
 
         Assert.That(project.Items, Does.Not.Contain(item));
+        // Rolling the add back must also detach the parent, not just drop the list entry.
+        Assert.That(item.HierarchicalParent, Is.Null);
     }
 
     [Test]
@@ -86,6 +90,8 @@ public class ProjectMutateAndPersistTests
 
         Assert.That(project.Items, Does.Not.Contain(item));
         Assert.That(persistCalls, Is.EqualTo(1));
+        // Removing through the HierarchicalList must also detach the parent.
+        Assert.That(item.HierarchicalParent, Is.Null);
     }
 
     [Test]
@@ -105,6 +111,8 @@ public class ProjectMutateAndPersistTests
         // The removal is rolled back, restoring the original position.
         Assert.That(project.Items, Has.Count.EqualTo(3));
         Assert.That(project.Items[1], Is.SameAs(target));
+        // Re-inserting must re-attach the parent, not just restore the list entry.
+        Assert.That(target.HierarchicalParent, Is.SameAs(project));
     }
 
     [Test]
