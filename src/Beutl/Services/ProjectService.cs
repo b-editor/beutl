@@ -2,6 +2,7 @@
 using System.Text.Json.Nodes;
 using Beutl.Configuration;
 using Beutl.Editor;
+using Beutl.Language;
 using Beutl.Logging;
 using Beutl.Models;
 using Beutl.ProjectSystem;
@@ -163,6 +164,9 @@ public sealed class ProjectService
         {
             activity?.SetStatus(ActivityStatusCode.Error);
             _logger.LogError(ex, "Unable to create the project. Name: {Name}, Location: {Location}", name, location);
+            // Surface the actual failure (disk full, permission denied, ...) to the user instead of a
+            // generic "operation failed". Mirrors the scene-create path, which shows the message too.
+            NotificationService.ShowError(Strings.Error, ex.Message);
             return null;
         }
     }

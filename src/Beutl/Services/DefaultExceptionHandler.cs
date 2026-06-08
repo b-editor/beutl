@@ -27,6 +27,10 @@ public static class DefaultExceptionHandler
         }
         else if (exception is not OperationCanceledException)
         {
+            // Record the failure as well as showing it: a toast is transient (and dropped entirely
+            // if no notification handler is registered), so without this the error would leave no
+            // durable trace for diagnosis.
+            s_logger.LogError(exception, "Unhandled exception surfaced to the user.");
             NotificationService.ShowError(Strings.Error, exception.Message);
         }
     }

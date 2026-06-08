@@ -1,4 +1,6 @@
-﻿namespace Beutl.UnitTests.Core;
+﻿using Beutl.Services;
+
+namespace Beutl.UnitTests.Core;
 
 public class ProjectPersistenceTests
 {

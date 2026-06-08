@@ -10,7 +10,6 @@ using Beutl.Editor;
 using Beutl.Editor.Services;
 using Beutl.Models;
 using Beutl.ProjectSystem;
-using Beutl.Serialization;
 using Beutl.Services;
 using Beutl.ViewModels;
 using Beutl.Views.Dialogs;
@@ -159,12 +158,13 @@ public partial class MainView
             {
                 try
                 {
-                    project.RemoveAndPersist(projItem, () => CoreSerializer.StoreToUri(project, project.Uri!));
+                    ProjectPersistence.RemoveItemAndPersist(project, projItem);
                 }
                 catch (Exception ex)
                 {
-                    // Surface a failed persist to the user; RemoveAndPersist has already re-inserted
-                    // the item, so without this an async-void exception would vanish silently.
+                    // Surface a failed persist to the user; RemoveItemAndPersist has already
+                    // re-inserted the item, so without this an async-void exception would vanish
+                    // silently.
                     await ex.Handle();
                 }
             }

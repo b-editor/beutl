@@ -72,15 +72,16 @@ public sealed class CreateNewSceneViewModel
 
                 if (_proj != null)
                 {
-                    _proj.AddAndPersist(scene, () => CoreSerializer.StoreToUri(_proj, _proj.Uri!));
+                    ProjectPersistence.AddItemAndPersist(_proj, scene);
                 }
 
                 EditorService.Current.ActivateTabItem(scene);
             }
             catch (Exception ex)
             {
-                // Surface a failed scene/project persist to the user; AddAndPersist has already
-                // rolled the in-memory add back, so without this the failure would vanish silently.
+                // Surface any failure from the scene write or the project persist to the user. When
+                // AddItemAndPersist throws it has already rolled the in-memory add back; without this
+                // catch the failure would vanish silently.
                 _ = ex.Handle();
             }
         });

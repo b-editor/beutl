@@ -3,3 +3,4 @@
 [assembly: InternalsVisibleTo("Beutl")]
 [assembly: InternalsVisibleTo("Beutl.NodeGraph")]
 [assembly: InternalsVisibleTo("Beutl.Editor.Components")]
+[assembly: InternalsVisibleTo("Beutl.UnitTests")]
