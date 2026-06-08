@@ -63,17 +63,26 @@ public sealed class CreateNewSceneViewModel
         Create = new ReactiveCommand(CanCreate);
         Create.Subscribe(() =>
         {
-            var scene = new Scene(Size.Value.Width, Size.Value.Height, Name.Value);
-            CoreSerializer.StoreToUri(scene,
-                UriHelper.CreateFromPath(Path.Combine(Location.Value, Name.Value,
-                    $"{Name.Value}.{EditorConstants.SceneFileExtension}")));
-
-            if (_proj != null)
+            try
             {
-                _proj.AddAndPersist(scene, () => CoreSerializer.StoreToUri(_proj, _proj.Uri!));
-            }
+                var scene = new Scene(Size.Value.Width, Size.Value.Height, Name.Value);
+                CoreSerializer.StoreToUri(scene,
+                    UriHelper.CreateFromPath(Path.Combine(Location.Value, Name.Value,
+                        $"{Name.Value}.{EditorConstants.SceneFileExtension}")));
 
-            EditorService.Current.ActivateTabItem(scene);
+                if (_proj != null)
+                {
+                    _proj.AddAndPersist(scene, () => CoreSerializer.StoreToUri(_proj, _proj.Uri!));
+                }
+
+                EditorService.Current.ActivateTabItem(scene);
+            }
+            catch (Exception ex)
+            {
+                // Surface a failed scene/project persist to the user; AddAndPersist has already
+                // rolled the in-memory add back, so without this the failure would vanish silently.
+                _ = ex.Handle();
+            }
         });
     }
 

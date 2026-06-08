@@ -157,7 +157,16 @@ public partial class MainView
 
             if (await dialog.ShowAsync() == ContentDialogResult.Primary)
             {
-                project.RemoveAndPersist(projItem, () => CoreSerializer.StoreToUri(project, project.Uri!));
+                try
+                {
+                    project.RemoveAndPersist(projItem, () => CoreSerializer.StoreToUri(project, project.Uri!));
+                }
+                catch (Exception ex)
+                {
+                    // Surface a failed persist to the user; RemoveAndPersist has already re-inserted
+                    // the item, so without this an async-void exception would vanish silently.
+                    await ex.Handle();
+                }
             }
         }
     }
