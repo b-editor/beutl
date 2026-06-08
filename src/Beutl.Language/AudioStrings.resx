@@ -108,4 +108,22 @@
   <data name="CompressorEffect_MakeupGain" xml:space="preserve">
     <value>Makeup Gain (dB)</value>
   </data>
+  <data name="CompressorEffect_Threshold_Description" xml:space="preserve">
+    <value>The level above which the signal is compressed.</value>
+  </data>
+  <data name="CompressorEffect_Ratio_Description" xml:space="preserve">
+    <value>The amount of compression applied above the threshold. Higher values compress more strongly.</value>
+  </data>
+  <data name="CompressorEffect_Attack_Description" xml:space="preserve">
+    <value>How quickly compression engages after the signal crosses the threshold.</value>
+  </data>
+  <data name="CompressorEffect_Release_Description" xml:space="preserve">
+    <value>How quickly compression releases after the signal falls below the threshold.</value>
+  </data>
+  <data name="CompressorEffect_Knee_Description" xml:space="preserve">
+    <value>How gradually compression engages around the threshold. 0 is a hard knee; larger values are smoother.</value>
+  </data>
+  <data name="CompressorEffect_MakeupGain_Description" xml:space="preserve">
+    <value>Gain applied after compression to compensate for the reduced level.</value>
+  </data>
 </root>

@@ -103,4 +103,22 @@
   <data name="CompressorEffect_MakeupGain" xml:space="preserve">
     <value>メイクアップゲイン (dB)</value>
   </data>
+  <data name="CompressorEffect_Threshold_Description" xml:space="preserve">
+    <value>圧縮を開始するレベル。これを超えた信号が圧縮されます。</value>
+  </data>
+  <data name="CompressorEffect_Ratio_Description" xml:space="preserve">
+    <value>スレッショルドを超えた信号の圧縮比。値が大きいほど強く圧縮されます。</value>
+  </data>
+  <data name="CompressorEffect_Attack_Description" xml:space="preserve">
+    <value>信号がスレッショルドを超えてから圧縮が効き始めるまでの時間。</value>
+  </data>
+  <data name="CompressorEffect_Release_Description" xml:space="preserve">
+    <value>信号がスレッショルドを下回ってから圧縮が解除されるまでの時間。</value>
+  </data>
+  <data name="CompressorEffect_Knee_Description" xml:space="preserve">
+    <value>スレッショルド付近で圧縮へ移行する滑らかさ。0 でハードニー、大きいほど滑らかになります。</value>
+  </data>
+  <data name="CompressorEffect_MakeupGain_Description" xml:space="preserve">
+    <value>圧縮で下がった出力レベルを補正するゲイン。</value>
+  </data>
 </root>
