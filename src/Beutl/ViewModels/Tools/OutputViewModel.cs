@@ -273,7 +273,13 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
                 // Export supersampling (feature 003): render at factor×, FrameProviderImpl downscales
                 // to FrameSize. SourceSize stays FrameSize (above), so the encoded size is unchanged.
                 float renderScale = Math.Max(1, SupersampleFactor.Value);
-                using var renderer = new SceneRenderer(Model, renderScale, disableResourceShare: true);
+                // Export uses a FINITE working-scale ceiling (C7) rather than +∞: unlike preview, export has
+                // no interactive memory budget, but an unbounded ceiling lets a pathological effect chain (or a
+                // mis-reported source density) ratchet the working surface without limit → OOM on long renders.
+                // The cap is generous (≥ 8× device, ≥ 4× the SSAA output) so it never clips legitimate
+                // high-density sources; an explicit Oversample request still escapes it via ResolveWorkingScale.
+                float maxWorkingScale = MathF.Max(8f, 4f * renderScale);
+                using var renderer = new SceneRenderer(Model, renderScale, disableResourceShare: true, maxWorkingScale);
                 renderer.CacheOptions = RenderCacheOptions.Disabled;
                 var frameProgress = new Subject<TimeSpan>();
                 using var frameProvider = new FrameProviderImpl(Model, videoSettings.FrameRate, renderer, frameProgress);

@@ -179,6 +179,85 @@ public class ResolutionScaleTests
         Assert.That(w, Is.EqualTo(2.0f));
     }
 
+    // --- C4/C5: mixed bitmap + vector must not drag the vector down to the bitmap's density ----------
+
+    [Test]
+    public void Resolve_Inherit_LowResBitmapWithVector_FloorsAtOutput()
+    {
+        // C4/C5: a 0.5 proxy bitmap sharing the boundary with crisp vector content must NOT pull the
+        // working scale to 0.5 — the vector half can draw at the output density, so w floors at s_out.
+        float w = RenderNodeContext.ResolveWorkingScale(
+            [EffectiveScale.At(0.5f), EffectiveScale.Unbounded],
+            outputScale: 1.0f,
+            ResolutionPolicy.Inherit);
+        Assert.That(w, Is.EqualTo(1.0f));
+    }
+
+    [Test]
+    public void Resolve_Inherit_HighResBitmapWithVector_KeepsBitmapDensity()
+    {
+        // The vector floor is only a floor: a 2.0 bitmap alongside vector keeps the densest supply (2.0),
+        // it is not pulled DOWN to the 1.0 output.
+        float w = RenderNodeContext.ResolveWorkingScale(
+            [EffectiveScale.At(2.0f), EffectiveScale.Unbounded],
+            outputScale: 1.0f,
+            ResolutionPolicy.Inherit);
+        Assert.That(w, Is.EqualTo(2.0f));
+    }
+
+    [Test]
+    public void Resolve_Inherit_UnitBitmapWithVector_IsByteIdentityNeutral()
+    {
+        // The byte-identity anchor must survive the C4/C5 floor: At(1) + vector at output 1.0 => w == 1.
+        float w = RenderNodeContext.ResolveWorkingScale(
+            [EffectiveScale.At(1.0f), EffectiveScale.Unbounded],
+            outputScale: 1.0f,
+            ResolutionPolicy.Inherit);
+        Assert.That(w, Is.EqualTo(1.0f));
+    }
+
+    // --- C8: an explicit Oversample(factor) must escape a lower global ceiling -----------------------
+
+    [Test]
+    public void Resolve_Oversample_EscapesPreviewCeiling()
+    {
+        // C8: preview caps maxWorkingScale at 2×s_out, but an explicit Oversample(4) is a deliberate quality
+        // opt-in — it must reach 4×, not be silently clamped down to the 2× preview cap (which would make
+        // Oversample(2)/(4)/(8) indistinguishable in preview).
+        float w = RenderNodeContext.ResolveWorkingScale(
+            [EffectiveScale.At(0.5f)],
+            outputScale: 1.0f,
+            ResolutionPolicy.Oversample(4f),
+            maxWorkingScale: 2.0f);
+        Assert.That(w, Is.EqualTo(4.0f));
+    }
+
+    [Test]
+    public void Resolve_Oversample_EscapeOnlyRaisesToFactorTarget_NotPassiveSupply()
+    {
+        // The escape honours the EXPLICIT factor target only. A supply (5.0) above the factor target (2×) is
+        // the passive part and stays bounded by the ceiling — Oversample doesn't lift the memory cap wholesale.
+        float w = RenderNodeContext.ResolveWorkingScale(
+            [EffectiveScale.At(5.0f)],
+            outputScale: 1.0f,
+            ResolutionPolicy.Oversample(2f),
+            maxWorkingScale: 2.0f);
+        Assert.That(w, Is.EqualTo(2.0f));
+    }
+
+    [Test]
+    public void Resolve_Inherit_DoesNotEscapeCeiling()
+    {
+        // Only Oversample escapes: Inherit with a 4.0 supply stays clamped to the 2× ceiling (no silent
+        // amplification of non-opt-in content).
+        float w = RenderNodeContext.ResolveWorkingScale(
+            [EffectiveScale.At(4.0f)],
+            outputScale: 1.0f,
+            ResolutionPolicy.Inherit,
+            maxWorkingScale: 2.0f);
+        Assert.That(w, Is.EqualTo(2.0f));
+    }
+
     [Test]
     public void Resolve_UnitInputsUnitOutput_IsOne()
     {

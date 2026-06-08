@@ -44,18 +44,38 @@ public class RenderNodeContext(
         ResolutionPolicy policy,
         float maxWorkingScale = float.PositiveInfinity)
     {
-        // supply = the densest concrete (bitmap) input. Unbounded (vector) inputs impose no supply.
+        // supply = the densest concrete (bitmap) input. Unbounded (vector) inputs impose no supply
+        // on their own, but their presence alongside a bitmap raises the floor to the output density
+        // (see the mixed-content rule below).
         float supply = 0f;
         bool hasConcrete = false;
+        bool hasVector = false;
         foreach (EffectiveScale e in inputs)
         {
-            if (e.IsUnbounded) continue;
+            if (e.IsUnbounded)
+            {
+                hasVector = true;
+                continue;
+            }
+
             hasConcrete = true;
             if (e.Value > supply) supply = e.Value;
         }
 
-        // No concrete supply => purely vector content; rasterize at the output density.
-        if (!hasConcrete) supply = outputScale;
+        if (!hasConcrete)
+        {
+            // No concrete supply => purely vector content; rasterize at the output density.
+            supply = outputScale;
+        }
+        else if (hasVector && outputScale > supply)
+        {
+            // Mixed bitmap + vector (C4/C5): a low-density bitmap must NOT drag re-rasterizable vector
+            // content (crisp text/shapes) down to its density. The vector half can always be drawn at the
+            // output density, so the floor is at least s_out — the bitmap's lower density only bounds itself,
+            // not the vector siblings. At s_out == 1 with a unit-scale bitmap this is max(1, 1) == 1, so the
+            // byte-identity anchor is untouched; it only lifts genuinely-mixed, sub-output cases.
+            supply = outputScale;
+        }
 
         float w = policy.Kind switch
         {
@@ -72,6 +92,16 @@ public class RenderNodeContext(
             _ => supply,
         };
 
-        return MathF.Min(w, maxWorkingScale);
+        // An EXPLICIT Oversample(factor) request must reach factor×s_out even under a global ceiling (C8):
+        // the preview cap (FR-037: 2×s_out) exists to bound *passive* memory growth, not to silently neuter a
+        // deliberate quality opt-in — otherwise Oversample(2)/(4)/(8) all collapse to the same 2×s_out preview.
+        // The escape raises the ceiling only to the requested factor target; supply above that is still the
+        // passive part and stays bounded by maxWorkingScale. Inherit/Clamp keep the plain ceiling, so the
+        // byte-identity anchor (default policy, w == 1) is untouched.
+        float ceiling = policy.Kind == ResolutionPolicyKind.Oversample && policy.Factor > 0f
+            ? MathF.Max(maxWorkingScale, policy.Factor * outputScale)
+            : maxWorkingScale;
+
+        return MathF.Min(w, ceiling);
     }
 }
