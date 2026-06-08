@@ -1,0 +1,99 @@
+﻿using Beutl.Animation;
+using Beutl.Animation.Easings;
+using Beutl.Audio;
+using Beutl.Audio.Graph;
+using Beutl.Audio.Graph.Nodes;
+using Beutl.Engine;
+using Beutl.Media;
+
+namespace Beutl.UnitTests.Engine.Audio;
+
+[TestFixture]
+public class GainNodeTests
+{
+    private const int SampleRate = 100;
+
+    private sealed class ConstInputNode(int sampleRate, int channels, int count, float value) : AudioNode
+    {
+        public override AudioBuffer Process(AudioProcessContext context)
+        {
+            var buffer = new AudioBuffer(sampleRate, channels, count);
+            for (int ch = 0; ch < channels; ch++)
+            {
+                buffer.GetChannelData(ch).Fill(value);
+            }
+
+            return buffer;
+        }
+    }
+
+    private static IProperty<float> AnimatedGain(float fromPercent, float toPercent, double durationSeconds)
+    {
+        var property = Property.CreateAnimatable(fromPercent);
+        property.SetAttributes("Gain", []);
+
+        var animation = new KeyFrameAnimation<float>();
+        animation.KeyFrames.Add(new KeyFrame<float>
+        {
+            KeyTime = TimeSpan.Zero,
+            Value = fromPercent,
+            Easing = new LinearEasing()
+        });
+        animation.KeyFrames.Add(new KeyFrame<float>
+        {
+            KeyTime = TimeSpan.FromSeconds(durationSeconds),
+            Value = toPercent,
+            Easing = new LinearEasing()
+        });
+        property.Animation = animation;
+        return property;
+    }
+
+    private static AudioProcessContext CreateContext() =>
+        new(new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(1)), SampleRate, new AnimationSampler(), null);
+
+    // Gain is animatable (capability) but has no animation assigned. The node must use the static
+    // value (CurrentValue), not the per-sample animated path. Output values are identical either way,
+    // so this also characterizes the behavior-preserving IsAnimatable -> Animation != null change.
+    [Test]
+    public void Process_AnimatableGainWithoutAnimation_AppliesCurrentValue()
+    {
+        var gain = Property.CreateAnimatable(50f); // 50% -> factor 0.5
+        gain.SetAttributes("Gain", []);
+        using var node = new GainNode { Gain = gain };
+        node.AddInput(new ConstInputNode(SampleRate, 2, SampleRate, 1.0f));
+
+        using AudioBuffer result = node.Process(CreateContext());
+
+        Assert.That(result.SampleCount, Is.EqualTo(SampleRate));
+        Assert.That(result.ChannelCount, Is.EqualTo(2));
+        for (int ch = 0; ch < result.ChannelCount; ch++)
+        {
+            Span<float> data = result.GetChannelData(ch);
+            for (int i = 0; i < data.Length; i++)
+            {
+                Assert.That(data[i], Is.EqualTo(0.5f).Within(1e-6f),
+                    $"channel {ch} sample {i}");
+            }
+        }
+    }
+
+    // A real keyframe animation must still drive the per-sample animated path. Output ramps with the
+    // animated gain, so the last sample is strictly louder than the first.
+    [Test]
+    public void Process_GainWithAnimation_AppliesAnimatedValues()
+    {
+        using var node = new GainNode { Gain = AnimatedGain(0f, 100f, 1.0) };
+        node.AddInput(new ConstInputNode(SampleRate, 1, SampleRate, 1.0f));
+
+        using AudioBuffer result = node.Process(CreateContext());
+
+        Span<float> data = result.GetChannelData(0);
+        Assert.That(data[0], Is.EqualTo(0f).Within(1e-3f));
+        Assert.That(data[^1], Is.GreaterThan(data[0]));
+        foreach (float sample in data)
+        {
+            Assert.That(float.IsFinite(sample), Is.True);
+        }
+    }
+}
