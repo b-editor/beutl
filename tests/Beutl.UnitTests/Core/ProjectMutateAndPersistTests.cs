@@ -1,4 +1,5 @@
-﻿using Beutl.Services;
+﻿using Beutl.Serialization;
+using Beutl.Services;
 
 namespace Beutl.UnitTests.Core;
 
@@ -161,5 +162,46 @@ public class ProjectMutateAndPersistTests
         var item = new FakeProjectItem();
 
         Assert.Throws<ArgumentNullException>(() => ProjectPersistence.RemoveItemAndPersist(project, item, null!));
+    }
+
+    // The tests above inject the persist step. The two below exercise the production parameterless
+    // overloads, which route through the real StoreProject (null-Uri guard + CoreSerializer write) —
+    // the one seam the injectable overloads cannot cover.
+
+    [Test]
+    public void AddItemAndPersist_ParameterlessOverload_NullProjectUri_ThrowsAndRollsBack()
+    {
+        var project = new Project(); // Uri is null
+        var item = new FakeProjectItem();
+
+        // StoreProject's null-Uri guard must fire, and the add must roll back through the real path.
+        Assert.Throws<InvalidOperationException>(() => ProjectPersistence.AddItemAndPersist(project, item));
+
+        Assert.That(project.Items, Does.Not.Contain(item));
+        Assert.That(item.HierarchicalParent, Is.Null);
+    }
+
+    [Test]
+    public void RemoveItemAndPersist_ParameterlessOverload_WritesProjectFile()
+    {
+        // Exercises the real StoreProject + CoreSerializer write through the production overload.
+        // Removing a not-present item performs no mutation, so this isolates the persist wiring
+        // without depending on serialization of the test-only FakeProjectItem.
+        string dir = Path.Combine(Path.GetTempPath(), $"beutl_persist_test_{Guid.NewGuid():N}");
+        Directory.CreateDirectory(dir);
+        try
+        {
+            string path = Path.Combine(dir, "test.bep");
+            var project = new Project { Uri = new Uri(path) };
+
+            ProjectPersistence.RemoveItemAndPersist(project, new FakeProjectItem());
+
+            Assert.That(File.Exists(path), Is.True);
+            Assert.That(CoreSerializer.RestoreFromUri<Project>(new Uri(path)), Is.Not.Null);
+        }
+        finally
+        {
+            Directory.Delete(dir, recursive: true);
+        }
     }
 }

@@ -2,7 +2,6 @@
 using System.Text.Json.Nodes;
 using Beutl.Configuration;
 using Beutl.Editor;
-using Beutl.Language;
 using Beutl.Logging;
 using Beutl.Models;
 using Beutl.ProjectSystem;
@@ -140,7 +139,8 @@ public sealed class ProjectService
                 () =>
                 {
                     // The project file could not be written, so the scene file just persisted is
-                    // orphaned on disk. Remove it (best-effort) to keep disk consistent.
+                    // orphaned on disk. Delete it (best-effort); any directories created for the
+                    // project/scene are left in place.
                     try
                     {
                         File.Delete(scene.Uri.LocalPath);
@@ -165,7 +165,7 @@ public sealed class ProjectService
             activity?.SetStatus(ActivityStatusCode.Error);
             _logger.LogError(ex, "Unable to create the project. Name: {Name}, Location: {Location}", name, location);
             // Surface the actual failure (disk full, permission denied, ...) to the user instead of a
-            // generic "operation failed". Mirrors the scene-create path, which shows the message too.
+            // generic "operation failed".
             NotificationService.ShowError(Strings.Error, ex.Message);
             return null;
         }
