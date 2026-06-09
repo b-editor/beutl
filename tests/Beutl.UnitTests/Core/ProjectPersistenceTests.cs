@@ -44,8 +44,7 @@ public class ProjectPersistenceTests
                 () => throw persistEx,
                 () => throw rollbackEx));
 
-        // The divergent state is surfaced as a distinct exception so callers can warn the user,
-        // while the original persist failure and the rollback failure are both preserved.
+        // Both the original persist failure and the rollback failure are preserved.
         Assert.That(caught!.InnerException, Is.SameAs(persistEx));
         Assert.That(caught.RollbackException, Is.SameAs(rollbackEx));
     }

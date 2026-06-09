@@ -34,7 +34,7 @@ public class ProjectMutateAndPersistTests
             ProjectPersistence.AddItemAndPersist(project, item, () => throw new InvalidOperationException("disk full")));
 
         Assert.That(project.Items, Does.Not.Contain(item));
-        // Rolling the add back must also detach the parent, not just drop the list entry.
+        // Rolling back must also detach the parent.
         Assert.That(item.HierarchicalParent, Is.Null);
     }
 
@@ -122,7 +122,7 @@ public class ProjectMutateAndPersistTests
         // The removal is rolled back, restoring the original position.
         Assert.That(project.Items, Has.Count.EqualTo(3));
         Assert.That(project.Items[1], Is.SameAs(target));
-        // Re-inserting must re-attach the parent, not just restore the list entry.
+        // Re-inserting must re-attach the parent.
         Assert.That(target.HierarchicalParent, Is.SameAs(project));
     }
 
@@ -164,9 +164,9 @@ public class ProjectMutateAndPersistTests
         Assert.Throws<ArgumentNullException>(() => ProjectPersistence.RemoveItemAndPersist(project, item, null!));
     }
 
-    // The tests above inject the persist step. The two below exercise the production parameterless
-    // overloads, which route through the real StoreProject (null-Uri guard + CoreSerializer write) —
-    // the one seam the injectable overloads cannot cover.
+    // The two tests below exercise the parameterless overloads, which route through the real
+    // StoreProject (null-Uri guard + CoreSerializer write) — the one seam the injectable overloads
+    // cannot cover.
 
     [Test]
     public void AddItemAndPersist_ParameterlessOverload_NullProjectUri_ThrowsAndRollsBack()
@@ -184,9 +184,8 @@ public class ProjectMutateAndPersistTests
     [Test]
     public void RemoveItemAndPersist_ParameterlessOverload_WritesProjectFile()
     {
-        // Exercises the real StoreProject + CoreSerializer write through the production overload.
-        // Removing a not-present item performs no mutation, so this isolates the persist wiring
-        // without depending on serialization of the test-only FakeProjectItem.
+        // Removing a not-present item performs no mutation, isolating the real StoreProject +
+        // CoreSerializer write without serializing the test-only FakeProjectItem.
         string dir = Path.Combine(Path.GetTempPath(), $"beutl_persist_test_{Guid.NewGuid():N}");
         Directory.CreateDirectory(dir);
         try

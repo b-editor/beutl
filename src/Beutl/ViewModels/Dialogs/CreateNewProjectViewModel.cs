@@ -83,8 +83,7 @@ public sealed class CreateNewProjectViewModel
         Create = new AsyncReactiveCommand(CanCreate);
         Create.Subscribe(async () =>
         {
-            // CreateProject surfaces the specific failure to the user itself (see ProjectService),
-            // so there is no generic fallback notification here.
+            // CreateProject surfaces failures to the user itself, so no fallback notification here.
             await ProjectService.Current.CreateProject(
                 Size.Value.Width, Size.Value.Height,
                 FrameRate.Value, SampleRate.Value,

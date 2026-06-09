@@ -162,9 +162,8 @@ public partial class MainView
                 }
                 catch (Exception ex)
                 {
-                    // Surface a failed persist to the user; RemoveItemAndPersist has already
-                    // re-inserted the item, so without this an async-void exception would vanish
-                    // silently.
+                    // Surface the failed persist; RemoveItemAndPersist has already re-inserted the
+                    // item.
                     await ex.Handle();
                 }
             }

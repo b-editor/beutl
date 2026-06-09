@@ -78,16 +78,14 @@ public sealed class CreateNewSceneViewModel
             }
             catch (Exception ex)
             {
-                // Surface any failure from the scene write or the project persist to the user. When
-                // AddItemAndPersist throws it has already rolled the in-memory add back; without this
-                // the failure would vanish silently. Awaited so the API-error path of Handle() is
-                // observed rather than dropped on a discarded ValueTask.
+                // Surface a scene-write or persist failure. AddItemAndPersist has already rolled the
+                // add back; awaited so Handle()'s API-error path runs instead of being dropped.
                 await ex.Handle();
                 return;
             }
 
-            // Activation is not part of the persist step: a failure here must not be reported as a
-            // save failure, so it is kept outside the try above.
+            // Activation is not part of persistence, so a failure here must not be reported as a
+            // save failure — kept outside the try above.
             EditorService.Current.ActivateTabItem(scene);
         });
     }

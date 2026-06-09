@@ -138,9 +138,8 @@ public sealed class ProjectService
                 () => CoreSerializer.StoreToUri(project, project.Uri),
                 () =>
                 {
-                    // The project file could not be written, so the scene file just persisted is
-                    // orphaned on disk. Delete it (best-effort); any directories created for the
-                    // project/scene are left in place.
+                    // The project write failed, so the scene file just saved is orphaned. Delete it
+                    // (best-effort); any directories created are left in place.
                     try
                     {
                         File.Delete(scene.Uri.LocalPath);
@@ -164,8 +163,7 @@ public sealed class ProjectService
         {
             activity?.SetStatus(ActivityStatusCode.Error);
             _logger.LogError(ex, "Unable to create the project. Name: {Name}, Location: {Location}", name, location);
-            // Surface the actual failure (disk full, permission denied, ...) to the user instead of a
-            // generic "operation failed".
+            // Surface the actual failure (disk full, permission denied, ...) instead of a generic message.
             NotificationService.ShowError(Strings.Error, ex.Message);
             return null;
         }

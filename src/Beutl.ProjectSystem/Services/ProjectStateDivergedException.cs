@@ -1,15 +1,13 @@
 ﻿namespace Beutl.Services;
 
 /// <summary>
-/// Thrown when persisting a project failed and the subsequent rollback also failed, leaving the
-/// in-memory project and its on-disk file divergent — the unrecoverable condition that
-/// <see cref="ProjectPersistence.PersistOrRollback"/> otherwise prevents. Callers should surface
-/// this to the user (e.g. "reopen the project") rather than treat it as an ordinary save failure.
+/// Thrown when a project persist failed and the rollback also failed, leaving in-memory and on-disk
+/// state divergent. Callers should ask the user to reopen the project rather than treat it as an
+/// ordinary save failure.
 /// </summary>
 /// <remarks>
-/// <see cref="Exception.InnerException"/> is the original persist failure (the actionable cause,
-/// e.g. "disk full"); <see cref="RollbackException"/> is the rollback failure that left the state
-/// divergent.
+/// <see cref="Exception.InnerException"/> is the original persist failure;
+/// <see cref="RollbackException"/> is the rollback failure.
 /// </remarks>
 public sealed class ProjectStateDivergedException : Exception
 {
@@ -23,6 +21,6 @@ public sealed class ProjectStateDivergedException : Exception
         RollbackException = rollbackException;
     }
 
-    /// <summary>The rollback failure that left in-memory and on-disk state divergent.</summary>
+    /// <summary>The rollback failure that left the state divergent.</summary>
     public Exception RollbackException { get; }
 }
