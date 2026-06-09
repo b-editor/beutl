@@ -134,7 +134,21 @@ public sealed class ProjectService
             };
 
             CoreSerializer.StoreToUri(scene, scene.Uri);
-            CoreSerializer.StoreToUri(project, project.Uri);
+            ProjectPersistence.PersistOrRollback(
+                () => CoreSerializer.StoreToUri(project, project.Uri),
+                () =>
+                {
+                    // The project write failed, so the scene file just saved is orphaned. Delete it
+                    // (best-effort); any directories created are left in place.
+                    try
+                    {
+                        File.Delete(scene.Uri.LocalPath);
+                    }
+                    catch (Exception deleteEx)
+                    {
+                        _logger.LogWarning(deleteEx, "Failed to delete orphaned scene file: {Uri}", scene.Uri);
+                    }
+                });
 
             // 値を発行
             _projectObservable.OnNext((New: project, null));
@@ -149,6 +163,8 @@ public sealed class ProjectService
         {
             activity?.SetStatus(ActivityStatusCode.Error);
             _logger.LogError(ex, "Unable to create the project. Name: {Name}, Location: {Location}", name, location);
+            // Surface the actual failure (disk full, permission denied, ...) instead of a generic message.
+            NotificationService.ShowError(Strings.Error, ex.Message);
             return null;
         }
     }

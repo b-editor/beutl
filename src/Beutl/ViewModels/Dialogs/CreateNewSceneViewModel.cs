@@ -60,20 +60,32 @@ public sealed class CreateNewSceneViewModel
             }
             else return false;
         }).ToReadOnlyReactivePropertySlim();
-        Create = new ReactiveCommand(CanCreate);
-        Create.Subscribe(() =>
+        Create = new AsyncReactiveCommand(CanCreate);
+        Create.Subscribe(async () =>
         {
-            var scene = new Scene(Size.Value.Width, Size.Value.Height, Name.Value);
-            CoreSerializer.StoreToUri(scene,
-                UriHelper.CreateFromPath(Path.Combine(Location.Value, Name.Value,
-                    $"{Name.Value}.{EditorConstants.SceneFileExtension}")));
-
-            if (_proj != null)
+            Scene scene;
+            try
             {
-                _proj.Items.Add(scene);
-                CoreSerializer.StoreToUri(_proj, _proj.Uri!);
+                scene = new Scene(Size.Value.Width, Size.Value.Height, Name.Value);
+                CoreSerializer.StoreToUri(scene,
+                    UriHelper.CreateFromPath(Path.Combine(Location.Value, Name.Value,
+                        $"{Name.Value}.{EditorConstants.SceneFileExtension}")));
+
+                if (_proj != null)
+                {
+                    ProjectPersistence.AddItemAndPersist(_proj, scene);
+                }
+            }
+            catch (Exception ex)
+            {
+                // Surface a scene-write or persist failure. AddItemAndPersist has already rolled the
+                // add back; awaited so Handle()'s API-error path runs instead of being dropped.
+                await ex.Handle();
+                return;
             }
 
+            // Activation is not part of persistence, so a failure here must not be reported as a
+            // save failure — kept outside the try above.
             EditorService.Current.ActivateTabItem(scene);
         });
     }
@@ -86,7 +98,7 @@ public sealed class CreateNewSceneViewModel
 
     public ReadOnlyReactivePropertySlim<bool> CanCreate { get; }
 
-    public ReactiveCommand Create { get; }
+    public AsyncReactiveCommand Create { get; }
 
     private string GetInitialLocation()
     {

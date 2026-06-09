@@ -88,6 +88,9 @@ because the new name conflicts with an existing folder.</value>
   <data name="FailedToOpenProject" xml:space="preserve">
     <value>Could not open project.</value>
   </data>
+  <data name="ProjectStateDiverged" xml:space="preserve">
+    <value>The project could not be saved and the change could not be undone. The editor no longer matches the saved file — please reopen the project.</value>
+  </data>
   <data name="ApiErrorOccurred" xml:space="preserve">
     <value>API error occurred.</value>
   </data>

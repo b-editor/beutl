@@ -89,6 +89,9 @@
   <data name="FailedToOpenProject" xml:space="preserve">
     <value>プロジェクトを開けませんでした。</value>
   </data>
+  <data name="ProjectStateDiverged" xml:space="preserve">
+    <value>プロジェクトを保存できず、変更の取り消しにも失敗しました。エディターの状態が保存済みファイルと一致していません。プロジェクトを開き直してください。</value>
+  </data>
   <data name="ConfirmLoadSideloadExtensions" xml:space="preserve">
     <value>サイドロード拡張機能を読み込みますか？</value>
   </data>

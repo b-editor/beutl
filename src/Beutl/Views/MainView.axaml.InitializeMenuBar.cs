@@ -10,7 +10,6 @@ using Beutl.Editor;
 using Beutl.Editor.Services;
 using Beutl.Models;
 using Beutl.ProjectSystem;
-using Beutl.Serialization;
 using Beutl.Services;
 using Beutl.ViewModels;
 using Beutl.Views.Dialogs;
@@ -157,8 +156,16 @@ public partial class MainView
 
             if (await dialog.ShowAsync() == ContentDialogResult.Primary)
             {
-                project.Items.Remove(projItem);
-                CoreSerializer.StoreToUri(project, project.Uri!);
+                try
+                {
+                    ProjectPersistence.RemoveItemAndPersist(project, projItem);
+                }
+                catch (Exception ex)
+                {
+                    // Surface the failed persist; RemoveItemAndPersist has already re-inserted the
+                    // item.
+                    await ex.Handle();
+                }
             }
         }
     }
