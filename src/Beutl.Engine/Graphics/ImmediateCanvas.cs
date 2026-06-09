@@ -448,7 +448,7 @@ public partial class ImmediateCanvas : ICanvas
         var paint = new SKPaint();
 
         int count = Canvas.SaveLayer(paint);
-        new BrushConstructor(bounds, mask, (BlendMode)paint.BlendMode).ConfigurePaint(paint);
+        new BrushConstructor(bounds, mask, (BlendMode)paint.BlendMode, OutputScale).ConfigurePaint(paint);
         _states.Push(new CanvasPushedState.MaskPushedState(count, invert, paint));
         return new PushedState(this, _states.Count);
     }
@@ -502,13 +502,13 @@ public partial class ImmediateCanvas : ICanvas
         if (pen != null && pen.Thickness != 0)
         {
             _sharedStrokePaint.IsStroke = false;
-            new BrushConstructor(bounds, pen.Brush, blendMode).ConfigurePaint(_sharedStrokePaint);
+            new BrushConstructor(bounds, pen.Brush, blendMode, OutputScale).ConfigurePaint(_sharedStrokePaint);
         }
     }
 
     private void ConfigureFillPaint(Rect bounds, Brush.Resource? brush, BlendMode blendMode = BlendMode.SrcOver)
     {
         _sharedFillPaint.Reset();
-        new BrushConstructor(bounds, brush, blendMode).ConfigurePaint(_sharedFillPaint);
+        new BrushConstructor(bounds, brush, blendMode, OutputScale).ConfigurePaint(_sharedFillPaint);
     }
 }

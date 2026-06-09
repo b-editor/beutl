@@ -6,7 +6,7 @@ using SkiaSharp;
 
 namespace Beutl.Graphics;
 
-public readonly struct BrushConstructor(Rect bounds, Brush.Resource? brush, BlendMode blendMode)
+public readonly struct BrushConstructor(Rect bounds, Brush.Resource? brush, BlendMode blendMode, float scale = 1f)
 {
     public Rect Bounds { get; } = bounds;
 
@@ -14,12 +14,21 @@ public readonly struct BrushConstructor(Rect bounds, Brush.Resource? brush, Blen
 
     public BlendMode BlendMode { get; } = blendMode;
 
+    /// <summary>
+    /// The render/working density (device pixels per logical unit) of the canvas this brush fills into
+    /// (feature 003, A-1/T042). <c>1f</c> = logical == device (byte-identical to pre-feature). A tile / image /
+    /// drawable brush rasterizes its content into an intermediate sized <c>ceil(IntermediateSize × Scale)</c>
+    /// and its shader local-matrix is compensated by <c>Scale(1/Scale)</c>, so the fill stays crisp under SSAA
+    /// instead of being upscaled from a logical-resolution intermediate. CTM-following primitives ignore it.
+    /// </summary>
+    public float Scale { get; } = scale;
+
     public void ConfigurePaint(SKPaint paint)
     {
         // Handle BrushPresenter by delegating to the target brush
         if (Brush is BrushPresenter.Resource presenter && presenter.Target != null)
         {
-            new BrushConstructor(Bounds, presenter.Target, BlendMode).ConfigurePaint(paint);
+            new BrushConstructor(Bounds, presenter.Target, BlendMode, Scale).ConfigurePaint(paint);
             return;
         }
 
@@ -56,7 +65,7 @@ public readonly struct BrushConstructor(Rect bounds, Brush.Resource? brush, Blen
         // Handle BrushPresenter by delegating to the target brush
         if (Brush is BrushPresenter.Resource presenter && presenter.Target != null)
         {
-            return new BrushConstructor(Bounds, presenter.Target, BlendMode).CreateShader();
+            return new BrushConstructor(Bounds, presenter.Target, BlendMode, Scale).CreateShader();
         }
 
         float opacity = (Brush?.Opacity ?? 0) / 100f;
@@ -214,50 +223,59 @@ public readonly struct BrushConstructor(Rect bounds, Brush.Resource? brush, Blen
 
     private SKShader? CreateTileShader(TileBrush.Resource tileBrush)
     {
+        // feature 003 (A-1/T042): `s` is the canvas render density. The tile/image/drawable content is
+        // rasterized into an intermediate sized `ceil(IntermediateSize × s)` and the shader local-matrix is
+        // compensated by `Scale(1/s)`, so a brush FILL stays crisp under SSAA (s_out > 1) instead of being
+        // upscaled from a logical-resolution intermediate. `contentDensity` is the skImage's
+        // pixels-per-logical-content-unit (1 for a native bitmap; `s` for a DrawableBrush child re-rendered at
+        // `s`). `s == 1` keeps the exact pre-feature path (every `× s` / `1/s` is a no-op → byte-identical).
+        float s = Scale;
         RenderTarget? renderTarget = null;
         SKImage? skImage;
-        PixelSize pixelSize;
+        PixelSize pixelSize;     // LOGICAL content size (drives the TileBrushCalculator)
+        float contentDensity;    // skImage device px per logical content unit
 
         if (tileBrush is ImageBrush.Resource imageBrush
             && imageBrush.Source?.Bitmap is { } bitmap)
         {
             skImage = SKImage.FromBitmap(bitmap.SKBitmap);
             pixelSize = new(bitmap.Width, bitmap.Height);
+            contentDensity = 1f; // the bitmap's native pixels ARE the logical content (1:1); ×s intermediate keeps them
         }
         else if (tileBrush is DrawableBrush.Resource drawableBrush)
         {
-            // feature 003 KNOWN LIMITATION: the DrawableBrush content (and the TileBrush intermediate
-            // below) is rasterized at LOGICAL density and sampled by the tile shader, so a tile-/drawable-
-            // brush FILL is upscaled by the root CTM (soft) at s_out > 1 — the filled shape's edges stay
-            // crisp (vector). Full density requires threading s_out through the TileBrushCalculator +
-            // intermediate + shader local-matrix for every TileMode/Transform combination, each needing
-            // its own golden; that is intentionally scoped as a follow-up to avoid shipping mistiled
-            // brushes. Buffer activation IS implemented + verified for all filter effects and 3D.
             if (drawableBrush.Drawable is null) return null;
 
+            // Re-render the child at the render density `s` so the intermediate has real detail to sample
+            // (not an upscaled logical render). Bounds/positions stay logical; the buffers are × s.
             var drawable = drawableBrush.Drawable;
             using var node = new DrawableRenderNode(drawable);
-            using var context = new GraphicsContext2D(node, new PixelSize((int)Bounds.Width, (int)Bounds.Height));
+            using var context = new GraphicsContext2D(node, new PixelSize((int)Bounds.Width, (int)Bounds.Height), s);
             drawable.GetOriginal().Render(context, drawable);
-            var processor = new RenderNodeProcessor(node, true);
+            var processor = new RenderNodeProcessor(node, true, s);
             var ops = processor.RasterizeToRenderTargets();
             var totalBounds = ops.Aggregate(Rect.Empty, (current, item) => current.Union(item.Bounds));
 
-            renderTarget = RenderTarget.Create((int)totalBounds.Width, (int)totalBounds.Height);
+            int dw = Math.Max(1, (int)MathF.Ceiling((float)totalBounds.Width * s));
+            int dh = Math.Max(1, (int)MathF.Ceiling((float)totalBounds.Height * s));
+            renderTarget = RenderTarget.Create(dw, dh);
             if (renderTarget == null) return null;
 
-            using (var icanvas = new ImmediateCanvas(renderTarget))
+            using (var icanvas = new ImmediateCanvas(renderTarget, s))
             {
                 icanvas.Clear();
 
                 foreach (var op in ops)
                 {
-                    icanvas.DrawRenderTarget(op.RenderTarget, op.Bounds.Position - totalBounds.Position);
+                    // op.RenderTarget is already × s dense; place it at the × s device offset.
+                    Point offset = (op.Bounds.Position - totalBounds.Position) * s;
+                    icanvas.DrawRenderTarget(op.RenderTarget, offset);
                     op.RenderTarget.Dispose();
                 }
             }
 
-            pixelSize = new PixelSize((int)totalBounds.Width, (int)totalBounds.Height);
+            pixelSize = new PixelSize((int)totalBounds.Width, (int)totalBounds.Height); // LOGICAL
+            contentDensity = s;
             skImage = renderTarget.Value.Snapshot();
         }
         else
@@ -271,18 +289,28 @@ public readonly struct BrushConstructor(Rect bounds, Brush.Resource? brush, Blen
             if (skImage == null) return null;
 
             var calc = new TileBrushCalculator(tileBrush, pixelSize.ToSize(1), Bounds.Size);
-            SKSizeI intermediateSize = calc.IntermediateSize.ToSKSize().ToSizeI();
 
-            intermediate = RenderTarget.Create(intermediateSize.Width, intermediateSize.Height);
+            // Allocate the intermediate at the render density and draw the content into it densely. The draw
+            // matrix maps skImage px -> logical content (÷ contentDensity) -> logical intermediate
+            // (IntermediateTransform) -> dense intermediate (× s).
+            int iw = Math.Max(1, (int)MathF.Ceiling((float)calc.IntermediateSize.Width * s));
+            int ih = Math.Max(1, (int)MathF.Ceiling((float)calc.IntermediateSize.Height * s));
+
+            intermediate = RenderTarget.Create(iw, ih);
             if (intermediate == null) return null;
 
-            using (var canvas = new ImmediateCanvas(intermediate))
+            using (var canvas = new ImmediateCanvas(intermediate, s))
             using (var paintTmp = new SKPaint())
             {
                 canvas.Canvas.Clear();
                 canvas.Canvas.Save();
-                canvas.Canvas.ClipRect(calc.IntermediateClip.ToSKRect());
-                canvas.Canvas.SetMatrix(calc.IntermediateTransform.ToSKMatrix());
+                Rect clip = calc.IntermediateClip;
+                canvas.Canvas.ClipRect(new SKRect(
+                    (float)clip.Left * s, (float)clip.Top * s, (float)clip.Right * s, (float)clip.Bottom * s));
+                SKMatrix draw = SKMatrix.CreateScale(s, s)
+                    .PreConcat(calc.IntermediateTransform.ToSKMatrix())
+                    .PreConcat(SKMatrix.CreateScale(1f / contentDensity, 1f / contentDensity));
+                canvas.Canvas.SetMatrix(draw);
 
                 canvas.Canvas.DrawImage(skImage, 0, 0, tileBrush.BitmapInterpolationMode.ToSKSamplingOptions(),
                     paintTmp);
@@ -315,6 +343,13 @@ public readonly struct BrushConstructor(Rect bounds, Brush.Resource? brush, Blen
 
                 tileTransform = tileTransform.PreConcat(transform.ToSKMatrix());
             }
+
+            // The texture (intermediate) is now × s denser. Skia samples it as
+            //   texel = localMatrix⁻¹ · CTM⁻¹ · device, with the fill CTM = CreateScale(s).
+            // To map device pixels 1:1 onto the dense texels (crisp), the local-matrix must apply Scale(1/s)
+            // to the texture coordinates FIRST (un-densify them to logical), then the logical tile/user
+            // mapping. i.e. localMatrix = tileTransform ∘ Scale(1/s). At s == 1 this is a no-op.
+            tileTransform = tileTransform.PreConcat(SKMatrix.CreateScale(1f / s, 1f / s));
 
             using (SKImage snapshot = intermediate.Value.Snapshot())
             using (SKImage raster = snapshot.ToRasterImage())
