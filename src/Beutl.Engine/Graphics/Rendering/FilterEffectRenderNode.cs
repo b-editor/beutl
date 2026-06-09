@@ -44,7 +44,15 @@ public class FilterEffectRenderNode(FilterEffect.Resource filterEffect) : Contai
         float workingScale = RenderNodeContext.ResolveWorkingScale(
             inputScales, context.OutputScale, context.MaxWorkingScale);
 
-        using var feContext = new FilterEffectContext(context.CalculateBounds(), context.OutputScale, workingScale);
+        // FR-037 memory / GPU-texture backstop: the FR-037 ceiling bounds w, but the buffer (and its memory)
+        // scale with bounds × w. A supply density inflated by an anisotropic transform (FR-019, projected onto
+        // the most-detailed axis) can size ceil(bounds × w) past the GPU limit (un-allocatable) or into the
+        // multi-GiB range. Clamp w to the actual bounds so the effect degrades on the densest axis instead of
+        // crashing. Inert (returns w) for non-pathological bounds, so byte-identity at w == 1 is preserved.
+        Rect bounds = context.CalculateBounds();
+        workingScale = RenderNodeContext.ClampWorkingScaleToBufferBudget(bounds, workingScale);
+
+        using var feContext = new FilterEffectContext(bounds, context.OutputScale, workingScale);
         FilterEffect.Value.Resource.GetOriginal().ApplyTo(feContext, FilterEffect.Value.Resource);
         var effectTargets = new EffectTargets();
         effectTargets.AddRange(context.Input.Select(i => new EffectTarget(i)));

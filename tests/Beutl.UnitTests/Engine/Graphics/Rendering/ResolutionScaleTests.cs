@@ -1,3 +1,4 @@
+using Beutl.Graphics;
 using Beutl.Graphics.Rendering;
 
 namespace Beutl.UnitTests.Engine.Graphics.Rendering;
@@ -143,5 +144,36 @@ public class ResolutionScaleTests
             [EffectiveScale.Unbounded],
             outputScale: 1.0f);
         Assert.That(w, Is.EqualTo(1.0f));
+    }
+
+    // --- Buffer-budget backstop (FR-037 memory / GPU-texture limit; Codex finding #1/#4) ---------------
+
+    [Test]
+    public void ClampBudget_SmallBuffer_LeavesScaleUnchanged()
+    {
+        // The common case: a buffer well within the GPU limit is untouched (byte-identity preserved).
+        float w = RenderNodeContext.ClampWorkingScaleToBufferBudget(new Rect(0, 0, 1920, 1080), 2.0f);
+        Assert.That(w, Is.EqualTo(2.0f));
+    }
+
+    [Test]
+    public void ClampBudget_AnisotropicOverAllocation_IsBounded()
+    {
+        // FR-019 anisotropic case: a 3840×2160 source under a (0.25, 4) transform becomes 960×8640 logical,
+        // projected to density At(4). ceil(8640 × 4) = 34560 px > 16384 → must clamp so the larger axis fits.
+        float w = RenderNodeContext.ClampWorkingScaleToBufferBudget(new Rect(0, 0, 960, 8640), 4.0f);
+        Assert.That(w, Is.LessThan(4.0f), "anisotropic density must be clamped to fit the GPU buffer limit");
+        Assert.That(8640.0 * w, Is.LessThanOrEqualTo(RenderNodeContext.MaxBufferDimension + 1));
+    }
+
+    [Test]
+    public void ClampBudget_NeverIncreasesScale_AndGuardsNonFinite()
+    {
+        // It only ever reduces; a degenerate w passes through (the EffectiveScale.At factory already rejects
+        // non-finite densities, but the clamp must not amplify or NaN-propagate).
+        Assert.That(RenderNodeContext.ClampWorkingScaleToBufferBudget(new Rect(0, 0, 100, 100), 3.0f),
+            Is.EqualTo(3.0f)); // fits => unchanged, never raised
+        Assert.That(RenderNodeContext.ClampWorkingScaleToBufferBudget(new Rect(0, 0, 100, 100), float.NaN),
+            Is.NaN);
     }
 }

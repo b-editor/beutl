@@ -87,4 +87,36 @@ public class RenderNodeContext(
         // density, bounded only by the global memory ceiling. s_out is not a ceiling here.
         return MathF.Min(supply, maxWorkingScale);
     }
+
+    /// <summary>
+    /// The largest device-buffer axis (px) any feature-003 intermediate may allocate. A GPU texture larger
+    /// than this fails to allocate (Vulkan/Skia max-2D-image limit is commonly 16384), and even below it the
+    /// memory grows with the buffer AREA, not the working scale.
+    /// </summary>
+    public const int MaxBufferDimension = 16384;
+
+    /// <summary>
+    /// Clamps a working scale so the device buffer it allocates for <paramref name="logicalBounds"/> stays
+    /// within <paramref name="maxDimension"/> on each axis (feature 003 — the FR-037 ceiling bounds <c>w</c>
+    /// but NOT the buffer, because memory and the GPU texture limit scale with <c>bounds × w</c>, not <c>w</c>).
+    /// A supply-driven <c>w</c> — especially an <b>anisotropic</b> transform projected onto its most-detailed
+    /// axis (FR-019), which inflates the bounds on the stretched axis while raising the density — can size a
+    /// buffer past the GPU limit (un-allocatable → crash) or into the multi-GiB range. This reduces <c>w</c>
+    /// to fit, trading a quality reduction on the densest axis for a bounded, allocatable surface, rather than
+    /// failing. Returns <c>w</c> unchanged when the buffer already fits (the common case, so non-pathological
+    /// renders are untouched and byte-identity at <c>w == 1</c> is preserved).
+    /// </summary>
+    public static float ClampWorkingScaleToBufferBudget(
+        Rect logicalBounds, float w, int maxDimension = MaxBufferDimension)
+    {
+        if (!float.IsFinite(w) || w <= 0f) return w;
+
+        double largestAxisPx = Math.Ceiling(Math.Max(
+            Math.Abs((double)logicalBounds.Width), Math.Abs((double)logicalBounds.Height)) * w);
+        if (largestAxisPx <= maxDimension || largestAxisPx <= 0) return w;
+
+        // Reduce w so the larger axis lands at maxDimension (keep a hair of margin against the ceil()).
+        float fit = (float)(w * (maxDimension / largestAxisPx));
+        return MathF.Max(MathF.Min(w, fit), 0f);
+    }
 }
