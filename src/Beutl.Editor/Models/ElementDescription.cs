@@ -9,8 +9,8 @@ namespace Beutl.Editor.Models;
 /// <param name="EngineObjectFactory">
 /// Produces the initial engine object hosted by the element. The factory both constructs and
 /// configures the object, so callers can supply a fully-typed object (e.g. an adjustment layer)
-/// without a separate post-construction configuration step. Mutually exclusive with
-/// <paramref name="FileName"/>; ignored when a file is imported.
+/// without a separate post-construction configuration step. When <paramref name="FileName"/> is
+/// also set, file import takes precedence and the factory is ignored.
 /// </param>
 public record struct ElementDescription(
     TimeSpan Start,

@@ -185,7 +185,7 @@ internal sealed class ElementAdderImpl(EditViewModel context) : IElementAdder
             Element element = CreateElement();
             if (desc.EngineObjectFactory != null)
             {
-                EngineObject engineObject;
+                EngineObject? engineObject;
                 try
                 {
                     engineObject = desc.EngineObjectFactory();
@@ -195,6 +195,14 @@ internal sealed class ElementAdderImpl(EditViewModel context) : IElementAdder
                     // Aborting before any scene mutation keeps the add transactional: nothing is
                     // persisted or committed to history when the factory fails.
                     _logger.LogError(ex, "Failed to create the engine object for the new element; aborting add.");
+                    return;
+                }
+
+                if (engineObject == null)
+                {
+                    // A factory that returns null (rather than throwing) would otherwise NRE below,
+                    // bypassing the guard above. Abort here too, before mutating the scene.
+                    _logger.LogError("EngineObjectFactory returned null for the new element; aborting add.");
                     return;
                 }
 
