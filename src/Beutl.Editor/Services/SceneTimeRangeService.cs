@@ -104,7 +104,7 @@ public sealed class SceneTimeRangeService : ISceneTimeRangeService
 
         if (newEnd < scene.Start)
         {
-            // End past start: shift both back one frame.
+            // End dragged before the start: shift both back one frame.
             TimeSpan shifted = newEnd - frame;
             if (shifted < TimeSpan.Zero) shifted = TimeSpan.Zero;
             scene.Duration = scene.Start - shifted;
@@ -139,7 +139,8 @@ public sealed class SceneTimeRangeService : ISceneTimeRangeService
     /// <summary>
     /// Drag-phase end update. Clamps duration to <c>>= 1 frame</c> and never
     /// touches <see cref="Scene.Start"/>; dragging left of Start must only
-    /// shrink duration, not move the scene backward (a pre-refactor regression).
+    /// shrink duration, not move the scene backward — a regression vs. the
+    /// pre-refactor drag loop.
     /// </summary>
     private static void ApplyEndDrag(Scene scene, TimeSpan pointerTime)
     {
