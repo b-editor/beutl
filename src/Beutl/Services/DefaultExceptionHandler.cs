@@ -1,5 +1,4 @@
 ﻿using Beutl.Api.Clients;
-using Beutl.Language;
 using Beutl.Logging;
 using Microsoft.Extensions.Logging;
 using Refit;
@@ -24,6 +23,14 @@ public static class DefaultExceptionHandler
                 s_logger.LogError(ex, "Error while handling API error: {ApiContent}", apiError.Content);
                 NotificationService.ShowError(Strings.APIError, apiError.Message);
             }
+        }
+        else if (exception is ProjectStateDivergedException diverged)
+        {
+            // Persist and rollback both failed: the editor and the saved file are now out of sync.
+            // Tell the user to reopen the project rather than reporting a plain save failure, and log
+            // the full chain (original cause + rollback failure) for diagnosis.
+            s_logger.LogError(diverged, "Project state diverged: persist and rollback both failed.");
+            NotificationService.ShowError(Strings.Error, MessageStrings.ProjectStateDiverged);
         }
         else if (exception is not OperationCanceledException)
         {

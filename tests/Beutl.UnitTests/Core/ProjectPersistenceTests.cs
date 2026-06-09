@@ -34,17 +34,20 @@ public class ProjectPersistenceTests
     }
 
     [Test]
-    public void PersistOrRollback_RollbackThrows_OriginalPersistExceptionRethrown()
+    public void PersistOrRollback_RollbackThrows_ThrowsDivergedWithOriginalPreserved()
     {
         var persistEx = new InvalidOperationException("disk full");
+        var rollbackEx = new IOException("rollback failed too");
 
-        InvalidOperationException? caught = Assert.Throws<InvalidOperationException>(() =>
+        ProjectStateDivergedException? caught = Assert.Throws<ProjectStateDivergedException>(() =>
             ProjectPersistence.PersistOrRollback(
                 () => throw persistEx,
-                () => throw new IOException("rollback failed too")));
+                () => throw rollbackEx));
 
-        // The rollback failure must not mask the original persist exception.
-        Assert.That(caught, Is.SameAs(persistEx));
+        // The divergent state is surfaced as a distinct exception so callers can warn the user,
+        // while the original persist failure and the rollback failure are both preserved.
+        Assert.That(caught!.InnerException, Is.SameAs(persistEx));
+        Assert.That(caught.RollbackException, Is.SameAs(rollbackEx));
     }
 
     [Test]
