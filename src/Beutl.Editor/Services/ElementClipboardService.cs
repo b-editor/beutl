@@ -22,10 +22,9 @@ public sealed class ElementClipboardService : IElementClipboardService
     private readonly IElementAdder? _elementAdder;
     private readonly Func<Color> _imageAccentColorFactory;
 
-    /// <param name="imageAccentColorFactory">Supplies the accent color for an
-    /// element created from a clipboard bitmap paste. The production wiring
-    /// passes <c>ColorGenerator.GenerateColor</c> so the deterministic color
-    /// matches the rest of the application; tests can pass a fixed color.</param>
+    /// <param name="imageAccentColorFactory">Accent color for an element created
+    /// from a bitmap paste. Production passes <c>ColorGenerator.GenerateColor</c>;
+    /// tests can pass a fixed color.</param>
     public ElementClipboardService(
         HistoryManager historyManager,
         IClipboardGateway clipboard,
@@ -68,10 +67,8 @@ public sealed class ElementClipboardService : IElementClipboardService
         ArgumentNullException.ThrowIfNull(elements);
         if (elements.Count == 0) return false;
 
-        // Abort the destructive half when the clipboard write failed —
-        // otherwise the user loses the elements with no way to paste them
-        // back (the platform clipboard is unavailable, e.g. no top-level
-        // window).
+        // Abort the delete half if the clipboard write failed, else the user
+        // loses the elements with no way to paste them back.
         if (!await CopyAsync(elements))
         {
             s_logger.LogWarning(
@@ -140,9 +137,8 @@ public sealed class ElementClipboardService : IElementClipboardService
 
         if (!outcome.Success)
         {
-            // Match the diagnostic surface of the single-element / bitmap
-            // paths so the user can see why a multi-element paste did
-            // nothing (e.g. unsaved scene, I/O failure staging duplicates).
+            // Log like the single-element / bitmap paths so a no-op
+            // multi-element paste is diagnosable (unsaved scene, staging I/O).
             s_logger.LogWarning(
                 "PasteElementsAsync skipped: DuplicateAtClickedPosition failed for {Count} element(s) at ({Frame}, layer {Layer}).",
                 oldElements.Length, clickedFrame, clickedLayer);

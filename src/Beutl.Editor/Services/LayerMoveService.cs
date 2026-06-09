@@ -22,8 +22,7 @@ public sealed class LayerMoveService : ILayerMoveService
         ArgumentNullException.ThrowIfNull(directElements);
         if (oldLayer == newLayer) return LayerMovePlan.Noop;
 
-        // Enumerate the shift-range before mutating, so the range is
-        // captured against the pre-write state.
+        // Snapshot the shift-range before mutating, against the pre-write state.
         var shifted = new List<Element>();
         foreach (Element child in scene.Children)
         {
@@ -34,12 +33,9 @@ public sealed class LayerMoveService : ILayerMoveService
             }
         }
 
-        // TimelineLayer carries the layer's persisted color / name and its own
-        // recorded ZIndex. Its writes must land in the SAME transaction as the
-        // Element.ZIndex writes; otherwise an Undo of MoveLayer reverts the
-        // elements but leaves the header model desynced, and the stray writes
-        // leak into the next history entry. Snapshot before mutating, like the
-        // Element pass above.
+        // TimelineLayer's ZIndex writes must land in the SAME transaction as the
+        // Element writes, or Undo desyncs the header model and the stray writes
+        // leak into the next history entry. Snapshot first, like the pass above.
         var directLayers = new List<TimelineLayer>();
         var shiftedLayers = new List<TimelineLayer>();
         foreach (TimelineLayer layer in scene.Layers)
@@ -77,8 +73,8 @@ public sealed class LayerMoveService : ILayerMoveService
         return new LayerMovePlan(oldLayer, newLayer, directElements, shifted);
     }
 
-    // A ZIndex is shifted when it sits strictly between the old layer and the
-    // new layer, inclusive of the new layer (the slot the moved layer vacates).
+    // A ZIndex shifts when it lies between old and new layer, inclusive of the
+    // new layer (the slot the moved layer vacates).
     private static bool InShiftRange(int zIndex, int oldLayer, int newLayer)
         => oldLayer < newLayer
             ? zIndex > oldLayer && zIndex <= newLayer

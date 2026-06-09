@@ -4,11 +4,10 @@ using Beutl.Animation.Easings;
 namespace Beutl.Editor.Services;
 
 /// <summary>
-/// Parses clipboard JSON payloads for <see cref="KeyFrameAnimation"/> and
-/// <see cref="KeyFrame"/> and applies them to a target animation. The
-/// type-discriminator validation, generic-mismatch fallback, and
-/// existing-key collision logic was previously duplicated between
-/// <c>GraphEditorViewModel</c> and <c>InlineAnimationLayerViewModel</c>.
+/// Parses clipboard JSON for <see cref="KeyFrameAnimation"/> / <see cref="KeyFrame"/>
+/// and applies it to a target animation. Centralizes the type-discriminator
+/// validation, generic-mismatch fallback, and existing-key collision logic that
+/// was duplicated between the graph and inline-animation ViewModels.
 /// </summary>
 public interface IKeyFrameClipboardService
 {
@@ -18,13 +17,10 @@ public interface IKeyFrameClipboardService
     KeyFrameAnimationPasteOutcome PasteAnimation(KeyFrameAnimation target, string json);
 
     /// <summary>Parses <paramref name="json"/> as a single <see cref="KeyFrame"/>
-    /// and inserts (or replaces) it on <paramref name="target"/> at
-    /// <paramref name="keyTime"/>. On success commits one <c>PasteKeyFrame</c>
-    /// entry. When the pasted key's generic type does not match
-    /// <paramref name="target"/>, returns
-    /// <see cref="KeyFramePasteOutcome.GenericTypeMismatch"/> with the parsed
-    /// easing — the caller is expected to fall back to its own
-    /// <c>InsertKeyFrame</c> path using that easing.</summary>
+    /// and inserts/replaces it at <paramref name="keyTime"/>, committing one
+    /// <c>PasteKeyFrame</c>. On generic-type mismatch returns
+    /// <see cref="KeyFramePasteOutcome.GenericTypeMismatch"/> with the parsed easing,
+    /// so the caller can fall back to its own <c>InsertKeyFrame</c> using it.</summary>
     KeyFramePasteResult PasteKeyFrame(KeyFrameAnimation target, string json, TimeSpan keyTime);
 }
 

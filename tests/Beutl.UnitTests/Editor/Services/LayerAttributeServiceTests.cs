@@ -73,8 +73,7 @@ public class LayerAttributeServiceTests
         Assert.Multiple(() =>
         {
             Assert.That(changed, Is.True);
-            // Only the differing element flipped; the already-false one
-            // and the other-layer one are untouched.
+            // Only the differing element flipped; already-false and other-layer ones untouched.
             Assert.That(a.IsEnabled, Is.False);
             Assert.That(b.IsEnabled, Is.False);
             Assert.That(other.IsEnabled, Is.True);

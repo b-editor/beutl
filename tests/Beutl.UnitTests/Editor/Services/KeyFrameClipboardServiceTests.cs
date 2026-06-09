@@ -99,9 +99,7 @@ public class KeyFrameClipboardServiceTests
     public void PasteAnimation_Matching_Pasted_AndCommits()
     {
         KeyFrameAnimation<double> animation = MakeDoubleAnimation();
-        // Use a CoreObjectOperationObserver attached to the animation so its
-        // KeyFrames mutations are visible to the HistoryManager (the service
-        // calls PopulateFromJsonObject which mutates KeyFrames).
+        // Observer makes the service's KeyFrames mutations visible to the HistoryManager.
         using var observer = new CoreObjectOperationObserver(null, animation, _sequence);
         _history.Subscribe(observer);
 
@@ -151,8 +149,7 @@ public class KeyFrameClipboardServiceTests
         {
             Assert.That(result.Outcome, Is.EqualTo(KeyFramePasteOutcome.GenericTypeMismatch));
             Assert.That(result.EasingForFallback, Is.Not.Null);
-            // Service does not commit on this branch; the caller's
-            // InsertKeyFrame fallback owns the commit boundary.
+            // No commit here: the caller's InsertKeyFrame fallback owns the commit boundary.
             Assert.That(_history.UndoCount, Is.EqualTo(before));
         });
     }
@@ -199,7 +196,7 @@ public class KeyFrameClipboardServiceTests
             Easing = new LinearEasing(),
         };
         animation.KeyFrames.Add(existing, out _);
-        _history.Commit("seed"); // seal the seed so the next paste is a fresh entry
+        _history.Commit("seed"); // seal so the next paste is a fresh entry
 
         // Paste a different value at the same time.
         var sourceKey = new KeyFrame<double>
@@ -216,7 +213,7 @@ public class KeyFrameClipboardServiceTests
         Assert.Multiple(() =>
         {
             Assert.That(result.Outcome, Is.EqualTo(KeyFramePasteOutcome.ReplacedExisting));
-            // No new keyframe added — the existing one was updated in place.
+            // Existing keyframe updated in place, no new one added.
             Assert.That(animation.KeyFrames.Count, Is.EqualTo(1));
             Assert.That(((KeyFrame<double>)animation.KeyFrames[0]).Value, Is.EqualTo(0.5));
             Assert.That(_history.UndoCount, Is.EqualTo(before + 1));

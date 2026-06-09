@@ -76,8 +76,7 @@ public sealed class ElementStructureService : IElementStructureService
 
             newElements.Add(backward);
 
-            // Track group membership so the resulting back-clips stay in the
-            // same group as their source.
+            // Track group membership so back-clips stay in their source's group.
             int groupIndex = -1;
             for (int i = 0; i < scene.Groups.Count; i++)
             {
@@ -121,9 +120,8 @@ public sealed class ElementStructureService : IElementStructureService
         ArgumentNullException.ThrowIfNull(ids);
         if (ids.Count == 0) return GroupOutcome.NotCreated;
 
-        // Always remove the ids from existing groups first — when only one id is
-        // passed this is effectively an "ungroup this element from its set",
-        // which matches the previous in-VM behavior.
+        // Remove ids from existing groups first — with a single id this acts as
+        // "ungroup this element", matching the previous in-VM behavior.
         bool removed = RemoveIdsFromGroups(scene, ids);
 
         bool created = false;
@@ -137,10 +135,8 @@ public sealed class ElementStructureService : IElementStructureService
             }
         }
 
-        // Commit only when the call actually mutated something. An
-        // unconditional Commit would close the current transaction and pull
-        // in any unrelated pending operations (e.g. a Scene.Children.Add
-        // staged just before this call), creating a phantom undo entry.
+        // Commit only when something changed; an unconditional Commit would
+        // sweep unrelated pending operations into a phantom undo entry.
         if (removed || created)
         {
             _historyManager.Commit(CommandNames.GroupElements);

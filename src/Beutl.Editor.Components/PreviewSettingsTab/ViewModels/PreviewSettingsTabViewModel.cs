@@ -23,16 +23,12 @@ public sealed class PreviewSettingsTabViewModel : IToolContext, IPropertyEditorC
         var factory = editorContext.GetRequiredService<IPropertyEditorFactory>();
         EditorConfig config = GlobalConfiguration.Instance.EditorConfig;
 
-        // These editors edit the global EditorConfig, not the scene, so route their Commit()
-        // through a dedicated HistoryManager rooted at EditorConfig instead of the editor's
-        // scene history (same approach as the Output / encoder-settings property editors).
+        // Editors target global EditorConfig, not the scene, so commit into a dedicated
+        // EditorConfig-rooted HistoryManager (same as the Output / encoder-settings editors).
         _history = new HistoryManager(config, new OperationSequenceGenerator());
 
-        // Each group's "enabled" flag is shown as a ToggleSwitch next to the section header
-        // (bound two-way below), and also drives the IsEnabled of the dependent rows.
-        // The dependent rows themselves go through the property-editor mechanism so they reuse
-        // the standard editor for their CoreProperty type (number / enum). EditorConfig stays
-        // the single source of truth, which the rest of the app already reacts to.
+        // Each group's "enabled" ToggleSwitch (bound two-way below) gates its dependent rows,
+        // which reuse the standard property editors. EditorConfig stays the single source of truth.
         IsOnionSkinEnabled = BindToggle(config, EditorConfig.IsOnionSkinEnabledProperty, v => config.IsOnionSkinEnabled = v);
         AddEditors(factory, OnionSkinProperties,
             new CorePropertyAdapter<int>(EditorConfig.OnionSkinPrevCountProperty, config),
@@ -123,8 +119,7 @@ public sealed class PreviewSettingsTabViewModel : IToolContext, IPropertyEditorC
 
     public object? GetService(Type serviceType)
     {
-        // Isolate the settings history: editors Commit() into our EditorConfig-rooted
-        // HistoryManager, never the scene's editor history. Everything else falls through.
+        // Route editor Commit() into our EditorConfig-rooted history, not the scene's.
         if (serviceType == typeof(HistoryManager))
         {
             return _history;

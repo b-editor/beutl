@@ -3,12 +3,11 @@
 namespace Beutl.Editor.Services;
 
 /// <summary>
-/// Reorders layers: the elements at <c>oldLayer</c> move to <c>newLayer</c>
-/// and every layer between them shifts by one. <see cref="ApplyMove"/>
-/// owns the model writes (<see cref="Element.ZIndex"/> on the direct and
-/// shifted sets) and commits a single <c>MoveLayer</c> history entry.
-/// The returned <see cref="LayerMovePlan"/> lists the affected elements so
-/// the View can drive matching animations after the call.
+/// Reorders layers: elements at <c>oldLayer</c> move to <c>newLayer</c> and the
+/// layers between shift by one. <see cref="ApplyMove"/> owns the
+/// <see cref="Element.ZIndex"/> writes (direct + shifted sets) and commits one
+/// <c>MoveLayer</c> entry, returning a <see cref="LayerMovePlan"/> of affected
+/// elements so the View can drive matching animations afterward.
 /// </summary>
 public interface ILayerMoveService
 {

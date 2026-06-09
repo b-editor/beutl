@@ -156,9 +156,7 @@ public class ElementClipboardServiceTests
 
         bool result = await _service.CutAsync(_scene, [element]);
 
-        // Without this guard, Cut would remove the element and commit a
-        // history entry even though the clipboard write silently failed —
-        // user-visible data loss.
+        // Guard against data loss: a failed clipboard write must not let Cut remove + commit.
         Assert.Multiple(() =>
         {
             Assert.That(result, Is.False);
@@ -183,11 +181,8 @@ public class ElementClipboardServiceTests
 
         ElementPasteOutcome outcome = await _service.PasteAsync(_scene, clicked, clickedLayer);
 
-        // The spiral search anchors at (clickedFrame, clickedLayer); with an
-        // empty timeline area around (20s, layer 3) the duplicates land
-        // exactly there. Previously this test would have placed copies at
-        // (0s, layer 0) regardless of the click — the regression Copilot
-        // flagged.
+        // Spiral search anchors at (clickedFrame, clickedLayer); empty area means duplicates land
+        // exactly there. Regression: copies used to land at (0s, layer 0) regardless of the click.
         Assert.Multiple(() =>
         {
             Assert.That(outcome.Pasted, Is.True);
@@ -203,8 +198,7 @@ public class ElementClipboardServiceTests
 
         await _service.CopyAsync([element]);
 
-        // Both the JSON format and the platform text slot must carry the
-        // payload — the gateway used to drop "text/plain" silently.
+        // Both JSON and the platform text slot must carry the payload; "text/plain" used to be dropped.
         IReadOnlyList<string> formats = await _clipboard.GetFormatsAsync();
         Assert.Multiple(() =>
         {
@@ -220,9 +214,7 @@ public class ElementClipboardServiceTests
         private byte[]? _bitmapPng;
 
         /// <summary>
-        /// Simulates an unavailable platform clipboard (e.g. no top-level
-        /// window). When true, <see cref="SetAsync"/> returns false and
-        /// drops the entries.
+        /// Simulates an unavailable platform clipboard: <see cref="SetAsync"/> returns false and drops entries.
         /// </summary>
         public bool SimulateUnavailable { get; set; }
 

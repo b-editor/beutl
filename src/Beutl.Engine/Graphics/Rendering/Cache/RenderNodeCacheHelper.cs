@@ -134,9 +134,8 @@ public readonly record struct RenderCacheRules(int MaxPixels, int MinPixels)
 {
     public static readonly RenderCacheRules Default = new(1000 * 1000, 1);
 
-    // The settings UI exposes Min/Max through independent number editors that cannot express the
-    // cross-field constraint, so normalize here: MinPixels >= 1 and MaxPixels >= MinPixels. Without
-    // this, MinPixels > MaxPixels would make Match() always false and silently disable all caching.
+    // The settings UI edits Min/Max independently, so normalize the cross-field constraint here
+    // (Min >= 1, Max >= Min); otherwise Min > Max makes Match() always false and disables caching.
     public static RenderCacheRules Create(int maxPixels, int minPixels)
     {
         int min = Math.Max(1, minPixels);

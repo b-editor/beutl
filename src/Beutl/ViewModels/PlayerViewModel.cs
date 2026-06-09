@@ -193,8 +193,8 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
 
         EditorConfig editorConfig = GlobalConfiguration.Instance.EditorConfig;
 
-        // The onion-skin settings UI lives in PreviewSettingsTab and writes directly to EditorConfig.
-        // Observe EditorConfig here so the preview re-renders whenever any onion-skin setting changes.
+        // The settings UI now lives in PreviewSettingsTab; observe EditorConfig directly so the
+        // preview re-renders on any onion-skin setting change.
         editorConfig.GetObservable(EditorConfig.IsOnionSkinEnabledProperty)
             .CombineLatest(
                 editorConfig.GetObservable(EditorConfig.OnionSkinPrevCountProperty),

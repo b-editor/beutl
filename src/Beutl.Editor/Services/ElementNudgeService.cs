@@ -7,9 +7,8 @@ namespace Beutl.Editor.Services;
 
 public sealed class ElementNudgeService : IElementNudgeService
 {
-    // Empirical: long enough to bridge typical key-repeat intervals (~30-50ms)
-    // but short enough to keep two intentional taps from collapsing into one
-    // history entry.
+    // Empirical: bridges key-repeat (~30-50ms) without collapsing two
+    // intentional taps into one history entry.
     private static readonly TimeSpan DebounceWindow = TimeSpan.FromMilliseconds(300);
 
     private static readonly ILogger s_logger = Log.CreateLogger<ElementNudgeService>();
@@ -19,17 +18,16 @@ public sealed class ElementNudgeService : IElementNudgeService
     private readonly Timer _timer;
     private readonly object _gate = new();
     private bool _pending;
-    // volatile so a Nudge() racing with Dispose() on another thread sees the
-    // flag immediately. The lock-protected re-check inside Schedule() is the
-    // primary guard against ObjectDisposedException on _timer.Change.
+    // volatile for a quick cross-thread read; the lock-protected re-check in
+    // Schedule() is the real guard against ObjectDisposedException on _timer.
     private volatile bool _disposed;
 
     /// <param name="postToUi">
-    /// Posts the deferred commit onto the UI thread. The debounce timer fires on
-    /// a thread-pool thread, but <see cref="HistoryManager.Commit"/> and its
-    /// reactive fan-out must run where every other editing service commits.
-    /// Pass <see langword="null"/> (the default) to commit inline on the timer
-    /// thread — tests rely on this and drive <see cref="Flush"/> synchronously.
+    /// Posts the deferred commit onto the UI thread, since the debounce timer
+    /// fires on a thread-pool thread but <see cref="HistoryManager.Commit"/>
+    /// must run on the UI thread. Pass <see langword="null"/> (default) to
+    /// commit inline on the timer thread — tests drive <see cref="Flush"/>
+    /// synchronously this way.
     /// </param>
     public ElementNudgeService(HistoryManager historyManager, Action<Action>? postToUi = null)
     {
@@ -46,8 +44,8 @@ public sealed class ElementNudgeService : IElementNudgeService
 
         int rate = SceneTimeRangeService.GetFrameRate(scene);
 
-        // Anchor on the leftmost element so the resulting delta lands on the
-        // frame grid even when callers have off-grid starts.
+        // Anchor on the leftmost element so the delta lands on the frame grid
+        // even when callers have off-grid starts.
         Element anchor = targets
             .OrderBy(e => e.Start)
             .ThenBy(e => e.ZIndex)
@@ -79,9 +77,8 @@ public sealed class ElementNudgeService : IElementNudgeService
 
     public void Dispose()
     {
-        // _disposed is volatile, but the lock pairs Flush()/Schedule() against
-        // Dispose() so a concurrent Schedule cannot reach _timer.Change after
-        // _timer.Dispose has run.
+        // Lock pairs Flush()/Schedule() against Dispose() so a concurrent
+        // Schedule cannot reach _timer.Change after _timer.Dispose.
         lock (_gate)
         {
             if (_disposed) return;
@@ -96,9 +93,8 @@ public sealed class ElementNudgeService : IElementNudgeService
     {
         lock (_gate)
         {
-            // Recheck under the lock: Dispose may have flipped _disposed between
-            // the unlocked guard in Nudge() and reaching this line. Without this
-            // recheck _timer.Change throws ObjectDisposedException.
+            // Recheck under the lock: Dispose may have flipped _disposed since
+            // the unlocked guard in Nudge(), else _timer.Change would throw.
             if (_disposed) return;
 
             _pending = true;
@@ -108,10 +104,9 @@ public sealed class ElementNudgeService : IElementNudgeService
 
     private void OnTimerTick(object? state)
     {
-        // Runs on a thread-pool thread. Marshal the drain to the UI thread when a
-        // post is available so the commit's reactive fan-out is serialized with
-        // every other UI-thread editing operation; the _gate re-check inside
-        // DrainPending keeps it correct against a concurrent Flush / Dispose.
+        // Runs on a thread-pool thread; marshal the drain to the UI thread when
+        // a post is available so the commit serializes with other UI edits. The
+        // _gate re-check in DrainPending guards against a concurrent Flush/Dispose.
         if (_postToUi is { } post)
         {
             post(DrainPending);

@@ -62,10 +62,9 @@ public class DelayNodeTests
         return property;
     }
 
-    // An animatable property with NO animation assigned must behave exactly like a genuinely
-    // non-animatable (static) property: both feed CurrentValue every sample. This is the core
-    // guarantee of routing on Animation != null instead of the IsAnimatable capability flag.
-    // The CircularBuffer state is stateful across renders, so each render uses a fresh node.
+    // An animatable property with NO animation must behave exactly like a static one: both feed
+    // CurrentValue every sample. This is the point of routing on Animation != null, not IsAnimatable.
+    // The CircularBuffer is stateful across renders, so each render uses a fresh node.
     [Test]
     public void Process_AnimatableParamsWithoutAnimation_MatchesNonAnimatableStatic()
     {

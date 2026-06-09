@@ -61,9 +61,7 @@ public class NodeGraphMutationServiceTests
         int beforeUndo = _history.UndoCount;
         int beforeNodes = _graph.Nodes.Count;
 
-        // GraphGroup allows only one GroupInput. The second add must
-        // silently reject — historically this guard was duplicated at
-        // every call site in NodeGraphViewModel.AddNodePort.
+        // GraphGroup allows only one GroupInput: the second add must reject (guard centralized here).
         bool added = _service.AddNode(_graph, new GroupInput(), 50, 50);
 
         Assert.Multiple(() =>

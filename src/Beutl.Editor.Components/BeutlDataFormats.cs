@@ -6,8 +6,8 @@ namespace Beutl.Editor.Components;
 
 public static class BeutlDataFormats
 {
-    // Format strings come from BeutlClipboardFormats so the Avalonia-free
-    // layer and this Avalonia-typed layer can never drift apart.
+    // Reuse BeutlClipboardFormats' strings so the Avalonia-free and Avalonia-typed
+    // layers can't drift apart.
     public static readonly DataFormat<string> Element = DataFormat.CreateStringApplicationFormat(BeutlClipboardFormats.Element);
     public static readonly DataFormat<string> Elements = DataFormat.CreateStringApplicationFormat(BeutlClipboardFormats.Elements);
     public static readonly DataFormat<string> KeyFrame = DataFormat.CreateStringApplicationFormat(nameof(Animation.KeyFrame));

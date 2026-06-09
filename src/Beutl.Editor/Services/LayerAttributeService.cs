@@ -48,9 +48,8 @@ public sealed class LayerAttributeService : ILayerAttributeService
 
         if (existing is null)
         {
-            // No TimelineLayer for this zIndex yet — lazily materialize one so the
-            // color is persisted. Without this branch the picker silently no-ops
-            // on a fresh layer.
+            // No TimelineLayer for this zIndex yet — materialize one to persist
+            // the color, else the picker no-ops on a fresh layer.
             var created = new TimelineLayer
             {
                 Name = defaultName,

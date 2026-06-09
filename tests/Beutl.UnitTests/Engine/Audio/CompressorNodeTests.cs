@@ -50,9 +50,8 @@ public class CompressorNodeTests
         return buffer;
     }
 
-    // A normal sine buffer with a single +Infinity head sample on every channel. Feeding it drives
-    // the envelope non-finite (recovered to MinDb) and the product non-finite (zeroed by
-    // SanitizeOutput), emitting the one-shot non-finite-sample warning exactly once per armed period.
+    // Sine buffer with a +Infinity head sample on every channel: drives the envelope and product
+    // non-finite, emitting the one-shot non-finite-sample warning once per armed period.
     private static AudioBuffer MakeInfinityHeadBuffer(int sampleCount, int sampleRate = SampleRate)
     {
         var buffer = CreateSineBuffer(0.9f, 1000f, sampleCount, 2, sampleRate);
@@ -137,15 +136,10 @@ public class CompressorNodeTests
     [Test]
     public void Process_SilenceInput_ProducesExactSilenceOutput()
     {
-        // End-to-end "silence in → silence out" smoke test. Note: this does NOT specifically
-        // isolate the `peak > 0f` guard, because RecoverEnvelopeIfNonFinite would mask the
-        // non-finite envelope state produced when Log10(0) = -Infinity propagates through the
-        // IIR formula `inputDb + coeff * (_envelopeDb - inputDb)` (NaN appears at the
-        // (-∞) + coeff·(+∞) step). The gain calculation against a 0-amplitude sample still
-        // yields exactly 0 either way. Genuinely isolating that guard would require log capture
-        // or exposing internal state. What this test does catch: any future bug that injects DC,
-        // noise, or non-zero offset into a silent stream (e.g., a stray makeup application that
-        // mishandles the additive identity, or a sanitizer that fails open).
+        // End-to-end "silence in → silence out" smoke test. It does NOT isolate the `peak > 0f`
+        // guard (RecoverEnvelopeIfNonFinite masks the Log10(0) = -∞ envelope state, and the gain
+        // calc yields 0 either way), but it catches any future bug injecting DC/noise/offset into
+        // a silent stream (a stray makeup application, a sanitizer that fails open, etc.).
         const int sampleCount = SampleRate / 4;
         using var input = new AudioBuffer(SampleRate, 2, sampleCount);
         // Default-constructed AudioBuffer is zeroed, so no fill needed.
@@ -170,11 +164,9 @@ public class CompressorNodeTests
     [Test]
     public void Process_AttackTimeConstant_EnvelopeReachesAbout63PercentAfterAttackMs()
     {
-        // Step input drives the envelope from MinDb toward inputDb_max. After exactly attackMs
-        // milliseconds, a one-pole IIR with time constant attackMs should have reached
-        // ~(1 - 1/e) ≈ 63% of the way to its target. This is the contract the ComputeCoeff
-        // formula encodes; a regression like dropping the ms→s conversion (timeMs * sampleRate
-        // instead of timeMs * 0.001f * sampleRate) would leave the envelope still near -100 dB.
+        // A one-pole IIR with time constant attackMs should reach ~(1 - 1/e) ≈ 63% of its target
+        // after attackMs. Catches a dropped ms→s conversion in ComputeCoeff, which would leave the
+        // envelope near -100 dB.
         const float attackMs = 50f;
         const int sampleCount = SampleRate; // 1 s
         const int stepAt = SampleRate / 10; // step at 100 ms; envelope sits at MinDb until then
@@ -185,13 +177,10 @@ public class CompressorNodeTests
             data[i] = 1f; // exactly 0 dB peak after the step
         }
 
-        // Threshold = -50 dB is the load-bearing choice. With the bug, envelope stays near
-        // -100 dB (below threshold) → gainReductionDb = 0 → output = input → reconstructed
-        // envelope clamps to thresholdDb = -50 dB. Setting threshold ABOVE the buggy envelope
-        // (at -50, far above -100) makes the buggy reconstruction 13.21 dB away from the target
-        // (-36.79 dB), well outside the ±5 dB tolerance. A threshold of -40 or lower would put
-        // the buggy reconstruction within tolerance and the test would falsely pass.
-        // Knee=0 keeps the gain formula linear so we can back-solve the envelope value.
+        // Threshold = -50 dB is load-bearing: it sits far above the buggy frozen envelope (-100 dB),
+        // so the buggy reconstruction lands ~13 dB from the -36.79 dB target, outside the ±5 dB
+        // tolerance (a threshold of -40 or lower would falsely pass). Knee=0 keeps the formula linear
+        // so the envelope is back-solvable.
         const float thresholdDb = -50f;
         const float ratio = 4f;
         const float slope = 1f - 1f / ratio; // 0.75
@@ -200,26 +189,20 @@ public class CompressorNodeTests
         var ctx = CreateContext(TimeSpan.Zero, TimeSpan.FromSeconds(1.0));
         using var output = node.Process(ctx);
 
-        // Sample exactly attackMs after the step. At that point, in dB-domain:
-        //   envelopeDb(t) = inputDb_max - (inputDb_max - inputDb_initial) * exp(-t / attackMs)
-        // With inputDb_max = 0 dB (peak 1.0) and inputDb_initial = MinDb = -100 dB:
-        //   envelopeDb ≈ 0 - 100 * (1/e) ≈ -36.79 dB at t = attackMs.
+        // Sample exactly attackMs after the step: envelopeDb ≈ 0 - 100/e ≈ -36.79 dB there
+        // (inputDb_max = 0 dB, initial = MinDb = -100 dB).
         int probeIdx = stepAt + (int)(attackMs * 0.001f * SampleRate);
-        // Reconstruct envelopeDb from the observed gain reduction:
-        //   gainLinear = 10^(-gainReductionDb / 20), envelope = output / input.
+        // Reconstruct envelopeDb from observed gain: gainLinear = output / input.
         float gainLinear = MathF.Abs(output.GetChannelData(0)[probeIdx] / data[probeIdx]);
         float gainReductionDb = -20f * MathF.Log10(gainLinear);
 
-        // Direct assertion: the expected gain reduction at t = attackMs is
-        //   slope * (-36.79 - thresholdDb) = 0.75 * (-36.79 - (-50)) = 0.75 * 13.21 ≈ 9.91 dB.
-        // Under the ms→s bug, envelope stays below threshold so gainReductionDb is 0 — the
-        // tolerance below excludes that. This is the load-bearing assertion.
+        // Load-bearing assertion: expected reduction ≈ slope * (-36.79 - thresholdDb) ≈ 9.91 dB.
+        // Under the ms→s bug the envelope stays below threshold (reduction 0), which the tolerance excludes.
         Assert.That(gainReductionDb, Is.EqualTo(9.91f).Within(2f),
             $"At t = attackMs ({attackMs} ms), expected ≈9.91 dB reduction but got {gainReductionDb:F2} dB. " +
             $"Near 0 dB indicates ComputeCoeff lost its ms→s conversion.");
 
-        // Secondary back-solve for human readability of the failure mode:
-        //   gainReductionDb = slope * (envelopeDb - thresholdDb) for envelopeDb > thresholdDb.
+        // Secondary back-solve to make the failure mode human-readable.
         float reconstructedEnvelopeDb = thresholdDb + gainReductionDb / slope;
         Assert.That(reconstructedEnvelopeDb, Is.EqualTo(-36.79f).Within(5f),
             $"After attackMs={attackMs} ms, envelope should reach ~63% (≈-36.79 dB) but got {reconstructedEnvelopeDb:F2} dB");
@@ -228,11 +211,9 @@ public class CompressorNodeTests
     [Test]
     public void Process_BelowThreshold_LeavesSignalUnchanged()
     {
-        // Amplitude 0.05 ≈ -26 dB peak, well below the -20 dB threshold, so output should be a
-        // bit-identical pass-through: the envelope never crosses the threshold, gainReductionDb is
-        // always 0, makeup is 0, so gainLinear = 10^0 = 1.0f exactly and output == input bit-for-bit.
-        // We assert exact equality (no tolerance) so any future bug injecting a near-zero residual
-        // gain is caught immediately.
+        // Amplitude 0.05 (≈-26 dB) is below the -20 dB threshold, so output must be a bit-identical
+        // pass-through (gain = 1.0 exactly). Asserted with no tolerance to catch any near-zero
+        // residual gain a future bug might inject.
         const int sampleCount = SampleRate / 2;
         using var input = CreateSineBuffer(0.05f, 1000f, sampleCount);
         var source = new StubSourceNode { Buffer = input };
@@ -258,12 +239,10 @@ public class CompressorNodeTests
     [Test]
     public void Process_AboveThreshold_AppliesExpectedGainReduction()
     {
-        // Sine well above the threshold. The analytic steady-state for a 0.9 peak (-0.92 dB) at
-        // threshold -20, ratio 4 is -0.92 - 0.75*(-0.92+20) = -15.23 dB, but the per-sample peak
-        // detector dips at every zero crossing so the measured peak sits a little above that, near
-        // -13.5 dB. The band [-16, -11] (center -13.5, ±2.5) intentionally spans BOTH the analytic
-        // ratio value and the ripple-attenuated measurement, so it stays sensitive to a slope sign
-        // flip or a missing makeup while not encoding a peak-detector-specific magic number.
+        // Sine above threshold. Analytic steady-state is -15.23 dB but the per-sample peak detector
+        // dips at zero crossings, so the measured peak sits near -13.5 dB. The ±2.5 band spans both
+        // values: sensitive to a slope sign flip or missing makeup without encoding a detector-specific
+        // magic number.
         const int sampleCount = SampleRate;
         using var input = CreateSineBuffer(0.9f, 1000f, sampleCount);
         var source = new StubSourceNode { Buffer = input };
@@ -298,8 +277,8 @@ public class CompressorNodeTests
         float steadyStartSample = SampleRate / 2;
         float outputPeakDb = PeakDb(output, (int)steadyStartSample);
 
-        // Makeup gain should add directly on top of the compressed level. Same ±2.5 band as the
-        // no-makeup case, shifted up by the +6 dB makeup (analytic -9.23 dB, measured near -7.5 dB).
+        // Makeup adds on top of the compressed level: same ±2.5 band shifted up by +6 dB
+        // (measured near -7.5 dB).
         Assert.That(outputPeakDb, Is.EqualTo(-7.5f).Within(2.5f));
     }
 
@@ -352,9 +331,8 @@ public class CompressorNodeTests
     [Test]
     public void Process_LinkedStereo_AppliesSameGainToBothChannels()
     {
-        // L = 0.9 sine drives compression; R = 0.05 sine sits below the threshold and would not
-        // compress on its own. Linked-stereo behaviour applies the L-derived gain reduction to R
-        // as well, so R's output should be R_input_peak attenuated by the same amount as L.
+        // L (0.9 sine) drives compression; R (0.05 sine) is below threshold and wouldn't compress
+        // alone. Linked-stereo applies L's gain reduction to R, so R is attenuated by the same amount.
         const int sampleCount = SampleRate;
         using var input = new AudioBuffer(SampleRate, 2, sampleCount);
         float leftInputPeakDb = 20f * MathF.Log10(0.9f);
@@ -384,9 +362,8 @@ public class CompressorNodeTests
         Assert.That(leftPeakDb, Is.EqualTo(-13.5f).Within(2.5f),
             "Sanity check: this test relies on L being compressed; if this fails the linked-gain expectation below is moot.");
 
-        // The L-channel gain reduction (positive dB number) inferred from the measurement is
-        // applied to the R channel by linked-stereo design, so R should land at the same dB
-        // distance below its input peak.
+        // L's measured gain reduction is applied to R by linked-stereo design, so R lands the same
+        // dB distance below its input peak.
         float leftGainReductionDb = leftInputPeakDb - leftPeakDb;
         float expectedRightDb = rightInputPeakDb - leftGainReductionDb;
         Assert.That(rightPeakDb, Is.EqualTo(expectedRightDb).Within(1.5f));
@@ -395,11 +372,9 @@ public class CompressorNodeTests
     [Test]
     public void Process_EnvelopeStateContinuesAcrossChunks()
     {
-        // A node warmed up by a previous loud chunk must NOT reset its envelope when the next
-        // chunk continues directly in time. We verify this by comparing the first sample of the
-        // second chunk against a fresh node processing the same loud input from scratch:
-        // the warmed-up node is already in compression so its first sample is quieter, while
-        // the fresh node still has to ramp through the attack phase.
+        // A node warmed up by a previous loud chunk must NOT reset its envelope on a time-contiguous
+        // next chunk. The warmed-up node is already in compression, so its first sample is quieter
+        // than a fresh node still ramping through attack.
         const int chunkSamples = SampleRate / 10;
         var chunkDuration = TimeSpan.FromSeconds(chunkSamples / (double)SampleRate);
         var ctx1 = CreateContext(TimeSpan.Zero, chunkDuration);
@@ -427,8 +402,7 @@ public class CompressorNodeTests
     [Test]
     public void Process_NonContiguousTimeRange_ResetsEnvelope()
     {
-        // First chunk drives compression; the second chunk starts at a non-contiguous time and
-        // must therefore reset the envelope so it begins fresh from MinDb.
+        // Second chunk starts at a non-contiguous time, so the envelope must reset to MinDb.
         const int chunkSamples = SampleRate / 10;
         using var loud = CreateConstantBuffer(0.9f, chunkSamples);
 
@@ -450,8 +424,7 @@ public class CompressorNodeTests
         using var freshOutput = nodeFresh.Process(
             CreateContext(TimeSpan.Zero, TimeSpan.FromSeconds(chunkSamples / (double)SampleRate)));
 
-        // After a seek-style discontinuity, the envelope was reset, so the first sample should
-        // match a fresh node's first sample (within float tolerance).
+        // After the seek reset, the first sample should match a fresh node's first sample.
         float seekedFirst = MathF.Abs(seekedOutput.GetChannelData(0)[0]);
         float freshFirst = MathF.Abs(freshOutput.GetChannelData(0)[0]);
         Assert.That(seekedFirst, Is.EqualTo(freshFirst).Within(1e-4f));
@@ -472,8 +445,7 @@ public class CompressorNodeTests
         const int altSampleRate = 44100;
         using var loud44 = CreateSineBuffer(0.9f, 1000f, altSampleRate / 10, 2, altSampleRate);
         node.AddInput(new StubSourceNode { Buffer = loud44 });
-        // Time continues but sample rate changed → must reset envelope (and recompute coefficients
-        // for the new rate).
+        // Time continues but the sample rate changed → reset envelope and recompute coefficients.
         var ctx44 = new AudioProcessContext(
             new TimeRange(TimeSpan.FromSeconds(chunkSamples / (double)SampleRate), TimeSpan.FromSeconds(0.1)),
             altSampleRate,
@@ -481,8 +453,7 @@ public class CompressorNodeTests
             null);
         using var secondOutput = node.Process(ctx44);
 
-        // After a sample-rate switch the envelope is reset, so the first sample must match a
-        // fresh node running at the new rate.
+        // After the sample-rate reset, the first sample must match a fresh node at the new rate.
         var nodeFresh = CreateNode(release: 1000f);
         using var freshInput = CreateSineBuffer(0.9f, 1000f, altSampleRate / 10, 2, altSampleRate);
         nodeFresh.AddInput(new StubSourceNode { Buffer = freshInput });
@@ -501,10 +472,9 @@ public class CompressorNodeTests
     [Test]
     public void Reset_ClearsEnvelopeState()
     {
-        // Process one chunk to drive the envelope into compression, then Reset() and process the
-        // next chunk at a *contiguous* time. Without Reset(), the time-range check would NOT
-        // trigger an automatic reset, so any difference from a fresh node must come from the
-        // explicit Reset() call.
+        // Drive the envelope into compression, then Reset() and process a *contiguous* next chunk.
+        // Contiguous time means no automatic reset, so any match with a fresh node must come from
+        // the explicit Reset().
         const int chunkSamples = SampleRate / 10;
         var chunkDuration = TimeSpan.FromSeconds(chunkSamples / (double)SampleRate);
         var ctx1 = CreateContext(TimeSpan.Zero, chunkDuration);
@@ -534,9 +504,8 @@ public class CompressorNodeTests
     [Test]
     public void Process_AnimatedThreshold_EngagesAnimatedPath()
     {
-        // Threshold animates from -10 dB (no compression for 0.05 input) at t=0 to -40 dB
-        // (heavy compression for 0.05 input) at t=0.5s. The output should be louder near t=0
-        // and quieter near t=0.5s, proving the animated path is exercised.
+        // Threshold animates from -10 dB (no compression for 0.05 input) to -40 dB (heavy
+        // compression), so the output goes from louder to quieter — proving the animated path runs.
         const int sampleCount = SampleRate / 2;
         using var input = CreateConstantBuffer(0.05f, sampleCount);
         var source = new StubSourceNode { Buffer = input };
@@ -567,8 +536,8 @@ public class CompressorNodeTests
         float earlyPeakDb = PeakDb(output, 0);
         float latePeakDb = PeakDb(output, lastQuarterStart);
 
-        // Early threshold sits above the input (no compression); late threshold sits below it
-        // (compression engages). The late portion must therefore be measurably quieter.
+        // Early threshold is above the input (no compression), late is below it (compression
+        // engages), so the late portion must be measurably quieter.
         Assert.That(latePeakDb, Is.LessThan(earlyPeakDb - 2f),
             $"Animated threshold should attenuate the late portion (early≈{earlyPeakDb:F2} dB, late≈{latePeakDb:F2} dB)");
     }
@@ -576,10 +545,9 @@ public class CompressorNodeTests
     [Test]
     public void Process_InfinityInputSamples_RecoversAndDoesNotLeakNonFiniteOutput()
     {
-        // First few samples on every channel are +Infinity, which (after MathF.Abs and Log10)
-        // produces inputDb = +Infinity, polluting the envelope state. Subsequent samples are a
-        // normal sine wave. The self-recovery clamp must reset the envelope and the output
-        // sanitizer must ensure no NaN/Infinity sample escapes downstream.
+        // The first samples on every channel are +Infinity, polluting the envelope; the rest is a
+        // normal sine. The self-recovery clamp must reset the envelope and the sanitizer must keep
+        // any NaN/Infinity from escaping downstream.
         const int sampleCount = SampleRate / 4;
         using var input = CreateSineBuffer(0.9f, 1000f, sampleCount);
         for (int ch = 0; ch < input.ChannelCount; ch++)
@@ -616,8 +584,7 @@ public class CompressorNodeTests
     [Test]
     public void Process_NaNInputSamples_ProducesFiniteOutput()
     {
-        // A NaN input sample multiplied by any gain stays NaN. The output sanitizer must
-        // replace it with 0 so downstream consumers receive only finite samples.
+        // A NaN input stays NaN through any gain, so the sanitizer must replace it with 0.
         const int sampleCount = SampleRate / 4;
         using var input = CreateSineBuffer(0.9f, 1000f, sampleCount);
         input.GetChannelData(0)[0] = float.NaN;
@@ -646,9 +613,9 @@ public class CompressorNodeTests
     [Test]
     public void Process_SoftKnee_ProducesSmoothTransitionAroundThreshold()
     {
-        // Soft knee starts attenuating before the input crosses the threshold; hard knee does
-        // not. We feed a sine right at the threshold and verify that soft-knee output is lower
-        // than hard-knee output, confirming the quadratic in-knee region engages.
+        // Soft knee attenuates before the input crosses the threshold; hard knee doesn't. Feeding a
+        // sine right at the threshold, soft-knee output should be lower — confirming the quadratic
+        // in-knee region engages.
         const int sampleCount = SampleRate / 2;
         // 0.1 amplitude → exactly -20 dB peak, matching the threshold.
         using var input = CreateSineBuffer(0.1f, 1000f, sampleCount);
@@ -665,8 +632,7 @@ public class CompressorNodeTests
         float hardPeakDb = PeakDb(hardOutput, steadyStart);
         float softPeakDb = PeakDb(softOutput, steadyStart);
 
-        // Soft knee already engages before the input crosses the threshold, so its output peak
-        // should be measurably lower than the hard-knee output.
+        // Soft knee engages before the threshold, so its peak should be measurably lower than hard.
         Assert.That(softPeakDb, Is.LessThan(hardPeakDb - 0.3f),
             $"Soft knee should attenuate near threshold (hard≈{hardPeakDb:F2} dB, soft≈{softPeakDb:F2} dB)");
     }
@@ -674,8 +640,7 @@ public class CompressorNodeTests
     [Test]
     public void Process_MonoBuffer_ProducesExpectedGainReduction()
     {
-        // The implementation iterates over the channel count; a single-channel buffer must work
-        // with no off-by-one and reach the same compression level as the stereo case.
+        // A single-channel buffer must work with no off-by-one and reach the stereo compression level.
         const int sampleCount = SampleRate;
         using var input = CreateSineBuffer(0.9f, 1000f, sampleCount, channels: 1);
         var source = new StubSourceNode { Buffer = input };
@@ -702,14 +667,10 @@ public class CompressorNodeTests
     [Test]
     public void Process_AnimatedAttackRelease_ExercisesCoefficientCache()
     {
-        // Animate Attack from 1 ms (fast) to 200 ms (slow) over the buffer. Every new ms value
-        // invalidates the per-sample coefficient cache (`attackMs != lastAttackMs`), so
-        // ComputeCoeff is recomputed repeatedly. To verify the recomputed coefficients actually
-        // affect behaviour, we feed a step input (silence → loud) that arrives late in the
-        // buffer when the slow attack value is in effect. Right after the step the envelope
-        // hasn't clamped yet, so the transient peak must be louder than the eventually-settled
-        // tail. With attack stuck at 1 ms throughout, the transient would clamp instantly and
-        // this difference would not appear.
+        // Animate Attack 1 ms → 200 ms so every sample invalidates the coefficient cache and forces
+        // ComputeCoeff to recompute. A late step input lands while the slow attack is in effect, so
+        // the unclamped transient peak must exceed the settled tail. A stuck 1 ms attack would clamp
+        // instantly and erase that difference.
         const int sampleCount = SampleRate; // 1 s buffer
         int stepAt = SampleRate * 4 / 10;   // 400 ms in: animated attack ≈ 80 ms
         using var input = new AudioBuffer(SampleRate, 2, sampleCount);
@@ -762,16 +723,14 @@ public class CompressorNodeTests
     [Test]
     public void Process_AnimatedPath_SmoothAcrossChunkBoundary()
     {
-        // ProcessAnimated walks the input in fixed-size chunks. We send a buffer that straddles
-        // several chunk boundaries and verify that the envelope state survives them: a steady
-        // input must not show any visible discontinuity at sample indices that align with the
-        // chunk size, which would indicate the envelope was reset at the boundary.
+        // ProcessAnimated walks the input in fixed-size chunks. A buffer straddling several chunk
+        // boundaries must show no discontinuity at boundary indices for steady input — a jump there
+        // would mean the envelope was reset at the boundary.
         const int chunkSize = 1024;
         const int sampleCount = chunkSize * 3 + 137; // straddles several boundaries
         using var input = CreateConstantBuffer(0.9f, sampleCount);
 
-        // Animate threshold trivially so ProcessAnimated is taken; the value stays the same so
-        // the gain reduction itself should be smooth.
+        // Trivial threshold animation (constant value) just to force the ProcessAnimated path.
         var thresholdAnim = new KeyFrameAnimation<float>();
         thresholdAnim.KeyFrames.Add(new KeyFrame<float> { Easing = new LinearEasing(), Value = -20f, KeyTime = TimeSpan.Zero });
         thresholdAnim.KeyFrames.Add(new KeyFrame<float> { Easing = new LinearEasing(), Value = -20f, KeyTime = TimeSpan.FromSeconds(sampleCount / (double)SampleRate) });
@@ -792,16 +751,14 @@ public class CompressorNodeTests
         var ctx = CreateContext(TimeSpan.Zero, TimeSpan.FromSeconds(sampleCount / (double)SampleRate));
         using var output = node.Process(ctx);
 
-        // Across each chunk boundary, the absolute change between adjacent samples must remain
-        // bounded by the change inside the previous window — i.e. no sudden jump caused by
-        // resetting state at a boundary.
+        // At each boundary the adjacent-sample delta must stay bounded by the prior delta — no jump
+        // from a boundary state reset.
         var data = output.GetChannelData(0);
         for (int boundary = chunkSize; boundary < sampleCount; boundary += chunkSize)
         {
             float prevDelta = MathF.Abs(data[boundary - 1] - data[boundary - 2]);
             float boundaryDelta = MathF.Abs(data[boundary] - data[boundary - 1]);
-            // Tolerance allows for a tiny natural variation in the sine-like product but rejects
-            // an envelope reset (which would create a step of order 0.1 or larger here).
+            // Tolerance absorbs tiny natural variation but rejects an envelope reset (step ≥ ~0.1).
             Assert.That(boundaryDelta, Is.LessThanOrEqualTo(prevDelta + 0.01f),
                 $"Discontinuity at chunk boundary {boundary}: prevDelta={prevDelta:F6}, boundaryDelta={boundaryDelta:F6}");
         }
@@ -817,12 +774,9 @@ public class CompressorNodeTests
     [TestCase(AnimatedParam.MakeupGain)]
     public void Process_AnimatedNonFiniteValue_FallsBackWithoutMutingOutput(AnimatedParam param)
     {
-        // A KeyFrame with NaN or Infinity on any animated parameter must not propagate to the
-        // output sanitizer (which would silently mute the entire chunk). Instead each parameter
-        // must fall back to the value ReadStaticParameters supplies — i.e. the property's static
-        // CurrentValue (which itself only drops to DefaultValue if CurrentValue is non-finite). We
-        // test every animated parameter so the SafeParameter call cannot be silently dropped from
-        // any one of them.
+        // A NaN/Infinity keyframe on any animated parameter must not reach the sanitizer (which
+        // would mute the whole chunk); each must fall back to its static CurrentValue. Every
+        // parameter is tested so a missing SafeParameter call on any one is caught.
         const int sampleCount = SampleRate / 4;
         using var input = CreateSineBuffer(0.9f, 1000f, sampleCount);
 
@@ -846,7 +800,7 @@ public class CompressorNodeTests
         var anim = new KeyFrameAnimation<float>();
         anim.KeyFrames.Add(new KeyFrame<float> { Easing = new LinearEasing(), Value = float.NaN, KeyTime = TimeSpan.Zero });
         anim.KeyFrames.Add(new KeyFrame<float> { Easing = new LinearEasing(), Value = float.NaN, KeyTime = TimeSpan.FromSeconds(0.25) });
-        // IProperty<float> exposes the Animation setter directly; no concrete-type cast needed.
+        // IProperty<float> exposes the Animation setter directly, no concrete cast needed.
         target.Animation = anim;
 
         var node = new CompressorNode
@@ -863,9 +817,8 @@ public class CompressorNodeTests
         var ctx = CreateContext(TimeSpan.Zero, TimeSpan.FromSeconds(0.25));
         using var output = node.Process(ctx);
 
-        // If the NaN had reached the gain calc the output sanitizer would have zeroed every
-        // sample and the peak would be -100 dB. Anything well above that proves the fallback
-        // engaged for the parameter under test.
+        // If NaN reached the gain calc the sanitizer would zero everything (-100 dB peak); a peak
+        // well above that proves the fallback engaged.
         float steadyPeakDb = PeakDb(output, sampleCount / 2);
         Assert.That(steadyPeakDb, Is.GreaterThan(-25f),
             $"Fallback failed for {param}: output appears to have been zeroed by NaN propagation");
@@ -887,9 +840,8 @@ public class CompressorNodeTests
     [Test]
     public void Process_ZeroLengthInput_Static_ReturnsEmptyBuffer()
     {
-        // A zero-length chunk (silent gap, end-of-stream tail) must not divide by zero, allocate
-        // a stackalloc[0] for animation buffers, or otherwise misbehave. The static path is
-        // exercised because no parameters are animated.
+        // A zero-length chunk must not divide by zero or stackalloc[0]. No animated parameters, so
+        // the static path is exercised.
         using var input = new AudioBuffer(SampleRate, 2, 0);
         var node = CreateNode();
         node.AddInput(new StubSourceNode { Buffer = input });
@@ -905,10 +857,9 @@ public class CompressorNodeTests
     [Test]
     public void Process_ZeroLengthInput_Animated_ReturnsEmptyBuffer()
     {
-        // Same as above, but with an animated parameter. The zero-length early-return in Process()
-        // intercepts BOTH the static and animated paths before ProcessAnimated (and its
-        // stackalloc float[bufferSize]) is ever entered, so this asserts the early-return contract
-        // — not the animated chunk loop itself, which is unreachable for SampleCount == 0.
+        // Same as above but animated. The zero-length early-return in Process() fires before
+        // ProcessAnimated is entered, so this pins the early-return contract — the animated chunk
+        // loop is unreachable at SampleCount == 0.
         using var input = new AudioBuffer(SampleRate, 2, 0);
 
         var thresholdAnim = new KeyFrameAnimation<float>();
@@ -938,10 +889,8 @@ public class CompressorNodeTests
     [Test]
     public void Process_AnimatedMakeupGain_AppliesPerSampleGain()
     {
-        // Sweep MakeupGain from 0 dB (start) to +12 dB (end) over a steady loud signal. The
-        // tail of the buffer must measure ~12 dB louder than the head — proving that the
-        // animated `makeupDb - gainReductionDb` path actually mixes the per-sample makeup value
-        // into the output (and that the sign is correct).
+        // Sweep MakeupGain 0 → +12 dB over a steady loud signal; the tail must measure ~12 dB louder
+        // than the head, proving the animated per-sample makeup is mixed in with the correct sign.
         const int sampleCount = SampleRate; // 1 s buffer
         using var input = CreateSineBuffer(0.9f, 1000f, sampleCount);
 
@@ -965,15 +914,14 @@ public class CompressorNodeTests
         var ctx = CreateContext(TimeSpan.Zero, TimeSpan.FromSeconds(1.0));
         using var output = node.Process(ctx);
 
-        // Compare a steady-state window early in the buffer (makeup ≈ 0 dB) against one near
-        // the end (makeup ≈ +12 dB). Both are after the attack ramp so envelope state is steady.
+        // Compare an early window (makeup ≈ 0 dB) against a late one (≈ +12 dB), both past the attack
+        // ramp so the envelope is steady.
         int probeWidth = SampleRate / 100; // 10 ms
         float earlyPeakDb = PeakDbInWindow(output, SampleRate / 4, probeWidth);
         float latePeakDb = PeakDbInWindow(output, sampleCount - probeWidth, probeWidth);
 
         float observedRise = latePeakDb - earlyPeakDb;
-        // 12 dB nominal; tolerance allows for ~3 dB of drift due to envelope ripple and the
-        // 25%→100% sweep range covering 9 dB rather than the full 12 dB.
+        // 12 dB nominal; wide tolerance because the 25%→100% window covers only ~9 dB plus ripple.
         Assert.That(observedRise, Is.GreaterThan(6f),
             $"Animated MakeupGain should raise output level (early≈{earlyPeakDb:F2} dB, late≈{latePeakDb:F2} dB, rise≈{observedRise:F2} dB)");
         Assert.That(observedRise, Is.LessThan(15f),
@@ -983,9 +931,8 @@ public class CompressorNodeTests
     [Test]
     public void Process_AnimatedRatio_BelowOne_ClampsToPassthrough()
     {
-        // The animated path's clamp must mirror the static path: an animated ratio of 0.5
-        // would otherwise produce slope = 1 - 1/0.5 = -1 which AMPLIFIES above the threshold.
-        // After clamping to MinRatio=1, slope = 0 → passthrough.
+        // The animated clamp must mirror the static path: ratio 0.5 gives slope -1 (amplifies above
+        // threshold); clamping to MinRatio=1 makes slope 0 → passthrough.
         const int sampleCount = SampleRate / 4;
         using var input = CreateSineBuffer(0.9f, 1000f, sampleCount);
 
@@ -1021,11 +968,10 @@ public class CompressorNodeTests
     [Test]
     public void Process_AnimatedAttack_AboveMaxClampsAndKeepsEnvelopeMoving()
     {
-        // An animated Attack of 1e9 ms would collapse the coefficient to exactly 1.0, freezing
-        // the envelope so it never tracks the input — and therefore never crosses the threshold
-        // and never compresses. After clamping to MaxAttackMs the coefficient is < 1.0 so the
-        // envelope advances. We use a deep threshold (-50 dB) so the slow envelope reaches it
-        // within a 1 s buffer; the visible output reduction is then proof the clamp engaged.
+        // An animated Attack of 1e9 ms would collapse the coefficient to 1.0, freezing the envelope
+        // so it never compresses. Clamping to MaxAttackMs keeps coeff < 1.0 so the envelope advances.
+        // A deep -50 dB threshold lets the slow envelope reach it within 1 s; the output reduction
+        // proves the clamp engaged.
         const int sampleCount = SampleRate;
         using var input = CreateSineBuffer(0.9f, 1000f, sampleCount);
 
@@ -1049,8 +995,7 @@ public class CompressorNodeTests
         var ctx = CreateContext(TimeSpan.Zero, TimeSpan.FromSeconds(1.0));
         using var output = node.Process(ctx);
 
-        // Probe in the last 50 ms window so the clamped 500 ms attack has had ~2 time constants
-        // to bring the envelope above -50 dB and trigger compression.
+        // Probe the last 50 ms, by when the clamped attack has had ~2 time constants to cross -50 dB.
         int probeWidth = SampleRate / 20;
         float steadyPeakDb = PeakDbInWindow(output, sampleCount - probeWidth, probeWidth);
         // Without clamping: envelope frozen at -100 dB → no compression → output ≈ input (-0.92 dB).
@@ -1062,10 +1007,9 @@ public class CompressorNodeTests
     [Test]
     public void Process_MultipleAnimatedNonFiniteParameters_AllFallBackIndependently()
     {
-        // Two animated parameters simultaneously produce NaN. With a single shared latch, only
-        // one parameter would log and the second's fallback could be skipped if the latch were
-        // also gating the substitution; the per-parameter HashSet ensures both still substitute
-        // their fallbacks. Observable: output is not muted (would be -100 dB if NaN propagated).
+        // Two animated parameters produce NaN at once. A per-parameter HashSet (not a shared latch)
+        // ensures both still substitute their fallbacks. Observable: output is not muted (would be
+        // -100 dB if a NaN propagated).
         const int sampleCount = SampleRate / 4;
         using var input = CreateSineBuffer(0.9f, 1000f, sampleCount);
 
@@ -1113,13 +1057,11 @@ public class CompressorNodeTests
     [Test]
     public void Process_StaticAndAnimatedPaths_ProduceIdenticalOutputForConstantParameters()
     {
-        // ProcessStatic and ProcessAnimated deliberately share ComputeCoeff / ComputeGainReductionDb
-        // / ComputeGainLinear so the two paths cannot drift. This pins that parity directly: with a
-        // constant-valued (two identical keyframes) Threshold animation, the animated path runs but
-        // every sampled parameter equals what the static path reads, so the outputs must be
-        // sample-for-sample identical. A coefficient-cache off-by-one, a chunk-boundary coefficient
-        // reset, or a slope re-derivation bug that uniformly scaled the animated output would break
-        // this even though Process_AnimatedPath_SmoothAcrossChunkBoundary (smoothness only) passes.
+        // ProcessStatic and ProcessAnimated share the same compute helpers so they cannot drift.
+        // With a constant Threshold animation the animated path runs but reads the same values as
+        // static, so outputs must match sample-for-sample. Catches a coefficient-cache off-by-one,
+        // a boundary coefficient reset, or a slope re-derivation bug that the smoothness-only test
+        // would miss.
         const int sampleCount = SampleRate / 2; // straddles many 1024-sample chunks
         var duration = TimeSpan.FromSeconds(sampleCount / (double)SampleRate);
         using var input = CreateSineBuffer(0.9f, 1000f, sampleCount);
@@ -1129,9 +1071,8 @@ public class CompressorNodeTests
         staticNode.AddInput(new StubSourceNode { Buffer = input });
         using var staticOut = staticNode.Process(CreateContext(TimeSpan.Zero, duration));
 
-        // Animated path forced on via a constant Threshold animation (-20 → -20). The remaining
-        // parameters have no animation, so AnimationSampler fills each with the same CurrentValue
-        // the static path reads.
+        // Animated path forced on via a constant Threshold animation; the other parameters stay
+        // unanimated, so AnimationSampler fills each with the same CurrentValue static reads.
         var thresholdAnim = new KeyFrameAnimation<float>();
         thresholdAnim.KeyFrames.Add(new KeyFrame<float> { Easing = new LinearEasing(), Value = -20f, KeyTime = TimeSpan.Zero });
         thresholdAnim.KeyFrames.Add(new KeyFrame<float> { Easing = new LinearEasing(), Value = -20f, KeyTime = duration });
@@ -1165,12 +1106,10 @@ public class CompressorNodeTests
     [Test]
     public void Process_SoftKnee_InKneeReductionMatchesClosedForm()
     {
-        // Validate the soft-knee quadratic numerically, not just "soft < hard". A DC signal whose
-        // peak level equals the threshold drives the envelope to a known value (= thresholdDb), so
-        // diff = 0, landing in the middle of the knee. The closed form there is
-        //   GR = slope * x^2 / (2*knee)  with x = diff + halfKnee = halfKnee.
-        // The hard-knee formula would give 0 dB at diff == 0, so this point distinctively exercises
-        // the quadratic branch of CompressorNode.ComputeGainReductionDb.
+        // Validate the soft-knee quadratic numerically, not just "soft < hard". A DC signal at the
+        // threshold drives the envelope to thresholdDb (diff = 0, mid-knee), where the closed form
+        // is GR = slope * halfKnee^2 / (2*knee). Hard knee gives 0 dB there, so this point uniquely
+        // exercises the quadratic branch of ComputeGainReductionDb.
         const int sampleCount = SampleRate / 2; // long enough for the envelope to settle to inputDb
         const float thresholdDb = -20f;
         const float ratio = 4f;
@@ -1182,8 +1121,7 @@ public class CompressorNodeTests
         node.AddInput(new StubSourceNode { Buffer = input });
         using var output = node.Process(CreateContext(TimeSpan.Zero, TimeSpan.FromSeconds(sampleCount / (double)SampleRate)));
 
-        // After settling, output[last] = amplitude * 10^(-GR/20). Recover GR and compare to the
-        // closed-form value at diff = 0.
+        // Recover GR from the settled output and compare to the closed form at diff = 0.
         float settled = MathF.Abs(output.GetChannelData(0)[sampleCount - 1]);
         float measuredGrDb = -20f * MathF.Log10(settled / amplitude);
 
@@ -1199,13 +1137,10 @@ public class CompressorNodeTests
     [Test]
     public void Process_ExpressionBackedParameter_RoutesToStaticPathAndIgnoresExpression()
     {
-        // hasAnimation keys solely on Animation != null, so an expression-backed property
-        // (Animation == null, HasExpression == true) routes to ProcessStatic, which reads
-        // CurrentValue and does NOT evaluate the expression per-sample. This pins that documented
-        // contract: the output must equal a fully-static node with the same CurrentValue even
-        // though the expression evaluates to a different number. If a future change flips the gate
-        // to treat HasExpression as live (the FIXME's eventual goal), this test forces a deliberate
-        // update instead of silently changing rendered audio.
+        // hasAnimation keys solely on Animation != null, so an expression-backed property routes to
+        // ProcessStatic and reads CurrentValue without evaluating the expression. Output must equal
+        // a fully-static node with the same CurrentValue. If a future change makes HasExpression
+        // live (the FIXME's goal), this forces a deliberate update instead of silently changing audio.
         const int sampleCount = SampleRate / 2;
         var duration = TimeSpan.FromSeconds(sampleCount / (double)SampleRate);
         using var input = CreateSineBuffer(0.9f, 1000f, sampleCount);
@@ -1248,12 +1183,10 @@ public class CompressorNodeTests
     [Test]
     public void Process_NonFiniteSampleLatch_SurvivesSeekDiscontinuity()
     {
-        // The diagnostic latch must be PRESERVED across a time-range discontinuity (seek). A
-        // stuttering scrubber produces many discontinuities within one session; re-arming the
-        // one-shot warning on each would let a persistent fault re-log once per Process() call.
+        // The diagnostic latch must be PRESERVED across a seek discontinuity: a stuttering scrubber
+        // produces many seeks, and re-arming on each would re-log a persistent fault every Process().
         // The seek path calls ResetEnvelope() only (not ResetDiagnostics), so a second seeked chunk
-        // carrying the same fault must emit NO second warning. This pins the node's most heavily
-        // justified design decision (the 8-line comment at CompressorNode.Process).
+        // with the same fault must emit no second warning.
         var node = CreateNode();
         const int chunkSamples = SampleRate / 10;
         var chunkDuration = TimeSpan.FromSeconds(chunkSamples / (double)SampleRate);
@@ -1276,8 +1209,8 @@ public class CompressorNodeTests
     [Test]
     public void Process_NonFiniteSampleLatch_ReArmsOnSampleRateChange()
     {
-        // A sample-rate change is a genuine session boundary: Process() calls the full Reset(),
-        // which DOES re-arm diagnostics. The same fault at the new rate must therefore warn again.
+        // A sample-rate change is a real session boundary: Process() calls full Reset(), which
+        // re-arms diagnostics, so the same fault at the new rate must warn again.
         var node = CreateNode();
         const int chunkSamples = SampleRate / 10;
         var chunkDuration = TimeSpan.FromSeconds(chunkSamples / (double)SampleRate);
@@ -1301,9 +1234,8 @@ public class CompressorNodeTests
     [Test]
     public void Reset_ReArmsNonFiniteSampleLatch()
     {
-        // Explicit Reset() (deliberate re-render / orchestrated stop) re-arms diagnostics too. We
-        // keep the second chunk CONTIGUOUS in time so only the explicit Reset() — not a
-        // discontinuity — can be responsible for re-arming the latch.
+        // Explicit Reset() re-arms diagnostics too. The second chunk stays time-contiguous so only
+        // the Reset() — not a discontinuity — can re-arm the latch.
         var node = CreateNode();
         const int chunkSamples = SampleRate / 10;
         var chunkDuration = TimeSpan.FromSeconds(chunkSamples / (double)SampleRate);
@@ -1325,12 +1257,10 @@ public class CompressorNodeTests
     [Test]
     public void Process_LinkedSurround_AppliesLoudestChannelGainToAllChannels()
     {
-        // Peak detection links across ALL channels (not just the first two) and MapChannels
-        // reallocates its caches for a >2-channel count, exercising the channel-major fallback loop.
-        // We drive a 4-channel buffer where the loudest channel is channel 2 (NOT channel 0); the
-        // other three sit below threshold. Linked behaviour must attenuate every channel by channel
-        // 2's gain reduction — a peak loop that only scanned channels 0..1, or an off-by-one in the
-        // channel bound, would fail here.
+        // Peak detection links across ALL channels and MapChannels reallocates caches for >2
+        // channels (the channel-major fallback). A 4-channel buffer whose loudest is channel 2
+        // (not 0) must attenuate every channel by channel 2's reduction — a loop scanning only
+        // channels 0..1, or a channel-bound off-by-one, would fail here.
         const int sampleCount = SampleRate;
         const int channels = 4;
         using var input = new AudioBuffer(SampleRate, channels, sampleCount);
@@ -1373,10 +1303,9 @@ public class CompressorNodeTests
     [Test]
     public void Process_AnimatedOutOfRangeParameter_LogsClampWarningOncePerParameter()
     {
-        // A finite but out-of-[Range] animated value (Attack = 1e9 ms) is clamped to keep the DSP
-        // safe, and must emit exactly one clamp warning for that parameter — not zero (a silently
-        // hidden misconfiguration) and not one-per-sample (audio-thread spam). The other five
-        // parameters stay in range, so the count isolates the single offending parameter.
+        // A finite out-of-[Range] animated value (Attack = 1e9 ms) is clamped and must emit exactly
+        // one clamp warning — not zero (hidden misconfiguration), not per-sample (audio-thread spam).
+        // The other five parameters stay in range, isolating the count to the offending one.
         const int sampleCount = SampleRate / 4;
         using var input = CreateSineBuffer(0.9f, 1000f, sampleCount);
 

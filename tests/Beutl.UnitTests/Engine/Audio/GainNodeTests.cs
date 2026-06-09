@@ -52,9 +52,8 @@ public class GainNodeTests
     private static AudioProcessContext CreateContext() =>
         new(new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(1)), SampleRate, new AnimationSampler(), null);
 
-    // Gain is animatable (capability) but has no animation assigned. The node must use the static
-    // value (CurrentValue), not the per-sample animated path. Output values are identical either way,
-    // so this also characterizes the behavior-preserving IsAnimatable -> Animation != null change.
+    // Animatable Gain with no animation assigned must use the static CurrentValue, not the
+    // per-sample path. Characterizes the behavior-preserving IsAnimatable -> Animation != null change.
     [Test]
     public void Process_AnimatableGainWithoutAnimation_AppliesCurrentValue()
     {
@@ -78,8 +77,8 @@ public class GainNodeTests
         }
     }
 
-    // A real keyframe animation must still drive the per-sample animated path. Output ramps with the
-    // animated gain, so the last sample is strictly louder than the first.
+    // A real keyframe animation must drive the per-sample path: output ramps with the gain, so the
+    // last sample is louder than the first.
     [Test]
     public void Process_GainWithAnimation_AppliesAnimatedValues()
     {

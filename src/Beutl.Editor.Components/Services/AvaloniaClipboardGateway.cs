@@ -7,11 +7,9 @@ using Beutl.Editor.Services;
 namespace Beutl.Editor.Components.Services;
 
 /// <summary>
-/// Avalonia-backed implementation of <see cref="IClipboardGateway"/>. Lives in
-/// <c>Beutl.Editor.Components</c> so <c>Beutl.Editor</c> can stay Avalonia-free.
-/// Maps Avalonia clipboard formats (<see cref="DataFormat.File"/>, <see cref="DataFormat.Bitmap"/>,
-/// and the Beutl element JSON formats) onto the plain string identifiers in
-/// <see cref="BeutlClipboardFormats"/>.
+/// Avalonia-backed <see cref="IClipboardGateway"/>, kept here so <c>Beutl.Editor</c>
+/// stays Avalonia-free. Maps Avalonia clipboard formats onto the plain string
+/// identifiers in <see cref="BeutlClipboardFormats"/>.
 /// </summary>
 public sealed class AvaloniaClipboardGateway : IClipboardGateway
 {
@@ -88,8 +86,7 @@ public sealed class AvaloniaClipboardGateway : IClipboardGateway
 
             if (entry.Format == BeutlClipboardFormats.Text)
             {
-                // Route plain-text payloads through the platform's native
-                // text slot so other apps see them on a normal "Paste".
+                // Use the native text slot so other apps see it on a normal "Paste".
                 data.Add(DataTransferItem.CreateText(entry.Text));
                 continue;
             }

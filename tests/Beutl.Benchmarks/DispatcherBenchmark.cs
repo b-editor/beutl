@@ -5,9 +5,8 @@ using Beutl.Threading;
 
 namespace Beutl.Benchmarks;
 
-// Measures the dispatcher message loop across three axes: per-operation wake-up latency,
-// single-producer Post throughput, and multi-producer (contended) Post throughput, plus
-// allocations. Useful when evaluating changes to OperationQueue / the idle-wait machinery.
+// Dispatcher message-loop benchmarks: wake-up latency, single- and multi-producer Post
+// throughput, plus allocations. Use when changing OperationQueue / the idle-wait machinery.
 [MemoryDiagnoser]
 [SimpleJob(RunStrategy.Throughput, warmupCount: 3, iterationCount: 5)]
 public class DispatcherBenchmark
@@ -23,8 +22,7 @@ public class DispatcherBenchmark
     [GlobalCleanup]
     public void Cleanup() => _dispatcher.Shutdown();
 
-    // Cross-thread Invoke in a tight loop: each call leaves the dispatcher idle and must
-    // wake it again, so this measures the per-operation wake-up latency.
+    // Each Invoke leaves the dispatcher idle and re-wakes it: measures per-operation wake-up latency.
     [Benchmark]
     public void InvokeSequential()
     {
@@ -34,8 +32,7 @@ public class DispatcherBenchmark
         }
     }
 
-    // Fire-and-forget posts from a single producer, then a Low-priority barrier that only
-    // runs once every Medium operation has drained. Measures Post throughput.
+    // Single-producer posts, then a Low-priority barrier that drains them. Measures Post throughput.
     [Benchmark]
     public void DispatchThenDrain()
     {
@@ -47,8 +44,7 @@ public class DispatcherBenchmark
         _dispatcher.Invoke(static () => { }, DispatchPriority.Low);
     }
 
-    // Many producer threads posting concurrently. This is where removing the per-Post
-    // lock + CancellationTokenSource churn should show up most.
+    // Many producers posting concurrently: where removing per-Post lock + CTS churn shows up most.
     [Benchmark]
     public void ConcurrentDispatch()
     {

@@ -177,9 +177,8 @@ public class LayerMoveServiceTests
     [Test]
     public void ApplyMove_AfterUndo_RestoresTimelineLayerZIndexes()
     {
-        // Regression: TimelineLayer.ZIndex is a recorded property. If its writes
-        // landed outside the committed MoveLayer transaction, this Undo would
-        // revert the Element.ZIndex but leave the header models desynced.
+        // Regression: TimelineLayer.ZIndex writes must join the MoveLayer transaction,
+        // else Undo reverts Element.ZIndex but leaves the header models desynced.
         Element e1 = AddElement(1);
         AddElement(2);
         AddElement(3);

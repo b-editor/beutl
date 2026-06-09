@@ -24,8 +24,8 @@ public sealed class SceneSettingsService : ISceneSettingsService
             return false;
         }
 
-        // Order matters less than atomicity — all three writes batch into the
-        // current transaction and collapse into one history entry on Commit.
+        // All three writes batch into one transaction, collapsing to a single
+        // history entry on Commit.
         scene.FrameSize = frameSize;
         scene.Start = start;
         scene.Duration = duration;

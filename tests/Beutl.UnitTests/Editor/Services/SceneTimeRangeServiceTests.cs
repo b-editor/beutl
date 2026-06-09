@@ -140,9 +140,7 @@ public class SceneTimeRangeServiceTests
         Assert.Multiple(() =>
         {
             Assert.That(_scene.Start, Is.EqualTo(TimeSpan.FromSeconds(3)));
-            // The Start/Duration delta must always cancel back to the original
-            // end — without this guard, each drag frame would compound the
-            // previous frame's mutation.
+            // End must stay pinned: without this, each drag frame compounds the previous one.
             Assert.That(_scene.Start + _scene.Duration, Is.EqualTo(initialEnd));
         });
     }
@@ -155,8 +153,7 @@ public class SceneTimeRangeServiceTests
         int before = _history.UndoCount;
 
         _service.UpdateStartDrag(_scene, TimeSpan.FromSeconds(4), initialStart, initialDuration);
-        // The caller (View) cancels by re-driving UpdateStartDrag with the initial
-        // values — there is no Cancel method.
+        // No Cancel method: the View cancels by re-driving UpdateStartDrag with initial values.
         _service.UpdateStartDrag(_scene, initialStart, initialStart, initialDuration);
 
         Assert.Multiple(() =>
@@ -170,11 +167,8 @@ public class SceneTimeRangeServiceTests
     [Test]
     public void UpdateEndDrag_PointerBeforeStart_KeepsStartPinned()
     {
-        // Dragging the end marker left past Scene.Start must not pull
-        // Start backward — only clamp duration to >= 1 frame. The previous
-        // implementation re-used the one-shot SetEnd logic, which would
-        // jerk the entire scene's absolute time range backward as soon as
-        // the pointer crossed Start (Codex review #r3278970042).
+        // End marker dragged past Start must pin Start and clamp duration to >= 1 frame,
+        // not shift the whole range back like the old one-shot SetEnd did (Codex review #r3278970042).
         TimeSpan initialStart = _scene.Start;
 
         _service.UpdateEndDrag(_scene, TimeSpan.Zero);
@@ -190,11 +184,8 @@ public class SceneTimeRangeServiceTests
     [Test]
     public void UpdateStartDrag_PointerAfterInitialEnd_ClampsToOneFrameBeforeEnd()
     {
-        // Dragging the start marker past the initial end must clamp it
-        // to (initialEnd - 1 frame), NOT shift the end forward. The
-        // one-shot SetStart path does shift the end forward, but the drag
-        // loop should never re-extend the scene's absolute time range
-        // (same family of regression as the end-marker case).
+        // Start marker dragged past initial end must clamp to (initialEnd - 1 frame), not shift
+        // the end forward: the drag loop must never re-extend the range (same regression family).
         TimeSpan initialStart = _scene.Start;
         TimeSpan initialDuration = _scene.Duration;
         TimeSpan initialEnd = initialStart + initialDuration;

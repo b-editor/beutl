@@ -22,11 +22,9 @@ public class CompressorEffectTests
     [Test]
     public void CreateNode_WiresEveryPropertyToMatchingNodeSlot()
     {
-        // Each IProperty<float> on the effect must be forwarded by reference to the corresponding
-        // slot on CompressorNode. Reference equality (not just value equality) is critical because
-        // the node reads CurrentValue and Animation through these references at process time —
-        // copying the value would freeze it. A swap of any two properties (Threshold↔Ratio, etc.)
-        // would silently corrupt the compressor without this test.
+        // Each property must be forwarded to its node slot by reference, not copied: the node reads
+        // CurrentValue/Animation through these references at process time, and copying would freeze
+        // the value. Also catches a swap of any two properties (Threshold↔Ratio, etc.).
         var effect = new CompressorEffect();
         using var context = new AudioContext(48000, 2);
         var inputNode = context.AddNode(new StubInputNode());
@@ -47,10 +45,8 @@ public class CompressorEffectTests
     [Test]
     public void CreateNode_ConnectsInputAheadOfCompressor()
     {
-        // The contract is "audio flows input → compressor". Connect must run with arguments in
-        // that order so the compressor's Inputs collection contains the upstream node, not the
-        // other way around (which would route the compressor's own output into the input node
-        // and produce silence at best, an infinite loop at worst).
+        // Audio flows input → compressor, so the compressor's Inputs must hold the upstream node.
+        // The reverse would route the compressor's output into the input (silence or an infinite loop).
         var effect = new CompressorEffect();
         using var context = new AudioContext(48000, 2);
         var inputNode = context.AddNode(new StubInputNode());
@@ -59,18 +55,15 @@ public class CompressorEffectTests
 
         Assert.That(node.Inputs, Has.Count.EqualTo(1));
         Assert.That(node.Inputs[0], Is.SameAs(inputNode));
-        // The returned node is the compressor itself, not the input — downstream effects need to
-        // chain off the compressor.
+        // The returned node is the compressor, not the input, so downstream effects chain off it.
         Assert.That(node, Is.Not.SameAs(inputNode));
     }
 
     [Test]
     public void CreateNode_DefaultPropertyValuesMatchCompressorParameters()
     {
-        // The CompressorEffect's default values are sourced from CompressorParameters. If any
-        // default drifted (e.g. the file was edited but not the [Range]), the effect would still
-        // load but operators would see unexpected starting parameters. This guards against that
-        // drift by asserting each property's CurrentValue is the documented default.
+        // Defaults come from CompressorParameters; assert each CurrentValue matches so a drifted
+        // default (file edited but not the [Range]) is caught.
         var effect = new CompressorEffect();
 
         Assert.That(effect.Threshold.CurrentValue, Is.EqualTo(-20f));
@@ -84,11 +77,9 @@ public class CompressorEffectTests
     [Test]
     public void ScanProperties_RegistersNamesAndRangeValidatorsForEveryProperty()
     {
-        // ScanProperties<CompressorEffect>() runs in the constructor and is expected to (a) name
-        // each IProperty<float> after its CLR member and (b) attach the [Range] validator so
-        // out-of-range assignments are coerced at the engine layer — not just visually constrained
-        // in the UI. A validator-absent property would silently accept any value. We assert the
-        // name and exercise the coercion (clamp) at both bounds for every property.
+        // ScanProperties (run in the constructor) must name each property after its CLR member and
+        // attach the [Range] validator so out-of-range values are clamped at the engine layer, not
+        // just in the UI. Assert the name and exercise the clamp at both bounds.
         var effect = new CompressorEffect();
 
         AssertNameAndRange(effect.Threshold, nameof(effect.Threshold), MinThresholdDb, MaxThresholdDb);
@@ -128,11 +119,8 @@ public class CompressorEffectTests
     [TestCaseSource(nameof(ParameterRanges))]
     public void CompressorParameters_RangeIsConsistent(float min, float def, float max)
     {
-        // CompressorParameters is the single source of truth shared between CompressorEffect's
-        // [Range] declarations and CompressorNode's per-sample clamps. These asserts catch an edit
-        // that puts a default outside its range, or inverts a min/max, at CI time with a named
-        // failing case — the role formerly served by a [ModuleInitializer] + Debug.Assert, which
-        // was invisible in Release builds and ran on every Debug host load for no benefit.
+        // Catches an edit that puts a default outside its range or inverts a min/max, at CI time —
+        // the role formerly served by a [ModuleInitializer] + Debug.Assert (invisible in Release).
         Assert.That(min, Is.LessThan(max), "Min must be strictly less than Max.");
         Assert.That(def, Is.InRange(min, max), "Default must lie within [Min, Max].");
     }

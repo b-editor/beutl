@@ -743,11 +743,11 @@ public sealed partial class EditViewModel : IEditorContext, ISupportAutoSaveEdit
 
     private ElementNudgeService CreateNudgeService()
     {
-        // The nudge debounce timer fires on a thread-pool thread; post its commit
-        // back to the UI thread so it serializes with every other editing op.
+        // The debounce timer fires off the UI thread; post the commit back so it serializes
+        // with other editing ops.
         var nudge = new ElementNudgeService(HistoryManager, action => Dispatcher.UIThread.Post(action));
-        // BeforeMutation fires just before Undo / Redo / JumpTo: drain pending
-        // nudges so they don't merge into the next history transaction.
+        // Drain pending nudges before Undo / Redo / JumpTo so they don't merge into the next
+        // history transaction.
         HistoryManager.BeforeMutation
             .Subscribe(_ => nudge.Flush())
             .DisposeWith(_disposables);

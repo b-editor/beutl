@@ -390,8 +390,7 @@ public class OnionSkinTests
     [Test]
     public void EditorConfig_ClampsOnionSkinCounts_ViaRangeAttribute()
     {
-        // The settings tab uses a generic number editor, so the 0..10 bound the old flyout
-        // enforced now lives as a [Range] on the property and is coerced on assignment.
+        // The old flyout's 0..10 bound now lives as a [Range] coerced on assignment.
         var config = new EditorConfig
         {
             OnionSkinPrevCount = 1_000_000,

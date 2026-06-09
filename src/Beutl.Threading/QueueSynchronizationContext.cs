@@ -79,9 +79,8 @@ internal sealed class QueueSynchronizationContext(Dispatcher dispatcher, TimePro
         CancellationTokenSource cts;
         lock (this)
         {
-            // Shutdown() may have set _running to false between the check above and
-            // acquiring this lock. Bail out so we do not assign a fresh _waitToken that
-            // nothing will cancel and then block on WaitOne() forever.
+            // Shutdown() may have cleared _running since the check above; bail out so we
+            // don't arm a _waitToken nothing cancels and block on WaitOne() forever.
             if (!_running)
                 return;
 

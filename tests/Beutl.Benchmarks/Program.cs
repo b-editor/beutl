@@ -2,6 +2,5 @@
 
 using BenchmarkDotNet.Running;
 
-// Select a benchmark with `-- --filter <pattern>`, e.g. `--filter *DispatcherBenchmark*`.
-// With no arguments, BenchmarkDotNet shows an interactive picker.
+// Select a benchmark via `-- --filter <pattern>`; no args shows an interactive picker.
 BenchmarkSwitcher.FromAssembly(Assembly.GetExecutingAssembly()).Run(args);
