@@ -2,20 +2,29 @@
 
 **Feature**: 003 | FR-008/FR-009/FR-010/FR-011/FR-012/FR-015. Audience: authors of `FilterEffect`, `CustomEffect`, `Drawable`, brushes, and C# script effects (in-tree and plugin).
 
-## The one rule (FR-008)
+## The rule (FR-008) — what matters is the COORDINATE SPACE, not the parameter type
 
-When an effect's **working scale** is `w` (the supply-driven scale it actually runs at — FR-036, **NOT** the output scale `s_out`):
-- **Multiply by `w`** every **spatial-length / pixel-magnitude** parameter.
-- **Leave unchanged** every **magnitude-invariant** parameter.
+> **Reframed 2026-06-09 (Codex review #3).** The original framing — "multiply every *spatial-length* parameter
+> by `w`" — is the wrong mental model for this CTM-based renderer and it caused real double-scaling bugs (Shake,
+> Perlin, strokes, audio visualizers were all "spatial-length" yet must NOT be multiplied). The true rule is:
+> **what scale you apply depends on the coordinate space the value lives in / the API consumes.**
 
-| Multiply by `w` (spatial length) | Leave unchanged (magnitude-invariant) |
-|---|---|
-| blur sigma; drop/inner-shadow offset & sigma; flat-shadow length; dilate/erode radius; mosaic tile size; color-shift offset; displacement translate; pen thickness & offset & dash; stroke offset; particle pixel sizes; audio-visualizer bar width / block gap / pixel minimums; tile/drawable intermediate raster resolution | color; angle/degrees/radians; percentage; ratio; 0..1 value; `RelativePoint`/`RelativeRect`; blend mode; division count; enum; `MiterLimit`; caps/joins/alignment; `Trim*` |
+This renderer pushes one root `Matrix.CreateScale(w)` (or `s_out`) at the device boundary, so almost all
+geometry is authored and drawn in **logical space** and the CTM scales it to device for free. Classify a value
+by its coordinate space:
 
-**Non-obvious cases**:
-- `PerlinNoiseBrush.BaseFrequency` is **divided** by `w` (period invariant in logical units), centralized in `BrushConstructor.CreatePerlinNoiseShader`.
-- Text is **re-shaped** at `Size × w` (font size, spacing, stroke; `Hinting=Full`) — never matrix- or bitmap-scaled (FR-012).
-- Strokes are pre-outlined in logical space and scaled by the root CTM — pen authors do **nothing** (D3).
+| Coordinate space | Rule | Examples |
+|---|---|---|
+| **Logical-space geometry drawn under the CTM** | **Leave unchanged.** The CTM already scales it. | shape/bar geometry, pen thickness/offset/dash (pre-outlined logical, D3), Shake displacement (translates logical bounds), `DrawRectangle`/`DrawPath` coords, gradient stops/points, drop-shadow offset & sigma and dilate/erode radius **when passed to a Skia `SKImageFilter`** (they ride the `CreateScale(w)` CTM in `FilterEffectActivator.Flush`) |
+| **Device-buffer dimensions / device-space shader uniforms / device pixel indexing** | **Convert once (`× w`).** These bypass the CTM. | a `CustomEffect` buffer's `ceil(bounds × w)` size; SKSL `iScale`/`width`/`height`/`fragCoord`; a CustomEffect point-blit's absolute-px literal (`MyPixelRadius * c.WorkingScale`); the tile/drawable intermediate raster size (A-1) |
+| **Readback-derived geometry (device → logical)** | **Convert device back to logical (`÷ w`).** | `ContourTracer` / `PartsSplit` vertices traced from the device alpha mask (`/w` so `CreateTarget` re-densifies) |
+| **Magnitude-invariant** | **Leave unchanged.** Not a length. | color; angle; percentage; ratio; 0..1 value; `RelativePoint`/`RelativeRect`; blend mode; count; enum; `MiterLimit`; caps/joins/alignment; `Trim*` |
+
+**Non-obvious cases (empirically settled on this branch):**
+- `PerlinNoiseBrush.BaseFrequency` is **left unchanged** — `SkPerlinNoiseShader` already follows the CTM, so its period is logical-invariant; dividing by `w` was tried and made the reduced-scale result *worse* (the dossier's "÷w" recommendation was wrong for this CTM pipeline). Its reduced-scale softness is accepted best-effort (FR-013).
+- Text is **re-shaped** at `Size × w` (it reads the device font size, not a CTM-scaled outline — `Hinting=Full` bakes resolution-specific grid-fitting); never matrix- or bitmap-scaled (FR-012).
+- **A Skia `SKImageFilter` primitive (Blur/DropShadow/Dilate/Erode) takes its length args RAW** — do NOT `× w`; it rides the `CreateScale(w)` CTM. Only **device-buffer / device-shader** code multiplies.
+- **Anisotropic transforms** (FR-019): a scalar `EffectiveScale` projects onto the most-detailed axis, which can over-allocate; the buffer is now bounded by `ClampWorkingScaleToBufferBudget` (FR-037 backstop).
 
 ## How an author reads the active scale (FR-015)
 

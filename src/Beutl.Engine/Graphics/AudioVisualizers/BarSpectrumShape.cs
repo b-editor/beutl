@@ -58,7 +58,7 @@ public sealed partial class BarSpectrumShape : SpectrumShape
             }
 
             _paint ??= new SKPaint();
-            new BrushConstructor(bounds, fill, BlendMode.SrcOver).ConfigurePaint(_paint);
+            new BrushConstructor(bounds, fill, BlendMode.SrcOver, canvas.OutputScale).ConfigurePaint(_paint);
             _paint.Style = SKPaintStyle.Fill;
 
             _path ??= new SKPath();
