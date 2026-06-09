@@ -144,13 +144,10 @@ public sealed class LayerHeaderViewModel : IDisposable
 
     public void UpdateZIndex(int layerNum)
     {
-        // When a TimelineLayer backs this header, LayerMoveService writes its
-        // recorded ZIndex inside the committed MoveLayer transaction and the
-        // reactive Number binding already reflects layerNum. Writing the model
-        // again here would (a) re-touch a recorded property outside that
-        // transaction — leaking it into the next history entry — and (b)
-        // double-apply the shift for shifted headers. Only a model-less header
-        // needs its Number pushed manually.
+        // For model-backed headers, LayerMoveService already wrote ZIndex (in its
+        // committed transaction) and Number reflects it; re-touching the model here
+        // would leak into the next history entry and double-apply the shift. Only a
+        // model-less header needs its Number pushed manually.
         if (_model.Value is null)
         {
             Number.Value = layerNum;
@@ -221,9 +218,8 @@ public sealed class LayerHeaderViewModel : IDisposable
         Timeline.EditorContext.GetRequiredService<ILayerAttributeService>()
             .SetColor(Timeline.Scene, Number.Value, color.ToBtlColor(), Name.Value);
 
-        // Sync the local TimelineLayer reference back from the scene so future
-        // bindings (Name, Color observables) track the same model the service
-        // either created or updated.
+        // Re-sync the local TimelineLayer from the scene so Name/Color bindings track
+        // the model the service just created or updated.
         _model.Value = Timeline.Scene.Layers.FirstOrDefault(l => l.ZIndex == Number.Value);
     }
 

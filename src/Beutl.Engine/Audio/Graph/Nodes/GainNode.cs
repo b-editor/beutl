@@ -13,9 +13,8 @@ public sealed class GainNode : AudioNode
 
         var input = Inputs[0].Process(context);
 
-        // If no animation is assigned, use static gain. Guard on Animation (an actual keyframe
-        // animation) rather than IsAnimatable (a capability flag that is always true for an
-        // animatable property), so an unkeyed Gain skips the per-sample animated path.
+        // Guard on Animation (an actual keyframe), not IsAnimatable (always true for animatable
+        // properties), so an unkeyed Gain skips the per-sample animated path.
         if (Gain?.Animation is null)
         {
             return ProcessStaticGain(input);

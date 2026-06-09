@@ -92,9 +92,7 @@ public class SceneSettingsServiceTests
             Assert.That(_scene.FrameSize, Is.EqualTo(newSize));
             Assert.That(_scene.Start, Is.EqualTo(newStart));
             Assert.That(_scene.Duration, Is.EqualTo(newDuration));
-            // The three field writes must collapse into one history entry,
-            // not three. Without that guarantee, Undo would have to be
-            // pressed three times to revert a single Apply.
+            // The three field writes must collapse into one entry, so one Undo reverts the Apply.
             Assert.That(_history.UndoCount, Is.EqualTo(before + 1));
         });
     }

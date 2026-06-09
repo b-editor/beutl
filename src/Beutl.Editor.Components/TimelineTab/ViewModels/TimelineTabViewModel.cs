@@ -213,8 +213,8 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
             .Subscribe(_ => RaiseCanExecuteChanged())
             .AddTo(_disposables);
 
-        // ElementNudgeService is the owner of the Undo/Redo flush hook; it
-        // is wired to HistoryManager.BeforeMutation by the editor context.
+        // The Undo/Redo flush hook now lives in ElementNudgeService, wired to
+        // HistoryManager.BeforeMutation by the editor context.
 
         _logger.LogInformation("TimelineTabViewModel initialized successfully.");
     }

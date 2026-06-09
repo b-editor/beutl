@@ -4,10 +4,9 @@ using Beutl.ProjectSystem;
 namespace Beutl.Editor.Services;
 
 /// <summary>
-/// Selection-based duplicate and Alt+drag duplicate. Internally delegates to
-/// the stateless <see cref="DuplicateHelper"/> for the actual file staging
-/// and group remap, then commits a history entry. Centralizing the commit
-/// here removes the duplicate "Regenerate -&gt; PlaceDuplicates -&gt; Commit"
+/// Selection-based and Alt+drag duplicate. Delegates file staging and group
+/// remap to the stateless <see cref="DuplicateHelper"/>, then commits a history
+/// entry — centralizing the "Regenerate -&gt; PlaceDuplicates -&gt; Commit"
 /// boilerplate that used to live on <c>TimelineTabViewModel</c>.
 /// </summary>
 public interface IElementDuplicateService

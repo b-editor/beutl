@@ -420,9 +420,8 @@ public abstract class GraphEditorViewModel : IDisposable
                 NotificationService.ShowWarning(Strings.GraphEditor, MessageStrings.KeyframeExistsAtPastePosition);
                 break;
             case KeyFramePasteOutcome.GenericTypeMismatch when result.EasingForFallback is { } easing:
-                // Type does not match — fall back to creating a new keyframe at
-                // pointerPosition using the View's typed insert path, applying
-                // only the easing the clipboard carried.
+                // Type mismatch: insert a fresh keyframe via the View's typed path,
+                // carrying over only the clipboard's easing.
                 InsertKeyFrame(easing, pointerPosition);
                 NotificationService.ShowWarning(Strings.GraphEditor, MessageStrings.KeyframePropertyTypeMismatch_EasingApplied);
                 break;

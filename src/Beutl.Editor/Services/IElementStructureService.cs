@@ -3,11 +3,10 @@
 namespace Beutl.Editor.Services;
 
 /// <summary>
-/// Structural commands that mutate the scene graph (`Scene.Children` and
-/// `Scene.Groups`). Distinct from <see cref="IElementAttributeService"/>:
-/// these operations frequently touch the file-system (regenerate, store
-/// to URI) and produce different history command names per call. Each
-/// method commits exactly one history entry.
+/// Structural commands that mutate the scene graph (<c>Scene.Children</c> /
+/// <c>Scene.Groups</c>). Distinct from <see cref="IElementAttributeService"/>:
+/// these often touch the file-system (regenerate, store to URI) and use a
+/// per-call history command name. Each method commits exactly one entry.
 /// </summary>
 public interface IElementStructureService
 {

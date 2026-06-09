@@ -46,10 +46,8 @@ public sealed class KeyFrameClipboardService : IKeyFrameClipboardService
 
         try
         {
-            // Preserve the target's identity (Id) so observers tracking the
-            // animation by id keep their subscriptions valid across paste.
-            // New ids are minted for the keyframes so the pasted set does not
-            // alias the source.
+            // Keep the target's Id so id-based observers stay subscribed across
+            // paste; mint fresh ids for the keyframes so they don't alias the source.
             Guid id = target.Id;
             CoreSerializer.PopulateFromJsonObject(target, newJson);
             target.Id = id;
@@ -103,9 +101,8 @@ public sealed class KeyFrameClipboardService : IKeyFrameClipboardService
         if (discriminator.GenericTypeArguments.Length == 0
             || discriminator.GenericTypeArguments[0] != target.ValueType)
         {
-            // Caller handles the fallback "insert with this easing at keyTime"
-            // because creating a new key requires the View's property-value
-            // accessor — the service does not know the typed value.
+            // Caller handles the "insert with this easing at keyTime" fallback;
+            // the service lacks the View's property-value accessor for the typed value.
             return new KeyFramePasteResult(
                 KeyFramePasteOutcome.GenericTypeMismatch,
                 EasingForFallback: newKeyFrame.Easing);

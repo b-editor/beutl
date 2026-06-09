@@ -22,8 +22,8 @@ public class DelayParametersTests
         Assert.That(min, Is.LessThan(max), $"{name}: Min must be < Max");
     }
 
-    // Characterization: lock the consolidated constants to the literals that DelayEffect/DelayNode
-    // previously declared independently, so the single-source refactor stays behavior-preserving.
+    // Characterization: lock the consolidated constants to the literals DelayEffect/DelayNode
+    // declared before the single-source refactor, keeping it behavior-preserving.
     [Test]
     public void Constants_match_the_original_literals()
     {

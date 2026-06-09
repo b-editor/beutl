@@ -21,9 +21,8 @@ public sealed class NodeGraphMutationService : INodeGraphMutationService
 
         if (graph is GraphGroup group)
         {
-            // Only one GroupInput and one GroupOutput is allowed per GraphGroup
-            // — silently reject duplicates so callers do not have to repeat the
-            // type-check at every call site.
+            // At most one GroupInput / GroupOutput per GraphGroup; silently
+            // reject duplicates so callers need not repeat the type-check.
             if ((node is GroupInput && group.Nodes.Any(x => x is GroupInput))
                 || (node is GroupOutput && group.Nodes.Any(x => x is GroupOutput)))
             {
@@ -42,8 +41,8 @@ public sealed class NodeGraphMutationService : INodeGraphMutationService
         ArgumentNullException.ThrowIfNull(graph);
         ArgumentNullException.ThrowIfNull(node);
 
-        // Collect every connection touching the node before mutating so
-        // the iteration is not invalidated by the disconnect calls.
+        // Snapshot touching connections first so disconnect calls don't
+        // invalidate the iteration.
         Connection[] touching = node.Items
             .SelectMany(i => i switch
             {
@@ -145,8 +144,8 @@ public sealed class NodeGraphMutationService : INodeGraphMutationService
         ArgumentNullException.ThrowIfNull(node1);
         ArgumentNullException.ThrowIfNull(node2);
 
-        // Case 1: one port is unset and the opposite side is a dynamic-port
-        // node — materialize a new port on the dynamic-port node.
+        // Case 1: one side unset, the other a dynamic-port node — materialize
+        // a new port on that node.
         if (port1 is null ^ port2 is null)
         {
             IDynamicPortNode? dynamicNode = null;

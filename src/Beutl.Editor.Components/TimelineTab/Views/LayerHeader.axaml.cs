@@ -89,10 +89,8 @@ public sealed partial class LayerHeader : UserControl
 
     private void Border_PointerReleased(object? sender, PointerReleasedEventArgs e)
     {
-        // Border_PointerPressed sets _pressed = true only on a left-button drag start.
-        // Right-click and single-click left-release reach this handler with
-        // _pressed = false and _newLayer = 0 (its initial value), so guarding here
-        // prevents an accidental MoveLayer to ZIndex 0.
+        // _pressed is only set on a left-button drag start; guard against right-click /
+        // single-click reaching here and triggering an accidental MoveLayer to ZIndex 0.
         if (!_pressed) return;
 
         _pressed = false;
@@ -109,9 +107,8 @@ public sealed partial class LayerHeader : UserControl
             return;
         }
 
-        // Snapshot the affected LayerHeaderViewModels (between old and new layer
-        // inclusive of newLayer) against the pre-move state, so the View can update
-        // their Number.Value after the service has rewritten Element.ZIndex.
+        // Snapshot the headers shifted by the move (against pre-move state) so we can
+        // update their Number.Value after the service rewrites Element.ZIndex.
         List<LayerHeaderViewModel> shiftedHeaders = [];
         foreach (LayerHeaderViewModel item in vm.Timeline.LayerHeaders.GetMarshal().Value)
         {
@@ -131,9 +128,8 @@ public sealed partial class LayerHeader : UserControl
             newLayerNum,
             directElements.Select(x => x.Model).ToArray());
 
-        // The service already wrote Element.ZIndex on every model in the plan
-        // and committed history. Now update VM-side state (Number.Value, layer
-        // header collection order) and animate the affected element views.
+        // Service already wrote Element.ZIndex and committed history; now sync VM-side
+        // state (Number.Value, header order) and animate the affected element views.
         int headerShift = oldLayerNum < newLayerNum ? -1 : 1;
         vm.UpdateZIndex(newLayerNum);
         foreach (LayerHeaderViewModel item in CollectionsMarshal.AsSpan(shiftedHeaders))
@@ -143,8 +139,7 @@ public sealed partial class LayerHeader : UserControl
 
         vm.Timeline.LayerHeaders.Move(oldLayerNum, newLayerNum);
 
-        // affectModel: false — Element.ZIndex was already written by the
-        // service; the animation hook just needs to drive the visual.
+        // affectModel: false — ZIndex already written by the service; just drive the visual.
         foreach (ElementViewModel item in directElements)
         {
             item.AnimationRequest(newLayerNum, affectModel: false);

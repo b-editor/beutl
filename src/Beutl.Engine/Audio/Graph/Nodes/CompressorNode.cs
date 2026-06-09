@@ -18,30 +18,23 @@ public sealed class CompressorNode : AudioNode
     private int _lastSampleRate;
     private TimeSpan? _lastTimeRangeEnd;
 
-    // Per-channel handles into the current input/output buffers, cached so the per-sample hot loops
-    // avoid GetChannelData's disposed/bounds checks and re-slicing on every access. Span<float>[]
-    // cannot be used (Span is a ref struct), so we hold Memory<float> and materialize the span per
-    // channel. The backing arrays are reused across Process() calls and only reallocated when the
-    // channel count changes, mirroring EqualizerNode's channel-keyed filter cache.
+    // Cached per-channel buffer handles so the hot loops skip GetChannelData's checks/re-slicing.
+    // Memory<float> (not Span, a ref struct); arrays reused across Process(), reallocated only on
+    // channel-count change.
     private Memory<float>[]? _inputChannelCache;
     private Memory<float>[]? _outputChannelCache;
 
-    // Latched per node instance so the warning only fires once per non-finite event class, even
-    // when the corruption persists across thousands of samples.
+    // Latched per node instance so each non-finite warning fires only once, not per sample.
     private bool _loggedNonFiniteEnvelope;
     private bool _loggedNonFiniteSample;
-    // Per-parameter so a non-finite sample on one parameter (e.g. Attack) does not silently
-    // suppress diagnostics for an unrelated parameter (e.g. Threshold) later in the stream.
+    // Per-parameter so a non-finite value on one parameter does not suppress diagnostics for another.
     private readonly HashSet<string> _loggedNonFiniteParameters = new();
-    // Same once-per-parameter latch for the distinct "finite but out-of-[Range]" case (e.g. an
-    // animation drives Attack to 1e9 ms). Kept separate from _loggedNonFiniteParameters so a
-    // non-finite warning and a clamp warning for the same parameter are not conflated.
+    // Separate once-per-parameter latch for the "finite but out-of-[Range]" case, so clamp and
+    // non-finite warnings for the same parameter are not conflated.
     private readonly HashSet<string> _loggedClampedParameters = new();
 
-    // Test-only counters (observed via InternalsVisibleTo) recording how many warnings were
-    // actually emitted — the only externally visible consequence of the one-shot latches. They let
-    // the latch re-arm semantics (preserved across a seek, re-armed on a sample-rate change or
-    // Reset) be asserted without wiring a logger sink to the static logger.
+    // Test-only counters (via InternalsVisibleTo) of warnings actually emitted, letting the latch
+    // re-arm semantics be asserted without a logger sink.
     internal int NonFiniteSampleWarnings;
     internal int ClampWarnings;
 
@@ -65,23 +58,20 @@ public sealed class CompressorNode : AudioNode
 
         var input = Inputs[0].Process(context);
 
-        // A sample-rate change is a genuine reconfiguration (coefficients must be recomputed for
-        // the new rate), so treat it as a full session boundary: reset both the envelope and the
-        // one-shot diagnostic latches.
+        // A sample-rate change needs new coefficients, so treat it as a full session boundary:
+        // reset both the envelope and the one-shot diagnostic latches.
         if (_lastSampleRate != context.SampleRate)
         {
             Reset();
             _lastSampleRate = context.SampleRate;
         }
 
-        // Reset the envelope on the very first call (no prior end recorded) and whenever the new
-        // chunk does not start exactly where the previous one ended. The node instance is cached
-        // across Compose() calls, so without this guard stale envelope state would bleed into the
-        // first samples after a seek or stop/restart. Only the DSP state is reset here, NOT the
-        // diagnostic latches: a stuttering scrubber produces many discontinuities within a single
-        // session, and re-arming the one-shot warnings on every one of them would let a persistent
-        // non-finite condition re-log once per Process call. Diagnostics re-arm only on a
-        // sample-rate change or an explicit Reset() (e.g. a deliberate re-render).
+        // Reset the envelope on the first call or whenever this chunk does not continue from the
+        // previous one. The node is cached across Compose() calls, so without this guard stale
+        // envelope state would bleed in after a seek/restart. Only DSP state resets here, NOT the
+        // diagnostic latches — re-arming them on every scrub discontinuity would let a persistent
+        // non-finite condition re-log per Process call. Diagnostics re-arm only on a sample-rate
+        // change or an explicit Reset().
         if (!_lastTimeRangeEnd.HasValue || _lastTimeRangeEnd.Value != context.TimeRange.Start)
         {
             ResetEnvelope();
@@ -93,14 +83,10 @@ public sealed class CompressorNode : AudioNode
             return new AudioBuffer(input.SampleRate, input.ChannelCount, 0);
         }
 
-        // Expression-backed properties are intentionally not checked here: AnimationSampler does
-        // not currently evaluate expressions per-sample, so treating HasExpression as live would
-        // route to ProcessAnimated and read the same CurrentValue every iteration — strictly
-        // worse than ProcessStatic, which reads it once. The same root cause is documented at
-        // EqualizerEffect.IsNeutral (build-time band elision), where the FIXME notes that once
-        // AnimationSampler evaluates expressions per-sample, both that guard and this one must
-        // be updated to treat HasExpression as live; otherwise expression-backed parameters
-        // will be silently frozen at their graph-build-time value.
+        // Expression-backed properties are deliberately not checked: AnimationSampler does not yet
+        // evaluate expressions per-sample, so routing them to ProcessAnimated would just re-read the
+        // same CurrentValue every iteration. FIXME: once it does (see EqualizerEffect.IsNeutral),
+        // treat HasExpression as live here too, or such parameters stay frozen at build-time value.
         bool hasAnimation = Threshold.Animation != null ||
                             Ratio.Animation != null ||
                             Attack.Animation != null ||
@@ -130,11 +116,9 @@ public sealed class CompressorNode : AudioNode
         int sampleCount = input.SampleCount;
         var (inputChannels, outputChannels) = MapChannels(input, output);
 
-        // The cached Memory handles are loop-invariant for the whole call, so materialize the
-        // channel spans ONCE for the dominant mono/stereo case and index those — this removes the
-        // per-sample Memory<float>.Span getter (called 3x/sample/channel) that the >2-channel
-        // fallback still pays. Span<float>[] is impossible (Span is a ref struct), hence the
-        // explicit locals.
+        // Materialize the channel spans ONCE for the mono/stereo fast path to avoid the per-sample
+        // Memory.Span getter the >2-channel fallback still pays. Span<float>[] is impossible (ref
+        // struct), hence the explicit locals.
         if (channels <= 2)
         {
             Span<float> in0 = inputChannels[0].Span;
@@ -200,19 +184,16 @@ public sealed class CompressorNode : AudioNode
         Span<float> knees = stackalloc float[bufferSize];
         Span<float> makeups = stackalloc float[bufferSize];
 
-        // Final fallbacks used when an animated parameter samples to NaN/Infinity (e.g. malformed
-        // KeyFrame). Without this guard, a single non-finite animated value would propagate into
-        // the gain calculation and cause the output sanitizer to silently zero out every sample.
+        // Fallbacks for when an animated parameter samples to NaN/Infinity (e.g. malformed
+        // KeyFrame); otherwise one non-finite value would zero out every output sample.
         EffectiveParameters fallback = ReadStaticParameters();
 
         int channels = input.ChannelCount;
         int sampleCount = input.SampleCount;
         var (inputChannels, outputChannels) = MapChannels(input, output);
 
-        // Materialize the channel spans once for the whole call (the cached Memory handles are
-        // stable across the chunk loop), matching ProcessStatic so the per-sample Memory.Span
-        // getter is removed for the dominant mono/stereo case. The >2-channel path keeps the
-        // Memory indexing, where the getter cost is negligible beside the per-sample sampling.
+        // Materialize the channel spans once (matching ProcessStatic) for the mono/stereo fast path;
+        // the >2-channel path keeps Memory indexing where the getter cost is negligible.
         Span<float> in0 = channels <= 2 ? inputChannels[0].Span : default;
         Span<float> out0 = channels <= 2 ? outputChannels[0].Span : default;
         Span<float> in1 = channels == 2 ? inputChannels[1].Span : default;
@@ -220,9 +201,8 @@ public sealed class CompressorNode : AudioNode
 
         int processed = 0;
 
-        // lastAttackMs/lastReleaseMs are seeded with NaN so the first comparison is always
-        // unequal and the coefficients get computed on the very first sample. After that, Exp
-        // is only called when the animated ms value actually changes.
+        // Seed with NaN so the first comparison is always unequal and coefficients compute on
+        // sample 0; afterwards Exp runs only when the animated ms value changes.
         float lastAttackMs = float.NaN;
         float lastReleaseMs = float.NaN;
         float attackCoeff = 0f;
@@ -307,9 +287,8 @@ public sealed class CompressorNode : AudioNode
         return output;
     }
 
-    // Caches per-channel Memory handles for the current input/output buffers, reusing the backing
-    // arrays across calls (only reallocated on a channel-count change). The hot loops then index
-    // the cached handles instead of calling GetChannelData per sample. See the field comment.
+    // Caches per-channel Memory handles, reusing the backing arrays across calls (reallocated only
+    // on a channel-count change) so the hot loops avoid per-sample GetChannelData. See field comment.
     private (Memory<float>[] Inputs, Memory<float>[] Outputs) MapChannels(AudioBuffer input, AudioBuffer output)
     {
         int channels = input.ChannelCount;
@@ -356,20 +335,16 @@ public sealed class CompressorNode : AudioNode
         };
     }
 
-    // Substitute fallback for NaN/Infinity, then clamp to the parameter's declared [Range].
-    // The clamp is what guards against an animated value silently bypassing the [Range] declaration
-    // on CompressorEffect — without it, e.g. an animated Attack of 1e9 ms would freeze the
-    // envelope. A finite-but-out-of-range value is a real authoring error (a malformed keyframe, a
-    // units mistake, an easing overshoot) distinct from the non-finite case SafeParameter handles,
-    // so it gets its own once-per-parameter warning: the clamp keeps the DSP safe, but without this
-    // breadcrumb the misconfiguration would be indistinguishable from correct in-range automation.
+    // Substitute fallback for NaN/Infinity, then clamp to the parameter's [Range]. The clamp stops
+    // an animated value (e.g. Attack of 1e9 ms) from bypassing the declared range and freezing the
+    // envelope. A finite-but-out-of-range value is a real authoring error distinct from the
+    // non-finite case, so it gets its own once-per-parameter warning as a breadcrumb.
     private float Sanitize(float value, float fallback, float min, float max, string paramName)
     {
         float safe = SafeParameter(value, fallback, paramName);
         float clamped = Math.Clamp(safe, min, max);
-        // Only finite values reach here as `safe != clamped` (a non-finite input was already
-        // replaced with the in-range fallback, so it clamps to itself). Latch once per parameter to
-        // keep the audio thread quiet; re-armed only by ResetDiagnostics (sample-rate change / Reset).
+        // Only finite values reach here as `safe != clamped` (non-finite was already replaced by the
+        // in-range fallback). Latch once per parameter; re-armed only by ResetDiagnostics.
         if (clamped != safe && _loggedClampedParameters.Add(paramName))
         {
             ClampWarnings++;
@@ -380,9 +355,8 @@ public sealed class CompressorNode : AudioNode
         return clamped;
     }
 
-    // Without this guard, a single non-finite envelope sample would permanently poison the state
-    // until the next Reset(). The first occurrence is logged; subsequent ones are suppressed so
-    // the audio thread is not spammed.
+    // Without this, one non-finite envelope sample would poison the state until the next Reset().
+    // First occurrence is logged, the rest suppressed.
     private void RecoverEnvelopeIfNonFinite()
     {
         if (float.IsFinite(_envelopeDb)) return;
@@ -412,10 +386,9 @@ public sealed class CompressorNode : AudioNode
         if (!_loggedNonFiniteSample)
         {
             NonFiniteSampleWarnings++;
-            // With every parameter clamped and the envelope independently recovered, the computed
-            // gain cannot itself overflow — so a non-finite sample here almost always means an
-            // upstream node emitted NaN/Infinity. We zero it to protect downstream nodes and point
-            // the breadcrumb at the likely culprit rather than implying the compressor produced it.
+            // Parameters are clamped and the envelope recovered, so the gain cannot overflow — a
+            // non-finite sample here almost always came from upstream. Zero it to protect downstream
+            // nodes and point the breadcrumb at the likely culprit.
             s_logger.LogWarning(
                 "Compressor encountered a non-finite (NaN/Infinity) sample — with all parameters clamped this almost certainly originates upstream — and replaced it with 0 to protect downstream nodes. Further occurrences will be suppressed.");
             _loggedNonFiniteSample = true;
@@ -423,16 +396,12 @@ public sealed class CompressorNode : AudioNode
         return 0f;
     }
 
-    // Advances the envelope follower by one sample's peak and returns the linear gain to apply.
-    // Shared by ProcessStatic and ProcessAnimated so the envelope/gain math cannot drift between
-    // the two paths: they already shared ComputeGainReductionDb/ComputeGainLinear, and this also
-    // unifies the inputDb derivation and the one-pole envelope update that were previously
-    // duplicated inline in both loops.
+    // Advances the envelope follower by one sample's peak and returns the linear gain. Shared by
+    // ProcessStatic and ProcessAnimated so the envelope/gain math cannot drift between the paths.
     private float NextGain(float peak, float attackCoeff, float releaseCoeff, in EffectiveParameters p, float slope)
     {
-        // peak == 0 (digital silence) collapses inputDb to MinDb. The caller's abs/max keeps `peak`
-        // finite (MathF.Abs(NaN) > 0 is false, so a stray NaN never raises peak); any non-finite
-        // envelope state arriving from elsewhere is recovered by RecoverEnvelopeIfNonFinite below.
+        // peak == 0 (silence) collapses inputDb to MinDb. The caller's abs/max keeps peak finite
+        // (a stray NaN never raises it); other non-finite envelope state is recovered below.
         float inputDb = peak > 0f ? 20f * MathF.Log10(peak) : MinDb;
         float coeff = inputDb > _envelopeDb ? attackCoeff : releaseCoeff;
         _envelopeDb = inputDb + coeff * (_envelopeDb - inputDb);
@@ -442,31 +411,23 @@ public sealed class CompressorNode : AudioNode
         return ComputeGainLinear(gainReductionDb, p.MakeupGain);
     }
 
-    // Combined linear gain factor: the dB-domain reduction is subtracted and the makeup gain is
-    // added before a single dB→linear conversion. Both ProcessStatic and ProcessAnimated share
-    // this helper so the static and animated paths cannot drift out of agreement (they used to
-    // apply makeup as a pre-computed `makeupLinear` multiplier vs. an in-formula addition, which
-    // is mathematically equivalent but a future refactor of one branch could silently break the
-    // other).
+    // Combined linear gain: subtract the dB reduction, add makeup, then a single dB→linear
+    // conversion. Shared by both paths so the static and animated math cannot drift apart.
     private static float ComputeGainLinear(float gainReductionDb, float makeupDb)
     {
         return AudioMath.ConvertDbToLinear(makeupDb - gainReductionDb);
     }
 
-    // Standard one-pole IIR smoothing coefficient for a 1/e settling time of `timeMs` at the
-    // given sample rate: y[n] = x[n] + coeff * (y[n-1] - x[n]) reaches (1 - 1/e) ≈ 63% of a step
-    // change after exactly `timeMs` milliseconds. Operates in dB-domain on `_envelopeDb` because
-    // dB-domain peak smoothing better matches how the human ear perceives compression action.
+    // One-pole IIR smoothing coefficient for a 1/e settling time of `timeMs`: the envelope reaches
+    // ~63% of a step change after `timeMs`. dB-domain because that better matches perceived loudness.
     private static float ComputeCoeff(float timeMs, int sampleRate)
     {
         return MathF.Exp(-1f / (timeMs * 0.001f * sampleRate));
     }
 
-    // Soft-knee gain computer (Reece/Giannoulis formulation): when `kneeDb > 0`, the gain
-    // reduction curve transitions smoothly from "no compression" to the full `slope * diff`
-    // line over a `kneeDb`-wide region centred on the threshold, via a quadratic that is
-    // C¹-continuous at both knee boundaries. With `kneeDb == 0` this collapses to the standard
-    // hard-knee formula.
+    // Soft-knee gain computer (Reece/Giannoulis): when kneeDb > 0, a C¹-continuous quadratic blends
+    // from no compression to the full `slope * diff` line over a kneeDb-wide region around the
+    // threshold. kneeDb == 0 collapses to the hard-knee formula.
     private static float ComputeGainReductionDb(float envelopeDb, float thresholdDb, float kneeDb, float slope)
     {
         if (kneeDb > 0f)
@@ -479,9 +440,8 @@ public sealed class CompressorNode : AudioNode
             }
             if (diff < halfKnee)
             {
-                // Quadratic interpolation across the knee: at diff = -halfKnee returns 0, at
-                // diff = +halfKnee returns slope * halfKnee, with matching derivatives at both
-                // ends (= 0 below, = slope above) so the overall curve is smooth.
+                // Quadratic across the knee: 0 at -halfKnee, slope * halfKnee at +halfKnee, with
+                // matching derivatives at both ends so the curve stays smooth.
                 float x = diff + halfKnee;
                 return slope * x * x / (2f * kneeDb);
             }
@@ -496,12 +456,10 @@ public sealed class CompressorNode : AudioNode
     /// and re-arms the one-shot non-finite diagnostic warnings.
     /// </summary>
     /// <remarks>
-    /// Do not call this mid-buffer during continuous playback — zeroing the envelope there produces
-    /// an audible click. <see cref="Reset"/> is for genuine session boundaries (a deliberate
-    /// re-render, or an explicit stop/seek driven by an orchestrator). <see cref="Process"/> already
-    /// resets the envelope automatically on a sample-rate change or a time-range discontinuity, so
-    /// routine seeking does not require an external call. Public to match the sibling stateful nodes
-    /// <c>EqualizerNode</c> and <c>DelayNode</c>, which expose <c>Reset()</c> for the same purpose.
+    /// Do not call mid-buffer during playback — zeroing the envelope there clicks. This is for
+    /// genuine session boundaries (a deliberate re-render or an orchestrator-driven stop/seek);
+    /// <see cref="Process"/> already resets the envelope on a sample-rate change or time-range
+    /// discontinuity. Public to match the sibling stateful nodes <c>EqualizerNode</c> / <c>DelayNode</c>.
     /// </remarks>
     public void Reset()
     {
@@ -526,8 +484,8 @@ public sealed class CompressorNode : AudioNode
     {
         if (disposing)
         {
-            // Drop the cached handles so we do not keep the last processed buffers' pooled memory
-            // referenced after disposal. They are re-filled at the start of the next Process() call.
+            // Drop the cached handles so we do not pin the last buffers' pooled memory after
+            // disposal; they are re-filled on the next Process() call.
             _inputChannelCache = null;
             _outputChannelCache = null;
         }
@@ -535,8 +493,8 @@ public sealed class CompressorNode : AudioNode
         base.Dispose(disposing);
     }
 
-    // readonly + init-only: every instance is built via object initializer and thereafter only read
-    // (it is even passed `in` to NextGain/SanitizeAnimated), so immutability is the real intent.
+    // readonly + init-only: built once via object initializer, then only read (passed `in`), so
+    // immutability is intentional.
     private readonly struct EffectiveParameters
     {
         public float Threshold { get; init; }

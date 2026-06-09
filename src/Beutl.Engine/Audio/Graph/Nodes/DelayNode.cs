@@ -40,11 +40,9 @@ public sealed class DelayNode : AudioNode
             _lastTimeRangeStart = context.TimeRange.Start;
         }
 
-        // If no animations are assigned, use static processing. Guard on Animation (an actual
-        // keyframe animation) rather than IsAnimatable (a capability flag that is always true for
-        // an animatable property), so an unkeyed property skips the per-sample animated path.
-        // The null-conditional keeps a misconfigured (null) property degrading to static defaults
-        // (see ProcessStatic) instead of throwing, matching GainNode.
+        // Guard on Animation (an actual keyframe), not IsAnimatable (always true for animatable
+        // properties), so an unkeyed property skips the per-sample path. The null-conditional lets a
+        // null property fall back to static defaults instead of throwing, matching GainNode.
         bool hasAnimation = DelayTime?.Animation != null ||
                             Feedback?.Animation != null ||
                             DryMix?.Animation != null ||

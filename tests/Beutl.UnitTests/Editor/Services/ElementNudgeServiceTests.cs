@@ -111,8 +111,7 @@ public class ElementNudgeServiceTests
     [Test]
     public void Nudge_PullsAnchorOntoGrid_BeforeShifting()
     {
-        // Element starts off-grid (1.555s); first nudge should round to grid
-        // (1.5333... @ 30fps = 46 frames = 1533ms) plus 1 frame.
+        // Off-grid start (1.555s): first nudge rounds to grid (1533ms @ 30fps) then adds 1 frame.
         Element element = AddElement(TimeSpan.FromMilliseconds(1555), TimeSpan.FromSeconds(2));
         TimeSpan originalStart = element.Start;
 

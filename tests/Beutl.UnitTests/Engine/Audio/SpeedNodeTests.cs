@@ -13,8 +13,8 @@ public class SpeedNodeTests
 {
     private const int SampleRate = 100;
 
-    // Deterministic stereo source: a ramp keyed off the requested global sample index so that
-    // any change in how SpeedNode requests source ranges shows up as a different output.
+    // Deterministic stereo source: a ramp keyed off the global sample index, so any change in how
+    // SpeedNode requests source ranges shows up in the output.
     private sealed class RampInputNode : AudioNode
     {
         private readonly int _sampleRate;
@@ -96,11 +96,9 @@ public class SpeedNodeTests
         }
     }
 
-    // Guards the ArrayPool usage in ProcessAnimatedSpeed: two independent fresh nodes fed identical
-    // input must yield identical output. A pooled speed buffer that leaked stale data or was not fully
-    // overwritten would make the second instance (which gets a dirtier rented array) diverge.
-    // Note: a single node is stateful across renders (its WdlResampler carries filter state), so each
-    // comparison must use a freshly constructed node.
+    // Guards the ArrayPool usage in ProcessAnimatedSpeed: two fresh nodes fed identical input must
+    // produce identical output, so a pooled speed buffer with leftover stale data would diverge.
+    // A node is stateful across renders (WdlResampler filter state), hence a fresh node per render.
     [Test]
     public void ProcessAnimatedSpeed_IsDeterministicAcrossFreshInstances()
     {

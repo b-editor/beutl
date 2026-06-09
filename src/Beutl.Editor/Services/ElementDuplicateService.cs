@@ -38,9 +38,8 @@ public sealed class ElementDuplicateService : IElementDuplicateService
         int anchorZIndex;
         try
         {
-            // Regeneration can throw on a corrupt / unknown-plugin element, so it
-            // belongs inside the guarded region alongside placement (matching
-            // DuplicateAtPosition) instead of escaping the paste command.
+            // Regeneration can throw on a corrupt / unknown-plugin element, so
+            // keep it inside the guarded region (like DuplicateAtPosition).
             ObjectRegenerator.Regenerate(sourceArray, out regenerated);
             (seedRange, minZIndex, maxZIndex) = DuplicateHelper.ComputePlacementRange(regenerated);
             (anchorStart, anchorZIndex) =
@@ -91,9 +90,8 @@ public sealed class ElementDuplicateService : IElementDuplicateService
     }
 
     /// <summary>
-    /// Spiral search around the clicked position for a non-overlapping slot.
-    /// Bounded by <see cref="MaxSearchSteps"/> so a densely-packed timeline
-    /// can never hang the caller.
+    /// Spiral search around the clicked position for a non-overlapping slot,
+    /// bounded by <see cref="MaxSearchSteps"/> so a packed timeline can't hang.
     /// </summary>
     private static (TimeSpan Start, int ZIndex) CorrectPosition(
         Scene scene,

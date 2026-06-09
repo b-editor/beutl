@@ -76,9 +76,7 @@ public class ElementObjectServiceTests
         var inserted = new TestEngineObject();
         int before = _history.UndoCount;
 
-        // Index 99 is past Count; service must clamp to Count rather than
-        // throw — the View dropping at the bottom of the list ends up
-        // passing an out-of-range index.
+        // Out-of-range index (drop at list bottom) must clamp to Count, not throw.
         _service.InsertAt(_element, 99, inserted);
 
         Assert.Multiple(() =>

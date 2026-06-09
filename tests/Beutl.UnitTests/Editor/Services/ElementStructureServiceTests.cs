@@ -106,8 +106,7 @@ public class ElementStructureServiceTests
     [Test]
     public void Split_ShortBothSides_DoesNotCommit()
     {
-        // Total length is 1 frame (~33ms at 30fps); split at midpoint leaves
-        // both halves shorter than minDuration, so the service should bail.
+        // Splitting a ~1-frame element leaves both halves under minDuration, so it must bail.
         Element element = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromMilliseconds(20));
         int before = _history.UndoCount;
 
@@ -170,9 +169,7 @@ public class ElementStructureServiceTests
         Assert.Multiple(() =>
         {
             Assert.That(outcome.Created, Is.False);
-            // No group change and no observable mutation should reach the
-            // history stack — Commit() must silently no-op when the
-            // current transaction has no recorded operations.
+            // Commit() must no-op when the transaction recorded no operations.
             Assert.That(_scene.Groups.Count, Is.EqualTo(beforeGroups));
             Assert.That(_history.UndoCount, Is.EqualTo(beforeUndo));
         });
@@ -201,9 +198,7 @@ public class ElementStructureServiceTests
 
         Assert.Multiple(() =>
         {
-            // Same contract as Group_SingleId: no group touched, no
-            // history entry. An unconditional Commit would close the
-            // pending transaction and pull in unrelated mutations.
+            // Same contract as Group_SingleId: an unconditional Commit would pull in unrelated mutations.
             Assert.That(_scene.Groups.Count, Is.EqualTo(beforeGroups));
             Assert.That(_history.UndoCount, Is.EqualTo(beforeUndo));
         });
