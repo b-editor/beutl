@@ -183,16 +183,24 @@ internal sealed class ElementAdderImpl(EditViewModel context) : IElementAdder
         {
             _logger.LogInformation("Adding new element without file.");
             Element element = CreateElement();
-            if (desc.InitialObject != null)
+            if (desc.EngineObjectFactory != null)
             {
-                element.Name = string.IsNullOrEmpty(desc.Name)
-                    ? TypeDisplayHelpers.GetLocalizedName(desc.InitialObject)
-                    : desc.Name;
+                EngineObject engineObject;
+                try
+                {
+                    engineObject = desc.EngineObjectFactory();
+                }
+                catch (Exception ex)
+                {
+                    // Aborting before any scene mutation keeps the add transactional: nothing is
+                    // persisted or committed to history when the factory fails.
+                    _logger.LogError(ex, "Failed to create the engine object for the new element; aborting add.");
+                    return;
+                }
 
-                element.AccentColor =
-                    ColorGenerator.GenerateColor(desc.InitialObject.FullName ?? desc.InitialObject.Name);
-                var engineObject = (EngineObject)Activator.CreateInstance(desc.InitialObject)!;
-                desc.InitialObjectConfigure?.Invoke(engineObject);
+                Type objectType = engineObject.GetType();
+                element.Name = desc.ResolveName(objectType);
+                element.AccentColor = ColorGenerator.GenerateColor(objectType.FullName ?? objectType.Name);
                 element.AddObject(engineObject);
                 if (engineObject is Drawable drawable)
                 {
