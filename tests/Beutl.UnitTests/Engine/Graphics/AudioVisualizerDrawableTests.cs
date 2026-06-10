@@ -29,11 +29,11 @@ public class AudioVisualizerDrawableTests
         Fill = { CurrentValue = new SolidColorBrush(Colors.White) }
     };
 
-    private static void RenderOnce(Drawable drawable)
+    private static void RenderOnce(Drawable drawable, float outputScale = 1f)
     {
         using var resource = drawable.ToResource(CompositionContext.Default);
         using var container = new ContainerRenderNode();
-        using var context = new GraphicsContext2D(container, new PixelSize(400, 200));
+        using var context = new GraphicsContext2D(container, new PixelSize(400, 200), outputScale);
         drawable.Render(context, resource);
     }
 
@@ -112,4 +112,34 @@ public class AudioVisualizerDrawableTests
         Assert.DoesNotThrow(() => RenderOnce(drawable));
     }
 
+    // feature 003 (FR-030): audio visualizers render as logical-space CTM geometry (the "leave-unchanged"
+    // bucket — their shapes build brushes from canvas.OutputScale and draw logical bars/lines that the root
+    // CTM scales). These assert the reduced-/super-scale output-scale plumbs through every waveform shape and
+    // both spectrum drawables without throwing — i.e. nothing in the visualizer path reads a device pixel
+    // dimension that breaks at w != 1. (A perceptual reduced-scale gate needs an audio source + GPU and is a
+    // golden-suite follow-up; this closes the does-not-throw coverage gap FR-030 flagged.)
+    [TestCaseSource(nameof(WaveformShapeCases))]
+    public void Waveform_WithEachShape_AtReducedScale_DoesNotThrow(Func<WaveformShape> factory)
+    {
+        var drawable = CreateWaveform();
+        drawable.Shape.CurrentValue = factory();
+        Assert.DoesNotThrow(() => RenderOnce(drawable, 0.5f));
+        Assert.DoesNotThrow(() => RenderOnce(drawable, 2f));
+    }
+
+    [Test]
+    public void Spectrum_AtReducedScale_DoesNotThrow()
+    {
+        var drawable = CreateSpectrum();
+        Assert.DoesNotThrow(() => RenderOnce(drawable, 0.5f));
+        Assert.DoesNotThrow(() => RenderOnce(drawable, 2f));
+    }
+
+    [Test]
+    public void Spectrogram_AtReducedScale_DoesNotThrow()
+    {
+        var drawable = CreateSpectrogram();
+        Assert.DoesNotThrow(() => RenderOnce(drawable, 0.5f));
+        Assert.DoesNotThrow(() => RenderOnce(drawable, 2f));
+    }
 }

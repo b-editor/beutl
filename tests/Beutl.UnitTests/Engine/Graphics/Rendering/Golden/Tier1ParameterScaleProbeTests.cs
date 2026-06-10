@@ -12,13 +12,15 @@ namespace Beutl.UnitTests.Engine.Graphics.Rendering.Golden;
 // would double-scale it). These probes settle the stale "deferred ×w" notes empirically:
 //   - ShakeEffect:      SSIM ~0.999 -> ALREADY scale-correct (logical-bounds translate). Do NOT ×w.
 //   - PerlinNoiseBrush: SSIM ~0.70  -> this is NOT a frequency mismatch but the inherent best-effort
-//                       downsampling loss of a high-frequency procedural texture (FR-013). EMPIRICALLY
-//                       DISPROVEN that BaseFrequency ÷w helps: dividing BaseFrequency by the render scale
-//                       made it WORSE (0.70 -> 0.63 at 0.5x), because SkPerlinNoiseShader already follows
-//                       the CTM (the noise period is logical-invariant); ÷w just adds higher frequencies
-//                       that downsampling then loses. So the dossier's "BaseFrequency ÷w" recommendation is
-//                       wrong for the shipped CTM pipeline — PerlinNoise needs NO param scaling, and 0.70 is
-//                       accepted best-effort. The loose floor below guards against a real regression only.
+//                       downsampling loss of a high-frequency procedural texture (FR-013). The "BaseFrequency
+//                       ÷w" recommendation in the dossier was tried as a one-off A/B in commit 8b2a1624c and
+//                       made the reduced-scale result WORSE (0.70 -> 0.63 at 0.5x) — SkPerlinNoiseShader
+//                       already follows the CTM (the noise period is logical-invariant), so ÷w only adds
+//                       higher frequencies that downsampling then loses. That experiment was reverted and is
+//                       NOT reproduced by the assertion below (the ÷w variant is no longer plumbed); the
+//                       falsification lives in git history (8b2a1624c). PerlinNoise ships with NO param
+//                       scaling, and 0.70 is accepted best-effort. The loose floor below is a REGRESSION
+//                       FLOOR ONLY — it cannot distinguish the ÷w hypothesis (both 0.70 and 0.63 clear it).
 [NonParallelizable]
 [TestFixture]
 public class Tier1ParameterScaleProbeTests

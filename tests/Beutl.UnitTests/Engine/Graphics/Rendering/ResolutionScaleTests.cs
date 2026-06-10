@@ -176,4 +176,28 @@ public class ResolutionScaleTests
         Assert.That(RenderNodeContext.ClampWorkingScaleToBufferBudget(new Rect(0, 0, 100, 100), float.NaN),
             Is.NaN);
     }
+
+    [Test]
+    public void ClampBudget_PostEffectInflation_NeedsReclampAtAllocationSite()
+    {
+        // feature 003 (FR-037): the node-level clamp runs against the PRE-effect input bounds, but a
+        // blur/shadow inflates the bounds by sigma×3 BEFORE the buffer is allocated in FilterEffectActivator.Flush.
+        // This characterizes WHY Flush re-clamps against the inflated OriginalBounds: a w that fits the input
+        // bounds can overflow once the effect inflates them, so the same clamp applied at the allocation site
+        // must reduce w further. Here: input fits at w=3, but after a sigma=2000 blur (Inflate by 3×sigma per
+        // side) the bounds blow past the GPU limit and the re-clamp must shrink w.
+        var inputBounds = new Rect(0, 0, 4000, 4000);
+        float wAtInput = RenderNodeContext.ClampWorkingScaleToBufferBudget(inputBounds, 3.0f);
+        Assert.That(wAtInput, Is.EqualTo(3.0f), "input bounds fit at w=3 — the node-level clamp is inert");
+
+        // A large blur inflates each side by 3×sigma (FilterEffectContext.Blur), so the buffer that Flush
+        // actually allocates is sized against these inflated bounds, not the input bounds.
+        Rect inflated = inputBounds.Inflate(new Thickness(3 * 2000, 3 * 2000));
+        float wAtAllocation = RenderNodeContext.ClampWorkingScaleToBufferBudget(inflated, 3.0f);
+        Assert.That(wAtAllocation, Is.LessThan(wAtInput),
+            "the re-clamp against post-inflation bounds must reduce w so the inflated buffer stays allocatable");
+        double largestAxis = Math.Max(inflated.Width, inflated.Height);
+        Assert.That(largestAxis * wAtAllocation, Is.LessThanOrEqualTo(RenderNodeContext.MaxBufferDimension + 1),
+            "post-inflation buffer must fit the GPU dimension limit after the allocation-site re-clamp");
+    }
 }

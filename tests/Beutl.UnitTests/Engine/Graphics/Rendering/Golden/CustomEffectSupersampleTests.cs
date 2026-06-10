@@ -114,4 +114,80 @@ public class CustomEffectSupersampleTests
                 "supersampled displacement warp diverged from 1:1 — the displacement map is sampled in the wrong space at w != 1");
         });
     }
+
+    // feature 003: the Scale and Rotation displacement transforms carry the same device-space uPivot × w
+    // logic as Translate (DisplacementMapTransform.cs), but only Translate was covered. A non-zero Center
+    // exercises the pivot: if uPivot were NOT scaled by w, the warp would pivot around the wrong device point
+    // at w != 1 and the supersampled-then-downscaled image would diverge from the 1:1 warp.
+    private static Drawable.Resource MakeDisplacedShape(DisplacementMapTransform transform)
+    {
+        var shape = new RectShape();
+        shape.AlignmentX.CurrentValue = AlignmentX.Center;
+        shape.AlignmentY.CurrentValue = AlignmentY.Center;
+        shape.TransformOrigin.CurrentValue = RelativePoint.Center;
+        shape.Width.CurrentValue = 150;
+        shape.Height.CurrentValue = 40;
+        shape.Fill.CurrentValue = Brushes.White;
+        var rotation = new RotationTransform();
+        rotation.Rotation.CurrentValue = 21f;
+        shape.Transform.CurrentValue = rotation;
+
+        var effect = new DisplacementMapEffect();          // default DisplacementMap = RadialGradientBrush (spatially varying)
+        effect.Transform.CurrentValue = transform;
+        shape.FilterEffect.CurrentValue = effect;
+        return shape.ToResource(CompositionContext.Default);
+    }
+
+    private static DisplacementMapScaleTransform MakeScaleTransform()
+    {
+        var t = new DisplacementMapScaleTransform();
+        t.ScaleX.CurrentValue = 160f;
+        t.ScaleY.CurrentValue = 70f;
+        t.CenterX.CurrentValue = 35f;   // device-space pivot -> × w
+        t.CenterY.CurrentValue = 20f;
+        return t;
+    }
+
+    private static DisplacementMapRotationTransform MakeRotationTransform()
+    {
+        var t = new DisplacementMapRotationTransform();
+        t.Rotation.CurrentValue = 35f;
+        t.CenterX.CurrentValue = 35f;   // device-space pivot -> × w
+        t.CenterY.CurrentValue = 20f;
+        return t;
+    }
+
+    [Test]
+    public void DisplacementMapScale_Supersampled_KeepsLogicalWarp()
+    {
+        VulkanTestEnvironment.EnsureAvailable();
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            using Bitmap oneToOne = GoldenImageHarness.RenderAtScale(MakeDisplacedShape(MakeScaleTransform()), Frame, 1f);
+            using Bitmap superHi = GoldenImageHarness.RenderAtScale(MakeDisplacedShape(MakeScaleTransform()), Frame, 2f);
+            using Bitmap delivered = GoldenImageHarness.MitchellResampleTo(superHi, Frame);
+
+            double ssim = ImageMetrics.Ssim(oneToOne, delivered);
+            TestContext.WriteLine($"DisplacementMapScale 2x-delivered vs 1:1 SSIM={ssim:F4}");
+            Assert.That(ssim, Is.GreaterThan(0.95),
+                "supersampled scale-displacement warp diverged from 1:1 — the pivot is sampled in the wrong space at w != 1");
+        });
+    }
+
+    [Test]
+    public void DisplacementMapRotation_Supersampled_KeepsLogicalWarp()
+    {
+        VulkanTestEnvironment.EnsureAvailable();
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            using Bitmap oneToOne = GoldenImageHarness.RenderAtScale(MakeDisplacedShape(MakeRotationTransform()), Frame, 1f);
+            using Bitmap superHi = GoldenImageHarness.RenderAtScale(MakeDisplacedShape(MakeRotationTransform()), Frame, 2f);
+            using Bitmap delivered = GoldenImageHarness.MitchellResampleTo(superHi, Frame);
+
+            double ssim = ImageMetrics.Ssim(oneToOne, delivered);
+            TestContext.WriteLine($"DisplacementMapRotation 2x-delivered vs 1:1 SSIM={ssim:F4}");
+            Assert.That(ssim, Is.GreaterThan(0.95),
+                "supersampled rotation-displacement warp diverged from 1:1 — the pivot is sampled in the wrong space at w != 1");
+        });
+    }
 }
