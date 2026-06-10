@@ -30,9 +30,12 @@ public abstract partial class FilterEffect : EngineObject
 
         public virtual PushedState Push(GraphicsContext2D context)
         {
+            // feature 003: route through CreateRenderNode() so an effect that returns a custom
+            // FilterEffectRenderNode subclass (the documented replacement for the removed ResolutionPolicy)
+            // is actually honoured on the normal Drawable push path, not only on the node-graph path.
             return context.PushNode(
                 this,
-                resource => new FilterEffectRenderNode(resource),
+                resource => resource.CreateRenderNode(),
                 (node, resource) => node.Update(resource));
         }
     }

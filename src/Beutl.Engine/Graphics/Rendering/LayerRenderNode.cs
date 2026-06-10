@@ -19,19 +19,12 @@ public class LayerRenderNode(Rect limit) : ContainerRenderNode
 
     public override RenderNodeOperation[] Process(RenderNodeContext context)
     {
-        // feature 003: the flattened layer carries the densest concrete child's supply density (the compositor's
-        // targetScale = max rule) — the layer buffer must be dense enough for its finest-detail child. All-vector
-        // children stay Unbounded (they re-rasterize at the consumer's working scale).
-        EffectiveScale layerScale = EffectiveScale.Unbounded;
-        foreach (RenderNodeOperation op in context.Input)
-        {
-            EffectiveScale s = op.EffectiveScale;
-            if (!s.IsUnbounded && (layerScale.IsUnbounded || s.Value > layerScale.Value))
-            {
-                layerScale = s;
-            }
-        }
-
+        // feature 003: a SaveLayer flatten allocates NO node-owned buffer — its render lambda re-renders the
+        // children directly into the consumer's canvas at the consumer's CTM (PushLayer == SaveLayer), and any
+        // genuinely concrete child resamples itself at its own DrawSurface/DrawRenderTarget blit (FR-017). So,
+        // like the other SaveLayer wrappers (Opacity/BlendMode/OpacityMask — data-model.md), the layer reports
+        // EffectiveScale.Unbounded: it re-rasterizes at any working scale and must NOT pin a parent boundary's
+        // working scale to a child's density (which would wrongly drag a re-rasterizable vector sibling down).
         return
         [
             RenderNodeOperation.CreateLambda(
@@ -54,7 +47,7 @@ public class LayerRenderNode(Rect limit) : ContainerRenderNode
                         op.Dispose();
                     }
                 },
-                effectiveScale: layerScale)
+                effectiveScale: EffectiveScale.Unbounded)
         ];
     }
 }

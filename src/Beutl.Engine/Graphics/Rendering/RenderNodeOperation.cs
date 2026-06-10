@@ -77,9 +77,11 @@ public abstract class RenderNodeOperation : IDisposable
     public static RenderNodeOperation CreateFromSurface(
         Rect bounds, Point position, SKSurface surface, EffectiveScale effectiveScale = default)
     {
+        // feature 003: scaled branch derives its dest from the surface footprint (pixels ÷ density),
+        // anchored at bounds.Position — mirroring CreateFromRenderTarget so an inflated `bounds` cannot stretch it.
         Action<ImmediateCanvas> render = effectiveScale.IsUnbounded || effectiveScale.Value == 1f
             ? canvas => canvas.DrawSurface(surface, position)
-            : canvas => canvas.DrawSurfaceScaled(surface, bounds);
+            : canvas => canvas.DrawSurfaceScaled(surface, bounds.Position, effectiveScale.Value);
         return CreateLambda(bounds, render, bounds.Contains, surface.Dispose, effectiveScale);
     }
 
@@ -88,7 +90,7 @@ public abstract class RenderNodeOperation : IDisposable
     {
         Action<ImmediateCanvas> render = effectiveScale.IsUnbounded || effectiveScale.Value == 1f
             ? canvas => canvas.DrawSurface(surface.Value, position)
-            : canvas => canvas.DrawSurfaceScaled(surface.Value, bounds);
+            : canvas => canvas.DrawSurfaceScaled(surface.Value, bounds.Position, effectiveScale.Value);
         return CreateLambda(bounds, render, bounds.Contains, surface.Dispose, effectiveScale);
     }
 

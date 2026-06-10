@@ -18,8 +18,11 @@ public class RenderNodeContext(
 
     /// <summary>
     /// The global working-scale ceiling for this pull (feature 003, FR-037): preview caps it at
-    /// <c>2 × s_out</c> to bound memory; export leaves it <c>+∞</c>. Applied as the final
-    /// <c>min(·, MaxWorkingScale)</c> in <see cref="ResolveWorkingScale"/>. Default <c>+∞</c> = no ceiling.
+    /// <c>2 × s_out</c> to bound interactive working scale; export passes a generous-but-finite
+    /// <c>max(8, 4 × s_out)</c> (high enough never to clip a legitimate high-resolution source, yet finite to
+    /// stay OOM-safe on long renders). Applied as the final <c>min(·, MaxWorkingScale)</c> in
+    /// <see cref="ResolveWorkingScale"/>. The constructor default is <c>+∞</c> (no ceiling) for non-render-request
+    /// callers; production render requests always seed a finite value.
     /// </summary>
     public float MaxWorkingScale { get; } = maxWorkingScale;
 
@@ -44,7 +47,7 @@ public class RenderNodeContext(
     /// </remarks>
     /// <param name="inputs">The effective scales of the boundary's input operations.</param>
     /// <param name="outputScale">The render request's output scale <c>s_out</c>.</param>
-    /// <param name="maxWorkingScale">A global ceiling (FR-037: 2×s_out preview, +∞ export).</param>
+    /// <param name="maxWorkingScale">A global ceiling (FR-037: 2×s_out preview, max(8, 4×s_out) export).</param>
     public static float ResolveWorkingScale(
         ReadOnlySpan<EffectiveScale> inputs,
         float outputScale,
@@ -98,7 +101,8 @@ public class RenderNodeContext(
     /// <summary>
     /// Clamps a working scale so the device buffer it allocates for <paramref name="logicalBounds"/> stays
     /// within <paramref name="maxDimension"/> on each axis (feature 003 — the FR-037 ceiling bounds <c>w</c>
-    /// but NOT the buffer, because memory and the GPU texture limit scale with <c>bounds × w</c>, not <c>w</c>).
+    /// but NOT the buffer: the per-axis GPU texture limit scales with <c>axis × w</c> — what this clamp bounds —
+    /// while memory scales with <c>area × w²</c>, which nothing bounds here by design).
     /// A supply-driven <c>w</c> — especially an <b>anisotropic</b> transform projected onto its most-detailed
     /// axis (FR-019), which inflates the bounds on the stretched axis while raising the density — can size a
     /// buffer past the GPU limit (un-allocatable → crash) or into the multi-GiB range. This reduces <c>w</c>

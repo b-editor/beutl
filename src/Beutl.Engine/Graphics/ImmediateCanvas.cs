@@ -152,17 +152,21 @@ public partial class ImmediateCanvas : ICanvas
         renderTarget.Value.Flush(true, true);
     }
 
-    // feature 003: SKSurface counterpart of DrawRenderTargetScaled — draw a concrete-scale surface into a
-    // LOGICAL destination rect so the active CTM maps it to the device surface (used for nested-scene /
-    // 3D bitmap ops whose backing surface is denser than the destination).
-    public void DrawSurfaceScaled(SKSurface surface, Rect dest)
+    // feature 003: SKSurface counterpart of DrawRenderTargetScaled — draw a concrete-scale surface into its
+    // own LOGICAL footprint so the active CTM maps it to the device surface (used for nested-scene / 3D bitmap
+    // ops whose backing surface is denser than the destination). The destination is derived from the surface's
+    // OWN pixel size ÷ density (origin-anchored), NOT from a caller-supplied bounds — mirroring
+    // DrawRenderTargetScaled/CreateFromRenderTarget so a downstream filter that inflated the op bounds while the
+    // buffer still holds the original area cannot stretch it.
+    public void DrawSurfaceScaled(SKSurface surface, Point origin, float scale)
     {
         _sharedFillPaint.Reset();
         _sharedFillPaint.IsAntialias = true;
 
         using SKImage image = surface.Snapshot();
         var src = SKRect.Create(image.Width, image.Height);
-        Canvas.DrawImage(image, src, dest.ToSKRect(), new SKSamplingOptions(SKCubicResampler.Mitchell), _sharedFillPaint);
+        var dest = SKRect.Create((float)origin.X, (float)origin.Y, image.Width / scale, image.Height / scale);
+        Canvas.DrawImage(image, src, dest, new SKSamplingOptions(SKCubicResampler.Mitchell), _sharedFillPaint);
 
         surface.Flush(true, true);
     }

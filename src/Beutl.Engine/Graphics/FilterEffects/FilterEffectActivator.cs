@@ -37,13 +37,19 @@ public sealed class FilterEffectActivator(
             using var paint = Builder.HasFilter() ? new SKPaint() : null;
             paint?.ImageFilter = Builder.GetFilter();
 
-            float w = WorkingScale;
             for (int i = 0; i < CurrentTargets.Count; i++)
             {
                 EffectTarget target = CurrentTargets[i];
-                // feature 003: at w != 1 size the flattened buffer ceil(OriginalBounds × w) device px and
-                // prescale by w, so the chain rasterizes at working density; w == 1 keeps the exact
-                // (int)-truncation + translation-only path (byte-identical).
+                // feature 003 (FR-037 backstop): re-clamp the working scale against THIS target's bounds at the
+                // actual allocation site. The node-level clamp (FilterEffectRenderNode) bounds w against the
+                // pre-effect input bounds, but a Skia blur/shadow/dilate inflates OriginalBounds by sigma×3
+                // BEFORE this flush, so the real buffer ceil(OriginalBounds × w) can still exceed the GPU limit.
+                // Clamping here keeps the buffer allocatable; inert (returns w) when it already fits, so w == 1
+                // stays 1 (byte-identical).
+                float w = RenderNodeContext.ClampWorkingScaleToBufferBudget(target.OriginalBounds, WorkingScale);
+                // at w != 1 size the flattened buffer ceil(OriginalBounds × w) device px and prescale by w, so
+                // the chain rasterizes at working density; w == 1 keeps the exact (int)-truncation +
+                // translation-only path (byte-identical).
                 int bw = w == 1f ? (int)target.OriginalBounds.Width : (int)MathF.Ceiling(target.OriginalBounds.Width * w);
                 int bh = w == 1f ? (int)target.OriginalBounds.Height : (int)MathF.Ceiling(target.OriginalBounds.Height * w);
                 using RenderTarget? surface = RenderTarget.Create(bw, bh);

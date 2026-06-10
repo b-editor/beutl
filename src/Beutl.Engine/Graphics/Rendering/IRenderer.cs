@@ -18,7 +18,12 @@ public interface IRenderer : IDisposable
     /// </summary>
     float RenderScale => 1f;
 
-    PixelSize DeviceSize => FrameSize;
+    // Derive from RenderScale so a third-party renderer that overrides only RenderScale still reports the
+    // correct device surface (feature 003: device == ceil(FrameSize × RenderScale)). At RenderScale == 1
+    // this is FrameSize, so a non-opt-in renderer is unaffected.
+    PixelSize DeviceSize => new(
+        (int)Math.Ceiling(FrameSize.Width * RenderScale),
+        (int)Math.Ceiling(FrameSize.Height * RenderScale));
 
     TimeSpan Time { get; }
 
