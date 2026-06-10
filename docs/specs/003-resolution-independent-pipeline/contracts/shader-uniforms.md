@@ -31,4 +31,4 @@ A GLSL author derives the working scale from the device-px `Width`/`Height` (e.g
 
 - A shader that does not reference `iScale` (SKSL) — or the device-px `Width`/`Height` (GLSL) — produces identical output to today at `w=1.0` and renders at the (smaller/larger) device target at `w≠1.0` — i.e. it behaves exactly as if scale were 1.0 in its own pixel space.
 - Existing uniforms are **never** silently redefined to logical units.
-- Document `iScale`/`uScale` in the shader-authoring docs; add a golden test asserting a scale-unaware shader is byte-identical at `w=1.0` and a scale-aware shader (`radius = N * iScale`) matches its 1.0 reference within the SSIM threshold at a reduced scale.
+- Document `iScale` (SKSL) in the shader-authoring docs — there is **no** `uScale`/`Scale` uniform (GLSL derives the working scale from the device-px `Width`/`Height`); add a golden test asserting a scale-unaware shader is byte-identical at `w=1.0` and a scale-aware shader (`radius = N * iScale`) matches its 1.0 reference within the SSIM threshold at a reduced scale.

@@ -74,7 +74,7 @@ private sealed class OversampleRenderNode(FilterEffect.Resource fe) : FilterEffe
 }
 ```
 
-> **Note (as shipped):** there is currently **no lightweight hook** to inject a custom working scale — `FilterEffectRenderNode.Process` computes the supply-driven `w` inline, so a custom-`w` effect must copy the whole `Process` body. A one-method `protected virtual ResolveWorkingScale(RenderNodeContext)` seam is **deferred to a separate PR**; until then, calling `base.Process(context)` runs supply-driven and silently ignores any `w` the subclass computes.
+> **Note (as shipped):** the `CreateRenderNode()` override **is now honoured on every push path** — `FilterEffect.Resource.Push` routes through `CreateRenderNode()` (2026-06-10), so an effect on a normal `Drawable` (not just the node-graph path) gets its custom `FilterEffectRenderNode`. What is **still deferred** is the *ergonomic* one-method seam: `FilterEffectRenderNode.Process` computes the supply-driven `w` inline, so a subclass that wants a *different* `w` must copy the whole `Process` body (calling `base.Process(context)` runs supply-driven and silently ignores any `w` the subclass computed). A `protected virtual float ResolveWorkingScale(RenderNodeContext)` seam that would let a subclass override just that one line is **deferred to a separate PR**. So today: overriding the *whole* `Process` works end-to-end; there is just no shortcut for the common "only change `w`" case yet.
 
 ## Working scale — what scale an effect runs at
 

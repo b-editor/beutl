@@ -8,14 +8,14 @@ There is no scale in the 2D pipeline today: `1 logical unit == 1 device pixel` i
 
 ## Validate it (the acceptance loop)
 
-All pixel tests are **Vulkan-gated** (`VulkanTestEnvironment.EnsureAvailable()` → `Assert.Ignore` on GPU-less CI), like the existing `ImmediateCanvasVulkanTests`. SC-008 (no `ToSize(1)`) runs without a GPU.
+All pixel tests are **Vulkan-gated** (`VulkanTestEnvironment.EnsureAvailable()` → `Assert.Ignore` on GPU-less CI), like the existing `ImmediateCanvasVulkanTests`. The non-GPU guards (supply-driven density math) run without a GPU. *(The SC-008 `NoPixelCouplingOnRenderPathTest` search test was deferred — T007; it needs an allowlist for the load-bearing logical-`ToSize(1)`/`(int)`-at-`w=1` sites.)*
 
 ```bash
 # byte-equality + SSIM golden tests (need a GPU; skipped on CI agents without one)
 dotnet test Beutl.slnx -f net10.0 --filter FullyQualifiedName~Rendering.Golden
 
-# migration-completeness search test (always runs, no GPU)
-dotnet test Beutl.slnx -f net10.0 --filter FullyQualifiedName~NoPixelCouplingOnRenderPathTest
+# supply-driven density math (always runs, no GPU)
+dotnet test Beutl.slnx -f net10.0 --filter FullyQualifiedName~ResolutionScaleTests
 
 # regenerate golden baselines after an INTENTIONAL change (writes .bin instead of asserting)
 BEUTL_GOLDEN_UPDATE=1 dotnet test Beutl.slnx -f net10.0 --filter FullyQualifiedName~Rendering.Golden
