@@ -129,8 +129,13 @@ public class DelayNodeTests
         using var fresh = CreateStaticNode();
         using AudioBuffer freshRun = fresh.Process(ContextAt(1));
 
-        Assert.That(afterSeek.GetChannelData(0).ToArray(),
-            Is.EqualTo(freshRun.GetChannelData(0).ToArray()).AsCollection);
+        Assert.Multiple(() =>
+        {
+            Assert.That(afterSeek.GetChannelData(0).ToArray(),
+                Is.EqualTo(freshRun.GetChannelData(0).ToArray()).AsCollection);
+            Assert.That(afterSeek.GetChannelData(1).ToArray(),
+                Is.EqualTo(freshRun.GetChannelData(1).ToArray()).AsCollection);
+        });
     }
 
     // Contiguous playback is NOT a discontinuity: the delay lines must carry across chunks

@@ -12,7 +12,9 @@ public class GraphNodeRegistryTests
     public void OneTimeSetUp()
     {
         // The registry is process-global; only seed it once even if other fixtures run first.
-        if (GraphNodeRegistry.FindItem(typeof(OutputNode)) == null)
+        // Probe one of the script nodes (the regression subject) rather than an always-registered
+        // node, so a partial prior registration still triggers RegisterAll().
+        if (GraphNodeRegistry.FindItem(typeof(FilterEffectNode<CSharpScriptEffect>)) == null)
         {
             NodesRegistrar.RegisterAll();
         }
