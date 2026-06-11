@@ -77,7 +77,7 @@ new_text_oneline=$(printf '%s' "$new_text" | tr '\n' ' ')
 offending=$(printf '%s' "$new_text_oneline" \
   | grep -Eo '<ProjectReference[^>]*' \
   | grep 'Beutl\.FFmpegWorker' \
-  | grep -Ev 'ReferenceOutputAssembly[[:space:]]*=[[:space:]]*"[Ff]alse"' \
+  | grep -Ev "ReferenceOutputAssembly[[:space:]]*=[[:space:]]*[\"'][Ff]alse[\"']" \
   || true)
 
 if [ -n "$offending" ]; then
