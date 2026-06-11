@@ -48,6 +48,16 @@ internal sealed class Renderer3D : IRenderer3D
     public int Width { get; private set; }
     public int Height { get; private set; }
 
+    /// <summary>
+    /// The density (device pixels per logical unit) this renderer's surface is sized at (feature 003):
+    /// <see cref="Width"/>/<see cref="Height"/> are <c>ceil(logical × RenderScale)</c>. Hit-test entry
+    /// points take LOGICAL coordinates (the editor works in <c>Scene3D.RenderWidth/Height</c> space)
+    /// and multiply by this before building the NDC ray — without it, picking is off by
+    /// <c>1 / RenderScale</c> on a reduced-scale preview. Set by <c>Scene3DRenderNode</c> alongside
+    /// <see cref="Resize"/>.
+    /// </summary>
+    public float RenderScale { get; set; } = 1f;
+
     public void Initialize(int width, int height)
     {
         Width = width;
@@ -335,13 +345,13 @@ internal sealed class Renderer3D : IRenderer3D
         if (_lastCamera == null || _lastObjects == null || _lastObjects.Count == 0)
             return null;
 
-        return HitTester3D.HitTest(screenPoint, Width, Height, _lastCamera, _lastObjects);
+        return HitTester3D.HitTest(ToDevice(screenPoint), Width, Height, _lastCamera, _lastObjects);
     }
 
     /// <summary>
     /// Performs hit testing and returns the path from root to the hit object.
     /// </summary>
-    /// <param name="screenPoint">The point in screen coordinates.</param>
+    /// <param name="screenPoint">The point in LOGICAL render coordinates (<c>Scene3D.RenderWidth/Height</c> space).</param>
     /// <returns>A list representing the path from root to the hit object, or empty if none.</returns>
     public IReadOnlyList<Object3D.Resource> HitTestWithPath(Point screenPoint)
     {
@@ -350,7 +360,7 @@ internal sealed class Renderer3D : IRenderer3D
         if (_lastCamera == null || _lastObjects == null || _lastObjects.Count == 0)
             return [];
 
-        return HitTester3D.HitTestWithPath(screenPoint, Width, Height, _lastCamera, _lastObjects);
+        return HitTester3D.HitTestWithPath(ToDevice(screenPoint), Width, Height, _lastCamera, _lastObjects);
     }
 
     public GizmoAxis GizmoHitTest(Point screenPoint, Object3D.Resource? gizmoTarget, GizmoMode gizmoMode)
@@ -361,7 +371,7 @@ internal sealed class Renderer3D : IRenderer3D
             return GizmoAxis.None;
 
         return GizmoHitTester.HitTest(
-            screenPoint,
+            ToDevice(screenPoint),
             Width,
             Height,
             _lastCamera,
@@ -369,6 +379,10 @@ internal sealed class Renderer3D : IRenderer3D
             gizmoTarget.Rotation,
             gizmoMode);
     }
+
+    // Hit-test entry points take LOGICAL coordinates while Width/Height are device px (see RenderScale).
+    private Point ToDevice(Point logicalPoint) =>
+        RenderScale == 1f ? logicalPoint : logicalPoint * RenderScale;
 
     public void Dispose()
     {

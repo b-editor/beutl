@@ -76,6 +76,10 @@ internal sealed class Scene3DRenderNode(Scene3D.Resource scene) : RenderNode
             renderer.Resize(dw, dh);
         }
 
+        // Record the density so the renderer's hit-test entry points (which take LOGICAL coordinates)
+        // can convert into this device-px surface — see Renderer3D.RenderScale.
+        renderer.RenderScale = w;
+
         var objectResources = new List<Object3D.Resource>();
         var lightResources = new List<Light3D.Resource>();
         objectResources.AddRange(scene.Objects.Where(obj => obj.IsEnabled));

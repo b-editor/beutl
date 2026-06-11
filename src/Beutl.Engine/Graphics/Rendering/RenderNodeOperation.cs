@@ -61,16 +61,25 @@ public abstract class RenderNodeOperation : IDisposable
     public static RenderNodeOperation CreateFromRenderTarget(
         Rect bounds, Point position, RenderTarget renderTarget, EffectiveScale effectiveScale = default)
     {
-        // feature 003: a concrete-density buffer (At(w)) is drawn so the active CTM resamples it once; an
-        // Unbounded buffer keeps the bare point blit (byte-identical at scale 1). The scaled dest derives its
-        // SIZE from the buffer footprint (RT pixels ÷ density), NOT from `bounds`, so a downstream filter that
-        // inflated `bounds` while the buffer still holds the original area cannot stretch it (mirrors
-        // EffectTarget.Draw); `bounds.Position` is kept so the buffer lands where it belongs.
+        // feature 003: a concrete-density buffer (At(w)) is drawn so the active CTM resamples it once; the
+        // scaled dest derives its SIZE from the buffer footprint (RT pixels ÷ density), NOT from `bounds`, so
+        // a downstream filter that inflated `bounds` while the buffer still holds the original area cannot
+        // stretch it (mirrors EffectTarget.Draw); `bounds.Position` is kept so the buffer lands where it
+        // belongs. A density-1 buffer keeps the bare point blit ONLY on a density-1 canvas (byte-identical
+        // pre-feature path); on a scaled canvas the point blit would be resampled by the CTM with NEAREST
+        // sampling, so route it through the Mitchell blit instead — same geometry, consistent kernel.
         Action<ImmediateCanvas> render = effectiveScale.IsUnbounded || effectiveScale.Value == 1f
-            ? canvas => canvas.DrawRenderTarget(renderTarget, position)
-            : canvas => canvas.DrawRenderTargetScaled(renderTarget, new Rect(
-                bounds.X, bounds.Y,
-                renderTarget.Width / effectiveScale.Value, renderTarget.Height / effectiveScale.Value));
+            ? canvas =>
+            {
+                if (canvas.OutputScale == 1f)
+                    canvas.DrawRenderTarget(renderTarget, position);
+                else
+                    canvas.DrawRenderTargetScaled(renderTarget, new Rect(
+                        position.X, position.Y, renderTarget.Width, renderTarget.Height));
+            }
+        : canvas => canvas.DrawRenderTargetScaled(renderTarget, new Rect(
+            bounds.X, bounds.Y,
+            renderTarget.Width / effectiveScale.Value, renderTarget.Height / effectiveScale.Value));
         return CreateLambda(bounds, render, bounds.Contains, renderTarget.Dispose, effectiveScale);
     }
 
@@ -78,10 +87,17 @@ public abstract class RenderNodeOperation : IDisposable
         Rect bounds, Point position, SKSurface surface, EffectiveScale effectiveScale = default)
     {
         // feature 003: scaled branch derives its dest from the surface footprint (pixels ÷ density),
-        // anchored at bounds.Position — mirroring CreateFromRenderTarget so an inflated `bounds` cannot stretch it.
+        // anchored at bounds.Position — mirroring CreateFromRenderTarget so an inflated `bounds` cannot
+        // stretch it. Density-1 point blit only on a density-1 canvas (see CreateFromRenderTarget).
         Action<ImmediateCanvas> render = effectiveScale.IsUnbounded || effectiveScale.Value == 1f
-            ? canvas => canvas.DrawSurface(surface, position)
-            : canvas => canvas.DrawSurfaceScaled(surface, bounds.Position, effectiveScale.Value);
+            ? canvas =>
+            {
+                if (canvas.OutputScale == 1f)
+                    canvas.DrawSurface(surface, position);
+                else
+                    canvas.DrawSurfaceScaled(surface, position, 1f);
+            }
+        : canvas => canvas.DrawSurfaceScaled(surface, bounds.Position, effectiveScale.Value);
         return CreateLambda(bounds, render, bounds.Contains, surface.Dispose, effectiveScale);
     }
 
@@ -89,8 +105,14 @@ public abstract class RenderNodeOperation : IDisposable
         Rect bounds, Point position, Ref<SKSurface> surface, EffectiveScale effectiveScale = default)
     {
         Action<ImmediateCanvas> render = effectiveScale.IsUnbounded || effectiveScale.Value == 1f
-            ? canvas => canvas.DrawSurface(surface.Value, position)
-            : canvas => canvas.DrawSurfaceScaled(surface.Value, bounds.Position, effectiveScale.Value);
+            ? canvas =>
+            {
+                if (canvas.OutputScale == 1f)
+                    canvas.DrawSurface(surface.Value, position);
+                else
+                    canvas.DrawSurfaceScaled(surface.Value, position, 1f);
+            }
+        : canvas => canvas.DrawSurfaceScaled(surface.Value, bounds.Position, effectiveScale.Value);
         return CreateLambda(bounds, render, bounds.Contains, surface.Dispose, effectiveScale);
     }
 

@@ -62,7 +62,8 @@ public static class RenderNodeCacheHelper
     }
 
     // 再帰呼び出し
-    public static void MakeCache(RenderNode node, RenderCacheOptions cacheOptions)
+    public static void MakeCache(RenderNode node, RenderCacheOptions cacheOptions,
+        float outputScale = 1f, float maxWorkingScale = float.PositiveInfinity)
     {
         if (!cacheOptions.IsEnabled)
             return;
@@ -74,7 +75,7 @@ public static class RenderNodeCacheHelper
         {
             if (!cache.IsCached)
             {
-                CreateDefaultCache(node, cacheOptions);
+                CreateDefaultCache(node, cacheOptions, outputScale, maxWorkingScale);
             }
         }
         else if (node is ContainerRenderNode containerNode)
@@ -82,18 +83,23 @@ public static class RenderNodeCacheHelper
             cache.Invalidate();
             foreach (RenderNode item in containerNode.Children)
             {
-                MakeCache(item, cacheOptions);
+                MakeCache(item, cacheOptions, outputScale, maxWorkingScale);
             }
         }
     }
 
-    public static void CreateDefaultCache(RenderNode node, RenderCacheOptions cacheOptions)
+    public static void CreateDefaultCache(RenderNode node, RenderCacheOptions cacheOptions,
+        float outputScale = 1f, float maxWorkingScale = float.PositiveInfinity)
     {
-        var processor = new RenderNodeProcessor(node, false);
+        // feature 003 (FR-020/FR-037): rasterize the cache at the renderer's density under its working-scale
+        // ceiling — the old default-scale processor baked density-1 tiles regardless of the render scale and
+        // let high-density sources escape the FR-037 ceiling during cache creation.
+        var processor = new RenderNodeProcessor(node, false, outputScale, maxWorkingScale);
         var list = processor.RasterizeToRenderTargets();
         int pixels = list.Sum(i =>
         {
-            var pr = PixelRect.FromRect(i.Bounds);
+            // Budget the ACTUAL stored pixels (density-scaled), matching the allocated tile size.
+            var pr = outputScale == 1f ? PixelRect.FromRect(i.Bounds) : PixelRect.FromRect(i.Bounds, outputScale);
             return pr.Width * pr.Height;
         });
         if (!cacheOptions.Rules.Match(pixels))
@@ -103,7 +109,7 @@ public static class RenderNodeCacheHelper
         ClearCache(node);
 
         var arr = list.Select(i => (i.RenderTarget, i.Bounds)).ToArray();
-        node.Cache.StoreCache(arr);
+        node.Cache.StoreCache(arr, outputScale);
 
         _logger.LogInformation("Created cache for node {Node}.", node);
 

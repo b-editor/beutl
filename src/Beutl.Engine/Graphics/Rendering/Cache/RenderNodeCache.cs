@@ -20,6 +20,19 @@ public sealed class RenderNodeCache(RenderNode node) : IDisposable
 
     public bool IsCached => _cache.Count != 0;
 
+    public int CacheCount => _cache.Count;
+
+    /// <summary>
+    /// The pixel density (device pixels per logical unit) the cached tiles were rasterized at
+    /// (feature 003, FR-020). Replay re-tags the tiles <c>EffectiveScale.At(Density)</c> so a cached
+    /// subtree keeps reporting its true supply density instead of flipping to <c>Unbounded</c> —
+    /// without it, enabling the cache would change downstream working scales. Cross-scale cache
+    /// REUSE is still out of scope (T025); within one renderer the density is fixed.
+    /// </summary>
+    public float Density { get; private set; } = 1f;
+
+    public DateTime LastAccessedTime { get; private set; }
+
     public bool IsDisposed { get; private set; }
 
     public void ReportRenderCount(int count)
@@ -88,11 +101,14 @@ public sealed class RenderNodeCache(RenderNode node) : IDisposable
         return c.Item1.ShallowCopy();
     }
 
-    public void StoreCache(RenderTarget renderTarget, Rect bounds)
+    public void StoreCache(RenderTarget renderTarget, Rect bounds, float density = 1f)
     {
         Invalidate();
 
         _cache.Add((renderTarget.ShallowCopy(), bounds));
+        Density = density;
+
+        LastAccessedTime = DateTime.UtcNow;
     }
 
     public IEnumerable<(RenderTarget RenderTarget, Rect Bounds)> UseCache()
@@ -100,7 +116,7 @@ public sealed class RenderNodeCache(RenderNode node) : IDisposable
         return _cache.Select(i => (i.Item1.ShallowCopy(), i.Item2));
     }
 
-    public void StoreCache(ReadOnlySpan<(RenderTarget RenderTarget, Rect Bounds)> items)
+    public void StoreCache(ReadOnlySpan<(RenderTarget RenderTarget, Rect Bounds)> items, float density = 1f)
     {
         Invalidate();
 
@@ -108,5 +124,8 @@ public sealed class RenderNodeCache(RenderNode node) : IDisposable
         {
             _cache.Add((renderTarget.ShallowCopy(), bounds));
         }
+
+        Density = density;
+        LastAccessedTime = DateTime.UtcNow;
     }
 }

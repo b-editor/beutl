@@ -12,7 +12,12 @@ namespace Beutl.Models;
 /// </summary>
 public enum RenderScale
 {
-    /// <summary>Full resolution: <c>s_out = 1.0</c> (byte-identical to export).</summary>
+    /// <summary>
+    /// Full resolution: <c>s_out = 1.0</c>. NOT guaranteed identical to export — preview renders under
+    /// a working-scale ceiling of <c>2 × s_out</c> while export uses <c>max(8, 4 × s_out)</c> (FR-037),
+    /// so a scene whose supply density exceeds 2 runs resolution-sensitive effects at a different
+    /// working scale than the exported result.
+    /// </summary>
     Full,
 
     /// <summary>Half resolution: <c>s_out = 0.5</c>.</summary>

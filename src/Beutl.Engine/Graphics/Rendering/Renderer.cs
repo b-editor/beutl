@@ -56,7 +56,7 @@ public class Renderer : IRenderer
                                    ?? throw new InvalidOperationException(
                                        $"Could not create a canvas of this size. (width: {DeviceSize.Width}, height: {DeviceSize.Height})");
 
-            var canvas = new ImmediateCanvas(surface, renderScale);
+            var canvas = new ImmediateCanvas(surface, renderScale, maxWorkingScale);
             return (canvas, surface);
         });
     }
@@ -107,9 +107,11 @@ public class Renderer : IRenderer
     public float RenderScale { get; }
 
     /// <summary>
-    /// The working-scale ceiling for this renderer (feature 003, FR-037): preview passes <c>2 × s_out</c> to
-    /// bound buffer memory when a high-density source is present; export leaves it <c>+∞</c>
-    /// (default) so fidelity is uncapped. It only caps boundaries that resolve a working scale above it.
+    /// The working-scale ceiling for this renderer (feature 003, FR-037): preview passes <c>2 × s_out</c>
+    /// to bound interactive working scale; export passes a generous-but-finite <c>max(8, 4 × s_out)</c>.
+    /// The constructor default <c>+∞</c> (no ceiling) is for non-render-request callers only — production
+    /// render requests always seed a finite value. It only caps boundaries that resolve a working scale
+    /// above it.
     /// </summary>
     public float MaxWorkingScale { get; }
 
@@ -222,7 +224,9 @@ public class Renderer : IRenderer
         }
 
         entry.Bounds = bounds;
-        RenderNodeCacheHelper.MakeCache(entry.Node, CacheOptions);
+        // Forward this renderer's scale pair so the cache rasterizes at the render density under the
+        // FR-037 ceiling (not at the processor defaults density-1 / +∞).
+        RenderNodeCacheHelper.MakeCache(entry.Node, CacheOptions, RenderScale, MaxWorkingScale);
         return entry;
     }
 
@@ -319,7 +323,11 @@ public class Renderer : IRenderer
         for (int i = _allCurrentEntries.Count - 1; i >= 0; i--)
         {
             Entry entry = _allCurrentEntries[i];
-            var processor = new RenderNodeProcessor(entry.Node, CacheOptions.IsEnabled);
+            // Pull with the SAME scale pair as the render pass: Process is scale-stateful (Scene3D resizes
+            // its Renderer3D, particles re-rasterize on a scale flip), so a default-scale pull here would
+            // thrash that state every hit test and escape the FR-037 ceiling. Hit-test results are logical,
+            // so they are unchanged by this.
+            var processor = new RenderNodeProcessor(entry.Node, CacheOptions.IsEnabled, RenderScale, MaxWorkingScale);
             var arr = processor.PullToRoot();
             try
             {
@@ -378,7 +386,8 @@ public class Renderer : IRenderer
     {
         return [.. _allCurrentEntries.Where(e => e.Node.Drawable?.Resource.GetOriginal().ZIndex == zIndex).Select(e =>
         {
-            var processor = new RenderNodeProcessor(e.Node, CacheOptions.IsEnabled);
+            // Same scale pair as the render pass — see HitTest for why a default-scale pull is wrong here.
+            var processor = new RenderNodeProcessor(e.Node, CacheOptions.IsEnabled, RenderScale, MaxWorkingScale);
             var ops = processor.PullToRoot();
             Rect bounds = Rect.Empty;
             foreach (var op in ops)

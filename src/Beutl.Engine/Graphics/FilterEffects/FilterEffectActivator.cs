@@ -1,12 +1,17 @@
 ﻿using Beutl.Graphics.Rendering;
+using Beutl.Logging;
 using Beutl.Media;
+using Microsoft.Extensions.Logging;
 using SkiaSharp;
 
 namespace Beutl.Graphics.Effects;
 
 public sealed class FilterEffectActivator(
-    EffectTargets targets, SKImageFilterBuilder builder, float outputScale = 1f, float workingScale = 1f) : IDisposable
+    EffectTargets targets, SKImageFilterBuilder builder, float outputScale = 1f, float workingScale = 1f,
+    float maxWorkingScale = float.PositiveInfinity) : IDisposable
 {
+    private static readonly ILogger s_logger = Log.CreateLogger("FilterEffectActivator");
+
     public SKImageFilterBuilder Builder { get; } = builder;
 
     public EffectTargets CurrentTargets { get; } = targets;
@@ -21,8 +26,19 @@ public sealed class FilterEffectActivator(
     /// <summary>
     /// The working density <c>w</c> at which buffer-allocating boundaries rasterize (feature 003,
     /// FR-009). <c>1.0</c> keeps the exact pre-feature <c>(int)</c>-truncation path (byte-identical).
+    /// When the FR-037(b) dimension clamp fires in <see cref="Flush"/> this is reduced in place
+    /// (monotonically), so the <see cref="CustomFilterEffectContext"/> built afterwards sees the SAME
+    /// density the flushed buffers were actually rasterized at — a custom effect's device math
+    /// (<c>× WorkingScale</c>) must never disagree with its input buffers' real density.
     /// </summary>
-    public float WorkingScale { get; } = workingScale;
+    public float WorkingScale { get; private set; } = workingScale;
+
+    /// <summary>
+    /// The render request's working-scale ceiling (feature 003, FR-037), forwarded into the nested
+    /// canvases this activator opens so pulls started from them (drawable brushes, nested drawables)
+    /// stay under the request's ceiling.
+    /// </summary>
+    public float MaxWorkingScale { get; } = maxWorkingScale;
 
     public void Dispose()
     {
@@ -37,16 +53,30 @@ public sealed class FilterEffectActivator(
             using var paint = Builder.HasFilter() ? new SKPaint() : null;
             paint?.ImageFilter = Builder.GetFilter();
 
+            // feature 003 (FR-037 backstop): re-clamp the working scale against the targets' bounds at the
+            // actual allocation site. The node-level clamp (FilterEffectRenderNode) bounds w against the
+            // pre-effect input bounds, but a Skia blur/shadow/dilate inflates OriginalBounds by sigma×3
+            // BEFORE this flush, so the real buffer ceil(OriginalBounds × w) can still exceed the GPU limit.
+            // The clamp is applied UNIFORMLY (min across targets) and written back to WorkingScale so every
+            // buffer in this boundary shares one density and downstream device math stays consistent; inert
+            // (keeps w) when everything fits, so w == 1 stays 1 (byte-identical).
+            for (int i = 0; i < CurrentTargets.Count; i++)
+            {
+                float fit = RenderNodeContext.ClampWorkingScaleToBufferBudget(
+                    CurrentTargets[i].OriginalBounds, WorkingScale);
+                if (fit < WorkingScale)
+                {
+                    s_logger.LogWarning(
+                        "Working scale clamped {From} -> {To} to keep an effect buffer within the GPU axis limit (bounds {Bounds}).",
+                        WorkingScale, fit, CurrentTargets[i].OriginalBounds);
+                    WorkingScale = fit;
+                }
+            }
+
             for (int i = 0; i < CurrentTargets.Count; i++)
             {
                 EffectTarget target = CurrentTargets[i];
-                // feature 003 (FR-037 backstop): re-clamp the working scale against THIS target's bounds at the
-                // actual allocation site. The node-level clamp (FilterEffectRenderNode) bounds w against the
-                // pre-effect input bounds, but a Skia blur/shadow/dilate inflates OriginalBounds by sigma×3
-                // BEFORE this flush, so the real buffer ceil(OriginalBounds × w) can still exceed the GPU limit.
-                // Clamping here keeps the buffer allocatable; inert (returns w) when it already fits, so w == 1
-                // stays 1 (byte-identical).
-                float w = RenderNodeContext.ClampWorkingScaleToBufferBudget(target.OriginalBounds, WorkingScale);
+                float w = WorkingScale;
                 // at w != 1 size the flattened buffer ceil(OriginalBounds × w) device px and prescale by w, so
                 // the chain rasterizes at working density; w == 1 keeps the exact (int)-truncation +
                 // translation-only path (byte-identical).
@@ -60,7 +90,7 @@ public sealed class FilterEffectActivator(
                     // Tag the canvas OutputScale = w so a SourceBackdrop captured HERE records its true device
                     // density (not the default 1), which the backdrop replay un-scales by. w == 1 keeps the
                     // default 1 (byte-identical).
-                    using (var canvas = new ImmediateCanvas(surface, w))
+                    using (var canvas = new ImmediateCanvas(surface, w, MaxWorkingScale))
                     {
                         canvas.Clear();
                         Matrix transform = w == 1f
@@ -86,6 +116,10 @@ public sealed class FilterEffectActivator(
                 }
                 else
                 {
+                    // The layer would silently vanish from the output otherwise — make the failure visible.
+                    s_logger.LogWarning(
+                        "Effect flush buffer allocation failed ({Width}x{Height} px, w {WorkingScale}, bounds {Bounds}); dropping this target from the output.",
+                        bw, bh, w, target.OriginalBounds);
                     target?.Dispose();
 
                     CurrentTargets.RemoveAt(i);
@@ -123,7 +157,10 @@ public sealed class FilterEffectActivator(
                         Flush();
                         if (CurrentTargets.Count == 0) return;
 
-                        var customContext = new CustomFilterEffectContext(CurrentTargets, OutputScale, WorkingScale);
+                        // WorkingScale here reflects any clamp Flush just applied, so the custom effect's
+                        // device math matches its input buffers' actual density.
+                        var customContext = new CustomFilterEffectContext(
+                            CurrentTargets, OutputScale, WorkingScale, MaxWorkingScale);
                         custom.Accepts(customContext);
 
                         foreach (EffectTarget t in CurrentTargets)
@@ -156,7 +193,7 @@ public sealed class FilterEffectActivator(
 
         using EffectTargets cloned = CurrentTargets.Clone();
         using var builder = new SKImageFilterBuilder();
-        using var activator = new FilterEffectActivator(cloned, builder, OutputScale, WorkingScale);
+        using var activator = new FilterEffectActivator(cloned, builder, OutputScale, WorkingScale, MaxWorkingScale);
 
         activator.Apply(context);
         activator.Flush(false);

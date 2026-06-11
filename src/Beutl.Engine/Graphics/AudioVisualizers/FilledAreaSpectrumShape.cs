@@ -41,7 +41,7 @@ public sealed partial class FilledAreaSpectrumShape : SpectrumShape
             float cornerRadius = smoothness * slotWidth * 0.5f;
 
             _paint ??= new SKPaint();
-            new BrushConstructor(bounds, fill, BlendMode.SrcOver, canvas.OutputScale).ConfigurePaint(_paint);
+            new BrushConstructor(bounds, fill, BlendMode.SrcOver, canvas.OutputScale, canvas.MaxWorkingScale).ConfigurePaint(_paint);
             _paint.Style = SKPaintStyle.Fill;
             if (_lastCornerRadius != cornerRadius)
             {

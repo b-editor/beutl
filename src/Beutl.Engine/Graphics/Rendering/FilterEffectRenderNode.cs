@@ -58,7 +58,8 @@ public class FilterEffectRenderNode(FilterEffect.Resource filterEffect) : Contai
         effectTargets.AddRange(context.Input.Select(i => new EffectTarget(i)));
 
         using (var builder = new SKImageFilterBuilder())
-        using (var activator = new FilterEffectActivator(effectTargets, builder, context.OutputScale, workingScale))
+        using (var activator = new FilterEffectActivator(
+                   effectTargets, builder, context.OutputScale, workingScale, context.MaxWorkingScale))
         {
             activator.Apply(feContext);
 

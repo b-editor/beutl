@@ -72,15 +72,18 @@ public sealed class EffectTarget : IDisposable
             // ambient CTM maps it. The footprint is derived from the buffer, NOT OriginalBounds, because a
             // downstream filter (e.g. a blur/shadow wrapped in DelayAnimation) can inflate OriginalBounds while
             // the buffer still represents the original area — using OriginalBounds would stretch it. Unbounded /
-            // unit-scale keeps the bare point blit (byte-identical).
-            if (Scale.IsUnbounded || Scale.Value == 1f)
+            // unit-scale keeps the bare point blit ONLY on a density-1 canvas (byte-identical pre-feature path);
+            // on a scaled canvas the point blit would be CTM-resampled with NEAREST sampling, so route it
+            // through the Mitchell blit instead — same geometry, consistent kernel.
+            if ((Scale.IsUnbounded || Scale.Value == 1f) && canvas.OutputScale == 1f)
             {
                 canvas.DrawRenderTarget(RenderTarget, default);
             }
             else
             {
+                float density = Scale.IsUnbounded ? 1f : Scale.Value;
                 canvas.DrawRenderTargetScaled(RenderTarget,
-                    new Rect(0, 0, RenderTarget.Width / Scale.Value, RenderTarget.Height / Scale.Value));
+                    new Rect(0, 0, RenderTarget.Width / density, RenderTarget.Height / density));
             }
         }
         else

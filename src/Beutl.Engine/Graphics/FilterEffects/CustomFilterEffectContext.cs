@@ -1,14 +1,20 @@
 ﻿using Beutl.Graphics.Rendering;
+using Beutl.Logging;
+using Microsoft.Extensions.Logging;
 
 namespace Beutl.Graphics.Effects;
 
 public class CustomFilterEffectContext
 {
-    internal CustomFilterEffectContext(EffectTargets targets, float outputScale = 1f, float workingScale = 1f)
+    private static readonly ILogger s_logger = Log.CreateLogger("CustomFilterEffectContext");
+
+    internal CustomFilterEffectContext(EffectTargets targets, float outputScale = 1f, float workingScale = 1f,
+        float maxWorkingScale = float.PositiveInfinity)
     {
         Targets = targets;
         OutputScale = outputScale;
         WorkingScale = workingScale;
+        MaxWorkingScale = maxWorkingScale;
     }
 
     public EffectTargets Targets { get; }
@@ -28,6 +34,13 @@ public class CustomFilterEffectContext
     /// no change. <c>1.0</c> is the pre-feature path (byte-identical).
     /// </summary>
     public float WorkingScale { get; }
+
+    /// <summary>
+    /// The render request's working-scale ceiling (feature 003, FR-037), forwarded into the canvases
+    /// <see cref="Open"/> returns so nested pulls (drawable brushes, nested drawables) drawn by a custom
+    /// effect stay under the request's ceiling. <c>+∞</c> (default) = no ceiling.
+    /// </summary>
+    public float MaxWorkingScale { get; }
 
     public void ForEach(Action<int, EffectTarget> action)
     {
@@ -73,6 +86,18 @@ public class CustomFilterEffectContext
         // takes the point-blit branch downstream (Value == 1f), so it stays cheap, but it now reports its
         // density honestly so a consumer caps its working scale at w (no fake upsampling above source detail).
         float w = WorkingScale;
+        // FR-037(b) backstop: a custom effect can inflate `bounds` past anything the node-level / flush
+        // clamps saw (TransformEffect AABB, path-follow AABB, …), so re-clamp at this third allocation
+        // site too — degrading density beats an un-allocatable buffer followed by Open() throwing.
+        float fit = RenderNodeContext.ClampWorkingScaleToBufferBudget(bounds, w);
+        if (fit < w)
+        {
+            s_logger.LogWarning(
+                "CreateTarget clamped the working scale {From} -> {To} to keep the buffer within the GPU axis limit (bounds {Bounds}). Device math based on WorkingScale may mismatch this target's density.",
+                w, fit, bounds);
+            w = fit;
+        }
+
         int bw = w == 1f ? (int)bounds.Width : (int)MathF.Ceiling(bounds.Width * w);
         int bh = w == 1f ? (int)bounds.Height : (int)MathF.Ceiling(bounds.Height * w);
         using var renderTarget = RenderTarget.Create(bw, bh);
@@ -82,6 +107,10 @@ public class CustomFilterEffectContext
         }
         else
         {
+            // The empty target makes the subsequent Open() throw — log the cause before that happens.
+            s_logger.LogWarning(
+                "Custom-effect target allocation failed ({Width}x{Height} px, w {WorkingScale}, bounds {Bounds}); returning an empty target.",
+                bw, bh, w, bounds);
             return new EffectTarget();
         }
     }
@@ -96,6 +125,6 @@ public class CustomFilterEffectContext
         // feature 003 (CSM3-1): a custom effect renders logical content into this ceil(bounds × w) buffer
         // (pushing CreateScale(w) itself), so tag OutputScale = w. A SourceBackdrop captured here then records
         // its true device density for the replay to un-scale by. w == 1 keeps the default 1 (byte-identical).
-        return new ImmediateCanvas(target.RenderTarget, WorkingScale);
+        return new ImmediateCanvas(target.RenderTarget, WorkingScale, MaxWorkingScale);
     }
 }

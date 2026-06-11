@@ -1,13 +1,19 @@
 ﻿using Beutl.Animation;
 using Beutl.Graphics.Rendering;
+using Beutl.Logging;
 using Beutl.Media;
 using Beutl.Media.Source;
+using Microsoft.Extensions.Logging;
 using SkiaSharp;
 
 namespace Beutl.Graphics;
 
-public readonly struct BrushConstructor(Rect bounds, Brush.Resource? brush, BlendMode blendMode, float scale = 1f)
+public readonly struct BrushConstructor(
+    Rect bounds, Brush.Resource? brush, BlendMode blendMode, float scale = 1f,
+    float maxWorkingScale = float.PositiveInfinity)
 {
+    private static readonly ILogger s_logger = Log.CreateLogger("BrushConstructor");
+
     public Rect Bounds { get; } = bounds;
 
     public Brush.Resource? Brush { get; } = brush;
@@ -23,12 +29,20 @@ public readonly struct BrushConstructor(Rect bounds, Brush.Resource? brush, Blen
     /// </summary>
     public float Scale { get; } = scale;
 
+    /// <summary>
+    /// The working-scale ceiling (feature 003, FR-037) of the render request this fill belongs to,
+    /// forwarded into the nested pull a <see cref="DrawableBrush"/> performs for its child drawable —
+    /// without it the child subtree falls back to <c>+∞</c> and a high-density source there escapes
+    /// the request's ceiling. Canvas-managed fills pass <see cref="ImmediateCanvas.MaxWorkingScale"/>.
+    /// </summary>
+    public float MaxWorkingScale { get; } = maxWorkingScale;
+
     public void ConfigurePaint(SKPaint paint)
     {
         // Handle BrushPresenter by delegating to the target brush
         if (Brush is BrushPresenter.Resource presenter && presenter.Target != null)
         {
-            new BrushConstructor(Bounds, presenter.Target, BlendMode, Scale).ConfigurePaint(paint);
+            new BrushConstructor(Bounds, presenter.Target, BlendMode, Scale, MaxWorkingScale).ConfigurePaint(paint);
             return;
         }
 
@@ -252,16 +266,25 @@ public readonly struct BrushConstructor(Rect bounds, Brush.Resource? brush, Blen
             using var node = new DrawableRenderNode(drawable);
             using var context = new GraphicsContext2D(node, new PixelSize((int)Bounds.Width, (int)Bounds.Height), s);
             drawable.GetOriginal().Render(context, drawable);
-            var processor = new RenderNodeProcessor(node, true, s);
+            // Forward the request's FR-037 ceiling — without it the child subtree falls back to +∞
+            // and a high-density source inside the brush escapes the preview/export cap.
+            var processor = new RenderNodeProcessor(node, true, s, MaxWorkingScale);
             var ops = processor.RasterizeToRenderTargets();
             var totalBounds = ops.Aggregate(Rect.Empty, (current, item) => current.Union(item.Bounds));
 
             int dw = Math.Max(1, (int)MathF.Ceiling((float)totalBounds.Width * s));
             int dh = Math.Max(1, (int)MathF.Ceiling((float)totalBounds.Height * s));
             renderTarget = RenderTarget.Create(dw, dh);
-            if (renderTarget == null) return null;
+            if (renderTarget == null)
+            {
+                // Without a shader the paint falls back to the plain white fill — make the failure visible.
+                s_logger.LogWarning(
+                    "DrawableBrush content buffer allocation failed ({Width}x{Height} px, density {Scale}); the fill degrades to solid white.",
+                    dw, dh, s);
+                return null;
+            }
 
-            using (var icanvas = new ImmediateCanvas(renderTarget, s))
+            using (var icanvas = new ImmediateCanvas(renderTarget, s, MaxWorkingScale))
             {
                 icanvas.Clear();
 
@@ -297,9 +320,15 @@ public readonly struct BrushConstructor(Rect bounds, Brush.Resource? brush, Blen
             int ih = Math.Max(1, (int)MathF.Ceiling((float)calc.IntermediateSize.Height * s));
 
             intermediate = RenderTarget.Create(iw, ih);
-            if (intermediate == null) return null;
+            if (intermediate == null)
+            {
+                s_logger.LogWarning(
+                    "Tile-brush intermediate allocation failed ({Width}x{Height} px, density {Scale}); the fill degrades to solid white.",
+                    iw, ih, s);
+                return null;
+            }
 
-            using (var canvas = new ImmediateCanvas(intermediate, s))
+            using (var canvas = new ImmediateCanvas(intermediate, s, MaxWorkingScale))
             using (var paintTmp = new SKPaint())
             {
                 canvas.Canvas.Clear();

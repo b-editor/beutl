@@ -54,7 +54,7 @@ public class RenderNodeProcessor(
                            throw new Exception("RenderTarget is null");
 
         // feature 003 (CSM3-1): rasterized at density w, so tag OutputScale = w for any backdrop captured here.
-        using var canvas = new ImmediateCanvas(renderTarget, w);
+        using var canvas = new ImmediateCanvas(renderTarget, w, MaxWorkingScale);
         canvas.Clear();
 
         var transform = w == 1f
@@ -97,7 +97,7 @@ public class RenderNodeProcessor(
                                      ?? throw new Exception("RenderTarget is null");
 
             // feature 003 (CSM3-1): rasterized at density w, so tag OutputScale = w for any backdrop captured here.
-            using var canvas = new ImmediateCanvas(renderTarget, w);
+            using var canvas = new ImmediateCanvas(renderTarget, w, MaxWorkingScale);
             canvas.Clear();
 
             var transform = w == 1f
@@ -125,7 +125,7 @@ public class RenderNodeProcessor(
         using var renderTarget =
             RenderTarget.Create(rect.Width, rect.Height) ?? throw new Exception("RenderTarget is null");
         // feature 003 (CSM3-1): rasterized at density w, so tag OutputScale = w for any backdrop captured here.
-        using var canvas = new ImmediateCanvas(renderTarget, w);
+        using var canvas = new ImmediateCanvas(renderTarget, w, MaxWorkingScale);
         canvas.Clear();
 
         var transform = w == 1f
@@ -153,11 +153,15 @@ public class RenderNodeProcessor(
     {
         if (useRenderCache && node.Cache is { IsCached: true } cache)
         {
+            // feature 003 (FR-020): replay tiles with the density they were rasterized at — an untagged
+            // (Unbounded) replay would erase the subtree's supply-density signal, flipping downstream
+            // working scales whenever the cache kicks in.
             return cache.UseCache()
                 .Select(i => RenderNodeOperation.CreateFromRenderTarget(
                     bounds: i.Bounds,
                     position: i.Bounds.Position,
-                    renderTarget: i.RenderTarget))
+                    renderTarget: i.RenderTarget,
+                    effectiveScale: EffectiveScale.At(cache.Density)))
                 .ToArray();
         }
 

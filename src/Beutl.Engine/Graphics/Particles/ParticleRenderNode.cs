@@ -49,7 +49,7 @@ internal sealed class ParticleRenderNode(ParticleEmitter.Resource particle) : Re
 
             if (resource.ParticleDrawable is { } tracked)
             {
-                _cachedRenderTarget = RenderDrawableToTarget(tracked, w, out _drawableBounds);
+                _cachedRenderTarget = RenderDrawableToTarget(tracked, w, context.MaxWorkingScale, out _drawableBounds);
             }
             else
             {
@@ -165,6 +165,7 @@ internal sealed class ParticleRenderNode(ParticleEmitter.Resource particle) : Re
     private static (RenderTarget, Drawable.Resource, int)? RenderDrawableToTarget(
         Drawable.Resource drawable,
         float w,
+        float maxWorkingScale,
         out Rect bounds)
     {
         using var node = new DrawableRenderNode(drawable);
@@ -176,7 +177,9 @@ internal sealed class ParticleRenderNode(ParticleEmitter.Resource particle) : Re
             drawable.GetOriginal().Render(gctx, drawable);
         }
 
-        var processor = new RenderNodeProcessor(node, false, w);
+        // Forward the request's FR-037 ceiling — without it the particle drawable's subtree falls back
+        // to +∞ and a high-density source inside it escapes the preview/export cap.
+        var processor = new RenderNodeProcessor(node, false, w, maxWorkingScale);
         var ops = processor.PullToRoot();
 
         bounds = ops.Aggregate(Rect.Empty, (a, n) => a.Union(n.Bounds));
@@ -198,7 +201,7 @@ internal sealed class ParticleRenderNode(ParticleEmitter.Resource particle) : Re
             return null;
         }
 
-        using (var canvas = new ImmediateCanvas(renderTarget, w))
+        using (var canvas = new ImmediateCanvas(renderTarget, w, maxWorkingScale))
         {
             canvas.Clear();
             // Translate the LOGICAL origin to (0,0), then prescale by w so logical content fills the denser buffer.

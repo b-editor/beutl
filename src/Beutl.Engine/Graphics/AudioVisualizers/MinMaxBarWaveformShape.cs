@@ -54,7 +54,7 @@ public sealed partial class MinMaxBarWaveformShape : WaveformShape
             if (round)
             {
                 _paint ??= new SKPaint();
-                new BrushConstructor(bounds, fill, BlendMode.SrcOver, canvas.OutputScale).ConfigurePaint(_paint);
+                new BrushConstructor(bounds, fill, BlendMode.SrcOver, canvas.OutputScale, canvas.MaxWorkingScale).ConfigurePaint(_paint);
                 _paint.Style = SKPaintStyle.Fill;
                 _path ??= new SKPath();
                 _path.Reset();

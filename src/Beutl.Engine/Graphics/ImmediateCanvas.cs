@@ -17,11 +17,13 @@ public partial class ImmediateCanvas : ICanvas
     private readonly Stack<CanvasPushedState> _states = new();
     private Matrix _currentTransform;
 
-    public ImmediateCanvas(RenderTarget renderTarget, float outputScale = 1f)
+    public ImmediateCanvas(RenderTarget renderTarget, float outputScale = 1f,
+        float maxWorkingScale = float.PositiveInfinity)
     {
         _dispatcher = Dispatcher.Current;
         Size = new PixelSize(renderTarget.Width, renderTarget.Height);
         OutputScale = outputScale;
+        MaxWorkingScale = maxWorkingScale;
         _renderTarget = renderTarget;
         Canvas = _renderTarget.Value.Canvas;
         _currentTransform = Canvas.TotalMatrix.ToMatrix();
@@ -42,12 +44,23 @@ public partial class ImmediateCanvas : ICanvas
     public PixelSize Size { get; }
 
     /// <summary>
-    /// The root output scale <c>s_out</c> this canvas renders at (feature 003), fixed at construction. <c>1.0</c>
-    /// = logical == device. Consumed where a device-resolution capture must be mapped back to logical space (the
-    /// snapshot-backdrop path); intermediate canvases that don't capture backdrops keep the default <c>1.0</c>.
-    /// Immutable so a buffer-allocating path can never silently mis-tag its capture density.
+    /// The pixel density this canvas's surface is rasterized at (device pixels per logical unit,
+    /// feature 003), fixed at construction. On the root canvas this is the request's output scale
+    /// <c>s_out</c>; on a nested canvas (effect flush, <c>RasterizeAt</c>, custom-effect target, brush
+    /// intermediate) it is that buffer's working density <c>w</c>. Consumed by the snapshot-backdrop
+    /// path (a capture must be un-scaled by the density it was taken at) and by the brush fill sites,
+    /// which rasterize tile/image/drawable brush content at this density. Immutable so a
+    /// buffer-allocating path can never silently mis-tag its capture density.
     /// </summary>
     public float OutputScale { get; }
+
+    /// <summary>
+    /// The working-scale ceiling (feature 003, FR-037) of the render request this canvas belongs to,
+    /// forwarded into nested pulls started from this canvas (drawable-brush children,
+    /// <see cref="DrawDrawable"/>/<see cref="DrawNode"/>) so a high-density source inside them cannot
+    /// escape the request's ceiling. <c>+∞</c> (default) = no ceiling.
+    /// </summary>
+    public float MaxWorkingScale { get; }
 
     public Matrix Transform
     {
@@ -176,13 +189,15 @@ public partial class ImmediateCanvas : ICanvas
         using var node = new DrawableRenderNode(drawable);
         using var context = new GraphicsContext2D(node, Size);
         drawable.GetOriginal().Render(context, drawable);
-        var processor = new RenderNodeProcessor(node, true);
+        // Forward this canvas's density and ceiling so the nested pull rasterizes at the surface
+        // density and cannot escape the request's FR-037 ceiling.
+        var processor = new RenderNodeProcessor(node, true, OutputScale, MaxWorkingScale);
         processor.Render(this);
     }
 
     public void DrawNode(RenderNode node)
     {
-        var processor = new RenderNodeProcessor(node, true);
+        var processor = new RenderNodeProcessor(node, true, OutputScale, MaxWorkingScale);
         processor.Render(this);
     }
 
@@ -193,8 +208,9 @@ public partial class ImmediateCanvas : ICanvas
 
     public IBackdrop Snapshot()
     {
-        // feature 003 (CSM-3): record the scale this surface was captured at so the backdrop un-scales by it on
-        // replay (a nested flush canvas does not carry OutputScale).
+        // feature 003 (CSM-3/CSM3-1): record the density this surface was captured at so the backdrop
+        // un-scales by it on replay. OutputScale is the surface density — s_out on the root canvas, the
+        // working density w on a nested flush canvas.
         return new TmpBackdrop(_renderTarget.Snapshot(), OutputScale);
     }
 
@@ -452,7 +468,7 @@ public partial class ImmediateCanvas : ICanvas
         var paint = new SKPaint();
 
         int count = Canvas.SaveLayer(paint);
-        new BrushConstructor(bounds, mask, (BlendMode)paint.BlendMode, OutputScale).ConfigurePaint(paint);
+        new BrushConstructor(bounds, mask, (BlendMode)paint.BlendMode, OutputScale, MaxWorkingScale).ConfigurePaint(paint);
         _states.Push(new CanvasPushedState.MaskPushedState(count, invert, paint));
         return new PushedState(this, _states.Count);
     }
@@ -506,13 +522,13 @@ public partial class ImmediateCanvas : ICanvas
         if (pen != null && pen.Thickness != 0)
         {
             _sharedStrokePaint.IsStroke = false;
-            new BrushConstructor(bounds, pen.Brush, blendMode, OutputScale).ConfigurePaint(_sharedStrokePaint);
+            new BrushConstructor(bounds, pen.Brush, blendMode, OutputScale, MaxWorkingScale).ConfigurePaint(_sharedStrokePaint);
         }
     }
 
     private void ConfigureFillPaint(Rect bounds, Brush.Resource? brush, BlendMode blendMode = BlendMode.SrcOver)
     {
         _sharedFillPaint.Reset();
-        new BrushConstructor(bounds, brush, blendMode, OutputScale).ConfigurePaint(_sharedFillPaint);
+        new BrushConstructor(bounds, brush, blendMode, OutputScale, MaxWorkingScale).ConfigurePaint(_sharedFillPaint);
     }
 }
