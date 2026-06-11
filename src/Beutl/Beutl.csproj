@@ -104,9 +104,26 @@
     <ProjectReference Include="..\Beutl.Extensions.FFmpeg\Beutl.Extensions.FFmpeg.csproj" />
   </ItemGroup>
 
+  <!-- Dev-only build of the GPL worker. ReferenceOutputAssembly=false keeps the GPL assembly
+       out of the MIT compile closure (GPL/MIT boundary invariant); CopyFFmpegWorkerForApp below
+       mirrors the worker's output next to the app, where FFmpegWorkerProcess probes
+       AppContext.BaseDirectory. Nuke publishes lay the worker out separately. -->
   <ItemGroup Condition="'$(FFmpegOutOfProcess)'=='True' And '$(NukePublish)'!='True'">
-    <ProjectReference Include="..\Beutl.FFmpegWorker\Beutl.FFmpegWorker.csproj" />
+    <ProjectReference Include="..\Beutl.FFmpegWorker\Beutl.FFmpegWorker.csproj"
+                      ReferenceOutputAssembly="false" />
   </ItemGroup>
+
+  <Target Name="CopyFFmpegWorkerForApp"
+          AfterTargets="Build"
+          Condition="'$(FFmpegOutOfProcess)'=='True' And '$(NukePublish)'!='True'">
+    <ItemGroup>
+      <_FFmpegWorkerOutput
+        Include="..\Beutl.FFmpegWorker\bin\$(Configuration)\$(TargetFramework)\**\*" />
+    </ItemGroup>
+    <Copy SourceFiles="@(_FFmpegWorkerOutput)"
+          DestinationFiles="@(_FFmpegWorkerOutput->'$(OutDir)%(RecursiveDir)%(Filename)%(Extension)')"
+          SkipUnchangedFiles="true" />
+  </Target>
 
   <ItemGroup Condition="'$(MFBuildIn)'=='True'">
     <ProjectReference
