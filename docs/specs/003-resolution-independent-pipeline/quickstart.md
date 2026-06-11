@@ -4,7 +4,7 @@
 
 ## The mental model in one paragraph
 
-There is no scale in the 2D pipeline today: `1 logical unit == 1 device pixel` is hard-wired as `ToSize(1)` / `(int)bounds.Width` / `PixelRect.FromRect(bounds)`. This feature is **supply-driven** (three scales): the render request carries an **output scale `s_out`** (the *final* target only — `RenderNodeContext.OutputScale`); each operation carries an **`EffectiveScale`** = the density its pixels exist at (vector = `Unbounded`); each effect computes a **working scale `w` = `ResolveWorkingScale(inputs, s_out, policy)`** (default `Inherit` → `w` = the input's density: a 0.5 proxy stays 0.5, a 2.0 source stays 2.0; `s_out` is **not** a clamp) and multiplies its spatial-length parameters by `w`. The root surface is `ceil(FrameSize × s_out)` with one `Matrix.CreateScale(s_out)`; an op whose `e ≠ s_out` is resampled once at the final-stage blit; a global ceiling bounds preview memory. Preview uses `s_out ≤ 1` (Full/Half/Quarter/Fit); export uses `1.0` or `s_out > 1` supersampling. At `s_out = 1.0` vector / Skia-filter / unscaled-bitmap content is byte-identical to today; *(2026-06-08 amendment)* a transform re-scales a bitmap's density and a scaled bitmap into an effect is intentionally not byte-identical (coherent density model, FR-019).
+There is no scale in the 2D pipeline today: `1 logical unit == 1 device pixel` is hard-wired as `ToSize(1)` / `(int)bounds.Width` / `PixelRect.FromRect(bounds)`. This feature is **supply-driven** (three scales): the render request carries an **output scale `s_out`** (the *final* target only — `RenderNodeContext.OutputScale`); each operation carries an **`EffectiveScale`** = the density its pixels exist at (vector = `Unbounded`); each effect computes a **working scale `w` = `ResolveWorkingScale(inputs, s_out, maxWorkingScale)`** — purely supply-driven, with **no per-effect policy** (the `ResolutionPolicy` type was removed; FR-036): `w` = the densest concrete input density (a 0.5 proxy stays 0.5, a 2.0 source stays 2.0; vector-only falls back to `s_out`; mixed bitmap+vector floors at `s_out`; `s_out` is **not** a clamp) — and applies the FR-008 coordinate-space rule at `w`: logical-space geometry under the CTM is left unchanged, device-buffer dimensions and device-space shader uniforms are converted once (`× w`), readback-derived geometry converts back (`÷ w`). The root surface is `ceil(FrameSize × s_out)` with one `Matrix.CreateScale(s_out)`; an op whose `e ≠ s_out` is resampled once at the final-stage blit; the global ceiling `MaxWorkingScale` caps `w` (FR-037: preview `2 × s_out`, export `max(8, 4 × s_out)`). Preview uses `s_out ≤ 1` (Full/Half/Quarter/Fit); export uses `1.0` or `s_out > 1` supersampling. At `s_out = 1.0` vector / Skia-filter / unscaled-bitmap content is byte-identical to today; *(2026-06-08 amendment)* a transform re-scales a bitmap's density and a scaled bitmap into an effect is intentionally not byte-identical (coherent density model, FR-019).
 
 ## Validate it (the acceptance loop)
 
@@ -26,12 +26,12 @@ dotnet test Beutl.slnx -f net10.0 --filter "Category=Benchmark"
 
 ### The four gates (pinned numbers — see research.md D5)
 
-| Gate | What | Threshold |
-|---|---|---|
-| Byte-equality (SC-001/SC-005) | raw RgbaF16 `Snapshot()` vs pre-feature `.bin` baseline at `s=1.0` | zero epsilon (origins **toward-zero**, extents **ceil**) |
-| Reduced-scale exact (SC-004) | render `s=0.5`, Mitchell-upscale, vs `s=1.0` | SSIM ≥ **0.985** AND MAE ≤ **0.02** |
-| Mixed-scale (SC-005) | full-res over reduced-res nested vs full reference | SSIM ≥ 0.985, MAE ≤ 0.02, seam ≤ **0.05** |
-| Supersample (SC-009) | `s ∈ {2.0}` (also 1.5/4.0), downscaled to FrameSize | size == `ceil(FrameSize)` exact; lower aliasing energy AND `SSIM(s≥2) − SSIM(s=1) ≥ 0.01` |
+| Gate | Status | What | Threshold |
+|---|---|---|---|
+| Byte-equality (SC-001/SC-005) | **shipped** (determinism form) | raw RgbaF16 `Snapshot()` rendered twice at `s=1.0` (HEAD vs HEAD) + code-inspected `w == 1` fast paths; the frozen **pre-feature `.bin` baseline** comparison is **deferred** (T017, pending the CI GPU-lane decision — see the SC-001 substantiation note) | zero epsilon (origins **toward-zero**, extents **ceil**) |
+| Reduced-scale exact (SC-004) | shipped | render `s=0.5`, Mitchell-upscale, vs `s=1.0` | SSIM ≥ **0.985** AND MAE ≤ **0.02** |
+| Mixed-scale (SC-005) | shipped | full-res over reduced-res nested vs full reference | SSIM ≥ 0.985, MAE ≤ 0.02, seam ≤ **0.05** |
+| Supersample (SC-009) | shipped | `s ∈ {2.0, 4.0}` (export factors Off/2×/4×; 1.5× is exercised only on the reduced-scale path, not in this suite), downscaled to FrameSize | size == `ceil(FrameSize)` exact; MAE-to-ground-truth strictly lower than `s=1`; SSIM degrades by no more than 0.01 (`SSIM(s≥2) − SSIM(s=1) ≥ −0.01`) — the amended SC-009 dropped the aliasing-energy metric |
 
 ### Harness usage sketch
 
@@ -55,9 +55,9 @@ public void Scene_is_byte_identical_at_scale_one()
 
 ## Use it (preview scale, editor)
 
-Preview scale is per-edit-view, non-persisted (FR-035): `EditViewModel.PreviewScale` (`ReactivePropertySlim<RenderScale>`, default `Full`). Changing it rebuilds the `SceneRenderer` + `FrameCacheManager` on the render dispatcher (atomic; D4) and repaints. It never enters `SaveState`/`RestoreState` — reload always returns to Full.
+Preview scale is per-edit-view, non-persisted (FR-035): `EditViewModel.PreviewScale` (`ReactivePropertySlim<RenderScale>`, default `Full`). Changing it rebuilds the `SceneRenderer` + `FrameCacheManager` as **two independent reactive swaps on the UI thread** (NOT atomic — amended FR-031; the narrow tear window is self-healing because the change re-queues a render that reads both fresh) and repaints. It never enters `SaveState`/`RestoreState` — reload always returns to Full.
 
-Export supersampling (FR-034): `OutputViewModel` passes a supersample factor (`1.0` default, `2.0` for AA) into `new SceneRenderer(Model, factor, disableResourceShare:true)`; `FrameProviderImpl.RenderCore` Mitchell-downscales to `FrameSize` when `RenderScale > 1` and asserts size before encode.
+Export supersampling (FR-034): `OutputViewModel` passes a supersample factor (Off `1` default, `2`/`4` for AA — `SupersampleFactors`) into `new SceneRenderer(Model, factor, disableResourceShare: true, maxWorkingScale: max(8, 4 × factor))`; `FrameProviderImpl.RenderCore` downscales to `FrameSize` (Mitchell ≤ 2×, trilinear + mipmaps at 4×) when `RenderScale > 1` and asserts size before encode.
 
 ## Implementation slice order (independently testable; see plan.md)
 
@@ -75,5 +75,5 @@ Export supersampling (FR-034): `OutputViewModel` passes a supersample factor (`1
 - **Origins round toward zero, not floor.** Negative-origin effect bounds (post-blur/shadow) differ if you "fix" to floor — keep `(int)` cast (research.md best-practices).
 - **Filter-effect sinks** (`FilterEffectActivator`/`CustomFilterEffectContext`) use component-wise `(int)` truncation that differs from `FromRect`; migrating them is a scale-1.0 behavior change → golden-test it.
 - **Don't fold render scale into the artistic matrix** (`Transform.CreateMatrix`/`TransformGroup`) — keep it the appended root scale, or `Matrix.TryDecomposeTransform`, editor handles, and serialized transforms corrupt (FR-027). For perspective, **append** scale, never prepend (the `S·P ≠ P·S` rule).
-- **Cache is invalidated by renderer rebuild on scale change**; the `CachedWorkingScale` tag lets a tile be reused-with-downsample when `≥` the required scale and missed when `<` (can't invent detail), so a stale-scale tile is never blitted 1:1.
+- **Cache is invalidated by renderer rebuild on scale change**; the node cache rasterizes at the renderer's `OutputScale` (with `MaxWorkingScale` forwarded) and replay tags the cached tiles with their creation density, so a stale-density tile is never blitted 1:1. Multi-scale cache **reuse** (`CachedWorkingScale`: reuse-with-downsample when `≥` the required scale, miss when `<`) is **not shipped** — deferred to a follow-up (T025).
 - **Effects multiply by the working scale `w`, not the output scale `s_out`.** `w` is supply-driven: a 0.5 proxy runs at 0.5 (no upsample); a 2.0 source runs at 2.0 (no downsample, downscaled only at the final stage). There is **no per-effect policy** — every effect keeps a high-res source's density for free, capped only by the global memory ceiling (FR-036/FR-037). An effect needing a different `w` (clamp for perf, oversample for SSAA) overrides `Process` in a custom `FilterEffectRenderNode`. *(An earlier `Inherit`/`ClampToOutput`/`Oversample`/`PreserveSource` policy was removed.)*
