@@ -14,6 +14,10 @@ internal static class GoldenThresholds
     // supply density). It is deferred until a custom FilterEffectRenderNode that overrides ResolveWorkingScale
     // exists to drive a divergent working scale.
 
-    /// <summary>SSIM margin a supersampled render must beat the non-supersampled one by (lower aliasing).</summary>
+    /// <summary>
+    /// Degradation TOLERANCE, not a quality gate: a supersampled render's SSIM-to-truth may fall below the
+    /// 1:1 render's by at most this much (ssimSS ≥ ssim11 − margin in <see cref="ExportSupersampleTests"/>).
+    /// The actual SSAA quality gate is the strict MAE-to-truth decrease asserted alongside it.
+    /// </summary>
     public const double SupersampleSsimMargin = 0.01;
 }

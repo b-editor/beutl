@@ -58,8 +58,12 @@ public partial class DisplacementMapEffect : FilterEffect
                     for (int i = 0; i < effectContext.Targets.Count; i++)
                     {
                         EffectTarget effectTarget = effectContext.Targets[i];
+                        // feature 003: pass the working density so a tile/image/drawable map rasterizes at w
+                        // (the shader is consumed under the Scale(w) CTM below, which its baked Scale(1/w)
+                        // compensates); analytic brushes ignore it. w == 1 is a no-op (byte-identical).
+                        float w = effectContext.WorkingScale;
                         using var displacementMapShader =
-                            new BrushConstructor(new Rect(effectTarget.Bounds.Size), brush, BlendMode.SrcOver)
+                            new BrushConstructor(new Rect(effectTarget.Bounds.Size), brush, BlendMode.SrcOver, w)
                                 .CreateShader();
 
                         var newTarget = effectContext.CreateTarget(effectTarget.Bounds);
@@ -71,7 +75,6 @@ public partial class DisplacementMapEffect : FilterEffect
                             // feature 003: fill the full ceil(bounds × w) device buffer. At w != 1 prescale so
                             // the logical DrawRect + brush shader render at working density; w == 1 keeps the
                             // bare logical rect (byte-identical).
-                            float w = effectContext.WorkingScale;
                             using (w == 1f ? default : canvas.PushTransform(Matrix.CreateScale(w, w)))
                             {
                                 canvas.Canvas.DrawRect(

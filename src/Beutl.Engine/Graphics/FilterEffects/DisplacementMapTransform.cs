@@ -92,11 +92,16 @@ public partial class DisplacementMapTranslateTransform : DisplacementMapTransfor
                     var renderTarget = effectTarget.RenderTarget!;
                     float w = c.WorkingScale;
                     using var displacementMapShaderRaw =
-                        new BrushConstructor(new(effectTarget.Bounds.Size), map, BlendMode.SrcOver)
+                        new BrushConstructor(new(effectTarget.Bounds.Size), map, BlendMode.SrcOver, w)
                             .CreateShader();
                     // feature 003: the map is laid out over LOGICAL extent but is cross-sampled at the SAME
                     // device-px coord as the device-px base texture, so scale its local matrix by w (a device
-                    // coord p*w then samples the map at logical p). w == 1 keeps the bare shader (byte-identical).
+                    // coord p*w then samples the map at logical p). Passing scale w above makes a tile/image/
+                    // drawable map rasterize at density w with Scale(1/w) baked into its own local matrix
+                    // (logical coord -> dense texel); composed with the Scale(w) wrapper below, a device coord
+                    // d samples the dense map at the texel for logical d/w — full density, unchanged position.
+                    // Analytic brushes (gradient / Perlin) ignore the scale argument, so only the wrapper acts
+                    // on them. w == 1 keeps the bare shader (byte-identical).
                     // feature 003: BrushConstructor.CreateShader() is nullable (null/degenerate/unknown brush),
                     // so guard before scaling — only the w == 1 path could safely short-circuit a null before.
                     // A null shader stays null (tolerated downstream, as in the pre-feature path); only the
@@ -216,11 +221,16 @@ public partial class DisplacementMapScaleTransform : DisplacementMapTransform
                     var renderTarget = effectTarget.RenderTarget!;
                     float w = c.WorkingScale;
                     using var displacementMapShaderRaw =
-                        new BrushConstructor(new(effectTarget.Bounds.Size), map, BlendMode.SrcOver)
+                        new BrushConstructor(new(effectTarget.Bounds.Size), map, BlendMode.SrcOver, w)
                             .CreateShader();
                     // feature 003: the map is laid out over LOGICAL extent but is cross-sampled at the SAME
                     // device-px coord as the device-px base texture, so scale its local matrix by w (a device
-                    // coord p*w then samples the map at logical p). w == 1 keeps the bare shader (byte-identical).
+                    // coord p*w then samples the map at logical p). Passing scale w above makes a tile/image/
+                    // drawable map rasterize at density w with Scale(1/w) baked into its own local matrix
+                    // (logical coord -> dense texel); composed with the Scale(w) wrapper below, a device coord
+                    // d samples the dense map at the texel for logical d/w — full density, unchanged position.
+                    // Analytic brushes (gradient / Perlin) ignore the scale argument, so only the wrapper acts
+                    // on them. w == 1 keeps the bare shader (byte-identical).
                     // feature 003: BrushConstructor.CreateShader() is nullable (null/degenerate/unknown brush),
                     // so guard before scaling — only the w == 1 path could safely short-circuit a null before.
                     // A null shader stays null (tolerated downstream, as in the pre-feature path); only the
@@ -339,11 +349,16 @@ public partial class DisplacementMapRotationTransform : DisplacementMapTransform
                     var renderTarget = effectTarget.RenderTarget!;
                     float w = c.WorkingScale;
                     using var displacementMapShaderRaw =
-                        new BrushConstructor(new(effectTarget.Bounds.Size), map, BlendMode.SrcOver)
+                        new BrushConstructor(new(effectTarget.Bounds.Size), map, BlendMode.SrcOver, w)
                             .CreateShader();
                     // feature 003: the map is laid out over LOGICAL extent but is cross-sampled at the SAME
                     // device-px coord as the device-px base texture, so scale its local matrix by w (a device
-                    // coord p*w then samples the map at logical p). w == 1 keeps the bare shader (byte-identical).
+                    // coord p*w then samples the map at logical p). Passing scale w above makes a tile/image/
+                    // drawable map rasterize at density w with Scale(1/w) baked into its own local matrix
+                    // (logical coord -> dense texel); composed with the Scale(w) wrapper below, a device coord
+                    // d samples the dense map at the texel for logical d/w — full density, unchanged position.
+                    // Analytic brushes (gradient / Perlin) ignore the scale argument, so only the wrapper acts
+                    // on them. w == 1 keeps the bare shader (byte-identical).
                     // feature 003: BrushConstructor.CreateShader() is nullable (null/degenerate/unknown brush),
                     // so guard before scaling — only the w == 1 path could safely short-circuit a null before.
                     // A null shader stays null (tolerated downstream, as in the pre-feature path); only the

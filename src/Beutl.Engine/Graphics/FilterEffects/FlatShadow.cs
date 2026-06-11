@@ -104,12 +104,15 @@ public partial class FlatShadow : FilterEffect
             {
                 newCanvas.Clear();
                 // feature 003: the contour path is DEVICE px (traced from the ceil(bounds × w) source), so the
-                // shadow offset, the per-step extrusion COUNT, the SrcIn brush rect and the source-blit offset all
-                // scale to device by the working density to stay consistent with it. w == 1 = pre-feature path.
+                // shadow offset, the per-step extrusion COUNT and the source-blit offset all scale to device by
+                // the working density to stay consistent with it. The SrcIn brush is built over the LOGICAL
+                // bounds at density w and its rect is drawn under a Scale(w) CTM — the same device coverage as
+                // a W·w×H·w rect under identity, but absolute-unit gradient points and the Perlin frequency stay
+                // logical, and tile/image/drawable content rasterizes at w. w == 1 = pre-feature path.
                 float w = context.WorkingScale;
                 using (newCanvas.PushTransform(Matrix.CreateTranslation((x2Abs - x2) / 2 * w, (y2Abs - y2) / 2 * w)))
                 {
-                    var c = new BrushConstructor(new(new Size(newTarget.Bounds.Width * w, newTarget.Bounds.Height * w)), brush, BlendMode.SrcIn);
+                    var c = new BrushConstructor(new(newTarget.Bounds.Size), brush, BlendMode.SrcIn, w);
                     c.ConfigurePaint(brushPaint);
 
                     float lenAbs = Math.Abs(length) * w;
@@ -121,7 +124,10 @@ public partial class FlatShadow : FilterEffect
                     }
                 }
 
-                newCanvas.Canvas.DrawRect(SKRect.Create((float)(newTarget.Bounds.Width * w), (float)(newTarget.Bounds.Height * w)), brushPaint);
+                using (w == 1f ? default : newCanvas.PushTransform(Matrix.CreateScale(w, w)))
+                {
+                    newCanvas.Canvas.DrawRect(SKRect.Create(newTarget.Bounds.Width, newTarget.Bounds.Height), brushPaint);
+                }
 
                 if (!data.ShadowOnly)
                     newCanvas.DrawRenderTarget(target.RenderTarget!, new((x2Abs - x2) / 2 * w, (y2Abs - y2) / 2 * w));

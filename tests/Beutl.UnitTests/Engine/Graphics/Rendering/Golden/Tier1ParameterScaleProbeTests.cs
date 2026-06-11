@@ -1,4 +1,4 @@
-using Beutl.Composition;
+﻿using Beutl.Composition;
 using Beutl.Graphics;
 using Beutl.Graphics.Shapes;
 using Beutl.Media;
@@ -21,11 +21,58 @@ namespace Beutl.UnitTests.Engine.Graphics.Rendering.Golden;
 //                       falsification lives in git history (8b2a1624c). PerlinNoise ships with NO param
 //                       scaling, and 0.70 is accepted best-effort. The loose floor below is a REGRESSION
 //                       FLOOR ONLY — it cannot distinguish the ÷w hypothesis (both 0.70 and 0.63 clear it).
+//                       The CTM-following hypothesis itself (FR-010) IS settled by the lossless-direction
+//                       probe (PerlinNoiseBrush_CtmFollowing_LosslessDirection), which is free of the
+//                       Nyquist confound.
 [NonParallelizable]
 [TestFixture]
 public class Tier1ParameterScaleProbeTests
 {
     private static readonly PixelSize Frame = new(250, 250);
+
+    // FR-010, lossless direction: the 0.5x probe below cannot separate "shader follows the CTM" from
+    // "shader is device-fixed" because high-frequency content also loses structure to Nyquist at 0.5x. This
+    // probe removes the confound: render at s_out = 2.0 (information is GAINED, not lost), downscale to the
+    // 1x size, and compare with the 1x render, using a BaseFrequency far below Nyquist at 1x (~0.015
+    // cycles/px ≈ 3.75 cycles across the 250px frame). If SkPerlinNoiseShader follows the CTM (the FR-010
+    // position), the logical noise structure is identical at both scales and survives the downscale; if it
+    // were device-fixed, the 2x pattern would be twice the logical period and the comparison would collapse.
+    // This verifies the CTM-following hypothesis only in the lossless direction — it says nothing about how
+    // much detail a REDUCED-scale render keeps (that stays best-effort, probed above).
+    [Test]
+    public void PerlinNoiseBrush_CtmFollowing_LosslessDirection()
+    {
+        VulkanTestEnvironment.EnsureAvailable();
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            Drawable.Resource Make()
+            {
+                var brush = new PerlinNoiseBrush();
+                brush.BaseFrequencyX.CurrentValue = 1.5f; // 0.015 cycles/unit after the /100 — far from Nyquist at 1x
+                brush.BaseFrequencyY.CurrentValue = 1.5f;
+                brush.Octaves.CurrentValue = 2;
+                brush.Seed.CurrentValue = 1f;
+
+                var shape = new RectShape();
+                shape.AlignmentX.CurrentValue = AlignmentX.Center;
+                shape.AlignmentY.CurrentValue = AlignmentY.Center;
+                shape.Width.CurrentValue = 180;
+                shape.Height.CurrentValue = 180;
+                shape.Fill.CurrentValue = brush;
+                return shape.ToResource(CompositionContext.Default);
+            }
+
+            using Bitmap full = GoldenImageHarness.RenderAtScale(Make(), Frame, 1f);
+            using Bitmap doubled = GoldenImageHarness.RenderAtScale(Make(), Frame, 2f);
+            using Bitmap downscaled = GoldenImageHarness.MitchellResampleTo(doubled, new PixelSize(full.Width, full.Height));
+            double ssim = ImageMetrics.Ssim(full, downscaled);
+            double mae = ImageMetrics.MeanAbsoluteError(full, downscaled);
+            TestContext.WriteLine($"[PerlinNoiseBrush lossless] 2.0-down vs 1.0 SSIM={ssim:F4} MAE={mae:F4}");
+            Assert.That(ssim, Is.GreaterThan(0.9),
+                $"PerlinNoiseBrush SSIM={ssim:F4} — low-frequency noise structure did not survive the lossless " +
+                "(2.0 → 1.0) direction, so the shader is NOT following the CTM (FR-010 violated)");
+        });
+    }
 
     // PerlinNoiseBrush fill: SKShader.CreatePerlinNoise* generates noise in a coordinate space whose
     // resolution-dependence is a Skia internal. This probe settles whether BaseFrequency needs ÷w.

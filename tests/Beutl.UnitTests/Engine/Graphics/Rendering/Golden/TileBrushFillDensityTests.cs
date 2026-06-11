@@ -1,4 +1,4 @@
-using Beutl.Composition;
+﻿using Beutl.Composition;
 using Beutl.Graphics;
 using Beutl.Graphics.Shapes;
 using Beutl.Media;
@@ -87,6 +87,63 @@ public class TileBrushFillDensityTests
             TestContext.WriteLine($"[DrawableBrush Tile 2x2] 1.0 vs 2.0-down SSIM={ssim:F4} MAE={mae:F4}");
             Assert.That(ssim, Is.GreaterThan(GoldenThresholds.ExactSsimMin),
                 $"DrawableBrush tiling diverged across render scale (mistiled): SSIM={ssim:F4}");
+        });
+    }
+
+    // High-frequency variant of MakeEllipse: diagonal hard-stop stripes (period ~13 px, never axis-aligned, so
+    // every stripe edge carries sub-pixel antialiasing that a logical-resolution rasterization cannot encode).
+    private static RectShape MakeStripes()
+    {
+        var stripes = new LinearGradientBrush();
+        stripes.StartPoint.CurrentValue = new RelativePoint(0, 0, RelativeUnit.Absolute);
+        stripes.EndPoint.CurrentValue = new RelativePoint(11, 7, RelativeUnit.Absolute);
+        stripes.SpreadMethod.CurrentValue = GradientSpreadMethod.Repeat;
+        stripes.GradientStops.Add(new GradientStop(Colors.White, 0));
+        stripes.GradientStops.Add(new GradientStop(Colors.White, 0.5f));
+        stripes.GradientStops.Add(new GradientStop(Colors.Black, 0.5f));
+        stripes.GradientStops.Add(new GradientStop(Colors.Black, 1));
+
+        var rect = new RectShape();
+        rect.AlignmentX.CurrentValue = AlignmentX.Center;
+        rect.AlignmentY.CurrentValue = AlignmentY.Center;
+        rect.Width.CurrentValue = 160;
+        rect.Height.CurrentValue = 160;
+        rect.Fill.CurrentValue = stripes;
+        return rect;
+    }
+
+    // DISCRIMINATING A-1 gate: the headline ellipse case is too smooth to catch a reverted fix (it scores
+    // 0.998 even with density-1 rasterization + upscale, above the 0.985 gate). Fine diagonal stripes are
+    // where that failure mode is visible — a logical-resolution intermediate upscaled ×2 turns every
+    // antialiased stripe edge blocky, while the dense (× s) intermediate matches the direct render.
+    [Test]
+    public void DrawableBrushFill_HighFrequency_SsaaDensity_MatchesDirect()
+    {
+        VulkanTestEnvironment.EnsureAvailable();
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            using Bitmap direct = GoldenImageHarness.RenderAtScale(
+                MakeStripes().ToResource(CompositionContext.Default), Frame, 2f);
+
+            var brush = new DrawableBrush();
+            brush.Drawable.CurrentValue = MakeStripes();
+            brush.Stretch.CurrentValue = Stretch.Fill;
+            brush.TileMode.CurrentValue = TileMode.None;
+            brush.DestinationRect.CurrentValue = RelativeRect.Fill;
+            var host = new RectShape();
+            host.AlignmentX.CurrentValue = AlignmentX.Center;
+            host.AlignmentY.CurrentValue = AlignmentY.Center;
+            host.Width.CurrentValue = 160;
+            host.Height.CurrentValue = 160;
+            host.Fill.CurrentValue = brush;
+            using Bitmap filled = GoldenImageHarness.RenderAtScale(
+                host.ToResource(CompositionContext.Default), Frame, 2f);
+
+            double ssim = ImageMetrics.Ssim(direct, filled);
+            double mae = ImageMetrics.MeanAbsoluteError(direct, filled);
+            TestContext.WriteLine($"[DrawableBrush fill stripes @2x] vs direct SSIM={ssim:F4} MAE={mae:F4}");
+            Assert.That(ssim, Is.GreaterThan(GoldenThresholds.ExactSsimMin),
+                $"high-frequency DrawableBrush fill is not device-dense at SSAA: SSIM={ssim:F4}");
         });
     }
 

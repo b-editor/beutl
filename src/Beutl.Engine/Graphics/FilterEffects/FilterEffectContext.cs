@@ -445,7 +445,11 @@ public sealed class FilterEffectContext : IDisposable
                 {
                     Size size = target.Bounds.Size;
                     EffectTarget newTarget = context.CreateTarget(target.Bounds);
-                    var c = new BrushConstructor(new(size), data.Brush, data.BlendMode);
+                    // feature 003: pass the working density so a tile/image/drawable brush rasterizes at w
+                    // (consumed under the Scale(w) CTM below, which its baked Scale(1/w) compensates);
+                    // analytic brushes ignore it. w == 1 is a no-op (byte-identical).
+                    float w = context.WorkingScale;
+                    var c = new BrushConstructor(new(size), data.Brush, data.BlendMode, w);
                     using var brushPaint = new SKPaint();
                     c.ConfigurePaint(brushPaint);
 
@@ -456,7 +460,6 @@ public sealed class FilterEffectContext : IDisposable
                         // feature 003: the source above is device-px (point-blit, unchanged); the brush + its LOGICAL
                         // coverage rect are prescaled by w so they fill the full ceil(bounds × w) device buffer at
                         // working density. w == 1 keeps the bare path (byte-identical).
-                        float w = context.WorkingScale;
                         using (w == 1f ? default : newCanvas.PushTransform(Matrix.CreateScale(w, w)))
                         {
                             newCanvas.Canvas.DrawRect(SKRect.Create(size.ToSKSize()), brushPaint);
