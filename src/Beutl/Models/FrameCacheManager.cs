@@ -162,8 +162,16 @@ public sealed partial class FrameCacheManager : IDisposable
         }
     }
 
+    /// <summary>
+    /// True once <see cref="Dispose"/> ran. The render work-item checks this before using a manager it
+    /// read from the reactive property: during a rebuild-by-replacement swap a narrow window exists
+    /// where the property still exposes the previous (already disposed) instance.
+    /// </summary>
+    public bool IsDisposed { get; private set; }
+
     public void Dispose()
     {
+        IsDisposed = true;
         Clear();
         _maxSize.Dispose();
     }

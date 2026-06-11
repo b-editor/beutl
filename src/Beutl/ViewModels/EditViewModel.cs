@@ -105,9 +105,13 @@ public sealed partial class EditViewModel : IEditorContext, ISupportAutoSaveEdit
         EditorConfig config = GlobalConfiguration.Instance.EditorConfig;
 
         // Rebuilt whenever (FrameSize, OutputScale) changes, so frames cached at one preview scale are
-        // never served at another (cache-scale invalidation).
-        FrameCacheManager = frameSizeAndScale
-            .Select(t => new FrameCacheManager(t.FrameSize, CreateFrameCacheOptions()) { IsEnabled = config.IsFrameCacheEnabled })
+        // never served at another (cache-scale invalidation). Derived from the Renderer observable —
+        // NOT from frameSizeAndScale directly — so the two swaps are structurally ordered: by the time
+        // the FrameCacheManager swap notifies its subscribers, Renderer.Value is already the matching
+        // new instance. A consumer that needs the coherent pair (PlayerViewModel.QueueRender) therefore
+        // subscribes the FrameCacheManager swap, the LAST of the two.
+        FrameCacheManager = Renderer
+            .Select(r => new FrameCacheManager(r.FrameSize, CreateFrameCacheOptions()) { IsEnabled = config.IsFrameCacheEnabled })
             .DisposePreviousValue()
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables)!;

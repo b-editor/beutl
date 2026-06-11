@@ -71,26 +71,29 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
         Scene = editViewModel.Scene;
         _isEnabled = editViewModel.IsEnabled;
 
-        // feature 003 (US4): re-render the current frame whenever the renderer is rebuilt — preview-
-        // quality changes, FitToPreviewer panel resizes, and frame-size edits all arrive as a Renderer
-        // swap, so subscribing the swap (rather than PreviewScale) also repaints when a Fit-mode resize
-        // rebuilds the renderer while paused; without this the stale old-scale bitmap stays stretched
-        // until the next scrub. Per amended FR-031, Renderer and FrameCacheManager are two reactive
-        // properties swapped independently on the UI thread (NOT one atomic swap); the render work-item
-        // reads both fresh inside the serial render-dispatcher closure, and the render queued here
-        // supersedes any frame from that narrow, self-healing tear window.
-        editViewModel.Renderer
-            .Skip(1)
-            .Subscribe(_ => QueueRender())
-            .DisposeWith(_disposables);
-
         // feature 003 (US4): a rebuilt FrameCacheManager starts from the global default options, which
         // would silently drop the panel-derived reduced cache size until the panel happens to resize
         // (the MaxFrameSize setter's equality guard suppresses reapplication). Reapply the derived
-        // size to every new instance.
+        // size to every new instance. Subscribed BEFORE the re-render trigger below so the options
+        // land before the repaint.
         editViewModel.FrameCacheManager
             .Skip(1)
             .Subscribe(ApplyMaxFrameSizeToCacheOptions)
+            .DisposeWith(_disposables);
+
+        // feature 003 (US4): re-render the current frame whenever the renderer is rebuilt — preview-
+        // quality changes, FitToPreviewer panel resizes, and frame-size edits all rebuild the
+        // (Renderer, FrameCacheManager) pair; without this the stale old-scale bitmap stays stretched
+        // until the next scrub. Per amended FR-031 the pair is swapped as two reactive properties on
+        // the UI thread (NOT one atomic swap), and EditViewModel derives FrameCacheManager FROM the
+        // Renderer observable, so this swap is structurally the LAST of the two — queueing here makes
+        // the work-item read a coherent (new renderer, new cache) pair, and it supersedes any frame an
+        // earlier in-flight item produced from the narrow tear window (which is what actually makes
+        // that window self-healing; triggering on the Renderer swap instead would dispatch BEFORE the
+        // cache swap and could pair the new renderer with the old-scale cache).
+        editViewModel.FrameCacheManager
+            .Skip(1)
+            .Subscribe(_ => QueueRender())
             .DisposeWith(_disposables);
 
         PlayPause = new AsyncReactiveCommand(_isEnabled.AsObservable())
@@ -1373,7 +1376,11 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
                 {
                     SceneRenderer renderer = EditViewModel.Renderer.Value;
                     FrameCacheManager cacheManager = EditViewModel.FrameCacheManager.Value;
-                    if (renderer is not { IsDisposed: false, IsGraphicsRendering: false })
+                    // Mid-swap the properties can briefly expose a disposed instance (the pair is
+                    // replaced as two swaps, renderer first). Bail out — the swap itself queues a
+                    // fresh render once both halves are in place.
+                    if (renderer is not { IsDisposed: false, IsGraphicsRendering: false }
+                        || cacheManager.IsDisposed)
                         return;
                     if (Scene is null)
                         return;
