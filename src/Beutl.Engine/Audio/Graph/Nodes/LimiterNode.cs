@@ -5,13 +5,17 @@ using Beutl.Logging;
 using Beutl.Media;
 using Microsoft.Extensions.Logging;
 
+using static Beutl.Audio.Effects.LimiterParameters;
+
 namespace Beutl.Audio.Graph.Nodes;
 
 public sealed class LimiterNode : AudioNode
 {
-    // AnimationChunkSize × number-of-animated-parameters × sizeof(float). With four
-    // parameters today this is 16 KiB per ProcessAnimated call — well within a thread's
-    // default stack budget while still amortizing the per-chunk animation sampling overhead.
+    // Upper bound on the per-chunk animation-sampling scratch: AnimationChunkSize ×
+    // number-of-animated-parameters × sizeof(float). With four parameters today this caps the
+    // stack scratch at 16 KiB per ProcessAnimated call (smaller buffers allocate proportionally
+    // less) — well within a thread's default stack budget while still amortizing the per-chunk
+    // animation sampling overhead.
     private const int AnimationChunkSize = 1024;
 
     private static readonly ILogger s_logger = Log.CreateLogger<LimiterNode>();
@@ -121,14 +125,19 @@ public sealed class LimiterNode : AudioNode
             ? ProcessAnimated(input, context)
             : ProcessStatic(input, context);
 
-        // Update only on success: if Process throws mid-buffer, _currentGain and the delay line
-        // may be partially mutated. Two cases for the next call:
+        // Update only on success: if Process throws mid-buffer (realistically only from
+        // AnimationSampler on a later inner chunk of ProcessAnimated, after earlier samples were
+        // already ingested), _currentGain and the delay line may be partially mutated. No production
+        // caller re-invokes Process with an identical context after a throw — Composer,
+        // SampleProviderImpl, and PlayerViewModel all propagate the exception and stop — so the
+        // same-chunk-retry branch below is a latent/defensive consideration, not an active path.
+        // For completeness, the next call resolves as:
         //  - Contiguous throw (no Reset() ran this call): _lastTimeRangeEnd retains the previous
-        //    end. If the next call's Start differs, the discontinuity branch fires Reset() and
-        //    discards partial state. If the next call's Start matches (same-chunk retry), the
-        //    contiguous path inherits partial state — accepted as a deliberate trade-off
-        //    because the alternative (always Reset() after a throw) would discard correct
-        //    delay-line state in the common transient-failure case.
+        //    end. A next call at a different Start hits the discontinuity branch, which Reset()s and
+        //    discards the partial state. A next call at the same Start (a hypothetical same-chunk
+        //    retry that no current caller performs) would instead inherit the partial state; this is
+        //    tolerated rather than guarded, because the alternative — always Reset() after a throw —
+        //    would needlessly discard correct delay-line state and no caller actually retries.
         //  - Throw after Reset() ran: _lastTimeRangeEnd was already cleared to null by Reset(),
         //    so the next call hits the `!HasValue` branch and Reset()s again before processing,
         //    discarding any partial state.
@@ -156,10 +165,10 @@ public sealed class LimiterNode : AudioNode
 
         // +1 because CircularBuffer.Read(samplesBack) returns silence when samplesBack >= length,
         // so the requested length must be strictly greater than the maximum lookaheadSamples we
-        // will ever clamp to (LimiterEffect.MaxLookaheadMs · sampleRate). The buffer rounds this
+        // will ever clamp to (MaxLookaheadMs · sampleRate). The buffer rounds this
         // up to the next power of two internally — the +1 is for the read-bounds check, not the
         // rounding.
-        int max = Math.Max(1, (int)(LimiterEffect.MaxLookaheadMs / 1000f * sampleRate) + 1);
+        int max = Math.Max(1, (int)(MaxLookaheadMs / 1000f * sampleRate) + 1);
 
         var lines = new CircularBuffer<float>[channelCount];
         try
@@ -245,10 +254,10 @@ public sealed class LimiterNode : AudioNode
         // 0 dB here would silently disable limiting for the rest of the session — exactly the
         // silent-failure mode this guard is meant to prevent. -1 dB still limits while keeping
         // the substitution audible (peaks just under unity) so the issue surfaces.
-        float thresholdDb = ClampFinite(thresholdDbRaw, LimiterEffect.MinThresholdDb, LimiterEffect.MaxThresholdDb, LimiterEffect.DefaultThresholdDb, nameof(Threshold), ref _warnedNonFiniteThreshold);
-        float releaseMs = ClampFinite(releaseMsRaw, LimiterEffect.MinReleaseMs, LimiterEffect.MaxReleaseMs, LimiterEffect.MinReleaseMs, nameof(Release), ref _warnedNonFiniteRelease);
-        float lookaheadMs = ClampFinite(lookaheadMsRaw, LimiterEffect.MinLookaheadMs, LimiterEffect.MaxLookaheadMs, LimiterEffect.MinLookaheadMs, nameof(Lookahead), ref _warnedNonFiniteLookahead);
-        float makeupDb = ClampFinite(makeupDbRaw, LimiterEffect.MinMakeupGainDb, LimiterEffect.MaxMakeupGainDb, 0f, nameof(MakeupGain), ref _warnedNonFiniteMakeup);
+        float thresholdDb = ClampFinite(thresholdDbRaw, MinThresholdDb, MaxThresholdDb, DefaultThresholdDb, nameof(Threshold), ref _warnedNonFiniteThreshold);
+        float releaseMs = ClampFinite(releaseMsRaw, MinReleaseMs, MaxReleaseMs, MinReleaseMs, nameof(Release), ref _warnedNonFiniteRelease);
+        float lookaheadMs = ClampFinite(lookaheadMsRaw, MinLookaheadMs, MaxLookaheadMs, MinLookaheadMs, nameof(Lookahead), ref _warnedNonFiniteLookahead);
+        float makeupDb = ClampFinite(makeupDbRaw, MinMakeupGainDb, MaxMakeupGainDb, 0f, nameof(MakeupGain), ref _warnedNonFiniteMakeup);
 
         return new DerivedCoefficients(
             ThresholdLin: AudioMath.ConvertDbToLinear(thresholdDb),
@@ -288,14 +297,15 @@ public sealed class LimiterNode : AudioNode
     {
         var output = new AudioBuffer(input.SampleRate, input.ChannelCount, input.SampleCount);
 
-        // Fixed-size stack allocation: the Math.Min against SampleCount would only shrink the
-        // allocation, never grow it past AnimationChunkSize, so it adds no safety. Pinning to the
-        // constant makes the 16 KiB stack budget provable and resilient to refactors that pass
-        // ambiguous SampleCount values.
-        Span<float> thresholds = stackalloc float[AnimationChunkSize];
-        Span<float> releases = stackalloc float[AnimationChunkSize];
-        Span<float> lookaheads = stackalloc float[AnimationChunkSize];
-        Span<float> makeups = stackalloc float[AnimationChunkSize];
+        // Per-chunk animation-sampling scratch, sized to the actual work (capped at
+        // AnimationChunkSize) so a small buffer pays a proportionally small stack cost, matching the
+        // sibling nodes (CompressorNode/DelayNode/GainNode). The inner loop's chunkSize never exceeds
+        // this. Worst case is four AnimationChunkSize-float spans = 16 KiB, well within the stack budget.
+        int scratchSize = Math.Min(AnimationChunkSize, input.SampleCount);
+        Span<float> thresholds = stackalloc float[scratchSize];
+        Span<float> releases = stackalloc float[scratchSize];
+        Span<float> lookaheads = stackalloc float[scratchSize];
+        Span<float> makeups = stackalloc float[scratchSize];
 
         // Lookahead can change per sample here, which the monotonic deque cannot track without
         // unbounded history, so this path uses the direct window rescan. Invalidate the deque so a
@@ -328,7 +338,10 @@ public sealed class LimiterNode : AudioNode
                 // no-animation case takes ProcessStatic, which derives the coefficients once per call.
                 var c = Derive(thresholds[i], releases[i], lookaheads[i], makeups[i], context.SampleRate);
                 int idx = processed + i;
-                float currentPeak = IngestSample(inRaw, sampleCount, channelCount, idx);
+                // The animated path ignores IngestSample's returned per-sample peak (only its
+                // side-effects on the delay line and peak ring matter); the window maximum comes from
+                // ScanWindowPeak over the ring. The static path, by contrast, feeds it into PushWindowPeak.
+                _ = IngestSample(inRaw, sampleCount, channelCount, idx);
                 float windowPeak = ScanWindowPeak(c.LookaheadSamples);
                 EmitSample(outRaw, sampleCount, channelCount, idx, windowPeak, c.ThresholdLin, c.MakeupLin, c.LookaheadSamples, c.ReleaseCoef);
             }

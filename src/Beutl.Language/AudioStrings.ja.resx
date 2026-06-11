@@ -136,4 +136,16 @@
   <data name="LimiterEffect_MakeupGain" xml:space="preserve">
     <value>メイクアップゲイン (dB)</value>
   </data>
+  <data name="LimiterEffect_Threshold_Description" xml:space="preserve">
+    <value>出力の上限。ルックアヘッド窓内のピークが抑えられ、出力はこのレベル以下に保たれます。</value>
+  </data>
+  <data name="LimiterEffect_Release_Description" xml:space="preserve">
+    <value>ピークが過ぎたあとゲインが回復するまでの速さ。</value>
+  </data>
+  <data name="LimiterEffect_Lookahead_Description" xml:space="preserve">
+    <value>ピークが到達する前に捉えるために先読みする時間。0 ms ではサンプル精度を保ち、大きくすると一定の遅延と引き換えに滑らかな制限になります。</value>
+  </data>
+  <data name="LimiterEffect_MakeupGain_Description" xml:space="preserve">
+    <value>制限後に適用するゲイン。最終ピークは スレッショルド + メイクアップゲイン まで達することがあります。</value>
+  </data>
 </root>

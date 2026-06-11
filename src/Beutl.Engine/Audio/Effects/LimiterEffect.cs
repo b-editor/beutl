@@ -4,6 +4,8 @@ using Beutl.Audio.Graph.Nodes;
 using Beutl.Engine;
 using Beutl.Language;
 
+using static Beutl.Audio.Effects.LimiterParameters;
+
 namespace Beutl.Audio.Effects;
 
 /// <summary>
@@ -44,20 +46,6 @@ namespace Beutl.Audio.Effects;
 [Display(Name = nameof(AudioStrings.LimiterEffect), ResourceType = typeof(AudioStrings))]
 public sealed partial class LimiterEffect : AudioEffect
 {
-    internal const float MinThresholdDb = -60f;
-    internal const float MaxThresholdDb = 0f;
-    internal const float MinReleaseMs = 1f;
-    internal const float MaxReleaseMs = 5000f;
-    internal const float MinLookaheadMs = 0f;
-    internal const float MaxLookaheadMs = 20f;
-    internal const float MinMakeupGainDb = -24f;
-    internal const float MaxMakeupGainDb = 24f;
-
-    internal const float DefaultThresholdDb = -1.0f;
-    internal const float DefaultReleaseMs = 50f;
-    internal const float DefaultLookaheadMs = 0f;
-    internal const float DefaultMakeupGainDb = 0f;
-
     public LimiterEffect()
     {
         ScanProperties<LimiterEffect>();
@@ -70,16 +58,18 @@ public sealed partial class LimiterEffect : AudioEffect
     /// below this ceiling.
     /// </summary>
     [Range(MinThresholdDb, MaxThresholdDb)]
-    [Display(Name = nameof(AudioStrings.LimiterEffect_Threshold), ResourceType = typeof(AudioStrings))]
+    [Display(Name = nameof(AudioStrings.LimiterEffect_Threshold), Description = nameof(AudioStrings.LimiterEffect_Threshold_Description), ResourceType = typeof(AudioStrings))]
     [SuppressResourceClassGeneration]
+    [NumberStep(10, 1)]
     public IProperty<float> Threshold { get; } = Property.CreateAnimatable(DefaultThresholdDb);
 
     /// <summary>
     /// Time constant of the gain recovery (one-pole IIR) in milliseconds.
     /// </summary>
     [Range(MinReleaseMs, MaxReleaseMs)]
-    [Display(Name = nameof(AudioStrings.LimiterEffect_Release), ResourceType = typeof(AudioStrings))]
+    [Display(Name = nameof(AudioStrings.LimiterEffect_Release), Description = nameof(AudioStrings.LimiterEffect_Release_Description), ResourceType = typeof(AudioStrings))]
     [SuppressResourceClassGeneration]
+    [NumberStep(100, 10)]
     public IProperty<float> Release { get; } = Property.CreateAnimatable(DefaultReleaseMs);
 
     /// <summary>
@@ -89,8 +79,9 @@ public sealed partial class LimiterEffect : AudioEffect
     /// and drop the same number of samples from the tail.
     /// </summary>
     [Range(MinLookaheadMs, MaxLookaheadMs)]
-    [Display(Name = nameof(AudioStrings.LimiterEffect_Lookahead), ResourceType = typeof(AudioStrings))]
+    [Display(Name = nameof(AudioStrings.LimiterEffect_Lookahead), Description = nameof(AudioStrings.LimiterEffect_Lookahead_Description), ResourceType = typeof(AudioStrings))]
     [SuppressResourceClassGeneration]
+    [NumberStep(5, 0.5)]
     public IProperty<float> Lookahead { get; } = Property.CreateAnimatable(DefaultLookaheadMs);
 
     /// <summary>
@@ -98,8 +89,9 @@ public sealed partial class LimiterEffect : AudioEffect
     /// final peak can therefore reach <c>Threshold + MakeupGain</c> dB.
     /// </summary>
     [Range(MinMakeupGainDb, MaxMakeupGainDb)]
-    [Display(Name = nameof(AudioStrings.LimiterEffect_MakeupGain), ResourceType = typeof(AudioStrings))]
+    [Display(Name = nameof(AudioStrings.LimiterEffect_MakeupGain), Description = nameof(AudioStrings.LimiterEffect_MakeupGain_Description), ResourceType = typeof(AudioStrings))]
     [SuppressResourceClassGeneration]
+    [NumberStep(1, 0.1)]
     public IProperty<float> MakeupGain { get; } = Property.CreateAnimatable(DefaultMakeupGainDb);
 
     public override AudioNode CreateNode(AudioContext context, AudioNode inputNode)
