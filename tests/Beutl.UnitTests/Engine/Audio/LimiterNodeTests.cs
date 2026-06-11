@@ -6,14 +6,17 @@ using Beutl.Audio.Graph.Nodes;
 using Beutl.Engine;
 using Beutl.Media;
 
+using static Beutl.Audio.Effects.LimiterParameters;
+
 namespace Beutl.UnitTests.Engine.Audio;
 
+[TestFixture]
 public class LimiterNodeTests
 {
     private const int SampleRate = 48000;
 
     // A fixed non-zero lookahead used as the default for these tests, deliberately decoupled from
-    // LimiterEffect.DefaultLookaheadMs (which is 0 for sample-accurate A/V sync). Keeping a non-zero
+    // DefaultLookaheadMs (which is 0 for sample-accurate A/V sync). Keeping a non-zero
     // value here ensures the delay-line / lookahead-window behavior stays exercised regardless of
     // the production default. Tests that specifically need the zero-lookahead path pass lookaheadMs: 0f.
     private const float LookaheadMs = 5f;
@@ -44,10 +47,10 @@ public class LimiterNodeTests
     }
 
     private static LimiterNode CreateNode(
-        float thresholdDb = LimiterEffect.DefaultThresholdDb,
-        float releaseMs = LimiterEffect.DefaultReleaseMs,
+        float thresholdDb = DefaultThresholdDb,
+        float releaseMs = DefaultReleaseMs,
         float lookaheadMs = LookaheadMs,
-        float makeupGainDb = LimiterEffect.DefaultMakeupGainDb)
+        float makeupGainDb = DefaultMakeupGainDb)
     {
         return new LimiterNode
         {
@@ -317,36 +320,35 @@ public class LimiterNodeTests
         }
     }
 
-    [Test]
-    public void Process_DifferentSampleRates_BehaveConsistently()
+    [TestCase(44100)]
+    [TestCase(48000)]
+    [TestCase(96000)]
+    public void Process_DifferentSampleRates_BehaveConsistently(int sr)
     {
         const float thresholdDb = -1f;
         float thresholdLin = MathF.Pow(10f, thresholdDb / 20f);
 
-        foreach (int sr in new[] { 44100, 48000, 96000 })
+        int sampleCount = sr / 10; // 0.1s
+        using var input = CreateBuffer(2, sampleCount,
+            (_, i) => 2.0f * MathF.Sin(2f * MathF.PI * 440f * i / sr),
+            sampleRate: sr);
+
+        using var node = CreateNode(thresholdDb: thresholdDb);
+        node.AddInput(new StubInputNode(input));
+
+        using var output = node.Process(CreateContext(sampleCount, sampleRate: sr));
+
+        Assert.That(output.SampleCount, Is.EqualTo(sampleCount), $"SR={sr} sample count mismatch");
+        Assert.That(output.SampleRate, Is.EqualTo(sr));
+
+        int lookaheadSamples = LookaheadSamples(sr);
+        for (int ch = 0; ch < 2; ch++)
         {
-            int sampleCount = sr / 10; // 0.1s
-            using var input = CreateBuffer(2, sampleCount,
-                (_, i) => 2.0f * MathF.Sin(2f * MathF.PI * 440f * i / sr),
-                sampleRate: sr);
-
-            using var node = CreateNode(thresholdDb: thresholdDb);
-            node.AddInput(new StubInputNode(input));
-
-            using var output = node.Process(CreateContext(sampleCount, sampleRate: sr));
-
-            Assert.That(output.SampleCount, Is.EqualTo(sampleCount), $"SR={sr} sample count mismatch");
-            Assert.That(output.SampleRate, Is.EqualTo(sr));
-
-            int lookaheadSamples = LookaheadSamples(sr);
-            for (int ch = 0; ch < 2; ch++)
+            var data = output.GetChannelData(ch);
+            for (int i = lookaheadSamples; i < sampleCount; i++)
             {
-                var data = output.GetChannelData(ch);
-                for (int i = lookaheadSamples; i < sampleCount; i++)
-                {
-                    Assert.That(MathF.Abs(data[i]), Is.LessThanOrEqualTo(thresholdLin + 1e-4f),
-                        $"SR={sr} channel {ch} sample {i} exceeded threshold");
-                }
+                Assert.That(MathF.Abs(data[i]), Is.LessThanOrEqualTo(thresholdLin + 1e-4f),
+                    $"SR={sr} channel {ch} sample {i} exceeded threshold");
             }
         }
     }
@@ -357,7 +359,7 @@ public class LimiterNodeTests
         const float thresholdDb = -1f;
         float thresholdLin = MathF.Pow(10f, thresholdDb / 20f);
 
-        using var node = CreateNode(thresholdDb: thresholdDb, lookaheadMs: LimiterEffect.MaxLookaheadMs);
+        using var node = CreateNode(thresholdDb: thresholdDb, lookaheadMs: MaxLookaheadMs);
 
         using var input48 = CreateBuffer(2, 4800,
             (_, i) => 2.0f * MathF.Sin(2f * MathF.PI * 440f * i / 48000),
@@ -377,7 +379,7 @@ public class LimiterNodeTests
         using var output = node.Process(CreateContext(9600, sampleRate: 96000, start: TimeSpan.FromSeconds(5)));
 
         Assert.That(output.SampleRate, Is.EqualTo(96000));
-        int lookaheadSamples = LookaheadSamples(96000, LimiterEffect.MaxLookaheadMs);
+        int lookaheadSamples = LookaheadSamples(96000, MaxLookaheadMs);
         for (int ch = 0; ch < 2; ch++)
         {
             var data = output.GetChannelData(ch);
@@ -424,14 +426,14 @@ public class LimiterNodeTests
         using var input = CreateBuffer(2, sampleCount,
             (_, i) => 2.0f * MathF.Sin(2f * MathF.PI * 440f * i / SampleRate));
 
-        using var node = CreateNode(thresholdDb: thresholdDb, lookaheadMs: LimiterEffect.MaxLookaheadMs);
+        using var node = CreateNode(thresholdDb: thresholdDb, lookaheadMs: MaxLookaheadMs);
         node.AddInput(new StubInputNode(input));
 
         using var output = node.Process(CreateContext(sampleCount));
 
         // Off-by-one in the lookahead clamp would collapse Read(_maxLookaheadSamples) to 0
         // (silence) for every sample. Assert non-zero output past the lookahead window.
-        int lookaheadSamples = LookaheadSamples(SampleRate, LimiterEffect.MaxLookaheadMs);
+        int lookaheadSamples = LookaheadSamples(SampleRate, MaxLookaheadMs);
         bool foundNonZero = false;
         for (int i = lookaheadSamples; i < sampleCount; i++)
         {
@@ -606,40 +608,43 @@ public class LimiterNodeTests
         }
     }
 
-    [Test]
-    public void Process_LookaheadDelay_IsAccurate()
+    [TestCase(1f)]
+    [TestCase(5f)]
+    [TestCase(10f)]
+    [TestCase(MaxLookaheadMs)]
+    public void Process_LookaheadDelay_IsAccurate(float lookaheadMs)
     {
-        // Impulse at index 0 of an otherwise silent buffer — the impulse should re-emerge at
-        // exactly index `lookaheadSamples` in the output.
-        foreach (float lookaheadMs in new[] { 1f, 5f, 10f, LimiterEffect.MaxLookaheadMs })
+        // Impulse at index 0 of an otherwise silent buffer. With threshold 0 dB the signal stays below
+        // the ceiling, so this is a pure passthrough delay: the impulse must re-emerge at EXACTLY index
+        // lookaheadSamples (no tolerance) with its full amplitude preserved. The MaxLookaheadMs case
+        // pins the boundary tap (clamped to _maxLookaheadSamples-1, the largest in-range Read offset)
+        // without slack, so a one-sample off-by-one at the buffer edge would fail.
+        const int sampleCount = 2048;
+        using var input = CreateBuffer(1, sampleCount, (_, i) => i == 0 ? 0.5f : 0f);
+
+        using var node = CreateNode(thresholdDb: 0f, lookaheadMs: lookaheadMs);
+        node.AddInput(new StubInputNode(input));
+
+        using var output = node.Process(CreateContext(sampleCount));
+
+        int expectedDelay = LookaheadSamples(SampleRate, lookaheadMs);
+        var data = output.GetChannelData(0);
+
+        int peakIndex = 0;
+        float peakValue = 0f;
+        for (int i = 0; i < sampleCount; i++)
         {
-            const int sampleCount = 2048;
-            using var input = CreateBuffer(1, sampleCount, (_, i) => i == 0 ? 0.5f : 0f);
-
-            using var node = CreateNode(thresholdDb: 0f, lookaheadMs: lookaheadMs);
-            node.AddInput(new StubInputNode(input));
-
-            using var output = node.Process(CreateContext(sampleCount));
-
-            int expectedDelay = LookaheadSamples(SampleRate, lookaheadMs);
-            var data = output.GetChannelData(0);
-
-            int peakIndex = 0;
-            float peakValue = 0f;
-            for (int i = 0; i < sampleCount; i++)
+            if (MathF.Abs(data[i]) > peakValue)
             {
-                if (MathF.Abs(data[i]) > peakValue)
-                {
-                    peakValue = MathF.Abs(data[i]);
-                    peakIndex = i;
-                }
+                peakValue = MathF.Abs(data[i]);
+                peakIndex = i;
             }
-
-            Assert.That(peakIndex, Is.EqualTo(expectedDelay).Within(1),
-                $"Impulse delay mismatch at lookaheadMs={lookaheadMs}: got {peakIndex}, expected {expectedDelay}.");
-            Assert.That(peakValue, Is.GreaterThan(0.1f),
-                $"Impulse was attenuated below recoverable threshold at lookaheadMs={lookaheadMs}.");
         }
+
+        Assert.That(peakIndex, Is.EqualTo(expectedDelay),
+            $"Impulse delay mismatch at lookaheadMs={lookaheadMs}: got {peakIndex}, expected {expectedDelay}.");
+        Assert.That(peakValue, Is.EqualTo(0.5f).Within(1e-6f),
+            $"Impulse amplitude not preserved at lookaheadMs={lookaheadMs}: got {peakValue}.");
     }
 
     private static IProperty<float> CreateAnimatedConstant(float value)
@@ -1007,8 +1012,8 @@ public class LimiterNodeTests
 
         using var output = node.Process(CreateContext(sampleCount));
 
-        float upperBound = thresholdLin * MathF.Pow(10f, LimiterEffect.MaxMakeupGainDb / 20f);
-        int lookaheadSamples = LookaheadSamples(SampleRate, LimiterEffect.MaxLookaheadMs);
+        float upperBound = thresholdLin * MathF.Pow(10f, MaxMakeupGainDb / 20f);
+        int lookaheadSamples = LookaheadSamples(SampleRate, MaxLookaheadMs);
         for (int ch = 0; ch < 2; ch++)
         {
             var data = output.GetChannelData(ch);
@@ -1308,10 +1313,10 @@ public class LimiterNodeTests
         Assert.That(node.Lookahead, Is.SameAs(effect.Lookahead));
         Assert.That(node.MakeupGain, Is.SameAs(effect.MakeupGain));
 
-        Assert.That(effect.Threshold.CurrentValue, Is.EqualTo(LimiterEffect.DefaultThresholdDb));
-        Assert.That(effect.Release.CurrentValue, Is.EqualTo(LimiterEffect.DefaultReleaseMs));
-        Assert.That(effect.Lookahead.CurrentValue, Is.EqualTo(LimiterEffect.DefaultLookaheadMs));
-        Assert.That(effect.MakeupGain.CurrentValue, Is.EqualTo(LimiterEffect.DefaultMakeupGainDb));
+        Assert.That(effect.Threshold.CurrentValue, Is.EqualTo(DefaultThresholdDb));
+        Assert.That(effect.Release.CurrentValue, Is.EqualTo(DefaultReleaseMs));
+        Assert.That(effect.Lookahead.CurrentValue, Is.EqualTo(DefaultLookaheadMs));
+        Assert.That(effect.MakeupGain.CurrentValue, Is.EqualTo(DefaultMakeupGainDb));
     }
 
     [Test]
@@ -1320,48 +1325,46 @@ public class LimiterNodeTests
         // The default is intentionally 0 ms so that adding the effect does not shift audio or drop
         // boundary samples in a video editor that has no plugin-delay-compensation. Guards against
         // an accidental revert to a non-zero default.
-        Assert.That(LimiterEffect.DefaultLookaheadMs, Is.EqualTo(0f));
+        Assert.That(DefaultLookaheadMs, Is.EqualTo(0f));
         Assert.That(new LimiterEffect().Lookahead.CurrentValue, Is.EqualTo(0f));
     }
 
-    [Test]
-    public void Process_LimitingWithPositiveMakeup_ReachesThresholdPlusMakeupCeiling()
+    [TestCase(-6f, 6f)]
+    [TestCase(-6f, 12f)]
+    public void Process_LimitingWithPositiveMakeup_ReachesThresholdPlusMakeupCeiling(float thresholdDb, float makeupDb)
     {
         // Documented contract (LimiterEffect XML): the final peak settles at Threshold + MakeupGain
         // dB — the limiter caps to Threshold, then makeup scales it back up. The second case pushes
         // the ceiling above 0 dBFS on purpose. A makeup-before-limiting bug would fail the lower bound.
-        foreach (var (thresholdDb, makeupDb) in new[] { (-6f, 6f), (-6f, 12f) })
+        const int sampleCount = 8192;
+        float thresholdLin = MathF.Pow(10f, thresholdDb / 20f);
+        float makeupLin = MathF.Pow(10f, makeupDb / 20f);
+        float ceiling = thresholdLin * makeupLin;
+
+        using var input = CreateBuffer(2, sampleCount,
+            (_, i) => 2.0f * MathF.Sin(2f * MathF.PI * 440f * i / SampleRate));
+
+        using var node = CreateNode(thresholdDb: thresholdDb, makeupGainDb: makeupDb);
+        node.AddInput(new StubInputNode(input));
+
+        using var output = node.Process(CreateContext(sampleCount));
+
+        float maxPeak = 0f;
+        for (int ch = 0; ch < 2; ch++)
         {
-            const int sampleCount = 8192;
-            float thresholdLin = MathF.Pow(10f, thresholdDb / 20f);
-            float makeupLin = MathF.Pow(10f, makeupDb / 20f);
-            float ceiling = thresholdLin * makeupLin;
-
-            using var input = CreateBuffer(2, sampleCount,
-                (_, i) => 2.0f * MathF.Sin(2f * MathF.PI * 440f * i / SampleRate));
-
-            using var node = CreateNode(thresholdDb: thresholdDb, makeupGainDb: makeupDb);
-            node.AddInput(new StubInputNode(input));
-
-            using var output = node.Process(CreateContext(sampleCount));
-
-            float maxPeak = 0f;
-            for (int ch = 0; ch < 2; ch++)
+            var data = output.GetChannelData(ch);
+            for (int i = sampleCount / 2; i < sampleCount; i++)
             {
-                var data = output.GetChannelData(ch);
-                for (int i = sampleCount / 2; i < sampleCount; i++)
-                {
-                    maxPeak = MathF.Max(maxPeak, MathF.Abs(data[i]));
-                }
+                maxPeak = MathF.Max(maxPeak, MathF.Abs(data[i]));
             }
-
-            // Brick wall: never exceeds the ceiling (makeup only scales the capped signal).
-            Assert.That(maxPeak, Is.LessThanOrEqualTo(ceiling + 1e-3f),
-                $"threshold={thresholdDb}dB makeup={makeupDb}dB: {maxPeak} exceeded ceiling {ceiling}.");
-            // ...and actually reaches it (guards a makeup-before-limiting or wrong-ceiling bug).
-            Assert.That(maxPeak, Is.GreaterThan(ceiling * 0.95f),
-                $"threshold={thresholdDb}dB makeup={makeupDb}dB: {maxPeak} did not reach ceiling {ceiling}.");
         }
+
+        // Brick wall: never exceeds the ceiling (makeup only scales the capped signal).
+        Assert.That(maxPeak, Is.LessThanOrEqualTo(ceiling + 1e-3f),
+            $"threshold={thresholdDb}dB makeup={makeupDb}dB: {maxPeak} exceeded ceiling {ceiling}.");
+        // ...and actually reaches it (guards a makeup-before-limiting or wrong-ceiling bug).
+        Assert.That(maxPeak, Is.GreaterThan(ceiling * 0.95f),
+            $"threshold={thresholdDb}dB makeup={makeupDb}dB: {maxPeak} did not reach ceiling {ceiling}.");
     }
 
     [Test]
@@ -1423,7 +1426,7 @@ public class LimiterNodeTests
         {
             Threshold = Property.CreateAnimatable(thresholdDb),
             Release = Property.CreateAnimatable(50f),
-            Lookahead = CreateAnimatedRamp(0f, LimiterEffect.MaxLookaheadMs, duration),
+            Lookahead = CreateAnimatedRamp(0f, MaxLookaheadMs, duration),
             MakeupGain = Property.CreateAnimatable(0f),
         };
         node.AddInput(new StubInputNode(input));
@@ -1507,7 +1510,7 @@ public class LimiterNodeTests
         });
 
         using var node = CreateNode(thresholdDb: thresholdDb, releaseMs: 1f,
-            lookaheadMs: LimiterEffect.MaxLookaheadMs);
+            lookaheadMs: MaxLookaheadMs);
         node.AddInput(new StubInputNode(input));
 
         using var output = node.Process(CreateContext(sampleCount));
@@ -1554,7 +1557,7 @@ public class LimiterNodeTests
         const int chunks = 3;
         const float thresholdDb = -6f;
         const float releaseMs = 80f;
-        const float lookaheadMs = LimiterEffect.MaxLookaheadMs; // large window stresses the window-max
+        const float lookaheadMs = MaxLookaheadMs; // large window stresses the window-max
 
         // Deterministic, transient-rich signal so the window maximum changes often (spikes force evictions).
         static float Gen(int ch, int i)
@@ -1617,7 +1620,7 @@ public class LimiterNodeTests
         const float thresholdDb = -6f;
         const float releaseMs = 80f;
         const float lookA = 3f;
-        const float lookB = LimiterEffect.MaxLookaheadMs;
+        const float lookB = MaxLookaheadMs;
 
         static float Gen(int ch, int i)
         {
@@ -1681,7 +1684,7 @@ public class LimiterNodeTests
         // minimum threshold (-60 dB -> ~0.001 linear), confirming the gain math stays finite and capped
         // for sub-mill scale signals (no denormal/precision blow-up).
         const int sampleCount = 2048;
-        const float thresholdDb = LimiterEffect.MinThresholdDb; // -60 dB
+        const float thresholdDb = MinThresholdDb; // -60 dB
         float thresholdLin = MathF.Pow(10f, thresholdDb / 20f);  // ~0.001
         float amp = thresholdLin * 1.1f;                          // just above threshold
 
@@ -1738,5 +1741,364 @@ public class LimiterNodeTests
                     $"animated non-finite params ch {ch} sample {i} must be sanitized.");
             }
         }
+    }
+
+    [Test]
+    public void Process_LookaheadChangeBeforeWindowFills_RebuildsFromPartialHistory()
+    {
+        // Exercises EnsureDeque's span-clamp branch (span = last+1 < lookahead+1): a static lookahead
+        // change on a reused node whose total history is SHORTER than the new window. The first chunk is
+        // only 64 samples, far below the MaxLookaheadMs window (~960 @48k), so the rebuild must clamp to
+        // the available history instead of reading past the written peak ring. Compared against an
+        // animated step-lookahead scan oracle fed the identical signal.
+        const int chunk1 = 64;
+        const int chunk2 = 2048;
+        const float thresholdDb = -6f;
+        const float releaseMs = 80f;
+        const float lookA = 1f;
+        const float lookB = MaxLookaheadMs;
+
+        static float Gen(int ch, int i)
+        {
+            float tone = MathF.Sin(2f * MathF.PI * 523f * i / SampleRate);
+            float spike = (i % 17 == 0) ? 3.0f : 0f;
+            return (1.4f * tone + spike) * (ch == 0 ? 1.0f : 0.8f);
+        }
+
+        var dur1 = TimeSpan.FromSeconds((double)chunk1 / SampleRate);
+
+        using var dequeNode = CreateNode(thresholdDb: thresholdDb, releaseMs: releaseMs, lookaheadMs: lookA);
+        using var scanNode = new LimiterNode
+        {
+            Threshold = Property.CreateAnimatable(thresholdDb),
+            Release = Property.CreateAnimatable(releaseMs),
+            Lookahead = CreateAnimatedStep(lookA, lookB, dur1),
+            MakeupGain = Property.CreateAnimatable(0f),
+        };
+
+        // Chunk 1: tiny history at lookA.
+        using (var inDeque1 = CreateBuffer(2, chunk1, (ch, i) => Gen(ch, i)))
+        using (var inScan1 = CreateBuffer(2, chunk1, (ch, i) => Gen(ch, i)))
+        {
+            dequeNode.AddInput(new StubInputNode(inDeque1));
+            scanNode.AddInput(new StubInputNode(inScan1));
+            using var _d = dequeNode.Process(CreateContext(chunk1, start: TimeSpan.Zero));
+            using var _s = scanNode.Process(CreateContext(chunk1, start: TimeSpan.Zero));
+        }
+
+        // Switch the deque node's static lookahead to the large window; the rebuild must clamp to the
+        // 64-sample history rather than over-reading the peak ring.
+        dequeNode.Lookahead.CurrentValue = lookB;
+
+        using var inDeque2 = CreateBuffer(2, chunk2, (ch, i) => Gen(ch, chunk1 + i));
+        using var inScan2 = CreateBuffer(2, chunk2, (ch, i) => Gen(ch, chunk1 + i));
+        dequeNode.ClearInputs();
+        dequeNode.AddInput(new StubInputNode(inDeque2));
+        scanNode.ClearInputs();
+        scanNode.AddInput(new StubInputNode(inScan2));
+
+        using var outDeque = dequeNode.Process(CreateContext(chunk2, start: dur1));
+        using var outScan = scanNode.Process(CreateContext(chunk2, start: dur1));
+
+        for (int ch = 0; ch < 2; ch++)
+        {
+            var d = outDeque.GetChannelData(ch);
+            var s = outScan.GetChannelData(ch);
+            for (int i = 0; i < chunk2; i++)
+            {
+                Assert.That(d[i], Is.EqualTo(s[i]).Within(1e-6f),
+                    $"partial-history rebuild mismatch ch {ch} sample {i}: deque={d[i]} scan={s[i]}.");
+            }
+        }
+    }
+
+    [Test]
+    public void Process_StaticAfterAnimatedChunk_RebuildsDequeFromInvalidation()
+    {
+        // Pins ProcessAnimated's `_dequeLookahead = -1` invalidation: a static chunk that follows an
+        // animated chunk on the SAME reused node must REBUILD the deque from the peak ring, not reuse the
+        // stale deque left by an earlier static chunk (the animated chunk advances the peak ring but never
+        // touches the deque). Sequence on one node: static(L) -> animated-constant(L) -> static(L), all
+        // contiguous. Compared against a pure-static 3-chunk reference fed the identical stream; if the
+        // invalidation were removed, the 3rd chunk would reuse a deque that never saw the 2nd chunk.
+        const int chunkSamples = 2048;
+        const float thresholdDb = -6f;
+        const float releaseMs = 80f;
+        const float lookMs = MaxLookaheadMs;
+
+        static float Gen(int ch, int i)
+        {
+            float tone = MathF.Sin(2f * MathF.PI * 523f * i / SampleRate);
+            float spike = (i % 211 == 0) ? 3.0f : 0f;
+            return (1.4f * tone + spike) * (ch == 0 ? 1.0f : 0.85f);
+        }
+
+        using var node = CreateNode(thresholdDb: thresholdDb, releaseMs: releaseMs, lookaheadMs: lookMs);
+        using var reference = CreateNode(thresholdDb: thresholdDb, releaseMs: releaseMs, lookaheadMs: lookMs);
+
+        var constantAnim = new KeyFrameAnimation<float>();
+        constantAnim.KeyFrames.Add(new KeyFrame<float> { Value = lookMs, KeyTime = TimeSpan.Zero });
+
+        TimeSpan start = TimeSpan.Zero;
+        for (int c = 0; c < 3; c++)
+        {
+            // Middle chunk runs the animated path on `node`, forcing _dequeLookahead = -1.
+            node.Lookahead.Animation = c == 1 ? constantAnim : null;
+
+            using var inNode = CreateBuffer(2, chunkSamples, (ch, i) => Gen(ch, c * chunkSamples + i));
+            using var inRef = CreateBuffer(2, chunkSamples, (ch, i) => Gen(ch, c * chunkSamples + i));
+            var ctx = CreateContext(chunkSamples, start: start);
+
+            node.ClearInputs();
+            node.AddInput(new StubInputNode(inNode));
+            reference.ClearInputs();
+            reference.AddInput(new StubInputNode(inRef));
+
+            using var outNode = node.Process(ctx);
+            using var outRef = reference.Process(CreateContext(chunkSamples, start: start));
+
+            if (c == 2)
+            {
+                for (int ch = 0; ch < 2; ch++)
+                {
+                    var n = outNode.GetChannelData(ch);
+                    var r = outRef.GetChannelData(ch);
+                    for (int i = 0; i < chunkSamples; i++)
+                    {
+                        Assert.That(n[i], Is.EqualTo(r[i]).Within(1e-6f),
+                            $"post-animated static chunk diverged from pure-static reference ch {ch} sample {i}: {n[i]} vs {r[i]}.");
+                    }
+                }
+            }
+
+            start += ctx.TimeRange.Duration;
+        }
+    }
+
+    [TestCase(0f)]
+    [TestCase(0.02f)]
+    [TestCase(0.25f)]
+    [TestCase(MaxLookaheadMs)]
+    public void Process_StaticDeque_MatchesAnimatedScan_RandomizedSweep(float lookaheadMs)
+    {
+        // Property-style hardening of the deque==scan equivalence: a seeded PRNG (fixed seed for
+        // determinism, no flakiness) generates a transient-rich stereo signal that is fed identically to
+        // the static O(1) deque path and the animated O(lookahead) scan path across multiple contiguous
+        // chunks. Sweeps lookahead 0, sub-sample, small, and max so the window-max relation is checked
+        // far beyond the single hand-picked signal. Any divergence is a deque bug.
+        const int chunkSamples = 1024;
+        const int chunks = 4;
+        const float thresholdDb = -6f;
+        const float releaseMs = 60f;
+        int total = chunks * chunkSamples;
+
+        var rng = new Random(98765);
+        float[,] sig = new float[2, total];
+        for (int i = 0; i < total; i++)
+        {
+            float tone = MathF.Sin(2f * MathF.PI * 440f * i / SampleRate);
+            float noise = (float)(rng.NextDouble() * 2.0 - 1.0);
+            float transient = rng.NextDouble() < 0.03 ? 3.0f * (float)(rng.NextDouble() * 2.0 - 1.0) : 0f;
+            sig[0, i] = 1.2f * tone + 0.3f * noise + transient;
+            sig[1, i] = 0.8f * (1.2f * tone + 0.3f * noise) + 0.5f * transient;
+        }
+
+        using var staticNode = CreateNode(thresholdDb: thresholdDb, releaseMs: releaseMs, lookaheadMs: lookaheadMs);
+        using var animatedNode = new LimiterNode
+        {
+            Threshold = Property.CreateAnimatable(thresholdDb),
+            Release = Property.CreateAnimatable(releaseMs),
+            Lookahead = CreateAnimatedConstant(lookaheadMs),
+            MakeupGain = Property.CreateAnimatable(0f),
+        };
+
+        TimeSpan start = TimeSpan.Zero;
+        for (int c = 0; c < chunks; c++)
+        {
+            int baseIndex = c * chunkSamples;
+            using var inStatic = CreateBuffer(2, chunkSamples, (ch, i) => sig[ch, baseIndex + i]);
+            using var inAnimated = CreateBuffer(2, chunkSamples, (ch, i) => sig[ch, baseIndex + i]);
+            var ctx = CreateContext(chunkSamples, start: start);
+
+            staticNode.ClearInputs();
+            staticNode.AddInput(new StubInputNode(inStatic));
+            animatedNode.ClearInputs();
+            animatedNode.AddInput(new StubInputNode(inAnimated));
+
+            using var outStatic = staticNode.Process(ctx);
+            using var outAnimated = animatedNode.Process(CreateContext(chunkSamples, start: start));
+
+            for (int ch = 0; ch < 2; ch++)
+            {
+                var s = outStatic.GetChannelData(ch);
+                var a = outAnimated.GetChannelData(ch);
+                for (int i = 0; i < chunkSamples; i++)
+                {
+                    Assert.That(s[i], Is.EqualTo(a[i]).Within(1e-6f),
+                        $"deque vs scan mismatch lookaheadMs={lookaheadMs} chunk {c} ch {ch} sample {i}: static={s[i]} animated={a[i]}.");
+                }
+            }
+
+            start += ctx.TimeRange.Duration;
+        }
+    }
+
+    [Test]
+    public void Process_AnimatedLookahead_TakesEffect_DiffersFromFixedLookahead()
+    {
+        // The finite+bounded animated-lookahead test cannot fail on a lookahead-alignment regression
+        // (limiting is conservative, so almost any delay stays finite and capped). This proves the
+        // per-sample-varying delay is genuinely applied: a transient-rich signal run through a ramped
+        // lookahead (0 -> max) must produce output that DIFFERS from both a fixed-0 and a fixed-max
+        // lookahead run. If the animated lookahead were silently ignored, it would match one of them.
+        const int sampleCount = 8192;
+        const float thresholdDb = -3f;
+        var duration = TimeSpan.FromSeconds((double)sampleCount / SampleRate);
+
+        static float Gen(int ch, int i)
+        {
+            float tone = MathF.Sin(2f * MathF.PI * 330f * i / SampleRate);
+            float spike = (i % 97 == 0) ? 3.0f : 0f;
+            return 1.5f * tone + spike;
+        }
+
+        using var ramped = new LimiterNode
+        {
+            Threshold = Property.CreateAnimatable(thresholdDb),
+            Release = Property.CreateAnimatable(50f),
+            Lookahead = CreateAnimatedRamp(0f, MaxLookaheadMs, duration),
+            MakeupGain = Property.CreateAnimatable(0f),
+        };
+        using var fixed0 = CreateNode(thresholdDb: thresholdDb, releaseMs: 50f, lookaheadMs: 0f, makeupGainDb: 0f);
+        using var fixedMax = CreateNode(thresholdDb: thresholdDb, releaseMs: 50f, lookaheadMs: MaxLookaheadMs, makeupGainDb: 0f);
+
+        using var inRamp = CreateBuffer(1, sampleCount, Gen);
+        using var in0 = CreateBuffer(1, sampleCount, Gen);
+        using var inMax = CreateBuffer(1, sampleCount, Gen);
+        ramped.AddInput(new StubInputNode(inRamp));
+        fixed0.AddInput(new StubInputNode(in0));
+        fixedMax.AddInput(new StubInputNode(inMax));
+
+        using var outRamp = ramped.Process(CreateContext(sampleCount));
+        using var out0 = fixed0.Process(CreateContext(sampleCount));
+        using var outMax = fixedMax.Process(CreateContext(sampleCount));
+
+        var r = outRamp.GetChannelData(0);
+        var z = out0.GetChannelData(0);
+        var m = outMax.GetChannelData(0);
+
+        int diffFrom0 = 0, diffFromMax = 0;
+        for (int i = 0; i < sampleCount; i++)
+        {
+            if (MathF.Abs(r[i] - z[i]) > 1e-4f) diffFrom0++;
+            if (MathF.Abs(r[i] - m[i]) > 1e-4f) diffFromMax++;
+        }
+
+        Assert.That(diffFrom0, Is.GreaterThan(sampleCount / 20),
+            $"Ramped lookahead output is suspiciously close to fixed-0 ({diffFrom0} differing samples) — animation may be ignored.");
+        Assert.That(diffFromMax, Is.GreaterThan(sampleCount / 20),
+            $"Ramped lookahead output is suspiciously close to fixed-max ({diffFromMax} differing samples) — animation may be ignored.");
+    }
+
+    [Test]
+    public void Process_ChannelGrowWithLookahead_NewChannelDelayLineIsClean()
+    {
+        // Strengthens channel-count-change coverage with an EXACT per-channel delay assertion under a
+        // non-zero lookahead. After a mono->stereo grow (which reallocates the per-channel delay lines via
+        // InitializeBuffers), an impulse on both channels of the grown buffer must re-emerge at exactly
+        // lookaheadSamples on each channel — proving the channel-major indexing (ch*sampleCount+i) is
+        // correct on the resized buffer and the newly-added channel's delay line starts clean (no leakage).
+        const int sampleCount = 2048;
+        const float lookaheadMs = 5f;
+        int lookaheadSamples = LookaheadSamples(SampleRate, lookaheadMs);
+
+        using var node = CreateNode(thresholdDb: 0f, lookaheadMs: lookaheadMs);
+
+        // Chunk 1: mono, silent — establishes the node at one channel.
+        using (var mono = CreateBuffer(1, sampleCount, (_, _) => 0f))
+        {
+            node.AddInput(new StubInputNode(mono));
+            using var _ = node.Process(CreateContext(sampleCount, start: TimeSpan.Zero));
+        }
+
+        // Chunk 2: grow to stereo (contiguous) with an impulse at index 0 on both channels.
+        var dur = TimeSpan.FromSeconds((double)sampleCount / SampleRate);
+        using var stereo = CreateBuffer(2, sampleCount, (_, i) => i == 0 ? 0.5f : 0f);
+        node.ClearInputs();
+        node.AddInput(new StubInputNode(stereo));
+        using var output = node.Process(CreateContext(sampleCount, start: dur));
+
+        Assert.That(output.ChannelCount, Is.EqualTo(2));
+        for (int ch = 0; ch < 2; ch++)
+        {
+            var data = output.GetChannelData(ch);
+            for (int i = 0; i < sampleCount; i++)
+            {
+                float expected = i == lookaheadSamples ? 0.5f : 0f;
+                Assert.That(data[i], Is.EqualTo(expected).Within(1e-6f),
+                    $"grown channel {ch} sample {i}: expected {expected}, got {data[i]} (delay line not clean or mis-indexed).");
+            }
+        }
+    }
+
+    [Test]
+    public void Process_DefaultLimiter_OutputStaysBelowMasterLimiterCeiling()
+    {
+        // The always-on master limiter (Composer -> AudioMath.ApplyLimiter at 1.0 linear) must not
+        // re-limit a default-configured LimiterEffect's output: with Threshold -1 dB and 0 dB makeup the
+        // capped peak is ~0.891 < 1.0, so the master leaves the buffer bit-identical. This pins the
+        // no-double-limiting invariant that justifies the -1 dB default; a change to the master ceiling or
+        // DefaultThresholdDb that reintroduced double-limiting would fail here.
+        const int sampleCount = 8192;
+        using var input = CreateBuffer(2, sampleCount,
+            (_, i) => 2.0f * MathF.Sin(2f * MathF.PI * 440f * i / SampleRate));
+
+        using var node = CreateNode(
+            thresholdDb: DefaultThresholdDb,
+            releaseMs: DefaultReleaseMs,
+            lookaheadMs: DefaultLookaheadMs,
+            makeupGainDb: DefaultMakeupGainDb);
+        node.AddInput(new StubInputNode(input));
+
+        using var output = node.Process(CreateContext(sampleCount));
+
+        float thresholdLin = MathF.Pow(10f, DefaultThresholdDb / 20f); // ~0.891
+        for (int ch = 0; ch < 2; ch++)
+        {
+            float[] limited = output.GetChannelData(ch).ToArray();
+
+            // Sanity: the limiter already keeps peaks at/below its own ceiling, which is < 1.0.
+            foreach (float s in limited)
+                Assert.That(MathF.Abs(s), Is.LessThanOrEqualTo(thresholdLin + 1e-3f));
+
+            // Apply the same master limiter the Composer always applies after effects.
+            float[] mastered = (float[])limited.Clone();
+            AudioMath.ApplyLimiter(mastered, 1.0f, 10.0f);
+
+            for (int i = 0; i < mastered.Length; i++)
+            {
+                Assert.That(mastered[i], Is.EqualTo(limited[i]),
+                    $"master limiter altered a default-limited sample at ch {ch} index {i} " +
+                    $"({limited[i]} -> {mastered[i]}); the default path must not double-limit.");
+            }
+        }
+    }
+
+    private static IEnumerable<TestCaseData> ParameterRanges()
+    {
+        yield return new TestCaseData(MinThresholdDb, DefaultThresholdDb, MaxThresholdDb).SetName("Threshold");
+        yield return new TestCaseData(MinReleaseMs, DefaultReleaseMs, MaxReleaseMs).SetName("Release");
+        yield return new TestCaseData(MinLookaheadMs, DefaultLookaheadMs, MaxLookaheadMs).SetName("Lookahead");
+        yield return new TestCaseData(MinMakeupGainDb, DefaultMakeupGainDb, MaxMakeupGainDb).SetName("MakeupGain");
+    }
+
+    [TestCaseSource(nameof(ParameterRanges))]
+    public void LimiterParameters_RangeIsConsistent(float min, float def, float max)
+    {
+        // Catches an edit that puts a default outside its range or inverts a min/max at CI time — the
+        // [Range] attributes and LimiterNode's per-sample clamps both read these constants, so a desync
+        // within the set would ship silently. Mirrors CompressorParameters_RangeIsConsistent.
+        Assert.That(min, Is.LessThan(max), "Min must be strictly less than Max.");
+        Assert.That(def, Is.InRange(min, max), "Default must lie within [Min, Max].");
     }
 }
