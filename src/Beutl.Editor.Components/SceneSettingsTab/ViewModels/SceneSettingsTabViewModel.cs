@@ -65,15 +65,32 @@ public sealed class SceneSettingsTabViewModel : IToolContext
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposable);
 
-        Apply = new ReactiveCommand(CanApply)
-            .WithSubscribe(() =>
+        Apply = new AsyncReactiveCommand(CanApply)
+            .WithSubscribe(async () =>
             {
                 if (TimeSpan.TryParse(StartInput.Value, out TimeSpan start)
                     && TimeSpan.TryParse(DurationInput.Value, out TimeSpan duration))
                 {
+                    var frameSize = new Media.PixelSize(Width.Value, Height.Value);
+
+                    // Changing FrameSize rebuilds the SceneRenderer, whose constructor blocks the
+                    // UI thread on the render dispatcher; during playback the render thread is
+                    // occupied by the whole-playback BufferedPlayer work item, so applying
+                    // mid-playback would freeze the UI (with Pause unreachable) until the scene
+                    // ends. Pause and let the pipeline drain first. Known gap: undo/redo of scene
+                    // settings during playback takes the same rebuild path without this guard —
+                    // ownership hardening is a deferred follow-up.
+                    if ((frameSize != _scene.FrameSize
+                            || start != _scene.Start
+                            || duration != _scene.Duration)
+                        && _editorContext.GetService<IPreviewPlayer>() is { IsPlaying.Value: true } player)
+                    {
+                        await player.Pause();
+                    }
+
                     _editorContext.GetRequiredService<ISceneSettingsService>().Apply(
                         _scene,
-                        new Media.PixelSize(Width.Value, Height.Value),
+                        frameSize,
                         start,
                         duration);
 
@@ -135,7 +152,7 @@ public sealed class SceneSettingsTabViewModel : IToolContext
         }
     }
 
-    public ReactiveCommand Apply { get; }
+    public AsyncReactiveCommand Apply { get; }
 
     public ReactiveCommand Revert { get; }
 

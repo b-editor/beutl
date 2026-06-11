@@ -133,6 +133,9 @@ public partial class PlayerView
         {
             try
             {
+                // Save keeps the preview-scaled DrawFrame (normalized to FrameSize) for now; a
+                // render-scale choice dialog for save paths is a deferred follow-up (copy paths
+                // already render at full scale via DrawFrameAtFullScale).
                 Task<Bitmap> renderTask = viewModel.DrawFrame();
 
                 string additional = Path.GetFileNameWithoutExtension(scene.Uri!.LocalPath);

@@ -224,7 +224,9 @@ public partial class PlayerView : UserControl
             player.MaxFrameSize = deviceSize;
             // feature 003 (US4): feed the live previewer size so RenderScale.FitToPreviewer can fit — but NOT
             // during playback: a resize-driven rebuild would dispose the SceneRenderer the playback loop holds
-            // (the quality combo is likewise disabled while playing). The fit refreshes on the next resize once paused.
+            // (the quality combo is likewise disabled while playing). A resize dropped by this gate is
+            // recovered by the IsPlaying false-transition subscription in OnDataContextChanged, which
+            // re-pushes the then-current panel size as soon as playback stops.
             if (!player.IsPlaying.Value)
             {
                 player.EditViewModel.PreviewSurfaceSize.Value = deviceSize;
@@ -304,6 +306,17 @@ public partial class PlayerView : UserControl
             selection.SelectedObject
                 .ObserveOnUIDispatcher()
                 .Subscribe(_ => UpdateTransformHandles())
+                .DisposeWith(_disposables);
+
+            // feature 003 (US4): UpdateMaxFrameSize drops PreviewSurfaceSize pushes while playing (see
+            // the gate there), so a panel resize during playback would otherwise leave FitToPreviewer
+            // resolved against a stale size until the NEXT resize. Re-push the real panel size as soon
+            // as playback stops.
+            vm.IsPlaying
+                .Skip(1)
+                .Where(playing => !playing)
+                .ObserveOnUIDispatcher()
+                .Subscribe(_ => UpdateMaxFrameSize())
                 .DisposeWith(_disposables);
 
             // RenderThread.Invoke during playback would stall frame generation, so suppress overlay

@@ -91,7 +91,13 @@ public sealed partial class EditViewModel : IEditorContext, ISupportAutoSaveEdit
             .DisposePreviousValue()
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables)!;
-        Composer = Renderer.Select(v => new SceneComposer(Scene))
+        // SceneComposer is scale-independent (it takes no render scale — audio has no output
+        // resolution), so it must NOT ride the Renderer rebuild chain: every preview-quality change
+        // would dispose/recreate it for nothing and widen ComposeAudioAsync's use-after-dispose
+        // window. Keep its pre-feature-003 lifetime: rebuild by replacement (disposing the previous
+        // instance) only when the scene's frame size changes.
+        Composer = scene.GetObservable(Scene.FrameSizeProperty)
+            .Select(_ => new SceneComposer(Scene))
             .DisposePreviousValue()
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables)!;
@@ -344,7 +350,9 @@ public sealed partial class EditViewModel : IEditorContext, ISupportAutoSaveEdit
     /// <summary>
     /// Per-edit-view preview render quality (feature 003, US4). Non-persisted: defaults to
     /// <see cref="RenderScale.Full"/> every session and is never written by SaveState/RestoreState.
-    /// Changing it atomically rebuilds <see cref="Renderer"/> and <see cref="FrameCacheManager"/>.
+    /// Changing it rebuilds <see cref="Renderer"/> and <see cref="FrameCacheManager"/> by replacement —
+    /// two reactive properties swapped independently on the UI thread (amended FR-031), with the
+    /// narrow tear window self-healed by the re-queued render.
     /// </summary>
     public ReactivePropertySlim<RenderScale> PreviewScale { get; }
 

@@ -974,12 +974,10 @@ public partial class PlayerView
         {
             try
             {
-                Scene scene = ViewModel.Scene!;
-                Task<Bitmap> renderTask = ViewModel.DrawFrame();
-
-                FilePickerSaveOptions options = SharedFilePickerOptions.SaveImage();
-
-                using Bitmap frame = await renderTask;
+                // feature 003 (US4): copy paths render one-shot at s_out = 1.0 — the preview-scaled
+                // DrawFrame would upscale a Half/Quarter render to FrameSize, baking the reduced
+                // preview quality into the clipboard.
+                using Bitmap frame = await ViewModel.DrawFrameAtFullScale();
                 using Bitmap croped = CropFrame(frame, rect);
 
                 WindowsClipboard.CopyImage(croped);
@@ -1024,6 +1022,9 @@ public partial class PlayerView
                             try
                             {
                                 Scene scene = ViewModel.Scene!;
+                                // Save keeps the preview-scaled DrawFrame (normalized to FrameSize)
+                                // for now; a render-scale choice dialog for save paths is a deferred
+                                // follow-up (copy paths already render at full scale).
                                 Task<Bitmap> renderTask = ViewModel.DrawFrame();
 
                                 string addtional = Path.GetFileNameWithoutExtension(scene.Uri!.LocalPath);

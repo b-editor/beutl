@@ -71,11 +71,26 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
         Scene = editViewModel.Scene;
         _isEnabled = editViewModel.IsEnabled;
 
-        // feature 003 (US4): re-render when preview quality changes. The render path reads the freshly
-        // rebuilt Renderer/Composer/FrameCacheManager inside the dispatcher, so the swap is atomic.
-        editViewModel.PreviewScale
+        // feature 003 (US4): re-render the current frame whenever the renderer is rebuilt — preview-
+        // quality changes, FitToPreviewer panel resizes, and frame-size edits all arrive as a Renderer
+        // swap, so subscribing the swap (rather than PreviewScale) also repaints when a Fit-mode resize
+        // rebuilds the renderer while paused; without this the stale old-scale bitmap stays stretched
+        // until the next scrub. Per amended FR-031, Renderer and FrameCacheManager are two reactive
+        // properties swapped independently on the UI thread (NOT one atomic swap); the render work-item
+        // reads both fresh inside the serial render-dispatcher closure, and the render queued here
+        // supersedes any frame from that narrow, self-healing tear window.
+        editViewModel.Renderer
             .Skip(1)
             .Subscribe(_ => QueueRender())
+            .DisposeWith(_disposables);
+
+        // feature 003 (US4): a rebuilt FrameCacheManager starts from the global default options, which
+        // would silently drop the panel-derived reduced cache size until the panel happens to resize
+        // (the MaxFrameSize setter's equality guard suppresses reapplication). Reapply the derived
+        // size to every new instance.
+        editViewModel.FrameCacheManager
+            .Skip(1)
+            .Subscribe(ApplyMaxFrameSizeToCacheOptions)
             .DisposeWith(_disposables);
 
         PlayPause = new AsyncReactiveCommand(_isEnabled.AsObservable())
@@ -350,6 +365,12 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
         return ComposeThread.Dispatcher.InvokeAsync(() =>
         {
             ct.ThrowIfCancellationRequested();
+            // The UI thread can dispose this composer after the calling-thread check above (Composer
+            // rebuilds-by-replacement on frame-size changes), so re-check on the compose thread and
+            // report "no audio" instead of racing a disposed compositor.
+            if (composer.IsDisposed)
+                return (AudioFrameSnapshot?)null;
+
             using AudioBuffer? audio = composer.Compose(new TimeRange(start, duration));
             if (audio == null) return (AudioFrameSnapshot?)null;
 
@@ -418,31 +439,19 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
         {
             if (_maxFrameSize == value) return;
             _maxFrameSize = value;
-
-            FrameCacheManager frameCacheManager = EditViewModel.FrameCacheManager.Value;
-            var frameSize = frameCacheManager.FrameSize.ToSize(1);
-            float scale = Stretch.Uniform.CalculateScaling(_maxFrameSize, frameSize).X;
-            // パネルがフレーム以上のサイズなら縮小キャッシュは不要なので原寸を使う。
-            // ここで scale >= 1 を弾かないと (int)(1/scale) が 0 になり 1/den が +Infinity に発散して
-            // PixelSize.FromSize が int.MaxValue 級のサイズを生成してしまう。
-            if (scale > 0 && scale < 1)
-            {
-                int den = (int)(1 / scale);
-                if (den % 2 == 1)
-                {
-                    den++;
-                }
-
-                frameCacheManager.Options = frameCacheManager.Options with
-                {
-                    Size = PixelSize.FromSize(frameSize, 1f / den)
-                };
-            }
-            else
-            {
-                frameCacheManager.Options = frameCacheManager.Options with { Size = null };
-            }
+            ApplyMaxFrameSizeToCacheOptions(EditViewModel.FrameCacheManager.Value);
         }
+    }
+
+    // The size derivation itself is pure (PreviewFrameCacheSizing.DeriveCacheSize); this just writes
+    // it into the given manager. Called from the MaxFrameSize setter AND from the FrameCacheManager
+    // rebuild subscription so a fresh manager inherits the panel-derived reduced size.
+    private void ApplyMaxFrameSizeToCacheOptions(FrameCacheManager frameCacheManager)
+    {
+        frameCacheManager.Options = frameCacheManager.Options with
+        {
+            Size = PreviewFrameCacheSizing.DeriveCacheSize(_maxFrameSize, frameCacheManager.FrameSize)
+        };
     }
 
     public Rect LastSelectedRect { get; set; }
@@ -1657,6 +1666,40 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
             {
                 renderer.CacheOptions = restoreCacheOptions;
             }
+        });
+    }
+
+    /// <summary>
+    /// Renders the current frame once at <c>s_out = 1.0</c> on a throwaway renderer, regardless of
+    /// the active preview quality (feature 003, US4). Copy-to-clipboard paths use this so a reduced
+    /// preview scale is never baked into the copied image (<see cref="DrawFrame"/> renders with the
+    /// preview renderer and upscales, which preserves size but not information). Save paths keep
+    /// <see cref="DrawFrame"/> until a render-scale choice dialog ships.
+    /// </summary>
+    public async Task<Bitmap> DrawFrameAtFullScale()
+    {
+        await Pause();
+
+        return await RenderThread.Dispatcher.InvokeAsync(() =>
+        {
+            if (Scene == null) throw new Exception("Scene is null.");
+
+            // Mirror OutputViewModel's one-shot export renderer: disableResourceShare so this render
+            // does not mutate Drawable resources owned by the live preview compositor, and the export
+            // working-scale ceiling max(8, 4 × s_out) instead of the preview's memory-bounded
+            // 2 × s_out — a single interactive frame can afford export fidelity.
+            // Threading: this whole closure runs on the render thread; the Renderer ctor's internal
+            // RenderThread.Dispatcher.Invoke executes inline when already on it, and Render/Snapshot/
+            // Dispose all require the render thread.
+            using var renderer = new SceneRenderer(Scene, renderScale: 1f, disableResourceShare: true,
+                maxWorkingScale: MathF.Max(8f, 4f * 1f));
+            renderer.CacheOptions = RenderCacheOptions.Disabled;
+
+            var compositionFrame = renderer.Compositor.EvaluateGraphics(CurrentFrame.Value);
+            renderer.Render(compositionFrame);
+
+            // RenderScale == 1 → the surface is exactly FrameSize; no normalization pass needed.
+            return renderer.Snapshot();
         });
     }
 }
