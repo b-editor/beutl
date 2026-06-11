@@ -33,6 +33,13 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- Linked, not project-referenced: the test project must not depend on the Beutl app exe, so this
+         pure helper (feature 003 export-supersampling pre-validation) is compiled directly into the test
+         assembly (same pattern as Beutl.FFmpegBenchmarks). It only needs Beutl.Engine + Beutl.Media. -->
+    <Compile Include="..\..\src\Beutl\Helpers\ExportSupersampling.cs" Link="Editor\Linked\ExportSupersampling.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
     <EmbeddedResource Include="Assets\**\*.*" />
   </ItemGroup>
 

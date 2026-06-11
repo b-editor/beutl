@@ -382,4 +382,7 @@ Do you want to restart the application?</value>
   <data name="ExportCompleted_File" xml:space="preserve">
     <value>Export completed: {0}</value>
   </data>
+  <data name="SupersamplingExceedsMaxRenderSize" xml:space="preserve">
+    <value>Supersampling {0}× requires a {1}×{2} px render surface, which exceeds the limit of {3} px per axis. Choose a lower supersampling factor.</value>
+  </data>
 </root>

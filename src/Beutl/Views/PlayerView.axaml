@@ -8,6 +8,7 @@
              xmlns:lang="using:Beutl.Language"
              xmlns:local="using:Beutl.Views"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:models="using:Beutl.Models"
              xmlns:pathEditor="using:Beutl.Editor.Components.PathEditorTab.Views"
              xmlns:vm="using:Beutl.ViewModels"
              d:DesignHeight="450"
@@ -133,7 +134,13 @@
                           IsEnabled="{CompiledBinding !IsPlaying.Value}"
                           ItemsSource="{CompiledBinding EditViewModel.PreviewScaleOptions}"
                           SelectedItem="{CompiledBinding EditViewModel.PreviewScale.Value}"
-                          ToolTip.Tip="Preview render quality" />
+                          ToolTip.Tip="{x:Static lang:Strings.PreviewRenderQuality_Tip}">
+                    <ComboBox.ItemTemplate>
+                        <DataTemplate x:DataType="models:RenderScale">
+                            <TextBlock Text="{CompiledBinding Converter={x:Static converters:RenderScaleNameConverter.Instance}}" />
+                        </DataTemplate>
+                    </ComboBox.ItemTemplate>
+                </ComboBox>
             </StackPanel>
         </Player.InnerLeftContent>
         <Player.InnerRightContent>

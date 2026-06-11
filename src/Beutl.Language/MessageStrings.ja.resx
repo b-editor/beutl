@@ -377,4 +377,7 @@
   <data name="ExportCompleted_File" xml:space="preserve">
     <value>書き出し完了: {0}</value>
   </data>
+  <data name="SupersamplingExceedsMaxRenderSize" xml:space="preserve">
+    <value>スーパーサンプリング {0}× には {1}×{2} px のレンダリングサーフェスが必要で、1辺あたりの上限 {3} px を超えます。倍率を下げてください。</value>
+  </data>
 </root>

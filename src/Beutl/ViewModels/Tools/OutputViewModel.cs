@@ -85,8 +85,25 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposable);
 
+        // Feature 003 (US4): pre-validate the supersampled root surface (FrameSize × factor) against the
+        // per-axis device-buffer limit, instead of letting RenderTarget.Create fail after Encode is
+        // pressed with a generic "could not create a canvas" error (e.g. 8K × 4 = 30720 px > 16384).
+        SupersampleWarning = SupersampleFactor
+            .CombineLatest(Model.GetObservable(Scene.FrameSizeProperty), (factor, frameSize) =>
+            {
+                if (ExportSupersampling.FitsBufferLimit(frameSize, factor)) return null;
+
+                (long width, long height) = ExportSupersampling.GetRenderSize(frameSize, factor);
+                return string.Format(
+                    MessageStrings.SupersamplingExceedsMaxRenderSize,
+                    Math.Max(1, factor), width, height, RenderNodeContext.MaxBufferDimension);
+            })
+            .ToReadOnlyReactivePropertySlim()
+            .DisposeWith(_disposable);
+
         CanEncode = DestinationFile.Select(x => x != null)
-            .AreTrue(SelectedEncoder.Select(x => x != null))
+            .AreTrue(SelectedEncoder.Select(x => x != null),
+                SupersampleWarning.Select(w => w == null))
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposable);
 
@@ -126,6 +143,13 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
     public int[] SupersampleFactors { get; } = [1, 2, 4];
 
     public ReactivePropertySlim<int> SupersampleFactor { get; } = new(1);
+
+    /// <summary>
+    /// Localized warning when <c>FrameSize × SupersampleFactor</c> exceeds the per-axis device-buffer
+    /// limit on either axis (feature 003); <see langword="null"/> when the current factor fits.
+    /// While non-null, <see cref="CanEncode"/> is <see langword="false"/>.
+    /// </summary>
+    public ReadOnlyReactivePropertySlim<string?> SupersampleWarning { get; }
 
     public ReadOnlyObservableCollection<ControllableEncodingExtension> Encoders => _encoders;
 
@@ -211,6 +235,18 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
 
     public async Task StartEncode()
     {
+        // Defensive re-check (feature 003): the Encode button is disabled via CanEncode while the warning
+        // is active, but a stale in-flight click or a programmatic call must not start an export whose
+        // root surface cannot be allocated.
+        if (SupersampleWarning.Value is { } supersampleWarning)
+        {
+            NotificationService.ShowError(Strings.Supersampling, supersampleWarning);
+            _logger.LogWarning(
+                "Encoding blocked: supersampling factor {Factor} exceeds the device buffer limit for frame size {FrameSize}.",
+                SupersampleFactor.Value, Model.FrameSize);
+            return;
+        }
+
         var stopwatch = new Stopwatch();
         bool succeeded = false;
         try
