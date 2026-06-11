@@ -115,7 +115,7 @@ public sealed class PathOperationEditorViewModel : ValueEditorViewModel<PathSegm
             }
 
             if (json.TryGetPropertyValue(nameof(ProgrammaticallyExpanded), out var pExpandedNode)
-                && isExpandedNode is JsonValue pExpanded)
+                && pExpandedNode is JsonValue pExpanded)
             {
                 ProgrammaticallyExpanded = (bool)pExpanded;
             }
