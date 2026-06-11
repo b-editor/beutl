@@ -17,6 +17,7 @@ public sealed class LimiterNode : AudioNode
     // less) — well within a thread's default stack budget while still amortizing the per-chunk
     // animation sampling overhead.
     private const int AnimationChunkSize = 1024;
+    private const long TimestampQuantizationToleranceTicks = 1;
 
     private static readonly ILogger s_logger = Log.CreateLogger<LimiterNode>();
 
@@ -101,10 +102,11 @@ public sealed class LimiterNode : AudioNode
         }
 
         // The node instance is cached and reused across chunks. When the next chunk does not
-        // start exactly where the previous one ended (seek, loop, edit, restart) we must drop
-        // the delay line and gain state — otherwise audio from the previous segment would leak
-        // into the first lookahead-window worth of output samples.
-        if (!_lastTimeRangeEnd.HasValue || _lastTimeRangeEnd.Value != context.TimeRange.Start)
+        // continue from the previous one (seek, loop, edit, restart) we must drop the delay line
+        // and gain state — otherwise audio from the previous segment would leak into the first
+        // lookahead-window worth of output samples. IsTimestampContiguous tolerates only the
+        // one-tick rounding error introduced by independently quantized TimeSpan boundaries.
+        if (!_lastTimeRangeEnd.HasValue || !IsTimestampContiguous(_lastTimeRangeEnd.Value, context.TimeRange.Start))
         {
             if (_lastTimeRangeEnd.HasValue)
             {
@@ -144,6 +146,15 @@ public sealed class LimiterNode : AudioNode
         _lastTimeRangeEnd = context.TimeRange.Start + context.TimeRange.Duration;
 
         return output;
+    }
+
+    private static bool IsTimestampContiguous(TimeSpan previousEnd, TimeSpan nextStart)
+    {
+        // Independently rounded TimeSpan sample boundaries can differ by one tick even when the
+        // underlying sample indices are adjacent. A two-tick difference remains a real seek/edit
+        // boundary and must reset the delay line.
+        long difference = nextStart.Ticks - previousEnd.Ticks;
+        return difference is >= -TimestampQuantizationToleranceTicks and <= TimestampQuantizationToleranceTicks;
     }
 
     private void InitializeBuffers(int sampleRate, int channelCount)

@@ -289,6 +289,55 @@ public class LimiterNodeTests
     }
 
     [Test]
+    public void Process_OneTickTimestampQuantization_PreservesDelayState()
+    {
+        AssertTimestampOffsetPreservesDelayState(TimeSpan.FromTicks(1), expectedResidual: true);
+    }
+
+    [Test]
+    public void Process_TwoTickTimestampGap_ResetsDelayState()
+    {
+        AssertTimestampOffsetPreservesDelayState(TimeSpan.FromTicks(2), expectedResidual: false);
+    }
+
+    private static void AssertTimestampOffsetPreservesDelayState(TimeSpan offset, bool expectedResidual)
+    {
+        const int chunkSamples = 1024;
+        int lookaheadSamples = LookaheadSamples();
+
+        using var hotInput = CreateBuffer(2, chunkSamples,
+            (_, i) => 2.0f * MathF.Sin(2f * MathF.PI * 440f * i / SampleRate));
+        using var node = CreateNode(releaseMs: 5000f);
+        node.AddInput(new StubInputNode(hotInput));
+
+        var firstCtx = CreateContext(chunkSamples);
+        using (var _ = node.Process(firstCtx)) { }
+
+        using var silence = CreateBuffer(2, chunkSamples, (_, _) => 0f);
+        node.RemoveInput(node.Inputs[0]);
+        node.AddInput(new StubInputNode(silence));
+
+        var nextStart = firstCtx.TimeRange.Start + firstCtx.TimeRange.Duration + offset;
+        using var output = node.Process(CreateContext(chunkSamples, start: nextStart));
+
+        bool foundResidual = false;
+        for (int ch = 0; ch < 2 && !foundResidual; ch++)
+        {
+            var data = output.GetChannelData(ch);
+            for (int i = 0; i < lookaheadSamples; i++)
+            {
+                if (MathF.Abs(data[i]) > 1e-3f)
+                {
+                    foundResidual = true;
+                    break;
+                }
+            }
+        }
+
+        Assert.That(foundResidual, Is.EqualTo(expectedResidual));
+    }
+
+    [Test]
     public void Process_ChannelCountChange_ReinitializesBuffers()
     {
         const int sampleCount = 1024;

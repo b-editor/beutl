@@ -120,29 +120,16 @@ public sealed partial class SourceSound : IThumbnailsProvider
             int sampleCount = Math.Min(fullSpan, samplesPerChunk);
             var chunkTime = TimeSpan.FromSeconds((double)startSample / sampleRate);
             TimeSpan startTime = TimeRange.Start + chunkTime;
-
-            // Derive the chunk duration from the difference between adjacent chunk-boundary
-            // timestamps rather than rounding sampleCount independently. Rounding Start and
-            // Duration separately makes chunkN.Start + chunkN.Duration drift ~1 tick from
-            // chunkN+1.Start, which a stateful effect (e.g. LimiterNode) reads as a
-            // discontinuity and resets mid-stream, glitching the rendered waveform.
-            // Subtracting two FromSeconds-rounded boundaries keeps successive chunks
-            // tick-contiguous. When samplesPerChunk caps the span we intentionally skip
-            // samples, so contiguity does not apply and the sampleCount-based duration is used.
-            TimeSpan durationTime = sampleCount < fullSpan
-                ? TimeSpan.FromSeconds((double)sampleCount / sampleRate)
-                : TimeSpan.FromSeconds((double)endSample / sampleRate) - chunkTime;
+            TimeSpan durationTime = GetWaveformChunkDuration(sampleCount, sampleRate);
 
             if (sampleCount <= 0)
                 continue;
 
-            if (cacheKey != null
-                && cacheService!.TryGetWaveform(cacheKey, chunkTime, cacheThreshold, out var cachedMin,
-                    out var cachedMax))
-            {
-                yield return new WaveformChunk(chunkIndex, cachedMin, cachedMax);
-                continue;
-            }
+            float cachedMin = 0f;
+            float cachedMax = 0f;
+            bool cacheHit = cacheKey != null
+                && cacheService!.TryGetWaveform(
+                    cacheKey, chunkTime, cacheThreshold, out cachedMin, out cachedMax);
 
             var chunk = await ComposeThread.Dispatcher.InvokeAsync(() =>
             {
@@ -153,13 +140,19 @@ public sealed partial class SourceSound : IThumbnailsProvider
                 if (buffer == null || buffer.SampleCount == 0)
                     return null;
 
+                // Stateful effects must process every chunk even when its waveform min/max is
+                // cached. Skipping Compose here would make the next cache miss start with reset
+                // delay/envelope state and produce a different waveform from a cold-cache run.
+                if (cacheHit)
+                    return new WaveformChunk(chunkIndex, cachedMin, cachedMax);
+
                 var firstChannel = buffer.GetChannelData(0);
                 var secondChannel = buffer.GetChannelData(1);
 
                 float minValue = float.MaxValue;
                 float maxValue = float.MinValue;
 
-                for (int i = 0; i < buffer.SampleCount; i++)
+                for (int i = 0; i < Math.Min(sampleCount, buffer.SampleCount); i++)
                 {
                     float left = firstChannel[i];
                     float right = secondChannel[i];
@@ -174,11 +167,25 @@ public sealed partial class SourceSound : IThumbnailsProvider
 
             if (chunk.HasValue)
             {
-                if (cacheKey != null)
+                if (cacheKey != null && !cacheHit)
                     cacheService!.SaveWaveform(cacheKey, chunkTime, chunk.Value.MinValue, chunk.Value.MaxValue);
 
                 yield return chunk.Value;
             }
         }
+    }
+
+    internal static TimeSpan GetWaveformChunkDuration(int sampleCount, int sampleRate)
+    {
+        if (sampleCount < 0)
+            throw new ArgumentOutOfRangeException(nameof(sampleCount));
+        if (sampleRate <= 0)
+            throw new ArgumentOutOfRangeException(nameof(sampleRate));
+
+        // TimeSpan.FromSeconds rounds to the nearest tick. If that rounds upward,
+        // AudioProcessContext.GetSampleCount's ceiling can request one extra sample. Flooring the
+        // tick count guarantees that a positive duration maps back to exactly sampleCount samples.
+        long ticks = (long)((decimal)sampleCount * TimeSpan.TicksPerSecond / sampleRate);
+        return TimeSpan.FromTicks(ticks);
     }
 }
