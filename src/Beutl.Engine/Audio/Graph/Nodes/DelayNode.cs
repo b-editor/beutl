@@ -10,7 +10,7 @@ public sealed class DelayNode : AudioNode
     private CircularBuffer<float>[]? _delayLines;
     private int _maxDelaySamples;
     private int _lastSampleRate;
-    private TimeSpan? _lastTimeRangeStart;
+    private TimeSpan? _lastTimeRangeEnd;
 
     public required IProperty<float> DelayTime { get; init; }
 
@@ -34,11 +34,16 @@ public sealed class DelayNode : AudioNode
             _lastSampleRate = context.SampleRate;
         }
 
-        if (!_lastTimeRangeStart.HasValue || _lastTimeRangeStart.Value > context.TimeRange.Start)
+        // Reset the delay lines on the very first call (no prior end recorded) and whenever the
+        // new chunk does not start exactly where the previous one ended. The node instance is
+        // cached across Compose() calls, so without this guard stale delay-line content would
+        // bleed into the first samples after a seek in either direction. Matches the
+        // discontinuity tracking in CompressorNode/EqualizerNode.
+        if (!_lastTimeRangeEnd.HasValue || _lastTimeRangeEnd.Value != context.TimeRange.Start)
         {
             Reset();
-            _lastTimeRangeStart = context.TimeRange.Start;
         }
+        _lastTimeRangeEnd = context.TimeRange.Start + context.TimeRange.Duration;
 
         // Guard on Animation (an actual keyframe), not IsAnimatable (always true for animatable
         // properties), so an unkeyed property skips the per-sample path. The null-conditional lets a

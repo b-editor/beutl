@@ -77,4 +77,75 @@ public class DelayNodeTests
             Assert.That(animatable[1], Is.EqualTo(simple[1]).AsCollection);
         });
     }
+
+    private static AudioProcessContext ContextAt(double startSeconds) =>
+        new(new TimeRange(TimeSpan.FromSeconds(startSeconds), TimeSpan.FromSeconds(1)), SampleRate,
+            new AnimationSampler(), null);
+
+    private static DelayNode CreateStaticNode()
+    {
+        var node = new DelayNode
+        {
+            DelayTime = Property.Create(200f),
+            Feedback = Property.Create(50f),
+            DryMix = Property.Create(60f),
+            WetMix = Property.Create(40f),
+        };
+        node.AddInput(new RampInputNode(SampleRate));
+        return node;
+    }
+
+    // A seek in either direction is a discontinuity: the delay lines must not carry audio from
+    // the previously rendered range. Regression for the tracker that was pinned to the first
+    // rendered start and only reset when seeking to before it, so forward seeks (and backward
+    // seeks to anywhere after the pinned start) replayed stale delay-line content.
+    [Test]
+    public void Process_ForwardSeek_ResetsDelayLines()
+    {
+        using var seeked = CreateStaticNode();
+        seeked.Process(ContextAt(0)).Dispose();
+        using AudioBuffer afterSeek = seeked.Process(ContextAt(2));
+
+        using var fresh = CreateStaticNode();
+        using AudioBuffer freshRun = fresh.Process(ContextAt(2));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(afterSeek.GetChannelData(0).ToArray(),
+                Is.EqualTo(freshRun.GetChannelData(0).ToArray()).AsCollection);
+            Assert.That(afterSeek.GetChannelData(1).ToArray(),
+                Is.EqualTo(freshRun.GetChannelData(1).ToArray()).AsCollection);
+        });
+    }
+
+    [Test]
+    public void Process_BackwardSeekAfterPlayback_ResetsDelayLines()
+    {
+        using var seeked = CreateStaticNode();
+        seeked.Process(ContextAt(0)).Dispose();
+        seeked.Process(ContextAt(1)).Dispose();
+        using AudioBuffer afterSeek = seeked.Process(ContextAt(1));
+
+        using var fresh = CreateStaticNode();
+        using AudioBuffer freshRun = fresh.Process(ContextAt(1));
+
+        Assert.That(afterSeek.GetChannelData(0).ToArray(),
+            Is.EqualTo(freshRun.GetChannelData(0).ToArray()).AsCollection);
+    }
+
+    // Contiguous playback is NOT a discontinuity: the delay lines must carry across chunks
+    // (the wet tail of the previous chunk feeds the first samples of the next one).
+    [Test]
+    public void Process_ContiguousChunks_PreserveDelayLines()
+    {
+        using var continuous = CreateStaticNode();
+        continuous.Process(ContextAt(0)).Dispose();
+        using AudioBuffer second = continuous.Process(ContextAt(1));
+
+        using var fresh = CreateStaticNode();
+        using AudioBuffer freshRun = fresh.Process(ContextAt(1));
+
+        Assert.That(second.GetChannelData(0).ToArray(),
+            Is.Not.EqualTo(freshRun.GetChannelData(0).ToArray()).AsCollection);
+    }
 }
