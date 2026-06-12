@@ -7,6 +7,8 @@ using Beutl.Media;
 using Beutl.ProjectSystem;
 using Beutl.Services;
 using Beutl.ViewModels;
+using Beutl.ViewModels.Dialogs;
+using Beutl.Views.Dialogs;
 
 using FluentAvalonia.UI.Controls;
 
@@ -96,6 +98,19 @@ public partial class PlayerView
         bitmap.Save(stream, format);
     }
 
+    // Prompts for the output-resolution multiplier before a save-as-image render (feature 003, US4
+    // follow-up). Returns the chosen scale, or null when the user cancels. The dialog's size preview /
+    // buffer-limit guard is sized against <paramref name="baseSize"/> — the scene frame size for a full
+    // frame, or the element's measured bounds for a selected element.
+    private static async Task<float?> PromptSaveScale(PixelSize baseSize)
+    {
+        var dialogViewModel = new SaveFrameDialogViewModel(baseSize);
+        var dialog = new SaveFrameDialog { DataContext = dialogViewModel };
+        if (await dialog.ShowAsync() != ContentDialogResult.Primary) return null;
+
+        return dialogViewModel.SelectedScale.Value;
+    }
+
     private async void OnSaveElementAsImageClick(object? sender, RoutedEventArgs e)
     {
         if (TopLevel.GetTopLevel(this)?.StorageProvider is { } storage
@@ -104,9 +119,13 @@ public partial class PlayerView
         {
             try
             {
-                Task<Bitmap> renderTask = viewModel.DrawSelectedDrawable(drawable);
+                // The element's render bounds can exceed the scene frame, so size the dialog's preview /
+                // buffer-limit guard against the element's actual bounds rather than scene.FrameSize.
+                PixelSize elementSize = await viewModel.MeasureSelectedDrawable(drawable);
+                if (await PromptSaveScale(elementSize) is not { } scale) return;
 
-                FilePickerSaveOptions options = SharedFilePickerOptions.SaveImage();
+                Task<Bitmap> renderTask = viewModel.DrawSelectedDrawable(drawable, scale);
+
                 Type type = drawable.GetType();
                 string additional = TypeDisplayHelpers.GetLocalizedName(type);
                 IStorageFile? file = await SaveImageFilePicker(additional, storage);
@@ -133,10 +152,11 @@ public partial class PlayerView
         {
             try
             {
-                // Save keeps the preview-scaled DrawFrame (normalized to FrameSize) for now; a
-                // render-scale choice dialog for save paths is a deferred follow-up (copy paths
-                // already render at full scale via DrawFrameAtFullScale).
-                Task<Bitmap> renderTask = viewModel.DrawFrame();
+                if (await PromptSaveScale(scene.FrameSize) is not { } scale) return;
+
+                // Render at the chosen output resolution on a throwaway full-fidelity renderer, so the
+                // saved image never bakes in the preview quality (feature 003, US4 follow-up).
+                Task<Bitmap> renderTask = viewModel.DrawFrameAtScale(scale);
 
                 string additional = Path.GetFileNameWithoutExtension(scene.Uri!.LocalPath);
                 IStorageFile? file = await SaveImageFilePicker(additional, storage);

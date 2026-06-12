@@ -380,4 +380,7 @@
   <data name="SupersamplingExceedsMaxRenderSize" xml:space="preserve">
     <value>スーパーサンプリング {0}× には {1}×{2} px のレンダリングサーフェスが必要で、1辺あたりの上限 {3} px を超えます。倍率を下げてください。</value>
   </data>
+  <data name="SaveImageExceedsMaxRenderSize" xml:space="preserve">
+    <value>拡大率 {0}× には {1}×{2} px のレンダリングサーフェスが必要で、1辺あたりの上限 {3} px を超えます。拡大率を下げてください。</value>
+  </data>
 </root>

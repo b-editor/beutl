@@ -549,6 +549,12 @@
   <data name="SaveFrameAsImage" xml:space="preserve">
     <value>フレームを画像として保存</value>
   </data>
+  <data name="SaveImageScale" xml:space="preserve">
+    <value>拡大率</value>
+  </data>
+  <data name="SaveImageScale_OutputSize" xml:space="preserve">
+    <value>出力サイズ</value>
+  </data>
   <data name="Move" xml:space="preserve">
     <value>移動</value>
   </data>

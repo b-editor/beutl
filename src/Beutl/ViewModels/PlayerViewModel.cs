@@ -1617,7 +1617,50 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
 
     public TaskCompletionSource<Rect>? TcsForCrop { get; private set; }
 
-    public async Task<Bitmap> DrawSelectedDrawable(Drawable drawable)
+    /// <summary>
+    /// Measures the logical pixel size <paramref name="drawable"/> renders into, at <c>s_out = 1</c>
+    /// (feature 003, US4 follow-up). The save-frame dialog uses this so its output-size preview and
+    /// buffer-limit guard reflect the element's actual bounds (which can exceed the scene frame) rather
+    /// than the frame size. Builds the same node tree as <see cref="DrawSelectedDrawable"/> but only
+    /// pulls the operations to union their bounds, then disposes them without rasterizing.
+    /// </summary>
+    public async Task<PixelSize> MeasureSelectedDrawable(Drawable drawable)
+    {
+        await Pause();
+
+        return await RenderThread.Dispatcher.InvokeAsync(() =>
+        {
+            if (Scene == null) throw new Exception("Scene is null.");
+            SceneRenderer renderer = EditViewModel.Renderer.Value;
+            var resource = drawable.ToResource(new CompositionContext(CurrentFrame.Value));
+            PixelSize frameSize = renderer.FrameSize;
+            using var root = new DrawableRenderNode(resource);
+            using (var context = new GraphicsContext2D(root, frameSize))
+            {
+                drawable.Render(context, resource);
+            }
+
+            var processor = new RenderNodeProcessor(root, false);
+            var bounds = Rect.Empty;
+            foreach (var op in processor.PullToRoot())
+            {
+                bounds = bounds.Union(op.Bounds);
+                op.Dispose();
+            }
+
+            return PixelRect.FromRect(bounds).Size;
+        });
+    }
+
+    /// <summary>
+    /// Renders <paramref name="drawable"/> on its own at output scale <paramref name="outputScale"/>
+    /// (feature 003, US4 follow-up). The node tree is built in logical FrameSize coordinates; the
+    /// processor rasterizes at <paramref name="outputScale"/>, so the bitmap is sized
+    /// <c>ceil(elementBounds × outputScale)</c>. <c>outputScale == 1</c> is byte-identical to the
+    /// pre-feature path. Uses the export working-scale ceiling <c>max(8, 4 × s)</c> so a single saved
+    /// element can afford export fidelity rather than the preview's memory-bounded ceiling.
+    /// </summary>
+    public async Task<Bitmap> DrawSelectedDrawable(Drawable drawable, float outputScale = 1f)
     {
         await Pause();
 
@@ -1634,7 +1677,8 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
                 drawable.Render(context, resource);
             }
 
-            var processor = new RenderNodeProcessor(root, false);
+            var processor = new RenderNodeProcessor(
+                root, false, outputScale, MathF.Max(8f, 4f * outputScale));
             return processor.RasterizeAndConcat();
         });
     }
@@ -1680,10 +1724,19 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
     /// Renders the current frame once at <c>s_out = 1.0</c> on a throwaway renderer, regardless of
     /// the active preview quality (feature 003, US4). Copy-to-clipboard paths use this so a reduced
     /// preview scale is never baked into the copied image (<see cref="DrawFrame"/> renders with the
-    /// preview renderer and upscales, which preserves size but not information). Save paths keep
-    /// <see cref="DrawFrame"/> until a render-scale choice dialog ships.
+    /// preview renderer and upscales, which preserves size but not information).
     /// </summary>
-    public async Task<Bitmap> DrawFrameAtFullScale()
+    public Task<Bitmap> DrawFrameAtFullScale() => DrawFrameAtScale(1f);
+
+    /// <summary>
+    /// Renders the current frame once at output scale <paramref name="outputScale"/> on a throwaway
+    /// renderer, regardless of the active preview quality (feature 003, US4 follow-up). The save-frame
+    /// dialog uses this so the user can pick the output resolution: the surface is sized
+    /// <c>ceil(FrameSize × outputScale)</c> and the snapshot is returned as-is (no normalization).
+    /// <c>outputScale == 1</c> yields a full-fidelity FrameSize image (unlike <see cref="DrawFrame"/>,
+    /// which bakes in the preview scale).
+    /// </summary>
+    public async Task<Bitmap> DrawFrameAtScale(float outputScale)
     {
         await Pause();
 
@@ -1698,14 +1751,14 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
             // Threading: this whole closure runs on the render thread; the Renderer ctor's internal
             // RenderThread.Dispatcher.Invoke executes inline when already on it, and Render/Snapshot/
             // Dispose all require the render thread.
-            using var renderer = new SceneRenderer(Scene, renderScale: 1f, disableResourceShare: true,
-                maxWorkingScale: MathF.Max(8f, 4f * 1f));
+            using var renderer = new SceneRenderer(Scene, renderScale: outputScale, disableResourceShare: true,
+                maxWorkingScale: MathF.Max(8f, 4f * outputScale));
             renderer.CacheOptions = RenderCacheOptions.Disabled;
 
             var compositionFrame = renderer.Compositor.EvaluateGraphics(CurrentFrame.Value);
             renderer.Render(compositionFrame);
 
-            // RenderScale == 1 → the surface is exactly FrameSize; no normalization pass needed.
+            // The surface is exactly ceil(FrameSize × outputScale); save it as-is (no normalization pass).
             return renderer.Snapshot();
         });
     }

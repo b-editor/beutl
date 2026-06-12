@@ -385,4 +385,7 @@ Do you want to restart the application?</value>
   <data name="SupersamplingExceedsMaxRenderSize" xml:space="preserve">
     <value>Supersampling {0}× requires a {1}×{2} px render surface, which exceeds the limit of {3} px per axis. Choose a lower supersampling factor.</value>
   </data>
+  <data name="SaveImageExceedsMaxRenderSize" xml:space="preserve">
+    <value>Scale {0}× requires a {1}×{2} px render surface, which exceeds the limit of {3} px per axis. Choose a lower scale.</value>
+  </data>
 </root>
