@@ -112,6 +112,31 @@ internal static class ImageMetrics
         return count == 0 ? 0 : sum / count;
     }
 
+    /// <summary>
+    /// Returns a label + pixel coordinate for the first non-finite (NaN / ±Inf) RGBA component found across
+    /// the given bitmaps, or <c>null</c> if every component is finite. A non-finite GPU render makes
+    /// <see cref="Ssim"/> return NaN (the SSIM denominator is otherwise always positive), so callers gate on
+    /// this before trusting the metric — a non-finite render is a driver/blur artifact, not a parity result.
+    /// </summary>
+    public static string? FirstNonFinite(params (string label, Bitmap bitmap)[] bitmaps)
+    {
+        foreach ((string label, Bitmap bitmap) in bitmaps)
+        {
+            ReadOnlySpan<ushort> px = bitmap.GetPixelSpan<ushort>();
+            for (int i = 0; i < px.Length; i++)
+            {
+                float v = HalfBitsToFloat(px[i]);
+                if (!float.IsFinite(v))
+                {
+                    int pixel = i / 4;
+                    return $"{label} (x={pixel % bitmap.Width}, y={pixel / bitmap.Width}, c={i % 4}) = {v}";
+                }
+            }
+        }
+
+        return null;
+    }
+
     private static double Luma(ReadOnlySpan<ushort> px, int pixelIndex)
     {
         int o = pixelIndex * 4;

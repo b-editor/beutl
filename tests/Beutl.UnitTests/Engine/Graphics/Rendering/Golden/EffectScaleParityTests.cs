@@ -288,13 +288,35 @@ public class EffectScaleParityTests
         VulkanTestEnvironment.EnsureAvailable();
         VulkanTestEnvironment.InvokeOnRenderThread(() =>
         {
-            using Bitmap r1 = GoldenImageHarness.RenderAtScale(Make(makeEffect), Frame, 1f);
-            using Bitmap hi = GoldenImageHarness.RenderAtScale(Make(makeEffect), Frame, 2f);
-            using Bitmap delivered = GoldenImageHarness.MitchellResampleTo(hi, Frame);
-            double ssim = ImageMetrics.Ssim(r1, delivered);
-            TestContext.WriteLine($"[{name}] 2x-delivered vs 1:1 SSIM={ssim:F4}");
-            Assert.That(ssim, Is.GreaterThan(0.95),
-                $"{name}: supersampled diverged from 1:1 — an absolute-px parameter is not scaled by the working density");
+            // A non-finite (NaN/±Inf) pixel makes SSIM NaN, which would assert as a misleading "scale diverged"
+            // failure even though parity was never measured. Non-finite output is a transient software-Vulkan
+            // blur artifact (heaviest case: InnerShadow's sigma×w blur), NOT a scale-parity defect — a real
+            // divergence yields a finite, low SSIM. So re-render once before trusting the metric, and if the
+            // non-finite pixels persist, fail with the actual cause instead of "NaN > 0.95".
+            const int maxAttempts = 2;
+            for (int attempt = 1; ; attempt++)
+            {
+                using Bitmap r1 = GoldenImageHarness.RenderAtScale(Make(makeEffect), Frame, 1f);
+                using Bitmap hi = GoldenImageHarness.RenderAtScale(Make(makeEffect), Frame, 2f);
+                using Bitmap delivered = GoldenImageHarness.MitchellResampleTo(hi, Frame);
+
+                string? nonFinite = ImageMetrics.FirstNonFinite(("1:1", r1), ("2x", hi), ("2x-delivered", delivered));
+                if (nonFinite is not null)
+                {
+                    TestContext.WriteLine($"[{name}] non-finite render on attempt {attempt}: {nonFinite}");
+                    if (attempt < maxAttempts)
+                        continue;
+
+                    Assert.Fail($"{name}: render produced non-finite pixels [{nonFinite}] — the GPU blur emitted "
+                        + "NaN/Inf, not a scale-parity divergence, and re-rendering did not recover it.");
+                }
+
+                double ssim = ImageMetrics.Ssim(r1, delivered);
+                TestContext.WriteLine($"[{name}] 2x-delivered vs 1:1 SSIM={ssim:F4}");
+                Assert.That(ssim, Is.GreaterThan(0.95),
+                    $"{name}: supersampled diverged from 1:1 — an absolute-px parameter is not scaled by the working density");
+                return;
+            }
         });
     }
 

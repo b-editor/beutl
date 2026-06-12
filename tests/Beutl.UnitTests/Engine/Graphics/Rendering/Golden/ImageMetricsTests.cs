@@ -85,4 +85,38 @@ public class ImageMetricsTests
         using var checker = Checkerboard(16, 16);
         Assert.That(ImageMetrics.Ssim(flat, checker), Is.LessThan(0.5));
     }
+
+    [Test]
+    public void FirstNonFinite_AllFinite_IsNull()
+    {
+        using var a = Flat(8, 8, 0.4f, 0.6f, 0.8f);
+        using var b = Checkerboard(8, 8);
+        Assert.That(ImageMetrics.FirstNonFinite(("a", a), ("b", b)), Is.Null);
+    }
+
+    [Test]
+    public void FirstNonFinite_ReportsNanPixelAndLabel()
+    {
+        using var clean = Flat(8, 8, 0.5f, 0.5f, 0.5f);
+        using var dirty = Flat(8, 8, 0.5f, 0.5f, 0.5f);
+        // Inject a NaN into the green channel of pixel (3, 2) — mirrors a GPU blur emitting a non-finite pixel.
+        Span<ushort> px = dirty.GetPixelSpan<ushort>();
+        px[(2 * 8 + 3) * 4 + 1] = BitConverter.HalfToUInt16Bits(Half.NaN);
+
+        string? result = ImageMetrics.FirstNonFinite(("clean", clean), ("dirty", dirty));
+        Assert.That(result, Is.Not.Null);
+        Assert.That(result, Does.Contain("dirty").And.Contain("x=3").And.Contain("y=2"));
+    }
+
+    [Test]
+    public void Ssim_NonFiniteInput_IsNaN()
+    {
+        // Documents why the parity test gates on FirstNonFinite: a single non-finite pixel poisons SSIM to NaN,
+        // which would otherwise assert as a misleading "scale diverged" failure.
+        using var clean = Flat(8, 8, 0.5f, 0.5f, 0.5f);
+        using var dirty = Flat(8, 8, 0.5f, 0.5f, 0.5f);
+        Span<ushort> px = dirty.GetPixelSpan<ushort>();
+        px[0] = BitConverter.HalfToUInt16Bits(Half.PositiveInfinity);
+        Assert.That(double.IsNaN(ImageMetrics.Ssim(clean, dirty)), Is.True);
+    }
 }
