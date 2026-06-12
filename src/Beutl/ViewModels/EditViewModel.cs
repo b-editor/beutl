@@ -23,7 +23,7 @@ using Dispatcher = Avalonia.Threading.Dispatcher;
 
 namespace Beutl.ViewModels;
 
-public sealed partial class EditViewModel : IEditorContext, ISupportAutoSaveEditorContext
+public sealed partial class EditViewModel : IEditorContext, ISupportAutoSaveEditorContext, IPreviewRenderQuality
 {
     private readonly ILogger _logger = Log.CreateLogger<EditViewModel>();
     private readonly AutoSaveService _autoSaveService = new();
@@ -362,6 +362,10 @@ public sealed partial class EditViewModel : IEditorContext, ISupportAutoSaveEdit
 
     /// <summary>Selectable preview-quality options for the preview-scale picker (feature 003, US4).</summary>
     public RenderScale[] PreviewScaleOptions { get; } = Enum.GetValues<RenderScale>();
+
+    IReactiveProperty<RenderScale> IPreviewRenderQuality.PreviewScale => PreviewScale;
+
+    IReadOnlyList<RenderScale> IPreviewRenderQuality.PreviewScaleOptions => PreviewScaleOptions;
 
     /// <summary>
     /// The on-screen previewer surface size in physical device pixels (feature 003, US4), pushed by the
@@ -780,6 +784,9 @@ public sealed partial class EditViewModel : IEditorContext, ISupportAutoSaveEdit
 
         if (serviceType == typeof(PlayerViewModel) || serviceType.IsAssignableTo(typeof(IPreviewPlayer)))
             return Player;
+
+        if (serviceType == typeof(IPreviewRenderQuality))
+            return this;
 
         if (serviceType == typeof(FrameCacheManager))
             return FrameCacheManager.Value;

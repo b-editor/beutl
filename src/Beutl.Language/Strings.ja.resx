@@ -1264,6 +1264,9 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
   <data name="Supersampling_Tip" xml:space="preserve">
     <value>選択した倍率の解像度でレンダリングし、出力サイズへ縮小してエッジを滑らかにします</value>
   </data>
+  <data name="PreviewRenderQuality" xml:space="preserve">
+    <value>プレビュー解像度</value>
+  </data>
   <data name="PreviewRenderQuality_Tip" xml:space="preserve">
     <value>プレビューのレンダリング品質。再生中は変更できません。</value>
   </data>

@@ -1270,6 +1270,9 @@ Example: GetProperty&lt;double&gt;("{GUID}.Opacity")</value>
   <data name="Supersampling_Tip" xml:space="preserve">
     <value>Render at the selected multiple of the output resolution, then downscale to the output size for smoother edges</value>
   </data>
+  <data name="PreviewRenderQuality" xml:space="preserve">
+    <value>Preview render quality</value>
+  </data>
   <data name="PreviewRenderQuality_Tip" xml:space="preserve">
     <value>Preview render quality. Cannot be changed during playback.</value>
   </data>

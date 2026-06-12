@@ -1,9 +1,11 @@
 <UserControl x:Class="Beutl.Editor.Components.PreviewSettingsTab.Views.PreviewSettingsTabView"
              xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:converters="using:Beutl.Editor.Components.Converters"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:lang="using:Beutl.Language"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:models="using:Beutl.Models"
              xmlns:viewModel="using:Beutl.Editor.Components.PreviewSettingsTab.ViewModels"
              d:DesignHeight="600"
              d:DesignWidth="400"
@@ -15,7 +17,30 @@
                     Grid.IsSharedSizeScope="True"
                     Orientation="Vertical">
 
-            <Grid Margin="8,8,8,0" ColumnDefinitions="*,Auto">
+            <!--  Preview render quality (feature 003, US4): non-persisted per edit view.
+                  Disabled during playback to avoid a mid-playback renderer/frame-cache rebuild.
+                  Hidden when the editor context does not provide IPreviewRenderQuality.  -->
+            <Grid Margin="8,8,8,0"
+                  ColumnDefinitions="*,Auto"
+                  IsVisible="{CompiledBinding IsRenderQualityAvailable}">
+                <TextBlock VerticalAlignment="Center"
+                           Text="{x:Static lang:Strings.PreviewRenderQuality}"
+                           Theme="{StaticResource BodyStrongTextBlockStyle}" />
+                <ComboBox Grid.Column="1"
+                          MinWidth="120"
+                          IsEnabled="{CompiledBinding !IsPlaying.Value}"
+                          ItemsSource="{CompiledBinding PreviewScaleOptions}"
+                          SelectedItem="{CompiledBinding PreviewScale.Value}"
+                          ToolTip.Tip="{x:Static lang:Strings.PreviewRenderQuality_Tip}">
+                    <ComboBox.ItemTemplate>
+                        <DataTemplate x:DataType="models:RenderScale">
+                            <TextBlock Text="{CompiledBinding Converter={x:Static converters:RenderScaleNameConverter.Instance}}" />
+                        </DataTemplate>
+                    </ComboBox.ItemTemplate>
+                </ComboBox>
+            </Grid>
+
+            <Grid Margin="8,16,8,0" ColumnDefinitions="*,Auto">
                 <TextBlock VerticalAlignment="Center"
                            Text="{x:Static lang:Strings.OnionSkin}"
                            Theme="{StaticResource BodyStrongTextBlockStyle}" />

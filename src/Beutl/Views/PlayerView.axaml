@@ -8,7 +8,6 @@
              xmlns:lang="using:Beutl.Language"
              xmlns:local="using:Beutl.Views"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-             xmlns:models="using:Beutl.Models"
              xmlns:pathEditor="using:Beutl.Editor.Components.PathEditorTab.Views"
              xmlns:vm="using:Beutl.ViewModels"
              d:DesignHeight="450"
@@ -120,27 +119,6 @@
                               Stretch="Uniform" />
                     </Border>
                 </RadioButton>
-
-                <!--  Preview render quality (feature 003, US4): non-persisted per edit view  -->
-                <Border Margin="0,8,0,0"
-                        BorderBrush="{DynamicResource DividerStrokeColorDefaultBrush}"
-                        BorderThickness="0,1,0,0" />
-                <!--  Disabled during playback: a mid-playback scale change rebuilds + disposes the
-                      renderer/composer/frame-cache the playback loop is actively using (feature 003).  -->
-                <!--  New code uses CompiledBinding (x:DataType is declared on the root) per .claude/rules/xaml.md,
-                      without flipping the file's pre-existing reflection bindings.  -->
-                <ComboBox Margin="0,8,0,0"
-                          MinWidth="72"
-                          IsEnabled="{CompiledBinding !IsPlaying.Value}"
-                          ItemsSource="{CompiledBinding EditViewModel.PreviewScaleOptions}"
-                          SelectedItem="{CompiledBinding EditViewModel.PreviewScale.Value}"
-                          ToolTip.Tip="{x:Static lang:Strings.PreviewRenderQuality_Tip}">
-                    <ComboBox.ItemTemplate>
-                        <DataTemplate x:DataType="models:RenderScale">
-                            <TextBlock Text="{CompiledBinding Converter={x:Static converters:RenderScaleNameConverter.Instance}}" />
-                        </DataTemplate>
-                    </ComboBox.ItemTemplate>
-                </ComboBox>
             </StackPanel>
         </Player.InnerLeftContent>
         <Player.InnerRightContent>
