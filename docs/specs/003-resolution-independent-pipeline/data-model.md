@@ -139,7 +139,7 @@ All `float` for v1 (the `Beutl.Graphics.Vector` primitive overloads exist for th
 | Member | Change | Rule |
 |---|---|---|
 | `WorkingScale` | **+ `float WorkingScale { get; }`** (renamed from `RenderScale`) | FR-015 accessor for custom/shader effects. |
-| `CreateTarget(Rect)` | size `ceil(bounds × WorkingScale)` for `w ≠ 1.0`, keeping component-wise `(int)` at `w = 1.0` (byte-identity); `Open` returns a canvas with the **baked base CTM `CreateScale(target.Scale.Value)`** (the author draws logical content directly; no manual prescale) | FR-009/FR-007. |
+| `CreateTarget(Rect)` | size `ceil(bounds × WorkingScale)` for `w ≠ 1.0`, keeping component-wise `(int)` at `w = 1.0` (byte-identity); `Open` returns a canvas with the **baked base CTM `CreateScale(density)`** where `density = target.Scale.Value`, or `WorkingScale` when the target is `Unbounded` (e.g. a plugin-built target with no Scale set); the author draws logical content directly (no manual prescale) | FR-009/FR-007. |
 
 ### `FilterEffectActivator` *(changed)* — `Graphics/FilterEffects/FilterEffectActivator.cs`
 `Flush` (`:23`) sizes targets `ceil(OriginalBounds × w)` for `w ≠ 1.0`, **keeping the current component-wise `(int)Width`/`(int)Height` truncation at `w = 1.0`** (byte-identity); the flatten `ImmediateCanvas` **bakes the base CTM `CreateScale(w)`** (the flush pushes a translation-only matrix) and tags each flushed buffer `EffectiveScale.At(w)`. `w` (and `s_out`) are supplied to the `FilterEffectActivator` ctor (from `FilterEffectRenderNode` via `ResolveWorkingScale`), not derived from the targets. Scale-1.0-sensitive (golden-tested).

@@ -31,9 +31,10 @@ public class SnapshotBackdropRenderNode : RenderNode, IBackdrop
         if (_bitmap != null)
         {
             // feature 003 (CSM-3): the snapshot is the device-sized backing surface (ceil(frame × captureScale)).
-            // Un-scale by the CAPTURE scale, not the replay canvas's OutputScale: when this backdrop is replayed
-            // inside a buffer-flushing FilterEffect, Draw runs on a nested canvas whose OutputScale is 1 under a
-            // CreateScale(w) CTM, and keying off that would render the device capture ~s_out× too large. Drawing
+            // Un-scale by the CAPTURE scale (the canvas SurfaceDensity recorded above), not the replay canvas's
+            // density: when this backdrop is replayed inside a buffer-flushing FilterEffect, Draw runs on a nested
+            // canvas at a different density (its own working scale w), and keying off that would render the device
+            // capture the wrong size. Drawing
             // into its LOGICAL footprint lets the active CTM map it back. captureScale == 1 keeps the bare blit.
             if (_captureScale == 1f)
             {

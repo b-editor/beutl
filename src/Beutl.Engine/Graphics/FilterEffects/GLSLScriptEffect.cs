@@ -88,16 +88,21 @@ public sealed partial class GLSLScriptEffect : FilterEffect
         (float progress, float duration, float time, GLSLShader shader, string? compileError) data,
         CustomFilterEffectContext c)
     {
-        // feature 003 (FR-014): the compute shader iterates the DEVICE-pixel texture (ceil(bounds × w)),
-        // so the resolution push constants report device px. At w == 1 this is unchanged (byte-identical).
-        float w = c.WorkingScale;
-        data.shader.Apply(c, target => new PushConstants
+        // feature 003 (FR-014): the compute shader iterates the DEVICE-pixel texture (ceil(bounds × w)), so
+        // the resolution push constants report device px. Use the CLAMPED density CreateTarget resolves
+        // (FR-037(b)) so the uniforms match the buffer. At w == 1 this is unchanged (byte-identical).
+        data.shader.Apply(c, target =>
         {
-            Progress = data.progress,
-            Duration = data.duration,
-            Time = data.time,
-            Width = target.Bounds.Width * w,
-            Height = target.Bounds.Height * w
+            float w = Beutl.Graphics.Rendering.RenderNodeContext.ClampWorkingScaleToBufferBudget(
+                target.Bounds, c.WorkingScale);
+            return new PushConstants
+            {
+                Progress = data.progress,
+                Duration = data.duration,
+                Time = data.time,
+                Width = target.Bounds.Width * w,
+                Height = target.Bounds.Height * w
+            };
         });
     }
 

@@ -99,7 +99,10 @@ public sealed partial class SKSLScriptEffect : FilterEffect
             // feature 003 (FR-014): the user shader evaluates in DEVICE pixels over a ceil(bounds × w)
             // buffer, so resolution uniforms report device px (× w). Normalized-uv shaders are unaffected;
             // absolute-px shaders can read iScale = w. At w == 1 every value is unchanged (byte-identical).
-            float w = c.WorkingScale;
+            // Use the CLAMPED density ApplyToNewTarget's CreateTarget resolves (FR-037(b)) so the uniforms
+            // match the buffer, matching the Mosaic/ColorShift siblings.
+            float w = Beutl.Graphics.Rendering.RenderNodeContext.ClampWorkingScaleToBufferBudget(
+                effectTarget.Bounds, c.WorkingScale);
             if (effect.Uniforms.Contains("width"))
                 builder.Uniforms["width"] = effectTarget.Bounds.Width * w;
             if (effect.Uniforms.Contains("height"))

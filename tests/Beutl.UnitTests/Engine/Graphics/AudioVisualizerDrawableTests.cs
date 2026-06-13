@@ -121,7 +121,7 @@ public class AudioVisualizerDrawableTests
     }
 
     // feature 003 (FR-030): audio visualizers render as logical-space CTM geometry (the "leave-unchanged"
-    // bucket — their shapes build brushes from canvas.OutputScale and draw logical bars/lines that the root
+    // bucket — their shapes build brushes from canvas.Density and draw logical bars/lines that the root
     // CTM scales). These assert the reduced-/super-scale output-scale plumbs through every waveform shape and
     // both spectrum drawables without throwing — i.e. nothing in the visualizer path reads a device pixel
     // dimension that breaks at w != 1. (A perceptual reduced-scale gate needs an audio source + GPU and is a
@@ -155,7 +155,7 @@ public class AudioVisualizerDrawableTests
     // RenderForeground early-returns (CachedSampleLength == 0) and the feature-003 fill path never runs. These
     // cases attach a synthetic SourceSound (a 440 Hz tone via the test decoder), assert samples actually
     // composed (so the test is non-vacuous), and PULL+RASTERIZE at reduced/super scale through the real
-    // ImmediateCanvas — exercising the foreground draw + brush fill that plumb canvas.OutputScale /
+    // ImmediateCanvas — exercising the foreground draw + brush fill that plumb canvas.Density /
     // MaxWorkingScale (FR-030). GPU-gated.
     private static void AttachSyntheticSource(AudioVisualizerDrawable drawable)
     {

@@ -258,7 +258,7 @@ public class ImmediateCanvasDensityTests
             shape.AlignmentX.CurrentValue = AlignmentX.Center;
             shape.AlignmentY.CurrentValue = AlignmentY.Center;
             shape.Fill.CurrentValue = Brushes.White;
-            Drawable.Resource resource = shape.ToResource(CompositionContext.Default);
+            using Drawable.Resource resource = shape.ToResource(CompositionContext.Default);
 
             using var target = RenderTarget.Create(100, 100)!; // device = ceil(50 logical x 2)
             using (var canvas = new ImmediateCanvas(target, 2f, logicalSize: new Size(50, 50)))
@@ -273,8 +273,6 @@ public class ImmediateCanvasDensityTests
                 "the shape should centre against the LOGICAL 50x50 viewport (device centre)");
             Assert.That(IsWhite(snap, 95, 95), Is.False,
                 "if DrawDrawable used the device size as the viewport, the shape would drift toward the corner");
-
-            resource.Dispose();
         });
     }
 
