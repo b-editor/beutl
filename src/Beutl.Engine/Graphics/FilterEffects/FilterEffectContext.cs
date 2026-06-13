@@ -447,8 +447,9 @@ public sealed class FilterEffectContext : IDisposable
                     EffectTarget newTarget = context.CreateTarget(target.Bounds);
                     // feature 003: pass the working density so a tile/image/drawable brush rasterizes at w
                     // (consumed under the Scale(w) CTM below, which its baked Scale(1/w) compensates);
-                    // analytic brushes ignore it. w == 1 is a no-op (byte-identical).
-                    float w = context.WorkingScale;
+                    // analytic brushes ignore it. Read it from the target just created, not context.WorkingScale,
+                    // so a buffer-budget clamp (FR-037(b)) keeps the fill in sync with the buffer. w == 1 no-op.
+                    float w = newTarget.Scale.Value;
                     var c = new BrushConstructor(new(size), data.Brush, data.BlendMode, w, context.MaxWorkingScale);
                     using var brushPaint = new SKPaint();
                     c.ConfigurePaint(brushPaint);

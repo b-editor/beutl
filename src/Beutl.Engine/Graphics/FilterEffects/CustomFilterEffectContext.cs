@@ -92,8 +92,12 @@ public class CustomFilterEffectContext
         float fit = RenderNodeContext.ClampWorkingScaleToBufferBudget(bounds, w);
         if (fit < w)
         {
+            // The returned target reports At(fit), and Open() tags its canvas with that same density, so a
+            // consumer that derives its working scale from the target it just created (the built-in flatten /
+            // transform / path-follow / blend effects do) stays consistent. A consumer that hard-codes
+            // context.WorkingScale for output device math would still mismatch this rarer clamped density.
             s_logger.LogWarning(
-                "CreateTarget clamped the working scale {From} -> {To} to keep the buffer within the GPU axis limit (bounds {Bounds}). Device math based on WorkingScale may mismatch this target's density.",
+                "CreateTarget clamped the working scale {From} -> {To} to keep the buffer within the GPU axis limit (bounds {Bounds}). Use the returned target's Scale for output device math, not context.WorkingScale.",
                 w, fit, bounds);
             w = fit;
         }
@@ -123,8 +127,14 @@ public class CustomFilterEffectContext
         }
 
         // feature 003 (CSM3-1): a custom effect renders logical content into this ceil(bounds × w) buffer
-        // (pushing CreateScale(w) itself), so tag OutputScale = w. A SourceBackdrop captured here then records
-        // its true device density for the replay to un-scale by. w == 1 keeps the default 1 (byte-identical).
-        return new ImmediateCanvas(target.RenderTarget, WorkingScale, MaxWorkingScale);
+        // (pushing CreateScale(w) itself), so tag the canvas with the buffer's TRUE density. Prefer the
+        // target's own concrete Scale over this context's nominal WorkingScale: CreateTarget may have clamped
+        // the density below WorkingScale to keep an inflated buffer allocatable (FR-037(b)), and the canvas's
+        // OutputScale drives brush fills, nested pulls and backdrop capture on it — they must match the buffer
+        // they draw into. In the common (unclamped) case target.Scale.Value == WorkingScale, so this is
+        // byte-identical there. Fall back to WorkingScale for an Unbounded target (e.g. a plugin that builds an
+        // EffectTarget without setting Scale) so its behavior is unchanged from before this fix.
+        float density = target.Scale.IsUnbounded ? WorkingScale : target.Scale.Value;
+        return new ImmediateCanvas(target.RenderTarget, density, MaxWorkingScale);
     }
 }
