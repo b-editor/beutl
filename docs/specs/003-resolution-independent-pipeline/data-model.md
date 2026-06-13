@@ -76,7 +76,7 @@ All `float` for v1 (the `Beutl.Graphics.Vector` primitive overloads exist for th
 | Member | Change | Rule |
 |---|---|---|
 | ctor | **+ `float outputScale = 1f`**; **+ `float OutputScale { get; }`** | Seeded from `Renderer`. |
-| rasterization sinks (`RasterizeAt`/`Rasterize`/`RasterizeAndConcat`) | rasterize at `w = OutputScale` (these are the root / cache / thumbnail sinks — they operate at the request's `s_out`, not a per-input negotiated scale); `PixelRect.FromRect(op.Bounds, w)`; pre-push `Matrix.CreateScale(w)` for `w ≠ 1`. **`w == 1` short-circuit**: the exact pre-feature path (no scale matrix) — preserves byte-identity. The per-input supply-driven working scale (FR-036) is resolved at the effect boundary (`FilterEffectRenderNode`), not at these sinks. | Identity at `w=1.0` → byte-equal. |
+| rasterization sinks (`RasterizeAt`/`Rasterize`/`RasterizeAndConcat`) | rasterize at `w = OutputScale` (these are the root / cache / thumbnail sinks — they operate at the request's `s_out`, not a per-input negotiated scale); `PixelRect.FromRect(op.Bounds, w)`; the `ImmediateCanvas` **bakes the base CTM `CreateScale(w)`** at construction (the sink only pushes a translation-only matrix). **`w == 1` short-circuit**: a true no-op base (no scale matrix, no Save) — preserves byte-identity. The per-input supply-driven working scale (FR-036) is resolved at the effect boundary (`FilterEffectRenderNode`), not at these sinks. | Identity at `w=1.0` → byte-equal. |
 | `Pull` (`:121`) | `new RenderNodeContext(input, OutputScale)` | Single production construction site; reaches all overrides. |
 | `RasterizeAt(op, w)` | **+ internal seam** generalizing `RasterizeToRenderTargets` (`:20-44`) to re-rasterize an `Unbounded` subtree at a chosen `w` | feeds FR-017 regenerate. |
 
@@ -106,7 +106,7 @@ All `float` for v1 (the `Beutl.Graphics.Vector` primitive overloads exist for th
 | ctor | `(int width, int height)` → **`(int width, int height, float renderScale = 1f)`** | width/height stay **logical** FrameSize; device surface = `ceil(FrameSize × renderScale)`. BREAKING (FR-028). |
 | `RenderScale` | **+ `float RenderScale { get; }`** | Immutable per instance (D4). |
 | `FrameSize` | unchanged (logical) | |
-| `Render`/`RenderDrawable` | push one `Matrix.CreateScale(renderScale)` after `_immediateCanvas.Push()` | |
+| `Render`/`RenderDrawable` | the root `ImmediateCanvas` bakes the base CTM `CreateScale(renderScale)` at construction (no per-frame push); the FPS overlay re-enters device space via `FpsDrawer.Dispose` → `PushDeviceSpace` so it stays unscaled | |
 | `HitTest`/`RecalculateBoundaries` | pass `1f` | Render scale stays out of hit-test/handle math (FR-027). |
 
 ### `SceneRenderer` *(changed)* — `Beutl.ProjectSystem/SceneRenderer.cs`
@@ -142,7 +142,7 @@ All `float` for v1 (the `Beutl.Graphics.Vector` primitive overloads exist for th
 | `CreateTarget(Rect)` | size `ceil(bounds × WorkingScale)` for `w ≠ 1.0`, keeping component-wise `(int)` at `w = 1.0` (byte-identity); `Open` returns a `WorkingScale`-prescaled canvas | FR-009/FR-007. |
 
 ### `FilterEffectActivator` *(changed)* — `Graphics/FilterEffects/FilterEffectActivator.cs`
-`Flush` (`:23`) sizes targets `ceil(OriginalBounds × w)` for `w ≠ 1.0`, **keeping the current component-wise `(int)Width`/`(int)Height` truncation at `w = 1.0`** (byte-identity); pushes `Matrix.CreateScale(w)` and tags each flushed buffer `EffectiveScale.At(w)`. `w` (and `s_out`) are supplied to the `FilterEffectActivator` ctor (from `FilterEffectRenderNode` via `ResolveWorkingScale`), not derived from the targets. Scale-1.0-sensitive (golden-tested).
+`Flush` (`:23`) sizes targets `ceil(OriginalBounds × w)` for `w ≠ 1.0`, **keeping the current component-wise `(int)Width`/`(int)Height` truncation at `w = 1.0`** (byte-identity); the flatten `ImmediateCanvas` **bakes the base CTM `CreateScale(w)`** (the flush pushes a translation-only matrix) and tags each flushed buffer `EffectiveScale.At(w)`. `w` (and `s_out`) are supplied to the `FilterEffectActivator` ctor (from `FilterEffectRenderNode` via `ResolveWorkingScale`), not derived from the targets. Scale-1.0-sensitive (golden-tested).
 
 ### `EffectTarget` *(changed)* — `Graphics/FilterEffects/EffectTarget.cs`
 | Member | Change | Rule |

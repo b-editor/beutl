@@ -9,9 +9,10 @@
 > Perlin, strokes, audio visualizers were all "spatial-length" yet must NOT be multiplied). The true rule is:
 > **what scale you apply depends on the coordinate space the value lives in / the API consumes.**
 
-This renderer pushes one root `Matrix.CreateScale(w)` (or `s_out`) at the device boundary, so almost all
-geometry is authored and drawn in **logical space** and the CTM scales it to device for free. Classify a value
-by its coordinate space:
+Every `ImmediateCanvas` **bakes** a base CTM `Matrix.CreateScale(w)` (or `s_out` at the root) at construction
+(feature 003 — a true no-op at density 1), so almost all geometry is authored and drawn in **logical space**
+and the base CTM scales it to device for free. Device-space code opts out with `canvas.PushDeviceSpace()`
+(CTM → identity, density → 1). Classify a value by its coordinate space:
 
 | Coordinate space | Rule | Examples |
 |---|---|---|
@@ -31,7 +32,7 @@ by its coordinate space:
 Two accessors, both default `1.0`. **They expose the `WorkingScale` `w`** (what the effect runs at), not the output scale. An effect that needs the eventual delivery target reads `FilterEffectContext.OutputScale`.
 
 1. **`FilterEffectContext.WorkingScale`** — for `CSharpScriptEffect` and out-of-tree `FilterEffect`s built from the context primitives. The Skia `SKImageFilter` primitives (`Blur`/`DropShadow`/`Dilate`/`Erode`/`Transform`/`MatrixConvolution`) take their spatial-length args **raw (logical)** — they are **NOT** multiplied by `WorkingScale`; they ride the `CreateScale(w)` CTM that `FilterEffectActivator.Flush` pushes, so Skia scales them for free. An effect that forwards through them inherits scale-correctness **without multiplying anything** (multiplying would double-scale). Only **CustomEffect point-blit** code (Mosaic/InnerShadow/ColorShift/…) multiplies its absolute-length args by `WorkingScale` (those blit into a `ceil(bounds × w)` device buffer instead of riding the CTM).
-2. **`CustomFilterEffectContext.WorkingScale`** — for `CustomEffect` / SKSL / GLSL. `CreateTarget(bounds)` allocates `ceil(bounds × WorkingScale)`; `Open` returns that buffer's canvas tagged with the working density but with an **identity CTM** — nothing is pre-scaled. To draw logical content the effect pushes `Matrix.CreateScale(WorkingScale)` itself and draws through the `ImmediateCanvas` APIs (the `StrokeEffect` pattern — this also routes brush fills through the canvas's density so tile/image/drawable brushes rasterize at `w`); code that works directly in device space instead multiplies absolute pixel literals by `WorkingScale`.
+2. **`CustomFilterEffectContext.WorkingScale`** — for `CustomEffect` / SKSL / GLSL. `CreateTarget(bounds)` allocates `ceil(bounds × WorkingScale)`; `Open` returns that buffer's canvas **already carrying the baked base CTM `CreateScale(density)`** (the buffer's real, post-clamp density — read it from the returned target's `Scale.Value` for clamp-correct device math). So the effect draws **logical** content directly through the `ImmediateCanvas` APIs with **no manual prescale** (the `StrokeEffect` pattern — this also routes brush fills through the canvas's density so tile/image/drawable brushes rasterize at `w`). Code that must work in **device pixels** — point-blitting another device buffer, a contour traced from the device alpha mask, a full-buffer shader rect — wraps that draw in **`canvas.PushDeviceSpace()`** (CTM → identity, density → 1) and uses device-px literals (`× WorkingScale`).
 
 ```csharp
 // out-of-tree FilterEffect example
@@ -40,11 +41,18 @@ public override void ApplyTo(FilterEffectContext context)
     // sigma is a logical length -> pass it RAW; the Skia primitive rides the root CTM, so do NOT multiply by w
     context.Blur(new Size(BlurRadius, BlurRadius));
 
-    // a custom step that hand-picks a pixel literal:
+    // a custom step: logical content draws directly (the canvas bakes CreateScale(density));
+    // device-pixel work (point-blit / contour / shader rect) wraps in PushDeviceSpace.
     context.CustomEffect(state, (d, c) =>
     {
-        float devRadius = MyPixelRadius * c.WorkingScale; // explicit
-        // draw into c.CreateTarget(bounds) which is already ceil(bounds*WorkingScale)
+        EffectTarget t = c.CreateTarget(bounds);          // ceil(bounds * WorkingScale) device buffer
+        using ImmediateCanvas canvas = c.Open(t);         // base CTM = CreateScale(t.Scale.Value), already baked
+        canvas.DrawRectangle(logicalRect, brush, null);   // LOGICAL — no manual prescale
+        using (canvas.PushDeviceSpace())                  // absolute device px
+        {
+            float devRadius = MyPixelRadius * t.Scale.Value; // post-clamp density
+            // ... device-px draw (e.g. canvas.DrawRenderTarget(other, devicePoint)) ...
+        }
     });
 }
 
