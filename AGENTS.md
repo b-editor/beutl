@@ -44,7 +44,7 @@ Claude Code skills are provided as `/beutl-build`, `/beutl-test`, `/beutl-format
 
 ## Mandatory rules
 
-1. **Do not cross the GPL/MIT boundary.** MIT projects must not take a `ProjectReference` to `Beutl.FFmpegWorker`. The `.claude/hooks/check-gpl-mit-boundary.sh` PreToolUse hook enforces this mechanically. Details: `docs/ai-workflow/gpl-mit-boundary.md`.
+1. **Do not cross the GPL/MIT boundary.** MIT projects must not take a compile-closure `ProjectReference` to `Beutl.FFmpegWorker`; the sole exception is `src/Beutl/Beutl.csproj`'s build-order-only reference (`ReferenceOutputAssembly="false"` + output-copy target). The `.claude/hooks/check-gpl-mit-boundary.sh` PreToolUse hook enforces this mechanically. Details: `docs/ai-workflow/gpl-mit-boundary.md`.
 2. **XAML must use compiled bindings** — every new UserControl declares `x:CompileBindings="True"` together with `x:DataType="..."`. Details: `.claude/rules/xaml.md`.
 3. **New logic ships with a NUnit test** — add tests under `tests/` in the matching test project (e.g. `tests/Beutl.UnitTests/` for general unit tests, `tests/SourceGeneratorTest/` for generator changes).
 4. **Do not ask the AI to do the linter's job** — `.editorconfig` / `xamlstyler.json` / `dotnet format` own style.
