@@ -69,19 +69,34 @@ new_text=$(printf '%s' "$input" | jq -r '
 # tags cannot slip through the regex below.
 new_text_oneline=$(printf '%s' "$new_text" | tr '\n' ' ')
 
-# Examine each <ProjectReference …> tag that mentions Beutl.FFmpegWorker.
-# Tags carrying ReferenceOutputAssembly="false" are the sanctioned
-# build-order-only form; any other shape joins the MIT compile closure
-# and is denied. (`|| true` keeps no-match grep exits from tripping the
-# fail-closed ERR trap.)
-offending=$(printf '%s' "$new_text_oneline" \
+# Collect every <ProjectReference …> tag that mentions Beutl.FFmpegWorker.
+# (`|| true` keeps no-match grep exits from tripping the fail-closed ERR trap.)
+worker_refs=$(printf '%s' "$new_text_oneline" \
   | grep -Eo '<ProjectReference[^>]*' \
   | grep 'Beutl\.FFmpegWorker' \
-  | grep -Ev "ReferenceOutputAssembly[[:space:]]*=[[:space:]]*[\"'][Ff]alse[\"']" \
   || true)
 
+# Only the main app project (src/Beutl/Beutl.csproj) may use the sanctioned
+# build-order-only form: a reference carrying ReferenceOutputAssembly="false"
+# paired with the CopyFFmpegWorkerForApp output-copy target. There, such a
+# reference keeps the GPL assembly out of the MIT compile closure and is
+# allowed. Every other MIT project must reach the worker via IPC, so any
+# worker ProjectReference — even with ReferenceOutputAssembly="false" — is
+# denied (the narrow exemption must not let a library quietly take a GPL
+# project dependency).
+case "$file" in
+  */Beutl/Beutl.csproj)
+    offending=$(printf '%s' "$worker_refs" \
+      | grep -Ev "ReferenceOutputAssembly[[:space:]]*=[[:space:]]*[\"'][Ff]alse[\"']" \
+      || true)
+    ;;
+  *)
+    offending=$worker_refs
+    ;;
+esac
+
 if [ -n "$offending" ]; then
-  deny "GPL/MIT boundary violation: MIT projects must not take a compile-closure ProjectReference to Beutl.FFmpegWorker (GPL-3.0). Use Beutl.FFmpegIpc for IPC, or the build-order-only form (ReferenceOutputAssembly=\"false\" + output-copy target). See docs/ai-workflow/gpl-mit-boundary.md."
+  deny "GPL/MIT boundary violation: MIT projects must not ProjectReference Beutl.FFmpegWorker (GPL-3.0). Use Beutl.FFmpegIpc for IPC. The only sanctioned exception is src/Beutl/Beutl.csproj's build-order-only form (ReferenceOutputAssembly=\"false\" + the CopyFFmpegWorkerForApp target); other projects may not reference the worker even with ReferenceOutputAssembly=\"false\". See docs/ai-workflow/gpl-mit-boundary.md."
 fi
 
 exit 0

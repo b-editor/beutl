@@ -116,9 +116,15 @@
   <Target Name="CopyFFmpegWorkerForApp"
           AfterTargets="Build"
           Condition="'$(FFmpegOutOfProcess)'=='True' And '$(NukePublish)'!='True'">
+    <PropertyGroup>
+      <!-- The worker's own output dir mirrors this app's: it gains a <RID> segment only when a
+           RuntimeIdentifier is set. Anchor the glob there so a RID build does not duplicate the
+           RID into $(OutDir) (which already ends in <RID>) and strand the worker outside
+           AppContext.BaseDirectory. -->
+      <_FFmpegWorkerOutDir>..\Beutl.FFmpegWorker\bin\$(Configuration)\$(TargetFramework)\$(RuntimeIdentifier)\</_FFmpegWorkerOutDir>
+    </PropertyGroup>
     <ItemGroup>
-      <_FFmpegWorkerOutput
-        Include="..\Beutl.FFmpegWorker\bin\$(Configuration)\$(TargetFramework)\**\*" />
+      <_FFmpegWorkerOutput Include="$(_FFmpegWorkerOutDir)**\*" />
     </ItemGroup>
     <Copy SourceFiles="@(_FFmpegWorkerOutput)"
           DestinationFiles="@(_FFmpegWorkerOutput->'$(OutDir)%(RecursiveDir)%(Filename)%(Extension)')"
