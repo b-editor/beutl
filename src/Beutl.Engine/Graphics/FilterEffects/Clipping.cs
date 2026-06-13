@@ -141,7 +141,10 @@ public sealed partial class Clipping : FilterEffect
                     ? originalRect.CenterRect(clipRect).Translate(target.Bounds.Position)
                     : newBounds;
                 EffectTarget newTarget = context.CreateTarget(targetBounds);
+                // feature 003: the crop offset and the source point-blit are DEVICE px (× w), so enter absolute
+                // device space — Open's base CTM CreateScale(w) would otherwise re-scale them. w == 1 = no-op.
                 using (ImmediateCanvas newCanvas = context.Open(newTarget))
+                using (newCanvas.PushDeviceSpace())
                 using (newCanvas.PushTransform(Matrix.CreateTranslation(pointX * w, pointY * w)))
                 {
                     newCanvas.Clear();

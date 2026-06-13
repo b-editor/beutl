@@ -18,8 +18,10 @@ public class SnapshotBackdropRenderNode : RenderNode, IBackdrop
                 using var renderTarget = RenderTarget.GetRenderTarget(canvas);
                 _bitmap = renderTarget.Snapshot();
                 // feature 003 (CSM-3): record the scale of the surface we captured (the root canvas carries
-                // s_out) so Draw un-scales by it even when replayed on a nested flush canvas (OutputScale == 1).
-                _captureScale = canvas.OutputScale;
+                // s_out) so Draw un-scales by it even when replayed on a nested flush canvas. Use SurfaceDensity
+                // (the immutable whole-surface density), NOT the current Density which a PushDeviceSpace block
+                // lowers to 1 — a snapshot grabs the entire surface, so it is always at the surface density.
+                _captureScale = canvas.SurfaceDensity;
             })
         ];
     }

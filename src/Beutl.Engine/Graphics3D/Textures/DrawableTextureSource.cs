@@ -61,7 +61,7 @@ public sealed partial class DrawableTextureSource : TextureSource
             {
                 _drawableNode ??= new DrawableRenderNode(Drawable);
                 _drawableNode.Update(Drawable);
-                using (var context = new GraphicsContext2D(_drawableNode, new PixelSize(textureWidth, textureHeight)))
+                using (var context = new GraphicsContext2D(_drawableNode, new Size(textureWidth, textureHeight)))
                 {
                     Drawable.GetOriginal().Render(context, Drawable);
                 }

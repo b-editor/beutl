@@ -177,11 +177,14 @@ public sealed class FilterEffectContext : IDisposable
                         using SKImage skImage = target.RenderTarget.Value.Snapshot();
                         EffectTarget newTarget = context.CreateTarget(target.Bounds);
                         using (ImmediateCanvas canvas = context.Open(newTarget))
+                        // feature 003: the source At(w) is point-blitted at DEVICE px and the blur sigma / shadow
+                        // offset are device px (× w), so do the whole composite in absolute device space — Open's
+                        // base CTM CreateScale(density) would otherwise re-scale the point-blits. density 1 = no-op.
+                        using (canvas.PushDeviceSpace())
                         {
                             canvas.Clear();
-                            // feature 003: the target buffer is ceil(bounds × w) DEVICE px and the source At(w) is
-                            // point-blitted into it, so the blur sigma and the shadow offset (both absolute logical
-                            // px) scale by the working density. w == 1 keeps the pre-feature path (byte-identical).
+                            // The blur sigma and the shadow offset (both absolute logical px) scale to device by the
+                            // working density. w == 1 keeps the pre-feature path (byte-identical).
                             float w = context.WorkingScale;
                             using var blur = SKImageFilter.CreateBlur(data.sigma.Width * w, data.sigma.Height * w);
                             using var blend = SKColorFilter.CreateBlendMode(data.color.ToSKColor(), SKBlendMode.SrcOut);
@@ -457,14 +460,17 @@ public sealed class FilterEffectContext : IDisposable
                     using (ImmediateCanvas newCanvas = context.Open(newTarget))
                     {
                         newCanvas.Clear();
-                        newCanvas.DrawRenderTarget(target.RenderTarget, default);
-                        // feature 003: the source above is device-px (point-blit, unchanged); the brush + its LOGICAL
-                        // coverage rect are prescaled by w so they fill the full ceil(bounds × w) device buffer at
-                        // working density. w == 1 keeps the bare path (byte-identical).
-                        using (w == 1f ? default : newCanvas.PushTransform(Matrix.CreateScale(w, w)))
+                        // feature 003: the source At(w) is a DEVICE-px point-blit, so drop into absolute device
+                        // space for it (Open's base CTM CreateScale(w) would otherwise re-scale it).
+                        using (newCanvas.PushDeviceSpace())
                         {
-                            newCanvas.Canvas.DrawRect(SKRect.Create(size.ToSKSize()), brushPaint);
+                            newCanvas.DrawRenderTarget(target.RenderTarget, default);
                         }
+
+                        // The brush + its LOGICAL coverage rect are drawn under the base CTM CreateScale(w), which
+                        // maps them onto the full ceil(bounds × w) device buffer at working density — and matches
+                        // the brush's own baked Scale(1/w) compensation. No manual prescale; w == 1 byte-identical.
+                        newCanvas.Canvas.DrawRect(SKRect.Create(size.ToSKSize()), brushPaint);
                     }
 
                     target.Dispose();

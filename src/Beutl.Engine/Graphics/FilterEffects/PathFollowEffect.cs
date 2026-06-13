@@ -82,14 +82,11 @@ public sealed partial class PathFollowEffect : FilterEffect
 
                 var newBounds = target.Bounds.TransformToAABB(m1);
                 var newTarget = effectContext.CreateTarget(newBounds);
-                // feature 003: the buffer is ceil(newBounds × w) DEVICE px while the follow translate/rotation are
-                // LOGICAL and target.Draw maps an At(w) source into its logical rect, so prescale by w to map the
-                // logical placement onto the full device buffer. Read the density from the target just created,
-                // not from effectContext.WorkingScale, so a buffer-budget clamp (FR-037(b)) keeps the push in
-                // sync with the buffer. w == 1 keeps the bare path (byte-identical).
-                float w = newTarget.Scale.Value;
+                // feature 003: Open bakes the base CTM CreateScale(density) for this ceil(newBounds × w) device
+                // buffer (density from the target, so an FR-037(b) clamp is honored), so the LOGICAL follow
+                // translate/rotation map onto the full device buffer automatically — target.Draw maps an At(w)
+                // source into its logical rect. No manual prescale; density 1 stays byte-identical.
                 using (var canvas = effectContext.Open(newTarget))
-                using (w == 1f ? default : canvas.PushTransform(Matrix.CreateScale(w, w)))
                 using (canvas.PushTransform(Matrix.CreateTranslation(target.Bounds.Position - newTarget.Bounds.Position)))
                 using (canvas.PushTransform(m2))
                 {

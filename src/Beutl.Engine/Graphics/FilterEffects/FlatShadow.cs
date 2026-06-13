@@ -104,42 +104,48 @@ public partial class FlatShadow : FilterEffect
             {
                 newCanvas.Clear();
                 // feature 003: the contour path is DEVICE px (traced from the ceil(bounds × w) source), so the
-                // shadow offset, the per-step extrusion COUNT and the source-blit offset all scale to device by
-                // the working density to stay consistent with it. The SrcIn brush is built over the LOGICAL
-                // bounds at density w and its rect is drawn under a Scale(w) CTM — the same device coverage as
-                // a W·w×H·w rect under identity, but absolute-unit gradient points and the Perlin frequency stay
-                // logical, and tile/image/drawable content rasterizes at w. w == 1 = pre-feature path.
+                // shadow offset, the per-step extrusion COUNT and the source-blit offset are all device-px (× the
+                // input working density w) and run in ABSOLUTE device space. The SrcIn brush instead fills the
+                // LOGICAL bounds under the base CTM CreateScale(wOut) — absolute-unit gradient points / Perlin
+                // frequency stay logical and tile/image/drawable content rasterizes at the buffer density.
                 float w = context.WorkingScale;
-                // feature 003 (FR-037(b)): if CreateTarget clamped the EXPANDED output buffer below the working
-                // scale, scale the whole device-px shadow construction (contour + extrusion + source, built at the
-                // input density w; the SrcIn brush rides its own Scale(w)) by wOut/w so all of it maps onto the
-                // smaller wOut buffer at once — no clip, registration preserved, just lower resolution (the clamp's
-                // intended tradeoff). wOut == w (the common, unclamped case) is a no-op (byte-identical).
+                // FR-037(b): CreateTarget may clamp the EXPANDED output buffer below w. Open's base CTM is
+                // CreateScale(wOut) (= the buffer's real density), so the device-px shadow built at the input
+                // density w is mapped into that buffer by an extra Scale(wOut / w). wOut == w (common) = no-op.
                 float wOut = newTarget.Scale.Value;
+
+                // (1) device-px shadow silhouette: contour extrusion at density w, scaled into the wOut buffer.
+                using (newCanvas.PushDeviceSpace())
                 using (w == wOut ? default : newCanvas.PushTransform(Matrix.CreateScale(wOut / w, wOut / w)))
+                using (newCanvas.PushTransform(Matrix.CreateTranslation((x2Abs - x2) / 2 * w, (y2Abs - y2) / 2 * w)))
                 {
-                    using (newCanvas.PushTransform(Matrix.CreateTranslation((x2Abs - x2) / 2 * w, (y2Abs - y2) / 2 * w)))
+                    float lenAbs = Math.Abs(length) * w;
+                    int unit = Math.Sign(length);
+                    for (int i = 0; i < lenAbs; i++)
                     {
-                        var c = new BrushConstructor(new(newTarget.Bounds.Size), brush, BlendMode.SrcIn, w,
-                            context.MaxWorkingScale);
-                        c.ConfigurePaint(brushPaint);
-
-                        float lenAbs = Math.Abs(length) * w;
-                        int unit = Math.Sign(length);
-                        for (int i = 0; i < lenAbs; i++)
-                        {
-                            newCanvas.Transform = Matrix.CreateTranslation(x1 * unit, y1 * unit) * newCanvas.Transform;
-                            newCanvas.Canvas.DrawPath(path, paint);
-                        }
+                        newCanvas.Transform = Matrix.CreateTranslation(x1 * unit, y1 * unit) * newCanvas.Transform;
+                        newCanvas.Canvas.DrawPath(path, paint);
                     }
+                }
 
-                    using (w == 1f ? default : newCanvas.PushTransform(Matrix.CreateScale(w, w)))
+                // (2) SrcIn brush over the LOGICAL bounds under the base CTM CreateScale(wOut). Build the brush at
+                // wOut (the buffer's REAL density — NOT nominal w, which would mis-densify a clamped buffer), so
+                // its baked Scale(1/wOut) matches the base. SrcIn keeps the brush only where the silhouette's
+                // alpha exists — a per-device-pixel test, independent of which CTM drew each.
+                var c = new BrushConstructor(new(newTarget.Bounds.Size), brush, BlendMode.SrcIn, wOut,
+                    context.MaxWorkingScale);
+                c.ConfigurePaint(brushPaint);
+                newCanvas.Canvas.DrawRect(SKRect.Create(newTarget.Bounds.Width, newTarget.Bounds.Height), brushPaint);
+
+                // (3) the original source on top, device-px (× w), scaled into the wOut buffer.
+                if (!data.ShadowOnly)
+                {
+                    using (newCanvas.PushDeviceSpace())
+                    using (w == wOut ? default : newCanvas.PushTransform(Matrix.CreateScale(wOut / w, wOut / w)))
                     {
-                        newCanvas.Canvas.DrawRect(SKRect.Create(newTarget.Bounds.Width, newTarget.Bounds.Height), brushPaint);
+                        newCanvas.DrawRenderTarget(target.RenderTarget!,
+                            new((x2Abs - x2) / 2 * w, (y2Abs - y2) / 2 * w));
                     }
-
-                    if (!data.ShadowOnly)
-                        newCanvas.DrawRenderTarget(target.RenderTarget!, new((x2Abs - x2) / 2 * w, (y2Abs - y2) / 2 * w));
                 }
             }
 

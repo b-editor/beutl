@@ -264,7 +264,7 @@ public readonly struct BrushConstructor(
             // (not an upscaled logical render). Bounds/positions stay logical; the buffers are × s.
             var drawable = drawableBrush.Drawable;
             using var node = new DrawableRenderNode(drawable);
-            using var context = new GraphicsContext2D(node, new PixelSize((int)Bounds.Width, (int)Bounds.Height), s);
+            using var context = new GraphicsContext2D(node, new Size((int)Bounds.Width, (int)Bounds.Height), s);
             drawable.GetOriginal().Render(context, drawable);
             // Forward the request's FR-037 ceiling — without it the child subtree falls back to +∞
             // and a high-density source inside the brush escapes the preview/export cap.
@@ -284,7 +284,11 @@ public readonly struct BrushConstructor(
                 return null;
             }
 
-            using (var icanvas = new ImmediateCanvas(renderTarget, s, MaxWorkingScale))
+            // feature 003 carve-out: this is device-native code — it point-blits the × s dense child buffers
+            // at hand-computed × s device offsets. Construct at density 1 (NO base CTM) so the raw device
+            // blits below are not re-scaled; s stays folded into the offsets. (See the tile-intermediate
+            // carve-out below for the same rationale.)
+            using (var icanvas = new ImmediateCanvas(renderTarget, 1f, MaxWorkingScale))
             {
                 icanvas.Clear();
 
@@ -328,7 +332,11 @@ public readonly struct BrushConstructor(
                 return null;
             }
 
-            using (var canvas = new ImmediateCanvas(intermediate, s, MaxWorkingScale))
+            // feature 003 carve-out: this builds an absolute device matrix by hand (canvas.Canvas.SetMatrix
+            // below already folds in Scale(s)). Construct at density 1 (NO base CTM) so the raw SetMatrix is
+            // the whole transform — a baked base would double the scale. This keeps the hot tile path
+            // byte-identical and device-native; the intermediate still allocates ceil(IntermediateSize × s).
+            using (var canvas = new ImmediateCanvas(intermediate, 1f, MaxWorkingScale))
             using (var paintTmp = new SKPaint())
             {
                 canvas.Canvas.Clear();

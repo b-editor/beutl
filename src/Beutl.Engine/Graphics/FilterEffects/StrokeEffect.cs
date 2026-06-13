@@ -105,13 +105,12 @@ public partial class StrokeEffect : FilterEffect
                     target.Bounds.Y - transformedBounds.Y);
 
                 EffectTarget newTarget = context.CreateTarget(transformedBounds);
-                // feature 003 (FR-037(b)): the output prescale uses the target's ACTUAL density, which CreateTarget
-                // may clamp below the working scale for an over-budget transformed bounds. The path was already
-                // mapped to LOGICAL (÷ the input density w) above, so drawing it under CreateScale(wOut) places the
-                // stroke into the (possibly smaller) buffer without clipping. wOut == w in the common case (no-op).
-                float wOut = newTarget.Scale.Value;
+                // feature 003: Open bakes the base CTM CreateScale(density) for this ceil(bounds × wOut) buffer —
+                // density read from the target, so an FR-037(b) clamp (an over-budget transformed bounds) is
+                // honored. The contour path was already mapped to LOGICAL (÷ the input density w) above, so the
+                // whole stroke draws in logical space and the base maps it to device at the (possibly clamped)
+                // density without clipping. No manual prescale; density 1 stays byte-identical.
                 using (ImmediateCanvas newCanvas = context.Open(newTarget))
-                using (wOut == 1f ? default : newCanvas.PushTransform(Matrix.CreateScale(wOut, wOut)))
                 using (newCanvas.PushTransform(origin))
                 {
                     newCanvas.Clear();

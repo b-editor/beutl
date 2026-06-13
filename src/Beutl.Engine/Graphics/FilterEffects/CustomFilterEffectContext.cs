@@ -126,15 +126,15 @@ public class CustomFilterEffectContext
             throw new InvalidOperationException("無効なEffectTarget");
         }
 
-        // feature 003 (CSM3-1): a custom effect renders logical content into this ceil(bounds × w) buffer
-        // (pushing CreateScale(w) itself), so tag the canvas with the buffer's TRUE density. Prefer the
-        // target's own concrete Scale over this context's nominal WorkingScale: CreateTarget may have clamped
-        // the density below WorkingScale to keep an inflated buffer allocatable (FR-037(b)), and the canvas's
-        // OutputScale drives brush fills, nested pulls and backdrop capture on it — they must match the buffer
-        // they draw into. In the common (unclamped) case target.Scale.Value == WorkingScale, so this is
-        // byte-identical there. Fall back to WorkingScale for an Unbounded target (e.g. a plugin that builds an
-        // EffectTarget without setting Scale) so its behavior is unchanged from before this fix.
+        // feature 003: a custom effect renders LOGICAL content into this ceil(bounds × w) buffer; the canvas
+        // bakes the base CTM CreateScale(density) for it (the author no longer pushes CreateScale themselves)
+        // and tags the buffer's TRUE density. Prefer the target's own concrete Scale over this context's
+        // nominal WorkingScale: CreateTarget may have clamped the density below WorkingScale to keep an
+        // inflated buffer allocatable (FR-037(b)), and the canvas's density drives brush fills, nested pulls
+        // and backdrop capture on it — they must match the buffer they draw into. In the common (unclamped)
+        // case target.Scale.Value == WorkingScale, so this is byte-identical there. Fall back to WorkingScale
+        // for an Unbounded target (e.g. a plugin that builds an EffectTarget without setting Scale).
         float density = target.Scale.IsUnbounded ? WorkingScale : target.Scale.Value;
-        return new ImmediateCanvas(target.RenderTarget, density, MaxWorkingScale);
+        return new ImmediateCanvas(target.RenderTarget, density, MaxWorkingScale, logicalSize: target.Bounds.Size);
     }
 }

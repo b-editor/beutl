@@ -8,7 +8,7 @@ namespace Beutl.Graphics.Rendering;
 
 public sealed class GraphicsContext2D(
     ContainerRenderNode container,
-    PixelSize canvasSize = default,
+    Size canvasSize = default,
     float outputScale = 1f)
     : IDisposable, IPopable
 {
@@ -20,7 +20,13 @@ public sealed class GraphicsContext2D(
     // 下位のノードで変更があったとき、上位に伝搬するためのフィールド。Pop時に上位ノードのHasChangesを変更する用。
     private bool _hasChanges;
 
-    public PixelSize Size => canvasSize;
+    /// <summary>
+    /// The LOGICAL viewport this build context measures against (feature 003). It is an EXACT logical
+    /// <see cref="Size"/> (float) — NOT a rounded device <see cref="PixelSize"/> — because
+    /// <see cref="Drawable.Render"/> feeds it into <c>MeasureCore</c> / <c>GetTransformMatrix</c>, where a
+    /// fractional viewport changes placement / stretch.
+    /// </summary>
+    public Size Size => canvasSize;
 
     /// <summary>
     /// The output scale <c>s_out</c> this context was built for (feature 003). <see cref="Size"/> stays logical.
@@ -357,7 +363,7 @@ public sealed class GraphicsContext2D(
         // reconciliation (FR-021) is performed when the snapshot is replayed: SnapshotBackdropRenderNode /
         // TmpBackdrop map the device-sized capture back to its logical footprint via the scale it was CAPTURED
         // at (CSM-3) — not the replay canvas's OutputScale, which is 1 on a nested buffer-flush canvas.
-        var b = new Rect(canvasSize.ToSize(1));
+        var b = new Rect(canvasSize);
         if (next == null)
         {
             Add(new DrawBackdropRenderNode(backdrop, b));

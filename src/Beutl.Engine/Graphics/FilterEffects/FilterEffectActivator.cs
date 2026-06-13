@@ -86,17 +86,16 @@ public sealed class FilterEffectActivator(
 
                 if (surface != null)
                 {
-                    // feature 003 (CSM3-1): this nested buffer renders at working density w (CreateScale(w) CTM).
-                    // Tag the canvas OutputScale = w so a SourceBackdrop captured HERE records its true device
-                    // density (not the default 1), which the backdrop replay un-scales by. w == 1 keeps the
-                    // default 1 (byte-identical).
-                    using (var canvas = new ImmediateCanvas(surface, w, MaxWorkingScale))
+                    // feature 003: this nested buffer renders at working density w — the canvas bakes the base
+                    // CTM CreateScale(w) (identity at w == 1) and tags its surface density w, so a SourceBackdrop
+                    // captured HERE records its true device density (the backdrop replay un-scales by it). The
+                    // flatten only needs the logical translation; w == 1 keeps the byte-identical path.
+                    using (var canvas = new ImmediateCanvas(surface, w, MaxWorkingScale,
+                               logicalSize: target.OriginalBounds.Size))
                     {
                         canvas.Clear();
-                        Matrix transform = w == 1f
-                            ? Matrix.CreateTranslation(-target.OriginalBounds.X, -target.OriginalBounds.Y)
-                            : Matrix.CreateTranslation(-target.OriginalBounds.X, -target.OriginalBounds.Y) * Matrix.CreateScale(w, w);
-                        using (canvas.PushTransform(transform))
+                        using (canvas.PushTransform(
+                                   Matrix.CreateTranslation(-target.OriginalBounds.X, -target.OriginalBounds.Y)))
                         using (paint != null ? canvas.PushPaint(paint) : default)
                         {
                             target.Draw(canvas);

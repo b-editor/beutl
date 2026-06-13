@@ -36,7 +36,7 @@ public partial class SourceBackdrop : Drawable
                 context.Clear();
             }
 
-            Size availableSize = context.Size.ToSize(1);
+            Size availableSize = context.Size;
             Size size = MeasureCore(availableSize, r);
 
             Matrix transform = GetTransformMatrix(availableSize, size, r);

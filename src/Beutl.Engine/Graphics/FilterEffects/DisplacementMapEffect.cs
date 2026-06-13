@@ -58,30 +58,27 @@ public partial class DisplacementMapEffect : FilterEffect
                     for (int i = 0; i < effectContext.Targets.Count; i++)
                     {
                         EffectTarget effectTarget = effectContext.Targets[i];
-                        // feature 003: pass the working density so a tile/image/drawable map rasterizes at w
-                        // (the shader is consumed under the Scale(w) CTM below, which its baked Scale(1/w)
-                        // compensates); analytic brushes ignore it. w == 1 is a no-op (byte-identical).
-                        float w = effectContext.WorkingScale;
+                        // feature 003: create the target FIRST so the map brush is built at the buffer's REAL
+                        // density (newTarget.Scale.Value, post-clamp) — NOT nominal WorkingScale, which would
+                        // mis-densify a clamped buffer (FR-037(b)). Its baked Scale(1/w) then matches Open's base
+                        // CTM CreateScale(w). Analytic brushes ignore w. w == 1 is a no-op (byte-identical).
+                        var newTarget = effectContext.CreateTarget(effectTarget.Bounds);
+                        float w = newTarget.Scale.Value;
                         using var displacementMapShader =
                             new BrushConstructor(new Rect(effectTarget.Bounds.Size), brush, BlendMode.SrcOver, w,
                                     effectContext.MaxWorkingScale)
                                 .CreateShader();
 
-                        var newTarget = effectContext.CreateTarget(effectTarget.Bounds);
                         using (var paint = new SKPaint())
                         using (var canvas = effectContext.Open(newTarget))
                         {
                             paint.Shader = displacementMapShader;
                             canvas.Clear();
-                            // feature 003: fill the full ceil(bounds × w) device buffer. At w != 1 prescale so
-                            // the logical DrawRect + brush shader render at working density; w == 1 keeps the
-                            // bare logical rect (byte-identical).
-                            using (w == 1f ? default : canvas.PushTransform(Matrix.CreateScale(w, w)))
-                            {
-                                canvas.Canvas.DrawRect(
-                                    new SKRect(0, 0, effectTarget.Bounds.Width, effectTarget.Bounds.Height),
-                                    paint);
-                            }
+                            // The base CTM CreateScale(w) maps the LOGICAL DrawRect onto the full ceil(bounds × w)
+                            // device buffer at working density; no manual prescale. w == 1 = bare logical rect.
+                            canvas.Canvas.DrawRect(
+                                new SKRect(0, 0, effectTarget.Bounds.Width, effectTarget.Bounds.Height),
+                                paint);
 
                             effectContext.Targets[i] = newTarget;
                         }

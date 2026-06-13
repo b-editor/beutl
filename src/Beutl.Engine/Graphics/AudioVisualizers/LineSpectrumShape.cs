@@ -46,7 +46,7 @@ public sealed partial class LineSpectrumShape : SpectrumShape
             float cornerRadius = smoothness * slotWidth * 0.5f;
 
             _paint ??= new SKPaint();
-            new BrushConstructor(bounds, fill, BlendMode.SrcOver, canvas.OutputScale, canvas.MaxWorkingScale).ConfigurePaint(_paint);
+            new BrushConstructor(bounds, fill, BlendMode.SrcOver, canvas.Density, canvas.MaxWorkingScale).ConfigurePaint(_paint);
             _paint.Style = SKPaintStyle.Stroke;
             _paint.StrokeCap = SKStrokeCap.Round;
             _paint.StrokeJoin = SKStrokeJoin.Round;

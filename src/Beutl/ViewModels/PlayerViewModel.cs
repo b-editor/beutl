@@ -1635,7 +1635,7 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
             var resource = drawable.ToResource(new CompositionContext(CurrentFrame.Value));
             PixelSize frameSize = renderer.FrameSize;
             using var root = new DrawableRenderNode(resource);
-            using (var context = new GraphicsContext2D(root, frameSize))
+            using (var context = new GraphicsContext2D(root, frameSize.ToSize(1)))
             {
                 drawable.Render(context, resource);
             }
@@ -1672,7 +1672,7 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
             var resource = drawable.ToResource(new CompositionContext(CurrentFrame.Value));
             PixelSize frameSize = renderer.FrameSize;
             using var root = new DrawableRenderNode(resource);
-            using (var context = new GraphicsContext2D(root, frameSize))
+            using (var context = new GraphicsContext2D(root, frameSize.ToSize(1)))
             {
                 drawable.Render(context, resource);
             }

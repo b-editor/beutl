@@ -56,7 +56,8 @@ public class Renderer : IRenderer
                                    ?? throw new InvalidOperationException(
                                        $"Could not create a canvas of this size. (width: {DeviceSize.Width}, height: {DeviceSize.Height})");
 
-            var canvas = new ImmediateCanvas(surface, renderScale, maxWorkingScale);
+            var canvas = new ImmediateCanvas(surface, renderScale, maxWorkingScale,
+                logicalSize: FrameSize.ToSize(1));
             return (canvas, surface);
         });
     }
@@ -154,21 +155,12 @@ public class Renderer : IRenderer
             {
                 _immediateCanvas.Clear();
 
-                // Root output scale (feature 003): one CTM scale maps logical content onto the
-                // ceil(FrameSize × RenderScale) device surface. Vector / text / Skia-filter content
-                // re-rasterizes crisply for free. RenderScale == 1 keeps the exact pre-feature path
-                // (byte-identical). The FPS overlay stays unscaled (outside this push).
-                if (RenderScale == 1f)
-                {
-                    RenderObjects(frame);
-                }
-                else
-                {
-                    using (_immediateCanvas.PushTransform(Matrix.CreateScale(RenderScale, RenderScale)))
-                    {
-                        RenderObjects(frame);
-                    }
-                }
+                // Root output scale (feature 003): the canvas bakes the base CTM CreateScale(RenderScale)
+                // at construction, mapping logical content onto the ceil(FrameSize × RenderScale) device
+                // surface — vector / text / Skia-filter content re-rasterizes crisply for free. RenderScale
+                // == 1 is a true no-op base (byte-identical). The FPS overlay re-enters device space itself
+                // (FpsText.FpsDrawer.Dispose -> PushDeviceSpace) so it stays unscaled despite the pinned base.
+                RenderObjects(frame);
             }
         }
         finally
@@ -208,7 +200,7 @@ public class Renderer : IRenderer
 
         if (shouldRender)
         {
-            using var ctx = new GraphicsContext2D(entry.Node, FrameSize, RenderScale);
+            using var ctx = new GraphicsContext2D(entry.Node, FrameSize.ToSize(1), RenderScale);
             drawable.Render(ctx, resource);
         }
 
@@ -306,7 +298,7 @@ public class Renderer : IRenderer
 
             if (shouldRender)
             {
-                using var ctx = new GraphicsContext2D(entry.Node, FrameSize, RenderScale);
+                using var ctx = new GraphicsContext2D(entry.Node, FrameSize.ToSize(1), RenderScale);
                 drawable.Render(ctx, drawableResource);
             }
 

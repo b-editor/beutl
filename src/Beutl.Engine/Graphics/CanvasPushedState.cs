@@ -15,6 +15,21 @@ public partial class ImmediateCanvas
             }
         }
 
+        // feature 003: restores the absolute-device-space state pushed by ImmediateCanvas.PushDeviceSpace —
+        // the matrix via RestoreToCount, plus the current density and Set-base to their PRIOR values (the
+        // enclosing state, so nested device-space blocks unwind correctly rather than jumping to the base).
+        internal record DeviceSpacePushedState(int Count, float PrevDensity, Matrix PrevBaseTransform)
+            : CanvasPushedState
+        {
+            public override void Pop(ImmediateCanvas canvas)
+            {
+                canvas.Canvas.RestoreToCount(Count);
+                canvas._currentTransform = canvas.Canvas.TotalMatrix.ToMatrix();
+                canvas._currentDensity = PrevDensity;
+                canvas._currentBaseTransform = PrevBaseTransform;
+            }
+        }
+
         internal record MaskPushedState(int Count, bool Invert, SKPaint Paint) : CanvasPushedState
         {
             public override void Pop(ImmediateCanvas canvas)

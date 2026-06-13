@@ -73,7 +73,10 @@ public partial class SplitEffect : FilterEffect
                                         divWidth,
                                         divHeight));
 
+                                // feature 003: the crop offset is DEVICE px (× w), so enter absolute device space
+                                // — Open's base CTM CreateScale(w) would otherwise re-scale it. w == 1 = no-op.
                                 using (ImmediateCanvas canvas = effectContext.Open(newTarget))
+                                using (canvas.PushDeviceSpace())
                                 {
                                     canvas.Clear();
                                     canvas.DrawRenderTarget(renderTarget, new Point(-divWidth * h * w, -divHeight * v * w));

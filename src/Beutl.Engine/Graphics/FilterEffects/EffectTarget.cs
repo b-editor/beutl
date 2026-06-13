@@ -74,8 +74,10 @@ public sealed class EffectTarget : IDisposable
             // the buffer still represents the original area — using OriginalBounds would stretch it. Unbounded /
             // unit-scale keeps the bare point blit ONLY on a density-1 canvas (byte-identical pre-feature path);
             // on a scaled canvas the point blit would be CTM-resampled with NEAREST sampling, so route it
-            // through the Mitchell blit instead — same geometry, consistent kernel.
-            if ((Scale.IsUnbounded || Scale.Value == 1f) && canvas.OutputScale == 1f)
+            // through the Mitchell blit instead — same geometry, consistent kernel. feature 003: key off the
+            // CURRENT density (1 ⇔ the active CTM is device-1:1, incl. inside a PushDeviceSpace block), not
+            // the immutable surface density.
+            if ((Scale.IsUnbounded || Scale.Value == 1f) && canvas.Density == 1f)
             {
                 canvas.DrawRenderTarget(RenderTarget, default);
             }

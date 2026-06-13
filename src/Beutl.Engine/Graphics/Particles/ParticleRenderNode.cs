@@ -172,7 +172,7 @@ internal sealed class ParticleRenderNode(ParticleEmitter.Resource particle) : Re
         // 1920×1080 is only the LOGICAL measurement canvas (GraphicsContext2D.Size stays logical); the actual
         // buffer is sized from the drawable bounds below. Thread w as the output scale so the drawable and its
         // sub-pulls rasterize at the active render density (FR-029).
-        using (var gctx = new GraphicsContext2D(node, new PixelSize(1920, 1080), w))
+        using (var gctx = new GraphicsContext2D(node, new Size(1920, 1080), w))
         {
             drawable.GetOriginal().Render(gctx, drawable);
         }
@@ -201,14 +201,12 @@ internal sealed class ParticleRenderNode(ParticleEmitter.Resource particle) : Re
             return null;
         }
 
-        using (var canvas = new ImmediateCanvas(renderTarget, w, maxWorkingScale))
+        using (var canvas = new ImmediateCanvas(renderTarget, w, maxWorkingScale, logicalSize: bounds.Size))
         {
             canvas.Clear();
-            // Translate the LOGICAL origin to (0,0), then prescale by w so logical content fills the denser buffer.
-            Matrix transform = w == 1f
-                ? Matrix.CreateTranslation(-bounds.X, -bounds.Y)
-                : Matrix.CreateTranslation(-bounds.X, -bounds.Y) * Matrix.CreateScale(w, w);
-            using (canvas.PushTransform(transform))
+            // feature 003: the canvas bakes the base CTM CreateScale(w) (identity at w == 1) so logical
+            // content fills the denser buffer; only the logical translation to the bounds origin is needed.
+            using (canvas.PushTransform(Matrix.CreateTranslation(-bounds.X, -bounds.Y)))
             {
                 foreach (var op in ops)
                 {
@@ -230,13 +228,12 @@ internal sealed class ParticleRenderNode(ParticleEmitter.Resource particle) : Re
         var renderTarget = RenderTarget.Create(dim, dim);
         if (renderTarget == null) return null;
 
-        using (var canvas = new ImmediateCanvas(renderTarget, w))
+        using (var canvas = new ImmediateCanvas(renderTarget, w, logicalSize: bounds.Size))
         {
             canvas.Clear();
-            Matrix transform = w == 1f
-                ? Matrix.CreateTranslation(5, 5)
-                : Matrix.CreateTranslation(5, 5) * Matrix.CreateScale(w, w);
-            using (canvas.PushTransform(transform))
+            // feature 003: the canvas bakes the base CTM CreateScale(w); only the logical translation of the
+            // (-5,-5)-origin placeholder bounds to (0,0) is needed.
+            using (canvas.PushTransform(Matrix.CreateTranslation(5, 5)))
             {
                 canvas.DrawEllipse(bounds, Brushes.Resource.White, null);
             }

@@ -71,7 +71,7 @@ public abstract class RenderNodeOperation : IDisposable
         Action<ImmediateCanvas> render = effectiveScale.IsUnbounded || effectiveScale.Value == 1f
             ? canvas =>
             {
-                if (canvas.OutputScale == 1f)
+                if (canvas.Density == 1f)
                     canvas.DrawRenderTarget(renderTarget, position);
                 else
                     canvas.DrawRenderTargetScaled(renderTarget, new Rect(
@@ -92,7 +92,7 @@ public abstract class RenderNodeOperation : IDisposable
         Action<ImmediateCanvas> render = effectiveScale.IsUnbounded || effectiveScale.Value == 1f
             ? canvas =>
             {
-                if (canvas.OutputScale == 1f)
+                if (canvas.Density == 1f)
                     canvas.DrawSurface(surface, position);
                 else
                     canvas.DrawSurfaceScaled(surface, position, 1f);
@@ -107,7 +107,7 @@ public abstract class RenderNodeOperation : IDisposable
         Action<ImmediateCanvas> render = effectiveScale.IsUnbounded || effectiveScale.Value == 1f
             ? canvas =>
             {
-                if (canvas.OutputScale == 1f)
+                if (canvas.Density == 1f)
                     canvas.DrawSurface(surface.Value, position);
                 else
                     canvas.DrawSurfaceScaled(surface.Value, position, 1f);

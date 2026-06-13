@@ -61,16 +61,23 @@ internal sealed class FpsText
                     bounds = bounds.Union(text.Bounds);
                 }
 
-                canvas.DrawRectangle(bounds, s_background, null);
-
-                float y = 0f;
-                foreach (var text in fpsText._texts)
+                // feature 003: the root canvas now bakes the base CTM CreateScale(s_out) (it is never popped),
+                // and the FpsDrawer disposes AFTER the scene Push pops — so without this the overlay would be
+                // drawn at s_out× the intended size. Enter absolute device space so the overlay stays unscaled
+                // (its previous "outside the push" placement). s_out == 1 is a no-op (byte-identical).
+                using (canvas.PushDeviceSpace())
                 {
-                    using (canvas.PushTransform(Matrix.CreateTranslation(0, y)))
+                    canvas.DrawRectangle(bounds, s_background, null);
+
+                    float y = 0f;
+                    foreach (var text in fpsText._texts)
                     {
-                        canvas.DrawText(text, text.Brush!, text.Pen);
+                        using (canvas.PushTransform(Matrix.CreateTranslation(0, y)))
+                        {
+                            canvas.DrawText(text, text.Brush!, text.Pen);
+                        }
+                        y += text.Bounds.Height;
                     }
-                    y += text.Bounds.Height;
                 }
             }
         }

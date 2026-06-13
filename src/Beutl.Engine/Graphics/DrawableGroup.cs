@@ -27,7 +27,7 @@ public sealed partial class DrawableGroup : Drawable, IFlowOperator
         if (resource.IsEnabled)
         {
             var r = (Resource)resource;
-            Size availableSize = context.Size.ToSize(1);
+            Size availableSize = context.Size;
             var boundsMemory = context.UseMemory<Rect>();
             var transformParams = (r.Transform, r.TransformOrigin, availableSize, boundsMemory);
 

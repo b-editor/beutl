@@ -53,15 +53,13 @@ public class RenderNodeProcessor(
         var renderTarget = RenderTarget.Create(rect.Width, rect.Height) ??
                            throw new Exception("RenderTarget is null");
 
-        // feature 003 (CSM3-1): rasterized at density w, so tag OutputScale = w for any backdrop captured here.
-        using var canvas = new ImmediateCanvas(renderTarget, w, MaxWorkingScale);
+        // feature 003: the canvas bakes the working-density base CTM CreateScale(w) (identity at w == 1) and
+        // tags its surface density w for any backdrop captured here. The op only needs the logical translation
+        // to its bounds origin; w == 1 stays byte-identical (no base Save, translation-only).
+        using var canvas = new ImmediateCanvas(renderTarget, w, MaxWorkingScale, logicalSize: op.Bounds.Size);
         canvas.Clear();
 
-        var transform = w == 1f
-            ? Matrix.CreateTranslation(-op.Bounds.X, -op.Bounds.Y)
-            : Matrix.CreateTranslation(-op.Bounds.X, -op.Bounds.Y) * Matrix.CreateScale(w, w);
-
-        using (canvas.PushTransform(transform))
+        using (canvas.PushTransform(Matrix.CreateTranslation(-op.Bounds.X, -op.Bounds.Y)))
         {
             op.Render(canvas);
             op.Dispose();
@@ -96,15 +94,12 @@ public class RenderNodeProcessor(
             using var renderTarget = RenderTarget.Create(rect.Width, rect.Height)
                                      ?? throw new Exception("RenderTarget is null");
 
-            // feature 003 (CSM3-1): rasterized at density w, so tag OutputScale = w for any backdrop captured here.
-            using var canvas = new ImmediateCanvas(renderTarget, w, MaxWorkingScale);
+            // feature 003: the canvas bakes the working-density base CTM CreateScale(w) (identity at w == 1)
+            // and tags its surface density w; the op only needs the logical translation. w == 1 byte-identical.
+            using var canvas = new ImmediateCanvas(renderTarget, w, MaxWorkingScale, logicalSize: op.Bounds.Size);
             canvas.Clear();
 
-            var transform = w == 1f
-                ? Matrix.CreateTranslation(-op.Bounds.X, -op.Bounds.Y)
-                : Matrix.CreateTranslation(-op.Bounds.X, -op.Bounds.Y) * Matrix.CreateScale(w, w);
-
-            using (canvas.PushTransform(transform))
+            using (canvas.PushTransform(Matrix.CreateTranslation(-op.Bounds.X, -op.Bounds.Y)))
             {
                 op.Render(canvas);
                 op.Dispose();
@@ -124,15 +119,12 @@ public class RenderNodeProcessor(
         var rect = w == 1f ? PixelRect.FromRect(bounds) : PixelRect.FromRect(bounds, w);
         using var renderTarget =
             RenderTarget.Create(rect.Width, rect.Height) ?? throw new Exception("RenderTarget is null");
-        // feature 003 (CSM3-1): rasterized at density w, so tag OutputScale = w for any backdrop captured here.
-        using var canvas = new ImmediateCanvas(renderTarget, w, MaxWorkingScale);
+        // feature 003: the canvas bakes the working-density base CTM CreateScale(w) (identity at w == 1) and
+        // tags its surface density w; the ops only need the logical translation. w == 1 byte-identical.
+        using var canvas = new ImmediateCanvas(renderTarget, w, MaxWorkingScale, logicalSize: bounds.Size);
         canvas.Clear();
 
-        var transform = w == 1f
-            ? Matrix.CreateTranslation(-bounds.X, -bounds.Y)
-            : Matrix.CreateTranslation(-bounds.X, -bounds.Y) * Matrix.CreateScale(w, w);
-
-        using (canvas.PushTransform(transform))
+        using (canvas.PushTransform(Matrix.CreateTranslation(-bounds.X, -bounds.Y)))
         {
             foreach (var op in ops)
             {

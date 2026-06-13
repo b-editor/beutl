@@ -41,7 +41,7 @@ public class AudioVisualizerDrawableTests
     {
         using var resource = drawable.ToResource(CompositionContext.Default);
         using var container = new ContainerRenderNode();
-        using var context = new GraphicsContext2D(container, new PixelSize(400, 200), outputScale);
+        using var context = new GraphicsContext2D(container, new Size(400, 200), outputScale);
         drawable.Render(context, resource);
     }
 

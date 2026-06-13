@@ -61,12 +61,11 @@ public sealed partial class TransformEffect : FilterEffect
                         Matrix m2 = -offset2 * data.mat * offset2;
 
                         EffectTarget newTarget = effectContext.CreateTarget(target.Bounds.TransformToAABB(m1));
-                        // Read the density from the target just created, not from effectContext.WorkingScale: a
-                        // TransformToAABB-inflated buffer can trip the FR-037(b) clamp, and the prescale below must
-                        // match the buffer's real density. Unclamped, this equals WorkingScale (byte-identical).
-                        float w = newTarget.Scale.Value;
+                        // feature 003: Open bakes the base CTM CreateScale(density) for this device buffer (density
+                        // from the target, so a TransformToAABB-inflated buffer that tripped the FR-037(b) clamp is
+                        // honored), so the LOGICAL transform placement maps onto it automatically. No manual
+                        // prescale; density 1 stays byte-identical.
                         using var canvas = effectContext.Open(newTarget);
-                        using (w == 1f ? default : canvas.PushTransform(Matrix.CreateScale(w, w)))
                         using (canvas.PushTransform(Matrix.CreateTranslation(target.Bounds.Position - newTarget.Bounds.Position)))
                         using (canvas.PushTransform(m2))
                         {

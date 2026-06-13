@@ -16,17 +16,50 @@ public partial class ImmediateCanvas : ICanvas
     private readonly SKPaint _sharedStrokePaint = new();
     private readonly Stack<CanvasPushedState> _states = new();
     private Matrix _currentTransform;
+    // feature 003: the base CTM CreateScale(SurfaceDensity) is BAKED at construction (identity when
+    // density == 1) so logical geometry maps onto the ceil(logical × density) device buffer automatically.
+    private readonly Matrix _baseTransform;
+    // SKCanvas save depth that PINS the base CTM below every Push/Pop; -1 when density == 1 (no base Save
+    // was taken, so the matrix / save stack is never touched — the byte-identity anchor).
+    private readonly int _baseSaveCount;
+    // The density of the CURRENT coordinate space (push/pop): equals SurfaceDensity normally, 1 inside a
+    // PushDeviceSpace() block. Drives brush fills and nested pulls, which must match the active CTM.
+    private float _currentDensity;
+    // The base matrix the Set transform operator re-applies (push/pop): _baseTransform normally, identity
+    // inside PushDeviceSpace() so an absolute-device Set does not re-inject the surface density.
+    private Matrix _currentBaseTransform;
 
-    public ImmediateCanvas(RenderTarget renderTarget, float outputScale = 1f,
-        float maxWorkingScale = float.PositiveInfinity)
+    public ImmediateCanvas(RenderTarget renderTarget, float density = 1f,
+        float maxWorkingScale = float.PositiveInfinity, Size logicalSize = default)
     {
         _dispatcher = Dispatcher.Current;
-        Size = new PixelSize(renderTarget.Width, renderTarget.Height);
-        OutputScale = outputScale;
-        MaxWorkingScale = maxWorkingScale;
         _renderTarget = renderTarget;
         Canvas = _renderTarget.Value.Canvas;
-        _currentTransform = Canvas.TotalMatrix.ToMatrix();
+        DeviceSize = new PixelSize(renderTarget.Width, renderTarget.Height);
+        // The declared logical viewport. When omitted, assume the buffer is exactly logical × density, i.e.
+        // logical = device ÷ density (exact at density == 1, where logical == device).
+        LogicalSize = logicalSize.IsDefault ? DeviceSize.ToSize(density) : logicalSize;
+        SurfaceDensity = density;
+        _currentDensity = density;
+        MaxWorkingScale = maxWorkingScale;
+        if (density == 1f)
+        {
+            // TRUE no-op — byte-identity anchor. Never touch the matrix or the save stack.
+            _baseTransform = Matrix.Identity;
+            _baseSaveCount = -1;
+            _currentTransform = Canvas.TotalMatrix.ToMatrix();
+        }
+        else
+        {
+            // Pin the base scale below all Push/Pop: SKCanvasPushedState.Pop re-syncs _currentTransform from
+            // TotalMatrix and RestoreToCount can never unwind past this Save, so every pop lands on the base.
+            _baseTransform = Matrix.CreateScale(density, density);
+            _baseSaveCount = Canvas.Save();
+            Canvas.SetMatrix((SKMatrix44)_baseTransform.ToSKMatrix());
+            _currentTransform = _baseTransform;
+        }
+
+        _currentBaseTransform = _baseTransform;
         _renderTarget.BeginDraw();
     }
 
@@ -41,18 +74,33 @@ public partial class ImmediateCanvas : ICanvas
 
     public float Opacity { get; set; } = 1;
 
-    public PixelSize Size { get; }
+    /// <summary>
+    /// The declared LOGICAL viewport of this canvas (feature 003), independent of the device pixel size.
+    /// The base CTM maps it onto the <see cref="DeviceSize"/> buffer. Used as the layout / stretch viewport
+    /// for a nested <see cref="DrawDrawable"/> build context.
+    /// </summary>
+    public Size LogicalSize { get; }
+
+    /// <summary>The physical backing-surface size in device pixels (<c>ceil(LogicalSize × SurfaceDensity)</c>).</summary>
+    public PixelSize DeviceSize { get; }
 
     /// <summary>
-    /// The pixel density this canvas's surface is rasterized at (device pixels per logical unit,
-    /// feature 003), fixed at construction. On the root canvas this is the request's output scale
-    /// <c>s_out</c>; on a nested canvas (effect flush, <c>RasterizeAt</c>, custom-effect target, brush
-    /// intermediate) it is that buffer's working density <c>w</c>. Consumed by the snapshot-backdrop
-    /// path (a capture must be un-scaled by the density it was taken at) and by the brush fill sites,
-    /// which rasterize tile/image/drawable brush content at this density. Immutable so a
-    /// buffer-allocating path can never silently mis-tag its capture density.
+    /// The pixel density of the CURRENT coordinate space (feature 003): device pixels per unit of the space
+    /// the next draw call uses. Equals <see cref="SurfaceDensity"/> normally; 1 inside a
+    /// <see cref="PushDeviceSpace"/> block. Brush fills and nested pulls read this so they match the active
+    /// CTM (a device-space block must not re-densify brush content).
     /// </summary>
-    public float OutputScale { get; }
+    public float Density => _currentDensity;
+
+    /// <summary>
+    /// The immutable density the backing surface is rasterized at (feature 003): device pixels per logical
+    /// unit, fixed at construction. The base CTM is <c>CreateScale(SurfaceDensity)</c>, and a
+    /// <see cref="Snapshot"/> captures the whole surface at this density (NOT <see cref="Density"/>, which a
+    /// device-space block lowers to 1, so keying a capture off it would mis-tag it). On the root canvas this
+    /// is the request's output scale <c>s_out</c>; on a nested buffer it is that buffer's working density
+    /// <c>w</c>.
+    /// </summary>
+    public float SurfaceDensity { get; }
 
     /// <summary>
     /// The working-scale ceiling (feature 003, FR-037) of the render request this canvas belongs to,
@@ -65,7 +113,10 @@ public partial class ImmediateCanvas : ICanvas
     public Matrix Transform
     {
         get { return _currentTransform; }
-        set
+        // feature 003: a raw SetMatrix that bypasses the base CTM. internal so out-of-tree code cannot
+        // clobber the pinned base (public mutation goes through PushTransform). A read-then-set such as
+        // `Transform = m * Transform` still preserves the base because the getter includes it.
+        internal set
         {
             if (_currentTransform == value)
                 return;
@@ -105,6 +156,15 @@ public partial class ImmediateCanvas : ICanvas
     {
         void DisposeCore()
         {
+            // feature 003: undo the base Save() taken at construction (density != 1) so a pooled / reused
+            // RenderTarget's SKCanvas does not inherit this canvas's save depth or base matrix on its next
+            // Open. The density == 1 path took no base Save (_baseSaveCount < 0), so it restores nothing —
+            // the byte-identity anchor is preserved.
+            if (_baseSaveCount >= 0)
+            {
+                Canvas.RestoreToCount(_baseSaveCount);
+            }
+
             GraphicsContextFactory.SharedContext?.SkiaContext.Flush(true, true);
             _sharedFillPaint.Dispose();
             _sharedStrokePaint.Dispose();
@@ -187,17 +247,20 @@ public partial class ImmediateCanvas : ICanvas
     public void DrawDrawable(Drawable.Resource drawable)
     {
         using var node = new DrawableRenderNode(drawable);
-        using var context = new GraphicsContext2D(node, Size);
+        // feature 003: the nested build context gets the LOGICAL viewport (NOT the device buffer size — that
+        // was a latent bug: device px fed where a logical size is expected) so layout / stretch stays
+        // scale-independent, plus the current density so its sub-pulls rasterize to match this canvas.
+        using var context = new GraphicsContext2D(node, LogicalSize, _currentDensity);
         drawable.GetOriginal().Render(context, drawable);
-        // Forward this canvas's density and ceiling so the nested pull rasterizes at the surface
+        // Forward this canvas's current density and ceiling so the nested pull rasterizes at the surface
         // density and cannot escape the request's FR-037 ceiling.
-        var processor = new RenderNodeProcessor(node, true, OutputScale, MaxWorkingScale);
+        var processor = new RenderNodeProcessor(node, true, _currentDensity, MaxWorkingScale);
         processor.Render(this);
     }
 
     public void DrawNode(RenderNode node)
     {
-        var processor = new RenderNodeProcessor(node, true, OutputScale, MaxWorkingScale);
+        var processor = new RenderNodeProcessor(node, true, _currentDensity, MaxWorkingScale);
         processor.Render(this);
     }
 
@@ -209,9 +272,10 @@ public partial class ImmediateCanvas : ICanvas
     public IBackdrop Snapshot()
     {
         // feature 003 (CSM-3/CSM3-1): record the density this surface was captured at so the backdrop
-        // un-scales by it on replay. OutputScale is the surface density — s_out on the root canvas, the
-        // working density w on a nested flush canvas.
-        return new TmpBackdrop(_renderTarget.Snapshot(), OutputScale);
+        // un-scales by it on replay. SurfaceDensity (NOT the current Density, which a device-space block
+        // lowers to 1) is the whole surface's density — s_out on the root canvas, the working density w on
+        // a nested flush canvas.
+        return new TmpBackdrop(_renderTarget.Snapshot(), SurfaceDensity);
     }
 
     public void DrawBitmap(Bitmap bmp, Brush.Resource? fill, Pen.Resource? pen)
@@ -468,7 +532,7 @@ public partial class ImmediateCanvas : ICanvas
         var paint = new SKPaint();
 
         int count = Canvas.SaveLayer(paint);
-        new BrushConstructor(bounds, mask, (BlendMode)paint.BlendMode, OutputScale, MaxWorkingScale).ConfigurePaint(paint);
+        new BrushConstructor(bounds, mask, (BlendMode)paint.BlendMode, _currentDensity, MaxWorkingScale).ConfigurePaint(paint);
         _states.Push(new CanvasPushedState.MaskPushedState(count, invert, paint));
         return new PushedState(this, _states.Count);
     }
@@ -488,10 +552,36 @@ public partial class ImmediateCanvas : ICanvas
         }
         else
         {
-            Transform = matrix;
+            // feature 003: Set re-applies the CURRENT base CTM (surface density, or identity inside a
+            // PushDeviceSpace block) instead of clobbering it to a bare matrix — so an absolute Set keeps
+            // the canvas in the right coordinate space. At density 1 the base is identity (byte-identical).
+            Transform = _currentBaseTransform.Prepend(matrix);
         }
 
         _states.Push(new CanvasPushedState.SKCanvasPushedState(count));
+        return new PushedState(this, _states.Count);
+    }
+
+    /// <summary>
+    /// feature 003: enter ABSOLUTE device space for the lifetime of the returned state — the CTM becomes
+    /// identity (1 unit = 1 device px), <see cref="Density"/> drops to 1, and the Set base becomes identity,
+    /// all restored to the prior values on dispose (so nesting returns to the enclosing state, not the base).
+    /// Use it to draw device-px content (a contour traced from the device buffer, a point-blit of another
+    /// device buffer, a full-buffer shader rect) onto a density-aware canvas. At <see cref="SurfaceDensity"/>
+    /// == 1 with no ambient transform the CTM is already identity, so this is a no-op-shaped block.
+    /// </summary>
+    public PushedState PushDeviceSpace()
+    {
+        VerifyAccess();
+        int count = Canvas.Save();
+        var state = new CanvasPushedState.DeviceSpacePushedState(count, _currentDensity, _currentBaseTransform);
+
+        Canvas.SetMatrix((SKMatrix44)Matrix.Identity.ToSKMatrix());
+        _currentTransform = Matrix.Identity;
+        _currentDensity = 1f;
+        _currentBaseTransform = Matrix.Identity;
+
+        _states.Push(state);
         return new PushedState(this, _states.Count);
     }
 
@@ -522,13 +612,13 @@ public partial class ImmediateCanvas : ICanvas
         if (pen != null && pen.Thickness != 0)
         {
             _sharedStrokePaint.IsStroke = false;
-            new BrushConstructor(bounds, pen.Brush, blendMode, OutputScale, MaxWorkingScale).ConfigurePaint(_sharedStrokePaint);
+            new BrushConstructor(bounds, pen.Brush, blendMode, _currentDensity, MaxWorkingScale).ConfigurePaint(_sharedStrokePaint);
         }
     }
 
     private void ConfigureFillPaint(Rect bounds, Brush.Resource? brush, BlendMode blendMode = BlendMode.SrcOver)
     {
         _sharedFillPaint.Reset();
-        new BrushConstructor(bounds, brush, blendMode, OutputScale, MaxWorkingScale).ConfigurePaint(_sharedFillPaint);
+        new BrushConstructor(bounds, brush, blendMode, _currentDensity, MaxWorkingScale).ConfigurePaint(_sharedFillPaint);
     }
 }

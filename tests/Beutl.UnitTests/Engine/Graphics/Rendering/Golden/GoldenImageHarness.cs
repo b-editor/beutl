@@ -22,13 +22,15 @@ internal static class GoldenImageHarness
         int dh = (int)MathF.Ceiling(logicalSize.Height * scale);
         using RenderTarget target = RenderTarget.Create(dw, dh)
                                     ?? throw new InvalidOperationException("RenderTarget.Create returned null.");
-        using var canvas = new ImmediateCanvas(target, scale);
+        // feature 003: the canvas bakes the base CTM CreateScale(scale) at construction (identity at
+        // scale == 1) — exactly the model Renderer.Render uses — so no self-push is needed below.
+        using var canvas = new ImmediateCanvas(target, scale, logicalSize: logicalSize.ToSize(1));
         canvas.Clear(Colors.Black);
 
         // Mirror Renderer.RenderDrawable exactly: layout uses the LOGICAL frame size (so alignment /
-        // centering is scale-independent); the root CreateScale(scale) CTM maps it onto the device surface.
+        // centering is scale-independent); the canvas's base CTM maps it onto the device surface.
         using var node = new DrawableRenderNode(resource);
-        using (var ctx = new GraphicsContext2D(node, logicalSize, scale))
+        using (var ctx = new GraphicsContext2D(node, logicalSize.ToSize(1), scale))
         {
             resource.GetOriginal().Render(ctx, resource);
         }
@@ -36,25 +38,10 @@ internal static class GoldenImageHarness
         var processor = new RenderNodeProcessor(node, useRenderCache: false, outputScale: scale);
         RenderNodeOperation[] ops = processor.PullToRoot();
 
-        void RenderOps()
+        foreach (RenderNodeOperation op in ops)
         {
-            foreach (RenderNodeOperation op in ops)
-            {
-                op.Render(canvas);
-                op.Dispose();
-            }
-        }
-
-        if (scale == 1f)
-        {
-            RenderOps();
-        }
-        else
-        {
-            using (canvas.PushTransform(Matrix.CreateScale(scale, scale)))
-            {
-                RenderOps();
-            }
+            op.Render(canvas);
+            op.Dispose();
         }
 
         return target.Snapshot();

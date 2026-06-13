@@ -90,7 +90,10 @@ public partial class DisplacementMapTranslateTransform : DisplacementMapTransfor
                 {
                     using EffectTarget effectTarget = c.Targets[i];
                     var renderTarget = effectTarget.RenderTarget!;
-                    float w = c.WorkingScale;
+                    // feature 003: use the CLAMPED density that ApplyToNewTarget's CreateTarget will resolve
+                    // (FR-037(b)) so the device-px uniforms / map brush match the buffer. Unclamped = WorkingScale.
+                    float w = Beutl.Graphics.Rendering.RenderNodeContext.ClampWorkingScaleToBufferBudget(
+                        effectTarget.Bounds, c.WorkingScale);
                     using var displacementMapShaderRaw =
                         new BrushConstructor(new(effectTarget.Bounds.Size), map, BlendMode.SrcOver, w,
                                 c.MaxWorkingScale)
@@ -220,7 +223,10 @@ public partial class DisplacementMapScaleTransform : DisplacementMapTransform
                 {
                     using var effectTarget = c.Targets[i];
                     var renderTarget = effectTarget.RenderTarget!;
-                    float w = c.WorkingScale;
+                    // feature 003: use the CLAMPED density that ApplyToNewTarget's CreateTarget will resolve
+                    // (FR-037(b)) so the device-px uniforms / map brush match the buffer. Unclamped = WorkingScale.
+                    float w = Beutl.Graphics.Rendering.RenderNodeContext.ClampWorkingScaleToBufferBudget(
+                        effectTarget.Bounds, c.WorkingScale);
                     using var displacementMapShaderRaw =
                         new BrushConstructor(new(effectTarget.Bounds.Size), map, BlendMode.SrcOver, w,
                                 c.MaxWorkingScale)
@@ -349,7 +355,10 @@ public partial class DisplacementMapRotationTransform : DisplacementMapTransform
                 {
                     using var effectTarget = c.Targets[i];
                     var renderTarget = effectTarget.RenderTarget!;
-                    float w = c.WorkingScale;
+                    // feature 003: use the CLAMPED density that ApplyToNewTarget's CreateTarget will resolve
+                    // (FR-037(b)) so the device-px uniforms / map brush match the buffer. Unclamped = WorkingScale.
+                    float w = Beutl.Graphics.Rendering.RenderNodeContext.ClampWorkingScaleToBufferBudget(
+                        effectTarget.Bounds, c.WorkingScale);
                     using var displacementMapShaderRaw =
                         new BrushConstructor(new(effectTarget.Bounds.Size), map, BlendMode.SrcOver, w,
                                 c.MaxWorkingScale)

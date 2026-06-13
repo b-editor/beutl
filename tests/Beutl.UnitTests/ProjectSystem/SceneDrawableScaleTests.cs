@@ -58,7 +58,7 @@ public class SceneDrawableScaleTests
     {
         Drawable.Resource resource = drawable.ToResource(new CompositionContext(TimeSpan.Zero));
         var root = new DrawableRenderNode(resource);
-        using (var ctx = new GraphicsContext2D(root, inner.FrameSize, outputScale))
+        using (var ctx = new GraphicsContext2D(root, inner.FrameSize.ToSize(1), outputScale))
         {
             drawable.Render(ctx, resource);
         }

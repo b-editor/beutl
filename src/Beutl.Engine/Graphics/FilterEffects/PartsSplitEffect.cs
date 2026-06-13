@@ -90,7 +90,11 @@ public partial class PartsSplitEffect : FilterEffect
                             pathBounds.Width / w,
                             pathBounds.Height / w);
                         EffectTarget newTarget = context.CreateTarget(bounds);
+                        // feature 003: the clip path, its bounds translation and the source blit are all DEVICE px
+                        // (the skpath was traced in the device buffer), so enter absolute device space — Open's
+                        // base CTM CreateScale(w) would otherwise re-scale them. w == 1 = no-op.
                         using (ImmediateCanvas newCanvas = context.Open(newTarget))
+                        using (newCanvas.PushDeviceSpace())
                         using (newCanvas.PushTransform(Matrix.CreateTranslation(-pathBounds.Left, -pathBounds.Top)))
                         {
                             newCanvas.Clear();

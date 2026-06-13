@@ -31,7 +31,7 @@ public class CustomTargetClampConsistencyTests
                 "an in-budget buffer must keep the context working scale");
 
             using ImmediateCanvas canvas = context.Open(target);
-            Assert.That(canvas.OutputScale, Is.EqualTo(target.Scale.Value).Within(1e-4),
+            Assert.That(canvas.SurfaceDensity, Is.EqualTo(target.Scale.Value).Within(1e-4),
                 "Open must tag the canvas with the target's actual density");
         });
     }
@@ -59,9 +59,9 @@ public class CustomTargetClampConsistencyTests
             // The fix: Open tags the canvas with the CLAMPED density, not the un-clamped context WorkingScale,
             // so a consumer pushing CreateScale(target.Scale.Value) draws into the buffer at its real density.
             using ImmediateCanvas canvas = context.Open(target);
-            Assert.That(canvas.OutputScale, Is.EqualTo(target.Scale.Value).Within(1e-4),
+            Assert.That(canvas.SurfaceDensity, Is.EqualTo(target.Scale.Value).Within(1e-4),
                 "Open must tag the canvas with the clamped density (#6 desync fix), not context.WorkingScale (2.0)");
-            Assert.That(canvas.OutputScale, Is.LessThan(2f));
+            Assert.That(canvas.SurfaceDensity, Is.LessThan(2f));
         });
     }
 }
