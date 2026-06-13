@@ -201,8 +201,13 @@ public sealed partial class SceneDrawable : Drawable
                         renderer.Render(frame.Value);
                         RenderTarget renderTarget = Renderer.GetInternalRenderTarget(renderer);
                         // The inner surface is ceil(size × w) device px. At w == 1 keep the bare point blit
-                        // (byte-identical); at w != 1 draw it into the LOGICAL bounds so the ambient CreateScale(w)
-                        // CTM maps the denser buffer 1:1 onto the device surface (crisp under SSAA export).
+                        // (byte-identical); at w != 1 draw it into the LOGICAL bounds so the draw canvas's baked
+                        // base CTM CreateScale(w) maps the denser buffer 1:1 onto the device surface (crisp under
+                        // SSAA export). NOTE: a bare point-blit is device-1:1-correct only when BOTH the buffer is
+                        // density-1 AND the draw canvas is device-1:1. We gate on the inner-renderer scale `w`
+                        // because FR-022 wires it to equal the draw-time canvas.Density (the nested scene inherits
+                        // the outer scale), so `w == 1f` is the device-1:1 condition. If that coupling ever breaks,
+                        // switch this to `canvas.Density == 1f` (the draw-time signal RenderNodeOperation uses).
                         if (w == 1f)
                         {
                             canvas.DrawRenderTarget(renderTarget, default);

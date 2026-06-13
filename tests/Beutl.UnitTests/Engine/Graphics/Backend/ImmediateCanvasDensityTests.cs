@@ -1,5 +1,7 @@
-﻿using Beutl.Graphics;
+﻿using Beutl.Composition;
+using Beutl.Graphics;
 using Beutl.Graphics.Rendering;
+using Beutl.Graphics.Shapes;
 using Beutl.Media;
 
 namespace Beutl.UnitTests.Engine.Graphics.Backend;
@@ -216,6 +218,63 @@ public class ImmediateCanvasDensityTests
                 Assert.That(canvas2.Transform, Is.EqualTo(Matrix.Identity),
                     "a reused RenderTarget must not carry the prior canvas's base CTM");
             }
+        });
+    }
+
+    [Test]
+    public void PushDeviceSpace_ThenSet_IsAbsoluteDevice()
+    {
+        VulkanTestEnvironment.EnsureAvailable();
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            using var target = RenderTarget.Create(200, 100)!;
+            using var canvas = new ImmediateCanvas(target, 2f, logicalSize: new Size(100, 50));
+
+            using (canvas.PushDeviceSpace())
+            {
+                var m = Matrix.CreateTranslation(7, 9);
+                using (canvas.PushTransform(m, TransformOperator.Set))
+                {
+                    // Inside device space the Set-base is identity, so Set yields the bare matrix (no surface
+                    // density re-injected) — an absolute device-px Set, exactly what device code expects.
+                    Assert.That(canvas.Transform, Is.EqualTo(m));
+                }
+            }
+        });
+    }
+
+    // feature 003: the DrawDrawable latent-bug fix — the nested build context must get the LOGICAL viewport,
+    // not the device buffer size. A centred shape lands at the LOGICAL centre; if DrawDrawable fed the device
+    // size (the old bug) the shape would centre against the 2x-larger viewport and miss the device centre.
+    [Test]
+    public void DrawDrawable_CentresAgainstLogicalViewport_NotDeviceSize()
+    {
+        VulkanTestEnvironment.EnsureAvailable();
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            var shape = new RectShape();
+            shape.Width.CurrentValue = 10;
+            shape.Height.CurrentValue = 10;
+            shape.AlignmentX.CurrentValue = AlignmentX.Center;
+            shape.AlignmentY.CurrentValue = AlignmentY.Center;
+            shape.Fill.CurrentValue = Brushes.White;
+            Drawable.Resource resource = shape.ToResource(CompositionContext.Default);
+
+            using var target = RenderTarget.Create(100, 100)!; // device = ceil(50 logical x 2)
+            using (var canvas = new ImmediateCanvas(target, 2f, logicalSize: new Size(50, 50)))
+            {
+                canvas.Clear(Colors.Black);
+                canvas.DrawDrawable(resource);
+            }
+
+            using Bitmap snap = target.Snapshot();
+            // logical centre (25,25) -> device (50,50); the 10-logical shape occupies device (40,40)-(60,60).
+            Assert.That(IsWhite(snap, 50, 50), Is.True,
+                "the shape should centre against the LOGICAL 50x50 viewport (device centre)");
+            Assert.That(IsWhite(snap, 95, 95), Is.False,
+                "if DrawDrawable used the device size as the viewport, the shape would drift toward the corner");
+
+            resource.Dispose();
         });
     }
 

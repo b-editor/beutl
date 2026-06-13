@@ -184,8 +184,10 @@ public sealed class FilterEffectContext : IDisposable
                         {
                             canvas.Clear();
                             // The blur sigma and the shadow offset (both absolute logical px) scale to device by the
-                            // working density. w == 1 keeps the pre-feature path (byte-identical).
-                            float w = context.WorkingScale;
+                            // buffer's REAL density. Read it from the target just created, NOT context.WorkingScale,
+                            // so a buffer-budget clamp (FR-037(b)) keeps the device-px offset/sigma in sync with the
+                            // (smaller) buffer — matching the BlendMode sibling. w == 1 keeps the pre-feature path.
+                            float w = newTarget.Scale.Value;
                             using var blur = SKImageFilter.CreateBlur(data.sigma.Width * w, data.sigma.Height * w);
                             using var blend = SKColorFilter.CreateBlendMode(data.color.ToSKColor(), SKBlendMode.SrcOut);
                             using var filter = SKImageFilter.CreateColorFilter(blend, blur);

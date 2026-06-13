@@ -90,12 +90,11 @@ internal sealed class TmpBackdrop(Bitmap bitmap, float captureScale) : IBackdrop
     public void Draw(ImmediateCanvas canvas)
     {
         // feature 003 (CSM-3/CSM3-1): the capture is the device-sized backing surface
-        // (ceil(frame × captureScale) px). Un-scale by the scale it was CAPTURED at — NOT the replay
-        // canvas's OutputScale — because when the backdrop is replayed inside a buffer-flushing
-        // FilterEffect, Draw runs on a nested canvas whose OutputScale is that buffer's working density w
-        // (≠ the capture density); keying off that would mis-size the capture under the flush's
-        // CreateScale(w) CTM. Mapping it into its logical footprint lets the active CTM map it back.
-        // captureScale == 1 keeps the bare blit.
+        // (ceil(frame × captureScale) px). Un-scale by the SurfaceDensity it was CAPTURED at — NOT the replay
+        // canvas's density — because when the backdrop is replayed inside a buffer-flushing FilterEffect, Draw
+        // runs on a nested canvas whose SurfaceDensity is that buffer's working density w (≠ the capture
+        // density); keying off that would mis-size the capture under the flush's baked CreateScale(w) base CTM.
+        // Mapping it into its logical footprint lets the active CTM map it back. captureScale == 1 = bare blit.
         if (captureScale == 1f)
         {
             canvas.DrawBitmap(bitmap, Brushes.Resource.White, null);
