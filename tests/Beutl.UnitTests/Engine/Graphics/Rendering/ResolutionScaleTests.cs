@@ -41,7 +41,8 @@ public class ResolutionScaleTests
     // --- ResolveWorkingScale: the supply-driven core ---------------------------------
     // There is no resolution policy: every boundary runs at the supply density, bounded only by the global
     // memory ceiling. (The former Inherit/ClampToOutput/Oversample policy was removed — an effect needing a
-    // different working scale overrides FilterEffectRenderNode.ResolveWorkingScale instead.)
+    // different working scale overrides Process in a FilterEffectRenderNode subclass returned from
+    // FilterEffect.Resource.CreateRenderNode() instead.)
 
     [Test]
     public void Resolve_AllVectorInputs_RastersAtOutputScale()

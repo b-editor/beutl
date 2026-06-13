@@ -35,8 +35,8 @@ internal sealed class ParticleRenderNode(ParticleEmitter.Resource particle) : Re
 
         // feature 003 (FR-029): honor the active render scale — rasterize the per-particle drawable into a
         // ceil(bounds × w) buffer (not a fixed 1x one) so it stays crisp under supersampled export and does not
-        // over-allocate under reduced-scale preview. Particles use the default Inherit policy and have no concrete
-        // bitmap input, so the working density is just the output scale.
+        // over-allocate under reduced-scale preview. Particles have no concrete bitmap input (each per-particle
+        // drawable re-rasterizes), so the supply-driven working density is just the output scale s_out.
         float w = context.OutputScale;
         if (!_cachedRenderTarget.HasValue ||
             _renderScale != w ||

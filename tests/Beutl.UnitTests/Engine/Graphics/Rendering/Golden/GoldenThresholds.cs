@@ -11,8 +11,8 @@ internal static class GoldenThresholds
 
     // NOTE: a mixed-scale composite-seam threshold lived here, but a meaningful seam test needs two adjacent
     // regions at DIFFERENT working densities, which no built-in effect can produce (every boundary runs at its
-    // supply density). It is deferred until a custom FilterEffectRenderNode that overrides ResolveWorkingScale
-    // exists to drive a divergent working scale.
+    // supply density). It is deferred until a custom FilterEffectRenderNode subclass that overrides Process to
+    // drive a divergent working scale exists.
 
     /// <summary>
     /// Degradation TOLERANCE, not a quality gate: a supersampled render's SSIM-to-truth may fall below the

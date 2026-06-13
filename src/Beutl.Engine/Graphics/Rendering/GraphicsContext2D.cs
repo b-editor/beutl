@@ -23,8 +23,11 @@ public sealed class GraphicsContext2D(
     public PixelSize Size => canvasSize;
 
     /// <summary>
-    /// The output scale <c>s_out</c> for this context (feature 003). <see cref="Size"/> stays logical;
-    /// the scale is consumed where a logical canvas footprint must become a device size (e.g. backdrops).
+    /// The output scale <c>s_out</c> this context was built for (feature 003). <see cref="Size"/> stays logical.
+    /// It is threaded from every construction site so the value is available, but it is currently NOT read by
+    /// the build phase: <see cref="DrawBackdrop"/> keeps a logical region (the root CTM applies the scale) and
+    /// capture-scale reconciliation (FR-021) is done at replay via the snapshot's own capture scale, not this
+    /// value. Retained as the seam for a future build-phase consumer that needs the device footprint here.
     /// </summary>
     public float OutputScale => outputScale;
 
