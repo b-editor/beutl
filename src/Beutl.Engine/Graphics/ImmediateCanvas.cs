@@ -573,6 +573,17 @@ public partial class ImmediateCanvas : ICanvas
     public PushedState PushDeviceSpace()
     {
         VerifyAccess();
+
+        // True no-op when the current space is ALREADY absolute device space (current density 1, identity CTM
+        // and identity Set-base): entering would only emit a redundant Save + SetMatrix(identity). Skipping it
+        // keeps the density-1 path's SKCanvas command stream byte-identical to the pre-feature path (so a
+        // device-effect like InnerShadow draws the exact same blur SaveLayer it did before this feature).
+        if (_currentDensity == 1f && _currentTransform.IsIdentity && _currentBaseTransform.IsIdentity)
+        {
+            _states.Push(CanvasPushedState.NoOpPushedState.Instance);
+            return new PushedState(this, _states.Count);
+        }
+
         int count = Canvas.Save();
         var state = new CanvasPushedState.DeviceSpacePushedState(count, _currentDensity, _currentBaseTransform);
 

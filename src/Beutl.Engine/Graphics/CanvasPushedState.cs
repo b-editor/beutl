@@ -15,6 +15,18 @@ public partial class ImmediateCanvas
             }
         }
 
+        // feature 003: a state that pops to nothing — pushed by PushDeviceSpace when the canvas is ALREADY in
+        // absolute device space (density 1, identity CTM), so no Save / SetMatrix was emitted and the SKCanvas
+        // command stream stays byte-identical to the pre-feature path.
+        internal sealed record NoOpPushedState : CanvasPushedState
+        {
+            public static readonly NoOpPushedState Instance = new();
+
+            public override void Pop(ImmediateCanvas canvas)
+            {
+            }
+        }
+
         // feature 003: restores the absolute-device-space state pushed by ImmediateCanvas.PushDeviceSpace —
         // the matrix via RestoreToCount, plus the current density and Set-base to their PRIOR values (the
         // enclosing state, so nested device-space blocks unwind correctly rather than jumping to the base).
