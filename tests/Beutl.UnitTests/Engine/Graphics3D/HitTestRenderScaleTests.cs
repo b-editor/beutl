@@ -2,9 +2,13 @@
 
 using Beutl.Composition;
 using Beutl.Graphics;
+using Beutl.Graphics.Backend;
 using Beutl.Graphics3D;
 using Beutl.Graphics3D.Camera;
+using Beutl.Graphics3D.Lighting;
 using Beutl.Graphics3D.Primitives;
+using Beutl.Media;
+using Beutl.UnitTests.Engine.Graphics.Backend;
 
 namespace Beutl.UnitTests.Engine.Graphics3D;
 
@@ -123,5 +127,52 @@ public class HitTestRenderScaleTests
 
         Assert.That(ndcX, Is.EqualTo(0.0).Within(1e-6));
         Assert.That(ndcY, Is.EqualTo(0.0).Within(1e-6));
+    }
+
+    // End-to-end guard through the REAL Renderer3D: render the sphere at RenderScale = scale (device surface
+    // ceil(logical × scale), exactly as Scene3DRenderNode sizes it) and hit-test the LOGICAL centre via the
+    // live Renderer3D.HitTest, which applies its own ToDevice(× RenderScale). Unlike the CPU tests above this
+    // would fail if Renderer3D.ToDevice itself regressed. Requires a 3D-capable GPU; skips otherwise.
+    [TestCase(0.5f)]
+    [TestCase(1.0f)]
+    [TestCase(2.0f)]
+    public void RealRenderer3D_CenterLogicalPoint_HitsSameObject_AcrossScales(float scale)
+    {
+        IGraphicsContext ctx = VulkanTestEnvironment.EnsureAvailable();
+        if (!ctx.Supports3DRendering)
+        {
+            Assert.Ignore("3D rendering is not supported on this GPU.");
+        }
+
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            var context = new CompositionContext(TimeSpan.Zero);
+            (Camera3D.Resource camera, Sphere3D.Resource sphere) = BuildScene(context);
+            var objects = new List<Object3D.Resource> { sphere };
+
+            var keyLight = new DirectionalLight3D();
+            keyLight.Direction.CurrentValue = Vector3.Normalize(new Vector3(0, 0, -1));
+            keyLight.Color.CurrentValue = Colors.White;
+            keyLight.Intensity.CurrentValue = 1f;
+            keyLight.IsEnabled = true;
+            var lights = new List<Light3D.Resource> { (Light3D.Resource)keyLight.ToResource(context) };
+
+            int deviceWidth = ToDeviceExtent(LogicalWidth, scale);
+            int deviceHeight = ToDeviceExtent(LogicalHeight, scale);
+
+            using var renderer = new Renderer3D(ctx);
+            renderer.Initialize(deviceWidth, deviceHeight);
+            renderer.RenderScale = scale; // mirrors Scene3DRenderNode: device surface is ceil(logical × scale)
+            renderer.Render(context, camera, objects, lights, Colors.Black, Colors.White, 0.1f);
+
+            var logicalCenter = new Point(LogicalWidth / 2f, LogicalHeight / 2f);
+            Object3D.Resource? hit = renderer.HitTest(logicalCenter);
+
+            Assert.That(hit, Is.SameAs(sphere),
+                $"the live Renderer3D.HitTest must hit the centred sphere at render scale {scale}");
+
+            sphere.Dispose();
+            camera.Dispose();
+        });
     }
 }

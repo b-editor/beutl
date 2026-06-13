@@ -93,7 +93,52 @@ public class ShaderScaleUniformTests
         });
     }
 
-    // ---- (b)/(c) GLSL anchored to DEVICE-px Width/Height. fragCoord is normalized 0..1 (the fullscreen
+    // ---- (b) scale-AWARE SKSL reading iScale at a REDUCED scale. EffectScaleParityTests already covers the
+    // SUPERSAMPLE (s_out=2) direction; this covers the reduced-preview (s_out=0.5) direction, where iScale < 1
+    // must shrink an absolute-px literal so the disc keeps the SAME logical radius. If iScale did NOT plumb
+    // through (stayed 1.0), the disc would be twice the logical size at 0.5 and the reduced-vs-1.0 comparison
+    // would fail. A fixed-logical-radius (28 px) green disc, centred via iResolution. ----
+    private const string SkslDiscScript =
+        """
+        uniform shader src;
+        uniform float2 iResolution;
+        uniform float iScale;
+
+        half4 main(float2 fragCoord) {
+            half4 c = src.eval(fragCoord);
+            float2 center = iResolution * 0.5;
+            float radius = 28.0 * iScale;
+            if (length(fragCoord - center) <= radius) {
+                return half4(0.0, 1.0, 0.0, 1.0);
+            }
+            return c;
+        }
+        """;
+
+    private static FilterEffect MakeSkslDiscEffect()
+    {
+        var e = new SKSLScriptEffect();
+        e.Script.CurrentValue = SkslDiscScript;
+        return e;
+    }
+
+    [Test]
+    public void Sksl_iScaleAware_ReducedScale_MatchesReference()
+    {
+        Assert.That(SKSLScriptEffect.ValidateScript(SkslDiscScript), Is.Null, "iScale disc SKSL must compile");
+
+        VulkanTestEnvironment.EnsureAvailable();
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            using Bitmap full = GoldenImageHarness.RenderAtScale(Make(MakeSkslDiscEffect), Frame, 1f);
+            using Bitmap half = GoldenImageHarness.RenderAtScale(Make(MakeSkslDiscEffect), Frame, 0.5f);
+            // Upscales the 0.5 render and asserts SSIM >= 0.985 / MAE <= 0.02 against the 1.0 reference: the
+            // iScale-shrunk disc must occupy the same logical region at reduced scale.
+            GoldenImageHarness.AssertReducedScaleExact(full, half);
+        });
+    }
+
+    // ---- (c) GLSL anchored to DEVICE-px Width/Height. fragCoord is normalized 0..1 (the fullscreen
     // triangle in GLSLFilterPipeline), so device px = fragCoord * size. A border of FIXED LOGICAL thickness
     // (10 px) requires deriving the working scale from the device-px Width (w = pc.width / 200). If Width did
     // NOT carry device px (× w), the border would thin/shift at w == 2 and the supersampled-then-downscaled
