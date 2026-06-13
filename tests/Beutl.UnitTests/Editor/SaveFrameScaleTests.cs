@@ -77,4 +77,17 @@ public class SaveFrameScaleTests
     {
         Assert.That(SaveFrameScale.Factors, Is.EqualTo(new[] { 0.5f, 1f, 2f, 4f }));
     }
+
+    // A non-empty source always produces a renderable surface (>= 1 px/axis), even at the 0.5 floor; only a
+    // degenerate 0-area source (an element that renders nothing) does not, so the save path must not offer it.
+    [TestCase(1920, 1080, 1f, true)]
+    [TestCase(1920, 1080, 0.5f, true)]
+    [TestCase(1, 1, 0.5f, true)] // ceil(1 × 0.5) = 1 on each axis
+    [TestCase(0, 0, 1f, false)]
+    [TestCase(0, 1080, 1f, false)]
+    [TestCase(1920, 0, 4f, false)]
+    public void ProducesRenderableSurface_RejectsZeroAreaSource(int w, int h, float scale, bool expected)
+    {
+        Assert.That(SaveFrameScale.ProducesRenderableSurface(new PixelSize(w, h), scale), Is.EqualTo(expected));
+    }
 }

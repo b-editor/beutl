@@ -60,6 +60,13 @@ public sealed class FrameProviderImpl : IFrameProvider, IDisposable
             snapshot.Dispose();
         }
 
+        // feature 003 (FR-026): the buffer handed to the encoder MUST be exactly the output resolution, so a
+        // scale change can never cause a stride/size mismatch. The downscale above guarantees this structurally;
+        // assert it so a future regression in SupersampleDownscaler is caught at the encode boundary.
+        System.Diagnostics.Debug.Assert(
+            normalized.Width == _renderer.FrameSize.Width && normalized.Height == _renderer.FrameSize.Height,
+            $"Encode buffer {normalized.Width}x{normalized.Height} must equal the output frame size {_renderer.FrameSize}.");
+
         return normalized;
     }
 

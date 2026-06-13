@@ -3,6 +3,7 @@ using Avalonia.Interactivity;
 using Avalonia.Platform.Storage;
 
 using Beutl.Graphics;
+using Beutl.Helpers;
 using Beutl.Media;
 using Beutl.ProjectSystem;
 using Beutl.Services;
@@ -122,6 +123,16 @@ public partial class PlayerView
                 // The element's render bounds can exceed the scene frame, so size the dialog's preview /
                 // buffer-limit guard against the element's actual bounds rather than scene.FrameSize.
                 PixelSize elementSize = await viewModel.MeasureSelectedDrawable(drawable);
+
+                // An element that renders nothing measures 0×0; the save would size a 0×0 surface and fail
+                // mid-render. Surface the reason up-front instead of opening a dialog whose Save is doomed.
+                if (!SaveFrameScale.ProducesRenderableSurface(elementSize, 1f))
+                {
+                    NotificationService.ShowInformation(
+                        string.Empty, MessageStrings.SaveImageElementRendersNothing);
+                    return;
+                }
+
                 if (await PromptSaveScale(elementSize) is not { } scale) return;
 
                 Task<Bitmap> renderTask = viewModel.DrawSelectedDrawable(drawable, scale);

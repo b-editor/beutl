@@ -44,4 +44,16 @@ public static class SaveFrameScale
         (long width, long height) = GetRenderSize(frameSize, scale);
         return width <= maxDimension && height <= maxDimension;
     }
+
+    /// <summary>
+    /// Whether <paramref name="frameSize"/> at <paramref name="scale"/> yields a non-empty surface (at least
+    /// 1 px on each axis). A degenerate, 0-area source — e.g. a selected element that renders nothing — sizes
+    /// the surface <c>0×0</c>, which <c>RenderTarget.Create</c> rejects (returns null → throws mid-render); the
+    /// caller must not offer Save for it. Independent of <see cref="FitsBufferLimit"/> (the too-large guard).
+    /// </summary>
+    public static bool ProducesRenderableSurface(PixelSize frameSize, float scale)
+    {
+        (long width, long height) = GetRenderSize(frameSize, scale);
+        return width >= 1 && height >= 1;
+    }
 }
