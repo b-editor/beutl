@@ -298,6 +298,46 @@ public class SourceEffectiveScaleFlowTests
         });
     }
 
+    // feature 003 (FR-037(b)): a contour-based effect (StrokeEffect / FlatShadow) that INFLATES its output
+    // bounds can size the effect buffer past the GPU per-axis limit, so CreateTarget clamps the working scale
+    // down. The effect then maps its input-density construction onto the smaller buffer (StrokeEffect draws the
+    // logical border under CreateScale(wOut); FlatShadow scales the whole device-px shadow by wOut/w), so the
+    // result is not clipped and the op reports the clamped supply density. A huge one-axis pen Offset trips the
+    // per-axis limit while keeping the buffer's OTHER axis small (~16384 × 100 px ≈ a few MiB), so the test
+    // stays allocatable. Guards the end-to-end clamp path: the working scale is reduced below the nominal and
+    // nothing throws.
+    [Test]
+    public void StrokeEffect_OverBudgetBounds_ClampsWorkingScaleBelowNominal_DoesNotThrow()
+    {
+        VulkanTestEnvironment.EnsureAvailable();
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            var pen = new Pen();
+            pen.Thickness.CurrentValue = 8;
+            pen.Brush.CurrentValue = Brushes.Red;
+            var stroke = new StrokeEffect();
+            stroke.Pen.CurrentValue = pen;
+            // Inflate ONLY the X axis past the 16384 per-axis limit at the nominal working scale 1.0, so the
+            // clamped buffer is ~16384 wide but stays short on Y (allocatable).
+            stroke.Offset.CurrentValue = new Point(20000, 0);
+
+            using var node = new FilterEffectRenderNode(stroke.ToResource(CompositionContext.Default));
+
+            RenderNodeOperation[] ops = null!;
+            Assert.DoesNotThrow(() =>
+            {
+                ops = node.Process(new RenderNodeContext([SourceOp(1f)], outputScale: 1f));
+            });
+
+            Assert.That(ops, Is.Not.Empty, "the over-budget StrokeEffect dropped its op");
+            Assert.That(ops[0].EffectiveScale.Value, Is.GreaterThan(0f));
+            Assert.That(ops[0].EffectiveScale.Value, Is.LessThan(1f),
+                "the over-budget stroke bounds did not clamp the working scale below the nominal 1.0");
+
+            DisposeAll(ops);
+        });
+    }
+
     private static void DisposeAll(RenderNodeOperation[] ops)
     {
         foreach (RenderNodeOperation op in ops)

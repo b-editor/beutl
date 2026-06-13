@@ -110,28 +110,37 @@ public partial class FlatShadow : FilterEffect
                 // a W·w×H·w rect under identity, but absolute-unit gradient points and the Perlin frequency stay
                 // logical, and tile/image/drawable content rasterizes at w. w == 1 = pre-feature path.
                 float w = context.WorkingScale;
-                using (newCanvas.PushTransform(Matrix.CreateTranslation((x2Abs - x2) / 2 * w, (y2Abs - y2) / 2 * w)))
+                // feature 003 (FR-037(b)): if CreateTarget clamped the EXPANDED output buffer below the working
+                // scale, scale the whole device-px shadow construction (contour + extrusion + source, built at the
+                // input density w; the SrcIn brush rides its own Scale(w)) by wOut/w so all of it maps onto the
+                // smaller wOut buffer at once — no clip, registration preserved, just lower resolution (the clamp's
+                // intended tradeoff). wOut == w (the common, unclamped case) is a no-op (byte-identical).
+                float wOut = newTarget.Scale.Value;
+                using (w == wOut ? default : newCanvas.PushTransform(Matrix.CreateScale(wOut / w, wOut / w)))
                 {
-                    var c = new BrushConstructor(new(newTarget.Bounds.Size), brush, BlendMode.SrcIn, w,
-                        context.MaxWorkingScale);
-                    c.ConfigurePaint(brushPaint);
-
-                    float lenAbs = Math.Abs(length) * w;
-                    int unit = Math.Sign(length);
-                    for (int i = 0; i < lenAbs; i++)
+                    using (newCanvas.PushTransform(Matrix.CreateTranslation((x2Abs - x2) / 2 * w, (y2Abs - y2) / 2 * w)))
                     {
-                        newCanvas.Transform = Matrix.CreateTranslation(x1 * unit, y1 * unit) * newCanvas.Transform;
-                        newCanvas.Canvas.DrawPath(path, paint);
+                        var c = new BrushConstructor(new(newTarget.Bounds.Size), brush, BlendMode.SrcIn, w,
+                            context.MaxWorkingScale);
+                        c.ConfigurePaint(brushPaint);
+
+                        float lenAbs = Math.Abs(length) * w;
+                        int unit = Math.Sign(length);
+                        for (int i = 0; i < lenAbs; i++)
+                        {
+                            newCanvas.Transform = Matrix.CreateTranslation(x1 * unit, y1 * unit) * newCanvas.Transform;
+                            newCanvas.Canvas.DrawPath(path, paint);
+                        }
                     }
-                }
 
-                using (w == 1f ? default : newCanvas.PushTransform(Matrix.CreateScale(w, w)))
-                {
-                    newCanvas.Canvas.DrawRect(SKRect.Create(newTarget.Bounds.Width, newTarget.Bounds.Height), brushPaint);
-                }
+                    using (w == 1f ? default : newCanvas.PushTransform(Matrix.CreateScale(w, w)))
+                    {
+                        newCanvas.Canvas.DrawRect(SKRect.Create(newTarget.Bounds.Width, newTarget.Bounds.Height), brushPaint);
+                    }
 
-                if (!data.ShadowOnly)
-                    newCanvas.DrawRenderTarget(target.RenderTarget!, new((x2Abs - x2) / 2 * w, (y2Abs - y2) / 2 * w));
+                    if (!data.ShadowOnly)
+                        newCanvas.DrawRenderTarget(target.RenderTarget!, new((x2Abs - x2) / 2 * w, (y2Abs - y2) / 2 * w));
+                }
             }
 
             target.Dispose();
