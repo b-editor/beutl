@@ -3,6 +3,7 @@ using Beutl.Graphics;
 using Beutl.Media;
 using Beutl.Media.Decoding;
 using Beutl.Media.Music;
+using Beutl.Media.Music.Samples;
 using Beutl.Media.Pixel;
 using Beutl.Media.Source;
 using Beutl.Serialization;
@@ -71,6 +72,33 @@ internal static class TestMediaHelper
             int.Parse(match.Groups[5].Value)
         );
     }
+
+    // Creates a dummy file whose NAME encodes the audio params; TestAudioReader reads them back. The duration
+    // is encoded in milliseconds to keep the name integer-only. Purely additive — the audio path routes to a
+    // separate TestAudioReader, so the existing .testvideo behavior is untouched.
+    public static string CreateTestAudioFile(int sampleRate = 44100, int channels = 2, double durationSeconds = 2.0)
+    {
+        int ms = (int)Math.Round(durationSeconds * 1000);
+        var fileName = $"test-audio-{sampleRate}_{channels}_{ms}.testaudio";
+        var filePath = Path.Combine(Path.GetTempPath(), fileName);
+        if (!File.Exists(filePath))
+        {
+            File.WriteAllBytes(filePath, []);
+        }
+
+        return filePath;
+    }
+
+    public static (int SampleRate, int Channels, int DurationMs) ParseTestAudioPath(string path)
+    {
+        var fileName = Path.GetFileNameWithoutExtension(path);
+        // Format: test-audio-44100_2_2000
+        var match = System.Text.RegularExpressions.Regex.Match(fileName, @"test-audio-(\d+)_(\d+)_(\d+)");
+        if (!match.Success)
+            throw new FormatException($"Invalid test audio path: {path}");
+
+        return (int.Parse(match.Groups[1].Value), int.Parse(match.Groups[2].Value), int.Parse(match.Groups[3].Value));
+    }
 }
 
 internal sealed class TestDecoderInfo : IDecoderInfo
@@ -79,6 +107,12 @@ internal sealed class TestDecoderInfo : IDecoderInfo
 
     public MediaReader? Open(string file, MediaOptions options)
     {
+        if (Path.GetExtension(file).Equals(".testaudio", StringComparison.OrdinalIgnoreCase))
+        {
+            var (rate, channels, ms) = TestMediaHelper.ParseTestAudioPath(file);
+            return new TestAudioReader(rate, channels, TimeSpan.FromMilliseconds(ms));
+        }
+
         if (!IsSupported(file))
             return null;
 
@@ -88,12 +122,14 @@ internal sealed class TestDecoderInfo : IDecoderInfo
 
     public bool IsSupported(string file)
     {
-        return Path.GetExtension(file).Equals(".testvideo", StringComparison.OrdinalIgnoreCase);
+        var ext = Path.GetExtension(file);
+        return ext.Equals(".testvideo", StringComparison.OrdinalIgnoreCase)
+            || ext.Equals(".testaudio", StringComparison.OrdinalIgnoreCase);
     }
 
     public IEnumerable<string> VideoExtensions() => [".testvideo"];
 
-    public IEnumerable<string> AudioExtensions() => [];
+    public IEnumerable<string> AudioExtensions() => [".testaudio"];
 }
 
 internal sealed class TestMediaReader : MediaReader
@@ -150,5 +186,61 @@ internal sealed class TestMediaReader : MediaReader
     {
         sound = null;
         return false;
+    }
+}
+
+// Audio-only test reader: emits a synthetic 440 Hz stereo sine so a SourceSound-backed visualizer actually
+// composes non-empty samples. Separate from the video TestMediaReader so the .testvideo path is untouched.
+internal sealed class TestAudioReader : MediaReader
+{
+    private readonly VideoStreamInfo _videoInfo;
+    private readonly AudioStreamInfo _audioInfo;
+
+    public TestAudioReader(int sampleRate, int channels, TimeSpan duration)
+    {
+        _videoInfo = new VideoStreamInfo("test", 0, default, new Rational(1, 1));
+        _audioInfo = new AudioStreamInfo(
+            "test",
+            new Rational(duration.Ticks, TimeSpan.TicksPerSecond),
+            sampleRate,
+            channels);
+    }
+
+    public override VideoStreamInfo VideoInfo => _videoInfo;
+
+    public override AudioStreamInfo AudioInfo => _audioInfo;
+
+    public override bool HasVideo => false;
+
+    public override bool HasAudio => true;
+
+    public override bool ReadVideo(int frame, [NotNullWhen(true)] out Ref<Bitmap>? image)
+    {
+        image = null;
+        return false;
+    }
+
+    public override bool ReadAudio(int start, int length, [NotNullWhen(true)] out Ref<IPcm>? sound)
+    {
+        if (length <= 0)
+        {
+            sound = null;
+            return false;
+        }
+
+        int rate = _audioInfo.SampleRate;
+        var pcm = new Pcm<Stereo32BitFloat>(rate, length);
+        Span<Stereo32BitFloat> data = pcm.DataSpan;
+        const float freq = 440f;
+        for (int i = 0; i < length; i++)
+        {
+            // start may be negative (a window centred before t=0); generate a continuous tone regardless.
+            long n = (long)start + i;
+            float v = 0.5f * MathF.Sin(2f * MathF.PI * freq * n / rate);
+            data[i] = new Stereo32BitFloat(v, v);
+        }
+
+        sound = Ref<IPcm>.Create(pcm);
+        return true;
     }
 }

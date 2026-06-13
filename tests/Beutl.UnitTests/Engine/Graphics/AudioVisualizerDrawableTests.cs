@@ -1,13 +1,21 @@
-﻿using Beutl.Composition;
+﻿using Beutl.Audio;
+using Beutl.Composition;
 using Beutl.Graphics;
 using Beutl.Graphics.AudioVisualizers;
 using Beutl.Graphics.Rendering;
 using Beutl.Media;
+using Beutl.Media.Source;
+using Beutl.UnitTests.Engine.Graphics.Backend;
+using Beutl.UnitTests.Engine.Graphics.Rendering;
+using Beutl.UnitTests.Engine.Graphics.Rendering.Golden;
 
 namespace Beutl.UnitTests.Engine.Graphics;
 
+[NonParallelizable]
 public class AudioVisualizerDrawableTests
 {
+    [OneTimeSetUp]
+    public void OneTimeSetUp() => TestMediaHelper.RegisterTestDecoder();
     private static AudioWaveformDrawable CreateWaveform() => new()
     {
         Width = { CurrentValue = 320f },
@@ -141,5 +149,78 @@ public class AudioVisualizerDrawableTests
         var drawable = CreateSpectrogram();
         Assert.DoesNotThrow(() => RenderOnce(drawable, 0.5f));
         Assert.DoesNotThrow(() => RenderOnce(drawable, 2f));
+    }
+
+    // The no-source cases above only build the node tree with an EMPTY sample cache, so each shape's
+    // RenderForeground early-returns (CachedSampleLength == 0) and the feature-003 fill path never runs. These
+    // cases attach a synthetic SourceSound (a 440 Hz tone via the test decoder), assert samples actually
+    // composed (so the test is non-vacuous), and PULL+RASTERIZE at reduced/super scale through the real
+    // ImmediateCanvas — exercising the foreground draw + brush fill that plumb canvas.OutputScale /
+    // MaxWorkingScale (FR-030). GPU-gated.
+    private static void AttachSyntheticSource(AudioVisualizerDrawable drawable)
+    {
+        string path = TestMediaHelper.CreateTestAudioFile(sampleRate: 44100, channels: 2, durationSeconds: 2.0);
+        var soundSource = new SoundSource();
+        soundSource.ReadFrom(new Uri(path));
+        var sound = new SourceSound
+        {
+            Source = { CurrentValue = soundSource },
+            // Sound.Compose clips to TimeRange, so a non-zero range covering the sample window is required.
+            TimeRange = new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(2)),
+        };
+        drawable.Source.CurrentValue = sound;
+    }
+
+    // Builds the resource at a time inside the source window, asserts the sample cache is non-empty (else the
+    // render would skip the fill path and the test would be vacuous), then rasterizes at the given scale.
+    private static void RenderWithSamplesAtScale(AudioVisualizerDrawable drawable, float scale)
+    {
+        var ctx = new CompositionContext(TimeSpan.FromSeconds(0.5));
+        using Drawable.Resource resource = drawable.ToResource(ctx);
+        var visResource = (AudioVisualizerDrawable.Resource)resource;
+        Assert.That(visResource.CachedSampleLength, Is.GreaterThan(0),
+            "synthetic audio composed no samples — the fill path would be skipped, making the test vacuous");
+
+        using Bitmap _ = GoldenImageHarness.RenderAtScale(resource, new PixelSize(320, 80), scale);
+    }
+
+    [TestCaseSource(nameof(WaveformShapeCases))]
+    public void Waveform_WithEachShape_WithSamples_AtScale_Renders(Func<WaveformShape> factory)
+    {
+        VulkanTestEnvironment.EnsureAvailable();
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            var drawable = CreateWaveform();
+            drawable.Shape.CurrentValue = factory();
+            AttachSyntheticSource(drawable);
+            Assert.DoesNotThrow(() => RenderWithSamplesAtScale(drawable, 0.5f));
+            Assert.DoesNotThrow(() => RenderWithSamplesAtScale(drawable, 2f));
+        });
+    }
+
+    [Test]
+    public void Spectrum_WithSamples_AtScale_Renders()
+    {
+        VulkanTestEnvironment.EnsureAvailable();
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            var drawable = CreateSpectrum();
+            AttachSyntheticSource(drawable);
+            Assert.DoesNotThrow(() => RenderWithSamplesAtScale(drawable, 0.5f));
+            Assert.DoesNotThrow(() => RenderWithSamplesAtScale(drawable, 2f));
+        });
+    }
+
+    [Test]
+    public void Spectrogram_WithSamples_AtScale_Renders()
+    {
+        VulkanTestEnvironment.EnsureAvailable();
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            var drawable = CreateSpectrogram();
+            AttachSyntheticSource(drawable);
+            Assert.DoesNotThrow(() => RenderWithSamplesAtScale(drawable, 0.5f));
+            Assert.DoesNotThrow(() => RenderWithSamplesAtScale(drawable, 2f));
+        });
     }
 }
