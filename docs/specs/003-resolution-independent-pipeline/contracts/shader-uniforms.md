@@ -6,6 +6,8 @@
 
 Existing uniforms **keep their device-pixel meaning** = the size of the *scaled* target (`ceil(logicalBounds × w)`, where `w` is this effect's **working scale** — the supply-driven scale its `CustomFilterEffectContext` target is allocated at, FR-036). They are NOT redefined to logical. A new, explicitly-named **scale uniform** carrying `w` is added so author code can scale absolute-pixel literals. **Scale-unaware shaders behave as `w = 1.0`** (device == logical) — fully backward compatible.
 
+> **`w` is the CLAMPED buffer density (FR-037(b)).** The `w` bound into `iScale` / `width` / `height` / `Width` / `Height` is the density the target buffer was actually **allocated** at — `ClampWorkingScaleToBufferBudget(bounds, WorkingScale)` — which can drop **below** the nominal working scale when `ceil(bounds × WorkingScale)` would exceed the 16384-px GPU axis limit. So on a very large target `iScale` (and the resolution uniforms) shrink to keep the buffer allocatable, and they always agree with the buffer the shader iterates. In the common (unclamped) case the bound equals the working scale, so nothing changes.
+
 ## SKSL (`SKSLScriptEffect.cs:99-104`)
 
 | Uniform | Meaning | Under working scale `w` |

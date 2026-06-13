@@ -200,17 +200,16 @@ public sealed partial class SceneDrawable : Drawable
                     {
                         renderer.Render(frame.Value);
                         RenderTarget renderTarget = Renderer.GetInternalRenderTarget(renderer);
-                        // The inner surface is ceil(size × w) device px. At w == 1 keep the bare point blit
-                        // (byte-identical); at w != 1 draw it into the LOGICAL bounds so the draw canvas's baked
-                        // base CTM CreateScale(w) maps the denser buffer 1:1 onto the device surface (crisp under
-                        // SSAA export). NOTE: a bare point-blit is device-1:1-correct only when BOTH the buffer is
-                        // density-1 AND the draw canvas is device-1:1. We gate on the inner-renderer scale `w`
-                        // (the buffer's density); by the current FR-022 wiring the nested scene inherits the outer
-                        // scale, so `w` is expected to track the draw-time canvas.Density and `w == 1f` then
-                        // coincides with the device-1:1 condition. The two are distinct signals, though — if that
-                        // wiring ever diverges, gate on `canvas.Density == 1f` (the draw-time signal
-                        // RenderNodeOperation uses) instead.
-                        if (w == 1f)
+                        // The inner surface is ceil(size × w) device px. A bare point-blit is device-1:1-correct
+                        // only when BOTH the buffer is density-1 (w == 1) AND the draw canvas is itself
+                        // device-1:1 (canvas.Density == 1) — so gate on both, mirroring EffectTarget.Draw. By the
+                        // FR-022 wiring the nested scene inherits the outer scale, so the two normally agree, but
+                        // keying off the draw-time canvas.Density too means a flush canvas at density ≠ 1 (an
+                        // FR-037(b) clamp / raised supply) correctly takes the Mitchell-resampled scaled blit
+                        // instead of a NEAREST point-blit. Otherwise draw into the LOGICAL bounds so the draw
+                        // canvas's baked base CTM CreateScale(density) maps the denser buffer onto the device
+                        // surface (crisp under SSAA export). w == 1 ∧ density == 1 stays byte-identical.
+                        if (w == 1f && canvas.Density == 1f)
                         {
                             canvas.DrawRenderTarget(renderTarget, default);
                         }
