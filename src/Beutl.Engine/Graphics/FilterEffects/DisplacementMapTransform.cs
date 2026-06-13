@@ -92,7 +92,8 @@ public partial class DisplacementMapTranslateTransform : DisplacementMapTransfor
                     var renderTarget = effectTarget.RenderTarget!;
                     float w = c.WorkingScale;
                     using var displacementMapShaderRaw =
-                        new BrushConstructor(new(effectTarget.Bounds.Size), map, BlendMode.SrcOver, w)
+                        new BrushConstructor(new(effectTarget.Bounds.Size), map, BlendMode.SrcOver, w,
+                                c.MaxWorkingScale)
                             .CreateShader();
                     // feature 003: the map is laid out over LOGICAL extent but is cross-sampled at the SAME
                     // device-px coord as the device-px base texture, so scale its local matrix by w (a device
@@ -221,7 +222,8 @@ public partial class DisplacementMapScaleTransform : DisplacementMapTransform
                     var renderTarget = effectTarget.RenderTarget!;
                     float w = c.WorkingScale;
                     using var displacementMapShaderRaw =
-                        new BrushConstructor(new(effectTarget.Bounds.Size), map, BlendMode.SrcOver, w)
+                        new BrushConstructor(new(effectTarget.Bounds.Size), map, BlendMode.SrcOver, w,
+                                c.MaxWorkingScale)
                             .CreateShader();
                     // feature 003: the map is laid out over LOGICAL extent but is cross-sampled at the SAME
                     // device-px coord as the device-px base texture, so scale its local matrix by w (a device
@@ -349,7 +351,8 @@ public partial class DisplacementMapRotationTransform : DisplacementMapTransform
                     var renderTarget = effectTarget.RenderTarget!;
                     float w = c.WorkingScale;
                     using var displacementMapShaderRaw =
-                        new BrushConstructor(new(effectTarget.Bounds.Size), map, BlendMode.SrcOver, w)
+                        new BrushConstructor(new(effectTarget.Bounds.Size), map, BlendMode.SrcOver, w,
+                                c.MaxWorkingScale)
                             .CreateShader();
                     // feature 003: the map is laid out over LOGICAL extent but is cross-sampled at the SAME
                     // device-px coord as the device-px base texture, so scale its local matrix by w (a device

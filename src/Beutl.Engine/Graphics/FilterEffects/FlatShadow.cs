@@ -112,7 +112,8 @@ public partial class FlatShadow : FilterEffect
                 float w = context.WorkingScale;
                 using (newCanvas.PushTransform(Matrix.CreateTranslation((x2Abs - x2) / 2 * w, (y2Abs - y2) / 2 * w)))
                 {
-                    var c = new BrushConstructor(new(newTarget.Bounds.Size), brush, BlendMode.SrcIn, w);
+                    var c = new BrushConstructor(new(newTarget.Bounds.Size), brush, BlendMode.SrcIn, w,
+                        context.MaxWorkingScale);
                     c.ConfigurePaint(brushPaint);
 
                     float lenAbs = Math.Abs(length) * w;

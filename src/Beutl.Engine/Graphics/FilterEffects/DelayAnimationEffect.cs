@@ -79,8 +79,12 @@ public partial class DelayAnimationEffect : FilterEffect
                     using var singleTargets = new EffectTargets();
                     singleTargets.Add(target.Clone());
                     using var builder = new SKImageFilterBuilder();
+                    // feature 003 (FR-037): forward the request's working-scale ceiling so a nested pull
+                    // started by a delay-wrapped child effect (a DrawableBrush fill / DrawDrawable) stays under
+                    // the preview/export cap instead of falling back to the +∞ default.
                     using var activator = new FilterEffectActivator(
-                        singleTargets, builder, effectContext.OutputScale, effectContext.WorkingScale);
+                        singleTargets, builder, effectContext.OutputScale, effectContext.WorkingScale,
+                        effectContext.MaxWorkingScale);
                     activator.Apply(childFEContext);
                     activator.Flush(false);
 

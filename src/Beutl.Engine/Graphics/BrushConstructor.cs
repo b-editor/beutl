@@ -79,7 +79,7 @@ public readonly struct BrushConstructor(
         // Handle BrushPresenter by delegating to the target brush
         if (Brush is BrushPresenter.Resource presenter && presenter.Target != null)
         {
-            return new BrushConstructor(Bounds, presenter.Target, BlendMode, Scale).CreateShader();
+            return new BrushConstructor(Bounds, presenter.Target, BlendMode, Scale, MaxWorkingScale).CreateShader();
         }
 
         float opacity = (Brush?.Opacity ?? 0) / 100f;

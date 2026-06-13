@@ -63,7 +63,8 @@ public partial class DisplacementMapEffect : FilterEffect
                         // compensates); analytic brushes ignore it. w == 1 is a no-op (byte-identical).
                         float w = effectContext.WorkingScale;
                         using var displacementMapShader =
-                            new BrushConstructor(new Rect(effectTarget.Bounds.Size), brush, BlendMode.SrcOver, w)
+                            new BrushConstructor(new Rect(effectTarget.Bounds.Size), brush, BlendMode.SrcOver, w,
+                                    effectContext.MaxWorkingScale)
                                 .CreateShader();
 
                         var newTarget = effectContext.CreateTarget(effectTarget.Bounds);
