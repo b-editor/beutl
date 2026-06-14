@@ -13,7 +13,7 @@ beutl/
 │   ├── settings.json        # Team-shared hook config
 │   ├── rules/               # Path-scoped rules (xaml / csharp / gpl-mit)
 │   ├── skills/              # Domain skills + canned command skills
-│   ├── agents/              # 5 specialized subagents
+│   ├── agents/              # 7 specialized subagents
 │   └── hooks/               # Dangerous-command deny, dotnet auto-allow, GPL/MIT deny, context injection
 ├── .specify/                # Spec-Kit templates / scripts / workflows (vendored, locally patched)
 └── docs/
@@ -34,11 +34,12 @@ beutl/
 | "Is there a spec for this?" | `beutl-spec-explorer` subagent |
 | Added or changed several `.axaml` files | `beutl-xaml-binder` subagent |
 | Changed a public type / extensibility surface | `beutl-design-reviewer` subagent (orthogonality, plugin-author flexibility, no compat shims) |
+| CI's Linux/SwiftShader GPU job crashed natively (no managed stack) but it's green on macOS | `beutl-gpu-crash-repro` skill (arm64-native Docker repro + native stack); delegates the noisy build+loop to the `beutl-gpu-crash-reproducer` subagent |
 
 ## Detailed guides
 
 - [coding-guidelines-for-ai.md](./coding-guidelines-for-ai.md) — only the rules that require human judgment (linters cover the rest)
-- [subagents-and-hooks.md](./subagents-and-hooks.md) — walkthrough of the 5 subagents and 5 hooks
+- [subagents-and-hooks.md](./subagents-and-hooks.md) — walkthrough of the 7 subagents and 6 hooks
 - [spec-driven-development.md](./spec-driven-development.md) — how to use Spec-Kit
 - [gpl-mit-boundary.md](./gpl-mit-boundary.md) — IPC boundary around `Beutl.FFmpegWorker`
 
