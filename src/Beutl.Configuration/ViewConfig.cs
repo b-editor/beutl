@@ -18,13 +18,6 @@ public sealed class ViewConfig : ConfigurationBase
     public static readonly CoreProperty<CoreList<string>> RecentFilesProperty;
     public static readonly CoreProperty<CoreList<string>> RecentProjectsProperty;
     public static readonly CoreProperty<string?> LastOpenedProjectFileProperty;
-    private readonly CoreList<string> _primaryProperties =
-    [
-        "AlignmentX",
-        "AlignmentY",
-        "TransformOrigin",
-        "BlendMode"
-    ];
     private readonly CoreList<string> _recentFiles = [];
     private readonly CoreList<string> _recentProjects = [];
     private bool _showExactBoundaries = false;
@@ -79,7 +72,6 @@ public sealed class ViewConfig : ConfigurationBase
 
     public ViewConfig()
     {
-        _primaryProperties.CollectionChanged += (_, _) => OnChanged();
         _recentFiles.CollectionChanged += (_, _) => OnChanged();
         _recentProjects.CollectionChanged += (_, _) => OnChanged();
     }
