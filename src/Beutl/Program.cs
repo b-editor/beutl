@@ -30,8 +30,6 @@ internal static class Program
         ProfileOptimization.SetProfileRoot(jitProfiles);
         ProfileOptimization.StartProfile("beutl.jitprofile");
 
-        WaitForExitOtherProcesses();
-
         UnhandledExceptionHandler.Initialize();
 
         BuildAvaloniaApp()
@@ -39,30 +37,6 @@ internal static class Program
 
         // 正常に終了した
         UnhandledExceptionHandler.Exit();
-    }
-
-    private static void WaitForExitOtherProcesses()
-    {
-        Process[] processes = Process.GetProcessesByName("Beutl.PackageTools");
-        if (processes.Length > 0)
-        {
-            using (OutProcessDialog.Show(
-                MessageStrings.OpeningBeutl,
-                MessageStrings.PackageChangesInProgress,
-                MessageStrings.ClosePackageToolsToOpenBeutl,
-                icon: "Info",
-                progress: true))
-            {
-
-                foreach (Process item in processes)
-                {
-                    if (!item.HasExited)
-                    {
-                        item.WaitForExit();
-                    }
-                }
-            }
-        }
     }
 
     public static AppBuilder BuildAvaloniaApp()

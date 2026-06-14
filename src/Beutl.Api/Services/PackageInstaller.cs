@@ -1,11 +1,9 @@
 ﻿using System.Net.Http.Headers;
-using System.Reactive.Subjects;
 using System.Security.Cryptography;
 using System.Text;
 
 using Beutl.Api.Objects;
 using Beutl.Logging;
-using Beutl.Reactive;
 using Microsoft.Extensions.Logging;
 using NuGet.Configuration;
 using NuGet.Frameworks;
@@ -34,8 +32,6 @@ public partial class PackageInstaller : IBeutlApiResource
 
     private readonly Dictionary<PackageIdentity, PackageInstallContext> _installingContexts = [];
 
-    private readonly Subject<(PackageIdentity Package, EventType Type)> _subject = new();
-
     private const string DefaultNuGetConfigContentTemplate = @"<?xml version=""1.0"" encoding=""utf-8""?>
 <configuration>
   <packageSources>
@@ -45,13 +41,6 @@ public partial class PackageInstaller : IBeutlApiResource
   </packageSources>
 </configuration>
 ";
-
-    public enum EventType
-    {
-        Idle,
-        Installing,
-        Uninstalling,
-    }
 
     public PackageInstaller(HttpClient httpClient, InstalledPackageRepository installedPackageRepository, BeutlApiApplication apiApplication)
     {
@@ -105,11 +94,6 @@ public partial class PackageInstaller : IBeutlApiResource
         {
             Directory.CreateDirectory(Helper.LocalSourcePath);
         }
-    }
-
-    public IObservable<EventType> GetObservable(string name, string? version = null)
-    {
-        return new _Observable(this, name, version);
     }
 
     public async Task<PackageInstallContext> PrepareForInstall(
@@ -464,73 +448,4 @@ public partial class PackageInstaller : IBeutlApiResource
         }
     }
 
-    private sealed class _Observable : LightweightObservableBase<EventType>
-    {
-        private readonly PackageInstaller _installer;
-        private readonly string _name;
-        private readonly PackageIdentity? _packageIdentity;
-        private IDisposable? _disposable;
-
-        public _Observable(PackageInstaller installer, string name, string? version)
-        {
-            _installer = installer;
-            _name = name;
-
-            if (version is { })
-            {
-                _packageIdentity = new PackageIdentity(name, new NuGetVersion(version));
-            }
-        }
-
-        protected override void Subscribed(IObserver<EventType> observer, bool first)
-        {
-            if (_packageIdentity is { })
-            {
-                if (_installer._installingContexts.ContainsKey(_packageIdentity))
-                {
-                    observer.OnNext(EventType.Installing);
-                }
-                //else if (_installer._uninstallingContexts.ContainsKey(_packageIdentity))
-                //{
-                //    observer.OnNext(EventType.Uninstalling);
-                //}
-                else
-                {
-                    observer.OnNext(EventType.Idle);
-                }
-            }
-            else
-            {
-                if (_installer._installingContexts.Any(x => StringComparer.OrdinalIgnoreCase.Equals(x.Key.Id, _name)))
-                {
-                    observer.OnNext(EventType.Installing);
-                }
-                else
-                {
-                    observer.OnNext(EventType.Idle);
-                }
-            }
-        }
-
-        protected override void Deinitialize()
-        {
-            _disposable?.Dispose();
-            _disposable = null;
-        }
-
-        protected override void Initialize()
-        {
-            _disposable = _installer._subject
-                .Subscribe(OnReceived);
-        }
-
-        private void OnReceived((PackageIdentity Package, EventType Type) obj)
-        {
-            if ((_packageIdentity != null && _packageIdentity == obj.Package)
-                || StringComparer.OrdinalIgnoreCase.Equals(obj.Package.Id, _name))
-            {
-                PublishNext(obj.Type);
-            }
-        }
-    }
 }
