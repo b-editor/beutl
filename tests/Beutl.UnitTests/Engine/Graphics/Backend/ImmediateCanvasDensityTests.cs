@@ -276,6 +276,32 @@ public class ImmediateCanvasDensityTests
         });
     }
 
+    [Test]
+    public void Dispose_AfterBackingRenderTargetDisposed_SkipsBaseRestoreInsteadOfCrashing()
+    {
+        // Regression (CI host crash, feature 003): the canvas bakes a base Save() at construction (density != 1)
+        // and undoes it in DisposeCore via Canvas.RestoreToCount(_baseSaveCount). The SKCanvas is cached from the
+        // SKSurface at construction (owns: false — a child wrapper of the surface); disposing the surface zeroes
+        // that wrapper's Handle. RestoreToCount on a zero-Handle wrapper passes a null SkCanvas* into native Skia
+        // and SIGSEGVs the render thread — an uncatchable fault that neither the try/catch in DisposeCore nor a
+        // non-null managed-wrapper check covers. DisposeCore must skip the restore when the wrapper is gone
+        // (guarded by Canvas.Handle). Here we drive it deterministically: dispose the backing target first (which
+        // zeroes the cached canvas Handle), then the canvas — it must skip the restore, not crash.
+        VulkanTestEnvironment.EnsureAvailable();
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            var target = RenderTarget.Create(200, 100)!;
+            var canvas = new ImmediateCanvas(target, 2f, logicalSize: new Size(100, 50));
+
+            target.Dispose(); // frees the SKSurface and zeroes the cached SKCanvas wrapper's Handle
+            Assert.That(target.IsDisposed, Is.True);
+
+            Assert.DoesNotThrow(() => canvas.Dispose(),
+                "DisposeCore must skip the base RestoreToCount once the cached SKCanvas wrapper is disposed");
+            Assert.That(canvas.IsDisposed, Is.True);
+        });
+    }
+
     private static bool IsWhite(Bitmap bmp, int x, int y)
     {
         var p = bmp.SKBitmap.GetPixel(x, y);

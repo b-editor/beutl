@@ -64,15 +64,25 @@ public class Renderer : IRenderer
 
     ~Renderer()
     {
-        if (!IsDisposed)
+        // A finalizer must NEVER throw — an unhandled exception here aborts the whole process. If the
+        // constructor threw partway (e.g. RenderTarget.Create failed, or the GPU context was lost), the
+        // canvas / surface fields were never assigned, so dispose them null-safely and swallow as a last resort.
+        try
         {
-            OnDispose(false);
-            _immediateCanvas.Dispose();
-            _surface.Dispose();
-            ClearAllCaches();
-            DisposeAllEntries();
+            if (!IsDisposed)
+            {
+                OnDispose(false);
+                _immediateCanvas?.Dispose();
+                _surface?.Dispose();
+                ClearAllCaches();
+                DisposeAllEntries();
 
-            IsDisposed = true;
+                IsDisposed = true;
+            }
+        }
+        catch
+        {
+            // ignore — never crash the finalizer thread
         }
     }
 

@@ -20,8 +20,10 @@ public partial class ImmediateCanvas : ICanvas
     // density == 1) so logical geometry maps onto the ceil(logical × density) device buffer automatically.
     private readonly Matrix _baseTransform;
     // SKCanvas save depth that PINS the base CTM below every Push/Pop; -1 when density == 1 (no base Save
-    // was taken, so the matrix / save stack is never touched — the byte-identity anchor).
-    private readonly int _baseSaveCount;
+    // was taken, so the matrix / save stack is never touched — the byte-identity anchor). Defaults to -1 so a
+    // constructor that throws before reaching the base Save leaves Dispose's finalizer path a no-op (it must
+    // not dereference a half-built Canvas and throw on the finalizer thread).
+    private readonly int _baseSaveCount = -1;
     // The density of the CURRENT coordinate space (push/pop): equals SurfaceDensity normally, 1 inside a
     // PushDeviceSpace() block. Drives brush fills and nested pulls, which must match the active CTM.
     private float _currentDensity;
@@ -65,7 +67,17 @@ public partial class ImmediateCanvas : ICanvas
 
     ~ImmediateCanvas()
     {
-        Dispose();
+        // A finalizer must NEVER throw — an unhandled exception on the finalizer thread aborts the whole
+        // process. The dispatcher Invoke or a context-lost GPU op below can throw on a leaked / half-built
+        // canvas, so the last-resort GC cleanup swallows; explicit Dispose() still surfaces errors.
+        try
+        {
+            Dispose();
+        }
+        catch
+        {
+            // ignore — never crash the finalizer thread
+        }
     }
 
     public bool IsDisposed { get; private set; }
@@ -156,20 +168,43 @@ public partial class ImmediateCanvas : ICanvas
     {
         void DisposeCore()
         {
-            // feature 003: undo the base Save() taken at construction (density != 1) so a pooled / reused
-            // RenderTarget's SKCanvas does not inherit this canvas's save depth or base matrix on its next
-            // Open. The density == 1 path took no base Save (_baseSaveCount < 0), so it restores nothing —
-            // the byte-identity anchor is preserved.
-            if (_baseSaveCount >= 0)
+            // Mark disposed + suppress the finalizer FIRST: if a GPU op below throws (a context-lost or
+            // half-built canvas), it must not skip SuppressFinalize and leave the finalizer to re-run
+            // DisposeCore and crash the process on the finalizer thread.
+            IsDisposed = true;
+            GC.SuppressFinalize(this);
+            try
             {
-                Canvas.RestoreToCount(_baseSaveCount);
+                // FLUSH FIRST: submit all of this canvas's recorded (deferred) GPU work while its surface and
+                // paints are still alive. Resetting the save stack or disposing the paints before the flush
+                // would let Skia reference freed GPU resources at flush time (a leaked SKObject then throws in
+                // its finalizer under software Vulkan, aborting the process).
+                GraphicsContextFactory.SharedContext?.SkiaContext.Flush(true, true);
+
+                // feature 003 (CI host crash): undo the base Save() taken at construction (density != 1) so a
+                // reused SKCanvas does not inherit this canvas's save depth or base matrix. density == 1 took no
+                // base Save (_baseSaveCount < 0), so it restores nothing — the byte-identity anchor is preserved.
+                //
+                // Guard Canvas.Handle: the SKCanvas is cached at construction from the SKSurface (owns: false, it
+                // is a child wrapper of the surface). SkiaSharp zeroes a wrapper's Handle when it disposes it, and
+                // it disposes that child canvas wrapper when the GrContext/surface is torn down — which can happen
+                // while this canvas's RenderTarget is still ref-alive (the SKSurface object and its ref count
+                // survive, but the canvas wrapper does not), e.g. shared-GrContext teardown during GC. Calling
+                // RestoreToCount on a zero-Handle wrapper passes a null SkCanvas* into native Skia and SIGSEGVs
+                // the render thread — an uncatchable fault that neither the surrounding try/catch nor a non-null
+                // managed-wrapper check covers. If the wrapper is already gone there is nothing to restore: skip.
+                if (_baseSaveCount >= 0 && Canvas is not null && Canvas.Handle != IntPtr.Zero)
+                {
+                    Canvas.RestoreToCount(_baseSaveCount);
+                }
+            }
+            catch
+            {
+                // Best-effort GPU-state cleanup; never abort disposal (or crash the finalizer thread) on it.
             }
 
-            GraphicsContextFactory.SharedContext?.SkiaContext.Flush(true, true);
             _sharedFillPaint.Dispose();
             _sharedStrokePaint.Dispose();
-            GC.SuppressFinalize(this);
-            IsDisposed = true;
         }
 
         if (!IsDisposed)
