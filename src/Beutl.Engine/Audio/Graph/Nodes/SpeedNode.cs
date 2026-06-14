@@ -34,18 +34,12 @@ public sealed class SpeedNode : AudioNode
         _integrator.EnsureCache(animation);
         _integrator.SampleRate = context.SampleRate;
 
-        // Initialize processor if needed. A differential graph update can reuse this node but swap its
-        // upstream (AudioContext.CreateSpeedNode -> ClearInputs); recreate the processor so the resampler
-        // does not carry filter history (or a stale source read cursor) from a now-disconnected source
-        // into the new stream.
-        //
-        // Comparing only Inputs[0] is not enough: the graph keeps a single ResampleNode between this node
-        // and the source, reused purely by sample rate (AudioContext.CreateResampleNode). When the source
-        // or its time offset changes but the sample rate does not, that ResampleNode instance is reused —
-        // so Inputs[0] is unchanged — while the SourceNode/ShiftNode feeding it is recreated. Snapshot the
-        // whole transitive upstream and recreate the processor whenever any node in it changes identity.
-        // Capture unconditionally (not short-circuited behind _processor == null) so the snapshot is seeded
-        // on the first chunk and a contiguous second chunk is not mistaken for an upstream swap.
+        // Recreate the processor when the upstream changes, so the resampler does not carry filter
+        // history (or a stale read cursor) from a disconnected source into the new stream. Comparing
+        // Inputs[0] alone is not enough: the graph reuses one ResampleNode keyed by sample rate, so
+        // Inputs[0] can be unchanged while the source feeding it is recreated. Snapshot the whole
+        // transitive upstream and compare by identity. Capture unconditionally so the first chunk seeds
+        // the snapshot and a contiguous second chunk is not mistaken for a swap.
         bool upstreamChanged = UpstreamChangedAndCapture();
         if (_processor == null || _lastSampleRate != context.SampleRate || upstreamChanged)
         {
@@ -70,8 +64,8 @@ public sealed class SpeedNode : AudioNode
             return Inputs[0].Process(context);
         }
 
-        // The processor streams the source continuously across chunks; it derives the source read
-        // range itself from the output context so the resampler is never re-seeked mid-stream.
+        // The processor streams the source continuously, deriving the read range itself so the
+        // resampler is never re-seeked mid-stream.
         return _processor!.ProcessBuffer(context, speed, expectedOutputSampleCount);
     }
 
@@ -113,9 +107,8 @@ public sealed class SpeedNode : AudioNode
                     ownerStart + TimeSpan.FromSeconds((startInSamples + i) / (double)context.SampleRate)) / 100.0;
             }
 
-            // The processor streams the source continuously across chunks; sourceStartTime only seeds
-            // the read cursor on the first chunk / after a seek. context supplies the sampler and the
-            // original time range for the per-read sub-contexts.
+            // sourceStartTime only seeds the read cursor on the first chunk / after a seek; context
+            // supplies the sampler and original time range for the per-read sub-contexts.
             return _processor!.ProcessBufferWithVariableSpeed(
                 context, speeds, expectedOutputSampleCount, sourceStartTime.TotalSeconds);
         }
@@ -125,10 +118,9 @@ public sealed class SpeedNode : AudioNode
         }
     }
 
-    // Snapshots the transitive set of upstream nodes (depth-first, deduplicated) and reports whether it
-    // differs from the previous snapshot by node identity. Capturing here keeps the comparison in lockstep
-    // with processor (re)creation. Audio graphs per sound are tiny and Process runs once per chunk, so the
-    // per-call walk is negligible.
+    // Snapshots the transitive upstream nodes (depth-first, deduplicated) and reports whether they
+    // differ from the previous snapshot by identity. Audio graphs are tiny and this runs once per
+    // chunk, so the walk is negligible.
     private bool UpstreamChangedAndCapture()
     {
         var current = new List<AudioNode>();
@@ -157,7 +149,7 @@ public sealed class SpeedNode : AudioNode
     {
         foreach (var input in node.Inputs)
         {
-            // Dedupe so a diamond in the upstream graph cannot blow up the walk or perturb the snapshot.
+            // Dedupe so a diamond upstream cannot blow up the walk or perturb the snapshot.
             if (!visited.Add(input))
                 continue;
 
@@ -178,16 +170,10 @@ public sealed class SpeedNode : AudioNode
     {
         private const int BLOCK = 256;
 
-        // A chunk whose output start lands within this many samples of where the previous chunk ended
-        // is treated as a continuation; anything further is a seek (scrub / loop / restart).
-        //
-        // The tolerance is deliberately tiny (samples, not milliseconds). During contiguous playback the
-        // player advances the chunk start by an exact TimeSpan (PlayerViewModel: cur += 1s) and
-        // _nextOutputStart advances by expectedOut/sampleRate, so the two agree to the bit — there is no
-        // timing jitter to absorb. The couple-of-samples slack only covers Ceiling rounding on a
-        // fractional-duration final chunk. Widening this to tens of milliseconds would do the opposite of
-        // helping: a genuine short seek would be mistaken for a continuation and keep playing from the
-        // stale source position instead of re-anchoring.
+        // A chunk starting within this many samples of where the previous one ended is a continuation;
+        // anything further is a seek (scrub / loop / restart). Kept tiny on purpose: contiguous playback
+        // advances exactly (no jitter to absorb), so this slack only covers Ceiling rounding on a
+        // fractional final chunk. Widening it would mistake a short seek for a continuation.
         private const double SeekToleranceSamples = 2.0;
 
         private readonly int _sampleRate;
@@ -196,10 +182,9 @@ public sealed class SpeedNode : AudioNode
         private readonly WdlResampler _rs;
         private float _currentSpeed = 1.0f;
 
-        // Continuous-streaming state, persisted across Process calls (chunks). The resampler retains
-        // filter history between chunks, so the source must be fed as one unbroken stream. Re-seeking
-        // the source every chunk (the previous behaviour) desynchronised the source read position from
-        // that retained history and produced an audible click at every chunk boundary.
+        // Continuous-streaming state, persisted across chunks. The resampler retains filter history
+        // between chunks, so the source must be fed as one unbroken stream — re-seeking every chunk
+        // desynchronised the read position from that history and clicked at each boundary.
         private long _srcReadPos;        // absolute next source sample to feed, in the source timeline
         private double _nextOutputStart; // expected output start (seconds) of the next contiguous chunk
         private bool _initialized;
@@ -217,11 +202,10 @@ public sealed class SpeedNode : AudioNode
             _rs.SetRates(sampleRate, sampleRate);
         }
 
-        // Decides whether this chunk continues the previous stream or is a seek. On a seek the
-        // resampler is reset and the read cursor is re-anchored to the freshly computed source start.
-        // forceReanchor lets the caller declare a discontinuity the output-time comparison cannot see
-        // (e.g. a static-speed change across otherwise contiguous chunks). Returns true when a seek
-        // occurred.
+        // Decides whether this chunk continues the stream or is a seek; on a seek the resampler is
+        // reset and the read cursor re-anchored to the computed source start. forceReanchor lets the
+        // caller declare a discontinuity the output-time comparison cannot see (e.g. a static-speed
+        // change across contiguous chunks). Returns true on a seek.
         private bool BeginStream(double outputStartSeconds, double sourceStartSeconds, bool forceReanchor = false)
         {
             bool seek = !_initialized
@@ -237,18 +221,17 @@ public sealed class SpeedNode : AudioNode
             return seek;
         }
 
-        // Reads exactly the source samples the resampler asked for, continuing from the persistent
-        // cursor so the stream never jumps between chunks. Advances the cursor by what was actually
-        // produced (fewer than requested only at the true end of the source) and returns that count.
+        // Reads exactly the requested source samples, continuing from the persistent cursor so the
+        // stream never jumps between chunks. Advances the cursor by what was actually produced (short
+        // only at end-of-source) and returns that count.
         private int Read(float[] buffer, int interleavedOffset, int count, AudioProcessContext context)
         {
             if (count <= 0)
                 return 0;
 
-            // _srcReadPos counts whole source samples, but it reaches the input as a TimeSpan and the
-            // source converts back by truncation (e.g. SourceNode: (int)(seconds * sampleRate)). Bias
-            // the start by half a sample so the floating-point round-trip lands back on _srcReadPos
-            // rather than occasionally on _srcReadPos - 1.
+            // _srcReadPos is whole samples, but reaches the input as a TimeSpan that the source
+            // truncates back (e.g. (int)(seconds * sampleRate)). Bias by half a sample so the
+            // round-trip lands on _srcReadPos rather than occasionally _srcReadPos - 1.
             var range = new TimeRange(
                 TimeSpan.FromSeconds((_srcReadPos + 0.5) / _sampleRate),
                 TimeSpan.FromSeconds(count / (double)_sampleRate));
@@ -276,19 +259,16 @@ public sealed class SpeedNode : AudioNode
         {
             double outputStart = context.TimeRange.Start.TotalSeconds;
 
-            // A static-speed change across contiguous chunks is a source-position discontinuity that the
-            // output-time comparison in BeginStream cannot see: the node keeps emitting contiguous output,
-            // but _srcReadPos (which tracked the old speed) no longer maps to outputStart under the new
-            // speed. Force a re-anchor so the next read starts from outputStart * speed instead of marching
-            // on from the stale cursor. _initialized gates this so the genuine first-chunk anchor still
-            // flows through the normal seek path.
+            // A static-speed change across contiguous chunks is a source-position discontinuity that
+            // BeginStream's output-time comparison cannot see: output stays contiguous, but _srcReadPos
+            // (tracking the old speed) no longer maps to outputStart. Force a re-anchor to outputStart *
+            // speed. _initialized gates this so the first-chunk anchor still uses the normal seek path.
             bool speedChanged = _initialized && Math.Abs(_currentSpeed - speed) > 1e-4f;
             bool seek = BeginStream(outputStart, outputStart * speed, speedChanged);
 
-            // Re-anchor the rate after a seek (the resampler was just reset) or whenever the constant speed
-            // changes. Never Reset() outside of a seek: that zero-fills the filter history and momentarily
-            // silences a stream that is otherwise continuous — a static-speed change is itself promoted to a
-            // seek above, so the reset there is intentional (the source genuinely jumps).
+            // Re-set the rate after a seek (resampler just reset) or when the constant speed changes.
+            // Never Reset() outside a seek: that zero-fills filter history and silences a continuous
+            // stream — a static-speed change is promoted to a seek above, so its reset is intentional.
             if (seek || speedChanged)
             {
                 _currentSpeed = speed;
@@ -306,9 +286,8 @@ public sealed class SpeedNode : AudioNode
 
                 int made = _rs.ResampleOut(dst, framesDone * _channels, got, expectedOut - framesDone, _channels);
 
-                // No more output and no more input means the source is exhausted; the tail-fill below
-                // pads the remainder. (got > 0 with made == 0 just means the resampler needs more
-                // lookahead, so keep feeding.)
+                // No output and no input means the source is exhausted; the tail-fill below pads the
+                // rest. (got > 0 with made == 0 just means the resampler needs more lookahead.)
                 if (made == 0 && got == 0)
                     break;
 
@@ -329,11 +308,9 @@ public sealed class SpeedNode : AudioNode
             var output = new AudioBuffer(_sampleRate, _channels, expectedOut);
             float[] dst = new float[expectedOut * _channels];
 
-            // Same resampler-driven streaming loop as the constant-speed path, but the rate is updated
-            // per block from the average of the per-sample speed curve. The resampler's ResamplePrepare
-            // is the single source of truth for how many source frames to feed, and exactly that many
-            // are read and reported back via ResampleOut — there is no separate hand-rolled source
-            // cursor to drift out of sync, and no stale frames are ever passed off as real input.
+            // Same streaming loop as the constant-speed path, but the rate is updated per block from
+            // the average of the speed curve. ResamplePrepare is the single source of truth for how
+            // many source frames to feed, so there is no hand-rolled cursor to drift out of sync.
             int framesDone = 0;
             while (framesDone < expectedOut)
             {
@@ -364,8 +341,8 @@ public sealed class SpeedNode : AudioNode
             return output;
         }
 
-        // De-interleaves the produced frames into the output buffer and pads any shortfall (source
-        // exhausted) with the last produced value to avoid a hard edge.
+        // De-interleaves the produced frames into the output and pads any shortfall (source exhausted)
+        // with the last value to avoid a hard edge.
         private void WriteAndPad(AudioBuffer output, float[] dst, int framesDone, int expectedOut)
         {
             for (int ch = 0; ch < _channels; ch++)

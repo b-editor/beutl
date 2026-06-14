@@ -238,13 +238,10 @@ public sealed class FFmpegWorkerProcess : IDisposable
     internal readonly record struct WorkerCommand(string FileName, string? DllArgument);
 
     /// <summary>
-    /// Resolves how to launch the GPL worker process.
-    /// Dev builds isolate the worker (with its own dependency closure) under an
-    /// <c>FFmpegWorker/</c> subdirectory so it never overwrites the app's shared assemblies; Nuke
-    /// publishes lay the worker out flat next to the app. The subdirectory layout is preferred,
-    /// then the flat one, resolving against either an apphost or a bare <c>.dll</c> so
-    /// <c>UseAppHost=false</c> builds still pick the subdir. When no apphost exists the worker is
-    /// launched via the dotnet host with the assembly path as its first argument.
+    /// Resolves how to launch the GPL worker process. Dev builds isolate it under an
+    /// <c>FFmpegWorker/</c> subdirectory (so it never overwrites the app's shared assemblies); Nuke
+    /// publishes lay it out flat. Prefers the subdir over the flat layout, and an apphost over a bare
+    /// <c>.dll</c>; when no apphost exists, launches via the dotnet host with the .dll as the first arg.
     /// </summary>
     internal static WorkerCommand ResolveWorkerCommand(
         string baseDirectory, bool isWindows, string dotnetHost, Func<string, bool> fileExists)

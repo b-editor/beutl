@@ -62,9 +62,8 @@ public class DelayNodeTests
         return property;
     }
 
-    // An animatable property with NO animation must behave exactly like a static one: both feed
-    // CurrentValue every sample. This is the point of routing on Animation != null, not IsAnimatable.
-    // The CircularBuffer is stateful across renders, so each render uses a fresh node.
+    // An animatable property with NO animation must behave exactly like a static one (the point of
+    // routing on Animation != null, not IsAnimatable). The buffer is stateful, so use a fresh node.
     [Test]
     public void Process_AnimatableParamsWithoutAnimation_MatchesNonAnimatableStatic()
     {
@@ -95,10 +94,9 @@ public class DelayNodeTests
         return node;
     }
 
-    // A seek in either direction is a discontinuity: the delay lines must not carry audio from
-    // the previously rendered range. Regression for the tracker that was pinned to the first
-    // rendered start and only reset when seeking to before it, so forward seeks (and backward
-    // seeks to anywhere after the pinned start) replayed stale delay-line content.
+    // A seek in either direction is a discontinuity: the delay lines must not carry audio from the
+    // previous range. Regression for the tracker that only reset on backward seeks before its pinned
+    // start, so forward seeks replayed stale delay-line content.
     [Test]
     public void Process_ForwardSeek_ResetsDelayLines()
     {
@@ -139,7 +137,7 @@ public class DelayNodeTests
     }
 
     // Contiguous playback is NOT a discontinuity: the delay lines must carry across chunks
-    // (the wet tail of the previous chunk feeds the first samples of the next one).
+    // (the previous chunk's wet tail feeds the next one's first samples).
     [Test]
     public void Process_ContiguousChunks_PreserveDelayLines()
     {

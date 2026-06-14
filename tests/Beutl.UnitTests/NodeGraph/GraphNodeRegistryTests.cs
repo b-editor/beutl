@@ -11,18 +11,16 @@ public class GraphNodeRegistryTests
     [OneTimeSetUp]
     public void OneTimeSetUp()
     {
-        // The registry is process-global; only seed it once even if other fixtures run first.
-        // Probe one of the script nodes (the regression subject) rather than an always-registered
-        // node, so a partial prior registration still triggers RegisterAll().
+        // The registry is process-global; seed it once. Probe a script node (the regression subject),
+        // not an always-registered one, so a partial prior registration still triggers RegisterAll().
         if (GraphNodeRegistry.FindItem(typeof(FilterEffectNode<CSharpScriptEffect>)) == null)
         {
             NodesRegistrar.RegisterAll();
         }
     }
 
-    // Regression: the Script group lambda passed to AddGroup must call Register(), otherwise
-    // the GroupableRegistryItem is constructed and silently discarded, making the script
-    // filter-effect nodes unreachable from the node-add menu and library search.
+    // Regression: the Script group lambda passed to AddGroup must call Register(), otherwise the
+    // GroupableRegistryItem is silently discarded and the script filter-effect nodes become unreachable.
     [TestCase(typeof(FilterEffectNode<CSharpScriptEffect>))]
     [TestCase(typeof(FilterEffectNode<SKSLScriptEffect>))]
     [TestCase(typeof(FilterEffectNode<GLSLScriptEffect>))]

@@ -81,8 +81,8 @@ public class SpeedNodeTests
         return property;
     }
 
-    // Renders consecutive 1-second chunks through the SAME node, mimicking how the player feeds the
-    // composer one second at a time during playback.
+    // Renders consecutive 1-second chunks through the SAME node, as the player feeds the composer
+    // during playback.
     private static List<float> RenderChunks(SpeedNode node, int sampleRate, int channel, params double[] startSeconds)
     {
         var sampler = new AnimationSampler();
@@ -97,10 +97,9 @@ public class SpeedNodeTests
         return samples;
     }
 
-    // Regression for the "click at every chunk boundary at half speed" bug. The resampler retains
-    // filter state across chunks, so the source must be fed as one unbroken stream. The old code
-    // re-seeked the source every chunk, leaving a discontinuity (a multi-unit jump) at each seam;
-    // here the ramp must stay continuous (per-sample slope ~0.005) right across the boundaries.
+    // Regression for the "click at every chunk boundary at half speed" bug: the old code re-seeked the
+    // source every chunk, leaving a discontinuity at each seam. Here the ramp must stay continuous
+    // (per-sample slope ~0.005) right across the boundaries.
     [Test]
     public void ProcessStaticSpeed_HalfSpeed_IsContinuousAcrossChunkBoundaries()
     {
@@ -111,8 +110,8 @@ public class SpeedNodeTests
 
         List<float> left = RenderChunks(node, sr, channel: 0, 0.0, 1.0, 2.0);
 
-        // Skip the initial filter warm-up; every later step (including the chunk seams at 1000/2000)
-        // must stay close to the steady-state slope, i.e. no click.
+        // Skip the filter warm-up; every later step (including the seams at 1000/2000) must stay near
+        // the steady-state slope, i.e. no click.
         for (int i = 200; i < left.Count; i++)
         {
             float diff = left[i] - left[i - 1];
@@ -121,8 +120,8 @@ public class SpeedNodeTests
         }
     }
 
-    // The continuous stream must also be correct, not merely smooth: half speed maps output sample n
-    // to source position n*0.5, so the left ramp reads n*0.005 and the right channel is its negation.
+    // The stream must be correct, not just smooth: half speed maps output sample n to source position
+    // n*0.5, so the left ramp reads n*0.005 and the right channel is its negation.
     [Test]
     public void ProcessStaticSpeed_HalfSpeed_ProducesExpectedRampValues()
     {
@@ -142,8 +141,8 @@ public class SpeedNodeTests
         }
     }
 
-    // After a non-contiguous jump (scrub / loop), the stream must re-anchor to the new position rather
-    // than keep streaming from where the previous chunk left off.
+    // After a non-contiguous jump (scrub / loop), the stream must re-anchor to the new position, not
+    // keep streaming from where the previous chunk left off.
     [Test]
     public void ProcessStaticSpeed_HalfSpeed_ReanchorsAfterSeek()
     {
@@ -163,14 +162,13 @@ public class SpeedNodeTests
             new AudioProcessContext(new TimeRange(TimeSpan.FromSeconds(10), TimeSpan.FromSeconds(1)), sr, sampler, null));
 
         Span<float> left = seeked.GetChannelData(0);
-        // Output sample 10500 -> source position 5250 -> value 5250 * 0.01 = 52.5. A failure to
-        // re-anchor would instead continue from ~0.5s of source (~value 5), so the tolerance is tight.
+        // Output sample 10500 -> source 5250 -> value 52.5. Without re-anchoring it would continue from
+        // ~0.5s of source (~value 5), so the tolerance is tight.
         Assert.That(left[500], Is.EqualTo((10000 + 500) * 0.005f).Within(0.05f));
     }
 
-    // The animated (variable-speed) path shares the same resampler-driven streaming loop. A constant
-    // 50% keyframed speed must stay just as continuous across chunk seams as the constant-speed path —
-    // this guards the rewrite that removed the hand-rolled wantFrames/srcPos cursor.
+    // The animated path shares the same streaming loop. A constant 50% keyframed speed must stay as
+    // continuous across seams as the constant-speed path — guards the removal of the hand-rolled cursor.
     [Test]
     public void ProcessAnimatedSpeed_ConstantHalfSpeed_IsContinuousAndCorrectAcrossChunks()
     {
@@ -191,7 +189,7 @@ public class SpeedNodeTests
     }
 
     // Deterministic finite stereo source: a ramp for the first _length samples, silence beyond. Models
-    // SourceNode returning zero-filled buffers past end-of-source.
+    // SourceNode zero-filling past end-of-source.
     private sealed class FiniteRampInputNode : AudioNode
     {
         private readonly int _sampleRate;
@@ -222,8 +220,8 @@ public class SpeedNodeTests
         }
     }
 
-    // Past the end of a finite source the stream must decay to silence, not loop, hold, or emit stale
-    // resampler data. Half speed maps the 300-sample source onto output samples [0, 600).
+    // Past end-of-source the stream must decay to silence, not loop, hold, or emit stale resampler
+    // data. Half speed maps the 300-sample source onto output samples [0, 600).
     [Test]
     public void ProcessStaticSpeed_HalfSpeed_FiniteSource_DecaysToSilenceAfterEnd()
     {
@@ -244,8 +242,8 @@ public class SpeedNodeTests
         // Well before end-of-source the ramp is present...
         Assert.That(left[400], Is.EqualTo(400 * 0.005f).Within(0.05f), "ramp missing before end-of-source");
 
-        // ...and the entire tail past the mapped end-of-source (300 source samples -> output 600, plus
-        // resampler latency) must be silent — no residual, oscillation, or looped data anywhere in it.
+        // ...and the entire tail past the mapped end-of-source (output 600 plus resampler latency)
+        // must be silent — no residual, oscillation, or looped data.
         for (int i = 700; i < left.Length; i++)
             Assert.That(Math.Abs(left[i]), Is.LessThan(0.05f), $"residual at {i} after end-of-source ({left[i]})");
     }
@@ -260,18 +258,16 @@ public class SpeedNodeTests
             => new(_sampleRate, 2, context.GetSampleCount());
     }
 
-    // Forwards Process unchanged. Stands in for the single ResampleNode the graph keeps between SpeedNode
-    // and the source, reused purely by sample rate (AudioContext.CreateResampleNode) so its instance
-    // survives a source/offset change while everything further upstream is recreated.
+    // Forwards Process unchanged. Stands in for the ResampleNode the graph keeps between SpeedNode and
+    // the source, reused by sample rate so its instance survives a source/offset change.
     private sealed class PassthroughNode : AudioNode
     {
         public override AudioBuffer Process(AudioProcessContext context) => Inputs[0].Process(context);
     }
 
-    // Re-anchor on a static-speed change across contiguous chunks. The output-time comparison in
-    // BeginStream cannot see this discontinuity (the node keeps emitting contiguous output), so without
-    // the speed-change re-anchor the source read cursor keeps marching from where the old (half) speed
-    // left off instead of jumping to outputStart * newSpeed.
+    // Re-anchor on a static-speed change across contiguous chunks: BeginStream's output-time comparison
+    // cannot see it, so without the re-anchor the read cursor keeps marching at the old speed instead
+    // of jumping to outputStart * newSpeed.
     [Test]
     public void ProcessStaticSpeed_ReanchorsWhenStaticSpeedChangesMidStream()
     {
@@ -294,9 +290,9 @@ public class SpeedNodeTests
             new AudioProcessContext(new TimeRange(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1)), sr, sampler, null));
 
         Span<float> left = after.GetChannelData(0);
-        // Output sample i -> output time (1 + i/sr)s -> source position (1 + i/sr) * 2 s -> ramp value
-        // (sourcePos * sr) * 0.01. Skip the resampler warm-up after the re-anchor reset. A failure to
-        // re-anchor would instead read from ~0.5s of source (value ~5 + 0.02*i), so the tolerance is tight.
+        // Output sample i -> source position (1 + i/sr) * 2 s -> ramp value (sourcePos * sr) * 0.01.
+        // Skip the warm-up after re-anchor. Without re-anchoring it would read from ~0.5s of source
+        // (value ~5 + 0.02*i), so the tolerance is tight.
         for (int i = 300; i < left.Length; i++)
         {
             float expected = (float)((1.0 + i / (double)sr) * 2.0) * sr * 0.01f;
@@ -305,10 +301,9 @@ public class SpeedNodeTests
         }
     }
 
-    // Guards the transitive-upstream identity check: a differential graph update can reuse the
-    // intermediate ResampleNode (keyed only by sample rate) so SpeedNode's Inputs[0] identity is
-    // unchanged, while recreating the source/offset feeding it. The processor must still reset, or the
-    // resampler's filter history and source read cursor from the old source bleed into the new stream.
+    // Guards the transitive-upstream identity check: a graph update can reuse the intermediate
+    // ResampleNode (so Inputs[0] is unchanged) while recreating the source behind it. The processor
+    // must still reset, or the old source's filter history and read cursor bleed into the new stream.
     [Test]
     public void Process_ResetsStreamingStateWhenUpstreamBehindReusedNodeIsSwapped()
     {
@@ -325,7 +320,7 @@ public class SpeedNodeTests
         {
         }
 
-        // Swap the source two levels up while keeping the immediate input (reused) identity unchanged.
+        // Swap the source two levels up while keeping the immediate input (reused) unchanged.
         reused.ClearInputs();
         reused.AddInput(new SilentInputNode(sr));
 
@@ -337,10 +332,9 @@ public class SpeedNodeTests
             Assert.That(Math.Abs(left[i]), Is.LessThan(0.05f), $"stale ramp history leaked at {i} ({left[i]})");
     }
 
-    // Guards the _lastInput identity check: a differential graph update can reuse the node but swap its
-    // upstream. Even though the next chunk is time-contiguous (and would otherwise be treated as a
-    // continuation), the resampler's filter history from the old ramp source must NOT bleed into the new
-    // (silent) source. Without the reset the retained history would ring out as non-zero samples.
+    // Guards the upstream identity check: a graph update can reuse the node but swap its upstream. Even
+    // though the next chunk is time-contiguous, the old ramp source's filter history must NOT bleed into
+    // the new (silent) source — without the reset it would ring out as non-zero samples.
     [Test]
     public void Process_ResetsStreamingStateWhenUpstreamIsSwapped()
     {

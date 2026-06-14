@@ -26,8 +26,7 @@ public class FFmpegWorkerProcessTests
     {
         const string baseDir = "/app";
         string subApphost = SubDirApphost(baseDir, isWindows);
-        // Both the isolated subdir and the flat layout are present; the subdir must win so the
-        // worker loads its own (possibly different-versioned) shared assemblies, never the app's.
+        // Both layouts present; the subdir must win so the worker loads its own shared assemblies.
         bool FileExists(string p) => p == subApphost || p == FlatApphost(baseDir, isWindows);
 
         var command = FFmpegWorkerProcess.ResolveWorkerCommand(baseDir, isWindows, DotnetHost, FileExists);
@@ -55,8 +54,7 @@ public class FFmpegWorkerProcessTests
     public void ResolveWorkerCommand_SubdirDllMode_WhenNoApphost(bool isWindows)
     {
         const string baseDir = "/app";
-        // UseAppHost=false dev build: only the subdir .dll exists. The subdir must still be chosen
-        // and launched via the dotnet host.
+        // UseAppHost=false dev build: only the subdir .dll exists, launched via the dotnet host.
         bool FileExists(string p) => p == SubDirDll(baseDir);
 
         var command = FFmpegWorkerProcess.ResolveWorkerCommand(baseDir, isWindows, DotnetHost, FileExists);
@@ -84,8 +82,7 @@ public class FFmpegWorkerProcessTests
     public void ResolveWorkerCommand_SubdirDll_StillPreferredOverFlatApphost(bool isWindows)
     {
         const string baseDir = "/app";
-        // Subdir has only a .dll while the flat layout has an apphost. The subdir still wins
-        // (isolation takes precedence), launched via the dotnet host.
+        // Subdir .dll vs flat apphost: the subdir still wins (isolation first), launched via dotnet host.
         bool FileExists(string p) => p == SubDirDll(baseDir) || p == FlatApphost(baseDir, isWindows);
 
         var command = FFmpegWorkerProcess.ResolveWorkerCommand(baseDir, isWindows, DotnetHost, FileExists);

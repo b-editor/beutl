@@ -34,11 +34,9 @@ public sealed class DelayNode : AudioNode
             _lastSampleRate = context.SampleRate;
         }
 
-        // Reset the delay lines on the very first call (no prior end recorded) and whenever the
-        // new chunk does not start exactly where the previous one ended. The node instance is
-        // cached across Compose() calls, so without this guard stale delay-line content would
-        // bleed into the first samples after a seek in either direction. Matches the
-        // discontinuity tracking in CompressorNode/EqualizerNode.
+        // Reset on the first call or any seek (a chunk not starting where the previous one ended).
+        // The node is cached across Compose() calls, so stale delay-line content would otherwise
+        // bleed in. Matches CompressorNode/EqualizerNode.
         if (!_lastTimeRangeEnd.HasValue || _lastTimeRangeEnd.Value != context.TimeRange.Start)
         {
             Reset();
