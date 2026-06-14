@@ -175,10 +175,13 @@ public partial class ImmediateCanvas : ICanvas
             GC.SuppressFinalize(this);
             try
             {
-                // FLUSH FIRST: submit all of this canvas's recorded (deferred) GPU work while its surface and
-                // paints are still alive. Resetting the save stack or disposing the paints before the flush
-                // would let Skia reference freed GPU resources at flush time (a leaked SKObject then throws in
-                // its finalizer under software Vulkan, aborting the process).
+                // FLUSH FIRST: submit this canvas's recorded (deferred) GPU work while its surface and paints
+                // are still alive. This is a GRContext-level flush of the SHARED context (a superset that also
+                // submits every other surface's pending work on it), not a per-surface flush — but the superset
+                // necessarily includes this canvas's work, which is what matters here. Resetting the save stack
+                // or disposing the paints before the flush would let Skia reference freed GPU resources at flush
+                // time (a leaked SKObject then throws in its finalizer under software Vulkan, aborting the
+                // process).
                 GraphicsContextFactory.SharedContext?.SkiaContext.Flush(true, true);
 
                 // feature 003 (CI host crash): undo the base Save() taken at construction (density != 1) so a

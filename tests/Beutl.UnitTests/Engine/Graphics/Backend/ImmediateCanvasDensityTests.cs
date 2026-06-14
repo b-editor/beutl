@@ -287,6 +287,14 @@ public class ImmediateCanvasDensityTests
         // non-null managed-wrapper check covers. DisposeCore must skip the restore when the wrapper is gone
         // (guarded by Canvas.Handle). Here we drive it deterministically: dispose the backing target first (which
         // zeroes the cached canvas Handle), then the canvas — it must skip the restore, not crash.
+        //
+        // NOTE on what this asserts: the pre-fix failure is a native SIGSEGV, NOT a managed exception, so
+        // Assert.DoesNotThrow cannot observe it — a regression would hard-CRASH the whole NUnit run, not fail this
+        // assertion. The real protection is therefore "the process survives + DisposeCore completed", and the
+        // load-bearing post-condition is the IsDisposed == true check below (it proves DisposeCore ran PAST the
+        // skipped RestoreToCount). DoesNotThrow stays only to catch an adjacent managed-exception regression (e.g.
+        // a future guard that throws ObjectDisposedException instead of skipping). Do not weaken the production
+        // guard believing a try/catch around RestoreToCount would suffice — it would not (the fault is native).
         VulkanTestEnvironment.EnsureAvailable();
         VulkanTestEnvironment.InvokeOnRenderThread(() =>
         {
@@ -295,6 +303,13 @@ public class ImmediateCanvasDensityTests
 
             target.Dispose(); // frees the SKSurface and zeroes the cached SKCanvas wrapper's Handle
             Assert.That(target.IsDisposed, Is.True);
+
+            // Pin the precondition that the guarded skip branch is ACTUALLY exercised: disposing the surface must
+            // have zeroed the cached child-canvas wrapper's Handle. Without this, a future SkiaSharp that left the
+            // Handle non-zero after teardown would silently route the test through the normal restore path — a
+            // false-green that stops covering the guard entirely.
+            Assert.That(canvas.Canvas.Handle, Is.EqualTo(IntPtr.Zero),
+                "precondition: disposing the backing surface must zero the cached SKCanvas wrapper's Handle");
 
             Assert.DoesNotThrow(() => canvas.Dispose(),
                 "DisposeCore must skip the base RestoreToCount once the cached SKCanvas wrapper is disposed");

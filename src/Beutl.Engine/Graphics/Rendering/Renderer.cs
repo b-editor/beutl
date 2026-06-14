@@ -66,24 +66,32 @@ public class Renderer : IRenderer
     {
         // A finalizer must NEVER throw — an unhandled exception here aborts the whole process. If the
         // constructor threw partway (e.g. RenderTarget.Create failed, or the GPU context was lost), the
-        // canvas / surface fields were never assigned, so dispose them null-safely and swallow as a last resort.
-        try
-        {
-            if (!IsDisposed)
-            {
-                OnDispose(false);
-                _immediateCanvas?.Dispose();
-                _surface?.Dispose();
-                ClearAllCaches();
-                DisposeAllEntries();
+        // canvas / surface fields were never assigned, so dispose them null-safely. Each step is guarded
+        // INDEPENDENTLY (not one try/catch around the whole body) so an early throw — e.g. an overridden
+        // OnDispose — cannot skip releasing the GPU surface, the costliest leak; a Debug log records any
+        // failure rather than letting it vanish silently. IsDisposed is set last: a finalizer runs at most
+        // once, so a guarded step throwing leaves no re-run hazard.
+        if (IsDisposed)
+            return;
 
-                IsDisposed = true;
+        static void SafeStep(string step, Action action)
+        {
+            try
+            {
+                action();
+            }
+            catch (Exception ex)
+            {
+                s_logger.LogDebug(ex, "Renderer finalizer: {Step} threw during last-resort disposal", step);
             }
         }
-        catch
-        {
-            // ignore — never crash the finalizer thread
-        }
+
+        SafeStep(nameof(OnDispose), () => OnDispose(false));
+        SafeStep(nameof(_immediateCanvas), () => _immediateCanvas?.Dispose());
+        SafeStep(nameof(_surface), () => _surface?.Dispose());
+        SafeStep(nameof(ClearAllCaches), ClearAllCaches);
+        SafeStep(nameof(DisposeAllEntries), DisposeAllEntries);
+        IsDisposed = true;
     }
 
     public bool IsDisposed { get; private set; }

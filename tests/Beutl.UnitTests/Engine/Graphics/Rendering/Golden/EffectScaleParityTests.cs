@@ -288,16 +288,21 @@ public class EffectScaleParityTests
         VulkanTestEnvironment.EnsureAvailable();
 
         // A non-finite (NaN/±Inf) pixel makes SSIM NaN, which would assert as a misleading "scale diverged"
-        // failure even though parity was never measured. Non-finite output is a software-Vulkan (SwiftShader)
-        // blur artifact (heaviest case: InnerShadow's sigma×w blur) that lands on a DIFFERENT, run-varying pixel
-        // each render — i.e. nondeterministic GPU garbage, NOT a scale-parity defect (a real divergence is
-        // deterministic, finite, and yields a low SSIM). So re-render a few times to get a clean measurement,
-        // and if non-finite STILL persists, the GPU simply cannot render this case here — treat it as
-        // INCONCLUSIVE (parity is verified on a hardware GPU, e.g. MoltenVK, where the blur is finite) rather
-        // than failing the build on an environmental artifact. Assert.Ignore is raised on the test thread (not
-        // inside InvokeOnRenderThread, where it would be wrapped in an AggregateException).
+        // failure even though parity was never measured. Two distinct causes produce non-finite output, and
+        // they must be told apart by DETERMINISM — not by non-finiteness alone:
+        //   * a software-Vulkan (SwiftShader) blur artifact (heaviest case: InnerShadow's sigma×w blur) lands on
+        //     a DIFFERENT, run-varying pixel each render — nondeterministic GPU garbage, NOT a scale defect; vs
+        //   * a genuine scale-parity defect (an absolute-px parameter left unscaled by the working density) is
+        //     DETERMINISTIC — it corrupts the SAME pixel(s) every render, and may itself emit NaN/Inf.
+        // So re-render a few times and compare WHERE the non-finite pixel lands across attempts: a location that
+        // stays identical on every attempt is deterministic and a real defect → FAIL; a location that moves is
+        // the environmental artifact → treat as INCONCLUSIVE (parity is verified on a hardware GPU, e.g.
+        // MoltenVK, where the blur is finite) rather than failing the build on it. Gating on non-finiteness
+        // alone would silently Ignore a deterministic NaN-producing regression. Assert.Fail / Assert.Ignore are
+        // raised on the test thread (not inside InvokeOnRenderThread, where an IgnoreException would be wrapped
+        // in an AggregateException and surface as an error instead of an ignore).
         const int maxAttempts = 3;
-        string? persistentNonFinite = null;
+        var nonFiniteAttempts = new List<string>();
         VulkanTestEnvironment.InvokeOnRenderThread(() =>
         {
             for (int attempt = 1; ; attempt++)
@@ -310,13 +315,16 @@ public class EffectScaleParityTests
                 if (nonFinite is not null)
                 {
                     TestContext.WriteLine($"[{name}] non-finite render on attempt {attempt}: {nonFinite}");
+                    nonFiniteAttempts.Add(nonFinite);
                     if (attempt < maxAttempts)
                         continue;
 
-                    persistentNonFinite = nonFinite;
                     return;
                 }
 
+                // Parity is measurable on this attempt: discard any earlier transient non-finite records so the
+                // post-closure verdict cannot misread a recovered run as a persistent one.
+                nonFiniteAttempts.Clear();
                 double ssim = ImageMetrics.Ssim(r1, delivered);
                 TestContext.WriteLine($"[{name}] 2x-delivered vs 1:1 SSIM={ssim:F4}");
                 Assert.That(ssim, Is.GreaterThan(0.95),
@@ -325,11 +333,26 @@ public class EffectScaleParityTests
             }
         });
 
-        if (persistentNonFinite is not null)
+        if (nonFiniteAttempts.Count == maxAttempts)
         {
-            Assert.Ignore($"{name}: render produced non-finite pixels [{persistentNonFinite}] after {maxAttempts} "
-                + "attempts — a software-Vulkan blur artifact (nondeterministic, run-varying pixel), NOT a "
-                + "scale-parity defect; parity is not measurable here and is verified on a hardware GPU.");
+            // Strip the trailing "= {value}" so we compare WHERE the non-finite component landed (label + x/y/c),
+            // not the exact NaN/Inf bit pattern — which can differ even at the same pixel.
+            bool deterministic = nonFiniteAttempts
+                .Select(s => s.Split(" = ", StringSplitOptions.None)[0])
+                .Distinct()
+                .Count() == 1;
+
+            if (deterministic)
+            {
+                Assert.Fail($"{name}: render produced a non-finite pixel at the SAME location on all {maxAttempts} "
+                    + $"attempts [{nonFiniteAttempts[0]}] — a deterministic NaN/Inf is a scale-parity defect (an "
+                    + "absolute-px parameter is not scaled by the working density), not an environmental artifact.");
+            }
+
+            Assert.Ignore($"{name}: render produced a non-finite pixel at a run-varying location across "
+                + $"{maxAttempts} attempts [{string.Join("; ", nonFiniteAttempts)}] — a software-Vulkan blur "
+                + "artifact (nondeterministic), NOT a scale-parity defect; parity is not measurable here and is "
+                + "verified on a hardware GPU.");
         }
     }
 
