@@ -67,8 +67,6 @@
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
     <PackageReference Include="Microsoft.Extensions.Logging" />
     <PackageReference Include="OpenTelemetry" />
-    <PackageReference Include="OpenTelemetry.Exporter.Console" />
-    <PackageReference Include="OpenTelemetry.Exporter.Zipkin" />
     <PackageReference Include="PanelExtension" />
     <PackageReference Include="ReactiveProperty" />
     <PackageReference Include="Dock.Avalonia" />
@@ -78,9 +76,8 @@
     <PackageReference Include="Serilog.Sinks.Async" />
     <PackageReference Include="Serilog.Sinks.File" />
     <PackageReference Include="Serilog.Sinks.Debug" />
-    <PackageReference Include="System.Interactive" />
-    <PackageReference Include="System.Interactive.Async" />
     <PackageReference Include="System.Reactive" />
+    <PackageReference Include="System.Interactive" />
     <PackageReference Include="Roslynator.Analyzers">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>

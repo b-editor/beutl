@@ -32,7 +32,6 @@
     <PackageVersion Include="Dotnet.Bundle" Version="0.9.13" />
     <PackageVersion Include="DynamicData" Version="9.4.31" />
     <PackageVersion Include="FFmpeg.AutoGen.Bindings.DynamicallyLoaded" Version="8.1.0" />
-    <PackageVersion Include="FFmpeg.AutoGen.Abstractions" Version="8.0.0" />
     <PackageVersion Include="FFmpeg4Sharp" Version="7.0.1" />
     <PackageVersion Include="FluentAvaloniaUI" Version="2.5.1" />
     <PackageVersion Include="FluentIcons.FluentAvalonia" Version="1.1.224" />
@@ -61,28 +60,22 @@
     <PackageVersion Include="NUnit" Version="4.6.1" />
     <PackageVersion Include="NUnit3TestAdapter" Version="6.2.0" />
     <PackageVersion Include="OpenTelemetry" Version="1.16.0" />
-    <PackageVersion Include="OpenTelemetry.Exporter.Console" Version="1.16.0" />
-    <PackageVersion Include="OpenTelemetry.Exporter.Zipkin" Version="1.15.3" />
-    <PackageVersion Include="OpenTK.OpenAL" Version="5.0.0-pre.8" />
     <PackageVersion Include="PanelExtension" Version="1.0.0" />
     <PackageVersion Include="ReactiveProperty" Version="9.8.0" />
     <PackageVersion Include="Dock.Avalonia" Version="11.3.12.1" />
     <PackageVersion Include="Dock.Model.Inpc" Version="11.3.12.1" />
     <PackageVersion Include="Dock.Avalonia.Themes.Fluent" Version="11.3.12.1" />
-    <PackageVersion Include="Dock.Serializer.SystemTextJson" Version="11.3.12.1" />
     <PackageVersion Include="Refit" Version="10.2.0" />
     <PackageVersion Include="Roslynator.Analyzers" Version="4.15.0" />
     <PackageVersion Include="Serilog.Extensions.Logging" Version="10.0.0" />
     <PackageVersion Include="Serilog.Sinks.Async" Version="2.1.0" />
     <PackageVersion Include="Serilog.Sinks.Debug" Version="3.0.0" />
     <PackageVersion Include="Serilog.Sinks.File" Version="7.0.0" />
-    <PackageVersion Include="Serilog.Sinks.OpenTelemetry" Version="1.2.0" />
     <PackageVersion Include="SkiaSharp" Version="3.119.4" />
     <PackageVersion Include="SkiaSharp.HarfBuzz" Version="3.119.4" />
     <PackageVersion Include="SkiaSharp.NativeAssets.Linux" Version="3.119.4" />
     <PackageVersion Include="System.CommandLine" Version="2.0.8" />
     <PackageVersion Include="System.Interactive" Version="7.0.1" />
-    <PackageVersion Include="System.Interactive.Async" Version="7.0.1" />
     <PackageVersion Include="System.Management" Version="10.0.8" />
     <PackageVersion Include="System.Reactive" Version="6.1.0" />
     <PackageVersion Include="Vortice.Direct3D9" Version="3.8.3" />
