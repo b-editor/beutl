@@ -4,16 +4,12 @@ using Avalonia;
 using Avalonia.Interactivity;
 using Beutl.Controls.PropertyEditors;
 using Beutl.Extensibility;
-#if FFMPEG_OUT_OF_PROCESS
+using Beutl.Extensions.FFmpeg.Encoding;
 using Beutl.FFmpegIpc.Protocol;
 using Beutl.FFmpegIpc.Protocol.Messages;
-#else
-using FFmpegSharp;
-#endif
 using Beutl.PropertyAdapters;
 using Beutl.Reactive;
 using Reactive.Bindings;
-using Beutl.Extensions.FFmpeg.Encoding;
 
 namespace Beutl.Extensions.FFmpeg.PropertyEditors;
 
@@ -118,7 +114,6 @@ internal sealed class SampleRateEditorViewModel : IPropertyEditorContext
 
         try
         {
-#if FFMPEG_OUT_OF_PROCESS
             var connection = FFmpegWorkerProcess.DecodingInstance.EnsureStartedAsync().GetAwaiter().GetResult();
             var response = connection.RequestAsync<QuerySampleRatesRequest, QuerySampleRatesResponse>(
                 MessageType.QuerySampleRates, MessageType.QuerySampleRatesResult,
@@ -128,24 +123,6 @@ internal sealed class SampleRateEditorViewModel : IPropertyEditorContext
                     OutputFile = settings.OutputFile
                 }).AsTask().GetAwaiter().GetResult();
             return response.SampleRates;
-#else
-            MediaCodec codec;
-            if (settings.Codec.Equals(CodecRecord.Default))
-            {
-                string? outputFile = settings.OutputFile;
-                if (string.IsNullOrEmpty(outputFile))
-                    return [];
-
-                var outFormat = OutputFormat.GuessFormat(null, outputFile, null);
-                codec = MediaCodec.FindEncoder(outFormat.AudioCodec);
-            }
-            else
-            {
-                codec = MediaCodec.FindEncoder(settings.Codec.Name);
-            }
-
-            return codec.GetSupportedSamplerates().ToArray();
-#endif
         }
         catch
         {

@@ -1,7 +1,5 @@
-﻿#if FFMPEG_OUT_OF_PROCESS
-using Beutl.FFmpegIpc.Protocol;
+﻿using Beutl.FFmpegIpc.Protocol;
 using Beutl.FFmpegIpc.Protocol.Messages;
-#endif
 using Beutl.Logging;
 using Beutl.Media.Decoding;
 using Microsoft.Extensions.Logging;
@@ -30,7 +28,6 @@ public sealed class FFmpegDecoderInfo(FFmpegDecodingSettings settings) : IDecode
     {
         try
         {
-#if FFMPEG_OUT_OF_PROCESS
             var worker = FFmpegWorkerProcess.DecodingInstance;
             var connection = worker.EnsureStarted();
 
@@ -47,9 +44,6 @@ public sealed class FFmpegDecoderInfo(FFmpegDecodingSettings settings) : IDecode
                 MessageType.OpenFile, MessageType.OpenFileResult, request).GetAwaiter().GetResult();
 
             return new FFmpegReaderProxy(connection, response.ReaderId, response);
-#else
-            return new FFmpegReader(file, options, settings);
-#endif
         }
         catch (Exception ex)
         {

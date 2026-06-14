@@ -25,10 +25,13 @@
     <Compile Remove="Encoding\FFmpegEncodingController.cs" />
     <Compile Remove="ColorSpaceHelper.cs" />
     <Compile Remove="FFmpegError.cs" />
-    <Compile Remove="FFmpegPath.cs" />
   </ItemGroup>
 
-  <!-- In-process: Proxyファイルを除外 -->
+  <!-- NOTE: the in-process build (FFmpegOutOfProcess != True) no longer compiles as of this change.
+       The in-process code paths were removed, so the sources now unconditionally use the
+       out-of-process worker/Proxy types. The 'FFmpegOutOfProcess != True' branches below are retained
+       only until the build matrix is collapsed in a follow-up PR; the supported build mode is
+       out-of-process. (This branch would exclude the Proxy files in the in-process build.) -->
   <ItemGroup Condition="'$(FFmpegOutOfProcess)'!='True'">
     <Compile Remove="Decoding\FFmpegReaderProxy.cs" />
     <Compile Remove="Encoding\FFmpegEncodingControllerProxy.cs" />
@@ -46,7 +49,7 @@
     <PackageReference Include="ReactiveProperty" />
   </ItemGroup>
 
-  <!-- In-process: FFmpegパッケージが必要 -->
+  <!-- in-process FFmpeg packages — 'FFmpegOutOfProcess != True' only; see the note above (this config no longer compiles) -->
   <ItemGroup Condition="'$(FFmpegOutOfProcess)'!='True'">
     <PackageReference Include="FFmpeg.AutoGen.Bindings.DynamicallyLoaded" />
     <PackageReference Include="FFmpeg4Sharp" />

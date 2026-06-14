@@ -26,9 +26,6 @@ public class FFmpegDecodingExtension : DecodingExtension
 
     public override void Load()
     {
-#if !FFMPEG_OUT_OF_PROCESS
-        FFmpegLoader.Initialize();
-#else
         try
         {
             FFmpegWorkerProcess.DecodingInstance.EnsureStarted();
@@ -39,19 +36,15 @@ public class FFmpegDecodingExtension : DecodingExtension
             FFmpegInstallNotifier.NotifyMissing();
         }
         Settings.PropertyChanged += OnSettingsPropertyChanged;
-#endif
         base.Load();
     }
 
     public override void Unload()
     {
-#if FFMPEG_OUT_OF_PROCESS
         Settings.PropertyChanged -= OnSettingsPropertyChanged;
-#endif
         base.Unload();
     }
 
-#if FFMPEG_OUT_OF_PROCESS
     private void OnSettingsPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
         _ = Task.Run(async () =>
@@ -85,5 +78,4 @@ public class FFmpegDecodingExtension : DecodingExtension
             }
         });
     }
-#endif
 }

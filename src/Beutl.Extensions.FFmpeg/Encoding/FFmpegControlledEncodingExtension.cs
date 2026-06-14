@@ -28,19 +28,12 @@ public class FFmpegControlledEncodingExtension : ControllableEncodingExtension
 
     public override EncodingController CreateController(string file)
     {
-#if FFMPEG_OUT_OF_PROCESS
         return new FFmpegEncodingControllerProxy(file, Settings);
-#else
-        return new FFmpegEncodingController(file, Settings);
-#endif
     }
 
 
     public override void Load()
     {
-#if !FFMPEG_OUT_OF_PROCESS
-        FFmpegLoader.Initialize();
-#endif
         base.Load();
     }
 }

@@ -4,16 +4,12 @@ using Avalonia;
 using Avalonia.Interactivity;
 using Beutl.Controls.PropertyEditors;
 using Beutl.Extensibility;
-#if FFMPEG_OUT_OF_PROCESS
+using Beutl.Extensions.FFmpeg.Encoding;
 using Beutl.FFmpegIpc.Protocol;
 using Beutl.FFmpegIpc.Protocol.Messages;
-#else
-using FFmpegSharp;
-#endif
 using Beutl.PropertyAdapters;
 using Beutl.Reactive;
 using Reactive.Bindings;
-using Beutl.Extensions.FFmpeg.Encoding;
 using AudioFormat = Beutl.Extensions.FFmpeg.Encoding.FFmpegAudioEncoderSettings.AudioFormat;
 
 namespace Beutl.Extensions.FFmpeg.PropertyEditors;
@@ -142,7 +138,6 @@ internal sealed class AudioFormatEditorViewModel : IPropertyEditorContext
     {
         try
         {
-#if FFMPEG_OUT_OF_PROCESS
             var connection = FFmpegWorkerProcess.DecodingInstance.EnsureStartedAsync().GetAwaiter().GetResult();
             var response = connection.RequestAsync<QueryAudioFormatsRequest, QueryAudioFormatsResponse>(
                 MessageType.QueryAudioFormats, MessageType.QueryAudioFormatsResult,
@@ -152,25 +147,6 @@ internal sealed class AudioFormatEditorViewModel : IPropertyEditorContext
                     OutputFile = settings.OutputFile
                 }).AsTask().GetAwaiter().GetResult();
             return response.Formats.Select(f => (AudioFormat)f).ToArray();
-#else
-            MediaCodec codec;
-            if (settings.Codec.Equals(CodecRecord.Default))
-            {
-                string? outputFile = settings.OutputFile;
-                if (string.IsNullOrEmpty(outputFile))
-                    return GetAllFormats();
-
-                var outFormat = OutputFormat.GuessFormat(null, outputFile, null);
-                codec = MediaCodec.FindEncoder(outFormat.AudioCodec);
-            }
-            else
-            {
-                codec = MediaCodec.FindEncoder(settings.Codec.Name);
-            }
-
-            var fmts = codec.GetSampelFmts().Select(f => (AudioFormat)f).ToArray();
-            return fmts.Length > 0 ? fmts : GetAllFormats();
-#endif
         }
         catch
         {
