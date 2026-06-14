@@ -174,7 +174,6 @@ public sealed class FilterEffectContext : IDisposable
                     var target = context.Targets[i];
                     if (target.RenderTarget is not null)
                     {
-                        using SKImage skImage = target.RenderTarget.Value.Snapshot();
                         EffectTarget newTarget = context.CreateTarget(target.Bounds);
                         using (ImmediateCanvas canvas = context.Open(newTarget))
                         // feature 003: the source At(w) is point-blitted at DEVICE px and the blur sigma / shadow
