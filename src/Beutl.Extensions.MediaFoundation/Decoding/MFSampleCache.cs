@@ -1,11 +1,6 @@
 ﻿// https://github.com/amate/MFVideoReader
 
-using System.Diagnostics;
-
 using Beutl.Collections;
-using Beutl.Logging;
-
-using Microsoft.Extensions.Logging;
 
 using Vortice.MediaFoundation;
 
@@ -16,64 +11,15 @@ namespace Beutl.Extensions.MediaFoundation.Decoding;
 #endif
 
 public record MFSampleCacheOptions(
-    int MaxVideoBufferSize = 4, // あまり大きな値を設定するとReadSampleで停止する
-    int MaxAudioBufferSize = 20);
+    int MaxVideoBufferSize = 4); // あまり大きな値を設定するとReadSampleで停止する
 
 public class MFSampleCache(MFSampleCacheOptions options)
 {
-    private readonly ILogger _logger = Log.CreateLogger<MFSampleCache>();
-
     public const int FrameWaringGapCount = 1;
-    public const int AudioSampleWaringGapCount = 1000;
 
     private CircularBuffer<VideoCache> _videoCircularBuffer = new(options.MaxVideoBufferSize);
-    private CircularBuffer<AudioCache> _audioCircularBuffer = new(options.MaxAudioBufferSize);
-    private short _nBlockAlign;
 
     private readonly record struct VideoCache(int Frame, IMFSample Sample);
-
-    private readonly record struct AudioCache(int StartSampleNum, IMFSample Sample, int AudioSampleCount)
-    {
-        public bool CopyBuffer(ref int startSample, ref int copySampleLength, ref nint buffer, short nBlockAlign)
-        {
-            int querySampleEndPos = startSample + copySampleLength;
-            int cacheSampleEndPos = StartSampleNum + AudioSampleCount;
-            // キャッシュ内に startSample位置があるかどうか
-            if (StartSampleNum <= startSample && startSample < cacheSampleEndPos)
-            {
-                // 要求サイズがキャッシュを超えるかどうか
-                if (querySampleEndPos <= cacheSampleEndPos)
-                {
-                    // キャッシュ内に収まる
-                    int actualBufferPos = (startSample - StartSampleNum) * nBlockAlign;
-                    int actualBufferSize = copySampleLength * nBlockAlign;
-                    SampleUtilities.SampleCopyToBuffer(Sample, buffer, actualBufferPos, actualBufferSize);
-
-                    startSample += copySampleLength;
-                    copySampleLength = 0;
-                    buffer += actualBufferSize;
-
-                    return true;
-                }
-                else
-                {
-                    // 現在のキャッシュ内のデータをコピーする
-                    int actualBufferPos = (startSample - StartSampleNum) * nBlockAlign;
-                    int leftSampleCount = cacheSampleEndPos - startSample;
-                    int actualleftBufferSize = leftSampleCount * nBlockAlign;
-                    SampleUtilities.SampleCopyToBuffer(Sample, buffer, actualBufferPos, actualleftBufferSize);
-
-                    startSample += leftSampleCount;
-                    copySampleLength -= leftSampleCount;
-                    buffer += actualleftBufferSize;
-
-                    return true;
-                }
-            }
-
-            return false;
-        }
-    }
 
     public void ResetVideo()
     {
@@ -83,16 +29,6 @@ public class MFSampleCache(MFSampleCacheOptions options)
         {
             item.Sample.Dispose();
         }
-    }
-
-    public void ResetAudio(short nBlockAlign)
-    {
-        _nBlockAlign = nBlockAlign;
-        foreach (AudioCache item in _audioCircularBuffer)
-        {
-            item.Sample.Dispose();
-        }
-        _audioCircularBuffer.Clear();
     }
 
     public void AddFrameSample(int frame, IMFSample pSample)
@@ -118,55 +54,12 @@ public class MFSampleCache(MFSampleCacheOptions options)
         _videoCircularBuffer.PushBack(videoCache);
     }
 
-    public void AddAudioSample(int startSample, IMFSample pSample)
-    {
-        int lastAudioSampleNum = LastAudioSampleNumber();
-        if (lastAudioSampleNum != -1)
-        {
-            int actualAudioSampleNum = lastAudioSampleNum + _audioCircularBuffer.Back().AudioSampleCount;
-            if (Math.Abs(startSample - actualAudioSampleNum) > AudioSampleWaringGapCount)
-            {
-                _logger.LogWarning(
-                    "sample laggin - lag: {lag} startSample: {startSample} lastAudioSampleNum: {lastAudioSampleNum}",
-                    startSample - actualAudioSampleNum,
-                    startSample,
-                    actualAudioSampleNum);
-            }
-
-            startSample = lastAudioSampleNum + _audioCircularBuffer.Back().AudioSampleCount;
-        }
-
-        int totalLength = pSample.TotalLength;
-        int audioSampleCount = totalLength / _nBlockAlign;
-        Debug.Assert((totalLength % _nBlockAlign) == 0);
-
-        if (_audioCircularBuffer.IsFull)
-        {
-            _audioCircularBuffer.Front().Sample.Dispose();
-            _audioCircularBuffer.PopFront();
-        }
-
-        var audioCache = new AudioCache(startSample, pSample, audioSampleCount);
-        _audioCircularBuffer.PushBack(audioCache);
-    }
-
     public int LastFrameNumber()
     {
         if (_videoCircularBuffer.Size > 0)
         {
             VideoCache prevVideoCache = _videoCircularBuffer.Back();
             return prevVideoCache.Frame;
-        }
-
-        return -1;
-    }
-
-    public int LastAudioSampleNumber()
-    {
-        if (_audioCircularBuffer.Size > 0)
-        {
-            AudioCache prevAudioCache = _audioCircularBuffer.Back();
-            return prevAudioCache.StartSampleNum;
         }
 
         return -1;
@@ -183,21 +76,5 @@ public class MFSampleCache(MFSampleCacheOptions options)
         }
 
         return null;
-    }
-
-    public bool SearchAudioSampleAndCopyBuffer(int startSample, int copySampleLength, nint buffer)
-    {
-        foreach (AudioCache audioCache in _audioCircularBuffer)
-        {
-            if (audioCache.CopyBuffer(ref startSample, ref copySampleLength, ref buffer, _nBlockAlign))
-            {
-                if (copySampleLength == 0)
-                {
-                    return true;
-                }
-            }
-        }
-
-        return false;
     }
 }

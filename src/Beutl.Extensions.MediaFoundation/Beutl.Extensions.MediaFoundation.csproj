@@ -19,7 +19,6 @@
       <PrivateAssets>all</PrivateAssets>
     </PackageReference>
     <PackageReference Include="NAudio.Wasapi" />
-    <PackageReference Include="Vortice.Direct3D9" />
     <PackageReference Include="Vortice.MediaFoundation" />
   </ItemGroup>
 

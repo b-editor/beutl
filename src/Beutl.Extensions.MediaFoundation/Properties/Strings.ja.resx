@@ -100,29 +100,14 @@
   <data name="DecodingName" xml:space="preserve">
     <value>Media Foundation デコーディング</value>
   </data>
-  <data name="UseDXVA2" xml:space="preserve">
-    <value>DXVA2を使う</value>
-  </data>
-  <data name="UseDXVA2_Description" xml:space="preserve">
-    <value>DirectX ビデオ アクセラレータ 2.0を使用して高速に動画をデコードします。</value>
-  </data>
   <data name="SeekThresholdInVideoStream" xml:space="preserve">
     <value>動画ストリームでのシーク閾値</value>
   </data>
   <data name="SeekThresholdInVideoStream_Description" xml:space="preserve">
     <value>このフレーム数より遠いフレームが読み込まれる場合、シークします。</value>
   </data>
-  <data name="SeekThresholdInAudioStream" xml:space="preserve">
-    <value>音声ストリームでのシーク閾値</value>
-  </data>
-  <data name="SeekThresholdInAudioStream_Description" xml:space="preserve">
-    <value>このサンプル数より遠いサンプルが読み込まれる場合、シークします。</value>
-  </data>
   <data name="MaxVideoBufferSize" xml:space="preserve">
     <value>キャッシュするフレーム数</value>
-  </data>
-  <data name="MaxAudioBufferSize" xml:space="preserve">
-    <value>キャッシュするサンプル数</value>
   </data>
   <data name="Cache" xml:space="preserve">
     <value>キャッシュ</value>

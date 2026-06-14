@@ -100,29 +100,14 @@
   <data name="DecodingName" xml:space="preserve">
     <value>Media Foundation Decoding</value>
   </data>
-  <data name="UseDXVA2" xml:space="preserve">
-    <value>Use DXVA2</value>
-  </data>
-  <data name="UseDXVA2_Description" xml:space="preserve">
-    <value>Decode videos at high speed using DirectX Video Accelerator 2.0.</value>
-  </data>
   <data name="SeekThresholdInVideoStream" xml:space="preserve">
     <value>Seek threshold in video stream</value>
   </data>
   <data name="SeekThresholdInVideoStream_Description" xml:space="preserve">
     <value>If frames farther than this number of frames are read, seek is performed.</value>
   </data>
-  <data name="SeekThresholdInAudioStream" xml:space="preserve">
-    <value>Seek threshold in audio stream</value>
-  </data>
-  <data name="SeekThresholdInAudioStream_Description" xml:space="preserve">
-    <value>If frames farther than this number of samples are read, seek is performed.</value>
-  </data>
   <data name="MaxVideoBufferSize" xml:space="preserve">
     <value>Number of frames to cache</value>
-  </data>
-  <data name="MaxAudioBufferSize" xml:space="preserve">
-    <value>Number of samples to cache</value>
   </data>
   <data name="Cache" xml:space="preserve">
     <value>Cache</value>
