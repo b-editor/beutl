@@ -8,7 +8,7 @@ using SkiaSharp;
 
 namespace Beutl.Graphics;
 
-public partial class ImmediateCanvas : ICanvas
+public partial class ImmediateCanvas : IDisposable, IPopable
 {
     internal readonly RenderTarget _renderTarget;
     private readonly Dispatcher? _dispatcher;

@@ -13,7 +13,6 @@ public class Renderer : IRenderer
 
     private readonly ImmediateCanvas _immediateCanvas;
     private readonly RenderTarget _surface;
-    private readonly FpsText _fpsText = new();
     private readonly ConditionalWeakTable<Drawable, Entry> _nodeCache = new();
     private readonly List<Entry> _allCurrentEntries = [];
     private RenderCacheOptions _cacheOptions = RenderCacheOptions.CreateFromGlobalConfiguration();
@@ -96,12 +95,6 @@ public class Renderer : IRenderer
 
     public bool IsGraphicsRendering { get; private set; }
 
-    public bool DrawFps
-    {
-        get => _fpsText.DrawFps;
-        set => _fpsText.DrawFps = value;
-    }
-
     public RenderCacheOptions CacheOptions
     {
         get => _cacheOptions;
@@ -160,7 +153,6 @@ public class Renderer : IRenderer
             Time = frame.Time.Start;
             ClearFrame();
 
-            using (_fpsText.StartRender(_immediateCanvas))
             using (_immediateCanvas.Push())
             {
                 _immediateCanvas.Clear();
