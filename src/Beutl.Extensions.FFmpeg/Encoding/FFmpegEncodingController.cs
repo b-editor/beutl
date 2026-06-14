@@ -307,6 +307,9 @@ public class FFmpegEncodingController(string outputFile, FFmpegEncodingSettings 
                     }
                 }
 
+                // Report cancellation as OperationCanceledException, not success or a muxer error.
+                cancellationToken.ThrowIfCancellationRequested();
+
                 encodeCompletedSuccessfully = true;
             }
             finally

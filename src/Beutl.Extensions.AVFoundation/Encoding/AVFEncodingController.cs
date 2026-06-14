@@ -81,6 +81,9 @@ public class AVFEncodingController : EncodingController
                 }
             }
 
+            // Report cancellation as OperationCanceledException, not a finalized truncated file.
+            cancellationToken.ThrowIfCancellationRequested();
+
             BeutlAVFException.ThrowIfFailed(BeutlAVFNative.beutl_avf_writer_finish(handle));
         }
     }
