@@ -43,6 +43,12 @@ public class OperationWrapperRenderNode : RenderNode
     {
         public override Rect Bounds => inner.Value.Bounds;
 
+        // The proxy applies no geometric transform, so it must forward the wrapped op's supply density
+        // verbatim (FR-016/FR-036). Without this the struct default (Unbounded) would be reported, and a
+        // node-graph filter fed a concrete-density input (e.g. a transformed bitmap At(0.5) or a cached tile)
+        // would lose that density at the node-graph boundary and rasterize at s_out instead of the true supply.
+        public override EffectiveScale EffectiveScale => inner.Value.EffectiveScale;
+
         public override void Render(ImmediateCanvas canvas) => inner.Value.Render(canvas);
 
         public override bool HitTest(Point point) => inner.Value.HitTest(point);

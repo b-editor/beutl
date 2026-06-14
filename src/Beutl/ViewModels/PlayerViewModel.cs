@@ -374,21 +374,36 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
             if (composer.IsDisposed)
                 return (AudioFrameSnapshot?)null;
 
-            using AudioBuffer? audio = composer.Compose(new TimeRange(start, duration));
-            if (audio == null) return (AudioFrameSnapshot?)null;
-
-            int samples = audio.SampleCount;
-            int channels = audio.ChannelCount;
-            var interleaved = new float[samples * channels];
-            for (int c = 0; c < channels; c++)
+            AudioBuffer? audio;
+            try
             {
-                Span<float> src = audio.GetChannelData(c);
-                for (int f = 0; f < samples; f++)
-                {
-                    interleaved[f * channels + c] = src[f];
-                }
+                audio = composer.Compose(new TimeRange(start, duration));
             }
-            return (AudioFrameSnapshot?)new AudioFrameSnapshot(interleaved, audio.SampleRate, channels, start);
+            catch (ObjectDisposedException)
+            {
+                // TOCTOU: the UI thread can dispose the composer in the window between the IsDisposed re-check
+                // above and this call (lockless rebuild-by-replacement on a frame-size change). Degrade to
+                // "no audio" rather than surfacing the race as a throw on a throwaway background compose.
+                return (AudioFrameSnapshot?)null;
+            }
+
+            using (audio)
+            {
+                if (audio == null) return (AudioFrameSnapshot?)null;
+
+                int samples = audio.SampleCount;
+                int channels = audio.ChannelCount;
+                var interleaved = new float[samples * channels];
+                for (int c = 0; c < channels; c++)
+                {
+                    Span<float> src = audio.GetChannelData(c);
+                    for (int f = 0; f < samples; f++)
+                    {
+                        interleaved[f * channels + c] = src[f];
+                    }
+                }
+                return (AudioFrameSnapshot?)new AudioFrameSnapshot(interleaved, audio.SampleRate, channels, start);
+            }
         }, ct: ct);
     }
 

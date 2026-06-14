@@ -119,4 +119,42 @@ public class ImageMetricsTests
         px[0] = BitConverter.HalfToUInt16Bits(Half.PositiveInfinity);
         Assert.That(double.IsNaN(ImageMetrics.Ssim(clean, dirty)), Is.True);
     }
+
+    [Test]
+    public void WindowedSsim_Identical_IsOne()
+    {
+        using var a = Checkerboard(64, 64);
+        using var b = Checkerboard(64, 64);
+        Assert.That(ImageMetrics.WindowedSsim(a, b, 16), Is.EqualTo(1.0).Within(1e-9));
+    }
+
+    [Test]
+    public void WindowedSsim_CatchesLocalizedDefect_GlobalSsimDilutesIt()
+    {
+        // Calibration: this is the exact failure mode the global single-window SSIM cannot see. A small
+        // localized defect (here a 14×14 flat-gray block punched into a 128×128 checkerboard, < 1.2% of pixels)
+        // leaves the GLOBAL SSIM high — its mean/variance is dominated by the matching background — yet the
+        // WINDOWED (min-tile) SSIM craters on the one tile that contains the defect. This proves the windowed
+        // metric supplies the localized-defect sensitivity the parity gate's global SSIM lacks.
+        using Bitmap baseImg = Checkerboard(128, 128);
+        using Bitmap defect = Checkerboard(128, 128);
+        Span<ushort> span = defect.GetPixelSpan<ushort>();
+        ushort gray = BitConverter.HalfToUInt16Bits((Half)0.5f);
+        for (int y = 0; y < 14; y++)
+        {
+            for (int x = 0; x < 14; x++)
+            {
+                int o = (y * 128 + x) * 4;
+                span[o] = span[o + 1] = span[o + 2] = gray;
+            }
+        }
+
+        double global = ImageMetrics.Ssim(baseImg, defect);
+        double windowed = ImageMetrics.WindowedSsim(baseImg, defect, 16);
+        Assert.That(global, Is.GreaterThan(0.95),
+            "the global single-window SSIM dilutes a small localized defect into the matching background");
+        Assert.That(windowed, Is.LessThan(global), "windowed SSIM is strictly more sensitive to a localized defect");
+        Assert.That(windowed, Is.LessThan(0.95),
+            "windowed SSIM must catch the localized defect the global metric misses");
+    }
 }

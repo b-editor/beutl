@@ -58,7 +58,12 @@ internal sealed class Scene3DRenderNode(Scene3D.Resource scene) : RenderNode
         // width/height by a sub-pixel amount, nudging the camera projection (aspectRatio = dw/dh) by <~0.001;
         // the result is then resampled into the correctly-proportioned logical Bounds. w == 1 keeps the exact
         // logical-size surface + point-blit path (byte-identical).
-        float w = context.OutputScale;
+        // Clamp the density so the device surface stays allocatable (FR-037(b)). This is the one buffer-allocating
+        // boundary that takes a raw OutputScale, and Renderer3D → VulkanContext.CreateTexture2D has no size guard
+        // and throws on vkCreateImage past the GPU axis limit: an 8192-wide scene under 4× export would size
+        // 32768 px and crash the export. Mirror the 2D intermediates — clamp w to fit, recompute the surface, and
+        // record the clamped density so the renderer's logical→device hit-test math stays consistent.
+        float w = RenderNodeContext.ClampWorkingScaleToBufferBudget(new Rect(0, 0, width, height), context.OutputScale);
         int dw = w == 1f ? width : (int)MathF.Ceiling(width * w);
         int dh = w == 1f ? height : (int)MathF.Ceiling(height * w);
 

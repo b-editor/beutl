@@ -253,14 +253,24 @@ public partial class ImmediateCanvas : ICanvas
     public void DrawRenderTargetScaled(RenderTarget renderTarget, Rect dest)
     {
         renderTarget.VerifyAccess();
+
+        using SKImage image = renderTarget.Value.Snapshot();
+        DrawImageScaled(image, dest);
+
+        renderTarget.Value.Flush(true, true);
+    }
+
+    // feature 003: draw a PRE-SNAPSHOTTED image into a LOGICAL destination rect (Mitchell). A caller that blits
+    // the SAME buffer many times (the particle hot path) snapshots once and reuses the SKImage through this,
+    // instead of re-snapshotting + force-flushing the source per draw — avoiding thousands of per-frame SKImage
+    // allocations and synchronous GPU flushes on the non-unit-scale render path.
+    public void DrawImageScaled(SKImage image, Rect dest)
+    {
         _sharedFillPaint.Reset();
         _sharedFillPaint.IsAntialias = true;
 
-        using SKImage image = renderTarget.Value.Snapshot();
-        var src = SKRect.Create(renderTarget.Width, renderTarget.Height);
+        var src = SKRect.Create(image.Width, image.Height);
         Canvas.DrawImage(image, src, dest.ToSKRect(), new SKSamplingOptions(SKCubicResampler.Mitchell), _sharedFillPaint);
-
-        renderTarget.Value.Flush(true, true);
     }
 
     // feature 003: SKSurface counterpart of DrawRenderTargetScaled — draw a concrete-scale surface into its
@@ -271,6 +281,7 @@ public partial class ImmediateCanvas : ICanvas
     // buffer still holds the original area cannot stretch it.
     public void DrawSurfaceScaled(SKSurface surface, Point origin, float scale)
     {
+        VerifyAccess();
         _sharedFillPaint.Reset();
         _sharedFillPaint.IsAntialias = true;
 

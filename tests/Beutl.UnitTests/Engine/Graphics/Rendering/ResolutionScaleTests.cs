@@ -1,4 +1,5 @@
 ﻿using Beutl.Graphics;
+using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering;
 
 namespace Beutl.UnitTests.Engine.Graphics.Rendering;
@@ -164,7 +165,28 @@ public class ResolutionScaleTests
         // projected to density At(4). ceil(8640 × 4) = 34560 px > 16384 → must clamp so the larger axis fits.
         float w = RenderNodeContext.ClampWorkingScaleToBufferBudget(new Rect(0, 0, 960, 8640), 4.0f);
         Assert.That(w, Is.LessThan(4.0f), "anisotropic density must be clamped to fit the GPU buffer limit");
-        Assert.That(8640.0 * w, Is.LessThanOrEqualTo(RenderNodeContext.MaxBufferDimension + 1));
+        // Hard guarantee: the allocated axis ceil(8640 × w) must be <= the limit (no +1 float-rounding slack).
+        Assert.That(Math.Ceiling(8640.0 * w), Is.LessThanOrEqualTo(RenderNodeContext.MaxBufferDimension));
+    }
+
+    [Test]
+    public void ClampBudget_IsAHardGuarantee_AcrossFractionalBounds()
+    {
+        // The float narrowing of the fit factor previously let ceil(axis × w) land at MaxBufferDimension + 1 for
+        // some fractional inputs. The clamp now steps the factor down until the buffer provably fits, so the
+        // allocated axis is ALWAYS <= the limit. Probe a spread of fractional bounds/scales that trigger it.
+        foreach (float axis in new[] { 5000.3f, 8640.7f, 12000.1f, 16384.9f, 20001.5f, 33333.33f })
+        {
+            foreach (float w in new[] { 1.7f, 3.3f, 4.0f, 7.9f, 12.5f })
+            {
+                var bounds = new Rect(0, 0, axis, axis * 0.5f);
+                float clamped = RenderNodeContext.ClampWorkingScaleToBufferBudget(bounds, w);
+                double allocatedAxis = Math.Ceiling((double)axis * clamped);
+                Assert.That(allocatedAxis, Is.LessThanOrEqualTo(RenderNodeContext.MaxBufferDimension),
+                    $"axis={axis}, w={w}: allocated {allocatedAxis} px must fit the GPU limit exactly");
+                Assert.That(clamped, Is.LessThanOrEqualTo(w), "the clamp must never raise the scale");
+            }
+        }
     }
 
     [Test]
@@ -198,7 +220,78 @@ public class ResolutionScaleTests
         Assert.That(wAtAllocation, Is.LessThan(wAtInput),
             "the re-clamp against post-inflation bounds must reduce w so the inflated buffer stays allocatable");
         double largestAxis = Math.Max(inflated.Width, inflated.Height);
-        Assert.That(largestAxis * wAtAllocation, Is.LessThanOrEqualTo(RenderNodeContext.MaxBufferDimension + 1),
+        Assert.That(Math.Ceiling(largestAxis * wAtAllocation), Is.LessThanOrEqualTo(RenderNodeContext.MaxBufferDimension),
             "post-inflation buffer must fit the GPU dimension limit after the allocation-site re-clamp");
+    }
+
+    // --- ResolveWorkingScale defensive guard (degenerate output scale) ----------------------------------
+
+    [TestCase(0f)]
+    [TestCase(-1f)]
+    [TestCase(float.NaN)]
+    [TestCase(float.PositiveInfinity)]
+    public void ResolveWorkingScale_DegenerateOutputScale_DegradesToUnitOnVectorPath(float badScale)
+    {
+        // All-vector (no concrete supply) path: supply = outputScale. A degenerate request scale must NOT flow
+        // through to a non-finite / zero working scale (which would size a zero / NaN buffer downstream); it
+        // degrades to the unit no-op instead.
+        ReadOnlySpan<EffectiveScale> vectorOnly = [EffectiveScale.Unbounded, EffectiveScale.Unbounded];
+        float w = RenderNodeContext.ResolveWorkingScale(vectorOnly, badScale);
+        Assert.That(w, Is.EqualTo(1f));
+    }
+
+    [Test]
+    public void ResolveWorkingScale_DegenerateOutputScale_DoesNotDragDownAConcreteSupply()
+    {
+        // With a concrete supply present, the densest concrete input still wins; the sanitized outputScale only
+        // affects the mixed-content floor, which can never exceed the (now unit) sanitized value.
+        ReadOnlySpan<EffectiveScale> mixed = [EffectiveScale.At(2f), EffectiveScale.Unbounded];
+        float w = RenderNodeContext.ResolveWorkingScale(mixed, float.NaN);
+        Assert.That(w, Is.EqualTo(2f));
+    }
+
+    // --- Shader device-buffer dimensions (the size SKSL/GLSL resolution uniforms must report) ------------
+
+    [Test]
+    public void DeviceBufferSize_MatchesCreateTargetFormula()
+    {
+        // The SKSL/GLSL resolution uniforms now bind these exact dimensions, so they must equal what
+        // CreateTarget allocates: (int) truncation at w == 1 (byte-identity), ceil(bounds × w) at w != 1.
+        Assert.That(CustomFilterEffectContext.DeviceBufferSize(new Rect(0, 0, 100.7f, 50.2f), 1f),
+            Is.EqualTo((100, 50)), "w == 1 truncates (matches the byte-identity (int) cast)");
+        Assert.That(CustomFilterEffectContext.DeviceBufferSize(new Rect(0, 0, 100.0f, 50.0f), 2f),
+            Is.EqualTo((200, 100)), "integral bounds × w stays integral");
+        Assert.That(CustomFilterEffectContext.DeviceBufferSize(new Rect(0, 0, 100.3f, 50.1f), 2f),
+            Is.EqualTo((201, 101)), "fractional bounds × w ceil()s up — the case the un-ceiled uniform got wrong");
+    }
+
+    // --- Node-graph input boundary: EffectiveScale must survive the RefCountedProxy re-wrap ---------------
+
+    [Test]
+    public void OperationWrapperProxy_ForwardsEffectiveScale()
+    {
+        // OperationWrapperRenderNode wraps each op in a RefCountedProxy for the node-graph input boundary. The
+        // proxy applies no geometric transform, so it must forward the wrapped op's supply density verbatim —
+        // otherwise a node-graph filter fed a concrete-density input would see Unbounded and rasterize at s_out.
+        using var node = new OperationWrapperRenderNode();
+        var op = RenderNodeOperation.CreateLambda(
+            new Rect(0, 0, 10, 10),
+            render: _ => { },
+            effectiveScale: EffectiveScale.At(0.5f));
+        node.SetOperations([op]);
+
+        RenderNodeOperation[] result = node.Process(new RenderNodeContext([]));
+        try
+        {
+            Assert.That(result, Has.Length.EqualTo(1));
+            Assert.That(result[0].EffectiveScale.IsUnbounded, Is.False,
+                "the proxy must not collapse a concrete supply density to Unbounded");
+            Assert.That(result[0].EffectiveScale.Value, Is.EqualTo(0.5f));
+        }
+        finally
+        {
+            foreach (RenderNodeOperation r in result)
+                r.Dispose();
+        }
     }
 }

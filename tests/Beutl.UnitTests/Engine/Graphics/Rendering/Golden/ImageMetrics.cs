@@ -77,6 +77,79 @@ internal static class ImageMetrics
     }
 
     /// <summary>
+    /// Windowed SSIM: the MINIMUM SSIM over non-overlapping <paramref name="windowSize"/>×<paramref name="windowSize"/>
+    /// tiles (linear luminance). Unlike the global single-window <see cref="Ssim"/> — whose mean/variance is
+    /// dominated by a large matching background, so a small localized defect (a thin mis-scaled edge band) is
+    /// diluted and still clears a high threshold — the worst tile dominates here, so a localized defect cannot
+    /// hide. Returns 1.0 for identical inputs. Use ALONGSIDE the global SSIM as a localized-defect floor.
+    /// </summary>
+    public static double WindowedSsim(Bitmap a, Bitmap b, int windowSize = 16)
+    {
+        EnsureComparable(a, b);
+        if (windowSize <= 0) throw new ArgumentOutOfRangeException(nameof(windowSize));
+        ReadOnlySpan<ushort> pa = a.GetPixelSpan<ushort>();
+        ReadOnlySpan<ushort> pb = b.GetPixelSpan<ushort>();
+        int w = a.Width, h = a.Height;
+
+        double min = 1.0;
+        for (int ty = 0; ty < h; ty += windowSize)
+        {
+            for (int tx = 0; tx < w; tx += windowSize)
+            {
+                int x1 = Math.Min(tx + windowSize, w);
+                int y1 = Math.Min(ty + windowSize, h);
+                double s = WindowSsim(pa, pb, w, tx, ty, x1, y1);
+                if (s < min) min = s;
+            }
+        }
+
+        return min;
+    }
+
+    private static double WindowSsim(
+        ReadOnlySpan<ushort> pa, ReadOnlySpan<ushort> pb, int stride, int x0, int y0, int x1, int y1)
+    {
+        int n = (x1 - x0) * (y1 - y0);
+        double meanA = 0, meanB = 0;
+        for (int y = y0; y < y1; y++)
+        {
+            for (int x = x0; x < x1; x++)
+            {
+                int i = y * stride + x;
+                meanA += Luma(pa, i);
+                meanB += Luma(pb, i);
+            }
+        }
+
+        meanA /= n;
+        meanB /= n;
+
+        double varA = 0, varB = 0, cov = 0;
+        for (int y = y0; y < y1; y++)
+        {
+            for (int x = x0; x < x1; x++)
+            {
+                int i = y * stride + x;
+                double da = Luma(pa, i) - meanA;
+                double db = Luma(pb, i) - meanB;
+                varA += da * da;
+                varB += db * db;
+                cov += da * db;
+            }
+        }
+
+        varA /= n;
+        varB /= n;
+        cov /= n;
+
+        const double c1 = 0.01 * 0.01;
+        const double c2 = 0.03 * 0.03;
+        double num = (2 * meanA * meanB + c1) * (2 * cov + c2);
+        double den = (meanA * meanA + meanB * meanB + c1) * (varA + varB + c2);
+        return num / den;
+    }
+
+    /// <summary>
     /// Mean squared gradient (horizontal + vertical adjacent luminance differences) — a proxy for
     /// high-frequency / aliasing energy. A supersampled render should report less than a 1:1 render.
     /// </summary>

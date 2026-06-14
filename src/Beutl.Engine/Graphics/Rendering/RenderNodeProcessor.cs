@@ -50,8 +50,13 @@ public class RenderNodeProcessor(
             return null;
         }
 
-        var renderTarget = RenderTarget.Create(rect.Width, rect.Height) ??
-                           throw new Exception("RenderTarget is null");
+        var renderTarget = RenderTarget.Create(rect.Width, rect.Height);
+        if (renderTarget == null)
+        {
+            // Dispose the op before the fatal throw so the doc's "disposed in all cases" holds literally.
+            op.Dispose();
+            throw new Exception("RenderTarget is null");
+        }
 
         // feature 003: the canvas bakes the working-density base CTM CreateScale(w) (identity at w == 1) and
         // tags its surface density w for any backdrop captured here. The op only needs the logical translation
@@ -87,25 +92,15 @@ public class RenderNodeProcessor(
     {
         var list = new List<Bitmap>();
         var ops = PullToRoot();
-        float w = OutputScale;
         foreach (var op in ops)
         {
-            var rect = w == 1f ? PixelRect.FromRect(op.Bounds) : PixelRect.FromRect(op.Bounds, w);
-            using var renderTarget = RenderTarget.Create(rect.Width, rect.Height)
-                                     ?? throw new Exception("RenderTarget is null");
-
-            // feature 003: the canvas bakes the working-density base CTM CreateScale(w) (identity at w == 1)
-            // and tags its surface density w; the op only needs the logical translation. w == 1 byte-identical.
-            using var canvas = new ImmediateCanvas(renderTarget, w, MaxWorkingScale, logicalSize: op.Bounds.Size);
-            canvas.Clear();
-
-            using (canvas.PushTransform(Matrix.CreateTranslation(-op.Bounds.X, -op.Bounds.Y)))
+            // Route through RasterizeAt so this shares its ceil(bounds × w) sizing, base-CTM bake, disposal and
+            // zero-area skip instead of re-inlining them (the inlined copy omitted the zero-area guard).
+            if (RasterizeAt(op, OutputScale) is { } result)
             {
-                op.Render(canvas);
-                op.Dispose();
+                using RenderTarget renderTarget = result.RenderTarget;
+                list.Add(renderTarget.Snapshot());
             }
-
-            list.Add(renderTarget.Snapshot());
         }
 
         return list;

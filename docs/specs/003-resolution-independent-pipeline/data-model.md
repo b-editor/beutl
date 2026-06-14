@@ -77,7 +77,7 @@ All `float` for v1 (the `Beutl.Graphics.Vector` primitive overloads exist for th
 |---|---|---|
 | ctor | **+ `float outputScale = 1f`**; **+ `float OutputScale { get; }`** | Seeded from `Renderer`. |
 | rasterization sinks (`RasterizeAt`/`Rasterize`/`RasterizeAndConcat`) | rasterize at `w = OutputScale` (these are the root / cache / thumbnail sinks — they operate at the request's `s_out`, not a per-input negotiated scale); `PixelRect.FromRect(op.Bounds, w)`; the `ImmediateCanvas` **bakes the base CTM `CreateScale(w)`** at construction (the sink only pushes a translation-only matrix). **`w == 1` short-circuit**: a true no-op base (no scale matrix, no Save) — preserves byte-identity. The per-input supply-driven working scale (FR-036) is resolved at the effect boundary (`FilterEffectRenderNode`), not at these sinks. | Identity at `w=1.0` → byte-equal. |
-| `Pull` (`:121`) | `new RenderNodeContext(input, OutputScale)` | Single production construction site; reaches all overrides. |
+| `Pull` (`:167`) | `new RenderNodeContext(input, OutputScale, MaxWorkingScale)` | Single production construction site; reaches all overrides. |
 | `RasterizeAt(op, w)` | **+ internal seam** generalizing `RasterizeToRenderTargets` (`:20-44`) to re-rasterize an `Unbounded` subtree at a chosen `w` | feeds FR-017 regenerate. |
 
 ### `RenderNodeCache` — `Graphics/Rendering/Cache/RenderNodeCache.cs`
@@ -121,7 +121,7 @@ All `float` for v1 (the `Beutl.Graphics.Vector` primitive overloads exist for th
 | Member | Change | Rule |
 |---|---|---|
 | ctor | **+ `float outputScale = 1f`**; **+ `float OutputScale { get; }`** | exposes `s_out`; the backdrop op itself stays logical (capture-scale model below). |
-| `DrawBackdrop` (`:357`) | **stays** `new Rect(canvasSize.ToSize(1))` — the snapshot records its capture scale (`ImmediateCanvas.Snapshot` → `TmpBackdrop`) and the replay un-scales by *that*, so the node bounds stay logical and `outputScale` is **not** applied here | FR-021 scale-aware backdrop (capture-scale model). |
+| `DrawBackdrop` (`:366`) | `new Rect(canvasSize)` — `canvasSize` is now an exact logical `Size` (no `.ToSize(1)`); the snapshot records its capture scale (`ImmediateCanvas.Snapshot` → `TmpBackdrop`) and the replay un-scales by *that*, so the node bounds stay logical and `outputScale` is **not** applied here | FR-021 scale-aware backdrop (capture-scale model). |
 
 ---
 
@@ -142,7 +142,7 @@ All `float` for v1 (the `Beutl.Graphics.Vector` primitive overloads exist for th
 | `CreateTarget(Rect)` | size `ceil(bounds × WorkingScale)` for `w ≠ 1.0`, keeping component-wise `(int)` at `w = 1.0` (byte-identity); `Open` returns a canvas with the **baked base CTM `CreateScale(density)`** where `density = target.Scale.Value`, or `WorkingScale` when the target is `Unbounded` (e.g. a plugin-built target with no Scale set); the author draws logical content directly (no manual prescale) | FR-009/FR-007. |
 
 ### `FilterEffectActivator` *(changed)* — `Graphics/FilterEffects/FilterEffectActivator.cs`
-`Flush` (`:23`) sizes targets `ceil(OriginalBounds × w)` for `w ≠ 1.0`, **keeping the current component-wise `(int)Width`/`(int)Height` truncation at `w = 1.0`** (byte-identity); the flatten `ImmediateCanvas` **bakes the base CTM `CreateScale(w)`** (the flush pushes a translation-only matrix) and tags each flushed buffer `EffectiveScale.At(w)`. `w` (and `s_out`) are supplied to the `FilterEffectActivator` ctor (from `FilterEffectRenderNode` via `ResolveWorkingScale`), not derived from the targets. Scale-1.0-sensitive (golden-tested).
+`Flush` (`:23`) sizes targets `ceil(OriginalBounds × w)` for `w ≠ 1.0`, **keeping the current component-wise `(int)Width`/`(int)Height` truncation at `w = 1.0`** (byte-identity); the flatten `ImmediateCanvas` **bakes the base CTM `CreateScale(w)`** (the flush pushes a translation-only matrix) and tags each flushed buffer `EffectiveScale.At(w)`. `w`, `s_out` **and `maxWorkingScale`** are supplied to the `FilterEffectActivator` ctor (from `FilterEffectRenderNode` via `ResolveWorkingScale`), not derived from the targets, and exposed as `OutputScale` / `MaxWorkingScale` getters forwarded into the nested `FilterEffectContext`/`CustomFilterEffectContext` (so nested pulls stay under the request's FR-037 ceiling). Scale-1.0-sensitive (golden-tested).
 
 ### `EffectTarget` *(changed)* — `Graphics/FilterEffects/EffectTarget.cs`
 | Member | Change | Rule |

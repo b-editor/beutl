@@ -53,6 +53,13 @@ public class RenderNodeContext(
         float outputScale,
         float maxWorkingScale = float.PositiveInfinity)
     {
+        // Defensive: a degenerate request scale (0 / negative / NaN / inf) must never reach the all-vector
+        // path where supply = outputScale would flow a non-finite or zero density into a zero-sized buffer.
+        // Production always passes a clamped, positive-finite outputScale (RenderScale.ToFloat / 1f); this only
+        // hardens the contract against misuse — mirroring the validation in At / ClampWorkingScaleToBufferBudget.
+        if (!float.IsFinite(outputScale) || outputScale <= 0f)
+            outputScale = 1f;
+
         // supply = the densest concrete (bitmap) input. Unbounded (vector) inputs impose no supply
         // on their own, but their presence alongside a bitmap raises the floor to the output density
         // (see the mixed-content rule below).
@@ -115,12 +122,17 @@ public class RenderNodeContext(
     {
         if (!float.IsFinite(w) || w <= 0f) return w;
 
-        double largestAxisPx = Math.Ceiling(Math.Max(
-            Math.Abs((double)logicalBounds.Width), Math.Abs((double)logicalBounds.Height)) * w);
+        double maxAxis = Math.Max(Math.Abs((double)logicalBounds.Width), Math.Abs((double)logicalBounds.Height));
+        double largestAxisPx = Math.Ceiling(maxAxis * w);
         if (largestAxisPx <= maxDimension || largestAxisPx <= 0) return w;
 
-        // Reduce w so the larger axis lands at maxDimension (keep a hair of margin against the ceil()).
+        // Reduce w so the larger axis lands at maxDimension. The factor is exact in double, but narrowing it to
+        // float can round UP — enough to push ceil(axis × fit) one px past the limit. Step the float factor down
+        // until the resulting buffer is provably within the limit (in practice at most one ULP), so the bound is
+        // a hard guarantee (<= maxDimension), not "a hair of margin".
         float fit = (float)(w * (maxDimension / largestAxisPx));
+        while (fit > 0f && Math.Ceiling(maxAxis * fit) > maxDimension)
+            fit = MathF.BitDecrement(fit);
         return MathF.Max(MathF.Min(w, fit), 0f);
     }
 }

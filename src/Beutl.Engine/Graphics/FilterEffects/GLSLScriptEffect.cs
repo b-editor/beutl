@@ -95,13 +95,17 @@ public sealed partial class GLSLScriptEffect : FilterEffect
         {
             float w = Beutl.Graphics.Rendering.RenderNodeContext.ClampWorkingScaleToBufferBudget(
                 target.Bounds, c.WorkingScale);
+            // Report the EXACT device texture dimensions the buffer is allocated at (ceil(bounds × w), or the
+            // (int) truncation at w == 1), so a shader deriving its working scale from Width/Height agrees with
+            // the texture it iterates instead of reading the un-ceiled bounds × w.
+            (int devW, int devH) = CustomFilterEffectContext.DeviceBufferSize(target.Bounds, w);
             return new PushConstants
             {
                 Progress = data.progress,
                 Duration = data.duration,
                 Time = data.time,
-                Width = target.Bounds.Width * w,
-                Height = target.Bounds.Height * w
+                Width = devW,
+                Height = devH
             };
         });
     }

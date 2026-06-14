@@ -103,7 +103,14 @@ public static class RenderNodeCacheHelper
             return pr.Width * pr.Height;
         });
         if (!cacheOptions.Rules.Match(pixels))
+        {
+            // The rasterized tiles are caller-owned; release them on the reject path too, otherwise every
+            // (density-scaled) RenderTarget surface leaks until finalization — amplified under supersampled
+            // export where each tile is ceil(bounds × outputScale) device px and the budget rejects more often.
+            foreach (var i in list)
+                i.RenderTarget.Dispose();
             return;
+        }
 
         // nodeの子要素のキャッシュをすべて削除
         ClearCache(node);

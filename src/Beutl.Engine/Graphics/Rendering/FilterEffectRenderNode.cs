@@ -35,7 +35,12 @@ public class FilterEffectRenderNode(FilterEffect.Resource filterEffect) : Contai
         // every buffer keeps its (int)-truncation point-blit path (byte-identical). An effect that needs a
         // different w (clamp for perf, oversample for SSAA) overrides Process in a FilterEffectRenderNode
         // subclass returned from FilterEffect.Resource.CreateRenderNode().
-        var inputScales = new EffectiveScale[context.Input.Length];
+        // Stack-allocate the tiny input-density span to keep the render hot path allocation-free (the <= 16
+        // guard falls back to the heap for a rare high-fan-in container so the stack can't overflow).
+        // EffectiveScale is an unmanaged readonly record struct, so it is stackalloc-eligible.
+        Span<EffectiveScale> inputScales = context.Input.Length <= 16
+            ? stackalloc EffectiveScale[context.Input.Length]
+            : new EffectiveScale[context.Input.Length];
         for (int i = 0; i < context.Input.Length; i++)
         {
             inputScales[i] = context.Input[i].EffectiveScale;

@@ -326,7 +326,14 @@ public class EffectScaleParityTests
                 // post-closure verdict cannot misread a recovered run as a persistent one.
                 nonFiniteAttempts.Clear();
                 double ssim = ImageMetrics.Ssim(r1, delivered);
-                TestContext.WriteLine($"[{name}] 2x-delivered vs 1:1 SSIM={ssim:F4}");
+                // Log the windowed (min-tile) SSIM as a DIAGNOSTIC alongside the global gate. A hard min-tile
+                // floor is intentionally NOT asserted here: an effect with legitimate hard structural boundaries
+                // (e.g. PartsSplit/Split) leaves a correct supersample→downsample render with a low worst-tile
+                // SSIM (~0.47 observed) even when the global SSIM is ~0.997, so a universal floor false-fails.
+                // The windowed metric's discriminating power is locked in by ImageMetricsTests instead; this line
+                // records per-effect worst-tile values so a maintainer can set per-effect baselines on hardware.
+                double windowed = ImageMetrics.WindowedSsim(r1, delivered, 16);
+                TestContext.WriteLine($"[{name}] 2x-delivered vs 1:1 SSIM={ssim:F4} windowed-min={windowed:F4}");
                 Assert.That(ssim, Is.GreaterThan(0.95),
                     $"{name}: supersampled diverged from 1:1 — an absolute-px parameter is not scaled by the working density");
                 return;

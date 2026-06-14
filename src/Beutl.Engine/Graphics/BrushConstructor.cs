@@ -277,6 +277,12 @@ public readonly struct BrushConstructor(
             renderTarget = RenderTarget.Create(dw, dh);
             if (renderTarget == null)
             {
+                // The child ops are caller-owned and are only disposed in the blit loop below; release them here
+                // too so the alloc-failure path (most likely under high export density, exactly when GPU memory
+                // is scarce) does not leak every rasterized child RenderTarget surface.
+                foreach (var op in ops)
+                    op.RenderTarget.Dispose();
+
                 // Without a shader the paint falls back to the plain white fill — make the failure visible.
                 s_logger.LogWarning(
                     "DrawableBrush content buffer allocation failed ({Width}x{Height} px, density {Scale}); the fill degrades to solid white.",

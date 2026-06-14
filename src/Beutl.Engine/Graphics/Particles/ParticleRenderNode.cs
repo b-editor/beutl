@@ -53,7 +53,7 @@ internal sealed class ParticleRenderNode(ParticleEmitter.Resource particle) : Re
             }
             else
             {
-                _cachedRenderTarget = RenderFallbackEllipse(w, out _drawableBounds);
+                _cachedRenderTarget = RenderFallbackEllipse(w, context.MaxWorkingScale, out _drawableBounds);
             }
         }
 
@@ -105,50 +105,69 @@ internal sealed class ParticleRenderNode(ParticleEmitter.Resource particle) : Re
         Rect drawableBounds,
         float w)
     {
-        var particlesSpan = particles.Span;
-        for (int i = 0; i < particles.Length; i++)
+        // At w != 1 every particle blits the SAME cached buffer scaled; snapshot it ONCE here and reuse the
+        // SKImage across the loop (up to MaxParticles) rather than re-snapshotting + force-flushing per particle.
+        // The cached buffer is immutable during this draw, so one snapshot is byte-equivalent. w == 1 keeps the
+        // bare point-blit fast path (no snapshot).
+        SKImage? cachedImage = null;
+        if (w != 1f)
         {
-            ref readonly Particle p = ref particlesSpan[i];
-            if (!p.IsAlive) continue;
+            cachedRT.VerifyAccess();
+            cachedImage = cachedRT.Value.Snapshot();
+        }
 
-            float scale = p.CurrentSize / 10f;
-            float opacity = p.CurrentOpacity / 100f;
-            if (opacity <= 0 || scale <= 0) continue;
-
-            float rotRad = p.Rotation * MathF.PI / 180f;
-            Matrix transform = Matrix.CreateScale(scale, scale)
-                               * Matrix.CreateRotation(rotRad)
-                               * Matrix.CreateTranslation(p.X, p.Y);
-
-            using (canvas.PushTransform(transform))
-            using (canvas.PushOpacity(opacity))
+        try
+        {
+            var particlesSpan = particles.Span;
+            for (int i = 0; i < particles.Length; i++)
             {
-                Color color = p.CurrentColor;
-                if (color != Colors.White)
-                {
-                    using var colorFilter = SKColorFilter.CreateBlendMode(
-                        new SKColor(color.R, color.G, color.B, color.A),
-                        SKBlendMode.Modulate);
-                    using var paint = new SKPaint();
-                    paint.ColorFilter = colorFilter;
+                ref readonly Particle p = ref particlesSpan[i];
+                if (!p.IsAlive) continue;
 
-                    using (canvas.PushPaint(paint))
+                float scale = p.CurrentSize / 10f;
+                float opacity = p.CurrentOpacity / 100f;
+                if (opacity <= 0 || scale <= 0) continue;
+
+                float rotRad = p.Rotation * MathF.PI / 180f;
+                Matrix transform = Matrix.CreateScale(scale, scale)
+                                   * Matrix.CreateRotation(rotRad)
+                                   * Matrix.CreateTranslation(p.X, p.Y);
+
+                using (canvas.PushTransform(transform))
+                using (canvas.PushOpacity(opacity))
+                {
+                    Color color = p.CurrentColor;
+                    if (color != Colors.White)
                     {
-                        DrawCached(canvas, cachedRT, drawableBounds, w);
+                        using var colorFilter = SKColorFilter.CreateBlendMode(
+                            new SKColor(color.R, color.G, color.B, color.A),
+                            SKBlendMode.Modulate);
+                        using var paint = new SKPaint();
+                        paint.ColorFilter = colorFilter;
+
+                        using (canvas.PushPaint(paint))
+                        {
+                            DrawCached(canvas, cachedRT, cachedImage, drawableBounds, w);
+                        }
+                    }
+                    else
+                    {
+                        DrawCached(canvas, cachedRT, cachedImage, drawableBounds, w);
                     }
                 }
-                else
-                {
-                    DrawCached(canvas, cachedRT, drawableBounds, w);
-                }
             }
+        }
+        finally
+        {
+            cachedImage?.Dispose();
         }
     }
 
     // feature 003: blit the cached particle-drawable buffer. The buffer is ceil(footprint × w) device px; at
-    // w == 1 keep the bare point blit (byte-identical), at w != 1 draw it into its LOGICAL footprint so the
-    // per-particle + ambient CTM resample it once (crisp under SSAA export).
-    private static void DrawCached(ImmediateCanvas canvas, RenderTarget cachedRT, Rect drawableBounds, float w)
+    // w == 1 keep the bare point blit (byte-identical), at w != 1 draw the once-snapshotted image into its
+    // LOGICAL footprint so the per-particle + ambient CTM resample it once (crisp under SSAA export).
+    private static void DrawCached(
+        ImmediateCanvas canvas, RenderTarget cachedRT, SKImage? cachedImage, Rect drawableBounds, float w)
     {
         var offset = new Point(-drawableBounds.Width / 2, -drawableBounds.Height / 2);
         if (w == 1f)
@@ -157,7 +176,7 @@ internal sealed class ParticleRenderNode(ParticleEmitter.Resource particle) : Re
         }
         else
         {
-            canvas.DrawRenderTargetScaled(cachedRT,
+            canvas.DrawImageScaled(cachedImage!,
                 new Rect(offset.X, offset.Y, drawableBounds.Width, drawableBounds.Height));
         }
     }
@@ -219,7 +238,8 @@ internal sealed class ParticleRenderNode(ParticleEmitter.Resource particle) : Re
         return (renderTarget, drawable, drawable.Version);
     }
 
-    private static (RenderTarget, Drawable.Resource?, int?)? RenderFallbackEllipse(float w, out Rect bounds)
+    private static (RenderTarget, Drawable.Resource?, int?)? RenderFallbackEllipse(
+        float w, float maxWorkingScale, out Rect bounds)
     {
         bounds = new Rect(-5, -5, 10, 10);
 
@@ -228,7 +248,10 @@ internal sealed class ParticleRenderNode(ParticleEmitter.Resource particle) : Re
         var renderTarget = RenderTarget.Create(dim, dim);
         if (renderTarget == null) return null;
 
-        using (var canvas = new ImmediateCanvas(renderTarget, w, logicalSize: bounds.Size))
+        // Forward the request's FR-037 ceiling for consistency with RenderDrawableToTarget — inert today (the
+        // single SolidColorBrush DrawEllipse never consults MaxWorkingScale) but a latent trap if the fallback
+        // ever gains nested / tiled content.
+        using (var canvas = new ImmediateCanvas(renderTarget, w, maxWorkingScale, logicalSize: bounds.Size))
         {
             canvas.Clear();
             // feature 003: the canvas bakes the base CTM CreateScale(w); only the logical translation of the

@@ -78,6 +78,20 @@ public class CustomFilterEffectContext
         }
     }
 
+    /// <summary>
+    /// The exact device-buffer dimensions <see cref="CreateTarget"/> allocates for a logical
+    /// <paramref name="bounds"/> at working density <paramref name="w"/> (feature 003). Shared so a shader's
+    /// resolution uniforms (SKSL <c>width</c>/<c>height</c>/<c>iResolution</c>, GLSL <c>Width</c>/<c>Height</c>)
+    /// report the SAME size the shader actually iterates — at <c>w == 1</c> the <c>(int)</c>-truncation byte
+    /// path, at <c>w != 1</c> the <c>ceil(bounds × w)</c> form. Caller passes the post-clamp density.
+    /// </summary>
+    internal static (int Width, int Height) DeviceBufferSize(Rect bounds, float w)
+    {
+        int bw = w == 1f ? (int)bounds.Width : (int)MathF.Ceiling(bounds.Width * w);
+        int bh = w == 1f ? (int)bounds.Height : (int)MathF.Ceiling(bounds.Height * w);
+        return (bw, bh);
+    }
+
     public EffectTarget CreateTarget(Rect bounds)
     {
         // feature 003: allocate a ceil(bounds × w) device buffer and tag it with its TRUE density At(w) — a
@@ -102,8 +116,7 @@ public class CustomFilterEffectContext
             w = fit;
         }
 
-        int bw = w == 1f ? (int)bounds.Width : (int)MathF.Ceiling(bounds.Width * w);
-        int bh = w == 1f ? (int)bounds.Height : (int)MathF.Ceiling(bounds.Height * w);
+        (int bw, int bh) = DeviceBufferSize(bounds, w);
         using var renderTarget = RenderTarget.Create(bw, bh);
         if (renderTarget != null)
         {
@@ -119,11 +132,21 @@ public class CustomFilterEffectContext
         }
     }
 
+    /// <summary>
+    /// Opens an <see cref="ImmediateCanvas"/> over <paramref name="target"/>'s buffer with the baked base CTM
+    /// <c>CreateScale(density)</c>. <paramref name="target"/> MUST be a real allocated target: an empty target
+    /// (which <see cref="CreateTarget"/> returns only when the GPU buffer allocation genuinely fails after the
+    /// budget clamp already fit the dimensions — i.e. true OOM) throws. The cause is logged at the
+    /// <see cref="CreateTarget"/> warning; this is a deliberate fail-visibly path (a partial/wrong effect is not
+    /// shipped). A caller that wants to degrade instead should check the returned target before calling Open.
+    /// </summary>
     public ImmediateCanvas Open(EffectTarget target)
     {
         if (target.RenderTarget == null)
         {
-            throw new InvalidOperationException("無効なEffectTarget");
+            throw new InvalidOperationException(
+                "Cannot Open an empty EffectTarget — its buffer allocation failed (see the preceding " +
+                "CreateTarget warning for the size/cause). The effect fails visibly rather than rendering partially.");
         }
 
         // feature 003: a custom effect renders LOGICAL content into this ceil(bounds × w) buffer; the canvas

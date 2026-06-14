@@ -209,14 +209,29 @@ public sealed class FilterEffectActivator(
 
             // feature 003: a buffer captured At(w) is ceil(bounds × w) device px; map it back into its
             // logical footprint so the composed filter stays in logical space. Unbounded / unit-scale
-            // keeps the bare CreateImage (byte-identical).
-            SKImageFilter image = t.Scale.IsUnbounded || t.Scale.Value == 1f
-                ? SKImageFilter.CreateImage(skImage)
-                : SKImageFilter.CreateImage(
+            // keeps the bare CreateImage (byte-identical). Size the destination from the BUFFER footprint
+            // (device px ÷ density) anchored at t.Bounds.Position — NOT t.Bounds's size — mirroring
+            // EffectTarget.Draw / CreateFromRenderTarget so a downstream filter that inflated Bounds while the
+            // buffer still holds the original area cannot stretch the content.
+            SKImageFilter image;
+            if (t.Scale.IsUnbounded || t.Scale.Value == 1f)
+            {
+                image = SKImageFilter.CreateImage(skImage);
+            }
+            else
+            {
+                float density = t.Scale.Value;
+                var dst = new SKRect(
+                    (float)t.Bounds.X,
+                    (float)t.Bounds.Y,
+                    (float)t.Bounds.X + skImage.Width / density,
+                    (float)t.Bounds.Y + skImage.Height / density);
+                image = SKImageFilter.CreateImage(
                     skImage,
                     new SKRect(0, 0, skImage.Width, skImage.Height),
-                    t.Bounds.ToSKRect(),
+                    dst,
                     new SKSamplingOptions(SKCubicResampler.Mitchell));
+            }
 
             filter = filter == null ? image : SKImageFilter.CreateCompose(filter, image);
         }

@@ -40,6 +40,9 @@ public partial class SplitEffect : FilterEffect
                     RenderTarget renderTarget = t.RenderTarget!;
                     // feature 003: the source At(w) is point-blitted into each ceil(tile × w) device tile, so the
                     // per-tile crop offset (logical px) scales by the working density. w == 1 = pre-feature path.
+                    // The bare (nominal) WorkingScale is clamp-safe: each tile is a sub-division of the
+                    // already-allocatable source bounds, so CreateTarget's FR-037(b) clamp returns w unchanged
+                    // (newTarget.Scale.Value == w on this path), unlike the bounds-inflating effects.
                     float w = effectContext.WorkingScale;
 
                     float divWidth = t.Bounds.Width / d.HorizontalDivisions;

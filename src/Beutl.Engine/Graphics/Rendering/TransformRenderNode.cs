@@ -63,9 +63,23 @@ public sealed class TransformRenderNode(Matrix transform, TransformOperator tran
                     return r.HitTest(point);
                 },
                 onDispose: r.Dispose,
-                effectiveScale: r.EffectiveScale.IsUnbounded
-                    ? EffectiveScale.Unbounded
-                    : EffectiveScale.At(r.EffectiveScale.Value / densityFactor)))
+                effectiveScale: RescaleDensity(r.EffectiveScale, densityFactor)))
             .ToArray();
+    }
+
+    private static EffectiveScale RescaleDensity(EffectiveScale input, float densityFactor)
+    {
+        if (input.IsUnbounded)
+            return EffectiveScale.Unbounded;
+
+        // Guard the QUOTIENT, not just densityFactor: a finite extreme-anisotropic transform that cleared the
+        // decomposition guard above can still divide to +inf (or a non-positive value), and EffectiveScale.At
+        // throws on a non-finite density — there is no try/catch on the pull path, so it would crash the render.
+        // Fall back to the unchanged density rather than failing.
+        float d = input.Value / densityFactor;
+        if (!float.IsFinite(d) || d <= 0f)
+            d = input.Value;
+
+        return EffectiveScale.At(d);
     }
 }

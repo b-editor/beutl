@@ -103,12 +103,16 @@ public sealed partial class SKSLScriptEffect : FilterEffect
             // match the buffer, matching the Mosaic/ColorShift siblings.
             float w = Beutl.Graphics.Rendering.RenderNodeContext.ClampWorkingScaleToBufferBudget(
                 effectTarget.Bounds, c.WorkingScale);
+            // Report the EXACT device dimensions the buffer is allocated at (ceil(bounds × w), or the (int)
+            // truncation at w == 1) — not the un-ceiled bounds × w, which at fractional bounds left a
+            // fragCoord/iResolution-normalized shader overrunning ~1 px past 1.0 on the last row/column.
+            (int devW, int devH) = CustomFilterEffectContext.DeviceBufferSize(effectTarget.Bounds, w);
             if (effect.Uniforms.Contains("width"))
-                builder.Uniforms["width"] = effectTarget.Bounds.Width * w;
+                builder.Uniforms["width"] = (float)devW;
             if (effect.Uniforms.Contains("height"))
-                builder.Uniforms["height"] = effectTarget.Bounds.Height * w;
+                builder.Uniforms["height"] = (float)devH;
             if (effect.Uniforms.Contains("iResolution"))
-                builder.Uniforms["iResolution"] = new SKPoint(effectTarget.Bounds.Width * w, effectTarget.Bounds.Height * w);
+                builder.Uniforms["iResolution"] = new SKPoint(devW, devH);
             if (effect.Uniforms.Contains("iScale"))
                 builder.Uniforms["iScale"] = w;
             if (effect.Uniforms.Contains("iTime"))

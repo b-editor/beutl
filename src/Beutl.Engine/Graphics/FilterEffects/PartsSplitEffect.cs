@@ -80,6 +80,10 @@ public partial class PartsSplitEffect : FilterEffect
                     // ceil(bounds × w) when w != 1), so convert path bounds back to LOGICAL units (/ w)
                     // before composing them with the logical target bounds; CreateTarget re-densifies by w.
                     // The clip + draw below stay in device px (the source buffer and skpath share that space).
+                    // The bare (nominal) WorkingScale is clamp-safe here: each per-part bounds is one traced
+                    // contour of the already-allocatable source (pathBounds ÷ w only ever sub-crops, never
+                    // inflates), so CreateTarget's FR-037(b) clamp returns w unchanged — newTarget.Scale.Value
+                    // always equals w on this path, unlike the bounds-inflating FlatShadow/Displacement effects.
                     float w = context.WorkingScale;
                     foreach ((SKPath skpath, _, _) in pathes)
                     {
