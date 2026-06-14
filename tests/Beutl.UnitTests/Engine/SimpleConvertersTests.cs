@@ -141,69 +141,15 @@ public class ThicknessConverterTests
     private readonly ThicknessConverter _converter = new();
 
     [Test]
-    public void ConvertTo_FloatArray_ReturnsLeftTopRightBottom()
+    public void CanConvertFrom_String_ReturnsTrue()
     {
-        var t = new Thickness(1, 2, 3, 4);
-        var array = (float[])_converter.ConvertTo(null, null, t, typeof(float[]))!;
-        Assert.That(array, Is.EqualTo(new[] { 1f, 2f, 3f, 4f }));
+        Assert.That(_converter.CanConvertFrom(null, typeof(string)), Is.True);
     }
 
     [Test]
-    public void ConvertTo_Tuple4_ReturnsLeftTopRightBottom()
+    public void CanConvertFrom_Other_ReturnsFalse()
     {
-        var t = new Thickness(1, 2, 3, 4);
-        var tup = (Tuple<float, float, float, float>)_converter.ConvertTo(null, null, t, typeof(Tuple<float, float, float, float>))!;
-        Assert.That(tup, Is.EqualTo(new Tuple<float, float, float, float>(1, 2, 3, 4)));
-    }
-
-    [Test]
-    public void ConvertTo_Tuple2_ReturnsLeftTop()
-    {
-        var t = new Thickness(1, 2, 3, 4);
-        var tup = (Tuple<float, float>)_converter.ConvertTo(null, null, t, typeof(Tuple<float, float>))!;
-        Assert.That(tup, Is.EqualTo(new Tuple<float, float>(1, 2)));
-    }
-
-    [Test]
-    public void ConvertFrom_SingleFloat_ReturnsUniformThickness()
-    {
-        var t = (Thickness)_converter.ConvertFrom(null, null, 5f)!;
-        Assert.That(t, Is.EqualTo(new Thickness(5)));
-    }
-
-    [Test]
-    public void ConvertFrom_FloatArrayLength1_ReturnsUniform()
-    {
-        var t = (Thickness)_converter.ConvertFrom(null, null, new[] { 7f })!;
-        Assert.That(t, Is.EqualTo(new Thickness(7)));
-    }
-
-    [Test]
-    public void ConvertFrom_FloatArrayLength2_ReturnsTwoComponent()
-    {
-        var t = (Thickness)_converter.ConvertFrom(null, null, new[] { 1f, 2f })!;
-        Assert.That(t, Is.EqualTo(new Thickness(1, 2)));
-    }
-
-    [Test]
-    public void ConvertFrom_FloatArrayLength4_ReturnsFourComponent()
-    {
-        var t = (Thickness)_converter.ConvertFrom(null, null, new[] { 1f, 2f, 3f, 4f })!;
-        Assert.That(t, Is.EqualTo(new Thickness(1, 2, 3, 4)));
-    }
-
-    [Test]
-    public void ConvertFrom_Tuple2_ReturnsTwoComponent()
-    {
-        var t = (Thickness)_converter.ConvertFrom(null, null, new Tuple<float, float>(1, 2))!;
-        Assert.That(t, Is.EqualTo(new Thickness(1, 2)));
-    }
-
-    [Test]
-    public void ConvertFrom_Tuple4_ReturnsFourComponent()
-    {
-        var t = (Thickness)_converter.ConvertFrom(null, null, new Tuple<float, float, float, float>(1, 2, 3, 4))!;
-        Assert.That(t, Is.EqualTo(new Thickness(1, 2, 3, 4)));
+        Assert.That(_converter.CanConvertFrom(null, typeof(float)), Is.False);
     }
 
     [Test]
@@ -317,101 +263,15 @@ public class ColorConverterTests
     private readonly ColorConverter _converter = new();
 
     [Test]
-    public void CanConvertTo_KnownTargets_ReturnsTrue()
+    public void CanConvertFrom_String_ReturnsTrue()
     {
-        Assert.That(_converter.CanConvertTo(null, typeof(float[])), Is.True);
-        Assert.That(_converter.CanConvertTo(null, typeof(byte[])), Is.True);
-        Assert.That(_converter.CanConvertTo(null, typeof(Tuple<float, float, float, float>)), Is.True);
-        Assert.That(_converter.CanConvertTo(null, typeof(Tuple<byte, byte, byte, byte>)), Is.True);
-        Assert.That(_converter.CanConvertTo(null, typeof(int)), Is.True);
-        Assert.That(_converter.CanConvertTo(null, typeof(uint)), Is.True);
-    }
-
-    [Test]
-    public void CanConvertFrom_KnownSources_ReturnsTrue()
-    {
-        Assert.That(_converter.CanConvertFrom(null, typeof(float[])), Is.True);
-        Assert.That(_converter.CanConvertFrom(null, typeof(byte[])), Is.True);
-        Assert.That(_converter.CanConvertFrom(null, typeof(int)), Is.True);
-        Assert.That(_converter.CanConvertFrom(null, typeof(uint)), Is.True);
         Assert.That(_converter.CanConvertFrom(null, typeof(string)), Is.True);
     }
 
     [Test]
-    public void ConvertTo_ByteArray_ReturnsARGB()
+    public void CanConvertFrom_Other_ReturnsFalse()
     {
-        var color = Color.FromArgb(255, 100, 50, 25);
-        var array = (byte[])_converter.ConvertTo(null, null, color, typeof(byte[]))!;
-        Assert.That(array, Is.EqualTo(new byte[] { 255, 100, 50, 25 }));
-    }
-
-    [Test]
-    public void ConvertTo_FloatArray_ReturnsNormalizedARGB()
-    {
-        var color = Color.FromArgb(255, 255, 0, 0);
-        var array = (float[])_converter.ConvertTo(null, null, color, typeof(float[]))!;
-        Assert.That(array.Length, Is.EqualTo(4));
-        Assert.That(array[0], Is.EqualTo(1f));
-        Assert.That(array[1], Is.EqualTo(1f));
-        Assert.That(array[2], Is.EqualTo(0f));
-        Assert.That(array[3], Is.EqualTo(0f));
-    }
-
-    [Test]
-    public void ConvertTo_TupleByte_ReturnsARGB()
-    {
-        var color = Color.FromArgb(255, 100, 50, 25);
-        var tup = (Tuple<byte, byte, byte, byte>)_converter.ConvertTo(null, null, color, typeof(Tuple<byte, byte, byte, byte>))!;
-        Assert.That(tup, Is.EqualTo(new Tuple<byte, byte, byte, byte>(255, 100, 50, 25)));
-    }
-
-    [Test]
-    public void ConvertTo_Int_ReturnsInt32()
-    {
-        var color = Color.FromArgb(255, 0, 0, 0);
-        var i = (int)_converter.ConvertTo(null, null, color, typeof(int))!;
-        Assert.That(i, Is.EqualTo(color.ToInt32()));
-    }
-
-    [Test]
-    public void ConvertTo_Uint_ReturnsUInt32()
-    {
-        var color = Color.FromArgb(255, 100, 50, 25);
-        var u = (uint)_converter.ConvertTo(null, null, color, typeof(uint))!;
-        Assert.That(u, Is.EqualTo(color.ToUint32()));
-    }
-
-    [Test]
-    public void ConvertFrom_ByteArray_ReturnsColor()
-    {
-        var color = (Color)_converter.ConvertFrom(null, null, new byte[] { 255, 100, 50, 25 })!;
-        Assert.That(color, Is.EqualTo(Color.FromArgb(255, 100, 50, 25)));
-    }
-
-    [Test]
-    public void ConvertFrom_FloatArray_ReturnsColor()
-    {
-        var color = (Color)_converter.ConvertFrom(null, null, new[] { 1f, 1f, 0f, 0f })!;
-        Assert.That(color.A, Is.EqualTo(255));
-        Assert.That(color.R, Is.EqualTo(255));
-        Assert.That(color.G, Is.EqualTo(0));
-        Assert.That(color.B, Is.EqualTo(0));
-    }
-
-    [Test]
-    public void ConvertFrom_Int_ReturnsColor()
-    {
-        var orig = Color.FromArgb(255, 100, 50, 25);
-        var color = (Color)_converter.ConvertFrom(null, null, orig.ToInt32())!;
-        Assert.That(color, Is.EqualTo(orig));
-    }
-
-    [Test]
-    public void ConvertFrom_Uint_ReturnsColor()
-    {
-        var orig = Color.FromArgb(255, 100, 50, 25);
-        var color = (Color)_converter.ConvertFrom(null, null, orig.ToUint32())!;
-        Assert.That(color, Is.EqualTo(orig));
+        Assert.That(_converter.CanConvertFrom(null, typeof(int)), Is.False);
     }
 
     [Test]
@@ -419,19 +279,5 @@ public class ColorConverterTests
     {
         var color = (Color)_converter.ConvertFrom(null, null, "#FF0000")!;
         Assert.That(color, Is.EqualTo(Color.Parse("#FF0000")));
-    }
-
-    [Test]
-    public void ConvertFrom_TupleByte_ReturnsColor()
-    {
-        var color = (Color)_converter.ConvertFrom(null, null, new Tuple<byte, byte, byte, byte>(255, 100, 50, 25))!;
-        Assert.That(color, Is.EqualTo(Color.FromArgb(255, 100, 50, 25)));
-    }
-
-    [Test]
-    public void ConvertFrom_TupleFloat_ReturnsColor()
-    {
-        var color = (Color)_converter.ConvertFrom(null, null, new Tuple<float, float, float, float>(1, 1, 0, 0))!;
-        Assert.That(color, Is.EqualTo(Color.FromArgb(255, 255, 0, 0)));
     }
 }
