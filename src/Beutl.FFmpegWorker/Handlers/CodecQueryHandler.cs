@@ -102,32 +102,6 @@ internal sealed class CodecQueryHandler
         }
     }
 
-    public IpcMessage HandleQueryDefaultCodec(IpcMessage msg)
-    {
-        var request = msg.GetPayload<QueryDefaultCodecRequest>()
-            ?? throw new InvalidOperationException("Missing payload for QueryDefaultCodec");
-
-        try
-        {
-            var outFormat = OutputFormat.GuessFormat(null, request.OutputFile, null);
-            string? videoCodec = outFormat.VideoCodec != AVCodecID.AV_CODEC_ID_NONE
-                ? MediaCodec.FindEncoder(outFormat.VideoCodec).Name
-                : null;
-            string? audioCodec = outFormat.AudioCodec != AVCodecID.AV_CODEC_ID_NONE
-                ? MediaCodec.FindEncoder(outFormat.AudioCodec).Name
-                : null;
-
-            return IpcMessage.Create(msg.Id, MessageType.QueryDefaultCodecResult,
-                new QueryDefaultCodecResponse { VideoCodecName = videoCodec, AudioCodecName = audioCodec });
-        }
-        catch (Exception ex)
-        {
-            WorkerLog.Warning($"QueryDefaultCodec: query failed: {ex.Message}", ex);
-            return IpcMessage.Create(msg.Id, MessageType.QueryDefaultCodecResult,
-                new QueryDefaultCodecResponse());
-        }
-    }
-
     private static MediaCodec FindVideoEncoder(string? codecName, string? outputFile)
     {
         if (!string.IsNullOrEmpty(codecName) && codecName != "Default")

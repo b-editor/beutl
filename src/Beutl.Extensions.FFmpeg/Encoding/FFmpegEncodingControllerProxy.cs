@@ -158,9 +158,6 @@ public class FFmpegEncodingControllerProxy(string outputFile, FFmpegEncodingSett
                             return;
                         }
 
-                    case MessageType.EncodeProgress:
-                        break;
-
                     case MessageType.Error:
                         throw new FFmpegWorkerException(msg.Error ?? "Unknown error", msg.ErrorStackTrace);
 
