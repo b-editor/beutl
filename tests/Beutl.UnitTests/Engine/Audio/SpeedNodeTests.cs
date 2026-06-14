@@ -260,6 +260,83 @@ public class SpeedNodeTests
             => new(_sampleRate, 2, context.GetSampleCount());
     }
 
+    // Forwards Process unchanged. Stands in for the single ResampleNode the graph keeps between SpeedNode
+    // and the source, reused purely by sample rate (AudioContext.CreateResampleNode) so its instance
+    // survives a source/offset change while everything further upstream is recreated.
+    private sealed class PassthroughNode : AudioNode
+    {
+        public override AudioBuffer Process(AudioProcessContext context) => Inputs[0].Process(context);
+    }
+
+    // Re-anchor on a static-speed change across contiguous chunks. The output-time comparison in
+    // BeginStream cannot see this discontinuity (the node keeps emitting contiguous output), so without
+    // the speed-change re-anchor the source read cursor keeps marching from where the old (half) speed
+    // left off instead of jumping to outputStart * newSpeed.
+    [Test]
+    public void ProcessStaticSpeed_ReanchorsWhenStaticSpeedChangesMidStream()
+    {
+        const int sr = 1000;
+        var speedProp = StaticSpeed(50f);
+        using var node = new SpeedNode { Speed = speedProp };
+        node.AddInput(new RampInputNode(sr));
+        var sampler = new AnimationSampler();
+
+        // Build up the streaming cursor/filter state over one contiguous half-speed chunk.
+        using (AudioBuffer _ = node.Process(
+                   new AudioProcessContext(new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(1)), sr, sampler, null)))
+        {
+        }
+
+        // Change the static speed while playback continues onto the next contiguous chunk.
+        speedProp.CurrentValue = 200f;
+
+        using AudioBuffer after = node.Process(
+            new AudioProcessContext(new TimeRange(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1)), sr, sampler, null));
+
+        Span<float> left = after.GetChannelData(0);
+        // Output sample i -> output time (1 + i/sr)s -> source position (1 + i/sr) * 2 s -> ramp value
+        // (sourcePos * sr) * 0.01. Skip the resampler warm-up after the re-anchor reset. A failure to
+        // re-anchor would instead read from ~0.5s of source (value ~5 + 0.02*i), so the tolerance is tight.
+        for (int i = 300; i < left.Length; i++)
+        {
+            float expected = (float)((1.0 + i / (double)sr) * 2.0) * sr * 0.01f;
+            Assert.That(left[i], Is.EqualTo(expected).Within(0.1f),
+                $"static-speed change did not re-anchor at sample {i} (value={left[i]}, expected={expected})");
+        }
+    }
+
+    // Guards the transitive-upstream identity check: a differential graph update can reuse the
+    // intermediate ResampleNode (keyed only by sample rate) so SpeedNode's Inputs[0] identity is
+    // unchanged, while recreating the source/offset feeding it. The processor must still reset, or the
+    // resampler's filter history and source read cursor from the old source bleed into the new stream.
+    [Test]
+    public void Process_ResetsStreamingStateWhenUpstreamBehindReusedNodeIsSwapped()
+    {
+        const int sr = 1000;
+        using var node = new SpeedNode { Speed = StaticSpeed(50f) };
+        var reused = new PassthroughNode();
+        reused.AddInput(new RampInputNode(sr));
+        node.AddInput(reused);
+        var sampler = new AnimationSampler();
+
+        // Build up resampler filter state from the loud ramp source over one contiguous chunk.
+        using (AudioBuffer _ = node.Process(
+                   new AudioProcessContext(new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(1)), sr, sampler, null)))
+        {
+        }
+
+        // Swap the source two levels up while keeping the immediate input (reused) identity unchanged.
+        reused.ClearInputs();
+        reused.AddInput(new SilentInputNode(sr));
+
+        using AudioBuffer after = node.Process(
+            new AudioProcessContext(new TimeRange(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1)), sr, sampler, null));
+
+        Span<float> left = after.GetChannelData(0);
+        for (int i = 0; i < left.Length; i++)
+            Assert.That(Math.Abs(left[i]), Is.LessThan(0.05f), $"stale ramp history leaked at {i} ({left[i]})");
+    }
+
     // Guards the _lastInput identity check: a differential graph update can reuse the node but swap its
     // upstream. Even though the next chunk is time-contiguous (and would otherwise be treated as a
     // continuation), the resampler's filter history from the old ramp source must NOT bleed into the new

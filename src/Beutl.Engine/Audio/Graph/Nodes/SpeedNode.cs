@@ -11,7 +11,7 @@ public sealed class SpeedNode : AudioNode
     // Processor for audio speed processing
     private SpeedProcessor? _processor;
     private int _lastSampleRate;
-    private AudioNode? _lastInput;
+    private List<AudioNode>? _upstreamSnapshot;
 
     private readonly SpeedIntegrator _integrator;
 
@@ -35,15 +35,22 @@ public sealed class SpeedNode : AudioNode
         _integrator.SampleRate = context.SampleRate;
 
         // Initialize processor if needed. A differential graph update can reuse this node but swap its
-        // upstream (AudioContext.CreateSpeedNode -> ClearInputs); recreate the processor when the input
-        // identity changes so the resampler does not carry filter history from a now-disconnected
-        // source into the new stream.
-        var input = Inputs[0];
-        if (_processor == null || _lastSampleRate != context.SampleRate || !ReferenceEquals(_lastInput, input))
+        // upstream (AudioContext.CreateSpeedNode -> ClearInputs); recreate the processor so the resampler
+        // does not carry filter history (or a stale source read cursor) from a now-disconnected source
+        // into the new stream.
+        //
+        // Comparing only Inputs[0] is not enough: the graph keeps a single ResampleNode between this node
+        // and the source, reused purely by sample rate (AudioContext.CreateResampleNode). When the source
+        // or its time offset changes but the sample rate does not, that ResampleNode instance is reused —
+        // so Inputs[0] is unchanged — while the SourceNode/ShiftNode feeding it is recreated. Snapshot the
+        // whole transitive upstream and recreate the processor whenever any node in it changes identity.
+        // Capture unconditionally (not short-circuited behind _processor == null) so the snapshot is seeded
+        // on the first chunk and a contiguous second chunk is not mistaken for an upstream swap.
+        bool upstreamChanged = UpstreamChangedAndCapture();
+        if (_processor == null || _lastSampleRate != context.SampleRate || upstreamChanged)
         {
             _processor = new SpeedProcessor(context.SampleRate, 2, this);
             _lastSampleRate = context.SampleRate;
-            _lastInput = input;
         }
 
         if (animation == null)
@@ -118,11 +125,52 @@ public sealed class SpeedNode : AudioNode
         }
     }
 
+    // Snapshots the transitive set of upstream nodes (depth-first, deduplicated) and reports whether it
+    // differs from the previous snapshot by node identity. Capturing here keeps the comparison in lockstep
+    // with processor (re)creation. Audio graphs per sound are tiny and Process runs once per chunk, so the
+    // per-call walk is negligible.
+    private bool UpstreamChangedAndCapture()
+    {
+        var current = new List<AudioNode>();
+        CollectUpstream(this, current, new HashSet<AudioNode>());
+
+        bool changed = _upstreamSnapshot is null || _upstreamSnapshot.Count != current.Count;
+        if (!changed)
+        {
+            for (int i = 0; i < current.Count; i++)
+            {
+                if (!ReferenceEquals(_upstreamSnapshot![i], current[i]))
+                {
+                    changed = true;
+                    break;
+                }
+            }
+        }
+
+        if (changed)
+            _upstreamSnapshot = current;
+
+        return changed;
+    }
+
+    private static void CollectUpstream(AudioNode node, List<AudioNode> acc, HashSet<AudioNode> visited)
+    {
+        foreach (var input in node.Inputs)
+        {
+            // Dedupe so a diamond in the upstream graph cannot blow up the walk or perturb the snapshot.
+            if (!visited.Add(input))
+                continue;
+
+            acc.Add(input);
+            CollectUpstream(input, acc, visited);
+        }
+    }
+
     protected override void Dispose(bool disposing)
     {
         _integrator.Dispose();
         _processor = null;
-        _lastInput = null;
+        _upstreamSnapshot = null;
         base.Dispose(disposing);
     }
 
@@ -171,10 +219,13 @@ public sealed class SpeedNode : AudioNode
 
         // Decides whether this chunk continues the previous stream or is a seek. On a seek the
         // resampler is reset and the read cursor is re-anchored to the freshly computed source start.
-        // Returns true when a seek occurred.
-        private bool BeginStream(double outputStartSeconds, double sourceStartSeconds)
+        // forceReanchor lets the caller declare a discontinuity the output-time comparison cannot see
+        // (e.g. a static-speed change across otherwise contiguous chunks). Returns true when a seek
+        // occurred.
+        private bool BeginStream(double outputStartSeconds, double sourceStartSeconds, bool forceReanchor = false)
         {
             bool seek = !_initialized
+                || forceReanchor
                 || Math.Abs(outputStartSeconds - _nextOutputStart) * _sampleRate > SeekToleranceSamples;
             if (seek)
             {
@@ -224,12 +275,21 @@ public sealed class SpeedNode : AudioNode
         public AudioBuffer ProcessBuffer(AudioProcessContext context, float speed, int expectedOut)
         {
             double outputStart = context.TimeRange.Start.TotalSeconds;
-            bool seek = BeginStream(outputStart, outputStart * speed);
 
-            // Re-anchoring the rate after a seek (the resampler was just reset) or whenever the
-            // constant speed changes. Never Reset() outside of a seek: that zero-fills the filter
-            // history and momentarily silences a stream that is otherwise continuous.
-            if (seek || Math.Abs(_currentSpeed - speed) > 1e-4f)
+            // A static-speed change across contiguous chunks is a source-position discontinuity that the
+            // output-time comparison in BeginStream cannot see: the node keeps emitting contiguous output,
+            // but _srcReadPos (which tracked the old speed) no longer maps to outputStart under the new
+            // speed. Force a re-anchor so the next read starts from outputStart * speed instead of marching
+            // on from the stale cursor. _initialized gates this so the genuine first-chunk anchor still
+            // flows through the normal seek path.
+            bool speedChanged = _initialized && Math.Abs(_currentSpeed - speed) > 1e-4f;
+            bool seek = BeginStream(outputStart, outputStart * speed, speedChanged);
+
+            // Re-anchor the rate after a seek (the resampler was just reset) or whenever the constant speed
+            // changes. Never Reset() outside of a seek: that zero-fills the filter history and momentarily
+            // silences a stream that is otherwise continuous — a static-speed change is itself promoted to a
+            // seek above, so the reset there is intentional (the source genuinely jumps).
+            if (seek || speedChanged)
             {
                 _currentSpeed = speed;
                 _rs.SetRates(_sampleRate, _sampleRate / speed);
