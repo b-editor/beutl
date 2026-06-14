@@ -27,12 +27,10 @@ public sealed class FilterEffectContext : IDisposable
     internal readonly PooledList<IFEItem> _items;
     internal readonly PooledList<IFEItem> _renderTimeItems;
 
-    internal static readonly ObjectPool<byte[]> s_lutPool;
     internal static readonly ObjectPool<float[]> s_colorMatPool;
 
     static FilterEffectContext()
     {
-        s_lutPool = new DefaultObjectPool<byte[]>(new ArrayPooledObjectPolicy<byte>(256));
         s_colorMatPool = new DefaultObjectPool<float[]>(new ArrayPooledObjectPolicy<float>(20));
     }
 
@@ -401,62 +399,6 @@ public sealed class FilterEffectContext : IDisposable
     public void LumaColor()
     {
         AppendSKColorFilter(Unit.Default, (_, _) => SKColorFilter.CreateLumaColor());
-    }
-
-    [Obsolete("Byte-based LUTs destroy HDR values. Please use CustomEffect and SkSL shaders instead.")]
-    public void LookupTable<T>(
-        T data,
-        float strength,
-        Action<T, (byte[] A, byte[] R, byte[] G, byte[] B)> factory)
-        where T : IEquatable<T>
-    {
-        AppendSKColorFilter((data, strength, factory), (data, _) =>
-        {
-            byte[] a = s_lutPool.Get();
-            byte[] r = s_lutPool.Get();
-            byte[] g = s_lutPool.Get();
-            byte[] b = s_lutPool.Get();
-
-            try
-            {
-                data.factory(data.data, (a, r, g, b));
-
-                Graphics.LookupTable.SetStrength(data.strength, (a, r, g, b));
-                return SKColorFilter.CreateTable(a, r, g, b);
-            }
-            finally
-            {
-                s_lutPool.Return(a);
-                s_lutPool.Return(r);
-                s_lutPool.Return(g);
-                s_lutPool.Return(b);
-            }
-        });
-    }
-
-    [Obsolete("Byte-based LUTs destroy HDR values. Please use CustomEffect and SkSL shaders instead.")]
-    public void LookupTable<T>(
-        T data,
-        float strength,
-        Action<T, byte[]> factory)
-        where T : IEquatable<T>
-    {
-        AppendSKColorFilter((data, strength, factory), (data, _) =>
-        {
-            byte[] array = s_lutPool.Get();
-
-            try
-            {
-                data.factory(data.data, array);
-
-                Graphics.LookupTable.SetStrength(data.strength, array);
-                return SKColorFilter.CreateTable(array);
-            }
-            finally
-            {
-                s_lutPool.Return(array);
-            }
-        });
     }
 
     public void BlendMode(Color color, BlendMode blendMode)
