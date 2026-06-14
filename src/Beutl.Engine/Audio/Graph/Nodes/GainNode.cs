@@ -20,75 +20,89 @@ public sealed class GainNode : AudioNode
             return ProcessStaticGain(input);
         }
 
-        // Create output buffer
-        var output = new AudioBuffer(input.SampleRate, input.ChannelCount, input.SampleCount);
+        // Gain is non-null past the guard; pass it in so the helper need not re-check.
+        return ProcessAnimatedGain(Gain, input, context);
+    }
 
-        // Sample gain values for each sample
-        Span<float> gains = stackalloc float[System.Math.Min(input.SampleCount, 8192)];
-
-        // Process in chunks to avoid stack overflow for large buffers
-        int processed = 0;
-        while (processed < input.SampleCount)
+    // Owns and disposes `input`; emits a fresh buffer.
+    private static AudioBuffer ProcessAnimatedGain(IProperty<float> gain, AudioBuffer input, AudioProcessContext context)
+    {
+        using (input)
         {
-            int chunkSize = System.Math.Min(gains.Length, input.SampleCount - processed);
-            var chunkGains = gains.Slice(0, chunkSize);
+            // Create output buffer
+            var output = new AudioBuffer(input.SampleRate, input.ChannelCount, input.SampleCount);
 
-            var chunkStart = context.GetTimeForSample(processed);
-            var chunkEnd = context.GetTimeForSample(processed + chunkSize);
-            // すでにcontext.TimeRange.StartがGetTimeForSampleで加算されている
-            var chunkRange = new Media.TimeRange(chunkStart, chunkEnd - chunkStart);
+            // Sample gain values for each sample
+            Span<float> gains = stackalloc float[System.Math.Min(input.SampleCount, 8192)];
 
-            // Sample animation values
-            context.AnimationSampler.SampleBuffer(
-                Gain,
-                chunkRange,
-                context.SampleRate,
-                chunkGains);
-
-            // Convert from percentage (0-100) to factor (0-1)
-            for (int i = 0; i < chunkSize; i++)
+            // Process in chunks to avoid stack overflow for large buffers
+            int processed = 0;
+            while (processed < input.SampleCount)
             {
-                chunkGains[i] /= 100f;
-            }
+                int chunkSize = System.Math.Min(gains.Length, input.SampleCount - processed);
+                var chunkGains = gains.Slice(0, chunkSize);
 
-            // Apply gain to each channel
-            for (int ch = 0; ch < input.ChannelCount; ch++)
-            {
-                var inData = input.GetChannelData(ch).Slice(processed, chunkSize);
-                var outData = output.GetChannelData(ch).Slice(processed, chunkSize);
+                var chunkStart = context.GetTimeForSample(processed);
+                var chunkEnd = context.GetTimeForSample(processed + chunkSize);
+                // すでにcontext.TimeRange.StartがGetTimeForSampleで加算されている
+                var chunkRange = new Media.TimeRange(chunkStart, chunkEnd - chunkStart);
 
+                // Sample animation values
+                context.AnimationSampler.SampleBuffer(
+                    gain,
+                    chunkRange,
+                    context.SampleRate,
+                    chunkGains);
+
+                // Convert from percentage (0-100) to factor (0-1)
                 for (int i = 0; i < chunkSize; i++)
                 {
-                    outData[i] = inData[i] * chunkGains[i];
+                    chunkGains[i] /= 100f;
                 }
+
+                // Apply gain to each channel
+                for (int ch = 0; ch < input.ChannelCount; ch++)
+                {
+                    var inData = input.GetChannelData(ch).Slice(processed, chunkSize);
+                    var outData = output.GetChannelData(ch).Slice(processed, chunkSize);
+
+                    for (int i = 0; i < chunkSize; i++)
+                    {
+                        outData[i] = inData[i] * chunkGains[i];
+                    }
+                }
+
+                processed += chunkSize;
             }
 
-            processed += chunkSize;
+            return output;
         }
-
-        return output;
     }
 
     private AudioBuffer ProcessStaticGain(AudioBuffer input)
     {
         float gain = (Gain?.CurrentValue ?? 100f) / 100f;
-        // If gain is 1.0, return input as-is
+        // Unity gain: pass the input through (caller owns it, don't dispose).
         if (System.Math.Abs(gain - 1.0f) < float.Epsilon)
             return input;
 
-        var output = new AudioBuffer(input.SampleRate, input.ChannelCount, input.SampleCount);
-
-        for (int ch = 0; ch < input.ChannelCount; ch++)
+        // Otherwise we emit a fresh buffer, so dispose the consumed input.
+        using (input)
         {
-            var inData = input.GetChannelData(ch);
-            var outData = output.GetChannelData(ch);
+            var output = new AudioBuffer(input.SampleRate, input.ChannelCount, input.SampleCount);
 
-            for (int i = 0; i < input.SampleCount; i++)
+            for (int ch = 0; ch < input.ChannelCount; ch++)
             {
-                outData[i] = inData[i] * gain;
-            }
-        }
+                var inData = input.GetChannelData(ch);
+                var outData = output.GetChannelData(ch);
 
-        return output;
+                for (int i = 0; i < input.SampleCount; i++)
+                {
+                    outData[i] = inData[i] * gain;
+                }
+            }
+
+            return output;
+        }
     }
 }

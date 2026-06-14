@@ -56,7 +56,8 @@ public sealed class CompressorNode : AudioNode
             throw new InvalidOperationException(
                 $"Compressor node requires exactly one input but got {Inputs.Count}.");
 
-        var input = Inputs[0].Process(context);
+        // Every path emits a fresh buffer (no pass-through), so dispose the consumed input.
+        using var input = Inputs[0].Process(context);
 
         // A sample-rate change needs new coefficients, so treat it as a full session boundary:
         // reset both the envelope and the one-shot diagnostic latches.
