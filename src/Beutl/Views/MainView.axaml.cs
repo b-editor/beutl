@@ -264,21 +264,6 @@ public sealed partial class MainView : UserControl
             }
         };
 
-        viewMenuItem.SubmenuOpened += (s, e) =>
-        {
-            EditorTabItem? selectedTab = EditorService.Current.SelectedTabItem.Value;
-            if (selectedTab != null)
-            {
-                foreach (MenuItem item in list2.OfType<MenuItem>())
-                {
-                    if (item.DataContext is EditorExtension editorExtension)
-                    {
-                        item.IsVisible = editorExtension.IsSupported(selectedTab.FilePath.Value);
-                    }
-                }
-            }
-        };
-
         // ToolWindowExtension をメニューに表示する
         MenuItem CreateToolWindowMenuItem(ToolWindowExtension item)
         {

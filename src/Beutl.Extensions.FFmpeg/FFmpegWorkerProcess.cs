@@ -221,29 +221,45 @@ public sealed class FFmpegWorkerProcess : IDisposable
 
     private static void ConfigureWorkerProcess(ProcessStartInfo startInfo)
     {
-        string path = Path.Combine(AppContext.BaseDirectory, "Beutl.FFmpegWorker");
+        string dotnetHost = Environment.GetEnvironmentVariable("DOTNET_HOST_PATH")
+            ?? (OperatingSystem.IsWindows() ? "dotnet.exe" : "dotnet");
 
-        if (OperatingSystem.IsWindows())
-        {
-            path += ".exe";
-        }
+        WorkerCommand command = ResolveWorkerCommand(
+            AppContext.BaseDirectory, OperatingSystem.IsWindows(), dotnetHost, File.Exists);
 
-        if (File.Exists(path))
+        startInfo.FileName = command.FileName;
+        if (command.DllArgument is { } dll)
         {
-            startInfo.FileName = path;
+            // DLL mode: pass the worker assembly as the first argument to the dotnet host.
+            startInfo.ArgumentList.Insert(0, dll);
         }
-        else
-        {
-            // DLL mode: use dotnet host
-            string dllPath = Path.ChangeExtension(path, ".dll");
-            if (!File.Exists(dllPath) && !path.EndsWith(".exe"))
-                dllPath = path + ".dll";
+    }
 
-            string dotnetHost = Environment.GetEnvironmentVariable("DOTNET_HOST_PATH")
-                ?? (OperatingSystem.IsWindows() ? "dotnet.exe" : "dotnet");
-            startInfo.FileName = dotnetHost;
-            startInfo.ArgumentList.Insert(0, dllPath);
-        }
+    internal readonly record struct WorkerCommand(string FileName, string? DllArgument);
+
+    /// <summary>
+    /// Resolves how to launch the GPL worker process.
+    /// Dev builds isolate the worker (with its own dependency closure) under an
+    /// <c>FFmpegWorker/</c> subdirectory so it never overwrites the app's shared assemblies; Nuke
+    /// publishes lay the worker out flat next to the app. The subdirectory layout is preferred,
+    /// then the flat one, resolving against either an apphost or a bare <c>.dll</c> so
+    /// <c>UseAppHost=false</c> builds still pick the subdir. When no apphost exists the worker is
+    /// launched via the dotnet host with the assembly path as its first argument.
+    /// </summary>
+    internal static WorkerCommand ResolveWorkerCommand(
+        string baseDirectory, bool isWindows, string dotnetHost, Func<string, bool> fileExists)
+    {
+        string exeSuffix = isWindows ? ".exe" : "";
+        string subDirStem = Path.Combine(baseDirectory, "FFmpegWorker", "Beutl.FFmpegWorker");
+        string flatStem = Path.Combine(baseDirectory, "Beutl.FFmpegWorker");
+        string stem = fileExists(subDirStem + exeSuffix) || fileExists(subDirStem + ".dll")
+            ? subDirStem
+            : flatStem;
+
+        string apphostPath = stem + exeSuffix;
+        return fileExists(apphostPath)
+            ? new WorkerCommand(apphostPath, null)
+            : new WorkerCommand(dotnetHost, stem + ".dll");
     }
 
     private void Cleanup()

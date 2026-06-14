@@ -11,6 +11,7 @@ public sealed class SpeedNode : AudioNode
     // Processor for audio speed processing
     private SpeedProcessor? _processor;
     private int _lastSampleRate;
+    private List<AudioNode>? _upstreamSnapshot;
 
     private readonly SpeedIntegrator _integrator;
 
@@ -33,8 +34,20 @@ public sealed class SpeedNode : AudioNode
         _integrator.EnsureCache(animation);
         _integrator.SampleRate = context.SampleRate;
 
-        // Initialize processor if needed
-        if (_processor == null || _lastSampleRate != context.SampleRate)
+        // Initialize processor if needed. A differential graph update can reuse this node but swap its
+        // upstream (AudioContext.CreateSpeedNode -> ClearInputs); recreate the processor so the resampler
+        // does not carry filter history (or a stale source read cursor) from a now-disconnected source
+        // into the new stream.
+        //
+        // Comparing only Inputs[0] is not enough: the graph keeps a single ResampleNode between this node
+        // and the source, reused purely by sample rate (AudioContext.CreateResampleNode). When the source
+        // or its time offset changes but the sample rate does not, that ResampleNode instance is reused —
+        // so Inputs[0] is unchanged — while the SourceNode/ShiftNode feeding it is recreated. Snapshot the
+        // whole transitive upstream and recreate the processor whenever any node in it changes identity.
+        // Capture unconditionally (not short-circuited behind _processor == null) so the snapshot is seeded
+        // on the first chunk and a contiguous second chunk is not mistaken for an upstream swap.
+        bool upstreamChanged = UpstreamChangedAndCapture();
+        if (_processor == null || _lastSampleRate != context.SampleRate || upstreamChanged)
         {
             _processor = new SpeedProcessor(context.SampleRate, 2, this);
             _lastSampleRate = context.SampleRate;
@@ -57,18 +70,9 @@ public sealed class SpeedNode : AudioNode
             return Inputs[0].Process(context);
         }
 
-        // Calculate source time range from output time range
-        var sourceTimeRange = CalculateSourceTimeRange(context.TimeRange, speed);
-
-        // Create input context with calculated source time range
-        var inputContext = new AudioProcessContext(
-            sourceTimeRange,
-            context.SampleRate,
-            context.AnimationSampler,
-            context.OriginalTimeRange);
-
-        // Process with constant speed to get the expected output length
-        return _processor!.ProcessBuffer(inputContext, speed, expectedOutputSampleCount);
+        // The processor streams the source continuously across chunks; it derives the source read
+        // range itself from the output context so the resampler is never re-seeked mid-stream.
+        return _processor!.ProcessBuffer(context, speed, expectedOutputSampleCount);
     }
 
     private AudioBuffer ProcessAnimatedSpeed(AudioProcessContext context, int expectedOutputSampleCount)
@@ -103,25 +107,17 @@ public sealed class SpeedNode : AudioNode
         {
             // The rented array can be larger than requested, so always slice before passing it.
             Span<double> speeds = speedsArray.AsSpan(0, expectedOutputSampleCount);
-            double sum = 0;
             for (int i = 0; i < expectedOutputSampleCount; i++)
             {
-                var value = animation.GetAnimatedValue(
+                speeds[i] = animation.GetAnimatedValue(
                     ownerStart + TimeSpan.FromSeconds((startInSamples + i) / (double)context.SampleRate)) / 100.0;
-                speeds[i] = value;
-                sum += value;
             }
 
-            var sourceEndTime = sourceStartTime + TimeSpan.FromSeconds(sum / context.SampleRate);
-            var sourceTimeRange = TimeRange.FromRange(sourceStartTime, sourceEndTime);
-
-            var inputContext = new AudioProcessContext(
-                sourceTimeRange,
-                context.SampleRate,
-                context.AnimationSampler,
-                context.OriginalTimeRange);
-
-            return _processor!.ProcessBufferWithVariableSpeed(inputContext, speeds, expectedOutputSampleCount);
+            // The processor streams the source continuously across chunks; sourceStartTime only seeds
+            // the read cursor on the first chunk / after a seek. context supplies the sampler and the
+            // original time range for the per-read sub-contexts.
+            return _processor!.ProcessBufferWithVariableSpeed(
+                context, speeds, expectedOutputSampleCount, sourceStartTime.TotalSeconds);
         }
         finally
         {
@@ -129,29 +125,84 @@ public sealed class SpeedNode : AudioNode
         }
     }
 
-    private TimeRange CalculateSourceTimeRange(TimeRange outputTimeRange, float speed)
+    // Snapshots the transitive set of upstream nodes (depth-first, deduplicated) and reports whether it
+    // differs from the previous snapshot by node identity. Capturing here keeps the comparison in lockstep
+    // with processor (re)creation. Audio graphs per sound are tiny and Process runs once per chunk, so the
+    // per-call walk is negligible.
+    private bool UpstreamChangedAndCapture()
     {
-        var sourceStart = outputTimeRange.Start * speed;
-        var sourceDuration = outputTimeRange.Duration * speed;
+        var current = new List<AudioNode>();
+        CollectUpstream(this, current, new HashSet<AudioNode>());
 
-        return new TimeRange(sourceStart, sourceDuration);
+        bool changed = _upstreamSnapshot is null || _upstreamSnapshot.Count != current.Count;
+        if (!changed)
+        {
+            for (int i = 0; i < current.Count; i++)
+            {
+                if (!ReferenceEquals(_upstreamSnapshot![i], current[i]))
+                {
+                    changed = true;
+                    break;
+                }
+            }
+        }
+
+        if (changed)
+            _upstreamSnapshot = current;
+
+        return changed;
+    }
+
+    private static void CollectUpstream(AudioNode node, List<AudioNode> acc, HashSet<AudioNode> visited)
+    {
+        foreach (var input in node.Inputs)
+        {
+            // Dedupe so a diamond in the upstream graph cannot blow up the walk or perturb the snapshot.
+            if (!visited.Add(input))
+                continue;
+
+            acc.Add(input);
+            CollectUpstream(input, acc, visited);
+        }
     }
 
     protected override void Dispose(bool disposing)
     {
         _integrator.Dispose();
         _processor = null;
+        _upstreamSnapshot = null;
         base.Dispose(disposing);
     }
 
     private sealed class SpeedProcessor
     {
+        private const int BLOCK = 256;
+
+        // A chunk whose output start lands within this many samples of where the previous chunk ended
+        // is treated as a continuation; anything further is a seek (scrub / loop / restart).
+        //
+        // The tolerance is deliberately tiny (samples, not milliseconds). During contiguous playback the
+        // player advances the chunk start by an exact TimeSpan (PlayerViewModel: cur += 1s) and
+        // _nextOutputStart advances by expectedOut/sampleRate, so the two agree to the bit — there is no
+        // timing jitter to absorb. The couple-of-samples slack only covers Ceiling rounding on a
+        // fractional-duration final chunk. Widening this to tens of milliseconds would do the opposite of
+        // helping: a genuine short seek would be mistaken for a continuation and keep playing from the
+        // stale source position instead of re-anchoring.
+        private const double SeekToleranceSamples = 2.0;
+
         private readonly int _sampleRate;
         private readonly int _channels;
         private readonly SpeedNode _speedNode;
         private readonly WdlResampler _rs;
         private float _currentSpeed = 1.0f;
-        private const int BLOCK = 256;
+
+        // Continuous-streaming state, persisted across Process calls (chunks). The resampler retains
+        // filter history between chunks, so the source must be fed as one unbroken stream. Re-seeking
+        // the source every chunk (the previous behaviour) desynchronised the source read position from
+        // that retained history and produced an audible click at every chunk boundary.
+        private long _srcReadPos;        // absolute next source sample to feed, in the source timeline
+        private double _nextOutputStart; // expected output start (seconds) of the next contiguous chunk
+        private bool _initialized;
 
         public SpeedProcessor(int sampleRate, int channels, SpeedNode speedNode)
         {
@@ -161,218 +212,172 @@ public sealed class SpeedNode : AudioNode
 
             _rs = new WdlResampler();
             _rs.SetMode(interp: true, filtercnt: 0, sinc: true, sinc_size: 128, sinc_interpsize: 64);
-            // _rs.SetMode(interp: true, filtercnt: 0, sinc: true, sinc_size: 64);
             _rs.SetFilterParms();
             _rs.SetFeedMode(false);
             _rs.SetRates(sampleRate, sampleRate);
         }
 
-        private int Read(int srcOffset, float[] buffer, int offset, int count, AudioProcessContext context)
+        // Decides whether this chunk continues the previous stream or is a seek. On a seek the
+        // resampler is reset and the read cursor is re-anchored to the freshly computed source start.
+        // forceReanchor lets the caller declare a discontinuity the output-time comparison cannot see
+        // (e.g. a static-speed change across otherwise contiguous chunks). Returns true when a seek
+        // occurred.
+        private bool BeginStream(double outputStartSeconds, double sourceStartSeconds, bool forceReanchor = false)
         {
-            var newRange = new TimeRange(
-                TimeSpan.FromSeconds(srcOffset / (double)_sampleRate) + context.TimeRange.Start,
-                TimeSpan.FromSeconds(count / (double)_sampleRate));
-            if (newRange.End > context.TimeRange.End)
+            bool seek = !_initialized
+                || forceReanchor
+                || Math.Abs(outputStartSeconds - _nextOutputStart) * _sampleRate > SeekToleranceSamples;
+            if (seek)
             {
-                // Console.WriteLine($"{newRange.End} > {context.TimeRange.End}");
-                newRange = newRange.WithDuration(
-                    TimeSpan.FromTicks(Math.Max((context.TimeRange.End - newRange.Start).Ticks, 0)));
+                _rs.Reset();
+                _srcReadPos = (long)Math.Round(sourceStartSeconds * _sampleRate);
+                _initialized = true;
             }
 
-            var newContext = new AudioProcessContext(
-                newRange,
+            return seek;
+        }
+
+        // Reads exactly the source samples the resampler asked for, continuing from the persistent
+        // cursor so the stream never jumps between chunks. Advances the cursor by what was actually
+        // produced (fewer than requested only at the true end of the source) and returns that count.
+        private int Read(float[] buffer, int interleavedOffset, int count, AudioProcessContext context)
+        {
+            if (count <= 0)
+                return 0;
+
+            // _srcReadPos counts whole source samples, but it reaches the input as a TimeSpan and the
+            // source converts back by truncation (e.g. SourceNode: (int)(seconds * sampleRate)). Bias
+            // the start by half a sample so the floating-point round-trip lands back on _srcReadPos
+            // rather than occasionally on _srcReadPos - 1.
+            var range = new TimeRange(
+                TimeSpan.FromSeconds((_srcReadPos + 0.5) / _sampleRate),
+                TimeSpan.FromSeconds(count / (double)_sampleRate));
+            var subContext = new AudioProcessContext(
+                range,
                 _sampleRate,
                 context.AnimationSampler,
                 context.OriginalTimeRange);
-            var result = _speedNode.Inputs[0].Process(newContext);
+
+            var result = _speedNode.Inputs[0].Process(subContext);
             var leftData = result.GetChannelData(0);
             var rightData = result.GetChannelData(1);
-            int samplesToRead = Math.Min(buffer.Length / _channels, Math.Min(count, result.SampleCount));
+            int samplesToRead = Math.Min(count, result.SampleCount);
             for (int i = 0; i < samplesToRead; i++)
             {
-                buffer[offset + i * _channels] = leftData[i];
-                buffer[offset + i * _channels + 1] = rightData[i];
+                buffer[interleavedOffset + i * _channels] = leftData[i];
+                buffer[interleavedOffset + i * _channels + 1] = rightData[i];
             }
 
-            return result.SampleCount;
+            _srcReadPos += samplesToRead;
+            return samplesToRead;
         }
 
         public AudioBuffer ProcessBuffer(AudioProcessContext context, float speed, int expectedOut)
         {
-            // 速度変更があればレートだけ更新（Reset は行わない）
-            if (Math.Abs(_currentSpeed - speed) > 1e-4f)
+            double outputStart = context.TimeRange.Start.TotalSeconds;
+
+            // A static-speed change across contiguous chunks is a source-position discontinuity that the
+            // output-time comparison in BeginStream cannot see: the node keeps emitting contiguous output,
+            // but _srcReadPos (which tracked the old speed) no longer maps to outputStart under the new
+            // speed. Force a re-anchor so the next read starts from outputStart * speed instead of marching
+            // on from the stale cursor. _initialized gates this so the genuine first-chunk anchor still
+            // flows through the normal seek path.
+            bool speedChanged = _initialized && Math.Abs(_currentSpeed - speed) > 1e-4f;
+            bool seek = BeginStream(outputStart, outputStart * speed, speedChanged);
+
+            // Re-anchor the rate after a seek (the resampler was just reset) or whenever the constant speed
+            // changes. Never Reset() outside of a seek: that zero-fills the filter history and momentarily
+            // silences a stream that is otherwise continuous — a static-speed change is itself promoted to a
+            // seek above, so the reset there is intentional (the source genuinely jumps).
+            if (seek || speedChanged)
             {
                 _currentSpeed = speed;
                 _rs.SetRates(_sampleRate, _sampleRate / speed);
-                // _rs.Reset();  ← ここを呼ぶとフィルタがゼロで埋まり無音になる
             }
 
             var output = new AudioBuffer(_sampleRate, _channels, expectedOut);
             float[] dst = new float[expectedOut * _channels];
 
-            int framesNeeded = expectedOut; // まだ欲しい出力フレーム数
-            int framesDone = 0; // すでに生成したフレーム数
-            int srcFramesRead = 0;
-
-            while (framesDone < framesNeeded)
+            int framesDone = 0;
+            while (framesDone < expectedOut)
             {
-                float[] inBuf;
-                int inOff;
+                int want = _rs.ResamplePrepare(expectedOut - framesDone, _channels, out float[] inBuf, out int inOff);
+                int got = Read(inBuf, inOff, want, context);
 
-                int want = _rs.ResamplePrepare(framesNeeded - framesDone,
-                    _channels, out inBuf, out inOff);
+                int made = _rs.ResampleOut(dst, framesDone * _channels, got, expectedOut - framesDone, _channels);
 
-                int got = Read(
-                    srcFramesRead,
-                    inBuf,
-                    inOff / _channels,
-                    want,
-                    context);
-                srcFramesRead += got;
-
-                // --- リサンプル ----------------------------------------------------
-                int made = _rs.ResampleOut(dst,
-                    framesDone * _channels,
-                    got, // 供給した入力フレーム数
-                    framesNeeded - framesDone, // 欲しい出力数
-                    _channels);
-
-                if (made == 0)
-                {
-                    made = _rs.ResampleOut(dst,
-                        framesDone * _channels,
-                        0, // 追加入力なし
-                        framesNeeded - framesDone,
-                        _channels);
-
-                    if (made == 0) break;
-                }
+                // No more output and no more input means the source is exhausted; the tail-fill below
+                // pads the remainder. (got > 0 with made == 0 just means the resampler needs more
+                // lookahead, so keep feeding.)
+                if (made == 0 && got == 0)
+                    break;
 
                 framesDone += made;
             }
 
-            for (int ch = 0; ch < _channels; ch++)
-            {
-                var chData = output.GetChannelData(ch);
-                for (int n = 0; n < framesDone; n++)
-                    chData[n] = dst[n * _channels + ch];
-
-                // 生成しきれなかった分は最後の値で埋める
-                float tail = framesDone > 0 ? chData[framesDone - 1] : 0f;
-                for (int n = framesDone; n < expectedOut; n++)
-                    chData[n] = tail;
-            }
-
+            WriteAndPad(output, dst, framesDone, expectedOut);
+            _nextOutputStart = outputStart + (double)expectedOut / _sampleRate;
             return output;
         }
 
         public AudioBuffer ProcessBufferWithVariableSpeed(
-            AudioProcessContext context, ReadOnlySpan<double> speedCurve, int expectedOut)
+            AudioProcessContext context, ReadOnlySpan<double> speedCurve, int expectedOut, double sourceStartSeconds)
         {
-            // TimeRangeは変換前での時間、つまりInputに渡される範囲
-            // Console.WriteLine($"Start: {context.TimeRange.Start}, End: {context.TimeRange.End}");
-            int framesNeeded = expectedOut;
-            int framesDone = 0;
-            int srcIndexFloor = 0;
-            double srcPos = 0.0;
+            double outputStart = context.TimeRange.Start.TotalSeconds;
+            BeginStream(outputStart, sourceStartSeconds);
 
             var output = new AudioBuffer(_sampleRate, _channels, expectedOut);
             float[] dst = new float[expectedOut * _channels];
-            // 変換前のサンプル数 (context.TimeRange.Duration.TotalSeconds * _sampleRate) と同じになる
-            // ならなかった...
 
-            // speedCurve.Length: 44100
-            // Sum: 42291.688
-            // Console.WriteLine($"Sum: {speedCurve.ToArray().Sum()}");
-            // var durationSamples = context.TimeRange.Duration.TotalSeconds * _sampleRate;
-            // Last: 22050
-            // 逆にcontext.TimeRangeの計算が間違っている気がする。
-            // 早く減り過ぎ
-            // 44100のサンプルを生み出すのに22050で生み出せるのはおかしい
-            // Console.WriteLine($"DurationSamples: {durationSamples}");
-
-            // while (srcIndexFloor < last)
-            while (framesDone < framesNeeded)
+            // Same resampler-driven streaming loop as the constant-speed path, but the rate is updated
+            // per block from the average of the per-sample speed curve. The resampler's ResamplePrepare
+            // is the single source of truth for how many source frames to feed, and exactly that many
+            // are read and reported back via ResampleOut — there is no separate hand-rolled source
+            // cursor to drift out of sync, and no stale frames are ever passed off as real input.
+            int framesDone = 0;
+            while (framesDone < expectedOut)
             {
-                // 変換後のサンプルレートで計算される
-                int framesThis = Math.Min(BLOCK, framesNeeded - framesDone);
+                int framesThis = Math.Min(BLOCK, expectedOut - framesDone);
 
-                // --- 1. このブロックの速度を全部合計して必要入力フレーム数を計算 ---
                 double sumSpeed = 0.0;
                 for (int i = 0; i < framesThis; i++)
                     sumSpeed += speedCurve[framesDone + i];
 
-                double needInF = srcPos + sumSpeed; // double 精度で次位置
-                int needInInt = (int)Math.Floor(needInF); // 整数ぶんを今回読む
-                // 変換前
-                int wantFrames = needInInt - srcIndexFloor; // 追加で必要なフレーム数
-
                 double vAvg = sumSpeed / framesThis;
-                // Console.WriteLine(vAvg);
-                double outRate = _sampleRate / vAvg; // ratio = vAvg
-                _rs.SetRates(_sampleRate, outRate);
-                float cutoff = 0.97f / (float)vAvg; // vAvg>1 なら Nyquist を下げる
-                _rs.SetFilterParms(cutoff, 0.707f); // Q はそのまま
+                _rs.SetRates(_sampleRate, _sampleRate / vAvg);
+                float cutoff = 0.97f / (float)vAvg; // vAvg > 1 lowers Nyquist to avoid aliasing
+                _rs.SetFilterParms(cutoff, 0.707f);
 
-                float[] inBuf;
-                int inOff;
-                int willNeed = _rs.ResamplePrepare(framesThis, _channels, out inBuf, out inOff);
+                int want = _rs.ResamplePrepare(framesThis, _channels, out float[] inBuf, out int inOff);
+                int got = Read(inBuf, inOff, want, context);
 
-                if (wantFrames > willNeed) wantFrames = willNeed;
+                int made = _rs.ResampleOut(dst, framesDone * _channels, got, framesThis, _channels);
 
-                // 本当に読む
-                int got = Read(srcIndexFloor, inBuf, inOff, wantFrames, context);
-                // srcIndexFloor += got;
-                if (got < wantFrames)
-                {
-                    // Console.WriteLine($"Clear: {got} < {wantFrames}");
-                    Array.Clear(inBuf, inOff + got * _channels,
-                        (wantFrames - got) * _channels);
-                }
-
-                int made = _rs.ResampleOut(dst,
-                    framesDone * _channels,
-                    willNeed, // 供給した入力フレーム数
-                    framesThis, // 欲しい出力数
-                    _channels);
+                if (made == 0 && got == 0)
+                    break;
 
                 framesDone += made;
-                srcIndexFloor += wantFrames;
-                srcPos = needInF;
-                // このメソッド呼び出しでの最後の出力がcontext.TimeRange.Endと同じになる必要があるが、この出力の方が大きくなってしまっている
-                // フレームが過剰に供給されていることが考えられたが
-                // Console.WriteLine(TimeSpan.FromSeconds(srcIndexFloor / (double)_sampleRate)+ context.TimeRange.Start);
-
-                // if (made == 0)
-                // {
-                //     made = _rs.ResampleOut(dst,
-                //         framesDone * _channels,
-                //         0, // 追加入力なし
-                //         framesThis,
-                //         _channels);
-                //
-                //     if (made == 0) break;
-                // }
             }
 
-            // srcPos: 42291.687
-            // srcIndexFloor: 42291
-            // Console.WriteLine($"srcPos: {srcPos:F}");
-            // Console.WriteLine($"srcIndexFloor: {srcIndexFloor}");
+            WriteAndPad(output, dst, framesDone, expectedOut);
+            _nextOutputStart = outputStart + (double)expectedOut / _sampleRate;
+            return output;
+        }
 
+        // De-interleaves the produced frames into the output buffer and pads any shortfall (source
+        // exhausted) with the last produced value to avoid a hard edge.
+        private void WriteAndPad(AudioBuffer output, float[] dst, int framesDone, int expectedOut)
+        {
             for (int ch = 0; ch < _channels; ch++)
             {
                 var chData = output.GetChannelData(ch);
                 for (int n = 0; n < framesDone; n++)
                     chData[n] = dst[n * _channels + ch];
 
-                // 生成しきれなかった分は最後の値で埋める
                 float tail = framesDone > 0 ? chData[framesDone - 1] : 0f;
                 for (int n = framesDone; n < expectedOut; n++)
                     chData[n] = tail;
             }
-
-            return output;
         }
     }
 }

@@ -52,6 +52,8 @@ If this fails: stop here and offer to run `dotnet format Beutl.slnx` (writing). 
 
 The PreToolUse hook `.claude/hooks/check-gpl-mit-boundary.sh` only inspects fragments from `Edit` / `Write` tool calls (`new_string`, `content`, `edits[].new_string`) — it cannot scan the working tree retroactively. So this step does an equivalent diff-side scan targeting only the two forbidden linkage forms (`ProjectReference` and `Compile Include`); a bare mention of the `Beutl.FFmpegWorker` namespace in a comment, doc string, or already-linked source file is fine.
 
+The scan mirrors the hook's one sanctioned exception: `src/Beutl/Beutl.csproj` may carry a build-order-only `<ProjectReference ... ReferenceOutputAssembly="false" />` (paired with its `CopyFFmpegWorkerForApp` target), which keeps the GPL assembly out of the MIT compile closure. That exemption is path-specific — any other project, and any `Compile Include`, is still forbidden.
+
 ```bash
 # Filter to .csproj / .cs files in changed paths, then grep only for the
 # forbidden linkage forms — not the bare namespace.
@@ -63,19 +65,30 @@ The PreToolUse hook `.claude/hooks/check-gpl-mit-boundary.sh` only inspects frag
 candidates=$(printf '%s\n' "$CHANGED" | grep -E '\.(csproj|cs)$' || true)
 for f in $candidates; do
   [ -f "$f" ] || continue
-  # Step 1: detect — flatten newlines and run the linkage pattern.
-  if tr '\n' ' ' < "$f" \
-    | grep -qE '<(ProjectReference|Compile)[^>]*Beutl\.FFmpegWorker'; then
-    # Step 2: locate — print every line in the original file that names a
-    # linkage element OR mentions FFmpegWorker, so multi-line cases show
-    # both halves.
+  flat=$(tr '\n' ' ' < "$f")
+  # Compile Include linkage is always forbidden outside the worker project.
+  compile_hit=$(printf '%s' "$flat" | grep -oE '<Compile[^>]*Beutl\.FFmpegWorker' || true)
+  # ProjectReference linkage: allow the sanctioned build-order-only form
+  # (ReferenceOutputAssembly="false") ONLY in src/Beutl/Beutl.csproj.
+  worker_refs=$(printf '%s' "$flat" | grep -oE '<ProjectReference[^>]*' \
+    | grep 'Beutl\.FFmpegWorker' || true)
+  case "$f" in
+    */Beutl/Beutl.csproj)
+      ref_hit=$(printf '%s' "$worker_refs" \
+        | grep -Ev "ReferenceOutputAssembly[[:space:]]*=[[:space:]]*[\"'][Ff]alse[\"']" || true) ;;
+    *)
+      ref_hit=$worker_refs ;;
+  esac
+  if [ -n "$compile_hit$ref_hit" ]; then
+    # Locate — print every line naming a linkage element OR mentioning
+    # FFmpegWorker, so multi-line cases show both halves.
     grep -nE '(<(ProjectReference|Compile)\b|Beutl\.FFmpegWorker)' "$f" \
       | sed "s|^|$f:|"
   fi
 done
 ```
 
-Only `src/Beutl.FFmpegWorker/` itself is allowed to ship `Beutl.FFmpegWorker` linkages. Every other project — including the MIT IPC layer at `src/Beutl.FFmpegIpc/` — must reach the worker through the IPC protocol, never via `ProjectReference` or `<Compile Include="...FFmpegWorker..." />`. Any match outside the GPL subtree is a violation — list each `file:line` and stop.
+Only `src/Beutl.FFmpegWorker/` itself ships `Beutl.FFmpegWorker` linkages freely; `src/Beutl/Beutl.csproj` may use the sanctioned build-order-only `ProjectReference` described above. Every other project — including the MIT IPC layer at `src/Beutl.FFmpegIpc/` — must reach the worker through the IPC protocol, never via `ProjectReference` (even with `ReferenceOutputAssembly="false"`) or `<Compile Include="...FFmpegWorker..." />`. Any other match is a violation — list each `file:line` and stop.
 
 ### 3. Targeted build (always)
 

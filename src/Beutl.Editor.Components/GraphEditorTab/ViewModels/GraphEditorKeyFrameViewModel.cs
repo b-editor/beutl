@@ -385,6 +385,7 @@ public sealed class GraphEditorKeyFrameViewModel : IDisposable
                 {
                     newKeyFrame.KeyTime = Model.KeyTime;
                     int index = Parent.Parent.Animation.KeyFrames.IndexOf(Model);
+                    Parent.Parent.Animation.KeyFrames.Remove(Model);
                     Parent.Parent.Animation.KeyFrames.Insert(index, (IKeyFrame)newKeyFrame);
                     history.Commit(CommandNames.PasteKeyFrame);
                 }

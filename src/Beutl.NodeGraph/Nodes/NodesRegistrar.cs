@@ -68,7 +68,8 @@ public static class NodesRegistrar
             .AddGroup(GraphicsStrings.Script, o => o
                 .Add<FilterEffectNode<CSharpScriptEffect>>(GraphicsStrings.CSharpScriptEffect)
                 .Add<FilterEffectNode<SKSLScriptEffect>>(GraphicsStrings.SKSLScriptEffect)
-                .Add<FilterEffectNode<GLSLScriptEffect>>(GraphicsStrings.GLSLScriptEffect))
+                .Add<FilterEffectNode<GLSLScriptEffect>>(GraphicsStrings.GLSLScriptEffect)
+                .Register())
             .Register();
 
         GraphNodeRegistry.RegisterNodes(GraphicsStrings.Brush, Colors.Orange)

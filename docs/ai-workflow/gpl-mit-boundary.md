@@ -20,8 +20,9 @@ Beutl's main app is **MIT-licensed**; only `Beutl.FFmpegWorker` is **GPL-3.0-or-
 
 ## Invariants
 
-1. **MIT projects must not `ProjectReference` `Beutl.FFmpegWorker`.**
+1. **MIT projects must not take a compile-closure `ProjectReference` to `Beutl.FFmpegWorker`.**
    - The PreToolUse hook `.claude/hooks/check-gpl-mit-boundary.sh` denies this mechanically.
+   - Sanctioned exception: a build-order-only reference carrying `ReferenceOutputAssembly="false"`, paired with a target that mirrors the worker's output next to the app (dev builds only — `src/Beutl/Beutl.csproj` uses this shape; Nuke publishes lay the worker out separately).
    - Do not look for workarounds — surface the design issue instead.
 
 2. **All communication goes through `Beutl.FFmpegIpc`.**

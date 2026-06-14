@@ -104,9 +104,41 @@
     <ProjectReference Include="..\Beutl.Extensions.FFmpeg\Beutl.Extensions.FFmpeg.csproj" />
   </ItemGroup>
 
+  <!-- Dev-only build of the GPL worker. ReferenceOutputAssembly=false keeps the GPL assembly
+       out of the MIT compile closure (GPL/MIT boundary invariant); CopyFFmpegWorkerForApp below
+       mirrors the worker's full output into an isolated FFmpegWorker/ subdirectory next to the
+       app, where FFmpegWorkerProcess probes (it prefers that subdir, then falls back to
+       AppContext.BaseDirectory). The worker resolves its own (possibly different-versioned)
+       shared assemblies from its own deps.json inside that subdir, so its dependency closure
+       never overwrites the app's. Nuke publishes lay the worker out separately (flat, copying
+       only Beutl.FFmpegWorker* so the app's shared assemblies stay the single canonical set). -->
   <ItemGroup Condition="'$(FFmpegOutOfProcess)'=='True' And '$(NukePublish)'!='True'">
-    <ProjectReference Include="..\Beutl.FFmpegWorker\Beutl.FFmpegWorker.csproj" />
+    <ProjectReference Include="..\Beutl.FFmpegWorker\Beutl.FFmpegWorker.csproj"
+                      ReferenceOutputAssembly="false" />
   </ItemGroup>
+
+  <!-- The '$(TargetFramework)' != '' guard keeps this off the outer (dispatch) pass of the
+       multi-targeting build, where TargetFramework and OutDir are empty: there the glob base
+       would collapse to bin\$(Configuration)\ (pulling the TFM folders into %(RecursiveDir)) and
+       the empty OutDir would land the copy in the project source directory. Only the inner
+       per-TFM build has the correct OutDir under bin\. -->
+  <Target Name="CopyFFmpegWorkerForApp"
+          AfterTargets="Build"
+          Condition="'$(FFmpegOutOfProcess)'=='True' And '$(NukePublish)'!='True' And '$(TargetFramework)' != ''">
+    <PropertyGroup>
+      <!-- The worker's own output dir mirrors this app's: it gains a <RID> segment only when a
+           RuntimeIdentifier is set. Anchor the glob there so a RID build does not duplicate the
+           RID into $(OutDir) (which already ends in <RID>) and strand the worker outside
+           AppContext.BaseDirectory. -->
+      <_FFmpegWorkerOutDir>..\Beutl.FFmpegWorker\bin\$(Configuration)\$(TargetFramework)\$(RuntimeIdentifier)\</_FFmpegWorkerOutDir>
+    </PropertyGroup>
+    <ItemGroup>
+      <_FFmpegWorkerOutput Include="$(_FFmpegWorkerOutDir)**\*" />
+    </ItemGroup>
+    <Copy SourceFiles="@(_FFmpegWorkerOutput)"
+          DestinationFiles="@(_FFmpegWorkerOutput->'$(OutDir)FFmpegWorker\%(RecursiveDir)%(Filename)%(Extension)')"
+          SkipUnchangedFiles="true" />
+  </Target>
 
   <ItemGroup Condition="'$(MFBuildIn)'=='True'">
     <ProjectReference
