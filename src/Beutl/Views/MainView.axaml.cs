@@ -285,63 +285,16 @@ public sealed partial class MainView : UserControl
             return menuItem;
         }
 
-#pragma warning disable CS0618
-        // PageExtension(Obsolete) をメニューに表示する
-        MenuItem CreatePageMenuItem(PageExtension item)
-        {
-            var menuItem = new MenuItem()
-            {
-                Header = item.DisplayName,
-                DataContext = item,
-                Icon = item.GetRegularIcon()
-            };
-
-            menuItem.Click += async (s, e) =>
-            {
-                try
-                {
-                    if (s is not MenuItem { DataContext: PageExtension pageExtension })
-                        return;
-
-                    if (TopLevel.GetTopLevel(this) is not Window topLevel)
-                        return;
-
-                    var controlOrDialog = pageExtension.CreateControl();
-                    var dataContext = pageExtension.CreateContext();
-                    controlOrDialog.DataContext = dataContext;
-                    if (controlOrDialog is Window dialog)
-                    {
-                        await dialog.ShowDialog(topLevel);
-                    }
-                    else
-                    {
-                        var window = new Window { Content = controlOrDialog, Title = dataContext.Header };
-                        await window.ShowDialog(topLevel);
-                    }
-                }
-                catch (Exception ex)
-                {
-                    await ex.Handle();
-                }
-            };
-
-            return menuItem;
-        }
-
         var toolWindowSource = viewModel.ToolWindowExtensions.ToObservableChangeSet()
             .ObserveOnUIDispatcher()
             .Transform<ToolWindowExtension, MenuItem>(CreateToolWindowMenuItem);
-        var pageSource = viewModel.PageExtensions.ToObservableChangeSet()
-            .ObserveOnUIDispatcher()
-            .Transform<PageExtension, MenuItem>(CreatePageMenuItem);
-#pragma warning restore CS0618
 
-        toolWindowSource.Or(pageSource)
-            .Bind(out ReadOnlyObservableCollection<MenuItem>? list3)
+        toolWindowSource
+            .Bind(out ReadOnlyObservableCollection<MenuItem>? toolWindowMenuItems)
             .Subscribe()
             .DisposeWith(_disposables);
 
-        toolWindowMenuItem.ItemsSource = list3;
+        toolWindowMenuItem.ItemsSource = toolWindowMenuItems;
     }
 
     private async Task OpenToolWindowAsync(ToolWindowExtension extension)

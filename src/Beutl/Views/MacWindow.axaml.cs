@@ -270,54 +270,15 @@ public sealed partial class MacWindow : Window
             return menuItem;
         }
 
-#pragma warning disable CS0618
-        // PageExtension(Obsolete) をメニューに表示する
-        NativeMenuItem CreatePageMenuItem(PageExtension item)
-        {
-            var menuItem = new NativeMenuItem() { Header = item.DisplayName, CommandParameter = item };
-
-            menuItem.Click += async (s, e) =>
-            {
-                try
-                {
-                    if (s is not NativeMenuItem { CommandParameter: PageExtension pageExtension })
-                        return;
-
-                    var controlOrDialog = pageExtension.CreateControl();
-                    var dataContext = pageExtension.CreateContext();
-                    controlOrDialog.DataContext = dataContext;
-                    if (controlOrDialog is Window dialog)
-                    {
-                        await dialog.ShowDialog(this);
-                    }
-                    else
-                    {
-                        var window = new Window { Content = controlOrDialog, Title = dataContext.Header };
-                        await window.ShowDialog(this);
-                    }
-                }
-                catch (Exception ex)
-                {
-                    await ex.Handle();
-                }
-            };
-
-            return menuItem;
-        }
-
         var toolWindowSource = viewModel.ToolWindowExtensions.ToObservableChangeSet()
             .ObserveOnUIDispatcher()
             .Transform<ToolWindowExtension, NativeMenuItem>(CreateToolWindowMenuItem);
-        var pageSource = viewModel.PageExtensions.ToObservableChangeSet()
-            .ObserveOnUIDispatcher()
-            .Transform<PageExtension, NativeMenuItem>(CreatePageMenuItem);
-#pragma warning restore CS0618
 
-        toolWindowSource.Or(pageSource)
-            .Bind(out ReadOnlyObservableCollection<NativeMenuItem>? list3)
+        toolWindowSource
+            .Bind(out ReadOnlyObservableCollection<NativeMenuItem>? toolWindowMenuItems)
             .Subscribe();
 
-        list3.ForEachItem<NativeMenuItem, ReadOnlyObservableCollection<NativeMenuItem>>(
+        toolWindowMenuItems.ForEachItem<NativeMenuItem, ReadOnlyObservableCollection<NativeMenuItem>>(
             toolWindowMenu.Items.Insert,
             (i, _) => toolWindowMenu.Items.RemoveAt(i),
             toolWindowMenu.Items.Clear);
