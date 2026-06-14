@@ -33,7 +33,6 @@
     <Project Path="tests\Beutl.UnitTests\Beutl.UnitTests.csproj" />
     <Project Path="tests\DirectoryViewTest\DirectoryViewTest.csproj" />
     <Project Path="tests\EnumerateFontFamilies\EnumerateFontFamilies.csproj" />
-    <Project Path="tests\KeySplineEditor\KeySplineEditor.csproj" />
     <Project Path="tests\PackageSample\PackageSample.csproj" />
     <Project Path="tests\PropertyEditorViewTests\PropertyEditorViewTests.csproj" />
     <Project Path="tests\TextFormattingPlayground\TextFormattingPlayground.csproj" />
