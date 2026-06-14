@@ -4,6 +4,8 @@ using Beutl.Graphics;
 using Beutl.Graphics.Backend;
 using Beutl.Graphics.Rendering;
 using Beutl.Graphics3D.Lighting;
+using Beutl.Logging;
+using Microsoft.Extensions.Logging;
 
 namespace Beutl.Graphics3D;
 
@@ -12,6 +14,8 @@ namespace Beutl.Graphics3D;
 /// </summary>
 internal sealed class Scene3DRenderNode(Scene3D.Resource scene) : RenderNode
 {
+    private static readonly ILogger s_logger = Log.CreateLogger<Scene3DRenderNode>();
+
     public Rect Bounds { get; private set; }
 
     public (Scene3D.Resource Resource, int Version)? Scene { get; private set; } = scene.Capture();
@@ -70,15 +74,32 @@ internal sealed class Scene3DRenderNode(Scene3D.Resource scene) : RenderNode
         // Get or create renderer
         var renderer = scene.Renderer ??= new Renderer3D(graphicsContext);
 
-        // Initialize or resize if needed
+        // Initialize or resize if needed. feature 003 (FR-037(b)): unlike the 2D sinks (which allocate through
+        // RenderTarget.Create's try/catch and degrade to null on an over-limit size), Renderer3D goes straight to
+        // VulkanContext.CreateTexture2D, which THROWS on vkCreateImage past the GPU axis limit. The dw/dh above
+        // are already clamped to MaxBufferDimension (16384), but a backend whose real limit is LOWER (e.g. a
+        // mobile/embedded Vulkan reporting 8192) would still throw — and an uncaught throw on the render thread
+        // crashes the whole render. Catch it and drop just the 3D op (a missing 3D frame) instead, mirroring the
+        // 2D degrade. Querying the backend's true maxImageDimension2D and passing it to the clamp is the complete
+        // fix (a follow-up); this guarantees no backend size can crash the render in the meantime.
         if (renderer.Width != dw || renderer.Height != dh)
         {
-            if (renderer.Width == 0 || renderer.Height == 0)
+            try
             {
-                renderer.Initialize(dw, dh);
-            }
+                if (renderer.Width == 0 || renderer.Height == 0)
+                {
+                    renderer.Initialize(dw, dh);
+                }
 
-            renderer.Resize(dw, dh);
+                renderer.Resize(dw, dh);
+            }
+            catch (Exception ex)
+            {
+                s_logger.LogWarning(ex,
+                    "3D render surface allocation failed ({Width}x{Height} px, density {Scale}); dropping the 3D op for this frame.",
+                    dw, dh, w);
+                return [];
+            }
         }
 
         // Record the density so the renderer's hit-test entry points (which take LOGICAL coordinates)

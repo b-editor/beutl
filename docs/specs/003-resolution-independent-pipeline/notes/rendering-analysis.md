@@ -1,5 +1,17 @@
 # Resolution-Independent 2D Pipeline — Rendering Analysis Dossier
 
+> ⚠️ **STALE — scaffold-era research, superseded by the spec/contracts (banner added 2026-06-15, S7).** This
+> dossier (incl. its §12 addendum) was written before the June 2026 design reversals and was **not** updated as
+> they landed. Several positions it still asserts have since been **repudiated** by the shipped design — among
+> them: the `ResolutionPolicy` enum (removed — supply-driven only), a universal byte-identity-at-`s_out=1`
+> guarantee (abolished — content-scoped, FR-019), an **atomic render-dispatcher** renderer/cache swap (it is two
+> independent UI-thread swaps with a self-healing tear window — FR-031), a GLSL **`uScale`** push constant (not
+> shipped — GLSL derives `w` from device-px `Width`/`Height` — shader-uniforms.md), **floor**-origin rounding
+> (it is toward-zero `(int)` truncation — FR-007), and `PerlinNoiseBrush.BaseFrequency` **÷ scale** (left
+> unchanged — FR-010). **For anything that conflicts, the authoritative sources are `spec.md`, `contracts/*.md`,
+> and `data-model.md`, NOT this dossier (and NOT its "§12 wins" rule below, which only orders the dossier against
+> itself).** Treat the dossier as historical *where-in-the-code* context only.
+>
 > Feature 003. Research dossier feeding the formal spec. **Not an implementation plan.**
 >
 > Scope: Beutl's 2D rendering pipeline (`Beutl.Engine` graphics, `Beutl.ProjectSystem` scene/export, `Beutl` editor view-models). Synthesizes per-subsystem surveys, a per-effect scale matrix, and design-question analyses. All file paths are repo-relative.

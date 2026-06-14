@@ -19,7 +19,13 @@ public sealed class EffectTarget : IDisposable
         _target = renderTarget.ShallowCopy();
         OriginalBounds = originalBounds;
         Bounds = originalBounds;
-        Scale = scale;
+        // feature 003 (I3): a RenderTarget is a CONCRETE bitmap buffer — it can never be re-rasterizable
+        // Unbounded vector. An omitted/Unbounded scale historically meant "this buffer is at density 1" (the
+        // point-blit convention), but leaving it Unbounded created a self-contradictory state that Draw read as
+        // density 1 while CustomFilterEffectContext.Open reads the buffer at WorkingScale — two different
+        // densities for the same buffer. Record the concrete density explicitly (Unbounded => At(1)) so a
+        // RenderTarget-backed target always carries a coherent density.
+        Scale = scale.IsUnbounded ? EffectiveScale.At(1f) : scale;
     }
 
     public EffectTarget()

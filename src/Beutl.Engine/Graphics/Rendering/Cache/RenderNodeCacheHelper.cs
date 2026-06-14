@@ -95,7 +95,26 @@ public static class RenderNodeCacheHelper
         // ceiling — the old default-scale processor baked density-1 tiles regardless of the render scale and
         // let high-density sources escape the FR-037 ceiling during cache creation.
         var processor = new RenderNodeProcessor(node, false, outputScale, maxWorkingScale);
-        var list = processor.RasterizeToRenderTargets();
+        var ops = processor.PullToRoot();
+
+        // feature 003 (FR-018, I4 cache-density-collapse fix): the cache rasterizes every op at outputScale and
+        // re-tags the replayed tile EffectiveScale.At(outputScale). A subtree whose output carries a concrete
+        // supply density ABOVE outputScale (a transform-densified high-resolution source — At(4) on a 1080
+        // timeline) would have that detail DISCARDED into the outputScale tile, and every downstream effect that
+        // resolves its working scale from this input would silently drop from w = supply to w = outputScale the
+        // moment the (render-count-driven) cache kicks in — a non-transparent behavioural change and a direct
+        // FR-018 violation. Refuse to cache such a subtree: it keeps rendering uncached at its true supply
+        // density. Density-preserving cross-scale cache reuse (rasterize each tile at its own working scale and
+        // store a per-tile density) is the deferred proper fix (T025); until then, transparency wins over the
+        // cache-hit on these specific high-density subtrees.
+        if (ops.Any(o => !o.EffectiveScale.IsUnbounded && o.EffectiveScale.Value > outputScale))
+        {
+            foreach (var op in ops)
+                op.Dispose();
+            return;
+        }
+
+        var list = processor.RasterizeToRenderTargets(ops);
         int pixels = list.Sum(i =>
         {
             // Budget the ACTUAL stored pixels (density-scaled), matching the allocated tile size.

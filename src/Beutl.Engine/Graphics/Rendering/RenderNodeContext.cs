@@ -19,10 +19,13 @@ public class RenderNodeContext(
     /// <summary>
     /// The global working-scale ceiling for this pull (feature 003, FR-037): preview caps it at
     /// <c>2 × s_out</c> to bound interactive working scale; export passes a generous-but-finite
-    /// <c>max(8, 4 × s_out)</c> (high enough never to clip a legitimate high-resolution source, yet finite to
-    /// stay OOM-safe on long renders). Applied as the final <c>min(·, MaxWorkingScale)</c> in
-    /// <see cref="ResolveWorkingScale"/>. The constructor default is <c>+∞</c> (no ceiling) for non-render-request
-    /// callers; production render requests always seed a finite value.
+    /// <c>max(8, 4 × s_out)</c> (high enough never to clip a legitimate high-resolution source, yet finite).
+    /// This bounds the working scale <c>w</c> ITSELF — it does NOT by itself guarantee OOM-safety: a single
+    /// buffer's memory scales <c>area × w²</c> (a clamped <c>16384²×8 ≈ 2 GiB</c> is still possible) and there is
+    /// no cross-buffer aggregate budget; a request-scoped byte/area allocator is the complete fix (follow-up).
+    /// Applied as the final <c>min(·, MaxWorkingScale)</c> in <see cref="ResolveWorkingScale"/>. The constructor
+    /// default is <c>+∞</c> (no ceiling) for non-render-request callers; production render requests always seed a
+    /// finite value.
     /// </summary>
     public float MaxWorkingScale { get; } = maxWorkingScale;
 
@@ -123,6 +126,12 @@ public class RenderNodeContext(
         if (!float.IsFinite(w) || w <= 0f) return w;
 
         double maxAxis = Math.Max(Math.Abs((double)logicalBounds.Width), Math.Abs((double)logicalBounds.Height));
+        // Guard degenerate bounds (NaN/∞ from a degenerate transform's AABB): a non-finite maxAxis would make
+        // largestAxisPx non-finite, skip the <= maxDimension early-out, and fall through to MathF.Min/Max(w, NaN)
+        // which PROPAGATE NaN — so the clamp would itself RETURN a non-finite working scale. Pass w through
+        // unchanged instead; this function must never be the one that introduces a non-finite density.
+        if (!double.IsFinite(maxAxis) || maxAxis <= 0) return w;
+
         double largestAxisPx = Math.Ceiling(maxAxis * w);
         if (largestAxisPx <= maxDimension || largestAxisPx <= 0) return w;
 

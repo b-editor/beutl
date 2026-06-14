@@ -152,6 +152,12 @@ internal static class ImageMetrics
     /// <summary>
     /// Mean squared gradient (horizontal + vertical adjacent luminance differences) — a proxy for
     /// high-frequency / aliasing energy. A supersampled render should report less than a 1:1 render.
+    /// <para>
+    /// <b>DIAGNOSTIC-ONLY (I8):</b> this metric is unit-tested in isolation (<c>ImageMetricsTests</c>) but is
+    /// NOT a gate in the supersample suite — on the actual test patterns its difference wobbled within noise, so
+    /// <c>ExportSupersampleTests</c> gates on MAE-to-ground-truth (a clearer, monotone signal) plus an SSIM
+    /// no-degradation tolerance instead. Keep this for ad-hoc analysis; do not assume the supersample gate uses it.
+    /// </para>
     /// </summary>
     public static double AliasingEnergy(Bitmap bitmap)
     {

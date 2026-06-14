@@ -92,6 +92,18 @@ public class CustomFilterEffectContext
         return (bw, bh);
     }
 
+    /// <summary>
+    /// The density <see cref="CreateTarget"/> will allocate a buffer for <paramref name="bounds"/> at (feature
+    /// 003, FR-037(b)): the working scale after the per-buffer dimension clamp. This is the <b>single canonical
+    /// source</b> of that value — a shader/point-blit effect that must compute device-pixel uniforms BEFORE it
+    /// holds the created target (SKSL/GLSL build their uniform block up front) MUST call this on the SAME bounds
+    /// it passes to <see cref="CreateTarget"/>, rather than re-deriving the clamp inline, so the uniforms can
+    /// never drift from the buffer the shader iterates. When the effect already holds the created target, prefer
+    /// reading <see cref="EffectTarget.Scale"/>.<see cref="EffectiveScale.Value"/> directly.
+    /// </summary>
+    public float ResolveTargetDensity(Rect bounds)
+        => RenderNodeContext.ClampWorkingScaleToBufferBudget(bounds, WorkingScale);
+
     public EffectTarget CreateTarget(Rect bounds)
     {
         // feature 003: allocate a ceil(bounds × w) device buffer and tag it with its TRUE density At(w) — a
@@ -103,7 +115,9 @@ public class CustomFilterEffectContext
         // FR-037(b) backstop: a custom effect can inflate `bounds` past anything the node-level / flush
         // clamps saw (TransformEffect AABB, path-follow AABB, …), so re-clamp at this third allocation
         // site too — degrading density beats an un-allocatable buffer followed by Open() throwing.
-        float fit = RenderNodeContext.ClampWorkingScaleToBufferBudget(bounds, w);
+        // ResolveTargetDensity is the canonical clamp; shader uniform sites call the SAME method so they
+        // can never compute a density different from the buffer this allocates.
+        float fit = ResolveTargetDensity(bounds);
         if (fit < w)
         {
             // The returned target reports At(fit), and Open() tags its canvas with that same density, so a

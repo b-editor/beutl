@@ -116,9 +116,8 @@ public partial class ColorShift : FilterEffect
             // feature 003: the shader runs in DEVICE px over the ceil(bounds × w) buffer, so the per-channel
             // absolute-px offsets scale by the working density. w == 1 keeps the pre-feature path (byte-identical).
             // Use the CLAMPED density that ApplyToNewTarget's CreateTarget will resolve (FR-037(b)) so the
-            // device-px uniforms match the buffer.
-            float w = Beutl.Graphics.Rendering.RenderNodeContext.ClampWorkingScaleToBufferBudget(
-                bounds, context.WorkingScale);
+            // device-px uniforms match the buffer. ResolveTargetDensity is the canonical clamp CreateTarget calls.
+            float w = context.ResolveTargetDensity(bounds);
             builder.Uniforms["redOffset"] = new SKPoint(data.RedOffset.X * w, data.RedOffset.Y * w);
             builder.Uniforms["greenOffset"] = new SKPoint(data.GreenOffset.X * w, data.GreenOffset.Y * w);
             builder.Uniforms["blueOffset"] = new SKPoint(data.BlueOffset.X * w, data.BlueOffset.Y * w);

@@ -338,6 +338,49 @@ public class SourceEffectiveScaleFlowTests
         });
     }
 
+    // feature 003 (S5 / FR-036): the documented escape hatch for an effect that needs a NON-supply working scale
+    // (the replacement for the removed ResolutionPolicy) is a FilterEffectRenderNode subclass returned from
+    // FilterEffect.Resource.CreateRenderNode() that overrides Process and computes its own w. This minimal
+    // subclass picks clamp-to-output (w = min(supply, s_out)) and re-tags its inputs at that w, proving an author
+    // CAN select a non-supply working scale through the override point. (The full effect flow would feed this w
+    // into FilterEffectContext/FilterEffectActivator; the w-SELECTION is the part a subclass customizes, which is
+    // what this guards. Pure Process — no GPU.)
+    private sealed class ClampToOutputRenderNode(FilterEffect.Resource fe) : FilterEffectRenderNode(fe)
+    {
+        public override RenderNodeOperation[] Process(RenderNodeContext context)
+        {
+            var scales = context.Input.Select(i => i.EffectiveScale).ToArray();
+            float supplyW = RenderNodeContext.ResolveWorkingScale(scales, context.OutputScale, context.MaxWorkingScale);
+            float clampedW = MathF.Min(supplyW, context.OutputScale); // the removed ResolutionPolicy.ClampToOutput
+            return context.Input.Select(input => RenderNodeOperation.CreateLambda(
+                    input.Bounds,
+                    input.Render,
+                    hitTest: input.HitTest,
+                    onDispose: input.Dispose,
+                    effectiveScale: EffectiveScale.At(clampedW)))
+                .ToArray();
+        }
+    }
+
+    // Prove the CreateRenderNode() escape hatch: a custom FilterEffectRenderNode chooses a working scale OTHER
+    // than the supply-driven default. The built-in supply-driven path keeps a 2.0 source at w = 2
+    // (ConcreteAtSource_ResolvesWorkingScaleToSupplyDensity above); this clamp-to-output subclass instead
+    // resolves w = min(supply, s_out), so the same 2.0 source runs at the output scale.
+    [TestCase(1.0f, 1.0f)] // supply 2 clamped to s_out 1
+    [TestCase(0.5f, 0.5f)] // supply 2 clamped to s_out 0.5
+    public void CustomRenderNode_OverridesSupplyDriven_WithClampToOutput(float outputScale, float expectedW)
+    {
+        var fe = new MosaicEffect().ToResource(CompositionContext.Default);
+        using var node = new ClampToOutputRenderNode(fe);
+
+        RenderNodeOperation[] ops = node.Process(new RenderNodeContext([SourceOp(2.0f)], outputScale: outputScale));
+
+        Assert.That(ops, Is.Not.Empty);
+        Assert.That(ops[0].EffectiveScale.Value, Is.EqualTo(expectedW).Within(1e-4),
+            "the custom render node did not apply its clamp-to-output working scale — the CreateRenderNode() escape hatch is broken");
+        DisposeAll(ops);
+    }
+
     private static void DisposeAll(RenderNodeOperation[] ops)
     {
         foreach (RenderNodeOperation op in ops)

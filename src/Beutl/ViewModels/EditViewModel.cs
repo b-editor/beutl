@@ -85,9 +85,10 @@ public sealed partial class EditViewModel : IEditorContext, ISupportAutoSaveEdit
                 .DistinctUntilChanged();
 
         Renderer = frameSizeAndScale
-            // feature 003 (FR-037): cap the preview working scale at 2× s_out so a high-density source
-            // cannot blow up preview buffer memory; export (OutputViewModel) passes its own generous cap.
-            .Select(t => new SceneRenderer(Scene, t.OutputScale, maxWorkingScale: 2f * t.OutputScale))
+            // feature 003 (FR-037): cap the preview working scale so a high-density source cannot blow up
+            // preview buffer memory; export (OutputViewModel) passes its own generous cap. The ceiling policy
+            // is centralized in WorkingScaleCeiling (one definition, unit-tested) — see S3.
+            .Select(t => new SceneRenderer(Scene, t.OutputScale, maxWorkingScale: WorkingScaleCeiling.Preview(t.OutputScale)))
             .DisposePreviousValue()
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables)!;

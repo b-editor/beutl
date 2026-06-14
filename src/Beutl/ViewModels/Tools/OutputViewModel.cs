@@ -315,7 +315,8 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
                 // OOM on long renders. The cap is generous (≥ 8× device, ≥ 4× the SSAA output) so it never clips
                 // legitimate high-density sources, and it is the hard bound on the working scale (there is no
                 // per-effect escape — an effect wanting more resolution oversamples within this ceiling).
-                float maxWorkingScale = MathF.Max(8f, 4f * renderScale);
+                // Centralized in WorkingScaleCeiling (one definition, unit-tested) — see S3.
+                float maxWorkingScale = WorkingScaleCeiling.Export(renderScale);
                 using var renderer = new SceneRenderer(Model, renderScale, disableResourceShare: true, maxWorkingScale);
                 renderer.CacheOptions = RenderCacheOptions.Disabled;
                 var frameProgress = new Subject<TimeSpan>();

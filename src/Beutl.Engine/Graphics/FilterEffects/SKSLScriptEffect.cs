@@ -100,9 +100,10 @@ public sealed partial class SKSLScriptEffect : FilterEffect
             // buffer, so resolution uniforms report device px (× w). Normalized-uv shaders are unaffected;
             // absolute-px shaders can read iScale = w. At w == 1 every value is unchanged (byte-identical).
             // Use the CLAMPED density ApplyToNewTarget's CreateTarget resolves (FR-037(b)) so the uniforms
-            // match the buffer, matching the Mosaic/ColorShift siblings.
-            float w = Beutl.Graphics.Rendering.RenderNodeContext.ClampWorkingScaleToBufferBudget(
-                effectTarget.Bounds, c.WorkingScale);
+            // match the buffer, matching the Mosaic/ColorShift siblings. ResolveTargetDensity is the ONE
+            // canonical clamp CreateTarget itself calls (same bounds), so the uniforms can never drift from
+            // the allocated buffer.
+            float w = c.ResolveTargetDensity(effectTarget.Bounds);
             // Report the EXACT device dimensions the buffer is allocated at (ceil(bounds × w), or the (int)
             // truncation at w == 1) — not the un-ceiled bounds × w, which at fractional bounds left a
             // fragCoord/iResolution-normalized shader overrunning ~1 px past 1.0 on the last row/column.

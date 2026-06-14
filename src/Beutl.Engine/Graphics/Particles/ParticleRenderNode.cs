@@ -183,25 +183,35 @@ internal sealed class ParticleRenderNode(ParticleEmitter.Resource particle) : Re
 
     private static (RenderTarget, Drawable.Resource, int)? RenderDrawableToTarget(
         Drawable.Resource drawable,
-        float w,
+        float nominalScale,
         float maxWorkingScale,
         out Rect bounds)
     {
         using var node = new DrawableRenderNode(drawable);
         // 1920×1080 is only the LOGICAL measurement canvas (GraphicsContext2D.Size stays logical); the actual
-        // buffer is sized from the drawable bounds below. Thread w as the output scale so the drawable and its
-        // sub-pulls rasterize at the active render density (FR-029).
-        using (var gctx = new GraphicsContext2D(node, new Size(1920, 1080), w))
+        // buffer is sized from the drawable bounds below. Thread the nominal scale as the output scale so the
+        // drawable and its sub-pulls rasterize at the active render density (FR-029).
+        using (var gctx = new GraphicsContext2D(node, new Size(1920, 1080), nominalScale))
         {
             drawable.GetOriginal().Render(gctx, drawable);
         }
 
         // Forward the request's FR-037 ceiling — without it the particle drawable's subtree falls back
         // to +∞ and a high-density source inside it escapes the preview/export cap.
-        var processor = new RenderNodeProcessor(node, false, w, maxWorkingScale);
+        var processor = new RenderNodeProcessor(node, false, nominalScale, maxWorkingScale);
         var ops = processor.PullToRoot();
 
         bounds = ops.Aggregate(Rect.Empty, (a, n) => a.Union(n.Bounds));
+        // feature 003 (FR-037(b)): bound the per-axis device dimension. A large authored drawable under an SSAA
+        // export (nominalScale up to the supersample factor) can size ceil(bounds × scale) past the GPU 2D-image
+        // limit, where RenderTarget.Create returns null and EVERY particle silently disappears from the exported
+        // file. Clamp the particle buffer's density so it degrades (slightly softer sprites) instead of vanishing
+        // — exactly as the effect sinks do. Scoped to nominalScale > 1 (export SSAA, the path 003 added the ×4
+        // multiplier to): preview (scale ≤ 1) consumes OutputScale and never inflates, so its w == 1 / reduced
+        // fast paths and byte-identity stay exactly as before.
+        float w = nominalScale > 1f
+            ? RenderNodeContext.ClampWorkingScaleToBufferBudget(bounds, nominalScale)
+            : nominalScale;
         // Size the buffer ceil(bounds × w) device px; w == 1 keeps the exact pre-feature 1x size (byte-identical).
         var rect = w == 1f ? PixelRect.FromRect(bounds) : PixelRect.FromRect(bounds, w);
 

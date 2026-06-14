@@ -301,8 +301,16 @@ public class EffectScaleParityTests
         // alone would silently Ignore a deterministic NaN-producing regression. Assert.Fail / Assert.Ignore are
         // raised on the test thread (not inside InvokeOnRenderThread, where an IgnoreException would be wrapped
         // in an AggregateException and surface as an error instead of an ignore).
+        //
+        // feature 003 (I8 de-masking fix): scan the SCALED renders (2x / 2x-delivered) and the 1:1 REFERENCE
+        // SEPARATELY, not as one ordered FirstNonFinite list. The old single-list scan returned the FIRST
+        // non-finite in (1:1, 2x, 2x-delivered) order, so a 1:1-reference artifact (which is common for the
+        // InnerShadow blur on CI SwiftShader) MASKED a genuine, simultaneous scale-parity NaN in the 2x render —
+        // the gate then Ignored a real defect. Tracking them apart lets a deterministic scaled NaN FAIL whenever
+        // the reference was finite (so the comparison's baseline is trustworthy), while a broken reference is
+        // still treated as inconclusive.
         const int maxAttempts = 3;
-        var nonFiniteAttempts = new List<string>();
+        var attempts = new List<(string? Ref, string? Scaled)>();
         VulkanTestEnvironment.InvokeOnRenderThread(() =>
         {
             for (int attempt = 1; ; attempt++)
@@ -311,11 +319,13 @@ public class EffectScaleParityTests
                 using Bitmap hi = GoldenImageHarness.RenderAtScale(Make(makeEffect), Frame, 2f);
                 using Bitmap delivered = GoldenImageHarness.MitchellResampleTo(hi, Frame);
 
-                string? nonFinite = ImageMetrics.FirstNonFinite(("1:1", r1), ("2x", hi), ("2x-delivered", delivered));
-                if (nonFinite is not null)
+                string? refNonFinite = ImageMetrics.FirstNonFinite(("1:1", r1));
+                string? scaledNonFinite = ImageMetrics.FirstNonFinite(("2x", hi), ("2x-delivered", delivered));
+                if (refNonFinite is not null || scaledNonFinite is not null)
                 {
-                    TestContext.WriteLine($"[{name}] non-finite render on attempt {attempt}: {nonFinite}");
-                    nonFiniteAttempts.Add(nonFinite);
+                    TestContext.WriteLine(
+                        $"[{name}] non-finite render on attempt {attempt}: ref={refNonFinite ?? "ok"}; scaled={scaledNonFinite ?? "ok"}");
+                    attempts.Add((refNonFinite, scaledNonFinite));
                     if (attempt < maxAttempts)
                         continue;
 
@@ -324,7 +334,7 @@ public class EffectScaleParityTests
 
                 // Parity is measurable on this attempt: discard any earlier transient non-finite records so the
                 // post-closure verdict cannot misread a recovered run as a persistent one.
-                nonFiniteAttempts.Clear();
+                attempts.Clear();
                 double ssim = ImageMetrics.Ssim(r1, delivered);
                 // Log the windowed (min-tile) SSIM as a DIAGNOSTIC alongside the global gate. A hard min-tile
                 // floor is intentionally NOT asserted here: an effect with legitimate hard structural boundaries
@@ -340,42 +350,47 @@ public class EffectScaleParityTests
             }
         });
 
-        if (nonFiniteAttempts.Count == maxAttempts)
+        if (attempts.Count == maxAttempts)
         {
+            // The reference was finite on at least one attempt → the comparison baseline is trustworthy there, so
+            // a persistent scaled NaN cannot be dismissed as "the reference is broken".
+            bool refEverFinite = attempts.Any(a => a.Ref is null);
+
             // Strip the trailing "= {value}" so we compare WHERE the non-finite component landed (label + x/y/c),
             // not the exact NaN/Inf bit pattern — which can differ even at the same pixel.
-            string[] locations = nonFiniteAttempts
-                .Select(s => s.Split(" = ", StringSplitOptions.None)[0])
+            bool scaledAllNonFinite = attempts.All(a => a.Scaled is not null);
+            string[] scaledLocations = attempts
+                .Where(a => a.Scaled is not null)
+                .Select(a => a.Scaled!.Split(" = ", StringSplitOptions.None)[0])
                 .ToArray();
-            bool deterministic = locations.Distinct().Count() == 1;
+            bool scaledDeterministic = scaledAllNonFinite && scaledLocations.Distinct().Count() == 1;
 
-            // A non-finite in the "1:1" (w=1) REFERENCE render is, BY CONSTRUCTION, not a scale-parity defect:
-            // w=1 is the byte-identity baseline (every scale code path is a no-op there), so a NaN there means
-            // the comparison's own reference is broken, not that a parameter is mis-scaled. The
-            // within-3-attempts determinism heuristic cannot rule it out either: empirically this InnerShadow
-            // NaN appears ONLY inside the full GPU suite on the CI amd64 runner (shared SwiftShader process
-            // memory), never in isolation or on arm64/MoltenVK, and its location varies run-to-run while staying
-            // stable within one run's 3 back-to-back attempts — so a 1:1-reference NaN is a software-Vulkan
-            // (SwiftShader) blur artifact regardless of within-run determinism. Treat it as inconclusive.
-            bool inReference = locations[0].StartsWith("1:1 ", StringComparison.Ordinal);
-
-            // Only a deterministic non-finite that appears in the SCALED render but NOT the 1:1 reference is a
-            // genuine scale-parity defect (a parameter the scale path mis-handled). That still fails hard.
-            if (deterministic && !inReference)
+            // A deterministic non-finite confined to the SCALED render, with a FINITE 1:1 reference, is a genuine
+            // scale-parity defect (an absolute-px parameter the scale path mis-handled) and is no longer maskable
+            // by a simultaneous reference artifact. That fails hard.
+            if (scaledDeterministic && refEverFinite)
             {
-                Assert.Fail($"{name}: render produced a non-finite pixel at the SAME location in the SCALED "
-                    + $"render on all {maxAttempts} attempts [{nonFiniteAttempts[0]}] — a deterministic NaN/Inf "
-                    + "absent from the 1:1 reference is a scale-parity defect (an absolute-px parameter is not "
-                    + "scaled by the working density), not an environmental artifact.");
+                Assert.Fail($"{name}: the SCALED render produced a non-finite pixel at the SAME location on all "
+                    + $"{maxAttempts} attempts [{attempts.First(a => a.Scaled is not null).Scaled}] while the 1:1 "
+                    + "reference was finite — a deterministic NaN/Inf confined to the scale path is a scale-parity "
+                    + "defect (an absolute-px parameter is not scaled by the working density), not an environmental "
+                    + "artifact.");
             }
 
-            Assert.Ignore($"{name}: persistent non-finite pixel across {maxAttempts} attempts "
-                + $"[{string.Join("; ", nonFiniteAttempts)}] — "
-                + (inReference
-                    ? "in the 1:1 (w=1) reference render, which is the byte-identity baseline and cannot carry a "
-                      + "scale-parity defect — a software-Vulkan (SwiftShader) blur artifact"
-                    : "at a run-varying location — a software-Vulkan (SwiftShader) blur artifact (nondeterministic)")
-                + "; parity is not measurable here and is verified on a hardware GPU.");
+            // A non-finite 1:1 (w=1) REFERENCE is, BY CONSTRUCTION, not a scale-parity defect: w=1 is the
+            // byte-identity baseline (every scale code path is a no-op there), so a NaN there means the
+            // comparison's own reference is broken — a software-Vulkan (SwiftShader) blur artifact (empirically
+            // it appears only inside the full GPU suite on the CI amd64 runner, never on arm64/MoltenVK). Treat
+            // both that and a run-varying scaled NaN as inconclusive — parity is verified on a hardware GPU.
+            bool refBroken = attempts.All(a => a.Ref is not null);
+            string detail = refBroken
+                ? "the 1:1 (w=1) reference is non-finite on every attempt — the byte-identity baseline is broken "
+                  + "by a software-Vulkan (SwiftShader) blur artifact, so parity cannot be measured against it"
+                : "a non-finite pixel persisted at a run-varying location — a software-Vulkan (SwiftShader) blur "
+                  + "artifact (nondeterministic)";
+            Assert.Ignore($"{name}: persistent non-finite pixels across {maxAttempts} attempts ["
+                + string.Join("; ", attempts.Select(a => $"ref={a.Ref ?? "ok"}|scaled={a.Scaled ?? "ok"}"))
+                + $"] — {detail}; parity is verified on a hardware GPU.");
         }
     }
 

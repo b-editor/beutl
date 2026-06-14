@@ -1693,7 +1693,7 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
             }
 
             var processor = new RenderNodeProcessor(
-                root, false, outputScale, MathF.Max(8f, 4f * outputScale));
+                root, false, outputScale, WorkingScaleCeiling.Export(outputScale));
             return processor.RasterizeAndConcat();
         });
     }
@@ -1767,7 +1767,7 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
             // RenderThread.Dispatcher.Invoke executes inline when already on it, and Render/Snapshot/
             // Dispose all require the render thread.
             using var renderer = new SceneRenderer(Scene, renderScale: outputScale, disableResourceShare: true,
-                maxWorkingScale: MathF.Max(8f, 4f * outputScale));
+                maxWorkingScale: WorkingScaleCeiling.Export(outputScale));
             renderer.CacheOptions = RenderCacheOptions.Disabled;
 
             var compositionFrame = renderer.Compositor.EvaluateGraphics(CurrentFrame.Value);

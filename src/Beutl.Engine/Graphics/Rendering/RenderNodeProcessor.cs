@@ -75,8 +75,17 @@ public class RenderNodeProcessor(
 
     internal List<(RenderTarget RenderTarget, Rect Bounds)> RasterizeToRenderTargets()
     {
+        return RasterizeToRenderTargets(PullToRoot());
+    }
+
+    /// <summary>
+    /// Rasterizes already-pulled operations at <see cref="OutputScale"/>. Split from the param-less overload so
+    /// a caller (the render cache) can inspect the pulled ops' <see cref="RenderNodeOperation.EffectiveScale"/>
+    /// before committing to rasterize them — each op is consumed (disposed) by <see cref="RasterizeAt"/>.
+    /// </summary>
+    internal List<(RenderTarget RenderTarget, Rect Bounds)> RasterizeToRenderTargets(RenderNodeOperation[] ops)
+    {
         var list = new List<(RenderTarget, Rect)>();
-        var ops = PullToRoot();
         foreach (var op in ops)
         {
             if (RasterizeAt(op, OutputScale) is { } result)

@@ -13,7 +13,7 @@ Existing uniforms **keep their device-pixel meaning** = the size of the *scaled*
 | Uniform | Meaning | Under working scale `w` |
 |---|---|---|
 | `width`, `height` | target size, device px | `ceil(logicalBounds.W/H × w)` — smaller at reduced preview, larger when oversampled |
-| `iResolution` | `(width, height, 1)` | as above |
+| `iResolution` | `(width, height)` — a 2-component `float2` (bound as an `SKPoint`, `SKSLScriptEffect.cs`); declare it `uniform float2 iResolution`, NOT `float3` | as above |
 | `fragCoord` | device pixel coord | ranges over the scaled target |
 | **`iScale`** *(new)* | working scale `w` | `w` (default `1.0`) |
 
