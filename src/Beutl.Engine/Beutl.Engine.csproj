@@ -8,9 +8,6 @@
     <InternalsVisibleTo Include="Beutl.UnitTests" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Remove="Graphics\VertexMode.cs" />
-  </ItemGroup>
-  <ItemGroup>
     <ProjectReference Include="..\Beutl.Core\Beutl.Core.csproj" />
     <ProjectReference Include="..\Beutl.Configuration\Beutl.Configuration.csproj" />
     <ProjectReference Include="..\Beutl.Language\Beutl.Language.csproj" />

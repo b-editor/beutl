@@ -1,4 +1,6 @@
-﻿using Beutl.Graphics;
+﻿using System.Linq;
+
+using Beutl.Graphics;
 using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Rendering.Cache;
 
@@ -92,7 +94,7 @@ public class RenderNodeCacheTests
 
         // Assert
         Assert.That(cache.IsCached, Is.True);
-        Assert.That(cache.CacheCount, Is.EqualTo(2));
+        Assert.That(cache.UseCache().Count(), Is.EqualTo(2));
     }
 
     [Test]
@@ -114,6 +116,6 @@ public class RenderNodeCacheTests
 
         // Assert
         Assert.That(cache.IsCached, Is.True);
-        Assert.That(cache.CacheCount, Is.EqualTo(1));
+        Assert.That(cache.UseCache().Count(), Is.EqualTo(1));
     }
 }

@@ -34,61 +34,6 @@ internal static class TransformParser
         ("", Unit.None),
     ];
 
-    public static Transform Parse(ReadOnlySpan<char> s)
-    {
-        static void ThrowInvalidFormat(ReadOnlySpan<char> s)
-        {
-            throw new FormatException($"Invalid transform string: '{s.ToString()}'.");
-        }
-
-        if (s.Length <= 0)
-        {
-            throw new ArgumentException(null, nameof(s));
-        }
-
-        ReadOnlySpan<char> span = s.Trim();
-
-        if (span.Equals("none".AsSpan(), StringComparison.OrdinalIgnoreCase))
-        {
-            return new MatrixTransform(Matrix.Identity);
-        }
-
-        var builder = new Builder(0);
-
-        while (true)
-        {
-            int beginIndex = span.IndexOf('(');
-            int endIndex = span.IndexOf(')');
-
-            if (beginIndex == -1 || endIndex == -1)
-            {
-                ThrowInvalidFormat(s);
-            }
-
-            ReadOnlySpan<char> namePart = span.Slice(0, beginIndex).Trim();
-
-            TransformFunction function = ParseTransformFunction(in namePart);
-
-            if (function == TransformFunction.Invalid)
-            {
-                ThrowInvalidFormat(s);
-            }
-
-            ReadOnlySpan<char> valuePart = span.Slice(beginIndex + 1, endIndex - beginIndex - 1).Trim();
-
-            ParseFunction(in valuePart, function, ref builder);
-
-            span = span.Slice(endIndex + 1);
-
-            if (span.IsWhiteSpace())
-            {
-                break;
-            }
-        }
-
-        return builder.BuildTransform();
-    }
-
     public static Matrix ParseMatrix(ReadOnlySpan<char> s)
     {
         static void ThrowInvalidFormat(ReadOnlySpan<char> s)
@@ -566,19 +511,6 @@ internal static class TransformParser
             _data.Add(value);
         }
 
-        public void AppendIdentity()
-        {
-            Unsafe.SkipInit(out DataLayout value);
-            value.Type = DataType.Identity;
-
-            _data.Add(value);
-        }
-
-        public void Append(DataLayout toAdd)
-        {
-            _data.Add(toAdd);
-        }
-
         public Matrix BuildMatrix()
         {
             Matrix result = Matrix.Identity;
@@ -589,24 +521,6 @@ internal static class TransformParser
 
             return result;
         }
-
-        public Transform BuildTransform()
-        {
-            Span<DataLayout> span = CollectionsMarshal.AsSpan(_data);
-            if (span.Length == 1)
-            {
-                return span[0].ToTransform();
-            }
-
-            var group = new TransformGroup();
-            group.Children.EnsureCapacity(span.Length);
-            foreach (ref DataLayout item in span)
-            {
-                group.Children.Add(item.ToTransform());
-            }
-
-            return group;
-        }
     }
 
     public enum DataType
@@ -615,8 +529,7 @@ internal static class TransformParser
         Rotate,
         Scale,
         Skew,
-        Matrix,
-        Identity
+        Matrix
     }
 
     [StructLayout(LayoutKind.Explicit)]
@@ -643,21 +556,6 @@ internal static class TransformParser
                 DataType.Scale => Graphics.Matrix.CreateScale(Scale.X, Scale.Y),
                 DataType.Skew => Graphics.Matrix.CreateSkew(Skew.X, Skew.Y),
                 DataType.Matrix => Matrix.Value,
-                DataType.Identity => Graphics.Matrix.Identity,
-                _ => throw new InvalidOperationException(),
-            };
-        }
-
-        public readonly Transform ToTransform()
-        {
-            return Type switch
-            {
-                DataType.Translate => new TranslateTransform(Translate.X, Translate.Y),
-                DataType.Rotate => new RotationTransform(MathUtilities.Rad2Deg(Rotate.Angle)),
-                DataType.Scale => new ScaleTransform(Scale.X * 100f, Scale.Y * 100f),
-                DataType.Skew => new SkewTransform(MathUtilities.Rad2Deg(Skew.X), MathUtilities.Rad2Deg(Skew.Y)),
-                DataType.Matrix => new MatrixTransform(Matrix.Value),
-                DataType.Identity => new MatrixTransform(Graphics.Matrix.Identity),
                 _ => throw new InvalidOperationException(),
             };
         }
