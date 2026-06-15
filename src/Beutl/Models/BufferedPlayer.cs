@@ -27,6 +27,12 @@ public sealed class BufferedPlayer : IPlayer
     private int? _requestedFrame;
     private bool _isDisposed;
 
+    // Set true whenever the producer (Start's dispatched loop) is no longer running. The consumer waits on a
+    // per-wait token that only the producer cancels, so a producer that stops while no one is waiting (e.g. a
+    // mid-playback renderer rebuild) would leave the next WaitRender blocked forever. WaitRender re-checks this
+    // flag after publishing its token; the producer sets it before cancelling — together that closes the race.
+    private volatile bool _producerStopped;
+
     public BufferedPlayer(
         EditViewModel editViewModel, Scene scene,
         IReactiveProperty<bool> isPlaying, int rate)
@@ -51,6 +57,7 @@ public sealed class BufferedPlayer : IPlayer
 
         RenderThread.Dispatcher.Dispatch(() =>
         {
+            _producerStopped = false;
             try
             {
                 _logger.LogInformation("Start rendering from frame {StartFrame} to {DurationFrame}", startFrame,
@@ -79,9 +86,9 @@ public sealed class BufferedPlayer : IPlayer
                     // when the scene's frame size or preview scale changes, e.g. an undo/redo of a Scene Settings
                     // edit during playback. Re-read the current pair each frame rather than holding the ones
                     // captured at Start(), or Render()/Snapshot() runs on a disposed renderer and throws. If the
-                    // read lands in the swap window and exposes a disposed instance, stop this producer — but
-                    // FIRST cancel the wait token so the consumer's WaitRender() returns instead of blocking the
-                    // UI thread on a gone producer. The post-rebuild repaint redraws only the still preview
+                    // read lands in the swap window and exposes a disposed instance, stop this producer; the
+                    // finally below records the stop and wakes a waiting consumer so it does not block forever on a
+                    // gone producer. The post-rebuild repaint redraws only the still preview
                     // (PlayerViewModel.QueueRender), not the playback queue, so playback halts on the last
                     // buffered frame until the user re-initiates it.
                     SceneRenderer renderer = _editViewModel.Renderer.Value;
@@ -90,7 +97,6 @@ public sealed class BufferedPlayer : IPlayer
                     {
                         _logger.LogInformation(
                             "Renderer rebuilt mid-playback; stopping the playback producer at frame {Frame}", frame);
-                        _waitRenderToken?.Cancel();
                         break;
                     }
 
@@ -135,9 +141,8 @@ public sealed class BufferedPlayer : IPlayer
                 // A concurrent rebuild disposed the renderer/cache between the IsDisposed re-check and
                 // Render()/Snapshot() — a TOCTOU the per-frame re-read narrows but cannot close, since disposal
                 // runs on the UI thread and the loop on the render thread. This is an expected mid-swap race, not
-                // a drawing failure, so do NOT surface a user-facing FrameDrawingException; cancel the wait token
-                // so the consumer unblocks, log it, and let the producer stop.
-                _waitRenderToken?.Cancel();
+                // a drawing failure, so do NOT surface a user-facing FrameDrawingException; just log and let the
+                // producer stop (the finally records the stop and wakes the consumer).
                 _logger.LogWarning(ex, "Renderer disposed mid-frame by a concurrent rebuild; stopping the playback producer.");
             }
             catch (Exception ex)
@@ -145,6 +150,17 @@ public sealed class BufferedPlayer : IPlayer
                 NotificationService.ShowError(MessageStrings.UnexpectedError,
                     MessageStrings.FrameDrawingException);
                 _logger.LogError(ex, "An exception occurred while drawing the frame.");
+            }
+            finally
+            {
+                // Whenever the producer thread exits — normal completion, mid-playback renderer rebuild, or an
+                // exception — record the stop and wake any current waiter. The full fence pairs with WaitRender's
+                // post-publish re-check so a consumer that reaches WaitRender after this point observes the stop
+                // instead of blocking forever on a wakeup that will never come (the lost-wakeup hang).
+                _producerStopped = true;
+                Interlocked.MemoryBarrier();
+                _waitRenderToken?.Cancel();
+                _waitTimerToken?.Cancel();
             }
         }, Threading.DispatchPriority.High);
     }
@@ -165,8 +181,19 @@ public sealed class BufferedPlayer : IPlayer
 
     private void WaitRender()
     {
-        if (_isDisposed) return;
+        if (_isDisposed || _producerStopped) return;
         _waitRenderToken = new CancellationTokenSource();
+
+        // Re-check after publishing the token. The producer's finally sets _producerStopped then cancels the
+        // current token; the full fence here pairs with the fence there so either the producer sees the token we
+        // just published (and cancels it, waking us) or we see the stop flag (and bail). Without this, a producer
+        // that stops while we are between publishing the token and WaitOne would leave us blocked forever.
+        Interlocked.MemoryBarrier();
+        if (_isDisposed || _producerStopped)
+        {
+            _waitRenderToken = null;
+            return;
+        }
 
         _waitRenderToken.Token.WaitHandle.WaitOne();
         _waitRenderToken = null;
