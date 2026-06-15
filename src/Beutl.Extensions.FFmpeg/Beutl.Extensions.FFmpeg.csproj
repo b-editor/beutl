@@ -9,36 +9,10 @@
     <FFmpegBuildIn Condition="'$(FFmpegBuildIn)' == ''">True</FFmpegBuildIn>
     <DefineConstants Condition="'$(FFmpegBuildIn)'=='True'">$(DefineConstants);FFMPEG_BUILD_IN</DefineConstants>
 
-    <FFmpegOutOfProcess Condition="'$(FFmpegOutOfProcess)' == ''">True</FFmpegOutOfProcess>
-    <DefineConstants Condition="'$(FFmpegOutOfProcess)'=='True'">$(DefineConstants);FFMPEG_OUT_OF_PROCESS</DefineConstants>
-  </PropertyGroup>
-  <PropertyGroup Condition="'$(FFmpegOutOfProcess)'=='True'">
+    <!-- The FFmpeg-calling code lives in the GPL Beutl.FFmpegWorker (separate process); this
+         extension only hosts the MIT-licensed IPC proxy + UI, so it is unconditionally MIT. -->
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
   </PropertyGroup>
-  <PropertyGroup Condition="'$(FFmpegOutOfProcess)'!='True'">
-    <PackageLicenseExpression>GPL-3.0-or-later</PackageLicenseExpression>
-  </PropertyGroup>
-
-  <!-- Out-of-process: FFmpeg直接使用ファイルを除外 (Worker側でリンクする) -->
-  <ItemGroup Condition="'$(FFmpegOutOfProcess)'=='True'">
-    <Compile Remove="Decoding\FFmpegReader.cs" />
-    <Compile Remove="Encoding\FFmpegEncodingController.cs" />
-    <Compile Remove="ColorSpaceHelper.cs" />
-    <Compile Remove="FFmpegError.cs" />
-  </ItemGroup>
-
-  <!-- NOTE: the in-process build (FFmpegOutOfProcess != True) no longer compiles as of this change.
-       The in-process code paths were removed, so the sources now unconditionally use the
-       out-of-process worker/Proxy types. The 'FFmpegOutOfProcess != True' branches below are retained
-       only until the build matrix is collapsed in a follow-up PR; the supported build mode is
-       out-of-process. (This branch would exclude the Proxy files in the in-process build.) -->
-  <ItemGroup Condition="'$(FFmpegOutOfProcess)'!='True'">
-    <Compile Remove="Decoding\FFmpegReaderProxy.cs" />
-    <Compile Remove="Encoding\FFmpegEncodingControllerProxy.cs" />
-    <Compile Remove="FFmpegWorkerProcess.cs" />
-    <Compile Remove="FFmpegWorkerLogPump.cs" />
-    <Compile Remove="FFmpegWorkerCodecCache.cs" />
-  </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="Aigamo.ResXGenerator">
@@ -47,12 +21,6 @@
     </PackageReference>
     <PackageReference Include="FluentAvaloniaUI" />
     <PackageReference Include="ReactiveProperty" />
-  </ItemGroup>
-
-  <!-- in-process FFmpeg packages — 'FFmpegOutOfProcess != True' only; see the note above (this config no longer compiles) -->
-  <ItemGroup Condition="'$(FFmpegOutOfProcess)'!='True'">
-    <PackageReference Include="FFmpeg.AutoGen.Bindings.DynamicallyLoaded" />
-    <PackageReference Include="FFmpeg4Sharp" />
   </ItemGroup>
 
   <ItemGroup>

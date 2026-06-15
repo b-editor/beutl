@@ -1,11 +1,7 @@
 ﻿using Beutl.Media;
 using FFmpeg.AutoGen.Abstractions;
 
-#if BEUTL_FFMPEG_WORKER
 namespace Beutl.FFmpegWorker;
-#else
-namespace Beutl.Extensions.FFmpeg;
-#endif
 
 internal static class ColorSpaceHelper
 {

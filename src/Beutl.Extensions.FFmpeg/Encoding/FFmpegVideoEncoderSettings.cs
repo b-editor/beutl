@@ -202,7 +202,7 @@ public class VideoCodecChoicesProvider : IChoicesProvider
 {
     public static IReadOnlyList<object> GetChoices()
     {
-#if FFMPEG_OUT_OF_PROCESS
+#if !BEUTL_FFMPEG_WORKER
         return FFmpegWorkerCodecCache.GetVideoCodecs();
 #else
         return FFmpegSharp.MediaCodec.GetCodecs()
