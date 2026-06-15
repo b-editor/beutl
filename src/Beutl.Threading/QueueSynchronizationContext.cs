@@ -8,16 +8,13 @@ internal sealed class QueueSynchronizationContext(Dispatcher dispatcher, TimePro
     private readonly OperationQueue _operationQueue = new();
     private readonly TimerQueue _timerQueue = new(timeProvider);
 
-    // volatile: _running is written by Shutdown() outside the lock and read unsynchronized by
-    // Start()'s loop and ExecuteAvailableOperations(); without it a reader can cache a stale value
-    // on weak-memory architectures (ARM64) and miss a shutdown. The inner-lock check in
-    // WaitForPendingOperations() guards the wait-token race; volatile covers the unlocked reads.
+    // Written by Shutdown() outside the lock, read unlocked elsewhere; volatile stops a stale read
+    // that misses a shutdown on weak-memory architectures.
     private volatile bool _running;
     private CancellationTokenSource? _waitToken;
 
-    // volatile for the same reason as _running: these flags are written on one thread (the dispatcher
-    // thread for HasShutdownFinished, the caller's thread for HasShutdownStarted) and read cross-thread
-    // through the public Dispatcher getters with no lock, so a reader could otherwise stale-read.
+    // Volatile for the same reason as _running: written on one thread, read cross-thread through the
+    // public getters with no lock.
     private volatile bool _hasShutdownFinished;
     private volatile bool _hasShutdownStarted;
 
