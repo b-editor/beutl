@@ -111,7 +111,7 @@ internal sealed partial class DecodingHandler : IDisposable
         // HandleOpen provisions a VideoRingBuffer for every reader that reports a video stream,
         // so a null ring buffer here is never a normal "frame not available" result. Fail loudly
         // with context (instead of a silent Success = false) so both IPC misuse and a broken
-        // invariant are diagnosable in worker logs.
+        // invariant surface as an explicit error to the caller.
         return state.Reader.HasVideo
             ? IpcMessage.CreateError(
                 msg.Id,

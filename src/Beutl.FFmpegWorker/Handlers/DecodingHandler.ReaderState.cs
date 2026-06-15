@@ -11,7 +11,7 @@ internal sealed partial class DecodingHandler
 
         public SharedMemoryBuffer? AudioBuffer { get; set; }
 
-        // リングバッファ (動画リーダーのときに生成される)
+        // Ring buffer; created when the reader has a video stream.
         public VideoRingBuffer? RingBuffer { get; set; }
 
         public SemaphoreSlim ReaderLock { get; } = new(1, 1);
