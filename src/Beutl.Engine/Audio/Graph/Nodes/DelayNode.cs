@@ -44,6 +44,7 @@ public sealed class DelayNode : AudioNode
         }
         _lastTimeRangeEnd = context.TimeRange.Start + context.TimeRange.Duration;
 
+        // Check Animation (actual keyframe), not IsAnimatable (always true for animatable properties).
         bool hasAnimation = DelayTime.Animation != null ||
                             Feedback.Animation != null ||
                             DryMix.Animation != null ||
