@@ -65,8 +65,10 @@ plugin-facing: batch them into one `refactor!:` release train with a
 - Legacy encoder pipeline: `MediaWriter`, `IEncoderInfo`, `EncoderRegistry`,
   `EncodingExtension` (all `[Obsolete]`, zero implementers) and the obsolete
   `PageExtension` + its live app-shell plumbing; the empty `LayerExtension`.
-- Legacy `Pcm<T>`/`ISample` DSP surface (dead since the `AudioBuffer` graph
-  migration; includes 3 never-used sample structs and the latent `Slice` bug).
+- Legacy `Pcm<T>`/`ISample` DSP surface — **correction (Phase 1 verification): only
+  the 3 never-used sample structs are actually dead** (removed in PR #1906). The rest
+  of `Pcm<T>`/`IPcm`/`ISample` is **live** at the audio I/O boundaries; full retirement
+  and the latent `Slice` bug move to Phase 3 (see *3c-bis. Audio I/O type convergence*).
 - `[Obsolete]` byte-LUT chain: `LookupTable`, `FilterEffectContext` overloads,
   `EffectTarget` obsolete members.
 - Dead public surface: `ICanvas`/`INode` interfaces, the ~900-line `TypeConverter`
@@ -98,7 +100,12 @@ plugin-facing: batch them into one `refactor!:` release train with a
 **Media backends**
 - The never-built in-process FFmpeg variant: `FFmpegOutOfProcess` csproj matrix,
   `#if !FFMPEG_OUT_OF_PROCESS` forks in ~12 files, `FFmpegPath.cs`, the duplicated
-  loader.
+  loader. **Partially done in PR #1909** (removed `FFmpegPath.cs` and the dead
+  `#if !FFMPEG_OUT_OF_PROCESS`/`#else` branches in the extension-only files);
+  **deferred follow-up:** collapse the `FFmpegOutOfProcess` csproj matrix itself —
+  the `!= True` (in-process) config no longer compiles after #1909 and is kept with
+  a NOTE comment only until the matrix is removed (a published build-knob removal →
+  `refactor!:`). Tracked on the project board.
 - Worker legacy (non-ring-buffer) `ReadVideo` path (unreachable).
 - MediaFoundation rot: dead `MFDecoder` audio path + `MFSampleCache` audio caching
   (`MFReader` uses NAudio), hardcoded-off DXVA2 machinery, the `Vortice.Direct3D9`
@@ -193,6 +200,31 @@ implement only the per-sample kernel. Also collapse the seven hand-rolled
 it — and `AudioContext` is plugin-facing via `AudioEffect.CreateNode`).
 Add the missing tests: Equalizer/Resample/Mixer/Clip/Shift/Source nodes currently
 have zero coverage.
+
+**3c-bis. Audio I/O type convergence (`Pcm<T>` → `AudioBuffer`; XL; 🚩 plugin-contract break)**
+The DSP graph and composition already run on `AudioBuffer` (planar float32, N-channel);
+`Pcm<T>`/`IPcm`/`ISample` (interleaved, sample-type-parameterized: mono/stereo ×
+int16/int32/float) survive only at four I/O edges: decoder output
+(`MediaReader.ReadAudio(out Ref<IPcm>)`), the public `ISampleProvider.Sample` contract
+(the live `EncodingController` consumes audio through it), device output
+(`AudioBuffer.ToPcm()` → `Pcm<Stereo32BitFloat>`, queued as float32 for XAudio2;
+converted to `Stereo16BitInteger` only for the OpenAL backend), and the GPL
+worker IPC (`IpcSampleProvider`). Converge on `AudioBuffer` as the single in-memory audio
+type: add interleave + sample-format helpers to `AudioBuffer` (planar float32 →
+interleaved float32 for XAudio2, → interleaved int16 for OpenAL; the FFmpeg/AVF
+encoders take interleaved **float** and let their own `SampleConverter` pick the
+target `AVSampleFormat`, so codec output keeps its existing float/sample-format
+choices), flip `ISampleProvider.Sample` and
+`MediaReader.ReadAudio` to `AudioBuffer` (decoders deinterleave codec output), route
+device/codec output through the new helpers, ship planar float over IPC (make the
+IPC protocol/buffer sizing channel-aware — today it is stereo-hardcoded,
+`SampleRate * 8` bytes), then delete
+`Pcm<T>`/`IPcm`/`ISample`/the sample structs/`Convert`/`AudioBuffer.ToPcm` (this also
+removes the latent `Pcm<T>.Slice` lifetime bug). Breaks the published `ISampleProvider`
+and `MediaReader.ReadAudio` plugin contracts and the IPC surface → `refactor!:` +
+`BREAKING CHANGE:`, no `[Obsolete]` shims, route through `beutl-design-reviewer`; drive
+via `/speckit-specify`. Pairs with 3f (audio device backends). This **corrects the Phase 1
+premise** that `Pcm`/`ISample` was already dead.
 
 **3d. Animation hierarchy and editing-logic placement**
 Decide (🚩) whether to collapse the five-layer abstraction
