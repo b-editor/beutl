@@ -11,7 +11,7 @@ namespace Beutl.Extensions.MediaFoundation.Decoding;
 #endif
 
 public record MFSampleCacheOptions(
-    int MaxVideoBufferSize = 4); // あまり大きな値を設定するとReadSampleで停止する
+    int MaxVideoBufferSize = 4); // Setting too large a value may cause ReadSample to stall.
 
 public class MFSampleCache(MFSampleCacheOptions options)
 {

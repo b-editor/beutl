@@ -62,6 +62,8 @@ internal sealed class MFDecoder : IDisposable
                 CheckMediaInfo(sourceReader);
             }
 
+            bool fileHasVideoStream = _mediaInfo.VideoStreamIndex != -1;
+
             if (_mediaInfo.VideoStreamIndex != -1 && options.StreamsToLoad.HasFlag(MediaMode.Video))
             {
                 _videoSourceReader = MediaFactory.MFCreateSourceReaderFromURL(file, _attributes);
@@ -80,9 +82,18 @@ internal sealed class MFDecoder : IDisposable
 
             if (_mediaInfo.VideoStreamIndex == -1)
             {
-                const string message = "File contains no decodable video stream.";
-                _logger.LogInformation(message);
-                throw new Exception(message);
+                if (fileHasVideoStream)
+                {
+                    // The file has a video stream but it failed to initialize; surface this as a
+                    // real error so other decoders (e.g. FFmpeg) can attempt the file.
+                    const string message = "Failed to initialize the video stream.";
+                    _logger.LogError(message);
+                    throw new Exception(message);
+                }
+
+                const string noVideoMessage = "File contains no video stream.";
+                _logger.LogInformation(noVideoMessage);
+                throw new NoVideoStreamException(noVideoMessage);
             }
 
             TestFirstReadSample();

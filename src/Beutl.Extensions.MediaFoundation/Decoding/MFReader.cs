@@ -52,10 +52,11 @@ public class MFReader : MediaReader
                         new Rational(info.Fps.Numerator, info.Fps.Denominator));
                     HasVideo = true;
                 }
-                catch when (options.StreamsToLoad.HasFlag(MediaMode.Audio))
+                catch (NoVideoStreamException) when (options.StreamsToLoad.HasFlag(MediaMode.Audio))
                 {
-                    // The file has no decodable video stream; fall through so audio-only
-                    // files (e.g. .mp3) can still be opened via the NAudio path below.
+                    // The file has no video stream; fall through so audio-only files (e.g. .mp3)
+                    // can still be opened via the NAudio path below. Genuine video initialization
+                    // failures are not caught here, so other decoders (e.g. FFmpeg) can retry.
                 }
             }
 
