@@ -62,8 +62,6 @@ internal sealed class MFDecoder : IDisposable
                 CheckMediaInfo(sourceReader);
             }
 
-            bool fileHasVideoStream = _mediaInfo.VideoStreamIndex != -1;
-
             if (_mediaInfo.VideoStreamIndex != -1 && options.StreamsToLoad.HasFlag(MediaMode.Video))
             {
                 _videoSourceReader = MediaFactory.MFCreateSourceReaderFromURL(file, _attributes);
@@ -82,21 +80,19 @@ internal sealed class MFDecoder : IDisposable
 
             if (_mediaInfo.VideoStreamIndex == -1)
             {
-                if (fileHasVideoStream)
-                {
-                    // The file has a video stream but it failed to initialize; surface this as a
-                    // real error so other decoders (e.g. FFmpeg) can attempt the file.
-                    const string message = "Failed to initialize the video stream.";
-                    _logger.LogError(message);
-                    throw new Exception(message);
-                }
-
-                const string noVideoMessage = "File contains no video stream.";
-                _logger.LogInformation(noVideoMessage);
-                throw new NoVideoStreamException(noVideoMessage);
+                // CheckMediaInfo already throws NoVideoStreamException for files with no video
+                // stream, so reaching here means the video stream existed but failed to
+                // initialize. Surface it as a real error so other decoders (e.g. FFmpeg) retry.
+                const string message = "Failed to initialize the video stream.";
+                _logger.LogError(message);
+                throw new Exception(message);
             }
 
             TestFirstReadSample();
+        }
+        catch (NoVideoStreamException)
+        {
+            throw;
         }
         catch (Exception ex)
         {
@@ -374,9 +370,9 @@ internal sealed class MFDecoder : IDisposable
         }
         else
         {
-            const string message = "File contains no decodable video stream.";
-            _logger.LogError(message);
-            throw new Exception(message);
+            const string message = "File contains no video stream.";
+            _logger.LogInformation(message);
+            throw new NoVideoStreamException(message);
         }
 
         if (_mediaInfo.VideoStreamIndex != -1)
