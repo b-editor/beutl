@@ -23,8 +23,8 @@
     <ProjectReference Include="..\..\src\Beutl.FFmpegIpc\Beutl.FFmpegIpc.csproj" />
   </ItemGroup>
 
-  <!-- FFmpegReader (直接呼び出し) 用のソースファイルをリンク。
-       FFmpeg直接呼び出しの型は Beutl.FFmpegWorker に移動済み。設定型は引き続き拡張側から。 -->
+  <!-- Link source files for FFmpegReader (direct-call mode).
+       FFmpeg direct-call types have moved to Beutl.FFmpegWorker; settings types remain in the extension. -->
   <ItemGroup>
     <Compile Include="..\..\src\Beutl.FFmpegWorker\Decoding\FFmpegReader.cs" Link="Linked\FFmpegReader.cs" />
     <Compile Include="..\..\src\Beutl.Extensions.FFmpeg\Decoding\FFmpegDecodingSettings.cs" Link="Linked\FFmpegDecodingSettings.cs" />
