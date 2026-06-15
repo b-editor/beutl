@@ -180,4 +180,78 @@ public class NodeCacheScaleTests
             }
         });
     }
+
+    // feature 003 follow-up (per-frame cache re-rejection): once CreateDefaultCache refuses a subtree, the
+    // rejection must be remembered so MakeCache stops re-pulling + re-rejecting it every frame. The memo clears
+    // when the node changes so a fresh attempt can happen after the subtree re-warms. CPU-only.
+    [Test]
+    public void RejectedCache_IsMemoized_AndClearsWhenNodeChanges()
+    {
+        var node = new ConcreteSourceNode(4f);
+        try
+        {
+            RenderNodeCache cache = node.Cache;
+            cache.ReportRenderCount(RenderNodeCache.Count);
+            Assert.That(cache.CanCache(), Is.True);
+            Assert.That(cache.IsCacheRejected, Is.False);
+
+            cache.RejectCache();
+            Assert.That(cache.IsCacheRejected, Is.True,
+                "a refused subtree must stay marked so MakeCache does not re-attempt it every frame");
+
+            node.HasChanges = true;
+            cache.IncrementRenderCount();
+            Assert.That(cache.IsCacheRejected, Is.False, "a node change must clear the rejection");
+            Assert.That(cache.CanCache(), Is.False, "a node change must reset the render count");
+        }
+        finally
+        {
+            node.Dispose();
+        }
+    }
+
+    // Invalidate (cache eviction / replacement) also clears the rejection so a re-warmed subtree can be retried.
+    [Test]
+    public void RejectedCache_ClearsOnInvalidate()
+    {
+        var node = new ConcreteSourceNode(4f);
+        try
+        {
+            node.Cache.RejectCache();
+            Assert.That(node.Cache.IsCacheRejected, Is.True);
+
+            node.Cache.Invalidate();
+            Assert.That(node.Cache.IsCacheRejected, Is.False);
+        }
+        finally
+        {
+            node.Dispose();
+        }
+    }
+
+    // End-to-end: MakeCache must MARK the high-density subtree rejected (not merely decline to cache it), so the
+    // next frame skips the redundant CreateDefaultCache pull instead of re-rejecting.
+    [Test]
+    public void MakeCache_HighDensitySubtree_MarksCacheRejected()
+    {
+        VulkanTestEnvironment.EnsureAvailable();
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            var node = new ConcreteSourceNode(4f);
+            node.Cache.ReportRenderCount(RenderNodeCache.Count);
+            try
+            {
+                RenderNodeCacheHelper.MakeCache(node, RenderCacheOptions.Default, outputScale: 1f, maxWorkingScale: 8f);
+
+                Assert.That(node.Cache.IsCached, Is.False);
+                Assert.That(node.Cache.IsCacheRejected, Is.True,
+                    "the high-density rejection must be memoized so MakeCache stops re-pulling the subtree every frame");
+            }
+            finally
+            {
+                RenderNodeCacheHelper.ClearCache(node);
+                node.Dispose();
+            }
+        });
+    }
 }

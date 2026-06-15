@@ -12,6 +12,12 @@ public sealed class RenderNodeCache(RenderNode node) : IDisposable
 
     private int _count;
 
+    // Set when CreateDefaultCache refuses this subtree (a supply density above outputScale, or an over-budget
+    // tile). The render count keeps climbing and the subtree stays uncached, so without this flag MakeCache would
+    // re-pull and re-reject it every frame. Cleared when the node changes (IncrementRenderCount) or the cache is
+    // invalidated, so a fresh attempt can happen once the subtree re-warms.
+    private bool _cacheRejected;
+
     ~RenderNodeCache()
     {
         if (!IsDisposed)
@@ -49,12 +55,25 @@ public sealed class RenderNodeCache(RenderNode node) : IDisposable
         else
         {
             _count = 0;
+            _cacheRejected = false;
         }
     }
 
     public bool CanCache()
     {
         return _count >= Count;
+    }
+
+    /// <summary>
+    /// True once <see cref="RenderNodeCacheHelper.CreateDefaultCache"/> has refused to cache this subtree, so the
+    /// per-frame <see cref="RenderNodeCacheHelper.MakeCache"/> stops re-pulling and re-rejecting it. Reset by
+    /// <see cref="IncrementRenderCount"/> when the node changes and by <see cref="Invalidate"/>.
+    /// </summary>
+    public bool IsCacheRejected => _cacheRejected;
+
+    public void RejectCache()
+    {
+        _cacheRejected = true;
     }
 
     public void Invalidate()
@@ -71,6 +90,7 @@ public sealed class RenderNodeCache(RenderNode node) : IDisposable
         }
 
         _cache.Clear();
+        _cacheRejected = false;
     }
 
     public void Dispose()

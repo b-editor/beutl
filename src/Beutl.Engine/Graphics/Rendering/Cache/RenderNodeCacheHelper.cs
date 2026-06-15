@@ -73,7 +73,9 @@ public static class RenderNodeCacheHelper
         // CanCacheRecursive内で再帰呼び出ししているのはすべてキャッシュできる必要がある
         if (CanCacheRecursive(node))
         {
-            if (!cache.IsCached)
+            // Skip a subtree CreateDefaultCache already refused: it stays uncached and the render count keeps
+            // climbing, so without the rejected flag we would re-pull + re-reject it every frame.
+            if (!cache.IsCached && !cache.IsCacheRejected)
             {
                 CreateDefaultCache(node, cacheOptions, outputScale, maxWorkingScale);
             }
@@ -118,6 +120,7 @@ public static class RenderNodeCacheHelper
         {
             foreach (var op in ops)
                 op.Dispose();
+            node.Cache.RejectCache();
             return;
         }
 
@@ -135,6 +138,7 @@ public static class RenderNodeCacheHelper
             // export where each tile is ceil(bounds × outputScale) device px and the budget rejects more often.
             foreach (var i in list)
                 i.RenderTarget.Dispose();
+            node.Cache.RejectCache();
             return;
         }
 
