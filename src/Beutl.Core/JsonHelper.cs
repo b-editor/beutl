@@ -94,31 +94,6 @@ public static class JsonHelper
         }
     }
 
-    public static void JsonSave2(this ICoreSerializable serializable, string filename)
-    {
-        var context = new JsonSerializationContext(serializable.GetType());
-        using (ThreadLocalSerializationContext.Enter(context))
-        {
-            serializable.Serialize(context);
-
-            context.GetJsonObject().JsonSave(filename);
-        }
-    }
-
-    public static void JsonRestore2(this ICoreSerializable serializable, string filename)
-    {
-        if (JsonRestore(filename) is JsonObject obj)
-        {
-            var context = new JsonSerializationContext(
-                serializable.GetType(), json: obj);
-            using (ThreadLocalSerializationContext.Enter(context))
-            {
-                serializable.Deserialize(context);
-                context.AfterDeserialized(serializable);
-            }
-        }
-    }
-
     public static void JsonSave(this JsonNode node, string filename)
     {
         // tmp に書いてから rename することで、書き込み中のクラッシュ・電源断・
