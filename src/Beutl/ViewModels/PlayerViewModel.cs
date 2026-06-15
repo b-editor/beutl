@@ -574,8 +574,10 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
                     return;
                 }
 
+                bool dequeued = false;
                 while (playerImpl.TryDequeue(out IPlayer.Frame frame))
                 {
+                    dequeued = true;
                     using (frame.Bitmap)
                     {
                         UpdateImage(frame.Bitmap.Clone());
@@ -597,6 +599,13 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
                     }
 
                     // 期待していたフレームよりも前のフレームが来た場合
+                }
+
+                if (!dequeued && playerImpl.ProducerStopped)
+                {
+                    IsPlaying.Value = false;
+                    tcs.TrySetResult(true);
+                    return;
                 }
 
                 playerImpl.Skipped(ComputeExpectFrame() + 1);

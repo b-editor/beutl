@@ -1021,9 +1021,7 @@ public partial class PlayerView
                             try
                             {
                                 Scene scene = ViewModel.Scene!;
-                                // Save still uses preview-scaled DrawFrame; a render-scale choice
-                                // dialog for save paths is a deferred follow-up (copy renders full scale).
-                                Task<Bitmap> renderTask = ViewModel.DrawFrame();
+                                Task<Bitmap> renderTask = ViewModel.DrawFrameAtFullScale();
 
                                 string addtional = Path.GetFileNameWithoutExtension(scene.Uri!.LocalPath);
                                 IStorageFile? file = await SaveImageFilePicker(addtional, storage);

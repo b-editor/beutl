@@ -31,7 +31,10 @@ public sealed class BufferedPlayer : IPlayer
     // per-wait token that only the producer cancels, so a producer that stops while no one is waiting (e.g. a
     // mid-playback renderer rebuild) would leave the next WaitRender blocked forever. WaitRender re-checks this
     // flag after publishing its token; the producer sets it before cancelling — together that closes the race.
+    // Exposed via IPlayer.ProducerStopped so the consumer timer can auto-stop playback on a premature exit.
     private volatile bool _producerStopped;
+
+    public bool ProducerStopped => _producerStopped;
 
     public BufferedPlayer(
         EditViewModel editViewModel, Scene scene,
