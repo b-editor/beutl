@@ -68,7 +68,6 @@ internal sealed class MFDecoder : IDisposable
                 }
 
                 ConfigureDecoder(sourceReader, SourceReaderIndex.FirstVideoStream);
-                ConfigureDecoder(sourceReader, SourceReaderIndex.FirstAudioStream);
 
                 CheckMediaInfo(sourceReader);
             }
@@ -303,48 +302,40 @@ internal sealed class MFDecoder : IDisposable
         using IMFMediaType nativeType = sourceReader.GetNativeMediaType(readerIndex, 0);
 
         Guid majorType = nativeType.GetGUID(MediaTypeAttributeKeys.MajorType);
-        Guid subType;
 
-        using var type = MediaFactory.MFCreateMediaType();
-        type.Set(MediaTypeAttributeKeys.MajorType, majorType);
-
-        // Select a subtype.
-        if (majorType == MediaTypeGuids.Video)
-        {
-            subType = VideoFormatGuids.YUY2;
-        }
-        else if (majorType == MediaTypeGuids.Audio)
-        {
-            subType = AudioFormatGuids.Pcm;
-
-            uint nativeAudioChannels = nativeType.GetUInt32(MediaTypeAttributeKeys.AudioNumChannels);
-
-            if (2 < nativeAudioChannels)
-            {
-                _logger.LogWarning(
-                    "ConfigureDecoder audio channel change - nativeAudioChannels: {nativeAudioChannels} -> 2",
-                    nativeAudioChannels);
-                type.Set(MediaTypeAttributeKeys.AudioNumChannels, 2);
-            }
-        }
-        else
+        // ConfigureDecoder is only invoked for video streams; audio is decoded separately via NAudio.
+        if (majorType != MediaTypeGuids.Video)
         {
             return;
         }
 
-        type.Set(MediaTypeAttributeKeys.Subtype, subType);
+        using var type = MediaFactory.MFCreateMediaType();
+        type.Set(MediaTypeAttributeKeys.MajorType, majorType);
+        type.Set(MediaTypeAttributeKeys.Subtype, VideoFormatGuids.YUY2);
 
         sourceReader.SetCurrentMediaType(readerIndex, type);
     }
+
+    // MF_E_INVALIDSTREAMNUMBER: the source reader has no stream at the requested index, i.e. we
+    // have walked past the end of the stream list. Any other HRESULT is a real failure.
+    private const int MF_E_INVALIDSTREAMNUMBER = unchecked((int)0xC00D36B3);
 
     private static int FindVideoStreamIndex(IMFSourceReader sourceReader)
     {
         for (int streamIndex = 0; true; ++streamIndex)
         {
+            IMFMediaType currentMediaType;
             try
             {
-                using IMFMediaType currentMediaType = sourceReader.GetCurrentMediaType(streamIndex);
+                currentMediaType = sourceReader.GetCurrentMediaType(streamIndex);
+            }
+            catch (SharpGenException ex) when (ex.ResultCode.Code == MF_E_INVALIDSTREAMNUMBER)
+            {
+                break;
+            }
 
+            using (currentMediaType)
+            {
                 if (!sourceReader.GetStreamSelection(streamIndex))
                 {
                     continue;
@@ -354,10 +345,6 @@ internal sealed class MFDecoder : IDisposable
                 {
                     return streamIndex;
                 }
-            }
-            catch
-            {
-                break;
             }
         }
 
