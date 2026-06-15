@@ -25,4 +25,16 @@ public class PixelSizeConverterTests
         PixelSize s = (PixelSize)_converter.ConvertFrom(null, null, "10,20")!;
         Assert.That(s, Is.EqualTo(new PixelSize(10, 20)));
     }
+
+    [Test]
+    public void ConvertFrom_InvalidString_ThrowsFormatException()
+    {
+        Assert.Throws<FormatException>(() => _converter.ConvertFrom(null, null, "invalid"));
+    }
+
+    [Test]
+    public void ConvertFrom_UnsupportedType_ThrowsNotSupportedException()
+    {
+        Assert.Throws<NotSupportedException>(() => _converter.ConvertFrom(null, null, 42));
+    }
 }

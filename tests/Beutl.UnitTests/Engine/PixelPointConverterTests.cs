@@ -25,4 +25,16 @@ public class PixelPointConverterTests
         PixelPoint p = (PixelPoint)_converter.ConvertFrom(null, null, "12,34")!;
         Assert.That(p, Is.EqualTo(new PixelPoint(12, 34)));
     }
+
+    [Test]
+    public void ConvertFrom_InvalidString_ThrowsFormatException()
+    {
+        Assert.Throws<FormatException>(() => _converter.ConvertFrom(null, null, "invalid"));
+    }
+
+    [Test]
+    public void ConvertFrom_UnsupportedType_ThrowsNotSupportedException()
+    {
+        Assert.Throws<NotSupportedException>(() => _converter.ConvertFrom(null, null, 42));
+    }
 }

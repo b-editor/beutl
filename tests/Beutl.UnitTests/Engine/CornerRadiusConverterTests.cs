@@ -25,4 +25,16 @@ public class CornerRadiusConverterTests
         CornerRadius result = (CornerRadius)_converter.ConvertFrom(null, null, "1,2,3,4")!;
         Assert.That(result, Is.EqualTo(new CornerRadius(1, 2, 3, 4)));
     }
+
+    [Test]
+    public void ConvertFrom_InvalidString_ThrowsFormatException()
+    {
+        Assert.Throws<FormatException>(() => _converter.ConvertFrom(null, null, "invalid"));
+    }
+
+    [Test]
+    public void ConvertFrom_UnsupportedType_ThrowsNotSupportedException()
+    {
+        Assert.Throws<NotSupportedException>(() => _converter.ConvertFrom(null, null, 42));
+    }
 }

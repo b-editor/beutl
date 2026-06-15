@@ -26,4 +26,16 @@ public class VectorConverterTests
         Assert.That(v.X, Is.EqualTo(1.5f));
         Assert.That(v.Y, Is.EqualTo(2.5f));
     }
+
+    [Test]
+    public void ConvertFrom_InvalidString_ThrowsFormatException()
+    {
+        Assert.Throws<FormatException>(() => _converter.ConvertFrom(null, null, "invalid"));
+    }
+
+    [Test]
+    public void ConvertFrom_UnsupportedType_ThrowsNotSupportedException()
+    {
+        Assert.Throws<NotSupportedException>(() => _converter.ConvertFrom(null, null, 42));
+    }
 }

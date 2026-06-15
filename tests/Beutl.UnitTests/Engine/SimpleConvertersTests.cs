@@ -158,6 +158,18 @@ public class ThicknessConverterTests
         var t = (Thickness)_converter.ConvertFrom(null, null, "1,2,3,4")!;
         Assert.That(t, Is.EqualTo(new Thickness(1, 2, 3, 4)));
     }
+
+    [Test]
+    public void ConvertFrom_InvalidString_ThrowsFormatException()
+    {
+        Assert.Throws<FormatException>(() => _converter.ConvertFrom(null, null, "invalid"));
+    }
+
+    [Test]
+    public void ConvertFrom_UnsupportedType_ThrowsNotSupportedException()
+    {
+        Assert.Throws<NotSupportedException>(() => _converter.ConvertFrom(null, null, 42));
+    }
 }
 
 public class GradingColorConverterTests
@@ -279,5 +291,17 @@ public class ColorConverterTests
     {
         var color = (Color)_converter.ConvertFrom(null, null, "#FF0000")!;
         Assert.That(color, Is.EqualTo(Color.Parse("#FF0000")));
+    }
+
+    [Test]
+    public void ConvertFrom_InvalidString_ThrowsFormatException()
+    {
+        Assert.Throws<FormatException>(() => _converter.ConvertFrom(null, null, "invalid"));
+    }
+
+    [Test]
+    public void ConvertFrom_UnsupportedType_ThrowsNotSupportedException()
+    {
+        Assert.Throws<NotSupportedException>(() => _converter.ConvertFrom(null, null, 42));
     }
 }

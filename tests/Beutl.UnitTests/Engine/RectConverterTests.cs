@@ -25,4 +25,16 @@ public class RectConverterTests
         Rect r = (Rect)_converter.ConvertFrom(null, null, "1,2,3,4")!;
         Assert.That(r, Is.EqualTo(new Rect(1, 2, 3, 4)));
     }
+
+    [Test]
+    public void ConvertFrom_InvalidString_ThrowsFormatException()
+    {
+        Assert.Throws<FormatException>(() => _converter.ConvertFrom(null, null, "invalid"));
+    }
+
+    [Test]
+    public void ConvertFrom_UnsupportedType_ThrowsNotSupportedException()
+    {
+        Assert.Throws<NotSupportedException>(() => _converter.ConvertFrom(null, null, 42));
+    }
 }

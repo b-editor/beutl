@@ -25,4 +25,16 @@ public class PointConverterTests
         Point parsed = (Point)_converter.ConvertFrom(null, null, "1.5,2.5")!;
         Assert.That(parsed, Is.EqualTo(new Point(1.5f, 2.5f)));
     }
+
+    [Test]
+    public void ConvertFrom_InvalidString_ThrowsFormatException()
+    {
+        Assert.Throws<FormatException>(() => _converter.ConvertFrom(null, null, "invalid"));
+    }
+
+    [Test]
+    public void ConvertFrom_UnsupportedType_ThrowsNotSupportedException()
+    {
+        Assert.Throws<NotSupportedException>(() => _converter.ConvertFrom(null, null, 42));
+    }
 }
