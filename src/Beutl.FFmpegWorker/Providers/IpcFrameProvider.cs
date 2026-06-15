@@ -45,19 +45,14 @@ internal sealed class IpcFrameProvider : IFrameProvider
         }
         else
         {
-            // プリフェッチが進行中だが要求フレームと一致しない場合 (シーク等の非連続要求) は、
-            // 完了を待ってから結果を破棄する。参照を捨てるだけでなく必ず await することで、
-            // 先行リクエストの応答をこのフレームの応答として取り違えたり、ホストへ非順次の
-            // リクエストが流出するのを防ぐ。キャンセルや通信エラーはそのまま上位へ伝播させる。
+            // プリフェッチ中だが要求フレームと一致しない場合 (シーク等の非連続要求)。
+            // 参照を捨てるだけでなく必ず await して完了を待つことで、先行リクエストの応答を
+            // このフレームの応答として取り違えたり、ホストへ非順次のリクエストが流出するのを防ぐ。
             if (_prefetchTask != null)
             {
                 Task<IpcMessage> staleTask = _prefetchTask;
                 _prefetchTask = null;
-                IpcMessage? staleResponse = await staleTask;
-                // 破棄するフレームであっても、先行リクエストの応答がキャンセル通知だった場合は
-                // 操作全体のキャンセルを意味するため、新規リクエストを発行せずそのまま伝播する。
-                if (staleResponse is { Type: MessageType.CancelEncode })
-                    throw new OperationCanceledException();
+                await staleTask;
             }
 
             // 初回フレーム or 非連続要求: 要求フレームを改めて取得
