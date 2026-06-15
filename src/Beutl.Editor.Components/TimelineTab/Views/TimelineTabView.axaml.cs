@@ -562,7 +562,7 @@ public sealed partial class TimelineTabView : UserControl
         {
             viewModel.AddElement.Execute(new ElementDescription(
                 viewModel.ClickedFrame, TimeSpan.FromSeconds(5), viewModel.CalculateClickedLayer(),
-                InitialObject: type));
+                EngineObjectFactory: () => (EngineObject)Activator.CreateInstance(type)!));
 
             e.Handled = true;
         }
@@ -653,7 +653,19 @@ public sealed partial class TimelineTabView : UserControl
             ViewModel.ClickedFrame,
             TimeSpan.FromSeconds(5),
             ViewModel.CalculateClickedLayer(),
-            InitialObject: operatorType));
+            EngineObjectFactory: () => (EngineObject)Activator.CreateInstance(operatorType)!));
+    }
+
+    private void AddAdjustmentLayerClick(object? sender, RoutedEventArgs e)
+    {
+        if (ViewModel == null) return;
+
+        ViewModel.AddElement.Execute(new ElementDescription(
+            ViewModel.ClickedFrame,
+            TimeSpan.FromSeconds(5),
+            ViewModel.CalculateClickedLayer(),
+            Name: Strings.AdjustmentLayer,
+            EngineObjectFactory: () => new Beutl.Graphics.SourceBackdrop { Clear = { CurrentValue = true } }));
     }
 
     private void PopulateAddFromTemplateSubMenu()

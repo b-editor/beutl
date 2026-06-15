@@ -48,6 +48,12 @@
   <data name="AddElement" xml:space="preserve">
     <value>要素を追加</value>
   </data>
+  <data name="AddAdjustmentLayer" xml:space="preserve">
+    <value>アジャストメントレイヤーを追加</value>
+  </data>
+  <data name="AdjustmentLayer" xml:space="preserve">
+    <value>アジャストメントレイヤー</value>
+  </data>
   <data name="Apply" xml:space="preserve">
     <value>適用</value>
   </data>

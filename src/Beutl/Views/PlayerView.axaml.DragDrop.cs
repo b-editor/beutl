@@ -1,6 +1,7 @@
 ﻿using Avalonia.Input;
 using Avalonia.Platform.Storage;
 using Beutl.Editor.Models;
+using Beutl.Engine;
 using Beutl.Graphics;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering;
@@ -95,7 +96,9 @@ public partial class PlayerView
                 int zindex = CalculateZIndex(scene);
 
                 adder.AddElement(new ElementDescription(
-                    frame, TimeSpan.FromSeconds(5), zindex, InitialObject: type, Position: centeredPosition));
+                    frame, TimeSpan.FromSeconds(5), zindex,
+                    EngineObjectFactory: () => (EngineObject)Activator.CreateInstance(type)!,
+                    Position: centeredPosition));
             }
             else if (e.DataTransfer.TryGetFile()?.TryGetLocalPath() is { } fileName)
             {

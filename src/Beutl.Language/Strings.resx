@@ -203,6 +203,12 @@
   <data name="AddElement" xml:space="preserve">
     <value>Add Element</value>
   </data>
+  <data name="AddAdjustmentLayer" xml:space="preserve">
+    <value>Add Adjustment Layer</value>
+  </data>
+  <data name="AdjustmentLayer" xml:space="preserve">
+    <value>Adjustment Layer</value>
+  </data>
   <data name="Location" xml:space="preserve">
     <value>Location</value>
   </data>

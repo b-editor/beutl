@@ -57,7 +57,7 @@ public static class AnimationEditTutorial
                     Start: TimeSpan.Zero,
                     Length: TimeSpan.FromSeconds(5),
                     Layer: 0,
-                    InitialObject: typeof(EllipseShape)));
+                    EngineObjectFactory: () => new EllipseShape()));
 
                 return true;
             },
