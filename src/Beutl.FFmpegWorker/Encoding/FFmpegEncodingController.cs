@@ -6,11 +6,7 @@ using FFmpeg.AutoGen.Abstractions;
 using FFmpegSharp;
 using Microsoft.Extensions.Logging;
 
-#if BEUTL_FFMPEG_WORKER
 namespace Beutl.FFmpegWorker.Encoding;
-#else
-namespace Beutl.Extensions.FFmpeg.Encoding;
-#endif
 
 public class FFmpegEncodingController(string outputFile, FFmpegEncodingSettings settings)
     : EncodingController(outputFile)

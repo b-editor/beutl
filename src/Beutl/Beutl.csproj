@@ -8,11 +8,9 @@
     <!-- AVFoundationはmacOS専用。osx-* RID向けpublish時、または非Windows TFMの開発ビルド
          (RID未指定) のときに含める。Linux/Windows向けpublishでは除外する。 -->
     <AVFBuildIn Condition="'$(AVFBuildIn)' == '' And !$(TargetFramework.Contains('windows')) And ('$(RuntimeIdentifier)' == '' Or $(RuntimeIdentifier.StartsWith('osx')))">True</AVFBuildIn>
-    <FFmpegOutOfProcess Condition="'$(FFmpegOutOfProcess)' == ''">True</FFmpegOutOfProcess>
     <DefineConstants Condition="'$(FFmpegBuildIn)'=='True'">$(DefineConstants);FFMPEG_BUILD_IN</DefineConstants>
     <DefineConstants Condition="'$(MFBuildIn)'=='True'">$(DefineConstants);MF_BUILD_IN</DefineConstants>
     <DefineConstants Condition="'$(AVFBuildIn)'=='True'">$(DefineConstants);AVF_BUILD_IN</DefineConstants>
-    <DefineConstants Condition="'$(FFmpegOutOfProcess)'=='True'">$(DefineConstants);FFMPEG_OUT_OF_PROCESS</DefineConstants>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <ApplicationIcon>..\Beutl.Controls\Assets\logo.ico</ApplicationIcon>
   </PropertyGroup>
@@ -109,7 +107,7 @@
        shared assemblies from its own deps.json inside that subdir, so its dependency closure
        never overwrites the app's. Nuke publishes lay the worker out separately (flat, copying
        only Beutl.FFmpegWorker* so the app's shared assemblies stay the single canonical set). -->
-  <ItemGroup Condition="'$(FFmpegOutOfProcess)'=='True' And '$(NukePublish)'!='True'">
+  <ItemGroup Condition="'$(NukePublish)'!='True'">
     <ProjectReference Include="..\Beutl.FFmpegWorker\Beutl.FFmpegWorker.csproj"
                       ReferenceOutputAssembly="false" />
   </ItemGroup>
@@ -121,7 +119,7 @@
        per-TFM build has the correct OutDir under bin\. -->
   <Target Name="CopyFFmpegWorkerForApp"
           AfterTargets="Build"
-          Condition="'$(FFmpegOutOfProcess)'=='True' And '$(NukePublish)'!='True' And '$(TargetFramework)' != ''">
+          Condition="'$(NukePublish)'!='True' And '$(TargetFramework)' != ''">
     <PropertyGroup>
       <!-- The worker's own output dir mirrors this app's: it gains a <RID> segment only when a
            RuntimeIdentifier is set. Anchor the glob there so a RID build does not duplicate the

@@ -29,7 +29,7 @@ internal static class FFmpegInstallNotifier
     // CAS guard: only the thread whose CompareExchange swaps `last` -> `now`
     // wins the right to fire the notification. Concurrent losers bail so a
     // single failure observed on multiple background threads (extension load
-    // / encoder setup / FFmpegLoader.Initialize) yields one toast, not many.
+    // / encoder setup / worker process startup) yields one toast, not many.
     internal static bool TryAcquireNotifySlot(long now)
     {
         long last = Interlocked.Read(ref s_lastNotifiedTicks);

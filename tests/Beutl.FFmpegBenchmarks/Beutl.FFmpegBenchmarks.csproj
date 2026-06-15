@@ -23,12 +23,12 @@
     <ProjectReference Include="..\..\src\Beutl.FFmpegIpc\Beutl.FFmpegIpc.csproj" />
   </ItemGroup>
 
-  <!-- FFmpegReader (直接呼び出し) 用のソースファイルをリンク -->
+  <!-- Link source files for FFmpegReader (direct-call mode).
+       FFmpeg direct-call types have moved to Beutl.FFmpegWorker; settings types remain in the extension. -->
   <ItemGroup>
-    <Compile Include="..\..\src\Beutl.Extensions.FFmpeg\Decoding\FFmpegReader.cs" Link="Linked\FFmpegReader.cs" />
+    <Compile Include="..\..\src\Beutl.FFmpegWorker\Decoding\FFmpegReader.cs" Link="Linked\FFmpegReader.cs" />
     <Compile Include="..\..\src\Beutl.Extensions.FFmpeg\Decoding\FFmpegDecodingSettings.cs" Link="Linked\FFmpegDecodingSettings.cs" />
-    <Compile Include="..\..\src\Beutl.Extensions.FFmpeg\ColorSpaceHelper.cs" Link="Linked\ColorSpaceHelper.cs" />
-    <Compile Include="..\..\src\Beutl.Extensions.FFmpeg\FFmpegError.cs" Link="Linked\FFmpegError.cs" />
+    <Compile Include="..\..\src\Beutl.FFmpegWorker\ColorSpaceHelper.cs" Link="Linked\ColorSpaceHelper.cs" />
   </ItemGroup>
 
   <!-- FFmpegReaderProxy (IPC経由) 用のソースファイルをリンク -->

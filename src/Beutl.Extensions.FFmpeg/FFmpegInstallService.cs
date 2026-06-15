@@ -9,11 +9,6 @@ using Beutl.Extensions.FFmpeg.Properties;
 using Beutl.Logging;
 using Microsoft.Extensions.Logging;
 
-#if !FFMPEG_OUT_OF_PROCESS
-using FFmpeg.AutoGen.Abstractions;
-using FFmpeg.AutoGen.Bindings.DynamicallyLoaded;
-#endif
-
 namespace Beutl.Extensions.FFmpeg;
 
 internal sealed class GitHubRelease
@@ -682,7 +677,6 @@ public class FFmpegInstallService
         FFmpegInstallNotifier.MarkInstalled();
 
         bool verified = false;
-#if FFMPEG_OUT_OF_PROCESS
         // Workerプロセスを起動してFFmpegの初期化が成功するか確認
         try
         {
@@ -694,30 +688,6 @@ public class FFmpegInstallService
         {
             _logger.LogError(ex, "FFmpeg verification failed");
         }
-#else
-        // In-process: 直接FFmpegライブラリを読み込んで検証
-        verified = await Task.Run(() =>
-        {
-            try
-            {
-                DynamicallyLoadedBindings.LibrariesPath = FFmpegLoader.GetRootPath();
-                DynamicallyLoadedBindings.Initialize();
-                FFmpegLoader.SetupLogging();
-
-                _ = ffmpeg.avcodec_version();
-                _ = ffmpeg.avformat_version();
-                _ = ffmpeg.avutil_version();
-
-                _logger.LogInformation("FFmpeg verification successful");
-                return true;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "FFmpeg verification failed");
-                return false;
-            }
-        });
-#endif
 
         IndeterminateChanged?.Invoke(false);
 

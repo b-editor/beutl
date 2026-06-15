@@ -11,11 +11,7 @@ using FFmpeg.AutoGen.Abstractions;
 using FFmpegSharp;
 using Microsoft.Extensions.Logging;
 
-#if BEUTL_FFMPEG_WORKER
 namespace Beutl.FFmpegWorker.Decoding;
-#else
-namespace Beutl.Extensions.FFmpeg.Decoding;
-#endif
 
 public sealed class FFmpegReader : MediaReader
 {

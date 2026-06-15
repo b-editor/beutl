@@ -1,23 +1,16 @@
 ﻿using System.Reactive.Disposables;
 using System.Text.Json.Nodes;
-
 using Avalonia;
 using Avalonia.Interactivity;
-
 using Beutl.Controls.PropertyEditors;
 using Beutl.Extensibility;
+using Beutl.Extensions.FFmpeg.Encoding;
 using Beutl.FFmpegIpc;
-using Beutl.FFmpegIpc.Protocol.Messages;
-#if FFMPEG_OUT_OF_PROCESS
 using Beutl.FFmpegIpc.Protocol;
-#else
-using FFmpeg.AutoGen.Abstractions;
-using FFmpegSharp;
-#endif
+using Beutl.FFmpegIpc.Protocol.Messages;
 using Beutl.PropertyAdapters;
 using Beutl.Reactive;
 using Reactive.Bindings;
-using Beutl.Extensions.FFmpeg.Encoding;
 
 namespace Beutl.Extensions.FFmpeg.PropertyEditors;
 
@@ -142,7 +135,6 @@ internal sealed class PixelFormatEditorViewModel : IPropertyEditorContext
 
         try
         {
-#if FFMPEG_OUT_OF_PROCESS
             var connection = FFmpegWorkerProcess.DecodingInstance.EnsureStartedAsync().GetAwaiter().GetResult();
             var response = connection.RequestAsync<QueryPixelFormatsRequest, QueryPixelFormatsResponse>(
                 MessageType.QueryPixelFormats, MessageType.QueryPixelFormatsResult,
@@ -152,27 +144,6 @@ internal sealed class PixelFormatEditorViewModel : IPropertyEditorContext
                     OutputFile = settings.OutputFile
                 }).AsTask().GetAwaiter().GetResult();
             return response.Formats;
-#else
-            MediaCodec codec;
-            if (settings.Codec.Equals(CodecRecord.Default))
-            {
-                string? outputFile = settings.OutputFile;
-                if (string.IsNullOrEmpty(outputFile))
-                    return [];
-
-                var outFormat = OutputFormat.GuessFormat(null, outputFile, null);
-                codec = MediaCodec.FindEncoder(outFormat.VideoCodec);
-            }
-            else
-            {
-                codec = MediaCodec.FindEncoder(settings.Codec.Name);
-            }
-
-            return codec.GetPixelFmts()
-                .Where(f => ffmpeg.sws_isSupportedOutput(f) != 0)
-                .Select(f => new PixelFormatInfo { Value = (int)f, Name = ffmpeg.av_get_pix_fmt_name(f) })
-                .ToArray();
-#endif
         }
         catch
         {
