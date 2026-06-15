@@ -207,9 +207,11 @@ The DSP graph and composition already run on `AudioBuffer` (planar float32, N-ch
 int16/int32/float) survive only at four I/O edges: decoder output
 (`MediaReader.ReadAudio(out Ref<IPcm>)`), the public `ISampleProvider.Sample` contract
 (the live `EncodingController` consumes audio through it), device output
-(`AudioBuffer.ToPcm().Convert<Stereo16BitInteger>()` for XAudio2/OpenAL), and the GPL
+(`AudioBuffer.ToPcm()` → `Pcm<Stereo32BitFloat>`, queued as float32 for XAudio2;
+converted to `Stereo16BitInteger` only for the OpenAL backend), and the GPL
 worker IPC (`IpcSampleProvider`). Converge on `AudioBuffer` as the single in-memory audio
-type: add interleave/int16 helpers to `AudioBuffer`, flip `ISampleProvider.Sample` and
+type: add interleave + sample-format helpers to `AudioBuffer` (planar float32 →
+interleaved float32 for XAudio2, → interleaved int16 for OpenAL/codecs), flip `ISampleProvider.Sample` and
 `MediaReader.ReadAudio` to `AudioBuffer` (decoders deinterleave codec output), route
 device/codec output through the new helpers, ship planar float over IPC, then delete
 `Pcm<T>`/`IPcm`/`ISample`/the sample structs/`Convert`/`AudioBuffer.ToPcm` (this also
