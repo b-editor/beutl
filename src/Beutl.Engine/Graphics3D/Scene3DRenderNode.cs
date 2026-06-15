@@ -100,6 +100,11 @@ internal sealed class Scene3DRenderNode(Scene3D.Resource scene) : RenderNode
                 s_logger.LogWarning(ex,
                     "3D render surface allocation failed ({Width}x{Height} px, density {Scale}); dropping the 3D op for this frame.",
                     dw, dh, w);
+                // Resize mutates passes in place and cannot fully roll back, so a failed resize can leave the
+                // renderer inconsistent. Discard it so the next frame rebuilds from a clean state instead of being
+                // pinned by the size-equality guard above (which would otherwise never retry at the same size).
+                scene.Renderer?.Dispose();
+                scene.Renderer = null;
                 return [];
             }
         }

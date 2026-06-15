@@ -59,34 +59,60 @@ internal sealed class Renderer3D : IRenderer3D
 
     public void Initialize(int width, int height)
     {
+        // Commit the fields (and Width/Height) only after every allocation succeeds. CreateTexture2D / a pass
+        // Initialize can throw (e.g. an over-limit vkCreateImage). Committing Width/Height first would leave a
+        // half-built renderer, and Scene3DRenderNode's size-equality guard would then skip re-init on every later
+        // same-size frame — dropping the 3D op forever even after a transient failure clears. On failure, dispose
+        // what was built and rethrow with Width/Height untouched so the next frame retries cleanly.
+        ShadowManager? shadowManager = null;
+        GeometryPass? geometryPass = null;
+        LightingPass? lightingPass = null;
+        TransparentPass? transparentPass = null;
+        GizmoPass? gizmoPass = null;
+        FlipPass? flipPass = null;
+        ITexture2D? outputTexture = null;
+        try
+        {
+            shadowManager = new ShadowManager(_context, _shaderCompiler);
+
+            geometryPass = new GeometryPass(_context, _shaderCompiler);
+            geometryPass.Initialize(width, height);
+
+            lightingPass = new LightingPass(_context, _shaderCompiler, geometryPass.DepthTexture!);
+            lightingPass.Initialize(width, height);
+
+            transparentPass = new TransparentPass(_context, _shaderCompiler, geometryPass.DepthTexture!);
+            transparentPass.Initialize(width, height);
+
+            gizmoPass = new GizmoPass(_context, _shaderCompiler, geometryPass.DepthTexture!);
+            gizmoPass.Initialize(width, height);
+
+            flipPass = new FlipPass(_context, _shaderCompiler);
+            flipPass.Initialize(width, height);
+
+            outputTexture = _context.CreateTexture2D(width, height, TextureFormat.RGBA16Float);
+        }
+        catch
+        {
+            outputTexture?.Dispose();
+            flipPass?.Dispose();
+            gizmoPass?.Dispose();
+            transparentPass?.Dispose();
+            lightingPass?.Dispose();
+            geometryPass?.Dispose();
+            shadowManager?.Dispose();
+            throw;
+        }
+
+        _shadowManager = shadowManager;
+        _geometryPass = geometryPass;
+        _lightingPass = lightingPass;
+        _transparentPass = transparentPass;
+        _gizmoPass = gizmoPass;
+        _flipPass = flipPass;
+        _outputTexture = outputTexture;
         Width = width;
         Height = height;
-
-        // Create shadow manager
-        _shadowManager = new ShadowManager(_context, _shaderCompiler);
-
-        // Create geometry pass
-        _geometryPass = new GeometryPass(_context, _shaderCompiler);
-        _geometryPass.Initialize(width, height);
-
-        // Create lighting pass (uses depth texture from geometry pass)
-        _lightingPass = new LightingPass(_context, _shaderCompiler, _geometryPass.DepthTexture!);
-        _lightingPass.Initialize(width, height);
-
-        // Create transparent pass (uses depth texture from geometry pass for depth testing)
-        _transparentPass = new TransparentPass(_context, _shaderCompiler, _geometryPass.DepthTexture!);
-        _transparentPass.Initialize(width, height);
-
-        // Create gizmo pass (uses depth texture from geometry pass)
-        _gizmoPass = new GizmoPass(_context, _shaderCompiler, _geometryPass.DepthTexture!);
-        _gizmoPass.Initialize(width, height);
-
-        // Create flip pass (corrects vertical orientation)
-        _flipPass = new FlipPass(_context, _shaderCompiler);
-        _flipPass.Initialize(width, height);
-
-        // Create output texture for Skia integration
-        _outputTexture = _context.CreateTexture2D(width, height, TextureFormat.RGBA16Float);
     }
 
     public void Resize(int width, int height)
