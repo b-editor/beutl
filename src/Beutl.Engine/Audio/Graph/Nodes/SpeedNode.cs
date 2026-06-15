@@ -241,7 +241,10 @@ public sealed class SpeedNode : AudioNode
                 context.AnimationSampler,
                 context.OriginalTimeRange);
 
-            var result = _speedNode.Inputs[0].Process(subContext);
+            // Read consumes the child buffer fully into the interleaved span and never returns it, so
+            // dispose its pooled MemoryPool<float> lease here; otherwise every resampler iteration leaks
+            // one input buffer (matches the disposal contract the sibling audio nodes already honor).
+            using var result = _speedNode.Inputs[0].Process(subContext);
             var leftData = result.GetChannelData(0);
             var rightData = result.GetChannelData(1);
             int samplesToRead = Math.Min(count, result.SampleCount);
