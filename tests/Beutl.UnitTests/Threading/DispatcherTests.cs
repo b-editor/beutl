@@ -527,10 +527,10 @@ public class DispatcherTests
             dispatcher.Invoke(() => { });
             dispatcher.Shutdown();
 
-            // Join the dispatcher thread directly rather than polling the non-volatile
-            // HasShutdownFinished flag (a cross-thread read of which could itself stale-read on a
-            // weak-memory architecture). The thread terminates only when Start()'s loop exits — i.e.
-            // shutdown was observed and no _waitToken was left armed — so a timeout here means deadlock.
+            // Join the dispatcher thread directly rather than polling HasShutdownFinished: the thread
+            // terminates only when Start()'s loop actually exits — i.e. shutdown was observed and no
+            // _waitToken was left armed — which is the precise condition under test, whereas the flag
+            // is set just before the loop returns. A timeout here therefore means deadlock.
             Assert.That(
                 dispatcher.Thread.Join(TimeSpan.FromSeconds(5)),
                 Is.True,

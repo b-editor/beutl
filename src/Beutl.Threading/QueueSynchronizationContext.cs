@@ -15,15 +15,21 @@ internal sealed class QueueSynchronizationContext(Dispatcher dispatcher, TimePro
     private volatile bool _running;
     private CancellationTokenSource? _waitToken;
 
+    // volatile for the same reason as _running: these flags are written on one thread (the dispatcher
+    // thread for HasShutdownFinished, the caller's thread for HasShutdownStarted) and read cross-thread
+    // through the public Dispatcher getters with no lock, so a reader could otherwise stale-read.
+    private volatile bool _hasShutdownFinished;
+    private volatile bool _hasShutdownStarted;
+
     public event EventHandler<DispatcherUnhandledExceptionEventArgs>? UnhandledException;
 
     public event EventHandler? ShutdownStarted;
 
     public event EventHandler? ShutdownFinished;
 
-    public bool HasShutdownFinished { get; private set; }
+    public bool HasShutdownFinished { get => _hasShutdownFinished; private set => _hasShutdownFinished = value; }
 
-    public bool HasShutdownStarted { get; private set; }
+    public bool HasShutdownStarted { get => _hasShutdownStarted; private set => _hasShutdownStarted = value; }
 
     internal void Start()
     {
