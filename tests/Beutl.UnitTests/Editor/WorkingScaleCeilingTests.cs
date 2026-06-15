@@ -20,12 +20,10 @@ public class WorkingScaleCeilingTests
     // Export imposes NO working-scale ceiling: the delivery render follows the true supply density, so an authored
     // high-density source (e.g. a 4096-px logo shrunk into a small box, supply ≈ 16) exports at full fidelity.
     // Allocatability is guaranteed per-buffer by ClampWorkingScaleToBufferBudget, not by this policy.
-    [TestCase(1.0f)]
-    [TestCase(0.5f)]
-    [TestCase(8.0f)]
-    public void Export_HasNoWorkingScaleCeiling(float outputScale)
+    [Test]
+    public void Export_HasNoWorkingScaleCeiling()
     {
-        Assert.That(WorkingScaleCeiling.Export(outputScale), Is.EqualTo(float.PositiveInfinity));
+        Assert.That(WorkingScaleCeiling.Export(), Is.EqualTo(float.PositiveInfinity));
     }
 
     // FR-037 preview/export divergence: preview is a finite bound that keeps interactive renders cheap, export is
@@ -33,6 +31,6 @@ public class WorkingScaleCeilingTests
     [Test]
     public void Preview_IsTighterThanExport_AtFullScale()
     {
-        Assert.That(WorkingScaleCeiling.Preview(1.0f), Is.LessThan(WorkingScaleCeiling.Export(1.0f)));
+        Assert.That(WorkingScaleCeiling.Preview(1.0f), Is.LessThan(WorkingScaleCeiling.Export()));
     }
 }

@@ -27,6 +27,7 @@ public partial class PreviewNode : GraphNode
 
             if (Input is RenderNode renderNode)
             {
+                // Scale 1 intentional: GraphCompositionContext carries no output scale; thumbnails are logical-res.
                 var processor = new RenderNodeProcessor(renderNode, true);
                 var bitmap = processor.RasterizeAndConcat();
                 node._preview.Value?.Dispose();

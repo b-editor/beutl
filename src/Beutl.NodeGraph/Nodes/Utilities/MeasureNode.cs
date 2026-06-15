@@ -31,6 +31,7 @@ public partial class MeasureNode : GraphNode
         {
             if (Input is RenderNode renderNode)
             {
+                // Scale 1 intentional: GraphCompositionContext carries no output scale; bounds are logical-res.
                 var processor = new RenderNodeProcessor(renderNode, true);
                 RenderNodeOperation[] list = processor.PullToRoot();
                 Rect rect = Rect.Empty;

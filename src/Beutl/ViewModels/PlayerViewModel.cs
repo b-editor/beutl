@@ -1690,7 +1690,7 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
             }
 
             var processor = new RenderNodeProcessor(
-                root, false, outputScale, WorkingScaleCeiling.Export(outputScale));
+                root, false, outputScale, WorkingScaleCeiling.Export());
             return processor.RasterizeAndConcat();
         });
     }
@@ -1764,7 +1764,7 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
             // the Renderer ctor (its internal RenderThread.Dispatcher.Invoke runs inline) / Render /
             // Snapshot / Dispose require.
             using var renderer = new SceneRenderer(Scene, renderScale: outputScale, disableResourceShare: true,
-                maxWorkingScale: WorkingScaleCeiling.Export(outputScale));
+                maxWorkingScale: WorkingScaleCeiling.Export());
             renderer.CacheOptions = RenderCacheOptions.Disabled;
 
             var compositionFrame = renderer.Compositor.EvaluateGraphics(CurrentFrame.Value);

@@ -316,7 +316,7 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
                 // RenderNodeContext.ClampWorkingScaleToBufferBudget (16384 px/axis); a cross-buffer aggregate OOM
                 // bound (request-scoped byte/area allocator) is a documented follow-up. Centralized in
                 // WorkingScaleCeiling (unit-tested) — see S3.
-                float maxWorkingScale = WorkingScaleCeiling.Export(renderScale);
+                float maxWorkingScale = WorkingScaleCeiling.Export();
                 using var renderer = new SceneRenderer(Model, renderScale, disableResourceShare: true, maxWorkingScale);
                 renderer.CacheOptions = RenderCacheOptions.Disabled;
                 var frameProgress = new Subject<TimeSpan>();
