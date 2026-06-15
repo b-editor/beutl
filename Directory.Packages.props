@@ -65,7 +65,7 @@
     <PackageVersion Include="Dock.Avalonia" Version="11.3.12.1" />
     <PackageVersion Include="Dock.Model.Inpc" Version="11.3.12.1" />
     <PackageVersion Include="Dock.Avalonia.Themes.Fluent" Version="11.3.12.1" />
-    <PackageVersion Include="Refit" Version="10.2.0" />
+    <PackageVersion Include="Refit" Version="11.0.1" />
     <PackageVersion Include="Roslynator.Analyzers" Version="4.15.0" />
     <PackageVersion Include="Serilog.Extensions.Logging" Version="10.0.0" />
     <PackageVersion Include="Serilog.Sinks.Async" Version="2.1.0" />
