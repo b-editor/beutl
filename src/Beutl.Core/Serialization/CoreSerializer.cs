@@ -162,11 +162,11 @@ public static class CoreSerializer
         {
             if (type == typeof(ProjectItem))
             {
-                node["$type"] = "[Beutl.ProjectSystem]:Scene";
+                node["$type"] = LegacyTypeNames.SceneDiscriminator;
             }
-            else if (type.FullName == "Beutl.ProjectSystem.Element")
+            else if (type.FullName == LegacyTypeNames.ElementFullName)
             {
-                node["$type"] = "[Beutl.ProjectSystem]:Element";
+                node["$type"] = LegacyTypeNames.ElementDiscriminator;
             }
         }
 
