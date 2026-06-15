@@ -26,11 +26,14 @@ public sealed class EqualizerNode : AudioNode
 
         var input = Inputs[0].Process(context);
 
-        // Pass-through if no bands
+        // Pass-through if no bands (caller owns it, don't dispose).
         if (Bands.Count == 0)
         {
             return input;
         }
+
+        // Otherwise every path emits a fresh buffer, so dispose the consumed input.
+        using var owned = input;
 
         // Initialize or reinitialize filters
         if (_filters == null || _lastChannelCount != input.ChannelCount || _lastBandCount != Bands.Count)

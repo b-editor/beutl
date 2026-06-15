@@ -25,7 +25,8 @@ public sealed class DelayNode : AudioNode
         if (Inputs.Count != 1)
             throw new InvalidOperationException("Delay node requires exactly one input.");
 
-        var input = Inputs[0].Process(context);
+        // Every path emits a fresh buffer (no pass-through), so dispose the consumed input.
+        using var input = Inputs[0].Process(context);
 
         // Initialize delay lines if needed or sample rate changed
         if (_delayLines == null || _lastSampleRate != context.SampleRate)

@@ -32,8 +32,13 @@ public sealed class ResampleNode : AudioNode
         var newContext = new AudioProcessContext(context.TimeRange, SourceSampleRate, context.AnimationSampler, context.OriginalTimeRange);
         var input = Inputs[0].Process(newContext);
 
+        // Same rate: pass the input through (caller owns it, don't dispose).
         if (input.SampleRate == context.SampleRate)
             return input;
+
+        // Otherwise the resampler reads `input` synchronously into a fresh buffer; dispose it after.
+        // (The provider is rebuilt next call, so it never reads this buffer again.)
+        using var owned = input;
 
         if (_resampleProvider == null || _lastSampleRate != context.SampleRate)
         {
