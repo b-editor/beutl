@@ -7,7 +7,6 @@
 [assembly: InternalsVisibleTo("Beutl.Configuration")]
 [assembly: InternalsVisibleTo("Beutl.Engine")]
 [assembly: InternalsVisibleTo("Beutl.ProjectSystem")]
-[assembly: InternalsVisibleTo("Beutl.PackageTools")]
 [assembly: InternalsVisibleTo("Beutl.PackageTools.UI")]
 [assembly: InternalsVisibleTo("Beutl.Api")]
 [assembly: InternalsVisibleTo("Beutl.NodeGraph")]
