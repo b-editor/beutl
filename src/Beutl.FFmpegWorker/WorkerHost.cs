@@ -100,7 +100,6 @@ internal sealed class WorkerHost(IpcConnection connection) : IDisposable
             MessageType.QueryPixelFormats => _codecQueryHandler.HandleQueryPixelFormats(message),
             MessageType.QuerySampleRates => _codecQueryHandler.HandleQuerySampleRates(message),
             MessageType.QueryAudioFormats => _codecQueryHandler.HandleQueryAudioFormats(message),
-            MessageType.QueryDefaultCodec => _codecQueryHandler.HandleQueryDefaultCodec(message),
             _ => IpcMessage.CreateError(message.Id, $"Unknown message type: {message.Type}"),
         };
     }
@@ -115,8 +114,7 @@ internal sealed class WorkerHost(IpcConnection connection) : IDisposable
             or MessageType.QueryCodecs
             or MessageType.QueryPixelFormats
             or MessageType.QuerySampleRates
-            or MessageType.QueryAudioFormats
-            or MessageType.QueryDefaultCodec;
+            or MessageType.QueryAudioFormats;
     }
 
     private static IpcMessage HandleShutdown(IpcMessage message)

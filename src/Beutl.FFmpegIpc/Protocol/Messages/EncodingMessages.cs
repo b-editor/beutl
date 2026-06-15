@@ -83,12 +83,6 @@ public sealed class ProvideSampleMessage
     public int DataLength { get; set; }
 }
 
-public sealed class EncodeProgressMessage
-{
-    public long VideoFramesDone { get; set; }
-    public long AudioSamplesDone { get; set; }
-}
-
 public sealed class EncodeCompleteMessage
 {
     public bool Success { get; set; }

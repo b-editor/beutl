@@ -3,7 +3,8 @@
 public enum MessageType
 {
     // ライフサイクル
-    Handshake = 0,
+    // default(MessageType) / 未設定・破損メッセージを表すセンチネル。意味のあるメッセージには使わない
+    Unknown = 0,
     HandshakeAck = 1,
     Shutdown = 3,
 
@@ -26,7 +27,6 @@ public enum MessageType
     ProvideFrame = 33,
     RequestSample = 34,
     ProvideSample = 35,
-    EncodeProgress = 36,
     EncodeComplete = 37,
     CancelEncode = 38,
 
@@ -39,8 +39,6 @@ public enum MessageType
     QuerySampleRatesResult = 45,
     QueryAudioFormats = 46,
     QueryAudioFormatsResult = 47,
-    QueryDefaultCodec = 48,
-    QueryDefaultCodecResult = 49,
 
     // エラー
     Error = 99,

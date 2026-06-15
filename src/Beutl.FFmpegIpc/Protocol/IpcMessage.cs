@@ -75,7 +75,6 @@ public sealed class IpcMessage
 [JsonSerializable(typeof(ProvideFrameMessage))]
 [JsonSerializable(typeof(RequestSampleMessage))]
 [JsonSerializable(typeof(ProvideSampleMessage))]
-[JsonSerializable(typeof(EncodeProgressMessage))]
 [JsonSerializable(typeof(EncodeCompleteMessage))]
 // Codec queries
 [JsonSerializable(typeof(QueryCodecsRequest))]
@@ -86,8 +85,6 @@ public sealed class IpcMessage
 [JsonSerializable(typeof(QuerySampleRatesResponse))]
 [JsonSerializable(typeof(QueryAudioFormatsRequest))]
 [JsonSerializable(typeof(QueryAudioFormatsResponse))]
-[JsonSerializable(typeof(QueryDefaultCodecRequest))]
-[JsonSerializable(typeof(QueryDefaultCodecResponse))]
 // Supporting types
 [JsonSerializable(typeof(Dictionary<string, string>))]
 [JsonSourceGenerationOptions(

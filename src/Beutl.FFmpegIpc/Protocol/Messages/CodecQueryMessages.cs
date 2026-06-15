@@ -55,14 +55,3 @@ public sealed class QueryAudioFormatsResponse
 {
     public int[] Formats { get; set; } = [];
 }
-
-public sealed class QueryDefaultCodecRequest
-{
-    public string OutputFile { get; set; } = "";
-}
-
-public sealed class QueryDefaultCodecResponse
-{
-    public string? VideoCodecName { get; set; }
-    public string? AudioCodecName { get; set; }
-}
