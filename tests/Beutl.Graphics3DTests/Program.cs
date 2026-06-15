@@ -189,11 +189,31 @@ return 0;
 
 static void SaveRenderOutput(IRenderer3D renderer, int width, int height, string outputPath)
 {
+    // DownloadPixels returns RGBA16Float (8 bytes/pixel, linear HDR). Convert to sRGB BGRA8888
+    // so the debug PNGs look correct in standard viewers.
     var pixelData = renderer.DownloadPixels();
+    int pixelCount = width * height;
+    var srgbPixels = new byte[pixelCount * 4];
+
+    for (int i = 0; i < pixelCount; i++)
+    {
+        int srcOff = i * 8; // 4 × Half (2 bytes each) = 8 bytes per pixel
+        float r = (float)BitConverter.ToHalf(pixelData, srcOff);
+        float g = (float)BitConverter.ToHalf(pixelData, srcOff + 2);
+        float b = (float)BitConverter.ToHalf(pixelData, srcOff + 4);
+        float a = (float)BitConverter.ToHalf(pixelData, srcOff + 6);
+
+        int dstOff = i * 4; // BGRA8888
+        srgbPixels[dstOff] = LinearToSrgbByte(b);
+        srgbPixels[dstOff + 1] = LinearToSrgbByte(g);
+        srgbPixels[dstOff + 2] = LinearToSrgbByte(r);
+        srgbPixels[dstOff + 3] = (byte)Math.Clamp(a * 255f + 0.5f, 0f, 255f);
+    }
+
     using var bitmap = new SKBitmap(width, height, SKColorType.Bgra8888, SKAlphaType.Premul);
     unsafe
     {
-        fixed (byte* ptr = pixelData)
+        fixed (byte* ptr = srgbPixels)
         {
             bitmap.SetPixels((IntPtr)ptr);
         }
@@ -202,6 +222,15 @@ static void SaveRenderOutput(IRenderer3D renderer, int width, int height, string
     using var data = image.Encode(SKEncodedImageFormat.Png, 100);
     using var stream = File.OpenWrite(outputPath);
     data.SaveTo(stream);
+}
+
+static byte LinearToSrgbByte(float linear)
+{
+    float clamped = Math.Clamp(linear, 0f, 1f);
+    float srgb = clamped <= 0.0031308f
+        ? clamped * 12.92f
+        : 1.055f * MathF.Pow(clamped, 1f / 2.4f) - 0.055f;
+    return (byte)(srgb * 255f + 0.5f);
 }
 
 // === Shadow Test Scene ===
