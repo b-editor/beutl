@@ -38,8 +38,9 @@ public sealed partial class GLSLScriptEffect : FilterEffect
                    float progress;   // 0.0 - 1.0
                    float duration;   // seconds
                    float time;       // seconds
-                   float width;      // render target width
-                   float height;     // render target height
+                   float width;      // render target width (device px)
+                   float height;     // render target height (device px)
+                   float scale;      // working scale w (1.0 = unscaled); multiply absolute-px literals by this
                } pc;
 
                void main() {
@@ -104,11 +105,18 @@ public sealed partial class GLSLScriptEffect : FilterEffect
                 Duration = data.duration,
                 Time = data.time,
                 Width = devW,
-                Height = devH
+                Height = devH,
+                // Working scale w (clamped buffer density), mirroring SKSL's iScale: a shader multiplies an
+                // absolute-px literal by Scale so it stays logical across scales. A shader that ignores Scale
+                // is unaffected, and at w == 1 Scale == 1 (byte-identical).
+                Scale = w
             };
         });
     }
 
+    // Field order MUST match the GLSL `layout(push_constant)` block (progress/duration/time/width/height/scale).
+    // 6 floats = 24 bytes — purely additive and well within the 128-byte push-constant range
+    // VulkanPipeline3D hard-codes (the upload is sized dynamically from sizeof(T)).
     [StructLayout(LayoutKind.Sequential)]
     private struct PushConstants
     {
@@ -117,6 +125,7 @@ public sealed partial class GLSLScriptEffect : FilterEffect
         public float Time;
         public float Width;
         public float Height;
+        public float Scale;
     }
 
     public new partial class Resource

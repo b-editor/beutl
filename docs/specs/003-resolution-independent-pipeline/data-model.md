@@ -25,7 +25,7 @@ All `float` for v1 (the `Beutl.Graphics.Vector` primitive overloads exist for th
 - **`e`** (effective scale) — per-op supply density (`EffectiveScale`, below).
 - **`w`** (working scale) — computed per buffer-allocating boundary via `ResolveWorkingScale` (FR-036); the scale an effect runs at — device-buffer dimensions and device-space shader uniforms convert once (`× w`), logical-space geometry rides the CTM unchanged, readback geometry converts back (`÷ w`) (FR-008).
 
-> **Glossary (naming)**: `Renderer.RenderScale` (on the renderer) `==` `RenderNodeContext.OutputScale` (on the context) `== s_out` — the same render-request output scale under two names (the context calls it `OutputScale` to stress it is *not* the working scale). The editor-facing **`RenderScale` enum** (`Full`/`Half`/`Quarter`/`FitToPreviewer`, FR-035) is a **distinct type** that *resolves to* `s_out` via `ToFloat`.
+> **Glossary (naming)**: `Renderer.OutputScale` (on the renderer) `==` `RenderNodeContext.OutputScale` (on the context) `== s_out` — the same render-request output scale under two names (the context calls it `OutputScale` to stress it is *not* the working scale). The editor-facing **`RenderScale` enum** (`Full`/`Half`/`Quarter`/`FitToPreviewer`, FR-035) is a **distinct type** that *resolves to* `s_out` via `ToFloat`.
 
 ### `EffectiveScale` *(new value type)* — `Graphics/Rendering/EffectiveScale.cs`
 `readonly record struct EffectiveScale` (as shipped: private `_bounded`/`_value`; `Unbounded`/`At(float)`/`IsUnbounded`/`Value`; `default == Unbounded`) — the supply density an op's pixels exist at. *(NOT a positional `(float Value, bool IsUnbounded)` — that form's `default` would wrongly be `At(0)`; see public-api.md.)*
@@ -36,16 +36,15 @@ All `float` for v1 (the `Beutl.Graphics.Vector` primitive overloads exist for th
 - **Replaces** the first draft's separate `RenderNodeOperation.LosslessReRasterizable` bool — `IsUnbounded` subsumes it (one concept, one member; no contradictory "lossless but `e=2.0`" state).
 
 ### Working-scale rule (FR-036) — no `ResolutionPolicy` type
-**There is no resolution-policy value type.** Every buffer-allocating boundary runs at the **supply density**, capped only by the global memory ceiling. The one rule is:
+**There is no resolution-policy value type.** Every buffer-allocating boundary runs at the **densest concrete supply, floored at `s_out`**, capped only by the global ceiling. The one rule (amended 2026-06-15 — `s_out` is now a floor for **every** boundary, not only the vector-only/mixed cases) is:
 
 `RenderNodeContext.ResolveWorkingScale(ReadOnlySpan<EffectiveScale> inputs, float outputScale, float maxWorkingScale = +∞) → float`:
-- `supply` = max `e.Value` over the **concrete** (non-`Unbounded`) inputs; `0` if all inputs are vector.
-- if no concrete input → `supply = outputScale` (vector-only subtree rasterizes at `s_out`).
-- else if a vector input is also present and `outputScale > supply` → `supply = outputScale` (the C4/C5 mixed bitmap+vector floor: a low-density bitmap must not drag crisp vector siblings down).
-- return `min(supply, maxWorkingScale)`. `s_out` is **not** a ceiling.
+- `supply = outputScale` (the floor), then `supply = max(supply, e.Value)` over each **concrete** (non-`Unbounded`) input.
+- return `min(supply, maxWorkingScale)`.
+- Equivalently: `w = min( max(s_out, densest concrete supply), maxWorkingScale )`. `s_out` is the **floor**, **never** a ceiling — a denser concrete supply runs above it (FR-016), while a sub-output concrete supply (`At(0.5)` at a `1.0` export) is lifted to `s_out`. The former special-cased "vector-only fallback" and "C4/C5 mixed bitmap+vector floor at `s_out`" are now just instances of this universal floor (conclusions unchanged — vector-only and mixed boundaries still land at `s_out`). At `s_out = 1.0` with unit-scale / vector inputs `w = max(1, 1) = 1`, so byte-identity is untouched.
 
 - **`ResolutionPolicy` removed (and `FilterEffect.ResolutionPolicy`, `RenderNode.ResolutionPolicy`)**: earlier drafts declared a per-effect policy (`Inherit` / `ClampToOutput` / `Oversample(k)` / `PreserveSource`) to pick `w`. No built-in ever needed a non-default value — every built-in is supply-driven — and a custom `FilterEffectRenderNode` (returned from `FilterEffect.Resource.CreateRenderNode()`, overriding `Process` to compute `w` directly) is strictly more flexible than a closed three-value enum. So the policy enum, the `virtual FilterEffect.ResolutionPolicy`, the `RenderNode.ResolutionPolicy` (never added — would have been a dead duplicate), the `policy` parameter of `ResolveWorkingScale`, and the earlier `PreserveSource` floor / `preserveFloor` channel were all removed.
-- **As shipped (T061): the FR-037 ceiling IS wired** — `FilterEffectRenderNode` passes `context.MaxWorkingScale`; the editor preview seeds it at `2 × s_out` and export seeds a generous-but-finite `max(8, 4 × s_out)` (see FR-037 / `OutputViewModel`). It is the sole **global** upper bound on the working scale; additionally the per-buffer **dimension** clamp (FR-037(b), `RenderNodeContext.ClampWorkingScaleToBufferBudget`, 16384 px per axis — applied at the `FilterEffectRenderNode` node level and re-applied per target in `FilterEffectActivator.Flush` against the post-effect-inflated bounds) may further reduce `w` at an effect boundary to keep the buffer allocatable. Two distinct bounds — do not conflate them (FR-037).
+- **As shipped: the FR-037 ceiling IS wired** — `FilterEffectRenderNode` passes `context.MaxWorkingScale`; the editor preview seeds it at `2 × s_out` and **export seeds `+∞`** (no working-scale quality ceiling — *amended 2026-06-15*; the earlier finite `max(8, 4 × s_out)` was removed as a quality clip, see FR-037 / `WorkingScaleCeiling.Export` / `OutputViewModel`). The preview ceiling is the sole **global** upper bound on the working scale; additionally the per-buffer **dimension** clamp (FR-037(b), `RenderNodeContext.ClampWorkingScaleToBufferBudget`, 16384 px per axis — applied at the `FilterEffectRenderNode` node level and re-applied per target in `FilterEffectActivator.Flush` against the post-effect-inflated bounds) is the sole **allocatability** bound and may further reduce `w` at an effect boundary to keep the buffer allocatable. Two distinct bounds — do not conflate them (FR-037).
 
 ### Shared rounding helper (FR-007)
 **Decision: there is no new helper type — the canonical helper *is* `PixelRect.FromRect(Rect, float scale)` / `PixelSize.FromSize(Size, float)`** (`PixelRect.cs:391`, `PixelSize.cs:209`), which already implement "ceil sizes (ceil'd bottom-right), toward-zero origins". The work is *adopting* the `× w` scaling at every sink with a consistent convention, not writing a new helper.
@@ -59,7 +58,7 @@ All `float` for v1 (the `Beutl.Graphics.Vector` primitive overloads exist for th
 | Member | Change | Rule |
 |---|---|---|
 | `OutputScale` | **+ `float OutputScale { get; }`** (get-only, default `1f`; renamed from the first draft's `Scale`) | The render-request final target `s_out` (D1). Seeded once in `RenderNodeProcessor.Pull` from `RenderNodeProcessor.OutputScale`; propagated like `IsRenderCacheEnabled`. **Consumed only at the root final stage and as the fallback/floor term of `ResolveWorkingScale` — never as an intermediate's working scale.** Get-only. |
-| `ResolveWorkingScale` | **+ `static float ResolveWorkingScale(ReadOnlySpan<EffectiveScale> inputs, float outputScale, float maxWorkingScale = +∞)`** (static only — no instance overload, **no `policy` parameter**) | The one supply-driven working-scale rule incl. the global ceiling (FR-037), which `FilterEffectRenderNode` supplies via `context.MaxWorkingScale` (preview `2 × s_out`, export `max(8, 4 × s_out)`). The `policy` and `preserveFloor` parameters were removed with the `ResolutionPolicy` type. |
+| `ResolveWorkingScale` | **+ `static float ResolveWorkingScale(ReadOnlySpan<EffectiveScale> inputs, float outputScale, float maxWorkingScale = +∞)`** (static only — no instance overload, **no `policy` parameter**) | The one supply-driven working-scale rule (`min( max(s_out, densest concrete supply), maxWorkingScale )` — `s_out` is the floor, FR-036) incl. the global ceiling (FR-037), which `FilterEffectRenderNode` supplies via `context.MaxWorkingScale` (preview `2 × s_out`, export `+∞`). The `policy` and `preserveFloor` parameters were removed with the `ResolutionPolicy` type. |
 
 ### `RenderNodeOperation` *(changed)* — `Graphics/Rendering/RenderNodeOperation.cs`
 | Member | Change | Rule |
@@ -97,14 +96,14 @@ All `float` for v1 (the `Beutl.Graphics.Vector` primitive overloads exist for th
 ### `IRenderer` *(changed)* — `Graphics/Rendering/IRenderer.cs`
 | Member | Change | Rule |
 |---|---|---|
-| `RenderScale` | **+ `float RenderScale { get; }`** (default-interface-impl → `1f` to soften third-party impls, mirroring the `GetBoundary` default at `:30`) | |
-| `DeviceSize` | **+ `PixelSize DeviceSize { get; }`** = `ceil(FrameSize × RenderScale)` | FR-003/FR-026. |
+| `OutputScale` | **+ `float OutputScale { get; }`** (default-interface-impl → `1f` to soften third-party impls, mirroring the `GetBoundary` default at `:30`) | |
+| `DeviceSize` | **+ `PixelSize DeviceSize { get; }`** = `ceil(FrameSize × OutputScale)` | FR-003/FR-026. |
 
 ### `Renderer` *(changed)* — `Graphics/Rendering/Renderer.cs`
 | Member | Change | Rule |
 |---|---|---|
 | ctor | `(int width, int height)` → **`(int width, int height, float renderScale = 1f)`** | width/height stay **logical** FrameSize; device surface = `ceil(FrameSize × renderScale)`. BREAKING (FR-028). |
-| `RenderScale` | **+ `float RenderScale { get; }`** | Immutable per instance (D4). |
+| `OutputScale` | **+ `float OutputScale { get; }`** | Immutable per instance (D4). |
 | `FrameSize` | unchanged (logical) | |
 | `Render`/`RenderDrawable` | the root `ImmediateCanvas` bakes the base CTM `CreateScale(renderScale)` at construction (no per-frame push); the FPS overlay re-enters device space via `FpsDrawer.Dispose` → `PushDeviceSpace` so it stays unscaled | |
 | `HitTest`/`RecalculateBoundaries` | pass `1f` | Render scale stays out of hit-test/handle math (FR-027). |
@@ -167,6 +166,7 @@ All `float` for v1 (the `Beutl.Graphics.Vector` primitive overloads exist for th
 | `ParticleRenderNode` | `Graphics/Particles/ParticleRenderNode.cs:139` | hard-coded `new PixelSize(1920,1080)` → `ceil(bounds × w)`; inherit the negotiated working scale `w`; pixel-magnitude particle props × `w` | FR-029 |
 | audio-visualizer drawables | `Graphics/AudioVisualizers/*` | classify pixel-magnitude params (`BarWidth`, `BlockGap`, hard-coded minimums) under FR-008 | FR-030 |
 | `Scene3DRenderNode` | `Graphics3D/Scene3DRenderNode.cs` | renders at `ceil(size × s_out)` and tags the surface op `EffectiveScale.At(w)` (w == s_out), resampled at the composite boundary; internal lockstep deferred. Nested 2D scene (`SceneDrawable`) inherits the outer `s_out`/ceiling into its own `Renderer` and reports `e = At(w)` | FR-033/FR-022 |
+| `TextureSource` / `DrawableTextureSource` *(added 2026-06-15)* | `Graphics3D/Textures/{TextureSource,DrawableTextureSource}.cs` | `TextureSource.Resource.GetTexture` gains an additive `float surfaceDensity = 1f` (the surface density, mirroring `IRenderer3D.SurfaceDensity` / `RenderContext3D.SurfaceDensity`). `DrawableTextureSource` rasterizes its re-rasterizable `Drawable` at `ceil(authorSize × surfaceDensity)` (clamped by `ClampWorkingScaleToBufferBudget`) so a vector label/logo stays crisp on a supersampled / high-density 3D surface instead of being frozen at the authored pixel count and GPU-magnified. A decoded-bitmap source ignores `surfaceDensity` (its pixels are fixed). Default `1f` keeps existing impls source-compatible and byte-identical at `surfaceDensity == 1`. | FR-033/FR-022 |
 
 ---
 
@@ -188,7 +188,7 @@ All `float` for v1 (the `Beutl.Graphics.Vector` primitive overloads exist for th
 | `RenderScale` (enum/value) | FR-035 preview scale selection | `Full/Half/Quarter/FitToPreviewer`, `ToFloat(...)` |
 | `EditViewModel.PreviewScale` | per-edit-view, non-persisted session state | `ReactivePropertySlim<RenderScale>`, default `Full`; not in `SaveState`/`RestoreState` |
 | `EffectiveScale` (value) | FR-018 per-op supply density | `Unbounded`, `At(float)`, `Value`, `IsUnbounded` |
-| `MaxWorkingScale` | FR-037 ceiling, threaded `Renderer → RenderNodeContext` | **preview `2 × s_out`, export `max(8, 4 × s_out)`** |
+| `MaxWorkingScale` | FR-037 ceiling, threaded `Renderer → RenderNodeContext` | **preview `2 × s_out`, export `+∞`** (no export quality ceiling — *amended 2026-06-15*) |
 
 *(No `ResolutionPolicy` type and no `FilterEffect.ResolutionPolicy` — removed; the working scale is supply-driven, and an effect that needs a different one overrides `Process` in a custom `FilterEffectRenderNode`. See FR-036.)*
 
@@ -198,4 +198,4 @@ All `float` for v1 (the `Beutl.Graphics.Vector` primitive overloads exist for th
 
 **Preview scale change** (FR-031/FR-035): `PreviewScale` value changes → resolved `(FrameSize, OutputScale)` observable emits (`DistinctUntilChanged`) → old `SceneRenderer` + `FrameCacheManager` disposed (`DisposePreviousValue`: surface, caches cleared) → new instances built (on the **UI thread** inside the reactive `Select`, NOT on the render dispatcher) → `QueueRender()` repaints. The render lambda reads `Renderer.Value`/`FrameCacheManager.Value` fresh inside the serial render-dispatcher work-item, so a single composite never tears; each renderer is immutable per instance. The renderer/cache swap itself is two independent reactive-property updates on the UI thread (NOT a single atomic snapshot) — see the FR-031 clarification (2026-06-10) for the narrow, self-healing window and the fully-atomic-snapshot follow-up.
 
-**Export scale** (FR-034): `OutputViewModel` builds `SceneRenderer(Model, supersampleScale, disableResourceShare:true)`; `FrameProviderImpl.RenderCore` downscales `Snapshot()` to `FrameSize` when `RenderScale > 1`, asserts size == `FrameSize` before encode (FR-026). Independent of preview scale.
+**Export scale** (FR-034): `OutputViewModel` builds `SceneRenderer(Model, supersampleScale, disableResourceShare:true)`; `FrameProviderImpl.RenderCore` downscales `Snapshot()` to `FrameSize` when `OutputScale > 1`, asserts size == `FrameSize` before encode (FR-026). Independent of preview scale.

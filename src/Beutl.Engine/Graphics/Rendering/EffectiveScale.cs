@@ -48,11 +48,31 @@ public readonly record struct EffectiveScale
     /// buffer footprint by it (<see cref="Beutl.Graphics.Effects.EffectTarget.Draw"/>), yielding an
     /// ∞-width or zero-area blit. Rejected here rather than failing silently downstream.
     /// </summary>
+    /// <remarks>
+    /// <b>This throws on a non-finite / non-positive density, and the render pull path has no try/catch,
+    /// so a throw here aborts the whole render.</b> A <see cref="RenderNodeOperation"/> /
+    /// <see cref="RenderNodeOperation.EffectiveScale"/> override that derives a density from animatable
+    /// geometry (e.g. <c>At(sourcePixels / logicalWidth)</c>) can hit <c>0/0 = NaN</c> or <c>x/0 = ∞</c>
+    /// on a degenerate frame (a collapsed bound, an off-screen clip). Such code MUST pre-guard the quotient
+    /// (as <see cref="TransformRenderNode.RescaleDensity"/> does), or use <see cref="AtOrUnbounded"/>, which
+    /// degrades a bad density to <see cref="Unbounded"/> instead of crashing the render. Reserve <c>At</c>
+    /// for densities you have already proven finite-positive.
+    /// </remarks>
     public static EffectiveScale At(float scale)
         => float.IsFinite(scale) && scale > 0f
             ? new(scale, bounded: true)
             : throw new ArgumentOutOfRangeException(
                 nameof(scale), scale, "EffectiveScale.At requires a positive finite density.");
+
+    /// <summary>
+    /// The non-throwing companion to <see cref="At(float)"/>: returns <see cref="At(float)"/> for a
+    /// positive-finite <paramref name="scale"/>, and <see cref="Unbounded"/> for a zero/negative/NaN/∞
+    /// density. Use this on the render pull path (which has no try/catch) when a density is derived from
+    /// animatable geometry that can momentarily go degenerate — a bad frame then rasterizes at the
+    /// consumer's working scale (the safe re-rasterizable default) instead of aborting the export.
+    /// </summary>
+    public static EffectiveScale AtOrUnbounded(float scale)
+        => float.IsFinite(scale) && scale > 0f ? new(scale, bounded: true) : Unbounded;
 
     /// <summary>True for the <see cref="Unbounded"/> (vector) sentinel.</summary>
     public bool IsUnbounded => !_bounded;

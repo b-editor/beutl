@@ -24,10 +24,18 @@ public static class WorkingScaleCeiling
     public static float Preview(float outputScale) => 2f * outputScale;
 
     /// <summary>
-    /// Export / save-frame ceiling: <c>max(8, 4 × s_out)</c>. Generous enough never to clip a legitimate
-    /// high-resolution source (so a 4K source still exports at full fidelity, FR-013) yet finite. The constant
-    /// floor of 8 keeps a 4K-into-1080 source (supply ≈ 2–4) un-clipped even at <c>s_out = 1</c>, where
-    /// <c>4 × s_out = 4</c> alone would be the binding term.
+    /// Export / save-frame ceiling: <b>none</b> (<see cref="float.PositiveInfinity"/>). Export is the delivery
+    /// render, so the working scale follows the true supply density — a deliberately-authored high-density
+    /// source (e.g. a 4096-px logo shrunk into a small box, supply ≈ 16) exports at full fidelity, honouring
+    /// FR-013/FR-037's "never clip a legitimate high-resolution source". The earlier finite <c>max(8, 4 × s_out)</c>
+    /// was a quality clip masquerading as an OOM backstop: it discarded detail from any source denser than 8
+    /// on the export render, far below any allocation limit. Allocatability is instead guaranteed per-buffer by
+    /// <see cref="Beutl.Graphics.Rendering.RenderNodeContext.ClampWorkingScaleToBufferBudget"/> (the 16384-px
+    /// GPU axis limit, a real physical bound), which uses each buffer's own bounds so a small dense element is
+    /// never clipped while a genuinely over-large buffer still is. A request-scoped aggregate byte/area budget
+    /// (the complete OOM fix, and the bound on a degenerate tiny-element-from-a-huge-source density) remains a
+    /// documented follow-up; until it lands, <see cref="Preview"/> keeps interactive renders bounded and export
+    /// trades peak memory for fidelity by design.
     /// </summary>
-    public static float Export(float outputScale) => MathF.Max(8f, 4f * outputScale);
+    public static float Export(float outputScale) => float.PositiveInfinity;
 }

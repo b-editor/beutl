@@ -77,9 +77,10 @@ public sealed class SceneSettingsTabViewModel : IToolContext
                     // UI thread on the render dispatcher; during playback the render thread is
                     // occupied by the whole-playback BufferedPlayer work item, so applying
                     // mid-playback would freeze the UI (with Pause unreachable) until the scene
-                    // ends. Pause and let the pipeline drain first. Known gap: undo/redo of scene
-                    // settings during playback takes the same rebuild path without this guard —
-                    // ownership hardening is a deferred follow-up.
+                    // ends. Pause and let the pipeline drain first. (Undo/redo of scene settings
+                    // during playback takes the same rebuild path but is not gated here; that case
+                    // is handled at the source instead — BufferedPlayer re-reads the current
+                    // renderer per frame and bails when the old one is disposed by the rebuild.)
                     if ((frameSize != _scene.FrameSize
                             || start != _scene.Start
                             || duration != _scene.Duration)

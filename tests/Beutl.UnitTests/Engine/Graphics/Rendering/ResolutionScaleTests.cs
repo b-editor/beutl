@@ -1,6 +1,7 @@
 ﻿using Beutl.Graphics;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering;
+using Beutl.Models;
 
 namespace Beutl.UnitTests.Engine.Graphics.Rendering;
 
@@ -40,10 +41,11 @@ public class ResolutionScaleTests
     }
 
     // --- ResolveWorkingScale: the supply-driven core ---------------------------------
-    // There is no resolution policy: every boundary runs at the supply density, bounded only by the global
-    // memory ceiling. (The former Inherit/ClampToOutput/Oversample policy was removed — an effect needing a
-    // different working scale overrides Process in a FilterEffectRenderNode subclass returned from
-    // FilterEffect.Resource.CreateRenderNode() instead.)
+    // w = min( max(s_out, densest concrete supply), maxWorkingScale ). s_out is a FLOOR (an effect never runs
+    // below the deliverable density) and never a ceiling (a denser supply runs above it). There is no resolution
+    // policy: every boundary runs at this scale, bounded only by the global memory ceiling. (The former
+    // Inherit/ClampToOutput/Oversample policy was removed — an effect needing a different working scale overrides
+    // Process in a FilterEffectRenderNode subclass returned from FilterEffect.Resource.CreateRenderNode() instead.)
 
     [Test]
     public void Resolve_AllVectorInputs_RastersAtOutputScale()
@@ -63,12 +65,27 @@ public class ResolutionScaleTests
     }
 
     [Test]
-    public void Resolve_LowResProxy_IsNotUpsampled()
+    public void Resolve_SubOutputSupply_IsFlooredAtOutputScale()
     {
-        // R1: a 0.5 proxy input must NOT be upsampled to the 1.0 output. w stays 0.5.
+        // A sub-output concrete supply (an enlarged / low-density bitmap, At(0.5)) feeding an effect at a 1.0
+        // export is floored to the deliverable density: the effect's OWN working resolution must not drop below
+        // s_out (that would discard resolution the delivery target can use, matching the pre-feature renderer),
+        // even though the source's available detail (0.5) is unchanged. w == max(1.0, 0.5) == 1.0.
         float w = RenderNodeContext.ResolveWorkingScale(
             [EffectiveScale.At(0.5f)],
             outputScale: 1.0f);
+        Assert.That(w, Is.EqualTo(1.0f));
+    }
+
+    [Test]
+    public void Resolve_ReducedScaleProxy_StaysCheapInPreview()
+    {
+        // The floor is s_out, so a genuine reduced-scale proxy stays cheap: a 0.5 proxy at a 0.5 preview gives
+        // max(0.5, 0.5) == 0.5 — unchanged, no forced upsample. The floor only lifts a supply that is below the
+        // CURRENT pull's output density, so reduced-scale preview keeps its s² cost saving.
+        float w = RenderNodeContext.ResolveWorkingScale(
+            [EffectiveScale.At(0.5f)],
+            outputScale: 0.5f);
         Assert.That(w, Is.EqualTo(0.5f));
     }
 
@@ -146,6 +163,55 @@ public class ResolutionScaleTests
             [EffectiveScale.Unbounded],
             outputScale: 1.0f);
         Assert.That(w, Is.EqualTo(1.0f));
+    }
+
+    // --- CHARACTERIZATION: "densest input forces the whole boundary" footgun (not a fix, a pin) -----------
+
+    [Test]
+    public void Resolve_SmallHighDensitySiblingBesideLowDensity_RaisesWholeBoundary()
+    {
+        // CHARACTERIZATION (documents current behavior, does NOT assert the footgun is fixed): w is the densest
+        // concrete input across the WHOLE buffer-allocating boundary, so a single small high-density sibling
+        // (e.g. a 4K logo shrunk into a corner, At(8)) sitting beside a large low-density / vector input raises
+        // the working scale — and thus the buffer AREA (∝ w²) — of the ENTIRE boundary, not just its own region.
+        // This PINS the known design footgun (effect-scale-contract.md "Footgun"): per-target (per-region) w
+        // scoping and a request-scoped area budget are the documented follow-up that would let a small dense
+        // sibling raise only its own region's density. Until then, the densest input wins for everyone.
+        float wWithVector = RenderNodeContext.ResolveWorkingScale(
+            [EffectiveScale.At(8f), EffectiveScale.At(1f), EffectiveScale.Unbounded],
+            outputScale: 1f);
+        Assert.That(wWithVector, Is.EqualTo(8f),
+            "one small At(8) sibling lifts the whole boundary to w == 8 (the footgun this test pins)");
+
+        // Even a single dense sibling next to pure vector content drags the boundary up to the dense density.
+        float wDenseBesideVector = RenderNodeContext.ResolveWorkingScale(
+            [EffectiveScale.At(8f), EffectiveScale.Unbounded],
+            outputScale: 1f);
+        Assert.That(wDenseBesideVector, Is.EqualTo(8f),
+            "the lone At(8) sibling forces w == 8 for the vector content too (∝ w² buffer-area cost)");
+    }
+
+    // --- PIN: supply-driven model's intentional NON-speedup on a source-heavy reduced-scale preview --------
+
+    [Test]
+    public void Resolve_HighDensitySourceInHalfPreview_RunsAtFullDensity_NoPreviewSpeedup()
+    {
+        // SC-003 source-heavy variant (the model's KNOWN non-speedup, otherwise unmeasured): a high-density
+        // source (At(4), e.g. a 4K source on a reduced timeline) under an effect in a Half preview does NOT get
+        // the s²≈0.25 preview speedup. w = min( max(s_out, supply), maxWorkingScale ) = min(max(0.5, 4), 1.0) =
+        // 1.0 — 4× the pixels of the 0.5 ideal. This is the intentional supply-driven tradeoff: the effect runs
+        // at the densest of the deliverable floor and the supply, capped only by the preview ceiling (2 × s_out =
+        // 1.0 here), so a dense source under an effect stays expensive even in a reduced-scale preview.
+        const float halfPreviewCeiling = 1.0f; // = WorkingScaleCeiling.Preview(0.5f) = 2 × 0.5
+        float w = RenderNodeContext.ResolveWorkingScale(
+            [EffectiveScale.At(4f)],
+            outputScale: 0.5f,
+            maxWorkingScale: WorkingScaleCeiling.Preview(0.5f));
+        Assert.That(WorkingScaleCeiling.Preview(0.5f), Is.EqualTo(halfPreviewCeiling).Within(1e-6),
+            "Half preview ceiling must be 2 × s_out == 1.0 (the cap that bounds this non-speedup)");
+        Assert.That(w, Is.EqualTo(1.0f),
+            "a 4K source under an effect in Half preview runs at w == 1.0 (no s²≈0.25 speedup) — the intentional "
+            + "supply-driven tradeoff: min(supply, 2·s_out), not the reduced 0.5 ideal");
     }
 
     // --- Buffer-budget backstop (FR-037 memory / GPU-texture limit; Codex finding #1/#4) ---------------
@@ -248,6 +314,63 @@ public class ResolutionScaleTests
         ReadOnlySpan<EffectiveScale> mixed = [EffectiveScale.At(2f), EffectiveScale.Unbounded];
         float w = RenderNodeContext.ResolveWorkingScale(mixed, float.NaN);
         Assert.That(w, Is.EqualTo(2f));
+    }
+
+    // --- s_out floor across supersample / preview outputs (the enlarge-regression fix) ------------------
+
+    [TestCase(0.5f, 2.0f, 2.0f)] // sub-output proxy in a 2x SSAA export: floored to the deliverable 2.0
+    [TestCase(1.0f, 2.0f, 2.0f)] // 1:1 source in a 2x SSAA export: floored to 2.0
+    [TestCase(2.0f, 2.0f, 2.0f)] // supply matches the output
+    [TestCase(2.0f, 1.0f, 2.0f)] // a 2.0 source in a 1.0 export: supply wins (floor inert) — s_out not a ceiling
+    [TestCase(0.5f, 0.5f, 0.5f)] // a 0.5 proxy in a 0.5 preview: floor inert, reduced-scale stays cheap
+    public void Resolve_ConcreteSupply_IsMaxOfSupplyAndOutput(float supply, float outputScale, float expected)
+    {
+        float w = RenderNodeContext.ResolveWorkingScale([EffectiveScale.At(supply)], outputScale);
+        Assert.That(w, Is.EqualTo(expected).Within(1e-6));
+    }
+
+    // --- EffectiveScale.AtOrUnbounded: the non-throwing pull-path factory (plugin crash-trap fix) --------
+
+    [TestCase(0f)]
+    [TestCase(-1f)]
+    [TestCase(float.NaN)]
+    [TestCase(float.PositiveInfinity)]
+    public void AtOrUnbounded_DegradesBadDensityToUnbounded(float bad)
+    {
+        Assert.That(EffectiveScale.AtOrUnbounded(bad), Is.EqualTo(EffectiveScale.Unbounded));
+        Assert.That(EffectiveScale.AtOrUnbounded(bad).IsUnbounded, Is.True);
+    }
+
+    [Test]
+    public void AtOrUnbounded_KeepsAValidDensity()
+    {
+        Assert.That(EffectiveScale.AtOrUnbounded(0.5f), Is.EqualTo(EffectiveScale.At(0.5f)));
+    }
+
+    // --- RenderNodeContext sanitizes a degenerate request scale ONCE at the boundary --------------------
+    // so a downstream consumer that reads OutputScale and calls At(w) (ParticleRenderNode / Scene3DRenderNode)
+    // inherits a positive-finite density and never crashes the render on a 0 / NaN / ∞ request scale.
+
+    [TestCase(0f)]
+    [TestCase(-2f)]
+    [TestCase(float.NaN)]
+    [TestCase(float.PositiveInfinity)]
+    public void RenderNodeContext_SanitizesDegenerateOutputScaleToOne(float bad)
+    {
+        var ctx = new RenderNodeContext([], outputScale: bad);
+        Assert.That(ctx.OutputScale, Is.EqualTo(1f));
+    }
+
+    [TestCase(float.NaN)]
+    [TestCase(0f)]
+    [TestCase(-1f)]
+    public void RenderNodeContext_DegenerateMaxWorkingScale_IsTreatedAsNoCeiling(float bad)
+    {
+        var ctx = new RenderNodeContext([], outputScale: 1f, maxWorkingScale: bad);
+        Assert.That(ctx.MaxWorkingScale, Is.EqualTo(float.PositiveInfinity));
+        // and it must not pull a resolved working scale to zero / NaN
+        float w = RenderNodeContext.ResolveWorkingScale([EffectiveScale.At(3f)], 1f, ctx.MaxWorkingScale);
+        Assert.That(w, Is.EqualTo(3f));
     }
 
     // --- Shader device-buffer dimensions (the size SKSL/GLSL resolution uniforms must report) ------------

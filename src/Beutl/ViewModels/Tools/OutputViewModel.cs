@@ -309,13 +309,13 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
                 // Export supersampling (feature 003): render at factor×, FrameProviderImpl downscales
                 // to FrameSize. SourceSize stays FrameSize (above), so the encoded size is unchanged.
                 float renderScale = Math.Max(1, SupersampleFactor.Value);
-                // Export uses a FINITE working-scale ceiling (C7) rather than +∞: unlike preview, export has
-                // no interactive memory budget, but an unbounded ceiling lets a pathological effect chain (or a
-                // mis-reported / transform-rescaled source density) ratchet the working surface without limit →
-                // OOM on long renders. The cap is generous (≥ 8× device, ≥ 4× the SSAA output) so it never clips
-                // legitimate high-density sources, and it is the hard bound on the working scale (there is no
-                // per-effect escape — an effect wanting more resolution oversamples within this ceiling).
-                // Centralized in WorkingScaleCeiling (one definition, unit-tested) — see S3.
+                // Export imposes NO working-scale quality ceiling (WorkingScaleCeiling.Export = +∞): the delivery
+                // render follows the true supply density, so a deliberately-authored high-density source exports
+                // at full fidelity rather than being clipped by a policy constant (the earlier finite
+                // max(8, 4×s_out) cap was a quality clip masquerading as an OOM backstop). Allocatability is
+                // guaranteed per-buffer by RenderNodeContext.ClampWorkingScaleToBufferBudget (16384 px/axis); the
+                // cross-buffer aggregate OOM bound (a request-scoped byte/area allocator) is a documented
+                // follow-up. Centralized in WorkingScaleCeiling (one definition, unit-tested) — see S3.
                 float maxWorkingScale = WorkingScaleCeiling.Export(renderScale);
                 using var renderer = new SceneRenderer(Model, renderScale, disableResourceShare: true, maxWorkingScale);
                 renderer.CacheOptions = RenderCacheOptions.Disabled;

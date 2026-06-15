@@ -34,8 +34,9 @@ public sealed partial class DrawableTextureSource : TextureSource
         private int _renderTargetVersion = -1;
         private int _lastWidth;
         private int _lastHeight;
+        private float _lastDensity = -1f;
 
-        public override ITexture2D? GetTexture(IGraphicsContext graphicsContext)
+        public override ITexture2D? GetTexture(IGraphicsContext graphicsContext, float surfaceDensity = 1f)
         {
             if (Drawable == null)
             {
@@ -43,31 +44,51 @@ public sealed partial class DrawableTextureSource : TextureSource
                 return null;
             }
 
+            // The authored TextureWidth/Height are LOGICAL dimensions. feature 003: the 3D surface this texture
+            // is sampled onto is rendered at `surfaceDensity` device px per logical unit, so rasterize the
+            // re-rasterizable Drawable at that density (ceil(logical × density)) instead of a fixed author pixel
+            // count — otherwise a crisp vector label/logo is frozen at the authored size and GPU-magnified on a
+            // supersampled / high-density surface (the exact "vector should re-rasterize at output density"
+            // failure 003 exists to fix). Clamp the density so the scaled texture stays GPU-allocatable, and key
+            // the cached render target on the DEVICE size so a surfaceDensity change rebuilds it. At
+            // surfaceDensity == 1 device == logical and every value below collapses to the pre-feature path
+            // (byte-identical).
             int textureWidth = TextureWidth;
             int textureHeight = TextureHeight;
+            float density = float.IsFinite(surfaceDensity) && surfaceDensity > 0f ? surfaceDensity : 1f;
+            density = RenderNodeContext.ClampWorkingScaleToBufferBudget(
+                new Rect(0, 0, textureWidth, textureHeight), density);
+            int deviceWidth = Math.Max(1, (int)Math.Ceiling(textureWidth * (double)density));
+            int deviceHeight = Math.Max(1, (int)Math.Ceiling(textureHeight * (double)density));
 
-            if (_lastWidth != textureWidth || _lastHeight != textureHeight || _renderTarget == null)
+            if (_lastWidth != deviceWidth || _lastHeight != deviceHeight || _renderTarget == null)
             {
                 DisposeRenderTarget();
 
-                _renderTarget = RenderTarget.Create(textureWidth, textureHeight);
+                _renderTarget = RenderTarget.Create(deviceWidth, deviceHeight);
                 if (_renderTarget == null) return null;
 
-                _lastWidth = textureWidth;
-                _lastHeight = textureHeight;
+                _lastWidth = deviceWidth;
+                _lastHeight = deviceHeight;
+                _renderTargetVersion = -1; // force a re-render into the resized target
             }
 
-            if (_renderTargetVersion != Version)
+            // Re-render when the content changes (Version) OR when the density changed without changing the ceil'd
+            // device size (a small density delta on a tiny texture can leave deviceWidth/Height identical while the
+            // baked content density differs — without this the tile would be reused at the stale density).
+            if (_renderTargetVersion != Version || _lastDensity != density)
             {
+                _lastDensity = density;
                 _drawableNode ??= new DrawableRenderNode(Drawable);
                 _drawableNode.Update(Drawable);
-                using (var context = new GraphicsContext2D(_drawableNode, new Size(textureWidth, textureHeight)))
+                using (var context = new GraphicsContext2D(
+                           _drawableNode, new Size(textureWidth, textureHeight), density))
                 {
                     Drawable.GetOriginal().Render(context, Drawable);
                 }
 
-                var processor = new RenderNodeProcessor(_drawableNode, true);
-                using (var canvas = new ImmediateCanvas(_renderTarget))
+                var processor = new RenderNodeProcessor(_drawableNode, true, density);
+                using (var canvas = new ImmediateCanvas(_renderTarget, density))
                 {
                     canvas.Clear();
                     processor.Render(canvas);

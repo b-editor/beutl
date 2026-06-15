@@ -10,11 +10,13 @@ namespace Beutl.UnitTests.Engine.Graphics.Rendering.Golden;
 
 // feature 003 / FR-014 / contracts/shader-uniforms.md — the custom-shader scale-uniform contract:
 //   SKSL adds iScale = w; width/height/iResolution/fragCoord report DEVICE px (ceil(bounds × w)).
-//   GLSL adds NO new push constant — its Width/Height carry device px; the author derives w from them.
+//   GLSL adds a `scale` push constant = w (the clamped buffer density), mirroring SKSL's iScale; its
+//   Width/Height also carry device px.
 // EffectScaleParityTests already covers the SKSL iScale parity (its "SKSLScript-Border" case). This fixture
-// fills the two remaining gaps the contract names: (a) a scale-UNAWARE SKSL shader is byte-identical at w == 1
-// (the backward-compat guarantee), and (b)/(c) a GLSL shader anchored to device-px Width/Height keeps its
-// logical appearance across scales — there was previously NO GLSL scale test at all.
+// fills the remaining gaps the contract names: (a) a scale-UNAWARE SKSL shader is byte-identical at w == 1
+// (the backward-compat guarantee), (b)/(c) a GLSL shader anchored to device-px Width/Height keeps its logical
+// appearance across scales, and (d)/(e) a GLSL shader reading the new `scale` push constant keeps a fixed
+// LOGICAL size across scales — the direct GLSL analogue of the SKSL iScale disc test.
 [NonParallelizable]
 [TestFixture]
 public class ShaderScaleUniformTests
@@ -214,6 +216,81 @@ public class ShaderScaleUniformTests
             TestContext.WriteLine($"[GLSL device-px border] 2x-delivered vs 1:1 SSIM={ssim:F4}");
             Assert.That(ssim, Is.GreaterThan(0.95),
                 "supersampled GLSL border diverged from 1:1 — Width/Height did not carry device px (× w)");
+        });
+    }
+
+    // ---- (d)/(e) scale-AWARE GLSL reading the new `scale` push constant — the direct analogue of the SKSL
+    // iScale disc. The shader does NOT recover w from Width/Height (which it cannot do without knowing the
+    // logical bounds); it reads pc.scale directly and multiplies an absolute-px radius by it, so a fixed
+    // LOGICAL-radius (28 px) green disc keeps the same logical size at a reduced scale. If `scale` did NOT
+    // plumb through (stayed 1.0), the disc would be twice the logical size at w == 0.5 and the
+    // reduced-vs-1.0 comparison would fail. fragCoord is normalized 0..1 (fullscreen triangle), so device
+    // px = fragCoord * (Width, Height). ----
+    private const string GlslScaleDisc =
+        """
+        #version 450
+        layout(location = 0) in vec2 fragCoord;     // normalized 0..1
+        layout(location = 0) out vec4 outColor;
+        layout(set = 0, binding = 0) uniform sampler2D srcTexture;
+        layout(push_constant) uniform PushConstants {
+            float progress;
+            float duration;
+            float time;
+            float width;    // device px
+            float height;   // device px
+            float scale;    // working scale w
+        } pc;
+
+        void main() {
+            vec4 c = texture(srcTexture, fragCoord);
+            vec2 devCoord = fragCoord * vec2(pc.width, pc.height);
+            vec2 center = vec2(pc.width, pc.height) * 0.5;
+            float radius = 28.0 * pc.scale;          // 28 LOGICAL px -> device px via the scale uniform
+            if (length(devCoord - center) <= radius) {
+                outColor = vec4(0.0, 1.0, 0.0, 1.0);
+            } else {
+                outColor = c;
+            }
+        }
+        """;
+
+    private static FilterEffect MakeGlslScaleDiscEffect()
+    {
+        var e = new GLSLScriptEffect();
+        e.FragmentShader.CurrentValue = GlslScaleDisc;
+        return e;
+    }
+
+    // Vacuity guard: the scale-aware GLSL shader must compile AND visibly change the render so the parity
+    // test below is meaningful rather than passing on a silent no-op.
+    [Test]
+    public void Glsl_ScaleAware_CompilesAndApplies()
+    {
+        VulkanTestEnvironment.EnsureAvailable();
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            Assert.That(GLSLScriptEffect.ValidateScript(GlslScaleDisc), Is.Null, "scale-aware GLSL must compile");
+
+            using Bitmap disc = GoldenImageHarness.RenderAtScale(Make(MakeGlslScaleDiscEffect), Frame, 1f);
+            using Bitmap plain = GoldenImageHarness.RenderAtScale(Make(() => new FilterEffectGroup()), Frame, 1f);
+            double ssim = ImageMetrics.Ssim(disc, plain);
+            TestContext.WriteLine($"[GLSL scale guard] disc vs plain SSIM={ssim:F4}");
+            Assert.That(ssim, Is.LessThan(0.99),
+                "scale-aware GLSL disc did not change the render — the shader likely failed to compile/apply");
+        });
+    }
+
+    [Test]
+    public void Glsl_ScaleAware_ReducedScale_MatchesReference()
+    {
+        VulkanTestEnvironment.EnsureAvailable();
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            using Bitmap full = GoldenImageHarness.RenderAtScale(Make(MakeGlslScaleDiscEffect), Frame, 1f);
+            using Bitmap half = GoldenImageHarness.RenderAtScale(Make(MakeGlslScaleDiscEffect), Frame, 0.5f);
+            // The `scale`-shrunk disc must occupy the same logical region at reduced scale: upscale the 0.5
+            // render and assert it matches the 1.0 reference within SSIM/MAE.
+            GoldenImageHarness.AssertReducedScaleExact(full, half);
         });
     }
 }

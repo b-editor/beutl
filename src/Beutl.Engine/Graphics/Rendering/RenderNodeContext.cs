@@ -12,22 +12,32 @@ public class RenderNodeContext(
     /// <summary>
     /// The final render-target scale <c>s_out</c> for this pull (feature 003): device pixels per
     /// logical unit at the root. <c>1.0</c> means logical == device (byte-identical to pre-feature).
-    /// It is the final target only — never a ceiling on an intermediate boundary's working scale.
+    /// It is the per-pull working-scale <b>floor</b> (and the final blit density): a denser concrete
+    /// supply runs <i>above</i> it (it is never a ceiling on an intermediate — FR-016), and
+    /// <see cref="ResolveWorkingScale"/> floors the resolved <c>w</c> at it so an effect is not run below
+    /// the deliverable density. (The subsequent per-buffer dimension clamp
+    /// <see cref="ClampWorkingScaleToBufferBudget"/> (FR-037(b)) may still drive the final allocated density
+    /// below <c>s_out</c> for an over-budget buffer — the floor is on <see cref="ResolveWorkingScale"/>'s
+    /// output, not an end-to-end guarantee.) Sanitized to a positive-finite value at construction so every
+    /// downstream consumer (effects, particles, 3D) inherits a safe density without re-validating.
     /// </summary>
-    public float OutputScale { get; } = outputScale;
+    public float OutputScale { get; } =
+        float.IsFinite(outputScale) && outputScale > 0f ? outputScale : 1f;
 
     /// <summary>
     /// The global working-scale ceiling for this pull (feature 003, FR-037): preview caps it at
-    /// <c>2 × s_out</c> to bound interactive working scale; export passes a generous-but-finite
-    /// <c>max(8, 4 × s_out)</c> (high enough never to clip a legitimate high-resolution source, yet finite).
-    /// This bounds the working scale <c>w</c> ITSELF — it does NOT by itself guarantee OOM-safety: a single
-    /// buffer's memory scales <c>area × w²</c> (a clamped <c>16384²×8 ≈ 2 GiB</c> is still possible) and there is
-    /// no cross-buffer aggregate budget; a request-scoped byte/area allocator is the complete fix (follow-up).
-    /// Applied as the final <c>min(·, MaxWorkingScale)</c> in <see cref="ResolveWorkingScale"/>. The constructor
-    /// default is <c>+∞</c> (no ceiling) for non-render-request callers; production render requests always seed a
-    /// finite value.
+    /// <c>2 × s_out</c> to bound interactive working scale; export passes <c>+∞</c> — it imposes NO
+    /// working-scale quality ceiling, so the delivery render follows the true supply density. This bounds the
+    /// working scale <c>w</c> ITSELF — it does NOT by itself guarantee OOM-safety: a single buffer's memory
+    /// scales <c>area × w²</c> (a clamped <c>16384²×8 ≈ 2 GiB</c> is still possible). Allocatability is instead
+    /// guaranteed per-buffer by <see cref="ClampWorkingScaleToBufferBudget"/> (16384 px/axis); the cross-buffer
+    /// aggregate (a request-scoped byte/area allocator) is the complete fix (follow-up). Applied as the final
+    /// <c>min(·, MaxWorkingScale)</c> in <see cref="ResolveWorkingScale"/>. The constructor default is <c>+∞</c>
+    /// (no ceiling) for non-render-request callers; a NaN / non-positive seed is treated as <c>+∞</c> (no ceiling)
+    /// so a degenerate ceiling can never NaN-propagate into <c>w</c> or pull it to zero.
     /// </summary>
-    public float MaxWorkingScale { get; } = maxWorkingScale;
+    public float MaxWorkingScale { get; } =
+        float.IsNaN(maxWorkingScale) || maxWorkingScale <= 0f ? float.PositiveInfinity : maxWorkingScale;
 
     public Rect CalculateBounds()
     {
@@ -36,68 +46,59 @@ public class RenderNodeContext(
 
     /// <summary>
     /// Computes the working scale <c>w</c> for a buffer-allocating boundary from its inputs' supply
-    /// densities and the request's output scale (feature 003, FR-036). Supply-driven: a concrete
-    /// (bitmap) input imposes its density; vector (<see cref="EffectiveScale.Unbounded"/>) inputs
-    /// impose none and rasterize at the output density. The output scale is NOT a ceiling on an
-    /// intermediate's working scale — only the global memory ceiling
-    /// (<paramref name="maxWorkingScale"/>) bounds it.
+    /// densities and the request's output scale (feature 003, FR-036):
+    /// <c>w = min( max(s_out, densest concrete supply), maxWorkingScale )</c>.
     /// </summary>
     /// <remarks>
-    /// An effect that needs a working scale other than the supply density (e.g. clamp-to-output for
-    /// perf, or oversample for SSAA) customizes its <see cref="FilterEffectRenderNode"/> via
+    /// <para>
+    /// Supply-driven on the high side: a concrete (bitmap) input runs the effect at its own density, so a
+    /// 2.0 source feeding a 1.0 timeline stays 2.0 — the output scale is <b>not a ceiling</b> on an
+    /// intermediate (FR-016); only <paramref name="maxWorkingScale"/> bounds it from above.
+    /// </para>
+    /// <para>
+    /// The output scale <b>is a floor</b>: vector (<see cref="EffectiveScale.Unbounded"/>) inputs and any
+    /// sub-output concrete supply (an enlarged / low-density bitmap, e.g. <c>At(0.5)</c>) are lifted to
+    /// <c>s_out</c>. An effect's own working resolution (its blur kernel / shadow / shader grid) is a
+    /// distinct quantity from the source's available detail: running it below <c>s_out</c> only discards
+    /// resolution the delivery target can use, without fabricating any source detail. Flooring at
+    /// <c>s_out</c> therefore keeps an effect at the deliverable density (matching the pre-feature
+    /// renderer at export) while a denser source still lifts <c>w</c> above it. A genuine reduced-scale
+    /// proxy is preserved by the floor too: at a <c>0.5</c> preview a <c>At(0.5)</c> proxy gives
+    /// <c>max(0.5, 0.5) = 0.5</c> — unchanged — so reduced-scale preview stays cheap. At <c>s_out == 1</c>
+    /// with unit-scale / vector inputs this is <c>max(1, 1) == 1</c>, so the byte-identity anchor
+    /// (FR-005 / SC-001) is untouched.
+    /// </para>
+    /// <para>
+    /// An effect that needs a working scale other than this (e.g. clamp-to-output for perf, or oversample
+    /// for SSAA) customizes its <see cref="FilterEffectRenderNode"/> via
     /// <c>FilterEffect.Resource.CreateRenderNode()</c> and computes <c>w</c> directly in its
     /// <c>Process</c> override — there is intentionally no declarative per-effect policy knob.
+    /// </para>
     /// </remarks>
     /// <param name="inputs">The effective scales of the boundary's input operations.</param>
-    /// <param name="outputScale">The render request's output scale <c>s_out</c>.</param>
-    /// <param name="maxWorkingScale">A global ceiling (FR-037: 2×s_out preview, max(8, 4×s_out) export).</param>
+    /// <param name="outputScale">The render request's output scale <c>s_out</c> (the working-scale floor).</param>
+    /// <param name="maxWorkingScale">A global ceiling (FR-037: 2×s_out preview, +∞ export — dimension-clamped).</param>
     public static float ResolveWorkingScale(
         ReadOnlySpan<EffectiveScale> inputs,
         float outputScale,
         float maxWorkingScale = float.PositiveInfinity)
     {
-        // Defensive: a degenerate request scale (0 / negative / NaN / inf) must never reach the all-vector
-        // path where supply = outputScale would flow a non-finite or zero density into a zero-sized buffer.
-        // Production always passes a clamped, positive-finite outputScale (RenderScale.ToFloat / 1f); this only
-        // hardens the contract against misuse — mirroring the validation in At / ClampWorkingScaleToBufferBudget.
+        // Defensive: a degenerate request scale (0 / negative / NaN / inf) must never become the floor below
+        // (it would flow a non-finite or zero density into a zero-sized buffer). Production always passes a
+        // clamped, positive-finite outputScale (RenderScale.ToFloat / 1f); this only hardens the contract
+        // against misuse — mirroring the validation in At / ClampWorkingScaleToBufferBudget.
         if (!float.IsFinite(outputScale) || outputScale <= 0f)
             outputScale = 1f;
 
-        // supply = the densest concrete (bitmap) input. Unbounded (vector) inputs impose no supply
-        // on their own, but their presence alongside a bitmap raises the floor to the output density
-        // (see the mixed-content rule below).
-        float supply = 0f;
-        bool hasConcrete = false;
-        bool hasVector = false;
+        // w is floored at the deliverable density (s_out) and raised by the densest concrete (bitmap) input.
+        // Vector (Unbounded) inputs impose no supply, so an all-vector boundary stays at the floor.
+        float supply = outputScale;
         foreach (EffectiveScale e in inputs)
         {
-            if (e.IsUnbounded)
-            {
-                hasVector = true;
-                continue;
-            }
-
-            hasConcrete = true;
+            if (e.IsUnbounded) continue;
             if (e.Value > supply) supply = e.Value;
         }
 
-        if (!hasConcrete)
-        {
-            // No concrete supply => purely vector content; rasterize at the output density.
-            supply = outputScale;
-        }
-        else if (hasVector && outputScale > supply)
-        {
-            // Mixed bitmap + vector (C4/C5): a low-density bitmap must NOT drag re-rasterizable vector
-            // content (crisp text/shapes) down to its density. The vector half can always be drawn at the
-            // output density, so the floor is at least s_out — the bitmap's lower density only bounds itself,
-            // not the vector siblings. At s_out == 1 with a unit-scale bitmap this is max(1, 1) == 1, so the
-            // byte-identity anchor is untouched; it only lifts genuinely-mixed, sub-output cases.
-            supply = outputScale;
-        }
-
-        // Supply-driven (the former "Inherit" default, now the only behaviour): run at the supply
-        // density, bounded only by the global memory ceiling. s_out is not a ceiling here.
         return MathF.Min(supply, maxWorkingScale);
     }
 

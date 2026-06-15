@@ -67,6 +67,9 @@ internal sealed class Scene3DRenderNode(Scene3D.Resource scene) : RenderNode
         // and throws on vkCreateImage past the GPU axis limit: an 8192-wide scene under 4× export would size
         // 32768 px and crash the export. Mirror the 2D intermediates — clamp w to fit, recompute the surface, and
         // record the clamped density so the renderer's logical→device hit-test math stays consistent.
+        // EffectiveScale.At(w) below is safe (never throws on the pull path) because w is the OutputScale
+        // (sanitized positive-finite by RenderNodeContext) passed through ClampWorkingScaleToBufferBudget, which
+        // preserves finite-positive; a future w from another density must guard it (EffectiveScale.AtOrUnbounded).
         float w = RenderNodeContext.ClampWorkingScaleToBufferBudget(new Rect(0, 0, width, height), context.OutputScale);
         int dw = w == 1f ? width : (int)MathF.Ceiling(width * w);
         int dh = w == 1f ? height : (int)MathF.Ceiling(height * w);
@@ -103,8 +106,8 @@ internal sealed class Scene3DRenderNode(Scene3D.Resource scene) : RenderNode
         }
 
         // Record the density so the renderer's hit-test entry points (which take LOGICAL coordinates)
-        // can convert into this device-px surface — see Renderer3D.RenderScale.
-        renderer.RenderScale = w;
+        // can convert into this device-px surface — see Renderer3D.SurfaceDensity.
+        renderer.SurfaceDensity = w;
 
         var objectResources = new List<Object3D.Resource>();
         var lightResources = new List<Light3D.Resource>();

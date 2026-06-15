@@ -13,9 +13,9 @@ using Beutl.UnitTests.Engine.Graphics.Backend;
 namespace Beutl.UnitTests.Engine.Graphics3D;
 
 // feature 003 (FR-033 / FR-027): 3D picking takes LOGICAL coordinates, but the 3D surface is rendered at
-// ceil(logical × RenderScale) DEVICE pixels. Renderer3D.ToDevice multiplies the logical pick point by
-// RenderScale before HitTester3D builds the NDC ray, so a fixed logical point must resolve to the SAME object
-// regardless of the preview/export output scale. Without the × RenderScale conversion, picking on a
+// ceil(logical × SurfaceDensity) DEVICE pixels. Renderer3D.ToDevice multiplies the logical pick point by
+// SurfaceDensity before HitTester3D builds the NDC ray, so a fixed logical point must resolve to the SAME object
+// regardless of the preview/export output scale. Without the × SurfaceDensity conversion, picking on a
 // reduced-scale preview is off by that factor.
 //
 // This exercises HitTester3D.HitTest with EXACTLY the inputs Renderer3D.HitTest feeds it after ToDevice
@@ -129,9 +129,9 @@ public class HitTestRenderScaleTests
         Assert.That(ndcY, Is.EqualTo(0.0).Within(1e-6));
     }
 
-    // End-to-end guard through the REAL Renderer3D: render the sphere at RenderScale = scale (device surface
+    // End-to-end guard through the REAL Renderer3D: render the sphere at SurfaceDensity = scale (device surface
     // ceil(logical × scale), exactly as Scene3DRenderNode sizes it) and hit-test the LOGICAL centre via the
-    // live Renderer3D.HitTest, which applies its own ToDevice(× RenderScale). Unlike the CPU tests above this
+    // live Renderer3D.HitTest, which applies its own ToDevice(× SurfaceDensity). Unlike the CPU tests above this
     // would fail if Renderer3D.ToDevice itself regressed. Requires a 3D-capable GPU; skips otherwise.
     [TestCase(0.5f)]
     [TestCase(1.0f)]
@@ -162,7 +162,7 @@ public class HitTestRenderScaleTests
 
             using var renderer = new Renderer3D(ctx);
             renderer.Initialize(deviceWidth, deviceHeight);
-            renderer.RenderScale = scale; // mirrors Scene3DRenderNode: device surface is ceil(logical × scale)
+            renderer.SurfaceDensity = scale; // mirrors Scene3DRenderNode: device surface is ceil(logical × scale)
             renderer.Render(context, camera, objects, lights, Colors.Black, Colors.White, 0.1f);
 
             var logicalCenter = new Point(LogicalWidth / 2f, LogicalHeight / 2f);

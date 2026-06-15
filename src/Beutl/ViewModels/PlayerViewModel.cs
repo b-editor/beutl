@@ -1672,8 +1672,8 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
     /// (feature 003, US4 follow-up). The node tree is built in logical FrameSize coordinates; the
     /// processor rasterizes at <paramref name="outputScale"/>, so the bitmap is sized
     /// <c>ceil(elementBounds × outputScale)</c>. <c>outputScale == 1</c> is byte-identical to the
-    /// pre-feature path. Uses the export working-scale ceiling <c>max(8, 4 × s)</c> so a single saved
-    /// element can afford export fidelity rather than the preview's memory-bounded ceiling.
+    /// pre-feature path. Uses the export path's working scale (no quality ceiling — <c>+∞</c>) so a single
+    /// saved element can afford export fidelity rather than the preview's memory-bounded ceiling.
     /// </summary>
     public async Task<Bitmap> DrawSelectedDrawable(Drawable drawable, float outputScale = 1f)
     {
@@ -1715,12 +1715,12 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
                 var compositionFrame = renderer.Compositor.EvaluateGraphics(CurrentFrame.Value);
                 renderer.Render(compositionFrame);
 
-                // feature 003 (US4): the preview renderer draws onto a ceil(FrameSize × RenderScale)
+                // feature 003 (US4): the preview renderer draws onto a ceil(FrameSize × OutputScale)
                 // surface. Copy / save / region-crop all operate in logical FrameSize coordinates, so
-                // normalize the snapshot to exactly FrameSize first (RenderScale == 1 returns it
+                // normalize the snapshot to exactly FrameSize first (OutputScale == 1 returns it
                 // unchanged — byte-identical). Without this, Half/Quarter preview corrupts those features.
                 Bitmap snapshot = renderer.Snapshot();
-                Bitmap normalized = SupersampleDownscaler.ToFrameSize(snapshot, renderer.FrameSize, renderer.RenderScale);
+                Bitmap normalized = SupersampleDownscaler.ToFrameSize(snapshot, renderer.FrameSize, renderer.OutputScale);
                 if (!ReferenceEquals(normalized, snapshot))
                 {
                     snapshot.Dispose();
@@ -1760,9 +1760,9 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
             if (Scene == null) throw new Exception("Scene is null.");
 
             // Mirror OutputViewModel's one-shot export renderer: disableResourceShare so this render
-            // does not mutate Drawable resources owned by the live preview compositor, and the export
-            // working-scale ceiling max(8, 4 × s_out) instead of the preview's memory-bounded
-            // 2 × s_out — a single interactive frame can afford export fidelity.
+            // does not mutate Drawable resources owned by the live preview compositor, and the export path's
+            // working scale (no quality ceiling — +∞, allocatability backstopped per-buffer) instead of the
+            // preview's memory-bounded 2 × s_out — a single interactive frame can afford export fidelity.
             // Threading: this whole closure runs on the render thread; the Renderer ctor's internal
             // RenderThread.Dispatcher.Invoke executes inline when already on it, and Render/Snapshot/
             // Dispose all require the render thread.

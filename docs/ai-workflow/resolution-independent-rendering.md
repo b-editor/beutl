@@ -11,7 +11,7 @@ filter effects, brushes, and shaders.
 
 | Scale | Type | Meaning |
 |---|---|---|
-| **Output scale `s_out`** | `Renderer.RenderScale` / `RenderNodeContext.OutputScale` | the final target only: device pixels per logical unit at the root. `1.0` = logical == device. |
+| **Output scale `s_out`** | `Renderer.OutputScale` / `RenderNodeContext.OutputScale` | the final target only: device pixels per logical unit at the root. `1.0` = logical == device. |
 | **Effective scale** | `RenderNodeOperation.EffectiveScale` | the supply density an op's pixels actually exist at. Vector ops are `Unbounded`; bitmap ops report `At(scale)`. |
 | **Working scale `w`** | `FilterEffectContext.WorkingScale` (+ `RenderNodeContext.ResolveWorkingScale`) | the density a buffer-allocating boundary runs at, negotiated from the inputs' supply densities (falling back to `s_out` for vector-only inputs), capped by `MaxWorkingScale`. There is no per-effect policy knob. |
 
@@ -41,8 +41,8 @@ the CTM handles it, and adding a manual `× w` would double-scale and regress th
   needs nothing. The built-ins already do this — Mosaic (`tileSize × w`), DisplacementMap (translate /
   pivot `× w`, and the displacement-map shader gets a `CreateScale(w)` local matrix so it shares the base
   texture's device-px coord space), PartsSplit (contour bounds `/ w`), SKSL (`iResolution`/`width`/`height`
-  `× w` + `iScale = w`), GLSL (`Width`/`Height` push constants `× w` — there is NO `iScale`/`uScale` in
-  GLSL) — verified by `CustomEffectSupersampleTests` (Mosaic + DisplacementMap 2×-delivered vs 1:1 SSIM
+  `× w` + `iScale = w`), GLSL (`Width`/`Height` push constants `× w`, plus a `scale` push constant `= w`
+  mirroring SKSL's `iScale`) — verified by `CustomEffectSupersampleTests` (Mosaic + DisplacementMap 2×-delivered vs 1:1 SSIM
   1.0000; Mosaic strictly closer to ground truth than 1:1).
 - **Working scale (supply-driven).** Every effect runs at its **input supply density** — the densest
   concrete (bitmap) input, with `s_out` as the floor for vector-only/mixed boundaries, capped only by the

@@ -21,16 +21,19 @@ Author rule: a UV-normalized shader (`fragCoord / iResolution`) auto-corrects ac
 
 ## GLSL (`GLSLScriptEffect.cs`)
 
-**As shipped, GLSL adds NO new push constant** (no ABI/`StructLayout` change — the `PushConstants` struct stays `Progress`/`Duration`/`Time`/`Width`/`Height`). The resolution constants instead carry the working density:
+GLSL carries the working scale in a dedicated **`scale`** push constant, mirroring SKSL's `iScale`. The private `PushConstants` struct is `Progress`/`Duration`/`Time`/`Width`/`Height`/`Scale` and the default-template `layout(push_constant)` block declares the matching `float scale;` member.
 
 | Push constant | Meaning | Under working scale `w` |
 |---|---|---|
-| `Width`, `Height` | target size, device px (× w) | `ceil(logicalBounds.W/H × w)` |
+| `width`, `height` | target size, device px (× w) | `ceil(logicalBounds.W/H × w)` |
+| **`scale`** | working scale `w` | `w` (default `1.0`) |
 
-A GLSL author derives the working scale from the device-px `Width`/`Height` (e.g. relative to the logical size the shader expects); there is no `uScale`/`Scale` uniform. If a dedicated GLSL scale push constant is wanted for parity with SKSL's `iScale`, add it as a follow-up (it would be an MIT-side ABI change — GLSL effects run in-process via the engine's Vulkan/SkSL pipeline, NOT the FFmpeg GPL worker, so the license firewall is unaffected).
+`scale` is the **clamped buffer density** — `ResolveTargetDensity(bounds)` = `ClampWorkingScaleToBufferBudget(bounds, WorkingScale)`, the exact density the `ceil(bounds × w)` device buffer is allocated at — so it agrees with the buffer the shader iterates, identical to the value SKSL binds to `iScale`. A GLSL author multiplies an absolute-pixel literal by `scale`, e.g. `float border = 10.0 * pc.scale;`, instead of recovering `w` from `Width`/`Height` (which a shader cannot do without knowing the logical bounds — that recovery breaks across clips and under scale animation).
+
+Adding the field is **purely additive and within the existing 128-byte push-constant budget**: `VulkanPipeline3D` hard-codes a 128-byte push-constant range and the upload is sized dynamically from `sizeof(T)`; the 6-float struct is 24 bytes, and `PushConstants` is private so the change has no public ABI surface. GLSL effects run in-process via the engine's Vulkan/SkSL pipeline, NOT the FFmpeg GPL worker, so the MIT/GPL boundary is unaffected.
 
 ## Backward-compatibility rule
 
-- A shader that does not reference `iScale` (SKSL) — or the device-px `Width`/`Height` (GLSL) — produces identical output to today at `w=1.0` and renders at the (smaller/larger) device target at `w≠1.0` — i.e. it behaves exactly as if scale were 1.0 in its own pixel space.
+- A shader that does not reference `iScale` (SKSL) / `scale` (GLSL) produces identical output to today at `w=1.0` and renders at the (smaller/larger) device target at `w≠1.0` — i.e. it behaves exactly as if scale were 1.0 in its own pixel space.
 - Existing uniforms are **never** silently redefined to logical units.
-- Document `iScale` (SKSL) in the shader-authoring docs — there is **no** `uScale`/`Scale` uniform (GLSL derives the working scale from the device-px `Width`/`Height`); add a golden test asserting a scale-unaware shader is byte-identical at `w=1.0` and a scale-aware shader (`radius = N * iScale`) matches its 1.0 reference within the SSIM threshold at a reduced scale.
+- Document `iScale` (SKSL) and `scale` (GLSL) in the shader-authoring docs; add a golden test asserting a scale-unaware shader is byte-identical at `w=1.0` and a scale-aware shader (`radius = N * iScale` / `radius = N * pc.scale`) matches its 1.0 reference within the SSIM threshold at a reduced scale.

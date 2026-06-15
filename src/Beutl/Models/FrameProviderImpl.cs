@@ -51,10 +51,10 @@ public sealed class FrameProviderImpl : IFrameProvider, IDisposable
         Bitmap snapshot = _renderer.Snapshot();
 
         // Export supersampling (feature 003, FR-026/FR-034): the renderer drew at ceil(FrameSize ×
-        // RenderScale). Resample to EXACTLY FrameSize before encode so the delivered frame is always
-        // output resolution. RenderScale == 1 returns the snapshot unchanged (byte-identical export).
+        // OutputScale). Resample to EXACTLY FrameSize before encode so the delivered frame is always
+        // output resolution. OutputScale == 1 returns the snapshot unchanged (byte-identical export).
         // Shared kernel via SupersampleDownscaler so export / still-frame / goldens never diverge.
-        Bitmap normalized = SupersampleDownscaler.ToFrameSize(snapshot, _renderer.FrameSize, _renderer.RenderScale);
+        Bitmap normalized = SupersampleDownscaler.ToFrameSize(snapshot, _renderer.FrameSize, _renderer.OutputScale);
         if (!ReferenceEquals(normalized, snapshot))
         {
             snapshot.Dispose();

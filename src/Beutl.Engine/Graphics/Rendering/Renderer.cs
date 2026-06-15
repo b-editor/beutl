@@ -44,12 +44,16 @@ public class Renderer : IRenderer
 
     public Renderer(int width, int height, float renderScale = 1f, float maxWorkingScale = float.PositiveInfinity)
     {
+        // Sanitize the request scale ONCE at this boundary so OutputScale AND the DeviceSize derivation
+        // (and every downstream RenderNodeContext / RenderNodeProcessor) inherit the same positive-finite
+        // density — a degenerate 0/NaN/∞ would otherwise corrupt DeviceSize = ceil(width × scale).
+        float outputScale = float.IsFinite(renderScale) && renderScale > 0f ? renderScale : 1f;
         FrameSize = new PixelSize(width, height);
-        RenderScale = renderScale;
+        OutputScale = outputScale;
         MaxWorkingScale = maxWorkingScale;
         DeviceSize = new PixelSize(
-            (int)MathF.Ceiling(width * renderScale),
-            (int)MathF.Ceiling(height * renderScale));
+            (int)MathF.Ceiling(width * outputScale),
+            (int)MathF.Ceiling(height * outputScale));
         (_immediateCanvas, _surface) = RenderThread.Dispatcher.Invoke(() =>
         {
             RenderTarget surface = RenderTarget.Create(DeviceSize.Width, DeviceSize.Height)
@@ -123,18 +127,19 @@ public class Renderer : IRenderer
     /// The output scale <c>s_out</c> this renderer targets (feature 003): device pixels per logical
     /// unit at the root. <c>1.0</c> = logical == device. <see cref="FrameSize"/> stays logical.
     /// </summary>
-    public float RenderScale { get; }
+    public float OutputScale { get; }
 
     /// <summary>
     /// The working-scale ceiling for this renderer (feature 003, FR-037): preview passes <c>2 × s_out</c>
-    /// to bound interactive working scale; export passes a generous-but-finite <c>max(8, 4 × s_out)</c>.
-    /// The constructor default <c>+∞</c> (no ceiling) is for non-render-request callers only — production
-    /// render requests always seed a finite value. It only caps boundaries that resolve a working scale
-    /// above it.
+    /// to bound interactive working scale; export passes <c>+∞</c> (no working-scale quality ceiling — the
+    /// delivery render follows the true supply density, allocatability backstopped per-buffer by
+    /// <see cref="RenderNodeContext.ClampWorkingScaleToBufferBudget"/>). The constructor default <c>+∞</c>
+    /// (no ceiling) is also the value non-render-request callers get. It only caps boundaries that resolve a
+    /// working scale above it.
     /// </summary>
     public float MaxWorkingScale { get; }
 
-    /// <summary>The physical backing-surface size, <c>ceil(FrameSize × RenderScale)</c>.</summary>
+    /// <summary>The physical backing-surface size, <c>ceil(FrameSize × OutputScale)</c>.</summary>
     public PixelSize DeviceSize { get; }
 
     public void Dispose()
@@ -173,9 +178,9 @@ public class Renderer : IRenderer
             {
                 _immediateCanvas.Clear();
 
-                // Root output scale (feature 003): the canvas bakes the base CTM CreateScale(RenderScale)
-                // at construction, mapping logical content onto the ceil(FrameSize × RenderScale) device
-                // surface — vector / text / Skia-filter content re-rasterizes crisply for free. RenderScale
+                // Root output scale (feature 003): the canvas bakes the base CTM CreateScale(OutputScale)
+                // at construction, mapping logical content onto the ceil(FrameSize × OutputScale) device
+                // surface — vector / text / Skia-filter content re-rasterizes crisply for free. OutputScale
                 // == 1 is a true no-op base (byte-identical). The FPS overlay re-enters device space itself
                 // (FpsText.FpsDrawer.Dispose -> PushDeviceSpace) so it stays unscaled despite the pinned base.
                 RenderObjects(frame);
@@ -218,12 +223,12 @@ public class Renderer : IRenderer
 
         if (shouldRender)
         {
-            using var ctx = new GraphicsContext2D(entry.Node, FrameSize.ToSize(1), RenderScale);
+            using var ctx = new GraphicsContext2D(entry.Node, FrameSize.ToSize(1), OutputScale);
             drawable.Render(ctx, resource);
         }
 
         RevalidateAll(entry.Node);
-        var processor = new RenderNodeProcessor(entry.Node, CacheOptions.IsEnabled, RenderScale, MaxWorkingScale);
+        var processor = new RenderNodeProcessor(entry.Node, CacheOptions.IsEnabled, OutputScale, MaxWorkingScale);
         var ops = processor.PullToRoot();
         Rect bounds = Rect.Empty;
         foreach (var op in ops)
@@ -236,7 +241,7 @@ public class Renderer : IRenderer
         entry.Bounds = bounds;
         // Forward this renderer's scale pair so the cache rasterizes at the render density under the
         // FR-037 ceiling (not at the processor defaults density-1 / +∞).
-        RenderNodeCacheHelper.MakeCache(entry.Node, CacheOptions, RenderScale, MaxWorkingScale);
+        RenderNodeCacheHelper.MakeCache(entry.Node, CacheOptions, OutputScale, MaxWorkingScale);
         return entry;
     }
 
@@ -316,7 +321,7 @@ public class Renderer : IRenderer
 
             if (shouldRender)
             {
-                using var ctx = new GraphicsContext2D(entry.Node, FrameSize.ToSize(1), RenderScale);
+                using var ctx = new GraphicsContext2D(entry.Node, FrameSize.ToSize(1), OutputScale);
                 drawable.Render(ctx, drawableResource);
             }
 
@@ -337,7 +342,7 @@ public class Renderer : IRenderer
             // its Renderer3D, particles re-rasterize on a scale flip), so a default-scale pull here would
             // thrash that state every hit test and escape the FR-037 ceiling. Hit-test results are logical,
             // so they are unchanged by this.
-            var processor = new RenderNodeProcessor(entry.Node, CacheOptions.IsEnabled, RenderScale, MaxWorkingScale);
+            var processor = new RenderNodeProcessor(entry.Node, CacheOptions.IsEnabled, OutputScale, MaxWorkingScale);
             var arr = processor.PullToRoot();
             try
             {
@@ -397,7 +402,7 @@ public class Renderer : IRenderer
         return [.. _allCurrentEntries.Where(e => e.Node.Drawable?.Resource.GetOriginal().ZIndex == zIndex).Select(e =>
         {
             // Same scale pair as the render pass — see HitTest for why a default-scale pull is wrong here.
-            var processor = new RenderNodeProcessor(e.Node, CacheOptions.IsEnabled, RenderScale, MaxWorkingScale);
+            var processor = new RenderNodeProcessor(e.Node, CacheOptions.IsEnabled, OutputScale, MaxWorkingScale);
             var ops = processor.PullToRoot();
             Rect bounds = Rect.Empty;
             foreach (var op in ops)

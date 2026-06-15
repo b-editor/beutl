@@ -17,18 +17,19 @@ public class WorkingScaleCeilingTests
         Assert.That(WorkingScaleCeiling.Preview(outputScale), Is.EqualTo(expected).Within(1e-6));
     }
 
-    [TestCase(1.0f, 8.0f)]   // s_out 1: the constant floor 8 binds (4×1 = 4 < 8), so a 4K-into-1080 source is un-clipped
-    [TestCase(0.5f, 8.0f)]   // reduced output still floored at 8
-    [TestCase(2.0f, 8.0f)]   // 4×2 = 8 == floor
-    [TestCase(4.0f, 16.0f)]  // 4×4 = 16 > 8, the multiplicative term binds
-    public void Export_IsMax8And4xOutputScale(float outputScale, float expected)
+    // Export imposes NO working-scale quality ceiling: the delivery render follows the true supply density so an
+    // authored high-density source (e.g. a 4096-px logo shrunk into a small box, supply ≈ 16) exports at full
+    // fidelity. Allocatability is guaranteed per-buffer by ClampWorkingScaleToBufferBudget, not by this policy.
+    [TestCase(1.0f)]
+    [TestCase(0.5f)]
+    [TestCase(8.0f)]
+    public void Export_HasNoWorkingScaleCeiling(float outputScale)
     {
-        Assert.That(WorkingScaleCeiling.Export(outputScale), Is.EqualTo(expected).Within(1e-6));
+        Assert.That(WorkingScaleCeiling.Export(outputScale), Is.EqualTo(float.PositiveInfinity));
     }
 
-    // The whole reason the two ceilings differ (FR-037 preview/export divergence): preview is the tighter bound,
-    // so a high-density source's resolution-sensitive effects can run at a different working scale in Full
-    // preview than in export. This guards that the policy keeps preview < export at s_out = 1.
+    // The two ceilings differ (FR-037 preview/export divergence): preview is the tighter, finite bound that keeps
+    // interactive renders cheap, while export is unbounded (delivery fidelity). This guards preview < export.
     [Test]
     public void Preview_IsTighterThanExport_AtFullScale()
     {

@@ -27,7 +27,8 @@ public readonly struct RenderContext3D
         Vector3 cameraPosition,
         Vector3 ambientColor,
         IReadOnlyList<LightData> lights,
-        CompositionContext compositionContext)
+        CompositionContext compositionContext,
+        float surfaceDensity = 1f)
     {
         GraphicsContext = graphicsContext;
         RenderPass = renderPass;
@@ -38,6 +39,7 @@ public readonly struct RenderContext3D
         AmbientColor = ambientColor;
         Lights = lights;
         CompositionContext = compositionContext;
+        SurfaceDensity = surfaceDensity;
     }
 
     /// <summary>
@@ -85,6 +87,13 @@ public readonly struct RenderContext3D
     /// May be null if not provided during 3D rendering.
     /// </summary>
     public CompositionContext CompositionContext { get; }
+
+    /// <summary>
+    /// The density (device pixels per logical unit) the surface is rendered at (feature 003), mirroring
+    /// <see cref="IRenderer3D.SurfaceDensity"/>. Forwarded to <see cref="Textures.TextureSource.Resource.GetTexture"/>
+    /// so a re-rasterizable texture source can rasterize at the surface density instead of a fixed pixel count.
+    /// </summary>
+    public float SurfaceDensity { get; }
 
     /// <summary>
     /// Gets the primary directional light direction (for backwards compatibility).

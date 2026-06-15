@@ -107,6 +107,17 @@ public static class RenderNodeCacheHelper
         // density. Density-preserving cross-scale cache reuse (rasterize each tile at its own working scale and
         // store a per-tile density) is the deferred proper fix (T025); until then, transparency wins over the
         // cache-hit on these specific high-density subtrees.
+        //
+        // The symmetric BELOW-output case (an enlarged At(0.5) bitmap) is already transparent: ResolveWorkingScale
+        // floors the working scale at outputScale (w = max(s_out, supply)), so such an input ALREADY resolves to
+        // w = outputScale whether it is cached (replayed At(outputScale)) or not — the cache tag and the live tag
+        // agree, so there is no temporal "snap" when the cache warms. The one residual non-transparency is a
+        // re-rasterizable VECTOR subtree (text/shape) cached as a 1× tile and then sampled into a HIGHER-w buffer
+        // raised by a DENSER concrete SIBLING under a shared effect: the frozen tile is up-scaled where uncached
+        // vector would re-rasterize crisply. Rejecting all vector caching to close that narrow case would gut the
+        // render-count cache's primary purpose (caching static text/shapes, the dominant cacheable content), a
+        // net loss; the proper fix is the same per-tile-density cache (T025). So we reject only the above-output
+        // case here and leave vector caching on.
         if (ops.Any(o => !o.EffectiveScale.IsUnbounded && o.EffectiveScale.Value > outputScale))
         {
             foreach (var op in ops)

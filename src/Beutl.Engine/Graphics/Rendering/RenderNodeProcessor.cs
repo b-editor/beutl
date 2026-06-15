@@ -13,9 +13,12 @@ public class RenderNodeProcessor(
 
     /// <summary>
     /// The output scale <c>s_out</c> seeded into every <see cref="RenderNodeContext"/> this processor
-    /// pulls (feature 003). <c>1.0</c> = logical == device (byte-identical to pre-feature).
+    /// pulls (feature 003). <c>1.0</c> = logical == device (byte-identical to pre-feature). Sanitized to a
+    /// positive-finite value so a degenerate scale can never corrupt the <see cref="RasterizeAt"/> sizing
+    /// (<c>PixelRect.FromRect(bounds, w)</c>) or flow downstream — mirrors the same guard in
+    /// <see cref="Renderer"/> and <see cref="RenderNodeContext"/>.
     /// </summary>
-    public float OutputScale { get; } = outputScale;
+    public float OutputScale { get; } = float.IsFinite(outputScale) && outputScale > 0f ? outputScale : 1f;
 
     /// <summary>
     /// The working-scale ceiling (FR-037) seeded into every <see cref="RenderNodeContext"/> this processor

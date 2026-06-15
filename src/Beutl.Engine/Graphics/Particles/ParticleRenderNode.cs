@@ -37,6 +37,9 @@ internal sealed class ParticleRenderNode(ParticleEmitter.Resource particle) : Re
         // ceil(bounds × w) buffer (not a fixed 1x one) so it stays crisp under supersampled export and does not
         // over-allocate under reduced-scale preview. Particles have no concrete bitmap input (each per-particle
         // drawable re-rasterizes), so the supply-driven working density is just the output scale s_out.
+        // EffectiveScale.At(w) below is safe (cannot throw on the pull path) ONLY because w == OutputScale, which
+        // RenderNodeContext sanitizes to positive-finite; a future change that derives w from another density
+        // must guard it (EffectiveScale.AtOrUnbounded) — At throws on a non-finite value.
         float w = context.OutputScale;
         if (!_cachedRenderTarget.HasValue ||
             _renderScale != w ||

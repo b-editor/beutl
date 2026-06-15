@@ -183,7 +183,7 @@ public sealed partial class SceneDrawable : Drawable
             var size = frame.Value.Size;
             if (_renderer == null
                 || _renderer.FrameSize != size
-                || _renderer.RenderScale != w
+                || _renderer.OutputScale != w
                 || _renderer.MaxWorkingScale != context.MaxWorkingScale)
             {
                 _renderer?.Dispose();
