@@ -211,9 +211,14 @@ int16/int32/float) survive only at four I/O edges: decoder output
 converted to `Stereo16BitInteger` only for the OpenAL backend), and the GPL
 worker IPC (`IpcSampleProvider`). Converge on `AudioBuffer` as the single in-memory audio
 type: add interleave + sample-format helpers to `AudioBuffer` (planar float32 →
-interleaved float32 for XAudio2, → interleaved int16 for OpenAL/codecs), flip `ISampleProvider.Sample` and
+interleaved float32 for XAudio2, → interleaved int16 for OpenAL; the FFmpeg/AVF
+encoders take interleaved **float** and let their own `SampleConverter` pick the
+target `AVSampleFormat`, so codec output keeps its existing float/sample-format
+choices), flip `ISampleProvider.Sample` and
 `MediaReader.ReadAudio` to `AudioBuffer` (decoders deinterleave codec output), route
-device/codec output through the new helpers, ship planar float over IPC, then delete
+device/codec output through the new helpers, ship planar float over IPC (make the
+IPC protocol/buffer sizing channel-aware — today it is stereo-hardcoded,
+`SampleRate * 8` bytes), then delete
 `Pcm<T>`/`IPcm`/`ISample`/the sample structs/`Convert`/`AudioBuffer.ToPcm` (this also
 removes the latent `Pcm<T>.Slice` lifetime bug). Breaks the published `ISampleProvider`
 and `MediaReader.ReadAudio` plugin contracts and the IPC surface → `refactor!:` +
