@@ -4,7 +4,7 @@ using Beutl.Services;
 namespace PackageSample;
 
 [Export]
-public sealed class SampleExtension : LayerExtension
+public sealed class SampleExtension : Extension
 {
     public override string Name => "SampleExtension";
 
