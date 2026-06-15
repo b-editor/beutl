@@ -3,6 +3,7 @@ using Beutl.Serialization;
 
 namespace Beutl.UnitTests.Core;
 
+[TestFixture]
 public class LegacyTypeNamesTests
 {
     [Test]
