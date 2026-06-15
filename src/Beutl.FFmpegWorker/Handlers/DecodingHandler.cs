@@ -108,7 +108,17 @@ internal sealed partial class DecodingHandler : IDisposable
         if (state.RingBuffer != null)
             return HandleReadVideoRingBuffer(msg.Id, request.Frame, state.RingBuffer);
 
-        return HandleReadVideoLegacy(msg.Id, request, state);
+        // HandleOpen provisions a VideoRingBuffer for every reader that reports a video stream,
+        // so a null ring buffer here is never a normal "frame not available" result. Fail loudly
+        // with context (instead of a silent Success = false) so both IPC misuse and a broken
+        // invariant surface as an explicit error to the caller.
+        return state.Reader.HasVideo
+            ? IpcMessage.CreateError(
+                msg.Id,
+                $"ReadVideo: reader {request.ReaderId} reports a video stream but has no ring buffer (invariant violation).")
+            : IpcMessage.CreateError(
+                msg.Id,
+                $"ReadVideo: reader {request.ReaderId} is audio-only and cannot satisfy a ReadVideo request.");
     }
 
     private static IpcMessage HandleReadVideoRingBuffer(int msgId, int frame, VideoRingBuffer ringBuffer)
@@ -131,91 +141,6 @@ internal sealed partial class DecodingHandler : IDisposable
             TransferFn = result.TransferFn,
             ToXyzD50 = result.ToXyzD50,
         });
-    }
-
-    private unsafe IpcMessage HandleReadVideoLegacy(int msgId, ReadVideoRequest request, ReaderState state)
-    {
-        state.ReaderLock.Wait();
-        try
-        {
-            // 共有メモリが未作成の場合、まず確保
-            string? newShmName = null;
-            if (state.VideoBuffer == null)
-            {
-                int videoWidth = state.Reader.VideoInfo.FrameSize.Width;
-                int videoHeight = state.Reader.VideoInfo.FrameSize.Height;
-                long newSize = (long)videoWidth * videoHeight * 8 + 64;
-                int gen = Interlocked.Increment(ref _shmGeneration);
-                newShmName = $"beutl-ffmpeg-video-{Environment.ProcessId}-{request.ReaderId}-{gen}";
-                state.VideoBuffer = SharedMemoryBuffer.Create(newShmName, newSize);
-            }
-
-            // 共有メモリに直接デコード
-            byte* ptr = state.VideoBuffer.AcquirePointer();
-            try
-            {
-                var destination = new Span<byte>(ptr, (int)state.VideoBuffer.Capacity);
-
-                if (!state.Reader.ReadVideo(request.Frame, destination, out var frameInfo))
-                {
-                    // バッファが小さい場合リサイズして再試行
-                    if (frameInfo.DataLength > 0 && frameInfo.DataLength > state.VideoBuffer.Capacity)
-                    {
-                        state.VideoBuffer.ReleasePointer();
-                        ptr = null;
-                        state.VideoBuffer.Dispose();
-                        long newSize = frameInfo.DataLength + 64;
-                        int gen = Interlocked.Increment(ref _shmGeneration);
-                        newShmName = $"beutl-ffmpeg-video-{Environment.ProcessId}-{request.ReaderId}-{gen}";
-                        state.VideoBuffer = SharedMemoryBuffer.Create(newShmName, newSize);
-
-                        ptr = state.VideoBuffer.AcquirePointer();
-                        destination = new Span<byte>(ptr, (int)state.VideoBuffer.Capacity);
-
-                        if (!state.Reader.ReadVideo(request.Frame, destination, out frameInfo))
-                        {
-                            return IpcMessage.Create(msgId, MessageType.ReadVideoResult,
-                                new ReadVideoResponse { Success = false, SharedMemoryName = newShmName });
-                        }
-                    }
-                    else
-                    {
-                        return IpcMessage.Create(msgId, MessageType.ReadVideoResult,
-                            new ReadVideoResponse { Success = false });
-                    }
-                }
-
-                // 色空間情報: 前フレームと異なる場合のみ送信
-                bool colorSpaceChanged = state.LastColorSpace != frameInfo.ColorSpace;
-                state.LastColorSpace = frameInfo.ColorSpace;
-                if (colorSpaceChanged || state.LastToXyzD50 == null || state.LastTransferFn == null)
-                {
-                    (state.LastTransferFn, state.LastToXyzD50) = ColorSpaceIpcHelper.Extract(frameInfo.ColorSpace);
-                }
-
-                return IpcMessage.Create(msgId, MessageType.ReadVideoResult, new ReadVideoResponse
-                {
-                    Success = true,
-                    Width = frameInfo.Width,
-                    Height = frameInfo.Height,
-                    BytesPerPixel = frameInfo.BytesPerPixel,
-                    DataLength = frameInfo.DataLength,
-                    IsHdr = frameInfo.IsHdr,
-                    SharedMemoryName = newShmName,
-                    TransferFn = colorSpaceChanged ? state.LastTransferFn : null,
-                    ToXyzD50 = colorSpaceChanged ? state.LastToXyzD50 : null,
-                });
-            }
-            finally
-            {
-                if (ptr != null)
-                    state.VideoBuffer!.ReleasePointer();
-            }
-        }
-        finally
-        {
-            state.ReaderLock.Release();
-        }
     }
 
     public unsafe IpcMessage HandleReadAudio(IpcMessage msg)
