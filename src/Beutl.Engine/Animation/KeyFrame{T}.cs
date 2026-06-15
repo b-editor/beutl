@@ -10,7 +10,6 @@ public sealed class KeyFrame<T> : KeyFrame, IKeyFrame
     public static readonly CoreProperty<T?> ValueProperty;
     internal static readonly Animator<T> s_animator;
     private T? _value;
-    private IKeyFrameAnimation? _parent;
 
     public KeyFrame()
     {
@@ -97,16 +96,6 @@ public sealed class KeyFrame<T> : KeyFrame, IKeyFrame
     private void OnPropertyEdited(object? sender, EventArgs e)
     {
         Edited?.Invoke(this, EventArgs.Empty);
-    }
-
-    void IKeyFrame.SetParent(IKeyFrameAnimation? parent)
-    {
-        _parent = parent;
-    }
-
-    IKeyFrameAnimation? IKeyFrame.GetParent()
-    {
-        return _parent;
     }
 
     //void IKeyFrame.SetDuration(TimeSpan timeSpan)

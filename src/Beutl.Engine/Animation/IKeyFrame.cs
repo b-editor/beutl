@@ -19,9 +19,5 @@ public interface IKeyFrame : ICoreObject, INotifyEdited, IHierarchical
 
     Easing Easing { get; set; }
 
-    void SetParent(IKeyFrameAnimation? parent);
-
-    IKeyFrameAnimation? GetParent();
-
     //void SetDuration(TimeSpan timeSpan);
 }

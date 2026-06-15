@@ -20,10 +20,6 @@ public sealed class RenderNodeCache(RenderNode node) : IDisposable
 
     public bool IsCached => _cache.Count != 0;
 
-    public int CacheCount => _cache.Count;
-
-    public DateTime LastAccessedTime { get; private set; }
-
     public bool IsDisposed { get; private set; }
 
     public void ReportRenderCount(int count)
@@ -89,7 +85,6 @@ public sealed class RenderNodeCache(RenderNode node) : IDisposable
 
         (RenderTarget, Rect) c = _cache[0];
         bounds = c.Item2;
-        LastAccessedTime = DateTime.UtcNow;
         return c.Item1.ShallowCopy();
     }
 
@@ -98,13 +93,10 @@ public sealed class RenderNodeCache(RenderNode node) : IDisposable
         Invalidate();
 
         _cache.Add((renderTarget.ShallowCopy(), bounds));
-
-        LastAccessedTime = DateTime.UtcNow;
     }
 
     public IEnumerable<(RenderTarget RenderTarget, Rect Bounds)> UseCache()
     {
-        LastAccessedTime = DateTime.UtcNow;
         return _cache.Select(i => (i.Item1.ShallowCopy(), i.Item2));
     }
 
@@ -116,7 +108,5 @@ public sealed class RenderNodeCache(RenderNode node) : IDisposable
         {
             _cache.Add((renderTarget.ShallowCopy(), bounds));
         }
-
-        LastAccessedTime = DateTime.UtcNow;
     }
 }
