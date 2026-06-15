@@ -99,7 +99,7 @@ public class ImageMetricsTests
     {
         using var clean = Flat(8, 8, 0.5f, 0.5f, 0.5f);
         using var dirty = Flat(8, 8, 0.5f, 0.5f, 0.5f);
-        // Inject a NaN into the green channel of pixel (3, 2) — mirrors a GPU blur emitting a non-finite pixel.
+        // NaN in the green channel of pixel (3, 2), mirroring a GPU blur emitting a non-finite pixel.
         Span<ushort> px = dirty.GetPixelSpan<ushort>();
         px[(2 * 8 + 3) * 4 + 1] = BitConverter.HalfToUInt16Bits(Half.NaN);
 
@@ -111,8 +111,8 @@ public class ImageMetricsTests
     [Test]
     public void Ssim_NonFiniteInput_IsNaN()
     {
-        // Documents why the parity test gates on FirstNonFinite: a single non-finite pixel poisons SSIM to NaN,
-        // which would otherwise assert as a misleading "scale diverged" failure.
+        // Why the parity test gates on FirstNonFinite: one non-finite pixel poisons SSIM to NaN,
+        // which would otherwise surface as a misleading "scale diverged" failure.
         using var clean = Flat(8, 8, 0.5f, 0.5f, 0.5f);
         using var dirty = Flat(8, 8, 0.5f, 0.5f, 0.5f);
         Span<ushort> px = dirty.GetPixelSpan<ushort>();
@@ -131,11 +131,10 @@ public class ImageMetricsTests
     [Test]
     public void WindowedSsim_CatchesLocalizedDefect_GlobalSsimDilutesIt()
     {
-        // Calibration: this is the exact failure mode the global single-window SSIM cannot see. A small
-        // localized defect (here a 14×14 flat-gray block punched into a 128×128 checkerboard, < 1.2% of pixels)
-        // leaves the GLOBAL SSIM high — its mean/variance is dominated by the matching background — yet the
-        // WINDOWED (min-tile) SSIM craters on the one tile that contains the defect. This proves the windowed
-        // metric supplies the localized-defect sensitivity the parity gate's global SSIM lacks.
+        // The failure mode global single-window SSIM cannot see: a small localized defect (a 14×14 flat-gray
+        // block in a 128×128 checkerboard, < 1.2% of pixels) leaves global SSIM high because its mean/variance
+        // is dominated by the matching background, yet windowed (min-tile) SSIM craters on the defect tile.
+        // This is the localized-defect sensitivity the parity gate's global SSIM lacks.
         using Bitmap baseImg = Checkerboard(128, 128);
         using Bitmap defect = Checkerboard(128, 128);
         Span<ushort> span = defect.GetPixelSpan<ushort>();

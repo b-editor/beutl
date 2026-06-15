@@ -44,15 +44,12 @@ public sealed partial class DrawableTextureSource : TextureSource
                 return null;
             }
 
-            // The authored TextureWidth/Height are LOGICAL dimensions. feature 003: the 3D surface this texture
-            // is sampled onto is rendered at `surfaceDensity` device px per logical unit, so rasterize the
-            // re-rasterizable Drawable at that density (ceil(logical × density)) instead of a fixed author pixel
-            // count — otherwise a crisp vector label/logo is frozen at the authored size and GPU-magnified on a
-            // supersampled / high-density surface (the exact "vector should re-rasterize at output density"
-            // failure 003 exists to fix). Clamp the density so the scaled texture stays GPU-allocatable, and key
-            // the cached render target on the DEVICE size so a surfaceDensity change rebuilds it. At
-            // surfaceDensity == 1 device == logical and every value below collapses to the pre-feature path
-            // (byte-identical).
+            // TextureWidth/Height are LOGICAL; the 3D surface samples this texture at `surfaceDensity` device px
+            // per logical unit. Rasterize the Drawable at that density (ceil(logical × density)) so a vector
+            // label/logo re-rasterizes crisply instead of being frozen at author size and GPU-magnified on a
+            // high-density surface. Clamp the density to keep the texture GPU-allocatable, and key the cached
+            // render target on the DEVICE size so a density change rebuilds it. At surfaceDensity == 1 device ==
+            // logical and this collapses to the pre-feature path (byte-identical).
             int textureWidth = TextureWidth;
             int textureHeight = TextureHeight;
             float density = float.IsFinite(surfaceDensity) && surfaceDensity > 0f ? surfaceDensity : 1f;
@@ -73,9 +70,9 @@ public sealed partial class DrawableTextureSource : TextureSource
                 _renderTargetVersion = -1; // force a re-render into the resized target
             }
 
-            // Re-render when the content changes (Version) OR when the density changed without changing the ceil'd
-            // device size (a small density delta on a tiny texture can leave deviceWidth/Height identical while the
-            // baked content density differs — without this the tile would be reused at the stale density).
+            // Re-render on a content change (Version) OR a density change: a small density delta on a tiny texture
+            // can leave the ceil'd device size identical while the baked content density differs, so checking size
+            // alone would reuse the tile at the stale density.
             if (_renderTargetVersion != Version || _lastDensity != density)
             {
                 _lastDensity = density;

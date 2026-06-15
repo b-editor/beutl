@@ -19,12 +19,9 @@ public sealed class EffectTarget : IDisposable
         _target = renderTarget.ShallowCopy();
         OriginalBounds = originalBounds;
         Bounds = originalBounds;
-        // feature 003 (I3): a RenderTarget is a CONCRETE bitmap buffer — it can never be re-rasterizable
-        // Unbounded vector. An omitted/Unbounded scale historically meant "this buffer is at density 1" (the
-        // point-blit convention), but leaving it Unbounded created a self-contradictory state that Draw read as
-        // density 1 while CustomFilterEffectContext.Open reads the buffer at WorkingScale — two different
-        // densities for the same buffer. Record the concrete density explicitly (Unbounded => At(1)) so a
-        // RenderTarget-backed target always carries a coherent density.
+        // feature 003 (I3): a RenderTarget is a CONCRETE bitmap buffer, never an Unbounded vector. An
+        // Unbounded scale here is contradictory — Draw reads it as density 1 while CustomFilterEffectContext.Open
+        // reads the buffer at WorkingScale. Map Unbounded => At(1) so the density is always concrete and coherent.
         Scale = scale.IsUnbounded ? EffectiveScale.At(1f) : scale;
     }
 
@@ -37,9 +34,9 @@ public sealed class EffectTarget : IDisposable
     public Rect Bounds { get; set; }
 
     /// <summary>
-    /// The supply density of this target's backing pixels (feature 003). <see cref="EffectiveScale.Unbounded"/>
-    /// for a vector <see cref="NodeOperation"/>; a concrete <see cref="EffectiveScale.At"/> for a flushed
-    /// <see cref="RenderTarget"/> buffer rendered at a working scale. Drives mixed-scale reconciliation.
+    /// The supply density of this target's backing pixels (feature 003), driving mixed-scale reconciliation.
+    /// <see cref="EffectiveScale.Unbounded"/> for a vector <see cref="NodeOperation"/>; a concrete
+    /// <see cref="EffectiveScale.At"/> for a flushed <see cref="RenderTarget"/> buffer at its working scale.
     /// </summary>
     public EffectiveScale Scale { get; set; }
 
@@ -74,15 +71,14 @@ public sealed class EffectTarget : IDisposable
         if (RenderTarget != null)
         {
             // feature 003: a buffer captured At(w) is ceil(footprint × w) device px; draw it into its OWN
-            // LOGICAL footprint = pixel size ÷ w (origin-anchored, mirroring the point-blit at (0,0)) so the
-            // ambient CTM maps it. The footprint is derived from the buffer, NOT OriginalBounds, because a
-            // downstream filter (e.g. a blur/shadow wrapped in DelayAnimation) can inflate OriginalBounds while
-            // the buffer still represents the original area — using OriginalBounds would stretch it. Unbounded /
-            // unit-scale keeps the bare point blit ONLY on a density-1 canvas (byte-identical pre-feature path);
-            // on a scaled canvas the point blit would be CTM-resampled with NEAREST sampling, so route it
-            // through the Mitchell blit instead — same geometry, consistent kernel. feature 003: key off the
-            // CURRENT density (1 ⇔ the active CTM is device-1:1, incl. inside a PushDeviceSpace block), not
-            // the immutable surface density.
+            // LOGICAL footprint = pixel size ÷ w (origin-anchored at (0,0)) so the ambient CTM maps it. Derive
+            // the footprint from the buffer, NOT OriginalBounds: a downstream filter (e.g. blur/shadow wrapped in
+            // DelayAnimation) can inflate OriginalBounds while the buffer still covers the original area, so
+            // OriginalBounds would stretch it. Keep the bare point blit ONLY on a density-1 canvas
+            // (byte-identical pre-feature path); on a scaled canvas it would be CTM-resampled with NEAREST, so
+            // route through the Mitchell blit instead — same geometry, consistent kernel. Key off the CURRENT
+            // density (1 ⇔ active CTM is device-1:1, incl. inside a PushDeviceSpace block), not the immutable
+            // surface density.
             if ((Scale.IsUnbounded || Scale.Value == 1f) && canvas.Density == 1f)
             {
                 canvas.DrawRenderTarget(RenderTarget, default);

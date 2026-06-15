@@ -73,14 +73,12 @@ public sealed class SceneSettingsTabViewModel : IToolContext
                 {
                     var frameSize = new Media.PixelSize(Width.Value, Height.Value);
 
-                    // Changing FrameSize rebuilds the SceneRenderer, whose constructor blocks the
-                    // UI thread on the render dispatcher; during playback the render thread is
-                    // occupied by the whole-playback BufferedPlayer work item, so applying
-                    // mid-playback would freeze the UI (with Pause unreachable) until the scene
-                    // ends. Pause and let the pipeline drain first. (Undo/redo of scene settings
-                    // during playback takes the same rebuild path but is not gated here; that case
-                    // is handled at the source instead — BufferedPlayer re-reads the current
-                    // renderer per frame and bails when the old one is disposed by the rebuild.)
+                    // Changing FrameSize rebuilds the SceneRenderer; its constructor blocks the UI
+                    // thread on the render dispatcher, which during playback is held by BufferedPlayer's
+                    // work item until the scene ends, so applying mid-playback would freeze the UI with
+                    // Pause unreachable. Pause and drain first. (Undo/redo takes the same rebuild path
+                    // but is not gated here; BufferedPlayer instead re-reads the renderer per frame and
+                    // bails when the old one is disposed.)
                     if ((frameSize != _scene.FrameSize
                             || start != _scene.Start
                             || duration != _scene.Duration)

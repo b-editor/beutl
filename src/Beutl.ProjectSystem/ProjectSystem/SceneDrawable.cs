@@ -175,10 +175,10 @@ public sealed partial class SceneDrawable : Drawable
             if (frame == null)
                 return [];
 
-            // feature 003 (FR-022/FR-019b): the nested scene MUST inherit the outer render scale and working-scale
-            // ceiling — otherwise a supersampled export rasterizes the inner scene at 1x and the root CTM upscales
-            // it (soft). OutputScale/MaxWorkingScale are immutable per outer renderer, so within one outer renderer
-            // this rebuild fires at most once; on an outer-scale change the whole node tree is rebuilt anyway.
+            // FR-022/FR-019b: the nested scene must inherit the outer render scale and working-scale ceiling, else a
+            // supersampled export rasterizes the inner scene at 1x and the root CTM upscales it (soft). OutputScale and
+            // MaxWorkingScale are immutable per outer renderer, so this rebuild fires at most once; an outer-scale
+            // change rebuilds the whole node tree anyway.
             float w = context.OutputScale;
             var size = frame.Value.Size;
             if (_renderer == null
@@ -200,15 +200,13 @@ public sealed partial class SceneDrawable : Drawable
                     {
                         renderer.Render(frame.Value);
                         RenderTarget renderTarget = Renderer.GetInternalRenderTarget(renderer);
-                        // The inner surface is ceil(size × w) device px. A bare point-blit is device-1:1-correct
-                        // only when BOTH the buffer is density-1 (w == 1) AND the draw canvas is itself
-                        // device-1:1 (canvas.Density == 1) — so gate on both, mirroring EffectTarget.Draw. By the
-                        // FR-022 wiring the nested scene inherits the outer scale, so the two normally agree, but
-                        // keying off the draw-time canvas.Density too means a flush canvas at density ≠ 1 (an
-                        // FR-037(b) clamp / raised supply) correctly takes the Mitchell-resampled scaled blit
-                        // instead of a NEAREST point-blit. Otherwise draw into the LOGICAL bounds so the draw
-                        // canvas's baked base CTM CreateScale(density) maps the denser buffer onto the device
-                        // surface (crisp under SSAA export). w == 1 ∧ density == 1 stays byte-identical.
+                        // The inner surface is ceil(size × w) device px. A bare point-blit is device-1:1-correct only
+                        // when the buffer is density-1 (w == 1) AND the draw canvas is device-1:1 (canvas.Density == 1),
+                        // so gate on both, mirroring EffectTarget.Draw. Keying off canvas.Density too lets a flush
+                        // canvas at density != 1 (an FR-037(b) clamp / raised supply) take the Mitchell-resampled
+                        // scaled blit instead of a NEAREST point-blit; that scaled path draws into the LOGICAL bounds
+                        // so the canvas's baked base CTM CreateScale(density) maps the denser buffer onto the device
+                        // surface (crisp under SSAA export). w == 1 and density == 1 stays byte-identical.
                         if (w == 1f && canvas.Density == 1f)
                         {
                             canvas.DrawRenderTarget(renderTarget, default);

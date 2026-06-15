@@ -75,13 +75,11 @@ public partial class MosaicEffect : FilterEffect
 
             // child shaderとしてテクスチャ用のシェーダーを設定
             builder.Children["src"] = baseShader;
-            // feature 003 (FR-013): the shader runs in device-pixel space over a ceil(bounds × w) buffer,
-            // so the LOGICAL tile size scales by the working density to stay logically constant. A Relative
-            // origin resolves against the device buffer size (ToPixels yields device px already); an Absolute
-            // origin is a LOGICAL point that ToPixels passes through unchanged, so it scales by w like the
-            // tile size. w == 1 keeps every value unchanged (byte-identical). Use the CLAMPED density that
-            // ApplyToNewTarget's CreateTarget will resolve (FR-037(b)) so the device-px uniforms match the buffer
-            // — ResolveTargetDensity is the canonical clamp CreateTarget itself calls.
+            // feature 003 (FR-013): the shader runs in device-pixel space over a ceil(bounds × w) buffer, so the
+            // logical tile size scales by w to stay logically constant. A Relative origin already resolves to device
+            // px (ToPixels), but an Absolute origin is logical and passes through ToPixels unchanged, so it scales by
+            // w too. w == 1 leaves every value byte-identical. Use ResolveTargetDensity — the clamped density (FR-037(b))
+            // that CreateTarget itself applies — so the device-px uniforms match the buffer.
             float w = c.ResolveTargetDensity(effectTarget.Bounds);
             builder.Uniforms["tileSize"] = new Size(data.tileSize.Width * w, data.tileSize.Height * w).ToSKSize();
             Point origin = data.origin.Unit == RelativeUnit.Relative

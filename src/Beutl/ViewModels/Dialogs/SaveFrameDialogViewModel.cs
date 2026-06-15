@@ -8,10 +8,9 @@ using Reactive.Bindings;
 namespace Beutl.ViewModels.Dialogs;
 
 /// <summary>
-/// Backs the save-frame scale-choice dialog (feature 003, US4 follow-up): the user picks an
-/// output-resolution multiplier before the current frame / selected element is rendered and saved.
-/// The dialog is non-persisted; the chosen <see cref="SelectedScale"/> drives a one-shot full-fidelity
-/// render at <c>ceil(<paramref name="baseSize"/> × scale)</c>.
+/// Backs the save-frame scale-choice dialog: the user picks an output-resolution multiplier before the
+/// current frame / selected element is rendered and saved. The chosen <see cref="SelectedScale"/> drives
+/// a one-shot full-fidelity render at <c>ceil(<paramref name="baseSize"/> × scale)</c>.
 /// </summary>
 public sealed class SaveFrameDialogViewModel
 {
@@ -59,6 +58,6 @@ public sealed class SaveFrameDialogViewModel
     /// <summary>Localized warning when the scaled surface exceeds the per-axis buffer limit; otherwise null.</summary>
     public ReadOnlyReactivePropertySlim<string?> Warning { get; }
 
-    /// <summary>Whether the current scale can be rendered (i.e. it fits the buffer limit).</summary>
+    /// <summary>Whether the current scale fits the buffer limit and can be rendered.</summary>
     public ReadOnlyReactivePropertySlim<bool> CanSave { get; }
 }

@@ -96,17 +96,13 @@ public sealed partial class SKSLScriptEffect : FilterEffect
                 builder.Uniforms["duration"] = data.duration;
             if (effect.Uniforms.Contains("time"))
                 builder.Uniforms["time"] = data.time;
-            // feature 003 (FR-014): the user shader evaluates in DEVICE pixels over a ceil(bounds × w)
-            // buffer, so resolution uniforms report device px (× w). Normalized-uv shaders are unaffected;
-            // absolute-px shaders can read iScale = w. At w == 1 every value is unchanged (byte-identical).
-            // Use the CLAMPED density ApplyToNewTarget's CreateTarget resolves (FR-037(b)) so the uniforms
-            // match the buffer, matching the Mosaic/ColorShift siblings. ResolveTargetDensity is the ONE
-            // canonical clamp CreateTarget itself calls (same bounds), so the uniforms can never drift from
-            // the allocated buffer.
+            // FR-014: the shader evaluates in device px over a ceil(bounds × w) buffer, so resolution
+            // uniforms report device px. Normalized-uv shaders are unaffected; absolute-px shaders read
+            // iScale = w; at w == 1 every value is byte-identical. Use the same clamped density (FR-037(b))
+            // CreateTarget itself resolves, so the uniforms can never drift from the allocated buffer.
             float w = c.ResolveTargetDensity(effectTarget.Bounds);
-            // Report the EXACT device dimensions the buffer is allocated at (ceil(bounds × w), or the (int)
-            // truncation at w == 1) — not the un-ceiled bounds × w, which at fractional bounds left a
-            // fragCoord/iResolution-normalized shader overrunning ~1 px past 1.0 on the last row/column.
+            // Report the buffer's exact allocated device dimensions, not un-ceiled bounds × w: at fractional
+            // bounds the latter let an iResolution-normalized shader overrun ~1 px past 1.0 on the last row/column.
             (int devW, int devH) = CustomFilterEffectContext.DeviceBufferSize(effectTarget.Bounds, w);
             if (effect.Uniforms.Contains("width"))
                 builder.Uniforms["width"] = (float)devW;

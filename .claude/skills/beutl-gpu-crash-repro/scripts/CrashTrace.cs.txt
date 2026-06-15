@@ -3,8 +3,8 @@
 //
 //     CrashTrace.Mark($"DC count={_baseSaveCount} refs={...} freed={...}");  // right before Canvas.RestoreToCount(...)
 //
-// A native segfault dies INSIDE the native call, AFTER this flushed write, so /dumps/lastrestore.txt retains
-// the crashing site's tag (the file is overwritten each call; SetLength avoids stale trailing bytes).
+// A native segfault dies inside the native call, after this flushed write, so /dumps/lastrestore.txt holds
+// the crashing site's tag. The file is overwritten each call; SetLength avoids stale trailing bytes.
 //
 // Inject all candidate sites at once, e.g. for the 5 CanvasPushedState.Pop overloads + DisposeCore:
 //   perl -0pi -e 's/(canvas\.Canvas\.RestoreToCount\(Count\);)/CrashTrace.Mark(\$"POP {GetType().Name} count={Count} cdisp={canvas.IsDisposed}"); $1/g' CanvasPushedState.cs
@@ -29,8 +29,8 @@ internal static class CrashTrace
             byte[] b = Encoding.ASCII.GetBytes(tag + " tid=" + Environment.CurrentManagedThreadId + "\n");
             s_fs.Write(b, 0, b.Length);
             s_fs.SetLength(b.Length);
-            // Plain Flush(), NOT Flush(true): the kernel keeps the file buffer after a segfault, so the OS
-            // write is enough to survive process death — and fsync-per-call is far too slow over millions of calls.
+            // Plain Flush(), NOT Flush(true): the OS write survives process death since the kernel keeps the
+            // file buffer after a segfault, and fsync-per-call is far too slow over millions of calls.
             s_fs.Flush();
         }
     }

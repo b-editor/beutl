@@ -3,7 +3,7 @@
 namespace Beutl.UnitTests.Engine.Media;
 
 // Feature 003 (T048): MediaOptions must stay additively extensible so a future decode-scale hint
-// can be added without changing today's behavior. No GPU required.
+// can be added without changing today's behavior.
 [TestFixture]
 public class MediaOptionsExtensibilityTests
 {
@@ -31,8 +31,7 @@ public class MediaOptionsExtensibilityTests
     [Test]
     public void WithExpression_PreservesOtherMembers()
     {
-        // The `with` clone is the additive-extension idiom: a future decode-scale hint will be
-        // settable this way without disturbing existing members.
+        // The `with` clone is how a future decode-scale hint gets set without disturbing existing members.
         var baseline = new MediaOptions(MediaMode.AudioVideo);
         var narrowed = baseline with { StreamsToLoad = MediaMode.Video };
         Assert.That(narrowed.StreamsToLoad, Is.EqualTo(MediaMode.Video));

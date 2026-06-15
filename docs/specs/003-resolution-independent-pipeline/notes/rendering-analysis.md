@@ -1,24 +1,24 @@
 # Resolution-Independent 2D Pipeline — Rendering Analysis Dossier
 
 > ⚠️ **STALE — scaffold-era research, superseded by the spec/contracts (banner added 2026-06-15, S7).** This
-> dossier (incl. its §12 addendum) was written before the June 2026 design reversals and was **not** updated as
-> they landed. Several positions it still asserts have since been **repudiated** by the shipped design — among
-> them: the `ResolutionPolicy` enum (removed — supply-driven only), a universal byte-identity-at-`s_out=1`
-> guarantee (abolished — content-scoped, FR-019), an **atomic render-dispatcher** renderer/cache swap (it is two
-> independent UI-thread swaps with a self-healing tear window — FR-031), a GLSL **`uScale`** push constant (not
-> shipped — GLSL derives `w` from device-px `Width`/`Height` — shader-uniforms.md), **floor**-origin rounding
-> (it is toward-zero `(int)` truncation — FR-007), and `PerlinNoiseBrush.BaseFrequency` **÷ scale** (left
-> unchanged — FR-010). **For anything that conflicts, the authoritative sources are `spec.md`, `contracts/*.md`,
-> and `data-model.md`, NOT this dossier (and NOT its "§12 wins" rule below, which only orders the dossier against
-> itself).** Treat the dossier as historical *where-in-the-code* context only.
+> dossier (incl. its §12 addendum) predates the June 2026 design reversals and was not updated for them. Positions
+> the shipped design has since **repudiated**: the `ResolutionPolicy` enum (removed — supply-driven only); a
+> universal byte-identity-at-`s_out=1` guarantee (abolished — content-scoped, FR-019); an **atomic
+> render-dispatcher** renderer/cache swap (it is two independent UI-thread swaps with a self-healing tear window —
+> FR-031); a GLSL **`uScale`** push constant (not shipped — GLSL derives `w` from device-px `Width`/`Height` —
+> shader-uniforms.md); **floor**-origin rounding (it is toward-zero `(int)` truncation — FR-007); and
+> `PerlinNoiseBrush.BaseFrequency` **÷ scale** (left unchanged — FR-010). **For anything that conflicts, the
+> authoritative sources are `spec.md`, `contracts/*.md`, and `data-model.md`, not this dossier (and not its "§12
+> wins" rule below, which only orders the dossier against itself).** Treat it as historical *where-in-the-code*
+> context only.
 >
 > Feature 003. Research dossier feeding the formal spec. **Not an implementation plan.**
 >
 > Scope: Beutl's 2D rendering pipeline (`Beutl.Engine` graphics, `Beutl.ProjectSystem` scene/export, `Beutl` editor view-models). Synthesizes per-subsystem surveys, a per-effect scale matrix, and design-question analyses. All file paths are repo-relative.
 >
-> **The single load-bearing fact:** there is no scale concept anywhere in the 2D pipeline today. `1 logical unit == 1 device pixel` is an *implicit invariant*, materialized as the literal `ToSize(1)` / `(int)bounds.Width` / `PixelRect.FromRect(bounds)` calls scattered across the render path. The whole feature is "stop assuming `scale == 1`; thread the real scale; and at the leaves that touch device pixels, multiply by it exactly once."
+> **The single load-bearing fact:** there is no scale concept anywhere in the 2D pipeline today. `1 logical unit == 1 device pixel` is an *implicit invariant*, materialized as literal `ToSize(1)` / `(int)bounds.Width` / `PixelRect.FromRect(bounds)` calls scattered across the render path. The feature is "stop assuming `scale == 1`; thread the real scale; multiply by it exactly once at the leaves that touch device pixels."
 >
-> **Post-review note (Codex code-verification pass):** an addendum (**§12**, end of document) records factual corrections and newly-found coupling sites — particles, audio visualizers, the concrete 3D bridge, render-dispatcher concurrency, `Resource.Version` / source-generator invalidation, and shader-uniform naming. **Where §12 conflicts with the body, §12 wins.**
+> **Post-review note (Codex code-verification pass):** an addendum (**§12**) records factual corrections and newly-found coupling sites — particles, audio visualizers, the concrete 3D bridge, render-dispatcher concurrency, `Resource.Version` / source-generator invalidation, and shader-uniform naming. **Where §12 conflicts with the body, §12 wins.**
 
 ---
 
@@ -26,7 +26,7 @@
 
 ### 1.1 The render-node tree
 
-The renderer builds a per-frame, structurally-immutable graph of `RenderNode`s (`src/Beutl.Engine/Graphics/Rendering/RenderNode.cs`). `Drawable.Render(ctx, resource)` walks the scene and a retained-mode recorder, `GraphicsContext2D` (`src/Beutl.Engine/Graphics/Rendering/GraphicsContext2D.cs`), diffs and constructs the tree. `RenderNodeProcessor.Pull(node)` (`RenderNodeProcessor.cs`) recursively "pulls" each node: it pulls children into a flat `RenderNodeOperation[]`, wraps them in a `RenderNodeContext`, and calls `node.Process(context)`. Each `Process` returns `RenderNodeOperation[]` — leaf draw ops (rectangle/text/image/video/geometry) and decorators (transform/clip/opacity/blend/filter/layer).
+The renderer builds a per-frame, structurally-immutable graph of `RenderNode`s (`src/Beutl.Engine/Graphics/Rendering/RenderNode.cs`). `Drawable.Render(ctx, resource)` walks the scene, and the retained-mode recorder `GraphicsContext2D` (`src/Beutl.Engine/Graphics/Rendering/GraphicsContext2D.cs`) diffs and constructs the tree. `RenderNodeProcessor.Pull(node)` (`RenderNodeProcessor.cs`) recursively pulls each node's children into a flat `RenderNodeOperation[]`, wraps them in a `RenderNodeContext`, and calls `node.Process(context)`. Each `Process` returns `RenderNodeOperation[]` — leaf draw ops (rectangle/text/image/video/geometry) and decorators (transform/clip/opacity/blend/filter/layer).
 
 The crucial structural fact: **every coordinate in the entire tree is implicitly `1 unit == 1 device pixel`.** This includes `RenderNodeOperation.Bounds` (a float `Rect`), the matrices in `TransformRenderNode`, the rects in `RectClipRenderNode`/`RectangleRenderNode`, all `Drawable` geometry, and every FilterEffect parameter.
 
@@ -42,7 +42,7 @@ The logical→pixel mapping happens only at three sinks, all of which truncate `
 
 `Drawable.Render` (`src/Beutl.Engine/Graphics/Drawable.cs:77`) does `Size availableSize = context.Size.ToSize(1);`. `PixelSize.ToSize(float scale)` (`src/Beutl.Engine/Media/PixelSize.cs:187`) is literally `new Size(Width/scale, Height/scale)`, so `scale == 1` hard-wires device==logical. The same `ToSize(1)` appears in `Shape.Render`, `DrawableGroup.Render`, `DrawableDecorator.Render`, `SourceImage.MeasureCore` (`SourceImage.cs:27`), and `SourceVideo.MeasureCore` (`SourceVideo.cs:139`).
 
-**Important latent infrastructure:** the scale-aware primitives already exist and are unused on the render path: `PixelSize.ToSize(float scale)` / `ToSize(Vector)` (PixelSize.cs:187-201), `PixelSize.FromSize(Size, float/Vector)`, `Size.ToSize(...)`, and `PixelRect.FromRect(Rect, float/Vector scale)` (PixelRect.cs:391-404). Their presence strongly suggests the codebase was pre-shaped for exactly this feature. The change is largely "stop passing `1`; thread the real scale through these existing seams."
+**Important latent infrastructure:** scale-aware primitives already exist but are unused on the render path: `PixelSize.ToSize(float scale)` / `ToSize(Vector)` (PixelSize.cs:187-201), `PixelSize.FromSize(Size, float/Vector)`, `Size.ToSize(...)`, and `PixelRect.FromRect(Rect, float/Vector scale)` (PixelRect.cs:391-404). The codebase appears pre-shaped for this feature; the change is largely "stop passing `1`; thread the real scale through these existing seams."
 
 ### 1.4 Key types (the spine the scale must travel through)
 
@@ -130,34 +130,34 @@ The maintainer stated four items:
 3. The **final stage** normalizes scale to the actual output resolution.
 4. This enables proxy/reduced-scale preview and full-scale export.
 
-The research converges on a refinement that honors all four while being implementable on the existing seams:
+The research converges on a refinement that honors all four while staying implementable on the existing seams:
 
 - **Three distinct sizes, defined precisely:**
-  - **(a) Logical frame size** = `Scene.FrameSize` (becomes the resolution-independent project canvas). All drawable/effect properties stay in these units. *Do not change their meaning.*
+  - **(a) Logical frame size** = `Scene.FrameSize` (the resolution-independent project canvas). All drawable/effect properties stay in these units. *Do not change their meaning.*
   - **(b) Render scale `s`** = a property of the *render request*, not the scene. Preview/proxy uses `s<1`; export uses `1.0`; supersample uses `s>1`.
   - **(c) Device target size** = `ceil(FrameSize * s)`. The only place a physical pixel buffer size is chosen.
 - **Where scale lives (the hybrid):**
-  - **Top-down propagation** rides on **`RenderNodeContext.Scale`** (parallels how `IsRenderCacheEnabled` already flows through `RenderNodeProcessor.Pull`). This is the channel that drives all *allocation decisions* (RenderTarget sizes, shader uniforms) locally where they happen.
-  - **`RenderNodeOperation` exposes a read-only `EffectiveScale`** — the scale it was actually rasterized at. This satisfies the maintainer's literal "scale on RenderNodeOperation" for the *reconciliation/normalization* stage, **without** making it the writable propagation mechanism (which would force every op-creation site to set it correctly).
-- **Logical layout stays matrix-driven.** Because geometry/transform/text/brush already flow through `ImmediateCanvas.Transform → Canvas.SetMatrix`, a single root `Matrix.CreateScale(s)` makes ~80% of vector drawing resolution-independent for free. **Keep render-scale OUT of `Transform.CreateMatrix`/`TransformGroup`** so `Matrix.TryDecomposeTransform` and editor handles keep seeing only artistic values. `ScaleTransform` (a pure percent ratio) is the existence proof that artistic scale is already resolution-independent and must not be conflated with render-scale.
+  - **Top-down propagation** rides on **`RenderNodeContext.Scale`** (paralleling `IsRenderCacheEnabled`'s flow through `RenderNodeProcessor.Pull`); it drives all allocation decisions (RenderTarget sizes, shader uniforms) locally where they happen.
+  - **`RenderNodeOperation` exposes a read-only `EffectiveScale`** — the scale it was rasterized at. This satisfies the maintainer's literal "scale on RenderNodeOperation" for the reconciliation/normalization stage **without** being the writable propagation mechanism (which would force every op-creation site to set it correctly).
+- **Logical layout stays matrix-driven.** Geometry/transform/text/brush already flow through `ImmediateCanvas.Transform → Canvas.SetMatrix`, so a single root `Matrix.CreateScale(s)` makes ~80% of vector drawing resolution-independent for free. **Keep render-scale OUT of `Transform.CreateMatrix`/`TransformGroup`** so `Matrix.TryDecomposeTransform` and editor handles keep seeing only artistic values. `ScaleTransform` (a pure percent ratio) proves artistic scale is already resolution-independent and must not be conflated with render-scale.
 
 ### 3.2 Why a root matrix alone is insufficient
 
-A canvas-only root transform breaks every effect and source that **allocates an intermediate RenderTarget or reads integer pixel dimensions**, because those bypass the CTM: `FilterEffectActivator.Flush` / `CustomFilterEffectContext.CreateTarget` size buffers from logical bounds; SKSL/GLSL shaders read `width/height/iResolution`; `ContourTracer`/`Clipping` scan actual pixels. A CTM-only approach would rasterize effects at logical (low) resolution and then upscale — visibly degrading exactly the effects users care about (blur, shadow, mosaic, stroke) **and delivering no performance win**. Hence the context-scale must reach those allocation sites.
+A canvas-only root transform breaks every effect and source that **allocates an intermediate RenderTarget or reads integer pixel dimensions**, because those bypass the CTM: `FilterEffectActivator.Flush` / `CustomFilterEffectContext.CreateTarget` size buffers from logical bounds; SKSL/GLSL shaders read `width/height/iResolution`; `ContourTracer`/`Clipping` scan actual pixels. A CTM-only approach would rasterize effects at logical (low) resolution then upscale — degrading exactly the effects users care about (blur, shadow, mosaic, stroke) **with no performance win**. Hence the context-scale must reach those allocation sites.
 
 ### 3.3 The final-adjustment stage
 
 Because logical×`s` == device by construction, **no separate normalization pass is needed for vector content** — the root buffer is already device size. The "final stage" is therefore the root call:
 - The root `RenderNodeProcessor`/`Renderer.RenderDrawable` (Renderer.cs:174-182) enforces `targetScale = outputScale` and pushes one `Matrix.CreateScale(s)` (or renders at scaled surface size). Preview passes reduced `s`; export passes `1.0`.
-- `Renderer.Snapshot()` (Renderer.cs:394-398) returns the device surface. The only place an explicit *final resample* is wanted is when a **proxy media buffer** has a native resolution different from `logical*s` — handled at the `DrawBitmap` dest-rect, not by a global pass.
+- `Renderer.Snapshot()` (Renderer.cs:394-398) returns the device surface. An explicit *final resample* is wanted only when a **proxy media buffer**'s native resolution differs from `logical*s` — handled at the `DrawBitmap` dest-rect, not by a global pass.
 
 ### 3.4 Uniform vs anisotropic
 
-Recommend **uniform `float`** for v1 (covers the stated proxy/preview-downscale case) while choosing storage types that can widen to `Vector` later (the `ToSize(Vector)` / `FromRect(rect, Vector)` overloads already exist). Anisotropic scale breaks commutativity with rotation/perspective and complicates isotropic-radius effects (Blur sigma, Erode/Dilate). **Open decision — see §10.**
+Recommend **uniform `float`** for v1 (covers the stated proxy/preview-downscale case) with storage types that can widen to `Vector` later (the `ToSize(Vector)` / `FromRect(rect, Vector)` overloads already exist). Anisotropic scale breaks commutativity with rotation/perspective and complicates isotropic-radius effects (Blur sigma, Erode/Dilate). **Open decision — see §10.**
 
 ### 3.5 Rounding policy
 
-Replace every `(int)` cast and `PixelRect.FromRect` truncation with a single shared helper using a consistent convention (ceiling for sizes, floor for origins). Sub-pixel error compounds across nested scaled rasterizations and effect chains (e.g. Blur/DropShadow inflate by `sigma*3`), causing 1px seams and registration drift. **Requirement: scale=1.0 output must remain byte-identical to today's** (within encoder tolerance) — scaling affects only `s≠1` paths.
+Replace every `(int)` cast and `PixelRect.FromRect` truncation with one shared helper using a consistent convention (ceiling for sizes, floor for origins). Sub-pixel error compounds across nested scaled rasterizations and effect chains (e.g. Blur/DropShadow inflate by `sigma*3`), causing 1px seams and registration drift. **Requirement: scale=1.0 output must stay byte-identical to today's** (within encoder tolerance) — scaling affects only `s≠1` paths.
 
 ---
 
@@ -165,16 +165,16 @@ Replace every `(int)` cast and `PixelRect.FromRect` truncation with a single sha
 
 ### 4.1 The single reconciliation rule
 
-**Compositing always happens in logical coordinate space.** `RenderNodeProcessor` is the single enforcement point. When `Pull(container)` gathers child ops of heterogeneous `EffectiveScale`, it selects exactly **one enforced `targetScale`** for that composite, and any op whose device buffer was rasterized at a different scale is **resampled to `targetScale` at the moment its pixels are drawn onto the shared canvas** — exactly once, at the boundary where the lower-scale op enters the higher-scale composite, never per-effect.
+**Compositing always happens in logical coordinate space.** `RenderNodeProcessor` is the single enforcement point. When `Pull(container)` gathers child ops of heterogeneous `EffectiveScale`, it selects exactly **one enforced `targetScale`**, and any op whose device buffer was rasterized at a different scale is **resampled to `targetScale` when its pixels are drawn onto the shared canvas** — once, at the boundary where the lower-scale op enters the composite, never per-effect.
 
-- **`targetScale = max(child effective scales, parentRequestedScale)`**, capped at the device/output scale. *Max, not min:* a half-res proxy under a full-res shape is **upsampled** for that composite rather than dragging the sharp sibling down. The chosen rule must be **one line in one place**. (This is a quality/perf knob — see §10.)
+- **`targetScale = max(child effective scales, parentRequestedScale)`**, capped at the device/output scale. *Max, not min:* a half-res proxy under a full-res shape is **upsampled** for that composite rather than dragging the sharp sibling down. The rule must be **one line in one place**. (A quality/perf knob — see §10.)
 - The "final stage" is the root call enforcing `targetScale = outputScale`, so the top-level composite lands at full export (or reduced preview) resolution.
 
 ### 4.2 Compositing space, sampler, responsibility
 
 - **Space:** logical. `op.Render(canvas)` still draws in logical units; what changes is the canvas backing store's device density and the single `Matrix.CreateScale(s)` pushed at the container/root boundary — *not* baked into each op's Bounds.
-- **Who resamples:** the op that is "too low res" is resampled by the canvas blit. Everything ultimately reaches `ImmediateCanvas.DrawRenderTarget`/`DrawSurface`. If `op.EffectiveScale != targetScale`, the processor wraps the blit with `Matrix.CreateScale(targetScale / op.EffectiveScale)` + a chosen `SKSamplingOptions`.
-- **Quality:** reuse `SKCubicResampler.Mitchell` (already the default in `ImmediateCanvas.DrawBitmap`, line 166). Never force every op to the lowest scale. Brush intermediates (tiles, drawable rasters, mask layers) should rasterize at the **max** scale among the ops they will composite with, then downsample, to avoid visible softness when a low-scale proxy op meets a full-scale op.
+- **Who resamples:** the "too low res" op, via the canvas blit. Everything ultimately reaches `ImmediateCanvas.DrawRenderTarget`/`DrawSurface`. If `op.EffectiveScale != targetScale`, the processor wraps the blit with `Matrix.CreateScale(targetScale / op.EffectiveScale)` + a chosen `SKSamplingOptions`.
+- **Quality:** reuse `SKCubicResampler.Mitchell` (already the `ImmediateCanvas.DrawBitmap` default, line 166). Never force every op to the lowest scale. Brush intermediates (tiles, drawable rasters, mask layers) rasterize at the **max** scale among the ops they composite with, then downsample, to avoid softness when a low-scale proxy op meets a full-scale op.
 - **Where enforced:** `RenderNodeProcessor.Pull`/`PullToRoot` and the three rasterization sinks (`RasterizeToRenderTargets`/`Rasterize`/`RasterizeAndConcat`, switched to `PixelRect.FromRect(op.Bounds, targetScale)`). Nodes that rasterize children (`FilterEffectRenderNode`, `OpacityMaskRenderNode`, `RectClipRenderNode`, `BrushConstructor.CreateTileShader`, `RenderNodeCacheHelper.CreateDefaultCache`) each receive the enforced scale via `RenderNodeContext.Scale` instead of assuming 1.0.
 
 ### 4.3 Concrete mixed-scale scenarios (enumerated)
@@ -188,13 +188,13 @@ Replace every `(int)` cast and `PixelRect.FromRect` truncation with a single sha
 7. **`DrawableBrush`** (`BrushConstructor.CreateTileShader`, lines 227-255): a nested compositing boundary rasterizing a child Drawable subtree at `(int)Bounds.W/H` with **no scale propagated** — a hard resolution boundary. **Fix:** child inherits parent effective scale.
 8. **3D bridge** (`Scene3DRenderNode`, `src/Beutl.Engine/Graphics3D/Scene3DRenderNode.cs:27,102`): renders at its own `RenderWidth/RenderHeight`, emits an SKSurface at `Bounds=(0,0,RenderWidth,RenderHeight)` composited 1:1 — a second independent resolution and a second mixed-scale source. **Fix:** scale the 3D sub-render in lockstep (re-render at `s`) rather than upsampling.
 
-**Why this is tractable:** the engine already does heterogeneous-resolution compositing (nested `SceneDrawable`, effect intermediates), reconciled by rasterize-then-resample at the canvas blit. Generalizing that proven primitive — plus adding per-op/per-target scale so the compositor can *detect* the mismatch — is the whole job. Vector content (Shapes/Text/Geometry) can be re-rasterized losslessly at the target scale; raster content (SourceImage/SourceVideo, cached tiles) cannot and needs resampling.
+**Why this is tractable:** the engine already does heterogeneous-resolution compositing (nested `SceneDrawable`, effect intermediates), reconciled by rasterize-then-resample at the canvas blit. The whole job is generalizing that proven primitive plus adding per-op/per-target scale so the compositor can *detect* the mismatch. Vector content (Shapes/Text/Geometry) re-rasterizes losslessly at the target scale; raster content (SourceImage/SourceVideo, cached tiles) cannot and needs resampling.
 
 ---
 
 ## 5. Per-effect scale matrix
 
-Legend — **Resolution-sensitive? (Y/N):** Y means the effect's *look* changes with raster resolution and cannot be made bit-identical across scales by parameter scaling alone (only approximate); N means parameter scaling (or invariance) makes it scale-equivalent. **Mixed-scale risk** describes what happens when inputs of differing scale meet at this effect.
+Legend — **Resolution-sensitive? (Y/N):** Y = the effect's *look* changes with raster resolution and parameter scaling alone can only approximate it across scales; N = parameter scaling (or invariance) makes it scale-equivalent. **Mixed-scale risk** describes what happens when inputs of differing scale meet at this effect.
 
 ### 5.1 Blur & shadows
 
@@ -277,7 +277,7 @@ Legend — **Resolution-sensitive? (Y/N):** Y means the effect's *look* changes 
 
 ### 5.8 ⚠️ Callout — inherently resolution-sensitive effects
 
-These are **Y** in the matrix and **cannot be made bit-identical across scales by parameter scaling** — they trace, sort, scan, or step in device pixels. Their look genuinely differs between proxy preview and full export. The spec MUST decide a per-effect contract (best-effort approximate vs force full-scale rendering of the subtree vs warn the user):
+These are **Y** in the matrix and **cannot be made bit-identical across scales by parameter scaling** — they trace, sort, scan, or step in device pixels, so their look differs between proxy preview and full export. The spec MUST decide a per-effect contract (best-effort approximate vs force full-scale rendering of the subtree vs warn the user):
 
 - **`FlatShadow`** — per-device-pixel stamping loop over a traced contour.
 - **`Dilate` / `Erode`** — integer structuring element; thin features vanish/snap at low scale.
@@ -289,7 +289,7 @@ These are **Y** in the matrix and **cannot be made bit-identical across scales b
 - **`PerlinNoise` (and noise-driven Shake/Displacement/FlatShadow)** — per-sample procedural field; `&255` wrap, no seed → can't reconcile two scales continuously.
 - **SKSL/GLSL custom shaders** — any per-texel kernel; plugin-authored shaders can't be introspected.
 
-For these, "the output looks identical, just at a different resolution" is achievable only approximately. Recommendation: classify each as **exact** (parameter-scaling suffices) vs **best-effort** (document divergence) vs **force-full-scale** (correctness over speed), and gate preview accordingly.
+For these, "identical output, just at a different resolution" is only approximate. Recommendation: classify each as **exact** (parameter-scaling suffices) vs **best-effort** (document divergence) vs **force-full-scale** (correctness over speed), and gate preview accordingly.
 
 ---
 
@@ -303,10 +303,10 @@ Brush params split into two camps:
 - **Absolute / pixel-baked (must transform):**
   - **`PerlinNoiseBrush.BaseFrequencyX/Y`** — cycles-per-device-pixel; **divide by `s`** so the noise period in logical units is invariant. Centralize in `BrushConstructor.CreatePerlinNoiseShader` so every consumer (fill, mask, displacement, shadow) gets it. *Least obvious, highest-impact brush transform.*
   - **Tile/Image/Drawable intermediate raster resolution** (`CreateTileShader`, `TileBrushCalculator.IntermediateSize`) — multiply the intermediate px size by `s`; keep relative SourceRect/DestinationRect math intact.
-  - **`DrawableBrush` child subtree** — propagate parent effective scale instead of `(int)Bounds.W/H`; today a hard resolution boundary.
+  - **`DrawableBrush` child subtree** — propagate parent effective scale instead of `(int)Bounds.W/H` (today a hard resolution boundary).
   - **`Bounds.Position` offsets / transform-origins** (~10 sites in `BrushConstructor`) — route all logical→shader-space mapping through one helper so shader-space and bounds-space stay consistent.
 
-**Mixed-scale rule for brushes:** rasterize brush intermediates (tiles, drawable rasters, opacity-mask layers) at the **max** scale among the ops they will composite with, then downsample, to avoid softness when a low-scale proxy op meets a full-scale op.
+**Mixed-scale rule for brushes:** rasterize brush intermediates (tiles, drawable rasters, opacity-mask layers) at the **max** scale among the ops they composite with, then downsample, to avoid softness when a low-scale proxy op meets a full-scale op.
 
 ### 6.2 Pens (`PenHelper`, `Pen`)
 
@@ -319,13 +319,13 @@ Brush params split into two camps:
 
 Text is uniquely sensitive: **re-shaping at scale S1 vs S2 produces genuinely different glyph outlines/hinting, not just resampled pixels.**
 
-- `FormattedText.ToSKFont()` builds `new SKFont(typeface, Size)` at logical Size with `Hinting=Full` + `Subpixel=true`. `Hinting=Full` **bakes resolution-specific grid-fitting into outlines**, so "shape at logical size then scale the matrix" ≠ "shape at device size." Matrix-scaling or bitmap-upscaling text will NOT be pixel-identical between preview and export.
-- **Rule: always RE-SHAPE text at the target device scale** (rebuild SKFont at `Size*s`); never matrix-scale or bitmap-upscale. Treat per-op scale as a hint to choose shaping resolution, and force convergence to the output scale at the final stage. For text the final stage is a no-op re-shape boundary, not a bitmap resample.
-- **All logical typographic inputs scale together:** `Size`, `Spacing`, `Pen.Thickness` (stroke), and inline rich-text overrides (`<size N>`, `<cspace N>` via `TextElementsBuilder.PushSize/PushSpacing`). Funnel them through one scale-application point (`FormattedTextInfo` or the op-level scale) or relative drift appears only at non-1 scales.
+- `FormattedText.ToSKFont()` builds `new SKFont(typeface, Size)` at logical Size with `Hinting=Full` + `Subpixel=true`. `Hinting=Full` **bakes resolution-specific grid-fitting into outlines**, so "shape at logical size then scale the matrix" ≠ "shape at device size." Matrix-scaling or bitmap-upscaling text is NOT pixel-identical between preview and export.
+- **Rule: always RE-SHAPE text at the target device scale** (rebuild SKFont at `Size*s`); never matrix-scale or bitmap-upscale. Treat per-op scale as a hint to choose shaping resolution, forcing convergence to the output scale at the final stage. For text the final stage is a no-op re-shape boundary, not a bitmap resample.
+- **All logical typographic inputs scale together:** `Size`, `Spacing`, `Pen.Thickness` (stroke), and inline rich-text overrides (`<size N>`, `<cspace N>` via `TextElementsBuilder.PushSize/PushSpacing`). Funnel them through one scale-application point (`FormattedTextInfo` or the op-level scale) or relative drift appears at non-1 scales.
 - **Caching:** `FormattedText` memoizes `_textBlob`/`_fillPath`/`_strokePath`/`_metrics` keyed on font props only — **make scale part of the shaping inputs/cache key** (or move shaping into a scale-parameterized method that doesn't memoize across scales), and make `RenderNodeCache` re-rasterize text at the active scale.
 - **Metrics** (Ascent/Descent/Leading from `FontMetrics`) scale linearly with Size and stay correct as long as the whole text is re-shaped at scale.
-- **Open decision:** keep `Hinting=Full` (sharp per-resolution, but preview≠export bit-wise) vs reduce to `None`/`Slight` (scale-stable outlines, perceptually equivalent). Determines what "looks identical" means for text. See §10.
-- **Design note (orthogonality):** prefer keeping `FormattedText` purely logical and parameterizing shaping by scale at op-process time over adding a scale field to `FormattedText` (which is public and enters `Equals`/`GetHashCode`/node diffing). Keep hit-test paths (`GetFillPath`/`GetStrokePath`) in logical space.
+- **Open decision:** keep `Hinting=Full` (sharp per-resolution, but preview≠export bit-wise) vs reduce to `None`/`Slight` (scale-stable outlines, perceptually equivalent). Defines "looks identical" for text. See §10.
+- **Design note (orthogonality):** prefer keeping `FormattedText` purely logical and parameterizing shaping by scale at op-process time, over adding a scale field to `FormattedText` (public, enters `Equals`/`GetHashCode`/node diffing). Keep hit-test paths (`GetFillPath`/`GetStrokePath`) in logical space.
 
 ---
 
@@ -336,10 +336,10 @@ The resolution-independent pipeline is the **foundation** for proxy; once scale 
 - **Render scale `s`** — render the whole tree (vectors + effects) at reduced resolution for cheap preview. This is the cost/quality axis the pipeline change delivers.
 - **Proxy media** — decode a source at reduced resolution. This is the decode/IO axis.
 
-**How proxy reports its resolution today (implicitly):** media sources expose `FrameSize` (`VideoSource.Resource.FrameSize`, `ImageSource.Resource.FrameSize`) which drives node Bounds (`ImageSourceRenderNode.cs:12`). A proxy file simply has a smaller `FrameSize`. So a low-effective-scale source flows through the **same mixed-scale reconciliation path** (§4) as any other off-scale op: the compositor treats a source whose `FrameSize` is below the composition scale as a low-`EffectiveScale` op to upsample.
+**How proxy reports its resolution today (implicitly):** media sources expose `FrameSize` (`VideoSource.Resource.FrameSize`, `ImageSource.Resource.FrameSize`) which drives node Bounds (`ImageSourceRenderNode.cs:12`). A proxy file simply has a smaller `FrameSize`, so a low-effective-scale source flows through the **same mixed-scale reconciliation path** (§4) as any other off-scale op: a source whose `FrameSize` is below the composition scale is treated as a low-`EffectiveScale` op to upsample.
 
-**The keystone that's missing:** there is **no decoder-level scale request**. `MediaOptions` carries only `StreamsToLoad`; `MediaReader.Read`/`ReadVideo` always returns a full-`FrameSize` bitmap; `ImageSource` always does `Bitmap.FromStream` at full res. To enable true proxy *decode* (the real perf win — decode is the dominant cost for video):
-- Add an **optional, additive** target-size/scale hint to `MediaOptions` (default = native) so a caller can request reduced-resolution decode, while `VideoSource`/`ImageSource` continue to report the **logical (full)** `FrameSize` to the drawable layer. The decoded bitmap's actual pixel size and the reported logical size become two distinct values.
+**The keystone that's missing:** there is **no decoder-level scale request**. `MediaOptions` carries only `StreamsToLoad`; `MediaReader.Read`/`ReadVideo` always returns a full-`FrameSize` bitmap; `ImageSource` always does `Bitmap.FromStream` at full res. To enable true proxy *decode* (the real perf win — decode dominates video cost):
+- Add an **optional, additive** target-size/scale hint to `MediaOptions` (default = native) so a caller can request reduced-resolution decode, while `VideoSource`/`ImageSource` keep reporting the **logical (full)** `FrameSize` to the drawable layer. The decoded bitmap's actual pixel size and the reported logical size become two distinct values.
 - For FFmpeg this crosses the **GPL/MIT IPC boundary**: the field must be added to the IPC `OpenFile`/`ReadVideo` protocol (`DecodingMessages.cs`), honored in `Beutl.FFmpegWorker`, and covered by a contract test in `tests/Beutl.FFmpegIpc.Tests` — *not* worked around. Gate behind decoder capability; default native so existing decoders keep working.
 
 **Two interpretations of "proxy media" the spec must pin down:**
@@ -348,11 +348,11 @@ The resolution-independent pipeline is the **foundation** for proxy; once scale 
 
 **Preview vs export quality:** the correct quality path for export is to **re-decode at full (export) scale** via the same hint, not to upscale a proxy. Preview = proxy + upscale (Mitchell, adequate). Document that proxy is preview-only.
 
-**Shared-resource cache:** `VideoSource._mediaReaderRef`/`ImageSource._bitmapRef` are keyed by URI via `WeakReference`. A single shared reader can't serve a full-res export and a proxy preview simultaneously if decode size is baked into the reader — **key the cache by `(URI, decodeTargetSize/scale)`** or decode native and downscale per-consumer. The existing `DisableResourceShare` flag (already isolates the export renderer) is the precedent to extend.
+**Shared-resource cache:** `VideoSource._mediaReaderRef`/`ImageSource._bitmapRef` are keyed by URI via `WeakReference`. A single shared reader can't serve a full-res export and a proxy preview at once if decode size is baked into the reader — **key the cache by `(URI, decodeTargetSize/scale)`** or decode native and downscale per-consumer. The existing `DisableResourceShare` flag (which already isolates the export renderer) is the precedent to extend.
 
 **A source's logical size with a proxy active** must be the **original native `FrameSize`** (or a user-set logical size), stable across proxy↔full so layout/Bounds/hit-testing don't shift. `MeasureCore` currently has only the decoded `FrameSize` — a second, stable logical dimension is required.
 
-**Scope boundary (recommended):** feature 003 builds the *render-scale plumbing* (and implicit proxy-via-FrameSize reconciliation). The full proxy *file lifecycle / decoder-level scale request* can be a follow-up, but the design must **not foreclose it** (keep `MediaOptions` extensible). **Confirm with maintainer — see §10.**
+**Scope boundary (recommended):** feature 003 builds the *render-scale plumbing* (and implicit proxy-via-FrameSize reconciliation). The full proxy *file lifecycle / decoder-level scale request* can be a follow-up, but the design must **not foreclose it** — keep `MediaOptions` extensible. **Confirm with maintainer — see §10.**
 
 ---
 
@@ -360,11 +360,11 @@ The resolution-independent pipeline is the **foundation** for proxy; once scale 
 
 ### 8.1 The anchor: scale 1.0 == today
 
-Existing `.belm`/`.bobj` files were authored against the full-resolution canvas, which **is** render scale 1.0. At scale 1.0, `1 logical unit == 1 device pixel` is the *current* invariant. Therefore the stored numbers (Width/Height/CornerRadius/Pen.Thickness/Blur.Sigma/positions/effect params) **already are the logical values**.
+Existing `.belm`/`.bobj` files were authored against the full-resolution canvas, which **is** render scale 1.0, where `1 logical unit == 1 device pixel` is the current invariant. So the stored numbers (Width/Height/CornerRadius/Pen.Thickness/Blur.Sigma/positions/effect params) **already are the logical values**.
 
-**Recommendation: NO file-format version bump and NO value rewrite.** Define "render scale 1.0 == 1 logical unit = 1 pixel at the project FrameSize." Export at scale 1.0 is bit-for-bit unchanged (within encoder tolerance); only reduced-scale **preview** changes (and only there is change wanted). A format bump that "rewrites pixel values to logical" would be an **identity transform** at scale 1.0 — unnecessary churn, plus it breaks external tooling reading the files.
+**Recommendation: NO file-format version bump and NO value rewrite.** Define "render scale 1.0 == 1 logical unit = 1 pixel at the project FrameSize." Export at scale 1.0 is bit-for-bit unchanged (within encoder tolerance); only reduced-scale **preview** changes, which is the only place change is wanted. A format bump that rewrites pixel values to logical is an **identity transform** at scale 1.0 — unnecessary churn that also breaks external tooling reading the files.
 
-This holds **only if** logical units are pinned to "1 unit = 1 px at FrameSize." If the team instead redefines logical as a normalized fraction of the frame (cleaner long-term), every stored value must be rescaled and a migration IS needed. Recommend the former. **Confirm — see §10.**
+This holds **only if** logical units are pinned to "1 unit = 1 px at FrameSize." Redefining logical as a normalized fraction of the frame (cleaner long-term) forces rescaling every stored value and a migration. Recommend the former. **Confirm — see §10.**
 
 ### 8.2 Engine-API breakage (separate from file compat)
 
@@ -375,7 +375,7 @@ While *files* need no migration, the *engine public surface* changes are breakin
 
 ### 8.3 Properties whose *unit* may be reinterpreted
 
-A handful of effect props are typed `PixelPoint`/`PixelSize` (e.g. `ColorShift` offsets, `MatrixConvolution` kernel/offset, `Mosaic` TileSize). If reclassified to logical (cleaner) vs kept as device-pixel-at-scale-1 (smaller diff), and especially if `ColorShift`'s `PixelPoint`→float `Point` widening happens, serialized values migrate 1:1 (value preserved, type widened). This is the orthogonality-vs-compat call AGENTS.md asks to surface — **decide explicitly.**
+A handful of effect props are typed `PixelPoint`/`PixelSize` (e.g. `ColorShift` offsets, `MatrixConvolution` kernel/offset, `Mosaic` TileSize). Whether reclassified to logical (cleaner) or kept as device-pixel-at-scale-1 (smaller diff), and especially if `ColorShift`'s `PixelPoint`→float `Point` widening happens, serialized values migrate 1:1 (value preserved, type widened). This is the orthogonality-vs-compat call AGENTS.md asks to surface — **decide explicitly.**
 
 ---
 
@@ -383,7 +383,7 @@ A handful of effect props are typed `PixelPoint`/`PixelSize` (e.g. `ColorShift` 
 
 ### 9.1 Hit-testing & handles
 
-The editor already has a clean logical/device seam: `PlayerView` computes `frameScale = Image.Bounds.Width / Scene.FrameSize.Width` and `TransformHandlesOverlay.LocalToImage` (`src/Beutl/Views/TransformHandlesOverlay.cs:149-153`) multiplies by `frameScale`. **The trap:** today `frameScale` conflates *display zoom* with *render resolution* because they are equal. Once render scale exists, these become three distinct factors (display zoom, render scale, artistic Transform scale).
+The editor already has a clean logical/device seam: `PlayerView` computes `frameScale = Image.Bounds.Width / Scene.FrameSize.Width` and `TransformHandlesOverlay.LocalToImage` (`src/Beutl/Views/TransformHandlesOverlay.cs:149-153`) multiplies by `frameScale`. **The trap:** today `frameScale` conflates *display zoom* with *render resolution* because they are equal. Once render scale exists, these split into three distinct factors (display zoom, render scale, artistic Transform scale).
 
 **Rule:** hit-testing and handle math run in **logical** units, independent of render scale.
 - `Renderer.HitTest` (Renderer.cs:274-301) and per-node `HitTest` must take/return logical coords.
@@ -460,7 +460,7 @@ The editor already has a clean logical/device seam: `PlayerView` computes `frame
 
 ## 11. Suggested phasing / MVP slices
 
-Each slice is chosen to be independently testable (golden-image: render at scale `s`, upscale, compare to scale-1.0 within tolerance) and to deliver a user-visible capability without requiring the whole pipeline at once.
+Each slice is independently testable (golden-image: render at scale `s`, upscale, compare to scale-1.0 within tolerance) and delivers a user-visible capability without requiring the whole pipeline at once.
 
 **Slice 0 — Scale plumbing skeleton (no behavior change).**
 Add `Scale` to `RenderNodeContext` (default (1,1)); seed from `Renderer`; thread through `Pull`; add read-only `EffectiveScale` on `RenderNodeOperation`. Switch the three `RenderNodeProcessor` rasterization sinks to the existing `PixelRect.FromRect(rect, scale)` overload with `scale=1`. **Acceptance:** scale=1.0 output byte-identical to today (regression guard). This is the atomic foundation; nothing user-visible yet.
@@ -486,12 +486,12 @@ Wire preview render-scale selection in `EditViewModel`/`PlayerViewModel` with re
 
 ## 12. Post-review corrections & additions (independent Codex code-verification pass)
 
-An independent pass re-verified the dossier's concrete claims against the actual code and re-read the draft spec. Most core claims were confirmed (scale-blind `RenderNodeContext`/`RenderNodeOperation`, the rasterization sinks, the *already-existing-but-unused* scale primitives `PixelSize.ToSize(float)` / `PixelRect.FromRect(Rect, float/Vector)`, and the spot-checked effect rows for Blur / DropShadow / Mosaic / ColorShift / FlatShadow / PerlinNoise). The body above is preserved as written; the items below **supersede** it where they conflict.
+An independent pass re-verified the dossier's concrete claims against the code and re-read the draft spec. Most core claims were confirmed (scale-blind `RenderNodeContext`/`RenderNodeOperation`, the rasterization sinks, the *already-existing-but-unused* scale primitives `PixelSize.ToSize(float)` / `PixelRect.FromRect(Rect, float/Vector)`, and the spot-checked effect rows for Blur / DropShadow / Mosaic / ColorShift / FlatShadow / PerlinNoise). The body above is preserved as written; the items below **supersede** it where they conflict.
 
 ### 12.1 Factual corrections
 
 - **"The three sinks all use `PixelRect.FromRect(op.Bounds)`" is imprecise.** Only the `RenderNodeProcessor` rasterization sink uses `PixelRect.FromRect`. The filter-effect sinks cast directly to `int`: `FilterEffectActivator.Flush` uses `(int)target.OriginalBounds.Width/Height` (`FilterEffectActivator.cs:29`) and `CustomFilterEffectContext.CreateTarget` uses `(int)bounds.Width/Height` (`CustomFilterEffectContext.cs:52`). These round *differently* from `PixelRect.FromRect` and each need their own migration to the shared rounding helper.
-- **`PixelRect.FromRect` does not "truncate".** It floors / toward-zero the origin but **ceils** the bottom-right extent — asymmetric rounding (`PixelPoint.cs:226`, `PixelRect.cs:378,505`). Every "integer-truncated" phrasing in §1–§2 should read "asymmetrically rounded (floor origin, ceil extent)". This matters for the FR-007 shared-rounding-helper: it MUST reproduce this asymmetry at scale 1.0 to stay byte-identical.
+- **`PixelRect.FromRect` does not "truncate".** It floors / toward-zero the origin but **ceils** the bottom-right extent — asymmetric rounding (`PixelPoint.cs:226`, `PixelRect.cs:378,505`). Read every "integer-truncated" phrasing in §1–§2 as "asymmetrically rounded (floor origin, ceil extent)". The FR-007 shared-rounding-helper MUST reproduce this asymmetry at scale 1.0 to stay byte-identical.
 - **Scope alignment (proxy decode).** §7 and Slice 4 describe adding a decode-target hint to `MediaOptions` + the FFmpeg IPC protocol / worker. Per the confirmed 003 scope this is **deferred**: 003 delivers only (a) the logical-vs-decoded size decoupling and (b) the `DrawBitmap` logical dest-rect, and keeps `MediaOptions` additively extensible. The IPC / worker decode-hint and the `(URI, scale)` shared-reader re-keying move to the follow-up proxy feature. (`MediaOptions` today carries only `StreamsToLoad` + an obsolete `SampleRate`: `MediaOptions.cs`.)
 
 ### 12.2 Missed coupling sites (add to the §2 inventory)

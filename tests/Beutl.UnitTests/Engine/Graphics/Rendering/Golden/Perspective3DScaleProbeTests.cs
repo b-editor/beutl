@@ -8,9 +8,9 @@ using Beutl.UnitTests.Engine.Graphics.Backend;
 namespace Beutl.UnitTests.Engine.Graphics.Rendering.Golden;
 
 // T045 (open part) / research D6: does a Rotation3DTransform perspective child render consistently across
-// render scales? The S·P ≠ P·S trap: if the root device scale ends up on the wrong side of the projective
-// matrix, perspective foreshortening differs per scale. A HIGH reduced-scale SSIM means the root scale is
-// already composed correctly (append-after, not prepend-into the W column) and no fix is needed.
+// render scales? The S·P ≠ P·S trap: if the root device scale lands on the wrong side of the projective
+// matrix, foreshortening differs per scale. A high SSIM confirms the root scale is composed correctly
+// (appended after, not prepended into the W column).
 [NonParallelizable]
 [TestFixture]
 public class Perspective3DScaleProbeTests
@@ -19,7 +19,7 @@ public class Perspective3DScaleProbeTests
 
     private static Drawable.Resource MakePerspectiveShape()
     {
-        // A gradient fill makes the perspective foreshortening visible (a flat color would hide it).
+        // A gradient fill makes foreshortening visible; a flat color would hide it.
         var brush = new LinearGradientBrush();
         brush.StartPoint.CurrentValue = new RelativePoint(0, 0, RelativeUnit.Relative);
         brush.EndPoint.CurrentValue = new RelativePoint(1, 1, RelativeUnit.Relative);
@@ -48,7 +48,7 @@ public class Perspective3DScaleProbeTests
             double ssim = ImageMetrics.Ssim(full, upscaled);
             double mae = ImageMetrics.MeanAbsoluteError(full, upscaled);
             TestContext.WriteLine($"[Rotation3D 0.5x] SSIM={ssim:F4} MAE={mae:F4}");
-            // A perspective S·P≠P·S break would distort foreshortening per scale (gross structural mismatch).
+            // An S·P≠P·S break would distort foreshortening per scale, a gross structural mismatch.
             Assert.That(ssim, Is.GreaterThan(GoldenThresholds.ExactSsimMin),
                 $"Rotation3D perspective diverged across scale: SSIM={ssim:F4}");
         });

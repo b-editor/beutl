@@ -29,8 +29,8 @@ public class ResolutionScaleTests
         Assert.That(e, Is.EqualTo(EffectiveScale.At(0.5f)));
     }
 
-    // At(scale) is a concrete density; a zero/negative/non-finite value has no meaning and would later divide a
-    // buffer footprint by it (EffectTarget.Draw) — reject it at the factory so it can't fail silently downstream.
+    // At(scale) is a concrete density; it later divides a buffer footprint (EffectTarget.Draw), so a
+    // zero/negative/non-finite value is rejected at the factory rather than failing silently downstream.
     [TestCase(0f)]
     [TestCase(-1f)]
     [TestCase(float.NaN)]
@@ -42,10 +42,9 @@ public class ResolutionScaleTests
 
     // --- ResolveWorkingScale: the supply-driven core ---------------------------------
     // w = min( max(s_out, densest concrete supply), maxWorkingScale ). s_out is a FLOOR (an effect never runs
-    // below the deliverable density) and never a ceiling (a denser supply runs above it). There is no resolution
-    // policy: every boundary runs at this scale, bounded only by the global memory ceiling. (The former
-    // Inherit/ClampToOutput/Oversample policy was removed — an effect needing a different working scale overrides
-    // Process in a FilterEffectRenderNode subclass returned from FilterEffect.Resource.CreateRenderNode() instead.)
+    // below the deliverable density), never a ceiling (a denser supply runs above it), bounded only by the global
+    // memory ceiling. There is no resolution policy: an effect needing a different working scale overrides Process
+    // in a FilterEffectRenderNode subclass returned from FilterEffect.Resource.CreateRenderNode().
 
     [Test]
     public void Resolve_AllVectorInputs_RastersAtOutputScale()
@@ -68,9 +67,8 @@ public class ResolutionScaleTests
     public void Resolve_SubOutputSupply_IsFlooredAtOutputScale()
     {
         // A sub-output concrete supply (an enlarged / low-density bitmap, At(0.5)) feeding an effect at a 1.0
-        // export is floored to the deliverable density: the effect's OWN working resolution must not drop below
-        // s_out (that would discard resolution the delivery target can use, matching the pre-feature renderer),
-        // even though the source's available detail (0.5) is unchanged. w == max(1.0, 0.5) == 1.0.
+        // export is floored to s_out: the effect's working resolution must not drop below the deliverable density
+        // (that would discard resolution the target can use, matching the pre-feature renderer). w == max(1.0, 0.5) == 1.0.
         float w = RenderNodeContext.ResolveWorkingScale(
             [EffectiveScale.At(0.5f)],
             outputScale: 1.0f);
@@ -80,9 +78,9 @@ public class ResolutionScaleTests
     [Test]
     public void Resolve_ReducedScaleProxy_StaysCheapInPreview()
     {
-        // The floor is s_out, so a genuine reduced-scale proxy stays cheap: a 0.5 proxy at a 0.5 preview gives
-        // max(0.5, 0.5) == 0.5 — unchanged, no forced upsample. The floor only lifts a supply that is below the
-        // CURRENT pull's output density, so reduced-scale preview keeps its s² cost saving.
+        // A genuine reduced-scale proxy stays cheap: a 0.5 proxy at a 0.5 preview gives max(0.5, 0.5) == 0.5, no
+        // forced upsample. The floor only lifts a supply below the current pull's output density, so reduced-scale
+        // preview keeps its s² cost saving.
         float w = RenderNodeContext.ResolveWorkingScale(
             [EffectiveScale.At(0.5f)],
             outputScale: 0.5f);
@@ -111,9 +109,8 @@ public class ResolutionScaleTests
     [Test]
     public void Resolve_MaxWorkingScale_CapsResult()
     {
-        // Preview memory ceiling (FR-037): a 4.0 source is capped to 2x the output. This is the ONLY bound on
-        // the working scale now that policies are gone — a high or transform-rescaled density can never blow up
-        // the buffer past the ceiling.
+        // Preview memory ceiling (FR-037): a 4.0 source is capped to 2x the output. This is the only bound on the
+        // working scale now that policies are gone — a high or transform-rescaled density can't blow past the ceiling.
         float w = RenderNodeContext.ResolveWorkingScale(
             [EffectiveScale.At(4.0f)],
             outputScale: 1.0f,
@@ -170,13 +167,12 @@ public class ResolutionScaleTests
     [Test]
     public void Resolve_SmallHighDensitySiblingBesideLowDensity_RaisesWholeBoundary()
     {
-        // CHARACTERIZATION (documents current behavior, does NOT assert the footgun is fixed): w is the densest
-        // concrete input across the WHOLE buffer-allocating boundary, so a single small high-density sibling
-        // (e.g. a 4K logo shrunk into a corner, At(8)) sitting beside a large low-density / vector input raises
-        // the working scale — and thus the buffer AREA (∝ w²) — of the ENTIRE boundary, not just its own region.
-        // This PINS the known design footgun (effect-scale-contract.md "Footgun"): per-target (per-region) w
-        // scoping and a request-scoped area budget are the documented follow-up that would let a small dense
-        // sibling raise only its own region's density. Until then, the densest input wins for everyone.
+        // CHARACTERIZATION (does NOT assert the footgun is fixed): w is the densest concrete input across the
+        // WHOLE buffer-allocating boundary, so a single small high-density sibling (e.g. a 4K logo shrunk into a
+        // corner, At(8)) beside a large low-density / vector input raises the working scale — and thus buffer
+        // AREA (∝ w²) — of the ENTIRE boundary, not just its own region. This pins the known footgun
+        // (effect-scale-contract.md "Footgun"); the documented follow-up is per-target (per-region) w scoping
+        // and a request-scoped area budget. Until then, the densest input wins for everyone.
         float wWithVector = RenderNodeContext.ResolveWorkingScale(
             [EffectiveScale.At(8f), EffectiveScale.At(1f), EffectiveScale.Unbounded],
             outputScale: 1f);
@@ -196,12 +192,11 @@ public class ResolutionScaleTests
     [Test]
     public void Resolve_HighDensitySourceInHalfPreview_RunsAtFullDensity_NoPreviewSpeedup()
     {
-        // SC-003 source-heavy variant (the model's KNOWN non-speedup, otherwise unmeasured): a high-density
-        // source (At(4), e.g. a 4K source on a reduced timeline) under an effect in a Half preview does NOT get
-        // the s²≈0.25 preview speedup. w = min( max(s_out, supply), maxWorkingScale ) = min(max(0.5, 4), 1.0) =
-        // 1.0 — 4× the pixels of the 0.5 ideal. This is the intentional supply-driven tradeoff: the effect runs
-        // at the densest of the deliverable floor and the supply, capped only by the preview ceiling (2 × s_out =
-        // 1.0 here), so a dense source under an effect stays expensive even in a reduced-scale preview.
+        // SC-003 source-heavy variant (the model's KNOWN non-speedup): a high-density source (At(4), e.g. a 4K
+        // source on a reduced timeline) under an effect in a Half preview does NOT get the s²≈0.25 preview speedup.
+        // w = min( max(s_out, supply), maxWorkingScale ) = min(max(0.5, 4), 1.0) = 1.0 — 4× the pixels of the 0.5
+        // ideal. Intentional supply-driven tradeoff: the effect runs at the densest of floor and supply, capped only
+        // by the preview ceiling (2 × s_out = 1.0 here), so a dense source under an effect stays expensive in preview.
         const float halfPreviewCeiling = 1.0f; // = WorkingScaleCeiling.Preview(0.5f) = 2 × 0.5
         float w = RenderNodeContext.ResolveWorkingScale(
             [EffectiveScale.At(4f)],
@@ -238,9 +233,9 @@ public class ResolutionScaleTests
     [Test]
     public void ClampBudget_IsAHardGuarantee_AcrossFractionalBounds()
     {
-        // The float narrowing of the fit factor previously let ceil(axis × w) land at MaxBufferDimension + 1 for
+        // Float narrowing of the fit factor previously let ceil(axis × w) land at MaxBufferDimension + 1 for
         // some fractional inputs. The clamp now steps the factor down until the buffer provably fits, so the
-        // allocated axis is ALWAYS <= the limit. Probe a spread of fractional bounds/scales that trigger it.
+        // allocated axis is ALWAYS <= the limit. Probe fractional bounds/scales that trigger it.
         foreach (float axis in new[] { 5000.3f, 8640.7f, 12000.1f, 16384.9f, 20001.5f, 33333.33f })
         {
             foreach (float w in new[] { 1.7f, 3.3f, 4.0f, 7.9f, 12.5f })
@@ -269,12 +264,11 @@ public class ResolutionScaleTests
     [Test]
     public void ClampBudget_PostEffectInflation_NeedsReclampAtAllocationSite()
     {
-        // feature 003 (FR-037): the node-level clamp runs against the PRE-effect input bounds, but a
-        // blur/shadow inflates the bounds by sigma×3 BEFORE the buffer is allocated in FilterEffectActivator.Flush.
-        // This characterizes WHY Flush re-clamps against the inflated OriginalBounds: a w that fits the input
-        // bounds can overflow once the effect inflates them, so the same clamp applied at the allocation site
-        // must reduce w further. Here: input fits at w=3, but after a sigma=2000 blur (Inflate by 3×sigma per
-        // side) the bounds blow past the GPU limit and the re-clamp must shrink w.
+        // FR-037: the node-level clamp runs against PRE-effect input bounds, but a blur/shadow inflates the bounds
+        // by sigma×3 BEFORE the buffer is allocated in FilterEffectActivator.Flush. This is WHY Flush re-clamps
+        // against the inflated OriginalBounds: a w that fits the input bounds can overflow once the effect inflates
+        // them. Here: input fits at w=3, but after a sigma=2000 blur (Inflate by 3×sigma per side) the bounds blow
+        // past the GPU limit and the re-clamp must shrink w.
         var inputBounds = new Rect(0, 0, 4000, 4000);
         float wAtInput = RenderNodeContext.ClampWorkingScaleToBufferBudget(inputBounds, 3.0f);
         Assert.That(wAtInput, Is.EqualTo(3.0f), "input bounds fit at w=3 — the node-level clamp is inert");
@@ -298,9 +292,8 @@ public class ResolutionScaleTests
     [TestCase(float.PositiveInfinity)]
     public void ResolveWorkingScale_DegenerateOutputScale_DegradesToUnitOnVectorPath(float badScale)
     {
-        // All-vector (no concrete supply) path: supply = outputScale. A degenerate request scale must NOT flow
-        // through to a non-finite / zero working scale (which would size a zero / NaN buffer downstream); it
-        // degrades to the unit no-op instead.
+        // All-vector path: supply = outputScale. A degenerate request scale must NOT flow through to a
+        // non-finite / zero working scale (which would size a zero / NaN buffer downstream); it degrades to unit.
         ReadOnlySpan<EffectiveScale> vectorOnly = [EffectiveScale.Unbounded, EffectiveScale.Unbounded];
         float w = RenderNodeContext.ResolveWorkingScale(vectorOnly, badScale);
         Assert.That(w, Is.EqualTo(1f));

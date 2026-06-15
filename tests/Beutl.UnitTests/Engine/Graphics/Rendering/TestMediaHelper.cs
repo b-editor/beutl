@@ -73,9 +73,8 @@ internal static class TestMediaHelper
         );
     }
 
-    // Creates a dummy file whose NAME encodes the audio params; TestAudioReader reads them back. The duration
-    // is encoded in milliseconds to keep the name integer-only. Purely additive — the audio path routes to a
-    // separate TestAudioReader, so the existing .testvideo behavior is untouched.
+    // The file NAME encodes the audio params for TestAudioReader to read back; duration is in milliseconds to keep
+    // the name integer-only. The audio path routes to a separate TestAudioReader, so .testvideo is untouched.
     public static string CreateTestAudioFile(int sampleRate = 44100, int channels = 2, double durationSeconds = 2.0)
     {
         int ms = (int)Math.Round(durationSeconds * 1000);
@@ -189,8 +188,8 @@ internal sealed class TestMediaReader : MediaReader
     }
 }
 
-// Audio-only test reader: emits a synthetic 440 Hz stereo sine so a SourceSound-backed visualizer actually
-// composes non-empty samples. Separate from the video TestMediaReader so the .testvideo path is untouched.
+// Emits a synthetic 440 Hz stereo sine so a SourceSound-backed visualizer composes non-empty samples. Separate
+// from the video TestMediaReader so the .testvideo path is untouched.
 internal sealed class TestAudioReader : MediaReader
 {
     private readonly VideoStreamInfo _videoInfo;
@@ -234,7 +233,7 @@ internal sealed class TestAudioReader : MediaReader
         const float freq = 440f;
         for (int i = 0; i < length; i++)
         {
-            // start may be negative (a window centred before t=0); generate a continuous tone regardless.
+            // start may be negative (window centred before t=0); emit a continuous tone regardless.
             long n = (long)start + i;
             float v = 0.5f * MathF.Sin(2f * MathF.PI * freq * n / rate);
             data[i] = new Stereo32BitFloat(v, v);

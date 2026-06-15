@@ -90,25 +90,21 @@ public partial class DisplacementMapTranslateTransform : DisplacementMapTransfor
                 {
                     using EffectTarget effectTarget = c.Targets[i];
                     var renderTarget = effectTarget.RenderTarget!;
-                    // feature 003: use the CLAMPED density that ApplyToNewTarget's CreateTarget will resolve
-                    // (FR-037(b)) so the device-px uniforms / map brush match the buffer. Unclamped = WorkingScale.
+                    // feature 003: use the CLAMPED density CreateTarget will resolve (FR-037(b)), not the
+                    // unclamped WorkingScale, so the device-px uniforms / map brush match the buffer.
                     float w = c.ResolveTargetDensity(effectTarget.Bounds);
                     using var displacementMapShaderRaw =
                         new BrushConstructor(new(effectTarget.Bounds.Size), map, BlendMode.SrcOver, w,
                                 c.MaxWorkingScale)
                             .CreateShader();
-                    // feature 003: the map is laid out over LOGICAL extent but is cross-sampled at the SAME
-                    // device-px coord as the device-px base texture, so scale its local matrix by w (a device
-                    // coord p*w then samples the map at logical p). Passing scale w above makes a tile/image/
-                    // drawable map rasterize at density w with Scale(1/w) baked into its own local matrix
-                    // (logical coord -> dense texel); composed with the Scale(w) wrapper below, a device coord
-                    // d samples the dense map at the texel for logical d/w — full density, unchanged position.
-                    // Analytic brushes (gradient / Perlin) ignore the scale argument, so only the wrapper acts
-                    // on them. w == 1 keeps the bare shader (byte-identical).
-                    // feature 003: BrushConstructor.CreateShader() is nullable (null/degenerate/unknown brush),
-                    // so guard before scaling — only the w == 1 path could safely short-circuit a null before.
-                    // A null shader stays null (tolerated downstream, as in the pre-feature path); only the
-                    // dereference for the w != 1 rescale is guarded.
+                    // feature 003: the map is laid out over logical extent but cross-sampled at the same
+                    // device-px coord as the device-px base texture, so scale its local matrix by w. The scale
+                    // arg above makes a tile/image/drawable map rasterize at density w with Scale(1/w) baked in;
+                    // composed with the Scale(w) wrapper, a device coord d samples it at logical d/w — full
+                    // density, unchanged position. Analytic brushes (gradient / Perlin) ignore the scale arg, so
+                    // only the wrapper acts on them. w == 1 keeps the bare shader (byte-identical).
+                    // CreateShader() is nullable (degenerate/unknown brush); a null stays null (tolerated
+                    // downstream), so only the dereference for the w != 1 rescale is guarded.
                     using SKShader? displacementMapShaderScaled =
                         w != 1f && displacementMapShaderRaw is { } rawShader
                             ? rawShader.WithLocalMatrix(SKMatrix.CreateScale(w, w))
@@ -125,8 +121,8 @@ public partial class DisplacementMapTranslateTransform : DisplacementMapTransfor
                     builder.Children["uBaseTexture"] = baseShader;
                     builder.Children["uDisplacementMap"] = displacementMapShader;
 
-                    // feature 003: the shader samples uBaseTexture in device px over a ceil(bounds × w)
-                    // buffer, so the absolute-px displacement translation scales by the working density.
+                    // feature 003: the absolute-px displacement translation scales by w, since the shader
+                    // samples uBaseTexture in device px over a ceil(bounds × w) buffer.
                     builder.Uniforms["uTranslation"] = new SKPoint(x * w, y * w);
                     builder.Uniforms["uChannel"] = (int)ch;
                     builder.Uniforms["uSigned"] = isSigned ? 1 : 0;
@@ -222,25 +218,21 @@ public partial class DisplacementMapScaleTransform : DisplacementMapTransform
                 {
                     using var effectTarget = c.Targets[i];
                     var renderTarget = effectTarget.RenderTarget!;
-                    // feature 003: use the CLAMPED density that ApplyToNewTarget's CreateTarget will resolve
-                    // (FR-037(b)) so the device-px uniforms / map brush match the buffer. Unclamped = WorkingScale.
+                    // feature 003: use the CLAMPED density CreateTarget will resolve (FR-037(b)), not the
+                    // unclamped WorkingScale, so the device-px uniforms / map brush match the buffer.
                     float w = c.ResolveTargetDensity(effectTarget.Bounds);
                     using var displacementMapShaderRaw =
                         new BrushConstructor(new(effectTarget.Bounds.Size), map, BlendMode.SrcOver, w,
                                 c.MaxWorkingScale)
                             .CreateShader();
-                    // feature 003: the map is laid out over LOGICAL extent but is cross-sampled at the SAME
-                    // device-px coord as the device-px base texture, so scale its local matrix by w (a device
-                    // coord p*w then samples the map at logical p). Passing scale w above makes a tile/image/
-                    // drawable map rasterize at density w with Scale(1/w) baked into its own local matrix
-                    // (logical coord -> dense texel); composed with the Scale(w) wrapper below, a device coord
-                    // d samples the dense map at the texel for logical d/w — full density, unchanged position.
-                    // Analytic brushes (gradient / Perlin) ignore the scale argument, so only the wrapper acts
-                    // on them. w == 1 keeps the bare shader (byte-identical).
-                    // feature 003: BrushConstructor.CreateShader() is nullable (null/degenerate/unknown brush),
-                    // so guard before scaling — only the w == 1 path could safely short-circuit a null before.
-                    // A null shader stays null (tolerated downstream, as in the pre-feature path); only the
-                    // dereference for the w != 1 rescale is guarded.
+                    // feature 003: the map is laid out over logical extent but cross-sampled at the same
+                    // device-px coord as the device-px base texture, so scale its local matrix by w. The scale
+                    // arg above makes a tile/image/drawable map rasterize at density w with Scale(1/w) baked in;
+                    // composed with the Scale(w) wrapper, a device coord d samples it at logical d/w — full
+                    // density, unchanged position. Analytic brushes (gradient / Perlin) ignore the scale arg, so
+                    // only the wrapper acts on them. w == 1 keeps the bare shader (byte-identical).
+                    // CreateShader() is nullable (degenerate/unknown brush); a null stays null (tolerated
+                    // downstream), so only the dereference for the w != 1 rescale is guarded.
                     using SKShader? displacementMapShaderScaled =
                         w != 1f && displacementMapShaderRaw is { } rawShader
                             ? rawShader.WithLocalMatrix(SKMatrix.CreateScale(w, w))
@@ -257,8 +249,8 @@ public partial class DisplacementMapScaleTransform : DisplacementMapTransform
                     builder.Children["uBaseTexture"] = baseShader;
                     builder.Children["uDisplacementMap"] = displacementMapShader;
 
-                    // feature 003: uScale is a ratio (density-independent); the pivot is a logical-px center
-                    // mapped into the device-px shader space, so it scales by the working density.
+                    // feature 003: uScale is a density-independent ratio; the pivot is a logical-px center
+                    // mapped into device-px shader space, so it scales by w.
                     builder.Uniforms["uScale"] = new SKPoint(scaleX, scaleY);
                     builder.Uniforms["uPivot"] = new SKPoint(
                         (effectTarget.Bounds.Width / 2 + center.X) * w,
@@ -353,25 +345,21 @@ public partial class DisplacementMapRotationTransform : DisplacementMapTransform
                 {
                     using var effectTarget = c.Targets[i];
                     var renderTarget = effectTarget.RenderTarget!;
-                    // feature 003: use the CLAMPED density that ApplyToNewTarget's CreateTarget will resolve
-                    // (FR-037(b)) so the device-px uniforms / map brush match the buffer. Unclamped = WorkingScale.
+                    // feature 003: use the CLAMPED density CreateTarget will resolve (FR-037(b)), not the
+                    // unclamped WorkingScale, so the device-px uniforms / map brush match the buffer.
                     float w = c.ResolveTargetDensity(effectTarget.Bounds);
                     using var displacementMapShaderRaw =
                         new BrushConstructor(new(effectTarget.Bounds.Size), map, BlendMode.SrcOver, w,
                                 c.MaxWorkingScale)
                             .CreateShader();
-                    // feature 003: the map is laid out over LOGICAL extent but is cross-sampled at the SAME
-                    // device-px coord as the device-px base texture, so scale its local matrix by w (a device
-                    // coord p*w then samples the map at logical p). Passing scale w above makes a tile/image/
-                    // drawable map rasterize at density w with Scale(1/w) baked into its own local matrix
-                    // (logical coord -> dense texel); composed with the Scale(w) wrapper below, a device coord
-                    // d samples the dense map at the texel for logical d/w — full density, unchanged position.
-                    // Analytic brushes (gradient / Perlin) ignore the scale argument, so only the wrapper acts
-                    // on them. w == 1 keeps the bare shader (byte-identical).
-                    // feature 003: BrushConstructor.CreateShader() is nullable (null/degenerate/unknown brush),
-                    // so guard before scaling — only the w == 1 path could safely short-circuit a null before.
-                    // A null shader stays null (tolerated downstream, as in the pre-feature path); only the
-                    // dereference for the w != 1 rescale is guarded.
+                    // feature 003: the map is laid out over logical extent but cross-sampled at the same
+                    // device-px coord as the device-px base texture, so scale its local matrix by w. The scale
+                    // arg above makes a tile/image/drawable map rasterize at density w with Scale(1/w) baked in;
+                    // composed with the Scale(w) wrapper, a device coord d samples it at logical d/w — full
+                    // density, unchanged position. Analytic brushes (gradient / Perlin) ignore the scale arg, so
+                    // only the wrapper acts on them. w == 1 keeps the bare shader (byte-identical).
+                    // CreateShader() is nullable (degenerate/unknown brush); a null stays null (tolerated
+                    // downstream), so only the dereference for the w != 1 rescale is guarded.
                     using SKShader? displacementMapShaderScaled =
                         w != 1f && displacementMapShaderRaw is { } rawShader
                             ? rawShader.WithLocalMatrix(SKMatrix.CreateScale(w, w))
@@ -388,8 +376,8 @@ public partial class DisplacementMapRotationTransform : DisplacementMapTransform
                     builder.Children["uBaseTexture"] = baseShader;
                     builder.Children["uDisplacementMap"] = displacementMapShader;
 
-                    // feature 003: the pivot is a logical-px center mapped into the device-px shader space,
-                    // so it scales by the working density (the rotation angle is density-independent).
+                    // feature 003: the pivot is a logical-px center mapped into device-px shader space, so it
+                    // scales by w (the rotation angle is density-independent).
                     builder.Uniforms["uAngle"] = MathUtilities.Deg2Rad(rotation);
                     builder.Uniforms["uPivot"] = new SKPoint(
                         (effectTarget.Bounds.Width / 2 + center.X) * w,

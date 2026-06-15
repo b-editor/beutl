@@ -86,8 +86,8 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
             .DisposeWith(_disposable);
 
         // Feature 003 (US4): pre-validate the supersampled root surface (FrameSize × factor) against the
-        // per-axis device-buffer limit, instead of letting RenderTarget.Create fail after Encode is
-        // pressed with a generic "could not create a canvas" error (e.g. 8K × 4 = 30720 px > 16384).
+        // per-axis device-buffer limit, so RenderTarget.Create does not fail after Encode with a generic
+        // "could not create a canvas" error (e.g. 8K × 4 = 30720 px > 16384).
         SupersampleWarning = SupersampleFactor
             .CombineLatest(Model.GetObservable(Scene.FrameSizeProperty), (factor, frameSize) =>
             {
@@ -136,9 +136,9 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
     public ReactivePropertySlim<ControllableEncodingExtension?> SelectedEncoder { get; } = new();
 
     /// <summary>
-    /// Export supersampling factor (feature 003, US4 / SC-009). Off (1) / 2× / 4×. The scene renders
+    /// Export supersampling factor (feature 003, US4 / SC-009): Off (1) / 2× / 4×. The scene renders
     /// at <c>ceil(FrameSize × factor)</c> and <see cref="FrameProviderImpl"/> downscales to FrameSize
-    /// before encode, so the delivered resolution is always FrameSize with reduced aliasing.
+    /// before encode, so the delivered resolution stays FrameSize with reduced aliasing.
     /// </summary>
     public int[] SupersampleFactors { get; } = [1, 2, 4];
 
@@ -235,8 +235,8 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
 
     public async Task StartEncode()
     {
-        // Defensive re-check (feature 003): the Encode button is disabled via CanEncode while the warning
-        // is active, but a stale in-flight click or a programmatic call must not start an export whose
+        // Defensive re-check (feature 003): CanEncode disables the Encode button while the warning is
+        // active, but a stale in-flight click or a programmatic call must not start an export whose
         // root surface cannot be allocated.
         if (SupersampleWarning.Value is { } supersampleWarning)
         {
@@ -310,12 +310,12 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
                 // to FrameSize. SourceSize stays FrameSize (above), so the encoded size is unchanged.
                 float renderScale = Math.Max(1, SupersampleFactor.Value);
                 // Export imposes NO working-scale quality ceiling (WorkingScaleCeiling.Export = +∞): the delivery
-                // render follows the true supply density, so a deliberately-authored high-density source exports
-                // at full fidelity rather than being clipped by a policy constant (the earlier finite
-                // max(8, 4×s_out) cap was a quality clip masquerading as an OOM backstop). Allocatability is
-                // guaranteed per-buffer by RenderNodeContext.ClampWorkingScaleToBufferBudget (16384 px/axis); the
-                // cross-buffer aggregate OOM bound (a request-scoped byte/area allocator) is a documented
-                // follow-up. Centralized in WorkingScaleCeiling (one definition, unit-tested) — see S3.
+                // render follows the true supply density, so a high-density source exports at full fidelity
+                // rather than being clipped by a policy constant (the earlier finite max(8, 4×s_out) cap was a
+                // quality clip masquerading as an OOM backstop). Per-buffer allocatability is still guaranteed by
+                // RenderNodeContext.ClampWorkingScaleToBufferBudget (16384 px/axis); a cross-buffer aggregate OOM
+                // bound (request-scoped byte/area allocator) is a documented follow-up. Centralized in
+                // WorkingScaleCeiling (unit-tested) — see S3.
                 float maxWorkingScale = WorkingScaleCeiling.Export(renderScale);
                 using var renderer = new SceneRenderer(Model, renderScale, disableResourceShare: true, maxWorkingScale);
                 renderer.CacheOptions = RenderCacheOptions.Disabled;

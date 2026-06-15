@@ -4,8 +4,8 @@ using Beutl.Models;
 
 namespace Beutl.UnitTests.Editor;
 
-// CPU unit tests for the US4 preview-quality -> s_out mapping (RenderScale.ToFloat). Runs without a GPU, so it
-// guards the mapping in CI even when the Vulkan golden suite is skipped. The result must always be in (0, 1].
+// CPU unit tests for the US4 preview-quality -> s_out mapping (RenderScale.ToFloat). No GPU, so they guard the
+// mapping in CI even when the Vulkan golden suite is skipped. The result must always be in (0, 1].
 [TestFixture]
 public class RenderScaleTests
 {
@@ -30,7 +30,7 @@ public class RenderScaleTests
     [Test]
     public void ToFloat_FitToPreviewer_NeverUpscalesBeyondFull()
     {
-        // previewer larger than the frame would fit at >1; must clamp to 1 (preview never upscales).
+        // previewer larger than the frame would fit at >1; must clamp to 1, preview never upscales.
         float s = RenderScale.FitToPreviewer.ToFloat(new PixelSize(100, 100), new Size(1000, 1000));
         Assert.That(s, Is.EqualTo(1f).Within(1e-6));
     }
@@ -73,8 +73,8 @@ public class RenderScaleTests
     [Test]
     public void ResolveOutputScale_FitToPreviewer_SnapNeverReachesZero()
     {
-        // A raw fit below half a step (< 0.025) rounds toward 0; the re-floor must keep it at MinScale, not 0,
-        // so the renderer is never constructed with a 0×0 surface.
+        // A raw fit below half a step (< 0.025) rounds toward 0; the re-floor keeps it at MinScale, not 0,
+        // so the renderer is never built with a 0×0 surface.
         float s = RenderScale.FitToPreviewer.ResolveOutputScale(new PixelSize(100000, 100000), new Size(1, 1));
         Assert.That(s, Is.GreaterThan(0f), "snapped s_out must never be 0 (would crash the renderer)");
         Assert.That(s, Is.EqualTo(1f / 64f).Within(1e-6));

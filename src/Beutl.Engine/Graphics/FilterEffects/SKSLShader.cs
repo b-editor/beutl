@@ -79,11 +79,11 @@ public sealed class SKSLShader : IDisposable
             {
                 paint.Shader = finalShader;
                 canvas.Clear();
-                // feature 003: cover the FULL device buffer (ceil(bounds × w) px). The runtime shader
-                // evaluates in device-pixel space, so its src child + absolute-length uniforms must be in
-                // device px (the effect multiplies them by context.WorkingScale). At w == 1 this is the
-                // exact logical (bounds.Width × bounds.Height) rect (byte-identical). Draw it in absolute
-                // device space — Open's base CTM CreateScale(w) would otherwise re-scale this device-dim rect.
+                // feature 003: cover the full device buffer (ceil(bounds × w) px). The runtime shader
+                // evaluates in device-pixel space, so its src child + absolute-length uniforms are device px
+                // (the effect multiplies them by context.WorkingScale). At w == 1 this equals the logical
+                // bounds rect (byte-identical). Draw in device space — Open's base CTM CreateScale(w) would
+                // otherwise re-scale this device-dim rect.
                 float dw = context.WorkingScale == 1f ? (float)bounds.Width : newTarget.RenderTarget!.Width;
                 float dh = context.WorkingScale == 1f ? (float)bounds.Height : newTarget.RenderTarget!.Height;
                 using (canvas.PushDeviceSpace())

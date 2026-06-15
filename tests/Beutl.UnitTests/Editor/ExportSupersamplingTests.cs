@@ -4,10 +4,10 @@ using Beutl.Media;
 
 namespace Beutl.UnitTests.Editor;
 
-// CPU unit tests for the export supersampling pre-validation (feature 003, US4). The export pipeline
-// allocates its root surface at FrameSize × max(1, factor); a surface larger than
-// RenderNodeContext.MaxBufferDimension on either axis cannot be allocated, so OutputViewModel blocks
-// Encode up-front via this pure helper instead of failing mid-export with a generic error.
+// CPU unit tests for the export supersampling pre-validation (feature 003, US4). The export root
+// surface is FrameSize × max(1, factor); a surface over RenderNodeContext.MaxBufferDimension on
+// either axis cannot be allocated, so OutputViewModel blocks Encode up-front via this pure helper
+// rather than failing mid-export.
 [TestFixture]
 public class ExportSupersamplingTests
 {
@@ -40,8 +40,8 @@ public class ExportSupersamplingTests
         Assert.That(width, Is.EqualTo(int.MaxValue * 4L));
     }
 
-    // The motivating case: an 8K UHD project at 4× needs 30720 px on the long axis — over the 16384 px
-    // per-axis GPU limit — while 2× (15360 px) still fits.
+    // Motivating case: 8K UHD at 4× needs 30720 px on the long axis, over the 16384 px per-axis GPU
+    // limit, while 2× (15360 px) still fits.
     [TestCase(7680, 4320, 1, true)]
     [TestCase(7680, 4320, 2, true)]
     [TestCase(7680, 4320, 4, false)]

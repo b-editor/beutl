@@ -64,9 +64,9 @@ public interface ICanvas : IDisposable, IPopable
     PushedState PushTransform(Matrix matrix, TransformOperator transformOperator = TransformOperator.Prepend);
 
     /// <summary>
-    /// feature 003: enter ABSOLUTE device space (CTM identity, <see cref="Density"/> = 1) for the lifetime
-    /// of the returned state — for drawing device-px content (a contour traced from the device buffer, a
-    /// point-blit of another device buffer, a full-buffer shader rect) onto a density-aware canvas.
+    /// feature 003: for the returned state's lifetime, enter absolute device space (CTM identity, <see cref="Density"/> = 1)
+    /// so device-px content (a contour traced from the device buffer, a point-blit of another device buffer,
+    /// a full-buffer shader rect) draws onto a density-aware canvas.
     /// </summary>
     PushedState PushDeviceSpace();
 }
@@ -89,12 +89,11 @@ internal sealed class TmpBackdrop(Bitmap bitmap, float captureScale) : IBackdrop
 {
     public void Draw(ImmediateCanvas canvas)
     {
-        // feature 003 (CSM-3/CSM3-1): the capture is the device-sized backing surface
-        // (ceil(frame × captureScale) px). Un-scale by the SurfaceDensity it was CAPTURED at — NOT the replay
-        // canvas's density — because when the backdrop is replayed inside a buffer-flushing FilterEffect, Draw
-        // runs on a nested canvas whose SurfaceDensity is that buffer's working density w (≠ the capture
-        // density); keying off that would mis-size the capture under the flush's baked CreateScale(w) base CTM.
-        // Mapping it into its logical footprint lets the active CTM map it back. captureScale == 1 = bare blit.
+        // feature 003 (CSM-3/CSM3-1): the capture is the device-sized backing surface (ceil(frame × captureScale) px).
+        // Un-scale by the capture's SurfaceDensity, NOT the replay canvas's density: a backdrop replayed inside a
+        // buffer-flushing FilterEffect runs on a nested canvas whose SurfaceDensity is the buffer's working density w
+        // (≠ the capture density), so keying off it would mis-size under the flush's baked CreateScale(w) base CTM.
+        // Mapping into its logical footprint lets the active CTM map it back. captureScale == 1 = bare blit.
         if (captureScale == 1f)
         {
             canvas.DrawBitmap(bitmap, Brushes.Resource.White, null);

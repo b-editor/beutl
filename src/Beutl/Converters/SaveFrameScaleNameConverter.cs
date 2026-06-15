@@ -4,10 +4,9 @@ using Avalonia.Data.Converters;
 namespace Beutl.Converters;
 
 /// <summary>
-/// Maps a save-frame output-resolution multiplier to its display name (feature 003, US4 follow-up):
-/// any factor → "<c>N×</c>" (e.g. <c>0.5×</c>, <c>1×</c>, <c>2×</c>). One-way; used from ComboBox item
-/// templates. Unlike <see cref="SupersampleFactorNameConverter"/>, <c>1</c> is shown as "1×" (not "Off")
-/// because the save scale is an output resolution, not a quality toggle.
+/// One-way ComboBox-template converter mapping a save-frame output-resolution multiplier to "<c>N×</c>".
+/// Unlike <see cref="SupersampleFactorNameConverter"/>, <c>1</c> shows as "1×" not "Off", since this is an
+/// output resolution, not a quality toggle.
 /// </summary>
 public sealed class SaveFrameScaleNameConverter : IValueConverter
 {

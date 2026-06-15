@@ -7,11 +7,10 @@ using Beutl.UnitTests.Engine.Graphics.Backend;
 namespace Beutl.UnitTests.Engine.Graphics.Rendering;
 
 // feature 003 (FR-037(b) consistency): when the per-buffer dimension clamp fires, the density a
-// custom effect's device math keys on (context.WorkingScale) must agree with the density its
-// buffers were actually allocated at (target.Scale) — a mismatch shifts contours/crops/tiles
-// systematically. These tests pin the two repaired sites: the uniform Flush clamp written back to
-// FilterEffectActivator.WorkingScale, and the CreateTarget re-clamp (which previously allocated
-// unclamped and degraded to an empty target + Open() throwing).
+// custom effect keys on (context.WorkingScale) must equal the density its buffers were allocated at
+// (target.Scale); a mismatch systematically shifts contours/crops/tiles. These pin the two repaired
+// sites: the Flush clamp written back to FilterEffectActivator.WorkingScale, and the CreateTarget
+// re-clamp (which previously allocated unclamped, degrading to an empty target + Open() throwing).
 [NonParallelizable]
 [TestFixture]
 public class WorkingScaleClampConsistencyTests

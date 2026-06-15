@@ -56,20 +56,20 @@ internal sealed class Scene3DRenderNode(Scene3D.Resource scene) : RenderNode
         if (width <= 0 || height <= 0)
             return [];
 
-        // feature 003: render the 3D scene at the output density (ceil(size × s_out)) so it stays crisp
-        // under supersampled export / full-scale preview rather than being upscaled by the root CTM. The two
-        // axes are ceil()'d independently, so at a fractional scale the device aspect dw/dh can deviate from
-        // width/height by a sub-pixel amount, nudging the camera projection (aspectRatio = dw/dh) by <~0.001;
-        // the result is then resampled into the correctly-proportioned logical Bounds. w == 1 keeps the exact
-        // logical-size surface + point-blit path (byte-identical).
-        // Clamp the density so the device surface stays allocatable (FR-037(b)). This is the one buffer-allocating
-        // boundary that takes a raw OutputScale, and Renderer3D → VulkanContext.CreateTexture2D has no size guard
-        // and throws on vkCreateImage past the GPU axis limit: an 8192-wide scene under 4× export would size
-        // 32768 px and crash the export. Mirror the 2D intermediates — clamp w to fit, recompute the surface, and
-        // record the clamped density so the renderer's logical→device hit-test math stays consistent.
-        // EffectiveScale.At(w) below is safe (never throws on the pull path) because w is the OutputScale
-        // (sanitized positive-finite by RenderNodeContext) passed through ClampWorkingScaleToBufferBudget, which
-        // preserves finite-positive; a future w from another density must guard it (EffectiveScale.AtOrUnbounded).
+        // feature 003: render the 3D scene at the output density (ceil(size × s_out)) so it stays crisp under
+        // supersampled export / full-scale preview instead of being upscaled by the root CTM. The two axes are
+        // ceil()'d independently, so at a fractional scale the device aspect dw/dh can deviate from width/height
+        // by a sub-pixel amount, nudging the camera projection (aspectRatio = dw/dh) by <~0.001; the result is
+        // resampled into the correctly-proportioned logical Bounds. w == 1 keeps the exact logical-size surface
+        // + point-blit path (byte-identical).
+        // Clamp the density so the device surface stays allocatable (FR-037(b)): this is the one buffer-allocating
+        // boundary that takes a raw OutputScale, and Renderer3D → VulkanContext.CreateTexture2D throws on
+        // vkCreateImage past the GPU axis limit (an 8192-wide scene under 4× export sizes 32768 px and crashes).
+        // Mirror the 2D intermediates: clamp w, recompute the surface, and record the clamped density for the
+        // renderer's logical→device hit-test math.
+        // EffectiveScale.At(w) below never throws because w is the OutputScale (sanitized positive-finite by
+        // RenderNodeContext) through ClampWorkingScaleToBufferBudget, which preserves finite-positive; a future w
+        // from another density must guard it (EffectiveScale.AtOrUnbounded).
         float w = RenderNodeContext.ClampWorkingScaleToBufferBudget(new Rect(0, 0, width, height), context.OutputScale);
         int dw = w == 1f ? width : (int)MathF.Ceiling(width * w);
         int dh = w == 1f ? height : (int)MathF.Ceiling(height * w);
@@ -79,12 +79,11 @@ internal sealed class Scene3DRenderNode(Scene3D.Resource scene) : RenderNode
 
         // Initialize or resize if needed. feature 003 (FR-037(b)): unlike the 2D sinks (which allocate through
         // RenderTarget.Create's try/catch and degrade to null on an over-limit size), Renderer3D goes straight to
-        // VulkanContext.CreateTexture2D, which THROWS on vkCreateImage past the GPU axis limit. The dw/dh above
-        // are already clamped to MaxBufferDimension (16384), but a backend whose real limit is LOWER (e.g. a
-        // mobile/embedded Vulkan reporting 8192) would still throw — and an uncaught throw on the render thread
-        // crashes the whole render. Catch it and drop just the 3D op (a missing 3D frame) instead, mirroring the
-        // 2D degrade. Querying the backend's true maxImageDimension2D and passing it to the clamp is the complete
-        // fix (a follow-up); this guarantees no backend size can crash the render in the meantime.
+        // VulkanContext.CreateTexture2D, which THROWS on vkCreateImage past the GPU axis limit. dw/dh are already
+        // clamped to MaxBufferDimension (16384), but a backend whose real limit is LOWER (e.g. mobile/embedded
+        // Vulkan reporting 8192) would still throw, and an uncaught throw on the render thread crashes the whole
+        // render. Catch it and drop just the 3D op instead, mirroring the 2D degrade. The complete fix (a follow-up)
+        // is to query the backend's true maxImageDimension2D and feed it to the clamp.
         if (renderer.Width != dw || renderer.Height != dh)
         {
             try
@@ -141,10 +140,10 @@ internal sealed class Scene3DRenderNode(Scene3D.Resource scene) : RenderNode
         if (surface == null)
             return [];
 
-        // Create the render operation that will draw the 3D scene. The surface is a concrete bitmap at the
-        // working density w (it is not vector / re-rasterizable), so tag it At(w) honestly — including w == 1,
-        // where the At(1) tag still takes the point-blit branch downstream (Value == 1f) but now reports the
-        // surface's true density so a consumer caps its working scale at the rendered resolution.
+        // Create the render operation that will draw the 3D scene. The surface is a concrete bitmap at the working
+        // density w (not vector / re-rasterizable), so tag it At(w) — including w == 1, where At(1) still takes the
+        // point-blit branch downstream (Value == 1f) yet reports the true density so a consumer caps its working
+        // scale at the rendered resolution.
         var operation = RenderNodeOperation.CreateFromSurface(
             Bounds,
             new Point(0, 0),

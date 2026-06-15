@@ -12,7 +12,7 @@ argument-hint: "[TestFilter FQN-substring]"
 
 # Reproduce & debug a Beutl Linux/SwiftShader GPU native crash
 
-A long, multi-step investigation. Stay in the loop and **confirm direction with the user at the decision
+A long, multi-step investigation. **Confirm direction with the user at the decision
 points below** — a wrong fix costs a full ~25-minute verify cycle.
 
 ## When this applies
@@ -25,8 +25,8 @@ points below** — a wrong fix costs a full ~25-minute verify cycle.
 On Apple silicon a `--platform linux/amd64` container runs x64 via qemu-user; the kernel core is the **qemu
 emulator's arm64 core** (`readelf -n` shows `NT_ARM_*`), useless for the guest stack, and every ptrace tool
 (createdump, gdb attach, `--blame-crash`) fails under qemu. SwiftShader ships `runtimes/linux-arm64`, so the
-bug almost always reproduces **arm64-native** (`--platform linux/arm64`, native on the Mac) where cores are
-real and gdb/eu-stack work. See `references/native-stack-and-file-trace.md`.
+bug almost always reproduces **arm64-native** (`--platform linux/arm64`) where cores are real and gdb/eu-stack
+work. See `references/native-stack-and-file-trace.md`.
 
 ## 1. Setup (once)
 ```bash
@@ -35,13 +35,13 @@ git worktree add --detach /tmp/beutl-ss-arm64 HEAD          # isolated bin/obj; 
 docker build --platform linux/arm64 -t beutl-ss:10.0-arm64 "$SKILL/scripts"
 ```
 Every container run mounts: worktree→`/work`, `~/.nuget/packages`→`/root/.nuget/packages`, a FRESH dumps
-dir→`/dumps`, `$SKILL/scripts`→`/scripts`; pass `--privileged` (to set `core_pattern`). Env
+dir→`/dumps`, `$SKILL/scripts`→`/scripts`; pass `--privileged` to set `core_pattern`. Env
 (`BEUTL_REQUIRE_GPU=1`, `XDG_RUNTIME_DIR=/tmp`, minidump-off) is set inside the scripts.
 
 ## 2. Reproduce + capture the native stack
-**Delegate to the `beutl-gpu-crash-reproducer` subagent** so thousands of lines of Docker/test output and
-multi-GB cores never flood this context; it returns just the native backtrace + signal + crashing thread +
-iteration/repro-rate. Or run by hand:
+**Delegate to the `beutl-gpu-crash-reproducer` subagent** so the Docker/test output and multi-GB cores never
+flood this context; it returns just the native backtrace + signal + crashing thread + iteration/repro-rate.
+Or run by hand:
 ```bash
 DRUN="docker run --rm --platform linux/arm64 --privileged \
   -v /tmp/beutl-ss-arm64:/work -v $HOME/.nuget/packages:/root/.nuget/packages \
@@ -52,8 +52,8 @@ $DRUN /scripts/analyze-core.sh   # gdb + eu-stack native backtrace
 ```
 
 ## 3. If gdb only shows `?? ()` for the managed caller
-The native frame (e.g. `SkCanvas::restoreToCount`, `x0/this=0x0`) is often not enough. `dotnet-dump` / lldb
-SOS usually can't bind the net10 DAC from these cores — don't fight it. Use the **file-trace**: copy
+The native frame (e.g. `SkCanvas::restoreToCount`, `x0/this=0x0`) is often not enough, and `dotnet-dump` /
+lldb SOS usually can't bind the net10 DAC from these cores — don't fight it. Use the **file-trace**: copy
 `scripts/CrashTrace.cs.txt` into the engine, inject `CrashTrace.Mark("<site>")` before each candidate native
 call, run one loop pass; `/dumps/lastrestore.txt` keeps the crashing site's tag. Details + a worked example:
 `references/native-stack-and-file-trace.md`.
@@ -80,6 +80,6 @@ nothing. If the bug could be arch-sensitive, also verify with `--platform linux/
   (e.g. dispose-after-surface-disposed must not crash), even though the race itself is non-deterministic.
 
 ## See also
-- Subagent `beutl-gpu-crash-reproducer` (the isolated build+loop+capture runner).
-- Memory `beutl-gpu-ci-crash-debugging` (the concise field note).
-- `references/native-stack-and-file-trace.md` (why-arm64, file-trace, DAC caveats, worked 003 example).
+- Subagent `beutl-gpu-crash-reproducer` — the isolated build+loop+capture runner.
+- Memory `beutl-gpu-ci-crash-debugging` — the concise field note.
+- `references/native-stack-and-file-trace.md` — why-arm64, file-trace, DAC caveats, worked 003 example.

@@ -4,8 +4,8 @@ using SkiaSharp;
 
 namespace Beutl.UnitTests.Engine.Graphics.Rendering;
 
-// CPU unit tests for the single-source-of-truth downscale kernel (SupersampleDownscaler). No GPU needed, so it
-// guards the kernel choice + the same-size fast path in CI even when the Vulkan golden suite is skipped.
+// CPU unit tests for the single-source-of-truth downscale kernel. No GPU needed, so they guard the kernel
+// choice + same-size fast path in CI even when the Vulkan golden suite is skipped.
 [TestFixture]
 public class SupersampleDownscalerTests
 {

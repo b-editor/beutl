@@ -25,10 +25,9 @@ public interface IRenderer3D : IDisposable
     int Height { get; }
 
     /// <summary>
-    /// The density (device pixels per logical unit) the surface is sized at (feature 003):
+    /// Surface density in device pixels per logical unit:
     /// <see cref="Width"/>/<see cref="Height"/> are <c>ceil(logical × SurfaceDensity)</c>. Hit-test entry
-    /// points take LOGICAL coordinates and convert by this. Set by the render node alongside
-    /// <see cref="Resize"/>.
+    /// points take LOGICAL coordinates and convert by this. Set by the render node alongside <see cref="Resize"/>.
     /// </summary>
     float SurfaceDensity { get; set; }
 

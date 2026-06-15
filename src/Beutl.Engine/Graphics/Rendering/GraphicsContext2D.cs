@@ -21,19 +21,19 @@ public sealed class GraphicsContext2D(
     private bool _hasChanges;
 
     /// <summary>
-    /// The LOGICAL viewport this build context measures against (feature 003). It is an EXACT logical
-    /// <see cref="Size"/> (float) — NOT a rounded device <see cref="PixelSize"/> — because
+    /// The logical viewport this build context measures against (feature 003). An exact logical
+    /// <see cref="Size"/> (float), not a rounded device <see cref="PixelSize"/>, because
     /// <see cref="Drawable.Render"/> feeds it into <c>MeasureCore</c> / <c>GetTransformMatrix</c>, where a
     /// fractional viewport changes placement / stretch.
     /// </summary>
     public Size Size => canvasSize;
 
     /// <summary>
-    /// The output scale <c>s_out</c> this context was built for (feature 003). <see cref="Size"/> stays logical.
-    /// It is threaded from every construction site so the value is available, but it is currently NOT read by
-    /// the build phase: <see cref="DrawBackdrop"/> keeps a logical region (the root CTM applies the scale) and
-    /// capture-scale reconciliation (FR-021) is done at replay via the snapshot's own capture scale, not this
-    /// value. Retained as the seam for a future build-phase consumer that needs the device footprint here.
+    /// The output scale <c>s_out</c> this context was built for (feature 003); <see cref="Size"/> stays logical.
+    /// Threaded from every construction site but currently not read by the build phase: <see cref="DrawBackdrop"/>
+    /// keeps a logical region (the root CTM applies the scale) and capture-scale reconciliation (FR-021) happens at
+    /// replay via the snapshot's own capture scale, not this value. Retained as the seam for a future build-phase
+    /// consumer that needs the device footprint here.
     /// </summary>
     public float OutputScale => outputScale;
 
@@ -358,11 +358,11 @@ public sealed class GraphicsContext2D(
 
         DrawBackdropRenderNode? next = Next<DrawBackdropRenderNode>();
 
-        // The backdrop's bounds are LOGICAL (feature 003): canvasSize is the logical FrameSize and the
-        // root CTM applies OutputScale, so this region is not pre-scaled here. Capture-scale
-        // reconciliation (FR-021) is performed when the snapshot is replayed: SnapshotBackdropRenderNode /
-        // TmpBackdrop map the device-sized capture back to its logical footprint via the SurfaceDensity it was
-        // CAPTURED at (CSM-3) — not the replay canvas's density, which differs on a nested buffer-flush canvas.
+        // The backdrop's bounds are logical (feature 003): canvasSize is the logical FrameSize and the root CTM
+        // applies OutputScale, so this region is not pre-scaled here. Capture-scale reconciliation (FR-021) happens
+        // at replay: SnapshotBackdropRenderNode / TmpBackdrop map the device-sized capture back to its logical
+        // footprint via the SurfaceDensity it was captured at (CSM-3) — not the replay canvas's density, which
+        // differs on a nested buffer-flush canvas.
         var b = new Rect(canvasSize);
         if (next == null)
         {

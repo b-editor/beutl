@@ -9,7 +9,7 @@ internal sealed class ParticleRenderNode(ParticleEmitter.Resource particle) : Re
 {
     private (RenderTarget RT, Drawable.Resource? Resource, int? Version)? _cachedRenderTarget;
     private Rect _drawableBounds;
-    // feature 003 (FR-029): the working density the cached particle-drawable buffer was rasterized at.
+    // feature 003 (FR-029): working density the cached particle-drawable buffer was rasterized at.
     private float _renderScale = 1f;
 
     public (ParticleEmitter.Resource Resource, int Version)? Particle { get; private set; } = particle.Capture();
@@ -33,13 +33,11 @@ internal sealed class ParticleRenderNode(ParticleEmitter.Resource particle) : Re
         var particles = resource.GetAliveParticles();
         if (particles.Length == 0) return [];
 
-        // feature 003 (FR-029): honor the active render scale — rasterize the per-particle drawable into a
-        // ceil(bounds × w) buffer (not a fixed 1x one) so it stays crisp under supersampled export and does not
-        // over-allocate under reduced-scale preview. Particles have no concrete bitmap input (each per-particle
-        // drawable re-rasterizes), so the supply-driven working density is just the output scale s_out.
-        // EffectiveScale.At(w) below is safe (cannot throw on the pull path) ONLY because w == OutputScale, which
-        // RenderNodeContext sanitizes to positive-finite; a future change that derives w from another density
-        // must guard it (EffectiveScale.AtOrUnbounded) — At throws on a non-finite value.
+        // feature 003 (FR-029): rasterize the per-particle drawable into a ceil(bounds × w) buffer so it stays
+        // crisp under supersampled export and does not over-allocate under reduced-scale preview. Particles have
+        // no concrete bitmap input (each per-particle drawable re-rasterizes), so w is just the output scale s_out.
+        // EffectiveScale.At(w) below cannot throw ONLY because w == OutputScale, which RenderNodeContext sanitizes
+        // to positive-finite; deriving w from another density must guard it (At throws on a non-finite value).
         float w = context.OutputScale;
         if (!_cachedRenderTarget.HasValue ||
             _renderScale != w ||
@@ -96,7 +94,7 @@ internal sealed class ParticleRenderNode(ParticleEmitter.Resource particle) : Re
             RenderNodeOperation.CreateLambda(
                 totalBounds,
                 canvas => DrawAllParticles(canvas, cachedRT, particles, drawableBounds, w),
-                // The composite is bitmap content at the density the cached drawable was rasterized at (FR-019b).
+                // Bitmap content at the density the cached drawable was rasterized at (FR-019b).
                 effectiveScale: EffectiveScale.At(w))
         ];
     }
@@ -108,10 +106,9 @@ internal sealed class ParticleRenderNode(ParticleEmitter.Resource particle) : Re
         Rect drawableBounds,
         float w)
     {
-        // At w != 1 every particle blits the SAME cached buffer scaled; snapshot it ONCE here and reuse the
-        // SKImage across the loop (up to MaxParticles) rather than re-snapshotting + force-flushing per particle.
-        // The cached buffer is immutable during this draw, so one snapshot is byte-equivalent. w == 1 keeps the
-        // bare point-blit fast path (no snapshot).
+        // At w != 1 every particle blits the same cached buffer scaled; the buffer is immutable during this draw,
+        // so snapshot it ONCE and reuse the SKImage across the loop rather than re-snapshotting per particle.
+        // w == 1 keeps the bare point-blit fast path (no snapshot).
         SKImage? cachedImage = null;
         if (w != 1f)
         {
@@ -166,9 +163,9 @@ internal sealed class ParticleRenderNode(ParticleEmitter.Resource particle) : Re
         }
     }
 
-    // feature 003: blit the cached particle-drawable buffer. The buffer is ceil(footprint × w) device px; at
-    // w == 1 keep the bare point blit (byte-identical), at w != 1 draw the once-snapshotted image into its
-    // LOGICAL footprint so the per-particle + ambient CTM resample it once (crisp under SSAA export).
+    // feature 003: blit the cached particle-drawable buffer (ceil(footprint × w) device px). At w == 1 keep the
+    // bare point blit (byte-identical); at w != 1 draw the snapshotted image into its LOGICAL footprint so the
+    // per-particle + ambient CTM resample it once (crisp under SSAA export).
     private static void DrawCached(
         ImmediateCanvas canvas, RenderTarget cachedRT, SKImage? cachedImage, Rect drawableBounds, float w)
     {
@@ -192,7 +189,7 @@ internal sealed class ParticleRenderNode(ParticleEmitter.Resource particle) : Re
     {
         using var node = new DrawableRenderNode(drawable);
         // 1920×1080 is only the LOGICAL measurement canvas (GraphicsContext2D.Size stays logical); the actual
-        // buffer is sized from the drawable bounds below. Thread the nominal scale as the output scale so the
+        // buffer is sized from the drawable bounds below. The nominal scale is threaded as the output scale so the
         // drawable and its sub-pulls rasterize at the active render density (FR-029).
         using (var gctx = new GraphicsContext2D(node, new Size(1920, 1080), nominalScale))
         {
@@ -206,16 +203,14 @@ internal sealed class ParticleRenderNode(ParticleEmitter.Resource particle) : Re
 
         bounds = ops.Aggregate(Rect.Empty, (a, n) => a.Union(n.Bounds));
         // feature 003 (FR-037(b)): bound the per-axis device dimension. A large authored drawable under an SSAA
-        // export (nominalScale up to the supersample factor) can size ceil(bounds × scale) past the GPU 2D-image
-        // limit, where RenderTarget.Create returns null and EVERY particle silently disappears from the exported
-        // file. Clamp the particle buffer's density so it degrades (slightly softer sprites) instead of vanishing
-        // — exactly as the effect sinks do. Scoped to nominalScale > 1 (export SSAA, the path 003 added the ×4
-        // multiplier to): preview (scale ≤ 1) consumes OutputScale and never inflates, so its w == 1 / reduced
-        // fast paths and byte-identity stay exactly as before.
+        // export can size ceil(bounds × scale) past the GPU 2D-image limit, where RenderTarget.Create returns null
+        // and EVERY particle silently disappears from the exported file. Clamp density so it degrades (softer
+        // sprites) instead of vanishing, as the effect sinks do. Scoped to nominalScale > 1 (export SSAA); preview
+        // (scale ≤ 1) never inflates, so its fast paths and byte-identity are unchanged.
         float w = nominalScale > 1f
             ? RenderNodeContext.ClampWorkingScaleToBufferBudget(bounds, nominalScale)
             : nominalScale;
-        // Size the buffer ceil(bounds × w) device px; w == 1 keeps the exact pre-feature 1x size (byte-identical).
+        // Buffer is ceil(bounds × w) device px; w == 1 keeps the exact pre-feature 1x size (byte-identical).
         var rect = w == 1f ? PixelRect.FromRect(bounds) : PixelRect.FromRect(bounds, w);
 
         if (rect.Width <= 0 || rect.Height <= 0)
@@ -236,8 +231,8 @@ internal sealed class ParticleRenderNode(ParticleEmitter.Resource particle) : Re
         using (var canvas = new ImmediateCanvas(renderTarget, w, maxWorkingScale, logicalSize: bounds.Size))
         {
             canvas.Clear();
-            // feature 003: the canvas bakes the base CTM CreateScale(w) (identity at w == 1) so logical
-            // content fills the denser buffer; only the logical translation to the bounds origin is needed.
+            // feature 003: the canvas bakes the base CTM CreateScale(w) (identity at w == 1) so logical content
+            // fills the denser buffer; only the logical translation to the bounds origin is needed here.
             using (canvas.PushTransform(Matrix.CreateTranslation(-bounds.X, -bounds.Y)))
             {
                 foreach (var op in ops)
@@ -262,13 +257,13 @@ internal sealed class ParticleRenderNode(ParticleEmitter.Resource particle) : Re
         if (renderTarget == null) return null;
 
         // Forward the request's FR-037 ceiling for consistency with RenderDrawableToTarget — inert today (the
-        // single SolidColorBrush DrawEllipse never consults MaxWorkingScale) but a latent trap if the fallback
-        // ever gains nested / tiled content.
+        // single SolidColorBrush DrawEllipse never consults MaxWorkingScale) but a trap if the fallback ever
+        // gains nested / tiled content.
         using (var canvas = new ImmediateCanvas(renderTarget, w, maxWorkingScale, logicalSize: bounds.Size))
         {
             canvas.Clear();
             // feature 003: the canvas bakes the base CTM CreateScale(w); only the logical translation of the
-            // (-5,-5)-origin placeholder bounds to (0,0) is needed.
+            // (-5,-5)-origin placeholder bounds to (0,0) is needed here.
             using (canvas.PushTransform(Matrix.CreateTranslation(5, 5)))
             {
                 canvas.DrawEllipse(bounds, Brushes.Resource.White, null);

@@ -60,10 +60,9 @@ public sealed class VideoSourceRenderNode(
                     }
                 },
                 hitTest: HitTest,
-                // feature 003 (FR-018): a decoded video frame is a bitmap at its native 1:1 density (its logical
-                // bounds == its pixel size), so it reports a concrete supply density At(1) rather than the
-                // re-rasterizable Unbounded — same rationale as ImageSourceRenderNode, and a downstream transform
-                // re-scales it so the density tracks the frame's available pixels per logical unit.
+                // feature 003 (FR-018): a decoded video frame is a bitmap at native 1:1 density, so it reports a
+                // concrete supply density At(1) rather than the re-rasterizable Unbounded — as ImageSourceRenderNode
+                // does; a downstream transform re-scales it to track the frame's available pixels per logical unit.
                 effectiveScale: EffectiveScale.At(1f)
             )
         ];

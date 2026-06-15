@@ -27,17 +27,16 @@ public class FilterEffectRenderNode(FilterEffect.Resource filterEffect) : Contai
             return context.Input;
         }
 
-        // Resolve this effect's working scale w from its inputs' supply densities (feature 003, FR-036).
-        // Supply-driven: w == the densest concrete input, capped by the global memory ceiling. Threaded into
-        // the context (FR-015) AND into the activator, which sizes render-target / Custom buffers
-        // ceil(bounds × w) and resamples them once at the final blit (FilterEffectActivator,
-        // CustomFilterEffectContext, EffectTarget.Draw). At output scale 1.0 with vector inputs, w == 1, so
-        // every buffer keeps its (int)-truncation point-blit path (byte-identical). An effect that needs a
-        // different w (clamp for perf, oversample for SSAA) overrides Process in a FilterEffectRenderNode
-        // subclass returned from FilterEffect.Resource.CreateRenderNode().
-        // Stack-allocate the tiny input-density span to keep the render hot path allocation-free (the <= 16
-        // guard falls back to the heap for a rare high-fan-in container so the stack can't overflow).
-        // EffectiveScale is an unmanaged readonly record struct, so it is stackalloc-eligible.
+        // Resolve this effect's working scale w (feature 003, FR-036): supply-driven, so w == the densest
+        // concrete input, capped by the global memory ceiling. Threaded into the context (FR-015) and the
+        // activator, which sizes render-target / Custom buffers ceil(bounds × w) and resamples once at the
+        // final blit (FilterEffectActivator, CustomFilterEffectContext, EffectTarget.Draw). At output scale
+        // 1.0 with vector inputs w == 1, keeping every buffer on its (int)-truncation point-blit path
+        // (byte-identical). An effect needing a different w (clamp for perf, oversample for SSAA) overrides
+        // Process in a FilterEffectRenderNode subclass from FilterEffect.Resource.CreateRenderNode().
+        // Stackalloc the input-density span to keep the render hot path allocation-free; EffectiveScale is an
+        // unmanaged readonly record struct. The <= 16 guard spills a rare high-fan-in container to the heap
+        // so the stack can't overflow.
         Span<EffectiveScale> inputScales = context.Input.Length <= 16
             ? stackalloc EffectiveScale[context.Input.Length]
             : new EffectiveScale[context.Input.Length];
@@ -49,11 +48,11 @@ public class FilterEffectRenderNode(FilterEffect.Resource filterEffect) : Contai
         float workingScale = RenderNodeContext.ResolveWorkingScale(
             inputScales, context.OutputScale, context.MaxWorkingScale);
 
-        // FR-037 memory / GPU-texture backstop: the FR-037 ceiling bounds w, but the buffer (and its memory)
-        // scale with bounds × w. A supply density inflated by an anisotropic transform (FR-019, projected onto
-        // the most-detailed axis) can size ceil(bounds × w) past the GPU limit (un-allocatable) or into the
-        // multi-GiB range. Clamp w to the actual bounds so the effect degrades on the densest axis instead of
-        // crashing. Inert (returns w) for non-pathological bounds, so byte-identity at w == 1 is preserved.
+        // FR-037 memory / GPU-texture backstop: the FR-037 ceiling bounds w, but buffer memory scales with
+        // bounds × w. A supply density inflated by an anisotropic transform (FR-019, projected onto the
+        // most-detailed axis) can size ceil(bounds × w) past the GPU limit or into the multi-GiB range. Clamp
+        // w to the bounds so the effect degrades on the densest axis instead of crashing. Inert (returns w)
+        // for non-pathological bounds, preserving byte-identity at w == 1.
         Rect bounds = context.CalculateBounds();
         workingScale = RenderNodeContext.ClampWorkingScaleToBufferBudget(bounds, workingScale);
 
@@ -94,9 +93,9 @@ public class FilterEffectRenderNode(FilterEffect.Resource filterEffect) : Contai
                             t.Dispose();
                             paint.Dispose();
                         },
-                        // feature 003 (FR-004/FR-019b): a flushed buffer is a concrete bitmap at the working
-                        // density it was rasterized at; report its true At(w) so a parent boundary reconciles
-                        // it as bitmap supply, not re-rasterizable Unbounded. Mirrors the else branch below.
+                        // feature 003 (FR-004/FR-019b): a flushed buffer is a concrete bitmap at its
+                        // rasterization density; report its true At(w) so a parent boundary reconciles it as
+                        // bitmap supply, not re-rasterizable Unbounded. Mirrors the else branch below.
                         effectiveScale: t.Scale
                     );
                 }).ToArray();

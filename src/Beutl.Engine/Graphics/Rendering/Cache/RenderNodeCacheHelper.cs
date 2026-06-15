@@ -92,32 +92,28 @@ public static class RenderNodeCacheHelper
         float outputScale = 1f, float maxWorkingScale = float.PositiveInfinity)
     {
         // feature 003 (FR-020/FR-037): rasterize the cache at the renderer's density under its working-scale
-        // ceiling — the old default-scale processor baked density-1 tiles regardless of the render scale and
-        // let high-density sources escape the FR-037 ceiling during cache creation.
+        // ceiling. The old default-scale processor baked density-1 tiles regardless of render scale and let
+        // high-density sources escape the FR-037 ceiling during cache creation.
         var processor = new RenderNodeProcessor(node, false, outputScale, maxWorkingScale);
         var ops = processor.PullToRoot();
 
         // feature 003 (FR-018, I4 cache-density-collapse fix): the cache rasterizes every op at outputScale and
         // re-tags the replayed tile EffectiveScale.At(outputScale). A subtree whose output carries a concrete
-        // supply density ABOVE outputScale (a transform-densified high-resolution source — At(4) on a 1080
-        // timeline) would have that detail DISCARDED into the outputScale tile, and every downstream effect that
-        // resolves its working scale from this input would silently drop from w = supply to w = outputScale the
-        // moment the (render-count-driven) cache kicks in — a non-transparent behavioural change and a direct
-        // FR-018 violation. Refuse to cache such a subtree: it keeps rendering uncached at its true supply
-        // density. Density-preserving cross-scale cache reuse (rasterize each tile at its own working scale and
-        // store a per-tile density) is the deferred proper fix (T025); until then, transparency wins over the
-        // cache-hit on these specific high-density subtrees.
+        // supply density ABOVE outputScale (e.g. a transform-densified At(4) source on a 1080 timeline) would
+        // have that detail DISCARDED into the outputScale tile, so every downstream effect resolving its working
+        // scale from this input would silently drop from w = supply to w = outputScale once the cache warms — a
+        // non-transparent FR-018 violation. So we refuse to cache such a subtree; it keeps rendering uncached at
+        // its true supply density. The proper fix is a per-tile-density cache (rasterize each tile at its own
+        // working scale, store the density), deferred as T025.
         //
         // The symmetric BELOW-output case (an enlarged At(0.5) bitmap) is already transparent: ResolveWorkingScale
-        // floors the working scale at outputScale (w = max(s_out, supply)), so such an input ALREADY resolves to
-        // w = outputScale whether it is cached (replayed At(outputScale)) or not — the cache tag and the live tag
-        // agree, so there is no temporal "snap" when the cache warms. The one residual non-transparency is a
-        // re-rasterizable VECTOR subtree (text/shape) cached as a 1× tile and then sampled into a HIGHER-w buffer
-        // raised by a DENSER concrete SIBLING under a shared effect: the frozen tile is up-scaled where uncached
-        // vector would re-rasterize crisply. Rejecting all vector caching to close that narrow case would gut the
-        // render-count cache's primary purpose (caching static text/shapes, the dominant cacheable content), a
-        // net loss; the proper fix is the same per-tile-density cache (T025). So we reject only the above-output
-        // case here and leave vector caching on.
+        // floors the working scale at outputScale (w = max(s_out, supply)), so the input resolves to w = outputScale
+        // cached or not — the tags agree, no temporal snap when the cache warms. The one residual non-transparency
+        // is a re-rasterizable VECTOR subtree (text/shape) cached as a 1× tile then sampled into a HIGHER-w buffer
+        // raised by a DENSER concrete SIBLING under a shared effect: the frozen tile up-scales where uncached vector
+        // would re-rasterize crisply. Rejecting all vector caching to close that narrow case would gut the cache's
+        // primary purpose (static text/shapes, the dominant cacheable content); the per-tile-density cache (T025) is
+        // the real fix. So we reject only the above-output case here and leave vector caching on.
         if (ops.Any(o => !o.EffectiveScale.IsUnbounded && o.EffectiveScale.Value > outputScale))
         {
             foreach (var op in ops)
@@ -134,7 +130,7 @@ public static class RenderNodeCacheHelper
         });
         if (!cacheOptions.Rules.Match(pixels))
         {
-            // The rasterized tiles are caller-owned; release them on the reject path too, otherwise every
+            // The rasterized tiles are caller-owned; release them on the reject path too, or every
             // (density-scaled) RenderTarget surface leaks until finalization — amplified under supersampled
             // export where each tile is ceil(bounds × outputScale) device px and the budget rejects more often.
             foreach (var i in list)

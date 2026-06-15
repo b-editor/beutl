@@ -76,14 +76,12 @@ public partial class PartsSplitEffect : FilterEffect
                         }
                     }
 
-                    // feature 003: contours are traced in the source buffer's DEVICE pixels (the buffer is
-                    // ceil(bounds × w) when w != 1), so convert path bounds back to LOGICAL units (/ w)
-                    // before composing them with the logical target bounds; CreateTarget re-densifies by w.
-                    // The clip + draw below stay in device px (the source buffer and skpath share that space).
-                    // The bare (nominal) WorkingScale is clamp-safe here: each per-part bounds is one traced
-                    // contour of the already-allocatable source (pathBounds ÷ w only ever sub-crops, never
-                    // inflates), so CreateTarget's FR-037(b) clamp returns w unchanged — newTarget.Scale.Value
-                    // always equals w on this path, unlike the bounds-inflating FlatShadow/Displacement effects.
+                    // feature 003: contours are traced in the source buffer's DEVICE px (buffer is ceil(bounds × w)),
+                    // so convert path bounds to LOGICAL units (/ w) before composing with the logical target bounds;
+                    // CreateTarget re-densifies by w. Using the bare WorkingScale is clamp-safe: each per-part bounds
+                    // sub-crops the already-allocatable source (pathBounds ÷ w never inflates), so CreateTarget's
+                    // FR-037(b) clamp leaves w unchanged — newTarget.Scale.Value always equals w here, unlike the
+                    // bounds-inflating FlatShadow/Displacement effects.
                     float w = context.WorkingScale;
                     foreach ((SKPath skpath, _, _) in pathes)
                     {
@@ -94,9 +92,9 @@ public partial class PartsSplitEffect : FilterEffect
                             pathBounds.Width / w,
                             pathBounds.Height / w);
                         EffectTarget newTarget = context.CreateTarget(bounds);
-                        // feature 003: the clip path, its bounds translation and the source blit are all DEVICE px
-                        // (the skpath was traced in the device buffer), so enter absolute device space — Open's
-                        // base CTM CreateScale(w) would otherwise re-scale them. w == 1 = no-op.
+                        // feature 003: clip path, translation, and source blit are all DEVICE px (skpath traced in
+                        // the device buffer), so enter absolute device space — else Open's base CTM CreateScale(w)
+                        // re-scales them. No-op at w == 1.
                         using (ImmediateCanvas newCanvas = context.Open(newTarget))
                         using (newCanvas.PushDeviceSpace())
                         using (newCanvas.PushTransform(Matrix.CreateTranslation(-pathBounds.Left, -pathBounds.Top)))

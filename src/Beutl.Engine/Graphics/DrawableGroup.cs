@@ -285,11 +285,10 @@ public sealed partial class DrawableGroup : Drawable, IFlowOperator
                             return r.HitTest(point);
                         },
                         onDispose: r.Dispose,
-                        // feature 003 (FR-019): this is a transform boundary, so it MUST re-scale a bitmap
-                        // child's supply density exactly like TransformRenderNode — otherwise a scale carried
-                        // on a group / decorator wrapper would drop the child's concrete density to Unbounded
-                        // and a downstream effect would run at s_out instead of the source's coherent density,
-                        // a different result from the same scale on a leaf drawable. Shared helper, one model.
+                        // feature 003 (FR-019): a transform boundary must re-scale a bitmap child's supply
+                        // density via the shared TransformRenderNode helper. Otherwise a scale on the group /
+                        // decorator wrapper drops the density to Unbounded, and a downstream effect runs at
+                        // s_out rather than the source's coherent density — differing from the same scale on a leaf.
                         effectiveScale: TransformRenderNode.RescaleDensity(r.EffectiveScale, transform)))
                 .ToArray();
         }

@@ -13,7 +13,7 @@ argument-hint: "[output-directory]"
 # Generate a Beutl test project (on-the-fly code generation)
 
 This skill creates a **throwaway** console app in a temp directory, builds and runs it to
-produce a Beutl project, then cleans up. No files are committed to git.
+produce a Beutl project, then cleans up. Nothing is committed to git.
 
 ## Steps
 
@@ -60,8 +60,8 @@ produce a Beutl project, then cleans up. No files are committed to git.
 
 ## csproj template
 
-The project references are **relative to the repo root**. Adjust the `Include` paths based on
-where `$GENDIR` is located (use absolute paths if the temp dir is outside the repo).
+The `Include` paths below are **relative to the repo root**; use absolute paths when `$GENDIR`
+is outside the repo.
 
 ```xml
 <Project Sdk="Microsoft.NET.Sdk">
@@ -557,8 +557,8 @@ static void GenerateTestImage(string path, int width, int height)
 
 ## Beutl project-system API reference (for customization)
 
-This section documents the key APIs so you can modify the templates without re-reading the
-source. Check the source if the API has changed since this was written.
+These APIs let you modify the templates without re-reading the source; check the source if the
+API has changed since this was written.
 
 ### Project hierarchy
 

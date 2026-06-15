@@ -21,8 +21,8 @@ public interface IPreviewPlayer
         => Task.FromResult<AudioFrameSnapshot?>(null);
 
     /// <summary>
-    /// Pauses playback; the returned task completes once the playback pipeline has fully drained
-    /// (so callers may safely mutate state the pipeline reads, e.g. the scene frame size).
+    /// Pauses playback; the returned task completes once the pipeline has fully drained, so callers
+    /// may then safely mutate state the pipeline reads (e.g. the scene frame size).
     /// No-op default for players without interactive playback.
     /// </summary>
     Task Pause() => Task.CompletedTask;

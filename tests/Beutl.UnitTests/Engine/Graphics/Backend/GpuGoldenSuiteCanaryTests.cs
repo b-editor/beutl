@@ -2,9 +2,8 @@
 
 // The feature-003 visual-fidelity guards (the Golden/ + Backend/ Vulkan suites) all call
 // VulkanTestEnvironment.EnsureAvailable(), which Assert.Ignore's — a SKIP that reads as "passed" — when no
-// Vulkan ICD is present (e.g. a plain ubuntu CI runner with no MoltenVK / lavapipe / SwiftShader). That hides
-// the loss of GPU coverage. This NON-gated canary makes the skip observable, and lets a CI job that provisions
-// a GPU/software-rasterizer enforce it: set BEUTL_REQUIRE_GPU=1 to turn the silent skip into a hard failure.
+// Vulkan ICD is present, hiding the loss of GPU coverage. This non-gated canary makes that skip observable;
+// set BEUTL_REQUIRE_GPU=1 on a GPU-capable job to turn the silent skip into a hard failure.
 [TestFixture]
 public class GpuGoldenSuiteCanaryTests
 {

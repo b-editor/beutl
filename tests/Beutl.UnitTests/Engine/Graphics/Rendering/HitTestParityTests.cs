@@ -5,8 +5,8 @@ using Beutl.Media;
 
 namespace Beutl.UnitTests.Engine.Graphics.Rendering;
 
-// US4 / T058: hit-testing is in LOGICAL coordinates and independent of the render/output scale, so the
-// same logical point hits the same content whether the preview is rendered at 1.0, 0.5, or 2.0.
+// US4 / T058: hit-testing is in LOGICAL coordinates and independent of the output scale, so the same
+// logical point hits the same content at every render scale.
 [TestFixture]
 public class HitTestParityTests
 {
@@ -28,7 +28,7 @@ public class HitTestParityTests
         RenderNodeOperation atOne = BuildEllipseOp(1f);
         RenderNodeOperation atScale = BuildEllipseOp(outputScale);
 
-        // A logical point inside and one outside the ellipse — both must agree across scales.
+        // One logical point inside the ellipse, one outside; both must agree across scales.
         var inside = new Point(50, 40);
         var outside = new Point(2, 2);
 

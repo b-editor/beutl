@@ -58,10 +58,10 @@ public partial class DisplacementMapEffect : FilterEffect
                     for (int i = 0; i < effectContext.Targets.Count; i++)
                     {
                         EffectTarget effectTarget = effectContext.Targets[i];
-                        // feature 003: create the target FIRST so the map brush is built at the buffer's REAL
-                        // density (newTarget.Scale.Value, post-clamp) — NOT nominal WorkingScale, which would
-                        // mis-densify a clamped buffer (FR-037(b)). Its baked Scale(1/w) then matches Open's base
-                        // CTM CreateScale(w). Analytic brushes ignore w. w == 1 is a no-op (byte-identical).
+                        // feature 003: create the target first so the map brush uses the buffer's real
+                        // post-clamp density (newTarget.Scale.Value), not nominal WorkingScale which would
+                        // mis-densify a clamped buffer (FR-037(b)). Its baked Scale(1/w) then matches Open's
+                        // base CTM CreateScale(w). Analytic brushes ignore w; w == 1 is byte-identical.
                         var newTarget = effectContext.CreateTarget(effectTarget.Bounds);
                         float w = newTarget.Scale.Value;
                         using var displacementMapShader =
@@ -74,8 +74,8 @@ public partial class DisplacementMapEffect : FilterEffect
                         {
                             paint.Shader = displacementMapShader;
                             canvas.Clear();
-                            // The base CTM CreateScale(w) maps the LOGICAL DrawRect onto the full ceil(bounds × w)
-                            // device buffer at working density; no manual prescale. w == 1 = bare logical rect.
+                            // The base CTM CreateScale(w) maps the logical DrawRect onto the full
+                            // ceil(bounds × w) device buffer; no manual prescale. w == 1 = bare logical rect.
                             canvas.Canvas.DrawRect(
                                 new SKRect(0, 0, effectTarget.Bounds.Width, effectTarget.Bounds.Height),
                                 paint);

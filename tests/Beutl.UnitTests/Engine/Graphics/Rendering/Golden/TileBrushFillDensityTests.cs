@@ -6,10 +6,10 @@ using Beutl.UnitTests.Engine.Graphics.Backend;
 
 namespace Beutl.UnitTests.Engine.Graphics.Rendering.Golden;
 
-// A-1 / T042: a DrawableBrush / TileBrush FILL rasterizes its content into an intermediate that is now sized
-// ceil(IntermediateSize × s) (the child is also re-rendered at × s), and the tile shader's local-matrix is
-// compensated by Scale(1/s). So the fill is CRISP under SSAA (s_out > 1) instead of being upscaled from a
-// logical-resolution intermediate, while tiling stays at the correct logical period and s == 1 is byte-identical.
+// A-1 / T042: a DrawableBrush / TileBrush FILL now rasterizes its content into an intermediate sized
+// ceil(IntermediateSize × s), with the child re-rendered at × s and the tile shader's local-matrix
+// compensated by Scale(1/s). So the fill is crisp under SSAA (s_out > 1) rather than upscaled from a
+// logical-resolution intermediate, tiling keeps the correct logical period, and s == 1 is byte-identical.
 [NonParallelizable]
 [TestFixture]
 public class TileBrushFillDensityTests
@@ -46,9 +46,8 @@ public class TileBrushFillDensityTests
         return rect.ToResource(CompositionContext.Default);
     }
 
-    // The headline fix: a DrawableBrush fill (TileMode.None, Stretch.Fill) at 2x SSAA must now match the same
-    // content drawn DIRECTLY — i.e. the fill is rasterised at device density, not upscaled. (Before the fix
-    // this scored 0.998 for this smooth case; the fix raises it to ~1.0 and helps high-frequency fills far more.)
+    // Headline fix: a DrawableBrush fill (TileMode.None, Stretch.Fill) at 2x SSAA must match the same content
+    // drawn directly — rasterised at device density, not upscaled. This smooth case scored 0.998 before the fix.
     [Test]
     public void DrawableBrushFill_SsaaDensity_MatchesDirect()
     {
@@ -66,9 +65,9 @@ public class TileBrushFillDensityTests
         });
     }
 
-    // Tiling correctness: a TileMode.Tile (Repeat) brush must tile at the same LOGICAL period at any render
-    // scale. Render at 1.0 and at 2.0-downscaled-to-1.0 and require they match — a wrong density-compensation
-    // matrix would shift / mis-size the tiles (the 0.21 failure mode of the first attempt).
+    // Tiling correctness: a TileMode.Tile brush must tile at the same logical period at any render scale.
+    // Rendering at 1.0 and at 2.0-downscaled-to-1.0 must match — a wrong density-compensation matrix would
+    // shift / mis-size the tiles (the 0.21 failure mode of the first attempt).
     [Test]
     public void DrawableBrushTile_ConsistentAcrossScale()
     {
@@ -90,8 +89,8 @@ public class TileBrushFillDensityTests
         });
     }
 
-    // High-frequency variant of MakeEllipse: diagonal hard-stop stripes (period ~13 px, never axis-aligned, so
-    // every stripe edge carries sub-pixel antialiasing that a logical-resolution rasterization cannot encode).
+    // High-frequency variant of MakeEllipse: diagonal hard-stop stripes, never axis-aligned, so every stripe
+    // edge carries sub-pixel antialiasing that a logical-resolution rasterization cannot encode.
     private static RectShape MakeStripes()
     {
         var stripes = new LinearGradientBrush();
@@ -112,10 +111,10 @@ public class TileBrushFillDensityTests
         return rect;
     }
 
-    // DISCRIMINATING A-1 gate: the headline ellipse case is too smooth to catch a reverted fix (it scores
-    // 0.998 even with density-1 rasterization + upscale, above the 0.985 gate). Fine diagonal stripes are
-    // where that failure mode is visible — a logical-resolution intermediate upscaled ×2 turns every
-    // antialiased stripe edge blocky, while the dense (× s) intermediate matches the direct render.
+    // Discriminating A-1 gate: the smooth ellipse case scores 0.998 even with density-1 rasterization +
+    // upscale (above the 0.985 gate), so it cannot catch a reverted fix. Fine diagonal stripes can: a
+    // logical-resolution intermediate upscaled ×2 turns every antialiased edge blocky, while the dense
+    // (× s) intermediate matches the direct render.
     [Test]
     public void DrawableBrushFill_HighFrequency_SsaaDensity_MatchesDirect()
     {
@@ -147,8 +146,8 @@ public class TileBrushFillDensityTests
         });
     }
 
-    // Byte-identity guard: at s_out == 1.0 the density path is inert; a tile-brush fill must be deterministic
-    // and unchanged from the pre-feature path (every × s / 1/s is a no-op).
+    // Byte-identity guard: at s_out == 1.0 the density path is inert (every × s / 1/s is a no-op), so a
+    // tile-brush fill must be deterministic and unchanged from the pre-feature path.
     [Test]
     public void DrawableBrushFill_ScaleOne_IsDeterministic()
     {

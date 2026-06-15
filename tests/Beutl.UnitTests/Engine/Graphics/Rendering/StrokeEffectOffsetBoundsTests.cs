@@ -5,11 +5,10 @@ using Beutl.Media;
 
 namespace Beutl.UnitTests.Engine.Graphics.Rendering;
 
-// Regression for the StrokeEffect.Offset "object sticks to the top-left" bug. The rendered source pixels
-// always stayed put (the offset only moves the stroke), but the effect's OUTPUT BOUNDS used to grow only
-// toward the offset (rect.Union(border.Translate(offset))). The editor centers the selection box /
-// transform-handle overlay on those bounds (TransformHandleMath.AlignUserMatrixToRenderedBounds), so an
-// asymmetric box pushed the overlay toward the offset and left the source pinned to the opposite corner.
+// Regression for the StrokeEffect.Offset "object sticks to the top-left" bug. Source pixels stay put (offset
+// only moves the stroke), but the OUTPUT BOUNDS used to grow only toward the offset (rect.Union(border.Translate(offset))).
+// The editor centers the selection box / transform-handle overlay on those bounds
+// (TransformHandleMath.AlignUserMatrixToRenderedBounds), so an asymmetric box pinned the source to the opposite corner.
 // The output box must stay CENTERED on the source for any offset; offset == 0 is unchanged.
 [TestFixture]
 public class StrokeEffectOffsetBoundsTests
@@ -49,7 +48,7 @@ public class StrokeEffectOffsetBoundsTests
     {
         Rect bounds = TransformedBounds(new Point(ox, oy));
 
-        // The box must stay centered on the source — NOT drift by offset/2 (the old asymmetric union).
+        // Centered on the source, NOT drifting by offset/2 (the old asymmetric union).
         Assert.That(bounds.Center.X, Is.EqualTo(Source.Center.X).Within(0.001),
             "output box drifted horizontally — source would appear pinned to a corner of its selection box");
         Assert.That(bounds.Center.Y, Is.EqualTo(Source.Center.Y).Within(0.001),
@@ -60,8 +59,7 @@ public class StrokeEffectOffsetBoundsTests
         Assert.That(bounds.Height, Is.GreaterThanOrEqualTo(Source.Height + 2 * MathF.Abs(oy)));
     }
 
-    // PenHelper.GetBounds inflates by pen.Offset too, so the box must STILL be centered on the source when the
-    // pen has its own Offset (the source-anchoring half of the fix is asserted by the render test).
+    // PenHelper.GetBounds inflates by pen.Offset too, so the box must STILL be centered when the pen has its own Offset.
     [TestCase(0f)]
     [TestCase(10f)]
     public void PenOffset_BoxStaysCenteredOnSource(float penOffset)

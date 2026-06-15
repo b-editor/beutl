@@ -3,8 +3,8 @@ using Beutl.Media;
 
 namespace Beutl.Models;
 
-// NOTE (feature 003): this type lives in Beutl.Editor (not the Beutl app exe) so the pure s_out mapping is unit-
-// testable; the namespace stays Beutl.Models so existing `using Beutl.Models;` call sites are unaffected.
+// NOTE (feature 003): lives in Beutl.Editor (not the app exe) so the pure s_out mapping is unit-testable;
+// namespace stays Beutl.Models so existing `using Beutl.Models;` call sites are unaffected.
 
 /// <summary>
 /// Preview render-quality selector (feature 003, US4). Per edit view, non-persisted. Resolves to
@@ -13,10 +13,9 @@ namespace Beutl.Models;
 public enum RenderScale
 {
     /// <summary>
-    /// Full resolution: <c>s_out = 1.0</c>. NOT guaranteed identical to export — preview renders under
-    /// a working-scale ceiling of <c>2 × s_out</c> while export imposes no working-scale ceiling (<c>+∞</c>,
-    /// FR-037), so a scene whose supply density exceeds 2 runs resolution-sensitive effects at a different
-    /// working scale than the exported result.
+    /// Full resolution: <c>s_out = 1.0</c>. NOT identical to export — preview caps working scale at
+    /// <c>2 × s_out</c> while export has no ceiling (FR-037), so a scene whose supply density exceeds 2 runs
+    /// resolution-sensitive effects at a different working scale than the exported result.
     /// </summary>
     Full,
 
@@ -56,10 +55,9 @@ public static class RenderScaleExtensions
 
     /// <summary>
     /// Resolves the output scale <c>s_out</c> for a render request. Fixed levels pass through
-    /// <see cref="ToFloat"/>; <see cref="RenderScale.FitToPreviewer"/> additionally snaps to 0.05 steps to bound
-    /// renderer-rebuild churn while the previewer edge is dragged, then is re-floored to <c>MinScale</c> so the
-    /// round-to-step can never drive a tiny-panel / large-frame ratio to exactly 0 (which would size the render
-    /// surface 0×0 and throw on renderer construction). Always in <c>[MinScale, 1]</c>.
+    /// <see cref="ToFloat"/>; <see cref="RenderScale.FitToPreviewer"/> snaps to 0.05 steps to bound
+    /// renderer-rebuild churn during edge drags, then is re-floored to <c>MinScale</c> so the snap can never
+    /// reach 0 (which would size the surface 0×0 and throw on renderer construction). Always in <c>[MinScale, 1]</c>.
     /// </summary>
     public static float ResolveOutputScale(this RenderScale scale, PixelSize frameSize, Size previewSize)
     {

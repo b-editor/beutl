@@ -10,8 +10,8 @@ echo "/dumps/core.%p.%e" > /proc/sys/kernel/core_pattern 2>/dev/null \
 ulimit -c unlimited
 export DOTNET_CLI_TELEMETRY_OPTOUT=1 DOTNET_NOLOGO=1
 export BEUTL_REQUIRE_GPU=1 XDG_RUNTIME_DIR=/tmp
-# Let the KERNEL write a real core. createdump (DOTNET_DbgEnableMiniDump) fails to attach on these
-# intermittent native faults (the crashing thread is already gone), and under qemu ptrace fails outright.
+# Let the kernel write a real core: createdump (DOTNET_DbgEnableMiniDump) can't attach on these
+# intermittent native faults — the crashing thread is already gone, and under qemu ptrace fails outright.
 export DOTNET_DbgEnableMiniDump=0 DOTNET_EnableCrashReport=0
 mkdir -p /dumps
 cd /work

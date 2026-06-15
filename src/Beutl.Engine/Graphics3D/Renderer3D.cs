@@ -49,12 +49,11 @@ internal sealed class Renderer3D : IRenderer3D
     public int Height { get; private set; }
 
     /// <summary>
-    /// The density (device pixels per logical unit) this renderer's surface is sized at (feature 003):
-    /// <see cref="Width"/>/<see cref="Height"/> are <c>ceil(logical × SurfaceDensity)</c>. Hit-test entry
-    /// points take LOGICAL coordinates (the editor works in <c>Scene3D.RenderWidth/Height</c> space)
-    /// and multiply by this before building the NDC ray — without it, picking is off by
-    /// <c>1 / SurfaceDensity</c> on a reduced-scale preview. Set by <c>Scene3DRenderNode</c> alongside
-    /// <see cref="Resize"/>.
+    /// Surface density (device px per logical unit): <see cref="Width"/>/<see cref="Height"/> are
+    /// <c>ceil(logical × SurfaceDensity)</c>. Hit-test entry points take LOGICAL coordinates
+    /// (<c>Scene3D.RenderWidth/Height</c> space) and multiply by this before building the NDC ray;
+    /// without it, picking is off by <c>1 / SurfaceDensity</c> on a reduced-scale preview.
+    /// Set by <c>Scene3DRenderNode</c> alongside <see cref="Resize"/>.
     /// </summary>
     public float SurfaceDensity { get; set; } = 1f;
 
@@ -380,7 +379,7 @@ internal sealed class Renderer3D : IRenderer3D
             gizmoMode);
     }
 
-    // Hit-test entry points take LOGICAL coordinates while Width/Height are device px (see SurfaceDensity).
+    // Logical input -> device px to match Width/Height (see SurfaceDensity).
     private Point ToDevice(Point logicalPoint) =>
         SurfaceDensity == 1f ? logicalPoint : logicalPoint * SurfaceDensity;
 

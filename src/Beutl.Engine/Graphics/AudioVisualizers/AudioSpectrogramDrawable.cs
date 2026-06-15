@@ -113,12 +113,11 @@ public sealed partial class AudioSpectrogramDrawable : AudioVisualizerDrawable
             double melMin = freqScale == FrequencyScale.Mel ? 2595.0 * Math.Log10(1 + fMin / 700.0) : 0;
             double melMax = freqScale == FrequencyScale.Mel ? 2595.0 * Math.Log10(1 + fMax / 700.0) : 0;
 
-            // feature 003 (FR-030, I5): resolve the frequency (vertical) grid at DEVICE resolution under a scaled
-            // canvas, so the spectrogram's frequency detail matches the surrounding crisp content under
-            // supersampled export instead of staying at the coarse logical-pixel grid. canvas.Density is 1 at
-            // s_out = 1, where the formula is byte-identical to the pre-feature one (no bins cap, ceil(height) —
-            // do NOT add the cap on this branch or it would change scale-1 output). At density > 1 the grid is
-            // capped by the FFT bin count (no point resolving finer than the data exists).
+            // feature 003 (FR-030, I5): resolve the frequency (vertical) grid at DEVICE resolution so detail
+            // matches surrounding crisp content under supersampled export. canvas.Density is 1 at s_out = 1, where
+            // the formula stays byte-identical (no bins cap, ceil(height) — do NOT add the cap on this branch, it
+            // would change scale-1 output). At density > 1 the grid is capped by the FFT bin count, since the data
+            // holds no finer detail.
             float density = canvas.Density;
             int pixelRows = density == 1f
                 ? Math.Max(1, (int)MathF.Ceiling(height))
@@ -184,10 +183,9 @@ public sealed partial class AudioSpectrogramDrawable : AudioVisualizerDrawable
                     _paint.Color = baseColor.WithAlpha(alpha);
 
                     float y = (float)bounds.Y + row * rowHeight;
-                    // The anti-gap fudge is expressed in DEVICE px (÷ density): at density 1 this is exactly the
-                    // pre-feature MathF.Max(1f, rowHeight + 0.5f) (byte-identical); at density > 1 the rows are
-                    // sub-logical-px tall, so a 1-logical-px floor would force a density× overlap — floor at one
-                    // DEVICE px instead.
+                    // Anti-gap fudge in DEVICE px (÷ density): at density 1 this equals the pre-feature
+                    // MathF.Max(1f, rowHeight + 0.5f) (byte-identical). At density > 1 rows are sub-logical-px
+                    // tall, so flooring at one logical px would force a density× overlap — floor at one device px.
                     float rowFill = MathF.Max(1f / density, rowHeight + 0.5f / density);
                     canvas.Canvas.DrawRect(
                         new SKRect(colX, y, colX + drawColWidth, y + rowFill),

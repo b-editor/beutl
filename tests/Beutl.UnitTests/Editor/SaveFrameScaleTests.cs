@@ -4,10 +4,9 @@ using Beutl.Media;
 
 namespace Beutl.UnitTests.Editor;
 
-// CPU unit tests for the save-frame scale-choice pre-validation (feature 003, US4 follow-up). The save
-// path renders the current frame / element onto a ceil(FrameSize × scale) surface; a surface larger than
-// RenderNodeContext.MaxBufferDimension on either axis cannot be allocated, so the dialog disables Save
-// up-front via this pure helper instead of failing mid-render with a generic error.
+// CPU unit tests for the save-frame scale-choice pre-validation (feature 003, US4 follow-up). The save path
+// renders onto a ceil(FrameSize × scale) surface; one larger than RenderNodeContext.MaxBufferDimension on
+// either axis cannot be allocated, so the dialog disables Save up-front rather than failing mid-render.
 [TestFixture]
 public class SaveFrameScaleTests
 {
@@ -49,8 +48,8 @@ public class SaveFrameScaleTests
         Assert.That(width, Is.EqualTo(int.MaxValue * 4L));
     }
 
-    // The motivating case: an 8K UHD frame at 4× needs 30720 px on the long axis — over the 16384 px
-    // per-axis GPU limit — while 2× (15360 px) still fits.
+    // Motivating case: an 8K UHD frame at 4× needs 30720 px on the long axis, over the 16384 px per-axis
+    // limit, while 2× (15360 px) still fits.
     [TestCase(7680, 4320, 1f, true)]
     [TestCase(7680, 4320, 2f, true)]
     [TestCase(7680, 4320, 4f, false)]
@@ -78,8 +77,8 @@ public class SaveFrameScaleTests
         Assert.That(SaveFrameScale.Factors, Is.EqualTo(new[] { 0.5f, 1f, 2f, 4f }));
     }
 
-    // A non-empty source always produces a renderable surface (>= 1 px/axis), even at the 0.5 floor; only a
-    // degenerate 0-area source (an element that renders nothing) does not, so the save path must not offer it.
+    // A non-empty source always yields a renderable surface (>= 1 px/axis), even at the 0.5 floor; only a
+    // 0-area source (an element that renders nothing) does not, so the save path must not offer it.
     [TestCase(1920, 1080, 1f, true)]
     [TestCase(1920, 1080, 0.5f, true)]
     [TestCase(1, 1, 0.5f, true)] // ceil(1 × 0.5) = 1 on each axis

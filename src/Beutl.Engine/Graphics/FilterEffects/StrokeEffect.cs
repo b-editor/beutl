@@ -43,12 +43,10 @@ public partial class StrokeEffect : FilterEffect
     private static Rect TransformBounds((Point Offset, Pen.Resource? Pen, StrokeStyles Style) data, Rect rect)
     {
         Rect borderBounds = PenHelper.GetBounds(rect, data.Pen);
-        // Keep the output box CENTERED on the source. Inflate the stroked bounds symmetrically by the offset
-        // magnitude instead of unioning with the one-directional translated border: the union grows the box
-        // only toward the offset, leaving the source pinned to the opposite corner (it "sticks to the
-        // top-left" for a positive offset, which reads as the object jumping to the corner of its selection
-        // box in the editor). Symmetric inflation keeps the source centered while still enclosing the
-        // offset stroke. Offset == 0 → borderBounds, byte-identical to the previous behavior.
+        // Keep the output box centered on the source: inflate the stroked bounds symmetrically by the offset
+        // magnitude rather than unioning with the one-directional translated border, which grew the box only
+        // toward the offset and pinned the source to the opposite corner (it jumped to the corner of its
+        // selection box in the editor). Offset == 0 → borderBounds, byte-identical to the previous behavior.
         return borderBounds.Inflate(new Thickness(
             Math.Abs(data.Offset.X), Math.Abs(data.Offset.Y),
             Math.Abs(data.Offset.X), Math.Abs(data.Offset.Y)));
@@ -85,31 +83,30 @@ public partial class StrokeEffect : FilterEffect
                 RenderTarget srcRenderTarget = target.RenderTarget!;
                 using var src = srcRenderTarget.Snapshot();
 
-                // feature 003: the contour path + source are DEVICE px. Map the path to LOGICAL (× 1/w) and prescale
-                // the canvas by w, so the logical pen width / offsets / origin map to device at working density, and
-                // draw the source via the scale-aware target.Draw. w == 1 keeps the pre-feature path (byte-identical).
+                // feature 003: the contour path + source are DEVICE px. Map the path to LOGICAL (× 1/w) so the
+                // logical pen width / offsets / origin map back to device at working density, and draw the source
+                // via the scale-aware target.Draw. w == 1 keeps the pre-feature path (byte-identical).
                 float w = context.WorkingScale;
                 using SKPath borderPath = CreateBorderPath(src);
                 if (w != 1f) borderPath.Transform(SKMatrix.CreateScale(1f / w, 1f / w));
 
                 Rect transformedBounds = TransformBounds(data, target.Bounds);
-                // Anchor the source at its bounds origin WITHIN the (now symmetric) output box: origin = how far
-                // the box top-left moved outward, so the source lands at target.Bounds.Position and the stroke at
-                // +offset. For a plain pen (pen.Offset == 0) this reproduces the old (thickness, thickness)
-                // placement byte-for-byte at Offset == 0. When pen.Offset > 0, PenHelper.GetBounds also inflates
-                // by pen.Offset, so origin becomes (thickness + pen.Offset): the source is anchored at its bounds
-                // instead of drifting by pen.Offset as the old code did — a deliberate fix (the source no longer
-                // moves when only the pen offset changes), so it is NOT byte-identical to the old code there.
+                // Anchor the source at its bounds origin within the symmetric output box: origin = how far the box
+                // top-left moved outward, so the source lands at target.Bounds.Position and the stroke at +offset.
+                // For a plain pen (pen.Offset == 0) this reproduces the old (thickness, thickness) placement at
+                // Offset == 0. When pen.Offset > 0, PenHelper.GetBounds also inflates by pen.Offset so origin
+                // becomes (thickness + pen.Offset): the source stays anchored at its bounds instead of drifting by
+                // pen.Offset as before — a deliberate fix, so NOT byte-identical to the old code there.
                 var origin = Matrix.CreateTranslation(
                     target.Bounds.X - transformedBounds.X,
                     target.Bounds.Y - transformedBounds.Y);
 
                 EffectTarget newTarget = context.CreateTarget(transformedBounds);
-                // feature 003: Open bakes the base CTM CreateScale(density) for this ceil(bounds × wOut) buffer —
-                // density read from the target, so an FR-037(b) clamp (an over-budget transformed bounds) is
-                // honored. The contour path was already mapped to LOGICAL (÷ the input density w) above, so the
-                // whole stroke draws in logical space and the base maps it to device at the (possibly clamped)
-                // density without clipping. No manual prescale; density 1 stays byte-identical.
+                // feature 003: Open bakes the base CTM CreateScale(density) for this ceil(bounds × wOut) buffer,
+                // density read from the target so an FR-037(b) clamp (over-budget transformed bounds) is honored.
+                // The contour path is already in LOGICAL space (mapped above), so the whole stroke draws logical
+                // and the base maps it to device at the (possibly clamped) density without clipping. No manual
+                // prescale; density 1 stays byte-identical.
                 using (ImmediateCanvas newCanvas = context.Open(newTarget))
                 using (newCanvas.PushTransform(origin))
                 {

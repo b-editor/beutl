@@ -61,13 +61,12 @@ public abstract class RenderNodeOperation : IDisposable
     public static RenderNodeOperation CreateFromRenderTarget(
         Rect bounds, Point position, RenderTarget renderTarget, EffectiveScale effectiveScale = default)
     {
-        // feature 003: a concrete-density buffer (At(w)) is drawn so the active CTM resamples it once; the
-        // scaled dest derives its SIZE from the buffer footprint (RT pixels ÷ density), NOT from `bounds`, so
-        // a downstream filter that inflated `bounds` while the buffer still holds the original area cannot
-        // stretch it (mirrors EffectTarget.Draw); `bounds.Position` is kept so the buffer lands where it
-        // belongs. A density-1 buffer keeps the bare point blit ONLY on a density-1 canvas (byte-identical
-        // pre-feature path); on a scaled canvas the point blit would be resampled by the CTM with NEAREST
-        // sampling, so route it through the Mitchell blit instead — same geometry, consistent kernel.
+        // feature 003: a concrete-density buffer (At(w)) is resampled once by the active CTM. The scaled dest
+        // takes its SIZE from the buffer footprint (RT pixels ÷ density), NOT from `bounds`, so a downstream
+        // filter that inflated `bounds` cannot stretch it (mirrors EffectTarget.Draw); `bounds.Position` lands
+        // the buffer correctly. A density-1 buffer uses the bare point blit only on a density-1 canvas
+        // (byte-identical pre-feature path); on a scaled canvas the CTM would resample it with NEAREST, so
+        // route it through the Mitchell blit instead — same geometry, consistent kernel.
         Action<ImmediateCanvas> render = effectiveScale.IsUnbounded || effectiveScale.Value == 1f
             ? canvas =>
             {
@@ -86,9 +85,9 @@ public abstract class RenderNodeOperation : IDisposable
     public static RenderNodeOperation CreateFromSurface(
         Rect bounds, Point position, SKSurface surface, EffectiveScale effectiveScale = default)
     {
-        // feature 003: scaled branch derives its dest from the surface footprint (pixels ÷ density),
-        // anchored at bounds.Position — mirroring CreateFromRenderTarget so an inflated `bounds` cannot
-        // stretch it. Density-1 point blit only on a density-1 canvas (see CreateFromRenderTarget).
+        // feature 003: scaled dest takes its size from the surface footprint (pixels ÷ density), anchored at
+        // bounds.Position — mirroring CreateFromRenderTarget so an inflated `bounds` cannot stretch it.
+        // Density-1 point blit only on a density-1 canvas (see CreateFromRenderTarget).
         Action<ImmediateCanvas> render = effectiveScale.IsUnbounded || effectiveScale.Value == 1f
             ? canvas =>
             {

@@ -7,12 +7,11 @@ using Beutl.UnitTests.Engine.Graphics.Backend;
 
 namespace Beutl.UnitTests.Engine.Graphics.Rendering;
 
-// feature 003 (FR-020 minimal cache fix): the node cache must participate in the scale model —
-// it rasterizes at the renderer's density under the FR-037 ceiling, records that density, and
-// replays its tiles tagged At(density) so a cached subtree keeps reporting a concrete supply
-// instead of flipping to Unbounded (which would change downstream working scales whenever the
-// cache kicks in). Cross-scale cache REUSE stays deferred (T025); these tests pin the
-// within-one-renderer contract.
+// feature 003 (FR-020 minimal cache fix): the node cache participates in the scale model —
+// it rasterizes at the renderer's density under the FR-037 ceiling, records it, and replays
+// tiles tagged At(density) so a cached subtree reports a concrete supply instead of flipping
+// to Unbounded (which would shift downstream working scales when the cache kicks in).
+// Cross-scale cache REUSE stays deferred (T025); these tests pin the within-one-renderer contract.
 [NonParallelizable]
 [TestFixture]
 public class NodeCacheScaleTests
@@ -93,9 +92,9 @@ public class NodeCacheScaleTests
         });
     }
 
-    // feature 003 (FR-018, I4 cache-density-collapse fix): a subtree whose output carries a concrete supply
-    // density ABOVE outputScale must NOT be cached, because the cache rasterizes at outputScale and would discard
-    // the extra detail — silently lowering every downstream effect's working scale once the cache kicks in.
+    // feature 003 (FR-018, I4 cache-density-collapse fix): a subtree whose supply density exceeds outputScale
+    // must NOT be cached — the cache rasterizes at outputScale, discarding the extra detail and silently
+    // lowering every downstream effect's working scale once the cache kicks in.
     [Test]
     public void CreateDefaultCache_RefusesToCache_WhenSupplyDensityExceedsOutputScale()
     {
@@ -121,9 +120,9 @@ public class NodeCacheScaleTests
         });
     }
 
-    // Caching must be behaviour-transparent: the working scale a downstream boundary resolves from a cached
-    // subtree must equal the uncached one. With the I4 fix the high-density subtree is simply not cached, so the
-    // replayed (= freshly re-processed) density still matches the uncached supply.
+    // Caching must be behaviour-transparent: the working scale a downstream boundary resolves must be the same
+    // cached or uncached. With the I4 fix the high-density subtree is not cached, so the replayed
+    // (= freshly re-processed) density still matches the uncached supply.
     [Test]
     public void HighDensitySubtree_CacheReplay_MatchesUncachedWorkingScale()
     {

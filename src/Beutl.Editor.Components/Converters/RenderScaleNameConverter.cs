@@ -7,7 +7,7 @@ namespace Beutl.Editor.Components.Converters;
 
 /// <summary>
 /// Maps <see cref="RenderScale"/> values to their localized display names for the preview
-/// render-quality selector (feature 003, US4). One-way; used from ComboBox item templates.
+/// render-quality selector. One-way only.
 /// </summary>
 public sealed class RenderScaleNameConverter : IValueConverter
 {

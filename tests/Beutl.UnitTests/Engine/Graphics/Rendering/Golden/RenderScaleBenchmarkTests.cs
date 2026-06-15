@@ -9,8 +9,8 @@ using Beutl.UnitTests.Engine.Graphics.Backend;
 
 namespace Beutl.UnitTests.Engine.Graphics.Rendering.Golden;
 
-// SC-003: a reduced-scale render is materially faster than full scale. Timing-based, so it is
-// [Explicit] (run on demand) to avoid CI flakiness, but it runs for real on MoltenVK.
+// SC-003: a reduced-scale render is materially faster than full scale. Timing-based, so [Explicit]
+// to avoid CI flakiness, but it runs for real on MoltenVK.
 [NonParallelizable]
 [Category("Benchmark")]
 [TestFixture]

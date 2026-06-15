@@ -7,10 +7,10 @@ using Beutl.UnitTests.Engine.Graphics.Backend;
 
 namespace Beutl.UnitTests.Engine.Graphics.Rendering.Golden;
 
-// Guards the RENDER half of the StrokeEffect.Offset fix (commit 0019b728a): the Apply() origin rewrite that
-// keeps the SOURCE anchored at its bounds while only the stroke moves by Offset. The bounds-pass test
-// (StrokeEffectOffsetBoundsTests) does not exercise Apply(), so without these the source-placement origin is
-// untested. White fill = the source; red pen = the stroke; the two are measured separately by colour.
+// Guards the render half of the StrokeEffect.Offset fix (commit 0019b728a): the Apply() origin rewrite that
+// keeps the source anchored at its bounds while only the stroke moves by Offset. StrokeEffectOffsetBoundsTests
+// does not exercise Apply(), leaving the source-placement origin otherwise untested. White fill = source,
+// red pen = stroke; the two are measured separately by colour.
 [NonParallelizable]
 [TestFixture]
 public class StrokeEffectRenderTests
@@ -58,12 +58,11 @@ public class StrokeEffectRenderTests
     }
 
     // The source (white) must stay anchored on the frame centre for every Offset / pen.Offset / style, while the
-    // stroke (red) moves by Offset. NOTE on what each case guards: for a plain pen the old code ALREADY rendered
-    // the source centred (its origin compensated the asymmetric box), so the plain positive/negative/Foreground
-    // cases also pass on pre-fix code — they document the contract and guard against FUTURE breakage, while the
-    // box-centering regression itself is guarded by StrokeEffectOffsetBoundsTests. The Stroke_PenOffset case is
-    // the one that distinguishes old from new: the old origin used min(Offset, thickness) and ignored pen.Offset,
-    // so the source drifted by pen.Offset; the fix anchors it (this case fails on the pre-fix code).
+    // stroke (red) moves by Offset. For a plain pen the old code already centred the source (its origin compensated
+    // the asymmetric box), so the positive/negative/Foreground cases pass on pre-fix code too — they document the
+    // contract and guard future breakage; the box-centering regression itself is covered by
+    // StrokeEffectOffsetBoundsTests. Only Stroke_PenOffset distinguishes old from new: the old origin used
+    // min(Offset, thickness) and ignored pen.Offset, so the source drifted by pen.Offset; the fix anchors it.
     [TestCase(0f, 0f, 0f, StrokeEffect.StrokeStyles.Background, TestName = "Stroke_NoOffset")]
     [TestCase(50f, 50f, 0f, StrokeEffect.StrokeStyles.Background, TestName = "Stroke_PositiveOffset")]
     [TestCase(-50f, -50f, 0f, StrokeEffect.StrokeStyles.Background, TestName = "Stroke_NegativeOffset")]
@@ -82,8 +81,7 @@ public class StrokeEffectRenderTests
             Assert.That(wx, Is.EqualTo(Center).Within(3.0), $"source drifted horizontally (wx={wx})");
             Assert.That(wy, Is.EqualTo(Center).Within(3.0), $"source drifted vertically (wy={wy})");
 
-            // (2) the stroke moves by Offset (sign-correct), so for a non-zero offset the red centroid leads
-            //     the source in the offset direction.
+            // (2) the stroke moves by Offset sign-correctly: a non-zero offset leads the red centroid in its direction.
             if (ox > 0) Assert.That(rx, Is.GreaterThan(wx + 5), "stroke did not move right with +offset");
             if (ox < 0) Assert.That(rx, Is.LessThan(wx - 5), "stroke did not move left with -offset");
         });

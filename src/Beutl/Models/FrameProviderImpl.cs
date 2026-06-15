@@ -51,20 +51,19 @@ public sealed class FrameProviderImpl : IFrameProvider, IDisposable
         Bitmap snapshot = _renderer.Snapshot();
 
         // Export supersampling (feature 003, FR-026/FR-034): the renderer drew at ceil(FrameSize ×
-        // OutputScale). Resample to EXACTLY FrameSize before encode so the delivered frame is always
-        // output resolution. OutputScale == 1 returns the snapshot unchanged (byte-identical export).
-        // Shared kernel via SupersampleDownscaler so export / still-frame / goldens never diverge.
+        // OutputScale); resample to exactly FrameSize before encode. OutputScale == 1 returns the
+        // snapshot unchanged (byte-identical export). Shared SupersampleDownscaler kernel so export,
+        // still-frame, and goldens never diverge.
         Bitmap normalized = SupersampleDownscaler.ToFrameSize(snapshot, _renderer.FrameSize, _renderer.OutputScale);
         if (!ReferenceEquals(normalized, snapshot))
         {
             snapshot.Dispose();
         }
 
-        // feature 003 (FR-026): the buffer handed to the encoder MUST be exactly the output resolution, so a
-        // scale change can never cause a stride/size mismatch. The downscale above guarantees this structurally;
-        // enforce it at runtime (NOT a Debug.Assert, which is a no-op in Release export — exactly where the
-        // encoder memcpy would silently corrupt on a stride mismatch). A future regression in
-        // SupersampleDownscaler fails loudly here instead of producing a torn encoded frame.
+        // feature 003 (FR-026): the encode buffer must be exactly the output resolution, or a scale
+        // change causes a stride/size mismatch. The downscale above guarantees this; re-check at runtime
+        // (NOT Debug.Assert — a no-op in Release export, exactly where the encoder memcpy would silently
+        // corrupt on a mismatch) so a SupersampleDownscaler regression fails loudly, not as a torn frame.
         if (normalized.Width != _renderer.FrameSize.Width || normalized.Height != _renderer.FrameSize.Height)
         {
             string actual = $"{normalized.Width}x{normalized.Height}";

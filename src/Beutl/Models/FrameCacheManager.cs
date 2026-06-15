@@ -163,9 +163,9 @@ public sealed partial class FrameCacheManager : IDisposable
     }
 
     /// <summary>
-    /// True once <see cref="Dispose"/> ran. The render work-item checks this before using a manager it
-    /// read from the reactive property: during a rebuild-by-replacement swap a narrow window exists
-    /// where the property still exposes the previous (already disposed) instance.
+    /// True once <see cref="Dispose"/> ran. The render work-item checks this before using a manager read
+    /// from the reactive property, because a rebuild-by-replacement swap briefly leaves the property
+    /// exposing the previous, already-disposed instance.
     /// </summary>
     public bool IsDisposed { get; private set; }
 

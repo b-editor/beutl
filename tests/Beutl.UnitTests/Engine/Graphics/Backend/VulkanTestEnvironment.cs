@@ -17,8 +17,8 @@ internal static class VulkanTestEnvironment
     public static IGraphicsContext SharedContext { get; private set; } = null!;
 
     /// <summary>
-    /// Vulkan 共有コンテキストを作成できたか。GPU ゴールデン群全体のサイレントスキップ（<see cref="Assert.Ignore"/>
-    /// により「成功」に見える）を非ゲートの canary で検出するために公開する。
+    /// Vulkan 共有コンテキストを作成できたか。<see cref="Assert.Ignore"/> による「成功」に見える
+    /// GPU ゴールデン群全体のサイレントスキップを非ゲートの canary で検出するために公開する。
     /// </summary>
     public static bool IsAvailable
     {

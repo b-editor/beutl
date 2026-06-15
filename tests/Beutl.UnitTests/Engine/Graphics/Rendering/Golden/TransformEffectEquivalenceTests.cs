@@ -8,11 +8,10 @@ using Beutl.UnitTests.Engine.Graphics.Backend;
 
 namespace Beutl.UnitTests.Engine.Graphics.Rendering.Golden;
 
-// Guards the w==1 behaviour of the TransformEffect fix (commit 533334740). The fix swapped the w==1 blit from
-// canvas.DrawRenderTarget(rt, default) to EffectTarget.Draw — claimed byte-identical at w==1 and to "match the
-// same transform applied as the drawable's own Transform". No golden-PNG baseline exists in the repo, so the
-// strongest available guard is this cross-equivalence to the drawable's own Transform at scale 1 (a different,
-// known-correct code path). A regression in the w==1 blit / origin would diverge here.
+// Guards the w==1 behaviour of the TransformEffect fix (commit 533334740), which swapped the w==1 blit from
+// canvas.DrawRenderTarget(rt, default) to EffectTarget.Draw to match the same transform applied as the drawable's
+// own Transform. With no golden-PNG baseline in the repo, the strongest guard is this cross-equivalence at scale 1
+// against the drawable's own Transform, a known-correct code path. A regression in the w==1 blit/origin diverges here.
 [NonParallelizable]
 [TestFixture]
 public class TransformEffectEquivalenceTests

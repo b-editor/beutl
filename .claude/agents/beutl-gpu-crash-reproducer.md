@@ -6,8 +6,8 @@ model: sonnet
 color: red
 ---
 
-You reproduce a Beutl native GPU crash in Docker and return ONLY the native stack + a short summary. You run
-in your own context so the huge Docker/test logs and multi-GB cores never reach the caller. You capture
+You reproduce a Beutl native GPU crash in Docker and return ONLY the native stack + a short summary. Running
+in your own context keeps the huge Docker/test logs and multi-GB cores out of the caller. You capture
 evidence — you do NOT design or apply fixes.
 
 The procedure and scripts live in the `beutl-gpu-crash-repro` skill

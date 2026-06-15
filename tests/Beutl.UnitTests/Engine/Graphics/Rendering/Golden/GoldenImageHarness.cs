@@ -6,15 +6,13 @@ using SkiaSharp;
 
 namespace Beutl.UnitTests.Engine.Graphics.Rendering.Golden;
 
-// Vulkan-gated golden harness for feature 003. On a host with MoltenVK/SwiftShader these run for
-// real; otherwise VulkanTestEnvironment.EnsureAvailable() skips them. All GPU work is marshalled
-// onto the render thread.
+// Vulkan-gated golden harness for feature 003: runs for real on MoltenVK/SwiftShader, else
+// VulkanTestEnvironment.EnsureAvailable() skips. All GPU work is marshalled onto the render thread.
 internal static class GoldenImageHarness
 {
     /// <summary>
-    /// Renders <paramref name="resource"/> into a <c>ceil(logicalSize × scale)</c> device surface with
-    /// one root <c>CreateScale(scale)</c> CTM — exactly the model <see cref="Renderer.Render"/> uses.
-    /// <c>scale == 1</c> takes the bare path (byte-identity).
+    /// Renders <paramref name="resource"/> into a <c>ceil(logicalSize × scale)</c> device surface with one
+    /// root <c>CreateScale(scale)</c> CTM, exactly as <see cref="Renderer.Render"/>. <c>scale == 1</c> is byte-identical.
     /// </summary>
     public static Bitmap RenderAtScale(Drawable.Resource resource, PixelSize logicalSize, float scale)
     {
@@ -23,12 +21,12 @@ internal static class GoldenImageHarness
         using RenderTarget target = RenderTarget.Create(dw, dh)
                                     ?? throw new InvalidOperationException("RenderTarget.Create returned null.");
         // feature 003: the canvas bakes the base CTM CreateScale(scale) at construction (identity at
-        // scale == 1) — exactly the model Renderer.Render uses — so no self-push is needed below.
+        // scale == 1), so no self-push is needed below.
         using var canvas = new ImmediateCanvas(target, scale, logicalSize: logicalSize.ToSize(1));
         canvas.Clear(Colors.Black);
 
-        // Mirror Renderer.RenderDrawable exactly: layout uses the LOGICAL frame size (so alignment /
-        // centering is scale-independent); the canvas's base CTM maps it onto the device surface.
+        // Mirror Renderer.RenderDrawable: layout uses the LOGICAL frame size (so alignment / centering
+        // is scale-independent), and the canvas's base CTM maps it onto the device surface.
         using var node = new DrawableRenderNode(resource);
         using (var ctx = new GraphicsContext2D(node, logicalSize.ToSize(1), scale))
         {

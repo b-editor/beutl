@@ -4,20 +4,19 @@ using Beutl.Media;
 namespace Beutl.Helpers;
 
 /// <summary>
-/// Pure size math for the export supersampling pre-validation (feature 003, US4). The export pipeline
-/// renders the root surface at <c>FrameSize × max(1, factor)</c> (see <c>OutputViewModel.StartEncode</c>);
-/// a GPU texture larger than <see cref="RenderNodeContext.MaxBufferDimension"/> on either axis cannot be
-/// allocated, so encoding must be blocked up-front instead of failing mid-export with a generic error.
-/// Kept dependency-free (no ViewModel state) so it is unit-testable; compiled into
-/// <c>Beutl.UnitTests</c> as a linked source file.
+/// Size math for the export supersampling pre-validation (feature 003, US4). The export pipeline renders
+/// the root surface at <c>FrameSize × max(1, factor)</c> (see <c>OutputViewModel.StartEncode</c>); a GPU
+/// texture larger than <see cref="RenderNodeContext.MaxBufferDimension"/> on either axis cannot be
+/// allocated, so encoding is blocked up-front rather than failing mid-export. Dependency-free (no
+/// ViewModel state) so it is unit-testable as a linked source file in <c>Beutl.UnitTests</c>.
 /// </summary>
 public static class ExportSupersampling
 {
     /// <summary>
     /// The root-surface size the export pipeline allocates for <paramref name="frameSize"/> at
     /// <paramref name="factor"/>. Factors below 1 clamp to 1, mirroring
-    /// <c>renderScale = max(1, SupersampleFactor)</c> in the encode path. Returned as <see cref="long"/>
-    /// so an extreme frame size × factor cannot overflow.
+    /// <c>renderScale = max(1, SupersampleFactor)</c> in the encode path. <see cref="long"/> so an
+    /// extreme frame size × factor cannot overflow.
     /// </summary>
     public static (long Width, long Height) GetRenderSize(PixelSize frameSize, int factor)
     {

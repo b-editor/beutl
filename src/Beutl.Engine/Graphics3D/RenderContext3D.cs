@@ -89,9 +89,9 @@ public readonly struct RenderContext3D
     public CompositionContext CompositionContext { get; }
 
     /// <summary>
-    /// The density (device pixels per logical unit) the surface is rendered at (feature 003), mirroring
-    /// <see cref="IRenderer3D.SurfaceDensity"/>. Forwarded to <see cref="Textures.TextureSource.Resource.GetTexture"/>
-    /// so a re-rasterizable texture source can rasterize at the surface density instead of a fixed pixel count.
+    /// The surface render density (device px per logical unit), mirroring <see cref="IRenderer3D.SurfaceDensity"/>.
+    /// Forwarded to <see cref="Textures.TextureSource.Resource.GetTexture"/> so a re-rasterizable texture source
+    /// can rasterize at this density instead of a fixed pixel count.
     /// </summary>
     public float SurfaceDensity { get; }
 

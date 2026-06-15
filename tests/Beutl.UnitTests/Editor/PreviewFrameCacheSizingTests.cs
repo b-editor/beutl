@@ -4,9 +4,8 @@ using Beutl.Models;
 
 namespace Beutl.UnitTests.Editor;
 
-// CPU unit tests for the preview frame-cache size derivation (PreviewFrameCacheSizing.DeriveCacheSize).
-// The player view model reapplies this pure mapping to every rebuilt FrameCacheManager, so the math here
-// is what decides whether reduced caches survive a quality-switch / Fit-resize rebuild.
+// Tests for PreviewFrameCacheSizing.DeriveCacheSize. The player view model reapplies this mapping to every
+// rebuilt FrameCacheManager, so it decides whether reduced caches survive a quality-switch / Fit-resize rebuild.
 [TestFixture]
 public class PreviewFrameCacheSizingTests
 {
@@ -32,7 +31,7 @@ public class PreviewFrameCacheSizingTests
     public void DeriveCacheSize_PanelJustBelowFrameSize_StillCachesAtHalf()
     {
         // scale 0.9 -> den = (int)(1 / 0.9) = 1 -> bumped to 2: any panel smaller than the frame
-        // caches at most at half size (matches the historical MaxFrameSize setter behavior).
+        // caches at most at half size (matches the historical MaxFrameSize setter).
         PixelSize? size = PreviewFrameCacheSizing.DeriveCacheSize(new Size(1728, 972), Frame);
         Assert.That(size, Is.EqualTo(new PixelSize(960, 540)));
     }
@@ -50,7 +49,7 @@ public class PreviewFrameCacheSizingTests
     public void DeriveCacheSize_PanelAtLeastFrameSized_ReturnsNull(int width, int height)
     {
         // scale >= 1 must use the original size; it must never reach (int)(1 / scale) == 0,
-        // which would diverge 1 / den to +Infinity and produce an int.MaxValue-sized entry.
+        // which would make 1 / den +Infinity and produce an int.MaxValue-sized entry.
         Assert.That(PreviewFrameCacheSizing.DeriveCacheSize(new Size(width, height), Frame), Is.Null);
     }
 

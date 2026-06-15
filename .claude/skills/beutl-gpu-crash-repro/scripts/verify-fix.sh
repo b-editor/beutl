@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Confirm a fix: rebuild /work, then loop RUNS times asserting NO crash. Exit 1 the moment a core appears.
 # Use a FRESH /dumps mount. Run --privileged. Env: TEST_PROJ, RUNS (default 30).
-# A pre-fix repro rate of ~1-in-6 means a handful of clean runs prove nothing — keep RUNS high (>=30),
+# At a ~1-in-6 pre-fix repro rate a few clean runs prove nothing — keep RUNS high (>=30),
 # and verify on BOTH arm64 (native) and amd64 if the bug could be arch-sensitive.
 set +e
 echo "/dumps/core.%p.%e" > /proc/sys/kernel/core_pattern 2>/dev/null

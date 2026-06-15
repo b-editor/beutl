@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# Print a native backtrace for the newest core in /dumps. gdb reading a STATIC core needs no ptrace,
-# so it works even under qemu — but a qemu (linux/amd64-on-arm64) core is the EMULATOR's arm64 core and
-# is useless for the guest stack; the readelf check at the end flags that case.
+# Print a native backtrace for the newest core in /dumps. Reading a static core needs no ptrace, so gdb
+# works even under qemu — but a qemu (linux/amd64-on-arm64) core is the emulator's own arm64 core, useless
+# for the guest stack; the readelf check at the end flags that case.
 set +e
 CORE=$(ls -S /dumps/core.* 2>/dev/null | head -1)
 [ -z "$CORE" ] && { echo "[analyze] no core in /dumps"; exit 1; }

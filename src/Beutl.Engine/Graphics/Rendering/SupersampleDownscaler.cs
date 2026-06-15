@@ -7,15 +7,14 @@ namespace Beutl.Graphics.Rendering;
 /// Resamples a supersampled / device-resolution frame down to the logical output resolution
 /// (feature 003, FR-026/FR-034). Single source of truth for the sampler choice so the export
 /// pipeline (<c>FrameProviderImpl</c>), the editor still-frame path (<c>PlayerViewModel.DrawFrame</c>),
-/// and the golden tests all resample identically — there is no second, divergent kernel.
+/// and the golden tests all resample identically.
 /// </summary>
 public static class SupersampleDownscaler
 {
     /// <summary>
     /// Returns a bitmap that is exactly <paramref name="target"/> pixels. When <paramref name="source"/>
-    /// is already that size the same instance is returned unchanged (no resample, byte-identical) and the
-    /// caller still owns that single instance. Otherwise a NEW bitmap is returned and the caller remains
-    /// responsible for disposing <paramref name="source"/> (compare with <see cref="object.ReferenceEquals"/>).
+    /// is already that size it is returned unchanged (byte-identical); otherwise a new bitmap is returned and
+    /// the caller must dispose <paramref name="source"/>. Use <see cref="object.ReferenceEquals"/> to tell the two cases apart.
     /// </summary>
     public static Bitmap ToFrameSize(Bitmap source, PixelSize target, float renderScale)
     {

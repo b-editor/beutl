@@ -75,16 +75,15 @@ public sealed class BufferedPlayer : IPlayer
                         break;
                     }
 
-                    // The renderer / frame-cache pair is rebuilt by replacement when the scene's frame size
-                    // (or preview scale) changes — e.g. an undo/redo of a Scene Settings edit while playback is
-                    // running. The replaced instances are disposed, so the loop re-reads the current pair each
-                    // frame instead of holding the ones it captured at Start(); otherwise it would call
-                    // Render()/Snapshot() on a disposed renderer and throw ObjectDisposedException. When the read
-                    // lands in the brief swap window and exposes a disposed instance, stop this producer — and
+                    // The renderer / frame-cache pair is rebuilt by replacement (and the old instances disposed)
+                    // when the scene's frame size or preview scale changes, e.g. an undo/redo of a Scene Settings
+                    // edit during playback. Re-read the current pair each frame rather than holding the ones
+                    // captured at Start(), or Render()/Snapshot() runs on a disposed renderer and throws. If the
+                    // read lands in the swap window and exposes a disposed instance, stop this producer — but
                     // FIRST cancel the wait token so the consumer's WaitRender() returns instead of blocking the
-                    // UI thread on a producer that is gone. The repaint after a rebuild redraws only the still
-                    // preview (PlayerViewModel.QueueRender), NOT the playback queue, so playback halts on the last
-                    // buffered frame until the user re-initiates it — it does not seamlessly resume.
+                    // UI thread on a gone producer. The post-rebuild repaint redraws only the still preview
+                    // (PlayerViewModel.QueueRender), not the playback queue, so playback halts on the last
+                    // buffered frame until the user re-initiates it.
                     SceneRenderer renderer = _editViewModel.Renderer.Value;
                     FrameCacheManager frameCacheManager = _editViewModel.FrameCacheManager.Value;
                     if (renderer.IsDisposed || frameCacheManager.IsDisposed)
@@ -133,11 +132,11 @@ public sealed class BufferedPlayer : IPlayer
             }
             catch (ObjectDisposedException ex)
             {
-                // The renderer/cache was disposed by a concurrent rebuild between the IsDisposed re-check and
-                // Render()/Snapshot() — a tight TOCTOU the per-frame re-read narrows but cannot fully close (the
-                // disposal runs on the UI thread, the loop on the render thread). This is an EXPECTED mid-swap
-                // race, not a real drawing failure, so do NOT surface a user-facing FrameDrawingException; cancel
-                // the wait token so the consumer unblocks, log it, and let the producer stop.
+                // A concurrent rebuild disposed the renderer/cache between the IsDisposed re-check and
+                // Render()/Snapshot() — a TOCTOU the per-frame re-read narrows but cannot close, since disposal
+                // runs on the UI thread and the loop on the render thread. This is an expected mid-swap race, not
+                // a drawing failure, so do NOT surface a user-facing FrameDrawingException; cancel the wait token
+                // so the consumer unblocks, log it, and let the producer stop.
                 _waitRenderToken?.Cancel();
                 _logger.LogWarning(ex, "Renderer disposed mid-frame by a concurrent rebuild; stopping the playback producer.");
             }

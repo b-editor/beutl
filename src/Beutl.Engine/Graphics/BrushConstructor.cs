@@ -21,19 +21,19 @@ public readonly struct BrushConstructor(
     public BlendMode BlendMode { get; } = blendMode;
 
     /// <summary>
-    /// The render/working density (device pixels per logical unit) of the canvas this brush fills into
-    /// (feature 003, A-1/T042). <c>1f</c> = logical == device (byte-identical to pre-feature). A tile / image /
-    /// drawable brush rasterizes its content into an intermediate sized <c>ceil(IntermediateSize × Scale)</c>
-    /// and its shader local-matrix is compensated by <c>Scale(1/Scale)</c>, so the fill stays crisp under SSAA
-    /// instead of being upscaled from a logical-resolution intermediate. CTM-following primitives ignore it.
+    /// Render density (device px per logical unit) of the canvas this brush fills into (feature 003, A-1/T042).
+    /// <c>1f</c> = logical == device, byte-identical to pre-feature. A tile/image/drawable brush rasterizes its
+    /// content into an intermediate sized <c>ceil(IntermediateSize × Scale)</c> and compensates its shader
+    /// local-matrix by <c>Scale(1/Scale)</c>, so the fill stays crisp under SSAA instead of upscaling a
+    /// logical-resolution intermediate. CTM-following primitives ignore it.
     /// </summary>
     public float Scale { get; } = scale;
 
     /// <summary>
-    /// The working-scale ceiling (feature 003, FR-037) of the render request this fill belongs to,
-    /// forwarded into the nested pull a <see cref="DrawableBrush"/> performs for its child drawable —
-    /// without it the child subtree falls back to <c>+∞</c> and a high-density source there escapes
-    /// the request's ceiling. Canvas-managed fills pass <see cref="ImmediateCanvas.MaxWorkingScale"/>.
+    /// Working-scale ceiling (feature 003, FR-037) of this fill's render request, forwarded into the nested pull
+    /// a <see cref="DrawableBrush"/> performs for its child drawable — without it the child subtree falls back to
+    /// <c>+∞</c> and a high-density source there escapes the ceiling. Canvas-managed fills pass
+    /// <see cref="ImmediateCanvas.MaxWorkingScale"/>.
     /// </summary>
     public float MaxWorkingScale { get; } = maxWorkingScale;
 
@@ -237,12 +237,12 @@ public readonly struct BrushConstructor(
 
     private SKShader? CreateTileShader(TileBrush.Resource tileBrush)
     {
-        // feature 003 (A-1/T042): `s` is the canvas render density. The tile/image/drawable content is
-        // rasterized into an intermediate sized `ceil(IntermediateSize × s)` and the shader local-matrix is
-        // compensated by `Scale(1/s)`, so a brush FILL stays crisp under SSAA (s_out > 1) instead of being
-        // upscaled from a logical-resolution intermediate. `contentDensity` is the skImage's
-        // pixels-per-logical-content-unit (1 for a native bitmap; `s` for a DrawableBrush child re-rendered at
-        // `s`). `s == 1` keeps the exact pre-feature path (every `× s` / `1/s` is a no-op → byte-identical).
+        // feature 003 (A-1/T042): `s` is the canvas render density. Content is rasterized into an intermediate
+        // sized `ceil(IntermediateSize × s)` and the shader local-matrix compensated by `Scale(1/s)`, so the
+        // fill stays crisp under SSAA (s_out > 1) instead of upscaling a logical-resolution intermediate.
+        // `contentDensity` is the skImage's px per logical content unit (1 for a native bitmap; `s` for a
+        // DrawableBrush child re-rendered at `s`). At `s == 1` every `× s` / `1/s` is a no-op, so the
+        // pre-feature path is byte-identical.
         float s = Scale;
         RenderTarget? renderTarget = null;
         SKImage? skImage;
@@ -254,20 +254,20 @@ public readonly struct BrushConstructor(
         {
             skImage = SKImage.FromBitmap(bitmap.SKBitmap);
             pixelSize = new(bitmap.Width, bitmap.Height);
-            contentDensity = 1f; // the bitmap's native pixels ARE the logical content (1:1); ×s intermediate keeps them
+            contentDensity = 1f; // the bitmap's native pixels ARE the logical content (1:1)
         }
         else if (tileBrush is DrawableBrush.Resource drawableBrush)
         {
             if (drawableBrush.Drawable is null) return null;
 
-            // Re-render the child at the render density `s` so the intermediate has real detail to sample
-            // (not an upscaled logical render). Bounds/positions stay logical; the buffers are × s.
+            // Re-render the child at density `s` so the intermediate has real detail to sample, not an upscaled
+            // logical render. Bounds/positions stay logical; the buffers are × s.
             var drawable = drawableBrush.Drawable;
             using var node = new DrawableRenderNode(drawable);
             using var context = new GraphicsContext2D(node, new Size((int)Bounds.Width, (int)Bounds.Height), s);
             drawable.GetOriginal().Render(context, drawable);
-            // Forward the request's FR-037 ceiling — without it the child subtree falls back to +∞
-            // and a high-density source inside the brush escapes the preview/export cap.
+            // Forward the request's FR-037 ceiling — without it the child subtree falls back to +∞ and a
+            // high-density source inside the brush escapes the preview/export cap.
             var processor = new RenderNodeProcessor(node, true, s, MaxWorkingScale);
             var ops = processor.RasterizeToRenderTargets();
             var totalBounds = ops.Aggregate(Rect.Empty, (current, item) => current.Union(item.Bounds));
@@ -277,23 +277,23 @@ public readonly struct BrushConstructor(
             renderTarget = RenderTarget.Create(dw, dh);
             if (renderTarget == null)
             {
-                // The child ops are caller-owned and are only disposed in the blit loop below; release them here
-                // too so the alloc-failure path (most likely under high export density, exactly when GPU memory
-                // is scarce) does not leak every rasterized child RenderTarget surface.
+                // The blit loop below normally disposes these caller-owned ops; on the alloc-failure path it
+                // never runs, so release them here or every rasterized child RenderTarget surface leaks — most
+                // likely under high export density, exactly when GPU memory is scarce.
                 foreach (var op in ops)
                     op.RenderTarget.Dispose();
 
-                // Without a shader the paint falls back to the plain white fill — make the failure visible.
+                // Without a shader the paint falls back to a plain white fill — make the failure visible.
                 s_logger.LogWarning(
                     "DrawableBrush content buffer allocation failed ({Width}x{Height} px, density {Scale}); the fill degrades to solid white.",
                     dw, dh, s);
                 return null;
             }
 
-            // feature 003 carve-out: this is device-native code — it point-blits the × s dense child buffers
-            // at hand-computed × s device offsets. Construct at density 1 (NO base CTM) so the raw device
-            // blits below are not re-scaled; s stays folded into the offsets. (See the tile-intermediate
-            // carve-out below for the same rationale.)
+            // feature 003 carve-out: device-native code that point-blits the × s dense child buffers at
+            // hand-computed × s device offsets. Construct at density 1 (NO base CTM) so the raw blits below
+            // are not re-scaled; s stays folded into the offsets. (Same rationale as the tile-intermediate
+            // carve-out below.)
             using (var icanvas = new ImmediateCanvas(renderTarget, 1f, MaxWorkingScale))
             {
                 icanvas.Clear();
@@ -323,9 +323,9 @@ public readonly struct BrushConstructor(
 
             var calc = new TileBrushCalculator(tileBrush, pixelSize.ToSize(1), Bounds.Size);
 
-            // Allocate the intermediate at the render density and draw the content into it densely. The draw
-            // matrix maps skImage px -> logical content (÷ contentDensity) -> logical intermediate
-            // (IntermediateTransform) -> dense intermediate (× s).
+            // Allocate the intermediate at density `s` and draw into it densely. The draw matrix maps skImage px
+            // -> logical content (÷ contentDensity) -> logical intermediate (IntermediateTransform) ->
+            // dense intermediate (× s).
             int iw = Math.Max(1, (int)MathF.Ceiling((float)calc.IntermediateSize.Width * s));
             int ih = Math.Max(1, (int)MathF.Ceiling((float)calc.IntermediateSize.Height * s));
 
@@ -338,10 +338,10 @@ public readonly struct BrushConstructor(
                 return null;
             }
 
-            // feature 003 carve-out: this builds an absolute device matrix by hand (canvas.Canvas.SetMatrix
-            // below already folds in Scale(s)). Construct at density 1 (NO base CTM) so the raw SetMatrix is
-            // the whole transform — a baked base would double the scale. This keeps the hot tile path
-            // byte-identical and device-native; the intermediate still allocates ceil(IntermediateSize × s).
+            // feature 003 carve-out: the SetMatrix below builds an absolute device matrix by hand (folding in
+            // Scale(s)). Construct at density 1 (NO base CTM) so that SetMatrix is the whole transform — a baked
+            // base would double the scale. Keeps the hot tile path byte-identical and device-native; the
+            // intermediate still allocates ceil(IntermediateSize × s).
             using (var canvas = new ImmediateCanvas(intermediate, 1f, MaxWorkingScale))
             using (var paintTmp = new SKPaint())
             {
@@ -387,11 +387,11 @@ public readonly struct BrushConstructor(
                 tileTransform = tileTransform.PreConcat(transform.ToSKMatrix());
             }
 
-            // The texture (intermediate) is now × s denser. Skia samples it as
+            // The intermediate is now × s denser. Skia samples it as
             //   texel = localMatrix⁻¹ · CTM⁻¹ · device, with the fill CTM = CreateScale(s).
-            // To map device pixels 1:1 onto the dense texels (crisp), the local-matrix must apply Scale(1/s)
-            // to the texture coordinates FIRST (un-densify them to logical), then the logical tile/user
-            // mapping. i.e. localMatrix = tileTransform ∘ Scale(1/s). At s == 1 this is a no-op.
+            // For device pixels to map 1:1 onto the dense texels, the local-matrix must apply Scale(1/s) to the
+            // texture coordinates FIRST (un-densify to logical), then the logical tile/user mapping —
+            // localMatrix = tileTransform ∘ Scale(1/s). At s == 1 this is a no-op.
             tileTransform = tileTransform.PreConcat(SKMatrix.CreateScale(1f / s, 1f / s));
 
             using (SKImage snapshot = intermediate.Value.Snapshot())

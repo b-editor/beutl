@@ -23,11 +23,11 @@ public sealed class RenderNodeCache(RenderNode node) : IDisposable
     public int CacheCount => _cache.Count;
 
     /// <summary>
-    /// The pixel density (device pixels per logical unit) the cached tiles were rasterized at
-    /// (feature 003, FR-020). Replay re-tags the tiles <c>EffectiveScale.At(Density)</c> so a cached
-    /// subtree keeps reporting its true supply density instead of flipping to <c>Unbounded</c> —
-    /// without it, enabling the cache would change downstream working scales. Cross-scale cache
-    /// REUSE is still out of scope (T025); within one renderer the density is fixed.
+    /// The pixel density (device px per logical unit) the cached tiles were rasterized at (FR-020).
+    /// Replay re-tags the tiles <c>EffectiveScale.At(Density)</c> so a cached subtree keeps its true
+    /// supply density instead of flipping to <c>Unbounded</c>, which would change downstream working
+    /// scales when the cache is enabled. Cross-scale cache reuse is out of scope (T025); density is
+    /// fixed within one renderer.
     /// </summary>
     public float Density { get; private set; } = 1f;
 

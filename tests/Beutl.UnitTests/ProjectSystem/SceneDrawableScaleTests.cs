@@ -8,15 +8,14 @@ using Beutl.UnitTests.Engine.Graphics.Backend;
 
 namespace Beutl.UnitTests.ProjectSystem;
 
-// feature 003 (FR-022 / FR-019b): when a Scene is drawn as a Drawable (SceneDrawable) at output scale w, it
-// rasterizes the nested scene into a fixed-resolution ceil(FrameSize × w) surface and emits that buffer as a
-// RenderNodeOperation. That op MUST carry the CONCRETE inherited density At(w) — it is a bitmap, never the
-// re-rasterizable Unbounded sentinel — so a parent boundary reconciles the nested surface at the density it
-// actually has rather than treating it as vector and re-rasterizing above its real pixels (soft supersample).
+// feature 003 (FR-022 / FR-019b): a SceneDrawable at output scale w rasterizes the nested scene into a
+// fixed-resolution ceil(FrameSize × w) surface and emits it as a RenderNodeOperation. That op must carry the
+// concrete inherited density At(w), never the re-rasterizable Unbounded sentinel, so a parent reconciles it at
+// its real pixel density instead of treating it as vector and re-rasterizing (soft supersample).
 //
-// SceneBitmapRenderNode.Process builds a real nested Renderer (RenderTarget allocation), so the test is
-// Vulkan-gated and runs on the render thread. It only PULLS the op (where EffectiveScale is tagged) — it never
-// invokes the op's render lambda, so no GPU blit is exercised; pulling alone forces the At(w) tag.
+// SceneBitmapRenderNode.Process allocates a real nested Renderer (RenderTarget), so the test is Vulkan-gated and
+// runs on the render thread. It only pulls the op (where EffectiveScale is tagged), never invoking the render
+// lambda, so no GPU blit runs; the pull alone forces the At(w) tag.
 [NonParallelizable]
 [TestFixture]
 public class SceneDrawableScaleTests
@@ -50,10 +49,9 @@ public class SceneDrawableScaleTests
         return scene;
     }
 
-    // Pulls the single concrete (non-Unbounded) op of the SceneDrawable at the given output scale. The
-    // SceneDrawable's default centering transform is a pure translation (scale 1), so the nested op's density
-    // flows up unchanged; select the concrete op to stay decoupled from how many pass-through ops the
-    // container chain produces. The caller owns disposal of the returned op.
+    // Pulls the single concrete (non-Unbounded) op of the SceneDrawable at the given output scale. The default
+    // centering transform is a pure translation (scale 1), so the nested op's density flows up unchanged;
+    // selecting by concreteness stays decoupled from the pass-through op count. The caller disposes the returned op.
     private static RenderNodeOperation PullConcreteOp(SceneDrawable drawable, Scene inner, float outputScale)
     {
         Drawable.Resource resource = drawable.ToResource(new CompositionContext(TimeSpan.Zero));

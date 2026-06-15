@@ -23,7 +23,7 @@ public sealed partial class ImageTextureSource : TextureSource
         private ITexture2D? _gpuTexture;
         private int _gpuTextureVersion = -1;
 
-        // A decoded bitmap has a fixed pixel count, so surfaceDensity (feature 003) adds no detail and is ignored —
+        // A decoded bitmap has a fixed pixel count, so surfaceDensity is ignored here —
         // unlike DrawableTextureSource, whose vector content re-rasterizes at the surface density.
         public override ITexture2D? GetTexture(IGraphicsContext graphicsContext, float surfaceDensity = 1f)
         {

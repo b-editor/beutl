@@ -12,22 +12,20 @@ using Beutl.UnitTests.Engine.Graphics.Backend;
 
 namespace Beutl.UnitTests.Engine.Graphics3D;
 
-// feature 003 (FR-033 / FR-027): 3D picking takes LOGICAL coordinates, but the 3D surface is rendered at
+// feature 003 (FR-033 / FR-027): 3D picking takes LOGICAL coordinates, but the surface renders at
 // ceil(logical × SurfaceDensity) DEVICE pixels. Renderer3D.ToDevice multiplies the logical pick point by
-// SurfaceDensity before HitTester3D builds the NDC ray, so a fixed logical point must resolve to the SAME object
-// regardless of the preview/export output scale. Without the × SurfaceDensity conversion, picking on a
-// reduced-scale preview is off by that factor.
+// SurfaceDensity before HitTester3D builds the NDC ray, so a fixed logical point resolves to the SAME object at
+// any output scale. Without the × SurfaceDensity conversion, picking on a reduced-scale preview is off by that factor.
 //
-// This exercises HitTester3D.HitTest with EXACTLY the inputs Renderer3D.HitTest feeds it after ToDevice
-// (logical × scale, ceil(size × scale)) — the whole ray-cast pick path is pure CPU, so no GPU is needed. (The
-// test lives in Beutl.UnitTests rather than the convention's tests/Beutl.Graphics3DTests because the latter is
-// still an Exe render harness, not an NUnit project; Beutl.UnitTests already references Beutl.Engine and has
-// InternalsVisibleTo, so the 3D types are reachable here.)
+// This feeds HitTester3D.HitTest EXACTLY what Renderer3D.HitTest feeds it after ToDevice (logical × scale,
+// ceil(size × scale)); the ray-cast pick path is pure CPU, so no GPU is needed. It lives in Beutl.UnitTests
+// rather than tests/Beutl.Graphics3DTests because the latter is an Exe render harness, not an NUnit project,
+// and Beutl.UnitTests already references Beutl.Engine with InternalsVisibleTo.
 [TestFixture]
 public class HitTestRenderScaleTests
 {
-    // Even logical dimensions so ceil(size × scale) is exact at 0.5/1/2 — the device aspect ratio then matches
-    // the logical aspect ratio at every scale, making the NDC ray (and thus the pick) deterministic.
+    // Even logical dimensions so ceil(size × scale) is exact at 0.5/1/2, keeping the device aspect ratio (and
+    // thus the NDC ray and the pick) equal to the logical aspect ratio at every scale.
     private const int LogicalWidth = 800;
     private const int LogicalHeight = 600;
 
@@ -40,7 +38,7 @@ public class HitTestRenderScaleTests
         scale == 1f ? logical : logical * scale;
 
     // A minimal pickable scene: one unit sphere at the origin viewed head-on down -Z, so the logical
-    // screen-centre point lands on the sphere. CPU-only — HitTester3D + the CPU mesh path need no GPU.
+    // screen-centre point lands on the sphere. CPU-only: HitTester3D and the CPU mesh path need no GPU.
     private static (Camera3D.Resource Camera, Sphere3D.Resource Sphere) BuildScene(CompositionContext context)
     {
         var camera = new PerspectiveCamera();
@@ -60,9 +58,9 @@ public class HitTestRenderScaleTests
         return (cameraResource, sphereResource);
     }
 
-    // The screen-centre logical point projects to NDC (0,0) — straight down the camera axis — onto the origin
+    // The screen-centre logical point projects straight down the camera axis to NDC (0,0), onto the origin
     // sphere. At scale s, ToDevice gives (W/2·s, H/2·s) and width = ceil(W·s), so ndcX = 2·(W/2·s)/(W·s) − 1 = 0
-    // for every s; drop the ·s in ToDevice and the NDC collapses, so the centre point would miss at s != 1.
+    // for every s; drop the ·s and the NDC collapses, so the centre point would miss at s != 1.
     [TestCase(0.5f)]
     [TestCase(1.0f)]
     [TestCase(2.0f)]
@@ -86,7 +84,7 @@ public class HitTestRenderScaleTests
         camera.Dispose();
     }
 
-    // Negative guard: an off-axis logical point that clears the sphere must MISS at every scale too, proving the
+    // Negative guard: an off-axis logical point that clears the sphere must MISS at every scale, proving the
     // conversion is consistent rather than that everything always hits.
     [TestCase(0.5f)]
     [TestCase(1.0f)]
@@ -130,9 +128,9 @@ public class HitTestRenderScaleTests
     }
 
     // End-to-end guard through the REAL Renderer3D: render the sphere at SurfaceDensity = scale (device surface
-    // ceil(logical × scale), exactly as Scene3DRenderNode sizes it) and hit-test the LOGICAL centre via the
-    // live Renderer3D.HitTest, which applies its own ToDevice(× SurfaceDensity). Unlike the CPU tests above this
-    // would fail if Renderer3D.ToDevice itself regressed. Requires a 3D-capable GPU; skips otherwise.
+    // ceil(logical × scale), as Scene3DRenderNode sizes it) and hit-test the LOGICAL centre via the live
+    // Renderer3D.HitTest, which applies its own ToDevice(× SurfaceDensity). Unlike the CPU tests above, this
+    // catches a regression in Renderer3D.ToDevice itself. Requires a 3D-capable GPU; skips otherwise.
     [TestCase(0.5f)]
     [TestCase(1.0f)]
     [TestCase(2.0f)]

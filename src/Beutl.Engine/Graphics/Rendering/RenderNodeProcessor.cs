@@ -13,9 +13,9 @@ public class RenderNodeProcessor(
 
     /// <summary>
     /// The output scale <c>s_out</c> seeded into every <see cref="RenderNodeContext"/> this processor
-    /// pulls (feature 003). <c>1.0</c> = logical == device (byte-identical to pre-feature). Sanitized to a
-    /// positive-finite value so a degenerate scale can never corrupt the <see cref="RasterizeAt"/> sizing
-    /// (<c>PixelRect.FromRect(bounds, w)</c>) or flow downstream — mirrors the same guard in
+    /// pulls (feature 003). <c>1.0</c> = logical == device (byte-identical to pre-feature). Sanitized to
+    /// positive-finite so a degenerate scale can never corrupt the <see cref="RasterizeAt"/> sizing
+    /// (<c>PixelRect.FromRect(bounds, w)</c>); mirrors the guard in
     /// <see cref="Renderer"/> and <see cref="RenderNodeContext"/>.
     /// </summary>
     public float OutputScale { get; } = float.IsFinite(outputScale) && outputScale > 0f ? outputScale : 1f;
@@ -38,17 +38,17 @@ public class RenderNodeProcessor(
 
     /// <summary>
     /// Rasterizes a single operation into its own render target at working scale <paramref name="w"/>.
-    /// The <c>w == 1</c> path is the exact pre-feature path (byte-identical); for <c>w != 1</c> the
-    /// target is sized <c>ceil(bounds × w)</c> and a <see cref="Matrix.CreateScale"/> is pushed.
-    /// Returns <see langword="null"/> for an empty (zero-area) target. The op is disposed in all cases
-    /// (whether it was rendered or skipped as empty), so the caller never owns it afterward.
+    /// <c>w == 1</c> is byte-identical to pre-feature; for <c>w != 1</c> the target is sized
+    /// <c>ceil(bounds × w)</c> and a <see cref="Matrix.CreateScale"/> is pushed.
+    /// Returns <see langword="null"/> for a zero-area target. The op is disposed in all cases
+    /// (rendered or skipped), so the caller never owns it afterward.
     /// </summary>
     internal (RenderTarget RenderTarget, Rect Bounds)? RasterizeAt(RenderNodeOperation op, float w)
     {
         var rect = w == 1f ? PixelRect.FromRect(op.Bounds) : PixelRect.FromRect(op.Bounds, w);
         if (rect.Width <= 0 || rect.Height <= 0)
         {
-            // A zero-area op still owns a backing surface; dispose it instead of leaking on the empty path.
+            // A zero-area op still owns a backing surface; dispose it instead of leaking.
             op.Dispose();
             return null;
         }
@@ -56,14 +56,14 @@ public class RenderNodeProcessor(
         var renderTarget = RenderTarget.Create(rect.Width, rect.Height);
         if (renderTarget == null)
         {
-            // Dispose the op before the fatal throw so the doc's "disposed in all cases" holds literally.
+            // Dispose before the throw so "disposed in all cases" holds literally.
             op.Dispose();
             throw new Exception("RenderTarget is null");
         }
 
         // feature 003: the canvas bakes the working-density base CTM CreateScale(w) (identity at w == 1) and
         // tags its surface density w for any backdrop captured here. The op only needs the logical translation
-        // to its bounds origin; w == 1 stays byte-identical (no base Save, translation-only).
+        // to its bounds origin; w == 1 stays byte-identical.
         using var canvas = new ImmediateCanvas(renderTarget, w, MaxWorkingScale, logicalSize: op.Bounds.Size);
         canvas.Clear();
 
@@ -83,8 +83,8 @@ public class RenderNodeProcessor(
 
     /// <summary>
     /// Rasterizes already-pulled operations at <see cref="OutputScale"/>. Split from the param-less overload so
-    /// a caller (the render cache) can inspect the pulled ops' <see cref="RenderNodeOperation.EffectiveScale"/>
-    /// before committing to rasterize them — each op is consumed (disposed) by <see cref="RasterizeAt"/>.
+    /// the render cache can inspect the ops' <see cref="RenderNodeOperation.EffectiveScale"/> before
+    /// rasterizing — each op is consumed (disposed) by <see cref="RasterizeAt"/>.
     /// </summary>
     internal List<(RenderTarget RenderTarget, Rect Bounds)> RasterizeToRenderTargets(RenderNodeOperation[] ops)
     {
@@ -106,8 +106,8 @@ public class RenderNodeProcessor(
         var ops = PullToRoot();
         foreach (var op in ops)
         {
-            // Route through RasterizeAt so this shares its ceil(bounds × w) sizing, base-CTM bake, disposal and
-            // zero-area skip instead of re-inlining them (the inlined copy omitted the zero-area guard).
+            // Route through RasterizeAt to share its ceil(bounds × w) sizing, base-CTM bake, disposal and
+            // zero-area skip; the previously inlined copy omitted the zero-area guard.
             if (RasterizeAt(op, OutputScale) is { } result)
             {
                 using RenderTarget renderTarget = result.RenderTarget;

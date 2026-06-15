@@ -7,23 +7,20 @@ using Beutl.UnitTests.Engine.Graphics.Backend;
 namespace Beutl.UnitTests.Engine.Graphics.Rendering.Golden;
 
 // Empirical Tier-1 findings (2026-06-09): does a logical-unit parameter survive a 0.5x reduced render
-// upscaled back to full? A LOW SSIM means the parameter is device-coupled and needs ×w / ÷w; a HIGH
-// SSIM means it is already scale-correct (operates in logical space) and must NOT be re-scaled (that
-// would double-scale it). These probes settle the stale "deferred ×w" notes empirically:
+// upscaled back to full? LOW SSIM means the parameter is device-coupled and needs ×w / ÷w; HIGH SSIM
+// means it is already scale-correct (logical space) and must NOT be re-scaled (that double-scales it):
 //   - ShakeEffect:      SSIM ~0.999 -> ALREADY scale-correct (logical-bounds translate). Do NOT ×w.
-//   - PerlinNoiseBrush: SSIM ~0.70  -> this is NOT a frequency mismatch but the inherent best-effort
-//                       downsampling loss of a high-frequency procedural texture (FR-013). The "BaseFrequency
-//                       ÷w" recommendation in the dossier was tried as a one-off A/B in commit 8b2a1624c and
-//                       made the reduced-scale result WORSE (0.70 -> 0.63 at 0.5x) — SkPerlinNoiseShader
-//                       already follows the CTM (the noise period is logical-invariant), so ÷w only adds
-//                       higher frequencies that downsampling then loses. That experiment was reverted and is
-//                       NOT reproduced by the assertion below (the ÷w variant is no longer plumbed); the
-//                       falsification lives in git history (8b2a1624c). PerlinNoise ships with NO param
-//                       scaling, and 0.70 is accepted best-effort. The loose floor below is a REGRESSION
-//                       FLOOR ONLY — it cannot distinguish the ÷w hypothesis (both 0.70 and 0.63 clear it).
-//                       The CTM-following hypothesis itself (FR-010) IS settled by the lossless-direction
-//                       probe (PerlinNoiseBrush_CtmFollowing_LosslessDirection), which is free of the
-//                       Nyquist confound.
+//   - PerlinNoiseBrush: SSIM ~0.70  -> not a frequency mismatch but the inherent best-effort downsampling
+//                       loss of a high-frequency procedural texture (FR-013). The "BaseFrequency ÷w"
+//                       recommendation was A/B-tested in commit 8b2a1624c and made the 0.5x result WORSE
+//                       (0.70 -> 0.63): SkPerlinNoiseShader already follows the CTM (noise period is
+//                       logical-invariant), so ÷w only adds higher frequencies that downsampling loses.
+//                       That ÷w variant was reverted and is no longer plumbed (falsification in git history,
+//                       8b2a1624c). PerlinNoise ships with NO param scaling; 0.70 is accepted best-effort.
+//                       The loose floor below is a REGRESSION FLOOR ONLY — both 0.70 and 0.63 clear it, so
+//                       it cannot distinguish the ÷w hypothesis. CTM-following itself (FR-010) is settled by
+//                       the lossless-direction probe (PerlinNoiseBrush_CtmFollowing_LosslessDirection),
+//                       which is free of the Nyquist confound.
 [NonParallelizable]
 [TestFixture]
 public class Tier1ParameterScaleProbeTests
@@ -32,13 +29,13 @@ public class Tier1ParameterScaleProbeTests
 
     // FR-010, lossless direction: the 0.5x probe below cannot separate "shader follows the CTM" from
     // "shader is device-fixed" because high-frequency content also loses structure to Nyquist at 0.5x. This
-    // probe removes the confound: render at s_out = 2.0 (information is GAINED, not lost), downscale to the
-    // 1x size, and compare with the 1x render, using a BaseFrequency far below Nyquist at 1x (~0.015
-    // cycles/px ≈ 3.75 cycles across the 250px frame). If SkPerlinNoiseShader follows the CTM (the FR-010
-    // position), the logical noise structure is identical at both scales and survives the downscale; if it
-    // were device-fixed, the 2x pattern would be twice the logical period and the comparison would collapse.
-    // This verifies the CTM-following hypothesis only in the lossless direction — it says nothing about how
-    // much detail a REDUCED-scale render keeps (that stays best-effort, probed above).
+    // probe removes the confound by rendering at s_out = 2.0 (information GAINED, not lost), downscaling to
+    // 1x, and comparing with the 1x render, using a BaseFrequency far below Nyquist at 1x (~0.015 cycles/px
+    // ≈ 3.75 cycles across the 250px frame). If the shader follows the CTM (FR-010), the logical noise
+    // structure is identical at both scales and survives the downscale; if it were device-fixed, the 2x
+    // pattern would be twice the logical period and the comparison would collapse. This verifies CTM-following
+    // only in the lossless direction — it says nothing about detail kept by a REDUCED-scale render (best-effort,
+    // probed above).
     [Test]
     public void PerlinNoiseBrush_CtmFollowing_LosslessDirection()
     {
@@ -74,8 +71,7 @@ public class Tier1ParameterScaleProbeTests
         });
     }
 
-    // PerlinNoiseBrush fill: SKShader.CreatePerlinNoise* generates noise in a coordinate space whose
-    // resolution-dependence is a Skia internal. This probe settles whether BaseFrequency needs ÷w.
+    // PerlinNoiseBrush fill at high frequency: probes whether BaseFrequency needs ÷w (see class note).
     [Test]
     public void PerlinNoiseBrush_FillFidelity_AcrossScale()
     {
@@ -105,8 +101,8 @@ public class Tier1ParameterScaleProbeTests
             double ssim = ImageMetrics.Ssim(full, upscaled);
             double mae = ImageMetrics.MeanAbsoluteError(full, upscaled);
             TestContext.WriteLine($"[PerlinNoiseBrush] reduced-scale SSIM={ssim:F4} MAE={mae:F4}");
-            // Best-effort by nature (FR-013); BaseFrequency ÷w was tried and made it WORSE (see class note),
-            // so no param scaling is applied. Loose floor catches only a gross regression.
+            // Best-effort (FR-013); ÷w made it WORSE (see class note), so no param scaling. Loose floor
+            // catches only a gross regression.
             Assert.That(ssim, Is.GreaterThan(0.6),
                 $"PerlinNoiseBrush SSIM={ssim:F4} (best-effort procedural texture; ÷w empirically does not help)");
         });

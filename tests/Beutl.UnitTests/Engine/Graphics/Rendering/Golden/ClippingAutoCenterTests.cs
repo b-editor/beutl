@@ -8,10 +8,8 @@ using Beutl.UnitTests.Engine.Graphics.Backend;
 namespace Beutl.UnitTests.Engine.Graphics.Rendering.Golden;
 
 // Regression for the Clipping.AutoCenter "original image drawn in the wrong place" bug. AutoCenter must
-// relocate the CROPPED window to the center of the original bounds while drawing the SAME kept region of
-// the source as the in-place crop. The old code blitted the source at +centeredRect instead of the crop
-// offset, so it showed the clipped-away corner of the source, off-center. These render an asymmetric clip
-// with AutoCenter and assert the kept content lands centered on the frame.
+// recenter the cropped window while drawing the SAME kept region the in-place crop would. The old code
+// blitted at +centeredRect instead of the crop offset, showing the clipped-away corner off-center.
 [NonParallelizable]
 [TestFixture]
 public class ClippingAutoCenterTests
@@ -60,8 +58,8 @@ public class ClippingAutoCenterTests
         return n == 0 ? (0, 0, 0) : ((minx + maxx) / 2f, (miny + maxy) / 2f, n);
     }
 
-    // left-only / top-only / corner clips: AutoCenter must put the kept window's center back on the frame center.
-    // Fractional margins additionally exercise the pointX/pointY sub-pixel rounding path (Clipping.cs:120-136).
+    // AutoCenter must put the kept window's center back on the frame center.
+    // Fractional margins also exercise the pointX/pointY sub-pixel rounding path (Clipping.cs:120-136).
     [TestCase(60f, 0f, 0f, 0f, TestName = "AutoCenter_LeftClip")]
     [TestCase(0f, 60f, 0f, 0f, TestName = "AutoCenter_TopClip")]
     [TestCase(0f, 0f, 50f, 0f, TestName = "AutoCenter_RightClip")]
@@ -77,7 +75,7 @@ public class ClippingAutoCenterTests
             (float cx, float cy, int count) = ContentCenter(bmp);
 
             Assert.That(count, Is.GreaterThan(1000), "almost no content drawn — the source was blitted off-buffer");
-            // The kept region is solid white; AutoCenter must center it on the frame (was off-center before the fix).
+            // The kept region is solid white; AutoCenter must center it on the frame.
             Assert.That(cx, Is.EqualTo(Center).Within(2.0),
                 $"content not horizontally centered (cx={cx}) — AutoCenter drew the source at the wrong offset");
             Assert.That(cy, Is.EqualTo(Center).Within(2.0),
@@ -85,9 +83,9 @@ public class ClippingAutoCenterTests
         });
     }
 
-    // Kept-region identity (not just position): a red border makes the KEPT region distinguishable from the
-    // clipped-away one. A left clip removes the LEFT border; AutoCenter must show the RIGHT-border region
-    // centered (white at the kept window's left edge, red at its right edge), not the clipped-away left part.
+    // Kept-region identity, not just position: a red border distinguishes the KEPT region from the clipped-away
+    // one. A left clip removes the LEFT border, so AutoCenter must show the right border centered (white at the
+    // kept window's left edge, red at its right edge), not the clipped-away left part.
     private static Drawable.Resource MakeBordered(float left)
     {
         var shape = new RectShape();
@@ -147,8 +145,8 @@ public class ClippingAutoCenterTests
     }
 
     // AutoClip detects content margins in DEVICE px and converts them to logical via / w (Clipping.cs:99-106,
-    // added by commit 73e87ea7b). Build a transparent margin with a negative-margin (expand) Clipping, then let
-    // AutoClip detect and crop it back; the supersampled result must keep the same logical appearance.
+    // commit 73e87ea7b). A negative-margin (expand) Clipping makes a transparent margin for AutoClip to crop
+    // back; the supersampled result must keep the same logical appearance.
     private static Drawable.Resource MakeAutoClipChain()
     {
         var shape = new RectShape();

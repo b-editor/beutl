@@ -95,8 +95,8 @@ public sealed partial class Clipping : FilterEffect
             if (data.autoClip)
             {
                 // feature 003: FindRect detects content margins in DEVICE px (the ceil(bounds × w) surface); convert
-                // to LOGICAL (÷ w) so the logical clip computation + the CreateTarget re-densification stay consistent.
-                // (Auto-clip is content-detection-based, so it is best-effort across scales.)
+                // to LOGICAL (÷ w) to stay consistent with the logical clip computation and CreateTarget re-densification.
+                // Content-detection-based, so best-effort across scales.
                 Thickness detected = FindRectAndReturnThickness(surface);
                 thickness += new Thickness(detected.Left / w, detected.Top / w, detected.Right / w, detected.Bottom / w);
             }
@@ -131,18 +131,16 @@ public sealed partial class Clipping : FilterEffect
                     pointY = 0;
                 }
 
-                // AutoCenter only RELOCATES the cropped window to the center of the original bounds; the
-                // content drawn into it is identical to the in-place crop. Both branches therefore blit the
-                // SAME kept region of the source — only the target's bounds differ. The crop offset is buffer
-                // -relative (the buffer is clipRect-sized either way), so it is the same value for both.
-                // (Previously AutoCenter blitted at +centeredRect, which showed the clipped-away corner of the
-                // source at the wrong place.) feature 003: source is device-px (point-blit); offset ×= w.
+                // AutoCenter only RELOCATES the cropped window to the center of the original bounds; both branches
+                // blit the SAME kept region of the source, only target bounds differ. The crop offset is buffer-relative
+                // (the buffer is clipRect-sized either way), so it is identical for both. (Previously AutoCenter blitted
+                // at +centeredRect, placing the clipped-away corner wrong.) feature 003: source is device-px; offset ×= w.
                 Rect targetBounds = autoCenter
                     ? originalRect.CenterRect(clipRect).Translate(target.Bounds.Position)
                     : newBounds;
                 EffectTarget newTarget = context.CreateTarget(targetBounds);
-                // feature 003: the crop offset and the source point-blit are DEVICE px (× w), so enter absolute
-                // device space — Open's base CTM CreateScale(w) would otherwise re-scale them. w == 1 = no-op.
+                // feature 003: the crop offset and source point-blit are DEVICE px (× w), so enter absolute device
+                // space — Open's base CTM CreateScale(w) would otherwise re-scale them. w == 1 = no-op.
                 using (ImmediateCanvas newCanvas = context.Open(newTarget))
                 using (newCanvas.PushDeviceSpace())
                 using (newCanvas.PushTransform(Matrix.CreateTranslation(pointX * w, pointY * w)))

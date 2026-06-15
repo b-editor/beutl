@@ -6,11 +6,10 @@ using Beutl.Media;
 
 namespace Beutl.UnitTests.Engine.Graphics.Backend;
 
-// feature 003: the ImmediateCanvas "density-aware logical surface" contract. The canvas BAKES a base CTM
-// CreateScale(SurfaceDensity) at construction (a TRUE no-op at density 1), so logical geometry maps to the
+// feature 003: the ImmediateCanvas "density-aware logical surface" contract. The canvas bakes a base CTM
+// CreateScale(SurfaceDensity) at construction (a no-op at density 1), so logical geometry maps to the
 // ceil(logical × density) device buffer automatically; device-space code opts out via PushDeviceSpace().
-// These pin the load-bearing invariants of that contract (RenderTarget.Create needs Vulkan, so they skip
-// when it is unavailable).
+// RenderTarget.Create needs Vulkan, so these skip when it is unavailable.
 [NonParallelizable]
 [TestFixture]
 public class ImmediateCanvasDensityTests
@@ -24,8 +23,8 @@ public class ImmediateCanvasDensityTests
             using var target = RenderTarget.Create(64, 48)!;
             using var canvas = new ImmediateCanvas(target, 1f);
 
-            // density 1 = byte-identity anchor: the matrix is never touched, density layers agree, and the
-            // logical viewport defaults to the device size (logical == device).
+            // density 1 = byte-identity anchor: matrix untouched, density layers agree, logical viewport
+            // defaults to the device size (logical == device).
             Assert.That(canvas.Transform, Is.EqualTo(Matrix.Identity));
             Assert.That(canvas.Density, Is.EqualTo(1f));
             Assert.That(canvas.SurfaceDensity, Is.EqualTo(1f));
@@ -58,7 +57,7 @@ public class ImmediateCanvasDensityTests
         VulkanTestEnvironment.InvokeOnRenderThread(() =>
         {
             using var target = RenderTarget.Create(401, 201)!;
-            // A fractional logical viewport must survive verbatim (NOT round-tripped through device px) — it
+            // A fractional logical viewport must survive verbatim, not round-tripped through device px: it
             // feeds Drawable layout, where a 200.5 -> 200 truncation would shift placement.
             using var canvas = new ImmediateCanvas(target, 2f, logicalSize: new Size(200.5f, 100.25f));
 
@@ -77,7 +76,7 @@ public class ImmediateCanvasDensityTests
             using (var canvas = new ImmediateCanvas(target, 2f, logicalSize: new Size(50, 50)))
             {
                 canvas.Clear(Colors.Black);
-                // A LOGICAL rect — the baked base CTM CreateScale(2) maps it to device (20,20)-(60,60).
+                // A logical rect; the baked base CTM CreateScale(2) maps it to device (20,20)-(60,60).
                 canvas.DrawRectangle(new Rect(10, 10, 20, 20), Brushes.Resource.White, null);
             }
 
@@ -99,8 +98,8 @@ public class ImmediateCanvasDensityTests
 
             using (canvas.PushDeviceSpace())
             {
-                // Absolute device space: CTM identity, current density 1, but the surface density is unchanged
-                // (a Snapshot taken here must still tag the whole surface at its real density).
+                // Absolute device space: CTM identity, current density 1, but surface density unchanged so a
+                // Snapshot taken here still tags the whole surface at its real density.
                 Assert.That(canvas.Transform, Is.EqualTo(Matrix.Identity));
                 Assert.That(canvas.Density, Is.EqualTo(1f));
                 Assert.That(canvas.SurfaceDensity, Is.EqualTo(2f));
@@ -236,16 +235,16 @@ public class ImmediateCanvasDensityTests
                 using (canvas.PushTransform(m, TransformOperator.Set))
                 {
                     // Inside device space the Set-base is identity, so Set yields the bare matrix (no surface
-                    // density re-injected) — an absolute device-px Set, exactly what device code expects.
+                    // density re-injected): an absolute device-px Set, as device code expects.
                     Assert.That(canvas.Transform, Is.EqualTo(m));
                 }
             }
         });
     }
 
-    // feature 003: the DrawDrawable latent-bug fix — the nested build context must get the LOGICAL viewport,
-    // not the device buffer size. A centred shape lands at the LOGICAL centre; if DrawDrawable fed the device
-    // size (the old bug) the shape would centre against the 2x-larger viewport and miss the device centre.
+    // feature 003: the DrawDrawable latent-bug fix — the nested build context must get the logical viewport,
+    // not the device buffer size. With the old bug (device size as viewport) a centred shape would centre
+    // against the 2x-larger viewport and miss the device centre.
     [Test]
     public void DrawDrawable_CentresAgainstLogicalViewport_NotDeviceSize()
     {
@@ -281,20 +280,19 @@ public class ImmediateCanvasDensityTests
     {
         // Regression (CI host crash, feature 003): the canvas bakes a base Save() at construction (density != 1)
         // and undoes it in DisposeCore via Canvas.RestoreToCount(_baseSaveCount). The SKCanvas is cached from the
-        // SKSurface at construction (owns: false — a child wrapper of the surface); disposing the surface zeroes
+        // SKSurface at construction (owns: false, a child wrapper of the surface); disposing the surface zeroes
         // that wrapper's Handle. RestoreToCount on a zero-Handle wrapper passes a null SkCanvas* into native Skia
-        // and SIGSEGVs the render thread — an uncatchable fault that neither the try/catch in DisposeCore nor a
+        // and SIGSEGVs the render thread, an uncatchable fault that neither the try/catch in DisposeCore nor a
         // non-null managed-wrapper check covers. DisposeCore must skip the restore when the wrapper is gone
-        // (guarded by Canvas.Handle). Here we drive it deterministically: dispose the backing target first (which
-        // zeroes the cached canvas Handle), then the canvas — it must skip the restore, not crash.
+        // (guarded by Canvas.Handle). We drive it deterministically: dispose the backing target first (zeroing
+        // the cached canvas Handle), then the canvas, which must skip the restore rather than crash.
         //
-        // NOTE on what this asserts: the pre-fix failure is a native SIGSEGV, NOT a managed exception, so
-        // Assert.DoesNotThrow cannot observe it — a regression would hard-CRASH the whole NUnit run, not fail this
-        // assertion. The real protection is therefore "the process survives + DisposeCore completed", and the
-        // load-bearing post-condition is the IsDisposed == true check below (it proves DisposeCore ran PAST the
-        // skipped RestoreToCount). DoesNotThrow stays only to catch an adjacent managed-exception regression (e.g.
-        // a future guard that throws ObjectDisposedException instead of skipping). Do not weaken the production
-        // guard believing a try/catch around RestoreToCount would suffice — it would not (the fault is native).
+        // The pre-fix failure is a native SIGSEGV, not a managed exception, so Assert.DoesNotThrow cannot observe
+        // it — a regression hard-crashes the whole NUnit run instead of failing here. The real post-condition is
+        // the IsDisposed == true check below, proving DisposeCore ran past the skipped RestoreToCount. DoesNotThrow
+        // stays only to catch an adjacent managed-exception regression (e.g. a future guard that throws
+        // ObjectDisposedException instead of skipping). A try/catch around RestoreToCount would not suffice, since
+        // the fault is native — do not weaken the production guard on that belief.
         VulkanTestEnvironment.EnsureAvailable();
         VulkanTestEnvironment.InvokeOnRenderThread(() =>
         {
@@ -304,10 +302,9 @@ public class ImmediateCanvasDensityTests
             target.Dispose(); // frees the SKSurface and zeroes the cached SKCanvas wrapper's Handle
             Assert.That(target.IsDisposed, Is.True);
 
-            // Pin the precondition that the guarded skip branch is ACTUALLY exercised: disposing the surface must
-            // have zeroed the cached child-canvas wrapper's Handle. Without this, a future SkiaSharp that left the
-            // Handle non-zero after teardown would silently route the test through the normal restore path — a
-            // false-green that stops covering the guard entirely.
+            // Pin that the guarded skip branch is actually exercised: disposing the surface must have zeroed the
+            // cached wrapper's Handle. A future SkiaSharp that left it non-zero would route through the normal
+            // restore path, a false-green that stops covering the guard.
             Assert.That(canvas.Canvas.Handle, Is.EqualTo(IntPtr.Zero),
                 "precondition: disposing the backing surface must zero the cached SKCanvas wrapper's Handle");
 

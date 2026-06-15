@@ -12,11 +12,11 @@ namespace Beutl.UnitTests.Engine.Graphics.Rendering.Golden;
 //   SKSL adds iScale = w; width/height/iResolution/fragCoord report DEVICE px (ceil(bounds × w)).
 //   GLSL adds a `scale` push constant = w (the clamped buffer density), mirroring SKSL's iScale; its
 //   Width/Height also carry device px.
-// EffectScaleParityTests already covers the SKSL iScale parity (its "SKSLScript-Border" case). This fixture
-// fills the remaining gaps the contract names: (a) a scale-UNAWARE SKSL shader is byte-identical at w == 1
-// (the backward-compat guarantee), (b)/(c) a GLSL shader anchored to device-px Width/Height keeps its logical
-// appearance across scales, and (d)/(e) a GLSL shader reading the new `scale` push constant keeps a fixed
-// LOGICAL size across scales — the direct GLSL analogue of the SKSL iScale disc test.
+// EffectScaleParityTests already covers SKSL iScale parity (its "SKSLScript-Border" case). This fixture fills
+// the remaining contract gaps: (a) a scale-UNAWARE SKSL shader is byte-identical at w == 1 (backward compat),
+// (b)/(c) a GLSL shader anchored to device-px Width/Height keeps its logical appearance across scales, and
+// (d)/(e) a GLSL shader reading the new `scale` push constant keeps a fixed LOGICAL size across scales — the
+// direct GLSL analogue of the SKSL iScale disc test.
 [NonParallelizable]
 [TestFixture]
 public class ShaderScaleUniformTests
@@ -39,9 +39,9 @@ public class ShaderScaleUniformTests
         return shape.ToResource(CompositionContext.Default);
     }
 
-    // ---- (a) scale-UNAWARE SKSL: a pure UV expression (no absolute-px literal, no iScale). It is independent
-    // of the device density, so at w == 1 the shader path must be deterministic / unchanged from today —
-    // captured as render-twice byte-equality (the in-suite analogue, since the suite pins no golden PNG). ----
+    // ---- (a) scale-UNAWARE SKSL: a pure UV expression (no absolute-px literal, no iScale), independent of the
+    // device density. At w == 1 the shader path must be deterministic — checked as render-twice byte-equality,
+    // since the suite pins no golden PNG. ----
     private const string SkslUvScript =
         """
         uniform shader src;
@@ -78,8 +78,8 @@ public class ShaderScaleUniformTests
         });
     }
 
-    // Vacuity guard: the UV shader must actually change the render (else byte-identity is trivially true for a
-    // no-op that failed to compile/apply). Compare against an effect-free render.
+    // Vacuity guard: the UV shader must actually change the render, else byte-identity is trivially true for a
+    // failed-to-apply no-op. Compare against an effect-free render.
     [Test]
     public void Sksl_ScaleUnaware_ChangesRender()
     {
@@ -95,11 +95,11 @@ public class ShaderScaleUniformTests
         });
     }
 
-    // ---- (b) scale-AWARE SKSL reading iScale at a REDUCED scale. EffectScaleParityTests already covers the
-    // SUPERSAMPLE (s_out=2) direction; this covers the reduced-preview (s_out=0.5) direction, where iScale < 1
-    // must shrink an absolute-px literal so the disc keeps the SAME logical radius. If iScale did NOT plumb
-    // through (stayed 1.0), the disc would be twice the logical size at 0.5 and the reduced-vs-1.0 comparison
-    // would fail. A fixed-logical-radius (28 px) green disc, centred via iResolution. ----
+    // ---- (b) scale-AWARE SKSL reading iScale at a REDUCED scale. EffectScaleParityTests covers the supersample
+    // (s_out=2) direction; this covers reduced preview (s_out=0.5), where iScale < 1 must shrink an absolute-px
+    // literal so the disc keeps the same logical radius. If iScale stayed 1.0, the disc would be twice the
+    // logical size at 0.5 and the reduced-vs-1.0 comparison would fail. Fixed-logical-radius (28 px) green disc,
+    // centred via iResolution. ----
     private const string SkslDiscScript =
         """
         uniform shader src;
@@ -135,16 +135,15 @@ public class ShaderScaleUniformTests
             using Bitmap full = GoldenImageHarness.RenderAtScale(Make(MakeSkslDiscEffect), Frame, 1f);
             using Bitmap half = GoldenImageHarness.RenderAtScale(Make(MakeSkslDiscEffect), Frame, 0.5f);
             // Upscales the 0.5 render and asserts SSIM >= 0.985 / MAE <= 0.02 against the 1.0 reference: the
-            // iScale-shrunk disc must occupy the same logical region at reduced scale.
+            // iScale-shrunk disc must occupy the same logical region.
             GoldenImageHarness.AssertReducedScaleExact(full, half);
         });
     }
 
-    // ---- (c) GLSL anchored to DEVICE-px Width/Height. fragCoord is normalized 0..1 (the fullscreen
-    // triangle in GLSLFilterPipeline), so device px = fragCoord * size. A border of FIXED LOGICAL thickness
-    // (10 px) requires deriving the working scale from the device-px Width (w = pc.width / 200). If Width did
-    // NOT carry device px (× w), the border would thin/shift at w == 2 and the supersampled-then-downscaled
-    // render would diverge from the 1:1 render. ----
+    // ---- (c) GLSL anchored to DEVICE-px Width/Height. fragCoord is normalized 0..1 (the fullscreen triangle in
+    // GLSLFilterPipeline), so device px = fragCoord * size. A border of fixed LOGICAL thickness (10 px) derives
+    // the working scale from device-px Width (w = pc.width / 200). If Width did not carry device px (× w), the
+    // border would thin/shift at w == 2 and the supersampled-then-downscaled render would diverge from 1:1. ----
     private const string GlslDevicePxBorder =
         """
         #version 450
@@ -181,7 +180,7 @@ public class ShaderScaleUniformTests
     }
 
     // Vacuity guard: the GLSL shader must compile AND visibly change the render, so the parity test below is
-    // meaningful rather than passing on a silent no-op.
+    // not passing on a silent no-op.
     [Test]
     public void Glsl_DevicePx_CompilesAndApplies()
     {
@@ -220,10 +219,9 @@ public class ShaderScaleUniformTests
     }
 
     // ---- (d)/(e) scale-AWARE GLSL reading the new `scale` push constant — the direct analogue of the SKSL
-    // iScale disc. The shader does NOT recover w from Width/Height (which it cannot do without knowing the
-    // logical bounds); it reads pc.scale directly and multiplies an absolute-px radius by it, so a fixed
-    // LOGICAL-radius (28 px) green disc keeps the same logical size at a reduced scale. If `scale` did NOT
-    // plumb through (stayed 1.0), the disc would be twice the logical size at w == 0.5 and the
+    // iScale disc. The shader cannot recover w from Width/Height without knowing the logical bounds, so it reads
+    // pc.scale and multiplies an absolute-px radius by it, keeping a fixed LOGICAL-radius (28 px) green disc at a
+    // reduced scale. If `scale` stayed 1.0, the disc would be twice the logical size at w == 0.5 and the
     // reduced-vs-1.0 comparison would fail. fragCoord is normalized 0..1 (fullscreen triangle), so device
     // px = fragCoord * (Width, Height). ----
     private const string GlslScaleDisc =
@@ -261,8 +259,8 @@ public class ShaderScaleUniformTests
         return e;
     }
 
-    // Vacuity guard: the scale-aware GLSL shader must compile AND visibly change the render so the parity
-    // test below is meaningful rather than passing on a silent no-op.
+    // Vacuity guard: the scale-aware GLSL shader must compile AND visibly change the render, so the parity
+    // test below is not passing on a silent no-op.
     [Test]
     public void Glsl_ScaleAware_CompilesAndApplies()
     {
@@ -288,8 +286,8 @@ public class ShaderScaleUniformTests
         {
             using Bitmap full = GoldenImageHarness.RenderAtScale(Make(MakeGlslScaleDiscEffect), Frame, 1f);
             using Bitmap half = GoldenImageHarness.RenderAtScale(Make(MakeGlslScaleDiscEffect), Frame, 0.5f);
-            // The `scale`-shrunk disc must occupy the same logical region at reduced scale: upscale the 0.5
-            // render and assert it matches the 1.0 reference within SSIM/MAE.
+            // The `scale`-shrunk disc must occupy the same logical region: upscale the 0.5 render and assert it
+            // matches the 1.0 reference within SSIM/MAE.
             GoldenImageHarness.AssertReducedScaleExact(full, half);
         });
     }

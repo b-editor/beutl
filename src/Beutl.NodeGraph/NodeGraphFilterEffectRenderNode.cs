@@ -39,8 +39,8 @@ internal class NodeGraphFilterEffectRenderNode(NodeGraphFilterEffect.Resource re
         var allResults = new List<RenderNodeOperation>();
         foreach (RenderNode outputNode in outputRenderNodes)
         {
-            // feature 003 (FR-037): forward the working-scale ceiling so effects inside the node-graph output
-            // subtree are also capped by the preview ceiling (else they fall back to the +inf default).
+            // FR-037: forward the working-scale ceiling so effects in the output subtree are capped too,
+            // instead of falling back to the +inf default.
             var processor = new RenderNodeProcessor(
                 outputNode, context.IsRenderCacheEnabled, context.OutputScale, context.MaxWorkingScale);
             allResults.AddRange(processor.PullToRoot());
