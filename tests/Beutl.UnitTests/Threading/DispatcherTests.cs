@@ -507,9 +507,9 @@ public class DispatcherTests
     // Regression for the deadlock where Shutdown() interleaves between WaitForPendingOperations'
     // outer unlocked _running check and its lock acquisition: without the inner-lock guard
     // (if (!_running) return; inside the lock) the dispatcher would arm a _waitToken that nothing
-    // cancels and block on WaitOne() forever, so HasShutdownFinished would never become true. Each
-    // iteration uses a fresh dispatcher because Shutdown is terminal; the loop widens the race
-    // window the same way Post_BeforeWaitTokenCreated does.
+    // cancels and block on WaitOne() forever, so its thread would never exit. Each iteration uses a
+    // fresh dispatcher because Shutdown is terminal; the loop widens the race window the same way
+    // Post_BeforeWaitTokenCreated does.
     [Test]
     public void Shutdown_RacingWithWaitForPendingOperations_DoesNotDeadlock()
     {
@@ -517,13 +517,22 @@ public class DispatcherTests
         {
             var dispatcher = Dispatcher.Spawn();
 
+            // If the race regresses, the dispatcher thread deadlocks; mark it background so a leaked
+            // thread cannot keep the test process (and thus the whole run) alive after the assertion
+            // below fails.
+            dispatcher.Thread.IsBackground = true;
+
             // Drain the queue so the dispatcher transitions ExecuteAvailableOperations (empty) ->
             // WaitForPendingOperations, then shut down from this thread to race the lock acquisition.
             dispatcher.Invoke(() => { });
             dispatcher.Shutdown();
 
+            // Join the dispatcher thread directly rather than polling the non-volatile
+            // HasShutdownFinished flag (a cross-thread read of which could itself stale-read on a
+            // weak-memory architecture). The thread terminates only when Start()'s loop exits — i.e.
+            // shutdown was observed and no _waitToken was left armed — so a timeout here means deadlock.
             Assert.That(
-                SpinWait.SpinUntil(() => dispatcher.HasShutdownFinished, TimeSpan.FromSeconds(5)),
+                dispatcher.Thread.Join(TimeSpan.FromSeconds(5)),
                 Is.True,
                 $"Iteration {i}: dispatcher deadlocked in WaitForPendingOperations after Shutdown");
         }
