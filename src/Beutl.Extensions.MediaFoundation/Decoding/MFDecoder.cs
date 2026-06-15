@@ -56,6 +56,17 @@ internal sealed class MFDecoder : IDisposable
 
             using (var sourceReader = MediaFactory.MFCreateSourceReaderFromURL(file, _attributes))
             {
+                // Probe for a video stream before configuring it. ConfigureDecoder on the first
+                // video stream throws a generic Media Foundation error for files with no video
+                // (e.g. audio-only .mp3), which would mask the catchable NoVideoStreamException
+                // and keep MFReader from falling back to the NAudio audio path.
+                if (FindVideoStreamIndex(sourceReader) == -1)
+                {
+                    const string message = "File contains no video stream.";
+                    _logger.LogInformation(message);
+                    throw new NoVideoStreamException(message);
+                }
+
                 ConfigureDecoder(sourceReader, SourceReaderIndex.FirstVideoStream);
                 ConfigureDecoder(sourceReader, SourceReaderIndex.FirstAudioStream);
 
@@ -324,6 +335,33 @@ internal sealed class MFDecoder : IDisposable
         type.Set(MediaTypeAttributeKeys.Subtype, subType);
 
         sourceReader.SetCurrentMediaType(readerIndex, type);
+    }
+
+    private static int FindVideoStreamIndex(IMFSourceReader sourceReader)
+    {
+        for (int streamIndex = 0; true; ++streamIndex)
+        {
+            try
+            {
+                using IMFMediaType currentMediaType = sourceReader.GetCurrentMediaType(streamIndex);
+
+                if (!sourceReader.GetStreamSelection(streamIndex))
+                {
+                    continue;
+                }
+
+                if (currentMediaType.MajorType == MediaTypeGuids.Video)
+                {
+                    return streamIndex;
+                }
+            }
+            catch
+            {
+                break;
+            }
+        }
+
+        return -1;
     }
 
     private unsafe void CheckMediaInfo(IMFSourceReader sourceReader)
