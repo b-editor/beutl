@@ -1,4 +1,4 @@
-#if MF_BUILD_IN
+﻿#if MF_BUILD_IN
 namespace Beutl.Embedding.MediaFoundation.Decoding;
 #else
 namespace Beutl.Extensions.MediaFoundation.Decoding;
