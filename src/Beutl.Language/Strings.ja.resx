@@ -49,10 +49,10 @@
     <value>要素を追加</value>
   </data>
   <data name="AddAdjustmentLayer" xml:space="preserve">
-    <value>アジャストメントレイヤーを追加</value>
+    <value>調整レイヤーを追加</value>
   </data>
   <data name="AdjustmentLayer" xml:space="preserve">
-    <value>アジャストメントレイヤー</value>
+    <value>調整レイヤー</value>
   </data>
   <data name="Apply" xml:space="preserve">
     <value>適用</value>
