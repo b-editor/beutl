@@ -69,6 +69,18 @@ public class AudioNodeBufferDisposalTests
         return property;
     }
 
+    private static IProperty<float> AnimatedSpeed(float fromPercent, float toPercent, double durationSeconds)
+    {
+        var property = Property.CreateAnimatable(fromPercent);
+        property.SetAttributes("Speed", []);
+
+        var animation = new KeyFrameAnimation<float>();
+        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.Zero, Value = fromPercent, Easing = new LinearEasing() });
+        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.FromSeconds(durationSeconds), Value = toPercent, Easing = new LinearEasing() });
+        property.Animation = animation;
+        return property;
+    }
+
     [Test]
     public void CompressorNode_DisposesConsumedInput()
     {
@@ -236,6 +248,58 @@ public class AudioNodeBufferDisposalTests
         AudioBuffer result = node.Process(CreateContext(200));
 
         Assert.That(ReferenceEquals(result, inputNode.Last), Is.True, "matching rate must pass the input through");
+        Assert.That(IsDisposed(result), Is.False, "pass-through must not dispose the buffer the caller now owns");
+        result.Dispose();
+    }
+
+    // SpeedNode's resampler reads the upstream through SpeedProcessor.Read, which calls Inputs[0].Process
+    // once per resampler iteration. Each call leases a fresh pooled AudioBuffer that is read and dropped;
+    // every one must be disposed. (Missed by the #127 sweep, which covered the sibling nodes but not the
+    // SpeedProcessor.Read call site.)
+    [Test]
+    public void SpeedNode_NonUnitySpeed_DisposesConsumedInputs()
+    {
+        var inputNode = new CapturingInputNode(SampleRate, 2, SampleCount, 0.5f);
+        using var node = new SpeedNode { Speed = Static(200f) };
+        node.AddInput(inputNode);
+
+        using (AudioBuffer result = node.Process(CreateContext()))
+        {
+            Assert.That(ReferenceEquals(result, inputNode.Last), Is.False, "a speed change must emit a new buffer");
+        }
+
+        Assert.That(inputNode.Produced, Is.Not.Empty, "the resampler must have read at least one input buffer");
+        foreach (AudioBuffer produced in inputNode.Produced)
+            Assert.That(IsDisposed(produced), Is.True, "every consumed input buffer must be disposed");
+    }
+
+    [Test]
+    public void SpeedNode_AnimatedSpeed_DisposesConsumedInputs()
+    {
+        var inputNode = new CapturingInputNode(SampleRate, 2, SampleCount, 0.5f);
+        using var node = new SpeedNode { Speed = AnimatedSpeed(50f, 200f, 1.0) };
+        node.AddInput(inputNode);
+
+        using (AudioBuffer result = node.Process(CreateContext()))
+        {
+            Assert.That(ReferenceEquals(result, inputNode.Last), Is.False);
+        }
+
+        Assert.That(inputNode.Produced, Is.Not.Empty, "the resampler must have read at least one input buffer");
+        foreach (AudioBuffer produced in inputNode.Produced)
+            Assert.That(IsDisposed(produced), Is.True, "every consumed input buffer must be disposed");
+    }
+
+    [Test]
+    public void SpeedNode_UnitySpeed_PassesInputThroughWithoutDisposing()
+    {
+        var inputNode = new CapturingInputNode(SampleRate, 2, SampleCount, 0.5f);
+        using var node = new SpeedNode { Speed = Static(100f) };
+        node.AddInput(inputNode);
+
+        AudioBuffer result = node.Process(CreateContext());
+
+        Assert.That(ReferenceEquals(result, inputNode.Last), Is.True, "unity speed must pass the input through");
         Assert.That(IsDisposed(result), Is.False, "pass-through must not dispose the buffer the caller now owns");
         result.Dispose();
     }
