@@ -53,7 +53,11 @@ internal sealed class IpcFrameProvider : IFrameProvider
             {
                 Task<IpcMessage> staleTask = _prefetchTask;
                 _prefetchTask = null;
-                await staleTask;
+                IpcMessage? staleResponse = await staleTask;
+                // 破棄するフレームであっても、先行リクエストの応答がキャンセル通知だった場合は
+                // 操作全体のキャンセルを意味するため、新規リクエストを発行せずそのまま伝播する。
+                if (staleResponse is { Type: MessageType.CancelEncode })
+                    throw new OperationCanceledException();
             }
 
             // 初回フレーム or 非連続要求: 要求フレームを改めて取得
