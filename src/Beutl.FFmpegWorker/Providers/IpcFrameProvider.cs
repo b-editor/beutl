@@ -46,8 +46,8 @@ internal sealed class IpcFrameProvider : IFrameProvider
         else
         {
             // プリフェッチ中だが要求フレームと一致しない場合 (シーク等の非連続要求)。
-            // 参照を捨てるだけでなく必ず await して完了を待つことで、先行リクエストの応答を
-            // このフレームの応答として取り違えたり、ホストへ非順次のリクエストが流出するのを防ぐ。
+            // 非多重化接続では応答が送信順に読まれるため、捨てる前に必ず await して先行リクエストの
+            // 応答を消費しないと、次の新規リクエストがこの古い応答を読み取り ID 不一致になる。
             if (_prefetchTask != null)
             {
                 Task<IpcMessage> staleTask = _prefetchTask;
