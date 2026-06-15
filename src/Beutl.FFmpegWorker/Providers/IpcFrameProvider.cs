@@ -16,6 +16,7 @@ internal sealed class IpcFrameProvider : IFrameProvider
     // 先行リクエスト: 次フレームのレンダリングを事前に要求
     private Task<IpcMessage>? _prefetchTask;
     private int _prefetchBufferIndex;
+    private long _prefetchFrameIndex;
 
     public IpcFrameProvider(IpcConnection connection, SharedMemoryBuffer[] videoBuffers,
         long frameCount, Rational frameRate)
@@ -35,16 +36,26 @@ internal sealed class IpcFrameProvider : IFrameProvider
         IpcMessage response;
         int readBufferIndex;
 
-        if (_prefetchTask != null)
+        if (_prefetchTask != null && _prefetchFrameIndex == frame)
         {
-            // 先行リクエスト済み: その結果を使う
+            // 先行リクエスト済みかつ要求フレームと一致: その結果を使う
             response = await _prefetchTask;
             readBufferIndex = _prefetchBufferIndex;
             _prefetchTask = null;
         }
         else
         {
-            // 初回フレーム: 通常リクエスト
+            // プリフェッチ中だが要求フレームと一致しない場合 (シーク等の非連続要求)。
+            // 非多重化接続では応答が送信順に読まれるため、捨てる前に必ず await して先行リクエストの
+            // 応答を消費しないと、次の新規リクエストがこの古い応答を読み取り ID 不一致になる。
+            if (_prefetchTask != null)
+            {
+                Task<IpcMessage> staleTask = _prefetchTask;
+                _prefetchTask = null;
+                await staleTask;
+            }
+
+            // 初回フレーム or 非連続要求: 要求フレームを改めて取得
             readBufferIndex = _bufferIndex;
             var request = IpcMessage.Create(_connection.NextId(), MessageType.RequestFrame,
                 new RequestFrameMessage { FrameIndex = frame, BufferIndex = readBufferIndex });
@@ -66,6 +77,7 @@ internal sealed class IpcFrameProvider : IFrameProvider
         if (nextFrame < FrameCount)
         {
             _prefetchBufferIndex = 1 - readBufferIndex;
+            _prefetchFrameIndex = nextFrame;
             var nextRequest = IpcMessage.Create(_connection.NextId(), MessageType.RequestFrame,
                 new RequestFrameMessage { FrameIndex = nextFrame, BufferIndex = _prefetchBufferIndex });
             _prefetchTask = _connection.SendAndReceiveAsync(nextRequest).AsTask();
