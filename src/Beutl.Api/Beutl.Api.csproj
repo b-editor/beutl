@@ -12,7 +12,6 @@
     <PackageReference Include="Refit" />
     <PackageReference Include="System.Reactive" />
     <PackageReference Include="System.Interactive" />
-    <PackageReference Include="System.Interactive.Async" />
 
     <PackageReference Include="NuGet.ProjectModel" />
     <PackageReference Include="NuGet.Protocol" />
