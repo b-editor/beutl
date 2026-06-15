@@ -8,7 +8,11 @@ internal sealed class QueueSynchronizationContext(Dispatcher dispatcher, TimePro
     private readonly OperationQueue _operationQueue = new();
     private readonly TimerQueue _timerQueue = new(timeProvider);
 
-    private bool _running;
+    // volatile: _running is written by Shutdown() outside the lock and read unsynchronized by
+    // Start()'s loop and ExecuteAvailableOperations(); without it a reader can cache a stale value
+    // on weak-memory architectures (ARM64) and miss a shutdown. The inner-lock check in
+    // WaitForPendingOperations() guards the wait-token race; volatile covers the unlocked reads.
+    private volatile bool _running;
     private CancellationTokenSource? _waitToken;
 
     public event EventHandler<DispatcherUnhandledExceptionEventArgs>? UnhandledException;

@@ -504,6 +504,31 @@ public class DispatcherTests
         dispatcher.Shutdown();
     }
 
+    // Regression for the deadlock where Shutdown() interleaves between WaitForPendingOperations'
+    // outer unlocked _running check and its lock acquisition: without the inner-lock guard
+    // (if (!_running) return; inside the lock) the dispatcher would arm a _waitToken that nothing
+    // cancels and block on WaitOne() forever, so HasShutdownFinished would never become true. Each
+    // iteration uses a fresh dispatcher because Shutdown is terminal; the loop widens the race
+    // window the same way Post_BeforeWaitTokenCreated does.
+    [Test]
+    public void Shutdown_RacingWithWaitForPendingOperations_DoesNotDeadlock()
+    {
+        for (int i = 0; i < 100; i++)
+        {
+            var dispatcher = Dispatcher.Spawn();
+
+            // Drain the queue so the dispatcher transitions ExecuteAvailableOperations (empty) ->
+            // WaitForPendingOperations, then shut down from this thread to race the lock acquisition.
+            dispatcher.Invoke(() => { });
+            dispatcher.Shutdown();
+
+            Assert.That(
+                SpinWait.SpinUntil(() => dispatcher.HasShutdownFinished, TimeSpan.FromSeconds(5)),
+                Is.True,
+                $"Iteration {i}: dispatcher deadlocked in WaitForPendingOperations after Shutdown");
+        }
+    }
+
     // Regression: an unguarded negative `next - now` (timer slips past between flush and wait)
     // used to throw in CancelAfter and kill the dispatcher thread.
     [Test]
