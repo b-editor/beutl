@@ -44,13 +44,10 @@ public sealed class DelayNode : AudioNode
         }
         _lastTimeRangeEnd = context.TimeRange.Start + context.TimeRange.Duration;
 
-        // Guard on Animation (an actual keyframe), not IsAnimatable (always true for animatable
-        // properties), so an unkeyed property skips the per-sample path. The null-conditional lets a
-        // null property fall back to static defaults instead of throwing, matching GainNode.
-        bool hasAnimation = DelayTime?.Animation != null ||
-                            Feedback?.Animation != null ||
-                            DryMix?.Animation != null ||
-                            WetMix?.Animation != null;
+        bool hasAnimation = DelayTime.Animation != null ||
+                            Feedback.Animation != null ||
+                            DryMix.Animation != null ||
+                            WetMix.Animation != null;
 
         if (!hasAnimation)
         {
@@ -81,10 +78,10 @@ public sealed class DelayNode : AudioNode
 
     private AudioBuffer ProcessStatic(AudioBuffer input, AudioProcessContext context)
     {
-        float delayTime = DelayTime?.CurrentValue ?? DelayTimeDefault;
-        float feedback = (Feedback?.CurrentValue ?? FeedbackDefault) / 100f;
-        float dryMix = (DryMix?.CurrentValue ?? DryMixDefault) / 100f;
-        float wetMix = (WetMix?.CurrentValue ?? WetMixDefault) / 100f;
+        float delayTime = DelayTime.CurrentValue;
+        float feedback = Feedback.CurrentValue / 100f;
+        float dryMix = DryMix.CurrentValue / 100f;
+        float wetMix = WetMix.CurrentValue / 100f;
 
         int delaySamples = (int)(delayTime / 1000f * context.SampleRate);
         delaySamples = System.Math.Clamp(delaySamples, 0, _maxDelaySamples - 1);
