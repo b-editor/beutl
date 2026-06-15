@@ -74,7 +74,7 @@
     <PackageVersion Include="SkiaSharp" Version="3.119.4" />
     <PackageVersion Include="SkiaSharp.HarfBuzz" Version="3.119.4" />
     <PackageVersion Include="SkiaSharp.NativeAssets.Linux" Version="3.119.4" />
-    <PackageVersion Include="System.CommandLine" Version="2.0.8" />
+    <PackageVersion Include="System.CommandLine" Version="2.0.9" />
     <PackageVersion Include="System.Interactive" Version="7.0.1" />
     <PackageVersion Include="System.Management" Version="10.0.8" />
     <PackageVersion Include="System.Reactive" Version="6.1.0" />
