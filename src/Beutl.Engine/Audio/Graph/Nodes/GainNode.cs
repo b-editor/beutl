@@ -13,14 +13,11 @@ public sealed class GainNode : AudioNode
 
         var input = Inputs[0].Process(context);
 
-        // Guard on Animation (an actual keyframe), not IsAnimatable (always true for animatable
-        // properties), so an unkeyed Gain skips the per-sample animated path.
         if (Gain.Animation is null)
         {
             return ProcessStaticGain(input);
         }
 
-        // Past the guard Gain has a keyframe animation; pass it in so the helper need not re-check.
         return ProcessAnimatedGain(Gain, input, context);
     }
 
