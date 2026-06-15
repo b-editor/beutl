@@ -23,6 +23,8 @@ public sealed class MFDecodingSettings : ExtensionSettings
         MaxVideoBufferSizeProperty = ConfigureProperty<int, MFDecodingSettings>(nameof(MaxVideoBufferSize))
             .DefaultValue(4)
             .Register();
+
+        AffectsConfig<MFDecodingSettings>(ThresholdFrameCountProperty, MaxVideoBufferSizeProperty);
     }
 
     [Range(1, int.MaxValue)]

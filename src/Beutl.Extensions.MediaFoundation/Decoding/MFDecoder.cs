@@ -80,7 +80,7 @@ internal sealed class MFDecoder : IDisposable
 
             if (_mediaInfo.VideoStreamIndex == -1)
             {
-                const string message = "File contains no video or audio.";
+                const string message = "File contains no decodable video stream.";
                 _logger.LogInformation(message);
                 throw new Exception(message);
             }
@@ -204,7 +204,9 @@ internal sealed class MFDecoder : IDisposable
             _logger.LogTrace("Current type changed");
             if (actualStreamIndex != _mediaInfo.VideoStreamIndex)
             {
-                _logger.LogError("unknown CurrentMediaTypeChanged");
+                _logger.LogError(
+                    "unexpected CurrentMediaTypeChanged on stream {streamIndex} (expected video stream {videoStreamIndex})",
+                    actualStreamIndex, _mediaInfo.VideoStreamIndex);
             }
         }
 
@@ -361,7 +363,7 @@ internal sealed class MFDecoder : IDisposable
         }
         else
         {
-            const string message = "File contains no video or audio.";
+            const string message = "File contains no decodable video stream.";
             _logger.LogError(message);
             throw new Exception(message);
         }
