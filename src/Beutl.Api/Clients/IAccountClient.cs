@@ -4,9 +4,6 @@ namespace Beutl.Api.Clients;
 
 public interface IAccountClient
 {
-    [Get("/api/v1/account/storageUsage")]
-    Task<StorageUsageResponse> GetStorageUsage();
-
     [Post("/api/v1/account/createAuthUri")]
     Task<CreateAuthUriResponse> CreateAuthUri([Body] CreateAuthUriRequest request);
 

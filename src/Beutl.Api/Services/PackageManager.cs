@@ -1,7 +1,6 @@
 ﻿using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
-using System.Reactive.Subjects;
 using System.Reflection;
 using Avalonia;
 using Avalonia.Platform;
@@ -9,7 +8,6 @@ using Beutl.Api.Objects;
 using Beutl.Engine;
 using Beutl.Extensibility;
 using Beutl.Logging;
-using Beutl.Reactive;
 using Microsoft.Extensions.Logging;
 using NuGet.Packaging;
 using NuGet.Packaging.Core;
@@ -29,34 +27,12 @@ public sealed class PackageManager(
     private readonly ILogger _logger = Log.CreateLogger<PackageManager>();
     private readonly ConcurrentDictionary<int, LoadedPackageInfo> _loadedPackages = new();
     private readonly ExtensionSettingsStore _settingsStore = new();
-    private readonly Subject<(PackageIdentity Package, bool Loaded)> _subject = new();
 
     public IEnumerable<LocalPackage> LoadedPackage => _loadedPackages.Values.Select(x => x.Package);
 
     public ExtensionProvider ExtensionProvider => extensionProvider;
 
     public ContextCommandManager ContextCommandManager => commandManager;
-
-    public IObservable<bool> GetObservable(string name, string? version = null)
-    {
-        return new _Observable(this, name, version);
-    }
-
-    public bool IsLoaded(string name, string? version = null)
-    {
-        var packages = _loadedPackages.Values;
-        if (version is { })
-        {
-            var nugetVersion = new NuGetVersion(version);
-            return packages.Any(
-                x => StringComparer.OrdinalIgnoreCase.Equals(x.Package.Name, name)
-                     && new NuGetVersion(x.Package.Version) == nugetVersion);
-        }
-        else
-        {
-            return packages.Any(x => StringComparer.OrdinalIgnoreCase.Equals(x.Package.Name, name));
-        }
-    }
 
     public IReadOnlyList<LocalPackage> GetLocalSourcePackages()
     {
@@ -258,10 +234,6 @@ public sealed class PackageManager(
 
             _loadedPackages.TryAdd(package.LocalId, new LoadedPackageInfo(package, result.LoadContext));
 
-            var pkgId = new PackageIdentity(package.Name,
-                string.IsNullOrEmpty(package.Version) ? null : NuGetVersion.Parse(package.Version));
-            _subject.OnNext((pkgId, true));
-
             return result.Assemblies;
         }
     }
@@ -347,10 +319,6 @@ public sealed class PackageManager(
             }
         }
 
-        var pkgId = new PackageIdentity(package.Name,
-            string.IsNullOrEmpty(package.Version) ? null : NuGetVersion.Parse(package.Version));
-        _subject.OnNext((pkgId, false));
-
         // https://learn.microsoft.com/ja-jp/dotnet/standard/assembly/unloadability#use-a-custom-collectible-assemblyloadcontext
         weakReference = new WeakReference(info.LoadContext, trackResurrection: true);
         return true;
@@ -405,62 +373,6 @@ public sealed class PackageManager(
         {
             settings.ConfigurationChanged -= handler;
             extension.SettingsChangedHandler = null;
-        }
-    }
-
-    private sealed class _Observable : LightweightObservableBase<bool>
-    {
-        private readonly PackageManager _manager;
-        private readonly string _name;
-        private readonly PackageIdentity? _packageIdentity;
-        private IDisposable? _disposable;
-
-        public _Observable(PackageManager manager, string name, string? version)
-        {
-            _manager = manager;
-            _name = name;
-
-            if (version is { })
-            {
-                _packageIdentity = new PackageIdentity(name, new NuGetVersion(version));
-            }
-        }
-
-        protected override void Subscribed(IObserver<bool> observer, bool first)
-        {
-            var packages = _manager._loadedPackages.Values;
-            if (_packageIdentity is { })
-            {
-                observer.OnNext(packages.Any(
-                    x => StringComparer.OrdinalIgnoreCase.Equals(x.Package.Name, _name)
-                         && new NuGetVersion(x.Package.Version) == _packageIdentity.Version));
-            }
-            else
-            {
-                observer.OnNext(
-                    packages.Any(x => StringComparer.OrdinalIgnoreCase.Equals(x.Package.Name, _name)));
-            }
-        }
-
-        protected override void Deinitialize()
-        {
-            _disposable?.Dispose();
-            _disposable = null;
-        }
-
-        protected override void Initialize()
-        {
-            _disposable = _manager._subject
-                .Subscribe(OnReceived);
-        }
-
-        private void OnReceived((PackageIdentity Package, bool Loaded) obj)
-        {
-            if ((_packageIdentity != null && _packageIdentity == obj.Package)
-                || StringComparer.OrdinalIgnoreCase.Equals(obj.Package.Id, _name))
-            {
-                PublishNext(obj.Loaded);
-            }
         }
     }
 }

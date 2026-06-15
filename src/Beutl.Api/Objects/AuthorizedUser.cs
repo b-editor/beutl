@@ -74,9 +74,4 @@ public class AuthenticatedUser(
             }
         }
     }
-
-    public async Task<StorageUsageResponse> StorageUsageAsync()
-    {
-        return await clients.Account.GetStorageUsage();
-    }
 }
