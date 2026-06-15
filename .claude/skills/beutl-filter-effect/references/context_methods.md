@@ -87,13 +87,6 @@ void LuminanceToAlpha()
 ```
 Convert luminance into the alpha channel.
 
-### LookupTable
-```csharp
-void LookupTable<T>(T data, float strength, Action<T, (byte[] A, byte[] R, byte[] G, byte[] B)> factory)
-void LookupTable<T>(T data, float strength, Action<T, byte[]> factory)
-```
-Color transformation through a lookup table.
-
 ### BlendMode
 ```csharp
 void BlendMode(Color color, BlendMode blendMode)

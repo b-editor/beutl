@@ -1,13 +1,9 @@
-﻿using System.ComponentModel;
-using Beutl.Graphics.Rendering;
+﻿using Beutl.Graphics.Rendering;
 
 namespace Beutl.Graphics.Effects;
 
 public sealed class EffectTarget : IDisposable
 {
-    [Obsolete("Use a constructor with no parameters.")]
-    public static readonly EffectTarget Empty = new();
-
     private object? _target;
 
     public EffectTarget(RenderNodeOperation node)
@@ -31,10 +27,6 @@ public sealed class EffectTarget : IDisposable
     public Rect OriginalBounds { get; set; }
 
     public Rect Bounds { get; set; }
-
-    [Obsolete]
-    [EditorBrowsable(EditorBrowsableState.Never)]
-    public Size Size => Bounds.Size;
 
     public RenderNodeOperation? NodeOperation => _target as RenderNodeOperation;
 
