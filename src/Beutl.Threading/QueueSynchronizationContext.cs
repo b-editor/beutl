@@ -8,8 +8,15 @@ internal sealed class QueueSynchronizationContext(Dispatcher dispatcher, TimePro
     private readonly OperationQueue _operationQueue = new();
     private readonly TimerQueue _timerQueue = new(timeProvider);
 
-    private bool _running;
+    // Written by Shutdown() outside the lock, read unlocked elsewhere; volatile stops a stale read
+    // that misses a shutdown on weak-memory architectures.
+    private volatile bool _running;
     private CancellationTokenSource? _waitToken;
+
+    // Volatile for the same reason as _running: written on one thread, read cross-thread through the
+    // public getters with no lock.
+    private volatile bool _hasShutdownFinished;
+    private volatile bool _hasShutdownStarted;
 
     public event EventHandler<DispatcherUnhandledExceptionEventArgs>? UnhandledException;
 
@@ -17,9 +24,9 @@ internal sealed class QueueSynchronizationContext(Dispatcher dispatcher, TimePro
 
     public event EventHandler? ShutdownFinished;
 
-    public bool HasShutdownFinished { get; private set; }
+    public bool HasShutdownFinished { get => _hasShutdownFinished; private set => _hasShutdownFinished = value; }
 
-    public bool HasShutdownStarted { get; private set; }
+    public bool HasShutdownStarted { get => _hasShutdownStarted; private set => _hasShutdownStarted = value; }
 
     internal void Start()
     {
