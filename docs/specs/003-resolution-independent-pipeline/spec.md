@@ -14,15 +14,21 @@
 
 Today Beutl's 2D rendering pipeline has **no concept of render scale**. The invariant `1 logical unit == 1 device pixel` is baked implicitly across the render path (materialized as literal `ToSize(1)`, `(int)bounds.Width`, and `PixelRect.FromRect(bounds)` calls). Every drawable property, transform, effect parameter, brush, pen, and glyph is rendered as if the project canvas were always at its full export resolution.
 
-This feature makes the pipeline **resolution-independent**: drawable and effect properties become **logical** sizes, a single **render scale** factor flows through the render-node tree, every pixel-magnitude parameter is multiplied by that scale at the leaves that touch device pixels, and the final stage normalizes to the output resolution. This unlocks rendering the *same project* at different resolutions — a reduced-scale preview for cheap editing, a full-scale export for delivery — and lays the **foundation for a future proxy / optimized-media workflow** without the decoder-level changes.
+This feature makes the pipeline **resolution-independent** using a **supply-driven, three-scale model**:
+
+- **Output scale (`s_out`)** — the single per-renderer delivery density (preview quality or export supersampling factor). It sets the floor: no intermediate is ever rendered below `s_out`.
+- **Working scale (`w`)** — the per-effect-boundary rendering density, resolved at each `FilterEffectRenderNode` as `max(s_out, densest concrete input)`. It is supply-driven: the source content's native density flows upward, not a top-down uniform multiplier. A global ceiling (`MaxWorkingScale`) and a per-buffer dimension clamp (16 384 px per axis) bound `w` to keep allocations feasible.
+- **Effective scale (`e`)** — the per-operation annotation carried by each render-node output. Vector/text operations are `Unbounded` (infinitely re-rasterizable); bitmap-backed operations report `At(density)`.
+
+Drawable and effect properties remain **logical** sizes; the base CTM baked into `ImmediateCanvas` maps logical coordinates to device pixels at the working density. Effects do not multiply spatial parameters by a scale factor — the coordinate space already *is* scaled (see FR-008). This unlocks rendering the *same project* at different resolutions — a reduced-scale preview for cheap editing, a full-scale export for delivery — and lays the **foundation for a future proxy / optimized-media workflow** without the decoder-level changes.
 
 ## Scope
 
 **In scope (this feature):**
 
-- Logical-coordinate definition and a render-scale that propagates through the whole 2D render-node tree.
-- A uniform scale contract for every effect, brush, pen, and text: pixel-magnitude (spatial) parameters are multiplied by the render scale; magnitude-invariant parameters are left unchanged.
-- Mixed-scale compositing: subtrees rasterized at different scales composite correctly.
+- Logical-coordinate definition and a supply-driven scale model (`s_out` / `w` / `e`) that propagates through the 2D render-node tree.
+- A coordinate-space contract for effects: the canvas CTM maps logical to device coordinates at the working density; effects operate in logical coordinates and do not manually scale spatial parameters (FR-008).
+- Mixed-scale compositing: subtrees rasterized at different densities composite correctly via the `EffectiveScale` annotation and `ResolveWorkingScale`.
 - Scale-aware render cache, backdrop/snapshot, and **every independent nested-raster path**: nested scenes, `DrawableBrush`, the particle renderer (which today hard-codes a fixed buffer size), and audio-visualizer drawables.
 - Decoupling a media source's **logical** size from its **decoded pixel** size, and keeping `MediaOptions` additively extensible so proxy decode can be added later **without** changing it now.
 - Editor hit-testing / handles remain correct and identical across preview scales.
