@@ -4,7 +4,7 @@ namespace Beutl.Audio.Graph.Nodes;
 
 public sealed class GainNode : AudioNode
 {
-    public IProperty<float>? Gain { get; set; }
+    public required IProperty<float> Gain { get; init; }
 
     public override AudioBuffer Process(AudioProcessContext context)
     {
@@ -15,12 +15,12 @@ public sealed class GainNode : AudioNode
 
         // Guard on Animation (an actual keyframe), not IsAnimatable (always true for animatable
         // properties), so an unkeyed Gain skips the per-sample animated path.
-        if (Gain?.Animation is null)
+        if (Gain.Animation is null)
         {
             return ProcessStaticGain(input);
         }
 
-        // Gain is non-null past the guard; pass it in so the helper need not re-check.
+        // Past the guard Gain has a keyframe animation; pass it in so the helper need not re-check.
         return ProcessAnimatedGain(Gain, input, context);
     }
 
@@ -81,7 +81,7 @@ public sealed class GainNode : AudioNode
 
     private AudioBuffer ProcessStaticGain(AudioBuffer input)
     {
-        float gain = (Gain?.CurrentValue ?? 100f) / 100f;
+        float gain = Gain.CurrentValue / 100f;
         // Unity gain: pass the input through (caller owns it, don't dispose).
         if (System.Math.Abs(gain - 1.0f) < float.Epsilon)
             return input;

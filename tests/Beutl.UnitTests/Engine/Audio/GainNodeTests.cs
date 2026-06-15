@@ -95,4 +95,21 @@ public class GainNodeTests
             Assert.That(float.IsFinite(sample), Is.True);
         }
     }
+
+    // CreateGainNode reuses a matching GainNode from the previous frame (so streaming/resampler state
+    // survives a graph rebuild). The reuse path matches by Gain reference, so the node it returns already
+    // carries that exact Gain — this guards the removal of the redundant `existing.Gain = gain` write that
+    // the `required init` Gain makes impossible.
+    [Test]
+    public void CreateGainNode_ReusesPreviousNodeMatchingByGain()
+    {
+        var gain = Property.CreateAnimatable(50f);
+        var previous = new GainNode { Gain = gain };
+        using var context = new AudioContext(SampleRate, 2, new[] { previous });
+
+        GainNode created = context.CreateGainNode(gain);
+
+        Assert.That(created, Is.SameAs(previous), "must reuse the previous-frame node matching by Gain reference");
+        Assert.That(created.Gain, Is.SameAs(gain), "the reused node must keep the supplied Gain");
+    }
 }

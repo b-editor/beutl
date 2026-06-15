@@ -164,9 +164,10 @@ public sealed class AudioContext : IDisposable
                 .FirstOrDefault(n => n.Gain == gain);
             if (existing != null)
             {
+                // Matched by Gain reference, so existing.Gain already == gain; no re-assignment needed
+                // (and Gain is now init-only).
                 _previousNodes.Remove(existing);
                 existing.ClearInputs();
-                existing.Gain = gain;
                 return AddNode(existing);
             }
         }
