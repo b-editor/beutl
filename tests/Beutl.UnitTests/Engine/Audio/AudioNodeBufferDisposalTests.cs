@@ -254,8 +254,7 @@ public class AudioNodeBufferDisposalTests
 
     // SpeedNode's resampler reads the upstream through SpeedProcessor.Read, which calls Inputs[0].Process
     // once per resampler iteration. Each call leases a fresh pooled AudioBuffer that is read and dropped;
-    // every one must be disposed. (Missed by the #127 sweep, which covered the sibling nodes but not the
-    // SpeedProcessor.Read call site.)
+    // every one must be disposed.
     [Test]
     public void SpeedNode_NonUnitySpeed_DisposesConsumedInputs()
     {
