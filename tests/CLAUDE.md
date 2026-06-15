@@ -16,7 +16,7 @@ All test projects are NUnit (+ Moq where needed). Use this index when picking th
 
 `tests/Beutl.Benchmarks/` and `tests/Beutl.FFmpegBenchmarks/` are BenchmarkDotNet projects, not NUnit — do not add unit tests there.
 
-`tests/DirectoryViewTest/`, `tests/PackageSample/`, `tests/KeySplineEditor/`, `tests/TextFormattingPlayground/`, `tests/PropertyEditorViewTests/`, `tests/EnumerateFontFamilies/`, `tests/XamlPreview/` are interactive Avalonia previewers, not test harnesses — running them launches a window.
+`tests/DirectoryViewTest/`, `tests/PackageSample/`, `tests/TextFormattingPlayground/`, `tests/PropertyEditorViewTests/`, `tests/EnumerateFontFamilies/`, `tests/XamlPreview/` are interactive Avalonia previewers, not test harnesses — running them launches a window.
 
 ## NUnit conventions
 
