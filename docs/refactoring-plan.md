@@ -65,8 +65,10 @@ plugin-facing: batch them into one `refactor!:` release train with a
 - Legacy encoder pipeline: `MediaWriter`, `IEncoderInfo`, `EncoderRegistry`,
   `EncodingExtension` (all `[Obsolete]`, zero implementers) and the obsolete
   `PageExtension` + its live app-shell plumbing; the empty `LayerExtension`.
-- Legacy `Pcm<T>`/`ISample` DSP surface (dead since the `AudioBuffer` graph
-  migration; includes 3 never-used sample structs and the latent `Slice` bug).
+- Legacy `Pcm<T>`/`ISample` DSP surface — **correction (Phase 1 verification): only
+  the 3 never-used sample structs are actually dead** (removed in PR #1906). The rest
+  of `Pcm<T>`/`IPcm`/`ISample` is **live** at the audio I/O boundaries; full retirement
+  and the latent `Slice` bug move to Phase 3 (see *3c-bis. Audio I/O type convergence*).
 - `[Obsolete]` byte-LUT chain: `LookupTable`, `FilterEffectContext` overloads,
   `EffectTarget` obsolete members.
 - Dead public surface: `ICanvas`/`INode` interfaces, the ~900-line `TypeConverter`
@@ -193,6 +195,24 @@ implement only the per-sample kernel. Also collapse the seven hand-rolled
 it — and `AudioContext` is plugin-facing via `AudioEffect.CreateNode`).
 Add the missing tests: Equalizer/Resample/Mixer/Clip/Shift/Source nodes currently
 have zero coverage.
+
+**3c-bis. Audio I/O type convergence (`Pcm<T>` → `AudioBuffer`; XL; 🚩 plugin-contract break)**
+The DSP graph and composition already run on `AudioBuffer` (planar float32, N-channel);
+`Pcm<T>`/`IPcm`/`ISample` (interleaved, sample-type-parameterized: mono/stereo ×
+int16/int32/float) survive only at four I/O edges: decoder output
+(`MediaReader.ReadAudio(out Ref<IPcm>)`), the public `ISampleProvider.Sample` contract
+(the live `EncodingController` consumes audio through it), device output
+(`AudioBuffer.ToPcm().Convert<Stereo16BitInteger>()` for XAudio2/OpenAL), and the GPL
+worker IPC (`IpcSampleProvider`). Converge on `AudioBuffer` as the single in-memory audio
+type: add interleave/int16 helpers to `AudioBuffer`, flip `ISampleProvider.Sample` and
+`MediaReader.ReadAudio` to `AudioBuffer` (decoders deinterleave codec output), route
+device/codec output through the new helpers, ship planar float over IPC, then delete
+`Pcm<T>`/`IPcm`/`ISample`/the sample structs/`Convert`/`AudioBuffer.ToPcm` (this also
+removes the latent `Pcm<T>.Slice` lifetime bug). Breaks the published `ISampleProvider`
+and `MediaReader.ReadAudio` plugin contracts and the IPC surface → `refactor!:` +
+`BREAKING CHANGE:`, no `[Obsolete]` shims, route through `beutl-design-reviewer`; drive
+via `/speckit-specify`. Pairs with 3f (audio device backends). This **corrects the Phase 1
+premise** that `Pcm`/`ISample` was already dead.
 
 **3d. Animation hierarchy and editing-logic placement**
 Decide (🚩) whether to collapse the five-layer abstraction
