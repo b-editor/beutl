@@ -130,18 +130,31 @@ public class RenderNodeProcessor(
     {
         var list = new List<Bitmap>();
         var ops = PullToRoot();
-        foreach (var op in ops)
+        int consumed = 0;
+        try
         {
-            // Route through RasterizeAt to share its ceil(bounds × w) sizing, base-CTM bake, disposal and
-            // zero-area skip; the previously inlined copy omitted the zero-area guard.
-            if (RasterizeAt(op, OutputScale) is { } result)
+            foreach (var op in ops)
             {
-                using RenderTarget renderTarget = result.RenderTarget;
-                list.Add(renderTarget.Snapshot());
+                consumed++;
+                // Route through RasterizeAt to share its ceil(bounds × w) sizing, base-CTM bake, disposal and
+                // zero-area skip; the previously inlined copy omitted the zero-area guard.
+                if (RasterizeAt(op, OutputScale) is { } result)
+                {
+                    using RenderTarget renderTarget = result.RenderTarget;
+                    list.Add(renderTarget.Snapshot());
+                }
             }
-        }
 
-        return list;
+            return list;
+        }
+        catch
+        {
+            for (int j = consumed; j < ops.Length; j++)
+                ops[j].Dispose();
+            foreach (var bmp in list)
+                bmp.Dispose();
+            throw;
+        }
     }
 
     public Bitmap RasterizeAndConcat()
@@ -157,13 +170,24 @@ public class RenderNodeProcessor(
         using var canvas = new ImmediateCanvas(renderTarget, w, MaxWorkingScale, logicalSize: bounds.Size);
         canvas.Clear();
 
-        using (canvas.PushTransform(Matrix.CreateTranslation(-bounds.X, -bounds.Y)))
+        int consumed = 0;
+        try
         {
-            foreach (var op in ops)
+            using (canvas.PushTransform(Matrix.CreateTranslation(-bounds.X, -bounds.Y)))
             {
-                op.Render(canvas);
-                op.Dispose();
+                foreach (var op in ops)
+                {
+                    op.Render(canvas);
+                    op.Dispose();
+                    consumed++;
+                }
             }
+        }
+        catch
+        {
+            for (int j = consumed; j < ops.Length; j++)
+                ops[j].Dispose();
+            throw;
         }
 
         return renderTarget.Snapshot();

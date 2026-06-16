@@ -8,16 +8,16 @@ namespace Beutl.Graphics;
 public interface ICanvas : IDisposable, IPopable
 {
     /// <summary>The declared LOGICAL viewport (feature 003); the base CTM maps it onto <see cref="DeviceSize"/>.</summary>
-    Size LogicalSize { get; }
+    Size LogicalSize => new(DeviceSize.Width, DeviceSize.Height);
 
     /// <summary>The physical backing-surface size in device pixels (feature 003).</summary>
     PixelSize DeviceSize { get; }
 
     /// <summary>Device pixels per unit of the CURRENT coordinate space (feature 003); 1 inside <see cref="PushDeviceSpace"/>.</summary>
-    float Density { get; }
+    float Density => 1f;
 
     /// <summary>The immutable device-pixels-per-logical-unit the surface is rasterized at (feature 003).</summary>
-    float SurfaceDensity { get; }
+    float SurfaceDensity => 1f;
 
     bool IsDisposed { get; }
 
@@ -68,7 +68,7 @@ public interface ICanvas : IDisposable, IPopable
     /// so device-px content (a contour traced from the device buffer, a point-blit of another device buffer,
     /// a full-buffer shader rect) draws onto a density-aware canvas.
     /// </summary>
-    PushedState PushDeviceSpace();
+    PushedState PushDeviceSpace() => Push();
 }
 
 public enum TransformOperator
