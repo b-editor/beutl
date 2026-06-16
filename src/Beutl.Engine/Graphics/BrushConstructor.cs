@@ -264,8 +264,10 @@ public readonly struct BrushConstructor(
                     op.RenderTarget.Dispose();
 
                 s_logger.LogWarning(
-                    "DrawableBrush content buffer allocation failed ({Width}x{Height} px, density {Scale}); the fill degrades to solid white.",
+                    "DrawableBrush content buffer allocation failed ({Width}x{Height} px, density {Scale}); preview fill degrades to solid white, delivery render fails fast.",
                     dw, dh, s);
+                ThrowIfDeliveryAllocationFailure(
+                    $"DrawableBrush content buffer allocation failed ({dw}x{dh} px, density {s}).");
                 return null;
             }
 
@@ -305,8 +307,10 @@ public readonly struct BrushConstructor(
             if (intermediate == null)
             {
                 s_logger.LogWarning(
-                    "Tile-brush intermediate allocation failed ({Width}x{Height} px, density {Scale}); the fill degrades to solid white.",
+                    "Tile-brush intermediate allocation failed ({Width}x{Height} px, density {Scale}); preview fill degrades to solid white, delivery render fails fast.",
                     iw, ih, s);
+                ThrowIfDeliveryAllocationFailure(
+                    $"Tile-brush intermediate allocation failed ({iw}x{ih} px, density {s}).");
                 return null;
             }
 
@@ -370,6 +374,14 @@ public readonly struct BrushConstructor(
             skImage?.Dispose();
             intermediate?.Dispose();
             renderTarget?.Dispose();
+        }
+    }
+
+    private void ThrowIfDeliveryAllocationFailure(string message)
+    {
+        if (float.IsPositiveInfinity(MaxWorkingScale))
+        {
+            throw new InvalidOperationException(message);
         }
     }
 

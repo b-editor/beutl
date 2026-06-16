@@ -61,4 +61,38 @@ public class WorkingScaleClampConsistencyTests
             Assert.That(target.RenderTarget!.Width, Is.LessThanOrEqualTo(RenderNodeContext.MaxBufferDimension));
         });
     }
+
+    [Test]
+    public void Flush_PreviewAllocationFailure_DropsTargetWithoutThrowing()
+    {
+        using var targets = CreateInvalidFlushTargets();
+        using var builder = new SKImageFilterBuilder();
+        using var activator = new FilterEffectActivator(
+            targets, builder, outputScale: 1f, workingScale: 1f, maxWorkingScale: 8f);
+
+        Assert.That(() => activator.Flush(), Throws.Nothing);
+        Assert.That(activator.CurrentTargets, Is.Empty);
+    }
+
+    [Test]
+    public void Flush_DeliveryAllocationFailure_ThrowsInsteadOfDroppingTarget()
+    {
+        using var targets = CreateInvalidFlushTargets();
+        using var builder = new SKImageFilterBuilder();
+        using var activator = new FilterEffectActivator(
+            targets, builder, outputScale: 1f, workingScale: 1f, maxWorkingScale: float.PositiveInfinity);
+
+        var ex = Assert.Throws<InvalidOperationException>(() => activator.Flush());
+        Assert.That(ex!.Message, Does.Contain("Effect flush buffer allocation failed"));
+    }
+
+    private static EffectTargets CreateInvalidFlushTargets()
+    {
+        RenderNodeOperation op = RenderNodeOperation.CreateLambda(
+            new Rect(0, 0, -1, 10),
+            _ => { },
+            hitTest: _ => false);
+
+        return new EffectTargets { new EffectTarget(op) };
+    }
 }

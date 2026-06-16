@@ -103,11 +103,15 @@ public sealed class FilterEffectActivator(
                 }
                 else
                 {
+                    Rect originalBounds = target.OriginalBounds;
                     // The layer would silently vanish from the output otherwise — make the failure visible.
                     s_logger.LogWarning(
-                        "Effect flush buffer allocation failed ({Width}x{Height} px, w {WorkingScale}, bounds {Bounds}); dropping this target from the output.",
-                        bw, bh, w, target.OriginalBounds);
+                        "Effect flush buffer allocation failed ({Width}x{Height} px, w {WorkingScale}, bounds {Bounds}); preview drops this target, delivery render fails fast.",
+                        bw, bh, w, originalBounds);
                     target?.Dispose();
+
+                    ThrowIfDeliveryAllocationFailure(
+                        $"Effect flush buffer allocation failed ({bw}x{bh} px, w {w}, bounds {originalBounds}).");
 
                     CurrentTargets.RemoveAt(i);
                     i--;
@@ -116,6 +120,14 @@ public sealed class FilterEffectActivator(
             }
 
             Builder.Clear();
+        }
+    }
+
+    private void ThrowIfDeliveryAllocationFailure(string message)
+    {
+        if (float.IsPositiveInfinity(MaxWorkingScale))
+        {
+            throw new InvalidOperationException(message);
         }
     }
 
