@@ -257,6 +257,26 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
 
     private void OnSceneEdited(object? sender, EventArgs e)
     {
+        // Scene.Edited can fire off the UI thread (e.g. parallel element load during
+        // deserialization), so marshal before IsEditAffectingPreview reads EditorConfig
+        // CoreProperty getters against CoreObject's non-synchronized value dictionary.
+        if (Avalonia.Threading.Dispatcher.UIThread.CheckAccess())
+        {
+            HandleSceneEdited(e);
+        }
+        else
+        {
+            Avalonia.Threading.Dispatcher.UIThread.Post(
+                () => HandleSceneEdited(e),
+                Avalonia.Threading.DispatcherPriority.Background);
+        }
+    }
+
+    private void HandleSceneEdited(EventArgs e)
+    {
+        // Runs on the UI thread (directly or via the OnSceneEdited post). IsPlaying and the
+        // onion-skin config are read here, at handling time, so the off-thread post observes
+        // current state rather than whatever was live when the edit was raised.
         if (e is ElementEditedEventArgs elementEdited
             && !IsEditAffectingPreview(elementEdited.AffectedRange))
         {
@@ -269,38 +289,21 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
     // The preview only needs to re-render when an edit touches a currently visible frame.
     // Normally that is just the playhead frame, but while the onion-skin overlay is active the
     // neighboring sample frames are visible too, so an edit confined to one of them must still
-    // invalidate the preview.
+    // invalidate the preview. Must run on the UI thread (see OnSceneEdited).
     private bool IsEditAffectingPreview(IReadOnlyList<TimeRange> affectedRange)
     {
-        TimeSpan time = _editorClock.CurrentTime.Value;
-        if (affectedRange.Any(v => v.Contains(time)))
-        {
-            return true;
-        }
-
         EditorConfig editorConfig = GlobalConfiguration.Instance.EditorConfig;
-        if (!editorConfig.IsOnionSkinEnabled || IsPlaying.Value || Scene is null)
-        {
-            return false;
-        }
+        Scene? scene = Scene;
+        bool onionSkinEnabled = editorConfig.IsOnionSkinEnabled && !IsPlaying.Value && scene is not null;
 
-        // Mirror the opacity-folding the render path uses: a zero-opacity side contributes
-        // nothing, so it should not keep the preview alive either.
-        int prevCount = editorConfig.OnionSkinPrevOpacity > 0f ? editorConfig.OnionSkinPrevCount : 0;
-        int nextCount = editorConfig.OnionSkinNextOpacity > 0f ? editorConfig.OnionSkinNextCount : 0;
-        if (prevCount == 0 && nextCount == 0)
-        {
-            return false;
-        }
-
-        int rate = GetFrameRate();
-        int frame = (int)Math.Round(time.ToFrameNumber(rate), MidpointRounding.AwayFromZero);
-        IReadOnlyList<OnionSkinSample> samples = OnionSkinHelper.EnumerateOnionSkinTimes(
-            frame, Scene.Start, Scene.Duration, rate,
-            prevCount, nextCount,
-            editorConfig.OnionSkinPrevOpacity, editorConfig.OnionSkinNextOpacity);
-
-        return samples.Any(s => affectedRange.Any(v => v.Contains(s.Time)));
+        return OnionSkinHelper.IsEditAffectingPreview(
+            affectedRange,
+            _editorClock.CurrentTime.Value,
+            onionSkinEnabled,
+            editorConfig.OnionSkinPrevCount, editorConfig.OnionSkinPrevOpacity,
+            editorConfig.OnionSkinNextCount, editorConfig.OnionSkinNextOpacity,
+            GetFrameRate(),
+            scene?.Start ?? default, scene?.Duration ?? default);
     }
 
     public Subject<Unit> AfterRendered { get; } = new();
