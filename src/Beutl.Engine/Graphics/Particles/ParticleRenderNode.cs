@@ -1,12 +1,16 @@
 ﻿using Beutl.Engine;
 using Beutl.Graphics.Rendering;
+using Beutl.Logging;
 using Beutl.Media;
+using Microsoft.Extensions.Logging;
 using SkiaSharp;
 
 namespace Beutl.Graphics.Particles;
 
 internal sealed class ParticleRenderNode(ParticleEmitter.Resource particle) : RenderNode
 {
+    private static readonly ILogger s_logger = Log.CreateLogger("ParticleRenderNode");
+
     private (RenderTarget RT, Drawable.Resource? Resource, int? Version)? _cachedRenderTarget;
     private Rect _drawableBounds;
     // Working density the cached particle-drawable buffer was rasterized at.
@@ -206,6 +210,9 @@ internal sealed class ParticleRenderNode(ParticleEmitter.Resource particle) : Re
         {
             foreach (var op in ops)
                 op.Dispose();
+            s_logger.LogWarning(
+                "Particle drawable buffer allocation failed ({Width}x{Height} px, density {Scale}, bounds {Bounds}); particles will be omitted from this frame.",
+                rect.Width, rect.Height, w, bounds);
             return null;
         }
 
@@ -232,7 +239,13 @@ internal sealed class ParticleRenderNode(ParticleEmitter.Resource particle) : Re
 
         int dim = w == 1f ? 10 : (int)MathF.Ceiling(10 * w);
         var renderTarget = RenderTarget.Create(dim, dim);
-        if (renderTarget == null) return null;
+        if (renderTarget == null)
+        {
+            s_logger.LogWarning(
+                "Fallback particle buffer allocation failed ({Width}x{Height} px, density {Scale}); particles will be omitted from this frame.",
+                dim, dim, w);
+            return null;
+        }
 
         using (var canvas = new ImmediateCanvas(renderTarget, w, maxWorkingScale, logicalSize: bounds.Size))
         {
