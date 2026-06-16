@@ -71,7 +71,7 @@ public class CustomFilterEffectContext
     /// Device-buffer dimensions for a logical <paramref name="bounds"/> at density <paramref name="w"/>.
     /// Shared so shader resolution uniforms match <see cref="CreateTarget"/>'s allocation.
     /// </summary>
-    internal static (int Width, int Height) DeviceBufferSize(Rect bounds, float w)
+    public static (int Width, int Height) DeviceBufferSize(Rect bounds, float w)
     {
         int bw = w == 1f ? (int)bounds.Width : (int)MathF.Ceiling(bounds.Width * w);
         int bh = w == 1f ? (int)bounds.Height : (int)MathF.Ceiling(bounds.Height * w);
