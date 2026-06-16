@@ -1,9 +1,9 @@
 ﻿using System.Reactive.Disposables;
 
 using Beutl.Graphics.Rendering;
-using Beutl.Helpers;
 using Beutl.Language;
 using Beutl.Media;
+using Beutl.Models;
 
 using Reactive.Bindings;
 

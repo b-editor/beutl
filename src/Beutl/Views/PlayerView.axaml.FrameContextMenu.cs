@@ -5,6 +5,7 @@ using Avalonia.Platform.Storage;
 using Beutl.Graphics;
 using Beutl.Helpers;
 using Beutl.Media;
+using Beutl.Models;
 using Beutl.ProjectSystem;
 using Beutl.Services;
 using Beutl.ViewModels;

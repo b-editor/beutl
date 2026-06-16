@@ -1,6 +1,6 @@
 ﻿using Beutl.Graphics.Rendering;
-using Beutl.Helpers;
 using Beutl.Media;
+using Beutl.Models;
 
 namespace Beutl.UnitTests.Editor;
 

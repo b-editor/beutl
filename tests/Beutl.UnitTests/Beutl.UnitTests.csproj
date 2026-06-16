@@ -37,7 +37,6 @@
          pure helper (feature 003 export-supersampling pre-validation) is compiled directly into the test
          assembly (same pattern as Beutl.FFmpegBenchmarks). It only needs Beutl.Engine + Beutl.Media. -->
     <Compile Include="..\..\src\Beutl\Helpers\ExportSupersampling.cs" Link="Editor\Linked\ExportSupersampling.cs" />
-    <Compile Include="..\..\src\Beutl\Helpers\SaveFrameScale.cs" Link="Editor\Linked\SaveFrameScale.cs" />
   </ItemGroup>
 
   <ItemGroup>

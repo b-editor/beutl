@@ -1,7 +1,7 @@
-﻿using Beutl.Graphics.Rendering;
+using Beutl.Graphics.Rendering;
 using Beutl.Media;
 
-namespace Beutl.Helpers;
+namespace Beutl.Models;
 
 /// <summary>
 /// Size math for the save-frame scale-choice dialog. Validates that the scaled surface
