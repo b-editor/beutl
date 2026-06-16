@@ -16,7 +16,7 @@ public sealed class SupersampleFactorNameConverter : IValueConverter
         return value switch
         {
             1 => Strings.Off,
-            int factor => string.Create(culture, $"{factor}×"),
+            int factor => string.Create(culture, $"{factor}x"),
             _ => BindingNotification.Null,
         };
     }

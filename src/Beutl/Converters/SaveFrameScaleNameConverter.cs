@@ -16,7 +16,7 @@ public sealed class SaveFrameScaleNameConverter : IValueConverter
     {
         return value switch
         {
-            float scale => string.Create(culture, $"{scale:0.##}×"),
+            float scale => string.Create(culture, $"{scale:0.##}x"),
             _ => BindingNotification.Null,
         };
     }
