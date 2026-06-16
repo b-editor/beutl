@@ -137,7 +137,7 @@ public class KeyFrameNavigationHelperTests
     }
 
     [Test]
-    public void FindAdjacentKeyFrame_AtExactKeyFrame_SkipsExactMatch()
+    public void FindAdjacentKeyFrame_AtExactKeyFrame_Forward_SkipsExactMatch()
     {
         var element = new Element { Start = TimeSpan.Zero, Length = TimeSpan.FromSeconds(10) };
         var obj = new TestAnimatableObject();
@@ -151,6 +151,23 @@ public class KeyFrameNavigationHelperTests
             [element], TimeSpan.FromSeconds(3), forward: true);
 
         Assert.That(result, Is.EqualTo(TimeSpan.FromSeconds(5)));
+    }
+
+    [Test]
+    public void FindAdjacentKeyFrame_AtExactKeyFrame_Backward_SkipsExactMatch()
+    {
+        var element = new Element { Start = TimeSpan.Zero, Length = TimeSpan.FromSeconds(10) };
+        var obj = new TestAnimatableObject();
+        element.AddObject(obj);
+
+        var animation = CreateAnimation(useGlobalClock: true,
+            TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(3), TimeSpan.FromSeconds(5));
+        obj.FloatValue.Animation = animation;
+
+        TimeSpan? result = KeyFrameNavigationHelper.FindAdjacentKeyFrame(
+            [element], TimeSpan.FromSeconds(3), forward: false);
+
+        Assert.That(result, Is.EqualTo(TimeSpan.FromSeconds(1)));
     }
 
     [Test]

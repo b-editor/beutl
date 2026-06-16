@@ -8,9 +8,17 @@ namespace Beutl.Editor.Services;
 
 public static class KeyFrameNavigationHelper
 {
+    // Enumerates KeyFrameAnimations with their timeline-absolute offset:
+    //   Pass 1 (EngineObject.Properties): offset = obj.TimeRange.Start (local clock)
+    //     or Zero (global clock), matching KeyFrameAnimation<T>.GetAnimatedValue.
+    //   Pass 2 (INodeMember.Property): offset = parent GraphNode.Start (local clock),
+    //     matching GraphSnapshot.LoadAnimatedValues. IEnginePropertyBackedInputPort is
+    //     excluded to avoid double-counting with pass 1.
     public static IEnumerable<(KeyFrameAnimation Animation, TimeSpan Offset)>
         EnumerateKeyFrameAnimations(Element root)
     {
+        ArgumentNullException.ThrowIfNull(root);
+
         var visited = new HashSet<KeyFrameAnimation>();
 
         var enginePass = new ObjectSearcher(root, v => v is EngineObject);
@@ -58,6 +66,8 @@ public static class KeyFrameNavigationHelper
     public static TimeSpan? FindAdjacentKeyFrame(
         IEnumerable<Element> roots, TimeSpan current, bool forward)
     {
+        ArgumentNullException.ThrowIfNull(roots);
+
         TimeSpan? target = null;
         foreach (Element el in roots)
         {
