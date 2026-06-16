@@ -9,13 +9,8 @@ namespace Beutl.FFmpegWorker;
 
 internal static class FFmpegLoaderWorker
 {
-    private static readonly string s_defaultFFmpegPath;
-
-    static FFmpegLoaderWorker()
-    {
-        s_defaultFFmpegPath = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".beutl", "ffmpeg");
-    }
+    private static readonly string s_defaultFFmpegPath =
+        Path.Combine(BeutlEnvironment.GetHomeDirectoryPath(), "ffmpeg");
 
     public static void Initialize()
     {
