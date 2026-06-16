@@ -302,19 +302,9 @@ public partial class EditViewModel : IContextCommandHandler, IContextCommandStat
             {
                 if (property.Animation is KeyFrameAnimation kfa && visited.Add(kfa))
                 {
-                    TimeSpan offset;
-                    if (kfa.UseGlobalClock)
-                    {
-                        offset = TimeSpan.Zero;
-                    }
-                    else
-                    {
-                        EngineObject? parent = kfa.FindHierarchicalParent<EngineObject>();
-                        if (parent == null)
-                            continue;
-                        offset = parent.TimeRange.Start;
-                    }
-
+                    TimeSpan offset = kfa.UseGlobalClock
+                        ? TimeSpan.Zero
+                        : obj.TimeRange.Start;
                     yield return (kfa, offset);
                 }
             }
