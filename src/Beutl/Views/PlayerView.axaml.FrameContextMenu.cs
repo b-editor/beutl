@@ -104,7 +104,7 @@ public partial class PlayerView
     // <paramref name="baseSize"/>: the scene frame size for a full frame, the element's measured bounds otherwise.
     private static async Task<float?> PromptSaveScale(PixelSize baseSize)
     {
-        var dialogViewModel = new SaveFrameDialogViewModel(baseSize);
+        using var dialogViewModel = new SaveFrameDialogViewModel(baseSize);
         var dialog = new SaveFrameDialog { DataContext = dialogViewModel };
         if (await dialog.ShowAsync() != ContentDialogResult.Primary) return null;
 

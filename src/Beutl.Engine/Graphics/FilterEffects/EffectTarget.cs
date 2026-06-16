@@ -38,7 +38,7 @@ public sealed class EffectTarget : IDisposable
     /// <see cref="EffectiveScale.Unbounded"/> for a vector <see cref="NodeOperation"/>; a concrete
     /// <see cref="EffectiveScale.At"/> for a flushed <see cref="RenderTarget"/> buffer at its working scale.
     /// </summary>
-    public EffectiveScale Scale { get; set; }
+    public EffectiveScale Scale { get; init; }
 
     public RenderNodeOperation? NodeOperation => _target as RenderNodeOperation;
 

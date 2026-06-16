@@ -247,6 +247,7 @@ public partial class ImmediateCanvas : ICanvas
     // Distinct name (not an overload) to avoid ambiguity with the Point overload at `default` call sites.
     public void DrawRenderTargetScaled(RenderTarget renderTarget, Rect dest)
     {
+        VerifyAccess();
         renderTarget.VerifyAccess();
 
         using SKImage image = renderTarget.Value.Snapshot();
@@ -261,6 +262,7 @@ public partial class ImmediateCanvas : ICanvas
     // allocations and synchronous GPU flushes on the non-unit-scale render path.
     public void DrawImageScaled(SKImage image, Rect dest)
     {
+        VerifyAccess();
         _sharedFillPaint.Reset();
         _sharedFillPaint.IsAntialias = true;
 

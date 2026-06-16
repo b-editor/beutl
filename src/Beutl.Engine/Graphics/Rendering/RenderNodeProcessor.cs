@@ -22,9 +22,12 @@ public class RenderNodeProcessor(
 
     /// <summary>
     /// The working-scale ceiling (FR-037) seeded into every <see cref="RenderNodeContext"/> this processor
-    /// pulls. <c>+∞</c> (default) = no ceiling.
+    /// pulls. <c>+∞</c> (default) = no ceiling. Sanitized to positive so a degenerate value can never
+    /// corrupt downstream <see cref="RenderNodeContext"/> arithmetic; mirrors the <see cref="OutputScale"/> guard.
     /// </summary>
-    public float MaxWorkingScale { get; } = maxWorkingScale;
+    public float MaxWorkingScale { get; } = float.IsNaN(maxWorkingScale) || maxWorkingScale <= 0f
+        ? float.PositiveInfinity
+        : maxWorkingScale;
 
     public void Render(ImmediateCanvas canvas)
     {
@@ -67,13 +70,14 @@ public class RenderNodeProcessor(
         using var canvas = new ImmediateCanvas(renderTarget, w, MaxWorkingScale, logicalSize: op.Bounds.Size);
         canvas.Clear();
 
-        using (canvas.PushTransform(Matrix.CreateTranslation(-op.Bounds.X, -op.Bounds.Y)))
+        Rect opBounds = op.Bounds;
+        using (canvas.PushTransform(Matrix.CreateTranslation(-opBounds.X, -opBounds.Y)))
         {
             op.Render(canvas);
             op.Dispose();
         }
 
-        return (renderTarget, op.Bounds);
+        return (renderTarget, opBounds);
     }
 
     internal List<(RenderTarget RenderTarget, Rect Bounds)> RasterizeToRenderTargets()

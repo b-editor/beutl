@@ -84,8 +84,8 @@ public sealed partial class DrawableTextureSource : TextureSource
                     Drawable.GetOriginal().Render(context, Drawable);
                 }
 
-                var processor = new RenderNodeProcessor(_drawableNode, true, density);
-                using (var canvas = new ImmediateCanvas(_renderTarget, density))
+                var processor = new RenderNodeProcessor(_drawableNode, true, density, density);
+                using (var canvas = new ImmediateCanvas(_renderTarget, density, density))
                 {
                     canvas.Clear();
                     processor.Render(canvas);

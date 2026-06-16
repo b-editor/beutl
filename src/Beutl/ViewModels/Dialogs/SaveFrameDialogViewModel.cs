@@ -1,4 +1,6 @@
-﻿using Beutl.Graphics.Rendering;
+﻿using System.Reactive.Disposables;
+
+using Beutl.Graphics.Rendering;
 using Beutl.Helpers;
 using Beutl.Language;
 using Beutl.Media;
@@ -12,8 +14,10 @@ namespace Beutl.ViewModels.Dialogs;
 /// current frame / selected element is rendered and saved. The chosen <see cref="SelectedScale"/> drives
 /// a one-shot full-fidelity render at <c>ceil(<paramref name="baseSize"/> × scale)</c>.
 /// </summary>
-public sealed class SaveFrameDialogViewModel
+public sealed class SaveFrameDialogViewModel : IDisposable
 {
+    private readonly CompositeDisposable _disposables = [];
+
     public SaveFrameDialogViewModel(PixelSize baseSize)
     {
         BaseSize = baseSize;
@@ -24,7 +28,8 @@ public sealed class SaveFrameDialogViewModel
                 (long width, long height) = SaveFrameScale.GetRenderSize(baseSize, scale);
                 return $"{width} × {height} px";
             })
-            .ToReadOnlyReactivePropertySlim("");
+            .ToReadOnlyReactivePropertySlim("")
+            .DisposeWith(_disposables);
 
         Warning = SelectedScale
             .Select(scale =>
@@ -36,11 +41,13 @@ public sealed class SaveFrameDialogViewModel
                     MessageStrings.SaveImageExceedsMaxRenderSize,
                     scale, width, height, RenderNodeContext.MaxBufferDimension);
             })
-            .ToReadOnlyReactivePropertySlim();
+            .ToReadOnlyReactivePropertySlim()
+            .DisposeWith(_disposables);
 
         CanSave = Warning
             .Select(w => w == null)
-            .ToReadOnlyReactivePropertySlim();
+            .ToReadOnlyReactivePropertySlim()
+            .DisposeWith(_disposables);
     }
 
     /// <summary>The logical size the multiplier is applied to (the scene frame size).</summary>
@@ -60,4 +67,10 @@ public sealed class SaveFrameDialogViewModel
 
     /// <summary>Whether the current scale fits the buffer limit and can be rendered.</summary>
     public ReadOnlyReactivePropertySlim<bool> CanSave { get; }
+
+    public void Dispose()
+    {
+        SelectedScale.Dispose();
+        _disposables.Dispose();
+    }
 }

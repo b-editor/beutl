@@ -120,42 +120,58 @@ internal sealed class Renderer3D : IRenderer3D
         if (Width == width && Height == height)
             return;
 
+        // Build-then-commit: allocate all new resources into locals first. If any allocation throws, the
+        // old fields stay intact (same pattern as Initialize) so the caller can discard the renderer cleanly
+        // instead of being stuck in a half-resized state.
+        GeometryPass? geometryPass = null;
+        LightingPass? lightingPass = null;
+        TransparentPass? transparentPass = null;
+        GizmoPass? gizmoPass = null;
+        FlipPass? flipPass = null;
+        ITexture2D? outputTexture = null;
+        try
+        {
+            geometryPass = _geometryPass;
+            geometryPass?.Resize(width, height);
+
+            if (geometryPass?.DepthTexture != null)
+            {
+                lightingPass = new LightingPass(_context, _shaderCompiler, geometryPass.DepthTexture);
+                lightingPass.Initialize(width, height);
+
+                transparentPass = new TransparentPass(_context, _shaderCompiler, geometryPass.DepthTexture);
+                transparentPass.Initialize(width, height);
+
+                gizmoPass = new GizmoPass(_context, _shaderCompiler, geometryPass.DepthTexture);
+                gizmoPass.Initialize(width, height);
+            }
+
+            flipPass = _flipPass;
+            flipPass?.Resize(width, height);
+
+            outputTexture = _context.CreateTexture2D(width, height, TextureFormat.RGBA16Float);
+        }
+        catch
+        {
+            outputTexture?.Dispose();
+            if (gizmoPass != _gizmoPass) gizmoPass?.Dispose();
+            if (transparentPass != _transparentPass) transparentPass?.Dispose();
+            if (lightingPass != _lightingPass) lightingPass?.Dispose();
+            throw;
+        }
+
+        // Commit: dispose the old passes that were replaced, then swap in the new ones.
+        if (_lightingPass != lightingPass) _lightingPass?.Dispose();
+        if (_transparentPass != transparentPass) _transparentPass?.Dispose();
+        if (_gizmoPass != gizmoPass) _gizmoPass?.Dispose();
+        _outputTexture?.Dispose();
+
+        _lightingPass = lightingPass;
+        _transparentPass = transparentPass;
+        _gizmoPass = gizmoPass;
+        _outputTexture = outputTexture;
         Width = width;
         Height = height;
-
-        // Resize geometry pass
-        _geometryPass?.Resize(width, height);
-
-        // Recreate lighting pass to use new depth texture
-        _lightingPass?.Dispose();
-        if (_geometryPass?.DepthTexture != null)
-        {
-            _lightingPass = new LightingPass(_context, _shaderCompiler, _geometryPass.DepthTexture);
-            _lightingPass.Initialize(width, height);
-        }
-
-        // Recreate transparent pass to use new depth texture
-        _transparentPass?.Dispose();
-        if (_geometryPass?.DepthTexture != null)
-        {
-            _transparentPass = new TransparentPass(_context, _shaderCompiler, _geometryPass.DepthTexture);
-            _transparentPass.Initialize(width, height);
-        }
-
-        // Recreate gizmo pass to use new depth texture
-        _gizmoPass?.Dispose();
-        if (_geometryPass?.DepthTexture != null)
-        {
-            _gizmoPass = new GizmoPass(_context, _shaderCompiler, _geometryPass.DepthTexture);
-            _gizmoPass.Initialize(width, height);
-        }
-
-        // Resize flip pass
-        _flipPass?.Resize(width, height);
-
-        // Recreate output texture
-        _outputTexture?.Dispose();
-        _outputTexture = _context.CreateTexture2D(width, height, TextureFormat.RGBA16Float);
     }
 
     public void Render(

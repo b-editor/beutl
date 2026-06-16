@@ -74,8 +74,8 @@ internal sealed class Scene3DRenderNode(Scene3D.Resource scene) : RenderNode
         int dw = w == 1f ? width : (int)MathF.Ceiling(width * w);
         int dh = w == 1f ? height : (int)MathF.Ceiling(height * w);
 
-        // Get or create renderer
-        var renderer = scene.Renderer ??= new Renderer3D(graphicsContext);
+        // Get or create renderer (typed as Renderer3D for internal-only setter access below)
+        var renderer = (Renderer3D)(scene.Renderer ??= new Renderer3D(graphicsContext));
 
         // Initialize or resize if needed. feature 003 (FR-037(b)): unlike the 2D sinks (which allocate through
         // RenderTarget.Create's try/catch and degrade to null on an over-limit size), Renderer3D goes straight to

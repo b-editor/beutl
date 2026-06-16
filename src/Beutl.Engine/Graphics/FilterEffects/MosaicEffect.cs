@@ -81,9 +81,10 @@ public partial class MosaicEffect : FilterEffect
             // w too. w == 1 leaves every value byte-identical. Use ResolveTargetDensity — the clamped density (FR-037(b))
             // that CreateTarget itself applies — so the device-px uniforms match the buffer.
             float w = c.ResolveTargetDensity(effectTarget.Bounds);
+            var (bufW, bufH) = CustomFilterEffectContext.DeviceBufferSize(effectTarget.Bounds, w);
             builder.Uniforms["tileSize"] = new Size(data.tileSize.Width * w, data.tileSize.Height * w).ToSKSize();
             Point origin = data.origin.Unit == RelativeUnit.Relative
-                ? data.origin.ToPixels(new(image.Width, image.Height))
+                ? data.origin.ToPixels(new(bufW, bufH))
                 : data.origin.Point * w;
             builder.Uniforms["origin"] = origin.ToSKPoint();
 

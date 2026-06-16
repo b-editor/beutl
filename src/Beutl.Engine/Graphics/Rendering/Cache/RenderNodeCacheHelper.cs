@@ -125,11 +125,11 @@ public static class RenderNodeCacheHelper
         }
 
         var list = processor.RasterizeToRenderTargets(ops);
-        int pixels = list.Sum(i =>
+        long pixels = list.Sum(i =>
         {
             // Budget the ACTUAL stored pixels (density-scaled), matching the allocated tile size.
             var pr = outputScale == 1f ? PixelRect.FromRect(i.Bounds) : PixelRect.FromRect(i.Bounds, outputScale);
-            return pr.Width * pr.Height;
+            return (long)pr.Width * pr.Height;
         });
         if (!cacheOptions.Rules.Match(pixels))
         {
@@ -188,11 +188,11 @@ public readonly record struct RenderCacheRules(int MaxPixels, int MinPixels)
 
     public bool Match(PixelSize size)
     {
-        int count = size.Width * size.Height;
+        long count = (long)size.Width * size.Height;
         return MinPixels <= count && count <= MaxPixels;
     }
 
-    public bool Match(int pixels)
+    public bool Match(long pixels)
     {
         return MinPixels <= pixels && pixels <= MaxPixels;
     }
