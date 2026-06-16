@@ -131,7 +131,7 @@ public static class RenderNodeCacheHelper
             var pr = outputScale == 1f ? PixelRect.FromRect(i.Bounds) : PixelRect.FromRect(i.Bounds, outputScale);
             return (long)pr.Width * pr.Height;
         });
-        if (pixels > int.MaxValue || !cacheOptions.Rules.Match((int)pixels))
+        if (!cacheOptions.Rules.Match(pixels))
         {
             // The rasterized tiles are caller-owned; release them on the reject path too, or every
             // (density-scaled) RenderTarget surface leaks until finalization — amplified under supersampled
@@ -192,7 +192,7 @@ public readonly record struct RenderCacheRules(int MaxPixels, int MinPixels)
         return MinPixels <= count && count <= MaxPixels;
     }
 
-    public bool Match(int pixels)
+    public bool Match(long pixels)
     {
         return MinPixels <= pixels && pixels <= MaxPixels;
     }
