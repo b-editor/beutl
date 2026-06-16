@@ -10,6 +10,7 @@ using Beutl.Services;
 using Beutl.Services.PrimitiveImpls;
 using Beutl.Services.Tutorials;
 using Beutl.Services.WindowCapture;
+using Beutl.Threading;
 using Beutl.Utilities;
 using Beutl.ViewModels;
 using Beutl.ViewModels.Dialogs;
@@ -31,7 +32,7 @@ public sealed partial class MainView : UserControl
     private readonly CompositeDisposable _disposables = [];
     private readonly Dictionary<ToolWindowExtension, List<Window>> _openToolWindows = new();
     private WindowCaptureSession? _captureSession;
-    private bool _captureStopInProgress;
+    private readonly SingleFlightAsyncOperation _captureStop = new();
 
     public MainView()
     {
@@ -476,57 +477,48 @@ public sealed partial class MainView : UserControl
 
     internal async Task StopWindowCaptureAsync()
     {
-        // Re-entrancy guard: a second Stop click while the first is in flight would
-        // otherwise re-enter with the same session, call StopAsync() (which returns
-        // immediately because _stopped=true), and emit a duplicate "Saved" toast
-        // while the first stop is still finalizing.
-        if (_captureStopInProgress) return;
-        WindowCaptureSession? session = _captureSession;
-        if (session is null)
+        // Coalesce a re-entrant Stop click to a single run so it can't emit a duplicate
+        // "Saved" toast while the first stop is still finalizing.
+        await _captureStop.TryRunAsync(async () =>
         {
-            NotificationService.ShowWarning("Window Capture", "No active capture session.");
-            return;
-        }
+            WindowCaptureSession? session = _captureSession;
+            if (session is null)
+            {
+                NotificationService.ShowWarning("Window Capture", "No active capture session.");
+                return;
+            }
 
-        _captureStopInProgress = true;
-        try
-        {
-            await session.StopAsync();
-            _captureSession = null;
-            NotificationService.ShowSuccess(
-                "Window Capture",
-                $"Saved: {session.OutputPath}\nCaptured {session.CapturedFrameCount} frames (dropped {session.DroppedFrameCount}).");
-        }
-        catch (Exception ex)
-        {
-            _captureSession = null;
-            _logger.LogError(ex, "Failed to stop window capture.");
-            NotificationService.ShowError("Window Capture", ex.Message);
-        }
-        finally
-        {
-            _captureStopInProgress = false;
-        }
+            try
+            {
+                await session.StopAsync();
+                _captureSession = null;
+                NotificationService.ShowSuccess(
+                    "Window Capture",
+                    $"Saved: {session.OutputPath}\nCaptured {session.CapturedFrameCount} frames (dropped {session.DroppedFrameCount}).");
+            }
+            catch (Exception ex)
+            {
+                _captureSession = null;
+                _logger.LogError(ex, "Failed to stop window capture.");
+                NotificationService.ShowError("Window Capture", ex.Message);
+            }
+        });
     }
 
     internal bool HasActiveCapture => _captureSession is not null;
 
     internal async Task EnsureCaptureStoppedAsync()
     {
-        if (_captureStopInProgress)
+        // Join an in-flight user stop (await it, no busy-spin) so close waits for the
+        // same teardown; otherwise perform the shutdown stop here.
+        await _captureStop.RunOrJoinAsync(async () =>
         {
-            // A user-initiated stop is already running; spin briefly until it finishes
-            // so window close waits for the same teardown rather than racing with it.
-            while (_captureStopInProgress)
-                await Task.Yield();
-            return;
-        }
-
-        WindowCaptureSession? session = _captureSession;
-        if (session is null) return;
-        try { await session.StopAsync(); }
-        catch (Exception ex) { _logger.LogWarning(ex, "Failed to stop capture during shutdown."); }
-        finally { _captureSession = null; }
+            WindowCaptureSession? session = _captureSession;
+            if (session is null) return;
+            try { await session.StopAsync(); }
+            catch (Exception ex) { _logger.LogWarning(ex, "Failed to stop capture during shutdown."); }
+            finally { _captureSession = null; }
+        });
     }
 
     private async void GoToInformationPage(object? sender, RoutedEventArgs e) => await GoToInformationPageAsync();
