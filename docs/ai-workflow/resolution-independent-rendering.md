@@ -57,17 +57,17 @@ the CTM handles it, and a manual `× w` would double-scale and regress the resul
   distinct from its logical footprint. Mixed-scale compositing resamples off-target bitmaps via
   `ImmediateCanvas.DrawRenderTargetScaled` / `DrawSurfaceScaled` (Mitchell). 003 ships only this seam; the
   proxy / reduced-decode workflow that exploits it is a future feature (see `MediaOptions`).
-- **3D scenes.** `Scene3DRenderNode` renders at `ceil(size × s_out)` and reports `EffectiveScale.At(s_out)`,
-  so 3D content is crisp under supersampled export instead of being upscaled by the root CTM.
-
-## Known limitation
-
-`DrawableBrush` / `TileBrush` FILL content (`BrushConstructor`) is still rasterized at LOGICAL density,
-so a tile-/drawable-brush fill is soft-upscaled by the root CTM at `s_out > 1`: the filled shape's
-**edges stay crisp** (vector), only the fill texture is soft. Solid/gradient/image-shader brushes are
-resolution-independent and unaffected. Full TileBrush density is a scoped follow-up — it requires threading
-`s_out` through the `TileBrushCalculator` + intermediate + shader local-matrix for every `TileMode`/`Transform`,
-each with its own golden.
+- **Tile / drawable brush fills.** `BrushConstructor` rasterizes `TileBrush` / `DrawableBrush` fill content at
+  the canvas density (`ImmediateCanvas.Density` — `s_out` or the enclosing `w`, passed in as `Scale`): the
+  drawable/tile intermediate is allocated at `ceil(size × Scale)` device px and a `Scale(1/Scale)` shader
+  local-matrix un-densifies the texture coords back to logical. So tile- and drawable-brush fills stay crisp at
+  `s_out > 1` with no author action, across every `TileMode` / `Transform`; only the `Scale == 1` short-circuit
+  preserves byte-identity. Solid / gradient / perlin brushes are vector shaders and resolution-independent
+  regardless.
+- **3D scenes.** `Scene3DRenderNode` renders at `ceil(size × w)` and reports `EffectiveScale.At(w)`, where
+  `w = ClampWorkingScaleToBufferBudget(size, s_out)` is the output scale reduced only if the dense surface would
+  exceed the per-buffer dimension budget. So 3D content is crisp under supersampled export instead of being
+  upscaled by the root CTM.
 
 ## The scale-1.0 guarantee
 

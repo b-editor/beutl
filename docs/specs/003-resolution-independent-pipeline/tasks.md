@@ -101,7 +101,8 @@ Single-repo .NET solution. Engine: `src/Beutl.Engine/`; project system: `src/Beu
 >   translate/pivot `×w`, PartsSplit contour bounds `/w`, SKSL/GLSL resolution uniforms `×w` (+ `iScale`).
 >   Skia `SKImageFilter` primitives (blur sigma, etc.) are deliberately NOT `×w` — they ride the root CTM
 >   and stay crisp (so Blur's 1.0000 is preserved).
-> - 3D scenes render at `ceil(size×s_out)` (`Scene3DRenderNode`) and report `EffectiveScale.At(s_out)`.
+> - 3D scenes render at `ceil(size×w)` (`Scene3DRenderNode`, `w = ClampWorkingScaleToBufferBudget(size, s_out)`)
+>   and report `EffectiveScale.At(w)`.
 > Verified: `CustomEffectSupersampleTests` (Mosaic 2×-delivered vs 1:1 SSIM=1.0000 → logical tiles
 > preserved; MAE-to-truth ss<1:1 → real density), all reduced-scale + export goldens still green,
 > byte-identity at s=1 preserved (all `w==1` branches are character-identical to the pre-feature path).
