@@ -366,6 +366,26 @@ public class ResolutionScaleTests
         Assert.That(w, Is.EqualTo(3f));
     }
 
+    [TestCase(float.NaN)]
+    [TestCase(0f)]
+    [TestCase(-1f)]
+    public void RenderNodeProcessor_DegenerateMaxWorkingScale_IsTreatedAsNoCeiling(float bad)
+    {
+        using var node = new OperationWrapperRenderNode();
+        var processor = new RenderNodeProcessor(node, false, 1f, bad);
+        Assert.That(processor.MaxWorkingScale, Is.EqualTo(float.PositiveInfinity));
+    }
+
+    [TestCase(float.NaN)]
+    [TestCase(0f)]
+    [TestCase(-1f)]
+    public void RenderNodeProcessor_DegenerateOutputScale_DefaultsToOne(float bad)
+    {
+        using var node = new OperationWrapperRenderNode();
+        var processor = new RenderNodeProcessor(node, false, bad);
+        Assert.That(processor.OutputScale, Is.EqualTo(1f));
+    }
+
     // --- Shader device-buffer dimensions (the size SKSL/GLSL resolution uniforms must report) ------------
 
     [Test]

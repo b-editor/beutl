@@ -114,7 +114,7 @@ public partial class Scene3D : Drawable, IFlowOperator
         private readonly PooledList<int> _lightsVersion = [];
         private readonly PooledList<int> _objectsVersion = [];
 
-        internal IRenderer3D? Renderer { get; set; }
+        internal Renderer3D? Renderer { get; set; }
 
         public TimeSpan Time { get; set; } = TimeSpan.Zero;
 
