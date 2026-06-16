@@ -17,9 +17,7 @@ public class SnapshotBackdropRenderNode : RenderNode, IBackdrop
                 _bitmap?.Dispose();
                 using var renderTarget = RenderTarget.GetRenderTarget(canvas);
                 _bitmap = renderTarget.Snapshot();
-                // feature 003 (CSM-3): record the captured surface's scale so Draw can un-scale by it even when
-                // replayed on a nested flush canvas. Use SurfaceDensity, NOT the current Density which a
-                // PushDeviceSpace block lowers to 1 — a snapshot grabs the whole surface, always at surface density.
+                // Record the surface density (not current Density, which PushDeviceSpace resets to 1).
                 _captureScale = canvas.SurfaceDensity;
             })
         ];
@@ -29,11 +27,7 @@ public class SnapshotBackdropRenderNode : RenderNode, IBackdrop
     {
         if (_bitmap != null)
         {
-            // feature 003 (CSM-3): the snapshot is the device-sized backing surface (ceil(frame × captureScale)).
-            // Un-scale by the CAPTURE scale, not the replay canvas's density: replayed inside a buffer-flushing
-            // FilterEffect, Draw runs on a nested canvas at a different density (its working scale w), and keying
-            // off that would size the capture wrong. Drawing into its LOGICAL footprint lets the active CTM map it
-            // back. captureScale == 1 keeps the bare blit.
+            // Un-scale by the capture's density, not the replay canvas's density.
             if (_captureScale == 1f)
             {
                 canvas.DrawBitmap(_bitmap, Brushes.Resource.White, null);

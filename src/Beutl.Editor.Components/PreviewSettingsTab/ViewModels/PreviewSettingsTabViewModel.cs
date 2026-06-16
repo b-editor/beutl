@@ -24,16 +24,11 @@ public sealed class PreviewSettingsTabViewModel : IToolContext, IPropertyEditorC
         var factory = editorContext.GetRequiredService<IPropertyEditorFactory>();
         EditorConfig config = GlobalConfiguration.Instance.EditorConfig;
 
-        // Per-edit-view preview render quality (feature 003, US4). Resolved as a service so this
-        // component-layer tab binds the selector without depending on the app-layer EditViewModel.
-        // Optional: an editor context may not supply it, in which case the selector is hidden
-        // (the cache settings below target global EditorConfig and still apply).
         var quality = editorContext.GetService<IPreviewRenderQuality>();
         IsRenderQualityAvailable = quality is not null;
         PreviewScale = quality?.PreviewScale;
         PreviewScaleOptions = quality?.PreviewScaleOptions;
-        // Disabled during playback: a mid-playback scale change disposes the renderer/composer/frame-cache
-        // the playback loop is actively using (feature 003).
+        // Disabled during playback to avoid mid-play renderer rebuilds.
         IsPlaying = editorContext.GetService<IPreviewPlayer>()?.IsPlaying
                     ?? new ReactivePropertySlim<bool>(false).DisposeWith(_disposables);
 

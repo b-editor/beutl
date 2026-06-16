@@ -8,10 +8,7 @@ using Beutl.UnitTests.Engine.Graphics.Backend;
 
 namespace Beutl.UnitTests.Engine.Graphics.Rendering.Golden;
 
-// feature 003: DelayAnimationEffect re-applies its child through a NESTED FilterEffectContext +
-// FilterEffectActivator. Those must carry WorkingScale (working density) so the nested re-application is
-// not collapsed to w=1: a delay-wrapped effect must match the un-wrapped one — byte-identical at scale 1,
-// logical-equivalent under supersampling, consistent with the direct effect. Guards the WorkingScale-threading fix.
+// DelayAnimationEffect must carry WorkingScale into its nested re-application.
 [NonParallelizable]
 [TestFixture]
 public class DelayAnimationScaleTests
@@ -59,9 +56,7 @@ public class DelayAnimationScaleTests
         return shape.ToResource(CompositionContext.Default);
     }
 
-    // A bounds-INFLATING Skia filter (DropShadow) wrapped in DelayAnimationEffect. The nested re-application
-    // re-flushes the source buffer; if EffectTarget.Draw stretched it to the inflated OriginalBounds, content
-    // would render ~w× too large and clip at the frame at s_out > 1. Guards that footprint fix.
+    // A bounds-inflating DropShadow wrapped in DelayAnimation: guards the footprint fix.
     private static Drawable.Resource MakeDelayWrappedDropShadow()
     {
         var shape = BaseShape();
@@ -82,8 +77,7 @@ public class DelayAnimationScaleTests
         VulkanTestEnvironment.EnsureAvailable();
         VulkanTestEnvironment.InvokeOnRenderThread(() =>
         {
-            // At w == 1 the nested re-application keeps the pre-feature path: the scale-1 byte-identity
-            // anchor for the delay-wrapped path.
+            // At w==1 the nested path is inert: deterministic render.
             using Bitmap a = GoldenImageHarness.RenderAtScale(MakeDelayWrappedMosaic(), Frame, 1f);
             using Bitmap b = GoldenImageHarness.RenderAtScale(MakeDelayWrappedMosaic(), Frame, 1f);
             GoldenImageHarness.AssertByteIdentical(a, b);
@@ -103,16 +97,13 @@ public class DelayAnimationScaleTests
             using Bitmap directHi = GoldenImageHarness.RenderAtScale(MakeDirectMosaic(), Frame, 2f);
             using Bitmap directDelivered = GoldenImageHarness.MitchellResampleTo(directHi, Frame);
 
-            // (1) the supersampled-then-downscaled result keeps the SAME logical image as the wrapped 1:1
-            //     render — the nested re-application did not corrupt the logical appearance.
+            // (1) Supersampled-then-downscaled must match the wrapped 1:1 render.
             double ssimLogical = ImageMetrics.Ssim(wrapped1, wrappedDelivered);
             TestContext.WriteLine($"Delay-wrapped 2x-delivered vs 1:1 SSIM={ssimLogical:F4}");
             Assert.That(ssimLogical, Is.GreaterThan(0.95),
                 "delay-wrapped supersample diverged from its own 1:1 — the nested re-application broke the logical result");
 
-            // (2) the wrapped path TRACKS the un-wrapped effect at supersample: WorkingScale carried into the
-            //     nested FilterEffectContext/activator keeps it from collapsing to w = 1, so it matches the
-            //     direct effect. A regression dropping WorkingScale would diverge here.
+            // (2) Wrapped path must track the direct effect at supersample.
             double ssimVsDirect = ImageMetrics.Ssim(wrappedDelivered, directDelivered);
             TestContext.WriteLine($"Delay-wrapped vs direct @2x SSIM={ssimVsDirect:F4}");
             Assert.That(ssimVsDirect, Is.GreaterThan(0.98),
@@ -130,9 +121,7 @@ public class DelayAnimationScaleTests
             using Bitmap hi = GoldenImageHarness.RenderAtScale(MakeDelayWrappedDropShadow(), Frame, 2f);
             using Bitmap delivered = GoldenImageHarness.MitchellResampleTo(hi, Frame);
 
-            // The DropShadow inflates the bounds inside the nested re-flush; the supersampled result must keep
-            // the SAME logical SIZE as the 1:1 render (no ~w× enlargement / clipping). Regressed to ~0.47 when
-            // EffectTarget.Draw stretched the source buffer to the inflated OriginalBounds.
+            // Supersampled result must keep the same logical size as 1:1 (no enlargement/clipping).
             double ssim = ImageMetrics.Ssim(r1, delivered);
             TestContext.WriteLine($"Delay+DropShadow 2x-delivered vs 1:1 SSIM={ssim:F4}");
             Assert.That(ssim, Is.GreaterThan(0.95),

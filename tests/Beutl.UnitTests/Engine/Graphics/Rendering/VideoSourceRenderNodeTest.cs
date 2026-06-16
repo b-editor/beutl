@@ -29,9 +29,7 @@ public class VideoSourceRenderNodeTest
         _videoSource = null;
     }
 
-    // feature 003 (FR-018): a decoded video frame is a bitmap, so its op must report a concrete supply density
-    // (native 1:1), not the vector Unbounded sentinel — mirrors ImageSourceRenderNodeTest and guards the
-    // otherwise-unasserted VideoSource half of the change.
+    // A decoded video frame reports concrete At(1) density, not Unbounded.
     [Test]
     public void Process_OpReportsConcreteNativeDensity_NotUnbounded()
     {

@@ -12,10 +12,7 @@ public sealed class RenderNodeCache(RenderNode node) : IDisposable
 
     private int _count;
 
-    // Set when CreateDefaultCache refuses this subtree (a supply density above outputScale, or an over-budget
-    // tile). The render count keeps climbing and the subtree stays uncached, so without this flag MakeCache would
-    // re-pull and re-reject it every frame. Cleared when the node changes (IncrementRenderCount) or the cache is
-    // invalidated, so a fresh attempt can happen once the subtree re-warms.
+    // Set when CreateDefaultCache refuses this subtree; cleared on node change or invalidation.
     private bool _cacheRejected;
 
     ~RenderNodeCache()
@@ -29,11 +26,7 @@ public sealed class RenderNodeCache(RenderNode node) : IDisposable
     public int CacheCount => _cache.Count;
 
     /// <summary>
-    /// The pixel density (device px per logical unit) the cached tiles were rasterized at (FR-020).
-    /// Replay re-tags the tiles <c>EffectiveScale.At(Density)</c> so a cached subtree keeps its true
-    /// supply density instead of flipping to <c>Unbounded</c>, which would change downstream working
-    /// scales when the cache is enabled. Cross-scale cache reuse is out of scope (T025); density is
-    /// fixed within one renderer.
+    /// The pixel density the cached tiles were rasterized at. Replay re-tags tiles at this density.
     /// </summary>
     public float Density { get; private set; } = 1f;
 
@@ -64,11 +57,7 @@ public sealed class RenderNodeCache(RenderNode node) : IDisposable
         return _count >= Count;
     }
 
-    /// <summary>
-    /// True once <see cref="RenderNodeCacheHelper.CreateDefaultCache"/> has refused to cache this subtree, so the
-    /// per-frame <see cref="RenderNodeCacheHelper.MakeCache"/> stops re-pulling and re-rejecting it. Reset by
-    /// <see cref="IncrementRenderCount"/> when the node changes and by <see cref="Invalidate"/>.
-    /// </summary>
+    /// <summary>True once cache creation was refused; stops re-attempts each frame.</summary>
     public bool IsCacheRejected => _cacheRejected;
 
     public void RejectCache()

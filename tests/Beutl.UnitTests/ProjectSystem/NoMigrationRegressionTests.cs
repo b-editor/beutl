@@ -5,8 +5,7 @@ using Beutl.Serialization;
 
 namespace Beutl.UnitTests.ProjectSystem;
 
-// SC-002 (T018): feature 003 must not change the serialized format. Its scale machinery is
-// runtime-only, so existing projects load with zero migration and no version bump. Non-GPU.
+// Scale machinery is runtime-only: existing projects load with zero migration. Non-GPU.
 [TestFixture]
 public class NoMigrationRegressionTests
 {

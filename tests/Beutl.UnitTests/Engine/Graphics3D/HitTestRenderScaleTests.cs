@@ -12,20 +12,11 @@ using Beutl.UnitTests.Engine.Graphics.Backend;
 
 namespace Beutl.UnitTests.Engine.Graphics3D;
 
-// feature 003 (FR-033 / FR-027): 3D picking takes LOGICAL coordinates, but the surface renders at
-// ceil(logical × SurfaceDensity) DEVICE pixels. Renderer3D.ToDevice multiplies the logical pick point by
-// SurfaceDensity before HitTester3D builds the NDC ray, so a fixed logical point resolves to the SAME object at
-// any output scale. Without the × SurfaceDensity conversion, picking on a reduced-scale preview is off by that factor.
-//
-// This feeds HitTester3D.HitTest EXACTLY what Renderer3D.HitTest feeds it after ToDevice (logical × scale,
-// ceil(size × scale)); the ray-cast pick path is pure CPU, so no GPU is needed. It lives in Beutl.UnitTests
-// rather than tests/Beutl.Graphics3DTests because the latter is an Exe render harness, not an NUnit project,
-// and Beutl.UnitTests already references Beutl.Engine with InternalsVisibleTo.
+// 3D picking must work at any output scale: logical pick point * SurfaceDensity -> device coords for NDC ray.
 [TestFixture]
 public class HitTestRenderScaleTests
 {
-    // Even logical dimensions so ceil(size × scale) is exact at 0.5/1/2, keeping the device aspect ratio (and
-    // thus the NDC ray and the pick) equal to the logical aspect ratio at every scale.
+    // Even dimensions so ceil(size * scale) is exact at 0.5/1/2.
     private const int LogicalWidth = 800;
     private const int LogicalHeight = 600;
 
@@ -37,8 +28,7 @@ public class HitTestRenderScaleTests
     private static Point ToDevicePoint(Point logical, float scale) =>
         scale == 1f ? logical : logical * scale;
 
-    // A minimal pickable scene: one unit sphere at the origin viewed head-on down -Z, so the logical
-    // screen-centre point lands on the sphere. CPU-only: HitTester3D and the CPU mesh path need no GPU.
+    // One unit sphere at origin viewed head-on: screen centre lands on it. CPU-only.
     private static (Camera3D.Resource Camera, Sphere3D.Resource Sphere) BuildScene(CompositionContext context)
     {
         var camera = new PerspectiveCamera();
@@ -58,9 +48,7 @@ public class HitTestRenderScaleTests
         return (cameraResource, sphereResource);
     }
 
-    // The screen-centre logical point projects straight down the camera axis to NDC (0,0), onto the origin
-    // sphere. At scale s, ToDevice gives (W/2·s, H/2·s) and width = ceil(W·s), so ndcX = 2·(W/2·s)/(W·s) − 1 = 0
-    // for every s; drop the ·s and the NDC collapses, so the centre point would miss at s != 1.
+    // Centre logical point maps to NDC (0,0) at every scale; dropping the *s would break at s != 1.
     [TestCase(0.5f)]
     [TestCase(1.0f)]
     [TestCase(2.0f)]
@@ -84,8 +72,7 @@ public class HitTestRenderScaleTests
         camera.Dispose();
     }
 
-    // Negative guard: an off-axis logical point that clears the sphere must MISS at every scale, proving the
-    // conversion is consistent rather than that everything always hits.
+    // Negative guard: an off-axis point must miss at every scale.
     [TestCase(0.5f)]
     [TestCase(1.0f)]
     [TestCase(2.0f)]
@@ -108,8 +95,7 @@ public class HitTestRenderScaleTests
         camera.Dispose();
     }
 
-    // The load-bearing invariant in isolation: Renderer3D.ToDevice (× scale) composed with the NDC formula must
-    // map the logical centre to NDC (0,0) at every scale. Deleting the × scale would collapse it to (−1, +1).
+    // Logical centre must map to NDC (0,0) at every scale.
     [TestCase(0.5f)]
     [TestCase(1.0f)]
     [TestCase(2.0f)]
@@ -127,10 +113,7 @@ public class HitTestRenderScaleTests
         Assert.That(ndcY, Is.EqualTo(0.0).Within(1e-6));
     }
 
-    // End-to-end guard through the REAL Renderer3D: render the sphere at SurfaceDensity = scale (device surface
-    // ceil(logical × scale), as Scene3DRenderNode sizes it) and hit-test the LOGICAL centre via the live
-    // Renderer3D.HitTest, which applies its own ToDevice(× SurfaceDensity). Unlike the CPU tests above, this
-    // catches a regression in Renderer3D.ToDevice itself. Requires a 3D-capable GPU; skips otherwise.
+    // End-to-end through real Renderer3D.HitTest. Requires a 3D-capable GPU.
     [TestCase(0.5f)]
     [TestCase(1.0f)]
     [TestCase(2.0f)]

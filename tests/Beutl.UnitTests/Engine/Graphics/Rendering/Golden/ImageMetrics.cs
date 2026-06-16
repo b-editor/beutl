@@ -2,8 +2,7 @@
 
 namespace Beutl.UnitTests.Engine.Graphics.Rendering.Golden;
 
-// Image-quality metrics over RgbaF16 (linear) bitmaps for the feature-003 golden suite.
-// Pure CPU math — no GPU required, so these are unit-testable on their own.
+// Image-quality metrics over RgbaF16 (linear) bitmaps. Pure CPU math.
 internal static class ImageMetrics
 {
     // ITU-R BT.709 luma weights, applied in linear light.
@@ -34,10 +33,7 @@ internal static class ImageMetrics
         return sum / (pixels * 3);
     }
 
-    /// <summary>
-    /// Global (single-window) SSIM over linear luminance of two same-size bitmaps. Returns 1.0 for
-    /// identical inputs; a conservative proxy sufficient for golden gating.
-    /// </summary>
+    /// <summary>Global SSIM over linear luminance. Returns 1.0 for identical inputs.</summary>
     public static double Ssim(Bitmap a, Bitmap b)
     {
         EnsureComparable(a, b);
@@ -77,10 +73,7 @@ internal static class ImageMetrics
     }
 
     /// <summary>
-    /// Windowed SSIM: the MINIMUM SSIM over non-overlapping <paramref name="windowSize"/>×<paramref name="windowSize"/>
-    /// tiles (linear luminance). The worst tile dominates, so a localized defect (a thin mis-scaled edge band)
-    /// cannot hide — unlike the global <see cref="Ssim"/>, where a large matching background dilutes it below the
-    /// threshold. Returns 1.0 for identical inputs. Use ALONGSIDE the global SSIM as a localized-defect floor.
+    /// Minimum SSIM over non-overlapping tiles. A localized defect cannot hide in the global average.
     /// </summary>
     public static double WindowedSsim(Bitmap a, Bitmap b, int windowSize = 16)
     {
@@ -149,13 +142,7 @@ internal static class ImageMetrics
     }
 
     /// <summary>
-    /// Mean squared gradient (horizontal + vertical adjacent luminance differences) — a proxy for
-    /// high-frequency / aliasing energy. A supersampled render should report less than a 1:1 render.
-    /// <para>
-    /// <b>DIAGNOSTIC-ONLY (I8):</b> unit-tested in isolation (<c>ImageMetricsTests</c>) but NOT a supersample
-    /// gate — on the actual test patterns its difference wobbled within noise, so <c>ExportSupersampleTests</c>
-    /// gates on MAE-to-ground-truth (a clearer, monotone signal) plus an SSIM no-degradation tolerance instead.
-    /// </para>
+    /// Mean squared gradient (adjacent luminance differences) -- a proxy for aliasing energy. Diagnostic only.
     /// </summary>
     public static double AliasingEnergy(Bitmap bitmap)
     {
@@ -190,9 +177,7 @@ internal static class ImageMetrics
     }
 
     /// <summary>
-    /// Returns a label + pixel coordinate for the first non-finite (NaN / ±Inf) RGBA component across the
-    /// given bitmaps, or <c>null</c> if all are finite. A non-finite render makes <see cref="Ssim"/> return
-    /// NaN, so callers gate on this first — a non-finite render is a driver/blur artifact, not a parity result.
+    /// Returns the first non-finite (NaN/Inf) RGBA component across the given bitmaps, or null if all finite.
     /// </summary>
     public static string? FirstNonFinite(params (string label, Bitmap bitmap)[] bitmaps)
     {

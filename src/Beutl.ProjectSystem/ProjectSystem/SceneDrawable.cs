@@ -175,10 +175,7 @@ public sealed partial class SceneDrawable : Drawable
             if (frame == null)
                 return [];
 
-            // FR-022/FR-019b: the nested scene must inherit the outer render scale and working-scale ceiling, else a
-            // supersampled export rasterizes the inner scene at 1x and the root CTM upscales it (soft). OutputScale and
-            // MaxWorkingScale are immutable per outer renderer, so this rebuild fires at most once; an outer-scale
-            // change rebuilds the whole node tree anyway.
+            // Inherit the outer render scale so nested scenes are not rasterized at 1x and upscaled.
             float w = context.OutputScale;
             var size = frame.Value.Size;
             if (_renderer == null
@@ -200,13 +197,7 @@ public sealed partial class SceneDrawable : Drawable
                     {
                         renderer.Render(frame.Value);
                         RenderTarget renderTarget = Renderer.GetInternalRenderTarget(renderer);
-                        // The inner surface is ceil(size × w) device px. A bare point-blit is device-1:1-correct only
-                        // when the buffer is density-1 (w == 1) AND the draw canvas is device-1:1 (canvas.Density == 1),
-                        // so gate on both, mirroring EffectTarget.Draw. Keying off canvas.Density too lets a flush
-                        // canvas at density != 1 (an FR-037(b) clamp / raised supply) take the Mitchell-resampled
-                        // scaled blit instead of a NEAREST point-blit; that scaled path draws into the LOGICAL bounds
-                        // so the canvas's baked base CTM CreateScale(density) maps the denser buffer onto the device
-                        // surface (crisp under SSAA export). w == 1 and density == 1 stays byte-identical.
+                        // Point-blit only when both buffer and canvas are at density 1; otherwise use scaled blit.
                         if (w == 1f && canvas.Density == 1f)
                         {
                             canvas.DrawRenderTarget(renderTarget, default);
@@ -216,8 +207,6 @@ public sealed partial class SceneDrawable : Drawable
                             canvas.DrawRenderTargetScaled(renderTarget, bounds);
                         }
                     },
-                    // A fixed-resolution nested-scene buffer is concrete bitmap supply at density w (FR-019b),
-                    // never the re-rasterizable Unbounded — so a parent boundary reconciles it honestly.
                     effectiveScale: EffectiveScale.At(w))
             ];
         }

@@ -75,11 +75,7 @@ public partial class MosaicEffect : FilterEffect
 
             // child shaderとしてテクスチャ用のシェーダーを設定
             builder.Children["src"] = baseShader;
-            // feature 003 (FR-013): the shader runs in device-pixel space over a ceil(bounds × w) buffer, so the
-            // logical tile size scales by w to stay logically constant. A Relative origin already resolves to device
-            // px (ToPixels), but an Absolute origin is logical and passes through ToPixels unchanged, so it scales by
-            // w too. w == 1 leaves every value byte-identical. Use ResolveTargetDensity — the clamped density (FR-037(b))
-            // that CreateTarget itself applies — so the device-px uniforms match the buffer.
+            // Scale tile size by working density so uniforms match the device-px buffer.
             float w = c.ResolveTargetDensity(effectTarget.Bounds);
             var (bufW, bufH) = CustomFilterEffectContext.DeviceBufferSize(effectTarget.Bounds, w);
             builder.Uniforms["tileSize"] = new Size(data.tileSize.Width * w, data.tileSize.Height * w).ToSKSize();

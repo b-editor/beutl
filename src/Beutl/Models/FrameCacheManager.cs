@@ -162,11 +162,6 @@ public sealed partial class FrameCacheManager : IDisposable
         }
     }
 
-    /// <summary>
-    /// True once <see cref="Dispose"/> ran. The render work-item checks this before using a manager read
-    /// from the reactive property, because a rebuild-by-replacement swap briefly leaves the property
-    /// exposing the previous, already-disposed instance. Volatile: read cross-thread by the render loop.
-    /// </summary>
     private volatile bool _isDisposed;
 
     public bool IsDisposed => _isDisposed;

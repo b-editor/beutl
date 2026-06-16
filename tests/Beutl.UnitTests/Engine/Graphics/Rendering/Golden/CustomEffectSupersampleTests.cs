@@ -8,11 +8,7 @@ using Beutl.UnitTests.Engine.Graphics.Backend;
 
 namespace Beutl.UnitTests.Engine.Graphics.Rendering.Golden;
 
-// feature 003 (#3 / FR-009 / FR-013): a render-target ("Custom") effect allocates ceil(bounds × w)
-// buffers and scales its absolute-length pixel params by w, so supersampled export gains REAL device
-// density without changing logical appearance (mosaic tiles stay logical size). This is the faithfulness
-// gate EffectScaleSurvey cannot provide: that one passes purely via the root CTM and would pass unchanged
-// even with the WorkingScale machinery deleted.
+// Custom effects allocate ceil(bounds * w) buffers and scale absolute-length params by w.
 [NonParallelizable]
 [TestFixture]
 public class CustomEffectSupersampleTests
@@ -115,10 +111,7 @@ public class CustomEffectSupersampleTests
         });
     }
 
-    // feature 003: the Scale and Rotation displacement transforms carry the same device-space uPivot × w
-    // logic as Translate (DisplacementMapTransform.cs), but only Translate was covered. A non-zero Center
-    // exercises the pivot: an unscaled uPivot would pivot the warp around the wrong device point at w != 1,
-    // making the supersampled-then-downscaled image diverge from the 1:1 warp.
+    // Scale/Rotation displacement transforms must also scale uPivot by w.
     private static Drawable.Resource MakeDisplacedShape(DisplacementMapTransform transform)
     {
         var shape = new RectShape();

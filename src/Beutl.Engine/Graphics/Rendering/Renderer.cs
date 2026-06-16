@@ -44,9 +44,6 @@ public class Renderer : IRenderer
 
     public Renderer(int width, int height, float renderScale = 1f, float maxWorkingScale = float.PositiveInfinity)
     {
-        // Sanitize the request scale once here so OutputScale, DeviceSize, and every downstream
-        // RenderNodeContext / RenderNodeProcessor inherit one positive-finite density — a 0/NaN/∞
-        // would corrupt DeviceSize = ceil(width × scale).
         float outputScale = float.IsFinite(renderScale) && renderScale > 0f ? renderScale : 1f;
         FrameSize = new PixelSize(width, height);
         OutputScale = outputScale;
@@ -68,12 +65,8 @@ public class Renderer : IRenderer
 
     ~Renderer()
     {
-        // A finalizer must never throw — an unhandled exception here aborts the process. If the constructor
-        // threw partway, the canvas / surface fields were never assigned, so dispose them null-safely. Each
-        // step is guarded independently (not one try/catch over the whole body) so an early throw can't skip
-        // releasing the GPU surface, the costliest leak; failures are logged at Debug rather than swallowed.
-        // IsDisposed is set first so concurrent readers on the render thread see the flag before resources
-        // are torn down; a finalizer runs at most once, so the single-pass invariant holds regardless.
+        // A finalizer must never throw. Each step is guarded independently so a failure cannot
+        // skip releasing the GPU surface.
         if (IsDisposed)
             return;
 
@@ -124,22 +117,16 @@ public class Renderer : IRenderer
 
     public PixelSize FrameSize { get; }
 
-    /// <summary>
-    /// The output scale <c>s_out</c> this renderer targets (feature 003): device pixels per logical unit
-    /// at the root. <c>1.0</c> = logical == device. <see cref="FrameSize"/> stays logical.
-    /// </summary>
+    /// <summary>Output scale <c>s_out</c> (device px per logical unit). <see cref="FrameSize"/> stays logical.</summary>
     public float OutputScale { get; }
 
-    /// <summary>
-    /// The working-scale ceiling for this renderer (feature 003, FR-037): preview passes <c>2 × s_out</c>;
-    /// export passes <c>+∞</c> (no quality ceiling — the delivery render follows the true supply density,
-    /// allocatability backstopped per-buffer by <see cref="RenderNodeContext.ClampWorkingScaleToBufferBudget"/>).
-    /// The constructor default <c>+∞</c> is also what non-render-request callers get. It only caps boundaries
-    /// that resolve a working scale above it.
-    /// </summary>
+    /// <summary>Working-scale ceiling. Preview: <c>2 * s_out</c>; export: <c>+Inf</c>.</summary>
     public float MaxWorkingScale { get; }
 
-    /// <summary>The physical backing-surface size, <c>ceil(FrameSize × OutputScale)</c>.</summary>
+    /// <summary>
+    /// The physical backing-surface size, <c>ceil(FrameSize × OutputScale)</c>.
+    /// Ceiling preserves fractional edge pixels; only place OutputScale sizes a surface.
+    /// </summary>
     public PixelSize DeviceSize { get; }
 
     public void Dispose()
@@ -178,11 +165,6 @@ public class Renderer : IRenderer
             {
                 _immediateCanvas.Clear();
 
-                // Root output scale (feature 003): the canvas bakes a base CTM CreateScale(OutputScale) at
-                // construction, mapping logical content onto the ceil(FrameSize × OutputScale) device surface
-                // — vector / text / Skia-filter content re-rasterizes crisply. OutputScale == 1 is a no-op
-                // base (byte-identical). The FPS overlay re-enters device space itself (FpsText.FpsDrawer.Dispose
-                // -> PushDeviceSpace), so it stays unscaled despite the pinned base.
                 RenderObjects(frame);
             }
         }
@@ -239,8 +221,6 @@ public class Renderer : IRenderer
         }
 
         entry.Bounds = bounds;
-        // Forward this renderer's scale pair so the cache rasterizes at the render density under the
-        // FR-037 ceiling, not at the processor defaults (density 1 / +∞).
         RenderNodeCacheHelper.MakeCache(entry.Node, CacheOptions, OutputScale, MaxWorkingScale);
         return entry;
     }
@@ -338,10 +318,7 @@ public class Renderer : IRenderer
         for (int i = _allCurrentEntries.Count - 1; i >= 0; i--)
         {
             Entry entry = _allCurrentEntries[i];
-            // Pull with the SAME scale pair as the render pass: Process is scale-stateful (Scene3D resizes
-            // its Renderer3D, particles re-rasterize on a scale flip), so a default-scale pull would thrash
-            // that state every hit test and escape the FR-037 ceiling. Hit-test results stay logical, so
-            // this doesn't change them.
+            // Same scale pair as the render pass to avoid thrashing scale-stateful nodes.
             var processor = new RenderNodeProcessor(entry.Node, CacheOptions.IsEnabled, OutputScale, MaxWorkingScale);
             var arr = processor.PullToRoot();
             try
@@ -401,7 +378,6 @@ public class Renderer : IRenderer
     {
         return [.. _allCurrentEntries.Where(e => e.Node.Drawable?.Resource.GetOriginal().ZIndex == zIndex).Select(e =>
         {
-            // Same scale pair as the render pass — see HitTest for why a default-scale pull is wrong here.
             var processor = new RenderNodeProcessor(e.Node, CacheOptions.IsEnabled, OutputScale, MaxWorkingScale);
             var ops = processor.PullToRoot();
             Rect bounds = Rect.Empty;

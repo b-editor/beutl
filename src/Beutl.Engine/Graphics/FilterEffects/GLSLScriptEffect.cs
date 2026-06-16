@@ -89,15 +89,10 @@ public sealed partial class GLSLScriptEffect : FilterEffect
         (float progress, float duration, float time, GLSLShader shader, string? compileError) data,
         CustomFilterEffectContext c)
     {
-        // FR-014: the compute shader iterates the device-pixel texture (ceil(bounds × w)), so the resolution
-        // push constants report device px at the CLAMPED density CreateTarget resolves (FR-037(b)) so the
-        // uniforms match the buffer. Unchanged (byte-identical) at w == 1.
+        // Push constants report device px at the clamped buffer density.
         data.shader.Apply(c, target =>
         {
             float w = c.ResolveTargetDensity(target.Bounds);
-            // Report the exact device dimensions the buffer is allocated at (ceil(bounds × w), or the (int)
-            // truncation at w == 1), so a shader deriving its working scale from Width/Height agrees with the
-            // texture it iterates instead of the un-ceiled bounds × w.
             (int devW, int devH) = CustomFilterEffectContext.DeviceBufferSize(target.Bounds, w);
             return new PushConstants
             {
@@ -106,17 +101,13 @@ public sealed partial class GLSLScriptEffect : FilterEffect
                 Time = data.time,
                 Width = devW,
                 Height = devH,
-                // Working scale w (clamped buffer density), mirroring SKSL's iScale: multiply an absolute-px
-                // literal by Scale to keep it logical across scales. A shader ignoring Scale is unaffected,
-                // and at w == 1 Scale == 1 (byte-identical).
                 Scale = w
             };
         });
     }
 
-    // Field order MUST match the GLSL `layout(push_constant)` block (progress/duration/time/width/height/scale).
-    // 6 floats = 24 bytes, within the 128-byte push-constant range VulkanPipeline3D hard-codes
-    // (the upload is sized dynamically from sizeof(T)).
+    // Field order must match the GLSL `layout(push_constant)` block.
+    // Total size must stay within VulkanPipeline3D's 128-byte push-constant range.
     [StructLayout(LayoutKind.Sequential)]
     private struct PushConstants
     {

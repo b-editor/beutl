@@ -5,10 +5,7 @@ using Beutl.UnitTests.Engine.Graphics.Backend;
 
 namespace Beutl.UnitTests.Engine.Graphics.Rendering;
 
-// feature 003 (#6, FR-037(b)): when CreateTarget clamps the working scale down to keep an inflated buffer
-// allocatable, the target reports the CLAMPED density and Open() tags its canvas with the same density, so a
-// consumer deriving its working scale from the target stays in sync with the buffer (no draw at the un-clamped
-// density into a smaller buffer). Unclamped, the target's density equals the context's WorkingScale.
+// When CreateTarget clamps working scale for buffer budget, Open() must tag the canvas with the clamped density.
 [NonParallelizable]
 [TestFixture]
 public class CustomTargetClampConsistencyTests
@@ -41,9 +38,7 @@ public class CustomTargetClampConsistencyTests
         VulkanTestEnvironment.EnsureAvailable();
         VulkanTestEnvironment.InvokeOnRenderThread(() =>
         {
-            // 10000 logical px × w 2.0 = 20000 device px > the 16384 per-axis limit, so CreateTarget reduces
-            // the density to fit (≈ 2 × 16384 / 20000 = 1.6384). The narrow (height 1) second axis keeps the
-            // surface tiny (~16384 × 2 px) so a constrained CI GPU need not allocate a multi-hundred-MiB buffer.
+            // 10000 * 2.0 = 20000 > 16384 limit, so density is clamped.
             var bounds = new Rect(0, 0, 10000, 1);
             CustomFilterEffectContext context = Context(workingScale: 2f);
             using EffectTarget target = context.CreateTarget(bounds);
@@ -54,8 +49,7 @@ public class CustomTargetClampConsistencyTests
             float expectedFit = RenderNodeContext.ClampWorkingScaleToBufferBudget(bounds, 2f);
             Assert.That(target.Scale.Value, Is.EqualTo(expectedFit).Within(1e-4));
 
-            // The fix: Open tags the canvas with the CLAMPED density, so a consumer pushing
-            // CreateScale(target.Scale.Value) draws into the buffer at its real density.
+            // Open must tag the canvas with the clamped density.
             using ImmediateCanvas canvas = context.Open(target);
             Assert.That(canvas.SurfaceDensity, Is.EqualTo(target.Scale.Value).Within(1e-4),
                 "Open must tag the canvas with the clamped density (#6 desync fix), not context.WorkingScale (2.0)");

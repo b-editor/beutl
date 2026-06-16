@@ -97,13 +97,8 @@ public sealed partial class SKSLScriptEffect : FilterEffect
                 builder.Uniforms["duration"] = data.duration;
             if (effect.Uniforms.Contains("time"))
                 builder.Uniforms["time"] = data.time;
-            // FR-014: the shader evaluates in device px over a ceil(bounds × w) buffer, so resolution
-            // uniforms report device px. Normalized-uv shaders are unaffected; absolute-px shaders read
-            // iScale = w; at w == 1 every value is byte-identical. Use the same clamped density (FR-037(b))
-            // CreateTarget itself resolves, so the uniforms can never drift from the allocated buffer.
+            // Resolution uniforms report device px at the clamped buffer density.
             float w = c.ResolveTargetDensity(effectTarget.Bounds);
-            // Report the buffer's exact allocated device dimensions, not un-ceiled bounds × w: at fractional
-            // bounds the latter let an iResolution-normalized shader overrun ~1 px past 1.0 on the last row/column.
             (int devW, int devH) = CustomFilterEffectContext.DeviceBufferSize(effectTarget.Bounds, w);
             if (effect.Uniforms.Contains("width"))
                 builder.Uniforms["width"] = (float)devW;

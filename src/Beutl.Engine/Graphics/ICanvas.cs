@@ -7,16 +7,16 @@ namespace Beutl.Graphics;
 
 public interface ICanvas : IDisposable, IPopable
 {
-    /// <summary>The declared LOGICAL viewport (feature 003); the base CTM maps it onto <see cref="DeviceSize"/>.</summary>
+    /// <summary>The declared logical viewport; the base CTM maps it onto <see cref="DeviceSize"/>.</summary>
     Size LogicalSize => new(DeviceSize.Width, DeviceSize.Height);
 
-    /// <summary>The physical backing-surface size in device pixels (feature 003).</summary>
+    /// <summary>The physical backing-surface size in device pixels.</summary>
     PixelSize DeviceSize { get; }
 
-    /// <summary>Device pixels per unit of the CURRENT coordinate space (feature 003); 1 inside <see cref="PushDeviceSpace"/>.</summary>
+    /// <summary>Device pixels per unit of the current coordinate space; 1 inside <see cref="PushDeviceSpace"/>.</summary>
     float Density => 1f;
 
-    /// <summary>The immutable device-pixels-per-logical-unit the surface is rasterized at (feature 003).</summary>
+    /// <summary>The immutable device-pixels-per-logical-unit the surface is rasterized at.</summary>
     float SurfaceDensity => 1f;
 
     bool IsDisposed { get; }
@@ -64,9 +64,7 @@ public interface ICanvas : IDisposable, IPopable
     PushedState PushTransform(Matrix matrix, TransformOperator transformOperator = TransformOperator.Prepend);
 
     /// <summary>
-    /// feature 003: for the returned state's lifetime, enter absolute device space (CTM identity, <see cref="Density"/> = 1)
-    /// so device-px content (a contour traced from the device buffer, a point-blit of another device buffer,
-    /// a full-buffer shader rect) draws onto a density-aware canvas.
+    /// Enter absolute device space (CTM identity, <see cref="Density"/> = 1) for device-px drawing.
     /// </summary>
     PushedState PushDeviceSpace() => Push();
 }
@@ -89,11 +87,7 @@ internal sealed class TmpBackdrop(Bitmap bitmap, float captureScale) : IBackdrop
 {
     public void Draw(ImmediateCanvas canvas)
     {
-        // feature 003 (CSM-3/CSM3-1): the capture is the device-sized backing surface (ceil(frame × captureScale) px).
-        // Un-scale by the capture's SurfaceDensity, NOT the replay canvas's density: a backdrop replayed inside a
-        // buffer-flushing FilterEffect runs on a nested canvas whose SurfaceDensity is the buffer's working density w
-        // (≠ the capture density), so keying off it would mis-size under the flush's baked CreateScale(w) base CTM.
-        // Mapping into its logical footprint lets the active CTM map it back. captureScale == 1 = bare blit.
+        // Un-scale by the capture's density, not the replay canvas's density.
         if (captureScale == 1f)
         {
             canvas.DrawBitmap(bitmap, Brushes.Resource.White, null);

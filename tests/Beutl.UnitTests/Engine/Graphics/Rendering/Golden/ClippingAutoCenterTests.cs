@@ -144,9 +144,7 @@ public class ClippingAutoCenterTests
         });
     }
 
-    // AutoClip detects content margins in DEVICE px and converts them to logical via / w (Clipping.cs:99-106,
-    // commit 73e87ea7b). A negative-margin (expand) Clipping makes a transparent margin for AutoClip to crop
-    // back; the supersampled result must keep the same logical appearance.
+    // AutoClip detects margins in device px and converts to logical via /w.
     private static Drawable.Resource MakeAutoClipChain()
     {
         var shape = new RectShape();

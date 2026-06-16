@@ -49,21 +49,13 @@ internal sealed class Renderer3D : IRenderer3D
     public int Height { get; private set; }
 
     /// <summary>
-    /// Surface density (device px per logical unit): <see cref="Width"/>/<see cref="Height"/> are
-    /// <c>ceil(logical × SurfaceDensity)</c>. Hit-test entry points take LOGICAL coordinates
-    /// (<c>Scene3D.RenderWidth/Height</c> space) and multiply by this before building the NDC ray;
-    /// without it, picking is off by <c>1 / SurfaceDensity</c> on a reduced-scale preview.
-    /// Set by <c>Scene3DRenderNode</c> alongside <see cref="Resize"/>.
+    /// Device px per logical unit. Hit-test entry points multiply logical coordinates by this.
     /// </summary>
     public float SurfaceDensity { get; set; } = 1f;
 
     public void Initialize(int width, int height)
     {
-        // Commit the fields (and Width/Height) only after every allocation succeeds. CreateTexture2D / a pass
-        // Initialize can throw (e.g. an over-limit vkCreateImage). Committing Width/Height first would leave a
-        // half-built renderer, and Scene3DRenderNode's size-equality guard would then skip re-init on every later
-        // same-size frame — dropping the 3D op forever even after a transient failure clears. On failure, dispose
-        // what was built and rethrow with Width/Height untouched so the next frame retries cleanly.
+        // Commit Width/Height only after all allocations succeed, so a failure is retryable.
         ShadowManager? shadowManager = null;
         GeometryPass? geometryPass = null;
         LightingPass? lightingPass = null;
@@ -120,9 +112,7 @@ internal sealed class Renderer3D : IRenderer3D
         if (Width == width && Height == height)
             return;
 
-        // Build-then-commit: allocate all new resources into locals first. If any allocation throws, the
-        // old fields stay intact (same pattern as Initialize) so the caller can discard the renderer cleanly
-        // instead of being stuck in a half-resized state.
+        // Allocate into locals first; old fields stay intact on failure.
         GeometryPass? geometryPass = null;
         LightingPass? lightingPass = null;
         TransparentPass? transparentPass = null;
@@ -160,7 +150,6 @@ internal sealed class Renderer3D : IRenderer3D
             throw;
         }
 
-        // Commit: dispose the old passes that were replaced, then swap in the new ones.
         if (_lightingPass != lightingPass) _lightingPass?.Dispose();
         if (_transparentPass != transparentPass) _transparentPass?.Dispose();
         if (_gizmoPass != gizmoPass) _gizmoPass?.Dispose();

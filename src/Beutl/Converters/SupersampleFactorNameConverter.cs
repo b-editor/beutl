@@ -3,10 +3,7 @@ using Avalonia.Data.Converters;
 
 namespace Beutl.Converters;
 
-/// <summary>
-/// Maps an export supersampling factor to its display name (feature 003, US4):
-/// <c>1</c> → localized "Off", any other factor → "<c>N×</c>". One-way; used from ComboBox item templates.
-/// </summary>
+/// <summary>Converts a supersampling factor to a display name: 1 becomes "Off", others become "Nx".</summary>
 public sealed class SupersampleFactorNameConverter : IValueConverter
 {
     public static readonly SupersampleFactorNameConverter Instance = new();

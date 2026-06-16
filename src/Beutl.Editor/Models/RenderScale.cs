@@ -3,20 +3,12 @@ using Beutl.Media;
 
 namespace Beutl.Models;
 
-// NOTE (feature 003): lives in Beutl.Editor (not the app exe) so the pure s_out mapping is unit-testable;
-// namespace stays Beutl.Models so existing `using Beutl.Models;` call sites are unaffected.
-
 /// <summary>
-/// Preview render-quality selector (feature 003, US4). Per edit view, non-persisted. Resolves to
-/// the renderer's output scale <c>s_out</c>, always clamped to <c>(0, 1]</c> — preview never upscales.
+/// Preview render-quality selector. Resolves to the renderer output scale, clamped to (0, 1].
 /// </summary>
 public enum RenderScale
 {
-    /// <summary>
-    /// Full resolution: <c>s_out = 1.0</c>. NOT identical to export — preview caps working scale at
-    /// <c>2 × s_out</c> while export has no ceiling (FR-037), so a scene whose supply density exceeds 2 runs
-    /// resolution-sensitive effects at a different working scale than the exported result.
-    /// </summary>
+    /// <summary>Full resolution: output scale 1.0.</summary>
     Full,
 
     /// <summary>Half resolution: <c>s_out = 0.5</c>.</summary>
@@ -31,14 +23,9 @@ public enum RenderScale
 
 public static class RenderScaleExtensions
 {
-    // A sane floor so a degenerate previewer size can never produce s_out = 0.
     private const float MinScale = 1f / 64f;
 
-    /// <summary>
-    /// Resolves the output scale <c>s_out</c> for this quality level. <paramref name="frameSize"/> is
-    /// the scene's logical frame size; <paramref name="previewSize"/> is the on-screen previewer size.
-    /// The result is always clamped to <c>[MinScale, 1]</c> (preview never upscales beyond full).
-    /// </summary>
+    /// <summary>Resolves the output scale for this quality level, clamped to [MinScale, 1].</summary>
     public static float ToFloat(this RenderScale scale, PixelSize frameSize, Size previewSize)
     {
         float s = scale switch
@@ -53,12 +40,7 @@ public static class RenderScaleExtensions
         return Math.Clamp(s, MinScale, 1f);
     }
 
-    /// <summary>
-    /// Resolves the output scale <c>s_out</c> for a render request. Fixed levels pass through
-    /// <see cref="ToFloat"/>; <see cref="RenderScale.FitToPreviewer"/> snaps to 0.05 steps to bound
-    /// renderer-rebuild churn during edge drags, then is re-floored to <c>MinScale</c> so the snap can never
-    /// reach 0 (which would size the surface 0×0 and throw on renderer construction). Always in <c>[MinScale, 1]</c>.
-    /// </summary>
+    /// <summary>Resolves the output scale, snapping FitToPreviewer to 0.05 steps to reduce rebuild churn.</summary>
     public static float ResolveOutputScale(this RenderScale scale, PixelSize frameSize, Size previewSize)
     {
         float s = scale.ToFloat(frameSize, previewSize);

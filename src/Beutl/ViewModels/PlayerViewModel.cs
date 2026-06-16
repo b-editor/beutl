@@ -71,23 +71,14 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
         Scene = editViewModel.Scene;
         _isEnabled = editViewModel.IsEnabled;
 
-        // feature 003 (US4): a rebuilt FrameCacheManager starts from the global default options and
-        // drops the panel-derived reduced cache size until the next panel resize (the MaxFrameSize
-        // setter's equality guard suppresses reapplication). Reapply the derived size to every new
-        // instance. Subscribed BEFORE the re-render trigger below so the options land before the repaint.
+        // Reapply panel-derived cache size to every rebuilt FrameCacheManager instance.
         editViewModel.FrameCacheManager
             .Skip(1)
             .Subscribe(ApplyMaxFrameSizeToCacheOptions)
             .DisposeWith(_disposables);
 
-        // feature 003 (US4): re-render the current frame whenever the renderer is rebuilt — preview-
-        // quality changes, FitToPreviewer panel resizes, and frame-size edits all rebuild the
-        // (Renderer, FrameCacheManager) pair; without this the stale old-scale bitmap stays stretched
-        // until the next scrub. Per amended FR-031 the pair is swapped as two UI-thread reactive
-        // properties (NOT one atomic swap), and EditViewModel derives FrameCacheManager FROM the
-        // Renderer observable, so the cache swap is structurally LAST — triggering on it (not the
-        // Renderer swap) guarantees the work-item reads a coherent (new renderer, new cache) pair and
-        // supersedes any frame an in-flight item produced from the narrow tear window, healing it.
+        // Re-render when the (Renderer, FrameCacheManager) pair is rebuilt. Triggering on cache
+        // (derived from Renderer) ensures both halves are coherent when the work-item reads them.
         editViewModel.FrameCacheManager
             .Skip(1)
             .Subscribe(_ => QueueRender())
@@ -458,9 +449,6 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
         }
     }
 
-    // Writes the (pure) PreviewFrameCacheSizing.DeriveCacheSize result into the given manager. Called
-    // from the MaxFrameSize setter and from the FrameCacheManager rebuild subscription so a fresh
-    // manager inherits the panel-derived reduced size.
     private void ApplyMaxFrameSizeToCacheOptions(FrameCacheManager frameCacheManager)
     {
         frameCacheManager.Options = frameCacheManager.Options with
@@ -1639,11 +1627,7 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
     public TaskCompletionSource<Rect>? TcsForCrop { get; private set; }
 
     /// <summary>
-    /// Measures the logical pixel size <paramref name="drawable"/> renders into, at <c>s_out = 1</c>
-    /// (feature 003, US4 follow-up). The save-frame dialog uses this so its output-size preview and
-    /// buffer-limit guard reflect the element's actual bounds, which can exceed the scene frame.
-    /// Builds the same node tree as <see cref="DrawSelectedDrawable"/> but only pulls the operations
-    /// to union their bounds, then disposes them without rasterizing.
+    /// Measures the logical pixel size <paramref name="drawable"/> renders into at unit scale.
     /// </summary>
     public async Task<PixelSize> MeasureSelectedDrawable(Drawable drawable)
     {
@@ -1674,12 +1658,7 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
     }
 
     /// <summary>
-    /// Renders <paramref name="drawable"/> on its own at output scale <paramref name="outputScale"/>
-    /// (feature 003, US4 follow-up). The node tree is built in logical FrameSize coordinates; the
-    /// processor rasterizes at <paramref name="outputScale"/>, so the bitmap is sized
-    /// <c>ceil(elementBounds × outputScale)</c>. <c>outputScale == 1</c> is byte-identical to the
-    /// pre-feature path. Uses the export path's working scale (no quality ceiling — <c>+∞</c>) so a
-    /// saved element can afford export fidelity rather than the preview's memory-bounded ceiling.
+    /// Renders <paramref name="drawable"/> on its own at the given <paramref name="outputScale"/>.
     /// </summary>
     public async Task<Bitmap> DrawSelectedDrawable(Drawable drawable, float outputScale = 1f)
     {
@@ -1721,10 +1700,7 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
                 var compositionFrame = renderer.Compositor.EvaluateGraphics(CurrentFrame.Value);
                 renderer.Render(compositionFrame);
 
-                // feature 003 (US4): the preview renderer draws onto a ceil(FrameSize × OutputScale)
-                // surface, but copy / save / region-crop operate in logical FrameSize coordinates, so
-                // normalize the snapshot to exactly FrameSize (OutputScale == 1 returns it unchanged —
-                // byte-identical). Without this, Half/Quarter preview corrupts those features.
+                // Normalize snapshot to logical FrameSize (no-op when OutputScale == 1).
                 Bitmap snapshot = renderer.Snapshot();
                 Bitmap normalized = SupersampleDownscaler.ToFrameSize(snapshot, renderer.FrameSize, renderer.OutputScale);
                 if (!ReferenceEquals(normalized, snapshot))
@@ -1742,20 +1718,13 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
     }
 
     /// <summary>
-    /// Renders the current frame once at <c>s_out = 1.0</c> on a throwaway renderer, regardless of
-    /// the active preview quality (feature 003, US4). Copy-to-clipboard paths use this so a reduced
-    /// preview scale is never baked into the copied image — unlike <see cref="DrawFrame"/>, which
-    /// upscales the preview render and so preserves size but not information.
+    /// Renders the current frame at full scale on a throwaway renderer, ignoring preview quality.
     /// </summary>
     public Task<Bitmap> DrawFrameAtFullScale() => DrawFrameAtScale(1f);
 
     /// <summary>
-    /// Renders the current frame once at output scale <paramref name="outputScale"/> on a throwaway
-    /// renderer, regardless of the active preview quality (feature 003, US4 follow-up). The save-frame
-    /// dialog uses this so the user can pick the output resolution: the surface is sized
-    /// <c>ceil(FrameSize × outputScale)</c> and the snapshot is returned as-is (no normalization).
-    /// <c>outputScale == 1</c> yields a full-fidelity FrameSize image, unlike <see cref="DrawFrame"/>,
-    /// which bakes in the preview scale.
+    /// Renders the current frame at <paramref name="outputScale"/> on a throwaway renderer,
+    /// ignoring preview quality. The surface is <c>ceil(FrameSize * outputScale)</c>.
     /// </summary>
     public async Task<Bitmap> DrawFrameAtScale(float outputScale)
     {
@@ -1765,13 +1734,7 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
         {
             if (Scene == null) throw new Exception("Scene is null.");
 
-            // Mirror OutputViewModel's one-shot export renderer: disableResourceShare so this render
-            // does not mutate Drawable resources owned by the live preview compositor, and the export
-            // path's working scale (no quality ceiling — +∞, allocatability backstopped per-buffer)
-            // instead of the preview's memory-bounded 2 × s_out — one interactive frame can afford
-            // export fidelity. Threading: this whole closure runs on the render thread, which all of
-            // the Renderer ctor (its internal RenderThread.Dispatcher.Invoke runs inline) / Render /
-            // Snapshot / Dispose require.
+            // Throwaway renderer with disableResourceShare to avoid mutating live preview resources.
             using var renderer = new SceneRenderer(Scene, renderScale: outputScale, disableResourceShare: true,
                 maxWorkingScale: WorkingScaleCeiling.Export());
             renderer.CacheOptions = RenderCacheOptions.Disabled;
@@ -1779,7 +1742,7 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
             var compositionFrame = renderer.Compositor.EvaluateGraphics(CurrentFrame.Value);
             renderer.Render(compositionFrame);
 
-            // The surface is exactly ceil(FrameSize × outputScale); save it as-is (no normalization pass).
+            // Surface is ceil(FrameSize * outputScale); return as-is.
             return renderer.Snapshot();
         });
     }

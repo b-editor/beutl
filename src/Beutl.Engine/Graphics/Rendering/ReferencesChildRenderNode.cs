@@ -22,8 +22,7 @@ public class ReferencesChildRenderNode(RenderNode? child) : RenderNode
     {
         if (Child != null && !Child.IsDisposed)
         {
-            // FR-037: forward the working-scale ceiling into the nested pull; otherwise the child subtree
-            // defaults to +inf and a high-density source there escapes the preview cap.
+            // Forward the working-scale ceiling into the nested pull.
             var processor = new RenderNodeProcessor(
                 Child, context.IsRenderCacheEnabled, context.OutputScale, context.MaxWorkingScale);
             return processor.PullToRoot();

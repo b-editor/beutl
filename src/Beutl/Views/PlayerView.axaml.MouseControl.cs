@@ -974,8 +974,7 @@ public partial class PlayerView
         {
             try
             {
-                // feature 003 (US4): copy renders at s_out = 1.0 — preview-scaled DrawFrame would
-                // upscale a Half/Quarter render to FrameSize, baking reduced quality into the clipboard.
+                // Render at full scale to avoid baking preview quality into the clipboard.
                 using Bitmap frame = await ViewModel.DrawFrameAtFullScale();
                 using Bitmap croped = CropFrame(frame, rect);
 

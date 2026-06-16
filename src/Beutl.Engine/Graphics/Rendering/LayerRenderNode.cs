@@ -19,12 +19,7 @@ public class LayerRenderNode(Rect limit) : ContainerRenderNode
 
     public override RenderNodeOperation[] Process(RenderNodeContext context)
     {
-        // feature 003: this SaveLayer flatten owns no buffer (PushLayer == SaveLayer) — the render lambda
-        // re-renders children into the consumer's canvas at the consumer's CTM, and a concrete child resamples
-        // at its own DrawSurface/DrawRenderTarget blit (FR-017). So, like the other SaveLayer wrappers
-        // (Opacity/BlendMode/OpacityMask — data-model.md), this reports EffectiveScale.Unbounded: it re-rasterizes
-        // at any working scale and must NOT pin a parent boundary to a child's density (which would drag a
-        // re-rasterizable vector sibling down).
+        // SaveLayer flatten with no owned buffer; reports Unbounded since it re-rasterizes at any scale.
         return
         [
             RenderNodeOperation.CreateLambda(

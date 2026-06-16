@@ -113,9 +113,7 @@ public partial class ColorShift : FilterEffect
 
             // child shaderとしてテクスチャ用のシェーダーを設定
             builder.Children["src"] = baseShader;
-            // feature 003: the shader runs in device px over the ceil(bounds × w) buffer, so the per-channel
-            // absolute-px offsets scale by the working density (w == 1 keeps the byte-identical pre-feature path).
-            // ResolveTargetDensity gives the clamped density CreateTarget resolves (FR-037(b)), so the uniforms match the buffer.
+            // Scale offsets by working density so they match the device-px buffer.
             float w = context.ResolveTargetDensity(bounds);
             builder.Uniforms["redOffset"] = new SKPoint(data.RedOffset.X * w, data.RedOffset.Y * w);
             builder.Uniforms["greenOffset"] = new SKPoint(data.GreenOffset.X * w, data.GreenOffset.Y * w);

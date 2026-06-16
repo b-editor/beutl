@@ -58,10 +58,7 @@ public partial class DisplacementMapEffect : FilterEffect
                     for (int i = 0; i < effectContext.Targets.Count; i++)
                     {
                         EffectTarget effectTarget = effectContext.Targets[i];
-                        // feature 003: create the target first so the map brush uses the buffer's real
-                        // post-clamp density (newTarget.Scale.Value), not nominal WorkingScale which would
-                        // mis-densify a clamped buffer (FR-037(b)). Its baked Scale(1/w) then matches Open's
-                        // base CTM CreateScale(w). Analytic brushes ignore w; w == 1 is byte-identical.
+                        // Create target first so the map brush uses the buffer's post-clamp density.
                         var newTarget = effectContext.CreateTarget(effectTarget.Bounds);
                         float w = newTarget.Scale.Value;
                         using var displacementMapShader =

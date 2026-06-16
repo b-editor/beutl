@@ -51,7 +51,7 @@ public class ExportSupersampleTests
             // exercises the trilinear + mipmaps branch (scale > 2), not a test-only Mitchell.
             using Bitmap delivered = SupersampleDownscaler.ToFrameSize(supersampledHi, Frame, factor);
 
-            // Export delivers exactly FrameSize (FR-026).
+            // Export delivers exactly FrameSize.
             Assert.That(delivered.Width, Is.EqualTo(Frame.Width), "delivered width == FrameSize");
             Assert.That(delivered.Height, Is.EqualTo(Frame.Height), "delivered height == FrameSize");
 
@@ -61,9 +61,7 @@ public class ExportSupersampleTests
             double mae11 = ImageMetrics.MeanAbsoluteError(oneToOne, truth);
             TestContext.WriteLine($"vs truth @ {factor}x: SSIM ss={ssimSS:F4} 1:1={ssim11:F4} | MAE ss={maeSS:F4} 1:1={mae11:F4}");
 
-            // Supersampled output is STRICTLY closer to ground truth than the 1:1 render (SC-009) — the SSAA
-            // quality signal. An aliasing-energy gate is unreliable here: this scene is only mildly aliased, so
-            // its high-frequency energy wobbles within noise while MAE-to-truth clearly drops.
+            // Supersampled output must be strictly closer to ground truth than 1:1.
             Assert.That(maeSS, Is.LessThan(mae11), "supersampled MAE-to-truth not strictly < 1:1");
             // ...and structurally no worse (within the pinned margin).
             Assert.That(ssimSS, Is.GreaterThanOrEqualTo(ssim11 - GoldenThresholds.SupersampleSsimMargin),

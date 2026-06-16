@@ -64,20 +64,14 @@ public sealed partial class EditViewModel : IEditorContext, ISupportAutoSaveEdit
         _editorSelection = new EditorSelectionImpl()
             .DisposeWith(_disposables);
 
-        // feature 003 (US4): per-edit-view, non-persisted preview render quality (SaveState/RestoreState
-        // never touch it). Changing it rebuilds the renderer + frame cache at the new output scale.
         PreviewScale = new ReactivePropertySlim<RenderScale>(RenderScale.Full)
             .DisposeWith(_disposables);
 
-        // feature 003 (US4): on-screen previewer size (physical px, pushed by the player view), consulted
-        // only by RenderScale.FitToPreviewer. Default (unknown) makes Fit fall back to full.
+        // On-screen previewer size (physical px), used by RenderScale.FitToPreviewer.
         PreviewSurfaceSize = new ReactivePropertySlim<Beutl.Graphics.Size>(default)
             .DisposeWith(_disposables);
 
-        // Resolve s_out from (frame size, quality, previewer size), then rebuild only when the resolved
-        // scale changes (DistinctUntilChanged). For Full/Half/Quarter the previewer size is irrelevant so
-        // panel resizes are absorbed; ResolveOutputScale snaps FitToPreviewer to 0.05 steps so dragging
-        // the previewer edge does not thrash the rebuild.
+        // Rebuild only when the resolved output scale actually changes (DistinctUntilChanged).
         IObservable<(PixelSize FrameSize, float OutputScale)> frameSizeAndScale =
             scene.GetObservable(Scene.FrameSizeProperty)
                 .CombineLatest(PreviewScale, PreviewSurfaceSize,
@@ -85,17 +79,11 @@ public sealed partial class EditViewModel : IEditorContext, ISupportAutoSaveEdit
                 .DistinctUntilChanged();
 
         Renderer = frameSizeAndScale
-            // feature 003 (FR-037): cap the preview working scale so a high-density source cannot blow up
-            // preview buffer memory (export passes its own generous cap). Ceiling policy is centralized in
-            // WorkingScaleCeiling — see S3.
             .Select(t => new SceneRenderer(Scene, t.OutputScale, maxWorkingScale: WorkingScaleCeiling.Preview(t.OutputScale)))
             .DisposePreviousValue()
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables)!;
-        // SceneComposer is scale-independent (audio has no output resolution), so it must NOT ride the
-        // Renderer rebuild chain: every preview-quality change would dispose/recreate it for nothing and
-        // widen ComposeAudioAsync's use-after-dispose window. Keep its pre-feature-003 lifetime: rebuild by
-        // replacement only when the scene's frame size changes.
+        // SceneComposer is scale-independent; rebuild only on frame-size changes.
         Composer = scene.GetObservable(Scene.FrameSizeProperty)
             .Select(_ => new SceneComposer(Scene))
             .DisposePreviousValue()
@@ -104,11 +92,7 @@ public sealed partial class EditViewModel : IEditorContext, ISupportAutoSaveEdit
 
         EditorConfig config = GlobalConfiguration.Instance.EditorConfig;
 
-        // Rebuilt whenever (FrameSize, OutputScale) changes, so frames cached at one preview scale are
-        // never served at another. Derived from the Renderer observable, NOT from frameSizeAndScale, so
-        // the two swaps are ordered: when the FrameCacheManager swap notifies subscribers, Renderer.Value
-        // is already the matching new instance. A consumer needing the coherent pair
-        // (PlayerViewModel.QueueRender) therefore subscribes the FrameCacheManager swap, the last of the two.
+        // Derived from Renderer so the swap is ordered: cache subscribers see the new Renderer.
         FrameCacheManager = Renderer
             .Select(r => new FrameCacheManager(r.FrameSize, CreateFrameCacheOptions()) { IsEnabled = config.IsFrameCacheEnabled })
             .DisposePreviousValue()
@@ -350,27 +334,17 @@ public sealed partial class EditViewModel : IEditorContext, ISupportAutoSaveEdit
 
     public ReadOnlyReactivePropertySlim<SceneRenderer> Renderer { get; }
 
-    /// <summary>
-    /// Per-edit-view preview render quality (feature 003, US4). Non-persisted: defaults to
-    /// <see cref="RenderScale.Full"/> every session and is never written by SaveState/RestoreState.
-    /// Changing it rebuilds <see cref="Renderer"/> and <see cref="FrameCacheManager"/> by replacement —
-    /// two reactive properties swapped independently on the UI thread (amended FR-031); the narrow tear
-    /// window is self-healed by the re-queued render.
-    /// </summary>
+    /// <summary>Per-edit-view preview render quality. Non-persisted; rebuilds Renderer and FrameCacheManager.</summary>
     public ReactivePropertySlim<RenderScale> PreviewScale { get; }
 
-    /// <summary>Selectable preview-quality options for the preview-scale picker (feature 003, US4).</summary>
+    /// <summary>Selectable preview-quality options for the preview-scale picker.</summary>
     public RenderScale[] PreviewScaleOptions { get; } = Enum.GetValues<RenderScale>();
 
     IReactiveProperty<RenderScale> IPreviewRenderQuality.PreviewScale => PreviewScale;
 
     IReadOnlyList<RenderScale> IPreviewRenderQuality.PreviewScaleOptions => PreviewScaleOptions;
 
-    /// <summary>
-    /// The on-screen previewer surface size in physical device pixels (feature 003, US4), pushed by the
-    /// player view. Consumed only by <see cref="RenderScale.FitToPreviewer"/> to derive the output scale.
-    /// Non-persisted; <c>default</c> (unknown) makes Fit fall back to full.
-    /// </summary>
+    /// <summary>On-screen previewer surface size in physical pixels, used by FitToPreviewer.</summary>
     public ReactivePropertySlim<Beutl.Graphics.Size> PreviewSurfaceSize { get; }
 
     public ReadOnlyReactivePropertySlim<SceneComposer> Composer { get; }

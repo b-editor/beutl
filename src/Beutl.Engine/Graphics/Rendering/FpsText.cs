@@ -61,9 +61,7 @@ internal sealed class FpsText
                     bounds = bounds.Union(text.Bounds);
                 }
 
-                // feature 003: the root canvas bakes a never-popped base CTM CreateScale(s_out), and the
-                // FpsDrawer disposes after the scene Push pops, so the overlay would otherwise draw at s_out×.
-                // Enter device space to keep it unscaled. s_out == 1 is a no-op (byte-identical).
+                // Draw in device space so the FPS overlay is not affected by the output scale.
                 using (canvas.PushDeviceSpace())
                 {
                     canvas.DrawRectangle(bounds, s_background, null);

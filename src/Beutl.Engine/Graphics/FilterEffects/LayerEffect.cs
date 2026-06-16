@@ -14,9 +14,7 @@ public partial class LayerEffect : FilterEffect
             {
                 var bounds = ctx.Targets.CalculateBounds();
                 var newTarget = ctx.CreateTarget(bounds);
-                // feature 003: ctx.Open bakes the base CTM scale from the target's density (so an FR-037(b)
-                // buffer-budget clamp is honored), mapping logical child placement onto the device buffer
-                // automatically. No manual prescale; density 1 stays byte-identical.
+                // ctx.Open bakes the base CTM scale from the target's density.
                 using (var canvas = ctx.Open(newTarget))
                 {
                     canvas.Clear();

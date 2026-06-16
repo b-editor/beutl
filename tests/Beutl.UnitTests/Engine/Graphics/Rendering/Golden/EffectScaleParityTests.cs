@@ -8,11 +8,8 @@ using Beutl.UnitTests.Engine.Graphics.Backend;
 
 namespace Beutl.UnitTests.Engine.Graphics.Rendering.Golden;
 
-// feature 003: every render-target ("Custom") effect with an absolute-length pixel parameter must scale that
-// parameter by the working density, so the supersampled (s_out = 2) result keeps the same logical appearance as
-// the 1:1 render. SSIM(1:1, 2x-delivered) > 0.95 = scale-correct; a large drop = an un-scaled device-density
-// parameter (the DisplacementMap-class bug). The white-filled rotated rect's edges / interior tiling are
-// high-frequency enough to expose a wrong-density parameter.
+// Every Custom effect with an absolute-length parameter must scale it by w, keeping logical appearance
+// across supersample scales. SSIM(1:1, 2x-delivered) > 0.95 = scale-correct.
 [NonParallelizable]
 [TestFixture]
 public class EffectScaleParityTests
@@ -90,8 +87,7 @@ public class EffectScaleParityTests
         }));
         yield return new TestCaseData("StrokeEffect-Offset", (Func<FilterEffect>)(() =>
         {
-            // The absolute-length Offset must ride the working density (applied inside the w-prescaled canvas);
-            // a non-zero offset is the scale-sensitive case the plain StrokeEffect case omits.
+            // Non-zero offset is the scale-sensitive case the plain StrokeEffect case omits.
             var pen = new Pen();
             pen.Thickness.CurrentValue = 14;
             pen.Brush.CurrentValue = Brushes.Red;
@@ -102,7 +98,7 @@ public class EffectScaleParityTests
         }));
         yield return new TestCaseData("StrokeEffect-Foreground", (Func<FilterEffect>)(() =>
         {
-            // Foreground draw-ordering branch (source drawn AFTER the stroke) at supersample.
+            // Foreground draw-ordering branch at supersample.
             var pen = new Pen();
             pen.Thickness.CurrentValue = 14;
             pen.Brush.CurrentValue = Brushes.Red;
@@ -114,8 +110,7 @@ public class EffectScaleParityTests
         }));
         yield return new TestCaseData("TransformEffect", (Func<FilterEffect>)(() =>
         {
-            // Rotate + non-uniform scale: the rotated buffer must be placed at the working density, not at
-            // logical size on a w× device buffer (which shifted it off-position and clipped it before).
+            // Rotate + non-uniform scale: buffer must be placed at working density.
             var group = new TransformGroup();
             var rot = new RotationTransform();
             rot.Rotation.CurrentValue = 45f;
@@ -130,8 +125,7 @@ public class EffectScaleParityTests
         }));
         yield return new TestCaseData("TransformEffect-Filter", (Func<FilterEffect>)(() =>
         {
-            // ApplyToTarget == false routes through the Skia matrix ImageFilter (rides the root CTM, needs no
-            // ×w). Guards that the non-buffer branch also keeps its logical appearance under supersampling.
+            // ApplyToTarget == false routes through the Skia matrix ImageFilter (non-buffer branch).
             var group = new TransformGroup();
             var rot = new RotationTransform();
             rot.Rotation.CurrentValue = 45f;
@@ -146,13 +140,11 @@ public class EffectScaleParityTests
             return e;
         }));
         yield return new TestCaseData("PartsSplit", (Func<FilterEffect>)(() =>
-            // Contour readback path: contours are traced in DEVICE px and the per-part bounds must come back
-            // to LOGICAL via ÷w before CreateTarget re-densifies them. No other case covers that branch.
+            // Contour readback: contours in device px must convert to logical via /w.
             new PartsSplitEffect()));
         yield return new TestCaseData("LayerEffect-AfterSplit", (Func<FilterEffect>)(() =>
         {
-            // Split into 9 parts first so LayerEffect flattens MULTIPLE targets: covers both the Scale(w)
-            // prescale branch and the logical per-target placement (t.Bounds.Position - bounds.Position).
+            // Split into 9 parts so LayerEffect flattens multiple targets at the working density.
             var split = new SplitEffect();
             split.HorizontalDivisions.CurrentValue = 3;
             split.VerticalDivisions.CurrentValue = 3;
@@ -166,8 +158,7 @@ public class EffectScaleParityTests
         yield return new TestCaseData("SKSLScript-Border", (Func<FilterEffect>)(MakeSkslBorderEffect));
         yield return new TestCaseData("FlatShadow-AbsoluteGradient", (Func<FilterEffect>)(() =>
         {
-            // Absolute-unit gradient endpoints in the shadow brush: before the FlatShadow brush fix these were
-            // interpreted as DEVICE px (gradient compressed by 1/w at w != 1). 160 logical px must stay 160.
+            // Absolute-unit gradient endpoints must stay in logical px.
             var grad = new LinearGradientBrush();
             grad.StartPoint.CurrentValue = new RelativePoint(0, 0, RelativeUnit.Absolute);
             grad.EndPoint.CurrentValue = new RelativePoint(160, 0, RelativeUnit.Absolute);
@@ -181,9 +172,7 @@ public class EffectScaleParityTests
         }));
         yield return new TestCaseData("FlatShadow-PerlinNoise", (Func<FilterEffect>)(() =>
         {
-            // Perlin shadow brush: before the fix the noise was generated in DEVICE space (w× finer than the
-            // same brush on the main canvas). BaseFrequency 2 → 50-logical-px period, far from Nyquist at 1x,
-            // so the 2x parity comparison is not confounded by downsampling loss.
+            // Perlin shadow brush: noise must be in logical space, not device space.
             var noise = new PerlinNoiseBrush();
             noise.BaseFrequencyX.CurrentValue = 2f;
             noise.BaseFrequencyY.CurrentValue = 2f;
@@ -197,9 +186,7 @@ public class EffectScaleParityTests
         }));
         yield return new TestCaseData("Mosaic-AbsoluteOrigin", (Func<FilterEffect>)(() =>
         {
-            // Absolute-unit Origin: a LOGICAL anchor point that must scale by w (RelativePoint.ToPixels passes
-            // Absolute values through unchanged). Before the fix the grid anchor landed at 1/w of the intended
-            // position at w != 1, shifting every block boundary along the rect's edges.
+            // Absolute-unit Origin must scale by w.
             var e = new MosaicEffect();
             e.TileSize.CurrentValue = new Size(16, 16);
             e.Origin.CurrentValue = new RelativePoint(50, 30, RelativeUnit.Absolute);
@@ -207,10 +194,7 @@ public class EffectScaleParityTests
         }));
         yield return new TestCaseData("DisplacementMap-DrawableMap", (Func<FilterEffect>)(() =>
         {
-            // Non-gradient (DrawableBrush) displacement map: exercises the tile-brush density path of the map
-            // child shader (rasterize at w + Scale(1/w) compensation composed with the Scale(w) wrapper).
-            // Mostly coverage: the wrapper already fixes position, so the residual density defect is soft map
-            // edges — a weaker SSIM signal than the FlatShadow / Mosaic cases.
+            // Non-gradient (DrawableBrush) displacement map: exercises the tile-brush density path.
             var stripes = new LinearGradientBrush();
             stripes.StartPoint.CurrentValue = new RelativePoint(0, 0, RelativeUnit.Absolute);
             stripes.EndPoint.CurrentValue = new RelativePoint(24, 0, RelativeUnit.Absolute);
@@ -239,9 +223,7 @@ public class EffectScaleParityTests
         }));
     }
 
-    // Border whose thickness is a FIXED LOGICAL width (10 px): iScale converts it to device px and
-    // iResolution anchors the right/bottom edges — both uniforms are load-bearing, so an un-×w'd
-    // iResolution or a missing iScale shifts/thins the border and breaks 2x parity.
+    // Border whose thickness is a fixed logical width (10 px): iScale and iResolution are both load-bearing.
     private const string SkslBorderScript =
         """
         uniform shader src;
@@ -287,26 +269,9 @@ public class EffectScaleParityTests
     {
         VulkanTestEnvironment.EnsureAvailable();
 
-        // A non-finite (NaN/±Inf) pixel makes SSIM NaN, which would assert as a misleading "scale diverged"
-        // failure even though parity was never measured. Two distinct causes produce non-finite output, told
-        // apart by determinism, not by non-finiteness alone:
-        //   * a software-Vulkan (SwiftShader) blur artifact (heaviest case: InnerShadow's sigma×w blur) lands on
-        //     a different, run-varying pixel each render — nondeterministic GPU garbage, not a scale defect; vs
-        //   * a genuine scale-parity defect (an absolute-px parameter left unscaled by the working density) is
-        //     deterministic — it corrupts the same pixel(s) every render, and may itself emit NaN/Inf.
-        // So re-render a few times and compare where the non-finite pixel lands: a location identical on every
-        // attempt is a real defect → FAIL; a moving location is the environmental artifact → INCONCLUSIVE
-        // (parity is verified on a hardware GPU, e.g. MoltenVK, where the blur is finite). Gating on
-        // non-finiteness alone would silently Ignore a deterministic NaN-producing regression. Assert.Fail /
-        // Assert.Ignore are raised on the test thread, not inside InvokeOnRenderThread, where an IgnoreException
-        // would be wrapped in an AggregateException and surface as an error instead of an ignore.
-        //
-        // feature 003 (I8 de-masking fix): scan the SCALED renders (2x / 2x-delivered) and the 1:1 reference
-        // SEPARATELY, not as one ordered FirstNonFinite list. The old single-list scan returned the first
-        // non-finite in (1:1, 2x, 2x-delivered) order, so a 1:1-reference artifact (common for the InnerShadow
-        // blur on CI SwiftShader) masked a simultaneous scale-parity NaN in the 2x render — the gate then
-        // Ignored a real defect. Tracking them apart lets a deterministic scaled NaN FAIL whenever the reference
-        // was finite (so the baseline is trustworthy), while a broken reference stays inconclusive.
+        // Non-finite pixels (SwiftShader blur artifact vs real scale defect) are distinguished by
+        // determinism: same location on every attempt = real defect (FAIL); moving = artifact (INCONCLUSIVE).
+        // Reference and scaled renders are scanned separately so a broken reference does not mask a scaled defect.
         const int maxAttempts = 3;
         var attempts = new List<(string? Ref, string? Scaled)>();
         VulkanTestEnvironment.InvokeOnRenderThread(() =>
@@ -330,16 +295,10 @@ public class EffectScaleParityTests
                     return;
                 }
 
-                // Parity is measurable on this attempt: discard any earlier transient non-finite records so the
-                // post-closure verdict cannot misread a recovered run as a persistent one.
+                // Parity is measurable: discard earlier transient non-finite records.
                 attempts.Clear();
                 double ssim = ImageMetrics.Ssim(r1, delivered);
-                // Log the windowed (min-tile) SSIM as a diagnostic alongside the global gate. A hard min-tile
-                // floor is deliberately not asserted: an effect with legitimate hard structural boundaries (e.g.
-                // PartsSplit/Split) leaves a correct supersample→downsample render with a low worst-tile SSIM
-                // (~0.47 observed) even at a global SSIM of ~0.997, so a universal floor false-fails. The
-                // windowed metric's discriminating power is locked in by ImageMetricsTests instead; this records
-                // per-effect worst-tile values so a maintainer can set per-effect baselines on hardware.
+                // Windowed SSIM logged as diagnostic only (no universal floor; structural effects can be low).
                 double windowed = ImageMetrics.WindowedSsim(r1, delivered, 16);
                 TestContext.WriteLine($"[{name}] 2x-delivered vs 1:1 SSIM={ssim:F4} windowed-min={windowed:F4}");
                 Assert.That(ssim, Is.GreaterThan(0.95),
@@ -350,12 +309,10 @@ public class EffectScaleParityTests
 
         if (attempts.Count == maxAttempts)
         {
-            // Reference finite on at least one attempt → the baseline is trustworthy there, so a persistent
-            // scaled NaN cannot be dismissed as "the reference is broken".
+            // Reference finite on at least one attempt means baseline is trustworthy.
             bool refEverFinite = attempts.Any(a => a.Ref is null);
 
-            // Strip the trailing "= {value}" so we compare where the non-finite component landed (label + x/y/c),
-            // not the exact NaN/Inf bit pattern, which can differ even at the same pixel.
+            // Compare location only (strip value), not the exact NaN/Inf bit pattern.
             bool scaledAllNonFinite = attempts.All(a => a.Scaled is not null);
             string[] scaledLocations = attempts
                 .Where(a => a.Scaled is not null)
@@ -363,9 +320,7 @@ public class EffectScaleParityTests
                 .ToArray();
             bool scaledDeterministic = scaledAllNonFinite && scaledLocations.Distinct().Count() == 1;
 
-            // A deterministic non-finite confined to the SCALED render, with a finite 1:1 reference, is a genuine
-            // scale-parity defect (an absolute-px parameter the scale path mis-handled), no longer maskable by a
-            // simultaneous reference artifact. Fail hard.
+            // Deterministic non-finite in scaled render with finite reference = real scale defect.
             if (scaledDeterministic && refEverFinite)
             {
                 Assert.Fail($"{name}: the SCALED render produced a non-finite pixel at the SAME location on all "
@@ -375,11 +330,7 @@ public class EffectScaleParityTests
                     + "artifact.");
             }
 
-            // A non-finite 1:1 (w=1) reference is by construction not a scale-parity defect: w=1 is the
-            // byte-identity baseline (every scale code path is a no-op there), so a NaN there means the reference
-            // itself is broken — a software-Vulkan (SwiftShader) blur artifact (empirically only inside the full
-            // GPU suite on the CI amd64 runner, never on arm64/MoltenVK). Treat both that and a run-varying
-            // scaled NaN as inconclusive — parity is verified on a hardware GPU.
+            // Non-finite 1:1 reference or run-varying scaled NaN = inconclusive (SwiftShader artifact).
             bool refBroken = attempts.All(a => a.Ref is not null);
             string detail = refBroken
                 ? "the 1:1 (w=1) reference is non-finite on every attempt — the byte-identity baseline is broken "
@@ -465,9 +416,7 @@ public class EffectScaleParityTests
         }
     }
 
-    // Vacuity guard for the SKSLScript-Border parity case: a script that silently failed to compile would
-    // no-op and the parity test would pass without testing anything. Require that it compiles and that the
-    // bordered render visibly differs from an effect-free render.
+    // Vacuity guard: the SKSL border must compile and visibly change the render.
     [Test]
     public void SkslBorderScript_CompilesAndApplies()
     {

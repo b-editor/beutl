@@ -3,11 +3,7 @@ using Avalonia.Data.Converters;
 
 namespace Beutl.Converters;
 
-/// <summary>
-/// One-way ComboBox-template converter mapping a save-frame output-resolution multiplier to "<c>N×</c>".
-/// Unlike <see cref="SupersampleFactorNameConverter"/>, <c>1</c> shows as "1×" not "Off", since this is an
-/// output resolution, not a quality toggle.
-/// </summary>
+/// <summary>Converts a save-frame scale multiplier to a display string like "2x".</summary>
 public sealed class SaveFrameScaleNameConverter : IValueConverter
 {
     public static readonly SaveFrameScaleNameConverter Instance = new();

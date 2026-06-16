@@ -11,10 +11,7 @@ public abstract class RenderNodeOperation : IDisposable
     public abstract Rect Bounds { get; }
 
     /// <summary>
-    /// The supply density this operation's backing pixels exist at (feature 003). Vector / lossless
-    /// operations report <see cref="EffectiveScale.Unbounded"/> (the default) and re-rasterize at any
-    /// target scale; bitmap-backed operations report a concrete density via <see cref="EffectiveScale.At"/>.
-    /// Flows bottom-up so a container can reconcile mixed-scale inputs.
+    /// Supply density: <see cref="EffectiveScale.Unbounded"/> for vector ops, concrete <see cref="EffectiveScale.At"/> for bitmaps.
     /// </summary>
     public virtual EffectiveScale EffectiveScale => EffectiveScale.Unbounded;
 
@@ -41,7 +38,6 @@ public abstract class RenderNodeOperation : IDisposable
         Func<Point, bool>? hitTest = null,
         Action? onDispose = null)
     {
-        // A decorator inherits its child's supply density (Unbounded for vector children).
         return CreateLambda(child.Bounds, render, hitTest: hitTest ?? child.HitTest, onDispose: () =>
         {
             child.Dispose();
@@ -61,12 +57,7 @@ public abstract class RenderNodeOperation : IDisposable
     public static RenderNodeOperation CreateFromRenderTarget(
         Rect bounds, Point position, RenderTarget renderTarget, EffectiveScale effectiveScale = default)
     {
-        // feature 003: a concrete-density buffer (At(w)) is resampled once by the active CTM. The scaled dest
-        // takes its SIZE from the buffer footprint (RT pixels ÷ density), NOT from `bounds`, so a downstream
-        // filter that inflated `bounds` cannot stretch it (mirrors EffectTarget.Draw); `bounds.Position` lands
-        // the buffer correctly. A density-1 buffer uses the bare point blit only on a density-1 canvas
-        // (byte-identical pre-feature path); on a scaled canvas the CTM would resample it with NEAREST, so
-        // route it through the Mitchell blit instead — same geometry, consistent kernel.
+        // Dest size comes from the buffer footprint (pixels / density), not from bounds.
         Action<ImmediateCanvas> render = effectiveScale.IsUnbounded || effectiveScale.Value == 1f
             ? canvas =>
             {
@@ -85,9 +76,6 @@ public abstract class RenderNodeOperation : IDisposable
     public static RenderNodeOperation CreateFromSurface(
         Rect bounds, Point position, SKSurface surface, EffectiveScale effectiveScale = default)
     {
-        // feature 003: scaled dest takes its size from the surface footprint (pixels ÷ density), anchored at
-        // bounds.Position — mirroring CreateFromRenderTarget so an inflated `bounds` cannot stretch it.
-        // Density-1 point blit only on a density-1 canvas (see CreateFromRenderTarget).
         Action<ImmediateCanvas> render = effectiveScale.IsUnbounded || effectiveScale.Value == 1f
             ? canvas =>
             {

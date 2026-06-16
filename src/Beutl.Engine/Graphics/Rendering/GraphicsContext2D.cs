@@ -20,21 +20,10 @@ public sealed class GraphicsContext2D(
     // 下位のノードで変更があったとき、上位に伝搬するためのフィールド。Pop時に上位ノードのHasChangesを変更する用。
     private bool _hasChanges;
 
-    /// <summary>
-    /// The logical viewport this build context measures against (feature 003). An exact logical
-    /// <see cref="Size"/> (float), not a rounded device <see cref="PixelSize"/>, because
-    /// <see cref="Drawable.Render"/> feeds it into <c>MeasureCore</c> / <c>GetTransformMatrix</c>, where a
-    /// fractional viewport changes placement / stretch.
-    /// </summary>
+    /// <summary>The logical viewport size (float, not rounded to device pixels).</summary>
     public Size Size => canvasSize;
 
-    /// <summary>
-    /// The output scale <c>s_out</c> this context was built for (feature 003); <see cref="Size"/> stays logical.
-    /// Threaded from every construction site but currently not read by the build phase: <see cref="DrawBackdrop"/>
-    /// keeps a logical region (the root CTM applies the scale) and capture-scale reconciliation (FR-021) happens at
-    /// replay via the snapshot's own capture scale, not this value. Retained as the seam for a future build-phase
-    /// consumer that needs the device footprint here.
-    /// </summary>
+    /// <summary>The output scale <c>s_out</c> this context was built for.</summary>
     public float OutputScale => outputScale;
 
     internal Action<RenderNode>? OnUntracked { get; set; }
@@ -358,11 +347,6 @@ public sealed class GraphicsContext2D(
 
         DrawBackdropRenderNode? next = Next<DrawBackdropRenderNode>();
 
-        // The backdrop's bounds are logical (feature 003): canvasSize is the logical FrameSize and the root CTM
-        // applies OutputScale, so this region is not pre-scaled here. Capture-scale reconciliation (FR-021) happens
-        // at replay: SnapshotBackdropRenderNode / TmpBackdrop map the device-sized capture back to its logical
-        // footprint via the SurfaceDensity it was captured at (CSM-3) — not the replay canvas's density, which
-        // differs on a nested buffer-flush canvas.
         var b = new Rect(canvasSize);
         if (next == null)
         {

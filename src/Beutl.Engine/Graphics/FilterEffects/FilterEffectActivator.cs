@@ -16,30 +16,16 @@ public sealed class FilterEffectActivator(
 
     public EffectTargets CurrentTargets { get; } = targets;
 
-    /// <summary>
-    /// The render request's output scale <c>s_out</c> (feature 003, FR-015), forwarded into the
-    /// <see cref="FilterEffectContext"/> / <see cref="CustomFilterEffectContext"/> it builds so they expose
-    /// the real output scale rather than defaulting to <c>1.0</c>.
-    /// Sanitized to positive-finite (mirrors <see cref="RenderNodeProcessor.OutputScale"/>).
-    /// </summary>
+    /// <summary>The render request's output scale <c>s_out</c>. Sanitized to positive-finite.</summary>
     public float OutputScale { get; } = SanitizePositiveFinite(outputScale, nameof(outputScale));
 
     /// <summary>
-    /// The working density <c>w</c> at which buffer-allocating boundaries rasterize (feature 003,
-    /// FR-009). <c>1.0</c> keeps the exact pre-feature <c>(int)</c>-truncation path (byte-identical).
-    /// The FR-037(b) dimension clamp in <see cref="Flush"/> reduces this in place (monotonically) so the
-    /// <see cref="CustomFilterEffectContext"/> built afterwards sees the density the flushed buffers were
-    /// rasterized at — a custom effect's device math (<c>× WorkingScale</c>) must match its input buffers.
-    /// Sanitized to positive-finite (mirrors <see cref="RenderNodeProcessor.OutputScale"/>).
+    /// Working density <c>w</c> for buffer allocation. Reduced in place by <see cref="Flush"/>
+    /// when the dimension clamp fires. Sanitized to positive-finite.
     /// </summary>
     public float WorkingScale { get; private set; } = SanitizePositiveFinite(workingScale, nameof(workingScale));
 
-    /// <summary>
-    /// The render request's working-scale ceiling (feature 003, FR-037), forwarded into the nested
-    /// canvases this activator opens so pulls started from them (drawable brushes, nested drawables)
-    /// stay under it.
-    /// Sanitized to positive (mirrors <see cref="RenderNodeProcessor.MaxWorkingScale"/>).
-    /// </summary>
+    /// <summary>Working-scale ceiling forwarded into nested canvases. Sanitized to positive.</summary>
     public float MaxWorkingScale { get; } = float.IsNaN(maxWorkingScale) || maxWorkingScale <= 0f
         ? LogAndFallback(maxWorkingScale, nameof(maxWorkingScale), float.PositiveInfinity) : maxWorkingScale;
 
@@ -72,12 +58,7 @@ public sealed class FilterEffectActivator(
             using var paint = Builder.HasFilter() ? new SKPaint() : null;
             paint?.ImageFilter = Builder.GetFilter();
 
-            // feature 003 (FR-037 backstop): re-clamp the working scale against the targets' bounds at the
-            // actual allocation site. The node-level clamp (FilterEffectRenderNode) bounds w against the
-            // pre-effect input bounds, but a Skia blur/shadow/dilate inflates OriginalBounds by sigma×3
-            // BEFORE this flush, so the real buffer ceil(OriginalBounds × w) can still exceed the GPU limit.
-            // Applied UNIFORMLY (min across targets) and written back to WorkingScale so every buffer in this
-            // boundary shares one density; inert when everything fits, so w == 1 stays 1 (byte-identical).
+            // Re-clamp working scale: Skia filters may have inflated OriginalBounds past the node-level clamp.
             for (int i = 0; i < CurrentTargets.Count; i++)
             {
                 float fit = RenderNodeContext.ClampWorkingScaleToBufferBudget(
@@ -95,19 +76,12 @@ public sealed class FilterEffectActivator(
             {
                 EffectTarget target = CurrentTargets[i];
                 float w = WorkingScale;
-                // at w != 1 size the flattened buffer ceil(OriginalBounds × w) device px and prescale by w so
-                // the chain rasterizes at working density; w == 1 keeps the exact (int)-truncation +
-                // translation-only path (byte-identical).
                 int bw = w == 1f ? (int)target.OriginalBounds.Width : (int)MathF.Ceiling(target.OriginalBounds.Width * w);
                 int bh = w == 1f ? (int)target.OriginalBounds.Height : (int)MathF.Ceiling(target.OriginalBounds.Height * w);
                 using RenderTarget? surface = RenderTarget.Create(bw, bh);
 
                 if (surface != null)
                 {
-                    // feature 003: this nested buffer renders at working density w — the canvas bakes the base
-                    // CTM CreateScale(w) (identity at w == 1) and tags its surface density w, so a SourceBackdrop
-                    // captured HERE records its true device density (the backdrop replay un-scales by it).
-                    // w == 1 keeps the byte-identical path.
                     using (var canvas = new ImmediateCanvas(surface, w, MaxWorkingScale,
                                logicalSize: target.OriginalBounds.Size))
                     {
@@ -120,10 +94,6 @@ public sealed class FilterEffectActivator(
                         }
                     }
 
-                    // feature 003: the flattened buffer is a concrete bitmap at the density it was just
-                    // rasterized at, so tag it At(w) — including w == 1. (The old w == 1 path inherited the
-                    // child's Scale, over-reporting the density of a buffer actually flattened at w == 1.)
-                    // At(1) still takes the point-blit branch, so it stays cheap.
                     var newTarget = new EffectTarget(surface, target.Bounds, EffectiveScale.At(w))
                     {
                         OriginalBounds = target.OriginalBounds
@@ -174,8 +144,6 @@ public sealed class FilterEffectActivator(
                         Flush();
                         if (CurrentTargets.Count == 0) return;
 
-                        // WorkingScale here reflects any clamp Flush just applied, so the custom effect's
-                        // device math matches its input buffers' actual density.
                         var customContext = new CustomFilterEffectContext(
                             CurrentTargets, OutputScale, WorkingScale, MaxWorkingScale);
                         custom.Accepts(customContext);
@@ -225,12 +193,8 @@ public sealed class FilterEffectActivator(
             SKSurface innerSurface = t.RenderTarget.Value;
             using SKImage skImage = innerSurface.Snapshot();
 
-            // feature 003: a buffer captured At(w) is ceil(bounds × w) device px; map it back into its
-            // logical footprint so the composed filter stays in logical space. Unbounded / unit-scale keeps
-            // the bare CreateImage (byte-identical). Size the destination from the BUFFER footprint
-            // (device px ÷ density) anchored at t.Bounds.Position — NOT t.Bounds's size — mirroring
-            // EffectTarget.Draw / CreateFromRenderTarget so a downstream filter that inflated Bounds while
-            // the buffer still holds the original area cannot stretch the content.
+            // Dest size from buffer footprint (pixels / density), not from Bounds — Bounds may be
+            // inflated by downstream effects.
             SKImageFilter image;
             if (t.Scale.IsUnbounded || t.Scale.Value == 1f)
             {

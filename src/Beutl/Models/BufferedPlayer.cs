@@ -85,15 +85,7 @@ public sealed class BufferedPlayer : IPlayer
                         break;
                     }
 
-                    // The renderer / frame-cache pair is rebuilt by replacement (and the old instances disposed)
-                    // when the scene's frame size or preview scale changes, e.g. an undo/redo of a Scene Settings
-                    // edit during playback. Re-read the current pair each frame rather than holding the ones
-                    // captured at Start(), or Render()/Snapshot() runs on a disposed renderer and throws. If the
-                    // read lands in the swap window and exposes a disposed instance, stop this producer; the
-                    // finally below records the stop and wakes a waiting consumer so it does not block forever on a
-                    // gone producer. The post-rebuild repaint redraws only the still preview
-                    // (PlayerViewModel.QueueRender), not the playback queue, so playback halts on the last
-                    // buffered frame until the user re-initiates it.
+                    // Re-read the pair each frame; a rebuild-by-replacement may have disposed the old instances.
                     SceneRenderer renderer = _editViewModel.Renderer.Value;
                     FrameCacheManager frameCacheManager = _editViewModel.FrameCacheManager.Value;
                     if (renderer.IsDisposed || frameCacheManager.IsDisposed)

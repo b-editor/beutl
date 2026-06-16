@@ -58,19 +58,12 @@ public sealed class FilterEffectContext : IDisposable
     public Rect OriginalBounds { get; }
 
     /// <summary>
-    /// The render request's output scale <c>s_out</c> (feature 003): the final target only, never a
-    /// ceiling on this effect's working scale.
+    /// The output scale <c>s_out</c> for this render request; never a ceiling on working scale.
     /// </summary>
     public float OutputScale { get; }
 
     /// <summary>
-    /// The density <c>w</c> this effect's intermediate render-target / Custom buffers are allocated at
-    /// (feature 003, FR-009). <see cref="FilterEffectActivator"/> and
-    /// <see cref="CustomFilterEffectContext.CreateTarget"/> both size flushed buffers <c>ceil(bounds × w)</c>;
-    /// a Custom effect multiplies its absolute-length pixel parameters (tile size, displacement, split
-    /// offset) by <see cref="CustomFilterEffectContext.WorkingScale"/>. Skia <c>SKImageFilter</c>
-    /// primitives (blur sigma, shadow offset, dilate/erode radius) are NOT multiplied here — they ride
-    /// the root CTM and re-rasterize crisply for free. <c>1.0</c> keeps the pre-feature path byte-identical.
+    /// The density <c>w</c> at which intermediate buffers are allocated (<c>ceil(bounds * w)</c>).
     /// Resolved per-effect via <see cref="Beutl.Graphics.Rendering.RenderNodeContext.ResolveWorkingScale"/>.
     /// </summary>
     public float WorkingScale { get; }
@@ -176,16 +169,11 @@ public sealed class FilterEffectContext : IDisposable
                     {
                         EffectTarget newTarget = context.CreateTarget(target.Bounds);
                         using (ImmediateCanvas canvas = context.Open(newTarget))
-                        // feature 003: source point-blits and the device-px (× w) sigma/offset all live in device
-                        // space, so composite in absolute device space — Open's base CTM CreateScale(density) would
-                        // otherwise re-scale the point-blits. density 1 = no-op.
+                        // Source point-blits and sigma/offset are device-px; composite in device space.
                         using (canvas.PushDeviceSpace())
                         {
                             canvas.Clear();
-                            // Blur sigma and shadow offset (absolute logical px) scale to device by the buffer's REAL
-                            // density. Read it from the target just created, NOT context.WorkingScale, so a
-                            // buffer-budget clamp (FR-037(b)) keeps the device-px offset/sigma in sync with the
-                            // (smaller) buffer — matching the BlendMode sibling. w == 1 keeps the pre-feature path.
+                            // Read density from the target (may be clamped), not context.WorkingScale.
                             float w = newTarget.Scale.Value;
                             using var blur = SKImageFilter.CreateBlur(data.sigma.Width * w, data.sigma.Height * w);
                             using var blend = SKColorFilter.CreateBlendMode(data.color.ToSKColor(), SKBlendMode.SrcOut);
@@ -449,10 +437,7 @@ public sealed class FilterEffectContext : IDisposable
                 {
                     Size size = target.Bounds.Size;
                     EffectTarget newTarget = context.CreateTarget(target.Bounds);
-                    // feature 003: pass the working density so a tile/image/drawable brush rasterizes at w
-                    // (consumed under the Scale(w) CTM below, which its baked Scale(1/w) compensates);
-                    // analytic brushes ignore it. Read it from the target just created, not context.WorkingScale,
-                    // so a buffer-budget clamp (FR-037(b)) keeps the fill in sync with the buffer. w == 1 no-op.
+                    // Read density from the target (may be clamped), not context.WorkingScale.
                     float w = newTarget.Scale.Value;
                     var c = new BrushConstructor(new(size), data.Brush, data.BlendMode, w, context.MaxWorkingScale);
                     using var brushPaint = new SKPaint();
@@ -461,16 +446,12 @@ public sealed class FilterEffectContext : IDisposable
                     using (ImmediateCanvas newCanvas = context.Open(newTarget))
                     {
                         newCanvas.Clear();
-                        // feature 003: the source is a DEVICE-px point-blit, so blit it in absolute device space
-                        // (Open's base CTM CreateScale(w) would otherwise re-scale it).
+                        // Source is a device-px point-blit; enter device space.
                         using (newCanvas.PushDeviceSpace())
                         {
                             newCanvas.DrawRenderTarget(target.RenderTarget, default);
                         }
 
-                        // The brush + its LOGICAL coverage rect are drawn under the base CTM CreateScale(w), which
-                        // maps them onto the full ceil(bounds × w) device buffer at working density — matching the
-                        // brush's own baked Scale(1/w) compensation. No manual prescale; w == 1 byte-identical.
                         newCanvas.Canvas.DrawRect(SKRect.Create(size.ToSKSize()), brushPaint);
                     }
 

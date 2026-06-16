@@ -82,10 +82,7 @@ public sealed partial class PathFollowEffect : FilterEffect
 
                 var newBounds = target.Bounds.TransformToAABB(m1);
                 var newTarget = effectContext.CreateTarget(newBounds);
-                // feature 003: Open bakes the base CTM CreateScale(density) for the ceil(newBounds × w) device
-                // buffer, density taken from the target so an FR-037(b) clamp is honored. The logical follow
-                // translate/rotation then map onto the device buffer with no manual prescale, since target.Draw
-                // maps an At(w) source into its logical rect; density 1 stays byte-identical.
+                // Open bakes the base CTM from the target's density.
                 using (var canvas = effectContext.Open(newTarget))
                 using (canvas.PushTransform(Matrix.CreateTranslation(target.Bounds.Position - newTarget.Bounds.Position)))
                 using (canvas.PushTransform(m2))

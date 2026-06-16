@@ -4,10 +4,7 @@ using Beutl.Media;
 
 namespace Beutl.UnitTests.Editor;
 
-// CPU unit tests for the export supersampling pre-validation (feature 003, US4). The export root
-// surface is FrameSize × max(1, factor); a surface over RenderNodeContext.MaxBufferDimension on
-// either axis cannot be allocated, so OutputViewModel blocks Encode up-front via this pure helper
-// rather than failing mid-export.
+// CPU tests for export supersampling pre-validation. Blocks Encode when the surface exceeds MaxBufferDimension.
 [TestFixture]
 public class ExportSupersamplingTests
 {

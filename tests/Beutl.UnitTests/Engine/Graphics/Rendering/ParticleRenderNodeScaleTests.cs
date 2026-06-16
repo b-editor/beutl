@@ -5,11 +5,7 @@ using Beutl.UnitTests.Engine.Graphics.Backend;
 
 namespace Beutl.UnitTests.Engine.Graphics.Rendering;
 
-// feature 003 (FR-029): particles have no concrete bitmap input, so the supply-driven working density is just
-// the output scale s_out. ParticleRenderNode rasterizes the per-particle drawable into a ceil(bounds × w) buffer
-// and tags its composite op At(w). These tests assert the emitted op carries a CONCRETE At(w) density (never
-// re-rasterizable Unbounded), at output scales 1.0 and 2.0, so a parent boundary treats the composite as the
-// bitmap it is (FR-019b) instead of re-rasterizing above the pixels it has.
+// ParticleRenderNode rasterizes at s_out and tags its op At(w), never Unbounded.
 [NonParallelizable]
 [TestFixture]
 public class ParticleRenderNodeScaleTests
@@ -32,8 +28,7 @@ public class ParticleRenderNodeScaleTests
             "the particle simulation produced no alive particles at t=1s with default emission");
     }
 
-    // The particle composite is bitmap content at the density its per-particle drawable was rasterized at
-    // (FR-019b): w == s_out, reported concretely (At(w).IsUnbounded == false), even at w == 1.
+    // Particle composite reports At(w) concretely, even at w == 1.
     [TestCase(1.0f)]
     [TestCase(2.0f)]
     public void Process_EmitsOpTaggedAtOutputScale_ConcreteNotUnbounded(float outputScale)

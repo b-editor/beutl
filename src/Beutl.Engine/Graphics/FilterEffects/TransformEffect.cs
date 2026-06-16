@@ -46,11 +46,6 @@ public sealed partial class TransformEffect : FilterEffect
             {
                 context.CustomEffect((mat, originPoint), static (data, effectContext) =>
                 {
-                    // feature 003: source buffer is ceil(bounds × w) DEVICE px (At(w)); the transform math
-                    // (origin pivot, m2, re-center translation) is all LOGICAL. Blit via the scale-aware
-                    // target.Draw, which maps the device buffer back into its logical footprint. Otherwise
-                    // logical-sized content on a w× device buffer lands off position and clips.
-                    // w == 1 keeps the exact (int)-truncation point-blit (byte-identical).
                     effectContext.ForEach((_, target) =>
                     {
                         Vector origin = data.originPoint.ToPixels(target.Bounds.Size);
@@ -60,10 +55,6 @@ public sealed partial class TransformEffect : FilterEffect
                         Matrix m2 = -offset2 * data.mat * offset2;
 
                         EffectTarget newTarget = effectContext.CreateTarget(target.Bounds.TransformToAABB(m1));
-                        // feature 003: Open bakes the base CTM CreateScale(density) for this device buffer, with
-                        // density read from the target so a TransformToAABB-inflated buffer that tripped the
-                        // FR-037(b) clamp is honored. The LOGICAL transform placement then maps on automatically;
-                        // density 1 stays byte-identical.
                         using var canvas = effectContext.Open(newTarget);
                         using (canvas.PushTransform(Matrix.CreateTranslation(target.Bounds.Position - newTarget.Bounds.Position)))
                         using (canvas.PushTransform(m2))

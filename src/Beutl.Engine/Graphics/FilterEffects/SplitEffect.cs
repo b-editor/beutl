@@ -38,10 +38,7 @@ public partial class SplitEffect : FilterEffect
                 {
                     EffectTarget t = effectContext.Targets[i];
                     RenderTarget renderTarget = t.RenderTarget!;
-                    // feature 003: the source is point-blitted into each ceil(tile × w) device tile, so the
-                    // per-tile crop offset scales by w. w == 1 = pre-feature path. The bare WorkingScale is
-                    // clamp-safe here: each tile sub-divides the already-allocatable source bounds, so
-                    // CreateTarget's FR-037(b) clamp returns w unchanged, unlike bounds-inflating effects.
+                    // Per-tile crop offset scales by working density.
                     float w = effectContext.WorkingScale;
 
                     float divWidth = t.Bounds.Width / d.HorizontalDivisions;
@@ -75,8 +72,7 @@ public partial class SplitEffect : FilterEffect
                                         divWidth,
                                         divHeight));
 
-                                // feature 003: the crop offset is DEVICE px (× w), so enter device space —
-                                // Open's base CTM CreateScale(w) would otherwise re-scale it. w == 1 = no-op.
+                                // Crop offset is device px; draw in device space.
                                 using (ImmediateCanvas canvas = effectContext.Open(newTarget))
                                 using (canvas.PushDeviceSpace())
                                 {

@@ -4,9 +4,8 @@ using Beutl.Media;
 
 namespace Beutl.UnitTests.Editor;
 
-// CPU unit tests for the save-frame scale-choice pre-validation (feature 003, US4 follow-up). The save path
-// renders onto a ceil(FrameSize × scale) surface; one larger than RenderNodeContext.MaxBufferDimension on
-// either axis cannot be allocated, so the dialog disables Save up-front rather than failing mid-render.
+// CPU tests for save-frame scale-choice pre-validation. The dialog disables Save when
+// the surface exceeds MaxBufferDimension.
 [TestFixture]
 public class SaveFrameScaleTests
 {
@@ -24,7 +23,7 @@ public class SaveFrameScaleTests
     [Test]
     public void GetRenderSize_FractionalScale_CeilsBothAxes()
     {
-        // Mirrors Renderer.DeviceSize = ceil(FrameSize × scale): 1921 × 0.5 = 960.5 → 961.
+        // ceil(1921 * 0.5) = 961
         (long width, long height) = SaveFrameScale.GetRenderSize(new PixelSize(1921, 1081), 0.5f);
 
         Assert.That((width, height), Is.EqualTo((961L, 541L)));
@@ -34,7 +33,7 @@ public class SaveFrameScaleTests
     [TestCase(-2f)]
     public void GetRenderSize_NonPositiveScale_ClampsToFloor(float scale)
     {
-        // A degenerate multiplier must never size the surface 0×0; it clamps to the 1/64 floor.
+        // Degenerate multiplier clamps to the 1/64 floor.
         (long width, long height) = SaveFrameScale.GetRenderSize(new PixelSize(1920, 1080), scale);
 
         Assert.That((width, height), Is.EqualTo((30L, 17L))); // ceil(1920/64)=30, ceil(1080/64)=16.875→17
@@ -48,8 +47,7 @@ public class SaveFrameScaleTests
         Assert.That(width, Is.EqualTo(int.MaxValue * 4L));
     }
 
-    // Motivating case: an 8K UHD frame at 4× needs 30720 px on the long axis, over the 16384 px per-axis
-    // limit, while 2× (15360 px) still fits.
+    // 8K at 4x = 30720 px > 16384 limit; 2x = 15360 fits.
     [TestCase(7680, 4320, 1f, true)]
     [TestCase(7680, 4320, 2f, true)]
     [TestCase(7680, 4320, 4f, false)]
@@ -77,8 +75,7 @@ public class SaveFrameScaleTests
         Assert.That(SaveFrameScale.Factors, Is.EqualTo(new[] { 0.5f, 1f, 2f, 4f }));
     }
 
-    // A non-empty source always yields a renderable surface (>= 1 px/axis), even at the 0.5 floor; only a
-    // 0-area source (an element that renders nothing) does not, so the save path must not offer it.
+    // A non-empty source always yields >= 1 px/axis; only a 0-area source fails.
     [TestCase(1920, 1080, 1f, true)]
     [TestCase(1920, 1080, 0.5f, true)]
     [TestCase(1, 1, 0.5f, true)] // ceil(1 × 0.5) = 1 on each axis

@@ -50,26 +50,20 @@ public sealed class FrameProviderImpl : IFrameProvider, IDisposable
         _renderer.Render(frame);
         Bitmap snapshot = _renderer.Snapshot();
 
-        // Export supersampling (feature 003, FR-026/FR-034): the renderer drew at ceil(FrameSize ×
-        // OutputScale); resample to exactly FrameSize before encode. OutputScale == 1 returns the
-        // snapshot unchanged (byte-identical export). Shared SupersampleDownscaler kernel so export,
-        // still-frame, and goldens never diverge.
+        // Downscale supersampled render to FrameSize before encode (no-op when OutputScale == 1).
         Bitmap normalized = SupersampleDownscaler.ToFrameSize(snapshot, _renderer.FrameSize, _renderer.OutputScale);
         if (!ReferenceEquals(normalized, snapshot))
         {
             snapshot.Dispose();
         }
 
-        // feature 003 (FR-026): the encode buffer must be exactly the output resolution, or a scale
-        // change causes a stride/size mismatch. The downscale above guarantees this; re-check at runtime
-        // (NOT Debug.Assert — a no-op in Release export, exactly where the encoder memcpy would silently
-        // corrupt on a mismatch) so a SupersampleDownscaler regression fails loudly, not as a torn frame.
+        // Encode buffer must match FrameSize exactly; verify at runtime so a regression fails loudly.
         if (normalized.Width != _renderer.FrameSize.Width || normalized.Height != _renderer.FrameSize.Height)
         {
             string actual = $"{normalized.Width}x{normalized.Height}";
             normalized.Dispose();
             throw new InvalidOperationException(
-                $"Encode buffer {actual} must equal the output frame size {_renderer.FrameSize} (FR-026); " +
+                $"Encode buffer {actual} must equal the output frame size {_renderer.FrameSize}; " +
                 "SupersampleDownscaler failed to normalize the supersampled render to the output resolution.");
         }
 

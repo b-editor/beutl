@@ -222,10 +222,7 @@ public partial class PlayerView : UserControl
                 (float)(size.Width * topLevel.RenderScaling),
                 (float)(size.Height * topLevel.RenderScaling));
             player.MaxFrameSize = deviceSize;
-            // feature 003 (US4): feed the previewer size so RenderScale.FitToPreviewer can fit, but not
-            // during playback — a resize-driven rebuild would dispose the SceneRenderer the playback loop
-            // holds. A resize dropped here is recovered by the IsPlaying false-transition subscription in
-            // OnDataContextChanged, which re-pushes the panel size when playback stops.
+            // Feed previewer size for FitToPreviewer, but skip during playback to avoid mid-play rebuilds.
             if (!player.IsPlaying.Value)
             {
                 player.EditViewModel.PreviewSurfaceSize.Value = deviceSize;
@@ -307,9 +304,7 @@ public partial class PlayerView : UserControl
                 .Subscribe(_ => UpdateTransformHandles())
                 .DisposeWith(_disposables);
 
-            // feature 003 (US4): UpdateMaxFrameSize drops PreviewSurfaceSize pushes while playing, so a
-            // resize during playback would leave FitToPreviewer on a stale size until the next resize.
-            // Re-push the real panel size when playback stops.
+            // Re-push the panel size when playback stops (skipped during playback).
             vm.IsPlaying
                 .Skip(1)
                 .Where(playing => !playing)

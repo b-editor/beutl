@@ -7,14 +7,8 @@ using Beutl.UnitTests.Engine.Graphics.Backend;
 
 namespace Beutl.UnitTests.Engine.Graphics3D;
 
-// feature 003 (DrawableTextureSource density fix): a DrawableTextureSource wrapping a re-rasterizable vector
-// Drawable must rasterize at ceil(authorSize × surfaceDensity) so the label/logo stays sharp on a high-density
-// 3D surface instead of being frozen at the authored pixel count and GPU-magnified.
-// GetTexture(ctx, renderScale) keys the cached render target on the DEVICE size:
-//   - renderScale 1  → device == logical (byte-identity baseline: 256 stays 256)
-//   - renderScale 2  → device == ceil(authorSize × 2) (512)
-// Allocates a real RenderTarget on the render thread, so it SKIPS (Assert.Ignore) when Vulkan / MoltenVK
-// is unavailable rather than failing for lack of a GPU.
+// DrawableTextureSource must rasterize at ceil(authorSize * surfaceDensity) for sharp high-density 3D surfaces.
+// GPU-gated; skips when Vulkan is unavailable.
 [TestFixture]
 public class DrawableTextureSourceDensityTests
 {
@@ -43,15 +37,15 @@ public class DrawableTextureSourceDensityTests
         {
             using DrawableTextureSource.Resource source = MakeVectorTextureSource();
 
-            // renderScale 1: device == logical (byte-identity baseline).
+            // renderScale 1: device == logical.
             ITexture2D? at1 = source.GetTexture(context, 1f);
             Assert.That(at1, Is.Not.Null, "GetTexture(ctx, 1f) returned null on a GPU-available environment");
             int width1 = at1!.Width;
             int height1 = at1.Height;
-            Assert.That(width1, Is.EqualTo(AuthorSize), "renderScale 1 must stay at the authored size (byte-identity)");
+            Assert.That(width1, Is.EqualTo(AuthorSize), "renderScale 1 must stay at the authored size");
             Assert.That(height1, Is.EqualTo(AuthorSize));
 
-            // renderScale 2: device == ceil(256 × 2) = 512, so the cache rebuilds rather than reusing the 256 target.
+            // renderScale 2: device == 512, cache rebuilds.
             ITexture2D? at2 = source.GetTexture(context, 2f);
             Assert.That(at2, Is.Not.Null, "GetTexture(ctx, 2f) returned null on a GPU-available environment");
             int width2 = at2!.Width;

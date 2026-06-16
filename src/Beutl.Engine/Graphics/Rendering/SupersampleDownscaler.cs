@@ -4,17 +4,14 @@ using SkiaSharp;
 namespace Beutl.Graphics.Rendering;
 
 /// <summary>
-/// Resamples a supersampled / device-resolution frame down to the logical output resolution
-/// (feature 003, FR-026/FR-034). Single source of truth for the sampler choice so the export
-/// pipeline (<c>FrameProviderImpl</c>), the editor still-frame path (<c>PlayerViewModel.DrawFrame</c>),
-/// and the golden tests all resample identically.
+/// Resamples a supersampled frame down to the logical output resolution.
 /// </summary>
 public static class SupersampleDownscaler
 {
     /// <summary>
-    /// Returns a bitmap that is exactly <paramref name="target"/> pixels. When <paramref name="source"/>
-    /// is already that size it is returned unchanged (byte-identical); otherwise a new bitmap is returned and
-    /// the caller must dispose <paramref name="source"/>. Use <see cref="object.ReferenceEquals"/> to tell the two cases apart.
+    /// Returns a bitmap at exactly <paramref name="target"/> pixels. When <paramref name="source"/>
+    /// is already that size it is returned unchanged; otherwise a new bitmap is allocated.
+    /// Use <see cref="object.ReferenceEquals"/> to tell the two cases apart.
     /// </summary>
     public static Bitmap ToFrameSize(Bitmap source, PixelSize target, float renderScale)
     {
@@ -39,8 +36,8 @@ public static class SupersampleDownscaler
     }
 
     /// <summary>
-    /// The resample kernel for a given supersample factor (feature 003, SC-009): Mitchell cubic for
-    /// <c>≤ 2×</c>, trilinear + mipmaps for <c>&gt; 2×</c> (e.g. 4×) to avoid undersampling artifacts.
+    /// Resample kernel: Mitchell cubic for &lt;= 2x, trilinear + mipmaps for &gt; 2x.
+    /// Above 2x, mipmaps prevent undersampling artifacts (Moire / ringing).
     /// </summary>
     public static SKSamplingOptions SamplingFor(float renderScale)
         => renderScale > 2f

@@ -7,7 +7,7 @@ using Beutl.UnitTests.Engine.Graphics.Backend;
 
 namespace Beutl.UnitTests.Engine.Graphics.Rendering.Golden;
 
-// US1: a vector scene renders faithfully at a reduced output scale and byte-identically at 1.0.
+// A vector scene renders faithfully at a reduced output scale and deterministically at 1.0.
 [NonParallelizable]
 [TestFixture]
 public class Slice1ReducedScaleTests

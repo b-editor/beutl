@@ -68,9 +68,7 @@ public partial class DelayAnimationEffect : FilterEffect
 
                     if (!data.cache[j].IsEnabled) continue;
 
-                    // feature 003: forward output scale and working density into the nested delay re-application
-                    // so a delay-wrapped buffer effect keeps both (FR-015: a child effect can read OutputScale)
-                    // instead of collapsing to s_out=1 / w=1.
+                    // Forward output scale and working density into the nested re-application.
                     using var childFEContext = new FilterEffectContext(
                         target.Bounds, effectContext.OutputScale, effectContext.WorkingScale);
                     data.childEffect.ApplyTo(childFEContext, data.cache[j]);
@@ -79,8 +77,7 @@ public partial class DelayAnimationEffect : FilterEffect
                     using var singleTargets = new EffectTargets();
                     singleTargets.Add(target.Clone());
                     using var builder = new SKImageFilterBuilder();
-                    // feature 003 (FR-037): forward the working-scale ceiling so a nested pull from a
-                    // delay-wrapped child effect stays under the preview/export cap instead of the +∞ default.
+                    // Forward the working-scale ceiling into the nested pull.
                     using var activator = new FilterEffectActivator(
                         singleTargets, builder, effectContext.OutputScale, effectContext.WorkingScale,
                         effectContext.MaxWorkingScale);

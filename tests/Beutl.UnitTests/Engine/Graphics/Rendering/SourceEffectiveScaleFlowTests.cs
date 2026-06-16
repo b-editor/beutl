@@ -10,11 +10,7 @@ using SkiaSharp;
 
 namespace Beutl.UnitTests.Engine.Graphics.Rendering;
 
-// feature 003 (FR-018, supply-driven model): a bitmap source op carries a CONCRETE supply density. Built-in
-// sources emit At(1) today, but a future proxy/high-res source emits At(0.5) or At(2.0). These integration tests
-// feed a concrete At(d) source through a REAL Custom effect (output op tagged At(w)) and assert end-to-end that
-// w = max(s_out, supply): s_out is a FLOOR, never a ceiling (R2 — a 2.0 source is preserved). The
-// ResolveWorkingScale math is unit-tested separately; this guards the node pipeline.
+// Integration tests: concrete At(d) source through a real Custom effect, asserting w = max(s_out, supply).
 [NonParallelizable]
 [TestFixture]
 public class SourceEffectiveScaleFlowTests
@@ -33,9 +29,9 @@ public class SourceEffectiveScaleFlowTests
         return new FilterEffectRenderNode(mosaic.ToResource(CompositionContext.Default));
     }
 
-    [TestCase(0.5f, 1.0f)] // sub-output supply (enlarged bitmap) floored to the deliverable 1.0
+    [TestCase(0.5f, 1.0f)] // sub-output supply floored to the deliverable 1.0
     [TestCase(1.0f, 1.0f)]
-    [TestCase(2.0f, 2.0f)] // R2: a high-density source stays 2.0 — preserved through the effect (supply wins).
+    [TestCase(2.0f, 2.0f)] // high-density source stays 2.0 (supply wins)
     public void ConcreteAtSource_ResolvesWorkingScaleToSupplyOrOutputFloor(float density, float expectedW)
     {
         VulkanTestEnvironment.EnsureAvailable();
@@ -47,12 +43,9 @@ public class SourceEffectiveScaleFlowTests
             RenderNodeOperation[] ops = node.Process(context);
 
             Assert.That(ops, Is.Not.Empty, "the effect dropped the input op");
-            // w = max(s_out, supply): the effect runs at the densest of the deliverable floor and the supply.
             Assert.That(ops[0].EffectiveScale.Value, Is.EqualTo(expectedW).Within(1e-4),
-                $"At({density}) source resolved the wrong working scale (s_out floor + supply max)");
+                $"At({density}) source resolved the wrong working scale");
 
-            // The concrete density carries through: the effect buffer reports its true At(w), including w == 1 —
-            // a bitmap, not re-rasterizable vector.
             Assert.That(ops[0].EffectiveScale.IsUnbounded, Is.False,
                 "a concrete source density was lost (treated as re-rasterizable vector)");
 
@@ -63,8 +56,7 @@ public class SourceEffectiveScaleFlowTests
         });
     }
 
-    // The output scale is NOT a ceiling on the working scale (FR-016/FR-036): even at a reduced 0.5 output, a
-    // 2.0 source flows through the effect at 2.0, downsampled only at the final stage.
+    // Output scale is not a ceiling: a 2.0 source at 0.5 output still flows at 2.0.
     [Test]
     public void HighDensitySource_NotClampedByReducedOutputScale()
     {
@@ -84,14 +76,12 @@ public class SourceEffectiveScaleFlowTests
         });
     }
 
-    // OutputScale >= 1 (export supersampling), still w = max(s_out, supply). A 0.5 proxy in a 2x SSAA export is
-    // floored to 2.0: the effect's working resolution follows the requested delivery, while the source's 0.5
-    // detail stays a separate, unchanged limit (no fabricated detail). A 2.0 source in a 1.5 output keeps 2.0.
-    [TestCase(0.5f, 2.0f, 2.0f)] // sub-output proxy in a 2x SSAA export: floored to the deliverable 2.0
-    [TestCase(1.0f, 2.0f, 2.0f)] // 1:1 source in a 2x SSAA export: floored to 2.0
-    [TestCase(2.0f, 2.0f, 2.0f)] // 2.0 source matches the 2x output
-    [TestCase(2.0f, 4.0f, 4.0f)] // 2.0 source below a 4x output: floored UP to the 4.0 deliverable
-    [TestCase(2.0f, 1.5f, 2.0f)] // non-integer output below supply: supply wins
+    // w = max(s_out, supply) at supersample outputs.
+    [TestCase(0.5f, 2.0f, 2.0f)] // sub-output proxy floored to 2.0
+    [TestCase(1.0f, 2.0f, 2.0f)] // 1:1 source floored to 2.0
+    [TestCase(2.0f, 2.0f, 2.0f)] // supply matches output
+    [TestCase(2.0f, 4.0f, 4.0f)] // supply below output: floored to 4.0
+    [TestCase(2.0f, 1.5f, 2.0f)] // supply above output: supply wins
     public void ConcreteAtSource_AtSupersampleOutput_ResolvesMaxOfSupplyAndOutput(float density, float outputScale, float expectedW)
     {
         VulkanTestEnvironment.EnsureAvailable();
@@ -115,10 +105,9 @@ public class SourceEffectiveScaleFlowTests
         });
     }
 
-    // FR-037 wiring: FilterEffectRenderNode reads context.MaxWorkingScale and caps the resolved working scale.
-    // An At(4) source under a 2x ceiling (preview) resolves to w == 2 through the real node, vs w == 4 uncapped.
+    // MaxWorkingScale caps the resolved working scale through the real node.
     [TestCase(float.PositiveInfinity, 4.0f)] // export: no ceiling
-    [TestCase(2.0f, 2.0f)]                   // preview: 2x s_out ceiling caps a 4.0 source to 2.0
+    [TestCase(2.0f, 2.0f)]                   // preview: ceiling caps 4.0 source to 2.0
     public void MaxWorkingScale_CapsThroughTheNode(float maxWorkingScale, float expectedW)
     {
         VulkanTestEnvironment.EnsureAvailable();
@@ -137,10 +126,7 @@ public class SourceEffectiveScaleFlowTests
         });
     }
 
-    // FR-018: at w == 1 an At(1)-tagged source and an Unbounded source must render identically — both take the
-    // point-blit fast path (Value == 1f ≡ Unbounded), so tagging a unit-density source concretely costs nothing.
-    // The golden suite only uses vector shapes, never an At-tagged source, so feed the same content through the
-    // same effect once as At(1) and once as Unbounded and assert the pixels are identical.
+    // At(1) and Unbounded must render identically at w == 1.
     [Test]
     public void At1Source_IsByteIdenticalToUnbounded_AtOutputScale1()
     {
@@ -153,7 +139,7 @@ public class SourceEffectiveScaleFlowTests
             ReadOnlySpan<byte> a = at1.GetPixelSpan();
             ReadOnlySpan<byte> b = unbounded.GetPixelSpan();
             Assert.That(a.SequenceEqual(b), Is.True,
-                "At(1) source diverged from Unbounded at s_out == 1 — the FR-018 byte-identity claim is broken");
+                "At(1) source diverged from Unbounded at s_out == 1");
         });
     }
 
@@ -183,15 +169,11 @@ public class SourceEffectiveScaleFlowTests
         return target.Snapshot();
     }
 
-    // feature 003 (FR-019, coherent density model): TransformRenderNode RE-SCALES a bitmap child's supply density
-    // by the inverse of the transform scale, since density is backing px per logical unit. A 0.5× shrink packs the
-    // same pixels into half the logical space, so density DOUBLES (R2: a shrunk high-res source carries its detail
-    // into a downstream effect); a 2× enlarge HALVES it (no detail fabricated). A pure rotation / translation has
-    // scale 1 and leaves density unchanged. Pure Process — no GPU.
-    [TestCase(0.5f, 2.0f, 4.0f)] // shrink 0.5× : At(2) → At(4)  (R2)
-    [TestCase(2.0f, 2.0f, 1.0f)] // enlarge 2× : At(2) → At(1)
-    [TestCase(1.0f, 2.0f, 2.0f)] // identity scale: density unchanged
-    [TestCase(0.25f, 1.0f, 4.0f)] // shrink 0.25× : At(1) → At(4)
+    // TransformRenderNode rescales a bitmap child's density by the inverse transform scale.
+    [TestCase(0.5f, 2.0f, 4.0f)] // shrink 0.5x: At(2) -> At(4)
+    [TestCase(2.0f, 2.0f, 1.0f)] // enlarge 2x: At(2) -> At(1)
+    [TestCase(1.0f, 2.0f, 2.0f)] // identity: unchanged
+    [TestCase(0.25f, 1.0f, 4.0f)] // shrink 0.25x: At(1) -> At(4)
     public void TransformRenderNode_ScalesChildDensity_ByInverseScale(float scale, float density, float expected)
     {
         var transform = new TransformRenderNode(Matrix.CreateScale(scale, scale), TransformOperator.Prepend);
@@ -203,21 +185,20 @@ public class SourceEffectiveScaleFlowTests
         DisposeAll(ops);
     }
 
-    // An anisotropic transform projects onto the densest axis (smallest scale factor → highest density), so a
-    // single-float density never under-samples either axis.
+    // An anisotropic transform projects onto the densest axis (smallest scale factor).
     [Test]
     public void TransformRenderNode_AnisotropicScale_TakesDensestAxis()
     {
         var transform = new TransformRenderNode(Matrix.CreateScale(0.5f, 0.25f), TransformOperator.Prepend);
 
         RenderNodeOperation[] ops = transform.Process(new RenderNodeContext([SourceOp(1.0f)]));
-        // min(0.5, 0.25) = 0.25 → At(1 / 0.25) = At(4): the 0.25× axis needs density 4 to keep its detail.
+        // min(0.5, 0.25) = 0.25 -> At(1 / 0.25) = At(4)
         Assert.That(ops[0].EffectiveScale.Value, Is.EqualTo(4.0f).Within(1e-4),
             "an anisotropic transform must project to the densest (most-shrunk) axis");
         DisposeAll(ops);
     }
 
-    // A rotation alone carries no scale, so a bitmap's density survives a rotate unchanged.
+    // Pure rotation leaves density unchanged.
     [Test]
     public void TransformRenderNode_PureRotation_LeavesDensityUnchanged()
     {
@@ -229,20 +210,18 @@ public class SourceEffectiveScaleFlowTests
         DisposeAll(ops);
     }
 
-    // A degenerate transform (zero / non-finite scale) must NOT corrupt the density: a singular matrix can't be
-    // decomposed and an infinite factor would yield At(d / ∞) = At(0), a zero working scale downstream. Instead the
-    // density falls back to the child's unchanged value rather than 0 / NaN / ∞.
+    // A degenerate transform (zero / non-finite scale) must not corrupt the density.
     [Test]
     public void TransformRenderNode_DegenerateScale_LeavesDensityUnchanged()
     {
-        // Zero scale: singular matrix, TryDecomposeTransform returns false → density unchanged.
+        // Zero scale: singular matrix, density unchanged.
         var zero = new TransformRenderNode(Matrix.CreateScale(0f, 0f), TransformOperator.Prepend);
         RenderNodeOperation[] z = zero.Process(new RenderNodeContext([SourceOp(2.0f)]));
         Assert.That(z[0].EffectiveScale.Value, Is.EqualTo(2.0f).Within(1e-4));
         Assert.That(float.IsFinite(z[0].EffectiveScale.Value), Is.True);
         DisposeAll(z);
 
-        // Non-finite scale: the factor is rejected (IsFinite guard) → density unchanged, never At(0).
+        // Non-finite scale: density unchanged, never At(0).
         var inf = new TransformRenderNode(
             Matrix.CreateScale(float.PositiveInfinity, float.PositiveInfinity), TransformOperator.Prepend);
         RenderNodeOperation[] f = inf.Process(new RenderNodeContext([SourceOp(2.0f)]));
@@ -251,7 +230,7 @@ public class SourceEffectiveScaleFlowTests
         DisposeAll(f);
     }
 
-    // Vector content re-rasterizes at any scale, so a transform never binds it to a density.
+    // Vector content stays Unbounded through a transform.
     [Test]
     public void TransformRenderNode_VectorChild_StaysUnbounded()
     {
@@ -263,29 +242,25 @@ public class SourceEffectiveScaleFlowTests
         DisposeAll(ops);
     }
 
-    // feature 003 (FR-019): the element-level wrapper (DrawableGroup / DrawableDecorator) is ALSO a transform
-    // boundary, so CustomTransformRenderNode MUST re-scale a bitmap child's density exactly like
-    // TransformRenderNode — both call the shared TransformRenderNode.RescaleDensity. Otherwise the same scale on a
-    // group/decorator vs a leaf drawable would resolve a downstream effect at a DIFFERENT working scale
-    // (incoherent across the two transform nodes). Pure Process — no GPU.
+    // CustomTransformRenderNode must rescale density identically to TransformRenderNode.
     [Test]
     public void CustomTransformRenderNode_ScalesChildDensity_LikeTransformRenderNode()
     {
-        Transform.Resource scale = new ScaleTransform(50, 50).ToResource(CompositionContext.Default); // 0.5× both axes
+        Transform.Resource scale = new ScaleTransform(50, 50).ToResource(CompositionContext.Default); // 0.5x both axes
         using var node = new DrawableGroup.CustomTransformRenderNode(
             scale, default, new Size(120, 90), AlignmentX.Left, AlignmentY.Top,
             new MemoryNode<Rect>(new Rect(0, 0, 120, 90)));
 
         RenderNodeOperation[] ops = node.Process(new RenderNodeContext([SourceOp(2.0f)]));
         Assert.That(ops[0].EffectiveScale.IsUnbounded, Is.False,
-            "the group/decorator transform dropped a concrete density to Unbounded (FR-019 not applied)");
-        // 0.5× shrink doubles density: At(2) → At(4), identical to TransformRenderNode's rescale.
+            "the group/decorator transform dropped a concrete density to Unbounded");
+        // 0.5x shrink doubles density: At(2) -> At(4)
         Assert.That(ops[0].EffectiveScale.Value, Is.EqualTo(4.0f).Within(1e-4),
             "CustomTransformRenderNode must rescale density by the inverse transform scale, like TransformRenderNode");
         DisposeAll(ops);
     }
 
-    // A vector child stays re-rasterizable through the element wrapper too (mirrors the TransformRenderNode case).
+    // Vector child stays Unbounded through the element wrapper too.
     [Test]
     public void CustomTransformRenderNode_VectorChild_StaysUnbounded()
     {
@@ -301,12 +276,8 @@ public class SourceEffectiveScaleFlowTests
         DisposeAll(ops);
     }
 
-    // feature 003 (FR-004/FR-019b): a custom effect immediately followed by a Skia filter (e.g. [Mosaic, Blur])
-    // leaves FilterEffectRenderNode's HasFilter() branch running over a FLUSHED At(w) buffer. The emitted op MUST
-    // report that concrete At(w), never the re-rasterizable Unbounded — otherwise a parent boundary mistakes the
-    // bitmap for vector and re-rasterizes it above the pixels it has. At density 1.0 the distinction is still
-    // observable (At(1).IsUnbounded == false), so all three cases guard the fix.
-    [TestCase(0.5f, 1.0f)] // sub-output supply floored to the 1.0 deliverable, still concrete (not Unbounded)
+    // A Custom+Skia chain (e.g. [Mosaic, Blur]) must report concrete At(w), not Unbounded.
+    [TestCase(0.5f, 1.0f)]
     [TestCase(1.0f, 1.0f)]
     [TestCase(2.0f, 2.0f)]
     public void CustomThenSkiaChain_ReportsConcreteDensity_NotUnbounded(float density, float expectedW)
@@ -337,13 +308,7 @@ public class SourceEffectiveScaleFlowTests
         });
     }
 
-    // feature 003 (FR-037(b)): a contour-based effect (StrokeEffect / FlatShadow) that INFLATES its output bounds
-    // can size the effect buffer past the GPU per-axis limit, so CreateTarget clamps the working scale down. The
-    // effect then maps its construction onto the smaller buffer (StrokeEffect draws the logical border under
-    // CreateScale(wOut); FlatShadow scales the device-px shadow by wOut/w), so the result is not clipped and the
-    // op reports the clamped density. A huge one-axis pen Offset trips the per-axis limit while keeping the OTHER
-    // axis small (~16384 × 100 px), so the buffer stays allocatable. Guards the clamp path: working scale drops
-    // below the nominal and nothing throws.
+    // An over-budget StrokeEffect (bounds exceed GPU per-axis limit) must clamp working scale down.
     [Test]
     public void StrokeEffect_OverBudgetBounds_ClampsWorkingScaleBelowNominal_DoesNotThrow()
     {
@@ -355,8 +320,7 @@ public class SourceEffectiveScaleFlowTests
             pen.Brush.CurrentValue = Brushes.Red;
             var stroke = new StrokeEffect();
             stroke.Pen.CurrentValue = pen;
-            // Inflate ONLY the X axis past the 16384 per-axis limit at the nominal working scale 1.0, so the
-            // clamped buffer is ~16384 wide but stays short on Y (allocatable).
+            // Inflate X past the 16384 per-axis limit at w=1, keeping Y short (allocatable).
             stroke.Offset.CurrentValue = new Point(20000, 0);
 
             using var node = new FilterEffectRenderNode(stroke.ToResource(CompositionContext.Default));
@@ -376,19 +340,14 @@ public class SourceEffectiveScaleFlowTests
         });
     }
 
-    // feature 003 (S5 / FR-036): the escape hatch for an effect that needs a NON-supply working scale (replacing
-    // the removed ResolutionPolicy) is a FilterEffectRenderNode subclass from FilterEffect.Resource.CreateRenderNode()
-    // that overrides Process and computes its own w. This minimal subclass picks clamp-to-output
-    // (w = min(supply, s_out)) and re-tags its inputs at that w, proving an author CAN select a non-supply working
-    // scale. The full flow would feed this w into FilterEffectContext/FilterEffectActivator; the w-SELECTION is the
-    // customized part this guards. Pure Process — no GPU.
+    // Escape hatch: a FilterEffectRenderNode subclass that overrides Process to use a non-supply w.
     private sealed class ClampToOutputRenderNode(FilterEffect.Resource fe) : FilterEffectRenderNode(fe)
     {
         public override RenderNodeOperation[] Process(RenderNodeContext context)
         {
             var scales = context.Input.Select(i => i.EffectiveScale).ToArray();
             float supplyW = RenderNodeContext.ResolveWorkingScale(scales, context.OutputScale, context.MaxWorkingScale);
-            float clampedW = MathF.Min(supplyW, context.OutputScale); // the removed ResolutionPolicy.ClampToOutput
+            float clampedW = MathF.Min(supplyW, context.OutputScale);
             return context.Input.Select(input => RenderNodeOperation.CreateLambda(
                     input.Bounds,
                     input.Render,
@@ -399,10 +358,7 @@ public class SourceEffectiveScaleFlowTests
         }
     }
 
-    // Prove the CreateRenderNode() escape hatch: a custom FilterEffectRenderNode chooses a working scale OTHER than
-    // the supply-driven default. The built-in path keeps a 2.0 source at w = 2
-    // (ConcreteAtSource_ResolvesWorkingScaleToSupplyOrOutputFloor's [TestCase(2.0f, 2.0f)] row); this
-    // clamp-to-output subclass resolves w = min(supply, s_out), so the same 2.0 source runs at the output.
+    // Custom render node overrides supply-driven w with clamp-to-output.
     [TestCase(1.0f, 1.0f)] // supply 2 clamped to s_out 1
     [TestCase(0.5f, 0.5f)] // supply 2 clamped to s_out 0.5
     public void CustomRenderNode_OverridesSupplyDriven_WithClampToOutput(float outputScale, float expectedW)
@@ -418,14 +374,7 @@ public class SourceEffectiveScaleFlowTests
         DisposeAll(ops);
     }
 
-    // feature 003 (S5 / FR-036): a GENUINELY-WORKING escape-hatch example — an effect that runs a REAL Mosaic at a
-    // NON-supply working scale (SSAA-on-demand: w = max(supplyDriven, 2 × s_out)). Unlike ClampToOutputRenderNode
-    // above (which only re-tags inputs and drops the effect body), this reproduces the full
-    // FilterEffectRenderNode.Process flow so the Mosaic actually applies at the oversample density. Per the contract
-    // (contracts/effect-scale-contract.md), base.Process recomputes the supply-driven w and IGNORES any w a subclass
-    // computes, so an author needing a different w must copy the Process body and change ONLY the `workingScale =`
-    // line — which is what this does. Threads the oversample w into FilterEffectContext + FilterEffectActivator and
-    // tags the output op At(w), proving the hatch works end-to-end (not as a re-tag stub).
+    // End-to-end escape hatch: runs a real Mosaic at w = max(supplyDriven, 2 * s_out) (SSAA-on-demand).
     private sealed class OversampleMosaicRenderNode(FilterEffect.Resource fe) : FilterEffectRenderNode(fe)
     {
         public override RenderNodeOperation[] Process(RenderNodeContext context)
@@ -445,8 +394,7 @@ public class SourceEffectiveScaleFlowTests
 
             float supplyDriven = RenderNodeContext.ResolveWorkingScale(
                 inputScales, context.OutputScale, context.MaxWorkingScale);
-            // THE ONLY DEVIATION from the base Process body: oversample to 2× the deliverable density (SSAA-on-
-            // demand), still bounded by the global ceiling so preview can cap it.
+            // Oversample to 2x the deliverable density, bounded by the global ceiling.
             float workingScale = MathF.Min(
                 MathF.Max(supplyDriven, 2f * context.OutputScale), context.MaxWorkingScale);
 
@@ -504,11 +452,7 @@ public class SourceEffectiveScaleFlowTests
         }
     }
 
-    // Prove the CreateRenderNode() escape hatch works END-TO-END (not just as a re-tag stub): feeding an At(1)
-    // source at outputScale 1.0, OversampleMosaicRenderNode runs the REAL Mosaic at w = 2 × s_out = 2.0
-    // (oversampled ABOVE the supply, the SSAA-on-demand case). The built-in path would resolve this input to
-    // w == 1.0; this subclass resolves 2.0 AND actually applies the effect (ops non-empty, the op renders).
-    // GPU-gated (the real Mosaic flush allocates a device buffer).
+    // End-to-end: OversampleMosaicRenderNode runs the real Mosaic at w = 2 * s_out = 2.0. GPU-gated.
     [Test]
     public void OversampleMosaicRenderNode_RunsRealEffect_AboveSupply_AtTwiceOutputScale()
     {
@@ -519,18 +463,18 @@ public class SourceEffectiveScaleFlowTests
             mosaic.TileSize.CurrentValue = new Size(10, 10);
             using FilterEffectRenderNode node =
                 new OversampleMosaicRenderNode(mosaic.ToResource(CompositionContext.Default));
-            // An At(1) source at s_out 1.0: supply-driven would give w == 1; the oversample hatch lifts it to 2.0.
+            // At(1) source at s_out 1.0: supply-driven gives w=1; oversample hatch lifts to 2.0.
             var context = new RenderNodeContext([SourceOp(1.0f)], outputScale: 1.0f);
 
             RenderNodeOperation[] ops = node.Process(context);
 
             Assert.That(ops, Is.Not.Empty, "the oversample escape hatch dropped its op — the effect did not apply");
             Assert.That(ops[0].EffectiveScale.Value, Is.EqualTo(2.0f).Within(1e-4),
-                "the oversample hatch must run the effect ABOVE the supply at w = 2 × s_out (SSAA-on-demand)");
+                "the oversample hatch must run the effect at w = 2 * s_out");
             Assert.That(ops[0].EffectiveScale.IsUnbounded, Is.False,
-                "an oversampled effect buffer is a concrete At(w) bitmap, not re-rasterizable Unbounded");
+                "an oversampled effect buffer must be concrete At(w), not Unbounded");
 
-            // The op actually applies the effect: render it into a real target so the flush/blit path executes.
+            // Render into a real target to verify the flush/blit path executes.
             using RenderTarget target = RenderTarget.Create(120, 90)!;
             using (var canvas = new ImmediateCanvas(target, 1f))
             {
@@ -542,10 +486,7 @@ public class SourceEffectiveScaleFlowTests
             }
 
             using Bitmap snapshot = target.Snapshot();
-            // Snapshot dimensions are structurally fixed by RenderTarget.Create(120, 90), so asserting them proves
-            // nothing. Instead use a vacuity guard: the oversampled Mosaic of a WHITE source must leave VISIBLE
-            // content — a no-op render would leave the black clear. (The real oversample proof is the
-            // ops[0].EffectiveScale.Value == 2.0 assertion above.)
+            // Vacuity guard: the oversampled Mosaic must leave visible content (not all-black).
             using RenderTarget blackTarget = RenderTarget.Create(120, 90)!;
             using (var blackCanvas = new ImmediateCanvas(blackTarget))
                 blackCanvas.Clear(Colors.Black);

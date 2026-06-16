@@ -27,16 +27,7 @@ public class FilterEffectRenderNode(FilterEffect.Resource filterEffect) : Contai
             return context.Input;
         }
 
-        // Resolve this effect's working scale w (feature 003, FR-036): supply-driven, so w == the densest
-        // concrete input, capped by the global memory ceiling. Threaded into the context (FR-015) and the
-        // activator, which sizes render-target / Custom buffers ceil(bounds × w) and resamples once at the
-        // final blit (FilterEffectActivator, CustomFilterEffectContext, EffectTarget.Draw). At output scale
-        // 1.0 with vector inputs w == 1, keeping every buffer on its (int)-truncation point-blit path
-        // (byte-identical). An effect needing a different w (clamp for perf, oversample for SSAA) overrides
-        // Process in a FilterEffectRenderNode subclass from FilterEffect.Resource.CreateRenderNode().
-        // Stackalloc the input-density span to keep the render hot path allocation-free; EffectiveScale is an
-        // unmanaged readonly record struct. The <= 16 guard spills a rare high-fan-in container to the heap
-        // so the stack can't overflow.
+        // Resolve working scale from the densest concrete input, capped by the global ceiling.
         Span<EffectiveScale> inputScales = context.Input.Length <= 16
             ? stackalloc EffectiveScale[context.Input.Length]
             : new EffectiveScale[context.Input.Length];
@@ -48,11 +39,7 @@ public class FilterEffectRenderNode(FilterEffect.Resource filterEffect) : Contai
         float workingScale = RenderNodeContext.ResolveWorkingScale(
             inputScales, context.OutputScale, context.MaxWorkingScale);
 
-        // FR-037 memory / GPU-texture backstop: the FR-037 ceiling bounds w, but buffer memory scales with
-        // bounds × w. A supply density inflated by an anisotropic transform (FR-019, projected onto the
-        // most-detailed axis) can size ceil(bounds × w) past the GPU limit or into the multi-GiB range. Clamp
-        // w to the bounds so the effect degrades on the densest axis instead of crashing. Inert (returns w)
-        // for non-pathological bounds, preserving byte-identity at w == 1.
+        // Clamp w to keep ceil(bounds * w) within GPU/memory limits.
         Rect bounds = context.CalculateBounds();
         workingScale = RenderNodeContext.ClampWorkingScaleToBufferBudget(bounds, workingScale);
 
@@ -93,9 +80,6 @@ public class FilterEffectRenderNode(FilterEffect.Resource filterEffect) : Contai
                             t.Dispose();
                             paint.Dispose();
                         },
-                        // feature 003 (FR-004/FR-019b): a flushed buffer is a concrete bitmap at its
-                        // rasterization density; report its true At(w) so a parent boundary reconciles it as
-                        // bitmap supply, not re-rasterizable Unbounded. Mirrors the else branch below.
                         effectiveScale: t.Scale
                     );
                 }).ToArray();

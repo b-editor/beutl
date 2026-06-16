@@ -85,9 +85,7 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposable);
 
-        // Feature 003 (US4): pre-validate the supersampled root surface (FrameSize × factor) against the
-        // per-axis device-buffer limit, so RenderTarget.Create does not fail after Encode with a generic
-        // "could not create a canvas" error (e.g. 8K × 4 = 30720 px > 16384).
+        // Pre-validate that FrameSize * factor fits the per-axis buffer limit.
         SupersampleWarning = SupersampleFactor
             .CombineLatest(Model.GetObservable(Scene.FrameSizeProperty), (factor, frameSize) =>
             {
@@ -135,20 +133,12 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
 
     public ReactivePropertySlim<ControllableEncodingExtension?> SelectedEncoder { get; } = new();
 
-    /// <summary>
-    /// Export supersampling factor (feature 003, US4 / SC-009): Off (1) / 2× / 4×. The scene renders
-    /// at <c>ceil(FrameSize × factor)</c> and <see cref="FrameProviderImpl"/> downscales to FrameSize
-    /// before encode, so the delivered resolution stays FrameSize with reduced aliasing.
-    /// </summary>
+    /// <summary>Export supersampling factor: Off (1) / 2x / 4x.</summary>
     public int[] SupersampleFactors { get; } = [1, 2, 4];
 
     public ReactivePropertySlim<int> SupersampleFactor { get; } = new(1);
 
-    /// <summary>
-    /// Localized warning when <c>FrameSize × SupersampleFactor</c> exceeds the per-axis device-buffer
-    /// limit on either axis (feature 003); <see langword="null"/> when the current factor fits.
-    /// While non-null, <see cref="CanEncode"/> is <see langword="false"/>.
-    /// </summary>
+    /// <summary>Warning when the supersampled surface exceeds the buffer limit; null when it fits.</summary>
     public ReadOnlyReactivePropertySlim<string?> SupersampleWarning { get; }
 
     public ReadOnlyObservableCollection<ControllableEncodingExtension> Encoders => _encoders;
@@ -235,9 +225,7 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
 
     public async Task StartEncode()
     {
-        // Defensive re-check (feature 003): CanEncode disables the Encode button while the warning is
-        // active, but a stale in-flight click or a programmatic call must not start an export whose
-        // root surface cannot be allocated.
+        // Defensive re-check: reject if supersampled surface cannot be allocated.
         if (SupersampleWarning.Value is { } supersampleWarning)
         {
             NotificationService.ShowError(Strings.Supersampling, supersampleWarning);
@@ -306,16 +294,7 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
 
                 ClearEditViewModelCaches();
 
-                // Export supersampling (feature 003): render at factor×, FrameProviderImpl downscales
-                // to FrameSize. SourceSize stays FrameSize (above), so the encoded size is unchanged.
                 float renderScale = Math.Max(1, SupersampleFactor.Value);
-                // Export imposes NO working-scale quality ceiling (WorkingScaleCeiling.Export = +∞): the delivery
-                // render follows the true supply density, so a high-density source exports at full fidelity
-                // rather than being clipped by a policy constant (the earlier finite max(8, 4×s_out) cap was a
-                // quality clip masquerading as an OOM backstop). Per-buffer allocatability is still guaranteed by
-                // RenderNodeContext.ClampWorkingScaleToBufferBudget (16384 px/axis); a cross-buffer aggregate OOM
-                // bound (request-scoped byte/area allocator) is a documented follow-up. Centralized in
-                // WorkingScaleCeiling (unit-tested) — see S3.
                 float maxWorkingScale = WorkingScaleCeiling.Export();
                 using var renderer = new SceneRenderer(Model, renderScale, disableResourceShare: true, maxWorkingScale);
                 renderer.CacheOptions = RenderCacheOptions.Disabled;
@@ -621,7 +600,6 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
         json[nameof(VideoSettings)] = SerializeEncoderSettings(VideoSettings.Value?.Settings);
         json[nameof(AudioSettings)] = SerializeEncoderSettings(AudioSettings.Value?.Settings);
 
-        // feature 003 (US4 / SC-009): persist the export supersampling factor so a reopened profile keeps it.
         json[nameof(SupersampleFactor)] = SupersampleFactor.Value;
 
         _logger.LogInformation("State written to JSON.");
@@ -682,7 +660,6 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
             SelectedEncoder.Value = encoder;
         }
 
-        // feature 003 (US4 / SC-009): restore the export supersampling factor, ignoring an out-of-range value.
         if (json.TryGetPropertyValue(nameof(SupersampleFactor), out JsonNode? ssNode)
             && ssNode is JsonValue ssValue
             && ssValue.TryGetValue(out int ssFactor)

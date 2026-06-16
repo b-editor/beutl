@@ -10,9 +10,7 @@ using Reactive.Bindings;
 namespace Beutl.ViewModels.Dialogs;
 
 /// <summary>
-/// Backs the save-frame scale-choice dialog: the user picks an output-resolution multiplier before the
-/// current frame / selected element is rendered and saved. The chosen <see cref="SelectedScale"/> drives
-/// a one-shot full-fidelity render at <c>ceil(<paramref name="baseSize"/> × scale)</c>.
+/// ViewModel for the save-frame scale-choice dialog.
 /// </summary>
 public sealed class SaveFrameDialogViewModel : IDisposable
 {

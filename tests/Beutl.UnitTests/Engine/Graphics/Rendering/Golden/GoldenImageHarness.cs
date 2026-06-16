@@ -6,8 +6,7 @@ using SkiaSharp;
 
 namespace Beutl.UnitTests.Engine.Graphics.Rendering.Golden;
 
-// Vulkan-gated golden harness for feature 003: runs for real on MoltenVK/SwiftShader, else
-// VulkanTestEnvironment.EnsureAvailable() skips. All GPU work is marshalled onto the render thread.
+// Vulkan-gated golden harness: renders drawables at a given scale for golden comparisons.
 internal static class GoldenImageHarness
 {
     /// <summary>
@@ -20,13 +19,11 @@ internal static class GoldenImageHarness
         int dh = (int)MathF.Ceiling(logicalSize.Height * scale);
         using RenderTarget target = RenderTarget.Create(dw, dh)
                                     ?? throw new InvalidOperationException("RenderTarget.Create returned null.");
-        // feature 003: the canvas bakes the base CTM CreateScale(scale) at construction (identity at
-        // scale == 1), so no self-push is needed below.
+        // The canvas bakes CreateScale(scale) at construction.
         using var canvas = new ImmediateCanvas(target, scale, logicalSize: logicalSize.ToSize(1));
         canvas.Clear(Colors.Black);
 
-        // Mirror Renderer.RenderDrawable: layout uses the LOGICAL frame size (so alignment / centering
-        // is scale-independent), and the canvas's base CTM maps it onto the device surface.
+        // Layout uses logical frame size; canvas base CTM maps to device surface.
         using var node = new DrawableRenderNode(resource);
         using (var ctx = new GraphicsContext2D(node, logicalSize.ToSize(1), scale))
         {

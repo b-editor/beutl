@@ -8,8 +8,7 @@ using Beutl.UnitTests.Engine.Graphics.Backend;
 
 namespace Beutl.UnitTests.Engine.Graphics.Rendering.Golden;
 
-// Empirical FR-009 survey (T027): how faithfully each effect survives a 0.5x render upscaled back to full,
-// revealing which effects are already CTM-correct vs need buffer activation.
+// Survey: how faithfully each effect survives a 0.5x render upscaled back to full.
 [NonParallelizable]
 [TestFixture]
 public class EffectScaleSurveyTests

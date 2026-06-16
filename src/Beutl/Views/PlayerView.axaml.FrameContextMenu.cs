@@ -99,9 +99,7 @@ public partial class PlayerView
         bitmap.Save(stream, format);
     }
 
-    // Prompts for the output-resolution multiplier before a save-as-image render. Returns the chosen
-    // scale, or null on cancel. The dialog's size-preview / buffer-limit guard is sized against
-    // <paramref name="baseSize"/>: the scene frame size for a full frame, the element's measured bounds otherwise.
+    // Prompts for the output-resolution multiplier. Returns the chosen scale, or null on cancel.
     private static async Task<float?> PromptSaveScale(PixelSize baseSize)
     {
         using var dialogViewModel = new SaveFrameDialogViewModel(baseSize);
@@ -119,12 +117,10 @@ public partial class PlayerView
         {
             try
             {
-                // Element render bounds can exceed the scene frame, so size the guard against the
-                // element's actual bounds, not scene.FrameSize.
+                // Size the guard against the element's actual bounds.
                 PixelSize elementSize = await viewModel.MeasureSelectedDrawable(drawable);
 
-                // An element that renders nothing measures 0×0, which would size a 0×0 surface and fail
-                // mid-render. Report it up-front instead of opening a dialog whose Save is doomed.
+                // A 0x0 element cannot be rendered; report up-front.
                 if (!SaveFrameScale.ProducesRenderableSurface(elementSize, 1f))
                 {
                     NotificationService.ShowInformation(

@@ -7,11 +7,7 @@ using Beutl.UnitTests.Engine.Graphics.Backend;
 
 namespace Beutl.UnitTests.Engine.Graphics.Rendering;
 
-// feature 003 (FR-020 minimal cache fix): the node cache participates in the scale model —
-// it rasterizes at the renderer's density under the FR-037 ceiling, records it, and replays
-// tiles tagged At(density) so a cached subtree reports a concrete supply instead of flipping
-// to Unbounded (which would shift downstream working scales when the cache kicks in).
-// Cross-scale cache REUSE stays deferred (T025); these tests pin the within-one-renderer contract.
+// Node cache scale tests: cache rasterizes at the renderer's density, replays tiles as At(density).
 [NonParallelizable]
 [TestFixture]
 public class NodeCacheScaleTests
@@ -23,8 +19,7 @@ public class NodeCacheScaleTests
         return node;
     }
 
-    // A leaf node that emits a CONCRETE supply density At(density) — a stand-in for a transform-densified
-    // high-resolution bitmap source (e.g. a 4K image shrunk onto a 1080 timeline reports At(4)).
+    // A leaf node emitting a concrete At(density) supply.
     private sealed class ConcreteSourceNode(float density) : RenderNode
     {
         public override RenderNodeOperation[] Process(RenderNodeContext context)
@@ -92,9 +87,7 @@ public class NodeCacheScaleTests
         });
     }
 
-    // feature 003 (FR-018, I4 cache-density-collapse fix): a subtree whose supply density exceeds outputScale
-    // must NOT be cached — the cache rasterizes at outputScale, discarding the extra detail and silently
-    // lowering every downstream effect's working scale once the cache kicks in.
+    // A subtree whose supply density exceeds outputScale must not be cached (would collapse working scale).
     [Test]
     public void CreateDefaultCache_RefusesToCache_WhenSupplyDensityExceedsOutputScale()
     {
@@ -109,8 +102,7 @@ public class NodeCacheScaleTests
                     node, RenderCacheOptions.Default, outputScale: 1f, maxWorkingScale: 8f);
 
                 Assert.That(node.Cache.IsCached, Is.False,
-                    "a subtree whose supply density (4) exceeds outputScale (1) must not be cached — caching "
-                    + "would collapse the working scale of a downstream effect (I4 / FR-018)");
+                    "a subtree whose supply density exceeds outputScale must not be cached");
             }
             finally
             {
@@ -120,9 +112,7 @@ public class NodeCacheScaleTests
         });
     }
 
-    // Caching must be behaviour-transparent: the working scale a downstream boundary resolves must be the same
-    // cached or uncached. With the I4 fix the high-density subtree is not cached, so the replayed
-    // (= freshly re-processed) density still matches the uncached supply.
+    // Caching must be behaviour-transparent: working scale must match cached or uncached.
     [Test]
     public void HighDensitySubtree_CacheReplay_MatchesUncachedWorkingScale()
     {
@@ -139,7 +129,7 @@ public class NodeCacheScaleTests
 
                 Assert.That(uncached, Is.EqualTo(4f), "the uncached supply density must be the source's At(4)");
                 Assert.That(cached, Is.EqualTo(uncached),
-                    "enabling the cache changed the resolved working scale — caching is not behaviour-transparent (I4)");
+                    "enabling the cache changed the resolved working scale");
             }
             finally
             {
@@ -166,8 +156,7 @@ public class NodeCacheScaleTests
                 {
                     using (rt)
                     {
-                        // A 100x100 logical ellipse cached at density 0.5 is a 50x50 px tile,
-                        // not the density-1 100x100 the old default-scale processor produced.
+                        // 100x100 logical at density 0.5 = 50x50 px tile.
                         Assert.That(rt.Width, Is.EqualTo((int)Math.Ceiling(bounds.Width * 0.5f)));
                         Assert.That(rt.Height, Is.EqualTo((int)Math.Ceiling(bounds.Height * 0.5f)));
                     }
@@ -181,9 +170,7 @@ public class NodeCacheScaleTests
         });
     }
 
-    // feature 003 follow-up (per-frame cache re-rejection): once CreateDefaultCache refuses a subtree, the
-    // rejection must be remembered so MakeCache stops re-pulling + re-rejecting it every frame. The memo clears
-    // when the node changes so a fresh attempt can happen after the subtree re-warms. CPU-only.
+    // Cache rejection is memoized; clears when the node changes. CPU-only.
     [Test]
     public void RejectedCache_IsMemoized_AndClearsWhenNodeChanges()
     {
@@ -210,7 +197,7 @@ public class NodeCacheScaleTests
         }
     }
 
-    // Invalidate (cache eviction / replacement) also clears the rejection so a re-warmed subtree can be retried.
+    // Invalidate also clears the rejection.
     [Test]
     public void RejectedCache_ClearsOnInvalidate()
     {
@@ -229,8 +216,7 @@ public class NodeCacheScaleTests
         }
     }
 
-    // End-to-end: MakeCache must MARK the high-density subtree rejected (not merely decline to cache it), so the
-    // next frame skips the redundant CreateDefaultCache pull instead of re-rejecting.
+    // MakeCache must mark the high-density subtree rejected so subsequent frames skip it.
     [Test]
     public void MakeCache_HighDensitySubtree_MarksCacheRejected()
     {

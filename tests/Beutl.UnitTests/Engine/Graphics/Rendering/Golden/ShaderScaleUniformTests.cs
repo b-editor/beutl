@@ -8,15 +8,7 @@ using Beutl.UnitTests.Engine.Graphics.Backend;
 
 namespace Beutl.UnitTests.Engine.Graphics.Rendering.Golden;
 
-// feature 003 / FR-014 / contracts/shader-uniforms.md — the custom-shader scale-uniform contract:
-//   SKSL adds iScale = w; width/height/iResolution/fragCoord report DEVICE px (ceil(bounds × w)).
-//   GLSL adds a `scale` push constant = w (the clamped buffer density), mirroring SKSL's iScale; its
-//   Width/Height also carry device px.
-// EffectScaleParityTests already covers SKSL iScale parity (its "SKSLScript-Border" case). This fixture fills
-// the remaining contract gaps: (a) a scale-UNAWARE SKSL shader is byte-identical at w == 1 (backward compat),
-// (b)/(c) a GLSL shader anchored to device-px Width/Height keeps its logical appearance across scales, and
-// (d)/(e) a GLSL shader reading the new `scale` push constant keeps a fixed LOGICAL size across scales — the
-// direct GLSL analogue of the SKSL iScale disc test.
+// Custom-shader scale-uniform tests: SKSL iScale, GLSL Width/Height (device px), and GLSL `scale` push constant.
 [NonParallelizable]
 [TestFixture]
 public class ShaderScaleUniformTests
@@ -39,9 +31,7 @@ public class ShaderScaleUniformTests
         return shape.ToResource(CompositionContext.Default);
     }
 
-    // ---- (a) scale-UNAWARE SKSL: a pure UV expression (no absolute-px literal, no iScale), independent of the
-    // device density. At w == 1 the shader path must be deterministic — checked as render-twice byte-equality,
-    // since the suite pins no golden PNG. ----
+    // ---- (a) scale-unaware SKSL: a pure UV expression, independent of device density. ----
     private const string SkslUvScript =
         """
         uniform shader src;
@@ -78,8 +68,7 @@ public class ShaderScaleUniformTests
         });
     }
 
-    // Vacuity guard: the UV shader must actually change the render, else byte-identity is trivially true for a
-    // failed-to-apply no-op. Compare against an effect-free render.
+    // Vacuity guard: the UV shader must actually change the render.
     [Test]
     public void Sksl_ScaleUnaware_ChangesRender()
     {
@@ -95,11 +84,7 @@ public class ShaderScaleUniformTests
         });
     }
 
-    // ---- (b) scale-AWARE SKSL reading iScale at a REDUCED scale. EffectScaleParityTests covers the supersample
-    // (s_out=2) direction; this covers reduced preview (s_out=0.5), where iScale < 1 must shrink an absolute-px
-    // literal so the disc keeps the same logical radius. If iScale stayed 1.0, the disc would be twice the
-    // logical size at 0.5 and the reduced-vs-1.0 comparison would fail. Fixed-logical-radius (28 px) green disc,
-    // centred via iResolution. ----
+    // ---- (b) scale-aware SKSL reading iScale at reduced scale (s_out=0.5). ----
     private const string SkslDiscScript =
         """
         uniform shader src;
@@ -140,10 +125,7 @@ public class ShaderScaleUniformTests
         });
     }
 
-    // ---- (c) GLSL anchored to DEVICE-px Width/Height. fragCoord is normalized 0..1 (the fullscreen triangle in
-    // GLSLFilterPipeline), so device px = fragCoord * size. A border of fixed LOGICAL thickness (10 px) derives
-    // the working scale from device-px Width (w = pc.width / 200). If Width did not carry device px (× w), the
-    // border would thin/shift at w == 2 and the supersampled-then-downscaled render would diverge from 1:1. ----
+    // ---- (c) GLSL anchored to device-px Width/Height. Border of fixed logical thickness (10 px). ----
     private const string GlslDevicePxBorder =
         """
         #version 450
@@ -218,12 +200,7 @@ public class ShaderScaleUniformTests
         });
     }
 
-    // ---- (d)/(e) scale-AWARE GLSL reading the new `scale` push constant — the direct analogue of the SKSL
-    // iScale disc. The shader cannot recover w from Width/Height without knowing the logical bounds, so it reads
-    // pc.scale and multiplies an absolute-px radius by it, keeping a fixed LOGICAL-radius (28 px) green disc at a
-    // reduced scale. If `scale` stayed 1.0, the disc would be twice the logical size at w == 0.5 and the
-    // reduced-vs-1.0 comparison would fail. fragCoord is normalized 0..1 (fullscreen triangle), so device
-    // px = fragCoord * (Width, Height). ----
+    // ---- (d)/(e) scale-aware GLSL reading the `scale` push constant (GLSL analogue of SKSL iScale disc). ----
     private const string GlslScaleDisc =
         """
         #version 450

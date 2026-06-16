@@ -8,14 +8,7 @@ using Beutl.UnitTests.Engine.Graphics.Backend;
 
 namespace Beutl.UnitTests.ProjectSystem;
 
-// feature 003 (FR-022 / FR-019b): a SceneDrawable at output scale w rasterizes the nested scene into a
-// fixed-resolution ceil(FrameSize × w) surface and emits it as a RenderNodeOperation. That op must carry the
-// concrete inherited density At(w), never the re-rasterizable Unbounded sentinel, so a parent reconciles it at
-// its real pixel density instead of treating it as vector and re-rasterizing (soft supersample).
-//
-// SceneBitmapRenderNode.Process allocates a real nested Renderer (RenderTarget), so the test is Vulkan-gated and
-// runs on the render thread. It only pulls the op (where EffectiveScale is tagged), never invoking the render
-// lambda, so no GPU blit runs; the pull alone forces the At(w) tag.
+// SceneDrawable must emit ops tagged At(w), never Unbounded. Vulkan-gated.
 [NonParallelizable]
 [TestFixture]
 public class SceneDrawableScaleTests
@@ -49,9 +42,7 @@ public class SceneDrawableScaleTests
         return scene;
     }
 
-    // Pulls the single concrete (non-Unbounded) op of the SceneDrawable at the given output scale. The default
-    // centering transform is a pure translation (scale 1), so the nested op's density flows up unchanged;
-    // selecting by concreteness stays decoupled from the pass-through op count. The caller disposes the returned op.
+    // Pulls the single concrete op at the given output scale.
     private static RenderNodeOperation PullConcreteOp(SceneDrawable drawable, Scene inner, float outputScale)
     {
         Drawable.Resource resource = drawable.ToResource(new CompositionContext(TimeSpan.Zero));
@@ -99,10 +90,10 @@ public class SceneDrawableScaleTests
 
                 RenderNodeOperation op = PullConcreteOp(drawable, inner, outputScale);
 
-                // FR-019b: a fixed-resolution nested-scene buffer is concrete bitmap supply, never Unbounded.
+                // A nested-scene buffer is concrete bitmap supply, never Unbounded.
                 Assert.That(op.EffectiveScale.IsUnbounded, Is.False,
                     "the nested-scene surface was reported as re-rasterizable Unbounded instead of a concrete bitmap");
-                // FR-022: it inherits the outer output scale as its supply density (ceil(FrameSize × w) device px).
+                // Inherits the outer output scale as its supply density.
                 Assert.That(op.EffectiveScale.Value, Is.EqualTo(outputScale).Within(1e-4),
                     $"the nested scene did not inherit the outer output scale {outputScale} as its supply density");
 
