@@ -134,15 +134,13 @@ public partial class PlayerView
 
                 if (await PromptSaveScale(elementSize) is not { } scale) return;
 
-                Task<Bitmap> renderTask = viewModel.DrawSelectedDrawable(drawable, scale);
-
                 Type type = drawable.GetType();
                 string additional = TypeDisplayHelpers.GetLocalizedName(type);
                 IStorageFile? file = await SaveImageFilePicker(additional, storage);
 
                 if (file != null)
                 {
-                    using Bitmap bitmap = await renderTask;
+                    using Bitmap bitmap = await viewModel.DrawSelectedDrawable(drawable, scale);
                     await SaveImage(file, bitmap);
                     _logger.LogInformation("Selected element saved as image: {FilePath}", file.Path);
                 }
@@ -164,16 +162,12 @@ public partial class PlayerView
             {
                 if (await PromptSaveScale(scene.FrameSize) is not { } scale) return;
 
-                // Render at the chosen resolution on a throwaway full-fidelity renderer, so the saved
-                // image never bakes in the preview quality.
-                Task<Bitmap> renderTask = viewModel.DrawFrameAtScale(scale);
-
                 string additional = Path.GetFileNameWithoutExtension(scene.Uri!.LocalPath);
                 IStorageFile? file = await SaveImageFilePicker(additional, storage);
 
                 if (file != null)
                 {
-                    using Bitmap bitmap = await renderTask;
+                    using Bitmap bitmap = await viewModel.DrawFrameAtScale(scale);
                     await SaveImage(file, bitmap);
                     _logger.LogInformation("Frame saved as image: {FilePath}", file.Path);
                 }

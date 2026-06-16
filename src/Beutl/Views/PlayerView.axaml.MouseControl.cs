@@ -1021,14 +1021,12 @@ public partial class PlayerView
                             try
                             {
                                 Scene scene = ViewModel.Scene!;
-                                Task<Bitmap> renderTask = ViewModel.DrawFrameAtFullScale();
-
                                 string addtional = Path.GetFileNameWithoutExtension(scene.Uri!.LocalPath);
                                 IStorageFile? file = await SaveImageFilePicker(addtional, storage);
 
                                 if (file != null)
                                 {
-                                    using Bitmap frame = await renderTask;
+                                    using Bitmap frame = await ViewModel.DrawFrameAtFullScale();
                                     using Bitmap croped = CropFrame(frame, rect);
 
                                     await SaveImage(file, croped);
