@@ -59,25 +59,33 @@ public class RenderNodeProcessor(
         var renderTarget = RenderTarget.Create(rect.Width, rect.Height);
         if (renderTarget == null)
         {
-            // Dispose before the throw so "disposed in all cases" holds literally.
             op.Dispose();
             throw new Exception("RenderTarget is null");
         }
 
-        // feature 003: the canvas bakes the working-density base CTM CreateScale(w) (identity at w == 1) and
-        // tags its surface density w for any backdrop captured here. The op only needs the logical translation
-        // to its bounds origin; w == 1 stays byte-identical.
-        using var canvas = new ImmediateCanvas(renderTarget, w, MaxWorkingScale, logicalSize: op.Bounds.Size);
-        canvas.Clear();
-
-        Rect opBounds = op.Bounds;
-        using (canvas.PushTransform(Matrix.CreateTranslation(-opBounds.X, -opBounds.Y)))
+        try
         {
-            op.Render(canvas);
-            op.Dispose();
-        }
+            // feature 003: the canvas bakes the working-density base CTM CreateScale(w) (identity at w == 1) and
+            // tags its surface density w for any backdrop captured here. The op only needs the logical translation
+            // to its bounds origin; w == 1 stays byte-identical.
+            using var canvas = new ImmediateCanvas(renderTarget, w, MaxWorkingScale, logicalSize: op.Bounds.Size);
+            canvas.Clear();
 
-        return (renderTarget, opBounds);
+            Rect opBounds = op.Bounds;
+            using (canvas.PushTransform(Matrix.CreateTranslation(-opBounds.X, -opBounds.Y)))
+            {
+                op.Render(canvas);
+                op.Dispose();
+            }
+
+            return (renderTarget, opBounds);
+        }
+        catch
+        {
+            renderTarget.Dispose();
+            op.Dispose();
+            throw;
+        }
     }
 
     internal List<(RenderTarget RenderTarget, Rect Bounds)> RasterizeToRenderTargets()
@@ -93,15 +101,29 @@ public class RenderNodeProcessor(
     internal List<(RenderTarget RenderTarget, Rect Bounds)> RasterizeToRenderTargets(RenderNodeOperation[] ops)
     {
         var list = new List<(RenderTarget, Rect)>();
-        foreach (var op in ops)
+        int consumed = 0;
+        try
         {
-            if (RasterizeAt(op, OutputScale) is { } result)
+            foreach (var op in ops)
             {
-                list.Add(result);
+                consumed++;
+                if (RasterizeAt(op, OutputScale) is { } result)
+                {
+                    list.Add(result);
+                }
             }
-        }
 
-        return list;
+            return list;
+        }
+        catch
+        {
+            // RasterizeAt already disposed the faulting op; clean up the rest.
+            for (int j = consumed; j < ops.Length; j++)
+                ops[j].Dispose();
+            foreach (var item in list)
+                item.Item1.Dispose();
+            throw;
+        }
     }
 
     public List<Bitmap> Rasterize()

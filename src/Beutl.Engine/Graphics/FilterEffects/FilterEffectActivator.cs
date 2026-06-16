@@ -20,8 +20,9 @@ public sealed class FilterEffectActivator(
     /// The render request's output scale <c>s_out</c> (feature 003, FR-015), forwarded into the
     /// <see cref="FilterEffectContext"/> / <see cref="CustomFilterEffectContext"/> it builds so they expose
     /// the real output scale rather than defaulting to <c>1.0</c>.
+    /// Sanitized to positive-finite (mirrors <see cref="RenderNodeProcessor.OutputScale"/>).
     /// </summary>
-    public float OutputScale { get; } = outputScale;
+    public float OutputScale { get; } = SanitizePositiveFinite(outputScale, nameof(outputScale));
 
     /// <summary>
     /// The working density <c>w</c> at which buffer-allocating boundaries rasterize (feature 003,
@@ -29,15 +30,34 @@ public sealed class FilterEffectActivator(
     /// The FR-037(b) dimension clamp in <see cref="Flush"/> reduces this in place (monotonically) so the
     /// <see cref="CustomFilterEffectContext"/> built afterwards sees the density the flushed buffers were
     /// rasterized at — a custom effect's device math (<c>× WorkingScale</c>) must match its input buffers.
+    /// Sanitized to positive-finite (mirrors <see cref="RenderNodeProcessor.OutputScale"/>).
     /// </summary>
-    public float WorkingScale { get; private set; } = workingScale;
+    public float WorkingScale { get; private set; } = SanitizePositiveFinite(workingScale, nameof(workingScale));
 
     /// <summary>
     /// The render request's working-scale ceiling (feature 003, FR-037), forwarded into the nested
     /// canvases this activator opens so pulls started from them (drawable brushes, nested drawables)
     /// stay under it.
+    /// Sanitized to positive (mirrors <see cref="RenderNodeProcessor.MaxWorkingScale"/>).
     /// </summary>
-    public float MaxWorkingScale { get; } = maxWorkingScale;
+    public float MaxWorkingScale { get; } = float.IsNaN(maxWorkingScale) || maxWorkingScale <= 0f
+        ? LogAndFallback(maxWorkingScale, nameof(maxWorkingScale), float.PositiveInfinity) : maxWorkingScale;
+
+    private static float SanitizePositiveFinite(float value, string name)
+    {
+        if (float.IsFinite(value) && value > 0f)
+            return value;
+        s_logger.LogWarning("FilterEffectActivator: {Param} ({Value}) is not positive-finite; falling back to 1.0.",
+            name, value);
+        return 1f;
+    }
+
+    private static float LogAndFallback(float value, string name, float fallback)
+    {
+        s_logger.LogWarning("FilterEffectActivator: {Param} ({Value}) is not positive; falling back to {Fallback}.",
+            name, value, fallback);
+        return fallback;
+    }
 
     public void Dispose()
     {

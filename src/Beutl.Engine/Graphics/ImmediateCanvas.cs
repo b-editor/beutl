@@ -33,6 +33,10 @@ public partial class ImmediateCanvas : ICanvas
     public ImmediateCanvas(RenderTarget renderTarget, float density = 1f,
         float maxWorkingScale = float.PositiveInfinity, Size logicalSize = default)
     {
+        if (density <= 0f || !float.IsFinite(density))
+            throw new ArgumentOutOfRangeException(nameof(density), density,
+                "Density must be a positive finite value.");
+
         _dispatcher = Dispatcher.Current;
         _renderTarget = renderTarget;
         Canvas = _renderTarget.Value.Canvas;

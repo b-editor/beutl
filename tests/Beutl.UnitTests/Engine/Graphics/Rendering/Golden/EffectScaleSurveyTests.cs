@@ -78,8 +78,7 @@ public class EffectScaleSurveyTests
             double mae = ImageMetrics.MeanAbsoluteError(full, upscaled);
             TestContext.WriteLine($"[{name}] reduced-scale SSIM={ssim:F4} MAE={mae:F4}");
 
-            // Loose gate to catch gross scale failures while the survey records exact numbers.
-            Assert.That(ssim, Is.GreaterThan(0.9), $"{name} SSIM={ssim:F4}");
+            Assert.That(ssim, Is.GreaterThan(0.95), $"{name} SSIM={ssim:F4}");
         });
     }
 }

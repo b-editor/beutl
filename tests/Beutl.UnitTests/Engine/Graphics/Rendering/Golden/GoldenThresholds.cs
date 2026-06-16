@@ -4,7 +4,7 @@
 internal static class GoldenThresholds
 {
     /// <summary>Minimum SSIM for a reduced-scale render vs the full-scale reference (exact effects).</summary>
-    public const double ExactSsimMin = 0.985;
+    public const double ExactSsimMin = 0.99;
 
     /// <summary>Maximum mean-absolute-error (linear) for an exact reduced-scale render.</summary>
     public const double ExactMaeMax = 0.02;

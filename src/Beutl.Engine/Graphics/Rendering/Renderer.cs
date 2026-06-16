@@ -72,7 +72,8 @@ public class Renderer : IRenderer
         // threw partway, the canvas / surface fields were never assigned, so dispose them null-safely. Each
         // step is guarded independently (not one try/catch over the whole body) so an early throw can't skip
         // releasing the GPU surface, the costliest leak; failures are logged at Debug rather than swallowed.
-        // IsDisposed is set last; a finalizer runs at most once, so a throwing step poses no re-run hazard.
+        // IsDisposed is set first so concurrent readers on the render thread see the flag before resources
+        // are torn down; a finalizer runs at most once, so the single-pass invariant holds regardless.
         if (IsDisposed)
             return;
 
@@ -88,15 +89,17 @@ public class Renderer : IRenderer
             }
         }
 
+        _isDisposed = true;
         SafeStep(nameof(OnDispose), () => OnDispose(false));
         SafeStep(nameof(_immediateCanvas), () => _immediateCanvas?.Dispose());
         SafeStep(nameof(_surface), () => _surface?.Dispose());
         SafeStep(nameof(ClearAllCaches), ClearAllCaches);
         SafeStep(nameof(DisposeAllEntries), DisposeAllEntries);
-        IsDisposed = true;
     }
 
-    public bool IsDisposed { get; private set; }
+    private volatile bool _isDisposed;
+
+    public bool IsDisposed => _isDisposed;
 
     public bool IsGraphicsRendering { get; private set; }
 
@@ -143,17 +146,17 @@ public class Renderer : IRenderer
     {
         if (!IsDisposed)
         {
+            _isDisposed = true;
             OnDispose(true);
             _immediateCanvas.Dispose();
             _surface.Dispose();
             ClearAllCaches();
             DisposeAllEntries();
             GC.SuppressFinalize(this);
-
-            IsDisposed = true;
         }
     }
 
+    /// <remarks><see cref="IsDisposed"/> is already <c>true</c> when this method is called.</remarks>
     protected virtual void OnDispose(bool disposing)
     {
     }
