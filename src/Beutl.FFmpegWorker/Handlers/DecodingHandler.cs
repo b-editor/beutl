@@ -249,10 +249,14 @@ internal sealed partial class DecodingHandler : IDisposable
 
     public void Dispose()
     {
-        foreach (var state in _readers.Values)
+        foreach (var readerId in _readers.Keys)
         {
-            state.Dispose();
+            if (_readers.TryRemove(readerId, out var state))
+            {
+                state.RingBuffer?.StopPrefetch();
+                state.ReaderLock.Wait();
+                state.Dispose();
+            }
         }
-        _readers.Clear();
     }
 }
