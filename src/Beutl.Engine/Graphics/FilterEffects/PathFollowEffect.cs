@@ -82,6 +82,7 @@ public sealed partial class PathFollowEffect : FilterEffect
 
                 var newBounds = target.Bounds.TransformToAABB(m1);
                 var newTarget = effectContext.CreateTarget(newBounds);
+                // Open bakes the base CTM from the target's density.
                 using (var canvas = effectContext.Open(newTarget))
                 using (canvas.PushTransform(Matrix.CreateTranslation(target.Bounds.Position - newTarget.Bounds.Position)))
                 using (canvas.PushTransform(m2))

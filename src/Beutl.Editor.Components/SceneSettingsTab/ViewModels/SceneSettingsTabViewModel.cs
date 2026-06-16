@@ -65,15 +65,26 @@ public sealed class SceneSettingsTabViewModel : IToolContext
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposable);
 
-        Apply = new ReactiveCommand(CanApply)
-            .WithSubscribe(() =>
+        Apply = new AsyncReactiveCommand(CanApply)
+            .WithSubscribe(async () =>
             {
                 if (TimeSpan.TryParse(StartInput.Value, out TimeSpan start)
                     && TimeSpan.TryParse(DurationInput.Value, out TimeSpan duration))
                 {
+                    var frameSize = new Media.PixelSize(Width.Value, Height.Value);
+
+                    // Pause playback before rebuilding the renderer to avoid UI freeze.
+                    if ((frameSize != _scene.FrameSize
+                            || start != _scene.Start
+                            || duration != _scene.Duration)
+                        && _editorContext.GetService<IPreviewPlayer>() is { IsPlaying.Value: true } player)
+                    {
+                        await player.Pause();
+                    }
+
                     _editorContext.GetRequiredService<ISceneSettingsService>().Apply(
                         _scene,
-                        new Media.PixelSize(Width.Value, Height.Value),
+                        frameSize,
                         start,
                         duration);
 
@@ -135,7 +146,7 @@ public sealed class SceneSettingsTabViewModel : IToolContext
         }
     }
 
-    public ReactiveCommand Apply { get; }
+    public AsyncReactiveCommand Apply { get; }
 
     public ReactiveCommand Revert { get; }
 

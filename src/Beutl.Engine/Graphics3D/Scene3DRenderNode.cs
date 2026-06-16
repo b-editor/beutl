@@ -4,6 +4,8 @@ using Beutl.Graphics;
 using Beutl.Graphics.Backend;
 using Beutl.Graphics.Rendering;
 using Beutl.Graphics3D.Lighting;
+using Beutl.Logging;
+using Microsoft.Extensions.Logging;
 
 namespace Beutl.Graphics3D;
 
@@ -12,6 +14,8 @@ namespace Beutl.Graphics3D;
 /// </summary>
 internal sealed class Scene3DRenderNode(Scene3D.Resource scene) : RenderNode
 {
+    private static readonly ILogger s_logger = Log.CreateLogger<Scene3DRenderNode>();
+
     public Rect Bounds { get; private set; }
 
     public (Scene3D.Resource Resource, int Version)? Scene { get; private set; } = scene.Capture();
@@ -52,19 +56,39 @@ internal sealed class Scene3DRenderNode(Scene3D.Resource scene) : RenderNode
         if (width <= 0 || height <= 0)
             return [];
 
-        // Get or create renderer
+        // Render the 3D scene at output density. The 3D projection matrix is adjusted to
+        // compensate so that logical coordinates remain unchanged despite the dense surface.
+        float w = RenderNodeContext.ClampWorkingScaleToBufferBudget(new Rect(0, 0, width, height), context.OutputScale);
+        int dw = w == 1f ? width : (int)MathF.Ceiling(width * w);
+        int dh = w == 1f ? height : (int)MathF.Ceiling(height * w);
+
         var renderer = scene.Renderer ??= new Renderer3D(graphicsContext);
 
-        // Initialize or resize if needed
-        if (renderer.Width != width || renderer.Height != height)
+        // Catch allocation failures (e.g. vkCreateImage past GPU limit) and drop the 3D op.
+        if (renderer.Width != dw || renderer.Height != dh)
         {
-            if (renderer.Width == 0 || renderer.Height == 0)
+            try
             {
-                renderer.Initialize(width, height);
-            }
+                if (renderer.Width == 0 || renderer.Height == 0)
+                {
+                    renderer.Initialize(dw, dh);
+                }
 
-            renderer.Resize(width, height);
+                renderer.Resize(dw, dh);
+            }
+            catch (Exception ex)
+            {
+                s_logger.LogWarning(ex,
+                    "3D render surface allocation failed ({Width}x{Height} px, density {Scale}); dropping the 3D op for this frame.",
+                    dw, dh, w);
+                // Failed resize may leave the renderer inconsistent; discard so next frame rebuilds.
+                scene.Renderer?.Dispose();
+                scene.Renderer = null;
+                return [];
+            }
         }
+
+        renderer.SurfaceDensity = w;
 
         var objectResources = new List<Object3D.Resource>();
         var lightResources = new List<Light3D.Resource>();
@@ -98,11 +122,12 @@ internal sealed class Scene3DRenderNode(Scene3D.Resource scene) : RenderNode
         if (surface == null)
             return [];
 
-        // Create the render operation that will draw the 3D scene
+        // Tag the concrete bitmap surface at its rendered density At(w).
         var operation = RenderNodeOperation.CreateFromSurface(
             Bounds,
             new Point(0, 0),
-            surface);
+            surface,
+            EffectiveScale.At(w));
 
         return [operation];
     }

@@ -3,9 +3,21 @@ using Beutl.Media;
 
 namespace Beutl.Graphics.Rendering;
 
-public class RenderNodeProcessor(RenderNode root, bool useRenderCache)
+public class RenderNodeProcessor(
+    RenderNode root,
+    bool useRenderCache,
+    float outputScale = 1f,
+    float maxWorkingScale = float.PositiveInfinity)
 {
     public RenderNode Root { get; } = root;
+
+    /// <summary>Output scale <c>s_out</c> seeded into every <see cref="RenderNodeContext"/>. Sanitized to positive-finite.</summary>
+    public float OutputScale { get; } = float.IsFinite(outputScale) && outputScale > 0f ? outputScale : 1f;
+
+    /// <summary>Working-scale ceiling seeded into every <see cref="RenderNodeContext"/>. <c>+Inf</c> = no ceiling.</summary>
+    public float MaxWorkingScale { get; } = float.IsNaN(maxWorkingScale) || maxWorkingScale <= 0f
+        ? float.PositiveInfinity
+        : maxWorkingScale;
 
     public void Render(ImmediateCanvas canvas)
     {
@@ -17,73 +29,140 @@ public class RenderNodeProcessor(RenderNode root, bool useRenderCache)
         }
     }
 
-    internal List<(RenderTarget RenderTarget, Rect Bounds)> RasterizeToRenderTargets()
+    /// <summary>
+    /// Rasterizes one operation into its own render target at scale <paramref name="w"/>.
+    /// Returns <see langword="null"/> for zero-area. The op is always disposed.
+    /// </summary>
+    internal (RenderTarget RenderTarget, Rect Bounds)? RasterizeAt(RenderNodeOperation op, float w)
     {
-        var list = new List<(RenderTarget, Rect)>();
-        var ops = PullToRoot();
-        foreach (var op in ops)
+        var rect = w == 1f ? PixelRect.FromRect(op.Bounds) : PixelRect.FromRect(op.Bounds, w);
+        if (rect.Width <= 0 || rect.Height <= 0)
         {
-            var rect = PixelRect.FromRect(op.Bounds);
-            if (rect.Width <= 0 || rect.Height <= 0) continue;
-            var renderTarget = RenderTarget.Create(rect.Width, rect.Height) ??
-                               throw new Exception("RenderTarget is null");
+            op.Dispose();
+            return null;
+        }
 
-            using var canvas = new ImmediateCanvas(renderTarget);
+        var renderTarget = RenderTarget.Create(rect.Width, rect.Height);
+        if (renderTarget == null)
+        {
+            op.Dispose();
+            throw new Exception("RenderTarget is null");
+        }
+
+        try
+        {
+            using var canvas = new ImmediateCanvas(renderTarget, w, MaxWorkingScale, logicalSize: op.Bounds.Size);
             canvas.Clear();
 
-            using (canvas.PushTransform(Matrix.CreateTranslation(-op.Bounds.X, -op.Bounds.Y)))
+            Rect opBounds = op.Bounds;
+            using (canvas.PushTransform(Matrix.CreateTranslation(-opBounds.X, -opBounds.Y)))
             {
                 op.Render(canvas);
                 op.Dispose();
             }
 
-            list.Add((renderTarget, op.Bounds));
+            return (renderTarget, opBounds);
         }
+        catch
+        {
+            renderTarget.Dispose();
+            op.Dispose();
+            throw;
+        }
+    }
 
-        return list;
+    internal List<(RenderTarget RenderTarget, Rect Bounds)> RasterizeToRenderTargets()
+    {
+        return RasterizeToRenderTargets(PullToRoot());
+    }
+
+    /// <summary>Rasterizes already-pulled operations at <see cref="OutputScale"/>. Each op is consumed by <see cref="RasterizeAt"/>.</summary>
+    internal List<(RenderTarget RenderTarget, Rect Bounds)> RasterizeToRenderTargets(RenderNodeOperation[] ops)
+    {
+        var list = new List<(RenderTarget, Rect)>();
+        int consumed = 0;
+        try
+        {
+            foreach (var op in ops)
+            {
+                consumed++;
+                if (RasterizeAt(op, OutputScale) is { } result)
+                {
+                    list.Add(result);
+                }
+            }
+
+            return list;
+        }
+        catch
+        {
+            // Clean up remaining ops (RasterizeAt already disposed the faulting one).
+            for (int j = consumed; j < ops.Length; j++)
+                ops[j].Dispose();
+            foreach (var item in list)
+                item.Item1.Dispose();
+            throw;
+        }
     }
 
     public List<Bitmap> Rasterize()
     {
         var list = new List<Bitmap>();
         var ops = PullToRoot();
-        foreach (var op in ops)
+        int consumed = 0;
+        try
         {
-            var rect = PixelRect.FromRect(op.Bounds);
-            using var renderTarget = RenderTarget.Create(rect.Width, rect.Height)
-                                     ?? throw new Exception("RenderTarget is null");
-
-            using var canvas = new ImmediateCanvas(renderTarget);
-            canvas.Clear();
-
-            using (canvas.PushTransform(Matrix.CreateTranslation(-op.Bounds.X, -op.Bounds.Y)))
+            foreach (var op in ops)
             {
-                op.Render(canvas);
-                op.Dispose();
+                consumed++;
+                if (RasterizeAt(op, OutputScale) is { } result)
+                {
+                    using RenderTarget renderTarget = result.RenderTarget;
+                    list.Add(renderTarget.Snapshot());
+                }
             }
 
-            list.Add(renderTarget.Snapshot());
+            return list;
         }
-
-        return list;
+        catch
+        {
+            for (int j = consumed; j < ops.Length; j++)
+                ops[j].Dispose();
+            foreach (var bmp in list)
+                bmp.Dispose();
+            throw;
+        }
     }
 
     public Bitmap RasterizeAndConcat()
     {
         var ops = PullToRoot();
         var bounds = ops.Aggregate(Rect.Empty, (a, n) => a.Union(n.Bounds));
-        var rect = PixelRect.FromRect(bounds);
+        float w = OutputScale;
+        var rect = w == 1f ? PixelRect.FromRect(bounds) : PixelRect.FromRect(bounds, w);
         using var renderTarget =
             RenderTarget.Create(rect.Width, rect.Height) ?? throw new Exception("RenderTarget is null");
-        using var canvas = new ImmediateCanvas(renderTarget);
+        using var canvas = new ImmediateCanvas(renderTarget, w, MaxWorkingScale, logicalSize: bounds.Size);
         canvas.Clear();
-        using (canvas.PushTransform(Matrix.CreateTranslation(-bounds.X, -bounds.Y)))
+
+        int consumed = 0;
+        try
         {
-            foreach (var op in ops)
+            using (canvas.PushTransform(Matrix.CreateTranslation(-bounds.X, -bounds.Y)))
             {
-                op.Render(canvas);
-                op.Dispose();
+                foreach (var op in ops)
+                {
+                    op.Render(canvas);
+                    op.Dispose();
+                    consumed++;
+                }
             }
+        }
+        catch
+        {
+            for (int j = consumed; j < ops.Length; j++)
+                ops[j].Dispose();
+            throw;
         }
 
         return renderTarget.Snapshot();
@@ -98,11 +177,13 @@ public class RenderNodeProcessor(RenderNode root, bool useRenderCache)
     {
         if (useRenderCache && node.Cache is { IsCached: true } cache)
         {
+            // Replay tiles with the density they were rasterized at.
             return cache.UseCache()
                 .Select(i => RenderNodeOperation.CreateFromRenderTarget(
                     bounds: i.Bounds,
                     position: i.Bounds.Position,
-                    renderTarget: i.RenderTarget))
+                    renderTarget: i.RenderTarget,
+                    effectiveScale: EffectiveScale.At(cache.Density)))
                 .ToArray();
         }
 
@@ -118,7 +199,7 @@ public class RenderNodeProcessor(RenderNode root, bool useRenderCache)
             input = operations.ToArray();
         }
 
-        var context = new RenderNodeContext(input);
+        var context = new RenderNodeContext(input, OutputScale, MaxWorkingScale);
         var result = node.Process(context);
         if (useRenderCache && !context.IsRenderCacheEnabled)
         {

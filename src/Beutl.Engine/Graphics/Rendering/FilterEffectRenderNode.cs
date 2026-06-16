@@ -27,13 +27,30 @@ public class FilterEffectRenderNode(FilterEffect.Resource filterEffect) : Contai
             return context.Input;
         }
 
-        using var feContext = new FilterEffectContext(context.CalculateBounds());
+        // Resolve working scale from the densest concrete input, capped by the global ceiling.
+        Span<EffectiveScale> inputScales = context.Input.Length <= 16
+            ? stackalloc EffectiveScale[context.Input.Length]
+            : new EffectiveScale[context.Input.Length];
+        for (int i = 0; i < context.Input.Length; i++)
+        {
+            inputScales[i] = context.Input[i].EffectiveScale;
+        }
+
+        float workingScale = RenderNodeContext.ResolveWorkingScale(
+            inputScales, context.OutputScale, context.MaxWorkingScale);
+
+        // Clamp w to keep ceil(bounds * w) within GPU/memory limits.
+        Rect bounds = context.CalculateBounds();
+        workingScale = RenderNodeContext.ClampWorkingScaleToBufferBudget(bounds, workingScale);
+
+        using var feContext = new FilterEffectContext(bounds, context.OutputScale, workingScale);
         FilterEffect.Value.Resource.GetOriginal().ApplyTo(feContext, FilterEffect.Value.Resource);
         var effectTargets = new EffectTargets();
         effectTargets.AddRange(context.Input.Select(i => new EffectTarget(i)));
 
         using (var builder = new SKImageFilterBuilder())
-        using (var activator = new FilterEffectActivator(effectTargets, builder))
+        using (var activator = new FilterEffectActivator(
+                   effectTargets, builder, context.OutputScale, workingScale, context.MaxWorkingScale))
         {
             activator.Apply(feContext);
 
@@ -62,7 +79,8 @@ public class FilterEffectRenderNode(FilterEffect.Resource filterEffect) : Contai
                         {
                             t.Dispose();
                             paint.Dispose();
-                        }
+                        },
+                        effectiveScale: t.Scale
                     );
                 }).ToArray();
             }
@@ -70,7 +88,7 @@ public class FilterEffectRenderNode(FilterEffect.Resource filterEffect) : Contai
             {
                 return activator.CurrentTargets.Select(i =>
                     i.NodeOperation ??
-                    RenderNodeOperation.CreateFromRenderTarget(i.Bounds, i.Bounds.Position, i.RenderTarget!))
+                    RenderNodeOperation.CreateFromRenderTarget(i.Bounds, i.Bounds.Position, i.RenderTarget!, i.Scale))
                     .ToArray();
             }
         }

@@ -8,7 +8,8 @@ namespace Beutl.Graphics.Rendering;
 
 public sealed class GraphicsContext2D(
     ContainerRenderNode container,
-    PixelSize canvasSize = default)
+    Size canvasSize = default,
+    float outputScale = 1f)
     : IDisposable, IPopable
 {
     private readonly Stack<(ContainerRenderNode, int)> _nodes = [];
@@ -19,7 +20,11 @@ public sealed class GraphicsContext2D(
     // 下位のノードで変更があったとき、上位に伝搬するためのフィールド。Pop時に上位ノードのHasChangesを変更する用。
     private bool _hasChanges;
 
-    public PixelSize Size => canvasSize;
+    /// <summary>The logical viewport size (float, not rounded to device pixels).</summary>
+    public Size Size => canvasSize;
+
+    /// <summary>The output scale <c>s_out</c> this context was built for.</summary>
+    public float OutputScale => outputScale;
 
     internal Action<RenderNode>? OnUntracked { get; set; }
 
@@ -342,7 +347,7 @@ public sealed class GraphicsContext2D(
 
         DrawBackdropRenderNode? next = Next<DrawBackdropRenderNode>();
 
-        var b = new Rect(canvasSize.ToSize(1));
+        var b = new Rect(canvasSize);
         if (next == null)
         {
             Add(new DrawBackdropRenderNode(backdrop, b));

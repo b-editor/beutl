@@ -1,5 +1,6 @@
 ﻿using System.ComponentModel;
 using System.Numerics;
+using System.Reactive.Linq;
 using System.Security;
 using System.Text.Json;
 using System.Text.Json.Nodes;
@@ -22,7 +23,7 @@ using Dispatcher = Avalonia.Threading.Dispatcher;
 
 namespace Beutl.ViewModels;
 
-public sealed partial class EditViewModel : IEditorContext, ISupportAutoSaveEditorContext
+public sealed partial class EditViewModel : IEditorContext, ISupportAutoSaveEditorContext, IPreviewRenderQuality
 {
     private readonly ILogger _logger = Log.CreateLogger<EditViewModel>();
     private readonly AutoSaveService _autoSaveService = new();
@@ -63,19 +64,37 @@ public sealed partial class EditViewModel : IEditorContext, ISupportAutoSaveEdit
         _editorSelection = new EditorSelectionImpl()
             .DisposeWith(_disposables);
 
-        Renderer = scene.GetObservable(Scene.FrameSizeProperty).Select(_ => new SceneRenderer(Scene))
+        PreviewScale = new ReactivePropertySlim<RenderScale>(RenderScale.Full)
+            .DisposeWith(_disposables);
+
+        // On-screen previewer size (physical px), used by RenderScale.FitToPreviewer.
+        PreviewSurfaceSize = new ReactivePropertySlim<Beutl.Graphics.Size>(default)
+            .DisposeWith(_disposables);
+
+        // Rebuild only when the resolved output scale actually changes (DistinctUntilChanged).
+        IObservable<(PixelSize FrameSize, float OutputScale)> frameSizeAndScale =
+            scene.GetObservable(Scene.FrameSizeProperty)
+                .CombineLatest(PreviewScale, PreviewSurfaceSize,
+                    (frameSize, scale, surface) => (FrameSize: frameSize, OutputScale: scale.ResolveOutputScale(frameSize, surface)))
+                .DistinctUntilChanged();
+
+        Renderer = frameSizeAndScale
+            .Select(t => new SceneRenderer(Scene, t.OutputScale, maxWorkingScale: WorkingScaleCeiling.Preview(t.OutputScale)))
             .DisposePreviousValue()
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables)!;
-        Composer = Renderer.Select(v => new SceneComposer(Scene))
+        // SceneComposer is scale-independent; rebuild only on frame-size changes.
+        Composer = scene.GetObservable(Scene.FrameSizeProperty)
+            .Select(_ => new SceneComposer(Scene))
             .DisposePreviousValue()
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables)!;
 
         EditorConfig config = GlobalConfiguration.Instance.EditorConfig;
 
-        FrameCacheManager = scene.GetObservable(Scene.FrameSizeProperty)
-            .Select(v => new FrameCacheManager(v, CreateFrameCacheOptions()) { IsEnabled = config.IsFrameCacheEnabled })
+        // Derived from Renderer so the swap is ordered: cache subscribers see the new Renderer.
+        FrameCacheManager = Renderer
+            .Select(r => new FrameCacheManager(r.FrameSize, CreateFrameCacheOptions()) { IsEnabled = config.IsFrameCacheEnabled })
             .DisposePreviousValue()
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables)!;
@@ -314,6 +333,19 @@ public sealed partial class EditViewModel : IEditorContext, ISupportAutoSaveEdit
     public Scene Scene { get; private set; }
 
     public ReadOnlyReactivePropertySlim<SceneRenderer> Renderer { get; }
+
+    /// <summary>Per-edit-view preview render quality. Non-persisted; rebuilds Renderer and FrameCacheManager.</summary>
+    public ReactivePropertySlim<RenderScale> PreviewScale { get; }
+
+    /// <summary>Selectable preview-quality options for the preview-scale picker.</summary>
+    public RenderScale[] PreviewScaleOptions { get; } = Enum.GetValues<RenderScale>();
+
+    IReactiveProperty<RenderScale> IPreviewRenderQuality.PreviewScale => PreviewScale;
+
+    IReadOnlyList<RenderScale> IPreviewRenderQuality.PreviewScaleOptions => PreviewScaleOptions;
+
+    /// <summary>On-screen previewer surface size in physical pixels, used by FitToPreviewer.</summary>
+    public ReactivePropertySlim<Beutl.Graphics.Size> PreviewSurfaceSize { get; }
 
     public ReadOnlyReactivePropertySlim<SceneComposer> Composer { get; }
 
@@ -725,6 +757,9 @@ public sealed partial class EditViewModel : IEditorContext, ISupportAutoSaveEdit
 
         if (serviceType == typeof(PlayerViewModel) || serviceType.IsAssignableTo(typeof(IPreviewPlayer)))
             return Player;
+
+        if (serviceType == typeof(IPreviewRenderQuality))
+            return this;
 
         if (serviceType == typeof(FrameCacheManager))
             return FrameCacheManager.Value;

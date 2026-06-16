@@ -218,9 +218,15 @@ public partial class PlayerView : UserControl
         if (DataContext is PlayerViewModel player && TopLevel.GetTopLevel(this) is { } topLevel)
         {
             var size = framePanel.Bounds.Size;
-            player.MaxFrameSize = new BtlSize(
+            var deviceSize = new BtlSize(
                 (float)(size.Width * topLevel.RenderScaling),
                 (float)(size.Height * topLevel.RenderScaling));
+            player.MaxFrameSize = deviceSize;
+            // Feed previewer size for FitToPreviewer, but skip during playback to avoid mid-play rebuilds.
+            if (!player.IsPlaying.Value)
+            {
+                player.EditViewModel.PreviewSurfaceSize.Value = deviceSize;
+            }
         }
     }
 
@@ -296,6 +302,14 @@ public partial class PlayerView : UserControl
             selection.SelectedObject
                 .ObserveOnUIDispatcher()
                 .Subscribe(_ => UpdateTransformHandles())
+                .DisposeWith(_disposables);
+
+            // Re-push the panel size when playback stops (skipped during playback).
+            vm.IsPlaying
+                .Skip(1)
+                .Where(playing => !playing)
+                .ObserveOnUIDispatcher()
+                .Subscribe(_ => UpdateMaxFrameSize())
                 .DisposeWith(_disposables);
 
             // RenderThread.Invoke during playback would stall frame generation, so suppress overlay

@@ -85,8 +85,23 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposable);
 
+        // Pre-validate that FrameSize * factor fits the per-axis buffer limit.
+        SupersampleWarning = SupersampleFactor
+            .CombineLatest(Model.GetObservable(Scene.FrameSizeProperty), (factor, frameSize) =>
+            {
+                if (ExportSupersampling.FitsBufferLimit(frameSize, factor)) return null;
+
+                (long width, long height) = ExportSupersampling.GetRenderSize(frameSize, factor);
+                return string.Format(
+                    MessageStrings.SupersamplingExceedsMaxRenderSize,
+                    Math.Max(1, factor), width, height, RenderNodeContext.MaxBufferDimension);
+            })
+            .ToReadOnlyReactivePropertySlim()
+            .DisposeWith(_disposable);
+
         CanEncode = DestinationFile.Select(x => x != null)
-            .AreTrue(SelectedEncoder.Select(x => x != null))
+            .AreTrue(SelectedEncoder.Select(x => x != null),
+                SupersampleWarning.Select(w => w == null))
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposable);
 
@@ -117,6 +132,14 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
     public ReactivePropertySlim<string?> DestinationFile { get; } = new();
 
     public ReactivePropertySlim<ControllableEncodingExtension?> SelectedEncoder { get; } = new();
+
+    /// <summary>Export supersampling factor: Off (1) / 2x / 4x.</summary>
+    public int[] SupersampleFactors { get; } = [1, 2, 4];
+
+    public ReactivePropertySlim<int> SupersampleFactor { get; } = new(1);
+
+    /// <summary>Warning when the supersampled surface exceeds the buffer limit; null when it fits.</summary>
+    public ReadOnlyReactivePropertySlim<string?> SupersampleWarning { get; }
 
     public ReadOnlyObservableCollection<ControllableEncodingExtension> Encoders => _encoders;
 
@@ -202,6 +225,16 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
 
     public async Task StartEncode()
     {
+        // Defensive re-check: reject if supersampled surface cannot be allocated.
+        if (SupersampleWarning.Value is { } supersampleWarning)
+        {
+            NotificationService.ShowError(Strings.Supersampling, supersampleWarning);
+            _logger.LogWarning(
+                "Encoding blocked: supersampling factor {Factor} exceeds the device buffer limit for frame size {FrameSize}.",
+                SupersampleFactor.Value, Model.FrameSize);
+            return;
+        }
+
         var stopwatch = new Stopwatch();
         bool succeeded = false;
         try
@@ -261,7 +294,9 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
 
                 ClearEditViewModelCaches();
 
-                using var renderer = new SceneRenderer(Model, disableResourceShare: true);
+                float renderScale = Math.Max(1, SupersampleFactor.Value);
+                float maxWorkingScale = WorkingScaleCeiling.Export();
+                using var renderer = new SceneRenderer(Model, renderScale, disableResourceShare: true, maxWorkingScale);
                 renderer.CacheOptions = RenderCacheOptions.Disabled;
                 var frameProgress = new Subject<TimeSpan>();
                 using var frameProvider = new FrameProviderImpl(Model, videoSettings.FrameRate, renderer, frameProgress);
@@ -565,6 +600,8 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
         json[nameof(VideoSettings)] = SerializeEncoderSettings(VideoSettings.Value?.Settings);
         json[nameof(AudioSettings)] = SerializeEncoderSettings(AudioSettings.Value?.Settings);
 
+        json[nameof(SupersampleFactor)] = SupersampleFactor.Value;
+
         _logger.LogInformation("State written to JSON.");
     }
 
@@ -621,6 +658,14 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
                 .FirstOrDefault(x => x.GetType() == encoderType) is { } encoder)
         {
             SelectedEncoder.Value = encoder;
+        }
+
+        if (json.TryGetPropertyValue(nameof(SupersampleFactor), out JsonNode? ssNode)
+            && ssNode is JsonValue ssValue
+            && ssValue.TryGetValue(out int ssFactor)
+            && SupersampleFactors.Contains(ssFactor))
+        {
+            SupersampleFactor.Value = ssFactor;
         }
 
         // 上のSelectedEncoder.Value = encoder;でnull以外が指定された場合、VideoSettings, AudioSettingsもnullじゃなくなる。

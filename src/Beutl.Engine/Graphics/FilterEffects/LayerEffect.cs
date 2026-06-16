@@ -14,6 +14,7 @@ public partial class LayerEffect : FilterEffect
             {
                 var bounds = ctx.Targets.CalculateBounds();
                 var newTarget = ctx.CreateTarget(bounds);
+                // ctx.Open bakes the base CTM scale from the target's density.
                 using (var canvas = ctx.Open(newTarget))
                 {
                     canvas.Clear();

@@ -38,8 +38,9 @@ public sealed partial class GLSLScriptEffect : FilterEffect
                    float progress;   // 0.0 - 1.0
                    float duration;   // seconds
                    float time;       // seconds
-                   float width;      // render target width
-                   float height;     // render target height
+                   float width;      // render target width (device px)
+                   float height;     // render target height (device px)
+                   float scale;      // working scale w (1.0 = unscaled); multiply absolute-px literals by this
                } pc;
 
                void main() {
@@ -88,16 +89,25 @@ public sealed partial class GLSLScriptEffect : FilterEffect
         (float progress, float duration, float time, GLSLShader shader, string? compileError) data,
         CustomFilterEffectContext c)
     {
-        data.shader.Apply(c, target => new PushConstants
+        // Push constants report device px at the clamped buffer density.
+        data.shader.Apply(c, target =>
         {
-            Progress = data.progress,
-            Duration = data.duration,
-            Time = data.time,
-            Width = target.Bounds.Width,
-            Height = target.Bounds.Height
+            float w = c.ResolveTargetDensity(target.Bounds);
+            (int devW, int devH) = CustomFilterEffectContext.DeviceBufferSize(target.Bounds, w);
+            return new PushConstants
+            {
+                Progress = data.progress,
+                Duration = data.duration,
+                Time = data.time,
+                Width = devW,
+                Height = devH,
+                Scale = w
+            };
         });
     }
 
+    // Field order must match the GLSL `layout(push_constant)` block.
+    // Total size must stay within VulkanPipeline3D's 128-byte push-constant range.
     [StructLayout(LayoutKind.Sequential)]
     private struct PushConstants
     {
@@ -106,6 +116,7 @@ public sealed partial class GLSLScriptEffect : FilterEffect
         public float Time;
         public float Width;
         public float Height;
+        public float Scale;
     }
 
     public new partial class Resource

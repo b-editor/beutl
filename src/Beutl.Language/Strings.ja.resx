@@ -549,6 +549,12 @@
   <data name="SaveFrameAsImage" xml:space="preserve">
     <value>フレームを画像として保存</value>
   </data>
+  <data name="SaveImageScale" xml:space="preserve">
+    <value>拡大率</value>
+  </data>
+  <data name="SaveImageScale_OutputSize" xml:space="preserve">
+    <value>出力サイズ</value>
+  </data>
   <data name="Move" xml:space="preserve">
     <value>移動</value>
   </data>
@@ -1257,5 +1263,29 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
   </data>
   <data name="OnionSkinNextOpacity" xml:space="preserve">
     <value>後フレーム不透明度</value>
+  </data>
+  <data name="Supersampling" xml:space="preserve">
+    <value>スーパーサンプリング</value>
+  </data>
+  <data name="Supersampling_Tip" xml:space="preserve">
+    <value>選択した倍率の解像度でレンダリングし、出力サイズへ縮小してエッジを滑らかにします</value>
+  </data>
+  <data name="PreviewRenderQuality" xml:space="preserve">
+    <value>プレビュー解像度</value>
+  </data>
+  <data name="PreviewRenderQuality_Tip" xml:space="preserve">
+    <value>プレビューのレンダリング品質。再生中は変更できません。</value>
+  </data>
+  <data name="RenderScale_Full" xml:space="preserve">
+    <value>フル</value>
+  </data>
+  <data name="RenderScale_Half" xml:space="preserve">
+    <value>1/2</value>
+  </data>
+  <data name="RenderScale_Quarter" xml:space="preserve">
+    <value>1/4</value>
+  </data>
+  <data name="RenderScale_FitToPreviewer" xml:space="preserve">
+    <value>プレビューに合わせる</value>
   </data>
 </root>

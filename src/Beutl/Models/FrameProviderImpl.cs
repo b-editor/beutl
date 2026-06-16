@@ -48,7 +48,26 @@ public sealed class FrameProviderImpl : IFrameProvider, IDisposable
     {
         var frame = _renderer.Compositor.EvaluateGraphics(time + _scene.Start);
         _renderer.Render(frame);
-        return _renderer.Snapshot();
+        Bitmap snapshot = _renderer.Snapshot();
+
+        // Downscale supersampled render to FrameSize before encode (no-op when OutputScale == 1).
+        Bitmap normalized = SupersampleDownscaler.ToFrameSize(snapshot, _renderer.FrameSize, _renderer.OutputScale);
+        if (!ReferenceEquals(normalized, snapshot))
+        {
+            snapshot.Dispose();
+        }
+
+        // Encode buffer must match FrameSize exactly; verify at runtime so a regression fails loudly.
+        if (normalized.Width != _renderer.FrameSize.Width || normalized.Height != _renderer.FrameSize.Height)
+        {
+            string actual = $"{normalized.Width}x{normalized.Height}";
+            normalized.Dispose();
+            throw new InvalidOperationException(
+                $"Encode buffer {actual} must equal the output frame size {_renderer.FrameSize}; " +
+                "SupersampleDownscaler failed to normalize the supersampled render to the output resolution.");
+        }
+
+        return normalized;
     }
 
     private async ValueTask<Bitmap> RenderFrameCore(long frame, CancellationToken cancellationToken)

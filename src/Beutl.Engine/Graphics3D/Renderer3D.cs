@@ -48,36 +48,63 @@ internal sealed class Renderer3D : IRenderer3D
     public int Width { get; private set; }
     public int Height { get; private set; }
 
+    /// <summary>
+    /// Device px per logical unit. Hit-test entry points multiply logical coordinates by this.
+    /// </summary>
+    public float SurfaceDensity { get; set; } = 1f;
+
     public void Initialize(int width, int height)
     {
+        // Commit Width/Height only after all allocations succeed, so a failure is retryable.
+        ShadowManager? shadowManager = null;
+        GeometryPass? geometryPass = null;
+        LightingPass? lightingPass = null;
+        TransparentPass? transparentPass = null;
+        GizmoPass? gizmoPass = null;
+        FlipPass? flipPass = null;
+        ITexture2D? outputTexture = null;
+        try
+        {
+            shadowManager = new ShadowManager(_context, _shaderCompiler);
+
+            geometryPass = new GeometryPass(_context, _shaderCompiler);
+            geometryPass.Initialize(width, height);
+
+            lightingPass = new LightingPass(_context, _shaderCompiler, geometryPass.DepthTexture!);
+            lightingPass.Initialize(width, height);
+
+            transparentPass = new TransparentPass(_context, _shaderCompiler, geometryPass.DepthTexture!);
+            transparentPass.Initialize(width, height);
+
+            gizmoPass = new GizmoPass(_context, _shaderCompiler, geometryPass.DepthTexture!);
+            gizmoPass.Initialize(width, height);
+
+            flipPass = new FlipPass(_context, _shaderCompiler);
+            flipPass.Initialize(width, height);
+
+            outputTexture = _context.CreateTexture2D(width, height, TextureFormat.RGBA16Float);
+        }
+        catch
+        {
+            outputTexture?.Dispose();
+            flipPass?.Dispose();
+            gizmoPass?.Dispose();
+            transparentPass?.Dispose();
+            lightingPass?.Dispose();
+            geometryPass?.Dispose();
+            shadowManager?.Dispose();
+            throw;
+        }
+
+        _shadowManager = shadowManager;
+        _geometryPass = geometryPass;
+        _lightingPass = lightingPass;
+        _transparentPass = transparentPass;
+        _gizmoPass = gizmoPass;
+        _flipPass = flipPass;
+        _outputTexture = outputTexture;
         Width = width;
         Height = height;
-
-        // Create shadow manager
-        _shadowManager = new ShadowManager(_context, _shaderCompiler);
-
-        // Create geometry pass
-        _geometryPass = new GeometryPass(_context, _shaderCompiler);
-        _geometryPass.Initialize(width, height);
-
-        // Create lighting pass (uses depth texture from geometry pass)
-        _lightingPass = new LightingPass(_context, _shaderCompiler, _geometryPass.DepthTexture!);
-        _lightingPass.Initialize(width, height);
-
-        // Create transparent pass (uses depth texture from geometry pass for depth testing)
-        _transparentPass = new TransparentPass(_context, _shaderCompiler, _geometryPass.DepthTexture!);
-        _transparentPass.Initialize(width, height);
-
-        // Create gizmo pass (uses depth texture from geometry pass)
-        _gizmoPass = new GizmoPass(_context, _shaderCompiler, _geometryPass.DepthTexture!);
-        _gizmoPass.Initialize(width, height);
-
-        // Create flip pass (corrects vertical orientation)
-        _flipPass = new FlipPass(_context, _shaderCompiler);
-        _flipPass.Initialize(width, height);
-
-        // Create output texture for Skia integration
-        _outputTexture = _context.CreateTexture2D(width, height, TextureFormat.RGBA16Float);
     }
 
     public void Resize(int width, int height)
@@ -85,42 +112,55 @@ internal sealed class Renderer3D : IRenderer3D
         if (Width == width && Height == height)
             return;
 
+        // Allocate into locals first; old fields stay intact on failure.
+        GeometryPass? geometryPass = null;
+        LightingPass? lightingPass = null;
+        TransparentPass? transparentPass = null;
+        GizmoPass? gizmoPass = null;
+        FlipPass? flipPass = null;
+        ITexture2D? outputTexture = null;
+        try
+        {
+            geometryPass = _geometryPass;
+            geometryPass?.Resize(width, height);
+
+            if (geometryPass?.DepthTexture != null)
+            {
+                lightingPass = new LightingPass(_context, _shaderCompiler, geometryPass.DepthTexture);
+                lightingPass.Initialize(width, height);
+
+                transparentPass = new TransparentPass(_context, _shaderCompiler, geometryPass.DepthTexture);
+                transparentPass.Initialize(width, height);
+
+                gizmoPass = new GizmoPass(_context, _shaderCompiler, geometryPass.DepthTexture);
+                gizmoPass.Initialize(width, height);
+            }
+
+            flipPass = _flipPass;
+            flipPass?.Resize(width, height);
+
+            outputTexture = _context.CreateTexture2D(width, height, TextureFormat.RGBA16Float);
+        }
+        catch
+        {
+            outputTexture?.Dispose();
+            if (gizmoPass != _gizmoPass) gizmoPass?.Dispose();
+            if (transparentPass != _transparentPass) transparentPass?.Dispose();
+            if (lightingPass != _lightingPass) lightingPass?.Dispose();
+            throw;
+        }
+
+        if (_lightingPass != lightingPass) _lightingPass?.Dispose();
+        if (_transparentPass != transparentPass) _transparentPass?.Dispose();
+        if (_gizmoPass != gizmoPass) _gizmoPass?.Dispose();
+        _outputTexture?.Dispose();
+
+        _lightingPass = lightingPass;
+        _transparentPass = transparentPass;
+        _gizmoPass = gizmoPass;
+        _outputTexture = outputTexture;
         Width = width;
         Height = height;
-
-        // Resize geometry pass
-        _geometryPass?.Resize(width, height);
-
-        // Recreate lighting pass to use new depth texture
-        _lightingPass?.Dispose();
-        if (_geometryPass?.DepthTexture != null)
-        {
-            _lightingPass = new LightingPass(_context, _shaderCompiler, _geometryPass.DepthTexture);
-            _lightingPass.Initialize(width, height);
-        }
-
-        // Recreate transparent pass to use new depth texture
-        _transparentPass?.Dispose();
-        if (_geometryPass?.DepthTexture != null)
-        {
-            _transparentPass = new TransparentPass(_context, _shaderCompiler, _geometryPass.DepthTexture);
-            _transparentPass.Initialize(width, height);
-        }
-
-        // Recreate gizmo pass to use new depth texture
-        _gizmoPass?.Dispose();
-        if (_geometryPass?.DepthTexture != null)
-        {
-            _gizmoPass = new GizmoPass(_context, _shaderCompiler, _geometryPass.DepthTexture);
-            _gizmoPass.Initialize(width, height);
-        }
-
-        // Resize flip pass
-        _flipPass?.Resize(width, height);
-
-        // Recreate output texture
-        _outputTexture?.Dispose();
-        _outputTexture = _context.CreateTexture2D(width, height, TextureFormat.RGBA16Float);
     }
 
     public void Render(
@@ -187,7 +227,7 @@ internal sealed class Renderer3D : IRenderer3D
         }
 
         // === GEOMETRY PASS (opaque objects only) ===
-        _geometryPass.Execute(compositionContext, camera, opaqueObjects, aspectRatio, lightDataList, ambientColor, ambientIntensity);
+        _geometryPass.Execute(compositionContext, camera, opaqueObjects, aspectRatio, lightDataList, ambientColor, ambientIntensity, SurfaceDensity);
         _geometryPass.PrepareForSampling();
 
         // === LIGHTING PASS ===
@@ -203,7 +243,7 @@ internal sealed class Renderer3D : IRenderer3D
         if (transparentObjects.Count > 0)
         {
             _transparentPass.SetColorTexture(_lightingPass.OutputTexture!);
-            _transparentPass.Execute(compositionContext, camera, transparentObjects, lightDataList, ambientColor, ambientIntensity, aspectRatio);
+            _transparentPass.Execute(compositionContext, camera, transparentObjects, lightDataList, ambientColor, ambientIntensity, aspectRatio, SurfaceDensity);
             _transparentPass.PrepareForSampling();
             colorOutput = _transparentPass.OutputTexture;
         }
@@ -335,13 +375,13 @@ internal sealed class Renderer3D : IRenderer3D
         if (_lastCamera == null || _lastObjects == null || _lastObjects.Count == 0)
             return null;
 
-        return HitTester3D.HitTest(screenPoint, Width, Height, _lastCamera, _lastObjects);
+        return HitTester3D.HitTest(ToDevice(screenPoint), Width, Height, _lastCamera, _lastObjects);
     }
 
     /// <summary>
     /// Performs hit testing and returns the path from root to the hit object.
     /// </summary>
-    /// <param name="screenPoint">The point in screen coordinates.</param>
+    /// <param name="screenPoint">The point in LOGICAL render coordinates (<c>Scene3D.RenderWidth/Height</c> space).</param>
     /// <returns>A list representing the path from root to the hit object, or empty if none.</returns>
     public IReadOnlyList<Object3D.Resource> HitTestWithPath(Point screenPoint)
     {
@@ -350,7 +390,7 @@ internal sealed class Renderer3D : IRenderer3D
         if (_lastCamera == null || _lastObjects == null || _lastObjects.Count == 0)
             return [];
 
-        return HitTester3D.HitTestWithPath(screenPoint, Width, Height, _lastCamera, _lastObjects);
+        return HitTester3D.HitTestWithPath(ToDevice(screenPoint), Width, Height, _lastCamera, _lastObjects);
     }
 
     public GizmoAxis GizmoHitTest(Point screenPoint, Object3D.Resource? gizmoTarget, GizmoMode gizmoMode)
@@ -361,7 +401,7 @@ internal sealed class Renderer3D : IRenderer3D
             return GizmoAxis.None;
 
         return GizmoHitTester.HitTest(
-            screenPoint,
+            ToDevice(screenPoint),
             Width,
             Height,
             _lastCamera,
@@ -369,6 +409,10 @@ internal sealed class Renderer3D : IRenderer3D
             gizmoTarget.Rotation,
             gizmoMode);
     }
+
+    // Logical input -> device px to match Width/Height (see SurfaceDensity).
+    private Point ToDevice(Point logicalPoint) =>
+        SurfaceDensity == 1f ? logicalPoint : logicalPoint * SurfaceDensity;
 
     public void Dispose()
     {

@@ -3,10 +3,14 @@ using Avalonia.Interactivity;
 using Avalonia.Platform.Storage;
 
 using Beutl.Graphics;
+using Beutl.Helpers;
 using Beutl.Media;
+using Beutl.Models;
 using Beutl.ProjectSystem;
 using Beutl.Services;
 using Beutl.ViewModels;
+using Beutl.ViewModels.Dialogs;
+using Beutl.Views.Dialogs;
 
 using FluentAvalonia.UI.Controls;
 
@@ -96,6 +100,16 @@ public partial class PlayerView
         bitmap.Save(stream, format);
     }
 
+    // Prompts for the output-resolution multiplier. Returns the chosen scale, or null on cancel.
+    private static async Task<float?> PromptSaveScale(PixelSize baseSize)
+    {
+        using var dialogViewModel = new SaveFrameDialogViewModel(baseSize);
+        var dialog = new SaveFrameDialog { DataContext = dialogViewModel };
+        if (await dialog.ShowAsync() != ContentDialogResult.Primary) return null;
+
+        return dialogViewModel.SelectedScale.Value;
+    }
+
     private async void OnSaveElementAsImageClick(object? sender, RoutedEventArgs e)
     {
         if (TopLevel.GetTopLevel(this)?.StorageProvider is { } storage
@@ -104,16 +118,26 @@ public partial class PlayerView
         {
             try
             {
-                Task<Bitmap> renderTask = viewModel.DrawSelectedDrawable(drawable);
+                // Size the guard against the element's actual bounds.
+                PixelSize elementSize = await viewModel.MeasureSelectedDrawable(drawable);
 
-                FilePickerSaveOptions options = SharedFilePickerOptions.SaveImage();
+                // A 0x0 element cannot be rendered; report up-front.
+                if (!SaveFrameScale.ProducesRenderableSurface(elementSize, 1f))
+                {
+                    NotificationService.ShowInformation(
+                        string.Empty, MessageStrings.SaveImageElementRendersNothing);
+                    return;
+                }
+
+                if (await PromptSaveScale(elementSize) is not { } scale) return;
+
                 Type type = drawable.GetType();
                 string additional = TypeDisplayHelpers.GetLocalizedName(type);
                 IStorageFile? file = await SaveImageFilePicker(additional, storage);
 
                 if (file != null)
                 {
-                    using Bitmap bitmap = await renderTask;
+                    using Bitmap bitmap = await viewModel.DrawSelectedDrawable(drawable, scale);
                     await SaveImage(file, bitmap);
                     _logger.LogInformation("Selected element saved as image: {FilePath}", file.Path);
                 }
@@ -133,14 +157,14 @@ public partial class PlayerView
         {
             try
             {
-                Task<Bitmap> renderTask = viewModel.DrawFrame();
+                if (await PromptSaveScale(scene.FrameSize) is not { } scale) return;
 
                 string additional = Path.GetFileNameWithoutExtension(scene.Uri!.LocalPath);
                 IStorageFile? file = await SaveImageFilePicker(additional, storage);
 
                 if (file != null)
                 {
-                    using Bitmap bitmap = await renderTask;
+                    using Bitmap bitmap = await viewModel.DrawFrameAtScale(scale);
                     await SaveImage(file, bitmap);
                     _logger.LogInformation("Frame saved as image: {FilePath}", file.Path);
                 }

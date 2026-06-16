@@ -41,7 +41,9 @@ public sealed class ImageSourceRenderNode(ImageSource.Resource source, Brush.Res
                 {
                     canvas.DrawImageSource(Source.Value.Resource, Fill?.Resource, Pen?.Resource);
                 },
-                hitTest: HitTest
+                hitTest: HitTest,
+                // Bitmap at native 1:1 density; downstream transforms re-scale accordingly.
+                effectiveScale: EffectiveScale.At(1f)
             )
         ];
     }

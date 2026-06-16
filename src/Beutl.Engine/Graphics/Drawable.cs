@@ -74,7 +74,7 @@ public abstract partial class Drawable : EngineObject
     {
         if (resource.IsEnabled)
         {
-            Size availableSize = context.Size.ToSize(1);
+            Size availableSize = context.Size;
             Size size = MeasureCore(availableSize, resource);
 
             Matrix transform = GetTransformMatrix(availableSize, size, resource);

@@ -76,16 +76,20 @@ public partial class PartsSplitEffect : FilterEffect
                         }
                     }
 
+                    // Contours are device px; convert path bounds to logical (/ w).
+                    float w = context.WorkingScale;
                     foreach ((SKPath skpath, _, _) in pathes)
                     {
                         SKRect pathBounds = skpath.TightBounds;
                         var bounds = new Rect(
-                            target.Bounds.X + pathBounds.Left,
-                            target.Bounds.Y + pathBounds.Top,
-                            pathBounds.Width,
-                            pathBounds.Height);
+                            target.Bounds.X + pathBounds.Left / w,
+                            target.Bounds.Y + pathBounds.Top / w,
+                            pathBounds.Width / w,
+                            pathBounds.Height / w);
                         EffectTarget newTarget = context.CreateTarget(bounds);
+                        // Clip path and source blit are device px; enter device space.
                         using (ImmediateCanvas newCanvas = context.Open(newTarget))
+                        using (newCanvas.PushDeviceSpace())
                         using (newCanvas.PushTransform(Matrix.CreateTranslation(-pathBounds.Left, -pathBounds.Top)))
                         {
                             newCanvas.Clear();

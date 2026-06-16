@@ -90,10 +90,13 @@ public sealed partial class Clipping : FilterEffect
         {
             Thickness thickness = originalThickness;
             var target = context.Targets[i];
+            float w = context.WorkingScale;
             var surface = target.RenderTarget!.Value;
             if (data.autoClip)
             {
-                thickness += FindRectAndReturnThickness(surface);
+                // FindRect detects in device px; convert to logical (/ w).
+                Thickness detected = FindRectAndReturnThickness(surface);
+                thickness += new Thickness(detected.Left / w, detected.Top / w, detected.Right / w, detected.Bottom / w);
             }
 
             Rect originalRect = target.Bounds.WithX(0).WithY(0);
@@ -126,28 +129,18 @@ public sealed partial class Clipping : FilterEffect
                     pointY = 0;
                 }
 
-                EffectTarget newTarget;
-                if (autoCenter)
+                Rect targetBounds = autoCenter
+                    ? originalRect.CenterRect(clipRect).Translate(target.Bounds.Position)
+                    : newBounds;
+                EffectTarget newTarget = context.CreateTarget(targetBounds);
+                // Crop offset and source blit are device px; enter device space.
+                using (ImmediateCanvas newCanvas = context.Open(newTarget))
+                using (newCanvas.PushDeviceSpace())
+                using (newCanvas.PushTransform(Matrix.CreateTranslation(pointX * w, pointY * w)))
                 {
-                    Rect centeredRect = originalRect.CenterRect(clipRect);
-                    newTarget = context.CreateTarget(centeredRect.Translate(target.Bounds.Position));
-                    using (ImmediateCanvas newCanvas = context.Open(newTarget))
-                    using (newCanvas.PushTransform(Matrix.CreateTranslation(pointX, pointY)))
-                    {
-                        newCanvas.Clear();
-                        newCanvas.DrawRenderTarget(target.RenderTarget!, new(centeredRect.X, centeredRect.Y));
-                    }
-                }
-                else
-                {
-                    newTarget = context.CreateTarget(newBounds);
-                    using (ImmediateCanvas newCanvas = context.Open(newTarget))
-                    using (newCanvas.PushTransform(Matrix.CreateTranslation(pointX, pointY)))
-                    {
-                        newCanvas.Clear();
-                        newCanvas.DrawRenderTarget(target.RenderTarget!,
-                            new(target.Bounds.X - newBounds.X, target.Bounds.Y - newBounds.Y));
-                    }
+                    newCanvas.Clear();
+                    newCanvas.DrawRenderTarget(target.RenderTarget!,
+                        new((target.Bounds.X - newBounds.X) * w, (target.Bounds.Y - newBounds.Y) * w));
                 }
 
                 target.Dispose();

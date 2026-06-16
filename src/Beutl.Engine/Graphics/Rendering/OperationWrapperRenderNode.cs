@@ -43,6 +43,9 @@ public class OperationWrapperRenderNode : RenderNode
     {
         public override Rect Bounds => inner.Value.Bounds;
 
+        // Forward the wrapped op's supply density verbatim.
+        public override EffectiveScale EffectiveScale => inner.Value.EffectiveScale;
+
         public override void Render(ImmediateCanvas canvas) => inner.Value.Render(canvas);
 
         public override bool HitTest(Point point) => inner.Value.HitTest(point);

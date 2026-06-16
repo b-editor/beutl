@@ -101,7 +101,7 @@ public sealed partial class AudioSpectrogramDrawable : AudioVisualizerDrawable
 
             // 高強度 (normalized=1) 相当の Fill を 1 度構築し、各セルは Alpha のみ書き換える。
             _paint ??= new SKPaint();
-            new BrushConstructor(bounds, Fill, BlendMode.SrcOver).ConfigurePaint(_paint);
+            new BrushConstructor(bounds, Fill, BlendMode.SrcOver, canvas.Density, canvas.MaxWorkingScale).ConfigurePaint(_paint);
             _paint.Style = SKPaintStyle.Fill;
             SKColor baseColor = _paint.Color;
             byte baseAlpha = baseColor.Alpha;
@@ -113,7 +113,11 @@ public sealed partial class AudioSpectrogramDrawable : AudioVisualizerDrawable
             double melMin = freqScale == FrequencyScale.Mel ? 2595.0 * Math.Log10(1 + fMin / 700.0) : 0;
             double melMax = freqScale == FrequencyScale.Mel ? 2595.0 * Math.Log10(1 + fMax / 700.0) : 0;
 
-            int pixelRows = Math.Max(1, (int)MathF.Ceiling(height));
+            // At density > 1, resolve the vertical grid at device resolution, capped by FFT bin count.
+            float density = canvas.Density;
+            int pixelRows = density == 1f
+                ? Math.Max(1, (int)MathF.Ceiling(height))
+                : Math.Min(Math.Max(1, (int)MathF.Ceiling(height * density)), bins);
             float rowHeight = height / pixelRows;
 
             // 各行がカバーする FFT bin 範囲 [lo, hi) を事前計算。
@@ -175,8 +179,10 @@ public sealed partial class AudioSpectrogramDrawable : AudioVisualizerDrawable
                     _paint.Color = baseColor.WithAlpha(alpha);
 
                     float y = (float)bounds.Y + row * rowHeight;
+                    // Anti-gap fudge: floor at one device px (1/density) to avoid overlap.
+                    float rowFill = MathF.Max(1f / density, rowHeight + 0.5f / density);
                     canvas.Canvas.DrawRect(
-                        new SKRect(colX, y, colX + drawColWidth, y + MathF.Max(1f, rowHeight + 0.5f)),
+                        new SKRect(colX, y, colX + drawColWidth, y + rowFill),
                         _paint);
                 }
             }

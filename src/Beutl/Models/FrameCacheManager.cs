@@ -162,8 +162,13 @@ public sealed partial class FrameCacheManager : IDisposable
         }
     }
 
+    private volatile bool _isDisposed;
+
+    public bool IsDisposed => _isDisposed;
+
     public void Dispose()
     {
+        _isDisposed = true;
         Clear();
         _maxSize.Dispose();
     }

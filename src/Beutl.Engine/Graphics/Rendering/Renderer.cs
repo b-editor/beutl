@@ -42,35 +42,57 @@ public class Renderer : IRenderer
         }
     }
 
-    public Renderer(int width, int height)
+    public Renderer(int width, int height, float renderScale = 1f, float maxWorkingScale = float.PositiveInfinity)
     {
+        float outputScale = float.IsFinite(renderScale) && renderScale > 0f ? renderScale : 1f;
         FrameSize = new PixelSize(width, height);
+        OutputScale = outputScale;
+        MaxWorkingScale = maxWorkingScale;
+        DeviceSize = new PixelSize(
+            (int)MathF.Ceiling(width * outputScale),
+            (int)MathF.Ceiling(height * outputScale));
         (_immediateCanvas, _surface) = RenderThread.Dispatcher.Invoke(() =>
         {
-            RenderTarget surface = RenderTarget.Create(width, height)
+            RenderTarget surface = RenderTarget.Create(DeviceSize.Width, DeviceSize.Height)
                                    ?? throw new InvalidOperationException(
-                                       $"Could not create a canvas of this size. (width: {width}, height: {height})");
+                                       $"Could not create a canvas of this size. (width: {DeviceSize.Width}, height: {DeviceSize.Height})");
 
-            var canvas = new ImmediateCanvas(surface);
+            var canvas = new ImmediateCanvas(surface, outputScale, maxWorkingScale,
+                logicalSize: FrameSize.ToSize(1));
             return (canvas, surface);
         });
     }
 
     ~Renderer()
     {
-        if (!IsDisposed)
-        {
-            OnDispose(false);
-            _immediateCanvas.Dispose();
-            _surface.Dispose();
-            ClearAllCaches();
-            DisposeAllEntries();
+        // A finalizer must never throw. Each step is guarded independently so a failure cannot
+        // skip releasing the GPU surface.
+        if (IsDisposed)
+            return;
 
-            IsDisposed = true;
+        static void SafeStep(string step, Action action)
+        {
+            try
+            {
+                action();
+            }
+            catch (Exception ex)
+            {
+                s_logger.LogDebug(ex, "Renderer finalizer: {Step} threw during last-resort disposal", step);
+            }
         }
+
+        _isDisposed = true;
+        SafeStep(nameof(OnDispose), () => OnDispose(false));
+        SafeStep(nameof(_immediateCanvas), () => _immediateCanvas?.Dispose());
+        SafeStep(nameof(_surface), () => _surface?.Dispose());
+        SafeStep(nameof(ClearAllCaches), ClearAllCaches);
+        SafeStep(nameof(DisposeAllEntries), DisposeAllEntries);
     }
 
-    public bool IsDisposed { get; private set; }
+    private volatile bool _isDisposed;
+
+    public bool IsDisposed => _isDisposed;
 
     public bool IsGraphicsRendering { get; private set; }
 
@@ -95,21 +117,33 @@ public class Renderer : IRenderer
 
     public PixelSize FrameSize { get; }
 
+    /// <summary>Output scale <c>s_out</c> (device px per logical unit). <see cref="FrameSize"/> stays logical.</summary>
+    public float OutputScale { get; }
+
+    /// <summary>Working-scale ceiling. Preview: <c>2 * s_out</c>; export: <c>+Inf</c>.</summary>
+    public float MaxWorkingScale { get; }
+
+    /// <summary>
+    /// The physical backing-surface size, <c>ceil(FrameSize × OutputScale)</c>.
+    /// Ceiling preserves fractional edge pixels; only place OutputScale sizes a surface.
+    /// </summary>
+    public PixelSize DeviceSize { get; }
+
     public void Dispose()
     {
         if (!IsDisposed)
         {
+            _isDisposed = true;
             OnDispose(true);
             _immediateCanvas.Dispose();
             _surface.Dispose();
             ClearAllCaches();
             DisposeAllEntries();
             GC.SuppressFinalize(this);
-
-            IsDisposed = true;
         }
     }
 
+    /// <remarks><see cref="IsDisposed"/> is already <c>true</c> when this method is called.</remarks>
     protected virtual void OnDispose(bool disposing)
     {
     }
@@ -131,18 +165,23 @@ public class Renderer : IRenderer
             {
                 _immediateCanvas.Clear();
 
-                foreach (var obj in frame.Objects)
-                {
-                    if (obj is not Drawable.Resource drawableResource)
-                        continue;
-                    var entry = RenderDrawable(drawableResource);
-                    _allCurrentEntries.Add(entry);
-                }
+                RenderObjects(frame);
             }
         }
         finally
         {
             IsGraphicsRendering = false;
+        }
+    }
+
+    private void RenderObjects(CompositionFrame frame)
+    {
+        foreach (var obj in frame.Objects)
+        {
+            if (obj is not Drawable.Resource drawableResource)
+                continue;
+            var entry = RenderDrawable(drawableResource);
+            _allCurrentEntries.Add(entry);
         }
     }
 
@@ -166,12 +205,12 @@ public class Renderer : IRenderer
 
         if (shouldRender)
         {
-            using var ctx = new GraphicsContext2D(entry.Node, FrameSize);
+            using var ctx = new GraphicsContext2D(entry.Node, FrameSize.ToSize(1), OutputScale);
             drawable.Render(ctx, resource);
         }
 
         RevalidateAll(entry.Node);
-        var processor = new RenderNodeProcessor(entry.Node, CacheOptions.IsEnabled);
+        var processor = new RenderNodeProcessor(entry.Node, CacheOptions.IsEnabled, OutputScale, MaxWorkingScale);
         var ops = processor.PullToRoot();
         Rect bounds = Rect.Empty;
         foreach (var op in ops)
@@ -182,7 +221,7 @@ public class Renderer : IRenderer
         }
 
         entry.Bounds = bounds;
-        RenderNodeCacheHelper.MakeCache(entry.Node, CacheOptions);
+        RenderNodeCacheHelper.MakeCache(entry.Node, CacheOptions, OutputScale, MaxWorkingScale);
         return entry;
     }
 
@@ -262,7 +301,7 @@ public class Renderer : IRenderer
 
             if (shouldRender)
             {
-                using var ctx = new GraphicsContext2D(entry.Node, FrameSize);
+                using var ctx = new GraphicsContext2D(entry.Node, FrameSize.ToSize(1), OutputScale);
                 drawable.Render(ctx, drawableResource);
             }
 
@@ -279,7 +318,8 @@ public class Renderer : IRenderer
         for (int i = _allCurrentEntries.Count - 1; i >= 0; i--)
         {
             Entry entry = _allCurrentEntries[i];
-            var processor = new RenderNodeProcessor(entry.Node, CacheOptions.IsEnabled);
+            // Same scale pair as the render pass to avoid thrashing scale-stateful nodes.
+            var processor = new RenderNodeProcessor(entry.Node, CacheOptions.IsEnabled, OutputScale, MaxWorkingScale);
             var arr = processor.PullToRoot();
             try
             {
@@ -338,7 +378,7 @@ public class Renderer : IRenderer
     {
         return [.. _allCurrentEntries.Where(e => e.Node.Drawable?.Resource.GetOriginal().ZIndex == zIndex).Select(e =>
         {
-            var processor = new RenderNodeProcessor(e.Node, CacheOptions.IsEnabled);
+            var processor = new RenderNodeProcessor(e.Node, CacheOptions.IsEnabled, OutputScale, MaxWorkingScale);
             var ops = processor.PullToRoot();
             Rect bounds = Rect.Empty;
             foreach (var op in ops)

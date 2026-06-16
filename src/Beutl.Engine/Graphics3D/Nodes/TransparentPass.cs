@@ -98,7 +98,8 @@ public sealed class TransparentPass : GraphicsNode3D
         IReadOnlyList<LightData> lights,
         Color ambientColor,
         float ambientIntensity,
-        float aspectRatio)
+        float aspectRatio,
+        float surfaceDensity = 1f)
     {
         if (Framebuffer == null || RenderPass == null || OutputTexture == null || _colorInput == null)
             return;
@@ -122,7 +123,8 @@ public sealed class TransparentPass : GraphicsNode3D
             camera.Position,
             ambientColor.ToLinearPremultiplied().AsVector3() * ambientIntensity,
             lights,
-            compositionContext);
+            compositionContext,
+            surfaceDensity);
 
         // Begin transparent pass with load (preserves copied content and depth buffer)
         Span<Color> clearColors = [Colors.Transparent];

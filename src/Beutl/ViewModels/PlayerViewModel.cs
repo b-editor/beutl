@@ -1,4 +1,5 @@
-﻿using System.Reactive.Subjects;
+﻿using System.Reactive.Linq;
+using System.Reactive.Subjects;
 using System.Runtime.InteropServices;
 using Beutl.Audio;
 using Beutl.Audio.Composing;
@@ -69,6 +70,20 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
         _editorSelection = editViewModel.GetRequiredService<IEditorSelection>();
         Scene = editViewModel.Scene;
         _isEnabled = editViewModel.IsEnabled;
+
+        // Reapply panel-derived cache size to every rebuilt FrameCacheManager instance.
+        editViewModel.FrameCacheManager
+            .Skip(1)
+            .Subscribe(ApplyMaxFrameSizeToCacheOptions)
+            .DisposeWith(_disposables);
+
+        // Re-render when the (Renderer, FrameCacheManager) pair is rebuilt. Triggering on cache
+        // (derived from Renderer) ensures both halves are coherent when the work-item reads them.
+        editViewModel.FrameCacheManager
+            .Skip(1)
+            .Subscribe(_ => QueueRender())
+            .DisposeWith(_disposables);
+
         PlayPause = new AsyncReactiveCommand(_isEnabled.AsObservable())
             .WithSubscribe(async () =>
             {
@@ -341,21 +356,42 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
         return ComposeThread.Dispatcher.InvokeAsync(() =>
         {
             ct.ThrowIfCancellationRequested();
-            using AudioBuffer? audio = composer.Compose(new TimeRange(start, duration));
-            if (audio == null) return (AudioFrameSnapshot?)null;
+            // The UI thread can dispose this composer (rebuild-by-replacement on frame-size changes)
+            // after the calling-thread check above, so re-check on the compose thread and report
+            // "no audio" instead of racing a disposed compositor.
+            if (composer.IsDisposed)
+                return (AudioFrameSnapshot?)null;
 
-            int samples = audio.SampleCount;
-            int channels = audio.ChannelCount;
-            var interleaved = new float[samples * channels];
-            for (int c = 0; c < channels; c++)
+            AudioBuffer? audio;
+            try
             {
-                Span<float> src = audio.GetChannelData(c);
-                for (int f = 0; f < samples; f++)
-                {
-                    interleaved[f * channels + c] = src[f];
-                }
+                audio = composer.Compose(new TimeRange(start, duration));
             }
-            return (AudioFrameSnapshot?)new AudioFrameSnapshot(interleaved, audio.SampleRate, channels, start);
+            catch (ObjectDisposedException)
+            {
+                // TOCTOU: the UI thread can dispose the composer between the IsDisposed re-check above
+                // and this call (lockless rebuild-by-replacement on a frame-size change). Degrade to
+                // "no audio" rather than surfacing the race as a throw on a throwaway background compose.
+                return (AudioFrameSnapshot?)null;
+            }
+
+            using (audio)
+            {
+                if (audio == null) return (AudioFrameSnapshot?)null;
+
+                int samples = audio.SampleCount;
+                int channels = audio.ChannelCount;
+                var interleaved = new float[samples * channels];
+                for (int c = 0; c < channels; c++)
+                {
+                    Span<float> src = audio.GetChannelData(c);
+                    for (int f = 0; f < samples; f++)
+                    {
+                        interleaved[f * channels + c] = src[f];
+                    }
+                }
+                return (AudioFrameSnapshot?)new AudioFrameSnapshot(interleaved, audio.SampleRate, channels, start);
+            }
         }, ct: ct);
     }
 
@@ -409,31 +445,16 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
         {
             if (_maxFrameSize == value) return;
             _maxFrameSize = value;
-
-            FrameCacheManager frameCacheManager = EditViewModel.FrameCacheManager.Value;
-            var frameSize = frameCacheManager.FrameSize.ToSize(1);
-            float scale = Stretch.Uniform.CalculateScaling(_maxFrameSize, frameSize).X;
-            // パネルがフレーム以上のサイズなら縮小キャッシュは不要なので原寸を使う。
-            // ここで scale >= 1 を弾かないと (int)(1/scale) が 0 になり 1/den が +Infinity に発散して
-            // PixelSize.FromSize が int.MaxValue 級のサイズを生成してしまう。
-            if (scale > 0 && scale < 1)
-            {
-                int den = (int)(1 / scale);
-                if (den % 2 == 1)
-                {
-                    den++;
-                }
-
-                frameCacheManager.Options = frameCacheManager.Options with
-                {
-                    Size = PixelSize.FromSize(frameSize, 1f / den)
-                };
-            }
-            else
-            {
-                frameCacheManager.Options = frameCacheManager.Options with { Size = null };
-            }
+            ApplyMaxFrameSizeToCacheOptions(EditViewModel.FrameCacheManager.Value);
         }
+    }
+
+    private void ApplyMaxFrameSizeToCacheOptions(FrameCacheManager frameCacheManager)
+    {
+        frameCacheManager.Options = frameCacheManager.Options with
+        {
+            Size = PreviewFrameCacheSizing.DeriveCacheSize(_maxFrameSize, frameCacheManager.FrameSize)
+        };
     }
 
     public Rect LastSelectedRect { get; set; }
@@ -541,8 +562,10 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
                     return;
                 }
 
+                bool dequeued = false;
                 while (playerImpl.TryDequeue(out IPlayer.Frame frame))
                 {
+                    dequeued = true;
                     using (frame.Bitmap)
                     {
                         UpdateImage(frame.Bitmap.Clone());
@@ -564,6 +587,13 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
                     }
 
                     // 期待していたフレームよりも前のフレームが来た場合
+                }
+
+                if (!dequeued && playerImpl.ProducerStopped)
+                {
+                    IsPlaying.Value = false;
+                    tcs.TrySetResult(true);
+                    return;
                 }
 
                 playerImpl.Skipped(ComputeExpectFrame() + 1);
@@ -1355,7 +1385,11 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
                 {
                     SceneRenderer renderer = EditViewModel.Renderer.Value;
                     FrameCacheManager cacheManager = EditViewModel.FrameCacheManager.Value;
-                    if (renderer is not { IsDisposed: false, IsGraphicsRendering: false })
+                    // Mid-swap the properties can briefly expose a disposed instance (the pair is
+                    // replaced as two swaps, renderer first). Bail out — the cache swap queues a fresh
+                    // render once both halves are in place.
+                    if (renderer is not { IsDisposed: false, IsGraphicsRendering: false }
+                        || cacheManager.IsDisposed)
                         return;
                     if (Scene is null)
                         return;
@@ -1592,7 +1626,41 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
 
     public TaskCompletionSource<Rect>? TcsForCrop { get; private set; }
 
-    public async Task<Bitmap> DrawSelectedDrawable(Drawable drawable)
+    /// <summary>
+    /// Measures the logical pixel size <paramref name="drawable"/> renders into at unit scale.
+    /// </summary>
+    public async Task<PixelSize> MeasureSelectedDrawable(Drawable drawable)
+    {
+        await Pause();
+
+        return await RenderThread.Dispatcher.InvokeAsync(() =>
+        {
+            if (Scene == null) throw new Exception("Scene is null.");
+            SceneRenderer renderer = EditViewModel.Renderer.Value;
+            var resource = drawable.ToResource(new CompositionContext(CurrentFrame.Value));
+            PixelSize frameSize = renderer.FrameSize;
+            using var root = new DrawableRenderNode(resource);
+            using (var context = new GraphicsContext2D(root, frameSize.ToSize(1)))
+            {
+                drawable.Render(context, resource);
+            }
+
+            var processor = new RenderNodeProcessor(root, false);
+            var bounds = Rect.Empty;
+            foreach (var op in processor.PullToRoot())
+            {
+                bounds = bounds.Union(op.Bounds);
+                op.Dispose();
+            }
+
+            return PixelRect.FromRect(bounds).Size;
+        });
+    }
+
+    /// <summary>
+    /// Renders <paramref name="drawable"/> on its own at the given <paramref name="outputScale"/>.
+    /// </summary>
+    public async Task<Bitmap> DrawSelectedDrawable(Drawable drawable, float outputScale = 1f)
     {
         await Pause();
 
@@ -1604,12 +1672,13 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
             var resource = drawable.ToResource(new CompositionContext(CurrentFrame.Value));
             PixelSize frameSize = renderer.FrameSize;
             using var root = new DrawableRenderNode(resource);
-            using (var context = new GraphicsContext2D(root, frameSize))
+            using (var context = new GraphicsContext2D(root, frameSize.ToSize(1)))
             {
                 drawable.Render(context, resource);
             }
 
-            var processor = new RenderNodeProcessor(root, false);
+            var processor = new RenderNodeProcessor(
+                root, false, outputScale, WorkingScaleCeiling.Export());
             return processor.RasterizeAndConcat();
         });
     }
@@ -1631,12 +1700,50 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
                 var compositionFrame = renderer.Compositor.EvaluateGraphics(CurrentFrame.Value);
                 renderer.Render(compositionFrame);
 
-                return renderer.Snapshot();
+                // Normalize snapshot to logical FrameSize (no-op when OutputScale == 1).
+                Bitmap snapshot = renderer.Snapshot();
+                Bitmap normalized = SupersampleDownscaler.ToFrameSize(snapshot, renderer.FrameSize, renderer.OutputScale);
+                if (!ReferenceEquals(normalized, snapshot))
+                {
+                    snapshot.Dispose();
+                }
+
+                return normalized;
             }
             finally
             {
                 renderer.CacheOptions = restoreCacheOptions;
             }
+        });
+    }
+
+    /// <summary>
+    /// Renders the current frame at full scale on a throwaway renderer, ignoring preview quality.
+    /// </summary>
+    public Task<Bitmap> DrawFrameAtFullScale() => DrawFrameAtScale(1f);
+
+    /// <summary>
+    /// Renders the current frame at <paramref name="outputScale"/> on a throwaway renderer,
+    /// ignoring preview quality. The surface is <c>ceil(FrameSize * outputScale)</c>.
+    /// </summary>
+    public async Task<Bitmap> DrawFrameAtScale(float outputScale)
+    {
+        await Pause();
+
+        return await RenderThread.Dispatcher.InvokeAsync(() =>
+        {
+            if (Scene == null) throw new Exception("Scene is null.");
+
+            // Throwaway renderer with disableResourceShare to avoid mutating live preview resources.
+            using var renderer = new SceneRenderer(Scene, renderScale: outputScale, disableResourceShare: true,
+                maxWorkingScale: WorkingScaleCeiling.Export());
+            renderer.CacheOptions = RenderCacheOptions.Disabled;
+
+            var compositionFrame = renderer.Compositor.EvaluateGraphics(CurrentFrame.Value);
+            renderer.Render(compositionFrame);
+
+            // Surface is ceil(FrameSize * outputScale); return as-is.
+            return renderer.Snapshot();
         });
     }
 }

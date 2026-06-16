@@ -14,6 +14,10 @@ public abstract partial class FilterEffect : EngineObject
 
     public abstract partial class Resource
     {
+        /// <summary>
+        /// Creates the render node for this effect. Override to supply a custom
+        /// <see cref="FilterEffectRenderNode"/> subclass with a different working scale.
+        /// </summary>
         public virtual FilterEffectRenderNode CreateRenderNode()
         {
             return new FilterEffectRenderNode(this);
@@ -23,7 +27,7 @@ public abstract partial class FilterEffect : EngineObject
         {
             return context.PushNode(
                 this,
-                resource => new FilterEffectRenderNode(resource),
+                resource => resource.CreateRenderNode(),
                 (node, resource) => node.Update(resource));
         }
     }

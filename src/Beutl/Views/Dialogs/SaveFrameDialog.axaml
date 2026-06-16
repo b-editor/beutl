@@ -1,0 +1,48 @@
+<ui:ContentDialog x:Class="Beutl.Views.Dialogs.SaveFrameDialog"
+                  xmlns="https://github.com/avaloniaui"
+                  xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                  xmlns:converters="using:Beutl.Converters"
+                  xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+                  xmlns:lang="using:Beutl.Language"
+                  xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+                  xmlns:sys="using:System"
+                  xmlns:ui="using:FluentAvalonia.UI.Controls"
+                  xmlns:vm="using:Beutl.ViewModels.Dialogs"
+                  Title="{x:Static lang:Strings.SaveFrameAsImage}"
+                  d:DesignWidth="360"
+                  x:CompileBindings="True"
+                  x:DataType="vm:SaveFrameDialogViewModel"
+                  CloseButtonText="{x:Static lang:Strings.Cancel}"
+                  IsPrimaryButtonEnabled="{CompiledBinding CanSave.Value}"
+                  PrimaryButtonText="{x:Static lang:Strings.Save}"
+                  mc:Ignorable="d">
+    <ui:ContentDialog.Resources>
+        <StaticResource x:Key="ContentDialogMaxWidth" ResourceKey="ContentDialogMinWidth" />
+    </ui:ContentDialog.Resources>
+
+    <StackPanel Spacing="12">
+        <StackPanel Spacing="4">
+            <TextBlock Text="{x:Static lang:Strings.SaveImageScale}" />
+            <ComboBox HorizontalAlignment="Stretch"
+                      ItemsSource="{CompiledBinding ScaleOptions}"
+                      SelectedItem="{CompiledBinding SelectedScale.Value}">
+                <ComboBox.ItemTemplate>
+                    <DataTemplate x:DataType="sys:Single">
+                        <TextBlock Text="{CompiledBinding Converter={x:Static converters:SaveFrameScaleNameConverter.Instance}}" />
+                    </DataTemplate>
+                </ComboBox.ItemTemplate>
+            </ComboBox>
+        </StackPanel>
+
+        <StackPanel Spacing="4">
+            <TextBlock Text="{x:Static lang:Strings.SaveImageScale_OutputSize}" />
+            <TextBlock Text="{CompiledBinding OutputSizeText.Value}"
+                       Theme="{StaticResource BodyStrongTextBlockStyle}" />
+        </StackPanel>
+
+        <TextBlock Foreground="{DynamicResource SystemFillColorCautionBrush}"
+                   IsVisible="{CompiledBinding Warning.Value, Converter={x:Static ObjectConverters.IsNotNull}}"
+                   Text="{CompiledBinding Warning.Value}"
+                   TextWrapping="Wrap" />
+    </StackPanel>
+</ui:ContentDialog>

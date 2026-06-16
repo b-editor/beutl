@@ -62,7 +62,8 @@ public static class RenderNodeCacheHelper
     }
 
     // 再帰呼び出し
-    public static void MakeCache(RenderNode node, RenderCacheOptions cacheOptions)
+    public static void MakeCache(RenderNode node, RenderCacheOptions cacheOptions,
+        float outputScale = 1f, float maxWorkingScale = float.PositiveInfinity)
     {
         if (!cacheOptions.IsEnabled)
             return;
@@ -72,9 +73,9 @@ public static class RenderNodeCacheHelper
         // CanCacheRecursive内で再帰呼び出ししているのはすべてキャッシュできる必要がある
         if (CanCacheRecursive(node))
         {
-            if (!cache.IsCached)
+            if (!cache.IsCached && !cache.IsCacheRejected)
             {
-                CreateDefaultCache(node, cacheOptions);
+                CreateDefaultCache(node, cacheOptions, outputScale, maxWorkingScale);
             }
         }
         else if (node is ContainerRenderNode containerNode)
@@ -82,28 +83,48 @@ public static class RenderNodeCacheHelper
             cache.Invalidate();
             foreach (RenderNode item in containerNode.Children)
             {
-                MakeCache(item, cacheOptions);
+                MakeCache(item, cacheOptions, outputScale, maxWorkingScale);
             }
         }
     }
 
-    public static void CreateDefaultCache(RenderNode node, RenderCacheOptions cacheOptions)
+    public static void CreateDefaultCache(RenderNode node, RenderCacheOptions cacheOptions,
+        float outputScale = 1f, float maxWorkingScale = float.PositiveInfinity)
     {
-        var processor = new RenderNodeProcessor(node, false);
-        var list = processor.RasterizeToRenderTargets();
-        int pixels = list.Sum(i =>
+        // Rasterize the cache at the renderer's density under its working-scale ceiling.
+        var processor = new RenderNodeProcessor(node, false, outputScale, maxWorkingScale);
+        var ops = processor.PullToRoot();
+
+        // Refuse to cache a subtree whose supply density exceeds outputScale: caching would
+        // discard the extra detail and silently lower downstream working scales.
+        if (ops.Any(o => !o.EffectiveScale.IsUnbounded && o.EffectiveScale.Value > outputScale))
         {
-            var pr = PixelRect.FromRect(i.Bounds);
-            return pr.Width * pr.Height;
+            foreach (var op in ops)
+                op.Dispose();
+            node.Cache.RejectCache();
+            return;
+        }
+
+        var list = processor.RasterizeToRenderTargets(ops);
+        long pixels = list.Sum(i =>
+        {
+            var pr = outputScale == 1f ? PixelRect.FromRect(i.Bounds) : PixelRect.FromRect(i.Bounds, outputScale);
+            return (long)pr.Width * pr.Height;
         });
         if (!cacheOptions.Rules.Match(pixels))
+        {
+            // Release rasterized tiles on the reject path to avoid leaking RenderTarget surfaces.
+            foreach (var i in list)
+                i.RenderTarget.Dispose();
+            node.Cache.RejectCache();
             return;
+        }
 
         // nodeの子要素のキャッシュをすべて削除
         ClearCache(node);
 
         var arr = list.Select(i => (i.RenderTarget, i.Bounds)).ToArray();
-        node.Cache.StoreCache(arr);
+        node.Cache.StoreCache(arr, outputScale);
 
         _logger.LogInformation("Created cache for node {Node}.", node);
 
@@ -134,8 +155,7 @@ public readonly record struct RenderCacheRules(int MaxPixels, int MinPixels)
 {
     public static readonly RenderCacheRules Default = new(1000 * 1000, 1);
 
-    // The settings UI edits Min/Max independently, so normalize the cross-field constraint here
-    // (Min >= 1, Max >= Min); otherwise Min > Max makes Match() always false and disables caching.
+    // Normalize Min >= 1, Max >= Min so Match() is never trivially false.
     public static RenderCacheRules Create(int maxPixels, int minPixels)
     {
         int min = Math.Max(1, minPixels);
@@ -145,11 +165,11 @@ public readonly record struct RenderCacheRules(int MaxPixels, int MinPixels)
 
     public bool Match(PixelSize size)
     {
-        int count = size.Width * size.Height;
+        long count = (long)size.Width * size.Height;
         return MinPixels <= count && count <= MaxPixels;
     }
 
-    public bool Match(int pixels)
+    public bool Match(long pixels)
     {
         return MinPixels <= pixels && pixels <= MaxPixels;
     }

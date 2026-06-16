@@ -60,7 +60,7 @@ public sealed partial class TransformEffect : FilterEffect
                         using (canvas.PushTransform(m2))
                         {
                             canvas.Clear();
-                            canvas.DrawRenderTarget(target.RenderTarget!, default);
+                            target.Draw(canvas);
                         }
 
                         target.Dispose();

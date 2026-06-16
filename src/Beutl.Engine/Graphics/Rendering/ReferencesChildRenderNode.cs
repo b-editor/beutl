@@ -22,7 +22,9 @@ public class ReferencesChildRenderNode(RenderNode? child) : RenderNode
     {
         if (Child != null && !Child.IsDisposed)
         {
-            var processor = new RenderNodeProcessor(Child, context.IsRenderCacheEnabled);
+            // Forward the working-scale ceiling into the nested pull.
+            var processor = new RenderNodeProcessor(
+                Child, context.IsRenderCacheEnabled, context.OutputScale, context.MaxWorkingScale);
             return processor.PullToRoot();
         }
 

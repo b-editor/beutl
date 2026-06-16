@@ -974,12 +974,8 @@ public partial class PlayerView
         {
             try
             {
-                Scene scene = ViewModel.Scene!;
-                Task<Bitmap> renderTask = ViewModel.DrawFrame();
-
-                FilePickerSaveOptions options = SharedFilePickerOptions.SaveImage();
-
-                using Bitmap frame = await renderTask;
+                // Render at full scale to avoid baking preview quality into the clipboard.
+                using Bitmap frame = await ViewModel.DrawFrameAtFullScale();
                 using Bitmap croped = CropFrame(frame, rect);
 
                 WindowsClipboard.CopyImage(croped);
@@ -1024,14 +1020,12 @@ public partial class PlayerView
                             try
                             {
                                 Scene scene = ViewModel.Scene!;
-                                Task<Bitmap> renderTask = ViewModel.DrawFrame();
-
                                 string addtional = Path.GetFileNameWithoutExtension(scene.Uri!.LocalPath);
                                 IStorageFile? file = await SaveImageFilePicker(addtional, storage);
 
                                 if (file != null)
                                 {
-                                    using Bitmap frame = await renderTask;
+                                    using Bitmap frame = await ViewModel.DrawFrameAtFullScale();
                                     using Bitmap croped = CropFrame(frame, rect);
 
                                     await SaveImage(file, croped);

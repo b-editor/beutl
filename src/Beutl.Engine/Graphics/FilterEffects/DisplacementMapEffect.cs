@@ -58,16 +58,21 @@ public partial class DisplacementMapEffect : FilterEffect
                     for (int i = 0; i < effectContext.Targets.Count; i++)
                     {
                         EffectTarget effectTarget = effectContext.Targets[i];
+                        // Create target first so the map brush uses the buffer's post-clamp density.
+                        var newTarget = effectContext.CreateTarget(effectTarget.Bounds);
+                        float w = newTarget.Scale.Value;
                         using var displacementMapShader =
-                            new BrushConstructor(new Rect(effectTarget.Bounds.Size), brush, BlendMode.SrcOver)
+                            new BrushConstructor(new Rect(effectTarget.Bounds.Size), brush, BlendMode.SrcOver, w,
+                                    effectContext.MaxWorkingScale)
                                 .CreateShader();
 
-                        var newTarget = effectContext.CreateTarget(effectTarget.Bounds);
                         using (var paint = new SKPaint())
                         using (var canvas = effectContext.Open(newTarget))
                         {
                             paint.Shader = displacementMapShader;
                             canvas.Clear();
+                            // The base CTM CreateScale(w) maps the logical DrawRect onto the full
+                            // ceil(bounds × w) device buffer; no manual prescale. w == 1 = bare logical rect.
                             canvas.Canvas.DrawRect(
                                 new SKRect(0, 0, effectTarget.Bounds.Width, effectTarget.Bounds.Height),
                                 paint);

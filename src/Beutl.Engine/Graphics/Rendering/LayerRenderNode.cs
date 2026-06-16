@@ -19,6 +19,7 @@ public class LayerRenderNode(Rect limit) : ContainerRenderNode
 
     public override RenderNodeOperation[] Process(RenderNodeContext context)
     {
+        // SaveLayer flatten with no owned buffer; reports Unbounded since it re-rasterizes at any scale.
         return
         [
             RenderNodeOperation.CreateLambda(
@@ -33,13 +34,15 @@ public class LayerRenderNode(Rect limit) : ContainerRenderNode
                         }
                     }
                 },
-                hitTest: p => context.Input.Any(n => n.HitTest(p)), onDispose: () =>
+                hitTest: p => context.Input.Any(n => n.HitTest(p)),
+                onDispose: () =>
                 {
                     foreach (RenderNodeOperation op in context.Input)
                     {
                         op.Dispose();
                     }
-                })
+                },
+                effectiveScale: EffectiveScale.Unbounded)
         ];
     }
 }

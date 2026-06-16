@@ -43,7 +43,10 @@ public partial class StrokeEffect : FilterEffect
     private static Rect TransformBounds((Point Offset, Pen.Resource? Pen, StrokeStyles Style) data, Rect rect)
     {
         Rect borderBounds = PenHelper.GetBounds(rect, data.Pen);
-        return rect.Union(borderBounds.Translate(new Vector(data.Offset.X, data.Offset.Y)));
+        // Inflate symmetrically by offset so the source stays centered.
+        return borderBounds.Inflate(new Thickness(
+            Math.Abs(data.Offset.X), Math.Abs(data.Offset.Y),
+            Math.Abs(data.Offset.X), Math.Abs(data.Offset.Y)));
     }
 
     private static void Apply((Point Offset, Pen.Resource? Pen, StrokeStyles Style) data, CustomFilterEffectContext context)
@@ -77,13 +80,15 @@ public partial class StrokeEffect : FilterEffect
                 RenderTarget srcRenderTarget = target.RenderTarget!;
                 using var src = srcRenderTarget.Snapshot();
 
+                // The contour path is device px; map to logical (/ w) for logical pen width/offset.
+                float w = context.WorkingScale;
                 using SKPath borderPath = CreateBorderPath(src);
+                if (w != 1f) borderPath.Transform(SKMatrix.CreateScale(1f / w, 1f / w));
 
                 Rect transformedBounds = TransformBounds(data, target.Bounds);
-                float thickness = PenHelper.GetRealThickness(pen.StrokeAlignment, pen.Thickness);
                 var origin = Matrix.CreateTranslation(
-                    thickness - Math.Min(data.Offset.X, thickness),
-                    thickness - Math.Min(data.Offset.Y, thickness));
+                    target.Bounds.X - transformedBounds.X,
+                    target.Bounds.Y - transformedBounds.Y);
 
                 EffectTarget newTarget = context.CreateTarget(transformedBounds);
                 using (ImmediateCanvas newCanvas = context.Open(newTarget))
@@ -92,7 +97,7 @@ public partial class StrokeEffect : FilterEffect
                     newCanvas.Clear();
                     if (data.Style == StrokeStyles.Background)
                     {
-                        newCanvas.DrawRenderTarget(srcRenderTarget, default);
+                        target.Draw(newCanvas);
                     }
 
                     using (newCanvas.PushTransform(Matrix.CreateTranslation(data.Offset.X, data.Offset.Y)))
@@ -102,7 +107,7 @@ public partial class StrokeEffect : FilterEffect
 
                     if (data.Style == StrokeStyles.Foreground)
                     {
-                        newCanvas.DrawRenderTarget(srcRenderTarget, default);
+                        target.Draw(newCanvas);
                     }
                 }
 

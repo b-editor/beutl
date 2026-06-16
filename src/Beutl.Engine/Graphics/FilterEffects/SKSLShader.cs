@@ -79,7 +79,13 @@ public sealed class SKSLShader : IDisposable
             {
                 paint.Shader = finalShader;
                 canvas.Clear();
-                canvas.Canvas.DrawRect(new SKRect(0, 0, bounds.Width, bounds.Height), paint);
+                // Cover the full device buffer in device space.
+                float dw = context.WorkingScale == 1f ? (float)bounds.Width : newTarget.RenderTarget!.Width;
+                float dh = context.WorkingScale == 1f ? (float)bounds.Height : newTarget.RenderTarget!.Height;
+                using (canvas.PushDeviceSpace())
+                {
+                    canvas.Canvas.DrawRect(new SKRect(0, 0, dw, dh), paint);
+                }
             }
 
             return newTarget;

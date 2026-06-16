@@ -8,6 +8,16 @@ public interface IRenderer : IDisposable
 {
     PixelSize FrameSize { get; }
 
+    /// <summary>
+    /// Output scale factor in device-px per logical unit (e.g. 2.0 = supersample 2x). Default 1.0.
+    /// </summary>
+    float OutputScale => 1f;
+
+    /// <summary>Device surface size: <c>ceil(FrameSize * OutputScale)</c>.</summary>
+    PixelSize DeviceSize => new(
+        (int)Math.Ceiling(FrameSize.Width * OutputScale),
+        (int)Math.Ceiling(FrameSize.Height * OutputScale));
+
     TimeSpan Time { get; }
 
     bool DrawFps { get; set; }
@@ -26,7 +36,6 @@ public interface IRenderer : IDisposable
 
     Rect[] GetBoundaries(int zIndex);
 
-    // Provide a default implementation for source compatibility with third-party IRenderer implementations. null = not computed / cache miss.
     Rect? GetBoundary(Drawable drawable) => null;
 
     DrawableRenderNode? FindRenderNode(Drawable drawable);

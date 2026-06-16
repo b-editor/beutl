@@ -113,11 +113,13 @@ public partial class ColorShift : FilterEffect
 
             // child shaderとしてテクスチャ用のシェーダーを設定
             builder.Children["src"] = baseShader;
-            builder.Uniforms["redOffset"] = new SKPoint(data.RedOffset.X, data.RedOffset.Y);
-            builder.Uniforms["greenOffset"] = new SKPoint(data.GreenOffset.X, data.GreenOffset.Y);
-            builder.Uniforms["blueOffset"] = new SKPoint(data.BlueOffset.X, data.BlueOffset.Y);
-            builder.Uniforms["alphaOffset"] = new SKPoint(data.AlphaOffset.X, data.AlphaOffset.Y);
-            builder.Uniforms["minOffset"] = new SKPoint(minOffsetX, minOffsetY);
+            // Scale offsets by working density so they match the device-px buffer.
+            float w = context.ResolveTargetDensity(bounds);
+            builder.Uniforms["redOffset"] = new SKPoint(data.RedOffset.X * w, data.RedOffset.Y * w);
+            builder.Uniforms["greenOffset"] = new SKPoint(data.GreenOffset.X * w, data.GreenOffset.Y * w);
+            builder.Uniforms["blueOffset"] = new SKPoint(data.BlueOffset.X * w, data.BlueOffset.Y * w);
+            builder.Uniforms["alphaOffset"] = new SKPoint(data.AlphaOffset.X * w, data.AlphaOffset.Y * w);
+            builder.Uniforms["minOffset"] = new SKPoint(minOffsetX * w, minOffsetY * w);
 
             // 新しいターゲットに適用
             context.Targets[i] = s_shader.ApplyToNewTarget(context, builder, bounds);

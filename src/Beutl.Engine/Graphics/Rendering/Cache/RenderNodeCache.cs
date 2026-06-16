@@ -12,6 +12,9 @@ public sealed class RenderNodeCache(RenderNode node) : IDisposable
 
     private int _count;
 
+    // Set when CreateDefaultCache refuses this subtree; cleared on node change or invalidation.
+    private bool _cacheRejected;
+
     ~RenderNodeCache()
     {
         if (!IsDisposed)
@@ -19,6 +22,15 @@ public sealed class RenderNodeCache(RenderNode node) : IDisposable
     }
 
     public bool IsCached => _cache.Count != 0;
+
+    public int CacheCount => _cache.Count;
+
+    /// <summary>
+    /// The pixel density the cached tiles were rasterized at. Replay re-tags tiles at this density.
+    /// </summary>
+    public float Density { get; private set; } = 1f;
+
+    public DateTime LastAccessedTime { get; private set; }
 
     public bool IsDisposed { get; private set; }
 
@@ -36,12 +48,21 @@ public sealed class RenderNodeCache(RenderNode node) : IDisposable
         else
         {
             _count = 0;
+            _cacheRejected = false;
         }
     }
 
     public bool CanCache()
     {
         return _count >= Count;
+    }
+
+    /// <summary>True once cache creation was refused; stops re-attempts each frame.</summary>
+    public bool IsCacheRejected => _cacheRejected;
+
+    public void RejectCache()
+    {
+        _cacheRejected = true;
     }
 
     public void Invalidate()
@@ -58,6 +79,7 @@ public sealed class RenderNodeCache(RenderNode node) : IDisposable
         }
 
         _cache.Clear();
+        _cacheRejected = false;
     }
 
     public void Dispose()
@@ -88,11 +110,14 @@ public sealed class RenderNodeCache(RenderNode node) : IDisposable
         return c.Item1.ShallowCopy();
     }
 
-    public void StoreCache(RenderTarget renderTarget, Rect bounds)
+    public void StoreCache(RenderTarget renderTarget, Rect bounds, float density = 1f)
     {
         Invalidate();
 
         _cache.Add((renderTarget.ShallowCopy(), bounds));
+        Density = density;
+
+        LastAccessedTime = DateTime.UtcNow;
     }
 
     public IEnumerable<(RenderTarget RenderTarget, Rect Bounds)> UseCache()
@@ -100,7 +125,7 @@ public sealed class RenderNodeCache(RenderNode node) : IDisposable
         return _cache.Select(i => (i.Item1.ShallowCopy(), i.Item2));
     }
 
-    public void StoreCache(ReadOnlySpan<(RenderTarget RenderTarget, Rect Bounds)> items)
+    public void StoreCache(ReadOnlySpan<(RenderTarget RenderTarget, Rect Bounds)> items, float density = 1f)
     {
         Invalidate();
 
@@ -108,5 +133,8 @@ public sealed class RenderNodeCache(RenderNode node) : IDisposable
         {
             _cache.Add((renderTarget.ShallowCopy(), bounds));
         }
+
+        Density = density;
+        LastAccessedTime = DateTime.UtcNow;
     }
 }

@@ -59,7 +59,9 @@ public sealed class VideoSourceRenderNode(
                         }
                     }
                 },
-                hitTest: HitTest
+                hitTest: HitTest,
+                // Bitmap at native 1:1 density, like ImageSourceRenderNode.
+                effectiveScale: EffectiveScale.At(1f)
             )
         ];
     }

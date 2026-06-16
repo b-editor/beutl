@@ -25,6 +25,13 @@ public interface IRenderer3D : IDisposable
     int Height { get; }
 
     /// <summary>
+    /// Surface density in device pixels per logical unit:
+    /// <see cref="Width"/>/<see cref="Height"/> are <c>ceil(logical × SurfaceDensity)</c>. Hit-test entry
+    /// points take LOGICAL coordinates and convert by this.
+    /// </summary>
+    float SurfaceDensity { get; }
+
+    /// <summary>
     /// Initializes the renderer with the specified dimensions.
     /// </summary>
     /// <param name="width">The render width.</param>

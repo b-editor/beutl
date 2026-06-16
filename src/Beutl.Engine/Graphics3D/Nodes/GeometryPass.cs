@@ -103,7 +103,8 @@ public sealed class GeometryPass : GraphicsNode3D
         float aspectRatio,
         IReadOnlyList<LightData> lightDataList,
         Color ambientColor,
-        float ambientIntensity)
+        float ambientIntensity,
+        float surfaceDensity = 1f)
     {
         if (Framebuffer == null || RenderPass == null)
             return;
@@ -118,7 +119,8 @@ public sealed class GeometryPass : GraphicsNode3D
             camera.Position,
             ambientColor.ToLinearPremultiplied().AsVector3() * ambientIntensity,
             lightDataList,
-            compositionContext);
+            compositionContext,
+            surfaceDensity);
 
         // Clear colors for G-Buffer (black/zero for most, except normal which should be (0,0,1) for up)
         Span<Color> clearColors =

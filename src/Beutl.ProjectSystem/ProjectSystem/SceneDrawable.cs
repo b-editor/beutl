@@ -175,22 +175,39 @@ public sealed partial class SceneDrawable : Drawable
             if (frame == null)
                 return [];
 
-            if (_renderer?.FrameSize != frame.Value.Size)
+            // Inherit the outer render scale so nested scenes are not rasterized at 1x and upscaled.
+            float w = context.OutputScale;
+            var size = frame.Value.Size;
+            if (_renderer == null
+                || _renderer.FrameSize != size
+                || _renderer.OutputScale != w
+                || _renderer.MaxWorkingScale != context.MaxWorkingScale)
             {
                 _renderer?.Dispose();
-                _renderer = new Renderer(frame.Value.Size.Width, frame.Value.Size.Height);
+                _renderer = new Renderer(size.Width, size.Height, w, context.MaxWorkingScale);
             }
 
+            Renderer renderer = _renderer;
+            var bounds = new Rect(0, 0, size.Width, size.Height);
             return
             [
                 RenderNodeOperation.CreateLambda(
-                    new Rect(0, 0, frame.Value.Size.Width, frame.Value.Size.Height),
+                    bounds,
                     canvas =>
                     {
-                        _renderer.Render(frame.Value);
-                        RenderTarget renderTarget = Renderer.GetInternalRenderTarget(_renderer);
-                        canvas.DrawRenderTarget(renderTarget, default);
-                    })
+                        renderer.Render(frame.Value);
+                        RenderTarget renderTarget = Renderer.GetInternalRenderTarget(renderer);
+                        // Point-blit only when both buffer and canvas are at density 1; otherwise use scaled blit.
+                        if (w == 1f && canvas.Density == 1f)
+                        {
+                            canvas.DrawRenderTarget(renderTarget, default);
+                        }
+                        else
+                        {
+                            canvas.DrawRenderTargetScaled(renderTarget, bounds);
+                        }
+                    },
+                    effectiveScale: EffectiveScale.At(w))
             ];
         }
 

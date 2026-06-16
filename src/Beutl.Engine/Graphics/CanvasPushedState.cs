@@ -15,6 +15,29 @@ public partial class ImmediateCanvas
             }
         }
 
+        // No-op pop for PushDeviceSpace when the canvas is already in device space.
+        internal sealed record NoOpPushedState : CanvasPushedState
+        {
+            public static readonly NoOpPushedState Instance = new();
+
+            public override void Pop(ImmediateCanvas canvas)
+            {
+            }
+        }
+
+        // Restores matrix, density, and base transform to the enclosing scope.
+        internal record DeviceSpacePushedState(int Count, float PrevDensity, Matrix PrevBaseTransform)
+            : CanvasPushedState
+        {
+            public override void Pop(ImmediateCanvas canvas)
+            {
+                canvas.Canvas.RestoreToCount(Count);
+                canvas._currentTransform = canvas.Canvas.TotalMatrix.ToMatrix();
+                canvas._currentDensity = PrevDensity;
+                canvas._currentBaseTransform = PrevBaseTransform;
+            }
+        }
+
         internal record MaskPushedState(int Count, bool Invert, SKPaint Paint) : CanvasPushedState
         {
             public override void Pop(ImmediateCanvas canvas)

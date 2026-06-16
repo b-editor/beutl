@@ -1,25 +1,40 @@
 ﻿using Beutl.Animation;
 using Beutl.Graphics.Rendering;
+using Beutl.Logging;
 using Beutl.Media;
 using Beutl.Media.Source;
+using Microsoft.Extensions.Logging;
 using SkiaSharp;
 
 namespace Beutl.Graphics;
 
-public readonly struct BrushConstructor(Rect bounds, Brush.Resource? brush, BlendMode blendMode)
+public readonly struct BrushConstructor(
+    Rect bounds, Brush.Resource? brush, BlendMode blendMode, float scale = 1f,
+    float maxWorkingScale = float.PositiveInfinity)
 {
+    private static readonly ILogger s_logger = Log.CreateLogger("BrushConstructor");
+
     public Rect Bounds { get; } = bounds;
 
     public Brush.Resource? Brush { get; } = brush;
 
     public BlendMode BlendMode { get; } = blendMode;
 
+    /// <summary>
+    /// Render density (device px per logical unit) of the canvas this brush fills into.
+    /// Tile/image brushes rasterize intermediates at <c>ceil(size * Scale)</c> and compensate the shader matrix.
+    /// </summary>
+    public float Scale { get; } = scale;
+
+    /// <summary>Working-scale ceiling forwarded into nested pulls (e.g. <see cref="DrawableBrush"/>).</summary>
+    public float MaxWorkingScale { get; } = maxWorkingScale;
+
     public void ConfigurePaint(SKPaint paint)
     {
         // Handle BrushPresenter by delegating to the target brush
         if (Brush is BrushPresenter.Resource presenter && presenter.Target != null)
         {
-            new BrushConstructor(Bounds, presenter.Target, BlendMode).ConfigurePaint(paint);
+            new BrushConstructor(Bounds, presenter.Target, BlendMode, Scale, MaxWorkingScale).ConfigurePaint(paint);
             return;
         }
 
@@ -56,7 +71,7 @@ public readonly struct BrushConstructor(Rect bounds, Brush.Resource? brush, Blen
         // Handle BrushPresenter by delegating to the target brush
         if (Brush is BrushPresenter.Resource presenter && presenter.Target != null)
         {
-            return new BrushConstructor(Bounds, presenter.Target, BlendMode).CreateShader();
+            return new BrushConstructor(Bounds, presenter.Target, BlendMode, Scale, MaxWorkingScale).CreateShader();
         }
 
         float opacity = (Brush?.Opacity ?? 0) / 100f;
@@ -214,15 +229,18 @@ public readonly struct BrushConstructor(Rect bounds, Brush.Resource? brush, Blen
 
     private SKShader? CreateTileShader(TileBrush.Resource tileBrush)
     {
+        float s = Scale;
         RenderTarget? renderTarget = null;
         SKImage? skImage;
-        PixelSize pixelSize;
+        PixelSize pixelSize;     // logical content size (drives TileBrushCalculator)
+        float contentDensity;    // skImage device px per logical content unit
 
         if (tileBrush is ImageBrush.Resource imageBrush
             && imageBrush.Source?.Bitmap is { } bitmap)
         {
             skImage = SKImage.FromBitmap(bitmap.SKBitmap);
             pixelSize = new(bitmap.Width, bitmap.Height);
+            contentDensity = 1f; // the bitmap's native pixels ARE the logical content (1:1)
         }
         else if (tileBrush is DrawableBrush.Resource drawableBrush)
         {
@@ -230,27 +248,44 @@ public readonly struct BrushConstructor(Rect bounds, Brush.Resource? brush, Blen
 
             var drawable = drawableBrush.Drawable;
             using var node = new DrawableRenderNode(drawable);
-            using var context = new GraphicsContext2D(node, new PixelSize((int)Bounds.Width, (int)Bounds.Height));
+            using var context = new GraphicsContext2D(node, new Size((int)Bounds.Width, (int)Bounds.Height), s);
             drawable.GetOriginal().Render(context, drawable);
-            var processor = new RenderNodeProcessor(node, true);
+            var processor = new RenderNodeProcessor(node, true, s, MaxWorkingScale);
             var ops = processor.RasterizeToRenderTargets();
             var totalBounds = ops.Aggregate(Rect.Empty, (current, item) => current.Union(item.Bounds));
 
-            renderTarget = RenderTarget.Create((int)totalBounds.Width, (int)totalBounds.Height);
-            if (renderTarget == null) return null;
+            int dw = Math.Max(1, (int)MathF.Ceiling((float)totalBounds.Width * s));
+            int dh = Math.Max(1, (int)MathF.Ceiling((float)totalBounds.Height * s));
+            renderTarget = RenderTarget.Create(dw, dh);
+            if (renderTarget == null)
+            {
+                // Dispose ops that the blit loop below would have consumed.
+                foreach (var op in ops)
+                    op.RenderTarget.Dispose();
 
-            using (var icanvas = new ImmediateCanvas(renderTarget))
+                s_logger.LogWarning(
+                    "DrawableBrush content buffer allocation failed ({Width}x{Height} px, density {Scale}); preview fill degrades to solid white, delivery render fails fast.",
+                    dw, dh, s);
+                ThrowIfDeliveryAllocationFailure(
+                    $"DrawableBrush content buffer allocation failed ({dw}x{dh} px, density {s}).");
+                return null;
+            }
+
+            // Density 1: raw device-px blits with hand-computed offsets (no base CTM re-scale).
+            using (var icanvas = new ImmediateCanvas(renderTarget, 1f, MaxWorkingScale))
             {
                 icanvas.Clear();
 
                 foreach (var op in ops)
                 {
-                    icanvas.DrawRenderTarget(op.RenderTarget, op.Bounds.Position - totalBounds.Position);
+                    Point offset = (op.Bounds.Position - totalBounds.Position) * s;
+                    icanvas.DrawRenderTarget(op.RenderTarget, offset);
                     op.RenderTarget.Dispose();
                 }
             }
 
             pixelSize = new PixelSize((int)totalBounds.Width, (int)totalBounds.Height);
+            contentDensity = s;
             skImage = renderTarget.Value.Snapshot();
         }
         else
@@ -264,18 +299,34 @@ public readonly struct BrushConstructor(Rect bounds, Brush.Resource? brush, Blen
             if (skImage == null) return null;
 
             var calc = new TileBrushCalculator(tileBrush, pixelSize.ToSize(1), Bounds.Size);
-            SKSizeI intermediateSize = calc.IntermediateSize.ToSKSize().ToSizeI();
 
-            intermediate = RenderTarget.Create(intermediateSize.Width, intermediateSize.Height);
-            if (intermediate == null) return null;
+            int iw = Math.Max(1, (int)MathF.Ceiling((float)calc.IntermediateSize.Width * s));
+            int ih = Math.Max(1, (int)MathF.Ceiling((float)calc.IntermediateSize.Height * s));
 
-            using (var canvas = new ImmediateCanvas(intermediate))
+            intermediate = RenderTarget.Create(iw, ih);
+            if (intermediate == null)
+            {
+                s_logger.LogWarning(
+                    "Tile-brush intermediate allocation failed ({Width}x{Height} px, density {Scale}); preview fill degrades to solid white, delivery render fails fast.",
+                    iw, ih, s);
+                ThrowIfDeliveryAllocationFailure(
+                    $"Tile-brush intermediate allocation failed ({iw}x{ih} px, density {s}).");
+                return null;
+            }
+
+            // Density 1: the SetMatrix below builds an absolute device matrix with Scale(s) folded in.
+            using (var canvas = new ImmediateCanvas(intermediate, 1f, MaxWorkingScale))
             using (var paintTmp = new SKPaint())
             {
                 canvas.Canvas.Clear();
                 canvas.Canvas.Save();
-                canvas.Canvas.ClipRect(calc.IntermediateClip.ToSKRect());
-                canvas.Canvas.SetMatrix(calc.IntermediateTransform.ToSKMatrix());
+                Rect clip = calc.IntermediateClip;
+                canvas.Canvas.ClipRect(new SKRect(
+                    (float)clip.Left * s, (float)clip.Top * s, (float)clip.Right * s, (float)clip.Bottom * s));
+                SKMatrix draw = SKMatrix.CreateScale(s, s)
+                    .PreConcat(calc.IntermediateTransform.ToSKMatrix())
+                    .PreConcat(SKMatrix.CreateScale(1f / contentDensity, 1f / contentDensity));
+                canvas.Canvas.SetMatrix(draw);
 
                 canvas.Canvas.DrawImage(skImage, 0, 0, tileBrush.BitmapInterpolationMode.ToSKSamplingOptions(),
                     paintTmp);
@@ -309,6 +360,9 @@ public readonly struct BrushConstructor(Rect bounds, Brush.Resource? brush, Blen
                 tileTransform = tileTransform.PreConcat(transform.ToSKMatrix());
             }
 
+            // Compensate the dense intermediate: Scale(1/s) un-densifies texture coords to logical.
+            tileTransform = tileTransform.PreConcat(SKMatrix.CreateScale(1f / s, 1f / s));
+
             using (SKImage snapshot = intermediate.Value.Snapshot())
             using (SKImage raster = snapshot.ToRasterImage())
             {
@@ -320,6 +374,14 @@ public readonly struct BrushConstructor(Rect bounds, Brush.Resource? brush, Blen
             skImage?.Dispose();
             intermediate?.Dispose();
             renderTarget?.Dispose();
+        }
+    }
+
+    private void ThrowIfDeliveryAllocationFailure(string message)
+    {
+        if (float.IsPositiveInfinity(MaxWorkingScale))
+        {
+            throw new InvalidOperationException(message);
         }
     }
 

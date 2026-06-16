@@ -103,12 +103,16 @@ public partial class FlatShadow : FilterEffect
             using (ImmediateCanvas newCanvas = context.Open(newTarget))
             {
                 newCanvas.Clear();
-                using (newCanvas.PushTransform(Matrix.CreateTranslation((x2Abs - x2) / 2, (y2Abs - y2) / 2)))
-                {
-                    var c = new BrushConstructor(new(newTarget.Bounds.Size), brush, BlendMode.SrcIn);
-                    c.ConfigurePaint(brushPaint);
+                // Contour path is device px; shadow extrusion uses device-space coordinates.
+                float w = context.WorkingScale;
+                // CreateTarget may clamp below w; compensate with Scale(wOut / w).
+                float wOut = newTarget.Scale.Value;
 
-                    float lenAbs = Math.Abs(length);
+                using (newCanvas.PushDeviceSpace())
+                using (w == wOut ? default : newCanvas.PushTransform(Matrix.CreateScale(wOut / w, wOut / w)))
+                using (newCanvas.PushTransform(Matrix.CreateTranslation((x2Abs - x2) / 2 * w, (y2Abs - y2) / 2 * w)))
+                {
+                    float lenAbs = Math.Abs(length) * w;
                     int unit = Math.Sign(length);
                     for (int i = 0; i < lenAbs; i++)
                     {
@@ -117,10 +121,21 @@ public partial class FlatShadow : FilterEffect
                     }
                 }
 
-                newCanvas.Canvas.DrawRect(SKRect.Create(newTarget.Bounds.Size.ToSKSize()), brushPaint);
+                // SrcIn brush at the buffer's real density (wOut).
+                var c = new BrushConstructor(new(newTarget.Bounds.Size), brush, BlendMode.SrcIn, wOut,
+                    context.MaxWorkingScale);
+                c.ConfigurePaint(brushPaint);
+                newCanvas.Canvas.DrawRect(SKRect.Create(newTarget.Bounds.Width, newTarget.Bounds.Height), brushPaint);
 
                 if (!data.ShadowOnly)
-                    newCanvas.DrawRenderTarget(target.RenderTarget!, new((x2Abs - x2) / 2, (y2Abs - y2) / 2));
+                {
+                    using (newCanvas.PushDeviceSpace())
+                    using (w == wOut ? default : newCanvas.PushTransform(Matrix.CreateScale(wOut / w, wOut / w)))
+                    {
+                        newCanvas.DrawRenderTarget(target.RenderTarget!,
+                            new((x2Abs - x2) / 2 * w, (y2Abs - y2) / 2 * w));
+                    }
+                }
             }
 
             target.Dispose();

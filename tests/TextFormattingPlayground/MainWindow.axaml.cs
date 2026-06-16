@@ -53,7 +53,7 @@ public partial class MainWindow : Window
         if (_resource.Version != oldVersion) return;
 
         using (var context = new GraphicsContext2D(_node,
-                   new Beutl.Media.PixelSize((int)image.Bounds.Width, (int)image.Bounds.Height)))
+                   new Beutl.Graphics.Size((int)image.Bounds.Width, (int)image.Bounds.Height)))
         {
             context.Clear(Beutl.Media.Colors.Black);
             _text.Render(context, _resource);

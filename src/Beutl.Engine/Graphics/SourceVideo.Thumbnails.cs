@@ -137,7 +137,7 @@ public partial class SourceVideo : IThumbnailsProvider
                     bool updateOnly = false;
                     resource.Update(this, ctx, ref updateOnly);
 
-                    using (var gctx = new GraphicsContext2D(node, new PixelSize((int)thumbWidth, maxHeight)))
+                    using (var gctx = new GraphicsContext2D(node, new Size((int)thumbWidth, maxHeight)))
                     using (gctx.PushTransform(Matrix.CreateScale(thumbWidth / frameSize.Width,
                                (float)maxHeight / frameSize.Height)))
                     {

@@ -554,6 +554,12 @@
   <data name="SaveFrameAsImage" xml:space="preserve">
     <value>Save a frame as an image</value>
   </data>
+  <data name="SaveImageScale" xml:space="preserve">
+    <value>Scale</value>
+  </data>
+  <data name="SaveImageScale_OutputSize" xml:space="preserve">
+    <value>Output size</value>
+  </data>
   <data name="Move" xml:space="preserve">
     <value>Move</value>
   </data>
@@ -1263,5 +1269,29 @@ Example: GetProperty&lt;double&gt;("{GUID}.Opacity")</value>
   </data>
   <data name="OnionSkinNextOpacity" xml:space="preserve">
     <value>Next opacity</value>
+  </data>
+  <data name="Supersampling" xml:space="preserve">
+    <value>Supersampling</value>
+  </data>
+  <data name="Supersampling_Tip" xml:space="preserve">
+    <value>Render at the selected multiple of the output resolution, then downscale to the output size for smoother edges</value>
+  </data>
+  <data name="PreviewRenderQuality" xml:space="preserve">
+    <value>Preview render quality</value>
+  </data>
+  <data name="PreviewRenderQuality_Tip" xml:space="preserve">
+    <value>Preview render quality. Cannot be changed during playback.</value>
+  </data>
+  <data name="RenderScale_Full" xml:space="preserve">
+    <value>Full</value>
+  </data>
+  <data name="RenderScale_Half" xml:space="preserve">
+    <value>Half (1/2)</value>
+  </data>
+  <data name="RenderScale_Quarter" xml:space="preserve">
+    <value>Quarter (1/4)</value>
+  </data>
+  <data name="RenderScale_FitToPreviewer" xml:space="preserve">
+    <value>Fit to previewer</value>
   </data>
 </root>

@@ -1,6 +1,7 @@
 <UserControl x:Class="Beutl.Views.Tools.OutputView"
              xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:converters="using:Beutl.Converters"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:lang="using:Beutl.Language"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
@@ -96,6 +97,41 @@
                 </ComboBox.ItemTemplate>
             </ComboBox>
         </Grid>
+
+        <Grid Margin="8,0" ToolTip.Tip="{x:Static lang:Strings.Supersampling_Tip}">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="2*" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="150" SharedSizeGroup="TextBox_SizeGroup" />
+            </Grid.ColumnDefinitions>
+
+            <TextBlock HorizontalAlignment="Left"
+                       VerticalAlignment="Center"
+                       ClipToBounds="False"
+                       Text="{x:Static lang:Strings.Supersampling}"
+                       TextTrimming="CharacterEllipsis" />
+
+            <GridSplitter Grid.Column="1" Background="Transparent" />
+
+            <ComboBox Grid.Column="2"
+                      MinWidth="120"
+                      Margin="0,4"
+                      HorizontalAlignment="Stretch"
+                      ItemsSource="{Binding SupersampleFactors}"
+                      SelectedItem="{Binding SupersampleFactor.Value}">
+                <ComboBox.ItemTemplate>
+                    <DataTemplate x:DataType="x:Int32">
+                        <TextBlock Text="{Binding Converter={x:Static converters:SupersampleFactorNameConverter.Instance}}" />
+                    </DataTemplate>
+                </ComboBox.ItemTemplate>
+            </ComboBox>
+        </Grid>
+
+        <TextBlock Margin="8,0"
+                   Foreground="{DynamicResource SystemFillColorCautionBrush}"
+                   IsVisible="{Binding SupersampleWarning.Value, Converter={x:Static ObjectConverters.IsNotNull}}"
+                   Text="{Binding SupersampleWarning.Value}"
+                   TextWrapping="Wrap" />
 
         <TextBlock Margin="8,16,0,0"
                    Text="{x:Static lang:Strings.Video}"

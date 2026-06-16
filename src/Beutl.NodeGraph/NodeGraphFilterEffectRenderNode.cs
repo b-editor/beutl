@@ -39,7 +39,9 @@ internal class NodeGraphFilterEffectRenderNode(NodeGraphFilterEffect.Resource re
         var allResults = new List<RenderNodeOperation>();
         foreach (RenderNode outputNode in outputRenderNodes)
         {
-            var processor = new RenderNodeProcessor(outputNode, context.IsRenderCacheEnabled);
+            // Forward the working-scale ceiling into the output subtree.
+            var processor = new RenderNodeProcessor(
+                outputNode, context.IsRenderCacheEnabled, context.OutputScale, context.MaxWorkingScale);
             allResults.AddRange(processor.PullToRoot());
         }
 

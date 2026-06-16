@@ -61,16 +61,20 @@ internal sealed class FpsText
                     bounds = bounds.Union(text.Bounds);
                 }
 
-                canvas.DrawRectangle(bounds, s_background, null);
-
-                float y = 0f;
-                foreach (var text in fpsText._texts)
+                // Draw in device space so the FPS overlay is not affected by the output scale.
+                using (canvas.PushDeviceSpace())
                 {
-                    using (canvas.PushTransform(Matrix.CreateTranslation(0, y)))
+                    canvas.DrawRectangle(bounds, s_background, null);
+
+                    float y = 0f;
+                    foreach (var text in fpsText._texts)
                     {
-                        canvas.DrawText(text, text.Brush!, text.Pen);
+                        using (canvas.PushTransform(Matrix.CreateTranslation(0, y)))
+                        {
+                            canvas.DrawText(text, text.Brush!, text.Pen);
+                        }
+                        y += text.Bounds.Height;
                     }
-                    y += text.Bounds.Height;
                 }
             }
         }

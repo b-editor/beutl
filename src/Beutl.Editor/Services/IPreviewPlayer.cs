@@ -19,4 +19,11 @@ public interface IPreviewPlayer
 
     Task<AudioFrameSnapshot?> ComposeAudioAsync(TimeSpan start, TimeSpan duration, CancellationToken ct = default)
         => Task.FromResult<AudioFrameSnapshot?>(null);
+
+    /// <summary>
+    /// Pauses playback; the returned task completes once the pipeline has fully drained, so callers
+    /// may then safely mutate state the pipeline reads (e.g. the scene frame size).
+    /// No-op default for players without interactive playback.
+    /// </summary>
+    Task Pause() => Task.CompletedTask;
 }

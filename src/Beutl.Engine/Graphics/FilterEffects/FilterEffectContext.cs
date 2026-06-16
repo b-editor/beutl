@@ -34,9 +34,11 @@ public sealed class FilterEffectContext : IDisposable
         s_colorMatPool = new DefaultObjectPool<float[]>(new ArrayPooledObjectPolicy<float>(20));
     }
 
-    public FilterEffectContext(Rect bounds)
+    public FilterEffectContext(Rect bounds, float outputScale = 1f, float workingScale = 1f)
     {
         Bounds = OriginalBounds = bounds;
+        OutputScale = outputScale;
+        WorkingScale = workingScale;
         _renderTimeItems = [];
         _items = [];
     }
@@ -45,6 +47,8 @@ public sealed class FilterEffectContext : IDisposable
     {
         OriginalBounds = obj.OriginalBounds;
         Bounds = obj.Bounds;
+        OutputScale = obj.OutputScale;
+        WorkingScale = obj.WorkingScale;
         _renderTimeItems = new PooledList<IFEItem>(obj._renderTimeItems);
         _items = new PooledList<IFEItem>(obj._items);
     }
@@ -52,6 +56,17 @@ public sealed class FilterEffectContext : IDisposable
     public Rect Bounds { get; internal set; }
 
     public Rect OriginalBounds { get; }
+
+    /// <summary>
+    /// The output scale <c>s_out</c> for this render request; never a ceiling on working scale.
+    /// </summary>
+    public float OutputScale { get; }
+
+    /// <summary>
+    /// The density <c>w</c> at which intermediate buffers are allocated (<c>ceil(bounds * w)</c>).
+    /// Resolved per-effect via <see cref="Beutl.Graphics.Rendering.RenderNodeContext.ResolveWorkingScale"/>.
+    /// </summary>
+    public float WorkingScale { get; }
 
     public FilterEffectContext Clone()
     {
@@ -61,7 +76,7 @@ public sealed class FilterEffectContext : IDisposable
     public FilterEffectContext CreateChildContext()
     {
         // 今はnewしているが、キャッシュする予定
-        return new FilterEffectContext(Bounds);
+        return new FilterEffectContext(Bounds, OutputScale, WorkingScale);
     }
 
     private void AddItem(IFEItem item)
@@ -152,19 +167,22 @@ public sealed class FilterEffectContext : IDisposable
                     var target = context.Targets[i];
                     if (target.RenderTarget is not null)
                     {
-                        using SKImage skImage = target.RenderTarget.Value.Snapshot();
                         EffectTarget newTarget = context.CreateTarget(target.Bounds);
                         using (ImmediateCanvas canvas = context.Open(newTarget))
+                        // Source point-blits and sigma/offset are device-px; composite in device space.
+                        using (canvas.PushDeviceSpace())
                         {
                             canvas.Clear();
-                            using var blur = SKImageFilter.CreateBlur(data.sigma.Width, data.sigma.Height);
+                            // Read density from the target (may be clamped), not context.WorkingScale.
+                            float w = newTarget.Scale.Value;
+                            using var blur = SKImageFilter.CreateBlur(data.sigma.Width * w, data.sigma.Height * w);
                             using var blend = SKColorFilter.CreateBlendMode(data.color.ToSKColor(), SKBlendMode.SrcOut);
                             using var filter = SKImageFilter.CreateColorFilter(blend, blur);
                             using var paint = new SKPaint { ImageFilter = filter };
 
                             using (canvas.PushPaint(paint))
                             {
-                                canvas.DrawRenderTarget(target.RenderTarget, data.position);
+                                canvas.DrawRenderTarget(target.RenderTarget, new Point(data.position.X * w, data.position.Y * w));
                             }
 
                             using (canvas.PushBlendMode(data.blendMode))
@@ -419,14 +437,21 @@ public sealed class FilterEffectContext : IDisposable
                 {
                     Size size = target.Bounds.Size;
                     EffectTarget newTarget = context.CreateTarget(target.Bounds);
-                    var c = new BrushConstructor(new(size), data.Brush, data.BlendMode);
+                    // Read density from the target (may be clamped), not context.WorkingScale.
+                    float w = newTarget.Scale.Value;
+                    var c = new BrushConstructor(new(size), data.Brush, data.BlendMode, w, context.MaxWorkingScale);
                     using var brushPaint = new SKPaint();
                     c.ConfigurePaint(brushPaint);
 
                     using (ImmediateCanvas newCanvas = context.Open(newTarget))
                     {
                         newCanvas.Clear();
-                        newCanvas.DrawRenderTarget(target.RenderTarget, default);
+                        // Source is a device-px point-blit; enter device space.
+                        using (newCanvas.PushDeviceSpace())
+                        {
+                            newCanvas.DrawRenderTarget(target.RenderTarget, default);
+                        }
+
                         newCanvas.Canvas.DrawRect(SKRect.Create(size.ToSKSize()), brushPaint);
                     }
 

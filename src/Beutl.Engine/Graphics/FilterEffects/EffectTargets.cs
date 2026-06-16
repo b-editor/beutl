@@ -28,6 +28,7 @@ public sealed class EffectTargets : IList<EffectTarget>, IDisposable
     {
         return this.Aggregate<EffectTarget, Rect>(default, (x, y) => x.Union(y.Bounds));
     }
+
     public EffectTargets Clone() => new(this);
     public void Add(EffectTarget item) => ((ICollection<EffectTarget>)_targets).Add(item);
     public void AddRange(IEnumerable<EffectTarget> collection) => _targets.AddRange(collection);

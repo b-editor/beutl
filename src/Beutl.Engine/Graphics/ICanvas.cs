@@ -7,7 +7,17 @@ namespace Beutl.Graphics;
 
 public interface ICanvas : IDisposable, IPopable
 {
-    PixelSize Size { get; }
+    /// <summary>The declared logical viewport; the base CTM maps it onto <see cref="DeviceSize"/>.</summary>
+    Size LogicalSize => new(DeviceSize.Width, DeviceSize.Height);
+
+    /// <summary>The physical backing-surface size in device pixels.</summary>
+    PixelSize DeviceSize { get; }
+
+    /// <summary>Device pixels per unit of the current coordinate space; 1 inside <see cref="PushDeviceSpace"/>.</summary>
+    float Density => 1f;
+
+    /// <summary>The immutable device-pixels-per-logical-unit the surface is rasterized at.</summary>
+    float SurfaceDensity => 1f;
 
     bool IsDisposed { get; }
 
@@ -52,6 +62,11 @@ public interface ICanvas : IDisposable, IPopable
     PushedState PushBlendMode(BlendMode blendMode);
 
     PushedState PushTransform(Matrix matrix, TransformOperator transformOperator = TransformOperator.Prepend);
+
+    /// <summary>
+    /// Enter absolute device space (CTM identity, <see cref="Density"/> = 1) for device-px drawing.
+    /// </summary>
+    PushedState PushDeviceSpace() => Push();
 }
 
 public enum TransformOperator
@@ -68,10 +83,19 @@ public interface IBackdrop
     void Draw(ImmediateCanvas canvas);
 }
 
-internal sealed class TmpBackdrop(Bitmap bitmap) : IBackdrop
+internal sealed class TmpBackdrop(Bitmap bitmap, float captureScale) : IBackdrop
 {
     public void Draw(ImmediateCanvas canvas)
     {
-        canvas.DrawBitmap(bitmap, Brushes.Resource.White, null);
+        // Un-scale by the capture's density, not the replay canvas's density.
+        if (captureScale == 1f)
+        {
+            canvas.DrawBitmap(bitmap, Brushes.Resource.White, null);
+        }
+        else
+        {
+            var dest = new Rect(0, 0, bitmap.Width / captureScale, bitmap.Height / captureScale);
+            canvas.DrawBitmapScaled(bitmap, dest, Brushes.Resource.White);
+        }
     }
 }

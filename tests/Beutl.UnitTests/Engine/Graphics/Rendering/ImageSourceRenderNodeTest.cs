@@ -153,4 +153,18 @@ public class ImageSourceRenderNodeTest
 
         Assert.That(operations[0].HitTest(point), Is.False);
     }
+
+    // A decoded image reports concrete At(1) density, not Unbounded.
+    [Test]
+    public void Process_OpReportsConcreteNativeDensity_NotUnbounded()
+    {
+        ImageSource.Resource source = GetTestImageSourceResource();
+        var node = new ImageSourceRenderNode(source, Brushes.Resource.White, null);
+        var operations = node.Process(new RenderNodeContext([]));
+
+        Assert.That(operations[0].EffectiveScale.IsUnbounded, Is.False,
+            "an image source must report a concrete density, not the vector Unbounded sentinel");
+        Assert.That(operations[0].EffectiveScale.Value, Is.EqualTo(1f),
+            "an image drawn at its native 1:1 size has supply density 1");
+    }
 }

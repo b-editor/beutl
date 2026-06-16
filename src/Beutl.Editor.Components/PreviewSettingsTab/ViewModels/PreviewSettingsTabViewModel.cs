@@ -3,6 +3,7 @@
 using Beutl.Configuration;
 using Beutl.Editor;
 using Beutl.Editor.Services;
+using Beutl.Models;
 using Beutl.PropertyAdapters;
 
 using Microsoft.Extensions.DependencyInjection;
@@ -22,6 +23,14 @@ public sealed class PreviewSettingsTabViewModel : IToolContext, IPropertyEditorC
         _editorContext = editorContext;
         var factory = editorContext.GetRequiredService<IPropertyEditorFactory>();
         EditorConfig config = GlobalConfiguration.Instance.EditorConfig;
+
+        var quality = editorContext.GetService<IPreviewRenderQuality>();
+        IsRenderQualityAvailable = quality is not null;
+        PreviewScale = quality?.PreviewScale;
+        PreviewScaleOptions = quality?.PreviewScaleOptions;
+        // Disabled during playback to avoid mid-play renderer rebuilds.
+        IsPlaying = editorContext.GetService<IPreviewPlayer>()?.IsPlaying
+                    ?? new ReactivePropertySlim<bool>(false).DisposeWith(_disposables);
 
         // Editors target global EditorConfig, not the scene, so commit into a dedicated
         // EditorConfig-rooted HistoryManager (same as the Output / encoder-settings editors).
@@ -47,6 +56,14 @@ public sealed class PreviewSettingsTabViewModel : IToolContext, IPropertyEditorC
             new CorePropertyAdapter<int>(EditorConfig.NodeCacheMaxPixelsProperty, config),
             new CorePropertyAdapter<int>(EditorConfig.NodeCacheMinPixelsProperty, config));
     }
+
+    public bool IsRenderQualityAvailable { get; }
+
+    public IReactiveProperty<RenderScale>? PreviewScale { get; }
+
+    public IReadOnlyList<RenderScale>? PreviewScaleOptions { get; }
+
+    public IReadOnlyReactiveProperty<bool> IsPlaying { get; }
 
     public ReactiveProperty<bool> IsOnionSkinEnabled { get; }
 

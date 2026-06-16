@@ -1,0 +1,37 @@
+// TEMP DIAGNOSTIC TEMPLATE (do NOT commit). Copy to src/Beutl.Engine/Graphics/CrashTrace.cs (or next to the
+// suspect type), then inject a call on the line BEFORE each candidate native call:
+//
+//     CrashTrace.Mark($"DC count={_baseSaveCount} refs={...} freed={...}");  // right before Canvas.RestoreToCount(...)
+//
+// A native segfault dies inside the native call, after this flushed write, so /dumps/lastrestore.txt holds
+// the crashing site's tag. The file is overwritten each call; SetLength avoids stale trailing bytes.
+//
+// Inject all candidate sites at once, e.g. for the 5 CanvasPushedState.Pop overloads + DisposeCore:
+//   perl -0pi -e 's/(canvas\.Canvas\.RestoreToCount\(Count\);)/CrashTrace.Mark(\$"POP {GetType().Name} count={Count} cdisp={canvas.IsDisposed}"); $1/g' CanvasPushedState.cs
+//
+// Then run ONE loop pass (scripts/loop-core.sh) and `cat /dumps/lastrestore.txt`. Revert before committing.
+using System.Text;
+
+namespace Beutl.Graphics;
+
+internal static class CrashTrace
+{
+    private static readonly FileStream s_fs =
+        new("/dumps/lastrestore.txt", FileMode.Create, FileAccess.Write, FileShare.ReadWrite);
+
+    private static readonly object s_lock = new();
+
+    public static void Mark(string tag)
+    {
+        lock (s_lock)
+        {
+            s_fs.Seek(0, SeekOrigin.Begin);
+            byte[] b = Encoding.ASCII.GetBytes(tag + " tid=" + Environment.CurrentManagedThreadId + "\n");
+            s_fs.Write(b, 0, b.Length);
+            s_fs.SetLength(b.Length);
+            // Plain Flush(), NOT Flush(true): the OS write survives process death since the kernel keeps the
+            // file buffer after a segfault, and fsync-per-call is far too slow over millions of calls.
+            s_fs.Flush();
+        }
+    }
+}

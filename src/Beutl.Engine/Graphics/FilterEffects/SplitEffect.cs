@@ -38,6 +38,8 @@ public partial class SplitEffect : FilterEffect
                 {
                     EffectTarget t = effectContext.Targets[i];
                     RenderTarget renderTarget = t.RenderTarget!;
+                    // Per-tile crop offset scales by working density.
+                    float w = effectContext.WorkingScale;
 
                     float divWidth = t.Bounds.Width / d.HorizontalDivisions;
                     float divHeight = t.Bounds.Height / d.VerticalDivisions;
@@ -70,10 +72,12 @@ public partial class SplitEffect : FilterEffect
                                         divWidth,
                                         divHeight));
 
+                                // Crop offset is device px; draw in device space.
                                 using (ImmediateCanvas canvas = effectContext.Open(newTarget))
+                                using (canvas.PushDeviceSpace())
                                 {
                                     canvas.Clear();
-                                    canvas.DrawRenderTarget(renderTarget, new Point(-divWidth * h, -divHeight * v));
+                                    canvas.DrawRenderTarget(renderTarget, new Point(-divWidth * h * w, -divHeight * v * w));
                                 }
 
                                 newTargets[v * d.HorizontalDivisions + h] = newTarget;

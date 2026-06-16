@@ -30,11 +30,12 @@ public sealed partial class SKSLScriptEffect : FilterEffect
                uniform float progress;  // 0.0 - 1.0
                uniform float duration;  // seconds
                uniform float time;      // seconds
-               uniform float width;     // render target width
-               uniform float height;    // render target height
+               uniform float width;     // render target width (device px)
+               uniform float height;    // render target height (device px)
                // Also available:
-               // uniform float2 iResolution;
-               // uniform float iTime;
+               // uniform float2 iResolution;  // (width, height) in device px
+               // uniform float  iScale;       // working density (device px per logical px)
+               // uniform float  iTime;
 
                half4 main(float2 fragCoord) {
                    half4 c = src.eval(fragCoord);
@@ -96,12 +97,17 @@ public sealed partial class SKSLScriptEffect : FilterEffect
                 builder.Uniforms["duration"] = data.duration;
             if (effect.Uniforms.Contains("time"))
                 builder.Uniforms["time"] = data.time;
+            // Resolution uniforms report device px at the clamped buffer density.
+            float w = c.ResolveTargetDensity(effectTarget.Bounds);
+            (int devW, int devH) = CustomFilterEffectContext.DeviceBufferSize(effectTarget.Bounds, w);
             if (effect.Uniforms.Contains("width"))
-                builder.Uniforms["width"] = effectTarget.Bounds.Width;
+                builder.Uniforms["width"] = (float)devW;
             if (effect.Uniforms.Contains("height"))
-                builder.Uniforms["height"] = effectTarget.Bounds.Height;
+                builder.Uniforms["height"] = (float)devH;
             if (effect.Uniforms.Contains("iResolution"))
-                builder.Uniforms["iResolution"] = new SKPoint(effectTarget.Bounds.Width, effectTarget.Bounds.Height);
+                builder.Uniforms["iResolution"] = new SKPoint(devW, devH);
+            if (effect.Uniforms.Contains("iScale"))
+                builder.Uniforms["iScale"] = w;
             if (effect.Uniforms.Contains("iTime"))
                 builder.Uniforms["iTime"] = data.time;
 

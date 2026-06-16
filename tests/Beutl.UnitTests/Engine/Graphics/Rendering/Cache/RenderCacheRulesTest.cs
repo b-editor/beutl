@@ -91,6 +91,18 @@ public class RenderCacheRulesTest
     }
 
     [Test]
+    public void Match_PixelSize_LargeOverflow_DoesNotWrapNegative()
+    {
+        var rules = new RenderCacheRules(int.MaxValue, 1);
+        // 50000 × 50000 = 2_500_000_000 > int.MaxValue; would wrap negative under int arithmetic.
+        var size = new PixelSize(50000, 50000);
+
+        bool result = rules.Match(size);
+
+        Assert.That(result, Is.False);
+    }
+
+    [Test]
     public void Create_ShouldClampMinToOne_WhenBelowOne()
     {
         var rules = RenderCacheRules.Create(maxPixels: 10000, minPixels: 0);
