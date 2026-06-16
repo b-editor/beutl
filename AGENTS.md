@@ -38,7 +38,7 @@ Claude Code skills are provided as `/beutl-build`, `/beutl-test`, `/beutl-format
 | `Beutl.Editor.Components`, `Beutl.Controls` | Avalonia UI layer (views / controls / ViewModels) |
 | `Beutl.Extensibility` | Plugin abstractions |
 | `Beutl.NodeGraph` | Node editor |
-| `Beutl.FFmpegIpc` | **MIT** IPC layer |
+| `Beutl.FFmpegIpc` | **MIT** IPC layer (transport: Protocol / Transport / SharedMemory). Also hosts the IPC client providers under `Providers/`, which translate frame/sample messages into `Beutl.Media` / `Beutl.Extensibility` types; that adapter role is why this project deliberately takes `ProjectReference`s to `Beutl.Engine` + `Beutl.Extensibility` rather than staying dependency-free. |
 | `Beutl.FFmpegWorker` | **GPL** separate process; reach it only via IPC |
 | `Beutl.Api` | Server API client |
 

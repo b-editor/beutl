@@ -7,7 +7,16 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <!-- The IPC client providers (Providers/) translate frame/sample IPC messages into
+         Beutl.Media / Beutl.Extensibility types, so the transport library needs these refs. -->
+    <ProjectReference Include="..\Beutl.Engine\Beutl.Engine.csproj" />
+    <ProjectReference Include="..\Beutl.Extensibility\Beutl.Extensibility.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
     <InternalsVisibleTo Include="Beutl.FFmpegIpc.Tests" />
+    <!-- The GPL worker constructs the internal providers; it reaches them via IVT, not public API. -->
+    <InternalsVisibleTo Include="Beutl.FFmpegWorker" />
   </ItemGroup>
 
 </Project>
