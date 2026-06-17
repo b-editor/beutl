@@ -11,9 +11,9 @@ internal sealed class ParticleRenderNode(ParticleEmitter.Resource particle) : Re
 {
     private static readonly ILogger s_logger = Log.CreateLogger("ParticleRenderNode");
 
-    private (RenderTarget RT, Drawable.Resource? Resource, int? Version)? _cachedRenderTarget;
+    private (RenderTarget RT, Drawable.Resource? Resource, int? Version, float Density)? _cachedRenderTarget;
     private Rect _drawableBounds;
-    // Working density the cached particle-drawable buffer was rasterized at.
+    // Requested output density used to decide whether the cached particle drawable must be rebuilt.
     private float _renderScale = 1f;
 
     public (ParticleEmitter.Resource Resource, int Version)? Particle { get; private set; } = particle.Capture();
@@ -37,7 +37,7 @@ internal sealed class ParticleRenderNode(ParticleEmitter.Resource particle) : Re
         var particles = resource.GetAliveParticles();
         if (particles.Length == 0) return [];
 
-        float w = context.OutputScale;
+        float w = RenderNodeContext.ResolveWorkingScale([], context.OutputScale, context.MaxWorkingScale);
         if (!_cachedRenderTarget.HasValue ||
             _renderScale != w ||
             !ReferenceEquals(_cachedRenderTarget.Value.Resource, resource.ParticleDrawable) ||
@@ -86,14 +86,15 @@ internal sealed class ParticleRenderNode(ParticleEmitter.Resource particle) : Re
 
         // Capture references for the lambda
         RenderTarget cachedRT = _cachedRenderTarget.Value.RT;
+        float cachedDensity = _cachedRenderTarget.Value.Density;
         Rect drawableBounds = _drawableBounds;
 
         return
         [
             RenderNodeOperation.CreateLambda(
                 totalBounds,
-                canvas => DrawAllParticles(canvas, cachedRT, particles, drawableBounds, w),
-                effectiveScale: EffectiveScale.At(w))
+                canvas => DrawAllParticles(canvas, cachedRT, particles, drawableBounds, cachedDensity),
+                effectiveScale: EffectiveScale.At(cachedDensity))
         ];
     }
 
@@ -175,7 +176,7 @@ internal sealed class ParticleRenderNode(ParticleEmitter.Resource particle) : Re
         }
     }
 
-    private static (RenderTarget, Drawable.Resource, int)? RenderDrawableToTarget(
+    private static (RenderTarget, Drawable.Resource, int, float)? RenderDrawableToTarget(
         Drawable.Resource drawable,
         float nominalScale,
         float maxWorkingScale,
@@ -229,13 +230,16 @@ internal sealed class ParticleRenderNode(ParticleEmitter.Resource particle) : Re
             }
         }
 
-        return (renderTarget, drawable, drawable.Version);
+        return (renderTarget, drawable, drawable.Version, w);
     }
 
-    private static (RenderTarget, Drawable.Resource?, int?)? RenderFallbackEllipse(
+    private static (RenderTarget, Drawable.Resource?, int?, float)? RenderFallbackEllipse(
         float w, float maxWorkingScale, out Rect bounds)
     {
         bounds = new Rect(-5, -5, 10, 10);
+        w = w > 1f
+            ? RenderNodeContext.ClampWorkingScaleToBufferBudget(bounds, w)
+            : w;
 
         int dim = w == 1f ? 10 : (int)MathF.Ceiling(10 * w);
         var renderTarget = RenderTarget.Create(dim, dim);
@@ -256,7 +260,7 @@ internal sealed class ParticleRenderNode(ParticleEmitter.Resource particle) : Re
             }
         }
 
-        return (renderTarget, null, null);
+        return (renderTarget, null, null, w);
     }
 
     protected override void OnDispose(bool disposing)
