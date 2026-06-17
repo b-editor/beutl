@@ -119,6 +119,8 @@ public sealed partial class AudioSpectrogramDrawable : AudioVisualizerDrawable
                 ? Math.Max(1, (int)MathF.Ceiling(height))
                 : Math.Min(Math.Max(1, (int)MathF.Ceiling(height * density)), bins);
             float rowHeight = height / pixelRows;
+            // Anti-gap fudge: floor at one device px (1/density) to avoid overlap. Loop-invariant.
+            float rowFill = MathF.Max(1f / density, rowHeight + 0.5f / density);
 
             // 各行がカバーする FFT bin 範囲 [lo, hi) を事前計算。
             // pixelRows < bins の場合でも bin の取りこぼしが発生しないよう bin 範囲全体を描画時に max 集約する。
@@ -179,8 +181,6 @@ public sealed partial class AudioSpectrogramDrawable : AudioVisualizerDrawable
                     _paint.Color = baseColor.WithAlpha(alpha);
 
                     float y = (float)bounds.Y + row * rowHeight;
-                    // Anti-gap fudge: floor at one device px (1/density) to avoid overlap.
-                    float rowFill = MathF.Max(1f / density, rowHeight + 0.5f / density);
                     canvas.Canvas.DrawRect(
                         new SKRect(colX, y, colX + drawColWidth, y + rowFill),
                         _paint);

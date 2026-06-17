@@ -213,4 +213,32 @@ public class AudioVisualizerDrawableTests
             Assert.DoesNotThrow(() => RenderWithSamplesAtScale(drawable, 2f));
         });
     }
+
+    // Renders the spectrogram with the synthetic source at the given output scale and returns the bitmap.
+    private static Bitmap RenderSpectrogramWithSamples(float scale)
+    {
+        var drawable = CreateSpectrogram();
+        AttachSyntheticSource(drawable);
+        var ctx = new CompositionContext(TimeSpan.FromSeconds(0.5));
+        using Drawable.Resource resource = drawable.ToResource(ctx);
+        var visResource = (AudioVisualizerDrawable.Resource)resource;
+        Assert.That(visResource.CachedSampleLength, Is.GreaterThan(0),
+            "synthetic audio composed no samples — the fill path would be skipped, making the test vacuous");
+        return GoldenImageHarness.RenderAtScale(resource, new PixelSize(320, 80), scale);
+    }
+
+    // The per-cell row fill is computed from loop-invariant inputs (density, rowHeight), so two fresh
+    // instances fed identical samples must rasterize byte-identically at density > 1 (the path that
+    // exercises rowFill). Guards the rowFill loop-hoist against altering device-pixel geometry.
+    [Test]
+    public void Spectrogram_WithSamples_AtSuperScale_IsDeterministic()
+    {
+        VulkanTestEnvironment.EnsureAvailable();
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            using Bitmap first = RenderSpectrogramWithSamples(2f);
+            using Bitmap second = RenderSpectrogramWithSamples(2f);
+            GoldenImageHarness.AssertByteIdentical(first, second);
+        });
+    }
 }
