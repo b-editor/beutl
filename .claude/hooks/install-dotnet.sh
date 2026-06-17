@@ -36,6 +36,26 @@ export PATH="$dotnet_dir:$dotnet_dir/tools:$PATH"
 export DOTNET_CLI_TELEMETRY_OPTOUT=1
 export DOTNET_NOLOGO=1
 
+# Pin dotnet-install.sh to a known commit of dotnet/install-scripts and verify
+# its SHA-256 before executing it, so a compromised CDN or a poisoned cache
+# cannot run arbitrary code in the session (the old https://dot.net/v1 "latest"
+# URL was fetched and executed unverified). Bump both values together — fetch
+# src/dotnet-install.sh at the new commit and recompute the hash — when the
+# installer needs updating.
+dotnet_install_commit="6f559c420847ded38591392dafe785ad511f39f5"
+dotnet_install_sha256="082f7685e156738a1b2e2ed8381a621870d4ce8e8c59278034556f05c186eb2e"
+dotnet_install_url="https://raw.githubusercontent.com/dotnet/install-scripts/${dotnet_install_commit}/src/dotnet-install.sh"
+
+# Print the SHA-256 of "$1" using whichever tool is available; print nothing if
+# neither exists (the caller treats an empty result as "cannot verify").
+sha256_of() {
+  if command -v sha256sum >/dev/null 2>&1; then
+    sha256sum "$1" | awk '{print $1}'
+  elif command -v shasum >/dev/null 2>&1; then
+    shasum -a 256 "$1" | awk '{print $1}'
+  fi
+}
+
 # Install the SDK pinned by global.json into $dotnet_dir specifically.
 # Probing with `dotnet --version` from the project dir asks the resolver to
 # honour global.json, so a bumped pin or a stale pre-baked SDK that no longer
@@ -45,8 +65,25 @@ if [ ! -x "$dotnet_dir/dotnet" ] \
    || ! (cd "$project_dir" && "$dotnet_dir/dotnet" --version >/dev/null 2>&1); then
   echo "[install-dotnet] Installing .NET SDK pinned by global.json..." >&2
   installer=$(mktemp)
-  if curl -fsSL https://dot.net/v1/dotnet-install.sh -o "$installer" \
-     && chmod +x "$installer" \
+
+  # Download, then verify the checksum before granting execute / running it.
+  actual_sha=""
+  if curl -fsSL "$dotnet_install_url" -o "$installer"; then
+    actual_sha=$(sha256_of "$installer")
+  fi
+
+  if [ -z "$actual_sha" ]; then
+    rm -f "$installer"
+    echo "[install-dotnet] Could not download or checksum dotnet-install.sh; skipping install." >&2
+    exit 0
+  fi
+  if [ "$actual_sha" != "$dotnet_install_sha256" ]; then
+    rm -f "$installer"
+    echo "[install-dotnet] dotnet-install.sh checksum mismatch (expected $dotnet_install_sha256, got $actual_sha); refusing to run." >&2
+    exit 0
+  fi
+
+  if chmod +x "$installer" \
      && "$installer" \
           --jsonfile "$project_dir/global.json" \
           --install-dir "$dotnet_dir" \
