@@ -1,4 +1,5 @@
 ﻿using Beutl.Composition;
+using Beutl.Engine;
 using Beutl.Graphics;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering;
@@ -498,11 +499,84 @@ public class SourceEffectiveScaleFlowTests
         });
     }
 
+    // End-to-end FR-036 escape hatch: FilterEffect.Resource.Push must build the render node via the
+    // overridden CreateRenderNode(), and that custom node's non-supply working scale must then drive the
+    // pipeline. The other escape-hatch tests instantiate the custom node directly (bypassing Push), so a
+    // regression hardcoding Push to 'new FilterEffectRenderNode(this)' would pass them; this one fails.
+    [Test]
+    public void Push_RoutesThroughOverriddenCreateRenderNode_AndCustomWorkingScaleApplies()
+    {
+        var effect = new ClampToOutputEffect();
+        using FilterEffect.Resource resource = effect.ToResource(CompositionContext.Default);
+        using var container = new ContainerRenderNode();
+        using var context = new GraphicsContext2D(container, new Size(120, 90), outputScale: 1f);
+
+        using (resource.Push(context))
+        {
+        }
+
+        Assert.That(container.Children, Has.Count.EqualTo(1), "Push added no render node");
+        Assert.That(container.Children[0], Is.TypeOf<ClampToOutputEscapeHatchNode>(),
+            "Push bypassed the overridden CreateRenderNode() escape hatch (FR-036)");
+
+        var node = (FilterEffectRenderNode)container.Children[0];
+        // At(2) supply at s_out 1: supply-driven w would be 2.0; the custom node clamps to s_out = 1.0.
+        RenderNodeOperation[] ops = node.Process(new RenderNodeContext([SourceOp(2.0f)], outputScale: 1.0f));
+
+        Assert.That(ops, Is.Not.Empty);
+        Assert.That(ops[0].EffectiveScale.Value, Is.EqualTo(1.0f).Within(1e-4),
+            "the overridden render node's clamp-to-output working scale did not drive the pipeline end-to-end");
+        DisposeAll(ops);
+    }
+
     private static void DisposeAll(RenderNodeOperation[] ops)
     {
         foreach (RenderNodeOperation op in ops)
         {
             op.Dispose();
         }
+    }
+}
+
+// A FilterEffect whose Resource overrides only CreateRenderNode() (not Push), so the inherited
+// FilterEffect.Resource.Push is the path under test. Mirrors the NodeGraphFilterEffect pattern
+// (manual Resource + SuppressResourceClassGeneration).
+[SuppressResourceClassGeneration]
+internal sealed partial class ClampToOutputEffect : FilterEffect
+{
+    public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
+    {
+    }
+
+    public override Resource ToResource(CompositionContext context)
+    {
+        var resource = new Resource();
+        bool updateOnly = false;
+        resource.Update(this, context, ref updateOnly);
+        return resource;
+    }
+
+    public new sealed class Resource : FilterEffect.Resource
+    {
+        public override FilterEffectRenderNode CreateRenderNode() => new ClampToOutputEscapeHatchNode(this);
+    }
+}
+
+// Escape-hatch render node: overrides the supply-driven working scale with clamp-to-output
+// (w = min(supply, s_out)), so its effect on the resolved scale is observable end-to-end.
+internal sealed class ClampToOutputEscapeHatchNode(FilterEffect.Resource fe) : FilterEffectRenderNode(fe)
+{
+    public override RenderNodeOperation[] Process(RenderNodeContext context)
+    {
+        EffectiveScale[] scales = context.Input.Select(i => i.EffectiveScale).ToArray();
+        float supplyW = RenderNodeContext.ResolveWorkingScale(scales, context.OutputScale, context.MaxWorkingScale);
+        float clampedW = MathF.Min(supplyW, context.OutputScale);
+        return context.Input.Select(input => RenderNodeOperation.CreateLambda(
+                input.Bounds,
+                input.Render,
+                hitTest: input.HitTest,
+                onDispose: input.Dispose,
+                effectiveScale: EffectiveScale.At(clampedW)))
+            .ToArray();
     }
 }
