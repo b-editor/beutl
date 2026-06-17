@@ -78,7 +78,7 @@ public class ParticleRenderNodeScaleTests
         VulkanTestEnvironment.EnsureAvailable();
         VulkanTestEnvironment.InvokeOnRenderThread(() =>
         {
-            ParticleEmitter.Resource resource = BuildResourceWithLargeParticleDrawable();
+            using ParticleEmitter.Resource resource = BuildResourceWithLargeParticleDrawable();
             Assert.That(resource.GetAliveParticles().Length, Is.GreaterThanOrEqualTo(1),
                 "precondition: at least one alive particle is required for Process to emit an op");
 

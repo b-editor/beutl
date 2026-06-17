@@ -26,20 +26,28 @@ public class FormattedText : IEquatable<FormattedText>
     private SKTextBlob? _textBlob;
     private SKPath? _fillPath;
     private SKPath? _strokePath;
+    // Bounds the per-density blob/stroke cache so continuously varying densities
+    // (e.g. Fit-to-previewer scale during a window resize) cannot grow it without
+    // bound; the least-recently-used density is evicted past this many entries.
+    private const int MaxScaledTextCacheEntries = 8;
     private readonly Dictionary<float, ScaledTextCache> _scaledTextCache = [];
+    private readonly LinkedList<float> _scaledTextCacheLru = new();
     private List<SKPathGeometry.Resource> _pathList = [];
 
     private sealed class ScaledTextCache : IDisposable
     {
-        public ScaledTextCache(SKTextBlob? textBlob, SKPath? strokePath)
+        public ScaledTextCache(SKTextBlob? textBlob, SKPath? strokePath, LinkedListNode<float> lruNode)
         {
             TextBlob = textBlob;
             StrokePath = strokePath;
+            LruNode = lruNode;
         }
 
         public SKTextBlob? TextBlob { get; }
 
         public SKPath? StrokePath { get; }
+
+        public LinkedListNode<float> LruNode { get; }
 
         public void Dispose()
         {
@@ -371,16 +379,29 @@ public class FormattedText : IEquatable<FormattedText>
     private ScaledTextCache GetScaledTextCache(float density)
     {
         MeasureAndSetField();
-        if (!_scaledTextCache.TryGetValue(density, out ScaledTextCache? cache))
+        if (_scaledTextCache.TryGetValue(density, out ScaledTextCache? cache))
         {
-            (SKTextBlob? textBlob, SKPath fillPath, SKPath? strokePath, _, _, _) =
-                MeasureCore(density, updatePathList: false);
-            fillPath.Dispose();
-
-            cache = new ScaledTextCache(textBlob, strokePath);
-            _scaledTextCache.Add(density, cache);
+            _scaledTextCacheLru.Remove(cache.LruNode);
+            _scaledTextCacheLru.AddFirst(cache.LruNode);
+            return cache;
         }
 
+        (SKTextBlob? textBlob, SKPath fillPath, SKPath? strokePath, _, _, _) =
+            MeasureCore(density, updatePathList: false);
+        fillPath.Dispose();
+
+        while (_scaledTextCache.Count >= MaxScaledTextCacheEntries && _scaledTextCacheLru.Last is { } lru)
+        {
+            _scaledTextCacheLru.RemoveLast();
+            if (_scaledTextCache.Remove(lru.Value, out ScaledTextCache? evicted))
+            {
+                evicted.Dispose();
+            }
+        }
+
+        LinkedListNode<float> node = _scaledTextCacheLru.AddFirst(density);
+        cache = new ScaledTextCache(textBlob, strokePath, node);
+        _scaledTextCache.Add(density, cache);
         return cache;
     }
 
@@ -392,6 +413,7 @@ public class FormattedText : IEquatable<FormattedText>
         }
 
         _scaledTextCache.Clear();
+        _scaledTextCacheLru.Clear();
     }
 
     private static float NormalizeDensity(float density)

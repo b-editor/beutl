@@ -367,9 +367,9 @@ public partial class ImmediateCanvas : IDisposable, IPopable
         float density = _currentDensity;
         SKTextBlob textBlob = text.GetTextBlob(density);
 
-        ConfigureFillPaint(text.Bounds, fill);
         if (density == 1f)
         {
+            ConfigureFillPaint(text.Bounds, fill);
             Canvas.DrawText(textBlob, 0, 0, _sharedFillPaint);
 
             if (pen != null
@@ -386,13 +386,20 @@ public partial class ImmediateCanvas : IDisposable, IPopable
             try
             {
                 Canvas.SetMatrix((SKMatrix44)CreateDensityScaledContentTransform(density).ToSKMatrix());
+
+                // The blob is shaped at device density, so the glyphs span the dense
+                // extent (Bounds * density) under this CTM. Configure the brush over that
+                // dense extent at scale 1: the density-compensating CTM already maps the
+                // dense space onto device pixels, so re-densifying the brush (scale:
+                // density) would double-apply the density to tile/drawable patterns.
+                ConfigureFillPaint(text.Bounds * density, fill, scale: 1f);
                 Canvas.DrawText(textBlob, 0, 0, _sharedFillPaint);
 
                 if (pen != null
                     && pen.Thickness > 0
                     && text.GetStrokePath(density) is { } stroke)
                 {
-                    ConfigureStrokePaint(new(text.Bounds.Size), pen);
+                    ConfigureStrokePaint(new(text.Bounds.Size * density), pen, scale: 1f);
                     Canvas.DrawPath(stroke, _sharedStrokePaint);
                 }
             }
@@ -639,20 +646,20 @@ public partial class ImmediateCanvas : IDisposable, IPopable
         _dispatcher?.VerifyAccess();
     }
 
-    private void ConfigureStrokePaint(Rect bounds, Pen.Resource? pen, BlendMode blendMode = BlendMode.SrcOver)
+    private void ConfigureStrokePaint(Rect bounds, Pen.Resource? pen, BlendMode blendMode = BlendMode.SrcOver, float? scale = null)
     {
         _sharedStrokePaint.Reset();
 
         if (pen != null && pen.Thickness != 0)
         {
             _sharedStrokePaint.IsStroke = false;
-            new BrushConstructor(bounds, pen.Brush, blendMode, _currentDensity, MaxWorkingScale).ConfigurePaint(_sharedStrokePaint);
+            new BrushConstructor(bounds, pen.Brush, blendMode, scale ?? _currentDensity, MaxWorkingScale).ConfigurePaint(_sharedStrokePaint);
         }
     }
 
-    private void ConfigureFillPaint(Rect bounds, Brush.Resource? brush, BlendMode blendMode = BlendMode.SrcOver)
+    private void ConfigureFillPaint(Rect bounds, Brush.Resource? brush, BlendMode blendMode = BlendMode.SrcOver, float? scale = null)
     {
         _sharedFillPaint.Reset();
-        new BrushConstructor(bounds, brush, blendMode, _currentDensity, MaxWorkingScale).ConfigurePaint(_sharedFillPaint);
+        new BrushConstructor(bounds, brush, blendMode, scale ?? _currentDensity, MaxWorkingScale).ConfigurePaint(_sharedFillPaint);
     }
 }
