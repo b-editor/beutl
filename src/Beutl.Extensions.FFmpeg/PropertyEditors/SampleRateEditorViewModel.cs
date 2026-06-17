@@ -37,7 +37,7 @@ internal sealed class SampleRateEditorViewModel : IPropertyEditorContext
         Extension = extension;
         _text = new ReactivePropertySlim<string>(property.GetValue().ToString()).DisposeWith(_disposables);
 
-        // CorePropertyAdapterからFFmpegAudioEncoderSettingsを取得
+        // Resolve the FFmpegAudioEncoderSettings from the CorePropertyAdapter.
         if (property is CorePropertyAdapter<int> cpa)
         {
             _settings = cpa.Object as FFmpegAudioEncoderSettings;
@@ -45,13 +45,13 @@ internal sealed class SampleRateEditorViewModel : IPropertyEditorContext
 
         if (_settings != null)
         {
-            // コーデック変更を監視
+            // Watch for codec changes.
             _settings.GetObservable(FFmpegAudioEncoderSettings.CodecProperty)
                 .Subscribe(_ => RequestUpdate())
                 .DisposeWith(_disposables);
         }
 
-        // 現在値の変更を監視してテキストを更新
+        // Watch the current value to keep the text in sync.
         _property.GetObservable()
             .Subscribe(value =>
             {
@@ -61,7 +61,7 @@ internal sealed class SampleRateEditorViewModel : IPropertyEditorContext
             })
             .DisposeWith(_disposables);
 
-        // 初期化
+        // Initialize.
         RequestUpdate();
     }
 
@@ -94,7 +94,7 @@ internal sealed class SampleRateEditorViewModel : IPropertyEditorContext
     {
         _updateCts?.Cancel();
         _updateCts?.Dispose();
-        var cts = _updateCts = new CancellationTokenSource();
+        _updateCts = null;
 
         if (_settings == null)
         {
@@ -109,6 +109,7 @@ internal sealed class SampleRateEditorViewModel : IPropertyEditorContext
             return;
         }
 
+        var cts = _updateCts = new CancellationTokenSource();
         _ = UpdateAsync(_settings, key, cts.Token);
     }
 
@@ -135,7 +136,7 @@ internal sealed class SampleRateEditorViewModel : IPropertyEditorContext
 
             try
             {
-                s_logger.LogWarning(ex, "Failed to query sample rates from FFmpeg worker");
+                s_logger.LogWarning(ex, "Failed to refresh sample rates from FFmpeg worker");
                 await Dispatcher.UIThread.InvokeAsync(() =>
                 {
                     if (!ct.IsCancellationRequested)
@@ -175,7 +176,8 @@ internal sealed class SampleRateEditorViewModel : IPropertyEditorContext
     private static string BuildCacheKey(FFmpegAudioEncoderSettings settings)
     {
         string codec = settings.Codec.Equals(CodecRecord.Default) ? "<default>" : settings.Codec.Name;
-        return $"{codec}|{settings.OutputFile}";
+        // Use NUL as the delimiter since it cannot appear in a codec name or file path.
+        return $"{codec}\0{settings.OutputFile}";
     }
 
     private void OnValueConfirmed(object? sender, PropertyEditorValueChangedEventArgs e)
@@ -188,7 +190,7 @@ internal sealed class SampleRateEditorViewModel : IPropertyEditorContext
             }
             else
             {
-                // 無効な値の場合、現在値に戻す
+                // Revert to the current value when the input is invalid.
                 _text.Value = _property.GetValue().ToString();
             }
         }

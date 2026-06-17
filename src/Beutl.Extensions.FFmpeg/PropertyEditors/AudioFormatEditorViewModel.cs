@@ -39,7 +39,7 @@ internal sealed class AudioFormatEditorViewModel : IPropertyEditorContext
         Extension = extension;
         _selectedIndex = new ReactivePropertySlim<int>(-1).DisposeWith(_disposables);
 
-        // CorePropertyAdapterからFFmpegAudioEncoderSettingsを取得
+        // Resolve the FFmpegAudioEncoderSettings from the CorePropertyAdapter.
         if (property is CorePropertyAdapter<AudioFormat> cpa)
         {
             _settings = cpa.Object as FFmpegAudioEncoderSettings;
@@ -47,13 +47,13 @@ internal sealed class AudioFormatEditorViewModel : IPropertyEditorContext
 
         if (_settings != null)
         {
-            // コーデック変更を監視
+            // Watch for codec changes.
             _settings.GetObservable(FFmpegAudioEncoderSettings.CodecProperty)
                 .Subscribe(_ => RequestUpdate())
                 .DisposeWith(_disposables);
         }
 
-        // 現在値の変更を監視してSelectedIndexを更新
+        // Watch the current value to keep SelectedIndex in sync.
         _property.GetObservable()
             .Subscribe(format =>
             {
@@ -63,7 +63,7 @@ internal sealed class AudioFormatEditorViewModel : IPropertyEditorContext
             })
             .DisposeWith(_disposables);
 
-        // 初期化
+        // Initialize.
         RequestUpdate();
     }
 
@@ -96,7 +96,7 @@ internal sealed class AudioFormatEditorViewModel : IPropertyEditorContext
     {
         _updateCts?.Cancel();
         _updateCts?.Dispose();
-        var cts = _updateCts = new CancellationTokenSource();
+        _updateCts = null;
 
         if (_settings == null)
         {
@@ -111,6 +111,7 @@ internal sealed class AudioFormatEditorViewModel : IPropertyEditorContext
             return;
         }
 
+        var cts = _updateCts = new CancellationTokenSource();
         _ = UpdateAsync(_settings, key, cts.Token);
     }
 
@@ -137,7 +138,7 @@ internal sealed class AudioFormatEditorViewModel : IPropertyEditorContext
 
             try
             {
-                s_logger.LogWarning(ex, "Failed to query audio formats from FFmpeg worker");
+                s_logger.LogWarning(ex, "Failed to refresh audio formats from FFmpeg worker");
                 await Dispatcher.UIThread.InvokeAsync(() =>
                 {
                     if (!ct.IsCancellationRequested)
@@ -154,7 +155,7 @@ internal sealed class AudioFormatEditorViewModel : IPropertyEditorContext
 
     private void ApplyFormats(AudioFormat[] supportedFmts)
     {
-        // Default ("Auto") を先頭に追加
+        // Prepend Default ("Auto") to the list.
         _currentFormats = [AudioFormat.Default, .. supportedFmts];
         _currentItems = _currentFormats
             .Select(f => new EnumItem(
@@ -163,19 +164,19 @@ internal sealed class AudioFormatEditorViewModel : IPropertyEditorContext
                 f))
             .ToArray();
 
-        // エディタのアイテムを更新
+        // Update the editor's items.
         if (_editorRef?.TryGetTarget(out var editor) == true)
         {
             editor.Items = _currentItems;
         }
 
-        // 現在値がリストにあるか確認
+        // Check whether the current value is present in the list.
         var currentValue = _property.GetValue();
         int index = Array.IndexOf(_currentFormats, currentValue);
-        _selectedIndex.Value = -1; // 一旦リセット
+        _selectedIndex.Value = -1; // Reset once.
         if (index < 0 && currentValue != AudioFormat.Default)
         {
-            // 非対応フォーマットが選択されていたらAutoにリセット
+            // Reset to Auto when an unsupported format is selected.
             _property.SetValue(AudioFormat.Default);
             _selectedIndex.Value = 0;
         }
@@ -200,13 +201,17 @@ internal sealed class AudioFormatEditorViewModel : IPropertyEditorContext
 
     private static AudioFormat[] GetAllFormats()
     {
-        return Enum.GetValues<AudioFormat>();
+        // ApplyFormats prepends AudioFormat.Default ("Auto"), so exclude it here to avoid a duplicate.
+        return Enum.GetValues<AudioFormat>()
+            .Where(f => f != AudioFormat.Default)
+            .ToArray();
     }
 
     private static string BuildCacheKey(FFmpegAudioEncoderSettings settings)
     {
         string codec = settings.Codec.Equals(CodecRecord.Default) ? "<default>" : settings.Codec.Name;
-        return $"{codec}|{settings.OutputFile}";
+        // Use NUL as the delimiter since it cannot appear in a codec name or file path.
+        return $"{codec}\0{settings.OutputFile}";
     }
 
     private void OnValueConfirmed(object? sender, PropertyEditorValueChangedEventArgs e)

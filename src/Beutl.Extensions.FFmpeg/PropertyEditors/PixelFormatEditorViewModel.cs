@@ -39,7 +39,7 @@ internal sealed class PixelFormatEditorViewModel : IPropertyEditorContext
         Extension = extension;
         _selectedIndex = new ReactivePropertySlim<int>(-1).DisposeWith(_disposables);
 
-        // CorePropertyAdapterからFFmpegVideoEncoderSettingsを取得
+        // Resolve the FFmpegVideoEncoderSettings from the CorePropertyAdapter.
         if (property is CorePropertyAdapter<int> cpa)
         {
             _settings = cpa.Object as FFmpegVideoEncoderSettings;
@@ -47,13 +47,13 @@ internal sealed class PixelFormatEditorViewModel : IPropertyEditorContext
 
         if (_settings != null)
         {
-            // コーデック変更を監視
+            // Watch for codec changes.
             _settings.GetObservable(FFmpegVideoEncoderSettings.CodecProperty)
                 .Subscribe(_ => RequestUpdate())
                 .DisposeWith(_disposables);
         }
 
-        // 現在値の変更を監視してSelectedIndexを更新
+        // Watch the current value to keep SelectedIndex in sync.
         _property.GetObservable()
             .Subscribe(format =>
             {
@@ -63,7 +63,7 @@ internal sealed class PixelFormatEditorViewModel : IPropertyEditorContext
             })
             .DisposeWith(_disposables);
 
-        // 初期化
+        // Initialize.
         RequestUpdate();
     }
 
@@ -96,7 +96,7 @@ internal sealed class PixelFormatEditorViewModel : IPropertyEditorContext
     {
         _updateCts?.Cancel();
         _updateCts?.Dispose();
-        var cts = _updateCts = new CancellationTokenSource();
+        _updateCts = null;
 
         if (_settings == null)
         {
@@ -111,6 +111,7 @@ internal sealed class PixelFormatEditorViewModel : IPropertyEditorContext
             return;
         }
 
+        var cts = _updateCts = new CancellationTokenSource();
         _ = UpdateAsync(_settings, key, cts.Token);
     }
 
@@ -137,7 +138,7 @@ internal sealed class PixelFormatEditorViewModel : IPropertyEditorContext
 
             try
             {
-                s_logger.LogWarning(ex, "Failed to query pixel formats from FFmpeg worker");
+                s_logger.LogWarning(ex, "Failed to refresh pixel formats from FFmpeg worker");
                 await Dispatcher.UIThread.InvokeAsync(() =>
                 {
                     if (!ct.IsCancellationRequested)
@@ -154,25 +155,25 @@ internal sealed class PixelFormatEditorViewModel : IPropertyEditorContext
 
     private void ApplyFormats(PixelFormatInfo[] formatInfos)
     {
-        // FFPixelFormat.None ("Auto") を先頭に追加
+        // Prepend FFPixelFormat.None ("Auto") to the list.
         _currentFormats = [FFPixelFormat.None, .. formatInfos.Select(f => f.Value)];
         _currentItems = new EnumItem[] { new("Auto", null, FFPixelFormat.None) }
             .Concat(formatInfos.Select(f => new EnumItem(f.Name, null, f.Value)))
             .ToArray();
 
-        // エディタのアイテムを更新
+        // Update the editor's items.
         if (_editorRef?.TryGetTarget(out var editor) == true)
         {
             editor.Items = _currentItems;
         }
 
-        // 現在値がリストにあるか確認
+        // Check whether the current value is present in the list.
         var currentValue = _property.GetValue();
         int index = Array.IndexOf(_currentFormats, currentValue);
-        _selectedIndex.Value = -1; // 一旦リセット
+        _selectedIndex.Value = -1; // Reset once.
         if (index < 0 && currentValue != FFPixelFormat.None)
         {
-            // 非対応フォーマットが選択されていたらAutoにリセット
+            // Reset to Auto when an unsupported format is selected.
             _property.SetValue(FFPixelFormat.None);
             _selectedIndex.Value = 0;
         }
@@ -184,7 +185,7 @@ internal sealed class PixelFormatEditorViewModel : IPropertyEditorContext
 
     private void ApplyFallback()
     {
-        // エラー時はAutoのみ表示
+        // On error, show only Auto.
         _currentFormats = [FFPixelFormat.None];
         _currentItems = [new EnumItem("Auto", null, FFPixelFormat.None)];
         _selectedIndex.Value = 0;
@@ -211,7 +212,8 @@ internal sealed class PixelFormatEditorViewModel : IPropertyEditorContext
     private static string BuildCacheKey(FFmpegVideoEncoderSettings settings)
     {
         string codec = settings.Codec.Equals(CodecRecord.Default) ? "<default>" : settings.Codec.Name;
-        return $"{codec}|{settings.OutputFile}";
+        // Use NUL as the delimiter since it cannot appear in a codec name or file path.
+        return $"{codec}\0{settings.OutputFile}";
     }
 
     private void OnValueConfirmed(object? sender, PropertyEditorValueChangedEventArgs e)

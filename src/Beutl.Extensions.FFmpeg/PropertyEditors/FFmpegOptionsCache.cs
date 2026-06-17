@@ -51,12 +51,12 @@ internal sealed class FFmpegOptionsCache<T>
 
     private async Task<T[]> RunAsync(string key, Func<Task<T[]>> factory)
     {
-        // Yield before invoking the factory so it never runs while the caller holds _gate
-        // (GetOrQueryAsync starts this task inside the lock).
-        await Task.Yield();
         try
         {
-            T[] result = await factory().ConfigureAwait(false);
+            // Run the factory on the thread pool so it never executes while the caller holds _gate
+            // (GetOrQueryAsync starts this task inside the lock) and never resumes on the UI thread's
+            // synchronization context, where the worker's synchronous startup work would stutter the UI.
+            T[] result = await Task.Run(factory).ConfigureAwait(false);
             lock (_gate)
             {
                 _cache[key] = result;
