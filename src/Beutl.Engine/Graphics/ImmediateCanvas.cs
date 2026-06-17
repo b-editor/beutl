@@ -364,18 +364,61 @@ public partial class ImmediateCanvas : IDisposable, IPopable
     public void DrawText(FormattedText text, Brush.Resource? fill, Pen.Resource? pen)
     {
         VerifyAccess();
-        SKTextBlob textBlob = text.GetTextBlob();
+        float density = _currentDensity;
+        SKTextBlob textBlob = text.GetTextBlob(density);
 
         ConfigureFillPaint(text.Bounds, fill);
-        Canvas.DrawText(textBlob, 0, 0, _sharedFillPaint);
-
-        if (pen != null
-            && pen.Thickness > 0
-            && text.GetStrokePath() is { } stroke)
+        if (density == 1f)
         {
-            ConfigureStrokePaint(new(text.Bounds.Size), pen);
-            Canvas.DrawPath(stroke, _sharedStrokePaint);
+            Canvas.DrawText(textBlob, 0, 0, _sharedFillPaint);
+
+            if (pen != null
+                && pen.Thickness > 0
+                && text.GetStrokePath() is { } stroke)
+            {
+                ConfigureStrokePaint(new(text.Bounds.Size), pen);
+                Canvas.DrawPath(stroke, _sharedStrokePaint);
+            }
         }
+        else
+        {
+            int count = Canvas.Save();
+            try
+            {
+                Canvas.SetMatrix((SKMatrix44)CreateDensityScaledContentTransform(density).ToSKMatrix());
+                Canvas.DrawText(textBlob, 0, 0, _sharedFillPaint);
+
+                if (pen != null
+                    && pen.Thickness > 0
+                    && text.GetStrokePath(density) is { } stroke)
+                {
+                    ConfigureStrokePaint(new(text.Bounds.Size), pen);
+                    Canvas.DrawPath(stroke, _sharedStrokePaint);
+                }
+            }
+            finally
+            {
+                Canvas.RestoreToCount(count);
+            }
+        }
+    }
+
+    private Matrix CreateDensityScaledContentTransform(float density)
+    {
+        if (density == 1f || _currentBaseTransform.IsIdentity)
+        {
+            return _currentTransform;
+        }
+
+        if (!_currentBaseTransform.TryInvert(out Matrix inverseBase))
+        {
+            return _currentTransform;
+        }
+
+        Matrix logicalTransform = _currentTransform.Append(inverseBase);
+        return Matrix.CreateScale(1f / density, 1f / density)
+            .Append(logicalTransform)
+            .Append(_currentBaseTransform);
     }
 
     internal void DrawSKPath(SKPath skPath, bool strokeOnly, Brush.Resource? fill, Pen.Resource? pen)
