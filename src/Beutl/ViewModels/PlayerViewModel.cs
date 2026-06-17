@@ -1449,6 +1449,7 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
                         var currentCompositionFrame = renderer.Compositor.EvaluateGraphics(time);
                         renderer.Render(currentCompositionFrame);
                         Bitmap? currentBitmap = null;
+                        Bitmap? onionScratch = null;
 
                         try
                         {
@@ -1473,13 +1474,22 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
 
                                     var compFrame = renderer.Compositor.EvaluateGraphics(sample.Time);
                                     renderer.Render(compFrame);
-                                    using var snap = renderer.Snapshot();
+
+                                    // Reuse a single scratch bitmap across all onion samples. At max
+                                    // settings (prev+next = 20) this turns 20 video-frame-sized LOH
+                                    // allocations per preview into 1, removing the GC churn the onion
+                                    // overlay would otherwise add on every scrub step.
+                                    onionScratch ??= new Bitmap(
+                                        currentBitmap.Width, currentBitmap.Height,
+                                        BitmapColorType.RgbaF16, BitmapAlphaType.Premul, BitmapColorSpace.LinearSrgb);
+                                    renderer.SnapshotInto(onionScratch);
+
                                     using var paint = new SKPaint
                                     {
                                         Color = new SKColor(255, 255, 255, (byte)Math.Round(sample.Alpha * 255)),
                                         BlendMode = SKBlendMode.SrcOver,
                                     };
-                                    canvas.DrawBitmap(snap.SKBitmap, 0, 0, paint);
+                                    canvas.DrawBitmap(onionScratch.SKBitmap, 0, 0, paint);
                                 }
 
                                 // Restore renderer entries to the playhead BEFORE drawing
@@ -1513,6 +1523,10 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
                             }
 
                             throw;
+                        }
+                        finally
+                        {
+                            onionScratch?.Dispose();
                         }
                     }
                     else if (cacheManager.TryGet(frame, out var cache))
