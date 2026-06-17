@@ -2,6 +2,8 @@
 using Beutl.Animation.Easings;
 using Beutl.Editor.Services;
 using Beutl.Engine;
+using Beutl.Media;
+using Beutl.NodeGraph;
 using Beutl.ProjectSystem;
 
 namespace Beutl.UnitTests.Editor.Services;
@@ -79,6 +81,70 @@ public class KeyFrameNavigationHelperTests
         var result = KeyFrameNavigationHelper.EnumerateKeyFrameAnimations(element).ToList();
 
         Assert.That(result, Has.Count.EqualTo(2));
+    }
+
+    #endregion
+
+    #region EnumerateKeyFrameAnimations - NodeGraph members
+
+    [Test]
+    public void EnumerateKeyFrameAnimations_NodeGraphMember_LocalClock_ReturnsAnimationWithGraphNodeOffset()
+    {
+        (Element element, KeyFrameNavTestGraphNode node) = CreateNodeGraphElement(
+            new TimeRange(TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(5)));
+
+        var animation = CreateAnimation(useGlobalClock: false,
+            TimeSpan.FromSeconds(0), TimeSpan.FromSeconds(1));
+        node.Items.Add(new TestNodeMember<float>("Value", animation));
+
+        var result = KeyFrameNavigationHelper.EnumerateKeyFrameAnimations(element).ToList();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result, Has.Count.EqualTo(1));
+            Assert.That(result[0].Animation, Is.SameAs(animation));
+            Assert.That(result[0].Offset, Is.EqualTo(TimeSpan.FromSeconds(2)));
+        });
+    }
+
+    [Test]
+    public void EnumerateKeyFrameAnimations_NodeGraphMember_GlobalClock_ReturnsZeroOffset()
+    {
+        (Element element, KeyFrameNavTestGraphNode node) = CreateNodeGraphElement(
+            new TimeRange(TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(5)));
+
+        var animation = CreateAnimation(useGlobalClock: true,
+            TimeSpan.FromSeconds(0), TimeSpan.FromSeconds(1));
+        node.Items.Add(new TestNodeMember<float>("Value", animation));
+
+        var result = KeyFrameNavigationHelper.EnumerateKeyFrameAnimations(element).ToList();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result, Has.Count.EqualTo(1));
+            Assert.That(result[0].Animation, Is.SameAs(animation));
+            Assert.That(result[0].Offset, Is.EqualTo(TimeSpan.Zero));
+        });
+    }
+
+    [Test]
+    public void EnumerateKeyFrameAnimations_EnginePropertyBackedInputPort_IsExcluded()
+    {
+        (Element element, KeyFrameNavTestGraphNode node) = CreateNodeGraphElement(
+            new TimeRange(TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(5)));
+
+        // The engine-property pass already covers EngineObject-backed properties, so the node-graph
+        // pass skips IEnginePropertyBackedInputPort to avoid double-counting. The backing object is
+        // intentionally kept out of the searched tree, so the excluded port is the only path that
+        // could otherwise surface its animation.
+        var backing = new TestAnimatableObject();
+        backing.FloatValue.Animation = CreateAnimation(useGlobalClock: false,
+            TimeSpan.Zero, TimeSpan.FromSeconds(1));
+        node.Items.Add(new EnginePropertyBackedInputPort<float>(backing, backing.FloatValue));
+
+        var result = KeyFrameNavigationHelper.EnumerateKeyFrameAnimations(element).ToList();
+
+        Assert.That(result, Is.Empty);
     }
 
     #endregion
@@ -264,5 +330,31 @@ public class KeyFrameNavigationHelperTests
         public IProperty<float> FloatB { get; }
     }
 
+    private static (Element Element, KeyFrameNavTestGraphNode Node) CreateNodeGraphElement(TimeRange nodeTimeRange)
+    {
+        var element = new Element { Start = TimeSpan.Zero, Length = TimeSpan.FromSeconds(10) };
+        var drawable = new NodeGraphDrawable();
+        element.AddObject(drawable);
+
+        GraphModel model = drawable.Model.CurrentValue!;
+        var node = new KeyFrameNavTestGraphNode { TimeRange = nodeTimeRange };
+        model.Nodes.Add(node);
+
+        return (element, node);
+    }
+
+    private sealed class TestNodeMember<T> : NodeMember<T>
+    {
+        public TestNodeMember(string name, IAnimation<T>? animation = null)
+        {
+            Property = new NodePropertyAdapter<T>(name, default, animation);
+        }
+    }
+
     #endregion
+}
+
+// Top-level (not nested) so the EngineObject Resource source generator can reference it.
+internal sealed partial class KeyFrameNavTestGraphNode : GraphNode
+{
 }
