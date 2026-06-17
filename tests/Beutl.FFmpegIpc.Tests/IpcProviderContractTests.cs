@@ -135,7 +135,10 @@ public class IpcProviderContractTests
         var hostTask = RunFrameServingHost(server, buffers, received, gate, hostCts.Token);
 
         using var conn = new IpcConnection(client);
-        var provider = new IpcFrameProvider(conn, buffers, frameCount: 100, frameRate: new Rational(30, 1));
+        // frameCount: 6 makes frame 5 the last frame, so RenderFrame(5) issues no post-seek prefetch.
+        // This keeps the test self-contained: no dangling prefetch task survives into teardown to
+        // raise an unobserved exception when the pipe/buffers are disposed.
+        var provider = new IpcFrameProvider(conn, buffers, frameCount: 6, frameRate: new Rational(30, 1));
 
         try
         {
@@ -148,9 +151,8 @@ public class IpcProviderContractTests
                 Assert.That(ReadFrameSignature(frame5), Is.EqualTo(5L), "seek returns frame 5, not the prefetched frame 1");
             });
 
-            // render(0), prefetch(1, drained), fresh seek(5). The post-seek prefetch of 6 fires inside
-            // RenderFrame(5), but the non-multiplexed _requestLock serialises it after frame 5's reply,
-            // so 6 can never reach the host as the 3rd message — [0, 1, 5] is guaranteed before any 6.
+            // render(0), prefetch(1, drained), fresh seek(5). Frame 5 is the last frame, so no further
+            // prefetch fires — the host receives exactly [0, 1, 5].
             await WaitUntil(() => { lock (gate) return received.Count >= 3; },
                 TimeSpan.FromSeconds(5), "host receives render + prefetch + fresh seek request");
 
@@ -180,7 +182,8 @@ public class IpcProviderContractTests
 
         try
         {
-            Assert.CatchAsync<OperationCanceledException>(async () => await provider.RenderFrame(0));
+            Assert.That(async () => await provider.RenderFrame(0),
+                Throws.TypeOf<OperationCanceledException>());
         }
         finally
         {
@@ -202,7 +205,8 @@ public class IpcProviderContractTests
 
         try
         {
-            Assert.CatchAsync<OperationCanceledException>(async () => await provider.Sample(0, 1024));
+            Assert.That(async () => await provider.Sample(0, 1024),
+                Throws.TypeOf<OperationCanceledException>());
         }
         finally
         {
