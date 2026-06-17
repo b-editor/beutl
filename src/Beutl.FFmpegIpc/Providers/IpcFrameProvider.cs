@@ -5,7 +5,7 @@ using Beutl.FFmpegIpc.SharedMemory;
 using Beutl.FFmpegIpc.Transport;
 using Beutl.Media;
 
-namespace Beutl.FFmpegWorker.Providers;
+namespace Beutl.FFmpegIpc.Providers;
 
 internal sealed class IpcFrameProvider : IFrameProvider
 {

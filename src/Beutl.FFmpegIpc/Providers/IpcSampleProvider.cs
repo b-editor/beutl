@@ -6,7 +6,7 @@ using Beutl.FFmpegIpc.Transport;
 using Beutl.Media.Music;
 using Beutl.Media.Music.Samples;
 
-namespace Beutl.FFmpegWorker.Providers;
+namespace Beutl.FFmpegIpc.Providers;
 
 internal sealed class IpcSampleProvider : ISampleProvider
 {
