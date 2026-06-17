@@ -15,9 +15,7 @@ public class RenderNodeProcessor(
     public float OutputScale { get; } = float.IsFinite(outputScale) && outputScale > 0f ? outputScale : 1f;
 
     /// <summary>Working-scale ceiling seeded into every <see cref="RenderNodeContext"/>. <c>+Inf</c> = no ceiling.</summary>
-    public float MaxWorkingScale { get; } = float.IsNaN(maxWorkingScale) || maxWorkingScale <= 0f
-        ? float.PositiveInfinity
-        : maxWorkingScale;
+    public float MaxWorkingScale { get; } = RenderNodeContext.SanitizeMaxWorkingScale(maxWorkingScale);
 
     public void Render(ImmediateCanvas canvas)
     {

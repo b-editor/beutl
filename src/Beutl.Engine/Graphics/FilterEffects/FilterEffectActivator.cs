@@ -26,8 +26,14 @@ public sealed class FilterEffectActivator(
     public float WorkingScale { get; private set; } = SanitizePositiveFinite(workingScale, nameof(workingScale));
 
     /// <summary>Working-scale ceiling forwarded into nested canvases. Sanitized to positive.</summary>
-    public float MaxWorkingScale { get; } = float.IsNaN(maxWorkingScale) || maxWorkingScale <= 0f
-        ? LogAndFallback(maxWorkingScale, nameof(maxWorkingScale), float.PositiveInfinity) : maxWorkingScale;
+    public float MaxWorkingScale { get; } = SanitizeCeiling(maxWorkingScale, nameof(maxWorkingScale));
+
+    // Reuses the canonical degenerate-ceiling rule and adds a warning when it actually fires.
+    private static float SanitizeCeiling(float value, string name)
+    {
+        float sanitized = RenderNodeContext.SanitizeMaxWorkingScale(value);
+        return sanitized != value ? LogAndFallback(value, name, sanitized) : sanitized;
+    }
 
     private static float SanitizePositiveFinite(float value, string name)
     {

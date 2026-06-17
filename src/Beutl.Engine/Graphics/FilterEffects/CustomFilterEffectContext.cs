@@ -14,7 +14,7 @@ public class CustomFilterEffectContext
         Targets = targets;
         OutputScale = outputScale;
         WorkingScale = workingScale;
-        MaxWorkingScale = maxWorkingScale;
+        MaxWorkingScale = RenderNodeContext.SanitizeMaxWorkingScale(maxWorkingScale);
     }
 
     public EffectTargets Targets { get; }
