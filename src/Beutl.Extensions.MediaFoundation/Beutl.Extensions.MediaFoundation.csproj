@@ -27,6 +27,12 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- Grant the test project access to internal decoding helpers (TimestampUtilities,
+         MFMediaInfo, the CsWin32-generated MFRatio/RECT, etc.). -->
+    <InternalsVisibleTo Include="Beutl.Extensions.MediaFoundation.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
     <EmbeddedResource Update="Properties\Strings.resx" />
   </ItemGroup>
 
