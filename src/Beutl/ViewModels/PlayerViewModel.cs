@@ -257,9 +257,11 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
 
     private void OnSceneEdited(object? sender, EventArgs e)
     {
-        // Scene.Edited can fire off the UI thread (e.g. parallel element load during
-        // deserialization), so marshal before IsEditAffectingPreview reads EditorConfig
-        // CoreProperty getters against CoreObject's non-synchronized value dictionary.
+        // Scene raises Edited synchronously with no thread guarantee, so marshal onto the UI thread
+        // before HandleSceneEdited reads the EditorConfig CoreProperty getters: those hit CoreObject's
+        // non-synchronized value dictionary and would race the UI-thread write-back if read off-thread.
+        // This mirrors QueueRender, which already snapshots the same config on the UI thread; keeping
+        // both paths consistent is defense-in-depth, not a fix for a known off-thread caller.
         if (Avalonia.Threading.Dispatcher.UIThread.CheckAccess())
         {
             HandleSceneEdited(e);
@@ -274,9 +276,16 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
 
     private void HandleSceneEdited(EventArgs e)
     {
-        // Runs on the UI thread (directly or via the OnSceneEdited post). IsPlaying and the
-        // onion-skin config are read here, at handling time, so the off-thread post observes
-        // current state rather than whatever was live when the edit was raised.
+        // Runs on the UI thread (directly or via the OnSceneEdited post). A Background-priority post
+        // can still be pumped after DisposeAsync nulls Scene and unsubscribes, so bail out once the
+        // view model is torn down (mirrors the Scene null check on the ShuttleCore post below).
+        if (Scene is null)
+        {
+            return;
+        }
+
+        // IsPlaying and the onion-skin config are read here, at handling time, so the off-thread
+        // post observes current state rather than whatever was live when the edit was raised.
         if (e is ElementEditedEventArgs elementEdited
             && !IsEditAffectingPreview(elementEdited.AffectedRange))
         {
