@@ -2,7 +2,7 @@
 
 namespace Beutl.Graphics.Rendering;
 
-public abstract class RenderNode : INode
+public abstract class RenderNode : IDisposable
 {
     protected RenderNode()
     {

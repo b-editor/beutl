@@ -20,8 +20,6 @@ public interface IRenderer : IDisposable
 
     TimeSpan Time { get; }
 
-    bool DrawFps { get; set; }
-
     bool IsDisposed { get; }
 
     bool IsGraphicsRendering { get; }
