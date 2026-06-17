@@ -1,8 +1,10 @@
 ﻿using Beutl.Configuration;
 using Beutl.Editor.Services;
+using Beutl.Media;
 
 namespace Beutl.UnitTests.Editor;
 
+[TestFixture]
 public class OnionSkinTests
 {
     // Mirror of the shared frame<->time conversion (int.ToTimeSpan(rate)) so expected sample
@@ -425,5 +427,107 @@ public class OnionSkinTests
 
         Assert.That(config.NodeCacheMaxPixels, Is.EqualTo(1));
         Assert.That(config.NodeCacheMinPixels, Is.EqualTo(1));
+    }
+
+    // A TimeRange that contains the given frame's time (Contains is [Start, End)).
+    private static TimeRange RangeAtFrame(int frame, int rate) =>
+        new(FrameTime(frame, rate), TimeSpan.FromMilliseconds(1));
+
+    [Test]
+    public void IsEditAffectingPreview_EditOnPlayhead_ReturnsTrue_EvenWhenOnionDisabled()
+    {
+        int rate = 30, playhead = 100;
+
+        bool result = OnionSkinHelper.IsEditAffectingPreview(
+            [RangeAtFrame(playhead, rate)],
+            currentTime: FrameTime(playhead, rate),
+            onionSkinEnabled: false,
+            prevCount: 0, prevOpacity: 0f,
+            nextCount: 0, nextOpacity: 0f,
+            frameRate: rate, sceneStart: TimeSpan.Zero, sceneDuration: TimeSpan.FromMinutes(1));
+
+        Assert.That(result, Is.True);
+    }
+
+    [Test]
+    public void IsEditAffectingPreview_EditAwayFromPlayhead_OnionDisabled_ReturnsFalse()
+    {
+        int rate = 30, playhead = 100;
+
+        bool result = OnionSkinHelper.IsEditAffectingPreview(
+            [RangeAtFrame(playhead - 5, rate)],
+            currentTime: FrameTime(playhead, rate),
+            onionSkinEnabled: false,
+            prevCount: 3, prevOpacity: 0.5f,
+            nextCount: 3, nextOpacity: 0.5f,
+            frameRate: rate, sceneStart: TimeSpan.Zero, sceneDuration: TimeSpan.FromMinutes(1));
+
+        Assert.That(result, Is.False);
+    }
+
+    [Test]
+    public void IsEditAffectingPreview_EditOnPrevNeighbor_OnionEnabled_ReturnsTrue()
+    {
+        int rate = 30, playhead = 100;
+
+        bool result = OnionSkinHelper.IsEditAffectingPreview(
+            [RangeAtFrame(playhead - 1, rate)],
+            currentTime: FrameTime(playhead, rate),
+            onionSkinEnabled: true,
+            prevCount: 2, prevOpacity: 0.5f,
+            nextCount: 0, nextOpacity: 0f,
+            frameRate: rate, sceneStart: TimeSpan.Zero, sceneDuration: TimeSpan.FromMinutes(1));
+
+        Assert.That(result, Is.True);
+    }
+
+    [Test]
+    public void IsEditAffectingPreview_EditOnNextNeighbor_OnionEnabled_ReturnsTrue()
+    {
+        int rate = 30, playhead = 100;
+
+        bool result = OnionSkinHelper.IsEditAffectingPreview(
+            [RangeAtFrame(playhead + 1, rate)],
+            currentTime: FrameTime(playhead, rate),
+            onionSkinEnabled: true,
+            prevCount: 0, prevOpacity: 0f,
+            nextCount: 2, nextOpacity: 0.5f,
+            frameRate: rate, sceneStart: TimeSpan.Zero, sceneDuration: TimeSpan.FromMinutes(1));
+
+        Assert.That(result, Is.True);
+    }
+
+    [Test]
+    public void IsEditAffectingPreview_EditOnNeighbor_ButSideOpacityZero_ReturnsFalse()
+    {
+        int rate = 30, playhead = 100;
+
+        // prevOpacity == 0 folds prevCount to 0, so the prev neighbor is not visible.
+        bool result = OnionSkinHelper.IsEditAffectingPreview(
+            [RangeAtFrame(playhead - 1, rate)],
+            currentTime: FrameTime(playhead, rate),
+            onionSkinEnabled: true,
+            prevCount: 2, prevOpacity: 0f,
+            nextCount: 2, nextOpacity: 0.5f,
+            frameRate: rate, sceneStart: TimeSpan.Zero, sceneDuration: TimeSpan.FromMinutes(1));
+
+        Assert.That(result, Is.False);
+    }
+
+    [Test]
+    public void IsEditAffectingPreview_EditBetweenVisibleFrames_ReturnsFalse()
+    {
+        int rate = 30, playhead = 100;
+
+        // The edit sits on frame playhead-3, outside both the playhead and the +/-1 neighbors.
+        bool result = OnionSkinHelper.IsEditAffectingPreview(
+            [RangeAtFrame(playhead - 3, rate)],
+            currentTime: FrameTime(playhead, rate),
+            onionSkinEnabled: true,
+            prevCount: 1, prevOpacity: 0.5f,
+            nextCount: 1, nextOpacity: 0.5f,
+            frameRate: rate, sceneStart: TimeSpan.Zero, sceneDuration: TimeSpan.FromMinutes(1));
+
+        Assert.That(result, Is.False);
     }
 }

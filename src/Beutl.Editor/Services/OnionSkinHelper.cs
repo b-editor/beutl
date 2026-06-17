@@ -1,4 +1,6 @@
-﻿namespace Beutl.Editor.Services;
+﻿using Beutl.Media;
+
+namespace Beutl.Editor.Services;
 
 public readonly record struct OnionSkinSample(TimeSpan Time, bool IsPrev, float Alpha);
 
@@ -72,5 +74,38 @@ public static class OnionSkinHelper
         }
 
         return samples;
+    }
+
+    // Decide whether an edit touching `affectedRange` changes any frame the preview is
+    // currently showing: the playhead frame, plus the onion-skin neighbor frames while the
+    // overlay is active. Onion-skin settings are passed in (snapshotted by the caller on the
+    // UI thread) so this stays a pure function and does not read shared mutable config off-thread.
+    public static bool IsEditAffectingPreview(
+        IReadOnlyList<TimeRange> affectedRange,
+        TimeSpan currentTime,
+        bool onionSkinEnabled,
+        int prevCount, float prevOpacity,
+        int nextCount, float nextOpacity,
+        int frameRate, TimeSpan sceneStart, TimeSpan sceneDuration)
+    {
+        if (affectedRange.Any(v => v.Contains(currentTime)))
+            return true;
+
+        if (!onionSkinEnabled)
+            return false;
+
+        // Mirror the opacity-folding the render path uses: a zero-opacity side contributes
+        // nothing, so it should not keep the preview alive either.
+        int effectivePrev = prevOpacity > 0f ? prevCount : 0;
+        int effectiveNext = nextOpacity > 0f ? nextCount : 0;
+        if (effectivePrev == 0 && effectiveNext == 0)
+            return false;
+
+        int frame = (int)Math.Round(currentTime.ToFrameNumber(frameRate), MidpointRounding.AwayFromZero);
+        IReadOnlyList<OnionSkinSample> samples = EnumerateOnionSkinTimes(
+            frame, sceneStart, sceneDuration, frameRate,
+            effectivePrev, effectiveNext, prevOpacity, nextOpacity);
+
+        return samples.Any(s => affectedRange.Any(v => v.Contains(s.Time)));
     }
 }
