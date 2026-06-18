@@ -56,9 +56,10 @@ internal sealed class Scene3DRenderNode(Scene3D.Resource scene) : RenderNode
         if (width <= 0 || height <= 0)
             return [];
 
-        // Render the 3D scene at output density. The 3D projection matrix is adjusted to
+        // Render the 3D scene at the resolved output density. The 3D projection matrix is adjusted to
         // compensate so that logical coordinates remain unchanged despite the dense surface.
-        float w = RenderNodeContext.ClampWorkingScaleToBufferBudget(new Rect(0, 0, width, height), context.OutputScale);
+        float resolved = RenderNodeContext.ResolveWorkingScale([], context.OutputScale, context.MaxWorkingScale);
+        float w = RenderNodeContext.ClampWorkingScaleToBufferBudget(new Rect(0, 0, width, height), resolved);
         int dw = w == 1f ? width : (int)MathF.Ceiling(width * w);
         int dh = w == 1f ? height : (int)MathF.Ceiling(height * w);
 

@@ -26,7 +26,34 @@ public class FormattedText : IEquatable<FormattedText>
     private SKTextBlob? _textBlob;
     private SKPath? _fillPath;
     private SKPath? _strokePath;
+    // Caps the per-density blob/stroke cache so varying densities (e.g. window-resize
+    // scaling) can't grow it without bound; the least-recently-used density is evicted.
+    private const int MaxScaledTextCacheEntries = 8;
+    private readonly Dictionary<float, ScaledTextCache> _scaledTextCache = [];
+    private readonly LinkedList<float> _scaledTextCacheLru = new();
     private List<SKPathGeometry.Resource> _pathList = [];
+
+    private sealed class ScaledTextCache : IDisposable
+    {
+        public ScaledTextCache(SKTextBlob? textBlob, SKPath? strokePath, LinkedListNode<float> lruNode)
+        {
+            TextBlob = textBlob;
+            StrokePath = strokePath;
+            LruNode = lruNode;
+        }
+
+        public SKTextBlob? TextBlob { get; }
+
+        public SKPath? StrokePath { get; }
+
+        public LinkedListNode<float> LruNode { get; }
+
+        public void Dispose()
+        {
+            TextBlob?.Dispose();
+            StrokePath?.Dispose();
+        }
+    }
 
     public FormattedText()
     {
@@ -173,16 +200,39 @@ public class FormattedText : IEquatable<FormattedText>
         return _strokePath;
     }
 
-    internal SKTextBlob GetTextBlob()
+    internal SKPath? GetStrokePath(float density)
     {
-        MeasureAndSetField();
-        return _textBlob!;
+        density = NormalizeDensity(density);
+        if (density == 1f)
+        {
+            return GetStrokePath();
+        }
+
+        return GetScaledTextCache(density).StrokePath;
     }
 
-    internal SKFont ToSKFont()
+    internal SKTextBlob? GetTextBlob()
     {
+        MeasureAndSetField();
+        return _textBlob;
+    }
+
+    internal SKTextBlob? GetTextBlob(float density)
+    {
+        density = NormalizeDensity(density);
+        if (density == 1f)
+        {
+            return GetTextBlob();
+        }
+
+        return GetScaledTextCache(density).TextBlob;
+    }
+
+    internal SKFont ToSKFont(float density = 1f)
+    {
+        density = NormalizeDensity(density);
         var typeface = new Typeface(Font, Style, Weight);
-        var font = new SKFont(typeface.ToSkia(), Size)
+        var font = new SKFont(typeface.ToSkia(), Size * density)
         {
             Edging = SKFontEdging.Antialias,
             Subpixel = true,
@@ -200,7 +250,23 @@ public class FormattedText : IEquatable<FormattedText>
 
     private void Measure()
     {
-        using SKFont font = ToSKFont();
+        (SKTextBlob? textBlob, SKPath fillPath, SKPath? strokePath, FontMetrics metrics, Rect bounds, Rect actualBounds)
+            = MeasureCore(1f, updatePathList: true);
+
+        (_metrics, _bounds, _actualBounds) = (metrics, bounds, actualBounds);
+
+        (_textBlob, _fillPath, _strokePath).DisposeAll();
+        (_textBlob, _fillPath, _strokePath) = (textBlob, fillPath, strokePath);
+        ClearScaledTextCache();
+    }
+
+    private (SKTextBlob? TextBlob, SKPath FillPath, SKPath? StrokePath, FontMetrics Metrics, Rect Bounds, Rect ActualBounds)
+        MeasureCore(float density, bool updatePathList)
+    {
+        density = NormalizeDensity(density);
+        float spacing = Spacing * density;
+
+        using SKFont font = ToSKFont(density);
 
         using var shaper = new SKShaper(font.Typeface);
         using var buffer = new HarfBuzzSharp.Buffer();
@@ -216,14 +282,19 @@ public class FormattedText : IEquatable<FormattedText>
         var fillPath = new SKPath();
         Span<ushort> glyphs = run.Glyphs;
         Span<SKPoint> positions = run.Positions;
-        CollectionsMarshal.SetCount(_pathList, result.Codepoints.Length);
-        Span<SKPathGeometry.Resource> pathList = CollectionsMarshal.AsSpan(_pathList);
+        Span<SKPathGeometry.Resource> pathList = default;
+        if (updatePathList)
+        {
+            CollectionsMarshal.SetCount(_pathList, result.Codepoints.Length);
+            pathList = CollectionsMarshal.AsSpan(_pathList);
+        }
+
         for (int i = 0; i < result.Codepoints.Length; i++)
         {
             glyphs[i] = (ushort)result.Codepoints[i];
 
             SKPoint point = result.Points[i];
-            point.X += i * Spacing;
+            point.X += i * spacing;
             positions[i] = point;
 
             SKPath? tmp = font.GetGlyphPath(glyphs[i]);
@@ -231,21 +302,28 @@ public class FormattedText : IEquatable<FormattedText>
             {
                 fillPath.AddPath(tmp, point.X, point.Y);
 
-                tmp.Transform(SKMatrix.CreateTranslation(point.X, point.Y));
-
-                ref SKPathGeometry.Resource? exist = ref pathList[i]!;
-                if (exist is null)
+                if (updatePathList)
                 {
-                    var geom = new SKPathGeometry();
-                    geom.SetSKPath(tmp, false);
-                    exist = geom.ToResource(CompositionContext.Default);
+                    tmp.Transform(SKMatrix.CreateTranslation(point.X, point.Y));
+
+                    ref SKPathGeometry.Resource? exist = ref pathList[i]!;
+                    if (exist is null)
+                    {
+                        var geom = new SKPathGeometry();
+                        geom.SetSKPath(tmp, false);
+                        exist = geom.ToResource(CompositionContext.Default);
+                    }
+                    else
+                    {
+                        exist.GetOriginal().SetSKPath(tmp, false);
+                    }
                 }
                 else
                 {
-                    exist.GetOriginal().SetSKPath(tmp, false);
+                    tmp.Dispose();
                 }
             }
-            else
+            else if (updatePathList)
             {
                 ref SKPathGeometry.Resource? exist = ref pathList[i]!;
                 if (exist is null)
@@ -263,7 +341,7 @@ public class FormattedText : IEquatable<FormattedText>
 
         SKPath? strokePath = null;
         // 空白で開始または、終了した場合
-        var bounds = new Rect(0, 0, (glyphs.Length - 1) * Spacing + result.Width, fillPath.TightBounds.Height);
+        var bounds = new Rect(0, 0, Math.Max(0, glyphs.Length - 1) * spacing + result.Width, fillPath.TightBounds.Height);
         Rect actualBounds = fillPath.TightBounds.ToGraphicsRect();
         SKTextBlob? textBlob = builder.Build();
 
@@ -271,15 +349,12 @@ public class FormattedText : IEquatable<FormattedText>
         {
             if (Pen != null && Pen.Thickness > 0)
             {
-                strokePath = PenHelper.CreateStrokePath(fillPath, Pen, actualBounds);
+                strokePath = PenHelper.CreateStrokePath(fillPath, Pen, actualBounds, density);
                 actualBounds = strokePath.TightBounds.ToGraphicsRect();
             }
         }
 
-        (_metrics, _bounds, _actualBounds) = (font.Metrics.ToFontMetrics(), bounds, actualBounds);
-
-        (_textBlob, _fillPath, _strokePath).DisposeAll();
-        (_textBlob, _fillPath, _strokePath) = (textBlob, fillPath, strokePath);
+        return (textBlob, fillPath, strokePath, font.Metrics.ToFontMetrics(), bounds, actualBounds);
     }
 
     private void SetProperty<T>(ref T field, T value)
@@ -298,6 +373,56 @@ public class FormattedText : IEquatable<FormattedText>
             Measure();
             _isDirty = false;
         }
+    }
+
+    private ScaledTextCache GetScaledTextCache(float density)
+    {
+        MeasureAndSetField();
+        if (_scaledTextCache.TryGetValue(density, out ScaledTextCache? cache))
+        {
+            _scaledTextCacheLru.Remove(cache.LruNode);
+            _scaledTextCacheLru.AddFirst(cache.LruNode);
+            return cache;
+        }
+
+        (SKTextBlob? textBlob, SKPath fillPath, SKPath? strokePath, _, _, _) =
+            MeasureCore(density, updatePathList: false);
+        fillPath.Dispose();
+
+        while (_scaledTextCache.Count >= MaxScaledTextCacheEntries && _scaledTextCacheLru.Last is { } lru)
+        {
+            _scaledTextCacheLru.RemoveLast();
+            if (_scaledTextCache.Remove(lru.Value, out ScaledTextCache? evicted))
+            {
+                evicted.Dispose();
+            }
+        }
+
+        LinkedListNode<float> node = _scaledTextCacheLru.AddFirst(density);
+        cache = new ScaledTextCache(textBlob, strokePath, node);
+        _scaledTextCache.Add(density, cache);
+        return cache;
+    }
+
+    private void ClearScaledTextCache()
+    {
+        foreach (ScaledTextCache item in _scaledTextCache.Values)
+        {
+            item.Dispose();
+        }
+
+        _scaledTextCache.Clear();
+        _scaledTextCacheLru.Clear();
+    }
+
+    private static float NormalizeDensity(float density)
+    {
+        if (!float.IsFinite(density) || density <= 0f)
+        {
+            return 1f;
+        }
+
+        return MathF.Abs(density - 1f) < 1e-6f ? 1f : density;
     }
 
     public override bool Equals(object? obj)

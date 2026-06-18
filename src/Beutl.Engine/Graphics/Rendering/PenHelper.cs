@@ -54,9 +54,11 @@ internal static class PenHelper
 
     public static void ConfigureStrokePaint(
         Pen.Resource pen,
-        SKPaint paint, Size size)
+        SKPaint paint, Size size,
+        float scale = 1f)
     {
-        float thickness = pen.Thickness;
+        scale = float.IsFinite(scale) && scale > 0f ? scale : 1f;
+        float thickness = pen.Thickness * scale;
         switch (pen.StrokeAlignment)
         {
             case StrokeAlignment.Outside:
@@ -129,16 +131,17 @@ internal static class PenHelper
         return outer ?? inner;
     }
 
-    internal static SKPath? CreateOffsetPath(SKPath fillPath, Pen.Resource pen, Rect bounds)
+    internal static SKPath? CreateOffsetPath(SKPath fillPath, Pen.Resource pen, Rect bounds, float scale = 1f)
     {
         if (pen.Offset == 0)
             return null;
 
+        scale = float.IsFinite(scale) && scale > 0f ? scale : 1f;
         var offsetPath = new SKPath();
         using var offsetPaint = new SKPaint
         {
             IsStroke = true,
-            StrokeWidth = Math.Abs(pen.Offset) * 2,
+            StrokeWidth = Math.Abs(pen.Offset) * 2 * scale,
             StrokeJoin = (SKStrokeJoin)pen.StrokeJoin,
             StrokeCap = (SKStrokeCap)pen.StrokeCap,
             StrokeMiter = pen.MiterLimit,
@@ -206,9 +209,10 @@ internal static class PenHelper
         }
     }
 
-    public static SKPath CreateStrokePath(SKPath fillPath, Pen.Resource pen, Rect bounds)
+    public static SKPath CreateStrokePath(SKPath fillPath, Pen.Resource pen, Rect bounds, float scale = 1f)
     {
-        SKPath? offsetFillPath = CreateOffsetPath(fillPath, pen, bounds);
+        scale = float.IsFinite(scale) && scale > 0f ? scale : 1f;
+        SKPath? offsetFillPath = CreateOffsetPath(fillPath, pen, bounds, scale);
         if (offsetFillPath != null)
             fillPath = offsetFillPath;
 
@@ -216,7 +220,7 @@ internal static class PenHelper
 
         using (var paint = new SKPaint())
         {
-            ConfigureStrokePaint(pen, paint, bounds.Size);
+            ConfigureStrokePaint(pen, paint, bounds.Size, scale);
 
             switch (pen.StrokeAlignment)
             {
