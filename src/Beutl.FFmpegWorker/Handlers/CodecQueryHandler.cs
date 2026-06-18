@@ -58,7 +58,7 @@ internal sealed class CodecQueryHandler
                 .ToArray();
 
             return IpcMessage.Create(msg.Id, MessageType.QueryPixelFormatsResult,
-                new QueryPixelFormatsResponse { Formats = allFmts });
+                new QueryPixelFormatsResponse { Formats = allFmts, Degraded = true });
         }
     }
 
@@ -78,7 +78,7 @@ internal sealed class CodecQueryHandler
         {
             WorkerLog.Warning($"QuerySampleRates: codec-specific query failed: {ex.Message}", ex);
             return IpcMessage.Create(msg.Id, MessageType.QuerySampleRatesResult,
-                new QuerySampleRatesResponse { SampleRates = [] });
+                new QuerySampleRatesResponse { SampleRates = [], Degraded = true });
         }
     }
 
@@ -98,7 +98,7 @@ internal sealed class CodecQueryHandler
         {
             WorkerLog.Warning($"QueryAudioFormats: codec-specific query failed: {ex.Message}", ex);
             return IpcMessage.Create(msg.Id, MessageType.QueryAudioFormatsResult,
-                new QueryAudioFormatsResponse { Formats = [] });
+                new QueryAudioFormatsResponse { Formats = [], Degraded = true });
         }
     }
 

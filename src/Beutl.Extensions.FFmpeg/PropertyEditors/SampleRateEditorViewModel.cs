@@ -100,7 +100,8 @@ internal sealed class SampleRateEditorViewModel : IPropertyEditorContext
             return;
         }
 
-        string key = BuildCacheKey(_settings);
+        QueryParams query = CreateQueryParams(_settings);
+        string key = BuildCacheKey(query);
         if (_cache.TryGetCached(key, out int[]? cached))
         {
             _refresh.Supersede();
@@ -109,19 +110,16 @@ internal sealed class SampleRateEditorViewModel : IPropertyEditorContext
         }
 
         CancellationToken ct = _refresh.StartNew();
-        _ = UpdateAsync(_settings, key, ct);
+        _ = UpdateAsync(query, key, ct);
     }
 
-    private async Task UpdateAsync(FFmpegAudioEncoderSettings settings, string key, CancellationToken ct)
+    private async Task UpdateAsync(QueryParams query, string key, CancellationToken ct)
     {
-        int[] supportedRates;
+        OptionsQueryResult<int> result;
         try
         {
-            // Empty is not cached: the worker returns an empty payload both for "any rate allowed" and
-            // as a soft fallback when its codec lookup throws, so caching it would pin a possibly
-            // transient empty for this editor's lifetime.
-            supportedRates = await _cache
-                .GetOrQueryAsync(key, () => QuerySampleRatesAsync(settings), cacheEmptyResults: false)
+            result = await _cache
+                .GetOrQueryAsync(key, () => QuerySampleRatesAsync(query))
                 .ConfigureAwait(false);
         }
         catch (Exception ex)
@@ -136,7 +134,7 @@ internal sealed class SampleRateEditorViewModel : IPropertyEditorContext
             return;
         }
 
-        await ApplyOnUiThreadAsync(ct, () => ApplySuggestions(supportedRates)).ConfigureAwait(false);
+        await ApplyOnUiThreadAsync(ct, () => ApplySuggestions(result.Items)).ConfigureAwait(false);
     }
 
     // Marshals the apply back to the UI thread, where _refresh is mutated, and applies only while
@@ -167,25 +165,31 @@ internal sealed class SampleRateEditorViewModel : IPropertyEditorContext
         }
     }
 
-    private static async Task<int[]> QuerySampleRatesAsync(FFmpegAudioEncoderSettings settings)
+    private static async Task<OptionsQueryResult<int>> QuerySampleRatesAsync(QueryParams query)
     {
         var connection = await FFmpegWorkerProcess.DecodingInstance.EnsureStartedAsync().ConfigureAwait(false);
         var response = await connection.RequestAsync<QuerySampleRatesRequest, QuerySampleRatesResponse>(
             MessageType.QuerySampleRates, MessageType.QuerySampleRatesResult,
             new QuerySampleRatesRequest
             {
-                CodecName = settings.Codec.Equals(CodecRecord.Default) ? null : settings.Codec.Name,
-                OutputFile = settings.OutputFile
+                CodecName = query.CodecName,
+                OutputFile = query.OutputFile
             }).ConfigureAwait(false);
-        return response.SampleRates;
+        return new OptionsQueryResult<int>(response.SampleRates, response.Degraded);
     }
 
-    private static string BuildCacheKey(FFmpegAudioEncoderSettings settings)
-    {
-        string codec = settings.Codec.Equals(CodecRecord.Default) ? "<default>" : settings.Codec.Name;
+    // The cache key and the worker query both derive from this snapshot, so they cannot diverge if
+    // _settings mutates mid-flight.
+    private readonly record struct QueryParams(string? CodecName, string? OutputFile);
+
+    private static QueryParams CreateQueryParams(FFmpegAudioEncoderSettings settings)
+        => new(
+            settings.Codec.Equals(CodecRecord.Default) ? null : settings.Codec.Name,
+            settings.OutputFile);
+
+    private static string BuildCacheKey(QueryParams query)
         // Use NUL as the delimiter since it cannot appear in a codec name or file path.
-        return $"{codec}\0{settings.OutputFile}";
-    }
+        => $"{query.CodecName ?? "<default>"}\0{query.OutputFile}";
 
     private void OnValueConfirmed(object? sender, PropertyEditorValueChangedEventArgs e)
     {

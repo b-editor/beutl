@@ -102,7 +102,8 @@ internal sealed class AudioFormatEditorViewModel : IPropertyEditorContext
             return;
         }
 
-        string key = BuildCacheKey(_settings);
+        QueryParams query = CreateQueryParams(_settings);
+        string key = BuildCacheKey(query);
         if (_cache.TryGetCached(key, out AudioFormat[]? cached))
         {
             _refresh.Supersede();
@@ -111,19 +112,16 @@ internal sealed class AudioFormatEditorViewModel : IPropertyEditorContext
         }
 
         CancellationToken ct = _refresh.StartNew();
-        _ = UpdateAsync(_settings, key, ct);
+        _ = UpdateAsync(query, key, ct);
     }
 
-    private async Task UpdateAsync(FFmpegAudioEncoderSettings settings, string key, CancellationToken ct)
+    private async Task UpdateAsync(QueryParams query, string key, CancellationToken ct)
     {
-        AudioFormat[] supportedFmts;
+        OptionsQueryResult<AudioFormat> result;
         try
         {
-            // Empty is not cached: the worker returns an empty payload both for "no constrained
-            // formats" and as a soft fallback when its codec lookup throws, so caching it would pin a
-            // possibly transient empty for this editor's lifetime.
-            supportedFmts = await _cache
-                .GetOrQueryAsync(key, () => QueryAudioFormatsAsync(settings), cacheEmptyResults: false)
+            result = await _cache
+                .GetOrQueryAsync(key, () => QueryAudioFormatsAsync(query))
                 .ConfigureAwait(false);
         }
         catch (Exception ex)
@@ -138,7 +136,10 @@ internal sealed class AudioFormatEditorViewModel : IPropertyEditorContext
             return;
         }
 
-        await ApplyOnUiThreadAsync(ct, () => ApplyFormats(supportedFmts)).ConfigureAwait(false);
+        // Applying the degraded (empty) fallback would mark the current format unsupported and reset
+        // the model value to Default, so show every format instead — matching the catch above.
+        AudioFormat[] formats = result.Degraded ? GetAllFormats() : result.Items;
+        await ApplyOnUiThreadAsync(ct, () => ApplyFormats(formats)).ConfigureAwait(false);
     }
 
     // Marshals the apply back to the UI thread, where _refresh is mutated, and applies only while
@@ -193,17 +194,18 @@ internal sealed class AudioFormatEditorViewModel : IPropertyEditorContext
         }
     }
 
-    private static async Task<AudioFormat[]> QueryAudioFormatsAsync(FFmpegAudioEncoderSettings settings)
+    private static async Task<OptionsQueryResult<AudioFormat>> QueryAudioFormatsAsync(QueryParams query)
     {
         var connection = await FFmpegWorkerProcess.DecodingInstance.EnsureStartedAsync().ConfigureAwait(false);
         var response = await connection.RequestAsync<QueryAudioFormatsRequest, QueryAudioFormatsResponse>(
             MessageType.QueryAudioFormats, MessageType.QueryAudioFormatsResult,
             new QueryAudioFormatsRequest
             {
-                CodecName = settings.Codec.Equals(CodecRecord.Default) ? null : settings.Codec.Name,
-                OutputFile = settings.OutputFile
+                CodecName = query.CodecName,
+                OutputFile = query.OutputFile
             }).ConfigureAwait(false);
-        return response.Formats.Select(f => (AudioFormat)f).ToArray();
+        return new OptionsQueryResult<AudioFormat>(
+            response.Formats.Select(f => (AudioFormat)f).ToArray(), response.Degraded);
     }
 
     private static AudioFormat[] GetAllFormats()
@@ -214,12 +216,18 @@ internal sealed class AudioFormatEditorViewModel : IPropertyEditorContext
             .ToArray();
     }
 
-    private static string BuildCacheKey(FFmpegAudioEncoderSettings settings)
-    {
-        string codec = settings.Codec.Equals(CodecRecord.Default) ? "<default>" : settings.Codec.Name;
+    // The cache key and the worker query both derive from this snapshot, so they cannot diverge if
+    // _settings mutates mid-flight.
+    private readonly record struct QueryParams(string? CodecName, string? OutputFile);
+
+    private static QueryParams CreateQueryParams(FFmpegAudioEncoderSettings settings)
+        => new(
+            settings.Codec.Equals(CodecRecord.Default) ? null : settings.Codec.Name,
+            settings.OutputFile);
+
+    private static string BuildCacheKey(QueryParams query)
         // Use NUL as the delimiter since it cannot appear in a codec name or file path.
-        return $"{codec}\0{settings.OutputFile}";
-    }
+        => $"{query.CodecName ?? "<default>"}\0{query.OutputFile}";
 
     private void OnValueConfirmed(object? sender, PropertyEditorValueChangedEventArgs e)
     {

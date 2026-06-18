@@ -102,7 +102,8 @@ internal sealed class PixelFormatEditorViewModel : IPropertyEditorContext
             return;
         }
 
-        string key = BuildCacheKey(_settings);
+        QueryParams query = CreateQueryParams(_settings);
+        string key = BuildCacheKey(query);
         if (_cache.TryGetCached(key, out PixelFormatInfo[]? cached))
         {
             _refresh.Supersede();
@@ -111,16 +112,16 @@ internal sealed class PixelFormatEditorViewModel : IPropertyEditorContext
         }
 
         CancellationToken ct = _refresh.StartNew();
-        _ = UpdateAsync(_settings, key, ct);
+        _ = UpdateAsync(query, key, ct);
     }
 
-    private async Task UpdateAsync(FFmpegVideoEncoderSettings settings, string key, CancellationToken ct)
+    private async Task UpdateAsync(QueryParams query, string key, CancellationToken ct)
     {
-        PixelFormatInfo[] formatInfos;
+        OptionsQueryResult<PixelFormatInfo> result;
         try
         {
-            formatInfos = await _cache
-                .GetOrQueryAsync(key, () => QueryPixelFormatsAsync(settings))
+            result = await _cache
+                .GetOrQueryAsync(key, () => QueryPixelFormatsAsync(query))
                 .ConfigureAwait(false);
         }
         catch (Exception ex)
@@ -135,7 +136,7 @@ internal sealed class PixelFormatEditorViewModel : IPropertyEditorContext
             return;
         }
 
-        await ApplyOnUiThreadAsync(ct, () => ApplyFormats(formatInfos)).ConfigureAwait(false);
+        await ApplyOnUiThreadAsync(ct, () => ApplyFormats(result.Items)).ConfigureAwait(false);
     }
 
     // Marshals the apply back to the UI thread, where _refresh is mutated, and applies only while
@@ -200,25 +201,31 @@ internal sealed class PixelFormatEditorViewModel : IPropertyEditorContext
         }
     }
 
-    private static async Task<PixelFormatInfo[]> QueryPixelFormatsAsync(FFmpegVideoEncoderSettings settings)
+    private static async Task<OptionsQueryResult<PixelFormatInfo>> QueryPixelFormatsAsync(QueryParams query)
     {
         var connection = await FFmpegWorkerProcess.DecodingInstance.EnsureStartedAsync().ConfigureAwait(false);
         var response = await connection.RequestAsync<QueryPixelFormatsRequest, QueryPixelFormatsResponse>(
             MessageType.QueryPixelFormats, MessageType.QueryPixelFormatsResult,
             new QueryPixelFormatsRequest
             {
-                CodecName = settings.Codec.Equals(CodecRecord.Default) ? null : settings.Codec.Name,
-                OutputFile = settings.OutputFile
+                CodecName = query.CodecName,
+                OutputFile = query.OutputFile
             }).ConfigureAwait(false);
-        return response.Formats;
+        return new OptionsQueryResult<PixelFormatInfo>(response.Formats, response.Degraded);
     }
 
-    private static string BuildCacheKey(FFmpegVideoEncoderSettings settings)
-    {
-        string codec = settings.Codec.Equals(CodecRecord.Default) ? "<default>" : settings.Codec.Name;
+    // The cache key and the worker query both derive from this snapshot, so they cannot diverge if
+    // _settings mutates mid-flight.
+    private readonly record struct QueryParams(string? CodecName, string? OutputFile);
+
+    private static QueryParams CreateQueryParams(FFmpegVideoEncoderSettings settings)
+        => new(
+            settings.Codec.Equals(CodecRecord.Default) ? null : settings.Codec.Name,
+            settings.OutputFile);
+
+    private static string BuildCacheKey(QueryParams query)
         // Use NUL as the delimiter since it cannot appear in a codec name or file path.
-        return $"{codec}\0{settings.OutputFile}";
-    }
+        => $"{query.CodecName ?? "<default>"}\0{query.OutputFile}";
 
     private void OnValueConfirmed(object? sender, PropertyEditorValueChangedEventArgs e)
     {
