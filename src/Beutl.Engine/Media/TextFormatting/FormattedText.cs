@@ -211,13 +211,13 @@ public class FormattedText : IEquatable<FormattedText>
         return GetScaledTextCache(density).StrokePath;
     }
 
-    internal SKTextBlob GetTextBlob()
+    internal SKTextBlob? GetTextBlob()
     {
         MeasureAndSetField();
-        return _textBlob!;
+        return _textBlob;
     }
 
-    internal SKTextBlob GetTextBlob(float density)
+    internal SKTextBlob? GetTextBlob(float density)
     {
         density = NormalizeDensity(density);
         if (density == 1f)
@@ -225,8 +225,7 @@ public class FormattedText : IEquatable<FormattedText>
             return GetTextBlob();
         }
 
-        return GetScaledTextCache(density).TextBlob
-            ?? throw new InvalidOperationException("Text blob was not created for the given density.");
+        return GetScaledTextCache(density).TextBlob;
     }
 
     internal SKFont ToSKFont(float density = 1f)

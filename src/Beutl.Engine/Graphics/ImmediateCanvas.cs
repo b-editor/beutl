@@ -365,7 +365,12 @@ public partial class ImmediateCanvas : IDisposable, IPopable
     {
         VerifyAccess();
         float density = _currentDensity;
-        SKTextBlob textBlob = text.GetTextBlob(density);
+        SKTextBlob? textBlob = text.GetTextBlob(density);
+        if (textBlob is null)
+        {
+            // Empty text shapes to no glyphs, so there is nothing to fill or stroke.
+            return;
+        }
 
         if (density == 1f)
         {

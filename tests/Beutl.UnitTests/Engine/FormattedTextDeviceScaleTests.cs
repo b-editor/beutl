@@ -15,8 +15,8 @@ public class FormattedTextDeviceScaleTests
         FormattedText text = CreateText();
         Rect logicalLayoutBounds = text.Bounds;
 
-        SKRect logicalBounds = text.GetTextBlob().Bounds;
-        SKRect deviceBounds = text.GetTextBlob(2f).Bounds;
+        SKRect logicalBounds = text.GetTextBlob()!.Bounds;
+        SKRect deviceBounds = text.GetTextBlob(2f)!.Bounds;
 
         Assert.That(deviceBounds.Width, Is.GreaterThan(logicalBounds.Width * 1.5f));
         Assert.That(deviceBounds.Height, Is.GreaterThan(logicalBounds.Height * 1.5f));
@@ -24,7 +24,7 @@ public class FormattedTextDeviceScaleTests
     }
 
     [Test]
-    public void GetStrokePath_WithDeviceDensity_KeepsLogicalPathUnscaled()
+    public void GetStrokePath_WithDeviceDensity_ReturnsDenseScaledPathWithoutMutatingLogicalBounds()
     {
         FormattedText text = CreateText();
         text.Pen = new Pen
@@ -40,6 +40,16 @@ public class FormattedTextDeviceScaleTests
         Assert.That(deviceStroke.Bounds.Width, Is.GreaterThan(logicalStroke.Bounds.Width * 1.5f));
         Assert.That(deviceStroke.Bounds.Height, Is.GreaterThan(logicalStroke.Bounds.Height * 1.5f));
         Assert.That(text.ActualBounds, Is.EqualTo(logicalActualBounds));
+    }
+
+    [Test]
+    public void GetTextBlob_EmptyText_ReturnsNullInsteadOfThrowing()
+    {
+        FormattedText text = CreateText();
+        text.Text = string.Empty;
+
+        Assert.That(text.GetTextBlob(), Is.Null);
+        Assert.That(text.GetTextBlob(2f), Is.Null);
     }
 
     private static FormattedText CreateText()
