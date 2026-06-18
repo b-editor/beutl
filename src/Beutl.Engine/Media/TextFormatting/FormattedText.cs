@@ -226,7 +226,8 @@ public class FormattedText : IEquatable<FormattedText>
             return GetTextBlob();
         }
 
-        return GetScaledTextCache(density).TextBlob!;
+        return GetScaledTextCache(density).TextBlob
+            ?? throw new InvalidOperationException("Text blob was not created for the given density.");
     }
 
     internal SKFont ToSKFont(float density = 1f)
@@ -342,7 +343,7 @@ public class FormattedText : IEquatable<FormattedText>
 
         SKPath? strokePath = null;
         // 空白で開始または、終了した場合
-        var bounds = new Rect(0, 0, (glyphs.Length - 1) * spacing + result.Width, fillPath.TightBounds.Height);
+        var bounds = new Rect(0, 0, Math.Max(0, glyphs.Length - 1) * spacing + result.Width, fillPath.TightBounds.Height);
         Rect actualBounds = fillPath.TightBounds.ToGraphicsRect();
         SKTextBlob? textBlob = builder.Build();
 

@@ -6,6 +6,7 @@ using SkiaSharp;
 
 namespace Beutl.UnitTests.Engine;
 
+[TestFixture]
 public class FormattedTextDeviceScaleTests
 {
     [Test]
