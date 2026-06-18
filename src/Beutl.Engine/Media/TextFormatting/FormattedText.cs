@@ -26,9 +26,8 @@ public class FormattedText : IEquatable<FormattedText>
     private SKTextBlob? _textBlob;
     private SKPath? _fillPath;
     private SKPath? _strokePath;
-    // Bounds the per-density blob/stroke cache so continuously varying densities
-    // (e.g. Fit-to-previewer scale during a window resize) cannot grow it without
-    // bound; the least-recently-used density is evicted past this many entries.
+    // Caps the per-density blob/stroke cache so varying densities (e.g. window-resize
+    // scaling) can't grow it without bound; the least-recently-used density is evicted.
     private const int MaxScaledTextCacheEntries = 8;
     private readonly Dictionary<float, ScaledTextCache> _scaledTextCache = [];
     private readonly LinkedList<float> _scaledTextCacheLru = new();

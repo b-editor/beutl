@@ -387,11 +387,8 @@ public partial class ImmediateCanvas : IDisposable, IPopable
             {
                 Canvas.SetMatrix((SKMatrix44)CreateDensityScaledContentTransform(density).ToSKMatrix());
 
-                // The blob is shaped at device density, so the glyphs span the dense
-                // extent (Bounds * density) under this CTM. Configure the brush over that
-                // dense extent at scale 1: the density-compensating CTM already maps the
-                // dense space onto device pixels, so re-densifying the brush (scale:
-                // density) would double-apply the density to tile/drawable patterns.
+                // The blob is shaped at device density, so its glyphs already span Bounds * density
+                // under this CTM. Pass scale 1 so the density isn't applied twice to brush patterns.
                 ConfigureFillPaint(text.Bounds * density, fill, scale: 1f);
                 Canvas.DrawText(textBlob, 0, 0, _sharedFillPaint);
 

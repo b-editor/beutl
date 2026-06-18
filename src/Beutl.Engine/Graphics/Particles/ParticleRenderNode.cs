@@ -13,7 +13,7 @@ internal sealed class ParticleRenderNode(ParticleEmitter.Resource particle) : Re
 
     private (RenderTarget RT, Drawable.Resource? Resource, int? Version, float Density)? _cachedRenderTarget;
     private Rect _drawableBounds;
-    // Requested output density used to decide whether the cached particle drawable must be rebuilt.
+    // Requested output density; a change invalidates the cached particle drawable.
     private float _renderScale = 1f;
 
     public (ParticleEmitter.Resource Resource, int Version)? Particle { get; private set; } = particle.Capture();
