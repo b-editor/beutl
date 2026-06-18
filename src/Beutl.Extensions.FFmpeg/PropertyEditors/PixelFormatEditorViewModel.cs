@@ -19,17 +19,18 @@ namespace Beutl.Extensions.FFmpeg.PropertyEditors;
 
 internal sealed class PixelFormatEditorViewModel : IPropertyEditorContext
 {
-    private static readonly ILogger s_logger = Log.CreateLogger(typeof(PixelFormatEditorViewModel));
+    private static readonly ILogger s_logger = Log.CreateLogger<PixelFormatEditorViewModel>();
     private readonly IPropertyAdapter<int> _property;
     private readonly CompositeDisposable _disposables = [];
     private readonly ReactivePropertySlim<int> _selectedIndex;
     private readonly FFmpegOptionsCache<PixelFormatInfo> _cache = new();
+    private readonly LatestRefreshTracker _refresh = new();
 
     private FFmpegVideoEncoderSettings? _settings;
     private int[] _currentFormats = [];
     private IReadOnlyList<EnumItem> _currentItems = [];
     private WeakReference<EnumEditor>? _editorRef;
-    private CancellationTokenSource? _updateCts;
+    private bool _disposed;
 
     public PixelFormatEditorViewModel(
         IPropertyAdapter<int> property,
@@ -88,18 +89,15 @@ internal sealed class PixelFormatEditorViewModel : IPropertyEditorContext
         }
     }
 
-    // Kicks off a non-blocking refresh; cached results are applied immediately and a fresh codec
-    // switch cancels the previous (stale) query so it cannot clobber the latest selection.
-    // Always invoked on the UI thread (constructor + UI-driven property-change observables), so the
-    // _updateCts swap below needs no synchronization.
+    // Kicks off a non-blocking refresh. A cached result is applied synchronously; otherwise a fresh
+    // codec switch supersedes the previous (stale) query via _refresh so it cannot clobber the latest
+    // selection. Expected to run on the UI thread (constructor + UI-driven property-change
+    // observables); _refresh is not synchronized for concurrent callers.
     private void RequestUpdate()
     {
-        _updateCts?.Cancel();
-        _updateCts?.Dispose();
-        _updateCts = null;
-
         if (_settings == null)
         {
+            _refresh.Supersede();
             ApplyFallback();
             return;
         }
@@ -107,49 +105,55 @@ internal sealed class PixelFormatEditorViewModel : IPropertyEditorContext
         string key = BuildCacheKey(_settings);
         if (_cache.TryGetCached(key, out PixelFormatInfo[]? cached))
         {
+            _refresh.Supersede();
             ApplyFormats(cached);
             return;
         }
 
-        var cts = _updateCts = new CancellationTokenSource();
-        _ = UpdateAsync(_settings, key, cts.Token);
+        CancellationToken ct = _refresh.StartNew();
+        _ = UpdateAsync(_settings, key, ct);
     }
 
     private async Task UpdateAsync(FFmpegVideoEncoderSettings settings, string key, CancellationToken ct)
     {
+        PixelFormatInfo[] formatInfos;
         try
         {
-            PixelFormatInfo[] formatInfos = await _cache
+            formatInfos = await _cache
                 .GetOrQueryAsync(key, () => QueryPixelFormatsAsync(settings))
                 .ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            // A superseded query is no longer the latest request, so it neither logs nor applies.
+            if (LatestRefreshTracker.IsCurrent(ct))
+            {
+                s_logger.LogWarning(ex, "Failed to refresh pixel formats from FFmpeg worker");
+                await ApplyOnUiThreadAsync(ct, ApplyFallback).ConfigureAwait(false);
+            }
 
-            // The cancellation check runs on the UI thread, where RequestUpdate cancels the token,
-            // so a superseded codec selection can never clobber the latest one.
+            return;
+        }
+
+        await ApplyOnUiThreadAsync(ct, () => ApplyFormats(formatInfos)).ConfigureAwait(false);
+    }
+
+    // Marshals the apply back to the UI thread, where _refresh is mutated, and applies only while
+    // this request is still the latest and the editor is alive. A dispatcher fault during teardown is
+    // logged distinctly from a worker-query failure and never escapes this fire-and-forget task.
+    private async Task ApplyOnUiThreadAsync(CancellationToken ct, Action apply)
+    {
+        try
+        {
             await Dispatcher.UIThread.InvokeAsync(() =>
             {
-                if (!ct.IsCancellationRequested)
-                    ApplyFormats(formatInfos);
+                if (!_disposed && LatestRefreshTracker.IsCurrent(ct))
+                    apply();
             });
         }
         catch (Exception ex)
         {
-            if (ct.IsCancellationRequested)
-                return;
-
-            try
-            {
-                s_logger.LogWarning(ex, "Failed to refresh pixel formats from FFmpeg worker");
-                await Dispatcher.UIThread.InvokeAsync(() =>
-                {
-                    if (!ct.IsCancellationRequested)
-                        ApplyFallback();
-                });
-            }
-            catch (Exception dispatchEx)
-            {
-                // The dispatcher can fault during shutdown; never let it escape this fire-and-forget task.
-                s_logger.LogDebug(dispatchEx, "Dispatcher unavailable while applying pixel-format fallback");
-            }
+            s_logger.LogDebug(ex, "Dispatcher unavailable while applying pixel formats");
         }
     }
 
@@ -236,9 +240,8 @@ internal sealed class PixelFormatEditorViewModel : IPropertyEditorContext
 
     public void Dispose()
     {
-        _updateCts?.Cancel();
-        _updateCts?.Dispose();
-        _updateCts = null;
+        _disposed = true;
+        _refresh.Dispose();
         _disposables.Dispose();
         _editorRef = null;
         _settings = null;

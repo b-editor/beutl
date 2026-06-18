@@ -19,17 +19,18 @@ namespace Beutl.Extensions.FFmpeg.PropertyEditors;
 
 internal sealed class AudioFormatEditorViewModel : IPropertyEditorContext
 {
-    private static readonly ILogger s_logger = Log.CreateLogger(typeof(AudioFormatEditorViewModel));
+    private static readonly ILogger s_logger = Log.CreateLogger<AudioFormatEditorViewModel>();
     private readonly IPropertyAdapter<AudioFormat> _property;
     private readonly CompositeDisposable _disposables = [];
     private readonly ReactivePropertySlim<int> _selectedIndex;
     private readonly FFmpegOptionsCache<AudioFormat> _cache = new();
+    private readonly LatestRefreshTracker _refresh = new();
 
     private FFmpegAudioEncoderSettings? _settings;
     private AudioFormat[] _currentFormats = [];
     private IReadOnlyList<EnumItem> _currentItems = [];
     private WeakReference<EnumEditor>? _editorRef;
-    private CancellationTokenSource? _updateCts;
+    private bool _disposed;
 
     public AudioFormatEditorViewModel(
         IPropertyAdapter<AudioFormat> property,
@@ -88,18 +89,15 @@ internal sealed class AudioFormatEditorViewModel : IPropertyEditorContext
         }
     }
 
-    // Kicks off a non-blocking refresh; cached results are applied immediately and a fresh codec
-    // switch cancels the previous (stale) query so it cannot clobber the latest selection.
-    // Always invoked on the UI thread (constructor + UI-driven property-change observables), so the
-    // _updateCts swap below needs no synchronization.
+    // Kicks off a non-blocking refresh. A cached result is applied synchronously; otherwise a fresh
+    // codec switch supersedes the previous (stale) query via _refresh so it cannot clobber the latest
+    // selection. Expected to run on the UI thread (constructor + UI-driven property-change
+    // observables); _refresh is not synchronized for concurrent callers.
     private void RequestUpdate()
     {
-        _updateCts?.Cancel();
-        _updateCts?.Dispose();
-        _updateCts = null;
-
         if (_settings == null)
         {
+            _refresh.Supersede();
             ApplyFormats(GetAllFormats());
             return;
         }
@@ -107,49 +105,58 @@ internal sealed class AudioFormatEditorViewModel : IPropertyEditorContext
         string key = BuildCacheKey(_settings);
         if (_cache.TryGetCached(key, out AudioFormat[]? cached))
         {
+            _refresh.Supersede();
             ApplyFormats(cached);
             return;
         }
 
-        var cts = _updateCts = new CancellationTokenSource();
-        _ = UpdateAsync(_settings, key, cts.Token);
+        CancellationToken ct = _refresh.StartNew();
+        _ = UpdateAsync(_settings, key, ct);
     }
 
     private async Task UpdateAsync(FFmpegAudioEncoderSettings settings, string key, CancellationToken ct)
     {
+        AudioFormat[] supportedFmts;
         try
         {
-            AudioFormat[] supportedFmts = await _cache
-                .GetOrQueryAsync(key, () => QueryAudioFormatsAsync(settings))
+            // Empty is not cached: the worker returns an empty payload both for "no constrained
+            // formats" and as a soft fallback when its codec lookup throws, so caching it would pin a
+            // possibly transient empty for this editor's lifetime.
+            supportedFmts = await _cache
+                .GetOrQueryAsync(key, () => QueryAudioFormatsAsync(settings), cacheEmptyResults: false)
                 .ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            // A superseded query is no longer the latest request, so it neither logs nor applies.
+            if (LatestRefreshTracker.IsCurrent(ct))
+            {
+                s_logger.LogWarning(ex, "Failed to refresh audio formats from FFmpeg worker");
+                await ApplyOnUiThreadAsync(ct, () => ApplyFormats(GetAllFormats())).ConfigureAwait(false);
+            }
 
-            // The cancellation check runs on the UI thread, where RequestUpdate cancels the token,
-            // so a superseded codec selection can never clobber the latest one.
+            return;
+        }
+
+        await ApplyOnUiThreadAsync(ct, () => ApplyFormats(supportedFmts)).ConfigureAwait(false);
+    }
+
+    // Marshals the apply back to the UI thread, where _refresh is mutated, and applies only while
+    // this request is still the latest and the editor is alive. A dispatcher fault during teardown is
+    // logged distinctly from a worker-query failure and never escapes this fire-and-forget task.
+    private async Task ApplyOnUiThreadAsync(CancellationToken ct, Action apply)
+    {
+        try
+        {
             await Dispatcher.UIThread.InvokeAsync(() =>
             {
-                if (!ct.IsCancellationRequested)
-                    ApplyFormats(supportedFmts);
+                if (!_disposed && LatestRefreshTracker.IsCurrent(ct))
+                    apply();
             });
         }
         catch (Exception ex)
         {
-            if (ct.IsCancellationRequested)
-                return;
-
-            try
-            {
-                s_logger.LogWarning(ex, "Failed to refresh audio formats from FFmpeg worker");
-                await Dispatcher.UIThread.InvokeAsync(() =>
-                {
-                    if (!ct.IsCancellationRequested)
-                        ApplyFormats(GetAllFormats());
-                });
-            }
-            catch (Exception dispatchEx)
-            {
-                // The dispatcher can fault during shutdown; never let it escape this fire-and-forget task.
-                s_logger.LogDebug(dispatchEx, "Dispatcher unavailable while applying audio-format fallback");
-            }
+            s_logger.LogDebug(ex, "Dispatcher unavailable while applying audio formats");
         }
     }
 
@@ -234,9 +241,8 @@ internal sealed class AudioFormatEditorViewModel : IPropertyEditorContext
 
     public void Dispose()
     {
-        _updateCts?.Cancel();
-        _updateCts?.Dispose();
-        _updateCts = null;
+        _disposed = true;
+        _refresh.Dispose();
         _disposables.Dispose();
         _editorRef = null;
         _settings = null;

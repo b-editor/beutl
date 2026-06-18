@@ -80,6 +80,60 @@ public class FFmpegOptionsCacheTests
     }
 
     [Test]
+    public async Task GetOrQueryAsync_EmptyResult_NotCached_WhenCacheEmptyResultsFalse()
+    {
+        var cache = new FFmpegOptionsCache<int>();
+        int calls = 0;
+
+        int[] first = await cache.GetOrQueryAsync(
+            "aac", () => { calls++; return Task.FromResult(Array.Empty<int>()); }, cacheEmptyResults: false);
+
+        // An empty payload can be a transient worker-side soft-failure rather than a genuine
+        // "no options", so it must not be pinned in the cache: the next request re-queries.
+        Assert.That(first, Is.Empty);
+        Assert.That(cache.TryGetCached("aac", out _), Is.False);
+
+        int[] second = await cache.GetOrQueryAsync(
+            "aac", () => { calls++; return Task.FromResult(new[] { 48000 }); }, cacheEmptyResults: false);
+
+        Assert.That(calls, Is.EqualTo(2));
+        Assert.That(second, Is.EqualTo(new[] { 48000 }));
+    }
+
+    [Test]
+    public async Task GetOrQueryAsync_NonEmptyResult_StillCached_WhenCacheEmptyResultsFalse()
+    {
+        var cache = new FFmpegOptionsCache<int>();
+        int calls = 0;
+
+        await cache.GetOrQueryAsync(
+            "aac", () => { calls++; return Task.FromResult(new[] { 48000 }); }, cacheEmptyResults: false);
+        int[] second = await cache.GetOrQueryAsync(
+            "aac", () => { calls++; return Task.FromResult(new[] { -1 }); }, cacheEmptyResults: false);
+
+        // Excluding empties does not affect a non-empty result: it is cached and served as usual.
+        Assert.That(calls, Is.EqualTo(1));
+        Assert.That(second, Is.EqualTo(new[] { 48000 }));
+    }
+
+    [Test]
+    public async Task GetOrQueryAsync_EmptyResult_Cached_ByDefault()
+    {
+        var cache = new FFmpegOptionsCache<int>();
+        int calls = 0;
+
+        await cache.GetOrQueryAsync("aac", () => { calls++; return Task.FromResult(Array.Empty<int>()); });
+
+        // The default still caches an empty result (used where empty is authoritative).
+        Assert.That(cache.TryGetCached("aac", out _), Is.True);
+        int[] second = await cache.GetOrQueryAsync(
+            "aac", () => { calls++; return Task.FromResult(new[] { -1 }); });
+
+        Assert.That(calls, Is.EqualTo(1));
+        Assert.That(second, Is.Empty);
+    }
+
+    [Test]
     public async Task GetOrQueryAsync_ConcurrentSameKey_SharesSingleInFlightQuery()
     {
         var cache = new FFmpegOptionsCache<int>();
