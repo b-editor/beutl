@@ -477,8 +477,7 @@ public sealed partial class MainView : UserControl
 
     internal async Task StopWindowCaptureAsync()
     {
-        // Coalesce a re-entrant Stop click to a single run so it can't emit a duplicate
-        // "Saved" toast while the first stop is still finalizing.
+        // Coalesce a re-entrant Stop click so it can't emit a duplicate "Saved" toast.
         await _captureStop.TryRunAsync(async () =>
         {
             WindowCaptureSession? session = _captureSession;
@@ -509,8 +508,7 @@ public sealed partial class MainView : UserControl
 
     internal async Task EnsureCaptureStoppedAsync()
     {
-        // Join an in-flight user stop (await it, no busy-spin) so close waits for the
-        // same teardown; otherwise perform the shutdown stop here.
+        // Join an in-flight user stop so close waits for it; otherwise stop here.
         await _captureStop.RunOrJoinAsync(async () =>
         {
             WindowCaptureSession? session = _captureSession;
