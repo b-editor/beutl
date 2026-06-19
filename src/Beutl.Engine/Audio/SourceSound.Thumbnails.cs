@@ -116,21 +116,25 @@ public sealed partial class SourceSound : IThumbnailsProvider
 
             int startSample = (int)((long)chunkIndex * totalSamples / chunkCount);
             int endSample = (int)((long)(chunkIndex + 1) * totalSamples / chunkCount);
-            int sampleCount = Math.Min(endSample - startSample, samplesPerChunk);
+            int fullSpan = endSample - startSample;
+            // samplesPerChunk caps the work per chunk. Compose ranges stay tick-contiguous — so a
+            // stateful effect like the limiter carries state across the strip — only when
+            // fullSpan <= samplesPerChunk (short or zoomed-in clips). For longer clips the waveform
+            // is a sparse approximation and the effect restarts per chunk: a deliberate quality
+            // trade-off for bounded per-chunk cost, not a correctness guarantee.
+            int sampleCount = Math.Min(fullSpan, samplesPerChunk);
             var chunkTime = TimeSpan.FromSeconds((double)startSample / sampleRate);
             TimeSpan startTime = TimeRange.Start + chunkTime;
-            TimeSpan durationTime = TimeSpan.FromSeconds((double)sampleCount / sampleRate);
+            TimeSpan durationTime = GetWaveformChunkDuration(sampleCount, sampleRate);
 
             if (sampleCount <= 0)
                 continue;
 
-            if (cacheKey != null
-                && cacheService!.TryGetWaveform(cacheKey, chunkTime, cacheThreshold, out var cachedMin,
-                    out var cachedMax))
-            {
-                yield return new WaveformChunk(chunkIndex, cachedMin, cachedMax);
-                continue;
-            }
+            float cachedMin = 0f;
+            float cachedMax = 0f;
+            bool cacheHit = cacheKey != null
+                && cacheService!.TryGetWaveform(
+                    cacheKey, chunkTime, cacheThreshold, out cachedMin, out cachedMax);
 
             var chunk = await ComposeThread.Dispatcher.InvokeAsync(() =>
             {
@@ -141,13 +145,18 @@ public sealed partial class SourceSound : IThumbnailsProvider
                 if (buffer == null || buffer.SampleCount == 0)
                     return null;
 
+                // Compose must run on every chunk even when its min/max is cached: skipping it would
+                // leave the next cache miss starting from reset state, diverging from a cold run.
+                if (cacheHit)
+                    return new WaveformChunk(chunkIndex, cachedMin, cachedMax);
+
                 var firstChannel = buffer.GetChannelData(0);
                 var secondChannel = buffer.GetChannelData(1);
 
                 float minValue = float.MaxValue;
                 float maxValue = float.MinValue;
 
-                for (int i = 0; i < buffer.SampleCount; i++)
+                for (int i = 0; i < Math.Min(sampleCount, buffer.SampleCount); i++)
                 {
                     float left = firstChannel[i];
                     float right = secondChannel[i];
@@ -162,11 +171,25 @@ public sealed partial class SourceSound : IThumbnailsProvider
 
             if (chunk.HasValue)
             {
-                if (cacheKey != null)
+                if (cacheKey != null && !cacheHit)
                     cacheService!.SaveWaveform(cacheKey, chunkTime, chunk.Value.MinValue, chunk.Value.MaxValue);
 
                 yield return chunk.Value;
             }
         }
+    }
+
+    internal static TimeSpan GetWaveformChunkDuration(int sampleCount, int sampleRate)
+    {
+        if (sampleCount < 0)
+            throw new ArgumentOutOfRangeException(nameof(sampleCount));
+        if (sampleRate <= 0)
+            throw new ArgumentOutOfRangeException(nameof(sampleRate));
+
+        // Floor the tick count: TimeSpan.FromSeconds rounds to nearest, and rounding up would let
+        // AudioProcessContext.GetSampleCount's ceiling request one extra sample. Flooring maps a
+        // positive duration back to exactly sampleCount samples.
+        long ticks = (long)((decimal)sampleCount * TimeSpan.TicksPerSecond / sampleRate);
+        return TimeSpan.FromTicks(ticks);
     }
 }

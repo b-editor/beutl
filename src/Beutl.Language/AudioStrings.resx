@@ -126,4 +126,31 @@
   <data name="CompressorEffect_MakeupGain_Description" xml:space="preserve">
     <value>Gain applied after compression to compensate for the reduced level.</value>
   </data>
+  <data name="LimiterEffect" xml:space="preserve">
+    <value>Limiter</value>
+  </data>
+  <data name="LimiterEffect_Threshold" xml:space="preserve">
+    <value>Threshold (dB)</value>
+  </data>
+  <data name="LimiterEffect_Release" xml:space="preserve">
+    <value>Release (ms)</value>
+  </data>
+  <data name="LimiterEffect_Lookahead" xml:space="preserve">
+    <value>Lookahead (ms)</value>
+  </data>
+  <data name="LimiterEffect_MakeupGain" xml:space="preserve">
+    <value>Makeup Gain (dB)</value>
+  </data>
+  <data name="LimiterEffect_Threshold_Description" xml:space="preserve">
+    <value>The output ceiling. Peaks within the lookahead window are reduced so the output stays at or below this level.</value>
+  </data>
+  <data name="LimiterEffect_Release_Description" xml:space="preserve">
+    <value>How quickly the gain recovers after a peak passes.</value>
+  </data>
+  <data name="LimiterEffect_Lookahead_Description" xml:space="preserve">
+    <value>How far ahead the limiter looks to catch peaks before they arrive. 0 ms keeps audio sample-accurate; higher values trade a fixed delay for smoother limiting.</value>
+  </data>
+  <data name="LimiterEffect_MakeupGain_Description" xml:space="preserve">
+    <value>Gain applied after limiting. The final peak can reach Threshold + Makeup Gain.</value>
+  </data>
 </root>

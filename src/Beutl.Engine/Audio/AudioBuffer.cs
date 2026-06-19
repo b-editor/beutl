@@ -59,6 +59,17 @@ public sealed class AudioBuffer : IDisposable
         return _memory.Slice(start, _channelSampleCount);
     }
 
+    /// <summary>
+    /// Returns the full channel-major backing span (channel <c>ch</c> sample <c>i</c> at index
+    /// <c>ch * SampleCount + i</c>). Intended for hot DSP loops that would otherwise pay
+    /// <see cref="GetChannelData"/>'s per-call overhead on every sample.
+    /// </summary>
+    internal Span<float> GetRawSpan()
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        return _memory.Span;
+    }
+
     public Pcm<Stereo32BitFloat> ToPcm()
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
