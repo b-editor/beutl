@@ -26,6 +26,9 @@ public sealed class QueryPixelFormatsRequest
 public sealed class QueryPixelFormatsResponse
 {
     public PixelFormatInfo[] Formats { get; set; } = [];
+
+    /// <summary>True when the worker could not resolve codec-specific options and returned a fallback.</summary>
+    public bool Degraded { get; set; }
 }
 
 public sealed class PixelFormatInfo
@@ -43,6 +46,9 @@ public sealed class QuerySampleRatesRequest
 public sealed class QuerySampleRatesResponse
 {
     public int[] SampleRates { get; set; } = [];
+
+    /// <summary>True when the worker could not resolve codec-specific options and returned a fallback.</summary>
+    public bool Degraded { get; set; }
 }
 
 public sealed class QueryAudioFormatsRequest
@@ -54,4 +60,7 @@ public sealed class QueryAudioFormatsRequest
 public sealed class QueryAudioFormatsResponse
 {
     public int[] Formats { get; set; } = [];
+
+    /// <summary>True when the worker could not resolve codec-specific options and returned a fallback.</summary>
+    public bool Degraded { get; set; }
 }

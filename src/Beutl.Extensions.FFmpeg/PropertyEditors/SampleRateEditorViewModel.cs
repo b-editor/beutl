@@ -2,26 +2,33 @@
 using System.Text.Json.Nodes;
 using Avalonia;
 using Avalonia.Interactivity;
+using Avalonia.Threading;
 using Beutl.Controls.PropertyEditors;
 using Beutl.Extensibility;
 using Beutl.Extensions.FFmpeg.Encoding;
 using Beutl.FFmpegIpc.Protocol;
 using Beutl.FFmpegIpc.Protocol.Messages;
+using Beutl.Logging;
 using Beutl.PropertyAdapters;
 using Beutl.Reactive;
+using Microsoft.Extensions.Logging;
 using Reactive.Bindings;
 
 namespace Beutl.Extensions.FFmpeg.PropertyEditors;
 
 internal sealed class SampleRateEditorViewModel : IPropertyEditorContext
 {
+    private static readonly ILogger s_logger = Log.CreateLogger<SampleRateEditorViewModel>();
     private readonly IPropertyAdapter<int> _property;
     private readonly CompositeDisposable _disposables = [];
     private readonly ReactivePropertySlim<string> _text;
+    private readonly FFmpegOptionsCache<int> _cache = new();
+    private readonly LatestRefreshTracker _refresh = new();
 
     private FFmpegAudioEncoderSettings? _settings;
     private string[] _currentSuggestions = [];
     private WeakReference<AutoCompleteStringEditor>? _editorRef;
+    private bool _disposed;
 
     public SampleRateEditorViewModel(
         IPropertyAdapter<int> property,
@@ -31,7 +38,7 @@ internal sealed class SampleRateEditorViewModel : IPropertyEditorContext
         Extension = extension;
         _text = new ReactivePropertySlim<string>(property.GetValue().ToString()).DisposeWith(_disposables);
 
-        // CorePropertyAdapterからFFmpegAudioEncoderSettingsを取得
+        // Resolve the FFmpegAudioEncoderSettings from the CorePropertyAdapter.
         if (property is CorePropertyAdapter<int> cpa)
         {
             _settings = cpa.Object as FFmpegAudioEncoderSettings;
@@ -39,13 +46,13 @@ internal sealed class SampleRateEditorViewModel : IPropertyEditorContext
 
         if (_settings != null)
         {
-            // コーデック変更を監視
+            // Watch for codec changes.
             _settings.GetObservable(FFmpegAudioEncoderSettings.CodecProperty)
-                .Subscribe(_ => UpdateSampleRates())
+                .Subscribe(_ => RequestUpdate())
                 .DisposeWith(_disposables);
         }
 
-        // 現在値の変更を監視してテキストを更新
+        // Watch the current value to keep the text in sync.
         _property.GetObservable()
             .Subscribe(value =>
             {
@@ -55,8 +62,8 @@ internal sealed class SampleRateEditorViewModel : IPropertyEditorContext
             })
             .DisposeWith(_disposables);
 
-        // 初期化
-        UpdateSampleRates();
+        // Initialize.
+        RequestUpdate();
     }
 
     public PropertyEditorExtension Extension { get; }
@@ -80,55 +87,109 @@ internal sealed class SampleRateEditorViewModel : IPropertyEditorContext
         }
     }
 
-    private void UpdateSampleRates()
+    // Kicks off a non-blocking refresh. A cached result is applied synchronously; otherwise a fresh
+    // codec switch supersedes the previous (stale) query via _refresh so it cannot clobber the latest
+    // selection. Expected to run on the UI thread (constructor + UI-driven property-change
+    // observables); _refresh is not synchronized for concurrent callers.
+    private void RequestUpdate()
+    {
+        if (_settings == null)
+        {
+            _refresh.Supersede();
+            ApplySuggestions([]);
+            return;
+        }
+
+        QueryParams query = CreateQueryParams(_settings);
+        string key = BuildCacheKey(query);
+        if (_cache.TryGetCached(key, out int[]? cached))
+        {
+            _refresh.Supersede();
+            ApplySuggestions(cached);
+            return;
+        }
+
+        CancellationToken ct = _refresh.StartNew();
+        _ = UpdateAsync(query, key, ct);
+    }
+
+    private async Task UpdateAsync(QueryParams query, string key, CancellationToken ct)
+    {
+        OptionsQueryResult<int> result;
+        try
+        {
+            result = await _cache
+                .GetOrQueryAsync(key, () => QuerySampleRatesAsync(query))
+                .ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            // A superseded query is no longer the latest request, so it neither logs nor applies.
+            if (LatestRefreshTracker.IsCurrent(ct))
+            {
+                s_logger.LogWarning(ex, "Failed to refresh sample rates from FFmpeg worker");
+                await ApplyOnUiThreadAsync(ct, () => ApplySuggestions([])).ConfigureAwait(false);
+            }
+
+            return;
+        }
+
+        await ApplyOnUiThreadAsync(ct, () => ApplySuggestions(result.Items)).ConfigureAwait(false);
+    }
+
+    // Marshals the apply back to the UI thread, where _refresh is mutated, and applies only while
+    // this request is still the latest and the editor is alive. A dispatcher fault during teardown is
+    // logged distinctly from a worker-query failure and never escapes this fire-and-forget task.
+    private async Task ApplyOnUiThreadAsync(CancellationToken ct, Action apply)
     {
         try
         {
-            int[] supportedRates = GetCodecSampleRates(_settings);
-
-            _currentSuggestions = supportedRates
-                .Select(r => r.ToString())
-                .ToArray();
-
-            // エディタのItemsSourceを更新
-            if (_editorRef?.TryGetTarget(out var editor) == true)
+            await Dispatcher.UIThread.InvokeAsync(() =>
             {
-                editor.ItemsSource = _currentSuggestions;
-            }
+                if (!_disposed && LatestRefreshTracker.IsCurrent(ct))
+                    apply();
+            });
         }
-        catch
+        catch (Exception ex)
         {
-            // エラー時は補完候補なし（自由入力のみ）
-            _currentSuggestions = [];
-
-            if (_editorRef?.TryGetTarget(out var editor) == true)
-            {
-                editor.ItemsSource = _currentSuggestions;
-            }
+            s_logger.LogDebug(ex, "Dispatcher unavailable while applying sample rates");
         }
     }
 
-    private static int[] GetCodecSampleRates(FFmpegAudioEncoderSettings? settings)
+    private void ApplySuggestions(int[] supportedRates)
     {
-        if (settings == null) return [];
-
-        try
+        _currentSuggestions = supportedRates.Select(r => r.ToString()).ToArray();
+        if (_editorRef?.TryGetTarget(out var editor) == true)
         {
-            var connection = FFmpegWorkerProcess.DecodingInstance.EnsureStartedAsync().GetAwaiter().GetResult();
-            var response = connection.RequestAsync<QuerySampleRatesRequest, QuerySampleRatesResponse>(
-                MessageType.QuerySampleRates, MessageType.QuerySampleRatesResult,
-                new QuerySampleRatesRequest
-                {
-                    CodecName = settings.Codec.Equals(CodecRecord.Default) ? null : settings.Codec.Name,
-                    OutputFile = settings.OutputFile
-                }).AsTask().GetAwaiter().GetResult();
-            return response.SampleRates;
-        }
-        catch
-        {
-            return [];
+            editor.ItemsSource = _currentSuggestions;
         }
     }
+
+    private static async Task<OptionsQueryResult<int>> QuerySampleRatesAsync(QueryParams query)
+    {
+        var connection = await FFmpegWorkerProcess.DecodingInstance.EnsureStartedAsync().ConfigureAwait(false);
+        var response = await connection.RequestAsync<QuerySampleRatesRequest, QuerySampleRatesResponse>(
+            MessageType.QuerySampleRates, MessageType.QuerySampleRatesResult,
+            new QuerySampleRatesRequest
+            {
+                CodecName = query.CodecName,
+                OutputFile = query.OutputFile
+            }).ConfigureAwait(false);
+        return new OptionsQueryResult<int>(response.SampleRates, response.Degraded);
+    }
+
+    // The cache key and the worker query both derive from this snapshot, so they cannot diverge if
+    // _settings mutates mid-flight.
+    private readonly record struct QueryParams(string? CodecName, string? OutputFile);
+
+    private static QueryParams CreateQueryParams(FFmpegAudioEncoderSettings settings)
+        => new(
+            settings.Codec.Equals(CodecRecord.Default) ? null : settings.Codec.Name,
+            settings.OutputFile);
+
+    private static string BuildCacheKey(QueryParams query)
+        // Use NUL as the delimiter since it cannot appear in a codec name or file path.
+        => $"{query.CodecName ?? "<default>"}\0{query.OutputFile}";
 
     private void OnValueConfirmed(object? sender, PropertyEditorValueChangedEventArgs e)
     {
@@ -140,7 +201,7 @@ internal sealed class SampleRateEditorViewModel : IPropertyEditorContext
             }
             else
             {
-                // 無効な値の場合、現在値に戻す
+                // Revert to the current value when the input is invalid.
                 _text.Value = _property.GetValue().ToString();
             }
         }
@@ -156,6 +217,8 @@ internal sealed class SampleRateEditorViewModel : IPropertyEditorContext
 
     public void Dispose()
     {
+        _disposed = true;
+        _refresh.Dispose();
         _disposables.Dispose();
         _editorRef = null;
         _settings = null;

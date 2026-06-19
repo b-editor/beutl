@@ -2,28 +2,35 @@
 using System.Text.Json.Nodes;
 using Avalonia;
 using Avalonia.Interactivity;
+using Avalonia.Threading;
 using Beutl.Controls.PropertyEditors;
 using Beutl.Extensibility;
 using Beutl.Extensions.FFmpeg.Encoding;
 using Beutl.FFmpegIpc;
 using Beutl.FFmpegIpc.Protocol;
 using Beutl.FFmpegIpc.Protocol.Messages;
+using Beutl.Logging;
 using Beutl.PropertyAdapters;
 using Beutl.Reactive;
+using Microsoft.Extensions.Logging;
 using Reactive.Bindings;
 
 namespace Beutl.Extensions.FFmpeg.PropertyEditors;
 
 internal sealed class PixelFormatEditorViewModel : IPropertyEditorContext
 {
+    private static readonly ILogger s_logger = Log.CreateLogger<PixelFormatEditorViewModel>();
     private readonly IPropertyAdapter<int> _property;
     private readonly CompositeDisposable _disposables = [];
     private readonly ReactivePropertySlim<int> _selectedIndex;
+    private readonly FFmpegOptionsCache<PixelFormatInfo> _cache = new();
+    private readonly LatestRefreshTracker _refresh = new();
 
     private FFmpegVideoEncoderSettings? _settings;
     private int[] _currentFormats = [];
     private IReadOnlyList<EnumItem> _currentItems = [];
     private WeakReference<EnumEditor>? _editorRef;
+    private bool _disposed;
 
     public PixelFormatEditorViewModel(
         IPropertyAdapter<int> property,
@@ -33,7 +40,7 @@ internal sealed class PixelFormatEditorViewModel : IPropertyEditorContext
         Extension = extension;
         _selectedIndex = new ReactivePropertySlim<int>(-1).DisposeWith(_disposables);
 
-        // CorePropertyAdapterからFFmpegVideoEncoderSettingsを取得
+        // Resolve the FFmpegVideoEncoderSettings from the CorePropertyAdapter.
         if (property is CorePropertyAdapter<int> cpa)
         {
             _settings = cpa.Object as FFmpegVideoEncoderSettings;
@@ -41,13 +48,13 @@ internal sealed class PixelFormatEditorViewModel : IPropertyEditorContext
 
         if (_settings != null)
         {
-            // コーデック変更を監視
+            // Watch for codec changes.
             _settings.GetObservable(FFmpegVideoEncoderSettings.CodecProperty)
-                .Subscribe(_ => UpdatePixelFormats())
+                .Subscribe(_ => RequestUpdate())
                 .DisposeWith(_disposables);
         }
 
-        // 現在値の変更を監視してSelectedIndexを更新
+        // Watch the current value to keep SelectedIndex in sync.
         _property.GetObservable()
             .Subscribe(format =>
             {
@@ -57,8 +64,8 @@ internal sealed class PixelFormatEditorViewModel : IPropertyEditorContext
             })
             .DisposeWith(_disposables);
 
-        // 初期化
-        UpdatePixelFormats();
+        // Initialize.
+        RequestUpdate();
     }
 
     public PropertyEditorExtension Extension { get; }
@@ -82,74 +89,143 @@ internal sealed class PixelFormatEditorViewModel : IPropertyEditorContext
         }
     }
 
-    private void UpdatePixelFormats()
+    // Kicks off a non-blocking refresh. A cached result is applied synchronously; otherwise a fresh
+    // codec switch supersedes the previous (stale) query via _refresh so it cannot clobber the latest
+    // selection. Expected to run on the UI thread (constructor + UI-driven property-change
+    // observables); _refresh is not synchronized for concurrent callers.
+    private void RequestUpdate()
+    {
+        if (_settings == null)
+        {
+            _refresh.Supersede();
+            ApplyFallback();
+            return;
+        }
+
+        QueryParams query = CreateQueryParams(_settings);
+        string key = BuildCacheKey(query);
+        if (_cache.TryGetCached(key, out PixelFormatInfo[]? cached))
+        {
+            _refresh.Supersede();
+            ApplyFormats(cached);
+            return;
+        }
+
+        CancellationToken ct = _refresh.StartNew();
+        _ = UpdateAsync(query, key, ct);
+    }
+
+    private async Task UpdateAsync(QueryParams query, string key, CancellationToken ct)
+    {
+        OptionsQueryResult<PixelFormatInfo> result;
+        try
+        {
+            result = await _cache
+                .GetOrQueryAsync(key, () => QueryPixelFormatsAsync(query))
+                .ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            // A superseded query is no longer the latest request, so it neither logs nor applies.
+            if (LatestRefreshTracker.IsCurrent(ct))
+            {
+                s_logger.LogWarning(ex, "Failed to refresh pixel formats from FFmpeg worker");
+                await ApplyOnUiThreadAsync(ct, ApplyFallback).ConfigureAwait(false);
+            }
+
+            return;
+        }
+
+        await ApplyOnUiThreadAsync(ct, () => ApplyFormats(result.Items)).ConfigureAwait(false);
+    }
+
+    // Marshals the apply back to the UI thread, where _refresh is mutated, and applies only while
+    // this request is still the latest and the editor is alive. A dispatcher fault during teardown is
+    // logged distinctly from a worker-query failure and never escapes this fire-and-forget task.
+    private async Task ApplyOnUiThreadAsync(CancellationToken ct, Action apply)
     {
         try
         {
-            PixelFormatInfo[] formatInfos = GetCodecFormatInfos(_settings);
-
-            // FFPixelFormat.None ("Auto") を先頭に追加
-            _currentFormats = [FFPixelFormat.None, .. formatInfos.Select(f => f.Value)];
-            _currentItems = new EnumItem[] { new("Auto", null, FFPixelFormat.None) }
-                .Concat(formatInfos.Select(f => new EnumItem(f.Name, null, f.Value)))
-                .ToArray();
-
-            // エディタのアイテムを更新
-            if (_editorRef?.TryGetTarget(out var editor) == true)
+            await Dispatcher.UIThread.InvokeAsync(() =>
             {
-                editor.Items = _currentItems;
-            }
-
-            // 現在値がリストにあるか確認
-            var currentValue = _property.GetValue();
-            int index = Array.IndexOf(_currentFormats, currentValue);
-            _selectedIndex.Value = -1; // 一旦リセット
-            if (index < 0 && currentValue != FFPixelFormat.None)
-            {
-                // 非対応フォーマットが選択されていたらAutoにリセット
-                _property.SetValue(FFPixelFormat.None);
-                _selectedIndex.Value = 0;
-            }
-            else
-            {
-                _selectedIndex.Value = Math.Max(index, 0);
-            }
+                if (!_disposed && LatestRefreshTracker.IsCurrent(ct))
+                    apply();
+            });
         }
-        catch
+        catch (Exception ex)
         {
-            // エラー時はAutoのみ表示
-            _currentFormats = [FFPixelFormat.None];
-            _currentItems = [new EnumItem("Auto", null, FFPixelFormat.None)];
+            s_logger.LogDebug(ex, "Dispatcher unavailable while applying pixel formats");
+        }
+    }
+
+    private void ApplyFormats(PixelFormatInfo[] formatInfos)
+    {
+        // Prepend FFPixelFormat.None ("Auto") to the list.
+        _currentFormats = [FFPixelFormat.None, .. formatInfos.Select(f => f.Value)];
+        _currentItems = new EnumItem[] { new("Auto", null, FFPixelFormat.None) }
+            .Concat(formatInfos.Select(f => new EnumItem(f.Name, null, f.Value)))
+            .ToArray();
+
+        // Update the editor's items.
+        if (_editorRef?.TryGetTarget(out var editor) == true)
+        {
+            editor.Items = _currentItems;
+        }
+
+        // Check whether the current value is present in the list.
+        var currentValue = _property.GetValue();
+        int index = Array.IndexOf(_currentFormats, currentValue);
+        _selectedIndex.Value = -1; // Reset once.
+        if (index < 0 && currentValue != FFPixelFormat.None)
+        {
+            // Reset to Auto when an unsupported format is selected.
+            _property.SetValue(FFPixelFormat.None);
             _selectedIndex.Value = 0;
-
-            if (_editorRef?.TryGetTarget(out var editor) == true)
-            {
-                editor.Items = _currentItems;
-            }
+        }
+        else
+        {
+            _selectedIndex.Value = Math.Max(index, 0);
         }
     }
 
-    private static PixelFormatInfo[] GetCodecFormatInfos(FFmpegVideoEncoderSettings? settings)
+    private void ApplyFallback()
     {
-        if (settings == null) return [];
+        // On error, show only Auto.
+        _currentFormats = [FFPixelFormat.None];
+        _currentItems = [new EnumItem("Auto", null, FFPixelFormat.None)];
+        _selectedIndex.Value = 0;
 
-        try
+        if (_editorRef?.TryGetTarget(out var editor) == true)
         {
-            var connection = FFmpegWorkerProcess.DecodingInstance.EnsureStartedAsync().GetAwaiter().GetResult();
-            var response = connection.RequestAsync<QueryPixelFormatsRequest, QueryPixelFormatsResponse>(
-                MessageType.QueryPixelFormats, MessageType.QueryPixelFormatsResult,
-                new QueryPixelFormatsRequest
-                {
-                    CodecName = settings.Codec.Equals(CodecRecord.Default) ? null : settings.Codec.Name,
-                    OutputFile = settings.OutputFile
-                }).AsTask().GetAwaiter().GetResult();
-            return response.Formats;
-        }
-        catch
-        {
-            return [];
+            editor.Items = _currentItems;
         }
     }
+
+    private static async Task<OptionsQueryResult<PixelFormatInfo>> QueryPixelFormatsAsync(QueryParams query)
+    {
+        var connection = await FFmpegWorkerProcess.DecodingInstance.EnsureStartedAsync().ConfigureAwait(false);
+        var response = await connection.RequestAsync<QueryPixelFormatsRequest, QueryPixelFormatsResponse>(
+            MessageType.QueryPixelFormats, MessageType.QueryPixelFormatsResult,
+            new QueryPixelFormatsRequest
+            {
+                CodecName = query.CodecName,
+                OutputFile = query.OutputFile
+            }).ConfigureAwait(false);
+        return new OptionsQueryResult<PixelFormatInfo>(response.Formats, response.Degraded);
+    }
+
+    // The cache key and the worker query both derive from this snapshot, so they cannot diverge if
+    // _settings mutates mid-flight.
+    private readonly record struct QueryParams(string? CodecName, string? OutputFile);
+
+    private static QueryParams CreateQueryParams(FFmpegVideoEncoderSettings settings)
+        => new(
+            settings.Codec.Equals(CodecRecord.Default) ? null : settings.Codec.Name,
+            settings.OutputFile);
+
+    private static string BuildCacheKey(QueryParams query)
+        // Use NUL as the delimiter since it cannot appear in a codec name or file path.
+        => $"{query.CodecName ?? "<default>"}\0{query.OutputFile}";
 
     private void OnValueConfirmed(object? sender, PropertyEditorValueChangedEventArgs e)
     {
@@ -171,6 +247,8 @@ internal sealed class PixelFormatEditorViewModel : IPropertyEditorContext
 
     public void Dispose()
     {
+        _disposed = true;
+        _refresh.Dispose();
         _disposables.Dispose();
         _editorRef = null;
         _settings = null;
