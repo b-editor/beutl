@@ -62,7 +62,8 @@ public sealed class LimiterNode : AudioNode
             throw new InvalidOperationException(
                 $"LimiterNode requires exactly one input but has {Inputs.Count}.");
 
-        var input = Inputs[0].Process(context)
+        // Every path emits a fresh buffer (no pass-through), so dispose the consumed input.
+        using var input = Inputs[0].Process(context)
             ?? throw new InvalidOperationException("LimiterNode: upstream Process returned null.");
 
         if (input.SampleRate != context.SampleRate)

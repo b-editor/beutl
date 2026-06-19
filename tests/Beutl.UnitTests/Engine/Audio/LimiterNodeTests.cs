@@ -62,7 +62,14 @@ public class LimiterNodeTests
 
     private sealed class StubInputNode(AudioBuffer buffer) : AudioNode
     {
-        public override AudioBuffer Process(AudioProcessContext context) => buffer;
+        // LimiterNode disposes the input it consumes, so return a fresh copy each call and keep the
+        // original alive for the test's own assertions.
+        public override AudioBuffer Process(AudioProcessContext context)
+        {
+            var copy = new AudioBuffer(buffer.SampleRate, buffer.ChannelCount, buffer.SampleCount);
+            buffer.CopyTo(copy);
+            return copy;
+        }
     }
 
     private sealed class NullInputNode : AudioNode
