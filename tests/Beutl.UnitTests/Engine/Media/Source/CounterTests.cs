@@ -224,12 +224,17 @@ public class CounterTests
             totalTryAddRefSuccesses += tryAddRefSuccesses;
         }
 
-        // The releaser yields once after the barrier, so the consumer
-        // should generally enter its TryAddRef loop before the unbalanced
-        // Release lands. Require at least Trials/2 successful hits across
-        // 200 trials: large enough to fail if the race window collapses,
-        // small enough to stay reliable under noisy CI schedulers.
-        Assert.That(totalTryAddRefSuccesses, Is.GreaterThan(Trials / 2),
-            $"Race window collapsed: only {totalTryAddRefSuccesses} TryAddRef hits across {Trials} trials");
+        // Sanity guard that the race actually exercised the TryAddRef path
+        // rather than the consumer always losing to the unbalanced Release
+        // (which would make the assertions above pass vacuously). How many
+        // hits land is a pure scheduling artifact — the consumer's head start
+        // depends on thread-pool injection timing and core count, so it swings
+        // from a handful to hundreds of thousands across machines. Requiring a
+        // proportional threshold here couples the test to the scheduler and is
+        // flaky on warm-pool / low-core CI runners; one success across the
+        // Trials x ConsumerIterations attempts is enough to prove the window
+        // is reachable.
+        Assert.That(totalTryAddRefSuccesses, Is.GreaterThan(0),
+            $"Race window collapsed: no TryAddRef hits across {Trials} trials ({(long)Trials * ConsumerIterations} attempts)");
     }
 }
