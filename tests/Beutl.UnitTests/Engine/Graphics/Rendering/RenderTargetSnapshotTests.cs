@@ -223,6 +223,20 @@ public class RenderTargetSnapshotTests
         Assert.Throws<ArgumentException>(() => renderer.SnapshotInto(wrongSize));
     }
 
+    // Same size and bytes-per-pixel as the snapshot (RgbaF16 = 8), but a different color space.
+    // CopyFrom only checks bytes-per-pixel, so before the default validated format this destination
+    // was silently raw-copied (linear bytes reinterpreted as sRGB). The default must now reject it,
+    // matching the strict contract the surface-backed override already enforces.
+    [Test]
+    public void IRendererDefaultSnapshotInto_FormatMismatch_Throws()
+    {
+        using Bitmap content = NewScratch(40, 24);
+        IRenderer renderer = new FakeSnapshotRenderer(content);
+        using var wrongFormat = new Bitmap(40, 24, BitmapColorType.RgbaF16, BitmapAlphaType.Premul, BitmapColorSpace.Srgb);
+
+        Assert.Throws<ArgumentException>(() => renderer.SnapshotInto(wrongFormat));
+    }
+
     // Compare every row's raw bytes (width * bytes-per-pixel) rather than sparsely sampling pixels:
     // sampling can pass while a stride/row-alignment bug silently corrupts the rest of the row.
     private static void AssertRowsIdentical(Bitmap expected, Bitmap actual, string paths)
