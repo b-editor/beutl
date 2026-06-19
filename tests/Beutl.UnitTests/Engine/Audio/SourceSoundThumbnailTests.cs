@@ -45,11 +45,10 @@ public class SourceSoundThumbnailTests
         }
     }
 
-    // Pins the documented contiguity contract of GetWaveformChunksAsync: consecutive Compose ranges
-    // are tick-contiguous (so a stateful effect carries state across the strip) ONLY when each
-    // chunk's full span fits within samplesPerChunk. When fullSpan exceeds samplesPerChunk the chunk
-    // composes a prefix and a real gap opens between consecutive ranges (the effect restarts per
-    // chunk — an accepted approximation, not a bug).
+    // Pins the contiguity contract of GetWaveformChunksAsync: consecutive Compose ranges are
+    // tick-contiguous (so a stateful effect carries state across the strip) only when each chunk's
+    // full span fits within samplesPerChunk. When fullSpan exceeds it the chunk composes a prefix
+    // and a gap opens between ranges — the effect restarts per chunk, an accepted approximation.
     [TestCase(48000, 48000, 1000, 4096, true)]   // 1s over 1000 chunks: fullSpan=48 <= 4096 -> contiguous
     [TestCase(48000, 2880000, 500, 4096, false)] // 60s over 500 chunks: fullSpan=5760 > 4096 -> gap
     public void WaveformChunkRanges_AreContiguous_OnlyWhenSpanFitsChunkBudget(
@@ -73,11 +72,8 @@ public class SourceSoundThumbnailTests
         Assert.That(sawGap, Is.EqualTo(!expectContiguous));
     }
 
-    // Cache-control-flow contract of GetWaveformChunksAsync: a cache miss computes the chunk and
-    // saves it; a cache hit returns the cached value and is NOT re-saved; every chunk is still
-    // produced either way (the cache-hit early-return is placed AFTER Compose so stateful effects
-    // keep advancing — that intent lives in the production comment; here we pin the observable
-    // control flow, which is what a regression to the loop structure would break).
+    // Cache-control-flow contract of GetWaveformChunksAsync: a miss computes and saves the chunk, a
+    // hit returns the cached value and is not re-saved, and every chunk is still produced either way.
     [Test]
     public async Task GetWaveformChunks_CacheMissComputesAndSaves_CacheHitReturnsCachedAndSkipsSave()
     {

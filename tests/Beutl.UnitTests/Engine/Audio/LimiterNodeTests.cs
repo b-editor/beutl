@@ -15,10 +15,9 @@ public class LimiterNodeTests
 {
     private const int SampleRate = 48000;
 
-    // A fixed non-zero lookahead used as the default for these tests, deliberately decoupled from
-    // DefaultLookaheadMs (which is 0 for sample-accurate A/V sync). Keeping a non-zero
-    // value here ensures the delay-line / lookahead-window behavior stays exercised regardless of
-    // the production default. Tests that specifically need the zero-lookahead path pass lookaheadMs: 0f.
+    // Fixed non-zero lookahead used as the default for these tests, decoupled from
+    // DefaultLookaheadMs (which is 0), so the delay-line / lookahead-window behavior stays
+    // exercised. Tests that need the zero-lookahead path pass lookaheadMs: 0f.
     private const float LookaheadMs = 5f;
 
     private static int LookaheadSamples(int sampleRate = SampleRate, float lookaheadMs = LookaheadMs)
@@ -266,10 +265,9 @@ public class LimiterNodeTests
         var secondCtx = CreateContext(chunkSamples, start: secondStart);
         using var secondOut = node.Process(secondCtx);
 
-        // The first lookahead-window worth of samples in the second chunk reads the tail of
-        // the first chunk out of the delay line. If Reset() had fired erroneously the delay
-        // line would have been cleared and these samples would all be zero — the non-zero
-        // residual proves continuity is preserved.
+        // The first lookahead window of the second chunk reads the first chunk's tail from the
+        // delay line. An erroneous Reset() would have zeroed it; the non-zero residual proves
+        // continuity is preserved.
         bool foundResidual = false;
         for (int ch = 0; ch < 2 && !foundResidual; ch++)
         {
@@ -416,9 +414,8 @@ public class LimiterNodeTests
         node.AddInput(new StubInputNode(input48));
         using (var _ = node.Process(CreateContext(4800, sampleRate: 48000, start: TimeSpan.Zero))) { }
 
-        // Switch the same node to a higher sample rate. The internal _maxLookaheadSamples must
-        // grow to fit MaxLookaheadMs at the new rate, otherwise reads at the maximum lookahead
-        // would silently return zero.
+        // Switch to a higher sample rate: _maxLookaheadSamples must grow to fit MaxLookaheadMs at
+        // the new rate, or reads at the maximum lookahead would silently return zero.
         node.RemoveInput(node.Inputs[0]);
         using var input96 = CreateBuffer(2, 9600,
             (_, i) => 2.0f * MathF.Sin(2f * MathF.PI * 440f * i / 96000),
@@ -663,11 +660,10 @@ public class LimiterNodeTests
     [TestCase(MaxLookaheadMs)]
     public void Process_LookaheadDelay_IsAccurate(float lookaheadMs)
     {
-        // Impulse at index 0 of an otherwise silent buffer. With threshold 0 dB the signal stays below
-        // the ceiling, so this is a pure passthrough delay: the impulse must re-emerge at EXACTLY index
-        // lookaheadSamples (no tolerance) with its full amplitude preserved. The MaxLookaheadMs case
-        // pins the boundary tap (clamped to _maxLookaheadSamples-1, the largest in-range Read offset)
-        // without slack, so a one-sample off-by-one at the buffer edge would fail.
+        // Impulse at index 0, threshold 0 dB so the signal stays below the ceiling: a pure
+        // passthrough delay. The impulse must re-emerge at exactly index lookaheadSamples with full
+        // amplitude. The MaxLookaheadMs case pins the boundary tap (clamped to
+        // _maxLookaheadSamples-1, the largest in-range Read offset), catching an edge off-by-one.
         const int sampleCount = 2048;
         using var input = CreateBuffer(1, sampleCount, (_, i) => i == 0 ? 0.5f : 0f);
 
@@ -872,10 +868,9 @@ public class LimiterNodeTests
     [Test]
     public void Process_ReleaseIir_RecoversExponentially()
     {
-        // Hot burst followed by silence. After the burst the gain envelope must approach 1.0
-        // along an exponential curve whose time constant is set by Release. A bug that flipped
-        // attack/release direction or used the wrong sign would either snap immediately or
-        // never recover.
+        // Hot burst followed by silence. After the burst the gain envelope must approach 1.0 along
+        // an exponential whose time constant is Release. A flipped attack/release direction or
+        // wrong sign would either snap immediately or never recover.
         const int burstSamples = 1024;
         const float thresholdDb = -12f;
         const float releaseMs = 100f;
@@ -895,9 +890,8 @@ public class LimiterNodeTests
         var data = output.GetChannelData(0);
         var inData = input.GetChannelData(0);
 
-        // Sample the gain envelope at ~0.5τ, ~1τ, and ~5τ into the silent tail. At each
-        // non-zero input sample, gain ≈ output / input. The envelope should rise monotonically
-        // and approach 1.0 within several time constants.
+        // Sample the gain envelope (≈ output / input) at ~0.5τ, ~1τ, and ~5τ into the silent tail.
+        // It should rise monotonically and approach 1.0 within several time constants.
         int oneTau = (int)(releaseMs * 0.001f * SampleRate);
         var samplePoints = new[]
         {
@@ -926,10 +920,9 @@ public class LimiterNodeTests
     [Test]
     public void Process_ContiguousChunks_PreserveGainEnvelope()
     {
-        // Cap a hot signal with a long release in chunk 1, then process silence in chunk 2.
-        // Output[0] of chunk 2 (which uses the gain from end of chunk 1) should NOT jump back
-        // to unity — that would only happen if Reset() fired erroneously between contiguous
-        // chunks.
+        // Cap a hot signal with a long release in chunk 1, then silence in chunk 2. Chunk 2's
+        // output[0] inherits the gain from the end of chunk 1 and must not jump back to unity —
+        // that would only happen if Reset() fired erroneously between contiguous chunks.
         const int chunkSamples = 1024;
         const float thresholdDb = -12f;
 
@@ -1107,9 +1100,9 @@ public class LimiterNodeTests
     [Test]
     public void Process_ContiguousNonFiniteBurst_AreSanitizedToZero()
     {
-        // The strided NaN/Inf test never places non-finite values on consecutive samples. A
-        // realistic upstream corruption is a clustered burst; IngestSample sanitizes each sample
-        // independently, so a contiguous run must still produce finite, bounded output.
+        // The strided NaN/Inf test never puts non-finite values on consecutive samples. A clustered
+        // burst is more realistic; IngestSample sanitizes each sample independently, so a contiguous
+        // run must still produce finite, bounded output.
         const int sampleCount = 1024;
         const int burstStart = 400;
         const int burstLength = 64;
@@ -1184,11 +1177,10 @@ public class LimiterNodeTests
     [Test]
     public void Process_EmptyChunkBetweenContiguousChunks_PreservesDelayState()
     {
-        // An empty chunk wedged between contiguous non-empty chunks must be a pure pass-through:
-        // it must not call Reset() and must not advance _lastTimeRangeEnd, so the next non-empty
-        // chunk is evaluated against the previous *non-empty* chunk's end and resumes
-        // contiguously. A regression that called Reset() inside the empty-chunk branch would
-        // wipe the delay line and zero out the lookahead window of the resume chunk.
+        // An empty chunk between contiguous non-empty chunks must be a pure pass-through: no
+        // Reset(), no advance of _lastTimeRangeEnd, so the next non-empty chunk resumes against the
+        // previous *non-empty* chunk's end. A Reset() in the empty-chunk branch would wipe the
+        // delay line and zero the resume chunk's lookahead window.
         const int chunkSamples = 1024;
         int lookaheadSamples = LookaheadSamples();
 
@@ -1234,12 +1226,10 @@ public class LimiterNodeTests
     [Test]
     public void Process_EmptyChunkAtDiscontinuity_DoesNotMaskFollowupReset()
     {
-        // The complement of the test above: if an empty chunk is silently used to advance the
-        // limiter's notion of time (e.g., a regression that did `_lastTimeRangeEnd = Start +
-        // Duration` inside the empty-chunk branch), then a non-empty chunk arriving at the
-        // empty chunk's position would be misclassified as contiguous and would replay stale
-        // delay-line audio from before the seek — a silent failure. Verify that the next
-        // non-empty chunk still triggers Reset() against the previous non-empty chunk's end.
+        // Complement of the test above: if the empty-chunk branch advanced _lastTimeRangeEnd, a
+        // non-empty chunk at the empty chunk's position would be misclassified as contiguous and
+        // replay stale pre-seek delay-line audio. Verify the next non-empty chunk still Reset()s
+        // against the previous non-empty chunk's end.
         const int chunkSamples = 1024;
 
         using var hotInput = CreateBuffer(2, chunkSamples,
@@ -1255,10 +1245,9 @@ public class LimiterNodeTests
         node.AddInput(new StubInputNode(emptyInput));
         using (var _ = node.Process(CreateContext(0, start: TimeSpan.FromSeconds(10)))) { }
 
-        // Resume with silence at the empty chunk's position. The empty chunk must not have
-        // updated _lastTimeRangeEnd, so this chunk's Start (10s) differs from the previous
-        // non-empty chunk's end (1024/SR ≈ 0.021s) and Reset() must fire — wiping the delay
-        // line so the silent input produces silent output.
+        // Resume with silence at the empty chunk's position. Since the empty chunk didn't update
+        // _lastTimeRangeEnd, this Start (10s) differs from the previous non-empty end (≈0.021s),
+        // so Reset() must fire and the silent input must produce silent output.
         using var silence = CreateBuffer(2, chunkSamples, (_, _) => 0f);
         node.RemoveInput(node.Inputs[0]);
         node.AddInput(new StubInputNode(silence));
@@ -1301,12 +1290,10 @@ public class LimiterNodeTests
     [Test]
     public void Process_AnimatedRamp_AcrossContiguousChunks_TracksCurve()
     {
-        // The single-chunk ramp test (Process_AnimatedRampedThreshold_TracksCurve) only exercises
-        // the inner AnimationChunkSize loop. Splitting the same ramp into multiple contiguous
-        // outer Process() calls verifies that the curve is sampled at the correct absolute time
-        // in each chunk — a regression where chunkRange computation reset to t=0 per outer call
-        // would make every chunk see the start-of-ramp threshold and not be detected by the
-        // single-chunk test.
+        // The single-chunk ramp test only exercises the inner AnimationChunkSize loop. Splitting
+        // the ramp across multiple contiguous outer Process() calls verifies the curve is sampled
+        // at the correct absolute time per chunk — catching a regression where chunkRange resets to
+        // t=0 each outer call, which the single-chunk test would miss.
         const int chunkCount = 4;
         const int chunkSamples = SampleRate / chunkCount; // 0.25s each, 1s total ramp
         var totalDuration = TimeSpan.FromSeconds(1);
@@ -1371,11 +1358,10 @@ public class LimiterNodeTests
     [Test]
     public void Process_AnimatedNonContiguousChunks_ResetsState()
     {
-        // The static-path counterpart (Process_NonContiguousChunks_ResetsState) covers the
-        // _lastTimeRangeEnd discontinuity branch. Repeating it under an animated path guarantees
-        // that the discontinuity check is not gated on `hasAnimation == false` — a refactor
-        // that moved the Reset() call into ProcessStatic would silently bypass it for animated
-        // properties and let the previous segment's audio leak across seeks.
+        // The static-path counterpart covers the _lastTimeRangeEnd discontinuity branch. Repeating
+        // it under animation guarantees the discontinuity check isn't gated on hasAnimation: a
+        // refactor moving Reset() into ProcessStatic would bypass it for animated properties and
+        // leak the previous segment's audio across seeks.
         const int firstSampleCount = 1024;
         var duration = TimeSpan.FromSeconds((double)firstSampleCount / SampleRate);
 
@@ -1484,11 +1470,10 @@ public class LimiterNodeTests
     [Test]
     public void Process_ContiguousChannelCountChange_ReinitializesBuffersAndStillLimits()
     {
-        // A channel-count change reallocates the per-channel buffers (InitializeBuffers) regardless of
-        // time-range contiguity, so the resulting state is always fresh and there is no carried-over
-        // envelope to observe (this test cannot, by design, distinguish a discontinuity reset from the
-        // buffer re-init). It asserts the observable contract: across shrink (stereo->mono) and grow
-        // (mono->stereo) the output adopts the new channel count, stays finite, and still limits.
+        // A channel-count change reallocates the per-channel buffers regardless of contiguity, so
+        // there's no carried-over envelope to observe. This asserts the observable contract: across
+        // shrink (stereo->mono) and grow (mono->stereo) the output adopts the new channel count,
+        // stays finite, and still limits.
         const int chunkSamples = 1024;
         const float thresholdDb = -6f;
         float thresholdLin = MathF.Pow(10f, thresholdDb / 20f);
@@ -1662,11 +1647,11 @@ public class LimiterNodeTests
     [Test]
     public void Process_StaticDeque_MatchesAnimatedScan_ForEqualConstantLookahead()
     {
-        // Pins the perf commit's core correctness claim: the static path's O(1) monotonic-deque window
-        // maximum (PushWindowPeak) must produce output bit-identical to the animated path's direct
-        // O(lookahead) scan (ScanWindowPeak) when the lookahead is an equal constant. A constant
-        // KeyFrameAnimation on Lookahead forces the animated/scan path; everything else is identical, so
-        // any divergence is a deque bug. Runs multiple contiguous chunks to also cover deque persistence.
+        // Core correctness claim of the deque optimization: with an equal constant lookahead, the
+        // static path's O(1) deque max (PushWindowPeak) must produce output bit-identical to the
+        // animated path's O(lookahead) scan (ScanWindowPeak). A constant KeyFrameAnimation forces
+        // the scan path; everything else is identical, so any divergence is a deque bug. Multiple
+        // contiguous chunks also cover deque persistence.
         const int chunkSamples = 2048;
         const int chunks = 3;
         const float thresholdDb = -6f;
@@ -1725,11 +1710,10 @@ public class LimiterNodeTests
     [Test]
     public void Process_StaticLookaheadChange_RebuildsDequeToMatchScan()
     {
-        // Exercises the EnsureDeque rebuild-from-peak-ring branch: changing a STATIC lookahead between
-        // two contiguous chunks on a reused node forces a deque rebuild. The reused deque node is
-        // compared against an independent animated/scan node fed the identical signal with a step
-        // lookahead schedule (lookA during chunk 1, lookB during chunk 2). Equal output on chunk 2
-        // proves the rebuild reconstructs the correct window state for the new lookahead.
+        // Exercises EnsureDeque's rebuild-from-peak-ring branch: changing a static lookahead between
+        // two contiguous chunks on a reused node forces a rebuild. Compared against an independent
+        // scan-path node fed the identical signal with a step lookahead schedule (lookA then lookB).
+        // Equal output on chunk 2 proves the rebuild reconstructs the correct window state.
         const int chunkSamples = 2048;
         const float thresholdDb = -6f;
         const float releaseMs = 80f;
@@ -1825,11 +1809,10 @@ public class LimiterNodeTests
     [Test]
     public void Process_NonFiniteAnimatedParameters_AreClampedOnPerSamplePath()
     {
-        // Mirrors the static non-finite-parameter test on the ANIMATED per-sample Derive path. All four
-        // parameters are animated to non-finite values. Release is the load-bearing one: without
+        // Mirrors the static non-finite-parameter test on the animated per-sample Derive path, with
+        // all four parameters animated to non-finite values. Release is load-bearing: without
         // ClampFinite a NaN Release makes releaseCoef = Exp(NaN) = NaN, which poisons _currentGain
-        // through the IIR and turns the output NaN — so this test genuinely fails if per-sample coercion
-        // is removed (a Threshold/Lookahead-only variant would pass even uncoerced and prove nothing).
+        // through the IIR and turns the output NaN — so this fails if per-sample coercion is removed.
         const int sampleCount = 2048;
 
         using var input = CreateBuffer(2, sampleCount,
@@ -1861,10 +1844,10 @@ public class LimiterNodeTests
     public void Process_LookaheadChangeBeforeWindowFills_RebuildsFromPartialHistory()
     {
         // Exercises EnsureDeque's span-clamp branch (span = last+1 < lookahead+1): a static lookahead
-        // change on a reused node whose total history is SHORTER than the new window. The first chunk is
-        // only 64 samples, far below the MaxLookaheadMs window (~960 @48k), so the rebuild must clamp to
-        // the available history instead of reading past the written peak ring. Compared against an
-        // animated step-lookahead scan oracle fed the identical signal.
+        // change on a reused node whose history is shorter than the new window. Chunk 1 is only 64
+        // samples, far below the MaxLookaheadMs window (~960 @48k), so the rebuild must clamp to the
+        // available history rather than read past the written peak ring. Compared against a
+        // step-lookahead scan oracle fed the identical signal.
         const int chunk1 = 64;
         const int chunk2 = 2048;
         const float thresholdDb = -6f;
@@ -1929,12 +1912,11 @@ public class LimiterNodeTests
     [Test]
     public void Process_StaticAfterAnimatedChunk_RebuildsDequeFromInvalidation()
     {
-        // Pins ProcessAnimated's `_dequeLookahead = -1` invalidation: a static chunk that follows an
-        // animated chunk on the SAME reused node must REBUILD the deque from the peak ring, not reuse the
-        // stale deque left by an earlier static chunk (the animated chunk advances the peak ring but never
-        // touches the deque). Sequence on one node: static(L) -> animated-constant(L) -> static(L), all
-        // contiguous. Compared against a pure-static 3-chunk reference fed the identical stream; if the
-        // invalidation were removed, the 3rd chunk would reuse a deque that never saw the 2nd chunk.
+        // Pins ProcessAnimated's `_dequeLookahead = -1` invalidation: a static chunk following an
+        // animated chunk on the same node must rebuild the deque from the peak ring, since the
+        // animated chunk advances the ring but never touches the deque. Sequence (all contiguous):
+        // static(L) -> animated-constant(L) -> static(L), compared against a pure-static 3-chunk
+        // reference. Without the invalidation the 3rd chunk would reuse a deque that never saw the 2nd.
         const int chunkSamples = 2048;
         const float thresholdDb = -6f;
         const float releaseMs = 80f;
@@ -1995,11 +1977,10 @@ public class LimiterNodeTests
     [TestCase(MaxLookaheadMs)]
     public void Process_StaticDeque_MatchesAnimatedScan_RandomizedSweep(float lookaheadMs)
     {
-        // Property-style hardening of the deque==scan equivalence: a seeded PRNG (fixed seed for
-        // determinism, no flakiness) generates a transient-rich stereo signal that is fed identically to
-        // the static O(1) deque path and the animated O(lookahead) scan path across multiple contiguous
-        // chunks. Sweeps lookahead 0, sub-sample, small, and max so the window-max relation is checked
-        // far beyond the single hand-picked signal. Any divergence is a deque bug.
+        // Property-style hardening of the deque==scan equivalence: a seeded PRNG generates a
+        // transient-rich stereo signal fed identically to the static deque path and the animated
+        // scan path across multiple contiguous chunks. Sweeps lookahead 0, sub-sample, small, and
+        // max so the relation is checked far beyond the single hand-picked signal.
         const int chunkSamples = 1024;
         const int chunks = 4;
         const float thresholdDb = -6f;
@@ -2060,11 +2041,11 @@ public class LimiterNodeTests
     [Test]
     public void Process_AnimatedLookahead_TakesEffect_DiffersFromFixedLookahead()
     {
-        // The finite+bounded animated-lookahead test cannot fail on a lookahead-alignment regression
-        // (limiting is conservative, so almost any delay stays finite and capped). This proves the
-        // per-sample-varying delay is genuinely applied: a transient-rich signal run through a ramped
-        // lookahead (0 -> max) must produce output that DIFFERS from both a fixed-0 and a fixed-max
-        // lookahead run. If the animated lookahead were silently ignored, it would match one of them.
+        // The finite+bounded test can't catch a lookahead-alignment regression, since limiting is
+        // conservative enough that almost any delay stays bounded. This proves the per-sample
+        // varying delay is genuinely applied: a transient-rich signal through a ramped lookahead
+        // (0 -> max) must differ from both a fixed-0 and a fixed-max run. If the animated lookahead
+        // were ignored, it would match one of them.
         const int sampleCount = 8192;
         const float thresholdDb = -3f;
         var duration = TimeSpan.FromSeconds((double)sampleCount / SampleRate);
@@ -2117,11 +2098,10 @@ public class LimiterNodeTests
     [Test]
     public void Process_ChannelGrowWithLookahead_NewChannelDelayLineIsClean()
     {
-        // Strengthens channel-count-change coverage with an EXACT per-channel delay assertion under a
-        // non-zero lookahead. After a mono->stereo grow (which reallocates the per-channel delay lines via
-        // InitializeBuffers), an impulse on both channels of the grown buffer must re-emerge at exactly
-        // lookaheadSamples on each channel — proving the channel-major indexing (ch*sampleCount+i) is
-        // correct on the resized buffer and the newly-added channel's delay line starts clean (no leakage).
+        // Exact per-channel delay assertion under a non-zero lookahead. After a mono->stereo grow
+        // (which reallocates the delay lines), an impulse on both channels must re-emerge at exactly
+        // lookaheadSamples on each — proving channel-major indexing (ch*sampleCount+i) is correct on
+        // the resized buffer and the new channel's delay line starts clean.
         const int sampleCount = 2048;
         const float lookaheadMs = 5f;
         int lookaheadSamples = LookaheadSamples(SampleRate, lookaheadMs);
@@ -2159,10 +2139,9 @@ public class LimiterNodeTests
     public void Process_DefaultLimiter_OutputStaysBelowMasterLimiterCeiling()
     {
         // The always-on master limiter (Composer -> AudioMath.ApplyLimiter at 1.0 linear) must not
-        // re-limit a default-configured LimiterEffect's output: with Threshold -1 dB and 0 dB makeup the
-        // capped peak is ~0.891 < 1.0, so the master leaves the buffer bit-identical. This pins the
-        // no-double-limiting invariant that justifies the -1 dB default; a change to the master ceiling or
-        // DefaultThresholdDb that reintroduced double-limiting would fail here.
+        // re-limit a default-configured output: with Threshold -1 dB and 0 dB makeup the capped peak
+        // is ~0.891 < 1.0, so the master leaves the buffer bit-identical. Pins the no-double-limiting
+        // invariant behind the -1 dB default.
         const int sampleCount = 8192;
         using var input = CreateBuffer(2, sampleCount,
             (_, i) => 2.0f * MathF.Sin(2f * MathF.PI * 440f * i / SampleRate));

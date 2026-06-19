@@ -13,9 +13,9 @@ namespace Beutl.UnitTests.Engine.Graphics.Rendering;
 [TestFixture]
 public class ParticleRenderNodeScaleTests
 {
-    // With the ParticleEmitter defaults (EmissionRate=60/s, Lifetime=2s, MaxParticles=5000) and TimeRange.Start
-    // at TimeSpan.Zero, context.Time is the elapsed simulation time. At t=1s the simulation deterministically
-    // holds alive particles, so Process emits an op.
+    // With the ParticleEmitter defaults (EmissionRate=60/s, Lifetime=2s, MaxParticles=5000) and
+    // TimeRange.Start at zero, the simulation deterministically holds alive particles at t=1s, so
+    // Process emits an op.
     private static ParticleEmitter.Resource BuildResourceWithAliveParticles()
     {
         var emitter = new ParticleEmitter();

@@ -12,11 +12,8 @@ namespace Beutl.Audio.Graph.Nodes;
 
 public sealed class LimiterNode : AudioNode
 {
-    // Upper bound on the per-chunk animation-sampling scratch: AnimationChunkSize ×
-    // number-of-animated-parameters × sizeof(float). With four parameters today this caps the
-    // stack scratch at 16 KiB per ProcessAnimated call (smaller buffers allocate proportionally
-    // less) — well within a thread's default stack budget while still amortizing the per-chunk
-    // animation sampling overhead.
+    // Caps the per-chunk animation-sampling scratch at 4 parameters × 1024 floats = 16 KiB of
+    // stackalloc per ProcessAnimated call, while still amortizing the per-chunk sampling overhead.
     private const int AnimationChunkSize = 1024;
     private const long TimestampQuantizationToleranceTicks = 1;
 
@@ -29,11 +26,10 @@ public sealed class LimiterNode : AudioNode
     private TimeSpan? _lastTimeRangeEnd;
     private float _currentGain = 1f;
 
-    // O(1)-amortized sliding-window maximum for the static path. A monotonic-decreasing deque
-    // (ring buffer over peak positions) replaces the per-sample O(lookahead) rescan. It persists
-    // across contiguous chunks like the delay line, is rebuilt from _peakBuffer only when the
-    // lookahead length changes (rare), and is cleared on Reset/format change. The animated path,
-    // where the lookahead can vary per sample, keeps the direct rescan (ScanWindowPeak).
+    // Monotonic-decreasing deque (ring buffer over peak positions) giving the static path an
+    // O(1)-amortized sliding-window maximum instead of a per-sample O(lookahead) rescan. Persists
+    // across contiguous chunks, rebuilt only when the lookahead length changes, cleared on
+    // Reset/format change. The animated path varies lookahead per sample and uses ScanWindowPeak.
     private float[]? _dqVal;
     private long[]? _dqPos;
     private int _dqMask;
@@ -42,11 +38,9 @@ public sealed class LimiterNode : AudioNode
     private int _dequeLookahead = -1;
     private long _globalPos;
 
-    // Latched warning flags — keep audio-rate logging from spamming the sink. Per-parameter
-    // latches so that, for example, a non-finite Threshold does not silence a subsequent
-    // non-finite Release. Cleared only on full re-initialization (sample-rate/channel-count
-    // change) — chunk discontinuities (seek/loop/edit) intentionally do NOT re-arm them, or
-    // a persistent upstream defect would log every chunk.
+    // Per-parameter latches that keep audio-rate logging from spamming the sink (one latch each so
+    // a non-finite Threshold doesn't mask a non-finite Release). Cleared only on full
+    // re-initialization, not on chunk discontinuity — otherwise a persistent defect logs every chunk.
     private bool _warnedNonFiniteThreshold;
     private bool _warnedNonFiniteRelease;
     private bool _warnedNonFiniteLookahead;
@@ -77,13 +71,10 @@ public sealed class LimiterNode : AudioNode
 
         if (input.SampleCount == 0)
         {
-            // Empty chunks are not produced by the normal scheduling path (GetSampleCount uses
-            // Math.Ceiling so only TimeRange.Duration == Zero reaches here). Treat them as a
-            // notable upstream event and log once-per-format-change. Crucially, do NOT touch
-            // _lastTimeRangeEnd: an empty chunk processes no audio, so the next non-empty chunk
-            // must be evaluated against the previous *non-empty* chunk's end. Updating it here
-            // would silently mask a discontinuity when the empty chunk happens to land at a
-            // different position than the previous chunk's end.
+            // Empty chunks only reach here when TimeRange.Duration == Zero, so log once as a
+            // notable upstream event. Do NOT touch _lastTimeRangeEnd: an empty chunk processes no
+            // audio, so the next non-empty chunk must be evaluated against the previous *non-empty*
+            // chunk's end — updating it here would mask a discontinuity.
             if (!_warnedEmptyChunk)
             {
                 s_logger.LogDebug(
@@ -103,11 +94,9 @@ public sealed class LimiterNode : AudioNode
             _lastSampleRate = context.SampleRate;
         }
 
-        // The node instance is cached and reused across chunks. When the next chunk does not
-        // continue from the previous one (seek, loop, edit, restart) we must drop the delay line
-        // and gain state — otherwise audio from the previous segment would leak into the first
-        // lookahead-window worth of output samples. IsTimestampContiguous tolerates only the
-        // one-tick rounding error introduced by independently quantized TimeSpan boundaries.
+        // The node is reused across chunks. When the next chunk doesn't continue from the previous
+        // one (seek, loop, edit, restart), drop the delay line and gain state — otherwise the
+        // previous segment leaks into the first lookahead window of output.
         if (!_lastTimeRangeEnd.HasValue || !IsTimestampContiguous(_lastTimeRangeEnd.Value, context.TimeRange.Start))
         {
             if (_lastTimeRangeEnd.HasValue)
@@ -129,22 +118,12 @@ public sealed class LimiterNode : AudioNode
             ? ProcessAnimated(input, context)
             : ProcessStatic(input, context);
 
-        // Update only on success: if Process throws mid-buffer (realistically only from
-        // AnimationSampler on a later inner chunk of ProcessAnimated, after earlier samples were
-        // already ingested), _currentGain and the delay line may be partially mutated. No production
-        // caller re-invokes Process with an identical context after a throw — Composer,
-        // SampleProviderImpl, and PlayerViewModel all propagate the exception and stop — so the
-        // same-chunk-retry branch below is a latent/defensive consideration, not an active path.
-        // For completeness, the next call resolves as:
-        //  - Contiguous throw (no Reset() ran this call): _lastTimeRangeEnd retains the previous
-        //    end. A next call at a different Start hits the discontinuity branch, which Reset()s and
-        //    discards the partial state. A next call at the same Start (a hypothetical same-chunk
-        //    retry that no current caller performs) would instead inherit the partial state; this is
-        //    tolerated rather than guarded, because the alternative — always Reset() after a throw —
-        //    would needlessly discard correct delay-line state and no caller actually retries.
-        //  - Throw after Reset() ran: _lastTimeRangeEnd was already cleared to null by Reset(),
-        //    so the next call hits the `!HasValue` branch and Reset()s again before processing,
-        //    discarding any partial state.
+        // Update only on success. If Process throws mid-buffer the state is left partially mutated,
+        // but no production caller retries the same chunk: a next call at a different Start hits the
+        // discontinuity branch and Reset()s, and a throw after Reset() already cleared
+        // _lastTimeRangeEnd so the next call Reset()s again. A same-Start retry would inherit the
+        // partial state; that's tolerated rather than guarded, since always resetting after a throw
+        // would needlessly discard correct delay-line state no caller actually retries.
         _lastTimeRangeEnd = context.TimeRange.Start + context.TimeRange.Duration;
 
         return output;
@@ -152,17 +131,16 @@ public sealed class LimiterNode : AudioNode
 
     private static bool IsTimestampContiguous(TimeSpan previousEnd, TimeSpan nextStart)
     {
-        // Independently rounded TimeSpan sample boundaries can differ by one tick even when the
-        // underlying sample indices are adjacent. A two-tick difference remains a real seek/edit
-        // boundary and must reset the delay line.
+        // Adjacent sample boundaries can differ by one tick from independent TimeSpan rounding; a
+        // two-tick difference is a real seek/edit boundary and must reset the delay line.
         long difference = nextStart.Ticks - previousEnd.Ticks;
         return difference is >= -TimestampQuantizationToleranceTicks and <= TimestampQuantizationToleranceTicks;
     }
 
     private void InitializeBuffers(int sampleRate, int channelCount)
     {
-        // Tear the previous state down first and null the fields immediately so a throw inside
-        // the construction loop below cannot leave us referencing half-initialized buffers.
+        // Null the fields up front so a throw in the construction loop below can't leave us
+        // referencing half-initialized buffers.
         if (_delayLines != null)
         {
             foreach (var line in _delayLines)
@@ -177,10 +155,9 @@ public sealed class LimiterNode : AudioNode
         _peakBuffer = null;
 
         // +1 because CircularBuffer.Read(samplesBack) returns silence when samplesBack >= length,
-        // so the requested length must be strictly greater than the maximum lookaheadSamples we
-        // will ever clamp to (MaxLookaheadMs · sampleRate). The buffer rounds this
-        // up to the next power of two internally — the +1 is for the read-bounds check, not the
-        // rounding.
+        // so length must exceed the maximum lookaheadSamples we ever clamp to (MaxLookaheadMs ·
+        // sampleRate). The buffer rounds up to a power of two internally; the +1 is for the
+        // read-bounds check, not the rounding.
         int max = Math.Max(1, (int)(MaxLookaheadMs / 1000f * sampleRate) + 1);
 
         var lines = new CircularBuffer<float>[channelCount];
@@ -208,11 +185,9 @@ public sealed class LimiterNode : AudioNode
         _maxLookaheadSamples = max;
         _delayLines = lines;
 
-        // Sliding-window-max deque capacity must exceed the largest possible window (max elements)
-        // by two slots: a push transiently holds up to (window + 1) entries before the out-of-window
-        // eviction runs, so the ring must hold at least max + 2 entries to never overwrite its own
-        // front. Round that up to a power of two so the per-sample ring wrapping in PushWindowPeak
-        // is a mask (& _dqMask) instead of an integer division, mirroring CircularBuffer<T>.
+        // The deque capacity needs max + 2 entries: a push transiently holds (window + 1) entries
+        // before the out-of-window eviction runs, so the ring must never overwrite its own front.
+        // Round up to a power of two so PushWindowPeak's ring wrapping is a mask, not a division.
         int dqCap = (int)BitOperations.RoundUpToPowerOf2((uint)(max + 2));
         _dqVal = new float[dqCap];
         _dqPos = new long[dqCap];
@@ -222,9 +197,8 @@ public sealed class LimiterNode : AudioNode
         _dequeLookahead = -1;
         _globalPos = 0;
 
-        // Format change is the one moment where the previous warning history is unrelated to
-        // the new state, so re-arm so that a persistent upstream defect surfaces once per
-        // format change rather than literally never logging again after the first hit.
+        // A format change makes the previous warning history irrelevant, so re-arm the latches:
+        // a persistent upstream defect should surface once per format change, not just once ever.
         _currentGain = 1f;
         _warnedNonFiniteThreshold = false;
         _warnedNonFiniteRelease = false;
@@ -238,10 +212,9 @@ public sealed class LimiterNode : AudioNode
             sampleRate, channelCount, max);
     }
 
-    // Math.Clamp does not coerce NaN nor ±Infinity to the bounds — both would poison
-    // _currentGain permanently if they slipped through. Substituting a safe fallback here keeps
-    // the DSP stable; the caller logs once per parameter at error severity so an upstream
-    // animation/binding bug is visible in production logs (Sentry-grade) without spamming.
+    // Math.Clamp does not coerce NaN/±Infinity to the bounds, and either would permanently poison
+    // _currentGain. Substituting a safe fallback keeps the DSP stable; the first hit per parameter
+    // is logged at error severity so an upstream animation/binding bug stays visible.
     private float ClampFinite(float value, float min, float max, float fallback, string parameterName, ref bool warned)
     {
         if (float.IsFinite(value))
@@ -267,10 +240,9 @@ public sealed class LimiterNode : AudioNode
 
     private DerivedCoefficients Derive(float thresholdDbRaw, float releaseMsRaw, float lookaheadMsRaw, float makeupDbRaw, int sampleRate)
     {
-        // Threshold falls back to the *default* (-1 dB) rather than MaxThresholdDb (0 dB). Using
-        // 0 dB here would silently disable limiting for the rest of the session — exactly the
-        // silent-failure mode this guard is meant to prevent. -1 dB still limits while keeping
-        // the substitution audible (peaks just under unity) so the issue surfaces.
+        // Threshold falls back to the default (-1 dB), not MaxThresholdDb (0 dB): 0 dB would
+        // silently disable limiting for the rest of the session — the exact silent failure this
+        // guard prevents. -1 dB still limits, peaking just under unity so the issue stays audible.
         float thresholdDb = ClampFinite(thresholdDbRaw, MinThresholdDb, MaxThresholdDb, DefaultThresholdDb, nameof(Threshold), ref _warnedNonFiniteThreshold);
         float releaseMs = ClampFinite(releaseMsRaw, MinReleaseMs, MaxReleaseMs, MinReleaseMs, nameof(Release), ref _warnedNonFiniteRelease);
         float lookaheadMs = ClampFinite(lookaheadMsRaw, MinLookaheadMs, MaxLookaheadMs, MinLookaheadMs, nameof(Lookahead), ref _warnedNonFiniteLookahead);
@@ -289,10 +261,8 @@ public sealed class LimiterNode : AudioNode
 
         var output = new AudioBuffer(input.SampleRate, input.ChannelCount, input.SampleCount);
 
-        // Lookahead is constant for the whole call, so the window maximum can be tracked with an
-        // O(1)-amortized monotonic deque instead of rescanning the window every sample. Rebuild it
-        // only when the lookahead length differs from what the deque currently tracks (first call
-        // after a reset, or a static parameter edit on a reused node).
+        // Lookahead is constant for the whole call, so the window maximum comes from the
+        // O(1)-amortized deque; rebuild it only when the tracked lookahead length changes.
         EnsureDeque(c.LookaheadSamples);
 
         int channelCount = _delayLines!.Length;
@@ -315,18 +285,16 @@ public sealed class LimiterNode : AudioNode
         var output = new AudioBuffer(input.SampleRate, input.ChannelCount, input.SampleCount);
 
         // Per-chunk animation-sampling scratch, sized to the actual work (capped at
-        // AnimationChunkSize) so a small buffer pays a proportionally small stack cost, matching the
-        // sibling nodes (CompressorNode/DelayNode/GainNode). The inner loop's chunkSize never exceeds
-        // this. Worst case is four AnimationChunkSize-float spans = 16 KiB, well within the stack budget.
+        // AnimationChunkSize) so small buffers pay a proportionally small stack cost, matching the
+        // sibling nodes (CompressorNode/DelayNode/GainNode).
         int scratchSize = Math.Min(AnimationChunkSize, input.SampleCount);
         Span<float> thresholds = stackalloc float[scratchSize];
         Span<float> releases = stackalloc float[scratchSize];
         Span<float> lookaheads = stackalloc float[scratchSize];
         Span<float> makeups = stackalloc float[scratchSize];
 
-        // Lookahead can change per sample here, which the monotonic deque cannot track without
-        // unbounded history, so this path uses the direct window rescan. Invalidate the deque so a
-        // later static chunk on the same (non-reset) node rebuilds it from the retained peak ring.
+        // Lookahead can vary per sample here, which the deque cannot track, so this path rescans
+        // directly. Invalidate the deque so a later static chunk on the same node rebuilds it.
         _dequeLookahead = -1;
 
         int channelCount = _delayLines!.Length;
@@ -350,14 +318,13 @@ public sealed class LimiterNode : AudioNode
 
             for (int i = 0; i < chunkSize; i++)
             {
-                // Derive recomputes one Exp + two Pow per sample here. That per-sample transcendental
-                // cost is a deliberate trade-off for sample-accurate parameter automation; the common
-                // no-animation case takes ProcessStatic, which derives the coefficients once per call.
+                // Derive recomputes one Exp + two Pow per sample — the deliberate cost of
+                // sample-accurate automation. The common no-animation case takes ProcessStatic,
+                // which derives the coefficients once per call.
                 var c = Derive(thresholds[i], releases[i], lookaheads[i], makeups[i], context.SampleRate);
                 int idx = processed + i;
-                // The animated path ignores IngestSample's returned per-sample peak (only its
-                // side-effects on the delay line and peak ring matter); the window maximum comes from
-                // ScanWindowPeak over the ring. The static path, by contrast, feeds it into PushWindowPeak.
+                // The window maximum comes from ScanWindowPeak over the ring, so IngestSample's
+                // returned peak is ignored here (only its delay-line/peak-ring side-effects matter).
                 _ = IngestSample(inRaw, sampleCount, channelCount, idx);
                 float windowPeak = ScanWindowPeak(c.LookaheadSamples);
                 EmitSample(outRaw, sampleCount, channelCount, idx, windowPeak, c.ThresholdLin, c.MakeupLin, c.LookaheadSamples, c.ReleaseCoef);
@@ -370,20 +337,13 @@ public sealed class LimiterNode : AudioNode
     }
 
     // Reads one input sample per channel, coerces non-finite values, feeds the delay lines and the
-    // peak-detection ring, advances the global sample position, and returns the channel-linked peak.
-    // inRaw is the channel-major backing span (channel ch sample i lives at ch * sampleCount + i),
-    // fetched once per call so the hot loop avoids AudioBuffer.GetChannelData's per-sample
-    // disposed/bounds/Slice overhead.
+    // peak-detection ring, advances the global position, and returns the channel-linked peak.
+    // inRaw is the channel-major backing span (channel ch sample i at ch * sampleCount + i),
+    // passed in so the hot loop avoids AudioBuffer.GetChannelData's per-sample overhead.
     //
-    // Channel-linked peak detection: take max(|s_ch|) across all channels so that a single shared
-    // gain is applied to every channel — preserves inter-channel phase.
-    //
-    // NaN/Infinity input samples are coerced to 0 here. Without this guard:
-    //   - NaN written into the delay line passes straight through to the output.
-    //   - Inf forces currentPeak → Inf, then targetGain = thresholdLin / Inf = 0,
-    //     and finally `delayed * 0` = `Inf * 0` = NaN once the gain reduction kicks in.
-    // We log at most once per format change so an upstream bug surfaces without flooding the sink
-    // across every chunk discontinuity.
+    // The peak is max(|s_ch|) across channels, so one shared gain applies to every channel and
+    // inter-channel phase is preserved. NaN/Inf samples are coerced to 0 — otherwise NaN passes
+    // through the delay line and Inf drives targetGain to 0, turning `Inf * 0` into NaN.
     private float IngestSample(ReadOnlySpan<float> inRaw, int sampleCount, int channelCount, int sampleIndex)
     {
         float currentPeak = 0f;
@@ -394,9 +354,8 @@ public sealed class LimiterNode : AudioNode
             {
                 if (!_warnedNonFiniteInputSample)
                 {
-                    // Error severity matches the non-finite-parameter path in ClampFinite: a NaN/Inf
-                    // in the audio stream is an upstream DSP defect that would corrupt output, so it
-                    // is surfaced at the same level rather than as a quieter warning.
+                    // Error severity, matching ClampFinite: a NaN/Inf in the stream is an upstream
+                    // DSP defect that would corrupt output.
                     s_logger.LogError(
                         "LimiterNode: non-finite input sample at channel={Channel}, index={Index}, value={Value}. " +
                         "Likely an upstream DSP defect corrupting the audio stream; coercing to 0.",
@@ -419,11 +378,9 @@ public sealed class LimiterNode : AudioNode
         return currentPeak;
     }
 
-    // Applies the gain envelope for one output sample and writes it to every channel. outRaw is the
-    // channel-major backing span (see IngestSample).
-    //
-    // With non-zero lookahead the reduction is applied before the offending sample reaches the
-    // output, so a hard attack stays transparent. With lookahead=0 this degrades to a
+    // Applies the gain envelope for one output sample and writes it to every channel (outRaw is the
+    // channel-major backing span, see IngestSample). With non-zero lookahead the reduction lands
+    // before the offending sample reaches the output; with lookahead=0 it degrades to a
     // hard-clipper-style limiter (still correct, just less transparent).
     private void EmitSample(
         Span<float> outRaw,
@@ -465,9 +422,8 @@ public sealed class LimiterNode : AudioNode
     }
 
     // Direct O(lookahead) window maximum over the peak ring [0..lookaheadSamples]. Read(0) is the
-    // just-written peak and Read(lookaheadSamples) is the peak that the sample currently exiting the
-    // delay line is about to face, so the reduction is in place before that peak arrives. Used by the
-    // animated path where the window length varies per sample.
+    // just-written peak; Read(lookaheadSamples) is the peak the sample now exiting the delay line is
+    // about to face, so reduction lands before it. Used by the animated path (per-sample window).
     private float ScanWindowPeak(int lookaheadSamples)
     {
         float windowPeak = 0f;
@@ -482,10 +438,9 @@ public sealed class LimiterNode : AudioNode
         return windowPeak;
     }
 
-    // O(1)-amortized sliding-window maximum: pushes the just-written peak (at position _globalPos-1)
-    // onto the monotonic-decreasing deque, evicts entries older than the window
-    // [pos - lookaheadSamples, pos], and returns the current maximum (the deque front). Equivalent to
-    // ScanWindowPeak for a constant lookahead. Requires EnsureDeque(lookaheadSamples) first.
+    // O(1)-amortized sliding-window maximum: pushes the just-written peak (at _globalPos-1) onto the
+    // monotonic deque, evicts entries older than [pos - lookaheadSamples, pos], and returns the
+    // front (the max). Equivalent to ScanWindowPeak for constant lookahead; needs EnsureDeque first.
     private float PushWindowPeak(float value, int lookaheadSamples)
     {
         int mask = _dqMask;
@@ -494,11 +449,9 @@ public sealed class LimiterNode : AudioNode
         while (_dqCount > 0 && _dqVal![(_dqHead + _dqCount - 1) & mask] <= value)
             _dqCount--;
 
-        // After the monotonic back-eviction the deque holds at most the in-window count =
-        // lookaheadSamples + 1 <= _maxLookaheadSamples <= cap - 2, so a free slot for this push is
-        // guaranteed (_dqCount < cap, i.e. tail != _dqHead). Assert BEFORE the write so a future change
-        // that breaks the bound is caught before it overwrites the front, not one step after the
-        // corruption (Debug-only; compiled out of Release).
+        // After the back-eviction the deque holds at most lookaheadSamples + 1 <= cap - 2 entries,
+        // so a free slot is guaranteed. Assert before the write so a future change that breaks the
+        // bound is caught before it overwrites the front (Debug-only).
         Debug.Assert(_dqCount < _dqVal!.Length, "LimiterNode deque overflow: no free slot, front would be overwritten.");
 
         int tail = (_dqHead + _dqCount) & mask;
@@ -517,9 +470,8 @@ public sealed class LimiterNode : AudioNode
     }
 
     // (Re)builds the monotonic deque so PushWindowPeak can continue incrementally for the given
-    // lookahead. No-op when the deque already tracks this length. After a reset _globalPos is 0 and
-    // the peak history is empty, so the deque simply starts empty; when the lookahead changes on a
-    // reused node the candidate set is reconstructed from the retained peak ring (O(lookahead) once).
+    // lookahead. No-op when it already tracks this length. After a reset the deque starts empty;
+    // when the lookahead changes on a reused node it is rebuilt from the retained peak ring once.
     private void EnsureDeque(int lookaheadSamples)
     {
         if (_dequeLookahead == lookaheadSamples)
@@ -533,8 +485,8 @@ public sealed class LimiterNode : AudioNode
         if (last >= 0)
         {
             int span = (int)Math.Min(lookaheadSamples + 1L, last + 1L);
-            // Iterate the window oldest-to-newest (Read(j) is the peak j samples back) so the deque
-            // ends up ordered front=oldest with values monotonically decreasing front-to-back.
+            // Iterate oldest-to-newest (Read(j) is the peak j samples back) so the deque ends up
+            // front=oldest with values monotonically decreasing front-to-back.
             for (int j = span - 1; j >= 0; j--)
             {
                 float v = _peakBuffer!.Read(j);
@@ -554,12 +506,10 @@ public sealed class LimiterNode : AudioNode
     }
 
     /// <summary>
-    /// Clears the per-channel delay lines and the peak-detection buffer, resets the internal
-    /// gain to unity, and clears the cached chunk timestamp so the next Process() call does
-    /// not consider itself contiguous. Process() invokes this automatically on chunk
-    /// discontinuity, so external callers do not normally need to call it. Per-parameter
-    /// non-finite warning latches are intentionally NOT cleared here — see InitializeBuffers
-    /// for the spam-protection rationale.
+    /// Clears the delay lines and peak buffer, resets the gain to unity, and clears the cached
+    /// chunk timestamp so the next Process() call is not treated as contiguous. Process() calls
+    /// this automatically on a chunk discontinuity, so external callers rarely need it. The
+    /// non-finite warning latches are intentionally NOT cleared here (see InitializeBuffers).
     /// </summary>
     public void Reset()
     {
@@ -575,9 +525,8 @@ public sealed class LimiterNode : AudioNode
         _currentGain = 1f;
         _lastTimeRangeEnd = null;
 
-        // Discard the sliding-window deque along with the peak history it tracks. _globalPos restarts
-        // at 0 so positions stay aligned with the freshly-cleared _peakBuffer, and the lookahead
-        // marker is invalidated so the next static chunk rebuilds the deque from scratch.
+        // Discard the deque. _globalPos restarts at 0 to stay aligned with the cleared _peakBuffer,
+        // and the lookahead marker is invalidated so the next static chunk rebuilds from scratch.
         _dqHead = 0;
         _dqCount = 0;
         _dequeLookahead = -1;

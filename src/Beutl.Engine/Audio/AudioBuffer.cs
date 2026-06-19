@@ -60,10 +60,9 @@ public sealed class AudioBuffer : IDisposable
     }
 
     /// <summary>
-    /// Returns the full channel-major backing span: channel 0's samples, then channel 1's, and so
-    /// on. Channel <paramref name="channel"/> sample <c>i</c> lives at index
-    /// <c>channel * SampleCount + i</c>. Intended for hot DSP loops that would otherwise pay
-    /// <see cref="GetChannelData"/>'s per-call disposed/bounds/Slice overhead on every sample.
+    /// Returns the full channel-major backing span (channel <c>ch</c> sample <c>i</c> at index
+    /// <c>ch * SampleCount + i</c>). Intended for hot DSP loops that would otherwise pay
+    /// <see cref="GetChannelData"/>'s per-call overhead on every sample.
     /// </summary>
     internal Span<float> GetRawSpan()
     {

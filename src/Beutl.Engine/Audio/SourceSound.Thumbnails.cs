@@ -117,12 +117,11 @@ public sealed partial class SourceSound : IThumbnailsProvider
             int startSample = (int)((long)chunkIndex * totalSamples / chunkCount);
             int endSample = (int)((long)(chunkIndex + 1) * totalSamples / chunkCount);
             int fullSpan = endSample - startSample;
-            // samplesPerChunk caps the work per chunk. When fullSpan exceeds it the chunk composes
-            // only a prefix of its span, so consecutive Compose ranges are tick-contiguous (and a
-            // stateful effect such as the limiter genuinely carries state across the whole strip)
-            // ONLY when fullSpan <= samplesPerChunk — i.e. short or zoomed-in clips. For longer clips
-            // the waveform is a sparse approximation and the effect restarts per chunk; that is an
-            // accepted quality trade-off for bounded per-chunk cost, not a correctness guarantee.
+            // samplesPerChunk caps the work per chunk. Compose ranges stay tick-contiguous — so a
+            // stateful effect like the limiter carries state across the strip — only when
+            // fullSpan <= samplesPerChunk (short or zoomed-in clips). For longer clips the waveform
+            // is a sparse approximation and the effect restarts per chunk: a deliberate quality
+            // trade-off for bounded per-chunk cost, not a correctness guarantee.
             int sampleCount = Math.Min(fullSpan, samplesPerChunk);
             var chunkTime = TimeSpan.FromSeconds((double)startSample / sampleRate);
             TimeSpan startTime = TimeRange.Start + chunkTime;
@@ -146,9 +145,8 @@ public sealed partial class SourceSound : IThumbnailsProvider
                 if (buffer == null || buffer.SampleCount == 0)
                     return null;
 
-                // Stateful effects must process every chunk even when its waveform min/max is
-                // cached. Skipping Compose here would make the next cache miss start with reset
-                // delay/envelope state and produce a different waveform from a cold-cache run.
+                // Compose must run on every chunk even when its min/max is cached: skipping it would
+                // leave the next cache miss starting from reset state, diverging from a cold run.
                 if (cacheHit)
                     return new WaveformChunk(chunkIndex, cachedMin, cachedMax);
 
@@ -188,9 +186,9 @@ public sealed partial class SourceSound : IThumbnailsProvider
         if (sampleRate <= 0)
             throw new ArgumentOutOfRangeException(nameof(sampleRate));
 
-        // TimeSpan.FromSeconds rounds to the nearest tick. If that rounds upward,
-        // AudioProcessContext.GetSampleCount's ceiling can request one extra sample. Flooring the
-        // tick count guarantees that a positive duration maps back to exactly sampleCount samples.
+        // Floor the tick count: TimeSpan.FromSeconds rounds to nearest, and rounding up would let
+        // AudioProcessContext.GetSampleCount's ceiling request one extra sample. Flooring maps a
+        // positive duration back to exactly sampleCount samples.
         long ticks = (long)((decimal)sampleCount * TimeSpan.TicksPerSecond / sampleRate);
         return TimeSpan.FromTicks(ticks);
     }
