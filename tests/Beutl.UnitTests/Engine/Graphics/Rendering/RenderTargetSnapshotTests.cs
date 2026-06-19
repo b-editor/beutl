@@ -10,8 +10,7 @@ using SkiaSharp;
 namespace Beutl.UnitTests.Engine.Graphics.Rendering;
 
 // RenderTarget.SnapshotInto(Bitmap) reads the surface into an existing bitmap so repeat-snapshot
-// callers (onion-skin compositing) can reuse one scratch bitmap instead of allocating a fresh
-// video-frame-sized (LOH) bitmap per call. RenderTarget.Create needs Vulkan.
+// callers (onion-skin compositing) can reuse one scratch bitmap. RenderTarget.Create needs Vulkan.
 [NonParallelizable]
 [TestFixture]
 public class RenderTargetSnapshotTests
@@ -103,8 +102,7 @@ public class RenderTargetSnapshotTests
         VulkanTestEnvironment.InvokeOnRenderThread(() =>
         {
             using var target = RenderTarget.Create(64, 48)!;
-            // Correct size and pixel format, but sRGB instead of the surface's LinearSrgb: the raw
-            // F16 bytes would be reinterpreted in the wrong gamma, so this must be rejected too.
+            // sRGB instead of the surface's LinearSrgb (wrong gamma) must be rejected.
             using var wrongColorSpace = new Bitmap(64, 48, BitmapColorType.RgbaF16, BitmapAlphaType.Premul, BitmapColorSpace.Srgb);
 
             Assert.Throws<ArgumentException>(() => target.SnapshotInto(wrongColorSpace));
@@ -118,9 +116,7 @@ public class RenderTargetSnapshotTests
         VulkanTestEnvironment.InvokeOnRenderThread(() =>
         {
             using var target = RenderTarget.Create(64, 48)!;
-            // Right size, ColorType and ColorSpace, but Unpremul instead of the surface's Premul:
-            // the raw F16 bytes carry premultiplied alpha, so reinterpreting them as straight alpha
-            // must be rejected. Isolates the AlphaType branch of the validation.
+            // Unpremul instead of the surface's Premul must be rejected. Isolates the AlphaType branch.
             using var wrongAlpha = new Bitmap(64, 48, BitmapColorType.RgbaF16, BitmapAlphaType.Unpremul, BitmapColorSpace.LinearSrgb);
 
             Assert.Throws<ArgumentException>(() => target.SnapshotInto(wrongAlpha));
@@ -169,8 +165,7 @@ public class RenderTargetSnapshotTests
             Assert.That(scratch.AlphaType, Is.EqualTo(BitmapAlphaType.Premul));
             Assert.That(scratch.ColorSpace.Equals(BitmapColorSpace.LinearSrgb), Is.True);
 
-            // The factory's whole purpose: its bitmap must satisfy SnapshotInto's format validation,
-            // so the format triple lives in one place instead of being copied at every call site.
+            // The factory's bitmap must satisfy SnapshotInto's format validation.
             Assert.DoesNotThrow(() => target.SnapshotInto(scratch));
         });
     }
@@ -191,8 +186,8 @@ public class RenderTargetSnapshotTests
         });
     }
 
-    // The IRenderer.SnapshotInto default (used by any implementor — e.g. a plugin-supplied renderer —
-    // that does not override it) must produce the same pixels as Snapshot(). CPU-only: no Vulkan.
+    // The IRenderer.SnapshotInto default (for implementors that don't override it) must produce the
+    // same pixels as Snapshot(). CPU-only: no Vulkan.
     [Test]
     public void IRendererDefaultSnapshotInto_FallsBackToSnapshotAndCopies()
     {
@@ -223,10 +218,8 @@ public class RenderTargetSnapshotTests
         Assert.Throws<ArgumentException>(() => renderer.SnapshotInto(wrongSize));
     }
 
-    // Same size and bytes-per-pixel as the snapshot (RgbaF16 = 8), but a different color space.
-    // CopyFrom only checks bytes-per-pixel, so before the default validated format this destination
-    // was silently raw-copied (linear bytes reinterpreted as sRGB). The default must now reject it,
-    // matching the strict contract the surface-backed override already enforces.
+    // Same bytes-per-pixel but a different color space. CopyFrom only checks bytes-per-pixel, so the
+    // default must reject this rather than raw-copy linear bytes as sRGB.
     [Test]
     public void IRendererDefaultSnapshotInto_FormatMismatch_Throws()
     {
@@ -237,8 +230,7 @@ public class RenderTargetSnapshotTests
         Assert.Throws<ArgumentException>(() => renderer.SnapshotInto(wrongFormat));
     }
 
-    // Compare every row's raw bytes (width * bytes-per-pixel) rather than sparsely sampling pixels:
-    // sampling can pass while a stride/row-alignment bug silently corrupts the rest of the row.
+    // Compare every row's raw bytes rather than sampling pixels, to catch stride/row-alignment bugs.
     private static void AssertRowsIdentical(Bitmap expected, Bitmap actual, string paths)
     {
         Assert.That(actual.Width, Is.EqualTo(expected.Width));
@@ -256,9 +248,8 @@ public class RenderTargetSnapshotTests
         return p.Red > 150 && p.Green > 150 && p.Blue > 150;
     }
 
-    // Minimal IRenderer that does NOT override SnapshotInto, so calls route through the interface's
-    // default implementation. Snapshot() returns a clone of the supplied content; every other member
-    // is unused by the default path and throws to make accidental reliance on it obvious.
+    // Minimal IRenderer that does NOT override SnapshotInto, so calls route through the interface
+    // default. Snapshot() clones the supplied content; unused members throw.
     private sealed class FakeSnapshotRenderer(Bitmap content) : IRenderer
     {
         public PixelSize FrameSize => new(content.Width, content.Height);

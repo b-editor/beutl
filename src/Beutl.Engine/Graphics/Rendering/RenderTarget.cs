@@ -97,21 +97,19 @@ public class RenderTarget : IDisposable
     }
 
     /// <summary>
-    /// Allocates a fresh bitmap in the exact format <see cref="Snapshot()"/> produces
-    /// (RgbaF16/Premul/LinearSrgb at the render target size). This is the single source of truth for
-    /// that format: callers that pre-allocate a destination for <see cref="SnapshotInto(Bitmap)"/>
-    /// (e.g. a reused onion-skin scratch bitmap) should use this instead of hardcoding the format,
-    /// so the destination can never drift out of sync with the surface layout.
+    /// Allocates a bitmap in the exact format <see cref="Snapshot()"/> produces
+    /// (RgbaF16/Premul/LinearSrgb at the render target size). The single source of truth for that
+    /// format — callers pre-allocating a destination for <see cref="SnapshotInto(Bitmap)"/> should use
+    /// this instead of hardcoding it, so the destination cannot drift out of sync with the surface.
     /// </summary>
     public Bitmap CreateSnapshotBitmap() =>
         new(Width, Height, BitmapColorType.RgbaF16, BitmapAlphaType.Premul, BitmapColorSpace.LinearSrgb);
 
     /// <summary>
-    /// Reads the current surface into an existing <paramref name="destination"/> bitmap instead of
-    /// allocating a fresh one. Callers that snapshot repeatedly (e.g. onion-skin compositing while
-    /// scrubbing) can reuse a single scratch bitmap and avoid Large Object Heap churn. The
-    /// destination must match the render target size and be in the same RgbaF16/Premul/LinearSrgb
-    /// format produced by <see cref="Snapshot()"/>.
+    /// Reads the current surface into an existing <paramref name="destination"/> bitmap so
+    /// repeat-snapshot callers (e.g. onion-skin compositing) can reuse one scratch bitmap and avoid
+    /// Large Object Heap churn. The destination must match the render target size and be in the same
+    /// RgbaF16/Premul/LinearSrgb format produced by <see cref="Snapshot()"/>.
     /// </summary>
     public void SnapshotInto(Bitmap destination)
     {
@@ -124,8 +122,7 @@ public class RenderTarget : IDisposable
                 nameof(destination));
         }
 
-        // ReadPixels does not convert formats or color spaces: a destination in a different layout
-        // would be filled with raw bytes interpreted incorrectly. Require the exact format that
+        // ReadPixels does not convert formats or color spaces, so require the exact format that
         // Snapshot() allocates (RgbaF16 / Premul / LinearSrgb).
         if (destination.ColorType != BitmapColorType.RgbaF16
             || destination.AlphaType != BitmapAlphaType.Premul
@@ -145,9 +142,8 @@ public class RenderTarget : IDisposable
         SKImageInfo readInfo = destination.SKBitmap.Info;
         if (!_surface.Value!.ReadPixels(readInfo, destination.Data, destination.RowBytes, 0, 0))
         {
-            // A false return means the backend readback failed; the destination keeps whatever it
-            // held before (transparent for a fresh allocation, the previous sample for a reused
-            // scratch). Surface that rather than silently snapshotting/compositing stale pixels.
+            // Readback failed; the destination still holds stale pixels. Throw rather than
+            // silently compositing them.
             throw new InvalidOperationException(
                 "Failed to read the render target surface into the destination bitmap.");
         }
