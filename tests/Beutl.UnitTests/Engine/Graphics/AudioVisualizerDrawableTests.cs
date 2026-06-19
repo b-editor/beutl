@@ -214,7 +214,7 @@ public class AudioVisualizerDrawableTests
         });
     }
 
-    // Renders the spectrogram with the synthetic source at the given output scale and returns the bitmap.
+    // Renders the spectrogram with the synthetic source at the given scale.
     private static Bitmap RenderSpectrogramWithSamples(float scale)
     {
         var drawable = CreateSpectrogram();
@@ -227,9 +227,8 @@ public class AudioVisualizerDrawableTests
         return GoldenImageHarness.RenderAtScale(resource, new PixelSize(320, 80), scale);
     }
 
-    // The per-cell row fill is computed from loop-invariant inputs (density, rowHeight), so two fresh
-    // instances fed identical samples must rasterize byte-identically at density > 1 (the path that
-    // exercises rowFill). Guards the rowFill loop-hoist against altering device-pixel geometry.
+    // Two fresh instances fed identical samples must rasterize byte-identically at density > 1,
+    // guarding the rowFill loop-hoist against changing device-pixel geometry.
     [Test]
     public void Spectrogram_WithSamples_AtSuperScale_IsDeterministic()
     {
