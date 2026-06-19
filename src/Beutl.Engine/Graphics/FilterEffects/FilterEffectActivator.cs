@@ -25,7 +25,7 @@ public sealed class FilterEffectActivator(
     /// </summary>
     public float WorkingScale { get; private set; } = SanitizePositiveFinite(workingScale, nameof(workingScale));
 
-    /// <summary>Working-scale ceiling forwarded into nested canvases. Sanitized to positive.</summary>
+    /// <summary>Working-scale ceiling forwarded into nested canvases. Sanitized: NaN or non-positive becomes +Inf (no ceiling).</summary>
     public float MaxWorkingScale { get; } = SanitizeCeiling(maxWorkingScale, nameof(maxWorkingScale));
 
     // Reuses the canonical degenerate-ceiling rule and adds a warning when it actually fires.
