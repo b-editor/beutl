@@ -91,12 +91,62 @@ public class RenderTarget : IDisposable
     {
         VerifyAccess();
         PrepareForSampling();
-        var result = new Bitmap(Width, Height, BitmapColorType.RgbaF16, BitmapAlphaType.Premul, BitmapColorSpace.LinearSrgb);
-
-        var readInfo = result.SKBitmap.Info;
-        _surface.Value!.ReadPixels(readInfo, result.Data, Width * readInfo.BytesPerPixel, 0, 0);
-
+        var result = CreateSnapshotBitmap();
+        ReadPixelsInto(result);
         return result;
+    }
+
+    /// <summary>
+    /// Allocates a bitmap in the exact format <see cref="Snapshot()"/> produces
+    /// (RgbaF16/Premul/LinearSrgb at the render target size). The single source of truth for that
+    /// format — callers pre-allocating a destination for <see cref="SnapshotInto(Bitmap)"/> should use
+    /// this instead of hardcoding it, so the destination cannot drift out of sync with the surface.
+    /// </summary>
+    public Bitmap CreateSnapshotBitmap() =>
+        new(Width, Height, BitmapColorType.RgbaF16, BitmapAlphaType.Premul, BitmapColorSpace.LinearSrgb);
+
+    /// <summary>
+    /// Reads the current surface into an existing <paramref name="destination"/> bitmap so
+    /// repeat-snapshot callers (e.g. onion-skin compositing) can reuse one scratch bitmap and avoid
+    /// Large Object Heap churn. The destination must match the render target size and be in the same
+    /// RgbaF16/Premul/LinearSrgb format produced by <see cref="Snapshot()"/>.
+    /// </summary>
+    public void SnapshotInto(Bitmap destination)
+    {
+        VerifyAccess();
+        ArgumentNullException.ThrowIfNull(destination);
+        if (destination.Width != Width || destination.Height != Height)
+        {
+            throw new ArgumentException(
+                $"Destination bitmap size ({destination.Width}x{destination.Height}) must match the render target size ({Width}x{Height}).",
+                nameof(destination));
+        }
+
+        // ReadPixels does not convert formats or color spaces, so require the exact format that
+        // Snapshot() allocates (RgbaF16 / Premul / LinearSrgb).
+        if (destination.ColorType != BitmapColorType.RgbaF16
+            || destination.AlphaType != BitmapAlphaType.Premul
+            || !destination.ColorSpace.Equals(BitmapColorSpace.LinearSrgb))
+        {
+            throw new ArgumentException(
+                "Destination bitmap must be RgbaF16/Premul/LinearSrgb to match the render target surface format.",
+                nameof(destination));
+        }
+
+        PrepareForSampling();
+        ReadPixelsInto(destination);
+    }
+
+    private void ReadPixelsInto(Bitmap destination)
+    {
+        SKImageInfo readInfo = destination.SKBitmap.Info;
+        if (!_surface.Value!.ReadPixels(readInfo, destination.Data, destination.RowBytes, 0, 0))
+        {
+            // Readback failed; the destination still holds stale pixels. Throw rather than
+            // silently compositing them.
+            throw new InvalidOperationException(
+                "Failed to read the render target surface into the destination bitmap.");
+        }
     }
 
     public RenderTarget ShallowCopy()

@@ -429,6 +429,22 @@ public class Renderer : IRenderer
         return _surface.Snapshot();
     }
 
+    /// <summary>
+    /// Reads the current surface into an existing <paramref name="destination"/> bitmap, reusing it
+    /// instead of allocating a fresh snapshot. See <see cref="RenderTarget.SnapshotInto(Bitmap)"/>.
+    /// </summary>
+    public void SnapshotInto(Bitmap destination)
+    {
+        RenderThread.Dispatcher.VerifyAccess();
+        _surface.SnapshotInto(destination);
+    }
+
+    /// <summary>
+    /// Allocates a bitmap in the format <see cref="Snapshot()"/> produces, suitable as a reusable
+    /// destination for <see cref="SnapshotInto(Bitmap)"/>. See <see cref="RenderTarget.CreateSnapshotBitmap()"/>.
+    /// </summary>
+    public Bitmap CreateSnapshotBitmap() => _surface.CreateSnapshotBitmap();
+
     public void ClearAllCaches()
     {
         var entries = _nodeCache.ToArray();
