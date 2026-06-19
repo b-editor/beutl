@@ -232,8 +232,9 @@ public class CounterTests
         // from a handful to hundreds of thousands across machines. Requiring a
         // proportional threshold here couples the test to the scheduler and is
         // flaky on warm-pool / low-core CI runners; one success across the
-        // 200 x 5_000 attempts is enough to prove the window is reachable.
+        // Trials x ConsumerIterations attempts is enough to prove the window
+        // is reachable.
         Assert.That(totalTryAddRefSuccesses, Is.GreaterThan(0),
-            $"Race window collapsed: no TryAddRef hits across {Trials} trials");
+            $"Race window collapsed: no TryAddRef hits across {Trials} trials ({(long)Trials * ConsumerIterations} attempts)");
     }
 }
