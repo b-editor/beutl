@@ -439,6 +439,12 @@ public class Renderer : IRenderer
         _surface.SnapshotInto(destination);
     }
 
+    /// <summary>
+    /// Allocates a bitmap in the format <see cref="Snapshot()"/> produces, suitable as a reusable
+    /// destination for <see cref="SnapshotInto(Bitmap)"/>. See <see cref="RenderTarget.CreateSnapshotBitmap()"/>.
+    /// </summary>
+    public Bitmap CreateSnapshotBitmap() => _surface.CreateSnapshotBitmap();
+
     public void ClearAllCaches()
     {
         var entries = _nodeCache.ToArray();

@@ -1478,10 +1478,9 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
                                     // Reuse a single scratch bitmap across all onion samples. At max
                                     // settings (prev+next = 20) this turns 20 video-frame-sized LOH
                                     // allocations per preview into 1, removing the GC churn the onion
-                                    // overlay would otherwise add on every scrub step.
-                                    onionScratch ??= new Bitmap(
-                                        currentBitmap.Width, currentBitmap.Height,
-                                        BitmapColorType.RgbaF16, BitmapAlphaType.Premul, BitmapColorSpace.LinearSrgb);
+                                    // overlay would otherwise add on every scrub step. CreateSnapshotBitmap
+                                    // keeps the scratch in the exact format SnapshotInto requires.
+                                    onionScratch ??= renderer.CreateSnapshotBitmap();
                                     renderer.SnapshotInto(onionScratch);
 
                                     using var paint = new SKPaint
@@ -1489,6 +1488,11 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
                                         Color = new SKColor(255, 255, 255, (byte)Math.Round(sample.Alpha * 255)),
                                         BlendMode = SKBlendMode.SrcOver,
                                     };
+
+                                    // canvas is a CPU raster SKCanvas (over currentBitmap.SKBitmap), so
+                                    // DrawBitmap blends the scratch pixels synchronously before returning.
+                                    // That is what makes overwriting onionScratch on the next sample safe —
+                                    // the same guarantee the old per-sample using-scoped Snapshot relied on.
                                     canvas.DrawBitmap(onionScratch.SKBitmap, 0, 0, paint);
                                 }
 

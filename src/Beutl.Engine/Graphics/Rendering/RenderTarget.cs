@@ -91,10 +91,20 @@ public class RenderTarget : IDisposable
     {
         VerifyAccess();
         PrepareForSampling();
-        var result = new Bitmap(Width, Height, BitmapColorType.RgbaF16, BitmapAlphaType.Premul, BitmapColorSpace.LinearSrgb);
+        var result = CreateSnapshotBitmap();
         ReadPixelsInto(result);
         return result;
     }
+
+    /// <summary>
+    /// Allocates a fresh bitmap in the exact format <see cref="Snapshot()"/> produces
+    /// (RgbaF16/Premul/LinearSrgb at the render target size). This is the single source of truth for
+    /// that format: callers that pre-allocate a destination for <see cref="SnapshotInto(Bitmap)"/>
+    /// (e.g. a reused onion-skin scratch bitmap) should use this instead of hardcoding the format,
+    /// so the destination can never drift out of sync with the surface layout.
+    /// </summary>
+    public Bitmap CreateSnapshotBitmap() =>
+        new(Width, Height, BitmapColorType.RgbaF16, BitmapAlphaType.Premul, BitmapColorSpace.LinearSrgb);
 
     /// <summary>
     /// Reads the current surface into an existing <paramref name="destination"/> bitmap instead of
@@ -133,7 +143,14 @@ public class RenderTarget : IDisposable
     private void ReadPixelsInto(Bitmap destination)
     {
         SKImageInfo readInfo = destination.SKBitmap.Info;
-        _surface.Value!.ReadPixels(readInfo, destination.Data, destination.RowBytes, 0, 0);
+        if (!_surface.Value!.ReadPixels(readInfo, destination.Data, destination.RowBytes, 0, 0))
+        {
+            // A false return means the backend readback failed; the destination keeps whatever it
+            // held before (transparent for a fresh allocation, the previous sample for a reused
+            // scratch). Surface that rather than silently snapshotting/compositing stale pixels.
+            throw new InvalidOperationException(
+                "Failed to read the render target surface into the destination bitmap.");
+        }
     }
 
     public RenderTarget ShallowCopy()

@@ -1,7 +1,11 @@
-﻿using Beutl.Graphics;
+﻿using Beutl.Composition;
+using Beutl.Graphics;
 using Beutl.Graphics.Rendering;
+using Beutl.Graphics.Rendering.Cache;
 using Beutl.Media;
 using Beutl.UnitTests.Engine.Graphics.Backend;
+
+using SkiaSharp;
 
 namespace Beutl.UnitTests.Engine.Graphics.Rendering;
 
@@ -108,6 +112,70 @@ public class RenderTargetSnapshotTests
     }
 
     [Test]
+    public void SnapshotIntoDestination_AlphaTypeMismatch_Throws()
+    {
+        VulkanTestEnvironment.EnsureAvailable();
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            using var target = RenderTarget.Create(64, 48)!;
+            // Right size, ColorType and ColorSpace, but Unpremul instead of the surface's Premul:
+            // the raw F16 bytes carry premultiplied alpha, so reinterpreting them as straight alpha
+            // must be rejected. Isolates the AlphaType branch of the validation.
+            using var wrongAlpha = new Bitmap(64, 48, BitmapColorType.RgbaF16, BitmapAlphaType.Unpremul, BitmapColorSpace.LinearSrgb);
+
+            Assert.Throws<ArgumentException>(() => target.SnapshotInto(wrongAlpha));
+        });
+    }
+
+    [Test]
+    public void SnapshotIntoDestination_ColorTypeMismatch_Throws()
+    {
+        VulkanTestEnvironment.EnsureAvailable();
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            using var target = RenderTarget.Create(64, 48)!;
+            // Right size, AlphaType and ColorSpace, but Bgra8888 instead of the surface's RgbaF16.
+            // Isolates the ColorType branch of the validation.
+            using var wrongColorType = new Bitmap(64, 48, BitmapColorType.Bgra8888, BitmapAlphaType.Premul, BitmapColorSpace.LinearSrgb);
+
+            Assert.Throws<ArgumentException>(() => target.SnapshotInto(wrongColorType));
+        });
+    }
+
+    [Test]
+    public void SnapshotIntoDestination_NullDestination_Throws()
+    {
+        VulkanTestEnvironment.EnsureAvailable();
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            using var target = RenderTarget.Create(64, 48)!;
+
+            Assert.Throws<ArgumentNullException>(() => target.SnapshotInto(null!));
+        });
+    }
+
+    [Test]
+    public void CreateSnapshotBitmap_ProducesDestinationAcceptedBySnapshotInto()
+    {
+        VulkanTestEnvironment.EnsureAvailable();
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            using var target = RenderTarget.Create(64, 48)!;
+            using Bitmap scratch = target.CreateSnapshotBitmap();
+
+            Assert.That(scratch.Width, Is.EqualTo(64));
+            Assert.That(scratch.Height, Is.EqualTo(48));
+            Assert.That(scratch.ColorType, Is.EqualTo(BitmapColorType.RgbaF16));
+            Assert.That(scratch.AlphaType, Is.EqualTo(BitmapAlphaType.Premul));
+            Assert.That(scratch.ColorSpace.Equals(BitmapColorSpace.LinearSrgb), Is.True);
+
+            // The factory's whole purpose: its bitmap must satisfy SnapshotInto's format validation,
+            // so the format triple lives in one place instead of being copied at every call site.
+            Assert.DoesNotThrow(() => target.SnapshotInto(scratch));
+        });
+    }
+
+    [Test]
     public void RendererSnapshotIntoDestination_MatchesAllocatingSnapshot()
     {
         VulkanTestEnvironment.EnsureAvailable();
@@ -121,6 +189,38 @@ public class RenderTargetSnapshotTests
 
             AssertRowsIdentical(allocated, reused, "Renderer allocating and reuse snapshot paths");
         });
+    }
+
+    // The IRenderer.SnapshotInto default (used by any implementor — e.g. a plugin-supplied renderer —
+    // that does not override it) must produce the same pixels as Snapshot(). CPU-only: no Vulkan.
+    [Test]
+    public void IRendererDefaultSnapshotInto_FallsBackToSnapshotAndCopies()
+    {
+        using Bitmap content = NewScratch(40, 24);
+        using (var canvas = new SKCanvas(content.SKBitmap))
+        {
+            canvas.Clear(new SKColor(20, 40, 60));
+            using var paint = new SKPaint { Color = SKColors.White };
+            canvas.DrawRect(SKRect.Create(8, 4, 16, 10), paint);
+        }
+
+        IRenderer renderer = new FakeSnapshotRenderer(content);
+        using Bitmap expected = renderer.Snapshot();
+        using Bitmap actual = NewScratch(40, 24);
+
+        renderer.SnapshotInto(actual);
+
+        AssertRowsIdentical(expected, actual, "IRenderer default SnapshotInto vs Snapshot");
+    }
+
+    [Test]
+    public void IRendererDefaultSnapshotInto_DimensionMismatch_Throws()
+    {
+        using Bitmap content = NewScratch(40, 24);
+        IRenderer renderer = new FakeSnapshotRenderer(content);
+        using Bitmap wrongSize = NewScratch(20, 20);
+
+        Assert.Throws<ArgumentException>(() => renderer.SnapshotInto(wrongSize));
     }
 
     // Compare every row's raw bytes (width * bytes-per-pixel) rather than sparsely sampling pixels:
@@ -140,5 +240,35 @@ public class RenderTargetSnapshotTests
     {
         var p = bmp.SKBitmap.GetPixel(x, y);
         return p.Red > 150 && p.Green > 150 && p.Blue > 150;
+    }
+
+    // Minimal IRenderer that does NOT override SnapshotInto, so calls route through the interface's
+    // default implementation. Snapshot() returns a clone of the supplied content; every other member
+    // is unused by the default path and throws to make accidental reliance on it obvious.
+    private sealed class FakeSnapshotRenderer(Bitmap content) : IRenderer
+    {
+        public PixelSize FrameSize => new(content.Width, content.Height);
+
+        public TimeSpan Time => default;
+
+        public bool IsDisposed => false;
+
+        public bool IsGraphicsRendering => false;
+
+        public RenderCacheOptions CacheOptions { get; set; } = RenderCacheOptions.Default;
+
+        public Bitmap Snapshot() => content.Clone();
+
+        public void Render(CompositionFrame frame) => throw new NotSupportedException();
+
+        public Drawable? HitTest(CompositionFrame frame, Point point) => throw new NotSupportedException();
+
+        public void UpdateFrame(CompositionFrame frame) => throw new NotSupportedException();
+
+        public Rect[] GetBoundaries(int zIndex) => throw new NotSupportedException();
+
+        public DrawableRenderNode? FindRenderNode(Drawable drawable) => throw new NotSupportedException();
+
+        public void Dispose() { }
     }
 }
