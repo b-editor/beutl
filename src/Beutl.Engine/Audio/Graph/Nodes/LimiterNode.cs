@@ -1,4 +1,5 @@
 ﻿using System.Diagnostics;
+using System.Numerics;
 using Beutl.Audio.Effects;
 using Beutl.Engine;
 using Beutl.Logging;
@@ -35,6 +36,7 @@ public sealed class LimiterNode : AudioNode
     // where the lookahead can vary per sample, keeps the direct rescan (ScanWindowPeak).
     private float[]? _dqVal;
     private long[]? _dqPos;
+    private int _dqMask;
     private int _dqHead;
     private int _dqCount;
     private int _dequeLookahead = -1;
@@ -208,9 +210,13 @@ public sealed class LimiterNode : AudioNode
 
         // Sliding-window-max deque capacity must exceed the largest possible window (max elements)
         // by two slots: a push transiently holds up to (window + 1) entries before the out-of-window
-        // eviction runs, so sizing to max + 2 guarantees the ring never overwrites its own front.
-        _dqVal = new float[max + 2];
-        _dqPos = new long[max + 2];
+        // eviction runs, so the ring must hold at least max + 2 entries to never overwrite its own
+        // front. Round that up to a power of two so the per-sample ring wrapping in PushWindowPeak
+        // is a mask (& _dqMask) instead of an integer division, mirroring CircularBuffer<T>.
+        int dqCap = (int)BitOperations.RoundUpToPowerOf2((uint)(max + 2));
+        _dqVal = new float[dqCap];
+        _dqPos = new long[dqCap];
+        _dqMask = dqCap - 1;
         _dqHead = 0;
         _dqCount = 0;
         _dequeLookahead = -1;
@@ -482,20 +488,20 @@ public sealed class LimiterNode : AudioNode
     // ScanWindowPeak for a constant lookahead. Requires EnsureDeque(lookaheadSamples) first.
     private float PushWindowPeak(float value, int lookaheadSamples)
     {
-        int cap = _dqVal!.Length;
+        int mask = _dqMask;
         long pos = _globalPos - 1;
 
-        while (_dqCount > 0 && _dqVal[(_dqHead + _dqCount - 1) % cap] <= value)
+        while (_dqCount > 0 && _dqVal![(_dqHead + _dqCount - 1) & mask] <= value)
             _dqCount--;
 
         // After the monotonic back-eviction the deque holds at most the in-window count =
-        // lookaheadSamples + 1 <= _maxLookaheadSamples = cap - 2, so a free slot for this push is
+        // lookaheadSamples + 1 <= _maxLookaheadSamples <= cap - 2, so a free slot for this push is
         // guaranteed (_dqCount < cap, i.e. tail != _dqHead). Assert BEFORE the write so a future change
         // that breaks the bound is caught before it overwrites the front, not one step after the
         // corruption (Debug-only; compiled out of Release).
-        Debug.Assert(_dqCount < cap, "LimiterNode deque overflow: no free slot, front would be overwritten.");
+        Debug.Assert(_dqCount < _dqVal!.Length, "LimiterNode deque overflow: no free slot, front would be overwritten.");
 
-        int tail = (_dqHead + _dqCount) % cap;
+        int tail = (_dqHead + _dqCount) & mask;
         _dqVal[tail] = value;
         _dqPos![tail] = pos;
         _dqCount++;
@@ -503,7 +509,7 @@ public sealed class LimiterNode : AudioNode
         long windowStart = pos - lookaheadSamples;
         while (_dqPos[_dqHead] < windowStart)
         {
-            _dqHead = (_dqHead + 1) % cap;
+            _dqHead = (_dqHead + 1) & mask;
             _dqCount--;
         }
 
@@ -522,7 +528,7 @@ public sealed class LimiterNode : AudioNode
         _dqHead = 0;
         _dqCount = 0;
 
-        int cap = _dqVal!.Length;
+        int mask = _dqMask;
         long last = _globalPos - 1;
         if (last >= 0)
         {
@@ -534,11 +540,11 @@ public sealed class LimiterNode : AudioNode
                 float v = _peakBuffer!.Read(j);
                 long pos = last - j;
 
-                while (_dqCount > 0 && _dqVal[(_dqHead + _dqCount - 1) % cap] <= v)
+                while (_dqCount > 0 && _dqVal![(_dqHead + _dqCount - 1) & mask] <= v)
                     _dqCount--;
 
-                int tail = (_dqHead + _dqCount) % cap;
-                _dqVal[tail] = v;
+                int tail = (_dqHead + _dqCount) & mask;
+                _dqVal![tail] = v;
                 _dqPos![tail] = pos;
                 _dqCount++;
             }

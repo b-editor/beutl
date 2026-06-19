@@ -1105,6 +1105,71 @@ public class LimiterNodeTests
     }
 
     [Test]
+    public void Process_ContiguousNonFiniteBurst_AreSanitizedToZero()
+    {
+        // The strided NaN/Inf test never places non-finite values on consecutive samples. A
+        // realistic upstream corruption is a clustered burst; IngestSample sanitizes each sample
+        // independently, so a contiguous run must still produce finite, bounded output.
+        const int sampleCount = 1024;
+        const int burstStart = 400;
+        const int burstLength = 64;
+
+        using var input = CreateBuffer(2, sampleCount, (_, i) =>
+        {
+            if (i >= burstStart && i < burstStart + burstLength)
+                return (i & 1) == 0 ? float.NaN : float.PositiveInfinity;
+            return 0.5f * MathF.Sin(2f * MathF.PI * 440f * i / SampleRate);
+        });
+
+        using var node = CreateNode();
+        node.AddInput(new StubInputNode(input));
+
+        using var output = node.Process(CreateContext(sampleCount));
+
+        float upperBound = MathF.Pow(10f, DefaultThresholdDb / 20f) * MathF.Pow(10f, DefaultMakeupGainDb / 20f);
+        int lookaheadSamples = LookaheadSamples();
+        for (int ch = 0; ch < 2; ch++)
+        {
+            var data = output.GetChannelData(ch);
+            for (int i = 0; i < sampleCount; i++)
+            {
+                Assert.That(float.IsFinite(data[i]), Is.True,
+                    $"Channel {ch} sample {i} = {data[i]} (contiguous NaN/Inf burst must be sanitized).");
+                if (i >= lookaheadSamples)
+                    Assert.That(MathF.Abs(data[i]), Is.LessThanOrEqualTo(upperBound + 1e-3f));
+            }
+        }
+    }
+
+    [Test]
+    public void Process_NonFiniteFinalSample_IsSanitizedToZero()
+    {
+        // A non-finite value at the very last sample lands inside the lookahead window at the chunk
+        // boundary, the one position the strided test never covers. It must still be coerced.
+        const int sampleCount = 1024;
+
+        using var input = CreateBuffer(2, sampleCount, (_, i) =>
+            i == sampleCount - 1
+                ? float.NaN
+                : 0.5f * MathF.Sin(2f * MathF.PI * 440f * i / SampleRate));
+
+        using var node = CreateNode();
+        node.AddInput(new StubInputNode(input));
+
+        using var output = node.Process(CreateContext(sampleCount));
+
+        for (int ch = 0; ch < 2; ch++)
+        {
+            var data = output.GetChannelData(ch);
+            for (int i = 0; i < sampleCount; i++)
+            {
+                Assert.That(float.IsFinite(data[i]), Is.True,
+                    $"Channel {ch} sample {i} = {data[i]} (non-finite final sample must be sanitized).");
+            }
+        }
+    }
+
+    [Test]
     public void Process_ZeroSampleCountInput_ReturnsEmptyBuffer()
     {
         using var input = new AudioBuffer(SampleRate, 2, 0);
