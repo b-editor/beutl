@@ -133,7 +133,7 @@ public class RenderTarget : IDisposable
     private void ReadPixelsInto(Bitmap destination)
     {
         SKImageInfo readInfo = destination.SKBitmap.Info;
-        _surface.Value!.ReadPixels(readInfo, destination.Data, Width * readInfo.BytesPerPixel, 0, 0);
+        _surface.Value!.ReadPixels(readInfo, destination.Data, destination.RowBytes, 0, 0);
     }
 
     public RenderTarget ShallowCopy()

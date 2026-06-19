@@ -33,14 +33,7 @@ public class RenderTargetSnapshotTests
             target.SnapshotInto(reused);
 
             // The reuse path must read back the exact same pixels as the allocating path.
-            for (int y = 0; y < 48; y += 8)
-            {
-                for (int x = 0; x < 64; x += 8)
-                {
-                    Assert.That(reused.SKBitmap.GetPixel(x, y), Is.EqualTo(allocated.SKBitmap.GetPixel(x, y)),
-                        $"pixel ({x},{y}) differs between allocating and reuse snapshot paths");
-                }
-            }
+            AssertRowsIdentical(allocated, reused, "allocating and reuse snapshot paths");
         });
     }
 
@@ -126,15 +119,21 @@ public class RenderTargetSnapshotTests
             using Bitmap reused = NewScratch(allocated.Width, allocated.Height);
             renderer.SnapshotInto(reused);
 
-            for (int y = 0; y < allocated.Height; y += 8)
-            {
-                for (int x = 0; x < allocated.Width; x += 8)
-                {
-                    Assert.That(reused.SKBitmap.GetPixel(x, y), Is.EqualTo(allocated.SKBitmap.GetPixel(x, y)),
-                        $"pixel ({x},{y}) differs between Renderer allocating and reuse snapshot paths");
-                }
-            }
+            AssertRowsIdentical(allocated, reused, "Renderer allocating and reuse snapshot paths");
         });
+    }
+
+    // Compare every row's raw bytes (width * bytes-per-pixel) rather than sparsely sampling pixels:
+    // sampling can pass while a stride/row-alignment bug silently corrupts the rest of the row.
+    private static void AssertRowsIdentical(Bitmap expected, Bitmap actual, string paths)
+    {
+        Assert.That(actual.Width, Is.EqualTo(expected.Width));
+        Assert.That(actual.Height, Is.EqualTo(expected.Height));
+        for (int y = 0; y < expected.Height; y++)
+        {
+            Assert.That(actual.GetRow(y).SequenceEqual(expected.GetRow(y)), Is.True,
+                $"row {y} differs between {paths}");
+        }
     }
 
     private static bool IsWhite(Bitmap bmp, int x, int y)
