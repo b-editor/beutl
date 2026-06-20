@@ -12,27 +12,6 @@ public class DelayNodeTests
 {
     private const int SampleRate = 100;
 
-    // Deterministic stereo source: a ramp keyed off the requested global sample index.
-    private sealed class RampInputNode(int sampleRate) : AudioNode
-    {
-        public override AudioBuffer Process(AudioProcessContext context)
-        {
-            int count = context.GetSampleCount();
-            var buffer = new AudioBuffer(sampleRate, 2, count);
-            Span<float> left = buffer.GetChannelData(0);
-            Span<float> right = buffer.GetChannelData(1);
-            int startIndex = (int)(context.TimeRange.Start.TotalSeconds * sampleRate);
-            for (int i = 0; i < count; i++)
-            {
-                float v = (startIndex + i) * 0.01f;
-                left[i] = v;
-                right[i] = -v;
-            }
-
-            return buffer;
-        }
-    }
-
     private static AudioProcessContext CreateContext() =>
         new(new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(1)), SampleRate, new AnimationSampler(), null);
 

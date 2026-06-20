@@ -1,35 +1,32 @@
 ﻿using Beutl.Editor;
-using Beutl.Editor.Observers;
 using Beutl.Editor.Services;
 using Beutl.NodeGraph;
 using Beutl.NodeGraph.Nodes.Group;
+using Beutl.UnitTests.TestInfrastructure;
 
 namespace Beutl.UnitTests.Editor.Services;
 
 [TestFixture]
 public class NodeGraphMutationServiceTests
 {
+    private HistoryHarness _harness = null!;
     private GraphGroup _graph = null!;
     private HistoryManager _history = null!;
-    private CoreObjectOperationObserver _observer = null!;
     private NodeGraphMutationService _service = null!;
 
     [SetUp]
     public void Setup()
     {
         _graph = new GraphGroup();
-        var sequence = new OperationSequenceGenerator();
-        _history = new HistoryManager(_graph, sequence);
-        _observer = new CoreObjectOperationObserver(null, _graph, sequence);
-        _history.Subscribe(_observer);
+        _harness = new HistoryHarness(_graph);
+        _history = _harness.History;
         _service = new NodeGraphMutationService(_history);
     }
 
     [TearDown]
     public void TearDown()
     {
-        _observer.Dispose();
-        _history.Dispose();
+        _harness.Dispose();
     }
 
     [Test]

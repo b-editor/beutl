@@ -1,58 +1,36 @@
 ﻿using Beutl.Editor;
-using Beutl.Editor.Observers;
 using Beutl.Editor.Services;
 using Beutl.Media;
 using Beutl.ProjectSystem;
+using Beutl.UnitTests.TestInfrastructure;
 
 namespace Beutl.UnitTests.Editor.Services;
 
 [TestFixture]
 public class LayerAttributeServiceTests
 {
-    private string _basePath = null!;
+    private SceneHistoryHarness _harness = null!;
     private Scene _scene = null!;
     private HistoryManager _history = null!;
-    private CoreObjectOperationObserver _observer = null!;
     private LayerAttributeService _service = null!;
 
     [SetUp]
     public void Setup()
     {
-        _basePath = Path.Combine(Path.GetTempPath(), $"beutl_lattr_{Guid.NewGuid():N}");
-        Directory.CreateDirectory(_basePath);
-
-        _scene = new Scene(100, 100, string.Empty)
-        {
-            Uri = new Uri(Path.Combine(_basePath, "test.scene")),
-        };
-        var sequence = new OperationSequenceGenerator();
-        _history = new HistoryManager(_scene, sequence);
-        _observer = new CoreObjectOperationObserver(null, _scene, sequence);
-        _history.Subscribe(_observer);
+        _harness = new SceneHistoryHarness("beutl_lattr");
+        _scene = _harness.Scene;
+        _history = _harness.History;
         _service = new LayerAttributeService(_history);
     }
 
     [TearDown]
     public void TearDown()
     {
-        _observer.Dispose();
-        _history.Dispose();
-        if (Directory.Exists(_basePath)) Directory.Delete(_basePath, recursive: true);
+        _harness.Dispose();
     }
 
     private Element AddElement(int zIndex, bool isEnabled = true)
-    {
-        var element = new Element
-        {
-            Start = TimeSpan.FromSeconds(zIndex),
-            Length = TimeSpan.FromSeconds(1),
-            ZIndex = zIndex,
-            IsEnabled = isEnabled,
-            Uri = new Uri(Path.Combine(_basePath, $"{Guid.NewGuid():N}.layer")),
-        };
-        _scene.Children.Add(element);
-        return element;
-    }
+        => _harness.AddElement(zIndex, isEnabled);
 
     [Test]
     public void Constructor_NullHistoryManager_Throws()

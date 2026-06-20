@@ -1,17 +1,17 @@
 ﻿using Beutl.Editor;
-using Beutl.Editor.Observers;
 using Beutl.Editor.Services;
 using Beutl.Media;
 using Beutl.ProjectSystem;
+using Beutl.UnitTests.TestInfrastructure;
 
 namespace Beutl.UnitTests.Editor.Services;
 
 [TestFixture]
 public class SceneSettingsServiceTests
 {
+    private HistoryHarness _harness = null!;
     private Scene _scene = null!;
     private HistoryManager _history = null!;
-    private CoreObjectOperationObserver _observer = null!;
     private SceneSettingsService _service = null!;
 
     [SetUp]
@@ -22,18 +22,15 @@ public class SceneSettingsServiceTests
             Start = TimeSpan.FromSeconds(1),
             Duration = TimeSpan.FromSeconds(5),
         };
-        var sequence = new OperationSequenceGenerator();
-        _history = new HistoryManager(_scene, sequence);
-        _observer = new CoreObjectOperationObserver(null, _scene, sequence);
-        _history.Subscribe(_observer);
+        _harness = new HistoryHarness(_scene);
+        _history = _harness.History;
         _service = new SceneSettingsService(_history);
     }
 
     [TearDown]
     public void TearDown()
     {
-        _observer.Dispose();
-        _history.Dispose();
+        _harness.Dispose();
     }
 
     [Test]

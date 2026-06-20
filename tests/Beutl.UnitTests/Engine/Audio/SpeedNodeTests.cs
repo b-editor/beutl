@@ -13,32 +13,6 @@ public class SpeedNodeTests
 {
     private const int SampleRate = 100;
 
-    // Deterministic stereo source: a ramp keyed off the global sample index, so any change in how
-    // SpeedNode requests source ranges shows up in the output.
-    private sealed class RampInputNode : AudioNode
-    {
-        private readonly int _sampleRate;
-
-        public RampInputNode(int sampleRate) => _sampleRate = sampleRate;
-
-        public override AudioBuffer Process(AudioProcessContext context)
-        {
-            int count = context.GetSampleCount();
-            var buffer = new AudioBuffer(_sampleRate, 2, count);
-            Span<float> left = buffer.GetChannelData(0);
-            Span<float> right = buffer.GetChannelData(1);
-            long startIndex = AudioMath.TimeToSampleIndex(context.TimeRange.Start, _sampleRate);
-            for (int i = 0; i < count; i++)
-            {
-                float v = (startIndex + i) * 0.01f;
-                left[i] = v;
-                right[i] = -v;
-            }
-
-            return buffer;
-        }
-    }
-
     private static IProperty<float> AnimatedSpeed(float fromPercent, float toPercent, double durationSeconds)
     {
         var property = Property.CreateAnimatable(fromPercent);

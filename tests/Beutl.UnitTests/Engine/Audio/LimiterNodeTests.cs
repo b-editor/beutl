@@ -10,6 +10,7 @@ using Beutl.Media;
 using Microsoft.Extensions.Logging;
 
 using static Beutl.Audio.Effects.LimiterParameters;
+using static Beutl.UnitTests.Engine.Audio.AudioTestBuffers;
 
 namespace Beutl.UnitTests.Engine.Audio;
 
@@ -44,21 +45,6 @@ public class LimiterNodeTests
         return new AudioProcessContext(range, sampleRate, new AnimationSampler(), null);
     }
 
-    private static AudioBuffer CreateBuffer(int channelCount, int sampleCount, Func<int, int, float> generator, int sampleRate = SampleRate)
-    {
-        var buffer = new AudioBuffer(sampleRate, channelCount, sampleCount);
-        for (int ch = 0; ch < channelCount; ch++)
-        {
-            var data = buffer.GetChannelData(ch);
-            for (int i = 0; i < sampleCount; i++)
-            {
-                data[i] = generator(ch, i);
-            }
-        }
-
-        return buffer;
-    }
-
     private static LimiterNode CreateNode(
         float thresholdDb = DefaultThresholdDb,
         float releaseMs = DefaultReleaseMs,
@@ -72,18 +58,6 @@ public class LimiterNodeTests
             Lookahead = Property.CreateAnimatable(lookaheadMs),
             MakeupGain = Property.CreateAnimatable(makeupGainDb),
         };
-    }
-
-    private sealed class StubInputNode(AudioBuffer buffer) : AudioNode
-    {
-        // LimiterNode disposes the input it consumes, so return a fresh copy each call and keep the
-        // original alive for the test's own assertions.
-        public override AudioBuffer Process(AudioProcessContext context)
-        {
-            var copy = new AudioBuffer(buffer.SampleRate, buffer.ChannelCount, buffer.SampleCount);
-            buffer.CopyTo(copy);
-            return copy;
-        }
     }
 
     private sealed class NullInputNode : AudioNode
@@ -109,7 +83,7 @@ public class LimiterNodeTests
             (_, i) => 0.5f * MathF.Sin(2f * MathF.PI * 440f * i / SampleRate));
 
         using var node = CreateNode();
-        node.AddInput(new StubInputNode(input));
+        node.AddInput(new BufferReplayNode(input));
 
         using var output = node.Process(CreateContext(sampleCount));
 
@@ -140,7 +114,7 @@ public class LimiterNodeTests
             (_, i) => 2.0f * MathF.Sin(2f * MathF.PI * 440f * i / SampleRate));
 
         using var node = CreateNode(thresholdDb: thresholdDb);
-        node.AddInput(new StubInputNode(input));
+        node.AddInput(new BufferReplayNode(input));
 
         using var output = node.Process(CreateContext(sampleCount));
 
@@ -170,7 +144,7 @@ public class LimiterNodeTests
 
         // Generous threshold so the limiter never engages — only makeup gain shapes the output.
         using var node = CreateNode(thresholdDb: 0f, makeupGainDb: makeupDb);
-        node.AddInput(new StubInputNode(input));
+        node.AddInput(new BufferReplayNode(input));
 
         using var output = node.Process(CreateContext(sampleCount));
 
@@ -204,7 +178,7 @@ public class LimiterNodeTests
         });
 
         using var node = CreateNode(thresholdDb: thresholdDb);
-        node.AddInput(new StubInputNode(input));
+        node.AddInput(new BufferReplayNode(input));
 
         using var output = node.Process(CreateContext(sampleCount));
 
@@ -247,7 +221,7 @@ public class LimiterNodeTests
             (_, i) => 2.0f * MathF.Sin(2f * MathF.PI * 440f * i / SampleRate));
 
         using var node = CreateNode();
-        node.AddInput(new StubInputNode(hotInput));
+        node.AddInput(new BufferReplayNode(hotInput));
 
         var firstCtx = CreateContext(firstSampleCount, start: TimeSpan.Zero);
         using (var _ = node.Process(firstCtx)) { }
@@ -255,7 +229,7 @@ public class LimiterNodeTests
         // Replace input with silence and jump the time range so it is NOT contiguous.
         using var silence = CreateBuffer(2, firstSampleCount, (_, _) => 0f);
         node.RemoveInput(node.Inputs[0]);
-        node.AddInput(new StubInputNode(silence));
+        node.AddInput(new BufferReplayNode(silence));
 
         var secondCtx = CreateContext(firstSampleCount, start: TimeSpan.FromSeconds(10));
         using var secondOut = node.Process(secondCtx);
@@ -283,7 +257,7 @@ public class LimiterNodeTests
             (_, i) => 2.0f * MathF.Sin(2f * MathF.PI * 440f * i / SampleRate));
 
         using var node = CreateNode(releaseMs: 5000f);
-        node.AddInput(new StubInputNode(hotInput));
+        node.AddInput(new BufferReplayNode(hotInput));
 
         var firstCtx = CreateContext(chunkSamples, start: TimeSpan.Zero);
         using (var _ = node.Process(firstCtx)) { }
@@ -291,7 +265,7 @@ public class LimiterNodeTests
         var secondStart = firstCtx.TimeRange.Start + firstCtx.TimeRange.Duration;
         using var silence = CreateBuffer(2, chunkSamples, (_, _) => 0f);
         node.RemoveInput(node.Inputs[0]);
-        node.AddInput(new StubInputNode(silence));
+        node.AddInput(new BufferReplayNode(silence));
 
         var secondCtx = CreateContext(chunkSamples, start: secondStart);
         using var secondOut = node.Process(secondCtx);
@@ -337,14 +311,14 @@ public class LimiterNodeTests
         using var hotInput = CreateBuffer(2, chunkSamples,
             (_, i) => 2.0f * MathF.Sin(2f * MathF.PI * 440f * i / SampleRate));
         using var node = CreateNode(releaseMs: 5000f);
-        node.AddInput(new StubInputNode(hotInput));
+        node.AddInput(new BufferReplayNode(hotInput));
 
         var firstCtx = CreateContext(chunkSamples);
         using (var _ = node.Process(firstCtx)) { }
 
         using var silence = CreateBuffer(2, chunkSamples, (_, _) => 0f);
         node.RemoveInput(node.Inputs[0]);
-        node.AddInput(new StubInputNode(silence));
+        node.AddInput(new BufferReplayNode(silence));
 
         var nextStart = firstCtx.TimeRange.Start + firstCtx.TimeRange.Duration + offset;
         using var output = node.Process(CreateContext(chunkSamples, start: nextStart));
@@ -377,7 +351,7 @@ public class LimiterNodeTests
 
         using var stereoIn = CreateBuffer(2, sampleCount,
             (_, i) => 2.0f * MathF.Sin(2f * MathF.PI * 440f * i / SampleRate));
-        node.AddInput(new StubInputNode(stereoIn));
+        node.AddInput(new BufferReplayNode(stereoIn));
 
         using (var _ = node.Process(CreateContext(sampleCount, start: TimeSpan.Zero))) { }
 
@@ -385,7 +359,7 @@ public class LimiterNodeTests
         using var monoIn = CreateBuffer(1, sampleCount,
             (_, i) => 2.0f * MathF.Sin(2f * MathF.PI * 440f * i / SampleRate));
         node.RemoveInput(node.Inputs[0]);
-        node.AddInput(new StubInputNode(monoIn));
+        node.AddInput(new BufferReplayNode(monoIn));
 
         using var monoOut = node.Process(CreateContext(sampleCount, start: TimeSpan.FromSeconds(1)));
 
@@ -412,7 +386,7 @@ public class LimiterNodeTests
             sampleRate: sr);
 
         using var node = CreateNode(thresholdDb: thresholdDb);
-        node.AddInput(new StubInputNode(input));
+        node.AddInput(new BufferReplayNode(input));
 
         using var output = node.Process(CreateContext(sampleCount, sampleRate: sr));
 
@@ -442,7 +416,7 @@ public class LimiterNodeTests
         using var input48 = CreateBuffer(2, 4800,
             (_, i) => 2.0f * MathF.Sin(2f * MathF.PI * 440f * i / 48000),
             sampleRate: 48000);
-        node.AddInput(new StubInputNode(input48));
+        node.AddInput(new BufferReplayNode(input48));
         using (var _ = node.Process(CreateContext(4800, sampleRate: 48000, start: TimeSpan.Zero))) { }
 
         // Switch to a higher sample rate: _maxLookaheadSamples must grow to fit MaxLookaheadMs at
@@ -451,7 +425,7 @@ public class LimiterNodeTests
         using var input96 = CreateBuffer(2, 9600,
             (_, i) => 2.0f * MathF.Sin(2f * MathF.PI * 440f * i / 96000),
             sampleRate: 96000);
-        node.AddInput(new StubInputNode(input96));
+        node.AddInput(new BufferReplayNode(input96));
 
         using var output = node.Process(CreateContext(9600, sampleRate: 96000, start: TimeSpan.FromSeconds(5)));
 
@@ -478,7 +452,7 @@ public class LimiterNodeTests
             (_, i) => 2.0f * MathF.Sin(2f * MathF.PI * 440f * i / SampleRate));
 
         using var node = CreateNode(thresholdDb: thresholdDb, lookaheadMs: 0f);
-        node.AddInput(new StubInputNode(input));
+        node.AddInput(new BufferReplayNode(input));
 
         using var output = node.Process(CreateContext(sampleCount));
 
@@ -504,7 +478,7 @@ public class LimiterNodeTests
             (_, i) => 2.0f * MathF.Sin(2f * MathF.PI * 440f * i / SampleRate));
 
         using var node = CreateNode(thresholdDb: thresholdDb, lookaheadMs: MaxLookaheadMs);
-        node.AddInput(new StubInputNode(input));
+        node.AddInput(new BufferReplayNode(input));
 
         using var output = node.Process(CreateContext(sampleCount));
 
@@ -545,7 +519,7 @@ public class LimiterNodeTests
         using var input = CreateBuffer(2, sampleCount, (_, _) => -1.5f);
 
         using var node = CreateNode(thresholdDb: thresholdDb);
-        node.AddInput(new StubInputNode(input));
+        node.AddInput(new BufferReplayNode(input));
 
         using var output = node.Process(CreateContext(sampleCount));
 
@@ -568,7 +542,7 @@ public class LimiterNodeTests
         using var input = CreateBuffer(2, sampleCount, (_, _) => 0f);
 
         using var node = CreateNode();
-        node.AddInput(new StubInputNode(input));
+        node.AddInput(new BufferReplayNode(input));
 
         using var output = node.Process(CreateContext(sampleCount));
 
@@ -593,7 +567,7 @@ public class LimiterNodeTests
             (_, i) => 2.0f * MathF.Sin(2f * MathF.PI * 440f * i / SampleRate));
 
         using var node = CreateNode(thresholdDb: thresholdDb);
-        node.AddInput(new StubInputNode(input));
+        node.AddInput(new BufferReplayNode(input));
 
         using var output = node.Process(CreateContext(sampleCount));
 
@@ -618,7 +592,7 @@ public class LimiterNodeTests
             (_, i) => MathF.Sin(2f * MathF.PI * 440f * i / SampleRate));
 
         using var node = CreateNode(thresholdDb: 0f);
-        node.AddInput(new StubInputNode(input));
+        node.AddInput(new BufferReplayNode(input));
 
         using var output = node.Process(CreateContext(sampleCount));
 
@@ -645,7 +619,7 @@ public class LimiterNodeTests
             (_, i) => 1.5f * MathF.Sin(2f * MathF.PI * 440f * i / SampleRate));
 
         using var node = CreateNode(thresholdDb: 0f);
-        node.AddInput(new StubInputNode(input));
+        node.AddInput(new BufferReplayNode(input));
 
         using var output = node.Process(CreateContext(sampleCount));
 
@@ -670,7 +644,7 @@ public class LimiterNodeTests
         using var input = CreateBuffer(2, sampleCount, (_, _) => 1e-12f);
 
         using var node = CreateNode(thresholdDb: -60f);
-        node.AddInput(new StubInputNode(input));
+        node.AddInput(new BufferReplayNode(input));
 
         using var output = node.Process(CreateContext(sampleCount));
 
@@ -699,7 +673,7 @@ public class LimiterNodeTests
         using var input = CreateBuffer(1, sampleCount, (_, i) => i == 0 ? 0.5f : 0f);
 
         using var node = CreateNode(thresholdDb: 0f, lookaheadMs: lookaheadMs);
-        node.AddInput(new StubInputNode(input));
+        node.AddInput(new BufferReplayNode(input));
 
         using var output = node.Process(CreateContext(sampleCount));
 
@@ -792,7 +766,7 @@ public class LimiterNodeTests
             Lookahead = Property.CreateAnimatable(LookaheadMs),
             MakeupGain = Property.CreateAnimatable(0f),
         };
-        node.AddInput(new StubInputNode(input));
+        node.AddInput(new BufferReplayNode(input));
 
         using var output = node.Process(CreateContext(sampleCount));
 
@@ -826,7 +800,7 @@ public class LimiterNodeTests
             Lookahead = Property.CreateAnimatable(LookaheadMs),
             MakeupGain = Property.CreateAnimatable(0f),
         };
-        node.AddInput(new StubInputNode(input));
+        node.AddInput(new BufferReplayNode(input));
 
         using var output = node.Process(CreateContext(sampleCount));
 
@@ -864,7 +838,7 @@ public class LimiterNodeTests
             Lookahead = Property.CreateAnimatable(LookaheadMs),
             MakeupGain = Property.CreateAnimatable(0f),
         };
-        node.AddInput(new StubInputNode(input));
+        node.AddInput(new BufferReplayNode(input));
 
         using var output = node.Process(CreateContext(sampleCount));
 
@@ -900,7 +874,7 @@ public class LimiterNodeTests
             Lookahead = Property.CreateAnimatable(LookaheadMs),
             MakeupGain = Property.CreateAnimatable(0f),
         };
-        node.AddInput(new StubInputNode(input));
+        node.AddInput(new BufferReplayNode(input));
 
         using var output = node.Process(CreateContext(sampleCount));
 
@@ -935,7 +909,7 @@ public class LimiterNodeTests
                 : 0.1f * MathF.Sin(2f * MathF.PI * 1000f * i / SampleRate));
 
         using var node = CreateNode(thresholdDb: thresholdDb, releaseMs: releaseMs, lookaheadMs: 0f);
-        node.AddInput(new StubInputNode(input));
+        node.AddInput(new BufferReplayNode(input));
 
         using var output = node.Process(CreateContext(total));
 
@@ -982,7 +956,7 @@ public class LimiterNodeTests
             (_, i) => 2.0f * MathF.Sin(2f * MathF.PI * 440f * i / SampleRate));
 
         using var node = CreateNode(thresholdDb: thresholdDb, releaseMs: 5000f, lookaheadMs: 0f);
-        node.AddInput(new StubInputNode(hotInput));
+        node.AddInput(new BufferReplayNode(hotInput));
 
         var firstCtx = CreateContext(chunkSamples, start: TimeSpan.Zero);
         using var firstOut = node.Process(firstCtx);
@@ -1002,7 +976,7 @@ public class LimiterNodeTests
         node.RemoveInput(node.Inputs[0]);
         using var hotInput2 = CreateBuffer(1, chunkSamples,
             (_, i) => 2.0f * MathF.Sin(2f * MathF.PI * 440f * i / SampleRate));
-        node.AddInput(new StubInputNode(hotInput2));
+        node.AddInput(new BufferReplayNode(hotInput2));
 
         using var secondOut = node.Process(CreateContext(chunkSamples, start: secondStart));
         var secondData = secondOut.GetChannelData(0);
@@ -1029,8 +1003,8 @@ public class LimiterNodeTests
         using var input2 = CreateBuffer(2, 128, (_, _) => 0f);
 
         using var node = CreateNode();
-        node.AddInput(new StubInputNode(input1));
-        node.AddInput(new StubInputNode(input2));
+        node.AddInput(new BufferReplayNode(input1));
+        node.AddInput(new BufferReplayNode(input2));
 
         Assert.Throws<InvalidOperationException>(() => node.Process(CreateContext(128)));
     }
@@ -1049,7 +1023,7 @@ public class LimiterNodeTests
     {
         using var input = CreateBuffer(2, 128, (_, _) => 0f, sampleRate: 44100);
         using var node = CreateNode();
-        node.AddInput(new StubInputNode(input));
+        node.AddInput(new BufferReplayNode(input));
 
         // Context says 48000, input is 44100 — must surface as a clear error rather than
         // silently producing wrong-pitch output.
@@ -1071,7 +1045,7 @@ public class LimiterNodeTests
             Lookahead = Property.CreateAnimatable(float.NaN),
             MakeupGain = Property.CreateAnimatable(float.NaN),
         };
-        node.AddInput(new StubInputNode(input));
+        node.AddInput(new BufferReplayNode(input));
 
         using var output = node.Process(CreateContext(sampleCount));
 
@@ -1102,7 +1076,7 @@ public class LimiterNodeTests
             Lookahead = Property.CreateAnimatable(9999f),
             MakeupGain = Property.CreateAnimatable(999f),
         };
-        node.AddInput(new StubInputNode(input));
+        node.AddInput(new BufferReplayNode(input));
 
         using var output = node.Process(CreateContext(sampleCount));
 
@@ -1134,7 +1108,7 @@ public class LimiterNodeTests
         });
 
         using var node = CreateNode();
-        node.AddInput(new StubInputNode(input));
+        node.AddInput(new BufferReplayNode(input));
 
         using var output = node.Process(CreateContext(sampleCount));
 
@@ -1167,7 +1141,7 @@ public class LimiterNodeTests
         });
 
         using var node = CreateNode();
-        node.AddInput(new StubInputNode(input));
+        node.AddInput(new BufferReplayNode(input));
 
         using var output = node.Process(CreateContext(sampleCount));
 
@@ -1199,7 +1173,7 @@ public class LimiterNodeTests
                 : 0.5f * MathF.Sin(2f * MathF.PI * 440f * i / SampleRate));
 
         using var node = CreateNode();
-        node.AddInput(new StubInputNode(input));
+        node.AddInput(new BufferReplayNode(input));
 
         using var output = node.Process(CreateContext(sampleCount));
 
@@ -1219,7 +1193,7 @@ public class LimiterNodeTests
     {
         using var input = new AudioBuffer(SampleRate, 2, 0);
         using var node = CreateNode();
-        node.AddInput(new StubInputNode(input));
+        node.AddInput(new BufferReplayNode(input));
 
         using var output = node.Process(CreateContext(0));
         Assert.That(output.SampleCount, Is.EqualTo(0));
@@ -1240,7 +1214,7 @@ public class LimiterNodeTests
             (_, i) => 2.0f * MathF.Sin(2f * MathF.PI * 440f * i / SampleRate));
 
         using var node = CreateNode(releaseMs: 5000f);
-        node.AddInput(new StubInputNode(hotInput));
+        node.AddInput(new BufferReplayNode(hotInput));
 
         var firstCtx = CreateContext(chunkSamples, start: TimeSpan.Zero);
         using (var _ = node.Process(firstCtx)) { }
@@ -1248,12 +1222,12 @@ public class LimiterNodeTests
         var emptyStart = firstCtx.TimeRange.Start + firstCtx.TimeRange.Duration;
         using var emptyInput = new AudioBuffer(SampleRate, 2, 0);
         node.RemoveInput(node.Inputs[0]);
-        node.AddInput(new StubInputNode(emptyInput));
+        node.AddInput(new BufferReplayNode(emptyInput));
         using (var _ = node.Process(CreateContext(0, start: emptyStart))) { }
 
         using var silence = CreateBuffer(2, chunkSamples, (_, _) => 0f);
         node.RemoveInput(node.Inputs[0]);
-        node.AddInput(new StubInputNode(silence));
+        node.AddInput(new BufferReplayNode(silence));
 
         using var resumeOut = node.Process(CreateContext(chunkSamples, start: emptyStart));
 
@@ -1288,13 +1262,13 @@ public class LimiterNodeTests
             (_, i) => 2.0f * MathF.Sin(2f * MathF.PI * 440f * i / SampleRate));
 
         using var node = CreateNode();
-        node.AddInput(new StubInputNode(hotInput));
+        node.AddInput(new BufferReplayNode(hotInput));
         using (var _ = node.Process(CreateContext(chunkSamples, start: TimeSpan.Zero))) { }
 
         // Empty chunk at a position that is NOT contiguous with the first chunk.
         using var emptyInput = new AudioBuffer(SampleRate, 2, 0);
         node.RemoveInput(node.Inputs[0]);
-        node.AddInput(new StubInputNode(emptyInput));
+        node.AddInput(new BufferReplayNode(emptyInput));
         using (var _ = node.Process(CreateContext(0, start: TimeSpan.FromSeconds(10)))) { }
 
         // Resume with silence at the empty chunk's position. Since the empty chunk didn't update
@@ -1302,7 +1276,7 @@ public class LimiterNodeTests
         // so Reset() must fire and the silent input must produce silent output.
         using var silence = CreateBuffer(2, chunkSamples, (_, _) => 0f);
         node.RemoveInput(node.Inputs[0]);
-        node.AddInput(new StubInputNode(silence));
+        node.AddInput(new BufferReplayNode(silence));
 
         using var resumeOut = node.Process(CreateContext(chunkSamples, start: TimeSpan.FromSeconds(10)));
 
@@ -1323,7 +1297,7 @@ public class LimiterNodeTests
         var node = CreateNode();
         using var input = CreateBuffer(2, 128,
             (_, i) => 0.5f * MathF.Sin(2f * MathF.PI * 440f * i / SampleRate));
-        node.AddInput(new StubInputNode(input));
+        node.AddInput(new BufferReplayNode(input));
         using (var _ = node.Process(CreateContext(128))) { }
 
         node.Dispose();
@@ -1374,7 +1348,7 @@ public class LimiterNodeTests
 
             if (node.Inputs.Count > 0)
                 node.RemoveInput(node.Inputs[0]);
-            node.AddInput(new StubInputNode(input));
+            node.AddInput(new BufferReplayNode(input));
 
             var chunkStart = TimeSpan.FromTicks(totalDuration.Ticks * c / chunkCount);
             using var output = node.Process(CreateContext(chunkSamples, start: chunkStart));
@@ -1427,14 +1401,14 @@ public class LimiterNodeTests
             Lookahead = Property.CreateAnimatable(LookaheadMs),
             MakeupGain = Property.CreateAnimatable(0f),
         };
-        node.AddInput(new StubInputNode(hotInput));
+        node.AddInput(new BufferReplayNode(hotInput));
 
         var firstCtx = CreateContext(firstSampleCount, start: TimeSpan.Zero);
         using (var _ = node.Process(firstCtx)) { }
 
         using var silence = CreateBuffer(2, firstSampleCount, (_, _) => 0f);
         node.RemoveInput(node.Inputs[0]);
-        node.AddInput(new StubInputNode(silence));
+        node.AddInput(new BufferReplayNode(silence));
 
         // Jump ten seconds — must be detected as a discontinuity even on the animated path.
         var secondCtx = CreateContext(firstSampleCount, start: TimeSpan.FromSeconds(10));
@@ -1456,7 +1430,7 @@ public class LimiterNodeTests
     {
         var effect = new LimiterEffect();
         var ctx = new AudioContext(SampleRate, 2);
-        var input = ctx.AddNode(new StubInputNode(new AudioBuffer(SampleRate, 2, 0)));
+        var input = ctx.AddNode(new BufferReplayNode(new AudioBuffer(SampleRate, 2, 0)));
 
         var node = (LimiterNode)effect.CreateNode(ctx, input);
 
@@ -1497,7 +1471,7 @@ public class LimiterNodeTests
             (_, i) => 2.0f * MathF.Sin(2f * MathF.PI * 440f * i / SampleRate));
 
         using var node = CreateNode(thresholdDb: thresholdDb, makeupGainDb: makeupDb);
-        node.AddInput(new StubInputNode(input));
+        node.AddInput(new BufferReplayNode(input));
 
         using var output = node.Process(CreateContext(sampleCount));
 
@@ -1540,7 +1514,7 @@ public class LimiterNodeTests
                 (_, i) => 2.0f * MathF.Sin(2f * MathF.PI * 440f * i / SampleRate));
             var ctx = CreateContext(chunkSamples, start: start);
             node.ClearInputs();
-            node.AddInput(new StubInputNode(input));
+            node.AddInput(new BufferReplayNode(input));
             using var output = node.Process(ctx);
 
             Assert.That(output.ChannelCount, Is.EqualTo(channels));
@@ -1580,7 +1554,7 @@ public class LimiterNodeTests
             Lookahead = CreateAnimatedRamp(0f, MaxLookaheadMs, duration),
             MakeupGain = Property.CreateAnimatable(0f),
         };
-        node.AddInput(new StubInputNode(input));
+        node.AddInput(new BufferReplayNode(input));
 
         using var output = node.Process(CreateContext(sampleCount));
 
@@ -1615,7 +1589,7 @@ public class LimiterNodeTests
         });
 
         using var node = CreateNode(thresholdDb: thresholdDb, lookaheadMs: 0f);
-        node.AddInput(new StubInputNode(input));
+        node.AddInput(new BufferReplayNode(input));
 
         using var output = node.Process(CreateContext(sampleCount));
 
@@ -1662,7 +1636,7 @@ public class LimiterNodeTests
 
         using var node = CreateNode(thresholdDb: thresholdDb, releaseMs: 1f,
             lookaheadMs: MaxLookaheadMs);
-        node.AddInput(new StubInputNode(input));
+        node.AddInput(new BufferReplayNode(input));
 
         using var output = node.Process(CreateContext(sampleCount));
 
@@ -1768,9 +1742,9 @@ public class LimiterNodeTests
             var ctx = CreateContext(chunkSamples, start: start);
 
             staticNode.ClearInputs();
-            staticNode.AddInput(new StubInputNode(inStatic));
+            staticNode.AddInput(new BufferReplayNode(inStatic));
             animatedNode.ClearInputs();
-            animatedNode.AddInput(new StubInputNode(inAnimated));
+            animatedNode.AddInput(new BufferReplayNode(inAnimated));
 
             using var outStatic = staticNode.Process(ctx);
             using var outAnimated = animatedNode.Process(ctx);
@@ -1827,8 +1801,8 @@ public class LimiterNodeTests
         using (var inDeque1 = CreateBuffer(2, chunkSamples, (ch, i) => Gen(ch, i)))
         using (var inScan1 = CreateBuffer(2, chunkSamples, (ch, i) => Gen(ch, i)))
         {
-            dequeNode.AddInput(new StubInputNode(inDeque1));
-            scanNode.AddInput(new StubInputNode(inScan1));
+            dequeNode.AddInput(new BufferReplayNode(inDeque1));
+            scanNode.AddInput(new BufferReplayNode(inScan1));
             using var _d = dequeNode.Process(CreateContext(chunkSamples, start: TimeSpan.Zero));
             using var _s = scanNode.Process(CreateContext(chunkSamples, start: TimeSpan.Zero));
         }
@@ -1839,9 +1813,9 @@ public class LimiterNodeTests
         using var inDeque2 = CreateBuffer(2, chunkSamples, (ch, i) => Gen(ch, chunkSamples + i));
         using var inScan2 = CreateBuffer(2, chunkSamples, (ch, i) => Gen(ch, chunkSamples + i));
         dequeNode.ClearInputs();
-        dequeNode.AddInput(new StubInputNode(inDeque2));
+        dequeNode.AddInput(new BufferReplayNode(inDeque2));
         scanNode.ClearInputs();
-        scanNode.AddInput(new StubInputNode(inScan2));
+        scanNode.AddInput(new BufferReplayNode(inScan2));
 
         using var outDeque = dequeNode.Process(CreateContext(chunkSamples, start: dur1));
         using var outScan = scanNode.Process(CreateContext(chunkSamples, start: dur1));
@@ -1873,7 +1847,7 @@ public class LimiterNodeTests
             (_, i) => amp * MathF.Sin(2f * MathF.PI * 440f * i / SampleRate));
 
         using var node = CreateNode(thresholdDb: thresholdDb, lookaheadMs: 0f);
-        node.AddInput(new StubInputNode(input));
+        node.AddInput(new BufferReplayNode(input));
 
         using var output = node.Process(CreateContext(sampleCount));
 
@@ -1908,7 +1882,7 @@ public class LimiterNodeTests
             Lookahead = CreateAnimatedConstant(float.PositiveInfinity),
             MakeupGain = CreateAnimatedConstant(float.NaN),
         };
-        node.AddInput(new StubInputNode(input));
+        node.AddInput(new BufferReplayNode(input));
 
         using var output = node.Process(CreateContext(sampleCount));
 
@@ -1960,8 +1934,8 @@ public class LimiterNodeTests
         using (var inDeque1 = CreateBuffer(2, chunk1, (ch, i) => Gen(ch, i)))
         using (var inScan1 = CreateBuffer(2, chunk1, (ch, i) => Gen(ch, i)))
         {
-            dequeNode.AddInput(new StubInputNode(inDeque1));
-            scanNode.AddInput(new StubInputNode(inScan1));
+            dequeNode.AddInput(new BufferReplayNode(inDeque1));
+            scanNode.AddInput(new BufferReplayNode(inScan1));
             using var _d = dequeNode.Process(CreateContext(chunk1, start: TimeSpan.Zero));
             using var _s = scanNode.Process(CreateContext(chunk1, start: TimeSpan.Zero));
         }
@@ -1973,9 +1947,9 @@ public class LimiterNodeTests
         using var inDeque2 = CreateBuffer(2, chunk2, (ch, i) => Gen(ch, chunk1 + i));
         using var inScan2 = CreateBuffer(2, chunk2, (ch, i) => Gen(ch, chunk1 + i));
         dequeNode.ClearInputs();
-        dequeNode.AddInput(new StubInputNode(inDeque2));
+        dequeNode.AddInput(new BufferReplayNode(inDeque2));
         scanNode.ClearInputs();
-        scanNode.AddInput(new StubInputNode(inScan2));
+        scanNode.AddInput(new BufferReplayNode(inScan2));
 
         using var outDeque = dequeNode.Process(CreateContext(chunk2, start: dur1));
         using var outScan = scanNode.Process(CreateContext(chunk2, start: dur1));
@@ -2029,9 +2003,9 @@ public class LimiterNodeTests
             var ctx = CreateContext(chunkSamples, start: start);
 
             node.ClearInputs();
-            node.AddInput(new StubInputNode(inNode));
+            node.AddInput(new BufferReplayNode(inNode));
             reference.ClearInputs();
-            reference.AddInput(new StubInputNode(inRef));
+            reference.AddInput(new BufferReplayNode(inRef));
 
             using var outNode = node.Process(ctx);
             using var outRef = reference.Process(CreateContext(chunkSamples, start: start));
@@ -2099,9 +2073,9 @@ public class LimiterNodeTests
             var ctx = CreateContext(chunkSamples, start: start);
 
             staticNode.ClearInputs();
-            staticNode.AddInput(new StubInputNode(inStatic));
+            staticNode.AddInput(new BufferReplayNode(inStatic));
             animatedNode.ClearInputs();
-            animatedNode.AddInput(new StubInputNode(inAnimated));
+            animatedNode.AddInput(new BufferReplayNode(inAnimated));
 
             using var outStatic = staticNode.Process(ctx);
             using var outAnimated = animatedNode.Process(CreateContext(chunkSamples, start: start));
@@ -2153,9 +2127,9 @@ public class LimiterNodeTests
         using var inRamp = CreateBuffer(1, sampleCount, Gen);
         using var in0 = CreateBuffer(1, sampleCount, Gen);
         using var inMax = CreateBuffer(1, sampleCount, Gen);
-        ramped.AddInput(new StubInputNode(inRamp));
-        fixed0.AddInput(new StubInputNode(in0));
-        fixedMax.AddInput(new StubInputNode(inMax));
+        ramped.AddInput(new BufferReplayNode(inRamp));
+        fixed0.AddInput(new BufferReplayNode(in0));
+        fixedMax.AddInput(new BufferReplayNode(inMax));
 
         using var outRamp = ramped.Process(CreateContext(sampleCount));
         using var out0 = fixed0.Process(CreateContext(sampleCount));
@@ -2194,7 +2168,7 @@ public class LimiterNodeTests
         // Chunk 1: mono, silent — establishes the node at one channel.
         using (var mono = CreateBuffer(1, sampleCount, (_, _) => 0f))
         {
-            node.AddInput(new StubInputNode(mono));
+            node.AddInput(new BufferReplayNode(mono));
             using var _ = node.Process(CreateContext(sampleCount, start: TimeSpan.Zero));
         }
 
@@ -2202,7 +2176,7 @@ public class LimiterNodeTests
         var dur = TimeSpan.FromSeconds((double)sampleCount / SampleRate);
         using var stereo = CreateBuffer(2, sampleCount, (_, i) => i == 0 ? 0.5f : 0f);
         node.ClearInputs();
-        node.AddInput(new StubInputNode(stereo));
+        node.AddInput(new BufferReplayNode(stereo));
         using var output = node.Process(CreateContext(sampleCount, start: dur));
 
         Assert.That(output.ChannelCount, Is.EqualTo(2));
@@ -2234,7 +2208,7 @@ public class LimiterNodeTests
             releaseMs: DefaultReleaseMs,
             lookaheadMs: DefaultLookaheadMs,
             makeupGainDb: DefaultMakeupGainDb);
-        node.AddInput(new StubInputNode(input));
+        node.AddInput(new BufferReplayNode(input));
 
         using var output = node.Process(CreateContext(sampleCount));
 
