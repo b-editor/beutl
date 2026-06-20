@@ -244,8 +244,7 @@ public class FFmpegOptionsCacheTests
     [Test]
     public async Task Clear_WhileQueryInFlight_StaleResultIsNotCached()
     {
-        // A query that started before Clear() must not write its (now stale) result into the cache
-        // after the reset — otherwise a worker-restart reset is silently undone by the old answer.
+        // A query started before Clear() must not write its stale result back after the reset.
         var cache = new FFmpegOptionsCache<int>();
         var stale = new TaskCompletionSource<OptionsQueryResult<int>>();
         var fresh = new TaskCompletionSource<OptionsQueryResult<int>>();
@@ -269,9 +268,8 @@ public class FFmpegOptionsCacheTests
     [Test]
     public async Task Clear_WhileQueryInFlight_StaleCompletionKeepsNewerInFlightEntry()
     {
-        // The pre-Clear query's cleanup removes its in-flight bookkeeping by key; it must not evict the
-        // newer query that took over the key after Clear(), or single-flight breaks and a later caller
-        // would launch a duplicate worker query instead of joining the running one.
+        // The pre-Clear query's cleanup must not evict the newer query that took over the key after
+        // Clear(), or single-flight breaks and a later caller would re-query instead of joining.
         var cache = new FFmpegOptionsCache<int>();
         var stale = new TaskCompletionSource<OptionsQueryResult<int>>();
         var fresh = new TaskCompletionSource<OptionsQueryResult<int>>();
@@ -285,9 +283,8 @@ public class FFmpegOptionsCacheTests
         await before;
 
         // The post-Clear query is still in flight, so a new caller must join it without re-querying.
-        // The joiner returns a distinct value, so a single-flight regression (joining failing and the
-        // joiner running its own query) is caught by both the unused-factory count and the result below
-        // rather than being masked by the two queries happening to share the same gate.
+        // The joiner's factory returns a distinct value, so a single-flight regression shows up in both
+        // the unused-factory count and the result below.
         int extraCalls = 0;
         Task<OptionsQueryResult<int>> joiner = cache.GetOrQueryAsync(
             "aac", () => { extraCalls++; return Ok(-1); });

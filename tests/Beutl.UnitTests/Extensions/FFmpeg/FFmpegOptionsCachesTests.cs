@@ -5,9 +5,7 @@ using NUnit.Framework;
 
 namespace Beutl.UnitTests.Extensions.FFmpeg;
 
-// Exercises the process-shared caches. Because the holder exposes static singletons, every test must
-// clear them in TearDown so a populated entry can't leak into a sibling test (the per-option-type
-// caches are independent, but all three are reset together for simplicity).
+// The holder exposes static singletons, so each test clears them around itself to avoid cross-test leakage.
 [TestFixture]
 public class FFmpegOptionsCachesTests
 {
@@ -29,9 +27,7 @@ public class FFmpegOptionsCachesTests
     [Test]
     public void EachCache_ReturnsSameInstanceAcrossAccesses()
     {
-        // The whole point of the holder is that every editor instance sees the same cache, so a codec
-        // queried by one editor is served from cache to the next. A property returning a new instance
-        // each call would silently defeat that sharing.
+        // Each property must return the same instance every time, or editors wouldn't share a cache.
         Assert.That(ReferenceEquals(FFmpegOptionsCaches.AudioFormats, FFmpegOptionsCaches.AudioFormats), Is.True);
         Assert.That(ReferenceEquals(FFmpegOptionsCaches.PixelFormats, FFmpegOptionsCaches.PixelFormats), Is.True);
         Assert.That(ReferenceEquals(FFmpegOptionsCaches.SampleRates, FFmpegOptionsCaches.SampleRates), Is.True);
@@ -40,8 +36,8 @@ public class FFmpegOptionsCachesTests
     [Test]
     public async Task AudioFormats_SharedAcrossLogicalEditors_DedupesWorkerQuery()
     {
-        // Two independent "editor" code paths that both ask for the same codec must share one factory
-        // invocation — single-flight is now cross-instance, which is the fix for the finding.
+        // Two editor code paths asking for the same codec must share one factory invocation
+        // (single-flight is now cross-instance).
         int calls = 0;
         var gate = new TaskCompletionSource<OptionsQueryResult<FFmpegAudioEncoderSettings.AudioFormat>>();
 

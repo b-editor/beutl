@@ -14,15 +14,10 @@ internal readonly record struct OptionsQueryResult<T>(T[] Items, bool Degraded);
 /// Concurrent requests for the same key share a single in-flight query (single-flight).
 /// </summary>
 /// <remarks>
-/// <para>
 /// The shared query is not tied to any caller's <see cref="CancellationToken"/>, so abandoning one
-/// request never faults the result for others that joined the same query. Degraded results are
-/// surfaced to every awaiter but never cached, so the next visit re-queries.
-/// </para>
-/// <para>
+/// request never faults the result for others that joined it. Degraded results are never cached.
 /// Cached entries are bounded by a least-recently-used cap so a process-shared cache cannot grow
-/// without limit as keys (which embed the output file path) accumulate over a long editing session.
-/// </para>
+/// without limit as keys accumulate over a long editing session.
 /// </remarks>
 internal sealed class FFmpegOptionsCache<T>
 {
@@ -31,17 +26,16 @@ internal sealed class FFmpegOptionsCache<T>
     private readonly Dictionary<string, LinkedListNode<(string Key, T[] Items)>> _cache = [];
     private readonly LinkedList<(string Key, T[] Items)> _recency = new();
 
-    // Each in-flight query carries a monotonic token. Clear() drops the bookkeeping mid-flight, so a
-    // superseded query must not, when it finally completes, cache its now-stale result or remove the
-    // registration of the newer query that took over its key — the token tells the two apart.
+    // The token distinguishes a query from one that superseded it after a mid-flight Clear(), so the
+    // older query won't cache a stale result or evict the newer registration when it completes.
     private readonly Dictionary<string, (Task<OptionsQueryResult<T>> Task, long Token)> _inflight = [];
     private readonly object _gate = new();
     private readonly int _maxCachedEntries;
     private long _nextToken;
 
     /// <param name="maxCachedEntries">
-    /// Upper bound on retained authoritative entries; the least-recently-used entry is evicted once the
-    /// bound is exceeded. An evicted key is simply re-queried on its next visit.
+    /// Upper bound on retained entries; the least-recently-used one is evicted past the bound and
+    /// simply re-queried on its next visit.
     /// </param>
     public FFmpegOptionsCache(int maxCachedEntries = DefaultMaxCachedEntries)
     {
@@ -67,12 +61,10 @@ internal sealed class FFmpegOptionsCache<T>
     }
 
     /// <summary>
-    /// Drops every cached entry and abandons single-flight tracking for keys whose factory has not
-    /// completed yet. In-flight tasks are not cancelled (their awaiters still observe the result);
-    /// only the bookkeeping that dedupes <em>new</em> callers is cleared, so a caller that arrives
-    /// after <see cref="Clear"/> may launch a fresh query even while a previous one is still running.
-    /// Such a superseded query neither caches its result nor disturbs the newer query's registration.
-    /// Used to reset a process-shared cache (e.g. after the FFmpeg worker restarts).
+    /// Drops every cached entry and the single-flight bookkeeping. In-flight tasks keep running (their
+    /// awaiters still get the result), but a caller arriving after <see cref="Clear"/> may launch a
+    /// fresh query; that superseded query neither caches its result nor disturbs the newer one.
+    /// Used to reset a process-shared cache, e.g. after the FFmpeg worker restarts.
     /// </summary>
     public void Clear()
     {
@@ -122,8 +114,8 @@ internal sealed class FFmpegOptionsCache<T>
             {
                 lock (_gate)
                 {
-                    // Skip the write if Clear() (or a later query) superseded us: our token no longer
-                    // owns the key, so caching here would resurrect a stale result.
+                    // Skip the write if a Clear() or later query superseded us; caching now would
+                    // resurrect a stale result.
                     if (IsCurrent(key, token))
                         Store(key, result.Items);
                 }
@@ -135,8 +127,7 @@ internal sealed class FFmpegOptionsCache<T>
         {
             lock (_gate)
             {
-                // Remove only our own registration; after Clear() a newer query may own this key and
-                // must not be evicted by a superseded predecessor.
+                // Remove only our own registration; a newer query may now own this key.
                 if (IsCurrent(key, token))
                     _inflight.Remove(key);
             }
