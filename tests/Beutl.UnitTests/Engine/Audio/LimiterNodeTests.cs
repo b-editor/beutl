@@ -1665,7 +1665,7 @@ public class LimiterNodeTests
 
         using var input = CreateBuffer(1, 1, (_, _) => 0f);
         using var node = CreateNode(lookaheadMs: 0f);
-        node.AddInput(new StubInputNode(input));
+        node.AddInput(new BufferReplayNode(input));
 
         using var _ = node.Process(CreateContext(1));
 
