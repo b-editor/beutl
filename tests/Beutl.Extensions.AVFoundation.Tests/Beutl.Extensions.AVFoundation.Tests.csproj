@@ -27,21 +27,13 @@
     <None Include="Fixtures\**\*.*" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
-  <!-- The Swift dylib lives under the referenced project's runtimes/ folder. ProjectReferences
-       don't transitively copy native runtime assets the way NuGet packages do, so mirror them
-       into this project's output so the test host can resolve `BeutlAVF.dylib`. -->
-  <Target Name="CopyBeutlAVFDylibsForTests"
-          AfterTargets="Build"
-          Condition="'$([MSBuild]::IsOSPlatform(OSX))' == 'true'">
-    <PropertyGroup>
-      <_BeutlAVFSourceRuntimes>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)../../src/Beutl.Extensions.AVFoundation/runtimes'))</_BeutlAVFSourceRuntimes>
-    </PropertyGroup>
-    <ItemGroup>
-      <_BeutlAVFDylib Include="$(_BeutlAVFSourceRuntimes)/**/*.dylib" />
-    </ItemGroup>
-    <Copy SourceFiles="@(_BeutlAVFDylib)"
-          DestinationFiles="@(_BeutlAVFDylib->'$(OutDir)runtimes/%(RecursiveDir)%(Filename)%(Extension)')"
-          SkipUnchangedFiles="true" />
-  </Target>
+  <!-- Mirror the AVF dylib into this project's output (ProjectReferences don't copy native
+       runtimes/ assets) so the test host can resolve libBeutlAVF.dylib. BeutlAVFOwnsSwiftBuild=false
+       imports only the mirror target; gated on macOS where the dylib loads. -->
+  <PropertyGroup>
+    <BeutlAVFOwnsSwiftBuild>false</BeutlAVFOwnsSwiftBuild>
+    <CopyBeutlAVFDylibsToOutput Condition="'$([MSBuild]::IsOSPlatform(OSX))' == 'true'">true</CopyBeutlAVFDylibsToOutput>
+  </PropertyGroup>
+  <Import Project="..\..\src\Beutl.Extensions.AVFoundation\build\BeutlAVF.targets" />
 
 </Project>

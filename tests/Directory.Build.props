@@ -3,13 +3,22 @@
   <Import Project="$([MSBuild]::GetPathOfFileAbove('Directory.Build.props', '$(MSBuildThisFileDirectory)../'))" />
 
   <PropertyGroup>
-    <TargetFramework>net10.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
   </PropertyGroup>
 
   <ItemGroup>
     <Compile Include="$(MSBuildThisFileDirectory)\ArtifactProvider.cs" />
+  </ItemGroup>
+
+  <!-- coverlet.collector shared across every real test project (gated on IsTestProject so non-test
+       executables skip it). Beutl.UnitTests declares its own, so it is excluded here to avoid a
+       duplicate under central package management. -->
+  <ItemGroup Condition="'$(IsTestProject)' == 'true' And '$(MSBuildProjectName)' != 'Beutl.UnitTests'">
+    <PackageReference Include="coverlet.collector">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
   </ItemGroup>
 
 </Project>

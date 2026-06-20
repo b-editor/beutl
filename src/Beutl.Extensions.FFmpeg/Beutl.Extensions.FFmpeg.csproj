@@ -7,18 +7,20 @@
     <Authors>b-editor</Authors>
 
     <FFmpegBuildIn Condition="'$(FFmpegBuildIn)' == ''">True</FFmpegBuildIn>
+    <SideloadOutput Condition="'$(FFmpegBuildIn)'!='True'">true</SideloadOutput>
     <DefineConstants Condition="'$(FFmpegBuildIn)'=='True'">$(DefineConstants);FFMPEG_BUILD_IN</DefineConstants>
 
     <!-- The FFmpeg-calling code lives in the GPL Beutl.FFmpegWorker (separate process); this
          extension only hosts the MIT-licensed IPC proxy + UI, so it is unconditionally MIT. -->
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
+
+    <UseResXGenerator>true</UseResXGenerator>
   </PropertyGroup>
 
+  <!-- Sideload output layout; see build/props/SideloadOutput.props. -->
+  <Import Project="$(RootDirectory)build\props\SideloadOutput.props" />
+
   <ItemGroup>
-    <PackageReference Include="Aigamo.ResXGenerator">
-      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
-      <PrivateAssets>all</PrivateAssets>
-    </PackageReference>
     <PackageReference Include="FluentAvaloniaUI" />
     <PackageReference Include="ReactiveProperty" />
   </ItemGroup>
@@ -40,12 +42,5 @@
       <LogicalName>askpass.js</LogicalName>
     </EmbeddedResource>
   </ItemGroup>
-
-  <PropertyGroup Condition="'$(FFmpegBuildIn)'!='True' And '$(Configuration)'=='Debug' And '$(CI)'!='true'">
-    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
-    <AppendRuntimeIdentifierToOutputPath>false</AppendRuntimeIdentifierToOutputPath>
-    <EnableDynamicLoading>true</EnableDynamicLoading>
-    <OutputPath>$([System.Environment]::GetFolderPath(SpecialFolder.UserProfile))\.beutl\sideloads\$(AssemblyName)</OutputPath>
-  </PropertyGroup>
 
 </Project>

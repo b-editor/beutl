@@ -5,4 +5,23 @@
       <_Parameter2>$(Version)</_Parameter2>
     </AssemblyAttribute>
   </ItemGroup>
+
+  <!-- RID set, opted into with <DesktopExeRids>true</DesktopExeRids>; narrowed to win-x64 on a Windows TFM. -->
+  <PropertyGroup Condition="'$(DesktopExeRids)' == 'true'">
+    <RuntimeIdentifiers>win-x64;linux-x64;osx-x64;osx-arm64</RuntimeIdentifiers>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(DesktopExeRids)' == 'true' And $(TargetFramework.Contains('windows'))">
+    <RuntimeIdentifiers>win-x64</RuntimeIdentifiers>
+  </PropertyGroup>
+
+  <!-- Sideload output layout is not hoisted here: it sets OutputPath, which must be set before
+       OutDir is derived (too late in this file). See build/props/SideloadOutput.props. -->
+
+  <!-- Aigamo.ResXGenerator reference, opted into with <UseResXGenerator>true</UseResXGenerator>. -->
+  <ItemGroup Condition="'$(UseResXGenerator)' == 'true'">
+    <PackageReference Include="Aigamo.ResXGenerator">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+  </ItemGroup>
 </Project>

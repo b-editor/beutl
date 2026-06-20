@@ -1,19 +1,15 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
+    <TargetFramework></TargetFramework><!-- empty so the TFMs below cross-target -->
+    <TargetFrameworks>net10.0;net10.0-windows</TargetFrameworks>
     <OutputType>WinExe</OutputType>
     <NeutralLanguage>en</NeutralLanguage>
     <SelfContained>false</SelfContained>
     <DefineConstants>$(DefineConstants);Beutl_ExceptionHandler</DefineConstants>
-    <RuntimeIdentifiers>win-x64;linux-x64;osx-x64;osx-arm64</RuntimeIdentifiers>
-  </PropertyGroup>
-  <PropertyGroup Condition="$(TargetFramework.Contains('windows'))">
-    <RuntimeIdentifiers>win-x64</RuntimeIdentifiers>
+    <DesktopExeRids>true</DesktopExeRids>
+    <UseResXGenerator>true</UseResXGenerator>
   </PropertyGroup>
   <ItemGroup>
-    <PackageReference Include="Aigamo.ResXGenerator">
-      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
-      <PrivateAssets>all</PrivateAssets>
-    </PackageReference>
     <PackageReference Include="Avalonia" />
     <PackageReference Include="Avalonia.Desktop" />
     <PackageReference Condition="'$(Configuration)' == 'Debug'" Include="Avalonia.Diagnostics" />

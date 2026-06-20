@@ -12,14 +12,11 @@
     <Authors>b-editor</Authors>
     <AvaloniaUseCompiledBindingsByDefault>false</AvaloniaUseCompiledBindingsByDefault>
     <EnableAvaloniaXamlCompilation>false</EnableAvaloniaXamlCompilation>
+    <SideloadOutput>true</SideloadOutput>
   </PropertyGroup>
 
-  <PropertyGroup Condition="'$(Configuration)'=='Debug' And '$(CI)'!='true'">
-    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
-    <AppendRuntimeIdentifierToOutputPath>false</AppendRuntimeIdentifierToOutputPath>
-    <EnableDynamicLoading>true</EnableDynamicLoading>
-    <OutputPath>$([System.Environment]::GetFolderPath(SpecialFolder.UserProfile))\.beutl\sideloads\$(AssemblyName)</OutputPath>
-  </PropertyGroup>
+  <!-- Sideload output layout; see build/props/SideloadOutput.props. -->
+  <Import Project="$(RootDirectory)build\props\SideloadOutput.props" />
 
   <ItemGroup>
     <Compile Remove="$(MSBuildThisFileDirectory)\..\ArtifactProvider.cs" />
