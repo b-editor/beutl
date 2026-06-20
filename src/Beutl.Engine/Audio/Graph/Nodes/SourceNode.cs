@@ -18,6 +18,16 @@ public sealed class SourceNode : AudioNode
         var resource = Source.Value.Resource;
         var sampleCount = context.GetSampleCount();
         var buffer = new AudioBuffer(context.SampleRate, 2, sampleCount);
+
+        // An unloaded or failed-to-open source keeps SampleRate == 0 (its MediaReader never opened — e.g.
+        // a moved / deleted / unsupported file). Such a source is unreadable, so return silence: feeding 0
+        // into TimeToSampleIndex below would throw (non-positive rate) and leak this buffer before the try
+        // block, regressing the prior "missing audio file -> silence" behavior into a render-pipeline throw.
+        if (resource.SampleRate <= 0)
+        {
+            return buffer;
+        }
+
         long start = AudioMath.TimeToSampleIndex(context.TimeRange.Start, resource.SampleRate);
         long length = (long)Math.Ceiling(context.TimeRange.Duration.TotalSeconds * resource.SampleRate);
 
