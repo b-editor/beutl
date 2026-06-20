@@ -77,6 +77,16 @@ public class LimiterNodeTests
         public override AudioBuffer Process(AudioProcessContext context) => null!;
     }
 
+    private sealed class DisposedInputNode(int sampleRate, int channels, int count) : AudioNode
+    {
+        public override AudioBuffer Process(AudioProcessContext context)
+        {
+            var buffer = new AudioBuffer(sampleRate, channels, count);
+            buffer.Dispose();
+            return buffer;
+        }
+    }
+
     [Test]
     public void Process_BelowThreshold_PassesThroughUnchanged()
     {
@@ -728,6 +738,25 @@ public class LimiterNodeTests
         });
         prop.Animation = animation;
         return prop;
+    }
+
+    [TestCase(false)]
+    [TestCase(true)]
+    public void Process_FailureAfterOutputAllocation_DisposesOutputBuffer(bool animated)
+    {
+        using var node = new LimiterNode
+        {
+            Threshold = animated ? CreateAnimatedConstant(DefaultThresholdDb) : Property.CreateAnimatable(DefaultThresholdDb),
+            Release = Property.CreateAnimatable(DefaultReleaseMs),
+            Lookahead = Property.CreateAnimatable(LookaheadMs),
+            MakeupGain = Property.CreateAnimatable(DefaultMakeupGainDb),
+        };
+        node.AddInput(new DisposedInputNode(SampleRate, 2, 16));
+
+        Assert.Throws<ObjectDisposedException>(() => node.Process(CreateContext(16)));
+
+        Assert.That(node.OutputBuffersDisposedAfterFailure, Is.EqualTo(1),
+            "The node owns a newly allocated output until Process returns it to the caller.");
     }
 
     [Test]
