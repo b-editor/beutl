@@ -14,8 +14,11 @@ internal sealed class HistoryMutationPlaybackGuard : IDisposable
         await _gate.WaitAsync();
         try
         {
-            if (shouldPause() && player?.IsPlaying.Value == true)
+            if (shouldPause() && player is not null)
             {
+                // Pause() is a no-op when nothing is playing, but still awaits any
+                // in-flight drain, so call it whenever a mutation is pending rather
+                // than gating on IsPlaying (which a mid-drain pause has already cleared).
                 await player.Pause();
             }
 

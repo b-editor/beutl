@@ -1308,13 +1308,18 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
 
     public async Task Pause()
     {
-        if (!IsPlaying.Value) return;
+        if (IsPlaying.Value)
+        {
+            _logger.LogInformation("Pause the playback. ({SceneId})", _editViewModel.SceneId);
+            _isShuttling = false;
+            IsPlaying.Value = false;
+            PlaybackSpeed.Value = 1.0f;
+            PlaybackDirection.Value = ViewModels.PlaybackDirection.Stopped;
+        }
 
-        _logger.LogInformation("Pause the playback. ({SceneId})", _editViewModel.SceneId);
-        _isShuttling = false;
-        IsPlaying.Value = false;
-        PlaybackSpeed.Value = 1.0f;
-        PlaybackDirection.Value = ViewModels.PlaybackDirection.Stopped;
+        // Await the playback task even when already stopped, so a pause arriving
+        // while a previous pause is still draining still blocks until the pipeline
+        // finishes before the caller mutates frame-size-sensitive state.
         await _playbackTask;
     }
 

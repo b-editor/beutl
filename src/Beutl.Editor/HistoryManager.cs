@@ -59,6 +59,23 @@ public sealed class HistoryManager : IDisposable
     public int CurrentIndex => _undoStack.Count;
 
     /// <summary>
+    /// Whether the current uncommitted transaction holds operations — meaning a
+    /// history mutation can still change scene state (via the <see cref="BeforeMutation"/>
+    /// flush) even when <see cref="CanUndo"/> / <see cref="CanRedo"/> are false.
+    /// </summary>
+    public bool HasPendingOperations
+    {
+        get
+        {
+            ThrowIfDisposed();
+            lock (_lock)
+            {
+                return _currentTransaction.HasOperations;
+            }
+        }
+    }
+
+    /// <summary>
     /// Returns a thread-safe snapshot of the current entries taken under the
     /// internal lock. Use this from threads other than the writer to avoid
     /// racing with concurrent <see cref="Commit"/>, <see cref="Clear"/>, or
@@ -75,15 +92,21 @@ public sealed class HistoryManager : IDisposable
 
     /// <summary>
     /// Returns <see langword="true"/> if <see cref="JumpTo"/> with <paramref name="index"/>
-    /// would move the current position — i.e. the index is in range and differs from
-    /// <see cref="CurrentIndex"/>. Evaluated under the internal lock.
+    /// would mutate state — the index is in range and either differs from
+    /// <see cref="CurrentIndex"/> or a pending transaction would be rolled back.
+    /// Evaluated under the internal lock.
     /// </summary>
     public bool WouldJumpToMove(int index)
     {
         ThrowIfDisposed();
         lock (_lock)
         {
-            return index >= 0 && index < _entries.Count && index != _undoStack.Count;
+            if (index < 0 || index >= _entries.Count)
+            {
+                return false;
+            }
+
+            return index != _undoStack.Count || _currentTransaction.HasOperations;
         }
     }
 

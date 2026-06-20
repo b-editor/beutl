@@ -798,7 +798,9 @@ public sealed partial class EditViewModel : IEditorContext, ISupportAutoSaveEdit
             "Undo",
             "Undoing last command.",
             "Undo completed.",
-            () => HistoryManager.CanUndo,
+            // A pending transaction is flushed onto the undo stack by BeforeMutation
+            // before Undo() runs, so it can revert scene state even when CanUndo is false.
+            () => HistoryManager.CanUndo || HistoryManager.HasPendingOperations,
             HistoryManager.Undo);
     }
 
