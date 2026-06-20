@@ -1,6 +1,6 @@
 # tests/ — local context
 
-All test projects are NUnit (+ Moq where needed). Use this index when picking the right project for a new test.
+The unit-test suites here are NUnit (+ Moq where needed) — but not every project under `tests/` is an NUnit suite (some are BenchmarkDotNet benchmarks, manual visual harnesses, or interactive previewers; see the notes below the table). Use this index when picking the right project for a new test.
 
 ## Where new tests go
 
