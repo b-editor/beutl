@@ -51,4 +51,8 @@
     </Otherwise>
   </Choose>
 
+  <!-- Sideload output layout (props-time; see build/props/SideloadOutput.props). Guarded by the
+       SideloadOutput property set in the non-built-in Choose arm above. -->
+  <Import Project="$(RootDirectory)build\props\SideloadOutput.props" />
+
 </Project>

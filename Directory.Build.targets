@@ -17,18 +17,10 @@
     <RuntimeIdentifiers>win-x64</RuntimeIdentifiers>
   </PropertyGroup>
 
-  <!-- Sideload output layout for dynamically loaded extension packages, opted into with
-       <SideloadOutput>true</SideloadOutput>. Mirrors the package into the user's
-       ~/.beutl/sideloads/<AssemblyName> folder so a local dev build is picked up by the
-       running app. Each consuming project keeps its OWN additional activation guard (e.g.
-       FFmpegBuildIn!=True, or MediaFoundation's non-built-in Choose arm) and only sets
-       SideloadOutput=true inside that guard. The shared Debug / non-CI condition lives here. -->
-  <PropertyGroup Condition="'$(SideloadOutput)' == 'true' And '$(Configuration)'=='Debug' And '$(CI)'!='true'">
-    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
-    <AppendRuntimeIdentifierToOutputPath>false</AppendRuntimeIdentifierToOutputPath>
-    <EnableDynamicLoading>true</EnableDynamicLoading>
-    <OutputPath>$([System.Environment]::GetFolderPath(SpecialFolder.UserProfile))\.beutl\sideloads\$(AssemblyName)</OutputPath>
-  </PropertyGroup>
+  <!-- NOTE: the sideload output-layout block is NOT hoisted here. It sets OutputPath, which must be
+       evaluated before Microsoft.Common.CurrentVersion.targets derives OutDir/TargetDir; a property
+       set in Directory.Build.targets runs too late. It lives in build/props/SideloadOutput.props,
+       imported from each consuming project's body. -->
 
   <!-- Aigamo.ResXGenerator analyzer reference, opted into with <UseResXGenerator>true</UseResXGenerator>.
        The ResXGenerator_* configuration properties stay global in Directory.Build.props; only the

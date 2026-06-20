@@ -15,6 +15,10 @@
     <SideloadOutput>true</SideloadOutput>
   </PropertyGroup>
 
+  <!-- Sideload output layout (props-time; see build/props/SideloadOutput.props). Guarded by the
+       SideloadOutput property set above. -->
+  <Import Project="$(RootDirectory)build\props\SideloadOutput.props" />
+
   <ItemGroup>
     <Compile Remove="$(MSBuildThisFileDirectory)\..\ArtifactProvider.cs" />
   </ItemGroup>
