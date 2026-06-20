@@ -60,7 +60,7 @@ sha256_of() {
 }
 
 run_with_timeout() {
-  timeout_seconds="$1"
+  local timeout_seconds="$1"
   shift
 
   if command -v timeout >/dev/null 2>&1; then
