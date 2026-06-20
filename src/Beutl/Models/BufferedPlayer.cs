@@ -49,8 +49,8 @@ public sealed class BufferedPlayer : IPlayer
 
         _disposable = isPlaying.Where(v => !v).Subscribe(_ =>
         {
-            CancellationTokenSourceHelper.CancelIgnoringDisposed(_waitRenderToken);
-            CancellationTokenSourceHelper.CancelIgnoringDisposed(_waitTimerToken);
+            _waitRenderToken.CancelIgnoringDisposed();
+            _waitTimerToken.CancelIgnoringDisposed();
         });
     }
 
@@ -115,7 +115,7 @@ public sealed class BufferedPlayer : IPlayer
                         }
                     }
 
-                    CancellationTokenSourceHelper.CancelIgnoringDisposed(_waitRenderToken);
+                    _waitRenderToken.CancelIgnoringDisposed();
                     if (_isPlaying.Value)
                         _editViewModel.BufferStatus.EndTime.Value = time;
 
@@ -155,15 +155,15 @@ public sealed class BufferedPlayer : IPlayer
                 // instead of blocking forever on a wakeup that will never come (the lost-wakeup hang).
                 _producerStopped = true;
                 Interlocked.MemoryBarrier();
-                CancellationTokenSourceHelper.CancelIgnoringDisposed(_waitRenderToken);
-                CancellationTokenSourceHelper.CancelIgnoringDisposed(_waitTimerToken);
+                _waitRenderToken.CancelIgnoringDisposed();
+                _waitTimerToken.CancelIgnoringDisposed();
             }
         }, Threading.DispatchPriority.High);
     }
 
     public bool TryDequeue(out IPlayer.Frame frame)
     {
-        CancellationTokenSourceHelper.CancelIgnoringDisposed(_waitTimerToken);
+        _waitTimerToken.CancelIgnoringDisposed();
         if (_queue.TryDequeue(out IPlayer.Frame f))
         {
             frame = f;
@@ -196,9 +196,8 @@ public sealed class BufferedPlayer : IPlayer
         _waitRenderToken = null;
     }
 
-    // Only ever called from the producer loop in Start(), so it is the sole waiter on _waitTimerToken. That
-    // confinement is what lets it skip WaitRender's post-publish re-check and dispose the CTS on return: every other
-    // thread only cancels this token, never waits on it, so the disposed-token cancel race is the helper's to absorb.
+    // Sole waiter on _waitTimerToken (called only from the producer loop), so unlike WaitRender it needs no
+    // post-publish re-check.
     private void WaitTimer()
     {
         if (_isDisposed) return;
@@ -221,8 +220,8 @@ public sealed class BufferedPlayer : IPlayer
             _logger.LogInformation("Disposing BufferedPlayer.");
 
             _isDisposed = true;
-            CancellationTokenSourceHelper.CancelIgnoringDisposed(_waitRenderToken);
-            CancellationTokenSourceHelper.CancelIgnoringDisposed(_waitTimerToken);
+            _waitRenderToken.CancelIgnoringDisposed();
+            _waitTimerToken.CancelIgnoringDisposed();
             _disposable.Dispose();
             while (_queue.TryDequeue(out var f))
             {

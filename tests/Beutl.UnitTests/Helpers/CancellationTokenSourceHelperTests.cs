@@ -10,7 +10,7 @@ public class CancellationTokenSourceHelperTests
     {
         using var cts = new CancellationTokenSource();
 
-        CancellationTokenSourceHelper.CancelIgnoringDisposed(cts);
+        cts.CancelIgnoringDisposed();
 
         Assert.That(cts.IsCancellationRequested, Is.True);
     }
@@ -21,15 +21,13 @@ public class CancellationTokenSourceHelperTests
         using var cts = new CancellationTokenSource();
         cts.Dispose();
 
-        Assert.DoesNotThrow(() => CancellationTokenSourceHelper.CancelIgnoringDisposed(cts));
+        Assert.DoesNotThrow(() => cts.CancelIgnoringDisposed());
     }
 
     [Test]
     public void CancelIgnoringDisposed_NullTokenSource_IsNoOp()
     {
-        // The BufferedPlayer call sites pass a volatile field that is frequently null (e.g. _waitTimerToken before
-        // any WaitTimer, or after a wait resets it); pin that null is a safe no-op so a later non-conditional Cancel
-        // cannot silently regress.
+        // Call sites pass a volatile field that is frequently null.
         Assert.DoesNotThrow(() => CancellationTokenSourceHelper.CancelIgnoringDisposed(null));
     }
 
@@ -37,9 +35,9 @@ public class CancellationTokenSourceHelperTests
     public void CancelIgnoringDisposed_AlreadyCancelledTokenSource_StaysCancelled()
     {
         using var cts = new CancellationTokenSource();
-        CancellationTokenSourceHelper.CancelIgnoringDisposed(cts);
+        cts.CancelIgnoringDisposed();
 
-        Assert.DoesNotThrow(() => CancellationTokenSourceHelper.CancelIgnoringDisposed(cts));
+        Assert.DoesNotThrow(() => cts.CancelIgnoringDisposed());
         Assert.That(cts.IsCancellationRequested, Is.True);
     }
 }
