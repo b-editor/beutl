@@ -1,4 +1,5 @@
-﻿using Beutl.Audio;
+﻿using System.Numerics;
+using Beutl.Audio;
 using Beutl.Audio.Graph;
 using Beutl.Engine;
 using Beutl.Media;
@@ -119,7 +120,10 @@ public class SourceSoundThumbnailTests
         const int chunkCount = 4;
         const int samplesPerChunk = 4096;
         var duration = TimeSpan.FromHours(5);
-        string path = TestMediaHelper.CreateTestAudioFile(sampleRate: sampleRate, channels: 2, duration.TotalSeconds);
+        string path = TestMediaHelper.CreateTestAudioFile(
+            sampleRate: sampleRate,
+            channels: 2,
+            durationSeconds: duration.TotalSeconds);
         var soundSource = new SoundSource();
         soundSource.ReadFrom(new Uri(path));
 
@@ -134,6 +138,22 @@ public class SourceSoundThumbnailTests
         Assert.That(chunks.Select(c => c.Index), Is.EqualTo(Enumerable.Range(0, chunkCount)));
         Assert.That(chunks[^1].MinValue, Is.Zero);
         Assert.That(chunks[^1].MaxValue, Is.Zero);
+    }
+
+    [Test]
+    public void GetWaveformChunkSamplePosition_DoesNotOverflowIntermediateProduct()
+    {
+        const int chunkIndex = 2;
+        const int chunkCount = 3;
+        const long totalSamples = long.MaxValue;
+        long expected = (long)((BigInteger)chunkIndex * totalSamples / chunkCount);
+
+        long actual = SourceSound.GetWaveformChunkSamplePosition(chunkIndex, totalSamples, chunkCount);
+
+        Assert.That(actual, Is.EqualTo(expected));
+        Assert.That(
+            SourceSound.GetWaveformChunkSamplePosition(chunkCount, totalSamples, chunkCount),
+            Is.EqualTo(totalSamples));
     }
 
     private static async Task<List<WaveformChunk>> CollectAsync(

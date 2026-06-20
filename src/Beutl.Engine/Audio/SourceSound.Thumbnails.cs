@@ -115,8 +115,8 @@ public sealed partial class SourceSound : IThumbnailsProvider
             if (cancellationToken.IsCancellationRequested)
                 yield break;
 
-            long startSample = chunkIndex * totalSamples / chunkCount;
-            long endSample = (chunkIndex + 1L) * totalSamples / chunkCount;
+            long startSample = GetWaveformChunkSamplePosition(chunkIndex, totalSamples, chunkCount);
+            long endSample = GetWaveformChunkSamplePosition(chunkIndex + 1, totalSamples, chunkCount);
             long fullSpan = endSample - startSample;
             // samplesPerChunk caps the work per chunk. Compose ranges stay tick-contiguous — so a
             // stateful effect like the limiter carries state across the strip — only when
@@ -178,6 +178,22 @@ public sealed partial class SourceSound : IThumbnailsProvider
                 yield return chunk.Value;
             }
         }
+    }
+
+    internal static long GetWaveformChunkSamplePosition(int chunkIndex, long totalSamples, int chunkCount)
+    {
+        if (chunkIndex < 0)
+            throw new ArgumentOutOfRangeException(nameof(chunkIndex));
+        if (totalSamples < 0)
+            throw new ArgumentOutOfRangeException(nameof(totalSamples));
+        if (chunkCount <= 0)
+            throw new ArgumentOutOfRangeException(nameof(chunkCount));
+        if (chunkIndex > chunkCount)
+            throw new ArgumentOutOfRangeException(nameof(chunkIndex));
+
+        long quotient = totalSamples / chunkCount;
+        long remainder = totalSamples % chunkCount;
+        return chunkIndex * quotient + chunkIndex * remainder / chunkCount;
     }
 
     internal static TimeSpan GetWaveformChunkDuration(int sampleCount, int sampleRate)
