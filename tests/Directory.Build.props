@@ -11,12 +11,9 @@
     <Compile Include="$(MSBuildThisFileDirectory)\ArtifactProvider.cs" />
   </ItemGroup>
 
-  <!-- Coverlet collection is shared across every real test project under tests/ (gated on
-       IsTestProject so benchmark/playground executables that lack Microsoft.NET.Test.Sdk don't
-       pull in the collector), so coverage is collected uniformly. Beutl.UnitTests already declares
-       its own coverlet.collector PackageReference, so it is excluded here to avoid a
-       duplicate-PackageReference error under central package management. The version is pinned
-       centrally in Directory.Packages.props. -->
+  <!-- coverlet.collector shared across every real test project (gated on IsTestProject so non-test
+       executables skip it). Beutl.UnitTests declares its own, so it is excluded here to avoid a
+       duplicate under central package management. -->
   <ItemGroup Condition="'$(IsTestProject)' == 'true' And '$(MSBuildProjectName)' != 'Beutl.UnitTests'">
     <PackageReference Include="coverlet.collector">
       <PrivateAssets>all</PrivateAssets>

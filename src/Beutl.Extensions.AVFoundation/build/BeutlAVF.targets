@@ -7,10 +7,8 @@
     <SwiftBuildConfig Condition="'$(SwiftBuildConfig)' == ''">release</SwiftBuildConfig>
     <SkipSwiftBuild Condition="'$(SkipSwiftBuild)' == ''">false</SkipSwiftBuild>
 
-    <!-- Owner switch: the AVFoundation project itself imports this file without setting any
-         property, so the Swift build + packaging pipeline below defaults on. Consumers that only
-         need the mirror-to-output target (the app and the AVF test project) import this file with
-         BeutlAVFOwnsSwiftBuild=false, leaving just CopyBeutlAVFDylibsToConsumerOutput active. -->
+    <!-- The AVF project imports this with the Swift build pipeline on; consumers that only need the
+         mirror target (the app, the AVF test project) import with BeutlAVFOwnsSwiftBuild=false. -->
     <BeutlAVFOwnsSwiftBuild Condition="'$(BeutlAVFOwnsSwiftBuild)' == ''">true</BeutlAVFOwnsSwiftBuild>
   </PropertyGroup>
 
@@ -81,12 +79,9 @@
           SkipUnchangedFiles="true" />
   </Target>
 
-  <!-- Reusable mirror target for consumers that ProjectReference the AVF assembly but do not
-       own the Swift build (the app and the AVF test project). ProjectReferences don't
-       transitively copy native runtime assets (runtimes/<rid>/native), so each consumer mirrors
-       the committed dylibs from the AVF project's runtimes/ folder into its own $(OutDir).
-       Opt in with <CopyBeutlAVFDylibsToOutput>true</CopyBeutlAVFDylibsToOutput>; the consumer
-       keeps its own activation guard (the app gates on AVFBuildIn, the tests gate on macOS). -->
+  <!-- Mirror target for consumers that ProjectReference the AVF assembly but don't own the Swift
+       build. ProjectReferences don't copy native runtimes/<rid>/native assets, so each consumer
+       copies the committed dylibs into its own $(OutDir). Opt in with CopyBeutlAVFDylibsToOutput. -->
   <Target Name="CopyBeutlAVFDylibsToConsumerOutput"
           AfterTargets="Build"
           Condition="'$(CopyBeutlAVFDylibsToOutput)' == 'true'">

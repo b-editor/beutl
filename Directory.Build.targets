@@ -6,10 +6,7 @@
     </AssemblyAttribute>
   </ItemGroup>
 
-  <!-- Desktop-exe RID set, opted into with <DesktopExeRids>true</DesktopExeRids>.
-       The base list covers every shippable desktop RID; on a Windows TFM it narrows to
-       win-x64 only (the other RIDs are meaningless for a -windows assembly and would make
-       restore drag in unnecessary runtime packs). -->
+  <!-- RID set, opted into with <DesktopExeRids>true</DesktopExeRids>; narrowed to win-x64 on a Windows TFM. -->
   <PropertyGroup Condition="'$(DesktopExeRids)' == 'true'">
     <RuntimeIdentifiers>win-x64;linux-x64;osx-x64;osx-arm64</RuntimeIdentifiers>
   </PropertyGroup>
@@ -17,14 +14,10 @@
     <RuntimeIdentifiers>win-x64</RuntimeIdentifiers>
   </PropertyGroup>
 
-  <!-- NOTE: the sideload output-layout block is NOT hoisted here. It sets OutputPath, which must be
-       evaluated before Microsoft.Common.CurrentVersion.targets derives OutDir/TargetDir; a property
-       set in Directory.Build.targets runs too late. It lives in build/props/SideloadOutput.props,
-       imported from each consuming project's body. -->
+  <!-- Sideload output layout is not hoisted here: it sets OutputPath, which must be set before
+       OutDir is derived (too late in this file). See build/props/SideloadOutput.props. -->
 
-  <!-- Aigamo.ResXGenerator analyzer reference, opted into with <UseResXGenerator>true</UseResXGenerator>.
-       The ResXGenerator_* configuration properties stay global in Directory.Build.props; only the
-       PackageReference is hoisted here. -->
+  <!-- Aigamo.ResXGenerator reference, opted into with <UseResXGenerator>true</UseResXGenerator>. -->
   <ItemGroup Condition="'$(UseResXGenerator)' == 'true'">
     <PackageReference Include="Aigamo.ResXGenerator">
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>

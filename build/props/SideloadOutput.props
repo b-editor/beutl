@@ -1,16 +1,7 @@
 <Project>
-  <!-- Sideload output layout for dynamically loaded extension packages. Mirrors the package into
-       the user's ~/.beutl/sideloads/<AssemblyName> folder so a local dev build is picked up by
-       the running app.
-
-       This is IMPORTED from the consuming project's body (props-time) rather than hoisted into
-       Directory.Build.targets: OutputPath must be set before Microsoft.Common.CurrentVersion.targets
-       derives OutDir/TargetDir from it. A Directory.Build.targets PropertyGroup runs after that
-       derivation, so the build output would land in bin/ instead of ~/.beutl/sideloads.
-
-       Guarded by SideloadOutput, which the importing project sets (inside its own activation guard,
-       e.g. FFmpegBuildIn!=True or MediaFoundation's non-built-in Choose arm) immediately before the
-       import. AssemblyName is already resolved at body-time, so the per-package folder is correct. -->
+  <!-- Mirrors the package into ~/.beutl/sideloads/<AssemblyName> so a local dev build is picked up
+       by the running app. Imported from the consuming project's body (not Directory.Build.targets)
+       because OutputPath must be set before OutDir is derived. Guarded by SideloadOutput. -->
   <PropertyGroup Condition="'$(SideloadOutput)' == 'true' And '$(Configuration)'=='Debug' And '$(CI)'!='true'">
     <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
     <AppendRuntimeIdentifierToOutputPath>false</AppendRuntimeIdentifierToOutputPath>

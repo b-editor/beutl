@@ -17,8 +17,7 @@
     <UseResXGenerator>true</UseResXGenerator>
   </PropertyGroup>
 
-  <!-- Sideload output layout (props-time; see build/props/SideloadOutput.props). Guarded by the
-       SideloadOutput property set above. -->
+  <!-- Sideload output layout; see build/props/SideloadOutput.props. -->
   <Import Project="$(RootDirectory)build\props\SideloadOutput.props" />
 
   <ItemGroup>
