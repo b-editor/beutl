@@ -13,7 +13,6 @@ using Beutl.Media;
 using Beutl.Media.Encoding;
 using Beutl.Models;
 using Beutl.ProjectSystem;
-using Beutl.Serialization;
 using Beutl.Services;
 using Beutl.Services.PrimitiveImpls;
 using DynamicData;
@@ -53,10 +52,8 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
                     && Controller?.Value != null)
                 {
                     var newController = newEncoder.CreateController(newFile);
-                    var videoSettings = CoreSerializer.SerializeToJsonObject(Controller.Value.VideoSettings);
-                    CoreSerializer.PopulateFromJsonObject(newController.VideoSettings, videoSettings);
-                    var audioSettings = CoreSerializer.SerializeToJsonObject(Controller.Value.AudioSettings);
-                    CoreSerializer.PopulateFromJsonObject(newController.AudioSettings, audioSettings);
+                    EncoderSettingsJson.CopyTo(Controller.Value.VideoSettings, newController.VideoSettings);
+                    EncoderSettingsJson.CopyTo(Controller.Value.AudioSettings, newController.AudioSettings);
                     return newController;
                 }
 

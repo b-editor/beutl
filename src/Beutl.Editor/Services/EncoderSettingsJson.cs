@@ -1,4 +1,4 @@
-using System.Text.Json.Nodes;
+﻿using System.Text.Json.Nodes;
 using Beutl.Media;
 using Beutl.Media.Encoding;
 using Beutl.Serialization;
@@ -17,6 +17,13 @@ public static class EncoderSettingsJson
         if (settings == null) return;
 
         CoreSerializer.PopulateFromJsonObject(settings, settings.GetType(), json);
+    }
+
+    public static void CopyTo(MediaEncoderSettings? source, MediaEncoderSettings? destination)
+    {
+        if (source == null || destination == null) return;
+
+        Populate(destination, CoreSerializer.SerializeToJsonObject(source));
     }
 
     public static void PopulateVideoPreset(VideoEncoderSettings settings, JsonObject json)

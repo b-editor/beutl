@@ -1,10 +1,11 @@
-using System.Text.Json.Nodes;
+﻿using System.Text.Json.Nodes;
 using Beutl.Editor.Services;
 using Beutl.Media;
 using Beutl.Media.Encoding;
 
 namespace Beutl.UnitTests.Editor.Services;
 
+[TestFixture]
 public class EncoderSettingsJsonTests
 {
     [Test]
@@ -147,5 +148,43 @@ public class EncoderSettingsJsonTests
         Assert.That(() => EncoderSettingsJson.PopulateAudioPreset(target, json), Throws.Exception);
 
         Assert.That(target.SampleRate, Is.EqualTo(44100));
+    }
+
+    [Test]
+    public void CopyTo_CopiesAllSettings()
+    {
+        var source = new VideoEncoderSettings
+        {
+            SourceSize = new PixelSize(1920, 1080),
+            DestinationSize = new PixelSize(1280, 720),
+            FrameRate = new Rational(60, 1),
+            Bitrate = 7_000_000,
+            KeyframeRate = 24
+        };
+        var destination = new VideoEncoderSettings();
+
+        EncoderSettingsJson.CopyTo(source, destination);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(destination.SourceSize, Is.EqualTo(source.SourceSize));
+            Assert.That(destination.DestinationSize, Is.EqualTo(source.DestinationSize));
+            Assert.That(destination.FrameRate, Is.EqualTo(source.FrameRate));
+            Assert.That(destination.Bitrate, Is.EqualTo(source.Bitrate));
+            Assert.That(destination.KeyframeRate, Is.EqualTo(source.KeyframeRate));
+        });
+    }
+
+    [Test]
+    public void CopyTo_NullArguments_DoNotThrow()
+    {
+        var settings = new VideoEncoderSettings { Bitrate = 7_000_000 };
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(() => EncoderSettingsJson.CopyTo(null, settings), Throws.Nothing);
+            Assert.That(() => EncoderSettingsJson.CopyTo(settings, null), Throws.Nothing);
+        });
+        Assert.That(settings.Bitrate, Is.EqualTo(7_000_000));
     }
 }
