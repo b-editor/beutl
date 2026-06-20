@@ -99,9 +99,8 @@ public sealed class SoundSource : MediaSource
 
         private int ToSamples(TimeSpan timeSpan)
         {
-            // Compute in long and clamp: an unchecked (int) cast wraps past int.MaxValue to
-            // int.MinValue, which ReadAudio would treat as a negative offset (latent today since no
-            // caller passes an absolute start, but same bug shape as the node-level conversions).
+            // Compute in long and clamp to a valid int offset, so a time past int.MaxValue samples
+            // does not wrap to a negative offset.
             long samples = AudioMath.TimeToSampleIndex(timeSpan, SampleRate);
             return (int)Math.Clamp(samples, 0, int.MaxValue);
         }

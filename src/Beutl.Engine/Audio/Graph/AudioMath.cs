@@ -21,11 +21,9 @@ public static class AudioMath
     }
 
     /// <summary>
-    /// Converts an absolute time position to a sample index, using <see cref="long"/> to avoid the
-    /// Int32 overflow of <c>(int)(time.TotalSeconds * sampleRate)</c>. Once the product exceeds
-    /// <see cref="int.MaxValue"/> (~12.4 h at 48 kHz, ~3.1 h at 192 kHz) an unchecked <c>(int)</c>
-    /// cast silently yields <see cref="int.MinValue"/>; callers that need a bounded int must clamp
-    /// or guard the returned <see cref="long"/> themselves.
+    /// Converts an absolute time position to a sample index as <see cref="long"/>, avoiding the Int32
+    /// overflow of <c>(int)(time.TotalSeconds * sampleRate)</c> on long timelines. Callers that need a
+    /// bounded int must clamp or guard the result.
     /// </summary>
     public static long TimeToSampleIndex(TimeSpan time, int sampleRate)
     {

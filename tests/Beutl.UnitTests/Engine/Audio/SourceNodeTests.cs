@@ -11,11 +11,8 @@ namespace Beutl.UnitTests.Engine.Audio;
 [TestFixture]
 public class SourceNodeTests
 {
-    // Regression: a SoundSource whose media failed to open (moved / deleted / unsupported file) keeps
-    // SampleRate == 0 because the MediaReader never opened. SourceNode must return a silent buffer for it,
-    // not throw from AudioMath.TimeToSampleIndex(.., 0) and leak the rented buffer allocated before the
-    // try block. Pre-fix this regressed the prior "missing audio file -> silence" behavior into an uncaught
-    // render-pipeline exception plus a pooled-buffer leak.
+    // Regression: a source whose media failed to open has SampleRate == 0. SourceNode must return a
+    // silent buffer for it, not throw from TimeToSampleIndex on the zero rate.
     [Test]
     public void Process_UnloadedSourceWithZeroSampleRate_ReturnsSilenceInsteadOfThrowing()
     {

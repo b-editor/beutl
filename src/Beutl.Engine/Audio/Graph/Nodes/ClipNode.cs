@@ -43,8 +43,7 @@ public class ClipNode : AudioNode
         {
             // padBefore (truncated) and buffer.SampleCount (from Math.Ceiling) can each drift by ±1,
             // so clamp the copy to newBuffer's capacity; the overflow is out-of-range padding.
-            // padBefore is one-clip-relative (bounded by [0, TimeRange.Duration], itself capped by
-            // GetSampleCount), so it never reaches the Int32 overflow regime — kept as int.
+            // padBefore is clip-relative and bounded by the clip duration, so it cannot overflow int.
             int offset = (int)(padBefore.TotalSeconds * context.SampleRate);
             if (offset < 0) offset = 0;
             int copyCount = Math.Min(buffer.SampleCount, newBuffer.SampleCount - offset);

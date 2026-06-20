@@ -16,14 +16,12 @@ public class AudioMathTests
         return AudioMath.TimeToSampleIndex(TimeSpan.FromSeconds(seconds), sampleRate);
     }
 
-    // Regression for the audio-graph Int32 overflow: past int.MaxValue samples an unchecked (int)
-    // cast would silently wrap to int.MinValue and feed a negative offset / wrong seek. The helper
-    // must return the exact long value instead.
+    // Regression: past int.MaxValue samples an (int) cast would wrap negative; the helper must
+    // return the exact long value.
     [Test]
     public void TimeToSampleIndex_LongTimelineReturnsExactLongNotWrappedNegative()
     {
-        // 7 h @ 192 kHz = 4,838,400,000 samples (> int.MaxValue = 2,147,483,647). Reaches the
-        // overflow regime at ~3.1 h at this rate.
+        // 7 h @ 192 kHz = 4,838,400,000 samples, well past int.MaxValue (2,147,483,647).
         long result = AudioMath.TimeToSampleIndex(TimeSpan.FromHours(7), 192000);
 
         Assert.Multiple(() =>
@@ -36,8 +34,7 @@ public class AudioMathTests
     [Test]
     public void TimeToSampleIndex_NegativeTimeReturnsNegativeLong()
     {
-        // Callers that need a non-negative index clamp/guard themselves; the helper reports the
-        // true (negative) sample position for a time before zero.
+        // The helper reports the true (negative) position for a time before zero; callers clamp if needed.
         Assert.That(
             AudioMath.TimeToSampleIndex(TimeSpan.FromSeconds(-1.5), 48000),
             Is.EqualTo(-72000L));

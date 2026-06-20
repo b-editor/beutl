@@ -117,10 +117,8 @@ public sealed class SpeedIntegrator : IDisposable
             _integralCache![sec + 1] = sum;
         }
 
-        // Integrate the remainder from the target second to the exact target time. Sample-domain
-        // math uses long: an absolute global time past int.MaxValue samples (long timelines at high
-        // sample rates) would wrap an unchecked (int) cast to a negative index and silently return
-        // a wrong (too-small) source start. targetSec stays int — it is in seconds (~68 yr ceiling).
+        // Integrate the remainder from the target second to the exact target time. Sample-domain math
+        // uses long to avoid Int32 overflow on long timelines; targetSec stays int (seconds).
         long targetInSamples = (long)(timeSpan.TotalSeconds * _sampleRate);
         long secStartInSamples = (long)targetSec * _sampleRate;
 

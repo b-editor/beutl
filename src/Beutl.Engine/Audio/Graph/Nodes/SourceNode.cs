@@ -19,10 +19,8 @@ public sealed class SourceNode : AudioNode
         var sampleCount = context.GetSampleCount();
         var buffer = new AudioBuffer(context.SampleRate, 2, sampleCount);
 
-        // An unloaded or failed-to-open source keeps SampleRate == 0 (its MediaReader never opened — e.g.
-        // a moved / deleted / unsupported file). Such a source is unreadable, so return silence: feeding 0
-        // into TimeToSampleIndex below would throw (non-positive rate) and leak this buffer before the try
-        // block, regressing the prior "missing audio file -> silence" behavior into a render-pipeline throw.
+        // An unloaded or failed-to-open source has SampleRate == 0 and is unreadable — return silence
+        // (this also avoids TimeToSampleIndex throwing on the non-positive rate below).
         if (resource.SampleRate <= 0)
         {
             return buffer;
@@ -31,10 +29,8 @@ public sealed class SourceNode : AudioNode
         long start = AudioMath.TimeToSampleIndex(context.TimeRange.Start, resource.SampleRate);
         long length = (long)Math.Ceiling(context.TimeRange.Duration.TotalSeconds * resource.SampleRate);
 
-        // Resource.Read (and downstream decoders) take int sample offsets, so a source whose start
-        // exceeds int.MaxValue samples is unreadable regardless. Treat an out-of-int-range offset
-        // as silence instead of letting the unchecked (int) cast wrap to int.MinValue (wrong seek /
-        // audio on long timelines at high sample rates).
+        // Resource.Read takes int sample offsets, so an out-of-int-range start/length is unreadable —
+        // return silence rather than wrapping the cast to a negative offset.
         if (start < 0 || length < 0 || start > int.MaxValue || length > int.MaxValue)
         {
             return buffer;
