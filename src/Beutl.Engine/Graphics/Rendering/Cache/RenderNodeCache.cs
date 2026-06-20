@@ -30,8 +30,6 @@ public sealed class RenderNodeCache(RenderNode node) : IDisposable
     /// </summary>
     public float Density { get; private set; } = 1f;
 
-    public DateTime LastAccessedTime { get; private set; }
-
     public bool IsDisposed { get; private set; }
 
     public void ReportRenderCount(int count)
@@ -116,8 +114,6 @@ public sealed class RenderNodeCache(RenderNode node) : IDisposable
 
         _cache.Add((renderTarget.ShallowCopy(), bounds));
         Density = density;
-
-        LastAccessedTime = DateTime.UtcNow;
     }
 
     public IEnumerable<(RenderTarget RenderTarget, Rect Bounds)> UseCache()
@@ -135,6 +131,5 @@ public sealed class RenderNodeCache(RenderNode node) : IDisposable
         }
 
         Density = density;
-        LastAccessedTime = DateTime.UtcNow;
     }
 }

@@ -75,8 +75,7 @@ plugin-facing: batch them into one `refactor!:` release train with a
   cross-type conversion matrices (no production consumer, contains copy-paste
   bugs), `IKeyFrame.SetParent/GetParent`, `TransformParser.Parse`,
   `GraphicsException`, `FpsText`/`IRenderer.DrawFps`, 8 of 15 `AudioMath` helpers,
-  csproj-excluded `VertexMode.cs`, `RenderNodeCache` test-only members and
-  never-read `LastAccessedTime`.
+  csproj-excluded `VertexMode.cs`, and `RenderNodeCache` test-only members.
 
 **Core / Controls / App / Api**
 - `UnmanagedArray`/`UnmanagedList` (759 lines, already excluded from compilation),
