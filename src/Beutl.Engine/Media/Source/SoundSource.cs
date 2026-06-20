@@ -1,5 +1,6 @@
 ﻿using System.Diagnostics.CodeAnalysis;
 using System.Text.Json.Serialization;
+using Beutl.Audio.Graph;
 using Beutl.Composition;
 using Beutl.Engine;
 using Beutl.Media.Decoding;
@@ -98,7 +99,11 @@ public sealed class SoundSource : MediaSource
 
         private int ToSamples(TimeSpan timeSpan)
         {
-            return (int)(timeSpan.TotalSeconds * SampleRate);
+            // Compute in long and clamp: an unchecked (int) cast wraps past int.MaxValue to
+            // int.MinValue, which ReadAudio would treat as a negative offset (latent today since no
+            // caller passes an absolute start, but same bug shape as the node-level conversions).
+            long samples = AudioMath.TimeToSampleIndex(timeSpan, SampleRate);
+            return (int)Math.Clamp(samples, 0, int.MaxValue);
         }
 
         public override void Update(EngineObject obj, CompositionContext context, ref bool updateOnly)

@@ -18,13 +18,22 @@ public sealed class SourceNode : AudioNode
         var resource = Source.Value.Resource;
         var sampleCount = context.GetSampleCount();
         var buffer = new AudioBuffer(context.SampleRate, 2, sampleCount);
-        var start = (int)(context.TimeRange.Start.TotalSeconds * resource.SampleRate);
-        var length = (int)Math.Ceiling(context.TimeRange.Duration.TotalSeconds * resource.SampleRate);
+        long start = AudioMath.TimeToSampleIndex(context.TimeRange.Start, resource.SampleRate);
+        long length = (long)Math.Ceiling(context.TimeRange.Duration.TotalSeconds * resource.SampleRate);
+
+        // Resource.Read (and downstream decoders) take int sample offsets, so a source whose start
+        // exceeds int.MaxValue samples is unreadable regardless. Treat an out-of-int-range offset
+        // as silence instead of letting the unchecked (int) cast wrap to int.MinValue (wrong seek /
+        // audio on long timelines at high sample rates).
+        if (start < 0 || length < 0 || start > int.MaxValue || length > int.MaxValue)
+        {
+            return buffer;
+        }
 
         try
         {
             // Read PCM data from source
-            if (resource.Read(start, length, out var pcmRef))
+            if (resource.Read((int)start, (int)length, out var pcmRef))
             {
                 using (pcmRef)
                 {

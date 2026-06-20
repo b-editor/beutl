@@ -117,11 +117,14 @@ public sealed class SpeedIntegrator : IDisposable
             _integralCache![sec + 1] = sum;
         }
 
-        // Integrate the remainder from the target second to the exact target time
-        int targetInSamples = (int)(timeSpan.TotalSeconds * _sampleRate);
-        int secStartInSamples = targetSec * _sampleRate;
+        // Integrate the remainder from the target second to the exact target time. Sample-domain
+        // math uses long: an absolute global time past int.MaxValue samples (long timelines at high
+        // sample rates) would wrap an unchecked (int) cast to a negative index and silently return
+        // a wrong (too-small) source start. targetSec stays int — it is in seconds (~68 yr ceiling).
+        long targetInSamples = (long)(timeSpan.TotalSeconds * _sampleRate);
+        long secStartInSamples = (long)targetSec * _sampleRate;
 
-        for (int i = secStartInSamples; i < targetInSamples; i++)
+        for (long i = secStartInSamples; i < targetInSamples; i++)
         {
             double t = i / (double)_sampleRate;
             float speed = animation.Interpolate(TimeSpan.FromSeconds(t));
