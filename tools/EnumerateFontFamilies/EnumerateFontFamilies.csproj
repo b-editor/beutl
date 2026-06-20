@@ -5,7 +5,4 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\Beutl.Engine\Beutl.Engine.csproj" />
   </ItemGroup>
-  <ItemGroup>
-    <Compile Remove="$(MSBuildThisFileDirectory)\..\ArtifactProvider.cs" />
-  </ItemGroup>
 </Project>

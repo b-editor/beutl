@@ -1,6 +1,6 @@
 # tests/ — local context
 
-The unit-test suites here are NUnit (+ Moq where needed) — but not every project under `tests/` is an NUnit suite (some are BenchmarkDotNet benchmarks, manual visual harnesses, or interactive previewers; see the notes below the table). Use this index when picking the right project for a new test.
+Most projects under `tests/` are NUnit (+ Moq where needed); the exceptions are the two BenchmarkDotNet projects (`Beutl.Benchmarks`, `Beutl.FFmpegBenchmarks`) and the `Beutl.Graphics3DTests` visual harness. Use this index when picking the right project for a new test.
 
 ## Where new tests go
 
@@ -18,7 +18,7 @@ The unit-test suites here are NUnit (+ Moq where needed) — but not every proje
 
 `tests/Beutl.Graphics3DTests/` is an executable visual harness for manual Graphics3D checks, not an NUnit test project. Graphics3D NUnit tests live under `tests/Beutl.UnitTests/Engine/Graphics3D/`.
 
-`tests/DirectoryViewTest/`, `tests/PackageSample/`, `tests/TextFormattingPlayground/`, `tests/PropertyEditorViewTests/`, `tests/EnumerateFontFamilies/`, `tests/XamlPreview/` are interactive Avalonia previewers, not test harnesses — running them launches a window.
+The interactive Avalonia previewers / sample apps no longer live here — they were moved out of `tests/` (and out of `Beutl.slnx`, so CI does not build them): `DirectoryViewTest`, `TextFormattingPlayground`, `PropertyEditorViewTests`, `EnumerateFontFamilies`, and `XamlPreview` now live under `tools/`, and the sample extension package `PackageSample` lives under `samples/`. Running any of them launches a window; they are not test harnesses. Build them individually from their new location (e.g. `dotnet build tools/XamlPreview/XamlPreview.csproj`).
 
 ## NUnit conventions
 
