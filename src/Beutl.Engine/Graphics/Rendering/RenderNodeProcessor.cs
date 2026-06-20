@@ -100,10 +100,8 @@ public class RenderNodeProcessor(
         catch
         {
             // Clean up remaining ops (RasterizeAt already disposed the faulting one).
-            for (int j = consumed; j < ops.Length; j++)
-                ops[j].Dispose();
-            foreach (var item in list)
-                item.Item1.Dispose();
+            DisposeRemainingOperations(ops, consumed);
+            DisposeRenderTargets(list);
             throw;
         }
     }
@@ -129,10 +127,8 @@ public class RenderNodeProcessor(
         }
         catch
         {
-            for (int j = consumed; j < ops.Length; j++)
-                ops[j].Dispose();
-            foreach (var bmp in list)
-                bmp.Dispose();
+            DisposeRemainingOperations(ops, consumed);
+            DisposeBitmaps(list);
             throw;
         }
     }
@@ -163,12 +159,47 @@ public class RenderNodeProcessor(
         }
         catch
         {
-            for (int j = consumed; j < ops.Length; j++)
-                ops[j].Dispose();
+            DisposeRemainingOperations(ops, consumed);
             throw;
         }
 
         return renderTarget.Snapshot();
+    }
+
+    private static void DisposeRemainingOperations(RenderNodeOperation[] ops, int start)
+    {
+        for (int j = start; j < ops.Length; j++)
+        {
+            DisposeBestEffort(ops[j]);
+        }
+    }
+
+    private static void DisposeRenderTargets(List<(RenderTarget RenderTarget, Rect Bounds)> targets)
+    {
+        foreach (var item in targets)
+        {
+            DisposeBestEffort(item.RenderTarget);
+        }
+    }
+
+    private static void DisposeBitmaps(List<Bitmap> bitmaps)
+    {
+        foreach (var bmp in bitmaps)
+        {
+            DisposeBestEffort(bmp);
+        }
+    }
+
+    private static void DisposeBestEffort(IDisposable disposable)
+    {
+        try
+        {
+            disposable.Dispose();
+        }
+        catch
+        {
+            // Preserve the original render/rasterize failure while still sweeping the rest.
+        }
     }
 
     public RenderNodeOperation[] PullToRoot()
