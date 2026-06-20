@@ -1,5 +1,4 @@
-﻿using System.Diagnostics;
-using System.Numerics;
+﻿using System.Numerics;
 using Beutl.Audio.Effects;
 using Beutl.Engine;
 using Beutl.Logging;
@@ -450,10 +449,14 @@ public sealed class LimiterNode : AudioNode
         while (_dqCount > 0 && _dqVal![(_dqHead + _dqCount - 1) & mask] <= value)
             _dqCount--;
 
-        // After the back-eviction the deque holds at most lookaheadSamples + 1 <= cap - 2 entries,
-        // so a free slot is guaranteed. Assert before the write so a future change that breaks the
-        // bound is caught before it overwrites the front (Debug-only).
-        Debug.Assert(_dqCount < _dqVal!.Length, "LimiterNode deque overflow: no free slot, front would be overwritten.");
+        // Correct operation keeps the deque at <= lookaheadSamples + 1 (<= cap - 2) entries, so a
+        // slot is always free and this never trips. Checking the physical length (not cap - 2) fires
+        // only when a future bound regression would actually overwrite the front.
+        if (_dqCount >= _dqVal!.Length)
+        {
+            throw new InvalidOperationException(
+                "LimiterNode deque overflow: no free slot, front would be overwritten.");
+        }
 
         int tail = (_dqHead + _dqCount) & mask;
         _dqVal[tail] = value;

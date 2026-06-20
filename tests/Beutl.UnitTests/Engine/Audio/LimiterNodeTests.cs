@@ -1,10 +1,13 @@
-﻿using Beutl.Animation;
+﻿using System.Reflection;
+using Beutl.Animation;
 using Beutl.Audio;
 using Beutl.Audio.Effects;
 using Beutl.Audio.Graph;
 using Beutl.Audio.Graph.Nodes;
 using Beutl.Engine;
+using Beutl.Logging;
 using Beutl.Media;
+using Microsoft.Extensions.Logging;
 
 using static Beutl.Audio.Effects.LimiterParameters;
 
@@ -19,6 +22,17 @@ public class LimiterNodeTests
     // DefaultLookaheadMs (which is 0), so the delay-line / lookahead-window behavior stays
     // exercised. Tests that need the zero-lookahead path pass lookaheadMs: 0f.
     private const float LookaheadMs = 5f;
+
+    [OneTimeSetUp]
+    public void OneTimeSetUp()
+    {
+        // Log.LoggerFactory is write-once (??=); skip allocating a factory we would only discard
+        // when another fixture already set one.
+        if (Log.LoggerFactory is null)
+        {
+            Log.LoggerFactory = LoggerFactory.Create(_ => { });
+        }
+    }
 
     private static int LookaheadSamples(int sampleRate = SampleRate, float lookaheadMs = LookaheadMs)
         => (int)(lookaheadMs / 1000f * sampleRate);
@@ -1635,6 +1649,37 @@ public class LimiterNodeTests
             "Quiet tail must recover after the burst leaves the window (deque must evict the stale max).");
         Assert.That(tailPeak, Is.LessThanOrEqualTo(quietAmp + 1e-3f),
             "Quiet tail is below threshold and must not be amplified.");
+    }
+
+    [Test]
+    public void PushWindowPeak_WhenDequeCapacityInvariantBreaks_ThrowsBeforeOverwrite()
+    {
+        static FieldInfo Field(string name)
+            => typeof(LimiterNode).GetField(name, BindingFlags.Instance | BindingFlags.NonPublic)
+               ?? throw new MissingFieldException(typeof(LimiterNode).FullName, name);
+
+        using var input = CreateBuffer(1, 1, (_, _) => 0f);
+        using var node = CreateNode(lookaheadMs: 0f);
+        node.AddInput(new StubInputNode(input));
+
+        using var _ = node.Process(CreateContext(1));
+
+        var dqVal = (float[])Field("_dqVal").GetValue(node)!;
+        Array.Fill(dqVal, float.PositiveInfinity);
+        Field("_dqHead").SetValue(node, 0);
+        Field("_dqCount").SetValue(node, dqVal.Length);
+        Field("_globalPos").SetValue(node, 1L);
+
+        var pushWindowPeak = typeof(LimiterNode).GetMethod(
+            "PushWindowPeak",
+            BindingFlags.Instance | BindingFlags.NonPublic)
+            ?? throw new MissingMethodException(typeof(LimiterNode).FullName, "PushWindowPeak");
+
+        var ex = Assert.Throws<TargetInvocationException>(
+            () => pushWindowPeak.Invoke(node, [0f, 0]));
+
+        Assert.That(ex!.InnerException, Is.TypeOf<InvalidOperationException>());
+        Assert.That(ex.InnerException!.Message, Does.Contain("LimiterNode deque overflow"));
     }
 
     // Step animation: holds `first` for the whole [0, boundary) range and switches to `second` from
