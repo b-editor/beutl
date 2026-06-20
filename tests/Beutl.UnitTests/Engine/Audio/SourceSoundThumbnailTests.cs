@@ -1,4 +1,5 @@
-﻿using Beutl.Audio;
+﻿using System.Numerics;
+using Beutl.Audio;
 using Beutl.Audio.Graph;
 using Beutl.Engine;
 using Beutl.Media;
@@ -110,6 +111,53 @@ public class SourceSoundThumbnailTests
         Assert.That(warmChunks, Is.All.Matches<WaveformChunk>(
             c => c.MinValue == sentinelMin && c.MaxValue == sentinelMax),
             "a cache hit must return the cached min/max verbatim");
+    }
+
+    [Test]
+    public async Task GetWaveformChunks_LongDurationAboveIntSampleBoundary_ProducesAllChunks()
+    {
+        const int sampleRate = 192000;
+        const int chunkCount = 4;
+        const int samplesPerChunk = 4096;
+        var duration = TimeSpan.FromHours(5);
+        string path = TestMediaHelper.CreateTestAudioFile(
+            sampleRate: sampleRate,
+            channels: 2,
+            durationSeconds: duration.TotalSeconds);
+        var soundSource = new SoundSource();
+        soundSource.ReadFrom(new Uri(path));
+
+        var sound = new SourceSound
+        {
+            Source = { CurrentValue = soundSource },
+            TimeRange = new TimeRange(TimeSpan.Zero, duration),
+        };
+
+        var chunks = await CollectAsync(sound, chunkCount, samplesPerChunk, new FakeWaveformCache());
+
+        Assert.That(chunks.Select(c => c.Index), Is.EqualTo(Enumerable.Range(0, chunkCount)));
+
+        // The final chunk starts past sample index int.MaxValue: 5h @ 192kHz is 3,456,000,000 samples
+        // and the last of 4 chunks begins at 2,592,000,000. SourceNode's int-range read guard then
+        // composes it as silence instead of wrapping the offset to a wrong position.
+        Assert.That(chunks[^1].MinValue, Is.Zero);
+        Assert.That(chunks[^1].MaxValue, Is.Zero);
+    }
+
+    [Test]
+    public void GetWaveformChunkSamplePosition_DoesNotOverflowIntermediateProduct()
+    {
+        const int chunkIndex = 2;
+        const int chunkCount = 3;
+        const long totalSamples = long.MaxValue;
+        long expected = (long)((BigInteger)chunkIndex * totalSamples / chunkCount);
+
+        long actual = SourceSound.GetWaveformChunkSamplePosition(chunkIndex, totalSamples, chunkCount);
+
+        Assert.That(actual, Is.EqualTo(expected));
+        Assert.That(
+            SourceSound.GetWaveformChunkSamplePosition(chunkCount, totalSamples, chunkCount),
+            Is.EqualTo(totalSamples));
     }
 
     private static async Task<List<WaveformChunk>> CollectAsync(

@@ -3,6 +3,7 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json.Nodes;
 using Beutl.Audio.Composing;
+using Beutl.Audio.Graph;
 using Beutl.Composition;
 using Beutl.Engine;
 using Beutl.Media;
@@ -99,8 +100,13 @@ public sealed partial class SourceSound : IThumbnailsProvider
 
         var duration = TimeRange.Duration;
 
+        // TimeRange.Duration is unnormalized; a non-positive span has no waveform and would drive
+        // totalSamples negative (GetWaveformChunkSamplePosition then throws). Bail out instead.
+        if (duration <= TimeSpan.Zero)
+            yield break;
+
         int sampleRate = resource.Source.SampleRate;
-        int totalSamples = (int)(duration.TotalSeconds * sampleRate);
+        long totalSamples = AudioMath.TimeToSampleIndex(duration, sampleRate);
 
         string? cacheKey = cacheService != null ? GetThumbnailsCacheKey() : null;
         double chunkDurationSecs = duration.TotalSeconds / chunkCount;
@@ -114,15 +120,15 @@ public sealed partial class SourceSound : IThumbnailsProvider
             if (cancellationToken.IsCancellationRequested)
                 yield break;
 
-            int startSample = (int)((long)chunkIndex * totalSamples / chunkCount);
-            int endSample = (int)((long)(chunkIndex + 1) * totalSamples / chunkCount);
-            int fullSpan = endSample - startSample;
+            long startSample = GetWaveformChunkSamplePosition(chunkIndex, totalSamples, chunkCount);
+            long endSample = GetWaveformChunkSamplePosition(chunkIndex + 1, totalSamples, chunkCount);
+            long fullSpan = endSample - startSample;
             // samplesPerChunk caps the work per chunk. Compose ranges stay tick-contiguous — so a
             // stateful effect like the limiter carries state across the strip — only when
             // fullSpan <= samplesPerChunk (short or zoomed-in clips). For longer clips the waveform
             // is a sparse approximation and the effect restarts per chunk: a deliberate quality
             // trade-off for bounded per-chunk cost, not a correctness guarantee.
-            int sampleCount = Math.Min(fullSpan, samplesPerChunk);
+            int sampleCount = (int)Math.Min(fullSpan, samplesPerChunk);
             var chunkTime = TimeSpan.FromSeconds((double)startSample / sampleRate);
             TimeSpan startTime = TimeRange.Start + chunkTime;
             TimeSpan durationTime = GetWaveformChunkDuration(sampleCount, sampleRate);
@@ -177,6 +183,22 @@ public sealed partial class SourceSound : IThumbnailsProvider
                 yield return chunk.Value;
             }
         }
+    }
+
+    internal static long GetWaveformChunkSamplePosition(int chunkIndex, long totalSamples, int chunkCount)
+    {
+        if (chunkIndex < 0)
+            throw new ArgumentOutOfRangeException(nameof(chunkIndex));
+        if (totalSamples < 0)
+            throw new ArgumentOutOfRangeException(nameof(totalSamples));
+        if (chunkCount <= 0)
+            throw new ArgumentOutOfRangeException(nameof(chunkCount));
+        if (chunkIndex > chunkCount)
+            throw new ArgumentOutOfRangeException(nameof(chunkIndex));
+
+        long quotient = totalSamples / chunkCount;
+        long remainder = totalSamples % chunkCount;
+        return chunkIndex * quotient + chunkIndex * remainder / chunkCount;
     }
 
     internal static TimeSpan GetWaveformChunkDuration(int sampleCount, int sampleRate)
