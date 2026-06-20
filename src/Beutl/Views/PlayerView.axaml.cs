@@ -46,7 +46,8 @@ public partial class PlayerView : UserControl
     private IDisposable? _boundsSubscription;
     internal Control image = null!;
 
-    // _transformHandleResource is RenderThread-owned: only mutate inside RenderThread.Dispatcher.
+    // The Resource is RenderThread-owned: create/update/dispose only via RenderThread.Dispatcher.
+    // The UI thread may null these references to detach, but never touches the resource itself.
     private BtlDrawable.Resource? _transformHandleResource;
     private BtlDrawable? _transformHandleResourceTarget;
 
@@ -472,7 +473,7 @@ public partial class PlayerView : UserControl
             {
                 resource.Dispose();
             }
-            catch (Exception ex)
+            catch (Exception ex) when (ex is not OutOfMemoryException and not StackOverflowException)
             {
                 _logger.LogError(ex, "Failed to dispose the transform-handle resource on the render thread.");
             }
