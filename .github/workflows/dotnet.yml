@@ -37,10 +37,17 @@ jobs:
           # SwiftShader Vulkan ICD fails to load; see GpuGoldenSuiteCanaryTests.
           BEUTL_REQUIRE_GPU: "1"
 
+      - name: Merge coverage reports
+        # Every test project now collects coverage (coverlet.collector is shared via
+        # tests/Directory.Build.props), so dotnet test emits one cobertura file per test
+        # project. Merge them into a single report so the summary de-duplicates packages
+        # instead of listing each package once per test assembly.
+        run: reportgenerator -reports:"tests/**/coverage.cobertura.xml" -targetdir:coveragereport -reporttypes:"Cobertura;Html"
+
       - name: Code Coverage Report
         uses: irongut/CodeCoverageSummary@v1.3.0
         with:
-          filename: tests/**/coverage.cobertura.xml
+          filename: coveragereport/Cobertura.xml
           badge: true
           fail_below_min: true
           format: markdown
@@ -58,9 +65,6 @@ jobs:
         with:
           recreate: true
           path: code-coverage-results.md
-
-      - name: Generate Report
-        run: reportgenerator -reports:`find tests/Beutl.UnitTests/TestResults/*/coverage.cobertura.xml | head -n 1 ` -targetdir:coveragereport -reporttypes:Html
 
       - name: Save
         uses: actions/upload-artifact@v7
