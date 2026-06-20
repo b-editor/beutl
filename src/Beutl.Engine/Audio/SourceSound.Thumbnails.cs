@@ -100,6 +100,11 @@ public sealed partial class SourceSound : IThumbnailsProvider
 
         var duration = TimeRange.Duration;
 
+        // TimeRange.Duration is unnormalized; a non-positive span has no waveform and would drive
+        // totalSamples negative (GetWaveformChunkSamplePosition then throws). Bail out instead.
+        if (duration <= TimeSpan.Zero)
+            yield break;
+
         int sampleRate = resource.Source.SampleRate;
         long totalSamples = AudioMath.TimeToSampleIndex(duration, sampleRate);
 

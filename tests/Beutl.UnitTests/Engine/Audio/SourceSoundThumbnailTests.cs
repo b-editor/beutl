@@ -136,6 +136,10 @@ public class SourceSoundThumbnailTests
         var chunks = await CollectAsync(sound, chunkCount, samplesPerChunk, new FakeWaveformCache());
 
         Assert.That(chunks.Select(c => c.Index), Is.EqualTo(Enumerable.Range(0, chunkCount)));
+
+        // The final chunk starts past sample index int.MaxValue: 5h @ 192kHz is 3,456,000,000 samples
+        // and the last of 4 chunks begins at 2,592,000,000. SourceNode's int-range read guard then
+        // composes it as silence instead of wrapping the offset to a wrong position.
         Assert.That(chunks[^1].MinValue, Is.Zero);
         Assert.That(chunks[^1].MaxValue, Is.Zero);
     }
