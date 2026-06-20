@@ -112,6 +112,30 @@ public class SourceSoundThumbnailTests
             "a cache hit must return the cached min/max verbatim");
     }
 
+    [Test]
+    public async Task GetWaveformChunks_LongDurationAboveIntSampleBoundary_ProducesAllChunks()
+    {
+        const int sampleRate = 192000;
+        const int chunkCount = 4;
+        const int samplesPerChunk = 4096;
+        var duration = TimeSpan.FromHours(5);
+        string path = TestMediaHelper.CreateTestAudioFile(sampleRate: sampleRate, channels: 2, duration.TotalSeconds);
+        var soundSource = new SoundSource();
+        soundSource.ReadFrom(new Uri(path));
+
+        var sound = new SourceSound
+        {
+            Source = { CurrentValue = soundSource },
+            TimeRange = new TimeRange(TimeSpan.Zero, duration),
+        };
+
+        var chunks = await CollectAsync(sound, chunkCount, samplesPerChunk, new FakeWaveformCache());
+
+        Assert.That(chunks.Select(c => c.Index), Is.EqualTo(Enumerable.Range(0, chunkCount)));
+        Assert.That(chunks[^1].MinValue, Is.Zero);
+        Assert.That(chunks[^1].MaxValue, Is.Zero);
+    }
+
     private static async Task<List<WaveformChunk>> CollectAsync(
         SourceSound sound, int chunkCount, int samplesPerChunk, IThumbnailCacheService cache)
     {
