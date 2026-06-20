@@ -740,6 +740,8 @@ public class LimiterNodeTests
         return prop;
     }
 
+    // A throw after the output buffer is allocated must dispose the buffer (the node owns it until it
+    // returns it to the caller) and propagate, on both the static and animated paths.
     [TestCase(false)]
     [TestCase(true)]
     public void Process_FailureAfterOutputAllocation_DisposesOutputBuffer(bool animated)

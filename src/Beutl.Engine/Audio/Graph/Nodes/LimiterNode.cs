@@ -264,7 +264,6 @@ public sealed class LimiterNode : AudioNode
         var c = Derive(Threshold.CurrentValue, Release.CurrentValue, Lookahead.CurrentValue, MakeupGain.CurrentValue, context.SampleRate);
 
         var output = new AudioBuffer(input.SampleRate, input.ChannelCount, input.SampleCount);
-        bool succeeded = false;
         try
         {
             // Lookahead is constant for the whole call, so the window maximum comes from the
@@ -283,23 +282,20 @@ public sealed class LimiterNode : AudioNode
                 EmitSample(outRaw, sampleCount, channelCount, i, windowPeak, c.ThresholdLin, c.MakeupLin, c.LookaheadSamples, c.ReleaseCoef);
             }
 
-            succeeded = true;
             return output;
         }
-        finally
+        catch
         {
-            if (!succeeded)
-            {
-                output.Dispose();
-                OutputBuffersDisposedAfterFailure++;
-            }
+            // Dispose the output the caller never received rather than leak it.
+            output.Dispose();
+            OutputBuffersDisposedAfterFailure++;
+            throw;
         }
     }
 
     private AudioBuffer ProcessAnimated(AudioBuffer input, AudioProcessContext context)
     {
         var output = new AudioBuffer(input.SampleRate, input.ChannelCount, input.SampleCount);
-        bool succeeded = false;
         try
         {
             // Per-chunk animation-sampling scratch, sized to the actual work (capped at
@@ -351,16 +347,14 @@ public sealed class LimiterNode : AudioNode
                 processed += chunkSize;
             }
 
-            succeeded = true;
             return output;
         }
-        finally
+        catch
         {
-            if (!succeeded)
-            {
-                output.Dispose();
-                OutputBuffersDisposedAfterFailure++;
-            }
+            // Dispose the output the caller never received rather than leak it.
+            output.Dispose();
+            OutputBuffersDisposedAfterFailure++;
+            throw;
         }
     }
 

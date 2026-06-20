@@ -95,37 +95,48 @@ public class Composer : IComposer
     {
         // Multiple contexts - need to mix
         var buffers = new List<AudioBuffer>();
-
-        // Process each context
-        foreach (var item in _currentEntry)
+        AudioBuffer? mixedBuffer = null;
+        try
         {
-            if (item.OutputNodes is not { } outputNodes) continue;
-            var processContext = new AudioProcessContext(range, SampleRate, _animationSampler, range);
-            foreach (var outputNode in outputNodes)
+            // Process each context
+            foreach (var item in _currentEntry)
             {
-                buffers.Add(outputNode.Process(processContext));
+                if (item.OutputNodes is not { } outputNodes) continue;
+                var processContext = new AudioProcessContext(range, SampleRate, _animationSampler, range);
+                foreach (var outputNode in outputNodes)
+                {
+                    buffers.Add(outputNode.Process(processContext));
+                }
+            }
+
+            // Mix all buffers
+            mixedBuffer = MixBuffers(buffers);
+
+            if (mixedBuffer == null)
+            {
+                return new AudioBuffer(SampleRate, 2, AudioProcessContext.GetSampleCount(range, SampleRate));
+            }
+
+            // Apply master effects
+            ApplyMasterEffects(mixedBuffer);
+
+            // Convert to output format
+            return mixedBuffer;
+        }
+        catch
+        {
+            // Don't leak the mix buffer if a step after the mix throws.
+            mixedBuffer?.Dispose();
+            throw;
+        }
+        finally
+        {
+            // Dispose every consumed per-node buffer, even on a throw partway through.
+            foreach (var buffer in buffers)
+            {
+                buffer.Dispose();
             }
         }
-
-        // Mix all buffers
-        var mixedBuffer = MixBuffers(buffers);
-
-        // Dispose individual buffers
-        foreach (var buffer in buffers)
-        {
-            buffer.Dispose();
-        }
-
-        if (mixedBuffer == null)
-        {
-            return new AudioBuffer(SampleRate, 2, AudioProcessContext.GetSampleCount(range, SampleRate));
-        }
-
-        // Apply master effects
-        ApplyMasterEffects(mixedBuffer);
-
-        // Convert to output format
-        return mixedBuffer;
     }
 
     private AudioBuffer? MixBuffers(List<AudioBuffer> buffers)
@@ -136,27 +147,36 @@ public class Composer : IComposer
         var firstBuffer = buffers[0];
         var mixedBuffer = new AudioBuffer(firstBuffer.SampleRate, firstBuffer.ChannelCount, firstBuffer.SampleCount);
 
-        // Mix all buffers
-        for (int ch = 0; ch < mixedBuffer.ChannelCount; ch++)
+        // Dispose the mix buffer rather than leak it if a (possibly disposed) source read throws.
+        try
         {
-            var mixedChannel = mixedBuffer.GetChannelData(ch);
-
-            foreach (var buffer in buffers)
+            // Mix all buffers
+            for (int ch = 0; ch < mixedBuffer.ChannelCount; ch++)
             {
-                if (buffer.ChannelCount > ch)
-                {
-                    var sourceChannel = buffer.GetChannelData(ch);
-                    var sampleCount = Math.Min(mixedBuffer.SampleCount, buffer.SampleCount);
+                var mixedChannel = mixedBuffer.GetChannelData(ch);
 
-                    for (int i = 0; i < sampleCount; i++)
+                foreach (var buffer in buffers)
+                {
+                    if (buffer.ChannelCount > ch)
                     {
-                        mixedChannel[i] += sourceChannel[i];
+                        var sourceChannel = buffer.GetChannelData(ch);
+                        var sampleCount = Math.Min(mixedBuffer.SampleCount, buffer.SampleCount);
+
+                        for (int i = 0; i < sampleCount; i++)
+                        {
+                            mixedChannel[i] += sourceChannel[i];
+                        }
                     }
                 }
             }
-        }
 
-        return mixedBuffer;
+            return mixedBuffer;
+        }
+        catch
+        {
+            mixedBuffer.Dispose();
+            throw;
+        }
     }
 
     private static void ApplyMasterEffects(AudioBuffer buffer)

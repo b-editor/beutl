@@ -28,51 +28,59 @@ public sealed class GainNode : AudioNode
         {
             // Create output buffer
             var output = new AudioBuffer(input.SampleRate, input.ChannelCount, input.SampleCount);
-
-            // Sample gain values for each sample
-            Span<float> gains = stackalloc float[System.Math.Min(input.SampleCount, 8192)];
-
-            // Process in chunks to avoid stack overflow for large buffers
-            int processed = 0;
-            while (processed < input.SampleCount)
+            try
             {
-                int chunkSize = System.Math.Min(gains.Length, input.SampleCount - processed);
-                var chunkGains = gains.Slice(0, chunkSize);
+                // Sample gain values for each sample
+                Span<float> gains = stackalloc float[System.Math.Min(input.SampleCount, 8192)];
 
-                var chunkStart = context.GetTimeForSample(processed);
-                var chunkEnd = context.GetTimeForSample(processed + chunkSize);
-                // すでにcontext.TimeRange.StartがGetTimeForSampleで加算されている
-                var chunkRange = new Media.TimeRange(chunkStart, chunkEnd - chunkStart);
-
-                // Sample animation values
-                context.AnimationSampler.SampleBuffer(
-                    gain,
-                    chunkRange,
-                    context.SampleRate,
-                    chunkGains);
-
-                // Convert from percentage (0-100) to factor (0-1)
-                for (int i = 0; i < chunkSize; i++)
+                // Process in chunks to avoid stack overflow for large buffers
+                int processed = 0;
+                while (processed < input.SampleCount)
                 {
-                    chunkGains[i] /= 100f;
-                }
+                    int chunkSize = System.Math.Min(gains.Length, input.SampleCount - processed);
+                    var chunkGains = gains.Slice(0, chunkSize);
 
-                // Apply gain to each channel
-                for (int ch = 0; ch < input.ChannelCount; ch++)
-                {
-                    var inData = input.GetChannelData(ch).Slice(processed, chunkSize);
-                    var outData = output.GetChannelData(ch).Slice(processed, chunkSize);
+                    var chunkStart = context.GetTimeForSample(processed);
+                    var chunkEnd = context.GetTimeForSample(processed + chunkSize);
+                    // context.GetTimeForSample already includes context.TimeRange.Start.
+                    var chunkRange = new Media.TimeRange(chunkStart, chunkEnd - chunkStart);
 
+                    // Sample animation values
+                    context.AnimationSampler.SampleBuffer(
+                        gain,
+                        chunkRange,
+                        context.SampleRate,
+                        chunkGains);
+
+                    // Convert from percentage (0-100) to factor (0-1)
                     for (int i = 0; i < chunkSize; i++)
                     {
-                        outData[i] = inData[i] * chunkGains[i];
+                        chunkGains[i] /= 100f;
                     }
+
+                    // Apply gain to each channel
+                    for (int ch = 0; ch < input.ChannelCount; ch++)
+                    {
+                        var inData = input.GetChannelData(ch).Slice(processed, chunkSize);
+                        var outData = output.GetChannelData(ch).Slice(processed, chunkSize);
+
+                        for (int i = 0; i < chunkSize; i++)
+                        {
+                            outData[i] = inData[i] * chunkGains[i];
+                        }
+                    }
+
+                    processed += chunkSize;
                 }
 
-                processed += chunkSize;
+                return output;
             }
-
-            return output;
+            catch
+            {
+                // Dispose the output the caller never received rather than leak it.
+                output.Dispose();
+                throw;
+            }
         }
     }
 
@@ -87,19 +95,27 @@ public sealed class GainNode : AudioNode
         using (input)
         {
             var output = new AudioBuffer(input.SampleRate, input.ChannelCount, input.SampleCount);
-
-            for (int ch = 0; ch < input.ChannelCount; ch++)
+            try
             {
-                var inData = input.GetChannelData(ch);
-                var outData = output.GetChannelData(ch);
-
-                for (int i = 0; i < input.SampleCount; i++)
+                for (int ch = 0; ch < input.ChannelCount; ch++)
                 {
-                    outData[i] = inData[i] * gain;
-                }
-            }
+                    var inData = input.GetChannelData(ch);
+                    var outData = output.GetChannelData(ch);
 
-            return output;
+                    for (int i = 0; i < input.SampleCount; i++)
+                    {
+                        outData[i] = inData[i] * gain;
+                    }
+                }
+
+                return output;
+            }
+            catch
+            {
+                // Dispose the output the caller never received rather than leak it.
+                output.Dispose();
+                throw;
+            }
         }
     }
 }

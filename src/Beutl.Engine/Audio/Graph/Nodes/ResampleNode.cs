@@ -99,22 +99,30 @@ public sealed class ResampleNode : AudioNode
 
             var outputSampleCount = (int)System.Math.Round(input.SampleCount * (double)_targetSampleRate / input.SampleRate);
             var output = new AudioBuffer(_targetSampleRate, input.ChannelCount, outputSampleCount);
-
-            // Read resampled data
-            var buffer = new float[outputSampleCount * input.ChannelCount];
-            int samplesRead = _wdlResampler!.Read(buffer, 0, buffer.Length);
-
-            // Copy interleaved samples back to AudioBuffer
-            for (int ch = 0; ch < input.ChannelCount; ch++)
+            try
             {
-                var channelData = output.GetChannelData(ch);
-                for (int i = 0; i < samplesRead / input.ChannelCount; i++)
-                {
-                    channelData[i] = buffer[i * input.ChannelCount + ch];
-                }
-            }
+                // Read resampled data
+                var buffer = new float[outputSampleCount * input.ChannelCount];
+                int samplesRead = _wdlResampler!.Read(buffer, 0, buffer.Length);
 
-            return output;
+                // Copy interleaved samples back to AudioBuffer
+                for (int ch = 0; ch < input.ChannelCount; ch++)
+                {
+                    var channelData = output.GetChannelData(ch);
+                    for (int i = 0; i < samplesRead / input.ChannelCount; i++)
+                    {
+                        channelData[i] = buffer[i * input.ChannelCount + ch];
+                    }
+                }
+
+                return output;
+            }
+            catch
+            {
+                // Dispose the output the caller never received rather than leak it.
+                output.Dispose();
+                throw;
+            }
         }
 
         public void Dispose()

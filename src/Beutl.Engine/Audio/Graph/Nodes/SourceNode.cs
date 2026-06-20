@@ -21,31 +21,40 @@ public sealed class SourceNode : AudioNode
         var start = (int)(context.TimeRange.Start.TotalSeconds * resource.SampleRate);
         var length = (int)Math.Ceiling(context.TimeRange.Duration.TotalSeconds * resource.SampleRate);
 
-        // Read PCM data from source
-        if (resource.Read(start, length, out var pcmRef))
+        try
         {
-            using (pcmRef)
+            // Read PCM data from source
+            if (resource.Read(start, length, out var pcmRef))
             {
-                var pcm = pcmRef.Value;
-                // Convert to stereo float if needed
-                if (pcm is Pcm<Stereo32BitFloat> stereoPcm)
+                using (pcmRef)
                 {
-                    CopyPcmToBuffer(stereoPcm, buffer);
-                }
-                else if (pcm is Pcm<Monaural32BitFloat> monoPcm)
-                {
-                    CopyMonoToStereoBuffer(monoPcm, buffer);
-                }
-                else
-                {
-                    // Convert to stereo float
-                    using var convertedPcm = pcm.Convert<Stereo32BitFloat>();
-                    CopyPcmToBuffer(convertedPcm, buffer);
+                    var pcm = pcmRef.Value;
+                    // Convert to stereo float if needed
+                    if (pcm is Pcm<Stereo32BitFloat> stereoPcm)
+                    {
+                        CopyPcmToBuffer(stereoPcm, buffer);
+                    }
+                    else if (pcm is Pcm<Monaural32BitFloat> monoPcm)
+                    {
+                        CopyMonoToStereoBuffer(monoPcm, buffer);
+                    }
+                    else
+                    {
+                        // Convert to stereo float
+                        using var convertedPcm = pcm.Convert<Stereo32BitFloat>();
+                        CopyPcmToBuffer(convertedPcm, buffer);
+                    }
                 }
             }
-        }
 
-        return buffer;
+            return buffer;
+        }
+        catch
+        {
+            // Dispose the buffer the caller never received rather than leak it.
+            buffer.Dispose();
+            throw;
+        }
     }
 
     private static unsafe void CopyPcmToBuffer(Pcm<Stereo32BitFloat> pcm, AudioBuffer buffer)

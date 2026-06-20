@@ -151,4 +151,53 @@ public class DelayNodeTests
         Assert.That(second.GetChannelData(0).ToArray(),
             Is.Not.EqualTo(freshRun.GetChannelData(0).ToArray()).AsCollection);
     }
+
+    // Emits a ramp with a configurable channel count so a reused node can be driven first with one
+    // channel and then with more.
+    private sealed class ConfigurableChannelInputNode(int sampleRate, int channelCount) : AudioNode
+    {
+        public override AudioBuffer Process(AudioProcessContext context)
+        {
+            int count = context.GetSampleCount();
+            var buffer = new AudioBuffer(sampleRate, channelCount, count);
+            int startIndex = (int)(context.TimeRange.Start.TotalSeconds * sampleRate);
+            for (int ch = 0; ch < channelCount; ch++)
+            {
+                Span<float> data = buffer.GetChannelData(ch);
+                for (int i = 0; i < count; i++)
+                {
+                    data[i] = (startIndex + i + 1) * 0.01f * (ch + 1);
+                }
+            }
+
+            return buffer;
+        }
+    }
+
+    // The node is cached across Compose() calls; initialization keyed only on sample rate would keep
+    // a too-short delay-line array after a channel-count increase, leaving the extra channels silent.
+    [Test]
+    public void Process_ChannelCountIncreaseOnReusedNode_ProcessesAllChannels()
+    {
+        using var node = new DelayNode
+        {
+            DelayTime = Property.Create(200f),
+            Feedback = Property.Create(50f),
+            DryMix = Property.Create(60f),
+            WetMix = Property.Create(40f),
+        };
+
+        // First render sizes the cached delay-line array to a single channel.
+        node.AddInput(new ConfigurableChannelInputNode(SampleRate, 1));
+        node.Process(CreateContext()).Dispose();
+
+        // Re-render on the SAME node with a stereo source: the delay lines must grow to 2 channels.
+        node.ClearInputs();
+        node.AddInput(new ConfigurableChannelInputNode(SampleRate, 2));
+        using AudioBuffer stereo = node.Process(CreateContext());
+
+        float[] right = stereo.GetChannelData(1).ToArray();
+        Assert.That(Array.Exists(right, v => v != 0f), Is.True,
+            "The second channel must be processed after a channel-count increase on a reused node.");
+    }
 }

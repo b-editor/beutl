@@ -106,169 +106,57 @@ public sealed class CompressorNode : AudioNode
     private AudioBuffer ProcessStatic(AudioBuffer input, AudioProcessContext context)
     {
         var output = new AudioBuffer(input.SampleRate, input.ChannelCount, input.SampleCount);
-
-        EffectiveParameters p = ReadStaticParameters();
-
-        float attackCoeff = ComputeCoeff(p.Attack, context.SampleRate);
-        float releaseCoeff = ComputeCoeff(p.Release, context.SampleRate);
-        float slope = 1f - 1f / p.Ratio;
-
-        int channels = input.ChannelCount;
-        int sampleCount = input.SampleCount;
-        var (inputChannels, outputChannels) = MapChannels(input, output);
-
-        // Materialize the channel spans ONCE for the mono/stereo fast path to avoid the per-sample
-        // Memory.Span getter the >2-channel fallback still pays. Span<float>[] is impossible (ref
-        // struct), hence the explicit locals.
-        if (channels <= 2)
+        try
         {
-            Span<float> in0 = inputChannels[0].Span;
-            Span<float> out0 = outputChannels[0].Span;
-            Span<float> in1 = channels == 2 ? inputChannels[1].Span : default;
-            Span<float> out1 = channels == 2 ? outputChannels[1].Span : default;
+            EffectiveParameters p = ReadStaticParameters();
 
-            for (int i = 0; i < sampleCount; i++)
+            float attackCoeff = ComputeCoeff(p.Attack, context.SampleRate);
+            float releaseCoeff = ComputeCoeff(p.Release, context.SampleRate);
+            float slope = 1f - 1f / p.Ratio;
+
+            int channels = input.ChannelCount;
+            int sampleCount = input.SampleCount;
+            var (inputChannels, outputChannels) = MapChannels(input, output);
+
+            // Materialize the channel spans ONCE for the mono/stereo fast path to avoid the per-sample
+            // Memory.Span getter the >2-channel fallback still pays. Span<float>[] is impossible (ref
+            // struct), hence the explicit locals.
+            if (channels <= 2)
             {
-                float s0 = in0[i];
-                float peak = MathF.Abs(s0);
-                float s1 = 0f;
-                if (channels == 2)
+                Span<float> in0 = inputChannels[0].Span;
+                Span<float> out0 = outputChannels[0].Span;
+                Span<float> in1 = channels == 2 ? inputChannels[1].Span : default;
+                Span<float> out1 = channels == 2 ? outputChannels[1].Span : default;
+
+                for (int i = 0; i < sampleCount; i++)
                 {
-                    s1 = in1[i];
-                    float a1 = MathF.Abs(s1);
-                    if (a1 > peak) peak = a1;
-                }
-
-                float gainLinear = NextGain(peak, attackCoeff, releaseCoeff, p, slope);
-
-                out0[i] = SanitizeOutput(s0 * gainLinear);
-                if (channels == 2)
-                {
-                    out1[i] = SanitizeOutput(s1 * gainLinear);
-                }
-            }
-        }
-        else
-        {
-            for (int i = 0; i < sampleCount; i++)
-            {
-                float peak = 0f;
-                for (int ch = 0; ch < channels; ch++)
-                {
-                    float a = MathF.Abs(inputChannels[ch].Span[i]);
-                    if (a > peak) peak = a;
-                }
-
-                float gainLinear = NextGain(peak, attackCoeff, releaseCoeff, p, slope);
-
-                for (int ch = 0; ch < channels; ch++)
-                {
-                    float sample = inputChannels[ch].Span[i] * gainLinear;
-                    outputChannels[ch].Span[i] = SanitizeOutput(sample);
-                }
-            }
-        }
-
-        return output;
-    }
-
-    private AudioBuffer ProcessAnimated(AudioBuffer input, AudioProcessContext context)
-    {
-        var output = new AudioBuffer(input.SampleRate, input.ChannelCount, input.SampleCount);
-
-        const int maxChunkSize = 1024;
-        int bufferSize = Math.Min(maxChunkSize, input.SampleCount);
-        Span<float> thresholds = stackalloc float[bufferSize];
-        Span<float> ratios = stackalloc float[bufferSize];
-        Span<float> attacks = stackalloc float[bufferSize];
-        Span<float> releases = stackalloc float[bufferSize];
-        Span<float> knees = stackalloc float[bufferSize];
-        Span<float> makeups = stackalloc float[bufferSize];
-
-        // Fallbacks for when an animated parameter samples to NaN/Infinity (e.g. malformed
-        // KeyFrame); otherwise one non-finite value would zero out every output sample.
-        EffectiveParameters fallback = ReadStaticParameters();
-
-        int channels = input.ChannelCount;
-        int sampleCount = input.SampleCount;
-        var (inputChannels, outputChannels) = MapChannels(input, output);
-
-        // Materialize the channel spans once (matching ProcessStatic) for the mono/stereo fast path;
-        // the >2-channel path keeps Memory indexing where the getter cost is negligible.
-        Span<float> in0 = channels <= 2 ? inputChannels[0].Span : default;
-        Span<float> out0 = channels <= 2 ? outputChannels[0].Span : default;
-        Span<float> in1 = channels == 2 ? inputChannels[1].Span : default;
-        Span<float> out1 = channels == 2 ? outputChannels[1].Span : default;
-
-        int processed = 0;
-
-        // Seed with NaN so the first comparison is always unequal and coefficients compute on
-        // sample 0; afterwards Exp runs only when the animated ms value changes.
-        float lastAttackMs = float.NaN;
-        float lastReleaseMs = float.NaN;
-        float attackCoeff = 0f;
-        float releaseCoeff = 0f;
-
-        while (processed < sampleCount)
-        {
-            int chunkSize = Math.Min(bufferSize, sampleCount - processed);
-
-            var chunkStart = context.GetTimeForSample(processed);
-            var chunkEnd = context.GetTimeForSample(processed + chunkSize);
-            var chunkRange = new TimeRange(chunkStart, chunkEnd - chunkStart);
-
-            context.AnimationSampler.SampleBuffer(Threshold, chunkRange, context.SampleRate, thresholds[..chunkSize]);
-            context.AnimationSampler.SampleBuffer(Ratio, chunkRange, context.SampleRate, ratios[..chunkSize]);
-            context.AnimationSampler.SampleBuffer(Attack, chunkRange, context.SampleRate, attacks[..chunkSize]);
-            context.AnimationSampler.SampleBuffer(Release, chunkRange, context.SampleRate, releases[..chunkSize]);
-            context.AnimationSampler.SampleBuffer(Knee, chunkRange, context.SampleRate, knees[..chunkSize]);
-            context.AnimationSampler.SampleBuffer(MakeupGain, chunkRange, context.SampleRate, makeups[..chunkSize]);
-
-            for (int i = 0; i < chunkSize; i++)
-            {
-                int idx = processed + i;
-
-                EffectiveParameters p = SanitizeAnimated(
-                    thresholds[i], ratios[i], attacks[i], releases[i], knees[i], makeups[i], fallback);
-
-                if (p.Attack != lastAttackMs)
-                {
-                    attackCoeff = ComputeCoeff(p.Attack, context.SampleRate);
-                    lastAttackMs = p.Attack;
-                }
-                if (p.Release != lastReleaseMs)
-                {
-                    releaseCoeff = ComputeCoeff(p.Release, context.SampleRate);
-                    lastReleaseMs = p.Release;
-                }
-                float slope = 1f - 1f / p.Ratio;
-
-                if (channels <= 2)
-                {
-                    float s0 = in0[idx];
+                    float s0 = in0[i];
                     float peak = MathF.Abs(s0);
                     float s1 = 0f;
                     if (channels == 2)
                     {
-                        s1 = in1[idx];
+                        s1 = in1[i];
                         float a1 = MathF.Abs(s1);
                         if (a1 > peak) peak = a1;
                     }
 
                     float gainLinear = NextGain(peak, attackCoeff, releaseCoeff, p, slope);
 
-                    out0[idx] = SanitizeOutput(s0 * gainLinear);
+                    out0[i] = SanitizeOutput(s0 * gainLinear);
                     if (channels == 2)
                     {
-                        out1[idx] = SanitizeOutput(s1 * gainLinear);
+                        out1[i] = SanitizeOutput(s1 * gainLinear);
                     }
                 }
-                else
+            }
+            else
+            {
+                for (int i = 0; i < sampleCount; i++)
                 {
                     float peak = 0f;
                     for (int ch = 0; ch < channels; ch++)
                     {
-                        float a = MathF.Abs(inputChannels[ch].Span[idx]);
+                        float a = MathF.Abs(inputChannels[ch].Span[i]);
                         if (a > peak) peak = a;
                     }
 
@@ -276,16 +164,144 @@ public sealed class CompressorNode : AudioNode
 
                     for (int ch = 0; ch < channels; ch++)
                     {
-                        float sample = inputChannels[ch].Span[idx] * gainLinear;
-                        outputChannels[ch].Span[idx] = SanitizeOutput(sample);
+                        float sample = inputChannels[ch].Span[i] * gainLinear;
+                        outputChannels[ch].Span[i] = SanitizeOutput(sample);
                     }
                 }
             }
 
-            processed += chunkSize;
+            return output;
         }
+        catch
+        {
+            // Dispose the output the caller never received rather than leak it.
+            output.Dispose();
+            throw;
+        }
+    }
 
-        return output;
+    private AudioBuffer ProcessAnimated(AudioBuffer input, AudioProcessContext context)
+    {
+        var output = new AudioBuffer(input.SampleRate, input.ChannelCount, input.SampleCount);
+        try
+        {
+            const int maxChunkSize = 1024;
+            int bufferSize = Math.Min(maxChunkSize, input.SampleCount);
+            Span<float> thresholds = stackalloc float[bufferSize];
+            Span<float> ratios = stackalloc float[bufferSize];
+            Span<float> attacks = stackalloc float[bufferSize];
+            Span<float> releases = stackalloc float[bufferSize];
+            Span<float> knees = stackalloc float[bufferSize];
+            Span<float> makeups = stackalloc float[bufferSize];
+
+            // Fallbacks for when an animated parameter samples to NaN/Infinity (e.g. malformed
+            // KeyFrame); otherwise one non-finite value would zero out every output sample.
+            EffectiveParameters fallback = ReadStaticParameters();
+
+            int channels = input.ChannelCount;
+            int sampleCount = input.SampleCount;
+            var (inputChannels, outputChannels) = MapChannels(input, output);
+
+            // Materialize the channel spans once (matching ProcessStatic) for the mono/stereo fast path;
+            // the >2-channel path keeps Memory indexing where the getter cost is negligible.
+            Span<float> in0 = channels <= 2 ? inputChannels[0].Span : default;
+            Span<float> out0 = channels <= 2 ? outputChannels[0].Span : default;
+            Span<float> in1 = channels == 2 ? inputChannels[1].Span : default;
+            Span<float> out1 = channels == 2 ? outputChannels[1].Span : default;
+
+            int processed = 0;
+
+            // Seed with NaN so the first comparison is always unequal and coefficients compute on
+            // sample 0; afterwards Exp runs only when the animated ms value changes.
+            float lastAttackMs = float.NaN;
+            float lastReleaseMs = float.NaN;
+            float attackCoeff = 0f;
+            float releaseCoeff = 0f;
+
+            while (processed < sampleCount)
+            {
+                int chunkSize = Math.Min(bufferSize, sampleCount - processed);
+
+                var chunkStart = context.GetTimeForSample(processed);
+                var chunkEnd = context.GetTimeForSample(processed + chunkSize);
+                var chunkRange = new TimeRange(chunkStart, chunkEnd - chunkStart);
+
+                context.AnimationSampler.SampleBuffer(Threshold, chunkRange, context.SampleRate, thresholds[..chunkSize]);
+                context.AnimationSampler.SampleBuffer(Ratio, chunkRange, context.SampleRate, ratios[..chunkSize]);
+                context.AnimationSampler.SampleBuffer(Attack, chunkRange, context.SampleRate, attacks[..chunkSize]);
+                context.AnimationSampler.SampleBuffer(Release, chunkRange, context.SampleRate, releases[..chunkSize]);
+                context.AnimationSampler.SampleBuffer(Knee, chunkRange, context.SampleRate, knees[..chunkSize]);
+                context.AnimationSampler.SampleBuffer(MakeupGain, chunkRange, context.SampleRate, makeups[..chunkSize]);
+
+                for (int i = 0; i < chunkSize; i++)
+                {
+                    int idx = processed + i;
+
+                    EffectiveParameters p = SanitizeAnimated(
+                        thresholds[i], ratios[i], attacks[i], releases[i], knees[i], makeups[i], fallback);
+
+                    if (p.Attack != lastAttackMs)
+                    {
+                        attackCoeff = ComputeCoeff(p.Attack, context.SampleRate);
+                        lastAttackMs = p.Attack;
+                    }
+                    if (p.Release != lastReleaseMs)
+                    {
+                        releaseCoeff = ComputeCoeff(p.Release, context.SampleRate);
+                        lastReleaseMs = p.Release;
+                    }
+                    float slope = 1f - 1f / p.Ratio;
+
+                    if (channels <= 2)
+                    {
+                        float s0 = in0[idx];
+                        float peak = MathF.Abs(s0);
+                        float s1 = 0f;
+                        if (channels == 2)
+                        {
+                            s1 = in1[idx];
+                            float a1 = MathF.Abs(s1);
+                            if (a1 > peak) peak = a1;
+                        }
+
+                        float gainLinear = NextGain(peak, attackCoeff, releaseCoeff, p, slope);
+
+                        out0[idx] = SanitizeOutput(s0 * gainLinear);
+                        if (channels == 2)
+                        {
+                            out1[idx] = SanitizeOutput(s1 * gainLinear);
+                        }
+                    }
+                    else
+                    {
+                        float peak = 0f;
+                        for (int ch = 0; ch < channels; ch++)
+                        {
+                            float a = MathF.Abs(inputChannels[ch].Span[idx]);
+                            if (a > peak) peak = a;
+                        }
+
+                        float gainLinear = NextGain(peak, attackCoeff, releaseCoeff, p, slope);
+
+                        for (int ch = 0; ch < channels; ch++)
+                        {
+                            float sample = inputChannels[ch].Span[idx] * gainLinear;
+                            outputChannels[ch].Span[idx] = SanitizeOutput(sample);
+                        }
+                    }
+                }
+
+                processed += chunkSize;
+            }
+
+            return output;
+        }
+        catch
+        {
+            // Dispose the output the caller never received rather than leak it.
+            output.Dispose();
+            throw;
+        }
     }
 
     // Caches per-channel Memory handles, reusing the backing arrays across calls (reallocated only
