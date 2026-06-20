@@ -23,6 +23,13 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- ArtifactProvider is opt-in: this is the sole consumer (the serialization / typeface / text /
+         shape tests write golden artifacts under Artifacts/). Other test projects under tests/ no
+         longer compile it in. -->
+    <Compile Include="$(MSBuildThisFileDirectory)..\ArtifactProvider.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\..\src\Beutl.Threading\Beutl.Threading.csproj" />
     <ProjectReference Include="..\..\src\Beutl.Engine\Beutl.Engine.csproj" />
     <ProjectReference Include="..\..\src\Beutl.NodeGraph\Beutl.NodeGraph.csproj" />

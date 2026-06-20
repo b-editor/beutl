@@ -8,10 +8,6 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Remove="$(MSBuildThisFileDirectory)\..\ArtifactProvider.cs" />
-  </ItemGroup>
-
-  <ItemGroup>
     <PackageReference Include="FFmpeg.AutoGen.Bindings.DynamicallyLoaded" />
     <PackageReference Include="FFmpeg4Sharp" />
   </ItemGroup>
