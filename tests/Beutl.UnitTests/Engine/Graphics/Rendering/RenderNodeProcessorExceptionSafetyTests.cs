@@ -48,8 +48,10 @@ public class RenderNodeProcessorExceptionSafetyTests
             CreateOperation("remaining", disposed));
         var processor = new RenderNodeProcessor(node, useRenderCache: false);
 
-        Assert.Throws<InvalidOperationException>(() => processor.RasterizeAndConcat());
+        var ex = Assert.Throws<InvalidOperationException>(() => processor.RasterizeAndConcat());
 
+        // The propagated exception must be the faulting op's Dispose, not a masked second throw.
+        Assert.That(ex!.Message, Is.EqualTo("fault"));
         // The faulting op must be disposed exactly once, and the remaining op must still be
         // cleaned up: a double-dispose re-runs OnDispose (use-after-free for GPU-backed ops)
         // and skips the remaining op.
