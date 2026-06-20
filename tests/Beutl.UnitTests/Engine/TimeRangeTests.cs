@@ -14,9 +14,9 @@ public class TimeRangeTests
         var range2 = TimeRange.FromSeconds(2, 3);
         var range3 = TimeRange.FromSeconds(5, 5);
 
-        Assert.That(range1.Contains(range2), Is.EqualTo(true));
-        Assert.That(range2.Contains(range3), Is.EqualTo(false));
-        Assert.That(range1.Contains(TimeSpan.FromSeconds(7)), Is.EqualTo(false));
+        Assert.That(range1.Contains(range2), Is.True);
+        Assert.That(range2.Contains(range3), Is.False);
+        Assert.That(range1.Contains(TimeSpan.FromSeconds(7)), Is.False);
     }
 
     [Test]

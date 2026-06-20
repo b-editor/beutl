@@ -3,6 +3,7 @@ using Beutl.Utilities;
 
 namespace Beutl.UnitTests.Engine;
 
+[TestFixture]
 public class RefUtf8StringTokenizerParseTests
 {
     [Test]
