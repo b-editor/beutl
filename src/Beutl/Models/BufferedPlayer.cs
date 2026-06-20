@@ -196,6 +196,9 @@ public sealed class BufferedPlayer : IPlayer
         _waitRenderToken = null;
     }
 
+    // Only ever called from the producer loop in Start(), so it is the sole waiter on _waitTimerToken. That
+    // confinement is what lets it skip WaitRender's post-publish re-check and dispose the CTS on return: every other
+    // thread only cancels this token, never waits on it, so the disposed-token cancel race is the helper's to absorb.
     private void WaitTimer()
     {
         if (_isDisposed) return;
