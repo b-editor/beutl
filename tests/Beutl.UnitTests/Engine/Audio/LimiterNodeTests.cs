@@ -26,8 +26,8 @@ public class LimiterNodeTests
     [OneTimeSetUp]
     public void OneTimeSetUp()
     {
-        // Log.LoggerFactory's setter is write-once (??=); only allocate a factory when logging
-        // has not been initialized yet, so we don't create and discard one on every fixture.
+        // Log.LoggerFactory is write-once (??=); skip allocating a factory we would only discard
+        // when another fixture already set one.
         if (Log.LoggerFactory is null)
         {
             Log.LoggerFactory = LoggerFactory.Create(_ => { });
