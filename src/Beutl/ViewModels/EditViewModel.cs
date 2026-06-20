@@ -810,7 +810,9 @@ public sealed partial class EditViewModel : IEditorContext, ISupportAutoSaveEdit
             "Redo",
             "Redoing last undone command.",
             "Redo completed.",
-            () => HistoryManager.CanRedo,
+            // Redo() rolls back a pending transaction before checking the redo stack,
+            // so it can revert scene state even when CanRedo is false.
+            () => HistoryManager.CanRedo || HistoryManager.HasPendingOperations,
             HistoryManager.Redo);
     }
 

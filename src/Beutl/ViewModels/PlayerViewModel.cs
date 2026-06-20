@@ -478,9 +478,14 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
     public void Play()
     {
         if (IsPlaying.Value) return;
+        if (!_isEnabled.Value || Scene == null) return;
 
         PlaybackSpeed.Value = 1.0f;
         PlaybackDirection.Value = ViewModels.PlaybackDirection.Forward;
+        // Mark playing before publishing _playbackTask so a Pause() arriving in the
+        // startup window (before PlayInternal sets IsPlaying) sees it and signals the
+        // loop to stop, instead of awaiting a task that never received a stop signal.
+        IsPlaying.Value = true;
 
         _playbackTask = Task.Run(async () =>
         {
@@ -491,6 +496,12 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
             do
             {
                 restart = await PlayInternal();
+                if (restart)
+                {
+                    // Loop restart: re-arm IsPlaying for the next PlayInternal, which
+                    // no longer sets it itself. A user Pause yields restart == false.
+                    IsPlaying.Value = true;
+                }
             } while (restart);
         });
     }
@@ -498,14 +509,16 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
     private async Task<bool> PlayInternal()
     {
         if (!_isEnabled.Value || Scene == null)
+        {
+            IsPlaying.Value = false;
             return false;
+        }
 
         BufferStatusViewModel bufferStatus = EditViewModel.BufferStatus;
         FrameCacheManager frameCacheManager = EditViewModel.FrameCacheManager.Value;
         Scene.Edited -= OnSceneEdited;
         _currentFrameSubscription?.Dispose();
 
-        IsPlaying.Value = true;
         int rate = GetFrameRate();
 
         TimeSpan tick = TimeSpan.FromSeconds(1d / rate);
