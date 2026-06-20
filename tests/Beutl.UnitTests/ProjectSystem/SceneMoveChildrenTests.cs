@@ -1,5 +1,4 @@
 ﻿using Beutl.ProjectSystem;
-using NUnit.Framework.Legacy;
 
 namespace Beutl.UnitTests.ProjectSystem;
 
@@ -43,8 +42,8 @@ public class SceneMoveChildrenTests
 
             scene.MoveChildren(0, TimeSpan.FromSeconds(1), [element]);
 
-            ClassicAssert.AreEqual(TimeSpan.FromSeconds(3), element.Start);
-            ClassicAssert.AreEqual(0, element.ZIndex);
+            Assert.That(element.Start, Is.EqualTo(TimeSpan.FromSeconds(3)));
+            Assert.That(element.ZIndex, Is.EqualTo(0));
         }
         finally
         {
@@ -60,7 +59,7 @@ public class SceneMoveChildrenTests
         {
             Scene scene = CreateScene(basePath);
 
-            ClassicAssert.Throws<ArgumentOutOfRangeException>(
+            Assert.Throws<ArgumentOutOfRangeException>(
                 () => scene.MoveChildren(0, TimeSpan.FromSeconds(1), []));
         }
         finally
@@ -81,8 +80,8 @@ public class SceneMoveChildrenTests
 
             scene.MoveChildren(+2, TimeSpan.Zero, [element]);
 
-            ClassicAssert.AreEqual(3, element.ZIndex);
-            ClassicAssert.AreEqual(TimeSpan.FromSeconds(2), element.Start);
+            Assert.That(element.ZIndex, Is.EqualTo(3));
+            Assert.That(element.Start, Is.EqualTo(TimeSpan.FromSeconds(2)));
         }
         finally
         {
@@ -106,8 +105,8 @@ public class SceneMoveChildrenTests
             // 時間方向の自動補正は効かないので no-op になる契約。
             scene.MoveChildren(+1, TimeSpan.Zero, [movable]);
 
-            ClassicAssert.AreEqual(0, movable.ZIndex);
-            ClassicAssert.AreEqual(TimeSpan.FromSeconds(2), movable.Start);
+            Assert.That(movable.ZIndex, Is.EqualTo(0));
+            Assert.That(movable.Start, Is.EqualTo(TimeSpan.FromSeconds(2)));
         }
         finally
         {
@@ -129,8 +128,8 @@ public class SceneMoveChildrenTests
 
             scene.MoveChildren(0, TimeSpan.FromSeconds(1), [a, b]);
 
-            ClassicAssert.AreEqual(TimeSpan.FromSeconds(3), a.Start);
-            ClassicAssert.AreEqual(TimeSpan.FromSeconds(5), b.Start);
+            Assert.That(a.Start, Is.EqualTo(TimeSpan.FromSeconds(3)));
+            Assert.That(b.Start, Is.EqualTo(TimeSpan.FromSeconds(5)));
         }
         finally
         {

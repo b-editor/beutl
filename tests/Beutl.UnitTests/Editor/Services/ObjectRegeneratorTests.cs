@@ -1,6 +1,5 @@
 ﻿using Beutl.Editor.Services;
 using Beutl.ProjectSystem;
-using NUnit.Framework.Legacy;
 
 namespace Beutl.UnitTests.Editor.Services;
 
@@ -21,8 +20,8 @@ public class ObjectRegeneratorTests
 
         ObjectRegenerator.Regenerate(src, out Element regenerated);
 
-        ClassicAssert.AreNotEqual(Guid.Empty, regenerated.Id);
-        ClassicAssert.AreNotEqual(srcId, regenerated.Id);
+        Assert.That(regenerated.Id, Is.Not.EqualTo(Guid.Empty));
+        Assert.That(regenerated.Id, Is.Not.EqualTo(srcId));
     }
 
     [Test]
@@ -44,11 +43,11 @@ public class ObjectRegeneratorTests
 
         ObjectRegenerator.Regenerate(src, out Element regenerated);
 
-        ClassicAssert.AreNotEqual(srcId, regenerated.Id);
-        ClassicAssert.AreEqual(1, regenerated.Objects.Count, "Embed mode should re-materialize child objects.");
+        Assert.That(regenerated.Id, Is.Not.EqualTo(srcId));
+        Assert.That(regenerated.Objects.Count, Is.EqualTo(1), "Embed mode should re-materialize child objects.");
         Guid regeneratedChildId = regenerated.Objects[0].Id;
-        ClassicAssert.AreNotEqual(Guid.Empty, regeneratedChildId);
-        ClassicAssert.AreNotEqual(childId, regeneratedChildId);
+        Assert.That(regeneratedChildId, Is.Not.EqualTo(Guid.Empty));
+        Assert.That(regeneratedChildId, Is.Not.EqualTo(childId));
     }
 
     [Test]
@@ -78,19 +77,19 @@ public class ObjectRegeneratorTests
 
         ObjectRegenerator.Regenerate([a, b, c], out Element[] regenerated);
 
-        ClassicAssert.AreEqual(3, regenerated.Length);
+        Assert.That(regenerated.Length, Is.EqualTo(3));
 
         // Order preserved (identified by Start).
-        ClassicAssert.AreEqual(a.Start, regenerated[0].Start);
-        ClassicAssert.AreEqual(b.Start, regenerated[1].Start);
-        ClassicAssert.AreEqual(c.Start, regenerated[2].Start);
+        Assert.That(regenerated[0].Start, Is.EqualTo(a.Start));
+        Assert.That(regenerated[1].Start, Is.EqualTo(b.Start));
+        Assert.That(regenerated[2].Start, Is.EqualTo(c.Start));
 
         // All Ids regenerated, no duplicates.
         for (int i = 0; i < regenerated.Length; i++)
         {
-            ClassicAssert.AreNotEqual(originalIds[i], regenerated[i].Id);
+            Assert.That(regenerated[i].Id, Is.Not.EqualTo(originalIds[i]));
         }
         var idSet = new HashSet<Guid>(regenerated.Select(r => r.Id));
-        ClassicAssert.AreEqual(3, idSet.Count);
+        Assert.That(idSet.Count, Is.EqualTo(3));
     }
 }

@@ -1,9 +1,9 @@
 ﻿using Beutl.Editor;
-using Beutl.Editor.Observers;
 using Beutl.Editor.Services;
 using Beutl.Engine;
 using Beutl.ProjectSystem;
 using Beutl.Serialization;
+using Beutl.UnitTests.TestInfrastructure;
 
 namespace Beutl.UnitTests.Editor.Services;
 
@@ -12,8 +12,8 @@ public class ElementObjectServiceTests
 {
     private string _basePath = null!;
     private Element _element = null!;
+    private HistoryHarness _harness = null!;
     private HistoryManager _history = null!;
-    private CoreObjectOperationObserver _observer = null!;
     private ElementObjectService _service = null!;
 
     [SetUp]
@@ -29,18 +29,15 @@ public class ElementObjectServiceTests
             ZIndex = 0,
             Uri = new Uri(Path.Combine(_basePath, $"{Guid.NewGuid():N}.belm")),
         };
-        var sequence = new OperationSequenceGenerator();
-        _history = new HistoryManager(_element, sequence);
-        _observer = new CoreObjectOperationObserver(null, _element, sequence);
-        _history.Subscribe(_observer);
+        _harness = new HistoryHarness(_element);
+        _history = _harness.History;
         _service = new ElementObjectService(_history);
     }
 
     [TearDown]
     public void TearDown()
     {
-        _observer.Dispose();
-        _history.Dispose();
+        _harness.Dispose();
         if (Directory.Exists(_basePath)) Directory.Delete(_basePath, recursive: true);
     }
 

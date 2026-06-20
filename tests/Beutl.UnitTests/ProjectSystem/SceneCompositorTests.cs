@@ -2,7 +2,6 @@
 using Beutl.Engine;
 using Beutl.Media;
 using Beutl.ProjectSystem;
-using NUnit.Framework.Legacy;
 
 namespace Beutl.UnitTests.ProjectSystem;
 
@@ -52,8 +51,8 @@ public class SceneCompositorTests
 
             CompositionFrame frame = compositor.EvaluateGraphics(TimeSpan.FromMilliseconds(500));
 
-            ClassicAssert.AreEqual(1, frame.Objects.Length);
-            ClassicAssert.AreSame(enabled.Objects[0], frame.Objects[0].GetOriginal());
+            Assert.That(frame.Objects.Length, Is.EqualTo(1));
+            Assert.That(frame.Objects[0].GetOriginal(), Is.SameAs(enabled.Objects[0]));
         }
         finally
         {
@@ -77,8 +76,8 @@ public class SceneCompositorTests
             CompositionFrame frame = compositor.EvaluateAudio(
                 new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(1)));
 
-            ClassicAssert.AreEqual(1, frame.Objects.Length);
-            ClassicAssert.AreSame(enabled.Objects[0], frame.Objects[0].GetOriginal());
+            Assert.That(frame.Objects.Length, Is.EqualTo(1));
+            Assert.That(frame.Objects[0].GetOriginal(), Is.SameAs(enabled.Objects[0]));
         }
         finally
         {
@@ -98,13 +97,13 @@ public class SceneCompositorTests
             using var compositor = new SceneCompositor(scene);
             var time = TimeSpan.FromMilliseconds(500);
 
-            ClassicAssert.AreEqual(1, compositor.EvaluateGraphics(time).Objects.Length);
+            Assert.That(compositor.EvaluateGraphics(time).Objects.Length, Is.EqualTo(1));
 
             element.IsEnabled = false;
-            ClassicAssert.AreEqual(0, compositor.EvaluateGraphics(time).Objects.Length);
+            Assert.That(compositor.EvaluateGraphics(time).Objects.Length, Is.EqualTo(0));
 
             element.IsEnabled = true;
-            ClassicAssert.AreEqual(1, compositor.EvaluateGraphics(time).Objects.Length);
+            Assert.That(compositor.EvaluateGraphics(time).Objects.Length, Is.EqualTo(1));
         }
         finally
         {
@@ -126,10 +125,10 @@ public class SceneCompositorTests
             using var compositor = new SceneCompositor(scene);
             var range = new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(1));
 
-            ClassicAssert.AreEqual(1, compositor.EvaluateAudio(range).Objects.Length);
+            Assert.That(compositor.EvaluateAudio(range).Objects.Length, Is.EqualTo(1));
 
             element.IsEnabled = false;
-            ClassicAssert.AreEqual(0, compositor.EvaluateAudio(range).Objects.Length);
+            Assert.That(compositor.EvaluateAudio(range).Objects.Length, Is.EqualTo(0));
         }
         finally
         {

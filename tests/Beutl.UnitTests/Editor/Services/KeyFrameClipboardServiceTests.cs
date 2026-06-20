@@ -4,6 +4,7 @@ using Beutl.Editor;
 using Beutl.Editor.Observers;
 using Beutl.Editor.Services;
 using Beutl.Serialization;
+using Beutl.UnitTests.TestInfrastructure;
 
 namespace Beutl.UnitTests.Editor.Services;
 
@@ -11,27 +12,25 @@ namespace Beutl.UnitTests.Editor.Services;
 public class KeyFrameClipboardServiceTests
 {
     private TestRoot _root = null!;
+    private HistoryHarness _harness = null!;
     private OperationSequenceGenerator _sequence = null!;
     private HistoryManager _history = null!;
-    private CoreObjectOperationObserver _rootObserver = null!;
     private KeyFrameClipboardService _service = null!;
 
     [SetUp]
     public void Setup()
     {
         _root = new TestRoot();
-        _sequence = new OperationSequenceGenerator();
-        _history = new HistoryManager(_root, _sequence);
-        _rootObserver = new CoreObjectOperationObserver(null, _root, _sequence);
-        _history.Subscribe(_rootObserver);
+        _harness = new HistoryHarness(_root);
+        _sequence = _harness.Sequence;
+        _history = _harness.History;
         _service = new KeyFrameClipboardService(_history);
     }
 
     [TearDown]
     public void TearDown()
     {
-        _rootObserver.Dispose();
-        _history.Dispose();
+        _harness.Dispose();
     }
 
     private sealed class TestRoot : CoreObject;

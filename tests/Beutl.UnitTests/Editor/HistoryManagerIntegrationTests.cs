@@ -3,6 +3,7 @@ using Beutl.Editor;
 using Beutl.Editor.Observers;
 using Beutl.Editor.Operations;
 using Beutl.Logging;
+using Beutl.UnitTests.TestInfrastructure;
 using Microsoft.Extensions.Logging;
 using static Beutl.Collections.ResetBehavior;
 
@@ -15,26 +16,24 @@ namespace Beutl.UnitTests.Editor;
 public class HistoryManagerIntegrationTests
 {
     private TestModel _root = null!;
+    private HistoryHarness _harness = null!;
     private OperationSequenceGenerator _sequenceGenerator = null!;
     private HistoryManager _historyManager = null!;
-    private CoreObjectOperationObserver _observer = null!;
 
     [SetUp]
     public void Setup()
     {
         Log.LoggerFactory = LoggerFactory.Create(b => b.AddSimpleConsole());
         _root = new TestModel();
-        _sequenceGenerator = new OperationSequenceGenerator();
-        _historyManager = new HistoryManager(_root, _sequenceGenerator);
-        _observer = new CoreObjectOperationObserver(null, _root, _sequenceGenerator);
-        _historyManager.Subscribe(_observer);
+        _harness = new HistoryHarness(_root);
+        _sequenceGenerator = _harness.Sequence;
+        _historyManager = _harness.History;
     }
 
     [TearDown]
     public void TearDown()
     {
-        _observer.Dispose();
-        _historyManager.Dispose();
+        _harness.Dispose();
     }
 
     #region Simple Property Change Tests

@@ -19,8 +19,10 @@ public class AudioNodeBufferDisposalTests
     private const int SampleRate = 100;
     private const int SampleCount = 100;
 
-    // Records every buffer it hands out so a test can assert its post-Process disposal state.
-    private sealed class CapturingInputNode(int sampleRate, int channels, int count, float value) : AudioNode
+    // The shared constant source, plus a record of every buffer it hands out so a test can assert the
+    // buffer's post-Process disposal state.
+    private sealed class CapturingInputNode(int sampleRate, int channels, int count, float value)
+        : ConstantInputNode(sampleRate, channels, count, value)
     {
         public List<AudioBuffer> Produced { get; } = new();
 
@@ -28,12 +30,7 @@ public class AudioNodeBufferDisposalTests
 
         public override AudioBuffer Process(AudioProcessContext context)
         {
-            var buffer = new AudioBuffer(sampleRate, channels, count);
-            for (int ch = 0; ch < channels; ch++)
-            {
-                buffer.GetChannelData(ch).Fill(value);
-            }
-
+            AudioBuffer buffer = CreateConstantBuffer();
             Produced.Add(buffer);
             return buffer;
         }

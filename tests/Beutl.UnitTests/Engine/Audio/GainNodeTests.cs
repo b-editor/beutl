@@ -13,20 +13,6 @@ public class GainNodeTests
 {
     private const int SampleRate = 100;
 
-    private sealed class ConstInputNode(int sampleRate, int channels, int count, float value) : AudioNode
-    {
-        public override AudioBuffer Process(AudioProcessContext context)
-        {
-            var buffer = new AudioBuffer(sampleRate, channels, count);
-            for (int ch = 0; ch < channels; ch++)
-            {
-                buffer.GetChannelData(ch).Fill(value);
-            }
-
-            return buffer;
-        }
-    }
-
     private static IProperty<float> AnimatedGain(float fromPercent, float toPercent, double durationSeconds)
     {
         var property = Property.CreateAnimatable(fromPercent);
@@ -60,7 +46,7 @@ public class GainNodeTests
         var gain = Property.CreateAnimatable(50f); // 50% -> factor 0.5
         gain.SetAttributes("Gain", []);
         using var node = new GainNode { Gain = gain };
-        node.AddInput(new ConstInputNode(SampleRate, 2, SampleRate, 1.0f));
+        node.AddInput(new ConstantInputNode(SampleRate, 2, SampleRate, 1.0f));
 
         using AudioBuffer result = node.Process(CreateContext());
 
@@ -83,7 +69,7 @@ public class GainNodeTests
     public void Process_GainWithAnimation_AppliesAnimatedValues()
     {
         using var node = new GainNode { Gain = AnimatedGain(0f, 100f, 1.0) };
-        node.AddInput(new ConstInputNode(SampleRate, 1, SampleRate, 1.0f));
+        node.AddInput(new ConstantInputNode(SampleRate, 1, SampleRate, 1.0f));
 
         using AudioBuffer result = node.Process(CreateContext());
 

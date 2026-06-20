@@ -1,7 +1,6 @@
 ﻿using Beutl.Graphics;
 using Beutl.Graphics.Transformation;
 using Beutl.Utilities;
-using NUnit.Framework.Legacy;
 
 namespace Beutl.UnitTests.Engine;
 
@@ -18,7 +17,7 @@ public class TransformParserTests
             .Prepend(Matrix.CreateSkew(MathUtilities.Deg2Rad(6), MathUtilities.Deg2Rad(7))));
         Matrix actual = Matrix.Parse(data);
 
-        ClassicAssert.AreEqual(expected, actual);
+        Assert.That(actual, Is.EqualTo(expected));
     }
 
     [Test]
@@ -32,6 +31,6 @@ public class TransformParserTests
         var expected = new Matrix(m11, m12, m13, m21, m22, m23, m31, m32, m33);
         Matrix actual = Matrix.Parse(data);
 
-        ClassicAssert.AreEqual(expected, actual);
+        Assert.That(actual, Is.EqualTo(expected));
     }
 }

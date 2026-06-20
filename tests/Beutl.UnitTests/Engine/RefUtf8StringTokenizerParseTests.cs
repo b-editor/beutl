@@ -1,10 +1,10 @@
 ﻿using System.Text;
 using Beutl.Utilities;
-using NUnit.Framework.Legacy;
 
 namespace Beutl.UnitTests.Engine;
 
-public class RefUtf8StringTokenizerTests
+[TestFixture]
+public class RefUtf8StringTokenizerParseTests
 {
     [Test]
     [TestCase(100, 100)]
@@ -19,8 +19,8 @@ public class RefUtf8StringTokenizerTests
 
         using (var tokenizer = new RefUtf8StringTokenizer(s))
         {
-            ClassicAssert.AreEqual(x, tokenizer.ReadInt32());
-            ClassicAssert.AreEqual(y, tokenizer.ReadInt32());
+            Assert.That(tokenizer.ReadInt32(), Is.EqualTo(x));
+            Assert.That(tokenizer.ReadInt32(), Is.EqualTo(y));
         }
     }
 
@@ -31,8 +31,8 @@ public class RefUtf8StringTokenizerTests
     {
         using (var tokenizer = new RefUtf8StringTokenizer(Encoding.UTF8.GetBytes(s)))
         {
-            ClassicAssert.AreEqual(1, tokenizer.ReadInt32());
-            ClassicAssert.AreEqual(2, tokenizer.ReadInt32());
+            Assert.That(tokenizer.ReadInt32(), Is.EqualTo(1));
+            Assert.That(tokenizer.ReadInt32(), Is.EqualTo(2));
         }
     }
 }
