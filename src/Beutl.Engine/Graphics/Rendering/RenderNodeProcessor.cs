@@ -151,8 +151,8 @@ public class RenderNodeProcessor(
                 foreach (var op in ops)
                 {
                     op.Render(canvas);
-                    op.Dispose();
                     consumed++;
+                    op.Dispose();
                 }
             }
         }
