@@ -47,7 +47,7 @@ dotnet_install_sha256="082f7685e156738a1b2e2ed8381a621870d4ce8e8c59278034556f05c
 dotnet_install_url="https://raw.githubusercontent.com/dotnet/install-scripts/${dotnet_install_commit}/src/dotnet-install.sh"
 download_timeout_seconds=60
 install_timeout_seconds=300
-restore_timeout_seconds=180
+restore_timeout_seconds=210
 
 # Print the SHA-256 of "$1" using whichever tool is available; print nothing if
 # neither exists (the caller treats an empty result as "cannot verify").
@@ -64,7 +64,7 @@ run_with_timeout() {
   shift
 
   if command -v timeout >/dev/null 2>&1; then
-    timeout "$timeout_seconds" "$@"
+    timeout -k 10 "$timeout_seconds" "$@"
   else
     "$@"
   fi
