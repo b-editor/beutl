@@ -7,7 +7,7 @@ All test projects are NUnit (+ Moq where needed). Use this index when picking th
 | Production code under… | Test project |
 |---|---|
 | `src/Beutl.Engine/Graphics/`, `Animation/`, `Audio/`, `Composition/`, etc. (non-3D) | `tests/Beutl.UnitTests/` |
-| `src/Beutl.Engine/Graphics3D/` | `tests/Beutl.Graphics3DTests/` |
+| `src/Beutl.Engine/Graphics3D/` | `tests/Beutl.UnitTests/Engine/Graphics3D/` |
 | `src/Beutl.Engine.SourceGenerators/` | `tests/SourceGeneratorTest/` |
 | `src/Beutl.FFmpegIpc/` and IPC-level contract tests against `Beutl.FFmpegWorker` | `tests/Beutl.FFmpegIpc.Tests/` |
 | `src/Beutl.Editor*/` | `tests/Beutl.UnitTests/Editor*/` |
@@ -15,6 +15,8 @@ All test projects are NUnit (+ Moq where needed). Use this index when picking th
 | `src/Beutl.Extensions.AVFoundation/` (macOS only) | `tests/Beutl.Extensions.AVFoundation.Tests/` |
 
 `tests/Beutl.Benchmarks/` and `tests/Beutl.FFmpegBenchmarks/` are BenchmarkDotNet projects, not NUnit — do not add unit tests there.
+
+`tests/Beutl.Graphics3DTests/` is an executable visual harness for manual Graphics3D checks, not an NUnit test project. Graphics3D NUnit tests live under `tests/Beutl.UnitTests/Engine/Graphics3D/`.
 
 `tests/DirectoryViewTest/`, `tests/PackageSample/`, `tests/TextFormattingPlayground/`, `tests/PropertyEditorViewTests/`, `tests/EnumerateFontFamilies/`, `tests/XamlPreview/` are interactive Avalonia previewers, not test harnesses — running them launches a window.
 
