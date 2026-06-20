@@ -30,7 +30,7 @@
   <!-- The Swift dylib lives under the referenced project's runtimes/ folder. ProjectReferences
        don't transitively copy native runtime assets the way NuGet packages do, so mirror them
        into this project's output via the AVF package's shared CopyBeutlAVFDylibsToConsumerOutput
-       target so the test host can resolve `BeutlAVF.dylib`. BeutlAVFOwnsSwiftBuild=false keeps the
+       target so the test host can resolve `libBeutlAVF.dylib`. BeutlAVFOwnsSwiftBuild=false keeps the
        Swift build/packaging pipeline off in this import; the mirror is gated on macOS because the
        dylib only loads there. -->
   <PropertyGroup>
