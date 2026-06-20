@@ -46,7 +46,8 @@ public partial class PlayerView : UserControl
     private IDisposable? _boundsSubscription;
     internal Control image = null!;
 
-    // _transformHandleResource is RenderThread-owned: only mutate inside RenderThread.Dispatcher.
+    // The Resource is RenderThread-owned: create/update/dispose only via RenderThread.Dispatcher.
+    // The UI thread may null these references to detach, but never touches the resource itself.
     private BtlDrawable.Resource? _transformHandleResource;
     private BtlDrawable? _transformHandleResourceTarget;
 
@@ -330,6 +331,8 @@ public partial class PlayerView : UserControl
     private void UpdateTransformHandles()
     {
         if (DataContext is not PlayerViewModel vm) return;
+        // The overlay is hidden during playback; skip the blocking RenderThread query.
+        if (vm.IsPlaying.Value) return;
         if (!vm.IsMoveMode.Value)
         {
             ClearTransformHandleOverlay();
@@ -457,16 +460,23 @@ public partial class PlayerView : UserControl
 
     private void InvalidateTransformHandleResource()
     {
-        if (_transformHandleResource == null) return;
+        BtlDrawable.Resource? resource = _transformHandleResource;
+        if (resource == null) return;
 
-        // _transformHandleResource is created inside RenderThread.Dispatcher.Invoke, so the matching
-        // Dispose must run there too — UI-thread paths (OnDataContextChanged, OnDetachedFromVisualTree,
-        // ClearTransformHandleOverlay) would otherwise race in-flight RenderThread updates.
-        RenderThread.Dispatcher.Invoke(() =>
+        // Detach on the UI thread, then dispose on the RenderThread fire-and-forget. A blocking Invoke
+        // here would stall the UI thread during playback (the render thread is busy generating frames).
+        _transformHandleResource = null;
+        _transformHandleResourceTarget = null;
+        RenderThread.Dispatcher.Dispatch(() =>
         {
-            _transformHandleResource?.Dispose();
-            _transformHandleResource = null;
-            _transformHandleResourceTarget = null;
+            try
+            {
+                resource.Dispose();
+            }
+            catch (Exception ex) when (ex is not OutOfMemoryException and not StackOverflowException)
+            {
+                _logger.LogError(ex, "Failed to dispose the transform-handle resource on the render thread.");
+            }
         });
     }
 
