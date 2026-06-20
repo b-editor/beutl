@@ -1,4 +1,4 @@
-using System.Reactive;
+﻿using System.Reactive;
 using System.Reactive.Linq;
 using Beutl.Editor.Services;
 using Beutl.Helpers;
