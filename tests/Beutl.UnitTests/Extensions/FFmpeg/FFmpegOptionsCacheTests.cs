@@ -199,4 +199,45 @@ public class FFmpegOptionsCacheTests
 
         Assert.That((await joiner).Items, Is.EqualTo(new[] { 48000 }));
     }
+
+    [Test]
+    public async Task Clear_OnEmptyCache_IsNoOp()
+    {
+        var cache = new FFmpegOptionsCache<int>();
+
+        cache.Clear();
+
+        Assert.That(cache.TryGetCached("aac", out _), Is.False);
+    }
+
+    [Test]
+    public async Task Clear_AfterPopulate_RemovesEntry()
+    {
+        var cache = new FFmpegOptionsCache<int>();
+        await cache.GetOrQueryAsync("aac", () => Ok(48000));
+        Assert.That(cache.TryGetCached("aac", out _), Is.True);
+
+        cache.Clear();
+
+        Assert.That(cache.TryGetCached("aac", out _), Is.False);
+    }
+
+    [Test]
+    public async Task Clear_ForcesNextCallToReQuery()
+    {
+        var cache = new FFmpegOptionsCache<int>();
+        int calls = 0;
+        await cache.GetOrQueryAsync("aac", () => { calls++; return Ok(48000); });
+
+        cache.Clear();
+
+        OptionsQueryResult<int> again = await cache.GetOrQueryAsync(
+            "aac", () => { calls++; return Ok(44100); });
+
+        // After Clear the cached entry is gone, so the factory runs again.
+        Assert.That(calls, Is.EqualTo(2));
+        Assert.That(again.Items, Is.EqualTo(new[] { 44100 }));
+        Assert.That(cache.TryGetCached("aac", out int[]? cached), Is.True);
+        Assert.That(cached, Is.EqualTo(new[] { 44100 }));
+    }
 }

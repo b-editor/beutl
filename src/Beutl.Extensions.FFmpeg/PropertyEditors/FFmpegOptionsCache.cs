@@ -34,6 +34,22 @@ internal sealed class FFmpegOptionsCache<T>
     }
 
     /// <summary>
+    /// Drops every cached entry and abandons single-flight tracking for keys whose factory has not
+    /// completed yet. In-flight tasks are not cancelled (their awaiters still observe the result);
+    /// only the bookkeeping that dedupes <em>new</em> callers is cleared, so a caller that arrives
+    /// after <see cref="Clear"/> may launch a fresh query even while a previous one is still running.
+    /// Used to reset a process-shared cache (e.g. after the FFmpeg worker restarts).
+    /// </summary>
+    public void Clear()
+    {
+        lock (_gate)
+        {
+            _cache.Clear();
+            _inflight.Clear();
+        }
+    }
+
+    /// <summary>
     /// Returns the cached result for <paramref name="key"/>, or runs <paramref name="factory"/> once
     /// and caches its items unless the result is degraded. Concurrent calls for the same uncached key
     /// share one task and all receive the same <see cref="OptionsQueryResult{T}"/>.

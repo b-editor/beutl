@@ -23,7 +23,6 @@ internal sealed class AudioFormatEditorViewModel : IPropertyEditorContext
     private readonly IPropertyAdapter<AudioFormat> _property;
     private readonly CompositeDisposable _disposables = [];
     private readonly ReactivePropertySlim<int> _selectedIndex;
-    private readonly FFmpegOptionsCache<AudioFormat> _cache = new();
     private readonly LatestRefreshTracker _refresh = new();
 
     private FFmpegAudioEncoderSettings? _settings;
@@ -104,7 +103,7 @@ internal sealed class AudioFormatEditorViewModel : IPropertyEditorContext
 
         QueryParams query = CreateQueryParams(_settings);
         string key = BuildCacheKey(query);
-        if (_cache.TryGetCached(key, out AudioFormat[]? cached))
+        if (FFmpegOptionsCaches.AudioFormats.TryGetCached(key, out AudioFormat[]? cached))
         {
             _refresh.Supersede();
             ApplyFormats(cached);
@@ -120,7 +119,7 @@ internal sealed class AudioFormatEditorViewModel : IPropertyEditorContext
         OptionsQueryResult<AudioFormat> result;
         try
         {
-            result = await _cache
+            result = await FFmpegOptionsCaches.AudioFormats
                 .GetOrQueryAsync(key, () => QueryAudioFormatsAsync(query))
                 .ConfigureAwait(false);
         }
