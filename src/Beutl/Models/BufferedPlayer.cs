@@ -177,7 +177,8 @@ public sealed class BufferedPlayer : IPlayer
     private void WaitRender()
     {
         if (_isDisposed || _producerStopped) return;
-        _waitRenderToken = new CancellationTokenSource();
+        using var cts = new CancellationTokenSource();
+        _waitRenderToken = cts;
 
         // Re-check after publishing the token. The producer's finally sets _producerStopped then cancels the
         // current token; the full fence here pairs with the fence there so either the producer sees the token we
@@ -197,7 +198,8 @@ public sealed class BufferedPlayer : IPlayer
     private void WaitTimer()
     {
         if (_isDisposed) return;
-        _waitTimerToken = new CancellationTokenSource();
+        using var cts = new CancellationTokenSource();
+        _waitTimerToken = cts;
 
         _waitTimerToken.Token.WaitHandle.WaitOne();
         _waitTimerToken = null;
