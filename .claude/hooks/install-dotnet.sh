@@ -45,6 +45,9 @@ export DOTNET_NOLOGO=1
 dotnet_install_commit="6f559c420847ded38591392dafe785ad511f39f5"
 dotnet_install_sha256="082f7685e156738a1b2e2ed8381a621870d4ce8e8c59278034556f05c186eb2e"
 dotnet_install_url="https://raw.githubusercontent.com/dotnet/install-scripts/${dotnet_install_commit}/src/dotnet-install.sh"
+download_timeout_seconds=60
+install_timeout_seconds=300
+restore_timeout_seconds=210
 
 # Print the SHA-256 of "$1" using whichever tool is available; print nothing if
 # neither exists (the caller treats an empty result as "cannot verify").
@@ -53,6 +56,17 @@ sha256_of() {
     sha256sum "$1" | awk '{print $1}'
   elif command -v shasum >/dev/null 2>&1; then
     shasum -a 256 "$1" | awk '{print $1}'
+  fi
+}
+
+run_with_timeout() {
+  local timeout_seconds="$1"
+  shift
+
+  if command -v timeout >/dev/null 2>&1; then
+    timeout -k 10 "$timeout_seconds" "$@"
+  else
+    "$@"
   fi
 }
 
@@ -68,7 +82,7 @@ if [ ! -x "$dotnet_dir/dotnet" ] \
 
   # Download, then verify the checksum before granting execute / running it.
   actual_sha=""
-  if curl -fsSL "$dotnet_install_url" -o "$installer"; then
+  if curl --connect-timeout 15 --max-time "$download_timeout_seconds" -fsSL "$dotnet_install_url" -o "$installer"; then
     actual_sha=$(sha256_of "$installer")
   fi
 
@@ -84,7 +98,7 @@ if [ ! -x "$dotnet_dir/dotnet" ] \
   fi
 
   if chmod +x "$installer" \
-     && "$installer" \
+     && run_with_timeout "$install_timeout_seconds" "$installer" \
           --jsonfile "$project_dir/global.json" \
           --install-dir "$dotnet_dir" \
           --no-path; then
@@ -109,7 +123,7 @@ echo "[install-dotnet] dotnet $("$dotnet_dir/dotnet" --version 2>/dev/null) read
 # performs an implicit restore lazily — running it unconditionally here would
 # add several seconds to every resume and can hang on slow NuGet feeds.
 if [ "$installed_now" -eq 1 ]; then
-  (cd "$project_dir" && "$dotnet_dir/dotnet" restore Beutl.slnx) >&2 \
+  (cd "$project_dir" && run_with_timeout "$restore_timeout_seconds" "$dotnet_dir/dotnet" restore Beutl.slnx) >&2 \
     || echo "[install-dotnet] dotnet restore failed; rerun manually if needed." >&2
 else
   echo "[install-dotnet] SDK already installed; skipping restore warmup." >&2

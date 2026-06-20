@@ -19,7 +19,7 @@
             "type": "command",
             "command": "bash",
             "args": ["${CLAUDE_PROJECT_DIR}/.claude/hooks/install-dotnet.sh"],
-            "timeout": 1800
+            "timeout": 600
           }
         ]
       }
