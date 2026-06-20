@@ -27,7 +27,7 @@ public class SpeedNodeTests
             var buffer = new AudioBuffer(_sampleRate, 2, count);
             Span<float> left = buffer.GetChannelData(0);
             Span<float> right = buffer.GetChannelData(1);
-            int startIndex = (int)(context.TimeRange.Start.TotalSeconds * _sampleRate);
+            long startIndex = AudioMath.TimeToSampleIndex(context.TimeRange.Start, _sampleRate);
             for (int i = 0; i < count; i++)
             {
                 float v = (startIndex + i) * 0.01f;
@@ -207,10 +207,10 @@ public class SpeedNodeTests
             var buffer = new AudioBuffer(_sampleRate, 2, count);
             Span<float> left = buffer.GetChannelData(0);
             Span<float> right = buffer.GetChannelData(1);
-            int startIndex = (int)(context.TimeRange.Start.TotalSeconds * _sampleRate);
+            long startIndex = AudioMath.TimeToSampleIndex(context.TimeRange.Start, _sampleRate);
             for (int i = 0; i < count; i++)
             {
-                int idx = startIndex + i;
+                long idx = startIndex + i;
                 float v = idx >= 0 && idx < _length ? idx * 0.01f : 0f;
                 left[i] = v;
                 right[i] = -v;

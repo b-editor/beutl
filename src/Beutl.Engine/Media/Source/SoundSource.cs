@@ -1,5 +1,6 @@
 ﻿using System.Diagnostics.CodeAnalysis;
 using System.Text.Json.Serialization;
+using Beutl.Audio.Graph;
 using Beutl.Composition;
 using Beutl.Engine;
 using Beutl.Media.Decoding;
@@ -98,7 +99,10 @@ public sealed class SoundSource : MediaSource
 
         private int ToSamples(TimeSpan timeSpan)
         {
-            return (int)(timeSpan.TotalSeconds * SampleRate);
+            // Compute in long and clamp to a valid int offset, so a time past int.MaxValue samples
+            // does not wrap to a negative offset.
+            long samples = AudioMath.TimeToSampleIndex(timeSpan, SampleRate);
+            return (int)Math.Clamp(samples, 0, int.MaxValue);
         }
 
         public override void Update(EngineObject obj, CompositionContext context, ref bool updateOnly)

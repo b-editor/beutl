@@ -95,7 +95,7 @@ public sealed class SpeedNode : AudioNode
         // Per-sample speed buffer, sized to expectedOutputSampleCount and allocated every render —
         // rent from ArrayPool to avoid hot-path GC pressure. ProcessBufferWithVariableSpeed consumes
         // the span synchronously without retaining it, so the array is safe to return afterwards.
-        var startInSamples = (int)(context.TimeRange.Start.TotalSeconds * context.SampleRate);
+        var startInSamples = AudioMath.TimeToSampleIndex(context.TimeRange.Start, context.SampleRate);
         double[] speedsArray = ArrayPool<double>.Shared.Rent(expectedOutputSampleCount);
         try
         {

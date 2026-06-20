@@ -18,13 +18,28 @@ public sealed class SourceNode : AudioNode
         var resource = Source.Value.Resource;
         var sampleCount = context.GetSampleCount();
         var buffer = new AudioBuffer(context.SampleRate, 2, sampleCount);
-        var start = (int)(context.TimeRange.Start.TotalSeconds * resource.SampleRate);
-        var length = (int)Math.Ceiling(context.TimeRange.Duration.TotalSeconds * resource.SampleRate);
+
+        // An unloaded or failed-to-open source has SampleRate == 0 and is unreadable — return silence
+        // (this also avoids TimeToSampleIndex throwing on the non-positive rate below).
+        if (resource.SampleRate <= 0)
+        {
+            return buffer;
+        }
+
+        long start = AudioMath.TimeToSampleIndex(context.TimeRange.Start, resource.SampleRate);
+        long length = (long)Math.Ceiling(context.TimeRange.Duration.TotalSeconds * resource.SampleRate);
+
+        // Resource.Read takes int sample offsets, so an out-of-int-range start/length is unreadable —
+        // return silence rather than wrapping the cast to a negative offset.
+        if (start < 0 || length < 0 || start > int.MaxValue || length > int.MaxValue)
+        {
+            return buffer;
+        }
 
         try
         {
             // Read PCM data from source
-            if (resource.Read(start, length, out var pcmRef))
+            if (resource.Read((int)start, (int)length, out var pcmRef))
             {
                 using (pcmRef)
                 {

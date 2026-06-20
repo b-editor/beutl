@@ -20,6 +20,19 @@ public static class AudioMath
         return linear > 0f ? 20f * MathF.Log10(linear) : -100f;
     }
 
+    /// <summary>
+    /// Converts an absolute time position to a sample index as <see cref="long"/>, avoiding the Int32
+    /// overflow of <c>(int)(time.TotalSeconds * sampleRate)</c> on long timelines. Callers that need a
+    /// bounded int must clamp or guard the result.
+    /// </summary>
+    public static long TimeToSampleIndex(TimeSpan time, int sampleRate)
+    {
+        if (sampleRate <= 0)
+            throw new ArgumentOutOfRangeException(nameof(sampleRate), "Sample rate must be positive.");
+
+        return (long)(time.TotalSeconds * sampleRate);
+    }
+
     public static float CalculateRms(ReadOnlySpan<float> samples)
     {
         if (samples.Length == 0)
