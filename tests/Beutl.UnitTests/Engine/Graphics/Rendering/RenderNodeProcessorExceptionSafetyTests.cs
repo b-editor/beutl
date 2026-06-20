@@ -172,6 +172,48 @@ public class RenderNodeProcessorExceptionSafetyTests
         Assert.That(disposed, Is.EqualTo(new[] { "first", "render-fault", "remaining" }));
     }
 
+    [Test]
+    public void Render_DisposesFaultingAndRemainingOperations_WhenRenderThrows()
+    {
+        var disposed = new List<string>();
+        using var node = new StaticRenderNode(
+            CreateOperation("first", disposed),
+            CreateOperation("fault", disposed, throwOnRender: true),
+            CreateOperation("remaining", disposed));
+        var processor = new RenderNodeProcessor(node, useRenderCache: false);
+
+        using var renderTarget = RenderTarget.Create(4, 4)!;
+        using var canvas = new ImmediateCanvas(renderTarget);
+
+        var ex = Assert.Throws<InvalidOperationException>(() => processor.Render(canvas));
+
+        Assert.That(ex!.Message, Is.EqualTo("fault"));
+        // A mid-loop render throw must still dispose the faulting op and every op after it;
+        // cache-replay ops back a RenderTarget/SKImage/GPU handle that would otherwise leak.
+        Assert.That(disposed, Is.EquivalentTo(new[] { "first", "fault", "remaining" }));
+    }
+
+    [Test]
+    public void Render_DoesNotDoubleDisposeFaultingOperation_WhenDisposeThrows()
+    {
+        var disposed = new List<string>();
+        using var node = new StaticRenderNode(
+            CreateOperation("first", disposed),
+            CreateOperation("fault", disposed, throwOnDispose: true),
+            CreateOperation("remaining", disposed));
+        var processor = new RenderNodeProcessor(node, useRenderCache: false);
+
+        using var renderTarget = RenderTarget.Create(4, 4)!;
+        using var canvas = new ImmediateCanvas(renderTarget);
+
+        var ex = Assert.Throws<InvalidOperationException>(() => processor.Render(canvas));
+
+        Assert.That(ex!.Message, Is.EqualTo("fault"));
+        // consumed++ sits between Render and Dispose, so the faulting op is not re-disposed by the
+        // sweep while the remaining op still gets cleaned up.
+        Assert.That(disposed, Is.EquivalentTo(new[] { "first", "fault", "remaining" }));
+    }
+
     private static StaticRenderNode CreateRenderThrowWithThrowingRemainingOps(ICollection<string> disposed)
     {
         return new StaticRenderNode(

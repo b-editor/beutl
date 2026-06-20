@@ -217,17 +217,28 @@ internal sealed class ParticleRenderNode(ParticleEmitter.Resource particle) : Re
             return null;
         }
 
-        using (var canvas = new ImmediateCanvas(renderTarget, w, maxWorkingScale, logicalSize: bounds.Size))
+        int consumed = 0;
+        try
         {
+            using var canvas = new ImmediateCanvas(renderTarget, w, maxWorkingScale, logicalSize: bounds.Size);
             canvas.Clear();
             using (canvas.PushTransform(Matrix.CreateTranslation(-bounds.X, -bounds.Y)))
             {
                 foreach (var op in ops)
                 {
                     op.Render(canvas);
+                    consumed++;
                     op.Dispose();
                 }
             }
+        }
+        catch
+        {
+            // renderTarget is not yet owned by a caller; release it along with the un-rendered ops.
+            for (int j = consumed; j < ops.Length; j++)
+                ops[j].Dispose();
+            renderTarget.Dispose();
+            throw;
         }
 
         return (renderTarget, drawable, drawable.Version, w);

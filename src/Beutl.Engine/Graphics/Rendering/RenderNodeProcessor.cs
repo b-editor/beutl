@@ -20,10 +20,21 @@ public class RenderNodeProcessor(
     public void Render(ImmediateCanvas canvas)
     {
         var ops = PullToRoot();
-        foreach (var op in ops)
+        int consumed = 0;
+        try
         {
-            op.Render(canvas);
-            op.Dispose();
+            foreach (var op in ops)
+            {
+                op.Render(canvas);
+                consumed++;
+                op.Dispose();
+            }
+        }
+        catch
+        {
+            for (int j = consumed; j < ops.Length; j++)
+                ops[j].Dispose();
+            throw;
         }
     }
 

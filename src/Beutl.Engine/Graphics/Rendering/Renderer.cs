@@ -206,11 +206,24 @@ public class Renderer : IRenderer
         var processor = new RenderNodeProcessor(entry.Node, CacheOptions.IsEnabled, OutputScale, MaxWorkingScale);
         var ops = processor.PullToRoot();
         Rect bounds = Rect.Empty;
-        foreach (var op in ops)
+        int consumed = 0;
+        try
         {
-            op.Render(_immediateCanvas);
-            bounds = bounds.Union(op.Bounds);
-            op.Dispose();
+            foreach (var op in ops)
+            {
+                op.Render(_immediateCanvas);
+                bounds = bounds.Union(op.Bounds);
+                // consumed++ must trail op.Bounds (a possible throw site), not op.Render: any
+                // throw before op.Dispose has to leave this op inside the cleanup sweep below.
+                consumed++;
+                op.Dispose();
+            }
+        }
+        catch
+        {
+            for (int j = consumed; j < ops.Length; j++)
+                ops[j].Dispose();
+            throw;
         }
 
         entry.Bounds = bounds;
@@ -374,10 +387,21 @@ public class Renderer : IRenderer
             var processor = new RenderNodeProcessor(e.Node, CacheOptions.IsEnabled, OutputScale, MaxWorkingScale);
             var ops = processor.PullToRoot();
             Rect bounds = Rect.Empty;
-            foreach (var op in ops)
+            int consumed = 0;
+            try
             {
-                bounds = bounds.Union(op.Bounds);
-                op.Dispose();
+                foreach (var op in ops)
+                {
+                    bounds = bounds.Union(op.Bounds);
+                    consumed++;
+                    op.Dispose();
+                }
+            }
+            catch
+            {
+                for (int j = consumed; j < ops.Length; j++)
+                    ops[j].Dispose();
+                throw;
             }
             e.Bounds = bounds;
             return bounds;
