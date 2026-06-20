@@ -1709,40 +1709,6 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
         });
     }
 
-    public async Task<Bitmap> DrawFrame()
-    {
-        await Pause();
-
-        return await RenderThread.Dispatcher.InvokeAsync(() =>
-        {
-            if (Scene == null) throw new Exception("Scene is null.");
-            SceneRenderer renderer = EditViewModel.Renderer.Value;
-
-            RenderCacheOptions restoreCacheOptions = renderer.CacheOptions;
-            renderer.CacheOptions = RenderCacheOptions.Disabled;
-
-            try
-            {
-                var compositionFrame = renderer.Compositor.EvaluateGraphics(CurrentFrame.Value);
-                renderer.Render(compositionFrame);
-
-                // Normalize snapshot to logical FrameSize (no-op when OutputScale == 1).
-                Bitmap snapshot = renderer.Snapshot();
-                Bitmap normalized = SupersampleDownscaler.ToFrameSize(snapshot, renderer.FrameSize, renderer.OutputScale);
-                if (!ReferenceEquals(normalized, snapshot))
-                {
-                    snapshot.Dispose();
-                }
-
-                return normalized;
-            }
-            finally
-            {
-                renderer.CacheOptions = restoreCacheOptions;
-            }
-        });
-    }
-
     /// <summary>
     /// Renders the current frame at full scale on a throwaway renderer, ignoring preview quality.
     /// </summary>
