@@ -79,22 +79,29 @@ with the working scale.
 
 If a shader intentionally works in normalized coordinates, no migration is usually needed:
 `fragCoord / iResolution` in SKSL and the default GLSL `fragCoord` input already track the target. If a
-shader used those resolution values as logical project pixels, convert device pixels back to logical pixels
-with the scale uniform:
+shader used those resolution values as logical project pixels, convert device pixels back to the shader
+grid's logical coordinates with the scale uniform:
 
 ```skia
 uniform float2 iResolution;  // device px
 uniform float iScale;        // device px per logical px
 
-float2 logicalSize = iResolution / iScale;
-float2 logicalCoord = fragCoord / iScale;
+float2 shaderGridLogicalSize = iResolution / iScale;
+float2 shaderGridLogicalCoord = fragCoord / iScale;
 ```
 
 ```glsl
 vec2 deviceSize = vec2(pc.width, pc.height);
-vec2 logicalSize = deviceSize / pc.scale;
-vec2 logicalCoord = (fragCoord * deviceSize) / pc.scale;
+vec2 shaderGridLogicalSize = deviceSize / pc.scale;
+vec2 shaderGridLogicalCoord = (fragCoord * deviceSize) / pc.scale;
 ```
+
+These values are the rounded shader-grid extent, not necessarily the exact project logical bounds:
+Beutl allocates device buffers as `ceil(bounds * scale)`, so a 101 logical px target at `0.5` scale
+reports 51 device px, and `51 / 0.5` is 102 logical px. For center or edge math that must stay tied to
+the exact authored bounds, keep the math normalized (`fragCoord / iResolution`, or GLSL's normalized
+`fragCoord`); the built-in script uniforms do not expose exact logical bounds, and they cannot be
+recovered from rounded device size alone.
 
 For the opposite direction, keep authored logical pixel literals stable by multiplying them by the working
 scale before using them in device-pixel shader math: `10.0 * iScale` in SKSL or `10.0 * pc.scale` in GLSL.
