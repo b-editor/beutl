@@ -2,14 +2,8 @@
 
   <PropertyGroup>
     <NeutralLanguage>en</NeutralLanguage>
+    <UseResXGenerator>true</UseResXGenerator>
   </PropertyGroup>
-
-  <ItemGroup>
-    <PackageReference Include="Aigamo.ResXGenerator">
-      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
-      <PrivateAssets>all</PrivateAssets>
-    </PackageReference>
-  </ItemGroup>
 
   <ItemGroup>
     <EmbeddedResource Update="CommandNames.resx" />

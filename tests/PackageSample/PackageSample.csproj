@@ -12,13 +12,7 @@
     <Authors>b-editor</Authors>
     <AvaloniaUseCompiledBindingsByDefault>false</AvaloniaUseCompiledBindingsByDefault>
     <EnableAvaloniaXamlCompilation>false</EnableAvaloniaXamlCompilation>
-  </PropertyGroup>
-
-  <PropertyGroup Condition="'$(Configuration)'=='Debug' And '$(CI)'!='true'">
-    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
-    <AppendRuntimeIdentifierToOutputPath>false</AppendRuntimeIdentifierToOutputPath>
-    <EnableDynamicLoading>true</EnableDynamicLoading>
-    <OutputPath>$([System.Environment]::GetFolderPath(SpecialFolder.UserProfile))\.beutl\sideloads\$(AssemblyName)</OutputPath>
+    <SideloadOutput>true</SideloadOutput>
   </PropertyGroup>
 
   <ItemGroup>

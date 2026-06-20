@@ -6,9 +6,15 @@
     <SwiftDylibName>libBeutlAVF.dylib</SwiftDylibName>
     <SwiftBuildConfig Condition="'$(SwiftBuildConfig)' == ''">release</SwiftBuildConfig>
     <SkipSwiftBuild Condition="'$(SkipSwiftBuild)' == ''">false</SkipSwiftBuild>
+
+    <!-- Owner switch: the AVFoundation project itself imports this file without setting any
+         property, so the Swift build + packaging pipeline below defaults on. Consumers that only
+         need the mirror-to-output target (the app and the AVF test project) import this file with
+         BeutlAVFOwnsSwiftBuild=false, leaving just CopyBeutlAVFDylibsToConsumerOutput active. -->
+    <BeutlAVFOwnsSwiftBuild Condition="'$(BeutlAVFOwnsSwiftBuild)' == ''">true</BeutlAVFOwnsSwiftBuild>
   </PropertyGroup>
 
-  <ItemGroup>
+  <ItemGroup Condition="'$(BeutlAVFOwnsSwiftBuild)' == 'true'">
     <SwiftSourceFile Include="$(SwiftPackageRoot)/Package.swift" />
     <SwiftSourceFile Include="$(SwiftPackageRoot)/Sources/**/*.swift" />
     <!-- Track the C shim (headers, modulemap, translation units) so ABI-relevant edits also
@@ -25,7 +31,7 @@
        NuGet package. That way package consumers on macOS get the native library regardless of
        which OS built the nupkg. The same <None> also drives CopyToOutputDirectory in the
        owning project for incremental dev builds. -->
-  <ItemGroup>
+  <ItemGroup Condition="'$(BeutlAVFOwnsSwiftBuild)' == 'true'">
     <None Include="$(SwiftRuntimesRoot)/**/*.dylib">
       <Link>runtimes/%(RecursiveDir)%(Filename)%(Extension)</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
@@ -38,7 +44,7 @@
   <!-- Build the Swift package (incremental on source changes) and publish the dylib into the
        per-rid runtimes folder. Only runs on macOS; elsewhere the committed dylib is reused. -->
   <Target Name="BuildSwiftDylib"
-          Condition="'$([MSBuild]::IsOSPlatform(OSX))' == 'true' and '$(SkipSwiftBuild)' != 'true'"
+          Condition="'$(BeutlAVFOwnsSwiftBuild)' == 'true' and '$([MSBuild]::IsOSPlatform(OSX))' == 'true' and '$(SkipSwiftBuild)' != 'true'"
           Inputs="@(SwiftSourceFile)"
           Outputs="$(SwiftRuntimesRoot)/osx-arm64/native/$(SwiftDylibName);$(SwiftRuntimesRoot)/osx-x64/native/$(SwiftDylibName)">
 
@@ -66,12 +72,29 @@
   <Target Name="CopyBeutlAVFDylibToOutput"
           AfterTargets="Build"
           DependsOnTargets="BuildSwiftDylib"
-          Condition="'$([MSBuild]::IsOSPlatform(OSX))' == 'true'">
+          Condition="'$(BeutlAVFOwnsSwiftBuild)' == 'true' and '$([MSBuild]::IsOSPlatform(OSX))' == 'true'">
     <ItemGroup>
       <_BeutlAVFDylib Include="$(SwiftRuntimesRoot)/**/*.dylib" />
     </ItemGroup>
     <Copy SourceFiles="@(_BeutlAVFDylib)"
           DestinationFiles="@(_BeutlAVFDylib->'$(OutDir)runtimes/%(RecursiveDir)%(Filename)%(Extension)')"
+          SkipUnchangedFiles="true" />
+  </Target>
+
+  <!-- Reusable mirror target for consumers that ProjectReference the AVF assembly but do not
+       own the Swift build (the app and the AVF test project). ProjectReferences don't
+       transitively copy native runtime assets (runtimes/<rid>/native), so each consumer mirrors
+       the committed dylibs from the AVF project's runtimes/ folder into its own $(OutDir).
+       Opt in with <CopyBeutlAVFDylibsToOutput>true</CopyBeutlAVFDylibsToOutput>; the consumer
+       keeps its own activation guard (the app gates on AVFBuildIn, the tests gate on macOS). -->
+  <Target Name="CopyBeutlAVFDylibsToConsumerOutput"
+          AfterTargets="Build"
+          Condition="'$(CopyBeutlAVFDylibsToOutput)' == 'true'">
+    <ItemGroup>
+      <_BeutlAVFConsumerDylib Include="$(SwiftRuntimesRoot)/**/*.dylib" />
+    </ItemGroup>
+    <Copy SourceFiles="@(_BeutlAVFConsumerDylib)"
+          DestinationFiles="@(_BeutlAVFConsumerDylib->'$(OutDir)runtimes/%(RecursiveDir)%(Filename)%(Extension)')"
           SkipUnchangedFiles="true" />
   </Target>
 

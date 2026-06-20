@@ -5,4 +5,38 @@
       <_Parameter2>$(Version)</_Parameter2>
     </AssemblyAttribute>
   </ItemGroup>
+
+  <!-- Desktop-exe RID set, opted into with <DesktopExeRids>true</DesktopExeRids>.
+       The base list covers every shippable desktop RID; on a Windows TFM it narrows to
+       win-x64 only (the other RIDs are meaningless for a -windows assembly and would make
+       restore drag in unnecessary runtime packs). -->
+  <PropertyGroup Condition="'$(DesktopExeRids)' == 'true'">
+    <RuntimeIdentifiers>win-x64;linux-x64;osx-x64;osx-arm64</RuntimeIdentifiers>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(DesktopExeRids)' == 'true' And $(TargetFramework.Contains('windows'))">
+    <RuntimeIdentifiers>win-x64</RuntimeIdentifiers>
+  </PropertyGroup>
+
+  <!-- Sideload output layout for dynamically loaded extension packages, opted into with
+       <SideloadOutput>true</SideloadOutput>. Mirrors the package into the user's
+       ~/.beutl/sideloads/<AssemblyName> folder so a local dev build is picked up by the
+       running app. Each consuming project keeps its OWN additional activation guard (e.g.
+       FFmpegBuildIn!=True, or MediaFoundation's non-built-in Choose arm) and only sets
+       SideloadOutput=true inside that guard. The shared Debug / non-CI condition lives here. -->
+  <PropertyGroup Condition="'$(SideloadOutput)' == 'true' And '$(Configuration)'=='Debug' And '$(CI)'!='true'">
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+    <AppendRuntimeIdentifierToOutputPath>false</AppendRuntimeIdentifierToOutputPath>
+    <EnableDynamicLoading>true</EnableDynamicLoading>
+    <OutputPath>$([System.Environment]::GetFolderPath(SpecialFolder.UserProfile))\.beutl\sideloads\$(AssemblyName)</OutputPath>
+  </PropertyGroup>
+
+  <!-- Aigamo.ResXGenerator analyzer reference, opted into with <UseResXGenerator>true</UseResXGenerator>.
+       The ResXGenerator_* configuration properties stay global in Directory.Build.props; only the
+       PackageReference is hoisted here. -->
+  <ItemGroup Condition="'$(UseResXGenerator)' == 'true'">
+    <PackageReference Include="Aigamo.ResXGenerator">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+  </ItemGroup>
 </Project>
