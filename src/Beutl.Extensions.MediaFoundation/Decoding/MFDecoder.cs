@@ -22,7 +22,7 @@ namespace Beutl.Extensions.MediaFoundation.Decoding;
 
 #pragma warning disable CA1416 // プラットフォームの互換性を検証
 
-internal sealed class MFDecoder : IDisposable
+internal sealed class MFDecoder : IMediaFoundationVideoDecoder
 {
     private readonly ILogger _logger = Log.CreateLogger<MFDecoder>();
     private readonly IMFSourceReader? _videoSourceReader;

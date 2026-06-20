@@ -24,7 +24,7 @@ public class MFReader : MediaReader
     private readonly string _file;
     private readonly MediaOptions _options;
 
-    private readonly MFDecoder? _decoder;
+    private readonly IMediaFoundationVideoDecoder? _decoder;
     private readonly VideoStreamInfo? _videoInfo;
 
     private readonly AudioStreamInfo? _audioInfo;
@@ -33,6 +33,16 @@ public class MFReader : MediaReader
     private readonly ISampleProvider? _provider;
 
     public MFReader(string file, MediaOptions options, MFDecodingExtension extension)
+        : this(file, options, extension, CreateVideoDecoder, CreateAudioReader)
+    {
+    }
+
+    internal MFReader(
+        string file,
+        MediaOptions options,
+        MFDecodingExtension extension,
+        Func<string, MediaOptions, MFDecodingExtension, IMediaFoundationVideoDecoder> createVideoDecoder,
+        Func<string, MediaFoundationReaderSettings, MediaFoundationReader> createAudioReader)
     {
         _file = file;
         _options = options;
@@ -42,9 +52,8 @@ public class MFReader : MediaReader
             {
                 try
                 {
-                    var decoder = new MFDecoder(file, new MediaOptions(MediaMode.Video), extension);
-                    MFMediaInfo info = decoder.GetMediaInfo();
-                    _decoder = decoder;
+                    _decoder = createVideoDecoder(file, new MediaOptions(MediaMode.Video), extension);
+                    MFMediaInfo info = _decoder.GetMediaInfo();
                     _videoInfo = new VideoStreamInfo(
                         info.VideoFormatName ?? "Unknown",
                         info.TotalFrameCount,
@@ -62,7 +71,7 @@ public class MFReader : MediaReader
 
             if (options.StreamsToLoad.HasFlag(MediaMode.Audio))
             {
-                _audioReader = new MediaFoundationReader(_file, new MediaFoundationReaderSettings
+                _audioReader = createAudioReader(_file, new MediaFoundationReaderSettings
                 {
                     RequestFloatOutput = true
                 });
@@ -78,10 +87,21 @@ public class MFReader : MediaReader
                 HasAudio = true;
             }
         }
-        finally
+        catch
         {
+            Dispose();
+            throw;
         }
     }
+
+    private static IMediaFoundationVideoDecoder CreateVideoDecoder(
+        string file,
+        MediaOptions options,
+        MFDecodingExtension extension)
+        => new MFDecoder(file, options, extension);
+
+    private static MediaFoundationReader CreateAudioReader(string file, MediaFoundationReaderSettings settings)
+        => new(file, settings);
 
     public override VideoStreamInfo VideoInfo => _videoInfo ?? throw new NotSupportedException();
 
