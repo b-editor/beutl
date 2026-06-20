@@ -5,7 +5,6 @@ using Beutl.Graphics.Shapes;
 using Beutl.Logging;
 using Beutl.Media;
 using Microsoft.Extensions.Logging;
-using NUnit.Framework.Legacy;
 
 namespace Beutl.UnitTests.Engine;
 
@@ -59,7 +58,7 @@ public class TextBlockTests
         var processor = new RenderNodeProcessor(node, false);
         using Bitmap bmp = processor.RasterizeAndConcat();
 
-        ClassicAssert.IsTrue(bmp.Save(Path.Combine(ArtifactProvider.GetArtifactDirectory(), $"{id}.png"), EncodedImageFormat.Png));
+        Assert.That(bmp.Save(Path.Combine(ArtifactProvider.GetArtifactDirectory(), $"{id}.png"), EncodedImageFormat.Png), Is.True);
     }
 
     [Test]
@@ -93,6 +92,6 @@ public class TextBlockTests
 
         using Bitmap bmp = renderTarget.Snapshot();
 
-        ClassicAssert.IsTrue(bmp.Save(Path.Combine(ArtifactProvider.GetArtifactDirectory(), $"0.png"), EncodedImageFormat.Png));
+        Assert.That(bmp.Save(Path.Combine(ArtifactProvider.GetArtifactDirectory(), $"0.png"), EncodedImageFormat.Png), Is.True);
     }
 }

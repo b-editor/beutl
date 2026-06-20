@@ -1,5 +1,4 @@
 ﻿using Beutl.ProjectSystem;
-using NUnit.Framework.Legacy;
 
 namespace Beutl.UnitTests.ProjectSystem;
 
@@ -11,7 +10,7 @@ public class ElementTests
     {
         var element = new Element();
 
-        ClassicAssert.IsTrue(element.IsEnabled);
+        Assert.That(element.IsEnabled, Is.True);
     }
 
     [Test]
@@ -23,7 +22,7 @@ public class ElementTests
 
         element.IsEnabled = false;
 
-        ClassicAssert.AreEqual(1, invocationCount);
+        Assert.That(invocationCount, Is.EqualTo(1));
     }
 
     [Test]
@@ -35,6 +34,6 @@ public class ElementTests
 
         element.IsEnabled = true;
 
-        ClassicAssert.AreEqual(0, invocationCount);
+        Assert.That(invocationCount, Is.EqualTo(0));
     }
 }

@@ -1,7 +1,6 @@
 ﻿using System.Collections.Immutable;
 using Beutl.Editor.Services;
 using Beutl.ProjectSystem;
-using NUnit.Framework.Legacy;
 
 namespace Beutl.UnitTests.Editor.Services;
 
@@ -51,10 +50,10 @@ public class DuplicateHelperTests
 
         var (range, minZ, maxZ) = DuplicateHelper.ComputePlacementRange([a, b]);
 
-        ClassicAssert.AreEqual(TimeSpan.FromSeconds(0), range.Start);
-        ClassicAssert.AreEqual(TimeSpan.FromSeconds(10), range.Duration);
-        ClassicAssert.AreEqual(0, minZ);
-        ClassicAssert.AreEqual(0, maxZ);
+        Assert.That(range.Start, Is.EqualTo(TimeSpan.FromSeconds(0)));
+        Assert.That(range.Duration, Is.EqualTo(TimeSpan.FromSeconds(10)));
+        Assert.That(minZ, Is.EqualTo(0));
+        Assert.That(maxZ, Is.EqualTo(0));
     }
 
     [Test]
@@ -70,11 +69,11 @@ public class DuplicateHelperTests
             seedIds: [a],
             groups: [group, ImmutableHashSet.Create(unrelated)]);
 
-        ClassicAssert.AreEqual(3, expanded.Count);
-        ClassicAssert.IsTrue(expanded.Contains(a));
-        ClassicAssert.IsTrue(expanded.Contains(b));
-        ClassicAssert.IsTrue(expanded.Contains(c));
-        ClassicAssert.IsFalse(expanded.Contains(unrelated));
+        Assert.That(expanded.Count, Is.EqualTo(3));
+        Assert.That(expanded.Contains(a), Is.True);
+        Assert.That(expanded.Contains(b), Is.True);
+        Assert.That(expanded.Contains(c), Is.True);
+        Assert.That(expanded.Contains(unrelated), Is.False);
     }
 
     [Test]
@@ -88,9 +87,9 @@ public class DuplicateHelperTests
             seedIds: [a, b],
             groups: [otherGroup]);
 
-        ClassicAssert.AreEqual(2, expanded.Count);
-        ClassicAssert.IsTrue(expanded.Contains(a));
-        ClassicAssert.IsTrue(expanded.Contains(b));
+        Assert.That(expanded.Count, Is.EqualTo(2));
+        Assert.That(expanded.Contains(a), Is.True);
+        Assert.That(expanded.Contains(b), Is.True);
     }
 
     [Test]
@@ -123,26 +122,26 @@ public class DuplicateHelperTests
                 anchorStart: TimeSpan.FromSeconds(10),
                 anchorZIndex: 1);
 
-            ClassicAssert.AreEqual(6, scene.Children.Count);
-            ClassicAssert.AreEqual(2, scene.Groups.Count);
+            Assert.That(scene.Children.Count, Is.EqualTo(6));
+            Assert.That(scene.Groups.Count, Is.EqualTo(2));
 
             // 元グループは変更されない
             ImmutableHashSet<Guid> originalGroup = scene.Groups[0];
-            ClassicAssert.IsTrue(originalGroup.SetEquals([sourceA, sourceB, sourceC]));
+            Assert.That(originalGroup.SetEquals([sourceA, sourceB, sourceC]), Is.True);
 
             // 新規グループは新 ID 3 つを含み、元 ID とは交差しない
             ImmutableHashSet<Guid> newGroup = scene.Groups[1];
-            ClassicAssert.AreEqual(3, newGroup.Count);
-            ClassicAssert.IsTrue(newGroup.SetEquals([newA.Id, newB.Id, newC.Id]));
-            ClassicAssert.IsFalse(newGroup.Overlaps([sourceA, sourceB, sourceC]));
+            Assert.That(newGroup.Count, Is.EqualTo(3));
+            Assert.That(newGroup.SetEquals([newA.Id, newB.Id, newC.Id]), Is.True);
+            Assert.That(newGroup.Overlaps([sourceA, sourceB, sourceC]), Is.False);
 
             // アンカー位置からの相対配置が保たれている
-            ClassicAssert.AreEqual(TimeSpan.FromSeconds(10), newA.Start);
-            ClassicAssert.AreEqual(TimeSpan.FromSeconds(11), newB.Start);
-            ClassicAssert.AreEqual(TimeSpan.FromSeconds(12), newC.Start);
-            ClassicAssert.AreEqual(1, newA.ZIndex);
-            ClassicAssert.AreEqual(1, newB.ZIndex);
-            ClassicAssert.AreEqual(1, newC.ZIndex);
+            Assert.That(newA.Start, Is.EqualTo(TimeSpan.FromSeconds(10)));
+            Assert.That(newB.Start, Is.EqualTo(TimeSpan.FromSeconds(11)));
+            Assert.That(newC.Start, Is.EqualTo(TimeSpan.FromSeconds(12)));
+            Assert.That(newA.ZIndex, Is.EqualTo(1));
+            Assert.That(newB.ZIndex, Is.EqualTo(1));
+            Assert.That(newC.ZIndex, Is.EqualTo(1));
         }
         finally
         {
@@ -182,8 +181,8 @@ public class DuplicateHelperTests
             // sourceX の新規 ID は newX.Id でなければならない (位置 zip)。
             // 順序が swap してしまうと sourceX -> newY.Id になり、後続のグループ remap で
             // X のグループに「Y のクローン」が入る silent corruption が発生する。
-            ClassicAssert.AreEqual(TimeSpan.FromSeconds(20), newX.Start);
-            ClassicAssert.AreEqual(TimeSpan.FromSeconds(25), newY.Start);
+            Assert.That(newX.Start, Is.EqualTo(TimeSpan.FromSeconds(20)));
+            Assert.That(newY.Start, Is.EqualTo(TimeSpan.FromSeconds(25)));
         }
         finally
         {
@@ -200,7 +199,7 @@ public class DuplicateHelperTests
 
         bool result = DuplicateHelper.WouldOverlapSources([a], TimeSpan.FromSeconds(3), anchorZIndex: 0);
 
-        ClassicAssert.IsTrue(result);
+        Assert.That(result, Is.True);
     }
 
     [Test]
@@ -211,7 +210,7 @@ public class DuplicateHelperTests
 
         bool result = DuplicateHelper.WouldOverlapSources([a], TimeSpan.FromSeconds(5), anchorZIndex: 0);
 
-        ClassicAssert.IsFalse(result);
+        Assert.That(result, Is.False);
     }
 
     [Test]
@@ -222,7 +221,7 @@ public class DuplicateHelperTests
 
         bool result = DuplicateHelper.WouldOverlapSources([a], TimeSpan.FromSeconds(0), anchorZIndex: 1);
 
-        ClassicAssert.IsFalse(result);
+        Assert.That(result, Is.False);
     }
 
     [Test]
@@ -235,7 +234,7 @@ public class DuplicateHelperTests
 
         bool result = DuplicateHelper.WouldOverlapSources([a, b], TimeSpan.FromSeconds(1), anchorZIndex: 0);
 
-        ClassicAssert.IsTrue(result);
+        Assert.That(result, Is.True);
     }
 
     [Test]
@@ -248,26 +247,26 @@ public class DuplicateHelperTests
 
         bool result = DuplicateHelper.WouldOverlapSources([a, b], TimeSpan.FromSeconds(10), anchorZIndex: 0);
 
-        ClassicAssert.IsFalse(result);
+        Assert.That(result, Is.False);
     }
 
     [Test]
     public void WouldOverlapSources_ReturnsFalse_OnEmptyInput()
     {
-        ClassicAssert.IsFalse(
-            DuplicateHelper.WouldOverlapSources([], TimeSpan.Zero, anchorZIndex: 0));
+        Assert.That(
+            DuplicateHelper.WouldOverlapSources([], TimeSpan.Zero, anchorZIndex: 0), Is.False);
     }
 
     [Test]
     public void PlaceDuplicates_ThrowsInvalidOperation_WhenSceneUriIsNull()
     {
         var scene = new Scene(100, 100, string.Empty);
-        ClassicAssert.IsNull(scene.Uri);
+        Assert.That(scene.Uri, Is.Null);
 
         Element source = CreateElement(TimeSpan.Zero, TimeSpan.FromSeconds(1));
         Element newOne = CreateElement(TimeSpan.Zero, TimeSpan.FromSeconds(1));
 
-        ClassicAssert.Throws<InvalidOperationException>(
+        Assert.Throws<InvalidOperationException>(
             () => DuplicateHelper.PlaceDuplicates(
                 scene,
                 newElements: [newOne],
@@ -288,7 +287,7 @@ public class DuplicateHelperTests
             Element newA = CreateElement(TimeSpan.Zero, TimeSpan.FromSeconds(1));
             Element newB = CreateElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1));
 
-            ClassicAssert.Throws<ArgumentException>(
+            Assert.Throws<ArgumentException>(
                 () => DuplicateHelper.PlaceDuplicates(
                     scene,
                     newElements: [newA, newB],
@@ -325,7 +324,7 @@ public class DuplicateHelperTests
             Element source = CreateElement(TimeSpan.Zero, TimeSpan.FromSeconds(1));
             Element newOne = CreateElement(TimeSpan.Zero, TimeSpan.FromSeconds(1));
 
-            ClassicAssert.Throws<IOException>(
+            Assert.Throws<IOException>(
                 () => DuplicateHelper.PlaceDuplicates(
                     scene,
                     newElements: [newOne],
@@ -334,8 +333,8 @@ public class DuplicateHelperTests
                     anchorZIndex: 0));
 
             // Scene 状態は無変更で抜けている
-            ClassicAssert.AreEqual(sceneChildrenBefore, scene.Children.Count);
-            ClassicAssert.AreEqual(sceneGroupsBefore, scene.Groups.Count);
+            Assert.That(scene.Children.Count, Is.EqualTo(sceneChildrenBefore));
+            Assert.That(scene.Groups.Count, Is.EqualTo(sceneGroupsBefore));
         }
         finally
         {
