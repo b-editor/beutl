@@ -19,12 +19,17 @@
       <PrivateAssets>all</PrivateAssets>
     </PackageReference>
     <PackageReference Include="NAudio.Wasapi" />
-    <PackageReference Include="Vortice.Direct3D9" />
     <PackageReference Include="Vortice.MediaFoundation" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\Beutl.Extensibility\Beutl.Extensibility.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Grant the test project access to internal decoding helpers (TimestampUtilities,
+         MFMediaInfo, the CsWin32-generated MFRatio/RECT, etc.). -->
+    <InternalsVisibleTo Include="Beutl.Extensions.MediaFoundation.Tests" />
   </ItemGroup>
 
   <ItemGroup>

@@ -1,5 +1,4 @@
 ﻿using System.Text;
-using Vortice.Multimedia;
 using Vortice.Win32;
 using Windows.Win32.Media.MediaFoundation;
 
@@ -12,7 +11,6 @@ namespace Beutl.Extensions.MediaFoundation.Decoding;
 internal struct MFMediaInfo
 {
     public int VideoStreamIndex; // -1 で映像は存在しない
-    public int AudioStreamIndex; // -1 で音声は存在しない
 
     public MFRatio Fps;
     public long HnsDuration;    // 100ns units
@@ -20,9 +18,6 @@ internal struct MFMediaInfo
     public BitmapInfoHeader ImageFormat;
     public int OutImageBufferSize;
     public string VideoFormatName;
-
-    public int TotalAudioSampleCount;
-    public WaveFormat AudioFormat;
 
 
     public readonly string GetMediaInfoText()
@@ -38,16 +33,6 @@ internal struct MFMediaInfo
             sb.AppendLine($"  Fps: {fps}");
             sb.AppendLine($"  TotalFrameCount: {TotalFrameCount}");
             sb.AppendLine($"  FrameSize: {ImageFormat.Width}x{ImageFormat.Height}");
-        }
-        if (AudioStreamIndex != -1)
-        {
-            sb.AppendLine($"AudioStreamIndex: {AudioStreamIndex}");
-            sb.AppendLine($"  Channels: {AudioFormat.Channels}");
-            sb.AppendLine($"  SampleRate: {AudioFormat.SampleRate}");
-            sb.AppendLine($"  AverageBytesPerSecond: {AudioFormat.AverageBytesPerSecond}");
-            sb.AppendLine($"  BlockAlign: {AudioFormat.BlockAlign}");
-            sb.AppendLine($"  BitsPerSample: {AudioFormat.BitsPerSample}");
-            sb.AppendLine($"  TotalAudioSampleCount: {TotalAudioSampleCount}");
         }
 
         return sb.ToString();

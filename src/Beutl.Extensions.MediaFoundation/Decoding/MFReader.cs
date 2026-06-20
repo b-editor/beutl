@@ -40,14 +40,24 @@ public class MFReader : MediaReader
         {
             if (options.StreamsToLoad.HasFlag(MediaMode.Video))
             {
-                _decoder = new MFDecoder(file, new MediaOptions(MediaMode.Video), extension);
-                MFMediaInfo info = _decoder.GetMediaInfo();
-                _videoInfo = new VideoStreamInfo(
-                    info.VideoFormatName ?? "Unknown",
-                    info.TotalFrameCount,
-                    new PixelSize(info.ImageFormat.Width, info.ImageFormat.Height),
-                    new Rational(info.Fps.Numerator, info.Fps.Denominator));
-                HasVideo = true;
+                try
+                {
+                    var decoder = new MFDecoder(file, new MediaOptions(MediaMode.Video), extension);
+                    MFMediaInfo info = decoder.GetMediaInfo();
+                    _decoder = decoder;
+                    _videoInfo = new VideoStreamInfo(
+                        info.VideoFormatName ?? "Unknown",
+                        info.TotalFrameCount,
+                        new PixelSize(info.ImageFormat.Width, info.ImageFormat.Height),
+                        new Rational(info.Fps.Numerator, info.Fps.Denominator));
+                    HasVideo = true;
+                }
+                catch (NoVideoStreamException) when (options.StreamsToLoad.HasFlag(MediaMode.Audio))
+                {
+                    // The file has no video stream; fall through so audio-only files (e.g. .mp3)
+                    // can still be opened via the NAudio path below. Genuine video initialization
+                    // failures are not caught here, so other decoders (e.g. FFmpeg) can retry.
+                }
             }
 
             if (options.StreamsToLoad.HasFlag(MediaMode.Audio))
