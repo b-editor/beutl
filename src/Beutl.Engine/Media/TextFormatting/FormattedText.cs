@@ -10,7 +10,7 @@ using SkiaSharp.HarfBuzz;
 namespace Beutl.Media.TextFormatting;
 
 [DebuggerDisplay("{Text}")]
-public class FormattedText : IEquatable<FormattedText>
+public class FormattedText : IEquatable<FormattedText>, IDisposable
 {
     private FontWeight _weight = FontWeight.Regular;
     private FontStyle _style = FontStyle.Normal;
@@ -57,6 +57,29 @@ public class FormattedText : IEquatable<FormattedText>
 
     public FormattedText()
     {
+    }
+
+    public bool IsDisposed { get; private set; }
+
+    // No finalizer: every owned field (SKTextBlob / SKPath / SKPathGeometry.Resource) is itself
+    // finalizable via SkiaSharp, so deterministic Dispose only speeds up release. If a non-SkiaSharp
+    // unmanaged field is ever added, add ~FormattedText() here.
+    public void Dispose()
+    {
+        if (IsDisposed) return;
+
+        ClearScaledTextCache();
+        (_textBlob, _fillPath, _strokePath).DisposeAll();
+        foreach (SKPathGeometry.Resource? resource in _pathList)
+        {
+            resource?.Dispose();
+        }
+
+        _pathList = [];
+        _textBlob = null;
+        _fillPath = null;
+        _strokePath = null;
+        IsDisposed = true;
     }
 
     public FontWeight Weight

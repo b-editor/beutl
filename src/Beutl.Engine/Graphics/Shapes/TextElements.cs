@@ -5,7 +5,7 @@ using Beutl.Media.TextFormatting;
 
 namespace Beutl.Graphics.Shapes;
 
-public class TextElements : IReadOnlyList<TextElement>
+public class TextElements : IReadOnlyList<TextElement>, IDisposable
 {
     private readonly TextElement[] _array;
 
@@ -26,6 +26,15 @@ public class TextElements : IReadOnlyList<TextElement>
 
     public LineEnumerable Lines { get; }
 
+    public bool IsDisposed { get; private set; }
+
+    public void Dispose()
+    {
+        if (IsDisposed) return;
+        Lines.Dispose();
+        IsDisposed = true;
+    }
+
     public IEnumerator<TextElement> GetEnumerator()
     {
         return ((IEnumerable<TextElement>)_array).GetEnumerator();
@@ -36,7 +45,7 @@ public class TextElements : IReadOnlyList<TextElement>
         return _array.GetEnumerator();
     }
 
-    public class LineEnumerable
+    public class LineEnumerable : IDisposable
     {
         private readonly TextElement[] _array;
         private FormattedText[]? _formattedTexts;
@@ -44,6 +53,23 @@ public class TextElements : IReadOnlyList<TextElement>
         internal LineEnumerable(TextElement[] array)
         {
             _array = array;
+        }
+
+        public bool IsDisposed { get; private set; }
+
+        public void Dispose()
+        {
+            if (IsDisposed) return;
+            if (_formattedTexts is { } texts)
+            {
+                foreach (FormattedText item in texts)
+                {
+                    item.Dispose();
+                }
+            }
+
+            _formattedTexts = null;
+            IsDisposed = true;
         }
 
         public LineEnumerator GetEnumerator()

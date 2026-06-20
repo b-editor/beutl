@@ -280,6 +280,8 @@ public partial class TextBlock : Drawable
         partial void PostDispose(bool disposing)
         {
             _pen?.Dispose();
+            _elements?.Dispose();
+            _elements = null;
         }
 
         partial void PreUpdate(TextBlock obj, CompositionContext context)
@@ -348,6 +350,7 @@ public partial class TextBlock : Drawable
             if (_isDirty)
             {
                 Version++;
+                _elements?.Dispose();
                 _elements = null;
                 _isDirty = false;
             }
