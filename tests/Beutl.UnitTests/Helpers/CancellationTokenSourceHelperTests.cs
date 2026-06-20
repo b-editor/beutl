@@ -21,14 +21,14 @@ public class CancellationTokenSourceHelperTests
         using var cts = new CancellationTokenSource();
         cts.Dispose();
 
-        Assert.DoesNotThrow(() => cts.CancelIgnoringDisposed());
+        Assert.That(() => cts.CancelIgnoringDisposed(), Throws.Nothing);
     }
 
     [Test]
     public void CancelIgnoringDisposed_NullTokenSource_IsNoOp()
     {
         // Call sites pass a volatile field that is frequently null.
-        Assert.DoesNotThrow(() => CancellationTokenSourceHelper.CancelIgnoringDisposed(null));
+        Assert.That(() => CancellationTokenSourceHelper.CancelIgnoringDisposed(null), Throws.Nothing);
     }
 
     [Test]
@@ -37,7 +37,7 @@ public class CancellationTokenSourceHelperTests
         using var cts = new CancellationTokenSource();
         cts.CancelIgnoringDisposed();
 
-        Assert.DoesNotThrow(() => cts.CancelIgnoringDisposed());
+        Assert.That(() => cts.CancelIgnoringDisposed(), Throws.Nothing);
         Assert.That(cts.IsCancellationRequested, Is.True);
     }
 }
