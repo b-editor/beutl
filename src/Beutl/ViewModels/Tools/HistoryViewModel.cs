@@ -4,7 +4,6 @@ using System.Reactive.Disposables;
 using System.Text.Json.Nodes;
 using Avalonia.Threading;
 using Beutl.Editor;
-using Beutl.Helpers;
 using Beutl.Logging;
 using Beutl.Services;
 using Beutl.Services.PrimitiveImpls;
@@ -74,53 +73,17 @@ public sealed class HistoryViewModel : IToolContext
 
     public async Task JumpTo(int index)
     {
-        try
-        {
-            await PauseBeforeHistoryMutationAsync();
-            _historyManager.JumpTo(index);
-        }
-        catch (ObjectDisposedException ex)
-        {
-            _logger.LogDebug(ex, "JumpTo({Index}) skipped — manager is disposed", index);
-        }
-        catch (Exception ex)
-        {
-            ReportFailure(ex, $"Failed to jump to history index {index}");
-        }
+        await _editViewModel.JumpToHistoryAsync(index);
     }
 
     public async Task Undo()
     {
-        try
-        {
-            await PauseBeforeHistoryMutationAsync();
-            _historyManager.Undo();
-        }
-        catch (ObjectDisposedException ex)
-        {
-            _logger.LogDebug(ex, "Undo skipped — manager is disposed");
-        }
-        catch (Exception ex)
-        {
-            ReportFailure(ex, "Failed to undo");
-        }
+        await _editViewModel.UndoHistoryAsync();
     }
 
     public async Task Redo()
     {
-        try
-        {
-            await PauseBeforeHistoryMutationAsync();
-            _historyManager.Redo();
-        }
-        catch (ObjectDisposedException ex)
-        {
-            _logger.LogDebug(ex, "Redo skipped — manager is disposed");
-        }
-        catch (Exception ex)
-        {
-            ReportFailure(ex, "Failed to redo");
-        }
+        await _editViewModel.RedoHistoryAsync();
     }
 
     public void Dispose()
@@ -131,11 +94,6 @@ public sealed class HistoryViewModel : IToolContext
     public object? GetService(Type serviceType)
     {
         return _editViewModel.GetService(serviceType);
-    }
-
-    private ValueTask PauseBeforeHistoryMutationAsync()
-    {
-        return HistoryMutationPlaybackGuard.PauseIfPlayingAsync(_editViewModel.Player);
     }
 
     public void ReadFromJson(JsonObject json)
@@ -295,11 +253,5 @@ public sealed class HistoryViewModel : IToolContext
         {
             Dispatcher.UIThread.Post(RunGuarded);
         }
-    }
-
-    private void ReportFailure(Exception ex, string context)
-    {
-        _logger.LogError(ex, "{Context}", context);
-        NotificationService.ShowError(Strings.History, Strings.History_OperationFailed);
     }
 }
