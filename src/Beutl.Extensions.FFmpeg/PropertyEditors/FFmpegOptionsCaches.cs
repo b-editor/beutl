@@ -12,7 +12,9 @@ namespace Beutl.Extensions.FFmpeg.PropertyEditors;
 /// Sharing is safe because <see cref="FFmpegOptionsCache{T}"/> is thread-safe (single-flight + lock)
 /// and each editor's <c>LatestRefreshTracker</c> stays instance-local. A cached option list is
 /// FFmpeg-build-determined, so it remains valid across worker restarts; call <see cref="ClearAll"/>
-/// defensively if the worker binary may have changed.
+/// defensively if the worker binary may have changed. Because these caches live for the process,
+/// each <see cref="FFmpegOptionsCache{T}"/> bounds its own entries with a least-recently-used cap so
+/// keys accumulated across many exports (the key embeds the output file path) cannot grow without limit.
 /// </remarks>
 internal static class FFmpegOptionsCaches
 {
