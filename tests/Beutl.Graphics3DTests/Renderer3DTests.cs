@@ -387,10 +387,15 @@ public class Renderer3DTests
             }
         }
 
-        Assert.That(maxLuma, Is.GreaterThan(0.1f),
-            "Framebuffer is uniformly dark: nothing appears to have been lit/rendered.");
-        Assert.That(litPixels, Is.GreaterThan(0),
-            "Expected at least some lit (above-background) pixels from the rendered geometry.");
+        // A real PBR-grid / multi-light render brightly lights well over 10% of the surface and peaks
+        // far above the dark clear color. Discriminate it from a corrupt frame (mostly-black with a few
+        // stray lit/noise pixels) by requiring a meaningful lit FRACTION and a high peak luma, not just
+        // a single lit pixel or any two pixels differing.
+        Assert.That(maxLuma, Is.GreaterThan(0.5f),
+            $"Framebuffer peak luma {maxLuma:F3} is too dark: nothing appears to have been brightly lit/rendered.");
+        Assert.That(litPixels, Is.GreaterThan(pixelCount / 10),
+            $"Only {litPixels} of {pixelCount} pixels are above background (< 10%): the rendered geometry "
+            + "does not cover enough of the surface to be a real scene.");
         Assert.That(sawVariation, Is.True,
             "Framebuffer is uniform: the scene did not render distinct geometry against the background.");
     }

@@ -79,9 +79,26 @@ internal static class GeneratorDriverHarness
             .Select(s => CSharpSyntaxTree.ParseText(s))
             .ToArray();
 
+        // GetAssemblies() only returns assemblies already loaded into the AppDomain, which can miss ones
+        // the inline test scenarios reference (e.g. System.Text.Json via the IFallback/JsonObject case,
+        // System.Collections.Immutable) and cause intermittent "type not found" failures. Force-load and
+        // explicitly seed those references so the compilation is deterministic regardless of load order.
+        _ = typeof(System.Text.Json.Nodes.JsonObject);
+        _ = typeof(System.Collections.Immutable.ImmutableArray);
+
+        var seededLocations = new[]
+        {
+            typeof(object).Assembly.Location,
+            typeof(System.Text.Json.Nodes.JsonObject).Assembly.Location,
+            typeof(System.Collections.Immutable.ImmutableArray).Assembly.Location,
+        };
+
         var references = AppDomain.CurrentDomain.GetAssemblies()
             .Where(a => !a.IsDynamic && !string.IsNullOrEmpty(a.Location))
-            .Select(a => (MetadataReference)MetadataReference.CreateFromFile(a.Location))
+            .Select(a => a.Location)
+            .Concat(seededLocations)
+            .Distinct(StringComparer.Ordinal)
+            .Select(location => (MetadataReference)MetadataReference.CreateFromFile(location))
             .ToArray();
 
         var compilation = CSharpCompilation.Create(
@@ -91,8 +108,7 @@ internal static class GeneratorDriverHarness
             new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
 
         var driver = CSharpGeneratorDriver.Create(
-            new EngineObjectResourceGenerator().AsSourceGenerator(),
-            new FallbackTypeGenerator().AsSourceGenerator());
+            new IIncrementalGenerator[] { new EngineObjectResourceGenerator(), new FallbackTypeGenerator() });
 
         GeneratorDriver ran = driver.RunGeneratorsAndUpdateCompilation(
             compilation, out _, out ImmutableArray<Diagnostic> diagnostics);

@@ -56,8 +56,17 @@ internal static class GpuTestEnvironment
 
             try
             {
-                IGraphicsContext context = RenderThread.Dispatcher.Invoke(GraphicsContextFactory.CreateContext);
-                if (!context.Supports3DRendering)
+                // Use the factory-owned shared singleton (GetOrCreateShared) rather than a test-local
+                // CreateContext: the factory owns the lifetime, so there is no GPU device handle to leak
+                // on the unavailable path (the common path on headless CI / SwiftShader).
+                IGraphicsContext? context = RenderThread.Dispatcher.Invoke(GraphicsContextFactory.GetOrCreateShared);
+                if (context == null)
+                {
+                    s_isAvailable = false;
+                    s_unavailableReason = "GraphicsContextFactory.GetOrCreateShared returned null. "
+                        + "Vulkan/MoltenVK が初期化できない環境です。";
+                }
+                else if (!context.Supports3DRendering)
                 {
                     s_isAvailable = false;
                     s_unavailableReason =
