@@ -4,6 +4,7 @@ using System.Reactive.Disposables;
 using System.Text.Json.Nodes;
 using Avalonia.Threading;
 using Beutl.Editor;
+using Beutl.Helpers;
 using Beutl.Logging;
 using Beutl.Services;
 using Beutl.Services.PrimitiveImpls;
@@ -71,10 +72,11 @@ public sealed class HistoryViewModel : IToolContext
 
     public IReadOnlyReactiveProperty<int> CurrentIndex { get; }
 
-    public void JumpTo(int index)
+    public async Task JumpTo(int index)
     {
         try
         {
+            await PauseBeforeHistoryMutationAsync();
             _historyManager.JumpTo(index);
         }
         catch (ObjectDisposedException ex)
@@ -87,10 +89,11 @@ public sealed class HistoryViewModel : IToolContext
         }
     }
 
-    public void Undo()
+    public async Task Undo()
     {
         try
         {
+            await PauseBeforeHistoryMutationAsync();
             _historyManager.Undo();
         }
         catch (ObjectDisposedException ex)
@@ -103,10 +106,11 @@ public sealed class HistoryViewModel : IToolContext
         }
     }
 
-    public void Redo()
+    public async Task Redo()
     {
         try
         {
+            await PauseBeforeHistoryMutationAsync();
             _historyManager.Redo();
         }
         catch (ObjectDisposedException ex)
@@ -127,6 +131,11 @@ public sealed class HistoryViewModel : IToolContext
     public object? GetService(Type serviceType)
     {
         return _editViewModel.GetService(serviceType);
+    }
+
+    private ValueTask PauseBeforeHistoryMutationAsync()
+    {
+        return HistoryMutationPlaybackGuard.PauseIfPlayingAsync(_editViewModel.Player);
     }
 
     public void ReadFromJson(JsonObject json)

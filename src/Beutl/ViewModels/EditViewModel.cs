@@ -9,6 +9,7 @@ using Beutl.Editor;
 using Beutl.Editor.Observers;
 using Beutl.Editor.Operations;
 using Beutl.Graphics.Rendering.Cache;
+using Beutl.Helpers;
 using Beutl.Logging;
 using Beutl.Media;
 using Beutl.Models;
@@ -802,22 +803,24 @@ public sealed partial class EditViewModel : IEditorContext, ISupportAutoSaveEdit
             return ValueTask.FromResult(true);
         }
 
-        public ValueTask<bool> OnUndo()
+        public async ValueTask<bool> OnUndo()
         {
             viewModel._logger.LogInformation("Undoing last command.");
+            await HistoryMutationPlaybackGuard.PauseIfPlayingAsync(viewModel.Player);
             viewModel.HistoryManager.Undo();
             viewModel._logger.LogInformation("Undo completed.");
 
-            return ValueTask.FromResult(true);
+            return true;
         }
 
-        public ValueTask<bool> OnRedo()
+        public async ValueTask<bool> OnRedo()
         {
             viewModel._logger.LogInformation("Redoing last undone command.");
+            await HistoryMutationPlaybackGuard.PauseIfPlayingAsync(viewModel.Player);
             viewModel.HistoryManager.Redo();
             viewModel._logger.LogInformation("Redo completed.");
 
-            return ValueTask.FromResult(true);
+            return true;
         }
     }
 }

@@ -39,6 +39,7 @@
          pure helpers are compiled directly into the test assembly (same pattern as Beutl.FFmpegBenchmarks). -->
     <Compile Include="..\..\src\Beutl\Helpers\ExportSupersampling.cs" Link="Editor\Linked\ExportSupersampling.cs" />
     <Compile Include="..\..\src\Beutl\Helpers\CancellationTokenSourceHelper.cs" Link="Helpers\Linked\CancellationTokenSourceHelper.cs" />
+    <Compile Include="..\..\src\Beutl\Helpers\HistoryMutationPlaybackGuard.cs" Link="Helpers\Linked\HistoryMutationPlaybackGuard.cs" />
   </ItemGroup>
 
   <ItemGroup>
