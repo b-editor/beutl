@@ -1969,5 +1969,31 @@ public class HistoryManagerTests
         Assert.That(completed, Is.True);
     }
 
+    [TestCase(0, ExpectedResult = true)]
+    [TestCase(1, ExpectedResult = true)]
+    [TestCase(2, ExpectedResult = false)]
+    [TestCase(3, ExpectedResult = false)]
+    [TestCase(-1, ExpectedResult = false)]
+    public bool WouldJumpToMove_ReflectsWhetherJumpWouldMove(int index)
+    {
+        // Two commits: entries [initial, First, Second] (Count 3), CurrentIndex 2.
+        using var manager = new HistoryManager(_root, _sequenceGenerator);
+        manager.Record(CreateTestOperation());
+        manager.Commit("First");
+        manager.Record(CreateTestOperation());
+        manager.Commit("Second");
+
+        return manager.WouldJumpToMove(index);
+    }
+
+    [Test]
+    public void WouldJumpToMove_ShouldThrowObjectDisposedException_WhenDisposed()
+    {
+        var manager = new HistoryManager(_root, _sequenceGenerator);
+        manager.Dispose();
+
+        Assert.Throws<ObjectDisposedException>(() => manager.WouldJumpToMove(0));
+    }
+
     #endregion
 }

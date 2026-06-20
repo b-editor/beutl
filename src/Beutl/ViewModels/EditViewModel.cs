@@ -818,16 +818,8 @@ public sealed partial class EditViewModel : IEditorContext, ISupportAutoSaveEdit
             $"JumpTo({index})",
             null,
             null,
-            () => ShouldPauseBeforeJumpTo(index),
+            () => HistoryManager.WouldJumpToMove(index),
             () => HistoryManager.JumpTo(index));
-    }
-
-    private bool ShouldPauseBeforeJumpTo(int index)
-    {
-        HistoryManager historyManager = HistoryManager;
-        return index >= 0
-            && index < historyManager.GetEntriesSnapshot().Length
-            && index != historyManager.CurrentIndex;
     }
 
     private async ValueTask<bool> ExecuteHistoryMutationAsync(

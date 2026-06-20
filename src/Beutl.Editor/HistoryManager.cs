@@ -74,6 +74,20 @@ public sealed class HistoryManager : IDisposable
     }
 
     /// <summary>
+    /// Returns <see langword="true"/> if <see cref="JumpTo"/> with <paramref name="index"/>
+    /// would move the current position — i.e. the index is in range and differs from
+    /// <see cref="CurrentIndex"/>. Evaluated under the internal lock.
+    /// </summary>
+    public bool WouldJumpToMove(int index)
+    {
+        ThrowIfDisposed();
+        lock (_lock)
+        {
+            return index >= 0 && index < _entries.Count && index != _undoStack.Count;
+        }
+    }
+
+    /// <summary>
     /// Atomically takes an initial snapshot and subscribes to subsequent
     /// <see cref="INotifyCollectionChanged.CollectionChanged"/> events on
     /// <see cref="Entries"/>. Use this when the consumer needs to mirror the

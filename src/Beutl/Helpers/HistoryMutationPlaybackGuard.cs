@@ -1,11 +1,10 @@
-﻿using Beutl.Editor.Services;
+using Beutl.Editor.Services;
 
 namespace Beutl.Helpers;
 
 internal sealed class HistoryMutationPlaybackGuard : IDisposable
 {
     private readonly SemaphoreSlim _gate = new(1, 1);
-    private Task? _pauseTask;
 
     internal async ValueTask<bool> RunAsync(IPreviewPlayer? player, Func<bool> shouldPause, Func<bool> mutate)
     {
@@ -15,9 +14,9 @@ internal sealed class HistoryMutationPlaybackGuard : IDisposable
         await _gate.WaitAsync();
         try
         {
-            if (shouldPause())
+            if (shouldPause() && player?.IsPlaying.Value == true)
             {
-                await PauseIfNeededAsync(player);
+                await player.Pause();
             }
 
             return mutate();
@@ -28,34 +27,13 @@ internal sealed class HistoryMutationPlaybackGuard : IDisposable
         }
     }
 
-    private async ValueTask PauseIfNeededAsync(IPreviewPlayer? player)
-    {
-        if (player?.IsPlaying.Value == true)
-        {
-            _pauseTask = player.Pause();
-        }
-
-        Task? pauseTask = _pauseTask;
-        if (pauseTask is null)
-        {
-            return;
-        }
-
-        try
-        {
-            await pauseTask;
-        }
-        finally
-        {
-            if (ReferenceEquals(_pauseTask, pauseTask) && pauseTask.IsCompleted)
-            {
-                _pauseTask = null;
-            }
-        }
-    }
-
     public void Dispose()
     {
-        _gate.Dispose();
+        // Disposing a SemaphoreSlim with a pending WaitAsync is undefined, so skip it
+        // while the gate is held and let the GC reclaim it (no unmanaged handle is held).
+        if (_gate.Wait(0))
+        {
+            _gate.Dispose();
+        }
     }
 }
