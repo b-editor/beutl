@@ -69,6 +69,38 @@ the CTM handles it, and a manual `× w` would double-scale and regress the resul
   exceed the per-buffer dimension budget. So 3D content is crisp under supersampled export instead of being
   upscaled by the root CTM.
 
+## Migrating pre-003 SKSL / GLSL shaders
+
+Before feature 003, custom shader target pixels and logical pixels were effectively the same because the
+render target was always allocated at scale `1.0`. After 003, SKSL `width` / `height` / `iResolution`
+and GLSL `pc.width` / `pc.height` report the scaled target size in device pixels. At `w = 1.0` the values
+are unchanged; at reduced preview, supersampled export, or a mixed-density effect boundary they change
+with the working scale.
+
+If a shader intentionally works in normalized coordinates, no migration is usually needed:
+`fragCoord / iResolution` in SKSL and the default GLSL `fragCoord` input already track the target. If a
+shader used those resolution values as logical project pixels, convert device pixels back to logical pixels
+with the scale uniform:
+
+```skia
+uniform float2 iResolution;  // device px
+uniform float iScale;        // device px per logical px
+
+float2 logicalSize = iResolution / iScale;
+float2 logicalCoord = fragCoord / iScale;
+```
+
+```glsl
+vec2 deviceSize = vec2(pc.width, pc.height);
+vec2 logicalSize = deviceSize / pc.scale;
+vec2 logicalCoord = (fragCoord * deviceSize) / pc.scale;
+```
+
+For the opposite direction, keep authored logical pixel literals stable by multiplying them by the working
+scale before using them in device-pixel shader math: `10.0 * iScale` in SKSL or `10.0 * pc.scale` in GLSL.
+See `docs/specs/003-resolution-independent-pipeline/contracts/shader-uniforms.md` for the full uniform
+contract.
+
 ## The scale-1.0 guarantee
 
 At `s_out = 1.0` with unit-scale inputs, the **golden content set** — vector geometry, text, Skia-filter
