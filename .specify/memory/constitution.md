@@ -22,7 +22,7 @@ Beutl targets `net10.0` and `net10.0-windows`. Both targets must keep building. 
 
 ### III. Test-First with NUnit
 
-- Test framework is NUnit + Moq. Tests are organized under `tests/` in per-area projects (e.g. `tests/Beutl.UnitTests/`, `tests/Beutl.Graphics3DTests/`, `tests/SourceGeneratorTest/`, `tests/Beutl.FFmpegIpc.Tests/`).
+- Test framework is NUnit + Moq. Tests are organized under `tests/` in per-area projects (e.g. `tests/Beutl.UnitTests/`, `tests/SourceGeneratorTest/`, `tests/Beutl.FFmpegIpc.Tests/`). `tests/Beutl.Graphics3DTests/` is an executable visual harness, not an NUnit project.
 - New logic in `src/` is incomplete without an accompanying test.
 - Benchmarks (`tests/Beutl.Benchmarks`, `tests/Beutl.FFmpegBenchmarks`) use BenchmarkDotNet and are excluded from regular `dotnet test` runs.
 - CI quality gate: `dotnet test Beutl.slnx -f net10.0 --settings coverlet.runsettings` must pass, with the coverage threshold configured in [`.github/workflows/dotnet.yml`](../../.github/workflows/dotnet.yml) honored.
