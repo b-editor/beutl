@@ -4,5 +4,3 @@ MFCreateMFVideoFormatFromMFMediaType
 RECT
 MFRatio
 MulDiv
-MFCreateSample
-MFCreateMemoryBuffer

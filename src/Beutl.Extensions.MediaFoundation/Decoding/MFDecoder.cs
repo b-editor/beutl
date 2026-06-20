@@ -8,7 +8,6 @@ using Microsoft.Extensions.Logging;
 using SharpGen.Runtime;
 using Vortice;
 using Vortice.MediaFoundation;
-using Vortice.Multimedia;
 using Vortice.Win32;
 using Windows.Win32;
 using Windows.Win32.Foundation;
@@ -26,8 +25,6 @@ namespace Beutl.Extensions.MediaFoundation.Decoding;
 internal sealed class MFDecoder : IDisposable
 {
     private readonly ILogger _logger = Log.CreateLogger<MFDecoder>();
-    private readonly string _file;
-    private readonly MediaOptions _options;
     private readonly IMFSourceReader? _videoSourceReader;
     private readonly IMFAttributes? _attributes;
     private MFMediaInfo _mediaInfo;
@@ -44,8 +41,6 @@ internal sealed class MFDecoder : IDisposable
         SharpGen.Runtime.Configuration.EnableObjectTracking = true;
         SharpGen.Runtime.Configuration.EnableReleaseOnFinalizer = true;
         SharpGen.Runtime.Configuration.UseThreadStaticObjectTracking = true;
-        _file = file;
-        _options = options;
         _thresholdFrameCount = extension.Settings.ThresholdFrameCount;
         _sampleCache = new MFSampleCache(new(extension.Settings.MaxVideoBufferSize));
 
@@ -108,9 +103,6 @@ internal sealed class MFDecoder : IDisposable
         {
             _logger.LogError(ex, "An exception occurred during initialization of the video stream.");
             throw;
-        }
-        finally
-        {
         }
     }
 
@@ -395,6 +387,9 @@ internal sealed class MFDecoder : IDisposable
         }
         else
         {
+            // Unreachable in the normal flow: the ctor's FindVideoStreamIndex probe already throws
+            // NoVideoStreamException before CheckMediaInfo runs. Kept as a defensive guard in case the
+            // independent re-scan here ever diverges (e.g. in a Release build with no Debug.Assert).
             const string message = "File contains no video stream.";
             _logger.LogInformation(message);
             throw new NoVideoStreamException(message);
@@ -443,7 +438,7 @@ internal sealed class MFDecoder : IDisposable
     {
         long firstVideoTimeStamp = 0;
 
-        if (_mediaInfo.VideoStreamIndex != -1 && _options.StreamsToLoad.HasFlag(MediaMode.Video))
+        if (_mediaInfo.VideoStreamIndex != -1)
         {
             _ = ReadSample(_mediaInfo.VideoStreamIndex) ?? throw new Exception("TestFirstReadSample() failed");
             _logger.LogInformation(
@@ -462,6 +457,9 @@ internal sealed class MFDecoder : IDisposable
     {
         _sampleCache.ResetVideo();
 
+        // Runs on the same thread as the existing _videoSourceReader disposal; both are MF COM
+        // objects created on that thread, so this does not introduce a cross-apartment release.
         _videoSourceReader?.Dispose();
+        _attributes?.Dispose();
     }
 }

@@ -2,6 +2,8 @@
 
 using Beutl.Embedding.MediaFoundation.Decoding;
 using Beutl.Media.Decoding;
+using Beutl.Media.Music;
+using Beutl.Media.Music.Samples;
 
 namespace Beutl.Extensions.MediaFoundation.Tests;
 
@@ -72,7 +74,24 @@ public class MFReaderIntegrationTests
         Assert.That(read, Is.True);
         using (pcm)
         {
-            Assert.That(pcm!.Value, Is.Not.Null);
+            // `read` and a non-null Ref are structurally always true (ReadAudioCore returns true for
+            // any non-negative provider count and allocates the buffer unconditionally). The fixture
+            // is a 440Hz sine at 0.3 amplitude, so assert the decoded buffer is the requested length
+            // AND actually carries the signal rather than silence.
+            var samples = ((Pcm<Stereo32BitFloat>)pcm!.Value).DataSpan;
+            Assert.That(samples.Length, Is.EqualTo(4410));
+
+            bool nonSilent = false;
+            foreach (Stereo32BitFloat s in samples)
+            {
+                if (Math.Abs(s.Left) > 1e-4f || Math.Abs(s.Right) > 1e-4f)
+                {
+                    nonSilent = true;
+                    break;
+                }
+            }
+
+            Assert.That(nonSilent, Is.True, "decoded PCM should contain the sine signal, not silence");
         }
     }
 
@@ -133,7 +152,11 @@ public class MFReaderIntegrationTests
 
         bool readAudio = reader.ReadAudio(0, 1000, out var pcm);
         Assert.That(readAudio, Is.True);
-        pcm?.Dispose();
+        // `readAudio` is structurally always true; assert the decoded buffer matches the requested
+        // length so a regression in the NAudio length math would actually fail here. The fixture's
+        // audio content is unknown, so non-silence is not asserted (unlike the sine-WAV test above).
+        Assert.That(pcm!.Value.NumSamples, Is.EqualTo(1000));
+        pcm.Dispose();
     }
 
     // Writes a short 16-bit PCM sine-wave WAV. Media Foundation's WAV byte-stream handler decodes
