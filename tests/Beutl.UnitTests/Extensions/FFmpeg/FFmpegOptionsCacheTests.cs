@@ -285,13 +285,16 @@ public class FFmpegOptionsCacheTests
         await before;
 
         // The post-Clear query is still in flight, so a new caller must join it without re-querying.
+        // The joiner returns a distinct value, so a single-flight regression (joining failing and the
+        // joiner running its own query) is caught by both the unused-factory count and the result below
+        // rather than being masked by the two queries happening to share the same gate.
         int extraCalls = 0;
         Task<OptionsQueryResult<int>> joiner = cache.GetOrQueryAsync(
-            "aac", () => { extraCalls++; return fresh.Task; });
-        Assert.That(extraCalls, Is.EqualTo(0));
+            "aac", () => { extraCalls++; return Ok(-1); });
 
         fresh.SetResult(new OptionsQueryResult<int>([48000], Degraded: false));
         OptionsQueryResult<int>[] results = await Task.WhenAll(after, joiner);
+        Assert.That(extraCalls, Is.EqualTo(0));
         Assert.That(results[0].Items, Is.EqualTo(new[] { 48000 }));
         Assert.That(results[1].Items, Is.EqualTo(new[] { 48000 }));
     }
