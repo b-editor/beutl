@@ -83,108 +83,124 @@ public sealed class EqualizerNode : AudioNode
     private AudioBuffer ProcessStatic(AudioBuffer input, AudioProcessContext context)
     {
         var output = new AudioBuffer(input.SampleRate, input.ChannelCount, input.SampleCount);
-
-        // Calculate coefficients for each band
-        for (int bandIndex = 0; bandIndex < Bands.Count; bandIndex++)
+        try
         {
-            var band = Bands[bandIndex];
-            var filterType = band.FilterType.CurrentValue;
-            float frequency = band.Frequency.CurrentValue;
-            float gain = band.Gain.CurrentValue;
-            float q = band.Q.CurrentValue;
-
-            for (int ch = 0; ch < input.ChannelCount; ch++)
+            // Calculate coefficients for each band
+            for (int bandIndex = 0; bandIndex < Bands.Count; bandIndex++)
             {
-                _filters![bandIndex][ch].CalculateCoefficients(filterType, frequency, q, gain, context.SampleRate);
-            }
-        }
+                var band = Bands[bandIndex];
+                var filterType = band.FilterType.CurrentValue;
+                float frequency = band.Frequency.CurrentValue;
+                float gain = band.Gain.CurrentValue;
+                float q = band.Q.CurrentValue;
 
-        // Process each channel
-        for (int ch = 0; ch < input.ChannelCount; ch++)
-        {
-            var inData = input.GetChannelData(ch);
-            var outData = output.GetChannelData(ch);
-
-            // Process first band
-            var firstFilter = _filters![0][ch];
-            for (int i = 0; i < input.SampleCount; i++)
-            {
-                outData[i] = firstFilter.Process(inData[i]);
-            }
-
-            // Cascade remaining bands
-            for (int bandIndex = 1; bandIndex < Bands.Count; bandIndex++)
-            {
-                var filter = _filters[bandIndex][ch];
-                for (int i = 0; i < input.SampleCount; i++)
+                for (int ch = 0; ch < input.ChannelCount; ch++)
                 {
-                    outData[i] = filter.Process(outData[i]);
+                    _filters![bandIndex][ch].CalculateCoefficients(filterType, frequency, q, gain, context.SampleRate);
                 }
             }
-        }
-
-        // Clip protection is the master limiter's job (Composer.ApplyMasterEffects).
-        // Applying it here would also compress hot input that the EQ itself did not amplify.
-        return output;
-    }
-
-    private AudioBuffer ProcessAnimated(AudioBuffer input, AudioProcessContext context)
-    {
-        var output = new AudioBuffer(input.SampleRate, input.ChannelCount, input.SampleCount);
-
-        // Buffers for chunk processing
-        const int maxChunkSize = 1024;
-        Span<float> frequencies = stackalloc float[Math.Min(maxChunkSize, input.SampleCount)];
-        Span<float> gains = stackalloc float[Math.Min(maxChunkSize, input.SampleCount)];
-        Span<float> qs = stackalloc float[Math.Min(maxChunkSize, input.SampleCount)];
-
-        int processed = 0;
-        while (processed < input.SampleCount)
-        {
-            int chunkSize = Math.Min(maxChunkSize, input.SampleCount - processed);
-
-            var chunkStart = context.GetTimeForSample(processed);
-            var chunkEnd = context.GetTimeForSample(processed + chunkSize);
-            var chunkRange = new TimeRange(chunkStart, chunkEnd - chunkStart);
 
             // Process each channel
             for (int ch = 0; ch < input.ChannelCount; ch++)
             {
-                var inData = input.GetChannelData(ch).Slice(processed, chunkSize);
-                var outData = output.GetChannelData(ch).Slice(processed, chunkSize);
+                var inData = input.GetChannelData(ch);
+                var outData = output.GetChannelData(ch);
 
-                // Copy input first
-                inData.CopyTo(outData);
-
-                // Cascade each band
-                for (int bandIndex = 0; bandIndex < Bands.Count; bandIndex++)
+                // Process first band
+                var firstFilter = _filters![0][ch];
+                for (int i = 0; i < input.SampleCount; i++)
                 {
-                    var band = Bands[bandIndex];
-                    var filter = _filters![bandIndex][ch];
-                    var filterType = band.FilterType.CurrentValue;
+                    outData[i] = firstFilter.Process(inData[i]);
+                }
 
-                    // Sample animation values
-                    context.AnimationSampler.SampleBuffer(band.Frequency, chunkRange, context.SampleRate, frequencies[..chunkSize]);
-                    context.AnimationSampler.SampleBuffer(band.Gain, chunkRange, context.SampleRate, gains[..chunkSize]);
-                    context.AnimationSampler.SampleBuffer(band.Q, chunkRange, context.SampleRate, qs[..chunkSize]);
-
-                    // Process each sample
-                    for (int i = 0; i < chunkSize; i++)
+                // Cascade remaining bands
+                for (int bandIndex = 1; bandIndex < Bands.Count; bandIndex++)
+                {
+                    var filter = _filters[bandIndex][ch];
+                    for (int i = 0; i < input.SampleCount; i++)
                     {
-                        // Update coefficients
-                        filter.CalculateCoefficients(filterType, frequencies[i], qs[i], gains[i], context.SampleRate);
-                        // Apply filter
                         outData[i] = filter.Process(outData[i]);
                     }
                 }
             }
 
-            processed += chunkSize;
+            // Clip protection is the master limiter's job (Composer.ApplyMasterEffects).
+            // Applying it here would also compress hot input that the EQ itself did not amplify.
+            return output;
         }
+        catch
+        {
+            // Dispose the output the caller never received rather than leak it.
+            output.Dispose();
+            throw;
+        }
+    }
 
-        // Clip protection is the master limiter's job (Composer.ApplyMasterEffects).
-        // Applying it here would also compress hot input that the EQ itself did not amplify.
-        return output;
+    private AudioBuffer ProcessAnimated(AudioBuffer input, AudioProcessContext context)
+    {
+        var output = new AudioBuffer(input.SampleRate, input.ChannelCount, input.SampleCount);
+        try
+        {
+            // Buffers for chunk processing
+            const int maxChunkSize = 1024;
+            Span<float> frequencies = stackalloc float[Math.Min(maxChunkSize, input.SampleCount)];
+            Span<float> gains = stackalloc float[Math.Min(maxChunkSize, input.SampleCount)];
+            Span<float> qs = stackalloc float[Math.Min(maxChunkSize, input.SampleCount)];
+
+            int processed = 0;
+            while (processed < input.SampleCount)
+            {
+                int chunkSize = Math.Min(maxChunkSize, input.SampleCount - processed);
+
+                var chunkStart = context.GetTimeForSample(processed);
+                var chunkEnd = context.GetTimeForSample(processed + chunkSize);
+                var chunkRange = new TimeRange(chunkStart, chunkEnd - chunkStart);
+
+                // Process each channel
+                for (int ch = 0; ch < input.ChannelCount; ch++)
+                {
+                    var inData = input.GetChannelData(ch).Slice(processed, chunkSize);
+                    var outData = output.GetChannelData(ch).Slice(processed, chunkSize);
+
+                    // Copy input first
+                    inData.CopyTo(outData);
+
+                    // Cascade each band
+                    for (int bandIndex = 0; bandIndex < Bands.Count; bandIndex++)
+                    {
+                        var band = Bands[bandIndex];
+                        var filter = _filters![bandIndex][ch];
+                        var filterType = band.FilterType.CurrentValue;
+
+                        // Sample animation values
+                        context.AnimationSampler.SampleBuffer(band.Frequency, chunkRange, context.SampleRate, frequencies[..chunkSize]);
+                        context.AnimationSampler.SampleBuffer(band.Gain, chunkRange, context.SampleRate, gains[..chunkSize]);
+                        context.AnimationSampler.SampleBuffer(band.Q, chunkRange, context.SampleRate, qs[..chunkSize]);
+
+                        // Process each sample
+                        for (int i = 0; i < chunkSize; i++)
+                        {
+                            // Update coefficients
+                            filter.CalculateCoefficients(filterType, frequencies[i], qs[i], gains[i], context.SampleRate);
+                            // Apply filter
+                            outData[i] = filter.Process(outData[i]);
+                        }
+                    }
+                }
+
+                processed += chunkSize;
+            }
+
+            // Clip protection is the master limiter's job (Composer.ApplyMasterEffects).
+            // Applying it here would also compress hot input that the EQ itself did not amplify.
+            return output;
+        }
+        catch
+        {
+            // Dispose the output the caller never received rather than leak it.
+            output.Dispose();
+            throw;
+        }
     }
 
     /// <summary>

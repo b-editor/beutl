@@ -279,27 +279,37 @@ public sealed class SpeedNode : AudioNode
             }
 
             var output = new AudioBuffer(_sampleRate, _channels, expectedOut);
-            float[] dst = new float[expectedOut * _channels];
-
-            int framesDone = 0;
-            while (framesDone < expectedOut)
+            try
             {
-                int want = _rs.ResamplePrepare(expectedOut - framesDone, _channels, out float[] inBuf, out int inOff);
-                int got = Read(inBuf, inOff, want, context);
+                float[] dst = new float[expectedOut * _channels];
 
-                int made = _rs.ResampleOut(dst, framesDone * _channels, got, expectedOut - framesDone, _channels);
+                int framesDone = 0;
+                while (framesDone < expectedOut)
+                {
+                    int want = _rs.ResamplePrepare(expectedOut - framesDone, _channels, out float[] inBuf, out int inOff);
+                    int got = Read(inBuf, inOff, want, context);
 
-                // No output and no input means the source is exhausted; the tail-fill below pads the
-                // rest. (got > 0 with made == 0 just means the resampler needs more lookahead.)
-                if (made == 0 && got == 0)
-                    break;
+                    int made = _rs.ResampleOut(dst, framesDone * _channels, got, expectedOut - framesDone, _channels);
 
-                framesDone += made;
+                    // No output and no input means the source is exhausted; the tail-fill below pads the
+                    // rest. (got > 0 with made == 0 just means the resampler needs more lookahead.)
+                    if (made == 0 && got == 0)
+                        break;
+
+                    framesDone += made;
+                }
+
+                WriteAndPad(output, dst, framesDone, expectedOut);
+                // Advance only on full success.
+                _nextOutputStart = outputStart + (double)expectedOut / _sampleRate;
+                return output;
             }
-
-            WriteAndPad(output, dst, framesDone, expectedOut);
-            _nextOutputStart = outputStart + (double)expectedOut / _sampleRate;
-            return output;
+            catch
+            {
+                // Dispose the output the caller never received rather than leak it.
+                output.Dispose();
+                throw;
+            }
         }
 
         public AudioBuffer ProcessBufferWithVariableSpeed(
@@ -309,39 +319,48 @@ public sealed class SpeedNode : AudioNode
             BeginStream(outputStart, sourceStartSeconds);
 
             var output = new AudioBuffer(_sampleRate, _channels, expectedOut);
-            float[] dst = new float[expectedOut * _channels];
-
-            // Same streaming loop as the constant-speed path, but the rate is updated per block from
-            // the average of the speed curve. ResamplePrepare is the single source of truth for how
-            // many source frames to feed, so there is no hand-rolled cursor to drift out of sync.
-            int framesDone = 0;
-            while (framesDone < expectedOut)
+            try
             {
-                int framesThis = Math.Min(BLOCK, expectedOut - framesDone);
+                float[] dst = new float[expectedOut * _channels];
 
-                double sumSpeed = 0.0;
-                for (int i = 0; i < framesThis; i++)
-                    sumSpeed += speedCurve[framesDone + i];
+                // Same streaming loop as the constant-speed path, but the rate is updated per block from
+                // the average of the speed curve. ResamplePrepare is the single source of truth for how
+                // many source frames to feed, so there is no hand-rolled cursor to drift out of sync.
+                int framesDone = 0;
+                while (framesDone < expectedOut)
+                {
+                    int framesThis = Math.Min(BLOCK, expectedOut - framesDone);
 
-                double vAvg = sumSpeed / framesThis;
-                _rs.SetRates(_sampleRate, _sampleRate / vAvg);
-                float cutoff = 0.97f / (float)vAvg; // vAvg > 1 lowers Nyquist to avoid aliasing
-                _rs.SetFilterParms(cutoff, 0.707f);
+                    double sumSpeed = 0.0;
+                    for (int i = 0; i < framesThis; i++)
+                        sumSpeed += speedCurve[framesDone + i];
 
-                int want = _rs.ResamplePrepare(framesThis, _channels, out float[] inBuf, out int inOff);
-                int got = Read(inBuf, inOff, want, context);
+                    double vAvg = sumSpeed / framesThis;
+                    _rs.SetRates(_sampleRate, _sampleRate / vAvg);
+                    float cutoff = 0.97f / (float)vAvg; // vAvg > 1 lowers Nyquist to avoid aliasing
+                    _rs.SetFilterParms(cutoff, 0.707f);
 
-                int made = _rs.ResampleOut(dst, framesDone * _channels, got, framesThis, _channels);
+                    int want = _rs.ResamplePrepare(framesThis, _channels, out float[] inBuf, out int inOff);
+                    int got = Read(inBuf, inOff, want, context);
 
-                if (made == 0 && got == 0)
-                    break;
+                    int made = _rs.ResampleOut(dst, framesDone * _channels, got, framesThis, _channels);
 
-                framesDone += made;
+                    if (made == 0 && got == 0)
+                        break;
+
+                    framesDone += made;
+                }
+
+                WriteAndPad(output, dst, framesDone, expectedOut);
+                // Advance only on full success.
+                _nextOutputStart = outputStart + (double)expectedOut / _sampleRate;
+                return output;
             }
-
-            WriteAndPad(output, dst, framesDone, expectedOut);
-            _nextOutputStart = outputStart + (double)expectedOut / _sampleRate;
-            return output;
+            catch
+            {
+                output.Dispose();
+                throw;
+            }
         }
 
         // De-interleaves the produced frames into the output and pads any shortfall (source exhausted)

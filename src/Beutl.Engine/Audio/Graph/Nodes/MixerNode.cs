@@ -41,30 +41,39 @@ public sealed class MixerNode : AudioNode
 
             // Create output buffer
             var output = new AudioBuffer(firstBuffer.SampleRate, firstBuffer.ChannelCount, firstBuffer.SampleCount);
-
-            // Mix all channels
-            for (int ch = 0; ch < output.ChannelCount; ch++)
+            try
             {
-                var outData = output.GetChannelData(ch);
-
-                // Clear output buffer (already cleared in constructor, but being explicit)
-                outData.Clear();
-
-                // Mix each input
-                for (int i = 0; i < buffers.Length; i++)
+                // Mix all channels
+                for (int ch = 0; ch < output.ChannelCount; ch++)
                 {
-                    var gain = i < _gains.Length ? _gains[i] : 1.0f;
-                    var inData = buffers[i].GetChannelData(ch);
+                    var outData = output.GetChannelData(ch);
 
-                    // Add with gain
-                    for (int s = 0; s < output.SampleCount; s++)
+                    // Clear output buffer (already cleared in constructor, but being explicit)
+                    outData.Clear();
+
+                    // Mix each input
+                    for (int i = 0; i < buffers.Length; i++)
                     {
-                        outData[s] += inData[s] * gain;
+                        var gain = i < _gains.Length ? _gains[i] : 1.0f;
+                        var inData = buffers[i].GetChannelData(ch);
+
+                        // Add with gain
+                        for (int s = 0; s < output.SampleCount; s++)
+                        {
+                            outData[s] += inData[s] * gain;
+                        }
                     }
                 }
-            }
 
-            return output;
+                return output;
+            }
+            catch
+            {
+                // Dispose the output the caller never received rather than leak it
+                // (inputs are released by the outer finally).
+                output.Dispose();
+                throw;
+            }
         }
         finally
         {

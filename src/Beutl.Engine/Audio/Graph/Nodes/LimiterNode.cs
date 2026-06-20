@@ -47,6 +47,9 @@ public sealed class LimiterNode : AudioNode
     private bool _warnedNonFiniteInputSample;
     private bool _warnedEmptyChunk;
 
+    // Test-only counter (via InternalsVisibleTo) of output buffers disposed after Process fails.
+    internal int OutputBuffersDisposedAfterFailure;
+
     public required IProperty<float> Threshold { get; init; }
 
     public required IProperty<float> Release { get; init; }
@@ -260,80 +263,98 @@ public sealed class LimiterNode : AudioNode
         var c = Derive(Threshold.CurrentValue, Release.CurrentValue, Lookahead.CurrentValue, MakeupGain.CurrentValue, context.SampleRate);
 
         var output = new AudioBuffer(input.SampleRate, input.ChannelCount, input.SampleCount);
-
-        // Lookahead is constant for the whole call, so the window maximum comes from the
-        // O(1)-amortized deque; rebuild it only when the tracked lookahead length changes.
-        EnsureDeque(c.LookaheadSamples);
-
-        int channelCount = _delayLines!.Length;
-        int sampleCount = input.SampleCount;
-        ReadOnlySpan<float> inRaw = input.GetRawSpan();
-        Span<float> outRaw = output.GetRawSpan();
-
-        for (int i = 0; i < sampleCount; i++)
+        try
         {
-            float currentPeak = IngestSample(inRaw, sampleCount, channelCount, i);
-            float windowPeak = PushWindowPeak(currentPeak, c.LookaheadSamples);
-            EmitSample(outRaw, sampleCount, channelCount, i, windowPeak, c.ThresholdLin, c.MakeupLin, c.LookaheadSamples, c.ReleaseCoef);
-        }
+            // Lookahead is constant for the whole call, so the window maximum comes from the
+            // O(1)-amortized deque; rebuild it only when the tracked lookahead length changes.
+            EnsureDeque(c.LookaheadSamples);
 
-        return output;
+            int channelCount = _delayLines!.Length;
+            int sampleCount = input.SampleCount;
+            ReadOnlySpan<float> inRaw = input.GetRawSpan();
+            Span<float> outRaw = output.GetRawSpan();
+
+            for (int i = 0; i < sampleCount; i++)
+            {
+                float currentPeak = IngestSample(inRaw, sampleCount, channelCount, i);
+                float windowPeak = PushWindowPeak(currentPeak, c.LookaheadSamples);
+                EmitSample(outRaw, sampleCount, channelCount, i, windowPeak, c.ThresholdLin, c.MakeupLin, c.LookaheadSamples, c.ReleaseCoef);
+            }
+
+            return output;
+        }
+        catch
+        {
+            // Dispose the output the caller never received rather than leak it.
+            output.Dispose();
+            OutputBuffersDisposedAfterFailure++;
+            throw;
+        }
     }
 
     private AudioBuffer ProcessAnimated(AudioBuffer input, AudioProcessContext context)
     {
         var output = new AudioBuffer(input.SampleRate, input.ChannelCount, input.SampleCount);
-
-        // Per-chunk animation-sampling scratch, sized to the actual work (capped at
-        // AnimationChunkSize) so small buffers pay a proportionally small stack cost, matching the
-        // sibling nodes (CompressorNode/DelayNode/GainNode).
-        int scratchSize = Math.Min(AnimationChunkSize, input.SampleCount);
-        Span<float> thresholds = stackalloc float[scratchSize];
-        Span<float> releases = stackalloc float[scratchSize];
-        Span<float> lookaheads = stackalloc float[scratchSize];
-        Span<float> makeups = stackalloc float[scratchSize];
-
-        // Lookahead can vary per sample here, which the deque cannot track, so this path rescans
-        // directly. Invalidate the deque so a later static chunk on the same node rebuilds it.
-        _dequeLookahead = -1;
-
-        int channelCount = _delayLines!.Length;
-        int sampleCount = input.SampleCount;
-        ReadOnlySpan<float> inRaw = input.GetRawSpan();
-        Span<float> outRaw = output.GetRawSpan();
-
-        int processed = 0;
-        while (processed < sampleCount)
+        try
         {
-            int chunkSize = Math.Min(AnimationChunkSize, sampleCount - processed);
+            // Per-chunk animation-sampling scratch, sized to the actual work (capped at
+            // AnimationChunkSize) so small buffers pay a proportionally small stack cost, matching the
+            // sibling nodes (CompressorNode/DelayNode/GainNode).
+            int scratchSize = Math.Min(AnimationChunkSize, input.SampleCount);
+            Span<float> thresholds = stackalloc float[scratchSize];
+            Span<float> releases = stackalloc float[scratchSize];
+            Span<float> lookaheads = stackalloc float[scratchSize];
+            Span<float> makeups = stackalloc float[scratchSize];
 
-            var chunkStart = context.GetTimeForSample(processed);
-            var chunkEnd = context.GetTimeForSample(processed + chunkSize);
-            var chunkRange = new TimeRange(chunkStart, chunkEnd - chunkStart);
+            // Lookahead can vary per sample here, which the deque cannot track, so this path rescans
+            // directly. Invalidate the deque so a later static chunk on the same node rebuilds it.
+            _dequeLookahead = -1;
 
-            context.AnimationSampler.SampleBuffer(Threshold, chunkRange, context.SampleRate, thresholds[..chunkSize]);
-            context.AnimationSampler.SampleBuffer(Release, chunkRange, context.SampleRate, releases[..chunkSize]);
-            context.AnimationSampler.SampleBuffer(Lookahead, chunkRange, context.SampleRate, lookaheads[..chunkSize]);
-            context.AnimationSampler.SampleBuffer(MakeupGain, chunkRange, context.SampleRate, makeups[..chunkSize]);
+            int channelCount = _delayLines!.Length;
+            int sampleCount = input.SampleCount;
+            ReadOnlySpan<float> inRaw = input.GetRawSpan();
+            Span<float> outRaw = output.GetRawSpan();
 
-            for (int i = 0; i < chunkSize; i++)
+            int processed = 0;
+            while (processed < sampleCount)
             {
-                // Derive recomputes one Exp + two Pow per sample — the deliberate cost of
-                // sample-accurate automation. The common no-animation case takes ProcessStatic,
-                // which derives the coefficients once per call.
-                var c = Derive(thresholds[i], releases[i], lookaheads[i], makeups[i], context.SampleRate);
-                int idx = processed + i;
-                // The window maximum comes from ScanWindowPeak over the ring, so IngestSample's
-                // returned peak is ignored here (only its delay-line/peak-ring side-effects matter).
-                _ = IngestSample(inRaw, sampleCount, channelCount, idx);
-                float windowPeak = ScanWindowPeak(c.LookaheadSamples);
-                EmitSample(outRaw, sampleCount, channelCount, idx, windowPeak, c.ThresholdLin, c.MakeupLin, c.LookaheadSamples, c.ReleaseCoef);
+                int chunkSize = Math.Min(AnimationChunkSize, sampleCount - processed);
+
+                var chunkStart = context.GetTimeForSample(processed);
+                var chunkEnd = context.GetTimeForSample(processed + chunkSize);
+                var chunkRange = new TimeRange(chunkStart, chunkEnd - chunkStart);
+
+                context.AnimationSampler.SampleBuffer(Threshold, chunkRange, context.SampleRate, thresholds[..chunkSize]);
+                context.AnimationSampler.SampleBuffer(Release, chunkRange, context.SampleRate, releases[..chunkSize]);
+                context.AnimationSampler.SampleBuffer(Lookahead, chunkRange, context.SampleRate, lookaheads[..chunkSize]);
+                context.AnimationSampler.SampleBuffer(MakeupGain, chunkRange, context.SampleRate, makeups[..chunkSize]);
+
+                for (int i = 0; i < chunkSize; i++)
+                {
+                    // Derive recomputes one Exp + two Pow per sample — the deliberate cost of
+                    // sample-accurate automation. The common no-animation case takes ProcessStatic,
+                    // which derives the coefficients once per call.
+                    var c = Derive(thresholds[i], releases[i], lookaheads[i], makeups[i], context.SampleRate);
+                    int idx = processed + i;
+                    // The window maximum comes from ScanWindowPeak over the ring, so IngestSample's
+                    // returned peak is ignored here (only its delay-line/peak-ring side-effects matter).
+                    _ = IngestSample(inRaw, sampleCount, channelCount, idx);
+                    float windowPeak = ScanWindowPeak(c.LookaheadSamples);
+                    EmitSample(outRaw, sampleCount, channelCount, idx, windowPeak, c.ThresholdLin, c.MakeupLin, c.LookaheadSamples, c.ReleaseCoef);
+                }
+
+                processed += chunkSize;
             }
 
-            processed += chunkSize;
+            return output;
         }
-
-        return output;
+        catch
+        {
+            // Dispose the output the caller never received rather than leak it.
+            output.Dispose();
+            OutputBuffersDisposedAfterFailure++;
+            throw;
+        }
     }
 
     // Reads one input sample per channel, coerces non-finite values, feeds the delay lines and the
