@@ -4,6 +4,7 @@ using System.Reactive.Subjects;
 using System.Text.Json.Nodes;
 using Avalonia.Platform.Storage;
 using Beutl.Api.Services;
+using Beutl.Editor.Services;
 using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Rendering.Cache;
 using Beutl.Helpers;
@@ -12,7 +13,6 @@ using Beutl.Media;
 using Beutl.Media.Encoding;
 using Beutl.Models;
 using Beutl.ProjectSystem;
-using Beutl.Serialization;
 using Beutl.Services;
 using Beutl.Services.PrimitiveImpls;
 using DynamicData;
@@ -52,10 +52,8 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
                     && Controller?.Value != null)
                 {
                     var newController = newEncoder.CreateController(newFile);
-                    var videoSettings = CoreSerializer.SerializeToJsonObject(Controller.Value.VideoSettings);
-                    CoreSerializer.PopulateFromJsonObject(newController.VideoSettings, videoSettings);
-                    var audioSettings = CoreSerializer.SerializeToJsonObject(Controller.Value.AudioSettings);
-                    CoreSerializer.PopulateFromJsonObject(newController.AudioSettings, audioSettings);
+                    EncoderSettingsJson.CopyTo(Controller.Value.VideoSettings, newController.VideoSettings);
+                    EncoderSettingsJson.CopyTo(Controller.Value.AudioSettings, newController.AudioSettings);
                     return newController;
                 }
 
@@ -576,15 +574,50 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
 
     private JsonObject? SerializeEncoderSettings(MediaEncoderSettings? settings)
     {
-        if (settings == null) return null;
         try
         {
-            return CoreSerializer.SerializeToJsonObject(settings);
+            return EncoderSettingsJson.Serialize(settings);
         }
         catch (Exception e)
         {
             _logger.LogError(e, "An exception occurred during serialization.");
             return null;
+        }
+    }
+
+    private void PopulateEncoderSettings(MediaEncoderSettings? settings, JsonObject json)
+    {
+        try
+        {
+            EncoderSettingsJson.Populate(settings, json);
+        }
+        catch (Exception e)
+        {
+            _logger.LogError(e, "An exception occurred during deserialization.");
+        }
+    }
+
+    private void PopulateVideoPreset(VideoEncoderSettings settings, JsonObject json)
+    {
+        try
+        {
+            EncoderSettingsJson.PopulateVideoPreset(settings, json);
+        }
+        catch (Exception e)
+        {
+            _logger.LogError(e, "An exception occurred during deserialization.");
+        }
+    }
+
+    private void PopulateAudioPreset(AudioEncoderSettings settings, JsonObject json)
+    {
+        try
+        {
+            EncoderSettingsJson.PopulateAudioPreset(settings, json);
+        }
+        catch (Exception e)
+        {
+            _logger.LogError(e, "An exception occurred during deserialization.");
         }
     }
 
@@ -612,19 +645,6 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
 
     private void ReadFromJsonCore(JsonObject json, bool applyingPreset)
     {
-        void Deserialize(MediaEncoderSettings? settings, JsonObject json)
-        {
-            if (settings == null) return;
-            try
-            {
-                CoreSerializer.PopulateFromJsonObject(settings, settings.GetType(), json);
-            }
-            catch (Exception e)
-            {
-                _logger.LogError(e, "An exception occurred during deserialization.");
-            }
-        }
-
         if (DestinationFile.Value == null && applyingPreset)
         {
             string path = Model.Uri!.LocalPath;
@@ -668,27 +688,18 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
             SupersampleFactor.Value = ssFactor;
         }
 
-        // 上のSelectedEncoder.Value = encoder;でnull以外が指定された場合、VideoSettings, AudioSettingsもnullじゃなくなる。
+        // Selecting an encoder above also creates the current video/audio settings.
         if (json.TryGetPropertyValue(nameof(VideoSettings), out JsonNode? videoNode)
             && videoNode is JsonObject videoObj
             && VideoSettings.Value?.Settings is VideoEncoderSettings videoSettings)
         {
-            PixelSize srcSize = default;
-            PixelSize dstSize = default;
-            Rational framerate = default;
             if (applyingPreset)
             {
-                srcSize = videoSettings.SourceSize;
-                dstSize = videoSettings.DestinationSize;
-                framerate = videoSettings.FrameRate;
+                PopulateVideoPreset(videoSettings, videoObj);
             }
-
-            Deserialize(videoSettings, videoObj);
-            if (applyingPreset)
+            else
             {
-                videoSettings.SourceSize = srcSize;
-                videoSettings.DestinationSize = dstSize;
-                videoSettings.FrameRate = framerate;
+                PopulateEncoderSettings(videoSettings, videoObj);
             }
         }
 
@@ -696,16 +707,13 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
             && audioNode is JsonObject audioObj
             && AudioSettings.Value?.Settings is AudioEncoderSettings audioSettings)
         {
-            int sampleRate = 0;
             if (applyingPreset)
             {
-                sampleRate = audioSettings.SampleRate;
+                PopulateAudioPreset(audioSettings, audioObj);
             }
-
-            Deserialize(AudioSettings.Value?.Settings, audioObj);
-            if (applyingPreset)
+            else
             {
-                audioSettings.SampleRate = sampleRate;
+                PopulateEncoderSettings(audioSettings, audioObj);
             }
         }
 
