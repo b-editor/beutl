@@ -40,7 +40,7 @@ public partial class ImmediateCanvas : IDisposable, IPopable
         LogicalSize = logicalSize.IsDefault ? DeviceSize.ToSize(density) : logicalSize;
         SurfaceDensity = density;
         _currentDensity = density;
-        MaxWorkingScale = maxWorkingScale;
+        MaxWorkingScale = RenderNodeContext.SanitizeMaxWorkingScale(maxWorkingScale);
         if (density == 1f)
         {
             _baseTransform = Matrix.Identity;

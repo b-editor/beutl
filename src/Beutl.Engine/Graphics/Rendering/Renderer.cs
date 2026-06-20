@@ -44,9 +44,10 @@ public class Renderer : IRenderer
     public Renderer(int width, int height, float renderScale = 1f, float maxWorkingScale = float.PositiveInfinity)
     {
         float outputScale = float.IsFinite(renderScale) && renderScale > 0f ? renderScale : 1f;
+        float maxScale = RenderNodeContext.SanitizeMaxWorkingScale(maxWorkingScale);
         FrameSize = new PixelSize(width, height);
         OutputScale = outputScale;
-        MaxWorkingScale = maxWorkingScale;
+        MaxWorkingScale = maxScale;
         DeviceSize = new PixelSize(
             (int)MathF.Ceiling(width * outputScale),
             (int)MathF.Ceiling(height * outputScale));
@@ -56,7 +57,7 @@ public class Renderer : IRenderer
                                    ?? throw new InvalidOperationException(
                                        $"Could not create a canvas of this size. (width: {DeviceSize.Width}, height: {DeviceSize.Height})");
 
-            var canvas = new ImmediateCanvas(surface, outputScale, maxWorkingScale,
+            var canvas = new ImmediateCanvas(surface, outputScale, maxScale,
                 logicalSize: FrameSize.ToSize(1));
             return (canvas, surface);
         });

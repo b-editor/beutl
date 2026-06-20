@@ -25,9 +25,15 @@ public sealed class FilterEffectActivator(
     /// </summary>
     public float WorkingScale { get; private set; } = SanitizePositiveFinite(workingScale, nameof(workingScale));
 
-    /// <summary>Working-scale ceiling forwarded into nested canvases. Sanitized to positive.</summary>
-    public float MaxWorkingScale { get; } = float.IsNaN(maxWorkingScale) || maxWorkingScale <= 0f
-        ? LogAndFallback(maxWorkingScale, nameof(maxWorkingScale), float.PositiveInfinity) : maxWorkingScale;
+    /// <summary>Working-scale ceiling forwarded into nested canvases. NaN or non-positive becomes +Inf (no ceiling).</summary>
+    public float MaxWorkingScale { get; } = SanitizeCeiling(maxWorkingScale, nameof(maxWorkingScale));
+
+    // Canonical ceiling rule, plus a warning when it substitutes.
+    private static float SanitizeCeiling(float value, string name)
+    {
+        float sanitized = RenderNodeContext.SanitizeMaxWorkingScale(value);
+        return sanitized != value ? LogAndFallback(value, name, sanitized) : sanitized;
+    }
 
     private static float SanitizePositiveFinite(float value, string name)
     {

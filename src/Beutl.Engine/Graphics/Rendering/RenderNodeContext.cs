@@ -21,7 +21,10 @@ public class RenderNodeContext(
     /// Global working-scale ceiling. Preview caps at <c>2 * s_out</c>; export passes <c>+Inf</c>.
     /// A degenerate value (NaN / non-positive) is treated as <c>+Inf</c>.
     /// </summary>
-    public float MaxWorkingScale { get; } =
+    public float MaxWorkingScale { get; } = SanitizeMaxWorkingScale(maxWorkingScale);
+
+    /// <summary>Canonical ceiling rule: a degenerate value (NaN or non-positive) means "no ceiling" (+Inf); other values pass through.</summary>
+    public static float SanitizeMaxWorkingScale(float maxWorkingScale) =>
         float.IsNaN(maxWorkingScale) || maxWorkingScale <= 0f ? float.PositiveInfinity : maxWorkingScale;
 
     public Rect CalculateBounds()
@@ -49,7 +52,7 @@ public class RenderNodeContext(
             if (e.Value > supply) supply = e.Value;
         }
 
-        return MathF.Min(supply, maxWorkingScale);
+        return MathF.Min(supply, SanitizeMaxWorkingScale(maxWorkingScale));
     }
 
     /// <summary>Max device-buffer axis (px). GPU textures larger than this typically fail to allocate.</summary>

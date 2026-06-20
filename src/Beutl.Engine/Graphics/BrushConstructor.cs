@@ -27,7 +27,7 @@ public readonly struct BrushConstructor(
     public float Scale { get; } = scale;
 
     /// <summary>Working-scale ceiling forwarded into nested pulls (e.g. <see cref="DrawableBrush"/>).</summary>
-    public float MaxWorkingScale { get; } = maxWorkingScale;
+    public float MaxWorkingScale { get; } = RenderNodeContext.SanitizeMaxWorkingScale(maxWorkingScale);
 
     public void ConfigurePaint(SKPaint paint)
     {
