@@ -23,11 +23,7 @@ public class RenderNodeContext(
     /// </summary>
     public float MaxWorkingScale { get; } = SanitizeMaxWorkingScale(maxWorkingScale);
 
-    /// <summary>
-    /// Normalizes a working-scale ceiling: a degenerate value (NaN or non-positive) means "no ceiling" (+Inf).
-    /// Public entry points that accept a raw ceiling route it through here so the rule stays in one place.
-    /// </summary>
-    /// <returns><see cref="float.PositiveInfinity"/> for NaN or non-positive input; otherwise the value unchanged.</returns>
+    /// <summary>Canonical ceiling rule: a degenerate value (NaN or non-positive) means "no ceiling" (+Inf); other values pass through.</summary>
     public static float SanitizeMaxWorkingScale(float maxWorkingScale) =>
         float.IsNaN(maxWorkingScale) || maxWorkingScale <= 0f ? float.PositiveInfinity : maxWorkingScale;
 

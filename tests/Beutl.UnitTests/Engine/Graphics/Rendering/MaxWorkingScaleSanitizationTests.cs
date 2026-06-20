@@ -4,15 +4,21 @@ using Beutl.Graphics.Rendering;
 
 namespace Beutl.UnitTests.Engine.Graphics.Rendering;
 
-// A degenerate working-scale ceiling (NaN / non-positive) must be treated as "no ceiling" (+Inf)
-// at every public entry point, so it never propagates into the resolved working scale.
+// A degenerate ceiling (NaN / non-positive) becomes "no ceiling" (+Inf) at every public entry point.
 [TestFixture]
 public class MaxWorkingScaleSanitizationTests
 {
-    [TestCase(float.NaN)]
-    [TestCase(0f)]
-    [TestCase(-1f)]
-    [TestCase(float.NegativeInfinity)]
+    // Shared degenerate-ceiling set, used by both the helper and the entry-point guard tests.
+    private static IEnumerable<TestCaseData> DegenerateCeilings()
+    {
+        yield return new TestCaseData(float.NaN).SetName("{m}(NaN)");
+        yield return new TestCaseData(0f).SetName("{m}(+0)");
+        yield return new TestCaseData(-0f).SetName("{m}(-0)");
+        yield return new TestCaseData(-1f).SetName("{m}(-1)");
+        yield return new TestCaseData(float.NegativeInfinity).SetName("{m}(-Inf)");
+    }
+
+    [TestCaseSource(nameof(DegenerateCeilings))]
     public void SanitizeMaxWorkingScale_DegenerateValue_BecomesPositiveInfinity(float value)
     {
         Assert.That(RenderNodeContext.SanitizeMaxWorkingScale(value), Is.EqualTo(float.PositiveInfinity));
@@ -26,14 +32,10 @@ public class MaxWorkingScaleSanitizationTests
         Assert.That(RenderNodeContext.SanitizeMaxWorkingScale(value), Is.EqualTo(value));
     }
 
-    [TestCase(float.NaN)]
-    [TestCase(0f)]
-    [TestCase(-1f)]
-    [TestCase(float.NegativeInfinity)]
+    [TestCaseSource(nameof(DegenerateCeilings))]
     public void ResolveWorkingScale_DegenerateCeiling_DoesNotPropagate(float maxWorkingScale)
     {
-        // With no concrete inputs the supply equals outputScale (2), and a degenerate
-        // ceiling must not pull the result to NaN/0 via MathF.Min.
+        // Supply equals outputScale (2); a degenerate ceiling must not drag it to NaN/0 via MathF.Min.
         float w = RenderNodeContext.ResolveWorkingScale(
             ReadOnlySpan<EffectiveScale>.Empty, outputScale: 2f, maxWorkingScale: maxWorkingScale);
 
@@ -52,7 +54,7 @@ public class MaxWorkingScaleSanitizationTests
     [Test]
     public void ResolveWorkingScale_UnboundedInput_DoesNotRaiseSupply()
     {
-        // Vector (Unbounded) inputs are excluded from the supply max (FR-019); supply stays at the output floor.
+        // Unbounded (vector) inputs are excluded from the supply max (FR-019).
         float w = RenderNodeContext.ResolveWorkingScale([EffectiveScale.Unbounded], outputScale: 2f);
 
         Assert.That(w, Is.EqualTo(2f));
@@ -61,7 +63,7 @@ public class MaxWorkingScaleSanitizationTests
     [Test]
     public void ResolveWorkingScale_ConcreteSupplyAboveOutput_IgnoresUnboundedAndTracksSupply()
     {
-        // The concrete bitmap supply (10) drives the result; the Unbounded sentinel is skipped, not read as a density.
+        // The Unbounded sentinel is skipped; the concrete supply (10) drives the result.
         float w = RenderNodeContext.ResolveWorkingScale(
             [EffectiveScale.Unbounded, EffectiveScale.At(10f)], outputScale: 2f);
 
@@ -71,7 +73,7 @@ public class MaxWorkingScaleSanitizationTests
     [Test]
     public void ResolveWorkingScale_ConcreteSupplyExceedsFiniteCeiling_CapsToCeiling()
     {
-        // A finite ceiling must cap a concrete supply that exceeds it, not only the output-scale floor.
+        // A finite ceiling caps a concrete supply that exceeds it.
         float w = RenderNodeContext.ResolveWorkingScale(
             [EffectiveScale.At(8f)], outputScale: 2f, maxWorkingScale: 5f);
 
@@ -87,9 +89,10 @@ public class MaxWorkingScaleSanitizationTests
         Assert.That(w, Is.EqualTo(8f));
     }
 
-    [TestCase(float.NaN)]
-    [TestCase(0f)]
-    [TestCase(-1f)]
+    // These guard tests pin the Sanitize call at each public entry point so dropping it fails loudly.
+    // Renderer is omitted: its constructor allocates a GPU RenderTarget on the render thread.
+
+    [TestCaseSource(nameof(DegenerateCeilings))]
     public void RenderNodeContext_DegenerateCeiling_StoredAsPositiveInfinity(float maxWorkingScale)
     {
         var context = new RenderNodeContext([], outputScale: 1f, maxWorkingScale: maxWorkingScale);
@@ -97,14 +100,7 @@ public class MaxWorkingScaleSanitizationTests
         Assert.That(context.MaxWorkingScale, Is.EqualTo(float.PositiveInfinity));
     }
 
-    // The remaining public entry points just forward into SanitizeMaxWorkingScale. These guard tests pin that
-    // forwarding at the public surface so a future refactor that drops the Sanitize call fails loudly instead of
-    // silently storing NaN/0/-1. Only the cheap-to-construct entries are covered; ImmediateCanvas/Renderer need a
-    // real SKSurface and are left to the helper-level coverage.
-
-    [TestCase(float.NaN)]
-    [TestCase(0f)]
-    [TestCase(-1f)]
+    [TestCaseSource(nameof(DegenerateCeilings))]
     public void RenderNodeProcessor_DegenerateCeiling_StoredAsPositiveInfinity(float maxWorkingScale)
     {
         var processor = new RenderNodeProcessor(
@@ -122,9 +118,25 @@ public class MaxWorkingScaleSanitizationTests
         Assert.That(processor.MaxWorkingScale, Is.EqualTo(3f));
     }
 
-    [TestCase(float.NaN)]
-    [TestCase(0f)]
-    [TestCase(-1f)]
+    [TestCaseSource(nameof(DegenerateCeilings))]
+    public void ImmediateCanvas_DegenerateCeiling_StoredAsPositiveInfinity(float maxWorkingScale)
+    {
+        using var renderTarget = RenderTarget.CreateNull(1, 1);
+        using var canvas = new ImmediateCanvas(renderTarget, density: 1f, maxWorkingScale: maxWorkingScale);
+
+        Assert.That(canvas.MaxWorkingScale, Is.EqualTo(float.PositiveInfinity));
+    }
+
+    [Test]
+    public void ImmediateCanvas_FinitePositiveCeiling_PassesThrough()
+    {
+        using var renderTarget = RenderTarget.CreateNull(1, 1);
+        using var canvas = new ImmediateCanvas(renderTarget, density: 1f, maxWorkingScale: 3f);
+
+        Assert.That(canvas.MaxWorkingScale, Is.EqualTo(3f));
+    }
+
+    [TestCaseSource(nameof(DegenerateCeilings))]
     public void BrushConstructor_DegenerateCeiling_StoredAsPositiveInfinity(float maxWorkingScale)
     {
         var ctor = new BrushConstructor(
@@ -141,9 +153,7 @@ public class MaxWorkingScaleSanitizationTests
         Assert.That(ctor.MaxWorkingScale, Is.EqualTo(3f));
     }
 
-    [TestCase(float.NaN)]
-    [TestCase(0f)]
-    [TestCase(-1f)]
+    [TestCaseSource(nameof(DegenerateCeilings))]
     public void CustomFilterEffectContext_DegenerateCeiling_StoredAsPositiveInfinity(float maxWorkingScale)
     {
         using var targets = new EffectTargets();
@@ -153,12 +163,9 @@ public class MaxWorkingScaleSanitizationTests
         Assert.That(context.MaxWorkingScale, Is.EqualTo(float.PositiveInfinity));
     }
 
-    // FilterEffectActivator is the only entry point with logic beyond pure forwarding: SanitizeCeiling logs a
-    // warning ONLY when the value actually changes. Pin both the substituted result and the no-substitution
-    // pass-through so the 'sanitized != value' guard can't be inverted undetected.
-    [TestCase(float.NaN)]
-    [TestCase(0f)]
-    [TestCase(-1f)]
+    // SanitizeCeiling also logs a warning on substitution, but only the stored value is pinned here;
+    // the warning emission is not observed.
+    [TestCaseSource(nameof(DegenerateCeilings))]
     public void FilterEffectActivator_DegenerateCeiling_StoredAsPositiveInfinity(float maxWorkingScale)
     {
         using var targets = new EffectTargets();
