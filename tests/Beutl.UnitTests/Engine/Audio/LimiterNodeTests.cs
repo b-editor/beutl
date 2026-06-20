@@ -26,7 +26,12 @@ public class LimiterNodeTests
     [OneTimeSetUp]
     public void OneTimeSetUp()
     {
-        Log.LoggerFactory = LoggerFactory.Create(_ => { });
+        // Log.LoggerFactory's setter is write-once (??=); only allocate a factory when logging
+        // has not been initialized yet, so we don't create and discard one on every fixture.
+        if (Log.LoggerFactory is null)
+        {
+            Log.LoggerFactory = LoggerFactory.Create(_ => { });
+        }
     }
 
     private static int LookaheadSamples(int sampleRate = SampleRate, float lookaheadMs = LookaheadMs)
@@ -1667,7 +1672,8 @@ public class LimiterNodeTests
 
         var pushWindowPeak = typeof(LimiterNode).GetMethod(
             "PushWindowPeak",
-            BindingFlags.Instance | BindingFlags.NonPublic)!;
+            BindingFlags.Instance | BindingFlags.NonPublic)
+            ?? throw new MissingMethodException(typeof(LimiterNode).FullName, "PushWindowPeak");
 
         var ex = Assert.Throws<TargetInvocationException>(
             () => pushWindowPeak.Invoke(node, [0f, 0]));
