@@ -56,6 +56,24 @@ public class RenderNodeProcessorExceptionSafetyTests
         Assert.That(disposed, Is.EquivalentTo(new[] { "first", "fault", "remaining" }));
     }
 
+    [Test]
+    public void Rasterize_DoesNotDoubleDisposeFaultingOperation_WhenDisposeThrows()
+    {
+        var disposed = new List<string>();
+        using var node = new StaticRenderNode(
+            CreateOperation("first", disposed),
+            CreateOperation("fault", disposed, throwOnDispose: true),
+            CreateOperation("remaining", disposed));
+        var processor = new RenderNodeProcessor(node, useRenderCache: false);
+
+        // Rasterize delegates per-op disposal to RasterizeAt, which used to dispose the op once in
+        // its try and again in its catch — re-running a throwing OnDispose (use-after-free).
+        var ex = Assert.Throws<InvalidOperationException>(() => processor.Rasterize());
+
+        Assert.That(ex!.Message, Is.EqualTo("fault"));
+        Assert.That(disposed, Is.EquivalentTo(new[] { "first", "fault", "remaining" }));
+    }
+
     private static RenderNodeOperation CreateOperation(
         string name,
         ICollection<string> disposed,

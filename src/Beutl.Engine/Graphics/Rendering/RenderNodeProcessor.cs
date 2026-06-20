@@ -47,6 +47,9 @@ public class RenderNodeProcessor(
             throw new Exception("RenderTarget is null");
         }
 
+        // Set before op.Dispose() so a throwing OnDispose (which leaves IsDisposed false) is not
+        // re-disposed by the catch — mirrors the consumed++ guard in Rasterize/RasterizeAndConcat.
+        bool opDisposeStarted = false;
         try
         {
             using var canvas = new ImmediateCanvas(renderTarget, w, MaxWorkingScale, logicalSize: op.Bounds.Size);
@@ -56,6 +59,7 @@ public class RenderNodeProcessor(
             using (canvas.PushTransform(Matrix.CreateTranslation(-opBounds.X, -opBounds.Y)))
             {
                 op.Render(canvas);
+                opDisposeStarted = true;
                 op.Dispose();
             }
 
@@ -64,7 +68,8 @@ public class RenderNodeProcessor(
         catch
         {
             renderTarget.Dispose();
-            op.Dispose();
+            if (!opDisposeStarted)
+                op.Dispose();
             throw;
         }
     }
