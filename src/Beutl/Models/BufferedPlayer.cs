@@ -1,5 +1,6 @@
 ﻿using System.Collections.Concurrent;
 using Beutl.Graphics.Rendering;
+using Beutl.Helpers;
 using Beutl.Logging;
 using Beutl.Media;
 using Beutl.Media.Source;
@@ -48,8 +49,8 @@ public sealed class BufferedPlayer : IPlayer
 
         _disposable = isPlaying.Where(v => !v).Subscribe(_ =>
         {
-            _waitRenderToken?.Cancel();
-            _waitTimerToken?.Cancel();
+            CancellationTokenSourceHelper.CancelIgnoringDisposed(_waitRenderToken);
+            CancellationTokenSourceHelper.CancelIgnoringDisposed(_waitTimerToken);
         });
     }
 
@@ -114,7 +115,7 @@ public sealed class BufferedPlayer : IPlayer
                         }
                     }
 
-                    _waitRenderToken?.Cancel();
+                    CancellationTokenSourceHelper.CancelIgnoringDisposed(_waitRenderToken);
                     if (_isPlaying.Value)
                         _editViewModel.BufferStatus.EndTime.Value = time;
 
@@ -154,15 +155,15 @@ public sealed class BufferedPlayer : IPlayer
                 // instead of blocking forever on a wakeup that will never come (the lost-wakeup hang).
                 _producerStopped = true;
                 Interlocked.MemoryBarrier();
-                _waitRenderToken?.Cancel();
-                _waitTimerToken?.Cancel();
+                CancellationTokenSourceHelper.CancelIgnoringDisposed(_waitRenderToken);
+                CancellationTokenSourceHelper.CancelIgnoringDisposed(_waitTimerToken);
             }
         }, Threading.DispatchPriority.High);
     }
 
     public bool TryDequeue(out IPlayer.Frame frame)
     {
-        _waitTimerToken?.Cancel();
+        CancellationTokenSourceHelper.CancelIgnoringDisposed(_waitTimerToken);
         if (_queue.TryDequeue(out IPlayer.Frame f))
         {
             frame = f;
@@ -217,8 +218,8 @@ public sealed class BufferedPlayer : IPlayer
             _logger.LogInformation("Disposing BufferedPlayer.");
 
             _isDisposed = true;
-            _waitRenderToken?.Cancel();
-            _waitTimerToken?.Cancel();
+            CancellationTokenSourceHelper.CancelIgnoringDisposed(_waitRenderToken);
+            CancellationTokenSourceHelper.CancelIgnoringDisposed(_waitTimerToken);
             _disposable.Dispose();
             while (_queue.TryDequeue(out var f))
             {
