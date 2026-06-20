@@ -13,7 +13,7 @@ Beutl is a cross-platform video editing / compositing application built on Avalo
 
 - License: the main app is **MIT**; `Beutl.FFmpegWorker` alone is **GPL-3.0-or-later** (a separate process)
 - UI: Avalonia (XAML + ViewModel)
-- Tests: NUnit + Moq under `tests/` (per-area projects, e.g. `tests/Beutl.UnitTests/`, `tests/SourceGeneratorTest/`, `tests/Beutl.FFmpegIpc.Tests/`). `tests/Beutl.Graphics3DTests/` is an executable visual harness, not an NUnit project — see `tests/CLAUDE.md`
+- Tests: NUnit + Moq under `tests/` (per-area projects, e.g. `tests/Beutl.UnitTests/`, `tests/Beutl.Graphics3DTests/`, `tests/SourceGeneratorTest/`, `tests/Beutl.FFmpegIpc.Tests/`). `tests/Beutl.Graphics3DTests/` is a Vulkan-gated NUnit suite that self-skips when no Vulkan device is available — see `tests/CLAUDE.md`
 - Build: Nuke (`nukebuild/`) or `dotnet` directly
 
 ## Build / test / format

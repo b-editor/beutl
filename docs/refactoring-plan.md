@@ -144,10 +144,15 @@ plugin-facing: batch them into one `refactor!:` release train with a
   layer.
 - **Unblock untestable layers**: add a `Beutl.Editor.Components` reference to
   `Beutl.UnitTests` (prerequisite for Phase 4).
-- **Make fake test gates real**: `Beutl.Graphics3DTests` is a 492-line console
-  script with zero assertions; `SourceGeneratorTest` has zero `[Test]` methods and
-  hand-maintained 226-line stubs. Replace with real NUnit suites (snapshot tests
-  for the generators) or demote to samples and fix the docs that route to them.
+- **Make fake test gates real**: ✅ done. `Beutl.Graphics3DTests` was an
+  `OutputType=Exe` console script with zero assertions and `SourceGeneratorTest`
+  was a compile-only library with zero `[Test]` methods (absent from `Beutl.slnx`,
+  so CI never ran it). Both are now real NUnit suites: `Beutl.Graphics3DTests`
+  renders its PBR-grid / shadow scenes and asserts framebuffer pixel invariants
+  (Vulkan-gated via a local `Assert.Ignore` skip-helper); `SourceGeneratorTest`
+  runs the engine generators through a `CSharpGeneratorDriver` harness and asserts
+  on the generated output (keeping `Class1.cs` + the 226-line stubs as the
+  generator input), and is now wired into `Beutl.slnx` so CI runs it.
 - Unify coverage collection (`coverlet.collector` only in `Beutl.UnitTests`;
   CI threshold disabled at 0) and hoist the ~5 copy-pasted MSBuild blocks
   (RID narrowing ×5, sideload output ×3, ResXGenerator assets ×5, AVF dylib

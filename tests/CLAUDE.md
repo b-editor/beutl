@@ -1,6 +1,6 @@
 # tests/ — local context
 
-Most projects under `tests/` are NUnit (+ Moq where needed); the exceptions are the two BenchmarkDotNet projects (`Beutl.Benchmarks`, `Beutl.FFmpegBenchmarks`) and the `Beutl.Graphics3DTests` visual harness. Use this index when picking the right project for a new test.
+Most projects under `tests/` are NUnit (+ Moq where needed); the exceptions are the two BenchmarkDotNet projects (`Beutl.Benchmarks`, `Beutl.FFmpegBenchmarks`). Use this index when picking the right project for a new test.
 
 ## Where new tests go
 
@@ -16,7 +16,7 @@ Most projects under `tests/` are NUnit (+ Moq where needed); the exceptions are 
 
 `tests/Beutl.Benchmarks/` and `tests/Beutl.FFmpegBenchmarks/` are BenchmarkDotNet projects, not NUnit — do not add unit tests there.
 
-`tests/Beutl.Graphics3DTests/` is an executable visual harness for manual Graphics3D checks, not an NUnit test project. Graphics3D NUnit tests live under `tests/Beutl.UnitTests/Engine/Graphics3D/`.
+`tests/Beutl.Graphics3DTests/` is a Vulkan-gated NUnit suite for GPU-backed Graphics3D rendering checks — its tests self-skip (`Assert.Ignore`) when no Vulkan/MoltenVK device is available, so they are safe to run in CI. GPU-free Graphics3D logic tests (hit-testing, render-scale, density, etc.) still go under `tests/Beutl.UnitTests/Engine/Graphics3D/`.
 
 The interactive Avalonia previewers / sample apps no longer live here. The sample extension package `PackageSample` was moved out of `tests/` (and out of `Beutl.slnx`, so CI does not build it) and now lives under `samples/`. Running it launches a window; it is not a test harness.
 
