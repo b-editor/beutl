@@ -2,6 +2,7 @@
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
+using System.Runtime.CompilerServices;
 using Avalonia;
 using Avalonia.Platform;
 using Beutl.Api.Objects;
@@ -26,6 +27,10 @@ public sealed class PackageManager(
 {
     private readonly ILogger _logger = Log.CreateLogger<PackageManager>();
     private readonly ConcurrentDictionary<int, LoadedPackageInfo> _loadedPackages = new();
+    // Keyed weakly so a handler entry can never outlive its extension even if some future drop path
+    // skips CleanupExtensionSettings; a strong map would pin the extension (and its collectible
+    // AssemblyLoadContext) for the PackageManager lifetime and silently defeat the unload contract below.
+    private readonly ConditionalWeakTable<Extension, EventHandler> _settingsChangedHandlers = new();
     private readonly ExtensionSettingsStore _settingsStore = new();
 
     public IEnumerable<LocalPackage> LoadedPackage => _loadedPackages.Values.Select(x => x.Package);
@@ -494,8 +499,14 @@ public sealed class PackageManager(
         {
             _settingsStore.Restore(extension, settings);
 
+            if (_settingsChangedHandlers.TryGetValue(extension, out EventHandler? previousHandler))
+            {
+                _settingsChangedHandlers.Remove(extension);
+                settings.ConfigurationChanged -= previousHandler;
+            }
+
             EventHandler handler = (_, _) => _settingsStore.Save(extension, settings);
-            extension.SettingsChangedHandler = handler;
+            _settingsChangedHandlers.AddOrUpdate(extension, handler);
             settings.ConfigurationChanged += handler;
             _logger.LogInformation("Settings restored for extension {ExtensionName}", extension.GetType().Name);
         }
@@ -503,10 +514,11 @@ public sealed class PackageManager(
 
     private void CleanupExtensionSettings(Extension extension)
     {
-        if (extension.Settings is { } settings && extension.SettingsChangedHandler is { } handler)
+        if (extension.Settings is { } settings
+            && _settingsChangedHandlers.TryGetValue(extension, out EventHandler? handler))
         {
+            _settingsChangedHandlers.Remove(extension);
             settings.ConfigurationChanged -= handler;
-            extension.SettingsChangedHandler = null;
         }
     }
 }

@@ -189,6 +189,7 @@ class Build : NukeBuild
             [
                 ("Beutl.Configuration", tfm),
                 ("Beutl.Core", tfm),
+                ("Beutl.Extensibility.Abstractions", tfm),
                 ("Beutl.Extensibility", tfm),
                 ("Beutl.Engine", tfm),
                 ("Beutl.Engine.SourceGenerators", "netstandard2.0"),

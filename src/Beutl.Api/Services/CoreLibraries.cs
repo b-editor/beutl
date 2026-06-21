@@ -75,6 +75,7 @@ internal static class CoreLibraries
                             case "Beutl.Embedding.MediaFoundation" when OperatingSystem.IsWindows():
                             case "Beutl.Extensions.AVFoundation" when OperatingSystem.IsMacOS():
                             case "Beutl.Engine":
+                            case "Beutl.Extensibility.Abstractions":
                             case "Beutl.Extensibility":
                             case "Beutl.Language":
                             case "Beutl.NodeGraph":

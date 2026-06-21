@@ -1,6 +1,6 @@
 ﻿namespace Beutl.Extensibility;
 
-// 拡張機能の基本クラス
+// Base class for extension entry points.
 public abstract class Extension
 {
     public virtual string Name => GetType().Name;
@@ -8,8 +8,6 @@ public abstract class Extension
     public virtual string DisplayName => TypeDisplayHelpers.GetLocalizedName(GetType());
 
     public virtual ExtensionSettings? Settings { get; }
-
-    internal EventHandler? SettingsChangedHandler { get; set; }
 
     /// <summary>
     /// Called once when the extension is loaded. Override to perform initialization.
