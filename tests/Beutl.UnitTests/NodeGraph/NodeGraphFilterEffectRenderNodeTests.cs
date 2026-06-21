@@ -31,9 +31,13 @@ public class NodeGraphFilterEffectRenderNodeTests
         model.Nodes.Add(probeNode);
         model.Nodes.Add(outputNode);
 
-        // ConfigureNode ctor adds Items[0] = Output port, Items[1] = list Input port.
-        model.Connect((IInputPort)probeNode.Items[1], inputNode.Output);
-        model.Connect(outputNode.InputPort, (IOutputPort)probeNode.Items[0]);
+        // ConfigureNode's base ctor adds Items[0] = Output port and Items[1] = list Input port
+        // (FilterEffectNode<T>'s per-property value inputs, if any, follow at Items[2+]). Neither typed
+        // port is exposed publicly, so the render-chain ports are reached by index and named here.
+        var probeChainInput = (IInputPort)probeNode.Items[1];
+        var probeChainOutput = (IOutputPort)probeNode.Items[0];
+        model.Connect(probeChainInput, inputNode.Output);
+        model.Connect(outputNode.InputPort, probeChainOutput);
 
         return effect.ToResource(CompositionContext.Default);
     }
@@ -119,6 +123,10 @@ internal sealed class ScaleProbeRenderNode(FilterEffect.Resource fe) : FilterEff
 {
     public override RenderNodeOperation[] Process(RenderNodeContext context)
     {
+        // Resolve w from the forwarded scales exactly as FilterEffectRenderNode.Process would, but skip
+        // the rest of its real path: ClampWorkingScaleToBufferBudget (a no-op at these test bounds) and
+        // the FilterEffectContext / SkiaSharp filter-build + rasterize that need a GPU device. So w here
+        // is the supply-driven scale that was forwarded, not a real effect's final working scale.
         EffectiveScale[] scales = context.Input.Select(i => i.EffectiveScale).ToArray();
         float w = RenderNodeContext.ResolveWorkingScale(scales, context.OutputScale, context.MaxWorkingScale);
         return context.Input.Select(input => RenderNodeOperation.CreateLambda(
