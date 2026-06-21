@@ -23,7 +23,6 @@ internal sealed class PixelFormatEditorViewModel : IPropertyEditorContext
     private readonly IPropertyAdapter<int> _property;
     private readonly CompositeDisposable _disposables = [];
     private readonly ReactivePropertySlim<int> _selectedIndex;
-    private readonly FFmpegOptionsCache<PixelFormatInfo> _cache = new();
     private readonly LatestRefreshTracker _refresh = new();
 
     private FFmpegVideoEncoderSettings? _settings;
@@ -104,7 +103,7 @@ internal sealed class PixelFormatEditorViewModel : IPropertyEditorContext
 
         QueryParams query = CreateQueryParams(_settings);
         string key = BuildCacheKey(query);
-        if (_cache.TryGetCached(key, out PixelFormatInfo[]? cached))
+        if (FFmpegOptionsCaches.PixelFormats.TryGetCached(key, out PixelFormatInfo[]? cached))
         {
             _refresh.Supersede();
             ApplyFormats(cached);
@@ -120,7 +119,7 @@ internal sealed class PixelFormatEditorViewModel : IPropertyEditorContext
         OptionsQueryResult<PixelFormatInfo> result;
         try
         {
-            result = await _cache
+            result = await FFmpegOptionsCaches.PixelFormats
                 .GetOrQueryAsync(key, () => QueryPixelFormatsAsync(query))
                 .ConfigureAwait(false);
         }

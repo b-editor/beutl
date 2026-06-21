@@ -22,7 +22,6 @@ internal sealed class SampleRateEditorViewModel : IPropertyEditorContext
     private readonly IPropertyAdapter<int> _property;
     private readonly CompositeDisposable _disposables = [];
     private readonly ReactivePropertySlim<string> _text;
-    private readonly FFmpegOptionsCache<int> _cache = new();
     private readonly LatestRefreshTracker _refresh = new();
 
     private FFmpegAudioEncoderSettings? _settings;
@@ -102,7 +101,7 @@ internal sealed class SampleRateEditorViewModel : IPropertyEditorContext
 
         QueryParams query = CreateQueryParams(_settings);
         string key = BuildCacheKey(query);
-        if (_cache.TryGetCached(key, out int[]? cached))
+        if (FFmpegOptionsCaches.SampleRates.TryGetCached(key, out int[]? cached))
         {
             _refresh.Supersede();
             ApplySuggestions(cached);
@@ -118,7 +117,7 @@ internal sealed class SampleRateEditorViewModel : IPropertyEditorContext
         OptionsQueryResult<int> result;
         try
         {
-            result = await _cache
+            result = await FFmpegOptionsCaches.SampleRates
                 .GetOrQueryAsync(key, () => QuerySampleRatesAsync(query))
                 .ConfigureAwait(false);
         }

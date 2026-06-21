@@ -199,4 +199,118 @@ public class FFmpegOptionsCacheTests
 
         Assert.That((await joiner).Items, Is.EqualTo(new[] { 48000 }));
     }
+
+    [Test]
+    public void Clear_OnEmptyCache_IsNoOp()
+    {
+        var cache = new FFmpegOptionsCache<int>();
+
+        cache.Clear();
+
+        Assert.That(cache.TryGetCached("aac", out _), Is.False);
+    }
+
+    [Test]
+    public async Task Clear_AfterPopulate_RemovesEntry()
+    {
+        var cache = new FFmpegOptionsCache<int>();
+        await cache.GetOrQueryAsync("aac", () => Ok(48000));
+        Assert.That(cache.TryGetCached("aac", out _), Is.True);
+
+        cache.Clear();
+
+        Assert.That(cache.TryGetCached("aac", out _), Is.False);
+    }
+
+    [Test]
+    public async Task Clear_ForcesNextCallToReQuery()
+    {
+        var cache = new FFmpegOptionsCache<int>();
+        int calls = 0;
+        await cache.GetOrQueryAsync("aac", () => { calls++; return Ok(48000); });
+
+        cache.Clear();
+
+        OptionsQueryResult<int> again = await cache.GetOrQueryAsync(
+            "aac", () => { calls++; return Ok(44100); });
+
+        // After Clear the cached entry is gone, so the factory runs again.
+        Assert.That(calls, Is.EqualTo(2));
+        Assert.That(again.Items, Is.EqualTo(new[] { 44100 }));
+        Assert.That(cache.TryGetCached("aac", out int[]? cached), Is.True);
+        Assert.That(cached, Is.EqualTo(new[] { 44100 }));
+    }
+
+    [Test]
+    public async Task Clear_WhileQueryInFlight_StaleResultIsNotCached()
+    {
+        // A query started before Clear() must not write its stale result back after the reset.
+        var cache = new FFmpegOptionsCache<int>();
+        var stale = new TaskCompletionSource<OptionsQueryResult<int>>();
+        var fresh = new TaskCompletionSource<OptionsQueryResult<int>>();
+
+        Task<OptionsQueryResult<int>> before = cache.GetOrQueryAsync("aac", () => stale.Task);
+        cache.Clear();
+        Task<OptionsQueryResult<int>> after = cache.GetOrQueryAsync("aac", () => fresh.Task);
+
+        // The pre-Clear query completes first, but its result belongs to the discarded generation.
+        stale.SetResult(new OptionsQueryResult<int>([11025], Degraded: false));
+        await before;
+        Assert.That(cache.TryGetCached("aac", out _), Is.False);
+
+        // The post-Clear query is the one that populates the cache.
+        fresh.SetResult(new OptionsQueryResult<int>([48000], Degraded: false));
+        await after;
+        Assert.That(cache.TryGetCached("aac", out int[]? cached), Is.True);
+        Assert.That(cached, Is.EqualTo(new[] { 48000 }));
+    }
+
+    [Test]
+    public async Task Clear_WhileQueryInFlight_StaleCompletionKeepsNewerInFlightEntry()
+    {
+        // The pre-Clear query's cleanup must not evict the newer query that took over the key after
+        // Clear(), or single-flight breaks and a later caller would re-query instead of joining.
+        var cache = new FFmpegOptionsCache<int>();
+        var stale = new TaskCompletionSource<OptionsQueryResult<int>>();
+        var fresh = new TaskCompletionSource<OptionsQueryResult<int>>();
+
+        Task<OptionsQueryResult<int>> before = cache.GetOrQueryAsync("aac", () => stale.Task);
+        cache.Clear();
+        Task<OptionsQueryResult<int>> after = cache.GetOrQueryAsync("aac", () => fresh.Task);
+
+        // The pre-Clear query completes (degraded, so it never caches) and runs its cleanup.
+        stale.SetResult(new OptionsQueryResult<int>([], Degraded: true));
+        await before;
+
+        // The post-Clear query is still in flight, so a new caller must join it without re-querying.
+        // The joiner's factory returns a distinct value, so a single-flight regression shows up in both
+        // the unused-factory count and the result below.
+        int extraCalls = 0;
+        Task<OptionsQueryResult<int>> joiner = cache.GetOrQueryAsync(
+            "aac", () => { extraCalls++; return Ok(-1); });
+
+        fresh.SetResult(new OptionsQueryResult<int>([48000], Degraded: false));
+        OptionsQueryResult<int>[] results = await Task.WhenAll(after, joiner);
+        Assert.That(extraCalls, Is.EqualTo(0));
+        Assert.That(results[0].Items, Is.EqualTo(new[] { 48000 }));
+        Assert.That(results[1].Items, Is.EqualTo(new[] { 48000 }));
+    }
+
+    [Test]
+    public async Task Cache_EvictsLeastRecentlyUsed_WhenOverCapacity()
+    {
+        var cache = new FFmpegOptionsCache<int>(maxCachedEntries: 2);
+        await cache.GetOrQueryAsync("a", () => Ok(1));
+        await cache.GetOrQueryAsync("b", () => Ok(2));
+
+        // Touch "a" so "b" is now the least-recently-used entry.
+        Assert.That(cache.TryGetCached("a", out _), Is.True);
+
+        // Inserting a third key exceeds the cap of 2 and evicts the LRU entry ("b").
+        await cache.GetOrQueryAsync("c", () => Ok(3));
+
+        Assert.That(cache.TryGetCached("a", out _), Is.True);
+        Assert.That(cache.TryGetCached("c", out _), Is.True);
+        Assert.That(cache.TryGetCached("b", out _), Is.False);
+    }
 }
