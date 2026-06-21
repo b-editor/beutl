@@ -22,11 +22,11 @@ public sealed class BufferedPlayer : IPlayer
     private readonly Scene _scene;
     private readonly IReadOnlyReactiveProperty<bool> _isPlaying;
     private readonly int _rate;
-    private volatile CancellationTokenSource? _waitRenderToken;
-    private volatile CancellationTokenSource? _waitTimerToken;
+    private readonly BufferedPlayerWaitGate _waitRenderGate;
+    private readonly BufferedPlayerWaitGate _waitTimerGate;
     private readonly IDisposable _disposable;
     private int? _requestedFrame;
-    private bool _isDisposed;
+    private volatile bool _isDisposed;
 
     // Set true whenever the producer (Start's dispatched loop) is no longer running. The consumer waits on a
     // per-wait token that only the producer cancels, so a producer that stops while no one is waiting (e.g. a
@@ -46,11 +46,13 @@ public sealed class BufferedPlayer : IPlayer
         _scene = scene;
         _isPlaying = isPlaying;
         _rate = rate;
+        _waitRenderGate = new(() => _isDisposed || _producerStopped);
+        _waitTimerGate = new(() => _isDisposed);
 
         _disposable = isPlaying.Where(v => !v).Subscribe(_ =>
         {
-            _waitRenderToken.CancelIgnoringDisposed();
-            _waitTimerToken.CancelIgnoringDisposed();
+            _waitRenderGate.Cancel();
+            _waitTimerGate.Cancel();
         });
     }
 
@@ -115,7 +117,7 @@ public sealed class BufferedPlayer : IPlayer
                         }
                     }
 
-                    _waitRenderToken.CancelIgnoringDisposed();
+                    _waitRenderGate.Cancel();
                     if (_isPlaying.Value)
                         _editViewModel.BufferStatus.EndTime.Value = time;
 
@@ -155,15 +157,15 @@ public sealed class BufferedPlayer : IPlayer
                 // instead of blocking forever on a wakeup that will never come (the lost-wakeup hang).
                 _producerStopped = true;
                 Interlocked.MemoryBarrier();
-                _waitRenderToken.CancelIgnoringDisposed();
-                _waitTimerToken.CancelIgnoringDisposed();
+                _waitRenderGate.Cancel();
+                _waitTimerGate.Cancel();
             }
         }, Threading.DispatchPriority.High);
     }
 
     public bool TryDequeue(out IPlayer.Frame frame)
     {
-        _waitTimerToken.CancelIgnoringDisposed();
+        _waitTimerGate.Cancel();
         if (_queue.TryDequeue(out IPlayer.Frame f))
         {
             frame = f;
@@ -179,33 +181,20 @@ public sealed class BufferedPlayer : IPlayer
     {
         if (_isDisposed || _producerStopped) return;
         using var cts = new CancellationTokenSource();
-        _waitRenderToken = cts;
+        if (!_waitRenderGate.Publish(cts)) return;
 
-        // Re-check after publishing the token. The producer's finally sets _producerStopped then cancels the
-        // current token; the full fence here pairs with the fence there so either the producer sees the token we
-        // just published (and cancels it, waking us) or we see the stop flag (and bail). Without this, a producer
-        // that stops while we are between publishing the token and WaitOne would leave us blocked forever.
-        Interlocked.MemoryBarrier();
-        if (_isDisposed || _producerStopped)
-        {
-            _waitRenderToken = null;
-            return;
-        }
-
-        _waitRenderToken.Token.WaitHandle.WaitOne();
-        _waitRenderToken = null;
+        cts.Token.WaitHandle.WaitOne();
+        _waitRenderGate.Clear(cts);
     }
 
-    // Sole waiter on _waitTimerToken (called only from the producer loop), so unlike WaitRender it needs no
-    // post-publish re-check.
     private void WaitTimer()
     {
         if (_isDisposed) return;
         using var cts = new CancellationTokenSource();
-        _waitTimerToken = cts;
+        if (!_waitTimerGate.Publish(cts)) return;
 
-        _waitTimerToken.Token.WaitHandle.WaitOne();
-        _waitTimerToken = null;
+        cts.Token.WaitHandle.WaitOne();
+        _waitTimerGate.Clear(cts);
     }
 
     public void Skipped(int requestedFrame)
@@ -220,8 +209,8 @@ public sealed class BufferedPlayer : IPlayer
             _logger.LogInformation("Disposing BufferedPlayer.");
 
             _isDisposed = true;
-            _waitRenderToken.CancelIgnoringDisposed();
-            _waitTimerToken.CancelIgnoringDisposed();
+            _waitRenderGate.Cancel();
+            _waitTimerGate.Cancel();
             _disposable.Dispose();
             while (_queue.TryDequeue(out var f))
             {
