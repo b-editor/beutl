@@ -9,16 +9,12 @@ using Beutl.NodeGraph.Nodes;
 
 namespace Beutl.UnitTests.NodeGraph;
 
-// NodeGraphFilterEffectRenderNode.Process forwards context.OutputScale / MaxWorkingScale into the
-// inner RenderNodeProcessor that walks the graph's output subtree. These tests build a real
-// FilterEffectInputNode -> FilterEffectNode -> OutputNode graph and assert the forwarded scales
-// reach the effect inside the graph, where they drive RenderNodeContext.ResolveWorkingScale.
+// NodeGraphFilterEffectRenderNode.Process forwards OutputScale / MaxWorkingScale into the inner
+// processor that walks the graph. These tests assert those scales reach the effect inside the graph.
 [TestFixture]
 public class NodeGraphFilterEffectRenderNodeTests
 {
-    // Graph: FilterEffectInputNode --> FilterEffectNode<ScaleProbeEffect> --> OutputNode.
-    // The probe effect's render node stamps the resolved working scale onto its output ops, making
-    // the scale forwarded by NodeGraphFilterEffectRenderNode observable without touching the GPU.
+    // Graph: FilterEffectInputNode -> FilterEffectNode<ScaleProbeEffect> -> OutputNode.
     private static NodeGraphFilterEffect.Resource BuildGraphResource()
     {
         var effect = new NodeGraphFilterEffect();
@@ -31,9 +27,8 @@ public class NodeGraphFilterEffectRenderNodeTests
         model.Nodes.Add(probeNode);
         model.Nodes.Add(outputNode);
 
-        // ConfigureNode's base ctor adds Items[0] = Output port and Items[1] = list Input port
-        // (FilterEffectNode<T>'s per-property value inputs, if any, follow at Items[2+]). Neither typed
-        // port is exposed publicly, so the render-chain ports are reached by index and named here.
+        // The render-chain ports are not exposed publicly: Items[0] = Output, Items[1] = list Input
+        // (per-property value inputs follow at Items[2+]). Reach them by index.
         var probeChainInput = (IInputPort)probeNode.Items[1];
         var probeChainOutput = (IOutputPort)probeNode.Items[0];
         model.Connect(probeChainInput, inputNode.Output);
@@ -49,8 +44,7 @@ public class NodeGraphFilterEffectRenderNodeTests
             hitTest: _ => false,
             effectiveScale: EffectiveScale.At(density));
 
-    // An At(1) source lets OutputScale drive the working scale: w = max(s_out, 1). A regression that
-    // seeds the inner processor with a hardcoded s_out = 1 would resolve every case to 1.
+    // An At(1) source lets OutputScale drive the working scale: w = max(s_out, 1).
     [TestCase(1.0f, 1.0f)]
     [TestCase(2.0f, 2.0f)]
     [TestCase(4.0f, 4.0f)]
@@ -69,7 +63,6 @@ public class NodeGraphFilterEffectRenderNodeTests
     }
 
     // An At(4) source pushes supply above s_out, so only the forwarded MaxWorkingScale can cap it.
-    // A regression that seeds the inner processor with +Inf would never cap the 4.0 supply.
     [TestCase(float.PositiveInfinity, 4.0f)]
     [TestCase(2.0f, 2.0f)]
     public void Process_ForwardsMaxWorkingScale_IntoGraphOutputSubtree(float maxWorkingScale, float expectedW)
@@ -95,9 +88,8 @@ public class NodeGraphFilterEffectRenderNodeTests
     }
 }
 
-// A GPU-free FilterEffect whose render node resolves the supply-driven working scale and stamps it
-// onto passthrough ops, exposing the scale that NodeGraphFilterEffectRenderNode forwarded. Mirrors
-// the manual-Resource + SuppressResourceClassGeneration pattern used by NodeGraphFilterEffect.
+// A GPU-free FilterEffect whose render node stamps the resolved working scale onto passthrough ops,
+// exposing the scale that NodeGraphFilterEffectRenderNode forwarded.
 [SuppressResourceClassGeneration]
 internal sealed partial class ScaleProbeEffect : FilterEffect
 {
@@ -123,10 +115,8 @@ internal sealed class ScaleProbeRenderNode(FilterEffect.Resource fe) : FilterEff
 {
     public override RenderNodeOperation[] Process(RenderNodeContext context)
     {
-        // Resolve w from the forwarded scales exactly as FilterEffectRenderNode.Process would, but skip
-        // the rest of its real path: ClampWorkingScaleToBufferBudget (a no-op at these test bounds) and
-        // the FilterEffectContext / SkiaSharp filter-build + rasterize that need a GPU device. So w here
-        // is the supply-driven scale that was forwarded, not a real effect's final working scale.
+        // Resolve w as FilterEffectRenderNode.Process would, but skip its GPU path (buffer-budget clamp +
+        // SkiaSharp build/rasterize). So w is the forwarded supply-driven scale, not a real final scale.
         EffectiveScale[] scales = context.Input.Select(i => i.EffectiveScale).ToArray();
         float w = RenderNodeContext.ResolveWorkingScale(scales, context.OutputScale, context.MaxWorkingScale);
         return context.Input.Select(input => RenderNodeOperation.CreateLambda(
