@@ -123,8 +123,7 @@ public class MFReader : MediaReader
         int w = info.ImageFormat.Width;
         int h = info.ImageFormat.Height;
 
-        // YUY2: 2 bytes per pixel
-        int yuy2Size = w * h * 2;
+        int yuy2Size = MFFrameBufferSize.CalculateYuy2(w, h);
         byte[] yuy2Buffer = ArrayPool<byte>.Shared.Rent(yuy2Size);
         try
         {
