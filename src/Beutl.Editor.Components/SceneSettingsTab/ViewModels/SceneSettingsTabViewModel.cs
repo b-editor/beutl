@@ -68,11 +68,8 @@ public sealed class SceneSettingsTabViewModel : IToolContext
         Apply = new AsyncReactiveCommand(CanApply)
             .WithSubscribe(async () =>
             {
-                if (TimeSpan.TryParse(StartInput.Value, out TimeSpan start)
-                    && TimeSpan.TryParse(DurationInput.Value, out TimeSpan duration))
+                if (TryReadSceneSettings(out Media.PixelSize frameSize, out TimeSpan start, out TimeSpan duration))
                 {
-                    var frameSize = new Media.PixelSize(Width.Value, Height.Value);
-
                     // Pause playback before rebuilding the renderer to avoid UI freeze.
                     if ((frameSize != _scene.FrameSize
                             || start != _scene.Start
@@ -80,6 +77,11 @@ public sealed class SceneSettingsTabViewModel : IToolContext
                         && _editorContext.GetService<IPreviewPlayer>() is { IsPlaying.Value: true } player)
                     {
                         await player.Pause();
+
+                        if (!TryReadSceneSettings(out frameSize, out start, out duration))
+                        {
+                            return;
+                        }
                     }
 
                     _editorContext.GetRequiredService<ISceneSettingsService>().Apply(
@@ -171,6 +173,14 @@ public sealed class SceneSettingsTabViewModel : IToolContext
     private string? ValidateSize(int observable)
     {
         return observable <= 0 ? MessageStrings.ValueLessThanOrEqualToZero : null;
+    }
+
+    private bool TryReadSceneSettings(out Media.PixelSize frameSize, out TimeSpan start, out TimeSpan duration)
+    {
+        frameSize = new Media.PixelSize(Width.Value, Height.Value);
+        bool hasStart = TimeSpan.TryParse(StartInput.Value, out start);
+        bool hasDuration = TimeSpan.TryParse(DurationInput.Value, out duration);
+        return hasStart && hasDuration;
     }
 
     public void Dispose()
