@@ -18,7 +18,7 @@ public class HistoryMutationPlaybackGuardTests
         using var player = new PreviewPlayerStub(isPlaying: true);
         bool mutatedAfterPause = false;
 
-        bool result = await guard.RunAsync(player, () => true, () =>
+        bool result = await guard.RunAsync(player, () => { }, () => true, () =>
         {
             mutatedAfterPause = !player.IsPlaying.Value;
             return true;
@@ -40,7 +40,7 @@ public class HistoryMutationPlaybackGuardTests
         using var player = new PreviewPlayerStub(isPlaying: false);
         bool mutated = false;
 
-        bool result = await guard.RunAsync(player, () => true, () =>
+        bool result = await guard.RunAsync(player, () => { }, () => true, () =>
         {
             mutated = true;
             return true;
@@ -60,7 +60,7 @@ public class HistoryMutationPlaybackGuardTests
         using var guard = new HistoryMutationPlaybackGuard();
         bool mutated = false;
 
-        bool result = await guard.RunAsync(null, () => true, () =>
+        bool result = await guard.RunAsync(null, () => { }, () => true, () =>
         {
             mutated = true;
             return true;
@@ -80,7 +80,7 @@ public class HistoryMutationPlaybackGuardTests
         using var player = new PreviewPlayerStub(isPlaying: true);
         bool mutated = false;
 
-        bool result = await guard.RunAsync(player, () => false, () =>
+        bool result = await guard.RunAsync(player, () => { }, () => false, () =>
         {
             mutated = true;
             return false;
@@ -96,6 +96,62 @@ public class HistoryMutationPlaybackGuardTests
     }
 
     [Test]
+    public async Task RunAsync_DrainsPendingMutationsBeforeShouldPauseDecision()
+    {
+        using var guard = new HistoryMutationPlaybackGuard();
+        using var player = new PreviewPlayerStub(isPlaying: true);
+        bool drained = false;
+        bool shouldPauseSawDrain = false;
+
+        // The drain simulates a BeforeMutation flush that commits a pending nudge, turning
+        // an otherwise no-op-looking mutation into a real one. shouldPause must observe the
+        // post-drain state, so the guard pauses before mutating.
+        bool result = await guard.RunAsync(
+            player,
+            () => drained = true,
+            () =>
+            {
+                shouldPauseSawDrain = drained;
+                return drained;
+            },
+            () => true);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result, Is.True);
+            Assert.That(drained, Is.True);
+            Assert.That(shouldPauseSawDrain, Is.True, "drain must run before shouldPause so the pause decision sees flushed work");
+            Assert.That(player.StopCount, Is.EqualTo(1), "a mutation revealed by the drain must pause playback");
+            Assert.That(player.IsPlaying.Value, Is.False);
+        });
+    }
+
+    [Test]
+    public async Task RunAsync_WhenPlaybackRestartsDuringPause_RePausesBeforeMutation()
+    {
+        using var guard = new HistoryMutationPlaybackGuard();
+        using var player = new PreviewPlayerStub(isPlaying: true)
+        {
+            SimulateRestartOnce = true
+        };
+        bool mutatedWhileStopped = false;
+
+        bool result = await guard.RunAsync(player, () => { }, () => true, () =>
+        {
+            mutatedWhileStopped = !player.IsPlaying.Value;
+            return true;
+        });
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result, Is.True);
+            Assert.That(mutatedWhileStopped, Is.True, "the mutation must run only after the restarted playback is paused again");
+            Assert.That(player.StopCount, Is.EqualTo(2), "the guard must re-pause the playback that restarted mid-drain");
+            Assert.That(player.IsPlaying.Value, Is.False);
+        });
+    }
+
+    [Test]
     public async Task RunAsync_WhenPauseIsInFlight_SecondMutationWaitsAndDoesNotStopTwice()
     {
         using var guard = new HistoryMutationPlaybackGuard();
@@ -105,14 +161,14 @@ public class HistoryMutationPlaybackGuardTests
         };
         int mutationCount = 0;
 
-        Task<bool> first = guard.RunAsync(player, () => true, () =>
+        Task<bool> first = guard.RunAsync(player, () => { }, () => true, () =>
         {
             mutationCount++;
             return true;
         }).AsTask();
         await player.WaitForPauseStartedAsync();
 
-        Task<bool> second = guard.RunAsync(player, () => true, () =>
+        Task<bool> second = guard.RunAsync(player, () => { }, () => true, () =>
         {
             mutationCount++;
             return true;
@@ -150,7 +206,7 @@ public class HistoryMutationPlaybackGuardTests
         player.BeginExternalDrain();
         bool mutatedBeforeDrain = false;
 
-        Task<bool> run = guard.RunAsync(player, () => true, () =>
+        Task<bool> run = guard.RunAsync(player, () => { }, () => true, () =>
         {
             mutatedBeforeDrain = !player.DrainCompleted;
             return true;
@@ -178,6 +234,7 @@ public class HistoryMutationPlaybackGuardTests
         // Mirrors PlayerViewModel._playbackTask: incomplete while a drain is in
         // flight, already complete when nothing is playing.
         private readonly TaskCompletionSource _drain = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        private bool _restartedOnce;
 
         public PreviewPlayerStub(bool isPlaying)
         {
@@ -189,6 +246,11 @@ public class HistoryMutationPlaybackGuardTests
         }
 
         public bool CompletePauseManually { get; init; }
+
+        // When set, the first Pause() that stops playback re-arms IsPlaying afterwards,
+        // simulating a Play() that restarted the preview during the drain. The guard's
+        // re-pause loop must then stop it a second time before mutating.
+        public bool SimulateRestartOnce { get; init; }
 
         public int PauseCallCount { get; private set; }
 
@@ -214,6 +276,12 @@ public class HistoryMutationPlaybackGuardTests
                 {
                     _drain.TrySetResult();
                 }
+            }
+
+            if (SimulateRestartOnce && !_restartedOnce)
+            {
+                _restartedOnce = true;
+                _isPlaying.Value = true;
             }
 
             return _drain.Task;

@@ -2036,5 +2036,26 @@ public class HistoryManagerTests
         Assert.Throws<ObjectDisposedException>(() => _ = manager.HasPendingOperations);
     }
 
+    [Test]
+    public void FlushPendingMutations_ShouldFireBeforeMutation()
+    {
+        using var manager = new HistoryManager(_root, _sequenceGenerator);
+        int fired = 0;
+        using var subscription = manager.BeforeMutation.Subscribe(_ => fired++);
+
+        manager.FlushPendingMutations();
+
+        Assert.That(fired, Is.EqualTo(1));
+    }
+
+    [Test]
+    public void FlushPendingMutations_ShouldThrowObjectDisposedException_WhenDisposed()
+    {
+        var manager = new HistoryManager(_root, _sequenceGenerator);
+        manager.Dispose();
+
+        Assert.Throws<ObjectDisposedException>(() => manager.FlushPendingMutations());
+    }
+
     #endregion
 }

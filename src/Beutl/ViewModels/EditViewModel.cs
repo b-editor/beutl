@@ -840,7 +840,8 @@ public sealed partial class EditViewModel : IEditorContext, ISupportAutoSaveEdit
                 _logger.LogInformation("{Message}", startMessage);
             }
 
-            bool changed = await _historyMutationPlaybackGuard.RunAsync(Player, shouldPause, mutate);
+            bool changed = await _historyMutationPlaybackGuard.RunAsync(
+                Player, HistoryManager.FlushPendingMutations, shouldPause, mutate);
             if (changed && completedMessage is not null)
             {
                 _logger.LogInformation("{Message}", completedMessage);

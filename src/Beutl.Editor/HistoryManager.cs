@@ -54,6 +54,21 @@ public sealed class HistoryManager : IDisposable
     // 自前で Commit を流し切るためのフック。
     public IObservable<System.Reactive.Unit> BeforeMutation => _beforeMutation.AsObservable();
 
+    /// <summary>
+    /// Fires <see cref="BeforeMutation"/> so subscribers (e.g. a debounced nudge service)
+    /// flush any pending work into history now. Call this before deciding whether a
+    /// following <see cref="Undo"/> / <see cref="Redo"/> / <see cref="JumpTo"/> will change
+    /// scene state: those operations fire <see cref="BeforeMutation"/> themselves, so a
+    /// still-pending edit is otherwise invisible to that decision yet gets committed — and
+    /// possibly reverted — once the operation runs. The operation's own notification then
+    /// finds nothing left to flush, so the flush stays single-effect for idempotent subscribers.
+    /// </summary>
+    public void FlushPendingMutations()
+    {
+        ThrowIfDisposed();
+        FireBeforeMutation();
+    }
+
     public ReadOnlyObservableCollection<HistoryEntry> Entries => _readOnlyEntries;
 
     public int CurrentIndex => _undoStack.Count;
