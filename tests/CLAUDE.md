@@ -18,7 +18,7 @@ Most projects under `tests/` are NUnit (+ Moq where needed); the exceptions are 
 
 `tests/Beutl.Graphics3DTests/` is an executable visual harness for manual Graphics3D checks, not an NUnit test project. Graphics3D NUnit tests live under `tests/Beutl.UnitTests/Engine/Graphics3D/`.
 
-The interactive Avalonia previewers / sample apps no longer live here — they were moved out of `tests/` (and out of `Beutl.slnx`, so CI does not build them): `DirectoryViewTest`, `TextFormattingPlayground`, `PropertyEditorViewTests`, `EnumerateFontFamilies`, and `XamlPreview` now live under `tools/`, and the sample extension package `PackageSample` lives under `samples/`. Running any of them launches a window; they are not test harnesses. Build them individually from their new location (e.g. `dotnet build tools/XamlPreview/XamlPreview.csproj`).
+The interactive Avalonia previewers / sample apps no longer live here. The sample extension package `PackageSample` was moved out of `tests/` (and out of `Beutl.slnx`, so CI does not build it) and now lives under `samples/`. Running it launches a window; it is not a test harness.
 
 ## NUnit conventions
 
