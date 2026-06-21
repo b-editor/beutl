@@ -57,9 +57,9 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
     private Task _playbackTask = Task.CompletedTask;
     private bool _isShuttling;
 
-    // Set by Pause(), cleared by Play(): tells the loop-playback task not to re-arm for
-    // another PlayInternal iteration when a pause lands in the brief IsPlaying=false
-    // window at a loop boundary, where gating on IsPlaying alone would miss the request.
+    // Set by Pause(), cleared by Play(): stops the loop-playback task from re-arming when
+    // a pause lands in the brief IsPlaying=false window at a loop boundary that gating on
+    // IsPlaying alone would miss.
     private volatile bool _stopRequested;
     // Published snapshots carry the start time of the buffer that was just *queued*
     // to the audio backend, which is ahead of the current playhead. Replay several
@@ -487,9 +487,8 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
 
         PlaybackSpeed.Value = 1.0f;
         PlaybackDirection.Value = ViewModels.PlaybackDirection.Forward;
-        // Mark playing before publishing _playbackTask so a Pause() arriving in the
-        // startup window (before PlayInternal sets IsPlaying) sees it and signals the
-        // loop to stop, instead of awaiting a task that never received a stop signal.
+        // Mark playing before publishing _playbackTask so a Pause() in the startup window
+        // (before PlayInternal runs) signals the loop to stop instead of awaiting forever.
         _stopRequested = false;
         IsPlaying.Value = true;
 
@@ -502,9 +501,8 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
             do
             {
                 restart = await PlayInternal();
-                // A pause that landed in the IsPlaying=false boundary window set
-                // _stopRequested without flipping IsPlaying; honor it here so the loop
-                // does not restart and leave Pause()'s awaiter hanging until end-of-loop.
+                // A boundary-window pause set _stopRequested without flipping IsPlaying;
+                // honor it so the loop does not restart and leave Pause()'s awaiter hanging.
                 if (restart && _stopRequested)
                 {
                     restart = false;
@@ -512,8 +510,7 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
 
                 if (restart)
                 {
-                    // Loop restart: re-arm IsPlaying for the next PlayInternal, which
-                    // no longer sets it itself. A user Pause yields restart == false.
+                    // Re-arm IsPlaying for the next PlayInternal, which no longer sets it.
                     IsPlaying.Value = true;
                 }
             } while (restart);
@@ -1336,9 +1333,9 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
 
     public async Task Pause()
     {
-        // Always record the stop request, even when IsPlaying is already false: at a
-        // loop boundary the playback task clears IsPlaying before re-arming it, and a
-        // pause arriving in that window must still cancel the pending restart.
+        // Record the stop request even when IsPlaying is already false: at a loop boundary
+        // the task clears IsPlaying before re-arming, and a pause in that window must still
+        // cancel the pending restart.
         _stopRequested = true;
         if (IsPlaying.Value)
         {
@@ -1349,12 +1346,10 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
             PlaybackDirection.Value = ViewModels.PlaybackDirection.Stopped;
         }
 
-        // Await the playback task even when already stopped, so a pause arriving while a
-        // previous pause is still draining still blocks until the pipeline finishes
-        // before the caller mutates frame-size-sensitive state. A faulted playback task
-        // must not veto that mutation — the drain is already over — so observe and log
-        // the fault here instead of letting it bubble up as a history-operation failure,
-        // and drop the faulted task so later pauses don't replay the same stale exception.
+        // Await even when already stopped so a pause overlapping a still-draining previous
+        // pause blocks until the pipeline finishes. Observe a faulted task here instead of
+        // letting it surface as a history-operation failure, and drop it so later pauses
+        // don't replay the same stale exception.
         Task playbackTask = _playbackTask;
         try
         {
