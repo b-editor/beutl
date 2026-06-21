@@ -56,6 +56,11 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
     private Size _maxFrameSize;
     private Task _playbackTask = Task.CompletedTask;
     private bool _isShuttling;
+
+    // Set by Pause(), cleared by Play(): tells the loop-playback task not to re-arm for
+    // another PlayInternal iteration when a pause lands in the brief IsPlaying=false
+    // window at a loop boundary, where gating on IsPlaying alone would miss the request.
+    private volatile bool _stopRequested;
     // Published snapshots carry the start time of the buffer that was just *queued*
     // to the audio backend, which is ahead of the current playhead. Replay several
     // recent snapshots so a visualizer tab opened mid-playback also receives the
@@ -485,6 +490,7 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
         // Mark playing before publishing _playbackTask so a Pause() arriving in the
         // startup window (before PlayInternal sets IsPlaying) sees it and signals the
         // loop to stop, instead of awaiting a task that never received a stop signal.
+        _stopRequested = false;
         IsPlaying.Value = true;
 
         _playbackTask = Task.Run(async () =>
@@ -496,6 +502,14 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
             do
             {
                 restart = await PlayInternal();
+                // A pause that landed in the IsPlaying=false boundary window set
+                // _stopRequested without flipping IsPlaying; honor it here so the loop
+                // does not restart and leave Pause()'s awaiter hanging until end-of-loop.
+                if (restart && _stopRequested)
+                {
+                    restart = false;
+                }
+
                 if (restart)
                 {
                     // Loop restart: re-arm IsPlaying for the next PlayInternal, which
@@ -570,10 +584,11 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
             try
             {
                 var expectFrame = ComputeExpectFrame();
-                if (!IsPlaying.Value || expectFrame >= endFrame)
+                if (_stopRequested || !IsPlaying.Value || expectFrame >= endFrame)
                 {
-                    // ループ用に endFrame で打ち切る場合、音声側にも停止を伝える
-                    if (IsLoopEnabled.Value && expectFrame >= endFrame)
+                    // ループ用に endFrame で打ち切る場合、音声側にも停止を伝える。
+                    // ただし停止要求中はループの自然終端とみなさず、再開させない。
+                    if (!_stopRequested && IsLoopEnabled.Value && expectFrame >= endFrame)
                     {
                         reachedNaturalEnd = true;
                         IsPlaying.Value = false;
@@ -1321,6 +1336,10 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
 
     public async Task Pause()
     {
+        // Always record the stop request, even when IsPlaying is already false: at a
+        // loop boundary the playback task clears IsPlaying before re-arming it, and a
+        // pause arriving in that window must still cancel the pending restart.
+        _stopRequested = true;
         if (IsPlaying.Value)
         {
             _logger.LogInformation("Pause the playback. ({SceneId})", _editViewModel.SceneId);
@@ -1330,10 +1349,25 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
             PlaybackDirection.Value = ViewModels.PlaybackDirection.Stopped;
         }
 
-        // Await the playback task even when already stopped, so a pause arriving
-        // while a previous pause is still draining still blocks until the pipeline
-        // finishes before the caller mutates frame-size-sensitive state.
-        await _playbackTask;
+        // Await the playback task even when already stopped, so a pause arriving while a
+        // previous pause is still draining still blocks until the pipeline finishes
+        // before the caller mutates frame-size-sensitive state. A faulted playback task
+        // must not veto that mutation — the drain is already over — so observe and log
+        // the fault here instead of letting it bubble up as a history-operation failure,
+        // and drop the faulted task so later pauses don't replay the same stale exception.
+        Task playbackTask = _playbackTask;
+        try
+        {
+            await playbackTask;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Playback task faulted before pause. ({SceneId})", _editViewModel.SceneId);
+            if (_playbackTask == playbackTask)
+            {
+                _playbackTask = Task.CompletedTask;
+            }
+        }
     }
 
     private void UpdateImage(Ref<Bitmap> source)
