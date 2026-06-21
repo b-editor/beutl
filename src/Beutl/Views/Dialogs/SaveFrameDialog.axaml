@@ -1,4 +1,4 @@
-<ui:ContentDialog x:Class="Beutl.Views.Dialogs.SaveFrameDialog"
+<ui:FAContentDialog x:Class="Beutl.Views.Dialogs.SaveFrameDialog"
                   xmlns="https://github.com/avaloniaui"
                   xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
                   xmlns:converters="using:Beutl.Converters"
@@ -16,9 +16,9 @@
                   IsPrimaryButtonEnabled="{CompiledBinding CanSave.Value}"
                   PrimaryButtonText="{x:Static lang:Strings.Save}"
                   mc:Ignorable="d">
-    <ui:ContentDialog.Resources>
+    <ui:FAContentDialog.Resources>
         <StaticResource x:Key="ContentDialogMaxWidth" ResourceKey="ContentDialogMinWidth" />
-    </ui:ContentDialog.Resources>
+    </ui:FAContentDialog.Resources>
 
     <StackPanel Spacing="12">
         <StackPanel Spacing="4">
@@ -45,4 +45,4 @@
                    Text="{CompiledBinding Warning.Value}"
                    TextWrapping="Wrap" />
     </StackPanel>
-</ui:ContentDialog>
+</ui:FAContentDialog>
