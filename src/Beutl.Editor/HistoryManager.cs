@@ -59,9 +59,8 @@ public sealed class HistoryManager : IDisposable
     public int CurrentIndex => _undoStack.Count;
 
     /// <summary>
-    /// Whether the current uncommitted transaction holds operations — meaning a
-    /// history mutation can still change scene state (via the <see cref="BeforeMutation"/>
-    /// flush) even when <see cref="CanUndo"/> / <see cref="CanRedo"/> are false.
+    /// Whether the current uncommitted transaction holds operations, so a mutation can still
+    /// change scene state even when <see cref="CanUndo"/> / <see cref="CanRedo"/> are false.
     /// </summary>
     public bool HasPendingOperations
     {
@@ -94,7 +93,6 @@ public sealed class HistoryManager : IDisposable
     /// Returns <see langword="true"/> if <see cref="JumpTo"/> with <paramref name="index"/>
     /// would mutate state — the index is in range and either differs from
     /// <see cref="CurrentIndex"/> or a pending transaction would be rolled back.
-    /// Evaluated under the internal lock.
     /// </summary>
     public bool WouldJumpToMove(int index)
     {

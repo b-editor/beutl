@@ -57,9 +57,8 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
     private Task _playbackTask = Task.CompletedTask;
     private bool _isShuttling;
 
-    // Set by Pause(), cleared by Play(): stops the loop-playback task from re-arming when
-    // a pause lands in the brief IsPlaying=false window at a loop boundary that gating on
-    // IsPlaying alone would miss.
+    // Set by Pause(), cleared by Play(). Cancels a loop re-arm when a pause lands in the
+    // brief IsPlaying=false window at a loop boundary that gating on IsPlaying would miss.
     private volatile bool _stopRequested;
     // Published snapshots carry the start time of the buffer that was just *queued*
     // to the audio backend, which is ahead of the current playhead. Replay several
@@ -590,6 +589,13 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
                         reachedNaturalEnd = true;
                         IsPlaying.Value = false;
                     }
+                    else if (_stopRequested)
+                    {
+                        // A pause that raced the loop re-arm leaves IsPlaying=true; clear it so the
+                        // audio task stops here instead of running to the scene's natural end.
+                        IsPlaying.Value = false;
+                    }
+
                     tcs.TrySetResult(true);
                     return;
                 }
@@ -1346,10 +1352,9 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
             PlaybackDirection.Value = ViewModels.PlaybackDirection.Stopped;
         }
 
-        // Await even when already stopped so a pause overlapping a still-draining previous
-        // pause blocks until the pipeline finishes. Observe a faulted task here instead of
-        // letting it surface as a history-operation failure, and drop it so later pauses
-        // don't replay the same stale exception.
+        // Await even when already stopped so an overlapping pause blocks until the prior
+        // drain finishes. Catch a faulted task and drop it, so it neither surfaces as a
+        // history-operation failure nor replays on later pauses.
         Task playbackTask = _playbackTask;
         try
         {
