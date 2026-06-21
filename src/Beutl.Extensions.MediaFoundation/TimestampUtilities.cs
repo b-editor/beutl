@@ -1,8 +1,8 @@
 ﻿// https://github.com/amate/MFVideoReader
 
-#if MF_BUILD_IN
 using Windows.Win32.Media.MediaFoundation;
 
+#if MF_BUILD_IN
 namespace Beutl.Embedding.MediaFoundation.Decoding;
 #else
 namespace Beutl.Extensions.MediaFoundation.Decoding;
