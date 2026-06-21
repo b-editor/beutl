@@ -23,7 +23,7 @@ public class MainViewModel
 
     public MainViewModel()
     {
-        _app = new BeutlApiApplication(new HttpClient());
+        _app = new BeutlApiApplication(new HttpClient(), ExtensionProvider.Current);
         _model = new ChangesModel();
 
         _beutlProcesses =

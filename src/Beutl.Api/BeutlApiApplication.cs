@@ -32,6 +32,7 @@ public class BeutlApiApplication
     public const string UserFileName = "user.json";
 #endif
     private readonly HttpClient _httpClient;
+    private readonly ExtensionProvider _extensionProvider;
     private readonly ReactivePropertySlim<AuthenticatedUser?> _authenticatedUser = new();
     private readonly Dictionary<Type, Lazy<object>> _services = [];
     private static readonly ILogger s_logger = Log.CreateLogger<BeutlApiApplication>();
@@ -51,9 +52,12 @@ public class BeutlApiApplication
         return metadata;
     });
 
-    public BeutlApiApplication(HttpClient httpClient)
+    public BeutlApiApplication(HttpClient httpClient, ExtensionProvider extensionProvider)
     {
+        ArgumentNullException.ThrowIfNull(extensionProvider);
+
         _httpClient = httpClient;
+        _extensionProvider = extensionProvider;
         httpClient.BaseAddress = new Uri(BaseUrl);
         App = RestService.For<IAppClient>(httpClient);
         Packages = RestService.For<IPackagesClient>(httpClient);
@@ -137,7 +141,7 @@ public class BeutlApiApplication
     private void RegisterAll()
     {
         Register(() => new DiscoverService(this));
-        Register(() => ExtensionProvider.Current);
+        Register(() => _extensionProvider);
         Register(() => new ContextCommandSettingsStore());
         Register(() => new ContextCommandHandlerRegistry());
         Register(() => new ContextCommandManager(

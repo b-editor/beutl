@@ -22,7 +22,8 @@ public sealed class MainViewModel : BasePageViewModel, IContextCommandHandler
     public MainViewModel()
     {
         _authHttpClient = new HttpClient();
-        _beutlClients = new BeutlApiApplication(_authHttpClient);
+        ExtensionProvider extensionProvider = ExtensionProvider.Current;
+        _beutlClients = new BeutlApiApplication(_authHttpClient, extensionProvider);
         ContextCommandManager = _beutlClients.GetResource<ContextCommandManager>();
 
         MenuBar = new MenuBarViewModel();
@@ -41,7 +42,7 @@ public sealed class MainViewModel : BasePageViewModel, IContextCommandHandler
             () => MenuBar);
         CommandPalette = new CommandPaletteViewModel(paletteService);
 
-        ICoreReadOnlyList<Extension> allExtension = ExtensionProvider.Current.AllExtensions;
+        ICoreReadOnlyList<Extension> allExtension = extensionProvider.AllExtensions;
 
         var comparer = SortExpressionComparer<Extension>.Ascending(i => i.Name);
         IObservable<IChangeSet<Extension>> changeSet = allExtension
