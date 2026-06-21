@@ -7,10 +7,6 @@
     <ImplicitUsings>enable</ImplicitUsings>
   </PropertyGroup>
 
-  <ItemGroup>
-    <Compile Include="$(MSBuildThisFileDirectory)\ArtifactProvider.cs" />
-  </ItemGroup>
-
   <!-- coverlet.collector shared across every real test project (gated on IsTestProject so non-test
        executables skip it). Beutl.UnitTests declares its own, so it is excluded here to avoid a
        duplicate under central package management. -->

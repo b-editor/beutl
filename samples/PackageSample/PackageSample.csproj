@@ -19,10 +19,6 @@
   <Import Project="$(RootDirectory)build\props\SideloadOutput.props" />
 
   <ItemGroup>
-    <Compile Remove="$(MSBuildThisFileDirectory)\..\ArtifactProvider.cs" />
-  </ItemGroup>
-
-  <ItemGroup>
     <ProjectReference Include="..\..\src\Beutl.Extensibility\Beutl.Extensibility.csproj" />
     <ProjectReference Include="..\..\src\Beutl.Controls\Beutl.Controls.csproj" />
     <ProjectReference Include="..\..\src\Beutl.ProjectSystem\Beutl.ProjectSystem.csproj" />
