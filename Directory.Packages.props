@@ -5,7 +5,7 @@
   <ItemGroup>
     <PackageVersion Include="Aigamo.ResXGenerator" Version="4.3.0" />
     <PackageVersion Include="AsyncImageLoader.Avalonia" Version="3.7.0" />
-    <PackageVersion Include="Avalonia" Version="11.3.17" />
+    <PackageVersion Include="Avalonia" Version="12.0.0" />
     <PackageVersion Include="Avalonia.Controls.ItemsRepeater" Version="11.1.5" />
     <PackageVersion Include="PanAndZoom" Version="11.3.9.1" />
     <PackageVersion Include="Avalonia.Desktop" Version="11.3.17" />
@@ -33,7 +33,7 @@
     <PackageVersion Include="DynamicData" Version="9.4.31" />
     <PackageVersion Include="FFmpeg.AutoGen.Bindings.DynamicallyLoaded" Version="8.1.0" />
     <PackageVersion Include="FFmpeg4Sharp" Version="7.0.1" />
-    <PackageVersion Include="FluentAvaloniaUI" Version="2.5.1" />
+    <PackageVersion Include="FluentAvaloniaUI" Version="3.0.0" />
     <PackageVersion Include="FluentIcons.FluentAvalonia" Version="1.1.224" />
     <PackageVersion Include="Microsoft.Extensions.TimeProvider.Testing" Version="10.7.0" />
     <PackageVersion Include="Microsoft.Windows.CsWin32" Version="0.3.298" />
