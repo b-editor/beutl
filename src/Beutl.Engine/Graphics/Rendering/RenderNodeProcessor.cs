@@ -67,9 +67,11 @@ public class RenderNodeProcessor(
         }
         catch
         {
-            renderTarget.Dispose();
+            // renderTarget.Dispose() is GPU-native teardown that can itself throw; swallow cleanup
+            // faults so the in-flight render exception propagates and the op is still disposed.
+            DisposeBestEffort(renderTarget);
             if (!opDisposeStarted)
-                op.Dispose();
+                DisposeBestEffort(op);
             throw;
         }
     }
