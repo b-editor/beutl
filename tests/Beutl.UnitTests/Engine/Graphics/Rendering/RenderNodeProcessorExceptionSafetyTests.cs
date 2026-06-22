@@ -76,11 +76,118 @@ public class RenderNodeProcessorExceptionSafetyTests
         Assert.That(disposed, Is.EquivalentTo(new[] { "first", "fault", "remaining" }));
     }
 
+    [Test]
+    public void RasterizeToRenderTargets_ContinuesCleanupAndPreservesOriginalException_WhenSweepDisposeThrows()
+    {
+        var disposed = new List<string>();
+        using var node = CreateRenderThrowWithThrowingRemainingOps(disposed);
+        var processor = new RenderNodeProcessor(node, useRenderCache: false);
+
+        var ex = Assert.Throws<InvalidOperationException>(() => processor.RasterizeToRenderTargets());
+
+        Assert.That(ex!.Message, Is.EqualTo("render-fault"));
+        Assert.That(disposed, Is.EqualTo(new[]
+        {
+            "first",
+            "render-fault",
+            "throwing-remaining-1",
+            "throwing-remaining-2",
+            "remaining"
+        }));
+    }
+
+    [Test]
+    public void Rasterize_ContinuesCleanupAndPreservesOriginalException_WhenSweepDisposeThrows()
+    {
+        var disposed = new List<string>();
+        using var node = CreateRenderThrowWithThrowingRemainingOps(disposed);
+        var processor = new RenderNodeProcessor(node, useRenderCache: false);
+
+        var ex = Assert.Throws<InvalidOperationException>(() => processor.Rasterize());
+
+        Assert.That(ex!.Message, Is.EqualTo("render-fault"));
+        Assert.That(disposed, Is.EqualTo(new[]
+        {
+            "first",
+            "render-fault",
+            "throwing-remaining-1",
+            "throwing-remaining-2",
+            "remaining"
+        }));
+    }
+
+    [Test]
+    public void RasterizeAndConcat_ContinuesCleanupAndPreservesOriginalException_WhenSweepDisposeThrows()
+    {
+        var disposed = new List<string>();
+        using var node = CreateRenderThrowWithThrowingRemainingOps(disposed);
+        var processor = new RenderNodeProcessor(node, useRenderCache: false);
+
+        var ex = Assert.Throws<InvalidOperationException>(() => processor.RasterizeAndConcat());
+
+        Assert.That(ex!.Message, Is.EqualTo("render-fault"));
+        Assert.That(disposed, Is.EqualTo(new[]
+        {
+            "first",
+            "render-fault",
+            "throwing-remaining-1",
+            "throwing-remaining-2",
+            "remaining"
+        }));
+    }
+
+    // RasterizeAt's own catch disposes the faulting op AND its render target. Both go through
+    // DisposeBestEffort, so a throwing op Dispose() there is swallowed and the original render
+    // exception still propagates. Only Rasterize/RasterizeToRenderTargets reach RasterizeAt;
+    // RasterizeAndConcat renders directly into a shared canvas and is covered above.
+    [Test]
+    public void RasterizeToRenderTargets_PreservesRenderException_WhenFaultingOpAlsoThrowsOnDispose()
+    {
+        var disposed = new List<string>();
+        using var node = new StaticRenderNode(
+            CreateOperation("first", disposed),
+            CreateOperation("render-fault", disposed, throwOnRender: true, throwOnDispose: true, disposeFaultMessage: "dispose-fault"),
+            CreateOperation("remaining", disposed));
+        var processor = new RenderNodeProcessor(node, useRenderCache: false);
+
+        var ex = Assert.Throws<InvalidOperationException>(() => processor.RasterizeToRenderTargets());
+
+        Assert.That(ex!.Message, Is.EqualTo("render-fault"));
+        Assert.That(disposed, Is.EqualTo(new[] { "first", "render-fault", "remaining" }));
+    }
+
+    [Test]
+    public void Rasterize_PreservesRenderException_WhenFaultingOpAlsoThrowsOnDispose()
+    {
+        var disposed = new List<string>();
+        using var node = new StaticRenderNode(
+            CreateOperation("first", disposed),
+            CreateOperation("render-fault", disposed, throwOnRender: true, throwOnDispose: true, disposeFaultMessage: "dispose-fault"),
+            CreateOperation("remaining", disposed));
+        var processor = new RenderNodeProcessor(node, useRenderCache: false);
+
+        var ex = Assert.Throws<InvalidOperationException>(() => processor.Rasterize());
+
+        Assert.That(ex!.Message, Is.EqualTo("render-fault"));
+        Assert.That(disposed, Is.EqualTo(new[] { "first", "render-fault", "remaining" }));
+    }
+
+    private static StaticRenderNode CreateRenderThrowWithThrowingRemainingOps(ICollection<string> disposed)
+    {
+        return new StaticRenderNode(
+            CreateOperation("first", disposed),
+            CreateOperation("render-fault", disposed, throwOnRender: true),
+            CreateOperation("throwing-remaining-1", disposed, throwOnDispose: true),
+            CreateOperation("throwing-remaining-2", disposed, throwOnDispose: true),
+            CreateOperation("remaining", disposed));
+    }
+
     private static RenderNodeOperation CreateOperation(
         string name,
         ICollection<string> disposed,
         bool throwOnRender = false,
-        bool throwOnDispose = false)
+        bool throwOnDispose = false,
+        string? disposeFaultMessage = null)
     {
         return RenderNodeOperation.CreateLambda(
             new Rect(0, 0, 4, 4),
@@ -96,7 +203,7 @@ public class RenderNodeProcessorExceptionSafetyTests
                 disposed.Add(name);
                 if (throwOnDispose)
                 {
-                    throw new InvalidOperationException(name);
+                    throw new InvalidOperationException(disposeFaultMessage ?? name);
                 }
             });
     }
