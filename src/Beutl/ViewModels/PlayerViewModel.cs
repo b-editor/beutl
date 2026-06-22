@@ -861,6 +861,9 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
     private void StartShuttle()
     {
         if (_isShuttling || Scene == null) return;
+        // Clear a stop request left by a prior Pause() so the flag's "true until the next
+        // playback start" invariant holds across shuttle too, not just Play().
+        _stopRequested = false;
         _isShuttling = true;
         IsPlaying.Value = true;
 
