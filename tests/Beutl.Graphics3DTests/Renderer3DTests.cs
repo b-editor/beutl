@@ -38,6 +38,7 @@ public class Renderer3DTests
         {
             var renderer = new Renderer3D(_context);
             var objects = new List<Object3D.Resource>();
+            var sceneResources = new List<IDisposable>();
             try
             {
                 renderer.Initialize(Width, Height);
@@ -52,6 +53,7 @@ public class Renderer3DTests
                 camera.NearPlane.CurrentValue = 0.1f;
                 camera.FarPlane.CurrentValue = 100f;
                 var cameraResource = (PerspectiveCamera.Resource)camera.ToResource(renderContext);
+                sceneResources.Add(cameraResource);
 
                 const int gridSizeX = 7; // Metallic steps
                 const int gridSizeY = 7; // Roughness steps
@@ -85,6 +87,7 @@ public class Renderer3DTests
                 }
 
                 var lights = BuildThreePointLights(renderContext);
+                sceneResources.AddRange(lights);
 
                 renderer.Render(
                     renderContext,
@@ -95,18 +98,11 @@ public class Renderer3DTests
                     Colors.White,
                     0.08f);
 
-                byte[] result = renderer.DownloadPixels();
-
-                foreach (var obj in objects)
-                {
-                    obj.Dispose();
-                }
-
-                return result;
+                return renderer.DownloadPixels();
             }
             finally
             {
-                renderer.Dispose();
+                DisposeAll(objects, sceneResources, renderer);
             }
         });
 
@@ -279,6 +275,7 @@ public class Renderer3DTests
         {
             var renderer = new Renderer3D(_context);
             var objects = new List<Object3D.Resource>();
+            var sceneResources = new List<IDisposable>();
             try
             {
                 renderer.Initialize(Width, Height);
@@ -293,6 +290,7 @@ public class Renderer3DTests
                 camera.NearPlane.CurrentValue = 0.1f;
                 camera.FarPlane.CurrentValue = 100f;
                 var cameraResource = (PerspectiveCamera.Resource)camera.ToResource(renderContext);
+                sceneResources.Add(cameraResource);
 
                 var ground = new Cube3D();
                 ground.Width.CurrentValue = 20f;
@@ -325,6 +323,7 @@ public class Renderer3DTests
                 var lights = lightModels
                     .Select(l => (Light3D.Resource)l.ToResource(renderContext))
                     .ToList();
+                sceneResources.AddRange(lights);
 
                 renderer.Render(
                     renderContext,
@@ -339,12 +338,7 @@ public class Renderer3DTests
             }
             finally
             {
-                foreach (var obj in objects)
-                {
-                    obj.Dispose();
-                }
-
-                renderer.Dispose();
+                DisposeAll(objects, sceneResources, renderer);
             }
         });
     }
@@ -366,6 +360,27 @@ public class Renderer3DTests
         sphere.Material.CurrentValue = material;
 
         return (Sphere3D.Resource)sphere.ToResource(renderContext);
+    }
+
+    /// <summary>
+    /// Releases every per-render resource the test owns. The camera/light/object resources created via
+    /// <c>ToResource</c> are not owned by <see cref="Renderer3D"/>, so a failed render must not leak them
+    /// into later tests that share the same graphics context.
+    /// </summary>
+    private static void DisposeAll(
+        List<Object3D.Resource> objects, List<IDisposable> sceneResources, Renderer3D renderer)
+    {
+        foreach (var obj in objects)
+        {
+            obj.Dispose();
+        }
+
+        foreach (IDisposable res in sceneResources)
+        {
+            res.Dispose();
+        }
+
+        renderer.Dispose();
     }
 
     /// <summary>
