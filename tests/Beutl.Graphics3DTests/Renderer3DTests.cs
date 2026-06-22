@@ -11,9 +11,9 @@ using Beutl.Media;
 namespace Beutl.Graphics3DTests;
 
 /// <summary>
-/// Renders the PBR material grid and the four shadow scenes that used to be dumped to PNG by the
-/// former console program, and asserts pixel invariants on the downloaded framebuffer instead.
-/// The whole fixture skips (<see cref="Assert.Ignore"/>) when no Vulkan/3D-capable GPU is present.
+/// Renders the PBR material grid and the four shadow scenes and asserts pixel invariants on the
+/// downloaded framebuffer. The whole fixture skips (<see cref="Assert.Ignore"/>) when no
+/// Vulkan/3D-capable GPU is present.
 /// </summary>
 [TestFixture]
 [NonParallelizable]
@@ -27,7 +27,6 @@ public class Renderer3DTests
     [OneTimeSetUp]
     public void OneTimeSetUp()
     {
-        // Skips the whole fixture cleanly when Vulkan/MoltenVK/SwiftShader is unavailable.
         _context = GpuTestEnvironment.EnsureAvailable();
     }
 
