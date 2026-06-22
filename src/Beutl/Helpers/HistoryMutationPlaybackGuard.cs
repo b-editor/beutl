@@ -19,12 +19,11 @@ internal sealed class HistoryMutationPlaybackGuard : IDisposable
         await _gate.WaitAsync();
         try
         {
-            // Flush debounced work (e.g. a pending nudge) before the pause decision: mutate()
-            // fires the same flush hook, so a still-pending edit would be invisible to
-            // shouldPause() yet get committed-then-reverted while playback is still live.
-            // Draining first makes shouldPause() reflect the real post-flush state.
-            drainPendingMutations();
-
+            // shouldPause() reflects whether this operation will change scene state, including
+            // any pending transaction the drain below will commit (callers' predicates check
+            // HasPendingOperations). Evaluate it before draining so the pause can bracket the
+            // drain: a flush that commits pending work (e.g. a nudge) schedules frame-cache
+            // rebuilds, which must not race a live player.
             if (shouldPause() && player is not null)
             {
                 // Pause() is a no-op when nothing is playing, but still awaits any
@@ -34,15 +33,17 @@ internal sealed class HistoryMutationPlaybackGuard : IDisposable
 
                 // A Play() that slipped in while that Pause was draining only checks
                 // IsPlaying (already cleared), so it can restart the preview before we
-                // mutate. Re-pause until the player stays stopped; the final check and
-                // mutate() run on one synchronous turn (callers invoke the guard on the
-                // UI thread), so no restart can interleave between them.
+                // mutate. Re-pause until the player stays stopped.
                 while (player.IsPlaying.Value)
                 {
                     await player.Pause();
                 }
             }
 
+            // Drain debounced work (e.g. a pending nudge) and mutate only after the player is
+            // confirmed stopped. Both run on one synchronous turn after the last Pause await
+            // (callers invoke the guard on the UI thread), so no restart can interleave here.
+            drainPendingMutations();
             return mutate();
         }
         finally

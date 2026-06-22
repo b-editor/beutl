@@ -545,122 +545,136 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
         };
 
         frameCacheManager.CurrentFrame = startFrame;
-        using var playerImpl = new BufferedPlayer(EditViewModel, Scene, IsPlaying, rate);
-        _logger.LogInformation("Start the playback. ({SceneId}, {Rate}, {Start}, {Duration})",
-            _editViewModel.SceneId, rate, startFrame, durationFrame);
-        playerImpl.Start();
-
-        var clock = new AudioPlaybackClock();
-        var audioTask = PlayAudio(Scene, clock, startTime);
-
-        // 音声バッファの準備に1フレーム以上かかると、映像だけが先に進んでしまい、
-        // その後音声がアンカーされた瞬間に「映像が先行した状態」で止まってしまう。
-        // 音声側が再生を開始（または音声なしと判明して終了）するまで待ってから
-        // ウォールクロックの基準点を取得する。
-        await clock.StartedTask;
-
-        DateTime startDateTime = DateTime.UtcNow;
-        var tcs = new TaskCompletionSource<bool>();
-        int nextExpectedFrame = startFrame + 1;
-        int processing = 0;
         bool reachedNaturalEnd = false;
-
-        int ComputeExpectFrame()
+        try
         {
-            TimeSpan elapsed = clock.GetTime() is { } audioTime
-                ? audioTime - startTime
-                : DateTime.UtcNow - startDateTime;
-            if (elapsed < TimeSpan.Zero) elapsed = TimeSpan.Zero;
-            return (int)(elapsed.Ticks / tick.Ticks) + startFrame;
-        }
+            using var playerImpl = new BufferedPlayer(EditViewModel, Scene, IsPlaying, rate);
+            _logger.LogInformation("Start the playback. ({SceneId}, {Rate}, {Start}, {Duration})",
+                _editViewModel.SceneId, rate, startFrame, durationFrame);
+            playerImpl.Start();
 
-        await using var timer = new Timer(_ =>
-        {
-            if (Interlocked.Exchange(ref processing, 1) != 0) return;
-            try
+            var clock = new AudioPlaybackClock();
+            var audioTask = PlayAudio(Scene, clock, startTime);
+
+            // 音声バッファの準備に1フレーム以上かかると、映像だけが先に進んでしまい、
+            // その後音声がアンカーされた瞬間に「映像が先行した状態」で止まってしまう。
+            // 音声側が再生を開始（または音声なしと判明して終了）するまで待ってから
+            // ウォールクロックの基準点を取得する。
+            await clock.StartedTask;
+
+            DateTime startDateTime = DateTime.UtcNow;
+            var tcs = new TaskCompletionSource<bool>();
+            int nextExpectedFrame = startFrame + 1;
+            int processing = 0;
+
+            int ComputeExpectFrame()
             {
-                var expectFrame = ComputeExpectFrame();
-                if (_stopRequested || !IsPlaying.Value || expectFrame >= endFrame)
+                TimeSpan elapsed = clock.GetTime() is { } audioTime
+                    ? audioTime - startTime
+                    : DateTime.UtcNow - startDateTime;
+                if (elapsed < TimeSpan.Zero) elapsed = TimeSpan.Zero;
+                return (int)(elapsed.Ticks / tick.Ticks) + startFrame;
+            }
+
+            await using var timer = new Timer(_ =>
+            {
+                if (Interlocked.Exchange(ref processing, 1) != 0) return;
+                try
                 {
-                    // ループ用に endFrame で打ち切る場合、音声側にも停止を伝える。
-                    // ただし停止要求中はループの自然終端とみなさず、再開させない。
-                    if (!_stopRequested && IsLoopEnabled.Value && expectFrame >= endFrame)
+                    var expectFrame = ComputeExpectFrame();
+                    if (_stopRequested || !IsPlaying.Value || expectFrame >= endFrame)
                     {
-                        reachedNaturalEnd = true;
-                        IsPlaying.Value = false;
-                    }
-                    else if (_stopRequested)
-                    {
-                        // A pause that raced the loop re-arm leaves IsPlaying=true; clear it so the
-                        // audio task stops here instead of running to the scene's natural end.
-                        IsPlaying.Value = false;
-                    }
-
-                    tcs.TrySetResult(true);
-                    return;
-                }
-
-                if (expectFrame < nextExpectedFrame)
-                {
-                    return;
-                }
-
-                bool dequeued = false;
-                while (playerImpl.TryDequeue(out IPlayer.Frame frame))
-                {
-                    dequeued = true;
-                    using (frame.Bitmap)
-                    {
-                        UpdateImage(frame.Bitmap.Clone());
-
-                        if (Scene != null)
+                        // ループ用に endFrame で打ち切る場合、音声側にも停止を伝える。
+                        // ただし停止要求中はループの自然終端とみなさず、再開させない。
+                        if (!_stopRequested && IsLoopEnabled.Value && expectFrame >= endFrame)
                         {
-                            _editorClock.CurrentTime.Value = frame.Time.ToTimeSpan(rate);
-                            EditViewModel.FrameCacheManager.Value.CurrentFrame = frame.Time;
+                            reachedNaturalEnd = true;
+                            IsPlaying.Value = false;
                         }
+                        else if (_stopRequested)
+                        {
+                            // A pause that raced the loop re-arm leaves IsPlaying=true; clear it so the
+                            // audio task stops here instead of running to the scene's natural end.
+                            IsPlaying.Value = false;
+                        }
+
+                        tcs.TrySetResult(true);
+                        return;
                     }
 
-                    // タイマーが正確じゃないから、だんだんとフレームがずれてくる
-                    // そのため、フレームを消費しすぎたら、そのフレーム番号とexpectFrameが一致するまでスキップする
-                    // 逆に、フレームを消費しすぎない場合は、そのまま次のフレームを取得する
-                    if (expectFrame <= frame.Time)
+                    if (expectFrame < nextExpectedFrame)
                     {
-                        nextExpectedFrame = frame.Time + 1;
-                        break;
+                        return;
                     }
 
-                    // 期待していたフレームよりも前のフレームが来た場合
-                }
+                    bool dequeued = false;
+                    while (playerImpl.TryDequeue(out IPlayer.Frame frame))
+                    {
+                        dequeued = true;
+                        using (frame.Bitmap)
+                        {
+                            UpdateImage(frame.Bitmap.Clone());
 
-                if (!dequeued && playerImpl.ProducerStopped)
+                            if (Scene != null)
+                            {
+                                _editorClock.CurrentTime.Value = frame.Time.ToTimeSpan(rate);
+                                EditViewModel.FrameCacheManager.Value.CurrentFrame = frame.Time;
+                            }
+                        }
+
+                        // タイマーが正確じゃないから、だんだんとフレームがずれてくる
+                        // そのため、フレームを消費しすぎたら、そのフレーム番号とexpectFrameが一致するまでスキップする
+                        // 逆に、フレームを消費しすぎない場合は、そのまま次のフレームを取得する
+                        if (expectFrame <= frame.Time)
+                        {
+                            nextExpectedFrame = frame.Time + 1;
+                            break;
+                        }
+
+                        // 期待していたフレームよりも前のフレームが来た場合
+                    }
+
+                    if (!dequeued && playerImpl.ProducerStopped)
+                    {
+                        IsPlaying.Value = false;
+                        tcs.TrySetResult(true);
+                        return;
+                    }
+
+                    playerImpl.Skipped(ComputeExpectFrame() + 1);
+                }
+                finally
                 {
-                    IsPlaying.Value = false;
-                    tcs.TrySetResult(true);
-                    return;
+                    Interlocked.Exchange(ref processing, 0);
                 }
+            }, null, tick, tick);
 
-                playerImpl.Skipped(ComputeExpectFrame() + 1);
-            }
-            finally
-            {
-                Interlocked.Exchange(ref processing, 0);
-            }
-        }, null, tick, tick);
+            await Task.WhenAll(tcs.Task, audioTask);
 
-        await Task.WhenAll(tcs.Task, audioTask);
-
-        IsPlaying.Value = false;
-        frameCacheManager.UpdateBlocks();
-        bufferStatus.StartTime.Value = TimeSpan.Zero;
-        bufferStatus.EndTime.Value = TimeSpan.Zero;
-        frameCacheManager.Options = frameCacheManager.Options with
+            frameCacheManager.UpdateBlocks();
+        }
+        finally
         {
-            DeletionStrategy = FrameCacheDeletionStrategy.Old
-        };
+            // Restore the scene/frame subscriptions PlayInternal detached on entry, even if
+            // playback faulted mid-run. A leaked detach would leave the editor unsubscribed,
+            // and Pause() swallows the fault, so a guarded history mutation could otherwise
+            // run against a detached editor.
+            IsPlaying.Value = false;
+            bufferStatus.StartTime.Value = TimeSpan.Zero;
+            bufferStatus.EndTime.Value = TimeSpan.Zero;
+            frameCacheManager.Options = frameCacheManager.Options with
+            {
+                DeletionStrategy = FrameCacheDeletionStrategy.Old
+            };
 
-        _currentFrameSubscription = CurrentFrame.Subscribe(UpdateCurrentFrame);
-        Scene.Edited += OnSceneEdited;
-        _logger.LogInformation("End the playback. ({SceneId})", _editViewModel.SceneId);
+            _currentFrameSubscription = CurrentFrame.Subscribe(UpdateCurrentFrame);
+            if (Scene != null)
+            {
+                Scene.Edited += OnSceneEdited;
+            }
+
+            _logger.LogInformation("End the playback. ({SceneId})", _editViewModel.SceneId);
+        }
 
         // ループが有効でユーザーによる停止ではない場合、ループ先頭に戻して再開を要求。
         // loopStart は購読で最新化されているため、再生中の In/Out 変更にも追従する。

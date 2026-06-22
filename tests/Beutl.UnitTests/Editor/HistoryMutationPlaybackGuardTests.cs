@@ -96,32 +96,32 @@ public class HistoryMutationPlaybackGuardTests
     }
 
     [Test]
-    public async Task RunAsync_DrainsPendingMutationsBeforeShouldPauseDecision()
+    public async Task RunAsync_PausesBeforeDrainingPendingMutations()
     {
         using var guard = new HistoryMutationPlaybackGuard();
         using var player = new PreviewPlayerStub(isPlaying: true);
-        bool drained = false;
-        bool shouldPauseSawDrain = false;
+        bool drainedWhileStopped = false;
+        bool mutatedWhileStopped = false;
 
-        // The drain simulates a BeforeMutation flush that commits a pending nudge, turning
-        // an otherwise no-op-looking mutation into a real one. shouldPause must observe the
-        // post-drain state, so the guard pauses before mutating.
+        // shouldPause() reflects the pending work the drain will commit (callers' predicates
+        // check HasPendingOperations). The guard must pause before draining: a flush that
+        // commits a pending nudge schedules frame-cache rebuilds that must not race a live player.
         bool result = await guard.RunAsync(
             player,
-            () => drained = true,
+            () => drainedWhileStopped = !player.IsPlaying.Value,
+            () => true,
             () =>
             {
-                shouldPauseSawDrain = drained;
-                return drained;
-            },
-            () => true);
+                mutatedWhileStopped = !player.IsPlaying.Value;
+                return true;
+            });
 
         Assert.Multiple(() =>
         {
             Assert.That(result, Is.True);
-            Assert.That(drained, Is.True);
-            Assert.That(shouldPauseSawDrain, Is.True, "drain must run before shouldPause so the pause decision sees flushed work");
-            Assert.That(player.StopCount, Is.EqualTo(1), "a mutation revealed by the drain must pause playback");
+            Assert.That(drainedWhileStopped, Is.True, "the drain must run only after playback is paused");
+            Assert.That(mutatedWhileStopped, Is.True);
+            Assert.That(player.StopCount, Is.EqualTo(1), "a mutation that needs a pause must stop playback once");
             Assert.That(player.IsPlaying.Value, Is.False);
         });
     }
