@@ -22,4 +22,8 @@ public partial class Derived3 : Derived
 
     // EngineObjectの派生型に対して
     public IProperty<Derived> Child { get; } = Property.Create<Derived>(null!);
+
+    // IListProperty<T> over an EngineObject element exercises the generated list path
+    // (CompareAndUpdateList + per-item disposal).
+    public IListProperty<Derived> Items { get; } = null!;
 }

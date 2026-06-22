@@ -34,7 +34,21 @@ public class Renderer3DTests
     [Test]
     public void RenderPbrMaterialGrid_ProducesLitNonUniformFramebuffer()
     {
-        byte[] pixels = GpuTestEnvironment.InvokeOnRenderThread(() =>
+        byte[] varied = RenderPbrGrid(varyMaterials: true);
+        byte[] uniform = RenderPbrGrid(varyMaterials: false);
+
+        AssertLitFramebuffer(varied);
+        AssertMaterialVariation(varied, uniform);
+    }
+
+    /// <summary>
+    /// Renders the 7×7 sphere grid. With <paramref name="varyMaterials"/> the spheres sweep Metallic
+    /// across X and Roughness across Y; otherwise every sphere uses one fixed mid material, so the two
+    /// renders differ only if PBRMaterial actually applies Metallic/Roughness.
+    /// </summary>
+    private byte[] RenderPbrGrid(bool varyMaterials)
+    {
+        return GpuTestEnvironment.InvokeOnRenderThread(() =>
         {
             var renderer = new Renderer3D(_context);
             var objects = new List<Object3D.Resource>();
@@ -64,10 +78,10 @@ public class Renderer3DTests
 
                 for (int y = 0; y < gridSizeY; y++)
                 {
-                    float roughness = (float)y / (gridSizeY - 1);
+                    float roughness = varyMaterials ? (float)y / (gridSizeY - 1) : 0.5f;
                     for (int x = 0; x < gridSizeX; x++)
                     {
-                        float metallic = (float)x / (gridSizeX - 1);
+                        float metallic = varyMaterials ? (float)x / (gridSizeX - 1) : 0.5f;
 
                         var sphere = new Sphere3D();
                         sphere.Position.CurrentValue = new Vector3(offsetX + x * spacing, offsetY + y * spacing, 0);
@@ -105,8 +119,6 @@ public class Renderer3DTests
                 DisposeAll(objects, sceneResources, renderer);
             }
         });
-
-        AssertLitFramebuffer(pixels);
     }
 
     [Test]
@@ -468,6 +480,34 @@ public class Renderer3DTests
         Assert.That(darkenedPixels, Is.GreaterThan(pixelCount / 500),
             $"Only {darkenedPixels} of {pixelCount} pixels were darkened by enabling shadows: the shadow map "
             + "appears to be ignored or never sampled.");
+    }
+
+    /// <summary>
+    /// Asserts the metallic/roughness sweep actually drives appearance: the varying-material grid must
+    /// differ meaningfully from the same grid drawn with one fixed material. If PBRMaterial stopped
+    /// applying Metallic/Roughness, both renders would be identical and this would fail.
+    /// </summary>
+    private static void AssertMaterialVariation(byte[] varied, byte[] uniform)
+    {
+        const int bytesPerPixel = 8; // 4 × Half (RGBA16Float)
+        int pixelCount = Width * Height;
+
+        Assert.That(varied.Length, Is.EqualTo(uniform.Length),
+            "Varying- and uniform-material frames must be the same surface size to diff.");
+
+        long differingPixels = 0;
+        for (int i = 0; i < pixelCount; i++)
+        {
+            int off = i * bytesPerPixel;
+            if (MathF.Abs(Luma(varied, off) - Luma(uniform, off)) > 0.05f)
+            {
+                differingPixels++;
+            }
+        }
+
+        Assert.That(differingPixels, Is.GreaterThan(pixelCount / 500),
+            $"Only {differingPixels} of {pixelCount} pixels differ between the varying- and uniform-material "
+            + "grids: Metallic/Roughness appear not to affect the render.");
     }
 
     private static float Luma(byte[] pixels, int byteOffset)

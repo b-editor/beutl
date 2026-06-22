@@ -111,4 +111,20 @@ public class EngineObjectResourceGeneratorTests
             Assert.That(source, Does.Contain("_child?.Dispose();"));
         });
     }
+
+    [Test]
+    public void Derived3_GeneratesListPropertyForIListPropertyMember()
+    {
+        string source = Run().GetSource("Derived3_Resource.g.cs");
+
+        Assert.Multiple(() =>
+        {
+            // Items is IListProperty<Derived> (an EngineObject element) -> list property: surfaced as a
+            // List<Derived.Resource>, reconciled via CompareAndUpdateList, and disposed element-by-element.
+            Assert.That(source, Does.Contain("Items"));
+            Assert.That(source, Does.Contain("CompareAndUpdateList(context"));
+            Assert.That(source, Does.Contain("foreach (var item in"));
+            Assert.That(source, Does.Contain("item?.Dispose();"));
+        });
+    }
 }

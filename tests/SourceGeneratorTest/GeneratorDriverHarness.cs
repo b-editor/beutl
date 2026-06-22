@@ -58,7 +58,9 @@ internal static class GeneratorDriverHarness
     private const string SupplementaryStubs = """
         namespace Beutl.Engine
         {
-            public interface IListProperty<T> { }
+            // The generated list path treats an IListProperty<T> member as both an IProperty (scanned,
+            // validated) and an IList<T> (passed to CompareAndUpdateList), mirroring the real interface.
+            public interface IListProperty<T> : IProperty, System.Collections.Generic.IList<T> { }
 
             [System.AttributeUsage(System.AttributeTargets.Class | System.AttributeTargets.Property)]
             public sealed class SuppressResourceClassGenerationAttribute : System.Attribute { }
