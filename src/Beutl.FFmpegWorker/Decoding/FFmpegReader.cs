@@ -350,7 +350,14 @@ public sealed class FFmpegReader : MediaReader
             return null;
 
         long skip = frame - _videoNowFrame;
-        if (skip > 100 || skip < 0)
+
+        // If the previous grab left the active frame unreferenced (a seek/grab that could not
+        // reach a decodable frame), _videoNowFrame no longer describes a usable frame, so `skip`
+        // (which can be 0) must not be trusted — force a fresh seek so a later in-range request
+        // recovers the frame instead of repeatedly returning the empty one.
+        bool currentUsable =
+            FFmpegFrameValidation.IsUsableVideoFrame(videoFrame.Format, videoFrame.Width, videoFrame.Height);
+        if (!currentUsable || skip > 100 || skip < 0)
         {
             SeekVideo(frame);
             skip = 0;
@@ -365,6 +372,12 @@ public sealed class FFmpegReader : MediaReader
         // GrabVideo後にActiveVideoFrameを再取得
         videoFrame = ActiveVideoFrame;
         if (videoFrame == null)
+            return null;
+
+        // A seek/grab that could not reach a decodable frame (e.g. the target is at or past
+        // EOF) leaves the frame unreferenced by avcodec_receive_frame. Drop it instead of
+        // feeding AV_PIX_FMT_NONE to the buffer source, which would throw AVERROR(EINVAL).
+        if (!FFmpegFrameValidation.IsUsableVideoFrame(videoFrame.Format, videoFrame.Width, videoFrame.Height))
             return null;
 
         // AVFilterグラフを初期化（入力パラメータ変更時のみ再構築）
@@ -395,6 +408,13 @@ public sealed class FFmpegReader : MediaReader
         // 入力パラメータが変わっていなければ再構築不要
         if (_filterGraph != null && _filterWidth == width && _filterHeight == height && _filterSrcPixFmt == srcPixFmt)
             return;
+
+        // Invalidate the cache before rebuilding so that if the build below throws, the next
+        // call rebuilds from scratch instead of matching a stale cache and reusing a
+        // half-initialised graph.
+        _filterWidth = 0;
+        _filterHeight = 0;
+        _filterSrcPixFmt = AVPixelFormat.AV_PIX_FMT_NONE;
 
         _filterGraph?.Dispose();
 

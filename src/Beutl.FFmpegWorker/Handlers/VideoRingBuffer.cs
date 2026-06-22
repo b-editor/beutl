@@ -335,6 +335,7 @@ internal sealed class VideoRingBuffer : IDisposable
                     // 既にキャッシュ済みならスキップ
                     if (FindSlot(nextFrame) >= 0) continue;
 
+                    bool decodedAhead = false;
                     _readerLock.Wait(ct);
                     try
                     {
@@ -354,15 +355,15 @@ internal sealed class VideoRingBuffer : IDisposable
                         {
                             var destination = new Span<byte>(pfPtr + slotOffset, (int)_slotSize);
 
-                            if (!_reader.ReadVideo(nextFrame, destination, out var pfInfo))
-                                continue;
-
-                            if (pfInfo.DataLength > _slotSize)
-                                continue; // スロットに収まらない場合はスキップ
-
-                            _slots[writeSlot] = SlotMetadata.FromFrameInfo(nextFrame, pfInfo);
-                            _slotFrameNumbers[writeSlot] = nextFrame;
-                            _nextWriteSlot = (writeSlot + 1) % _slotCount;
+                            // スロットに収まる範囲でデコードできたときのみ書き込む
+                            if (_reader.ReadVideo(nextFrame, destination, out var pfInfo)
+                                && pfInfo.DataLength <= _slotSize)
+                            {
+                                _slots[writeSlot] = SlotMetadata.FromFrameInfo(nextFrame, pfInfo);
+                                _slotFrameNumbers[writeSlot] = nextFrame;
+                                _nextWriteSlot = (writeSlot + 1) % _slotCount;
+                                decodedAhead = true;
+                            }
                         }
                         finally
                         {
@@ -372,6 +373,15 @@ internal sealed class VideoRingBuffer : IDisposable
                     finally
                     {
                         _readerLock.Release();
+                    }
+
+                    if (!decodedAhead)
+                    {
+                        // Could not decode/store the next frame (EOF, undecodable, or larger than the
+                        // slot). Wait for the next request instead of busy-retrying the same uncached
+                        // frame, which would otherwise spin a CPU core under the reader lock.
+                        _prefetchSignal.Wait(ct);
+                        _prefetchSignal.Reset();
                     }
                 }
             }
