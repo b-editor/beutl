@@ -1,12 +1,46 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
-    <PropertyGroup>
-        <TargetFramework>net10.0</TargetFramework>
-        <ImplicitUsings>enable</ImplicitUsings>
-        <Nullable>enable</Nullable>
-    </PropertyGroup>
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+  </PropertyGroup>
+
+  <!-- The generator inputs/stubs are fed to the CSharpGeneratorDriver as source text at runtime,
+       not compiled into the test assembly. Embed them so the harness can read them back. -->
   <ItemGroup>
-    <ProjectReference Include="..\..\src\Beutl.Core\Beutl.Core.csproj" />
-    <ProjectReference Include="..\..\src\Beutl.Engine.SourceGenerators\Beutl.Engine.SourceGenerators.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
+    <Compile Remove="Class1.cs" />
+    <Compile Remove="EngineObject.cs" />
+    <Compile Remove="IProperty.cs" />
+    <Compile Remove="Property.cs" />
+    <Compile Remove="CompositionContext.cs" />
+
+    <EmbeddedResource Include="Class1.cs" LogicalName="GeneratorInputs/Class1.cs" />
+    <EmbeddedResource Include="EngineObject.cs" LogicalName="GeneratorInputs/EngineObject.cs" />
+    <EmbeddedResource Include="IProperty.cs" LogicalName="GeneratorInputs/IProperty.cs" />
+    <EmbeddedResource Include="Property.cs" LogicalName="GeneratorInputs/Property.cs" />
+    <EmbeddedResource Include="CompositionContext.cs" LogicalName="GeneratorInputs/CompositionContext.cs" />
   </ItemGroup>
+
+  <!-- coverlet.collector is inherited centrally from tests/Directory.Build.props. -->
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="NUnit" />
+    <PackageReference Include="NUnit3TestAdapter" />
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="NUnit.Framework" />
+  </ItemGroup>
+
+  <!-- Referenced as a plain library (not OutputItemType=Analyzer): the harness instantiates the
+       generators directly and runs them through a CSharpGeneratorDriver, so the generator must NOT
+       also be wired as an analyzer (that would double-run it against the test assembly). -->
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Beutl.Engine.SourceGenerators\Beutl.Engine.SourceGenerators.csproj" />
+  </ItemGroup>
+
 </Project>

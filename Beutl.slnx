@@ -32,6 +32,7 @@
     <Project Path="tests\Beutl.FFmpegBenchmarks\Beutl.FFmpegBenchmarks.csproj" />
     <Project Path="tests\Beutl.FFmpegIpc.Tests\Beutl.FFmpegIpc.Tests.csproj" />
     <Project Path="tests\Beutl.UnitTests\Beutl.UnitTests.csproj" />
+    <Project Path="tests\SourceGeneratorTest\SourceGeneratorTest.csproj" />
     <File Path="tests\ArtifactProvider.cs" />
     <File Path="tests\Directory.Build.props" />
   </Folder>

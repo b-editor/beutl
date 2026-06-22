@@ -16,7 +16,7 @@ Thread render scale through Beutl's 2D render-node tree so the *same project* re
 
 **Storage**: No persisted-format change. Render scale is a render-request property, never serialized (FR-001/FR-035/SC-002). Existing `.belm`/`.bobj` load unchanged.
 
-**Testing**: NUnit + Moq. New Vulkan-gated golden-image harness under `tests/Beutl.UnitTests/Engine/Graphics/Rendering/Golden/` (reuses the `VulkanTestEnvironment` skip gate); the SC-008 search test `NoPixelCouplingOnRenderPathTest` is **deferred** (T007 — a naive scan false-positives on the load-bearing `ToSize(1)`/`(int)`-at-`w=1` sites; SC-008 reframed to "no NEW unguarded truncation", completeness carried by the behavioural buffer-activation goldens); `[Explicit]` benchmark + `tests/Beutl.Benchmarks` entry; `tests/SourceGeneratorTest` stays compile-only.
+**Testing**: NUnit + Moq. New Vulkan-gated golden-image harness under `tests/Beutl.UnitTests/Engine/Graphics/Rendering/Golden/` (reuses the `VulkanTestEnvironment` skip gate); the SC-008 search test `NoPixelCouplingOnRenderPathTest` is **deferred** (T007 — a naive scan false-positives on the load-bearing `ToSize(1)`/`(int)`-at-`w=1` sites; SC-008 reframed to "no NEW unguarded truncation", completeness carried by the behavioural buffer-activation goldens); `[Explicit]` benchmark + `tests/Beutl.Benchmarks` entry; `tests/SourceGeneratorTest` is an NUnit snapshot suite (a `CSharpGeneratorDriver` harness asserting on generated output) that must stay green.
 
 **Target Platform**: cross-platform desktop (`net10.0` + `net10.0-windows`), GPU (Vulkan/MoltenVK) for rendering
 
@@ -39,7 +39,7 @@ Thread render scale through Beutl's 2D render-node tree so the *same project* re
 | **III. Test-First with NUnit** | ✅ PASS | New logic ships with NUnit: golden byte-equality + SSIM harness, per-effect manifest `[TestCaseSource]`, supply-driven `ResolveWorkingScale`/`ClampWorkingScaleToBufferBudget` pure-math tests, cache-scale-invalidation, perspective-append unit test. (`NoPixelCouplingOnRenderPathTest` deferred — T007/SC-008.) Benchmarks excluded from the default gate. |
 | **IV. Avalonia + Compiled Bindings** | ✅ PASS (action) | The preview-scale control (FR-035) touches XAML/VM. Any new `UserControl` MUST declare `x:CompileBindings="True"` + `x:DataType`; prefer extending an existing player/quality control over a new control. |
 | **V. Style Belongs to the Linter** | ✅ PASS | No stylistic-only edits; `dotnet format` owns style. |
-| **VI. Source Generators Are Load-Bearing** | ✅ PASS | FR-032 resolves to **no generator change** for the common path (scale is not an `IProperty`; the resource model stays scale-free — D6). Only effect-property unit/type changes (e.g. `ColorShift` `PixelPoint`→`Point`) flow through the existing `CompareAndUpdate<T>`; `tests/SourceGeneratorTest` must still compile and `/beutl-build` must pass before review. |
+| **VI. Source Generators Are Load-Bearing** | ✅ PASS | FR-032 resolves to **no generator change** for the common path (scale is not an `IProperty`; the resource model stays scale-free — D6). Only effect-property unit/type changes (e.g. `ColorShift` `PixelPoint`→`Point`) flow through the existing `CompareAndUpdate<T>`; the `tests/SourceGeneratorTest` NUnit snapshot suite must stay green and `/beutl-build` must pass before review. |
 
 **Quality Gates** (constitution §Quality Gates, all must pass): `dotnet format --verify-no-changes`; `dotnet build Beutl.slnx`; `dotnet test Beutl.slnx -f net10.0 --settings coverlet.runsettings`; coverage threshold; CI Claude review; no orphaned TODOs. **Breaking-change governance**: ship as `refactor!:`/`feat!:` + `BREAKING CHANGE:` footer naming `Beutl.Engine`/`Beutl.NodeGraph`/`Beutl.ProjectSystem`; route the public surface through `beutl-design-reviewer` (FR-028).
 
@@ -82,7 +82,7 @@ src/Beutl.Engine.SourceGenerators/      # NO change for the common path (documen
 tests/Beutl.UnitTests/Engine/Graphics/Rendering/Golden/   # new harness + ImageMetrics + thresholds + baselines
 tests/Beutl.UnitTests/Engine/Graphics/Rendering/NoPixelCouplingOnRenderPathTest.cs   # SC-008 (no GPU) — DEFERRED (T007; needs an allowlist scan)
 tests/Beutl.Benchmarks/                 # SC-003 ratio benchmark
-tests/SourceGeneratorTest/              # compile-only regression for any effect-prop type change
+tests/SourceGeneratorTest/              # NUnit snapshot regression for any effect-prop type change
 ```
 
 **Structure Decision**: Single-repo desktop/engine feature; no new project. Changes concentrate in `Beutl.Engine` graphics rendering + filter effects, with thin forwarding in `Beutl.ProjectSystem`/`Beutl.NodeGraph` and editor wiring in `Beutl`. Tests live in the existing `tests/Beutl.UnitTests` (Vulkan-gated golden harness) + `tests/Beutl.Benchmarks` + `tests/SourceGeneratorTest`.

@@ -38,7 +38,7 @@ If `$ARGUMENTS` is provided, treat it as the FQN substring and skip the prompt.
 
 - Framework `net10.0` matches `.github/workflows/dotnet.yml`. There is also a `net10.0-windows` target for Windows-specific tests; do not switch without reason.
 - Coverlet settings live in `coverlet.runsettings`.
-- Test framework: **NUnit + Moq**. Tests live under `tests/` in per-area projects (e.g. `tests/Beutl.UnitTests/`, `tests/SourceGeneratorTest/`, `tests/Beutl.FFmpegIpc.Tests/`). Note `tests/Beutl.Graphics3DTests/` is an executable visual harness, not an NUnit project — Graphics3D NUnit tests live under `tests/Beutl.UnitTests/Engine/Graphics3D/`.
+- Test framework: **NUnit + Moq**. Tests live under `tests/` in per-area projects (e.g. `tests/Beutl.UnitTests/`, `tests/Beutl.Graphics3DTests/`, `tests/SourceGeneratorTest/`, `tests/Beutl.FFmpegIpc.Tests/`). Note `tests/Beutl.Graphics3DTests/` is a Vulkan-gated NUnit suite (GPU rendering checks; self-skips via `Assert.Ignore` when no Vulkan device is available); GPU-free Graphics3D logic tests live under `tests/Beutl.UnitTests/Engine/Graphics3D/`.
 - Benchmark projects (`tests/Beutl.Benchmarks`, `tests/Beutl.FFmpegBenchmarks`) use BenchmarkDotNet; exclude them by selecting a single test project rather than the whole solution when iterating.
 - For deeper debugging without polluting the working tree, prefer the `beutl-test-runner` subagent (it runs in an isolated worktree).
 
