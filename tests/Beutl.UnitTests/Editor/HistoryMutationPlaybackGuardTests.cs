@@ -103,9 +103,8 @@ public class HistoryMutationPlaybackGuardTests
         bool drainedWhileStopped = false;
         bool mutatedWhileStopped = false;
 
-        // shouldPause() reflects the pending work the drain will commit (callers' predicates
-        // check HasPendingOperations). The guard must pause before draining: a flush that
-        // commits a pending nudge schedules frame-cache rebuilds that must not race a live player.
+        // The drain commits pending work (e.g. a nudge) that schedules frame-cache rebuilds,
+        // so it must run only after the player is paused — never against a live player.
         bool result = await guard.RunAsync(
             player,
             () => drainedWhileStopped = !player.IsPlaying.Value,
