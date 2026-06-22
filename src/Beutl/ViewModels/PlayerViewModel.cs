@@ -56,6 +56,10 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
     private Size _maxFrameSize;
     private Task _playbackTask = Task.CompletedTask;
     private bool _isShuttling;
+
+    // Set by Pause(), cleared by Play(). Cancels a loop re-arm when a pause lands in the
+    // brief IsPlaying=false window at a loop boundary that gating on IsPlaying would miss.
+    private volatile bool _stopRequested;
     // Published snapshots carry the start time of the buffer that was just *queued*
     // to the audio backend, which is ahead of the current playhead. Replay several
     // recent snapshots so a visualizer tab opened mid-playback also receives the
@@ -478,9 +482,14 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
     public void Play()
     {
         if (IsPlaying.Value) return;
+        if (!_isEnabled.Value || Scene == null) return;
 
         PlaybackSpeed.Value = 1.0f;
         PlaybackDirection.Value = ViewModels.PlaybackDirection.Forward;
+        // Mark playing before publishing _playbackTask so a Pause() in the startup window
+        // (before PlayInternal runs) signals the loop to stop instead of awaiting forever.
+        _stopRequested = false;
+        IsPlaying.Value = true;
 
         _playbackTask = Task.Run(async () =>
         {
@@ -491,6 +500,18 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
             do
             {
                 restart = await PlayInternal();
+                // A boundary-window pause set _stopRequested without flipping IsPlaying;
+                // honor it so the loop does not restart and leave Pause()'s awaiter hanging.
+                if (restart && _stopRequested)
+                {
+                    restart = false;
+                }
+
+                if (restart)
+                {
+                    // Re-arm IsPlaying for the next PlayInternal, which no longer sets it.
+                    IsPlaying.Value = true;
+                }
             } while (restart);
         });
     }
@@ -498,14 +519,16 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
     private async Task<bool> PlayInternal()
     {
         if (!_isEnabled.Value || Scene == null)
+        {
+            IsPlaying.Value = false;
             return false;
+        }
 
         BufferStatusViewModel bufferStatus = EditViewModel.BufferStatus;
         FrameCacheManager frameCacheManager = EditViewModel.FrameCacheManager.Value;
         Scene.Edited -= OnSceneEdited;
         _currentFrameSubscription?.Dispose();
 
-        IsPlaying.Value = true;
         int rate = GetFrameRate();
 
         TimeSpan tick = TimeSpan.FromSeconds(1d / rate);
@@ -522,114 +545,136 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
         };
 
         frameCacheManager.CurrentFrame = startFrame;
-        using var playerImpl = new BufferedPlayer(EditViewModel, Scene, IsPlaying, rate);
-        _logger.LogInformation("Start the playback. ({SceneId}, {Rate}, {Start}, {Duration})",
-            _editViewModel.SceneId, rate, startFrame, durationFrame);
-        playerImpl.Start();
-
-        var clock = new AudioPlaybackClock();
-        var audioTask = PlayAudio(Scene, clock, startTime);
-
-        // 音声バッファの準備に1フレーム以上かかると、映像だけが先に進んでしまい、
-        // その後音声がアンカーされた瞬間に「映像が先行した状態」で止まってしまう。
-        // 音声側が再生を開始（または音声なしと判明して終了）するまで待ってから
-        // ウォールクロックの基準点を取得する。
-        await clock.StartedTask;
-
-        DateTime startDateTime = DateTime.UtcNow;
-        var tcs = new TaskCompletionSource<bool>();
-        int nextExpectedFrame = startFrame + 1;
-        int processing = 0;
         bool reachedNaturalEnd = false;
-
-        int ComputeExpectFrame()
+        try
         {
-            TimeSpan elapsed = clock.GetTime() is { } audioTime
-                ? audioTime - startTime
-                : DateTime.UtcNow - startDateTime;
-            if (elapsed < TimeSpan.Zero) elapsed = TimeSpan.Zero;
-            return (int)(elapsed.Ticks / tick.Ticks) + startFrame;
-        }
+            using var playerImpl = new BufferedPlayer(EditViewModel, Scene, IsPlaying, rate);
+            _logger.LogInformation("Start the playback. ({SceneId}, {Rate}, {Start}, {Duration})",
+                _editViewModel.SceneId, rate, startFrame, durationFrame);
+            playerImpl.Start();
 
-        await using var timer = new Timer(_ =>
-        {
-            if (Interlocked.Exchange(ref processing, 1) != 0) return;
-            try
+            var clock = new AudioPlaybackClock();
+            var audioTask = PlayAudio(Scene, clock, startTime);
+
+            // 音声バッファの準備に1フレーム以上かかると、映像だけが先に進んでしまい、
+            // その後音声がアンカーされた瞬間に「映像が先行した状態」で止まってしまう。
+            // 音声側が再生を開始（または音声なしと判明して終了）するまで待ってから
+            // ウォールクロックの基準点を取得する。
+            await clock.StartedTask;
+
+            DateTime startDateTime = DateTime.UtcNow;
+            var tcs = new TaskCompletionSource<bool>();
+            int nextExpectedFrame = startFrame + 1;
+            int processing = 0;
+
+            int ComputeExpectFrame()
             {
-                var expectFrame = ComputeExpectFrame();
-                if (!IsPlaying.Value || expectFrame >= endFrame)
+                TimeSpan elapsed = clock.GetTime() is { } audioTime
+                    ? audioTime - startTime
+                    : DateTime.UtcNow - startDateTime;
+                if (elapsed < TimeSpan.Zero) elapsed = TimeSpan.Zero;
+                return (int)(elapsed.Ticks / tick.Ticks) + startFrame;
+            }
+
+            await using var timer = new Timer(_ =>
+            {
+                if (Interlocked.Exchange(ref processing, 1) != 0) return;
+                try
                 {
-                    // ループ用に endFrame で打ち切る場合、音声側にも停止を伝える
-                    if (IsLoopEnabled.Value && expectFrame >= endFrame)
+                    var expectFrame = ComputeExpectFrame();
+                    if (_stopRequested || !IsPlaying.Value || expectFrame >= endFrame)
                     {
-                        reachedNaturalEnd = true;
-                        IsPlaying.Value = false;
-                    }
-                    tcs.TrySetResult(true);
-                    return;
-                }
-
-                if (expectFrame < nextExpectedFrame)
-                {
-                    return;
-                }
-
-                bool dequeued = false;
-                while (playerImpl.TryDequeue(out IPlayer.Frame frame))
-                {
-                    dequeued = true;
-                    using (frame.Bitmap)
-                    {
-                        UpdateImage(frame.Bitmap.Clone());
-
-                        if (Scene != null)
+                        // ループ用に endFrame で打ち切る場合、音声側にも停止を伝える。
+                        // ただし停止要求中はループの自然終端とみなさず、再開させない。
+                        if (!_stopRequested && IsLoopEnabled.Value && expectFrame >= endFrame)
                         {
-                            _editorClock.CurrentTime.Value = frame.Time.ToTimeSpan(rate);
-                            EditViewModel.FrameCacheManager.Value.CurrentFrame = frame.Time;
+                            reachedNaturalEnd = true;
+                            IsPlaying.Value = false;
                         }
+                        else if (_stopRequested)
+                        {
+                            // A pause that raced the loop re-arm leaves IsPlaying=true; clear it so the
+                            // audio task stops here instead of running to the scene's natural end.
+                            IsPlaying.Value = false;
+                        }
+
+                        tcs.TrySetResult(true);
+                        return;
                     }
 
-                    // タイマーが正確じゃないから、だんだんとフレームがずれてくる
-                    // そのため、フレームを消費しすぎたら、そのフレーム番号とexpectFrameが一致するまでスキップする
-                    // 逆に、フレームを消費しすぎない場合は、そのまま次のフレームを取得する
-                    if (expectFrame <= frame.Time)
+                    if (expectFrame < nextExpectedFrame)
                     {
-                        nextExpectedFrame = frame.Time + 1;
-                        break;
+                        return;
                     }
 
-                    // 期待していたフレームよりも前のフレームが来た場合
-                }
+                    bool dequeued = false;
+                    while (playerImpl.TryDequeue(out IPlayer.Frame frame))
+                    {
+                        dequeued = true;
+                        using (frame.Bitmap)
+                        {
+                            UpdateImage(frame.Bitmap.Clone());
 
-                if (!dequeued && playerImpl.ProducerStopped)
+                            if (Scene != null)
+                            {
+                                _editorClock.CurrentTime.Value = frame.Time.ToTimeSpan(rate);
+                                EditViewModel.FrameCacheManager.Value.CurrentFrame = frame.Time;
+                            }
+                        }
+
+                        // タイマーが正確じゃないから、だんだんとフレームがずれてくる
+                        // そのため、フレームを消費しすぎたら、そのフレーム番号とexpectFrameが一致するまでスキップする
+                        // 逆に、フレームを消費しすぎない場合は、そのまま次のフレームを取得する
+                        if (expectFrame <= frame.Time)
+                        {
+                            nextExpectedFrame = frame.Time + 1;
+                            break;
+                        }
+
+                        // 期待していたフレームよりも前のフレームが来た場合
+                    }
+
+                    if (!dequeued && playerImpl.ProducerStopped)
+                    {
+                        IsPlaying.Value = false;
+                        tcs.TrySetResult(true);
+                        return;
+                    }
+
+                    playerImpl.Skipped(ComputeExpectFrame() + 1);
+                }
+                finally
                 {
-                    IsPlaying.Value = false;
-                    tcs.TrySetResult(true);
-                    return;
+                    Interlocked.Exchange(ref processing, 0);
                 }
+            }, null, tick, tick);
 
-                playerImpl.Skipped(ComputeExpectFrame() + 1);
-            }
-            finally
-            {
-                Interlocked.Exchange(ref processing, 0);
-            }
-        }, null, tick, tick);
+            await Task.WhenAll(tcs.Task, audioTask);
 
-        await Task.WhenAll(tcs.Task, audioTask);
-
-        IsPlaying.Value = false;
-        frameCacheManager.UpdateBlocks();
-        bufferStatus.StartTime.Value = TimeSpan.Zero;
-        bufferStatus.EndTime.Value = TimeSpan.Zero;
-        frameCacheManager.Options = frameCacheManager.Options with
+            frameCacheManager.UpdateBlocks();
+        }
+        finally
         {
-            DeletionStrategy = FrameCacheDeletionStrategy.Old
-        };
+            // Restore the scene/frame subscriptions PlayInternal detached on entry, even if
+            // playback faulted mid-run. A leaked detach would leave the editor unsubscribed,
+            // and Pause() swallows the fault, so a guarded history mutation could otherwise
+            // run against a detached editor.
+            IsPlaying.Value = false;
+            bufferStatus.StartTime.Value = TimeSpan.Zero;
+            bufferStatus.EndTime.Value = TimeSpan.Zero;
+            frameCacheManager.Options = frameCacheManager.Options with
+            {
+                DeletionStrategy = FrameCacheDeletionStrategy.Old
+            };
 
-        _currentFrameSubscription = CurrentFrame.Subscribe(UpdateCurrentFrame);
-        Scene.Edited += OnSceneEdited;
-        _logger.LogInformation("End the playback. ({SceneId})", _editViewModel.SceneId);
+            _currentFrameSubscription = CurrentFrame.Subscribe(UpdateCurrentFrame);
+            if (Scene != null)
+            {
+                Scene.Edited += OnSceneEdited;
+            }
+
+            _logger.LogInformation("End the playback. ({SceneId})", _editViewModel.SceneId);
+        }
 
         // ループが有効でユーザーによる停止ではない場合、ループ先頭に戻して再開を要求。
         // loopStart は購読で最新化されているため、再生中の In/Out 変更にも追従する。
@@ -830,6 +875,9 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
     private void StartShuttle()
     {
         if (_isShuttling || Scene == null) return;
+        // Clear a stop request left by a prior Pause() so the flag's "true until the next
+        // playback start" invariant holds across shuttle too, not just Play().
+        _stopRequested = false;
         _isShuttling = true;
         IsPlaying.Value = true;
 
@@ -1308,14 +1356,35 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
 
     public async Task Pause()
     {
-        if (!IsPlaying.Value) return;
+        // Record the stop request even when IsPlaying is already false: at a loop boundary
+        // the task clears IsPlaying before re-arming, and a pause in that window must still
+        // cancel the pending restart.
+        _stopRequested = true;
+        if (IsPlaying.Value)
+        {
+            _logger.LogInformation("Pause the playback. ({SceneId})", _editViewModel.SceneId);
+            _isShuttling = false;
+            IsPlaying.Value = false;
+            PlaybackSpeed.Value = 1.0f;
+            PlaybackDirection.Value = ViewModels.PlaybackDirection.Stopped;
+        }
 
-        _logger.LogInformation("Pause the playback. ({SceneId})", _editViewModel.SceneId);
-        _isShuttling = false;
-        IsPlaying.Value = false;
-        PlaybackSpeed.Value = 1.0f;
-        PlaybackDirection.Value = ViewModels.PlaybackDirection.Stopped;
-        await _playbackTask;
+        // Await even when already stopped so an overlapping pause blocks until the prior
+        // drain finishes. Catch a faulted task and drop it, so it neither surfaces as a
+        // history-operation failure nor replays on later pauses.
+        Task playbackTask = _playbackTask;
+        try
+        {
+            await playbackTask;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Playback task faulted before pause. ({SceneId})", _editViewModel.SceneId);
+            if (_playbackTask == playbackTask)
+            {
+                _playbackTask = Task.CompletedTask;
+            }
+        }
     }
 
     private void UpdateImage(Ref<Bitmap> source)

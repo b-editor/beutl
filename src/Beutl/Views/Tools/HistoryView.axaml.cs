@@ -142,21 +142,23 @@ public partial class HistoryView : UserControl
         item.Classes.Set("future", index > currentIndex);
     }
 
-    private void OnSelectionChanged(object? sender, SelectionChangedEventArgs e)
+    private async void OnSelectionChanged(object? sender, SelectionChangedEventArgs e)
     {
         if (_suppressSelectionChanged) return;
         if (_currentViewModel is null || HistoryList is null) return;
 
+        HistoryViewModel viewModel = _currentViewModel;
         int index = HistoryList.SelectedIndex;
         if (index < 0) return;
 
-        _currentViewModel.JumpTo(index);
+        await viewModel.JumpTo(index);
+        if (_currentViewModel != viewModel || HistoryList is null) return;
 
         // If JumpTo did not actually move (failure, no-op, or same index),
         // StateChanged may not have fired and the selected row would otherwise
         // remain on the clicked index, drifting from the real CurrentIndex.
         // Re-sync so a subsequent click on the same row re-issues JumpTo.
-        if (_currentViewModel.CurrentIndex.Value != index)
+        if (viewModel.CurrentIndex.Value != index)
         {
             SyncSelection();
         }
@@ -166,13 +168,19 @@ public partial class HistoryView : UserControl
         }
     }
 
-    private void OnUndoClick(object? sender, RoutedEventArgs e)
+    private async void OnUndoClick(object? sender, RoutedEventArgs e)
     {
-        _currentViewModel?.Undo();
+        if (_currentViewModel is { } viewModel)
+        {
+            await viewModel.Undo();
+        }
     }
 
-    private void OnRedoClick(object? sender, RoutedEventArgs e)
+    private async void OnRedoClick(object? sender, RoutedEventArgs e)
     {
-        _currentViewModel?.Redo();
+        if (_currentViewModel is { } viewModel)
+        {
+            await viewModel.Redo();
+        }
     }
 }

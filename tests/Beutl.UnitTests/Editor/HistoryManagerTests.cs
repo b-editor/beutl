@@ -1969,5 +1969,93 @@ public class HistoryManagerTests
         Assert.That(completed, Is.True);
     }
 
+    [TestCase(0, ExpectedResult = true)]
+    [TestCase(1, ExpectedResult = true)]
+    [TestCase(2, ExpectedResult = false)]
+    [TestCase(3, ExpectedResult = false)]
+    [TestCase(-1, ExpectedResult = false)]
+    public bool WouldJumpToMove_ReflectsWhetherJumpWouldMove(int index)
+    {
+        // Two commits: entries [initial, First, Second] (Count 3), CurrentIndex 2.
+        using var manager = new HistoryManager(_root, _sequenceGenerator);
+        manager.Record(CreateTestOperation());
+        manager.Commit("First");
+        manager.Record(CreateTestOperation());
+        manager.Commit("Second");
+
+        return manager.WouldJumpToMove(index);
+    }
+
+    [Test]
+    public void WouldJumpToMove_ShouldThrowObjectDisposedException_WhenDisposed()
+    {
+        var manager = new HistoryManager(_root, _sequenceGenerator);
+        manager.Dispose();
+
+        Assert.Throws<ObjectDisposedException>(() => manager.WouldJumpToMove(0));
+    }
+
+    [Test]
+    public void WouldJumpToMove_ShouldReturnTrue_ForCurrentIndexWithPendingTransaction()
+    {
+        using var manager = new HistoryManager(_root, _sequenceGenerator);
+        manager.Record(CreateTestOperation());
+        manager.Commit("First");
+        // CurrentIndex == 1. An uncommitted operation makes JumpTo(1) still mutate
+        // (it rolls the pending transaction back) even though the index matches.
+        manager.Record(CreateTestOperation());
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(manager.WouldJumpToMove(manager.CurrentIndex), Is.True);
+            // Out-of-range stays false even with a pending transaction.
+            Assert.That(manager.WouldJumpToMove(99), Is.False);
+        });
+    }
+
+    [Test]
+    public void HasPendingOperations_ShouldTrackUncommittedRecord()
+    {
+        using var manager = new HistoryManager(_root, _sequenceGenerator);
+
+        Assert.That(manager.HasPendingOperations, Is.False);
+
+        manager.Record(CreateTestOperation());
+        Assert.That(manager.HasPendingOperations, Is.True);
+
+        manager.Commit("Commit");
+        Assert.That(manager.HasPendingOperations, Is.False);
+    }
+
+    [Test]
+    public void HasPendingOperations_ShouldThrowObjectDisposedException_WhenDisposed()
+    {
+        var manager = new HistoryManager(_root, _sequenceGenerator);
+        manager.Dispose();
+
+        Assert.Throws<ObjectDisposedException>(() => _ = manager.HasPendingOperations);
+    }
+
+    [Test]
+    public void FlushPendingMutations_ShouldFireBeforeMutation()
+    {
+        using var manager = new HistoryManager(_root, _sequenceGenerator);
+        int fired = 0;
+        using var subscription = manager.BeforeMutation.Subscribe(_ => fired++);
+
+        manager.FlushPendingMutations();
+
+        Assert.That(fired, Is.EqualTo(1));
+    }
+
+    [Test]
+    public void FlushPendingMutations_ShouldThrowObjectDisposedException_WhenDisposed()
+    {
+        var manager = new HistoryManager(_root, _sequenceGenerator);
+        manager.Dispose();
+
+        Assert.Throws<ObjectDisposedException>(() => manager.FlushPendingMutations());
+    }
+
     #endregion
 }

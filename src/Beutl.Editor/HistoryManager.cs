@@ -54,9 +54,40 @@ public sealed class HistoryManager : IDisposable
     // 自前で Commit を流し切るためのフック。
     public IObservable<System.Reactive.Unit> BeforeMutation => _beforeMutation.AsObservable();
 
+    /// <summary>
+    /// Fires <see cref="BeforeMutation"/> so subscribers (e.g. a debounced nudge service)
+    /// flush any pending work into history now. Call this before deciding whether a
+    /// following <see cref="Undo"/> / <see cref="Redo"/> / <see cref="JumpTo"/> will change
+    /// scene state: those operations fire <see cref="BeforeMutation"/> themselves, so a
+    /// still-pending edit is otherwise invisible to that decision yet gets committed — and
+    /// possibly reverted — once the operation runs. The operation's own notification then
+    /// finds nothing left to flush, so the flush stays single-effect for idempotent subscribers.
+    /// </summary>
+    public void FlushPendingMutations()
+    {
+        ThrowIfDisposed();
+        FireBeforeMutation();
+    }
+
     public ReadOnlyObservableCollection<HistoryEntry> Entries => _readOnlyEntries;
 
     public int CurrentIndex => _undoStack.Count;
+
+    /// <summary>
+    /// Whether the current uncommitted transaction holds operations, so a mutation can still
+    /// change scene state even when <see cref="CanUndo"/> / <see cref="CanRedo"/> are false.
+    /// </summary>
+    public bool HasPendingOperations
+    {
+        get
+        {
+            ThrowIfDisposed();
+            lock (_lock)
+            {
+                return _currentTransaction.HasOperations;
+            }
+        }
+    }
 
     /// <summary>
     /// Returns a thread-safe snapshot of the current entries taken under the
@@ -70,6 +101,25 @@ public sealed class HistoryManager : IDisposable
         lock (_lock)
         {
             return [.. _entries];
+        }
+    }
+
+    /// <summary>
+    /// Returns <see langword="true"/> if <see cref="JumpTo"/> with <paramref name="index"/>
+    /// would mutate state — the index is in range and either differs from
+    /// <see cref="CurrentIndex"/> or a pending transaction would be rolled back.
+    /// </summary>
+    public bool WouldJumpToMove(int index)
+    {
+        ThrowIfDisposed();
+        lock (_lock)
+        {
+            if (index < 0 || index >= _entries.Count)
+            {
+                return false;
+            }
+
+            return index != _undoStack.Count || _currentTransaction.HasOperations;
         }
     }
 

@@ -71,52 +71,19 @@ public sealed class HistoryViewModel : IToolContext
 
     public IReadOnlyReactiveProperty<int> CurrentIndex { get; }
 
-    public void JumpTo(int index)
+    public async Task JumpTo(int index)
     {
-        try
-        {
-            _historyManager.JumpTo(index);
-        }
-        catch (ObjectDisposedException ex)
-        {
-            _logger.LogDebug(ex, "JumpTo({Index}) skipped — manager is disposed", index);
-        }
-        catch (Exception ex)
-        {
-            ReportFailure(ex, $"Failed to jump to history index {index}");
-        }
+        await _editViewModel.JumpToHistoryAsync(index);
     }
 
-    public void Undo()
+    public async Task Undo()
     {
-        try
-        {
-            _historyManager.Undo();
-        }
-        catch (ObjectDisposedException ex)
-        {
-            _logger.LogDebug(ex, "Undo skipped — manager is disposed");
-        }
-        catch (Exception ex)
-        {
-            ReportFailure(ex, "Failed to undo");
-        }
+        await _editViewModel.UndoHistoryAsync();
     }
 
-    public void Redo()
+    public async Task Redo()
     {
-        try
-        {
-            _historyManager.Redo();
-        }
-        catch (ObjectDisposedException ex)
-        {
-            _logger.LogDebug(ex, "Redo skipped — manager is disposed");
-        }
-        catch (Exception ex)
-        {
-            ReportFailure(ex, "Failed to redo");
-        }
+        await _editViewModel.RedoHistoryAsync();
     }
 
     public void Dispose()
@@ -286,11 +253,5 @@ public sealed class HistoryViewModel : IToolContext
         {
             Dispatcher.UIThread.Post(RunGuarded);
         }
-    }
-
-    private void ReportFailure(Exception ex, string context)
-    {
-        _logger.LogError(ex, "{Context}", context);
-        NotificationService.ShowError(Strings.History, Strings.History_OperationFailed);
     }
 }

@@ -9,6 +9,7 @@ using Beutl.Editor;
 using Beutl.Editor.Observers;
 using Beutl.Editor.Operations;
 using Beutl.Graphics.Rendering.Cache;
+using Beutl.Helpers;
 using Beutl.Logging;
 using Beutl.Media;
 using Beutl.Models;
@@ -27,6 +28,7 @@ public sealed partial class EditViewModel : IEditorContext, ISupportAutoSaveEdit
 {
     private readonly ILogger _logger = Log.CreateLogger<EditViewModel>();
     private readonly AutoSaveService _autoSaveService = new();
+    private readonly HistoryMutationPlaybackGuard _historyMutationPlaybackGuard = new();
 
     private readonly CompositeDisposable _disposables = [];
     private readonly TimelineOptionsProviderImpl _timelineOptionsProvider;
@@ -380,6 +382,7 @@ public sealed partial class EditViewModel : IEditorContext, ISupportAutoSaveEdit
         DisposeCommandStateNotifier();
         await Player.DisposeAsync();
         _elementNudgeService?.Dispose();
+        _historyMutationPlaybackGuard.Dispose();
         _disposables.Dispose();
         IsEnabled.Dispose();
         Player = null!;
@@ -789,6 +792,76 @@ public sealed partial class EditViewModel : IEditorContext, ISupportAutoSaveEdit
         return nudge;
     }
 
+    internal ValueTask<bool> UndoHistoryAsync()
+    {
+        return ExecuteHistoryMutationAsync(
+            "Undo",
+            "Undoing last command.",
+            "Undo completed.",
+            // A pending transaction is flushed onto the undo stack by BeforeMutation
+            // before Undo() runs, so it can revert scene state even when CanUndo is false.
+            () => HistoryManager.CanUndo || HistoryManager.HasPendingOperations,
+            HistoryManager.Undo);
+    }
+
+    internal ValueTask<bool> RedoHistoryAsync()
+    {
+        return ExecuteHistoryMutationAsync(
+            "Redo",
+            "Redoing last undone command.",
+            "Redo completed.",
+            // Redo() rolls back a pending transaction before checking the redo stack,
+            // so it can revert scene state even when CanRedo is false.
+            () => HistoryManager.CanRedo || HistoryManager.HasPendingOperations,
+            HistoryManager.Redo);
+    }
+
+    internal ValueTask<bool> JumpToHistoryAsync(int index)
+    {
+        return ExecuteHistoryMutationAsync(
+            $"JumpTo({index})",
+            null,
+            null,
+            () => HistoryManager.WouldJumpToMove(index),
+            () => HistoryManager.JumpTo(index));
+    }
+
+    private async ValueTask<bool> ExecuteHistoryMutationAsync(
+        string operationName,
+        string? startMessage,
+        string? completedMessage,
+        Func<bool> shouldPause,
+        Func<bool> mutate)
+    {
+        try
+        {
+            if (startMessage is not null)
+            {
+                _logger.LogInformation("{Message}", startMessage);
+            }
+
+            bool changed = await _historyMutationPlaybackGuard.RunAsync(
+                Player, HistoryManager.FlushPendingMutations, shouldPause, mutate);
+            if (changed && completedMessage is not null)
+            {
+                _logger.LogInformation("{Message}", completedMessage);
+            }
+
+            return changed;
+        }
+        catch (ObjectDisposedException ex)
+        {
+            _logger.LogDebug(ex, "{OperationName} skipped because the editor is disposed.", operationName);
+            return false;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "{OperationName} failed.", operationName);
+            NotificationService.ShowError(Strings.History, Strings.History_OperationFailed);
+            return false;
+        }
+    }
+
     private sealed class KnownCommandsImpl(Scene scene, EditViewModel viewModel) : IKnownEditorCommands
     {
         public ValueTask<bool> OnSave()
@@ -802,22 +875,14 @@ public sealed partial class EditViewModel : IEditorContext, ISupportAutoSaveEdit
             return ValueTask.FromResult(true);
         }
 
-        public ValueTask<bool> OnUndo()
+        public async ValueTask<bool> OnUndo()
         {
-            viewModel._logger.LogInformation("Undoing last command.");
-            viewModel.HistoryManager.Undo();
-            viewModel._logger.LogInformation("Undo completed.");
-
-            return ValueTask.FromResult(true);
+            return await viewModel.UndoHistoryAsync();
         }
 
-        public ValueTask<bool> OnRedo()
+        public async ValueTask<bool> OnRedo()
         {
-            viewModel._logger.LogInformation("Redoing last undone command.");
-            viewModel.HistoryManager.Redo();
-            viewModel._logger.LogInformation("Redo completed.");
-
-            return ValueTask.FromResult(true);
+            return await viewModel.RedoHistoryAsync();
         }
     }
 }
