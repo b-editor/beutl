@@ -213,8 +213,8 @@ public class Renderer : IRenderer
             {
                 op.Render(_immediateCanvas);
                 bounds = bounds.Union(op.Bounds);
-                // consumed++ must trail op.Bounds (a possible throw site), not op.Render: any
-                // throw before op.Dispose has to leave this op inside the cleanup sweep below.
+                // consumed++ trails op.Bounds (a throw site) so a throw before op.Dispose leaves
+                // this op in the cleanup sweep below.
                 consumed++;
                 op.Dispose();
             }

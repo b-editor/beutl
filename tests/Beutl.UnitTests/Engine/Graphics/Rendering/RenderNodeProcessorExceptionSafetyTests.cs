@@ -189,8 +189,8 @@ public class RenderNodeProcessorExceptionSafetyTests
         var ex = Assert.Throws<InvalidOperationException>(() => processor.Render(canvas));
 
         Assert.That(ex!.Message, Is.EqualTo("fault"));
-        // A mid-loop render throw must still dispose the faulting op and every op after it;
-        // cache-replay ops back a RenderTarget/SKImage/GPU handle that would otherwise leak.
+        // A mid-loop render throw must still dispose the faulting op and every op after it,
+        // or the GPU handles those ops back leak.
         Assert.That(disposed, Is.EquivalentTo(new[] { "first", "fault", "remaining" }));
     }
 
@@ -211,8 +211,7 @@ public class RenderNodeProcessorExceptionSafetyTests
         var ex = Assert.Throws<InvalidOperationException>(() => processor.Render(canvas));
 
         Assert.That(ex!.Message, Is.EqualTo("fault"));
-        // consumed++ sits between Render and Dispose, so the faulting op is not re-disposed by the
-        // sweep while the remaining op still gets cleaned up.
+        // The faulting op must not be re-disposed by the sweep; the remaining op still gets cleaned up.
         Assert.That(disposed, Is.EquivalentTo(new[] { "first", "fault", "remaining" }));
     }
 
@@ -227,8 +226,7 @@ public class RenderNodeProcessorExceptionSafetyTests
             CreateOperation("remaining", disposed),
         ];
 
-        // The shared cleanup helper must swallow a faulting Dispose so the sweep reaches every trailing
-        // op; the in-flight exception on the real cleanup paths is the one that matters, not this one.
+        // DisposeAll must swallow a faulting Dispose so the sweep reaches every trailing op.
         Assert.DoesNotThrow(() => RenderNodeOperation.DisposeAll(ops));
         Assert.That(disposed, Is.EquivalentTo(new[] { "first", "throws", "remaining" }));
     }

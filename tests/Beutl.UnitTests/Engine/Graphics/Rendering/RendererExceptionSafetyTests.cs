@@ -9,11 +9,9 @@ using Beutl.UnitTests.Engine.Graphics.Backend;
 
 namespace Beutl.UnitTests.Engine.Graphics.Rendering;
 
-// Renderer.RenderDrawable and Renderer.RecalculateBoundaries share the same consumed+cleanup-sweep
-// contract that RenderNodeProcessorExceptionSafetyTests exercises on RenderNodeProcessor. These drive
-// that contract through a real Renderer so a mid-loop throw still disposes every pulled op (cache-replay
-// ops back a RenderTarget/SKImage/GPU handle that would otherwise leak). Renderer construction needs
-// Vulkan and the render thread, so both gate on VulkanTestEnvironment.
+// Drives the cleanup-sweep contract through a real Renderer (RenderDrawable and RecalculateBoundaries):
+// a mid-loop throw must still dispose every pulled op, or the GPU handles they back leak. Renderer needs
+// Vulkan and the render thread, hence VulkanTestEnvironment.
 [NonParallelizable]
 [TestFixture]
 public class RendererExceptionSafetyTests
@@ -55,8 +53,7 @@ public class RendererExceptionSafetyTests
             var ex = Assert.Throws<InvalidOperationException>(() => renderer.RecalculateBoundaries(0));
 
             Assert.That(ex!.Message, Is.EqualTo("fault"));
-            // The faulting op (consumed before its Dispose runs) must not be re-disposed, and the
-            // trailing op must still be cleaned up by the catch sweep.
+            // The faulting op must not be re-disposed; the trailing op must still be cleaned up by the sweep.
             Assert.That(disposed, Is.EquivalentTo(new[] { "first", "fault", "remaining" }));
         });
     }
@@ -97,10 +94,9 @@ public class RendererExceptionSafetyTests
     }
 }
 
-// Emits a fixed set of ops straight into the render graph. Render is overridden to bypass the
-// blend/opacity/filter pushes so the injected ops reach the Renderer's pull loop unwrapped. Top-level
-// and partial so EngineObjectResourceGenerator can emit its Resource (the generator does not support
-// nested types).
+// Emits a fixed set of ops into the render graph, with Render overridden to bypass the blend/opacity/filter
+// pushes so they reach the Renderer's pull loop unwrapped. Top-level partial because
+// EngineObjectResourceGenerator does not support nested types.
 internal sealed partial class FaultingDrawable(RenderNodeOperation[] operations) : Drawable
 {
     public override void Render(GraphicsContext2D context, Drawable.Resource resource)

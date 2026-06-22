@@ -35,8 +35,7 @@ public abstract class RenderNodeOperation : IDisposable
 
     /// <summary>
     /// Disposes every operation in <paramref name="ops"/>, swallowing an individual <see cref="Dispose"/>
-    /// fault so one throwing operation cannot abort the sweep or mask an exception already in flight on a
-    /// cleanup path. The render/rasterize loops use this to release the ops they never reached after a throw.
+    /// fault so one throwing op cannot abort the sweep. Used to release the ops a loop never reached after a throw.
     /// </summary>
     internal static void DisposeAll(ReadOnlySpan<RenderNodeOperation> ops)
     {
@@ -48,8 +47,7 @@ public abstract class RenderNodeOperation : IDisposable
             }
             catch
             {
-                // Best-effort cleanup: the exception that triggered the sweep is the meaningful one, so a
-                // fault from a trailing op's Dispose must not stop the remaining ops from being released.
+                // Best-effort: a faulting Dispose must not stop the remaining ops from being released.
             }
         }
     }

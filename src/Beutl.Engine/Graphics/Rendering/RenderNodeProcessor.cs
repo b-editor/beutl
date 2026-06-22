@@ -57,8 +57,8 @@ public class RenderNodeProcessor(
             throw new Exception("RenderTarget is null");
         }
 
-        // Set before op.Dispose() so a throwing OnDispose (which leaves IsDisposed false) is not
-        // re-disposed by the catch — mirrors the consumed++ guard in Rasterize/RasterizeAndConcat.
+        // Set before op.Dispose() so the catch does not re-dispose an op whose throwing
+        // OnDispose left IsDisposed false.
         bool opDisposeStarted = false;
         try
         {
