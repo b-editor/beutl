@@ -45,6 +45,18 @@ public class FallbackTypeGeneratorTests
             public partial class FallbackObject : Serializable, Beutl.Serialization.IFallback
             {
             }
+
+            // The generated TryGetTypeName calls Json?.TryGetDiscriminator(out result). The real engine
+            // resolves Beutl.JsonHelper's JsonNode extension via an enclosing Beutl.* namespace; the
+            // scenario is not under Beutl, so co-locate a matching stub to keep the emitted code compiling.
+            public static class JsonDiscriminatorExtensions
+            {
+                public static bool TryGetDiscriminator(this System.Text.Json.Nodes.JsonNode node, out string? result)
+                {
+                    result = null;
+                    return false;
+                }
+            }
         }
         """;
 
@@ -76,5 +88,17 @@ public class FallbackTypeGeneratorTests
             Assert.That(source, Does.Contain("public override void Deserialize("));
             Assert.That(source, Does.Contain("public bool TryGetTypeName("));
         });
+    }
+
+    [Test]
+    public void FallbackScenario_GeneratedSourcesCompileWithoutErrors()
+    {
+        GeneratorHarnessResult result = GeneratorDriverHarness.Run(FallbackScenario);
+
+        Assert.That(
+            result.CompilationErrors,
+            Is.Empty,
+            "Generated fallback + Resource sources must compile against the stubs (the real-gate check): "
+            + string.Join(Environment.NewLine, result.CompilationErrors.Select(d => d.ToString())));
     }
 }

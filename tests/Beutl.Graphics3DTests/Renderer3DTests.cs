@@ -37,6 +37,7 @@ public class Renderer3DTests
         byte[] pixels = GpuTestEnvironment.InvokeOnRenderThread(() =>
         {
             var renderer = new Renderer3D(_context);
+            var objects = new List<Object3D.Resource>();
             try
             {
                 renderer.Initialize(Width, Height);
@@ -59,7 +60,6 @@ public class Renderer3DTests
                 float offsetX = -(gridSizeX - 1) * spacing * 0.5f;
                 float offsetY = -(gridSizeY - 1) * spacing * 0.5f;
 
-                var objects = new List<Object3D.Resource>();
                 for (int y = 0; y < gridSizeY; y++)
                 {
                     float roughness = (float)y / (gridSizeY - 1);
@@ -116,7 +116,7 @@ public class Renderer3DTests
     [Test]
     public void RenderDirectionalLightShadowScene_ProducesLitNonUniformFramebuffer()
     {
-        byte[] pixels = RenderShadowScene(lights =>
+        void Configure(List<Light3D> lights)
         {
             var light = new DirectionalLight3D();
             light.Direction.CurrentValue = Vector3.Normalize(new Vector3(-1, -2, -1));
@@ -130,15 +130,19 @@ public class Renderer3DTests
             light.ShadowDistance.CurrentValue = 30f;
             light.ShadowMapSize.CurrentValue = 15f;
             lights.Add(light);
-        });
+        }
 
-        AssertLitFramebuffer(pixels);
+        byte[] shadowed = RenderShadowScene(Configure);
+        byte[] unshadowed = RenderShadowScene(Configure, castShadows: false);
+
+        AssertLitFramebuffer(shadowed);
+        AssertShadowsDarkenReceiver(shadowed, unshadowed);
     }
 
     [Test]
     public void RenderPointLightShadowScene_ProducesLitNonUniformFramebuffer()
     {
-        byte[] pixels = RenderShadowScene(lights =>
+        void Configure(List<Light3D> lights)
         {
             var pointLight = new PointLight3D();
             pointLight.Position.CurrentValue = new Vector3(0, 3, 2);
@@ -158,15 +162,19 @@ public class Renderer3DTests
             ambientFill.IsEnabled = true;
             ambientFill.CastsShadow.CurrentValue = false;
             lights.Add(ambientFill);
-        });
+        }
 
-        AssertLitFramebuffer(pixels);
+        byte[] shadowed = RenderShadowScene(Configure);
+        byte[] unshadowed = RenderShadowScene(Configure, castShadows: false);
+
+        AssertLitFramebuffer(shadowed);
+        AssertShadowsDarkenReceiver(shadowed, unshadowed);
     }
 
     [Test]
     public void RenderSpotLightShadowScene_ProducesLitNonUniformFramebuffer()
     {
-        byte[] pixels = RenderShadowScene(lights =>
+        void Configure(List<Light3D> lights)
         {
             var spotLight = new SpotLight3D();
             spotLight.Position.CurrentValue = new Vector3(0, 6, 0);
@@ -189,15 +197,19 @@ public class Renderer3DTests
             ambientFill.IsEnabled = true;
             ambientFill.CastsShadow.CurrentValue = false;
             lights.Add(ambientFill);
-        });
+        }
 
-        AssertLitFramebuffer(pixels);
+        byte[] shadowed = RenderShadowScene(Configure);
+        byte[] unshadowed = RenderShadowScene(Configure, castShadows: false);
+
+        AssertLitFramebuffer(shadowed);
+        AssertShadowsDarkenReceiver(shadowed, unshadowed);
     }
 
     [Test]
     public void RenderMultipleLightShadowScene_ProducesLitNonUniformFramebuffer()
     {
-        byte[] pixels = RenderShadowScene(lights =>
+        void Configure(List<Light3D> lights)
         {
             var mainLight = new DirectionalLight3D();
             mainLight.Direction.CurrentValue = Vector3.Normalize(new Vector3(-1, -1.5f, -0.5f));
@@ -220,9 +232,13 @@ public class Renderer3DTests
             secondarySpot.CastsShadow.CurrentValue = true;
             secondarySpot.ShadowStrength.CurrentValue = 0.6f;
             lights.Add(secondarySpot);
-        });
+        }
 
-        AssertLitFramebuffer(pixels);
+        byte[] shadowed = RenderShadowScene(Configure);
+        byte[] unshadowed = RenderShadowScene(Configure, castShadows: false);
+
+        AssertLitFramebuffer(shadowed);
+        AssertShadowsDarkenReceiver(shadowed, unshadowed);
     }
 
     private static List<Light3D.Resource> BuildThreePointLights(CompositionContext renderContext)
@@ -257,11 +273,12 @@ public class Renderer3DTests
     /// Renders the shared shadow scene (ground plane + three shadow-casting spheres) with a
     /// caller-supplied light rig, and returns the downloaded RGBA16Float framebuffer.
     /// </summary>
-    private byte[] RenderShadowScene(Action<List<Light3D>> configureLights)
+    private byte[] RenderShadowScene(Action<List<Light3D>> configureLights, bool castShadows = true)
     {
         return GpuTestEnvironment.InvokeOnRenderThread(() =>
         {
             var renderer = new Renderer3D(_context);
+            var objects = new List<Object3D.Resource>();
             try
             {
                 renderer.Initialize(Width, Height);
@@ -276,8 +293,6 @@ public class Renderer3DTests
                 camera.NearPlane.CurrentValue = 0.1f;
                 camera.FarPlane.CurrentValue = 100f;
                 var cameraResource = (PerspectiveCamera.Resource)camera.ToResource(renderContext);
-
-                var objects = new List<Object3D.Resource>();
 
                 var ground = new Cube3D();
                 ground.Width.CurrentValue = 20f;
@@ -298,6 +313,15 @@ public class Renderer3DTests
 
                 var lightModels = new List<Light3D>();
                 configureLights(lightModels);
+                if (!castShadows)
+                {
+                    // Re-render the identical rig with shadow casting forced off so the caller can diff the
+                    // two frames; that diff is what gates that shadows actually darken the receiver.
+                    foreach (Light3D light in lightModels)
+                    {
+                        light.CastsShadow.CurrentValue = false;
+                    }
+                }
                 var lights = lightModels
                     .Select(l => (Light3D.Resource)l.ToResource(renderContext))
                     .ToList();
@@ -311,17 +335,15 @@ public class Renderer3DTests
                     Colors.White,
                     0.15f);
 
-                byte[] result = renderer.DownloadPixels();
-
+                return renderer.DownloadPixels();
+            }
+            finally
+            {
                 foreach (var obj in objects)
                 {
                     obj.Dispose();
                 }
 
-                return result;
-            }
-            finally
-            {
                 renderer.Dispose();
             }
         });
@@ -367,11 +389,7 @@ public class Renderer3DTests
         for (int i = 0; i < pixelCount; i++)
         {
             int off = i * bytesPerPixel;
-            float r = (float)BitConverter.ToHalf(pixels, off);
-            float g = (float)BitConverter.ToHalf(pixels, off + 2);
-            float b = (float)BitConverter.ToHalf(pixels, off + 4);
-
-            float luma = 0.2126f * r + 0.7152f * g + 0.0722f * b;
+            float luma = Luma(pixels, off);
             if (luma > maxLuma) maxLuma = luma;
 
             // Above the dark clear color: counts as a "lit" (foreground/shaded) pixel.
@@ -398,5 +416,50 @@ public class Renderer3DTests
             + "does not cover enough of the surface to be a real scene.");
         Assert.That(sawVariation, Is.True,
             "Framebuffer is uniform: the scene did not render distinct geometry against the background.");
+    }
+
+    /// <summary>
+    /// Asserts that enabling shadow casting darkens a meaningful region of the receiver: the
+    /// shadow-enabled frame must be visibly darker than the same scene rendered with
+    /// <see cref="Light3D.CastsShadow"/> forced off. Without this, a regression that ignores
+    /// CastsShadow or never samples the shadow map would still produce a lit, non-uniform frame and
+    /// pass <see cref="AssertLitFramebuffer"/>.
+    /// </summary>
+    private static void AssertShadowsDarkenReceiver(byte[] shadowed, byte[] unshadowed)
+    {
+        const int bytesPerPixel = 8; // 4 × Half (RGBA16Float)
+        int pixelCount = Width * Height;
+
+        Assert.That(shadowed.Length, Is.EqualTo(unshadowed.Length),
+            "Shadowed and shadow-disabled frames must be the same surface size to diff.");
+
+        long darkenedPixels = 0;
+        double totalLumaDelta = 0;
+
+        for (int i = 0; i < pixelCount; i++)
+        {
+            int off = i * bytesPerPixel;
+            float delta = Luma(unshadowed, off) - Luma(shadowed, off); // positive => shadow darkened it
+            totalLumaDelta += delta;
+            if (delta > 0.05f) darkenedPixels++;
+        }
+
+        // A working shadow map darkens a contiguous receiver region (the ground under the spheres) —
+        // thousands of pixels here — whereas a scene that ignores shadows differs only by GPU noise.
+        // Require both a darker aggregate and a sizeable darkened area to separate the two.
+        Assert.That(totalLumaDelta, Is.GreaterThan(0.0),
+            "The shadow-enabled frame is not darker overall than the shadow-disabled frame: "
+            + "shadow casting appears to have no effect.");
+        Assert.That(darkenedPixels, Is.GreaterThan(pixelCount / 500),
+            $"Only {darkenedPixels} of {pixelCount} pixels were darkened by enabling shadows: the shadow map "
+            + "appears to be ignored or never sampled.");
+    }
+
+    private static float Luma(byte[] pixels, int byteOffset)
+    {
+        float r = (float)BitConverter.ToHalf(pixels, byteOffset);
+        float g = (float)BitConverter.ToHalf(pixels, byteOffset + 2);
+        float b = (float)BitConverter.ToHalf(pixels, byteOffset + 4);
+        return 0.2126f * r + 0.7152f * g + 0.0722f * b;
     }
 }

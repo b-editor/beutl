@@ -1,20 +1,22 @@
-using Beutl.Graphics.Rendering;
+using System;
+using System.Collections.Generic;
+
+using Beutl.Composition;
 
 namespace Beutl.Engine;
 
-public class EngineObject : Hierarchical
+public class EngineObject
 {
     public virtual IReadOnlyList<IProperty> Properties => throw null!;
 
     internal int Version { get; private set; }
 
-    protected void ScanProperties<T>() where T : EngineObject
+    protected virtual IEnumerable<IProperty> ScanPropertiesCore<T>() where T : EngineObject
     {
         throw null!;
     }
 
-
-    public virtual Resource ToResource(RenderContext context)
+    public virtual Resource ToResource(CompositionContext context)
     {
         var resource = new EngineObject.Resource();
         bool updateOnly = true;
@@ -22,7 +24,7 @@ public class EngineObject : Hierarchical
         return resource;
     }
 
-    public class Resource
+    public class Resource : IDisposable
     {
         private EngineObject _original = null!;
 
@@ -30,12 +32,21 @@ public class EngineObject : Hierarchical
 
         public EngineObject GetOriginal() => _original;
 
-        public virtual void Update(EngineObject obj, RenderContext context, ref bool updateOnly)
+        public virtual void Update(EngineObject obj, CompositionContext context, ref bool updateOnly)
         {
             _original = obj;
         }
 
-        protected void CompareAndUpdate<TValue>(RenderContext context, IProperty<TValue> prop, ref TValue field, ref bool updateOnly)
+        public void Dispose()
+        {
+            Dispose(true);
+        }
+
+        protected virtual void Dispose(bool disposing)
+        {
+        }
+
+        protected void CompareAndUpdate<TValue>(CompositionContext context, IProperty<TValue> prop, ref TValue field, ref bool updateOnly)
         {
             TValue newValue = context.Get(prop);
             TValue oldValue = field;
@@ -51,7 +62,7 @@ public class EngineObject : Hierarchical
             }
         }
 
-        protected void CompareAndUpdateList<TItem, TResource>(RenderContext context, IList<TItem> prop, ref List<TResource> field, ref bool updateOnly) where TItem : EngineObject where TResource : Resource
+        protected void CompareAndUpdateList<TItem, TResource>(CompositionContext context, IList<TItem> prop, ref List<TResource> field, ref bool updateOnly) where TItem : EngineObject where TResource : Resource
         {
             for (int i = 0; i < prop.Count; i++)
             {
@@ -93,7 +104,7 @@ public class EngineObject : Hierarchical
                 field.RemoveAt(field.Count - 1);
             }
         }
-        protected void CompareAndUpdateObject<TObject, TResource>(RenderContext context, IProperty<TObject> prop, ref TResource field, ref bool updateOnly) where TObject : EngineObject where TResource : Resource
+        protected void CompareAndUpdateObject<TObject, TResource>(CompositionContext context, IProperty<TObject> prop, ref TResource field, ref bool updateOnly) where TObject : EngineObject where TResource : Resource
         {
             var value = context.Get(prop);
             if (value is null)

@@ -14,8 +14,16 @@ namespace SourceGeneratorTest;
 /// </summary>
 internal sealed record GeneratorHarnessResult(
     ImmutableArray<Diagnostic> GeneratorDiagnostics,
+    ImmutableArray<Diagnostic> CompilationDiagnostics,
     IReadOnlyDictionary<string, string> GeneratedSources)
 {
+    /// <summary>
+    /// Error-severity diagnostics from binding the post-generation compilation (stub inputs + generated
+    /// sources). Non-empty means the generated code does not compile against the inputs.
+    /// </summary>
+    public IEnumerable<Diagnostic> CompilationErrors
+        => CompilationDiagnostics.Where(d => d.Severity == DiagnosticSeverity.Error);
+
     public string GetSource(string hintNameSuffix)
     {
         foreach (KeyValuePair<string, string> kvp in GeneratedSources)
@@ -55,6 +63,13 @@ internal static class GeneratorDriverHarness
             [System.AttributeUsage(System.AttributeTargets.Class | System.AttributeTargets.Property)]
             public sealed class SuppressResourceClassGenerationAttribute : System.Attribute { }
         }
+
+        namespace Beutl.Validation
+        {
+            public interface IValidator { }
+
+            public interface IValidator<T> : IValidator { }
+        }
         """;
 
     /// <summary>
@@ -70,13 +85,17 @@ internal static class GeneratorDriverHarness
             ReadEmbedded("GeneratorInputs/EngineObject.cs"),
             ReadEmbedded("GeneratorInputs/IProperty.cs"),
             ReadEmbedded("GeneratorInputs/Property.cs"),
-            ReadEmbedded("GeneratorInputs/RenderContext.cs"),
+            ReadEmbedded("GeneratorInputs/CompositionContext.cs"),
             SupplementaryStubs,
         };
         sources.AddRange(extraSources);
 
+        // Parse at the repo's LangVersion so generated sources that use preview features (collection
+        // expressions, etc.) bind the same way in the verified output compilation as in the real build.
+        var parseOptions = new CSharpParseOptions(LanguageVersion.Preview);
+
         var syntaxTrees = sources
-            .Select(s => CSharpSyntaxTree.ParseText(s))
+            .Select(s => CSharpSyntaxTree.ParseText(s, parseOptions))
             .ToArray();
 
         // GetAssemblies() only returns assemblies already loaded into the AppDomain, which can miss ones
@@ -85,12 +104,14 @@ internal static class GeneratorDriverHarness
         // explicitly seed those references so the compilation is deterministic regardless of load order.
         _ = typeof(System.Text.Json.Nodes.JsonObject);
         _ = typeof(System.Collections.Immutable.ImmutableArray);
+        _ = typeof(System.ComponentModel.DataAnnotations.ValidationAttribute);
 
         var seededLocations = new[]
         {
             typeof(object).Assembly.Location,
             typeof(System.Text.Json.Nodes.JsonObject).Assembly.Location,
             typeof(System.Collections.Immutable.ImmutableArray).Assembly.Location,
+            typeof(System.ComponentModel.DataAnnotations.ValidationAttribute).Assembly.Location,
         };
 
         var references = AppDomain.CurrentDomain.GetAssemblies()
@@ -108,10 +129,15 @@ internal static class GeneratorDriverHarness
             new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
 
         var driver = CSharpGeneratorDriver.Create(
-            new IIncrementalGenerator[] { new EngineObjectResourceGenerator(), new FallbackTypeGenerator() });
+            generators: new[]
+            {
+                new EngineObjectResourceGenerator().AsSourceGenerator(),
+                new FallbackTypeGenerator().AsSourceGenerator(),
+            },
+            parseOptions: parseOptions);
 
         GeneratorDriver ran = driver.RunGeneratorsAndUpdateCompilation(
-            compilation, out _, out ImmutableArray<Diagnostic> diagnostics);
+            compilation, out Compilation outputCompilation, out ImmutableArray<Diagnostic> diagnostics);
 
         GeneratorDriverRunResult runResult = ran.GetRunResult();
 
@@ -124,7 +150,12 @@ internal static class GeneratorDriverHarness
             }
         }
 
-        return new GeneratorHarnessResult(diagnostics, generated);
+        // Bind the post-generation compilation so callers can gate that the generated code COMPILES
+        // against the stub inputs — not just that it contains the right text. This is what turns the
+        // suite into a real gate that catches generator/stub drift (e.g. a context-type rename).
+        ImmutableArray<Diagnostic> compilationDiagnostics = outputCompilation.GetDiagnostics();
+
+        return new GeneratorHarnessResult(diagnostics, compilationDiagnostics, generated);
     }
 
     private static string ReadEmbedded(string logicalName)

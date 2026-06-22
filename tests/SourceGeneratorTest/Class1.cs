@@ -1,4 +1,6 @@
-﻿using Beutl.Engine;
+﻿using System.Collections.Generic;
+
+using Beutl.Engine;
 
 namespace SourceGeneratorTest;
 public partial class Derived : EngineObject

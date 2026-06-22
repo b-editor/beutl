@@ -15,13 +15,13 @@
     <Compile Remove="EngineObject.cs" />
     <Compile Remove="IProperty.cs" />
     <Compile Remove="Property.cs" />
-    <Compile Remove="RenderContext.cs" />
+    <Compile Remove="CompositionContext.cs" />
 
     <EmbeddedResource Include="Class1.cs" LogicalName="GeneratorInputs/Class1.cs" />
     <EmbeddedResource Include="EngineObject.cs" LogicalName="GeneratorInputs/EngineObject.cs" />
     <EmbeddedResource Include="IProperty.cs" LogicalName="GeneratorInputs/IProperty.cs" />
     <EmbeddedResource Include="Property.cs" LogicalName="GeneratorInputs/Property.cs" />
-    <EmbeddedResource Include="RenderContext.cs" LogicalName="GeneratorInputs/RenderContext.cs" />
+    <EmbeddedResource Include="CompositionContext.cs" LogicalName="GeneratorInputs/CompositionContext.cs" />
   </ItemGroup>
 
   <!-- coverlet.collector is inherited centrally from tests/Directory.Build.props. -->

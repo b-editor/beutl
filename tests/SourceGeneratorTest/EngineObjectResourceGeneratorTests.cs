@@ -22,6 +22,18 @@ public class EngineObjectResourceGeneratorTests
     }
 
     [Test]
+    public void GeneratedSources_CompileWithoutErrors()
+    {
+        GeneratorHarnessResult result = Run();
+
+        Assert.That(
+            result.CompilationErrors,
+            Is.Empty,
+            "Generated Resource sources must compile against the stub inputs (the real-gate check): "
+            + string.Join(Environment.NewLine, result.CompilationErrors.Select(d => d.ToString())));
+    }
+
+    [Test]
     public void Generator_EmitsResourceSourcesForEveryDerivedType()
     {
         GeneratorHarnessResult result = Run();
