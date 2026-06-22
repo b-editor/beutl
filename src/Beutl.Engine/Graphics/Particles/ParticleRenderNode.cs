@@ -234,9 +234,9 @@ internal sealed class ParticleRenderNode(ParticleEmitter.Resource particle) : Re
         }
         catch
         {
-            // renderTarget is not yet owned by a caller; release it along with the un-rendered ops.
-            for (int j = consumed; j < ops.Length; j++)
-                ops[j].Dispose();
+            // renderTarget is not yet owned by a caller; release it along with the un-rendered ops. The
+            // ops sweep swallows per-op faults, so renderTarget.Dispose() is always reached on this path.
+            RenderNodeOperation.DisposeAll(ops.AsSpan(consumed));
             renderTarget.Dispose();
             throw;
         }

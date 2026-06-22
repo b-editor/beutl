@@ -32,8 +32,7 @@ public class RenderNodeProcessor(
         }
         catch
         {
-            for (int j = consumed; j < ops.Length; j++)
-                ops[j].Dispose();
+            RenderNodeOperation.DisposeAll(ops.AsSpan(consumed));
             throw;
         }
     }
@@ -113,7 +112,7 @@ public class RenderNodeProcessor(
         catch
         {
             // Clean up remaining ops (RasterizeAt already disposed the faulting one).
-            DisposeRemainingOperations(ops, consumed);
+            RenderNodeOperation.DisposeAll(ops.AsSpan(consumed));
             DisposeRenderTargets(list);
             throw;
         }
@@ -140,7 +139,7 @@ public class RenderNodeProcessor(
         }
         catch
         {
-            DisposeRemainingOperations(ops, consumed);
+            RenderNodeOperation.DisposeAll(ops.AsSpan(consumed));
             DisposeBitmaps(list);
             throw;
         }
@@ -172,19 +171,11 @@ public class RenderNodeProcessor(
         }
         catch
         {
-            DisposeRemainingOperations(ops, consumed);
+            RenderNodeOperation.DisposeAll(ops.AsSpan(consumed));
             throw;
         }
 
         return renderTarget.Snapshot();
-    }
-
-    private static void DisposeRemainingOperations(RenderNodeOperation[] ops, int start)
-    {
-        for (int j = start; j < ops.Length; j++)
-        {
-            DisposeBestEffort(ops[j]);
-        }
     }
 
     private static void DisposeRenderTargets(List<(RenderTarget RenderTarget, Rect Bounds)> targets)

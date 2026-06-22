@@ -221,8 +221,7 @@ public class Renderer : IRenderer
         }
         catch
         {
-            for (int j = consumed; j < ops.Length; j++)
-                ops[j].Dispose();
+            RenderNodeOperation.DisposeAll(ops.AsSpan(consumed));
             throw;
         }
 
@@ -399,8 +398,7 @@ public class Renderer : IRenderer
             }
             catch
             {
-                for (int j = consumed; j < ops.Length; j++)
-                    ops[j].Dispose();
+                RenderNodeOperation.DisposeAll(ops.AsSpan(consumed));
                 throw;
             }
             e.Bounds = bounds;

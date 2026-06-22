@@ -182,8 +182,9 @@ public class RenderNodeProcessorExceptionSafetyTests
             CreateOperation("remaining", disposed));
         var processor = new RenderNodeProcessor(node, useRenderCache: false);
 
-        using var renderTarget = RenderTarget.Create(4, 4)!;
-        using var canvas = new ImmediateCanvas(renderTarget);
+        using var renderTarget = RenderTarget.Create(4, 4);
+        Assume.That(renderTarget, Is.Not.Null);
+        using var canvas = new ImmediateCanvas(renderTarget!);
 
         var ex = Assert.Throws<InvalidOperationException>(() => processor.Render(canvas));
 
@@ -203,8 +204,9 @@ public class RenderNodeProcessorExceptionSafetyTests
             CreateOperation("remaining", disposed));
         var processor = new RenderNodeProcessor(node, useRenderCache: false);
 
-        using var renderTarget = RenderTarget.Create(4, 4)!;
-        using var canvas = new ImmediateCanvas(renderTarget);
+        using var renderTarget = RenderTarget.Create(4, 4);
+        Assume.That(renderTarget, Is.Not.Null);
+        using var canvas = new ImmediateCanvas(renderTarget!);
 
         var ex = Assert.Throws<InvalidOperationException>(() => processor.Render(canvas));
 
@@ -212,6 +214,23 @@ public class RenderNodeProcessorExceptionSafetyTests
         // consumed++ sits between Render and Dispose, so the faulting op is not re-disposed by the
         // sweep while the remaining op still gets cleaned up.
         Assert.That(disposed, Is.EquivalentTo(new[] { "first", "fault", "remaining" }));
+    }
+
+    [Test]
+    public void DisposeAll_DisposesEveryOperation_EvenWhenAnOperationThrowsOnDispose()
+    {
+        var disposed = new List<string>();
+        RenderNodeOperation[] ops =
+        [
+            CreateOperation("first", disposed),
+            CreateOperation("throws", disposed, throwOnDispose: true),
+            CreateOperation("remaining", disposed),
+        ];
+
+        // The shared cleanup helper must swallow a faulting Dispose so the sweep reaches every trailing
+        // op; the in-flight exception on the real cleanup paths is the one that matters, not this one.
+        Assert.DoesNotThrow(() => RenderNodeOperation.DisposeAll(ops));
+        Assert.That(disposed, Is.EquivalentTo(new[] { "first", "throws", "remaining" }));
     }
 
     private static StaticRenderNode CreateRenderThrowWithThrowingRemainingOps(ICollection<string> disposed)
