@@ -77,10 +77,7 @@ public class FormattedText : IEquatable<FormattedText>, IDisposable
         (_textBlob, _fillPath, _strokePath).DisposeAll();
         foreach (SKPathGeometry.Resource? resource in _pathList)
         {
-            // Dispose the geometry too: it owns the per-glyph SKPath (set via SetSKPath(..., clone: false)),
-            // which the resource's cached render path does not cover.
-            resource?.GetOriginal().Dispose();
-            resource?.Dispose();
+            DisposePathListEntry(resource);
         }
 
         _pathList = [];
@@ -88,6 +85,15 @@ public class FormattedText : IEquatable<FormattedText>, IDisposable
         _fillPath = null;
         _strokePath = null;
         IsDisposed = true;
+    }
+
+    // Releases a single _pathList entry. The geometry must be disposed too: it owns the per-glyph
+    // SKPath (set via SetSKPath(..., clone: false)), which the resource's cached render path does not
+    // cover. Both calls release native handles, so the resource must not be accessed afterwards.
+    private static void DisposePathListEntry(SKPathGeometry.Resource? resource)
+    {
+        resource?.GetOriginal().Dispose();
+        resource?.Dispose();
     }
 
     public FontWeight Weight
@@ -316,7 +322,16 @@ public class FormattedText : IEquatable<FormattedText>, IDisposable
         Span<SKPathGeometry.Resource> pathList = default;
         if (updatePathList)
         {
-            CollectionsMarshal.SetCount(_pathList, result.Codepoints.Length);
+            // When the glyph count shrank, SetCount truncates the trailing _pathList entries; those
+            // dropped resources are then unreachable for Dispose() to release, so their owned glyph
+            // SKPath / cached render handles would leak to finalizers. Dispose them before truncating.
+            int glyphCount = result.Codepoints.Length;
+            for (int i = glyphCount; i < _pathList.Count; i++)
+            {
+                DisposePathListEntry(_pathList[i]);
+            }
+
+            CollectionsMarshal.SetCount(_pathList, glyphCount);
             pathList = CollectionsMarshal.AsSpan(_pathList);
         }
 
