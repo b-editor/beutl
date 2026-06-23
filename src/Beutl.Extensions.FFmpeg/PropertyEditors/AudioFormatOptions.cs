@@ -4,7 +4,7 @@ namespace Beutl.Extensions.FFmpeg.PropertyEditors;
 
 /// <summary>
 /// The audio-format option set the editor offers, and the rule for turning a worker query result into
-/// that set. Kept out of the ViewModel so the degraded-handling decision can be unit tested directly.
+/// that set.
 /// </summary>
 internal static class AudioFormatOptions
 {
