@@ -94,6 +94,8 @@ public class FormattedTextGeometryCacheTests
         Assert.That(wideStroke.Width, Is.GreaterThan(narrowStroke.Width),
             "the stroked render bounds must follow the new glyph, not the stale cached stroke path.");
         Assert.That(wideStroke.Width, Is.EqualTo(referenceStroke.Width).Within(0.01));
+        Assert.That(wideStroke.Height, Is.EqualTo(referenceStroke.Height).Within(0.01),
+            "the stroked render bounds height should also match a freshly measured glyph.");
     }
 
     // Regression at the render-node layer: GeometryRenderNode diffs on a captured (resource, Version)
