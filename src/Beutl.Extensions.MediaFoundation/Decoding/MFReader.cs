@@ -2,12 +2,15 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.InteropServices;
 
+using Beutl.Logging;
 using Beutl.Media;
 using Beutl.Media.Decoding;
 using Beutl.Media.Music;
 using Beutl.Media.Music.Samples;
 using Beutl.Media.Pixel;
 using Beutl.Media.Source;
+
+using Microsoft.Extensions.Logging;
 
 using NAudio.Wave;
 
@@ -21,10 +24,11 @@ namespace Beutl.Extensions.MediaFoundation.Decoding;
 
 public class MFReader : MediaReader
 {
+    private readonly ILogger _logger = Log.CreateLogger<MFReader>();
     private readonly string _file;
     private readonly MediaOptions _options;
 
-    private readonly MFDecoder? _decoder;
+    private readonly IMediaFoundationVideoDecoder? _decoder;
     private readonly VideoStreamInfo? _videoInfo;
 
     private readonly AudioStreamInfo? _audioInfo;
@@ -33,7 +37,20 @@ public class MFReader : MediaReader
     private readonly ISampleProvider? _provider;
 
     public MFReader(string file, MediaOptions options, MFDecodingExtension extension)
+        : this(file, options, extension, CreateVideoDecoder, CreateAudioReader)
     {
+    }
+
+    internal MFReader(
+        string file,
+        MediaOptions options,
+        MFDecodingExtension extension,
+        Func<string, MediaOptions, MFDecodingExtension, IMediaFoundationVideoDecoder> createVideoDecoder,
+        Func<string, MediaFoundationReaderSettings, MediaFoundationReader> createAudioReader)
+    {
+        ArgumentNullException.ThrowIfNull(createVideoDecoder);
+        ArgumentNullException.ThrowIfNull(createAudioReader);
+
         _file = file;
         _options = options;
         try
@@ -42,9 +59,8 @@ public class MFReader : MediaReader
             {
                 try
                 {
-                    var decoder = new MFDecoder(file, new MediaOptions(MediaMode.Video), extension);
-                    MFMediaInfo info = decoder.GetMediaInfo();
-                    _decoder = decoder;
+                    _decoder = createVideoDecoder(file, new MediaOptions(MediaMode.Video), extension);
+                    MFMediaInfo info = _decoder.GetMediaInfo();
                     _videoInfo = new VideoStreamInfo(
                         info.VideoFormatName ?? "Unknown",
                         info.TotalFrameCount,
@@ -62,7 +78,7 @@ public class MFReader : MediaReader
 
             if (options.StreamsToLoad.HasFlag(MediaMode.Audio))
             {
-                _audioReader = new MediaFoundationReader(_file, new MediaFoundationReaderSettings
+                _audioReader = createAudioReader(_file, new MediaFoundationReaderSettings
                 {
                     RequestFloatOutput = true
                 });
@@ -78,10 +94,24 @@ public class MFReader : MediaReader
                 HasAudio = true;
             }
         }
-        finally
+        catch
         {
+            // Best-effort cleanup of any partially-initialized resources. Dispose() is
+            // non-throwing (see Dispose(bool)), so this cannot replace the original
+            // initialization exception that we rethrow below.
+            Dispose();
+            throw;
         }
     }
+
+    private static IMediaFoundationVideoDecoder CreateVideoDecoder(
+        string file,
+        MediaOptions options,
+        MFDecodingExtension extension)
+        => new MFDecoder(file, options, extension);
+
+    private static MediaFoundationReader CreateAudioReader(string file, MediaFoundationReaderSettings settings)
+        => new(file, settings);
 
     public override VideoStreamInfo VideoInfo => _videoInfo ?? throw new NotSupportedException();
 
@@ -205,7 +235,26 @@ public class MFReader : MediaReader
     protected override void Dispose(bool disposing)
     {
         base.Dispose(disposing);
-        _decoder?.Dispose();
-        _audioReader?.Dispose();
+
+        // Release each resource independently and never throw: a failure disposing one
+        // must not leak the other, and this also runs from the constructor's
+        // init-failure path where it must not mask the original exception.
+        try
+        {
+            _decoder?.Dispose();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to dispose the Media Foundation video decoder.");
+        }
+
+        try
+        {
+            _audioReader?.Dispose();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to dispose the Media Foundation audio reader.");
+        }
     }
 }
