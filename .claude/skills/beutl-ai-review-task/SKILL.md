@@ -241,7 +241,25 @@ fi
 (If you only want an interim progress peek while it runs, `grep` the output file — but still gate
 the commit/PR decision on `status`, not on any matched string.)
 
-## Step 6 — Commit, push, PR
+## Step 6 — Do not defer work (gate before you open the PR)
+
+Run this check **before** the commit/push/PR in Step 7 — it is a gate on opening the PR, not a
+post-PR afterthought. **Deferring is forbidden** (AGENTS.md "Do not defer work"). Whatever this
+task surfaced — an edge case, a known TODO, a refactor you scoped out, a test you could not add
+yet — **finish it on this branch now.** Do not park in-scope work behind a `## Follow-ups` list, a
+`// TODO`, or a fresh Draft item on the board; those are not a substitute for doing the work.
+
+The only two exits, and **both mean telling the user — never silently filing it away:**
+
+- **Genuinely out of scope** (a different feature/area that does not belong in this fix): raise it
+  with the user via `AskUserQuestion` and let them decide whether to widen the scope or track it
+  separately. Do not auto-create a board item to dodge the decision.
+- **Blocked** on something only the user can provide (access, an upstream fix, a product call):
+  state the blocker explicitly in your reply.
+
+If nothing was surfaced beyond the fix itself, there is nothing to do here — proceed to Step 7.
+
+## Step 7 — Commit, push, PR
 
 You are already on `$BRANCH` (created in Step 3 before any edits), so just commit and push it.
 `git push -u origin "$BRANCH"` pushes that existing branch — the refspec form does not create or
@@ -267,23 +285,6 @@ Fill the PR template's **Affected areas**, **Breaking changes** (`None` for beha
 (`Project board: b-editor/projects/9 ("<title>")`). Opening the PR triggers the automatic
 `claude-code-review.yml` review.
 
-## Step 7 — Do not defer work
-
-**Deferring is forbidden** (AGENTS.md "Do not defer work"). Whatever this task surfaced — an edge
-case, a known TODO, a refactor you scoped out, a test you could not add yet — **finish it inside
-this PR before opening it.** Do not park in-scope work behind a `## Follow-ups` list, a `// TODO`,
-or a fresh Draft item on the board; those are not a substitute for doing the work.
-
-The only two exits, and **both mean telling the user — never silently filing it away:**
-
-- **Genuinely out of scope** (a different feature/area that does not belong in this fix): raise it
-  with the user via `AskUserQuestion` and let them decide whether to widen the scope or track it
-  separately. Do not auto-create a board item to dodge the decision.
-- **Blocked** on something only the user can provide (access, an upstream fix, a product call):
-  state the blocker explicitly in your reply.
-
-If nothing was surfaced beyond the fix itself, there is nothing to do here.
-
 ## Step 8 — Update the board
 
 The item was already moved to `In Progress` when you claimed it (see "Claim the item immediately"
@@ -303,9 +304,9 @@ resumed work — just ensure it is `In Progress` now, option id `47fc9ee4`.)
 
 - **Confirm outward-facing actions.** Push / PR / board edits change shared state — confirm with
   the user (AskUserQuestion) before doing them unless they already authorized it this turn.
-- **Do not defer work.** Finish everything the task surfaced inside the PR (Step 7). Do not auto-file
-  a board Draft or a `## Follow-ups` entry to avoid doing in-scope work; raise genuinely out-of-scope
-  or blocked items with the user instead.
+- **Do not defer work.** Finish everything the task surfaced on the branch before opening the PR
+  (Step 6). Do not auto-file a board Draft or a `## Follow-ups` entry to avoid doing in-scope work;
+  raise genuinely out-of-scope or blocked items with the user instead.
 - One task per invocation by default. After finishing, offer the next candidate rather than
   batching many.
 - Never force-push to `main`/`master` (hook-enforced). Work on a feature branch.
