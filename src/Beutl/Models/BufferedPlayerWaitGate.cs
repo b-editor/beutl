@@ -14,6 +14,9 @@ internal sealed class BufferedPlayerWaitGate
 
     public void Cancel()
     {
+        // Full fence, not just the volatile read: it must order the caller's prior stop-flag store before this
+        // token read (mirroring Publish's fence), or a StoreLoad reorder revives the lost-wakeup / dispose hang.
+        Interlocked.MemoryBarrier();
         Volatile.Read(ref _token).CancelIgnoringDisposed();
     }
 
@@ -22,7 +25,8 @@ internal sealed class BufferedPlayerWaitGate
         Volatile.Write(ref _token, cts);
 
         // Re-check stop state after publishing the token. A stopping thread may have observed the old token slot
-        // before this publish; the fence ensures this waiter either sees the stop flag or the stopper sees this token.
+        // before this publish; this fence paired with Cancel's ensures this waiter either sees the stop flag or the
+        // stopper sees this token.
         Interlocked.MemoryBarrier();
         if (!_shouldStop())
         {

@@ -152,11 +152,10 @@ public sealed class BufferedPlayer : IPlayer
             finally
             {
                 // Whenever the producer thread exits — normal completion, mid-playback renderer rebuild, or an
-                // exception — record the stop and wake any current waiter. The full fence pairs with WaitRender's
-                // post-publish re-check so a consumer that reaches WaitRender after this point observes the stop
-                // instead of blocking forever on a wakeup that will never come (the lost-wakeup hang).
+                // exception — record the stop before waking any current waiter: setting _producerStopped first
+                // pairs with WaitRender's post-publish re-check (Cancel fences), so a consumer reaching WaitRender
+                // after this point observes the stop instead of blocking forever on a wakeup that never comes.
                 _producerStopped = true;
-                Interlocked.MemoryBarrier();
                 _waitRenderGate.Cancel();
                 _waitTimerGate.Cancel();
             }
