@@ -367,6 +367,29 @@ public class ResolutionScaleTests
             Is.EqualTo((201, 101)), "fractional bounds * w ceils up");
     }
 
+    // --- Flatten nodes own no buffer and re-rasterize at any scale: must report Unbounded supply ---------
+
+    [Test]
+    public void LayerRenderNode_Process_EmitsUnboundedEffectiveScale()
+    {
+        // SaveLayer flatten owns no buffer and re-rasterizes at any working scale, so it must report
+        // Unbounded supply density; a wrongly-concrete value would inflate the upstream working scale.
+        using var node = new LayerRenderNode(new Rect(0, 0, 100, 100));
+
+        RenderNodeOperation[] result = node.Process(new RenderNodeContext([]));
+        try
+        {
+            Assert.That(result, Has.Length.EqualTo(1));
+            Assert.That(result[0].EffectiveScale.IsUnbounded, Is.True,
+                "LayerRenderNode flattens via SaveLayer and re-rasterizes at any scale, so it emits Unbounded.");
+        }
+        finally
+        {
+            foreach (RenderNodeOperation r in result)
+                r.Dispose();
+        }
+    }
+
     // --- Node-graph input boundary: EffectiveScale must survive the RefCountedProxy re-wrap ---------------
 
     [Test]
