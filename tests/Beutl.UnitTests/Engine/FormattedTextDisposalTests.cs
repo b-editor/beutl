@@ -193,6 +193,64 @@ public class FormattedTextDisposalTests
     }
 
     [Test]
+    public void MeasureCore_ShrinkThenGrow_KeepsSurvivorsLiveAndRebuildsTruncatedSlots()
+    {
+        FormattedText ft = CreateText("ABCDE");
+
+        // ToGeometies() returns the live _pathList, so capture the long count before any shrink.
+        IReadOnlyList<Geometry.Resource> longGeometries = ft.ToGeometies();
+        int longCount = longGeometries.Count;
+        // Font shaping is environment-dependent, so gate the "shrink actually happens" facts on Assume.
+        Assume.That(longCount, Is.GreaterThan(2), "Need more glyphs than the shrunk text to exercise truncation.");
+
+        int shortCount;
+        using (FormattedText probe = CreateText("AB"))
+        {
+            shortCount = probe.ToGeometies().Count;
+        }
+
+        Assume.That(shortCount, Is.GreaterThan(0), "Shrunk text must still produce glyphs.");
+        Assume.That(shortCount, Is.LessThan(longCount), "Shrink must actually reduce the glyph count.");
+
+        // Capture the surviving [0, shortCount) entries. MeasureCore reuses them in place across the shrink
+        // (exist.GetOriginal().SetSKPath(...) on the same Resource), so the trailing-dispose loop must not
+        // touch them. A front-edge off-by-one in that loop would dispose a survivor the re-measure then reuses.
+        List<Geometry.Resource> survivors = longGeometries.Take(shortCount).ToList();
+        Assert.That(survivors.All(r => !r.IsDisposed), Is.True, "Survivors must be live before the shrink.");
+
+        // Shrink -> re-measure disposes + truncates [shortCount, longCount).
+        ft.Text = "AB";
+        _ = ft.Bounds;
+
+        IReadOnlyList<Geometry.Resource> shrunk = ft.ToGeometies();
+        Assert.That(shrunk.Count, Is.EqualTo(shortCount), "Re-measure should have shrunk the live _pathList.");
+        for (int i = 0; i < shortCount; i++)
+        {
+            Assert.That(ReferenceEquals(shrunk[i], survivors[i]), Is.True,
+                "Surviving entries must be reused in place, not recreated.");
+            Assert.That(survivors[i].IsDisposed, Is.False,
+                "Surviving path-list resource must stay live across a shrink (guards a front-edge off-by-one).");
+        }
+
+        // Grow back to the original length. CollectionsMarshal.SetCount cleared the truncated reference-type
+        // slots on the shrink, so MeasureCore must build fresh resources there rather than resurrect a disposed
+        // one. If a disposed Resource were reused, GetRenderBounds would throw ObjectDisposedException.
+        ft.Text = "ABCDE";
+        Assert.DoesNotThrow(() => _ = ft.Bounds, "Re-measure after grow-back must not touch a disposed resource.");
+
+        IReadOnlyList<Geometry.Resource> regrown = ft.ToGeometies();
+        Assert.That(regrown.Count, Is.EqualTo(longCount), "Re-measure should have regrown the live _pathList.");
+        foreach (Geometry.Resource r in regrown)
+        {
+            Assert.That(r.IsDisposed, Is.False, "Regrown entry must be live (no disposed resource resurrected).");
+            Assert.DoesNotThrow(() => _ = r.GetRenderBounds(null),
+                "Regrown entry must be renderable; a resurrected disposed resource would throw here.");
+        }
+
+        ft.Dispose();
+    }
+
+    [Test]
     public void LineEnumerable_Dispose_DisposesContainedFormattedTexts()
     {
         TextElements elements = new(
