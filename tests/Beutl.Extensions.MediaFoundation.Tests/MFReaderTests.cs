@@ -43,6 +43,27 @@ public class MFReaderTests
         Assert.That(decoder.DisposeCount, Is.EqualTo(1));
     }
 
+    [Test]
+    public void Constructor_WhenVideoStreamSucceeds_DoesNotDisposeVideoDecoder()
+    {
+        var decoder = new FakeVideoDecoder();
+
+        // MediaMode.Video skips the audio branch, so the throwing audio factory is never invoked.
+        using var reader = new MFReader(
+            "sample.mp4",
+            new MediaOptions(MediaMode.Video),
+            new MFDecodingExtension(),
+            (_, _, _) => decoder,
+            static (_, _) => throw new NotSupportedException());
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(reader.HasVideo, Is.True);
+            Assert.That(reader.HasAudio, Is.False);
+            Assert.That(decoder.DisposeCount, Is.EqualTo(0));
+        });
+    }
+
     private sealed class FakeVideoDecoder : IMediaFoundationVideoDecoder
     {
         public Exception? GetMediaInfoException { get; init; }

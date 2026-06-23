@@ -2,12 +2,15 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.InteropServices;
 
+using Beutl.Logging;
 using Beutl.Media;
 using Beutl.Media.Decoding;
 using Beutl.Media.Music;
 using Beutl.Media.Music.Samples;
 using Beutl.Media.Pixel;
 using Beutl.Media.Source;
+
+using Microsoft.Extensions.Logging;
 
 using NAudio.Wave;
 
@@ -21,6 +24,7 @@ namespace Beutl.Extensions.MediaFoundation.Decoding;
 
 public class MFReader : MediaReader
 {
+    private readonly ILogger _logger = Log.CreateLogger<MFReader>();
     private readonly string _file;
     private readonly MediaOptions _options;
 
@@ -89,6 +93,9 @@ public class MFReader : MediaReader
         }
         catch
         {
+            // Best-effort cleanup of any partially-initialized resources. Dispose() is
+            // non-throwing (see Dispose(bool)), so this cannot replace the original
+            // initialization exception that we rethrow below.
             Dispose();
             throw;
         }
@@ -226,7 +233,26 @@ public class MFReader : MediaReader
     protected override void Dispose(bool disposing)
     {
         base.Dispose(disposing);
-        _decoder?.Dispose();
-        _audioReader?.Dispose();
+
+        // Release each resource independently and never throw: a failure disposing one
+        // must not leak the other, and this also runs from the constructor's
+        // init-failure path where it must not mask the original exception.
+        try
+        {
+            _decoder?.Dispose();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to dispose the Media Foundation video decoder.");
+        }
+
+        try
+        {
+            _audioReader?.Dispose();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to dispose the Media Foundation audio reader.");
+        }
     }
 }
