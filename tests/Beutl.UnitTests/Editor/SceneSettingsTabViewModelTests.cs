@@ -77,6 +77,61 @@ public class SceneSettingsTabViewModelTests
         });
     }
 
+    [TestCase(0, 600, "00:00:03", "00:00:12", TestName = "Apply_DoesNotCommit_WhenWidthBecomesZeroWhilePausing")]
+    [TestCase(800, 0, "00:00:03", "00:00:12", TestName = "Apply_DoesNotCommit_WhenHeightBecomesZeroWhilePausing")]
+    [TestCase(800, 600, "-00:00:01", "00:00:12", TestName = "Apply_DoesNotCommit_WhenStartBecomesNegativeWhilePausing")]
+    [TestCase(800, 600, "00:00:03", "00:00:00", TestName = "Apply_DoesNotCommit_WhenDurationBecomesZeroWhilePausing")]
+    public async Task Apply_WhenInputsBecomeInvalidWhilePausing_DoesNotCommit(
+        int width, int height, string start, string duration)
+    {
+        var scene = new Scene(640, 480, string.Empty)
+        {
+            Start = TimeSpan.FromSeconds(1),
+            Duration = TimeSpan.FromSeconds(5),
+        };
+        var sceneSettingsService = new CaptureSceneSettingsService();
+        var timelineOptionsProvider = new TestTimelineOptionsProvider(scene);
+        var previewPlayer = new BlockingPreviewPlayer();
+        var editorContext = new TestEditorContext(scene);
+        editorContext.AddService(scene);
+        editorContext.AddService<ISceneSettingsService>(sceneSettingsService);
+        editorContext.AddService<ITimelineOptionsProvider>(timelineOptionsProvider);
+        editorContext.AddService<IPreviewPlayer>(previewPlayer);
+
+        using var viewModel = new SceneSettingsTabViewModel(editorContext)
+        {
+            Width =
+            {
+                Value = 800
+            },
+            Height =
+            {
+                Value = 600
+            },
+            StartInput =
+            {
+                Value = TimeSpan.FromSeconds(2).ToString()
+            },
+            DurationInput =
+            {
+                Value = TimeSpan.FromSeconds(10).ToString()
+            },
+        };
+
+        Task applyTask = viewModel.Apply.ExecuteAsync();
+        await previewPlayer.PauseStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+
+        viewModel.Width.Value = width;
+        viewModel.Height.Value = height;
+        viewModel.StartInput.Value = start;
+        viewModel.DurationInput.Value = duration;
+
+        previewPlayer.CompletePause();
+        await applyTask.WaitAsync(TimeSpan.FromSeconds(5));
+
+        Assert.That(sceneSettingsService.CallCount, Is.EqualTo(0));
+    }
+
     private sealed class TestEditorContext(CoreObject obj) : IEditorContext
     {
         private readonly Dictionary<Type, object> _services = [];

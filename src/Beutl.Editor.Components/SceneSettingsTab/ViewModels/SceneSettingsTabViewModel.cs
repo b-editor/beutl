@@ -180,7 +180,10 @@ public sealed class SceneSettingsTabViewModel : IToolContext
         frameSize = new Media.PixelSize(Width.Value, Height.Value);
         bool hasStart = TimeSpan.TryParse(StartInput.Value, out start);
         bool hasDuration = TimeSpan.TryParse(DurationInput.Value, out duration);
-        return hasStart && hasDuration;
+        return Width.Value > 0
+            && Height.Value > 0
+            && hasStart && start >= TimeSpan.Zero
+            && hasDuration && duration > TimeSpan.Zero;
     }
 
     public void Dispose()
