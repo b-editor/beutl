@@ -33,6 +33,25 @@ public abstract class RenderNodeOperation : IDisposable
     {
     }
 
+    /// <summary>
+    /// Disposes every operation in <paramref name="ops"/>, swallowing an individual <see cref="Dispose"/>
+    /// fault so one throwing op cannot abort the sweep. Used to release the ops a loop never reached after a throw.
+    /// </summary>
+    internal static void DisposeAll(ReadOnlySpan<RenderNodeOperation> ops)
+    {
+        foreach (var op in ops)
+        {
+            try
+            {
+                op.Dispose();
+            }
+            catch
+            {
+                // Best-effort: a faulting Dispose must not stop the remaining ops from being released.
+            }
+        }
+    }
+
     public static RenderNodeOperation CreateDecorator(
         RenderNodeOperation child, Action<ImmediateCanvas> render,
         Func<Point, bool>? hitTest = null,

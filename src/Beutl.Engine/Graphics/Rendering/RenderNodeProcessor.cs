@@ -20,10 +20,20 @@ public class RenderNodeProcessor(
     public void Render(ImmediateCanvas canvas)
     {
         var ops = PullToRoot();
-        foreach (var op in ops)
+        int consumed = 0;
+        try
         {
-            op.Render(canvas);
-            op.Dispose();
+            foreach (var op in ops)
+            {
+                op.Render(canvas);
+                consumed++;
+                op.Dispose();
+            }
+        }
+        catch
+        {
+            RenderNodeOperation.DisposeAll(ops.AsSpan(consumed));
+            throw;
         }
     }
 
@@ -47,8 +57,8 @@ public class RenderNodeProcessor(
             throw new Exception("RenderTarget is null");
         }
 
-        // Set before op.Dispose() so a throwing OnDispose (which leaves IsDisposed false) is not
-        // re-disposed by the catch — mirrors the consumed++ guard in Rasterize/RasterizeAndConcat.
+        // Set before op.Dispose() so the catch does not re-dispose an op whose throwing
+        // OnDispose left IsDisposed false.
         bool opDisposeStarted = false;
         try
         {
@@ -102,7 +112,7 @@ public class RenderNodeProcessor(
         catch
         {
             // Clean up remaining ops (RasterizeAt already disposed the faulting one).
-            DisposeRemainingOperations(ops, consumed);
+            RenderNodeOperation.DisposeAll(ops.AsSpan(consumed));
             DisposeRenderTargets(list);
             throw;
         }
@@ -129,7 +139,7 @@ public class RenderNodeProcessor(
         }
         catch
         {
-            DisposeRemainingOperations(ops, consumed);
+            RenderNodeOperation.DisposeAll(ops.AsSpan(consumed));
             DisposeBitmaps(list);
             throw;
         }
@@ -161,19 +171,11 @@ public class RenderNodeProcessor(
         }
         catch
         {
-            DisposeRemainingOperations(ops, consumed);
+            RenderNodeOperation.DisposeAll(ops.AsSpan(consumed));
             throw;
         }
 
         return renderTarget.Snapshot();
-    }
-
-    private static void DisposeRemainingOperations(RenderNodeOperation[] ops, int start)
-    {
-        for (int j = start; j < ops.Length; j++)
-        {
-            DisposeBestEffort(ops[j]);
-        }
     }
 
     private static void DisposeRenderTargets(List<(RenderTarget RenderTarget, Rect Bounds)> targets)
