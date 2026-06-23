@@ -77,6 +77,12 @@ public class ClipNode : AudioNode
     // slice ended on the terminal window — so the cached effect chain sees a contiguous stream.
     private void AppendFlushedTail(AudioProcessContext context, AudioBuffer newBuffer, int writeOffset)
     {
+        // Known limitation: when the compose window ends exactly at the clip boundary the window is
+        // already full (capacity == 0) and the tail has nowhere to go; the next window legitimately
+        // excludes the clip (TimeRange.Intersects is half-open), so a few ms of tail is lost on that
+        // alignment. The only fixes — range-expanding the Composer or emitting an oversized terminal
+        // buffer — are out of scope (the former spuriously resets the limiter; the latter breaks the
+        // output-length contract). Tracked as a follow-up.
         int capacity = newBuffer.SampleCount - writeOffset;
         if (capacity <= 0)
             return;

@@ -25,8 +25,13 @@ public sealed class DelayNode : AudioNode
         if (Inputs.Count != 1)
             throw new InvalidOperationException("Delay node requires exactly one input.");
 
+        return ProcessTail(Inputs[0].Process(context), context);
+    }
+
+    protected override AudioBuffer ProcessTail(AudioBuffer input, AudioProcessContext context)
+    {
         // Every path emits a fresh buffer (no pass-through), so dispose the consumed input.
-        using var input = Inputs[0].Process(context);
+        using var owned = input;
 
         // Reinitialize on a sample-rate or channel-count change; otherwise a channel-count increase
         // would leave the extra channels unprocessed (silent).

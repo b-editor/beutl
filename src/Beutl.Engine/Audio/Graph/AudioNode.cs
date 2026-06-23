@@ -31,22 +31,59 @@ public abstract class AudioNode : IDisposable
     public abstract AudioBuffer Process(AudioProcessContext context);
 
     /// <summary>
+    /// Applies this node's own processing to an already-produced <paramref name="input"/> buffer
+    /// instead of pulling <see cref="Inputs"/>[0] itself. <see cref="Process"/> feeds it real upstream
+    /// audio; <see cref="Flush"/> feeds it the drained tail, so a transforming node processes the tail
+    /// the same way it processes the body. The default is pass-through (returns <paramref name="input"/>
+    /// unchanged), keeping the zero-processing path byte-identical. A node that returns a fresh buffer
+    /// takes ownership of <paramref name="input"/> and disposes it, exactly as its Process already does.
+    /// </summary>
+    protected virtual AudioBuffer ProcessTail(AudioBuffer input, AudioProcessContext context) => input;
+
+    /// <summary>Channel layout this node's last <see cref="Process"/> emitted; the silent-flush
+    /// fallback matches it so a flush never changes the channel count a downstream node just saw.</summary>
+    protected int LastProcessedChannelCount { get; private set; } = 2;
+
+    /// <summary>Records the channel count a <see cref="Process"/> override is about to emit, so
+    /// <see cref="CreateSilentFlush"/> can mirror it. Leaf/source nodes call this from Process.</summary>
+    protected void RecordProcessedChannelCount(int channelCount) => LastProcessedChannelCount = channelCount;
+
+    /// <summary>The silence a node with no live source emits when flushed; sized to the last processed
+    /// channel layout. Override for a node whose flush silence needs a different shape.</summary>
+    protected virtual AudioBuffer CreateSilentFlush(AudioProcessContext context)
+        => new(context.SampleRate, LastProcessedChannelCount, context.GetSampleCount());
+
+    /// <summary>
     /// Drains the latency this node and its <see cref="Inputs"/> still hold, as the
     /// <paramref name="context"/>-sized block that follows the clip's last <see cref="Process"/> output.
     /// The real source is treated as exhausted — a node with no inputs returns silence — so the only
     /// non-silent content is what delay lines / lookahead buffers release; that is why a trimmed clip
     /// cannot bleed real audio here. Callers must invoke it immediately after the terminal
     /// <see cref="Process"/> with a context that abuts it, so the cached node sees no discontinuity.
-    /// The default passes a single input's drain through unchanged; latency-bearing nodes override.
+    /// A single-input node runs its upstream's drain through its own <see cref="ProcessTail"/>, so
+    /// downstream effects still shape the tail; a fan-in node must override to drain and merge branches.
     /// </summary>
     public virtual AudioBuffer Flush(AudioProcessContext context)
     {
         ArgumentNullException.ThrowIfNull(context);
 
-        if (_inputs.Count == 1)
-            return _inputs[0].Flush(context);
+        if (_inputs.Count == 0)
+            return CreateSilentFlush(context);
 
-        return new AudioBuffer(context.SampleRate, 2, context.GetSampleCount());
+        if (_inputs.Count == 1)
+        {
+            AudioBuffer drained = _inputs[0].Flush(context);
+            AudioBuffer result = ProcessTail(drained, context);
+            // Pass-through ProcessTail hands back the same instance, which we must not dispose since we
+            // return it; a transforming ProcessTail already consumed `drained` and returns a fresh one.
+            if (!ReferenceEquals(result, drained))
+                drained.Dispose();
+
+            return result;
+        }
+
+        throw new InvalidOperationException(
+            $"{GetType().Name} has {_inputs.Count} inputs; override Flush to drain and merge them.");
     }
 
     /// <summary>

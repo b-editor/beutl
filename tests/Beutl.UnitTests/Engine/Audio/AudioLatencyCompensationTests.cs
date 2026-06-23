@@ -1,4 +1,5 @@
 ﻿using Beutl.Animation;
+using Beutl.Animation.Easings;
 using Beutl.Audio;
 using Beutl.Audio.Effects;
 using Beutl.Audio.Graph;
@@ -204,6 +205,108 @@ public class AudioLatencyCompensationTests
         {
             Assert.That(a[i], Is.EqualTo(b[i]).Within(1e-6f), $"L==0 drain must not perturb sample {i}.");
         }
+    }
+
+    [Test]
+    public void Flush_AppliesDownstreamProcessing_ToTheTail()
+    {
+        const float lookaheadMs = 5f;
+        const int sampleCount = 2048;
+        int L = LookaheadSamples(lookaheadMs);
+
+        // leaf -> Limiter(delay) -> Gain(0.5). The recovered tail must be scaled by the downstream
+        // gain, not handed back raw — the regression guard for the bypassing default Flush.
+        using var input = CreateBuffer(2, sampleCount, (_, i) => 0.25f * MathF.Sin(2f * MathF.PI * 330f * i / SampleRate));
+        using var limiter = CreateTransparentLimiter(lookaheadMs);
+        limiter.AddInput(new BufferReplayNode(input));
+        using var gain = new GainNode { Gain = Property.CreateAnimatable(50f) }; // 50% = 0.5x
+        gain.AddInput(limiter);
+
+        using var processed = gain.Process(Context(TimeSpan.Zero, sampleCount));
+        using var tail = gain.Flush(Context(TimeSpan.FromSeconds((double)sampleCount / SampleRate), sampleCount));
+
+        var inData = input.GetChannelData(0);
+        var tailData = tail.GetChannelData(0);
+        for (int k = 0; k < L; k++)
+        {
+            // Tail carries input[sampleCount-L+k] (limiter delay) scaled by 0.5 (downstream gain).
+            Assert.That(tailData[k], Is.EqualTo(inData[sampleCount - L + k] * 0.5f).Within(1e-5f),
+                $"Flushed tail sample {k} must have the downstream gain applied.");
+        }
+    }
+
+    [Test]
+    public void MixerNode_Flush_MergesBranchTails()
+    {
+        const float lookaheadMs = 5f;
+        const int sampleCount = 1024;
+        int L = LookaheadSamples(lookaheadMs);
+
+        // Branch A holds a limiter tail; branch B is silent. The mixer flush must surface A's tail.
+        using var inputA = CreateBuffer(2, sampleCount, (_, i) => 0.25f * MathF.Sin(2f * MathF.PI * 440f * i / SampleRate));
+        using var limiterA = CreateTransparentLimiter(lookaheadMs);
+        limiterA.AddInput(new BufferReplayNode(inputA));
+        using var silentB = new GainNode { Gain = Property.CreateAnimatable(100f) };
+        using var bufferB = CreateConstantBuffer(0f, sampleCount);
+        silentB.AddInput(new BufferReplayNode(bufferB));
+
+        using var mixer = new MixerNode();
+        mixer.AddInput(limiterA);
+        mixer.AddInput(silentB);
+
+        using var processed = mixer.Process(Context(TimeSpan.Zero, sampleCount));
+        using var tail = mixer.Flush(Context(TimeSpan.FromSeconds((double)sampleCount / SampleRate), sampleCount));
+
+        var tailData = tail.GetChannelData(0);
+        bool anyNonZero = false;
+        for (int k = 0; k < L; k++)
+        {
+            if (MathF.Abs(tailData[k]) > 1e-6f) { anyNonZero = true; break; }
+        }
+
+        Assert.That(anyNonZero, Is.True, "The mixer flush merged branch A's drained tail instead of returning silence.");
+    }
+
+    [Test]
+    public void Flush_FanInWithoutOverride_Throws()
+    {
+        // A bare multi-input node has no merge semantics; the base Flush must fail loudly, not drop tails.
+        using var node = new GainNode { Gain = Property.CreateAnimatable(100f) };
+        using var a = CreateConstantBuffer(0.1f, 16);
+        using var b = CreateConstantBuffer(0.1f, 16);
+        node.AddInput(new BufferReplayNode(a));
+        node.AddInput(new BufferReplayNode(b));
+
+        Assert.Throws<InvalidOperationException>(() => node.Flush(Context(TimeSpan.Zero, 16)));
+    }
+
+    [Test]
+    public void LimiterNode_AnimatedLookahead_ReportsWorstCaseLatency()
+    {
+        // Base 0 ms but automation rising to 20 ms must reserve the full worst-case drain, or the tail
+        // is dropped. A static 0 ms (no animation) still reports 0.
+        var animation = new KeyFrameAnimation<float>
+        {
+            KeyFrames =
+            {
+                new KeyFrame<float> { KeyTime = TimeSpan.Zero, Value = 0f, Easing = new LinearEasing() },
+                new KeyFrame<float> { KeyTime = TimeSpan.FromSeconds(1), Value = 20f, Easing = new LinearEasing() },
+            },
+        };
+        var lookahead = Property.CreateAnimatable(0f);
+        lookahead.Animation = animation;
+
+        using var node = new LimiterNode
+        {
+            Threshold = Property.CreateAnimatable(LimiterParameters.MaxThresholdDb),
+            Release = Property.CreateAnimatable(LimiterParameters.DefaultReleaseMs),
+            Lookahead = lookahead,
+            MakeupGain = Property.CreateAnimatable(0f),
+        };
+
+        Assert.That(node.GetLatencySamples(SampleRate),
+            Is.EqualTo(LookaheadSamples(LimiterParameters.MaxLookaheadMs)),
+            "Animated lookahead must report the worst case so the drain reserves enough room.");
     }
 
     // Source that honors the requested clip-local range: sample value keyed to the absolute clip-local

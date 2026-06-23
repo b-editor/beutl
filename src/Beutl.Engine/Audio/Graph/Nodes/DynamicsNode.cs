@@ -50,7 +50,11 @@ public abstract class DynamicsNode : AudioNode
             throw new InvalidOperationException(
                 $"{DiagnosticName} node requires exactly one input but got {Inputs.Count}.");
 
-        AudioBuffer input = Inputs[0].Process(context);
+        return ProcessTail(Inputs[0].Process(context), context);
+    }
+
+    protected override AudioBuffer ProcessTail(AudioBuffer input, AudioProcessContext context)
+    {
         bool ownsInput = true;
         try
         {
