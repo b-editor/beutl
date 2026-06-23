@@ -307,6 +307,12 @@ public class AudioLatencyCompensationTests
         Assert.That(node.GetLatencySamples(SampleRate),
             Is.EqualTo(LookaheadSamples(LimiterParameters.MaxLookaheadMs)),
             "Animated lookahead must report the worst case so the drain reserves enough room.");
+
+        // The effect-level API a host queries before graph construction must agree with the node.
+        var effect = new LimiterEffect();
+        effect.Lookahead.Animation = animation;
+        Assert.That(effect.GetLatencySamples(SampleRate),
+            Is.EqualTo(LookaheadSamples(LimiterParameters.MaxLookaheadMs)));
     }
 
     // Source that honors the requested clip-local range: sample value keyed to the absolute clip-local
