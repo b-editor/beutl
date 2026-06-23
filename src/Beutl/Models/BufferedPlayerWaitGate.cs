@@ -5,7 +5,7 @@ namespace Beutl.Models;
 internal sealed class BufferedPlayerWaitGate
 {
     private readonly Func<bool> _shouldStop;
-    private volatile CancellationTokenSource? _token;
+    private CancellationTokenSource? _token;
 
     public BufferedPlayerWaitGate(Func<bool> shouldStop)
     {
@@ -14,12 +14,12 @@ internal sealed class BufferedPlayerWaitGate
 
     public void Cancel()
     {
-        _token.CancelIgnoringDisposed();
+        Volatile.Read(ref _token).CancelIgnoringDisposed();
     }
 
     public bool Publish(CancellationTokenSource cts)
     {
-        _token = cts;
+        Volatile.Write(ref _token, cts);
 
         // Re-check stop state after publishing the token. A stopping thread may have observed the old token slot
         // before this publish; the fence ensures this waiter either sees the stop flag or the stopper sees this token.
@@ -35,9 +35,7 @@ internal sealed class BufferedPlayerWaitGate
 
     public void Clear(CancellationTokenSource cts)
     {
-        if (ReferenceEquals(_token, cts))
-        {
-            _token = null;
-        }
+        // A plain check-then-clear could wipe a concurrently-published newer token and lose its wakeup.
+        Interlocked.CompareExchange(ref _token, null, cts);
     }
 }
