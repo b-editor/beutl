@@ -57,8 +57,8 @@ public class RenderNodeProcessor(
             return null;
         }
 
-        // Set before op.Dispose() so the catch does not re-dispose an op whose throwing
-        // OnDispose left IsDisposed false.
+        // A throwing OnDispose leaves the op's IsDisposed false, so the catch keys off this flag
+        // (not IsDisposed) to avoid re-disposing — and re-running OnDispose on — an op already torn down.
         RenderTarget? renderTarget = null;
         bool opDisposeStarted = false;
         try

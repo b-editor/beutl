@@ -43,7 +43,7 @@ public class RenderTarget : IDisposable
 
     public int Height { get; }
 
-    public bool IsDisposed { get; private set; }
+    public bool IsDisposed { get; protected set; }
 
     internal ITexture2D? Texture => _texture?.Value;
 
@@ -180,9 +180,10 @@ public class RenderTarget : IDisposable
 
     /// <summary>
     /// Releases the backing surface and texture. Subclasses (custom allocations / test doubles)
-    /// override this to customize disposal semantics. When <paramref name="disposing"/> is
-    /// <see langword="false"/> (finalizer-driven), overrides must not throw and must not touch
-    /// finalized managed state.
+    /// override this to customize disposal semantics; an override must call
+    /// <see langword="base"/>.<see cref="Dispose(bool)"/>, or the object stays finalizable and the
+    /// finalizer re-enters the override. When <paramref name="disposing"/> is <see langword="false"/>
+    /// (finalizer-driven), overrides must not throw and must not touch finalized managed state.
     /// </summary>
     protected virtual void Dispose(bool disposing)
     {
