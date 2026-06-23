@@ -11,20 +11,20 @@ namespace Beutl.Extensions.MediaFoundation.Tests;
 public class MFReaderTests
 {
     [Test]
-    public void Constructor_WhenAudioFailsButVideoSucceeds_FallsBackToVideoOnly()
+    public void Constructor_WhenNoAudioStreamAndVideoSucceeds_FallsBackToVideoOnly()
     {
         var decoder = new FakeVideoDecoder();
 
         // A video-only file opened in the default AudioVideo mode: the video stream
-        // decodes fine, but NAudio's MediaFoundationReader throws because there is no
-        // audio stream. The reader must fall back to video-only instead of failing the
-        // whole open (which previously bubbled up to MFDecoderInfo.Open returning null).
+        // decodes fine, but there is no audio stream. The reader must fall back to
+        // video-only instead of failing the whole open.
         var reader = new MFReader(
             "sample.mp4",
             new MediaOptions(MediaMode.AudioVideo),
             new MFDecodingExtension(),
             (_, _, _) => decoder,
-            static (_, _) => throw new InvalidOperationException("no audio stream"));
+            static (_, _) => throw new NotSupportedException("audio factory must not be called without an audio stream"),
+            hasAudioStream: static _ => false);
 
         Assert.Multiple(() =>
         {
@@ -36,6 +36,25 @@ public class MFReaderTests
         // The live reader still owns the video decoder; it is disposed only when the
         // reader is, not eagerly on the tolerated audio failure.
         reader.Dispose();
+        Assert.That(decoder.DisposeCount, Is.EqualTo(1));
+    }
+
+    [Test]
+    public void Constructor_WhenAudioStreamExistsAndAudioFactoryThrows_Propagates()
+    {
+        var decoder = new FakeVideoDecoder();
+
+        // If the file advertises an audio stream, losing audio silently is worse than
+        // failing this decoder. Propagate so MFDecoderInfo.Open returns null and the
+        // registry can try the next decoder, such as FFmpeg.
+        Assert.Throws<InvalidOperationException>(() => new MFReader(
+            "sample.mp4",
+            new MediaOptions(MediaMode.AudioVideo),
+            new MFDecodingExtension(),
+            (_, _, _) => decoder,
+            static (_, _) => throw new InvalidOperationException("audio initialization failed"),
+            hasAudioStream: static _ => true));
+
         Assert.That(decoder.DisposeCount, Is.EqualTo(1));
     }
 

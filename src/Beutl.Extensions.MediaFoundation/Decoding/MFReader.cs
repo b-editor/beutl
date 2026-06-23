@@ -46,10 +46,12 @@ public class MFReader : MediaReader
         MediaOptions options,
         MFDecodingExtension extension,
         Func<string, MediaOptions, MFDecodingExtension, IMediaFoundationVideoDecoder> createVideoDecoder,
-        Func<string, MediaFoundationReaderSettings, MediaFoundationReader> createAudioReader)
+        Func<string, MediaFoundationReaderSettings, MediaFoundationReader> createAudioReader,
+        Func<string, bool>? hasAudioStream = null)
     {
         ArgumentNullException.ThrowIfNull(createVideoDecoder);
         ArgumentNullException.ThrowIfNull(createAudioReader);
+        hasAudioStream ??= MFStreamProbe.HasAudioStream;
 
         _file = file;
         _options = options;
@@ -78,7 +80,15 @@ public class MFReader : MediaReader
 
             if (options.StreamsToLoad.HasFlag(MediaMode.Audio))
             {
-                try
+                if (HasVideo && !hasAudioStream(_file))
+                {
+                    // The file has a usable video stream but no audio stream. Keep the reader
+                    // open as video-only for the default AudioVideo mode. If an audio stream
+                    // exists and NAudio still fails below, let the exception propagate so other
+                    // decoders (e.g. FFmpeg) can retry with audio.
+                    _logger.LogInformation("File contains no audio stream; continuing video-only.");
+                }
+                else
                 {
                     _audioReader = createAudioReader(_file, new MediaFoundationReaderSettings
                     {
@@ -94,28 +104,6 @@ public class MFReader : MediaReader
                         SampleRate: _waveFormat.SampleRate,
                         NumChannels: _waveFormat.Channels);
                     HasAudio = true;
-                }
-                catch (Exception ex) when (HasVideo)
-                {
-                    // The file has a usable video stream but no decodable audio (e.g. a
-                    // video-only container opened in the default AudioVideo mode, where
-                    // NAudio's MediaFoundationReader throws). Fall back to video-only
-                    // instead of failing the whole open. Audio-only failures (HasVideo
-                    // == false) are not caught here, so other decoders can retry.
-                    _logger.LogWarning(ex, "Failed to open the audio stream; continuing video-only.");
-                    try
-                    {
-                        _audioReader?.Dispose();
-                    }
-                    catch (Exception disposeEx)
-                    {
-                        _logger.LogWarning(disposeEx, "Failed to dispose the partially-initialized audio reader.");
-                    }
-
-                    _audioReader = null;
-                    _waveFormat = null;
-                    _provider = null;
-                    _audioInfo = null;
                 }
             }
         }
