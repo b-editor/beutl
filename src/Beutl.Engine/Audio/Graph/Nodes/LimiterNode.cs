@@ -68,6 +68,31 @@ public sealed class LimiterNode : AudioNode
         using var input = Inputs[0].Process(context)
             ?? throw new InvalidOperationException("LimiterNode: upstream Process returned null.");
 
+        return ProcessInput(input, context);
+    }
+
+    /// <summary>
+    /// Drains the lookahead delay line by feeding the upstream flush block (silence past the clip end)
+    /// through the same path <see cref="Process"/> uses, so the tail samples still held in the delay
+    /// line are emitted. Reuses the cached state contiguously, so it must run right after the terminal
+    /// chunk and never resets.
+    /// </summary>
+    public override AudioBuffer Flush(AudioProcessContext context)
+    {
+        ArgumentNullException.ThrowIfNull(context);
+
+        if (Inputs.Count != 1)
+            throw new InvalidOperationException(
+                $"LimiterNode requires exactly one input but has {Inputs.Count}.");
+
+        using var input = Inputs[0].Flush(context)
+            ?? throw new InvalidOperationException("LimiterNode: upstream Flush returned null.");
+
+        return ProcessInput(input, context);
+    }
+
+    private AudioBuffer ProcessInput(AudioBuffer input, AudioProcessContext context)
+    {
         if (input.SampleRate != context.SampleRate)
             throw new InvalidOperationException(
                 $"LimiterNode: sample rate mismatch. context={context.SampleRate}, input={input.SampleRate}.");
