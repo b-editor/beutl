@@ -194,15 +194,14 @@ public class IpcProviderContractTests
         }
     }
 
-    [Test]
-    public async Task RenderFrame_WhenWorkerReportsMismatchedDataLength_Throws()
+    [TestCase(FrameDataLength * 2)]
+    [TestCase(FrameDataLength / 2)]
+    public async Task RenderFrame_WhenWorkerReportsMismatchedDataLength_Throws(int dataLength)
     {
-        // A DataLength larger than the 1x1 RgbaF16 bitmap (8 bytes) would overrun the destination if
-        // copied. The provider must reject it instead of reading past the allocated bitmap.
         var (server, client) = ConnectPair();
         var buffers = CreateBuffers();
         var hostCts = new CancellationTokenSource();
-        var hostTask = RunBadDataLengthHost(server, dataLength: FrameDataLength * 2, hostCts.Token);
+        var hostTask = RunBadDataLengthHost(server, dataLength, hostCts.Token);
 
         using var conn = new IpcConnection(client);
         // frameCount 1 makes frame 0 the last frame, so no prefetch is armed and nothing dangles.
@@ -212,7 +211,7 @@ public class IpcProviderContractTests
         {
             Assert.That(async () => await provider.RenderFrame(0),
                 Throws.TypeOf<InvalidOperationException>(),
-                "a DataLength that exceeds the bitmap allocation must be rejected, not read past the buffer");
+                "a DataLength that does not match the bitmap allocation must be rejected, not copied");
         }
         finally
         {
