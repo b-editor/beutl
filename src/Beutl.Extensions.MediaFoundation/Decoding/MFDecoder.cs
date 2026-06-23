@@ -427,7 +427,10 @@ internal sealed class MFDecoder : IDisposable
             _mediaInfo.ImageFormat = bih;
             _mediaInfo.TotalFrameCount =
                 TimestampUtilities.ConvertFrameFromTimeStamp(_mediaInfo.HnsDuration, _mediaInfo.Fps);
-            _mediaInfo.OutImageBufferSize = bih.Width * bih.Height * (bih.BitCount / 8);
+            _mediaInfo.OutImageBufferSize = MFFrameBufferSize.Calculate(
+                bih.Width,
+                bih.Height,
+                bih.BitCount / 8);
             _mediaInfo.VideoFormatName = VideoFormatName.GetName(subType) ?? subType.ToString();
         }
 
