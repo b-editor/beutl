@@ -101,8 +101,8 @@ internal sealed class PixelFormatEditorViewModel : IPropertyEditorContext
             return;
         }
 
-        QueryParams query = CreateQueryParams(_settings);
-        string key = BuildCacheKey(query);
+        CodecQueryParams query = CodecOptionQuery.Create(_settings.Codec, _settings.OutputFile);
+        string key = CodecOptionQuery.BuildCacheKey(query);
         if (FFmpegOptionsCaches.PixelFormats.TryGetCached(key, out PixelFormatInfo[]? cached))
         {
             _refresh.Supersede();
@@ -114,7 +114,7 @@ internal sealed class PixelFormatEditorViewModel : IPropertyEditorContext
         _ = UpdateAsync(query, key, ct);
     }
 
-    private async Task UpdateAsync(QueryParams query, string key, CancellationToken ct)
+    private async Task UpdateAsync(CodecQueryParams query, string key, CancellationToken ct)
     {
         OptionsQueryResult<PixelFormatInfo> result;
         try
@@ -171,20 +171,15 @@ internal sealed class PixelFormatEditorViewModel : IPropertyEditorContext
             editor.Items = _currentItems;
         }
 
-        // Check whether the current value is present in the list.
-        var currentValue = _property.GetValue();
-        int index = Array.IndexOf(_currentFormats, currentValue);
-        _selectedIndex.Value = -1; // Reset once.
-        if (index < 0 && currentValue != FFPixelFormat.None)
+        FormatSelectionResult selection =
+            CodecFormatSelection.Resolve(_currentFormats, _property.GetValue(), FFPixelFormat.None);
+        _selectedIndex.Value = -1; // Force a transition so the binding re-fires even if the index is unchanged.
+        if (selection.ResetToSentinel)
         {
-            // Reset to Auto when an unsupported format is selected.
             _property.SetValue(FFPixelFormat.None);
-            _selectedIndex.Value = 0;
         }
-        else
-        {
-            _selectedIndex.Value = Math.Max(index, 0);
-        }
+
+        _selectedIndex.Value = selection.SelectedIndex;
     }
 
     private void ApplyFallback()
@@ -200,7 +195,7 @@ internal sealed class PixelFormatEditorViewModel : IPropertyEditorContext
         }
     }
 
-    private static async Task<OptionsQueryResult<PixelFormatInfo>> QueryPixelFormatsAsync(QueryParams query)
+    private static async Task<OptionsQueryResult<PixelFormatInfo>> QueryPixelFormatsAsync(CodecQueryParams query)
     {
         var connection = await FFmpegWorkerProcess.DecodingInstance.EnsureStartedAsync().ConfigureAwait(false);
         var response = await connection.RequestAsync<QueryPixelFormatsRequest, QueryPixelFormatsResponse>(
@@ -212,19 +207,6 @@ internal sealed class PixelFormatEditorViewModel : IPropertyEditorContext
             }).ConfigureAwait(false);
         return new OptionsQueryResult<PixelFormatInfo>(response.Formats, response.Degraded);
     }
-
-    // The cache key and the worker query both derive from this snapshot, so they cannot diverge if
-    // _settings mutates mid-flight.
-    private readonly record struct QueryParams(string? CodecName, string? OutputFile);
-
-    private static QueryParams CreateQueryParams(FFmpegVideoEncoderSettings settings)
-        => new(
-            settings.Codec.Equals(CodecRecord.Default) ? null : settings.Codec.Name,
-            settings.OutputFile);
-
-    private static string BuildCacheKey(QueryParams query)
-        // Use NUL as the delimiter since it cannot appear in a codec name or file path.
-        => $"{query.CodecName ?? "<default>"}\0{query.OutputFile}";
 
     private void OnValueConfirmed(object? sender, PropertyEditorValueChangedEventArgs e)
     {
