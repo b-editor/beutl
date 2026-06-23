@@ -14,6 +14,21 @@ public sealed class MixerNode : AudioNode
     }
 
     public override AudioBuffer Process(AudioProcessContext context)
+        => Mix(context, drain: false);
+
+    // Fan-in flush: drain every branch and mix the held tails with the same gain fold as Process, so a
+    // lookahead tail in any branch is recovered (the base Flush's single-input path cannot reach here).
+    public override AudioBuffer Flush(AudioProcessContext context)
+    {
+        ArgumentNullException.ThrowIfNull(context);
+
+        if (Inputs.Count == 0)
+            return CreateSilentFlush(context);
+
+        return Mix(context, drain: true);
+    }
+
+    private AudioBuffer Mix(AudioProcessContext context, bool drain)
     {
         if (Inputs.Count == 0)
             throw new InvalidOperationException("Mixer requires at least one input.");
@@ -24,7 +39,7 @@ public sealed class MixerNode : AudioNode
         {
             for (int i = 0; i < Inputs.Count; i++)
             {
-                buffers[i] = Inputs[i].Process(context);
+                buffers[i] = drain ? Inputs[i].Flush(context) : Inputs[i].Process(context);
             }
 
             // Validate all buffers have the same format

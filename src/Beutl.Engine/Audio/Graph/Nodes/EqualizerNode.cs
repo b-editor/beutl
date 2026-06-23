@@ -24,8 +24,11 @@ public sealed class EqualizerNode : AudioNode
         if (Inputs.Count != 1)
             throw new InvalidOperationException("Equalizer node requires exactly one input.");
 
-        var input = Inputs[0].Process(context);
+        return ProcessTail(Inputs[0].Process(context), context);
+    }
 
+    protected override AudioBuffer ProcessTail(AudioBuffer input, AudioProcessContext context)
+    {
         // Pass-through if no bands (caller owns it, don't dispose).
         if (Bands.Count == 0)
         {

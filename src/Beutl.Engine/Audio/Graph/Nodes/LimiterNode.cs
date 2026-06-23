@@ -68,30 +68,13 @@ public sealed class LimiterNode : AudioNode
         using var input = Inputs[0].Process(context)
             ?? throw new InvalidOperationException("LimiterNode: upstream Process returned null.");
 
-        return ProcessInput(input, context);
+        return ProcessTail(input, context);
     }
 
-    /// <summary>
-    /// Drains the lookahead delay line by feeding the upstream flush block (silence past the clip end)
-    /// through the same path <see cref="Process"/> uses, so the tail samples still held in the delay
-    /// line are emitted. Reuses the cached state contiguously, so it must run right after the terminal
-    /// chunk and never resets.
-    /// </summary>
-    public override AudioBuffer Flush(AudioProcessContext context)
-    {
-        ArgumentNullException.ThrowIfNull(context);
-
-        if (Inputs.Count != 1)
-            throw new InvalidOperationException(
-                $"LimiterNode requires exactly one input but has {Inputs.Count}.");
-
-        using var input = Inputs[0].Flush(context)
-            ?? throw new InvalidOperationException("LimiterNode: upstream Flush returned null.");
-
-        return ProcessInput(input, context);
-    }
-
-    private AudioBuffer ProcessInput(AudioBuffer input, AudioProcessContext context)
+    // Shared by Process (real upstream audio) and the base Flush (drained tail): the drained block
+    // runs through the same delay-line path, so the lookahead tail still held is emitted. The flush
+    // block abuts the terminal chunk, so the contiguity check below does not reset.
+    protected override AudioBuffer ProcessTail(AudioBuffer input, AudioProcessContext context)
     {
         if (input.SampleRate != context.SampleRate)
             throw new InvalidOperationException(
@@ -159,11 +142,14 @@ public sealed class LimiterNode : AudioNode
 
     /// <summary>
     /// Reports the lookahead delay this limiter applies, in samples at <paramref name="sampleRate"/>.
-    /// For an animated <see cref="Lookahead"/> the actual delay varies per sample; the reported value
-    /// reflects the property's current value only.
+    /// An animated <see cref="Lookahead"/> varies the delay per sample, so the report cannot track a
+    /// single value; it returns the worst case (the maximum lookahead) so a tail-drain reserves enough
+    /// room even when the automation peaks near the clip end.
     /// </summary>
     public override int GetLatencySamples(int sampleRate)
-        => LimiterParameters.ToLatencySamples(Lookahead.CurrentValue, sampleRate);
+        => Lookahead.Animation != null
+            ? LimiterParameters.ToLatencySamples(LimiterParameters.MaxLookaheadMs, sampleRate)
+            : LimiterParameters.ToLatencySamples(Lookahead.CurrentValue, sampleRate);
 
     private static bool IsTimestampContiguous(TimeSpan previousEnd, TimeSpan nextStart)
     {
