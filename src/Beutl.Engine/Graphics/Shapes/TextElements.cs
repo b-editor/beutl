@@ -28,6 +28,9 @@ public class TextElements : IReadOnlyList<TextElement>, IDisposable
 
     public bool IsDisposed { get; private set; }
 
+    /// <remarks>
+    /// Idempotent and one-shot; this instance and its <see cref="Lines"/> must not be used after disposal.
+    /// </remarks>
     public void Dispose()
     {
         if (IsDisposed) return;
@@ -57,6 +60,10 @@ public class TextElements : IReadOnlyList<TextElement>, IDisposable
 
         public bool IsDisposed { get; private set; }
 
+        /// <remarks>
+        /// Idempotent and one-shot; do not enumerate after disposal. <see cref="GetEnumerator"/> would
+        /// re-allocate <see cref="FormattedText"/> instances that a later <see cref="Dispose"/> will not release.
+        /// </remarks>
         public void Dispose()
         {
             if (IsDisposed) return;
@@ -82,6 +89,16 @@ public class TextElements : IReadOnlyList<TextElement>, IDisposable
 
             if (_formattedTexts?.Length != count)
             {
+                // The element count changed (TextElement is mutable): dispose the abandoned array's
+                // FormattedText handles before replacing it so they are released deterministically.
+                if (_formattedTexts is { } stale)
+                {
+                    foreach (FormattedText item in stale)
+                    {
+                        item.Dispose();
+                    }
+                }
+
                 _formattedTexts = new FormattedText[count];
                 foreach (ref FormattedText item in _formattedTexts.AsSpan())
                 {

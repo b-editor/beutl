@@ -4,10 +4,9 @@ using SkiaSharp;
 
 namespace Beutl.Media;
 
-internal sealed partial class SKPathGeometry : Geometry
+internal sealed partial class SKPathGeometry : Geometry, IDisposable
 {
     private SKPath? _path;
-    private bool _clone;
 
     public SKPathGeometry(SKPath path, bool clone)
     {
@@ -18,21 +17,27 @@ internal sealed partial class SKPathGeometry : Geometry
     {
     }
 
+    // Test hook: exposes the owned glyph path so deterministic disposal can be asserted.
+    internal SKPath? Path => _path;
+
+    // The geometry owns _path in both clone modes (clone: true copies and owns; clone: false takes
+    // ownership of the handed-off path), so it is always responsible for releasing it.
     public void SetSKPath(SKPath? path, bool clone)
     {
-        if (_clone && _path != null)
+        SKPath? newPath = path != null && clone ? new SKPath(path) : path;
+        if (!ReferenceEquals(_path, newPath))
         {
-            _path.Dispose();
-            _path = null;
+            _path?.Dispose();
         }
 
-        if (path != null)
-        {
-            _clone = clone;
-            _path = clone ? new SKPath(path) : path;
-        }
-
+        _path = newPath;
         RaiseEdited();
+    }
+
+    public void Dispose()
+    {
+        _path?.Dispose();
+        _path = null;
     }
 
     public override void ApplyTo(IGeometryContext context, Geometry.Resource resource)

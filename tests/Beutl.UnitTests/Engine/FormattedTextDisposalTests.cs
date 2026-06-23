@@ -15,7 +15,13 @@ public class FormattedTextDisposalTests
     [SetUp]
     public void Setup()
     {
-        Log.LoggerFactory = LoggerFactory.Create(b => b.AddSimpleConsole());
+        // Log.LoggerFactory is write-once (??=); skip allocating a factory we would only discard
+        // when another fixture already set one.
+        if (Log.LoggerFactory is null)
+        {
+            Log.LoggerFactory = LoggerFactory.Create(b => b.AddSimpleConsole());
+        }
+
         _ = TypefaceProvider.Typeface();
     }
 
@@ -100,6 +106,31 @@ public class FormattedTextDisposalTests
             {
                 Assert.That(g.IsDisposed, Is.True, "Path-list resource should be disposed.");
             }
+        }
+    }
+
+    [Test]
+    public void Dispose_DisposesOwnedGlyphPaths()
+    {
+        FormattedText ft = CreateText("AB");
+        IReadOnlyList<Geometry.Resource> geometries = ft.ToGeometies();
+
+        // The per-glyph SKPath lives on the SKPathGeometry the resource wraps, not in the resource's
+        // cached render path; capture those handles so we can assert they were released by Dispose.
+        List<SKPath> glyphPaths = geometries
+            .OfType<SKPathGeometry.Resource>()
+            .Select(r => r.GetOriginal().Path)
+            .Where(p => p is not null)
+            .Select(p => p!)
+            .ToList();
+        Assert.That(glyphPaths, Is.Not.Empty, "Split-glyph paths should be populated before disposal.");
+
+        ft.Dispose();
+
+        foreach (SKPath path in glyphPaths)
+        {
+            Assert.That(path.Handle, Is.EqualTo(IntPtr.Zero),
+                "Owned glyph SKPath should be deterministically disposed.");
         }
     }
 
