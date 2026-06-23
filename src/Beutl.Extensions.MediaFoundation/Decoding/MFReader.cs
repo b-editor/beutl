@@ -213,6 +213,12 @@ public class MFReader : MediaReader
         if (IsDisposed || _audioReader == null || _waveFormat == null || _provider == null)
             return false;
 
+        if (length <= 0)
+        {
+            sound = Ref<IPcm>.Create(new Pcm<Stereo32BitFloat>(_waveFormat.SampleRate, 0));
+            return true;
+        }
+
         _audioReader.CurrentTime = TimeSpan.FromSeconds(start / (double)_waveFormat.SampleRate);
 
         // ToStereo() gives 2 floats per frame, so the provider's element count maps to frames via /2.

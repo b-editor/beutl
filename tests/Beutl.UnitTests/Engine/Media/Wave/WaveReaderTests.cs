@@ -84,4 +84,16 @@ public class WaveReaderTests
         Assert.That(reader.ReadAudio(FrameCount * 2, 100, out Ref<IPcm>? sound), Is.False);
         Assert.That(sound, Is.Null);
     }
+
+    [Test]
+    public void ReadAudio_ZeroLength_ReturnsTrueWithEmptyPcm()
+    {
+        using var reader = new WaveReader(_file);
+
+        Assert.That(reader.ReadAudio(0, 0, out Ref<IPcm>? sound), Is.True);
+        using (sound)
+        {
+            Assert.That(sound!.Value.NumSamples, Is.Zero);
+        }
+    }
 }

@@ -43,6 +43,12 @@ public sealed class WaveReader : MediaReader
         if (IsDisposed)
             return false;
 
+        if (length <= 0)
+        {
+            sound = Ref<IPcm>.Create(new Pcm<Stereo32BitFloat>(_waveFormat.SampleRate, 0));
+            return true;
+        }
+
         _reader.CurrentTime = TimeSpan.FromSeconds(start / (double)_waveFormat.SampleRate);
 
         // ToStereo() gives 2 floats per frame, so the provider's element count maps to frames via /2.
