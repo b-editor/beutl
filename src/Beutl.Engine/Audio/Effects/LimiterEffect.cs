@@ -94,4 +94,13 @@ public sealed partial class LimiterEffect : AudioEffect
         context.Connect(inputNode, limiterNode);
         return limiterNode;
     }
+
+    public override int GetLatencySamples(int sampleRate)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(sampleRate);
+        if (!IsEnabled)
+            return 0;
+
+        return ToLatencySamples(Lookahead.CurrentValue, sampleRate);
+    }
 }

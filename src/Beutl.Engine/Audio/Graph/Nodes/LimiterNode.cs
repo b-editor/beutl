@@ -132,6 +132,14 @@ public sealed class LimiterNode : AudioNode
         return output;
     }
 
+    /// <summary>
+    /// Reports the lookahead delay this limiter applies, in samples at <paramref name="sampleRate"/>.
+    /// For an animated <see cref="Lookahead"/> the actual delay varies per sample; the reported value
+    /// reflects the property's current value only.
+    /// </summary>
+    public override int GetLatencySamples(int sampleRate)
+        => LimiterParameters.ToLatencySamples(Lookahead.CurrentValue, sampleRate);
+
     private static bool IsTimestampContiguous(TimeSpan previousEnd, TimeSpan nextStart)
     {
         // Adjacent sample boundaries can differ by one tick from independent TimeSpan rounding; a
