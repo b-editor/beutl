@@ -288,5 +288,10 @@ public class AudioLatencyTests
         Assert.Throws<ArgumentOutOfRangeException>(() => limiterNode.GetLatencySamples(sampleRate));
         Assert.Throws<ArgumentOutOfRangeException>(() => limiterEffect.GetLatencySamples(sampleRate));
         Assert.Throws<ArgumentOutOfRangeException>(() => group.GetLatencySamples(sampleRate));
+
+        // The aggregating entry point guards independently, so an override that folds the upstream
+        // recursion before delegating still honors the contract.
+        Assert.Throws<ArgumentOutOfRangeException>(() => gain.GetTotalLatencySamples(sampleRate));
+        Assert.Throws<ArgumentOutOfRangeException>(() => limiterNode.GetTotalLatencySamples(sampleRate));
     }
 }

@@ -50,8 +50,13 @@ public abstract class AudioNode : IDisposable
     /// Override to impose a different upstream fold (e.g. a weighted-sum mixer). Requires an acyclic
     /// input graph, the same precondition <see cref="Process"/> already relies on.
     /// </summary>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="sampleRate"/> is not positive.</exception>
     public virtual int GetTotalLatencySamples(int sampleRate)
     {
+        // Guard at the entry point, not just via the GetLatencySamples call below: an override may fold
+        // the upstream recursion before reaching it, so the contract has to hold here too.
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(sampleRate);
+
         int upstream = 0;
         foreach (AudioNode input in _inputs)
         {
