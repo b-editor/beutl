@@ -338,7 +338,7 @@ public class RenderNodeProcessorExceptionSafetyTests
     {
         public List<FakeRenderTarget> CreatedTargets { get; } = new();
 
-        protected internal override RenderTarget? CreateRenderTarget(int width, int height)
+        protected override RenderTarget? CreateRenderTarget(int width, int height)
         {
             var target = new FakeRenderTarget(width, height, shouldThrowOnDispose(CreatedTargets.Count));
             CreatedTargets.Add(target);
@@ -351,22 +351,21 @@ public class RenderNodeProcessorExceptionSafetyTests
     {
         public bool DisposeWasCalled { get; private set; }
 
-        public override void Dispose()
+        // Throw only on explicit disposal (disposing == true). The finalizer drives
+        // Dispose(disposing: false), which must stay throw-free so a GC-collected double
+        // cannot tear down the runtime from the finalizer thread.
+        protected override void Dispose(bool disposing)
         {
-            // Idempotent guard: the base finalizer (~RenderTarget) re-invokes this virtual Dispose,
-            // so a throwing path that already fired must not throw again from the finalizer.
-            if (DisposeWasCalled)
+            if (disposing)
             {
-                return;
+                DisposeWasCalled = true;
+                if (throwOnDispose)
+                {
+                    throw new InvalidOperationException("rt-dispose-fault");
+                }
             }
 
-            DisposeWasCalled = true;
-            if (throwOnDispose)
-            {
-                throw new InvalidOperationException("rt-dispose-fault");
-            }
-
-            base.Dispose();
+            base.Dispose(disposing);
         }
     }
 }

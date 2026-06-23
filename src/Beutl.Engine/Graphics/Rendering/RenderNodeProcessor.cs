@@ -22,7 +22,7 @@ public class RenderNodeProcessor(
     /// Override to substitute a custom allocation (e.g. pooling, a test double whose
     /// <see cref="RenderTarget.Dispose()"/> throws). Defaults to <see cref="RenderTarget.Create"/>.
     /// </summary>
-    protected internal virtual RenderTarget? CreateRenderTarget(int width, int height)
+    protected virtual RenderTarget? CreateRenderTarget(int width, int height)
         => RenderTarget.Create(width, height);
 
     public void Render(ImmediateCanvas canvas)

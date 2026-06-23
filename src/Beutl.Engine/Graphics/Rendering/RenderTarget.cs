@@ -33,7 +33,7 @@ public class RenderTarget : IDisposable
 
     ~RenderTarget()
     {
-        Dispose();
+        Dispose(disposing: false);
     }
 
     internal SKSurface Value =>
@@ -172,14 +172,25 @@ public class RenderTarget : IDisposable
         _dispatcher?.VerifyAccess();
     }
 
-    public virtual void Dispose()
+    public void Dispose()
+    {
+        Dispose(disposing: true);
+        GC.SuppressFinalize(this);
+    }
+
+    /// <summary>
+    /// Releases the backing surface and texture. Subclasses (custom allocations / test doubles)
+    /// override this to customize disposal semantics. When <paramref name="disposing"/> is
+    /// <see langword="false"/> (finalizer-driven), overrides must not throw and must not touch
+    /// finalized managed state.
+    /// </summary>
+    protected virtual void Dispose(bool disposing)
     {
         if (IsDisposed) return;
 
         _surface.Release();
         _texture?.Release();
         IsDisposed = true;
-        GC.SuppressFinalize(this);
     }
 
     internal void BeginDraw()
