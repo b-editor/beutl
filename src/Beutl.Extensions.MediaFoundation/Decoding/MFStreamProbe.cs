@@ -1,4 +1,4 @@
-using SharpGen.Runtime;
+﻿using SharpGen.Runtime;
 using Vortice.MediaFoundation;
 
 #if MF_BUILD_IN
