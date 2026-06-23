@@ -101,6 +101,10 @@ public sealed partial class LimiterEffect : AudioEffect
         if (!IsEnabled)
             return 0;
 
-        return ToLatencySamples(Lookahead.CurrentValue, sampleRate);
+        // Match LimiterNode: an animated lookahead reports the worst case so a host querying before
+        // graph construction reserves the same room the node would.
+        return Lookahead.Animation != null
+            ? ToLatencySamples(MaxLookaheadMs, sampleRate)
+            : ToLatencySamples(Lookahead.CurrentValue, sampleRate);
     }
 }
