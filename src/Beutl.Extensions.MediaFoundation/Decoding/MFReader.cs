@@ -48,6 +48,9 @@ public class MFReader : MediaReader
         Func<string, MediaOptions, MFDecodingExtension, IMediaFoundationVideoDecoder> createVideoDecoder,
         Func<string, MediaFoundationReaderSettings, MediaFoundationReader> createAudioReader)
     {
+        ArgumentNullException.ThrowIfNull(createVideoDecoder);
+        ArgumentNullException.ThrowIfNull(createAudioReader);
+
         _file = file;
         _options = options;
         try
