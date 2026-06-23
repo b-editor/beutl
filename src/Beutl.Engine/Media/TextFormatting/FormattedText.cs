@@ -32,6 +32,10 @@ public class FormattedText : IEquatable<FormattedText>, IDisposable
     private readonly Dictionary<float, ScaledTextCache> _scaledTextCache = [];
     private readonly LinkedList<float> _scaledTextCacheLru = new();
     private List<SKPathGeometry.Resource> _pathList = [];
+    // Test seam (Beutl.UnitTests): fires after the density-scaled blob/stroke are allocated but
+    // before they are committed to _scaledTextCache, so the leak-cleanup path can be driven
+    // deterministically. Null in production.
+    internal Action<SKTextBlob?, SKPath?>? _scaledTextCacheCommitFaultHook;
 
     private sealed class ScaledTextCache : IDisposable
     {
@@ -437,19 +441,37 @@ public class FormattedText : IEquatable<FormattedText>, IDisposable
             MeasureCore(density, updatePathList: false);
         fillPath.Dispose();
 
-        while (_scaledTextCache.Count >= MaxScaledTextCacheEntries && _scaledTextCacheLru.Last is { } lru)
+        // Nothing owns textBlob/strokePath until _scaledTextCache.Add succeeds, so a throw from
+        // eviction disposal or either cache mutation in between would leak the native handles.
+        // Dispose them and roll back the LRU node on failure to keep the two collections consistent.
+        LinkedListNode<float>? node = null;
+        try
         {
-            _scaledTextCacheLru.RemoveLast();
-            if (_scaledTextCache.Remove(lru.Value, out ScaledTextCache? evicted))
+            while (_scaledTextCache.Count >= MaxScaledTextCacheEntries && _scaledTextCacheLru.Last is { } lru)
             {
-                evicted.Dispose();
+                _scaledTextCacheLru.RemoveLast();
+                if (_scaledTextCache.Remove(lru.Value, out ScaledTextCache? evicted))
+                {
+                    evicted.Dispose();
+                }
             }
-        }
 
-        LinkedListNode<float> node = _scaledTextCacheLru.AddFirst(density);
-        cache = new ScaledTextCache(textBlob, strokePath, node);
-        _scaledTextCache.Add(density, cache);
-        return cache;
+            node = _scaledTextCacheLru.AddFirst(density);
+            _scaledTextCacheCommitFaultHook?.Invoke(textBlob, strokePath);
+            cache = new ScaledTextCache(textBlob, strokePath, node);
+            _scaledTextCache.Add(density, cache);
+            return cache;
+        }
+        catch
+        {
+            if (node is not null)
+            {
+                _scaledTextCacheLru.Remove(node);
+            }
+
+            (textBlob, strokePath).DisposeAll();
+            throw;
+        }
     }
 
     private void ClearScaledTextCache()
