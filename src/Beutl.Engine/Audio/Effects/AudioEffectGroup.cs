@@ -20,4 +20,15 @@ public sealed partial class AudioEffectGroup : AudioEffect
         return Children.Where(item => item.IsEnabled)
             .Aggregate(inputNode, (current, item) => item.CreateNode(context, current));
     }
+
+    // Enabled children run as a serial cascade (see CreateNode), so their latencies add. Mirrors
+    // CreateNode: filters on each child's IsEnabled but does not gate on the group's own IsEnabled —
+    // callers decide whether to skip a disabled group (Sound only builds the chain when enabled).
+    public override int GetLatencySamples(int sampleRate)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(sampleRate);
+
+        return Children.Where(item => item.IsEnabled)
+            .Sum(item => item.GetLatencySamples(sampleRate));
+    }
 }
