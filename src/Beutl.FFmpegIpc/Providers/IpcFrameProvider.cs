@@ -13,7 +13,6 @@ internal sealed class IpcFrameProvider : IFrameProvider
     private readonly SharedMemoryBuffer[] _videoBuffers;
     private int _bufferIndex;
 
-    // Prefetch: request the next frame's rendering ahead of time.
     private Task<IpcMessage>? _prefetchTask;
     private int _prefetchBufferIndex;
     private long _prefetchFrameIndex;
@@ -58,7 +57,6 @@ internal sealed class IpcFrameProvider : IFrameProvider
                 await staleTask;
             }
 
-            // First frame or non-sequential request: fetch the requested frame afresh.
             readBufferIndex = _bufferIndex;
             var request = IpcMessage.Create(_connection.NextId(), MessageType.RequestFrame,
                 new RequestFrameMessage { FrameIndex = frame, BufferIndex = readBufferIndex });
