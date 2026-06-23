@@ -77,10 +77,7 @@ public class FormattedText : IEquatable<FormattedText>, IDisposable
         (_textBlob, _fillPath, _strokePath).DisposeAll();
         foreach (SKPathGeometry.Resource? resource in _pathList)
         {
-            // Dispose the geometry too: it owns the per-glyph SKPath (set via SetSKPath(..., clone: false)),
-            // which the resource's cached render path does not cover.
-            resource?.GetOriginal().Dispose();
-            resource?.Dispose();
+            DisposePathListEntry(resource);
         }
 
         _pathList = [];
@@ -88,6 +85,14 @@ public class FormattedText : IEquatable<FormattedText>, IDisposable
         _fillPath = null;
         _strokePath = null;
         IsDisposed = true;
+    }
+
+    // Dispose the geometry too: it owns the per-glyph SKPath (set via SetSKPath(..., clone: false)),
+    // which the resource's cached render path does not cover.
+    private static void DisposePathListEntry(SKPathGeometry.Resource? resource)
+    {
+        resource?.GetOriginal().Dispose();
+        resource?.Dispose();
     }
 
     public FontWeight Weight
@@ -316,7 +321,15 @@ public class FormattedText : IEquatable<FormattedText>, IDisposable
         Span<SKPathGeometry.Resource> pathList = default;
         if (updatePathList)
         {
-            CollectionsMarshal.SetCount(_pathList, result.Codepoints.Length);
+            // SetCount truncates trailing entries without disposing them; release them first so their
+            // owned glyph SKPaths don't leak to finalizers.
+            int glyphCount = result.Codepoints.Length;
+            for (int i = glyphCount; i < _pathList.Count; i++)
+            {
+                DisposePathListEntry(_pathList[i]);
+            }
+
+            CollectionsMarshal.SetCount(_pathList, glyphCount);
             pathList = CollectionsMarshal.AsSpan(_pathList);
         }
 
