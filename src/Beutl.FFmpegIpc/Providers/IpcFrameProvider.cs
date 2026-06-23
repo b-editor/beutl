@@ -1,4 +1,5 @@
-﻿using Beutl.Extensibility;
+﻿using System.Diagnostics;
+using Beutl.Extensibility;
 using Beutl.FFmpegIpc.Protocol;
 using Beutl.FFmpegIpc.Protocol.Messages;
 using Beutl.FFmpegIpc.SharedMemory;
@@ -13,10 +14,16 @@ internal sealed class IpcFrameProvider : IFrameProvider
     private readonly SharedMemoryBuffer[] _videoBuffers;
     private int _bufferIndex;
 
-    // 先行リクエスト: 次フレームのレンダリングを事前に要求
+    // Prefetch: request the next frame's rendering ahead of time.
     private Task<IpcMessage>? _prefetchTask;
     private int _prefetchBufferIndex;
     private long _prefetchFrameIndex;
+
+    // Last returned frame. A repeat request rebuilds from this buffer, which the in-flight prefetch
+    // never overwrites (prefetch always targets the opposite slot, 1 - _lastReadBufferIndex).
+    private long _lastFrame = -1;
+    private int _lastReadBufferIndex;
+    private ProvideFrameMessage? _lastFrameInfo;
 
     public IpcFrameProvider(IpcConnection connection, SharedMemoryBuffer[] videoBuffers,
         long frameCount, Rational frameRate)
@@ -33,21 +40,36 @@ internal sealed class IpcFrameProvider : IFrameProvider
 
     public async ValueTask<Bitmap> RenderFrame(long frame)
     {
+        // Same-frame re-request (paused-preview / same-frame scrub): leave the in-flight prefetch
+        // untouched so a later advance still consumes it.
+        if (frame == _lastFrame && _lastFrameInfo != null)
+        {
+            Debug.Assert(_prefetchTask == null || _prefetchBufferIndex != _lastReadBufferIndex,
+                "an in-flight prefetch must target the opposite slot, else the retained buffer could be overwritten");
+            FramesRendered++;
+            return BuildBitmap(_lastFrameInfo, _lastReadBufferIndex);
+        }
+
+        // Invalidate the retained frame before any IPC, so a failure below cannot be masked by a
+        // same-frame retry serving the previously cached frame.
+        _lastFrame = -1;
+
         IpcMessage response;
         int readBufferIndex;
 
         if (_prefetchTask != null && _prefetchFrameIndex == frame)
         {
-            // 先行リクエスト済みかつ要求フレームと一致: その結果を使う
+            // Prefetch already in flight for the requested frame: use its result.
             response = await _prefetchTask;
             readBufferIndex = _prefetchBufferIndex;
             _prefetchTask = null;
         }
         else
         {
-            // プリフェッチ中だが要求フレームと一致しない場合 (シーク等の非連続要求)。
-            // 非多重化接続では応答が送信順に読まれるため、捨てる前に必ず await して先行リクエストの
-            // 応答を消費しないと、次の新規リクエストがこの古い応答を読み取り ID 不一致になる。
+            // Prefetch in flight but for a different frame (seek / non-sequential request). On a
+            // non-multiplexed connection responses are read in send order, so the stale prefetch
+            // response must be awaited and discarded before issuing the fresh request; otherwise that
+            // request would read this old response and hit an id mismatch.
             if (_prefetchTask != null)
             {
                 Task<IpcMessage> staleTask = _prefetchTask;
@@ -55,7 +77,7 @@ internal sealed class IpcFrameProvider : IFrameProvider
                 await staleTask;
             }
 
-            // 初回フレーム or 非連続要求: 要求フレームを改めて取得
+            // First frame or non-sequential request: fetch the requested frame afresh.
             readBufferIndex = _bufferIndex;
             var request = IpcMessage.Create(_connection.NextId(), MessageType.RequestFrame,
                 new RequestFrameMessage { FrameIndex = frame, BufferIndex = readBufferIndex });
@@ -72,7 +94,7 @@ internal sealed class IpcFrameProvider : IFrameProvider
         var frameInfo = response.GetPayload<ProvideFrameMessage>()
             ?? throw new InvalidOperationException("Missing payload for ProvideFrame");
 
-        // 次フレームを先行リクエスト (ダブルバッファリング)
+        // Prefetch the next frame into the opposite slot (double buffering).
         long nextFrame = frame + 1;
         if (nextFrame < FrameCount)
         {
@@ -83,17 +105,26 @@ internal sealed class IpcFrameProvider : IFrameProvider
             _prefetchTask = _connection.SendAndReceiveAsync(nextRequest).AsTask();
         }
 
-        // 共有メモリからBitmap構築 (readBufferIndex側のバッファから読む)
+        _lastFrame = frame;
+        _lastReadBufferIndex = readBufferIndex;
+        _lastFrameInfo = frameInfo;
+
+        Bitmap bmp = BuildBitmap(frameInfo, readBufferIndex);
+        _bufferIndex = 1 - readBufferIndex;
+        FramesRendered++;
+        return bmp;
+    }
+
+    private Bitmap BuildBitmap(ProvideFrameMessage frameInfo, int bufferIndex)
+    {
         var alphaType = frameInfo.Premul ? BitmapAlphaType.Premul : BitmapAlphaType.Unpremul;
         var bmp = new Bitmap(frameInfo.Width, frameInfo.Height, BitmapColorType.RgbaF16, alphaType, BitmapColorSpace.LinearSrgb);
 
         unsafe
         {
-            _videoBuffers[readBufferIndex].Read(new Span<byte>((void*)bmp.Data, frameInfo.DataLength));
+            _videoBuffers[bufferIndex].Read(new Span<byte>((void*)bmp.Data, frameInfo.DataLength));
         }
 
-        _bufferIndex = 1 - readBufferIndex;
-        FramesRendered++;
         return bmp;
     }
 }

@@ -103,6 +103,44 @@ public class IpcProviderContractTests
         }, ct);
     }
 
+    // Fake host that serves the first RequestFrame and answers every later request with CancelEncode.
+    // Lets a test arm a retained frame, then drive an error on the next call.
+    private static Task RunServeOnceThenCancelHost(
+        NamedPipeServerStream server, SharedMemoryBuffer[] buffers, CancellationToken ct)
+    {
+        return Task.Run(async () =>
+        {
+            bool served = false;
+            while (!ct.IsCancellationRequested)
+            {
+                var req = await MessageSerializer.ReadMessageAsync(server, ct);
+                if (req == null)
+                    return;
+
+                var payload = req.GetPayload<RequestFrameMessage>()!;
+                if (!served)
+                {
+                    served = true;
+                    buffers[payload.BufferIndex].Write(BitConverter.GetBytes(payload.FrameIndex));
+                    var ok = IpcMessage.Create(req.Id, MessageType.ProvideFrame, new ProvideFrameMessage
+                    {
+                        Width = 1,
+                        Height = 1,
+                        BytesPerPixel = FrameDataLength,
+                        DataLength = FrameDataLength,
+                        Premul = false,
+                    });
+                    await MessageSerializer.WriteMessageAsync(server, ok, ct);
+                }
+                else
+                {
+                    var cancel = IpcMessage.CreateSimple(req.Id, MessageType.CancelEncode);
+                    await MessageSerializer.WriteMessageAsync(server, cancel, ct);
+                }
+            }
+        }, ct);
+    }
+
     private static async Task WaitUntil(Func<bool> predicate, TimeSpan timeout, string description)
     {
         var deadline = DateTime.UtcNow + timeout;
@@ -161,6 +199,145 @@ public class IpcProviderContractTests
                 firstThree = received.Take(3).ToArray();
             Assert.That(firstThree, Is.EqualTo(new[] { 0L, 1L, 5L }),
                 "the drained prefetch (1) proves a fresh RequestFrame{5} was issued after the seek");
+        }
+        finally
+        {
+            await StopHost(hostCts, server, hostTask);
+            DisposeBuffers(buffers);
+        }
+    }
+
+    [Test]
+    public async Task RenderFrame_RepeatedSameFrame_ServesFromBufferWithoutHostRoundTrip()
+    {
+        // Paused-preview / scrubbing on the same frame. The frame-0 buffer stays valid across
+        // repeats because the prefetch writes the *other* slot, so repeats can be served from it
+        // without re-issuing a host request or discarding the in-flight prefetch of frame 1.
+        var (server, client) = ConnectPair();
+        var buffers = CreateBuffers();
+        var received = new List<long>();
+        var gate = new object();
+        var hostCts = new CancellationTokenSource();
+        var hostTask = RunFrameServingHost(server, buffers, received, gate, hostCts.Token);
+
+        using var conn = new IpcConnection(client);
+        // frameCount 3 ends the run on frame 2 (the last frame), so RenderFrame(2) arms no prefetch
+        // and no dangling prefetch task survives into teardown.
+        var provider = new IpcFrameProvider(conn, buffers, frameCount: 3, frameRate: new Rational(30, 1));
+
+        try
+        {
+            using Bitmap frame0a = await provider.RenderFrame(0);
+            using Bitmap frame0b = await provider.RenderFrame(0);
+            using Bitmap frame0c = await provider.RenderFrame(0);
+
+            await WaitUntil(() => { lock (gate) return received.Count >= 2; },
+                TimeSpan.FromSeconds(5), "host receives the initial render + its prefetch");
+
+            long[] afterRepeats;
+            lock (gate)
+                afterRepeats = received.ToArray();
+            Assert.That(afterRepeats, Is.EqualTo(new[] { 0L, 1L }),
+                "repeated same-frame requests must be served from the retained buffer: the host sees only render(0) + prefetch(1)");
+
+            using Bitmap frame1 = await provider.RenderFrame(1);
+            using Bitmap frame2 = await provider.RenderFrame(2);
+
+            await WaitUntil(() => { lock (gate) return received.Count >= 3; },
+                TimeSpan.FromSeconds(5), "advancing to frame 1 arms the prefetch of frame 2");
+
+            long[] all;
+            lock (gate)
+                all = received.ToArray();
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(ReadFrameSignature(frame0a), Is.EqualTo(0L), "first render returns frame 0");
+                Assert.That(ReadFrameSignature(frame0b), Is.EqualTo(0L), "same-frame repeat returns frame 0 from the retained buffer");
+                Assert.That(ReadFrameSignature(frame0c), Is.EqualTo(0L), "same-frame repeat returns frame 0 from the retained buffer");
+                Assert.That(ReadFrameSignature(frame1), Is.EqualTo(1L), "advance consumes the retained prefetch of frame 1");
+                Assert.That(ReadFrameSignature(frame2), Is.EqualTo(2L), "advance returns frame 2");
+                Assert.That(all, Is.EqualTo(new[] { 0L, 1L, 2L }),
+                    "no wasted re-requests: the host renders frames 0, 1, 2 once each across all calls");
+            });
+        }
+        finally
+        {
+            await StopHost(hostCts, server, hostTask);
+            DisposeBuffers(buffers);
+        }
+    }
+
+    [Test]
+    public async Task RenderFrame_RepeatedSameFrameAfterSeek_ServesFromBuffer()
+    {
+        // A seek sets the retained frame just like a sequential render, so a repeat of the
+        // seeked-to frame is also served from its buffer without re-contacting the host.
+        var (server, client) = ConnectPair();
+        var buffers = CreateBuffers();
+        var received = new List<long>();
+        var gate = new object();
+        var hostCts = new CancellationTokenSource();
+        var hostTask = RunFrameServingHost(server, buffers, received, gate, hostCts.Token);
+
+        using var conn = new IpcConnection(client);
+        // frame 5 is the last frame, so the seek arms no prefetch and nothing dangles into teardown.
+        var provider = new IpcFrameProvider(conn, buffers, frameCount: 6, frameRate: new Rational(30, 1));
+
+        try
+        {
+            using Bitmap frame0 = await provider.RenderFrame(0);
+            using Bitmap frame5a = await provider.RenderFrame(5);
+            using Bitmap frame5b = await provider.RenderFrame(5);
+
+            await WaitUntil(() => { lock (gate) return received.Count >= 3; },
+                TimeSpan.FromSeconds(5), "render(0) + prefetch(1) + seek(5)");
+
+            long[] all;
+            lock (gate)
+                all = received.ToArray();
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(ReadFrameSignature(frame5a), Is.EqualTo(5L), "seek returns frame 5");
+                Assert.That(ReadFrameSignature(frame5b), Is.EqualTo(5L), "same-frame repeat after seek returns frame 5 from the retained buffer");
+                Assert.That(all, Is.EqualTo(new[] { 0L, 1L, 5L }),
+                    "the repeat of the seeked frame issues no new host request");
+            });
+        }
+        finally
+        {
+            await StopHost(hostCts, server, hostTask);
+            DisposeBuffers(buffers);
+        }
+    }
+
+    [Test]
+    public async Task RenderFrame_AfterErrorOnAdvance_SameFrameRetryReContactsWorker()
+    {
+        // After a frame errors, the retained frame must be invalidated so a same-frame retry
+        // re-contacts the worker (re-surfacing the error) rather than serving the stale cache.
+        var (server, client) = ConnectPair();
+        var buffers = CreateBuffers();
+        var hostCts = new CancellationTokenSource();
+        var hostTask = RunServeOnceThenCancelHost(server, buffers, hostCts.Token);
+
+        using var conn = new IpcConnection(client);
+        var provider = new IpcFrameProvider(conn, buffers, frameCount: 100, frameRate: new Rational(30, 1));
+
+        try
+        {
+            using Bitmap frame0 = await provider.RenderFrame(0);
+            Assert.That(ReadFrameSignature(frame0), Is.EqualTo(0L), "the first frame is served before the host starts cancelling");
+
+            // Advancing consumes the prefetch of frame 1, which the host cancelled.
+            Assert.That(async () => await provider.RenderFrame(1),
+                Throws.TypeOf<OperationCanceledException>());
+
+            // The retained frame 0 must not be served now: the retry re-requests and the host cancels.
+            Assert.That(async () => await provider.RenderFrame(0),
+                Throws.TypeOf<OperationCanceledException>(),
+                "after an error the retained frame is invalidated, so a same-frame retry re-contacts the worker");
         }
         finally
         {
