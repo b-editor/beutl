@@ -401,7 +401,7 @@ internal sealed class MFDecoder : IDisposable
         {
             BitmapInfoHeader bih = default;
 
-            IMFMediaType mediaType = sourceReader.GetCurrentMediaType(_mediaInfo.VideoStreamIndex);
+            using IMFMediaType mediaType = sourceReader.GetCurrentMediaType(_mediaInfo.VideoStreamIndex);
 
             MediaFactory.MFCreateMFVideoFormatFromMFMediaType(mediaType, out IntPtr pMFVF, out var pcbSize);
             var ppMFVF = (MFVIDEOFORMAT*)pMFVF;
