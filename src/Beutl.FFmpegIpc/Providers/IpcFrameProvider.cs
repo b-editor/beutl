@@ -73,6 +73,10 @@ internal sealed class IpcFrameProvider : IFrameProvider
         var frameInfo = response.GetPayload<ProvideFrameMessage>()
             ?? throw new InvalidOperationException("Missing payload for ProvideFrame");
 
+        // Validate the current frame before arming the prefetch so a mismatched DataLength can't leave
+        // an unobserved _prefetchTask in flight nor mask the failure behind an extra RequestFrame.
+        Bitmap bmp = BuildBitmap(frameInfo, readBufferIndex);
+
         // Prefetch the next frame into the opposite slot (double buffering).
         long nextFrame = frame + 1;
         if (nextFrame < FrameCount)
@@ -84,7 +88,6 @@ internal sealed class IpcFrameProvider : IFrameProvider
             _prefetchTask = _connection.SendAndReceiveAsync(nextRequest).AsTask();
         }
 
-        Bitmap bmp = BuildBitmap(frameInfo, readBufferIndex);
         _bufferIndex = 1 - readBufferIndex;
         FramesRendered++;
         return bmp;
