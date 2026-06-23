@@ -40,13 +40,13 @@ internal sealed class IpcFrameProvider : IFrameProvider
 
     public async ValueTask<Bitmap> RenderFrame(long frame)
     {
-        // Same-frame re-request (paused-preview / same-frame scrub): leave the in-flight prefetch
-        // untouched so a later advance still consumes it.
+        // Same-frame re-request: rebuild from the retained buffer and leave the in-flight prefetch
+        // untouched so a later advance still consumes it. Defensive — the encode loop is monotonic
+        // and never repeats a frame; no host render happens, so FramesRendered is not incremented.
         if (frame == _lastFrame && _lastFrameInfo != null)
         {
             Debug.Assert(_prefetchTask == null || _prefetchBufferIndex != _lastReadBufferIndex,
                 "an in-flight prefetch must target the opposite slot, else the retained buffer could be overwritten");
-            FramesRendered++;
             return BuildBitmap(_lastFrameInfo, _lastReadBufferIndex);
         }
 
@@ -59,10 +59,12 @@ internal sealed class IpcFrameProvider : IFrameProvider
 
         if (_prefetchTask != null && _prefetchFrameIndex == frame)
         {
-            // Prefetch already in flight for the requested frame: use its result.
-            response = await _prefetchTask;
-            readBufferIndex = _prefetchBufferIndex;
+            // Prefetch already in flight for the requested frame. Clear the field before awaiting (like
+            // the stale-drain branch) so a faulted prefetch can't pin the provider to a re-throwing task.
+            Task<IpcMessage> prefetchTask = _prefetchTask;
             _prefetchTask = null;
+            readBufferIndex = _prefetchBufferIndex;
+            response = await prefetchTask;
         }
         else
         {

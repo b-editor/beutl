@@ -104,9 +104,10 @@ public class IpcProviderContractTests
     }
 
     // Fake host that serves the first RequestFrame and answers every later request with CancelEncode.
-    // Lets a test arm a retained frame, then drive an error on the next call.
+    // Lets a test arm a retained frame, then drive an error on the next call. Records the received
+    // frame indices in order so a test can assert which frame a retry re-requested.
     private static Task RunServeOnceThenCancelHost(
-        NamedPipeServerStream server, SharedMemoryBuffer[] buffers, CancellationToken ct)
+        NamedPipeServerStream server, SharedMemoryBuffer[] buffers, List<long> received, object gate, CancellationToken ct)
     {
         return Task.Run(async () =>
         {
@@ -118,6 +119,8 @@ public class IpcProviderContractTests
                     return;
 
                 var payload = req.GetPayload<RequestFrameMessage>()!;
+                lock (gate)
+                    received.Add(payload.FrameIndex);
                 if (!served)
                 {
                     served = true;
@@ -210,9 +213,9 @@ public class IpcProviderContractTests
     [Test]
     public async Task RenderFrame_RepeatedSameFrame_ServesFromBufferWithoutHostRoundTrip()
     {
-        // Paused-preview / scrubbing on the same frame. The frame-0 buffer stays valid across
-        // repeats because the prefetch writes the *other* slot, so repeats can be served from it
-        // without re-issuing a host request or discarding the in-flight prefetch of frame 1.
+        // A caller that re-requests the same frame index without advancing. The frame-0 buffer stays
+        // valid across repeats because the prefetch writes the *other* slot, so repeats can be served
+        // from it without re-issuing a host request or discarding the in-flight prefetch of frame 1.
         var (server, client) = ConnectPair();
         var buffers = CreateBuffers();
         var received = new List<long>();
@@ -241,6 +244,10 @@ public class IpcProviderContractTests
                 "repeated same-frame requests must be served from the retained buffer: the host sees only render(0) + prefetch(1)");
 
             using Bitmap frame1 = await provider.RenderFrame(1);
+            // Repeat the just-advanced frame: the only fast-path slot configuration the other repeats
+            // miss — retained slot from a prefetch-hit while a prefetch of frame 2 is in flight on the
+            // opposite slot (the opposite-slot invariant the Debug.Assert guards).
+            using Bitmap frame1b = await provider.RenderFrame(1);
             using Bitmap frame2 = await provider.RenderFrame(2);
 
             await WaitUntil(() => { lock (gate) return received.Count >= 3; },
@@ -256,6 +263,7 @@ public class IpcProviderContractTests
                 Assert.That(ReadFrameSignature(frame0b), Is.EqualTo(0L), "same-frame repeat returns frame 0 from the retained buffer");
                 Assert.That(ReadFrameSignature(frame0c), Is.EqualTo(0L), "same-frame repeat returns frame 0 from the retained buffer");
                 Assert.That(ReadFrameSignature(frame1), Is.EqualTo(1L), "advance consumes the retained prefetch of frame 1");
+                Assert.That(ReadFrameSignature(frame1b), Is.EqualTo(1L), "repeat after a prefetch-hit advance returns frame 1 from the retained buffer");
                 Assert.That(ReadFrameSignature(frame2), Is.EqualTo(2L), "advance returns frame 2");
                 Assert.That(all, Is.EqualTo(new[] { 0L, 1L, 2L }),
                     "no wasted re-requests: the host renders frames 0, 1, 2 once each across all calls");
@@ -319,8 +327,10 @@ public class IpcProviderContractTests
         // re-contacts the worker (re-surfacing the error) rather than serving the stale cache.
         var (server, client) = ConnectPair();
         var buffers = CreateBuffers();
+        var received = new List<long>();
+        var gate = new object();
         var hostCts = new CancellationTokenSource();
-        var hostTask = RunServeOnceThenCancelHost(server, buffers, hostCts.Token);
+        var hostTask = RunServeOnceThenCancelHost(server, buffers, received, gate, hostCts.Token);
 
         using var conn = new IpcConnection(client);
         var provider = new IpcFrameProvider(conn, buffers, frameCount: 100, frameRate: new Rational(30, 1));
@@ -338,6 +348,12 @@ public class IpcProviderContractTests
             Assert.That(async () => await provider.RenderFrame(0),
                 Throws.TypeOf<OperationCanceledException>(),
                 "after an error the retained frame is invalidated, so a same-frame retry re-contacts the worker");
+
+            long[] all;
+            lock (gate)
+                all = received.ToArray();
+            Assert.That(all, Is.EqualTo(new[] { 0L, 1L, 0L }),
+                "the retry issued a fresh RequestFrame{0} to the host rather than serving the invalidated cache");
         }
         finally
         {
