@@ -55,7 +55,7 @@ internal sealed class MFDecoder : IMediaFoundationVideoDecoder
                 // video stream throws a generic Media Foundation error for files with no video
                 // (e.g. audio-only .mp3), which would mask the catchable NoVideoStreamException
                 // and keep MFReader from falling back to the NAudio audio path.
-                if (FindVideoStreamIndex(sourceReader) == -1)
+                if (MFStreamProbe.FindVideoStreamIndex(sourceReader) == -1)
                 {
                     const string message = "File contains no video stream.";
                     _logger.LogInformation(message);
@@ -308,41 +308,6 @@ internal sealed class MFDecoder : IMediaFoundationVideoDecoder
         type.Set(MediaTypeAttributeKeys.Subtype, VideoFormatGuids.YUY2);
 
         sourceReader.SetCurrentMediaType(readerIndex, type);
-    }
-
-    // MF_E_INVALIDSTREAMNUMBER: the source reader has no stream at the requested index, i.e. we
-    // have walked past the end of the stream list. Any other HRESULT is a real failure.
-    private const int MF_E_INVALIDSTREAMNUMBER = unchecked((int)0xC00D36B3);
-
-    private static int FindVideoStreamIndex(IMFSourceReader sourceReader)
-    {
-        for (int streamIndex = 0; true; ++streamIndex)
-        {
-            IMFMediaType currentMediaType;
-            try
-            {
-                currentMediaType = sourceReader.GetCurrentMediaType(streamIndex);
-            }
-            catch (SharpGenException ex) when (ex.ResultCode.Code == MF_E_INVALIDSTREAMNUMBER)
-            {
-                break;
-            }
-
-            using (currentMediaType)
-            {
-                if (!sourceReader.GetStreamSelection(streamIndex))
-                {
-                    continue;
-                }
-
-                if (currentMediaType.MajorType == MediaTypeGuids.Video)
-                {
-                    return streamIndex;
-                }
-            }
-        }
-
-        return -1;
     }
 
     private unsafe void CheckMediaInfo(IMFSourceReader sourceReader)

@@ -46,10 +46,12 @@ public class MFReader : MediaReader
         MediaOptions options,
         MFDecodingExtension extension,
         Func<string, MediaOptions, MFDecodingExtension, IMediaFoundationVideoDecoder> createVideoDecoder,
-        Func<string, MediaFoundationReaderSettings, MediaFoundationReader> createAudioReader)
+        Func<string, MediaFoundationReaderSettings, MediaFoundationReader> createAudioReader,
+        Func<string, bool>? hasAudioStream = null)
     {
         ArgumentNullException.ThrowIfNull(createVideoDecoder);
         ArgumentNullException.ThrowIfNull(createAudioReader);
+        hasAudioStream ??= MFStreamProbe.HasAudioStream;
 
         _file = file;
         _options = options;
@@ -78,20 +80,31 @@ public class MFReader : MediaReader
 
             if (options.StreamsToLoad.HasFlag(MediaMode.Audio))
             {
-                _audioReader = createAudioReader(_file, new MediaFoundationReaderSettings
+                if (HasVideo && !hasAudioStream(_file))
                 {
-                    RequestFloatOutput = true
-                });
-                _waveFormat = _audioReader.WaveFormat;
+                    // The file has a usable video stream but no audio stream. Keep the reader
+                    // open as video-only for the default AudioVideo mode. If an audio stream
+                    // exists and NAudio still fails below, let the exception propagate so other
+                    // decoders (e.g. FFmpeg) can retry with audio.
+                    _logger.LogInformation("File contains no audio stream; continuing video-only.");
+                }
+                else
+                {
+                    _audioReader = createAudioReader(_file, new MediaFoundationReaderSettings
+                    {
+                        RequestFloatOutput = true
+                    });
+                    _waveFormat = _audioReader.WaveFormat;
 
-                _provider = _audioReader.ToSampleProvider().ToStereo();
+                    _provider = _audioReader.ToSampleProvider().ToStereo();
 
-                _audioInfo = new AudioStreamInfo(
-                    CodecName: _waveFormat.Encoding.ToString(),
-                    Duration: new Rational(_audioReader.Length, _waveFormat.AverageBytesPerSecond),
-                    SampleRate: _waveFormat.SampleRate,
-                    NumChannels: _waveFormat.Channels);
-                HasAudio = true;
+                    _audioInfo = new AudioStreamInfo(
+                        CodecName: _waveFormat.Encoding.ToString(),
+                        Duration: new Rational(_audioReader.Length, _waveFormat.AverageBytesPerSecond),
+                        SampleRate: _waveFormat.SampleRate,
+                        NumChannels: _waveFormat.Channels);
+                    HasAudio = true;
+                }
             }
         }
         catch
