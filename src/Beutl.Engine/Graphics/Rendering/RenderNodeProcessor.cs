@@ -164,7 +164,6 @@ public class RenderNodeProcessor(
         RenderTarget? renderTarget = null;
         ImmediateCanvas? canvas = null;
         int consumed = 0;
-        bool succeeded = false;
         try
         {
             renderTarget =
@@ -182,30 +181,19 @@ public class RenderNodeProcessor(
                 }
             }
 
-            Bitmap result = renderTarget.Snapshot();
-            succeeded = true;
-            return result;
+            return renderTarget.Snapshot();
         }
         catch
         {
             RenderNodeOperation.DisposeAll(ops.AsSpan(consumed));
-            DisposeBestEffort(canvas);
-            DisposeBestEffort(renderTarget);
             throw;
         }
         finally
         {
-            if (succeeded)
-            {
-                try
-                {
-                    canvas?.Dispose();
-                }
-                finally
-                {
-                    renderTarget?.Dispose();
-                }
-            }
+            // Best-effort on both success and failure: a throwing GPU-native teardown must neither
+            // mask an in-flight render exception nor discard a successfully snapshotted bitmap.
+            DisposeBestEffort(canvas);
+            DisposeBestEffort(renderTarget);
         }
     }
 

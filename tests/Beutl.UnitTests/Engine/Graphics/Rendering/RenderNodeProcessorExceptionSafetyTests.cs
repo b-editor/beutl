@@ -367,6 +367,26 @@ public class RenderNodeProcessorExceptionSafetyTests
         Assert.That(disposed, Is.EqualTo(new[] { "first", "second", "render-fault" }));
     }
 
+    // A throwing Dispose() during RasterizeAndConcat's post-success cleanup must not discard the
+    // bitmap the render already produced — the caller still gets its result.
+    [Test]
+    public void RasterizeAndConcat_ReturnsBitmap_WhenRenderSucceedsButRenderTargetDisposeThrows()
+    {
+        var disposed = new List<string>();
+        using var node = new StaticRenderNode(
+            CreateOperation("ok", disposed));
+        var processor = new FakeRenderNodeProcessor(node, _ => true);
+
+        using var result = processor.RasterizeAndConcat();
+
+        Assert.That(result, Is.Not.Null);
+        Assert.That(result.Width, Is.EqualTo(4));
+        Assert.That(result.Height, Is.EqualTo(4));
+        Assert.That(processor.CreatedTargets, Has.Count.EqualTo(1));
+        Assert.That(processor.CreatedTargets[0].DisposeWasCalled, Is.True);
+        Assert.That(disposed, Is.EqualTo(new[] { "ok" }));
+    }
+
     private static StaticRenderNode CreateRenderThrowWithThrowingRemainingOps(ICollection<string> disposed)
     {
         return new StaticRenderNode(
@@ -439,9 +459,15 @@ public class RenderNodeProcessorExceptionSafetyTests
     }
 
     private sealed class FakeRenderTarget(int width, int height, bool throwOnDispose)
-        : RenderTarget(SKSurface.CreateNull(width, height), width, height)
+        : RenderTarget(CreateReadbackSurface(width, height), width, height)
     {
         public bool DisposeWasCalled { get; private set; }
+
+        // A CPU raster surface (CreateNull has no backing store and fails ReadPixels) so the
+        // RasterizeAndConcat success path can read pixels back through Snapshot() without a GPU.
+        private static SKSurface CreateReadbackSurface(int width, int height) =>
+            SKSurface.Create(new SKImageInfo(
+                width, height, SKColorType.RgbaF16, SKAlphaType.Premul, SKColorSpace.CreateSrgbLinear()));
 
         // Throw only on explicit disposal (disposing == true). The finalizer drives
         // Dispose(disposing: false), which must stay throw-free so a GC-collected double
