@@ -2,6 +2,9 @@
 using Beutl.Graphics;
 using Beutl.Graphics.Shapes;
 using Beutl.Media;
+using Beutl.Media.Pixel;
+using Beutl.Media.Source;
+using Beutl.Serialization;
 using Beutl.UnitTests.Engine.Graphics.Backend;
 
 namespace Beutl.UnitTests.Engine.Graphics.Rendering.Golden;
@@ -83,6 +86,29 @@ public class TileBrushFillDensityTests
         });
     }
 
+    // Same logical-period invariant as above, but with a non-zero destination origin (non-zero
+    // tile translation offset), which the zero-origin cases never reach.
+    [Test]
+    public void DrawableBrushTile_NonOriginDest_ConsistentAcrossScale()
+    {
+        VulkanTestEnvironment.EnsureAvailable();
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            // A quarter-sized tile anchored away from the origin, repeated.
+            var dest = new RelativeRect(0.1f, 0.15f, 0.5f, 0.5f, RelativeUnit.Relative);
+            using Bitmap full = GoldenImageHarness.RenderAtScale(
+                MakeBrushFilled(TileMode.Tile, dest, Stretch.Uniform), Frame, 1f);
+            using Bitmap ss = GoldenImageHarness.RenderAtScale(
+                MakeBrushFilled(TileMode.Tile, dest, Stretch.Uniform), Frame, 2f);
+            using Bitmap down = GoldenImageHarness.MitchellResampleTo(ss, new PixelSize(full.Width, full.Height));
+            double ssim = ImageMetrics.Ssim(full, down);
+            double mae = ImageMetrics.MeanAbsoluteError(full, down);
+            TestContext.WriteLine($"[DrawableBrush Tile non-origin] 1.0 vs 2.0-down SSIM={ssim:F4} MAE={mae:F4}");
+            Assert.That(ssim, Is.GreaterThan(GoldenThresholds.ExactSsimMin),
+                $"non-origin DrawableBrush tiling diverged across render scale (mistiled): SSIM={ssim:F4}");
+        });
+    }
+
     // Diagonal hard-stop stripes for high-frequency density discrimination.
     private static RectShape MakeStripes()
     {
@@ -148,6 +174,71 @@ public class TileBrushFillDensityTests
             using Bitmap b = GoldenImageHarness.RenderAtScale(
                 MakeBrushFilled(TileMode.None, RelativeRect.Fill, Stretch.Fill), Frame, 1f);
             GoldenImageHarness.AssertByteIdentical(a, b);
+        });
+    }
+
+    // Four solid quadrants: cross hard edges discriminate a mis-scaled or mis-offset density path,
+    // while staying smooth enough that an honest 2x resample stays within the exact SSIM band.
+    private static Uri CreateQuadrantImageUri(int size)
+    {
+        using var bitmap = new Bitmap(size, size);
+        Span<Bgra8888> px = bitmap.GetPixelSpan<Bgra8888>();
+        int half = size / 2;
+        for (int y = 0; y < size; y++)
+        {
+            for (int x = 0; x < size; x++)
+            {
+                Color c = (x < half, y < half) switch
+                {
+                    (true, true) => Colors.Red,
+                    (false, true) => Colors.Lime,
+                    (true, false) => Colors.Blue,
+                    (false, false) => Colors.White,
+                };
+                px[(y * size) + x] = new Bgra8888(c.R, c.G, c.B, c.A);
+            }
+        }
+
+        using var stream = new MemoryStream();
+        bitmap.Save(stream, EncodedImageFormat.Png);
+        return UriHelper.CreateBase64DataUri("image/png", stream.ToArray());
+    }
+
+    private static Drawable.Resource MakeImageBrushFilled(Uri uri)
+    {
+        var source = new ImageSource();
+        source.ReadFrom(uri);
+        var brush = new ImageBrush(source);
+        brush.Stretch.CurrentValue = Stretch.Fill;
+        brush.TileMode.CurrentValue = TileMode.None;
+        brush.DestinationRect.CurrentValue = RelativeRect.Fill;
+
+        var rect = new RectShape();
+        rect.AlignmentX.CurrentValue = AlignmentX.Center;
+        rect.AlignmentY.CurrentValue = AlignmentY.Center;
+        rect.Width.CurrentValue = 160;
+        rect.Height.CurrentValue = 160;
+        rect.Fill.CurrentValue = brush;
+        return rect.ToResource(CompositionContext.Default);
+    }
+
+    // ImageBrush feeds a native-density bitmap (contentDensity == 1) through the dense intermediate;
+    // a 2x SSAA fill, downscaled, must reproduce the 1x fill (density math carries the source faithfully).
+    [Test]
+    public void ImageBrushFill_SsaaDensity_ConsistentAcrossScale()
+    {
+        VulkanTestEnvironment.EnsureAvailable();
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            Uri uri = CreateQuadrantImageUri(160);
+            using Bitmap full = GoldenImageHarness.RenderAtScale(MakeImageBrushFilled(uri), Frame, 1f);
+            using Bitmap ss = GoldenImageHarness.RenderAtScale(MakeImageBrushFilled(uri), Frame, 2f);
+            using Bitmap down = GoldenImageHarness.MitchellResampleTo(ss, new PixelSize(full.Width, full.Height));
+            double ssim = ImageMetrics.Ssim(full, down);
+            double mae = ImageMetrics.MeanAbsoluteError(full, down);
+            TestContext.WriteLine($"[ImageBrush fill @2x] 1.0 vs 2.0-down SSIM={ssim:F4} MAE={mae:F4}");
+            Assert.That(ssim, Is.GreaterThan(GoldenThresholds.ExactSsimMin),
+                $"ImageBrush fill is not density-consistent across render scale: SSIM={ssim:F4}");
         });
     }
 }
