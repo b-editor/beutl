@@ -346,7 +346,11 @@ public class FormattedText : IEquatable<FormattedText>, IDisposable
                     }
                     else
                     {
+                        // Reuse the slot in place. SetSKPath bypasses the composition Update path, so the
+                        // resource's Version is unchanged; invalidate its cache so the next render rebuilds
+                        // from this glyph's outline instead of the previously cached one.
                         exist.GetOriginal().SetSKPath(tmp, false);
+                        exist.InvalidateCachedPaths();
                     }
                 }
                 else
@@ -365,7 +369,11 @@ public class FormattedText : IEquatable<FormattedText>, IDisposable
                 }
                 else
                 {
+                    // Reuse the slot in place (see the glyph-bearing branch above); the path went from a
+                    // real outline to null, so invalidate the cache too — otherwise GetCachedPath keeps
+                    // returning the stale previous glyph for a slot that should now be empty.
                     exist.GetOriginal().SetSKPath(tmp, false);
+                    exist.InvalidateCachedPaths();
                 }
             }
         }
