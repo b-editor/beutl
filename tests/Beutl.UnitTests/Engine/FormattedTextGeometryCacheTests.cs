@@ -14,8 +14,7 @@ public class FormattedTextGeometryCacheTests
     [SetUp]
     public void Setup()
     {
-        // Log.LoggerFactory is write-once (??=); skip allocating a factory we would only discard
-        // when another fixture already set one.
+        // Log.LoggerFactory is write-once; don't allocate a factory another fixture may already have set.
         if (Log.LoggerFactory is null)
         {
             Log.LoggerFactory = LoggerFactory.Create(b => b.AddSimpleConsole());
@@ -37,16 +36,14 @@ public class FormattedTextGeometryCacheTests
         };
     }
 
-    // Regression: changing a FormattedText's text re-measures in place, reusing the per-glyph
-    // SKPathGeometry slot via SetSKPath without bumping the resource Version. Geometry.Resource caches
-    // its render path keyed on Version, so before the fix GetCachedPath kept returning the previous
-    // glyph's outline (a narrow 'I' even after the text became a wide 'W').
+    // Regression: re-measuring in place reuses the per-glyph slot without bumping Version, so before the
+    // fix the Version-keyed path cache kept returning the previous glyph (narrow 'I' after switching to 'W').
     [Test]
     public void ReMeasure_ReusingGlyphSlot_RebuildsCachedGeometryPath()
     {
         using FormattedText text = CreateText("I");
 
-        // Populate the per-glyph geometry resource cache for the narrow glyph 'I'.
+        // Populate the cache for the narrow glyph 'I'.
         Geometry.Resource glyph = text.ToGeometies()[0];
         Rect narrowBounds = glyph.Bounds;
 
@@ -99,12 +96,9 @@ public class FormattedTextGeometryCacheTests
         Assert.That(wideStroke.Width, Is.EqualTo(referenceStroke.Width).Within(0.01));
     }
 
-    // Regression at the render-node layer. GeometryRenderNode diffs on a captured (resource, Version)
-    // snapshot (ResourceExtension.Compare), and RenderNodeCache only resets a node's cache-eligibility
-    // counter — and ultimately invalidates its rasterized tile — when the node reports HasChanges. A slot
-    // reuse keeps the same resource reference, so unless the in-place mutation bumps Version the render node
-    // sees "unchanged", keeps its cached tile, and the previous glyph stays on screen (the SplitByCharacters
-    // TextBlock path). Asserting at the Geometry.Resource level alone does not cover this.
+    // Regression at the render-node layer: GeometryRenderNode diffs on a captured (resource, Version)
+    // snapshot, so a slot reuse that keeps the same resource reference looks unchanged unless Version is
+    // bumped — leaving the previous glyph's rasterized tile on screen. The Resource-level tests miss this.
     [Test]
     public void ReMeasure_ReusingGlyphSlot_MarksGeometryRenderNodeChanged()
     {
