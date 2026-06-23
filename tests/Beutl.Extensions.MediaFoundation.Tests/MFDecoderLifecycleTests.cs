@@ -14,6 +14,9 @@ namespace Beutl.Extensions.MediaFoundation.Tests;
 public class MFDecoderLifecycleTests
 {
     private string _workDir = string.Empty;
+    private bool _prevEnableObjectTracking;
+    private bool _prevEnableReleaseOnFinalizer;
+    private bool _prevUseThreadStaticObjectTracking;
 
     [OneTimeSetUp]
     public void OneTimeSetUp()
@@ -23,6 +26,11 @@ public class MFDecoderLifecycleTests
             Assert.Ignore("Media Foundation is only available on Windows.");
         }
 
+        // Enable tracking before the baseline count below — the MFDecoder ctor sets these same flags
+        // but too late to count the wrappers it creates. Process-global statics, so capture/restore.
+        _prevEnableObjectTracking = SharpGen.Runtime.Configuration.EnableObjectTracking;
+        _prevEnableReleaseOnFinalizer = SharpGen.Runtime.Configuration.EnableReleaseOnFinalizer;
+        _prevUseThreadStaticObjectTracking = SharpGen.Runtime.Configuration.UseThreadStaticObjectTracking;
         SharpGen.Runtime.Configuration.EnableObjectTracking = true;
         SharpGen.Runtime.Configuration.EnableReleaseOnFinalizer = true;
         SharpGen.Runtime.Configuration.UseThreadStaticObjectTracking = true;
@@ -35,6 +43,9 @@ public class MFDecoderLifecycleTests
         if (OperatingSystem.IsWindows())
         {
             MediaFactory.MFShutdown();
+            SharpGen.Runtime.Configuration.EnableObjectTracking = _prevEnableObjectTracking;
+            SharpGen.Runtime.Configuration.EnableReleaseOnFinalizer = _prevEnableReleaseOnFinalizer;
+            SharpGen.Runtime.Configuration.UseThreadStaticObjectTracking = _prevUseThreadStaticObjectTracking;
         }
     }
 
