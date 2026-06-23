@@ -10,7 +10,7 @@ using SkiaSharp.HarfBuzz;
 namespace Beutl.Media.TextFormatting;
 
 [DebuggerDisplay("{Text}")]
-public class FormattedText : IEquatable<FormattedText>
+public class FormattedText : IEquatable<FormattedText>, IDisposable
 {
     private FontWeight _weight = FontWeight.Regular;
     private FontStyle _style = FontStyle.Normal;
@@ -57,6 +57,37 @@ public class FormattedText : IEquatable<FormattedText>
 
     public FormattedText()
     {
+    }
+
+    public bool IsDisposed { get; private set; }
+
+    /// <remarks>
+    /// Disposal is idempotent and one-shot; the instance must not be used afterwards. Measuring members
+    /// (e.g. <see cref="Bounds"/> or the density-scaled blob/stroke accessors) would re-allocate Skia
+    /// handles that a later <see cref="Dispose"/> call will not release.
+    /// </remarks>
+    // No finalizer: every owned field (SKTextBlob / SKPath / SKPathGeometry.Resource) is itself
+    // finalizable via SkiaSharp, so deterministic Dispose only speeds up release. If a non-SkiaSharp
+    // unmanaged field is ever added, add ~FormattedText() here.
+    public void Dispose()
+    {
+        if (IsDisposed) return;
+
+        ClearScaledTextCache();
+        (_textBlob, _fillPath, _strokePath).DisposeAll();
+        foreach (SKPathGeometry.Resource? resource in _pathList)
+        {
+            // Dispose the geometry too: it owns the per-glyph SKPath (set via SetSKPath(..., clone: false)),
+            // which the resource's cached render path does not cover.
+            resource?.GetOriginal().Dispose();
+            resource?.Dispose();
+        }
+
+        _pathList = [];
+        _textBlob = null;
+        _fillPath = null;
+        _strokePath = null;
+        IsDisposed = true;
     }
 
     public FontWeight Weight
