@@ -62,33 +62,40 @@ public class FormattedTextDisposalTests
     }
 
     [Test]
-    public void Dispose_ClearsMainSkiaHandleFields()
+    public void MeasuringMembers_AfterDispose_ThrowObjectDisposedException()
     {
         FormattedText ft = CreateText();
-        Assert.That(ft.GetTextBlob(), Is.Not.Null);
-        Assert.That(ft.GetFillPath(), Is.Not.Null);
+        _ = ft.Bounds;
 
         ft.Dispose();
 
-        Assert.That(ft.GetTextBlob(), Is.Null, "TextBlob field should be cleared after Dispose.");
-        Assert.That(ft.GetFillPath(), Is.Null, "FillPath field should be cleared after Dispose.");
-        Assert.That(ft.GetStrokePath(), Is.Null, "StrokePath field should be cleared after Dispose.");
+        Assert.Multiple(() =>
+        {
+            Assert.Throws<ObjectDisposedException>(() => _ = ft.Bounds);
+            Assert.Throws<ObjectDisposedException>(() => _ = ft.ActualBounds);
+            Assert.Throws<ObjectDisposedException>(() => _ = ft.Metrics);
+            Assert.Throws<ObjectDisposedException>(() => ft.GetTextBlob());
+            Assert.Throws<ObjectDisposedException>(() => ft.GetFillPath());
+            Assert.Throws<ObjectDisposedException>(() => ft.GetStrokePath());
+            Assert.Throws<ObjectDisposedException>(() => ft.ToGeometies());
+        });
     }
 
     [Test]
-    public void Dispose_ClearsScaledTextCache()
+    public void ScaledAccessors_AfterDispose_ThrowObjectDisposedException()
     {
         FormattedText ft = CreateText();
-        SKTextBlob? before = ft.GetTextBlob(2f);
-        Assert.That(before, Is.Not.Null);
+        // Leave the instance dirty so a post-dispose access would otherwise re-measure and
+        // re-populate the scaled cache, leaking handles the idempotent Dispose can no longer release.
+        ft.Size = 32f;
 
         ft.Dispose();
 
-        SKTextBlob? after = ft.GetTextBlob(2f);
-        Assert.That(after, Is.Not.Null);
-        Assert.That(ReferenceEquals(before, after), Is.False,
-            "Scaled cache should have been cleared by Dispose; a fresh blob must be produced on re-access.");
-        ft.Dispose();
+        Assert.Multiple(() =>
+        {
+            Assert.Throws<ObjectDisposedException>(() => ft.GetTextBlob(2f));
+            Assert.Throws<ObjectDisposedException>(() => ft.GetStrokePath(2f));
+        });
     }
 
     [Test]

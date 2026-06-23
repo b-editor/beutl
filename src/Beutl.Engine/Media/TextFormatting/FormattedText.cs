@@ -63,8 +63,9 @@ public class FormattedText : IEquatable<FormattedText>, IDisposable
 
     /// <remarks>
     /// Disposal is idempotent and one-shot; the instance must not be used afterwards. Measuring members
-    /// (e.g. <see cref="Bounds"/> or the density-scaled blob/stroke accessors) would re-allocate Skia
-    /// handles that a later <see cref="Dispose"/> call will not release.
+    /// (e.g. <see cref="Bounds"/> or the density-scaled blob/stroke accessors) throw
+    /// <see cref="ObjectDisposedException"/> rather than re-allocating Skia handles that a later
+    /// <see cref="Dispose"/> call could not release.
     /// </remarks>
     // No finalizer: every owned field (SKTextBlob / SKPath / SKPathGeometry.Resource) is itself
     // finalizable via SkiaSharp, so deterministic Dispose only speeds up release. If a non-SkiaSharp
@@ -399,6 +400,7 @@ public class FormattedText : IEquatable<FormattedText>, IDisposable
 
     private void MeasureAndSetField()
     {
+        ObjectDisposedException.ThrowIf(IsDisposed, this);
         if (_isDirty)
         {
             Measure();
