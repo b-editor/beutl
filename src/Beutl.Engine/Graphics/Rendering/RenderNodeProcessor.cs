@@ -139,8 +139,16 @@ public class RenderNodeProcessor(
                 consumed++;
                 if (RasterizeAt(op, OutputScale) is { } result)
                 {
-                    using RenderTarget renderTarget = result.RenderTarget;
-                    list.Add(renderTarget.Snapshot());
+                    try
+                    {
+                        list.Add(result.RenderTarget.Snapshot());
+                    }
+                    finally
+                    {
+                        // Best-effort: a throwing GPU-native teardown must not discard the bitmap
+                        // just snapshotted from this target.
+                        DisposeBestEffort(result.RenderTarget);
+                    }
                 }
             }
 

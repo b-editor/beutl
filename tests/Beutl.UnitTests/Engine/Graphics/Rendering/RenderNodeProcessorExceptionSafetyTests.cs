@@ -384,6 +384,29 @@ public class RenderNodeProcessorExceptionSafetyTests
         Assert.That(disposed, Is.EqualTo(new[] { "ok" }));
     }
 
+    // A throwing Dispose() during post-snapshot cleanup must not discard the already-snapshotted bitmaps.
+    [Test]
+    public void Rasterize_ReturnsBitmaps_WhenRenderSucceedsButRenderTargetDisposeThrows()
+    {
+        var disposed = new List<string>();
+        using var node = new StaticRenderNode(
+            CreateOperation("ok", disposed));
+        var processor = new FakeRenderNodeProcessor(node, _ => true);
+
+        var result = processor.Rasterize();
+
+        Assert.That(result, Has.Count.EqualTo(1));
+        using (result[0])
+        {
+            Assert.That(result[0].Width, Is.EqualTo(4));
+            Assert.That(result[0].Height, Is.EqualTo(4));
+        }
+
+        Assert.That(processor.CreatedTargets, Has.Count.EqualTo(1));
+        Assert.That(processor.CreatedTargets[0].DisposeWasCalled, Is.True);
+        Assert.That(disposed, Is.EqualTo(new[] { "ok" }));
+    }
+
     private static StaticRenderNode CreateRenderThrowWithThrowingRemainingOps(ICollection<string> disposed)
     {
         return new StaticRenderNode(
