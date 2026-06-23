@@ -1,4 +1,4 @@
-using System.IO;
+﻿using System.IO;
 
 using Beutl.Embedding.MediaFoundation.Decoding;
 
@@ -15,6 +15,14 @@ public class MFFrameBufferSizeTests
         Assert.That(size, Is.EqualTo(1920 * 1080 * 2));
     }
 
+    [Test]
+    public void Calculate_WithValidDimensions_ReturnsByteCount()
+    {
+        int size = MFFrameBufferSize.Calculate(1920, 1080, 4);
+
+        Assert.That(size, Is.EqualTo(1920 * 1080 * 4));
+    }
+
     [TestCase(0, 1080, 2)]
     [TestCase(1920, 0, 2)]
     [TestCase(1920, 1080, 0)]
@@ -28,6 +36,22 @@ public class MFFrameBufferSizeTests
     {
         Assert.That(
             () => MFFrameBufferSize.Calculate(width, height, bytesPerPixel),
+            Throws.TypeOf<InvalidDataException>());
+    }
+
+    [Test]
+    public void Calculate_WhenByteCountEqualsMaximumArrayLength_ReturnsByteCount()
+    {
+        int size = MFFrameBufferSize.Calculate(Array.MaxLength, 1, 1);
+
+        Assert.That(size, Is.EqualTo(Array.MaxLength));
+    }
+
+    [Test]
+    public void Calculate_WhenByteCountJustExceedsMaximumArrayLength_ThrowsInvalidDataException()
+    {
+        Assert.That(
+            () => MFFrameBufferSize.Calculate(Array.MaxLength, 1, 2),
             Throws.TypeOf<InvalidDataException>());
     }
 
