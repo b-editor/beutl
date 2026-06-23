@@ -31,6 +31,25 @@ public abstract class AudioNode : IDisposable
     public abstract AudioBuffer Process(AudioProcessContext context);
 
     /// <summary>
+    /// Drains the latency this node and its <see cref="Inputs"/> still hold, as the
+    /// <paramref name="context"/>-sized block that follows the clip's last <see cref="Process"/> output.
+    /// The real source is treated as exhausted — a node with no inputs returns silence — so the only
+    /// non-silent content is what delay lines / lookahead buffers release; that is why a trimmed clip
+    /// cannot bleed real audio here. Callers must invoke it immediately after the terminal
+    /// <see cref="Process"/> with a context that abuts it, so the cached node sees no discontinuity.
+    /// The default passes a single input's drain through unchanged; latency-bearing nodes override.
+    /// </summary>
+    public virtual AudioBuffer Flush(AudioProcessContext context)
+    {
+        ArgumentNullException.ThrowIfNull(context);
+
+        if (_inputs.Count == 1)
+            return _inputs[0].Flush(context);
+
+        return new AudioBuffer(context.SampleRate, 2, context.GetSampleCount());
+    }
+
+    /// <summary>
     /// Reports the processing latency this node alone introduces at <paramref name="sampleRate"/>, in
     /// samples (a lookahead/delay-line node returns the samples its output lags its input; pass-through
     /// nodes return 0). Report-only: it never affects <see cref="Process"/> output. Pass the output

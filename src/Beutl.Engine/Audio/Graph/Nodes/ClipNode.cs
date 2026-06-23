@@ -52,6 +52,16 @@ public class ClipNode : AudioNode
                 buffer.CopyTo(newBuffer, offset, copyCount);
             }
 
+            // When this window reaches the clip's true end, the effect chain still holds its tail in
+            // delay lines. Drain it (Flush feeds silence past the clip end, so a trimmed source never
+            // bleeds) and append it into the trailing pad the window already reserves, recovering audio
+            // that inline processing would otherwise drop off the tail. The drain is contiguous with the
+            // main slice in clip-local time, so the cached effect state does not reset.
+            if (newRange.End == range.End)
+            {
+                AppendFlushedTail(context, newBuffer, offset + copyCount);
+            }
+
             return newBuffer;
         }
         catch
@@ -59,6 +69,34 @@ public class ClipNode : AudioNode
             // Dispose the output the caller never received rather than leak it.
             newBuffer.Dispose();
             throw;
+        }
+    }
+
+    // Drains the input chain's residual latency into newBuffer starting at writeOffset, bounded by the
+    // remaining capacity. The drain context starts clip-local at Duration — exactly where the main
+    // slice ended on the terminal window — so the cached effect chain sees a contiguous stream.
+    private void AppendFlushedTail(AudioProcessContext context, AudioBuffer newBuffer, int writeOffset)
+    {
+        int capacity = newBuffer.SampleCount - writeOffset;
+        if (capacity <= 0)
+            return;
+
+        int latency = Inputs[0].GetTotalLatencySamples(context.SampleRate);
+        int drainCount = Math.Min(latency, capacity);
+        if (drainCount <= 0)
+            return;
+
+        var drainContext = new AudioProcessContext(
+            new TimeRange(Duration, TimeSpan.FromSeconds((double)drainCount / context.SampleRate)),
+            context.SampleRate,
+            context.AnimationSampler,
+            context.OriginalTimeRange);
+
+        using var tail = Inputs[0].Flush(drainContext);
+        int copyCount = Math.Min(tail.SampleCount, drainCount);
+        if (copyCount > 0)
+        {
+            tail.CopyTo(newBuffer, writeOffset, copyCount);
         }
     }
 }
