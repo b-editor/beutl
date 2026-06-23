@@ -99,9 +99,13 @@ public partial class SourceVideo : IThumbnailsProvider
             var duration = TimeRange.Duration;
 
             var frameSize = source.FrameSize;
-            float aspectRatio = (float)frameSize.Width / frameSize.Height;
-            float thumbWidth = maxHeight * aspectRatio;
-            int count = (int)MathF.Ceiling(maxWidth / thumbWidth);
+            int count = GetVideoThumbnailCount(frameSize, maxWidth, maxHeight);
+            // A degenerate frame size (e.g. corrupt metadata with Height == 0) makes the division below
+            // produce Infinity, which then overflows TimeSpan.FromSeconds. Bail out instead.
+            if (count <= 0)
+                yield break;
+            // count > 0 implies frameSize dimensions and maxHeight are positive, so this is finite.
+            float thumbWidth = maxHeight * (float)frameSize.Width / frameSize.Height;
             double interval = duration.TotalSeconds / count;
 
             string? cacheKey = cacheService != null ? GetThumbnailsCacheKey() : null;
@@ -174,5 +178,22 @@ public partial class SourceVideo : IThumbnailsProvider
     {
         await Task.CompletedTask;
         yield break;
+    }
+
+    internal static int GetVideoThumbnailCount(PixelSize frameSize, int maxWidth, int maxHeight)
+    {
+        if (frameSize.Width <= 0 || frameSize.Height <= 0 || maxWidth <= 0 || maxHeight <= 0)
+            return 0;
+
+        float aspectRatio = (float)frameSize.Width / frameSize.Height;
+        float thumbWidth = maxHeight * aspectRatio;
+        if (!float.IsFinite(thumbWidth) || thumbWidth <= 0)
+            return 0;
+
+        float raw = MathF.Ceiling(maxWidth / thumbWidth);
+        if (!float.IsFinite(raw) || raw <= 0 || raw > int.MaxValue)
+            return 0;
+
+        return (int)raw;
     }
 }
