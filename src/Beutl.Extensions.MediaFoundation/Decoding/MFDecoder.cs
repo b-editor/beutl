@@ -97,11 +97,13 @@ internal sealed class MFDecoder : IMediaFoundationVideoDecoder
         }
         catch (NoVideoStreamException)
         {
+            DisposeAfterInitializationFailure();
             throw;
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "An exception occurred during initialization of the video stream.");
+            DisposeAfterInitializationFailure();
             throw;
         }
     }
@@ -399,7 +401,7 @@ internal sealed class MFDecoder : IMediaFoundationVideoDecoder
         {
             BitmapInfoHeader bih = default;
 
-            IMFMediaType mediaType = sourceReader.GetCurrentMediaType(_mediaInfo.VideoStreamIndex);
+            using IMFMediaType mediaType = sourceReader.GetCurrentMediaType(_mediaInfo.VideoStreamIndex);
 
             MediaFactory.MFCreateMFVideoFormatFromMFMediaType(mediaType, out IntPtr pMFVF, out var pcbSize);
             var ppMFVF = (MFVIDEOFORMAT*)pMFVF;
@@ -454,6 +456,18 @@ internal sealed class MFDecoder : IMediaFoundationVideoDecoder
 
         _firstGapTimeStamp = firstVideoTimeStamp;
         _logger.LogInformation("TestFirstReadSample - firstGapTimeStamp: {firstGapTimeStamp}", _firstGapTimeStamp);
+    }
+
+    private void DisposeAfterInitializationFailure()
+    {
+        try
+        {
+            Dispose();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to dispose Media Foundation decoder resources after initialization failure.");
+        }
     }
 
     public void Dispose()
