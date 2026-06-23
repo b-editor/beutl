@@ -159,14 +159,16 @@ public class RenderNodeProcessor(
         var bounds = ops.Aggregate(Rect.Empty, (a, n) => a.Union(n.Bounds));
         float w = OutputScale;
         var rect = w == 1f ? PixelRect.FromRect(bounds) : PixelRect.FromRect(bounds, w);
-        using var renderTarget =
+        var renderTarget =
             CreateRenderTarget(rect.Width, rect.Height) ?? throw new Exception("RenderTarget is null");
-        using var canvas = new ImmediateCanvas(renderTarget, w, MaxWorkingScale, logicalSize: bounds.Size);
-        canvas.Clear();
-
+        ImmediateCanvas? canvas = null;
         int consumed = 0;
+        bool succeeded = false;
         try
         {
+            canvas = new ImmediateCanvas(renderTarget, w, MaxWorkingScale, logicalSize: bounds.Size);
+            canvas.Clear();
+
             using (canvas.PushTransform(Matrix.CreateTranslation(-bounds.X, -bounds.Y)))
             {
                 foreach (var op in ops)
@@ -176,14 +178,32 @@ public class RenderNodeProcessor(
                     op.Dispose();
                 }
             }
+
+            Bitmap result = renderTarget.Snapshot();
+            succeeded = true;
+            return result;
         }
         catch
         {
             RenderNodeOperation.DisposeAll(ops.AsSpan(consumed));
+            DisposeBestEffort(canvas);
+            DisposeBestEffort(renderTarget);
             throw;
         }
-
-        return renderTarget.Snapshot();
+        finally
+        {
+            if (succeeded)
+            {
+                try
+                {
+                    canvas?.Dispose();
+                }
+                finally
+                {
+                    renderTarget.Dispose();
+                }
+            }
+        }
     }
 
     private static void DisposeRenderTargets(List<(RenderTarget RenderTarget, Rect Bounds)> targets)
@@ -202,8 +222,11 @@ public class RenderNodeProcessor(
         }
     }
 
-    private static void DisposeBestEffort(IDisposable disposable)
+    private static void DisposeBestEffort(IDisposable? disposable)
     {
+        if (disposable == null)
+            return;
+
         try
         {
             disposable.Dispose();

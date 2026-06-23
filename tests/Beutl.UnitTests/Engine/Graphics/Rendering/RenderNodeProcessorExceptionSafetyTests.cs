@@ -267,6 +267,22 @@ public class RenderNodeProcessorExceptionSafetyTests
         Assert.That(disposed, Is.EqualTo(new[] { "render-fault" }));
     }
 
+    [Test]
+    public void RasterizeAndConcat_PreservesRenderException_WhenRenderTargetDisposeThrows()
+    {
+        var disposed = new List<string>();
+        using var node = new StaticRenderNode(
+            CreateOperation("render-fault", disposed, throwOnRender: true));
+        var processor = new FakeRenderNodeProcessor(node, _ => true);
+
+        var ex = Assert.Throws<InvalidOperationException>(() => processor.RasterizeAndConcat());
+
+        Assert.That(ex!.Message, Is.EqualTo("render-fault"));
+        Assert.That(processor.CreatedTargets, Has.Count.EqualTo(1));
+        Assert.That(processor.CreatedTargets[0].DisposeWasCalled, Is.True);
+        Assert.That(disposed, Is.EqualTo(new[] { "render-fault" }));
+    }
+
     // The outer DisposeRenderTargets sweep must keep going and preserve the original render
     // exception when an already-built (list-resident) RenderTarget throws on Dispose during cleanup.
     [Test]
