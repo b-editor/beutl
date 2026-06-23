@@ -164,7 +164,7 @@ Pick the branch name from the branch you are currently on:
 # Derive the prefix from the current branch and swap the feature part.
 CURRENT=$(git branch --show-current)
 case "$CURRENT" in
-  */*)            PREFIX=${CURRENT%%/*} ;;   # personal feature branch -> keep its "<prefix>/"
+  */*)            PREFIX=${CURRENT%%/*} ;;   # personal feature branch -> reuse its prefix segment
   *)              PREFIX="<your-prefix>" ;;  # main/master OR a flat/worktree name (no "/") -> use
                                              #   your personal prefix; never reuse a flat branch
                                              #   name (e.g. "error-missing-task-input") as a prefix
@@ -288,7 +288,7 @@ finding from the same PR). Before creating anything, check it against the board.
 snapshot if you still have it; otherwise re-fetch:
 
 ```bash
-# BOARD = the snapshot file from Step 1 (re-fetch if it is gone or stale).
+# BOARD = the snapshot file from Step 1 (re-fetch if it is missing or empty).
 [ -s "$BOARD" ] || { BOARD=$(mktemp /tmp/ai-review-board.XXXX.json); \
   gh project item-list 9 --owner b-editor --limit 2000 --format json > "$BOARD"; }
 
