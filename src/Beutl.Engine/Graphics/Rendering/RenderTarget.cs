@@ -21,6 +21,16 @@ public class RenderTarget : IDisposable
         _texture = texture;
     }
 
+    /// <summary>
+    /// For subclasses (custom allocations / test doubles). Wraps a raw <paramref name="surface"/>
+    /// with no shared texture. The surface is released by <see cref="Dispose()"/> unless a
+    /// subclass overrides it.
+    /// </summary>
+    protected RenderTarget(SKSurface surface, int width, int height)
+        : this(new SKSurfaceCounter<SKSurface>(surface), width, height)
+    {
+    }
+
     ~RenderTarget()
     {
         Dispose();
@@ -162,7 +172,7 @@ public class RenderTarget : IDisposable
         _dispatcher?.VerifyAccess();
     }
 
-    public void Dispose()
+    public virtual void Dispose()
     {
         if (IsDisposed) return;
 

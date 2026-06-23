@@ -1,5 +1,6 @@
 ﻿using Beutl.Graphics;
 using Beutl.Graphics.Rendering;
+using SkiaSharp;
 
 namespace Beutl.UnitTests.Engine.Graphics.Rendering;
 
@@ -231,6 +232,63 @@ public class RenderNodeProcessorExceptionSafetyTests
         Assert.That(disposed, Is.EquivalentTo(new[] { "first", "throws", "remaining" }));
     }
 
+    // RasterizeAt routes the faulting op's render-target disposal through DisposeBestEffort, so a
+    // throwing GPU-native RenderTarget.Dispose() is swallowed and cannot mask the in-flight render
+    // exception. Only Rasterize / RasterizeToRenderTargets reach RasterizeAt's catch.
+    [Test]
+    public void RasterizeToRenderTargets_PreservesRenderException_WhenRenderTargetDisposeThrows()
+    {
+        var disposed = new List<string>();
+        using var node = new StaticRenderNode(
+            CreateOperation("render-fault", disposed, throwOnRender: true));
+        var processor = new FakeRenderNodeProcessor(node, _ => true);
+
+        var ex = Assert.Throws<InvalidOperationException>(() => processor.RasterizeToRenderTargets());
+
+        Assert.That(ex!.Message, Is.EqualTo("render-fault"));
+        Assert.That(processor.CreatedTargets, Has.Count.EqualTo(1));
+        Assert.That(processor.CreatedTargets[0].DisposeWasCalled, Is.True);
+        Assert.That(disposed, Is.EqualTo(new[] { "render-fault" }));
+    }
+
+    [Test]
+    public void Rasterize_PreservesRenderException_WhenRenderTargetDisposeThrows()
+    {
+        var disposed = new List<string>();
+        using var node = new StaticRenderNode(
+            CreateOperation("render-fault", disposed, throwOnRender: true));
+        var processor = new FakeRenderNodeProcessor(node, _ => true);
+
+        var ex = Assert.Throws<InvalidOperationException>(() => processor.Rasterize());
+
+        Assert.That(ex!.Message, Is.EqualTo("render-fault"));
+        Assert.That(processor.CreatedTargets, Has.Count.EqualTo(1));
+        Assert.That(processor.CreatedTargets[0].DisposeWasCalled, Is.True);
+        Assert.That(disposed, Is.EqualTo(new[] { "render-fault" }));
+    }
+
+    // The outer DisposeRenderTargets sweep must keep going and preserve the original render
+    // exception when an already-built (list-resident) RenderTarget throws on Dispose during cleanup.
+    [Test]
+    public void RasterizeToRenderTargets_ContinuesCleanupAndPreservesException_WhenBuiltRenderTargetDisposeThrows()
+    {
+        var disposed = new List<string>();
+        using var node = new StaticRenderNode(
+            CreateOperation("first", disposed),                               // renders OK -> its RT enters the list
+            CreateOperation("render-fault", disposed, throwOnRender: true));  // faults; its own RT is disposed in RasterizeAt
+        // Only the first (list-resident) RT throws on Dispose; the faulting op's RT does not, so
+        // the only throwing-dispose that fires here is the built-resource sweep.
+        var processor = new FakeRenderNodeProcessor(node, i => i == 0);
+
+        var ex = Assert.Throws<InvalidOperationException>(() => processor.RasterizeToRenderTargets());
+
+        Assert.That(ex!.Message, Is.EqualTo("render-fault"));
+        Assert.That(processor.CreatedTargets, Has.Count.EqualTo(2));
+        Assert.That(processor.CreatedTargets[0].DisposeWasCalled, Is.True);   // swept despite throwing
+        Assert.That(processor.CreatedTargets[1].DisposeWasCalled, Is.True);   // disposed in RasterizeAt catch
+        Assert.That(disposed, Is.EqualTo(new[] { "first", "render-fault" }));
+    }
+
     private static StaticRenderNode CreateRenderThrowWithThrowingRemainingOps(ICollection<string> disposed)
     {
         return new StaticRenderNode(
@@ -270,5 +328,45 @@ public class RenderNodeProcessorExceptionSafetyTests
     private sealed class StaticRenderNode(params RenderNodeOperation[] operations) : RenderNode
     {
         public override RenderNodeOperation[] Process(RenderNodeContext context) => operations;
+    }
+
+    // Substitutes RenderTarget allocation so the exception-safety paths can be exercised with a
+    // RenderTarget whose Dispose() throws. Backed by a null SKSurface so ImmediateCanvas can draw
+    // into it without a GPU context.
+    private sealed class FakeRenderNodeProcessor(RenderNode root, Func<int, bool> shouldThrowOnDispose)
+        : RenderNodeProcessor(root, useRenderCache: false)
+    {
+        public List<FakeRenderTarget> CreatedTargets { get; } = new();
+
+        protected internal override RenderTarget? CreateRenderTarget(int width, int height)
+        {
+            var target = new FakeRenderTarget(width, height, shouldThrowOnDispose(CreatedTargets.Count));
+            CreatedTargets.Add(target);
+            return target;
+        }
+    }
+
+    private sealed class FakeRenderTarget(int width, int height, bool throwOnDispose)
+        : RenderTarget(SKSurface.CreateNull(width, height), width, height)
+    {
+        public bool DisposeWasCalled { get; private set; }
+
+        public override void Dispose()
+        {
+            // Idempotent guard: the base finalizer (~RenderTarget) re-invokes this virtual Dispose,
+            // so a throwing path that already fired must not throw again from the finalizer.
+            if (DisposeWasCalled)
+            {
+                return;
+            }
+
+            DisposeWasCalled = true;
+            if (throwOnDispose)
+            {
+                throw new InvalidOperationException("rt-dispose-fault");
+            }
+
+            base.Dispose();
+        }
     }
 }

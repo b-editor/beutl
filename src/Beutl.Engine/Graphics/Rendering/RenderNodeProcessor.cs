@@ -17,6 +17,14 @@ public class RenderNodeProcessor(
     /// <summary>Working-scale ceiling seeded into every <see cref="RenderNodeContext"/>. <c>+Inf</c> = no ceiling.</summary>
     public float MaxWorkingScale { get; } = RenderNodeContext.SanitizeMaxWorkingScale(maxWorkingScale);
 
+    /// <summary>
+    /// Allocates the intermediate <see cref="RenderTarget"/> used to rasterize each operation.
+    /// Override to substitute a custom allocation (e.g. pooling, a test double whose
+    /// <see cref="RenderTarget.Dispose()"/> throws). Defaults to <see cref="RenderTarget.Create"/>.
+    /// </summary>
+    protected internal virtual RenderTarget? CreateRenderTarget(int width, int height)
+        => RenderTarget.Create(width, height);
+
     public void Render(ImmediateCanvas canvas)
     {
         var ops = PullToRoot();
@@ -50,7 +58,7 @@ public class RenderNodeProcessor(
             return null;
         }
 
-        var renderTarget = RenderTarget.Create(rect.Width, rect.Height);
+        var renderTarget = CreateRenderTarget(rect.Width, rect.Height);
         if (renderTarget == null)
         {
             op.Dispose();
@@ -152,7 +160,7 @@ public class RenderNodeProcessor(
         float w = OutputScale;
         var rect = w == 1f ? PixelRect.FromRect(bounds) : PixelRect.FromRect(bounds, w);
         using var renderTarget =
-            RenderTarget.Create(rect.Width, rect.Height) ?? throw new Exception("RenderTarget is null");
+            CreateRenderTarget(rect.Width, rect.Height) ?? throw new Exception("RenderTarget is null");
         using var canvas = new ImmediateCanvas(renderTarget, w, MaxWorkingScale, logicalSize: bounds.Size);
         canvas.Clear();
 
