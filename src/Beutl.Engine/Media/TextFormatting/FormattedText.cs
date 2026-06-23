@@ -469,8 +469,23 @@ public class FormattedText : IEquatable<FormattedText>, IDisposable
                 _scaledTextCacheLru.Remove(node);
             }
 
-            (textBlob, strokePath).DisposeAll();
+            // Best-effort: a faulting handle Dispose must not mask the original commit failure,
+            // and the second handle must still be released if the first throws.
+            DisposeBestEffort(textBlob);
+            DisposeBestEffort(strokePath);
             throw;
+        }
+    }
+
+    private static void DisposeBestEffort(IDisposable? disposable)
+    {
+        try
+        {
+            disposable?.Dispose();
+        }
+        catch
+        {
+            // Preserve the original commit failure; the leak this guards against is the larger risk.
         }
     }
 
