@@ -73,7 +73,19 @@ public abstract class AudioNode : IDisposable
         if (_inputs.Count == 1)
         {
             AudioBuffer drained = _inputs[0].Flush(context);
-            AudioBuffer result = ProcessTail(drained, context);
+            AudioBuffer result;
+            try
+            {
+                result = ProcessTail(drained, context);
+            }
+            catch
+            {
+                // ProcessTail threw before taking ownership; dispose the drain we pulled (Dispose is
+                // idempotent, so a transforming node that already consumed it is unaffected).
+                drained.Dispose();
+                throw;
+            }
+
             // Pass-through ProcessTail hands back the same instance, which we must not dispose since we
             // return it; a transforming ProcessTail already consumed `drained` and returns a fresh one.
             if (!ReferenceEquals(result, drained))
