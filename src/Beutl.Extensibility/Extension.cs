@@ -13,6 +13,9 @@ public abstract class Extension
 
     /// <summary>
     /// Called once when the extension is loaded. Override to perform initialization.
+    /// If this method throws, <see cref="Unload"/> is called to roll back any partial
+    /// initialization, so write <see cref="Unload"/> to be idempotent and safe against
+    /// partially initialized state.
     /// </summary>
     public virtual void Load()
     {

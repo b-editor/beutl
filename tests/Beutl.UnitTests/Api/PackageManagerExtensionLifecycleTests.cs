@@ -18,15 +18,12 @@ public class PackageManagerExtensionLifecycleTests
     public void LoadPackageExtensions_RollsBackLoadedExtensions_WhenLaterExtensionFails()
     {
         PackageManager manager = CreatePackageManager(out ContextCommandManager commandManager, out _);
-        var extensions = new List<Extension>();
 
         var exception = Assert.Throws<InvalidOperationException>(() =>
             manager.LoadPackageExtensions(
-                [typeof(SuccessfulViewExtension), typeof(FailingViewExtension)],
-                extensions));
+                [typeof(SuccessfulViewExtension), typeof(FailingViewExtension)]));
 
         Assert.That(exception!.Message, Is.EqualTo("boom"));
-        Assert.That(extensions, Is.Empty);
         Assert.That(commandManager.GetDefinitions(typeof(SuccessfulViewExtension)), Is.Empty);
         Assert.That(commandManager.GetDefinitions(typeof(FailingViewExtension)), Is.Empty);
         Assert.That(SuccessfulViewExtension.LoadCount, Is.EqualTo(1));
@@ -77,6 +74,39 @@ public class PackageManagerExtensionLifecycleTests
         Assert.That(SuccessfulViewExtension.UnloadCount, Is.EqualTo(1));
         Assert.That(commandManager.GetDefinitions(typeof(SuccessfulViewExtension)), Is.Empty);
         Assert.That(manager.LoadedPackage, Is.Empty);
+    }
+
+    [Test]
+    public void LoadExtensionsAndRegister_RollsBackNewExtensions_WhenPackageAlreadyTracked()
+    {
+        PackageManager manager = CreatePackageManager(out ContextCommandManager commandManager, out ExtensionProvider provider);
+        var package = new LocalPackage { Name = "Tracked" };
+
+        manager.LoadExtensionsAndRegister(
+            activity: null,
+            package,
+            assemblies: [],
+            loadContext: null,
+            [typeof(SuccessfulViewExtension)]);
+
+        // Drop only the provider entry so the second load passes AddExtensions but trips the
+        // _loadedPackages.TryAdd guard, exercising the "already loaded" rollback branch.
+        provider.RemoveExtensions(package.LocalId);
+        SuccessfulViewExtension.Reset();
+
+        var exception = Assert.Throws<InvalidOperationException>(() =>
+            manager.LoadExtensionsAndRegister(
+                activity: null,
+                package,
+                assemblies: [],
+                loadContext: null,
+                [typeof(SuccessfulViewExtension)]));
+
+        Assert.That(exception!.Message, Does.Contain("already loaded"));
+        Assert.That(SuccessfulViewExtension.LoadCount, Is.EqualTo(1));
+        Assert.That(SuccessfulViewExtension.UnloadCount, Is.EqualTo(1));
+        Assert.That(provider.GetExtensions<SuccessfulViewExtension>(), Is.Empty);
+        Assert.That(commandManager.GetDefinitions(typeof(SuccessfulViewExtension)), Is.Empty);
     }
 
     private static PackageManager CreatePackageManager(

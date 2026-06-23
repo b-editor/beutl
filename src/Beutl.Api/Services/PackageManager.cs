@@ -225,7 +225,7 @@ public sealed class PackageManager(
                 package,
                 result.Assemblies,
                 result.LoadContext,
-                result.Assemblies.SelectMany(assembly => assembly.GetExportedTypes()));
+                result.Assemblies.SelectMany(GetLoadableTypes).Where(type => type.IsVisible));
         }
     }
 
@@ -313,11 +313,11 @@ public sealed class PackageManager(
         PluginLoadContext? loadContext,
         IEnumerable<Type> extensionTypes)
     {
-        var extensions = new List<Extension>();
+        List<Extension> extensions = [];
         var addedToProvider = false;
         try
         {
-            LoadPackageExtensions(extensionTypes, extensions);
+            extensions = LoadPackageExtensions(extensionTypes);
 
             activity?.AddEvent(new ActivityEvent("Extensions loaded"));
             activity?.SetTag("ExtensionCount", extensions.Count);
@@ -339,8 +339,8 @@ public sealed class PackageManager(
                 ExtensionProvider.RemoveExtensions(package.LocalId);
             }
 
-            // No-op when LoadPackageExtensions already rolled back and cleared its list; this unloads
-            // the extensions only when registration below failed.
+            // extensions stays empty unless LoadPackageExtensions returned (it rolls itself back on
+            // failure), so this only unloads when a registration step below threw.
             RollbackLoadedExtensions(extensions);
             if (loadContext is { })
             {
@@ -351,14 +351,17 @@ public sealed class PackageManager(
         }
     }
 
-    internal void LoadPackageExtensions(IEnumerable<Type> extensionTypes, List<Extension> extensions)
+    internal List<Extension> LoadPackageExtensions(IEnumerable<Type> extensionTypes)
     {
+        var extensions = new List<Extension>();
         try
         {
             foreach (Type type in extensionTypes)
             {
                 LoadExtension(type, extensions);
             }
+
+            return extensions;
         }
         catch
         {
