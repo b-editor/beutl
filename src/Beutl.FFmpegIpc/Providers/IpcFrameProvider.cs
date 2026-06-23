@@ -117,8 +117,19 @@ internal sealed class IpcFrameProvider : IFrameProvider
         return bmp;
     }
 
+    // RgbaF16 destination: 4 channels * 2 bytes. Must match the BitmapColorType.RgbaF16 used below.
+    private const int RgbaF16BytesPerPixel = 8;
+
     private Bitmap BuildBitmap(ProvideFrameMessage frameInfo, int bufferIndex)
     {
+        // SharedMemoryBuffer.Read bounds-checks the shared buffer, not the destination bitmap. Reject a
+        // worker-reported DataLength that does not match the RgbaF16 destination before it overruns it.
+        long expected = (long)frameInfo.Width * frameInfo.Height * RgbaF16BytesPerPixel;
+        if (frameInfo.DataLength != expected)
+            throw new InvalidOperationException(
+                $"Frame DataLength {frameInfo.DataLength} does not match the {frameInfo.Width}x{frameInfo.Height} " +
+                $"RgbaF16 buffer size {expected}.");
+
         var alphaType = frameInfo.Premul ? BitmapAlphaType.Premul : BitmapAlphaType.Unpremul;
         var bmp = new Bitmap(frameInfo.Width, frameInfo.Height, BitmapColorType.RgbaF16, alphaType, BitmapColorSpace.LinearSrgb);
 

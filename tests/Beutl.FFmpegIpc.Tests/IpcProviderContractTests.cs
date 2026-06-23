@@ -144,6 +144,31 @@ public class IpcProviderContractTests
         }, ct);
     }
 
+    // Fake host that replies with a ProvideFrame whose DataLength does not match the 1x1 RgbaF16
+    // bitmap allocation, so a test can drive the provider's destination-size guard.
+    private static Task RunBadDataLengthHost(NamedPipeServerStream server, int dataLength, CancellationToken ct)
+    {
+        return Task.Run(async () =>
+        {
+            while (!ct.IsCancellationRequested)
+            {
+                var req = await MessageSerializer.ReadMessageAsync(server, ct);
+                if (req == null)
+                    return;
+
+                var resp = IpcMessage.Create(req.Id, MessageType.ProvideFrame, new ProvideFrameMessage
+                {
+                    Width = 1,
+                    Height = 1,
+                    BytesPerPixel = FrameDataLength,
+                    DataLength = dataLength,
+                    Premul = false,
+                });
+                await MessageSerializer.WriteMessageAsync(server, resp, ct);
+            }
+        }, ct);
+    }
+
     private static async Task WaitUntil(Func<bool> predicate, TimeSpan timeout, string description)
     {
         var deadline = DateTime.UtcNow + timeout;
@@ -354,6 +379,33 @@ public class IpcProviderContractTests
                 all = received.ToArray();
             Assert.That(all, Is.EqualTo(new[] { 0L, 1L, 0L }),
                 "the retry issued a fresh RequestFrame{0} to the host rather than serving the invalidated cache");
+        }
+        finally
+        {
+            await StopHost(hostCts, server, hostTask);
+            DisposeBuffers(buffers);
+        }
+    }
+
+    [Test]
+    public async Task RenderFrame_WhenWorkerReportsMismatchedDataLength_Throws()
+    {
+        // A DataLength larger than the 1x1 RgbaF16 bitmap (8 bytes) would overrun the destination if
+        // copied. The provider must reject it instead of reading past the allocated bitmap.
+        var (server, client) = ConnectPair();
+        var buffers = CreateBuffers();
+        var hostCts = new CancellationTokenSource();
+        var hostTask = RunBadDataLengthHost(server, dataLength: FrameDataLength * 2, hostCts.Token);
+
+        using var conn = new IpcConnection(client);
+        // frameCount 1 makes frame 0 the last frame, so no prefetch is armed and nothing dangles.
+        var provider = new IpcFrameProvider(conn, buffers, frameCount: 1, frameRate: new Rational(30, 1));
+
+        try
+        {
+            Assert.That(async () => await provider.RenderFrame(0),
+                Throws.TypeOf<InvalidOperationException>(),
+                "a DataLength that exceeds the bitmap allocation must be rejected, not read past the buffer");
         }
         finally
         {
