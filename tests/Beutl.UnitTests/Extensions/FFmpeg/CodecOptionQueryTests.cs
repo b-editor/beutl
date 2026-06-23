@@ -62,4 +62,13 @@ public class CodecOptionQueryTests
         Assert.That(aac, Is.Not.EqualTo(mp3));
         Assert.That(aac, Is.Not.EqualTo(otherFile));
     }
+
+    [Test]
+    public void BuildCacheKey_NullVsEmptyOutputFile_ProduceDistinctKeys()
+    {
+        string nullFile = CodecOptionQuery.BuildCacheKey(new CodecQueryParams("aac", null));
+        string emptyFile = CodecOptionQuery.BuildCacheKey(new CodecQueryParams("aac", ""));
+
+        Assert.That(nullFile, Is.Not.EqualTo(emptyFile));
+    }
 }

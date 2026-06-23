@@ -22,7 +22,10 @@ internal static class CodecOptionQuery
     public static CodecQueryParams Create(CodecRecord codec, string? outputFile)
         => new(codec.Equals(CodecRecord.Default) ? null : codec.Name, outputFile);
 
-    /// <summary>Builds the option-cache key. NUL cannot appear in a codec name or path, so keys never collide.</summary>
+    /// <summary>
+    /// Builds the option-cache key. NUL cannot appear in a codec name or path, so keys never collide; null
+    /// maps to a placeholder distinct from empty string so the two never alias.
+    /// </summary>
     public static string BuildCacheKey(CodecQueryParams query)
-        => $"{query.CodecName ?? "<default>"}\0{query.OutputFile}";
+        => $"{query.CodecName ?? "<default>"}\0{query.OutputFile ?? "<null>"}";
 }
