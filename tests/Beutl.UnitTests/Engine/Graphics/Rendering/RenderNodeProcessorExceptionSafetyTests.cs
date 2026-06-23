@@ -283,6 +283,66 @@ public class RenderNodeProcessorExceptionSafetyTests
         Assert.That(disposed, Is.EqualTo(new[] { "render-fault" }));
     }
 
+    [Test]
+    public void RasterizeToRenderTargets_DisposesCurrentAndRemainingOperations_WhenRenderTargetCreateThrows()
+    {
+        var disposed = new List<string>();
+        using var node = new StaticRenderNode(
+            CreateOperation("current", disposed),
+            CreateOperation("remaining", disposed));
+        var processor = new FakeRenderNodeProcessor(node, _ => false, throwOnCreate: true);
+
+        var ex = Assert.Throws<InvalidOperationException>(() => processor.RasterizeToRenderTargets());
+
+        Assert.That(ex!.Message, Is.EqualTo("rt-create-fault"));
+        Assert.That(disposed, Is.EqualTo(new[] { "current", "remaining" }));
+    }
+
+    [Test]
+    public void Rasterize_DisposesCurrentAndRemainingOperations_WhenRenderTargetCreateThrows()
+    {
+        var disposed = new List<string>();
+        using var node = new StaticRenderNode(
+            CreateOperation("current", disposed),
+            CreateOperation("remaining", disposed));
+        var processor = new FakeRenderNodeProcessor(node, _ => false, throwOnCreate: true);
+
+        var ex = Assert.Throws<InvalidOperationException>(() => processor.Rasterize());
+
+        Assert.That(ex!.Message, Is.EqualTo("rt-create-fault"));
+        Assert.That(disposed, Is.EqualTo(new[] { "current", "remaining" }));
+    }
+
+    [Test]
+    public void RasterizeAndConcat_DisposesPulledOperations_WhenRenderTargetCreateThrows()
+    {
+        var disposed = new List<string>();
+        using var node = new StaticRenderNode(
+            CreateOperation("first", disposed),
+            CreateOperation("second", disposed));
+        var processor = new FakeRenderNodeProcessor(node, _ => false, throwOnCreate: true);
+
+        var ex = Assert.Throws<InvalidOperationException>(() => processor.RasterizeAndConcat());
+
+        Assert.That(ex!.Message, Is.EqualTo("rt-create-fault"));
+        Assert.That(disposed, Is.EqualTo(new[] { "first", "second" }));
+    }
+
+    [Test]
+    public void RasterizeAndConcat_DisposesPulledOperations_WhenRenderTargetCreateReturnsNull()
+    {
+        var disposed = new List<string>();
+        using var node = new StaticRenderNode(
+            CreateOperation("first", disposed),
+            CreateOperation("second", disposed));
+        var processor = new FakeRenderNodeProcessor(node, _ => false, returnNullOnCreate: true);
+
+        var ex = Assert.Throws<Exception>(() => processor.RasterizeAndConcat());
+
+        Assert.That(ex!.Message, Is.EqualTo("RenderTarget is null"));
+        Assert.That(disposed, Is.EqualTo(new[] { "first", "second" }));
+    }
+
     // The outer DisposeRenderTargets sweep must keep going and preserve the original render
     // exception when an already-built (list-resident) RenderTarget throws on Dispose during cleanup.
     [Test]
@@ -291,6 +351,7 @@ public class RenderNodeProcessorExceptionSafetyTests
         var disposed = new List<string>();
         using var node = new StaticRenderNode(
             CreateOperation("first", disposed),                               // renders OK -> its RT enters the list
+            CreateOperation("second", disposed),                              // also list-resident; proves sweep continues
             CreateOperation("render-fault", disposed, throwOnRender: true));  // faults; its own RT is disposed in RasterizeAt
         // Only the first (list-resident) RT throws on Dispose; the faulting op's RT does not, so
         // the only throwing-dispose that fires here is the built-resource sweep.
@@ -299,10 +360,11 @@ public class RenderNodeProcessorExceptionSafetyTests
         var ex = Assert.Throws<InvalidOperationException>(() => processor.RasterizeToRenderTargets());
 
         Assert.That(ex!.Message, Is.EqualTo("render-fault"));
-        Assert.That(processor.CreatedTargets, Has.Count.EqualTo(2));
+        Assert.That(processor.CreatedTargets, Has.Count.EqualTo(3));
         Assert.That(processor.CreatedTargets[0].DisposeWasCalled, Is.True);   // swept despite throwing
-        Assert.That(processor.CreatedTargets[1].DisposeWasCalled, Is.True);   // disposed in RasterizeAt catch
-        Assert.That(disposed, Is.EqualTo(new[] { "first", "render-fault" }));
+        Assert.That(processor.CreatedTargets[1].DisposeWasCalled, Is.True);   // sweep continued after the throwing target
+        Assert.That(processor.CreatedTargets[2].DisposeWasCalled, Is.True);   // disposed in RasterizeAt catch
+        Assert.That(disposed, Is.EqualTo(new[] { "first", "second", "render-fault" }));
     }
 
     private static StaticRenderNode CreateRenderThrowWithThrowingRemainingOps(ICollection<string> disposed)
@@ -349,13 +411,27 @@ public class RenderNodeProcessorExceptionSafetyTests
     // Substitutes RenderTarget allocation so the exception-safety paths can be exercised with a
     // RenderTarget whose Dispose() throws. Backed by a null SKSurface so ImmediateCanvas can draw
     // into it without a GPU context.
-    private sealed class FakeRenderNodeProcessor(RenderNode root, Func<int, bool> shouldThrowOnDispose)
+    private sealed class FakeRenderNodeProcessor(
+        RenderNode root,
+        Func<int, bool> shouldThrowOnDispose,
+        bool throwOnCreate = false,
+        bool returnNullOnCreate = false)
         : RenderNodeProcessor(root, useRenderCache: false)
     {
         public List<FakeRenderTarget> CreatedTargets { get; } = new();
 
         protected override RenderTarget? CreateRenderTarget(int width, int height)
         {
+            if (throwOnCreate)
+            {
+                throw new InvalidOperationException("rt-create-fault");
+            }
+
+            if (returnNullOnCreate)
+            {
+                return null;
+            }
+
             var target = new FakeRenderTarget(width, height, shouldThrowOnDispose(CreatedTargets.Count));
             CreatedTargets.Add(target);
             return target;
@@ -372,16 +448,17 @@ public class RenderNodeProcessorExceptionSafetyTests
         // cannot tear down the runtime from the finalizer thread.
         protected override void Dispose(bool disposing)
         {
+            bool shouldThrow = disposing && throwOnDispose;
             if (disposing)
             {
                 DisposeWasCalled = true;
-                if (throwOnDispose)
-                {
-                    throw new InvalidOperationException("rt-dispose-fault");
-                }
             }
 
             base.Dispose(disposing);
+            if (shouldThrow)
+            {
+                throw new InvalidOperationException("rt-dispose-fault");
+            }
         }
     }
 }

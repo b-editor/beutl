@@ -58,18 +58,20 @@ public class RenderNodeProcessor(
             return null;
         }
 
-        var renderTarget = CreateRenderTarget(rect.Width, rect.Height);
-        if (renderTarget == null)
-        {
-            op.Dispose();
-            throw new Exception("RenderTarget is null");
-        }
-
         // Set before op.Dispose() so the catch does not re-dispose an op whose throwing
         // OnDispose left IsDisposed false.
+        RenderTarget? renderTarget = null;
         bool opDisposeStarted = false;
         try
         {
+            renderTarget = CreateRenderTarget(rect.Width, rect.Height);
+            if (renderTarget == null)
+            {
+                opDisposeStarted = true;
+                op.Dispose();
+                throw new Exception("RenderTarget is null");
+            }
+
             using var canvas = new ImmediateCanvas(renderTarget, w, MaxWorkingScale, logicalSize: op.Bounds.Size);
             canvas.Clear();
 
@@ -159,13 +161,14 @@ public class RenderNodeProcessor(
         var bounds = ops.Aggregate(Rect.Empty, (a, n) => a.Union(n.Bounds));
         float w = OutputScale;
         var rect = w == 1f ? PixelRect.FromRect(bounds) : PixelRect.FromRect(bounds, w);
-        var renderTarget =
-            CreateRenderTarget(rect.Width, rect.Height) ?? throw new Exception("RenderTarget is null");
+        RenderTarget? renderTarget = null;
         ImmediateCanvas? canvas = null;
         int consumed = 0;
         bool succeeded = false;
         try
         {
+            renderTarget =
+                CreateRenderTarget(rect.Width, rect.Height) ?? throw new Exception("RenderTarget is null");
             canvas = new ImmediateCanvas(renderTarget, w, MaxWorkingScale, logicalSize: bounds.Size);
             canvas.Clear();
 
@@ -200,7 +203,7 @@ public class RenderNodeProcessor(
                 }
                 finally
                 {
-                    renderTarget.Dispose();
+                    renderTarget?.Dispose();
                 }
             }
         }

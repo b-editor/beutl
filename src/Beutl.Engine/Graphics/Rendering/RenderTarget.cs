@@ -188,9 +188,15 @@ public class RenderTarget : IDisposable
     {
         if (IsDisposed) return;
 
-        _surface.Release();
-        _texture?.Release();
         IsDisposed = true;
+        try
+        {
+            _surface.Release();
+        }
+        finally
+        {
+            _texture?.Release();
+        }
     }
 
     internal void BeginDraw()
