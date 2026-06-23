@@ -50,7 +50,7 @@ jobs:
 
           WIN_INSTALLER=$(url_of "beutl-setup.exe")
           WIN_STANDALONE=$(url_of "beutl-standalone-setup.exe")
-          LINUX_DEB=$(url_of_glob '\.deb$')
+          LINUX_DEB=$(url_of_glob '^beutl_.*_amd64\.deb$')
           LINUX_ZIP=$(url_of "Beutl-linux-x64-$VER.zip")
           LINUX_ZIP_STANDALONE=$(url_of "Beutl-linux-x64-standalone-$VER.zip")
           MAC_X64=$(url_of "Beutl.osx_x64.app.zip")
@@ -67,7 +67,7 @@ jobs:
           }
           check "beutl-setup.exe"                       "$WIN_INSTALLER"
           check "beutl-standalone-setup.exe"            "$WIN_STANDALONE"
-          check "*.deb"                                 "$LINUX_DEB"
+          check "beutl_*_amd64.deb"                     "$LINUX_DEB"
           check "Beutl-linux-x64-$VER.zip"              "$LINUX_ZIP"
           check "Beutl-linux-x64-standalone-$VER.zip"   "$LINUX_ZIP_STANDALONE"
           check "Beutl.osx_x64.app.zip"                 "$MAC_X64"
