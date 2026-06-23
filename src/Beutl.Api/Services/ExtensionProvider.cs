@@ -122,7 +122,7 @@ public sealed class ExtensionProvider : IBeutlApiResource
         {
             if (!_allExtensions.TryAdd(id, extensions))
             {
-                throw new Exception("");
+                throw new InvalidOperationException($"Extensions for package (id: {id}) are already registered.");
             }
 
             _extensions.AddRange(extensions);

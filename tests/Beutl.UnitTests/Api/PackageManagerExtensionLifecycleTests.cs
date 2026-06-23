@@ -3,6 +3,7 @@ using Beutl.Extensibility;
 
 namespace Beutl.UnitTests.Api;
 
+[TestFixture]
 public class PackageManagerExtensionLifecycleTests
 {
     [SetUp]

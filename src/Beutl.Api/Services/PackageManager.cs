@@ -426,20 +426,39 @@ public sealed class PackageManager(
     {
         try
         {
-            var types = loadContext.Assemblies.SelectMany(a => a.GetTypes()).ToArray();
+            Type[] types = loadContext.Assemblies.SelectMany(GetLoadableTypes).ToArray();
             TypeUnloadNotifier.NotifyUnloading(types);
             AvaloniaPropertyRegistry.Instance.UnregisterByModule(types);
             foreach (string name in loadContext.Assemblies.Select(a => a.GetName().Name).OfType<string>())
             {
                 AssetLoader.InvalidateAssemblyCache(name);
             }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to clean up type registrations for {PackageName}.", package.Name);
+        }
 
+        try
+        {
             loadContext.Unload();
             _logger.LogInformation("AssemblyLoadContext unloaded for {PackageName}.", package.Name);
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to unload AssemblyLoadContext for {PackageName}.", package.Name);
+        }
+    }
+
+    private static IEnumerable<Type> GetLoadableTypes(Assembly assembly)
+    {
+        try
+        {
+            return assembly.GetTypes();
+        }
+        catch (ReflectionTypeLoadException ex)
+        {
+            return ex.Types.OfType<Type>();
         }
     }
 
