@@ -72,14 +72,16 @@ Conventional Commits, following the existing history:
 - `refactor: ...` — behavior-preserving refactor
 - `docs: ...` — documentation
 
-## Follow-up tasks
+## Do not defer work
 
-When work surfaces a follow-up — a deferred edge case, a known TODO, a refactor you scoped out, a test you could not add yet — **do not let it evaporate.** Capture it in one of two places:
+**Deferring tasks is forbidden.** When the change surfaces something — an edge case, a known TODO, a refactor you scoped out, a test you could not add yet — **finish it in the same change.** Do not split in-scope work off into a "later" pile, and do not treat capturing a follow-up (a PR `## Follow-ups` list, a `// TODO` comment, a Draft on the project board) as a substitute for doing the work. Those capture mechanisms exist to record genuinely separate work, **not** to dodge effort that belongs in the current change.
 
-1. **If a PR is open (or you are about to open one), append it to the PR description.** Add a dedicated `## Follow-ups` list so reviewers see it; fall back to `## Fixed issues / References` only when noting a linked issue/PR (that section is for closed/referenced issues, not for "fixed" follow-ups). This is the default for anything tightly coupled to the PR under review.
-2. **Otherwise, add it as a Draft item to GitHub Projects v2 — [b-editor/projects/9](https://github.com/orgs/b-editor/projects/9).** This is the default for cross-cutting or longer-horizon work that outlives the current PR. Give the draft a clear title and a one-line body describing the context; reference the originating PR/commit when one exists.
+There are only two legitimate reasons to stop short of completing what the change surfaced, and **both require telling the user — never silently file it away and move on:**
 
-Pick whichever fits; when unsure, prefer the PR description for PR-local items and the project board for everything else. Do not silently drop a follow-up just because it is out of scope for the current change.
+1. **Genuinely out of scope** — a different feature or area that does not belong in this change. Surface it to the user (e.g. via `AskUserQuestion`) and let them decide whether to widen the scope or track it separately.
+2. **Blocked** — you cannot resolve it without something only the user can provide (missing access, an upstream fix, a product decision). State the blocker explicitly.
+
+Do not leave `[Obsolete]` shims, `// TODO` markers, or "v2" stubs behind as deferral markers (see "Design priorities").
 
 ## Spec-Driven Development for large features
 

@@ -241,7 +241,25 @@ fi
 (If you only want an interim progress peek while it runs, `grep` the output file — but still gate
 the commit/PR decision on `status`, not on any matched string.)
 
-## Step 6 — Commit, push, PR
+## Step 6 — Do not defer work (gate before you open the PR)
+
+Run this check **before** the commit/push/PR in Step 7 — it is a gate on opening the PR, not a
+post-PR afterthought. **Deferring is forbidden** (AGENTS.md "Do not defer work"). Whatever this
+task surfaced — an edge case, a known TODO, a refactor you scoped out, a test you could not add
+yet — **finish it on this branch now.** Do not park in-scope work behind a `## Follow-ups` list, a
+`// TODO`, or a fresh Draft item on the board; those are not a substitute for doing the work.
+
+The only two exits, and **both mean telling the user — never silently filing it away:**
+
+- **Genuinely out of scope** (a different feature/area that does not belong in this fix): raise it
+  with the user via `AskUserQuestion` and let them decide whether to widen the scope or track it
+  separately. Do not auto-create a board item to dodge the decision.
+- **Blocked** on something only the user can provide (access, an upstream fix, a product call):
+  state the blocker explicitly in your reply.
+
+If nothing was surfaced beyond the fix itself, there is nothing to do here — proceed to Step 7.
+
+## Step 7 — Commit, push, PR
 
 You are already on `$BRANCH` (created in Step 3 before any edits), so just commit and push it.
 `git push -u origin "$BRANCH"` pushes that existing branch — the refspec form does not create or
@@ -264,65 +282,8 @@ gh pr create --base main --head "$BRANCH" \
 
 Fill the PR template's **Affected areas**, **Breaking changes** (`None` for behavior-preserving),
 **Test plan** (mention the baseline-first verification + pass counts), and **References**
-(`Project board: b-editor/projects/9 ("<title>")`). If the work surfaced any follow-ups, capture
-them now (see Step 7). Opening the PR triggers the automatic `claude-code-review.yml` review.
-
-## Step 7 — Capture follow-ups (auto-register to the board)
-
-If the work surfaced any follow-up — a deferred edge case, a known TODO, a refactor you scoped out,
-a test you could not add yet — **do not let it evaporate** (AGENTS.md "Follow-up tasks"). Split it
-the same way AGENTS.md does:
-
-- **PR-local follow-ups** (tightly coupled to this PR) go in the PR body under a `## Follow-ups`
-  list — that is part of Step 6, not the board.
-- **Cross-cutting / longer-horizon follow-ups** go to the board as **Draft items in project #9**.
-  This workflow already operates that board (claim → `In Progress`, false-positive, `Done`), so
-  board-edit authorization is normally in place for the whole turn. **When it is, register these
-  follow-ups to project #9 automatically — do NOT stop to ask the user first** (this is the one
-  outward-facing action exempt from the per-action confirmation in Guardrails). Only fall back to
-  AskUserQuestion if board-edit authorization is *not* yet in place this turn.
-
-**Dedup first — do not re-file what the board already tracks.** Findings from the same review
-sweep cluster, so a follow-up you just spotted is often already an item (e.g. a sibling `[diff]`
-finding from the same PR). Before creating anything, check it against the board. Reuse the Step 1
-snapshot if you still have it; otherwise re-fetch:
-
-```bash
-# BOARD = the snapshot file from Step 1 (re-fetch if it is missing or empty).
-[ -s "$BOARD" ] || { BOARD=$(mktemp /tmp/ai-review-board.XXXX.json); \
-  gh project item-list 9 --owner b-editor --limit 2000 --format json > "$BOARD"; }
-
-# Print existing titles that look related, so you can eyeball a match before creating a dup.
-python3 -c "
-import json,sys
-needle=sys.argv[1].lower()
-for it in json.load(open('$BOARD'))['items']:
-    t=it.get('content',{}).get('title','')
-    if any(w in t.lower() for w in needle.split() if len(w)>3):
-        print(it.get('status','?'),'|',t)
-" "<keywords from the follow-up you are about to file>"
-```
-
-If a substantively equivalent item already exists (any status — even `Done`/`False positive`
-means it is already known), **skip creation**; do not duplicate it. Only when nothing matches,
-add one Draft item per genuinely-new follow-up, with a clear title and a one-line body that states
-the context and references the originating PR/commit, then drop it into `Backlog` so this very
-skill can pick it up on a later run:
-
-```bash
-NEW_ITEM=$(gh project item-create 9 --owner b-editor \
-  --title "<concise follow-up title>" \
-  --body "<one-line context>. From PR #<n> / item \"<finding title>\"." \
-  --format json | python3 -c "import json,sys; print(json.load(sys.stdin)['id'])")
-
-# Put it in the normal triage queue (Backlog) so it becomes a future candidate.
-gh project item-edit --project-id PVT_kwDOBLw8Fs4BW4g5 \
-  --id "$NEW_ITEM" \
-  --field-id PVTSSF_lADOBLw8Fs4BW4g5zhSJTXk \
-  --single-select-option-id d97cd69b   # Backlog
-```
-
-If there are no follow-ups (or every one is already on the board), skip this step.
+(`Project board: b-editor/projects/9 ("<title>")`). Opening the PR triggers the automatic
+`claude-code-review.yml` review.
 
 ## Step 8 — Update the board
 
@@ -343,10 +304,9 @@ resumed work — just ensure it is `In Progress` now, option id `47fc9ee4`.)
 
 - **Confirm outward-facing actions.** Push / PR / board edits change shared state — confirm with
   the user (AskUserQuestion) before doing them unless they already authorized it this turn.
-- **Exception — follow-up registration.** Registering follow-ups as Draft items in project #9
-  (Step 7) is exempt from that per-action confirmation: when board-edit authorization is already in
-  place this turn, do it automatically without asking. (The same "already authorized this turn"
-  condition still applies — if it is not, ask once before registering.)
+- **Do not defer work.** Finish everything the task surfaced on the branch before opening the PR
+  (Step 6). Do not auto-file a board Draft or a `## Follow-ups` entry to avoid doing in-scope work;
+  raise genuinely out-of-scope or blocked items with the user instead.
 - One task per invocation by default. After finishing, offer the next candidate rather than
   batching many.
 - Never force-push to `main`/`master` (hook-enforced). Work on a feature branch.

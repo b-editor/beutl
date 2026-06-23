@@ -33,4 +33,7 @@ Reminders (see CONTRIBUTING.md / AGENTS.md):
 - New logic ships with a NUnit test under `tests/`.
 - New XAML uses compiled bindings (`x:CompileBindings="True"` + `x:DataType`).
 - Do not cross the GPL/MIT boundary: MIT projects must not reference `Beutl.FFmpegWorker`.
+- Do not defer work: everything this change surfaced is finished here — no `## Follow-ups`
+  pile, no leftover `// TODO`. Anything genuinely out of scope or blocked was raised with a
+  maintainer, not quietly filed away (AGENTS.md "Do not defer work").
 -->
