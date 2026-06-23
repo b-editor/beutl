@@ -355,7 +355,6 @@ internal sealed class VideoRingBuffer : IDisposable
                         {
                             var destination = new Span<byte>(pfPtr + slotOffset, (int)_slotSize);
 
-                            // スロットに収まる範囲でデコードできたときのみ書き込む
                             if (_reader.ReadVideo(nextFrame, destination, out var pfInfo)
                                 && pfInfo.DataLength <= _slotSize)
                             {
