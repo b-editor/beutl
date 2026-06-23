@@ -220,12 +220,15 @@ public sealed class PackageManager(
             activity?.AddEvent(new ActivityEvent("Assemblies loaded"));
             activity?.SetTag("AssemblyCount", result.Assemblies.Length);
 
+            // Strict on purpose: GetExportedTypes throws on an unresolvable type so a broken plugin
+            // fails the load and rolls back instead of registering with extensions silently skipped.
+            // Unload stays lenient (GetLoadableTypes) since cleanup must proceed regardless.
             return LoadExtensionsAndRegister(
                 activity,
                 package,
                 result.Assemblies,
                 result.LoadContext,
-                result.Assemblies.SelectMany(GetLoadableTypes).Where(type => type.IsVisible));
+                result.Assemblies.SelectMany(assembly => assembly.GetExportedTypes()));
         }
     }
 
@@ -339,8 +342,8 @@ public sealed class PackageManager(
                 ExtensionProvider.RemoveExtensions(package.LocalId);
             }
 
-            // extensions stays empty unless LoadPackageExtensions returned (it rolls itself back on
-            // failure), so this only unloads when a registration step below threw.
+            // LoadPackageExtensions already rolls back on failure, so extensions is non-empty
+            // only when a later registration step threw; this is not a double-unload.
             RollbackLoadedExtensions(extensions);
             if (loadContext is { })
             {
