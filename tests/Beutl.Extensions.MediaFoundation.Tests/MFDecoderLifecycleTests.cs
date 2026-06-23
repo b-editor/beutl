@@ -40,9 +40,17 @@ public class MFDecoderLifecycleTests
     [OneTimeTearDown]
     public void OneTimeTearDown()
     {
-        if (OperatingSystem.IsWindows())
+        if (!OperatingSystem.IsWindows())
+        {
+            return;
+        }
+
+        try
         {
             MediaFactory.MFShutdown();
+        }
+        finally
+        {
             SharpGen.Runtime.Configuration.EnableObjectTracking = _prevEnableObjectTracking;
             SharpGen.Runtime.Configuration.EnableReleaseOnFinalizer = _prevEnableReleaseOnFinalizer;
             SharpGen.Runtime.Configuration.UseThreadStaticObjectTracking = _prevUseThreadStaticObjectTracking;
