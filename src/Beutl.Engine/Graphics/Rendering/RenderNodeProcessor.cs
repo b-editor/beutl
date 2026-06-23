@@ -19,8 +19,7 @@ public class RenderNodeProcessor(
 
     /// <summary>
     /// Allocates the intermediate <see cref="RenderTarget"/> used to rasterize each operation.
-    /// Override to substitute a custom allocation (e.g. pooling, a test double whose
-    /// <see cref="RenderTarget.Dispose()"/> throws). Defaults to <see cref="RenderTarget.Create"/>.
+    /// Override to substitute a custom allocation (e.g. pooling). Defaults to <see cref="RenderTarget.Create"/>.
     /// </summary>
     protected virtual RenderTarget? CreateRenderTarget(int width, int height)
         => RenderTarget.Create(width, height);

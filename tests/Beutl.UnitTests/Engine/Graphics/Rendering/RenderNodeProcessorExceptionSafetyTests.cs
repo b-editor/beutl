@@ -232,9 +232,8 @@ public class RenderNodeProcessorExceptionSafetyTests
         Assert.That(disposed, Is.EquivalentTo(new[] { "first", "throws", "remaining" }));
     }
 
-    // RasterizeAt routes the faulting op's render-target disposal through DisposeBestEffort, so a
-    // throwing GPU-native RenderTarget.Dispose() is swallowed and cannot mask the in-flight render
-    // exception. Only Rasterize / RasterizeToRenderTargets reach RasterizeAt's catch.
+    // RasterizeAt disposes the faulting op's render target via DisposeBestEffort, so a throwing
+    // RenderTarget.Dispose() cannot mask the in-flight render exception.
     [Test]
     public void RasterizeToRenderTargets_PreservesRenderException_WhenRenderTargetDisposeThrows()
     {
@@ -343,32 +342,30 @@ public class RenderNodeProcessorExceptionSafetyTests
         Assert.That(disposed, Is.EqualTo(new[] { "first", "second" }));
     }
 
-    // The outer DisposeRenderTargets sweep must keep going and preserve the original render
-    // exception when an already-built (list-resident) RenderTarget throws on Dispose during cleanup.
+    // DisposeRenderTargets must keep sweeping past a list-resident RenderTarget that throws on
+    // Dispose, without masking the render exception.
     [Test]
     public void RasterizeToRenderTargets_ContinuesCleanupAndPreservesException_WhenBuiltRenderTargetDisposeThrows()
     {
         var disposed = new List<string>();
         using var node = new StaticRenderNode(
-            CreateOperation("first", disposed),                               // renders OK -> its RT enters the list
-            CreateOperation("second", disposed),                              // also list-resident; proves sweep continues
-            CreateOperation("render-fault", disposed, throwOnRender: true));  // faults; its own RT is disposed in RasterizeAt
-        // Only the first (list-resident) RT throws on Dispose; the faulting op's RT does not, so
-        // the only throwing-dispose that fires here is the built-resource sweep.
+            CreateOperation("first", disposed),                               // renders OK; its RT enters the list
+            CreateOperation("second", disposed),                              // also list-resident
+            CreateOperation("render-fault", disposed, throwOnRender: true));  // faults; its RT disposed in RasterizeAt
+        // i => i == 0: only the first list-resident RT throws on Dispose, exercising the cleanup sweep.
         var processor = new FakeRenderNodeProcessor(node, i => i == 0);
 
         var ex = Assert.Throws<InvalidOperationException>(() => processor.RasterizeToRenderTargets());
 
         Assert.That(ex!.Message, Is.EqualTo("render-fault"));
         Assert.That(processor.CreatedTargets, Has.Count.EqualTo(3));
-        Assert.That(processor.CreatedTargets[0].DisposeWasCalled, Is.True);   // swept despite throwing
-        Assert.That(processor.CreatedTargets[1].DisposeWasCalled, Is.True);   // sweep continued after the throwing target
-        Assert.That(processor.CreatedTargets[2].DisposeWasCalled, Is.True);   // disposed in RasterizeAt catch
+        Assert.That(processor.CreatedTargets[0].DisposeWasCalled, Is.True);
+        Assert.That(processor.CreatedTargets[1].DisposeWasCalled, Is.True);
+        Assert.That(processor.CreatedTargets[2].DisposeWasCalled, Is.True);
         Assert.That(disposed, Is.EqualTo(new[] { "first", "second", "render-fault" }));
     }
 
-    // A throwing Dispose() during RasterizeAndConcat's post-success cleanup must not discard the
-    // bitmap the render already produced — the caller still gets its result.
+    // A throwing Dispose() during post-success cleanup must not discard the already-produced bitmap.
     [Test]
     public void RasterizeAndConcat_ReturnsBitmap_WhenRenderSucceedsButRenderTargetDisposeThrows()
     {
@@ -429,8 +426,7 @@ public class RenderNodeProcessorExceptionSafetyTests
     }
 
     // Substitutes RenderTarget allocation so the exception-safety paths can be exercised with a
-    // RenderTarget whose Dispose() throws. Backed by a null SKSurface so ImmediateCanvas can draw
-    // into it without a GPU context.
+    // RenderTarget whose Dispose() throws.
     private sealed class FakeRenderNodeProcessor(
         RenderNode root,
         Func<int, bool> shouldThrowOnDispose,
