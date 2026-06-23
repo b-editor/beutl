@@ -1,5 +1,4 @@
-﻿using System.Diagnostics;
-using Beutl.Extensibility;
+﻿using Beutl.Extensibility;
 using Beutl.FFmpegIpc.Protocol;
 using Beutl.FFmpegIpc.Protocol.Messages;
 using Beutl.FFmpegIpc.SharedMemory;
@@ -19,12 +18,6 @@ internal sealed class IpcFrameProvider : IFrameProvider
     private int _prefetchBufferIndex;
     private long _prefetchFrameIndex;
 
-    // Last returned frame. A repeat request rebuilds from this buffer, which the in-flight prefetch
-    // never overwrites (prefetch always targets the opposite slot, 1 - _lastReadBufferIndex).
-    private long _lastFrame = -1;
-    private int _lastReadBufferIndex;
-    private ProvideFrameMessage? _lastFrameInfo;
-
     public IpcFrameProvider(IpcConnection connection, SharedMemoryBuffer[] videoBuffers,
         long frameCount, Rational frameRate)
     {
@@ -40,20 +33,6 @@ internal sealed class IpcFrameProvider : IFrameProvider
 
     public async ValueTask<Bitmap> RenderFrame(long frame)
     {
-        // Same-frame re-request: rebuild from the retained buffer and leave the in-flight prefetch
-        // untouched so a later advance still consumes it. Defensive — the encode loop is monotonic
-        // and never repeats a frame; no host render happens, so FramesRendered is not incremented.
-        if (frame == _lastFrame && _lastFrameInfo != null)
-        {
-            Debug.Assert(_prefetchTask == null || _prefetchBufferIndex != _lastReadBufferIndex,
-                "an in-flight prefetch must target the opposite slot, else the retained buffer could be overwritten");
-            return BuildBitmap(_lastFrameInfo, _lastReadBufferIndex);
-        }
-
-        // Invalidate the retained frame before any IPC, so a failure below cannot be masked by a
-        // same-frame retry serving the previously cached frame.
-        _lastFrame = -1;
-
         IpcMessage response;
         int readBufferIndex;
 
@@ -106,10 +85,6 @@ internal sealed class IpcFrameProvider : IFrameProvider
                 new RequestFrameMessage { FrameIndex = nextFrame, BufferIndex = _prefetchBufferIndex });
             _prefetchTask = _connection.SendAndReceiveAsync(nextRequest).AsTask();
         }
-
-        _lastFrame = frame;
-        _lastReadBufferIndex = readBufferIndex;
-        _lastFrameInfo = frameInfo;
 
         Bitmap bmp = BuildBitmap(frameInfo, readBufferIndex);
         _bufferIndex = 1 - readBufferIndex;
