@@ -47,6 +47,7 @@
     <Compile Include="..\..\src\Beutl\Helpers\ExportSupersampling.cs" Link="Editor\Linked\ExportSupersampling.cs" />
     <Compile Include="..\..\src\Beutl\Helpers\CancellationTokenSourceHelper.cs" Link="Helpers\Linked\CancellationTokenSourceHelper.cs" />
     <Compile Include="..\..\src\Beutl\Helpers\HistoryMutationPlaybackGuard.cs" Link="Helpers\Linked\HistoryMutationPlaybackGuard.cs" />
+    <Compile Include="..\..\src\Beutl\Models\BufferedPlayerWaitGate.cs" Link="Models\Linked\BufferedPlayerWaitGate.cs" />
   </ItemGroup>
 
   <ItemGroup>
