@@ -220,37 +220,12 @@ public sealed class PackageManager(
             activity?.AddEvent(new ActivityEvent("Assemblies loaded"));
             activity?.SetTag("AssemblyCount", result.Assemblies.Length);
 
-            var extensions = new List<Extension>();
-
-            var addedToProvider = false;
-            try
-            {
-                LoadPackageExtensions(result.Assemblies.SelectMany(assembly => assembly.GetExportedTypes()), extensions);
-
-                activity?.AddEvent(new ActivityEvent("Extensions loaded"));
-                activity?.SetTag("ExtensionCount", extensions.Count);
-
-                ExtensionProvider.AddExtensions(package.LocalId, extensions.ToArray());
-                addedToProvider = true;
-
-                if (!_loadedPackages.TryAdd(package.LocalId, new LoadedPackageInfo(package, result.LoadContext)))
-                {
-                    throw new InvalidOperationException($"Package {package.Name} is already loaded.");
-                }
-
-                return result.Assemblies;
-            }
-            catch
-            {
-                if (addedToProvider)
-                {
-                    ExtensionProvider.RemoveExtensions(package.LocalId);
-                }
-
-                RollbackLoadedExtensions(extensions);
-                TryUnloadLoadContext(package, result.LoadContext);
-                throw;
-            }
+            return LoadExtensionsAndRegister(
+                activity,
+                package,
+                result.Assemblies,
+                result.LoadContext,
+                result.Assemblies.SelectMany(assembly => assembly.GetExportedTypes()));
         }
     }
 
@@ -329,6 +304,51 @@ public sealed class PackageManager(
         return [.. _loadedPackages.Values
             .Select(x => x.Package)
             .Where(x => StringComparer.OrdinalIgnoreCase.Equals(x.Name, name))];
+    }
+
+    internal Assembly[] LoadExtensionsAndRegister(
+        Activity? activity,
+        LocalPackage package,
+        Assembly[] assemblies,
+        PluginLoadContext? loadContext,
+        IEnumerable<Type> extensionTypes)
+    {
+        var extensions = new List<Extension>();
+        var addedToProvider = false;
+        try
+        {
+            LoadPackageExtensions(extensionTypes, extensions);
+
+            activity?.AddEvent(new ActivityEvent("Extensions loaded"));
+            activity?.SetTag("ExtensionCount", extensions.Count);
+
+            ExtensionProvider.AddExtensions(package.LocalId, extensions.ToArray());
+            addedToProvider = true;
+
+            if (!_loadedPackages.TryAdd(package.LocalId, new LoadedPackageInfo(package, loadContext)))
+            {
+                throw new InvalidOperationException($"Package {package.Name} is already loaded.");
+            }
+
+            return assemblies;
+        }
+        catch
+        {
+            if (addedToProvider)
+            {
+                ExtensionProvider.RemoveExtensions(package.LocalId);
+            }
+
+            // No-op when LoadPackageExtensions already rolled back and cleared its list; this unloads
+            // the extensions only when registration below failed.
+            RollbackLoadedExtensions(extensions);
+            if (loadContext is { })
+            {
+                TryUnloadLoadContext(package, loadContext);
+            }
+
+            throw;
+        }
     }
 
     internal void LoadPackageExtensions(IEnumerable<Type> extensionTypes, List<Extension> extensions)
