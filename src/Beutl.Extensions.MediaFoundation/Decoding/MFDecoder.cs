@@ -97,11 +97,13 @@ internal sealed class MFDecoder : IDisposable
         }
         catch (NoVideoStreamException)
         {
+            DisposeAfterInitializationFailure();
             throw;
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "An exception occurred during initialization of the video stream.");
+            DisposeAfterInitializationFailure();
             throw;
         }
     }
@@ -451,6 +453,18 @@ internal sealed class MFDecoder : IDisposable
 
         _firstGapTimeStamp = firstVideoTimeStamp;
         _logger.LogInformation("TestFirstReadSample - firstGapTimeStamp: {firstGapTimeStamp}", _firstGapTimeStamp);
+    }
+
+    private void DisposeAfterInitializationFailure()
+    {
+        try
+        {
+            Dispose();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to dispose Media Foundation decoder resources after initialization failure.");
+        }
     }
 
     public void Dispose()
