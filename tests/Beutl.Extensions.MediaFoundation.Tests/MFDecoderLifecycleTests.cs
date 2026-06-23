@@ -14,9 +14,6 @@ namespace Beutl.Extensions.MediaFoundation.Tests;
 public class MFDecoderLifecycleTests
 {
     private string _workDir = string.Empty;
-    private bool _prevEnableObjectTracking;
-    private bool _prevEnableReleaseOnFinalizer;
-    private bool _prevUseThreadStaticObjectTracking;
 
     [OneTimeSetUp]
     public void OneTimeSetUp()
@@ -26,11 +23,11 @@ public class MFDecoderLifecycleTests
             Assert.Ignore("Media Foundation is only available on Windows.");
         }
 
-        // Enable tracking before the baseline count below — the MFDecoder ctor sets these same flags
-        // but too late to count the wrappers it creates. Process-global statics, so capture/restore.
-        _prevEnableObjectTracking = SharpGen.Runtime.Configuration.EnableObjectTracking;
-        _prevEnableReleaseOnFinalizer = SharpGen.Runtime.Configuration.EnableReleaseOnFinalizer;
-        _prevUseThreadStaticObjectTracking = SharpGen.Runtime.Configuration.UseThreadStaticObjectTracking;
+        // SharpGen's Configuration is a process-global that becomes immutable on first use (the first
+        // COM wrapper / ObjectTracker access). Enable tracking here, before this fixture creates any
+        // Media Foundation COM object, so the baseline count sees the wrappers the MFDecoder ctor
+        // creates — the ctor sets the same flags, but too late to count its own wrappers. These flags
+        // are one-way switches that cannot be restored afterwards, so OneTimeTearDown leaves them as-is.
         SharpGen.Runtime.Configuration.EnableObjectTracking = true;
         SharpGen.Runtime.Configuration.EnableReleaseOnFinalizer = true;
         SharpGen.Runtime.Configuration.UseThreadStaticObjectTracking = true;
@@ -45,16 +42,10 @@ public class MFDecoderLifecycleTests
             return;
         }
 
-        try
-        {
-            MediaFactory.MFShutdown();
-        }
-        finally
-        {
-            SharpGen.Runtime.Configuration.EnableObjectTracking = _prevEnableObjectTracking;
-            SharpGen.Runtime.Configuration.EnableReleaseOnFinalizer = _prevEnableReleaseOnFinalizer;
-            SharpGen.Runtime.Configuration.UseThreadStaticObjectTracking = _prevUseThreadStaticObjectTracking;
-        }
+        // The SharpGen tracking flags enabled in OneTimeSetUp cannot be restored: Configuration is
+        // immutable once a COM object has been created, so assigning them again throws. They are
+        // process-global one-way switches; just shut Media Foundation down.
+        MediaFactory.MFShutdown();
     }
 
     [SetUp]
