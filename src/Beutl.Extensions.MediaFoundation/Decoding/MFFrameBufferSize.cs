@@ -1,4 +1,4 @@
-using System.IO;
+﻿using System.IO;
 
 #if MF_BUILD_IN
 namespace Beutl.Embedding.MediaFoundation.Decoding;
