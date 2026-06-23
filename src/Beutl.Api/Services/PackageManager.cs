@@ -220,21 +220,15 @@ public sealed class PackageManager(
             activity?.AddEvent(new ActivityEvent("Assemblies loaded"));
             activity?.SetTag("AssemblyCount", result.Assemblies.Length);
 
-            var extensions = new List<Extension>();
-
-            foreach (Assembly assembly in result.Assemblies)
-            {
-                LoadExtensions(assembly, extensions);
-            }
-
-            activity?.AddEvent(new ActivityEvent("Extensions loaded"));
-            activity?.SetTag("ExtensionCount", extensions.Count);
-
-            ExtensionProvider.AddExtensions(package.LocalId, extensions.ToArray());
-
-            _loadedPackages.TryAdd(package.LocalId, new LoadedPackageInfo(package, result.LoadContext));
-
-            return result.Assemblies;
+            // Strict on purpose: GetExportedTypes throws on an unresolvable type so a broken plugin
+            // fails the load and rolls back instead of registering with extensions silently skipped.
+            // Unload stays lenient (GetLoadableTypes) since cleanup must proceed regardless.
+            return LoadExtensionsAndRegister(
+                activity,
+                package,
+                result.Assemblies,
+                result.LoadContext,
+                result.Assemblies.SelectMany(assembly => assembly.GetExportedTypes()));
         }
     }
 
@@ -300,23 +294,7 @@ public sealed class PackageManager(
 
         if (info.LoadContext is { } loadContext)
         {
-            try
-            {
-                var types = loadContext.Assemblies.SelectMany(a => a.GetTypes()).ToArray();
-                TypeUnloadNotifier.NotifyUnloading(types);
-                AvaloniaPropertyRegistry.Instance.UnregisterByModule(types);
-                foreach (string name in loadContext.Assemblies.Select(a => a.GetName().Name).OfType<string>())
-                {
-                    AssetLoader.InvalidateAssemblyCache(name);
-                }
-
-                loadContext.Unload();
-                _logger.LogInformation("AssemblyLoadContext unloaded for {PackageName}.", package.Name);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Failed to unload AssemblyLoadContext for {PackageName}.", package.Name);
-            }
+            TryUnloadLoadContext(package, loadContext);
         }
 
         // https://learn.microsoft.com/ja-jp/dotnet/standard/assembly/unloadability#use-a-custom-collectible-assemblyloadcontext
@@ -331,26 +309,182 @@ public sealed class PackageManager(
             .Where(x => StringComparer.OrdinalIgnoreCase.Equals(x.Name, name))];
     }
 
-    private void LoadExtensions(Assembly assembly, List<Extension> extensions)
+    internal Assembly[] LoadExtensionsAndRegister(
+        Activity? activity,
+        LocalPackage package,
+        Assembly[] assemblies,
+        PluginLoadContext? loadContext,
+        IEnumerable<Type> extensionTypes)
     {
-        foreach (Type type in assembly.GetExportedTypes())
+        List<Extension> extensions = [];
+        var addedToProvider = false;
+        try
         {
-            if (type.GetCustomAttribute<ExportAttribute>() is { })
-            {
-                if (type.IsAssignableTo(typeof(Extension))
-                    && Activator.CreateInstance(type) is Extension extension)
-                {
-                    SetupExtensionSettings(extension);
-                    if (extension is ViewExtension viewExtension)
-                    {
-                        commandManager.Register(viewExtension);
-                    }
-                    extension.Load();
+            extensions = LoadPackageExtensions(extensionTypes);
 
-                    extensions.Add(extension);
-                    _logger.LogInformation("Extension {ExtensionName} loaded from assembly {AssemblyName}", type.Name, assembly.GetName().Name);
-                }
+            activity?.AddEvent(new ActivityEvent("Extensions loaded"));
+            activity?.SetTag("ExtensionCount", extensions.Count);
+
+            ExtensionProvider.AddExtensions(package.LocalId, extensions.ToArray());
+            addedToProvider = true;
+
+            if (!_loadedPackages.TryAdd(package.LocalId, new LoadedPackageInfo(package, loadContext)))
+            {
+                throw new InvalidOperationException($"Package {package.Name} is already loaded.");
             }
+
+            return assemblies;
+        }
+        catch
+        {
+            if (addedToProvider)
+            {
+                ExtensionProvider.RemoveExtensions(package.LocalId);
+            }
+
+            // LoadPackageExtensions already rolls back on failure, so extensions is non-empty
+            // only when a later registration step threw; this is not a double-unload.
+            RollbackLoadedExtensions(extensions);
+            if (loadContext is { })
+            {
+                TryUnloadLoadContext(package, loadContext);
+            }
+
+            throw;
+        }
+    }
+
+    internal List<Extension> LoadPackageExtensions(IEnumerable<Type> extensionTypes)
+    {
+        var extensions = new List<Extension>();
+        try
+        {
+            foreach (Type type in extensionTypes)
+            {
+                LoadExtension(type, extensions);
+            }
+
+            return extensions;
+        }
+        catch
+        {
+            RollbackLoadedExtensions(extensions);
+            throw;
+        }
+    }
+
+    private void LoadExtension(Type type, List<Extension> extensions)
+    {
+        if (type.GetCustomAttribute<ExportAttribute>() is { }
+            && type.IsAssignableTo(typeof(Extension))
+            && Activator.CreateInstance(type) is Extension extension)
+        {
+            var loadStarted = false;
+            try
+            {
+                SetupExtensionSettings(extension);
+                if (extension is ViewExtension viewExtension)
+                {
+                    commandManager.Register(viewExtension);
+                }
+
+                loadStarted = true;
+                extension.Load();
+
+                extensions.Add(extension);
+                _logger.LogInformation("Extension {ExtensionName} loaded from assembly {AssemblyName}", type.Name, type.Assembly.GetName().Name);
+            }
+            catch
+            {
+                RollbackExtensionLoad(extension, loadStarted);
+                throw;
+            }
+        }
+    }
+
+    private void RollbackLoadedExtensions(List<Extension> extensions)
+    {
+        for (int i = extensions.Count - 1; i >= 0; i--)
+        {
+            RollbackExtensionLoad(extensions[i], unload: true);
+        }
+
+        extensions.Clear();
+    }
+
+    private void RollbackExtensionLoad(Extension extension, bool unload)
+    {
+        if (extension is ViewExtension viewExtension)
+        {
+            try
+            {
+                commandManager.Unregister(viewExtension);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to unregister commands while rolling back extension {ExtensionName}.", extension.GetType().Name);
+            }
+        }
+
+        if (unload)
+        {
+            try
+            {
+                extension.Unload();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to unload extension {ExtensionName} while rolling back load.", extension.GetType().Name);
+            }
+        }
+
+        try
+        {
+            CleanupExtensionSettings(extension);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to clean up settings while rolling back extension {ExtensionName}.", extension.GetType().Name);
+        }
+    }
+
+    private void TryUnloadLoadContext(LocalPackage package, PluginLoadContext loadContext)
+    {
+        try
+        {
+            Type[] types = loadContext.Assemblies.SelectMany(GetLoadableTypes).ToArray();
+            TypeUnloadNotifier.NotifyUnloading(types);
+            AvaloniaPropertyRegistry.Instance.UnregisterByModule(types);
+            foreach (string name in loadContext.Assemblies.Select(a => a.GetName().Name).OfType<string>())
+            {
+                AssetLoader.InvalidateAssemblyCache(name);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to clean up type registrations for {PackageName}.", package.Name);
+        }
+
+        try
+        {
+            loadContext.Unload();
+            _logger.LogInformation("AssemblyLoadContext unloaded for {PackageName}.", package.Name);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to unload AssemblyLoadContext for {PackageName}.", package.Name);
+        }
+    }
+
+    private static IEnumerable<Type> GetLoadableTypes(Assembly assembly)
+    {
+        try
+        {
+            return assembly.GetTypes();
+        }
+        catch (ReflectionTypeLoadException ex)
+        {
+            return ex.Types.OfType<Type>();
         }
     }
 
