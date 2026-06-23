@@ -139,15 +139,13 @@ public class FormattedTextDisposalTests
     {
         FormattedText ft = CreateText("ABCDE");
 
-        // ToGeometies() returns the live _pathList, so capture the long count before any shrink.
+        // ToGeometies() returns the live _pathList; capture the long count before any shrink.
         IReadOnlyList<Geometry.Resource> longGeometries = ft.ToGeometies();
         int longCount = longGeometries.Count;
-        // Font shaping is environment-dependent, so treat the "shrink actually happens" facts as
-        // assumptions (skip inconclusive) rather than hard failures if a font ligates differently.
+        // Font shaping is environment-dependent, so gate the glyph-count facts on Assume, not Assert.
         Assume.That(longCount, Is.GreaterThan(2), "Need more glyphs than the shrunk text to exercise truncation.");
 
-        // Derive the shrunk glyph count without hardcoding it: _pathList length is driven by HarfBuzz
-        // Codepoints.Length, not Text.Length (ligatures / fallback can decouple the two).
+        // Glyph count is driven by HarfBuzz Codepoints.Length, not Text.Length, so derive it from a probe.
         int shortCount;
         using (FormattedText probe = CreateText("AB"))
         {
@@ -156,9 +154,8 @@ public class FormattedTextDisposalTests
 
         Assume.That(shortCount, Is.LessThan(longCount), "Shrink must actually reduce the glyph count.");
 
-        // Snapshot the trailing resources [shortCount, longCount) and their owned glyph SKPaths BEFORE the
-        // shrink: CollectionsMarshal.SetCount truncates the live _pathList in place, so after the re-measure
-        // these objects are no longer reachable through it.
+        // Snapshot the trailing resources before the shrink: SetCount truncates _pathList in place,
+        // so they become unreachable through it afterwards.
         List<Geometry.Resource> trailingResources = longGeometries.Skip(shortCount).ToList();
         Assert.That(trailingResources, Has.Count.EqualTo(longCount - shortCount));
 
@@ -173,7 +170,7 @@ public class FormattedTextDisposalTests
         Assert.That(trailingGlyphPaths.All(p => p.Handle != IntPtr.Zero), Is.True,
             "Trailing glyph SKPaths must have live handles before the shrink.");
 
-        // Shrink the text and force a re-measure -> MeasureCore's SetCount truncates _pathList.
+        // Shrink the text and force a re-measure -> MeasureCore truncates _pathList.
         ft.Text = "AB";
         _ = ft.Bounds;
         Assert.That(ft.ToGeometies().Count, Is.EqualTo(shortCount), "Re-measure should have shrunk the live _pathList.");
@@ -197,10 +194,10 @@ public class FormattedTextDisposalTests
     {
         FormattedText ft = CreateText("ABCDE");
 
-        // ToGeometies() returns the live _pathList, so capture the long count before any shrink.
+        // ToGeometies() returns the live _pathList; capture the long count before any shrink.
         IReadOnlyList<Geometry.Resource> longGeometries = ft.ToGeometies();
         int longCount = longGeometries.Count;
-        // Font shaping is environment-dependent, so gate the "shrink actually happens" facts on Assume.
+        // Font shaping is environment-dependent, so gate the glyph-count facts on Assume, not Assert.
         Assume.That(longCount, Is.GreaterThan(2), "Need more glyphs than the shrunk text to exercise truncation.");
 
         int shortCount;
@@ -212,9 +209,8 @@ public class FormattedTextDisposalTests
         Assume.That(shortCount, Is.GreaterThan(0), "Shrunk text must still produce glyphs.");
         Assume.That(shortCount, Is.LessThan(longCount), "Shrink must actually reduce the glyph count.");
 
-        // Capture the surviving [0, shortCount) entries. MeasureCore reuses them in place across the shrink
-        // (exist.GetOriginal().SetSKPath(...) on the same Resource), so the trailing-dispose loop must not
-        // touch them. A front-edge off-by-one in that loop would dispose a survivor the re-measure then reuses.
+        // Survivors [0, shortCount) are reused in place across the shrink, so the trailing-dispose loop
+        // must not touch them (guards a front-edge off-by-one that would dispose a reused survivor).
         List<Geometry.Resource> survivors = longGeometries.Take(shortCount).ToList();
         Assert.That(survivors.All(r => !r.IsDisposed), Is.True, "Survivors must be live before the shrink.");
 
@@ -232,9 +228,8 @@ public class FormattedTextDisposalTests
                 "Surviving path-list resource must stay live across a shrink (guards a front-edge off-by-one).");
         }
 
-        // Grow back to the original length. CollectionsMarshal.SetCount cleared the truncated reference-type
-        // slots on the shrink, so MeasureCore must build fresh resources there rather than resurrect a disposed
-        // one. If a disposed Resource were reused, GetRenderBounds would throw ObjectDisposedException.
+        // Grow back: the shrink cleared the truncated slots, so MeasureCore must build fresh resources
+        // rather than resurrect a disposed one (which would throw ObjectDisposedException).
         ft.Text = "ABCDE";
         Assert.DoesNotThrow(() => _ = ft.Bounds, "Re-measure after grow-back must not touch a disposed resource.");
 

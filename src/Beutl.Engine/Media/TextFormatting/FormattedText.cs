@@ -87,9 +87,8 @@ public class FormattedText : IEquatable<FormattedText>, IDisposable
         IsDisposed = true;
     }
 
-    // Releases a single _pathList entry. The geometry must be disposed too: it owns the per-glyph
-    // SKPath (set via SetSKPath(..., clone: false)), which the resource's cached render path does not
-    // cover. Both calls release native handles, so the resource must not be accessed afterwards.
+    // Dispose the geometry too: it owns the per-glyph SKPath (set via SetSKPath(..., clone: false)),
+    // which the resource's cached render path does not cover.
     private static void DisposePathListEntry(SKPathGeometry.Resource? resource)
     {
         resource?.GetOriginal().Dispose();
@@ -322,9 +321,8 @@ public class FormattedText : IEquatable<FormattedText>, IDisposable
         Span<SKPathGeometry.Resource> pathList = default;
         if (updatePathList)
         {
-            // When the glyph count shrank, SetCount truncates the trailing _pathList entries; those
-            // dropped resources are then unreachable for Dispose() to release, so their owned glyph
-            // SKPath / cached render handles would leak to finalizers. Dispose them before truncating.
+            // SetCount truncates trailing entries without disposing them; release them first so their
+            // owned glyph SKPaths don't leak to finalizers.
             int glyphCount = result.Codepoints.Length;
             for (int i = glyphCount; i < _pathList.Count; i++)
             {
