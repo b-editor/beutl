@@ -234,9 +234,17 @@ internal sealed class ParticleRenderNode(ParticleEmitter.Resource particle) : Re
         }
         catch
         {
-            // renderTarget is not yet owned by a caller; release it with the un-rendered ops.
+            // renderTarget is not yet owned by a caller; release it with the un-rendered ops. Its
+            // GPU-native teardown can itself throw, so swallow that so the original render failure wins.
             RenderNodeOperation.DisposeAll(ops.AsSpan(consumed));
-            renderTarget.Dispose();
+            try
+            {
+                renderTarget.Dispose();
+            }
+            catch
+            {
+                // ignored
+            }
             throw;
         }
 
