@@ -78,20 +78,45 @@ public class MFReader : MediaReader
 
             if (options.StreamsToLoad.HasFlag(MediaMode.Audio))
             {
-                _audioReader = createAudioReader(_file, new MediaFoundationReaderSettings
+                try
                 {
-                    RequestFloatOutput = true
-                });
-                _waveFormat = _audioReader.WaveFormat;
+                    _audioReader = createAudioReader(_file, new MediaFoundationReaderSettings
+                    {
+                        RequestFloatOutput = true
+                    });
+                    _waveFormat = _audioReader.WaveFormat;
 
-                _provider = _audioReader.ToSampleProvider().ToStereo();
+                    _provider = _audioReader.ToSampleProvider().ToStereo();
 
-                _audioInfo = new AudioStreamInfo(
-                    CodecName: _waveFormat.Encoding.ToString(),
-                    Duration: new Rational(_audioReader.Length, _waveFormat.AverageBytesPerSecond),
-                    SampleRate: _waveFormat.SampleRate,
-                    NumChannels: _waveFormat.Channels);
-                HasAudio = true;
+                    _audioInfo = new AudioStreamInfo(
+                        CodecName: _waveFormat.Encoding.ToString(),
+                        Duration: new Rational(_audioReader.Length, _waveFormat.AverageBytesPerSecond),
+                        SampleRate: _waveFormat.SampleRate,
+                        NumChannels: _waveFormat.Channels);
+                    HasAudio = true;
+                }
+                catch (Exception ex) when (HasVideo)
+                {
+                    // The file has a usable video stream but no decodable audio (e.g. a
+                    // video-only container opened in the default AudioVideo mode, where
+                    // NAudio's MediaFoundationReader throws). Fall back to video-only
+                    // instead of failing the whole open. Audio-only failures (HasVideo
+                    // == false) are not caught here, so other decoders can retry.
+                    _logger.LogWarning(ex, "Failed to open the audio stream; continuing video-only.");
+                    try
+                    {
+                        _audioReader?.Dispose();
+                    }
+                    catch (Exception disposeEx)
+                    {
+                        _logger.LogWarning(disposeEx, "Failed to dispose the partially-initialized audio reader.");
+                    }
+
+                    _audioReader = null;
+                    _waveFormat = null;
+                    _provider = null;
+                    _audioInfo = null;
+                }
             }
         }
         catch
