@@ -1,5 +1,6 @@
 ﻿using Beutl.Composition;
 using Beutl.Graphics;
+using Beutl.Graphics.Rendering;
 using Beutl.Logging;
 using Beutl.Media;
 using Beutl.Media.TextFormatting;
@@ -85,7 +86,8 @@ public class FormattedTextGeometryCacheTests
 
         text.Text = "W";
         Geometry.Resource reused = text.ToGeometies()[0];
-        Assert.That(reused, Is.SameAs(glyph));
+        Assert.That(reused, Is.SameAs(glyph),
+            "single-codepoint re-measure should reuse the slot in place (the stale-cache precondition).");
 
         Rect wideStroke = reused.GetRenderBounds(pen);
 
@@ -95,5 +97,31 @@ public class FormattedTextGeometryCacheTests
         Assert.That(wideStroke.Width, Is.GreaterThan(narrowStroke.Width),
             "the stroked render bounds must follow the new glyph, not the stale cached stroke path.");
         Assert.That(wideStroke.Width, Is.EqualTo(referenceStroke.Width).Within(0.01));
+    }
+
+    // Regression at the render-node layer. GeometryRenderNode diffs on a captured (resource, Version)
+    // snapshot (ResourceExtension.Compare), and RenderNodeCache only resets a node's cache-eligibility
+    // counter — and ultimately invalidates its rasterized tile — when the node reports HasChanges. A slot
+    // reuse keeps the same resource reference, so unless the in-place mutation bumps Version the render node
+    // sees "unchanged", keeps its cached tile, and the previous glyph stays on screen (the SplitByCharacters
+    // TextBlock path). Asserting at the Geometry.Resource level alone does not cover this.
+    [Test]
+    public void ReMeasure_ReusingGlyphSlot_MarksGeometryRenderNodeChanged()
+    {
+        using FormattedText text = CreateText("I");
+        Geometry.Resource glyph = text.ToGeometies()[0];
+
+        using var node = new GeometryRenderNode(glyph, null, null);
+        Assert.That(node.Update(glyph, null, null), Is.False,
+            "an unchanged geometry must not mark the render node dirty (baseline).");
+
+        text.Text = "W";
+        Geometry.Resource reused = text.ToGeometies()[0];
+        Assert.That(reused, Is.SameAs(glyph),
+            "single-codepoint re-measure should reuse the slot in place (the stale-cache precondition).");
+
+        Assert.That(node.Update(reused, null, null), Is.True,
+            "slot reuse must mark the render node changed so its rasterized cache tile is invalidated.");
+        Assert.That(node.HasChanges, Is.True);
     }
 }

@@ -77,20 +77,29 @@ public abstract partial class Geometry : EngineObject
             return _cachedStrokePath;
         }
 
-        // Forces the cached fill/stroke paths to rebuild on next access. The cache is keyed on Version,
-        // which composition's Update path bumps on a property change. Callers that mutate the underlying
-        // geometry's path in place (e.g. FormattedText reusing a per-glyph slot via SetSKPath) bypass that
-        // path and leave Version unchanged, so they must invalidate explicitly; otherwise GetCachedPath
-        // keeps returning the previous glyph's outline.
+        // Signals that the underlying geometry's path was mutated in place, by bumping Version.
+        //
+        // Version is the invalidation key for two cache layers, and composition's Update path is what
+        // normally bumps it. A caller that rewrites the path without going through that path (e.g.
+        // FormattedText reusing a per-glyph slot via SetSKPath) leaves Version unchanged, so both layers
+        // keep serving the previous glyph:
+        //   * this resource's own Version-keyed fill/stroke path cache (GetCachedPath / GetCachedStrokePath), and
+        //   * any render node that captured a (resource, Version) snapshot and skips redraw while it looks
+        //     unchanged (GeometryRenderNode.Update -> ResourceExtension.Compare), which in turn keeps a stale
+        //     rasterized RenderNodeCache tile alive.
+        // Bumping Version invalidates both: the next GetCachedPath rebuilds, and the render node observes a
+        // new Version, reports HasChanges, redraws, and resets its cache-eligibility counter. Setting only
+        // _capturedVersion = null would rebuild this resource's own cache but leave the render node — and its
+        // rasterized tile — stale.
         //
         // Disposing the now-stale cached paths is intentionally deferred to the next GetCachedPath /
-        // GetCachedStrokePath (the same as the Version-change rebuild path) rather than freed here: a
-        // render thread may still hold the previously returned SKPath, and PostDispose covers the case
+        // GetCachedStrokePath (the same as the ordinary Version-change rebuild path) rather than freed here:
+        // a render thread may still hold the previously returned SKPath, and PostDispose covers the case
         // where no further access occurs.
         internal void InvalidateCachedPaths()
         {
             ObjectDisposedException.ThrowIf(IsDisposed, this);
-            _capturedVersion = null;
+            Version++;
         }
 
         public Rect GetRenderBounds(Pen.Resource? pen)
