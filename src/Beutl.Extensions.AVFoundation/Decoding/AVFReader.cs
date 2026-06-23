@@ -142,6 +142,9 @@ public sealed class AVFReader : MediaReader
             return false;
         }
 
+        // The native reader zero-fills uncovered ranges (trailing silence past EOF) rather than
+        // reporting a short read, which still satisfies the ReadAudio contract. Reporting the actual
+        // decoded count would need an extended C ABI + a .dylib rebuild — tracked as a follow-up.
         var buffer = new Pcm<Stereo32BitFloat>(AudioInfo.SampleRate, length);
         try
         {

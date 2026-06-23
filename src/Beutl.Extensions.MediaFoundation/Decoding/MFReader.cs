@@ -214,22 +214,20 @@ public class MFReader : MediaReader
             return false;
 
         _audioReader.CurrentTime = TimeSpan.FromSeconds(start / (double)_waveFormat.SampleRate);
-        var tmp = new Pcm<Stereo32BitFloat>(_waveFormat.SampleRate, (int)(length / (double)_waveFormat.SampleRate * _waveFormat.SampleRate));
 
-        float[] buffer = new float[tmp.NumSamples * 2];
-        int count = _provider.Read(buffer, 0, buffer.Length);
-        if (count >= 0)
+        // ToStereo() gives 2 floats per frame, so the provider's element count maps to frames via /2.
+        float[] buffer = new float[length * 2];
+        int frames = _provider.Read(buffer, 0, buffer.Length) / 2;
+        if (frames <= 0)
         {
-            buffer.CopyTo(MemoryMarshal.Cast<Stereo32BitFloat, float>(tmp.DataSpan));
-
-            sound = Ref<IPcm>.Create(tmp);
-            return true;
-        }
-        else
-        {
-            tmp.Dispose();
             return false;
         }
+
+        var pcm = new Pcm<Stereo32BitFloat>(_waveFormat.SampleRate, frames);
+        buffer.AsSpan(0, frames * 2).CopyTo(MemoryMarshal.Cast<Stereo32BitFloat, float>(pcm.DataSpan));
+
+        sound = Ref<IPcm>.Create(pcm);
+        return true;
     }
 
     protected override void Dispose(bool disposing)
