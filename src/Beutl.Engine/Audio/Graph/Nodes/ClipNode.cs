@@ -72,6 +72,26 @@ public class ClipNode : AudioNode
         }
     }
 
+    // A nested ClipNode (one feeding another clip's graph — e.g. a SoundGroup child mixed under a group
+    // clip) is flushed by its parent in the PARENT's time domain. Process remaps an incoming timeline
+    // window to clip-local before pulling the input, so the flush path must reconstruct the same
+    // clip-local frame or the child's cached effects (a lookahead limiter) see a discontinuity, Reset(),
+    // and drop the very tail being drained. Rebuild the drain at clip-local Duration — where this clip's
+    // last Process slice ended — mirroring AppendFlushedTail; the parent's start is intentionally
+    // dropped, which is also why an intervening ShiftNode needs no flush override of its own.
+    public override AudioBuffer Flush(AudioProcessContext context)
+    {
+        ArgumentNullException.ThrowIfNull(context);
+
+        var drainContext = new AudioProcessContext(
+            new TimeRange(Duration, context.TimeRange.Duration),
+            context.SampleRate,
+            context.AnimationSampler,
+            context.OriginalTimeRange);
+
+        return Inputs[0].Flush(drainContext);
+    }
+
     // Drains the input chain's residual latency into newBuffer starting at writeOffset, bounded by the
     // remaining capacity. The drain context starts clip-local at Duration — exactly where the main
     // slice ended on the terminal window — so the cached effect chain sees a contiguous stream.
