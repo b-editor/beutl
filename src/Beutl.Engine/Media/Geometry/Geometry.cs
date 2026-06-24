@@ -77,11 +77,8 @@ public abstract partial class Geometry : EngineObject
             return _cachedStrokePath;
         }
 
-        // Bumps Version after the underlying path was mutated in place (e.g. FormattedText reusing a
-        // per-glyph slot via SetSKPath, which bypasses composition's Update path). Version gates both this
-        // resource's fill/stroke path cache and any render node's captured (resource, Version) snapshot, so
-        // without this both keep serving the previous glyph. Stale paths are disposed lazily on the next
-        // GetCachedPath/GetCachedStrokePath, not here, since a render thread may still hold the old SKPath.
+        // Version keys both the fill/stroke path cache and any render node's (resource, Version) snapshot,
+        // so bumping it invalidates both. Stale paths are disposed lazily (a render thread may hold the old one).
         internal void InvalidateCachedPaths()
         {
             ObjectDisposedException.ThrowIf(IsDisposed, this);

@@ -98,9 +98,8 @@ public class FormattedTextGeometryCacheTests
             "the stroked render bounds height should also match a freshly measured glyph.");
     }
 
-    // Regression at the render-node layer: GeometryRenderNode diffs on a captured (resource, Version)
-    // snapshot, so a slot reuse that keeps the same resource reference looks unchanged unless Version is
-    // bumped — leaving the previous glyph's rasterized tile on screen. The Resource-level tests miss this.
+    // Render-node layer: GeometryRenderNode diffs on a captured (resource, Version) snapshot, so a slot
+    // reuse keeping the same resource reference looks unchanged unless Version is bumped.
     [Test]
     public void ReMeasure_ReusingGlyphSlot_MarksGeometryRenderNodeChanged()
     {
