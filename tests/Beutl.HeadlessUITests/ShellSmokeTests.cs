@@ -1,0 +1,80 @@
+﻿using Avalonia.Headless.NUnit;
+using Beutl.ProjectSystem;
+using Beutl.Services;
+using Beutl.Testing.Headless;
+using Beutl.ViewModels;
+
+namespace Beutl.HeadlessUITests;
+
+public class ShellSmokeTests
+{
+    // NUnit [SetUp]/[TearDown] run off the Avalonia UI thread, where touching ProjectService /
+    // BeutlApplication state is unsafe; reset global singletons inside each [AvaloniaTest] body instead.
+    private static void ResetProject()
+    {
+        ProjectService.Current.CloseProject();
+        BeutlApplication.Current.Items.Clear();
+        HeadlessTestHelpers.Settle();
+    }
+
+    private static string NewWorkspace(string name)
+    {
+        string location = Path.Combine(BeutlHomeIsolation.CurrentHome!, name);
+        Directory.CreateDirectory(location);
+        return location;
+    }
+
+    [AvaloniaTest]
+    public async Task CreateProject_persists_files_and_opens()
+    {
+        ResetProject();
+
+        Project? project = await ProjectService.Current.CreateProject(
+            1920, 1080, 30, 44100, "create", NewWorkspace("create"));
+        HeadlessTestHelpers.Settle();
+
+        Assert.That(project, Is.Not.Null);
+        Assert.That(ProjectService.Current.IsOpened.Value, Is.True);
+        Assert.That(BeutlApplication.Current.Project, Is.SameAs(project));
+        Assert.That(File.Exists(project!.Uri!.LocalPath), Is.True);
+
+        Scene? scene = project.Items.OfType<Scene>().FirstOrDefault();
+        Assert.That(scene, Is.Not.Null);
+        Assert.That(File.Exists(scene!.Uri!.LocalPath), Is.True);
+    }
+
+    [AvaloniaTest]
+    public async Task ActivateTabItem_creates_a_scene_editor_tab()
+    {
+        ResetProject();
+
+        Project? project = await ProjectService.Current.CreateProject(
+            640, 480, 30, 44100, "tab", NewWorkspace("tab"));
+        HeadlessTestHelpers.Settle();
+        Scene scene = project!.Items.OfType<Scene>().First();
+
+        EditorService.Current.ActivateTabItem(scene);
+        HeadlessTestHelpers.Settle();
+
+        Assert.That(EditorService.Current.TabItems, Is.Not.Empty);
+    }
+
+    [AvaloniaTest]
+    public async Task MainViewModel_reflects_open_and_close()
+    {
+        ResetProject();
+
+        var vm = new MainViewModel();
+        Assert.That(vm.IsProjectOpened.Value, Is.False);
+
+        await ProjectService.Current.CreateProject(640, 480, 30, 44100, "vm", NewWorkspace("vm"));
+        HeadlessTestHelpers.Settle();
+
+        Assert.That(vm.IsProjectOpened.Value, Is.True);
+        Assert.That(vm.WindowTitle.Value, Does.Contain("vm"));
+
+        vm.Dispose();
+        HeadlessTestHelpers.Settle();
+        Assert.That(vm.IsProjectOpened.Value, Is.False);
+    }
+}
