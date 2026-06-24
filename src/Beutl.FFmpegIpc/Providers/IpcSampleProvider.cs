@@ -10,6 +10,9 @@ namespace Beutl.FFmpegIpc.Providers;
 
 internal sealed class IpcSampleProvider : ISampleProvider
 {
+    // Stereo32BitFloat destination: 2 channels * 4 bytes. Must match the Pcm<Stereo32BitFloat> allocated below.
+    private const int Stereo32BitFloatBytesPerSample = 8;
+
     private readonly IpcConnection _connection;
     private readonly SharedMemoryBuffer[] _audioBuffers;
 
@@ -111,8 +114,11 @@ internal sealed class IpcSampleProvider : ISampleProvider
         // プリフェッチ済みのチャンクと一致する場合
         if (_prefetchTask != null && _prefetchChunkOffset == chunkOffset)
         {
-            var pcm = await _prefetchTask;
+            // Clear the field before awaiting (like the stale-drain branch below and IpcFrameProvider's
+            // prefetch-hit branch) so a faulted prefetch can't pin the provider to a re-throwing task.
+            Task<Pcm<Stereo32BitFloat>> prefetchTask = _prefetchTask;
             _prefetchTask = null;
+            var pcm = await prefetchTask;
 
             _currentChunk?.Dispose();
             _currentChunk = pcm;
@@ -158,24 +164,36 @@ internal sealed class IpcSampleProvider : ISampleProvider
 
         var request = IpcMessage.Create(_connection.NextId(), MessageType.RequestSample,
             new RequestSampleMessage { Offset = chunkOffset, Length = chunkLength, BufferIndex = bufferIndex });
-        var response = await _connection.SendAndReceiveAsync(request)
-                       ?? throw new IOException("Connection closed while waiting for audio samples");
+        var response = await _connection.SendAndReceiveAsync(request);
 
+        // SendAndReceiveAsync already surfaces a closed connection as IOException and an error response as
+        // FFmpegWorkerException, so the response here is non-null and error-free; only CancelEncode (a live
+        // non-error response) still needs handling.
         if (response.Type == MessageType.CancelEncode)
             throw new OperationCanceledException();
 
-        if (response.Error != null)
-            throw new InvalidOperationException($"Sample failed: {response.Error}");
-
         var sampleInfo = response.GetPayload<ProvideSampleMessage>()
             ?? throw new InvalidOperationException("Missing payload for ProvideSample");
+
+        // SharedMemoryBuffer.Read copies the worker-reported DataLength bytes into the native Pcm, whose
+        // capacity is NumSamples * Stereo32BitFloatBytesPerSample. Validate the reported size against that
+        // capacity before reading so an oversized (or negative) DataLength can't overrun the allocation.
+        if (sampleInfo.NumSamples < 0)
+            throw new InvalidOperationException(
+                $"Sample chunk has a negative NumSamples {sampleInfo.NumSamples}.");
+
+        long expected = (long)sampleInfo.NumSamples * Stereo32BitFloatBytesPerSample;
+        if (sampleInfo.DataLength != expected)
+            throw new InvalidOperationException(
+                $"Sample DataLength {sampleInfo.DataLength} does not match the {sampleInfo.NumSamples}-sample " +
+                $"Stereo32BitFloat buffer size {expected}.");
 
         var pcm = new Pcm<Stereo32BitFloat>((int)SampleRate, sampleInfo.NumSamples);
         try
         {
             unsafe
             {
-                _audioBuffers[bufferIndex].Read(new Span<byte>((void*)pcm.Data, sampleInfo.DataLength));
+                _audioBuffers[bufferIndex].Read(new Span<byte>((void*)pcm.Data, (int)expected));
             }
 
             return pcm;
