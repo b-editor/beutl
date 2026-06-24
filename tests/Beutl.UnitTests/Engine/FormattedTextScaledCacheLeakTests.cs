@@ -105,8 +105,8 @@ public class FormattedTextScaledCacheLeakTests
         using FormattedText ft = CreateText();
         _ = ft.Bounds;
 
-        // More distinct densities than the per-density cache cap (8) to drive the eviction loop the
-        // fix now wraps in a try/catch; every fresh density must still yield a live blob.
+        // More distinct densities than the cache cap (8) to drive eviction; every fresh density
+        // must still yield a live blob.
         for (int i = 1; i <= 12; i++)
         {
             float density = 1f + i * 0.25f;
