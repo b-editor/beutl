@@ -7,6 +7,8 @@ using Beutl.FFmpegIpc.Providers;
 using Beutl.FFmpegIpc.SharedMemory;
 using Beutl.FFmpegIpc.Transport;
 using Beutl.Media;
+using Beutl.Media.Music;
+using Beutl.Media.Music.Samples;
 
 namespace Beutl.FFmpegIpc.Tests;
 
@@ -338,6 +340,35 @@ public class IpcProviderContractTests
     }
 
     [Test]
+    public async Task RenderFrame_WhenFrameExceedsBufferCapacity_ThrowsFromReadAndDoesNotLeak()
+    {
+        // 32x32 RgbaF16 = 8192 bytes > BufferCapacity (4096). The DataLength guard passes (8192 == the
+        // 32x32 RgbaF16 size), so the overflow only surfaces from SharedMemoryBuffer.Read's capacity check
+        // AFTER the bitmap is allocated. The provider must let that throw propagate (its catch disposes the
+        // freshly allocated native bitmap so the throw can't leak it).
+        var (server, client) = ConnectPair();
+        var buffers = CreateBuffers();
+        var hostCts = new CancellationTokenSource();
+        const int oversizedDataLength = 32 * 32 * RgbaF16BytesPerPixel; // 8192 > BufferCapacity 4096
+        var hostTask = RunMalformedFrameHost(server, width: 32, height: 32, oversizedDataLength, hostCts.Token);
+
+        using var conn = new IpcConnection(client);
+        var provider = new IpcFrameProvider(conn, buffers, frameCount: 1, frameRate: new Rational(30, 1));
+
+        try
+        {
+            Assert.That(async () => await provider.RenderFrame(0),
+                Throws.TypeOf<ArgumentOutOfRangeException>(),
+                "a frame larger than the shared buffer must surface the Read capacity overflow as a throw");
+        }
+        finally
+        {
+            await StopHost(hostCts, server, hostTask);
+            DisposeBuffers(buffers);
+        }
+    }
+
+    [Test]
     public async Task RenderFrame_WhenValidationFails_DoesNotArmPrefetch()
     {
         // A frame that fails the DataLength guard must not arm a prefetch of the next frame. With frame 0
@@ -449,6 +480,246 @@ public class IpcProviderContractTests
         {
             Assert.That(async () => await provider.Sample(0, 1024),
                 Throws.TypeOf<OperationCanceledException>());
+        }
+        finally
+        {
+            await StopHost(hostCts, server, hostTask);
+            DisposeBuffers(buffers);
+        }
+    }
+
+    // ---- Sample-side host harness (mirrors the frame-side helpers above) ----
+
+    // Stereo32BitFloat: 2 channels * 4 bytes. The host writes a chunk signature (its offset) into the
+    // first 8 bytes of the requested audio buffer so a test can read back which chunk it actually got.
+    private const int Stereo32BitFloatBytesPerSample = 8;
+
+    // Reads the first sample (8 bytes) the provider returned, interpreted as the chunk-offset signature.
+    private static long ReadSampleSignature(Pcm<Stereo32BitFloat> pcm)
+    {
+        byte[] buf = new byte[Stereo32BitFloatBytesPerSample];
+        Marshal.Copy(pcm.Data, buf, 0, Stereo32BitFloatBytesPerSample);
+        return BitConverter.ToInt64(buf);
+    }
+
+    // Fake host: serves each RequestSample by writing that chunk's signature (its offset) into the
+    // requested buffer slot and replying ProvideSample with a self-consistent NumSamples/DataLength.
+    private static Task RunSampleServingHost(NamedPipeServerStream server, SharedMemoryBuffer[] buffers, CancellationToken ct)
+    {
+        return Task.Run(async () =>
+        {
+            while (!ct.IsCancellationRequested)
+            {
+                var req = await MessageSerializer.ReadMessageAsync(server, ct);
+                if (req == null)
+                    return;
+
+                var payload = req.GetPayload<RequestSampleMessage>()!;
+                int numSamples = (int)payload.Length;
+                // Signature occupies the first 8 bytes (one Stereo32BitFloat sample); requires numSamples >= 1.
+                buffers[payload.BufferIndex].Write(BitConverter.GetBytes(payload.Offset));
+
+                var resp = IpcMessage.Create(req.Id, MessageType.ProvideSample, new ProvideSampleMessage
+                {
+                    NumSamples = numSamples,
+                    DataLength = numSamples * Stereo32BitFloatBytesPerSample,
+                });
+                await MessageSerializer.WriteMessageAsync(server, resp, ct);
+            }
+        }, ct);
+    }
+
+    // Fake host that replies to every request with one fixed ProvideSample, so a test can drive the
+    // provider's NumSamples/DataLength validation with specific values.
+    private static Task RunMalformedSampleHost(
+        NamedPipeServerStream server, int numSamples, int dataLength, CancellationToken ct)
+    {
+        return Task.Run(async () =>
+        {
+            while (!ct.IsCancellationRequested)
+            {
+                var req = await MessageSerializer.ReadMessageAsync(server, ct);
+                if (req == null)
+                    return;
+
+                var resp = IpcMessage.Create(req.Id, MessageType.ProvideSample, new ProvideSampleMessage
+                {
+                    NumSamples = numSamples,
+                    DataLength = dataLength,
+                });
+                await MessageSerializer.WriteMessageAsync(server, resp, ct);
+            }
+        }, ct);
+    }
+
+    // Fake host that answers every request with one fixed error response, so a test can prove an injected
+    // worker error surfaces as FFmpegWorkerException from the sample path (not InvalidOperationException).
+    private static Task RunErroringSampleHost(NamedPipeServerStream server, CancellationToken ct)
+    {
+        return Task.Run(async () =>
+        {
+            while (!ct.IsCancellationRequested)
+            {
+                var req = await MessageSerializer.ReadMessageAsync(server, ct);
+                if (req == null)
+                    return;
+
+                await MessageSerializer.WriteMessageAsync(
+                    server, IpcMessage.CreateError(req.Id, "injected sample failure"), ct);
+            }
+        }, ct);
+    }
+
+    // Fake host that fails the first request for the second chunk (offset == sampleRate) with an error
+    // response (so the provider's prefetch task faults) and answers every other request — including the
+    // retry of that chunk — normally. Lets a test prove a faulted sample prefetch is not pinned.
+    private static Task RunSamplePrefetchFaultsOnceHost(
+        NamedPipeServerStream server, SharedMemoryBuffer[] buffers, long sampleRate, CancellationToken ct)
+    {
+        return Task.Run(async () =>
+        {
+            bool secondChunkFaulted = false;
+            while (!ct.IsCancellationRequested)
+            {
+                var req = await MessageSerializer.ReadMessageAsync(server, ct);
+                if (req == null)
+                    return;
+
+                var payload = req.GetPayload<RequestSampleMessage>()!;
+                if (payload.Offset == sampleRate && !secondChunkFaulted)
+                {
+                    secondChunkFaulted = true;
+                    await MessageSerializer.WriteMessageAsync(
+                        server, IpcMessage.CreateError(req.Id, "injected sample prefetch failure"), ct);
+                    continue;
+                }
+
+                int numSamples = (int)payload.Length;
+                buffers[payload.BufferIndex].Write(BitConverter.GetBytes(payload.Offset));
+                var resp = IpcMessage.Create(req.Id, MessageType.ProvideSample, new ProvideSampleMessage
+                {
+                    NumSamples = numSamples,
+                    DataLength = numSamples * Stereo32BitFloatBytesPerSample,
+                });
+                await MessageSerializer.WriteMessageAsync(server, resp, ct);
+            }
+        }, ct);
+    }
+
+    [TestCase(8 * Stereo32BitFloatBytesPerSample)]   // oversized: would overrun the native Pcm
+    [TestCase(2 * Stereo32BitFloatBytesPerSample)]   // undersized vs NumSamples
+    public async Task Sample_WhenWorkerReportsMismatchedDataLength_Throws(int dataLength)
+    {
+        // The Pcm capacity is NumSamples * 8. A DataLength that disagrees with NumSamples must be rejected
+        // before the Read, not used as the copy length (which would over/under-run the native allocation).
+        var (server, client) = ConnectPair();
+        var buffers = CreateBuffers();
+        var hostCts = new CancellationTokenSource();
+        var hostTask = RunMalformedSampleHost(server, numSamples: 4, dataLength, hostCts.Token);
+
+        using var conn = new IpcConnection(client);
+        var provider = new IpcSampleProvider(conn, buffers, sampleCount: 4, sampleRate: 4);
+
+        try
+        {
+            Assert.That(async () => await provider.Sample(0, 4),
+                Throws.TypeOf<InvalidOperationException>(),
+                "a DataLength that does not match NumSamples * 8 must be rejected, not used as the copy length");
+        }
+        finally
+        {
+            await StopHost(hostCts, server, hostTask);
+            DisposeBuffers(buffers);
+        }
+    }
+
+    [Test]
+    public async Task Sample_WhenHostErrors_ThrowsFFmpegWorkerException()
+    {
+        // An injected worker error must surface as FFmpegWorkerException (raised by SendAndReceiveAsync),
+        // mirroring the frame-side guarantee — not be re-wrapped into InvalidOperationException.
+        var (server, client) = ConnectPair();
+        var buffers = CreateBuffers();
+        var hostCts = new CancellationTokenSource();
+        var hostTask = RunErroringSampleHost(server, hostCts.Token);
+
+        using var conn = new IpcConnection(client);
+        var provider = new IpcSampleProvider(conn, buffers, sampleCount: 4, sampleRate: 4);
+
+        try
+        {
+            Assert.That(async () => await provider.Sample(0, 4),
+                Throws.TypeOf<FFmpegWorkerException>(),
+                "an injected worker error must surface as FFmpegWorkerException, not InvalidOperationException");
+        }
+        finally
+        {
+            await StopHost(hostCts, server, hostTask);
+            DisposeBuffers(buffers);
+        }
+    }
+
+    [Test]
+    public async Task Sample_WhenPrefetchFaults_RecoversOnRetry()
+    {
+        // A faulted sample prefetch must not pin the provider. Consuming chunk 0 arms a prefetch of chunk 1
+        // (offset == sampleRate); the host faults it, so the Sample that hits chunk 1 throws — but a retry
+        // must issue a fresh request and recover instead of re-throwing the pinned faulted task forever.
+        const long sampleRate = 4;
+        var (server, client) = ConnectPair();
+        var buffers = CreateBuffers();
+        var hostCts = new CancellationTokenSource();
+        var hostTask = RunSamplePrefetchFaultsOnceHost(server, buffers, sampleRate, hostCts.Token);
+
+        using var conn = new IpcConnection(client);
+        // sampleCount 12 == 3 chunks of 4, so chunk 1's prefetch arms after chunk 0 and chunk 1 is not last.
+        var provider = new IpcSampleProvider(conn, buffers, sampleCount: 12, sampleRate: sampleRate);
+
+        try
+        {
+            using (Pcm<Stereo32BitFloat> chunk0 = await provider.Sample(0, sampleRate))
+                Assert.That(ReadSampleSignature(chunk0), Is.EqualTo(0L), "chunk 0 loads and arms the prefetch of chunk 1");
+
+            Assert.That(async () => await provider.Sample(sampleRate, sampleRate),
+                Throws.TypeOf<FFmpegWorkerException>(),
+                "the faulted prefetch surfaces on the request that consumes chunk 1");
+
+            using Pcm<Stereo32BitFloat> chunk1 = await provider.Sample(sampleRate, sampleRate);
+            Assert.That(ReadSampleSignature(chunk1), Is.EqualTo(sampleRate),
+                "the retry recovers because the faulted prefetch was not pinned to the provider");
+        }
+        finally
+        {
+            await StopHost(hostCts, server, hostTask);
+            DisposeBuffers(buffers);
+        }
+    }
+
+    [Test]
+    public async Task Sample_WhenRequestStraddlesAlignedEof_ClampsWithoutThrowing()
+    {
+        // SampleCount aligns to a chunk boundary (8 == 2 * sampleRate 4). A request straddling EOF
+        // (offset 4, length 4 -> end 8 == SampleCount, but the next-chunk path used to load an empty chunk
+        // and slice a 0-length span -> ArgumentOutOfRangeException). The fix clamps to the real timeline.
+        const long sampleRate = 4;
+        var (server, client) = ConnectPair();
+        var buffers = CreateBuffers();
+        var hostCts = new CancellationTokenSource();
+        var hostTask = RunSampleServingHost(server, buffers, hostCts.Token);
+
+        using var conn = new IpcConnection(client);
+        var provider = new IpcSampleProvider(conn, buffers, sampleCount: 8, sampleRate: sampleRate);
+
+        try
+        {
+            // Over-request past EOF: offset 6, length 4 -> would end at 10 > SampleCount 8. Clamp to 2.
+            Pcm<Stereo32BitFloat> result = null!;
+            Assert.That(async () => result = await provider.Sample(6, 4), Throws.Nothing,
+                "a request running past an aligned EOF must clamp, not throw ArgumentOutOfRangeException");
+
+            using (result)
+                Assert.That(result.NumSamples, Is.EqualTo(2),
+                    "the clamped Pcm returns only the real samples remaining (SampleCount - offset)");
         }
         finally
         {
