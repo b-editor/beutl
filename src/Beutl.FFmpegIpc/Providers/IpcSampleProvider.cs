@@ -38,6 +38,18 @@ internal sealed class IpcSampleProvider : ISampleProvider
 
     public async ValueTask<Pcm<Stereo32BitFloat>> Sample(long offset, long length)
     {
+        // Clamp the request to the real timeline so we never read past SampleCount. The encoder issues the
+        // final Sample with frame.NbSamples, which can straddle EOF (FFmpegEncodingController.GetAudioFrame);
+        // an unclamped length would either slice a zero-length next chunk when SampleCount aligns to a chunk
+        // boundary (ArgumentOutOfRangeException) or copy out-of-range data when it doesn't. The consumer
+        // tolerates a short final Pcm — it copies only NumSamples * SampleSize bytes and advances by the
+        // requested NbSamples regardless — so clamping (rather than zero-padding) keeps the encoder correct.
+        long effectiveLength = offset >= SampleCount ? 0 : Math.Min(length, SampleCount - offset);
+        if (effectiveLength <= 0)
+            return new Pcm<Stereo32BitFloat>((int)SampleRate, 0);
+
+        length = effectiveLength;
+
         // キャッシュヒット: 要求範囲がキャッシュ内に完全に収まる
         if (_currentChunk != null
             && offset >= _currentChunkOffset
