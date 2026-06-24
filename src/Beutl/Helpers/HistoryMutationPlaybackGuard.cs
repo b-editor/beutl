@@ -23,6 +23,11 @@ internal sealed class HistoryMutationPlaybackGuard : IDisposable
         await _gate.WaitAsync();
         try
         {
+            // Re-check after acquiring the gate: a caller that was already queued in WaitAsync()
+            // when Dispose() ran passed the pre-wait check, so reject it here too. The finally
+            // releases the gate before this propagates.
+            ObjectDisposedException.ThrowIf(_disposed, this);
+
             // shouldPause() reflects whether this operation will change scene state, including
             // any pending transaction the drain below will commit (callers' predicates check
             // HasPendingOperations). Evaluate it before draining so the pause can bracket the
