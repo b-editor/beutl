@@ -10,6 +10,9 @@
     <PackageVersion Include="PanAndZoom" Version="11.3.9.1" />
     <PackageVersion Include="Avalonia.Desktop" Version="11.3.17" />
     <PackageVersion Include="Avalonia.Diagnostics" Version="11.3.17" />
+    <PackageVersion Include="Avalonia.Headless" Version="11.3.17" />
+    <PackageVersion Include="Avalonia.Headless.NUnit" Version="11.3.17" />
+    <PackageVersion Include="Avalonia.Skia" Version="11.3.17" />
     <PackageVersion Include="ReactiveUI.Avalonia" Version="11.4.13" />
     <PackageVersion Include="Silk.NET.MoltenVK.Native" Version="2.23.0" />
     <PackageVersion Include="Silk.NET.OpenAL" Version="2.23.0" />
