@@ -1,5 +1,6 @@
 ﻿using System.IO.Pipes;
 using System.Runtime.InteropServices;
+using Beutl.FFmpegIpc;
 using Beutl.FFmpegIpc.Protocol;
 using Beutl.FFmpegIpc.Protocol.Messages;
 using Beutl.FFmpegIpc.Providers;
@@ -20,6 +21,8 @@ public class IpcProviderContractTests
     // 1x1 RgbaF16 frame: 4 channels * 2 bytes. The host writes a frame signature into the first
     // bytes of the shared buffer so the test can read back which frame the provider actually returned.
     private const int FrameDataLength = 8;
+    // RgbaF16 stride: 4 channels * 2 bytes. Distinct from FrameDataLength, a whole 1x1 frame.
+    private const int RgbaF16BytesPerPixel = 8;
     private const long BufferCapacity = 4096;
 
     private static string NewName() => "beutl-ipc-prov-" + Guid.NewGuid().ToString("N")[..8];
@@ -77,7 +80,7 @@ public class IpcProviderContractTests
                 {
                     Width = 1,
                     Height = 1,
-                    BytesPerPixel = FrameDataLength,
+                    BytesPerPixel = RgbaF16BytesPerPixel,
                     DataLength = FrameDataLength,
                     Premul = false,
                 });
@@ -98,6 +101,117 @@ public class IpcProviderContractTests
                     return;
 
                 var resp = IpcMessage.CreateSimple(req.Id, MessageType.CancelEncode);
+                await MessageSerializer.WriteMessageAsync(server, resp, ct);
+            }
+        }, ct);
+    }
+
+    // Fake host that replies to every request with one fixed ProvideFrame, so a test can drive the
+    // provider's frame-validation guards with specific Width/Height/DataLength values.
+    private static Task RunMalformedFrameHost(
+        NamedPipeServerStream server, int width, int height, int dataLength, CancellationToken ct)
+    {
+        return Task.Run(async () =>
+        {
+            while (!ct.IsCancellationRequested)
+            {
+                var req = await MessageSerializer.ReadMessageAsync(server, ct);
+                if (req == null)
+                    return;
+
+                var resp = IpcMessage.Create(req.Id, MessageType.ProvideFrame, new ProvideFrameMessage
+                {
+                    Width = width,
+                    Height = height,
+                    BytesPerPixel = RgbaF16BytesPerPixel,
+                    DataLength = dataLength,
+                    Premul = false,
+                });
+                await MessageSerializer.WriteMessageAsync(server, resp, ct);
+            }
+        }, ct);
+    }
+
+    // Fake host that serves frame 0 with a mismatched DataLength (failing the destination-size guard)
+    // but answers every other frame normally. Records received frame indices so a test can assert that
+    // a rejected frame did not leave a stray prefetch request behind.
+    private static Task RunFrame0BadDataLengthHost(
+        NamedPipeServerStream server, SharedMemoryBuffer[] buffers, List<long> received, object gate, CancellationToken ct)
+    {
+        return Task.Run(async () =>
+        {
+            while (!ct.IsCancellationRequested)
+            {
+                var req = await MessageSerializer.ReadMessageAsync(server, ct);
+                if (req == null)
+                    return;
+
+                var payload = req.GetPayload<RequestFrameMessage>()!;
+                lock (gate)
+                    received.Add(payload.FrameIndex);
+
+                if (payload.FrameIndex == 0)
+                {
+                    // Oversized DataLength would overrun the 1x1 RgbaF16 destination if not rejected.
+                    var bad = IpcMessage.Create(req.Id, MessageType.ProvideFrame, new ProvideFrameMessage
+                    {
+                        Width = 1,
+                        Height = 1,
+                        BytesPerPixel = RgbaF16BytesPerPixel,
+                        DataLength = FrameDataLength * 2,
+                        Premul = false,
+                    });
+                    await MessageSerializer.WriteMessageAsync(server, bad, ct);
+                    continue;
+                }
+
+                buffers[payload.BufferIndex].Write(BitConverter.GetBytes(payload.FrameIndex));
+                var resp = IpcMessage.Create(req.Id, MessageType.ProvideFrame, new ProvideFrameMessage
+                {
+                    Width = 1,
+                    Height = 1,
+                    BytesPerPixel = RgbaF16BytesPerPixel,
+                    DataLength = FrameDataLength,
+                    Premul = false,
+                });
+                await MessageSerializer.WriteMessageAsync(server, resp, ct);
+            }
+        }, ct);
+    }
+
+    // Fake host that fails the first request for frame 1 with an error response (so the provider's
+    // prefetch task faults) and answers every other request — including the second frame 1 request —
+    // normally. Lets a test prove a faulted prefetch is not pinned and a retry recovers.
+    private static Task RunPrefetchFaultsOnceHost(
+        NamedPipeServerStream server, SharedMemoryBuffer[] buffers, CancellationToken ct)
+    {
+        return Task.Run(async () =>
+        {
+            bool frame1Faulted = false;
+            while (!ct.IsCancellationRequested)
+            {
+                var req = await MessageSerializer.ReadMessageAsync(server, ct);
+                if (req == null)
+                    return;
+
+                var payload = req.GetPayload<RequestFrameMessage>()!;
+                if (payload.FrameIndex == 1 && !frame1Faulted)
+                {
+                    frame1Faulted = true;
+                    await MessageSerializer.WriteMessageAsync(
+                        server, IpcMessage.CreateError(req.Id, "injected prefetch failure"), ct);
+                    continue;
+                }
+
+                buffers[payload.BufferIndex].Write(BitConverter.GetBytes(payload.FrameIndex));
+                var resp = IpcMessage.Create(req.Id, MessageType.ProvideFrame, new ProvideFrameMessage
+                {
+                    Width = 1,
+                    Height = 1,
+                    BytesPerPixel = RgbaF16BytesPerPixel,
+                    DataLength = FrameDataLength,
+                    Premul = false,
+                });
                 await MessageSerializer.WriteMessageAsync(server, resp, ct);
             }
         }, ct);
@@ -161,6 +275,134 @@ public class IpcProviderContractTests
                 firstThree = received.Take(3).ToArray();
             Assert.That(firstThree, Is.EqualTo(new[] { 0L, 1L, 5L }),
                 "the drained prefetch (1) proves a fresh RequestFrame{5} was issued after the seek");
+        }
+        finally
+        {
+            await StopHost(hostCts, server, hostTask);
+            DisposeBuffers(buffers);
+        }
+    }
+
+    [TestCase(FrameDataLength * 2)]
+    [TestCase(FrameDataLength / 2)]
+    [TestCase(0)]
+    public async Task RenderFrame_WhenWorkerReportsMismatchedDataLength_Throws(int dataLength)
+    {
+        var (server, client) = ConnectPair();
+        var buffers = CreateBuffers();
+        var hostCts = new CancellationTokenSource();
+        var hostTask = RunMalformedFrameHost(server, width: 1, height: 1, dataLength, hostCts.Token);
+
+        using var conn = new IpcConnection(client);
+        // frameCount 1 makes frame 0 the last frame, so no prefetch is armed and nothing dangles.
+        var provider = new IpcFrameProvider(conn, buffers, frameCount: 1, frameRate: new Rational(30, 1));
+
+        try
+        {
+            Assert.That(async () => await provider.RenderFrame(0),
+                Throws.TypeOf<InvalidOperationException>(),
+                "a DataLength that does not match the bitmap allocation must be rejected, not copied");
+        }
+        finally
+        {
+            await StopHost(hostCts, server, hostTask);
+            DisposeBuffers(buffers);
+        }
+    }
+
+    [TestCase(0, 1)]
+    [TestCase(1, 0)]
+    public async Task RenderFrame_WhenFrameDimensionsAreNonPositive_Throws(int width, int height)
+    {
+        // DataLength 0 matches a zero-area frame's expected size, so only an explicit dimension guard
+        // rejects it — without one the provider would hand back an empty bitmap instead of throwing.
+        var (server, client) = ConnectPair();
+        var buffers = CreateBuffers();
+        var hostCts = new CancellationTokenSource();
+        var hostTask = RunMalformedFrameHost(server, width, height, dataLength: 0, hostCts.Token);
+
+        using var conn = new IpcConnection(client);
+        var provider = new IpcFrameProvider(conn, buffers, frameCount: 1, frameRate: new Rational(30, 1));
+
+        try
+        {
+            Assert.That(async () => await provider.RenderFrame(0),
+                Throws.TypeOf<InvalidOperationException>(),
+                "a frame with a non-positive dimension must be rejected, not turned into an empty bitmap");
+        }
+        finally
+        {
+            await StopHost(hostCts, server, hostTask);
+            DisposeBuffers(buffers);
+        }
+    }
+
+    [Test]
+    public async Task RenderFrame_WhenValidationFails_DoesNotArmPrefetch()
+    {
+        // A frame that fails the DataLength guard must not arm a prefetch of the next frame. With frame 0
+        // rejected, a later RenderFrame(2) leaves the host having seen only [0, 2] — no stray prefetch 1.
+        var (server, client) = ConnectPair();
+        var buffers = CreateBuffers();
+        var received = new List<long>();
+        var gate = new object();
+        var hostCts = new CancellationTokenSource();
+        var hostTask = RunFrame0BadDataLengthHost(server, buffers, received, gate, hostCts.Token);
+
+        using var conn = new IpcConnection(client);
+        // frameCount 3: frame 0 is not the last frame, so a misplaced guard *would* arm a prefetch of 1.
+        // frame 2 is the last frame, so the successful render issues no further prefetch and nothing dangles.
+        var provider = new IpcFrameProvider(conn, buffers, frameCount: 3, frameRate: new Rational(30, 1));
+
+        try
+        {
+            Assert.That(async () => await provider.RenderFrame(0),
+                Throws.TypeOf<InvalidOperationException>(),
+                "frame 0's mismatched DataLength is rejected");
+
+            using Bitmap frame2 = await provider.RenderFrame(2);
+            Assert.That(ReadFrameSignature(frame2), Is.EqualTo(2L), "the provider stays usable after the rejected frame");
+
+            long[] requests;
+            lock (gate)
+                requests = received.ToArray();
+            Assert.That(requests, Is.EqualTo(new[] { 0L, 2L }),
+                "a rejected frame must not have armed a prefetch (no stray request 1 between 0 and 2)");
+        }
+        finally
+        {
+            await StopHost(hostCts, server, hostTask);
+            DisposeBuffers(buffers);
+        }
+    }
+
+    [Test]
+    public async Task RenderFrame_WhenPrefetchFaults_RecoversOnRetry()
+    {
+        // A faulted prefetch must not pin the provider. RenderFrame(0) arms a prefetch of frame 1; the
+        // host faults it, so the matching RenderFrame(1) throws — but a retry must issue a fresh request
+        // and recover instead of re-throwing the pinned faulted task forever.
+        var (server, client) = ConnectPair();
+        var buffers = CreateBuffers();
+        var hostCts = new CancellationTokenSource();
+        var hostTask = RunPrefetchFaultsOnceHost(server, buffers, hostCts.Token);
+
+        using var conn = new IpcConnection(client);
+        // frameCount 2: frame 0 arms the prefetch of 1; the recovered frame 1 is last, so nothing dangles.
+        var provider = new IpcFrameProvider(conn, buffers, frameCount: 2, frameRate: new Rational(30, 1));
+
+        try
+        {
+            using Bitmap frame0 = await provider.RenderFrame(0);
+            Assert.That(ReadFrameSignature(frame0), Is.EqualTo(0L), "frame 0 renders before the prefetch faults");
+
+            Assert.That(async () => await provider.RenderFrame(1),
+                Throws.TypeOf<FFmpegWorkerException>(),
+                "the faulted prefetch surfaces on the matching request");
+
+            using Bitmap frame1 = await provider.RenderFrame(1);
+            Assert.That(ReadFrameSignature(frame1), Is.EqualTo(1L),
+                "the retry recovers because the faulted prefetch was not pinned to the provider");
         }
         finally
         {

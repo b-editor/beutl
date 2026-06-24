@@ -13,7 +13,6 @@ internal sealed class IpcFrameProvider : IFrameProvider
     private readonly SharedMemoryBuffer[] _videoBuffers;
     private int _bufferIndex;
 
-    // 先行リクエスト: 次フレームのレンダリングを事前に要求
     private Task<IpcMessage>? _prefetchTask;
     private int _prefetchBufferIndex;
     private long _prefetchFrameIndex;
@@ -38,16 +37,19 @@ internal sealed class IpcFrameProvider : IFrameProvider
 
         if (_prefetchTask != null && _prefetchFrameIndex == frame)
         {
-            // 先行リクエスト済みかつ要求フレームと一致: その結果を使う
-            response = await _prefetchTask;
-            readBufferIndex = _prefetchBufferIndex;
+            // Prefetch already in flight for the requested frame. Clear the field before awaiting (like
+            // the stale-drain branch) so a faulted prefetch can't pin the provider to a re-throwing task.
+            Task<IpcMessage> prefetchTask = _prefetchTask;
             _prefetchTask = null;
+            readBufferIndex = _prefetchBufferIndex;
+            response = await prefetchTask;
         }
         else
         {
-            // プリフェッチ中だが要求フレームと一致しない場合 (シーク等の非連続要求)。
-            // 非多重化接続では応答が送信順に読まれるため、捨てる前に必ず await して先行リクエストの
-            // 応答を消費しないと、次の新規リクエストがこの古い応答を読み取り ID 不一致になる。
+            // Prefetch in flight but for a different frame (seek / non-sequential request). On a
+            // non-multiplexed connection responses are read in send order, so the stale prefetch
+            // response must be awaited and discarded before issuing the fresh request; otherwise that
+            // request would read this old response and hit an id mismatch.
             if (_prefetchTask != null)
             {
                 Task<IpcMessage> staleTask = _prefetchTask;
@@ -55,7 +57,6 @@ internal sealed class IpcFrameProvider : IFrameProvider
                 await staleTask;
             }
 
-            // 初回フレーム or 非連続要求: 要求フレームを改めて取得
             readBufferIndex = _bufferIndex;
             var request = IpcMessage.Create(_connection.NextId(), MessageType.RequestFrame,
                 new RequestFrameMessage { FrameIndex = frame, BufferIndex = readBufferIndex });
@@ -72,7 +73,11 @@ internal sealed class IpcFrameProvider : IFrameProvider
         var frameInfo = response.GetPayload<ProvideFrameMessage>()
             ?? throw new InvalidOperationException("Missing payload for ProvideFrame");
 
-        // 次フレームを先行リクエスト (ダブルバッファリング)
+        // Validate the current frame before arming the prefetch so a mismatched DataLength can't leave
+        // an unobserved _prefetchTask in flight nor mask the failure behind an extra RequestFrame.
+        Bitmap bmp = BuildBitmap(frameInfo, readBufferIndex);
+
+        // Prefetch the next frame into the opposite slot (double buffering).
         long nextFrame = frame + 1;
         if (nextFrame < FrameCount)
         {
@@ -83,17 +88,36 @@ internal sealed class IpcFrameProvider : IFrameProvider
             _prefetchTask = _connection.SendAndReceiveAsync(nextRequest).AsTask();
         }
 
-        // 共有メモリからBitmap構築 (readBufferIndex側のバッファから読む)
+        _bufferIndex = 1 - readBufferIndex;
+        FramesRendered++;
+        return bmp;
+    }
+
+    // RgbaF16 destination: 4 channels * 2 bytes. Must match the BitmapColorType.RgbaF16 used below.
+    private const int RgbaF16BytesPerPixel = 8;
+
+    private Bitmap BuildBitmap(ProvideFrameMessage frameInfo, int bufferIndex)
+    {
+        // SharedMemoryBuffer.Read bounds-checks the shared buffer, not the destination bitmap, so a
+        // worker-reported frame that doesn't match the RgbaF16 destination must be rejected before it
+        // overruns the bitmap. Dimensions are checked first so a non-positive size can't pass the
+        // DataLength check with a degenerate (zero) length.
+        if (frameInfo.Width <= 0 || frameInfo.Height <= 0)
+            throw new InvalidOperationException(
+                $"Frame has non-positive dimensions {frameInfo.Width}x{frameInfo.Height}.");
+
+        long expected = (long)frameInfo.Width * frameInfo.Height * RgbaF16BytesPerPixel;
+        if (frameInfo.DataLength != expected)
+            throw new InvalidOperationException(
+                $"Frame DataLength {frameInfo.DataLength} does not match the {frameInfo.Width}x{frameInfo.Height} " +
+                $"RgbaF16 buffer size {expected}.");
+
         var alphaType = frameInfo.Premul ? BitmapAlphaType.Premul : BitmapAlphaType.Unpremul;
         var bmp = new Bitmap(frameInfo.Width, frameInfo.Height, BitmapColorType.RgbaF16, alphaType, BitmapColorSpace.LinearSrgb);
 
-        unsafe
-        {
-            _videoBuffers[readBufferIndex].Read(new Span<byte>((void*)bmp.Data, frameInfo.DataLength));
-        }
+        // Read into the bitmap's own span so the copy length is its real ByteCount, not a recomputed size.
+        _videoBuffers[bufferIndex].Read(bmp.GetPixelSpan());
 
-        _bufferIndex = 1 - readBufferIndex;
-        FramesRendered++;
         return bmp;
     }
 }
