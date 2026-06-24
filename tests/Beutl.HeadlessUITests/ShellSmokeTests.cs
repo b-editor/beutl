@@ -8,14 +8,7 @@ namespace Beutl.HeadlessUITests;
 
 public class ShellSmokeTests
 {
-    // NUnit [SetUp]/[TearDown] run off the Avalonia UI thread, where touching ProjectService /
-    // BeutlApplication state is unsafe; reset global singletons inside each [AvaloniaTest] body instead.
-    private static void ResetProject()
-    {
-        ProjectService.Current.CloseProject();
-        BeutlApplication.Current.Items.Clear();
-        HeadlessTestHelpers.Settle();
-    }
+    private static void ResetProject() => TestReset.ResetShell();
 
     private static string NewWorkspace(string name)
     {
