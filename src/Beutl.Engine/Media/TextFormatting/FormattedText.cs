@@ -359,7 +359,9 @@ public class FormattedText : IEquatable<FormattedText>, IDisposable
                     }
                     else
                     {
+                        // SetSKPath reuses the slot without bumping Version, so invalidate the caches explicitly.
                         exist.GetOriginal().SetSKPath(tmp, false);
+                        exist.InvalidateCachedPaths();
                     }
                 }
                 else
@@ -378,7 +380,9 @@ public class FormattedText : IEquatable<FormattedText>, IDisposable
                 }
                 else
                 {
+                    // Empty glyph: invalidate the caches so the reused slot stops serving the old path.
                     exist.GetOriginal().SetSKPath(tmp, false);
+                    exist.InvalidateCachedPaths();
                 }
             }
         }

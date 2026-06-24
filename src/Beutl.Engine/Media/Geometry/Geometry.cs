@@ -77,6 +77,14 @@ public abstract partial class Geometry : EngineObject
             return _cachedStrokePath;
         }
 
+        // Version keys both the fill/stroke path cache and any render node's (resource, Version) snapshot,
+        // so bumping it invalidates both. Stale paths are disposed lazily (a render thread may hold the old one).
+        internal void InvalidateCachedPaths()
+        {
+            ObjectDisposedException.ThrowIf(IsDisposed, this);
+            Version++;
+        }
+
         public Rect GetRenderBounds(Pen.Resource? pen)
         {
             ObjectDisposedException.ThrowIf(IsDisposed, this);
