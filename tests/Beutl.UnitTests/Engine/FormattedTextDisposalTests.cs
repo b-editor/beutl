@@ -163,6 +163,19 @@ public class FormattedTextDisposalTests
     }
 
     [Test]
+    public void LineEnumerable_GetEnumerator_AfterDispose_ThrowsObjectDisposedException()
+    {
+        TextElements elements = new(
+        [
+            new TextElement { Size = 24, Text = "ABC" }
+        ]);
+
+        elements.Lines.Dispose();
+
+        Assert.Throws<ObjectDisposedException>(() => elements.Lines.GetEnumerator());
+    }
+
+    [Test]
     public void TextElements_Dispose_DisposesLineEnumerable()
     {
         TextElements elements = new(
