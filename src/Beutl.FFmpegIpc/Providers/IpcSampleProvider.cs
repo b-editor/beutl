@@ -42,6 +42,8 @@ internal sealed class IpcSampleProvider : ISampleProvider
 
     public async ValueTask<Pcm<Stereo32BitFloat>> Sample(long offset, long length)
     {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+
         // Honor the ISampleProvider convention (see Beutl.Models.SampleProviderImpl.Sample): always return a
         // Pcm of the requested length, zero-filling any samples past the timeline end. The encoder issues the
         // final Sample with frame.NbSamples, which can straddle EOF; FFmpegEncodingController.GetAudioFrame
