@@ -33,6 +33,11 @@ internal sealed class GradientFrameProvider(long frameCount, Rational frameRate,
         }
         return ValueTask.FromResult(bitmap);
     }
+
+    public void Dispose()
+    {
+        // Stateless test double — no prefetch or owned resources to drain.
+    }
 }
 
 // 440 Hz sine wave, Stereo 32-bit float interleaved.
@@ -53,6 +58,11 @@ internal sealed class SineSampleProvider(long sampleCount, long sampleRate) : IS
             span[i] = new Stereo32BitFloat(t, t);
         }
         return ValueTask.FromResult(pcm);
+    }
+
+    public void Dispose()
+    {
+        // Stateless test double — no prefetch or owned resources to drain.
     }
 }
 
@@ -80,5 +90,10 @@ internal sealed class SweepSampleProvider(long sampleCount, long sampleRate) : I
             span[i] = new Stereo32BitFloat(v, v);
         }
         return ValueTask.FromResult(pcm);
+    }
+
+    public void Dispose()
+    {
+        // Stateless test double — no prefetch or owned resources to drain.
     }
 }

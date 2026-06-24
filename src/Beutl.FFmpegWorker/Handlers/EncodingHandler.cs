@@ -88,9 +88,12 @@ internal sealed class EncodingHandler : IDisposable
                     AudioSharedMemoryName2 = audioShmName1,
                 }));
 
-            var frameProvider = new IpcFrameProvider(connection, videoBuffers,
+            // Dispose the providers once Encode returns or throws so any in-flight prefetch is observed
+            // (drained) and the cached chunk is freed — preventing a faulted background task from later
+            // surfacing as an UnobservedTaskException.
+            using var frameProvider = new IpcFrameProvider(connection, videoBuffers,
                 request.FrameCount, new Rational(request.FrameRateNum, request.FrameRateDen));
-            var sampleProvider = new IpcSampleProvider(connection, audioBuffers,
+            using var sampleProvider = new IpcSampleProvider(connection, audioBuffers,
                 request.SampleCount, request.ProviderSampleRate);
 
             await controller.Encode(frameProvider, sampleProvider, _encodeCts.Token);

@@ -450,6 +450,122 @@ public class IpcProviderContractTests
         }
     }
 
+    // Captures every UnobservedTaskException raised on the finalizer thread while subscribed, so a test
+    // can prove a provider's Dispose drained its in-flight prefetch instead of leaking it to the GC.
+    private sealed class UnobservedTaskExceptionWatcher : IDisposable
+    {
+        private readonly List<Exception> _exceptions = [];
+        private readonly object _gate = new();
+
+        public UnobservedTaskExceptionWatcher()
+        {
+            TaskScheduler.UnobservedTaskException += OnUnobserved;
+        }
+
+        private void OnUnobserved(object? sender, UnobservedTaskExceptionEventArgs e)
+        {
+            lock (_gate)
+                _exceptions.Add(e.Exception);
+            // Mark observed so the process-level escalation policy can't tear down the test host.
+            e.SetObserved();
+        }
+
+        // Force two finalizer passes so any unobserved Task that the GC reclaimed has had its
+        // UnobservedTaskException raised before we inspect the captured list.
+        public Exception[] Drain()
+        {
+            GC.Collect();
+            GC.WaitForPendingFinalizers();
+            GC.Collect();
+            GC.WaitForPendingFinalizers();
+            lock (_gate)
+                return _exceptions.ToArray();
+        }
+
+        public void Dispose() => TaskScheduler.UnobservedTaskException -= OnUnobserved;
+    }
+
+    [Test]
+    public async Task Dispose_ObservesInFlightFaultedFramePrefetch_NoUnobservedTaskException()
+    {
+        // RenderFrame(0) arms a prefetch of frame 1; the host faults that prefetch. We then Dispose the
+        // provider WITHOUT consuming frame 1, so the faulted prefetch task is still in flight and is dropped
+        // by Dispose. Its fault-swallowing continuation must observe the exception so the GC never raises an
+        // UnobservedTaskException attributable to the provider.
+        using var watcher = new UnobservedTaskExceptionWatcher();
+        var (server, client) = ConnectPair();
+        var buffers = CreateBuffers();
+        var hostCts = new CancellationTokenSource();
+        var hostTask = RunPrefetchFaultsOnceHost(server, buffers, hostCts.Token);
+
+        using var conn = new IpcConnection(client);
+        // frameCount 3: frame 0 arms a prefetch of frame 1, which the host faults. Frame 1 is never consumed.
+        var provider = new IpcFrameProvider(conn, buffers, frameCount: 3, frameRate: new Rational(30, 1));
+
+        try
+        {
+            using (Bitmap frame0 = await provider.RenderFrame(0))
+                Assert.That(ReadFrameSignature(frame0), Is.EqualTo(0L), "frame 0 renders and arms the prefetch of frame 1");
+
+            // Let the prefetch actually fault before we drop it, so we exercise the faulted-task path.
+            await WaitUntil(() => provider.IsPrefetchFaultedForTest(),
+                TimeSpan.FromSeconds(5), "the in-flight frame prefetch faults");
+
+            // Drop the faulted prefetch without ever awaiting it via RenderFrame(1).
+            provider.Dispose();
+            provider.Dispose(); // idempotent: a second Dispose must be a no-op.
+
+            Exception[] unobserved = watcher.Drain();
+            Assert.That(unobserved, Is.Empty,
+                "Dispose must observe the dropped faulted prefetch so no UnobservedTaskException is raised");
+        }
+        finally
+        {
+            await StopHost(hostCts, server, hostTask);
+            DisposeBuffers(buffers);
+        }
+    }
+
+    [Test]
+    public async Task Dispose_ObservesInFlightFaultedSamplePrefetch_NoUnobservedTaskException()
+    {
+        // Consuming chunk 0 arms a prefetch of chunk 1 (offset == sampleRate); the host faults it. We then
+        // Dispose the provider WITHOUT consuming chunk 1, so the faulted sample prefetch is dropped by
+        // Dispose. Its observing continuation must mark the fault so no UnobservedTaskException is raised,
+        // and Dispose must also free the cached chunk.
+        const long sampleRate = 4;
+        using var watcher = new UnobservedTaskExceptionWatcher();
+        var (server, client) = ConnectPair();
+        var buffers = CreateBuffers();
+        var hostCts = new CancellationTokenSource();
+        var hostTask = RunSamplePrefetchFaultsOnceHost(server, buffers, sampleRate, hostCts.Token);
+
+        using var conn = new IpcConnection(client);
+        // sampleCount 12 == 3 chunks of 4, so chunk 1's prefetch arms after chunk 0 and is not last.
+        var provider = new IpcSampleProvider(conn, buffers, sampleCount: 12, sampleRate: sampleRate);
+
+        try
+        {
+            using (Pcm<Stereo32BitFloat> chunk0 = await provider.Sample(0, sampleRate))
+                Assert.That(ReadSampleSignature(chunk0), Is.EqualTo(0L), "chunk 0 loads and arms the prefetch of chunk 1");
+
+            await WaitUntil(() => provider.IsPrefetchFaultedForTest(),
+                TimeSpan.FromSeconds(5), "the in-flight sample prefetch faults");
+
+            provider.Dispose();
+            provider.Dispose(); // idempotent: a second Dispose must be a no-op.
+
+            Exception[] unobserved = watcher.Drain();
+            Assert.That(unobserved, Is.Empty,
+                "Dispose must observe the dropped faulted sample prefetch so no UnobservedTaskException is raised");
+        }
+        finally
+        {
+            await StopHost(hostCts, server, hostTask);
+            DisposeBuffers(buffers);
+        }
+    }
+
     [Test]
     public async Task RenderFrame_WhenHostCancels_ThrowsOperationCanceled()
     {

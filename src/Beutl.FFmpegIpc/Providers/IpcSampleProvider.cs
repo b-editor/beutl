@@ -25,6 +25,7 @@ internal sealed class IpcSampleProvider : ISampleProvider
     private Task<Pcm<Stereo32BitFloat>>? _prefetchTask;
     private long _prefetchChunkOffset;
     private int _prefetchBufferIndex;
+    private bool _disposed;
 
     public IpcSampleProvider(IpcConnection connection, SharedMemoryBuffer[] audioBuffers,
         long sampleCount, long sampleRate)
@@ -216,5 +217,37 @@ internal sealed class IpcSampleProvider : ISampleProvider
             pcm.Dispose();
             throw;
         }
+    }
+
+    // Test-only probe: lets a Dispose test wait until the in-flight prefetch has actually faulted before
+    // dropping it, so the faulted-task path is exercised deterministically without a sleep.
+    internal bool IsPrefetchFaultedForTest() => _prefetchTask?.IsFaulted == true;
+
+    public void Dispose()
+    {
+        if (_disposed) return;
+        _disposed = true;
+
+        // A prefetch may still be in flight when the encode is torn down (cancel, error, normal end). The
+        // connection/pipe it talks to may already be closing, so we must NOT synchronously wait on it here:
+        // .Wait()/.GetAwaiter().GetResult() could deadlock or rethrow the pipe-teardown fault. Attach a
+        // continuation that observes a fault (preventing UnobservedTaskException) and disposes the native Pcm
+        // a successful prefetch would otherwise leak. Owning the connection is the caller's job, so we only
+        // neutralize our own task. Returns promptly regardless of when the prefetch completes.
+        _prefetchTask?.ContinueWith(
+            static t =>
+            {
+                if (t.IsFaulted)
+                    _ = t.Exception;
+                else if (t.IsCompletedSuccessfully)
+                    t.Result.Dispose();
+            },
+            CancellationToken.None,
+            TaskContinuationOptions.ExecuteSynchronously,
+            TaskScheduler.Default);
+        _prefetchTask = null;
+
+        _currentChunk?.Dispose();
+        _currentChunk = null;
     }
 }

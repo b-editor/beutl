@@ -75,5 +75,7 @@ public class EncodingCancellationTests
             cts.Cancel();
             return bitmap;
         }
+
+        public void Dispose() => _inner.Dispose();
     }
 }
