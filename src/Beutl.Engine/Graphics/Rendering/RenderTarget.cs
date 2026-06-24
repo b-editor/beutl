@@ -21,9 +21,19 @@ public class RenderTarget : IDisposable
         _texture = texture;
     }
 
+    /// <summary>
+    /// For subclasses (custom allocations / test doubles). Wraps a raw <paramref name="surface"/>
+    /// with no shared texture. The surface is released by <see cref="Dispose()"/> unless a
+    /// subclass overrides it.
+    /// </summary>
+    protected RenderTarget(SKSurface surface, int width, int height)
+        : this(new SKSurfaceCounter<SKSurface>(surface), width, height)
+    {
+    }
+
     ~RenderTarget()
     {
-        Dispose();
+        Dispose(disposing: false);
     }
 
     internal SKSurface Value =>
@@ -33,7 +43,7 @@ public class RenderTarget : IDisposable
 
     public int Height { get; }
 
-    public bool IsDisposed { get; private set; }
+    public bool IsDisposed { get; protected set; }
 
     internal ITexture2D? Texture => _texture?.Value;
 
@@ -164,12 +174,30 @@ public class RenderTarget : IDisposable
 
     public void Dispose()
     {
+        Dispose(disposing: true);
+        GC.SuppressFinalize(this);
+    }
+
+    /// <summary>
+    /// Releases the backing surface and texture. Subclasses (custom allocations / test doubles)
+    /// override this to customize disposal semantics; an override must call
+    /// <see langword="base"/>.<see cref="Dispose(bool)"/>, or the object stays finalizable and the
+    /// finalizer re-enters the override. When <paramref name="disposing"/> is <see langword="false"/>
+    /// (finalizer-driven), overrides must not throw and must not touch finalized managed state.
+    /// </summary>
+    protected virtual void Dispose(bool disposing)
+    {
         if (IsDisposed) return;
 
-        _surface.Release();
-        _texture?.Release();
         IsDisposed = true;
-        GC.SuppressFinalize(this);
+        try
+        {
+            _surface.Release();
+        }
+        finally
+        {
+            _texture?.Release();
+        }
     }
 
     internal void BeginDraw()
