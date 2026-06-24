@@ -268,6 +268,45 @@ public class AudioLatencyCompensationTests
     }
 
     [Test]
+    public void NestedClipNode_Flush_RemapsToClipLocalTime_RecoversTail()
+    {
+        // A SoundGroup mixes child clips and then flushes them through the group's own clip in the
+        // GROUP's time domain. A nested ClipNode must remap that drain to its clip-local frame (as
+        // Process does) or the child's cached limiter sees a discontinuity, Reset()s, and drops the tail.
+        const float lookaheadMs = 5f;
+        int L = LookaheadSamples(lookaheadMs);
+        const int clipSamples = 4096;
+        var clipDuration = TimeSpan.FromSeconds((double)clipSamples / SampleRate);
+
+        var source = new RangeSineNode(SampleRate);
+        using var limiter = CreateTransparentLimiter(lookaheadMs);
+        limiter.AddInput(source);
+
+        using var clip = new ClipNode { Start = TimeSpan.Zero, Duration = clipDuration };
+        clip.AddInput(limiter);
+
+        // A window ending exactly at the clip end is terminal but leaves no trailing room, so the
+        // clip's own AppendFlushedTail cannot run (capacity == 0) and the limiter keeps holding its tail.
+        using var processed = clip.Process(Context(TimeSpan.Zero, clipSamples));
+
+        // The parent flushes in a time domain deliberately unrelated to the child's clip-local time.
+        // The base Flush would forward this start to the limiter, trip the discontinuity guard, and
+        // emit post-reset silence; the clip-local remap keeps the limiter contiguous and drains the tail.
+        using var tail = clip.Flush(Context(TimeSpan.FromSeconds(123.0), L));
+
+        var tailData = tail.GetChannelData(0);
+        bool anyNonZero = false;
+        for (int k = 0; k < L; k++)
+        {
+            if (MathF.Abs(tailData[k]) > 1e-6f) { anyNonZero = true; break; }
+        }
+
+        Assert.That(anyNonZero, Is.True,
+            "A nested ClipNode flushed in a parent's time domain must remap to clip-local time so the "
+            + "cached limiter stays contiguous and drains its held tail instead of resetting to silence.");
+    }
+
+    [Test]
     public void Flush_FanInWithoutOverride_Throws()
     {
         // A bare multi-input node has no merge semantics; the base Flush must fail loudly, not drop tails.

@@ -45,7 +45,11 @@ public abstract class AudioNode : IDisposable
     protected int LastProcessedChannelCount { get; private set; } = 2;
 
     /// <summary>Records the channel count a <see cref="Process"/> override is about to emit, so
-    /// <see cref="CreateSilentFlush"/> can mirror it. Leaf/source nodes call this from Process.</summary>
+    /// <see cref="CreateSilentFlush"/> can mirror it. Leaf/source nodes call this from Process.
+    /// Known limitation: a custom zero-input leaf that omits this call keeps the default stereo count,
+    /// so a mono/multichannel leaf would flush stereo silence and make a downstream limiter reinitialize
+    /// and drop its tail. Built-in <see cref="Nodes.SourceNode"/> records correctly; a wider contract
+    /// (the base learning the emitted layout) is a follow-up.</summary>
     protected void RecordProcessedChannelCount(int channelCount) => LastProcessedChannelCount = channelCount;
 
     /// <summary>The silence a node with no live source emits when flushed; sized to the last processed

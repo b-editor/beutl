@@ -74,6 +74,12 @@ public sealed class LimiterNode : AudioNode
     // Shared by Process (real upstream audio) and the base Flush (drained tail): the drained block
     // runs through the same delay-line path, so the lookahead tail still held is emitted. The flush
     // block abuts the terminal chunk, so the contiguity check below does not reset.
+    //
+    // Known limitation (animated lookahead): on the flush path ProcessAnimated samples Lookahead over
+    // the post-clip drain range, not the clip samples that were actually delayed. If automation holds a
+    // high lookahead through the clip end but keyframes back to 0 at Duration, the drain reads Read(0)
+    // from the just-written silence and skips the held samples, so the tail is still dropped even though
+    // GetLatencySamples reserved the worst case. Draining at the retaining lookahead is a follow-up.
     protected override AudioBuffer ProcessTail(AudioBuffer input, AudioProcessContext context)
     {
         if (input.SampleRate != context.SampleRate)
