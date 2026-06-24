@@ -84,8 +84,15 @@ public class FormattedTextScaledCacheLeakTests
         ft._scaledTextCacheCommitFaultHook = (SKTextBlob? _, SKPath? _) => throw new InvalidOperationException("commit-fault");
         Assert.Throws<InvalidOperationException>(() => ft.GetTextBlob(2f));
 
-        // A failed insert must roll back the LRU node so the cache is not poisoned: a later access at
-        // the same density succeeds and produces a fresh, live blob.
+        // The failed insert must roll back the LRU node it speculatively added; otherwise a phantom
+        // node leaks and the LRU list drifts out of sync with the cache dictionary. Re-access alone
+        // can't catch this (the dictionary self-heals on the next eviction), so assert the invariant.
+        (int cacheCount, int lruCount) = ft.ScaledTextCacheCounts;
+        Assert.That(cacheCount, Is.EqualTo(0), "a failed commit must not leave a cache entry");
+        Assert.That(lruCount, Is.EqualTo(cacheCount),
+            "the LRU list must stay in lockstep with the cache dictionary after a failed commit");
+
+        // A later access at the same density still succeeds and produces a fresh, live blob.
         ft._scaledTextCacheCommitFaultHook = null;
         SKTextBlob? blob = ft.GetTextBlob(2f);
         Assert.That(blob, Is.Not.Null);
@@ -107,5 +114,11 @@ public class FormattedTextScaledCacheLeakTests
             Assert.That(blob, Is.Not.Null, $"density {density} should produce a scaled blob");
             Assert.That(blob!.Handle, Is.Not.EqualTo(IntPtr.Zero));
         }
+
+        // Eviction must keep the cache capped at MaxScaledTextCacheEntries (8) and the LRU list in
+        // lockstep, even though 12 distinct densities were requested.
+        (int cacheCount, int lruCount) = ft.ScaledTextCacheCounts;
+        Assert.That(cacheCount, Is.EqualTo(8), "eviction must cap the cache at MaxScaledTextCacheEntries");
+        Assert.That(lruCount, Is.EqualTo(cacheCount), "the LRU list must stay in lockstep with the cache dictionary");
     }
 }

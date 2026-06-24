@@ -32,10 +32,14 @@ public class FormattedText : IEquatable<FormattedText>, IDisposable
     private readonly Dictionary<float, ScaledTextCache> _scaledTextCache = [];
     private readonly LinkedList<float> _scaledTextCacheLru = new();
     private List<SKPathGeometry.Resource> _pathList = [];
-    // Test seam (Beutl.UnitTests): fires after the density-scaled blob/stroke are allocated but
-    // before they are committed to _scaledTextCache, so the leak-cleanup path can be driven
-    // deterministically. Null in production.
+    // Test seam (Beutl.UnitTests): fires after the density-scaled blob/stroke are allocated and the
+    // LRU node is added, but before the entry is committed to _scaledTextCache, so the leak-cleanup
+    // and LRU-rollback path can be driven deterministically. Null in production.
     internal Action<SKTextBlob?, SKPath?>? _scaledTextCacheCommitFaultHook;
+
+    // Test seam (Beutl.UnitTests): the LRU list and the cache dictionary must stay in lockstep; a
+    // leaked LRU node (e.g. a failed commit that doesn't roll back) breaks this invariant.
+    internal (int CacheCount, int LruCount) ScaledTextCacheCounts => (_scaledTextCache.Count, _scaledTextCacheLru.Count);
 
     private sealed class ScaledTextCache : IDisposable
     {
