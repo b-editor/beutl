@@ -5,6 +5,7 @@ namespace Beutl.Helpers;
 internal sealed class HistoryMutationPlaybackGuard : IDisposable
 {
     private readonly SemaphoreSlim _gate = new(1, 1);
+    private volatile bool _disposed;
 
     internal async ValueTask<bool> RunAsync(
         IPreviewPlayer? player,
@@ -15,6 +16,13 @@ internal sealed class HistoryMutationPlaybackGuard : IDisposable
         ArgumentNullException.ThrowIfNull(drainPendingMutations);
         ArgumentNullException.ThrowIfNull(shouldPause);
         ArgumentNullException.ThrowIfNull(mutate);
+        // Reject callers that arrive after disposal deterministically. ExecuteHistoryMutationAsync
+        // catches this and skips the operation; relying on a disposed _gate to throw was unreliable
+        // because Dispose() leaves the gate intact when an operation holds it (see Dispose below).
+        // Callers and Dispose() both run on the UI thread, so no Dispose() can interleave between
+        // this check and the WaitAsync() below; were that single-thread invariant relaxed, WaitAsync()
+        // on a disposed gate would still surface ObjectDisposedException, only with the gate's name.
+        ObjectDisposedException.ThrowIf(_disposed, this);
 
         await _gate.WaitAsync();
         try
@@ -54,8 +62,15 @@ internal sealed class HistoryMutationPlaybackGuard : IDisposable
 
     public void Dispose()
     {
-        // Disposing a SemaphoreSlim with a pending WaitAsync is undefined, so skip it
-        // while the gate is held and let the GC reclaim it (no unmanaged handle is held).
+        if (_disposed)
+        {
+            return;
+        }
+
+        // New callers are rejected by the _disposed guard in RunAsync, so the gate has no further
+        // use. Dispose it when no operation holds it; if one is in flight (Wait(0) fails) it will
+        // Release on completion and the GC reclaims the SemaphoreSlim (no unmanaged handle is held).
+        _disposed = true;
         if (_gate.Wait(0))
         {
             _gate.Dispose();

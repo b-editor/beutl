@@ -225,6 +225,62 @@ public class HistoryMutationPlaybackGuardTests
         });
     }
 
+    [Test]
+    public void RunAsync_AfterDispose_ThrowsObjectDisposedException()
+    {
+        using var guard = new HistoryMutationPlaybackGuard();
+        guard.Dispose();
+
+        // ExecuteHistoryMutationAsync catches ObjectDisposedException to skip the operation,
+        // so RunAsync must surface disposal as that exception rather than silently proceeding.
+        Assert.ThrowsAsync<ObjectDisposedException>(async () =>
+            await guard.RunAsync(null, () => { }, () => true, () => true));
+    }
+
+    [Test]
+    public async Task Dispose_WhileOperationInFlight_RejectsLaterCallersDeterministically()
+    {
+        using var guard = new HistoryMutationPlaybackGuard();
+        using var player = new PreviewPlayerStub(isPlaying: true)
+        {
+            CompletePauseManually = true
+        };
+        bool inFlightMutated = false;
+
+        // Start an operation and let it suspend inside the gate at the pause drain.
+        Task<bool> inFlight = guard.RunAsync(player, () => { }, () => true, () =>
+        {
+            inFlightMutated = true;
+            return true;
+        }).AsTask();
+        await player.WaitForPauseStartedAsync();
+
+        // Dispose while the operation holds the gate. The in-flight operation must still finish.
+        guard.Dispose();
+        player.CompleteDrain();
+        bool inFlightResult = await inFlight;
+
+        // A caller arriving after disposal must be rejected deterministically — regardless of
+        // whether an operation happened to hold the gate when Dispose ran.
+        Assert.Multiple(() =>
+        {
+            Assert.That(inFlightResult, Is.True, "the in-flight operation must complete normally");
+            Assert.That(inFlightMutated, Is.True);
+        });
+        Assert.ThrowsAsync<ObjectDisposedException>(async () =>
+            await guard.RunAsync(player, () => { }, () => true, () => true));
+    }
+
+    [Test]
+    public void Dispose_CalledTwice_DoesNotThrow()
+    {
+        using var guard = new HistoryMutationPlaybackGuard();
+        guard.Dispose();
+
+        // Dispose must be idempotent (IDisposable contract).
+        Assert.DoesNotThrow(() => guard.Dispose());
+    }
+
     private sealed class PreviewPlayerStub : IPreviewPlayer, IDisposable
     {
         private readonly ReactivePropertySlim<Ref<Bitmap>?> _previewImage = new();
