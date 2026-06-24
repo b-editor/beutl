@@ -21,6 +21,8 @@ public class IpcProviderContractTests
     // 1x1 RgbaF16 frame: 4 channels * 2 bytes. The host writes a frame signature into the first
     // bytes of the shared buffer so the test can read back which frame the provider actually returned.
     private const int FrameDataLength = 8;
+    // RgbaF16 stride: 4 channels * 2 bytes. Distinct from FrameDataLength, a whole 1x1 frame.
+    private const int RgbaF16BytesPerPixel = 8;
     private const long BufferCapacity = 4096;
 
     private static string NewName() => "beutl-ipc-prov-" + Guid.NewGuid().ToString("N")[..8];
@@ -78,7 +80,7 @@ public class IpcProviderContractTests
                 {
                     Width = 1,
                     Height = 1,
-                    BytesPerPixel = FrameDataLength,
+                    BytesPerPixel = RgbaF16BytesPerPixel,
                     DataLength = FrameDataLength,
                     Premul = false,
                 });
@@ -104,9 +106,10 @@ public class IpcProviderContractTests
         }, ct);
     }
 
-    // Fake host that replies with a ProvideFrame whose DataLength does not match the 1x1 RgbaF16
-    // bitmap allocation, so a test can drive the provider's destination-size guard.
-    private static Task RunBadDataLengthHost(NamedPipeServerStream server, int dataLength, CancellationToken ct)
+    // Fake host that replies to every request with one fixed ProvideFrame, so a test can drive the
+    // provider's frame-validation guards with specific Width/Height/DataLength values.
+    private static Task RunMalformedFrameHost(
+        NamedPipeServerStream server, int width, int height, int dataLength, CancellationToken ct)
     {
         return Task.Run(async () =>
         {
@@ -118,9 +121,9 @@ public class IpcProviderContractTests
 
                 var resp = IpcMessage.Create(req.Id, MessageType.ProvideFrame, new ProvideFrameMessage
                 {
-                    Width = 1,
-                    Height = 1,
-                    BytesPerPixel = FrameDataLength,
+                    Width = width,
+                    Height = height,
+                    BytesPerPixel = RgbaF16BytesPerPixel,
                     DataLength = dataLength,
                     Premul = false,
                 });
@@ -154,7 +157,7 @@ public class IpcProviderContractTests
                     {
                         Width = 1,
                         Height = 1,
-                        BytesPerPixel = FrameDataLength,
+                        BytesPerPixel = RgbaF16BytesPerPixel,
                         DataLength = FrameDataLength * 2,
                         Premul = false,
                     });
@@ -167,7 +170,7 @@ public class IpcProviderContractTests
                 {
                     Width = 1,
                     Height = 1,
-                    BytesPerPixel = FrameDataLength,
+                    BytesPerPixel = RgbaF16BytesPerPixel,
                     DataLength = FrameDataLength,
                     Premul = false,
                 });
@@ -205,7 +208,7 @@ public class IpcProviderContractTests
                 {
                     Width = 1,
                     Height = 1,
-                    BytesPerPixel = FrameDataLength,
+                    BytesPerPixel = RgbaF16BytesPerPixel,
                     DataLength = FrameDataLength,
                     Premul = false,
                 });
@@ -282,12 +285,13 @@ public class IpcProviderContractTests
 
     [TestCase(FrameDataLength * 2)]
     [TestCase(FrameDataLength / 2)]
+    [TestCase(0)]
     public async Task RenderFrame_WhenWorkerReportsMismatchedDataLength_Throws(int dataLength)
     {
         var (server, client) = ConnectPair();
         var buffers = CreateBuffers();
         var hostCts = new CancellationTokenSource();
-        var hostTask = RunBadDataLengthHost(server, dataLength, hostCts.Token);
+        var hostTask = RunMalformedFrameHost(server, width: 1, height: 1, dataLength, hostCts.Token);
 
         using var conn = new IpcConnection(client);
         // frameCount 1 makes frame 0 the last frame, so no prefetch is armed and nothing dangles.
@@ -298,6 +302,33 @@ public class IpcProviderContractTests
             Assert.That(async () => await provider.RenderFrame(0),
                 Throws.TypeOf<InvalidOperationException>(),
                 "a DataLength that does not match the bitmap allocation must be rejected, not copied");
+        }
+        finally
+        {
+            await StopHost(hostCts, server, hostTask);
+            DisposeBuffers(buffers);
+        }
+    }
+
+    [TestCase(0, 1)]
+    [TestCase(1, 0)]
+    public async Task RenderFrame_WhenFrameDimensionsAreNonPositive_Throws(int width, int height)
+    {
+        // DataLength 0 matches a zero-area frame's expected size, so only an explicit dimension guard
+        // rejects it — without one the provider would hand back an empty bitmap instead of throwing.
+        var (server, client) = ConnectPair();
+        var buffers = CreateBuffers();
+        var hostCts = new CancellationTokenSource();
+        var hostTask = RunMalformedFrameHost(server, width, height, dataLength: 0, hostCts.Token);
+
+        using var conn = new IpcConnection(client);
+        var provider = new IpcFrameProvider(conn, buffers, frameCount: 1, frameRate: new Rational(30, 1));
+
+        try
+        {
+            Assert.That(async () => await provider.RenderFrame(0),
+                Throws.TypeOf<InvalidOperationException>(),
+                "a frame with a non-positive dimension must be rejected, not turned into an empty bitmap");
         }
         finally
         {

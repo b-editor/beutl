@@ -98,8 +98,14 @@ internal sealed class IpcFrameProvider : IFrameProvider
 
     private Bitmap BuildBitmap(ProvideFrameMessage frameInfo, int bufferIndex)
     {
-        // SharedMemoryBuffer.Read bounds-checks the shared buffer, not the destination bitmap. Reject a
-        // worker-reported DataLength that does not match the RgbaF16 destination before it overruns it.
+        // SharedMemoryBuffer.Read bounds-checks the shared buffer, not the destination bitmap, so a
+        // worker-reported frame that doesn't match the RgbaF16 destination must be rejected before it
+        // overruns the bitmap. Dimensions are checked first so a non-positive size can't pass the
+        // DataLength check with a degenerate (zero) length.
+        if (frameInfo.Width <= 0 || frameInfo.Height <= 0)
+            throw new InvalidOperationException(
+                $"Frame has non-positive dimensions {frameInfo.Width}x{frameInfo.Height}.");
+
         long expected = (long)frameInfo.Width * frameInfo.Height * RgbaF16BytesPerPixel;
         if (frameInfo.DataLength != expected)
             throw new InvalidOperationException(
@@ -109,10 +115,8 @@ internal sealed class IpcFrameProvider : IFrameProvider
         var alphaType = frameInfo.Premul ? BitmapAlphaType.Premul : BitmapAlphaType.Unpremul;
         var bmp = new Bitmap(frameInfo.Width, frameInfo.Height, BitmapColorType.RgbaF16, alphaType, BitmapColorSpace.LinearSrgb);
 
-        unsafe
-        {
-            _videoBuffers[bufferIndex].Read(new Span<byte>((void*)bmp.Data, frameInfo.DataLength));
-        }
+        // Read into the bitmap's own span so the copy length is its real ByteCount, not a recomputed size.
+        _videoBuffers[bufferIndex].Read(bmp.GetPixelSpan());
 
         return bmp;
     }
