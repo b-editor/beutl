@@ -66,8 +66,8 @@ public class RenderNodeProcessor(
             renderTarget = CreateRenderTarget(rect.Width, rect.Height);
             if (renderTarget == null)
             {
-                opDisposeStarted = true;
-                op.Dispose();
+                // Defer op disposal to the catch's best-effort path so a throwing op.Dispose()
+                // cannot mask the null-allocation failure.
                 throw new Exception("RenderTarget is null");
             }
 

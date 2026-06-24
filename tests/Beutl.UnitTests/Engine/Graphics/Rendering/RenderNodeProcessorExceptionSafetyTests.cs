@@ -142,6 +142,23 @@ public class RenderNodeProcessorExceptionSafetyTests
         Assert.That(disposed, Is.EqualTo(new[] { "first", "second" }));
     }
 
+    // When the null-allocation path also hits a throwing op.Dispose(), the "RenderTarget is null"
+    // failure must still surface rather than the op's dispose throw.
+    [TestCaseSource(nameof(RasterizeMethods))]
+    public void PreservesNullAllocationFailure_WhenOpDisposeAlsoThrows(Action<RenderNodeProcessor> rasterize)
+    {
+        var disposed = new List<string>();
+        using var node = new StaticRenderNode(
+            CreateOperation("first", disposed, throwOnDispose: true),
+            CreateOperation("second", disposed));
+        var processor = new FakeRenderNodeProcessor(node, _ => false, returnNullOnCreate: true);
+
+        var ex = Assert.Throws<Exception>(() => rasterize(processor));
+
+        Assert.That(ex!.Message, Is.EqualTo("RenderTarget is null"));
+        Assert.That(disposed, Is.EqualTo(new[] { "first", "second" }));
+    }
+
     [Test]
     public void Render_DisposesFaultingAndRemainingOperations_WhenRenderThrows()
     {
