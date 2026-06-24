@@ -357,7 +357,7 @@ public sealed class FFmpegReader : MediaReader
         // recovers the frame instead of repeatedly returning the empty one.
         bool currentUsable =
             FFmpegFrameValidation.IsUsableVideoFrame(videoFrame.Format, videoFrame.Width, videoFrame.Height);
-        if (!currentUsable || skip > 100 || skip < 0)
+        if (FFmpegSeekDecision.ShouldReseek(currentUsable, skip))
         {
             SeekVideo(frame);
             skip = 0;
