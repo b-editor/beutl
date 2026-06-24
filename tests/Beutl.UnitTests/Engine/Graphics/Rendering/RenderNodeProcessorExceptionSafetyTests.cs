@@ -1,4 +1,4 @@
-using Beutl.Graphics;
+﻿using Beutl.Graphics;
 using Beutl.Graphics.Rendering;
 using SkiaSharp;
 
