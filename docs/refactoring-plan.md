@@ -99,12 +99,11 @@ plugin-facing: batch them into one `refactor!:` release train with a
 **Media backends**
 - The never-built in-process FFmpeg variant: `FFmpegOutOfProcess` csproj matrix,
   `#if !FFMPEG_OUT_OF_PROCESS` forks in ~12 files, `FFmpegPath.cs`, the duplicated
-  loader. **Partially done in PR #1909** (removed `FFmpegPath.cs` and the dead
-  `#if !FFMPEG_OUT_OF_PROCESS`/`#else` branches in the extension-only files);
-  **deferred follow-up:** collapse the `FFmpegOutOfProcess` csproj matrix itself —
-  the `!= True` (in-process) config no longer compiles after #1909 and is kept with
-  a NOTE comment only until the matrix is removed (a published build-knob removal →
-  `refactor!:`). Tracked on the project board.
+  loader. **Done.** PR #1909 removed `FFmpegPath.cs` and the dead
+  `#if !FFMPEG_OUT_OF_PROCESS`/`#else` branches; the deferred follow-up — collapsing
+  the `FFmpegOutOfProcess` csproj matrix and the `FFMPEG_OUT_OF_PROCESS` define — has
+  since landed, so the out-of-process/worker path is now unconditional (no
+  `FFmpegOutOfProcess`/`FFMPEG_OUT_OF_PROCESS` references remain in `src/`).
 - Worker legacy (non-ring-buffer) `ReadVideo` path (unreachable).
 - MediaFoundation rot: dead `MFDecoder` audio path + `MFSampleCache` audio caching
   (`MFReader` uses NAudio), hardcoded-off DXVA2 machinery, the `Vortice.Direct3D9`
