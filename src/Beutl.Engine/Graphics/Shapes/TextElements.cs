@@ -61,8 +61,9 @@ public class TextElements : IReadOnlyList<TextElement>, IDisposable
         public bool IsDisposed { get; private set; }
 
         /// <remarks>
-        /// Idempotent and one-shot; do not enumerate after disposal. <see cref="GetEnumerator"/> would
-        /// re-allocate <see cref="FormattedText"/> instances that a later <see cref="Dispose"/> will not release.
+        /// Idempotent and one-shot; do not enumerate after disposal. <see cref="GetEnumerator"/> throws
+        /// <see cref="ObjectDisposedException"/> rather than re-allocating <see cref="FormattedText"/> instances
+        /// that a later <see cref="Dispose"/> could not release.
         /// </remarks>
         public void Dispose()
         {
@@ -81,6 +82,7 @@ public class TextElements : IReadOnlyList<TextElement>, IDisposable
 
         public LineEnumerator GetEnumerator()
         {
+            ObjectDisposedException.ThrowIf(IsDisposed, this);
             int count = 0;
             foreach (TextElement item in _array)
             {
