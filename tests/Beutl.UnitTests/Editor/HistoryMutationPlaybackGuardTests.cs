@@ -231,8 +231,8 @@ public class HistoryMutationPlaybackGuardTests
         using var guard = new HistoryMutationPlaybackGuard();
         guard.Dispose();
 
-        // ExecuteHistoryMutationAsync catches ObjectDisposedException to skip the operation,
-        // so RunAsync must surface disposal as that exception rather than silently proceeding.
+        // Callers catch ObjectDisposedException to skip the operation, so disposal must surface
+        // as that exception rather than silently proceeding.
         Assert.ThrowsAsync<ObjectDisposedException>(async () =>
             await guard.RunAsync(null, () => { }, () => true, () => true));
     }
@@ -260,8 +260,8 @@ public class HistoryMutationPlaybackGuardTests
         player.CompleteDrain();
         bool inFlightResult = await inFlight;
 
-        // A caller arriving after disposal must be rejected deterministically — regardless of
-        // whether an operation happened to hold the gate when Dispose ran.
+        // A post-disposal caller must still be rejected, even though an operation held the gate
+        // when Dispose ran.
         Assert.Multiple(() =>
         {
             Assert.That(inFlightResult, Is.True, "the in-flight operation must complete normally");
@@ -277,7 +277,6 @@ public class HistoryMutationPlaybackGuardTests
         using var guard = new HistoryMutationPlaybackGuard();
         guard.Dispose();
 
-        // Dispose must be idempotent (IDisposable contract).
         Assert.DoesNotThrow(() => guard.Dispose());
     }
 

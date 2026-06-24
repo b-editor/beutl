@@ -16,12 +16,8 @@ internal sealed class HistoryMutationPlaybackGuard : IDisposable
         ArgumentNullException.ThrowIfNull(drainPendingMutations);
         ArgumentNullException.ThrowIfNull(shouldPause);
         ArgumentNullException.ThrowIfNull(mutate);
-        // Reject callers that arrive after disposal deterministically. ExecuteHistoryMutationAsync
-        // catches this and skips the operation; relying on a disposed _gate to throw was unreliable
-        // because Dispose() leaves the gate intact when an operation holds it (see Dispose below).
-        // Callers and Dispose() both run on the UI thread, so no Dispose() can interleave between
-        // this check and the WaitAsync() below; were that single-thread invariant relaxed, WaitAsync()
-        // on a disposed gate would still surface ObjectDisposedException, only with the gate's name.
+        // Reject post-disposal callers. Relying on the disposed _gate to throw is unreliable:
+        // Dispose() leaves the gate intact when an operation still holds it (see Dispose).
         ObjectDisposedException.ThrowIf(_disposed, this);
 
         await _gate.WaitAsync();
@@ -67,9 +63,8 @@ internal sealed class HistoryMutationPlaybackGuard : IDisposable
             return;
         }
 
-        // New callers are rejected by the _disposed guard in RunAsync, so the gate has no further
-        // use. Dispose it when no operation holds it; if one is in flight (Wait(0) fails) it will
-        // Release on completion and the GC reclaims the SemaphoreSlim (no unmanaged handle is held).
+        // Dispose the gate only when no operation holds it; if one is in flight, let the GC
+        // reclaim the SemaphoreSlim on completion (no unmanaged handle is held).
         _disposed = true;
         if (_gate.Wait(0))
         {

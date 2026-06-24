@@ -81,10 +81,8 @@ public sealed class SceneSettingsTabViewModel : IToolContext
 
                         if (!TryReadSceneSettings(out frameSize, out start, out duration))
                         {
-                            // Pausing yielded to the UI thread; if the user invalidated an input
-                            // during that window the re-read fails. Tell them why Apply did nothing
-                            // instead of returning silently (the Apply button also disables itself,
-                            // but that alone does not explain the canceled click).
+                            // Pausing yielded to the UI thread, so the user may have invalidated an
+                            // input meanwhile. Warn instead of returning silently.
                             NotificationService.ShowWarning(
                                 Strings.SceneSettings,
                                 MessageStrings.SceneSettings_ApplyCanceledInputsInvalid);

@@ -19,20 +19,17 @@ namespace Beutl.UnitTests.Editor;
 [TestFixture]
 public class SceneSettingsTabViewModelTests
 {
-    // NotificationService.Handler is a process-global, write-once facade (set only by the app at
-    // startup, which does not run under test). Install a capturing handler once so the Apply path's
-    // ShowWarning is observable. Beutl.Core grants InternalsVisibleTo to Beutl.UnitTests, so the
-    // internal setter is reachable. The handler matches on the specific message, so notifications
-    // from other fixtures (different messages) never satisfy the assertion.
+    // NotificationService.Handler is a process-global, write-once facade (set by the app at startup,
+    // which does not run under test). Install a capturing handler so the Apply path's ShowWarning is
+    // observable; Beutl.Core grants InternalsVisibleTo to reach the internal setter.
     private static readonly CaptureNotificationHandler s_notificationHandler = new();
 
     [OneTimeSetUp]
     public void InstallNotificationHandler()
     {
         NotificationService.Handler = s_notificationHandler;
-        // The setter is write-once (??=); if another fixture installed a handler first this would
-        // silently no-op and the notification assertions would always see an empty queue. Fail
-        // loudly here instead of producing a confusing false-negative inside a test.
+        // The setter is write-once (??=); if another fixture installed a handler first this no-ops
+        // and the queue stays empty. Fail loudly instead of as a confusing false-negative in a test.
         Assert.That(NotificationService.Handler, Is.SameAs(s_notificationHandler),
             "Another fixture already installed a NotificationService handler; "
             + "SceneSettings notifications will not be captured.");
