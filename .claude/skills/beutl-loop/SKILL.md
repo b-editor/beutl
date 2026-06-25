@@ -277,7 +277,10 @@ macOS installs lack coreutils), use a bounded poll loop instead:
 ```bash
 deadline=$((SECONDS + settle_minutes * 60))
 while [ "$SECONDS" -lt "$deadline" ]; do
-  pending=$(gh pr checks "$PR" --json state --jq '[.[]|select(.state!="COMPLETE")] | length' 2>/dev/null || echo 1)
+  # `bucket` (pass/fail/pending/skipping) is the reliable completion signal;
+  # `state` values like SUCCESS/FAILURE do not equal "COMPLETE" and would
+  # falsely hold the loop open. See https://cli.github.com/manual/gh_pr_checks
+  pending=$(gh pr checks "$PR" --json bucket --jq '[.[]|select(.bucket=="pending")] | length' 2>/dev/null || echo 1)
   [ "$pending" = "0" ] && break
   sleep 60
 done
@@ -339,8 +342,10 @@ else
   else
     # Changed-line coverage probe: exit 0 = >=70% (auto-merge eligible),
     # exit 1 = <70% (high-risk), exit 2 = probe failed (high-risk, fail safe).
-    # The diff is origin/main..$DRAFT_BRANCH (the actual PR head — not the
-    # orchestrator's checkout, which may be a different branch).
+    # The diff is origin/main...$DRAFT_BRANCH (three-dot: only head-side changes
+    # since the merge-base — not the orchestrator's checkout, which may be a
+    # different branch, and not two-dot which would include reverse diffs from
+    # an advancing origin/main).
     python3 .claude/scripts/changed-line-coverage.py origin/main "$DRAFT_BRANCH" "$COV" --threshold 70
     rm -rf "$COV_DIR"
   fi

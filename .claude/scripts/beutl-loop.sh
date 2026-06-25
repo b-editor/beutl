@@ -26,6 +26,29 @@
 #
 set -euo pipefail
 
+# cleanup runs on exit (normal, error, signal) so the progress poster is killed
+# and the final Gist summary is posted even when `claude` exits non-zero.
+LOOP_RC=0
+cleanup() {
+  # Stop the periodic poster if it was running.
+  [ -n "$PROGRESS_PID" ] && kill "$PROGRESS_PID" 2>/dev/null || true
+
+  # Post-run: emit the final JSON run summary (H-15) to a Gist if requested (H-16).
+  if [ "${BEUTL_LOOP_PROGRESS_GIST:-0}" = "1" ]; then
+    LATEST_RUN_JSON=$(ls -t .claude/logs/beutl-loop-run-*.json 2>/dev/null | head -1)
+    if [ -n "$LATEST_RUN_JSON" ]; then
+      if [ -n "${BEUTL_LOOP_PROGRESS_GIST_ID:-}" ]; then
+        gh gist edit "$BEUTL_LOOP_PROGRESS_GIST_ID" "$LATEST_RUN_JSON" 2>/dev/null \
+          && echo "Run summary posted to Gist $BEUTL_LOOP_PROGRESS_GIST_ID" || true
+      else
+        gh gist create "$LATEST_RUN_JSON" -d "beutl-loop run summary $(date +%Y%m%d-%H%M%S)" 2>/dev/null \
+          && echo "Run summary posted to a new Gist (set BEUTL_LOOP_PROGRESS_GIST_ID to reuse next time)" || true
+      fi
+    fi
+  fi
+}
+trap cleanup EXIT
+
 REPO_ROOT="$(git rev-parse --show-toplevel)"
 cd "$REPO_ROOT"
 
@@ -116,21 +139,14 @@ if [ "${BEUTL_LOOP_PROGRESS_GIST:-0}" = "1" ]; then
   PROGRESS_PID=$!
 fi
 
+# Run the loop. Capture the exit code without letting `set -e` skip cleanup:
+# pipefail + set -e would otherwise abort before the trap fires for a non-zero
+# pipeline. Disable set -e around the pipeline, save PIPESTATUS[0] (claude's
+# exit code, not tee's), then re-enable.
+set +e
 claude -p "/beutl-loop $BUDGET" "${PERM_ARGS[@]}" 2>&1 | tee "$LOG"
+LOOP_RC=${PIPESTATUS[0]}
+set -e
 
-# Stop the periodic poster if it was running.
-[ -n "$PROGRESS_PID" ] && kill "$PROGRESS_PID" 2>/dev/null || true
-
-# Post-run: emit the final JSON run summary (H-15) to a Gist if requested (H-16).
-if [ "${BEUTL_LOOP_PROGRESS_GIST:-0}" = "1" ]; then
-  LATEST_RUN_JSON=$(ls -t .claude/logs/beutl-loop-run-*.json 2>/dev/null | head -1)
-  if [ -n "$LATEST_RUN_JSON" ]; then
-    if [ -n "${BEUTL_LOOP_PROGRESS_GIST_ID:-}" ]; then
-      gh gist edit "$BEUTL_LOOP_PROGRESS_GIST_ID" "$LATEST_RUN_JSON" 2>/dev/null \
-        && echo "Run summary posted to Gist $BEUTL_LOOP_PROGRESS_GIST_ID" || true
-    else
-      gh gist create "$LATEST_RUN_JSON" -d "beutl-loop run summary $(date +%Y%m%d-%H%M%S)" 2>/dev/null \
-        && echo "Run summary posted to a new Gist (set BEUTL_LOOP_PROGRESS_GIST_ID to reuse next time)" || true
-    fi
-  fi
-fi
+echo "Loop exited with code $LOOP_RC"
+exit "$LOOP_RC"

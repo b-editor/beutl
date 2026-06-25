@@ -29,7 +29,7 @@ def added_lines_per_file(base: str, head: str) -> dict[str, list[int]]:
     inflate the denominator with guaranteed-uncovered lines.
     """
     diff = subprocess.check_output(
-        ["git", "diff", f"{base}..{head}", "--unified=0", "--diff-filter=d", "--", "src/"],
+        ["git", "diff", f"{base}...{head}", "--unified=0", "--diff-filter=d", "--", "src/"],
         text=True,
     )
     result: dict[str, list[int]] = {}
