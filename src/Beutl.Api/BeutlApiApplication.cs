@@ -54,6 +54,7 @@ public class BeutlApiApplication
 
     public BeutlApiApplication(HttpClient httpClient, ExtensionProvider extensionProvider)
     {
+        ArgumentNullException.ThrowIfNull(httpClient);
         ArgumentNullException.ThrowIfNull(extensionProvider);
 
         _httpClient = httpClient;

@@ -61,9 +61,20 @@ public class KeyMapSettingsPageViewModel : PageContext
         Group = _commandManager.GetDefinitions()
             .GroupBy(i => i.ExtensionType)
             .Select(i =>
-                new KeyMapSettingsGroup(
-                    extensionProvider.AllExtensions.First(j => j.GetType() == i.Key),
-                    i.Select(j => new KeyMapSettingsItem(j, _commandManager)).ToArray()))
+            {
+                // A command definition can name an ExtensionType that has no registered extension
+                // (e.g. a disabled plugin); skip those groups instead of throwing from First.
+                var extension = extensionProvider.AllExtensions.FirstOrDefault(j => j.GetType() == i.Key);
+                if (extension is null)
+                {
+                    return null;
+                }
+
+                return new KeyMapSettingsGroup(
+                    extension,
+                    i.Select(j => new KeyMapSettingsItem(j, _commandManager)).ToArray());
+            })
+            .OfType<KeyMapSettingsGroup>()
             .ToArray();
     }
 

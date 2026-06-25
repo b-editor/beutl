@@ -2,8 +2,10 @@
 using Beutl.Api.Services;
 using Beutl.Controls.Navigation;
 using Beutl.Editor;
+using Beutl.Editor.Services;
 using Beutl.PropertyAdapters;
 using Beutl.Services;
+using Beutl.Services.Adapters;
 using Beutl.ViewModels.Editors;
 
 using DynamicData;
@@ -15,10 +17,14 @@ namespace Beutl.ViewModels.SettingsPages;
 public sealed class AnExtensionSettingsPageViewModel : PageContext, IPropertyEditorContextVisitor, IServiceProvider
 {
     private readonly HistoryManager _history;
+    private readonly ExtensionProvider _extensionProvider;
+    private PropertyEditorFactoryAdapter? _propertyEditorFactory;
+    private PropertiesEditorFactoryImpl? _propertiesEditorFactory;
 
     public AnExtensionSettingsPageViewModel(Extension extension, ExtensionProvider extensionProvider)
     {
         Extension = extension;
+        _extensionProvider = extensionProvider;
 
         var sequenceGenerator = new OperationSequenceGenerator();
         _history = new HistoryManager(extension.Settings!, sequenceGenerator);
@@ -44,6 +50,18 @@ public sealed class AnExtensionSettingsPageViewModel : PageContext, IPropertyEdi
         {
             return _history;
         }
+
+        // Expose the session ExtensionProvider and property-editor factories so nested object /
+        // list editors resolve them through the service chain even though this host is not an
+        // EditViewModel (the former global singleton path is gone).
+        if (serviceType == typeof(ExtensionProvider))
+            return _extensionProvider;
+
+        if (serviceType.IsAssignableTo(typeof(IPropertyEditorFactory)))
+            return _propertyEditorFactory ??= new PropertyEditorFactoryAdapter(_extensionProvider);
+
+        if (serviceType.IsAssignableTo(typeof(IPropertiesEditorFactory)))
+            return _propertiesEditorFactory ??= new PropertiesEditorFactoryImpl(_extensionProvider);
 
         return null;
     }

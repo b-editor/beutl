@@ -219,7 +219,8 @@ public abstract class BaseEditorViewModel : IPropertyEditorContext, IServiceProv
             _element = serviceProvider.GetService<Element>();
             _editViewModel = serviceProvider.GetService<EditViewModel>();
             _clock = serviceProvider.GetService<IEditorClock>();
-            _extensionProvider.Value = _editViewModel?.ExtensionProvider;
+            _extensionProvider.Value = serviceProvider.GetService<Beutl.Api.Services.ExtensionProvider>()
+                ?? _editViewModel?.ExtensionProvider;
 
             if (_clock != null)
             {
@@ -449,13 +450,14 @@ public abstract class BaseEditorViewModel : IPropertyEditorContext, IServiceProv
         return _parentServices?.GetService(serviceType) ?? _editViewModel?.GetService(serviceType);
     }
 
-    // Resolve the editor session's ExtensionProvider through the injected EditViewModel
-    // (populated in Accept). Used by editors that build child property-editor contexts after
-    // Accept has run (e.g. behind IsExpanded) so they can call PropertyEditorService.MatchProperty
-    // without the former global singleton.
+    // Resolve the editor session's ExtensionProvider from the host service chain (populated in
+    // Accept). Used by editors that build child property-editor contexts after Accept has run
+    // (e.g. behind IsExpanded) so they can call PropertyEditorService.MatchProperty without the
+    // former global singleton. Resolving the provider itself (rather than via EditViewModel) keeps
+    // nested editors working in non-scene hosts such as the encoder / extension settings dialogs.
     protected Beutl.Api.Services.ExtensionProvider GetExtensionProvider()
     {
-        return this.GetRequiredService<EditViewModel>().ExtensionProvider;
+        return this.GetRequiredService<Beutl.Api.Services.ExtensionProvider>();
     }
 
     // Fires the editor session's ExtensionProvider once Accept has injected it. Editors whose

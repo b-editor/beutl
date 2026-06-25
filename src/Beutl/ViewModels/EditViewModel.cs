@@ -56,6 +56,10 @@ public sealed partial class EditViewModel : IEditorContext, ISupportAutoSaveEdit
 
     public EditViewModel(Scene scene, Beutl.Api.Services.ExtensionProvider extensionProvider, EditorService editorService)
     {
+        ArgumentNullException.ThrowIfNull(scene);
+        ArgumentNullException.ThrowIfNull(extensionProvider);
+        ArgumentNullException.ThrowIfNull(editorService);
+
         _logger.LogInformation("Initializing EditViewModel for Scene ({SceneId}).", scene.Id);
 
         Scene = scene;
@@ -780,6 +784,9 @@ public sealed partial class EditViewModel : IEditorContext, ISupportAutoSaveEdit
 
         if (serviceType.IsAssignableTo(typeof(IBufferStatus)))
             return BufferStatus;
+
+        if (serviceType == typeof(Beutl.Api.Services.ExtensionProvider))
+            return ExtensionProvider;
 
         if (serviceType.IsAssignableTo(typeof(IPropertyEditorFactory)))
             return _propertyEditorFactory ??= new Services.Adapters.PropertyEditorFactoryAdapter(ExtensionProvider);
