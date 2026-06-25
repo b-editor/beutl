@@ -166,25 +166,28 @@ public class AudioLatencyCompensationTests
         using var clip = new ClipNode { Start = TimeSpan.Zero, Duration = clipDuration };
         clip.AddInput(limiter);
 
-        // A window that exactly covers the whole clip: it reaches the clip's true end, so ClipNode
-        // drains the limiter tail into the trailing samples.
-        using var output = clip.Process(Context(TimeSpan.Zero, clipSamples));
+        // A window that extends L samples past the clip end leaves trailing capacity, so AppendFlushedTail
+        // drains the limiter's held tail into [clipSamples, clipSamples + L) — the region inline
+        // processing drops. A window covering the clip exactly has capacity == 0 and never drains, so the
+        // assertion below would pass on the main slice even if recovery were a no-op.
+        using var output = clip.Process(Context(TimeSpan.Zero, clipSamples + L));
 
         var data = output.GetChannelData(0);
         bool tailNonZero = false;
-        for (int i = clipSamples - L; i < clipSamples; i++)
+        for (int i = clipSamples; i < clipSamples + L; i++)
         {
             if (MathF.Abs(data[i]) > 1e-5f) { tailNonZero = true; break; }
         }
 
         Assert.That(tailNonZero, Is.True,
-            "The clip's final L samples, normally lost in the delay line, are recovered by the tail flush.");
+            "The limiter's held tail, normally lost in the delay line, is recovered into the trailing L samples.");
     }
 
     [Test]
     public void ClipNode_ZeroLookahead_IsNoOp()
     {
         const int clipSamples = 2048;
+        const int refOffset = 256;
         var clipDuration = TimeSpan.FromSeconds((double)clipSamples / SampleRate);
 
         // No-latency chain: with L==0 the terminal-window drain must change nothing.
@@ -196,12 +199,14 @@ public class AudioLatencyCompensationTests
         var sourceB = new RangeSineNode(SampleRate);
         using var clipB = new ClipNode { Start = TimeSpan.Zero, Duration = clipDuration };
         clipB.AddInput(sourceB);
-        // A mid-clip window (does not reach the end) never drains; compare its overlapping region.
-        using var reference = clipB.Process(Context(TimeSpan.Zero, clipSamples));
+        // The reference stops short of the clip end, so its terminal-drain branch never runs; clipA
+        // reaches the end and does enter it. Comparing the overlap gives the assertion discriminating
+        // power: if the L==0 terminal path perturbed the main slice, only clipA would differ.
+        using var reference = clipB.Process(Context(TimeSpan.Zero, clipSamples - refOffset));
 
         var a = withDrain.GetChannelData(0);
         var b = reference.GetChannelData(0);
-        for (int i = 0; i < clipSamples; i++)
+        for (int i = 0; i < clipSamples - refOffset; i++)
         {
             Assert.That(a[i], Is.EqualTo(b[i]).Within(1e-6f), $"L==0 drain must not perturb sample {i}.");
         }

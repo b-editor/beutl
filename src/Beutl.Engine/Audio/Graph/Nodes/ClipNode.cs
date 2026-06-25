@@ -96,7 +96,13 @@ public class ClipNode : AudioNode
             context.AnimationSampler,
             context.OriginalTimeRange);
 
-        return Inputs[0].Flush(drainContext);
+        var result = Inputs[0].Flush(drainContext);
+
+        // A parent may flush this same clip across multiple blocks when its tail capacity is below the
+        // child's latency; advancing here keeps the next drain contiguous instead of replaying from the
+        // old local end and tripping the cached effects' discontinuity guard (as AppendFlushedTail does).
+        _lastProcessedLocalEnd = drainContext.TimeRange.End;
+        return result;
     }
 
     // Drains the input chain's residual latency into newBuffer starting at writeOffset, bounded by the
