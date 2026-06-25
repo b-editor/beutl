@@ -140,9 +140,13 @@ internal sealed class MediaFileSearcher : IDisposable
 
     public void Dispose()
     {
+        if (_disposed)
+            return;
+
         _disposed = true;
         _searchCts?.Cancel();
         _searchCts?.Dispose();
+        _searchCts = null;
         DisposeAndClearItems();
     }
 }
