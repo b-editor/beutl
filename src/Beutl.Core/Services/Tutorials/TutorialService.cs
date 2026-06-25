@@ -10,7 +10,7 @@ public static class TutorialService
         set
         {
             ArgumentNullException.ThrowIfNull(value);
-            s_current ??= value;
+            s_current = value;
         }
     }
 }

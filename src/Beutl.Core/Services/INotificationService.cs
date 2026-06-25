@@ -10,7 +10,7 @@ public static class NotificationService
         set
         {
             ArgumentNullException.ThrowIfNull(value);
-            s_handler ??= value;
+            s_handler = value;
         }
     }
 

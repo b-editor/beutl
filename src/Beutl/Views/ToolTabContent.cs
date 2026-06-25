@@ -1,4 +1,5 @@
 ﻿using Avalonia.Controls;
+using Beutl.Editor.Components.Helpers;
 using Beutl.ViewModels.Dock;
 
 namespace Beutl.Views;
@@ -31,7 +32,7 @@ public sealed class ToolTabContent : ContentControl
         }
         else
         {
-            var cm = App.GetContextCommandManager();
+            var cm = AppHelper.GetContextCommandManager?.Invoke();
             cm?.Attach(control, dockable.ToolContext.Extension);
             control.DataContext = dockable.ToolContext;
         }
