@@ -107,9 +107,20 @@ thread root's `databaseId`, not a child reply's id).
 Always **read the cited code** (`path`,`line`) before classifying — a "nit" can hide a real bug.
 **Read it from the PR head, not the orchestrator checkout.** In `--auto` the current checkout is the
 orchestrator branch, so classification (even for a no-edit reply or a false-positive refutation) would
-otherwise read stale or missing code. Check out the PR head **detached before this step** (see the
-Step 5 preamble — do it once, up front, so both classification and any later fix read the same head):
-`HEAD_REF=$(gh pr view ${PR:-} --json headRefName -q .headRefName); git fetch origin "$HEAD_REF"; git checkout --detach "origin/$HEAD_REF"`.
+otherwise read stale or missing code. Check out the PR head **detached before this step** (do it once,
+up front, so both classification and any later fix read the same head). **Fetch by the PR head ref**
+(`refs/pull/<PR>/head`) so this is correct for **fork / cross-repository** PRs too — `headRefName` is
+only the source branch name and `origin/<headRefName>` would resolve to a same-named branch in the
+base repo (or fail):
+```bash
+HEAD_REF=$(gh pr view ${PR:-} --json headRefName -q .headRefName)   # same-repo push target (Step 5)
+git fetch origin "pull/$PR/head"
+git checkout --detach FETCH_HEAD
+```
+**Pushing back is only valid when the PR head is writable** (a same-repo branch). Check
+`gh pr view $PR --json isCrossRepository,maintainerCanModify`: if the head is a fork and not
+maintainer-modifiable, do **not** push a fix — escalate (`needs_human`) instead. /beutl-loop only ever
+resolves its own same-repo PRs, so this matters mainly for standalone/interactive use on fork PRs.
 
 ## Step 5 — Act
 

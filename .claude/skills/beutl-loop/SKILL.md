@@ -237,8 +237,10 @@ load-bearing and must not be skipped.
   `already_implemented` (moved to Done) → reset `consecutive_no_progress` (progress).
 - Only if **all** results were no-progress (red / systemic-blocked / baseline-violation) does the tick
   count as a single no-progress tick.
-- `consecutive_false_positives` increments by the number of false-positives in the batch; if the
-  running total ≥ 3, the step-0 breaker trips.
+- `consecutive_false_positives`: if the batch had **any** non-FP progress (a PR opened or an
+  `already_implemented` item), **reset it to 0** — the false positives were not consecutive. Only a
+  batch that is **purely** false positives increments it (by the count of FPs). If the running total
+  ≥ 3, the step-0 breaker trips.
 - Each item in the batch counts as one `items_processed` in step 5 (a batch of 3 → 3 processed, so a
   parallel drain is faster but does not inflate the per-tick budget semantics).
 
@@ -341,16 +343,22 @@ even for a spec), treat the item as `blocked` (`blocked_kind: "item-specific"`,
 ### 3. Resolve reviews (sub-agent, bounded settle)
 Wait for async bot reviews, bounded by `settle_minutes`. **Block on CI without busy-waiting, and bound
 the wait so a hung check cannot hang the loop:** prefer
-`timeout $((settle_minutes * 60)) gh pr checks "$PR" --watch --interval 60` (`timeout` is in the
-allowlist; exit `124` = the settle window elapsed → left for human). If `timeout` is unavailable (some
-macOS installs lack coreutils), use a bounded poll loop instead:
+`timeout $((settle_minutes * 60)) gh pr checks "$PR" --required --watch --interval 60` (`timeout` is in
+the allowlist; exit `124` = the settle window elapsed → left for human). **Watch only `--required`
+checks** — an optional job left pending must not hold the loop until timeout (the merge gate blocks
+optional *failures* but not optional *pending*). If `timeout` is unavailable (some macOS installs lack
+coreutils), use a bounded poll loop instead:
 ```bash
 deadline=$((SECONDS + settle_minutes * 60))
 while [ "$SECONDS" -lt "$deadline" ]; do
   # `bucket` (pass/fail/pending/skipping) is the reliable completion signal;
   # `state` values like SUCCESS/FAILURE do not equal "COMPLETE" and would
   # falsely hold the loop open. See https://cli.github.com/manual/gh_pr_checks
-  pending=$(gh pr checks "$PR" --json bucket --jq '[.[]|select(.bucket=="pending")] | length' 2>/dev/null || echo 1)
+  # Wait only on REQUIRED pending (optional pending must not hold the loop), but
+  # break early on ANY fail/cancel — no point waiting once the PR is already red.
+  failed=$(gh pr checks "$PR" --json bucket --jq '[.[]|select(.bucket=="fail" or .bucket=="cancel")] | length' 2>/dev/null || echo 1)
+  [ "$failed" != "0" ] && break
+  pending=$(gh pr checks "$PR" --required --json bucket --jq '[.[]|select(.bucket=="pending")] | length' 2>/dev/null || echo 1)
   [ "$pending" = "0" ] && break
   sleep 60
 done
@@ -471,15 +479,26 @@ if [ "$FAILED" != "0" ] || [ "$REQ_PENDING" != "0" ]; then
   echo "checks not clear (failed/cancelled=$FAILED, required-pending=$REQ_PENDING) — left_for_human"; exit 1
 fi
 
-# 2. Unresolved review threads must be 0.
-UNRESOLVED=$(gh api graphql -f query='query{repository(owner:"b-editor",name:"beutl"){pullRequest(number:'"$PR"'){reviewThreads(first:100){nodes{isResolved}}}}}' \
-  --jq '[.data.repository.pullRequest.reviewThreads.nodes[]|select(.isResolved==false)]|length')
+# 2. Unresolved review threads must be 0 — PAGINATE (reviewThreads(first:100) silently truncates on a
+#    PR with >100 threads, so an unresolved thread on a later page would otherwise slip through).
+UNRESOLVED=0; CURSOR=""
+while :; do
+  AFTER=$([ -n "$CURSOR" ] && echo ", after: \"$CURSOR\"" || echo "")
+  RESP=$(gh api graphql -f query='query{repository(owner:"b-editor",name:"beutl"){pullRequest(number:'"$PR"'){reviewThreads(first:100'"$AFTER"'){pageInfo{hasNextPage endCursor} nodes{isResolved}}}}}')
+  UNRESOLVED=$((UNRESOLVED + $(echo "$RESP" | jq '[.data.repository.pullRequest.reviewThreads.nodes[]|select(.isResolved==false)]|length')))
+  [ "$(echo "$RESP" | jq -r '.data.repository.pullRequest.reviewThreads.pageInfo.hasNextPage')" = "true" ] || break
+  CURSOR=$(echo "$RESP" | jq -r '.data.repository.pullRequest.reviewThreads.pageInfo.endCursor')
+done
 if [ "$UNRESOLVED" != "0" ]; then
   echo "unresolved threads ($UNRESOLVED) — left_for_human"; exit 1
 fi
 
-# 3. PR must be MERGEABLE.
-MERGEABLE=$(gh pr view "$PR" --json mergeable -q .mergeable)
+# 3. No outstanding CHANGES_REQUESTED, and PR must be MERGEABLE. A summary-only CHANGES_REQUESTED leaves
+#    no line thread, so check reviewDecision (and mergeable) explicitly — never approve over a requested change.
+read -r MERGEABLE REVIEW_DECISION < <(gh pr view "$PR" --json mergeable,reviewDecision --jq '"\(.mergeable) \(.reviewDecision)"')
+if [ "$REVIEW_DECISION" = "CHANGES_REQUESTED" ]; then
+  echo "reviewDecision=CHANGES_REQUESTED — left_for_human"; exit 1
+fi
 if [ "$MERGEABLE" != "MERGEABLE" ]; then
   echo "not mergeable ($MERGEABLE) — left_for_human"; exit 1
 fi
