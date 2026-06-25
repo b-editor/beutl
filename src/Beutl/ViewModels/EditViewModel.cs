@@ -343,8 +343,7 @@ public sealed partial class EditViewModel : IEditorContext, ISupportAutoSaveEdit
     public Scene Scene { get; private set; }
 
     // Host services injected from the composition root via EditorExtension.TryCreateContext;
-    // exposed so editor-scoped view models (DockHost, output, property editors) can reach
-    // them without the former ExtensionProvider.Current / EditorService.Current singletons.
+    // exposed so editor-scoped view models (DockHost, output, property editors) can reach them.
     public Beutl.Api.Services.ExtensionProvider ExtensionProvider { get; }
 
     public EditorService EditorService { get; }

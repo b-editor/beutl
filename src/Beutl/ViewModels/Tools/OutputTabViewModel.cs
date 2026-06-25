@@ -118,7 +118,7 @@ public class OutputTabViewModel : IToolContext
     }
 
     // Exposes the editor session's output extensions (filtered for the scene type) so views and
-    // dialogs that hold this tab VM can reach them without the removed ExtensionProvider.Current.
+    // dialogs that hold this tab VM can reach them.
     public OutputExtension[] GetExtensions(Type type)
     {
         return _outputService.GetExtensions(type);

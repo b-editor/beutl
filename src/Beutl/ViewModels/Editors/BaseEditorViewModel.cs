@@ -35,9 +35,9 @@ public abstract class BaseEditorViewModel : IPropertyEditorContext, IServiceProv
     private IEditorClock? _clock;
     private IServiceProvider? _parentServices;
     // Carries the editor session's ExtensionProvider once Accept injects the EditViewModel.
-    // Editors that build child property-editor contexts gate on this (instead of the removed
-    // ExtensionProvider.Current singleton); it becomes available at the same point as the rest
-    // of the editor session (clock, element, ...), which Accept also wires up.
+    // Editors that build child property-editor contexts gate on this; it becomes available at
+    // the same point as the rest of the editor session (clock, element, ...), which Accept also
+    // wires up.
     private readonly ReactivePropertySlim<Beutl.Api.Services.ExtensionProvider?> _extensionProvider = new();
 
     protected BaseEditorViewModel(IPropertyAdapter property)
@@ -452,9 +452,9 @@ public abstract class BaseEditorViewModel : IPropertyEditorContext, IServiceProv
 
     // Resolve the editor session's ExtensionProvider from the host service chain (populated in
     // Accept). Used by editors that build child property-editor contexts after Accept has run
-    // (e.g. behind IsExpanded) so they can call PropertyEditorService.MatchProperty without the
-    // former global singleton. Resolving the provider itself (rather than via EditViewModel) keeps
-    // nested editors working in non-scene hosts such as the encoder / extension settings dialogs.
+    // (e.g. behind IsExpanded) so they can call PropertyEditorService.MatchProperty. Resolving
+    // the provider itself (rather than via EditViewModel) keeps nested editors working in
+    // non-scene hosts such as the encoder / extension settings dialogs.
     protected Beutl.Api.Services.ExtensionProvider GetExtensionProvider()
     {
         return this.GetRequiredService<Beutl.Api.Services.ExtensionProvider>();

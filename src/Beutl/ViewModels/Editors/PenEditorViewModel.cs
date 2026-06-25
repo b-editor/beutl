@@ -28,7 +28,7 @@ public sealed class PenEditorViewModel : BaseEditorViewModel
             .DisposeWith(Disposables);
 
         // CombineLatest with the provider so the eager initial Value emission waits until Accept
-        // has supplied the editor session's ExtensionProvider (the former singleton source).
+        // has supplied the editor session's ExtensionProvider.
         Value.CombineLatest(ObserveExtensionProvider())
             .Subscribe(t => Update(t.First, t.Second))
             .DisposeWith(Disposables);

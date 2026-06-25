@@ -22,8 +22,8 @@ public abstract class EditorExtension : ViewExtension
     /// <param name="obj">The object to open in the editor.</param>
     /// <param name="services">
     /// Host services the created context may need — e.g. <see cref="IEditorContextServices.ExtensionProvider"/>
-    /// for querying other extensions. Owned by the composition root and passed in explicitly instead
-    /// of relying on global singletons. An extension that needs nothing from the host may ignore it.
+    /// for querying other extensions. Owned by the composition root and passed in explicitly. An
+    /// extension that needs nothing from the host may ignore it.
     /// </param>
     /// <param name="context">The created editor context, set when this returns <see langword="true"/>.</param>
     /// <returns><see langword="true"/> if a context was created for <paramref name="obj"/>.</returns>

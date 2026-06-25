@@ -53,7 +53,7 @@ public sealed class AnExtensionSettingsPageViewModel : PageContext, IPropertyEdi
 
         // Expose the session ExtensionProvider and property-editor factories so nested object /
         // list editors resolve them through the service chain even though this host is not an
-        // EditViewModel (the former global singleton path is gone).
+        // EditViewModel.
         if (serviceType == typeof(ExtensionProvider))
             return _extensionProvider;
 

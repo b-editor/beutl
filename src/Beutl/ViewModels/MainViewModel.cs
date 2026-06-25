@@ -26,7 +26,7 @@ public sealed class MainViewModel : BasePageViewModel, IContextCommandHandler
     {
         _authHttpClient = new HttpClient();
         // Composition root: own the editor-session services here and thread the instances
-        // down to child view models and services instead of exposing them as global singletons.
+        // down to child view models and services.
         _extensionProvider = new ExtensionProvider();
         _projectService = new ProjectService();
         _editorService = new EditorService(_extensionProvider);
@@ -95,7 +95,7 @@ public sealed class MainViewModel : BasePageViewModel, IContextCommandHandler
     public EditorHostViewModel EditorHost { get; }
 
     // Exposed so views bound to this composition root (MainView, MacWindow) can read the
-    // injected singletons via their DataContext instead of calling X.Current themselves.
+    // injected singletons via their DataContext.
     internal ProjectService ProjectService => _projectService;
 
     internal EditorService EditorService => _editorService;
