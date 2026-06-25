@@ -345,6 +345,43 @@ public class AudioLatencyCompensationTests
     }
 
     [Test]
+    public void NestedClipNode_Flush_ContinuesAfterPartialTailAppend()
+    {
+        // A terminal window with some trailing pad — but less than the reported latency — drains only
+        // part of the held tail and advances the upstream chain past Duration. A later parent flush of
+        // the same child must continue from that advanced point; restarting at Duration would step the
+        // cached limiter backward, reset it, and drop the rest of the tail.
+        const float lookaheadMs = 5f;
+        int L = LookaheadSamples(lookaheadMs);
+        int pad = L / 2;                     // trailing room < L => only a partial append
+        const int clipSamples = 4096;
+        var clipDuration = TimeSpan.FromSeconds((double)clipSamples / SampleRate);
+
+        var source = new RangeSineNode(SampleRate);
+        using var limiter = CreateTransparentLimiter(lookaheadMs);
+        limiter.AddInput(source);
+
+        using var clip = new ClipNode { Start = TimeSpan.Zero, Duration = clipDuration };
+        clip.AddInput(limiter);
+
+        // Window covers the clip plus `pad` samples: AppendFlushedTail drains `pad` of the L held samples.
+        using var processed = clip.Process(Context(TimeSpan.Zero, clipSamples + pad));
+
+        using var tail = clip.Flush(Context(TimeSpan.FromSeconds(77.0), L));
+
+        var tailData = tail.GetChannelData(0);
+        bool anyNonZero = false;
+        for (int k = 0; k < L - pad; k++)
+        {
+            if (MathF.Abs(tailData[k]) > 1e-6f) { anyNonZero = true; break; }
+        }
+
+        Assert.That(anyNonZero, Is.True,
+            "After a partial tail append, the parent flush must continue from the advanced drain position "
+            + "so the remaining held samples are recovered, not dropped by a backward-discontinuity reset.");
+    }
+
+    [Test]
     public void Flush_FanInWithoutOverride_Throws()
     {
         // A bare multi-input node has no merge semantics; the base Flush must fail loudly, not drop tails.
