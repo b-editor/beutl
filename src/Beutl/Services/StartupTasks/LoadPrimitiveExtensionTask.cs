@@ -54,19 +54,22 @@ public sealed class LoadPrimitiveExtensionTask : StartupTask
         EqualizerPropertiesExtension.Instance,
         ScriptEditorExtension.Instance,
         FileBrowserTabExtension.Instance,
-        HistoryTabExtension.Instance,
-        DefaultTutorialExtension.Instance
+        HistoryTabExtension.Instance
     ];
 
-    public LoadPrimitiveExtensionTask(PackageManager manager)
+    public LoadPrimitiveExtensionTask(PackageManager manager, ExtensionProvider provider,
+        EditorService editorService, ProjectService projectService)
     {
         _manager = manager;
+        // DefaultTutorialExtension needs the editor-session services, so unlike the other
+        // primitive extensions it is not a service-free static singleton; build the full set here.
+        Extension[] allExtensions =
+            [.. PrimitiveExtensions, new DefaultTutorialExtension(editorService, projectService)];
         Task = Task.Run(async () =>
         {
             using (Activity? activity = Telemetry.StartActivity("LoadPrimitiveExtensionTask"))
             {
-                ExtensionProvider provider = ExtensionProvider.Current;
-                foreach (Extension item in PrimitiveExtensions)
+                foreach (Extension item in allExtensions)
                 {
                     _manager.SetupExtensionSettings(item);
                     if (item is ViewExtension viewExtension)
@@ -76,7 +79,7 @@ public sealed class LoadPrimitiveExtensionTask : StartupTask
                     item.Load();
                 }
 
-                provider.AddExtensions(LocalPackage.Reserved0, PrimitiveExtensions);
+                provider.AddExtensions(LocalPackage.Reserved0, allExtensions);
                 activity?.AddEvent(new("Loaded_Extensions"));
 
                 await Task.Yield();

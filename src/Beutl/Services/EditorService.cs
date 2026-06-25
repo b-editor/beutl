@@ -70,13 +70,15 @@ public sealed class EditorTabItem : IAsyncDisposable
 public sealed class EditorService
 {
     private readonly CoreList<EditorTabItem> _tabItems;
+    private readonly ExtensionProvider _extensionProvider;
 
-    public EditorService()
+    public EditorService(ExtensionProvider extensionProvider)
     {
+        ArgumentNullException.ThrowIfNull(extensionProvider);
+
+        _extensionProvider = extensionProvider;
         _tabItems = new() { ResetBehavior = ResetBehavior.Remove };
     }
-
-    public static EditorService Current { get; } = new();
 
     public ICoreList<EditorTabItem> TabItems => _tabItems;
 
@@ -102,9 +104,9 @@ public sealed class EditorService
         }
         else
         {
-            EditorExtension? ext = ExtensionProvider.Current.MatchEditorExtension(path);
+            EditorExtension? ext = _extensionProvider.MatchEditorExtension(path);
 
-            if (ext?.TryCreateContext(obj, out IEditorContext? context) == true)
+            if (ext?.TryCreateContext(obj, new EditorContextServices(this, _extensionProvider), out IEditorContext? context) == true)
             {
                 var tabItem2 = new EditorTabItem(context) { IsSelected = { Value = true } };
                 TabItems.Add(tabItem2);

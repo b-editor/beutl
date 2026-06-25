@@ -28,8 +28,6 @@ public sealed class ProjectService
         _isOpened = CurrentProject.Select(v => v != null).ToReadOnlyReactivePropertySlim();
     }
 
-    public static ProjectService Current { get; } = new();
-
     public IObservable<(Project? New, Project? Old)> ProjectObservable => _projectObservable;
 
     public IReadOnlyReactiveProperty<Project?> CurrentProject { get; }

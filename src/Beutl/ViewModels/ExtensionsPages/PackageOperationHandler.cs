@@ -20,12 +20,17 @@ internal class PackageOperationHandler
     private readonly PackageManager _packageManager;
     private readonly PackageInstaller _packageInstaller;
 
-    public PackageOperationHandler(BeutlApiApplication app)
+    private readonly EditorService _editorService;
+    private readonly ProjectService _projectService;
+
+    public PackageOperationHandler(BeutlApiApplication app, EditorService editorService, ProjectService projectService)
     {
         _installedPackageRepository = app.GetResource<InstalledPackageRepository>();
         _queue = app.GetResource<PackageChangesQueue>();
         _packageManager = app.GetResource<PackageManager>();
         _packageInstaller = app.GetResource<PackageInstaller>();
+        _editorService = editorService;
+        _projectService = projectService;
     }
 
     public InstalledPackageRepository InstalledPackageRepository => _installedPackageRepository;
@@ -147,9 +152,9 @@ internal class PackageOperationHandler
         }
     }
 
-    public static async Task<bool> EnsureProjectClosed()
+    public async Task<bool> EnsureProjectClosed()
     {
-        if (!ProjectService.Current.IsOpened.Value)
+        if (!_projectService.IsOpened.Value)
             return true;
 
         var dialog = new ContentDialog
@@ -167,28 +172,28 @@ internal class PackageOperationHandler
         if (result == ContentDialogResult.Secondary)
         {
             await SaveAll();
-            ProjectService.Current.CloseProject();
+            _projectService.CloseProject();
             return true;
         }
 
         if (result == ContentDialogResult.Primary)
         {
-            ProjectService.Current.CloseProject();
+            _projectService.CloseProject();
             return true;
         }
 
         return false;
     }
 
-    private static async Task SaveAll()
+    private async Task SaveAll()
     {
-        Project? project = ProjectService.Current.CurrentProject.Value;
+        Project? project = _projectService.CurrentProject.Value;
         if (project != null)
         {
             CoreSerializer.StoreToUri(project, project.Uri!);
         }
 
-        foreach (EditorTabItem item in EditorService.Current.TabItems)
+        foreach (EditorTabItem item in _editorService.TabItems)
         {
             if (item.Commands.Value != null)
             {

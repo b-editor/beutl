@@ -18,8 +18,8 @@ public partial class MenuBarViewModel
     [MemberNotNull(nameof(DeleteLayer), nameof(ExcludeLayer), nameof(CutLayer), nameof(PasteLayer), nameof(CopyLayer), nameof(ShowSceneSettings), nameof(RemoveFromProject))]
     private void InitializeSceneCommands(IObservable<bool> isSceneOpened)
     {
-        IObservable<bool> isProjectOpenedAndTabOpened = ProjectService.Current.IsOpened
-            .CombineLatest(EditorService.Current.SelectedTabItem)
+        IObservable<bool> isProjectOpenedAndTabOpened = _projectService.IsOpened
+            .CombineLatest(_editorService.SelectedTabItem)
             .Select(i => i is { First: true, Second: not null });
 
         RemoveFromProject = new(isProjectOpenedAndTabOpened);
@@ -73,9 +73,9 @@ public partial class MenuBarViewModel
 
     public ReactiveCommandSlim ShowSceneSettings { get; private set; }
 
-    private static bool TryGetSelectedEditViewModel([NotNullWhen(true)] out EditViewModel? viewModel)
+    private bool TryGetSelectedEditViewModel([NotNullWhen(true)] out EditViewModel? viewModel)
     {
-        if (EditorService.Current.SelectedTabItem.Value?.Context.Value is EditViewModel editViewModel)
+        if (_editorService.SelectedTabItem.Value?.Context.Value is EditViewModel editViewModel)
         {
             viewModel = editViewModel;
             return true;

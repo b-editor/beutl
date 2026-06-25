@@ -38,7 +38,7 @@ public sealed class ExtensionsToolWindowExtension : ToolWindowExtension
             return false;
         }
 
-        context = new ExtensionsPageViewModel(mainViewModel._beutlClients);
+        context = new ExtensionsPageViewModel(mainViewModel._beutlClients, mainViewModel.EditorService, mainViewModel.ProjectService);
         return true;
     }
 }

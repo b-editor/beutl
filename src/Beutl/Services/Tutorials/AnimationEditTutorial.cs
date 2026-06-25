@@ -24,7 +24,7 @@ public static class AnimationEditTutorial
 {
     public const string TutorialId = "animation-edit";
 
-    public static TutorialDefinition Create()
+    public static TutorialDefinition Create(EditorService editorService, ProjectService projectService)
     {
         IDisposable? step1Subscription = null;
         IDisposable? step2Subscription = null;
@@ -41,14 +41,14 @@ public static class AnimationEditTutorial
             Description = TutorialStrings.Tutorial_AnimationEdit_Description,
             Priority = 20,
             Category = "advanced",
-            CanStart = TutorialHelpers.OpenLibraryTabIfNeeded,
+            CanStart = () => TutorialHelpers.OpenLibraryTabIfNeeded(editorService),
             FulfillPrerequisites = async () =>
             {
                 // プロジェクトを準備（シーンを開くまで）
-                bool result = await TutorialHelpers.EnsureProjectAsync("AnimationTutorial");
+                bool result = await TutorialHelpers.EnsureProjectAsync(projectService, editorService, "AnimationTutorial");
                 if (!result) return false;
 
-                EditViewModel? editVm = TutorialHelpers.GetEditViewModel();
+                EditViewModel? editVm = TutorialHelpers.GetEditViewModel(editorService);
                 var adder = editVm?.GetService<IElementAdder>();
                 if (adder == null) return false;
 
@@ -75,7 +75,7 @@ public static class AnimationEditTutorial
                     IsActionRequired = true,
                     OnShown = () =>
                     {
-                        EditViewModel? editVm = TutorialHelpers.GetEditViewModel();
+                        EditViewModel? editVm = TutorialHelpers.GetEditViewModel(editorService);
                         step1Subscription = TutorialHelpers.SubscribeToElementSelection(
                             editVm,
                             () => TutorialService.Current.AdvanceStep());
@@ -99,7 +99,7 @@ public static class AnimationEditTutorial
                     IsActionRequired = true,
                     OnShown = () =>
                     {
-                        EditViewModel? editVm = TutorialHelpers.GetEditViewModel();
+                        EditViewModel? editVm = TutorialHelpers.GetEditViewModel(editorService);
                         if (editVm == null) return;
 
                         Drawable? drawable = TutorialHelpers.GetDrawable(editVm);
@@ -151,7 +151,7 @@ public static class AnimationEditTutorial
                     IsActionRequired = true,
                     OnShown = () =>
                     {
-                        EditViewModel? editVm = TutorialHelpers.GetEditViewModel();
+                        EditViewModel? editVm = TutorialHelpers.GetEditViewModel(editorService);
                         if (editVm == null) return;
 
                         TranslateTransform? translateTransform = TutorialHelpers.GetTranslateTransform(
@@ -186,7 +186,7 @@ public static class AnimationEditTutorial
                     IsActionRequired = true,
                     OnShown = () =>
                     {
-                        EditViewModel? editVm = TutorialHelpers.GetEditViewModel();
+                        EditViewModel? editVm = TutorialHelpers.GetEditViewModel(editorService);
                         if (editVm == null) return;
 
                         var editorClock = editVm.GetService<IEditorClock>();
@@ -238,7 +238,7 @@ public static class AnimationEditTutorial
                     IsActionRequired = true,
                     OnShown = () =>
                     {
-                        EditViewModel? editVm = TutorialHelpers.GetEditViewModel();
+                        EditViewModel? editVm = TutorialHelpers.GetEditViewModel(editorService);
                         if (editVm == null) return;
 
                         // Set LibraryTab to Easings tab via View's TabStrip
@@ -304,7 +304,7 @@ public static class AnimationEditTutorial
                     PreferredPlacement = TutorialStepPlacement.Bottom,
                     OnShown = () =>
                     {
-                        EditViewModel? editVm = TutorialHelpers.GetEditViewModel();
+                        EditViewModel? editVm = TutorialHelpers.GetEditViewModel(editorService);
                         Element? element = TutorialHelpers.FindElementWithObject<EllipseShape>(editVm?.Scene);
                         TutorialHelpers.PrepareForPlayback(editVm, element);
                     },
@@ -340,7 +340,7 @@ public static class AnimationEditTutorial
                     IsActionRequired = true,
                     OnShown = () =>
                     {
-                        EditViewModel? editVm = TutorialHelpers.GetEditViewModel();
+                        EditViewModel? editVm = TutorialHelpers.GetEditViewModel(editorService);
                         if (editVm == null) return;
 
                         TranslateTransform? translateTransform = TutorialHelpers.GetTranslateTransform(
@@ -372,7 +372,7 @@ public static class AnimationEditTutorial
                     IsActionRequired = true,
                     OnShown = () =>
                     {
-                        EditViewModel? editVm = TutorialHelpers.GetEditViewModel();
+                        EditViewModel? editVm = TutorialHelpers.GetEditViewModel(editorService);
                         if (editVm == null) return;
 
                         TranslateTransform? translateTransform = TutorialHelpers.GetTranslateTransform(
@@ -402,7 +402,7 @@ public static class AnimationEditTutorial
                     PreferredPlacement = TutorialStepPlacement.Bottom,
                     OnShown = () =>
                     {
-                        EditViewModel? editVm = TutorialHelpers.GetEditViewModel();
+                        EditViewModel? editVm = TutorialHelpers.GetEditViewModel(editorService);
                         Element? element = TutorialHelpers.FindElementWithObject<EllipseShape>(editVm?.Scene);
                         var clock = editVm?.GetService<IEditorClock>();
                         if (editVm != null && element != null && clock != null)

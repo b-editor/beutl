@@ -64,7 +64,7 @@ public sealed class AudioEffectEditorViewModel : ValueEditorViewModel<AudioEffec
                     }
                     else if (v != null)
                     {
-                        Properties.Value = new PropertiesEditorViewModel(v);
+                        Properties.Value = new PropertiesEditorViewModel(v, GetExtensionProvider());
                     }
 
                     AcceptChild();

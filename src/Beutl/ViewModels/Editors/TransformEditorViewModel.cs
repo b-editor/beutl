@@ -127,7 +127,7 @@ public sealed class TransformEditorViewModel : ValueEditorViewModel<Transform?>,
                     }
                     else if (v != null)
                     {
-                        Properties.Value = new PropertiesEditorViewModel(v);
+                        Properties.Value = new PropertiesEditorViewModel(v, GetExtensionProvider());
                     }
 
                     AcceptChild();

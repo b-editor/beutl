@@ -11,10 +11,12 @@ public interface ICommandPaletteHandlerProvider
 internal sealed class CommandPaletteHandlerProvider : ICommandPaletteHandlerProvider
 {
     private readonly Func<MainViewModel?> _mainViewModelAccessor;
+    private readonly EditorService _editorService;
 
-    public CommandPaletteHandlerProvider(Func<MainViewModel?> mainViewModelAccessor)
+    public CommandPaletteHandlerProvider(Func<MainViewModel?> mainViewModelAccessor, EditorService editorService)
     {
         _mainViewModelAccessor = mainViewModelAccessor;
+        _editorService = editorService;
     }
 
     public IContextCommandHandler? Resolve(Type extensionType)
@@ -26,7 +28,7 @@ internal sealed class CommandPaletteHandlerProvider : ICommandPaletteHandlerProv
 
         if (typeof(EditorExtension).IsAssignableFrom(extensionType))
         {
-            EditorTabItem? tab = EditorService.Current.SelectedTabItem.Value;
+            EditorTabItem? tab = _editorService.SelectedTabItem.Value;
             if (tab?.Extension.Value is { } extension && extension.GetType() == extensionType)
             {
                 return tab.Context.Value as IContextCommandHandler;
@@ -37,7 +39,7 @@ internal sealed class CommandPaletteHandlerProvider : ICommandPaletteHandlerProv
 
         if (typeof(ToolTabExtension).IsAssignableFrom(extensionType))
         {
-            EditorTabItem? tab = EditorService.Current.SelectedTabItem.Value;
+            EditorTabItem? tab = _editorService.SelectedTabItem.Value;
             if (tab?.Context.Value is EditViewModel editor)
             {
                 return editor.DockHost.FindToolContext(extensionType) as IContextCommandHandler;

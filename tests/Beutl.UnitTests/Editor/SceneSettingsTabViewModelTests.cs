@@ -1,4 +1,5 @@
-﻿using System.Numerics;
+﻿using System.Collections.Concurrent;
+using System.Numerics;
 using System.Reactive;
 using System.Reactive.Linq;
 
@@ -9,6 +10,7 @@ using Beutl.Extensibility;
 using Beutl.Media;
 using Beutl.Media.Source;
 using Beutl.ProjectSystem;
+using Beutl.Services;
 
 using Reactive.Bindings;
 
@@ -17,6 +19,28 @@ namespace Beutl.UnitTests.Editor;
 [TestFixture]
 public class SceneSettingsTabViewModelTests
 {
+    // NotificationService.Handler is a process-global, write-once facade (set by the app at startup,
+    // which does not run under test). Install a capturing handler so the Apply path's ShowWarning is
+    // observable; Beutl.Core grants InternalsVisibleTo to reach the internal setter.
+    private static readonly CaptureNotificationHandler s_notificationHandler = new();
+
+    [OneTimeSetUp]
+    public void InstallNotificationHandler()
+    {
+        NotificationService.Handler = s_notificationHandler;
+        // The setter is write-once (??=); if another fixture installed a handler first this no-ops
+        // and the queue stays empty. Fail loudly instead of as a confusing false-negative in a test.
+        Assert.That(NotificationService.Handler, Is.SameAs(s_notificationHandler),
+            "Another fixture already installed a NotificationService handler; "
+            + "SceneSettings notifications will not be captured.");
+    }
+
+    [SetUp]
+    public void ClearCapturedNotifications()
+    {
+        s_notificationHandler.Clear();
+    }
+
     [Test]
     public async Task Apply_WhenInputsChangeWhilePausing_CommitsLatestInputs()
     {
@@ -77,11 +101,11 @@ public class SceneSettingsTabViewModelTests
         });
     }
 
-    [TestCase(0, 600, "00:00:03", "00:00:12", TestName = "Apply_DoesNotCommit_WhenWidthBecomesZeroWhilePausing")]
-    [TestCase(800, 0, "00:00:03", "00:00:12", TestName = "Apply_DoesNotCommit_WhenHeightBecomesZeroWhilePausing")]
-    [TestCase(800, 600, "-00:00:01", "00:00:12", TestName = "Apply_DoesNotCommit_WhenStartBecomesNegativeWhilePausing")]
-    [TestCase(800, 600, "00:00:03", "00:00:00", TestName = "Apply_DoesNotCommit_WhenDurationBecomesZeroWhilePausing")]
-    public async Task Apply_WhenInputsBecomeInvalidWhilePausing_DoesNotCommit(
+    [TestCase(0, 600, "00:00:03", "00:00:12", TestName = "Apply_DoesNotCommitAndNotifies_WhenWidthBecomesZeroWhilePausing")]
+    [TestCase(800, 0, "00:00:03", "00:00:12", TestName = "Apply_DoesNotCommitAndNotifies_WhenHeightBecomesZeroWhilePausing")]
+    [TestCase(800, 600, "-00:00:01", "00:00:12", TestName = "Apply_DoesNotCommitAndNotifies_WhenStartBecomesNegativeWhilePausing")]
+    [TestCase(800, 600, "00:00:03", "00:00:00", TestName = "Apply_DoesNotCommitAndNotifies_WhenDurationBecomesZeroWhilePausing")]
+    public async Task Apply_WhenInputsBecomeInvalidWhilePausing_DoesNotCommitAndNotifies(
         int width, int height, string start, string duration)
     {
         var scene = new Scene(640, 480, string.Empty)
@@ -129,7 +153,35 @@ public class SceneSettingsTabViewModelTests
         previewPlayer.CompletePause();
         await applyTask.WaitAsync(TimeSpan.FromSeconds(5));
 
-        Assert.That(sceneSettingsService.CallCount, Is.EqualTo(0));
+        Assert.Multiple(() =>
+        {
+            Assert.That(sceneSettingsService.CallCount, Is.EqualTo(0));
+            Assert.That(
+                s_notificationHandler.Contains(Beutl.Language.MessageStrings.SceneSettings_ApplyCanceledInputsInvalid),
+                Is.True,
+                "Apply must warn the user instead of cancelling silently when inputs become invalid during the pause");
+        });
+    }
+
+    private sealed class CaptureNotificationHandler : INotificationServiceHandler
+    {
+        // Fully qualified: System.Reactive also defines a Notification type, so the bare name is ambiguous.
+        private readonly ConcurrentQueue<Beutl.Services.Notification> _notifications = new();
+
+        public void Show(Beutl.Services.Notification notification)
+        {
+            _notifications.Enqueue(notification);
+        }
+
+        public bool Contains(string message)
+        {
+            return _notifications.Any(n => n.Message == message);
+        }
+
+        public void Clear()
+        {
+            _notifications.Clear();
+        }
     }
 
     private sealed class TestEditorContext(CoreObject obj) : IEditorContext

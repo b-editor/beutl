@@ -11,10 +11,12 @@ namespace Beutl.ViewModels.Dialogs;
 public sealed class CreateNewSceneViewModel
 {
     private readonly Project? _proj;
+    private readonly EditorService _editorService;
 
-    public CreateNewSceneViewModel()
+    public CreateNewSceneViewModel(ProjectService projectService, EditorService editorService)
     {
-        _proj = ProjectService.Current.CurrentProject.Value;
+        _editorService = editorService;
+        _proj = projectService.CurrentProject.Value;
         Location.Value = GetInitialLocation();
         Name.Value = GenSceneName(Location.Value);
 
@@ -86,7 +88,7 @@ public sealed class CreateNewSceneViewModel
 
             // Activation is not part of persistence, so a failure here must not be reported as a
             // save failure — kept outside the try above.
-            EditorService.Current.ActivateTabItem(scene);
+            _editorService.ActivateTabItem(scene);
         });
     }
 

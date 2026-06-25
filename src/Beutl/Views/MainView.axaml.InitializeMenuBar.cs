@@ -12,6 +12,7 @@ using Beutl.Models;
 using Beutl.ProjectSystem;
 using Beutl.Services;
 using Beutl.ViewModels;
+using Beutl.ViewModels.Dialogs;
 using Beutl.Views.Dialogs;
 using FluentAvalonia.UI.Controls;
 using Microsoft.Extensions.DependencyInjection;
@@ -31,6 +32,7 @@ public partial class MainView
         viewModel.MenuBar.CreateNewProject.Subscribe(async () =>
         {
             var dialog = new CreateNewProject();
+            dialog.DataContext = new CreateNewProjectViewModel(viewModel.ProjectService);
             await dialog.ShowAsync();
         }).AddTo(_disposables);
 
@@ -42,6 +44,7 @@ public partial class MainView
         viewModel.MenuBar.NewScene.Subscribe(async () =>
         {
             var dialog = new CreateNewScene();
+            dialog.DataContext = new CreateNewSceneViewModel(viewModel.ProjectService, viewModel.EditorService);
             await dialog.ShowAsync();
         }).AddTo(_disposables);
 
@@ -96,9 +99,10 @@ public partial class MainView
             .AddTo(_disposables);
     }
 
-    private static bool TryGetSelectedEditViewModel([NotNullWhen(true)] out EditViewModel? viewModel)
+    private bool TryGetSelectedEditViewModel([NotNullWhen(true)] out EditViewModel? viewModel)
     {
-        if (EditorService.Current.SelectedTabItem.Value?.Context.Value is EditViewModel editViewModel)
+        if (DataContext is not MainViewModel mv) { viewModel = null; return false; }
+        if (mv.EditorService.SelectedTabItem.Value?.Context.Value is EditViewModel editViewModel)
         {
             viewModel = editViewModel;
             return true;
@@ -134,10 +138,11 @@ public partial class MainView
         }
     }
 
-    private static async void OnRemoveFromProject(EditorTabItem? item)
+    private async void OnRemoveFromProject(EditorTabItem? item)
     {
-        Project? project = ProjectService.Current.CurrentProject.Value;
-        EditorTabItem? selectedTabItem = item ?? EditorService.Current.SelectedTabItem.Value;
+        if (DataContext is not MainViewModel mv) return;
+        Project? project = mv.ProjectService.CurrentProject.Value;
+        EditorTabItem? selectedTabItem = item ?? mv.EditorService.SelectedTabItem.Value;
 
         if (project != null && selectedTabItem != null)
         {
@@ -179,7 +184,7 @@ public partial class MainView
 
         var filters = new List<FilePickerFileType>();
 
-        filters.AddRange(ExtensionProvider.Current.GetExtensions<EditorExtension>()
+        filters.AddRange(viewModel.ExtensionProvider.GetExtensions<EditorExtension>()
             .Select(e => e.GetFilePickerFileType())
             .ToArray());
         var options = new FilePickerOpenOptions { AllowMultiple = true, FileTypeFilter = filters };
@@ -191,7 +196,7 @@ public partial class MainView
             {
                 if (file.TryGetLocalPath() is { } path)
                 {
-                    MenuBarViewModel.OpenFileCore(path);
+                    viewModel.MenuBar.OpenFileCore(path);
                 }
             }
         }
@@ -216,7 +221,7 @@ public partial class MainView
             if (result.Count > 0
                 && result[0].TryGetLocalPath() is string localPath)
             {
-                await ProjectService.Current.OpenProject(localPath);
+                if (DataContext is MainViewModel mv) await mv.ProjectService.OpenProject(localPath);
             }
         }
     }
@@ -228,7 +233,8 @@ public partial class MainView
             return;
         }
 
-        Project? project = ProjectService.Current.CurrentProject.Value;
+        if (DataContext is not MainViewModel exportVm) return;
+        Project? project = exportVm.ProjectService.CurrentProject.Value;
         if (project?.Uri == null)
         {
             return;
@@ -344,7 +350,7 @@ public partial class MainView
 
             if (project?.Uri != null)
             {
-                await ProjectService.Current.OpenProject(project.Uri.LocalPath);
+                if (DataContext is MainViewModel importVm) await importVm.ProjectService.OpenProject(project.Uri.LocalPath);
                 NotificationService.ShowSuccess(Strings.ImportProject, MessageStrings.OperationCompletedSuccessfully);
             }
             else

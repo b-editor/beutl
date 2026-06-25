@@ -13,6 +13,7 @@ using Beutl.Graphics.Backend;
 using Beutl.NodeGraph.Nodes;
 using Beutl.Pages;
 using Beutl.Services;
+using Beutl.Services.PrimitiveImpls;
 using Beutl.Services.StartupTasks;
 using Beutl.Services.Tutorials;
 using Beutl.ViewModels;

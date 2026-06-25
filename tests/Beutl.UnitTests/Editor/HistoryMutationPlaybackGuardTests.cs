@@ -225,6 +225,104 @@ public class HistoryMutationPlaybackGuardTests
         });
     }
 
+    [Test]
+    public void RunAsync_AfterDispose_ThrowsObjectDisposedException()
+    {
+        using var guard = new HistoryMutationPlaybackGuard();
+        guard.Dispose();
+
+        // Callers catch ObjectDisposedException to skip the operation, so disposal must surface
+        // as that exception rather than silently proceeding.
+        Assert.ThrowsAsync<ObjectDisposedException>(async () =>
+            await guard.RunAsync(null, () => { }, () => true, () => true));
+    }
+
+    [Test]
+    public async Task Dispose_WhileOperationInFlight_RejectsLaterCallersDeterministically()
+    {
+        using var guard = new HistoryMutationPlaybackGuard();
+        using var player = new PreviewPlayerStub(isPlaying: true)
+        {
+            CompletePauseManually = true
+        };
+        bool inFlightMutated = false;
+
+        // Start an operation and let it suspend inside the gate at the pause drain.
+        Task<bool> inFlight = guard.RunAsync(player, () => { }, () => true, () =>
+        {
+            inFlightMutated = true;
+            return true;
+        }).AsTask();
+        await player.WaitForPauseStartedAsync();
+
+        // Dispose while the operation holds the gate. The in-flight operation must still finish.
+        guard.Dispose();
+        player.CompleteDrain();
+        bool inFlightResult = await inFlight;
+
+        // A post-disposal caller must still be rejected, even though an operation held the gate
+        // when Dispose ran.
+        Assert.Multiple(() =>
+        {
+            Assert.That(inFlightResult, Is.True, "the in-flight operation must complete normally");
+            Assert.That(inFlightMutated, Is.True);
+        });
+        Assert.ThrowsAsync<ObjectDisposedException>(async () =>
+            await guard.RunAsync(player, () => { }, () => true, () => true));
+    }
+
+    [Test]
+    public async Task Dispose_WhileWaiterIsQueued_RejectsThatWaiterAfterGateReleases()
+    {
+        using var guard = new HistoryMutationPlaybackGuard();
+        using var player = new PreviewPlayerStub(isPlaying: true)
+        {
+            CompletePauseManually = true
+        };
+        bool inFlightMutated = false;
+        bool queuedMutated = false;
+
+        // A holds the gate and suspends at the pause drain.
+        Task<bool> inFlight = guard.RunAsync(player, () => { }, () => true, () =>
+        {
+            inFlightMutated = true;
+            return true;
+        }).AsTask();
+        await player.WaitForPauseStartedAsync();
+
+        // B passes the pre-wait check, then parks in WaitAsync() behind A — all synchronously,
+        // so B is already queued by the time RunAsync returns its task.
+        Task<bool> queued = guard.RunAsync(null, () => { }, () => false, () =>
+        {
+            queuedMutated = true;
+            return true;
+        }).AsTask();
+
+        // Dispose while A still holds the gate and B is already queued behind it.
+        guard.Dispose();
+        player.CompleteDrain();
+        bool inFlightResult = await inFlight;
+
+        // A finishes normally; B entered before disposal but must be rejected once it acquires
+        // the gate, and must never run its mutation.
+        Assert.Multiple(() =>
+        {
+            Assert.That(inFlightResult, Is.True, "the in-flight operation must complete normally");
+            Assert.That(inFlightMutated, Is.True);
+            Assert.That(queuedMutated, Is.False, "a waiter queued before disposal must not mutate after disposal");
+        });
+        Assert.ThrowsAsync<ObjectDisposedException>(async () => await queued);
+    }
+
+    [Test]
+    public void Dispose_CalledTwice_DoesNotThrow()
+    {
+        using var guard = new HistoryMutationPlaybackGuard();
+        guard.Dispose();
+
+        Assert.DoesNotThrow(() => guard.Dispose());
+    }
+
     private sealed class PreviewPlayerStub : IPreviewPlayer, IDisposable
     {
         private readonly ReactivePropertySlim<Ref<Bitmap>?> _previewImage = new();

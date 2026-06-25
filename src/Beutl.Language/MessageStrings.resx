@@ -391,4 +391,7 @@ Do you want to restart the application?</value>
   <data name="SaveImageElementRendersNothing" xml:space="preserve">
     <value>The selected element renders nothing (0 × 0 px), so it cannot be saved as an image.</value>
   </data>
+  <data name="SceneSettings_ApplyCanceledInputsInvalid" xml:space="preserve">
+    <value>Apply was canceled because the scene settings became invalid while pausing playback.</value>
+  </data>
 </root>

@@ -16,15 +16,15 @@ public sealed class SettingsDialogViewModel : IDisposable
     private readonly Lazy<InformationPageViewModel> _information;
     private readonly Lazy<KeyMapSettingsPageViewModel> _keyMap;
 
-    public SettingsDialogViewModel(BeutlApiApplication clients)
+    public SettingsDialogViewModel(BeutlApiApplication clients, ExtensionProvider extensionProvider)
     {
         _account = new(() => new AccountSettingsPageViewModel(clients));
         _editor = new(() => new EditorSettingsPageViewModel());
         _view = new(() => new ViewSettingsPageViewModel(_editor));
         _font = new(() => new FontSettingsPageViewModel());
-        _extensionsPage = new(() => new ExtensionsSettingsPageViewModel());
+        _extensionsPage = new(() => new ExtensionsSettingsPageViewModel(extensionProvider));
         _information = new(() => new InformationPageViewModel());
-        _keyMap = new(() => new KeyMapSettingsPageViewModel(clients.GetResource<ContextCommandManager>()));
+        _keyMap = new(() => new KeyMapSettingsPageViewModel(clients.GetResource<ContextCommandManager>(), extensionProvider));
     }
 
     public AccountSettingsPageViewModel Account => _account.Value;

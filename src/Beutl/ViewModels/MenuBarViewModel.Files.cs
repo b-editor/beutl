@@ -12,14 +12,14 @@ public partial class MenuBarViewModel
     [MemberNotNull(nameof(CloseFile), nameof(CloseProject), nameof(Save), nameof(SaveAll), nameof(ExportProject))]
     private void InitializeFilesCommands()
     {
-        CloseFile = new ReactiveCommandSlim(EditorService.Current.SelectedTabItem.Select(i => i != null))
+        CloseFile = new ReactiveCommandSlim(_editorService.SelectedTabItem.Select(i => i != null))
             .WithSubscribe(() => OnCloseFileCore(null));
 
         CloseFileCore = new ReactiveCommandSlim<EditorTabItem>()
             .WithSubscribe(OnCloseFileCore);
 
         CloseProject = new ReactiveCommandSlim(IsProjectOpened)
-            .WithSubscribe(ProjectService.Current.CloseProject);
+            .WithSubscribe(_projectService.CloseProject);
 
         Save = new AsyncReactiveCommand(IsProjectOpened)
             .WithSubscribe(OnSave);
@@ -50,7 +50,7 @@ public partial class MenuBarViewModel
             }
             else
             {
-                await ProjectService.Current.OpenProject(file);
+                await _projectService.OpenProject(file);
             }
         });
     }
@@ -104,7 +104,7 @@ public partial class MenuBarViewModel
     private async Task OnSaveAll()
     {
         using Activity? activity = Telemetry.StartActivity("SaveAll");
-        Project? project = ProjectService.Current.CurrentProject.Value;
+        Project? project = _projectService.CurrentProject.Value;
         int itemsCount = 0;
 
         try
@@ -116,7 +116,7 @@ public partial class MenuBarViewModel
 
             itemsCount++;
 
-            foreach (EditorTabItem? item in EditorService.Current.TabItems)
+            foreach (EditorTabItem? item in _editorService.TabItems)
             {
                 if (item.Commands.Value != null)
                 {
@@ -137,7 +137,7 @@ public partial class MenuBarViewModel
             NotificationService.ShowSuccess(string.Empty, string.Format(MessageStrings.ItemsSaved, itemsCount.ToString()));
 
             if (GlobalConfiguration.Instance.EditorConfig.IsAutoSaveEnabled
-                && EditorService.Current.TabItems.All(v => v.Context.Value is ISupportAutoSaveEditorContext))
+                && _editorService.TabItems.All(v => v.Context.Value is ISupportAutoSaveEditorContext))
             {
                 NotificationService.ShowInformation(string.Empty, MessageStrings.FilesAutoSaved);
             }
@@ -157,7 +157,7 @@ public partial class MenuBarViewModel
     private async Task OnSave()
     {
         using Activity? activity = Telemetry.StartActivity("Save");
-        EditorTabItem? item = EditorService.Current.SelectedTabItem.Value;
+        EditorTabItem? item = _editorService.SelectedTabItem.Value;
         if (item != null)
         {
             try
@@ -193,11 +193,11 @@ public partial class MenuBarViewModel
         }
     }
 
-    internal static void OpenFileCore(string file)
+    internal void OpenFileCore(string file)
     {
         try
         {
-            Project? project = ProjectService.Current.CurrentProject.Value;
+            Project? project = _projectService.CurrentProject.Value;
 
             var uri = UriHelper.CreateFromPath(file);
             ProjectItem? projItem = null;
@@ -211,7 +211,7 @@ public partial class MenuBarViewModel
                 ProjectPersistence.AddItemAndPersist(project, projItem);
             }
 
-            EditorService.Current.ActivateTabItem(projItem);
+            _editorService.ActivateTabItem(projItem);
         }
         catch (Exception ex)
         {
@@ -227,10 +227,10 @@ public partial class MenuBarViewModel
         }
         else
         {
-            EditorTabItem? tabItem = item ?? EditorService.Current.SelectedTabItem.Value;
+            EditorTabItem? tabItem = item ?? _editorService.SelectedTabItem.Value;
             if (tabItem != null)
             {
-                await EditorService.Current.CloseTabItem(tabItem);
+                await _editorService.CloseTabItem(tabItem);
             }
         }
     }

@@ -12,14 +12,14 @@ namespace Beutl.Services.Tutorials;
 
 public static class TutorialHelpers
 {
-    public static EditViewModel? GetEditViewModel()
+    public static EditViewModel? GetEditViewModel(EditorService editorService)
     {
-        return EditorService.Current.SelectedTabItem.Value?.Context.Value as EditViewModel;
+        return editorService.SelectedTabItem.Value?.Context.Value as EditViewModel;
     }
 
-    public static bool OpenLibraryTabIfNeeded()
+    public static bool OpenLibraryTabIfNeeded(EditorService editorService)
     {
-        var editVm = GetEditViewModel();
+        var editVm = GetEditViewModel(editorService);
         if (editVm == null) return false;
 
         var tab = editVm.FindToolTab<LibraryTabViewModel>() ?? new LibraryTabViewModel(editVm);
@@ -27,9 +27,9 @@ public static class TutorialHelpers
         return true;
     }
 
-    public static async Task<bool> EnsureProjectAsync(string projectName = "Tutorial")
+    public static async Task<bool> EnsureProjectAsync(ProjectService projectService, EditorService editorService, string projectName = "Tutorial")
     {
-        Project? currentProject = ProjectService.Current.CurrentProject.Value;
+        Project? currentProject = projectService.CurrentProject.Value;
         // プロジェクトが開いていない場合、新規プロジェクトを作成
         if (currentProject == null)
         {
@@ -42,7 +42,7 @@ public static class TutorialHelpers
             string fullProjectName = $"{projectName}_{DateTime.Now:yyyyMMddHHmmss}";
 
             // プロジェクト作成処理
-            currentProject = await ProjectService.Current.CreateProject(
+            currentProject = await projectService.CreateProject(
                 width: 1920,
                 height: 1080,
                 framerate: 30,
@@ -59,13 +59,13 @@ public static class TutorialHelpers
         Scene? scene = currentProject.Items.OfType<Scene>().FirstOrDefault();
         if (scene != null)
         {
-            EditorService.Current.ActivateTabItem(scene);
+            editorService.ActivateTabItem(scene);
         }
 
         // UIの更新を待つ
         await Task.Delay(200);
 
-        return GetEditViewModel() != null;
+        return GetEditViewModel(editorService) != null;
     }
 
     public static IDisposable? SubscribeToElementSelection(EditViewModel? editVm, Action onSelected)

@@ -18,9 +18,6 @@
                   PrimaryButtonCommand="{CompiledBinding Create}"
                   PrimaryButtonText="{x:Static lang:Strings.CreateNew}"
                   mc:Ignorable="d">
-    <ui:ContentDialog.DataContext>
-        <vm:CreateNewSceneViewModel />
-    </ui:ContentDialog.DataContext>
     <StackPanel Spacing="8">
         <TextBlock Text="{x:Static lang:Strings.Name}" />
         <TextBox InputMethod.IsInputMethodEnabled="True" Text="{CompiledBinding Name.Value, Mode=TwoWay}" />

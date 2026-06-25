@@ -16,16 +16,22 @@ public sealed class CommandPaletteService
     private readonly ContextCommandManager? _commandManager;
     private readonly ICommandPaletteHandlerProvider _handlerProvider;
     private readonly Func<MenuBarViewModel?> _menuBarAccessor;
+    private readonly EditorService _editorService;
+    private readonly ExtensionProvider _extensionProvider;
     private readonly Dictionary<Type, string> _categoryNameCache = new();
 
     public CommandPaletteService(
         ContextCommandManager? commandManager,
         ICommandPaletteHandlerProvider handlerProvider,
-        Func<MenuBarViewModel?> menuBarAccessor)
+        Func<MenuBarViewModel?> menuBarAccessor,
+        EditorService editorService,
+        ExtensionProvider extensionProvider)
     {
         _commandManager = commandManager;
         _handlerProvider = handlerProvider;
         _menuBarAccessor = menuBarAccessor;
+        _editorService = editorService;
+        _extensionProvider = extensionProvider;
     }
 
     public IReadOnlyList<PaletteCommand> EnumerateCommands()
@@ -34,7 +40,7 @@ public sealed class CommandPaletteService
 
         if (_commandManager != null)
         {
-            EditorTabItem? activeTab = EditorService.Current.SelectedTabItem.Value;
+            EditorTabItem? activeTab = _editorService.SelectedTabItem.Value;
             Type? activeEditorExtensionType = activeTab?.Extension.Value?.GetType();
             EditViewModel? activeEditor = activeTab?.Context.Value as EditViewModel;
 
@@ -117,7 +123,7 @@ public sealed class CommandPaletteService
         }
 
         string name = extensionType.Name;
-        Extension? matched = ExtensionProvider.Current.AllExtensions
+        Extension? matched = _extensionProvider.AllExtensions
             .FirstOrDefault(i => i.GetType() == extensionType);
         if (matched != null && !string.IsNullOrEmpty(matched.DisplayName))
         {

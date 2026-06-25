@@ -9,8 +9,11 @@ namespace Beutl.ViewModels.Dialogs;
 
 public sealed class CreateNewProjectViewModel
 {
-    public CreateNewProjectViewModel()
+    private readonly ProjectService _projectService;
+
+    public CreateNewProjectViewModel(ProjectService projectService)
     {
+        _projectService = projectService;
         Location.Value = GetDefaultLocation();
         Name.Value = GenProjectName(Location.Value);
 
@@ -84,7 +87,7 @@ public sealed class CreateNewProjectViewModel
         Create.Subscribe(async () =>
         {
             // CreateProject surfaces failures to the user itself, so no fallback notification here.
-            await ProjectService.Current.CreateProject(
+            await _projectService.CreateProject(
                 Size.Value.Width, Size.Value.Height,
                 FrameRate.Value, SampleRate.Value,
                 Name.Value,

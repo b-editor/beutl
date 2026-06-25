@@ -16,6 +16,7 @@ internal sealed class IpcFrameProvider : IFrameProvider
     private Task<IpcMessage>? _prefetchTask;
     private int _prefetchBufferIndex;
     private long _prefetchFrameIndex;
+    private bool _disposed;
 
     public IpcFrameProvider(IpcConnection connection, SharedMemoryBuffer[] videoBuffers,
         long frameCount, Rational frameRate)
@@ -32,6 +33,8 @@ internal sealed class IpcFrameProvider : IFrameProvider
 
     public async ValueTask<Bitmap> RenderFrame(long frame)
     {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+
         IpcMessage response;
         int readBufferIndex;
 
@@ -60,15 +63,14 @@ internal sealed class IpcFrameProvider : IFrameProvider
             readBufferIndex = _bufferIndex;
             var request = IpcMessage.Create(_connection.NextId(), MessageType.RequestFrame,
                 new RequestFrameMessage { FrameIndex = frame, BufferIndex = readBufferIndex });
-            response = await _connection.SendAndReceiveAsync(request)
-                       ?? throw new IOException("Connection closed while waiting for frame");
+            response = await _connection.SendAndReceiveAsync(request);
         }
 
+        // SendAndReceiveAsync already surfaces a closed connection as IOException and an error response as
+        // FFmpegWorkerException, so the response here is non-null and error-free; only CancelEncode (a live
+        // non-error response) still needs handling.
         if (response.Type == MessageType.CancelEncode)
             throw new OperationCanceledException();
-
-        if (response.Error != null)
-            throw new InvalidOperationException($"Frame render failed: {response.Error}");
 
         var frameInfo = response.GetPayload<ProvideFrameMessage>()
             ?? throw new InvalidOperationException("Missing payload for ProvideFrame");
@@ -115,9 +117,45 @@ internal sealed class IpcFrameProvider : IFrameProvider
         var alphaType = frameInfo.Premul ? BitmapAlphaType.Premul : BitmapAlphaType.Unpremul;
         var bmp = new Bitmap(frameInfo.Width, frameInfo.Height, BitmapColorType.RgbaF16, alphaType, BitmapColorSpace.LinearSrgb);
 
-        // Read into the bitmap's own span so the copy length is its real ByteCount, not a recomputed size.
-        _videoBuffers[bufferIndex].Read(bmp.GetPixelSpan());
+        try
+        {
+            // Read into the bitmap's own span so the copy length is its real ByteCount, not a recomputed
+            // size. SharedMemoryBuffer.Read still bounds-checks against the shared-buffer Capacity (the
+            // DataLength guard above does not), so a frame that exceeds Capacity throws here — dispose the
+            // freshly allocated native bitmap before propagating so the throw can't leak it.
+            _videoBuffers[bufferIndex].Read(bmp.GetPixelSpan());
+            return bmp;
+        }
+        catch
+        {
+            bmp.Dispose();
+            throw;
+        }
+    }
 
-        return bmp;
+    // Test-only probe: lets a Dispose test wait until the in-flight prefetch has actually faulted before
+    // dropping it, so the faulted-task path is exercised deterministically without a sleep.
+    internal bool IsPrefetchFaultedForTest() => _prefetchTask?.IsFaulted == true;
+
+    public void Dispose()
+    {
+        if (_disposed) return;
+        _disposed = true;
+
+        // A prefetch may still be in flight when the encode is torn down (cancel, error, normal end). The
+        // connection/pipe it talks to may already be closing, so we must NOT synchronously wait on it here:
+        // .Wait()/.GetAwaiter().GetResult() could deadlock or rethrow the pipe-teardown fault. Instead attach
+        // a fault-swallowing continuation so any fault is observed (preventing UnobservedTaskException) and
+        // return promptly. Owning the connection is the caller's job, so we only neutralize our own task.
+        // OnlyOnFaulted here, but not in IpcSampleProvider.Dispose: a frame prefetch yields a managed
+        // IpcMessage with nothing to release (the Bitmap is built lazily only when a frame is consumed), so a
+        // successful prefetch leaks nothing — whereas a sample prefetch yields a native Pcm its continuation
+        // must dispose on the success path.
+        _prefetchTask?.ContinueWith(
+            static t => { _ = t.Exception; },
+            CancellationToken.None,
+            TaskContinuationOptions.ExecuteSynchronously | TaskContinuationOptions.OnlyOnFaulted,
+            TaskScheduler.Default);
+        _prefetchTask = null;
     }
 }

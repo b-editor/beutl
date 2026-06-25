@@ -216,7 +216,13 @@ public class IpcConnectionMultiplexedTests
             var firstReq = IpcMessage.CreateSimple(firstId, RequestType);
             var firstTask = conn.SendAndReceiveAsync(firstReq, cts.Token).AsTask();
 
-            await WaitUntil(() => PendingCount(conn) == 1, TimeSpan.FromSeconds(5), "first request enters pending dict");
+            // Drain the outbound request so the send completes before we cancel it: on Windows an
+            // unread pipe write does not return, so without the drain whether the request was delivered
+            // is platform-dependent.
+            var drainedFirst = await AwaitWithResult(
+                MessageSerializer.ReadMessageAsync(server).AsTask(), TimeSpan.FromSeconds(5));
+            Assert.That(drainedFirst!.Id, Is.EqualTo(firstId));
+            await WaitUntil(() => PendingCount(conn) == 1, TimeSpan.FromSeconds(5), "first request awaits its response");
             cts.Cancel();
             Assert.CatchAsync<OperationCanceledException>(async () => await firstTask);
             await WaitUntil(() => PendingCount(conn) == 0, TimeSpan.FromSeconds(5), "pending dict drains after cancel");
@@ -231,7 +237,12 @@ public class IpcConnectionMultiplexedTests
         var secondReq = IpcMessage.CreateSimple(secondId, RequestType);
         var secondTask = conn.SendAndReceiveAsync(secondReq).AsTask();
 
-        await WaitUntil(() => PendingCount(conn) == 1, TimeSpan.FromSeconds(5), "second request enters pending dict");
+        // Drain the outbound request so the send completes and secondTask parks on its response TCS;
+        // otherwise secondTask stalls in the send and never completes even after the response is written.
+        var drainedSecond = await AwaitWithResult(
+            MessageSerializer.ReadMessageAsync(server).AsTask(), TimeSpan.FromSeconds(5));
+        Assert.That(drainedSecond!.Id, Is.EqualTo(secondId));
+        await WaitUntil(() => PendingCount(conn) == 1, TimeSpan.FromSeconds(5), "second request awaits its response");
 
         // ハンドラを差し替えてから応答を返す (二本目で再度発火させない)。
         conn.DroppedResponseHandler = null;
@@ -419,7 +430,14 @@ public class IpcConnectionMultiplexedTests
         var req = IpcMessage.CreateSimple(id, RequestType);
         var requestTask = conn.SendAndReceiveAsync(req).AsTask();
 
-        await WaitUntil(() => PendingCount(conn) == 1, TimeSpan.FromSeconds(5), "request enters pending dict");
+        // Drain the outbound request on the server side so the client's send completes before we inject
+        // the fault. A real peer always reads the request; without draining, SendAsync's pipe write stays
+        // pending (on Windows an unread pipe write does not return), so the request never reaches the
+        // await-on-response stage and the fault injection cannot complete a send that is still stuck.
+        var sentRequest = await AwaitWithResult(
+            MessageSerializer.ReadMessageAsync(server).AsTask(), TimeSpan.FromSeconds(5));
+        Assert.That(sentRequest!.Id, Is.EqualTo(id));
+        await WaitUntil(() => PendingCount(conn) == 1, TimeSpan.FromSeconds(5), "request awaits its response");
 
         // 長さ -1 は MessageSerializer.ReadMessageAsync で
         // "Invalid message length" の InvalidOperationException を引き起こす。
@@ -427,6 +445,8 @@ public class IpcConnectionMultiplexedTests
         await server.WriteAsync(badLength);
         await server.FlushAsync();
 
+        var completed = await Task.WhenAny(requestTask, Task.Delay(TimeSpan.FromSeconds(5)));
+        Assert.That(completed, Is.SameAs(requestTask), "request must fault after the loop dies, not hang");
         var ex = Assert.CatchAsync<IOException>(async () => await requestTask);
         Assert.That(ex!.Message, Does.Contain("unexpected protocol or deserialization error"));
         Assert.That(ex.InnerException, Is.InstanceOf<InvalidOperationException>());
@@ -448,12 +468,20 @@ public class IpcConnectionMultiplexedTests
         int firstId = conn.NextId();
         var firstReq = IpcMessage.CreateSimple(firstId, RequestType);
         var firstTask = conn.SendAndReceiveAsync(firstReq).AsTask();
-        await WaitUntil(() => PendingCount(conn) == 1, TimeSpan.FromSeconds(5), "first request enters pending dict");
+
+        // Drain the outbound request so the send completes and the request parks on its response TCS before
+        // we kill the receive loop. (See ProtocolCorruption_PendingRequestsObserveIOExceptionWithCause for why.)
+        var sentRequest = await AwaitWithResult(
+            MessageSerializer.ReadMessageAsync(server).AsTask(), TimeSpan.FromSeconds(5));
+        Assert.That(sentRequest!.Id, Is.EqualTo(firstId));
+        await WaitUntil(() => PendingCount(conn) == 1, TimeSpan.FromSeconds(5), "first request awaits its response");
 
         byte[] badLength = [0xFF, 0xFF, 0xFF, 0xFF];
         await server.WriteAsync(badLength);
         await server.FlushAsync();
 
+        var firstCompleted = await Task.WhenAny(firstTask, Task.Delay(TimeSpan.FromSeconds(5)));
+        Assert.That(firstCompleted, Is.SameAs(firstTask), "first request must fault after the loop dies, not hang");
         Assert.CatchAsync<IOException>(async () => await firstTask);
 
         // ここでループは死んで _receiveLoopFault が公開されている。次のリクエストは
@@ -483,7 +511,15 @@ public class IpcConnectionMultiplexedTests
             int id = conn.NextId();
             var req = IpcMessage.CreateSimple(id, RequestType);
             var requestTask = conn.SendAndReceiveAsync(req).AsTask();
-            await WaitUntil(() => PendingCount(conn) == 1, TimeSpan.FromSeconds(5), "request enters pending dict");
+
+            // Drain the outbound request so the send completes and the request parks on its response TCS
+            // before Dispose. Without the drain the send stays stuck (there is no ct to cancel it), and
+            // Dispose's pipe teardown raises ObjectDisposedException instead of the OperationCanceledException
+            // this test expects from a self-dispose.
+            var drained = await AwaitWithResult(
+                MessageSerializer.ReadMessageAsync(server).AsTask(), TimeSpan.FromSeconds(5));
+            Assert.That(drained!.Id, Is.EqualTo(id));
+            await WaitUntil(() => PendingCount(conn) == 1, TimeSpan.FromSeconds(5), "request awaits its response");
 
             conn.Dispose();
 

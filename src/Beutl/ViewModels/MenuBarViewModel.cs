@@ -10,13 +10,17 @@ namespace Beutl.ViewModels;
 public sealed partial class MenuBarViewModel
 {
     private readonly ILogger _logger = Log.CreateLogger<MenuBarViewModel>();
+    private readonly ProjectService _projectService;
+    private readonly EditorService _editorService;
 
 #pragma warning disable CS8618
-    public MenuBarViewModel()
+    public MenuBarViewModel(ProjectService projectService, EditorService editorService)
     {
-        IsProjectOpened = ProjectService.Current.IsOpened;
+        _projectService = projectService;
+        _editorService = editorService;
+        IsProjectOpened = _projectService.IsOpened;
 
-        IObservable<bool> isSceneOpened = EditorService.Current.SelectedTabItem
+        IObservable<bool> isSceneOpened = _editorService.SelectedTabItem
             .SelectMany(i => i?.Context ?? Observable.Empty<IEditorContext?>())
             .Select(v => v is EditViewModel);
 
@@ -43,16 +47,16 @@ public sealed partial class MenuBarViewModel
 
     public IReadOnlyReactiveProperty<bool> IsProjectOpened { get; }
 
-    private static async Task OnUndo()
+    private async Task OnUndo()
     {
-        IKnownEditorCommands? commands = EditorService.Current.SelectedTabItem.Value?.Commands.Value;
+        IKnownEditorCommands? commands = _editorService.SelectedTabItem.Value?.Commands.Value;
         if (commands != null)
             await commands.OnUndo();
     }
 
-    private static async Task OnRedo()
+    private async Task OnRedo()
     {
-        IKnownEditorCommands? commands = EditorService.Current.SelectedTabItem.Value?.Commands.Value;
+        IKnownEditorCommands? commands = _editorService.SelectedTabItem.Value?.Commands.Value;
         if (commands != null)
             await commands.OnRedo();
     }

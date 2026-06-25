@@ -17,14 +17,14 @@ public sealed class LocalUserPackageViewModel : BaseViewModel, IUserPackageViewM
     private readonly PackageOperationHandler _handler;
     private readonly PackageIdentity _packageIdentity;
 
-    public LocalUserPackageViewModel(LocalPackage package, BeutlApiApplication app)
+    public LocalUserPackageViewModel(LocalPackage package, BeutlApiApplication app, EditorService editorService, ProjectService projectService)
     {
         Package = package;
         _packageIdentity = new PackageIdentity(package.Name, new NuGetVersion(package.Version));
         DisplayName = new ReactivePropertySlim<string>(package.DisplayName);
         LogoUrl = new ReactivePropertySlim<string>(package.Logo);
 
-        _handler = new PackageOperationHandler(app);
+        _handler = new PackageOperationHandler(app, editorService, projectService);
 
         IObservable<PackageChangesQueue.EventType> observable = _handler.Queue.GetObservable(package.Name);
         CanCancel = observable.Select(x => x != PackageChangesQueue.EventType.None)
@@ -99,7 +99,7 @@ public sealed class LocalUserPackageViewModel : BaseViewModel, IUserPackageViewM
                 try
                 {
                     IsBusy.Value = true;
-                    if (!await PackageOperationHandler.EnsureProjectClosed())
+                    if (!await _handler.EnsureProjectClosed())
                         return;
 
                     StatusText.Value = ExtensionsStrings.Updating;
@@ -149,7 +149,7 @@ public sealed class LocalUserPackageViewModel : BaseViewModel, IUserPackageViewM
                 try
                 {
                     IsBusy.Value = true;
-                    if (!await PackageOperationHandler.EnsureProjectClosed())
+                    if (!await _handler.EnsureProjectClosed())
                         return;
 
                     StatusText.Value = ExtensionsStrings.Uninstalling;

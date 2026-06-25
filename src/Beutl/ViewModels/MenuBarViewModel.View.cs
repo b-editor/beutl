@@ -16,7 +16,7 @@ public partial class MenuBarViewModel
     //    Reset dock layout
     public ReactiveCommandSlim ResetDockLayout { get; private set; }
 
-    private static void OnResetDockLayout()
+    private void OnResetDockLayout()
     {
         if (TryGetSelectedEditViewModel(out EditViewModel? viewModel))
         {
