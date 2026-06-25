@@ -19,7 +19,11 @@ You are the Avalonia XAML bindings auditor.
      not the draft branch.
    - If zero `.axaml` files are in the diff, report `PASS: No XAML changes` and stop.
 
-2. **Check each file**
+2. **Check each file** — read content from the ref under review, not the working tree
+   - When `$HEAD_REF` is set (the loop reviews a draft branch that is **not** checked out locally),
+     read each file with `git show "$HEAD_REF:$path"` — a working-tree `Read` would see a missing or
+     stale `.axaml` and the audit could pass despite missing `x:CompileBindings`/`x:DataType`. In the
+     standalone case (no `$HEAD_REF`) the working tree is the branch under review, so read it directly.
    - Does the root element declare `x:CompileBindings="True"`?
    - Does the root element declare `x:DataType="viewModel:..."`?
    - Is any new `ReflectionBinding` introduced?

@@ -50,9 +50,11 @@ runs the pre-PR review round on the draft and opens the PR itself.
    verify it is NOT a false positive against the *current* code; if it is, set Status
    `False positive` (`e6ff360e`) and return `false_positive: true` (do nothing else). For a
    **feature task** there is no false-positive concept — instead confirm it is not already
-   implemented/obsolete (if it is, treat as the false-positive exit: mark the board and return
-   `false_positive: true` with a note) and is specified enough to verify (if not, return
-   `blocked` / `blocked_kind: "item-specific"`). **Needs a spec?** If the feature requires a
+   implemented/obsolete. If it **is already implemented**, it is completed work, not a false
+   positive: set Status `Done` (`98236657`) and return `already_implemented: true` with a note (do
+   **not** use the false-positive path — that would pollute loop-memory/metrics and can trip the
+   false-positive breaker after three shipped features). Also confirm it is specified enough to
+   verify (if not, return `blocked` / `blocked_kind: "item-specific"`). **Needs a spec?** If the feature requires a
    **new public type** or **≥ 3 new files**, it is too large for a single minimal-change tick —
    set `speckit_required: true` and return (do not implement). The orchestrator runs the Spec-Kit
    flow (`/speckit-specify → /speckit-plan → /speckit-tasks`) and re-dispatches you with the
@@ -195,6 +197,7 @@ Never merge in Spec-Kit mode either.
   "ok": true,
   "item_id": "PVTI_…",
   "false_positive": false,
+  "already_implemented": false,
   "blocked": false,
   "blocked_reason": null,
   "blocked_kind": null,
@@ -237,6 +240,9 @@ Never merge in Spec-Kit mode either.
 - On a **PR opened** (only in Rework mode with `OPEN_PR=true`): `pr_url` / `pr_number` / `branch` /
   `commit_type` populated, `test_status` `green` or `manual-verification`, `draft_ready: false`.
 - On a **false positive**: `false_positive: true`, PR fields `null`.
+- On an **already-implemented feature** (completed work, not a false positive): `already_implemented:
+  true`, board moved to `Done`, PR fields `null`. The orchestrator counts this as progress and does
+  **not** increment `consecutive_false_positives`.
 - On **blocked**: `blocked: true`, `blocked_reason` set, **`blocked_kind` set**, PR fields `null` —
   leave the board item in a sane state (`In Progress` so it is not re-picked mid-run; the orchestrator
   records it). Classify `blocked_kind`:

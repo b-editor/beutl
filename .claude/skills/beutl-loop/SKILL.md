@@ -188,6 +188,10 @@ Per-result outcomes and their effect on the **stagnation counters** (the budget 
   **leaves the queue** — this is **progress**: reset `consecutive_no_progress` to 0, increment
   `consecutive_false_positives`. **Append the false-positive signature to
   `.claude/loop-memory/false-positive-signatures.json`** (D-7) for cross-run recall. Continue.
+- `already_implemented: true` → an already-shipped feature the runner moved to `Done` (not a false
+  positive). This is **completed work → progress**: reset `consecutive_no_progress` to 0, **do not
+  touch `consecutive_false_positives`** (counting shipped features as false positives would pollute
+  loop-memory and could trip the false-positive breaker after three of them). Continue.
 - `blocked: true` → record `{reason, kind}`; **never stop the whole drain on a single item** (skip it
   via `attempted_ids` and report it at the end). Reset `consecutive_false_positives` to 0, **append
   `{item_id, kind, reason}` to `.claude/loop-memory/blocked-reasons.json`** (D-7), then by
@@ -353,7 +357,9 @@ set, the settle window elapses, or CI is red → the PR is **left for human** (d
 `small feat` that is an incidental improvement, not a new product behavior, is eligible); no
 public-API design judgment (no blocking `@beutl-design-reviewer` finding); not `touched_gpl_mit /
 touched_source_gen / touched_persistence`; **moderate diff** (≈ ≤250 LOC and ≤8 files); runner
-`test_status == "green"` (a `manual-verification` item is **not** eligible → human); required checks
+`test_status == "green"`, **or `"none"` when `touched_production` is false** (a docs/style/chore-only
+change touches no `src/`, so it has no NUnit coverage to require — but a `manual-verification` item is
+**not** eligible → human); required checks
 (`build`, `dotnet-format`) green and nothing else failing; **every review thread resolved**; no
 outstanding `CHANGES_REQUESTED` from any bot **or human**; `needs_human` false; settled; mergeable;
 and — when `touched_production && diff_loc >= 100` — **changed-line coverage ≥ 70%** (the B-4 probe
