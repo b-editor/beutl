@@ -26,45 +26,12 @@ public class FormattedText : IEquatable<FormattedText>, IDisposable
     private SKTextBlob? _textBlob;
     private SKPath? _fillPath;
     private SKPath? _strokePath;
-    // Caps the per-density blob/stroke cache so varying densities (e.g. window-resize
-    // scaling) can't grow it without bound; the least-recently-used density is evicted.
-    private const int MaxScaledTextCacheEntries = 8;
-    private readonly Dictionary<float, ScaledTextCache> _scaledTextCache = [];
-    private readonly LinkedList<float> _scaledTextCacheLru = new();
     private List<SKPathGeometry.Resource> _pathList = [];
-    // Test seam (Beutl.UnitTests): fires after the density-scaled blob/stroke are allocated and the
-    // LRU node is added, but before the entry is committed to _scaledTextCache, so the leak-cleanup
-    // and LRU-rollback path can be driven deterministically. Null in production.
-    internal Action<SKTextBlob?, SKPath?>? _scaledTextCacheCommitFaultHook;
-
-    // Test seam (Beutl.UnitTests): the LRU list and the cache dictionary must stay in lockstep; a
-    // leaked LRU node (e.g. a failed commit that doesn't roll back) breaks this invariant.
-    internal (int CacheCount, int LruCount) ScaledTextCacheCounts => (_scaledTextCache.Count, _scaledTextCacheLru.Count);
-
-    private sealed class ScaledTextCache : IDisposable
-    {
-        public ScaledTextCache(SKTextBlob? textBlob, SKPath? strokePath, LinkedListNode<float> lruNode)
-        {
-            TextBlob = textBlob;
-            StrokePath = strokePath;
-            LruNode = lruNode;
-        }
-
-        public SKTextBlob? TextBlob { get; }
-
-        public SKPath? StrokePath { get; }
-
-        public LinkedListNode<float> LruNode { get; }
-
-        public void Dispose()
-        {
-            TextBlob?.Dispose();
-            StrokePath?.Dispose();
-        }
-    }
+    private readonly ScaledTextCache _scaledCache;
 
     public FormattedText()
     {
+        _scaledCache = new ScaledTextCache(MeasureScaledText);
     }
 
     public bool IsDisposed { get; private set; }
@@ -81,7 +48,7 @@ public class FormattedText : IEquatable<FormattedText>, IDisposable
     {
         if (IsDisposed) return;
 
-        ClearScaledTextCache();
+        _scaledCache.Dispose();
         (_textBlob, _fillPath, _strokePath).DisposeAll();
         foreach (SKPathGeometry.Resource? resource in _pathList)
         {
@@ -252,7 +219,8 @@ public class FormattedText : IEquatable<FormattedText>, IDisposable
             return GetStrokePath();
         }
 
-        return GetScaledTextCache(density).StrokePath;
+        MeasureAndSetField();
+        return _scaledCache.Get(density).StrokePath;
     }
 
     internal SKTextBlob? GetTextBlob()
@@ -269,7 +237,8 @@ public class FormattedText : IEquatable<FormattedText>, IDisposable
             return GetTextBlob();
         }
 
-        return GetScaledTextCache(density).TextBlob;
+        MeasureAndSetField();
+        return _scaledCache.Get(density).TextBlob;
     }
 
     internal SKFont ToSKFont(float density = 1f)
@@ -301,7 +270,7 @@ public class FormattedText : IEquatable<FormattedText>, IDisposable
 
         (_textBlob, _fillPath, _strokePath).DisposeAll();
         (_textBlob, _fillPath, _strokePath) = (textBlob, fillPath, strokePath);
-        ClearScaledTextCache();
+        _scaledCache.Clear();
     }
 
     private (SKTextBlob? TextBlob, SKPath FillPath, SKPath? StrokePath, FontMetrics Metrics, Rect Bounds, Rect ActualBounds)
@@ -431,77 +400,12 @@ public class FormattedText : IEquatable<FormattedText>, IDisposable
         }
     }
 
-    private ScaledTextCache GetScaledTextCache(float density)
+    private (SKTextBlob? TextBlob, SKPath? StrokePath) MeasureScaledText(float density)
     {
-        MeasureAndSetField();
-        if (_scaledTextCache.TryGetValue(density, out ScaledTextCache? cache))
-        {
-            _scaledTextCacheLru.Remove(cache.LruNode);
-            _scaledTextCacheLru.AddFirst(cache.LruNode);
-            return cache;
-        }
-
         (SKTextBlob? textBlob, SKPath fillPath, SKPath? strokePath, _, _, _) =
             MeasureCore(density, updatePathList: false);
         fillPath.Dispose();
-
-        // Nothing owns textBlob/strokePath until _scaledTextCache.Add succeeds, so a throw from
-        // eviction disposal or either cache mutation in between would leak the native handles.
-        // Dispose them and roll back the LRU node on failure to keep the two collections consistent.
-        LinkedListNode<float>? node = null;
-        try
-        {
-            while (_scaledTextCache.Count >= MaxScaledTextCacheEntries && _scaledTextCacheLru.Last is { } lru)
-            {
-                _scaledTextCacheLru.RemoveLast();
-                if (_scaledTextCache.Remove(lru.Value, out ScaledTextCache? evicted))
-                {
-                    evicted.Dispose();
-                }
-            }
-
-            node = _scaledTextCacheLru.AddFirst(density);
-            _scaledTextCacheCommitFaultHook?.Invoke(textBlob, strokePath);
-            cache = new ScaledTextCache(textBlob, strokePath, node);
-            _scaledTextCache.Add(density, cache);
-            return cache;
-        }
-        catch
-        {
-            if (node is not null)
-            {
-                _scaledTextCacheLru.Remove(node);
-            }
-
-            // Best-effort: a faulting handle Dispose must not mask the original commit failure,
-            // and the second handle must still be released if the first throws.
-            DisposeBestEffort(textBlob);
-            DisposeBestEffort(strokePath);
-            throw;
-        }
-    }
-
-    private static void DisposeBestEffort(IDisposable? disposable)
-    {
-        try
-        {
-            disposable?.Dispose();
-        }
-        catch
-        {
-            // Preserve the original commit failure; the leak this guards against is the larger risk.
-        }
-    }
-
-    private void ClearScaledTextCache()
-    {
-        foreach (ScaledTextCache item in _scaledTextCache.Values)
-        {
-            item.Dispose();
-        }
-
-        _scaledTextCache.Clear();
-        _scaledTextCacheLru.Clear();
+        return (textBlob, strokePath);
     }
 
     private static float NormalizeDensity(float density)
