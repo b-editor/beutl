@@ -25,7 +25,7 @@ public class IpcProviderContractTests
     private const int FrameDataLength = 8;
     // RgbaF16 stride: 4 channels * 2 bytes. Distinct from FrameDataLength, a whole 1x1 frame.
     private const int RgbaF16BytesPerPixel = 8;
-    // Stereo32BitFloat: 2 channels * 4 bytes. Mirrors the same-named const in IpcSampleProvider.
+    // Stereo32BitFloat: 2 channels * 4 bytes.
     private const int Stereo32BitFloatBytesPerSample = 8;
     private const long BufferCapacity = 4096;
 
@@ -496,7 +496,7 @@ public class IpcProviderContractTests
         }
     }
 
-    // ---- Sample-side host harness (mirrors the frame-side helpers above) ----
+    // ---- Sample-side host harness ----
 
     // The host writes a chunk signature (its offset) into the first 8 bytes of the requested audio
     // buffer so a test can read back which chunk it actually got.

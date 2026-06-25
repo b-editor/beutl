@@ -55,7 +55,6 @@ internal sealed class IpcSampleProvider : ISampleProvider
         if (availableLength == length)
             return await SampleExact(offset, length);
 
-        // Final frame straddles EOF: fill the available prefix and leave the silent tail zero-filled.
         using var filled = await SampleExact(offset, availableLength);
         var padded = new Pcm<Stereo32BitFloat>((int)SampleRate, (int)length);
         filled.DataSpan.CopyTo(padded.DataSpan);
