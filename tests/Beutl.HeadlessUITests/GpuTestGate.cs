@@ -37,9 +37,26 @@ internal static class GpuTestGate
         if (!s_isAvailable)
         {
             string reason = s_reason ?? "No GPU graphics context is available in this environment.";
+
+            // CI sets BEUTL_REQUIRE_GPU on GPU-capable runs; there, a missing context means broken
+            // provisioning, which must fail loudly instead of passing as a skip (mirrors GpuTestEnvironment).
+            if (IsGpuRequired())
+            {
+                Assert.Fail(
+                    "BEUTL_REQUIRE_GPU is set but no GPU graphics context is available, so this GPU-backed test "
+                    + "is being silently skipped (provision MoltenVK / lavapipe / SwiftShader on this job): " + reason);
+            }
+
             TestContext.WriteLine($"[GPU SKIP] {reason}");
             Assert.Ignore(reason);
         }
+    }
+
+    private static bool IsGpuRequired()
+    {
+        string? require = Environment.GetEnvironmentVariable("BEUTL_REQUIRE_GPU");
+        return string.Equals(require, "1", StringComparison.Ordinal)
+               || string.Equals(require, "true", StringComparison.OrdinalIgnoreCase);
     }
 
     private static void EnsureInitialized()
