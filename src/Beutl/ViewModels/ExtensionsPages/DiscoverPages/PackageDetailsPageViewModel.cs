@@ -1,4 +1,4 @@
-using Beutl.Api;
+﻿using Beutl.Api;
 using Beutl.Api.Objects;
 using Beutl.Api.Services;
 using Beutl.Logging;

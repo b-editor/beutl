@@ -1,4 +1,4 @@
-using Avalonia.Collections;
+﻿using Avalonia.Collections;
 using Beutl.Api;
 using Beutl.Api.Objects;
 using Beutl.Api.Services;

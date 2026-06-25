@@ -1,4 +1,4 @@
-using Avalonia.Controls;
+﻿using Avalonia.Controls;
 using Beutl.Api;
 using Beutl.Api.Objects;
 using Beutl.Api.Services;
