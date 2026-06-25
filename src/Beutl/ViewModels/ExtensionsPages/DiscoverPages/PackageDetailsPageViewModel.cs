@@ -1,4 +1,4 @@
-﻿using Beutl.Api;
+using Beutl.Api;
 using Beutl.Api.Objects;
 using Beutl.Api.Services;
 using Beutl.Logging;
@@ -19,11 +19,11 @@ public sealed class PackageDetailsPageViewModel : BasePageViewModel, ISupportRef
     private readonly LibraryService _library;
     private readonly BeutlApiApplication _app;
 
-    public PackageDetailsPageViewModel(Package package, BeutlApiApplication app)
+    public PackageDetailsPageViewModel(Package package, BeutlApiApplication app, EditorService editorService, ProjectService projectService)
     {
         Package = package;
         _app = app;
-        _handler = new PackageOperationHandler(app);
+        _handler = new PackageOperationHandler(app, editorService, projectService);
         _library = app.GetResource<LibraryService>();
 
         DisplayName = package.DisplayName
@@ -215,7 +215,7 @@ public sealed class PackageDetailsPageViewModel : BasePageViewModel, ISupportRef
 
                 try
                 {
-                    if (!await PackageOperationHandler.EnsureProjectClosed())
+                    if (!await _handler.EnsureProjectClosed())
                         return;
 
                     StatusText.Value = ExtensionsStrings.Updating;
@@ -264,7 +264,7 @@ public sealed class PackageDetailsPageViewModel : BasePageViewModel, ISupportRef
             {
                 try
                 {
-                    if (!await PackageOperationHandler.EnsureProjectClosed())
+                    if (!await _handler.EnsureProjectClosed())
                         return;
 
                     StatusText.Value = ExtensionsStrings.Uninstalling;

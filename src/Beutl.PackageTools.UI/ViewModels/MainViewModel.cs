@@ -23,7 +23,9 @@ public class MainViewModel
 
     public MainViewModel()
     {
-        _app = new BeutlApiApplication(new HttpClient(), ExtensionProvider.Current);
+        // This standalone package-tools process owns its own extension provider; it never
+        // loads editor extensions, so a fresh instance is sufficient for the API resource graph.
+        _app = new BeutlApiApplication(new HttpClient(), new ExtensionProvider());
         _model = new ChangesModel();
 
         _beutlProcesses =

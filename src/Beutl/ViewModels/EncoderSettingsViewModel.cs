@@ -1,4 +1,5 @@
 ﻿using System.ComponentModel.DataAnnotations;
+using Beutl.Api.Services;
 using Beutl.Editor;
 using Beutl.Editor.Observers;
 using Beutl.Media.Encoding;
@@ -12,10 +13,12 @@ namespace Beutl.ViewModels;
 public sealed class EncoderSettingsViewModel : IPropertyEditorContextVisitor, IServiceProvider, IDisposable
 {
     private readonly HistoryManager _history;
+    private readonly ExtensionProvider _extensionProvider;
 
-    public EncoderSettingsViewModel(MediaEncoderSettings settings)
+    public EncoderSettingsViewModel(MediaEncoderSettings settings, ExtensionProvider extensionProvider)
     {
         Settings = settings;
+        _extensionProvider = extensionProvider;
         var sequenceGenerator = new OperationSequenceGenerator();
         _history = new HistoryManager(settings, sequenceGenerator);
         InitializeCoreObject(settings, (_, m) => m.Browsable);
@@ -60,7 +63,7 @@ public sealed class EncoderSettingsViewModel : IPropertyEditorContextVisitor, IS
 
         do
         {
-            (foundItems, extension) = PropertyEditorService.MatchProperty(props);
+            (foundItems, extension) = PropertyEditorService.MatchProperty(props, _extensionProvider);
             if (foundItems != null && extension != null)
             {
                 if (extension.TryCreateContext(foundItems, out IPropertyEditorContext? context))

@@ -16,10 +16,23 @@ public abstract class EditorExtension : ViewExtension
         CoreObject obj,
         [NotNullWhen(true)] out Control? editor);
 
-    // NOTE: ここからProjectItemを取得する場合、
-    //       ProjectItemContainerから取得すればいい
+    /// <summary>
+    /// Creates the editor context for <paramref name="obj"/>.
+    /// </summary>
+    /// <param name="obj">The object to open in the editor.</param>
+    /// <param name="services">
+    /// Host services the created context may need — e.g. <see cref="IEditorContextServices.ExtensionProvider"/>
+    /// for querying other extensions. Owned by the composition root and passed in explicitly instead
+    /// of relying on global singletons. An extension that needs nothing from the host may ignore it.
+    /// </param>
+    /// <param name="context">The created editor context, set when this returns <see langword="true"/>.</param>
+    /// <returns><see langword="true"/> if a context was created for <paramref name="obj"/>.</returns>
+    /// <remarks>
+    /// When a ProjectItem is needed here, obtain it from the ProjectItemContainer.
+    /// </remarks>
     public abstract bool TryCreateContext(
         CoreObject obj,
+        IEditorContextServices services,
         [NotNullWhen(true)] out IEditorContext? context);
 
     public virtual bool IsSupported(string? file)

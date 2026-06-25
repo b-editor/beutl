@@ -18,9 +18,6 @@
                   PrimaryButtonText="{x:Static lang:Strings.Back}"
                   SecondaryButtonText="{x:Static lang:Strings.Next}"
                   mc:Ignorable="d">
-    <ui:ContentDialog.DataContext>
-        <vm:CreateNewProjectViewModel />
-    </ui:ContentDialog.DataContext>
     <Carousel x:Name="carousel">
         <Carousel.Items>
             <StackPanel Spacing="8">

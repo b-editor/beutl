@@ -1,4 +1,5 @@
 ﻿using System.Text.Json.Nodes;
+using Beutl.Api.Services;
 using Beutl.Engine;
 using Beutl.PropertyAdapters;
 using Beutl.Services;
@@ -8,8 +9,11 @@ namespace Beutl.ViewModels.Editors;
 
 public sealed class PropertiesEditorViewModel : IDisposable, IJsonSerializable, IPropertiesEditorViewModel
 {
-    public PropertiesEditorViewModel(ICoreObject obj)
+    private readonly ExtensionProvider _extensionProvider;
+
+    public PropertiesEditorViewModel(ICoreObject obj, ExtensionProvider extensionProvider)
     {
+        _extensionProvider = extensionProvider;
         Target = obj;
         if (obj is EngineObject engineObject)
         {
@@ -21,20 +25,23 @@ public sealed class PropertiesEditorViewModel : IDisposable, IJsonSerializable, 
         }
     }
 
-    public PropertiesEditorViewModel(ICoreObject obj, Predicate<CorePropertyMetadata> predicate)
+    public PropertiesEditorViewModel(ICoreObject obj, ExtensionProvider extensionProvider, Predicate<CorePropertyMetadata> predicate)
     {
+        _extensionProvider = extensionProvider;
         Target = obj;
         InitializeCoreObject(obj, (_, v) => predicate(v));
     }
 
-    public PropertiesEditorViewModel(ICoreObject obj, Func<CoreProperty, CorePropertyMetadata, bool> predicate)
+    public PropertiesEditorViewModel(ICoreObject obj, ExtensionProvider extensionProvider, Func<CoreProperty, CorePropertyMetadata, bool> predicate)
     {
+        _extensionProvider = extensionProvider;
         Target = obj;
         InitializeCoreObject(obj, predicate);
     }
 
-    public PropertiesEditorViewModel(EngineObject obj, Func<IProperty, bool> predicate)
+    public PropertiesEditorViewModel(EngineObject obj, ExtensionProvider extensionProvider, Func<IProperty, bool> predicate)
     {
+        _extensionProvider = extensionProvider;
         Target = obj;
         InitializeEngineObject(obj, predicate);
     }
@@ -111,7 +118,7 @@ public sealed class PropertiesEditorViewModel : IDisposable, IJsonSerializable, 
 
         do
         {
-            (foundItems, extension) = PropertyEditorService.MatchProperty(props);
+            (foundItems, extension) = PropertyEditorService.MatchProperty(props, _extensionProvider);
             if (foundItems != null && extension != null)
             {
                 if (extension.TryCreateContext(foundItems, out IPropertyEditorContext? context))
@@ -143,7 +150,7 @@ public sealed class PropertiesEditorViewModel : IDisposable, IJsonSerializable, 
 
         do
         {
-            (foundItems, extension) = PropertyEditorService.MatchProperty(props);
+            (foundItems, extension) = PropertyEditorService.MatchProperty(props, _extensionProvider);
             if (foundItems != null && extension != null)
             {
                 if (extension.TryCreateContext(foundItems, out IPropertyEditorContext? context))

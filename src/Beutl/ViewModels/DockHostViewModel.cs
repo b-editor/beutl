@@ -123,7 +123,7 @@ public class DockHostViewModel : IDisposable, IJsonSerializable
 
         var fallback = Factory.GetAnchoredDock(DockAnchor.Left) ?? Factory.FindFirstToolDock();
 
-        var extensions = ExtensionProvider.Current.AllExtensions
+        var extensions = _editViewModel.ExtensionProvider.AllExtensions
             .OfType<ToolTabExtension>()
             .Where(e => e.OpenByDefault)
             .OrderBy(e => (int)e.DefaultAnchor)
@@ -545,7 +545,7 @@ public class DockHostViewModel : IDisposable, IJsonSerializable
         if (obj["extension"] is not JsonObject extObj || !extObj.TryGetDiscriminator(out Type? extType))
             return null;
 
-        var extension = ExtensionProvider.Current.AllExtensions
+        var extension = _editViewModel.ExtensionProvider.AllExtensions
             .FirstOrDefault(x => x.GetType() == extType) as ToolTabExtension;
         if (extension is null) return null;
 

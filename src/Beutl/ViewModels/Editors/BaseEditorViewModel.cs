@@ -34,6 +34,11 @@ public abstract class BaseEditorViewModel : IPropertyEditorContext, IServiceProv
     private EditViewModel? _editViewModel;
     private IEditorClock? _clock;
     private IServiceProvider? _parentServices;
+    // Carries the editor session's ExtensionProvider once Accept injects the EditViewModel.
+    // Editors that build child property-editor contexts gate on this (instead of the removed
+    // ExtensionProvider.Current singleton); it becomes available at the same point as the rest
+    // of the editor session (clock, element, ...), which Accept also wires up.
+    private readonly ReactivePropertySlim<Beutl.Api.Services.ExtensionProvider?> _extensionProvider = new();
 
     protected BaseEditorViewModel(IPropertyAdapter property)
     {
@@ -214,6 +219,7 @@ public abstract class BaseEditorViewModel : IPropertyEditorContext, IServiceProv
             _element = serviceProvider.GetService<Element>();
             _editViewModel = serviceProvider.GetService<EditViewModel>();
             _clock = serviceProvider.GetService<IEditorClock>();
+            _extensionProvider.Value = _editViewModel?.ExtensionProvider;
 
             if (_clock != null)
             {
@@ -292,6 +298,7 @@ public abstract class BaseEditorViewModel : IPropertyEditorContext, IServiceProv
     {
         Disposables.Dispose();
         _canPaste.Dispose();
+        _extensionProvider.Dispose();
         _currentFrameRevoker?.Dispose();
         _currentFrameRevoker = null;
         _editViewModel = null!;
@@ -440,6 +447,24 @@ public abstract class BaseEditorViewModel : IPropertyEditorContext, IServiceProv
             return PropertyAdapter;
 
         return _parentServices?.GetService(serviceType) ?? _editViewModel?.GetService(serviceType);
+    }
+
+    // Resolve the editor session's ExtensionProvider through the injected EditViewModel
+    // (populated in Accept). Used by editors that build child property-editor contexts after
+    // Accept has run (e.g. behind IsExpanded) so they can call PropertyEditorService.MatchProperty
+    // without the former global singleton.
+    protected Beutl.Api.Services.ExtensionProvider GetExtensionProvider()
+    {
+        return this.GetRequiredService<EditViewModel>().ExtensionProvider;
+    }
+
+    // Fires the editor session's ExtensionProvider once Accept has injected it. Editors whose
+    // child contexts are built eagerly (subscribed in their constructor, before Accept) combine
+    // their value stream with this so the child PropertiesEditorViewModel is only built once the
+    // provider is known.
+    protected IObservable<Beutl.Api.Services.ExtensionProvider> ObserveExtensionProvider()
+    {
+        return _extensionProvider.Where(x => x != null)!;
     }
 
     public void InvalidateFrameCache()

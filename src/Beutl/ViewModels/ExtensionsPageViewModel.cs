@@ -1,4 +1,5 @@
 ﻿using Beutl.Api;
+using Beutl.Services;
 using Beutl.Services.PrimitiveImpls;
 using Beutl.ViewModels.ExtensionsPages;
 using Reactive.Bindings;
@@ -12,7 +13,7 @@ public sealed class ExtensionsPageViewModel : IToolWindowContext
     private Lazy<DiscoverPageViewModel>? _discover;
     private Lazy<LibraryPageViewModel>? _library;
 
-    public ExtensionsPageViewModel(BeutlApiApplication clients)
+    public ExtensionsPageViewModel(BeutlApiApplication clients, EditorService editorService, ProjectService projectService)
     {
         IsAuthenticated = clients.AuthenticatedUser
             .Select(x => x != null)
@@ -22,10 +23,10 @@ public sealed class ExtensionsPageViewModel : IToolWindowContext
         clients.AuthenticatedUser.Subscribe(user =>
             {
                 _authDisposables.Clear();
-                _discover = new(() => new DiscoverPageViewModel(clients)
+                _discover = new(() => new DiscoverPageViewModel(clients, editorService, projectService)
                     .DisposeWith(_authDisposables));
 
-                _library = new(() => new LibraryPageViewModel(user, clients)
+                _library = new(() => new LibraryPageViewModel(user, clients, editorService, projectService)
                     .DisposeWith(_authDisposables));
             })
             .DisposeWith(_disposables);

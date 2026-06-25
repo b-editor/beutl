@@ -1,4 +1,5 @@
 ﻿using System.ComponentModel.DataAnnotations;
+using Beutl.Api.Services;
 using Beutl.Controls.Navigation;
 using Beutl.Editor;
 using Beutl.PropertyAdapters;
@@ -15,14 +16,14 @@ public sealed class AnExtensionSettingsPageViewModel : PageContext, IPropertyEdi
 {
     private readonly HistoryManager _history;
 
-    public AnExtensionSettingsPageViewModel(Extension extension)
+    public AnExtensionSettingsPageViewModel(Extension extension, ExtensionProvider extensionProvider)
     {
         Extension = extension;
 
         var sequenceGenerator = new OperationSequenceGenerator();
         _history = new HistoryManager(extension.Settings!, sequenceGenerator);
 
-        InitializeCoreObject(extension.Settings!, (_, m) => m.Browsable);
+        InitializeCoreObject(extension.Settings!, (_, m) => m.Browsable, extensionProvider);
 
         NavigateParent.Subscribe(async () =>
         {
@@ -51,7 +52,7 @@ public sealed class AnExtensionSettingsPageViewModel : PageContext, IPropertyEdi
     {
     }
 
-    private void InitializeCoreObject(ExtensionSettings obj, Func<CoreProperty, CorePropertyMetadata, bool>? predicate = null)
+    private void InitializeCoreObject(ExtensionSettings obj, Func<CoreProperty, CorePropertyMetadata, bool>? predicate, ExtensionProvider extensionProvider)
     {
         Type objType = obj.GetType();
         Type adapterType = typeof(CorePropertyAdapter<>);
@@ -71,7 +72,7 @@ public sealed class AnExtensionSettingsPageViewModel : PageContext, IPropertyEdi
 
         do
         {
-            (foundItems, extension) = PropertyEditorService.MatchProperty(props);
+            (foundItems, extension) = PropertyEditorService.MatchProperty(props, extensionProvider);
             if (foundItems != null && extension != null)
             {
                 if (extension.TryCreateContextForSettings(foundItems, out IPropertyEditorContext? context))

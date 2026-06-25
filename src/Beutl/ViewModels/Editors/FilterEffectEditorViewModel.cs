@@ -73,7 +73,7 @@ public sealed class FilterEffectEditorViewModel : ValueEditorViewModel<FilterEff
                         }
                         else if (v != null)
                         {
-                            Properties.Value = new PropertiesEditorViewModel(v);
+                            Properties.Value = new PropertiesEditorViewModel(v, GetExtensionProvider());
                         }
 
                         AcceptChild();

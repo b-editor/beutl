@@ -167,13 +167,13 @@ public sealed partial class MainView : UserControl
     private void InitExtMenuItems(MainViewModel viewModel)
     {
         // ToolTabExtensionをメニューに表示する
-        static MenuItem CreateToolTabMenuItem(ToolTabExtension item)
+        MenuItem CreateToolTabMenuItem(ToolTabExtension item)
         {
             var menuItem = new MenuItem() { Header = item.Header, DataContext = item };
 
             menuItem.Click += (s, e) =>
             {
-                if (EditorService.Current.SelectedTabItem.Value?.Context.Value is IEditorContext editorContext
+                if (viewModel.EditorService.SelectedTabItem.Value?.Context.Value is IEditorContext editorContext
                     && s is MenuItem { DataContext: ToolTabExtension ext }
                     && ext.TryCreateContext(editorContext, out IToolContext? toolContext))
                 {
@@ -199,7 +199,7 @@ public sealed partial class MainView : UserControl
         toolTabMenuItem.ItemsSource = list1;
 
         // EditorExtensionをメニューに表示する
-        static MenuItem CreateEditorMenuItem(EditorExtension item)
+        MenuItem CreateEditorMenuItem(EditorExtension item)
         {
             var menuItem = new MenuItem()
             {
@@ -211,7 +211,7 @@ public sealed partial class MainView : UserControl
 
             menuItem.Click += async (s, e) =>
             {
-                EditorTabItem? selectedTab = EditorService.Current.SelectedTabItem.Value;
+                EditorTabItem? selectedTab = viewModel.EditorService.SelectedTabItem.Value;
                 if (s is MenuItem { DataContext: EditorExtension editorExtension } menuItem
                     && selectedTab != null)
                 {
@@ -221,7 +221,10 @@ public sealed partial class MainView : UserControl
                         await commands.OnSave();
                     }
 
-                    if (editorExtension.TryCreateContext(selectedTab.Context.Value.Object, out IEditorContext? context))
+                    if (editorExtension.TryCreateContext(
+                            selectedTab.Context.Value.Object,
+                            new EditorContextServices(viewModel.EditorService, viewModel.ExtensionProvider),
+                            out IEditorContext? context))
                     {
                         selectedTab.Context.Value.Dispose();
                         selectedTab.Context.Value = context;
@@ -252,7 +255,7 @@ public sealed partial class MainView : UserControl
 
         viewMenuItem.SubmenuOpened += (s, e) =>
         {
-            EditorTabItem? selectedTab = EditorService.Current.SelectedTabItem.Value;
+            EditorTabItem? selectedTab = viewModel.EditorService.SelectedTabItem.Value;
             if (selectedTab != null)
             {
                 foreach (MenuItem item in list2.OfType<MenuItem>())

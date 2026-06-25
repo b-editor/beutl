@@ -27,7 +27,8 @@ public sealed class TextureSourceEditorViewModel : BaseEditorViewModel
             .DisposeWith(Disposables);
 
         ChildContext = Value.Select(v => v)
-            .Select(x => x != null ? new PropertiesEditorViewModel(x) : null)
+            .CombineLatest(ObserveExtensionProvider())
+            .Select(t => t.First != null ? new PropertiesEditorViewModel(t.First, t.Second) : null)
             .DisposePreviousValue()
             .Do(AcceptChildren)
             .ToReadOnlyReactivePropertySlim()

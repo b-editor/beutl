@@ -55,14 +55,14 @@ public class KeyMapSettingsPageViewModel : PageContext
 {
     private readonly ContextCommandManager _commandManager;
 
-    public KeyMapSettingsPageViewModel(ContextCommandManager commandManager)
+    public KeyMapSettingsPageViewModel(ContextCommandManager commandManager, ExtensionProvider extensionProvider)
     {
         _commandManager = commandManager;
         Group = _commandManager.GetDefinitions()
             .GroupBy(i => i.ExtensionType)
             .Select(i =>
                 new KeyMapSettingsGroup(
-                    ExtensionProvider.Current.AllExtensions.First(j => j.GetType() == i.Key),
+                    extensionProvider.AllExtensions.First(j => j.GetType() == i.Key),
                     i.Select(j => new KeyMapSettingsItem(j, _commandManager)).ToArray()))
             .ToArray();
     }

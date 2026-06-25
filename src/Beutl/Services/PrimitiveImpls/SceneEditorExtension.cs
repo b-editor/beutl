@@ -116,18 +116,19 @@ public sealed class SceneEditorExtension : EditorExtension
         }
     }
 
-    public override bool TryCreateContext(CoreObject obj, [NotNullWhen(true)] out IEditorContext? context)
+    public override bool TryCreateContext(
+        CoreObject obj, IEditorContextServices services, [NotNullWhen(true)] out IEditorContext? context)
     {
-        if (obj is Scene scene)
+        // TryCreate* must not throw: only build the context for the host-provided services we
+        // recognize, otherwise fail (return false) rather than pushing nulls into EditViewModel.
+        if (obj is Scene scene && services is EditorContextServices ctx)
         {
-            context = new EditViewModel(scene);
+            context = new EditViewModel(scene, ctx.ExtensionProvider, ctx.EditorService);
             return true;
         }
-        else
-        {
-            context = null;
-            return false;
-        }
+
+        context = null;
+        return false;
     }
 
     public override IconSource? GetIcon()

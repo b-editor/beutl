@@ -10,7 +10,7 @@ public sealed class RestoreLastProjectTask : StartupTask
 {
     private readonly ILogger<RestoreLastProjectTask> _logger = Log.CreateLogger<RestoreLastProjectTask>();
 
-    public RestoreLastProjectTask(Startup startup)
+    public RestoreLastProjectTask(Startup startup, ProjectService projectService)
     {
         Task = Task.Run(async () =>
         {
@@ -34,7 +34,7 @@ public sealed class RestoreLastProjectTask : StartupTask
                 return;
             }
 
-            if (ProjectService.Current.CurrentProject.Value is not null)
+            if (projectService.CurrentProject.Value is not null)
             {
                 return;
             }
@@ -44,7 +44,7 @@ public sealed class RestoreLastProjectTask : StartupTask
                 return;
             }
 
-            await Dispatcher.UIThread.InvokeAsync(() => ProjectService.Current.OpenProject(file));
+            await Dispatcher.UIThread.InvokeAsync(() => projectService.OpenProject(file));
         });
     }
 

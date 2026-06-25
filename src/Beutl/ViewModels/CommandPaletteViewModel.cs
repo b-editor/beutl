@@ -19,7 +19,7 @@ public sealed class CommandPaletteViewModel : BaseViewModel
     private readonly IDisposable _activeTabSubscription;
     private CompositeDisposable _stateChangeSubscriptions = [];
 
-    public CommandPaletteViewModel(CommandPaletteService service)
+    public CommandPaletteViewModel(CommandPaletteService service, EditorService editorService)
     {
         _service = service;
         FilteredCommands = new ReadOnlyObservableCollection<CommandPaletteItemViewModel>(_filteredCommands);
@@ -32,7 +32,7 @@ public sealed class CommandPaletteViewModel : BaseViewModel
 
         // パレット表示中にアクティブタブが切り替わったらスナップショットを取り直して
         // コマンド一覧と CanExecute 結果を最新の状態に追従させる。
-        _activeTabSubscription = EditorService.Current.SelectedTabItem
+        _activeTabSubscription = editorService.SelectedTabItem
             .Skip(1)
             .ObserveOnUIDispatcher()
             .Subscribe(_ =>

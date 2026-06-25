@@ -1,6 +1,7 @@
 ﻿using System.Collections.Specialized;
 using System.Text.Json.Nodes;
 using Beutl.Animation;
+using Beutl.Editor.Services;
 using Beutl.Services;
 using Microsoft.Extensions.DependencyInjection;
 using Reactive.Bindings;
@@ -91,13 +92,13 @@ public interface IListEditorViewModel
 
 public sealed class ListItemEditorViewModel<TItem> : IDisposable, IListItemEditorViewModel
 {
-    public ListItemEditorViewModel(ListEditorViewModel<TItem> parent, ListItemAccessorImpl<TItem?> itemAccessor)
+    public ListItemEditorViewModel(ListEditorViewModel<TItem> parent, ListItemAccessorImpl<TItem?> itemAccessor, IPropertyEditorFactory factory)
     {
         Parent = parent;
         ItemAccessor = itemAccessor;
 
         var tmp = new IPropertyAdapter[] { itemAccessor };
-        (_, PropertyEditorExtension? ext) = PropertyEditorService.MatchProperty(tmp);
+        (_, PropertyEditorExtension? ext) = factory.MatchProperty(tmp);
         if (ext?.TryCreateContextForListItem(itemAccessor, out IPropertyEditorContext? context) == true)
         {
             Context = context;
@@ -195,7 +196,7 @@ public sealed class ListEditorViewModel<TItem> : BaseEditorViewModel, IListEdito
         {
             var visitor = new Visitor(this);
             var itemAccessor = new ListItemAccessorImpl<TItem?>(index, obj, List.Value!);
-            var item = new ListItemEditorViewModel<TItem>(this, itemAccessor);
+            var item = new ListItemEditorViewModel<TItem>(this, itemAccessor, this.GetRequiredService<IPropertyEditorFactory>());
 
             item.Context?.Accept(visitor);
             Items.Insert(index, item);

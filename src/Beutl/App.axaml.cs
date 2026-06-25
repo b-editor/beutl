@@ -13,6 +13,7 @@ using Beutl.Graphics.Backend;
 using Beutl.NodeGraph.Nodes;
 using Beutl.Pages;
 using Beutl.Services;
+using Beutl.Services.PrimitiveImpls;
 using Beutl.Services.StartupTasks;
 using Beutl.Services.Tutorials;
 using Beutl.ViewModels;
@@ -33,6 +34,8 @@ public sealed class App : Application
 
     public override void Initialize()
     {
+        // The built-in tutorials receive their editor-session services when LoadPrimitiveExtensionTask
+        // (run by RunStartupTask) constructs DefaultTutorialExtension, so no tutorial wiring is needed here.
         _startUp = GetMainViewModel().RunStartupTask();
         _startUp.WaitAll().ContinueWith(_ => _startUp = null);
 

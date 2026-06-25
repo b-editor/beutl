@@ -50,13 +50,17 @@ public sealed partial class EditViewModel : IEditorContext, ISupportAutoSaveEdit
     private NodeGraphMutationService? _nodeGraphMutationService;
     private ElementObjectService? _elementObjectService;
     private IClipboardGateway? _clipboardGateway;
+    private Services.Adapters.PropertyEditorFactoryAdapter? _propertyEditorFactory;
+    private Services.Adapters.PropertiesEditorFactoryImpl? _propertiesEditorFactory;
     private volatile bool _viewStateSaveSuppressed;
 
-    public EditViewModel(Scene scene)
+    public EditViewModel(Scene scene, Beutl.Api.Services.ExtensionProvider extensionProvider, EditorService editorService)
     {
         _logger.LogInformation("Initializing EditViewModel for Scene ({SceneId}).", scene.Id);
 
         Scene = scene;
+        ExtensionProvider = extensionProvider;
+        EditorService = editorService;
         SceneId = scene.Id.ToString();
 
         _timelineOptionsProvider = new TimelineOptionsProviderImpl(scene)
@@ -333,6 +337,13 @@ public sealed partial class EditViewModel : IEditorContext, ISupportAutoSaveEdit
     public string SceneId { get; }
 
     public Scene Scene { get; private set; }
+
+    // Host services injected from the composition root via EditorExtension.TryCreateContext;
+    // exposed so editor-scoped view models (DockHost, output, property editors) can reach
+    // them without the former ExtensionProvider.Current / EditorService.Current singletons.
+    public Beutl.Api.Services.ExtensionProvider ExtensionProvider { get; }
+
+    public EditorService EditorService { get; }
 
     public ReadOnlyReactivePropertySlim<SceneRenderer> Renderer { get; }
 
@@ -771,10 +782,10 @@ public sealed partial class EditViewModel : IEditorContext, ISupportAutoSaveEdit
             return BufferStatus;
 
         if (serviceType.IsAssignableTo(typeof(IPropertyEditorFactory)))
-            return Services.Adapters.PropertyEditorFactoryAdapter.Instance;
+            return _propertyEditorFactory ??= new Services.Adapters.PropertyEditorFactoryAdapter(ExtensionProvider);
 
         if (serviceType.IsAssignableTo(typeof(IPropertiesEditorFactory)))
-            return Services.Adapters.PropertiesEditorFactoryImpl.Instance;
+            return _propertiesEditorFactory ??= new Services.Adapters.PropertiesEditorFactoryImpl(ExtensionProvider);
 
         return null;
     }

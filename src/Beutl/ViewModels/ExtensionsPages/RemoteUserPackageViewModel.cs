@@ -1,4 +1,4 @@
-﻿using Avalonia.Controls;
+using Avalonia.Controls;
 using Beutl.Api;
 using Beutl.Api.Objects;
 using Beutl.Api.Services;
@@ -22,11 +22,11 @@ public sealed class RemoteUserPackageViewModel : BaseViewModel, IUserPackageView
     private readonly LibraryService _library;
     private readonly DiscoverService _discover;
 
-    public RemoteUserPackageViewModel(Package package, BeutlApiApplication app)
+    public RemoteUserPackageViewModel(Package package, BeutlApiApplication app, EditorService editorService, ProjectService projectService)
     {
         Package = package;
         _app = app;
-        _handler = new PackageOperationHandler(app);
+        _handler = new PackageOperationHandler(app, editorService, projectService);
         _library = app.GetResource<LibraryService>();
         _discover = app.GetResource<DiscoverService>();
 
@@ -114,7 +114,7 @@ public sealed class RemoteUserPackageViewModel : BaseViewModel, IUserPackageView
                 try
                 {
                     IsBusy.Value = true;
-                    if (!await PackageOperationHandler.EnsureProjectClosed())
+                    if (!await _handler.EnsureProjectClosed())
                         return;
 
                     StatusText.Value = ExtensionsStrings.Updating;
@@ -172,7 +172,7 @@ public sealed class RemoteUserPackageViewModel : BaseViewModel, IUserPackageView
                 try
                 {
                     IsBusy.Value = true;
-                    if (!await PackageOperationHandler.EnsureProjectClosed())
+                    if (!await _handler.EnsureProjectClosed())
                         return;
 
                     StatusText.Value = ExtensionsStrings.Uninstalling;

@@ -149,13 +149,13 @@ public sealed partial class MacWindow : Window
         if (viewMenuItem == null || editorTabMenu == null || toolTabMenu == null || toolWindowMenu == null) return;
 
         // ToolTabExtensionをメニューに表示する
-        static NativeMenuItem CreateToolTabMenuItem(ToolTabExtension item)
+        NativeMenuItem CreateToolTabMenuItem(ToolTabExtension item)
         {
             var menuItem = new NativeMenuItem() { Header = item.Header, CommandParameter = item };
 
             menuItem.Click += (s, e) =>
             {
-                if (EditorService.Current.SelectedTabItem.Value?.Context.Value is IEditorContext editorContext
+                if (viewModel.EditorService.SelectedTabItem.Value?.Context.Value is IEditorContext editorContext
                     && s is NativeMenuItem { CommandParameter: ToolTabExtension ext }
                     && ext.TryCreateContext(editorContext, out IToolContext? toolContext))
                 {
@@ -183,7 +183,7 @@ public sealed partial class MacWindow : Window
             toolTabMenu.Items.Clear);
 
         // EditorExtensionをメニューに表示する
-        static NativeMenuItem CreateEditorMenuItem(EditorExtension item)
+        NativeMenuItem CreateEditorMenuItem(EditorExtension item)
         {
             var menuItem = new NativeMenuItem()
             {
@@ -196,7 +196,7 @@ public sealed partial class MacWindow : Window
 
             menuItem.Click += async (s, e) =>
             {
-                EditorTabItem? selectedTab = EditorService.Current.SelectedTabItem.Value;
+                EditorTabItem? selectedTab = viewModel.EditorService.SelectedTabItem.Value;
                 if (s is NativeMenuItem { CommandParameter: EditorExtension editorExtension } menuItem
                     && selectedTab != null)
                 {
@@ -206,7 +206,10 @@ public sealed partial class MacWindow : Window
                         await commands.OnSave();
                     }
 
-                    if (editorExtension.TryCreateContext(selectedTab.Context.Value.Object, out IEditorContext? context))
+                    if (editorExtension.TryCreateContext(
+                            selectedTab.Context.Value.Object,
+                            new EditorContextServices(viewModel.EditorService, viewModel.ExtensionProvider),
+                            out IEditorContext? context))
                     {
                         selectedTab.Context.Value.Dispose();
                         selectedTab.Context.Value = context;
@@ -239,7 +242,7 @@ public sealed partial class MacWindow : Window
 
         viewMenuItem.Menu!.Opening += (s, e) =>
         {
-            EditorTabItem? selectedTab = EditorService.Current.SelectedTabItem.Value;
+            EditorTabItem? selectedTab = viewModel.EditorService.SelectedTabItem.Value;
             if (selectedTab != null)
             {
                 foreach (NativeMenuItem item in list2.OfType<NativeMenuItem>())

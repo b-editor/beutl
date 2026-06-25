@@ -15,8 +15,13 @@ public sealed class GraphModelEditorViewModel : ValueEditorViewModel<GraphModel?
     public GraphModelEditorViewModel(IPropertyAdapter<GraphModel?> property)
         : base(property)
     {
-        Value.Subscribe(v =>
+        // Gate on the editor session's ExtensionProvider (supplied by Accept) so node-member
+        // view models — which resolve IPropertyEditorFactory through the injected EditViewModel —
+        // are not constructed before Accept has wired it up.
+        Value.CombineLatest(ObserveExtensionProvider())
+            .Subscribe(t =>
             {
+                GraphModel? v = t.First;
                 DisposeNodeMembers();
                 _graphModelDisposables.Clear();
 

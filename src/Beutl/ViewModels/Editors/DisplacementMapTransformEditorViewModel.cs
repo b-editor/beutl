@@ -91,7 +91,7 @@ public sealed class DisplacementMapTransformEditorViewModel : ValueEditorViewMod
 
                         if (v is not null)
                         {
-                            Properties.Value = new PropertiesEditorViewModel(v);
+                            Properties.Value = new PropertiesEditorViewModel(v, GetExtensionProvider());
                         }
 
                         AcceptChild();

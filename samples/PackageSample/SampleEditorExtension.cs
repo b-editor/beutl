@@ -115,7 +115,7 @@ public sealed class SampleEditorExtension : EditorExtension
         return ext is ".txt" or ".scene";
     }
 
-    public override bool TryCreateContext(CoreObject obj, [NotNullWhen(true)] out IEditorContext? context)
+    public override bool TryCreateContext(CoreObject obj, IEditorContextServices services, [NotNullWhen(true)] out IEditorContext? context)
     {
         context = null;
         if (obj is Scene)

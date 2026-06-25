@@ -1,4 +1,4 @@
-﻿using Avalonia.Collections;
+using Avalonia.Collections;
 using Beutl.Api;
 using Beutl.Api.Objects;
 using Beutl.Api.Services;
@@ -18,12 +18,16 @@ public sealed class LibraryPageViewModel : BasePageViewModel, ISupportRefreshVie
     private readonly BeutlApiApplication _clients;
     private readonly CompositeDisposable _disposables = [];
     private readonly LibraryService _service;
+    private readonly EditorService _editorService;
+    private readonly ProjectService _projectService;
 
-    public LibraryPageViewModel(AuthenticatedUser? user, BeutlApiApplication clients)
+    public LibraryPageViewModel(AuthenticatedUser? user, BeutlApiApplication clients, EditorService editorService, ProjectService projectService)
     {
         _user = user;
         _clients = clients;
         _service = new LibraryService(clients);
+        _editorService = editorService;
+        _projectService = projectService;
 
         Refresh = new AsyncReactiveCommand(IsBusy.Not())
             .WithSubscribe(async () =>
@@ -103,7 +107,7 @@ public sealed class LibraryPageViewModel : BasePageViewModel, ISupportRefreshVie
 
                             if (remotePackage != null)
                                 Packages.Remove(remotePackage);
-                            remotePackage ??= new RemoteUserPackageViewModel(item.Package, _clients)
+                            remotePackage ??= new RemoteUserPackageViewModel(item.Package, _clients, _editorService, _projectService)
                             {
                                 OnRemoveFromLibrary = OnPackageRemoveFromLibrary
                             };
@@ -191,7 +195,7 @@ public sealed class LibraryPageViewModel : BasePageViewModel, ISupportRefreshVie
 
         foreach (KeyValuePair<string, LocalPackage> item in dict)
         {
-            LocalPackages.Add(new LocalUserPackageViewModel(item.Value, _clients));
+            LocalPackages.Add(new LocalUserPackageViewModel(item.Value, _clients, _editorService, _projectService));
         }
     }
 
@@ -216,13 +220,13 @@ public sealed class LibraryPageViewModel : BasePageViewModel, ISupportRefreshVie
                 {
                     var item = installed.FirstOrDefault(i => i.Name == name);
                     if (item != null)
-                        Packages.Add(new LocalUserPackageViewModel(item, _clients));
+                        Packages.Add(new LocalUserPackageViewModel(item, _clients, _editorService, _projectService));
                 }
             }
 
             if (remote != null)
             {
-                Packages.Add(new RemoteUserPackageViewModel(remote, _clients)
+                Packages.Add(new RemoteUserPackageViewModel(remote, _clients, _editorService, _projectService)
                 {
                     OnRemoveFromLibrary = OnPackageRemoveFromLibrary
                 });

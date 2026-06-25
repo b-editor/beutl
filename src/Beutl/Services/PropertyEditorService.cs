@@ -28,9 +28,10 @@ public static class PropertyEditorService
         return (IPropertyAdapter<T>)pi;
     }
 
-    public static (IPropertyAdapter[]? Properties, PropertyEditorExtension? Extension) MatchProperty(IReadOnlyList<IPropertyAdapter> properties)
+    public static (IPropertyAdapter[]? Properties, PropertyEditorExtension? Extension) MatchProperty(
+        IReadOnlyList<IPropertyAdapter> properties, ExtensionProvider extensionProvider)
     {
-        PropertyEditorExtension[] items = ExtensionProvider.Current.GetExtensions<PropertyEditorExtension>();
+        PropertyEditorExtension[] items = extensionProvider.GetExtensions<PropertyEditorExtension>();
         for (int i = items.Length - 1; i >= 0; i--)
         {
             PropertyEditorExtension item = items[i];
