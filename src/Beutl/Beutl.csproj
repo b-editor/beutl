@@ -108,12 +108,14 @@
        shared assemblies from its own deps.json inside that subdir, so its dependency closure
        never overwrites the app's. Nuke publishes lay the worker out separately (flat, copying
        only Beutl.FFmpegWorker* so the app's shared assemblies stay the single canonical set).
-       NOTE: CopyFFmpegWorkerForApp runs AfterTargets="Build" only, so this dev path populates
-       the worker for plain builds (e.g. dotnet run / IDE F5). It does NOT run on Publish, so a
-       bare `dotnet publish src/Beutl/Beutl.csproj` (NukePublish!=true) deliberately omits the
-       worker. Publishing a runnable app must go through Nuke (NukePublish=true), which lays out
-       the worker as above; non-Nuke publish is a build-graph convenience, not a supported
-       distribution path. -->
+       NOTE: CopyFFmpegWorkerForApp runs AfterTargets="Build" and copies the worker into the build
+       output ($(OutDir), i.e. bin), not the publish output. So this dev path populates the worker
+       for plain builds (e.g. dotnet run / IDE F5); and although the target still runs during the
+       build step of `dotnet publish` (unless --no-build), its files land in bin rather than under
+       $(PublishDir), so a bare `dotnet publish src/Beutl/Beutl.csproj` (NukePublish!=true)
+       deliberately leaves the worker out of the published output. Publishing a runnable app must
+       go through Nuke (NukePublish=true), which lays out the worker as above; non-Nuke publish is
+       a build-graph convenience, not a supported distribution path. -->
   <ItemGroup Condition="'$(NukePublish)'!='True'">
     <ProjectReference Include="..\Beutl.FFmpegWorker\Beutl.FFmpegWorker.csproj"
                       ReferenceOutputAssembly="false" />
