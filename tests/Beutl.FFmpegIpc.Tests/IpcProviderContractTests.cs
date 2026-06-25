@@ -362,6 +362,12 @@ public class IpcProviderContractTests
             Assert.That(async () => await provider.RenderFrame(0),
                 Throws.TypeOf<ArgumentOutOfRangeException>(),
                 "a frame larger than the shared buffer must surface the Read capacity overflow as a throw");
+
+            // The native Bitmap dispose on the throw path can't be observed in-process, but a leak-free
+            // failure must at least leave no committed state: the failed render must not count as a
+            // completed frame (FramesRendered++ runs only after BuildBitmap succeeds).
+            Assert.That(provider.FramesRendered, Is.EqualTo(0),
+                "a render that throws from Read must not count as a completed frame");
         }
         finally
         {
@@ -697,11 +703,13 @@ public class IpcProviderContractTests
     }
 
     [Test]
-    public async Task Sample_WhenRequestStraddlesAlignedEof_ClampsWithoutThrowing()
+    public async Task Sample_WhenRequestStraddlesEof_ReturnsRequestedLengthWithSilenceTail()
     {
-        // SampleCount aligns to a chunk boundary (8 == 2 * sampleRate 4). A request straddling EOF
-        // (offset 4, length 4 -> end 8 == SampleCount, but the next-chunk path used to load an empty chunk
-        // and slice a 0-length span -> ArgumentOutOfRangeException). The fix clamps to the real timeline.
+        // SampleCount aligns to a chunk boundary (8 == 2 * sampleRate 4). A request straddling EOF used to
+        // load an empty next chunk and slice a 0-length span -> ArgumentOutOfRangeException. Per the
+        // ISampleProvider convention (SampleProviderImpl), the fix must return a Pcm of the REQUESTED length
+        // with the real samples up front and the past-EOF tail zero-filled (silence) — not a shortened Pcm,
+        // which would leave stale samples in the encoder's fixed-size final frame.
         const long sampleRate = 4;
         var (server, client) = ConnectPair();
         var buffers = CreateBuffers();
@@ -713,14 +721,25 @@ public class IpcProviderContractTests
 
         try
         {
-            // Over-request past EOF: offset 6, length 4 -> would end at 10 > SampleCount 8. Clamp to 2.
+            // offset 4 (chunk-aligned), length 6 -> only 4 samples remain (4..8); the last 2 must be silent.
             Pcm<Stereo32BitFloat> result = null!;
-            Assert.That(async () => result = await provider.Sample(6, 4), Throws.Nothing,
-                "a request running past an aligned EOF must clamp, not throw ArgumentOutOfRangeException");
+            Assert.That(async () => result = await provider.Sample(4, 6), Throws.Nothing,
+                "a request straddling EOF must zero-pad, not throw ArgumentOutOfRangeException");
 
             using (result)
-                Assert.That(result.NumSamples, Is.EqualTo(2),
-                    "the clamped Pcm returns only the real samples remaining (SampleCount - offset)");
+            {
+                Assert.That(result.NumSamples, Is.EqualTo(6),
+                    "Sample must return the requested length (zero-padded), not a clamped Pcm");
+                Assert.That(ReadSampleSignature(result), Is.EqualTo(4),
+                    "the real prefix is preserved (chunk-4 signature lands at sample 0)");
+
+                // The 2 samples past SampleCount (indices 4,5) must be zero-filled silence, not stale data.
+                byte[] all = new byte[result.NumSamples * Stereo32BitFloatBytesPerSample];
+                Marshal.Copy(result.Data, all, 0, all.Length);
+                byte[] tail = all[(4 * Stereo32BitFloatBytesPerSample)..];
+                Assert.That(tail, Has.All.EqualTo((byte)0),
+                    "samples past the timeline end must be silence, not stale frame data");
+            }
         }
         finally
         {

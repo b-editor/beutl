@@ -41,18 +41,31 @@ internal sealed class IpcSampleProvider : ISampleProvider
 
     public async ValueTask<Pcm<Stereo32BitFloat>> Sample(long offset, long length)
     {
-        // Clamp the request to the real timeline so we never read past SampleCount. The encoder issues the
-        // final Sample with frame.NbSamples, which can straddle EOF (FFmpegEncodingController.GetAudioFrame);
-        // an unclamped length would either slice a zero-length next chunk when SampleCount aligns to a chunk
-        // boundary (ArgumentOutOfRangeException) or copy out-of-range data when it doesn't. The consumer
-        // tolerates a short final Pcm — it copies only NumSamples * SampleSize bytes and advances by the
-        // requested NbSamples regardless — so clamping (rather than zero-padding) keeps the encoder correct.
-        long effectiveLength = offset >= SampleCount ? 0 : Math.Min(length, SampleCount - offset);
-        if (effectiveLength <= 0)
-            return new Pcm<Stereo32BitFloat>((int)SampleRate, 0);
+        // Honor the ISampleProvider convention (see Beutl.Models.SampleProviderImpl.Sample): always return a
+        // Pcm of the requested length, zero-filling any samples past the timeline end. The encoder issues the
+        // final Sample with frame.NbSamples, which can straddle EOF; FFmpegEncodingController.GetAudioFrame
+        // copies pcm.NumSamples into a fixed-size frame but still encodes frame.NbSamples, so a short Pcm
+        // would leave stale tail samples in the final frame. Reading past SampleCount would also slice
+        // out-of-range chunk data (ArgumentOutOfRangeException), so we fill only the available prefix and
+        // leave the rest silent.
+        long availableLength = offset >= SampleCount ? 0 : Math.Min(length, SampleCount - offset);
+        if (availableLength <= 0)
+            return new Pcm<Stereo32BitFloat>((int)SampleRate, (int)length);
 
-        length = effectiveLength;
+        if (availableLength == length)
+            return await SampleExact(offset, length);
 
+        // Final frame straddles EOF: fill the available prefix and leave the silent tail zero-filled.
+        using var filled = await SampleExact(offset, availableLength);
+        var padded = new Pcm<Stereo32BitFloat>((int)SampleRate, (int)length);
+        filled.DataSpan.CopyTo(padded.DataSpan);
+        return padded;
+    }
+
+    // Fills exactly `length` samples starting at `offset`. The caller guarantees the whole range is within
+    // the timeline (offset + length <= SampleCount), so the chunk loader never slices past EOF.
+    private async ValueTask<Pcm<Stereo32BitFloat>> SampleExact(long offset, long length)
+    {
         // キャッシュヒット: 要求範囲がキャッシュ内に完全に収まる
         if (_currentChunk != null
             && offset >= _currentChunkOffset
