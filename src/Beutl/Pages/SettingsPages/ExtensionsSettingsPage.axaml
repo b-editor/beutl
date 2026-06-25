@@ -14,9 +14,6 @@
              d:DesignWidth="800"
              x:DataType="vm:ExtensionsSettingsPageViewModel"
              mc:Ignorable="d">
-    <UserControl.DataContext>
-        <vm:ExtensionsSettingsPageViewModel />
-    </UserControl.DataContext>
     <Grid Margin="18" RowDefinitions="Auto,*">
 
         <TextBlock Margin="10,8"

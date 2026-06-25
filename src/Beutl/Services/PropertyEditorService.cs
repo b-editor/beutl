@@ -7,6 +7,7 @@ using Avalonia.Styling;
 using Beutl.Api.Services;
 using Beutl.Audio.Effects;
 using Beutl.Controls.PropertyEditors;
+using Beutl.Extensibility;
 using Beutl.Graphics;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Transformation;
@@ -28,9 +29,12 @@ public static class PropertyEditorService
         return (IPropertyAdapter<T>)pi;
     }
 
-    public static (IPropertyAdapter[]? Properties, PropertyEditorExtension? Extension) MatchProperty(IReadOnlyList<IPropertyAdapter> properties)
+    public static (IPropertyAdapter[]? Properties, PropertyEditorExtension? Extension) MatchProperty(
+        IReadOnlyList<IPropertyAdapter> properties, IExtensionProvider extensionProvider)
     {
-        PropertyEditorExtension[] items = ExtensionProvider.Current.GetExtensions<PropertyEditorExtension>();
+        ArgumentNullException.ThrowIfNull(extensionProvider);
+
+        PropertyEditorExtension[] items = extensionProvider.GetExtensions<PropertyEditorExtension>();
         for (int i = items.Length - 1; i >= 0; i--)
         {
             PropertyEditorExtension item = items[i];

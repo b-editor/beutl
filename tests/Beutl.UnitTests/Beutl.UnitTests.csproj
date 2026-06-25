@@ -38,6 +38,7 @@
     <ProjectReference Include="..\..\src\Beutl.Editor.Components\Beutl.Editor.Components.csproj" />
     <ProjectReference Include="..\..\src\Beutl.Extensions.FFmpeg\Beutl.Extensions.FFmpeg.csproj" />
     <ProjectReference Include="..\..\src\Beutl.Configuration\Beutl.Configuration.csproj" />
+    <ProjectReference Include="..\..\src\Beutl.Api\Beutl.Api.csproj" />
     <ProjectReference Include="..\..\src\Beutl.Engine.SourceGenerators\Beutl.Engine.SourceGenerators.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
   </ItemGroup>
 

@@ -20,7 +20,7 @@ public partial class OutputView : UserControl
         {
             var options = new FilePickerSaveOptions()
             {
-                FileTypeChoices = OutputViewModel.GetFilePickerFileTypes()
+                FileTypeChoices = viewModel.GetFilePickerFileTypes()
             };
             IStorageFile? file = await topLevel.StorageProvider.SaveFilePickerAsync(options);
 

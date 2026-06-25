@@ -12,11 +12,14 @@ namespace Beutl.ViewModels.SettingsPages;
 public sealed class ExtensionsSettingsPageViewModel : PageContext, IDisposable
 {
     private readonly CompositeDisposable _disposables = [];
+    private readonly ExtensionProvider _extensionProvider;
     private EditorExtensionPriorityPageViewModel? _editorPriority;
     private DecoderPriorityPageViewModel? _decoderPriority;
 
-    public ExtensionsSettingsPageViewModel()
+    public ExtensionsSettingsPageViewModel(ExtensionProvider extensionProvider)
     {
+        _extensionProvider = extensionProvider;
+
         NavigateToEditorPriority = new AsyncReactiveCommand()
             .WithSubscribe(async () =>
             {
@@ -43,11 +46,11 @@ public sealed class ExtensionsSettingsPageViewModel : PageContext, IDisposable
                 INavigationProvider nav = await GetNavigation();
                 await nav.NavigateAsync(
                     x => x?.Extension == e,
-                    () => new AnExtensionSettingsPageViewModel(e));
+                    () => new AnExtensionSettingsPageViewModel(e, extensionProvider));
             })
             .DisposeWith(_disposables);
 
-        ICoreReadOnlyList<Extension> allExtension = ExtensionProvider.Current.AllExtensions;
+        ICoreReadOnlyList<Extension> allExtension = extensionProvider.AllExtensions;
         var comparer = SortExpressionComparer<Extension>.Ascending(i => i.Name);
         allExtension.ToObservableChangeSet<ICoreReadOnlyList<Extension>, Extension>()
             .Filter(v => v.Settings != null)
@@ -59,7 +62,7 @@ public sealed class ExtensionsSettingsPageViewModel : PageContext, IDisposable
         Extensions = extensions;
     }
 
-    public EditorExtensionPriorityPageViewModel EditorPriority => _editorPriority ??= new();
+    public EditorExtensionPriorityPageViewModel EditorPriority => _editorPriority ??= new(_extensionProvider);
 
     public DecoderPriorityPageViewModel DecoderPriority => _decoderPriority ??= new();
 

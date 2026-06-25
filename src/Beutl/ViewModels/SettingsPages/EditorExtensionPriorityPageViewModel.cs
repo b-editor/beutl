@@ -18,9 +18,9 @@ public sealed class EditorExtensionPriorityPageViewModel : BasePageViewModel
 
     public sealed record EditorExtensionWrapper(string DisplayName, string Name, string TypeName);
 
-    public EditorExtensionPriorityPageViewModel()
+    public EditorExtensionPriorityPageViewModel(ExtensionProvider extensionProvider)
     {
-        ICoreReadOnlyList<Extension> allExtension = ExtensionProvider.Current.AllExtensions;
+        ICoreReadOnlyList<Extension> allExtension = extensionProvider.AllExtensions;
 
         var comparer = SortExpressionComparer<Extension>.Ascending(i => i.Name);
         allExtension.ToObservableChangeSet<ICoreReadOnlyList<Extension>, Extension>()
@@ -52,7 +52,7 @@ public sealed class EditorExtensionPriorityPageViewModel : BasePageViewModel
                             if (type.Type != null)
                             {
                                 Extension? ext =
-                                    ExtensionProvider.Current.AllExtensions.FirstOrDefault(item =>
+                                    extensionProvider.AllExtensions.FirstOrDefault(item =>
                                         item.GetType() == type.Type);
                                 displayName = ext?.DisplayName;
                                 name = ext?.Name;

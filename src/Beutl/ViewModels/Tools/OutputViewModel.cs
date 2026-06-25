@@ -70,7 +70,7 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
 
                 s.SourceSize = Model.FrameSize;
                 s.DestinationSize = Model.FrameSize;
-                return new EncoderSettingsViewModel(s);
+                return new EncoderSettingsViewModel(s, _editViewModel.ExtensionProvider);
             })
             .DisposePreviousValue()
             .ToReadOnlyReactivePropertySlim()
@@ -78,7 +78,7 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
 
         AudioSettings = Controller.Select(c => c?.AudioSettings)
             .DistinctUntilChanged()
-            .Select(s => s == null ? null : new EncoderSettingsViewModel(s))
+            .Select(s => s == null ? null : new EncoderSettingsViewModel(s, _editViewModel.ExtensionProvider))
             .DisposePreviousValue()
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposable);
@@ -103,7 +103,7 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposable);
 
-        ExtensionProvider.Current
+        _editViewModel.ExtensionProvider
             .GetExtensions<ControllableEncodingExtension>()
             .AsObservableChangeSet()
             .Filter(DestinationFile.Select<string?, Func<ControllableEncodingExtension, bool>>(f => f == null
@@ -189,7 +189,7 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
 
     public event EventHandler? Finished;
 
-    public static FilePickerFileType[] GetFilePickerFileTypes()
+    public FilePickerFileType[] GetFilePickerFileTypes()
     {
         static string[] ToPatterns(ControllableEncodingExtension encoder)
         {
@@ -215,7 +215,7 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
                 .ToArray();
         }
 
-        return ExtensionProvider.Current
+        return _editViewModel.ExtensionProvider
             .GetExtensions<ControllableEncodingExtension>()
             .Select(x => new FilePickerFileType(x.Name) { Patterns = ToPatterns(x) })
             .ToArray();
@@ -537,9 +537,9 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
         }
     }
 
-    private static void ClearEditViewModelCaches()
+    private void ClearEditViewModelCaches()
     {
-        foreach (EditorTabItem item in EditorService.Current.TabItems)
+        foreach (EditorTabItem item in _editViewModel.EditorService.TabItems)
         {
             if (item.Context.Value is EditViewModel editViewModel)
             {
@@ -674,7 +674,7 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
             && encoderNode is JsonValue encoderValue
             && encoderValue.TryGetValue(out string? encoderStr)
             && TypeFormat.ToType(encoderStr) is { } encoderType
-            && ExtensionProvider.Current.GetExtensions<ControllableEncodingExtension>()
+            && _editViewModel.ExtensionProvider.GetExtensions<ControllableEncodingExtension>()
                 .FirstOrDefault(x => x.GetType() == encoderType) is { } encoder)
         {
             SelectedEncoder.Value = encoder;

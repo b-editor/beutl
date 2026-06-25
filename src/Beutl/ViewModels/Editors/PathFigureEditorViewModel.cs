@@ -33,7 +33,7 @@ public sealed class PathFigureEditorViewModel : ValueEditorViewModel<PathFigure>
                             var prop = new EnginePropertyAdapter<ICoreList<PathSegment>>(group.Segments, group);
                             Group.Value = new ListEditorViewModel<PathSegment>(prop) { IsExpanded = { Value = true } };
 
-                            Properties.Value = new PropertiesEditorViewModel(group,
+                            Properties.Value = new PropertiesEditorViewModel(group, GetExtensionProvider(),
                                 p => p == group.StartPoint
                                      || p == group.IsClosed);
                         }

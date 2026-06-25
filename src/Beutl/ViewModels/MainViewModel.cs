@@ -18,30 +18,42 @@ public sealed class MainViewModel : BasePageViewModel, IContextCommandHandler
 {
     internal readonly BeutlApiApplication _beutlClients;
     private readonly HttpClient _authHttpClient;
+    private readonly ProjectService _projectService;
+    private readonly EditorService _editorService;
+    private readonly ExtensionProvider _extensionProvider;
 
     public MainViewModel()
     {
         _authHttpClient = new HttpClient();
-        _beutlClients = new BeutlApiApplication(_authHttpClient);
+        // Composition root: own the editor-session services here and thread the instances
+        // down to child view models and services.
+        _extensionProvider = new ExtensionProvider();
+        _projectService = new ProjectService();
+        _editorService = new EditorService(_extensionProvider);
+        _beutlClients = new BeutlApiApplication(_authHttpClient, _extensionProvider);
         ContextCommandManager = _beutlClients.GetResource<ContextCommandManager>();
 
-        MenuBar = new MenuBarViewModel();
+        MenuBar = new MenuBarViewModel(_projectService, _editorService);
 
-        IsProjectOpened = ProjectService.Current.IsOpened;
-        NameOfOpenProject = ProjectService.Current.CurrentProject.Select(v =>
+        IsProjectOpened = _projectService.IsOpened;
+        NameOfOpenProject = _projectService.CurrentProject.Select(v =>
                 v is { Uri.LocalPath: { } path } ? Path.GetFileName(path) : null)
             .ToReadOnlyReactivePropertySlim();
         WindowTitle = NameOfOpenProject.Select(v => string.IsNullOrWhiteSpace(v) ? "Beutl" : $"Beutl - {v}")
             .ToReadOnlyReactivePropertySlim("Beutl");
-        TitleBreadcrumbBar = new TitleBreadcrumbBarViewModel(this, EditorService.Current);
+        TitleBreadcrumbBar = new TitleBreadcrumbBarViewModel(this, _editorService);
+
+        EditorHost = new EditorHostViewModel(_projectService, _editorService);
 
         var paletteService = new CommandPaletteService(
             ContextCommandManager,
-            new CommandPaletteHandlerProvider(() => this),
-            () => MenuBar);
-        CommandPalette = new CommandPaletteViewModel(paletteService);
+            new CommandPaletteHandlerProvider(() => this, _editorService),
+            () => MenuBar,
+            _editorService,
+            _extensionProvider);
+        CommandPalette = new CommandPaletteViewModel(paletteService, _editorService);
 
-        ICoreReadOnlyList<Extension> allExtension = ExtensionProvider.Current.AllExtensions;
+        ICoreReadOnlyList<Extension> allExtension = _extensionProvider.AllExtensions;
 
         var comparer = SortExpressionComparer<Extension>.Ascending(i => i.Name);
         IObservable<IChangeSet<Extension>> changeSet = allExtension
@@ -80,7 +92,15 @@ public sealed class MainViewModel : BasePageViewModel, IContextCommandHandler
 
     public TitleBreadcrumbBarViewModel TitleBreadcrumbBar { get; }
 
-    public EditorHostViewModel EditorHost { get; } = new();
+    public EditorHostViewModel EditorHost { get; }
+
+    // Exposed so views bound to this composition root (MainView, MacWindow) can read the
+    // injected singletons via their DataContext.
+    internal ProjectService ProjectService => _projectService;
+
+    internal EditorService EditorService => _editorService;
+
+    internal ExtensionProvider ExtensionProvider => _extensionProvider;
 
     public IReadOnlyReactiveProperty<bool> IsProjectOpened { get; }
 
@@ -96,13 +116,13 @@ public sealed class MainViewModel : BasePageViewModel, IContextCommandHandler
 
     public SettingsDialogViewModel CreateSettingsDialog()
     {
-        return new SettingsDialogViewModel(_beutlClients);
+        return new SettingsDialogViewModel(_beutlClients, _extensionProvider);
     }
 
     public Startup RunStartupTask()
     {
         IsRunningStartupTasks.Value = true;
-        var startup = new Startup(_beutlClients);
+        var startup = new Startup(_beutlClients, _projectService, _editorService);
         startup.WaitAll().ContinueWith(_ => IsRunningStartupTasks.Value = false);
 
         return startup;
@@ -119,7 +139,7 @@ public sealed class MainViewModel : BasePageViewModel, IContextCommandHandler
     public override void Dispose()
     {
         CommandPalette.Dispose();
-        ProjectService.Current.CloseProject();
+        _projectService.CloseProject();
         BeutlApplication.Current.Items.Clear();
     }
 

@@ -7,10 +7,14 @@ public sealed class Startup
 {
     private readonly Dictionary<Type, Lazy<StartupTask>> _tasks = [];
     private readonly BeutlApiApplication _apiApp;
+    private readonly ProjectService _projectService;
+    private readonly EditorService _editorService;
 
-    public Startup(BeutlApiApplication apiApp)
+    public Startup(BeutlApiApplication apiApp, ProjectService projectService, EditorService editorService)
     {
         _apiApp = apiApp;
+        _projectService = projectService;
+        _editorService = editorService;
         Initialize();
     }
 
@@ -64,10 +68,12 @@ public sealed class Startup
         Register(() => new CrashRecoveryPromptTask());
         Register(() => new LoadInstalledExtensionTask(
             _apiApp.GetResource<PackageManager>(), this));
-        Register(() => new LoadPrimitiveExtensionTask(_apiApp.GetResource<PackageManager>()));
+        Register(() => new LoadPrimitiveExtensionTask(
+            _apiApp.GetResource<PackageManager>(), _apiApp.GetResource<ExtensionProvider>(),
+            _editorService, _projectService));
         Register(() => new LoadSideloadExtensionTask(_apiApp.GetResource<PackageManager>()));
         Register(() => new AfterLoadingExtensionsTask(this));
-        Register(() => new RestoreLastProjectTask(this));
+        Register(() => new RestoreLastProjectTask(this, _projectService));
         Register(() => new CheckForUpdatesTask(_apiApp));
         Register(() => new CheckForPackageUpdatesTask(this, _apiApp.GetResource<PackageManager>()));
     }

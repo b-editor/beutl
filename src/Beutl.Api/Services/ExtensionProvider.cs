@@ -6,7 +6,7 @@ using static Beutl.Configuration.ExtensionConfig;
 
 namespace Beutl.Api.Services;
 
-public sealed class ExtensionProvider : IBeutlApiResource
+public sealed class ExtensionProvider : IBeutlApiResource, IExtensionProvider
 {
     private readonly Dictionary<int, Extension[]> _allExtensions = [];
     private readonly ExtensionConfig _config = GlobalConfiguration.Instance.ExtensionConfig;
@@ -18,8 +18,6 @@ public sealed class ExtensionProvider : IBeutlApiResource
     public ExtensionProvider()
     {
     }
-
-    public static ExtensionProvider Current { get; } = new();
 
     public ICoreReadOnlyList<Extension> AllExtensions => _extensions;
 

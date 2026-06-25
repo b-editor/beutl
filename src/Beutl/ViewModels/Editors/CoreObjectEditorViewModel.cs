@@ -74,7 +74,8 @@ public sealed class CoreObjectEditorViewModel<T> : BaseEditorViewModel<T>, ICore
             .DisposeWith(Disposables);
 
         Properties = Value
-            .Select(x => x != null ? new PropertiesEditorViewModel(x) : null)
+            .CombineLatest(ObserveExtensionProvider())
+            .Select(t => t.First != null ? new PropertiesEditorViewModel(t.First, t.Second) : null)
             .DisposePreviousValue()
             .Do(AcceptProperties)
             .ToReadOnlyReactivePropertySlim()

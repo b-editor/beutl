@@ -9,6 +9,7 @@ using Beutl.Media;
 using Beutl.Serialization;
 using Microsoft.Extensions.DependencyInjection;
 using Reactive.Bindings;
+using Reactive.Bindings.Extensions;
 
 namespace Beutl.ViewModels.Editors;
 
@@ -33,7 +34,9 @@ public sealed class BrushEditorViewModel : BaseEditorViewModel, IFallbackObjectV
         });
 
         ChildContext = Value.Select(v => v as ICoreObject)
-            .Select(x => x != null ? new PropertiesEditorViewModel(x) : null)
+            .CombineLatest(ObserveExtensionProvider())
+            .Select(t => t.First != null ? new PropertiesEditorViewModel(t.First, t.Second) : null)
+            .DisposePreviousValue()
             .Do(AcceptChildren)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(Disposables);

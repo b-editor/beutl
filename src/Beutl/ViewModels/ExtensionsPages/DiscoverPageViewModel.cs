@@ -17,11 +17,11 @@ public sealed class DiscoverPageViewModel : BasePageViewModel, ISupportRefreshVi
     private readonly DiscoverService _discover;
     private readonly BeutlApiApplication _apiApp;
 
-    public DiscoverPageViewModel(BeutlApiApplication apiApp)
+    public DiscoverPageViewModel(BeutlApiApplication apiApp, EditorService editorService, ProjectService projectService)
     {
         _apiApp = apiApp;
         _discover = apiApp.GetResource<DiscoverService>();
-        DataContextFactory = new DataContextFactory(_discover, apiApp);
+        DataContextFactory = new DataContextFactory(_discover, apiApp, editorService, projectService);
 
         Refresh = new AsyncReactiveCommand(IsBusy.Not())
             .WithSubscribe(async () =>

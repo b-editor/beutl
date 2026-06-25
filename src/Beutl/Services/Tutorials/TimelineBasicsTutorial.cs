@@ -20,7 +20,7 @@ public static class TimelineBasicsTutorial
 {
     public const string TutorialId = "timeline-basics";
 
-    public static TutorialDefinition Create()
+    public static TutorialDefinition Create(EditorService editorService, ProjectService projectService)
     {
         IDisposable? step1Subscription = null;
         IDisposable? step2Subscription = null;
@@ -34,8 +34,8 @@ public static class TimelineBasicsTutorial
             Description = TutorialStrings.Tutorial_SceneEdit_Description,
             Priority = 10,
             Category = "basics",
-            CanStart = TutorialHelpers.OpenLibraryTabIfNeeded,
-            FulfillPrerequisites = () => TutorialHelpers.EnsureProjectAsync("Tutorial"),
+            CanStart = () => TutorialHelpers.OpenLibraryTabIfNeeded(editorService),
+            FulfillPrerequisites = () => TutorialHelpers.EnsureProjectAsync(projectService, editorService, "Tutorial"),
             Steps =
             [
                 // Step 1: Add an ellipse to the timeline
@@ -53,7 +53,7 @@ public static class TimelineBasicsTutorial
                     IsActionRequired = true,
                     OnShown = () =>
                     {
-                        EditViewModel? editVm = TutorialHelpers.GetEditViewModel();
+                        EditViewModel? editVm = TutorialHelpers.GetEditViewModel(editorService);
                         if (editVm == null) return;
 
                         step1Subscription = TutorialHelpers.SubscribeToElementAdded<EllipseShape>(
@@ -78,7 +78,7 @@ public static class TimelineBasicsTutorial
                     IsActionRequired = true,
                     OnShown = () =>
                     {
-                        EditViewModel? editVm = TutorialHelpers.GetEditViewModel();
+                        EditViewModel? editVm = TutorialHelpers.GetEditViewModel(editorService);
                         step2Subscription = TutorialHelpers.SubscribeToElementSelection(
                             editVm,
                             () => TutorialService.Current.AdvanceStep());
@@ -111,7 +111,7 @@ public static class TimelineBasicsTutorial
                     TargetElements = [new TargetElementDefinition { ElementResolver = FindWidthPropertyEditor, IsPrimary = true }],
                     OnShown = () =>
                     {
-                        EditViewModel? editVm = TutorialHelpers.GetEditViewModel();
+                        EditViewModel? editVm = TutorialHelpers.GetEditViewModel(editorService);
                         if (editVm == null) return;
 
                         Element? element = TutorialHelpers.FindElementWithObject<EllipseShape>(editVm.Scene);
@@ -140,7 +140,7 @@ public static class TimelineBasicsTutorial
                     TargetElements = [new TargetElementDefinition { ElementResolver = FindWidthPropertyEditor, IsPrimary = true }],
                     OnShown = () =>
                     {
-                        EditViewModel? editVm = TutorialHelpers.GetEditViewModel();
+                        EditViewModel? editVm = TutorialHelpers.GetEditViewModel(editorService);
                         if (editVm == null) return;
 
                         var clock = editVm.GetService<IEditorClock>();
@@ -185,7 +185,7 @@ public static class TimelineBasicsTutorial
                     TargetElements = [new TargetElementDefinition { ElementResolver = FindWidthPropertyEditor, IsPrimary = true }],
                     OnDismissed = () =>
                     {
-                        EditViewModel? editVm = TutorialHelpers.GetEditViewModel();
+                        EditViewModel? editVm = TutorialHelpers.GetEditViewModel(editorService);
                         if (editVm == null) return;
 
                         Element? element = TutorialHelpers.FindElementWithObject<EllipseShape>(editVm.Scene);
@@ -213,7 +213,7 @@ public static class TimelineBasicsTutorial
                     PreferredPlacement = TutorialStepPlacement.Bottom,
                     OnShown = () =>
                     {
-                        EditViewModel? editVm = TutorialHelpers.GetEditViewModel();
+                        EditViewModel? editVm = TutorialHelpers.GetEditViewModel(editorService);
                         Element? element = TutorialHelpers.FindElementWithObject<EllipseShape>(editVm?.Scene);
                         TutorialHelpers.PrepareForPlayback(editVm, element);
                     },

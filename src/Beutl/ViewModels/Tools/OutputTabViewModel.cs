@@ -117,12 +117,19 @@ public class OutputTabViewModel : IToolContext
         }
     }
 
+    // Exposes the editor session's output extensions (filtered for the scene type) so views and
+    // dialogs that hold this tab VM can reach them.
+    public OutputExtension[] GetExtensions(Type type)
+    {
+        return _outputService.GetExtensions(type);
+    }
+
     private void CreateDefaultProfile()
     {
         if (Items.Count != 0) return;
 
         _logger.LogInformation("Creating default profile.");
-        var ext = OutputService.GetExtensions(EditViewModel.Scene.GetType());
+        var ext = _outputService.GetExtensions(EditViewModel.Scene.GetType());
         if (ext.Length == 1)
         {
             AddItem(ext[0]);

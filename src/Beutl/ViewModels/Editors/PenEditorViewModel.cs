@@ -2,13 +2,14 @@
 using Avalonia.Input;
 using Beutl.Collections.Pooled;
 using Beutl.Editor.Components.Helpers;
+using Beutl.Editor.Services;
 using Beutl.Engine;
 using Beutl.Media;
 using Beutl.PropertyAdapters;
 using Beutl.Serialization;
 using Beutl.Services;
-
 using DynamicData;
+using Microsoft.Extensions.DependencyInjection;
 using Reactive.Bindings;
 
 namespace Beutl.ViewModels.Editors;
@@ -26,20 +27,23 @@ public sealed class PenEditorViewModel : BaseEditorViewModel
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(Disposables);
 
-        Value.Subscribe(Update)
+        // CombineLatest with the provider so the eager initial Value emission waits until Accept
+        // has supplied the editor session's ExtensionProvider.
+        Value.CombineLatest(ObserveExtensionProvider())
+            .Subscribe(t => Update(t.First, t.Second))
             .DisposeWith(Disposables);
     }
 
-    private void Update(Pen? pen)
+    private void Update(Pen? pen, Beutl.Api.Services.ExtensionProvider extensionProvider)
     {
-        static void CreateContexts(PooledList<IPropertyAdapter> props, CoreList<IPropertyEditorContext> dst)
+        void CreateContexts(PooledList<IPropertyAdapter> props, CoreList<IPropertyEditorContext> dst)
         {
             IPropertyAdapter[]? foundItems;
             PropertyEditorExtension? extension;
 
             do
             {
-                (foundItems, extension) = PropertyEditorService.MatchProperty(props);
+                (foundItems, extension) = PropertyEditorService.MatchProperty(props, extensionProvider);
                 if (foundItems != null && extension != null)
                 {
                     if (extension.TryCreateContext(foundItems, out IPropertyEditorContext? context))

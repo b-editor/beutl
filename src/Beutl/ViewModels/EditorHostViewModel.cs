@@ -10,11 +10,13 @@ namespace Beutl.ViewModels;
 public class EditorHostViewModel
 {
     private readonly ILogger _logger = Log.CreateLogger<EditorHostViewModel>();
-    private readonly ProjectService _projectService = ProjectService.Current;
-    private readonly EditorService _editorService = EditorService.Current;
+    private readonly ProjectService _projectService;
+    private readonly EditorService _editorService;
 
-    public EditorHostViewModel()
+    public EditorHostViewModel(ProjectService projectService, EditorService editorService)
     {
+        _projectService = projectService;
+        _editorService = editorService;
         _projectService.ProjectObservable.Subscribe(item => DispatchProjectChange(item.New, item.Old));
     }
 

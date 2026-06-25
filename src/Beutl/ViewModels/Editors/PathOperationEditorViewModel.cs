@@ -53,7 +53,7 @@ public sealed class PathOperationEditorViewModel : ValueEditorViewModel<PathSegm
 
                         if (v != null)
                         {
-                            Properties.Value = new PropertiesEditorViewModel(v);
+                            Properties.Value = new PropertiesEditorViewModel(v, GetExtensionProvider());
                         }
 
                         AcceptProperties();

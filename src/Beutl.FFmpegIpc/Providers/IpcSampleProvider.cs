@@ -144,8 +144,6 @@ internal sealed class IpcSampleProvider : ISampleProvider
 
         // プリフェッチが進行中だが要求と一致しない場合は、完了を待ってから結果を破棄する。
         // ホストへ非順次なリクエストが流出しないよう、参照を捨てるだけでなく必ず await する。
-        // フィールドを await 前にクリアするためプロバイダはピン留めされず、失敗したプリフェッチは
-        // この呼び出しで一度だけ伝播し、後続の要求は通常どおり処理できる（キャンセルや通信エラーも同様に伝播）。
         if (_prefetchTask != null)
         {
             Task<Pcm<Stereo32BitFloat>> staleTask = _prefetchTask;

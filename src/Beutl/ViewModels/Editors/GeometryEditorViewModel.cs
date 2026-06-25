@@ -58,12 +58,12 @@ public sealed class GeometryEditorViewModel : ValueEditorViewModel<Geometry?>, I
                             IsExpanded = { Value = true }
                         };
 
-                        Properties.Value = new PropertiesEditorViewModel(group,
+                        Properties.Value = new PropertiesEditorViewModel(group, GetExtensionProvider(),
                             p => p == group.FillType);
                     }
                     else if (v is { } geometry)
                     {
-                        Properties.Value = new PropertiesEditorViewModel(geometry, (p) => p != geometry.Transform);
+                        Properties.Value = new PropertiesEditorViewModel(geometry, GetExtensionProvider(), (p) => p != geometry.Transform);
                     }
 
                     AcceptChild();

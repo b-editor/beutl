@@ -12,11 +12,13 @@ namespace Beutl.Services;
 public sealed class OutputProfileItem : IDisposable
 {
     private readonly ILogger<OutputProfileItem> _logger = Log.CreateLogger<OutputProfileItem>();
+    private readonly EditorService _editorService;
 
-    public OutputProfileItem(IOutputContext context, IEditorContext editorContext)
+    public OutputProfileItem(IOutputContext context, IEditorContext editorContext, EditorService editorService)
     {
         Context = context;
         EditorContext = editorContext;
+        _editorService = editorService;
 
         Context.Started += OnStarted;
         Context.Finished += OnFinished;
@@ -32,7 +34,7 @@ public sealed class OutputProfileItem : IDisposable
     {
         _logger.LogDebug("Output started for file: {File}", Context.Object.Uri);
 
-        if (EditorService.Current.TryGetTabItem(Context.Object, out EditorTabItem? tabItem))
+        if (_editorService.TryGetTabItem(Context.Object, out EditorTabItem? tabItem))
         {
             tabItem.Context.Value.IsEnabled.Value = false;
             _logger.LogDebug("Tab item disabled for file: {File}", Context.Object.Uri);
@@ -47,7 +49,7 @@ public sealed class OutputProfileItem : IDisposable
     {
         _logger.LogDebug("Output finished for file: {File}", Context.Object.Uri);
 
-        if (EditorService.Current.TryGetTabItem(Context.Object, out EditorTabItem? tabItem))
+        if (_editorService.TryGetTabItem(Context.Object, out EditorTabItem? tabItem))
         {
             tabItem.Context.Value.IsEnabled.Value = true;
             _logger.LogDebug("Tab item enabled for file: {File}", Context.Object.Uri);
@@ -78,7 +80,8 @@ public sealed class OutputProfileItem : IDisposable
         };
     }
 
-    public static OutputProfileItem? FromJson(IEditorContext editorContext, JsonNode json, ILogger logger)
+    public static OutputProfileItem? FromJson(IEditorContext editorContext, JsonNode json, ILogger logger,
+        ExtensionProvider extensionProvider, EditorService editorService)
     {
         try
         {
@@ -87,8 +90,7 @@ public sealed class OutputProfileItem : IDisposable
 
             string extensionStr = obj["Extension"]!.AsValue().GetValue<string>();
             Type? extensionType = TypeFormat.ToType(extensionStr);
-            ExtensionProvider provider = ExtensionProvider.Current;
-            OutputExtension? extension = Array.Find(provider.GetExtensions<OutputExtension>(),
+            OutputExtension? extension = Array.Find(extensionProvider.GetExtensions<OutputExtension>(),
                 x => x.GetType() == extensionType);
 
             string file = obj["File"]!.AsValue().GetValue<string>();
@@ -101,7 +103,7 @@ public sealed class OutputProfileItem : IDisposable
                 context.ReadFromJson(contextJson.AsObject());
                 logger.LogInformation("OutputProfileItem created from JSON. File: {File}, Context: {Context}", file,
                     context);
-                return new OutputProfileItem(context, editorContext);
+                return new OutputProfileItem(context, editorContext, editorService);
             }
             else
             {
@@ -122,6 +124,8 @@ public sealed class OutputService(EditViewModel editViewModel) : IDisposable
 {
     private readonly CoreList<OutputProfileItem> _items = [];
     private readonly ReactivePropertySlim<OutputProfileItem?> _selectedItem = new();
+    private readonly EditorService _editorService = editViewModel.EditorService;
+    private readonly ExtensionProvider _extensionProvider = editViewModel.ExtensionProvider;
 
     private readonly string _filePath = Path.Combine(
         Path.GetDirectoryName(editViewModel.Scene.Uri!.LocalPath)!,
@@ -143,15 +147,15 @@ public sealed class OutputService(EditViewModel editViewModel) : IDisposable
         }
 
         context.Name.Value = Items.Count == 0 ? "Default" : $"Profile {Items.Count}";
-        var item = new OutputProfileItem(context, editViewModel);
+        var item = new OutputProfileItem(context, editViewModel, _editorService);
         Items.Add(item);
         SelectedItem.Value = item;
         _logger.LogInformation("Added new OutputProfileItem. File: {File}, Context: {Context}", file, context);
     }
 
-    public static OutputExtension[] GetExtensions(Type type)
+    public OutputExtension[] GetExtensions(Type type)
     {
-        return ExtensionProvider.Current
+        return _extensionProvider
             .GetExtensions<OutputExtension>()
             .Where(x => x.IsSupported(type)).ToArray();
     }
@@ -207,7 +211,7 @@ public sealed class OutputService(EditViewModel editViewModel) : IDisposable
             {
                 if (jsonItem == null) continue;
 
-                var item = OutputProfileItem.FromJson(editViewModel, jsonItem, _logger);
+                var item = OutputProfileItem.FromJson(editViewModel, jsonItem, _logger, _extensionProvider, _editorService);
                 if (item != null)
                 {
                     _items.Add(item);
