@@ -11,7 +11,7 @@ public class RationalEditorTests
     public void Typing_a_fraction_parses_into_value()
     {
         var editor = new RationalEditor { Header = "Rate" };
-        var host = new EditorTestHost<RationalEditor>(editor);
+        using var host = new EditorTestHost<RationalEditor>(editor);
 
         var changed = new List<Rational>();
         editor.ValueChanged += (_, e) => changed.Add(((PropertyEditorValueChangedEventArgs<Rational>)e).NewValue);
@@ -27,7 +27,7 @@ public class RationalEditorTests
     public void Focus_loss_after_an_edit_confirms()
     {
         var editor = new RationalEditor { Header = "Rate" };
-        var host = new EditorTestHost<RationalEditor>(editor);
+        using var host = new EditorTestHost<RationalEditor>(editor);
 
         var confirmed = new List<Rational>();
         editor.ValueConfirmed += (_, e) => confirmed.Add(((PropertyEditorValueChangedEventArgs<Rational>)e).NewValue);
@@ -44,7 +44,7 @@ public class RationalEditorTests
     {
         var editor = new RationalEditor { Header = "Rate" };
         editor.Value = new Rational(60, 1);
-        var host = new EditorTestHost<RationalEditor>(editor);
+        using var host = new EditorTestHost<RationalEditor>(editor);
 
         TextBox box = host.Require<TextBox>("PART_InnerTextBox");
         host.TypeInto(box, "garbage");

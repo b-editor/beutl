@@ -7,7 +7,11 @@ public static class NotificationService
     public static INotificationServiceHandler Handler
     {
         get => s_handler!;
-        set => s_handler ??= value;
+        set
+        {
+            ArgumentNullException.ThrowIfNull(value);
+            s_handler ??= value;
+        }
     }
 
     public static void Show(Notification notification)

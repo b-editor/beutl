@@ -13,7 +13,7 @@ public class AlignmentEditorTests
     public void AlignmentX_clicking_a_radio_button_sets_value_and_raises_events()
     {
         var editor = new AlignmentXEditor { Header = "Align" };
-        var host = new EditorTestHost<AlignmentXEditor>(editor);
+        using var host = new EditorTestHost<AlignmentXEditor>(editor);
 
         var changed = new List<AlignmentX>();
         var confirmed = new List<AlignmentX>();
@@ -36,7 +36,7 @@ public class AlignmentEditorTests
     public void AlignmentY_clicking_a_radio_button_sets_value()
     {
         var editor = new AlignmentYEditor { Header = "Align" };
-        var host = new EditorTestHost<AlignmentYEditor>(editor);
+        using var host = new EditorTestHost<AlignmentYEditor>(editor);
 
         Assert.That(editor.Value, Is.EqualTo(AlignmentY.Top));
 
@@ -51,7 +51,7 @@ public class AlignmentEditorTests
     public void AlignmentX_setting_value_checks_the_matching_radio_button()
     {
         var editor = new AlignmentXEditor { Header = "Align" };
-        var host = new EditorTestHost<AlignmentXEditor>(editor);
+        using var host = new EditorTestHost<AlignmentXEditor>(editor);
 
         editor.Value = AlignmentX.Right;
         HeadlessTestHelpers.Settle();

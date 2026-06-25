@@ -11,7 +11,7 @@ public class ColorComponentsEditorTests
     public void Typing_rgb_components_recomputes_the_color()
     {
         var editor = new ColorComponentsEditor { Header = "RGB", Rgb = true };
-        var host = new EditorTestHost<ColorComponentsEditor>(editor);
+        using var host = new EditorTestHost<ColorComponentsEditor>(editor);
 
         host.TypeInto(host.Require<TextBox>("PART_InnerFirstTextBox"), "200");
         host.TypeInto(host.Require<TextBox>("PART_InnerSecondTextBox"), "100");

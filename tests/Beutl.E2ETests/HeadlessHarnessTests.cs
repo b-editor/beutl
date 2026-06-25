@@ -14,10 +14,18 @@ public class HeadlessHarnessTests
         var border = new Border { Width = 120, Height = 40 };
         var window = new Window { Content = border };
         window.Show();
-        HeadlessTestHelpers.Settle();
+        try
+        {
+            HeadlessTestHelpers.Settle();
 
-        Assert.That(border.Bounds.Width, Is.EqualTo(120));
-        Assert.That(border.Bounds.Height, Is.EqualTo(40));
+            Assert.That(border.Bounds.Width, Is.EqualTo(120));
+            Assert.That(border.Bounds.Height, Is.EqualTo(40));
+        }
+        finally
+        {
+            window.Close();
+            HeadlessTestHelpers.Settle();
+        }
     }
 
     [AvaloniaTest]
@@ -26,15 +34,23 @@ public class HeadlessHarnessTests
         var editor = new BooleanEditor();
         var window = new Window { Content = editor };
         window.Show();
-        HeadlessTestHelpers.Settle();
+        try
+        {
+            HeadlessTestHelpers.Settle();
 
-        Assert.That(editor.Bounds.Width, Is.GreaterThan(0));
+            Assert.That(editor.Bounds.Width, Is.GreaterThan(0));
 
-        CheckBox? toggle = HeadlessTestHelpers.FindDescendant<CheckBox>(editor);
-        Assert.That(toggle, Is.Not.Null);
+            CheckBox? toggle = HeadlessTestHelpers.FindDescendant<CheckBox>(editor);
+            Assert.That(toggle, Is.Not.Null);
 
-        editor.Value = true;
-        HeadlessTestHelpers.Settle();
-        Assert.That(editor.Value, Is.True);
+            editor.Value = true;
+            HeadlessTestHelpers.Settle();
+            Assert.That(editor.Value, Is.True);
+        }
+        finally
+        {
+            window.Close();
+            HeadlessTestHelpers.Settle();
+        }
     }
 }

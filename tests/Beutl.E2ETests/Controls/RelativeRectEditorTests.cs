@@ -12,7 +12,7 @@ public class RelativeRectEditorTests
     public void Editing_all_four_components_updates_the_values()
     {
         var editor = new RelativeRectEditor { Header = "Rect", Unit = RelativeUnit.Absolute };
-        var host = new EditorTestHost<RelativeRectEditor>(editor);
+        using var host = new EditorTestHost<RelativeRectEditor>(editor);
 
         host.TypeInto(host.Require<TextBox>("PART_InnerFirstTextBox"), "1");
         host.TypeInto(host.Require<TextBox>("PART_InnerSecondTextBox"), "2");
@@ -29,7 +29,7 @@ public class RelativeRectEditorTests
     public void Focus_loss_after_an_edit_confirms_a_composed_relative_rect()
     {
         var editor = new RelativeRectEditor { Header = "Rect", Unit = RelativeUnit.Absolute };
-        var host = new EditorTestHost<RelativeRectEditor>(editor);
+        using var host = new EditorTestHost<RelativeRectEditor>(editor);
 
         var confirmed = new List<RelativeRect>();
         editor.ValueConfirmed += (_, e) => confirmed.Add(((PropertyEditorValueChangedEventArgs<RelativeRect>)e).NewValue);

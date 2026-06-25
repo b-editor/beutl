@@ -26,7 +26,7 @@ public class EnumEditorTests
     public void Selecting_an_item_in_the_combobox_updates_selected_index_and_confirms()
     {
         EnumEditor editor = CreateEditor();
-        var host = new EditorTestHost<EnumEditor>(editor);
+        using var host = new EditorTestHost<EnumEditor>(editor);
 
         var confirmed = new List<int>();
         editor.ValueConfirmed += (_, e) => confirmed.Add(((PropertyEditorValueChangedEventArgs<int>)e).NewValue);
@@ -43,7 +43,7 @@ public class EnumEditorTests
     public void Setting_selected_index_on_the_editor_reflects_in_the_combobox()
     {
         EnumEditor editor = CreateEditor();
-        var host = new EditorTestHost<EnumEditor>(editor);
+        using var host = new EditorTestHost<EnumEditor>(editor);
 
         editor.SelectedIndex = 1;
         HeadlessTestHelpers.Settle();

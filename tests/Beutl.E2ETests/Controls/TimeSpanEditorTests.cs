@@ -11,7 +11,7 @@ public class TimeSpanEditorTests
     public void Typing_a_valid_timespan_parses_into_value()
     {
         var editor = new TimeSpanEditor { Header = "Duration" };
-        var host = new EditorTestHost<TimeSpanEditor>(editor);
+        using var host = new EditorTestHost<TimeSpanEditor>(editor);
 
         var changed = new List<TimeSpan>();
         editor.ValueChanged += (_, e) => changed.Add(((PropertyEditorValueChangedEventArgs<TimeSpan>)e).NewValue);
@@ -28,7 +28,7 @@ public class TimeSpanEditorTests
     public void Focus_loss_after_a_valid_edit_confirms()
     {
         var editor = new TimeSpanEditor { Header = "Duration" };
-        var host = new EditorTestHost<TimeSpanEditor>(editor);
+        using var host = new EditorTestHost<TimeSpanEditor>(editor);
 
         var confirmed = new List<TimeSpan>();
         editor.ValueConfirmed += (_, e) => confirmed.Add(((PropertyEditorValueChangedEventArgs<TimeSpan>)e).NewValue);
@@ -45,7 +45,7 @@ public class TimeSpanEditorTests
     {
         var editor = new TimeSpanEditor { Header = "Duration" };
         editor.Value = TimeSpan.FromSeconds(42);
-        var host = new EditorTestHost<TimeSpanEditor>(editor);
+        using var host = new EditorTestHost<TimeSpanEditor>(editor);
 
         TextBox box = host.Require<TextBox>("PART_InnerTextBox");
         host.TypeInto(box, "not-a-timespan");
@@ -59,7 +59,7 @@ public class TimeSpanEditorTests
     {
         var editor = new TimeSpanEditor { Header = "Duration" };
         editor.Value = TimeSpan.FromSeconds(42);
-        var host = new EditorTestHost<TimeSpanEditor>(editor);
+        using var host = new EditorTestHost<TimeSpanEditor>(editor);
 
         bool confirmed = false;
         editor.ValueConfirmed += (_, _) => confirmed = true;

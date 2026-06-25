@@ -12,7 +12,7 @@ public class VectorEditorTests
     public void Vector2_editing_one_component_updates_only_that_component()
     {
         var editor = new Vector2Editor<int> { Header = "Size" };
-        var host = new EditorTestHost<Vector2Editor<int>>(editor);
+        using var host = new EditorTestHost<Vector2Editor<int>>(editor);
 
         TextBox first = host.Require<TextBox>("PART_InnerFirstTextBox");
         TextBox second = host.Require<TextBox>("PART_InnerSecondTextBox");
@@ -28,7 +28,7 @@ public class VectorEditorTests
     public void Vector2_focus_loss_confirms_the_composed_pair()
     {
         var editor = new Vector2Editor<int> { Header = "Size" };
-        var host = new EditorTestHost<Vector2Editor<int>>(editor);
+        using var host = new EditorTestHost<Vector2Editor<int>>(editor);
 
         var confirmed = new List<(int, int)>();
         editor.ValueConfirmed += (_, e) => confirmed.Add(((PropertyEditorValueChangedEventArgs<(int, int)>)e).NewValue);
@@ -45,7 +45,7 @@ public class VectorEditorTests
     public void Vector2_wheel_changes_the_hovered_component()
     {
         var editor = new Vector2Editor<int> { Header = "Size", LargeChange = 10 };
-        var host = new EditorTestHost<Vector2Editor<int>>(editor);
+        using var host = new EditorTestHost<Vector2Editor<int>>(editor);
 
         TextBox first = host.Require<TextBox>("PART_InnerFirstTextBox");
         host.TypeInto(first, "2");
@@ -59,7 +59,7 @@ public class VectorEditorTests
     public void Vector3_editing_all_three_components_composes_the_value()
     {
         var editor = new Vector3Editor<float> { Header = "XYZ" };
-        var host = new EditorTestHost<Vector3Editor<float>>(editor);
+        using var host = new EditorTestHost<Vector3Editor<float>>(editor);
 
         host.TypeInto(host.Require<TextBox>("PART_InnerFirstTextBox"), "1.5");
         host.TypeInto(host.Require<TextBox>("PART_InnerSecondTextBox"), "2.5");
@@ -74,7 +74,7 @@ public class VectorEditorTests
     public void Vector4_editing_all_four_components_composes_the_value()
     {
         var editor = new Vector4Editor<float> { Header = "XYZW" };
-        var host = new EditorTestHost<Vector4Editor<float>>(editor);
+        using var host = new EditorTestHost<Vector4Editor<float>>(editor);
 
         host.TypeInto(host.Require<TextBox>("PART_InnerFirstTextBox"), "1");
         host.TypeInto(host.Require<TextBox>("PART_InnerSecondTextBox"), "2");
@@ -91,7 +91,7 @@ public class VectorEditorTests
     public void RelativePoint_editing_components_confirms_a_composed_relative_point()
     {
         var editor = new RelativePointEditor { Header = "Origin", Unit = RelativeUnit.Absolute };
-        var host = new EditorTestHost<RelativePointEditor>(editor);
+        using var host = new EditorTestHost<RelativePointEditor>(editor);
 
         var confirmed = new List<RelativePoint>();
         editor.ValueConfirmed += (_, e) => confirmed.Add(((PropertyEditorValueChangedEventArgs<RelativePoint>)e).NewValue);

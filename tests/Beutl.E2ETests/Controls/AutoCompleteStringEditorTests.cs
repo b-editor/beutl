@@ -15,7 +15,7 @@ public class AutoCompleteStringEditorTests
             Header = "Tag",
             ItemsSource = new[] { "alpha", "beta", "gamma" },
         };
-        var host = new EditorTestHost<AutoCompleteStringEditor>(editor);
+        using var host = new EditorTestHost<AutoCompleteStringEditor>(editor);
 
         var changed = new List<string>();
         editor.ValueChanged += (_, e) => changed.Add(((PropertyEditorValueChangedEventArgs<string>)e).NewValue);
@@ -39,7 +39,7 @@ public class AutoCompleteStringEditorTests
             Header = "Tag",
             ItemsSource = new[] { "alpha", "beta" },
         };
-        var host = new EditorTestHost<AutoCompleteStringEditor>(editor);
+        using var host = new EditorTestHost<AutoCompleteStringEditor>(editor);
 
         var confirmed = new List<string>();
         editor.ValueConfirmed += (_, e) => confirmed.Add(((PropertyEditorValueChangedEventArgs<string>)e).NewValue);

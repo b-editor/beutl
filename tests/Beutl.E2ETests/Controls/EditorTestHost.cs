@@ -12,7 +12,7 @@ namespace Beutl.E2ETests.Controls;
 /// Hosts a single <see cref="PropertyEditor"/> in a shown headless window together with a
 /// focusable sink, so focus-loss confirmation paths can be exercised by moving focus to the sink.
 /// </summary>
-internal sealed class EditorTestHost<TEditor>
+internal sealed class EditorTestHost<TEditor> : IDisposable
     where TEditor : PropertyEditor
 {
     public EditorTestHost(TEditor editor, double width = 480, double height = 200)
@@ -26,6 +26,12 @@ internal sealed class EditorTestHost<TEditor>
             Content = new StackPanel { Children = { editor, Sink } },
         };
         Window.Show();
+        HeadlessTestHelpers.Settle();
+    }
+
+    public void Dispose()
+    {
+        Window.Close();
         HeadlessTestHelpers.Settle();
     }
 

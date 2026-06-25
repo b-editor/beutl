@@ -67,8 +67,10 @@ public class ShellSmokeTests
         Assert.That(vm.IsProjectOpened.Value, Is.True);
         Assert.That(vm.WindowTitle.Value, Does.Contain("vm"));
 
-        vm.Dispose();
+        ProjectService.Current.CloseProject();
         HeadlessTestHelpers.Settle();
         Assert.That(vm.IsProjectOpened.Value, Is.False);
+
+        vm.Dispose();
     }
 }

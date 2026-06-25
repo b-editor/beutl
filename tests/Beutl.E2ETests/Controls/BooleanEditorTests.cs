@@ -12,7 +12,7 @@ public class BooleanEditorTests
     public void Clicking_the_checkbox_flips_value_and_raises_events()
     {
         var editor = new BooleanEditor { Header = "Flag" };
-        var host = new EditorTestHost<BooleanEditor>(editor);
+        using var host = new EditorTestHost<BooleanEditor>(editor);
 
         var changed = new List<bool>();
         var confirmed = new List<bool>();
@@ -39,7 +39,7 @@ public class BooleanEditorTests
     public void Setting_value_programmatically_updates_the_checkbox()
     {
         var editor = new BooleanEditor { Header = "Flag" };
-        var host = new EditorTestHost<BooleanEditor>(editor);
+        using var host = new EditorTestHost<BooleanEditor>(editor);
 
         ToggleButton checkBox = host.Require<ToggleButton>("PART_CheckBox");
         Assert.That(checkBox.IsChecked, Is.False);

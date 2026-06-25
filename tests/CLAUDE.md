@@ -32,7 +32,7 @@ The end-to-end suites are built on `Avalonia.Headless.NUnit` (they run on headle
 Conventions:
 - UI tests use `[AvaloniaTest]` (not `[Test]`) and run on the Avalonia UI thread; pure domain tests use `[Test]`.
 - The headless `Application` uses Skia rendering (`UseHeadlessDrawing = false`) so real templates (FontIcon glyphs, text) inflate; a layout-only suite can keep the default stub drawing.
-- Reset shared global singletons (`ProjectService.Current`, `EditorService.Current`, …) at the START of each `[AvaloniaTest]` body, NOT in `[SetUp]`/`[TearDown]` — those run off the UI thread, where mutating Avalonia / reactive state silently fails.
+- Shell tests that drive global singletons (`ProjectService.Current`, `EditorService.Current`, …) must reset them at the START of each `[AvaloniaTest]` body, NOT in `[SetUp]`/`[TearDown]` — those run off the UI thread, where mutating Avalonia / reactive state silently fails. Control- and domain-level tests that never touch those singletons (e.g. the `Beutl.E2ETests` property-editor tests, which don't even reference `src/Beutl`) need no such reset.
 - `BEUTL_HOME` is isolated to a per-assembly temp dir via a `[SetUpFixture]` calling `BeutlHomeIsolation`.
 - GPU-preview / FFmpeg-export tests must self-skip (`Assert.Ignore` + `TestContext.WriteLine` the reason) when the GPU / worker is unavailable — same spirit as `VulkanTestEnvironment` and `Beutl.Graphics3DTests`.
 
