@@ -47,19 +47,23 @@ public sealed class TestApp : Application
         s_globalServicesInitialized = true;
         LibraryRegistrar.RegisterAll();
         NodesRegistrar.RegisterAll();
-        LoadPrimitiveExtensions();
-    }
-
-    public MainViewModel GetMainViewModel() => _mainViewModel ??= new MainViewModel();
-
-    private static void LoadPrimitiveExtensions()
-    {
-        ExtensionProvider provider = ExtensionProvider.Current;
         foreach (Extension item in LoadPrimitiveExtensionTask.PrimitiveExtensions)
         {
             item.Load();
         }
+    }
 
-        provider.AddExtensions(BuiltInExtensionPackageId, LoadPrimitiveExtensionTask.PrimitiveExtensions);
+    public MainViewModel GetMainViewModel()
+    {
+        if (_mainViewModel is null)
+        {
+            _mainViewModel = new MainViewModel();
+            // Extensions are owned per composition root now, so register the Loaded singletons into this
+            // MainViewModel's provider; without it the shell cannot resolve editors or tool tabs.
+            _mainViewModel.ExtensionProvider.AddExtensions(
+                BuiltInExtensionPackageId, LoadPrimitiveExtensionTask.PrimitiveExtensions);
+        }
+
+        return _mainViewModel;
     }
 }

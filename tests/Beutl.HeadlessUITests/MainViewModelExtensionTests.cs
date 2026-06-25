@@ -1,5 +1,4 @@
-﻿using Avalonia;
-using Avalonia.Headless.NUnit;
+﻿using Avalonia.Headless.NUnit;
 using Beutl.Services.PrimitiveImpls;
 using Beutl.ViewModels;
 
@@ -8,7 +7,7 @@ namespace Beutl.HeadlessUITests;
 [TestFixture]
 public class MainViewModelExtensionTests
 {
-    private static MainViewModel SharedMainViewModel => ((TestApp)Application.Current!).GetMainViewModel();
+    private static MainViewModel SharedMainViewModel => TestShell.MainViewModel;
 
     private static Task ResetProjectAsync() => TestReset.ResetShellAsync();
 
@@ -33,10 +32,10 @@ public class MainViewModelExtensionTests
     }
 
     [AvaloniaTest]
-    public async Task A_fresh_MainViewModel_sees_the_same_loaded_extensions()
+    public async Task The_composition_root_exposes_every_loaded_extension_list()
     {
         await ResetProjectAsync();
-        using var vm = new MainViewModel();
+        MainViewModel vm = SharedMainViewModel;
 
         Assert.That(vm.ToolTabExtensions, Does.Contain(TimelineTabExtension.Instance));
         Assert.That(vm.EditorExtensions, Does.Contain(SceneEditorExtension.Instance));

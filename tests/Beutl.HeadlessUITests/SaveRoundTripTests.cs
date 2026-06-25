@@ -26,15 +26,15 @@ public class SaveRoundTripTests
     {
         await ResetProjectAsync();
 
-        Project project = (await ProjectService.Current.CreateProject(
+        Project project = (await TestShell.Project.CreateProject(
             640, 480, 30, 44100, "saveroundtrip", NewWorkspace("saveroundtrip")))!;
         HeadlessTestHelpers.Settle();
         string projectFile = project.Uri!.LocalPath;
         Scene scene = project.Items.OfType<Scene>().First();
 
-        EditorService.Current.ActivateTabItem(scene);
+        TestShell.Editor.ActivateTabItem(scene);
         HeadlessTestHelpers.Settle();
-        var editor = (EditViewModel)EditorService.Current.SelectedTabItem.Value!.Context.Value;
+        var editor = (EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value;
 
         var adder = (IElementAdder)editor.GetService(typeof(IElementAdder))!;
         adder.AddElement(new ElementDescription(
@@ -57,7 +57,7 @@ public class SaveRoundTripTests
 
         await ResetProjectAsync();
 
-        await ProjectService.Current.OpenProject(projectFile);
+        await TestShell.Project.OpenProject(projectFile);
         HeadlessTestHelpers.Settle();
 
         Scene reopenedScene = BeutlApplication.Current.Project!.Items.OfType<Scene>().Single();
@@ -75,14 +75,14 @@ public class SaveRoundTripTests
     {
         await ResetProjectAsync();
 
-        Project project = (await ProjectService.Current.CreateProject(
+        Project project = (await TestShell.Project.CreateProject(
             640, 480, 30, 44100, "savewrites", NewWorkspace("savewrites")))!;
         HeadlessTestHelpers.Settle();
         Scene scene = project.Items.OfType<Scene>().First();
 
-        EditorService.Current.ActivateTabItem(scene);
+        TestShell.Editor.ActivateTabItem(scene);
         HeadlessTestHelpers.Settle();
-        var editor = (EditViewModel)EditorService.Current.SelectedTabItem.Value!.Context.Value;
+        var editor = (EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value;
 
         var adder = (IElementAdder)editor.GetService(typeof(IElementAdder))!;
         adder.AddElement(new ElementDescription(

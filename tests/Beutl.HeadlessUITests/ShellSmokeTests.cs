@@ -23,12 +23,12 @@ public class ShellSmokeTests
     {
         await ResetProjectAsync();
 
-        Project? project = await ProjectService.Current.CreateProject(
+        Project? project = await TestShell.Project.CreateProject(
             1920, 1080, 30, 44100, "create", NewWorkspace("create"));
         HeadlessTestHelpers.Settle();
 
         Assert.That(project, Is.Not.Null);
-        Assert.That(ProjectService.Current.IsOpened.Value, Is.True);
+        Assert.That(TestShell.Project.IsOpened.Value, Is.True);
         Assert.That(BeutlApplication.Current.Project, Is.SameAs(project));
         Assert.That(File.Exists(project!.Uri!.LocalPath), Is.True);
 
@@ -42,15 +42,15 @@ public class ShellSmokeTests
     {
         await ResetProjectAsync();
 
-        Project? project = await ProjectService.Current.CreateProject(
+        Project? project = await TestShell.Project.CreateProject(
             640, 480, 30, 44100, "tab", NewWorkspace("tab"));
         HeadlessTestHelpers.Settle();
         Scene scene = project!.Items.OfType<Scene>().First();
 
-        EditorService.Current.ActivateTabItem(scene);
+        TestShell.Editor.ActivateTabItem(scene);
         HeadlessTestHelpers.Settle();
 
-        Assert.That(EditorService.Current.TabItems, Is.Not.Empty);
+        Assert.That(TestShell.Editor.TabItems, Is.Not.Empty);
     }
 
     [AvaloniaTest]
@@ -58,19 +58,17 @@ public class ShellSmokeTests
     {
         await ResetProjectAsync();
 
-        var vm = new MainViewModel();
+        MainViewModel vm = TestShell.MainViewModel;
         Assert.That(vm.IsProjectOpened.Value, Is.False);
 
-        await ProjectService.Current.CreateProject(640, 480, 30, 44100, "vm", NewWorkspace("vm"));
+        await TestShell.Project.CreateProject(640, 480, 30, 44100, "vm", NewWorkspace("vm"));
         HeadlessTestHelpers.Settle();
 
         Assert.That(vm.IsProjectOpened.Value, Is.True);
         Assert.That(vm.WindowTitle.Value, Does.Contain("vm"));
 
-        ProjectService.Current.CloseProject();
+        TestShell.Project.CloseProject();
         HeadlessTestHelpers.Settle();
         Assert.That(vm.IsProjectOpened.Value, Is.False);
-
-        vm.Dispose();
     }
 }

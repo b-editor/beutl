@@ -29,14 +29,14 @@ public class ShellViewTests
 
     private static async Task<EditViewModel> OpenEditorForNewScene(string name)
     {
-        Project project = (await ProjectService.Current.CreateProject(
+        Project project = (await TestShell.Project.CreateProject(
             640, 480, 30, 44100, name, NewWorkspace(name)))!;
         HeadlessTestHelpers.Settle();
         Scene scene = project.Items.OfType<Scene>().First();
 
-        EditorService.Current.ActivateTabItem(scene);
+        TestShell.Editor.ActivateTabItem(scene);
         HeadlessTestHelpers.Settle();
-        return (EditViewModel)EditorService.Current.SelectedTabItem.Value!.Context.Value;
+        return (EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value;
     }
 
     [AvaloniaTest]

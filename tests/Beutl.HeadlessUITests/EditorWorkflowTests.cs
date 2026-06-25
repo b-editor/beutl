@@ -24,15 +24,15 @@ public class EditorWorkflowTests
 
     private static async Task<EditViewModel> OpenEditorForNewScene(string name)
     {
-        Project project = (await ProjectService.Current.CreateProject(
+        Project project = (await TestShell.Project.CreateProject(
             640, 480, 30, 44100, name, NewWorkspace(name)))!;
         HeadlessTestHelpers.Settle();
         Scene scene = project.Items.OfType<Scene>().First();
 
-        EditorService.Current.ActivateTabItem(scene);
+        TestShell.Editor.ActivateTabItem(scene);
         HeadlessTestHelpers.Settle();
 
-        EditorTabItem tab = EditorService.Current.SelectedTabItem.Value!;
+        EditorTabItem tab = TestShell.Editor.SelectedTabItem.Value!;
         // The scene editor's IEditorContext is the EditViewModel itself.
         return (EditViewModel)tab.Context.Value;
     }
@@ -56,7 +56,7 @@ public class EditorWorkflowTests
         EditViewModel editor = await OpenEditorForNewScene("editvm");
 
         Assert.That(editor, Is.Not.Null);
-        Assert.That(editor.Scene, Is.SameAs(EditorService.Current.SelectedTabItem.Value!.Context.Value.Object));
+        Assert.That(editor.Scene, Is.SameAs(TestShell.Editor.SelectedTabItem.Value!.Context.Value.Object));
         Assert.That(editor.HistoryManager, Is.Not.Null);
         Assert.That(editor.HistoryManager.Root, Is.SameAs(editor.Scene));
     }

@@ -22,7 +22,7 @@ public class OpenProjectTests
     {
         await ResetProjectAsync();
 
-        Project created = (await ProjectService.Current.CreateProject(
+        Project created = (await TestShell.Project.CreateProject(
             1280, 720, 30, 44100, "reopen", NewWorkspace("reopen")))!;
         HeadlessTestHelpers.Settle();
 
@@ -30,15 +30,15 @@ public class OpenProjectTests
         Guid originalSceneId = created.Items.OfType<Scene>().First().Id;
         Assert.That(File.Exists(projectFile), Is.True);
 
-        ProjectService.Current.CloseProject();
+        TestShell.Project.CloseProject();
         HeadlessTestHelpers.Settle();
-        Assert.That(ProjectService.Current.IsOpened.Value, Is.False);
+        Assert.That(TestShell.Project.IsOpened.Value, Is.False);
         Assert.That(BeutlApplication.Current.Project, Is.Null);
 
-        await ProjectService.Current.OpenProject(projectFile);
+        await TestShell.Project.OpenProject(projectFile);
         HeadlessTestHelpers.Settle();
 
-        Assert.That(ProjectService.Current.IsOpened.Value, Is.True);
+        Assert.That(TestShell.Project.IsOpened.Value, Is.True);
         Project reopened = BeutlApplication.Current.Project!;
         Assert.That(reopened, Is.Not.Null);
         Assert.That(reopened, Is.Not.SameAs(created));
@@ -53,13 +53,13 @@ public class OpenProjectTests
     {
         await ResetProjectAsync();
 
-        Project created = (await ProjectService.Current.CreateProject(
+        Project created = (await TestShell.Project.CreateProject(
             800, 600, 25, 48000, "framesize", NewWorkspace("framesize")))!;
         HeadlessTestHelpers.Settle();
         string projectFile = created.Uri!.LocalPath;
 
-        ProjectService.Current.CloseProject();
-        await ProjectService.Current.OpenProject(projectFile);
+        TestShell.Project.CloseProject();
+        await TestShell.Project.OpenProject(projectFile);
         HeadlessTestHelpers.Settle();
 
         Scene scene = BeutlApplication.Current.Project!.Items.OfType<Scene>().Single();
@@ -73,13 +73,13 @@ public class OpenProjectTests
     {
         await ResetProjectAsync();
 
-        Project created = (await ProjectService.Current.CreateProject(
+        Project created = (await TestShell.Project.CreateProject(
             640, 480, 60, 22050, "vars", NewWorkspace("vars")))!;
         HeadlessTestHelpers.Settle();
         string projectFile = created.Uri!.LocalPath;
 
-        ProjectService.Current.CloseProject();
-        await ProjectService.Current.OpenProject(projectFile);
+        TestShell.Project.CloseProject();
+        await TestShell.Project.OpenProject(projectFile);
         HeadlessTestHelpers.Settle();
 
         Project reopened = BeutlApplication.Current.Project!;

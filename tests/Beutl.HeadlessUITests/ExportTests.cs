@@ -24,15 +24,15 @@ public class ExportTests
 
     private static async Task<EditViewModel> OpenEditorWithRectangle(string name)
     {
-        Project project = (await ProjectService.Current.CreateProject(
+        Project project = (await TestShell.Project.CreateProject(
             320, 240, 30, 44100, name, NewWorkspace(name)))!;
         HeadlessTestHelpers.Settle();
         Scene scene = project.Items.OfType<Scene>().First();
         scene.Duration = TimeSpan.FromMilliseconds(200);
 
-        EditorService.Current.ActivateTabItem(scene);
+        TestShell.Editor.ActivateTabItem(scene);
         HeadlessTestHelpers.Settle();
-        var editor = (EditViewModel)EditorService.Current.SelectedTabItem.Value!.Context.Value;
+        var editor = (EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value;
 
         var adder = (IElementAdder)editor.GetService(typeof(IElementAdder))!;
         adder.AddElement(new ElementDescription(

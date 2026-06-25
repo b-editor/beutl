@@ -22,7 +22,7 @@ internal static class TestReset
         // which needs a window the headless host lacks. SkipVersionCheck removes that branch.
         Preferences.Default.Set("ProjectService.SkipVersionCheck", true);
 
-        ProjectService.Current.CloseProject();
+        TestShell.Project.CloseProject();
         BeutlApplication.Current.Items.Clear();
         HeadlessTestHelpers.Settle();
     }
@@ -31,10 +31,10 @@ internal static class TestReset
     // blocking the UI thread on it would deadlock against playback callbacks posted to the dispatcher.
     private static async Task DisposeOpenEditorTabsAsync()
     {
-        EditorService.Current.SelectedTabItem.Value = null;
-        foreach (EditorTabItem tab in EditorService.Current.TabItems.ToArray())
+        TestShell.Editor.SelectedTabItem.Value = null;
+        foreach (EditorTabItem tab in TestShell.Editor.TabItems.ToArray())
         {
-            await EditorService.Current.CloseTabItem(tab);
+            await TestShell.Editor.CloseTabItem(tab);
         }
 
         HeadlessTestHelpers.Settle();
