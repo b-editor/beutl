@@ -31,6 +31,11 @@ bld/
 [Ll]og/
 [Ll]ogs/
 
+# Mirrored native dylibs (libBeutlAVF.dylib) that CopyBeutlAVFDylibsToConsumerOutput drops into
+# consumer project source trees during multi-target builds. The canonical copy lives in
+# src/Beutl.Extensions.AVFoundation/runtimes/; these are build artifacts, never commit them.
+src/Beutl/runtimes/
+
 # Visual Studio 2015/2017 cache/options directory
 .vs/
 # Uncomment if you have tasks that create the project's static files in wwwroot
