@@ -31,7 +31,7 @@ Every loop here is defined by six pillars. `/beutl-loop` fills them in as:
 | **SCOPE** | Unclaimed (`Backlog`/`Todo`) items on **Project #9**, **every kind and across the full risk spectrum — features included**. Never touches `.github/workflows/*`; never crosses the GPL/MIT boundary. |
 | **ACTION** | Per tick: implement → PR (sub-agent) → resolve reviews (sub-agent) → classify risk → auto-merge (low/moderate) or hand to a human (high). One item ⇒ at most one PR. |
 | **BUDGET** | **Default drains the board** (`until-empty`), bounded by the stagnation breaker, the optional wall-clock `BEUTL_LOOP_MAX_MINUTES`, and a runaway backstop `BEUTL_LOOP_MAX_ITEMS` (default **50**). Pass an integer `N` for a tighter per-run budget. Per-PR review settle cap `BEUTL_LOOP_SETTLE_MINUTES` (default 20). Item count is the reliable proxy for a token/$ budget. |
-| **STOP** | Board drained · `items_processed ≥ N` (explicit budget or the runaway backstop) · stagnation (2 consecutive no-progress, 3 consecutive false-positives, or a repeated item / failure signature) · wall-clock exceeded · a tick is `blocked` needing the user · a guardrail would be violated. |
+| **STOP** | Board drained · `items_processed ≥ N` (explicit budget or the runaway backstop) · stagnation (**3** consecutive no-progress with no PR in the last 3 ticks, 3 consecutive false-positives, or a repeated item / failure signature) · wall-clock exceeded · a guardrail would be violated. A single `blocked` item is recorded and skipped (not a stop); only repeated **systemic** blocks feed the no-progress breaker. |
 | **REPORT** | A Markdown run summary (per item: PR, risk, merged/left-for-human, reviews resolved; plus false-positives, blocked, counters, stop reason), then a reminder to run `/beutl-ai-self-review`. |
 
 ## Sub-agent isolation keeps the orchestrator's context lean
@@ -39,10 +39,13 @@ Every loop here is defined by six pillars. `/beutl-loop` fills them in as:
 `/beutl-loop` runs as an **orchestrator** in the main session and **never implements items itself**.
 Each tick it dispatches sub-agents and keeps only their compact JSON results plus the run journal:
 
-- **Dispatch A — implement → PR.** The committed `beutl-board-task-runner` agent runs the
+- **Dispatch A — implement → PR (or draft).** The committed `beutl-board-task-runner` agent runs the
   `beutl-board-task` flow for one item in an **isolated git worktree** (`isolation: worktree`) and
   returns `{ pr_url, commit_type, is_breaking, is_feature, diff_loc, touched_public_api / gpl_mit /
-  source_gen / xaml_behavior / persistence, design_reviewer_required, test_status, … }`.
+  source_gen / xaml_behavior / persistence, touched_production, test_files_added_count,
+  manual_verification_note, self_review_passed, design_reviewer_required, draft_ready, draft_branch,
+  blocked_kind, test_status, … }`. For a design-sensitive item it hands back a **draft branch**
+  instead of a PR so the orchestrator can run `@beutl-design-reviewer` first.
 - **Dispatch B — resolve reviews.** A sub-agent running `beutl-resolve-reviews --auto` clears the
   PR's bot reviews and returns `{ threads_resolved, changes_requested_outstanding, needs_human, … }`.
 - **Orchestrator (cheap).** From those signals it classifies risk, decides the merge, updates the
@@ -58,15 +61,25 @@ defaults to sequential ticks with per-tick sub-agent dispatch.
 1. **Terminate?** Check budget / wall-clock / eligibility / stagnation first.
 2. **Select** the next unclaimed item (re-fetch the board, exclude already-attempted ids), across the
    full spectrum — do **not** pre-filter by risk or kind.
-3. **Dispatch A** → implement and open the PR. A **false-positive advances the board** (it counts as
-   progress and resets `consecutive_no_progress`, but bumps `consecutive_false_positives`); **blocked /
-   red ⇒ no-progress** tick.
-4. **Review gate:** `@beutl-reviewer` (+ `@beutl-design-reviewer` for public surface). A blocking
-   finding ⇒ high-risk.
-5. **Dispatch B** (bounded settle) → resolve bot reviews; `needs_human` / red / timeout ⇒ leave for
-   the human.
+3. **Dispatch A** → the runner scans recent `Refs: Project #9` merges, implements, and passes two
+   binary gates before it will open a PR: a **test gate** (a production change must ship an NUnit
+   test, or a documented manual-verification, else it is `blocked`) and a six-point **self-review
+   gate** (XAML bindings, no compat shim, no leftover TODO, root-cause, GPL/MIT, subtree rules).
+   Outcomes: a **false-positive advances the board** (progress; resets `consecutive_no_progress`,
+   bumps `consecutive_false_positives`); a **design-sensitive** item is handed back as a **draft**
+   (step 3.5); **blocked** is recorded and skipped — only a `systemic` block counts as no-progress, an
+   `item-specific` one is neutral; **red / no PR ⇒ no-progress**.
+3.5. **Design pass** (only for a draft): run `@beutl-design-reviewer`, allow up to **two** rework
+   iterations on the draft branch, then open the PR — high-risk to a human if the design is still
+   unresolved after the budget.
+4. **Review gate:** `@beutl-reviewer` on the PR diff (the design reviewer already ran in 3.5). A
+   blocking finding ⇒ high-risk.
+5. **Dispatch B** (bounded settle) → resolve bot reviews, including replying-and-resolving clear bot
+   **false positives** with a `path:line` refutation; `needs_human` / red / timeout ⇒ leave for the
+   human.
 6. **Classify risk + merge** (below).
-7. **Journal** the outcome; recompute the stagnation counter; loop.
+7. **Journal** the outcome; recompute the stagnation counter (3 no-progress strikes, held open by a
+   PR in the last 3 ticks); loop.
 
 ## Risk classification (moderate policy)
 
@@ -88,6 +101,15 @@ source generator · persistence format · large diff · a bigger feature · a `C
 could not be cleanly auto-resolved · anything needing product or architecture judgment.
 
 **When in doubt, leave it for the human.** This is the load-bearing fail-safe.
+
+**Two upstream gates run inside Dispatch A, before risk is ever classified** (so a PR that reaches
+this point has already cleared them): the **test gate** — a production change (`src/`) must add an
+NUnit test under `tests/`, or carry a concrete manual-verification note, else the runner returns
+`blocked` rather than opening a PR — and the six-point **self-review gate** (compiled XAML bindings,
+no `[Obsolete]`/"v2"/compat-overload shim, no leftover `// TODO`/Follow-up, root-cause fix, GPL/MIT
+boundary intact, subtree `CLAUDE.md` honored). As defense-in-depth, if a runner opens a PR whose own
+signals show a production change with no test and no manual-verification note, the orchestrator treats
+that PR as high-risk (human) and the tick as no-progress.
 
 ## Auto-merge mechanism — GitHub rulesets enforce the gate; the loop self-gates on top
 
@@ -141,15 +163,18 @@ mode for the loop. In `--auto` it auto-handles **bot feedback only** — a **hum
 is never auto-addressed or auto-resolved; it sets `needs_human` and stays open for a person. For the
 bots, it **autonomously** addresses only clearly-actionable, low-judgment comments (bug/correctness,
 mechanical change-requests, nits) with the smallest possible change, **re-runs build/test/format after
-every edit (never pushes red)**, replies and resolves the handled threads, and **escalates** anything
-needing judgment (`needs_human`) rather than guessing — which pushes the PR to the human-merge path.
+every edit (never pushes red)**, and replies and resolves the handled threads. A **clear bot false
+positive** (the bot misread code that already handles its concern) is answered with a neutral, factual
+reply that cites the exact `path:line` and then resolved **without a code change** — but only when the
+refutation is certain; an uncertain one **escalates** (`needs_human`) rather than guessing. Anything
+needing product/architecture judgment likewise escalates, which pushes the PR to the human-merge path.
 Run standalone it stays human-in-the-loop (per-comment `AskUserQuestion`), so a person can use it
 safely without the autonomy.
 
 ## Relationship to `beutl-board-task`
 
 `beutl-board-task` is **one tick**: pick → verify-not-false-positive → claim → branch → implement →
-test → PR (and, standalone, a human merges). `/beutl-loop` is the **meta-driver** that runs that tick
+test (a production change must ship a test) → self-review gate → PR (and, standalone, a human merges). `/beutl-loop` is the **meta-driver** that runs that tick
 repeatedly with a budget, a stagnation breaker, autonomous review resolution, and a risk-gated
 auto-merge. The loop does not re-implement board queries or the implement/PR cycle — it delegates
 them. (`beutl-board-task` was previously named `beutl-ai-review-task`; it was renamed because Project
@@ -185,8 +210,11 @@ logic** — it just launches `/beutl-loop` with a deliberately conservative enve
 ## Anti-loopmaxxing checklist
 
 - [ ] Binary verification gate every tick (build + test exit-code + format + reviewer) — no green, no PR.
+- [ ] Test gate: a production change ships an NUnit test or a documented manual-verification, else `blocked` — no untested PR.
+- [ ] Six-point self-review gate before commit (XAML bindings, no compat shim, no leftover TODO, root-cause, GPL/MIT, subtree rules).
+- [ ] Design-sensitive items take a bounded two-pass `@beutl-design-reviewer` review before the PR opens.
 - [ ] Deterministic STOP conditions only; no "until done".
-- [ ] Stagnation circuit-breaker (2 strikes; immediate on a repeat).
+- [ ] Stagnation circuit-breaker (3 strikes, held open by a PR in the last 3 ticks; immediate on a repeat). A single `blocked` item is skipped, not a stop; only `systemic` blocks count.
 - [ ] Bounded run: default drains the board, bounded by a runaway backstop (`BEUTL_LOOP_MAX_ITEMS`, default 50) + stagnation breaker + optional wall-clock; pass `N` for a tighter budget.
 - [ ] Auto-merge is conservative, settled, low/moderate-risk only; uncertain ⇒ human.
 - [ ] Heavy work in sub-agents; orchestrator keeps only structured results.
@@ -197,8 +225,10 @@ logic** — it just launches `/beutl-loop` with a deliberately conservative enve
 The loop is Markdown + an agent + a bash launcher — no compilable C#, so the NUnit requirement
 (AGENTS.md rule #3) does not apply. Verify with:
 
-1. **`/beutl-loop dry-run 1`** — selects an item and prints its predicted risk tier, merge decision,
-   and stop math **without** claiming, dispatching, PRing, resolving, merging, or touching the board.
+1. **`/beutl-loop dry-run 1`** — selects an item and prints its predicted risk tier, whether it is
+   design-sensitive (would take the two-pass design review), whether a production change would require
+   a test, the merge decision, and the stop math — **without** claiming, dispatching, PRing,
+   resolving, merging, or touching the board.
 2. **`bash -n .claude/scripts/beutl-loop.sh`** and confirm it refuses to run on `main`.
 3. **One live smoke test** (opens a real PR — run intentionally): `/beutl-loop 1` on a low-risk item
    should open a PR, resolve its **bot** reviews, then **attempt** the squash merge. Under the current
@@ -207,5 +237,6 @@ The loop is Markdown + an agent + a bash launcher — no compilable C#, so the N
    owner to approve + merge. (If you relax code-owner review for the touched paths, the same run
    instead auto-squash-merges, moves the board item to Done, and deletes the branch.) A **feature**
    item is always **left open for a human**. Stagnation check: against a slice of known false-positives
-   the run stops after three consecutive false-positives (`stop_reason: stagnation`); against blocked /
-   red items, after two consecutive no-progress ticks.
+   the run stops after three consecutive false-positives (`stop_reason: stagnation`); against
+   `systemic`-blocked / red items (with no PR opened in between), after three consecutive no-progress
+   ticks. A single `item-specific`-blocked item is skipped without tripping the breaker.

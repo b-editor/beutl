@@ -44,15 +44,18 @@ conservative and fail safe to the human.
 - **TRIGGER** manual (`/beutl-loop` or the headless `.claude/scripts/beutl-loop.sh`). No cron.
 - **SCOPE** unclaimed (`Backlog`/`Todo`) items on Project #9 — **every kind, across the risk
   spectrum, features included**. Never touch `.github/workflows/*`; never cross the GPL/MIT boundary.
-- **ACTION** per tick: implement→PR (sub-agent) → resolve reviews (sub-agent) → classify risk →
-  auto-merge (low/mod) or hand to a human (high). One item ⇒ at most one PR.
+- **ACTION** per tick: implement (sub-agent; test + self-review gated) → [design pass for
+  design-sensitive items] → open PR → resolve reviews (sub-agent) → classify risk → auto-merge
+  (low/mod) or hand to a human (high). One item ⇒ at most one PR.
 - **BUDGET** by default **drains the board** (`until-empty`), bounded by the stagnation breaker, the
   optional wall-clock `BEUTL_LOOP_MAX_MINUTES`, and a runaway backstop `BEUTL_LOOP_MAX_ITEMS`
   (default 50). Pass an integer `N` for a tighter per-run budget. Per-PR settle cap
   `BEUTL_LOOP_SETTLE_MINUTES` (default 20).
 - **STOP** any of: **board drained** (the default terminal) · `items_processed ≥ N` (an explicit
-  budget, or the runaway backstop) · stagnation (2 no-progress, or 3 false-positives, or a repeat) ·
-  wall-clock exceeded · a tick reports `blocked` needing the user · a guardrail would be violated.
+  budget, or the runaway backstop) · stagnation (**3** no-progress with no PR in the last 3 ticks, or
+  3 false-positives, or a repeated item/signature) · wall-clock exceeded · a guardrail would be
+  violated. A single `blocked` item never stops the drain — it is recorded and skipped (reported at
+  the end); only repeated **systemic** blocks feed the no-progress breaker.
 - **REPORT** a Markdown summary at the end, then a reminder to run `/beutl-ai-self-review`.
 
 ## Run setup
@@ -65,10 +68,11 @@ conservative and fail safe to the human.
    file older than ~12h exists, start fresh. Schema:
    ```json
    {"run_id":"<stamp>","budget":"until-empty","runaway_cap":50,"max_minutes":null,"settle_minutes":20,"filter":"any",
-    "attempted_ids":[],"items_processed":0,
+    "attempted_ids":[],"items_processed":0,"last_pr_tick":0,
     "prs":[{"item_id":"","pr_url":"","pr_number":0,"risk":"low|moderate|high",
             "outcome":"merged|left_for_human","left_reason":null,"reviews_resolved":0}],
-    "false_positives":[],"blocked":[],"consecutive_no_progress":0,"consecutive_false_positives":0,
+    "false_positives":[],"blocked":[{"item_id":"","kind":"item-specific|systemic","reason":""}],
+    "consecutive_no_progress":0,"consecutive_false_positives":0,
     "last_chosen_item_id":null,"last_failure_signature":null,"stop_reason":null}
    ```
    The **board (#9) is the source of truth**; the journal is only within-run bookkeeping. If it is
@@ -85,10 +89,11 @@ Board coordinates (project #9) are the same stable IDs as `beutl-board-task` —
 ### 0. Termination check (before every tick — cheapest first)
 Stop if: **no eligible item left** (re-fetch board, exclude `attempted_ids` — the default terminal
 for a drain) · `items_processed ≥` the budget (an explicit `N`, or the runaway backstop
-`BEUTL_LOOP_MAX_ITEMS`, default 50) · wall-clock exceeded · `consecutive_no_progress ≥ 2` ·
-`consecutive_false_positives ≥ 3` (the board/selection is mostly junk — stop and report) · the **same
-`item_id` or `last_failure_signature` recurs back-to-back** (immediate stagnation stop). Record
-`stop_reason`.
+`BEUTL_LOOP_MAX_ITEMS`, default 50) · wall-clock exceeded · `consecutive_no_progress ≥ 3` **and** no
+PR was opened in the last 3 ticks (`items_processed − last_pr_tick > 3` — recent shipping counts as
+progress and holds the breaker open) · `consecutive_false_positives ≥ 3` (the board/selection is
+mostly junk — stop and report) · the **same `item_id` or `last_failure_signature` recurs
+back-to-back** (immediate stagnation stop). Record `stop_reason`.
 
 ### 1. Select the next item
 Re-fetch the board snapshot (as in `beutl-board-task` Step 1), apply the type filter, exclude
@@ -100,26 +105,63 @@ Dispatch the **`beutl-board-task-runner`** agent with the item (`ITEM_ID`, title
 `BRANCH_PREFIX` — use `$BEUTL_LOOP_BRANCH_PREFIX` if set, otherwise the current branch's `<prefix>/`
 segment. If the current branch is flat/detached (no `/`) **and** the env var is unset, that is a setup
 error: STOP and ask the user for a prefix (the headless wrapper already refuses this case up front). It
-returns the structured result (`pr_url`, risk signals, `test_status`, or `false_positive` / `blocked`).
-Outcomes and their effect on the **stagnation counters** (the budget counter `items_processed` is
-incremented once per tick in step 6, **never here** — so a tick that opens a PR and then merges it is
-still one processed item, not two):
+returns the structured result (`pr_url`, risk signals, `test_status`, or `draft_ready` /
+`false_positive` / `blocked`). Outcomes and their effect on the **stagnation counters** (the budget
+counter `items_processed` is incremented once per tick in step 6, **never here** — so a tick that
+opens a PR and then merges it is still one processed item, not two):
+- `draft_ready: true` (design-sensitive) → **not** a terminal outcome: go to **step 2.5** to run the
+  design pass, which ends by opening the PR. Do not touch the counters yet — step 2.5 applies the
+  "PR opened" reset once it opens the PR.
 - `false_positive: true` → the runner already marked the board item `False positive`, so the item
   **leaves the queue** — this is **progress**: reset `consecutive_no_progress` to 0, increment
   `consecutive_false_positives`. Continue.
-- `blocked: true` → record reason; if it needs the user, STOP(blocked). Otherwise nothing shipped =
-  **no-progress**: increment `consecutive_no_progress`, **reset `consecutive_false_positives` to 0**,
-  set `last_failure_signature` from the runner's `failure_signature`, continue.
-- `test_status: "red"` / no PR → **no-progress**: increment `consecutive_no_progress`, **reset
-  `consecutive_false_positives` to 0**, set `last_failure_signature` from the runner's `failure_signature`, continue.
+- `blocked: true` → record `{reason, kind}`; **never stop the whole drain on a single item** (skip it
+  via `attempted_ids` and report it at the end). Reset `consecutive_false_positives` to 0, then by
+  `blocked_kind`:
+  - `"systemic"` (build won't compile, tests universally red, tooling broken) → **no-progress**:
+    increment `consecutive_no_progress`, set `last_failure_signature`. Repeated systemic blocks trip
+    the breaker.
+  - `"item-specific"` (underspecified feature, upstream/product call, UI needing a human) → the
+    toolchain is fine and the item simply isn't doable now: **neutral** — do **not** increment
+    `consecutive_no_progress`. Continue.
+- `test_status: "red"` / no PR (and not `blocked`) → **no-progress**: increment
+  `consecutive_no_progress`, **reset `consecutive_false_positives` to 0**, set `last_failure_signature`
+  from the runner's `failure_signature`, continue.
 - PR opened (any risk) → **progress**: reset `consecutive_no_progress` **and**
-  `consecutive_false_positives` to 0, and go on.
+  `consecutive_false_positives` to 0, mark this tick as having opened a PR (step 6 records
+  `last_pr_tick`), and go on.
+
+**Defense-in-depth on the test gate (B):** if the runner opened a PR but its own signals show
+`touched_production == true && test_files_added_count == 0 && test_status != "manual-verification"`
+(the runner should have blocked instead), treat the PR as **high-risk → leave for human** and count
+the tick as **no-progress** (a runner-contract violation, not a shippable item).
+
+### 2.5 Design pass (only when Dispatch A returned `draft_ready`)
+The runner handed back a pushed **draft branch** instead of a PR because the change is design-sensitive
+(`design_reviewer_required`). Run up to **two** rework iterations:
+
+1. Dispatch **`@beutl-design-reviewer`** (read-only) on `git diff origin/main...<draft_branch>`.
+2. **No blocking design finding** → design approved; open the PR (below).
+3. **Blocking finding(s) with reworks left (`< 2` done)** → re-dispatch `beutl-board-task-runner` in
+   **Rework mode** (`REWORK=true`, `draft_branch`, `design_findings=<findings>`, `OPEN_PR=false`); it
+   amends the branch, re-runs the binary gates, pushes, and returns `draft_ready` again. Increment the
+   rework count and loop to (1).
+4. **Blocking finding(s) but the 2-rework budget is spent** → stop reworking; the design is
+   **unresolved**.
+
+**Open the PR** from the (possibly amended) draft branch by re-dispatching the runner in Rework mode
+with `OPEN_PR=true` and empty `design_findings`. This is the step-2 **"PR opened"** outcome: reset both
+stagnation counters to 0 and mark the tick as PR-opened (step 6 records `last_pr_tick`). If the design
+was left **unresolved** (case 4), force the PR's risk to **high → leave for human**
+(`left_reason: "unresolved design findings after 2 reworks"`) and skip the auto-merge path; otherwise
+continue to step 3.
 
 ### 3. Review gate (orchestrator-level sub-agents)
-Dispatch `@beutl-reviewer` on the PR diff; dispatch `@beutl-design-reviewer` too when the runner set
-`design_reviewer_required`. A **blocking** finding from either (GPL/MIT, XAML bindings, NUnit, source
--gen, or a design-priority violation needing judgment) ⇒ mark the PR **high-risk** (its findings go
-to the human along with the PR).
+Dispatch `@beutl-reviewer` on the PR diff. (`@beutl-design-reviewer` was already run in step 2.5 for
+design-sensitive items — do not re-run it here; for non-design-sensitive items it is not needed.) A
+**blocking** finding from `@beutl-reviewer` (GPL/MIT, XAML bindings, NUnit, source-gen) — or an
+unresolved design finding carried over from step 2.5 — ⇒ mark the PR **high-risk** (its findings go to
+the human along with the PR).
 
 ### 4. Resolve reviews (sub-agent, bounded settle)
 Wait for async bot reviews, bounded by `settle_minutes`. Poll (~every 90s): dispatch a sub-agent
@@ -169,19 +211,24 @@ High-risk PRs — and **any merge GitHub refuses** — are **left open**; the bo
 `In Progress` (the code owner reviews and merges).
 
 ### 6. Update the journal
-Append the per-item record (risk, `merged` / `left_for_human` + reason, reviews_resolved). Increment
-`items_processed` **exactly once for this tick** — every item that reached a terminal state
-(false-positive, blocked, or PR opened) counts as one; a PR that then merges or is left for the human
-is still that same one item, never a second. The stagnation counters (`consecutive_no_progress`,
-`consecutive_false_positives`, `last_failure_signature`) were already set in step 2. Persist, then
-loop to step 0.
+Append the per-item record (risk, `merged` / `left_for_human` + reason, reviews_resolved; or the
+`{kind, reason}` for a blocked item). Increment `items_processed` **exactly once for this tick** —
+every item that reached a terminal state (false-positive, blocked, or PR opened — including a
+design-sensitive item that drafted then opened in step 2.5) counts as one; a PR that then merges or is
+left for the human is still that same one item, never a second. **If this tick opened a PR (including
+via the step-2.5 design pass), set `last_pr_tick = items_processed`** (used by the step-0 "PR within
+the last 3 ticks" guard). The stagnation counters (`consecutive_no_progress`,
+`consecutive_false_positives`, `last_failure_signature`) were already set in step 2 / 2.5. Persist,
+then loop to step 0.
 
 ## Dry-run
 
 `/beutl-loop dry-run [N]` runs steps 0–1 and the **classification logic** for each item it *would*
-pick, and prints: the chosen item, why it is eligible, the planned `BRANCH_PREFIX`, the predicted
-risk tier and merge decision, and the current stop math — **without** claiming, dispatching A/B,
-editing, PRing, replying, resolving, merging, or editing the board. It is the safe first thing to run.
+pick, and prints: the chosen item, why it is eligible, the planned `BRANCH_PREFIX`, whether it looks
+**design-sensitive** (would take the step-2.5 design pass), whether a production change would
+**require a test** (the B gate) or only a manual-verification note, the predicted risk tier and merge
+decision, and the current stop math — **without** claiming, dispatching A/B, editing, PRing, replying,
+resolving, merging, or editing the board. It is the safe first thing to run.
 
 ## Report
 
@@ -194,8 +241,10 @@ the user to run `/beutl-ai-self-review` (the Stop hook also nudges this after 3+
 - **Binary verification gates** decide progress: `dotnet build` clean + `dotnet test` `$?==0`
   (exit code, never a console string) + `dotnet format --verify-no-changes` + `@beutl-reviewer`
   (+ `@beutl-design-reviewer` on public surface). No green gate ⇒ no PR ⇒ no-progress.
-- **Stagnation breaker:** stop after 2 consecutive no-progress ticks, or immediately on a repeated
-  `item_id` / `last_failure_signature`.
+- **Stagnation breaker:** stop after **3** consecutive no-progress ticks **with no PR opened in the
+  last 3 ticks** (recent shipping holds it open), or immediately on a repeated `item_id` /
+  `last_failure_signature`. A `blocked` item counts toward this only when its `blocked_kind` is
+  `systemic`; an `item-specific` block is skipped without penalty.
 - **Hard budget:** default drains the board (`until-empty`) with a runaway backstop
   `BEUTL_LOOP_MAX_ITEMS` (default 50); pass `N` for a tighter budget; optional wall-clock.
 - **Deterministic STOP** only (the reasons above) — never an open-ended "until done".

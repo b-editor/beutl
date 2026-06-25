@@ -85,6 +85,7 @@ latest reply says done/fixed/resolved. Keep the `{thread id ↔ comment database
 | **Change request** ("rename this", "extract helper") | Address (if mechanical/clear) |
 | **Style / nit** | Address (cheap) |
 | **Question** | Reply, no code change |
+| **Clear false positive** (bot misread the code; the concern does not hold) | Reply with a factual refutation citing `path:line`, then resolve — **no code change** |
 | **Out of scope / opinion / architecture call** | Do NOT auto-address — escalate |
 | **Praise / discussion** | Ignore |
 
@@ -106,6 +107,12 @@ without an explicit "Address it".
   mechanical change-requests, and nits. Make the **smallest** change that resolves the comment; do
   **not** expand scope because a reviewer mused about a broader refactor.
 - **Questions:** post a brief factual reply if it is answerable from the code; otherwise escalate.
+- **Clear bot false positives:** when a **known bot's** comment is demonstrably wrong (you can point
+  to the exact `path:line` that already handles the concern), post a **neutral, factual** reply that
+  cites that `path:line` to refute it, then **resolve** the thread — with **no code change**. The
+  refutation must quote concrete code, not a general assurance. If you are not certain it is a false
+  positive, **escalate** (`needs_human`) instead of resolving. Count each one in
+  `false_positives_resolved`. (Never do this for human comments — those always escalate.)
 - **Out-of-scope / opinion / anything needing product or architecture judgment, or that would
   enlarge the diff materially:** do **not** touch. Leave the thread open and mark `needs_human`.
 - **After any edit, re-verify before pushing — this is mandatory:**
@@ -145,6 +152,7 @@ handle-pr-reviews). Note that no merge was performed.
   "pr_number": 0,
   "threads_total": 0,
   "threads_resolved": 0,
+  "false_positives_resolved": 0,
   "unresolved": 0,
   "changes_requested_outstanding": false,
   "human_feedback_present": false,
@@ -156,6 +164,8 @@ handle-pr-reviews). Note that no merge was performed.
   "last_activity_at": "<ISO-8601 of the most recent review / comment / commit on the PR>"
 }
 ```
+- `false_positives_resolved`: how many **bot** threads you resolved as clear false positives (a factual
+  `path:line` refutation reply, no code change). A subset of `threads_resolved`.
 - `human_feedback_present`: true if any non-author **human** review or comment exists (always forces
   `needs_human`, since `--auto` never handles human feedback).
 - `last_activity_at`: lets the orchestrator compute the "quiet period" (no new activity for ~10 min)

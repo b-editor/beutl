@@ -156,6 +156,9 @@ Enter plan mode (`EnterPlanMode`) and produce a focused plan. Include:
 - The concrete edit(s): `file:line` and the before/after shape.
 - A **test** plan (see Step 5) — this repo requires new logic to ship with an NUnit test
   (`.claude/rules/csharp.md`, AGENTS.md rule #3).
+- A quick **recent-merge scan**: skim `git log --oneline -15 origin/main` for commits tagged
+  `Refs: Project #9`; if a just-merged PR removed or refactored a pattern this task would reintroduce,
+  adjust the plan (a soft signal, not a gate).
 - Verification commands and the commit/PR/board updates.
 
 Surface non-obvious design trade-offs to the user (AGENTS.md "adopt better designs eagerly").
@@ -258,6 +261,13 @@ fi
 (If you only want an interim progress peek while it runs, `grep` the output file — but still gate
 the commit/PR decision on `status`, not on any matched string.)
 
+**A production change must ship a test.** If your diff touches `src/` (production code) but adds no
+file under `tests/`, that is not done: go back and add the NUnit test. Only when the change genuinely
+cannot carry a unit test (typically UI) may you substitute a concrete **manual-verification**
+procedure — and you must write that procedure down (it goes in the plan and the PR's Test plan). A
+production change with neither a test nor a manual-verification note is **blocked**, not a PR — the
+Step 7 gate enforces this.
+
 ## Step 6 — Do not defer work (gate before you open the PR)
 
 Run this check **before** the commit/push/PR in Step 7 — it is a gate on opening the PR, not a
@@ -281,6 +291,21 @@ If nothing was surfaced beyond the fix itself, there is nothing to do here — p
 You are already on `$BRANCH` (created in Step 3 before any edits), so just commit and push it.
 `git push -u origin "$BRANCH"` pushes that existing branch — the refspec form does not create or
 move a branch, which is exactly why the branch had to exist before you started editing.
+
+### Pre-commit gate — self-review + tests (do this before `git commit`)
+
+Two binary checks gate the commit; both must pass (prefer fixing in-branch; otherwise it is `blocked`):
+
+- **Test gate.** Must NOT be (production code under `src/` changed **and** no file under `tests/`
+  added **and** not a documented manual-verification). If it trips, add the test (Step 5) or, for
+  genuinely untestable UI, write the manual-verification note — else stop and report `blocked`
+  ("rule #3: production change without test").
+- **Self-review (six checks).** (1) new/changed XAML declares `x:CompileBindings="True"` + `x:DataType`;
+  (2) no `[Obsolete]` shim / "v2" duplicate / compat overload added to dodge call-site updates;
+  (3) no leftover `// TODO` / `## Follow-ups` / Draft-board deferral; (4) the change fixes the **root
+  cause**, not a symptom; (5) the GPL/MIT boundary is intact; (6) subtree `CLAUDE.md` rules honored.
+  (The `.claude/hooks/check-gpl-mit-boundary.sh` hook also enforces #5 mechanically; this check is the
+  human-judgment complement.)
 
 ```bash
 git add <changed files>

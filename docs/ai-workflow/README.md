@@ -38,7 +38,7 @@ beutl/
 | CI's Linux/SwiftShader GPU job crashed natively (no managed stack) but it's green on macOS | `beutl-gpu-crash-repro` skill (arm64-native Docker repro + native stack); delegates the noisy build+loop to the `beutl-gpu-crash-reproducer` subagent |
 | Work **one** task from the Project #9 board (bug / quality / design / feature) into a PR | `beutl-board-task` skill (verify → implement → test → PR; a human merges) |
 | Address & resolve a PR's reviews (CodeRabbit / Copilot / Codex / Claude) | `beutl-resolve-reviews` skill (interactive by default; `--auto` for unattended) |
-| Autonomously **drain the board** (all eligible items by default) in one bounded run, auto-merging the low-to-moderate-risk ones where the branch rules permit | `/beutl-loop` skill — meta-loop over `beutl-board-task`; dispatches worktree sub-agents, risk-gates auto-merge, stops on an empty board / runaway backstop / stagnation breaker. See [loop-engineering.md](./loop-engineering.md) |
+| Autonomously **drain the board** (all eligible items by default) in one bounded run, auto-merging the low-to-moderate-risk ones where the branch rules permit | `/beutl-loop` skill — meta-loop over `beutl-board-task`; dispatches worktree sub-agents behind a test gate + self-review gate + a two-pass design review, resolves bot reviews, risk-gates auto-merge, stops on an empty board / runaway backstop / stagnation breaker. See [loop-engineering.md](./loop-engineering.md) |
 
 ## Detailed guides
 
