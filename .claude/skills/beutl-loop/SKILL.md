@@ -306,17 +306,38 @@ matching test project with coverage, then compute changed-line coverage with the
 #   src/Beutl.Engine/...  -> tests/Beutl.UnitTests/  (or tests/Beutl.Graphics3DTests/ for graphics)
 #   src/Beutl.ProjectSystem/... -> tests/Beutl.ProjectSystem.Tests/ (if present)
 TESTS_PROJ=<derive-from-diff>
+# Use a dedicated results directory so a stale coverage.xml from a previous
+# run cannot be picked up. pipefail ensures dotnet test's failure is not
+# masked by tail.
+COV_DIR=$(mktemp -d .claude/logs/cov-probe-XXXXXX)
+set -o pipefail
 dotnet test "$TESTS_PROJ" -f net10.0 --no-build --collect:"XPlat Code Coverage" \
-  --settings coverlet.runsettings 2>&1 | tail -5
-COV=$(find tests -type f -path '*/TestResults/*/coverage.cobertura.xml' -newermt '-5 minutes' 2>/dev/null | head -1)
-# Changed-line coverage probe: exit 0 = >=70% (auto-merge eligible), exit 1 = <70% (high-risk),
-# exit 2 = probe failed (high-risk, fail safe). The diff is origin/main..$DRAFT_BRANCH (the
-# actual PR head — not the orchestrator's checkout, which may be a different branch).
-python3 .claude/scripts/changed-line-coverage.py origin/main "$DRAFT_BRANCH" "$COV" --threshold 70
+  --settings coverlet.runsettings --results-directory "$COV_DIR" 2>&1 | tail -5
+TEST_RC=$?
+set +o pipefail
+if [ "$TEST_RC" -ne 0 ]; then
+  echo "coverage test run failed (exit $TEST_RC) — treat as high-risk (fail safe)"
+  rm -rf "$COV_DIR"
+  # Skip the probe; the PR is high-risk.
+else
+  COV=$(find "$COV_DIR" -name 'coverage.cobertura.xml' | head -1)
+  if [ -z "$COV" ]; then
+    echo "no coverage.xml produced — treat as high-risk (fail safe)"
+    rm -rf "$COV_DIR"
+  else
+    # Changed-line coverage probe: exit 0 = >=70% (auto-merge eligible),
+    # exit 1 = <70% (high-risk), exit 2 = probe failed (high-risk, fail safe).
+    # The diff is origin/main..$DRAFT_BRANCH (the actual PR head — not the
+    # orchestrator's checkout, which may be a different branch).
+    python3 .claude/scripts/changed-line-coverage.py origin/main "$DRAFT_BRANCH" "$COV" --threshold 70
+    rm -rf "$COV_DIR"
+  fi
+fi
 ```
-If the probe exits **non-zero** (exit 1 = under threshold, exit 2 = probe failure), mark the PR
-**high-risk**: post the coverage number on the PR for the human and do not auto-merge. The probe is
-a **gate on auto-merge eligibility only** — the PR still opens and goes through bot review resolution.
+If the test run failed, no coverage XML was produced, or the probe exits **non-zero** (exit 1 =
+under threshold, exit 2 = probe failure), mark the PR **high-risk**: post the coverage number (or
+the failure reason) on the PR for the human and do not auto-merge. The probe is a **gate on
+auto-merge eligibility only** — the PR still opens and goes through bot review resolution.
 
 `main` is ruleset-protected (required checks `build`/`dotnet-format`, every thread resolved,
 **code-owner review**, squash-only, signed commits). The loop **posts the code-owner approval** (it

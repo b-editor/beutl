@@ -22,9 +22,14 @@ HUNK_RE = re.compile(r"^@@ -\d+(?:,\d+)? \+(\d+)")
 
 
 def added_lines_per_file(base: str, head: str) -> dict[str, list[int]]:
-    """Return {filepath: [line numbers added in the diff]}."""
+    """Return {filepath: [line numbers added in the diff]}, scoped to src/ only.
+
+    The coverage gate is about production code under-test; test files, docs,
+    and .claude/ changes have no corresponding Cobertura entries and would
+    inflate the denominator with guaranteed-uncovered lines.
+    """
     diff = subprocess.check_output(
-        ["git", "diff", f"{base}..{head}", "--unified=0", "--diff-filter=d"],
+        ["git", "diff", f"{base}..{head}", "--unified=0", "--diff-filter=d", "--", "src/"],
         text=True,
     )
     result: dict[str, list[int]] = {}
