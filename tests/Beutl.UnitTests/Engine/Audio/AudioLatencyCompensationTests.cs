@@ -307,6 +307,44 @@ public class AudioLatencyCompensationTests
     }
 
     [Test]
+    public void NestedClipNode_Flush_DrainsFromLastProcessedLocalTime_WhenParentTrimsTheClip()
+    {
+        // A SoundGroup window can stop before a child's own Duration, trimming it. The child's last
+        // Process then ended at the trim boundary, not its natural end, so the flush must drain from that
+        // last processed local time — draining from Duration would jump past the cached limiter, reset it,
+        // and drop the tail held at the trim boundary.
+        const float lookaheadMs = 5f;
+        int L = LookaheadSamples(lookaheadMs);
+        const int clipSamples = 8192;        // the child's natural Duration
+        const int processedSamples = 4096;   // the parent trims the child here, before its end
+
+        var clipDuration = TimeSpan.FromSeconds((double)clipSamples / SampleRate);
+        var source = new RangeSineNode(SampleRate);
+        using var limiter = CreateTransparentLimiter(lookaheadMs);
+        limiter.AddInput(source);
+
+        using var clip = new ClipNode { Start = TimeSpan.Zero, Duration = clipDuration };
+        clip.AddInput(limiter);
+
+        // Only the first processedSamples are pulled, so the limiter's last processed local end is there
+        // and its delay line holds the tail from around that trim boundary.
+        using var processed = clip.Process(Context(TimeSpan.Zero, processedSamples));
+
+        using var tail = clip.Flush(Context(TimeSpan.FromSeconds(99.0), L));
+
+        var tailData = tail.GetChannelData(0);
+        bool anyNonZero = false;
+        for (int k = 0; k < L; k++)
+        {
+            if (MathF.Abs(tailData[k]) > 1e-6f) { anyNonZero = true; break; }
+        }
+
+        Assert.That(anyNonZero, Is.True,
+            "A clip trimmed by its parent must flush from its last processed local time so the cached "
+            + "limiter stays contiguous and drains the tail held at the trim boundary, not at Duration.");
+    }
+
+    [Test]
     public void Flush_FanInWithoutOverride_Throws()
     {
         // A bare multi-input node has no merge semantics; the base Flush must fail loudly, not drop tails.

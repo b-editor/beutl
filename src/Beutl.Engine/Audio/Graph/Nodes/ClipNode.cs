@@ -5,6 +5,11 @@ namespace Beutl.Audio.Graph.Nodes;
 // タイムライン上の時間空間をローカル時間空間に変換
 public class ClipNode : AudioNode
 {
+    // Clip-local end of the last window this node actually processed. Equals Duration when the clip ran
+    // to its own end, but is earlier when a parent trims it (a SoundGroup window stopping before the
+    // child's Duration); Flush drains from here so the cached effects stay contiguous either way.
+    private TimeSpan? _lastProcessedLocalEnd;
+
     public TimeSpan Start { get; set; } = TimeSpan.Zero;
 
     public TimeSpan Duration { get; set; } = TimeSpan.Zero;
@@ -34,6 +39,7 @@ public class ClipNode : AudioNode
             context.SampleRate,
             context.AnimationSampler,
             context.OriginalTimeRange);
+        _lastProcessedLocalEnd = newRange.End - Start;
         using var buffer = Inputs[0].Process(clippedContext);
         var newBuffer = new AudioBuffer(
             context.SampleRate,
@@ -76,15 +82,16 @@ public class ClipNode : AudioNode
     // clip) is flushed by its parent in the PARENT's time domain. Process remaps an incoming timeline
     // window to clip-local before pulling the input, so the flush path must reconstruct the same
     // clip-local frame or the child's cached effects (a lookahead limiter) see a discontinuity, Reset(),
-    // and drop the very tail being drained. Rebuild the drain at clip-local Duration — where this clip's
-    // last Process slice ended — mirroring AppendFlushedTail; the parent's start is intentionally
-    // dropped, which is also why an intervening ShiftNode needs no flush override of its own.
+    // and drop the very tail being drained. Drain from the clip-local end of the last processed window —
+    // Duration when the clip ran to its own end, earlier when a parent trimmed it — so the cached chain
+    // stays contiguous; the parent's start is intentionally dropped, which is also why an intervening
+    // ShiftNode needs no flush override of its own.
     public override AudioBuffer Flush(AudioProcessContext context)
     {
         ArgumentNullException.ThrowIfNull(context);
 
         var drainContext = new AudioProcessContext(
-            new TimeRange(Duration, context.TimeRange.Duration),
+            new TimeRange(_lastProcessedLocalEnd ?? Duration, context.TimeRange.Duration),
             context.SampleRate,
             context.AnimationSampler,
             context.OriginalTimeRange);
