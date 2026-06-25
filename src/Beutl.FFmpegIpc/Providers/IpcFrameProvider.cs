@@ -147,10 +147,10 @@ internal sealed class IpcFrameProvider : IFrameProvider
         // .Wait()/.GetAwaiter().GetResult() could deadlock or rethrow the pipe-teardown fault. Instead attach
         // a fault-swallowing continuation so any fault is observed (preventing UnobservedTaskException) and
         // return promptly. Owning the connection is the caller's job, so we only neutralize our own task.
-        // OnlyOnFaulted is deliberate (and the asymmetry with IpcSampleProvider.Dispose is intentional): the
-        // prefetch yields a managed IpcMessage with nothing to release — the Bitmap is built lazily only when
-        // a frame is consumed — so a successful prefetch leaks nothing. IpcSampleProvider's prefetch instead
-        // yields a native Pcm, so its continuation must also dispose the result on the success path.
+        // OnlyOnFaulted here, but not in IpcSampleProvider.Dispose: a frame prefetch yields a managed
+        // IpcMessage with nothing to release (the Bitmap is built lazily only when a frame is consumed), so a
+        // successful prefetch leaks nothing — whereas a sample prefetch yields a native Pcm its continuation
+        // must dispose on the success path.
         _prefetchTask?.ContinueWith(
             static t => { _ = t.Exception; },
             CancellationToken.None,
