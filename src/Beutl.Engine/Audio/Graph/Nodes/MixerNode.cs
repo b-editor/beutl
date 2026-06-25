@@ -18,6 +18,13 @@ public sealed class MixerNode : AudioNode
 
     // Fan-in flush: drain every branch and mix the held tails with the same gain fold as Process, so a
     // lookahead tail in any branch is recovered (the base Flush's single-input path cannot reach here).
+    //
+    // Known limitation: branches are drained unconditionally. A branch whose clip ended before the
+    // group's terminal slice — and whose own terminal block landed exactly on its clip boundary (the
+    // chunk-alignment edge where ClipNode could not self-recover) — still holds a stale tail that this
+    // emits into the group pad seconds late. Skipping only the branches live through the terminal slice
+    // needs per-branch clip-liveness the mixer does not track today; recovering at the child's own end is
+    // the chunk-alignment follow-up.
     public override AudioBuffer Flush(AudioProcessContext context)
     {
         ArgumentNullException.ThrowIfNull(context);
