@@ -91,7 +91,7 @@ fi
 # --- 7. Launcher allowlist is a subset of SKILL allowed-tools -------------
 # Every Bash(...) entry in the launcher's ALLOWED_TOOLS should be covered by the
 # skill's allowed-tools line (or be a read-only companion). Check the critical ones.
-for cmd in gh git dotnet python3 jq sleep timeout find; do
+for cmd in gh git dotnet python3 jq sleep timeout find mkdir rm; do
   if grep -q "Bash($cmd:" "$LAUNCHER" 2>/dev/null; then
     if grep -q "Bash($cmd:" "$SKILL" 2>/dev/null; then
       pass "allowlist subset: $cmd in both launcher + skill"

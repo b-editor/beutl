@@ -7,7 +7,7 @@ description: |
   max-items budget, a stagnation circuit-breaker, or an empty board. Use when the user says
   "ボードをループで消化して", "loop the board", "keep working AI-review items until …",
   "/beutl-loop". Sub-agent dispatch keeps this orchestrator's context lean across many ticks.
-allowed-tools: Task, Read, Grep, Glob, Write, Edit, Bash(gh:*), Bash(git:*), Bash(dotnet:*), Bash(python3:*), Bash(jq:*), Bash(mktemp:*), Bash(date:*), Bash(sleep:*), Bash(timeout:*), Bash(find:*), Bash(bash .claude/scripts/*:*)
+allowed-tools: Task, Read, Grep, Glob, Write, Edit, Bash(gh:*), Bash(git:*), Bash(dotnet:*), Bash(python3:*), Bash(jq:*), Bash(mktemp:*), Bash(mkdir:*), Bash(rm:*), Bash(date:*), Bash(sleep:*), Bash(timeout:*), Bash(find:*), Bash(bash .claude/scripts/*:*)
 argument-hint: "[N | dry-run | until-empty] [bug|diff|design|feature]"
 ---
 

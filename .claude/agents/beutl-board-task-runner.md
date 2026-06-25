@@ -42,36 +42,41 @@ yourself.
 runner **skips that** and hands back a draft branch instead (see "Step 9" below). The orchestrator
 runs the pre-PR review round on the draft and opens the PR itself.
 
-1. **Validate the item** (skill Step 2, the path matching its kind). For a **review finding**: verify
-   it is NOT a false positive against the *current* code; if it is, set Status `False positive`
-   (`e6ff360e`) and return `false_positive: true` (do nothing else). For a **feature task** there is
-   no false-positive concept — instead confirm it is not already implemented/obsolete (if it is, treat
-   it as the false-positive exit: mark the board and return `false_positive: true` with a note) and is
-   specified enough to verify (if not, return `blocked` / `blocked_kind: "item-specific"`). **Needs a
-   spec?** If the feature requires a **new public type** or **≥ 3 new files**, it is too large for a
-   single minimal-change tick — set `speckit_required: true` and return (do not implement). The
-   orchestrator runs the Spec-Kit flow (`/speckit-specify → /speckit-plan → /speckit-tasks`) and
-   re-dispatches you with the generated `tasks.md` (see "Spec-Kit re-dispatch mode").
-2. **Claim it** immediately (Status → `In Progress` `47fc9ee4`).
+1. **Claim it immediately** (Status → `In Progress` `47fc9ee4`). This happens **before**
+   validation so that a `blocked`, `speckit_required`, or `false_positive` return does not leave
+   the item in Backlog/Todo where another run or agent can re-pick it mid-flight. The orchestrator
+   and the board both rely on `In Progress` as the "someone is handling this" signal.
+2. **Validate the item** (skill Step 2, the path matching its kind). For a **review finding**:
+   verify it is NOT a false positive against the *current* code; if it is, set Status
+   `False positive` (`e6ff360e`) and return `false_positive: true` (do nothing else). For a
+   **feature task** there is no false-positive concept — instead confirm it is not already
+   implemented/obsolete (if it is, treat as the false-positive exit: mark the board and return
+   `false_positive: true` with a note) and is specified enough to verify (if not, return
+   `blocked` / `blocked_kind: "item-specific"`). **Needs a spec?** If the feature requires a
+   **new public type** or **≥ 3 new files**, it is too large for a single minimal-change tick —
+   set `speckit_required: true` and return (do not implement). The orchestrator runs the Spec-Kit
+   flow (`/speckit-specify → /speckit-plan → /speckit-tasks`) and re-dispatches you with the
+   generated `tasks.md` (see "Spec-Kit re-dispatch mode").
 3. **Branch off `origin/main`** first (before editing), named `$BRANCH_PREFIX/<descriptive-slug>`.
 4. **Scan recent merges, then implement.** Before editing, skim the last ~15 commits on `origin/main`
    (`git log --oneline -15 origin/main`) for items tagged `Refs: Project #9`; if a just-merged PR
-   removed or refactored a pattern this task would reintroduce, adjust course (a soft signal, not a
-   gate). Then apply the minimal root-cause change. Match surrounding style; honor subtree CLAUDE.md
-   rules (e.g. `Beutl.Engine` forbids UI refs / wants pooled arrays on the render hot path) and the
-   GPL/MIT boundary.
+   removed or refactored a pattern this task would reintroduce, adjust course (a soft signal, not
+   a gate). Then apply the minimal root-cause change. Match surrounding style; honor subtree
+   CLAUDE.md rules (e.g. `Beutl.Engine` forbids UI refs / wants pooled arrays on the render hot
+   path) and the GPL/MIT boundary.
 5. **Test with the baseline-first loop** and **gate on the exit code, never a console string**
-   (the locale trap is real — `Passed!`/`Failed!` vs `成功!`/`失敗!`). **A production change must ship
-   an NUnit test** (AGENTS.md rule #3): if your diff touches `src/` but adds no file under `tests/`,
-   go back and add one. Only when the change genuinely cannot carry a unit test (typically UI) do you
-   set `test_status: "manual-verification"` — and then a concrete `manual_verification_note` is
-   **mandatory**. A production change with neither a test nor a manual-verification note is `blocked`
-   (see the Step-8 gate), not a PR. **Record `baseline_test_green`**: run the new test against the
-   UNMODIFIED code first (characterization baseline), and set `baseline_test_green: true` only if that
-   pre-change run was green (proving the test captures current behavior). If the baseline run was red
-   or you skipped it, set `baseline_test_green: false` — the orchestrator treats a missing/false
-   baseline as a runner-contract violation (no-progress), so do not skip it. For a
-   `manual-verification`-only item, set `baseline_test_green: true` (there is no test to baseline).
+   (the locale trap is real — `Passed!`/`Failed!` vs `成功!`/`失敗!`). **A production change must
+   ship an NUnit test** (AGENTS.md rule #3): if your diff touches `src/` but adds no file under
+   `tests/`, go back and add one. Only when the change genuinely cannot carry a unit test
+   (typically UI) do you set `test_status: "manual-verification"` — and then a concrete
+   `manual_verification_note` is **mandatory**. A production change with neither a test nor a
+   manual-verification note is `blocked` (see the Step-8 gate), not a PR. **Record
+   `baseline_test_green`**: run the new test against the UNMODIFIED code first (characterization
+   baseline), and set `baseline_test_green: true` only if that pre-change run was green (proving
+   the test captures current behavior). If the baseline run was red or you skipped it, set
+   `baseline_test_green: false` — the orchestrator treats a missing/false baseline as a
+   runner-contract violation (no-progress), so do not skip it. For a `manual-verification`-only
+   item, set `baseline_test_green: true` (there is no test to baseline).
 6. **`dotnet format --verify-no-changes`** on the touched files.
 7. **Do not defer work** (skill Step 6): finish everything the task surfaced on this branch, or
    return `blocked` with a reason. Never park work behind a TODO/Follow-up.
