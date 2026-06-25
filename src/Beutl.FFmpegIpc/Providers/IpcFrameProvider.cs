@@ -16,6 +16,7 @@ internal sealed class IpcFrameProvider : IFrameProvider
     private Task<IpcMessage>? _prefetchTask;
     private int _prefetchBufferIndex;
     private long _prefetchFrameIndex;
+    private bool _disposed;
 
     public IpcFrameProvider(IpcConnection connection, SharedMemoryBuffer[] videoBuffers,
         long frameCount, Rational frameRate)
@@ -32,6 +33,8 @@ internal sealed class IpcFrameProvider : IFrameProvider
 
     public async ValueTask<Bitmap> RenderFrame(long frame)
     {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+
         IpcMessage response;
         int readBufferIndex;
 
@@ -128,5 +131,31 @@ internal sealed class IpcFrameProvider : IFrameProvider
             bmp.Dispose();
             throw;
         }
+    }
+
+    // Test-only probe: lets a Dispose test wait until the in-flight prefetch has actually faulted before
+    // dropping it, so the faulted-task path is exercised deterministically without a sleep.
+    internal bool IsPrefetchFaultedForTest() => _prefetchTask?.IsFaulted == true;
+
+    public void Dispose()
+    {
+        if (_disposed) return;
+        _disposed = true;
+
+        // A prefetch may still be in flight when the encode is torn down (cancel, error, normal end). The
+        // connection/pipe it talks to may already be closing, so we must NOT synchronously wait on it here:
+        // .Wait()/.GetAwaiter().GetResult() could deadlock or rethrow the pipe-teardown fault. Instead attach
+        // a fault-swallowing continuation so any fault is observed (preventing UnobservedTaskException) and
+        // return promptly. Owning the connection is the caller's job, so we only neutralize our own task.
+        // OnlyOnFaulted here, but not in IpcSampleProvider.Dispose: a frame prefetch yields a managed
+        // IpcMessage with nothing to release (the Bitmap is built lazily only when a frame is consumed), so a
+        // successful prefetch leaks nothing — whereas a sample prefetch yields a native Pcm its continuation
+        // must dispose on the success path.
+        _prefetchTask?.ContinueWith(
+            static t => { _ = t.Exception; },
+            CancellationToken.None,
+            TaskContinuationOptions.ExecuteSynchronously | TaskContinuationOptions.OnlyOnFaulted,
+            TaskScheduler.Default);
+        _prefetchTask = null;
     }
 }
