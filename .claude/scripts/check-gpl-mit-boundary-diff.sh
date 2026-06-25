@@ -20,13 +20,21 @@
 # Used by: beutl-pre-pr (step 2, --files mode), beutl-loop (step 2.5a, two-ref mode).
 set -euo pipefail
 
+MODE=""
+BASE=""
+HEAD=""
+
 if [ "${1:-}" = "--files" ]; then
+  MODE="files"
   shift
   # Explicit file list (working-tree mode, used by beutl-pre-pr): filter to .csproj/.cs.
   CHANGED=$(printf '%s\n' "$@" | grep -E '\.(csproj|cs)$' || true)
 elif [ $# -ge 2 ]; then
+  MODE="refs"
+  BASE="$1"
+  HEAD="$2"
   # Two-ref diff mode (used by beutl-loop): git diff already filtered by pathspec.
-  CHANGED=$(git diff --name-only "$1..$2" -- '*.csproj' '*.cs' 2>/dev/null || true)
+  CHANGED=$(git diff --name-only "$BASE..$HEAD" -- '*.csproj' '*.cs' 2>/dev/null || true)
 else
   echo "usage: $0 <base_ref> <head_ref>  |  $0 --files <f1> <f2> ..." >&2
   exit 2
@@ -39,7 +47,17 @@ fi
 VIOLATIONS=""
 
 for f in $CHANGED; do
-  [ -f "$f" ] || continue
+  # In refs mode, read the head-side content via git show (the draft branch
+  # may not be checked out in the current working tree — it lives in a
+  # sub-agent worktree or as a pushed remote ref). In --files mode, read
+  # from the working tree (pre-pr runs where the changes are).
+  if [ "$MODE" = "refs" ]; then
+    content=$(git show "$HEAD:$f" 2>/dev/null || true)
+    [ -n "$content" ] || continue
+  else
+    [ -f "$f" ] || continue
+    content=$(cat "$f")
+  fi
 
   # The worker project itself ships FFmpegWorker linkages freely.
   case "$f" in
@@ -47,7 +65,7 @@ for f in $CHANGED; do
   esac
 
   # Flatten the file so multi-line MSBuild elements are caught.
-  flat=$(tr '\n' ' ' < "$f")
+  flat=$(printf '%s' "$content" | tr '\n' ' ')
 
   # <Compile Include="...FFmpegWorker..."> is always forbidden outside the worker.
   compile_hit=$(printf '%s' "$flat" | grep -oE '<Compile[^>]*Beutl\.FFmpegWorker' || true)
@@ -67,9 +85,15 @@ for f in $CHANGED; do
 
   if [ -n "$compile_hit$ref_hit" ]; then
     # Print every line naming a linkage element OR mentioning FFmpegWorker,
-    # so multi-line cases show both halves.
-    LOC=$(grep -nE '(<(ProjectReference|Compile)\b|Beutl\.FFmpegWorker)' "$f" \
-      | sed "s|^|$f:|" || true)
+    # so multi-line cases show both halves. In refs mode, grep the git show
+    # output; in files mode, grep the working-tree file.
+    if [ "$MODE" = "refs" ]; then
+      LOC=$(printf '%s\n' "$content" | grep -nE '(<(ProjectReference|Compile)\b|Beutl\.FFmpegWorker)' \
+        | sed "s|^|$f:|" || true)
+    else
+      LOC=$(grep -nE '(<(ProjectReference|Compile)\b|Beutl\.FFmpegWorker)' "$f" \
+        | sed "s|^|$f:|" || true)
+    fi
     VIOLATIONS="${VIOLATIONS}${LOC}
 "
   fi

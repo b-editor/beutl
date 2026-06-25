@@ -187,11 +187,31 @@ else
   fail "coverage probe drift: SKILL.md still has the no-op snippet"
 fi
 
-# --- 18. Runner contract: never says "open a PR" in description/intro -----
-# The runner always hands back a draft; the orchestrator opens the PR.
-if grep -qi 'open a pull request\|open a PR\|open.*PR' "$RUNNER" 2>/dev/null | \
-   grep -v 'Do not open\|never opens\|does NOT open\|skips that\|do not open\|cannot open'; then
-  fail "runner contract drift: still says 'open a PR' somewhere (finding 3)"
+# --- 18. Runner contract: description + intro never claim to open a PR -----
+# The runner always hands back a draft; the orchestrator opens the PR. The
+# rework mode section legitimately mentions opening a PR (when the orchestrator
+# sets OPEN_PR=true), so the check scopes to the frontmatter description + the
+# intro paragraph (first 20 lines), which is where the self-contradiction lived.
+# Use python regex with negative lookbehind so "opens a PR" on a line that also
+# contains "draft" or "never" is NOT falsely cleared — grep -v filters whole
+# lines and cannot express "the phrase 'open a PR' must not appear unless
+# immediately preceded by 'never'/'not'/'Does NOT'".
+offending=$(python3 -c '
+import re, sys
+lines = open(sys.argv[1]).readlines()[:20]
+pat = re.compile(r"(?<!never )(?:open a PR|opens a PR|open a pull request|opens a pull request|open.*PR for it)", re.I)
+neg = re.compile(r"never open|does NOT open|do not open|cannot open|not open PRs", re.I)
+for i, line in enumerate(lines, 1):
+    for m in pat.finditer(line):
+        start = max(0, m.start() - 20)
+        ctx = line[start:m.end()]
+        if not neg.search(ctx):
+            print(f"{i}:{line.rstrip()}")
+            break
+' "$RUNNER" 2>/dev/null || true)
+if [ -n "$offending" ]; then
+  fail "runner contract drift: description/intro still says 'open a PR' (finding 3)"
+  printf '%s\n' "$offending" >&2
 else
   pass "runner contract: never claims to open a PR (finding 3)"
 fi

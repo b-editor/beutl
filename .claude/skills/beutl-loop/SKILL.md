@@ -187,27 +187,30 @@ load-bearing for behavior-preserving fixes and must not be skipped.
   parallel drain is faster but does not inflate the per-tick budget semantics).
 
 ### 2.5 Pre-PR review round (always — machine-verify + sub-agents + rework + PR open)
-The runner handed back a pushed **draft branch** (it never opens the PR itself). This step runs the
-review gate **before** the PR exists, so the self-review axes and bot-likely findings are cleared
-upfront and the post-PR settle window stays short. Up to **two** rework iterations; then the PR opens.
+The runner handed back a pushed **draft branch** (it never opens the PR itself). Set
+`DRAFT_BRANCH` from the runner's `draft_branch` JSON field. This step runs the review gate
+**before** the PR exists, so the self-review axes and bot-likely findings are cleared upfront and
+the post-PR settle window stays short. Up to **two** rework iterations; then the PR opens.
 
 **2.5a. Orchestrator machine-verify (independent of the runner's self-report — do not trust
-`self_review_passed`).** On `git diff origin/main...<draft_branch>`, grep for the self-review gate's
+`self_review_passed`).** On `git diff origin/main...$DRAFT_BRANCH`, grep for the self-review gate's
 mechanical axes:
 - `[Obsolete]` on a `+`-line introduced in this diff (same-change deprecate-and-replace ⇒ blocking).
 - `V2` / `Ex2` / `2` type-name suffixes on `+`-lines (compat-shim smell ⇒ blocking).
 - `// TODO` / `## Follow-ups` / `# Follow-ups` on `+`-lines (deferred work ⇒ blocking).
 - Every changed `.axaml` UserControl declares `x:CompileBindings="True"` + `x:DataType` (missing ⇒
   blocking; suggest the fix inline).
-- GPL/MIT boundary: run `bash .claude/scripts/check-gpl-mit-boundary-diff.sh origin/main <draft_branch>`
+- GPL/MIT boundary: run `bash .claude/scripts/check-gpl-mit-boundary-diff.sh origin/main "$DRAFT_BRANCH"`
   — this is a **diff-side scan**, not the PreToolUse hook (the hook reads `tool_input.file_path`
-  from Edit/Write JSON and is a no-op when invoked on a diff). Exit 1 ⇒ blocking; the script
-  prints `file:line` for each violation.
+  from Edit/Write JSON and is a no-op when invoked on a diff). The script reads the head-side
+  file content via `git show "$DRAFT_BRANCH:$f"` (the draft branch may not be checked out in the
+  orchestrator's working tree). Exit 1 ⇒ blocking; the script prints `file:line` for each
+  violation.
 
 Collect any hits as `machine_findings`.
 
 **2.5b. Sub-agent review.** Dispatch `@beutl-reviewer` and `@beutl-xaml-binder` (read-only) on
-`git diff origin/main...<draft_branch>`. If `design_reviewer_required` is true, also dispatch
+`git diff origin/main...$DRAFT_BRANCH`. If `design_reviewer_required` is true, also dispatch
 `@beutl-design-reviewer`. Collect their blocking findings as `review_findings`.
 
 **2.5c. Rework loop (≤ 2 passes).** If `machine_findings` or `review_findings` are non-empty:
@@ -307,8 +310,9 @@ dotnet test "$TESTS_PROJ" -f net10.0 --no-build --collect:"XPlat Code Coverage" 
   --settings coverlet.runsettings 2>&1 | tail -5
 COV=$(find tests -type f -path '*/TestResults/*/coverage.cobertura.xml' -newermt '-5 minutes' 2>/dev/null | head -1)
 # Changed-line coverage probe: exit 0 = >=70% (auto-merge eligible), exit 1 = <70% (high-risk),
-# exit 2 = probe failed (high-risk, fail safe).
-python3 .claude/scripts/changed-line-coverage.py origin/main "$HEAD" "$COV" --threshold 70
+# exit 2 = probe failed (high-risk, fail safe). The diff is origin/main..$DRAFT_BRANCH (the
+# actual PR head — not the orchestrator's checkout, which may be a different branch).
+python3 .claude/scripts/changed-line-coverage.py origin/main "$DRAFT_BRANCH" "$COV" --threshold 70
 ```
 If the probe exits **non-zero** (exit 1 = under threshold, exit 2 = probe failure), mark the PR
 **high-risk**: post the coverage number on the PR for the human and do not auto-merge. The probe is
