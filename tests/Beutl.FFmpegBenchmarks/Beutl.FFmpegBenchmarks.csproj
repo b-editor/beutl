@@ -23,6 +23,7 @@
        FFmpeg direct-call types have moved to Beutl.FFmpegWorker; settings types remain in the extension. -->
   <ItemGroup>
     <Compile Include="..\..\src\Beutl.FFmpegWorker\Decoding\FFmpegReader.cs" Link="Linked\FFmpegReader.cs" />
+    <Compile Include="..\..\src\Beutl.Extensions.FFmpeg\Decoding\FFmpegSeekDecision.cs" Link="Linked\FFmpegSeekDecision.cs" />
     <Compile Include="..\..\src\Beutl.Extensions.FFmpeg\Decoding\FFmpegFrameValidation.cs" Link="Linked\FFmpegFrameValidation.cs" />
     <Compile Include="..\..\src\Beutl.Extensions.FFmpeg\Decoding\FFmpegDecodingSettings.cs" Link="Linked\FFmpegDecodingSettings.cs" />
     <Compile Include="..\..\src\Beutl.FFmpegWorker\ColorSpaceHelper.cs" Link="Linked\ColorSpaceHelper.cs" />

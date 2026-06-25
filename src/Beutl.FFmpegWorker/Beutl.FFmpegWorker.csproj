@@ -33,6 +33,7 @@
     <Compile Include="..\Beutl.Extensions.FFmpeg\Encoding\FFmpegAudioEncoderSettings.cs" Link="Linked\FFmpegAudioEncoderSettings.cs" />
     <Compile Include="..\Beutl.Extensions.FFmpeg\Decoding\FFmpegDecodingSettings.cs" Link="Linked\FFmpegDecodingSettings.cs" />
     <Compile Include="..\Beutl.Extensions.FFmpeg\Decoding\FFmpegFrameValidation.cs" Link="Linked\FFmpegFrameValidation.cs" />
+    <Compile Include="..\Beutl.Extensions.FFmpeg\Decoding\FFmpegSeekDecision.cs" Link="Linked\FFmpegSeekDecision.cs" />
   </ItemGroup>
 
 </Project>

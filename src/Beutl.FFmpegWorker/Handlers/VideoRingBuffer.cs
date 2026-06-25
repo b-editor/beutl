@@ -329,8 +329,8 @@ internal sealed class VideoRingBuffer : IDisposable
                         continue;
                     }
 
-                    int nextFrame = baseFrame + cachedAhead + 1;
-                    if (nextFrame >= totalFrames) break;
+                    if (!FFmpegSeekDecision.HasPrefetchTarget(baseFrame, cachedAhead, totalFrames, out int nextFrame))
+                        break;
 
                     // 既にキャッシュ済みならスキップ
                     if (FindSlot(nextFrame) >= 0) continue;
