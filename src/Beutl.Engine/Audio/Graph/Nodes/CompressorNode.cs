@@ -56,10 +56,10 @@ public sealed class CompressorNode : AudioNode
             throw new InvalidOperationException(
                 $"Compressor node requires exactly one input but got {Inputs.Count}.");
 
-        return ProcessTail(Inputs[0].Process(context), context);
+        return ProcessTail(Inputs[0].Process(context), context, draining: false);
     }
 
-    protected override AudioBuffer ProcessTail(AudioBuffer input, AudioProcessContext context)
+    protected override AudioBuffer ProcessTail(AudioBuffer input, AudioProcessContext context, bool draining)
     {
         // Every path emits a fresh buffer (no pass-through), so dispose the consumed input.
         using var owned = input;

@@ -33,12 +33,17 @@ public abstract class AudioNode : IDisposable
     /// <summary>
     /// Applies this node's own processing to an already-produced <paramref name="input"/> buffer
     /// instead of pulling <see cref="Inputs"/>[0] itself. <see cref="Process"/> feeds it real upstream
-    /// audio; <see cref="Flush"/> feeds it the drained tail, so a transforming node processes the tail
-    /// the same way it processes the body. The default is pass-through (returns <paramref name="input"/>
-    /// unchanged), keeping the zero-processing path byte-identical. A node that returns a fresh buffer
-    /// takes ownership of <paramref name="input"/> and disposes it, exactly as its Process already does.
+    /// audio (<paramref name="draining"/> is <see langword="false"/>); <see cref="Flush"/> feeds it the
+    /// drained tail (<paramref name="draining"/> is <see langword="true"/>), so a transforming node
+    /// processes the tail the same way it processes the body. A node whose output geometry is driven by
+    /// an animated parameter (a lookahead delay) must, while draining, hold that parameter at the value
+    /// retained from the clip's terminal sample rather than re-sampling automation over the post-clip
+    /// range — otherwise it reads the wrong tail. The default is pass-through (returns
+    /// <paramref name="input"/> unchanged), keeping the zero-processing path byte-identical. A node that
+    /// returns a fresh buffer takes ownership of <paramref name="input"/> and disposes it, exactly as its
+    /// Process already does.
     /// </summary>
-    protected virtual AudioBuffer ProcessTail(AudioBuffer input, AudioProcessContext context) => input;
+    protected virtual AudioBuffer ProcessTail(AudioBuffer input, AudioProcessContext context, bool draining) => input;
 
     /// <summary>Channel layout this node's last <see cref="Process"/> emitted; the silent-flush
     /// fallback matches it so a flush never changes the channel count a downstream node just saw.</summary>
@@ -80,7 +85,7 @@ public abstract class AudioNode : IDisposable
             AudioBuffer result;
             try
             {
-                result = ProcessTail(drained, context);
+                result = ProcessTail(drained, context, draining: true);
             }
             catch
             {
