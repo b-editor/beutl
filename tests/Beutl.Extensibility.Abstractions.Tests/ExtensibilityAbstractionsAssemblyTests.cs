@@ -4,6 +4,7 @@ using Beutl.Extensibility;
 
 namespace Beutl.Extensibility.Abstractions.Tests;
 
+[TestFixture]
 public class ExtensibilityAbstractionsAssemblyTests
 {
     [Test]

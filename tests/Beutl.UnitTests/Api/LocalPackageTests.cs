@@ -4,6 +4,7 @@ using NuGet.Packaging;
 
 namespace Beutl.UnitTests.Api;
 
+[TestFixture]
 public class LocalPackageTests
 {
     [TestCase("Beutl.Sdk")]

@@ -27,10 +27,14 @@ public sealed class PackageManager(
 {
     private readonly ILogger _logger = Log.CreateLogger<PackageManager>();
     private readonly ConcurrentDictionary<int, LoadedPackageInfo> _loadedPackages = new();
-    // Keyed weakly so a handler entry can never outlive its extension even if some future drop path
-    // skips CleanupExtensionSettings; a strong map would pin the extension (and its collectible
+    // The exact settings instance subscribed at setup time is captured alongside the handler so
+    // cleanup unsubscribes from that publisher even if extension.Settings is later swapped or cleared.
+    private sealed record SettingsSubscription(ExtensionSettings Settings, EventHandler Handler);
+
+    // Keyed weakly so a subscription entry can never outlive its extension even if some future drop
+    // path skips CleanupExtensionSettings; a strong map would pin the extension (and its collectible
     // AssemblyLoadContext) for the PackageManager lifetime and silently defeat the unload contract below.
-    private readonly ConditionalWeakTable<Extension, EventHandler> _settingsChangedHandlers = new();
+    private readonly ConditionalWeakTable<Extension, SettingsSubscription> _settingsChangedHandlers = new();
     private readonly ExtensionSettingsStore _settingsStore = new();
 
     public IEnumerable<LocalPackage> LoadedPackage => _loadedPackages.Values.Select(x => x.Package);
@@ -497,16 +501,19 @@ public sealed class PackageManager(
     {
         if (extension.Settings is { } settings)
         {
-            _settingsStore.Restore(extension, settings);
-
-            if (_settingsChangedHandlers.TryGetValue(extension, out EventHandler? previousHandler))
+            // Unsubscribe a prior handler before restoring: AffectsConfig setters raise
+            // ConfigurationChanged during Restore, which would otherwise trigger a mid-restore Save
+            // through the stale handler and persist partially-restored state.
+            if (_settingsChangedHandlers.TryGetValue(extension, out SettingsSubscription? previous))
             {
                 _settingsChangedHandlers.Remove(extension);
-                settings.ConfigurationChanged -= previousHandler;
+                previous.Settings.ConfigurationChanged -= previous.Handler;
             }
 
+            _settingsStore.Restore(extension, settings);
+
             EventHandler handler = (_, _) => _settingsStore.Save(extension, settings);
-            _settingsChangedHandlers.AddOrUpdate(extension, handler);
+            _settingsChangedHandlers.AddOrUpdate(extension, new SettingsSubscription(settings, handler));
             settings.ConfigurationChanged += handler;
             _logger.LogInformation("Settings restored for extension {ExtensionName}", extension.GetType().Name);
         }
@@ -514,11 +521,13 @@ public sealed class PackageManager(
 
     private void CleanupExtensionSettings(Extension extension)
     {
-        if (extension.Settings is { } settings
-            && _settingsChangedHandlers.TryGetValue(extension, out EventHandler? handler))
+        // Unsubscribe from the exact publisher captured at setup, even if extension.Settings has since
+        // been swapped or cleared, so the handler (which captures the extension) cannot keep the
+        // collectible AssemblyLoadContext alive.
+        if (_settingsChangedHandlers.TryGetValue(extension, out SettingsSubscription? subscription))
         {
             _settingsChangedHandlers.Remove(extension);
-            settings.ConfigurationChanged -= handler;
+            subscription.Settings.ConfigurationChanged -= subscription.Handler;
         }
     }
 }
