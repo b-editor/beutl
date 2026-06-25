@@ -52,6 +52,24 @@ public class FormattedTextDeviceScaleTests
         Assert.That(text.GetTextBlob(2f), Is.Null);
     }
 
+    [Test]
+    public void GetTextBlob_AfterPropertyChange_ReshapesScaledBlob()
+    {
+        FormattedText text = CreateText();
+        SKTextBlob before = text.GetTextBlob(2f)!;
+        float beforeWidth = before.Bounds.Width;
+
+        // Re-measuring on a property change must clear the scaled cache; otherwise the wrapper would
+        // serve the stale blob shaped at the old size instead of reshaping at the new one.
+        text.Size = 48f;
+        SKTextBlob after = text.GetTextBlob(2f)!;
+
+        Assert.That(ReferenceEquals(before, after), Is.False,
+            "a property change must invalidate the scaled cache so a re-access reshapes");
+        Assert.That(after.Bounds.Width, Is.GreaterThan(beforeWidth),
+            "the larger font size must produce a wider device blob");
+    }
+
     private static FormattedText CreateText()
     {
         Typeface typeface = TypefaceProvider.Typeface();
