@@ -34,7 +34,10 @@ GitHub replies (in `--auto`, replying on handled threads is always on, for the a
 ## Step 1 — Identify the PR
 
 ```bash
-gh pr view ${PR:-} --json number,url,headRefName,baseRefName,title,state,mergeable
+# `author` is required: Step 3 drops the PR author's own comments, and in `--auto` they must not be
+# misread as human feedback (which would force needs_human and disable the auto-resolve/merge path).
+gh pr view ${PR:-} --json number,url,headRefName,baseRefName,title,state,mergeable,author
+PR_AUTHOR=$(gh pr view ${PR:-} --json author -q .author.login)   # carried into Step 3 filtering
 OWNER_REPO=$(gh repo view --json nameWithOwner -q .nameWithOwner)   # b-editor/beutl
 ```
 If no PR number was given, use the PR for the current branch. If none exists, stop (interactive) or
@@ -74,8 +77,10 @@ logins; when unsure whether a login is a bot, treat it as **human** (fail safe).
 ## Step 3 — Reconstruct threads and drop noise
 
 Group inline comments by `in_reply_to_id`; the **latest** comment in a thread is what matters. Skip:
-PR-author comments, pure approvals / praise / 👍, and threads already `isResolved: true` or whose
-latest reply says done/fixed/resolved. Keep the `{thread id ↔ comment databaseId}` map for Step 6.
+**comments whose author is `$PR_AUTHOR`** (the PR author's / implementing agent's own notes, captured
+in Step 1 — never treat these as human review feedback), pure approvals / praise / 👍, and threads
+already `isResolved: true` or whose latest reply says done/fixed/resolved. Keep the
+`{thread id ↔ comment databaseId}` map for Step 6.
 
 ## Step 4 — Classify (same taxonomy as handle-pr-reviews)
 

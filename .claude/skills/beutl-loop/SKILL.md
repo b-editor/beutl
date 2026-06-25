@@ -7,7 +7,7 @@ description: |
   max-items budget, a stagnation circuit-breaker, or an empty board. Use when the user says
   "ボードをループで消化して", "loop the board", "keep working AI-review items until …",
   "/beutl-loop". Sub-agent dispatch keeps this orchestrator's context lean across many ticks.
-allowed-tools: Task, Read, Grep, Glob, Write, Edit, Bash(gh:*), Bash(git:*), Bash(dotnet:*), Bash(python3:*), Bash(jq:*), Bash(mktemp:*), Bash(date:*)
+allowed-tools: Task, Read, Grep, Glob, Write, Edit, Bash(gh:*), Bash(git:*), Bash(dotnet:*), Bash(python3:*), Bash(jq:*), Bash(mktemp:*), Bash(date:*), Bash(sleep:*)
 argument-hint: "[N | dry-run | until-empty] [bug|diff|design|feature]"
 ---
 
@@ -90,7 +90,7 @@ Board coordinates (project #9) are the same stable IDs as `beutl-board-task` —
 Stop if: **no eligible item left** (re-fetch board, exclude `attempted_ids` — the default terminal
 for a drain) · `items_processed ≥` the budget (an explicit `N`, or the runaway backstop
 `BEUTL_LOOP_MAX_ITEMS`, default 50) · wall-clock exceeded · `consecutive_no_progress ≥ 3` **and** no
-PR was opened in the last 3 ticks (`items_processed − last_pr_tick > 3` — recent shipping counts as
+PR was opened in the last 3 ticks (`items_processed − last_pr_tick >= 3` — recent shipping counts as
 progress and holds the breaker open) · `consecutive_false_positives ≥ 3` (the board/selection is
 mostly junk — stop and report) · the **same `item_id` or `last_failure_signature` recurs
 back-to-back** (immediate stagnation stop). Record `stop_reason`.
@@ -164,9 +164,12 @@ unresolved design finding carried over from step 2.5 — ⇒ mark the PR **high-
 the human along with the PR).
 
 ### 4. Resolve reviews (sub-agent, bounded settle)
-Wait for async bot reviews, bounded by `settle_minutes`. Poll (~every 90s): dispatch a sub-agent
-running **`beutl-resolve-reviews --auto`** for the PR to address clearly-actionable bot comments,
-re-verify, and resolve threads. "**Settled**" = CI complete+green · zero unresolved threads · no
+Wait for async bot reviews, bounded by `settle_minutes`. **Block on CI without busy-waiting** with
+`gh pr checks "$PR" --watch --interval 60` (it returns once every check finishes; `gh` is already in
+the allowlist), then poll the review state, spacing polls ~90s apart with `sleep 90` (allowed via
+`Bash(sleep:*)`; `python3 -c 'import time;time.sleep(90)'` is an equivalent allowed fallback if a bare
+`sleep` is unavailable). Each poll: dispatch a sub-agent running **`beutl-resolve-reviews --auto`** for
+the PR to address clearly-actionable bot comments, re-verify, and resolve threads. "**Settled**" = CI complete+green · zero unresolved threads · no
 outstanding `CHANGES_REQUESTED` · no new review/comment/commit for ~10 min. **Re-fetch CI
 (`gh pr checks`) and the thread/`reviewDecision` state yourself each poll — the resolver's
 `ci_status`/`changes_requested_outstanding`/counts are advisory; the orchestrator's own `gh` reads are

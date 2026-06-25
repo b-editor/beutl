@@ -110,9 +110,15 @@ print(it['content'].get('title','')); print(); print(it['content'].get('body',''
 "
 ```
 
-## Step 2 — Verify it is NOT a false positive (mandatory)
+## Step 2 — Validate the item before planning (mandatory)
 
-Before any planning, confirm the finding against the **current** code:
+What "validate" means depends on the item's **kind** — take the matching path. (The `In Progress`
+claim below applies to both.) A board item is either an auto-detected **review finding** (it cites a
+`file:line`) or a hand-added **product/feature task** (a feature title, no cited code location).
+
+### Path A — review findings (`[Bug]`, `[YYYY-MM-DD][diff]`, `設計改善:` — anything citing a `file:line`)
+
+These are heuristic and sometimes wrong, so confirm the finding against the **current** code:
 
 - Open the cited `file:line` and confirm the described code still exists and the reasoning holds.
 - Trace the claim. Scheduled-review findings are heuristic and sometimes wrong. Common false
@@ -120,7 +126,7 @@ Before any planning, confirm the finding against the **current** code:
   - A "use-after-dispose / NRE" where an eager token / guard already aborts the path.
   - A "race" on state that is in practice single-threaded, or already guarded elsewhere.
   - A perf claim on a path that is not actually hot.
-- If the surrounding code makes the finding **invalid**, mark it and move on:
+- If the surrounding code makes the finding **invalid**, set Status → `False positive` and move on:
 
 ```bash
 # Set Status -> "False positive"
@@ -134,11 +140,27 @@ gh project item-edit --project-id PVT_kwDOBLw8Fs4BW4g5 \
 return to Step 1 for another candidate (re-fetch the snapshot). **Do not** silently keep the
 smaller diff or fabricate a fix for a wrong finding.
 
+### Path B — product / feature tasks (hand-added: a feature title, no cited code location)
+
+A feature item has no `file:line` to refute and **no false-positive concept** — do **not** force it
+through Path A, or you will end up inventing verification evidence for a finding that does not exist.
+Validate it on its own terms instead:
+
+- **Already implemented or obsolete?** Grep the codebase / recent history for the feature. If it is
+  already present, or a newer decision dropped it, it is not work to do — set Status → `Done`
+  (already shipped) or `False positive` (no longer wanted) with a one-line note, and return to
+  Step 1. This is the feature analog of the false-positive exit.
+- **Specified enough to implement and verify?** If the title is a bare idea with no acceptance
+  criteria you can turn into a test or a concrete manual-verification procedure, it is `blocked`
+  (Step 1's "underspecified features are blocked" guard) — surface it; do not fabricate scope.
+- Otherwise it is valid, well-specified work: there is nothing to refute — proceed to claim and plan.
+
 ### Claim the item immediately
 
-Once the finding is confirmed valid (and after the user has confirmed the pick), move the item to
-`In Progress` **right away** — before planning/implementing, not after the PR opens. The board is
-shared, so claiming late leaves a long window where another agent can start the same task.
+Once the item is validated (a finding confirmed real, or a feature confirmed not-already-done and
+specified enough) — and after the user has confirmed the pick — move the item to `In Progress`
+**right away**, before planning/implementing, not after the PR opens. The board is shared, so
+claiming late leaves a long window where another agent can start the same task.
 
 ```bash
 gh project item-edit --project-id PVT_kwDOBLw8Fs4BW4g5 \
@@ -151,9 +173,13 @@ gh project item-edit --project-id PVT_kwDOBLw8Fs4BW4g5 \
 
 Enter plan mode (`EnterPlanMode`) and produce a focused plan. Include:
 
-- **Context**: why the change is needed (the real problem, quoted from the finding + your verification).
-- A note that the item was confirmed **not** a false positive, with the evidence.
-- The concrete edit(s): `file:line` and the before/after shape.
+- **Context**: why the change is needed — for a finding, the real problem quoted from it + your
+  verification; for a feature, the desired behavior and its acceptance criteria.
+- The Step-2 validation result: for a finding, a note it was confirmed **not** a false positive with
+  the evidence; for a feature, a one-line confirmation it is not already implemented and is specified
+  enough to verify.
+- The concrete edit(s): the `file:line` you will change — or, for a feature, the new files/types you
+  will add — and the before/after shape.
 - A **test** plan (see Step 5) — this repo requires new logic to ship with an NUnit test
   (`.claude/rules/csharp.md`, AGENTS.md rule #3).
 - A quick **recent-merge scan**: skim `git log --oneline -15 origin/main` for commits tagged

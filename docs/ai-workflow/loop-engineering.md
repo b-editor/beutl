@@ -173,7 +173,8 @@ safely without the autonomy.
 
 ## Relationship to `beutl-board-task`
 
-`beutl-board-task` is **one tick**: pick → verify-not-false-positive → claim → branch → implement →
+`beutl-board-task` is **one tick**: pick → validate (a finding: not a false positive; a feature: not
+already implemented & specified enough to verify) → claim → branch → implement →
 test (a production change must ship a test) → self-review gate → PR (and, standalone, a human merges). `/beutl-loop` is the **meta-driver** that runs that tick
 repeatedly with a budget, a stagnation breaker, autonomous review resolution, and a risk-gated
 auto-merge. The loop does not re-implement board queries or the implement/PR cycle — it delegates

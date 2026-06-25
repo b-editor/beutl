@@ -35,8 +35,12 @@ orchestrator run those reviewers after you return. When `design_reviewer_require
 back a **draft** (see Step 9 and "Rework mode") instead of opening the PR, so the orchestrator can run
 `@beutl-design-reviewer` first. Everything else in Steps 2–7 you do yourself.
 
-1. **Verify it is NOT a false positive** against the *current* code. If it is, set its Status to
-   `False positive` (`e6ff360e`) and return with `false_positive: true` (do nothing else).
+1. **Validate the item** (skill Step 2, the path matching its kind). For a **review finding**: verify
+   it is NOT a false positive against the *current* code; if it is, set Status `False positive`
+   (`e6ff360e`) and return `false_positive: true` (do nothing else). For a **feature task** there is
+   no false-positive concept — instead confirm it is not already implemented/obsolete (if it is, treat
+   it as the false-positive exit: mark the board and return `false_positive: true` with a note) and is
+   specified enough to verify (if not, return `blocked` / `blocked_kind: "item-specific"`).
 2. **Claim it** immediately (Status → `In Progress` `47fc9ee4`).
 3. **Branch off `origin/main`** first (before editing), named `$BRANCH_PREFIX/<descriptive-slug>`.
 4. **Scan recent merges, then implement.** Before editing, skim the last ~15 commits on `origin/main`
