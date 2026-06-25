@@ -273,6 +273,42 @@ public class AudioLatencyCompensationTests
     }
 
     [Test]
+    public void MixerNode_Flush_SkipsBranchThatEndedBeforeTheTerminalSlice()
+    {
+        const float lookaheadMs = 5f;
+        const int sampleCount = 1024;
+        int L = LookaheadSamples(lookaheadMs);
+        var groupEnd = TimeSpan.FromSeconds((double)sampleCount / SampleRate);
+        var earlyEnd = TimeSpan.FromSeconds((double)(sampleCount / 2) / SampleRate);
+
+        // Branch A holds a real limiter tail but its clip ended at the group midpoint — its tail was
+        // already recovered at its own end, so the group's terminal flush must NOT re-emit it seconds
+        // late. Branch B runs to the group end and is silent. With A correctly skipped, the merge is
+        // silent; draining A unconditionally would leak its stale tail into the group pad.
+        using var inputA = CreateBuffer(2, sampleCount, (_, i) => 0.25f * MathF.Sin(2f * MathF.PI * 440f * i / SampleRate));
+        using var limiterA = CreateTransparentLimiter(lookaheadMs);
+        limiterA.AddInput(new BufferReplayNode(inputA));
+        using var limiterB = CreateTransparentLimiter(lookaheadMs);
+        using var bufferB = CreateConstantBuffer(0f, sampleCount);
+        limiterB.AddInput(new BufferReplayNode(bufferB));
+
+        using var mixer = new MixerNode();
+        mixer.AddInput(limiterA);
+        mixer.AddInput(limiterB);
+        mixer.BranchEndTimes = [earlyEnd, groupEnd];
+
+        using var processed = mixer.Process(Context(TimeSpan.Zero, sampleCount));
+        using var tail = mixer.Flush(Context(groupEnd, sampleCount));
+
+        var tailData = tail.GetChannelData(0);
+        for (int k = 0; k < L; k++)
+        {
+            Assert.That(tailData[k], Is.EqualTo(0f).Within(1e-6f),
+                $"Branch A ended before the terminal slice; its stale tail must not be mixed into the group pad (sample {k}).");
+        }
+    }
+
+    [Test]
     public void NestedClipNode_Flush_RemapsToClipLocalTime_RecoversTail()
     {
         // A SoundGroup mixes child clips and then flushes them through the group's own clip in the
