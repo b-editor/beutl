@@ -3,6 +3,7 @@
 using Beutl.Editor;
 using Beutl.Editor.Services;
 using Beutl.ProjectSystem;
+using Beutl.Services;
 
 using Microsoft.Extensions.DependencyInjection;
 
@@ -80,6 +81,11 @@ public sealed class SceneSettingsTabViewModel : IToolContext
 
                         if (!TryReadSceneSettings(out frameSize, out start, out duration))
                         {
+                            // Pausing yielded to the UI thread, so the user may have invalidated an
+                            // input meanwhile. Warn instead of returning silently.
+                            NotificationService.ShowWarning(
+                                Strings.SceneSettings,
+                                MessageStrings.SceneSettings_ApplyCanceledInputsInvalid);
                             return;
                         }
                     }
