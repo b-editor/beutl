@@ -66,8 +66,9 @@ runs the pre-PR review round on the draft and opens the PR itself.
    path) and the GPL/MIT boundary.
 5. **Test with the baseline-first loop** and **gate on the exit code, never a console string**
    (the locale trap is real — `Passed!`/`Failed!` vs `成功!`/`失敗!`). **A production change must
-   ship an NUnit test** (AGENTS.md rule #3): if your diff touches `src/` but adds no file under
-   `tests/`, go back and add one. Only when the change genuinely cannot carry a unit test
+   ship an NUnit test** (AGENTS.md rule #3): if your diff touches `src/` but adds or modifies no test
+   under `tests/`, go back and add coverage — a new `[Test]`/`[TestCase]` in an existing fixture
+   counts; you do not have to create a new file. Only when the change genuinely cannot carry a unit test
    (typically UI) do you set `test_status: "manual-verification"` — and then a concrete
    `manual_verification_note` is **mandatory**. A production change with neither a test nor a
    manual-verification note is `blocked` (see the Step-8 gate), not a PR. **Record
@@ -122,8 +123,12 @@ diff (`git diff --stat origin/main...HEAD` and inspection):
 - `touched_source_gen` — touched `src/Beutl.Engine.SourceGenerators/`.
 - `touched_xaml_behavior` — changed `.axaml`/UI behavior (not just text).
 - `touched_persistence` — changed a serialization/persistence format.
-- `design_reviewer_required` — true if `touched_public_api` or any extensibility surface changed (the
-  orchestrator hands your draft to `@beutl-design-reviewer` before the PR opens — see Step 9).
+- `design_reviewer_required` — true if `touched_public_api` is true, **or** a public type/member in
+  `Beutl.Api` or `Beutl.Controls` changed, **or** a new abstraction (interface / abstract type /
+  extensibility point) was introduced anywhere, **or** an `[Obsolete]`/"v2"/compat-shim pattern
+  appears. This must mirror `@beutl-design-reviewer`'s own scope so a public change in those surfaces
+  cannot skip the design pass and reach the low/moderate auto-merge path. The orchestrator hands your
+  draft to `@beutl-design-reviewer` before the PR opens — see Step 9.
 - `touched_production` — the diff changes a non-test production file under `src/` (not only `tests/`
   or docs); drives the Step-8 test gate.
 - `test_files_added` / `test_files_added_count` — whether, and how many, files under `tests/` the diff
@@ -136,7 +141,12 @@ The orchestrator re-dispatches you with `REWORK=true`, the `draft_branch`, an `O
 `review_findings` list (the combined `@beutl-reviewer` / `@beutl-xaml-binder` /
 `@beutl-design-reviewer` output). Do **not** start a new item or re-pick:
 
-- Check out `draft_branch` (it already exists and is pushed).
+- Fetch and check out `draft_branch`. Rework runs in a fresh worktree, so the branch usually exists
+  only on the remote — do **not** assume a local ref:
+  ```bash
+  git fetch origin "$draft_branch"
+  git switch -c "$draft_branch" --track "origin/$draft_branch" 2>/dev/null || git switch "$draft_branch"
+  ```
 - **If `review_findings` is non-empty:** address them with the smallest change that satisfies the
   design priorities (orthogonality, plugin-author flexibility, no compat shims) and the reviewer
   axes, re-run the binary gates (build + test exit-code + format), and push the amended branch.

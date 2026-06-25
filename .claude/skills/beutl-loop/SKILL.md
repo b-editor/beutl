@@ -80,6 +80,13 @@ force-push `main`, and never bypass the rulesets — be conservative and fail sa
     "consecutive_no_progress":0,"consecutive_false_positives":0,
     "last_chosen_item_id":null,"last_failure_signature":null,"stop_reason":null}
    ```
+   When reusing a journal younger than ~12h, **reconcile `attempted_ids` against the live board
+   before using it to exclude candidates**: an id is recorded at selection (Step 1), which may be
+   *before* the runner claims the item, so a crash between the two leaves the item still `Backlog`/
+   `Todo` while the journal still lists it. Drop from `attempted_ids` any id whose live board status
+   is `Backlog`/`Todo` (it was never actually claimed) so a rerun does not skip live work or report
+   the board drained prematurely.
+
    The **board (#9) is the source of truth**; the journal is only within-run bookkeeping. If it is
    deleted mid-run, correctness is unaffected — the next tick re-derives eligibility from the live
    board (claimed items are `In Progress` and excluded).
@@ -408,6 +415,9 @@ gh pr review "$PR" --approve --body "Auto-approved by /beutl-loop (code-owner). 
 if gh pr merge "$PR" --squash --delete-branch --match-head-commit "$HEAD_SHA"; then
   gh project item-edit --project-id PVT_kwDOBLw8Fs4BW4g5 --id "$ITEM_ID" \
     --field-id PVTSSF_lADOBLw8Fs4BW4g5zhSJTXk --single-select-option-id 98236657   # Done
+  # Refresh local origin/main: the next item branches from and diffs against it, so a multi-item
+  # drain must see the commit just merged or it will branch from stale main (conflicts / lost work).
+  git fetch origin main --quiet || true
 else
   echo "merge blocked by ruleset — record left_for_human; board stays In Progress; no retry/force/bypass"
 fi

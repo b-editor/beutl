@@ -14,7 +14,8 @@
 #   * Has no merge path of its own — merging only ever happens inside /beutl-loop's risk gate.
 #
 # Usage:
-#   .claude/scripts/beutl-loop.sh [until-empty | N]   # default: until-empty (drain the board)
+#   .claude/scripts/beutl-loop.sh [until-empty | N] [bug|diff|design|feature]
+#     # default: until-empty (drain the board); optional 2nd arg restricts the item kind.
 # Env:
 #   BEUTL_LOOP_MAX_ITEMS       runaway backstop for a drain, forwarded to the loop (default 50)
 #   BEUTL_LOOP_MAX_MINUTES     overall wall-clock cap, forwarded to the loop (optional)
@@ -65,12 +66,24 @@ case "$BUDGET" in
   *) [ "$BUDGET" -gt 0 ] 2>/dev/null || { echo "item budget must be a positive integer (got '$BUDGET')" >&2; exit 2; } ;;
 esac
 
+# Optional kind filter (2nd arg), mirroring the skill's [bug|diff|design|feature].
+# Reject unknown kinds and any extra args instead of silently dropping them.
+KIND="${2:-}"
+case "$KIND" in
+  ''|bug|diff|design|feature) : ;;
+  *) echo "kind filter must be one of: bug, diff, design, feature (got '$KIND')" >&2; exit 2 ;;
+esac
+if [ "$#" -gt 2 ]; then
+  echo "usage: .claude/scripts/beutl-loop.sh [until-empty | N] [bug|diff|design|feature]" >&2
+  exit 2
+fi
+
 # The loop derives a `<prefix>/<slug>` feature branch from the current branch, so it must start from a
 # branch that yields a usable prefix. Refuse main/master, a detached HEAD, or a flat (no-"/") branch
 # unless BEUTL_LOOP_BRANCH_PREFIX supplies the prefix explicitly.
 BRANCH="$(git rev-parse --abbrev-ref HEAD)"
-if [ "$BRANCH" = "main" ] || [ "$BRANCH" = "master" ]; then
-  echo "refusing to run on '$BRANCH' — switch to a personal/feature branch first." >&2
+if { [ "$BRANCH" = "main" ] || [ "$BRANCH" = "master" ]; } && [ -z "${BEUTL_LOOP_BRANCH_PREFIX:-}" ]; then
+  echo "refusing to run on '$BRANCH' — switch to a personal/feature branch, or set BEUTL_LOOP_BRANCH_PREFIX." >&2
   exit 2
 fi
 if [ "$BRANCH" = "HEAD" ] && [ -z "${BEUTL_LOOP_BRANCH_PREFIX:-}" ]; then
@@ -110,6 +123,11 @@ if [ "${BEUTL_LOOP_YOLO:-0}" = "1" ]; then
   PERM_ARGS=(--dangerously-skip-permissions)
 fi
 
+# Refresh origin/main before the loop: every item branches from and diffs against
+# it, and a long-lived unattended checkout otherwise works off a stale ref
+# (producing avoidable conflicts or re-introducing just-merged changes).
+git fetch origin main --quiet || echo "warning: could not fetch origin/main; proceeding with the local ref." >&2
+
 mkdir -p .claude/logs
 LOG=".claude/logs/beutl-loop-$(date +%Y%m%d-%H%M%S).log"
 
@@ -147,8 +165,18 @@ fi
 # pipefail + set -e would otherwise abort before the trap fires for a non-zero
 # pipeline. Disable set -e around the pipeline, save PIPESTATUS[0] (claude's
 # exit code, not tee's), then re-enable.
+# Build the loop prompt: budget, optional kind filter, and the branch prefix.
+# The prefix must be forwarded explicitly — on a flat/detached/main checkout the
+# worker cannot derive it from the current branch.
+PROMPT="/beutl-loop $BUDGET"
+[ -n "$KIND" ] && PROMPT="$PROMPT $KIND"
+if [ -n "${BEUTL_LOOP_BRANCH_PREFIX:-}" ]; then
+  PROMPT="$PROMPT
+(Headless launcher: use BEUTL_LOOP_BRANCH_PREFIX='$BEUTL_LOOP_BRANCH_PREFIX' as the feature-branch prefix for every item — do not derive it from the current branch.)"
+fi
+
 set +e
-claude -p "/beutl-loop $BUDGET" "${PERM_ARGS[@]}" 2>&1 | tee "$LOG"
+claude -p "$PROMPT" "${PERM_ARGS[@]}" 2>&1 | tee "$LOG"
 LOOP_RC=${PIPESTATUS[0]}
 set -e
 

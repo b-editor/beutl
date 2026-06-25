@@ -36,7 +36,9 @@ GITIGNORE=".gitignore"
 fails=0
 pass() { printf '  ok  %s\n' "$1"; }
 fail() { printf '  FAIL %s\n' "$1" >&2; fails=$((fails + 1)); }
-have() { [ -f "$1" ] || { fail "missing file: $1"; return 1; }; }
+# Pure predicate: callers decide pass/fail, so it must not increment `fails`
+# itself (otherwise `have && pass || fail` double-counts a missing file).
+have() { [ -f "$1" ]; }
 
 echo "loop-contract-check — verifying invariants across the loop artifacts"
 
@@ -141,7 +143,7 @@ if [ "$reviewer_diff_ok" = "true" ]; then
 fi
 
 # --- 10. .gitignore has .claude/loop-memory/ ------------------------------
-if grep -q '^.claude/loop-memory/' "$GITIGNORE" 2>/dev/null; then
+if grep -q '^\.claude/loop-memory/' "$GITIGNORE" 2>/dev/null; then
   pass ".gitignore has .claude/loop-memory/ (D-7)"
 else
   fail ".gitignore missing .claude/loop-memory/ (D-7)"

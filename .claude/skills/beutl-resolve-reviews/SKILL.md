@@ -108,6 +108,16 @@ Always **read the cited code** (`path`,`line`) before classifying — a "nit" ca
 
 ## Step 5 — Act
 
+**Before any edit that you will commit (both modes), check out the PR head.** When `/beutl-loop`
+invokes `--auto`, the current checkout is the orchestrator branch (the draft was built in a separate
+worker worktree), not `headRefName`. Editing/committing/pushing from there lands the fix on the wrong
+branch or fails to update the PR. Switch to the PR head first:
+
+```bash
+git fetch origin "$(gh pr view ${PR:-} --json headRefName -q .headRefName)"
+gh pr checkout ${PR:-}        # checks out headRefName, tracking origin
+```
+
 ### Interactive mode
 Ask `AskUserQuestion` per candidate (reviewer, file:line, verbatim body, your read, `html_url`).
 Offer Address / Reply only / Skip / Address differently. One decision per comment; never change code
@@ -136,7 +146,10 @@ without an explicit "Address it".
   enlarge the diff materially:** do **not** touch. Leave the thread open and mark `needs_human`.
 - **After any edit, re-verify before pushing — this is mandatory:**
   ```bash
-  dotnet build Beutl.slnx -f net10.0            # must be clean
+  dotnet build Beutl.slnx                       # all projects at their declared TFMs — never force -f net10.0:
+                                                # Beutl.Engine.SourceGenerators / the Extensibility SDK are
+                                                # netstandard2.0-only and other projects also build net10.0-windows;
+                                                # forcing one TFM falsely reds the build or skips the Windows target. Must be clean.
   dotnet test <affected Tests.csproj> -f net10.0 --filter "FullyQualifiedName~<area>"   # gate on $?
   dotnet format Beutl.slnx --include <changed files> --verify-no-changes
   ```

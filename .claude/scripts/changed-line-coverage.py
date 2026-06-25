@@ -60,14 +60,14 @@ def parse_cobertura(xml_path: str) -> dict[str, dict[int, bool]]:
         filename = cls.get("filename")
         if not filename:
             continue
-        lines: dict[int, bool] = {}
+        # Merge entries for the same file: Coverlet emits one <class> per type,
+        # so partial or multiple classes in a single .cs produce several entries.
+        # A line counts as covered if ANY entry reports a hit.
+        lines = result.setdefault(filename, {})
         for ln in cls.iter("line"):
             num = int(ln.get("number", 0))
             hits = int(ln.get("hits", 0))
-            lines[num] = hits > 0
-        if lines:
-            # Normalize: cobertura may use absolute or relative paths.
-            result[filename] = lines
+            lines[num] = lines.get(num, False) or hits > 0
     return result
 
 
@@ -80,7 +80,11 @@ def match_file(diff_file: str, cobertura_files: dict[str, dict[int, bool]]) -> s
     diff_parts = Path(diff_file).parts
     for cb_file in cobertura_files:
         cb_parts = Path(cb_file).parts
-        if len(cb_parts) >= len(diff_parts) and cb_parts[-len(diff_parts):] == diff_parts:
+        # Compare the common-length suffix in both directions: Coverlet may store
+        # a shorter project-relative path (e.g. "Foo.cs") than the src/-rooted
+        # diff path, or vice versa.
+        n = min(len(cb_parts), len(diff_parts))
+        if n and cb_parts[-n:] == diff_parts[-n:]:
             return cb_file
     return None
 
@@ -125,8 +129,13 @@ def main() -> int:
             continue
         cb_lines = cobertura[cb_key]
         for ln in line_nums:
+            # Count only lines Coverlet instrumented. Non-sequence-point lines
+            # (using directives, braces, declarations, attributes, comments) are
+            # absent from the map and must not inflate the denominator.
+            if ln not in cb_lines:
+                continue
             total_added += 1
-            if cb_lines.get(ln, False):
+            if cb_lines[ln]:
                 total_covered += 1
 
     if total_added == 0:
