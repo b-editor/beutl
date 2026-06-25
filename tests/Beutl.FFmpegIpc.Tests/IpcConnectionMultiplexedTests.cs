@@ -216,7 +216,11 @@ public class IpcConnectionMultiplexedTests
             var firstReq = IpcMessage.CreateSimple(firstId, RequestType);
             var firstTask = conn.SendAndReceiveAsync(firstReq, cts.Token).AsTask();
 
-            await WaitUntil(() => PendingCount(conn) == 1, TimeSpan.FromSeconds(5), "first request enters pending dict");
+            // 送信を完了させてから応答待ち状態でキャンセルする。drain しないと送信が止まったまま
+            // (Windows で未読パイプ書き込みが返らない)、配送有無がプラットフォーム差になり後続も割れる。
+            var drainedFirst = await MessageSerializer.ReadMessageAsync(server);
+            Assert.That(drainedFirst!.Id, Is.EqualTo(firstId));
+            await WaitUntil(() => PendingCount(conn) == 1, TimeSpan.FromSeconds(5), "first request awaits its response");
             cts.Cancel();
             Assert.CatchAsync<OperationCanceledException>(async () => await firstTask);
             await WaitUntil(() => PendingCount(conn) == 0, TimeSpan.FromSeconds(5), "pending dict drains after cancel");
@@ -231,7 +235,11 @@ public class IpcConnectionMultiplexedTests
         var secondReq = IpcMessage.CreateSimple(secondId, RequestType);
         var secondTask = conn.SendAndReceiveAsync(secondReq).AsTask();
 
-        await WaitUntil(() => PendingCount(conn) == 1, TimeSpan.FromSeconds(5), "second request enters pending dict");
+        // 送信を完了させ応答待ち段階に入れる。drain しないと secondTask が送信で止まり、
+        // 応答を返しても完了しない。
+        var drainedSecond = await MessageSerializer.ReadMessageAsync(server);
+        Assert.That(drainedSecond!.Id, Is.EqualTo(secondId));
+        await WaitUntil(() => PendingCount(conn) == 1, TimeSpan.FromSeconds(5), "second request awaits its response");
 
         // ハンドラを差し替えてから応答を返す (二本目で再度発火させない)。
         conn.DroppedResponseHandler = null;
@@ -419,7 +427,13 @@ public class IpcConnectionMultiplexedTests
         var req = IpcMessage.CreateSimple(id, RequestType);
         var requestTask = conn.SendAndReceiveAsync(req).AsTask();
 
-        await WaitUntil(() => PendingCount(conn) == 1, TimeSpan.FromSeconds(5), "request enters pending dict");
+        // 送出したリクエストを server 側で読み切り、クライアントの送信を完了させてから fault を注入する。
+        // 実 peer は必ずリクエストを読むが、テスト server が読まないと SendAsync のパイプ書き込みが
+        // 完了せず (Windows では未読のパイプ書き込みが返らない)、リクエストが「応答待ち」段階に到達しない。
+        // その状態で badLength を流しても、送信で止まったタスクは fault では解放されずテストがハングする。
+        var sentRequest = await MessageSerializer.ReadMessageAsync(server);
+        Assert.That(sentRequest!.Id, Is.EqualTo(id));
+        await WaitUntil(() => PendingCount(conn) == 1, TimeSpan.FromSeconds(5), "request awaits its response");
 
         // 長さ -1 は MessageSerializer.ReadMessageAsync で
         // "Invalid message length" の InvalidOperationException を引き起こす。
@@ -427,6 +441,10 @@ public class IpcConnectionMultiplexedTests
         await server.WriteAsync(badLength);
         await server.FlushAsync();
 
+        // 受信ループ死亡後にリクエストが fault することを上限付きで待つ。万一伝播が壊れても
+        // 無制限 await でハングさせず、明確な Assert.Fail で落とす。
+        var completed = await Task.WhenAny(requestTask, Task.Delay(TimeSpan.FromSeconds(5)));
+        Assert.That(completed, Is.SameAs(requestTask), "request must fault after the loop dies, not hang");
         var ex = Assert.CatchAsync<IOException>(async () => await requestTask);
         Assert.That(ex!.Message, Does.Contain("unexpected protocol or deserialization error"));
         Assert.That(ex.InnerException, Is.InstanceOf<InvalidOperationException>());
@@ -448,12 +466,19 @@ public class IpcConnectionMultiplexedTests
         int firstId = conn.NextId();
         var firstReq = IpcMessage.CreateSimple(firstId, RequestType);
         var firstTask = conn.SendAndReceiveAsync(firstReq).AsTask();
-        await WaitUntil(() => PendingCount(conn) == 1, TimeSpan.FromSeconds(5), "first request enters pending dict");
+
+        // 送出したリクエストを読み切って送信を完了させ、応答待ち段階に入れてから受信ループを殺す。
+        // (詳細は ProtocolCorruption_PendingRequestsObserveIOExceptionWithCause のコメント参照)
+        var sentRequest = await MessageSerializer.ReadMessageAsync(server);
+        Assert.That(sentRequest!.Id, Is.EqualTo(firstId));
+        await WaitUntil(() => PendingCount(conn) == 1, TimeSpan.FromSeconds(5), "first request awaits its response");
 
         byte[] badLength = [0xFF, 0xFF, 0xFF, 0xFF];
         await server.WriteAsync(badLength);
         await server.FlushAsync();
 
+        var firstCompleted = await Task.WhenAny(firstTask, Task.Delay(TimeSpan.FromSeconds(5)));
+        Assert.That(firstCompleted, Is.SameAs(firstTask), "first request must fault after the loop dies, not hang");
         Assert.CatchAsync<IOException>(async () => await firstTask);
 
         // ここでループは死んで _receiveLoopFault が公開されている。次のリクエストは
@@ -483,7 +508,13 @@ public class IpcConnectionMultiplexedTests
             int id = conn.NextId();
             var req = IpcMessage.CreateSimple(id, RequestType);
             var requestTask = conn.SendAndReceiveAsync(req).AsTask();
-            await WaitUntil(() => PendingCount(conn) == 1, TimeSpan.FromSeconds(5), "request enters pending dict");
+
+            // 送信を完了させ応答待ち段階に入れてから Dispose する。drain しないと送信が
+            // (ct 無しのため) 止まったままで、Dispose のパイプ破棄が ObjectDisposedException を
+            // 引き起こし、本テストが期待する「自己 Dispose = OperationCanceledException」を観測できない。
+            var drained = await MessageSerializer.ReadMessageAsync(server);
+            Assert.That(drained!.Id, Is.EqualTo(id));
+            await WaitUntil(() => PendingCount(conn) == 1, TimeSpan.FromSeconds(5), "request awaits its response");
 
             conn.Dispose();
 
