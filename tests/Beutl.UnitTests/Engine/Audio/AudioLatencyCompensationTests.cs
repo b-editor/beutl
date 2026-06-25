@@ -5,6 +5,7 @@ using Beutl.Animation.Easings;
 using Beutl.Audio;
 using Beutl.Audio.Composing;
 using Beutl.Audio.Effects;
+using Beutl.Audio.Effects.Equalizer;
 using Beutl.Audio.Graph;
 using Beutl.Audio.Graph.Nodes;
 using Beutl.Composition;
@@ -560,6 +561,68 @@ public class AudioLatencyCompensationTests
 
         Assert.That(tailNonZero, Is.True,
             "A sound ending exactly at the window boundary must have its limiter tail flushed into the next window's start.");
+    }
+
+    // The three nodes refactored to delegate Process to ProcessTail must still drain correctly on the
+    // base Flush path (draining: true). Each guards buffer ownership and shape, not a specific tail value.
+    [Test]
+    public void DelayNode_Flush_DrainsThroughProcessTail_NoThrow()
+    {
+        const int sampleCount = 512;
+        using var input = CreateBuffer(2, sampleCount, (_, i) => 0.25f * MathF.Sin(2f * MathF.PI * 220f * i / SampleRate));
+        using var node = new DelayNode
+        {
+            DelayTime = Property.Create(5f),
+            Feedback = Property.Create(50f),
+            DryMix = Property.Create(50f),
+            WetMix = Property.Create(50f),
+        };
+        node.AddInput(new BufferReplayNode(input));
+
+        using var processed = node.Process(Context(TimeSpan.Zero, sampleCount));
+        using var tail = node.Flush(Context(TimeSpan.FromSeconds((double)sampleCount / SampleRate), sampleCount));
+
+        Assert.That(tail.ChannelCount, Is.EqualTo(processed.ChannelCount));
+        Assert.That(tail.SampleCount, Is.EqualTo(sampleCount));
+    }
+
+    [Test]
+    public void CompressorNode_Flush_DrainsThroughProcessTail_NoThrow()
+    {
+        const int sampleCount = 512;
+        using var input = CreateBuffer(2, sampleCount, (_, i) => 0.25f * MathF.Sin(2f * MathF.PI * 220f * i / SampleRate));
+        using var node = new CompressorNode
+        {
+            Threshold = Property.Create(-20f),
+            Ratio = Property.Create(4f),
+            Attack = Property.Create(5f),
+            Release = Property.Create(50f),
+            Knee = Property.Create(0f),
+            MakeupGain = Property.Create(0f),
+        };
+        node.AddInput(new BufferReplayNode(input));
+
+        using var processed = node.Process(Context(TimeSpan.Zero, sampleCount));
+        using var tail = node.Flush(Context(TimeSpan.FromSeconds((double)sampleCount / SampleRate), sampleCount));
+
+        Assert.That(tail.ChannelCount, Is.EqualTo(processed.ChannelCount));
+        Assert.That(tail.SampleCount, Is.EqualTo(sampleCount));
+    }
+
+    [Test]
+    public void EqualizerNode_Flush_DrainsThroughProcessTail_NoThrow()
+    {
+        // A band present takes the fresh-buffer (non-pass-through) ownership path.
+        const int sampleCount = 512;
+        using var input = CreateBuffer(2, sampleCount, (_, i) => 0.25f * MathF.Sin(2f * MathF.PI * 220f * i / SampleRate));
+        using var node = new EqualizerNode { Bands = [new EqualizerBand()] };
+        node.AddInput(new BufferReplayNode(input));
+
+        using var processed = node.Process(Context(TimeSpan.Zero, sampleCount));
+        using var tail = node.Flush(Context(TimeSpan.FromSeconds((double)sampleCount / SampleRate), sampleCount));
+
+        Assert.That(tail.ChannelCount, Is.EqualTo(processed.ChannelCount));
+        Assert.That(tail.SampleCount, Is.EqualTo(sampleCount));
     }
 
     // Source that honors the requested clip-local range: sample value keyed to the absolute clip-local

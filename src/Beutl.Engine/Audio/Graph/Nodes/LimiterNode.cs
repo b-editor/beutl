@@ -165,9 +165,13 @@ public sealed class LimiterNode : AudioNode
     /// room even when the automation peaks near the clip end.
     /// </summary>
     public override int GetLatencySamples(int sampleRate)
-        => Lookahead.Animation != null
+    {
+        // Explicit guard so a future early-return added before the delegate cannot bypass the rate contract.
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(sampleRate);
+        return Lookahead.Animation != null
             ? LimiterParameters.ToLatencySamples(LimiterParameters.MaxLookaheadMs, sampleRate)
             : LimiterParameters.ToLatencySamples(Lookahead.CurrentValue, sampleRate);
+    }
 
     private void InitializeBuffers(int sampleRate, int channelCount)
     {
