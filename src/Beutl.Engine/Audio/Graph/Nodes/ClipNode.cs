@@ -131,5 +131,11 @@ public class ClipNode : AudioNode
         {
             tail.CopyTo(newBuffer, writeOffset, copyCount);
         }
+
+        // This drain advanced the upstream chain to the end of the drain block. Record it so that if a
+        // parent later flushes this same clip to recover the rest of a partially-drained tail (capacity
+        // was below the reported latency), Flush continues from here instead of stepping back to Duration
+        // and tripping the cached effects' discontinuity guard.
+        _lastProcessedLocalEnd = drainContext.TimeRange.End;
     }
 }
