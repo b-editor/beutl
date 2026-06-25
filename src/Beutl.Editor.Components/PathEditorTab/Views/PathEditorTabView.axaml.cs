@@ -439,10 +439,10 @@ public partial class PathEditorTabView : UserControl, IPathEditorView
             [!ThemeProperty] = new DynamicResourceExtension("PathEditorControlPointThumbTheme")
         };
         var flyout = new FAMenuFlyout();
-        var delete = new MenuFlyoutItem
+        var delete = new FAMenuFlyoutItem
         {
             Text = Strings.Delete,
-            IconSource = new SymbolIconSource { Symbol = Symbol.Delete }
+            IconSource = new FASymbolIconSource { Symbol = FASymbol.Delete }
         };
         delete.Click += OnDeleteClicked;
         flyout.ItemsSource = new[] { delete };
@@ -456,7 +456,7 @@ public partial class PathEditorTabView : UserControl, IPathEditorView
 
     private void OnDeleteClicked(object? sender, RoutedEventArgs e)
     {
-        if (sender is MenuFlyoutItem { DataContext: PathSegment op }
+        if (sender is FAMenuFlyoutItem { DataContext: PathSegment op }
             && DataContext is PathEditorTabViewModel viewModel
             && viewModel.FigureContext.Value is IPathFigureEditorContext figureContext)
         {
@@ -478,7 +478,7 @@ public partial class PathEditorTabView : UserControl, IPathEditorView
     private void ToggleDragModeClick(object? sender, RoutedEventArgs e)
     {
         string? tag = null;
-        if (sender is RadioMenuFlyoutItem button1)
+        if (sender is FARadioMenuFlyoutItem button1)
         {
             tag = button1.Tag as string;
         }
@@ -510,7 +510,7 @@ public partial class PathEditorTabView : UserControl, IPathEditorView
 
     private void AddOpClicked(object? sender, RoutedEventArgs e)
     {
-        if (sender is MenuFlyoutItem item
+        if (sender is FAMenuFlyoutItem item
             && DataContext is PathEditorTabViewModel viewModel
             && viewModel.PathFigure.Value is { } figure
             && viewModel.FigureContext.Value is IPathFigureEditorContext figureContext)

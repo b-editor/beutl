@@ -18,7 +18,7 @@
         </Border>
     </Design.PreviewWith>
 
-    <conv:ColorShadeBrushConv x:Key="ColorShadeBrushConv" />
+    <conv:FAColorShadeBrushConv x:Key="ColorShadeBrushConv" />
     <x:Double x:Key="ColorPickerTabItemHeight">46</x:Double>
     <Thickness x:Key="ColorPickerSpectrumMargin">2 48 2 2</Thickness>
     <x:Double x:Key="ColorPickerTabItemSelectionIndicatorHeight">3</x:Double>
@@ -40,8 +40,8 @@
 
 
     <ControlTheme x:Key="ColorPickerNumberBoxStyle"
-                  BasedOn="{StaticResource {x:Type ui:NumberBox}}"
-                  TargetType="ui:NumberBox">
+                  BasedOn="{StaticResource {x:Type ui:FANumberBox}}"
+                  TargetType="ui:FANumberBox">
         <Setter Property="SpinButtonPlacementMode" Value="Compact" />
         <Setter Property="MinWidth" Value="110" />
         <Setter Property="Template">
@@ -61,10 +61,10 @@
                              FontSize="{TemplateBinding FontSize}"
                              FontWeight="{TemplateBinding FontWeight}"
                              Foreground="{TemplateBinding Foreground}"
+                             PlaceholderText="{TemplateBinding PlaceholderText}"
                              SelectionBrush="{TemplateBinding SelectionHighlightColor}"
                              TextAlignment="{TemplateBinding TextAlignment}"
-                             Theme="{StaticResource NumberBoxTextBoxStyle}"
-                             Watermark="{TemplateBinding PlaceholderText}">
+                             Theme="{StaticResource NumberBoxTextBoxStyle}">
                         <TextBox.InnerLeftContent>
                             <Border Name="Label"
                                     Width="32"
@@ -75,7 +75,7 @@
                                            HorizontalAlignment="Center"
                                            VerticalAlignment="Center"
                                            FontWeight="SemiBold"
-                                           Text="{Binding $parent[ui:NumberBox].Header}" />
+                                           Text="{Binding $parent[ui:FANumberBox].Header}" />
                             </Border>
                         </TextBox.InnerLeftContent>
                     </TextBox>
@@ -459,36 +459,36 @@
                                                 Theme="{StaticResource ColorPickerTabControlStyle}">
                                         <TabItem Name="SpectrumTab" IsVisible="{TemplateBinding UseSpectrum}">
                                             <TabItem.Header>
-                                                <ui:IconSourceElement Width="18" Height="18">
-                                                    <ui:IconSourceElement.IconSource>
-                                                        <ui:PathIconSource Data="{StaticResource ColorSpectrumGeometry}" Stretch="Fill" />
-                                                    </ui:IconSourceElement.IconSource>
-                                                </ui:IconSourceElement>
+                                                <ui:FAIconSourceElement Width="18" Height="18">
+                                                    <ui:FAIconSourceElement.IconSource>
+                                                        <ui:FAPathIconSource Data="{StaticResource ColorSpectrumGeometry}" Stretch="Fill" />
+                                                    </ui:FAIconSourceElement.IconSource>
+                                                </ui:FAIconSourceElement>
                                             </TabItem.Header>
                                         </TabItem>
                                         <TabItem Name="WheelTab" IsVisible="False">
                                             <!--  IsVisible="{TemplateBinding UseColorWheel}"  -->
                                             <TabItem.Header>
-                                                <ui:FontIcon FontFamily="{DynamicResource SymbolThemeFontFamily}"
-                                                             FontSize="20"
-                                                             Glyph="&#xE790;" />
+                                                <ui:FAFontIcon FontFamily="{DynamicResource SymbolThemeFontFamily}"
+                                                               FontSize="20"
+                                                               Glyph="&#xE790;" />
                                             </TabItem.Header>
                                         </TabItem>
                                         <TabItem Name="TriangleTab" IsVisible="False">
                                             <!--  IsVisible="{TemplateBinding UseColorTriangle}"  -->
                                             <TabItem.Header>
-                                                <ui:IconSourceElement Width="18" Height="18">
-                                                    <ui:IconSourceElement.IconSource>
-                                                        <ui:PathIconSource Data="{StaticResource ColorTriangleGeometry}" Stretch="Fill" />
-                                                    </ui:IconSourceElement.IconSource>
-                                                </ui:IconSourceElement>
+                                                <ui:FAIconSourceElement Width="18" Height="18">
+                                                    <ui:FAIconSourceElement.IconSource>
+                                                        <ui:FAPathIconSource Data="{StaticResource ColorTriangleGeometry}" Stretch="Fill" />
+                                                    </ui:FAIconSourceElement.IconSource>
+                                                </ui:FAIconSourceElement>
                                             </TabItem.Header>
                                         </TabItem>
                                         <TabItem Name="PaletteTab" IsVisible="{TemplateBinding UseColorPalette}">
                                             <TabItem.Header>
-                                                <ui:FontIcon FontFamily="{DynamicResource SymbolThemeFontFamily}"
-                                                             FontSize="20"
-                                                             Glyph="&#xF0E2;" />
+                                                <ui:FAFontIcon FontFamily="{DynamicResource SymbolThemeFontFamily}"
+                                                               FontSize="20"
+                                                               Glyph="&#xF0E2;" />
 
                                             </TabItem.Header>
                                             <Panel Name="PaletteContent"
@@ -497,13 +497,13 @@
                                                 <ScrollViewer MaxHeight="450"
                                                               HorizontalScrollBarVisibility="Disabled"
                                                               VerticalScrollBarVisibility="Auto">
-                                                    <ui:ItemsRepeater Margin="5" ItemsSource="{TemplateBinding CustomPaletteColors}">
-                                                        <ui:ItemsRepeater.Layout>
-                                                            <ui:UniformGridLayout ItemsStretch="Fill"
-                                                                                  MaximumRowsOrColumns="{Binding RelativeSource={RelativeSource TemplatedParent}, Path=PaletteColumnCount}"
-                                                                                  Orientation="Horizontal" />
-                                                        </ui:ItemsRepeater.Layout>
-                                                        <ui:ItemsRepeater.ItemTemplate>
+                                                    <ui:FAItemsRepeater Margin="5" ItemsSource="{TemplateBinding CustomPaletteColors}">
+                                                        <ui:FAItemsRepeater.Layout>
+                                                            <ui:FAUniformGridLayout ItemsStretch="Fill"
+                                                                                    MaximumRowsOrColumns="{Binding RelativeSource={RelativeSource TemplatedParent}, Path=PaletteColumnCount}"
+                                                                                    Orientation="Horizontal" />
+                                                        </ui:FAItemsRepeater.Layout>
+                                                        <ui:FAItemsRepeater.ItemTemplate>
                                                             <DataTemplate x:DataType="Color">
                                                                 <ui:ColorPaletteItem Height="{Binding $self.Bounds.Width}"
                                                                                      Margin="{DynamicResource ColorPaletteItemMargin}"
@@ -511,18 +511,18 @@
                                                                                      BorderThicknessPointerOver="1"
                                                                                      Color="{Binding}" />
                                                             </DataTemplate>
-                                                        </ui:ItemsRepeater.ItemTemplate>
-                                                    </ui:ItemsRepeater>
+                                                        </ui:FAItemsRepeater.ItemTemplate>
+                                                    </ui:FAItemsRepeater>
                                                 </ScrollViewer>
                                             </Panel>
                                         </TabItem>
                                         <TabItem Name="TextEntryTab" IsVisible="{TemplateBinding IsCompact}">
                                             <TabItem.Header>
-                                                <ui:IconSourceElement Width="18" Height="18">
-                                                    <ui:IconSourceElement.IconSource>
-                                                        <ui:PathIconSource Data="{StaticResource ColorSliderGeometry}" Stretch="Fill" />
-                                                    </ui:IconSourceElement.IconSource>
-                                                </ui:IconSourceElement>
+                                                <ui:FAIconSourceElement Width="18" Height="18">
+                                                    <ui:FAIconSourceElement.IconSource>
+                                                        <ui:FAPathIconSource Data="{StaticResource ColorSliderGeometry}" Stretch="Fill" />
+                                                    </ui:FAIconSourceElement.IconSource>
+                                                </ui:FAIconSourceElement>
                                             </TabItem.Header>
                                             <Panel Name="TextEntryTabHost" />
                                         </TabItem>
@@ -571,10 +571,10 @@
                                                                   Mode=TwoWay}"
                                       IsVisible="{TemplateBinding IsMoreButtonVisible}"
                                       Theme="{StaticResource ColorPickerMoreButtonStyle}">
-                            <ui:SymbolIcon Name="MoreButtonIcon"
-                                           VerticalAlignment="Center"
-                                           FontSize="20"
-                                           Symbol="ChevronLeft" />
+                            <ui:FASymbolIcon Name="MoreButtonIcon"
+                                             VerticalAlignment="Center"
+                                             FontSize="20"
+                                             Symbol="ChevronLeft" />
                         </ToggleButton>
 
                         <StackPanel Name="TextEntryArea"
@@ -625,63 +625,63 @@
                                              Grid.Row="5"
                                              MinWidth="0" />
 
-                                <ui:NumberBox Name="HueBox"
-                                              Grid.Row="0"
-                                              Grid.Column="1"
-                                              Margin="0,3"
-                                              Header="H"
-                                              Maximum="359"
-                                              Minimum="0"
-                                              Theme="{StaticResource ColorPickerNumberBoxStyle}" />
-                                <ui:NumberBox Name="SatBox"
-                                              Grid.Row="1"
-                                              Grid.Column="1"
-                                              Margin="0,3"
-                                              Header="S"
-                                              Maximum="100"
-                                              Minimum="0"
-                                              Theme="{StaticResource ColorPickerNumberBoxStyle}" />
-                                <ui:NumberBox Name="ValBox"
-                                              Grid.Row="2"
-                                              Grid.Column="1"
-                                              Margin="0,3"
-                                              Header="V"
-                                              Maximum="100"
-                                              Minimum="0"
-                                              Theme="{StaticResource ColorPickerNumberBoxStyle}" />
-                                <ui:NumberBox Name="RedBox"
-                                              Grid.Row="3"
-                                              Grid.Column="1"
-                                              Margin="0,3"
-                                              Header="R"
-                                              Maximum="255"
-                                              Minimum="0"
-                                              Theme="{StaticResource ColorPickerNumberBoxStyle}" />
-                                <ui:NumberBox Name="GreenBox"
-                                              Grid.Row="4"
-                                              Grid.Column="1"
-                                              Margin="0,3"
-                                              Header="G"
-                                              Maximum="255"
-                                              Minimum="0"
-                                              Theme="{StaticResource ColorPickerNumberBoxStyle}" />
-                                <ui:NumberBox Name="BlueBox"
-                                              Grid.Row="5"
-                                              Grid.Column="1"
-                                              Margin="0,3"
-                                              Header="B"
-                                              Maximum="255"
-                                              Minimum="0"
-                                              Theme="{StaticResource ColorPickerNumberBoxStyle}" />
-                                <ui:NumberBox Name="AlphaBox"
-                                              Grid.Row="6"
-                                              Grid.Column="1"
-                                              Margin="0,3"
-                                              Header="A"
-                                              IsVisible="False"
-                                              Maximum="255"
-                                              Minimum="0"
-                                              Theme="{StaticResource ColorPickerNumberBoxStyle}" />
+                                <ui:FANumberBox Name="HueBox"
+                                                Grid.Row="0"
+                                                Grid.Column="1"
+                                                Margin="0,3"
+                                                Header="H"
+                                                Maximum="359"
+                                                Minimum="0"
+                                                Theme="{StaticResource ColorPickerNumberBoxStyle}" />
+                                <ui:FANumberBox Name="SatBox"
+                                                Grid.Row="1"
+                                                Grid.Column="1"
+                                                Margin="0,3"
+                                                Header="S"
+                                                Maximum="100"
+                                                Minimum="0"
+                                                Theme="{StaticResource ColorPickerNumberBoxStyle}" />
+                                <ui:FANumberBox Name="ValBox"
+                                                Grid.Row="2"
+                                                Grid.Column="1"
+                                                Margin="0,3"
+                                                Header="V"
+                                                Maximum="100"
+                                                Minimum="0"
+                                                Theme="{StaticResource ColorPickerNumberBoxStyle}" />
+                                <ui:FANumberBox Name="RedBox"
+                                                Grid.Row="3"
+                                                Grid.Column="1"
+                                                Margin="0,3"
+                                                Header="R"
+                                                Maximum="255"
+                                                Minimum="0"
+                                                Theme="{StaticResource ColorPickerNumberBoxStyle}" />
+                                <ui:FANumberBox Name="GreenBox"
+                                                Grid.Row="4"
+                                                Grid.Column="1"
+                                                Margin="0,3"
+                                                Header="G"
+                                                Maximum="255"
+                                                Minimum="0"
+                                                Theme="{StaticResource ColorPickerNumberBoxStyle}" />
+                                <ui:FANumberBox Name="BlueBox"
+                                                Grid.Row="5"
+                                                Grid.Column="1"
+                                                Margin="0,3"
+                                                Header="B"
+                                                Maximum="255"
+                                                Minimum="0"
+                                                Theme="{StaticResource ColorPickerNumberBoxStyle}" />
+                                <ui:FANumberBox Name="AlphaBox"
+                                                Grid.Row="6"
+                                                Grid.Column="1"
+                                                Margin="0,3"
+                                                Header="A"
+                                                IsVisible="False"
+                                                Maximum="255"
+                                                Minimum="0"
+                                                Theme="{StaticResource ColorPickerNumberBoxStyle}" />
 
 
                                 <ui:ColorRamp Name="HueRamp"
@@ -848,7 +848,7 @@
             <Style Selector="^ /template/ ui|ColorRamp#AlphaRamp">
                 <Setter Property="IsVisible" Value="True" />
             </Style>
-            <Style Selector="^ /template/ ui|NumberBox#AlphaBox">
+            <Style Selector="^ /template/ ui|FANumberBox#AlphaBox">
                 <Setter Property="IsVisible" Value="True" />
             </Style>
 
@@ -875,13 +875,13 @@
             </Style>
 
             <Style Selector="^:hsv">
-                <Style Selector="^ /template/ ui|NumberBox#RedBox">
+                <Style Selector="^ /template/ ui|FANumberBox#RedBox">
                     <Setter Property="IsVisible" Value="False" />
                 </Style>
-                <Style Selector="^ /template/ ui|NumberBox#GreenBox">
+                <Style Selector="^ /template/ ui|FANumberBox#GreenBox">
                     <Setter Property="IsVisible" Value="False" />
                 </Style>
-                <Style Selector="^ /template/ ui|NumberBox#BlueBox">
+                <Style Selector="^ /template/ ui|FANumberBox#BlueBox">
                     <Setter Property="IsVisible" Value="False" />
                 </Style>
                 <Style Selector="^ /template/ ui|ColorRamp#RedRamp">
@@ -896,13 +896,13 @@
             </Style>
 
             <Style Selector="^:rgb">
-                <Style Selector="^ /template/ ui|NumberBox#HueBox">
+                <Style Selector="^ /template/ ui|FANumberBox#HueBox">
                     <Setter Property="IsVisible" Value="False" />
                 </Style>
-                <Style Selector="^ /template/ ui|NumberBox#SatBox">
+                <Style Selector="^ /template/ ui|FANumberBox#SatBox">
                     <Setter Property="IsVisible" Value="False" />
                 </Style>
-                <Style Selector="^ /template/ ui|NumberBox#ValBox">
+                <Style Selector="^ /template/ ui|FANumberBox#ValBox">
                     <Setter Property="IsVisible" Value="False" />
                 </Style>
                 <Style Selector="^ /template/ ui|ColorRamp#HueRamp">
@@ -916,7 +916,7 @@
                 </Style>
             </Style>
 
-            <Style Selector="^ /template/ ui|SymbolIcon#MoreButtonIcon">
+            <Style Selector="^ /template/ ui|FASymbolIcon#MoreButtonIcon">
                 <Setter Property="RenderTransform" Value="rotate(180deg)" />
             </Style>
         </Style>

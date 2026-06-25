@@ -52,7 +52,7 @@
                     Click="OnUndoClick"
                     Theme="{StaticResource TransparentButton}"
                     ToolTip.Tip="{x:Static lang:Strings.Undo}">
-                <ui:SymbolIcon Symbol="Undo" />
+                <ui:FASymbolIcon Symbol="Undo" />
             </Button>
             <Button Grid.Column="1"
                     Margin="4,0,0,0"
@@ -60,7 +60,7 @@
                     Click="OnRedoClick"
                     Theme="{StaticResource TransparentButton}"
                     ToolTip.Tip="{x:Static lang:Strings.Redo}">
-                <ui:SymbolIcon Symbol="Redo" />
+                <ui:FASymbolIcon Symbol="Redo" />
             </Button>
             <TextBlock Grid.Column="2"
                        Margin="8,0,0,0"

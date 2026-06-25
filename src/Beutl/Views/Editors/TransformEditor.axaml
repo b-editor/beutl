@@ -24,10 +24,10 @@
                       ToolTip.Tip="{Binding Description.Value}">
             <ToggleButton.ContextFlyout>
                 <ui:FAMenuFlyout Placement="Pointer">
-                    <ui:MenuFlyoutSubItem x:Name="ChangeTypeMenu"
-                                          IconSource="New"
-                                          Text="{x:Static lang:Strings.Change}" />
-                    <ui:MenuFlyoutItem Click="SetNullClick" Text="{x:Static lang:Strings.Null}" />
+                    <ui:FAMenuFlyoutSubItem x:Name="ChangeTypeMenu"
+                                            IconSource="New"
+                                            Text="{x:Static lang:Strings.Change}" />
+                    <ui:FAMenuFlyoutItem Click="SetNullClick" Text="{x:Static lang:Strings.Null}" />
                 </ui:FAMenuFlyout>
             </ToggleButton.ContextFlyout>
             <ToggleButton.Tag>
@@ -73,10 +73,10 @@
                         Theme="{StaticResource TransparentButton}">
                     <Button.Flyout>
                         <ui:FAMenuFlyout>
-                            <ui:MenuFlyoutSubItem x:Name="PresenterChangeTypeMenu"
-                                                  IconSource="New"
-                                                  Text="{x:Static lang:Strings.Change}" />
-                            <ui:MenuFlyoutItem Click="SetNullClick" Text="{x:Static lang:Strings.Null}" />
+                            <ui:FAMenuFlyoutSubItem x:Name="PresenterChangeTypeMenu"
+                                                    IconSource="New"
+                                                    Text="{x:Static lang:Strings.Change}" />
+                            <ui:FAMenuFlyoutItem Click="SetNullClick" Text="{x:Static lang:Strings.Null}" />
                         </ui:FAMenuFlyout>
                     </Button.Flyout>
                     <icons:SymbolIcon Symbol="MoreVertical" />

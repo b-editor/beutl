@@ -40,9 +40,9 @@
                    Foreground="{DynamicResource TextFillColorSecondaryBrush}"
                    Text="{Binding ProjectName.Value}" />
 
-        <ui:SymbolIcon VerticalAlignment="Center"
-                       IsVisible="{Binding IsProjectOpened.Value}"
-                       Symbol="ChevronRight" />
+        <ui:FASymbolIcon VerticalAlignment="Center"
+                         IsVisible="{Binding IsProjectOpened.Value}"
+                         Symbol="ChevronRight" />
 
         <Button Name="FileButton"
                 VerticalAlignment="Center"
@@ -76,16 +76,16 @@
                                                 Command="{ReflectionBinding #Root.DataContext.CloseOrRemoveFile}"
                                                 CommandParameter="{Binding .}"
                                                 Theme="{StaticResource TransparentButton}">
-                                            <ui:SymbolIcon Classes.delete="{ReflectionBinding #Root.DataContext.IsProjectOpened.Value}">
-                                                <ui:SymbolIcon.Styles>
-                                                    <Style Selector="ui|SymbolIcon">
+                                            <ui:FASymbolIcon Classes.delete="{ReflectionBinding #Root.DataContext.IsProjectOpened.Value}">
+                                                <ui:FASymbolIcon.Styles>
+                                                    <Style Selector="ui|FASymbolIcon">
                                                         <Setter Property="Symbol" Value="Clear" />
                                                     </Style>
-                                                    <Style Selector="ui|SymbolIcon.delete">
+                                                    <Style Selector="ui|FASymbolIcon.delete">
                                                         <Setter Property="Symbol" Value="Delete" />
                                                     </Style>
-                                                </ui:SymbolIcon.Styles>
-                                            </ui:SymbolIcon>
+                                                </ui:FASymbolIcon.Styles>
+                                            </ui:FASymbolIcon>
                                         </Button>
                                     </Grid>
                                 </DataTemplate>

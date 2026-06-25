@@ -15,7 +15,7 @@ public static class TemplateMenuHelper
         var dataContext = control.GetObservable(StyledElement.DataContextProperty)
             .Select(obj => obj as BaseEditorViewModel);
 
-        var saveMenu = new MenuFlyoutItem { Text = Strings.SaveAsTemplate };
+        var saveMenu = new FAMenuFlyoutItem { Text = Strings.SaveAsTemplate };
         saveMenu.Bind(
             InputElement.IsEnabledProperty,
             dataContext.Select(d => d?.CanSaveAsTemplate ?? Observable.ReturnThenNever(false)).Switch());
@@ -38,8 +38,8 @@ public static class TemplateMenuHelper
             flyout.ShowAt(control, true);
         };
 
-        var applySubMenu = new MenuFlyoutSubItem { Text = Strings.ApplyTemplate };
-        var addSubMenu = new MenuFlyoutSubItem { Text = Strings.AddFromTemplate };
+        var applySubMenu = new FAMenuFlyoutSubItem { Text = Strings.ApplyTemplate };
+        var addSubMenu = new FAMenuFlyoutSubItem { Text = Strings.AddFromTemplate };
 
         menuFlyout.Opening += (_, _) =>
         {
@@ -97,7 +97,7 @@ public static class TemplateMenuHelper
             addSubMenu.IsEnabled = addSubMenu.Items.Count > 0;
         };
 
-        var separator = new MenuFlyoutSeparator();
+        var separator = new FAMenuFlyoutSeparator();
         separator.Bind(
             Visual.IsVisibleProperty,
             dataContext
@@ -109,23 +109,23 @@ public static class TemplateMenuHelper
         menuFlyout.Items.Add(addSubMenu);
     }
 
-    private static MenuFlyoutItem CreateApplyMenuItem(ObjectTemplateItem template, BaseEditorViewModel vm)
+    private static FAMenuFlyoutItem CreateApplyMenuItem(ObjectTemplateItem template, BaseEditorViewModel vm)
     {
-        var mi = new MenuFlyoutItem { Text = template.Name.Value, Tag = template };
+        var mi = new FAMenuFlyoutItem { Text = template.Name.Value, Tag = template };
         mi.Click += (s, _) =>
         {
-            if (s is MenuFlyoutItem { Tag: ObjectTemplateItem item })
+            if (s is FAMenuFlyoutItem { Tag: ObjectTemplateItem item })
                 vm.ApplyTemplate(item);
         };
         return mi;
     }
 
-    private static MenuFlyoutItem CreateAddMenuItem(ObjectTemplateItem template, BaseEditorViewModel vm, bool useApplyTemplate)
+    private static FAMenuFlyoutItem CreateAddMenuItem(ObjectTemplateItem template, BaseEditorViewModel vm, bool useApplyTemplate)
     {
-        var mi = new MenuFlyoutItem { Text = template.Name.Value, Tag = template };
+        var mi = new FAMenuFlyoutItem { Text = template.Name.Value, Tag = template };
         mi.Click += (s, _) =>
         {
-            if (s is not MenuFlyoutItem { Tag: ObjectTemplateItem item }) return;
+            if (s is not FAMenuFlyoutItem { Tag: ObjectTemplateItem item }) return;
             if (useApplyTemplate)
                 vm.ApplyTemplate(item);
             else

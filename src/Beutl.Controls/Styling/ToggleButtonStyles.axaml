@@ -9,13 +9,13 @@
 
             <StackPanel Orientation="Horizontal">
                 <RadioButton Theme="{DynamicResource ColorPickerTypeTransparentToggleButtonStyle}">
-                    <ui:SymbolIcon Symbol="Accept" />
+                    <ui:FASymbolIcon Symbol="Accept" />
                 </RadioButton>
                 <RadioButton Theme="{DynamicResource ColorPickerTypeTransparentToggleButtonStyle}">
-                    <ui:SymbolIcon Symbol="Accept" />
+                    <ui:FASymbolIcon Symbol="Accept" />
                 </RadioButton>
                 <RadioButton Theme="{DynamicResource ColorPickerTypeTransparentToggleButtonStyle}">
-                    <ui:SymbolIcon Symbol="Accept" />
+                    <ui:FASymbolIcon Symbol="Accept" />
                 </RadioButton>
             </StackPanel>
         </Border>

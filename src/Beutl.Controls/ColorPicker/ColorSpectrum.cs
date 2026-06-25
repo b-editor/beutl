@@ -782,8 +782,8 @@ public partial class ColorSpectrum : ColorPickerComponent
                 {
                     var sz = Bounds.Size;
 
-                    var pX = MathHelpers.Clamp(pt.X / sz.Width, 0, 1);
-                    var pY = MathHelpers.Clamp(pt.Y / sz.Height, 0, 1);
+                    var pX = Math.Clamp(pt.X / sz.Width, 0, 1);
+                    var pY = Math.Clamp(pt.Y / sz.Height, 0, 1);
 
                     switch (Component)
                     {
@@ -817,8 +817,8 @@ public partial class ColorSpectrum : ColorPickerComponent
                     if (theta < 0)
                         theta += 360;
 
-                    var dist = MathHelpers.Clamp(Math.Sqrt(dp.X * dp.X + dp.Y * dp.Y) / (_lastWheelRect.Width / 2), 0, 1);
-                    Color = Color2.FromHSVf((float)MathHelpers.Clamp(theta, 0, 360), (float)dist, Color.Valuef);
+                    var dist = Math.Clamp(Math.Sqrt(dp.X * dp.X + dp.Y * dp.Y) / (_lastWheelRect.Width / 2), 0, 1);
+                    Color = Color2.FromHSVf((float)Math.Clamp(theta, 0, 360), (float)dist, Color.Valuef);
                 }
                 break;
 

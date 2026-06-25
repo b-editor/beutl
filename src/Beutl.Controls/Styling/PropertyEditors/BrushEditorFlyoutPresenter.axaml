@@ -67,11 +67,11 @@
                                 </ToggleButton>
                                 <ToggleButton Name="DrawableBrushTabButton">
                                     <Border Classes="icon">
-                                        <ui:SymbolIcon Symbol="ImageFilled" />
+                                        <ui:FASymbolIcon Symbol="ImageFilled" />
                                     </Border>
                                 </ToggleButton>
                                 <ToggleButton Name="PaletteTabButton">
-                                    <ui:FontIcon Glyph="&#xF0E2;" />
+                                    <ui:FAFontIcon Glyph="&#xF0E2;" />
                                 </ToggleButton>
                             </WrapPanel>
 
@@ -85,7 +85,7 @@
                                     HorizontalContentAlignment="Center"
                                     VerticalContentAlignment="Center"
                                     Theme="{StaticResource TransparentButton}">
-                                <ui:FontIcon FontFamily="{DynamicResource SymbolThemeFontFamily}" Glyph="&#xE711;" />
+                                <ui:FAFontIcon FontFamily="{DynamicResource SymbolThemeFontFamily}" Glyph="&#xE711;" />
                             </Button>
                         </Grid>
 
@@ -102,7 +102,7 @@
                                             HorizontalAlignment="Stretch"
                                             VerticalAlignment="Stretch"
                                             Theme="{StaticResource FlyoutAcceptDismiss}">
-                                        <ui:SymbolIcon FontSize="18" Symbol="Checkmark" />
+                                        <ui:FASymbolIcon FontSize="18" Symbol="Checkmark" />
                                     </Button>
                                     <Button Name="DismissButton"
                                             Grid.Column="1"
@@ -110,7 +110,7 @@
                                             HorizontalAlignment="Stretch"
                                             VerticalAlignment="Stretch"
                                             Theme="{StaticResource FlyoutAcceptDismiss}">
-                                        <ui:SymbolIcon FontSize="16" Symbol="Dismiss" />
+                                        <ui:FASymbolIcon FontSize="16" Symbol="Dismiss" />
                                     </Button>
                                 </Grid>
 
@@ -144,16 +144,16 @@
                                                    VerticalAlignment="Center"
                                                    Text="{TemplateBinding DrawableName}" />
 
-                                        <ui:FontIcon Grid.Column="1"
-                                                     MinHeight="{DynamicResource ComboBoxMinHeight}"
-                                                     Margin="0,0,14,0"
-                                                     HorizontalAlignment="Right"
-                                                     VerticalAlignment="Center"
-                                                     FontFamily="{DynamicResource SymbolThemeFontFamily}"
-                                                     FontSize="12"
-                                                     Foreground="{DynamicResource ComboBoxDropDownGlyphForeground}"
-                                                     Glyph="&#xE70D;"
-                                                     IsHitTestVisible="False" />
+                                        <ui:FAFontIcon Grid.Column="1"
+                                                       MinHeight="{DynamicResource ComboBoxMinHeight}"
+                                                       Margin="0,0,14,0"
+                                                       HorizontalAlignment="Right"
+                                                       VerticalAlignment="Center"
+                                                       FontFamily="{DynamicResource SymbolThemeFontFamily}"
+                                                       FontSize="12"
+                                                       Foreground="{DynamicResource ComboBoxDropDownGlyphForeground}"
+                                                       Glyph="&#xE70D;"
+                                                       IsHitTestVisible="False" />
                                     </Grid>
                                 </Button>
 
@@ -247,7 +247,7 @@
                 <Setter Property="Margin" Value="0,0,4,0" />
                 <Setter Property="Theme" Value="{StaticResource ColorPickerTypeTransparentToggleButtonStyle}" />
 
-                <Style Selector="^ &gt; ui|FontIcon">
+                <Style Selector="^ &gt; ui|FAFontIcon">
                     <Setter Property="FontFamily" Value="{DynamicResource SymbolThemeFontFamily}" />
                 </Style>
 
@@ -263,7 +263,7 @@
                         <Setter Property="RadiusX" Value="1" />
                         <Setter Property="RadiusY" Value="1" />
                     </Style>
-                    <Style Selector="^ &gt; ui|SymbolIcon">
+                    <Style Selector="^ &gt; ui|FASymbolIcon">
                         <Setter Property="Width" Value="12" />
                         <Setter Property="Height" Value="12" />
                     </Style>

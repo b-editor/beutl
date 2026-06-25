@@ -26,7 +26,7 @@
                 Click="Navigate_Click"
                 IsVisible="{Binding IsSet.Value}">
             <StackPanel Orientation="Horizontal" Spacing="16">
-                <ui:SymbolIcon Symbol="Open" />
+                <ui:FASymbolIcon Symbol="Open" />
                 <TextBlock Text="{x:Static lang:Strings.Edit}" />
             </StackPanel>
         </Button>
@@ -39,7 +39,7 @@
                 IsEnabled="{Binding CanEdit.Value}"
                 IsVisible="{Binding IsNotSetAndCanWrite.Value}">
             <StackPanel Orientation="Horizontal" Spacing="16">
-                <ui:SymbolIcon Symbol="New" />
+                <ui:FASymbolIcon Symbol="New" />
                 <TextBlock Text="{x:Static lang:Strings.CreateNew}" />
             </StackPanel>
         </Button>

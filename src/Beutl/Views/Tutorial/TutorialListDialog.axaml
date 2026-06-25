@@ -1,16 +1,16 @@
-<ui:ContentDialog x:Class="Beutl.Views.Tutorial.TutorialListDialog"
-                  xmlns="https://github.com/avaloniaui"
-                  xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-                  xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
-                  xmlns:icons="using:FluentIcons.FluentAvalonia"
-                  xmlns:lang="using:Beutl.Language"
-                  xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-                  xmlns:ui="using:FluentAvalonia.UI.Controls"
-                  Title="{x:Static lang:Strings.Tutorials}"
-                  d:DesignHeight="400"
-                  d:DesignWidth="500"
-                  CloseButtonText="{x:Static lang:Strings.Close}"
-                  mc:Ignorable="d">
+<ui:FAContentDialog x:Class="Beutl.Views.Tutorial.TutorialListDialog"
+                    xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+                    xmlns:icons="using:FluentIcons.FluentAvalonia"
+                    xmlns:lang="using:Beutl.Language"
+                    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+                    xmlns:ui="using:FluentAvalonia.UI.Controls"
+                    Title="{x:Static lang:Strings.Tutorials}"
+                    d:DesignHeight="400"
+                    d:DesignWidth="500"
+                    CloseButtonText="{x:Static lang:Strings.Close}"
+                    mc:Ignorable="d">
 
     <StackPanel MinWidth="400" Spacing="4">
         <ItemsControl x:Name="TutorialList">
@@ -19,11 +19,11 @@
                     <Button HorizontalAlignment="Stretch"
                             HorizontalContentAlignment="Stretch"
                             Click="OnTutorialItemClick"
-                            Tag="{Binding Id}">
+                            Tag="{ReflectionBinding Id}">
                         <StackPanel Spacing="4">
-                            <TextBlock FontWeight="SemiBold" Text="{Binding Title}" />
+                            <TextBlock FontWeight="SemiBold" Text="{ReflectionBinding Title}" />
                             <TextBlock Foreground="{DynamicResource TextFillColorSecondaryBrush}"
-                                       Text="{Binding Description}"
+                                       Text="{ReflectionBinding Description}"
                                        TextWrapping="Wrap" />
                         </StackPanel>
                     </Button>
@@ -35,4 +35,4 @@
                    Text="{x:Static lang:TutorialStrings.NoTutorialsAvailable}" />
     </StackPanel>
 
-</ui:ContentDialog>
+</ui:FAContentDialog>

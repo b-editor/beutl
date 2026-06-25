@@ -4,5 +4,5 @@ namespace Beutl.Pages;
 
 public static class SharedNavigationTransitionInfo
 {
-    public static readonly NavigationTransitionInfo Instance = new EntranceNavigationTransitionInfo();
+    public static readonly FANavigationTransitionInfo Instance = new FAEntranceNavigationTransitionInfo();
 }

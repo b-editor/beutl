@@ -1,16 +1,18 @@
-<wnd:AppWindow x:Class="Beutl.Views.MainWindow"
+<wnd:FAAppWindow x:Class="Beutl.Views.MainWindow"
                xmlns="https://github.com/avaloniaui"
                xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
                xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
                xmlns:local="using:Beutl.Views"
+               xmlns:viewModel="using:Beutl.ViewModels"
                xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
                xmlns:ui="using:FluentAvalonia.UI.Controls"
                xmlns:wnd="using:FluentAvalonia.UI.Windowing"
                Title="{Binding WindowTitle.Value}"
+               x:DataType="viewModel:MainViewModel"
                d:DesignHeight="720"
                d:DesignWidth="1280"
                Background="{DynamicResource MainWindowBackground}"
                Icon="avares://Beutl.Controls/Assets/logo.png"
                mc:Ignorable="d">
     <local:MainView x:Name="mainView" />
-</wnd:AppWindow>
+</wnd:FAAppWindow>

@@ -19,7 +19,7 @@
                     Theme="{StaticResource TransparentButton}">
                 <Button.Flyout>
                     <ui:FAMenuFlyout>
-                        <ui:MenuFlyoutItem Click="SetNullClick" Text="{x:Static lang:Strings.Null}" />
+                        <ui:FAMenuFlyoutItem Click="SetNullClick" Text="{x:Static lang:Strings.Null}" />
                     </ui:FAMenuFlyout>
                 </Button.Flyout>
                 <icons:SymbolIcon Symbol="MoreVertical" />

@@ -34,14 +34,14 @@
                 Width="22"
                 Theme="{StaticResource LayerHeaderButtonTheme}"
                 Command="{CompiledBinding Close}">
-            <ui:SymbolIcon Symbol="Dismiss" />
+            <ui:FASymbolIcon Symbol="Dismiss" />
         </Button>
 
         <Button Grid.Column="3"
                 Width="30"
                 Theme="{StaticResource LayerHeaderButtonTheme}"
                 Click="OpenTab_Click">
-            <ui:SymbolIcon Symbol="Open" />
+            <ui:FASymbolIcon Symbol="Open" />
         </Button>
 
 

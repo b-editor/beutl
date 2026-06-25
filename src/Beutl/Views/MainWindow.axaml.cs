@@ -9,7 +9,7 @@ using FluentAvalonia.UI.Windowing;
 
 namespace Beutl.Views;
 
-public sealed partial class MainWindow : AppWindow
+public sealed partial class MainWindow : FAAppWindow
 {
     public MainWindow()
     {
@@ -29,9 +29,7 @@ public sealed partial class MainWindow : AppWindow
         }
 
         TitleBar.Height = 40;
-#if DEBUG
-        this.AttachDevTools();
-#endif
+        TitleBar.ExtendsContentIntoTitleBar = true;
     }
 
     private void SetRect(PixelRect rect)

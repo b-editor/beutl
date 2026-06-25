@@ -13,7 +13,7 @@
         WindowStartupLocation="CenterScreen"
         mc:Ignorable="d">
     <Grid RowDefinitions="*,Auto">
-        <ui:Frame x:Name="frame" />
+        <ui:FAFrame x:Name="frame" />
 
         <Border Grid.Row="1"
                 Padding="{StaticResource TaskDialogButtonHostMargin}"

@@ -82,7 +82,7 @@
     </Styles.Resources>
 
     <Style Selector="HostWindow">
-        <Setter Property="SystemDecorations" Value="BorderOnly" />
+        <Setter Property="WindowDecorations" Value="BorderOnly" />
         <Setter Property="Background" Value="{DynamicResource DockSurfaceWorkbenchBrush}" />
         <Setter Property="Topmost" Value="True" />
     </Style>

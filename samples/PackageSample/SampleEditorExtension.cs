@@ -81,7 +81,10 @@ public class TextEditor : TextBox
 {
     public TextEditor()
     {
-        this[!TextProperty] = new Binding("Text.Value", BindingMode.TwoWay);
+        this[!TextProperty] = new ReflectionBinding("Text.Value")
+        {
+            Mode = BindingMode.TwoWay
+        };
     }
 
     protected override Type StyleKeyOverride => typeof(TextBox);
@@ -102,11 +105,11 @@ public sealed class SampleEditorExtension : EditorExtension
         };
     }
 
-    public override IconSource? GetIcon()
+    public override FAIconSource? GetIcon()
     {
-        return new SymbolIconSource
+        return new FASymbolIconSource
         {
-            Symbol = Symbol.Add
+            Symbol = FASymbol.Add
         };
     }
 

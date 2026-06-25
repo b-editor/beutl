@@ -15,7 +15,7 @@ using Symbol = FluentIcons.Common.Symbol;
 
 namespace Beutl.WaitingDialog;
 
-public partial class MainWindow : AppWindow
+public partial class MainWindow : FAAppWindow
 {
     private bool _closable;
     private Process? _parentProcess;
@@ -25,9 +25,6 @@ public partial class MainWindow : AppWindow
         InitializeComponent();
         ShowAsDialog = true;
         Topmost = true;
-#if DEBUG
-        this.AttachDevTools();
-#endif
         var titleOption = new Option<string?>("--title");
         var subtitleOption = new Option<string?>("--subtitle");
         var iconOption = new Option<string?>("--icon");

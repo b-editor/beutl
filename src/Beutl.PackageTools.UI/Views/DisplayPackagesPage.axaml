@@ -40,15 +40,15 @@
                     <Grid HorizontalAlignment="Left" ColumnDefinitions="*,6,Auto">
                         <TextBlock Text="{Binding Id}" TextTrimming="CharacterEllipsis" />
                         <StackPanel Grid.Column="2" Orientation="Horizontal">
-                            <ui:SymbolIcon Symbol="Folder">
-                                <ui:SymbolIcon.IsVisible>
+                            <ui:FASymbolIcon Symbol="Folder">
+                                <ui:FASymbolIcon.IsVisible>
                                     <MultiBinding Converter="{x:Static BoolConverters.Or}">
                                         <Binding Converter="{x:Static BoolConverters.Not}" Path="IsRemote" />
                                         <Binding Path="Conflict" />
                                     </MultiBinding>
-                                </ui:SymbolIcon.IsVisible>
-                            </ui:SymbolIcon>
-                            <ui:SymbolIcon IsVisible="{Binding IsRemote}" Symbol="Cloud" />
+                                </ui:FASymbolIcon.IsVisible>
+                            </ui:FASymbolIcon>
+                            <ui:FASymbolIcon IsVisible="{Binding IsRemote}" Symbol="Cloud" />
                         </StackPanel>
                     </Grid>
 
@@ -70,12 +70,12 @@
         </DataTemplate>
     </local:PackageToolPage.Resources>
     <local:PackageToolPage.ButtonsContainer>
-        <uip:TaskDialogButtonsPanel KeyboardNavigation.TabNavigation="Continue" Spacing="8">
-            <uip:TaskDialogButtonHost Classes="accent"
-                                      Click="OnNextClick"
-                                      Content="{x:Static res:Strings.Start}"
-                                      IsEnabled="{Binding !IsBusy.Value}" />
-        </uip:TaskDialogButtonsPanel>
+        <uip:FATaskDialogButtonsPanel KeyboardNavigation.TabNavigation="Continue" Spacing="8">
+            <uip:FATaskDialogButtonHost Classes="accent"
+                                        Click="OnNextClick"
+                                        Content="{x:Static res:Strings.Start}"
+                                        IsEnabled="{Binding !IsBusy.Value}" />
+        </uip:FATaskDialogButtonsPanel>
     </local:PackageToolPage.ButtonsContainer>
 
     <Grid Margin="18,9" RowDefinitions="Auto,*">

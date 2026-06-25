@@ -12,7 +12,7 @@ using FluentAvalonia.UI.Controls.Primitives;
 
 namespace Beutl.Controls.PropertyEditors;
 
-public sealed class GradingColorPickerFlyout : PickerFlyoutBase
+public sealed class GradingColorPickerFlyout : FAPickerFlyoutBase
 {
     private GradingColorPicker? _picker;
     private bool _showButtons = true;

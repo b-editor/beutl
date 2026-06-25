@@ -425,7 +425,7 @@ public class SimpleColorPicker : TemplatedControl
         }
     }
 
-    private void OnHexBoxGotFocus(object? sender, GotFocusEventArgs e)
+    private void OnHexBoxGotFocus(object? sender, FocusChangedEventArgs e)
     {
         _oldColor = Color;
     }
