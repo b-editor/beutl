@@ -27,9 +27,8 @@ public class ExtensibilityAbstractionsAssemblyTests
     [Test]
     public void AbstractionsAssembly_DoesNotPullInHeavyImplementationDependencies()
     {
-        // Walk the full reference closure, not just direct references: GetReferencedAssemblies()
-        // alone is pruned of unused references, so a heavy dependency added but not directly
-        // type-referenced would slip past a direct-only blocklist.
+        // Walk the full closure, not just direct references: GetReferencedAssemblies() is pruned of
+        // unused references, so a heavy but not-type-referenced dependency would slip a direct-only check.
         HashSet<string> closure = CollectReferencedAssemblyClosure(typeof(Extension).Assembly);
 
         // The thin layer must never reach the heavy UI/media layer, directly or transitively.
@@ -49,9 +48,8 @@ public class ExtensibilityAbstractionsAssemblyTests
             Assert.That(closure, Does.Not.Contain(heavy), $"Abstractions must not depend on {heavy}.");
         }
 
-        // Positively pin the Beutl-side boundary as a closed allowlist so any NEW Beutl.* assembly
-        // entering the closure (Engine, Extensibility, NodeGraph, Editor, ...) fails even if it is
-        // not named in the blocklist above.
+        // Closed allowlist so any new Beutl.* assembly entering the closure fails even when the
+        // blocklist above doesn't name it.
         string[] allowedBeutlAssemblies =
         [
             "Beutl.Extensibility.Abstractions",
@@ -85,8 +83,7 @@ public class ExtensibilityAbstractionsAssemblyTests
                 }
                 catch
                 {
-                    // The name is already recorded; an assembly that is not deployed to the test
-                    // output simply cannot be walked further, which is fine for the guards above.
+                    // Name is already recorded; an assembly absent from the test output just can't be walked further.
                 }
             }
         }

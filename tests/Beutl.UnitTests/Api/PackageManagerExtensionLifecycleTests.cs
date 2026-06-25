@@ -130,8 +130,7 @@ public class PackageManagerExtensionLifecycleTests
         var extension = new SettingsExtension();
 
         manager.SetupExtensionSettings(extension);
-        // A second setup must unsubscribe the previous handler before adding a new one; the old
-        // single-slot field overwrote its reference without unsubscribing, leaking a duplicate.
+        // A second setup must unsubscribe the previous handler before adding a new one.
         manager.SetupExtensionSettings(extension);
 
         Assert.That(ConfigurationChangedSubscriberCount(extension.Settings), Is.EqualTo(1));

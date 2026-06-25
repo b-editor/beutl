@@ -21,8 +21,7 @@ public class LocalPackageTests
     [Test]
     public void Constructor_PrefersHigherPrecedenceBeutlDependency()
     {
-        // The fallback chain is Beutl.Sdk > Beutl.Extensibility > Beutl.Extensibility.Abstractions,
-        // so a package declaring several Beutl dependencies must report the highest-precedence one.
+        // Precedence is Beutl.Sdk > Beutl.Extensibility > Beutl.Extensibility.Abstractions.
         LocalPackage extensibilityOverAbstractions = CreatePackage(
             ("Beutl.Extensibility", "[1.1.1, )"),
             ("Beutl.Extensibility.Abstractions", "[2.2.2, )"));

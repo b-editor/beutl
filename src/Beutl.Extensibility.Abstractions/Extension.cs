@@ -1,6 +1,5 @@
 ﻿namespace Beutl.Extensibility;
 
-// Base class for extension entry points.
 public abstract class Extension
 {
     public virtual string Name => GetType().Name;

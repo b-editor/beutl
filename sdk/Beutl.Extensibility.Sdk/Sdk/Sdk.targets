@@ -41,8 +41,8 @@
 
   <ItemGroup Condition="'$(_PreventCopyInternalPackages)' == 'true'">
     <PackageReference Include="Beutl.Extensibility" Version="$(BeutlPackagesVersion)" ExcludeAssets="runtime;native" Condition="'$(BeutlAutoReferenceExtensibility)' == 'true'" />
-    <!-- Reference directly whenever the abstractions are in the closure (including transitively via
-         Beutl.Extensibility) so ExcludeAssets suppresses the host-provided runtime asset under sideload. -->
+    <!-- Reference directly even when it arrives transitively, so ExcludeAssets suppresses the
+         host-provided runtime asset under sideload. -->
     <PackageReference Include="Beutl.Extensibility.Abstractions" Version="$(BeutlPackagesVersion)" ExcludeAssets="runtime;native" Condition="'$(BeutlAutoReferenceExtensibilityAbstractions)' == 'true' or '$(BeutlAutoReferenceExtensibility)' == 'true'" />
     <PackageReference Include="Beutl.ProjectSystem" Version="$(BeutlPackagesVersion)" ExcludeAssets="runtime;native" Condition="'$(BeutlAutoReferenceProjectSystem)' == 'true'" />
     <PackageReference Include="Beutl.NodeGraph" Version="$(BeutlPackagesVersion)" ExcludeAssets="runtime;native" Condition="'$(BeutlAutoReferenceNodeGraph)' == 'true'" />
@@ -58,7 +58,7 @@
 
   <ItemGroup Condition="'$(_PreventCopyInternalPackages)' != 'true'">
     <PackageReference Include="Beutl.Extensibility" Version="$(BeutlPackagesVersion)" Condition="'$(BeutlAutoReferenceExtensibility)' == 'true'" />
-    <!-- Only emitted for the thin author (BeutlAutoReferenceExtensibility=false); otherwise Beutl.Extensibility already brings it transitively. -->
+    <!-- Thin author only; otherwise Beutl.Extensibility brings it transitively. -->
     <PackageReference Include="Beutl.Extensibility.Abstractions" Version="$(BeutlPackagesVersion)" Condition="'$(BeutlAutoReferenceExtensibilityAbstractions)' == 'true' and '$(BeutlAutoReferenceExtensibility)' != 'true'" />
     <PackageReference Include="Beutl.ProjectSystem" Version="$(BeutlPackagesVersion)" Condition="'$(BeutlAutoReferenceProjectSystem)' == 'true'" />
     <PackageReference Include="Beutl.NodeGraph" Version="$(BeutlPackagesVersion)" Condition="'$(BeutlAutoReferenceNodeGraph)' == 'true'" />
