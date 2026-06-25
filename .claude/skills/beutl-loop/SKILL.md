@@ -196,9 +196,11 @@ Per-result outcomes and their effect on the **stagnation counters** (the budget 
     record it under `blocked` (`item-specific`), exclude via `attempted_ids` this run, and leave it for
     a human. Do not increment `consecutive_false_positives`.
 - `already_implemented: true` → an already-shipped feature the runner moved to `Done` (not a false
-  positive). This is **completed work → progress**: reset `consecutive_no_progress` to 0, **do not
-  touch `consecutive_false_positives`** (counting shipped features as false positives would pollute
-  loop-memory and could trip the false-positive breaker after three of them). Continue.
+  positive). This is **completed work → progress**: reset `consecutive_no_progress` to 0 **and reset
+  `consecutive_false_positives` to 0** (real progress breaks the consecutive chain — otherwise
+  `FP → already-implemented → FP → already-implemented → FP` would trip the three-FP breaker), but
+  **never increment** `consecutive_false_positives` and do not record a false-positive signature.
+  Continue.
 - `blocked: true` → record `{reason, kind}`; **never stop the whole drain on a single item** (skip it
   via `attempted_ids` and report it at the end). Reset `consecutive_false_positives` to 0, **append
   `{item_id, kind, reason}` to `.claude/loop-memory/blocked-reasons.json`** (D-7), then by
@@ -213,7 +215,9 @@ Per-result outcomes and their effect on the **stagnation counters** (the budget 
     `attempted_ids` so it is not re-picked this run. Continue.
 - `test_status: "red"` / no draft (and not `blocked`) → **no-progress**: increment
   `consecutive_no_progress`, **reset `consecutive_false_positives` to 0**, set `last_failure_signature`
-  from the runner's `failure_signature`, continue.
+  from the runner's `failure_signature`. **Un-claim the item** — revert it from `In Progress` back to
+  `Todo` (the runner already claimed it; future runs select only `Backlog`/`Todo`, so leaving it
+  `In Progress` would strand it), keep it in `attempted_ids` for this run, then continue.
 
 **Defense-in-depth on the test gate (B):** if the runner handed back a draft but its own signals show
 `touched_production == true && test_files_added_count == 0 && test_status != "manual-verification"`
@@ -240,7 +244,11 @@ load-bearing and must not be skipped.
 
 ### 2.5 Pre-PR review round (always — machine-verify + sub-agents + rework + PR open)
 The runner handed back a pushed **draft branch** (it never opens the PR itself). Set
-`DRAFT_BRANCH` from the runner's `draft_branch` JSON field. This step runs the review gate
+`DRAFT_BRANCH` from the runner's `draft_branch` JSON field. **`git fetch origin "$DRAFT_BRANCH"`
+first** — the runner pushed from its own worktree, so the orchestrator checkout has no local ref;
+then use **`origin/$DRAFT_BRANCH`** as the head everywhere in 2.5 (diffs `origin/main...origin/$DRAFT_BRANCH`,
+`git show "origin/$DRAFT_BRANCH:$path"`, and `HEAD_REF=origin/$DRAFT_BRANCH` for sub-agents) — for the
+**initial** pass as well as rework passes, so the gate never reviews a missing or stale local ref. This step runs the review gate
 **before** the PR exists, so the self-review axes and bot-likely findings are cleared upfront and
 the post-PR settle window stays short. Up to **two** rework iterations; then the PR opens.
 
@@ -453,11 +461,14 @@ HEAD_SHA=$(gh pr view "$PR" --json headRefOid -q .headRefOid)
 # --- Self-gate: fail-closed checks BEFORE approve/merge (defense-in-depth) ---
 # The loop only proceeds if ALL hold; any failure ⇒ left_for_human (no retry/force/bypass).
 
-# 1. Required checks green, nothing failing. A `skipping` bucket is NOT a failure (optional jobs that
-# did not run); only fail/pending/cancel block. (gh pr checks buckets: pass/fail/pending/skipping/cancel.)
-CHECKS=$(gh pr checks "$PR" --required --json bucket --jq '[.[]|select(.bucket=="fail" or .bucket=="pending" or .bucket=="cancel")] | length' 2>/dev/null || echo 1)
-if [ "$CHECKS" != "0" ]; then
-  echo "required checks not all green ($CHECKS fail/pending/cancel) — left_for_human"; exit 1
+# 1. Nothing failing (required OR optional), and no REQUIRED check still pending. A `skipping` bucket
+# is NOT a failure (optional job that did not run). buckets: pass/fail/pending/skipping/cancel.
+# Failures block regardless of required-ness; pending only blocks for required checks (do not wait on
+# an optional pending job forever).
+FAILED=$(gh pr checks "$PR" --json bucket --jq '[.[]|select(.bucket=="fail" or .bucket=="cancel")] | length' 2>/dev/null || echo 1)
+REQ_PENDING=$(gh pr checks "$PR" --required --json bucket --jq '[.[]|select(.bucket=="pending")] | length' 2>/dev/null || echo 1)
+if [ "$FAILED" != "0" ] || [ "$REQ_PENDING" != "0" ]; then
+  echo "checks not clear (failed/cancelled=$FAILED, required-pending=$REQ_PENDING) — left_for_human"; exit 1
 fi
 
 # 2. Unresolved review threads must be 0.
@@ -563,11 +574,14 @@ each tick); the run summary is written once at the end and kept for trend analys
   The `rm -rf` deny hook catches the literal dangerous forms, but like force-push, the hook's pattern
   match is not exhaustive — forms outside the pattern can still execute. The allowlist is deliberately
   narrow (scoped to the loop's known `rm` use); broader `rm` use outside the loop is not covered.
-- **Runner false-positive spot-check (S-5):** when a runner returns `false_positive: true`, the
-  orchestrator does a quick spot-check before accepting the board move: re-read the cited `path:line`
-  to confirm the finding is genuinely a false positive. If the spot-check is inconclusive, treat it as
-  `blocked` (`blocked_kind: "item-specific"`) instead of a false-positive — do not let a single
-  sub-agent's judgment move the board without verification. The false-positive signature is still
-  appended to loop-memory, but the orchestrator's spot-check gates the board write.
+- **Runner false-positive spot-check (S-5):** when a runner returns `false_positive: true` (a
+  candidate — the runner did **not** touch the board), the orchestrator spot-checks before accepting:
+  re-read the cited `path:line` to confirm the finding is genuinely a false positive.
+  - **Confirmed** → move the item to `False positive` and **append the signature to loop-memory**.
+  - **Inconclusive / refuted** → treat as `blocked` (`blocked_kind: "item-specific"`), **revert the
+    item to `Todo`** (un-claim, so it is not stranded), and **do NOT append the signature** — an
+    unconfirmed/refuted claim must not bias later runs toward the false-positive path for matching
+    items. Only the spot-check, never a single sub-agent's judgment, gates both the board write and the
+    loop-memory write.
 - **Do not defer work** (inherited from `beutl-board-task`): each item is finished or explicitly
   `blocked` — never "fix it next tick".

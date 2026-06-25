@@ -42,7 +42,12 @@ elif [ $# -ge 2 ]; then
   # .props/.targets for the same reason as --files mode. Use three-dot (base...head) so only
   # changes on the head side since the merge-base are scanned — an advancing origin/main
   # must not produce reverse diffs that pollute the scan.
-  CHANGED=$(git diff --name-only "$BASE...$HEAD" -- '*.csproj' '*.cs' '*.props' '*.targets' 2>/dev/null || true)
+  # Fail CLOSED on a bad/unfetched ref: a suppressed git-diff error would yield an empty CHANGED and
+  # exit 0, silently skipping the license-boundary scan in the loop's hard guardrail path.
+  if ! CHANGED=$(git diff --name-only "$BASE...$HEAD" -- '*.csproj' '*.cs' '*.props' '*.targets' 2>/dev/null); then
+    echo "GPL/MIT scan failed: 'git diff $BASE...$HEAD' errored (unfetched or invalid ref?). Failing closed." >&2
+    exit 2
+  fi
 else
   echo "usage: $0 <base_ref> <head_ref>  |  $0 --files <f1> <f2> ..." >&2
   exit 2
