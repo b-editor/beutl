@@ -108,14 +108,19 @@ Always **read the cited code** (`path`,`line`) before classifying — a "nit" ca
 
 ## Step 5 — Act
 
-**Before any edit that you will commit (both modes), check out the PR head.** When `/beutl-loop`
-invokes `--auto`, the current checkout is the orchestrator branch (the draft was built in a separate
-worker worktree), not `headRefName`. Editing/committing/pushing from there lands the fix on the wrong
-branch or fails to update the PR. Switch to the PR head first:
+**Before any edit that you will commit (both modes), check out the PR head — detached.** When
+`/beutl-loop` invokes `--auto`, the current checkout is the orchestrator branch (the draft was built
+in a separate worker worktree), not `headRefName`. Editing/committing/pushing from there lands the
+fix on the wrong branch or fails to update the PR. A branch-name checkout (`gh pr checkout`) also
+fails when another linked worktree still owns that branch (`fatal: '<branch>' is already used by
+worktree …`). Use a **detached** checkout of the PR head and push back with an explicit refspec:
 
 ```bash
-git fetch origin "$(gh pr view ${PR:-} --json headRefName -q .headRefName)"
-gh pr checkout ${PR:-}        # checks out headRefName, tracking origin
+HEAD_REF=$(gh pr view ${PR:-} --json headRefName -q .headRefName)
+git fetch origin "$HEAD_REF"
+git checkout --detach "origin/$HEAD_REF"
+# … apply review-finding fixes, re-verify, commit …
+git push origin "HEAD:$HEAD_REF"
 ```
 
 ### Interactive mode
@@ -156,7 +161,8 @@ without an explicit "Address it".
   Decide pass/fail from the **exit code**, never a console string. If the change goes red and you
   cannot fix it minimally, **revert that edit**, leave the thread open, and set `needs_human`. Never
   push red.
-- Commit addressed changes (`fix(review): …`) and `git push` the existing PR branch. Never
+- Commit addressed changes (`fix(review): …`) and push to the PR head with the explicit refspec
+  `git push origin "HEAD:$HEAD_REF"` (you are on a detached checkout — see Step 5 preamble). Never
   force-push; never push `main`.
 
 ## Step 6 — Reply + resolve handled threads

@@ -109,8 +109,10 @@ could not be cleanly auto-resolved · anything needing product or architecture j
 
 **Two upstream gates run inside Dispatch A, before the draft reaches the pre-PR review round** (so a
 draft that reaches step 2.5 has already cleared them): the **test gate** — a production change
-(`src/`) must add an NUnit test under `tests/` **and** a green characterization baseline
-(`baseline_test_green`), or carry a concrete manual-verification note, else the runner returns
+(`src/`) must add an NUnit test under `tests/` **and** a recorded characterization baseline
+(`baseline_test_green` — the baseline ran and met its *expected* outcome: green for a
+behavior-preserving change, **red for a bug-fix regression test** against the unmodified buggy code,
+n/a for a feature), or carry a concrete manual-verification note, else the runner returns
 `blocked` rather than handing back a draft — and the six-point **self-review gate** (compiled XAML
 bindings, no `[Obsolete]`/"v2"/compat-overload shim, no leftover `// TODO`/Follow-up, root-cause fix,
 GPL/MIT boundary intact, subtree `CLAUDE.md` honored). As defense-in-depth, the orchestrator

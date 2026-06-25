@@ -80,8 +80,10 @@ force-push `main`, and never bypass the rulesets — be conservative and fail sa
    diffs against it, so a long-lived session must not work off a stale ref. Confirm the current
    branch yields a usable `<prefix>/<slug>` (it is not `main`/`master`/detached/flat) — or take the
    prefix from `BEUTL_LOOP_BRANCH_PREFIX` — and pass that prefix to every dispatched runner.
-3. **Initialize the journal** at `.claude/logs/beutl-loop-state.json` (gitignored, ephemeral). If a
-   file older than ~12h exists, start fresh — **this resets the stagnation counters**
+3. **Initialize the journal** at `.claude/logs/beutl-loop-state.json` (gitignored, ephemeral). Run
+   `mkdir -p .claude/logs` first — on a fresh checkout the gitignored directory is absent, and the
+   journal write, the coverage probe's `mktemp -d .claude/logs/...`, and the run summary all need it.
+   If a file older than ~12h exists, start fresh — **this resets the stagnation counters**
    (`consecutive_no_progress`, `consecutive_false_positives`) to zero, which is intentional (a long
    gap means a new run context) but means a run that was thrashing can re-arm its no-progress budget
    after the 12h boundary. Schema:
@@ -135,9 +137,10 @@ back-to-back** (immediate stagnation stop). Record `stop_reason`.
 
 ### 1. Select up to K items (bounded parallel, budget-capped)
 Re-fetch the board snapshot (as in `beutl-board-task` Step 1), apply the type filter, exclude
-`attempted_ids`, and pick **up to K** items — `K = ${BEUTL_LOOP_PARALLEL:-1}` (default 1 = sequential;
-set `BEUTL_LOOP_PARALLEL` to raise it, capped at 3). Pick across the full spectrum (features and
-higher-risk included — do not pre-filter by risk).
+`attempted_ids`, and pick **up to K** items — **`K = min(${BEUTL_LOOP_PARALLEL:-1}, 3)`** (default 1
+= sequential). **Clamp to 3 before batching** — the max-3 envelope is a safety bound, so an out-of-range
+`BEUTL_LOOP_PARALLEL=50` must still dispatch at most 3 workers, never dozens. Pick across the full
+spectrum (features and higher-risk included — do not pre-filter by risk).
 
 **Budget cap (a batch must never overshoot a set item budget).** When a budget is set (`budget` =
 the explicit `N` argument or the optional `BEUTL_LOOP_MAX_ITEMS`), compute
@@ -242,8 +245,12 @@ mechanical axes:
 Collect any hits as `machine_findings`.
 
 **2.5b. Sub-agent review.** Dispatch `@beutl-reviewer` and `@beutl-xaml-binder` (read-only) on
-`git diff origin/main...$DRAFT_BRANCH`. If `design_reviewer_required` is true, also dispatch
-`@beutl-design-reviewer`. **Pass `BASE_REF=origin/main` and `HEAD_REF=$DRAFT_BRANCH` as environment
+`git diff origin/main...$DRAFT_BRANCH`. **Do not trust the runner's `design_reviewer_required` flag
+alone** — the draft is untrusted, so re-derive it from the diff here: grep
+`git diff origin/main...$DRAFT_BRANCH` for changes to public surface (`src/Beutl.Engine`,
+`Beutl.Api`, `Beutl.Extensibility`, `Beutl.NodeGraph`, `Beutl.FFmpegIpc`, `Beutl.ProjectSystem`,
+`Beutl.Controls`), a new abstraction, or an `[Obsolete]`/compat-shim pattern. If **either** the flag
+**or** this grep says design-sensitive, also dispatch `@beutl-design-reviewer`. **Pass `BASE_REF=origin/main` and `HEAD_REF=$DRAFT_BRANCH` as environment
 variables to each sub-agent** so they diff the actual draft branch instead of `HEAD` (which is the
 loop branch in the orchestrator checkout, not the draft). Collect their blocking findings as `review_findings`.
 
@@ -287,7 +294,10 @@ Generate a spec, plan, and task list, then re-dispatch the runner to implement a
 2. Run `/speckit-plan` on the generated spec.
 3. Run `/speckit-tasks` on the plan to produce `tasks.md`.
 4. Re-dispatch `beutl-board-task-runner` with `SPECKIT=true`, `ITEM_ID`, and the `tasks.md` path. It
-   executes the tasks on a feature branch and hands back a draft → continue at step 2.5.
+   executes the tasks on a feature branch and hands back a draft → continue at step 2.5. **Pass the
+   generated `docs/specs/<NNN>-<slug>/` artifacts (or their paths) to the runner so it commits them
+   on the draft branch alongside the implementation** — they are generated in the orchestrator
+   checkout, so without this the PR would ship the implementation without the spec that drove it.
 
 If the Spec-Kit flow cannot produce a coherent spec/plan/tasks from the item body (too underspecified
 even for a spec), treat the item as `blocked` (`blocked_kind: "item-specific"`,
@@ -350,15 +360,24 @@ matching test project with coverage, then compute changed-line coverage with the
 #   src/Beutl.Engine/...  -> tests/Beutl.UnitTests/  (or tests/Beutl.Graphics3DTests/ for graphics)
 #   src/Beutl.ProjectSystem/... -> tests/Beutl.ProjectSystem.Tests/ (if present)
 TESTS_PROJ=<derive-from-diff>
-# Use a dedicated results directory so a stale coverage.xml from a previous
-# run cannot be picked up. pipefail ensures dotnet test's failure is not
-# masked by tail.
-COV_DIR=$(mktemp -d .claude/logs/cov-probe-XXXXXX)
+# Coverage MUST be measured against the PR head, not the orchestrator checkout
+# (the draft was built in a worker worktree; this checkout holds a different
+# branch and stale build artifacts). Check out the draft into a throwaway
+# worktree and build+test THERE so Cobertura matches the diff denominator below.
+git fetch origin "$DRAFT_BRANCH" --quiet
+COV_WT=$(mktemp -d "${TMPDIR:-/tmp}/loop-cov-wt-XXXXXX")
+git worktree add --detach "$COV_WT" "origin/$DRAFT_BRANCH" --quiet
+# Dedicated ABSOLUTE results dir (absolute so it resolves correctly from inside
+# the worktree subshell) so a stale coverage.xml cannot be picked up. pipefail
+# ensures dotnet test's failure is not masked by tail. (--build, not --no-build:
+# the fresh worktree has no prior artifacts.)
+COV_DIR=$(mktemp -d "${TMPDIR:-/tmp}/loop-cov-XXXXXX")
 set -o pipefail
-dotnet test "$TESTS_PROJ" -f net10.0 --no-build --collect:"XPlat Code Coverage" \
-  --settings coverlet.runsettings --results-directory "$COV_DIR" 2>&1 | tail -5
+( cd "$COV_WT" && dotnet test "$TESTS_PROJ" -f net10.0 --collect:"XPlat Code Coverage" \
+  --settings coverlet.runsettings --results-directory "$COV_DIR" ) 2>&1 | tail -5
 TEST_RC=$?
 set +o pipefail
+git worktree remove --force "$COV_WT" 2>/dev/null || true
 if [ "$TEST_RC" -ne 0 ]; then
   echo "coverage test run failed (exit $TEST_RC) — treat as high-risk (fail safe)"
   rm -rf "$COV_DIR"
@@ -441,10 +460,12 @@ High-risk PRs — and **any merge GitHub refuses** — are **left open**; the bo
 
 ### 5. Update the journal
 Append the per-item record (risk, `merged` / `left_for_human` + reason, reviews_resolved; or the
-`{kind, reason}` for a blocked item). Increment `items_processed` **exactly once for this tick** —
-every item that reached a terminal state (false-positive, blocked, or PR opened — including a
-draft that opened in step 2.5) counts as one; a PR that then merges or is left for the human is still
-that same one item, never a second. **If this tick opened a PR (including via the step-2.5 pre-PR
+`{kind, reason}` for a blocked item). Increment `items_processed` **by the number of items that
+reached a terminal state this tick** — 1 in a sequential tick, **B in a parallel batch of B items**.
+Each item counts once (false-positive, blocked, or PR opened — including a draft that opened in step
+2.5); a PR that then merges or is left for the human is still that same one item, never a second.
+Counting a batch of B as 1 would let later ticks overshoot a set budget and skew the
+`last_pr_tick`/stagnation math. **If this tick opened a PR (including via the step-2.5 pre-PR
 review round), set `last_pr_tick = items_processed`** (used by the step-0 "PR within the last 3 ticks"
 guard). The stagnation counters (`consecutive_no_progress`,
 `consecutive_false_positives`, `last_failure_signature`) were already set in step 2 / 2.5. Persist,

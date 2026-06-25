@@ -292,8 +292,10 @@ fi
 (If you only want an interim progress peek while it runs, `grep` the output file — but still gate
 the commit/PR decision on `status`, not on any matched string.)
 
-**A production change must ship a test.** If your diff touches `src/` (production code) but adds no
-file under `tests/`, that is not done: go back and add the NUnit test. Only when the change genuinely
+**A production change must ship a test.** If your diff touches `src/` (production code) but adds or
+modifies no test under `tests/`, that is not done: go back and add coverage. A new
+`[Test]`/`[TestCase]` in an existing fixture counts — you do not have to create a new file; the gate
+is on whether the diff adds or changes a test, not on a new file. Only when the change genuinely
 cannot carry a unit test (typically UI) may you substitute a concrete **manual-verification**
 procedure — and you must write that procedure down (it goes in the plan and the PR's Test plan). A
 production change with neither a test nor a manual-verification note is **blocked**, not a PR — the
@@ -327,8 +329,8 @@ move a branch, which is exactly why the branch had to exist before you started e
 
 Two binary checks gate the commit; both must pass (prefer fixing in-branch; otherwise it is `blocked`):
 
-- **Test gate.** Must NOT be (production code under `src/` changed **and** no file under `tests/`
-  added **and** not a documented manual-verification). If it trips, add the test (Step 5) or, for
+- **Test gate.** Must NOT be (production code under `src/` changed **and** no test under `tests/`
+  added **or modified** **and** not a documented manual-verification). If it trips, add the test (Step 5) or, for
   genuinely untestable UI, write the manual-verification note — else stop and report `blocked`
   ("rule #3: production change without test").
 - **Self-review (six checks).** (1) new/changed XAML declares `x:CompileBindings="True"` + `x:DataType`;

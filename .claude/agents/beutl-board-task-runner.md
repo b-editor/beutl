@@ -141,11 +141,15 @@ The orchestrator re-dispatches you with `REWORK=true`, the `draft_branch`, an `O
 `review_findings` list (the combined `@beutl-reviewer` / `@beutl-xaml-binder` /
 `@beutl-design-reviewer` output). Do **not** start a new item or re-pick:
 
-- Fetch and check out `draft_branch`. Rework runs in a fresh worktree, so the branch usually exists
-  only on the remote — do **not** assume a local ref:
+- Fetch and check out `draft_branch` **detached**. Rework runs in a fresh worktree and the original
+  worker worktree may still hold `draft_branch` checked out, so a branch-name `git switch` fails
+  (`fatal: '<branch>' is already used by worktree …`). Use a detached checkout of the remote ref, and
+  push the amended commits back with an explicit refspec:
   ```bash
   git fetch origin "$draft_branch"
-  git switch -c "$draft_branch" --track "origin/$draft_branch" 2>/dev/null || git switch "$draft_branch"
+  git checkout --detach "origin/$draft_branch"
+  # … apply review-finding fixes, re-run the binary gates, commit …
+  git push origin "HEAD:$draft_branch"
   ```
 - **If `review_findings` is non-empty:** address them with the smallest change that satisfies the
   design priorities (orthogonality, plugin-author flexibility, no compat shims) and the reviewer
