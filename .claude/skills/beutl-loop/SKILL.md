@@ -3,8 +3,8 @@ description: |
   Autonomously work multiple Project #9 board items in one bounded loop. Each tick dispatches a
   worktree-isolated sub-agent to implement ONE item and open a PR, autonomously resolves the PR's
   reviews (CodeRabbit / Copilot / Codex / Claude), classifies the PR's risk, and then auto-merges
-  the low-to-moderate-risk ones (squash) while leaving higher-risk ones for a human — stopping on a
-  max-items budget, a stagnation circuit-breaker, or an empty board. Use when the user says
+  the low-to-moderate-risk ones (squash) while leaving higher-risk ones for a human — running
+  unbounded by default and stopping on a stagnation circuit-breaker or an empty board. Use when the user says
   "ボードをループで消化して", "loop the board", "keep working AI-review items until …",
   "/beutl-loop". Sub-agent dispatch keeps this orchestrator's context lean across many ticks.
 allowed-tools: Task, Read, Grep, Glob, Write, Edit, Bash(gh:*), Bash(git:*), Bash(dotnet:*), Bash(python3:*), Bash(jq:*), Bash(mktemp:*), Bash(mkdir:*), Bash(rm:*), Bash(date:*), Bash(sleep:*), Bash(timeout:*), Bash(find:*), Bash(head:*), Bash(tail:*), Bash(bash .claude/scripts/*:*)
@@ -18,6 +18,13 @@ sub-agents** for the heavy work and keep only their compact JSON results plus th
 context. This is the "sub-agent dispatch / fresh-context" pillar of loop engineering: the verbose
 file reads, edits, diffs, and test logs stay inside the sub-agents. Read
 `docs/ai-workflow/loop-engineering.md` for the full contract; this file is the executable procedure.
+
+**Execution model.** The loop runs **in-session only** — invoke `/beutl-loop` inside an interactive
+Claude Code session running on **opus** with auto-accept (`acceptEdits`) enabled. There is **no
+headless `claude -p` launcher** (that path moved billing to metered API usage and was removed). The
+long-running work is carried by **nested sub-agents**: each tick you dispatch a worktree-isolated
+`beutl-board-task-runner` (which itself runs on opus / `acceptEdits`) and the review/merge helpers,
+keeping this orchestrator's context lean so the loop can keep going indefinitely.
 
 **Human checkpoint:** you are autonomous up to **opening a PR, resolving its bot reviews, posting the
 code-owner approval, and squash-merging low-to-moderate-risk PRs**. Higher-risk or uncertain PRs are
@@ -33,8 +40,9 @@ force-push `main`, and never bypass the rulesets — be conservative and fail sa
 ## Arguments
 
 - **Default (no integer argument) = `until-empty`** — **drain the board**: keep working eligible
-  items until none remain, bounded by the stagnation breaker, the optional wall-clock, and a runaway
-  backstop `BEUTL_LOOP_MAX_ITEMS` (default **50**).
+  items until none remain. **Unbounded by item count by default** — the stagnation breaker (and the
+  optional wall-clock) are the stops; the work is meant to run as long as the board has eligible
+  items. `BEUTL_LOOP_MAX_ITEMS` is an **optional** cap (unset = no cap).
 - `N` (integer) — set a **tighter** per-run item budget instead of draining (e.g. `/beutl-loop 3`).
 - `until-empty` — the explicit spelling of the default.
 - `dry-run` — plan only: select, classify, and decide **without** claiming, dispatching, editing,
@@ -43,20 +51,22 @@ force-push `main`, and never bypass the rulesets — be conservative and fail sa
 
 ## The loop contract (TRIGGER / SCOPE / ACTION / BUDGET / STOP / REPORT)
 
-- **TRIGGER** manual (`/beutl-loop` or the headless `.claude/scripts/beutl-loop.sh`). No cron.
+- **TRIGGER** manual, in-session (`/beutl-loop` in an interactive opus / `acceptEdits` session). No
+  cron, no headless `claude -p` launcher.
 - **SCOPE** unclaimed (`Backlog`/`Todo`) items on Project #9 — **every kind, across the risk
   spectrum, features included**. Never touch `.github/workflows/*`; never cross the GPL/MIT boundary.
 - **ACTION** per tick: implement (sub-agent; test + self-review gated) → [design pass for
   design-sensitive items] → open PR → resolve reviews (sub-agent) → classify risk → auto-merge
   (low/mod) or hand to a human (high). One item ⇒ at most one PR.
-- **BUDGET** by default **drains the board** (`until-empty`), bounded by the stagnation breaker, the
-  optional wall-clock `BEUTL_LOOP_MAX_MINUTES`, and a runaway backstop `BEUTL_LOOP_MAX_ITEMS`
-  (default 50). Pass an integer `N` for a tighter per-run budget. Per-PR settle cap
+- **BUDGET** by default **drains the board** (`until-empty`), **unbounded by item count** — bounded
+  only by the stagnation breaker and the optional wall-clock `BEUTL_LOOP_MAX_MINUTES`. Pass an
+  integer `N`, or set the optional `BEUTL_LOOP_MAX_ITEMS`, for a tighter cap. Per-PR settle cap
   `BEUTL_LOOP_SETTLE_MINUTES` (default 20).
-- **STOP** any of: **board drained** (the default terminal) · `items_processed ≥ N` (an explicit
-  budget, or the runaway backstop) · stagnation (**3** no-progress with no PR in the last 3 ticks, or
-  3 false-positives, or a repeated item/signature) · wall-clock exceeded · a guardrail would be
-  violated. A single `blocked` item never stops the drain — it is recorded and skipped (reported at
+- **STOP** any of: **board drained** (the default terminal) · `items_processed ≥ N` (only when an
+  explicit budget or `BEUTL_LOOP_MAX_ITEMS` is set — otherwise there is no item cap) · stagnation
+  (**3** no-progress with no PR in the last 3 ticks, or 3 false-positives, or a repeated
+  item/signature) · wall-clock exceeded · a guardrail would be violated. A single `blocked` item
+  never stops the drain — it is recorded and skipped (reported at
   the end); only repeated **systemic** blocks feed the no-progress breaker.
 - **REPORT** a Markdown summary at the end, then a reminder to run `/beutl-ai-self-review`.
 
@@ -65,14 +75,18 @@ force-push `main`, and never bypass the rulesets — be conservative and fail sa
 1. **Confirm scope** with `AskUserQuestion` (skip if an argument was passed, or if the user already
    said "just run it"). The default is a **full board drain** (`until-empty`) that auto-merges
    low-to-moderate-risk PRs — confirm that intent, and offer `dry-run` first or a tighter `N` budget
-   as alternatives. The headless wrapper always passes an explicit argument, so it never prompts.
-2. **Initialize the journal** at `.claude/logs/beutl-loop-state.json` (gitignored, ephemeral). If a
+   as alternatives.
+2. **Refresh `origin/main`** (`git fetch origin main`) before selecting: every item branches from and
+   diffs against it, so a long-lived session must not work off a stale ref. Confirm the current
+   branch yields a usable `<prefix>/<slug>` (it is not `main`/`master`/detached/flat) — or take the
+   prefix from `BEUTL_LOOP_BRANCH_PREFIX` — and pass that prefix to every dispatched runner.
+3. **Initialize the journal** at `.claude/logs/beutl-loop-state.json` (gitignored, ephemeral). If a
    file older than ~12h exists, start fresh — **this resets the stagnation counters**
    (`consecutive_no_progress`, `consecutive_false_positives`) to zero, which is intentional (a long
    gap means a new run context) but means a run that was thrashing can re-arm its no-progress budget
    after the 12h boundary. Schema:
    ```json
-   {"run_id":"<stamp>","budget":"until-empty","runaway_cap":50,"max_minutes":null,"settle_minutes":20,"filter":"any",
+   {"run_id":"<stamp>","budget":"until-empty","item_cap":null,"max_minutes":null,"settle_minutes":20,"filter":"any",
     "attempted_ids":[],"items_processed":0,"last_pr_tick":0,
     "prs":[{"item_id":"","pr_url":"","pr_number":0,"risk":"low|moderate|high",
             "outcome":"merged|left_for_human","left_reason":null,"reviews_resolved":0}],
@@ -112,8 +126,8 @@ Board coordinates (project #9) are the same stable IDs as `beutl-board-task` —
 
 ### 0. Termination check (before every tick — cheapest first)
 Stop if: **no eligible item left** (re-fetch board, exclude `attempted_ids` — the default terminal
-for a drain) · `items_processed ≥` the budget (an explicit `N`, or the runaway backstop
-`BEUTL_LOOP_MAX_ITEMS`, default 50) · wall-clock exceeded · `consecutive_no_progress ≥ 3` **and** no
+for a drain) · `items_processed ≥` the budget **when one is set** (an explicit `N` or the optional
+`BEUTL_LOOP_MAX_ITEMS`; by default there is **no item cap**) · wall-clock exceeded · `consecutive_no_progress ≥ 3` **and** no
 PR was opened in the last 3 ticks (`items_processed − last_pr_tick >= 3` — recent shipping counts as
 progress and holds the breaker open) · `consecutive_false_positives ≥ 3` (the board/selection is
 mostly junk — stop and report) · the **same `item_id` or `last_failure_signature` recurs
@@ -122,14 +136,14 @@ back-to-back** (immediate stagnation stop). Record `stop_reason`.
 ### 1. Select up to K items (bounded parallel, budget-capped)
 Re-fetch the board snapshot (as in `beutl-board-task` Step 1), apply the type filter, exclude
 `attempted_ids`, and pick **up to K** items — `K = ${BEUTL_LOOP_PARALLEL:-1}` (default 1 = sequential;
-the headless wrapper may raise this to 2-3, capped at 3). Pick across the full spectrum (features and
+set `BEUTL_LOOP_PARALLEL` to raise it, capped at 3). Pick across the full spectrum (features and
 higher-risk included — do not pre-filter by risk).
 
-**Budget cap (the batch must never overshoot the remaining item budget).** Compute
-`remaining_budget = budget − items_processed`, where `budget` is the explicit `N` argument, or the
-runaway backstop `BEUTL_LOOP_MAX_ITEMS` (default 50) for `until-empty`. The actual batch size is
-`B = min(K, remaining_budget)` — pick at most **B** items. This keeps a parallel batch from processing
-more items than the budget allows (e.g. `/beutl-loop 1` with `BEUTL_LOOP_PARALLEL=3` picks `min(3,1)=1`
+**Budget cap (a batch must never overshoot a set item budget).** When a budget is set (`budget` =
+the explicit `N` argument or the optional `BEUTL_LOOP_MAX_ITEMS`), compute
+`remaining_budget = budget − items_processed` and the actual batch size is `B = min(K, remaining_budget)`.
+**When no budget is set (the default), `B = K`** (no item cap). This keeps a parallel batch from processing
+more items than a set budget allows (e.g. `/beutl-loop 1` with `BEUTL_LOOP_PARALLEL=3` picks `min(3,1)=1`
 item, not 3). If `B ≤ 0`, step 0 already stopped; if `B = 1`, the batch is sequential.
 
 **Footprint-overlap scheduler (C-5).** To avoid parallel branches conflicting on the same files,
@@ -476,9 +490,11 @@ each tick); the run summary is written once at the end and kept for trend analys
   last 3 ticks** (recent shipping holds it open), or immediately on a repeated `item_id` /
   `last_failure_signature`. A `blocked` item counts toward this only when its `blocked_kind` is
   `systemic`; an `item-specific` block is skipped without penalty.
-- **Hard budget:** default drains the board (`until-empty`) with a runaway backstop
-  `BEUTL_LOOP_MAX_ITEMS` (default 50); pass `N` for a tighter budget; optional wall-clock.
-- **Deterministic STOP** only (the reasons above) — never an open-ended "until done".
+- **Budget:** default drains the board (`until-empty`) **unbounded by item count** — the stagnation
+  breaker is the runaway guard; pass `N` or set the optional `BEUTL_LOOP_MAX_ITEMS` for a cap;
+  optional wall-clock.
+- **Deterministic STOP** only (the reasons above) — the loop runs as long as the board has eligible
+  items; it ends on an empty board, the stagnation breaker, a set budget/wall-clock, or a guardrail.
 - **Auto-merge is conservative and fail-safe:** low/moderate-risk only, all gates green + settled;
   high-risk and uncertain go to the human; squash + delete-branch; never auto-merge high-risk; never
   force-push `main`.

@@ -2,7 +2,7 @@
 #
 # loop-contract-check.sh — assert invariants across the loop's contract artifacts.
 #
-# The loop is Markdown + an agent + a bash launcher — no compilable C#, so the NUnit
+# The loop is Markdown + agents + helper scripts — no compilable C#, so the NUnit
 # requirement (AGENTS.md rule #3) does not apply. This script is the mechanical
 # substitute: it checks that the loop's contract artifacts stay in sync. Run it after
 # any edit to:
@@ -12,7 +12,6 @@
 #   .claude/skills/beutl-resolve-reviews/SKILL.md
 #   .claude/agents/beutl-reviewer.md
 #   .claude/agents/beutl-xaml-binder.md
-#   .claude/scripts/beutl-loop.sh
 #   .gitignore
 #
 # Usage: bash .claude/scripts/loop-contract-check.sh
@@ -30,7 +29,6 @@ RESOLVER=".claude/skills/beutl-resolve-reviews/SKILL.md"
 REVIEWER=".claude/agents/beutl-reviewer.md"
 XAML_BINDER=".claude/agents/beutl-xaml-binder.md"
 DESIGN_REVIEWER=".claude/agents/beutl-design-reviewer.md"
-LAUNCHER=".claude/scripts/beutl-loop.sh"
 GITIGNORE=".gitignore"
 
 fails=0
@@ -43,7 +41,7 @@ have() { [ -f "$1" ]; }
 echo "loop-contract-check — verifying invariants across the loop artifacts"
 
 # --- 1. All artifacts exist -----------------------------------------------
-for f in "$SKILL" "$DOC" "$RUNNER" "$RESOLVER" "$REVIEWER" "$XAML_BINDER" "$LAUNCHER" "$GITIGNORE"; do
+for f in "$SKILL" "$DOC" "$RUNNER" "$RESOLVER" "$REVIEWER" "$XAML_BINDER" "$GITIGNORE"; do
   have "$f" && pass "exists: $f" || fail "exists: $f"
 done
 
@@ -91,25 +89,35 @@ else
   fail "step numbering drift: expected '### 5. Update the journal', no '### 6.'"
 fi
 
-# --- 7. Launcher allowlist is a subset of SKILL allowed-tools -------------
-# Every Bash(...) entry in the launcher's ALLOWED_TOOLS should be covered by the
-# skill's allowed-tools line (or be a read-only companion). Check the critical ones.
-for cmd in gh git dotnet python3 jq sleep timeout find head tail mkdir rm; do
-  if grep -q "Bash($cmd:" "$LAUNCHER" 2>/dev/null; then
-    if grep -q "Bash($cmd:" "$SKILL" 2>/dev/null; then
-      pass "allowlist subset: $cmd in both launcher + skill"
-    else
-      fail "allowlist drift: '$cmd' in launcher but not in SKILL allowed-tools"
-    fi
-  fi
-done
-# The scripts-invocation pattern must be in both launcher and skill.
-if grep -q 'Bash(bash .claude/scripts/\*' "$LAUNCHER" 2>/dev/null; then
-  if grep -q 'Bash(bash .claude/scripts/\*' "$SKILL" 2>/dev/null; then
-    pass "allowlist subset: bash .claude/scripts/* in both launcher + skill"
-  else
-    fail "allowlist drift: 'bash .claude/scripts/*' in launcher but not in SKILL allowed-tools"
-  fi
+# --- 7. In-session execution model (no headless claude -p launcher) -------
+# The loop runs in-session on opus with acceptEdits; the headless launcher was removed
+# because `claude -p` bills as metered API usage. Guard against its reintroduction.
+if [ -f ".claude/scripts/beutl-loop.sh" ]; then
+  fail "headless launcher .claude/scripts/beutl-loop.sh is back — the loop is in-session only (no claude -p)"
+else
+  pass "no headless launcher (in-session only)"
+fi
+# Catch an actual reintroduced invocation (e.g. `claude -p "/beutl-loop ...`), not the prose that
+# explains the removal (which legitimately mentions the words "claude -p" in backticks).
+if grep -rqE 'claude +-p +"' "$SKILL" "$DOC" 2>/dev/null; then
+  fail "SKILL/doc contain a real 'claude -p \"...\"' invocation (headless model must stay removed)"
+else
+  pass "no headless claude -p invocation in SKILL + doc"
+fi
+if grep -q 'in-session' "$SKILL" 2>/dev/null; then
+  pass "SKILL documents the in-session execution model"
+else
+  fail "SKILL no longer documents the in-session execution model"
+fi
+if grep -q '^model: opus' "$RUNNER" 2>/dev/null; then
+  pass "runner runs on opus"
+else
+  fail "runner model drift: beutl-board-task-runner must be 'model: opus'"
+fi
+if grep -q 'permissionMode: acceptEdits' "$RUNNER" 2>/dev/null; then
+  pass "runner uses acceptEdits (no per-edit stalls in a long run)"
+else
+  fail "runner permissionMode drift: expected acceptEdits"
 fi
 
 # --- 8. resolve-reviews writes bot-false-positive patterns to loop-memory -

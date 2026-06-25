@@ -14,7 +14,7 @@ beutl/
 │   ├── rules/               # Path-scoped rules (xaml / csharp / gpl-mit)
 │   ├── skills/              # Domain skills + canned command skills
 │   ├── agents/              # Specialized subagents
-│   ├── scripts/             # Headless launchers (e.g. beutl-loop.sh)
+│   ├── scripts/             # Loop helper scripts (contract-check, GPL/MIT diff scan, coverage probe)
 │   └── hooks/               # Dangerous-command deny, dotnet auto-allow, GPL/MIT deny, context injection
 ├── .specify/                # Spec-Kit templates / scripts / workflows (vendored, locally patched)
 └── docs/

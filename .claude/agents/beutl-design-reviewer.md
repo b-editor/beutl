@@ -2,7 +2,7 @@
 name: beutl-design-reviewer
 description: Reviews Beutl public-API and extensibility-surface changes against the "adopt better designs eagerly" priority — orthogonality, library-user flexibility, and avoidance of compatibility shims that exist only to dodge call-site updates. Use proactively when a change touches public types in `Beutl.Engine`, `Beutl.Extensibility`, `Beutl.NodeGraph`, `Beutl.FFmpegIpc`, `Beutl.ProjectSystem`, or any other surface plugin authors may consume. Also use when reviewing `[Obsolete]`, "V2" suffixes, or duplicate overloads added for compat reasons.
 tools: Read, Grep, Glob, Bash
-model: sonnet
+model: opus
 color: orange
 memory: project
 ---

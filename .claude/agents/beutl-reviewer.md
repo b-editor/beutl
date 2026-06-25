@@ -2,7 +2,7 @@
 name: beutl-reviewer
 description: Reviews Beutl PR diffs or changed code along four axes — GPL/MIT boundary, XAML compiled bindings, NUnit conventions, and SourceGenerator impact. Use proactively after code changes and before opening a PR.
 tools: Read, Grep, Glob, Bash
-model: sonnet
+model: opus
 color: purple
 memory: project
 ---

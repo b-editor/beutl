@@ -27,12 +27,12 @@ Every loop here is defined by six pillars. `/beutl-loop` fills them in as:
 
 | Pillar | `/beutl-loop` |
 |---|---|
-| **TRIGGER** | Manual: `/beutl-loop [N]` in-session, or `.claude/scripts/beutl-loop.sh` headless. **No cron** — adding a scheduled GitHub Actions runner is a separate, explicitly-approved change (`.github/workflows/*` is protected by AGENTS.md rule #5). |
+| **TRIGGER** | Manual, **in-session only**: `/beutl-loop [N]` inside an interactive Claude Code session on **opus** with auto-accept (`acceptEdits`). **No headless `claude -p` launcher** (removed — it billed as metered API usage); **no cron** — adding a scheduled GitHub Actions runner is a separate, explicitly-approved change (`.github/workflows/*` is protected by AGENTS.md rule #5). |
 | **SCOPE** | Unclaimed (`Backlog`/`Todo`) items on **Project #9**, **every kind and across the full risk spectrum — features included**. Never touches `.github/workflows/*`; never crosses the GPL/MIT boundary. |
 | **ACTION** | Per tick: implement → draft (sub-agent) → pre-PR review round (machine-verify + reviewers + rework) → open PR → resolve reviews (sub-agent) → classify risk → auto-merge (low/moderate, code-owner approval posted by the loop) or hand to a human (high). One item ⇒ at most one PR. A parallel batch (C-5) runs up to 3 items concurrently with footprint-overlap scheduling. |
-| **BUDGET** | **Default drains the board** (`until-empty`), bounded by the stagnation breaker, the optional wall-clock `BEUTL_LOOP_MAX_MINUTES`, and a runaway backstop `BEUTL_LOOP_MAX_ITEMS` (default **50**). Pass an integer `N` for a tighter per-run budget. Per-PR review settle cap `BEUTL_LOOP_SETTLE_MINUTES` (default 20). Parallel batch size `BEUTL_LOOP_PARALLEL` (default 1 = sequential, max 3 — C-5), **capped to `min(K, remaining_budget)` so a parallel batch never overshoots the item budget** (e.g. `/beutl-loop 1` with `BEUTL_LOOP_PARALLEL=3` processes 1 item, not 3). |
-| **STOP** | Board drained · `items_processed ≥ N` (explicit budget or the runaway backstop) · stagnation (**3** consecutive no-progress with no PR in the last 3 ticks, 3 consecutive false-positives, or a repeated item / failure signature) · wall-clock exceeded · a guardrail would be violated. A single `blocked` item is recorded and skipped (not a stop); only repeated **systemic** blocks feed the no-progress breaker. |
-| **REPORT** | A Markdown run summary + a JSON run summary (H-15) at `.claude/logs/beutl-loop-run-<run_id>.json` for cross-run trend comparison. Per item: PR, risk, merged/left-for-human, reviews resolved; plus false-positives, blocked, counters, stop reason. Optional Gist progress post (H-16). Then a reminder to run `/beutl-ai-self-review`. |
+| **BUDGET** | **Default drains the board** (`until-empty`), **unbounded by item count** — bounded only by the stagnation breaker and the optional wall-clock `BEUTL_LOOP_MAX_MINUTES`. The loop is meant to keep working as long as the board has eligible items. Pass an integer `N`, or set the optional `BEUTL_LOOP_MAX_ITEMS`, for a cap. Per-PR review settle cap `BEUTL_LOOP_SETTLE_MINUTES` (default 20). Parallel batch size `BEUTL_LOOP_PARALLEL` (default 1 = sequential, max 3 — C-5); when a budget is set the batch is **capped to `min(K, remaining_budget)`** so it never overshoots (e.g. `/beutl-loop 1` with `BEUTL_LOOP_PARALLEL=3` processes 1 item, not 3). |
+| **STOP** | Board drained · `items_processed ≥ N` (only when an explicit budget or `BEUTL_LOOP_MAX_ITEMS` is set — there is no default item cap) · stagnation (**3** consecutive no-progress with no PR in the last 3 ticks, 3 consecutive false-positives, or a repeated item / failure signature) · wall-clock exceeded · a guardrail would be violated. A single `blocked` item is recorded and skipped (not a stop); only repeated **systemic** blocks feed the no-progress breaker. |
+| **REPORT** | A Markdown run summary + a JSON run summary (H-15) at `.claude/logs/beutl-loop-run-<run_id>.json` for cross-run trend comparison. Per item: PR, risk, merged/left-for-human, reviews resolved; plus false-positives, blocked, counters, stop reason. Then a reminder to run `/beutl-ai-self-review`. |
 
 ## Sub-agent isolation keeps the orchestrator's context lean
 
@@ -207,27 +207,25 @@ on a successful auto-merge. A journal older than ~12h is discarded and a fresh o
 zero, which is intentional (a long gap means a new run context) but means a run that was thrashing
 can re-arm its no-progress budget after the 12h boundary.
 
-## Headless variant + safety
+## In-session execution + safety
 
-`.claude/scripts/beutl-loop.sh` runs the loop unattended ("while you sleep"). It holds **no loop
-logic** — it just launches `/beutl-loop` with a deliberately conservative envelope:
+The loop runs **in-session only** — there is no headless `claude -p` launcher (it billed as metered
+API usage and was removed). You invoke `/beutl-loop` inside an interactive Claude Code session and it
+runs there:
 
-- **Default has NO `--dangerously-skip-permissions`.** It passes a **scoped** `--allowedTools`
-  allowlist (no bare `Bash`) so the PreToolUse deny hooks (force-push to `main`, `rm -rf`, GPL/MIT
-  boundary) still fire, and a command outside the set **stalls** the unattended run (a safe failure)
-  rather than executing. The dispatched sub-agents (e.g. `beutl-board-task-runner`, whose `tools`
-  include `Bash`) run inside this session, so their command execution is bounded by the same session
-  `--allowedTools` and the same deny hooks apply to them. `--dangerously-skip-permissions` is available
-  **only** behind `BEUTL_LOOP_YOLO=1`, with a small item cap (`N ≤ 3`, never a drain) and a loud
-  warning — not recommended, because it disables those guardrails for the whole session.
-- It **refuses to run on `main`/`master`, a detached HEAD, or a flat (no-`/`) branch** unless
-  `BEUTL_LOOP_BRANCH_PREFIX` supplies the feature-branch prefix — the per-item branch-off-`origin/main`
-  logic needs a usable `<prefix>/<slug>`. Transcript goes to the already-gitignored `.claude/logs/`.
-- It has **no merge path of its own** — merging only ever happens inside `/beutl-loop`'s risk gate.
-- **Optional periodic progress post (H-16).** `BEUTL_LOOP_PROGRESS_GIST=1` starts a background
-  monitor that posts journal progress to a Gist every ~5 min, and posts the final JSON run summary
-  (H-15) when the loop exits. `BEUTL_LOOP_PROGRESS_GIST_ID=<id>` reuses an existing Gist so you can
-  watch one stable URL across runs. Off by default — the loop runs silently unless you opt in.
+- **Run it on opus with auto-accept (`acceptEdits`).** The orchestrator and its dispatched sub-agents
+  (`beutl-board-task-runner` and the reviewers) run on **opus**; the runner declares
+  `permissionMode: acceptEdits` so a long unattended run does not stall on per-edit prompts. The
+  PreToolUse deny hooks (force-push to `main`, `rm -rf`, GPL/MIT boundary) **still fire** in
+  `acceptEdits` mode — it auto-accepts edits, it does not disable the deny hooks. Do **not** use
+  `--dangerously-skip-permissions`; that would disable those guardrails.
+- **Nested sub-agents carry the long-running work.** Each tick dispatches a worktree-isolated runner
+  (and the review/merge helpers) so the orchestrator's context stays lean and the loop can keep going
+  indefinitely. Branch hygiene is enforced in the run-setup: refuse `main`/`master`/detached/flat
+  unless `BEUTL_LOOP_BRANCH_PREFIX` supplies the `<prefix>/<slug>` prefix; `git fetch origin main`
+  before selecting so every item branches from current `main`. Transcript/journal go to the
+  already-gitignored `.claude/logs/`.
+- It has **no merge path outside `/beutl-loop`'s risk gate** — merging only ever happens there.
 
 ## Anti-loopmaxxing checklist
 
@@ -237,19 +235,19 @@ logic** — it just launches `/beutl-loop` with a deliberately conservative enve
 - [ ] Design-sensitive items take a bounded two-pass `@beutl-design-reviewer` review before the PR opens.
 - [ ] Deterministic STOP conditions only; no "until done".
 - [ ] Stagnation circuit-breaker (3 strikes, held open by a PR in the last 3 ticks; immediate on a repeat). A single `blocked` item is skipped, not a stop; only `systemic` blocks count.
-- [ ] Bounded run: default drains the board, bounded by a runaway backstop (`BEUTL_LOOP_MAX_ITEMS`, default 50) + stagnation breaker + optional wall-clock; pass `N` for a tighter budget.
+- [ ] Run scope: default drains the board **unbounded by item count** — the stagnation breaker (+ optional wall-clock) is the runaway guard; pass `N` or set the optional `BEUTL_LOOP_MAX_ITEMS` for a cap.
 - [ ] Auto-merge is conservative, settled, low/moderate-risk only; uncertain ⇒ human.
 - [ ] Heavy work in sub-agents; orchestrator keeps only structured results.
 - [ ] No deferred work — each item is finished or explicitly `blocked`.
 
 ## Verifying changes to the loop itself
 
-The loop is Markdown + an agent + a bash launcher — no compilable C#, so the NUnit requirement
+The loop is Markdown + agents + helper scripts — no compilable C#, so the NUnit requirement
 (AGENTS.md rule #3) does not apply. Verify with:
 
 1. **`bash .claude/scripts/loop-contract-check.sh`** — assert the invariants across SKILL.md /
-   loop-engineering.md / runner JSON schema / beutl-loop.sh allowlist / .gitignore hold (G-13). Run
-   this first; it catches drift mechanically.
+   loop-engineering.md / runner JSON schema / .gitignore hold (G-13). Run this first; it catches
+   drift mechanically.
 2. **`bash .claude/scripts/loop-calibrate.sh`** — re-classify the last ~10 merged PRs through the
    loop's risk classifier and report drift vs the human merge decisions (G-14). Use the drift to
    tune the thresholds in SKILL.md step 4.
@@ -257,8 +255,7 @@ The loop is Markdown + an agent + a bash launcher — no compilable C#, so the N
    design-sensitive (would take the pre-PR review round), whether a production change would require
    a test, the merge decision, and the stop math — **without** claiming, dispatching, PRing,
    resolving, merging, or touching the board.
-4. **`bash -n .claude/scripts/beutl-loop.sh`** and confirm it refuses to run on `main`.
-5. **One live smoke test** (opens a real PR — run intentionally): `/beutl-loop 1` on a low-risk item
+4. **One live smoke test** (opens a real PR — run intentionally): `/beutl-loop 1` on a low-risk item
    should open a PR, resolve its **bot** reviews, post the code-owner approval, and **auto-squash-merge**
    the PR, then move the board item to Done and delete the branch. A **high-risk** or **feature** item
    is left open for a human. Stagnation check: against a slice of known false-positives the run stops

@@ -2,7 +2,7 @@
 name: beutl-board-task-runner
 description: Executes ONE Project #9 board item end-to-end in an isolated git worktree — verify-not-false-positive, branch off origin/main, implement, baseline-first test, commit, push, and hand back a draft branch (never opens the PR itself) — returns a compact structured result (draft branch + risk signals + test status). Dispatched per tick by /beutl-loop to keep the orchestrator's context lean. Does NOT open PRs, does NOT merge, and does NOT resolve PR reviews.
 tools: Read, Grep, Glob, Bash, Edit, Write
-model: sonnet
+model: opus
 color: cyan
 isolation: worktree
 permissionMode: acceptEdits
@@ -250,7 +250,7 @@ Never merge in Spec-Kit mode either.
 - **Never force-push `main`** (hook-enforced) and never push to `main`/`master`.
 - **Commit signed.** `main` requires signed commits (repo ruleset); the repo config signs by default —
   never pass `--no-gpg-sign`.
-- **Your `Bash` is session-bounded.** Under the headless wrapper the session `--allowedTools` allowlist
-  and the PreToolUse deny hooks constrain what actually runs; `tools: … Bash` is the capability, not a
-  bypass of those guardrails.
+- **Your `Bash` is session-bounded.** The orchestrator's interactive `/beutl-loop` session (run with
+  auto-accept / `acceptEdits`) and the PreToolUse deny hooks constrain what actually runs; `tools: …
+  Bash` is the capability, not a bypass of those guardrails.
 - One item only. Return the JSON and stop.
