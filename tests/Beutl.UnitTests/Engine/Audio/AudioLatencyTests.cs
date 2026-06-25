@@ -224,17 +224,15 @@ public class AudioLatencyTests
     }
 
     [Test]
-    public void AudioEffectGroup_GetLatencySamples_IgnoresGroupOwnIsEnabled()
+    public void AudioEffectGroup_GetLatencySamples_DisabledGroupReportsZero()
     {
-        // The group's own IsEnabled does not gate the report (it mirrors CreateNode, which only filters
-        // children); the caller decides whether to skip a disabled group, so a disabled group still
-        // sums its enabled children.
+        // A disabled group contributes no nodes (Sound.Compose skips its CreateNode), so its pre-graph
+        // latency report is 0 too — consistent with LimiterEffect's own IsEnabled gate.
         var group = new AudioEffectGroup { IsEnabled = false };
         group.Children.Add(CreateLimiterEffect(5f));
         group.Children.Add(CreateLimiterEffect(10f));
 
-        int expected = ExpectedLookaheadSamples(5f, SampleRate) + ExpectedLookaheadSamples(10f, SampleRate);
-        Assert.That(group.GetLatencySamples(SampleRate), Is.EqualTo(expected));
+        Assert.That(group.GetLatencySamples(SampleRate), Is.EqualTo(0));
     }
 
     [Test]
