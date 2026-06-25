@@ -67,7 +67,10 @@ force-push `main`, and never bypass the rulesets — be conservative and fail sa
    low-to-moderate-risk PRs — confirm that intent, and offer `dry-run` first or a tighter `N` budget
    as alternatives. The headless wrapper always passes an explicit argument, so it never prompts.
 2. **Initialize the journal** at `.claude/logs/beutl-loop-state.json` (gitignored, ephemeral). If a
-   file older than ~12h exists, start fresh. Schema:
+   file older than ~12h exists, start fresh — **this resets the stagnation counters**
+   (`consecutive_no_progress`, `consecutive_false_positives`) to zero, which is intentional (a long
+   gap means a new run context) but means a run that was thrashing can re-arm its no-progress budget
+   after the 12h boundary. Schema:
    ```json
    {"run_id":"<stamp>","budget":"until-empty","runaway_cap":50,"max_minutes":null,"settle_minutes":20,"filter":"any",
     "attempted_ids":[],"items_processed":0,"last_pr_tick":0,
@@ -179,9 +182,10 @@ Per-result outcomes and their effect on the **stagnation counters** (the budget 
 `touched_production == true && test_files_added_count == 0 && test_status != "manual-verification"`
 (the runner should have blocked instead), do **not** open a PR from this draft — treat it as
 **high-risk → leave for human** and count the tick as **no-progress** (a runner-contract violation, not
-a shippable item). Likewise, if `baseline_test_green != true` (the runner skipped or failed the
-characterization baseline), treat the tick as **no-progress** — the baseline-first discipline is
-load-bearing for behavior-preserving fixes and must not be skipped.
+a shippable item). Likewise, if `baseline_test_green != true` (the runner skipped the baseline run
+entirely — not the same as a red baseline for a bug fix, which is expected and sets
+`baseline_test_green: true`), treat the tick as **no-progress** — the baseline-first discipline is
+load-bearing and must not be skipped.
 
 **Parallel-batch aggregation (C-5).** When the batch size > 1, aggregate stagnation across the batch:
 - If **any** result opened a PR (via step 2.5) or was a false-positive → reset
@@ -301,8 +305,10 @@ set, the settle window elapses, or CI is red → the PR is **left for human** (d
 
 ### 4. Classify risk (moderate policy) and decide the merge
 **Auto-merge eligible (low/moderate) only if ALL hold:** `commit_type ∈
-{fix,refactor,perf,test,docs,style,chore, small feat}` and **not** `is_breaking`; no public-API
-design judgment (no blocking `@beutl-design-reviewer` finding); not `touched_gpl_mit /
+{fix,refactor,perf,test,docs,style,chore, small feat}` and **not** `is_breaking`; **not**
+`is_feature` or `speckit_required` (features — even small ones — need a human merge; only
+`small feat` that is an incidental improvement, not a new product behavior, is eligible); no
+public-API design judgment (no blocking `@beutl-design-reviewer` finding); not `touched_gpl_mit /
 touched_source_gen / touched_persistence`; **moderate diff** (≈ ≤250 LOC and ≤8 files); runner
 `test_status == "green"` (a `manual-verification` item is **not** eligible → human); required checks
 (`build`, `dotnet-format`) green and nothing else failing; **every review thread resolved**; no
@@ -314,7 +320,9 @@ below; a lower coverage ⇒ high-risk, because the new code is under-tested for 
 could not be cleanly auto-resolved ⇒ leave for human. **Otherwise high-risk → leave for human.** When
 unsure, choose human (fail safe).
 
-**B-4 coverage probe (conditional — only when `touched_production && diff_loc >= 100`).** Run the
+**B-4 coverage probe (conditional — only when `touched_production && diff_loc >= 100`).** The 100-LOC
+threshold targets changes large enough that a missing coverage floor is a meaningful risk; smaller
+changes are gated by the binary test gate (green required) and the diff-size limit (≤250 LOC). Run the
 matching test project with coverage, then compute changed-line coverage with the probe script:
 ```bash
 # Identify the matching test project from the touched src/ path (heuristic):
@@ -363,14 +371,39 @@ recorded as `left_for_human`, never forced or bypassed.
 
 ```bash
 HEAD_SHA=$(gh pr view "$PR" --json headRefOid -q .headRefOid)
-gh pr checks "$PR"                                          # required checks green, nothing failing
-# Unresolved review threads must be 0 (assumes ≤100; paginate for more — GitHub also enforces this,
-# so the loop only checks to avoid a futile merge attempt):
+
+# --- Self-gate: fail-closed checks BEFORE approve/merge (defense-in-depth) ---
+# The loop only proceeds if ALL hold; any failure ⇒ left_for_human (no retry/force/bypass).
+
+# 1. Required checks green, nothing failing.
+CHECKS=$(gh pr checks "$PR" --json bucket --jq '[.[]|select(.bucket!="pass")] | length' 2>/dev/null || echo 1)
+if [ "$CHECKS" != "0" ]; then
+  echo "checks not all green ($CHECKS non-pass) — left_for_human"; exit 1
+fi
+
+# 2. Unresolved review threads must be 0.
 UNRESOLVED=$(gh api graphql -f query='query{repository(owner:"b-editor",name:"beutl"){pullRequest(number:'"$PR"'){reviewThreads(first:100){nodes{isResolved}}}}}' \
   --jq '[.data.repository.pullRequest.reviewThreads.nodes[]|select(.isResolved==false)]|length')
-gh pr view "$PR" --json mergeable,reviewDecision -q '.mergeable,.reviewDecision'   # need MERGEABLE; if reviewDecision != APPROVED, post the code-owner approval below
-# Post the code-owner approval (the loop runs as @yuto-trd) so the ruleset's review requirement is met:
-gh pr review "$PR" --approve --body "Auto-approved by /beutl-loop (code-owner). Risk: <low|moderate>."
+if [ "$UNRESOLVED" != "0" ]; then
+  echo "unresolved threads ($UNRESOLVED) — left_for_human"; exit 1
+fi
+
+# 3. PR must be MERGEABLE.
+MERGEABLE=$(gh pr view "$PR" --json mergeable -q .mergeable)
+if [ "$MERGEABLE" != "MERGEABLE" ]; then
+  echo "not mergeable ($MERGEABLE) — left_for_human"; exit 1
+fi
+
+# --- Self-approval caveat (see docs/ai-workflow/loop-engineering.md) ---
+# GitHub does not count a PR author's own approval toward review requirements.
+# The loop runs as @yuto-trd (the code owner), so gh pr review --approve may
+# return 422. If so, the merge attempt fails → left_for_human (safe failure).
+# To enable auto-merge, either (a) use a separate bot account for approval,
+# or (b) adjust the ruleset. The risk classifier (step 4) is the intended
+# effective gate when auto-merge is operational.
+gh pr review "$PR" --approve --body "Auto-approved by /beutl-loop (code-owner). Risk: <low|moderate>." 2>&1 || \
+  echo "self-approval failed (GitHub may reject PR author self-approval) — merge attempt will likely fail"
+
 # Move to Done ONLY if the merge actually succeeds; a ruleset refusal => leave In Progress for the human.
 if gh pr merge "$PR" --squash --delete-branch --match-head-commit "$HEAD_SHA"; then
   gh project item-edit --project-id PVT_kwDOBLw8Fs4BW4g5 --id "$ITEM_ID" \
@@ -440,5 +473,15 @@ each tick); the run summary is written once at the end and kept for trend analys
   high-risk and uncertain go to the human; squash + delete-branch; never auto-merge high-risk; never
   force-push `main`.
 - **Context isolation:** all heavy work runs in sub-agents; keep only structured results + journal.
+- **`rm` permission scope:** `Bash(rm:*)` is allowed for coverage-probe cleanup (`rm -rf "$COV_DIR"`).
+  The `rm -rf` deny hook catches the literal dangerous forms, but like force-push, the hook's pattern
+  match is not exhaustive — forms outside the pattern can still execute. The allowlist is deliberately
+  narrow (scoped to the loop's known `rm` use); broader `rm` use outside the loop is not covered.
+- **Runner false-positive spot-check (S-5):** when a runner returns `false_positive: true`, the
+  orchestrator does a quick spot-check before accepting the board move: re-read the cited `path:line`
+  to confirm the finding is genuinely a false positive. If the spot-check is inconclusive, treat it as
+  `blocked` (`blocked_kind: "item-specific"`) instead of a false-positive — do not let a single
+  sub-agent's judgment move the board without verification. The false-positive signature is still
+  appended to loop-memory, but the orchestrator's spot-check gates the board write.
 - **Do not defer work** (inherited from `beutl-board-task`): each item is finished or explicitly
   `blocked` — never "fix it next tick".

@@ -57,33 +57,33 @@ defaults to sequential ticks with per-tick sub-agent dispatch.
 
 ## One tick, end to end
 
-1. **Terminate?** Check budget / wall-clock / eligibility / stagnation first.
-2. **Select up to K items** (re-fetch the board, exclude already-attempted ids), across the full
+0. **Terminate?** Check budget / wall-clock / eligibility / stagnation first.
+1. **Select up to K items** (re-fetch the board, exclude already-attempted ids), across the full
    spectrum — do **not** pre-filter by risk or kind. The footprint-overlap scheduler (C-5) avoids
    picking parallel items that touch the same `src/` file or `tests/` project.
-3. **Dispatch A** (parallel up to K) → each runner scans recent `Refs: Project #9` merges, implements,
+2. **Dispatch A** (parallel up to K) → each runner scans recent `Refs: Project #9` merges, implements,
    and passes two binary gates before handing back a **draft branch**: a **test gate** (a production
-   change must ship an NUnit test + a green characterization baseline, or a documented
-   manual-verification, else it is `blocked`) and a six-point **self-review gate**. Outcomes: a
-   **false-positive advances the board**; a **draft** goes to the pre-PR review round (step 3.5);
-   **blocked** is recorded and skipped — only a `systemic` block counts as no-progress, an
-   `item-specific` one is neutral; **red / no draft ⇒ no-progress**. A **large feature**
-   (`speckit_required`) goes to the Spec-Kit flow (step 3.6).
-3.5. **Pre-PR review round** (always, on the draft): the orchestrator runs an **independent
+   change must ship an NUnit test + a baseline (green for behavior-preserving, red-expected for bug
+   fixes), or a documented manual-verification, else it is `blocked`) and a six-point **self-review
+   gate**. Outcomes: a **false-positive advances the board**; a **draft** goes to the pre-PR review
+   round (step 2.5); **blocked** is recorded and skipped — only a `systemic` block counts as
+   no-progress, an `item-specific` one is neutral; **red / no draft ⇒ no-progress**. A **large
+   feature** (`speckit_required`) goes to the Spec-Kit flow (step 2.6).
+2.5. **Pre-PR review round** (always, on the draft): the orchestrator runs an **independent
    machine-verify** (grep for `[Obsolete]`/v2/TODO/Follow-ups, XAML `CompileBindings`, GPL/MIT hook —
    B-2, do not trust the runner's self-report) + `@beutl-reviewer` + `@beutl-xaml-binder` (+
    `@beutl-design-reviewer` when design-sensitive). Up to **two** rework iterations on the draft
    branch, then open the PR — high-risk to a human if findings are still unresolved after the budget
    (with a structured findings comment — F-12).
-3.6. **Spec-Kit flow** (only for `speckit_required`): `/speckit-specify → plan → tasks`, then
-   re-dispatch the runner with `tasks.md` → draft → step 3.5.
-4. **Dispatch B** (bounded settle) → resolve bot reviews, including replying-and-resolving clear bot
+2.6. **Spec-Kit flow** (only for `speckit_required`): `/speckit-specify → plan → tasks`, then
+   re-dispatch the runner with `tasks.md` → draft → step 2.5.
+3. **Dispatch B** (bounded settle) → resolve bot reviews, including replying-and-resolving clear bot
    **false positives** with a `path:line` refutation (and recording the pattern to loop-memory — D-8);
    `needs_human` / red / timeout ⇒ leave for the human.
-5. **Classify risk + merge** (below) — the loop **posts its own code-owner approval** then
+4. **Classify risk + merge** (below) — the loop **posts its own code-owner approval** then
    squash-merges low/mod-risk; a conditional **coverage probe** (B-4) gates auto-merge when
    `touched_production && diff_loc >= 100`.
-6. **Journal** the outcome; recompute the stagnation counter (3 no-progress strikes, held open by a
+5. **Journal** the outcome; recompute the stagnation counter (3 no-progress strikes, held open by a
    PR in the last 3 ticks); loop.
 
 ## Risk classification (moderate policy)
@@ -108,13 +108,13 @@ could not be cleanly auto-resolved · anything needing product or architecture j
 **When in doubt, leave it for the human.** This is the load-bearing fail-safe.
 
 **Two upstream gates run inside Dispatch A, before the draft reaches the pre-PR review round** (so a
-draft that reaches step 3.5 has already cleared them): the **test gate** — a production change
+draft that reaches step 2.5 has already cleared them): the **test gate** — a production change
 (`src/`) must add an NUnit test under `tests/` **and** a green characterization baseline
 (`baseline_test_green`), or carry a concrete manual-verification note, else the runner returns
 `blocked` rather than handing back a draft — and the six-point **self-review gate** (compiled XAML
 bindings, no `[Obsolete]`/"v2"/compat-overload shim, no leftover `// TODO`/Follow-up, root-cause fix,
 GPL/MIT boundary intact, subtree `CLAUDE.md` honored). As defense-in-depth, the orchestrator
-**independently re-verifies the mechanical axes** (B-2) in step 3.5 — it does not trust the runner's
+**independently re-verifies the mechanical axes** (B-2) in step 2.5 — it does not trust the runner's
 `self_review_passed`. If a runner hands back a draft whose own signals show a production change with
 no test and no manual-verification note (or a missing/failed baseline), the orchestrator treats that
 draft as high-risk (human) and the tick as no-progress.
@@ -130,11 +130,16 @@ be **signed**, and history must stay **linear**. GitHub enforces all of this ser
 avoids attempting a merge GitHub will refuse.
 
 **The loop runs as the code owner.** All commits, PRs, reviews, and merges are performed from the
-code-owner account (`@yuto-trd`), so the loop **can approve its own PRs and complete the squash merge**
-without a second human in the loop — the code-owner review requirement is satisfied by the agent
-acting as that owner. The loop therefore **does** auto-merge low/moderate-risk PRs end to end;
-high-risk and uncertain PRs are still left for a human review pass. Changing CODEOWNERS or the rulesets
-is a maintainer decision and is never done by the loop.
+code-owner account (`@yuto-trd`). The loop **attempts** to approve its own PRs and complete the
+squash merge — the code-owner review requirement is intended to be satisfied by the agent acting as
+that owner. **Self-approval caveat:** GitHub does not count a PR author's own approval toward review
+requirements, so `gh pr review --approve` may return 422 when the PR author and code owner are the
+same account. Under the current ruleset (`require_code_owner_review: true`), this means the merge
+attempt fails → `left_for_human` (safe failure — the loop never forces or bypasses). The **risk
+classifier (step 4) is the intended effective gate** when auto-merge is operational; to enable it,
+either use a separate bot account for approval or adjust the ruleset. Either way, the loop never
+merges a high-risk PR, never force-pushes `main`, and never bypasses the rulesets. Changing
+CODEOWNERS or the rulesets is a maintainer decision and is never done by the loop.
 
 For a low/moderate-risk, settled PR the loop self-gates, **posts its own approval as the code owner**,
 then **attempts** the squash merge pinned to the reviewed head, and treats a ruleset refusal as "leave
@@ -197,7 +202,10 @@ them. (`beutl-board-task` was previously named `beutl-ai-review-task`; it was re
 decisions only. **The board (Project #9) is the single source of truth.** If the journal is deleted
 mid-run, correctness is unaffected: the next tick re-derives eligibility from the live board (claimed
 items are `In Progress` and excluded). The journal never moves an item to `Done`; that happens only
-on a successful auto-merge.
+on a successful auto-merge. A journal older than ~12h is discarded and a fresh one starts — this
+**resets the stagnation counters** (`consecutive_no_progress`, `consecutive_false_positives`) to
+zero, which is intentional (a long gap means a new run context) but means a run that was thrashing
+can re-arm its no-progress budget after the 12h boundary.
 
 ## Headless variant + safety
 

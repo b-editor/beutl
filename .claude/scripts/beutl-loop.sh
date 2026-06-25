@@ -40,7 +40,7 @@ cleanup() {
 
   # Post-run: emit the final JSON run summary (H-15) to a Gist if requested (H-16).
   if [ "${BEUTL_LOOP_PROGRESS_GIST:-0}" = "1" ]; then
-    LATEST_RUN_JSON=$(ls -t .claude/logs/beutl-loop-run-*.json 2>/dev/null | head -1)
+    LATEST_RUN_JSON=$(ls -t .claude/logs/beutl-loop-run-*.json 2>/dev/null | head -1 || true)
     if [ -n "$LATEST_RUN_JSON" ]; then
       if [ -n "${BEUTL_LOOP_PROGRESS_GIST_ID:-}" ]; then
         gh gist edit "$BEUTL_LOOP_PROGRESS_GIST_ID" "$LATEST_RUN_JSON" 2>/dev/null \

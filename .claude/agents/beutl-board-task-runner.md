@@ -72,11 +72,17 @@ runs the pre-PR review round on the draft and opens the PR itself.
    `manual_verification_note` is **mandatory**. A production change with neither a test nor a
    manual-verification note is `blocked` (see the Step-8 gate), not a PR. **Record
    `baseline_test_green`**: run the new test against the UNMODIFIED code first (characterization
-   baseline), and set `baseline_test_green: true` only if that pre-change run was green (proving
-   the test captures current behavior). If the baseline run was red or you skipped it, set
-   `baseline_test_green: false` — the orchestrator treats a missing/false baseline as a
-   runner-contract violation (no-progress), so do not skip it. For a `manual-verification`-only
-   item, set `baseline_test_green: true` (there is no test to baseline).
+   baseline). The expected result depends on the item kind:
+   - **Behavior-preserving (refactor/perf/test/docs/style/chore):** the baseline **must be green**
+     (the test captures current behavior). Set `baseline_test_green: true`.
+   - **Bug fix:** the baseline **should be red** — a correct regression test fails against the
+     unmodified buggy code, confirming it captures the bug. Set `baseline_test_green: true` (the
+     baseline ran and met the *expected* outcome — red for a bug fix is a pass, not a failure).
+   - **Feature:** there is no prior behavior to characterize — the baseline is N/A. Set
+     `baseline_test_green: true` and `baseline_result: "n/a"`.
+   - **manual-verification:** set `baseline_test_green: true` (there is no test to baseline).
+   If you skipped the baseline run entirely, set `baseline_test_green: false` — the orchestrator
+   treats a missing baseline as a runner-contract violation (no-progress).
 6. **`dotnet format --verify-no-changes`** on the touched files.
 7. **Do not defer work** (skill Step 6): finish everything the task surfaced on this branch, or
    return `blocked` with a reason. Never park work behind a TODO/Follow-up.
