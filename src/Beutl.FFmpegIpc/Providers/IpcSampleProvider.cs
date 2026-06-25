@@ -236,6 +236,13 @@ internal sealed class IpcSampleProvider : ISampleProvider
         // continuation that observes a fault (preventing UnobservedTaskException) and disposes the native Pcm
         // a successful prefetch would otherwise leak. Owning the connection is the caller's job, so we only
         // neutralize our own task. Returns promptly regardless of when the prefetch completes.
+        //
+        // The continuation handles all three terminal states: Faulted (observe the exception so it is not
+        // unobserved), CompletedSuccessfully (dispose the native Pcm the result holds), and Canceled (yields
+        // no result and no fault, so neither branch fires — cancellation is not an unobserved exception).
+        // ExecuteSynchronously is safe because t.Result.Dispose() is a single P/Invoke free: no lock
+        // contention and no throw path. If that body ever becomes heavier, drop ExecuteSynchronously so the
+        // runtime schedules the continuation on a pool thread instead of the completing (receive-loop) one.
         _prefetchTask?.ContinueWith(
             static t =>
             {
