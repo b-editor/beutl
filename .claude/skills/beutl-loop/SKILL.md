@@ -164,12 +164,23 @@ unresolved design finding carried over from step 2.5 — ⇒ mark the PR **high-
 the human along with the PR).
 
 ### 4. Resolve reviews (sub-agent, bounded settle)
-Wait for async bot reviews, bounded by `settle_minutes`. **Block on CI without busy-waiting** with
-`gh pr checks "$PR" --watch --interval 60` (it returns once every check finishes; `gh` is already in
-the allowlist), then poll the review state, spacing polls ~90s apart with `sleep 90` (allowed via
-`Bash(sleep:*)`; `python3 -c 'import time;time.sleep(90)'` is an equivalent allowed fallback if a bare
-`sleep` is unavailable). Each poll: dispatch a sub-agent running **`beutl-resolve-reviews --auto`** for
-the PR to address clearly-actionable bot comments, re-verify, and resolve threads. "**Settled**" = CI complete+green · zero unresolved threads · no
+Wait for async bot reviews, bounded by `settle_minutes`. **Block on CI without busy-waiting, and bound
+the wait so a hung check cannot hang the loop:** prefer
+`timeout $((settle_minutes * 60)) gh pr checks "$PR" --watch --interval 60` (`timeout` is in the
+allowlist; exit `124` = the settle window elapsed → left for human). If `timeout` is unavailable (some
+macOS installs lack coreutils), use a bounded poll loop instead:
+```bash
+deadline=$((SECONDS + settle_minutes * 60))
+while [ "$SECONDS" -lt "$deadline" ]; do
+  pending=$(gh pr checks "$PR" --json state --jq '[.[]|select(.state!="COMPLETE")] | length' 2>/dev/null || echo 1)
+  [ "$pending" = "0" ] && break
+  sleep 60
+done
+```
+Then poll the review state, spacing polls ~90s apart with `sleep 90` (allowed via `Bash(sleep:*)`;
+`python3 -c 'import time;time.sleep(90)'` is an equivalent allowed fallback if a bare `sleep` is
+unavailable). Each poll: dispatch a sub-agent running **`beutl-resolve-reviews --auto`** for the PR to
+address clearly-actionable bot comments, re-verify, and resolve threads. "**Settled**" = CI complete+green · zero unresolved threads · no
 outstanding `CHANGES_REQUESTED` · no new review/comment/commit for ~10 min. **Re-fetch CI
 (`gh pr checks`) and the thread/`reviewDecision` state yourself each poll — the resolver's
 `ci_status`/`changes_requested_outstanding`/counts are advisory; the orchestrator's own `gh` reads are
