@@ -216,11 +216,9 @@ public class IpcConnectionMultiplexedTests
             var firstReq = IpcMessage.CreateSimple(firstId, RequestType);
             var firstTask = conn.SendAndReceiveAsync(firstReq, cts.Token).AsTask();
 
-            // Drain the outbound request so the send completes before we cancel it while it awaits a
-            // response. Without the drain the send stays pending (on Windows an unread pipe write does
-            // not return), so whether the request was delivered becomes platform-dependent and later
-            // steps diverge. Bound the drain (like the waits below) so a future send regression fails
-            // fast with an assertion instead of hanging the suite.
+            // Drain the outbound request so the send completes before we cancel it: on Windows an
+            // unread pipe write does not return, so without the drain whether the request was delivered
+            // is platform-dependent.
             var drainedFirst = await AwaitWithResult(
                 MessageSerializer.ReadMessageAsync(server).AsTask(), TimeSpan.FromSeconds(5));
             Assert.That(drainedFirst!.Id, Is.EqualTo(firstId));
@@ -433,10 +431,9 @@ public class IpcConnectionMultiplexedTests
         var requestTask = conn.SendAndReceiveAsync(req).AsTask();
 
         // Drain the outbound request on the server side so the client's send completes before we inject
-        // the fault. A real peer always reads the request; a test server that does not leaves SendAsync's
-        // pipe write pending (on Windows an unread pipe write does not return), so the request never
-        // reaches the await-on-response stage. Injecting badLength then cannot complete a task still stuck
-        // in the send, so the test would hang. Bound the drain so a future send regression fails fast.
+        // the fault. A real peer always reads the request; without draining, SendAsync's pipe write stays
+        // pending (on Windows an unread pipe write does not return), so the request never reaches the
+        // await-on-response stage and the fault injection cannot complete a send that is still stuck.
         var sentRequest = await AwaitWithResult(
             MessageSerializer.ReadMessageAsync(server).AsTask(), TimeSpan.FromSeconds(5));
         Assert.That(sentRequest!.Id, Is.EqualTo(id));
@@ -448,8 +445,6 @@ public class IpcConnectionMultiplexedTests
         await server.WriteAsync(badLength);
         await server.FlushAsync();
 
-        // Wait (bounded) for the request to fault after the receive loop dies. If propagation ever breaks,
-        // fail fast with a clear Assert.Fail instead of hanging on an unbounded await.
         var completed = await Task.WhenAny(requestTask, Task.Delay(TimeSpan.FromSeconds(5)));
         Assert.That(completed, Is.SameAs(requestTask), "request must fault after the loop dies, not hang");
         var ex = Assert.CatchAsync<IOException>(async () => await requestTask);
@@ -475,8 +470,7 @@ public class IpcConnectionMultiplexedTests
         var firstTask = conn.SendAndReceiveAsync(firstReq).AsTask();
 
         // Drain the outbound request so the send completes and the request parks on its response TCS before
-        // we kill the receive loop. (See ProtocolCorruption_PendingRequestsObserveIOExceptionWithCause for
-        // why; bound the drain so a future send regression fails fast instead of hanging.)
+        // we kill the receive loop. (See ProtocolCorruption_PendingRequestsObserveIOExceptionWithCause for why.)
         var sentRequest = await AwaitWithResult(
             MessageSerializer.ReadMessageAsync(server).AsTask(), TimeSpan.FromSeconds(5));
         Assert.That(sentRequest!.Id, Is.EqualTo(firstId));
@@ -521,7 +515,7 @@ public class IpcConnectionMultiplexedTests
             // Drain the outbound request so the send completes and the request parks on its response TCS
             // before Dispose. Without the drain the send stays stuck (there is no ct to cancel it), and
             // Dispose's pipe teardown raises ObjectDisposedException instead of the OperationCanceledException
-            // this test expects from a self-dispose. Bound the drain so a future send regression fails fast.
+            // this test expects from a self-dispose.
             var drained = await AwaitWithResult(
                 MessageSerializer.ReadMessageAsync(server).AsTask(), TimeSpan.FromSeconds(5));
             Assert.That(drained!.Id, Is.EqualTo(id));
