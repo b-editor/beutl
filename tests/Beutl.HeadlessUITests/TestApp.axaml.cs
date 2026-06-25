@@ -61,6 +61,17 @@ public sealed class TestApp : Application
         if (_mainViewModel is null)
         {
             _mainViewModel = new MainViewModel();
+
+            // ContextCommandManager.Attach is a no-op unless each ViewExtension was registered first;
+            // AddExtensions alone wires up resolution but not keyboard/command gestures.
+            foreach (Extension item in LoadPrimitiveExtensionTask.PrimitiveExtensions)
+            {
+                if (item is ViewExtension viewExtension)
+                {
+                    _mainViewModel.ContextCommandManager?.Register(viewExtension);
+                }
+            }
+
             // Extensions are owned per composition root now, so register the Loaded singletons into this
             // MainViewModel's provider; without it the shell cannot resolve editors or tool tabs.
             _mainViewModel.ExtensionProvider.AddExtensions(

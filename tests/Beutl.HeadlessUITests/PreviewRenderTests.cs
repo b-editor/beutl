@@ -6,6 +6,7 @@ using Beutl.Graphics;
 using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Shapes;
 using Beutl.Media;
+using Beutl.Media.Pixel;
 using Beutl.ProjectSystem;
 using Beutl.Services;
 using Beutl.Testing.Headless;
@@ -74,7 +75,7 @@ public class PreviewRenderTests
             Assert.That(snapshot, Is.Not.Null);
             Assert.That(snapshot.Width, Is.EqualTo(320));
             Assert.That(snapshot.Height, Is.EqualTo(240));
-            Assert.That(snapshot.ByteCount, Is.GreaterThan(0));
+            AssertContainsRedPixel(snapshot);
         }
     }
 
@@ -99,7 +100,22 @@ public class PreviewRenderTests
         {
             Assert.That(snapshot.Width, Is.GreaterThan(0));
             Assert.That(snapshot.Height, Is.GreaterThan(0));
-            Assert.That(snapshot.ByteCount, Is.GreaterThan(0));
+            AssertContainsRedPixel(snapshot);
         }
+    }
+
+    // ByteCount > 0 only proves a buffer was allocated; the scene's sole content is an opaque red
+    // rectangle, so a blank/transparent frame (broken rendering) is caught only by finding its pixels.
+    // The render surface is RgbaF16, so convert to 8-bit BGRA before sampling.
+    private static void AssertContainsRedPixel(Bitmap snapshot)
+    {
+        using Bitmap bgra = snapshot.Convert(BitmapColorType.Bgra8888);
+        foreach (Bgra8888 p in bgra.GetPixelSpan<Bgra8888>())
+        {
+            if (p.A > 0 && p.R > 200 && p.G < 80 && p.B < 80)
+                return;
+        }
+
+        Assert.Fail("Rendered frame contains no red pixel; SceneRenderer produced a blank/transparent frame.");
     }
 }
