@@ -218,7 +218,9 @@ Collect any hits as `machine_findings`.
 
 **2.5b. Sub-agent review.** Dispatch `@beutl-reviewer` and `@beutl-xaml-binder` (read-only) on
 `git diff origin/main...$DRAFT_BRANCH`. If `design_reviewer_required` is true, also dispatch
-`@beutl-design-reviewer`. Collect their blocking findings as `review_findings`.
+`@beutl-design-reviewer`. **Pass `BASE_REF=origin/main` and `HEAD_REF=$DRAFT_BRANCH` as environment
+variables to each sub-agent** so they diff the actual draft branch instead of `HEAD` (which is the
+loop branch in the orchestrator checkout, not the draft). Collect their blocking findings as `review_findings`.
 
 **2.5c. Rework loop (≤ 2 passes).** If `machine_findings` or `review_findings` are non-empty:
 - Re-dispatch `beutl-board-task-runner` in **Rework mode** (`REWORK=true`, `draft_branch`,

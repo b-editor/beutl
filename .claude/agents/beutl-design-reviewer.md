@@ -49,10 +49,15 @@ If none apply, report `No public-surface or extensibility changes — design rev
 
 ## Procedure
 
-1. `git diff origin/main...HEAD -- 'src/**'` and list touched public types. Use `grep` for `public class`, `public interface`, `public abstract`, `public sealed`, `public record`, `public enum` on `+`-lines.
-2. For each touched public type, Read the file and assess the five axes above.
-3. For suspected compatibility shims, grep the rest of the repo for *uses* of the old member to confirm it is still referenced (or not).
-4. Produce findings in the format below.
+1. Determine the diff range. Prefer explicit refs passed by the caller: if `$BASE_REF` and `$HEAD_REF`
+   are set (e.g. by `/beutl-loop` reviewing a draft branch that is not checked out), use
+   `git diff "$BASE_REF...$HEAD_REF" -- 'src/**'`. Otherwise fall back to `git diff origin/main...HEAD -- 'src/**'`
+   (the standalone / interactive case). **Never assume HEAD is the branch under review** — in the loop
+   orchestrator checkout, HEAD is the loop branch, not the draft branch.
+2. List touched public types. Use `grep` for `public class`, `public interface`, `public abstract`, `public sealed`, `public record`, `public enum` on `+`-lines.
+3. For each touched public type, Read the file and assess the five axes above.
+4. For suspected compatibility shims, grep the rest of the repo for *uses* of the old member to confirm it is still referenced (or not).
+5. Produce findings in the format below.
 
 ## Output format
 

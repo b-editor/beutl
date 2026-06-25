@@ -16,6 +16,9 @@
 # carry a build-order-only <ProjectReference ... ReferenceOutputAssembly="false" />
 # (paired with its CopyFFmpegWorkerForApp target). Every other project, and any
 # <Compile Include>, is forbidden.
+# Also exempts tests/Beutl.FFmpegBenchmarks — a BenchmarkDotNet project that
+# intentionally link-compiles worker source files for direct-call benchmarking
+# (not shipped in the MIT app).
 #
 # Used by: beutl-pre-pr (step 2, --files mode), beutl-loop (step 2.5a, two-ref mode).
 set -euo pipefail
@@ -63,8 +66,12 @@ for f in $CHANGED; do
   fi
 
   # The worker project itself ships FFmpegWorker linkages freely.
+  # tests/Beutl.FFmpegBenchmarks intentionally link-compiles worker source files for
+  # direct-call benchmarking (see its .csproj comments) — it is a BenchmarkDotNet
+  # project, not shipped in the MIT app, so the GPL boundary is not crossed.
   case "$f" in
     */Beutl.FFmpegWorker/*|*/Beutl.FFmpegWorker.csproj) continue ;;
+    */Beutl.FFmpegBenchmarks/*|*/Beutl.FFmpegBenchmarks.csproj) continue ;;
   esac
 
   # Flatten the file so multi-line MSBuild elements are caught.

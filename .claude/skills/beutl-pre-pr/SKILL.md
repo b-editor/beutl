@@ -4,7 +4,7 @@ description: |
   subagent will run, so feedback arrives in 30 seconds instead of after a push. Use before
   opening a PR. Triggers on "PR出す前に確認", "pre-PR check", "ready to push?", "before
   I open the PR". Always confirm the scope before running — the full pass is slow.
-allowed-tools: Bash(dotnet:*) Bash(git:*) Bash(./build.sh:*)
+allowed-tools: Bash(dotnet:*) Bash(git:*) Bash(./build.sh:*) Bash(bash .claude/scripts/*:*)
 argument-hint: "[quick|full]"
 ---
 
@@ -59,7 +59,7 @@ The scan mirrors the hook's one sanctioned exception: `src/Beutl/Beutl.csproj` m
 bash .claude/scripts/check-gpl-mit-boundary-diff.sh --files $CHANGED
 ```
 
-Exit 0 = clean; exit 1 = violation(s), printed as `file:line`. Only `src/Beutl.FFmpegWorker/` itself ships `Beutl.FFmpegWorker` linkages freely; `src/Beutl/Beutl.csproj` may use the sanctioned build-order-only `ProjectReference` described above. Every other project — including the MIT IPC layer at `src/Beutl.FFmpegIpc/` — must reach the worker through the IPC protocol, never via `ProjectReference` (even with `ReferenceOutputAssembly="false"`) or `<Compile Include="...FFmpegWorker..." />`. Any violation — stop.
+Exit 0 = clean; exit 1 = violation(s), printed as `file:line`. Only `src/Beutl.FFmpegWorker/` itself ships `Beutl.FFmpegWorker` linkages freely; `src/Beutl/Beutl.csproj` may use the sanctioned build-order-only `ProjectReference` described above; `tests/Beutl.FFmpegBenchmarks` is exempted (a BenchmarkDotNet project that intentionally link-compiles worker source files for direct-call benchmarking — not shipped in the MIT app). Every other project — including the MIT IPC layer at `src/Beutl.FFmpegIpc/` — must reach the worker through the IPC protocol, never via `ProjectReference` (even with `ReferenceOutputAssembly="false"`) or `<Compile Include="...FFmpegWorker..." />`. Any violation — stop.
 
 ### 3. Targeted build (always)
 

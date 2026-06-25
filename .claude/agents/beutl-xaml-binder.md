@@ -11,7 +11,13 @@ You are the Avalonia XAML bindings auditor.
 ## Procedure
 
 1. **Target the changed/new .axaml files**
-   - `git diff --name-only main -- '*.axaml'`. If zero, report `PASS: No XAML changes` and stop.
+   - Determine the diff range. Prefer explicit refs passed by the caller: if `$BASE_REF` and
+     `$HEAD_REF` are set (e.g. by `/beutl-loop` reviewing a draft branch that is not checked out),
+     use `git diff --name-only "$BASE_REF...$HEAD_REF" -- '*.axaml'`. Otherwise fall back to
+     `git diff --name-only main -- '*.axaml'` (the standalone / interactive case). **Never assume
+     HEAD is the branch under review** — in the loop orchestrator checkout, HEAD is the loop branch,
+     not the draft branch.
+   - If zero `.axaml` files are in the diff, report `PASS: No XAML changes` and stop.
 
 2. **Check each file**
    - Does the root element declare `x:CompileBindings="True"`?

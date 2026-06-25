@@ -216,6 +216,19 @@ else
   pass "runner contract: never claims to open a PR (finding 3)"
 fi
 
+# --- 19. beutl-pre-pr can invoke the GPL/MIT script under its tool envelope -
+PRE_PR=".claude/skills/beutl-pre-pr/SKILL.md"
+have "$PRE_PR" && pass "exists: $PRE_PR" || fail "missing: $PRE_PR"
+if grep -q 'check-gpl-mit-boundary-diff.sh' "$PRE_PR" 2>/dev/null; then
+  if grep -q 'Bash(bash .claude/scripts/\*' "$PRE_PR" 2>/dev/null; then
+    pass "beutl-pre-pr allows the GPL/MIT script invocation"
+  else
+    fail "beutl-pre-pr invokes check-gpl-mit-boundary-diff.sh but lacks Bash(bash .claude/scripts/*:*) in allowed-tools"
+  fi
+else
+  pass "beutl-pre-pr does not invoke the GPL/MIT script (no allowlist needed)"
+fi
+
 # --- Summary ---------------------------------------------------------------
 if [ "$fails" -eq 0 ]; then
   echo "loop-contract-check: all invariants hold."
