@@ -11,4 +11,3 @@
 [assembly: InternalsVisibleTo("Beutl.Api")]
 [assembly: InternalsVisibleTo("Beutl.NodeGraph")]
 [assembly: InternalsVisibleTo("Beutl.FFmpegWorker")]
-[assembly: InternalsVisibleTo("Beutl.HeadlessUITests")]

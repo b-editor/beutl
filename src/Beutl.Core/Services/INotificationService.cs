@@ -7,7 +7,7 @@ public static class NotificationService
     public static INotificationServiceHandler Handler
     {
         get => s_handler!;
-        internal set => s_handler ??= value;
+        set => s_handler ??= value;
     }
 
     public static void Show(Notification notification)
