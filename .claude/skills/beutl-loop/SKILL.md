@@ -7,7 +7,7 @@ description: |
   max-items budget, a stagnation circuit-breaker, or an empty board. Use when the user says
   "ボードをループで消化して", "loop the board", "keep working AI-review items until …",
   "/beutl-loop". Sub-agent dispatch keeps this orchestrator's context lean across many ticks.
-allowed-tools: Task, Read, Grep, Glob, Write, Edit, Bash(gh:*), Bash(git:*), Bash(dotnet:*), Bash(python3:*), Bash(jq:*), Bash(mktemp:*), Bash(mkdir:*), Bash(rm:*), Bash(date:*), Bash(sleep:*), Bash(timeout:*), Bash(find:*), Bash(bash .claude/scripts/*:*)
+allowed-tools: Task, Read, Grep, Glob, Write, Edit, Bash(gh:*), Bash(git:*), Bash(dotnet:*), Bash(python3:*), Bash(jq:*), Bash(mktemp:*), Bash(mkdir:*), Bash(rm:*), Bash(date:*), Bash(sleep:*), Bash(timeout:*), Bash(find:*), Bash(head:*), Bash(tail:*), Bash(bash .claude/scripts/*:*)
 argument-hint: "[N | dry-run | until-empty] [bug|diff|design|feature]"
 ---
 
@@ -109,11 +109,18 @@ progress and holds the breaker open) · `consecutive_false_positives ≥ 3` (the
 mostly junk — stop and report) · the **same `item_id` or `last_failure_signature` recurs
 back-to-back** (immediate stagnation stop). Record `stop_reason`.
 
-### 1. Select up to K items (bounded parallel)
+### 1. Select up to K items (bounded parallel, budget-capped)
 Re-fetch the board snapshot (as in `beutl-board-task` Step 1), apply the type filter, exclude
 `attempted_ids`, and pick **up to K** items — `K = ${BEUTL_LOOP_PARALLEL:-1}` (default 1 = sequential;
 the headless wrapper may raise this to 2-3, capped at 3). Pick across the full spectrum (features and
 higher-risk included — do not pre-filter by risk).
+
+**Budget cap (the batch must never overshoot the remaining item budget).** Compute
+`remaining_budget = budget − items_processed`, where `budget` is the explicit `N` argument, or the
+runaway backstop `BEUTL_LOOP_MAX_ITEMS` (default 50) for `until-empty`. The actual batch size is
+`B = min(K, remaining_budget)` — pick at most **B** items. This keeps a parallel batch from processing
+more items than the budget allows (e.g. `/beutl-loop 1` with `BEUTL_LOOP_PARALLEL=3` picks `min(3,1)=1`
+item, not 3). If `B ≤ 0`, step 0 already stopped; if `B = 1`, the batch is sequential.
 
 **Footprint-overlap scheduler (C-5).** To avoid parallel branches conflicting on the same files,
 estimate each candidate's footprint and skip overlapping picks:
@@ -280,9 +287,12 @@ address clearly-actionable bot comments, re-verify, and resolve threads. "**Sett
 outstanding `CHANGES_REQUESTED` · no new review/comment/commit for ~10 min. **Re-fetch CI
 (`gh pr checks`) and the thread/`reviewDecision` state yourself each poll — the resolver's
 `ci_status`/`changes_requested_outstanding`/counts are advisory; the orchestrator's own `gh` reads are
-authoritative** (and the step-5 merge gate re-checks them regardless). Use the resolver's
-`last_activity_at` for the quiet-period clock. If `needs_human` is set, the settle window elapses, or
-CI is red → the PR is **left for human** (do not merge).
+authoritative** (and the step-5 merge gate re-checks them regardless). **Derive the quiet-period clock
+yourself too** — fetch the latest review `submitted_at`, inline/issue comment `updated_at`, and commit
+`committedDate` (e.g. `gh pr view "$PR" --json reviews,comments,commits`) and take the max as
+`last_activity_at`; the resolver's `last_activity_at` is advisory (it now carries real timestamps, but
+the orchestrator's own read is authoritative, consistent with CI/thread state). If `needs_human` is
+set, the settle window elapses, or CI is red → the PR is **left for human** (do not merge).
 
 ### 4. Classify risk (moderate policy) and decide the merge
 **Auto-merge eligible (low/moderate) only if ALL hold:** `commit_type ∈

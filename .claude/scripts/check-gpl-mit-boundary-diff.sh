@@ -27,14 +27,17 @@ HEAD=""
 if [ "${1:-}" = "--files" ]; then
   MODE="files"
   shift
-  # Explicit file list (working-tree mode, used by beutl-pre-pr): filter to .csproj/.cs.
-  CHANGED=$(printf '%s\n' "$@" | grep -E '\.(csproj|cs)$' || true)
+  # Explicit file list (working-tree mode, used by beutl-pre-pr): filter to .csproj/.cs and MSBuild
+  # .props/.targets — shared props/targets files (e.g. build/props/CoreLibraries.props) carry
+  # <ProjectReference> too, so a forbidden FFmpegWorker link there must be caught.
+  CHANGED=$(printf '%s\n' "$@" | grep -E '\.(csproj|cs|props|targets)$' || true)
 elif [ $# -ge 2 ]; then
   MODE="refs"
   BASE="$1"
   HEAD="$2"
-  # Two-ref diff mode (used by beutl-loop): git diff already filtered by pathspec.
-  CHANGED=$(git diff --name-only "$BASE..$HEAD" -- '*.csproj' '*.cs' 2>/dev/null || true)
+  # Two-ref diff mode (used by beutl-loop): git diff already filtered by pathspec. Include
+  # .props/.targets for the same reason as --files mode.
+  CHANGED=$(git diff --name-only "$BASE..$HEAD" -- '*.csproj' '*.cs' '*.props' '*.targets' 2>/dev/null || true)
 else
   echo "usage: $0 <base_ref> <head_ref>  |  $0 --files <f1> <f2> ..." >&2
   exit 2

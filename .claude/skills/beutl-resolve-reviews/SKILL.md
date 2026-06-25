@@ -55,11 +55,15 @@ gh api "repos/$OWNER_REPO/pulls/<PR>/reviews" --paginate \
 
 # Inline (line-anchored, threaded) comments
 gh api "repos/$OWNER_REPO/pulls/<PR>/comments" --paginate \
-  --jq '[.[] | {id, in_reply_to_id, user: .user.login, path, line, body, html_url, diff_hunk}]'
+  --jq '[.[] | {id, in_reply_to_id, user: .user.login, path, line, body, html_url, diff_hunk, created_at, updated_at}]'
 
 # General PR (issue) comments
 gh api "repos/$OWNER_REPO/issues/<PR>/comments" --paginate \
-  --jq '[.[] | {id, user: .user.login, body, html_url}]'
+  --jq '[.[] | {id, user: .user.login, body, html_url, created_at, updated_at}]'
+
+# Commit activity — the latest push timestamp is part of last_activity_at (Step 7), so fetch it
+# explicitly. gh pr view --json commits includes each commit's committedDate.
+gh pr view <PR> --json commits --jq '[.commits[].committedDate] | max'
 
 # Thread ids + resolved state (to resolve later); map databaseId -> thread id.
 # first:100 covers all but pathological PRs; if `pageInfo.hasNextPage` is true, follow the cursor.
@@ -76,11 +80,17 @@ logins; when unsure whether a login is a bot, treat it as **human** (fail safe).
 
 ## Step 3 — Reconstruct threads and drop noise
 
-Group inline comments by `in_reply_to_id`; the **latest** comment in a thread is what matters. Skip:
-**comments whose author is `$PR_AUTHOR`** (the PR author's / implementing agent's own notes, captured
-in Step 1 — never treat these as human review feedback), pure approvals / praise / 👍, and threads
-already `isResolved: true` or whose latest reply says done/fixed/resolved. Keep the
-`{thread id ↔ comment databaseId}` map for Step 6.
+Group inline comments by **`in_reply_to_id ?? id`** — i.e. use the comment's own `id` as the thread
+key when `in_reply_to_id` is null, so each top-level comment is its own thread root (grouping by bare
+`in_reply_to_id` would collapse every top-level comment into one shared `null` group). The GraphQL
+`reviewThreads` query (Step 2) already groups correctly server-side; this REST-side reconstruction
+mirrors it. The **latest** comment in a thread is what matters. Skip: **comments whose author is
+`$PR_AUTHOR`** (the PR author's / implementing agent's own notes, captured in Step 1 — never treat
+these as human review feedback), pure approvals / praise / 👍, and threads already `isResolved: true`
+or whose latest reply says done/fixed/resolved. Keep the `{thread id ↔ comment databaseId}` map for
+Step 6 — **replies must target the top-level review comment ID of the thread** (GitHub's
+`/comments/<comment_id>/replies` endpoint replies in the thread rooted at `<comment_id>`; use the
+thread root's `databaseId`, not a child reply's id).
 
 ## Step 4 — Classify (same taxonomy as handle-pr-reviews)
 
@@ -142,6 +152,8 @@ For each thread you addressed (or answered), post a short factual reply, then re
 when `no-resolve`):
 
 ```bash
+# <comment_id> = the thread's top-level review comment ID (the root databaseId from Step 3's map),
+# NOT a child reply's id — GitHub's reply endpoint roots the reply in the thread of <comment_id>.
 gh api "repos/$OWNER_REPO/pulls/<PR>/comments/<comment_id>/replies" -f body="Done — <one-line fix>."
 gh api graphql -f query='mutation{resolveReviewThread(input:{threadId:"<THREAD_ID>"}){thread{isResolved}}}'
 ```
@@ -178,7 +190,11 @@ handle-pr-reviews). Note that no merge was performed.
 - `human_feedback_present`: true if any non-author **human** review or comment exists (always forces
   `needs_human`, since `--auto` never handles human feedback).
 - `last_activity_at`: lets the orchestrator compute the "quiet period" (no new activity for ~10 min)
-  without re-deriving it; report the latest of the newest review, comment, or pushed commit.
+  without re-deriving it; report the **latest** of: the newest review `submitted_at`, the newest inline
+  comment `updated_at`, the newest issue comment `updated_at`, and the latest commit `committedDate`
+  (all fetched in Step 2). Because every source now carries a real timestamp, this value is reliable —
+  the orchestrator still re-derives it itself (see the loop skill's step 3) as the authoritative
+  quiet-period clock, treating this field as advisory (consistent with `ci_status` / counts).
 - `changes_requested_outstanding`: derive from the **final** PR state, not thread resolution alone —
   resolving threads does not flip a `CHANGES_REQUESTED` review to approved (GitHub needs a re-review).
   Set it true if `gh pr view <PR> --json reviewDecision` is `CHANGES_REQUESTED`, or the latest review
