@@ -434,6 +434,54 @@ public class AudioLatencyCompensationTests
             Is.EqualTo(LookaheadSamples(LimiterParameters.MaxLookaheadMs)));
     }
 
+    [Test]
+    public void Flush_AnimatedLookaheadDroppingToZero_StillRecoversHeldTail()
+    {
+        const float lookaheadMs = 5f;
+        const int sampleCount = 4096;
+        int L = LookaheadSamples(lookaheadMs);
+        var clipDuration = TimeSpan.FromSeconds((double)sampleCount / SampleRate);
+        var oneSample = TimeSpan.FromSeconds(1.0 / SampleRate);
+
+        using var input = CreateBuffer(2, sampleCount, (_, i) => 0.25f * MathF.Sin(2f * MathF.PI * 220f * i / SampleRate));
+
+        // Lookahead holds 5 ms across the whole clip, then keyframes to 0 one sample past the clip end.
+        // The last L inputs were buffered at the 5 ms delay; a drain that re-samples the now-zero
+        // automation reads delay offset 0 (the flush silence) and drops them. Draining at the lookahead
+        // retained from the clip's terminal sample must still recover them.
+        var animation = new KeyFrameAnimation<float>
+        {
+            KeyFrames =
+            {
+                new KeyFrame<float> { KeyTime = TimeSpan.Zero, Value = lookaheadMs, Easing = new LinearEasing() },
+                new KeyFrame<float> { KeyTime = clipDuration, Value = lookaheadMs, Easing = new LinearEasing() },
+                new KeyFrame<float> { KeyTime = clipDuration + oneSample, Value = 0f, Easing = new LinearEasing() },
+            },
+        };
+        var lookahead = Property.CreateAnimatable(lookaheadMs);
+        lookahead.Animation = animation;
+
+        using var node = new LimiterNode
+        {
+            Threshold = Property.CreateAnimatable(LimiterParameters.MaxThresholdDb),
+            Release = Property.CreateAnimatable(LimiterParameters.DefaultReleaseMs),
+            Lookahead = lookahead,
+            MakeupGain = Property.CreateAnimatable(0f),
+        };
+        node.AddInput(new BufferReplayNode(input));
+
+        using var processed = node.Process(Context(TimeSpan.Zero, sampleCount));
+        using var tail = node.Flush(Context(clipDuration, sampleCount));
+
+        var inData = input.GetChannelData(0);
+        var tailData = tail.GetChannelData(0);
+        for (int k = 0; k < L; k++)
+        {
+            Assert.That(tailData[k], Is.EqualTo(inData[sampleCount - L + k]).Within(1e-5f),
+                $"Animated-lookahead drain must recover held tail sample {k} at the retained lookahead, not the decayed value.");
+        }
+    }
+
     // Source that honors the requested clip-local range: sample value keyed to the absolute clip-local
     // index so a downstream node's output is identifiable, and reads past the clip end return silence
     // (mirrors SourceNode returning silence for out-of-clip reads, the precondition Flush relies on).
