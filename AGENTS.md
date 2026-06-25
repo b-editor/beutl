@@ -92,7 +92,8 @@ For large features (a new filter category, an IPC protocol change, a new editor 
 - **Automatic PR review**: opening a PR triggers `.github/workflows/claude-code-review.yml`, which runs Claude Code and posts a structured review.
 - **Daily scheduled review**: `.github/workflows/scheduled-code-review.yml` reviews recent diffs or a given scope and files Draft items into GitHub Projects v2.
 - **`@claude` mentions**: writing `@claude` in an issue/PR/review comment triggers `.github/workflows/claude.yml`.
-- **Local subagents**: `beutl-reviewer` / `beutl-test-runner` / `beutl-source-generator-impact` / `beutl-spec-explorer` / `beutl-xaml-binder` / `beutl-design-reviewer` / `beutl-gpu-crash-reproducer` live in `.claude/agents/`.
+- **Autonomous board loop**: `/beutl-loop` by default **drains the Project #9 board** in one bounded run (or pass a tighter `N`) — each tick a worktree sub-agent implements one item and opens a PR, the PR's **bot** reviews are resolved autonomously (human reviews are left for a person), and **low-to-moderate-risk PRs are auto-squash-merged where `main`'s branch rulesets allow — code-owner review (`* @yuto-trd`) currently means the loop usually prepares the PR for you to merge — while higher-risk ones are left for a human**. It is bounded by a runaway backstop (`BEUTL_LOOP_MAX_ITEMS`, default 50) and a stagnation circuit-breaker, and never merges a high-risk PR, force-pushes `main`, or bypasses the rulesets. Details: `docs/ai-workflow/loop-engineering.md`.
+- **Local subagents**: `beutl-reviewer` / `beutl-test-runner` / `beutl-source-generator-impact` / `beutl-spec-explorer` / `beutl-xaml-binder` / `beutl-design-reviewer` / `beutl-gpu-crash-reproducer` / `beutl-board-task-runner` live in `.claude/agents/`.
 - **Local hooks**: dangerous-command deny / dotnet auto-allow / GPL-MIT boundary deny / session-start context injection live in `.claude/hooks/`. Details: `docs/ai-workflow/subagents-and-hooks.md`.
 
 ## Self-improvement
@@ -106,4 +107,5 @@ After completing a substantial task — 3+ files changed, a new feature, a non-t
 - [docs/ai-workflow/subagents-and-hooks.md](docs/ai-workflow/subagents-and-hooks.md) — subagent / hook reference
 - [docs/ai-workflow/spec-driven-development.md](docs/ai-workflow/spec-driven-development.md) — Spec-Kit
 - [docs/ai-workflow/gpl-mit-boundary.md](docs/ai-workflow/gpl-mit-boundary.md) — IPC boundary
+- [docs/ai-workflow/loop-engineering.md](docs/ai-workflow/loop-engineering.md) — the `/beutl-loop` autonomous board loop and its risk-gated auto-merge
 - Path-scoped rules: `.claude/rules/{xaml,csharp,gpl-mit-boundary,ai-setup}.md`

@@ -13,7 +13,8 @@ beutl/
 │   ├── settings.json        # Team-shared hook config
 │   ├── rules/               # Path-scoped rules (xaml / csharp / gpl-mit)
 │   ├── skills/              # Domain skills + canned command skills
-│   ├── agents/              # 7 specialized subagents
+│   ├── agents/              # Specialized subagents
+│   ├── scripts/             # Headless launchers (e.g. beutl-loop.sh)
 │   └── hooks/               # Dangerous-command deny, dotnet auto-allow, GPL/MIT deny, context injection
 ├── .specify/                # Spec-Kit templates / scripts / workflows (vendored, locally patched)
 └── docs/
@@ -35,13 +36,17 @@ beutl/
 | Added or changed several `.axaml` files | `beutl-xaml-binder` subagent |
 | Changed a public type / extensibility surface | `beutl-design-reviewer` subagent (orthogonality, plugin-author flexibility, no compat shims) |
 | CI's Linux/SwiftShader GPU job crashed natively (no managed stack) but it's green on macOS | `beutl-gpu-crash-repro` skill (arm64-native Docker repro + native stack); delegates the noisy build+loop to the `beutl-gpu-crash-reproducer` subagent |
+| Work **one** task from the Project #9 board (bug / quality / design / feature) into a PR | `beutl-board-task` skill (verify → implement → test → PR; a human merges) |
+| Address & resolve a PR's reviews (CodeRabbit / Copilot / Codex / Claude) | `beutl-resolve-reviews` skill (interactive by default; `--auto` for unattended) |
+| Autonomously **drain the board** (all eligible items by default) in one bounded run, auto-merging the low-to-moderate-risk ones where the branch rules permit | `/beutl-loop` skill — meta-loop over `beutl-board-task`; dispatches worktree sub-agents, risk-gates auto-merge, stops on an empty board / runaway backstop / stagnation breaker. See [loop-engineering.md](./loop-engineering.md) |
 
 ## Detailed guides
 
 - [coding-guidelines-for-ai.md](./coding-guidelines-for-ai.md) — only the rules that require human judgment (linters cover the rest)
-- [subagents-and-hooks.md](./subagents-and-hooks.md) — walkthrough of the 7 subagents and 6 hooks
+- [subagents-and-hooks.md](./subagents-and-hooks.md) — walkthrough of the 8 subagents and 6 hooks
 - [spec-driven-development.md](./spec-driven-development.md) — how to use Spec-Kit
 - [gpl-mit-boundary.md](./gpl-mit-boundary.md) — IPC boundary around `Beutl.FFmpegWorker`
+- [loop-engineering.md](./loop-engineering.md) — the `/beutl-loop` autonomous board-draining loop, its risk-gated auto-merge, and its guardrails
 
 ## First-run note
 

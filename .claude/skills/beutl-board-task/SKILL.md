@@ -1,20 +1,25 @@
 ---
 description: |
-  Pick up a non-feature task (bug / quality / design-improvement) from the GitHub
-  Project #9 "AI Review" board, verify it is not a false positive, then plan, implement,
-  test, and open a PR. Use when the user says "AI Review からタスクを選んで作業して",
-  "projects/9 のタスクをやって", "pick a task from the AI Review board", "consume an
-  AI-review backlog item", or similar. If the chosen item turns out to be a false positive,
-  set its Status to "False positive" and move to the next candidate.
-argument-hint: "[item-number | title-keyword | bug|diff|design]"
+  Pick up one task from the GitHub Project #9 task board (any kind — bug, perf/quality,
+  design improvement, or feature), verify it is not a false positive, then plan, implement,
+  test, and open a PR. Use when the user says "ボードからタスクを選んで作業して",
+  "projects/9 のタスクをやって", "pick a task from the board", "consume a backlog item",
+  or similar. If the chosen item turns out to be a false positive, set its Status to
+  "False positive" and move to the next candidate.
+argument-hint: "[item-number | title-keyword | bug|diff|design|feature]"
 ---
 
-# Work an AI Review board task
+# Work a task board item
 
-The `scheduled-code-review.yml` and `claude-code-review.yml` workflows file findings into the
-GitHub Project **#9 "AI Review"** (`b-editor/projects/9`). This skill turns one of those
-findings into a merge-ready PR, end to end. It deliberately targets **non-feature** work
-(bugs, perf/quality, design improvements) — those are concrete, verifiable, and low-risk.
+GitHub Project **#9** (`b-editor/projects/9`, display name "AI Review") is the team's task board.
+It holds both **auto-detected findings** (filed by `scheduled-code-review.yml` /
+`claude-code-review.yml`) and **hand-added tasks** — including features. This skill turns any one
+of those items into a merge-ready PR, end to end.
+
+> Running this skill standalone opens a PR and leaves merging to a human. When it is dispatched as
+> one tick of **`/beutl-loop`**, the loop pre-authorizes the per-item actions, classifies the
+> resulting PR's risk, and decides auto-merge vs. human-merge — this skill itself never merges.
+> See `docs/ai-workflow/loop-engineering.md`.
 
 ## Board coordinates (project #9)
 
@@ -40,7 +45,7 @@ not a page offset — the default is 100, so a board that has grown past that si
 Pass a limit comfortably above the current item count and warn if the snapshot looks truncated.
 
 ```bash
-BOARD=$(mktemp /tmp/ai-review-board.XXXX.json)
+BOARD=$(mktemp /tmp/board-items.XXXX.json)
 gh project item-list 9 --owner b-editor --limit 2000 --format json > "$BOARD"
 
 # Status + type + title, indexed. Warn if we may have hit the fetch ceiling.
@@ -56,17 +61,29 @@ if len(items) >= 2000:
 "
 ```
 
-**Non-feature filter.** Prefer titles prefixed with `[Bug]`, `[YYYY-MM-DD][diff]`, or
-`設計改善:`. Skip plain feature titles (e.g. "リップル削除", "マルチカム編集", "ショートカット: ...").
-Only **unclaimed** items are candidates: `Backlog` and `Todo`. Skip `Done` / `False positive`,
-and skip `In Progress` too — on this board `In Progress` means another agent/contributor has
-already claimed it, so treating it as a candidate invites duplicate work. Among the unclaimed
-ones, bias toward **engine/core, low-risk, high-confidence, testable** items over UI-layer items
-that are hard to unit-test.
+**Candidate filter.** Only **unclaimed** items are candidates: `Backlog` and `Todo`. Skip `Done` /
+`False positive`, and skip `In Progress` too — on this board `In Progress` means another
+agent/contributor has already claimed it, so treating it as a candidate invites duplicate work.
+
+**Select across the full spectrum — do not pre-filter by risk or kind.** Every kind is in scope:
+bugs (`[Bug]`), review findings (`[YYYY-MM-DD][diff]`), design improvements (`設計改善:`), **and
+plain feature titles** (e.g. "リップル削除", "マルチカム編集", "ショートカット: …"). Do **not** skip an item
+merely because it is a feature, higher-risk, or UI-layer. Risk is handled downstream, not by
+excluding work here: when this skill runs inside `/beutl-loop`, the loop classifies each PR's risk
+and routes higher-risk ones to a human for merge (see `docs/ai-workflow/loop-engineering.md`); when
+run standalone, a human reviews and merges every PR anyway.
+
+Two guards on selection:
+- **Underspecified features are `blocked`, not silently skipped.** If a feature item lacks enough
+  detail to implement and verify a concrete outcome, surface it as blocked (and, in a loop, let the
+  stagnation/blocked path handle it) — do not fabricate scope.
+- **Hard-to-unit-test items (often UI) still need verification.** If a fix cannot carry an NUnit
+  test, document a concrete **manual verification** procedure in the plan and PR instead of shipping
+  untested.
 
 If `$ARGUMENTS` is an index/number or a title keyword, jump straight to that item. Otherwise,
-present the top non-feature candidates to the user with AskUserQuestion before committing to one
-(unless the user already told you to just pick one).
+present the top candidates to the user with AskUserQuestion before committing to one (unless the
+user already told you to just pick one, e.g. when dispatched by `/beutl-loop`).
 
 Resolve the pick against the **same snapshot** and capture its **stable item id** now. Do not
 re-run `item-list` and re-select by numeric index later — the shared board can have items added,
@@ -272,7 +289,7 @@ perf(engine): <imperative summary>
 
 <what was wrong + why the fix is safe + behavior-preserving note>
 
-Refs: Project #9 "AI Review" item "<exact finding title>"
+Refs: Project #9 board item "<exact item title>"
 EOF
 git push -u origin "$BRANCH"                # never push to main/master
 gh pr create --base main --head "$BRANCH" \
