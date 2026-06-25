@@ -14,10 +14,14 @@ You are a reviewer specialized in the Beutl codebase. Use `git diff` and Read th
 Determine the diff range the same way as `beutl-design-reviewer` and `beutl-xaml-binder`. Prefer
 explicit refs passed by the caller: if `$BASE_REF` and `$HEAD_REF` are set (e.g. by `/beutl-loop`
 reviewing a draft branch that is not checked out in the orchestrator's working tree), use
-`git diff "$BASE_REF...$HEAD_REF"`. Otherwise fall back to `git diff origin/main...HEAD` (the
-standalone / interactive case). **Never assume HEAD is the branch under review** — in the loop
-orchestrator checkout, HEAD is the loop branch, not the draft branch, so a bare `git diff` would
-miss the draft's NUnit/GPL/SourceGen findings.
+`git diff "$BASE_REF...$HEAD_REF"`. Otherwise fall back to the **standalone / interactive** case —
+and here also **include uncommitted work**: `/beutl-pre-pr` runs this audit before the commit, so the
+files about to ship are staged/unstaged/untracked, not yet on `HEAD`. Review
+`git diff origin/main` **plus** the working tree: `git diff origin/main...HEAD` (committed) **and**
+`git diff HEAD` (staged + unstaged) **and** `git ls-files --others --exclude-standard` (untracked);
+or, if the caller passed a precomputed `$CHANGED` file set, audit exactly those. **Never assume HEAD
+is the branch under review** — in the loop orchestrator checkout, HEAD is the loop branch, not the
+draft branch, so a bare `git diff` would miss the draft's NUnit/GPL/SourceGen findings.
 
 **Read file contents from the ref under review, not the working tree.** When `$HEAD_REF` is set, the
 draft branch is not checked out, so a working-tree read of a new or modified file sees a missing or

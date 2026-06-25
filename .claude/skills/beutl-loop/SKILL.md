@@ -237,10 +237,12 @@ load-bearing and must not be skipped.
   `already_implemented` (moved to Done) → reset `consecutive_no_progress` (progress).
 - Only if **all** results were no-progress (red / systemic-blocked / baseline-violation) does the tick
   count as a single no-progress tick.
-- `consecutive_false_positives`: if the batch had **any** non-FP progress (a PR opened or an
-  `already_implemented` item), **reset it to 0** — the false positives were not consecutive. Only a
-  batch that is **purely** false positives increments it (by the count of FPs). If the running total
-  ≥ 3, the step-0 breaker trips.
+- `consecutive_false_positives`: the **per-result handling above is the sole owner** of this counter
+  (each confirmed FP already incremented it once; each non-FP progress result already reset it to 0).
+  Do **not** re-increment here — that would double-count a batch. The only batch-level rule: if the
+  batch had **any** non-FP progress (a PR opened or an `already_implemented` item), ensure the streak
+  is **0** after the batch (a reset by any one result wins over the other results' increments — the
+  FPs were not consecutive). If the running total ≥ 3, the step-0 breaker trips.
 - Each item in the batch counts as one `items_processed` in step 5 (a batch of 3 → 3 processed, so a
   parallel drain is faster but does not inflate the per-tick budget semantics).
 
@@ -255,21 +257,21 @@ then use **`origin/$DRAFT_BRANCH`** as the head everywhere in 2.5 (diffs `origin
 the post-PR settle window stays short. Up to **two** rework iterations; then the PR opens.
 
 **2.5a. Orchestrator machine-verify (independent of the runner's self-report — do not trust
-`self_review_passed`).** On `git diff origin/main...$DRAFT_BRANCH`, grep for the self-review gate's
+`self_review_passed`).** On `git diff origin/main...origin/$DRAFT_BRANCH`, grep for the self-review gate's
 mechanical axes:
 - `[Obsolete]` on a `+`-line introduced in this diff (same-change deprecate-and-replace ⇒ blocking).
 - `V2` / `Ex2` / `2` type-name suffixes on `+`-lines (compat-shim smell ⇒ blocking).
 - `// TODO` / `## Follow-ups` / `# Follow-ups` on `+`-lines (deferred work ⇒ blocking).
 - Every changed `.axaml` UserControl declares `x:CompileBindings="True"` + `x:DataType` (missing ⇒
   blocking; suggest the fix inline).
-- GPL/MIT boundary: run `bash .claude/scripts/check-gpl-mit-boundary-diff.sh origin/main "$DRAFT_BRANCH"`
+- GPL/MIT boundary: run `bash .claude/scripts/check-gpl-mit-boundary-diff.sh origin/main "origin/$DRAFT_BRANCH"`
   — this is a **diff-side scan**, not the PreToolUse hook (the hook reads `tool_input.file_path`
   from Edit/Write JSON and is a no-op when invoked on a diff). The script reads the head-side
-  file content via `git show "$DRAFT_BRANCH:$f"` (the draft branch may not be checked out in the
+  file content via `git show "origin/$DRAFT_BRANCH:$f"` (the draft branch may not be checked out in the
   orchestrator's working tree). Exit 1 ⇒ blocking; the script prints `file:line` for each
   violation.
 - **Workflow files (hard guardrail):** any change under `.github/workflows/` in the diff
-  (`git diff --name-only origin/main...$DRAFT_BRANCH -- .github/workflows/`) is a **hard guardrail
+  (`git diff --name-only origin/main...origin/$DRAFT_BRANCH -- .github/workflows/`) is a **hard guardrail
   violation** (AGENTS.md rule #5 — never touch CI workflows without explicit approval). This is not
   reworkable by the loop: stop, leave the item for a human, and do **not** open or merge a PR from it.
 
@@ -277,12 +279,12 @@ Collect any hits as `machine_findings`. The GPL/MIT and workflow hits are **hard
 findings: they are never auto-reworked or auto-merged — they always route to a human.
 
 **2.5b. Sub-agent review.** Dispatch `@beutl-reviewer` and `@beutl-xaml-binder` (read-only) on
-`git diff origin/main...$DRAFT_BRANCH`. **Do not trust the runner's `design_reviewer_required` flag
+`git diff origin/main...origin/$DRAFT_BRANCH`. **Do not trust the runner's `design_reviewer_required` flag
 alone** — the draft is untrusted, so re-derive it from the diff here: grep
-`git diff origin/main...$DRAFT_BRANCH` for changes to public surface (`src/Beutl.Engine`,
+`git diff origin/main...origin/$DRAFT_BRANCH` for changes to public surface (`src/Beutl.Engine`,
 `Beutl.Api`, `Beutl.Extensibility`, `Beutl.NodeGraph`, `Beutl.FFmpegIpc`, `Beutl.ProjectSystem`,
 `Beutl.Controls`), a new abstraction, or an `[Obsolete]`/compat-shim pattern. If **either** the flag
-**or** this grep says design-sensitive, also dispatch `@beutl-design-reviewer`. **Pass `BASE_REF=origin/main` and `HEAD_REF=$DRAFT_BRANCH` as environment
+**or** this grep says design-sensitive, also dispatch `@beutl-design-reviewer`. **Pass `BASE_REF=origin/main` and `HEAD_REF=origin/$DRAFT_BRANCH` as environment
 variables to each sub-agent** so they diff the actual draft branch instead of `HEAD` (which is the
 loop branch in the orchestrator checkout, not the draft). Collect their blocking findings as `review_findings`.
 

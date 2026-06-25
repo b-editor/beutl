@@ -342,7 +342,9 @@ Two binary checks gate the commit; both must pass (prefer fixing in-branch; othe
 
 ```bash
 git add <changed files>
-git commit -F - <<'EOF'
+# -S: sign explicitly — the main ruleset requires signed commits; do not rely on commit.gpgsign being
+# configured (an unsigned commit pushed here leaves the PR unmergeable). Never pass --no-gpg-sign.
+git commit -S -F - <<'EOF'
 perf(engine): <imperative summary>
 
 <what was wrong + why the fix is safe + behavior-preserving note>

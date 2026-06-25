@@ -173,6 +173,12 @@ without an explicit "Address it".
   Decide pass/fail from the **exit code**, never a console string. If the change goes red and you
   cannot fix it minimally, **revert that edit**, leave the thread open, and set `needs_human`. Never
   push red.
+- **Re-run the production-change test gate on the review-fix diff (`--auto`).** A bot-requested fix can
+  add new `src/` logic after the runner's gate already passed. If the review-fix diff
+  (`git diff origin/main...HEAD`) touches production code under `src/` but adds/modifies no test under
+  `tests/` (and is not a documented manual-verification), it would slip untested logic into a PR the
+  loop later auto-merges. Add the test in the same fix, or — if you cannot — **revert the edit and
+  escalate (`needs_human`)** rather than pushing untested production code.
 - Commit addressed changes **signed** (`git commit -S -m "fix(review): …"` — the `main` ruleset
   requires signed commits, and the repo config signs by default; never `--no-gpg-sign`, or the pushed
   fix leaves the PR unmergeable) and push to the PR head with the explicit refspec
