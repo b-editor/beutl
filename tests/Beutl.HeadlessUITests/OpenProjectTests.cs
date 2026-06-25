@@ -5,9 +5,10 @@ using Beutl.Testing.Headless;
 
 namespace Beutl.HeadlessUITests;
 
+[TestFixture]
 public class OpenProjectTests
 {
-    private static void ResetProject() => TestReset.ResetShell();
+    private static Task ResetProjectAsync() => TestReset.ResetShellAsync();
 
     private static string NewWorkspace(string name)
     {
@@ -19,7 +20,7 @@ public class OpenProjectTests
     [AvaloniaTest]
     public async Task OpenProject_loads_a_persisted_project_file()
     {
-        ResetProject();
+        await ResetProjectAsync();
 
         Project created = (await ProjectService.Current.CreateProject(
             1280, 720, 30, 44100, "reopen", NewWorkspace("reopen")))!;
@@ -50,7 +51,7 @@ public class OpenProjectTests
     [AvaloniaTest]
     public async Task OpenProject_round_trips_frame_size()
     {
-        ResetProject();
+        await ResetProjectAsync();
 
         Project created = (await ProjectService.Current.CreateProject(
             800, 600, 25, 48000, "framesize", NewWorkspace("framesize")))!;
@@ -70,7 +71,7 @@ public class OpenProjectTests
     [AvaloniaTest]
     public async Task OpenProject_preserves_project_variables()
     {
-        ResetProject();
+        await ResetProjectAsync();
 
         Project created = (await ProjectService.Current.CreateProject(
             640, 480, 60, 22050, "vars", NewWorkspace("vars")))!;

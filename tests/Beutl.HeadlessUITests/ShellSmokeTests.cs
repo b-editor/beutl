@@ -6,9 +6,10 @@ using Beutl.ViewModels;
 
 namespace Beutl.HeadlessUITests;
 
+[TestFixture]
 public class ShellSmokeTests
 {
-    private static void ResetProject() => TestReset.ResetShell();
+    private static Task ResetProjectAsync() => TestReset.ResetShellAsync();
 
     private static string NewWorkspace(string name)
     {
@@ -20,7 +21,7 @@ public class ShellSmokeTests
     [AvaloniaTest]
     public async Task CreateProject_persists_files_and_opens()
     {
-        ResetProject();
+        await ResetProjectAsync();
 
         Project? project = await ProjectService.Current.CreateProject(
             1920, 1080, 30, 44100, "create", NewWorkspace("create"));
@@ -39,7 +40,7 @@ public class ShellSmokeTests
     [AvaloniaTest]
     public async Task ActivateTabItem_creates_a_scene_editor_tab()
     {
-        ResetProject();
+        await ResetProjectAsync();
 
         Project? project = await ProjectService.Current.CreateProject(
             640, 480, 30, 44100, "tab", NewWorkspace("tab"));
@@ -55,7 +56,7 @@ public class ShellSmokeTests
     [AvaloniaTest]
     public async Task MainViewModel_reflects_open_and_close()
     {
-        ResetProject();
+        await ResetProjectAsync();
 
         var vm = new MainViewModel();
         Assert.That(vm.IsProjectOpened.Value, Is.False);

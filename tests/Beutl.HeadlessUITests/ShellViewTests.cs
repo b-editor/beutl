@@ -15,9 +15,10 @@ namespace Beutl.HeadlessUITests;
 // headless window. The full MainView is not hosted: it pulls app-only dock/title-bar resources and
 // window chrome that the minimal TestApp does not register; EditView is the largest real shell view
 // that inflates and lays out reliably headless.
+[TestFixture]
 public class ShellViewTests
 {
-    private static void ResetProject() => TestReset.ResetShell();
+    private static Task ResetProjectAsync() => TestReset.ResetShellAsync();
 
     private static string NewWorkspace(string name)
     {
@@ -41,7 +42,7 @@ public class ShellViewTests
     [AvaloniaTest]
     public async Task EditView_inflates_and_lays_out_in_a_headless_window()
     {
-        ResetProject();
+        await ResetProjectAsync();
         EditViewModel editor = await OpenEditorForNewScene("editview");
 
         var view = new EditView { DataContext = editor };
@@ -68,7 +69,7 @@ public class ShellViewTests
     [AvaloniaTest]
     public async Task EditView_renders_to_a_headless_frame()
     {
-        ResetProject();
+        await ResetProjectAsync();
         EditViewModel editor = await OpenEditorForNewScene("editviewframe");
 
         var view = new EditView { DataContext = editor };

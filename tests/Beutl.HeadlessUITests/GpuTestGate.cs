@@ -9,7 +9,7 @@ namespace Beutl.HeadlessUITests;
 internal static class GpuTestGate
 {
     private static readonly object s_lock = new();
-    private static bool s_initialized;
+    private static volatile bool s_initialized;
     private static bool s_isAvailable;
     private static string? s_reason;
 

@@ -9,9 +9,10 @@ using Beutl.ViewModels;
 
 namespace Beutl.HeadlessUITests;
 
+[TestFixture]
 public class SaveRoundTripTests
 {
-    private static void ResetProject() => TestReset.ResetShell();
+    private static Task ResetProjectAsync() => TestReset.ResetShellAsync();
 
     private static string NewWorkspace(string name)
     {
@@ -23,7 +24,7 @@ public class SaveRoundTripTests
     [AvaloniaTest]
     public async Task Mutation_made_through_the_editor_survives_save_and_reopen()
     {
-        ResetProject();
+        await ResetProjectAsync();
 
         Project project = (await ProjectService.Current.CreateProject(
             640, 480, 30, 44100, "saveroundtrip", NewWorkspace("saveroundtrip")))!;
@@ -54,7 +55,7 @@ public class SaveRoundTripTests
         HeadlessTestHelpers.Settle();
         Assert.That(saved, Is.True);
 
-        ResetProject();
+        await ResetProjectAsync();
 
         await ProjectService.Current.OpenProject(projectFile);
         HeadlessTestHelpers.Settle();
@@ -72,7 +73,7 @@ public class SaveRoundTripTests
     [AvaloniaTest]
     public async Task Saving_writes_the_element_file_to_disk()
     {
-        ResetProject();
+        await ResetProjectAsync();
 
         Project project = (await ProjectService.Current.CreateProject(
             640, 480, 30, 44100, "savewrites", NewWorkspace("savewrites")))!;

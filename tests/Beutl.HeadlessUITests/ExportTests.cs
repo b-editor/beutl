@@ -10,9 +10,10 @@ using Beutl.ViewModels.Tools;
 
 namespace Beutl.HeadlessUITests;
 
+[TestFixture]
 public class ExportTests
 {
-    private static void ResetProject() => TestReset.ResetShell();
+    private static Task ResetProjectAsync() => TestReset.ResetShellAsync();
 
     private static string NewWorkspace(string name)
     {
@@ -48,7 +49,7 @@ public class ExportTests
     [AvaloniaTest]
     public async Task OutputViewModel_constructs_with_sane_defaults()
     {
-        ResetProject();
+        await ResetProjectAsync();
         EditViewModel editor = await OpenEditorWithRectangle("exportvm");
 
         using var output = new OutputViewModel(editor);
@@ -67,7 +68,7 @@ public class ExportTests
     [AvaloniaTest]
     public async Task OutputViewModel_flags_a_supersample_factor_that_exceeds_the_buffer_limit()
     {
-        ResetProject();
+        await ResetProjectAsync();
         EditViewModel editor = await OpenEditorWithRectangle("exportwarn");
         // 5000 * 4 = 20000 > MaxBufferDimension (16384), so a 4x factor overflows the buffer.
         editor.Scene.FrameSize = new Media.PixelSize(5000, 240);
@@ -89,7 +90,7 @@ public class ExportTests
     [AvaloniaTest]
     public async Task OutputViewModel_without_a_registered_encoder_cannot_encode()
     {
-        ResetProject();
+        await ResetProjectAsync();
         EditViewModel editor = await OpenEditorWithRectangle("exportnoenc");
 
         using var output = new OutputViewModel(editor);

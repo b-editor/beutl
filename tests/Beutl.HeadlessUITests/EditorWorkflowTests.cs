@@ -10,9 +10,10 @@ using Beutl.ViewModels;
 
 namespace Beutl.HeadlessUITests;
 
+[TestFixture]
 public class EditorWorkflowTests
 {
-    private static void ResetProject() => TestReset.ResetShell();
+    private static Task ResetProjectAsync() => TestReset.ResetShellAsync();
 
     private static string NewWorkspace(string name)
     {
@@ -51,7 +52,7 @@ public class EditorWorkflowTests
     [AvaloniaTest]
     public async Task ActivateTabItem_exposes_the_EditViewModel_for_the_scene()
     {
-        ResetProject();
+        await ResetProjectAsync();
         EditViewModel editor = await OpenEditorForNewScene("editvm");
 
         Assert.That(editor, Is.Not.Null);
@@ -63,7 +64,7 @@ public class EditorWorkflowTests
     [AvaloniaTest]
     public async Task AddElement_through_the_editor_records_history_and_grows_the_scene()
     {
-        ResetProject();
+        await ResetProjectAsync();
         EditViewModel editor = await OpenEditorForNewScene("addelem");
 
         Assert.That(editor.Scene.Children, Is.Empty);
@@ -81,11 +82,14 @@ public class EditorWorkflowTests
     [AvaloniaTest]
     public async Task EditProperty_through_the_editor_records_a_second_history_entry()
     {
-        ResetProject();
+        await ResetProjectAsync();
         EditViewModel editor = await OpenEditorForNewScene("editprop");
         Element element = AddRectangle(editor, TimeSpan.Zero, layer: 0);
         Assert.That(editor.HistoryManager.UndoCount, Is.EqualTo(1));
 
+        // Exercises the observer->history pipeline (CLR setter -> CorePropertyOperationObserver ->
+        // pending transaction -> Commit), not a specific edit service; service-level coverage of
+        // attribute edits lives in the Beutl.UnitTests editor-service tests.
         int originalZIndex = element.ZIndex;
         element.ZIndex = originalZIndex + 3;
         editor.HistoryManager.Commit("EditZIndex");
@@ -98,7 +102,7 @@ public class EditorWorkflowTests
     [AvaloniaTest]
     public async Task Undo_and_redo_restore_a_property_edit()
     {
-        ResetProject();
+        await ResetProjectAsync();
         EditViewModel editor = await OpenEditorForNewScene("undoprop");
         Element element = AddRectangle(editor, TimeSpan.Zero, layer: 0);
 
@@ -124,7 +128,7 @@ public class EditorWorkflowTests
     [AvaloniaTest]
     public async Task Undo_removes_the_added_element_and_redo_restores_it()
     {
-        ResetProject();
+        await ResetProjectAsync();
         EditViewModel editor = await OpenEditorForNewScene("undoadd");
         Element element = AddRectangle(editor, TimeSpan.Zero, layer: 0);
         Guid elementId = element.Id;
@@ -146,7 +150,7 @@ public class EditorWorkflowTests
     [AvaloniaTest]
     public async Task Undo_redo_through_known_editor_commands()
     {
-        ResetProject();
+        await ResetProjectAsync();
         EditViewModel editor = await OpenEditorForNewScene("knowncmds");
         AddRectangle(editor, TimeSpan.Zero, layer: 0);
         Assert.That(editor.Scene.Children, Has.Count.EqualTo(1));

@@ -5,6 +5,7 @@ using Beutl.ViewModels;
 
 namespace Beutl.HeadlessUITests;
 
+[TestFixture]
 public class MainViewModelExtensionTests
 {
     private static MainViewModel SharedMainViewModel => ((TestApp)Application.Current!).GetMainViewModel();

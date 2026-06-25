@@ -15,9 +15,10 @@ namespace Beutl.HeadlessUITests;
 
 // GPU-gated (B2): renders a real preview frame through SceneRenderer. Skips cleanly when no
 // Vulkan/MoltenVK/SwiftShader device is available; runs (e.g. on macOS/MoltenVK) when one is.
+[TestFixture]
 public class PreviewRenderTests
 {
-    private static void ResetProject() => TestReset.ResetShell();
+    private static Task ResetProjectAsync() => TestReset.ResetShellAsync();
 
     private static string NewWorkspace(string name)
     {
@@ -56,7 +57,7 @@ public class PreviewRenderTests
     public async Task SceneRenderer_renders_a_non_empty_preview_frame()
     {
         GpuTestGate.EnsureAvailable();
-        ResetProject();
+        await ResetProjectAsync();
 
         Scene scene = await NewSceneWithRectangle("preview");
 
@@ -81,7 +82,7 @@ public class PreviewRenderTests
     public async Task SceneRenderer_renders_through_the_player_view_model()
     {
         GpuTestGate.EnsureAvailable();
-        ResetProject();
+        await ResetProjectAsync();
 
         Scene scene = await NewSceneWithRectangle("playerpreview");
         var editor = (EditViewModel)EditorService.Current.SelectedTabItem.Value!.Context.Value;
