@@ -59,6 +59,27 @@ public class WaveReaderTests
     }
 
     [Test]
+    public void ReadAudio_WithNonZeroStart_ReturnsSamplesFromOffset()
+    {
+        using var reader = new WaveReader(_file);
+
+        const int start = 250;
+        const int length = 300;
+        Assert.That(reader.ReadAudio(start, length, out Ref<IPcm>? sound), Is.True);
+        using (sound)
+        {
+            var pcm = (Pcm<Stereo32BitFloat>)sound!.Value;
+            Assert.That(pcm.NumSamples, Is.EqualTo(length));
+
+            Span<Stereo32BitFloat> data = pcm.DataSpan;
+            // The first decoded frame must map to the requested start index, proving the seek-then-read
+            // path positions the reader before decoding.
+            Assert.That(data[0].Left, Is.EqualTo(SampleForFrame(start)).Within(1e-3f));
+            Assert.That(data[^1].Left, Is.EqualTo(SampleForFrame(start + length - 1)).Within(1e-3f));
+        }
+    }
+
+    [Test]
     public void ReadAudio_RequestCrossesEof_ReturnsShortReadOfActualSamples()
     {
         using var reader = new WaveReader(_file);
@@ -77,12 +98,17 @@ public class WaveReaderTests
     }
 
     [Test]
-    public void ReadAudio_StartPastEof_ReturnsFalse()
+    public void ReadAudio_StartPastEof_ReturnsTrueWithEmptyPcm()
     {
         using var reader = new WaveReader(_file);
 
-        Assert.That(reader.ReadAudio(FrameCount * 2, 100, out Ref<IPcm>? sound), Is.False);
-        Assert.That(sound, Is.Null);
+        // Per the ReadAudio contract, end-of-stream is signalled by NumSamples == 0, not by false:
+        // false is reserved for disposed/no-stream/error.
+        Assert.That(reader.ReadAudio(FrameCount * 2, 100, out Ref<IPcm>? sound), Is.True);
+        using (sound)
+        {
+            Assert.That(sound!.Value.NumSamples, Is.Zero);
+        }
     }
 
     [Test]

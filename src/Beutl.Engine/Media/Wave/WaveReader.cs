@@ -1,9 +1,7 @@
 ﻿using System.Diagnostics.CodeAnalysis;
-using System.Runtime.InteropServices;
 
 using Beutl.Media.Decoding;
 using Beutl.Media.Music;
-using Beutl.Media.Music.Samples;
 using Beutl.Media.Source;
 
 using NAudio.Wave;
@@ -43,26 +41,8 @@ public sealed class WaveReader : MediaReader
         if (IsDisposed)
             return false;
 
-        if (length <= 0)
-        {
-            sound = Ref<IPcm>.Create(new Pcm<Stereo32BitFloat>(_waveFormat.SampleRate, 0));
-            return true;
-        }
-
         _reader.CurrentTime = TimeSpan.FromSeconds(start / (double)_waveFormat.SampleRate);
-
-        // ToStereo() gives 2 floats per frame, so the provider's element count maps to frames via /2.
-        float[] buffer = new float[length * 2];
-        int frames = _provider.Read(buffer, 0, buffer.Length) / 2;
-        if (frames <= 0)
-        {
-            return false;
-        }
-
-        var pcm = new Pcm<Stereo32BitFloat>(_waveFormat.SampleRate, frames);
-        buffer.AsSpan(0, frames * 2).CopyTo(MemoryMarshal.Cast<Stereo32BitFloat, float>(pcm.DataSpan));
-
-        sound = Ref<IPcm>.Create(pcm);
+        sound = SampleProviderReader.ReadStereo(_provider, _waveFormat.SampleRate, length);
         return true;
     }
 

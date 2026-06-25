@@ -142,9 +142,18 @@ public sealed class AVFReader : MediaReader
             return false;
         }
 
-        // The native reader zero-fills uncovered ranges (trailing silence past EOF) rather than
-        // reporting a short read, which still satisfies the ReadAudio contract. Reporting the actual
-        // decoded count would need an extended C ABI + a .dylib rebuild — tracked as a follow-up.
+        if (length <= 0)
+        {
+            sound = Ref<IPcm>.Create(new Pcm<Stereo32BitFloat>(AudioInfo.SampleRate, 0));
+            return true;
+        }
+
+        // The native reader always writes exactly `length` frames, zero-filling any range past
+        // end-of-stream with silence, and reports no per-read decoded count. This is the zero-filled
+        // EOF shape permitted by the ReadAudio contract: NumSamples is always == length here, so callers
+        // must detect EOF by cross-checking `start + length` against the stream duration rather than by
+        // a short read. Returning a precise decoded count would require extending the C ABI and
+        // rebuilding the .dylib; tracked as a follow-up.
         var buffer = new Pcm<Stereo32BitFloat>(AudioInfo.SampleRate, length);
         try
         {
