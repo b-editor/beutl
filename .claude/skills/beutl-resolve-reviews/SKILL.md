@@ -161,7 +161,9 @@ without an explicit "Address it".
   Decide pass/fail from the **exit code**, never a console string. If the change goes red and you
   cannot fix it minimally, **revert that edit**, leave the thread open, and set `needs_human`. Never
   push red.
-- Commit addressed changes (`fix(review): …`) and push to the PR head with the explicit refspec
+- Commit addressed changes **signed** (`git commit -S -m "fix(review): …"` — the `main` ruleset
+  requires signed commits, and the repo config signs by default; never `--no-gpg-sign`, or the pushed
+  fix leaves the PR unmergeable) and push to the PR head with the explicit refspec
   `git push origin "HEAD:$HEAD_REF"` (you are on a detached checkout — see Step 5 preamble). Never
   force-push; never push `main`.
 

@@ -167,15 +167,19 @@ Never merge in rework mode either.
 
 ## Spec-Kit re-dispatch mode (F-11 — large features)
 
-The orchestrator re-dispatches you with `SPECKIT=true`, the `ITEM_ID`, and a path to a generated
-`tasks.md` (produced by `/speckit-specify → /speckit-plan → /speckit-tasks`). Do **not** start a new
-item or re-pick:
+The orchestrator re-dispatches you with `SPECKIT=true`, the `ITEM_ID`, a path to a generated
+`tasks.md`, and the paths of the generated `docs/specs/<NNN>-<slug>/` artifacts (spec / plan /
+tasks — produced by `/speckit-specify → /speckit-plan → /speckit-tasks` in the orchestrator
+checkout, outside your worktree). Do **not** start a new item or re-pick:
 
 1. Read `tasks.md` and execute its tasks in dependency order, on a feature branch off `origin/main`
    (named `$BRANCH_PREFIX/<descriptive-slug>` as usual).
 2. For each task, apply the minimal change, run the binary gates (build + test exit-code + format),
    and proceed. A production change still ships an NUnit test (rule #3).
-3. When all tasks are done, commit (signed), push, and hand back a **draft** (`draft_ready: true`,
+3. **Copy the passed `docs/specs/<NNN>-<slug>/` artifacts into your worktree and commit them on the
+   draft branch** alongside the implementation — they were generated outside your worktree, so without
+   this the feature PR would ship the implementation without the spec/plan/tasks that drove it.
+4. When all tasks are done, commit (signed), push, and hand back a **draft** (`draft_ready: true`,
    `draft_branch` set) — exactly like the normal first pass. The orchestrator runs the pre-PR review
    round (step 2.5) on the draft.
 

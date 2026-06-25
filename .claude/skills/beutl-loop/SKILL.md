@@ -206,7 +206,11 @@ Per-result outcomes and their effect on the **stagnation counters** (the budget 
 `touched_production == true && test_files_added_count == 0 && test_status != "manual-verification"`
 (the runner should have blocked instead), do **not** open a PR from this draft — treat it as
 **high-risk → leave for human** and count the tick as **no-progress** (a runner-contract violation, not
-a shippable item). Likewise, if `baseline_test_green != true` (the runner skipped the baseline run
+a shippable item). **Do not strand the claimed item:** revert its board status from `In Progress` back
+to `Todo` (un-claim) so it is not stuck `In Progress` forever — future runs select only `Backlog`/`Todo`,
+so an abandoned `In Progress` item would never be revisited. Keep it in this run's `attempted_ids` (so
+it is not re-picked this run) and record it under `blocked` with the reason; the stagnation breaker
+handles any thrash. Likewise, if `baseline_test_green != true` (the runner skipped the baseline run
 entirely — not the same as a red baseline for a bug fix, which is expected and sets
 `baseline_test_green: true`), treat the tick as **no-progress** — the baseline-first discipline is
 load-bearing and must not be skipped.
@@ -241,8 +245,13 @@ mechanical axes:
   file content via `git show "$DRAFT_BRANCH:$f"` (the draft branch may not be checked out in the
   orchestrator's working tree). Exit 1 ⇒ blocking; the script prints `file:line` for each
   violation.
+- **Workflow files (hard guardrail):** any change under `.github/workflows/` in the diff
+  (`git diff --name-only origin/main...$DRAFT_BRANCH -- .github/workflows/`) is a **hard guardrail
+  violation** (AGENTS.md rule #5 — never touch CI workflows without explicit approval). This is not
+  reworkable by the loop: stop, leave the item for a human, and do **not** open or merge a PR from it.
 
-Collect any hits as `machine_findings`.
+Collect any hits as `machine_findings`. The GPL/MIT and workflow hits are **hard guardrail**
+findings: they are never auto-reworked or auto-merged — they always route to a human.
 
 **2.5b. Sub-agent review.** Dispatch `@beutl-reviewer` and `@beutl-xaml-binder` (read-only) on
 `git diff origin/main...$DRAFT_BRANCH`. **Do not trust the runner's `design_reviewer_required` flag
@@ -258,7 +267,10 @@ loop branch in the orchestrator checkout, not the draft). Collect their blocking
 - Re-dispatch `beutl-board-task-runner` in **Rework mode** (`REWORK=true`, `draft_branch`,
   `review_findings=<combined>`, `OPEN_PR=false`); it amends the branch, re-runs the binary gates,
   pushes, and returns `draft_ready` again.
-- Re-run 2.5a + 2.5b on the amended branch. Increment the rework count and loop.
+- **Re-fetch the amended branch first** (`git fetch origin "$DRAFT_BRANCH"`) — the runner pushed from
+  a detached HEAD, so the local `$DRAFT_BRANCH` ref does not advance. Re-run 2.5a + 2.5b against the
+  freshly-fetched ref, i.e. diff `origin/main...origin/$DRAFT_BRANCH`, or stale pre-rework content
+  makes fixed findings reappear and clean drafts open as high-risk. Increment the rework count and loop.
 - **2-rework budget spent with blocking findings remaining** → stop reworking; the findings are
   **unresolved**.
 
