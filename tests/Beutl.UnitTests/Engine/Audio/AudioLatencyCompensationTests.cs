@@ -1,9 +1,13 @@
-﻿using Beutl.Animation;
+﻿using System.Collections.Immutable;
+
+using Beutl.Animation;
 using Beutl.Animation.Easings;
 using Beutl.Audio;
+using Beutl.Audio.Composing;
 using Beutl.Audio.Effects;
 using Beutl.Audio.Graph;
 using Beutl.Audio.Graph.Nodes;
+using Beutl.Composition;
 using Beutl.Engine;
 using Beutl.Logging;
 using Beutl.Media;
@@ -516,6 +520,46 @@ public class AudioLatencyCompensationTests
             Assert.That(tailData[k], Is.EqualTo(inData[sampleCount - L + k]).Within(1e-5f),
                 $"Animated-lookahead drain must recover held tail sample {k} at the retained lookahead, not the decayed value.");
         }
+    }
+
+    [Test]
+    public void Composer_FlushesSoundEndingExactlyAtTheWindowBoundary()
+    {
+        const float lookaheadMs = 5f;
+        int L = LookaheadSamples(lookaheadMs);
+        var oneSecond = TimeSpan.FromSeconds(1);
+
+        // The sound spans exactly [0, 1s) and carries a 5 ms lookahead limiter. Window 1 covers it
+        // exactly, so the clip's terminal window is full (capacity 0) and the held tail cannot
+        // self-recover. Window 2 excludes the sound (it ended), so only a Composer that flushes the
+        // just-ended sound recovers the tail into the start of window 2.
+        var sound = new LimiterTailSound
+        {
+            LookaheadMs = lookaheadMs,
+            TimeRange = new TimeRange(TimeSpan.Zero, oneSecond),
+        };
+        var resource = sound.ToResource(CompositionContext.Default);
+
+        using var composer = new Composer { SampleRate = SampleRate };
+
+        var window1 = new TimeRange(TimeSpan.Zero, oneSecond);
+        var frame1 = new CompositionFrame(ImmutableArray.Create<EngineObject.Resource>(resource), window1, default);
+        using var buffer1 = composer.Compose(window1, frame1);
+
+        var window2 = new TimeRange(oneSecond, oneSecond);
+        var frame2 = new CompositionFrame(ImmutableArray<EngineObject.Resource>.Empty, window2, default);
+        using var buffer2 = composer.Compose(window2, frame2);
+
+        Assert.That(buffer2, Is.Not.Null);
+        var tail = buffer2!.GetChannelData(0);
+        bool tailNonZero = false;
+        for (int k = 0; k < L; k++)
+        {
+            if (MathF.Abs(tail[k]) > 1e-5f) { tailNonZero = true; break; }
+        }
+
+        Assert.That(tailNonZero, Is.True,
+            "A sound ending exactly at the window boundary must have its limiter tail flushed into the next window's start.");
     }
 
     // Source that honors the requested clip-local range: sample value keyed to the absolute clip-local
