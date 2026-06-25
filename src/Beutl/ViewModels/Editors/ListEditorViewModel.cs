@@ -149,6 +149,12 @@ public sealed class ListEditorViewModel<TItem> : BaseEditorViewModel, IListEdito
 
         IsExpanded.Skip(1)
             .Take(1)
+            // Materializing items resolves IPropertyEditorFactory from the host service chain, which is
+            // only wired once Accept has run. Group editors (filter-effect / transform / geometry /
+            // audio / path) assign their child list already expanded before calling AcceptChild, so
+            // gate the first materialization on the ExtensionProvider becoming available — the same
+            // signal Accept publishes — instead of running it eagerly from the object initializer.
+            .SelectMany(_ => ObserveExtensionProvider().Take(1))
             .Subscribe(_ =>
                 List.Subscribe(list =>
                     {
