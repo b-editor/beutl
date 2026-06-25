@@ -27,6 +27,9 @@ public sealed class TestApp : Application
     public override void Initialize()
     {
         AvaloniaXamlLoader.Load(this);
+        // EditView's Timeline tool view (LayerHeader) resolves {StaticResource PaletteColors}, which the
+        // real App sets in App.Initialize; without it the tool view fails to load once it actually inflates.
+        Resources["PaletteColors"] = AppHelpers.GetPaletteColors();
     }
 
     public override void RegisterServices()

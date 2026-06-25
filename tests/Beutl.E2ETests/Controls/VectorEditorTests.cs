@@ -1,4 +1,5 @@
-﻿using Avalonia.Controls;
+﻿using System.Globalization;
+using Avalonia.Controls;
 using Avalonia.Headless.NUnit;
 using Beutl.Controls.PropertyEditors;
 using Beutl.Graphics;
@@ -61,9 +62,9 @@ public class VectorEditorTests
         var editor = new Vector3Editor<float> { Header = "XYZ" };
         using var host = new EditorTestHost<Vector3Editor<float>>(editor);
 
-        host.TypeInto(host.Require<TextBox>("PART_InnerFirstTextBox"), "1.5");
-        host.TypeInto(host.Require<TextBox>("PART_InnerSecondTextBox"), "2.5");
-        host.TypeInto(host.Require<TextBox>("PART_InnerThirdTextBox"), "3.5");
+        host.TypeInto(host.Require<TextBox>("PART_InnerFirstTextBox"), 1.5f.ToString(CultureInfo.CurrentUICulture));
+        host.TypeInto(host.Require<TextBox>("PART_InnerSecondTextBox"), 2.5f.ToString(CultureInfo.CurrentUICulture));
+        host.TypeInto(host.Require<TextBox>("PART_InnerThirdTextBox"), 3.5f.ToString(CultureInfo.CurrentUICulture));
 
         Assert.That(editor.FirstValue, Is.EqualTo(1.5f));
         Assert.That(editor.SecondValue, Is.EqualTo(2.5f));
