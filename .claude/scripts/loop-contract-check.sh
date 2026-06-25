@@ -91,7 +91,7 @@ fi
 # --- 7. Launcher allowlist is a subset of SKILL allowed-tools -------------
 # Every Bash(...) entry in the launcher's ALLOWED_TOOLS should be covered by the
 # skill's allowed-tools line (or be a read-only companion). Check the critical ones.
-for cmd in gh git dotnet python3 jq sleep timeout; do
+for cmd in gh git dotnet python3 jq sleep timeout find; do
   if grep -q "Bash($cmd:" "$LAUNCHER" 2>/dev/null; then
     if grep -q "Bash($cmd:" "$SKILL" 2>/dev/null; then
       pass "allowlist subset: $cmd in both launcher + skill"
@@ -100,6 +100,14 @@ for cmd in gh git dotnet python3 jq sleep timeout; do
     fi
   fi
 done
+# The scripts-invocation pattern must be in both launcher and skill.
+if grep -q 'Bash(bash .claude/scripts/\*' "$LAUNCHER" 2>/dev/null; then
+  if grep -q 'Bash(bash .claude/scripts/\*' "$SKILL" 2>/dev/null; then
+    pass "allowlist subset: bash .claude/scripts/* in both launcher + skill"
+  else
+    fail "allowlist drift: 'bash .claude/scripts/*' in launcher but not in SKILL allowed-tools"
+  fi
+fi
 
 # --- 8. resolve-reviews writes bot-false-positive patterns to loop-memory -
 if grep -q 'bot-false-positive-patterns.md' "$RESOLVER" 2>/dev/null; then
@@ -157,6 +165,35 @@ if grep -q 'Unresolved review/design findings' "$SKILL" 2>/dev/null; then
   pass "unresolved-findings PR comment (F-12)"
 else
   fail "unresolved-findings PR comment missing from SKILL.md (F-12 drift)"
+fi
+
+# --- 16. GPL/MIT diff-scan uses the script, not the (no-op) hook ----------
+GPL_SCAN=".claude/scripts/check-gpl-mit-boundary-diff.sh"
+have "$GPL_SCAN" && pass "exists: $GPL_SCAN" || fail "missing: $GPL_SCAN"
+if grep -q 'check-gpl-mit-boundary-diff.sh' "$SKILL" 2>/dev/null && \
+   ! grep -q 'hooks/check-gpl-mit-boundary.sh.*against the diff' "$SKILL" 2>/dev/null; then
+  pass "GPL/MIT diff-scan uses the script, not the hook (finding 1)"
+else
+  fail "GPL/MIT scan drift: SKILL.md still invokes the PreToolUse hook on a diff"
+fi
+
+# --- 17. Coverage probe uses the real script, not a no-op snippet ---------
+COV_PROBE=".claude/scripts/changed-line-coverage.py"
+have "$COV_PROBE" && pass "exists: $COV_PROBE" || fail "missing: $COV_PROBE"
+if grep -q 'changed-line-coverage.py' "$SKILL" 2>/dev/null && \
+   ! grep -q 'cov = 0; n = 0' "$SKILL" 2>/dev/null; then
+  pass "coverage probe uses the script (finding 2)"
+else
+  fail "coverage probe drift: SKILL.md still has the no-op snippet"
+fi
+
+# --- 18. Runner contract: never says "open a PR" in description/intro -----
+# The runner always hands back a draft; the orchestrator opens the PR.
+if grep -qi 'open a pull request\|open a PR\|open.*PR' "$RUNNER" 2>/dev/null | \
+   grep -v 'Do not open\|never opens\|does NOT open\|skips that\|do not open\|cannot open'; then
+  fail "runner contract drift: still says 'open a PR' somewhere (finding 3)"
+else
+  pass "runner contract: never claims to open a PR (finding 3)"
 fi
 
 # --- Summary ---------------------------------------------------------------

@@ -64,7 +64,8 @@ esac
 # skip permissions by default.
 ALLOWED_TOOLS="Read Edit Write Grep Glob Task \
 Bash(gh:*) Bash(git:*) Bash(dotnet:*) Bash(python3:*) Bash(jq:*) Bash(mktemp:*) Bash(date:*) Bash(sleep:*) Bash(timeout:*) \
-Bash(grep:*) Bash(rg:*) Bash(ls:*) Bash(cat:*) Bash(find:*) Bash(head:*) Bash(tail:*) Bash(wc:*) Bash(test:*)"
+Bash(grep:*) Bash(rg:*) Bash(ls:*) Bash(cat:*) Bash(find:*) Bash(head:*) Bash(tail:*) Bash(wc:*) Bash(test:*) \
+Bash(bash .claude/scripts/*:*)"
 
 PERM_ARGS=(--allowedTools "$ALLOWED_TOOLS")
 if [ "${BEUTL_LOOP_YOLO:-0}" = "1" ]; then

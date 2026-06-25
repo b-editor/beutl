@@ -7,7 +7,7 @@ description: |
   max-items budget, a stagnation circuit-breaker, or an empty board. Use when the user says
   "ボードをループで消化して", "loop the board", "keep working AI-review items until …",
   "/beutl-loop". Sub-agent dispatch keeps this orchestrator's context lean across many ticks.
-allowed-tools: Task, Read, Grep, Glob, Write, Edit, Bash(gh:*), Bash(git:*), Bash(dotnet:*), Bash(python3:*), Bash(jq:*), Bash(mktemp:*), Bash(date:*), Bash(sleep:*), Bash(timeout:*)
+allowed-tools: Task, Read, Grep, Glob, Write, Edit, Bash(gh:*), Bash(git:*), Bash(dotnet:*), Bash(python3:*), Bash(jq:*), Bash(mktemp:*), Bash(date:*), Bash(sleep:*), Bash(timeout:*), Bash(find:*), Bash(bash .claude/scripts/*:*)
 argument-hint: "[N | dry-run | until-empty] [bug|diff|design|feature]"
 ---
 
@@ -199,8 +199,10 @@ mechanical axes:
 - `// TODO` / `## Follow-ups` / `# Follow-ups` on `+`-lines (deferred work ⇒ blocking).
 - Every changed `.axaml` UserControl declares `x:CompileBindings="True"` + `x:DataType` (missing ⇒
   blocking; suggest the fix inline).
-- Re-run the GPL/MIT boundary hook on the changed `.csproj` files
-  (`bash .claude/hooks/check-gpl-mit-boundary.sh` against the diff) — a violation ⇒ blocking.
+- GPL/MIT boundary: run `bash .claude/scripts/check-gpl-mit-boundary-diff.sh origin/main <draft_branch>`
+  — this is a **diff-side scan**, not the PreToolUse hook (the hook reads `tool_input.file_path`
+  from Edit/Write JSON and is a no-op when invoked on a diff). Exit 1 ⇒ blocking; the script
+  prints `file:line` for each violation.
 
 Collect any hits as `machine_findings`.
 
@@ -295,7 +297,7 @@ could not be cleanly auto-resolved ⇒ leave for human. **Otherwise high-risk �
 unsure, choose human (fail safe).
 
 **B-4 coverage probe (conditional — only when `touched_production && diff_loc >= 100`).** Run the
-matching test project with coverage and compute changed-line coverage for the diff's added lines:
+matching test project with coverage, then compute changed-line coverage with the probe script:
 ```bash
 # Identify the matching test project from the touched src/ path (heuristic):
 #   src/Beutl.Engine/...  -> tests/Beutl.UnitTests/  (or tests/Beutl.Graphics3DTests/ for graphics)
@@ -304,25 +306,13 @@ TESTS_PROJ=<derive-from-diff>
 dotnet test "$TESTS_PROJ" -f net10.0 --no-build --collect:"XPlat Code Coverage" \
   --settings coverlet.runsettings 2>&1 | tail -5
 COV=$(find tests -type f -path '*/TestResults/*/coverage.cobertura.xml' -newermt '-5 minutes' 2>/dev/null | head -1)
-# Changed-line coverage: reportgenerator can emit a "Risk Hotspots" / Sonar view; for the probe,
-# use the line-coverage of the touched files as the proxy. If the tooling is unavailable or the
-# probe fails, do NOT auto-merge — treat as high-risk (fail safe).
-reportgenerator -reports:"$COV" -targetdir:.claude/logs/cov-probe -reporttypes:"SonarQube" 2>/dev/null \
-  && python3 -c "
-import xml.etree.ElementTree as ET, sys, subprocess
-# Touched files from the diff:
-files = subprocess.check_output(['git','diff','--name-only','origin/main...HEAD','--','src/']).decode().split()
-tree = ET.parse('.claude/logs/cov-probe/SonarQube.xml')
-cov = 0; n = 0
-for f in tree.iter():
-    # heuristic: match covered-line ratio for touched files
-    pass
-print('changed-line coverage probe complete — inspect .claude/logs/cov-probe/ and decide')
-" 2>/dev/null || echo "coverage probe failed — treat as high-risk (fail safe)"
+# Changed-line coverage probe: exit 0 = >=70% (auto-merge eligible), exit 1 = <70% (high-risk),
+# exit 2 = probe failed (high-risk, fail safe).
+python3 .claude/scripts/changed-line-coverage.py origin/main "$HEAD" "$COV" --threshold 70
 ```
-If the probe reports changed-line coverage **< 70%** (or the probe failed), mark the PR **high-risk**:
-post the coverage number on the PR for the human and do not auto-merge. The probe is a **gate on
-auto-merge eligibility only** — the PR still opens and goes through bot review resolution.
+If the probe exits **non-zero** (exit 1 = under threshold, exit 2 = probe failure), mark the PR
+**high-risk**: post the coverage number on the PR for the human and do not auto-merge. The probe is
+a **gate on auto-merge eligibility only** — the PR still opens and goes through bot review resolution.
 
 `main` is ruleset-protected (required checks `build`/`dotnet-format`, every thread resolved,
 **code-owner review**, squash-only, signed commits). The loop **posts the code-owner approval** (it

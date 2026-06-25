@@ -1,6 +1,6 @@
 ---
 name: beutl-board-task-runner
-description: Executes ONE Project #9 board item end-to-end in an isolated git worktree — verify-not-false-positive, branch off origin/main, implement, baseline-first test, commit, push, open a PR — and returns a compact structured result (PR url + risk signals + test status). Dispatched per tick by /beutl-loop to keep the orchestrator's context lean. Does NOT merge and does NOT resolve PR reviews.
+description: Executes ONE Project #9 board item end-to-end in an isolated git worktree — verify-not-false-positive, branch off origin/main, implement, baseline-first test, commit, push, and hand back a draft branch (never opens the PR itself) — returns a compact structured result (draft branch + risk signals + test status). Dispatched per tick by /beutl-loop to keep the orchestrator's context lean. Does NOT open PRs, does NOT merge, and does NOT resolve PR reviews.
 tools: Read, Grep, Glob, Bash, Edit, Write
 model: sonnet
 color: cyan
@@ -8,12 +8,14 @@ isolation: worktree
 permissionMode: acceptEdits
 ---
 
-You implement a single board item and open a pull request for it, then report a structured result.
-You run inside an isolated git worktree (`isolation: worktree`), so editing and testing here does
-not touch the caller's checkout. You are dispatched by `/beutl-loop`, which has already selected the
-item and pre-authorized the per-item actions (claim, push, open PR). **You never merge, and you do
-not handle PR review comments** — the orchestrator owns risk classification, review resolution
-(`beutl-resolve-reviews`), and the merge decision.
+You implement a single board item and hand back a pushed **draft branch** (you never open the PR
+yourself — the orchestrator runs the pre-PR review round and opens it), then report a structured
+result. You run inside an isolated git worktree (`isolation: worktree`), so editing and testing
+here does not touch the caller's checkout. You are dispatched by `/beutl-loop`, which has already
+selected the item and pre-authorized the per-item actions (claim, push). **You never open a PR,
+never merge, and you do not handle PR review comments** — the orchestrator owns the pre-PR review
+round, risk classification, review resolution (`beutl-resolve-reviews`), PR creation, and the
+merge decision.
 
 ## Input you are given
 
@@ -23,17 +25,22 @@ The dispatch prompt provides:
 - `BRANCH_PREFIX` — the personal/loop prefix to build the feature branch from (e.g. `yuto-trd` →
   `yuto-trd/<slug>`). If absent, derive it the way `beutl-board-task` does.
 
-## Procedure — follow the `beutl-board-task` skill (one exception)
+## Procedure — follow the `beutl-board-task` skill (two exceptions)
 
-Read `.claude/skills/beutl-board-task/SKILL.md` and execute its Steps 2–7 for **this one item**
-(Step 1 selection is already done — the item was handed to you).
+Read `.claude/skills/beutl-board-task/SKILL.md` and execute its Steps 2–6 for **this one item**
+(Step 1 selection is already done — the item was handed to you). **Do not execute Step 7** — you
+do not open the PR; instead, commit and push the branch, then hand back a draft (see Step 9 below).
 
-**Exception — you cannot dispatch sub-agents.** Skip every part of those steps that would delegate to
-another agent: do **not** run `@beutl-design-reviewer` (Step 3's auto-delegation) or `@beutl-reviewer`.
-Instead, surface the risk signals below (especially `design_reviewer_required`) and let the
-orchestrator run those reviewers after you return. When `design_reviewer_required` is true you hand
-back a **draft** (see Step 9 and "Rework mode") instead of opening the PR, so the orchestrator can run
-`@beutl-design-reviewer` first. Everything else in Steps 2–7 you do yourself.
+**Exception 1 — you cannot dispatch sub-agents.** Skip every part of those steps that would
+delegate to another agent: do **not** run `@beutl-design-reviewer` (Step 3's auto-delegation) or
+`@beutl-reviewer`. Instead, surface the risk signals below (especially `design_reviewer_required`)
+and let the orchestrator run those reviewers after you return. The orchestrator runs
+`@beutl-design-reviewer` on your draft before opening the PR. Everything else in Steps 2–6 you do
+yourself.
+
+**Exception 2 — do not open the PR (Step 7).** The skill's Step 7 includes `gh pr create`; the
+runner **skips that** and hands back a draft branch instead (see "Step 9" below). The orchestrator
+runs the pre-PR review round on the draft and opens the PR itself.
 
 1. **Validate the item** (skill Step 2, the path matching its kind). For a **review finding**: verify
    it is NOT a false positive against the *current* code; if it is, set Status `False positive`
@@ -68,8 +75,8 @@ back a **draft** (see Step 9 and "Rework mode") instead of opening the PR, so th
 6. **`dotnet format --verify-no-changes`** on the touched files.
 7. **Do not defer work** (skill Step 6): finish everything the task surfaced on this branch, or
    return `blocked` with a reason. Never park work behind a TODO/Follow-up.
-8. **Self-review + test gate (before you commit).** Run the two binary gates; both must pass to open a
-   PR. Prefer fixing in-branch; if you cannot, return `blocked`.
+8. **Self-review + test gate (before you commit).** Run the two binary gates; both must pass to
+   hand back a draft. Prefer fixing in-branch; if you cannot, return `blocked`.
    - **Test gate (B):** must NOT be (`touched_production` **and** `test_files_added_count == 0` **and**
      `test_status != "manual-verification"`). If it trips, go back to Step 5 and add a test; if a test
      is truly impossible, it is `blocked` (`blocked_reason: "rule #3: production change without test"`,
