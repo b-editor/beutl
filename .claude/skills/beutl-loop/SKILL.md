@@ -184,10 +184,17 @@ Per-result outcomes and their effect on the **stagnation counters** (the budget 
   **step 2.6** to run the Spec-Kit flow and re-dispatch the runner with a generated `tasks.md`. Do
   not touch the counters yet — the re-dispatched runner hands back a draft, which flows through
   step 2.5 as normal.
-- `false_positive: true` → the runner already marked the board item `False positive`, so the item
-  **leaves the queue** — this is **progress**: reset `consecutive_no_progress` to 0, increment
-  `consecutive_false_positives`. **Append the false-positive signature to
-  `.claude/loop-memory/false-positive-signatures.json`** (D-7) for cross-run recall. Continue.
+- `false_positive: true` → a **candidate** false positive (the runner did **not** touch the board).
+  **Spot-check it first:** independently verify the runner's cited refutation against the current code.
+  - **Confirmed** → move the board item to `False positive` (`e6ff360e`) now — the item **leaves the
+    queue**; this is **progress**: reset `consecutive_no_progress` to 0, increment
+    `consecutive_false_positives`, and **append the signature to
+    `.claude/loop-memory/false-positive-signatures.json`** (D-7). Continue.
+  - **Inconclusive / refuted** → do **not** write `False positive` (a misclassification would hide a
+    real item forever). **Revert the item to `Todo`** (un-claim — it is still `In Progress` from the
+    claim, and future runs select only `Backlog`/`Todo`, so leaving it `In Progress` would strand it),
+    record it under `blocked` (`item-specific`), exclude via `attempted_ids` this run, and leave it for
+    a human. Do not increment `consecutive_false_positives`.
 - `already_implemented: true` → an already-shipped feature the runner moved to `Done` (not a false
   positive). This is **completed work → progress**: reset `consecutive_no_progress` to 0, **do not
   touch `consecutive_false_positives`** (counting shipped features as false positives would pollute
@@ -201,7 +208,9 @@ Per-result outcomes and their effect on the **stagnation counters** (the budget 
     the breaker.
   - `"item-specific"` (underspecified feature, upstream/product call, UI needing a human) → the
     toolchain is fine and the item simply isn't doable now: **neutral** — do **not** increment
-    `consecutive_no_progress`. Continue.
+    `consecutive_no_progress`. **Revert the item from `In Progress` back to `Todo`** (un-claim) so it
+    is not stranded after the run — future runs select only `Backlog`/`Todo`; keep it in this run's
+    `attempted_ids` so it is not re-picked this run. Continue.
 - `test_status: "red"` / no draft (and not `blocked`) → **no-progress**: increment
   `consecutive_no_progress`, **reset `consecutive_false_positives` to 0**, set `last_failure_signature`
   from the runner's `failure_signature`, continue.
@@ -220,8 +229,8 @@ entirely — not the same as a red baseline for a bug fix, which is expected and
 load-bearing and must not be skipped.
 
 **Parallel-batch aggregation (C-5).** When the batch size > 1, aggregate stagnation across the batch:
-- If **any** result opened a PR (via step 2.5) or was a false-positive → reset
-  `consecutive_no_progress` (progress).
+- If **any** result opened a PR (via step 2.5), was a confirmed false-positive, or was
+  `already_implemented` (moved to Done) → reset `consecutive_no_progress` (progress).
 - Only if **all** results were no-progress (red / systemic-blocked / baseline-violation) does the tick
   count as a single no-progress tick.
 - `consecutive_false_positives` increments by the number of false-positives in the batch; if the
@@ -280,8 +289,10 @@ loop branch in the orchestrator checkout, not the draft). Collect their blocking
 
 **2.5d. Open the PR.** Re-dispatch the runner in Rework mode with `OPEN_PR=true` and empty
 `review_findings` to open the PR from the (possibly amended) draft branch. This is the step-2 **"PR
-opened"** outcome: reset both stagnation counters to 0 and mark the tick as PR-opened (step 5 records
-`last_pr_tick`). If findings were left **unresolved** (2.5c), force the PR's risk to **high → leave for
+opened"** outcome: reset both stagnation counters to 0, **clear `last_failure_signature`** (any
+progress reset must also clear it — otherwise an unrelated later item that fails with the same first
+error line trips Step 0's back-to-back repeat-signature stop despite real progress in between), and
+mark the tick as PR-opened (step 5 records `last_pr_tick`). If findings were left **unresolved** (2.5c), force the PR's risk to **high → leave for
 human** (`left_reason: "unresolved review/design findings after 2 reworks"`), **post a structured
 summary of the unresolved findings as a PR comment** (below) so the human reviewer can pick up fast,
 and skip the auto-merge path; otherwise continue to step 3.
@@ -351,6 +362,13 @@ the orchestrator's own read is authoritative, consistent with CI/thread state). 
 set, the settle window elapses, or CI is red → the PR is **left for human** (do not merge).
 
 ### 4. Classify risk (moderate policy) and decide the merge
+**First, recompute the risk signals from the final PR head.** Step 3 (`beutl-resolve-reviews --auto`)
+may have pushed review-fix commits after the runner reported, so the runner's `diff_loc` / touched-area
+signals can be stale. Re-read the current PR head diff (`git fetch origin "$DRAFT_BRANCH"` then
+`git diff origin/main...origin/$DRAFT_BRANCH`) and recompute `diff_loc`, `files_changed`, and the
+`touched_*` flags (including the design-review and GPL/MIT scans from 2.5a) before applying the gate
+below — a review fix can push the PR over the diff/coverage threshold or into a high-risk area.
+
 **Auto-merge eligible (low/moderate) only if ALL hold:** `commit_type ∈
 {fix,refactor,perf,test,docs,style,chore, small feat}` and **not** `is_breaking`; **not**
 `is_feature` or `speckit_required` (features — even small ones — need a human merge; only
@@ -435,10 +453,11 @@ HEAD_SHA=$(gh pr view "$PR" --json headRefOid -q .headRefOid)
 # --- Self-gate: fail-closed checks BEFORE approve/merge (defense-in-depth) ---
 # The loop only proceeds if ALL hold; any failure ⇒ left_for_human (no retry/force/bypass).
 
-# 1. Required checks green, nothing failing.
-CHECKS=$(gh pr checks "$PR" --json bucket --jq '[.[]|select(.bucket!="pass")] | length' 2>/dev/null || echo 1)
+# 1. Required checks green, nothing failing. A `skipping` bucket is NOT a failure (optional jobs that
+# did not run); only fail/pending/cancel block. (gh pr checks buckets: pass/fail/pending/skipping/cancel.)
+CHECKS=$(gh pr checks "$PR" --required --json bucket --jq '[.[]|select(.bucket=="fail" or .bucket=="pending" or .bucket=="cancel")] | length' 2>/dev/null || echo 1)
 if [ "$CHECKS" != "0" ]; then
-  echo "checks not all green ($CHECKS non-pass) — left_for_human"; exit 1
+  echo "required checks not all green ($CHECKS fail/pending/cancel) — left_for_human"; exit 1
 fi
 
 # 2. Unresolved review threads must be 0.

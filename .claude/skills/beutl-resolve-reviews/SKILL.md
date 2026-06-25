@@ -105,21 +105,22 @@ thread root's `databaseId`, not a child reply's id).
 | **Praise / discussion** | Ignore |
 
 Always **read the cited code** (`path`,`line`) before classifying — a "nit" can hide a real bug.
+**Read it from the PR head, not the orchestrator checkout.** In `--auto` the current checkout is the
+orchestrator branch, so classification (even for a no-edit reply or a false-positive refutation) would
+otherwise read stale or missing code. Check out the PR head **detached before this step** (see the
+Step 5 preamble — do it once, up front, so both classification and any later fix read the same head):
+`HEAD_REF=$(gh pr view ${PR:-} --json headRefName -q .headRefName); git fetch origin "$HEAD_REF"; git checkout --detach "origin/$HEAD_REF"`.
 
 ## Step 5 — Act
 
-**Before any edit that you will commit (both modes), check out the PR head — detached.** When
-`/beutl-loop` invokes `--auto`, the current checkout is the orchestrator branch (the draft was built
-in a separate worker worktree), not `headRefName`. Editing/committing/pushing from there lands the
-fix on the wrong branch or fails to update the PR. A branch-name checkout (`gh pr checkout`) also
-fails when another linked worktree still owns that branch (`fatal: '<branch>' is already used by
-worktree …`). Use a **detached** checkout of the PR head and push back with an explicit refspec:
+**You are already on the detached PR head** (checked out in Step 4). A branch-name checkout
+(`gh pr checkout`) is deliberately avoided — it fails when another linked worktree still owns that
+branch (`fatal: '<branch>' is already used by worktree …`). Commit your fixes on the detached HEAD and
+push back with an explicit refspec (never the wrong branch, never the orchestrator branch):
 
 ```bash
-HEAD_REF=$(gh pr view ${PR:-} --json headRefName -q .headRefName)
-git fetch origin "$HEAD_REF"
-git checkout --detach "origin/$HEAD_REF"
-# … apply review-finding fixes, re-verify, commit …
+# (HEAD_REF + detached checkout were done in Step 4)
+# … apply review-finding fixes, re-verify, commit -S …
 git push origin "HEAD:$HEAD_REF"
 ```
 
@@ -172,13 +173,22 @@ without an explicit "Address it".
 For each thread you addressed (or answered), post a short factual reply, then resolve it (skip both
 when `no-resolve`):
 
+**Review-thread comments** (inline, from `pulls/<PR>/comments`) — reply on the thread, then resolve it:
 ```bash
 # <comment_id> = the thread's top-level review comment ID (the root databaseId from Step 3's map),
 # NOT a child reply's id — GitHub's reply endpoint roots the reply in the thread of <comment_id>.
 gh api "repos/$OWNER_REPO/pulls/<PR>/comments/<comment_id>/replies" -f body="Done — <one-line fix>."
 gh api graphql -f query='mutation{resolveReviewThread(input:{threadId:"<THREAD_ID>"}){thread{isResolved}}}'
 ```
-Resolve a thread once even if it had several handled comments. **Never resolve threads you escalated
+
+**General PR (issue) comments** (from `issues/<PR>/comments`, Step 2) have **no review thread** — they
+are not line-anchored and have no `THREAD_ID`. Reply with the **issue-comments API** and do **not**
+attempt `resolveReviewThread` (it would fail — there is no thread):
+```bash
+gh api "repos/$OWNER_REPO/issues/<PR>/comments" -f body="<reply addressing the comment>."
+```
+
+Resolve a review thread once even if it had several handled comments. **Never resolve threads you escalated
 (`needs_human`) or skipped.** Keep replies neutral and factual; do not argue with reviewers.
 
 ## Step 7 — Report

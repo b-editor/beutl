@@ -47,8 +47,11 @@ runs the pre-PR review round on the draft and opens the PR itself.
    the item in Backlog/Todo where another run or agent can re-pick it mid-flight. The orchestrator
    and the board both rely on `In Progress` as the "someone is handling this" signal.
 2. **Validate the item** (skill Step 2, the path matching its kind). For a **review finding**:
-   verify it is NOT a false positive against the *current* code; if it is, set Status
-   `False positive` (`e6ff360e`) and return `false_positive: true` (do nothing else). For a
+   verify it is NOT a false positive against the *current* code; if you conclude it is, return
+   `false_positive: true` with a cited refutation (`path:line`) **as a candidate — do NOT write the
+   board yourself**. The orchestrator independently spot-checks the claim and only then moves the item
+   to `False positive`; a runner-side write would permanently drop a real item from the queue on a
+   misclassification. (Leave the board status unchanged — it is still `In Progress`.) For a
    **feature task** there is no false-positive concept — instead confirm it is not already
    implemented/obsolete. If it **is already implemented**, it is completed work, not a false
    positive: set Status `Done` (`98236657`) and return `already_implemented: true` with a note (do
@@ -159,9 +162,12 @@ The orchestrator re-dispatches you with `REWORK=true`, the `draft_branch`, an `O
 - **Then branch on `OPEN_PR`:**
   - `OPEN_PR=false` → return `draft_ready: true` + `draft_branch` again (the orchestrator re-reviews
     the amended branch).
-  - `OPEN_PR=true` → open the PR from `draft_branch` (`gh pr create --base main --head "$draft_branch"`)
-    and return the normal PR result. **Pass `--head` explicitly** — after the detached checkout above
-    there is no current branch, so `gh pr create` cannot default the head and would otherwise fail. The orchestrator sets this once the reviews are clean — or to force the PR open
+  - `OPEN_PR=true` → open the PR from `draft_branch`
+    (`gh pr create --base main --head "$draft_branch" --fill`) and return the normal PR result.
+    **Pass `--head` explicitly** (after the detached checkout above there is no current branch for
+    `gh pr create` to default to) **and `--fill`** (or an explicit `--title`/`--body` derived from the
+    commit + PR template) — without a title/body source `gh pr create` prompts interactively and would
+    stall every unattended draft. The orchestrator sets this once the reviews are clean — or to force the PR open
     after the rework budget is spent, in which case it classifies the PR high-risk and leaves it for
     the human.
 
@@ -239,13 +245,16 @@ Never merge in Spec-Kit mode either.
   re-dispatches you with `SPECKIT=true` + a `tasks.md` path.
 - On a **PR opened** (only in Rework mode with `OPEN_PR=true`): `pr_url` / `pr_number` / `branch` /
   `commit_type` populated, `test_status` `green` or `manual-verification`, `draft_ready: false`.
-- On a **false positive**: `false_positive: true`, PR fields `null`.
+- On a **false positive** (candidate): `false_positive: true`, PR fields `null`, with a cited
+  refutation in `notes`. **You do not write the board** — it stays `In Progress`; the orchestrator
+  spot-checks and then either moves it to `False positive` or reverts it to `Todo`.
 - On an **already-implemented feature** (completed work, not a false positive): `already_implemented:
   true`, board moved to `Done`, PR fields `null`. The orchestrator counts this as progress and does
   **not** increment `consecutive_false_positives`.
-- On **blocked**: `blocked: true`, `blocked_reason` set, **`blocked_kind` set**, PR fields `null` —
-  leave the board item in a sane state (`In Progress` so it is not re-picked mid-run; the orchestrator
-  records it). Classify `blocked_kind`:
+- On **blocked**: `blocked: true`, `blocked_reason` set, **`blocked_kind` set**, PR fields `null`.
+  Leave the board item `In Progress` (so it is not re-picked mid-run); the orchestrator records it and,
+  for an `item-specific` block, **reverts it to `Todo`** so it is not stranded `In Progress` after the
+  run (future runs select only `Backlog`/`Todo`). Classify `blocked_kind`:
   - `"item-specific"` — the **item** cannot proceed (underspecified feature, an upstream/product
     decision, UI work needing a human, no feasible test/manual-verification path). The toolchain is
     fine; the orchestrator skips the item and continues **without** counting it toward stagnation.
@@ -263,8 +272,9 @@ Never merge in Spec-Kit mode either.
 - **Never merge.** No `gh pr merge`, no auto-merge flag. Merging is the orchestrator's decision.
 - **Never resolve or reply to PR review comments** — that is `beutl-resolve-reviews`.
 - **Never force-push `main`** (hook-enforced) and never push to `main`/`master`.
-- **Commit signed.** `main` requires signed commits (repo ruleset); the repo config signs by default —
-  never pass `--no-gpg-sign`.
+- **Commit signed — explicitly.** `main` requires signed commits (repo ruleset). Use `git commit -S`
+  (do not rely on `commit.gpgsign` being configured in the environment; an unsigned commit pushed here
+  leaves the PR unmergeable). Never pass `--no-gpg-sign`.
 - **Your `Bash` is session-bounded.** The orchestrator's interactive `/beutl-loop` session (run with
   auto-accept / `acceptEdits`) and the PreToolUse deny hooks constrain what actually runs; `tools: …
   Bash` is the capability, not a bypass of those guardrails.

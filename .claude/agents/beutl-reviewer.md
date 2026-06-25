@@ -19,6 +19,12 @@ standalone / interactive case). **Never assume HEAD is the branch under review**
 orchestrator checkout, HEAD is the loop branch, not the draft branch, so a bare `git diff` would
 miss the draft's NUnit/GPL/SourceGen findings.
 
+**Read file contents from the ref under review, not the working tree.** When `$HEAD_REF` is set, the
+draft branch is not checked out, so a working-tree read of a new or modified file sees a missing or
+stale (base) version. Read each touched file with `git show "$HEAD_REF:$path"` so the axes are
+assessed against the draft. Without `$HEAD_REF` (standalone), the working tree is the branch under
+review, so read it directly.
+
 ## Review axes
 
 1. **GPL/MIT boundary**

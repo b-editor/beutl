@@ -55,7 +55,10 @@ If none apply, report `No public-surface or extensibility changes — design rev
    (the standalone / interactive case). **Never assume HEAD is the branch under review** — in the loop
    orchestrator checkout, HEAD is the loop branch, not the draft branch.
 2. List touched public types. Use `grep` for `public class`, `public interface`, `public abstract`, `public sealed`, `public record`, `public enum` on `+`-lines.
-3. For each touched public type, Read the file and assess the five axes above.
+3. For each touched public type, read the file and assess the five axes above. **When `$HEAD_REF` is
+   set the draft branch is not checked out**, so read contents with `git show "$HEAD_REF:$path"` (a
+   working-tree read would miss new public types or assess a modified API from the stale base);
+   without `$HEAD_REF` (standalone) read the working tree directly.
 4. For suspected compatibility shims, grep the rest of the repo for *uses* of the old member to confirm it is still referenced (or not).
 5. Produce findings in the format below.
 
