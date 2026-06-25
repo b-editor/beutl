@@ -1,9 +1,11 @@
 ﻿using Avalonia.Controls.Primitives;
 using Avalonia.Headless.NUnit;
 using Beutl.Controls.PropertyEditors;
+using Beutl.Testing.Headless;
 
 namespace Beutl.E2ETests.Controls;
 
+[TestFixture]
 public class BooleanEditorTests
 {
     [AvaloniaTest]
@@ -43,7 +45,7 @@ public class BooleanEditorTests
         Assert.That(checkBox.IsChecked, Is.False);
 
         editor.Value = true;
-        Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+        HeadlessTestHelpers.Settle();
 
         Assert.That(checkBox.IsChecked, Is.True);
     }

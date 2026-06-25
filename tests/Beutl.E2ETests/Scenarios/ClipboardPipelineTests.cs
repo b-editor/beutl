@@ -6,6 +6,7 @@ using Beutl.ProjectSystem;
 
 namespace Beutl.E2ETests.Scenarios;
 
+[TestFixture]
 public class ClipboardPipelineTests
 {
     private SceneHistoryHarness _harness = null!;

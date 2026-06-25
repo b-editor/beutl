@@ -2,9 +2,11 @@
 using Avalonia.Headless.NUnit;
 using Beutl.Controls.PropertyEditors;
 using Beutl.Media;
+using Beutl.Testing.Headless;
 
 namespace Beutl.E2ETests.Controls;
 
+[TestFixture]
 public class AlignmentEditorTests
 {
     [AvaloniaTest]
@@ -52,7 +54,7 @@ public class AlignmentEditorTests
         var host = new EditorTestHost<AlignmentXEditor>(editor);
 
         editor.Value = AlignmentX.Right;
-        Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+        HeadlessTestHelpers.Settle();
 
         Assert.That(host.Require<RadioButton>("PART_RightRadioButton").IsChecked, Is.True);
         Assert.That(host.Require<RadioButton>("PART_LeftRadioButton").IsChecked, Is.False);

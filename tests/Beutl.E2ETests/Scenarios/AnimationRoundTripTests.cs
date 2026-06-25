@@ -7,6 +7,7 @@ using Beutl.Serialization;
 
 namespace Beutl.E2ETests.Scenarios;
 
+[TestFixture]
 public class AnimationRoundTripTests
 {
     private string _baseDir = null!;

@@ -4,6 +4,8 @@ using Beutl.ProjectSystem;
 
 namespace Beutl.E2ETests.TestInfrastructure;
 
+// Standalone copy of the wiring in tests/Beutl.UnitTests/TestInfrastructure/SceneHistoryHarness.cs;
+// the E2E project must not reference the Beutl.UnitTests assembly.
 /// <summary>
 /// Scene-rooted harness wiring an on-disk <see cref="Scene"/>, an
 /// <see cref="OperationSequenceGenerator"/>, a <see cref="HistoryManager"/>, and a subscribed

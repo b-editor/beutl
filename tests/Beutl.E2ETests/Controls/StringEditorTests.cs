@@ -1,9 +1,11 @@
 ﻿using Avalonia.Controls;
 using Avalonia.Headless.NUnit;
 using Beutl.Controls.PropertyEditors;
+using Beutl.Testing.Headless;
 
 namespace Beutl.E2ETests.Controls;
 
+[TestFixture]
 public class StringEditorTests
 {
     [AvaloniaTest]
@@ -52,7 +54,7 @@ public class StringEditorTests
 
         TextBox box = host.Require<TextBox>("PART_InnerTextBox");
         box.Focus();
-        Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+        HeadlessTestHelpers.Settle();
         host.MoveFocusToSink();
 
         Assert.That(confirmed, Is.False);

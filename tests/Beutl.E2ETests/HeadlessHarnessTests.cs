@@ -5,6 +5,7 @@ using Beutl.Testing.Headless;
 
 namespace Beutl.E2ETests;
 
+[TestFixture]
 public class HeadlessHarnessTests
 {
     [AvaloniaTest]

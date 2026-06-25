@@ -1,9 +1,11 @@
 ﻿using Avalonia.Controls;
 using Avalonia.Headless.NUnit;
 using Beutl.Controls.PropertyEditors;
+using Beutl.Testing.Headless;
 
 namespace Beutl.E2ETests.Controls;
 
+[TestFixture]
 public class EnumEditorTests
 {
     private static EnumEditor CreateEditor()
@@ -31,7 +33,7 @@ public class EnumEditorTests
 
         ComboBox combo = host.Require<ComboBox>("PART_InnerComboBox");
         combo.SelectedIndex = 2;
-        Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+        HeadlessTestHelpers.Settle();
 
         Assert.That(editor.SelectedIndex, Is.EqualTo(2));
         Assert.That(confirmed, Is.EqualTo(new[] { 2 }));
@@ -44,7 +46,7 @@ public class EnumEditorTests
         var host = new EditorTestHost<EnumEditor>(editor);
 
         editor.SelectedIndex = 1;
-        Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+        HeadlessTestHelpers.Settle();
 
         ComboBox combo = host.Require<ComboBox>("PART_InnerComboBox");
         Assert.That(combo.SelectedIndex, Is.EqualTo(1));

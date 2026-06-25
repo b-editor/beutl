@@ -6,6 +6,7 @@ using Beutl.Serialization;
 
 namespace Beutl.E2ETests.Scenarios;
 
+[TestFixture]
 public class SceneRoundTripTests
 {
     private string _baseDir = null!;

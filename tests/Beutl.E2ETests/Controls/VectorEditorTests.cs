@@ -5,6 +5,7 @@ using Beutl.Graphics;
 
 namespace Beutl.E2ETests.Controls;
 
+[TestFixture]
 public class VectorEditorTests
 {
     [AvaloniaTest]

@@ -4,6 +4,7 @@ using Beutl.Controls.PropertyEditors;
 
 namespace Beutl.E2ETests.Controls;
 
+[TestFixture]
 public class ColorComponentsEditorTests
 {
     [AvaloniaTest]

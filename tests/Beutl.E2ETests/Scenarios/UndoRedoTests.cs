@@ -6,6 +6,7 @@ using Beutl.ProjectSystem;
 
 namespace Beutl.E2ETests.Scenarios;
 
+[TestFixture]
 public class UndoRedoTests
 {
     private SceneHistoryHarness _harness = null!;
