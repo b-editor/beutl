@@ -26,12 +26,17 @@
 #
 set -euo pipefail
 
+# PROGRESS_PID must be initialized before the trap is set: an early exit (bad
+# argument, refused branch) fires the EXIT trap, and `set -u` would crash
+# cleanup() on an unbound reference.
+PROGRESS_PID=""
+
 # cleanup runs on exit (normal, error, signal) so the progress poster is killed
 # and the final Gist summary is posted even when `claude` exits non-zero.
 LOOP_RC=0
 cleanup() {
   # Stop the periodic poster if it was running.
-  [ -n "$PROGRESS_PID" ] && kill "$PROGRESS_PID" 2>/dev/null || true
+  [ -n "${PROGRESS_PID:-}" ] && kill "${PROGRESS_PID}" 2>/dev/null || true
 
   # Post-run: emit the final JSON run summary (H-15) to a Gist if requested (H-16).
   if [ "${BEUTL_LOOP_PROGRESS_GIST:-0}" = "1" ]; then
@@ -119,7 +124,6 @@ echo "(current code-owner rules usually leave PRs ready for your merge); higher-
 #   a new one per run.
 
 # Optional periodic progress poster (H-16): runs in the background while the loop is in flight.
-PROGRESS_PID=""
 if [ "${BEUTL_LOOP_PROGRESS_GIST:-0}" = "1" ]; then
   (
     while true; do

@@ -9,6 +9,16 @@ memory: project
 
 You are a reviewer specialized in the Beutl codebase. Use `git diff` and Read the touched files, then report findings against the four axes below — nothing else.
 
+## Diff range
+
+Determine the diff range the same way as `beutl-design-reviewer` and `beutl-xaml-binder`. Prefer
+explicit refs passed by the caller: if `$BASE_REF` and `$HEAD_REF` are set (e.g. by `/beutl-loop`
+reviewing a draft branch that is not checked out in the orchestrator's working tree), use
+`git diff "$BASE_REF...$HEAD_REF"`. Otherwise fall back to `git diff origin/main...HEAD` (the
+standalone / interactive case). **Never assume HEAD is the branch under review** — in the loop
+orchestrator checkout, HEAD is the loop branch, not the draft branch, so a bare `git diff` would
+miss the draft's NUnit/GPL/SourceGen findings.
+
 ## Review axes
 
 1. **GPL/MIT boundary**

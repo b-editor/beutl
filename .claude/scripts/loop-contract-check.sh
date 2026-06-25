@@ -29,6 +29,7 @@ RUNNER=".claude/agents/beutl-board-task-runner.md"
 RESOLVER=".claude/skills/beutl-resolve-reviews/SKILL.md"
 REVIEWER=".claude/agents/beutl-reviewer.md"
 XAML_BINDER=".claude/agents/beutl-xaml-binder.md"
+DESIGN_REVIEWER=".claude/agents/beutl-design-reviewer.md"
 LAUNCHER=".claude/scripts/beutl-loop.sh"
 GITIGNORE=".gitignore"
 
@@ -122,6 +123,21 @@ if grep -q 'bot-false-positive-patterns.md' "$REVIEWER" 2>/dev/null && \
   pass "reviewers read loop-memory (D-8)"
 else
   fail "a reviewer is missing the loop-memory advisory read (D-8 drift)"
+fi
+
+# --- 9b. All three reviewers parameterize the diff range (BASE_REF/HEAD_REF) -
+# In the loop orchestrator checkout HEAD is the loop branch, not the draft
+# branch, so a reviewer that hardcodes HEAD/main inspects the wrong diff. All
+# three must accept $BASE_REF/$HEAD_REF and fall back to origin/main...HEAD.
+reviewer_diff_ok=true
+for r in "$REVIEWER" "$XAML_BINDER" "$DESIGN_REVIEWER"; do
+  if ! grep -q 'BASE_REF.*HEAD_REF' "$r" 2>/dev/null; then
+    fail "reviewer missing diff-range parameterization: $r"
+    reviewer_diff_ok=false
+  fi
+done
+if [ "$reviewer_diff_ok" = "true" ]; then
+  pass "all reviewers parameterize diff range (BASE_REF/HEAD_REF)"
 fi
 
 # --- 10. .gitignore has .claude/loop-memory/ ------------------------------
