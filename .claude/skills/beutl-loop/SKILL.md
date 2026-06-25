@@ -408,11 +408,13 @@ else
   else
     # Changed-line coverage probe: exit 0 = >=70% (auto-merge eligible),
     # exit 1 = <70% (high-risk), exit 2 = probe failed (high-risk, fail safe).
-    # The diff is origin/main...$DRAFT_BRANCH (three-dot: only head-side changes
-    # since the merge-base — not the orchestrator's checkout, which may be a
-    # different branch, and not two-dot which would include reverse diffs from
-    # an advancing origin/main).
-    python3 .claude/scripts/changed-line-coverage.py origin/main "$DRAFT_BRANCH" "$COV" --threshold 70
+    # The diff is origin/main...origin/$DRAFT_BRANCH (three-dot: only head-side
+    # changes since the merge-base). Use the freshly-fetched REMOTE ref, not the
+    # local $DRAFT_BRANCH name — a rework/review-fix pushed from a detached HEAD
+    # advances origin/$DRAFT_BRANCH while the local ref stays at the pre-fix
+    # commit, which would omit those lines from the denominator. This matches the
+    # remote head the worktree above was built from.
+    python3 .claude/scripts/changed-line-coverage.py origin/main "origin/$DRAFT_BRANCH" "$COV" --threshold 70
     rm -rf "$COV_DIR"
   fi
 fi
