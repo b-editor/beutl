@@ -50,6 +50,10 @@ high | medium | low
 
 ## Notes
 
+- **Advisory: read `.claude/loop-memory/bot-false-positive-patterns.md`** if it exists — it records
+  patterns where bots (CodeRabbit / Copilot / Codex / Claude) misread Beutl code. Use it to avoid
+  raising a finding that is a known bot blind spot, and to sharpen your own axes. This file is
+  gitignored and populated by `beutl-resolve-reviews` over successive runs (D-7/D-8).
 - Do **not** raise stylistic nits (indentation, trailing newlines, `var` vs explicit, etc.). Those belong to `.editorconfig` / `xamlstyler.json` / `dotnet format`.
 - Do **not** review **design quality** (orthogonality, public-API shape, extensibility, compat shims) here — that is `beutl-design-reviewer`'s job. If the diff touches public types, suggest delegating there.
 - Do **not** run `git push` or `git commit`. The reviewer only reports.

@@ -1,0 +1,169 @@
+#!/usr/bin/env bash
+#
+# loop-contract-check.sh — assert invariants across the loop's contract artifacts.
+#
+# The loop is Markdown + an agent + a bash launcher — no compilable C#, so the NUnit
+# requirement (AGENTS.md rule #3) does not apply. This script is the mechanical
+# substitute: it checks that the loop's contract artifacts stay in sync. Run it after
+# any edit to:
+#   .claude/skills/beutl-loop/SKILL.md
+#   docs/ai-workflow/loop-engineering.md
+#   .claude/agents/beutl-board-task-runner.md
+#   .claude/skills/beutl-resolve-reviews/SKILL.md
+#   .claude/agents/beutl-reviewer.md
+#   .claude/agents/beutl-xaml-binder.md
+#   .claude/scripts/beutl-loop.sh
+#   .gitignore
+#
+# Usage: bash .claude/scripts/loop-contract-check.sh
+# Exit: 0 = all invariants hold; 1 = one or more drifted.
+#
+set -euo pipefail
+
+REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || echo "$(cd "$(dirname "$0")/../.." && pwd)")"
+cd "$REPO_ROOT"
+
+SKILL=".claude/skills/beutl-loop/SKILL.md"
+DOC="docs/ai-workflow/loop-engineering.md"
+RUNNER=".claude/agents/beutl-board-task-runner.md"
+RESOLVER=".claude/skills/beutl-resolve-reviews/SKILL.md"
+REVIEWER=".claude/agents/beutl-reviewer.md"
+XAML_BINDER=".claude/agents/beutl-xaml-binder.md"
+LAUNCHER=".claude/scripts/beutl-loop.sh"
+GITIGNORE=".gitignore"
+
+fails=0
+pass() { printf '  ok  %s\n' "$1"; }
+fail() { printf '  FAIL %s\n' "$1" >&2; fails=$((fails + 1)); }
+have() { [ -f "$1" ] || { fail "missing file: $1"; return 1; }; }
+
+echo "loop-contract-check — verifying invariants across the loop artifacts"
+
+# --- 1. All artifacts exist -----------------------------------------------
+for f in "$SKILL" "$DOC" "$RUNNER" "$RESOLVER" "$REVIEWER" "$XAML_BINDER" "$LAUNCHER" "$GITIGNORE"; do
+  have "$f" && pass "exists: $f" || fail "exists: $f"
+done
+
+# --- 2. Stagnation threshold "3" is consistent ----------------------------
+# Both SKILL.md and loop-engineering.md must say "3" for the no-progress breaker.
+if grep -q 'consecutive_no_progress ≥ 3' "$SKILL" 2>/dev/null && \
+   grep -q 'consecutive no-progress' "$DOC" 2>/dev/null; then
+  pass "stagnation threshold = 3 (SKILL + doc)"
+else
+  fail "stagnation threshold drift: SKILL.md / loop-engineering.md disagree on '3'"
+fi
+
+# --- 3. Runner JSON schema has the new mandatory fields -------------------
+for field in baseline_test_green speckit_required; do
+  if grep -q "\"$field\"" "$RUNNER" 2>/dev/null; then
+    pass "runner JSON has '$field'"
+  else
+    fail "runner JSON missing '$field'"
+  fi
+done
+
+# --- 4. Runner declares "always hands back a draft" -----------------------
+if grep -q 'always hands back a draft' "$SKILL" 2>/dev/null && \
+   grep -qi 'hand back a draft.*always\|always.*hand back a draft' "$RUNNER" 2>/dev/null; then
+  pass "runner + skill agree: always draft (never opens PR itself)"
+else
+  fail "draft-always contract drift between SKILL.md and runner"
+fi
+
+# --- 5. Code-owner approval posture is consistent -------------------------
+# Both must say the loop posts its own approval (runs as code owner).
+if grep -q 'posts its own approval\|posts the code-owner approval\|post the code-owner approval' "$SKILL" 2>/dev/null && \
+   grep -q 'posts its own approval\|post the code-owner approval' "$DOC" 2>/dev/null; then
+  pass "code-owner approval posture (SKILL + doc)"
+else
+  fail "code-owner approval posture drift between SKILL.md and loop-engineering.md"
+fi
+
+# --- 6. SKILL.md references steps 0–5 (renumbered) ------------------------
+# After the step renumber, the journal update is step 5 (was step 6).
+if grep -q '### 5\. Update the journal' "$SKILL" 2>/dev/null && \
+   ! grep -q '### 6\. Update the journal' "$SKILL" 2>/dev/null; then
+  pass "step numbering: journal update is step 5"
+else
+  fail "step numbering drift: expected '### 5. Update the journal', no '### 6.'"
+fi
+
+# --- 7. Launcher allowlist is a subset of SKILL allowed-tools -------------
+# Every Bash(...) entry in the launcher's ALLOWED_TOOLS should be covered by the
+# skill's allowed-tools line (or be a read-only companion). Check the critical ones.
+for cmd in gh git dotnet python3 jq sleep timeout; do
+  if grep -q "Bash($cmd:" "$LAUNCHER" 2>/dev/null; then
+    if grep -q "Bash($cmd:" "$SKILL" 2>/dev/null; then
+      pass "allowlist subset: $cmd in both launcher + skill"
+    else
+      fail "allowlist drift: '$cmd' in launcher but not in SKILL allowed-tools"
+    fi
+  fi
+done
+
+# --- 8. resolve-reviews writes bot-false-positive patterns to loop-memory -
+if grep -q 'bot-false-positive-patterns.md' "$RESOLVER" 2>/dev/null; then
+  pass "resolver writes bot-false-positive patterns (D-8)"
+else
+  fail "resolver does not reference bot-false-positive-patterns.md (D-8 drift)"
+fi
+
+# --- 9. reviewers read loop-memory as advisory ----------------------------
+if grep -q 'bot-false-positive-patterns.md' "$REVIEWER" 2>/dev/null && \
+   grep -q 'bot-false-positive-patterns.md' "$XAML_BINDER" 2>/dev/null; then
+  pass "reviewers read loop-memory (D-8)"
+else
+  fail "a reviewer is missing the loop-memory advisory read (D-8 drift)"
+fi
+
+# --- 10. .gitignore has .claude/loop-memory/ ------------------------------
+if grep -q '^.claude/loop-memory/' "$GITIGNORE" 2>/dev/null; then
+  pass ".gitignore has .claude/loop-memory/ (D-7)"
+else
+  fail ".gitignore missing .claude/loop-memory/ (D-7)"
+fi
+
+# --- 11. Pre-PR review round (step 2.5) is present in SKILL ---------------
+if grep -q 'Pre-PR review round' "$SKILL" 2>/dev/null; then
+  pass "pre-PR review round (step 2.5 / C-6)"
+else
+  fail "pre-PR review round missing from SKILL.md (C-6 drift)"
+fi
+
+# --- 12. Spec-Kit flow (step 2.6) is present in SKILL ---------------------
+if grep -q 'Spec-Kit flow' "$SKILL" 2>/dev/null && \
+   grep -q 'speckit_required' "$RUNNER" 2>/dev/null; then
+  pass "Spec-Kit flow (step 2.6 / F-11)"
+else
+  fail "Spec-Kit flow missing from SKILL.md or runner (F-11 drift)"
+fi
+
+# --- 13. Coverage probe (B-4) is present in SKILL -------------------------
+if grep -q 'coverage probe' "$SKILL" 2>/dev/null; then
+  pass "coverage probe (B-4)"
+else
+  fail "coverage probe missing from SKILL.md (B-4 drift)"
+fi
+
+# --- 14. Parallel dispatch (C-5) is present in SKILL ----------------------
+if grep -q 'bounded parallel' "$SKILL" 2>/dev/null; then
+  pass "bounded parallel dispatch (C-5)"
+else
+  fail "bounded parallel dispatch missing from SKILL.md (C-5 drift)"
+fi
+
+# --- 15. F-12 unresolved-findings PR comment is present -------------------
+if grep -q 'Unresolved review/design findings' "$SKILL" 2>/dev/null; then
+  pass "unresolved-findings PR comment (F-12)"
+else
+  fail "unresolved-findings PR comment missing from SKILL.md (F-12 drift)"
+fi
+
+# --- Summary ---------------------------------------------------------------
+if [ "$fails" -eq 0 ]; then
+  echo "loop-contract-check: all invariants hold."
+  exit 0
+else
+  echo "loop-contract-check: $fails invariant(s) drifted — fix before relying on the loop." >&2
+  exit 1
+fi

@@ -29,23 +29,22 @@ Every loop here is defined by six pillars. `/beutl-loop` fills them in as:
 |---|---|
 | **TRIGGER** | Manual: `/beutl-loop [N]` in-session, or `.claude/scripts/beutl-loop.sh` headless. **No cron** — adding a scheduled GitHub Actions runner is a separate, explicitly-approved change (`.github/workflows/*` is protected by AGENTS.md rule #5). |
 | **SCOPE** | Unclaimed (`Backlog`/`Todo`) items on **Project #9**, **every kind and across the full risk spectrum — features included**. Never touches `.github/workflows/*`; never crosses the GPL/MIT boundary. |
-| **ACTION** | Per tick: implement → PR (sub-agent) → resolve reviews (sub-agent) → classify risk → auto-merge (low/moderate) or hand to a human (high). One item ⇒ at most one PR. |
-| **BUDGET** | **Default drains the board** (`until-empty`), bounded by the stagnation breaker, the optional wall-clock `BEUTL_LOOP_MAX_MINUTES`, and a runaway backstop `BEUTL_LOOP_MAX_ITEMS` (default **50**). Pass an integer `N` for a tighter per-run budget. Per-PR review settle cap `BEUTL_LOOP_SETTLE_MINUTES` (default 20). Item count is the reliable proxy for a token/$ budget. |
+| **ACTION** | Per tick: implement → draft (sub-agent) → pre-PR review round (machine-verify + reviewers + rework) → open PR → resolve reviews (sub-agent) → classify risk → auto-merge (low/moderate, code-owner approval posted by the loop) or hand to a human (high). One item ⇒ at most one PR. A parallel batch (C-5) runs up to 3 items concurrently with footprint-overlap scheduling. |
+| **BUDGET** | **Default drains the board** (`until-empty`), bounded by the stagnation breaker, the optional wall-clock `BEUTL_LOOP_MAX_MINUTES`, and a runaway backstop `BEUTL_LOOP_MAX_ITEMS` (default **50**). Pass an integer `N` for a tighter per-run budget. Per-PR review settle cap `BEUTL_LOOP_SETTLE_MINUTES` (default 20). Parallel batch size `BEUTL_LOOP_PARALLEL` (default 1 = sequential, max 3 — C-5). |
 | **STOP** | Board drained · `items_processed ≥ N` (explicit budget or the runaway backstop) · stagnation (**3** consecutive no-progress with no PR in the last 3 ticks, 3 consecutive false-positives, or a repeated item / failure signature) · wall-clock exceeded · a guardrail would be violated. A single `blocked` item is recorded and skipped (not a stop); only repeated **systemic** blocks feed the no-progress breaker. |
-| **REPORT** | A Markdown run summary (per item: PR, risk, merged/left-for-human, reviews resolved; plus false-positives, blocked, counters, stop reason), then a reminder to run `/beutl-ai-self-review`. |
+| **REPORT** | A Markdown run summary + a JSON run summary (H-15) at `.claude/logs/beutl-loop-run-<run_id>.json` for cross-run trend comparison. Per item: PR, risk, merged/left-for-human, reviews resolved; plus false-positives, blocked, counters, stop reason. Optional Gist progress post (H-16). Then a reminder to run `/beutl-ai-self-review`. |
 
 ## Sub-agent isolation keeps the orchestrator's context lean
 
 `/beutl-loop` runs as an **orchestrator** in the main session and **never implements items itself**.
 Each tick it dispatches sub-agents and keeps only their compact JSON results plus the run journal:
 
-- **Dispatch A — implement → PR (or draft).** The committed `beutl-board-task-runner` agent runs the
+- **Dispatch A — implement → draft (always).** The committed `beutl-board-task-runner` agent runs the
   `beutl-board-task` flow for one item in an **isolated git worktree** (`isolation: worktree`) and
-  returns `{ pr_url, commit_type, is_breaking, is_feature, diff_loc, touched_public_api / gpl_mit /
-  source_gen / xaml_behavior / persistence, touched_production, test_files_added_count,
-  manual_verification_note, self_review_passed, design_reviewer_required, draft_ready, draft_branch,
-  blocked_kind, test_status, … }`. For a design-sensitive item it hands back a **draft branch**
-  instead of a PR so the orchestrator can run `@beutl-design-reviewer` first.
+  returns `{ draft_branch, commit_type, is_breaking, baseline_test_green, speckit_required, ... }`. It
+  **always hands back a draft branch** (never opens the PR itself) so the orchestrator can run the
+  pre-PR review round (machine-verify + reviewers) before the PR exists. For a large feature it
+  returns `speckit_required` instead, and the orchestrator runs the Spec-Kit flow then re-dispatches.
 - **Dispatch B — resolve reviews.** A sub-agent running `beutl-resolve-reviews --auto` clears the
   PR's bot reviews and returns `{ threads_resolved, changes_requested_outstanding, needs_human, … }`.
 - **Orchestrator (cheap).** From those signals it classifies risk, decides the merge, updates the
@@ -59,26 +58,32 @@ defaults to sequential ticks with per-tick sub-agent dispatch.
 ## One tick, end to end
 
 1. **Terminate?** Check budget / wall-clock / eligibility / stagnation first.
-2. **Select** the next unclaimed item (re-fetch the board, exclude already-attempted ids), across the
-   full spectrum — do **not** pre-filter by risk or kind.
-3. **Dispatch A** → the runner scans recent `Refs: Project #9` merges, implements, and passes two
-   binary gates before it will open a PR: a **test gate** (a production change must ship an NUnit
-   test, or a documented manual-verification, else it is `blocked`) and a six-point **self-review
-   gate** (XAML bindings, no compat shim, no leftover TODO, root-cause, GPL/MIT, subtree rules).
-   Outcomes: a **false-positive advances the board** (progress; resets `consecutive_no_progress`,
-   bumps `consecutive_false_positives`); a **design-sensitive** item is handed back as a **draft**
-   (step 3.5); **blocked** is recorded and skipped — only a `systemic` block counts as no-progress, an
-   `item-specific` one is neutral; **red / no PR ⇒ no-progress**.
-3.5. **Design pass** (only for a draft): run `@beutl-design-reviewer`, allow up to **two** rework
-   iterations on the draft branch, then open the PR — high-risk to a human if the design is still
-   unresolved after the budget.
-4. **Review gate:** `@beutl-reviewer` on the PR diff (the design reviewer already ran in 3.5). A
-   blocking finding ⇒ high-risk.
-5. **Dispatch B** (bounded settle) → resolve bot reviews, including replying-and-resolving clear bot
-   **false positives** with a `path:line` refutation; `needs_human` / red / timeout ⇒ leave for the
-   human.
-6. **Classify risk + merge** (below).
-7. **Journal** the outcome; recompute the stagnation counter (3 no-progress strikes, held open by a
+2. **Select up to K items** (re-fetch the board, exclude already-attempted ids), across the full
+   spectrum — do **not** pre-filter by risk or kind. The footprint-overlap scheduler (C-5) avoids
+   picking parallel items that touch the same `src/` file or `tests/` project.
+3. **Dispatch A** (parallel up to K) → each runner scans recent `Refs: Project #9` merges, implements,
+   and passes two binary gates before handing back a **draft branch**: a **test gate** (a production
+   change must ship an NUnit test + a green characterization baseline, or a documented
+   manual-verification, else it is `blocked`) and a six-point **self-review gate**. Outcomes: a
+   **false-positive advances the board**; a **draft** goes to the pre-PR review round (step 3.5);
+   **blocked** is recorded and skipped — only a `systemic` block counts as no-progress, an
+   `item-specific` one is neutral; **red / no draft ⇒ no-progress**. A **large feature**
+   (`speckit_required`) goes to the Spec-Kit flow (step 3.6).
+3.5. **Pre-PR review round** (always, on the draft): the orchestrator runs an **independent
+   machine-verify** (grep for `[Obsolete]`/v2/TODO/Follow-ups, XAML `CompileBindings`, GPL/MIT hook —
+   B-2, do not trust the runner's self-report) + `@beutl-reviewer` + `@beutl-xaml-binder` (+
+   `@beutl-design-reviewer` when design-sensitive). Up to **two** rework iterations on the draft
+   branch, then open the PR — high-risk to a human if findings are still unresolved after the budget
+   (with a structured findings comment — F-12).
+3.6. **Spec-Kit flow** (only for `speckit_required`): `/speckit-specify → plan → tasks`, then
+   re-dispatch the runner with `tasks.md` → draft → step 3.5.
+4. **Dispatch B** (bounded settle) → resolve bot reviews, including replying-and-resolving clear bot
+   **false positives** with a `path:line` refutation (and recording the pattern to loop-memory — D-8);
+   `needs_human` / red / timeout ⇒ leave for the human.
+5. **Classify risk + merge** (below) — the loop **posts its own code-owner approval** then
+   squash-merges low/mod-risk; a conditional **coverage probe** (B-4) gates auto-merge when
+   `touched_production && diff_loc >= 100`.
+6. **Journal** the outcome; recompute the stagnation counter (3 no-progress strikes, held open by a
    PR in the last 3 ticks); loop.
 
 ## Risk classification (moderate policy)
@@ -102,35 +107,38 @@ could not be cleanly auto-resolved · anything needing product or architecture j
 
 **When in doubt, leave it for the human.** This is the load-bearing fail-safe.
 
-**Two upstream gates run inside Dispatch A, before risk is ever classified** (so a PR that reaches
-this point has already cleared them): the **test gate** — a production change (`src/`) must add an
-NUnit test under `tests/`, or carry a concrete manual-verification note, else the runner returns
-`blocked` rather than opening a PR — and the six-point **self-review gate** (compiled XAML bindings,
-no `[Obsolete]`/"v2"/compat-overload shim, no leftover `// TODO`/Follow-up, root-cause fix, GPL/MIT
-boundary intact, subtree `CLAUDE.md` honored). As defense-in-depth, if a runner opens a PR whose own
-signals show a production change with no test and no manual-verification note, the orchestrator treats
-that PR as high-risk (human) and the tick as no-progress.
+**Two upstream gates run inside Dispatch A, before the draft reaches the pre-PR review round** (so a
+draft that reaches step 3.5 has already cleared them): the **test gate** — a production change
+(`src/`) must add an NUnit test under `tests/` **and** a green characterization baseline
+(`baseline_test_green`), or carry a concrete manual-verification note, else the runner returns
+`blocked` rather than handing back a draft — and the six-point **self-review gate** (compiled XAML
+bindings, no `[Obsolete]`/"v2"/compat-overload shim, no leftover `// TODO`/Follow-up, root-cause fix,
+GPL/MIT boundary intact, subtree `CLAUDE.md` honored). As defense-in-depth, the orchestrator
+**independently re-verifies the mechanical axes** (B-2) in step 3.5 — it does not trust the runner's
+`self_review_passed`. If a runner hands back a draft whose own signals show a production change with
+no test and no manual-verification note (or a missing/failed baseline), the orchestrator treats that
+draft as high-risk (human) and the tick as no-progress.
 
 ## Auto-merge mechanism — GitHub rulesets enforce the gate; the loop self-gates on top
 
 `main` is protected by **repository rulesets** (verify with
 `gh api repos/b-editor/beutl/rules/branches/main`): a PR is required, the **required status checks
 `build` and `dotnet-format`** must pass, **every review thread must be resolved**, **code-owner review
-is required** (`.github/CODEOWNERS` is `* @yuto-trd`, so every PR needs the code owner's approval), only
-**squash** merges are allowed, commits must be **signed**, and history must stay **linear**. GitHub
-enforces all of this server-side, so the loop is **not** the only gate — its self-check is
-defense-in-depth that (a) applies the risk policy and (b) avoids attempting a merge GitHub will refuse.
+is required** (`.github/CODEOWNERS` is `* @yuto-trd`), only **squash** merges are allowed, commits must
+be **signed**, and history must stay **linear**. GitHub enforces all of this server-side, so the loop is
+**not** the only gate — its self-check is defense-in-depth that (a) applies the risk policy and (b)
+avoids attempting a merge GitHub will refuse.
 
-**Practical consequence:** because `* @yuto-trd` owns every path and code-owner review is required, an
-unattended loop generally **cannot complete a merge** — the code owner's approval is missing and an
-author cannot approve their own PR. So in practice `/beutl-loop` opens PRs, resolves bot reviews, and
-**leaves low/moderate-risk PRs ready for the code owner to approve + merge** rather than merging them
-itself. True unattended auto-merge only happens where a PR satisfies every ruleset requirement (e.g. if
-the maintainer relaxes code-owner review for some paths). Changing CODEOWNERS or the rulesets is a
-maintainer decision and is never done by the loop.
+**The loop runs as the code owner.** All commits, PRs, reviews, and merges are performed from the
+code-owner account (`@yuto-trd`), so the loop **can approve its own PRs and complete the squash merge**
+without a second human in the loop — the code-owner review requirement is satisfied by the agent
+acting as that owner. The loop therefore **does** auto-merge low/moderate-risk PRs end to end;
+high-risk and uncertain PRs are still left for a human review pass. Changing CODEOWNERS or the rulesets
+is a maintainer decision and is never done by the loop.
 
-For a low/moderate-risk, settled PR the loop self-gates, then **attempts** the squash merge pinned to
-the reviewed head, and treats a ruleset refusal as "leave for human":
+For a low/moderate-risk, settled PR the loop self-gates, **posts its own approval as the code owner**,
+then **attempts** the squash merge pinned to the reviewed head, and treats a ruleset refusal as "leave
+for human":
 
 ```bash
 PR=<n>
@@ -140,9 +148,10 @@ gh pr checks "$PR"                                  # required checks (build, do
 # this, so the loop only checks to decide + avoid a futile merge attempt):
 gh api graphql -f query='query{repository(owner:"b-editor",name:"beutl"){pullRequest(number:'"$PR"'){reviewThreads(first:100){nodes{isResolved}}}}}' \
   --jq '[.data.repository.pullRequest.reviewThreads.nodes[]|select(.isResolved==false)]|length'   # must be 0
-gh pr view "$PR" --json mergeable,reviewDecision -q '.mergeable,.reviewDecision'                   # need MERGEABLE + APPROVED; REVIEW_REQUIRED (code-owner pending) / CHANGES_REQUESTED => left_for_human
-# Move to Done ONLY if the merge actually succeeds; a ruleset refusal (e.g. code-owner review) leaves
-# the item In Progress for the human.
+gh pr view "$PR" --json mergeable,reviewDecision -q '.mergeable,.reviewDecision'                   # need MERGEABLE; if reviewDecision != APPROVED, post the code-owner approval first (below)
+# Post the code-owner approval as the same account that authored the PR (the loop runs as @yuto-trd):
+gh pr review "$PR" --approve --body "Auto-approved by /beutl-loop (code-owner). Risk: <low|moderate>."
+# Move to Done ONLY if the merge actually succeeds; a ruleset refusal leaves the item In Progress.
 if gh pr merge "$PR" --squash --delete-branch --match-head-commit "$HEAD_SHA"; then
   : # gh project item-edit … --single-select-option-id 98236657   # Done
 else
@@ -207,6 +216,10 @@ logic** — it just launches `/beutl-loop` with a deliberately conservative enve
   `BEUTL_LOOP_BRANCH_PREFIX` supplies the feature-branch prefix — the per-item branch-off-`origin/main`
   logic needs a usable `<prefix>/<slug>`. Transcript goes to the already-gitignored `.claude/logs/`.
 - It has **no merge path of its own** — merging only ever happens inside `/beutl-loop`'s risk gate.
+- **Optional periodic progress post (H-16).** `BEUTL_LOOP_PROGRESS_GIST=1` starts a background
+  monitor that posts journal progress to a Gist every ~5 min, and posts the final JSON run summary
+  (H-15) when the loop exits. `BEUTL_LOOP_PROGRESS_GIST_ID=<id>` reuses an existing Gist so you can
+  watch one stable URL across runs. Off by default — the loop runs silently unless you opt in.
 
 ## Anti-loopmaxxing checklist
 
@@ -226,18 +239,21 @@ logic** — it just launches `/beutl-loop` with a deliberately conservative enve
 The loop is Markdown + an agent + a bash launcher — no compilable C#, so the NUnit requirement
 (AGENTS.md rule #3) does not apply. Verify with:
 
-1. **`/beutl-loop dry-run 1`** — selects an item and prints its predicted risk tier, whether it is
-   design-sensitive (would take the two-pass design review), whether a production change would require
+1. **`bash .claude/scripts/loop-contract-check.sh`** — assert the invariants across SKILL.md /
+   loop-engineering.md / runner JSON schema / beutl-loop.sh allowlist / .gitignore hold (G-13). Run
+   this first; it catches drift mechanically.
+2. **`bash .claude/scripts/loop-calibrate.sh`** — re-classify the last ~10 merged PRs through the
+   loop's risk classifier and report drift vs the human merge decisions (G-14). Use the drift to
+   tune the thresholds in SKILL.md step 4.
+3. **`/beutl-loop dry-run 1`** — selects an item and prints its predicted risk tier, whether it is
+   design-sensitive (would take the pre-PR review round), whether a production change would require
    a test, the merge decision, and the stop math — **without** claiming, dispatching, PRing,
    resolving, merging, or touching the board.
-2. **`bash -n .claude/scripts/beutl-loop.sh`** and confirm it refuses to run on `main`.
-3. **One live smoke test** (opens a real PR — run intentionally): `/beutl-loop 1` on a low-risk item
-   should open a PR, resolve its **bot** reviews, then **attempt** the squash merge. Under the current
-   `main` rulesets (code-owner review required, `* @yuto-trd`) GitHub will refuse the merge, so the
-   loop records `left_for_human` and stops with `stop_reason: budget` — the PR stays open for the code
-   owner to approve + merge. (If you relax code-owner review for the touched paths, the same run
-   instead auto-squash-merges, moves the board item to Done, and deletes the branch.) A **feature**
-   item is always **left open for a human**. Stagnation check: against a slice of known false-positives
-   the run stops after three consecutive false-positives (`stop_reason: stagnation`); against
-   `systemic`-blocked / red items (with no PR opened in between), after three consecutive no-progress
-   ticks. A single `item-specific`-blocked item is skipped without tripping the breaker.
+4. **`bash -n .claude/scripts/beutl-loop.sh`** and confirm it refuses to run on `main`.
+5. **One live smoke test** (opens a real PR — run intentionally): `/beutl-loop 1` on a low-risk item
+   should open a PR, resolve its **bot** reviews, post the code-owner approval, and **auto-squash-merge**
+   the PR, then move the board item to Done and delete the branch. A **high-risk** or **feature** item
+   is left open for a human. Stagnation check: against a slice of known false-positives the run stops
+   after three consecutive false-positives (`stop_reason: stagnation`); against `systemic`-blocked /
+   red items (with no PR opened in between), after three consecutive no-progress ticks. A single
+   `item-specific`-blocked item is skipped without tripping the breaker.

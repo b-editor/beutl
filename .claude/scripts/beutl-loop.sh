@@ -88,5 +88,48 @@ echo "Launching /beutl-loop $BUDGET on branch '$BRANCH' (log: $LOG)"
 echo "Low-to-moderate-risk PRs: the loop attempts an auto-squash-merge where the branch rules permit"
 echo "(current code-owner rules usually leave PRs ready for your merge); higher-risk ones go to a human."
 
-# BEUTL_LOOP_MAX_ITEMS / BEUTL_LOOP_MAX_MINUTES / BEUTL_LOOP_SETTLE_MINUTES are read from the env by the skill.
+# BEUTL_LOOP_MAX_ITEMS / BEUTL_LOOP_MAX_MINUTES / BEUTL_LOOP_SETTLE_MINUTES /
+# BEUTL_LOOP_PARALLEL (C-5, default 1 = sequential, max 3) are read from the env by the skill.
+# BEUTL_LOOP_PROGRESS_GIST=1 (H-16): post periodic progress + the final JSON run summary to a Gist
+#   for remote monitoring. BEUTL_LOOP_PROGRESS_GIST_ID=<id> edits an existing Gist; otherwise creates
+#   a new one per run.
+
+# Optional periodic progress poster (H-16): runs in the background while the loop is in flight.
+PROGRESS_PID=""
+if [ "${BEUTL_LOOP_PROGRESS_GIST:-0}" = "1" ]; then
+  (
+    while true; do
+      sleep 300
+      [ -f .claude/logs/beutl-loop-state.json ] || continue
+      PROGRESS_FILE=$(mktemp /tmp/loop-progress.XXXX.json)
+      jq '{run_id, items_processed, prs: (.prs|length), auto_merged: ([.prs[]|select(.outcome=="merged")]|length), left_for_human: ([.prs[]|select(.outcome=="left_for_human")]|length), stop_reason}' \
+        .claude/logs/beutl-loop-state.json > "$PROGRESS_FILE" 2>/dev/null || true
+      if [ -n "${BEUTL_LOOP_PROGRESS_GIST_ID:-}" ]; then
+        gh gist edit "$BEUTL_LOOP_PROGRESS_GIST_ID" "$PROGRESS_FILE" 2>/dev/null || true
+      else
+        : # no existing gist id — the final summary creates one below
+      fi
+      rm -f "$PROGRESS_FILE"
+    done
+  ) &
+  PROGRESS_PID=$!
+fi
+
 claude -p "/beutl-loop $BUDGET" "${PERM_ARGS[@]}" 2>&1 | tee "$LOG"
+
+# Stop the periodic poster if it was running.
+[ -n "$PROGRESS_PID" ] && kill "$PROGRESS_PID" 2>/dev/null || true
+
+# Post-run: emit the final JSON run summary (H-15) to a Gist if requested (H-16).
+if [ "${BEUTL_LOOP_PROGRESS_GIST:-0}" = "1" ]; then
+  LATEST_RUN_JSON=$(ls -t .claude/logs/beutl-loop-run-*.json 2>/dev/null | head -1)
+  if [ -n "$LATEST_RUN_JSON" ]; then
+    if [ -n "${BEUTL_LOOP_PROGRESS_GIST_ID:-}" ]; then
+      gh gist edit "$BEUTL_LOOP_PROGRESS_GIST_ID" "$LATEST_RUN_JSON" 2>/dev/null \
+        && echo "Run summary posted to Gist $BEUTL_LOOP_PROGRESS_GIST_ID" || true
+    else
+      gh gist create "$LATEST_RUN_JSON" -d "beutl-loop run summary $(date +%Y%m%d-%H%M%S)" 2>/dev/null \
+        && echo "Run summary posted to a new Gist (set BEUTL_LOOP_PROGRESS_GIST_ID to reuse next time)" || true
+    fi
+  fi
+fi

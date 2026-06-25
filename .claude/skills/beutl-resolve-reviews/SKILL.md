@@ -117,7 +117,11 @@ without an explicit "Address it".
   cites that `path:line` to refute it, then **resolve** the thread — with **no code change**. The
   refutation must quote concrete code, not a general assurance. If you are not certain it is a false
   positive, **escalate** (`needs_human`) instead of resolving. Count each one in
-  `false_positives_resolved`. (Never do this for human comments — those always escalate.)
+  `false_positives_resolved`. (Never do this for human comments — those always escalate.) **Append
+  the pattern to `.claude/loop-memory/bot-false-positive-patterns.md`** (D-8): one line per pattern —
+  `<bot> | <path:line> | <what the bot misread> | <refutation cite path:line>`. This lets future runs
+  and the reviewers (`beutl-reviewer`, `beutl-xaml-binder`) avoid re-tripping the same bot blind spot.
+  `mkdir -p .claude/loop-memory` first if it does not exist.
 - **Out-of-scope / opinion / anything needing product or architecture judgment, or that would
   enlarge the diff materially:** do **not** touch. Leave the thread open and mark `needs_human`.
 - **After any edit, re-verify before pushing — this is mandatory:**

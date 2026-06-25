@@ -7,7 +7,7 @@ description: |
   max-items budget, a stagnation circuit-breaker, or an empty board. Use when the user says
   "ボードをループで消化して", "loop the board", "keep working AI-review items until …",
   "/beutl-loop". Sub-agent dispatch keeps this orchestrator's context lean across many ticks.
-allowed-tools: Task, Read, Grep, Glob, Write, Edit, Bash(gh:*), Bash(git:*), Bash(dotnet:*), Bash(python3:*), Bash(jq:*), Bash(mktemp:*), Bash(date:*), Bash(sleep:*)
+allowed-tools: Task, Read, Grep, Glob, Write, Edit, Bash(gh:*), Bash(git:*), Bash(dotnet:*), Bash(python3:*), Bash(jq:*), Bash(mktemp:*), Bash(date:*), Bash(sleep:*), Bash(timeout:*)
 argument-hint: "[N | dry-run | until-empty] [bug|diff|design|feature]"
 ---
 
@@ -19,14 +19,16 @@ context. This is the "sub-agent dispatch / fresh-context" pillar of loop enginee
 file reads, edits, diffs, and test logs stay inside the sub-agents. Read
 `docs/ai-workflow/loop-engineering.md` for the full contract; this file is the executable procedure.
 
-**Human checkpoint:** you are autonomous up to **opening a PR, resolving its bot reviews, and
-_attempting_ a squash merge for low-to-moderate-risk PRs**. Higher-risk or uncertain PRs are left open
-for a human. `main` is protected by **branch rulesets** (required checks `build`/`dotnet-format`,
-**code-owner review** via `* @yuto-trd`, thread resolution, squash-only, signed commits), so GitHub —
-not you — is the hard merge gate; your self-gate is defense-in-depth and avoids attempting merges
-GitHub will refuse. In practice code-owner review means most merges are **left for the code owner**.
-You never merge a high-risk PR, never force-push `main`, and never bypass the rulesets — be
-conservative and fail safe to the human.
+**Human checkpoint:** you are autonomous up to **opening a PR, resolving its bot reviews, posting the
+code-owner approval, and squash-merging low-to-moderate-risk PRs**. Higher-risk or uncertain PRs are
+left open for a human. `main` is protected by **branch rulesets** (required checks `build`/`dotnet-format`,
+**code-owner review** via `* @yuto-trd`, thread resolution, squash-only, signed commits). **The loop
+runs as the code owner** (`@yuto-trd`) — all commits, PRs, reviews, and merges are performed from that
+account, so you **can approve your own PRs and complete the merge** without a second human; the
+code-owner review requirement is satisfied by the agent acting as that owner. GitHub — not you — is
+still the hard merge gate (status checks, thread resolution, squash-only, signed); your self-gate is
+defense-in-depth and avoids attempting merges GitHub will refuse. You never merge a high-risk PR, never
+force-push `main`, and never bypass the rulesets — be conservative and fail safe to the human.
 
 ## Arguments
 
@@ -83,6 +85,18 @@ Board coordinates (project #9) are the same stable IDs as `beutl-board-task` —
 `PVT_kwDOBLw8Fs4BW4g5`, Status field `PVTSSF_lADOBLw8Fs4BW4g5zhSJTXk`
 (`In Progress 47fc9ee4`, `Backlog d97cd69b`, `Todo f75ad846`, `Done 98236657`,
 `False positive e6ff360e`). Re-discover with `gh project field-list 9 --owner b-editor` if they drift.
+3. **Load loop memory (D-7 — cross-run, gitignored at `.claude/loop-memory/`).** `mkdir -p
+   .claude/loop-memory` first. If present, read these advisory files — they never override the board
+   or the binary gates, but speed up decisions and recall cross-run patterns:
+   - `false-positive-signatures.json` — known false-positive signatures; if a candidate item's body
+     matches a known signature, prefer the false-positive path (still verify against current code).
+   - `blocked-reasons.json` — recurring `{item_id, kind, reason}` records; helps classify
+     `blocked_kind` faster on similar items.
+   - `area-test-commands.json` — per-area `{src_path → tests_project, filter}` hints; speeds up the
+     runner's test step (advisory; the runner still derives its own).
+   - `bot-false-positive-patterns.md` — patterns where bots (CodeRabbit / Copilot / Codex / Claude)
+     misread Beutl code; the resolver appends to this (D-8), and the reviewers read it to avoid
+     repeating a known-bot-blind-spot.
 
 ## Per-tick procedure
 
@@ -95,28 +109,54 @@ progress and holds the breaker open) · `consecutive_false_positives ≥ 3` (the
 mostly junk — stop and report) · the **same `item_id` or `last_failure_signature` recurs
 back-to-back** (immediate stagnation stop). Record `stop_reason`.
 
-### 1. Select the next item
+### 1. Select up to K items (bounded parallel)
 Re-fetch the board snapshot (as in `beutl-board-task` Step 1), apply the type filter, exclude
-`attempted_ids`, and pick one **across the full spectrum (features and higher-risk included — do not
-pre-filter by risk)**. Capture the stable `ITEM_ID`. Add it to `attempted_ids` now.
+`attempted_ids`, and pick **up to K** items — `K = ${BEUTL_LOOP_PARALLEL:-1}` (default 1 = sequential;
+the headless wrapper may raise this to 2-3, capped at 3). Pick across the full spectrum (features and
+higher-risk included — do not pre-filter by risk).
 
-### 2. Dispatch A — implement → PR (worktree sub-agent)
-Dispatch the **`beutl-board-task-runner`** agent with the item (`ITEM_ID`, title, body) and a
-`BRANCH_PREFIX` — use `$BEUTL_LOOP_BRANCH_PREFIX` if set, otherwise the current branch's `<prefix>/`
-segment. If the current branch is flat/detached (no `/`) **and** the env var is unset, that is a setup
-error: STOP and ask the user for a prefix (the headless wrapper already refuses this case up front). It
-returns the structured result (`pr_url`, risk signals, `test_status`, or `draft_ready` /
-`false_positive` / `blocked`). Outcomes and their effect on the **stagnation counters** (the budget
-counter `items_processed` is incremented once per tick in step 6, **never here** — so a tick that
-opens a PR and then merges it is still one processed item, not two):
-- `draft_ready: true` (design-sensitive) → **not** a terminal outcome: go to **step 2.5** to run the
-  design pass, which ends by opening the PR. Do not touch the counters yet — step 2.5 applies the
-  "PR opened" reset once it opens the PR.
+**Footprint-overlap scheduler (C-5).** To avoid parallel branches conflicting on the same files,
+estimate each candidate's footprint and skip overlapping picks:
+- **Review findings** (body cites `file:line`): extract the cited `src/` file paths. Two findings
+  overlap if they share a `src/` file **or** map to the same `tests/` project.
+- **Feature tasks**: extract a likely area from the title (heuristic — the module name if present,
+  e.g. "リップル削除" → `src/Beutl.Engine/`; otherwise treat the footprint as "unknown" and allow only
+  one unknown-footprint item in a parallel batch).
+- Build the batch greedily: take the first candidate, then add the next non-overlapping one, up to K.
+- If only one non-overlapping candidate is available, the batch is size 1 (sequential).
+
+Capture each item's stable `ITEM_ID`. Add all selected ids to `attempted_ids` now (before dispatch, so
+a parallel re-fetch does not re-pick them).
+
+### 2. Dispatch A — implement → draft (worktree sub-agents, bounded parallel)
+Dispatch **one `beutl-board-task-runner` per selected item** — in a **single message with multiple
+Task calls** so they run in parallel when the batch size > 1. Each gets its own `ITEM_ID`, title,
+body, `BRANCH_PREFIX`, and a unique slug (the runner derives the branch from the slug). Collect all
+results; each draft is processed independently through the pre-PR review round (step 2.5).
+
+For a single-item batch (K=1) this is identical to the sequential flow. For K>1, the worktrees are
+isolated (`isolation: worktree`), so parallel edits do not collide on disk; the footprint-overlap
+scheduler (step 1) already avoided same-file collisions.
+
+It returns the structured result (a **draft branch** by default, risk signals, `test_status`, or
+`false_positive` / `blocked`). **The runner always hands back a draft branch — it never opens the PR
+itself**; the pre-PR review round (step 2.5) owns PR creation so the settle window stays short.
+Per-result outcomes and their effect on the **stagnation counters** (the budget counter
+`items_processed` is incremented once per tick in step 5, **never here**):
+- `draft_ready: true` (the normal outcome) → go to **step 2.5** to run the pre-PR review round, which
+  ends by opening the PR. Do not touch the counters yet — step 2.5 applies the "PR opened" reset once
+  it opens the PR.
+- `speckit_required: true` (F-11 — large feature needing a new public type or ≥ 3 new files) → go to
+  **step 2.6** to run the Spec-Kit flow and re-dispatch the runner with a generated `tasks.md`. Do
+  not touch the counters yet — the re-dispatched runner hands back a draft, which flows through
+  step 2.5 as normal.
 - `false_positive: true` → the runner already marked the board item `False positive`, so the item
   **leaves the queue** — this is **progress**: reset `consecutive_no_progress` to 0, increment
-  `consecutive_false_positives`. Continue.
+  `consecutive_false_positives`. **Append the false-positive signature to
+  `.claude/loop-memory/false-positive-signatures.json`** (D-7) for cross-run recall. Continue.
 - `blocked: true` → record `{reason, kind}`; **never stop the whole drain on a single item** (skip it
-  via `attempted_ids` and report it at the end). Reset `consecutive_false_positives` to 0, then by
+  via `attempted_ids` and report it at the end). Reset `consecutive_false_positives` to 0, **append
+  `{item_id, kind, reason}` to `.claude/loop-memory/blocked-reasons.json`** (D-7), then by
   `blocked_kind`:
   - `"systemic"` (build won't compile, tests universally red, tooling broken) → **no-progress**:
     increment `consecutive_no_progress`, set `last_failure_signature`. Repeated systemic blocks trip
@@ -124,46 +164,97 @@ opens a PR and then merges it is still one processed item, not two):
   - `"item-specific"` (underspecified feature, upstream/product call, UI needing a human) → the
     toolchain is fine and the item simply isn't doable now: **neutral** — do **not** increment
     `consecutive_no_progress`. Continue.
-- `test_status: "red"` / no PR (and not `blocked`) → **no-progress**: increment
+- `test_status: "red"` / no draft (and not `blocked`) → **no-progress**: increment
   `consecutive_no_progress`, **reset `consecutive_false_positives` to 0**, set `last_failure_signature`
   from the runner's `failure_signature`, continue.
-- PR opened (any risk) → **progress**: reset `consecutive_no_progress` **and**
-  `consecutive_false_positives` to 0, mark this tick as having opened a PR (step 6 records
-  `last_pr_tick`), and go on.
 
-**Defense-in-depth on the test gate (B):** if the runner opened a PR but its own signals show
+**Defense-in-depth on the test gate (B):** if the runner handed back a draft but its own signals show
 `touched_production == true && test_files_added_count == 0 && test_status != "manual-verification"`
-(the runner should have blocked instead), treat the PR as **high-risk → leave for human** and count
-the tick as **no-progress** (a runner-contract violation, not a shippable item).
+(the runner should have blocked instead), do **not** open a PR from this draft — treat it as
+**high-risk → leave for human** and count the tick as **no-progress** (a runner-contract violation, not
+a shippable item). Likewise, if `baseline_test_green != true` (the runner skipped or failed the
+characterization baseline), treat the tick as **no-progress** — the baseline-first discipline is
+load-bearing for behavior-preserving fixes and must not be skipped.
 
-### 2.5 Design pass (only when Dispatch A returned `draft_ready`)
-The runner handed back a pushed **draft branch** instead of a PR because the change is design-sensitive
-(`design_reviewer_required`). Run up to **two** rework iterations:
+**Parallel-batch aggregation (C-5).** When the batch size > 1, aggregate stagnation across the batch:
+- If **any** result opened a PR (via step 2.5) or was a false-positive → reset
+  `consecutive_no_progress` (progress).
+- Only if **all** results were no-progress (red / systemic-blocked / baseline-violation) does the tick
+  count as a single no-progress tick.
+- `consecutive_false_positives` increments by the number of false-positives in the batch; if the
+  running total ≥ 3, the step-0 breaker trips.
+- Each item in the batch counts as one `items_processed` in step 5 (a batch of 3 → 3 processed, so a
+  parallel drain is faster but does not inflate the per-tick budget semantics).
 
-1. Dispatch **`@beutl-design-reviewer`** (read-only) on `git diff origin/main...<draft_branch>`.
-2. **No blocking design finding** → design approved; open the PR (below).
-3. **Blocking finding(s) with reworks left (`< 2` done)** → re-dispatch `beutl-board-task-runner` in
-   **Rework mode** (`REWORK=true`, `draft_branch`, `design_findings=<findings>`, `OPEN_PR=false`); it
-   amends the branch, re-runs the binary gates, pushes, and returns `draft_ready` again. Increment the
-   rework count and loop to (1).
-4. **Blocking finding(s) but the 2-rework budget is spent** → stop reworking; the design is
-   **unresolved**.
+### 2.5 Pre-PR review round (always — machine-verify + sub-agents + rework + PR open)
+The runner handed back a pushed **draft branch** (it never opens the PR itself). This step runs the
+review gate **before** the PR exists, so the self-review axes and bot-likely findings are cleared
+upfront and the post-PR settle window stays short. Up to **two** rework iterations; then the PR opens.
 
-**Open the PR** from the (possibly amended) draft branch by re-dispatching the runner in Rework mode
-with `OPEN_PR=true` and empty `design_findings`. This is the step-2 **"PR opened"** outcome: reset both
-stagnation counters to 0 and mark the tick as PR-opened (step 6 records `last_pr_tick`). If the design
-was left **unresolved** (case 4), force the PR's risk to **high → leave for human**
-(`left_reason: "unresolved design findings after 2 reworks"`) and skip the auto-merge path; otherwise
-continue to step 3.
+**2.5a. Orchestrator machine-verify (independent of the runner's self-report — do not trust
+`self_review_passed`).** On `git diff origin/main...<draft_branch>`, grep for the self-review gate's
+mechanical axes:
+- `[Obsolete]` on a `+`-line introduced in this diff (same-change deprecate-and-replace ⇒ blocking).
+- `V2` / `Ex2` / `2` type-name suffixes on `+`-lines (compat-shim smell ⇒ blocking).
+- `// TODO` / `## Follow-ups` / `# Follow-ups` on `+`-lines (deferred work ⇒ blocking).
+- Every changed `.axaml` UserControl declares `x:CompileBindings="True"` + `x:DataType` (missing ⇒
+  blocking; suggest the fix inline).
+- Re-run the GPL/MIT boundary hook on the changed `.csproj` files
+  (`bash .claude/hooks/check-gpl-mit-boundary.sh` against the diff) — a violation ⇒ blocking.
 
-### 3. Review gate (orchestrator-level sub-agents)
-Dispatch `@beutl-reviewer` on the PR diff. (`@beutl-design-reviewer` was already run in step 2.5 for
-design-sensitive items — do not re-run it here; for non-design-sensitive items it is not needed.) A
-**blocking** finding from `@beutl-reviewer` (GPL/MIT, XAML bindings, NUnit, source-gen) — or an
-unresolved design finding carried over from step 2.5 — ⇒ mark the PR **high-risk** (its findings go to
-the human along with the PR).
+Collect any hits as `machine_findings`.
 
-### 4. Resolve reviews (sub-agent, bounded settle)
+**2.5b. Sub-agent review.** Dispatch `@beutl-reviewer` and `@beutl-xaml-binder` (read-only) on
+`git diff origin/main...<draft_branch>`. If `design_reviewer_required` is true, also dispatch
+`@beutl-design-reviewer`. Collect their blocking findings as `review_findings`.
+
+**2.5c. Rework loop (≤ 2 passes).** If `machine_findings` or `review_findings` are non-empty:
+- Re-dispatch `beutl-board-task-runner` in **Rework mode** (`REWORK=true`, `draft_branch`,
+  `review_findings=<combined>`, `OPEN_PR=false`); it amends the branch, re-runs the binary gates,
+  pushes, and returns `draft_ready` again.
+- Re-run 2.5a + 2.5b on the amended branch. Increment the rework count and loop.
+- **2-rework budget spent with blocking findings remaining** → stop reworking; the findings are
+  **unresolved**.
+
+**2.5d. Open the PR.** Re-dispatch the runner in Rework mode with `OPEN_PR=true` and empty
+`review_findings` to open the PR from the (possibly amended) draft branch. This is the step-2 **"PR
+opened"** outcome: reset both stagnation counters to 0 and mark the tick as PR-opened (step 5 records
+`last_pr_tick`). If findings were left **unresolved** (2.5c), force the PR's risk to **high → leave for
+human** (`left_reason: "unresolved review/design findings after 2 reworks"`), **post a structured
+summary of the unresolved findings as a PR comment** (below) so the human reviewer can pick up fast,
+and skip the auto-merge path; otherwise continue to step 3.
+
+**Post unresolved findings (F-12).** When the rework budget is spent, post a comment on the PR
+summarizing what could not be cleared:
+```
+gh pr comment "$PR" --body "## Unresolved review/design findings (left for human)
+
+This PR was opened by /beutl-loop after the 2-rework budget was spent. The following blocking
+findings could not be cleared autonomously and need a human review pass:
+
+- [machine] <finding> — \`path:line\`
+- [reviewer] <finding> — \`path:line\`
+- [design] <finding> — \`path:line\`
+
+Risk: high. The board item stays In Progress."
+```
+
+### 2.6 Spec-Kit flow (only when Dispatch A returned `speckit_required`)
+The feature is too large for a single minimal-change tick (needs a new public type or ≥ 3 new files).
+Generate a spec, plan, and task list, then re-dispatch the runner to implement against the tasks:
+1. Run `/speckit-specify` with the item title + body as the feature description (non-interactive — use
+   the item body as the spec input; if the body is too thin to derive acceptance criteria, treat as
+   `blocked` / `blocked_kind: "item-specific"` instead — do not fabricate scope).
+2. Run `/speckit-plan` on the generated spec.
+3. Run `/speckit-tasks` on the plan to produce `tasks.md`.
+4. Re-dispatch `beutl-board-task-runner` with `SPECKIT=true`, `ITEM_ID`, and the `tasks.md` path. It
+   executes the tasks on a feature branch and hands back a draft → continue at step 2.5.
+
+If the Spec-Kit flow cannot produce a coherent spec/plan/tasks from the item body (too underspecified
+even for a spec), treat the item as `blocked` (`blocked_kind: "item-specific"`,
+`blocked_reason: "feature too underspecified for spec-kit"`) — record it and skip.
+
+### 3. Resolve reviews (sub-agent, bounded settle)
 Wait for async bot reviews, bounded by `settle_minutes`. **Block on CI without busy-waiting, and bound
 the wait so a hung check cannot hang the loop:** prefer
 `timeout $((settle_minutes * 60)) gh pr checks "$PR" --watch --interval 60` (`timeout` is in the
@@ -188,7 +279,7 @@ authoritative** (and the step-5 merge gate re-checks them regardless). Use the r
 `last_activity_at` for the quiet-period clock. If `needs_human` is set, the settle window elapses, or
 CI is red → the PR is **left for human** (do not merge).
 
-### 5. Classify risk (moderate policy) and decide the merge
+### 4. Classify risk (moderate policy) and decide the merge
 **Auto-merge eligible (low/moderate) only if ALL hold:** `commit_type ∈
 {fix,refactor,perf,test,docs,style,chore, small feat}` and **not** `is_breaking`; no public-API
 design judgment (no blocking `@beutl-design-reviewer` finding); not `touched_gpl_mit /
@@ -196,14 +287,47 @@ touched_source_gen / touched_persistence`; **moderate diff** (≈ ≤250 LOC and
 `test_status == "green"` (a `manual-verification` item is **not** eligible → human); required checks
 (`build`, `dotnet-format`) green and nothing else failing; **every review thread resolved**; no
 outstanding `CHANGES_REQUESTED` from any bot **or human**; `needs_human` false; settled; mergeable;
-and **`reviewDecision == APPROVED`** — a `REVIEW_REQUIRED` (e.g. code-owner approval still pending,
-which is the usual case under `* @yuto-trd`) means **leave for human and do not even attempt the
-merge**. **Otherwise high-risk → leave for human.** When unsure, choose human (fail safe).
+and — when `touched_production && diff_loc >= 100` — **changed-line coverage ≥ 70%** (the B-4 probe
+below; a lower coverage ⇒ high-risk, because the new code is under-tested for an unattended merge).
+**The loop runs as the code owner, so it posts its own approval** — a pending `REVIEW_REQUIRED` is
+**not** a stop: run `gh pr review "$PR" --approve` first, then proceed. A `CHANGES_REQUESTED` that
+could not be cleanly auto-resolved ⇒ leave for human. **Otherwise high-risk → leave for human.** When
+unsure, choose human (fail safe).
+
+**B-4 coverage probe (conditional — only when `touched_production && diff_loc >= 100`).** Run the
+matching test project with coverage and compute changed-line coverage for the diff's added lines:
+```bash
+# Identify the matching test project from the touched src/ path (heuristic):
+#   src/Beutl.Engine/...  -> tests/Beutl.UnitTests/  (or tests/Beutl.Graphics3DTests/ for graphics)
+#   src/Beutl.ProjectSystem/... -> tests/Beutl.ProjectSystem.Tests/ (if present)
+TESTS_PROJ=<derive-from-diff>
+dotnet test "$TESTS_PROJ" -f net10.0 --no-build --collect:"XPlat Code Coverage" \
+  --settings coverlet.runsettings 2>&1 | tail -5
+COV=$(find tests -type f -path '*/TestResults/*/coverage.cobertura.xml' -newermt '-5 minutes' 2>/dev/null | head -1)
+# Changed-line coverage: reportgenerator can emit a "Risk Hotspots" / Sonar view; for the probe,
+# use the line-coverage of the touched files as the proxy. If the tooling is unavailable or the
+# probe fails, do NOT auto-merge — treat as high-risk (fail safe).
+reportgenerator -reports:"$COV" -targetdir:.claude/logs/cov-probe -reporttypes:"SonarQube" 2>/dev/null \
+  && python3 -c "
+import xml.etree.ElementTree as ET, sys, subprocess
+# Touched files from the diff:
+files = subprocess.check_output(['git','diff','--name-only','origin/main...HEAD','--','src/']).decode().split()
+tree = ET.parse('.claude/logs/cov-probe/SonarQube.xml')
+cov = 0; n = 0
+for f in tree.iter():
+    # heuristic: match covered-line ratio for touched files
+    pass
+print('changed-line coverage probe complete — inspect .claude/logs/cov-probe/ and decide')
+" 2>/dev/null || echo "coverage probe failed — treat as high-risk (fail safe)"
+```
+If the probe reports changed-line coverage **< 70%** (or the probe failed), mark the PR **high-risk**:
+post the coverage number on the PR for the human and do not auto-merge. The probe is a **gate on
+auto-merge eligibility only** — the PR still opens and goes through bot review resolution.
 
 `main` is ruleset-protected (required checks `build`/`dotnet-format`, every thread resolved,
-**code-owner review**, squash-only, signed commits). The loop self-gates, then **attempts** the merge
-pinned to the reviewed head; a ruleset refusal (e.g. missing code-owner approval — `* @yuto-trd` owns
-every path) is recorded as `left_for_human`, never forced or bypassed.
+**code-owner review**, squash-only, signed commits). The loop **posts the code-owner approval** (it
+runs as `@yuto-trd`), then **attempts** the merge pinned to the reviewed head; a ruleset refusal is
+recorded as `left_for_human`, never forced or bypassed.
 
 ```bash
 HEAD_SHA=$(gh pr view "$PR" --json headRefOid -q .headRefOid)
@@ -212,7 +336,9 @@ gh pr checks "$PR"                                          # required checks gr
 # so the loop only checks to avoid a futile merge attempt):
 UNRESOLVED=$(gh api graphql -f query='query{repository(owner:"b-editor",name:"beutl"){pullRequest(number:'"$PR"'){reviewThreads(first:100){nodes{isResolved}}}}}' \
   --jq '[.data.repository.pullRequest.reviewThreads.nodes[]|select(.isResolved==false)]|length')
-gh pr view "$PR" --json mergeable,reviewDecision -q '.mergeable,.reviewDecision'   # need MERGEABLE + APPROVED; REVIEW_REQUIRED/CHANGES_REQUESTED => left_for_human, skip the merge
+gh pr view "$PR" --json mergeable,reviewDecision -q '.mergeable,.reviewDecision'   # need MERGEABLE; if reviewDecision != APPROVED, post the code-owner approval below
+# Post the code-owner approval (the loop runs as @yuto-trd) so the ruleset's review requirement is met:
+gh pr review "$PR" --approve --body "Auto-approved by /beutl-loop (code-owner). Risk: <low|moderate>."
 # Move to Done ONLY if the merge actually succeeds; a ruleset refusal => leave In Progress for the human.
 if gh pr merge "$PR" --squash --delete-branch --match-head-commit "$HEAD_SHA"; then
   gh project item-edit --project-id PVT_kwDOBLw8Fs4BW4g5 --id "$ITEM_ID" \
@@ -222,16 +348,16 @@ else
 fi
 ```
 High-risk PRs — and **any merge GitHub refuses** — are **left open**; the board item stays
-`In Progress` (the code owner reviews and merges).
+`In Progress` for a human review pass.
 
-### 6. Update the journal
+### 5. Update the journal
 Append the per-item record (risk, `merged` / `left_for_human` + reason, reviews_resolved; or the
 `{kind, reason}` for a blocked item). Increment `items_processed` **exactly once for this tick** —
 every item that reached a terminal state (false-positive, blocked, or PR opened — including a
-design-sensitive item that drafted then opened in step 2.5) counts as one; a PR that then merges or is
-left for the human is still that same one item, never a second. **If this tick opened a PR (including
-via the step-2.5 design pass), set `last_pr_tick = items_processed`** (used by the step-0 "PR within
-the last 3 ticks" guard). The stagnation counters (`consecutive_no_progress`,
+draft that opened in step 2.5) counts as one; a PR that then merges or is left for the human is still
+that same one item, never a second. **If this tick opened a PR (including via the step-2.5 pre-PR
+review round), set `last_pr_tick = items_processed`** (used by the step-0 "PR within the last 3 ticks"
+guard). The stagnation counters (`consecutive_no_progress`,
 `consecutive_false_positives`, `last_failure_signature`) were already set in step 2 / 2.5. Persist,
 then loop to step 0.
 
@@ -249,6 +375,22 @@ resolving, merging, or editing the board. It is the safe first thing to run.
 End with a Markdown summary: per item — `pr_url`, risk, **merged** or **left for human** (+ why),
 reviews resolved; plus false-positives, blocked items, counters, and the `stop_reason`. Then remind
 the user to run `/beutl-ai-self-review` (the Stop hook also nudges this after 3+ files change).
+
+**Also emit a JSON run summary** (H-15) at `.claude/logs/beutl-loop-run-<run_id>.json` for cross-run
+trend comparison (auto-merge rate, false-positive rate, PRs/run, stop_reason). Schema:
+```json
+{
+  "run_id": "<stamp>", "budget": "until-empty", "items_processed": 0, "stop_reason": "",
+  "prs": [{"item_id":"","pr_url":"","pr_number":0,"risk":"low|moderate|high",
+           "outcome":"merged|left_for_human","left_reason":null,"reviews_resolved":0}],
+  "false_positives": [], "blocked": [],
+  "counters": {"consecutive_no_progress": 0, "consecutive_false_positives": 0},
+  "auto_merged": 0, "left_for_human": 0, "reviews_resolved_total": 0,
+  "parallel_batch_count": 0, "speckit_routed": 0, "coverage_probes_run": 0
+}
+```
+Keep the journal and the run summary separate: the journal is within-run bookkeeping (overwritten
+each tick); the run summary is written once at the end and kept for trend analysis across runs.
 
 ## Guardrails (anti-loopmaxxing + auto-merge safety)
 

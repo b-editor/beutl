@@ -11,7 +11,7 @@
 | `beutl-xaml-binder` | After adding/changing many `.axaml` files | haiku | Confirms compiled bindings are in place. |
 | `beutl-design-reviewer` | When public types / extensibility surface change | sonnet | Enforces the "adopt better designs eagerly" priority from AGENTS.md (orthogonality, plugin-author flexibility, no compat-only shims). Complements — does not duplicate — `beutl-reviewer`. |
 | `beutl-gpu-crash-reproducer` | Reproducing a Linux/SwiftShader GPU **native** crash that doesn't repro on macOS | sonnet | Runs the arm64-native Docker repro (build + loop-until-crash + gdb/eu-stack) in isolation and returns just the native stack, keeping the multi-GB cores and log noise out of the caller's context. Driven by the `beutl-gpu-crash-repro` skill; captures evidence, does not fix. |
-| `beutl-board-task-runner` | Dispatched per tick by `/beutl-loop` to implement one Project #9 item | sonnet | Runs with **`isolation: worktree`**; executes the `beutl-board-task` flow for one item (verify → branch → implement → test → PR) and returns a compact structured result (PR url + risk signals). Keeps the loop orchestrator's context lean. **Does not merge**, does not resolve reviews. |
+| `beutl-board-task-runner` | Dispatched per tick by `/beutl-loop` to implement one Project #9 item | sonnet | Runs with **`isolation: worktree`**; executes the `beutl-board-task` flow for one item (verify → branch → implement → test → **draft**) and returns a compact structured result (draft branch + risk signals + `baseline_test_green` + `speckit_required`). **Always hands back a draft** (never opens the PR itself); the orchestrator runs the pre-PR review round. **Does not merge**, does not resolve reviews. |
 
 ### Related skill: `beutl-gpu-crash-repro`
 
@@ -20,9 +20,12 @@ The agent is the isolated runner; the [`beutl-gpu-crash-repro`](../../.claude/sk
 ### Related skills: the board loop
 
 The `beutl-board-task-runner` agent is the per-tick worker for **`/beutl-loop`**, the autonomous
-board-draining loop. Three skills make up that surface: `beutl-board-task` (work one item → PR),
+board-draining loop. Three skills make up that surface: `beutl-board-task` (work one item → draft),
 `beutl-resolve-reviews` (address & resolve a PR's reviews; `--auto` for the loop), and `beutl-loop`
-(the orchestrator that risk-gates auto-merge). It adds **no new hook** — the existing `Stop` →
+(the orchestrator that risk-gates auto-merge, posts the code-owner approval, and squash-merges
+low/mod-risk PRs). Two helper scripts verify the loop itself: `loop-contract-check.sh` (assert
+contract invariants — G-13) and `loop-calibrate.sh` (re-classify merged PRs to tune the risk
+thresholds — G-14). It adds **no new hook** — the existing `Stop` →
 `remind-self-review.sh` hook already nudges `/beutl-ai-self-review` after the loop changes 3+ files.
 Full reference: [`loop-engineering.md`](./loop-engineering.md).
 

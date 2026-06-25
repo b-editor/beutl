@@ -40,7 +40,11 @@ back a **draft** (see Step 9 and "Rework mode") instead of opening the PR, so th
    (`e6ff360e`) and return `false_positive: true` (do nothing else). For a **feature task** there is
    no false-positive concept — instead confirm it is not already implemented/obsolete (if it is, treat
    it as the false-positive exit: mark the board and return `false_positive: true` with a note) and is
-   specified enough to verify (if not, return `blocked` / `blocked_kind: "item-specific"`).
+   specified enough to verify (if not, return `blocked` / `blocked_kind: "item-specific"`). **Needs a
+   spec?** If the feature requires a **new public type** or **≥ 3 new files**, it is too large for a
+   single minimal-change tick — set `speckit_required: true` and return (do not implement). The
+   orchestrator runs the Spec-Kit flow (`/speckit-specify → /speckit-plan → /speckit-tasks`) and
+   re-dispatches you with the generated `tasks.md` (see "Spec-Kit re-dispatch mode").
 2. **Claim it** immediately (Status → `In Progress` `47fc9ee4`).
 3. **Branch off `origin/main`** first (before editing), named `$BRANCH_PREFIX/<descriptive-slug>`.
 4. **Scan recent merges, then implement.** Before editing, skim the last ~15 commits on `origin/main`
@@ -55,7 +59,12 @@ back a **draft** (see Step 9 and "Rework mode") instead of opening the PR, so th
    go back and add one. Only when the change genuinely cannot carry a unit test (typically UI) do you
    set `test_status: "manual-verification"` — and then a concrete `manual_verification_note` is
    **mandatory**. A production change with neither a test nor a manual-verification note is `blocked`
-   (see the Step-8 gate), not a PR.
+   (see the Step-8 gate), not a PR. **Record `baseline_test_green`**: run the new test against the
+   UNMODIFIED code first (characterization baseline), and set `baseline_test_green: true` only if that
+   pre-change run was green (proving the test captures current behavior). If the baseline run was red
+   or you skipped it, set `baseline_test_green: false` — the orchestrator treats a missing/false
+   baseline as a runner-contract violation (no-progress), so do not skip it. For a
+   `manual-verification`-only item, set `baseline_test_green: true` (there is no test to baseline).
 6. **`dotnet format --verify-no-changes`** on the touched files.
 7. **Do not defer work** (skill Step 6): finish everything the task surfaced on this branch, or
    return `blocked` with a reason. Never park work behind a TODO/Follow-up.
@@ -72,13 +81,13 @@ back a **draft** (see Step 9 and "Rework mode") instead of opening the PR, so th
      `## Follow-ups` / Draft-board deferral; (4) the change fixes the **root cause**, not a symptom;
      (5) the GPL/MIT boundary is intact; (6) subtree `CLAUDE.md` rules honored. A miss you cannot fix
      in-branch ⇒ `blocked`. Set `self_review_passed` accordingly.
-9. **Commit, push, and either open the PR or hand back a draft.** Commit (signed) and push the feature
-   branch. Then:
-   - **If `design_reviewer_required` is false:** open the PR (`gh pr create --base main`), fill the
-     template, reference the board item. **Stop there — do not merge.**
-   - **If `design_reviewer_required` is true (D — design-sensitive):** do **not** open the PR. Return
-     `draft_ready: true` with `draft_branch` set to the pushed branch and `pr_url`/`pr_number` null.
-     The orchestrator runs `@beutl-design-reviewer` and may re-dispatch you in **Rework mode**.
+9. **Commit, push, and hand back a draft — always.** Commit (signed) and push the feature branch.
+   **Do not open the PR.** Return `draft_ready: true` with `draft_branch` set to the pushed branch and
+   `pr_url`/`pr_number` null. The orchestrator runs the pre-PR review round (`@beutl-reviewer` +
+   `@beutl-xaml-binder`, and `@beutl-design-reviewer` when `design_reviewer_required`) on your draft
+   branch, may re-dispatch you in **Rework mode**, and opens the PR itself once the reviews are clean
+   (see "Rework mode"). This keeps the settle window short: the self-review axes and bot-likely
+   findings are cleared before bot reviews ever start. **Stop here — do not merge, do not open a PR.**
 
 ## Risk signals you must collect (for the orchestrator)
 
@@ -103,24 +112,41 @@ diff (`git diff --stat origin/main...HEAD` and inspection):
   adds or modifies.
 - `files_changed`, `diff_loc` (total added+removed lines).
 
-## Rework mode (D — design-sensitive second pass)
+## Rework mode (pre-PR review rework)
 
 The orchestrator re-dispatches you with `REWORK=true`, the `draft_branch`, an `OPEN_PR` flag, and a
-`design_findings` list (the `@beutl-design-reviewer` output). Do **not** start a new item or re-pick:
+`review_findings` list (the combined `@beutl-reviewer` / `@beutl-xaml-binder` /
+`@beutl-design-reviewer` output). Do **not** start a new item or re-pick:
 
 - Check out `draft_branch` (it already exists and is pushed).
-- **If `design_findings` is non-empty:** address them with the smallest change that satisfies the
-  design priorities (orthogonality, plugin-author flexibility, no compat shims), re-run the binary
-  gates (build + test exit-code + format), and push the amended branch.
+- **If `review_findings` is non-empty:** address them with the smallest change that satisfies the
+  design priorities (orthogonality, plugin-author flexibility, no compat shims) and the reviewer
+  axes, re-run the binary gates (build + test exit-code + format), and push the amended branch.
 - **Then branch on `OPEN_PR`:**
   - `OPEN_PR=false` → return `draft_ready: true` + `draft_branch` again (the orchestrator re-reviews
     the amended branch).
   - `OPEN_PR=true` → open the PR from `draft_branch` (`gh pr create --base main`) and return the
-    normal PR result. The orchestrator sets this once the design is approved, or to force the PR open
-    after the rework budget (2 passes) is spent — in which case it classifies the PR high-risk and
-    leaves it for the human.
+    normal PR result. The orchestrator sets this once the reviews are clean — or to force the PR open
+    after the rework budget is spent, in which case it classifies the PR high-risk and leaves it for
+    the human.
 
 Never merge in rework mode either.
+
+## Spec-Kit re-dispatch mode (F-11 — large features)
+
+The orchestrator re-dispatches you with `SPECKIT=true`, the `ITEM_ID`, and a path to a generated
+`tasks.md` (produced by `/speckit-specify → /speckit-plan → /speckit-tasks`). Do **not** start a new
+item or re-pick:
+
+1. Read `tasks.md` and execute its tasks in dependency order, on a feature branch off `origin/main`
+   (named `$BRANCH_PREFIX/<descriptive-slug>` as usual).
+2. For each task, apply the minimal change, run the binary gates (build + test exit-code + format),
+   and proceed. A production change still ships an NUnit test (rule #3).
+3. When all tasks are done, commit (signed), push, and hand back a **draft** (`draft_ready: true`,
+   `draft_branch` set) — exactly like the normal first pass. The orchestrator runs the pre-PR review
+   round (step 2.5) on the draft.
+
+Never merge in Spec-Kit mode either.
 
 ## Output — return EXACTLY this JSON (and nothing else after it)
 
@@ -136,6 +162,7 @@ Never merge in rework mode either.
   "blocked_reason": null,
   "blocked_kind": null,
   "failure_signature": null,
+  "speckit_required": false,
   "draft_ready": false,
   "draft_branch": null,
   "pr_url": null,
@@ -149,6 +176,7 @@ Never merge in rework mode either.
   "touched_production": false,
   "test_files_added": false,
   "test_files_added_count": 0,
+  "baseline_test_green": true,
   "manual_verification_note": null,
   "self_review_passed": true,
   "self_review_findings": [],
@@ -163,10 +191,14 @@ Never merge in rework mode either.
 }
 ```
 
-- On a **PR opened**: `pr_url` / `pr_number` / `branch` / `commit_type` populated, `test_status`
-  `green` or `manual-verification`, `draft_ready: false`.
-- On a **draft handed back** (D — `design_reviewer_required`): `draft_ready: true`, `draft_branch`
-  set, `pr_url`/`pr_number` null. You pushed the branch but did not open the PR.
+- On a **draft handed back** (the normal outcome of the first pass — always): `draft_ready: true`,
+  `draft_branch` set, `pr_url`/`pr_number` null. You pushed the branch but did not open the PR; the
+  orchestrator runs the pre-PR review round and re-dispatches you (Rework mode) to open it.
+- On a **spec-kit required** (F-11 — large feature): `speckit_required: true`, PR fields `null`,
+  `draft_ready: false`. You did not implement; the orchestrator runs the Spec-Kit flow and
+  re-dispatches you with `SPECKIT=true` + a `tasks.md` path.
+- On a **PR opened** (only in Rework mode with `OPEN_PR=true`): `pr_url` / `pr_number` / `branch` /
+  `commit_type` populated, `test_status` `green` or `manual-verification`, `draft_ready: false`.
 - On a **false positive**: `false_positive: true`, PR fields `null`.
 - On **blocked**: `blocked: true`, `blocked_reason` set, **`blocked_kind` set**, PR fields `null` —
   leave the board item in a sane state (`In Progress` so it is not re-picked mid-run; the orchestrator

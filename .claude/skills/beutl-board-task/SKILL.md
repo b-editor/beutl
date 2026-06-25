@@ -189,6 +189,11 @@ Enter plan mode (`EnterPlanMode`) and produce a focused plan. Include:
 
 Surface non-obvious design trade-offs to the user (AGENTS.md "adopt better designs eagerly").
 For public-surface / extensibility changes, auto-delegate `@beutl-design-reviewer`.
+For a feature that needs a new public type or ≥ 3 new files, route through the Spec-Kit flow
+(`/speckit-specify → /speckit-plan → /speckit-tasks → /speckit-implement`) instead of a single
+minimal-change tick — it is too large to verify as one root-cause fix. When dispatched by
+`/beutl-loop`, the runner returns `speckit_required` and the orchestrator runs the flow; standalone,
+run the Spec-Kit skills yourself.
 
 ### Create the work branch now — before any edits
 
