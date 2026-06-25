@@ -308,9 +308,6 @@ internal sealed class VideoRingBuffer : IDisposable
                 while (!ct.IsCancellationRequested)
                 {
                     int baseFrame = LastRequestedFrame;
-                    // Fast-path early break before the cached-ahead scan. HasPrefetchTarget below
-                    // re-checks this same baseFrame < 0 invariant so it stays a self-contained,
-                    // unit-testable predicate; keep both in sync.
                     if (baseFrame < 0) break;
 
                     // 既にバッファにあるフレーム数をカウント
