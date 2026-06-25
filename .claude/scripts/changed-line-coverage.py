@@ -78,6 +78,7 @@ def match_file(diff_file: str, cobertura_files: dict[str, dict[int, bool]]) -> s
     # Cobertura often stores paths relative to the test project, so do a
     # suffix match on the path components.
     diff_parts = Path(diff_file).parts
+    matches = []
     for cb_file in cobertura_files:
         cb_parts = Path(cb_file).parts
         # Compare the common-length suffix in both directions: Coverlet may store
@@ -85,8 +86,13 @@ def match_file(diff_file: str, cobertura_files: dict[str, dict[int, bool]]) -> s
         # diff path, or vice versa.
         n = min(len(cb_parts), len(diff_parts))
         if n and cb_parts[-n:] == diff_parts[-n:]:
-            return cb_file
-    return None
+            matches.append(cb_file)
+    # Only accept an unambiguous match. The repo has duplicate basenames
+    # (Helper.cs, Program.cs, …); a short Coverlet path could otherwise be mapped
+    # to the wrong file's line map. Treat 0 or >1 matches as unmatched — the
+    # caller counts those added lines as uncovered, which is the fail-safe
+    # (under-reporting coverage ⇒ high-risk) direction.
+    return matches[0] if len(matches) == 1 else None
 
 
 def main() -> int:

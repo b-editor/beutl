@@ -157,8 +157,9 @@ The orchestrator re-dispatches you with `REWORK=true`, the `draft_branch`, an `O
 - **Then branch on `OPEN_PR`:**
   - `OPEN_PR=false` → return `draft_ready: true` + `draft_branch` again (the orchestrator re-reviews
     the amended branch).
-  - `OPEN_PR=true` → open the PR from `draft_branch` (`gh pr create --base main`) and return the
-    normal PR result. The orchestrator sets this once the reviews are clean — or to force the PR open
+  - `OPEN_PR=true` → open the PR from `draft_branch` (`gh pr create --base main --head "$draft_branch"`)
+    and return the normal PR result. **Pass `--head` explicitly** — after the detached checkout above
+    there is no current branch, so `gh pr create` cannot default the head and would otherwise fail. The orchestrator sets this once the reviews are clean — or to force the PR open
     after the rework budget is spent, in which case it classifies the PR high-risk and leaves it for
     the human.
 
