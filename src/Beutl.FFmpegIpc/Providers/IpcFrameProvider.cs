@@ -60,15 +60,14 @@ internal sealed class IpcFrameProvider : IFrameProvider
             readBufferIndex = _bufferIndex;
             var request = IpcMessage.Create(_connection.NextId(), MessageType.RequestFrame,
                 new RequestFrameMessage { FrameIndex = frame, BufferIndex = readBufferIndex });
-            response = await _connection.SendAndReceiveAsync(request)
-                       ?? throw new IOException("Connection closed while waiting for frame");
+            response = await _connection.SendAndReceiveAsync(request);
         }
 
+        // SendAndReceiveAsync already surfaces a closed connection as IOException and an error response as
+        // FFmpegWorkerException, so the response here is non-null and error-free; only CancelEncode (a live
+        // non-error response) still needs handling.
         if (response.Type == MessageType.CancelEncode)
             throw new OperationCanceledException();
-
-        if (response.Error != null)
-            throw new InvalidOperationException($"Frame render failed: {response.Error}");
 
         var frameInfo = response.GetPayload<ProvideFrameMessage>()
             ?? throw new InvalidOperationException("Missing payload for ProvideFrame");
@@ -115,9 +114,19 @@ internal sealed class IpcFrameProvider : IFrameProvider
         var alphaType = frameInfo.Premul ? BitmapAlphaType.Premul : BitmapAlphaType.Unpremul;
         var bmp = new Bitmap(frameInfo.Width, frameInfo.Height, BitmapColorType.RgbaF16, alphaType, BitmapColorSpace.LinearSrgb);
 
-        // Read into the bitmap's own span so the copy length is its real ByteCount, not a recomputed size.
-        _videoBuffers[bufferIndex].Read(bmp.GetPixelSpan());
-
-        return bmp;
+        try
+        {
+            // Read into the bitmap's own span so the copy length is its real ByteCount, not a recomputed
+            // size. SharedMemoryBuffer.Read still bounds-checks against the shared-buffer Capacity (the
+            // DataLength guard above does not), so a frame that exceeds Capacity throws here — dispose the
+            // freshly allocated native bitmap before propagating so the throw can't leak it.
+            _videoBuffers[bufferIndex].Read(bmp.GetPixelSpan());
+            return bmp;
+        }
+        catch
+        {
+            bmp.Dispose();
+            throw;
+        }
     }
 }
