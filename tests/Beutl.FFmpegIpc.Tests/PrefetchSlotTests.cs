@@ -34,6 +34,22 @@ public class PrefetchSlotTests
     }
 
     [Test]
+    public void Arm_WhenAlreadyArmed_Throws()
+    {
+        // Overwriting an armed prefetch would strand its undrained IPC response, so a double-arm must fail
+        // loudly in every build config (a runtime throw, not a Debug.Assert compiled out in Release).
+        var slot = new PrefetchSlot<long, int>();
+        slot.Arm(7, bufferIndex: 1, Task.FromResult(42));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(() => slot.Arm(8, bufferIndex: 0, Task.FromResult(99)),
+                Throws.TypeOf<InvalidOperationException>());
+            Assert.That(slot.HasPrefetch, Is.True, "the rejected re-arm must leave the original prefetch intact");
+        });
+    }
+
+    [Test]
     public async Task TryConsumeMatching_OnMatchingKey_DetachesTaskAndBufferIndexAndClears()
     {
         var slot = new PrefetchSlot<long, int>();

@@ -1,6 +1,4 @@
-﻿using System.Diagnostics;
-
-namespace Beutl.FFmpegIpc.Providers;
+﻿namespace Beutl.FFmpegIpc.Providers;
 
 /// <summary>
 /// Single-slot double-buffer prefetch state shared by the IPC client providers
@@ -35,7 +33,11 @@ internal sealed class PrefetchSlot<TKey, TValue>
     /// <summary>Arms the slot with an in-flight prefetch. The caller guarantees the slot is empty.</summary>
     public void Arm(TKey key, int bufferIndex, Task<TValue> task)
     {
-        Debug.Assert(_task is null, "PrefetchSlot armed while a prefetch was already in flight");
+        // Overwriting an armed prefetch would strand its undrained IPC response, which a later request
+        // would then read in place of its own and reject as an id mismatch.
+        if (_task is not null)
+            throw new InvalidOperationException("PrefetchSlot armed while a prefetch was already in flight.");
+
         _key = key;
         _bufferIndex = bufferIndex;
         _task = task;
@@ -48,7 +50,7 @@ internal sealed class PrefetchSlot<TKey, TValue>
     /// </summary>
     public Task<TValue>? TryConsumeMatching(TKey key, out int bufferIndex)
     {
-        if (_task is not null && _key.Equals(key))
+        if (_task is not null && EqualityComparer<TKey>.Default.Equals(_key, key))
         {
             bufferIndex = _bufferIndex;
             return Detach();
@@ -65,7 +67,7 @@ internal sealed class PrefetchSlot<TKey, TValue>
     /// </summary>
     public Task<TValue>? TryDetachStale(TKey key)
     {
-        if (_task is not null && !_key.Equals(key))
+        if (_task is not null && !EqualityComparer<TKey>.Default.Equals(_key, key))
             return Detach();
 
         return null;
@@ -76,6 +78,8 @@ internal sealed class PrefetchSlot<TKey, TValue>
     {
         Task<TValue>? task = _task;
         _task = null;
+        _key = default!;
+        _bufferIndex = 0;
         return task;
     }
 }

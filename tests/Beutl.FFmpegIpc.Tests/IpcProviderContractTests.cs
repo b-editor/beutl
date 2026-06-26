@@ -245,6 +245,42 @@ public class IpcProviderContractTests
         }, ct);
     }
 
+    // Fake host that always answers the request for a specific frame index with an error response (so that
+    // frame's prefetch faults) and serves every other frame normally. Lets a test prove that draining a
+    // FAULTED stale prefetch after a seek discards the worker error instead of aborting the fresh request.
+    private static Task RunFrameErrorsOnIndexHost(
+        NamedPipeServerStream server, SharedMemoryBuffer[] buffers, long erroringFrameIndex, CancellationToken ct)
+    {
+        return Task.Run(async () =>
+        {
+            while (!ct.IsCancellationRequested)
+            {
+                var req = await MessageSerializer.ReadMessageAsync(server, ct);
+                if (req == null)
+                    return;
+
+                var payload = req.GetPayload<RequestFrameMessage>()!;
+                if (payload.FrameIndex == erroringFrameIndex)
+                {
+                    await MessageSerializer.WriteMessageAsync(
+                        server, IpcMessage.CreateError(req.Id, "injected stale-prefetch failure"), ct);
+                    continue;
+                }
+
+                buffers[payload.BufferIndex].Write(BitConverter.GetBytes(payload.FrameIndex));
+                var resp = IpcMessage.Create(req.Id, MessageType.ProvideFrame, new ProvideFrameMessage
+                {
+                    Width = 1,
+                    Height = 1,
+                    BytesPerPixel = RgbaF16BytesPerPixel,
+                    DataLength = FrameDataLength,
+                    Premul = false,
+                });
+                await MessageSerializer.WriteMessageAsync(server, resp, ct);
+            }
+        }, ct);
+    }
+
     private static async Task WaitUntil(Func<bool> predicate, TimeSpan timeout, string description)
     {
         var deadline = DateTime.UtcNow + timeout;
@@ -466,6 +502,43 @@ public class IpcProviderContractTests
             using Bitmap frame1 = await provider.RenderFrame(1);
             Assert.That(ReadFrameSignature(frame1), Is.EqualTo(1L),
                 "the retry recovers because the faulted prefetch was not pinned to the provider");
+        }
+        finally
+        {
+            await StopHost(hostCts, server, hostTask);
+            DisposeBuffers(buffers);
+        }
+    }
+
+    [Test]
+    public async Task RenderFrame_SeekAfterPrefetchFaulted_DiscardsStaleErrorAndReturnsRequestedFrame()
+    {
+        // RenderFrame(0) arms a prefetch of frame 1, which the host faults with a worker error. A seek to
+        // frame 5 must DRAIN that faulted stale prefetch, discard its error (the error belongs to the
+        // discarded frame 1), then issue a fresh RequestFrame{5} and return frame 5 — not abort the seek by
+        // re-throwing the stale prefetch's FFmpegWorkerException.
+        var (server, client) = ConnectPair();
+        var buffers = CreateBuffers();
+        var hostCts = new CancellationTokenSource();
+        var hostTask = RunFrameErrorsOnIndexHost(server, buffers, erroringFrameIndex: 1, hostCts.Token);
+
+        using var conn = new IpcConnection(client);
+        // frameCount 6 makes frame 5 the last frame, so the recovered seek issues no further prefetch and
+        // nothing dangles into teardown.
+        var provider = new IpcFrameProvider(conn, buffers, frameCount: 6, frameRate: new Rational(30, 1));
+
+        try
+        {
+            using Bitmap frame0 = await provider.RenderFrame(0);
+            Assert.That(ReadFrameSignature(frame0), Is.EqualTo(0L), "frame 0 renders and arms the prefetch of frame 1");
+
+            // Wait until the prefetch actually faults so the seek drains an already-faulted stale task.
+            await WaitUntil(() => provider.IsPrefetchFaultedForTest(),
+                TimeSpan.FromSeconds(5), "the in-flight frame prefetch faults");
+
+            using Bitmap frame5 = await provider.RenderFrame(5);
+            Assert.That(ReadFrameSignature(frame5), Is.EqualTo(5L),
+                "the seek discards the faulted stale prefetch's worker error and returns the freshly requested frame 5");
         }
         finally
         {
@@ -808,6 +881,40 @@ public class IpcProviderContractTests
         }, ct);
     }
 
+    // Fake host that always answers the request for a specific chunk offset with an error response (so that
+    // chunk's prefetch faults) and serves every other chunk normally. Mirrors RunFrameErrorsOnIndexHost for
+    // the sample-side stale-prefetch-error drain.
+    private static Task RunSampleErrorsOnOffsetHost(
+        NamedPipeServerStream server, SharedMemoryBuffer[] buffers, long erroringOffset, CancellationToken ct)
+    {
+        return Task.Run(async () =>
+        {
+            while (!ct.IsCancellationRequested)
+            {
+                var req = await MessageSerializer.ReadMessageAsync(server, ct);
+                if (req == null)
+                    return;
+
+                var payload = req.GetPayload<RequestSampleMessage>()!;
+                if (payload.Offset == erroringOffset)
+                {
+                    await MessageSerializer.WriteMessageAsync(
+                        server, IpcMessage.CreateError(req.Id, "injected stale-prefetch failure"), ct);
+                    continue;
+                }
+
+                int numSamples = (int)payload.Length;
+                buffers[payload.BufferIndex].Write(BitConverter.GetBytes(payload.Offset));
+                var resp = IpcMessage.Create(req.Id, MessageType.ProvideSample, new ProvideSampleMessage
+                {
+                    NumSamples = numSamples,
+                    DataLength = numSamples * Stereo32BitFloatBytesPerSample,
+                });
+                await MessageSerializer.WriteMessageAsync(server, resp, ct);
+            }
+        }, ct);
+    }
+
     [TestCase(8 * Stereo32BitFloatBytesPerSample)]   // oversized: would overrun the native Pcm
     [TestCase(2 * Stereo32BitFloatBytesPerSample)]   // undersized vs NumSamples
     public async Task Sample_WhenWorkerReportsMismatchedDataLength_Throws(int dataLength)
@@ -889,6 +996,44 @@ public class IpcProviderContractTests
             using Pcm<Stereo32BitFloat> chunk1 = await provider.Sample(sampleRate, sampleRate);
             Assert.That(ReadSampleSignature(chunk1), Is.EqualTo(sampleRate),
                 "the retry recovers because the faulted prefetch was not pinned to the provider");
+        }
+        finally
+        {
+            await StopHost(hostCts, server, hostTask);
+            DisposeBuffers(buffers);
+        }
+    }
+
+    [Test]
+    public async Task Sample_SeekAfterPrefetchFaulted_DiscardsStaleErrorAndReturnsRequestedChunk()
+    {
+        // Consuming chunk 0 arms a prefetch of chunk 1 (offset == sampleRate), which the host faults with a
+        // worker error. A seek to chunk 3 (offset 3*sampleRate) must DRAIN that faulted stale prefetch,
+        // discard its error (it belongs to the discarded chunk 1), then issue a fresh RequestSample and
+        // return chunk 3 — not abort the seek by re-throwing the stale prefetch's FFmpegWorkerException.
+        const long sampleRate = 4;
+        var (server, client) = ConnectPair();
+        var buffers = CreateBuffers();
+        var hostCts = new CancellationTokenSource();
+        var hostTask = RunSampleErrorsOnOffsetHost(server, buffers, erroringOffset: sampleRate, hostCts.Token);
+
+        using var conn = new IpcConnection(client);
+        // sampleCount 16 == 4 chunks of 4. Chunk 0 arms the prefetch of chunk 1; the seek target chunk 3
+        // (offset 12) is the last chunk, so loading it arms no further prefetch and nothing dangles.
+        var provider = new IpcSampleProvider(conn, buffers, sampleCount: 16, sampleRate: sampleRate);
+
+        try
+        {
+            using (Pcm<Stereo32BitFloat> chunk0 = await provider.Sample(0, sampleRate))
+                Assert.That(ReadSampleSignature(chunk0), Is.EqualTo(0L), "chunk 0 loads and arms the prefetch of chunk 1");
+
+            await WaitUntil(() => provider.IsPrefetchFaultedForTest(),
+                TimeSpan.FromSeconds(5), "the in-flight sample prefetch faults");
+
+            long seekOffset = 3 * sampleRate;
+            using Pcm<Stereo32BitFloat> chunk3 = await provider.Sample(seekOffset, sampleRate);
+            Assert.That(ReadSampleSignature(chunk3), Is.EqualTo(seekOffset),
+                "the seek discards the faulted stale prefetch's worker error and returns the freshly requested chunk 3");
         }
         finally
         {

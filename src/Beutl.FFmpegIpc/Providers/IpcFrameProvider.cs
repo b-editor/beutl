@@ -46,7 +46,17 @@ internal sealed class IpcFrameProvider : IFrameProvider
             // prefetch before issuing the fresh request so it can't be read in place of the new response.
             Task<IpcMessage>? stale = _prefetch.TryDetachStale(frame);
             if (stale != null)
-                await stale;
+            {
+                try
+                {
+                    await stale;
+                }
+                catch (FFmpegWorkerException)
+                {
+                    // The drain has already consumed the stale prefetch's response off the pipe; its worker
+                    // error belongs to the discarded frame, so it must not abort the fresh request below.
+                }
+            }
 
             readBufferIndex = _bufferIndex;
             var request = IpcMessage.Create(_connection.NextId(), MessageType.RequestFrame,

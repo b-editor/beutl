@@ -142,8 +142,16 @@ internal sealed class IpcSampleProvider : ISampleProvider
         Task<Pcm<Stereo32BitFloat>>? stale = _prefetch.TryDetachStale(chunkOffset);
         if (stale != null)
         {
-            Pcm<Stereo32BitFloat> stalePcm = await stale;
-            stalePcm.Dispose();
+            try
+            {
+                Pcm<Stereo32BitFloat> stalePcm = await stale;
+                stalePcm.Dispose();
+            }
+            catch (FFmpegWorkerException)
+            {
+                // The drain has already consumed the stale prefetch's response off the pipe; its worker
+                // error belongs to the discarded chunk, so it must not abort the fresh request below.
+            }
         }
 
         int bufferIndex = 0;
