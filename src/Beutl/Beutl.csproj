@@ -106,8 +106,11 @@
        app, where FFmpegWorkerProcess probes (it prefers that subdir, then falls back to
        AppContext.BaseDirectory). The worker resolves its own (possibly different-versioned)
        shared assemblies from its own deps.json inside that subdir, so its dependency closure
-       never overwrites the app's. Nuke publishes lay the worker out separately (flat, copying
-       only Beutl.FFmpegWorker* so the app's shared assemblies stay the single canonical set).
+       never overwrites the app's. Nuke release publishes (Publish / BundleApp targets) instead lay
+       the worker out flat, merging its whole closure into the app dir with FileSkip so the app's
+       shared assemblies stay the single canonical set; only the worker's identity and its private
+       GPL deps (FFmpeg.AutoGen, FFmpegSharp) — absent from the app's MIT set — are added. Copying
+       only Beutl.FFmpegWorker* would strand those private deps and the worker would fail to start.
        NOTE: CopyFFmpegWorkerForApp runs AfterTargets="Build" and copies into $(OutDir) (bin), not
        $(PublishDir). A bare `dotnet publish` (NukePublish!=True) therefore omits the worker and
        yields a non-runnable app; publishing a runnable app must go through Nuke (NukePublish=True),
