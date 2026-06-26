@@ -48,7 +48,7 @@
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="2*" />
                 <ColumnDefinition Width="Auto" />
-                <ColumnDefinition Width="150" SharedSizeGroup="TextBox_SizeGroup" />
+                <ColumnDefinition Width="3*" />
             </Grid.ColumnDefinitions>
 
             <TextBlock HorizontalAlignment="Left"
@@ -62,7 +62,8 @@
             <TextBox Grid.Column="2"
                      MinWidth="120"
                      Margin="0,4"
-                     Text="{Binding DestinationFile.Value, Mode=TwoWay}">
+                     Text="{Binding DestinationFile.Value, Mode=TwoWay}"
+                     ToolTip.Tip="{Binding DestinationFile.Value}">
                 <TextBox.InnerRightContent>
                     <Button Click="SelectDestinationFileClick" Theme="{StaticResource TextBoxOpenButtonStyle}" />
                 </TextBox.InnerRightContent>
@@ -73,7 +74,7 @@
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="2*" />
                 <ColumnDefinition Width="Auto" />
-                <ColumnDefinition Width="150" SharedSizeGroup="TextBox_SizeGroup" />
+                <ColumnDefinition Width="3*" />
             </Grid.ColumnDefinitions>
 
             <TextBlock HorizontalAlignment="Left"
@@ -102,7 +103,7 @@
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="2*" />
                 <ColumnDefinition Width="Auto" />
-                <ColumnDefinition Width="150" SharedSizeGroup="TextBox_SizeGroup" />
+                <ColumnDefinition Width="3*" />
             </Grid.ColumnDefinitions>
 
             <TextBlock HorizontalAlignment="Left"
