@@ -36,16 +36,16 @@
                         <Setter Property="Padding" Value="7,6,5,6" />
                     </Style>
                 </StackPanel.Styles>
-                <RadioButton IsChecked="{Binding IsMoveMode.Value}" ToolTip.Tip="{x:Static lang:Strings.Move}">
+                <RadioButton AutomationProperties.Name="{x:Static lang:Strings.Move}" IsChecked="{Binding IsMoveMode.Value}" ToolTip.Tip="{x:Static lang:Strings.Move}">
                     <icons:SymbolIcon FontSize="16" Symbol="Cursor" />
                 </RadioButton>
-                <RadioButton IsChecked="{Binding IsHandMode.Value}" ToolTip.Tip="{x:Static lang:Strings.Hand}">
+                <RadioButton AutomationProperties.Name="{x:Static lang:Strings.Hand}" IsChecked="{Binding IsHandMode.Value}" ToolTip.Tip="{x:Static lang:Strings.Hand}">
                     <icons:SymbolIcon FontSize="16" Symbol="HandLeft" />
                 </RadioButton>
-                <RadioButton IsChecked="{Binding IsCropMode.Value}" ToolTip.Tip="{x:Static lang:Strings.CropSelection}">
+                <RadioButton AutomationProperties.Name="{x:Static lang:Strings.CropSelection}" IsChecked="{Binding IsCropMode.Value}" ToolTip.Tip="{x:Static lang:Strings.CropSelection}">
                     <icons:SymbolIcon FontSize="16" Symbol="Crop" />
                 </RadioButton>
-                <RadioButton IsChecked="{Binding IsCameraMode.Value}" ToolTip.Tip="{x:Static lang:Strings.Camera3DControl}">
+                <RadioButton AutomationProperties.Name="{x:Static lang:Strings.Camera3DControl}" IsChecked="{Binding IsCameraMode.Value}" ToolTip.Tip="{x:Static lang:Strings.Camera3DControl}">
                     <icons:SymbolIcon FontSize="16" Symbol="Video" />
                 </RadioButton>
                 <!--  Gizmo Mode Selection (visible only in Camera Mode)  -->
@@ -57,18 +57,21 @@
                              GroupName="GizmoMode"
                              IsChecked="{Binding SelectedGizmoMode.Value, Converter={x:Static converters:GizmoModeConverters.IsTranslate}}"
                              IsVisible="{Binding IsCameraMode.Value}"
+                             AutomationProperties.Name="{x:Static lang:Strings.Gizmo_Translate}"
                              ToolTip.Tip="{x:Static lang:Strings.Gizmo_Translate}">
                     <icons:SymbolIcon FontSize="16" Symbol="ArrowMove" />
                 </RadioButton>
                 <RadioButton GroupName="GizmoMode"
                              IsChecked="{Binding SelectedGizmoMode.Value, Converter={x:Static converters:GizmoModeConverters.IsRotate}}"
                              IsVisible="{Binding IsCameraMode.Value}"
+                             AutomationProperties.Name="{x:Static lang:Strings.Gizmo_Rotate}"
                              ToolTip.Tip="{x:Static lang:Strings.Gizmo_Rotate}">
                     <icons:SymbolIcon FontSize="16" Symbol="ArrowRotateClockwise" />
                 </RadioButton>
                 <RadioButton GroupName="GizmoMode"
                              IsChecked="{Binding SelectedGizmoMode.Value, Converter={x:Static converters:GizmoModeConverters.IsScale}}"
                              IsVisible="{Binding IsCameraMode.Value}"
+                             AutomationProperties.Name="{x:Static lang:Strings.Gizmo_Scale}"
                              ToolTip.Tip="{x:Static lang:Strings.Gizmo_Scale}">
                     <icons:SymbolIcon FontSize="16" Symbol="ArrowExpand" />
                 </RadioButton>
@@ -82,6 +85,7 @@
                              IsChecked="{Binding PathEditor.Symmetry.Value, Mode=OneWay}"
                              IsVisible="{Binding PathEditor.Context.Value, Converter={x:Static ObjectConverters.IsNotNull}}"
                              Tag="Symmetry"
+                             AutomationProperties.Name="{x:Static lang:Strings.Symmetry}"
                              ToolTip.Tip="{x:Static lang:Strings.Symmetry}">
                     <Border VerticalAlignment="Center">
                         <Path Width="16"
@@ -96,6 +100,7 @@
                              IsChecked="{Binding PathEditor.Asymmetry.Value, Mode=OneWay}"
                              IsVisible="{Binding PathEditor.Context.Value, Converter={x:Static ObjectConverters.IsNotNull}}"
                              Tag="Asymmetry"
+                             AutomationProperties.Name="{x:Static lang:Strings.Asymmetry}"
                              ToolTip.Tip="{x:Static lang:Strings.Asymmetry}">
                     <Border VerticalAlignment="Center">
                         <Path Width="16"
@@ -110,6 +115,7 @@
                              IsChecked="{Binding PathEditor.Separately.Value, Mode=OneWay}"
                              IsVisible="{Binding PathEditor.Context.Value, Converter={x:Static ObjectConverters.IsNotNull}}"
                              Tag="Separately"
+                             AutomationProperties.Name="{x:Static lang:Strings.Separately}"
                              ToolTip.Tip="{x:Static lang:Strings.Separately}">
                     <Border VerticalAlignment="Center">
                         <Path Width="16"
@@ -126,6 +132,7 @@
                     VerticalAlignment="Top"
                     Command="{Binding OpenPreviewSettings}"
                     Theme="{StaticResource TransparentButton}"
+                    AutomationProperties.Name="{x:Static lang:Strings.PreviewSettings}"
                     ToolTip.Tip="{x:Static lang:Strings.PreviewSettings}">
                 <icons:SymbolIcon FontSize="16" Symbol="Settings" />
             </Button>

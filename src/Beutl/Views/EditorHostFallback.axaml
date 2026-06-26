@@ -144,11 +144,13 @@
                 </Style>
             </StackPanel.Styles>
             <Button Click="SocialClick"
+                    AutomationProperties.Name="GitHub"
                     Tag="GitHub"
                     ToolTip.Tip="GitHub">
                 <Image x:Name="githubLogo" RenderOptions.BitmapInterpolationMode="HighQuality" />
             </Button>
             <Button Click="SocialClick"
+                    AutomationProperties.Name="X"
                     Tag="X"
                     ToolTip.Tip="X">
                 <Image x:Name="xLogo"
@@ -156,6 +158,7 @@
                        RenderOptions.BitmapInterpolationMode="HighQuality" />
             </Button>
             <Button Click="SocialClick"
+                    AutomationProperties.Name="{x:Static lang:Strings.Website}"
                     Tag="Url"
                     ToolTip.Tip="{x:Static lang:Strings.Website}">
                 <ui:SymbolIcon Width="24"
