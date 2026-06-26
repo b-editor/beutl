@@ -10,7 +10,7 @@ public class ColorSpaceMapperTests
     public void SdrSrgbReturnsCanonicalSrgbInstance()
     {
         var cs = ColorSpaceMapper.BuildColorSpace(
-            isHdr: false, BeutlTransferFunction.Srgb, BeutlColorPrimaries.Srgb);
+            isHdr: false, BitmapColorTransfer.Srgb, BitmapColorPrimaries.Srgb);
         Assert.That(cs, Is.EqualTo(BitmapColorSpace.Srgb));
     }
 
@@ -22,7 +22,7 @@ public class ColorSpaceMapperTests
         var unscaled = BitmapColorSpace.CreateRgb(
             BitmapColorSpaceTransferFn.Pq, BitmapColorSpaceXyz.Rec2020);
         var hdr = ColorSpaceMapper.BuildColorSpace(
-            isHdr: true, BeutlTransferFunction.Pq, BeutlColorPrimaries.Rec2020);
+            isHdr: true, BitmapColorTransfer.Pq, BitmapColorPrimaries.Rec2020);
 
         Assert.That(hdr, Is.Not.EqualTo(unscaled));
         Assert.That(hdr.GetNumericalTransferFunction(), Is.EqualTo(BitmapColorSpaceTransferFn.Pq));
@@ -34,7 +34,7 @@ public class ColorSpaceMapperTests
         var unscaled = BitmapColorSpace.CreateRgb(
             BitmapColorSpaceTransferFn.Hlg, BitmapColorSpaceXyz.Rec2020);
         var hdr = ColorSpaceMapper.BuildColorSpace(
-            isHdr: true, BeutlTransferFunction.Hlg, BeutlColorPrimaries.Rec2020);
+            isHdr: true, BitmapColorTransfer.Hlg, BitmapColorPrimaries.Rec2020);
 
         Assert.That(hdr, Is.Not.EqualTo(unscaled));
         Assert.That(hdr.GetNumericalTransferFunction(), Is.EqualTo(BitmapColorSpaceTransferFn.Hlg));
@@ -44,7 +44,7 @@ public class ColorSpaceMapperTests
     public void UnknownTagsFallBackToSrgb()
     {
         var cs = ColorSpaceMapper.BuildColorSpace(
-            isHdr: false, BeutlTransferFunction.Unknown, BeutlColorPrimaries.Unknown);
+            isHdr: false, BitmapColorTransfer.Unknown, BitmapColorPrimaries.Unknown);
         Assert.That(cs, Is.EqualTo(BitmapColorSpace.Srgb));
     }
 
@@ -57,7 +57,7 @@ public class ColorSpaceMapperTests
         var expected = BitmapColorSpace.CreateRgb(
             BitmapColorSpaceTransferFn.Pq, BitmapColorSpaceXyz.Rec2020.Scale(10000f / 203f));
         var actual = ColorSpaceMapper.BuildColorSpace(
-            isHdr: true, BeutlTransferFunction.Pq, BeutlColorPrimaries.Unknown);
+            isHdr: true, BitmapColorTransfer.Pq, BitmapColorPrimaries.Unknown);
         Assert.That(actual, Is.EqualTo(expected));
     }
 }
