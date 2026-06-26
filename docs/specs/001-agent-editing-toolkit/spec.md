@@ -19,6 +19,8 @@
 - Q: How much rendering/export is in the first release (v1)? → A: Include video export in v1 (the full encoder path; the GPL FFmpeg worker reached only over IPC), in addition to still-frame rendering.
 - Q: Filesystem access scope for the agent-driven toolkit? → A: Reads may reference arbitrary local paths; all writes (project saves and render/export outputs) are restricted to a configured workspace, and write targets outside it are rejected.
 - Q: How is audio (audio elements, sources, audio properties/effects) handled? → A: Audio is a first-class concern alongside visual — audio sources, per-element mixing, and audio effects are in scope.
+- Q: Primary interaction model for editing — declarative desired-state vs imperative call-by-call? → A: Declarative-first with imperative assist — agents read the project as an identity-anchored document and submit a desired end-state (full document or partial patch) reconciled into undoable operations; a thin set of imperative tools remains for surgical edits.
+- Q: Input format for partial declarative edits? → A: JSON Merge Patch (RFC 7386) — a partial subtree where a null member deletes — plus full desired-state documents. Beutl's serializer has no native patch mechanism, so the toolkit layer owns the merge → identity-diff → undoable-operations reconciliation (it must NOT bypass change-tracking by writing model state directly).
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -53,6 +55,7 @@ The creator already has a project and asks the agent to change it — "move the 
 1. **Given** an existing project, **When** the agent requests its structure, **Then** it receives a machine-readable description listing each scene, each element with its time range and layer, the editable properties with their current values, and any animations/effects attached.
 2. **Given** an element referenced by a stable handle, **When** the agent sets a property to a new valid value, **Then** the saved project reflects the new value and no other element or property is altered.
 3. **Given** a multi-step edit where one step fails (e.g. an invalid value mid-batch), **When** the batch runs, **Then** the project is left exactly as it was before the batch (no partial edits persisted) and the agent is told which step failed and why.
+4. **Given** a desired-state document or a JSON Merge Patch describing the intended change, **When** the agent requests a dry-run plan, **Then** it receives the exact set of changes that would be made plus any validation rejections/range coercions, with the project left unmodified; a subsequent apply commits the same change set atomically and undoably.
 
 ---
 
@@ -175,6 +178,14 @@ The toolkit ships reusable, discoverable guidance for common editing tasks (reci
 
 - **FR-026**: The toolkit MAY read media and project files from arbitrary local paths, but MUST restrict all writes — project saves and render/export outputs — to a configured workspace root, rejecting any write target that resolves outside it with a typed error.
 
+**Declarative editing model (primary interaction)**
+
+- **FR-027**: The toolkit's PRIMARY editing interaction MUST be declarative — an agent reads the project (or any subtree) as a normalized, identity-anchored document and submits a desired end-state rather than being limited to a long sequence of imperative calls. A thin set of imperative convenience operations (per FR-003/FR-010) MUST remain available for surgical, conversational edits ("nudge this by 2px").
+- **FR-028**: Partial declarative edits MUST be expressible as a JSON Merge Patch (RFC 7386) — a partial subtree in which a null member deletes — applied against the current document, and the toolkit MUST also accept a full desired-state document. An agent MUST NOT have to reconstruct unrelated state in order to change one field.
+- **FR-029**: A declarative submission MUST be reconciled by matching entities on their stable identifiers (FR-011) and translated into the editor's undoable operations, applied atomically within a single history transaction (FR-012/FR-015). The toolkit MUST NOT bypass change-tracking by writing model state directly. Reconciliation MUST emit a minimal change set: update only changed properties, and insert/remove/move collection members by identity rather than replacing collections wholesale.
+- **FR-030**: The toolkit MUST provide a dry-run ("plan") that, given a desired-state document or merge-patch, returns the computed change set plus all validation results (rejections and range coercions) WITHOUT mutating the project, so the agent — and a reviewing human — can inspect the consequences before a separate "apply" commits them.
+- **FR-031**: Declarative documents MUST carry a schema/version stamp. When a submitted document's version does not match the runtime's known schema, the toolkit MUST surface a typed error rather than silently dropping unrecognized content — closing, for the declarative path, the forward-compatibility gap that FR-013 requires not be a silent data loss.
+
 ### Key Entities
 
 - **Project**: The top-level document an agent authors/edits; holds one or more scenes and project-level variables (frame rate, sample rate). Persisted as a Beutl project file.
@@ -189,6 +200,8 @@ The toolkit ships reusable, discoverable guidance for common editing tasks (reci
 - **Render / Export Job**: A request to produce an image (still frame) or video (range/timeline) artifact for verification or delivery.
 - **Editing Session**: The agent's stateful working context over one or more projects, within which entity handles remain stable.
 - **Editing Recipe (Skill)** / **Editing Specialist (Subagent)**: Packaged, discoverable know-how and scoped delegated workers that operate the surface above on the agent's behalf.
+- **Declarative Document / Patch**: The identity-anchored JSON desired-state an agent submits to express edits — either a full document or an RFC 7386 merge-patch (partial subtree, null deletes) — mirroring the project's own serialization so the agent reads and writes the same shape.
+- **Reconciliation (plan / apply)**: The diff of a desired-state (or merge-patch-expanded) document against the current project, matched by stable identity, into a minimal set of undoable operations. "plan" computes and previews it (with validation results) without mutating; "apply" commits it atomically within one history transaction.
 
 ## Success Criteria *(mandatory)*
 
@@ -202,6 +215,7 @@ The toolkit ships reusable, discoverable guidance for common editing tasks (reci
 - **SC-006**: A new integrator (a human plus an agent) can go from zero to a first valid generated project using only the shipped guidance — without reading Beutl source — in under 15 minutes.
 - **SC-007**: For projects the agent authored, it can produce a verification artifact — a still frame, and a short video export through the encoder path — for at least 95% of them without manual intervention (in an environment where rendering and encoding are supported).
 - **SC-008**: An agent receives the result of a single edit or query operation quickly enough to sustain an interactive loop — under 2 seconds for a typical project.
+- **SC-009**: A declarative dry-run ("plan") predicts the applied result exactly — across a representative set of edits, 100% of the change-set entries and validation outcomes reported by plan match those produced by the subsequent apply (no surprise mutations, no divergence between preview and commit).
 
 ## Assumptions
 
