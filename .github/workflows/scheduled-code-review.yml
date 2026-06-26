@@ -15,6 +15,11 @@ on:
         required: false
         default: ''
         type: string
+      dry_run:
+        description: 'Test mode: run the review but never create board items (prints intended drafts instead). Also bypasses the same-day idempotency guard so it can run repeatedly.'
+        required: false
+        default: false
+        type: boolean
 
 jobs:
   review:
@@ -22,23 +27,90 @@ jobs:
     permissions:
       contents: read
       id-token: write
+    env:
+      # cron 実行時は inputs が空なので '1 day ago' を注入し Diff モードで動作。
+      # workflow_dispatch で since を空欄起動した場合は '' のままで Scope-scan モードへ。
+      REVIEW_SINCE: ${{ inputs.since || (github.event_name == 'schedule' && '1 day ago' || '') }}
+      REVIEW_SCOPE: ${{ inputs.scope || '' }}
+      DRY_RUN: ${{ inputs.dry_run || 'false' }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7
         with:
           fetch-depth: 0
+          persist-credentials: false
+
+      # 同日プレフィックスが既にボードに存在すれば、後段の Claude レビューを丸ごとスキップする
+      # 決定論的な冪等性ガード。LLM 任せの取得+走査をやめ、ここで全アイテムをページング取得して
+      # 判定する。`gh project item-list --limit N` には上限があり、かつ返却順が createdAt 昇順
+      # (古い順) なので、ボードが N 件を超えると「最新の今日のドラフト」が窓から外れて取りこぼし、
+      # 毎回重複を作る故障が起きていた。`gh api graphql --paginate` で全件を辿ることで上限を撤廃する。
+      - name: Idempotency guard (same-day prefix already on board?)
+        id: guard
+        env:
+          GH_TOKEN: ${{ secrets.PROJECTS_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          today="$(date -u +%Y-%m-%d)"
+          if [ -n "$REVIEW_SINCE" ]; then
+            prefix="[${today}][diff]"
+          elif [ -n "$REVIEW_SCOPE" ]; then
+            prefix="[${today}][scope:${REVIEW_SCOPE}]"
+          else
+            echo "missing input: provide either REVIEW_SINCE or REVIEW_SCOPE"
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "prefix=$prefix" >> "$GITHUB_OUTPUT"
+
+          if [ "$DRY_RUN" = "true" ]; then
+            echo "dry-run: bypassing idempotency guard ($prefix)"
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # 全 Draft タイトルをページング取得 (上限なし)。content が Issue / PR の場合は
+          # title フィールドを選択していないので null になり、`// empty` で除外される。
+          titles="$(gh api graphql --paginate \
+            -f org=b-editor -F num=9 \
+            -f query='
+              query($org:String!, $num:Int!, $endCursor:String){
+                organization(login:$org){
+                  projectV2(number:$num){
+                    items(first:100, after:$endCursor){
+                      pageInfo{ hasNextPage endCursor }
+                      nodes{ content{ ... on DraftIssue { title } } }
+                    }
+                  }
+                }
+              }' \
+            --jq '.data.organization.projectV2.items.nodes[].content.title // empty')"
+
+          # プレフィックスがタイトルの先頭と一致するものが 1 件でもあればスキップ。
+          # awk の index() は正規表現ではなくリテラル一致なので、scope 値の特殊文字も安全。
+          if printf '%s\n' "$titles" | awk -v p="$prefix" 'index($0, p) == 1 { f = 1 } END { exit f ? 0 : 1 }'; then
+            echo "skip: same-day prefix already exists ($prefix)"
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "no same-day prefix; proceeding ($prefix)"
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Run Claude Code scheduled review
+        if: steps.guard.outputs.skip != 'true'
         uses: anthropics/claude-code-action@v1
         env:
-          # cron 実行時は inputs が空なので '1 day ago' を注入し Diff モードで動作。
-          # workflow_dispatch で since を空欄起動した場合は '' のままで Scope-scan モードへ。
-          REVIEW_SINCE: ${{ inputs.since || (github.event_name == 'schedule' && '1 day ago' || '') }}
-          REVIEW_SCOPE: ${{ inputs.scope || '' }}
+          REVIEW_SINCE: ${{ env.REVIEW_SINCE }}
+          REVIEW_SCOPE: ${{ env.REVIEW_SCOPE }}
+          REVIEW_PREFIX: ${{ steps.guard.outputs.prefix }}
+          DRY_RUN: ${{ env.DRY_RUN }}
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           github_token: ${{ secrets.PROJECTS_TOKEN }}
-          claude_args: '--allowed-tools "Bash(git log:*),Bash(git diff:*),Bash(git show:*),Bash(git rev-parse:*),Bash(cat:*),Bash(mktemp:*),Bash(printf:*),Bash(jq:*),Bash(date:*),Bash(gh project item-create:*),Bash(gh project item-list:*),Read,Grep,Glob"'
+          # dry-run 時は item-create を許可ツールから外し、ボード書き込みをツール層で確実に封じる。
+          claude_args: >-
+            --allowed-tools "Bash(git log:*),Bash(git diff:*),Bash(git show:*),Bash(git rev-parse:*),Bash(cat:*),Bash(mktemp:*),Bash(printf:*),Bash(jq:*),Bash(date:*),Bash(gh project item-list:*)${{ env.DRY_RUN != 'true' && ',Bash(gh project item-create:*)' || '' }},Read,Grep,Glob"
           prompt: |
             ## 役割
             あなたは `${{ github.repository }}` の定期コードレビューを担当する熟練の C#/.NET レビュアーです。GitHub Projects v2 (org=`b-editor`, project number=`9`) にレビュー結果を Draft アイテムとして投入します。
@@ -46,23 +118,16 @@ jobs:
             ## 入力
             - `REVIEW_SINCE` = `$REVIEW_SINCE`
             - `REVIEW_SCOPE` = `$REVIEW_SCOPE`
-            - 今日の日付（UTC, `YYYY-MM-DD`）は `date -u +%Y-%m-%d` で取得すること。
+            - `REVIEW_PREFIX` = `${{ steps.guard.outputs.prefix }}`（前段ステップが算出した同日プレフィックス。Draft タイトルの先頭に必ず使う）
+            - `DRY_RUN` = `${{ env.DRY_RUN }}`
+
+            ## 冪等性について
+            同日プレフィックスの重複チェックは**前段の決定論的ステップで実施済み**で、未投入のときだけこのレビューが走る。したがってここでは同日プレフィックスの存在確認を**再実行しなくてよい**。ボードへの取りこぼしの無い全件チェックは前段が保証している。
 
             ## モード判定
 
             - `REVIEW_SINCE` が **空でない** 場合: **Diff モード**
             - `REVIEW_SINCE` が **空** で `REVIEW_SCOPE` が **非空** の場合: **Scope-scan モード**
-            - 両方とも空の場合: 何もせず `missing input: provide either REVIEW_SINCE or REVIEW_SCOPE` とログに残して終了する。
-
-            ## 冪等性チェック（Draft 投入前に必ず実行）
-
-            実行ごとに同日プレフィックス（後述）が既に存在しないかを確認する:
-
-            1. `gh project item-list 9 --owner b-editor --format json --limit 400 | jq -r '.items[] | select(.content.type=="DraftIssue") | .content.title'` で既存 Draft タイトル一覧を取得。
-            2. プレフィックスが既存 Draft のタイトルの先頭と一致すれば **その実行全体を丸ごとスキップ** し、ログに `skip: same-day prefix already exists` と残して終了。
-               - Diff モードのプレフィックス: `[YYYY-MM-DD][diff]`
-               - Scope-scan モードのプレフィックス: `[YYYY-MM-DD][scope:<REVIEW_SCOPE>]`
-            3. 一致するものがなければ後続のレビューと Draft 投入に進む。
 
             ## Diff モードの手順
 
@@ -88,11 +153,17 @@ jobs:
             ## 投入方針
             **指摘 1 件 = Draft Item 1 件** として、見つかった指摘ぶんだけ Draft を作る。指摘ゼロの場合は何も投入せず終了する。
 
-            ## Draft タイトル
-            次の形式（`date -u +%Y-%m-%d` の出力を `YYYY-MM-DD` として埋め込む）:
+            ## 重複防止（実行内）
+            1 回の実行の中で同じ Draft を 2 回以上作らないこと。前段ガードは実行**間**の重複しか防がないので、実行**内**の重複はここで自分で防ぐ:
 
-            - Diff モード: `[YYYY-MM-DD][diff][<severity>] <短い指摘タイトル>`
-            - Scope-scan モード: `[YYYY-MM-DD][scope:<REVIEW_SCOPE>][<severity>] <短い指摘タイトル>`
+            1. まず全指摘を抽出し、**タイトルが実質同一の指摘は 1 件に統合**してから投入リストを確定する。
+            2. 投入は重複排除済みリストに対してのみ行う。1 件 `item-create` するたびに作成済みタイトルを記録し、同一タイトルを二度と作成しない。
+
+            ## Draft タイトル
+            タイトルの先頭に必ず `$REVIEW_PREFIX` を置き、その後ろに `[<severity>] <短い指摘タイトル>` を続ける:
+
+            - Diff モード（`$REVIEW_PREFIX` の例: `[2026-06-26][diff]`）→ `[2026-06-26][diff][high] <短い指摘タイトル>`
+            - Scope-scan モード（`$REVIEW_PREFIX` の例: `[2026-06-26][scope:src/Foo]`）→ `[2026-06-26][scope:src/Foo][medium] <短い指摘タイトル>`
 
             `<severity>` は `high` / `medium` / `low` のいずれか。`<短い指摘タイトル>` は 60 文字以内で要点を表す英または日本語フレーズ。
 
@@ -123,8 +194,16 @@ jobs:
 
             末尾の HTML コメントマーカーは将来の検索用に必ず付与する。
 
+            ## ドライラン（`DRY_RUN` が `true` のとき）
+            テスト実行用のモード。**ボードを一切変更してはならない**:
+
+            - `gh project item-create` を実行しない（許可ツールからも外してあるので呼んでも失敗する）。
+            - 代わりに、投入予定の各 Draft の**タイトルと本文をログに出力するだけ**にして終了する。
+            - 件数の上限や投入方針の判断（どれを Draft 化するか）は通常どおり行い、その結果を出力する。
+
             ## Draft 投入
-            指摘ごとに本文を `mktemp` で作成したファイルに書き出し、次のコマンドで投入する（`gh project item-create` は `--body-file` を持たないため、`cat` でファイル内容を `--body` に展開すること）:
+            `DRY_RUN` が `true` の場合はこの手順を実行せず、上記「ドライラン」に従う。
+            それ以外の場合、指摘ごとに本文を `mktemp` で作成したファイルに書き出し、次のコマンドで投入する（`gh project item-create` は `--body-file` を持たないため、`cat` でファイル内容を `--body` に展開すること）:
             ```
             gh project item-create 9 \
               --owner b-editor \
