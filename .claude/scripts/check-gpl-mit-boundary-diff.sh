@@ -68,8 +68,17 @@ for f in $CHANGED; do
     content=$(git show "$HEAD:$f" 2>/dev/null || true)
     [ -n "$content" ] || continue
   else
-    [ -f "$f" ] || continue
-    content=$(cat "$f")
+    # --files mode (working tree, used by beutl-pre-pr). For a tracked file, read the STAGED blob
+    # (`git show :$f`) — a forbidden reference that is staged but then removed from the unstaged
+    # working tree would be missed by a bare `cat`, yet the next commit still carries the staged
+    # version. An untracked file has no index entry, so fall back to the working-tree copy.
+    if git cat-file -e ":$f" 2>/dev/null; then
+      content=$(git show ":$f")
+    elif [ -f "$f" ]; then
+      content=$(cat "$f")
+    else
+      continue
+    fi
   fi
 
   # The worker project itself ships FFmpegWorker linkages freely.

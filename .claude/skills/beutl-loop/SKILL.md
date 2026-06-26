@@ -207,8 +207,11 @@ Per-result outcomes and their effect on the **stagnation counters** (the budget 
   `{item_id, kind, reason}` to `.claude/loop-memory/blocked-reasons.json`** (D-7), then by
   `blocked_kind`:
   - `"systemic"` (build won't compile, tests universally red, tooling broken) → **no-progress**:
-    increment `consecutive_no_progress`, set `last_failure_signature`. Repeated systemic blocks trip
-    the breaker.
+    increment `consecutive_no_progress`, set `last_failure_signature`, **and revert the item from
+    `In Progress` back to `Todo`** (un-claim) — a transient systemic failure (broken build, cache
+    outage, tooling downtime) must not strand the item `In Progress` forever; future runs select only
+    `Backlog`/`Todo`, and it stays in this run's `attempted_ids` so it is not re-picked this run.
+    Repeated systemic blocks trip the breaker.
   - `"item-specific"` (underspecified feature, upstream/product call, UI needing a human) → the
     toolchain is fine and the item simply isn't doable now: **neutral** — do **not** increment
     `consecutive_no_progress`. **Revert the item from `In Progress` back to `Todo`** (un-claim) so it
@@ -219,6 +222,16 @@ Per-result outcomes and their effect on the **stagnation counters** (the budget 
   from the runner's `failure_signature`. **Un-claim the item** — revert it from `In Progress` back to
   `Todo` (the runner already claimed it; future runs select only `Backlog`/`Todo`, so leaving it
   `In Progress` would strand it), keep it in `attempted_ids` for this run, then continue.
+- **No result / invalid result (runner crashed, timed out, or returned malformed/non-JSON):** the
+  runner claimed the item `In Progress` in its Step 1 but produced no usable outcome, so none of the
+  board actions above ran. Treat this as a **recoverable failure → no-progress**: revert the item from
+  `In Progress` back to `Todo` (un-claim — do not strand it; future runs select only `Backlog`/`Todo`,
+  and it stays in this run's `attempted_ids` so it is not re-picked this run), record it under `blocked`
+  (default `blocked_kind: "systemic"` — a crash/timeout usually signals an environment/tooling problem,
+  not the item itself; use `"item-specific"` if the failure recurs only on this item's content),
+  `reason: "runner produced no usable result"`, append `{item_id, kind, reason}` to
+  `.claude/loop-memory/blocked-reasons.json` (D-7), increment `consecutive_no_progress`, and set
+  `last_failure_signature`. Then continue.
 
 **Defense-in-depth on the test gate (B):** if the runner handed back a draft but its own signals show
 `touched_production == true && test_files_added_count == 0 && test_status != "manual-verification"`
@@ -314,8 +327,22 @@ declared these non-reworkable, so stop here and leave the item for a human (reco
 `left_reason: "hard guardrail (workflow / GPL-MIT) — needs explicit approval"`). **Do NOT un-claim it
 to `Todo`** — that is the auto-queue, and a restart/journal-expiry would let the loop re-pick it and
 repeat the forbidden draft. Instead **keep it `In Progress`** (so the auto-loop skips it) **and leave a
-durable, board-visible human handoff** — post a comment on the item's linked issue/draft stating it
-needs explicit approval (a transient run-summary line is not enough). Otherwise, re-dispatch the runner
+durable, board-visible human handoff**. Most Project #9 items are DraftIssues with no repo issue
+number, so `gh issue comment` / `gh pr comment` have no target — write the handoff into the item's
+DraftIssue body via the project API, and post an issue comment only when a linked repo issue exists.
+DraftIssues are updated through `updateProjectV2DraftIssue`; because the `body` argument overwrites,
+fetch the current body, append the guardrail note, and write it back (escaping the newlines for
+GraphQL). Conceptually:
+```bash
+# ITEM_ID is the PVTI_… project item id. Resolve it to its DraftIssue content id, read the current
+# body, then append the handoff and write it back via updateProjectV2DraftIssue.
+DRAFT_ISSUE_ID=$(gh api graphql -f query='query{node(id:"'"$ITEM_ID"'"){...on ProjectV2Item{content{...on DraftIssue{id body}}}}}' \
+  --jq '.data.node.content.id')
+#   … read .data.node.content.body, append "\n---\nHard guardrail (workflow / GPL-MIT) — needs
+#   explicit approval. Left In Progress for a human. Reason: <…>.", then:
+gh api graphql -f query='mutation{updateProjectV2DraftIssue(input:{projectId:"PVT_kwDOBLw8Fs4BW4g5",draftIssueId:"'"$DRAFT_ISSUE_ID"'",body:"<escaped updated body>"}){draftIssue{body}}}'
+# If the item has a linked repo issue (not a pure DraftIssue), also post an issue comment there.
+``` Otherwise, re-dispatch the runner
 in Rework mode with `OPEN_PR=true` and empty
 `review_findings` to open the PR from the (possibly amended) draft branch. This is the step-2 **"PR
 opened"** outcome: reset both stagnation counters to 0, **clear `last_failure_signature`** (any
@@ -477,11 +504,14 @@ else
     # commit, which would omit those lines from the denominator. This matches the
     # remote head the worktree above was built from.
     python3 .claude/scripts/changed-line-coverage.py origin/main "origin/$DRAFT_BRANCH" "$COV" --threshold 70
+    PROBE_RC=$?
     rm -rf "$COV_DIR"
+    # Branch on PROBE_RC (captured BEFORE the rm so the cleanup's zero exit does not mask it):
+    #   0 = >=70% (auto-merge eligible); 1 = <70% (high-risk); 2 = probe failed (high-risk, fail safe).
   fi
 fi
 ```
-If the test run failed, no coverage XML was produced, or the probe exits **non-zero** (exit 1 =
+If the test run failed, no coverage XML was produced, or the probe exits **non-zero** (`$PROBE_RC` — exit 1 =
 under threshold, exit 2 = probe failure), mark the PR **high-risk**: post the coverage number (or
 the failure reason) on the PR for the human and do not auto-merge. The probe is a **gate on
 auto-merge eligibility only** — the PR still opens and goes through bot review resolution.
