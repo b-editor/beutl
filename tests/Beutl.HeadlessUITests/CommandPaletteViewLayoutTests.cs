@@ -33,31 +33,44 @@ public class CommandPaletteViewLayoutTests
         // ItemTemplate object is still present on the ListBox.
         var view = new CommandPaletteView();
         var window = new Window { Content = view, Width = 480, Height = 480 };
-        window.Show();
-        HeadlessTestHelpers.Render();
+        Window? host = null;
+        try
+        {
+            window.Show();
+            HeadlessTestHelpers.Render();
 
-        ListBox? listBox = HeadlessTestHelpers.FindDescendant<ListBox>(view);
-        Assert.That(listBox, Is.Not.Null, "CommandPaletteView should inflate its results ListBox");
-        IDataTemplate? template = listBox!.ItemTemplate;
-        Assert.That(template, Is.Not.Null, "results ListBox should declare an ItemTemplate");
+            ListBox? listBox = HeadlessTestHelpers.FindDescendant<ListBox>(view);
+            Assert.That(listBox, Is.Not.Null, "CommandPaletteView should inflate its results ListBox");
+            IDataTemplate? template = listBox!.ItemTemplate;
+            Assert.That(template, Is.Not.Null, "results ListBox should declare an ItemTemplate");
 
-        var command = new PaletteCommand(
-            Id: "test.command",
-            DisplayName: TitleText,
-            Description: DescriptionText,
-            CategoryName: CategoryText,
-            KeyGesture: new KeyGesture(Key.P, KeyModifiers.Control),
-            CanExecute: () => true,
-            Execute: () => { });
-        var item = new CommandPaletteItemViewModel(command, isEnabled: true, relevance: 0);
+            var command = new PaletteCommand(
+                Id: "test.command",
+                DisplayName: TitleText,
+                Description: DescriptionText,
+                CategoryName: CategoryText,
+                KeyGesture: new KeyGesture(Key.P, KeyModifiers.Control),
+                CanExecute: () => true,
+                Execute: () => { });
+            var item = new CommandPaletteItemViewModel(command, isEnabled: true, relevance: 0);
 
-        Control built = template!.Build(item)!;
-        built.DataContext = item;
+            Control? built = template!.Build(item);
+            Assert.That(built, Is.Not.Null, "the ItemTemplate should build a control for the item");
+            built!.DataContext = item;
 
-        var host = new Window { Content = built, Width = hostWidth, Height = 200 };
-        host.Show();
-        HeadlessTestHelpers.Render();
-        return (built, window, host);
+            host = new Window { Content = built, Width = hostWidth, Height = 200 };
+            host.Show();
+            HeadlessTestHelpers.Render();
+            return (built, window, host);
+        }
+        catch
+        {
+            // The shared headless Application does not auto-close windows; close them on failure too.
+            host?.Close();
+            window.Close();
+            HeadlessTestHelpers.Settle();
+            throw;
+        }
     }
 
     private static TextBlock FindTextBlock(Control root, Func<string, bool> predicate)
