@@ -293,7 +293,11 @@ alone** — the draft is untrusted, so re-derive it from the diff here: grep
 variables to each sub-agent** so they diff the actual draft branch instead of `HEAD` (which is the
 loop branch in the orchestrator checkout, not the draft). Collect their blocking findings as `review_findings`.
 
-**2.5c. Rework loop (≤ 2 passes).** If `machine_findings` or `review_findings` are non-empty:
+**2.5c. Rework loop (≤ 2 passes).** **Short-circuit on hard guardrails first:** if `machine_findings`
+contains a hard guardrail (a `.github/workflows/*` change or a GPL/MIT violation from 2.5a), **skip
+rework entirely** and jump to the 2.5d hard-guardrail handoff — these are non-reworkable, so the runner
+must **never** be dispatched to amend such a draft. Otherwise, if `machine_findings` (non-guardrail) or
+`review_findings` are non-empty:
 - Re-dispatch `beutl-board-task-runner` in **Rework mode** (`REWORK=true`, `draft_branch`,
   `review_findings=<combined>`, `OPEN_PR=false`); it amends the branch, re-runs the binary gates,
   pushes, and returns `draft_ready` again.
@@ -390,7 +394,7 @@ outstanding `CHANGES_REQUESTED` · no new review/comment/commit for ~10 min. **R
 authoritative** (and the step-5 merge gate re-checks them regardless). **Derive the quiet-period clock
 yourself too** — take the **max** of: the latest review `submitted_at`, the head commit
 `committedDate`, the newest **issue** comment `updated_at` (`gh pr view "$PR" --json reviews,comments,commits`),
-**and the newest inline review-comment `updated_at`** (`gh api "repos/$OWNER_REPO/pulls/$PR/comments" --paginate`)
+**and the newest inline review-comment `updated_at`** (`gh api "repos/b-editor/beutl/pulls/$PR/comments" --paginate`)
 — `gh pr view --json comments` returns only issue comments, so an inline reply (including the
 resolver's own) is invisible to it and the loop could merge right after replying, before bots respond.
 That max is `last_activity_at`; the resolver's `last_activity_at` is advisory (it now carries real timestamps, but

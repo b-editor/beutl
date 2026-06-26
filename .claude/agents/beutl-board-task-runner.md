@@ -159,6 +159,10 @@ The orchestrator re-dispatches you with `REWORK=true`, the `draft_branch`, an `O
 - **If `review_findings` is non-empty:** address them with the smallest change that satisfies the
   design priorities (orthogonality, plugin-author flexibility, no compat shims) and the reviewer
   axes, re-run the binary gates (build + test exit-code + format), and push the amended branch.
+  **Re-apply the Step-8 test gate to the amended diff** — if the rework added/changed production code
+  under `src/` it must still carry an added/modified NUnit test (or a documented manual-verification);
+  do not let an autonomous rework slip new untested `src/` logic past the gate. If you cannot add the
+  test, return `blocked` rather than pushing.
 - **Then branch on `OPEN_PR`:**
   - `OPEN_PR=false` → return `draft_ready: true` + `draft_branch` again (the orchestrator re-reviews
     the amended branch).
