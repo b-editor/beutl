@@ -7,6 +7,10 @@ public static class TutorialService
     public static ITutorialService Current
     {
         get => s_current!;
-        internal set => s_current ??= value;
+        set
+        {
+            ArgumentNullException.ThrowIfNull(value);
+            s_current = value;
+        }
     }
 }

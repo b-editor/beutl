@@ -1,0 +1,29 @@
+<Application xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:aconverters="using:Avalonia.Markup.Xaml.Converters"
+             xmlns:sty="using:FluentAvalonia.Styling"
+             xmlns:dockFluent="using:Dock.Avalonia.Themes.Fluent"
+             xmlns:dockVm="using:Beutl.ViewModels.Dock"
+             xmlns:views="using:Beutl.Views"
+             x:Class="Beutl.HeadlessUITests.TestApp">
+  <Application.Resources>
+    <!-- ElementView (timeline rows) binds through this StaticResource; only App.axaml defines it. -->
+    <aconverters:ColorToBrushConverter x:Key="ColorToBrushConverter" />
+  </Application.Resources>
+  <!-- Without these, hosting EditView leaves the dockables as placeholders and the real tool views never inflate. -->
+  <Application.DataTemplates>
+    <DataTemplate DataType="dockVm:BeutlToolDockable">
+      <views:ToolTabContent />
+    </DataTemplate>
+    <DataTemplate DataType="dockVm:PlayerToolDockable">
+      <views:PlayerView DataContext="{Binding Player}" />
+    </DataTemplate>
+  </Application.DataTemplates>
+  <Application.Styles>
+    <sty:FluentAvaloniaTheme />
+    <dockFluent:DockFluentTheme />
+    <StyleInclude Source="avares://Beutl.Controls/Styles.axaml" />
+    <StyleInclude Source="avares://AsyncImageLoader.Avalonia/AdvancedImage.axaml" />
+    <StyleInclude Source="avares://Beutl.Editor.Components/Styles.axaml" />
+  </Application.Styles>
+</Application>

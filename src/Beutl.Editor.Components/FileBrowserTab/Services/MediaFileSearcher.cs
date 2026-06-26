@@ -12,6 +12,7 @@ internal sealed class MediaFileSearcher : IDisposable
 {
     private readonly ILogger _logger = Log.CreateLogger<MediaFileSearcher>();
     private CancellationTokenSource? _searchCts;
+    private bool _disposed;
 
     // 検索結果のメディアファイルアイテム
     public ObservableCollection<FileSystemItemViewModel> MediaFileItems { get; } = [];
@@ -26,6 +27,11 @@ internal sealed class MediaFileSearcher : IDisposable
     // 前回の検索はキャンセルされる。
     public void SearchAsync(string? searchDirectory)
     {
+        // A DirectoryWatcher event can post a refresh after the owning tab (and this searcher) has
+        // been disposed; ignore it rather than touching the already-disposed CancellationTokenSource.
+        if (_disposed)
+            return;
+
         _searchCts?.Cancel();
         _searchCts = new CancellationTokenSource();
         var token = _searchCts.Token;
@@ -134,8 +140,13 @@ internal sealed class MediaFileSearcher : IDisposable
 
     public void Dispose()
     {
+        if (_disposed)
+            return;
+
+        _disposed = true;
         _searchCts?.Cancel();
         _searchCts?.Dispose();
+        _searchCts = null;
         DisposeAndClearItems();
     }
 }
