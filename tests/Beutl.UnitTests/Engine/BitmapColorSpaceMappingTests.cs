@@ -24,15 +24,18 @@ public class BitmapColorSpaceMappingTests
     }
 
     [Test]
-    public void GetHdrLuminanceScale_Hlg_UsesEotfPathNotFallback()
+    public void GetHdrLuminanceScale_Hlg_IsReciprocalOfEotfAtReferenceCode()
     {
+        // Mirror the production HLG path: scale = 1 / EOTF(0.75), the BT.2100 reference code level.
+        const float hlgReferenceCode = 0.75f;
+        float eotf = BitmapColorSpaceTransferFn.Hlg.Transform(hlgReferenceCode);
+
+        // The EOTF is usable (finite & positive), so the OOTF γ=3 fallback is not taken.
+        Assert.That(float.IsFinite(eotf), Is.True);
+        Assert.That(eotf, Is.GreaterThan(0f));
+
         float scale = BitmapColorSpaceMapping.GetHdrLuminanceScale(BitmapColorTransfer.Hlg);
-        Assert.That(float.IsFinite(scale), Is.True);
-        Assert.That(scale, Is.GreaterThan(0f));
-        // A real scale is applied (BuildHdrColorSpace scales the gamut only when != 1.0).
-        Assert.That(scale, Is.Not.EqualTo(1.0f));
-        // The EOTF produced a usable value, so the OOTF γ=3 fallback (18.0) was not taken.
-        Assert.That(scale, Is.Not.EqualTo(18.0f));
+        Assert.That(scale, Is.EqualTo(1f / eotf));
     }
 
     [TestCase(BitmapColorTransfer.Srgb)]
@@ -80,7 +83,7 @@ public class BitmapColorSpaceMappingTests
     {
         var cs = BitmapColorSpaceMapping.BuildTargetColorSpace(
             BitmapColorTransfer.Srgb, BitmapColorPrimaries.Srgb);
-        Assert.That(cs, Is.EqualTo(BitmapColorSpace.Srgb));
+        Assert.That(cs, Is.SameAs(BitmapColorSpace.Srgb));
     }
 
     [Test]
@@ -88,7 +91,7 @@ public class BitmapColorSpaceMappingTests
     {
         var cs = BitmapColorSpaceMapping.BuildTargetColorSpace(
             BitmapColorTransfer.Linear, BitmapColorPrimaries.Srgb);
-        Assert.That(cs, Is.EqualTo(BitmapColorSpace.LinearSrgb));
+        Assert.That(cs, Is.SameAs(BitmapColorSpace.LinearSrgb));
     }
 
     [Test]

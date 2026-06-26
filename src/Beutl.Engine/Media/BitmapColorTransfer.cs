@@ -5,7 +5,7 @@
 /// ITU-T H.273). Encode/decode backends map their native transfer tags onto this enum and let
 /// <see cref="BitmapColorSpaceMapping"/> resolve the concrete
 /// <see cref="BitmapColorSpaceTransferFn"/> and HDR luminance handling, so the mapping logic lives
-/// in exactly one place across the FFmpeg / AVFoundation / MediaFoundation paths.
+/// in exactly one place across the FFmpeg / AVFoundation paths.
 /// </summary>
 /// <remarks>
 /// The numeric values are part of the wire contract with the AVFoundation native layer

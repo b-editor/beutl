@@ -2,7 +2,7 @@
 
 /// <summary>
 /// Backend-independent SDR/HDR color-space mapping shared by every encode/decode backend
-/// (FFmpeg, AVFoundation, MediaFoundation). Each backend converts its native transfer/primaries
+/// (FFmpeg, AVFoundation). Each backend converts its native transfer/primaries
 /// tags to <see cref="BitmapColorTransfer"/> / <see cref="BitmapColorPrimaries"/> and calls in
 /// here, so the HDR luminance-scaling strategy (PQ: reference white 203 nit out of a 10000 nit
 /// peak; HLG: scale from the BT.2100 reference code level, with an OOTF γ=3 fallback) is defined

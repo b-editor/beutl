@@ -5,7 +5,7 @@
 /// Encode/decode backends map their native primaries tags onto this enum and let
 /// <see cref="BitmapColorSpaceMapping"/> resolve the concrete <see cref="BitmapColorSpaceXyz"/>
 /// gamut, so the mapping logic lives in exactly one place across the
-/// FFmpeg / AVFoundation / MediaFoundation paths.
+/// FFmpeg / AVFoundation paths.
 /// </summary>
 /// <remarks>
 /// The numeric values are part of the wire contract with the AVFoundation native layer
