@@ -136,7 +136,7 @@ release train with a `BREAKING CHANGE:` footer listing affected projects.*
   `src/Beutl/runtimes/`; byte-identical fat dylib duplicated across osx-x64/osx-arm64
   RID folders; orphaned images. **Correction (Phase 1 verification): the ~27 MB
   NotoSansJP/Roboto font family under `tests/Beutl.UnitTests/Assets/Font/` is LIVE** —
-  `Engine/TypefaceProvider.cs` loads all of it and it is embedded via
+  `tests/Beutl.UnitTests/Engine/TypefaceProvider.cs` loads all of it and it is embedded via
   `<EmbeddedResource Include="Assets\**\*.*" />`, so it was NOT removed. The original
   "~80 MB" headline conflated this live test font family with the removable UI
   weights; the real removable total is ~27 MB.
