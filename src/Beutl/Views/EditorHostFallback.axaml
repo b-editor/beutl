@@ -76,54 +76,57 @@
             </WrapPanel>
         </StackPanel>
 
-        <Grid Grid.Row="1"
-              Width="600"
-              Margin="32,0,32,32"
-              HorizontalAlignment="Left"
-              ColumnDefinitions="*,Auto"
-              RowDefinitions="Auto,8,*">
-            <TextBlock Text="{x:Static lang:Strings.Recently}" Theme="{StaticResource SubtitleTextBlockStyle}" />
+        <!-- The * column caps the panel at 600px while letting it shrink on narrow windows; the
+             stretched wrapper keeps it left-anchored (MaxWidth on a stretched grid would centre it). -->
+        <Grid Grid.Row="1" Margin="32,0,32,32">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" MaxWidth="600" />
+            </Grid.ColumnDefinitions>
 
-            <ComboBox x:Name="FilterComboBox"
-                      Grid.Column="1"
-                      VerticalAlignment="Center"
-                      SelectedIndex="1"
-                      Theme="{StaticResource LiteComboBoxStyle}">
-                <ComboBoxItem Content="{x:Static lang:Strings.All}" />
-                <ComboBoxItem Content="{x:Static lang:Strings.Projects}" />
-                <ComboBoxItem Content="{x:Static lang:Strings.Files}" />
-            </ComboBox>
+            <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,8,*">
+                <TextBlock Text="{x:Static lang:Strings.Recently}" Theme="{StaticResource SubtitleTextBlockStyle}" />
 
-            <ListBox x:Name="recentList"
-                     Grid.Row="2"
-                     Grid.ColumnSpan="2">
-                <ListBox.Styles>
-                    <Style Selector="ListBoxItem">
-                        <Setter Property="ContextMenu">
-                            <Template>
-                                <ContextMenu>
-                                    <MenuItem Click="DeleteRecentItem_Click" Header="{x:Static lang:Strings.Remove}" />
-                                    <MenuItem Click="OpenRecentItem_Click" Header="{x:Static lang:Strings.Open}" />
-                                </ContextMenu>
-                            </Template>
-                        </Setter>
-                    </Style>
-                </ListBox.Styles>
-                <ListBox.ItemTemplate>
-                    <DataTemplate x:DataType="sysIO:FileInfo">
-                        <StackPanel Margin="0,4">
-                            <TextBlock Text="{CompiledBinding Name}" />
-                            <TextBlock FontSize="12"
-                                       Text="{CompiledBinding DirectoryName}"
-                                       Theme="{StaticResource LabelTextBlockStyle}" />
-                        </StackPanel>
-                    </DataTemplate>
-                </ListBox.ItemTemplate>
-            </ListBox>
+                <ComboBox x:Name="FilterComboBox"
+                          Grid.Column="1"
+                          VerticalAlignment="Center"
+                          SelectedIndex="1"
+                          Theme="{StaticResource LiteComboBoxStyle}">
+                    <ComboBoxItem Content="{x:Static lang:Strings.All}" />
+                    <ComboBoxItem Content="{x:Static lang:Strings.Projects}" />
+                    <ComboBoxItem Content="{x:Static lang:Strings.Files}" />
+                </ComboBox>
 
-            <TextBlock Grid.Row="2"
-                       IsVisible="{Binding !#recentList.ItemCount}"
-                       Text="{x:Static lang:Strings.NoFilesUsedRecently}" />
+                <ListBox x:Name="recentList"
+                         Grid.Row="2"
+                         Grid.ColumnSpan="2">
+                    <ListBox.Styles>
+                        <Style Selector="ListBoxItem">
+                            <Setter Property="ContextMenu">
+                                <Template>
+                                    <ContextMenu>
+                                        <MenuItem Click="DeleteRecentItem_Click" Header="{x:Static lang:Strings.Remove}" />
+                                        <MenuItem Click="OpenRecentItem_Click" Header="{x:Static lang:Strings.Open}" />
+                                    </ContextMenu>
+                                </Template>
+                            </Setter>
+                        </Style>
+                    </ListBox.Styles>
+                    <ListBox.ItemTemplate>
+                        <DataTemplate x:DataType="sysIO:FileInfo">
+                            <StackPanel Margin="0,4">
+                                <TextBlock Text="{CompiledBinding Name}" />
+                                <TextBlock FontSize="12"
+                                           Text="{CompiledBinding DirectoryName}"
+                                           Theme="{StaticResource LabelTextBlockStyle}" />
+                            </StackPanel>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+
+                <TextBlock Grid.Row="2"
+                           IsVisible="{Binding !#recentList.ItemCount}"
+                           Text="{x:Static lang:Strings.NoFilesUsedRecently}" />
+            </Grid>
         </Grid>
 
         <StackPanel Grid.Row="2"
