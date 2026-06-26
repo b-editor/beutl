@@ -93,7 +93,6 @@ class Build : NukeBuild
                 "Beutl.ExceptionHandler",
                 "Beutl.PackageTools.UI",
                 "Beutl.WaitingDialog",
-                "Beutl.FFmpegWorker",
             ];
             foreach (string item in subProjects)
             {
@@ -114,6 +113,29 @@ class Build : NukeBuild
                     .Select(p => (Source: p, Target: mainOutput / output.GetRelativePathTo(p)))
                     .ForEach(t => t.Source.Copy(t.Target));
             }
+
+            // The 3 sub-exes above flat-copy only their own Beutl.<Name>* files because the rest of
+            // their closure is a subset of the app's shared assemblies. The GPL worker is the
+            // exception: it carries private deps (FFmpeg.AutoGen, FFmpegSharp) absent from the app's
+            // MIT set, so copying only Beutl.FFmpegWorker* strands them and the worker dies with a
+            // FileNotFoundException at startup. Copy its whole closure with FileSkip instead — the
+            // app's shared assemblies/runtime stay the single canonical set (skipped), and only the
+            // worker's identity + private deps are added.
+            AbsolutePath workerOutput = OutputDirectory / "Beutl.FFmpegWorker";
+            DotNetPublish(s => s
+                .When(_ => Runtime != null, s => s
+                    .SetRuntime(Runtime)
+                    .SetSelfContained(SelfContained))
+                .When(_ => Runtime == RuntimeIdentifier.win_x64, s => s.SetFramework($"{tfm}-windows"))
+                .When(_ => Runtime != RuntimeIdentifier.win_x64, s => s.SetFramework(tfm))
+                .EnableNoRestore()
+                .SetConfiguration(Configuration)
+                .SetVersions(Version, AssemblyVersion, InformationalVersion)
+                .SetProject(SourceDirectory / "Beutl.FFmpegWorker" / "Beutl.FFmpegWorker.csproj")
+                .SetOutput(workerOutput));
+            workerOutput.GlobFiles("**/*")
+                .Select(p => (Source: p, Target: mainOutput / workerOutput.GetRelativePathTo(p)))
+                .ForEach(t => t.Source.Copy(t.Target, ExistsPolicy.FileSkip));
         });
 
     Target Zip => _ => _
@@ -179,6 +201,12 @@ class Build : NukeBuild
                 .SetProperty("UseAppHost", true)
                 .SetProperty("SelfContained", true));
 
+            // The worker carries private deps (FFmpeg.AutoGen, FFmpegSharp) absent from the app's MIT
+            // set, so the BundleApp MSBuild target — which drops only a partial flat worker set
+            // (apphost + deps.json, no managed dll) via the dev ProjectReference — leaves it unable to
+            // start. Delete that partial set and merge the worker's self-contained closure with
+            // FileSkip: the app's shared assemblies/runtime stay canonical (skipped), and the worker's
+            // identity + private deps are added flat. Runs before the workflow's codesign step.
             AbsolutePath workerProj = SourceDirectory / "Beutl.FFmpegWorker" / "Beutl.FFmpegWorker.csproj";
             AbsolutePath workerOutput = OutputDirectory / "Beutl.FFmpegWorker";
             DotNetPublish(s => s
@@ -191,9 +219,10 @@ class Build : NukeBuild
                 .SetOutput(workerOutput));
 
             AbsolutePath bundleContents = output / "Beutl.app" / "Contents" / "MacOS";
-            workerOutput.GlobFiles("**/Beutl.FFmpegWorker*")
+            bundleContents.GlobFiles("Beutl.FFmpegWorker*").ForEach(p => p.DeleteFile());
+            workerOutput.GlobFiles("**/*")
                 .Select(p => (Source: p, Target: bundleContents / workerOutput.GetRelativePathTo(p)))
-                .ForEach(t => t.Source.Copy(t.Target, ExistsPolicy.FileOverwrite));
+                .ForEach(t => t.Source.Copy(t.Target, ExistsPolicy.FileSkip));
         });
 
     Target NuGetPack => _ => _
