@@ -5,11 +5,11 @@
         xmlns:lang="using:Beutl.Language"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:ui="using:FluentAvalonia.UI.Controls"
+        Title="{x:Static lang:Strings.Extensions}"
         Width="800"
         Height="600"
         MinWidth="480"
         MinHeight="400"
-        Title="{x:Static lang:Strings.Extensions}"
         d:DesignHeight="450"
         d:DesignWidth="800"
         mc:Ignorable="d">
@@ -26,9 +26,9 @@
             </ui:NavigationView.Resources>
             <ui:NavigationView.PaneCustomContent>
                 <TextBox x:Name="searchTextBox"
-                         MaxWidth="250"
+                         MinWidth="250"
                          Margin="8,0"
-                         HorizontalAlignment="Stretch"
+                         HorizontalAlignment="Right"
                          VerticalAlignment="Center"
                          Watermark="{x:Static lang:Strings.Search}">
                     <TextBox.InnerRightContent>
