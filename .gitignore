@@ -383,6 +383,7 @@ telemetry-data.json
 .claude/.DS_Store
 .claude/.last-self-review
 .claude/worktrees/
+.claude/loop-memory/
 
 # `.mcp.json` is team-shared (see docs/ai-workflow/README.md); override any global gitignore
 !.mcp.json

@@ -2,7 +2,7 @@
 name: beutl-design-reviewer
 description: Reviews Beutl public-API and extensibility-surface changes against the "adopt better designs eagerly" priority — orthogonality, library-user flexibility, and avoidance of compatibility shims that exist only to dodge call-site updates. Use proactively when a change touches public types in `Beutl.Engine`, `Beutl.Extensibility`, `Beutl.NodeGraph`, `Beutl.FFmpegIpc`, `Beutl.ProjectSystem`, or any other surface plugin authors may consume. Also use when reviewing `[Obsolete]`, "V2" suffixes, or duplicate overloads added for compat reasons.
 tools: Read, Grep, Glob, Bash
-model: sonnet
+model: opus
 color: orange
 memory: project
 ---
@@ -49,10 +49,18 @@ If none apply, report `No public-surface or extensibility changes — design rev
 
 ## Procedure
 
-1. `git diff origin/main...HEAD -- 'src/**'` and list touched public types. Use `grep` for `public class`, `public interface`, `public abstract`, `public sealed`, `public record`, `public enum` on `+`-lines.
-2. For each touched public type, Read the file and assess the five axes above.
-3. For suspected compatibility shims, grep the rest of the repo for *uses* of the old member to confirm it is still referenced (or not).
-4. Produce findings in the format below.
+1. Determine the diff range. Prefer explicit refs passed by the caller: if `$BASE_REF` and `$HEAD_REF`
+   are set (e.g. by `/beutl-loop` reviewing a draft branch that is not checked out), use
+   `git diff "$BASE_REF...$HEAD_REF" -- 'src/**'`. Otherwise fall back to `git diff origin/main...HEAD -- 'src/**'`
+   (the standalone / interactive case). **Never assume HEAD is the branch under review** — in the loop
+   orchestrator checkout, HEAD is the loop branch, not the draft branch.
+2. List touched public types. Use `grep` for `public class`, `public interface`, `public abstract`, `public sealed`, `public record`, `public enum` on `+`-lines.
+3. For each touched public type, read the file and assess the five axes above. **When `$HEAD_REF` is
+   set the draft branch is not checked out**, so read contents with `git show "$HEAD_REF:$path"` (a
+   working-tree read would miss new public types or assess a modified API from the stale base);
+   without `$HEAD_REF` (standalone) read the working tree directly.
+4. For suspected compatibility shims, grep the rest of the repo for *uses* of the old member to confirm it is still referenced (or not).
+5. Produce findings in the format below.
 
 ## Output format
 

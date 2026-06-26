@@ -1,20 +1,25 @@
 ---
 description: |
-  Pick up a non-feature task (bug / quality / design-improvement) from the GitHub
-  Project #9 "AI Review" board, verify it is not a false positive, then plan, implement,
-  test, and open a PR. Use when the user says "AI Review からタスクを選んで作業して",
-  "projects/9 のタスクをやって", "pick a task from the AI Review board", "consume an
-  AI-review backlog item", or similar. If the chosen item turns out to be a false positive,
-  set its Status to "False positive" and move to the next candidate.
-argument-hint: "[item-number | title-keyword | bug|diff|design]"
+  Pick up one task from the GitHub Project #9 task board (any kind — bug, perf/quality,
+  design improvement, or feature), verify it is not a false positive, then plan, implement,
+  test, and open a PR. Use when the user says "ボードからタスクを選んで作業して",
+  "projects/9 のタスクをやって", "pick a task from the board", "consume a backlog item",
+  or similar. If the chosen item turns out to be a false positive, set its Status to
+  "False positive" and move to the next candidate.
+argument-hint: "[item-number | title-keyword | bug|diff|design|feature]"
 ---
 
-# Work an AI Review board task
+# Work a task board item
 
-The `scheduled-code-review.yml` and `claude-code-review.yml` workflows file findings into the
-GitHub Project **#9 "AI Review"** (`b-editor/projects/9`). This skill turns one of those
-findings into a merge-ready PR, end to end. It deliberately targets **non-feature** work
-(bugs, perf/quality, design improvements) — those are concrete, verifiable, and low-risk.
+GitHub Project **#9** (`b-editor/projects/9`, display name "AI Review") is the team's task board.
+It holds both **auto-detected findings** (filed by `scheduled-code-review.yml` /
+`claude-code-review.yml`) and **hand-added tasks** — including features. This skill turns any one
+of those items into a merge-ready PR, end to end.
+
+> Running this skill standalone opens a PR and leaves merging to a human. When it is dispatched as
+> one tick of **`/beutl-loop`**, the loop pre-authorizes the per-item actions, classifies the
+> resulting PR's risk, and decides auto-merge vs. human-merge — this skill itself never merges.
+> See `docs/ai-workflow/loop-engineering.md`.
 
 ## Board coordinates (project #9)
 
@@ -40,7 +45,7 @@ not a page offset — the default is 100, so a board that has grown past that si
 Pass a limit comfortably above the current item count and warn if the snapshot looks truncated.
 
 ```bash
-BOARD=$(mktemp /tmp/ai-review-board.XXXX.json)
+BOARD=$(mktemp /tmp/board-items.XXXX.json)
 gh project item-list 9 --owner b-editor --limit 2000 --format json > "$BOARD"
 
 # Status + type + title, indexed. Warn if we may have hit the fetch ceiling.
@@ -56,17 +61,29 @@ if len(items) >= 2000:
 "
 ```
 
-**Non-feature filter.** Prefer titles prefixed with `[Bug]`, `[YYYY-MM-DD][diff]`, or
-`設計改善:`. Skip plain feature titles (e.g. "リップル削除", "マルチカム編集", "ショートカット: ...").
-Only **unclaimed** items are candidates: `Backlog` and `Todo`. Skip `Done` / `False positive`,
-and skip `In Progress` too — on this board `In Progress` means another agent/contributor has
-already claimed it, so treating it as a candidate invites duplicate work. Among the unclaimed
-ones, bias toward **engine/core, low-risk, high-confidence, testable** items over UI-layer items
-that are hard to unit-test.
+**Candidate filter.** Only **unclaimed** items are candidates: `Backlog` and `Todo`. Skip `Done` /
+`False positive`, and skip `In Progress` too — on this board `In Progress` means another
+agent/contributor has already claimed it, so treating it as a candidate invites duplicate work.
+
+**Select across the full spectrum — do not pre-filter by risk or kind.** Every kind is in scope:
+bugs (`[Bug]`), review findings (`[YYYY-MM-DD][diff]`), design improvements (`設計改善:`), **and
+plain feature titles** (e.g. "リップル削除", "マルチカム編集", "ショートカット: …"). Do **not** skip an item
+merely because it is a feature, higher-risk, or UI-layer. Risk is handled downstream, not by
+excluding work here: when this skill runs inside `/beutl-loop`, the loop classifies each PR's risk
+and routes higher-risk ones to a human for merge (see `docs/ai-workflow/loop-engineering.md`); when
+run standalone, a human reviews and merges every PR anyway.
+
+Two guards on selection:
+- **Underspecified features are `blocked`, not silently skipped.** If a feature item lacks enough
+  detail to implement and verify a concrete outcome, surface it as blocked (and, in a loop, let the
+  stagnation/blocked path handle it) — do not fabricate scope.
+- **Hard-to-unit-test items (often UI) still need verification.** If a fix cannot carry an NUnit
+  test, document a concrete **manual verification** procedure in the plan and PR instead of shipping
+  untested.
 
 If `$ARGUMENTS` is an index/number or a title keyword, jump straight to that item. Otherwise,
-present the top non-feature candidates to the user with AskUserQuestion before committing to one
-(unless the user already told you to just pick one).
+present the top candidates to the user with AskUserQuestion before committing to one (unless the
+user already told you to just pick one, e.g. when dispatched by `/beutl-loop`).
 
 Resolve the pick against the **same snapshot** and capture its **stable item id** now. Do not
 re-run `item-list` and re-select by numeric index later — the shared board can have items added,
@@ -93,9 +110,15 @@ print(it['content'].get('title','')); print(); print(it['content'].get('body',''
 "
 ```
 
-## Step 2 — Verify it is NOT a false positive (mandatory)
+## Step 2 — Validate the item before planning (mandatory)
 
-Before any planning, confirm the finding against the **current** code:
+What "validate" means depends on the item's **kind** — take the matching path. (The `In Progress`
+claim below applies to both.) A board item is either an auto-detected **review finding** (it cites a
+`file:line`) or a hand-added **product/feature task** (a feature title, no cited code location).
+
+### Path A — review findings (`[Bug]`, `[YYYY-MM-DD][diff]`, `設計改善:` — anything citing a `file:line`)
+
+These are heuristic and sometimes wrong, so confirm the finding against the **current** code:
 
 - Open the cited `file:line` and confirm the described code still exists and the reasoning holds.
 - Trace the claim. Scheduled-review findings are heuristic and sometimes wrong. Common false
@@ -103,7 +126,7 @@ Before any planning, confirm the finding against the **current** code:
   - A "use-after-dispose / NRE" where an eager token / guard already aborts the path.
   - A "race" on state that is in practice single-threaded, or already guarded elsewhere.
   - A perf claim on a path that is not actually hot.
-- If the surrounding code makes the finding **invalid**, mark it and move on:
+- If the surrounding code makes the finding **invalid**, set Status → `False positive` and move on:
 
 ```bash
 # Set Status -> "False positive"
@@ -117,11 +140,27 @@ gh project item-edit --project-id PVT_kwDOBLw8Fs4BW4g5 \
 return to Step 1 for another candidate (re-fetch the snapshot). **Do not** silently keep the
 smaller diff or fabricate a fix for a wrong finding.
 
+### Path B — product / feature tasks (hand-added: a feature title, no cited code location)
+
+A feature item has no `file:line` to refute and **no false-positive concept** — do **not** force it
+through Path A, or you will end up inventing verification evidence for a finding that does not exist.
+Validate it on its own terms instead:
+
+- **Already implemented or obsolete?** Grep the codebase / recent history for the feature. If it is
+  already present, or a newer decision dropped it, it is not work to do — set Status → `Done`
+  (already shipped) or `False positive` (no longer wanted) with a one-line note, and return to
+  Step 1. This is the feature analog of the false-positive exit.
+- **Specified enough to implement and verify?** If the title is a bare idea with no acceptance
+  criteria you can turn into a test or a concrete manual-verification procedure, it is `blocked`
+  (Step 1's "underspecified features are blocked" guard) — surface it; do not fabricate scope.
+- Otherwise it is valid, well-specified work: there is nothing to refute — proceed to claim and plan.
+
 ### Claim the item immediately
 
-Once the finding is confirmed valid (and after the user has confirmed the pick), move the item to
-`In Progress` **right away** — before planning/implementing, not after the PR opens. The board is
-shared, so claiming late leaves a long window where another agent can start the same task.
+Once the item is validated (a finding confirmed real, or a feature confirmed not-already-done and
+specified enough) — and after the user has confirmed the pick — move the item to `In Progress`
+**right away**, before planning/implementing, not after the PR opens. The board is shared, so
+claiming late leaves a long window where another agent can start the same task.
 
 ```bash
 gh project item-edit --project-id PVT_kwDOBLw8Fs4BW4g5 \
@@ -134,15 +173,27 @@ gh project item-edit --project-id PVT_kwDOBLw8Fs4BW4g5 \
 
 Enter plan mode (`EnterPlanMode`) and produce a focused plan. Include:
 
-- **Context**: why the change is needed (the real problem, quoted from the finding + your verification).
-- A note that the item was confirmed **not** a false positive, with the evidence.
-- The concrete edit(s): `file:line` and the before/after shape.
+- **Context**: why the change is needed — for a finding, the real problem quoted from it + your
+  verification; for a feature, the desired behavior and its acceptance criteria.
+- The Step-2 validation result: for a finding, a note it was confirmed **not** a false positive with
+  the evidence; for a feature, a one-line confirmation it is not already implemented and is specified
+  enough to verify.
+- The concrete edit(s): the `file:line` you will change — or, for a feature, the new files/types you
+  will add — and the before/after shape.
 - A **test** plan (see Step 5) — this repo requires new logic to ship with an NUnit test
   (`.claude/rules/csharp.md`, AGENTS.md rule #3).
+- A quick **recent-merge scan**: skim `git log --oneline -15 origin/main` for commits tagged
+  `Refs: Project #9`; if a just-merged PR removed or refactored a pattern this task would reintroduce,
+  adjust the plan (a soft signal, not a gate).
 - Verification commands and the commit/PR/board updates.
 
 Surface non-obvious design trade-offs to the user (AGENTS.md "adopt better designs eagerly").
 For public-surface / extensibility changes, auto-delegate `@beutl-design-reviewer`.
+For a feature that needs a new public type or ≥ 3 new files, route through the Spec-Kit flow
+(`/speckit-specify → /speckit-plan → /speckit-tasks → /speckit-implement`) instead of a single
+minimal-change tick — it is too large to verify as one root-cause fix. When dispatched by
+`/beutl-loop`, the runner returns `speckit_required` and the orchestrator runs the flow; standalone,
+run the Spec-Kit skills yourself.
 
 ### Create the work branch now — before any edits
 
@@ -241,6 +292,15 @@ fi
 (If you only want an interim progress peek while it runs, `grep` the output file — but still gate
 the commit/PR decision on `status`, not on any matched string.)
 
+**A production change must ship a test.** If your diff touches `src/` (production code) but adds or
+modifies no test under `tests/`, that is not done: go back and add coverage. A new
+`[Test]`/`[TestCase]` in an existing fixture counts — you do not have to create a new file; the gate
+is on whether the diff adds or changes a test, not on a new file. Only when the change genuinely
+cannot carry a unit test (typically UI) may you substitute a concrete **manual-verification**
+procedure — and you must write that procedure down (it goes in the plan and the PR's Test plan). A
+production change with neither a test nor a manual-verification note is **blocked**, not a PR — the
+Step 7 gate enforces this.
+
 ## Step 6 — Do not defer work (gate before you open the PR)
 
 Run this check **before** the commit/push/PR in Step 7 — it is a gate on opening the PR, not a
@@ -265,14 +325,31 @@ You are already on `$BRANCH` (created in Step 3 before any edits), so just commi
 `git push -u origin "$BRANCH"` pushes that existing branch — the refspec form does not create or
 move a branch, which is exactly why the branch had to exist before you started editing.
 
+### Pre-commit gate — self-review + tests (do this before `git commit`)
+
+Two binary checks gate the commit; both must pass (prefer fixing in-branch; otherwise it is `blocked`):
+
+- **Test gate.** Must NOT be (production code under `src/` changed **and** no test under `tests/`
+  added **or modified** **and** not a documented manual-verification). If it trips, add the test (Step 5) or, for
+  genuinely untestable UI, write the manual-verification note — else stop and report `blocked`
+  ("rule #3: production change without test").
+- **Self-review (six checks).** (1) new/changed XAML declares `x:CompileBindings="True"` + `x:DataType`;
+  (2) no `[Obsolete]` shim / "v2" duplicate / compat overload added to dodge call-site updates;
+  (3) no leftover `// TODO` / `## Follow-ups` / Draft-board deferral; (4) the change fixes the **root
+  cause**, not a symptom; (5) the GPL/MIT boundary is intact; (6) subtree `CLAUDE.md` rules honored.
+  (The `.claude/hooks/check-gpl-mit-boundary.sh` hook also enforces #5 mechanically; this check is the
+  human-judgment complement.)
+
 ```bash
 git add <changed files>
-git commit -F - <<'EOF'
+# -S: sign explicitly — the main ruleset requires signed commits; do not rely on commit.gpgsign being
+# configured (an unsigned commit pushed here leaves the PR unmergeable). Never pass --no-gpg-sign.
+git commit -S -F - <<'EOF'
 perf(engine): <imperative summary>
 
 <what was wrong + why the fix is safe + behavior-preserving note>
 
-Refs: Project #9 "AI Review" item "<exact finding title>"
+Refs: Project #9 board item "<exact item title>"
 EOF
 git push -u origin "$BRANCH"                # never push to main/master
 gh pr create --base main --head "$BRANCH" \
