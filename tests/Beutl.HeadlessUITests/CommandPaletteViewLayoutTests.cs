@@ -26,7 +26,7 @@ public class CommandPaletteViewLayoutTests
     private const string DescriptionText =
         "This is a very long command description that would previously be cramped next to the category label on a narrow window";
 
-    private static Control BuildItem(double hostWidth)
+    private static (Control Built, Window ViewWindow, Window HostWindow) BuildItem(double hostWidth)
     {
         // Inflate the real view so we can lift its ListBox.ItemTemplate out, then materialize it for a
         // single item. A null DataContext leaves the FilteredCommands binding unset (no items), but the
@@ -57,7 +57,7 @@ public class CommandPaletteViewLayoutTests
         var host = new Window { Content = built, Width = hostWidth, Height = 200 };
         host.Show();
         HeadlessTestHelpers.Render();
-        return built;
+        return (built, window, host);
     }
 
     private static TextBlock FindTextBlock(Control root, Func<string, bool> predicate)
@@ -72,30 +72,46 @@ public class CommandPaletteViewLayoutTests
     [AvaloniaTest]
     public void Description_is_on_its_own_line_below_the_category()
     {
-        Control built = BuildItem(hostWidth: 320);
+        (Control built, Window viewWindow, Window hostWindow) = BuildItem(hostWidth: 320);
+        try
+        {
+            TextBlock category = FindTextBlock(built, t => t == CategoryText);
+            TextBlock description = FindTextBlock(built, t => t.StartsWith("This is a very long"));
 
-        TextBlock category = FindTextBlock(built, t => t == CategoryText);
-        TextBlock description = FindTextBlock(built, t => t.StartsWith("This is a very long"));
+            double categoryY = category.TranslatePoint(new Point(0, 0), built)!.Value.Y;
+            double descriptionY = description.TranslatePoint(new Point(0, 0), built)!.Value.Y;
 
-        double categoryY = category.TranslatePoint(new Point(0, 0), built)!.Value.Y;
-        double descriptionY = description.TranslatePoint(new Point(0, 0), built)!.Value.Y;
-
-        Assert.That(
-            descriptionY,
-            Is.GreaterThan(categoryY + 1),
-            "the description should wrap to its own line below the category, not sit beside it");
+            Assert.That(
+                descriptionY,
+                Is.GreaterThan(categoryY + 1),
+                "the description should wrap to its own line below the category, not sit beside it");
+        }
+        finally
+        {
+            hostWindow.Close();
+            viewWindow.Close();
+            HeadlessTestHelpers.Settle();
+        }
     }
 
     [AvaloniaTest]
     public void Category_label_is_width_bounded()
     {
-        Control built = BuildItem(hostWidth: 320);
+        (Control built, Window viewWindow, Window hostWindow) = BuildItem(hostWidth: 320);
+        try
+        {
+            TextBlock category = FindTextBlock(built, t => t == CategoryText);
 
-        TextBlock category = FindTextBlock(built, t => t == CategoryText);
-
-        Assert.That(
-            category.Bounds.Width,
-            Is.LessThanOrEqualTo(CategoryMaxWidth + 0.5),
-            "the category label should be a compact, width-bounded label even for long category names");
+            Assert.That(
+                category.Bounds.Width,
+                Is.LessThanOrEqualTo(CategoryMaxWidth + 0.5),
+                "the category label should be a compact, width-bounded label even for long category names");
+        }
+        finally
+        {
+            hostWindow.Close();
+            viewWindow.Close();
+            HeadlessTestHelpers.Settle();
+        }
     }
 }
