@@ -34,12 +34,13 @@ jobs:
 
       - name: Reformat release notes with Claude
         uses: anthropics/claude-code-action@v1
+        timeout-minutes: 20
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           allowed_bots: "github-actions"
-          claude_args: '--allowed-tools "Bash(gh release view:*),Bash(gh release edit:*),Bash(cat:*),Bash(mktemp:*),Bash(printf:*)"'
+          claude_args: '--allowed-tools "Bash(gh release view:*),Bash(gh release edit:*),Bash(cat:*),Bash(mktemp:*),Bash(printf:*),Write,Read"'
           prompt: |
             You are reformatting the body of the draft GitHub release `${{ inputs.tag }}` in `${{ github.repository }}` to match the style of https://github.com/b-editor/beutl/releases/tag/v2.0.0-preview.2.
 
@@ -85,8 +86,9 @@ jobs:
 
                e. Preserve the trailing `**Full Changelog**: https://github.com/.../compare/...` line that the auto-generated body provides, on its own paragraph at the very end.
 
-            3. Write the new body to a temp file via `mktemp` + `cat <<'EOF' > "$f"` (do not pass it inline because it has backticks and newlines), then run:
-               `gh release edit ${{ inputs.tag }} -R ${{ github.repository }} --notes-file "$f" --draft=true`
+            3. Create the new body with the `Write` tool — write it to `release-body.md` in the current directory. Do NOT build the body with shell heredocs / `echo` / `printf`: it contains backticks and newlines that break shell quoting and waste turns on denied commands. Then run:
+               `gh release edit ${{ inputs.tag }} -R ${{ github.repository }} --notes-file release-body.md --draft=true`
+               Confirm that command exits 0 (the release body must actually change); if it errors, fix the file and retry.
 
             ## Constraints
 
@@ -94,4 +96,22 @@ jobs:
             - DO NOT add a "日本語のリリースノートはこちら" line — that is appended later by a separate workflow when the corresponding Discussion is created.
             - DO NOT publish the release, edit the tag, modify assets, or open issues/PRs.
             - DO NOT touch any other release.
-            - If the release body already looks reformatted (i.e., contains `## What's Changed` followed by the platform list), exit without changes.
+            - If the fetched body already contains the substring `releases/download/${{ inputs.tag }}/` (the platform download links), it is already reformatted — exit without changes.
+
+      - name: Verify the release notes were reformatted
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ inputs.tag }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          if ! body=$(gh release view "$TAG" -R "$REPO" --json body -q .body); then
+            echo "::error::Failed to fetch release $TAG to verify its notes (gh release view errored)."
+            exit 1
+          fi
+          if printf '%s' "$body" | grep -qF "releases/download/$TAG/"; then
+            echo "Release notes contain the platform download links — reformatting succeeded."
+          else
+            echo "::error::Release notes for $TAG were not reformatted (no download links found). The Claude step finished without editing the body."
+            exit 1
+          fi
