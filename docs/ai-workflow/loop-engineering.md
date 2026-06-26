@@ -141,9 +141,11 @@ requirements, so `gh pr review --approve` returns 422 when the PR author and cod
 same account (`@yuto-trd`). This 422 is **benign**: the subsequent `gh pr merge --squash` still
 completes via that account's bypass permission on the protected branch, so **auto-merge is
 operational and the risk classifier (step 4) is the effective gate** (empirically confirmed — a
-10-item run auto-merged 7 low/moderate-risk PRs despite the approve 422). The bypass only substitutes
-for the author-self-approve GitHub won't count; required checks, thread resolution, and the
-squash-only/signed rules are still enforced. **Don't trust `gh pr merge`'s exit status** — it returns
+10-item run auto-merged 7 low/moderate-risk PRs despite the approve 422). The bypass substitutes
+for the author-self-approve GitHub won't count — and because a ruleset bypass actor can in principle
+skip other branch protections too, the loop does **not** rely on GitHub to enforce the rest: its own
+**pre-merge self-gate** (required checks green + zero unresolved review threads + `MERGEABLE`, all
+re-checked in step 4 immediately before the merge attempt) is the hard gate. **Don't trust `gh pr merge`'s exit status** — it returns
 non-zero when `--delete-branch` can't delete a local `loop/<slug>` branch that a runner worktree
 still holds, even though the remote merge succeeded; confirm the real outcome with
 `gh pr view "$PR" --json state,mergeCommit` (state `MERGED`), and remove the runner's worktree +
@@ -166,11 +168,14 @@ gh api graphql -f query='query{repository(owner:"b-editor",name:"beutl"){pullReq
 gh pr view "$PR" --json mergeable,reviewDecision -q '.mergeable,.reviewDecision'                   # need MERGEABLE; if reviewDecision != APPROVED, post the code-owner approval first (below)
 # Post the code-owner approval as the same account that authored the PR (the loop runs as @yuto-trd):
 gh pr review "$PR" --approve --body "Auto-approved by /beutl-loop (code-owner). Risk: <low|moderate>."
-# Move to Done ONLY if the merge actually succeeds; a ruleset refusal leaves the item In Progress.
-if gh pr merge "$PR" --squash --delete-branch --match-head-commit "$HEAD_SHA"; then
+# Don't gate on gh pr merge's exit code — it returns non-zero when --delete-branch can't remove a
+# local branch a runner worktree still holds, even though the remote merge succeeded. Verify the real
+# outcome via gh pr view --json state and move to Done ONLY when it is MERGED.
+gh pr merge "$PR" --squash --delete-branch --match-head-commit "$HEAD_SHA" || true
+if [ "$(gh pr view "$PR" --json state -q .state)" = "MERGED" ]; then
   : # gh project item-edit … --single-select-option-id 98236657   # Done
 else
-  echo "merge blocked by branch ruleset — record left_for_human; do not retry/force/bypass"
+  echo "merge did not complete (state != MERGED) — record left_for_human; do not retry/force/bypass"
 fi
 ```
 

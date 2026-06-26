@@ -451,10 +451,11 @@ change touches no `src/`, so it has no NUnit coverage to require — but a `manu
 **not** eligible → human); required checks
 (`build`, `dotnet-format`) green and nothing else failing; **every review thread resolved**; no
 outstanding `CHANGES_REQUESTED` from any bot **or human**; `needs_human` false; settled; mergeable;
-and — when the **production (`src/`) diff is ≥ 100 added lines** (`touched_production && diff_loc >= 100`;
-read `diff_loc` as the production `src/` count, **not** the test-inflated total) — **changed-line
-coverage ≥ 70%** (the B-4 probe below; a lower coverage ⇒ high-risk, because the new code is
-under-tested for an unattended merge).
+and — when the **production (`src/`) diff is ≥ 100 added lines** (use the orchestrator's own step-4
+recomputation of `src/` added lines for this threshold — **not** the runner's `diff_loc` payload,
+which is total added+removed across all files incl. tests/docs) — **changed-line coverage ≥ 70%**
+(the B-4 probe below; a lower coverage ⇒ high-risk, because the new code is under-tested for an
+unattended merge).
 **The loop runs as the code owner, so it posts its own approval** — a pending `REVIEW_REQUIRED` is
 **not** a stop: run `gh pr review "$PR" --approve` first, then proceed. A `CHANGES_REQUESTED` that
 could not be cleanly auto-resolved ⇒ leave for human. **Otherwise high-risk → leave for human.** When
@@ -596,7 +597,7 @@ if [ "$(gh pr view "$PR" --json state -q .state)" = "MERGED" ]; then
   # drain must see the commit just merged or it will branch from stale main (conflicts / lost work).
   git fetch origin main --quiet || true
 else
-  echo "merge blocked by ruleset — record left_for_human; board stays In Progress; no retry/force/bypass"
+  echo "merge did not complete (state != MERGED — ruleset refusal, or an auth/network/API/CLI error) — record left_for_human; board stays In Progress; no retry/force/bypass"
 fi
 ```
 High-risk PRs — and **any merge GitHub refuses** — are **left open**; the board item stays
