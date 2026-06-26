@@ -1,16 +1,16 @@
 ﻿using Avalonia.Controls;
 using Avalonia.Headless.NUnit;
-using Avalonia.VisualTree;
+
 using Beutl.Services;
-using Beutl.Testing.Headless;
 using Beutl.ViewModels.Dialogs;
 using Beutl.Views.Dialogs;
 
 namespace Beutl.HeadlessUITests;
 
-// Inflates the real CreateNewProject dialog (src/Beutl) headlessly to characterize the unit-suffix
-// hints on its numeric inputs. The dialog's Carousel virtualizes, so the numeric page is realized
-// only after selecting it; the page transition is cleared to realize it deterministically.
+// Reads the logical content tree rather than showing the dialog: a ContentDialog not opened via
+// ShowAsync keeps its content collapsed (close animation sets LayoutRoot IsVisible=False), so the
+// Carousel pages are never realized in the visual tree. The unit suffixes are static XAML
+// InnerRightContent labels, which exist in the logical tree at construction without any rendering.
 [TestFixture]
 public class CreateNewProjectDialogTests
 {
@@ -19,49 +19,19 @@ public class CreateNewProjectDialogTests
     {
         var vm = new CreateNewProjectViewModel(new ProjectService());
         var dialog = new CreateNewProject { DataContext = vm };
-        var window = new Window { Content = dialog, Width = 800, Height = 600 };
 
-        try
-        {
-            window.Show();
-            HeadlessTestHelpers.Render();
+        var carousel = dialog.Content as Carousel;
+        Assert.That(carousel, Is.Not.Null, "dialog should host the wizard Carousel as its content");
 
-            Carousel carousel = HeadlessTestHelpers.FindDescendant<Carousel>(dialog)!;
-            Assert.That(carousel, Is.Not.Null, "dialog should host the wizard Carousel");
+        // Page 0 is Name/Location; page 1 hosts the Size/FrameRate/SampleRate numeric inputs.
+        var numericPage = carousel!.Items[1] as Panel;
+        Assert.That(numericPage, Is.Not.Null, "the second Carousel page should host the numeric inputs");
 
-            carousel.PageTransition = null;
-            carousel.SelectedIndex = 1;
-            HeadlessTestHelpers.Render();
+        List<string?> units = numericPage!.Children.OfType<TextBox>()
+            .Select(tb => (tb.InnerRightContent as TextBlock)?.Text)
+            .ToList();
 
-            List<string> units = CollectDescendants<TextBox>(dialog)
-                .Select(tb => (tb.InnerRightContent as TextBlock)?.Text)
-                .Where(text => text is not null)
-                .ToList()!;
-
-            Assert.That(units, Is.EqualTo(new[] { "px", "fps", "Hz" }),
-                "Size, FrameRate and SampleRate inputs should carry their unit suffixes in order");
-        }
-        finally
-        {
-            window.Close();
-            HeadlessTestHelpers.Settle();
-        }
-    }
-
-    private static IEnumerable<T> CollectDescendants<T>(Avalonia.Visual root)
-        where T : Avalonia.Visual
-    {
-        foreach (Avalonia.Visual child in root.GetVisualChildren())
-        {
-            if (child is T match)
-            {
-                yield return match;
-            }
-
-            foreach (T descendant in CollectDescendants<T>(child))
-            {
-                yield return descendant;
-            }
-        }
+        Assert.That(units, Is.EqualTo(new[] { "px", "fps", "Hz" }),
+            "Size, FrameRate and SampleRate inputs should carry their unit suffixes in order");
     }
 }
