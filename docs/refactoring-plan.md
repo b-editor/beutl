@@ -25,14 +25,18 @@ clusters into four themes:
 3. **Copy-paste drift that has already become bugs** — GraphEditor keyframe paste
    inserts duplicates, `DelayNode` keeps stale state across forward seeks,
    `MacWindow` misses fixes applied to `MainView`.
-4. **Undetected death** — ~10k+ LOC of verified-dead code, ~80 MB of dead binary
-   assets (unused font weights ×2 locations, stale dylibs), and one silent feature
+4. **Undetected death** — ~10k+ LOC of verified-dead code, ~27 MB of dead binary
+   assets (unreachable UI font weights + stale dylibs), and one silent feature
    loss: the Script filter-effect node group is never registered and is unreachable
-   from the UI.
+   from the UI. **Correction (Phase 1 verification): the original "~80 MB" figure
+   conflated the removable UI weights/dylibs with the ~27 MB test-assembly font
+   family, which is LIVE (loaded by `tests/Beutl.UnitTests/Engine/TypefaceProvider.cs`)
+   and was not removed — see Phase 1 *Assets and tests*.**
 
-**Expected outcome**: −15–20k LOC, −~80 MB of binary assets, CI build time roughly
-halved, and the in-flight layering migration completed. Total effort ≈ 5–7
-person-months; Phases 3⇄4 and 5⇄6 can run in parallel.
+**Expected outcome**: −15–20k LOC, −~27 MB of binary assets (revised down from the
+original ~80 MB estimate by Phase 1 verification — see Phase 1 *Assets and tests*),
+CI build time roughly halved, and the in-flight layering migration completed. Total
+effort ≈ 5–7 person-months; Phases 3⇄4 and 5⇄6 can run in parallel.
 
 ---
 
@@ -56,10 +60,13 @@ regression tests.
 
 ## Phase 1 — Dead code and dead asset sweep
 
-*Size: 1–2 weeks. Deletes ~10k+ LOC and ~80 MB of assets. All items below were
-adversarially verified unless marked otherwise. Engine/Extensibility deletions are
-plugin-facing: batch them into one `refactor!:` release train with a
-`BREAKING CHANGE:` footer listing affected projects.*
+*Size: 1–2 weeks. Deletes ~10k+ LOC and ~27 MB of assets. Items below were
+adversarially verified unless marked otherwise; **Phase 1 execution re-verification
+(PRs #1895–#1910) refuted several originally-listed items, corrected inline below**
+(the dead-style-theme, package, audio `Pcm<T>`, font-asset, and `HistoryManager`
+entries — re-verify every "dead" claim at deletion time, per the cross-phase rule).
+Engine/Extensibility deletions are plugin-facing: batch them into one `refactor!:`
+release train with a `BREAKING CHANGE:` footer listing affected projects.*
 
 **Engine**
 - Legacy encoder pipeline: `MediaWriter`, `IEncoderInfo`, `EncoderRegistry`,
@@ -86,15 +93,27 @@ plugin-facing: batch them into one `refactor!:` release train with a
   style files, two `ResourceInclude` lines). Repo-wide grep confirmed zero external
   consumers; all remaining references are internal to the cluster itself.
 - `DirectoryTreeView` (905 lines, zero references — re-confirm at deletion time),
-  `MultiplyConverter`, dead style-only themes (`FlipButton`, `SegmentedControl`,
-  `SimpleBreadcrumbBar`).
+  `MultiplyConverter`, and the dead style-only `SegmentedControl` theme
+  (`SegmentedTabStrip`/`SegmentedTabStripItem`, zero consumers). **Correction
+  (Phase 1 verification): `FlipButton` and `SimpleBreadcrumbBar` are LIVE and were
+  NOT removed** — `FlipButton` is the base `ControlTheme` for the property-editor
+  flip buttons (`BasedOn="{StaticResource FlipButton}"` in
+  `PropertyEditorResources.axaml`), and the `simple-breadcrumb-bar` style class plus
+  the `SimpleLargeBreadcrumbBar*` themes back 5+ settings pages (Editor / Extensions /
+  KeyMap / Telemetry / View settings, decoder/extension-priority pages, et al.).
+  Do not delete them.
 - Dead observable machinery (`PackageManager.GetObservable`/`IsLoaded`,
   `PackageInstaller.GetObservable`), the storage-usage endpoint chain, the startup
   guard that waits on a process name that no longer exists.
-- Unused PackageReferences: `ReactiveUI.Avalonia` (one empty-lambda call site),
-  `OpenTelemetry`, `System.Interactive`, plus dead `PackageVersion` entries in
-  `Directory.Packages.props`. Keep `Microsoft.Extensions.DependencyInjection` in
-  `Beutl.Core`/`Beutl` — Phase 5 uses it.
+- Unused PackageReferences and orphan `PackageVersion` pins in
+  `Directory.Packages.props`. **Correction (Phase 1 verification, PR #1896):
+  `ReactiveUI.Avalonia`, `OpenTelemetry` + `OpenTelemetry.Exporter.OpenTelemetryProtocol`,
+  and `System.Interactive` are LIVE and were kept** — `ReactiveUI.Avalonia` is
+  referenced by `Beutl`; the OpenTelemetry core/OTLP packages by `Beutl` / `Beutl.Api` /
+  `Beutl.PackageTools.UI`; `System.Interactive` by `Beutl` / `Beutl.Api` (re-verify
+  the exact call sites before any future removal). Only `System.Interactive.Async`,
+  the Console/Zipkin exporters, and orphan pins were removable. Keep
+  `Microsoft.Extensions.DependencyInjection` in `Beutl.Core`/`Beutl` — Phase 5 uses it.
 
 **Media backends**
 - The never-built in-process FFmpeg variant: `FFmpegOutOfProcess` csproj matrix,
@@ -112,15 +131,24 @@ plugin-facing: batch them into one `refactor!:` release train with a
   `Handshake`, never-populated/never-read response fields.
 
 **Assets and tests**
-- 5 of 9 embedded NotoSansJP weights (~27 MB) unreachable in the UI; the second
-  ~27.5 MB font family embedded in the test assembly; stale `libBeutlAVF.dylib`
-  copies under `src/Beutl/runtimes/`; byte-identical fat dylib duplicated across
-  osx-x64/osx-arm64 RID folders; orphaned images.
+- Unreachable embedded NotoSansJP UI weights (~27 MB; `src/Beutl/Resources/Fonts/`
+  now ships only the 4 weights actually used); stale `libBeutlAVF.dylib` copies under
+  `src/Beutl/runtimes/`; byte-identical fat dylib duplicated across osx-x64/osx-arm64
+  RID folders; orphaned images. **Correction (Phase 1 verification): the ~27 MB
+  NotoSansJP/Roboto font family under `tests/Beutl.UnitTests/Assets/Font/` is LIVE** —
+  `Engine/TypefaceProvider.cs` loads all of it and it is embedded via
+  `<EmbeddedResource Include="Assets\**\*.*" />`, so it was NOT removed. The original
+  "~80 MB" headline conflated this live test font family with the removable UI
+  weights; the real removable total is ~27 MB.
 - Tests that exist solely to keep dead code alive — delete **in the same PR** as
-  the production code: ~670 lines of `HistoryManagerTests` over zero-caller API
-  (`BeginRecordingScope`, `ExecuteInTransaction`, `PeekUndo/PeekRedo`,
-  `SuppressRecording`), and the `GraphicsException` / `StringHash` /
-  `BaseUriHelper.FindBaseUri` fixtures.
+  the production code: the `GraphicsException` / `StringHash` /
+  `BaseUriHelper.FindBaseUri` fixtures. **Correction (Phase 1 verification):
+  `HistoryManager.SuppressRecording` is LIVE (6 internal callers in
+  `HistoryManager.cs`) — do not remove it.** The remaining `HistoryManager` API
+  review (`BeginRecordingScope`, `ExecuteInTransaction`, `PeekUndo`/`PeekRedo` and the
+  ~670 lines of `HistoryManagerTests` covering them) moves to **Phase 4** — the editor
+  layering / Commit-routing migration owns the `HistoryManager` surface — not the
+  Phase 1 dead sweep.
 - `tests/KeySplineEditor` leftover prototype app.
 
 ## Phase 2 — Build & test foundation
@@ -288,7 +316,11 @@ decided, this phase executes the remainder. Can partially overlap Phase 3.*
   operation) and migrate the 45 inline `HistoryManager.Commit` sites. Exemplar
   drift to kill: `GraphEditorView.axaml.cs` re-implements the Scene Start/Duration
   drag that `SceneTimeRangeService` already owns. NUnit tests per service (the
-  already-migrated services all have them — keep that bar).
+  already-migrated services all have them — keep that bar). Also fold in the
+  `HistoryManager` API review deferred from Phase 1: confirm whether
+  `BeginRecordingScope` / `ExecuteInTransaction` / `PeekUndo` / `PeekRedo` (currently
+  test-only callers) gain production callers here or should be removed with their
+  tests; `SuppressRecording` is live (6 callers) and stays.
 - **4c. Keyframe clipboard consolidation**: collapse the 4 copy-paste sites
   (byte-identical `CopyAsync` pairs, duplicated ~70-line notification switches)
   into an extended `IKeyFrameClipboardService`; pick one replace-vs-insert
