@@ -178,6 +178,22 @@ class Build : NukeBuild
                 .SetProperty("TargetFramework", tfm)
                 .SetProperty("UseAppHost", true)
                 .SetProperty("SelfContained", true));
+
+            AbsolutePath workerProj = SourceDirectory / "Beutl.FFmpegWorker" / "Beutl.FFmpegWorker.csproj";
+            AbsolutePath workerOutput = OutputDirectory / "Beutl.FFmpegWorker";
+            DotNetPublish(s => s
+                .SetRuntime(Runtime)
+                .SetSelfContained(true)
+                .SetFramework(tfm)
+                .SetConfiguration(Configuration)
+                .SetVersions(Version, AssemblyVersion, InformationalVersion)
+                .SetProject(workerProj)
+                .SetOutput(workerOutput));
+
+            AbsolutePath bundleContents = output / "Beutl.app" / "Contents" / "MacOS";
+            workerOutput.GlobFiles("**/Beutl.FFmpegWorker*")
+                .Select(p => (Source: p, Target: bundleContents / workerOutput.GetRelativePathTo(p)))
+                .ForEach(t => t.Source.Copy(t.Target, ExistsPolicy.FileOverwrite));
         });
 
     Target NuGetPack => _ => _
