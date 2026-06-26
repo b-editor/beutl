@@ -38,6 +38,7 @@ jobs:
         uses: actions/checkout@v7
         with:
           fetch-depth: 0
+          persist-credentials: false
 
       # 同日プレフィックスが既にボードに存在すれば、後段の Claude レビューを丸ごとスキップする
       # 決定論的な冪等性ガード。LLM 任せの取得+走査をやめ、ここで全アイテムをページング取得して
@@ -117,8 +118,8 @@ jobs:
             ## 入力
             - `REVIEW_SINCE` = `$REVIEW_SINCE`
             - `REVIEW_SCOPE` = `$REVIEW_SCOPE`
-            - `REVIEW_PREFIX` = `$REVIEW_PREFIX`（前段ステップが算出した同日プレフィックス。Draft タイトルの先頭に必ず使う）
-            - `DRY_RUN` = `$DRY_RUN`
+            - `REVIEW_PREFIX` = `${{ steps.guard.outputs.prefix }}`（前段ステップが算出した同日プレフィックス。Draft タイトルの先頭に必ず使う）
+            - `DRY_RUN` = `${{ env.DRY_RUN }}`
 
             ## 冪等性について
             同日プレフィックスの重複チェックは**前段の決定論的ステップで実施済み**で、未投入のときだけこのレビューが走る。したがってここでは同日プレフィックスの存在確認を**再実行しなくてよい**。ボードへの取りこぼしの無い全件チェックは前段が保証している。
