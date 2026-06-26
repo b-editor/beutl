@@ -135,6 +135,18 @@ public class SearchPageCardLayoutTests
                 name.Bounds.Width,
                 Is.GreaterThan(0),
                 "the name column must keep positive width even next to a very long author");
+
+            Assert.That(
+                Grid.GetColumnSpan(displayName),
+                Is.EqualTo(1),
+                "the display name must not span into the price column (was the overlap bug)");
+
+            // Only the two secondary-column fields (author, price) are MaxWidth-capped; the
+            // name/display-name in the star column are not, so an ellipsized+capped count of 2 == both.
+            Assert.That(
+                blocks.Count(t => double.IsFinite(t.MaxWidth) && t.TextTrimming == TextTrimming.CharacterEllipsis),
+                Is.GreaterThanOrEqualTo(2),
+                "both the author and price fields must be MaxWidth-capped and ellipsized");
         }
         finally
         {
