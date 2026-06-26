@@ -1,3 +1,5 @@
+﻿using System.Diagnostics;
+
 namespace Beutl.FFmpegIpc.Providers;
 
 /// <summary>
@@ -33,6 +35,7 @@ internal sealed class PrefetchSlot<TKey, TValue>
     /// <summary>Arms the slot with an in-flight prefetch. The caller guarantees the slot is empty.</summary>
     public void Arm(TKey key, int bufferIndex, Task<TValue> task)
     {
+        Debug.Assert(_task is null, "PrefetchSlot armed while a prefetch was already in flight");
         _key = key;
         _bufferIndex = bufferIndex;
         _task = task;

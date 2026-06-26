@@ -234,6 +234,14 @@ public sealed class IpcConnection : IDisposable
     /// 多重化モードではIDベースルーティングを使い、並行リクエストを可能にする。
     /// 通常モードでは送信→受信をatomicに行い、レスポンスの混在を防ぐ。
     /// </summary>
+    /// <exception cref="System.OperationCanceledException">
+    /// <paramref name="ct"/> fired, or a host <c>CancelEncode</c> arriving in place of the expected response
+    /// surfaces as a cancellation (a cancel during an active encode is reported as cancellation rather than an
+    /// id mismatch).
+    /// </exception>
+    /// <exception cref="System.IO.IOException">The connection closed before a response was received.</exception>
+    /// <exception cref="FFmpegWorkerException">The worker reported an error in the response.</exception>
+    /// <exception cref="System.InvalidOperationException">The response id did not match the request id.</exception>
     public async ValueTask<IpcMessage> SendAndReceiveAsync(IpcMessage request, CancellationToken ct = default)
     {
         if (IsMultiplexed)
@@ -307,6 +315,9 @@ public sealed class IpcConnection : IDisposable
             ?? throw new InvalidOperationException($"Failed to deserialize response payload for {responseType}");
     }
 
+    // CancelEncode-as-cancellation is recognized only on the sequential SendAndReceiveAsync path, not here:
+    // the encode connection is never multiplexed (WorkerHost dispatches StartEncode sequentially), so a
+    // CancelEncode never arrives on this path.
     private async ValueTask<IpcMessage> SendAndReceiveMultiplexedAsync(IpcMessage request, CancellationToken ct)
     {
         ct.ThrowIfCancellationRequested();
