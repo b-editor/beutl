@@ -121,7 +121,10 @@ class Build : NukeBuild
             // FileNotFoundException at startup. Copy its whole closure with FileSkip instead — the
             // app's shared assemblies/runtime stay the single canonical set (skipped), and only the
             // worker's identity + private deps are added.
+            // `dotnet publish --output` does not clear the dir first, so clean it to keep stale
+            // artifacts from an earlier RID/config out of the FileSkip copy.
             AbsolutePath workerOutput = OutputDirectory / "Beutl.FFmpegWorker";
+            workerOutput.CreateOrCleanDirectory();
             DotNetPublish(s => s
                 .When(_ => Runtime != null, s => s
                     .SetRuntime(Runtime)
@@ -208,7 +211,10 @@ class Build : NukeBuild
             // FileSkip: the app's shared assemblies/runtime stay canonical (skipped), and the worker's
             // identity + private deps are added flat. Runs before the workflow's codesign step.
             AbsolutePath workerProj = SourceDirectory / "Beutl.FFmpegWorker" / "Beutl.FFmpegWorker.csproj";
+            // `dotnet publish --output` does not clear the dir first, so clean it to keep stale
+            // artifacts from an earlier RID/config out of the FileSkip copy.
             AbsolutePath workerOutput = OutputDirectory / "Beutl.FFmpegWorker";
+            workerOutput.CreateOrCleanDirectory();
             DotNetPublish(s => s
                 .SetRuntime(Runtime)
                 .SetSelfContained(true)
