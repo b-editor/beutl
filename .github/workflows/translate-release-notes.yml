@@ -124,9 +124,13 @@ jobs:
           REPO: ${{ github.repository }}
         run: |
           set -euo pipefail
-          if ! gh release view "$TAG" -R "$REPO" --json url >/dev/null 2>&1; then
-            echo "No release found for $TAG — nothing to translate, skipping verification."
-            exit 0
+          if ! err=$(gh release view "$TAG" -R "$REPO" --json url 2>&1 >/dev/null); then
+            if printf '%s' "$err" | grep -qiE 'release not found|not found|HTTP 404'; then
+              echo "No release found for $TAG — nothing to translate, skipping verification."
+              exit 0
+            fi
+            echo "::error::Failed to look up release $TAG to verify its notes (gh release view errored): $err"
+            exit 1
           fi
           body=$(gh release view "$TAG" -R "$REPO" --json body -q .body)
           if printf '%s' "$body" | grep -qF "日本語のリリースノートは"; then
