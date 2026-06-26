@@ -1,4 +1,4 @@
-using Beutl.FFmpegIpc.Providers;
+﻿using Beutl.FFmpegIpc.Providers;
 
 namespace Beutl.FFmpegIpc.Tests;
 
