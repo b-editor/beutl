@@ -35,13 +35,14 @@ jobs:
 
       - name: Translate discussion and link from release
         uses: anthropics/claude-code-action@v1
+        timeout-minutes: 20
         env:
           GH_TOKEN: ${{ secrets.DISCUSSION_TOKEN }}
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           github_token: ${{ secrets.DISCUSSION_TOKEN }}
           allowed_bots: "github-actions"
-          claude_args: '--allowed-tools "Bash(gh release view:*),Bash(gh release edit:*),Bash(gh api graphql:*),Bash(cat:*),Bash(mktemp:*),Bash(printf:*),Bash(jq:*)"'
+          claude_args: '--allowed-tools "Bash(gh release view:*),Bash(gh release edit:*),Bash(gh api graphql:*),Bash(cat:*),Bash(mktemp:*),Bash(printf:*),Bash(jq:*),Write,Read"'
           prompt: |
             A new GitHub Discussion was created in `${{ github.repository }}`. Treat its title as a release tag and:
               1. translate the matching release body into Japanese and post it as a NEW COMMENT on the discussion (do not edit the discussion body itself), and
@@ -87,9 +88,9 @@ jobs:
 
                In either case, ALWAYS continue to step 5 — a previous run may have posted the comment but failed to update the release body, and step 5 must be allowed to repair that.
 
-            4. (Only if `COMMENT_URL` was not set in step 3.) Post the translated body as a NEW comment on the discussion. Write the body to a temp file (it contains backticks, quotes, and newlines) and prepend the marker line `<!-- japanese-release-notes -->` followed by a blank line so future runs can detect it. Then:
+            4. (Only if `COMMENT_URL` was not set in step 3.) Post the translated body as a NEW comment on the discussion. Create the comment body with the `Write` tool — write it to `comment-body.md` (it contains backticks, quotes, and newlines, so do NOT build it with shell heredocs / `echo` / `printf`) and prepend the marker line `<!-- japanese-release-notes -->` followed by a blank line so future runs can detect it. Then:
                ```
-               gh api graphql -F discussionId='${{ inputs.discussion_node_id }}' -F body=@"$comment_file" -f query='
+               gh api graphql -F discussionId='${{ inputs.discussion_node_id }}' -F body=@comment-body.md -f query='
                  mutation($discussionId: ID!, $body: String!) {
                    addDiscussionComment(input: { discussionId: $discussionId, body: $body }) {
                      comment { id url }
@@ -104,8 +105,8 @@ jobs:
                ```
                日本語のリリースノートは[こちら](<COMMENT_URL>)です。
                ```
-               Then write the combined body back to a temp file and run:
-               `gh release edit "${{ inputs.discussion_title }}" -R ${{ github.repository }} --notes-file "$f"`
+               Then create the combined body with the `Write` tool — write it to `release-body.md` (not a shell heredoc) and run:
+               `gh release edit "${{ inputs.discussion_title }}" -R ${{ github.repository }} --notes-file release-body.md`
                Preserve `--draft=true` if the release was a draft (use the `isDraft` value you fetched).
                If the substring is already present, do not edit the release.
 
@@ -115,3 +116,22 @@ jobs:
             - Do not publish the release, edit the tag, or touch assets.
             - Do not modify any other discussion or release.
             - If anything is ambiguous (release missing, translation refused, API error), exit without partial writes.
+
+      - name: Verify the translation link was added
+        env:
+          GH_TOKEN: ${{ secrets.DISCUSSION_TOKEN }}
+          TAG: ${{ inputs.discussion_title }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          if ! gh release view "$TAG" -R "$REPO" --json url >/dev/null 2>&1; then
+            echo "No release found for $TAG — nothing to translate, skipping verification."
+            exit 0
+          fi
+          body=$(gh release view "$TAG" -R "$REPO" --json body -q .body)
+          if printf '%s' "$body" | grep -qF "日本語のリリースノートは"; then
+            echo "Release notes link to the Japanese translation — translation succeeded."
+          else
+            echo "::error::Release $TAG exists but its notes do not link to the Japanese translation. The Claude step finished without updating the release body."
+            exit 1
+          fi
