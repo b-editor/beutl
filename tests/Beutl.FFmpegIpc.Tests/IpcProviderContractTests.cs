@@ -110,6 +110,30 @@ public class IpcProviderContractTests
         }, ct);
     }
 
+    // Fake host that answers every request with CancelEncode carrying a FRESH id (not the request's id),
+    // reproducing how the real host injects cancellation mid-encode: FFmpegEncodingControllerProxy sends
+    // CancelEncode minted from connection.NextId(), so on the worker's non-multiplexed connection that
+    // message is read in place of the awaited ProvideFrame/ProvideSample response and carries a
+    // non-matching id. The worker-cancel path must surface this as a clean OperationCanceledException, not
+    // a "Response ID mismatch" (which HandleStartAsync would report as EncodeComplete{Error=...}).
+    private static Task RunFreshIdCancelingHost(NamedPipeServerStream server, CancellationToken ct)
+    {
+        return Task.Run(async () =>
+        {
+            while (!ct.IsCancellationRequested)
+            {
+                var req = await MessageSerializer.ReadMessageAsync(server, ct);
+                if (req == null)
+                    return;
+
+                // req.Id + 1_000_000 is guaranteed distinct from the in-flight request id, mirroring a
+                // CancelEncode minted from a separate id sequence on the host side.
+                var resp = IpcMessage.CreateSimple(req.Id + 1_000_000, MessageType.CancelEncode);
+                await MessageSerializer.WriteMessageAsync(server, resp, ct);
+            }
+        }, ct);
+    }
+
     // Fake host that replies to every request with one fixed ProvideFrame, so a test can drive the
     // provider's frame-validation guards with specific Width/Height/DataLength values.
     private static Task RunMalformedFrameHost(
@@ -604,6 +628,61 @@ public class IpcProviderContractTests
         {
             Assert.That(async () => await provider.Sample(0, 1024),
                 Throws.TypeOf<OperationCanceledException>());
+        }
+        finally
+        {
+            await StopHost(hostCts, server, hostTask);
+            DisposeBuffers(buffers);
+        }
+    }
+
+    [Test]
+    public async Task RenderFrame_WhenHostCancelsWithFreshId_ThrowsOperationCanceled()
+    {
+        // Regression for the worker-side cancel-during-encode reporting bug: the host injects CancelEncode
+        // with a fresh id while the worker awaits a frame. Before the fix the id-match check turned this
+        // into InvalidOperationException("Response ID mismatch"), which HandleStartAsync mis-reported as
+        // EncodeComplete{Error='Response ID mismatch'} instead of a clean cancel. It must surface as
+        // OperationCanceledException so HandleStartAsync reports "Cancelled".
+        var (server, client) = ConnectPair();
+        var buffers = CreateBuffers();
+        var hostCts = new CancellationTokenSource();
+        var hostTask = RunFreshIdCancelingHost(server, hostCts.Token);
+
+        using var conn = new IpcConnection(client);
+        var provider = new IpcFrameProvider(conn, buffers, frameCount: 100, frameRate: new Rational(30, 1));
+
+        try
+        {
+            Assert.That(async () => await provider.RenderFrame(0),
+                Throws.TypeOf<OperationCanceledException>(),
+                "a CancelEncode with a fresh id must surface as a clean cancel, not 'Response ID mismatch'");
+        }
+        finally
+        {
+            await StopHost(hostCts, server, hostTask);
+            DisposeBuffers(buffers);
+        }
+    }
+
+    [Test]
+    public async Task Sample_WhenHostCancelsWithFreshId_ThrowsOperationCanceled()
+    {
+        // Regression mirror of the frame-side test: a CancelEncode minted with a fresh id mid-encode must
+        // surface from the sample path as OperationCanceledException, not "Response ID mismatch".
+        var (server, client) = ConnectPair();
+        var buffers = CreateBuffers();
+        var hostCts = new CancellationTokenSource();
+        var hostTask = RunFreshIdCancelingHost(server, hostCts.Token);
+
+        using var conn = new IpcConnection(client);
+        var provider = new IpcSampleProvider(conn, buffers, sampleCount: 48000, sampleRate: 48000);
+
+        try
+        {
+            Assert.That(async () => await provider.Sample(0, 1024),
+                Throws.TypeOf<OperationCanceledException>(),
+                "a CancelEncode with a fresh id must surface as a clean cancel, not 'Response ID mismatch'");
         }
         finally
         {

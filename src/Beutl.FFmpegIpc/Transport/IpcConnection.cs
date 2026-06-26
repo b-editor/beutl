@@ -261,6 +261,14 @@ public sealed class IpcConnection : IDisposable
                 if (response.Error != null)
                     throw new FFmpegWorkerException(response.Error, response.ErrorStackTrace);
 
+                // CancelEncode is an out-of-band control message, not a reply to this request: during an
+                // active encode the host injects it with a fresh id while the worker is blocked here awaiting
+                // a frame/sample response, so it is read in place of that response and carries a non-matching
+                // id. Recognize it before the id-match check so a cancel surfaces as OperationCanceledException
+                // (which HandleStartAsync reports as "Cancelled") instead of "Response ID mismatch".
+                if (response.Type == MessageType.CancelEncode)
+                    throw new OperationCanceledException();
+
                 if (response.Id != request.Id)
                     throw new InvalidOperationException(
                         $"Response ID mismatch: expected {request.Id}, got {response.Id}");

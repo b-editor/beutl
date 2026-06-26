@@ -22,9 +22,7 @@ internal sealed class IpcSampleProvider : ISampleProvider
     private int _currentBufferIndex;
 
     // 先行フェッチ（次の1秒分、バックグラウンド）
-    private Task<Pcm<Stereo32BitFloat>>? _prefetchTask;
-    private long _prefetchChunkOffset;
-    private int _prefetchBufferIndex;
+    private readonly PrefetchSlot<long, Pcm<Stereo32BitFloat>> _prefetch = new();
     private bool _disposed;
 
     public IpcSampleProvider(IpcConnection connection, SharedMemoryBuffer[] audioBuffers,
@@ -127,28 +125,24 @@ internal sealed class IpcSampleProvider : ISampleProvider
         }
 
         // プリフェッチ済みのチャンクと一致する場合
-        if (_prefetchTask != null && _prefetchChunkOffset == chunkOffset)
+        Task<Pcm<Stereo32BitFloat>>? prefetched = _prefetch.TryConsumeMatching(chunkOffset, out int prefetchBufferIndex);
+        if (prefetched != null)
         {
-            // Clear the field before awaiting (like the stale-drain branch below and IpcFrameProvider's
-            // prefetch-hit branch) so a faulted prefetch can't pin the provider to a re-throwing task.
-            Task<Pcm<Stereo32BitFloat>> prefetchTask = _prefetchTask;
-            _prefetchTask = null;
-            var pcm = await prefetchTask;
+            var pcm = await prefetched;
 
             _currentChunk?.Dispose();
             _currentChunk = pcm;
             _currentChunkOffset = chunkOffset;
-            _currentBufferIndex = _prefetchBufferIndex;
+            _currentBufferIndex = prefetchBufferIndex;
             return;
         }
 
         // プリフェッチが進行中だが要求と一致しない場合は、完了を待ってから結果を破棄する。
         // ホストへ非順次なリクエストが流出しないよう、参照を捨てるだけでなく必ず await する。
-        if (_prefetchTask != null)
+        Task<Pcm<Stereo32BitFloat>>? stale = _prefetch.TryDetachStale(chunkOffset);
+        if (stale != null)
         {
-            Task<Pcm<Stereo32BitFloat>> staleTask = _prefetchTask;
-            _prefetchTask = null;
-            Pcm<Stereo32BitFloat> stalePcm = await staleTask;
+            Pcm<Stereo32BitFloat> stalePcm = await stale;
             stalePcm.Dispose();
         }
 
@@ -161,15 +155,14 @@ internal sealed class IpcSampleProvider : ISampleProvider
 
     private void StartPrefetchIfNeeded()
     {
-        if (_prefetchTask != null) return;
+        if (_prefetch.HasPrefetch) return;
         if (_currentChunk == null) return;
 
         long nextChunkOffset = _currentChunkOffset + _currentChunk.NumSamples;
         if (nextChunkOffset >= SampleCount) return;
 
-        _prefetchBufferIndex = 1 - _currentBufferIndex;
-        _prefetchChunkOffset = nextChunkOffset;
-        _prefetchTask = FetchChunk(nextChunkOffset, _prefetchBufferIndex).AsTask();
+        int prefetchBufferIndex = 1 - _currentBufferIndex;
+        _prefetch.Arm(nextChunkOffset, prefetchBufferIndex, FetchChunk(nextChunkOffset, prefetchBufferIndex).AsTask());
     }
 
     private async ValueTask<Pcm<Stereo32BitFloat>> FetchChunk(long chunkOffset, int bufferIndex)
@@ -180,12 +173,9 @@ internal sealed class IpcSampleProvider : ISampleProvider
             new RequestSampleMessage { Offset = chunkOffset, Length = chunkLength, BufferIndex = bufferIndex });
         var response = await _connection.SendAndReceiveAsync(request);
 
-        // SendAndReceiveAsync already surfaces a closed connection as IOException and an error response as
-        // FFmpegWorkerException, so the response here is non-null and error-free; only CancelEncode (a live
-        // non-error response) still needs handling.
-        if (response.Type == MessageType.CancelEncode)
-            throw new OperationCanceledException();
-
+        // SendAndReceiveAsync surfaces a closed connection as IOException, an error response as
+        // FFmpegWorkerException, and a host CancelEncode as OperationCanceledException, so the response here
+        // is always a live ProvideSample for this request.
         var sampleInfo = response.GetPayload<ProvideSampleMessage>()
             ?? throw new InvalidOperationException("Missing payload for ProvideSample");
 
@@ -221,7 +211,7 @@ internal sealed class IpcSampleProvider : ISampleProvider
 
     // Test-only probe: lets a Dispose test wait until the in-flight prefetch has actually faulted before
     // dropping it, so the faulted-task path is exercised deterministically without a sleep.
-    internal bool IsPrefetchFaultedForTest() => _prefetchTask?.IsFaulted == true;
+    internal bool IsPrefetchFaultedForTest() => _prefetch.IsFaulted;
 
     public void Dispose()
     {
@@ -241,7 +231,7 @@ internal sealed class IpcSampleProvider : ISampleProvider
         // ExecuteSynchronously is safe because t.Result.Dispose() is a single P/Invoke free: no lock
         // contention and no throw path. If that body ever becomes heavier, drop ExecuteSynchronously so the
         // runtime schedules the continuation on a pool thread instead of the completing (receive-loop) one.
-        _prefetchTask?.ContinueWith(
+        _prefetch.Detach()?.ContinueWith(
             static t =>
             {
                 if (t.IsFaulted)
@@ -252,7 +242,6 @@ internal sealed class IpcSampleProvider : ISampleProvider
             CancellationToken.None,
             TaskContinuationOptions.ExecuteSynchronously,
             TaskScheduler.Default);
-        _prefetchTask = null;
 
         _currentChunk?.Dispose();
         _currentChunk = null;

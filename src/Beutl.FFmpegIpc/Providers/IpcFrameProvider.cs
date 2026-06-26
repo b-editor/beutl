@@ -11,11 +11,8 @@ internal sealed class IpcFrameProvider : IFrameProvider
 {
     private readonly IpcConnection _connection;
     private readonly SharedMemoryBuffer[] _videoBuffers;
+    private readonly PrefetchSlot<long, IpcMessage> _prefetch = new();
     private int _bufferIndex;
-
-    private Task<IpcMessage>? _prefetchTask;
-    private int _prefetchBufferIndex;
-    private long _prefetchFrameIndex;
     private bool _disposed;
 
     public IpcFrameProvider(IpcConnection connection, SharedMemoryBuffer[] videoBuffers,
@@ -38,27 +35,18 @@ internal sealed class IpcFrameProvider : IFrameProvider
         IpcMessage response;
         int readBufferIndex;
 
-        if (_prefetchTask != null && _prefetchFrameIndex == frame)
+        Task<IpcMessage>? prefetched = _prefetch.TryConsumeMatching(frame, out readBufferIndex);
+        if (prefetched != null)
         {
-            // Prefetch already in flight for the requested frame. Clear the field before awaiting (like
-            // the stale-drain branch) so a faulted prefetch can't pin the provider to a re-throwing task.
-            Task<IpcMessage> prefetchTask = _prefetchTask;
-            _prefetchTask = null;
-            readBufferIndex = _prefetchBufferIndex;
-            response = await prefetchTask;
+            response = await prefetched;
         }
         else
         {
-            // Prefetch in flight but for a different frame (seek / non-sequential request). On a
-            // non-multiplexed connection responses are read in send order, so the stale prefetch
-            // response must be awaited and discarded before issuing the fresh request; otherwise that
-            // request would read this old response and hit an id mismatch.
-            if (_prefetchTask != null)
-            {
-                Task<IpcMessage> staleTask = _prefetchTask;
-                _prefetchTask = null;
-                await staleTask;
-            }
+            // Prefetch in flight but for a different frame (seek / non-sequential request): drain the stale
+            // prefetch before issuing the fresh request so it can't be read in place of the new response.
+            Task<IpcMessage>? stale = _prefetch.TryDetachStale(frame);
+            if (stale != null)
+                await stale;
 
             readBufferIndex = _bufferIndex;
             var request = IpcMessage.Create(_connection.NextId(), MessageType.RequestFrame,
@@ -66,12 +54,9 @@ internal sealed class IpcFrameProvider : IFrameProvider
             response = await _connection.SendAndReceiveAsync(request);
         }
 
-        // SendAndReceiveAsync already surfaces a closed connection as IOException and an error response as
-        // FFmpegWorkerException, so the response here is non-null and error-free; only CancelEncode (a live
-        // non-error response) still needs handling.
-        if (response.Type == MessageType.CancelEncode)
-            throw new OperationCanceledException();
-
+        // SendAndReceiveAsync surfaces a closed connection as IOException, an error response as
+        // FFmpegWorkerException, and a host CancelEncode as OperationCanceledException, so the response here
+        // is always a live ProvideFrame for this request.
         var frameInfo = response.GetPayload<ProvideFrameMessage>()
             ?? throw new InvalidOperationException("Missing payload for ProvideFrame");
 
@@ -83,11 +68,10 @@ internal sealed class IpcFrameProvider : IFrameProvider
         long nextFrame = frame + 1;
         if (nextFrame < FrameCount)
         {
-            _prefetchBufferIndex = 1 - readBufferIndex;
-            _prefetchFrameIndex = nextFrame;
+            int prefetchBufferIndex = 1 - readBufferIndex;
             var nextRequest = IpcMessage.Create(_connection.NextId(), MessageType.RequestFrame,
-                new RequestFrameMessage { FrameIndex = nextFrame, BufferIndex = _prefetchBufferIndex });
-            _prefetchTask = _connection.SendAndReceiveAsync(nextRequest).AsTask();
+                new RequestFrameMessage { FrameIndex = nextFrame, BufferIndex = prefetchBufferIndex });
+            _prefetch.Arm(nextFrame, prefetchBufferIndex, _connection.SendAndReceiveAsync(nextRequest).AsTask());
         }
 
         _bufferIndex = 1 - readBufferIndex;
@@ -135,7 +119,7 @@ internal sealed class IpcFrameProvider : IFrameProvider
 
     // Test-only probe: lets a Dispose test wait until the in-flight prefetch has actually faulted before
     // dropping it, so the faulted-task path is exercised deterministically without a sleep.
-    internal bool IsPrefetchFaultedForTest() => _prefetchTask?.IsFaulted == true;
+    internal bool IsPrefetchFaultedForTest() => _prefetch.IsFaulted;
 
     public void Dispose()
     {
@@ -151,11 +135,10 @@ internal sealed class IpcFrameProvider : IFrameProvider
         // IpcMessage with nothing to release (the Bitmap is built lazily only when a frame is consumed), so a
         // successful prefetch leaks nothing — whereas a sample prefetch yields a native Pcm its continuation
         // must dispose on the success path.
-        _prefetchTask?.ContinueWith(
+        _prefetch.Detach()?.ContinueWith(
             static t => { _ = t.Exception; },
             CancellationToken.None,
             TaskContinuationOptions.ExecuteSynchronously | TaskContinuationOptions.OnlyOnFaulted,
             TaskScheduler.Default);
-        _prefetchTask = null;
     }
 }
