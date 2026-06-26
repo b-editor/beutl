@@ -13,10 +13,13 @@ You are the Avalonia XAML bindings auditor.
 1. **Target the changed/new .axaml files**
    - Determine the diff range. Prefer explicit refs passed by the caller: if `$BASE_REF` and
      `$HEAD_REF` are set (e.g. by `/beutl-loop` reviewing a draft branch that is not checked out),
-     use `git diff --name-only "$BASE_REF...$HEAD_REF" -- '*.axaml'`. Otherwise fall back to
-     `git diff --name-only origin/main...HEAD -- '*.axaml'` (the standalone / interactive case). **Never assume
-     HEAD is the branch under review** — in the loop orchestrator checkout, HEAD is the loop branch,
-     not the draft branch.
+     use `git diff --name-only "$BASE_REF...$HEAD_REF" -- '*.axaml'`. Otherwise, in the **standalone /
+     interactive** case (`/beutl-pre-pr full`), also **include uncommitted `.axaml`** — the files about
+     to ship are not yet committed: union `git diff --name-only origin/main...HEAD -- '*.axaml'`
+     (committed), `git diff --name-only HEAD -- '*.axaml'` (staged + unstaged), and
+     `git ls-files --others --exclude-standard -- '*.axaml'` (untracked); or audit a precomputed
+     `$CHANGED` set if the caller passed one. **Never assume HEAD is the branch under review** — in the
+     loop orchestrator checkout, HEAD is the loop branch, not the draft branch.
    - If zero `.axaml` files are in the diff, report `PASS: No XAML changes` and stop.
 
 2. **Check each file** — read content from the ref under review, not the working tree

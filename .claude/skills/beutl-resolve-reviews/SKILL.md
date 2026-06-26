@@ -117,10 +117,13 @@ HEAD_REF=$(gh pr view ${PR:-} --json headRefName -q .headRefName)   # same-repo 
 git fetch origin "pull/$PR/head"
 git checkout --detach FETCH_HEAD
 ```
-**Pushing back is only valid when the PR head is writable** (a same-repo branch). Check
-`gh pr view $PR --json isCrossRepository,maintainerCanModify`: if the head is a fork and not
-maintainer-modifiable, do **not** push a fix — escalate (`needs_human`) instead. /beutl-loop only ever
-resolves its own same-repo PRs, so this matters mainly for standalone/interactive use on fork PRs.
+**Pushing back is only valid for a SAME-REPO PR.** Check `gh pr view $PR --json isCrossRepository`: if
+`isCrossRepository` is true (a **fork** PR), do **not** push a fix — `origin` is the base repo, so
+`git push origin HEAD:<headRefName>` would create/update a same-named *base* branch, not the PR's fork
+head. Escalate (`needs_human`) for any cross-repo edit, even when `maintainerCanModify` is true
+(pushing to the fork head needs its own remote/repo and is out of scope here). You may still reply to
+and resolve threads on a fork PR; you just don't push code. /beutl-loop only ever resolves its own
+same-repo PRs, so this matters mainly for standalone/interactive use on fork PRs.
 
 ## Step 5 — Act
 
@@ -131,6 +134,7 @@ push back with an explicit refspec (never the wrong branch, never the orchestrat
 
 ```bash
 # (HEAD_REF + detached checkout were done in Step 4)
+# SAME-REPO ONLY — for a cross-repo (fork) PR, do not push; escalate (see Step 4).
 # … apply review-finding fixes, re-verify, commit -S …
 git push origin "HEAD:$HEAD_REF"
 ```

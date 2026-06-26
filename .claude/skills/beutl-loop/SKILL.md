@@ -187,8 +187,9 @@ Per-result outcomes and their effect on the **stagnation counters** (the budget 
 - `false_positive: true` → a **candidate** false positive (the runner did **not** touch the board).
   **Spot-check it first:** independently verify the runner's cited refutation against the current code.
   - **Confirmed** → move the board item to `False positive` (`e6ff360e`) now — the item **leaves the
-    queue**; this is **progress**: reset `consecutive_no_progress` to 0, increment
-    `consecutive_false_positives`, and **append the signature to
+    queue**; this is **progress**: reset `consecutive_no_progress` to 0, **clear `last_failure_signature`**
+    (any progress must clear it, so an unrelated later failure with the same first-error line does not
+    look back-to-back), increment `consecutive_false_positives`, and **append the signature to
     `.claude/loop-memory/false-positive-signatures.json`** (D-7). Continue.
   - **Inconclusive / refuted** → do **not** write `False positive` (a misclassification would hide a
     real item forever). **Revert the item to `Todo`** (un-claim — it is still `In Progress` from the
@@ -198,9 +199,9 @@ Per-result outcomes and their effect on the **stagnation counters** (the budget 
 - `already_implemented: true` → an already-shipped feature the runner moved to `Done` (not a false
   positive). This is **completed work → progress**: reset `consecutive_no_progress` to 0 **and reset
   `consecutive_false_positives` to 0** (real progress breaks the consecutive chain — otherwise
-  `FP → already-implemented → FP → already-implemented → FP` would trip the three-FP breaker), but
-  **never increment** `consecutive_false_positives` and do not record a false-positive signature.
-  Continue.
+  `FP → already-implemented → FP → already-implemented → FP` would trip the three-FP breaker),
+  **clear `last_failure_signature`**, but **never increment** `consecutive_false_positives` and do not
+  record a false-positive signature. Continue.
 - `blocked: true` → record `{reason, kind}`; **never stop the whole drain on a single item** (skip it
   via `attempted_ids` and report it at the end). Reset `consecutive_false_positives` to 0, **append
   `{item_id, kind, reason}` to `.claude/loop-memory/blocked-reasons.json`** (D-7), then by
@@ -299,7 +300,11 @@ loop branch in the orchestrator checkout, not the draft). Collect their blocking
 - **2-rework budget spent with blocking findings remaining** → stop reworking; the findings are
   **unresolved**.
 
-**2.5d. Open the PR.** Re-dispatch the runner in Rework mode with `OPEN_PR=true` and empty
+**2.5d. Open the PR.** **First: if any unresolved `machine_findings` is a hard guardrail (a
+`.github/workflows/*` change or a GPL/MIT boundary violation from 2.5a), do NOT open a PR** — 2.5a
+declared these non-reworkable, so stop here, leave the item for a human (record `blocked` /
+`left_reason: "hard guardrail (workflow / GPL-MIT) — needs explicit approval"`), and **un-claim the
+item back to `Todo`**. Otherwise, re-dispatch the runner in Rework mode with `OPEN_PR=true` and empty
 `review_findings` to open the PR from the (possibly amended) draft branch. This is the step-2 **"PR
 opened"** outcome: reset both stagnation counters to 0, **clear `last_failure_signature`** (any
 progress reset must also clear it — otherwise an unrelated later item that fails with the same first
@@ -340,7 +345,9 @@ Generate a spec, plan, and task list, then re-dispatch the runner to implement a
 
 If the Spec-Kit flow cannot produce a coherent spec/plan/tasks from the item body (too underspecified
 even for a spec), treat the item as `blocked` (`blocked_kind: "item-specific"`,
-`blocked_reason: "feature too underspecified for spec-kit"`) — record it and skip.
+`blocked_reason: "feature too underspecified for spec-kit"`) — record it, **un-claim it back to `Todo`**
+(the runner already claimed it `In Progress` before returning `speckit_required`; future runs select
+only `Backlog`/`Todo`, so leaving it `In Progress` would strand it), and skip.
 
 ### 3. Resolve reviews (sub-agent, bounded settle)
 Wait for async bot reviews, bounded by `settle_minutes`. **Block on CI without busy-waiting, and bound
