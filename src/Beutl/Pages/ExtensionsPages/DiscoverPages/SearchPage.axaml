@@ -83,29 +83,37 @@
                                                       VerticalAlignment="Stretch"
                                                       ColumnDefinitions="*,Auto"
                                                       RowDefinitions="Auto,Auto,Auto">
-                                                    <TextBlock Text="{Binding Name}" />
+                                                    <TextBlock Text="{Binding Name}"
+                                                               TextTrimming="CharacterEllipsis" />
 
                                                     <TextBlock Grid.Row="1"
-                                                               Grid.ColumnSpan="2"
                                                                Classes="name"
                                                                IsVisible="{Binding DisplayName.Value, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
-                                                               Text="{Binding DisplayName.Value}" />
+                                                               Text="{Binding DisplayName.Value}"
+                                                               TextTrimming="CharacterEllipsis" />
 
                                                     <TextBlock Grid.Row="2"
                                                                Grid.ColumnSpan="2"
                                                                Margin="0,8,0,0"
-                                                               Text="{Binding ShortDescription.Value}" />
+                                                               MaxLines="2"
+                                                               Text="{Binding ShortDescription.Value}"
+                                                               TextTrimming="CharacterEllipsis"
+                                                               TextWrapping="Wrap" />
 
                                                     <TextBlock Grid.Column="1"
+                                                               MaxWidth="120"
                                                                Foreground="{DynamicResource TextFillColorSecondaryBrush}"
-                                                               Text="{Binding Owner.Name}" />
+                                                               Text="{Binding Owner.Name}"
+                                                               TextTrimming="CharacterEllipsis" />
 
                                                     <TextBlock Grid.Row="1"
                                                                Grid.Column="1"
+                                                               MaxWidth="120"
                                                                HorizontalAlignment="Right"
                                                                VerticalAlignment="Center"
                                                                FontWeight="SemiBold"
-                                                               Text="{Binding FormattedPrice.Value, TargetNullValue={x:Static lang:ExtensionsStrings.Free}}" />
+                                                               Text="{Binding FormattedPrice.Value, TargetNullValue={x:Static lang:ExtensionsStrings.Free}}"
+                                                               TextTrimming="CharacterEllipsis" />
                                                 </Grid>
                                             </Grid>
                                         </Button>
