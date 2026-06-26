@@ -4,14 +4,14 @@
 
 | Name | When to call it | Model | Notes |
 |---|---|---|---|
-| `beutl-reviewer` | Pre-PR or post-large-change review | sonnet | Covers GPL/MIT, XAML, NUnit, SourceGen. `memory: project` accumulates lessons. |
+| `beutl-reviewer` | Pre-PR or post-large-change review | opus | Covers GPL/MIT, XAML, NUnit, SourceGen. `memory: project` accumulates lessons. |
 | `beutl-test-runner` | Investigating a failing test | sonnet | Runs with **`isolation: worktree`** so trial fixes don't touch main. |
 | `beutl-source-generator-impact` | Before/after editing `src/Beutl.Engine.SourceGenerators/` | sonnet | Reports blast radius, dependencies, test coverage. |
 | `beutl-spec-explorer` | "Is there a spec for this?" | haiku | Walks `docs/specs/` (the Spec-Kit output dir for Beutl). Preloads the Beutl skills. |
 | `beutl-xaml-binder` | After adding/changing many `.axaml` files | haiku | Confirms compiled bindings are in place. |
-| `beutl-design-reviewer` | When public types / extensibility surface change | sonnet | Enforces the "adopt better designs eagerly" priority from AGENTS.md (orthogonality, plugin-author flexibility, no compat-only shims). Complements — does not duplicate — `beutl-reviewer`. |
+| `beutl-design-reviewer` | When public types / extensibility surface change | opus | Enforces the "adopt better designs eagerly" priority from AGENTS.md (orthogonality, plugin-author flexibility, no compat-only shims). Complements — does not duplicate — `beutl-reviewer`. |
 | `beutl-gpu-crash-reproducer` | Reproducing a Linux/SwiftShader GPU **native** crash that doesn't repro on macOS | sonnet | Runs the arm64-native Docker repro (build + loop-until-crash + gdb/eu-stack) in isolation and returns just the native stack, keeping the multi-GB cores and log noise out of the caller's context. Driven by the `beutl-gpu-crash-repro` skill; captures evidence, does not fix. |
-| `beutl-board-task-runner` | Dispatched per tick by `/beutl-loop` to implement one Project #9 item | sonnet | Runs with **`isolation: worktree`**; executes the `beutl-board-task` flow for one item (verify → branch → implement → test → **draft**) and returns a compact structured result (draft branch + risk signals + `baseline_test_green` + `speckit_required`). **Always hands back a draft** (never opens the PR itself); the orchestrator runs the pre-PR review round. **Does not merge**, does not resolve reviews. |
+| `beutl-board-task-runner` | Dispatched per tick by `/beutl-loop` to implement one Project #9 item | opus | Runs with **`isolation: worktree`**; executes the `beutl-board-task` flow for one item (verify → branch → implement → test → **draft**) and returns a compact structured result (draft branch + risk signals + `baseline_test_green` + `speckit_required`). **Always hands back a draft** (never opens the PR itself); the orchestrator runs the pre-PR review round. **Does not merge**, does not resolve reviews. |
 
 ### Related skill: `beutl-gpu-crash-repro`
 
