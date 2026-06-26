@@ -233,17 +233,21 @@ entirely — not the same as a red baseline for a bug fix, which is expected and
 `baseline_test_green: true`), treat the tick as **no-progress** — the baseline-first discipline is
 load-bearing and must not be skipped.
 
-**Parallel-batch aggregation (C-5).** When the batch size > 1, aggregate stagnation across the batch:
+**Parallel-batch aggregation (C-5).** The per-result counter rules above apply **as-is only for a
+sequential tick (B = 1)**. When the batch size > 1, **this aggregation is the SOLE owner of both
+`consecutive_no_progress` and `consecutive_false_positives`** — apply each item's *board* action
+(un-claim, Done, False positive) and `last_failure_signature` per result, but do **not** let the
+per-result paths touch the two stagnation counters (summing per-item increments would let one batch
+trip a three-strike breaker). Compute them once for the whole batch:
 - If **any** result opened a PR (via step 2.5), was a confirmed false-positive, or was
-  `already_implemented` (moved to Done) → reset `consecutive_no_progress` (progress).
+  `already_implemented` (moved to Done) → **reset `consecutive_no_progress` to 0** (progress) and
+  **clear `last_failure_signature`**.
 - Only if **all** results were no-progress (red / systemic-blocked / baseline-violation) does the tick
-  count as a single no-progress tick.
-- `consecutive_false_positives`: the **per-result handling above is the sole owner** of this counter
-  (each confirmed FP already incremented it once; each non-FP progress result already reset it to 0).
-  Do **not** re-increment here — that would double-count a batch. The only batch-level rule: if the
-  batch had **any** non-FP progress (a PR opened or an `already_implemented` item), ensure the streak
-  is **0** after the batch (a reset by any one result wins over the other results' increments — the
-  FPs were not consecutive). If the running total ≥ 3, the step-0 breaker trips.
+  count as a **single** no-progress tick (increment `consecutive_no_progress` by 1, never by the count).
+- `consecutive_false_positives`: if the batch had **any** non-FP progress (a PR opened or an
+  `already_implemented` item), **reset it to 0** (the FPs were not consecutive). Otherwise — a batch
+  that is **purely** false positives — increment it **once** (not by the count). If the running total
+  ≥ 3, the step-0 breaker trips.
 - Each item in the batch counts as one `items_processed` in step 5 (a batch of 3 → 3 processed, so a
   parallel drain is faster but does not inflate the per-tick budget semantics).
 
@@ -302,9 +306,13 @@ loop branch in the orchestrator checkout, not the draft). Collect their blocking
 
 **2.5d. Open the PR.** **First: if any unresolved `machine_findings` is a hard guardrail (a
 `.github/workflows/*` change or a GPL/MIT boundary violation from 2.5a), do NOT open a PR** — 2.5a
-declared these non-reworkable, so stop here, leave the item for a human (record `blocked` /
-`left_reason: "hard guardrail (workflow / GPL-MIT) — needs explicit approval"`), and **un-claim the
-item back to `Todo`**. Otherwise, re-dispatch the runner in Rework mode with `OPEN_PR=true` and empty
+declared these non-reworkable, so stop here and leave the item for a human (record `blocked` /
+`left_reason: "hard guardrail (workflow / GPL-MIT) — needs explicit approval"`). **Do NOT un-claim it
+to `Todo`** — that is the auto-queue, and a restart/journal-expiry would let the loop re-pick it and
+repeat the forbidden draft. Instead **keep it `In Progress`** (so the auto-loop skips it) **and leave a
+durable, board-visible human handoff** — post a comment on the item's linked issue/draft stating it
+needs explicit approval (a transient run-summary line is not enough). Otherwise, re-dispatch the runner
+in Rework mode with `OPEN_PR=true` and empty
 `review_findings` to open the PR from the (possibly amended) draft branch. This is the step-2 **"PR
 opened"** outcome: reset both stagnation counters to 0, **clear `last_failure_signature`** (any
 progress reset must also clear it — otherwise an unrelated later item that fails with the same first
@@ -380,19 +388,26 @@ outstanding `CHANGES_REQUESTED` · no new review/comment/commit for ~10 min. **R
 (`gh pr checks`) and the thread/`reviewDecision` state yourself each poll — the resolver's
 `ci_status`/`changes_requested_outstanding`/counts are advisory; the orchestrator's own `gh` reads are
 authoritative** (and the step-5 merge gate re-checks them regardless). **Derive the quiet-period clock
-yourself too** — fetch the latest review `submitted_at`, inline/issue comment `updated_at`, and commit
-`committedDate` (e.g. `gh pr view "$PR" --json reviews,comments,commits`) and take the max as
-`last_activity_at`; the resolver's `last_activity_at` is advisory (it now carries real timestamps, but
+yourself too** — take the **max** of: the latest review `submitted_at`, the head commit
+`committedDate`, the newest **issue** comment `updated_at` (`gh pr view "$PR" --json reviews,comments,commits`),
+**and the newest inline review-comment `updated_at`** (`gh api "repos/$OWNER_REPO/pulls/$PR/comments" --paginate`)
+— `gh pr view --json comments` returns only issue comments, so an inline reply (including the
+resolver's own) is invisible to it and the loop could merge right after replying, before bots respond.
+That max is `last_activity_at`; the resolver's `last_activity_at` is advisory (it now carries real timestamps, but
 the orchestrator's own read is authoritative, consistent with CI/thread state). If `needs_human` is
 set, the settle window elapses, or CI is red → the PR is **left for human** (do not merge).
 
 ### 4. Classify risk (moderate policy) and decide the merge
-**First, recompute the risk signals from the final PR head.** Step 3 (`beutl-resolve-reviews --auto`)
-may have pushed review-fix commits after the runner reported, so the runner's `diff_loc` / touched-area
-signals can be stale. Re-read the current PR head diff (`git fetch origin "$DRAFT_BRANCH"` then
-`git diff origin/main...origin/$DRAFT_BRANCH`) and recompute `diff_loc`, `files_changed`, and the
-`touched_*` flags (including the design-review and GPL/MIT scans from 2.5a) before applying the gate
-below — a review fix can push the PR over the diff/coverage threshold or into a high-risk area.
+**First, re-verify the final PR head — Step 3 (`beutl-resolve-reviews --auto`) may have pushed
+review-fix commits after the runner reported.** `git fetch origin "$DRAFT_BRANCH"`, then on
+`git diff origin/main...origin/$DRAFT_BRANCH`:
+- **Re-run the ENTIRE 2.5a machine-verify** on the final head — not just the diff size: all axes
+  (`[Obsolete]`, `V2`/compat-shim, `// TODO`/Follow-ups, XAML compiled bindings, the GPL/MIT scan, and
+  the `.github/workflows/*` hard guardrail). A small review fix can introduce any of these after the
+  pre-PR audit. Any new **hard guardrail** (workflow / GPL-MIT) → do not merge, leave for human; any
+  other new blocking finding → high-risk → human.
+- **Recompute** `diff_loc`, `files_changed`, the `touched_*` flags, and design-review eligibility — a
+  review fix can push the PR over the diff/coverage threshold or into a high-risk area.
 
 **Auto-merge eligible (low/moderate) only if ALL hold:** `commit_type ∈
 {fix,refactor,perf,test,docs,style,chore, small feat}` and **not** `is_breaking`; **not**
@@ -524,8 +539,17 @@ gh pr review "$PR" --approve --body "Auto-approved by /beutl-loop (code-owner). 
 
 # Move to Done ONLY if the merge actually succeeds; a ruleset refusal => leave In Progress for the human.
 if gh pr merge "$PR" --squash --delete-branch --match-head-commit "$HEAD_SHA"; then
-  gh project item-edit --project-id PVT_kwDOBLw8Fs4BW4g5 --id "$ITEM_ID" \
-    --field-id PVTSSF_lADOBLw8Fs4BW4g5zhSJTXk --single-select-option-id 98236657   # Done
+  # The merge succeeded; the board MUST follow. Retry the Done transition (a transient API/auth/rate
+  # error here would otherwise strand a shipped item In Progress, which future runs never re-select).
+  moved=0
+  for _ in 1 2 3; do
+    if gh project item-edit --project-id PVT_kwDOBLw8Fs4BW4g5 --id "$ITEM_ID" \
+         --field-id PVTSSF_lADOBLw8Fs4BW4g5zhSJTXk --single-select-option-id 98236657; then  # Done
+      moved=1; break
+    fi
+    sleep 5
+  done
+  [ "$moved" = "1" ] || echo "WARN: PR $PR merged but board move to Done failed 3× — record as a recoverable failure for follow-up (do NOT treat the item as complete)."
   # Refresh local origin/main: the next item branches from and diffs against it, so a multi-item
   # drain must see the commit just merged or it will branch from stale main (conflicts / lost work).
   git fetch origin main --quiet || true
