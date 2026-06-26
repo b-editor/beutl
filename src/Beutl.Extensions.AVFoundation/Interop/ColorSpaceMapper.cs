@@ -1,4 +1,4 @@
-using Beutl.Media;
+﻿using Beutl.Media;
 
 namespace Beutl.Extensions.AVFoundation.Interop;
 

@@ -1,4 +1,4 @@
-using Beutl.Media;
+﻿using Beutl.Media;
 using FFmpeg.AutoGen.Abstractions;
 
 namespace Beutl.FFmpegWorker;
