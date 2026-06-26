@@ -571,8 +571,10 @@ fi
 # The loop runs as @yuto-trd (the code owner), so gh pr review --approve returns
 # 422 ("Can not approve your own pull request"). That 422 is BENIGN: the squash
 # merge below still completes via the account's bypass permission on the protected
-# branch (auto-merge IS operational; required checks + thread resolution are still
-# enforced). Don't treat the 422 as a stop — the risk classifier (step 4) is the gate.
+# branch (auto-merge IS operational). Because a bypass actor can skip other branch
+# protections too, the loop does NOT rely on GitHub to enforce them post-bypass — the
+# fail-closed self-gate ABOVE (checks clear + 0 unresolved threads + MERGEABLE, each
+# `exit 1` on failure) is the hard gate. Don't treat the 422 as a stop.
 gh pr review "$PR" --approve --body "Auto-approved by /beutl-loop (code-owner). Risk: <low|moderate>." 2>&1 || \
   echo "self-approve returned 422 (PR author == code owner) — benign; the merge below completes via bypass"
 
