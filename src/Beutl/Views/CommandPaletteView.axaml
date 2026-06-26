@@ -69,16 +69,18 @@
                                     <TextBlock FontWeight="SemiBold"
                                                Text="{Binding DisplayName}"
                                                TextTrimming="CharacterEllipsis" />
-                                    <StackPanel Orientation="Horizontal" Spacing="6">
-                                        <TextBlock FontSize="11"
-                                                   Foreground="{DynamicResource TextFillColorTertiaryBrush}"
-                                                   Text="{Binding CategoryName}" />
-                                        <TextBlock FontSize="11"
-                                                   Foreground="{DynamicResource TextFillColorSecondaryBrush}"
-                                                   IsVisible="{Binding Description, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
-                                                   Text="{Binding Description}"
-                                                   TextTrimming="CharacterEllipsis" />
-                                    </StackPanel>
+                                    <TextBlock MaxWidth="120"
+                                               HorizontalAlignment="Left"
+                                               FontSize="11"
+                                               Foreground="{DynamicResource TextFillColorTertiaryBrush}"
+                                               IsVisible="{Binding CategoryName, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                                               Text="{Binding CategoryName}"
+                                               TextTrimming="CharacterEllipsis" />
+                                    <TextBlock FontSize="11"
+                                               Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                                               IsVisible="{Binding Description, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                                               Text="{Binding Description}"
+                                               TextTrimming="CharacterEllipsis" />
                                 </StackPanel>
                                 <Border Grid.Column="1"
                                         Padding="6,2"
