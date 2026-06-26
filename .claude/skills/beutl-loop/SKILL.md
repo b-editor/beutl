@@ -575,8 +575,15 @@ fi
 # protections too, the loop does NOT rely on GitHub to enforce them post-bypass — the
 # fail-closed self-gate ABOVE (checks clear + 0 unresolved threads + MERGEABLE, each
 # `exit 1` on failure) is the hard gate. Don't treat the 422 as a stop.
-gh pr review "$PR" --approve --body "Auto-approved by /beutl-loop (code-owner). Risk: <low|moderate>." 2>&1 || \
-  echo "self-approve returned 422 (PR author == code owner) — benign; the merge below completes via bypass"
+# Treat ONLY the expected 422 as benign; any OTHER gh pr review failure (auth / rate-limit / network /
+# API) is unexpected — fail closed to left_for_human rather than proceeding to an unattended merge.
+APPROVE_OUT=$(gh pr review "$PR" --approve --body "Auto-approved by /beutl-loop (code-owner). Risk: <low|moderate>." 2>&1) || {
+  if echo "$APPROVE_OUT" | grep -qi "Can not approve your own pull request"; then
+    echo "self-approve returned the expected 422 (PR author == code owner) — benign; merge proceeds via bypass"
+  else
+    echo "gh pr review failed unexpectedly: $APPROVE_OUT — left_for_human; not proceeding to merge"; exit 1
+  fi
+}
 
 # Attempt the merge, then VERIFY the real outcome via `gh pr view --json state` — NOT the
 # gh pr merge exit code, which returns non-zero when --delete-branch can't delete a local
