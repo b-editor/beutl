@@ -66,22 +66,16 @@
                             <Grid ColumnDefinitions="*,Auto"
                                   IsEnabled="{Binding IsEnabled}">
                                 <StackPanel Grid.Column="0" Spacing="2">
-                                    <Grid ColumnDefinitions="Auto,*">
-                                        <TextBlock Grid.Column="0"
-                                                   MaxWidth="120"
-                                                   Margin="0,0,8,0"
-                                                   VerticalAlignment="Center"
-                                                   FontSize="11"
-                                                   Foreground="{DynamicResource TextFillColorTertiaryBrush}"
-                                                   IsVisible="{Binding CategoryName, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
-                                                   Text="{Binding CategoryName}"
-                                                   TextTrimming="CharacterEllipsis" />
-                                        <TextBlock Grid.Column="1"
-                                                   VerticalAlignment="Center"
-                                                   FontWeight="SemiBold"
-                                                   Text="{Binding DisplayName}"
-                                                   TextTrimming="CharacterEllipsis" />
-                                    </Grid>
+                                    <TextBlock FontWeight="SemiBold"
+                                               Text="{Binding DisplayName}"
+                                               TextTrimming="CharacterEllipsis" />
+                                    <TextBlock MaxWidth="120"
+                                               HorizontalAlignment="Left"
+                                               FontSize="11"
+                                               Foreground="{DynamicResource TextFillColorTertiaryBrush}"
+                                               IsVisible="{Binding CategoryName, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                                               Text="{Binding CategoryName}"
+                                               TextTrimming="CharacterEllipsis" />
                                     <TextBlock FontSize="11"
                                                Foreground="{DynamicResource TextFillColorSecondaryBrush}"
                                                IsVisible="{Binding Description, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"

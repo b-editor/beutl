@@ -11,11 +11,14 @@ using Beutl.Views;
 
 namespace Beutl.HeadlessUITests;
 
-// Layout regression for the command-palette result item template. The category name and the
-// description used to share a single horizontal row, so a long description crowded the category on
-// narrow windows. These tests build the real ListBox.ItemTemplate against a CommandPaletteItemViewModel
-// and assert the arranged layout (bounds only, never pixels): the description now sits on its own line
-// below the category, and the category label is width-bounded.
+// Layout regression for the command-palette result item template. The command title is the primary
+// identifier and must never be starved: it now sits on its own full-width row, with the compact,
+// width-bounded category label and the description each on their own line below it. Earlier layouts
+// either shared a single horizontal row between the category and the description (crowding the
+// category) or put the bounded category beside the title (starving the title at narrow widths).
+// These tests build the real ListBox.ItemTemplate against a CommandPaletteItemViewModel and assert the
+// arranged layout (bounds only, never pixels): the title keeps a substantial width on a narrow window,
+// the category and description each sit on their own line, and the category label is width-bounded.
 [TestFixture]
 public class CommandPaletteViewLayoutTests
 {
@@ -119,6 +122,38 @@ public class CommandPaletteViewLayoutTests
                 category.Bounds.Width,
                 Is.LessThanOrEqualTo(CategoryMaxWidth + 0.5),
                 "the category label should be a compact, width-bounded label even for long category names");
+        }
+        finally
+        {
+            hostWindow.Close();
+            viewWindow.Close();
+            HeadlessTestHelpers.Settle();
+        }
+    }
+
+    [AvaloniaTest]
+    public void Title_is_not_starved_at_narrow_width()
+    {
+        (Control built, Window viewWindow, Window hostWindow) = BuildItem(hostWidth: 320);
+        try
+        {
+            TextBlock title = FindTextBlock(built, t => t == TitleText);
+            TextBlock category = FindTextBlock(built, t => t == CategoryText);
+
+            // On its own full-width row the title spans most of the content column; sharing a row with
+            // the bounded ~120px category would leave it far narrower than this threshold.
+            Assert.That(
+                title.Bounds.Width,
+                Is.GreaterThan(CategoryMaxWidth + 60),
+                "the command title must keep a substantial, full-row width and not be starved by the category at narrow widths");
+
+            double titleY = title.TranslatePoint(new Point(0, 0), built)!.Value.Y;
+            double categoryY = category.TranslatePoint(new Point(0, 0), built)!.Value.Y;
+
+            Assert.That(
+                categoryY,
+                Is.GreaterThan(titleY + 1),
+                "the category should sit on its own line below the title, not share the title's row");
         }
         finally
         {
