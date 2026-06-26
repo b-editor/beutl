@@ -89,7 +89,10 @@ runs the pre-PR review round on the draft and opens the PR itself.
    - **manual-verification:** set `baseline_test_green: true` (there is no test to baseline).
    If you skipped the baseline run entirely, set `baseline_test_green: false` — the orchestrator
    treats a missing baseline as a runner-contract violation (no-progress).
-6. **`dotnet format --verify-no-changes`** on the touched files.
+6. **`dotnet format Beutl.slnx --verify-no-changes`** (whole-solution — a scoped/touched-files-only
+   run MISSES a new `.cs` file that lacks the UTF-8 BOM `.editorconfig` requires (`charset=utf-8-bom`),
+   yet CI's whole-solution format check fails it with `CHARSET`). Every new `.cs` file must carry the
+   UTF-8 BOM — run `dotnet format` (apply) to add it before committing.
 7. **Do not defer work** (skill Step 6): finish everything the task surfaced on this branch, or
    return `blocked` with a reason. Never park work behind a TODO/Follow-up.
 8. **Self-review + test gate (before you commit).** Run the two binary gates; both must pass to
