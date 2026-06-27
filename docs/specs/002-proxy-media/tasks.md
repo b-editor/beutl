@@ -21,8 +21,8 @@ description: "Implementation tasks for the Proxy Media Workflow feature"
 
 ## Path Conventions
 
-- New code: `src/Beutl.Engine/Media/Proxy/` (the bulk), `src/Beutl.Configuration/`, `src/Beutl.Editor*/ToolTabs/Proxies/`. Edits to existing ProjectSystem files: `Scene.cs` is nested at `src/Beutl.ProjectSystem/ProjectSystem/Scene.cs`, but `SceneRenderer.cs` and `SceneCompositor.cs` are at the **top level** `src/Beutl.ProjectSystem/` (not nested) — verify each path before editing.
-- New tests: `tests/Beutl.UnitTests/Media/Proxy/`, `tests/Beutl.FFmpegIpc.Tests/`
+- New core code: `src/Beutl.Engine/Media/Proxy/` (store/resolver/queue/value types plus `IProxyGenerator` abstraction), `src/Beutl.Configuration/`, `src/Beutl.Editor*/ToolTabs/Proxies/`. New FFmpeg concrete generation code: `src/Beutl.Extensions.FFmpeg/Proxy/` (uses `FFmpegEncodingControllerProxy`; Engine must not reference this project). Edits to existing ProjectSystem files: `Scene.cs` is nested at `src/Beutl.ProjectSystem/ProjectSystem/Scene.cs`, but `SceneRenderer.cs` and `SceneCompositor.cs` are at the **top level** `src/Beutl.ProjectSystem/` (not nested) — verify each path before editing.
+- New tests: `tests/Beutl.UnitTests/Media/Proxy/`, `tests/Beutl.UnitTests/Extensions/FFmpeg/`
 - See `plan.md` "Project Structure" for the full layout
 
 ---
@@ -40,7 +40,7 @@ description: "Implementation tasks for the Proxy Media Workflow feature"
 
 ## Phase 2: Foundational (Blocking Prerequisites)
 
-**Purpose**: Land the value types, enums, the `MediaOptions.PreferProxy` plumbing, and the `IProxyStore` + `IProxyResolver` + `IProxyJobQueue` skeletons. **No user story can start until this phase is complete.**
+**Purpose**: Land the value types, enums, the `MediaOptions.PreferProxy` plumbing, and the `IProxyStore` + `IProxyResolver` + `IProxyJobQueue` + `IProxyGenerator` skeletons. **No user story can start until this phase is complete.**
 
 **⚠️ CRITICAL**: every task here is groundwork for all three user stories. Do not skip.
 
@@ -68,7 +68,7 @@ description: "Implementation tasks for the Proxy Media Workflow feature"
 
 - [ ] T016 [P] Implement `src/Beutl.Engine/Media/Proxy/IProxyStore.cs` matching `contracts/IProxyStore.md` exactly (interface + `ProxyStoreChangedEventArgs` + `ProxyStoreChangeKind`)
 - [ ] T017 [P] Implement `src/Beutl.Engine/Media/Proxy/IProxyResolver.cs` matching `contracts/IProxyResolver.md` (`Resolve` + `Pin` + `ProxyResolution`). **`ProxyResolution` carries `OriginalLogicalFrameSize` + `ProxyDecodedFrameSize`** (and derived `SupplyDensity`) — these are REQUIRED for the 003 logical-size seam (T062–T065); a skeleton that omits them will fail the T062 tests.
-- [ ] T018 [P] Implement `src/Beutl.Engine/Media/Proxy/IProxyJobQueue.cs` matching `contracts/IProxyJobQueue.md` (`Enqueue` + `Pending` + `Cancel*` + `JobChanged` event + `ProxyJobChangeKind`)
+- [ ] T018 [P] Implement `src/Beutl.Engine/Media/Proxy/IProxyJobQueue.cs` matching `contracts/IProxyJobQueue.md` (`EnqueueAsync` + `Pending` + `Cancel*` + `JobChanged` event + `ProxyJobChangeKind`) and `src/Beutl.Engine/Media/Proxy/IProxyGenerator.cs` (Engine abstraction consumed by the queue; concrete FFmpeg implementation comes later in `Beutl.Extensions.FFmpeg`)
 
 ### Foundational config
 
@@ -99,7 +99,7 @@ description: "Implementation tasks for the Proxy Media Workflow feature"
 ### Implementation for US1
 
 - [ ] T026 [US1] Implement `src/Beutl.Engine/Media/Proxy/ProxyStore.cs` minimally enough to satisfy resolver tests: in-memory map + read/write `index.json` via `System.Text.Json` + atomic temp-then-rename. Defer LRU and reconcile to US2 (T039)
-- [ ] T027 [P] [US1] Implement `src/Beutl.Engine/Media/Proxy/ProxyStoreIndex.cs` — serialization shape matches `contracts/proxy-index.schema.json` (validate manually by writing a sample file and running it through a JSON schema validator one time)
+- [ ] T027 [P] [US1] Implement `src/Beutl.Engine/Media/Proxy/ProxyStoreIndex.cs` — serialization shape matches `contracts/proxy-index.schema.json`, including `originalLogicalFrameSize` / `proxyDecodedFrameSize` and the `$defs.proxySourceMetadata` sidecar shape (validate manually by writing a sample `index.json` and `meta.json` and running both through a JSON schema validator one time)
 - [ ] T028 [US1] Implement `src/Beutl.Engine/Media/Proxy/ProxyResolver.cs` (concrete `IProxyResolver`): resolution policy from research R-1 (priority: exact-preset Ready → other-preset Ready → null); pin set as a `ConcurrentDictionary<string, int>` reference counter; `Touch` on every successful resolve. Verify tests from T022 pass
 - [ ] T029 [US1] Wire `IProxyResolver` into `src/Beutl.Engine/Media/Decoding/DecoderRegistry.cs`: when `MediaOptions.PreferProxy == true`, consult the resolver before falling through to the original-source decoder chain. The resolver is acquired from a service locator (or DI) that defaults to null in test contexts (resolver absence = always original). **The resolved `ProxyResolution` (path + `OriginalLogicalFrameSize` + `ProxyDecodedFrameSize`) MUST be handed to the source layer so T063/T064 can pin the logical footprint and report supply density** — opening the proxy file alone is not enough (it would shrink the decoded `FrameSize` and move the content). Verify T023 passes
 - [ ] T030 [US1] On the **export** path, ensure the export render context never carries `PreferProxy = true`. The sole video `MediaOptions` construction site is `VideoSource.Resource.Update` (`new(MediaMode.Video)` at `src/Beutl.Engine/Media/Source/VideoSource.cs`), which reads `context.PreferProxy`; the export `SceneRenderer` is built by `OutputViewModel` (`new SceneRenderer(Model, renderScale, disableResourceShare: true, maxWorkingScale)` — `src/Beutl/ViewModels/Tools/OutputViewModel.cs`) and its `SceneCompositor` MUST NOT seed `PreferProxy` from `Scene.PreviewSourceMode`, so the context default `false` holds on every export open (defense-in-depth for FR-002/FR-004). Add a small `internal` test seam (e.g., a way to inspect the export render context's `PreferProxy`) so T024 and T025 can assert this without reflection. Ensure that an open call against a missing source surfaces the existing decoder-failure path *unchanged* (T025 (a)) — do not introduce a silent fallback
@@ -132,19 +132,19 @@ description: "Implementation tasks for the Proxy Media Workflow feature"
 ### Tests for US2 (NUnit) — write first, ensure they fail
 
 - [ ] T034 [P] [US2] Create `tests/Beutl.UnitTests/Media/Proxy/ProxyStoreTests.cs` covering: register → lookup round-trip, flush + restart preserves entries, `index.json` corruption triggers directory rescan, partial `.tmp` files mark entries `Partial` and are not served as `Ready`, concurrent registers for distinct keys both succeed
-- [ ] T035 [P] [US2] Create `tests/Beutl.UnitTests/Media/Proxy/ProxyJobQueueTests.cs` covering: serial dispatch in arrival order, dedup of `(source, preset)` enqueues, `Cancel` removes `.tmp` and ends in `Canceled`, `CancelAll` empties the queue, `MaxConcurrency == 1` invariant under stress, `JobChanged` event ordering, FFmpeg-missing path, ineligible-media path (`Skipped` terminal state per T041)
+- [ ] T035 [P] [US2] Create `tests/Beutl.UnitTests/Media/Proxy/ProxyJobQueueTests.cs` covering: serial dispatch in arrival order, async `EnqueueAsync` back-pressure when the bounded channel is full, dedup of `(source, preset)` enqueues, `Cancel` removes `.tmp` and ends in `Canceled`, `CancelAll` empties the queue, `MaxConcurrency == 1` invariant under stress, `JobChanged` event ordering, generator-missing path, ineligible-media path (`Skipped` terminal state per T041)
 - [ ] T036 [P] [US2] Create `tests/Beutl.UnitTests/Media/Proxy/ProxyEvictionTests.cs` covering: LRU correctness, in-flight skip (`Generating` entries never evicted), pinned-skip (resolver pin set is consulted), notification fired on eviction (via the same `INotificationService` chosen in T042), eviction stays under `MaxTotalBytes` after each sweep
-- [ ] T037 [P] [US2] Create `tests/Beutl.FFmpegIpc.Tests/ProxyGenerationE2ETests.cs` — drives a real `FFmpegEncodingControllerProxy` on a small synthetic source, asserts the produced proxy is decodable + fingerprint matches + `meta.json` sidecar exists. Gate on FFmpeg availability with the existing skip-attribute pattern in this test project
+- [ ] T037 [P] [US2] Create `tests/Beutl.UnitTests/Extensions/FFmpeg/ProxyGenerationE2ETests.cs` — drives the concrete `FFmpegProxyGenerator` / `FFmpegEncodingControllerProxy` on a small synthetic source, asserts the produced proxy is decodable + fingerprint matches + `meta.json` sidecar exists with original/proxy frame sizes. Gate on FFmpeg availability with the existing worker-startup / install-notifier pattern available through `Beutl.Extensions.FFmpeg`
 
 ### Implementation for US2
 
 - [ ] T038 [US2] Extend `src/Beutl.Engine/Media/Proxy/ProxyStore.cs` with `ReconcileAsync` (boot-time scan): validate every entry against disk, drop missing files, adopt orphan `meta.json` sidecars, delete orphan `*.tmp` files. Verify against T034
-- [ ] T039 [P] [US2] Implement `src/Beutl.Engine/Media/Proxy/ProxyJobQueue.cs` as a single-consumer `Channel<ProxyJob>` (bounded 256) with a drain loop bound to `MaxConcurrency = 1` (parametric per research R-7). Verify against T035
+- [ ] T039 [P] [US2] Implement `src/Beutl.Engine/Media/Proxy/ProxyJobQueue.cs` as a single-consumer `Channel<ProxyJob>` (bounded 256) with `EnqueueAsync` back-pressure and a drain loop bound to `MaxConcurrency = 1` (parametric per research R-7). The queue invokes only the Engine-side `IProxyGenerator` abstraction; it must not reference `Beutl.Extensions.FFmpeg`, `Beutl.FFmpegIpc`, `FFmpegEncodingControllerProxy`, `FFmpegInstallService`, or `FFmpegInstallNotifier`. Verify against T035
 - [ ] T040 [US2] Implement `src/Beutl.Engine/Media/Proxy/ProxyPresetDefinitions.cs` — table `ProxyPreset → ProxyEncodeParameters` with starting values from research R-5 (`Half`: 1/2 scale, CRF 25; `Quarter`: 1/4 scale, CRF 26 (default); `Eighth`: 1/8 scale, CRF 28). Long-edge clamps included. `tune=fastdecode preset=fast` baked in. **Post-003**: the preset's scale factor is the proxy's **nominal** supply density, but `ProxyResolution.SupplyDensity` (FR-022) is always computed from the **actual** `ProxyDecodedFrameSize / OriginalLogicalFrameSize` — the long-edge clamps (e.g. `Quarter` caps the long edge at 1280 px) and integer `PixelSize` rounding mean an 8K source's `Quarter` proxy realizes density ≈ `0.167`, not the nominal `0.25`. The preset vocabulary is intentionally aligned with the 003 preview render-scale vocabulary (`Half`/`Quarter`). Document the interaction in a code comment: under 003's `w = min(max(s_out, densest supply), MaxWorkingScale)` (ceiling `2 × s_out` preview / `+∞` export; inert for sub-output proxies), a proxy denser than the active preview scale still saves decode cost but the effect pass runs at the proxy density (not the cheaper preview scale); a proxy at/below the preview scale lowers `w` fully (to the `s_out` floor). (See spec FR-017.)
-- [ ] T041 [US2] Implement `src/Beutl.Engine/Media/Proxy/ProxyGenerationOrchestrator.cs`: opens source via `DecoderRegistry.OpenMediaFile(_, PreferProxy=false)`; instantiates `FFmpegEncodingControllerProxy` with the chosen preset; pumps frames through; on success rename `*.tmp` → final, write `meta.json` sidecar, call `IProxyStore.Register`; on failure/cancel delete `*.tmp`. Audio is dropped (FR-020). Ineligible-media gating (per FR-020): if the source is audio-only, procedural / generative (no underlying file URI), or a **still image** (out of MVP scope — still images decode once via `Bitmap.FromStream` and bypass `DecoderRegistry`, so a proxy yields no preview benefit and the routing / supply-density seams do not cover them; see spec Assumptions), the orchestrator MUST NOT start encoding — it terminates the job in `Skipped` state with a human-readable reason, and the queue moves on to the next job
+- [ ] T041 [US2] Implement `src/Beutl.Extensions.FFmpeg/Proxy/FFmpegProxyGenerator.cs` as the concrete `IProxyGenerator`: opens source via `DecoderRegistry.OpenMediaFile(_, PreferProxy=false)`; instantiates `FFmpegEncodingControllerProxy` with the chosen preset; pumps frames through; on success rename `*.tmp` → final, write `meta.json` sidecar, call `IProxyStore.Register`; on failure/cancel delete `*.tmp`. Audio is dropped (FR-020). Ineligible-media gating (per FR-020): if the source is audio-only, procedural / generative (no underlying file URI), or a **still image** (out of MVP scope — still images decode once via `Bitmap.FromStream` and bypass `DecoderRegistry`, so a proxy yields no preview benefit and the routing / supply-density seams do not cover them; see spec Assumptions), the generator MUST NOT start encoding — it terminates the job in `Skipped` state with a human-readable reason, and the queue moves on to the next job
 - [ ] T042 [US2] Implement `src/Beutl.Engine/Media/Proxy/ProxyEvictionService.cs` — global LRU sweep under `MaxTotalBytes`; consults `IProxyResolver` pin set; consults `IProxyStore` for `Generating` state; fires the FR-018b notification via the existing Beutl notification service (`INotificationService` in `Beutl.Core` / the equivalent that `Beutl.Editor` already uses for non-blocking toasts — pick the one the rest of the editor uses for "background job finished" messages, to keep the UX consistent). Run on every successful generation and at startup. Verify against T036
-- [ ] T043 [US2] Hook FFmpeg availability check into `ProxyJobQueue` per research R-10: when a queued job would start without FFmpeg, mark it `Failed`, call `FFmpegInstallNotifier.NotifyMissing()`, pause draining until install completes
-- [ ] T044 [US2] Wire DI in the application composition root (`src/Beutl/` — NOT inside the `Beutl.Engine` library, which is a passive dependency): register the concrete `ProxyStore`, `ProxyResolver`, `ProxyJobQueue`, `ProxyEvictionService`, and `ProxyStoreConfig` against their interfaces. Ensure they are constructed once per app, not per `Scene`
+- [ ] T043 [US2] Hook FFmpeg availability into `FFmpegProxyGenerator` per research R-10: when a job would start without FFmpeg, surface `FFmpegInstallNotifier.NotifyMissing()` from `Beutl.Extensions.FFmpeg`, return a dependency-missing failure to `ProxyJobQueue`, and let the queue pause draining until the generator reports availability again. Keep all FFmpeg-specific types out of `Beutl.Engine`
+- [ ] T044 [US2] Wire DI in the application composition root (`src/Beutl/` — NOT inside the `Beutl.Engine` library, which is a passive dependency): register the concrete `ProxyStore`, `ProxyResolver`, `ProxyJobQueue`, `ProxyEvictionService`, `ProxyStoreConfig`, and `Beutl.Extensions.FFmpeg.Proxy.FFmpegProxyGenerator` (`IProxyGenerator`) against their interfaces. Ensure they are constructed once per app, not per `Scene`
 
 ### UI for US2
 
@@ -216,7 +216,7 @@ description: "Implementation tasks for the Proxy Media Workflow feature"
 
 - Tests are written first and confirmed failing before implementation (constitution principle III).
 - Within US1: `IProxyResolver` impl precedes `DecoderRegistry` wire-up (T029, which hands the resolved `ProxyResolution` to the source layer) which precedes the 003 video logical-size seam (T063 source → T064 render node → T065 cache invalidation) which precedes context/export-path wiring (T030/T031). The seam (T062–T065) is part of US1 — US1's guarantee is incorrect without it.
-- Within US2: `ProxyStore.ReconcileAsync` + `ProxyJobQueue` precede `ProxyGenerationOrchestrator` which precedes UI.
+- Within US2: `ProxyStore.ReconcileAsync` + `ProxyJobQueue` precede the concrete `FFmpegProxyGenerator` which precedes UI.
 - Within US3: `Scene.PreviewSourceMode` precedes `SceneCompositor` context seeding which precedes the settings-UI toggle.
 
 ### Parallel opportunities
@@ -224,7 +224,7 @@ description: "Implementation tasks for the Proxy Media Workflow feature"
 - All Phase 2 type tasks marked `[P]` (T005–T012, T016–T018) can run in parallel — different files, no behavior dependencies.
 - T013 / T014 / T015 (MediaOptions change) are serial: T013 → T014 (auditing callers) → T015 (tests).
 - Within US1: T022 / T023 / T024 / T025 (failing tests) all parallel; T027 parallel with T026; T028 / T029 / T030 / T031 serial along the routing chain.
-- Within US2: T034 / T035 / T036 / T037 (failing tests) all parallel; T038 / T039 / T040 / T041 / T042 mostly parallel (different files); T045 (UI) parallel with the engine work once T038–T042 land.
+- Within US2: T034 / T035 / T036 / T037 (failing tests) all parallel; T038 / T039 / T040 / T041 / T042 mostly parallel (different files, but T041 consumes the T018 `IProxyGenerator` abstraction); T045 (UI) parallel with the engine work once T038–T042 land.
 - Polish phase (T053–T056) all parallel; T057 (manual quickstart) and T058 / T059 (reviewer subagents) sequential because they want the final diff.
 
 ---
@@ -269,7 +269,7 @@ Each PR independently passes constitution gates 1–6. Each PR's diff stays unde
 After Foundational (Phase 2) merges:
 
 - Engineer A: US1 routing + tests (T022–T032).
-- Engineer B: US2 store + queue + orchestrator (T034–T044).
+- Engineer B: US2 store + queue + concrete FFmpeg generator (T034–T044).
 - Engineer C: US2 UI (T045–T047).
 - Engineer D: US3 (T048–T052) — can stage on a branch off US1 once T031 lands.
 
@@ -282,6 +282,6 @@ After Foundational (Phase 2) merges:
 - Each user story is independently completable and independently testable (US1 with mocks / pre-seeded proxies).
 - Tests must FAIL before their corresponding implementation lands (constitution III).
 - The export path (`OutputViewModel` / `FrameProviderImpl` plus the `SceneCompositor` context seam) is the spec's headline safety floor — every change touching it must keep T024 + T025 + T030 green.
-- The constitution forbids `ProjectReference` from MIT to `Beutl.FFmpegWorker`; proxy generation reuses `FFmpegEncodingControllerProxy` over the existing `Beutl.FFmpegIpc` channel.
+- The constitution forbids `ProjectReference` from MIT to `Beutl.FFmpegWorker`; additionally, do not add a reverse `Beutl.Engine` reference to `Beutl.Extensions.FFmpeg` or `Beutl.FFmpegIpc`. Proxy generation reuses `FFmpegEncodingControllerProxy` over the existing `Beutl.FFmpegIpc` channel from the concrete `Beutl.Extensions.FFmpeg` generator.
 - Commit after each task or each logical group; prefer `feat:` for new types, `refactor:` for `MediaOptions` plumbing, `test:` for fixtures.
-- Deferred to implementation (recorded in plan.md): exact CRF / bitrate values per preset (start from research R-5 numbers, tune once); whether `Eighth` ships in MVP (default: yes, but droppable if it slips).
+- Preset implementation starts from research R-5 numbers (`Half`, `Quarter`, `Eighth`) and tunes only if the quickstart measurement protocol shows the defaults miss SC-001 / SC-004.

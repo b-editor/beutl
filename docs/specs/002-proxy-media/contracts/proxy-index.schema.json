@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/b-editor/beutl/specs/002-proxy-media/contracts/proxy-index.schema.json",
   "title": "Beutl Proxy Store Index",
-  "description": "Persisted in <store-root>/index.json. Authoritative metadata for the on-disk proxy cache. Per-source meta.json sidecars mirror entries[*] for recovery.",
+  "description": "Definitions for <store-root>/index.json and per-source meta.json sidecars. index.json is the authoritative metadata for the on-disk proxy cache; meta.json mirrors entries for one source so the index can be rebuilt.",
   "type": "object",
   "required": ["version", "entries"],
   "additionalProperties": false,
@@ -25,7 +25,7 @@
   "$defs": {
     "proxyEntry": {
       "type": "object",
-      "required": ["source", "preset", "state", "proxyFileRelative", "proxyFileSizeBytes", "generatedAtUtc", "lastUsedUtc"],
+      "required": ["source", "preset", "state", "proxyFileRelative", "proxyFileSizeBytes", "originalLogicalFrameSize", "proxyDecodedFrameSize", "generatedAtUtc", "lastUsedUtc"],
       "additionalProperties": false,
       "properties": {
         "source": { "$ref": "#/$defs/proxyFingerprint" },
@@ -41,12 +41,47 @@
           "minimum": 0,
           "description": "0 is permitted only while state is Generating or Partial."
         },
+        "originalLogicalFrameSize": {
+          "$ref": "#/$defs/pixelSize",
+          "description": "Original source frame size; the logical footprint a proxy must preserve."
+        },
+        "proxyDecodedFrameSize": {
+          "$ref": "#/$defs/pixelSize",
+          "description": "Decoded proxy frame size; used with originalLogicalFrameSize to compute supply density."
+        },
         "generatedAtUtc": { "type": "string", "format": "date-time" },
         "lastUsedUtc":   { "type": "string", "format": "date-time" },
         "failureReason": {
           "type": ["string", "null"],
           "description": "Non-null iff state == Failed."
         }
+      }
+    },
+    "proxySourceMetadata": {
+      "type": "object",
+      "required": ["version", "source", "entries"],
+      "additionalProperties": false,
+      "properties": {
+        "version": {
+          "type": "integer",
+          "const": 1,
+          "description": "Sidecar schema version. Unknown versions are ignored during index rebuild."
+        },
+        "source": { "$ref": "#/$defs/proxyFingerprint" },
+        "entries": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/proxyEntry" },
+          "description": "Proxy entries for this source. Each entry.source must equal the sidecar source."
+        }
+      }
+    },
+    "pixelSize": {
+      "type": "object",
+      "required": ["width", "height"],
+      "additionalProperties": false,
+      "properties": {
+        "width": { "type": "integer", "minimum": 0 },
+        "height": { "type": "integer", "minimum": 0 }
       }
     },
     "proxyFingerprint": {

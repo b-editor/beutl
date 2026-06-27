@@ -148,10 +148,10 @@ If either pass criterion fails on a representative machine, treat it as a featur
 
 ```bash
 dotnet test tests/Beutl.UnitTests/Beutl.UnitTests.csproj -f net10.0 --filter "FullyQualifiedName~Media.Proxy"
-dotnet test tests/Beutl.FFmpegIpc.Tests/Beutl.FFmpegIpc.Tests.csproj -f net10.0 --filter "FullyQualifiedName~ProxyGeneration"
+dotnet test tests/Beutl.UnitTests/Beutl.UnitTests.csproj -f net10.0 --filter "FullyQualifiedName~Extensions.FFmpeg.ProxyGeneration"
 ```
 
-Both must be green before opening the PR. The FFmpegIpc test is gated on FFmpeg availability; on CI it runs in the same environment as existing FFmpeg-dependent tests.
+Both must be green before opening the PR. The FFmpeg-backed proxy generation test is gated on FFmpeg availability; on CI it runs in the same environment as existing FFmpeg-dependent tests.
 
 ---
 

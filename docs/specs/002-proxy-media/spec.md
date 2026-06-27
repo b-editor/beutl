@@ -4,7 +4,7 @@
 
 **Created**: 2026-05-20
 
-**Status**: Draft
+**Status**: Ready for Implementation
 
 **Input**: User description: "編集中は低解像度プロキシ素材、書き出し時は元素材を使うようにしたい。"
 
@@ -156,7 +156,7 @@ While editing, the user occasionally needs to inspect detail that the low-resolu
 - The user-facing flow uses **explicit, user-initiated proxy generation** for the MVP. Auto-generate-on-import is a follow-up setting, not a launch requirement (see FR-019). Reason: it bounds scope, sidesteps "Beutl ate my disk on import" complaints, and matches the common pattern in comparable editors (DaVinci Resolve, Premiere Pro) where auto-on-import is opt-in.
 - Proxy storage **defaults to a per-user application cache directory** (not inside the project folder). This keeps projects portable and avoids accidentally committing large proxy files to project-folder-aware tooling. Users can override per FR-016.
 - Proxy identity is keyed on **source content fingerprint** (path + size + mtime, or a content hash if cheap), not on the project-level clip object. Two timeline clips referencing the same file share one proxy on disk.
-- Proxy generation **uses the existing media pipeline** in `Beutl.Engine` / `Beutl.FFmpegIpc` for decode + encode. No new IPC protocol is assumed at the spec level; whether a new IPC verb is added is a planning-time decision.
+- Proxy generation **uses the existing media pipeline** with Engine-side media abstractions plus the existing FFmpeg extension / IPC encoder for decode + encode. No new IPC protocol is assumed at the spec level; planning keeps `Beutl.Engine` free of any reverse reference to `Beutl.Extensions.FFmpeg` or `Beutl.FFmpegIpc`.
 - The **export path already routes through a distinct render code path** from the preview path. The feature relies on this separation: preview opts into proxy, export does not. If the assumption is wrong (preview and export share a single media-resolution layer), the planning phase must call that out as a structural change.
 - "Editing" includes all in-editor preview surfaces (timeline scrub, playback, thumbnails); "export" includes the final-render path and any "preview render" that the user explicitly treats as deliverable output. In-editor preview never feeds an export.
 - Proxies are **derived data**, not project assets — losing the proxy cache must not corrupt or alter a project, only slow editing until proxies are regenerated.

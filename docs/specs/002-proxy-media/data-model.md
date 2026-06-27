@@ -40,7 +40,7 @@ public enum ProxyPreset
 }
 ```
 
-Concrete H.264 parameters live in `ProxyPresetDefinitions` (a lookup `ProxyPreset → ProxyEncodeParameters`); the parameter table is the single source of truth referenced by both `ProxyGenerationOrchestrator` and any UI that names presets. See research R-5 for the starting values.
+Concrete H.264 parameters live in `ProxyPresetDefinitions` (a lookup `ProxyPreset → ProxyEncodeParameters`); the parameter table is the single source of truth referenced by the `IProxyGenerator` implementation and any UI that names presets. See research R-5 for the starting values.
 
 ### `ProxyState` (enum)
 
@@ -96,6 +96,8 @@ public sealed record ProxyEntry(
     ProxyState       State,            // Lifecycle state
     string           ProxyFileRelative,// Path relative to store root, e.g. "ab12.../quarter.mp4"
     long             ProxyFileSizeBytes,
+    PixelSize        OriginalLogicalFrameSize, // Original source FrameSize; logical footprint to preserve
+    PixelSize        ProxyDecodedFrameSize,    // Decoded proxy FrameSize; supply-density source
     DateTime         GeneratedAtUtc,   // When generation completed (or last failure)
     DateTime         LastUsedUtc,      // Updated whenever resolver hands this proxy to a MediaReader
     string?          FailureReason);   // Set iff State == Failed
@@ -106,6 +108,8 @@ Composite identity for store lookup: `(Source, Preset)`. Two `ProxyEntry`s for t
 Invariants:
 - `ProxyFileRelative` is a forward-slash-separated relative path under the store root; never starts with `/`.
 - `ProxyFileSizeBytes >= 0` (zero permitted only while `State` is `Generating` / `Partial`).
+- `OriginalLogicalFrameSize` and `ProxyDecodedFrameSize` are non-zero for `Ready` / `Stale` entries; zero is permitted only for pre-generation / failed / partial bookkeeping.
+- `ProxyDecodedFrameSize` is less than or equal to `OriginalLogicalFrameSize` on both axes for MVP H.264 downscale presets.
 - `LastUsedUtc >= GeneratedAtUtc`.
 - `FailureReason` is non-null iff `State == Failed`.
 
@@ -221,12 +225,17 @@ Owns:
 Owns:
 - The single-consumer `Channel<ProxyJob>` plus its drain loop.
 - Job lifecycle, cancellation propagation, completion event surface for UI.
+- Async enqueue back-pressure (`ValueTask<ProxyJob> EnqueueAsync(...)`) so a full bounded queue can wait without blocking the UI thread.
 
-### `ProxyGenerationOrchestrator` (concrete)
+### `IProxyGenerator` (Engine abstraction) and `FFmpegProxyGenerator` (concrete extension implementation)
 
-Owns:
+The Engine-side queue depends on an `IProxyGenerator` abstraction so `Beutl.Engine` does not reference `Beutl.Extensions.FFmpeg` / `Beutl.FFmpegIpc`.
+
+`Beutl.Extensions.FFmpeg.Proxy.FFmpegProxyGenerator` owns:
 - The decode-source → encode-to-preset pump driving `FFmpegEncodingControllerProxy`.
 - The temp-file → atomic-rename → `IProxyStore.Register` sequence.
+- Writing `meta.json` sidecars with the same entries persisted in `index.json`.
+- Surfacing FFmpeg-missing UX through the existing `FFmpegInstallNotifier` path before returning a dependency-missing failure to the queue.
 
 ### `ProxyEvictionService` (concrete)
 
@@ -267,14 +276,39 @@ On `IProxyStore` startup:
 
 ### Sidecar `meta.json` per proxy directory
 
-To make boot-scan recovery robust against `index.json` loss, each per-source subdirectory also contains a `meta.json` mirroring the index entry for that source's proxies. This is a write-once-per-generation file (cheap) and the authoritative source when rebuilding the index. Cost: one small file per proxied source; benefit: graceful index recovery without data loss.
+To make boot-scan recovery robust against `index.json` loss, each per-source subdirectory also contains a `meta.json` mirroring the index entries for that source's proxies. This is a write-once-per-generation file (cheap) and the authoritative source when rebuilding the index. Cost: one small file per proxied source; benefit: graceful index recovery without data loss.
+
+Shape:
+
+```json
+{
+  "version": 1,
+  "source": { "absolutePath": "...", "fileSizeBytes": 123, "mtimeUtc": "2026-05-20T08:00:00Z" },
+  "entries": [
+    {
+      "source": { "absolutePath": "...", "fileSizeBytes": 123, "mtimeUtc": "2026-05-20T08:00:00Z" },
+      "preset": "Quarter",
+      "state": "Ready",
+      "proxyFileRelative": "ab12.../quarter.mp4",
+      "proxyFileSizeBytes": 123456,
+      "originalLogicalFrameSize": { "width": 3840, "height": 2160 },
+      "proxyDecodedFrameSize": { "width": 960, "height": 540 },
+      "generatedAtUtc": "2026-05-20T08:10:00Z",
+      "lastUsedUtc": "2026-05-20T08:10:00Z",
+      "failureReason": null
+    }
+  ]
+}
+```
+
+The schema is pinned in `contracts/proxy-index.schema.json` under `$defs.proxySourceMetadata`; `index.json` uses the same `proxyEntry` definition.
 
 ---
 
 ## Concurrency notes
 
 - `IProxyStore`'s in-memory map is guarded by an internal `lock`.
-- `IProxyJobQueue` produces from any thread, consumes on its own drain loop. Job execution is async on the thread pool but bounded to 1 active job at MVP.
+- `IProxyJobQueue.EnqueueAsync` produces from any thread, consumes on its own drain loop, and awaits capacity when the bounded channel is full. Job execution is async on the thread pool but bounded to 1 active job at MVP.
 - `IProxyResolver.Resolve` and its "pin" / "unpin" updates use `Interlocked` / a concurrent set so the hot preview path never takes a `lock` on every frame.
 - `ProxyEvictionService` runs off the UI thread; it acquires the store lock only for the candidate scan and individual deletions, releasing between.
 
@@ -282,5 +316,4 @@ To make boot-scan recovery robust against `index.json` loss, each per-source sub
 
 ## Open data-model items
 
-- `meta.json` sidecar shape is intentionally minimal in this doc; final field list will be settled in `/speckit-tasks` and pinned in the JSON schema.
 - The `ProxyEncodeParameters` table (concrete CRF / bitrate / scale numbers per preset) lives in code as `ProxyPresetDefinitions.cs` — see research R-5.

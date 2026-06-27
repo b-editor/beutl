@@ -49,9 +49,9 @@ Phase 0 resolves the open items left after `/speckit-clarify` so that Phase 1 (c
 
 ---
 
-## R-2: Proxy generation orchestration (no new IPC verbs)
+## R-2: Proxy generation orchestration (no new IPC verbs, no reverse Engine references)
 
-**Decision**: A new `ProxyGenerationOrchestrator` in `Beutl.Engine.Media.Proxy` drives proxy generation by:
+**Decision**: `Beutl.Engine.Media.Proxy` exposes an `IProxyGenerator` abstraction, and `ProxyJobQueue` depends only on that abstraction. The concrete FFmpeg-backed implementation lives in `Beutl.Extensions.FFmpeg.Proxy` (for example `FFmpegProxyGenerator`) and drives proxy generation by:
 
 1. Opening the source via `DecoderRegistry.OpenMediaFile(source, options with PreferProxy = false)` to get a `MediaReader`.
 2. Wrapping that reader as a frame provider that reads at native rate.
@@ -60,13 +60,14 @@ Phase 0 resolves the open items left after `/speckit-clarify` so that Phase 1 (c
 5. On success: atomic-rename the output, then call `IProxyStore.Register(entry)`.
 6. On failure or cancel: delete partial files and mark the entry `Failed` / removed.
 
-**Rationale**: The existing `FFmpegEncodingControllerProxy` already runs the GPL encoder over IPC. Reusing it satisfies the License Firewall principle (no new MIT → GPL edges) and means we ship zero new IPC messages. The orchestrator is pure MIT, lives in `Beutl.Engine`, and never touches `Beutl.FFmpegWorker`.
+**Rationale**: The existing `FFmpegEncodingControllerProxy` already runs the GPL encoder over IPC. Reusing it satisfies the License Firewall principle (no new MIT → GPL edges) and means we ship zero new IPC messages. The concrete generator cannot live in `Beutl.Engine`, because `Beutl.FFmpegIpc` and `Beutl.Extensions.FFmpeg` already depend on Engine-side media abstractions; adding an Engine reference back to either project would create an invalid project-reference cycle. Keeping only `IProxyGenerator` in Engine preserves the existing dependency direction while letting the application / extension composition root register the FFmpeg implementation once per app.
 
 **Alternatives considered**:
 
 - **Add a dedicated `GenerateProxyRequest` IPC verb.** Rejected: would introduce a new payload that, by definition, has to round-trip metadata the worker already knows how to derive from `EncodeStartRequest`. Pure cost, no benefit.
 - **Use FFmpeg directly in-process for proxy generation.** Rejected: violates Principle I (License Firewall) — would force a `ProjectReference` from MIT to GPL.
 - **Spawn a dedicated short-lived `Beutl.FFmpegWorker` process per job.** Implicitly accepted: `FFmpegWorkerProcess.CreateForEncoding()` already does this; we inherit its lifecycle. No new design needed.
+- **Put `ProxyGenerationOrchestrator` in `Beutl.Engine` and reference `FFmpegEncodingControllerProxy` directly.** Rejected: it would require `Beutl.Engine` to reference `Beutl.Extensions.FFmpeg` / `Beutl.FFmpegIpc`, reversing the existing dependency direction and creating a cycle.
 
 ---
 
@@ -119,7 +120,7 @@ Phase 0 resolves the open items left after `/speckit-clarify` so that Phase 1 (c
 
 - **ProRes Proxy / DNxHR LB.** Rejected for MVP: requires verifying encoder availability across platforms in the bundled FFmpeg and would significantly inflate proxy file sizes (intra-only). Excellent decode performance, but the disk-vs-decode tradeoff favors H.264 for MVP.
 - **HEVC (x265).** Rejected: slower to encode for marginal preview benefit; harder to play back on some hardware. Save for follow-up.
-- **Two presets only (`Half` + `Quarter`).** Considered. Compromise: keep all three but document `Eighth` as "drop if it slips the schedule" — coding/test cost is small because the preset table is a single source-of-truth `ProxyPresetDefinitions.cs`.
+- **Two presets only (`Half` + `Quarter`).** Rejected for MVP: the coding/test cost of `Eighth` is small because the preset table is a single source-of-truth `ProxyPresetDefinitions.cs`, and the low-density option is useful for constrained laptops / very heavy sources.
 
 **Open implementation tuning**: exact CRF and bitrate ceilings are subject to a one-pass tuning round during implementation. The values above are starting points.
 
@@ -205,7 +206,7 @@ A small per-clip badge on the timeline strip is captured as a stretch goal and l
 
 ## R-10: FFmpeg availability gating
 
-**Decision**: When a `ProxyJob` is enqueued and `FFmpegInstallService.IsInstalled` is false, the orchestrator marks the job `Failed` with reason `FFmpegMissing`, surfaces the existing `FFmpegInstallNotifier`, and stops draining the queue until install completes. Other queued jobs remain queued, not lost.
+**Decision**: FFmpeg availability is owned by the concrete `Beutl.Extensions.FFmpeg` generator, not by `Beutl.Engine.ProxyJobQueue`. If the generator cannot start because FFmpeg libraries are unavailable, it surfaces the existing `FFmpegInstallNotifier` path and returns a dependency-missing failure to the queue. The queue marks the active job `Failed` with reason `FFmpegMissing`, pauses draining, and resumes when the registered generator reports availability again. Other queued jobs remain queued, not lost.
 
 **Rationale**: Reuses the existing install-prompt pattern (`FFmpegInstallDialog`) so the proxy feature behaves consistently with export, which already requires FFmpeg.
 
@@ -221,7 +222,7 @@ A small per-clip badge on the timeline strip is captured as a stretch goal and l
 | Unknown | Resolution |
 |---|---|
 | Preview vs. export pipeline separation | R-1: distinct, gated by `MediaOptions.PreferProxy` |
-| Proxy generation IPC | R-2: reuse existing `FFmpegEncodingControllerProxy` |
+| Proxy generation IPC | R-2: `IProxyGenerator` abstraction in Engine, FFmpeg concrete implementation in `Beutl.Extensions.FFmpeg` reuses existing `FFmpegEncodingControllerProxy` |
 | Default LRU cap | R-3: 50 GB default, 5–500 GB configurable |
 | Source fingerprint | R-4: `(path, size, mtime)` triple |
 | Preset shape | R-5: 3 H.264 presets (Half / Quarter default / Eighth) |
