@@ -16,8 +16,14 @@ public sealed class EditTools(AgentSessionManager sessions) : ToolBase
     private readonly Reconciler _reconciler = new();
 
     [McpServerTool(Name = "plan_edit")]
-    [Description("Computes the change set and validation outcomes for a desired declarative document without mutating the current session.")]
-    public ToolResult<ReconcilePlan> PlanEdit(JsonObject? desired = null, JsonObject? patch = null, string? schemaVersion = null)
+    [Description("Dry-runs a declarative edit without mutating the session. Supply exactly one of desired or patch; use read_document first, then submit a full desired document or a JSON Merge Patch.")]
+    public ToolResult<ReconcilePlan> PlanEdit(
+        [Description("Full desired declarative document. Uses PascalCase properties, $type discriminators, stable Id fields, Animations.<Property>.KeyFrames for keyframes, and schemaVersion.")]
+        JsonObject? desired = null,
+        [Description("JSON Merge Patch. Objects follow RFC 7396; Id-bearing arrays such as Elements, Objects, effects, and KeyFrames are merged by Id. Omit Id to insert; use {Id,$delete:true} to delete; use $index/$after/$before to reorder non-keyframe arrays. Unmentioned siblings are preserved.")]
+        JsonObject? patch = null,
+        [Description("Declarative document schema version. Mismatches are rejected instead of silently dropping content.")]
+        string? schemaVersion = null)
     {
         return Execute(() =>
         {
@@ -27,11 +33,15 @@ public sealed class EditTools(AgentSessionManager sessions) : ToolBase
     }
 
     [McpServerTool(Name = "apply_edit")]
-    [Description("Applies a full desired declarative document atomically to the current session through Beutl history.")]
+    [Description("Atomically applies a declarative desired document or JSON Merge Patch through Beutl history. Use expectedChangeSet from plan_edit to guarantee plan/apply parity.")]
     public ToolResult<ReconcileResult> ApplyEdit(
+        [Description("Full desired declarative document. Uses PascalCase properties, $type discriminators, stable Id fields, Animations.<Property>.KeyFrames for keyframes, and schemaVersion.")]
         JsonObject? desired = null,
+        [Description("JSON Merge Patch. Objects follow RFC 7396; Id-bearing arrays such as Elements, Objects, effects, and KeyFrames are merged by Id. Omit Id to insert; use {Id,$delete:true} to delete; use $index/$after/$before to reorder non-keyframe arrays. Unmentioned siblings are preserved.")]
         JsonObject? patch = null,
+        [Description("Declarative document schema version. Mismatches are rejected instead of silently dropping content.")]
         string? schemaVersion = null,
+        [Description("Optional change set returned by plan_edit. apply_edit rejects the edit if the live computed change set differs.")]
         JsonArray? expectedChangeSet = null)
     {
         return Execute(() =>

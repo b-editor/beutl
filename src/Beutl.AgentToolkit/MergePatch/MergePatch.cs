@@ -10,6 +10,11 @@ public static class MergePatch
 
     public static JsonNode? Apply(JsonNode? target, JsonNode? patch)
     {
+        return Apply(target, patch, "$");
+    }
+
+    private static JsonNode? Apply(JsonNode? target, JsonNode? patch, string path)
+    {
         if (patch is JsonObject patchObject)
         {
             JsonObject targetObject = target as JsonObject ?? [];
@@ -25,7 +30,8 @@ public static class MergePatch
                 {
                     result[pair.Key] = Apply(
                         result.TryGetPropertyValue(pair.Key, out JsonNode? current) ? current : null,
-                        pair.Value)?.DeepClone();
+                        pair.Value,
+                        $"{path}/{pair.Key}")?.DeepClone();
                 }
             }
 
@@ -36,7 +42,7 @@ public static class MergePatch
         {
             if (ShouldUseIdentityMerge(target as JsonArray, patchArray))
             {
-                return ApplyIdentityArray(target as JsonArray ?? [], patchArray);
+                return ApplyIdentityArray(target as JsonArray ?? [], patchArray, path);
             }
 
             return patch.DeepClone();
@@ -45,10 +51,11 @@ public static class MergePatch
         return patch?.DeepClone();
     }
 
-    private static JsonArray ApplyIdentityArray(JsonArray target, JsonArray patch)
+    private static JsonArray ApplyIdentityArray(JsonArray target, JsonArray patch, string path)
     {
         JsonArray result = (JsonArray)target.DeepClone();
 
+        int patchIndex = 0;
         foreach (JsonObject patchItem in patch.OfType<JsonObject>())
         {
             ValidateDirectives(patchItem);
@@ -65,18 +72,20 @@ public static class MergePatch
                     result.RemoveAt(currentIndex);
                 }
 
+                patchIndex++;
                 continue;
             }
 
             JsonObject nextItem;
             if (!hasId)
             {
-                id = Guid.NewGuid();
+                id = CollectionReconciler.CreateDeterministicId($"{path}[new:{patchIndex}]", patchItem);
                 nextItem = (JsonObject)patchItem.DeepClone();
                 nextItem[nameof(CoreObject.Id)] = id.ToString();
                 RemoveDirectives(nextItem);
                 result.Add(nextItem);
                 MoveWithDirectives(result, id, patchItem);
+                patchIndex++;
                 continue;
             }
 
@@ -90,10 +99,11 @@ public static class MergePatch
 
             JsonObject currentItem = (JsonObject)result[currentIndex]!;
             ValidateTypeMatch(currentItem, patchItem, id);
-            nextItem = (JsonObject)Apply(currentItem, patchItem)!;
+            nextItem = (JsonObject)Apply(currentItem, patchItem, $"{path}[Id={id}]")!;
             RemoveDirectives(nextItem);
             result[currentIndex] = nextItem;
             MoveWithDirectives(result, id, patchItem);
+            patchIndex++;
         }
 
         return result;

@@ -2,6 +2,7 @@
 using Beutl.AgentToolkit.Common;
 using Beutl.AgentToolkit.Documents;
 using Beutl.AgentToolkit.Sessions;
+using Beutl.Animation;
 using Beutl.Engine;
 using Beutl.ProjectSystem;
 using Beutl.Serialization;
@@ -251,6 +252,12 @@ public sealed class Reconciler
 
         try
         {
+            if (target is KeyFrame && propertyName == nameof(KeyFrame.Easing))
+            {
+                validation.Add(ValidationOutcome.Ok(valueNode?.DeepClone()));
+                return;
+            }
+
             if (PropertyRegistry.FindRegistered(target, propertyName) is { } coreProperty)
             {
                 object? value = valueNode is null

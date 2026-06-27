@@ -81,9 +81,10 @@ Thin wrappers that build a one-entry change set and route through the same recon
 - `remove_element` `{ session, elementId }`
 - `move_element` / `resize_element` `{ session, elementId, start?, length?, zIndex? }`
 - `set_property` `{ session, targetId, propertyPath, value }` → returns `validation` (FR-007)
-- `add_keyframe` / `update_keyframe` / `remove_keyframe` `{ session, targetId, property, time, value?, easing? }` (keeps the time-sort via `KeyFrames.Add(IKeyFrame, out int)`; removal via the `KeyFrames` collection)
 - `attach_effect` / `remove_effect` / `reorder_effect` `{ session, targetId, effectType?, index? }`
 - `duplicate_element` / `split_element` / `group_elements` / `ungroup_element`
+
+Keyframes are edited through the declarative `plan_edit` / `apply_edit` document surface, under `Animations.<Property>.KeyFrames`, so additions, updates, deletes, and easing changes participate in the same id-keyed diff and plan/apply parity checks as the rest of the document.
 
 Errors across these: `validation_rejected`, `unknown_type`, `media_not_found`, `stale_handle`.
 

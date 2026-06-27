@@ -7,6 +7,7 @@ namespace Beutl.AgentToolkit.Documents;
 public sealed class DocumentAdapter
 {
     private readonly Dictionary<Guid, JsonObject> _unknownContent = [];
+    private readonly DeclarativeDocumentApplier _applier = new();
 
     public JsonObject Read(ICoreSerializable root)
     {
@@ -29,7 +30,7 @@ public sealed class DocumentAdapter
 
         JsonObject payload = (JsonObject)document.DeepClone();
         payload.Remove(SchemaVersion.PropertyName);
-        CoreSerializer.PopulateFromJsonObject(root, root.GetType(), payload, CreateOptions(root, CoreSerializationMode.Read | CoreSerializationMode.EmbedReferencedObjects));
+        _applier.Apply((CoreObject)root, payload);
     }
 
     private static CoreSerializerOptions CreateOptions(ICoreSerializable root, CoreSerializationMode mode)

@@ -24,6 +24,7 @@ public sealed class AgentHostEndpointTests
                 Assert.That(endpoint.IsRunning, Is.True);
                 Assert.That(endpoint.EndpointUri, Is.Not.Null);
                 Assert.That(endpoint.EndpointUri!.Host, Is.EqualTo("127.0.0.1"));
+                Assert.That(endpoint.EndpointUri.AbsolutePath, Is.EqualTo("/mcp"));
                 Assert.That(endpoint.EndpointUri.Port, Is.GreaterThan(0));
                 Assert.That(endpoint.Token, Has.Length.EqualTo(32));
             });
