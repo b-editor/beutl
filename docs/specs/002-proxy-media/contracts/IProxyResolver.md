@@ -20,10 +20,10 @@ public interface IProxyResolver
     ProxyResolution? Resolve(Uri sourceUri, ProxyPreset preferredPreset);
 
     /// <summary>
-    /// Caller has obtained the MediaReader and is about to start decoding. Pin the proxy
-    /// file so ProxyEvictionService cannot delete it until ReleasePin is called.
+    /// Caller has resolved a proxy and must pin the proxy file before opening a MediaReader
+    /// for AbsoluteProxyFilePath, so ProxyEvictionService cannot delete it during open/decode.
     /// </summary>
-    /// <returns>An opaque pin handle; disposing it calls ReleasePin.</returns>
+    /// <returns>An opaque pin handle; dispose it after the proxy MediaReader is disposed.</returns>
     IDisposable Pin(ProxyResolution resolution);
 }
 

@@ -61,7 +61,8 @@ State transitions (single proxy = single source × single preset):
 ```text
 None ──Enqueue──▶ Generating ──Success──▶ Ready
                         │
-                        ├──Cancel/Failure──▶ Failed
+                        ├──Failure────────▶ Failed
+                        ├──Cancel─────────▶ None (after *.tmp cleanup)
                         └──Crash──────────▶ Partial
 
 Ready ──Source mtime/size/path changed──▶ Stale
@@ -70,6 +71,12 @@ Stale ──User "Regenerate"────────────────▶
 Failed ──User "Regenerate"───────────────▶ Generating
 Partial ──Boot scan──────────────────────▶ None (after cleanup)
 ```
+
+Cancel is intentionally not a failed proxy state: the job's terminal state is
+`ProxyJobStatus.Canceled`, no `FailureReason` is recorded, and the store removes
+the in-flight placeholder after deleting `*.tmp`. If a regeneration was replacing
+an existing `Ready` / `Stale` / `Failed` entry, cancel restores that previous
+entry instead of overwriting it with `None` or `Failed`.
 
 ### `PreviewSourceMode` (enum)
 
@@ -125,6 +132,7 @@ public sealed class ProxyJob
     public CancellationToken CancellationToken { get; }    // composed with queue-level CTS
     public ProxyJobStatus Status { get; internal set; }
     public Exception? Error { get; internal set; }         // set iff Status == Failed
+    public string? StatusMessage { get; internal set; }    // required for Skipped; optional UI text for other terminals
 }
 
 public readonly record struct ProxyJobProgress(double FractionComplete, TimeSpan? Eta);
@@ -132,7 +140,7 @@ public readonly record struct ProxyJobProgress(double FractionComplete, TimeSpan
 public enum ProxyJobStatus { Queued, Running, Succeeded, Failed, Canceled, Skipped }
 ```
 
-Lifecycle: `Queued → Running → (Succeeded | Failed | Canceled)`, plus `Queued → Skipped` for sources the orchestrator refuses to encode (per FR-020: audio-only clips, procedural / generative sources, still images). Terminal states never transition further.
+Lifecycle: `Queued → Running → (Succeeded | Failed | Canceled | Skipped)`, plus `Queued → Skipped` for sources the orchestrator can reject before starting a generator (per FR-020: audio-only clips, procedural / generative sources, still images). Terminal states never transition further. `Skipped` is a job/UI result, not a persisted `ProxyState`: skipped jobs create no proxy entry and leave any existing entry unchanged.
 
 ### `ProxyStoreConfig` (new in `Beutl.Configuration`)
 

@@ -102,6 +102,7 @@ End-to-end developer/manual-test walkthrough for the proxy media feature. The he
 2. Click **Generate** for `$SRC`. While it's running, click **Cancel**.
 3. **Confirm**:
    - The job's terminal state is `Canceled`.
+   - The clip is not marked `Failed`; it returns to its previous proxy state (or `None` if no completed proxy existed).
    - No `*.tmp` file remains in the store directory.
    - The next time you click **Generate**, the previous `.tmp` is NOT treated as complete.
 

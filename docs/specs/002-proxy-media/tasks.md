@@ -132,7 +132,7 @@ description: "Implementation tasks for the Proxy Media Workflow feature"
 ### Tests for US2 (NUnit) — write first, ensure they fail
 
 - [ ] T034 [P] [US2] Create `tests/Beutl.UnitTests/Media/Proxy/ProxyStoreTests.cs` covering: register → lookup round-trip, flush + restart preserves entries, `index.json` corruption triggers directory rescan, partial `.tmp` files mark entries `Partial` and are not served as `Ready`, concurrent registers for distinct keys both succeed
-- [ ] T035 [P] [US2] Create `tests/Beutl.UnitTests/Media/Proxy/ProxyJobQueueTests.cs` covering: serial dispatch in arrival order, async `EnqueueAsync` back-pressure when the bounded channel is full, dedup of `(source, preset)` enqueues, `Cancel` removes `.tmp` and ends in `Canceled`, `CancelAll` empties the queue, `MaxConcurrency == 1` invariant under stress, `JobChanged` event ordering, generator-missing path, ineligible-media path (`Skipped` terminal state per T041)
+- [ ] T035 [P] [US2] Create `tests/Beutl.UnitTests/Media/Proxy/ProxyJobQueueTests.cs` covering: serial dispatch in arrival order, async `EnqueueAsync` back-pressure when the bounded channel is full, dedup of `(source, preset)` enqueues, `Cancel` removes `.tmp` and ends in `Canceled` without recording `ProxyState.Failed`, `CancelAll` empties the queue, `MaxConcurrency == 1` invariant under stress, `JobChanged` event ordering, generator-missing path, ineligible-media path (`Skipped` terminal state per T041, `ProxyJobChangeKind.Skipped`, human-readable `StatusMessage`, store unchanged)
 - [ ] T036 [P] [US2] Create `tests/Beutl.UnitTests/Media/Proxy/ProxyEvictionTests.cs` covering: LRU correctness, in-flight skip (`Generating` entries never evicted), pinned-skip (resolver pin set is consulted), notification fired on eviction (via the same `INotificationService` chosen in T042), eviction stays under `MaxTotalBytes` after each sweep
 - [ ] T037 [P] [US2] Create `tests/Beutl.UnitTests/Extensions/FFmpeg/ProxyGenerationE2ETests.cs` — drives the concrete `FFmpegProxyGenerator` / `FFmpegEncodingControllerProxy` on a small synthetic source, asserts the produced proxy is decodable + fingerprint matches + `meta.json` sidecar exists with original/proxy frame sizes. Gate on FFmpeg availability with the existing worker-startup / install-notifier pattern available through `Beutl.Extensions.FFmpeg`
 
@@ -150,7 +150,7 @@ description: "Implementation tasks for the Proxy Media Workflow feature"
 
 - [ ] T045 [US2] Create `src/Beutl.Editor*/ToolTabs/Proxies/ProxiesToolTab.axaml` + `.axaml.cs` + `ProxiesToolTabViewModel.cs`. Required:
    - `x:CompileBindings="True"` + `x:DataType="vm:ProxiesToolTabViewModel"` (constitution principle IV)
-   - Clip list with state badge per clip (None / Generating / Ready / Stale / Failed / Skipped)
+   - Clip list with proxy state badge per clip (None / Generating / Ready / Stale / Failed) plus a computed `Skipped` eligibility/job-result badge for sources that cannot be proxied
    - Preset selector (defaults to `Quarter`)
    - Buttons: Generate selection / Regenerate / Delete / Delete-all-for-project
    - Pending-jobs list with progress + cancel

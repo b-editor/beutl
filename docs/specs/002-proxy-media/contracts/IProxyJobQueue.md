@@ -30,7 +30,7 @@ public interface IProxyJobQueue : IAsyncDisposable
     void CancelAll();
 
     /// <summary>
-    /// Raised on Queued → Running, Running → terminal, and job progress updates.
+    /// Raised on Queued → Running, Running → terminal, skipped jobs, and job progress updates.
     /// Always raised off the consumer thread; UI subscribes via the existing dispatcher.
     /// </summary>
     event EventHandler<ProxyJobChangedEventArgs> JobChanged;
@@ -42,7 +42,7 @@ public sealed class ProxyJobChangedEventArgs : EventArgs
     public required ProxyJobChangeKind Kind { get; init; }
 }
 
-public enum ProxyJobChangeKind { Enqueued, Started, Progressed, Succeeded, Failed, Canceled }
+public enum ProxyJobChangeKind { Enqueued, Started, Progressed, Succeeded, Failed, Canceled, Skipped }
 ```
 
 ## Behavior contract
@@ -50,10 +50,11 @@ public enum ProxyJobChangeKind { Enqueued, Started, Progressed, Succeeded, Faile
 1. **Serial execution at MVP**: `MaxConcurrency == 1`. The drain loop will not start job N+1 until job N is in a terminal state.
 2. **Deduplication**: `EnqueueAsync` returns the existing in-flight job for the same `(source, preset)` rather than creating a second; the returned reference is identity-equal to the first. UI relies on this to attach progress observers from multiple call sites. Duplicate returns may complete synchronously.
 3. **Atomic completion**: a job's terminal state is observable through `JobChanged` *after* `IProxyStore.Register` (on success) or after the orphan `.tmp` file has been deleted (on failure / cancel). UI never sees "succeeded but the store doesn't know about it".
-4. **Cancellation semantics**: `Cancel` propagates the queue-level token to the in-flight generator. On cancel, the generator MUST delete any `*.tmp` files it created before completing the job. The job's terminal state is `Canceled`, not `Failed`.
-5. **Generator unavailable → no progress**: if the registered `IProxyGenerator` reports a missing dependency (the FFmpeg implementation uses this for "FFmpeg not installed"), the queue transitions the active job to `Failed` with `Error.Message = "FFmpeg not installed"` or the generator-supplied equivalent, then pauses the drain loop until the generator reports availability. The concrete FFmpeg generator, not `Beutl.Engine`, surfaces `FFmpegInstallNotifier`.
-6. **Bounded queue**: `EnqueueAsync` awaits once the backing channel is full (capacity 256). UI can pass a short cancellation token to surface "queue full" or "try again" without blocking the UI thread.
-7. **`AsyncDispose` semantics**: disposing waits for the active job to reach a terminal state (after cancelling it) — never abandons in-flight encoder processes.
+4. **Cancellation semantics**: `Cancel` propagates the queue-level token to the in-flight generator. On cancel, the generator MUST delete any `*.tmp` files it created before completing the job. The job's terminal state is `Canceled`, not `Failed`; cancel never records `ProxyState.Failed` or a failure reason.
+5. **Skipped semantics**: ineligible sources (audio-only, procedural/generative, still images) complete as `ProxyJobStatus.Skipped` and raise `ProxyJobChangeKind.Skipped` with a human-readable `StatusMessage`. Skipped jobs do not call `IProxyStore.Register`, do not create a proxy entry, and leave any existing proxy entry unchanged.
+6. **Generator unavailable → no progress**: if the registered `IProxyGenerator` reports a missing dependency (the FFmpeg implementation uses this for "FFmpeg not installed"), the queue transitions the active job to `Failed` with `Error.Message = "FFmpeg not installed"` or the generator-supplied equivalent, then pauses the drain loop until the generator reports availability. The concrete FFmpeg generator, not `Beutl.Engine`, surfaces `FFmpegInstallNotifier`.
+7. **Bounded queue**: `EnqueueAsync` awaits once the backing channel is full (capacity 256). UI can pass a short cancellation token to surface "queue full" or "try again" without blocking the UI thread.
+8. **`AsyncDispose` semantics**: disposing waits for the active job to reach a terminal state (after cancelling it) — never abandons in-flight encoder processes.
 
 ## Test obligations (NUnit)
 
@@ -61,6 +62,7 @@ public enum ProxyJobChangeKind { Enqueued, Started, Progressed, Succeeded, Faile
 - Enqueue duplicate `(source, preset)`: only one job exists; the second `EnqueueAsync` returns the same instance.
 - `Cancel` mid-job: the `*.tmp` file is removed; the job ends in `Canceled` state; the next queued job starts.
 - `CancelAll` empties the queue and lands every job in `Canceled`.
+- Ineligible media path: the job ends in `Skipped`, raises `ProxyJobChangeKind.Skipped`, carries a human-readable `StatusMessage`, creates no proxy file, and leaves the store unchanged.
 - `MaxConcurrency == 1` is observable: at most one job is in `Running` state at any point in a stress test (1000 enqueues).
 - Dispose with one in-flight job: completes after the job transitions terminal; no zombie worker processes.
 - Generator-missing path: queued jobs stay `Queued`; the active job that observes the missing dependency transitions to `Failed`; subsequent enqueues during the missing window remain queued; after the generator reports availability, the queue resumes draining.
