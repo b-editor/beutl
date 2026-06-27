@@ -16,6 +16,13 @@ namespace Beutl.Editor.Components.ProxiesTab.ViewModels;
 
 public sealed class ProxiesTabViewModel : IDisposable, IToolContext
 {
+    private static readonly ProxyPreset[] s_presetOrder =
+    [
+        ProxyPreset.Half,
+        ProxyPreset.Quarter,
+        ProxyPreset.Eighth,
+    ];
+
     private readonly CompositeDisposable _disposables = [];
     private readonly Scene _scene;
     private readonly IProxyStore? _store;
@@ -274,7 +281,7 @@ public sealed class ProxiesTabViewModel : IDisposable, IToolContext
         ClearClips();
         foreach ((string path, ProxyFingerprint fingerprint) in EnumerateVideoSources())
         {
-            ProxyPreset preset = selectedPresets.GetValueOrDefault(path, _defaultPreset);
+            ProxyPreset preset = selectedPresets.GetValueOrDefault(path, FindDefaultPreset(fingerprint));
             ProxyEntry? entry = FindEntry(fingerprint, preset);
             Clips.Add(new ProxyClipViewModel(this, path, fingerprint, preset, entry));
         }
@@ -384,6 +391,25 @@ public sealed class ProxiesTabViewModel : IDisposable, IToolContext
         return _store.Enumerate()
             .Where(entry => entry.Preset == preset)
             .FirstOrDefault(entry => entry.Source.AbsolutePath == source.AbsolutePath);
+    }
+
+    private ProxyPreset FindDefaultPreset(ProxyFingerprint source)
+    {
+        if (IsGenerated(FindEntry(source, _defaultPreset)))
+            return _defaultPreset;
+
+        foreach (ProxyPreset preset in s_presetOrder)
+        {
+            if (IsGenerated(FindEntry(source, preset)))
+                return preset;
+        }
+
+        return _defaultPreset;
+    }
+
+    private static bool IsGenerated(ProxyEntry? entry)
+    {
+        return entry?.State is ProxyState.Ready or ProxyState.Stale;
     }
 
     private void OnStoreChanged(object? sender, ProxyStoreChangedEventArgs e)
@@ -667,6 +693,11 @@ public sealed class ProxyClipViewModel : IDisposable
         JobProgressText.Value = job?.LatestProgress is { } progress
             ? ProxiesTabViewModel.FormatProgress(progress.FractionComplete)
             : string.Empty;
+    }
+
+    public void ToggleSelection()
+    {
+        IsSelected.Value = !IsSelected.Value;
     }
 
     public void Dispose()

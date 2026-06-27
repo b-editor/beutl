@@ -98,7 +98,7 @@ public sealed class ProxiesTabViewModelTests
     }
 
     [Test]
-    public void ClipPresetChange_RebuildsClipStateForSelectedPreset()
+    public void Refresh_SelectsGeneratedPresetWhenConfiguredDefaultIsMissing()
     {
         string root = CreateRoot();
         string sourcePath = CreateSourceFile(root, "clip.mov", 2048);
@@ -120,12 +120,9 @@ public sealed class ProxiesTabViewModelTests
         using var viewModel = new ProxiesTabViewModel(CreateContext(root, store, sourcePath));
 
         ProxyClipViewModel clip = viewModel.Clips.Single();
-        Assert.That(clip.State.Value, Is.EqualTo(Strings.ProxyMissing));
-
-        clip.Preset.Value = ProxyPreset.Half;
-
         Assert.Multiple(() =>
         {
+            Assert.That(clip.Preset.Value, Is.EqualTo(ProxyPreset.Half));
             Assert.That(clip.State.Value, Is.EqualTo(Strings.ProxyReady));
             Assert.That(clip.IsReady.Value, Is.True);
             Assert.That(
@@ -134,6 +131,17 @@ public sealed class ProxiesTabViewModelTests
             Assert.That(
                 viewModel.ClipSummary.Value,
                 Is.EqualTo(string.Format(CultureInfo.CurrentCulture, Strings.ProxyClipSummaryFormat, 1, 1, 0, 0, 0)));
+        });
+
+        clip.Preset.Value = ProxyPreset.Eighth;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(clip.State.Value, Is.EqualTo(Strings.ProxyMissing));
+            Assert.That(clip.IsMissing.Value, Is.True);
+            Assert.That(
+                viewModel.ClipSummary.Value,
+                Is.EqualTo(string.Format(CultureInfo.CurrentCulture, Strings.ProxyClipSummaryFormat, 1, 0, 0, 0, 1)));
         });
     }
 
@@ -166,6 +174,35 @@ public sealed class ProxiesTabViewModelTests
         clip.CancelJobCommand.Execute();
 
         Assert.That(queue.CanceledJobIds, Is.EqualTo(new[] { job.JobId }));
+    }
+
+    [Test]
+    public void ToggleSelection_InvertsClipSelection()
+    {
+        string root = CreateRoot();
+        string sourcePath = CreateSourceFile(root, "clip.mov", 1024);
+        var store = new ProxyStore(Path.Combine(root, "proxies"));
+
+        using var viewModel = new ProxiesTabViewModel(CreateContext(root, store, sourcePath));
+
+        ProxyClipViewModel clip = viewModel.Clips.Single();
+        clip.ToggleSelection();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(clip.IsSelected.Value, Is.True);
+            Assert.That(viewModel.SelectionSummary.Value, Is.EqualTo(Strings.ProxySelectedSingular));
+        });
+
+        clip.ToggleSelection();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(clip.IsSelected.Value, Is.False);
+            Assert.That(
+                viewModel.SelectionSummary.Value,
+                Is.EqualTo(string.Format(CultureInfo.CurrentCulture, Strings.ProxySelectedPlural, 0)));
+        });
     }
 
     private static TestEditorContext CreateContext(string root, ProxyStore store, params string[] sourcePaths)
