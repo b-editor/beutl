@@ -47,11 +47,11 @@ public sealed class ProxiesTabViewModelTests
             Assert.That(viewModel.StoreUsageText.Value, Is.EqualTo("1.5 KB"));
             Assert.That(viewModel.JobSummary.Value, Is.EqualTo(Strings.ProxyQueueIdle));
             Assert.That(viewModel.StatusMessage.Value, Is.EqualTo(Strings.ProxyReady));
-            Assert.That(viewModel.SelectedPresetDisplayText.Value, Is.EqualTo(Strings.ProxyPresetQuarter));
-            Assert.That(clip.State, Is.EqualTo(Strings.ProxyReady));
-            Assert.That(clip.IsReady, Is.True);
+            Assert.That(clip.Preset.Value, Is.EqualTo(ProxyPreset.Quarter));
+            Assert.That(clip.State.Value, Is.EqualTo(Strings.ProxyReady));
+            Assert.That(clip.IsReady.Value, Is.True);
             Assert.That(
-                clip.ProxyInfoText,
+                clip.ProxyInfoText.Value,
                 Is.EqualTo(string.Format(CultureInfo.CurrentCulture, Strings.ProxyInfoFormat, "1920x1080", "480x270", "1.5 KB")));
             Assert.That(
                 clip.SourceInfoText,
@@ -92,12 +92,90 @@ public sealed class ProxiesTabViewModelTests
             Assert.That(
                 viewModel.ClipSummary.Value,
                 Is.EqualTo(string.Format(CultureInfo.CurrentCulture, Strings.ProxyClipSummaryFormat, 2, 0, 1, 0, 1)));
-            Assert.That(viewModel.Clips.Single(c => c.FileName == "stale.mov").State, Is.EqualTo(Strings.ProxyStale));
-            Assert.That(viewModel.Clips.Single(c => c.FileName == "missing.mov").State, Is.EqualTo(Strings.ProxyMissing));
+            Assert.That(viewModel.Clips.Single(c => c.FileName == "stale.mov").State.Value, Is.EqualTo(Strings.ProxyStale));
+            Assert.That(viewModel.Clips.Single(c => c.FileName == "missing.mov").State.Value, Is.EqualTo(Strings.ProxyMissing));
         });
     }
 
+    [Test]
+    public void ClipPresetChange_RebuildsClipStateForSelectedPreset()
+    {
+        string root = CreateRoot();
+        string sourcePath = CreateSourceFile(root, "clip.mov", 2048);
+        var store = new ProxyStore(Path.Combine(root, "proxies"));
+        ProxyFingerprint fingerprint = ProxyFingerprint.FromFile(sourcePath);
+        DateTime now = DateTime.UtcNow;
+        store.Register(new ProxyEntry(
+            fingerprint,
+            ProxyPreset.Half,
+            ProxyState.Ready,
+            "hash/half.mp4",
+            1536,
+            new PixelSize(1920, 1080),
+            new PixelSize(960, 540),
+            now,
+            now,
+            null));
+
+        using var viewModel = new ProxiesTabViewModel(CreateContext(root, store, sourcePath));
+
+        ProxyClipViewModel clip = viewModel.Clips.Single();
+        Assert.That(clip.State.Value, Is.EqualTo(Strings.ProxyMissing));
+
+        clip.Preset.Value = ProxyPreset.Half;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(clip.State.Value, Is.EqualTo(Strings.ProxyReady));
+            Assert.That(clip.IsReady.Value, Is.True);
+            Assert.That(
+                clip.ProxyInfoText.Value,
+                Is.EqualTo(string.Format(CultureInfo.CurrentCulture, Strings.ProxyInfoFormat, "1920x1080", "960x540", "1.5 KB")));
+            Assert.That(
+                viewModel.ClipSummary.Value,
+                Is.EqualTo(string.Format(CultureInfo.CurrentCulture, Strings.ProxyClipSummaryFormat, 1, 1, 0, 0, 0)));
+        });
+    }
+
+    [Test]
+    public void Refresh_AttachesPendingQueueJobToMatchingClip()
+    {
+        string root = CreateRoot();
+        string sourcePath = CreateSourceFile(root, "queued.mov", 4096);
+        var store = new ProxyStore(Path.Combine(root, "proxies"));
+        ProxyFingerprint fingerprint = ProxyFingerprint.FromFile(sourcePath);
+        var job = new ProxyJob(fingerprint, ProxyPreset.Quarter)
+        {
+            Status = ProxyJobStatus.Running,
+            LatestProgress = new ProxyJobProgress(0.42, null),
+        };
+        var queue = new TestProxyJobQueue(job);
+
+        using var viewModel = new ProxiesTabViewModel(CreateContext(root, store, queue, sourcePath));
+
+        ProxyClipViewModel clip = viewModel.Clips.Single();
+        Assert.Multiple(() =>
+        {
+            Assert.That(viewModel.JobSummary.Value, Is.EqualTo(Strings.ProxyQueuedJobSingular));
+            Assert.That(clip.HasJob.Value, Is.True);
+            Assert.That(clip.JobStatus.Value, Is.EqualTo(Strings.ProxyJobStatusRunning));
+            Assert.That(clip.JobProgressValue.Value, Is.EqualTo(0.42).Within(0.001));
+            Assert.That(clip.JobProgressText.Value, Is.EqualTo(0.42.ToString("P0", CultureInfo.CurrentCulture)));
+        });
+
+        clip.CancelJobCommand.Execute();
+
+        Assert.That(queue.CanceledJobIds, Is.EqualTo(new[] { job.JobId }));
+    }
+
     private static TestEditorContext CreateContext(string root, ProxyStore store, params string[] sourcePaths)
+        => CreateContext(root, store, queue: null, sourcePaths);
+
+    private static TestEditorContext CreateContext(
+        string root,
+        ProxyStore store,
+        IProxyJobQueue? queue,
+        params string[] sourcePaths)
     {
         var scene = new Scene(1920, 1080, string.Empty)
         {
@@ -124,6 +202,11 @@ public sealed class ProxiesTabViewModelTests
         var context = new TestEditorContext(scene);
         context.AddService(scene);
         context.AddService<IProxyStore>(store);
+        if (queue != null)
+        {
+            context.AddService(queue);
+        }
+
         return context;
     }
 
@@ -185,5 +268,45 @@ public sealed class ProxiesTabViewModelTests
         public void CloseToolTab(IToolContext item)
         {
         }
+    }
+
+    private sealed class TestProxyJobQueue(params ProxyJob[] pendingJobs) : IProxyJobQueue
+    {
+        private readonly List<ProxyJob> _pendingJobs = [.. pendingJobs];
+
+        public int MaxConcurrency => 1;
+
+        public List<Guid> CanceledJobIds { get; } = [];
+
+        public event EventHandler<ProxyJobChangedEventArgs>? JobChanged;
+
+        public ValueTask<ProxyJob> EnqueueAsync(
+            ProxyFingerprint source,
+            ProxyPreset preset,
+            CancellationToken cancellationToken = default)
+        {
+            var job = new ProxyJob(source, preset);
+            _pendingJobs.Add(job);
+            JobChanged?.Invoke(this, new ProxyJobChangedEventArgs
+            {
+                Job = job,
+                Kind = ProxyJobChangeKind.Enqueued,
+            });
+            return ValueTask.FromResult(job);
+        }
+
+        public IReadOnlyList<ProxyJob> Pending() => _pendingJobs;
+
+        public void Cancel(Guid jobId)
+        {
+            CanceledJobIds.Add(jobId);
+        }
+
+        public void CancelAll()
+        {
+            CanceledJobIds.AddRange(_pendingJobs.Select(static job => job.JobId));
+        }
+
+        public ValueTask DisposeAsync() => ValueTask.CompletedTask;
     }
 }
