@@ -30,7 +30,7 @@ public sealed class ProxyStoreTests
         Assert.Multiple(() =>
         {
             Assert.That(persisted, Is.EqualTo(entry));
-            Assert.That(indexJson, Does.Contain("\"version\": 1"));
+            Assert.That(indexJson, Does.Contain($"\"version\": {ProxyStoreIndex.CurrentVersion}"));
             Assert.That(indexJson, Does.Contain("\"preset\": \"Quarter\""));
             Assert.That(indexJson, Does.Contain("\"state\": \"Ready\""));
         });
@@ -108,6 +108,49 @@ public sealed class ProxyStoreTests
         await store.ReconcileAsync(CancellationToken.None);
 
         Assert.That(store.TryGet(entry.Source, entry.Preset), Is.EqualTo(entry));
+    }
+
+    [Test]
+    public void LoadIndex_IgnoresPreviousStoreVersion()
+    {
+        string root = CreateRoot();
+        ProxyEntry entry = CreateEntry(root, "hash/quarter.mp4");
+        var oldIndex = new ProxyStoreIndex
+        {
+            Version = ProxyStoreIndex.CurrentVersion - 1,
+            Entries = [entry],
+        };
+        File.WriteAllText(Path.Combine(root, "index.json"), JsonSerializer.Serialize(oldIndex, s_jsonOptions));
+
+        var store = new ProxyStore(root);
+        string indexJson = File.ReadAllText(Path.Combine(root, "index.json"));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(store.TryGet(entry.Source, entry.Preset), Is.Null);
+            Assert.That(indexJson, Does.Contain($"\"version\": {ProxyStoreIndex.CurrentVersion}"));
+            Assert.That(indexJson, Does.Not.Contain(entry.ProxyFileRelative));
+        });
+    }
+
+    [Test]
+    public async Task ReconcileAsync_IgnoresPreviousSourceMetadataVersion()
+    {
+        string root = CreateRoot();
+        ProxyEntry entry = CreateEntry(root, "hash/quarter.mp4");
+        string metadataPath = Path.Combine(root, "hash", "meta.json");
+        var metadata = new ProxySourceMetadata
+        {
+            Version = ProxySourceMetadata.CurrentVersion - 1,
+            Source = entry.Source,
+            Entries = [entry],
+        };
+        File.WriteAllText(metadataPath, JsonSerializer.Serialize(metadata, s_jsonOptions));
+
+        var store = new ProxyStore(root);
+        await store.ReconcileAsync(CancellationToken.None);
+
+        Assert.That(store.TryGet(entry.Source, entry.Preset), Is.Null);
     }
 
     [Test]

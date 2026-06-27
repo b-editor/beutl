@@ -260,9 +260,11 @@ public sealed class ProxyStore : IProxyStore
         {
             string json = File.ReadAllText(_indexPath);
             ProxyStoreIndex? index = JsonSerializer.Deserialize<ProxyStoreIndex>(json, s_jsonOptions);
-            if (index is not { Version: 1 })
+            if (index?.Version != ProxyStoreIndex.CurrentVersion)
             {
+                _entries.Clear();
                 AdoptSidecarsCore(CancellationToken.None);
+                FlushCore();
                 return;
             }
 
@@ -276,8 +278,7 @@ public sealed class ProxyStore : IProxyStore
         {
             _entries.Clear();
             AdoptSidecarsCore(CancellationToken.None);
-            if (_entries.Count > 0)
-                FlushCore();
+            FlushCore();
         }
     }
 
@@ -322,12 +323,15 @@ public sealed class ProxyStore : IProxyStore
         {
         }
 
-        if (metadata is { Version: 1 })
+        if (metadata != null)
         {
-            foreach (ProxyEntry entry in metadata.Entries)
+            if (metadata.Version == ProxySourceMetadata.CurrentVersion)
             {
-                if (entry.Source == metadata.Source)
-                    yield return entry;
+                foreach (ProxyEntry entry in metadata.Entries)
+                {
+                    if (entry.Source == metadata.Source)
+                        yield return entry;
+                }
             }
 
             yield break;
