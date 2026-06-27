@@ -9,7 +9,7 @@ dotnet build src/Beutl.AgentToolkit.Mcp/Beutl.AgentToolkit.Mcp.csproj   # or the
 dotnet build Beutl.slnx
 ```
 
-Both `Beutl.AgentToolkit` (core lib) and `Beutl.AgentToolkit.Mcp` (stdio server) target `net10.0`, are MIT, and are registered in `Beutl.slnx`. The packages `ModelContextProtocol` and `Microsoft.Extensions.Hosting` are pinned in `Directory.Packages.props`.
+`Beutl.AgentToolkit` (core lib), `Beutl.AgentToolkit.Mcp` (stdio server), and the split-out non-UI `Beutl.Extensions.FFmpeg.Core` (headless export encoder) all target `net10.0`, are MIT, and are registered in `Beutl.slnx`. The packages `ModelContextProtocol`, `ModelContextProtocol.AspNetCore`, and `Microsoft.Extensions.Hosting` are pinned in `Directory.Packages.props`.
 
 ## Wire it into an agent host (`.mcp.json`)
 
@@ -54,18 +54,18 @@ A creator asks the agent: *"10-second 1080p clip: a title that fades in over a b
    ```
 3. **Read** the (empty) document, then **plan** the full desired state:
    ```
-   read_document { session }                  → current document
-   plan_edit { session, "desired": <document with the image, title (with an Opacity fade-in keyframe animation), and logo elements> }
+   read_document { session }                  → { document, schemaVersion }   // echo schemaVersion back on every edit
+   plan_edit { session, "schemaVersion": "1", "desired": <document with the image, title (with an Opacity fade-in keyframe animation), and logo elements> }
                                               → changeSet + validation (e.g. any value clamped to its [Range])
    ```
 4. **Apply** atomically once the plan looks right:
    ```
-   apply_edit { session, "desired": <same>, "expectedChangeSet": <from plan> }  → applied, historyEntry
+   apply_edit { session, "schemaVersion": "1", "desired": <same>, "expectedChangeSet": <from plan> }  → applied, historyEntry
    ```
    For a later tweak — *"make the title bigger"* — send a tiny **merge-patch** instead of the whole document:
    ```
-   plan_edit { session, "patch": { "Children": [ { "Id": "<title-el>", "Objects": [ { "Id": "<text>", "Size": 140 } ] } ] } }
-   apply_edit { session, "patch": <same> }
+   plan_edit { session, "schemaVersion": "1", "patch": { "Elements": [ { "Id": "<title-el>", "Objects": [ { "Id": "<text>", "Size": 140 } ] } ] } }
+   apply_edit { session, "schemaVersion": "1", "patch": <same> }
    ```
 5. **Verify** by rendering a still (and optionally export):
    ```
@@ -87,7 +87,7 @@ Undo is available (`undo`/`redo`) and an agent's edits show up as normal, human-
 
 ## Tests
 
-- **GPU-free unit tests** (`tests/Beutl.AgentToolkit.Tests`): schema generation, RFC 7396 merge-patch (null-delete, nested, array-replace), reconciliation→operations (property set, keyframe add/remove keeping time-sort, collection insert/remove/move by Id), the workspace guard (in-root ok, `..` escape rejected, in-root symlink-to-outside rejected — symlink fixtures self-skip on Windows without Developer Mode), and capability discovery completeness.
+- **GPU-free unit tests** (`tests/Beutl.AgentToolkit.Tests`): schema generation; merge-patch (null-delete, nested object; **id-keyed array merge: `$delete` (+ `$delete` on a missing `Id` ⇒ no-op), omitted-`Id` insert, unknown-`Id` ⇒ `stale_handle`, same-`Id`/different-`$type` ⇒ `validation_rejected`, ordering `$index`/`$after`/`$before` ⇒ `move-child`, multiple directives ⇒ `validation_rejected`, bad sibling ⇒ `stale_handle`, keyframes by time**; scalar/non-id array wholesale-replace); reconciliation→operations (property set, keyframe add/remove keeping time-sort, collection insert/remove/move by Id) **plus a mid-reconcile failure that proves `ExecuteInTransaction` rolls live mutations back**; the workspace guard (in-root ok, `..` escape rejected, in-root symlink-to-outside rejected — symlink fixtures self-skip on Windows without Developer Mode); and capability discovery completeness.
 - **GPU-gated render/export tests**: self-skip via `VulkanTestEnvironment`/`GpuTestEnvironment` (`Assert.Ignore` when no Vulkan/MoltenVK). Export orchestration is testable worker-free over a fake `System.IO.Pipes` host (as `tests/Beutl.FFmpegIpc.Tests`).
 
 Run:
@@ -97,4 +97,4 @@ dotnet test tests/Beutl.AgentToolkit.Tests --settings coverlet.runsettings
 
 ## The guidance pillar (Skills / Subagents)
 
-Beyond the MCP surface, the toolkit ships discoverable editing recipes (Skills) and scoped specialists (Subagents) — e.g. "lay out a timeline from a shot list", "apply a look/effect chain" — so agents follow Beutl's conventions (PascalCase property keys, merge-patch array-replace caveat, in-range values) without re-deriving them. These are authored under `.claude/skills/*` and `.claude/agents/*` during implementation.
+Beyond the MCP surface, the toolkit ships discoverable editing recipes (Skills) and scoped specialists (Subagents) — e.g. "lay out a timeline from a shot list", "apply a look/effect chain" — so agents follow Beutl's conventions (PascalCase property keys, the id-keyed array-merge rule, in-range values) without re-deriving them. These are authored under `.claude/skills/*` and `.claude/agents/*` during implementation.

@@ -50,7 +50,7 @@ Create a new project/scene (FR-001/FR-002).
 
 ### `plan_edit`
 Dry-run a declarative change; **does not mutate** (FR-030).
-- **Input**: `{ "session": string, "desired"?: <full document>, "patch"?: <RFC 7396 merge-patch>, "rootId"?: guid }` — supply exactly one of `desired`/`patch`.
+- **Input**: an envelope `{ "session": string, "schemaVersion": string, "rootId"?: guid, "desired"?: <full document>, "patch"?: <merge-patch> }` — supply exactly one of `desired`/`patch`. The `patch` is **RFC 7396 for objects + id-keyed merge for `Id`-bearing arrays**, with optional member directives `$delete` / `$index` / `$after` / `$before` (mutually exclusive); the full rules are in [contracts/declarative-document.md](./declarative-document.md) §2 and MUST be surfaced in the tool's input description so agents can discover the directive fields. `schemaVersion` is **required** and is checked against the runtime (mismatch ⇒ `schema_version_mismatch`, FR-031, so the check is enforceable for patches too, not only full documents). `rootId` is the Scene (or subtree) the edit targets; it defaults to the session's active scene.
 - **Output**: `{ "changeSet": [ { op, targetId, propertyPath?, index?, oldValue?, newValue?, validation } ], "valid": bool }` where `validation` ∈ `ok` | `coerced` (with clamped value+range) | `rejected` (with reason).
 - **Errors**: `schema_version_mismatch`, `stale_handle`.
 - **Backed by**: reconcile on a deep clone (research §3); introspect operations (`IUpdatePropertyValueOperation`, collection ops).
@@ -60,7 +60,7 @@ Commit a declarative change atomically and undoably (FR-007/FR-012/FR-015/FR-028
 - **Input**: same as `plan_edit`, plus `"expectedChangeSet"?` (optional — reject if the live diff diverges, guaranteeing SC-009 plan↔apply parity).
 - **Output**: `{ "applied": [ <changeSet> ], "historyEntry": string }`.
 - **Errors**: `validation_rejected` (whole batch rolled back), `stale_handle`, `schema_version_mismatch`.
-- **Backed by**: reconcile on the live root inside one `HistoryManager.Commit`.
+- **Backed by**: reconcile on the live root inside `HistoryManager.ExecuteInTransaction` (commits on success, **rolls back on any mid-reconcile exception** — a bare `Commit` would leave partial live mutations, breaking FR-012).
 
 ### `undo` / `redo`
 - **Input**: `{ "session": string }`.
@@ -75,7 +75,7 @@ Thin wrappers that build a one-entry change set and route through the same recon
 - `remove_element` `{ session, elementId }`
 - `move_element` / `resize_element` `{ session, elementId, start?, length?, zIndex? }`
 - `set_property` `{ session, targetId, propertyPath, value }` → returns `validation` (FR-007)
-- `add_keyframe` / `update_keyframe` / `remove_keyframe` `{ session, targetId, property, time, value?, easing? }` (keeps the time-sort via `AddKeyFrame`/`RemoveKeyFrame`)
+- `add_keyframe` / `update_keyframe` / `remove_keyframe` `{ session, targetId, property, time, value?, easing? }` (keeps the time-sort via `KeyFrames.Add(IKeyFrame, out int)`; removal via the `KeyFrames` collection)
 - `attach_effect` / `remove_effect` / `reorder_effect` `{ session, targetId, effectType?, index? }`
 - `duplicate_element` / `split_element` / `group_elements` / `ungroup_element`
 
@@ -95,7 +95,7 @@ Export a range/timeline to a video file (FR-017).
 - **Input**: `{ "session": string, "sceneId": guid, "range"?: [start,end], "outputPath": string, "video"?: {...}, "audio"?: {...} }` (write — **guarded**).
 - **Output**: `{ "videoPath": string, "frames": number, "duration": string }`.
 - **Errors**: `workspace_boundary`, `codec_unavailable` (FFmpeg native libs / worker missing, FR-018), `rendering_unavailable`.
-- **Backed by**: `EncodingController.Encode(frameProvider, sampleProvider, ct)` reaching the FFmpeg worker only via `Beutl.FFmpegIpc` (no GPL `ProjectReference`, Constitution I).
+- **Backed by**: `EncodingController.Encode(frameProvider, sampleProvider, ct)` with the concrete encoder from the MIT non-UI `Beutl.Extensions.FFmpeg.Core` (or a headlessly-registered installed encoder) — reaching the FFmpeg worker only via `Beutl.FFmpegIpc` (no GPL `ProjectReference`, and no compile-time reference to the Avalonia-coupled `Beutl.Extensions.FFmpeg`; Constitution I).
 
 ## Cross-cutting contract rules
 
@@ -104,3 +104,5 @@ Export a range/timeline to a video file (FR-017).
 - **Validation surfaced**: coercion/rejection is always reported in the result, never silently applied (FR-007).
 - **Stable handles**: all `*Id` are `CoreObject.Id` Guids, valid for the session; a removed target ⇒ `stale_handle` (FR-011).
 - **Determinism**: `plan_edit` predicts `apply_edit` exactly (SC-009); pass `expectedChangeSet` to enforce it.
+- **Scene-rooted scope**: `plan_edit`/`apply_edit`, `undo`/`redo`, and the imperative assists operate on a **Scene** root (one `HistoryManager`). `create_project`, `save_project`, and scene add/remove + project-variable changes are **project-level, file-level** operations outside any scene's undo stack (data-model §Editing Session). The agent edits one scene at a time through the undoable surface.
+- **Validation is computed, not inferred**: coercion/rejection in a result comes from running the property's validator explicitly (`SetValue` is `void`/coerces silently), so `plan_edit` and `apply_edit` report the same typed outcome (FR-007).

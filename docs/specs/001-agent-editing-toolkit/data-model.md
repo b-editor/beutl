@@ -7,11 +7,11 @@ This describes the toolkit's own conceptual entities and how each maps onto exis
 | Entity | What it is | Backed by (Beutl) |
 |---|---|---|
 | Editing Session | A stateful working context over one open project/scene, owning the live object root and its recording pipeline | `Scene`/`Project` root + `HistoryManager` + `OperationSequenceGenerator` + `CoreObjectOperationObserver` |
-| Declarative Document | The identity-anchored JSON desired-state an agent reads/writes (full or via merge-patch) | `CoreSerializer.SerializeToJsonObject(root)` |
+| Declarative Document | The identity-anchored JSON desired-state an agent reads/writes (full or via merge-patch) | a **normalized inline view** the toolkit assembles from `CoreSerializer.SerializeToJsonObject(root)` + the on-disk `.belm` element files |
 | Merge Patch | An RFC 7396 partial document (null = delete) the agent submits | `JsonObject` + hand-rolled RFC 7396 apply |
 | Capability / Schema Descriptor | Machine-readable catalog of editable types + their parameters (type/unit/range/default/animatable/`$type`) | `PropertyRegistry` + `EngineObject.Properties` (`IProperty`) + `LibraryService` |
 | Change Set / Plan | The minimal, Id-keyed list of changes a desired-state/patch implies, with validation results | derived diff → `IUpdatePropertyValueOperation` / collection ops (introspected, not yet committed) |
-| Edit Transaction | The atomic, undoable application of a Change Set | one `HistoryManager.Commit` over a recorded transaction |
+| Edit Transaction | The atomic, undoable application of a Change Set | `HistoryManager.ExecuteInTransaction` (commits on success, **rolls back on exception**) |
 | Workspace Guard | The write-boundary policy (read anywhere, write only under the configured root) | `IWorkspaceGuard.ResolveForWrite` (new) |
 | Render Job / Export Job | A request to produce a still image or a video/audio file | `SceneRenderer`+`Renderer.Snapshot`+`Bitmap.Save` / `EncodingController.Encode` via `Beutl.FFmpegIpc` |
 | Editing Recipe / Specialist | Packaged Skill / Subagent guidance (the non-code pillar) | `.claude/skills/*`, `.claude/agents/*` assets |
@@ -26,9 +26,11 @@ This describes the toolkit's own conceptual entities and how each maps onto exis
 
 **Rules**: exactly one writer; reconciliation runs with `PublishingSuppression`/`RecordingSuppression` **inactive** (so mutations both publish and record). Undo/redo is available via `History.Undo()`/`Redo()` — agent edits are normal, human-undoable history entries (FR-015).
 
+**Scope (Scene-rooted undo)**: the unit that carries an undo history (one `HistoryManager`) is a **Scene** — `EditViewModel.Scene` in live mode. Declarative reconcile/plan/apply and the imperative assists target a Scene root. **Project-level** actions (create a project, add/remove scenes, project variables like frame rate / sample rate) mutate `Project.Items`/variables separately and are NOT part of a scene's undo stack; they are exposed as distinct, coarser project tools with file-level semantics.
+
 ## Declarative Document
 
-The normalized JSON the agent reads and writes. Mirrors `CoreSerializer` output exactly (so read↔write round-trips through the same shape):
+The normalized JSON the agent reads and writes. It mirrors `CoreSerializer`'s **per-object** shape (`$type`/`Id`/property keys/`Animations`/`Expressions`), but is a **normalized inline view** — NOT byte-for-byte on-disk output: a `Scene`'s elements are flattened into an inline `Elements` array, whereas on disk they are separate `.belm` files referenced by Include/Exclude globs (see [contracts/declarative-document.md](./contracts/declarative-document.md)). A toolkit adapter maps the inline view to/from the on-disk multi-file representation. The shape (per-object):
 
 - `"$type"` — type discriminator (via `JsonHelper.WriteDiscriminator`).
 - `"Id"` — `CoreObject.Id` Guid; **the identity anchor** for diffing.
@@ -43,7 +45,7 @@ The normalized JSON the agent reads and writes. Mirrors `CoreSerializer` output 
 
 ## Merge Patch (RFC 7396)
 
-A partial Declarative Document. Apply semantics: object members recurse; a `null` member deletes the key; arrays and scalars replace wholesale. The toolkit applies the patch to the current serialized document to derive the **desired document**, then diffs by `Id`. Arrays-replace-wholesale is why per-element edits are reconciled by the separate Id-diff (Change Set), not by the raw merge.
+A partial Declarative Document. Apply semantics: object members recurse; a `null` member deletes the key; **arrays of identity-bearing entities (elements/objects/keyframes) use id-keyed merge** (members matched by `Id`, unmentioned siblings untouched, `$delete` removes one); only scalar / non-identified arrays replace wholesale. The toolkit applies the patch to the current serialized document to derive the **desired document** (siblings preserved), then diffs by `Id` to compute the minimal operations (Change Set). See [contracts/declarative-document.md](./contracts/declarative-document.md) §2.
 
 ## Capability / Schema Descriptor
 
@@ -61,13 +63,15 @@ The output of reconciling a desired document/patch against the current session, 
 
 - `op`: `set-property` | `add-keyframe` | `remove-keyframe` | `update-keyframe` | `insert-child` | `remove-child` | `move-child` | `attach-effect` | `remove-effect` | …
 - `targetId` (Guid), `propertyPath` (dotted), `oldValue`/`newValue` (for property/keyframe ops), `index` (for collection ops).
-- `validation`: `ok` | `coerced` (with clamped value + range) | `rejected` (with reason).
+- `validation`: `ok` | `coerced` (with clamped value + range) | `rejected` (with reason) — computed by running the property's validator (`CorePropertyMetadata<T>.Validator` → `TryCoerce`/`Validate`) **explicitly**, since `SetValue` is `void` and coerces silently; the status is derived from the validator, not inferred after mutation.
+
+Position directives (`$index`/`$after`/`$before`) are **patch-input only** — the reconciler resolves them to a final `index` before emitting `move-child`; the Change Set carries the resolved `index`, never the directive.
 
 `plan` computes this on a **deep clone** of the root (serialize→deserialize) so the live tree fires no events; `apply` reconciles the same change set on the live root inside one transaction. SC-009 requires `plan`'s set to equal `apply`'s.
 
 ## Edit Transaction
 
-One `HistoryManager.Commit(name)` wrapping all operations the observer recorded during a reconciliation. Atomic (FR-012): a failure mid-reconcile leaves the transaction uncommitted / rolled back, so no partial state persists. Auto-compacts via `IMergableChangeOperation.TryMerge`. Reversible by the human in the editor (FR-015).
+The reconciliation runs inside `HistoryManager.ExecuteInTransaction(action, name)`, which commits the recorded operations on success and **rolls back on exception**. This is required for FR-012: a bare `Commit` only finalizes what was recorded, so a mid-reconcile throw before `Commit` would leave the partial *live* mutations applied — `ExecuteInTransaction` (or an explicit `try`/`catch` + `Rollback`) is what guarantees no partial state persists. Auto-compacts via `IMergableChangeOperation.TryMerge`. Reversible by the human in the editor (FR-015).
 
 ## Workspace Guard
 
@@ -76,7 +80,7 @@ One `HistoryManager.Commit(name)` wrapping all operations the observer recorded 
 ## Render Job / Export Job
 
 - **Render Job**: `sceneRef`, `time`, `outputPath` (guarded), `scale?`. Produces a PNG via `SceneRenderer`→`Renderer.Snapshot`→`Bitmap.Save`. Returns `unavailable` (typed) when the content needs a GPU absent on the host (FR-018).
-- **Export Job**: `sceneRef`, `range` (or whole timeline), `outputPath` (guarded), `videoSettings`/`audioSettings`. Produces a file via `EncodingController.Encode(frameProvider, sampleProvider, ct)`, reaching the FFmpeg worker over `Beutl.FFmpegIpc` (FR-016/FR-017/FR-023). Returns a typed error when FFmpeg native libraries are missing.
+- **Export Job**: `sceneRef`, `range` (or whole timeline), `outputPath` (guarded), `videoSettings`/`audioSettings`. Produces a file via `EncodingController.Encode(frameProvider, sampleProvider, ct)` using a concrete encoder from the MIT non-UI encoder assembly (`Beutl.Extensions.FFmpeg.Core`, split per plan) or a headlessly-registered installed encoder, which reaches the FFmpeg worker over `Beutl.FFmpegIpc` (FR-016/FR-017/FR-023). Returns a typed error when FFmpeg native libraries are missing.
 
 ## Mapping summary (toolkit term → Beutl type / API)
 
@@ -87,8 +91,8 @@ One `HistoryManager.Commit(name)` wrapping all operations the observer recorded 
 | `$type` discriminator | `JsonHelper.WriteDiscriminator` / `TryGetDiscriminator` |
 | schema source | `PropertyRegistry.GetRegistered` + `EngineObject.Properties` (`IProperty`) + `LibraryService` |
 | set property (undoable) | mutate live instance → `CoreObjectOperationObserver` records `UpdatePropertyValueOperation<T>` |
-| collection edit (undoable) | `Insert`/`Add`/`RemoveAt`/`Move` on the live `ICoreList`; keyframes via `KeyFrameAnimation.AddKeyFrame`/`RemoveKeyFrame` |
-| atomic commit | `HistoryManager.Commit` / `ExecuteInTransaction` |
+| collection edit (undoable) | `Insert`/`Add`/`RemoveAt`/`Move` on the live `ICoreList`; keyframes via `KeyFrames.Add(IKeyFrame, out int)` (sorted insert) + `KeyFrames.Remove`/`RemoveAt` (the convenience `AnimationOperations.*` helpers are UI-only in `Beutl.Editor.Components`, not used headlessly) |
+| atomic commit | `HistoryManager.ExecuteInTransaction` (commit-or-rollback; a bare `Commit` would not roll back a mid-reconcile throw) |
 | still render | `SceneRenderer` + `Renderer.Render`/`Snapshot` + `Bitmap.Save` (on `RenderThread.Dispatcher`) |
-| video/audio export | `EncodingController.Encode` + `FrameProviderImpl`/`SampleProviderImpl` via `Beutl.FFmpegIpc` |
+| video/audio export | `Beutl.Extensibility.EncodingController.Encode` + `FrameProviderImpl`/`SampleProviderImpl`; the concrete encoder comes from the MIT non-UI `Beutl.Extensions.FFmpeg.Core` (or a headlessly-registered installed encoder) and reaches the GPL worker over `Beutl.FFmpegIpc` (the Avalonia-coupled `Beutl.Extensions.FFmpeg` is not referenced) |
 | write boundary | `IWorkspaceGuard.ResolveForWrite` (new) |
