@@ -2,7 +2,7 @@
 
 **Feature**: 002-proxy-media | **Type**: internal extensibility surface (within `Beutl.Engine.Media.Proxy`)
 
-The single source of truth for the on-disk proxy cache and its metadata. Owns `index.json`, per-source subdirectories, and the atomic write protocol. Consumed by `IProxyResolver`, `ProxyGenerationOrchestrator`, and `ProxyEvictionService`.
+The single source of truth for the on-disk proxy cache and its metadata. Owns `index.json`, per-source subdirectories, and the atomic write protocol. Consumed by `IProxyResolver`, `IProxyGenerator` implementations, and `ProxyEvictionService`.
 
 ## C# shape
 
@@ -71,12 +71,13 @@ public enum ProxyStoreChangeKind { Registered, StateChanged, Deleted, Touched }
 ## Behavior contract
 
 1. **Identity**: composite key `(ProxyFingerprint, ProxyPreset)`. Two entries with the same source but different presets coexist.
-2. **Atomic writes**: `Register` only ever observes finalized files. The orchestrator is responsible for `*.tmp → final` rename before calling `Register`. `index.json` writes use the same temp-then-rename pattern.
-3. **Thread safety**: all members are safe to call from multiple threads. `Enumerate` returns a snapshot.
-4. **No silent fallback**: `TryGet` returns the recorded state; deciding whether to use it is the caller's job (the resolver checks state, the orchestrator checks for stale, etc.).
-5. **`Touch` is hot-path-friendly**: it must complete in <100 µs without I/O. Implementations debounce disk persistence.
-6. **`ReconcileAsync` is best-effort**: failures log a warning but never throw to the caller. The store remains usable even if reconciliation finds inconsistencies (preview falls back to original for any source whose proxy was dropped).
-7. **No exceptions for "not found"**: `TryGet` / `TryTransition` / `Delete` return `null` / `false`, not exceptions.
+2. **Atomic writes**: `Register` only ever observes finalized files. The generator implementation is responsible for `*.tmp → final` rename before calling `Register`. `index.json` writes use the same temp-then-rename pattern.
+3. **Size metadata**: `Ready` / `Stale` entries registered with the store must include `OriginalLogicalFrameSize` and `ProxyDecodedFrameSize`; the resolver uses those values to preserve logical footprint and compute supply density without reopening the original source.
+4. **Thread safety**: all members are safe to call from multiple threads. `Enumerate` returns a snapshot.
+5. **No silent fallback**: `TryGet` returns the recorded state; deciding whether to use it is the caller's job (the resolver checks state, the generator checks for stale, etc.).
+6. **`Touch` is hot-path-friendly**: it must complete in <100 µs without I/O. Implementations debounce disk persistence.
+7. **`ReconcileAsync` is best-effort**: failures log a warning but never throw to the caller. The store remains usable even if reconciliation finds inconsistencies (preview falls back to original for any source whose proxy was dropped).
+8. **No exceptions for "not found"**: `TryGet` / `TryTransition` / `Delete` return `null` / `false`, not exceptions.
 
 ## Test obligations (NUnit)
 
