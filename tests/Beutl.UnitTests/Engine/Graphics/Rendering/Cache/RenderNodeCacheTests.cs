@@ -118,4 +118,23 @@ public class RenderNodeCacheTests
         Assert.That(cache.IsCached, Is.True);
         Assert.That(cache.UseCache().Count(), Is.EqualTo(1));
     }
+
+    [Test]
+    public void IncrementRenderCount_WhenNodeChanged_ShouldInvalidateExistingCache()
+    {
+        // Arrange
+        using var node = new ContainerRenderNode();
+        using var renderTarget = RenderTarget.CreateNull(1, 1);
+        node.Cache.StoreCache(renderTarget, new Rect(0, 0, 1, 1));
+        node.Cache.ReportRenderCount(RenderNodeCache.Count);
+        node.HasChanges = true;
+
+        // Act
+        node.Cache.IncrementRenderCount();
+
+        // Assert
+        Assert.That(node.Cache.IsCached, Is.False);
+        Assert.That(node.Cache.CanCache(), Is.False);
+        Assert.That(node.Cache.IsCacheRejected, Is.False);
+    }
 }
