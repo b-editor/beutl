@@ -324,7 +324,15 @@ public partial class ImmediateCanvas : IDisposable, IPopable
         {
             using (bitmapRef)
             {
-                DrawBitmap(bitmapRef.Value, fill, pen);
+                if (source.ProxyResolution == null)
+                {
+                    DrawBitmap(bitmapRef.Value, fill, pen);
+                }
+                else
+                {
+                    var dest = new Rect(default, source.LogicalFrameSize.ToSize(1));
+                    DrawBitmapScaled(bitmapRef.Value, dest, fill);
+                }
             }
         }
     }
