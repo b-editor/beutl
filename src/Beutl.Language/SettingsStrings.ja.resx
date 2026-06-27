@@ -180,6 +180,34 @@
     <value>操作を実行後、自動でファイルを保存します。</value>
     <comment/>
   </data>
+  <data name="ProxyMedia" xml:space="preserve">
+    <value>プロキシメディア</value>
+    <comment/>
+  </data>
+  <data name="ProxyStoreRootPath" xml:space="preserve">
+    <value>保存場所</value>
+    <comment/>
+  </data>
+  <data name="ProxyStoreRootPath_Description" xml:space="preserve">
+    <value>プロキシファイルを保存するフォルダーです。</value>
+    <comment/>
+  </data>
+  <data name="ProxyStoreMaxTotalGiB" xml:space="preserve">
+    <value>最大ストアサイズ</value>
+    <comment/>
+  </data>
+  <data name="ProxyStoreMaxTotalGiB_Description" xml:space="preserve">
+    <value>ストアがこのサイズを超えると、最も使われていないプロキシから削除されます。</value>
+    <comment/>
+  </data>
+  <data name="ProxyDefaultPreset" xml:space="preserve">
+    <value>既定のプリセット</value>
+    <comment/>
+  </data>
+  <data name="ProxyDefaultPreset_Description" xml:space="preserve">
+    <value>プロキシツールタブで最初に選択されるプリセットです。</value>
+    <comment/>
+  </data>
   <data name="FrameCacheMaxSize" xml:space="preserve">
     <value>最大バイト数</value>
     <comment/>

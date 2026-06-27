@@ -95,6 +95,43 @@
                 </ctrls:OptionsDisplayItem>
 
                 <TextBlock Margin="0,16,0,0"
+                           Text="{x:Static lang:SettingsStrings.ProxyMedia}"
+                           Theme="{StaticResource BodyStrongTextBlockStyle}" />
+
+                <ctrls:OptionsDisplayItem Description="{x:Static lang:SettingsStrings.ProxyStoreRootPath_Description}"
+                                          Header="{x:Static lang:SettingsStrings.ProxyStoreRootPath}">
+                    <ctrls:OptionsDisplayItem.ActionButton>
+                        <TextBox MinWidth="250" Text="{Binding ProxyStoreRootPath.Value}" />
+                    </ctrls:OptionsDisplayItem.ActionButton>
+                </ctrls:OptionsDisplayItem>
+
+                <ctrls:OptionsDisplayItem Description="{x:Static lang:SettingsStrings.ProxyStoreMaxTotalGiB_Description}"
+                                          Header="{x:Static lang:SettingsStrings.ProxyStoreMaxTotalGiB}">
+                    <ctrls:OptionsDisplayItem.ActionButton>
+                        <NumericUpDown MinWidth="250"
+                                       FormatString="F0"
+                                       Maximum="500"
+                                       Minimum="5"
+                                       Value="{Binding ProxyStoreMaxTotalGiB.Value}">
+                            <NumericUpDown.InnerRightContent>
+                                <TextBlock Margin="8,0"
+                                           VerticalAlignment="Center"
+                                           Text="GiB" />
+                            </NumericUpDown.InnerRightContent>
+                        </NumericUpDown>
+                    </ctrls:OptionsDisplayItem.ActionButton>
+                </ctrls:OptionsDisplayItem>
+
+                <ctrls:OptionsDisplayItem Description="{x:Static lang:SettingsStrings.ProxyDefaultPreset_Description}"
+                                          Header="{x:Static lang:SettingsStrings.ProxyDefaultPreset}">
+                    <ctrls:OptionsDisplayItem.ActionButton>
+                        <ComboBox MinWidth="250"
+                                  ItemsSource="{CompiledBinding ProxyPresetOptions}"
+                                  SelectedItem="{CompiledBinding ProxyDefaultPreset.Value}" />
+                    </ctrls:OptionsDisplayItem.ActionButton>
+                </ctrls:OptionsDisplayItem>
+
+                <TextBlock Margin="0,16,0,0"
                            Text="{x:Static lang:Strings.FrameCache}"
                            Theme="{StaticResource BodyStrongTextBlockStyle}" />
 

@@ -1,4 +1,4 @@
-using Beutl.Media.Proxy;
+﻿using Beutl.Media.Proxy;
 using Beutl.ProjectSystem;
 using Beutl.Serialization;
 

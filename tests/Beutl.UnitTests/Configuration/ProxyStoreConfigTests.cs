@@ -1,4 +1,4 @@
-using Beutl.Configuration;
+﻿using Beutl.Configuration;
 
 namespace Beutl.UnitTests.Configuration;
 

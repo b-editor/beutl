@@ -60,7 +60,8 @@ internal static class TestMediaHelper
         // Format: test-video-100x100@30_1f300
         var match = System.Text.RegularExpressions.Regex.Match(
             fileName,
-            @"test-video-(\d+)x(\d+)@(\d+)_(\d+)f(\d+)");
+            @"test-video-(\d+)x(\d+)@(\d+)_(\d+)f(\d+)",
+            System.Text.RegularExpressions.RegexOptions.IgnoreCase);
 
         if (!match.Success)
             throw new FormatException($"Invalid test video path: {path}");
@@ -92,7 +93,10 @@ internal static class TestMediaHelper
     {
         var fileName = Path.GetFileNameWithoutExtension(path);
         // Format: test-audio-44100_2_2000
-        var match = System.Text.RegularExpressions.Regex.Match(fileName, @"test-audio-(\d+)_(\d+)_(\d+)");
+        var match = System.Text.RegularExpressions.Regex.Match(
+            fileName,
+            @"test-audio-(\d+)_(\d+)_(\d+)",
+            System.Text.RegularExpressions.RegexOptions.IgnoreCase);
         if (!match.Success)
             throw new FormatException($"Invalid test audio path: {path}");
 

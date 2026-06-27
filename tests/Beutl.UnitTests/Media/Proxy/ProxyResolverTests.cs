@@ -1,4 +1,4 @@
-using Beutl.Media;
+﻿using Beutl.Media;
 using Beutl.Media.Proxy;
 
 namespace Beutl.UnitTests.Media.Proxy;

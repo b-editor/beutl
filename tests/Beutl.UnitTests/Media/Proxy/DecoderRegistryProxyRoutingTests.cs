@@ -1,4 +1,4 @@
-using Beutl.Media;
+﻿using Beutl.Media;
 using Beutl.Media.Decoding;
 using Beutl.Media.Proxy;
 using Beutl.UnitTests.Engine.Graphics.Rendering;
@@ -83,6 +83,20 @@ public class DecoderRegistryProxyRoutingTests
         });
     }
 
+    [Test]
+    public void OpenMediaFile_WhenOriginalUnavailableAndPreferProxyFalse_DoesNotSubstituteProxy()
+    {
+        using var scope = ProxyRouteScope.CreateUnsupportedOriginalWithProxy(proxySize: new PixelSize(50, 50));
+        DecoderRegistry.ProxyResolver = new ProxyResolver(scope.Store);
+        File.Delete(scope.OriginalPath);
+
+        using MediaReader? reader = DecoderRegistry.OpenMediaFile(
+            scope.OriginalPath,
+            new MediaOptions(MediaMode.Video) { PreferProxy = false });
+
+        Assert.That(reader, Is.Null);
+    }
+
     private static string CreateTestVideoFileWithBytes(int width, int height)
     {
         string path = TestMediaHelper.CreateTestVideoFile(width, height, new Rational(30, 1), 30);
@@ -110,6 +124,36 @@ public class DecoderRegistryProxyRoutingTests
             string root = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
             var store = new ProxyStore(root);
             string original = CreateTestVideoFileWithBytes(originalSize.Width, originalSize.Height);
+            string proxyTemplate = CreateTestVideoFileWithBytes(proxySize.Width, proxySize.Height);
+            string relative = $"proxy/{Path.GetFileName(proxyTemplate)}";
+            string proxy = Path.Combine(root, relative);
+            Directory.CreateDirectory(Path.GetDirectoryName(proxy)!);
+            File.Copy(proxyTemplate, proxy, overwrite: true);
+
+            var now = DateTime.UtcNow;
+            var entry = new ProxyEntry(
+                ProxyFingerprint.FromFile(original),
+                ProxyPreset.Quarter,
+                ProxyState.Ready,
+                relative.Replace(Path.DirectorySeparatorChar, '/'),
+                new FileInfo(proxy).Length,
+                originalSize,
+                proxySize,
+                now,
+                now,
+                null);
+            store.Register(entry);
+
+            return new ProxyRouteScope(root, original, store);
+        }
+
+        public static ProxyRouteScope CreateUnsupportedOriginalWithProxy(PixelSize proxySize)
+        {
+            string root = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
+            var store = new ProxyStore(root);
+            Directory.CreateDirectory(root);
+            string original = Path.Combine(root, $"{Guid.NewGuid():N}.mov");
+            File.WriteAllBytes(original, [1, 2, 3, 4]);
             string relative = $"proxy/{Path.GetFileName(CreateTestVideoFileWithBytes(proxySize.Width, proxySize.Height))}";
             string proxy = Path.Combine(root, relative);
             Directory.CreateDirectory(Path.GetDirectoryName(proxy)!);
@@ -122,7 +166,7 @@ public class DecoderRegistryProxyRoutingTests
                 ProxyState.Ready,
                 relative.Replace(Path.DirectorySeparatorChar, '/'),
                 new FileInfo(proxy).Length,
-                originalSize,
+                new PixelSize(100, 100),
                 proxySize,
                 now,
                 now,

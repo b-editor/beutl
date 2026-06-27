@@ -1,4 +1,4 @@
-namespace Beutl.Media.Proxy;
+﻿namespace Beutl.Media.Proxy;
 
 public sealed class ProxyEvictionService(
     IProxyStore store,

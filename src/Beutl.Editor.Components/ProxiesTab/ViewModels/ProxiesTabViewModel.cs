@@ -1,6 +1,7 @@
-using System.Collections.ObjectModel;
+﻿using System.Collections.ObjectModel;
 using System.Reactive.Disposables;
 using Avalonia.Threading;
+using Beutl.Configuration;
 using Beutl.Editor.Components.ProxiesTab;
 using Beutl.Graphics;
 using Beutl.Media.Proxy;
@@ -17,20 +18,31 @@ public sealed class ProxiesTabViewModel : IDisposable, IToolContext
     private readonly Scene _scene;
     private readonly IProxyStore? _store;
     private readonly IProxyJobQueue? _queue;
+    private readonly ProxyStoreConfig _config;
 
     public ProxiesTabViewModel(IEditorContext editorContext)
     {
         _scene = editorContext.GetService<Scene>()!;
         _store = editorContext.GetService<IProxyStore>();
         _queue = editorContext.GetService<IProxyJobQueue>();
+        _config = GlobalConfiguration.Instance.ProxyStoreConfig;
 
-        SelectedPreset = new ReactiveProperty<ProxyPreset>(ProxyPreset.Quarter)
+        SelectedPreset = new ReactiveProperty<ProxyPreset>(ToPreset(_config.DefaultPreset))
             .DisposeWith(_disposables);
         StoreSummary = new ReactiveProperty<string>()
             .DisposeWith(_disposables);
         StatusMessage = new ReactiveProperty<string>()
             .DisposeWith(_disposables);
 
+        GenerateSelectedCommand = new AsyncReactiveCommand()
+            .WithSubscribe(GenerateSelectedAsync)
+            .DisposeWith(_disposables);
+        RegenerateSelectedCommand = new AsyncReactiveCommand()
+            .WithSubscribe(RegenerateSelectedAsync)
+            .DisposeWith(_disposables);
+        DeleteSelectedCommand = new ReactiveCommand()
+            .WithSubscribe(DeleteSelected)
+            .DisposeWith(_disposables);
         GenerateAllCommand = new AsyncReactiveCommand()
             .WithSubscribe(GenerateAllAsync)
             .DisposeWith(_disposables);
@@ -73,6 +85,12 @@ public sealed class ProxiesTabViewModel : IDisposable, IToolContext
 
     public ReactiveProperty<string> StatusMessage { get; }
 
+    public AsyncReactiveCommand GenerateSelectedCommand { get; }
+
+    public AsyncReactiveCommand RegenerateSelectedCommand { get; }
+
+    public ReactiveCommand DeleteSelectedCommand { get; }
+
     public AsyncReactiveCommand GenerateAllCommand { get; }
 
     public ReactiveCommand DeleteAllForProjectCommand { get; }
@@ -97,6 +115,12 @@ public sealed class ProxiesTabViewModel : IDisposable, IToolContext
         RefreshJobs();
     }
 
+    public async Task RegenerateAsync(ProxyClipViewModel clip)
+    {
+        _store?.Delete(clip.EntrySource ?? clip.Source, clip.Preset);
+        await GenerateAsync(clip);
+    }
+
     public void Delete(ProxyClipViewModel clip)
     {
         _store?.Delete(clip.EntrySource ?? clip.Source, clip.Preset);
@@ -111,9 +135,9 @@ public sealed class ProxiesTabViewModel : IDisposable, IToolContext
 
     public void Dispose()
     {
+        ClearClips();
+        ClearPendingJobs();
         _disposables.Dispose();
-        Clips.Clear();
-        PendingJobs.Clear();
     }
 
     public void WriteToJson(System.Text.Json.Nodes.JsonObject json)
@@ -145,6 +169,49 @@ public sealed class ProxiesTabViewModel : IDisposable, IToolContext
         RefreshJobs();
     }
 
+    private async Task GenerateSelectedAsync()
+    {
+        if (_queue == null)
+        {
+            StatusMessage.Value = "Proxy queue is not available.";
+            return;
+        }
+
+        foreach (ProxyClipViewModel clip in Clips.Where(static c => c.IsSelected.Value).ToArray())
+        {
+            await _queue.EnqueueAsync(clip.Source, clip.Preset);
+        }
+
+        RefreshJobs();
+    }
+
+    private async Task RegenerateSelectedAsync()
+    {
+        if (_queue == null)
+        {
+            StatusMessage.Value = "Proxy queue is not available.";
+            return;
+        }
+
+        foreach (ProxyClipViewModel clip in Clips.Where(static c => c.IsSelected.Value).ToArray())
+        {
+            _store?.Delete(clip.EntrySource ?? clip.Source, clip.Preset);
+            await _queue.EnqueueAsync(clip.Source, clip.Preset);
+        }
+
+        Refresh();
+    }
+
+    private void DeleteSelected()
+    {
+        foreach (ProxyClipViewModel clip in Clips.Where(static c => c.IsSelected.Value).ToArray())
+        {
+            _store?.Delete(clip.EntrySource ?? clip.Source, clip.Preset);
+        }
+
+        Refresh();
+    }
+
     private void DeleteAllForProject()
     {
         if (_store == null)
@@ -169,7 +236,7 @@ public sealed class ProxiesTabViewModel : IDisposable, IToolContext
             return;
         }
 
-        Clips.Clear();
+        ClearClips();
         foreach ((string path, ProxyFingerprint fingerprint) in EnumerateVideoSources())
         {
             ProxyPreset preset = SelectedPreset.Value;
@@ -189,7 +256,7 @@ public sealed class ProxiesTabViewModel : IDisposable, IToolContext
             return;
         }
 
-        PendingJobs.Clear();
+        ClearPendingJobs();
         foreach (ProxyJob job in _queue?.Pending() ?? [])
         {
             PendingJobs.Add(new ProxyJobViewModel(this, job));
@@ -228,7 +295,7 @@ public sealed class ProxiesTabViewModel : IDisposable, IToolContext
         HashSet<string> paths = [.. Clips.Select(static c => c.Source.AbsolutePath)];
         long projectBytes = _store.GetTotalBytes(paths);
         long totalBytes = _store.GetTotalBytes();
-        StoreSummary.Value = $"Project {FormatBytes(projectBytes)} / Store {FormatBytes(totalBytes)}";
+        StoreSummary.Value = $"Project {FormatBytes(projectBytes)} / Store {FormatBytes(totalBytes)} / Cap {FormatBytes(_config.MaxTotalBytes)}";
     }
 
     private ProxyEntry? FindEntry(ProxyFingerprint source, ProxyPreset preset)
@@ -281,10 +348,38 @@ public sealed class ProxiesTabViewModel : IDisposable, IToolContext
 
         return $"{value:0.#} {units[unit]}";
     }
+
+    private static ProxyPreset ToPreset(int value)
+    {
+        return Enum.IsDefined(typeof(ProxyPreset), value)
+            ? (ProxyPreset)value
+            : ProxyPreset.Quarter;
+    }
+
+    private void ClearClips()
+    {
+        foreach (ProxyClipViewModel clip in Clips)
+        {
+            clip.Dispose();
+        }
+
+        Clips.Clear();
+    }
+
+    private void ClearPendingJobs()
+    {
+        foreach (ProxyJobViewModel job in PendingJobs)
+        {
+            job.Dispose();
+        }
+
+        PendingJobs.Clear();
+    }
 }
 
-public sealed class ProxyClipViewModel
+public sealed class ProxyClipViewModel : IDisposable
 {
+    private readonly CompositeDisposable _disposables = [];
     private readonly ProxiesTabViewModel _owner;
 
     public ProxyClipViewModel(
@@ -304,10 +399,17 @@ public sealed class ProxyClipViewModel
             : entry.Source == source
                 ? entry.State.ToString()
                 : ProxyState.Stale.ToString();
+        IsSelected = new ReactiveProperty<bool>()
+            .DisposeWith(_disposables);
         GenerateCommand = new AsyncReactiveCommand()
-            .WithSubscribe(() => _owner.GenerateAsync(this));
+            .WithSubscribe(() => _owner.GenerateAsync(this))
+            .DisposeWith(_disposables);
+        RegenerateCommand = new AsyncReactiveCommand()
+            .WithSubscribe(() => _owner.RegenerateAsync(this))
+            .DisposeWith(_disposables);
         DeleteCommand = new ReactiveCommand()
-            .WithSubscribe(() => _owner.Delete(this));
+            .WithSubscribe(() => _owner.Delete(this))
+            .DisposeWith(_disposables);
     }
 
     public string FileName => System.IO.Path.GetFileName(Path);
@@ -322,13 +424,23 @@ public sealed class ProxyClipViewModel
 
     public string State { get; }
 
+    public ReactiveProperty<bool> IsSelected { get; }
+
     public AsyncReactiveCommand GenerateCommand { get; }
 
+    public AsyncReactiveCommand RegenerateCommand { get; }
+
     public ReactiveCommand DeleteCommand { get; }
+
+    public void Dispose()
+    {
+        _disposables.Dispose();
+    }
 }
 
-public sealed class ProxyJobViewModel
+public sealed class ProxyJobViewModel : IDisposable
 {
+    private readonly CompositeDisposable _disposables = [];
     private readonly ProxiesTabViewModel _owner;
     private readonly ProxyJob _job;
 
@@ -337,7 +449,8 @@ public sealed class ProxyJobViewModel
         _owner = owner;
         _job = job;
         CancelCommand = new ReactiveCommand()
-            .WithSubscribe(() => _owner.CancelJob(_job.JobId));
+            .WithSubscribe(() => _owner.CancelJob(_job.JobId))
+            .DisposeWith(_disposables);
     }
 
     public string FileName => Path.GetFileName(_job.Source.AbsolutePath);
@@ -355,4 +468,9 @@ public sealed class ProxyJobViewModel
         : string.Empty;
 
     public ReactiveCommand CancelCommand { get; }
+
+    public void Dispose()
+    {
+        _disposables.Dispose();
+    }
 }

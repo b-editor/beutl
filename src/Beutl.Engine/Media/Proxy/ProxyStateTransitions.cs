@@ -1,4 +1,4 @@
-namespace Beutl.Media.Proxy;
+﻿namespace Beutl.Media.Proxy;
 
 public static class ProxyStateTransitions
 {
