@@ -9,6 +9,7 @@ End-to-end developer/manual-test walkthrough for the proxy media feature. The he
 ## 0. Prerequisites
 
 - Beutl built with `dotnet build Beutl.slnx` (or `/beutl-build`).
+- **The 003 resolution-independent pipeline is the implemented baseline** this feature builds on. The headline verification below depends on the 003 supply-density seam (a proxy keeps the clip's logical footprint and only lowers its `EffectiveScale`). If 003 is not present, several steps (4a, the export rationale in 8) will not apply.
 - FFmpeg installed via the existing `FFmpegInstallService` flow (Help → Install FFmpeg, or it'll prompt when needed).
 - One **heavy** source clip available locally (≥4K, ≥60 Mbps, ≥30 s long) — call its path `$SRC`.
 - One **lightweight** test source available (1080p ≥30 s) — call it `$SRC_SMALL`. Used for fast iteration.
@@ -48,6 +49,15 @@ End-to-end developer/manual-test walkthrough for the proxy media feature. The he
 1. Add a verbose log or use the debug overlay to confirm that `DecoderRegistry.OpenMediaFile` returned an `FFmpegReaderProxy` opened against `<store-root>/<hash>/quarter.mp4` for this clip.
 2. **Confirm**: scrubbing the timeline on `$SRC_SMALL` is visibly snappier than it was in step 1 (or measurably so via the perf overlay — meet SC-001 on `$SRC` later in step 7).
 
+## 4a. Verify the proxy preserves the logical footprint (post-003 — FR-021 / FR-022)
+
+> This step exists because of the 003 integration. Under 003 a source's logical footprint is derived from its decoded `FrameSize`; a naive smaller-proxy-file swap would shrink the clip on the canvas. The logical-size seam must prevent that.
+
+1. Note the on-canvas position and size of `$SRC_SMALL` with **Preview source = Original** (e.g. select the clip and read its transform/bounds, or screenshot it).
+2. Switch **Preview source = Proxy** (its `Quarter` proxy is `Ready` from step 3).
+3. **Confirm**: the clip occupies the **same** on-canvas area at the **same** position — it is **not** shrunk to 1/4 size and **not** moved. The proxy only lowered the supply density (the op's `EffectiveScale` is now `0.5`/`0.25`, not `1`); content, layout, and hit-testing are unchanged (003 US3 / SC-007).
+4. **If the clip moves or resizes**, the logical-size seam (T062–T065) is broken — escalate as a defect, not as expected behavior.
+
 ## 5. Verify fallback when proxy is missing (P1 acceptance)
 
 1. Without generating a proxy for `$SRC`, scrub the timeline over `$SRC`.
@@ -74,7 +84,7 @@ End-to-end developer/manual-test walkthrough for the proxy media feature. The he
 3. **Confirm**:
    - The exported file's resolution matches `$SRC` (NOT 1/4 of it).
    - Bit-comparable to an export run with proxies deleted: delete all proxies via "Delete all for this project", re-export, and either checksum the resulting files (if encoding is bit-deterministic) or verify visually-indistinguishable output.
-   - At the code level, `SceneComposer` constructs every `MediaOptions` with `PreferProxy = false` (audit via grep).
+   - At the code level, **every** export-path `MediaOptions` carries `PreferProxy = false` — audit via grep across `SceneComposer` **and** the 003 export call sites (`OutputViewModel` / `FrameProviderImpl`). Rationale (post-003): at export `s_out = 1.0`, 003's floor rule `w = max(s_out, densest supply)` would lift a `0.5` proxy back to `w = 1.0` and upsample it (soft); routing through the original is the only full-fidelity export.
 4. **If this step fails**, the entire feature is broken — escalate immediately. (FR-002 / FR-004 / SC-002.)
 
 ## 9. Verify staleness detection (US2 acceptance #2)
@@ -150,6 +160,7 @@ Both must be green before opening the PR. The FFmpegIpc test is gated on FFmpeg 
 Every numbered step above passes without manual intervention beyond the documented actions. In particular:
 
 - Step 8 (export uses original) **must** pass — it is the spec's headline guarantee.
+- Step 4a (proxy preserves the logical footprint) **must** pass — otherwise the 003 integration is broken and proxies visibly misplace content on the canvas.
 - Step 5 (fallback to original on missing proxy) **must** pass — proxies are an optimization, not a hard dependency.
 - Step 11 (eviction respects the pin set) **must** pass — otherwise we yank files out from under live decoders.
 

@@ -161,6 +161,8 @@ public record MediaOptions(
 
 `false` is the default — callers that don't know about proxies (export, codec discovery, etc.) keep getting the original. Only `SceneRenderer` opts in.
 
+> **Role of `PreferProxy` vs the size/density data (post-003)**: `PreferProxy` is **only the on/off toggle** — it tells `DecoderRegistry.OpenMediaFile` to consult `IProxyResolver`. The information needed to preserve the logical footprint and report supply density under 003 (the original logical size + the proxy's decoded size) is **not** carried on `MediaOptions`; it rides on the resolved `ProxyResolution` (see [contracts/IProxyResolver.md](./contracts/IProxyResolver.md)) and is consumed by the source / render-node layer (see "Source logical-size decoupling" below). A bare `bool` on `MediaOptions` is therefore sufficient and stays additive — consistent with 003 FR-025, which reserves room for a future decode-target-size hint without adding one now. The trade-off (bool-toggle + side-channel sizes vs a single decode-scale hint on `MediaOptions`) is recorded in research R-11.
+
 ### `Scene` (existing class)
 
 Add:
@@ -171,13 +173,32 @@ public PreviewSourceMode PreviewSourceMode { get; set; } = PreviewSourceMode.Pre
 
 Persistence: serialized into the existing `Scene` JSON via the existing `JsonSerializerOptions`. Default carries forward for projects saved without the field.
 
-### `SceneRenderer` (existing class)
+### `SceneRenderer` (existing class — changed by 003)
 
-Read `Scene.PreviewSourceMode` at the start of each render and stamp `MediaOptions.PreferProxy = (mode == PreferProxy)` on every `OpenMediaFile` call it issues.
+003 made the constructor **breaking**: `SceneRenderer(Scene scene, float renderScale = 1f, float maxWorkingScale = +∞)` (forwarded to `Renderer(width, height, renderScale, maxWorkingScale)`, also breaking in 003). The renderer is **immutable per instance** and rebuilt by-replacement off the resolved `(FrameSize, OutputScale)` observable (003 FR-031). Proxy wiring fits this lifecycle without another rebuild: read `Scene.PreviewSourceMode` and stamp `MediaOptions.PreferProxy = (mode == PreferProxy)` on every `OpenMediaFile` call it issues. Toggling the preview source mode changes only the per-source supply density (FR-023), **not** the render scale — so it invalidates the affected sources' render-cache entries and re-queues a render, but does **not** reconstruct `SceneRenderer`. (The `MediaOptions.PreferProxy` value is read fresh inside the render work-item, like 003 reads the renderer fresh.)
 
-### `SceneComposer` (existing class — export path)
+### `SceneComposer` / export path (existing — export path changed by 003)
 
-Construct every `MediaOptions` with `PreferProxy = false` **explicitly**, regardless of the default. The explicit assignment is the safety floor for FR-002 / FR-004 against future default changes.
+Construct every `MediaOptions` with `PreferProxy = false` **explicitly**, regardless of the default. The explicit assignment is the safety floor for FR-002 / FR-004 against future default changes. *(Post-003 note: 003 routes export through `OutputViewModel`, which builds `SceneRenderer(Model, supersampleScale, disableResourceShare: true)` and downscales in `FrameProviderImpl.RenderCore` when `OutputScale > 1` (003 FR-034). The proxy routing point is unchanged — every `MediaOptions` the export pass constructs still carries `PreferProxy = false` — but the audit must cover the 003 export call sites, not only the pre-003 `SceneComposer` helper.)*
+
+### Source logical-size decoupling (the 003 seam — NEW in this feature)
+
+This is the load-bearing integration with 003. As shipped by 003, the source layer couples logical size to decoded size:
+
+| Type (existing) | Site | Current (003-shipped) behavior | Required proxy behavior |
+|---|---|---|---|
+| `SourceImage` | `Graphics/SourceImage.cs:26` | `r.Source.FrameSize.ToSize(1)` (logical == decoded `FrameSize`) | Return the **original** logical size when the backing decode is a proxy |
+| `SourceVideo` | `Graphics/SourceVideo.cs:139` | same | same |
+| `ImageSourceRenderNode` | `Graphics/Rendering/ImageSourceRenderNode.cs` | `Bounds = …FrameSize.ToSize(1)`; `effectiveScale: EffectiveScale.At(1f)` (hard-coded) | `Bounds` from the **original** logical size; `EffectiveScale.At(proxyDecoded / originalLogical)`; draw the decoded proxy bitmap into the original-footprint dest rect |
+| `VideoSourceRenderNode` | `Graphics/Rendering/VideoSourceRenderNode.cs` | same | same |
+
+Design (to be pinned in `/speckit-tasks`): the original logical `FrameSize` and the proxy decoded `FrameSize` are carried on the resolved `ProxyResolution` (see [contracts/IProxyResolver.md](./contracts/IProxyResolver.md)) and threaded into the source `.Resource` / render node at open time, so:
+
+- the render node's `Bounds` (and the source's logical size) use the **original** `FrameSize` — the proxy does not move or resize content (FR-021);
+- the op reports `EffectiveScale.At(proxyDecodedPixels / originalLogicalPixels)` — e.g. `At(0.5)` for a `Half` proxy (FR-022);
+- the decoded proxy bitmap is drawn scaled into the original-footprint logical destination rect (the 003 FR-024 dest-rect seam — use the dest-rect draw path, not the native 1:1 `DrawBitmap` blit).
+
+When the backing decode is the original (no proxy, or `PreferProxy = false`, or export), the original `FrameSize` **is** the decoded `FrameSize`, the ratio is `1.0`, and behavior is byte-identical to 003 — so this seam is purely additive and introduces no change on the original path. This is exactly the "stable intrinsic-logical-size channel" 003 deferred (`003/data-model.md` "003 scope note", 003 FR-023/FR-024, US3 / SC-007).
 
 ---
 
@@ -193,7 +214,7 @@ Owns:
 ### `IProxyResolver` (interface — see [contracts/IProxyResolver.md](./contracts/IProxyResolver.md))
 
 Owns:
-- The "given a source URI + chosen preset, return a usable proxy path or null" decision.
+- The "given a source URI + chosen preset, return a usable proxy resolution or null" decision. A `ProxyResolution` carries not only the proxy file path but also the **original logical `FrameSize`** and the **proxy decoded `FrameSize`**, so the source / render-node layer can preserve the logical footprint and report the correct supply density under 003 (FR-021/FR-022).
 - Maintenance of `LastUsedUtc` (touch on hand-out).
 - The "pinned" set of proxy paths currently being read for preview (eviction safety clause).
 

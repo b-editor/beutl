@@ -6,7 +6,9 @@
 
 ## Summary
 
-While editing, Beutl must transparently serve preview decode requests from a low-resolution **proxy** of each heavy source clip; on export the renderer must always decode from the **original** source. The implementation routes the *preview decode path* through a new `IProxyResolver` consulted by `DecoderRegistry.OpenMediaFile`, while the *export decode path* (`SceneComposer` → encoder) explicitly bypasses it. Proxy generation reuses the existing `Beutl.FFmpegWorker` encoder via `FFmpegEncodingControllerProxy` — no new GPL coupling and no new IPC verbs. A new `ProxyStore` in `Beutl.Engine` persists a JSON-indexed cache of proxy files keyed on `(absolute path, file size, mtime)`, enforces a global LRU cap, and exposes a serial `ProxyJobQueue` for background generation. Project-level preview source mode (Proxy / Original) is persisted on `Scene`.
+While editing, Beutl must transparently serve preview decode requests from a low-resolution **proxy** of each heavy source clip; on export the renderer must always decode from the **original** source. The implementation routes the *preview decode path* through a new `IProxyResolver` consulted by `DecoderRegistry.OpenMediaFile`, while the *export decode path* (`SceneComposer` and/or the 003 `OutputViewModel` → encoder) explicitly bypasses it. Proxy generation reuses the existing `Beutl.FFmpegWorker` encoder via `FFmpegEncodingControllerProxy` — no new GPL coupling and no new IPC verbs. A new `ProxyStore` in `Beutl.Engine` persists a JSON-indexed cache of proxy files keyed on `(absolute path, file size, mtime)`, enforces a global LRU cap, and exposes a serial `ProxyJobQueue` for background generation. Project-level preview source mode (Proxy / Original) is persisted on `Scene`.
+
+**Post-003 note**: this feature builds on the now-implemented resolution-independent pipeline (`003-resolution-independent-pipeline`). The load-bearing addition over the pre-003 design is a **logical-size decoupling seam** — a proxy is modeled as a lower-density supply with an *unchanged* logical footprint, so `SourceImage`/`SourceVideo` and `Image/VideoSourceRenderNode` pin the clip's bounds to the original `FrameSize` and report `EffectiveScale.At(supplyDensity)` (replacing 003's hard-coded `At(1)`). The `MediaOptions.PreferProxy` toggle and `DecoderRegistry` choke point from R-1 remain; the sizes ride a `ProxyResolution` side-channel. Details: research R-11, spec FR-021/FR-022/FR-023.
 
 ## Technical Context
 
@@ -84,28 +86,34 @@ docs/specs/002-proxy-media/
 ```text
 src/
 ├── Beutl.Engine/
-│   └── Media/
-│       ├── Source/                                    # existing — extended (PreferProxy plumbing)
-│       │   ├── MediaSource.cs                         #   (touched: pass PreferProxy through Resource.Update)
-│       │   └── VideoSource.cs                         #   (touched: ditto)
-│       ├── Decoding/
-│       │   ├── DecoderRegistry.cs                     #   (touched: consult IProxyResolver when MediaOptions.PreferProxy)
-│       │   └── MediaOptions.cs                        #   (touched: add bool PreferProxy = false)
-│       └── Proxy/                                     # NEW namespace
-│           ├── IProxyResolver.cs                      # interface: source → ProxyEntry?
-│           ├── IProxyStore.cs                         # interface: lookup, register, evict, list, totals
-│           ├── ProxyStore.cs                          # default impl, JSON-indexed
-│           ├── ProxyStoreIndex.cs                     # in-memory index + serialization
-│           ├── ProxyEntry.cs                          # record: fingerprint + preset + state + lastUsedUtc + file
-│           ├── ProxyFingerprint.cs                    # struct: AbsolutePath + Size + MtimeUtc
-│           ├── ProxyPreset.cs                         # enum/record: Half / Quarter (+ Eighth optional)
-│           ├── ProxyPresetDefinitions.cs              # concrete H.264 params per preset
-│           ├── ProxyState.cs                          # enum: None / Generating / Ready / Stale / Failed / Partial
-│           ├── ProxyJob.cs                            # job descriptor + progress + cancel handle
-│           ├── ProxyJobQueue.cs                       # serial queue (SemaphoreSlim+Channel)
-│           ├── ProxyGenerationOrchestrator.cs         # decode source → re-encode via FFmpegEncodingControllerProxy
-│           ├── ProxyEvictionService.cs                # global LRU under configurable cap
-│           └── PreviewSourceMode.cs                   # enum: PreferProxy / ForceOriginal
+│   ├── Media/
+│   │   ├── Source/                                    # existing — extended (PreferProxy plumbing)
+│   │   │   ├── MediaSource.cs                         #   (touched: pass PreferProxy through Resource.Update)
+│   │   │   └── VideoSource.cs                         #   (touched: ditto)
+│   │   ├── Decoding/
+│   │   │   ├── DecoderRegistry.cs                     #   (touched: consult IProxyResolver when MediaOptions.PreferProxy; hand ProxyResolution to the source layer)
+│   │   │   └── MediaOptions.cs                        #   (touched: add bool PreferProxy = false — toggle only; sizes ride ProxyResolution)
+│   │   └── Proxy/                                     # NEW namespace
+│   │       ├── IProxyResolver.cs                      # interface: source → ProxyResolution? (path + original logical size + proxy decoded size)
+│   │       ├── IProxyStore.cs                         # interface: lookup, register, evict, list, totals
+│   │       ├── ProxyStore.cs                          # default impl, JSON-indexed
+│   │       ├── ProxyStoreIndex.cs                     # in-memory index + serialization
+│   │       ├── ProxyEntry.cs                          # record: fingerprint + preset + state + lastUsedUtc + file
+│   │       ├── ProxyFingerprint.cs                    # struct: AbsolutePath + Size + MtimeUtc
+│   │       ├── ProxyPreset.cs                         # enum/record: Half / Quarter (+ Eighth optional)
+│   │       ├── ProxyPresetDefinitions.cs              # concrete H.264 params per preset
+│   │       ├── ProxyState.cs                          # enum: None / Generating / Ready / Stale / Failed / Partial
+│   │       ├── ProxyJob.cs                            # job descriptor + progress + cancel handle
+│   │       ├── ProxyJobQueue.cs                       # serial queue (SemaphoreSlim+Channel)
+│   │       ├── ProxyGenerationOrchestrator.cs         # decode source → re-encode via FFmpegEncodingControllerProxy
+│   │       ├── ProxyEvictionService.cs                # global LRU under configurable cap
+│   │       └── PreviewSourceMode.cs                   # enum: PreferProxy / ForceOriginal
+│   └── Graphics/                                      # existing — extended (003 logical-size seam)
+│       ├── SourceImage.cs                             #   (touched: logical size = OriginalLogicalFrameSize when proxied, else FrameSize)
+│       ├── SourceVideo.cs                             #   (touched: ditto)
+│       └── Rendering/
+│           ├── ImageSourceRenderNode.cs               #   (touched: Bounds from original logical size; EffectiveScale.At(supplyDensity); dest-rect draw)
+│           └── VideoSourceRenderNode.cs               #   (touched: ditto — replaces hard-coded EffectiveScale.At(1))
 ├── Beutl.ProjectSystem/
 │   └── ProjectSystem/
 │       ├── Scene.cs                                   #   (touched: add PreviewSourceMode property; persist)
@@ -159,7 +167,8 @@ All preview-vs-export routing (the heart of the feature) is exercised through `P
 
 | Risk | Likelihood | Impact | Mitigation |
 |---|---|---|---|
-| `SceneRenderer` and `SceneComposer` share a media-resolution helper, breaking the "preview opts in, export bypasses" assumption | Low (separate files in repo) | High (whole design hinges on this) | Phase 0 includes a verification step that audits both call sites for `OpenMediaFile` and the surrounding `MediaOptions` construction. If they share a helper, the helper takes `PreferProxy` as a parameter and we keep the two call sites set it explicitly. |
+| **Opening a smaller proxy file shrinks the source's logical footprint under 003** (003 derives logical size from decoded `FrameSize`; render nodes hard-code `EffectiveScale.At(1)`) → the clip moves/resizes on canvas | **High** (the naive file-swap does exactly this) | **High** (visibly broken preview; defeats the feature) | Deliver the logical-size seam (FR-021/FR-022, tasks T062–T065, research R-11): carry `OriginalLogicalFrameSize` + `ProxyDecodedFrameSize` on `ProxyResolution`; pin render-node `Bounds` to the original `FrameSize`; report `EffectiveScale.At(supplyDensity)`; draw into the original-footprint dest rect. On the original path the ratio is `1.0` ⇒ byte-identical to 003. Verified by quickstart step 4a. |
+| `SceneRenderer` and the export path share a media-resolution helper, breaking the "preview opts in, export bypasses" assumption | Low (separate files in repo) | High (whole design hinges on this) | Phase 0 includes a verification step that audits **all** `OpenMediaFile` / `MediaOptions` call sites — including the 003 export path (`OutputViewModel` / `FrameProviderImpl`), not just the pre-003 `SceneComposer`. If they share a helper, the helper takes `PreferProxy` as a parameter and both call sites set it explicitly (export always `false`). Confirmed distinct by 003 (export goes through `OutputViewModel`). |
 | LRU eviction races with preview decode | Medium | Medium (could yank a file out from under the reader) | `ProxyEvictionService` consults an in-memory "pinned" set of proxy paths that `ProxyResolver` populates while a `MediaReader` is open. Eviction skips pinned entries (FR-018a safety clause). Tested in `ProxyEvictionTests`. |
 | Partial proxy file from crash mistakenly served as ready | Medium | High (silent wrong output in preview) | `ProxyStore` writes to `*.proxy.tmp` first, fsyncs, then renames to the canonical name and only then updates `index.json`. Boot-time scan finds dangling `.tmp` files and marks corresponding entries `Partial`. Tested in `ProxyStoreTests`. |
 | FFmpeg-not-installed surface | Medium | Medium (proxy generation silently fails) | Reuse existing `FFmpegInstallNotifier`; surface install prompt the first time a generation job is queued without FFmpeg. |
