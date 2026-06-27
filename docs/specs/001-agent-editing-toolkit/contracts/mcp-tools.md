@@ -41,10 +41,16 @@ Bind a live session to the project/scene currently open in the running editor (F
 - **Errors**: `workspace_boundary`.
 
 ### `create_project`
-Create a new project/scene (FR-001/FR-002).
-- **Input**: `{ "path": string, "frameSize": [w,h], "frameRate": number, "duration": string }` (write — guarded).
+Create a new project with its initial scene (FR-001/FR-002).
+- **Input**: `{ "path": string, "frameSize": [w,h], "frameRate": number, "duration": string }` (write — guarded; an existing target path routes through the destructive-write guard ⇒ `destructive_intent` unless confirmed).
 - **Output**: `{ "session": string }`.
-- **Errors**: `workspace_boundary`, `validation_rejected`.
+- **Errors**: `workspace_boundary`, `validation_rejected`, `destructive_intent`.
+
+### `add_scene`
+Add a scene to an existing project (FR-002) — a project-level, file-level operation outside any scene's undo stack (data-model §Editing Session "Scope").
+- **Input**: `{ "session": string, "frameSize": [w,h], "start": string, "duration": string }`.
+- **Output**: `{ "sceneId": guid }`.
+- **Errors**: `validation_rejected`. (A subsequent `save_project` persists it through the workspace + destructive-write guards.)
 
 ## Declarative edit (the primary loop)
 
