@@ -17,6 +17,7 @@ namespace Beutl.AgentHost;
 
 public sealed class AgentHostEndpoint : IAsyncDisposable
 {
+    private static readonly TimeSpan s_shutdownTimeout = TimeSpan.FromSeconds(2);
     private readonly EditorService _editorService;
     private WebApplication? _application;
 
@@ -88,20 +89,65 @@ public sealed class AgentHostEndpoint : IAsyncDisposable
 
     public async Task StopAsync(CancellationToken cancellationToken = default)
     {
-        WebApplication? app = _application;
-        _application = null;
-        EndpointUri = null;
+        WebApplication? app = TakeApplication();
 
         if (app is not null)
         {
-            await app.StopAsync(cancellationToken).ConfigureAwait(false);
-            await app.DisposeAsync().ConfigureAwait(false);
+            await StopAndDisposeAsync(app, cancellationToken).ConfigureAwait(false);
+        }
+    }
+
+    public void RequestStop()
+    {
+        WebApplication? app = TakeApplication();
+        if (app is not null)
+        {
+            _ = StopAndDisposeWithTimeoutAsync(app);
         }
     }
 
     public async ValueTask DisposeAsync()
     {
         await StopAsync().ConfigureAwait(false);
+    }
+
+    private WebApplication? TakeApplication()
+    {
+        WebApplication? app = Interlocked.Exchange(ref _application, null);
+        EndpointUri = null;
+        return app;
+    }
+
+    private static async Task StopAndDisposeWithTimeoutAsync(WebApplication app)
+    {
+        using var cts = new CancellationTokenSource(s_shutdownTimeout);
+
+        try
+        {
+            await StopAndDisposeAsync(app, cts.Token).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
+        }
+        catch (ObjectDisposedException)
+        {
+        }
+        catch (Exception ex)
+        {
+            _ = ex;
+        }
+    }
+
+    private static async Task StopAndDisposeAsync(WebApplication app, CancellationToken cancellationToken)
+    {
+        try
+        {
+            await app.StopAsync(cancellationToken).ConfigureAwait(false);
+        }
+        finally
+        {
+            await app.DisposeAsync().ConfigureAwait(false);
+        }
     }
 
     private async Task RequireToken(HttpContext context, RequestDelegate next)

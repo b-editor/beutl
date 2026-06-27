@@ -50,6 +50,24 @@ public sealed class AgentHostEndpointTests
     }
 
     [AvaloniaTest]
+    public async Task RequestStop_marks_endpoint_stopped_without_awaiting_host_shutdown()
+    {
+        await TestReset.ResetShellAsync();
+        var endpoint = new AgentHostEndpoint(new EditorService(new ExtensionProvider()));
+
+        await endpoint.StartAsync();
+        endpoint.RequestStop();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(endpoint.IsRunning, Is.False);
+            Assert.That(endpoint.EndpointUri, Is.Null);
+        });
+
+        await endpoint.StopAsync();
+    }
+
+    [AvaloniaTest]
     public async Task AttachActiveEditor_without_open_editor_returns_typed_error()
     {
         await TestReset.ResetShellAsync();
