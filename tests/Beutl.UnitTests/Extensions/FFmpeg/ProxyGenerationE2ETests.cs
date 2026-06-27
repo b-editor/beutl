@@ -101,6 +101,24 @@ public sealed class ProxyGenerationE2ETests
         Assert.That(store.Enumerate(), Is.Empty);
     }
 
+    [Test]
+    public void CreateTempPathForOutput_PreservesContainerExtensionForFormatGuess()
+    {
+        string directory = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
+        string finalPath = Path.Combine(directory, "quarter.mp4");
+
+        string tempPath = FFmpegProxyGenerator.CreateTempPathForOutput(finalPath);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(Path.GetDirectoryName(tempPath), Is.EqualTo(directory));
+            Assert.That(Path.GetFileName(tempPath), Does.StartWith("quarter."));
+            Assert.That(Path.GetFileName(tempPath), Does.Contain(".tmp"));
+            Assert.That(tempPath, Does.EndWith(".mp4"));
+            Assert.That(tempPath, Is.Not.EqualTo(finalPath));
+        });
+    }
+
     private static string CreateRoot()
     {
         string root = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));

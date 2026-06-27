@@ -48,7 +48,7 @@ public sealed class FFmpegProxyGenerator(IProxyStore store) : IProxyGenerator
         PixelSize proxySize = CalculateProxySize(originalSize, job.Preset);
         string relative = BuildRelativePath(job.Source, job.Preset);
         string finalPath = Path.Combine(store.StoreRootPath, relative.Replace('/', Path.DirectorySeparatorChar));
-        string tempPath = finalPath + ".tmp";
+        string tempPath = CreateTempPathForOutput(finalPath);
         Directory.CreateDirectory(Path.GetDirectoryName(finalPath)!);
 
         try
@@ -154,6 +154,14 @@ public sealed class FFmpegProxyGenerator(IProxyStore store) : IProxyGenerator
         byte[] hash = SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(key));
         string dir = Convert.ToHexString(hash).ToLowerInvariant();
         return $"{dir}/{preset.ToString().ToLowerInvariant()}.mp4";
+    }
+
+    internal static string CreateTempPathForOutput(string finalPath)
+    {
+        string directory = Path.GetDirectoryName(finalPath) ?? string.Empty;
+        string extension = Path.GetExtension(finalPath);
+        string fileName = $"{Path.GetFileNameWithoutExtension(finalPath)}.{Guid.NewGuid():N}.tmp{extension}";
+        return Path.Combine(directory, fileName);
     }
 
     private static void WriteMetadata(string finalPath, ProxyEntry entry)
