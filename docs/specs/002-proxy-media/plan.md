@@ -6,9 +6,9 @@
 
 ## Summary
 
-While editing, Beutl must transparently serve preview decode requests from a low-resolution **proxy** of each heavy source clip; on export the renderer must always decode from the **original** source. The implementation routes the *preview decode path* through a new `IProxyResolver` consulted by `DecoderRegistry.OpenMediaFile`, while the *export decode path* (`SceneComposer` and/or the 003 `OutputViewModel` → encoder) explicitly bypasses it. Proxy generation reuses the existing `Beutl.FFmpegWorker` encoder via `FFmpegEncodingControllerProxy` — no new GPL coupling and no new IPC verbs. A new `ProxyStore` in `Beutl.Engine` persists a JSON-indexed cache of proxy files keyed on `(absolute path, file size, mtime)`, enforces a global LRU cap, and exposes a serial `ProxyJobQueue` for background generation. Project-level preview source mode (Proxy / Original) is persisted on `Scene`.
+While editing, Beutl must transparently serve preview video decode requests from a low-resolution **proxy** of each heavy source clip; on export the renderer must always decode from the **original** source. The implementation routes the *preview decode path* through a new `IProxyResolver` consulted by `DecoderRegistry.OpenMediaFile`, while the *export decode path* keeps the render context's `PreferProxy` value `false` so `VideoSource.Resource.Update` constructs original-only `MediaOptions`. Proxy generation reuses the existing `Beutl.FFmpegWorker` encoder via `FFmpegEncodingControllerProxy` — no new GPL coupling and no new IPC verbs. A new `ProxyStore` in `Beutl.Engine` persists a JSON-indexed cache of proxy files keyed on `(absolute path, file size, mtime)`, enforces a global LRU cap, and exposes a serial `ProxyJobQueue` for background generation. Project-level preview source mode (Proxy / Original) is persisted on `Scene`.
 
-**Post-003 note**: this feature builds on the now-implemented resolution-independent pipeline (`003-resolution-independent-pipeline`). The load-bearing addition over the pre-003 design is a **logical-size decoupling seam** — a proxy is modeled as a lower-density supply with an *unchanged* logical footprint, so `SourceImage`/`SourceVideo` and `Image/VideoSourceRenderNode` pin the clip's bounds to the original `FrameSize` and report `EffectiveScale.At(supplyDensity)` (replacing 003's hard-coded `At(1)`). The `MediaOptions.PreferProxy` toggle and `DecoderRegistry` choke point from R-1 remain; the sizes ride a `ProxyResolution` side-channel. Details: research R-11, spec FR-021/FR-022/FR-023.
+**Post-003 note**: this feature builds on the now-implemented resolution-independent pipeline (`003-resolution-independent-pipeline`). The load-bearing addition over the pre-003 design is a **logical-size decoupling seam** for proxied video — a proxy is modeled as a lower-density supply with an *unchanged* logical footprint, so `SourceVideo` and `VideoSourceRenderNode` pin the clip's bounds to the original `FrameSize` and report `EffectiveScale.At(supplyDensity)` (replacing 003's hard-coded `At(1)`). The `MediaOptions.PreferProxy` toggle and `DecoderRegistry` choke point from R-1 remain; the sizes ride a `ProxyResolution` side-channel. Still images remain on the existing `ImageSource` path for the MVP. Details: research R-11, spec FR-021/FR-022/FR-023.
 
 ## Technical Context
 
@@ -86,10 +86,11 @@ docs/specs/002-proxy-media/
 ```text
 src/
 ├── Beutl.Engine/
+│   ├── Composition/
+│   │   └── CompositionContext.cs                      #   (touched: add PreferProxy context flag next to DisableResourceShare)
 │   ├── Media/
 │   │   ├── Source/                                    # existing — extended (PreferProxy plumbing)
-│   │   │   ├── MediaSource.cs                         #   (touched: pass PreferProxy through Resource.Update)
-│   │   │   └── VideoSource.cs                         #   (touched: ditto)
+│   │   │   └── VideoSource.cs                         #   (touched: copy context.PreferProxy into MediaOptions)
 │   │   ├── Decoding/
 │   │   │   ├── DecoderRegistry.cs                     #   (touched: consult IProxyResolver when MediaOptions.PreferProxy; hand ProxyResolution to the source layer)
 │   │   │   └── MediaOptions.cs                        #   (touched: add bool PreferProxy = false — toggle only; sizes ride ProxyResolution)
@@ -108,17 +109,15 @@ src/
 │   │       ├── ProxyGenerationOrchestrator.cs         # decode source → re-encode via FFmpegEncodingControllerProxy
 │   │       ├── ProxyEvictionService.cs                # global LRU under configurable cap
 │   │       └── PreviewSourceMode.cs                   # enum: PreferProxy / ForceOriginal
-│   └── Graphics/                                      # existing — extended (003 logical-size seam)
-│       ├── SourceImage.cs                             #   (touched: logical size = OriginalLogicalFrameSize when proxied, else FrameSize)
-│       ├── SourceVideo.cs                             #   (touched: ditto)
+│   └── Graphics/                                      # existing — extended (003 video logical-size seam)
+│       ├── SourceVideo.cs                             #   (touched: logical size = OriginalLogicalFrameSize when proxied, else FrameSize)
 │       └── Rendering/
-│           ├── ImageSourceRenderNode.cs               #   (touched: Bounds from original logical size; EffectiveScale.At(supplyDensity); dest-rect draw)
-│           └── VideoSourceRenderNode.cs               #   (touched: ditto — replaces hard-coded EffectiveScale.At(1))
+│           └── VideoSourceRenderNode.cs               #   (touched: Bounds from original logical size; EffectiveScale.At(supplyDensity); dest-rect draw)
 ├── Beutl.ProjectSystem/
-│   └── ProjectSystem/
-│       ├── Scene.cs                                   #   (touched: add PreviewSourceMode property; persist)
-│       ├── SceneRenderer.cs                           #   (touched: set MediaOptions.PreferProxy from Scene.PreviewSourceMode)
-│       └── SceneComposer.cs                           #   (touched: ALWAYS set MediaOptions.PreferProxy = false)
+│   ├── ProjectSystem/
+│   │   └── Scene.cs                                   #   (touched: add PreviewSourceMode property; persist)
+│   ├── SceneRenderer.cs                               #   (existing 003 ctor; no MediaOptions construction)
+│   └── SceneCompositor.cs                             #   (touched: seed CompositionContext.PreferProxy for preview only)
 ├── Beutl.Configuration/
 │   └── ProxyStoreConfig.cs                            # NEW: store root path, LRU cap, default preset
 └── Beutl.Editor*/                                     # UI (new tool tab + toggle)
@@ -168,7 +167,7 @@ All preview-vs-export routing (the heart of the feature) is exercised through `P
 | Risk | Likelihood | Impact | Mitigation |
 |---|---|---|---|
 | **Opening a smaller proxy file shrinks the source's logical footprint under 003** (003 derives logical size from decoded `FrameSize`; render nodes hard-code `EffectiveScale.At(1)`) → the clip moves/resizes on canvas | **High** (the naive file-swap does exactly this) | **High** (visibly broken preview; defeats the feature) | Deliver the logical-size seam (FR-021/FR-022, tasks T062–T065, research R-11): carry `OriginalLogicalFrameSize` + `ProxyDecodedFrameSize` on `ProxyResolution`; pin render-node `Bounds` to the original `FrameSize`; report `EffectiveScale.At(supplyDensity)`; draw into the original-footprint dest rect. On the original path the ratio is `1.0` ⇒ byte-identical to 003. Verified by quickstart step 4a. |
-| `SceneRenderer` and the export path share a media-resolution helper, breaking the "preview opts in, export bypasses" assumption | Low (separate files in repo) | High (whole design hinges on this) | Phase 0 includes a verification step that audits **all** `OpenMediaFile` / `MediaOptions` call sites — including the 003 export path (`OutputViewModel` / `FrameProviderImpl`), not just the pre-003 `SceneComposer`. If they share a helper, the helper takes `PreferProxy` as a parameter and both call sites set it explicitly (export always `false`). Confirmed distinct by 003 (export goes through `OutputViewModel`). |
+| Preview and export accidentally share a `PreferProxy = true` render context | Low (003 export builds its own `SceneRenderer` with `disableResourceShare: true`) | High (whole design hinges on export never using proxies) | Phase 0 includes a verification step that audits **all** `OpenMediaFile` / `MediaOptions` call sites and the `CompositionContext` seeding path. The preview `SceneCompositor` is the only place that reads `Scene.PreviewSourceMode`; the export renderer's context leaves `PreferProxy` at the default `false`. T024/T030 cover the export context seam. |
 | LRU eviction races with preview decode | Medium | Medium (could yank a file out from under the reader) | `ProxyEvictionService` consults an in-memory "pinned" set of proxy paths that `ProxyResolver` populates while a `MediaReader` is open. Eviction skips pinned entries (FR-018a safety clause). Tested in `ProxyEvictionTests`. |
 | Partial proxy file from crash mistakenly served as ready | Medium | High (silent wrong output in preview) | `ProxyStore` writes to `*.proxy.tmp` first, fsyncs, then renames to the canonical name and only then updates `index.json`. Boot-time scan finds dangling `.tmp` files and marks corresponding entries `Partial`. Tested in `ProxyStoreTests`. |
 | FFmpeg-not-installed surface | Medium | Medium (proxy generation silently fails) | Reuse existing `FFmpegInstallNotifier`; surface install prompt the first time a generation job is queued without FFmpeg. |
