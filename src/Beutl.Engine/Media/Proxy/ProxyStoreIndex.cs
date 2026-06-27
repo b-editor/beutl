@@ -2,7 +2,9 @@
 
 public sealed record ProxyStoreIndex
 {
-    public int Version { get; init; } = 1;
+    public const int CurrentVersion = 2;
+
+    public int Version { get; init; } = CurrentVersion;
 
     public List<ProxyEntry> Entries { get; init; } = [];
 
@@ -11,7 +13,9 @@ public sealed record ProxyStoreIndex
 
 public sealed record ProxySourceMetadata
 {
-    public int Version { get; init; } = 1;
+    public const int CurrentVersion = 2;
+
+    public int Version { get; init; } = CurrentVersion;
 
     public ProxyFingerprint Source { get; init; }
 
