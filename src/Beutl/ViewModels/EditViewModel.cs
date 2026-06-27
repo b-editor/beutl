@@ -1,5 +1,6 @@
 ﻿using System.ComponentModel;
 using System.Numerics;
+using System.Reactive.Disposables;
 using System.Reactive.Linq;
 using System.Security;
 using System.Text.Json;
@@ -12,6 +13,7 @@ using Beutl.Graphics.Rendering.Cache;
 using Beutl.Helpers;
 using Beutl.Logging;
 using Beutl.Media;
+using Beutl.Media.Proxy;
 using Beutl.Models;
 using Beutl.ProjectSystem;
 using Beutl.Serialization;
@@ -108,6 +110,17 @@ public sealed partial class EditViewModel : IEditorContext, ISupportAutoSaveEdit
             .DisposePreviousValue()
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables)!;
+        scene.GetObservable(Scene.PreviewSourceModeProperty)
+            .Skip(1)
+            .Subscribe(_ => FrameCacheManager.Value.Clear())
+            .DisposeWith(_disposables);
+
+        if (ProxyMediaServices.Current?.Store is { } proxyStore)
+        {
+            proxyStore.Changed += OnProxyStoreChanged;
+            Disposable.Create(() => proxyStore.Changed -= OnProxyStoreChanged)
+                .DisposeWith(_disposables);
+        }
 
         config.PropertyChanged += OnEditorConfigPropertyChanged;
 
@@ -182,6 +195,16 @@ public sealed partial class EditViewModel : IEditorContext, ISupportAutoSaveEdit
                 _logger.LogInformation("Updating RenderNodeCacheHelper options due to EditorConfig change.");
                 Renderer.Value.CacheOptions = RenderCacheOptions.CreateFromGlobalConfiguration();
             }
+        }
+    }
+
+    private void OnProxyStoreChanged(object? sender, ProxyStoreChangedEventArgs e)
+    {
+        if (e.Kind is ProxyStoreChangeKind.Registered
+            or ProxyStoreChangeKind.StateChanged
+            or ProxyStoreChangeKind.Deleted)
+        {
+            FrameCacheManager.Value.Clear();
         }
     }
 
@@ -817,6 +840,18 @@ public sealed partial class EditViewModel : IEditorContext, ISupportAutoSaveEdit
 
         if (serviceType.IsAssignableTo(typeof(IPropertiesEditorFactory)))
             return _propertiesEditorFactory ??= new Services.Adapters.PropertiesEditorFactoryImpl(ExtensionProvider);
+
+        if (serviceType.IsAssignableTo(typeof(IProxyStore)))
+            return ProxyMediaServices.Current?.Store;
+
+        if (serviceType.IsAssignableTo(typeof(IProxyResolver)))
+            return ProxyMediaServices.Current?.Resolver;
+
+        if (serviceType.IsAssignableTo(typeof(IProxyJobQueue)))
+            return ProxyMediaServices.Current?.Queue;
+
+        if (serviceType == typeof(ProxyEvictionService))
+            return ProxyMediaServices.Current?.EvictionService;
 
         return null;
     }

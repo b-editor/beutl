@@ -136,7 +136,7 @@ public partial class SourceVideo : Drawable, IOriginalDurationProvider, ISplitta
         var r = (Resource)resource;
         if (r.Source?.IsDisposed == false)
         {
-            return r.Source.FrameSize.ToSize(1);
+            return r.Source.LogicalFrameSize.ToSize(1);
         }
         else
         {

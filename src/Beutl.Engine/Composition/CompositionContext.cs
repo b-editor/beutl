@@ -12,6 +12,8 @@ public class CompositionContext(TimeSpan time)
 
     public bool DisableResourceShare { get; init; }
 
+    public bool PreferProxy { get; init; }
+
     public virtual T Get<T>(IProperty<T> property)
     {
         if (property == null)

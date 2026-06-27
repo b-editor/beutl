@@ -1,5 +1,6 @@
 ﻿using System.Diagnostics.CodeAnalysis;
 using Beutl.Media.Music;
+using Beutl.Media.Proxy;
 using Beutl.Media.Source;
 
 namespace Beutl.Media.Decoding;
@@ -20,6 +21,8 @@ public abstract class MediaReader : IDisposable
     public abstract bool HasVideo { get; }
 
     public abstract bool HasAudio { get; }
+
+    public virtual ProxyResolution? ProxyResolution => null;
 
     public static MediaReader Open(string file)
     {

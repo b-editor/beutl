@@ -11,6 +11,7 @@ This subtree is the **rendering / scene-graph core**. Nothing else in the soluti
 - `Audio/` — sample-rate-agnostic audio graph
 - `Composition/` — track / clip / element composition layered on top of Graphics
 - `Engine/` — top-level scene container
+- `Media/Proxy/` — MIT-side proxy metadata, resolver, queue, eviction, and value types. Concrete FFmpeg generation stays outside Engine.
 
 ## Mandatory rules in this subtree
 
@@ -19,6 +20,7 @@ This subtree is the **rendering / scene-graph core**. Nothing else in the soluti
 3. **`InternalsVisibleTo`** is granted to `Beutl`, `Beutl.UnitTests`, `Beutl.Graphics3DTests`. Do not add more without a discussion.
 4. **`FilterEffect` / `Drawable` authoring** has dedicated guides. When the user describes a new effect or drawable, prefer the `beutl-filter-effect` / `beutl-drawable` skills over hand-rolled implementations.
 5. **Avoid allocations on the render hot path.** Prefer `stackalloc` / pooled arrays in render-node `Render(...)` and `Hit(...)` implementations. Profile before optimising past that.
+6. **Proxy media stays on the MIT side.** `Media/Proxy/` may expose Engine abstractions such as `IProxyGenerator`, but it must not reference `Beutl.Extensions.FFmpeg`, `Beutl.FFmpegWorker`, or FFmpeg IPC implementation types.
 
 ## Common traps
 

@@ -122,6 +122,7 @@ public sealed class App : Application
         PropertyEditorExtension.DefaultHandler = new PropertyEditorService.PropertyEditorExtensionImpl();
         NotificationService.Handler = new NotificationServiceHandler();
         TutorialService.Current = new TutorialServiceHandler();
+        ProxyMediaServices.Initialize(GlobalConfiguration.Instance);
 
         // Setup AppHelper delegates for Beutl.Editor.Components
         AppHelper.GetContextCommandManager = GetContextCommandManager;

@@ -1,6 +1,7 @@
 ﻿using Beutl.Editor;
 using Beutl.Editor.Services;
 using Beutl.Media;
+using Beutl.Media.Proxy;
 using Beutl.ProjectSystem;
 using Beutl.UnitTests.TestInfrastructure;
 
@@ -44,7 +45,7 @@ public class SceneSettingsServiceTests
     {
         int before = _history.UndoCount;
 
-        bool changed = _service.Apply(_scene, _scene.FrameSize, _scene.Start, _scene.Duration);
+        bool changed = _service.Apply(_scene, _scene.FrameSize, _scene.Start, _scene.Duration, _scene.PreviewSourceMode);
 
         Assert.Multiple(() =>
         {
@@ -61,7 +62,7 @@ public class SceneSettingsServiceTests
         TimeSpan keepDuration = _scene.Duration;
         var newSize = new PixelSize(1920, 1080);
 
-        bool changed = _service.Apply(_scene, newSize, keepStart, keepDuration);
+        bool changed = _service.Apply(_scene, newSize, keepStart, keepDuration, _scene.PreviewSourceMode);
 
         Assert.Multiple(() =>
         {
@@ -81,7 +82,7 @@ public class SceneSettingsServiceTests
         var newStart = TimeSpan.FromSeconds(3);
         var newDuration = TimeSpan.FromSeconds(10);
 
-        bool changed = _service.Apply(_scene, newSize, newStart, newDuration);
+        bool changed = _service.Apply(_scene, newSize, newStart, newDuration, PreviewSourceMode.ForceOriginal);
 
         Assert.Multiple(() =>
         {
@@ -89,7 +90,28 @@ public class SceneSettingsServiceTests
             Assert.That(_scene.FrameSize, Is.EqualTo(newSize));
             Assert.That(_scene.Start, Is.EqualTo(newStart));
             Assert.That(_scene.Duration, Is.EqualTo(newDuration));
-            // The three field writes must collapse into one entry, so one Undo reverts the Apply.
+            Assert.That(_scene.PreviewSourceMode, Is.EqualTo(PreviewSourceMode.ForceOriginal));
+            // The field writes must collapse into one entry, so one Undo reverts the Apply.
+            Assert.That(_history.UndoCount, Is.EqualTo(before + 1));
+        });
+    }
+
+    [Test]
+    public void Apply_OnlyPreviewSourceModeChanged_AppliesAndCommitsOnce()
+    {
+        int before = _history.UndoCount;
+
+        bool changed = _service.Apply(
+            _scene,
+            _scene.FrameSize,
+            _scene.Start,
+            _scene.Duration,
+            PreviewSourceMode.ForceOriginal);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(changed, Is.True);
+            Assert.That(_scene.PreviewSourceMode, Is.EqualTo(PreviewSourceMode.ForceOriginal));
             Assert.That(_history.UndoCount, Is.EqualTo(before + 1));
         });
     }
@@ -101,7 +123,14 @@ public class SceneSettingsServiceTests
         TimeSpan originalStart = _scene.Start;
         TimeSpan originalDuration = _scene.Duration;
 
-        _service.Apply(_scene, new PixelSize(1280, 720), TimeSpan.FromSeconds(3), TimeSpan.FromSeconds(10));
+        PreviewSourceMode originalPreviewSourceMode = _scene.PreviewSourceMode;
+
+        _service.Apply(
+            _scene,
+            new PixelSize(1280, 720),
+            TimeSpan.FromSeconds(3),
+            TimeSpan.FromSeconds(10),
+            PreviewSourceMode.ForceOriginal);
         _history.Undo();
 
         Assert.Multiple(() =>
@@ -109,6 +138,7 @@ public class SceneSettingsServiceTests
             Assert.That(_scene.FrameSize, Is.EqualTo(originalSize));
             Assert.That(_scene.Start, Is.EqualTo(originalStart));
             Assert.That(_scene.Duration, Is.EqualTo(originalDuration));
+            Assert.That(_scene.PreviewSourceMode, Is.EqualTo(originalPreviewSourceMode));
         });
     }
 }

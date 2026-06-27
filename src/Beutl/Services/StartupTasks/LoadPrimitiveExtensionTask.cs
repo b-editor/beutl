@@ -13,6 +13,7 @@ using Beutl.Editor.Components.NodeGraphTab;
 using Beutl.Editor.Components.ObjectPropertyTab;
 using Beutl.Editor.Components.PathEditorTab;
 using Beutl.Editor.Components.PreviewSettingsTab;
+using Beutl.Editor.Components.ProxiesTab;
 using Beutl.Editor.Components.SceneSettingsTab;
 using Beutl.Editor.Components.TerminalTab;
 using Beutl.Logging;
@@ -41,6 +42,7 @@ public sealed class LoadPrimitiveExtensionTask : StartupTask
         GraphEditorTabExtension.Instance,
         SceneSettingsTabExtension.Instance,
         PreviewSettingsTabExtension.Instance,
+        ProxiesTabExtension.Instance,
         WaveReaderExtension.Instance,
         PathEditorTabExtension.Instance,
         LibraryTabExtension.Instance,
