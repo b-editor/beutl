@@ -23,6 +23,7 @@ public class IpcProviderContractTests
     // 1x1 RgbaF16 frame: 4 channels * 2 bytes. The host writes a frame signature into the first
     // bytes of the shared buffer so the test can read back which frame the provider actually returned.
     private const int FrameDataLength = 8;
+    private const int Bgra8888BytesPerPixel = 4;
     // RgbaF16 stride: 4 channels * 2 bytes. Distinct from FrameDataLength, a whole 1x1 frame.
     private const int RgbaF16BytesPerPixel = 8;
     // Stereo32BitFloat: 2 channels * 4 bytes.
@@ -113,7 +114,8 @@ public class IpcProviderContractTests
     // Fake host that replies to every request with one fixed ProvideFrame, so a test can drive the
     // provider's frame-validation guards with specific Width/Height/DataLength values.
     private static Task RunMalformedFrameHost(
-        NamedPipeServerStream server, int width, int height, int dataLength, CancellationToken ct)
+        NamedPipeServerStream server, int width, int height, int dataLength, CancellationToken ct,
+        int bytesPerPixel = RgbaF16BytesPerPixel)
     {
         return Task.Run(async () =>
         {
@@ -127,7 +129,7 @@ public class IpcProviderContractTests
                 {
                     Width = width,
                     Height = height,
-                    BytesPerPixel = RgbaF16BytesPerPixel,
+                    BytesPerPixel = bytesPerPixel,
                     DataLength = dataLength,
                     Premul = false,
                 });
@@ -287,6 +289,38 @@ public class IpcProviderContractTests
         }
     }
 
+    [Test]
+    public async Task RenderFrame_WhenWorkerReportsBgra8888Frame_ReturnsBgra8888Bitmap()
+    {
+        var (server, client) = ConnectPair();
+        var buffers = CreateBuffers();
+        var hostCts = new CancellationTokenSource();
+        var hostTask = RunMalformedFrameHost(
+            server, width: 1, height: 1, dataLength: Bgra8888BytesPerPixel, ct: hostCts.Token,
+            bytesPerPixel: Bgra8888BytesPerPixel);
+
+        using var conn = new IpcConnection(client);
+        var provider = new IpcFrameProvider(conn, buffers, frameCount: 1, frameRate: new Rational(30, 1));
+
+        try
+        {
+            using Bitmap bitmap = await provider.RenderFrame(0);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(bitmap.ColorType, Is.EqualTo(BitmapColorType.Bgra8888));
+                Assert.That(bitmap.ColorSpace, Is.EqualTo(BitmapColorSpace.Srgb));
+                Assert.That(bitmap.BytesPerPixel, Is.EqualTo(Bgra8888BytesPerPixel));
+                Assert.That(bitmap.ByteCount, Is.EqualTo(Bgra8888BytesPerPixel));
+            });
+        }
+        finally
+        {
+            await StopHost(hostCts, server, hostTask);
+            DisposeBuffers(buffers);
+        }
+    }
+
     [TestCase(FrameDataLength * 2)]
     [TestCase(FrameDataLength / 2)]
     [TestCase(0)]
@@ -295,7 +329,7 @@ public class IpcProviderContractTests
         var (server, client) = ConnectPair();
         var buffers = CreateBuffers();
         var hostCts = new CancellationTokenSource();
-        var hostTask = RunMalformedFrameHost(server, width: 1, height: 1, dataLength, hostCts.Token);
+        var hostTask = RunMalformedFrameHost(server, width: 1, height: 1, dataLength: dataLength, ct: hostCts.Token);
 
         using var conn = new IpcConnection(client);
         // frameCount 1 makes frame 0 the last frame, so no prefetch is armed and nothing dangles.
@@ -314,6 +348,32 @@ public class IpcProviderContractTests
         }
     }
 
+    [Test]
+    public async Task RenderFrame_WhenWorkerReportsUnsupportedBytesPerPixel_Throws()
+    {
+        var (server, client) = ConnectPair();
+        var buffers = CreateBuffers();
+        var hostCts = new CancellationTokenSource();
+        var hostTask = RunMalformedFrameHost(
+            server, width: 1, height: 1, dataLength: 3, ct: hostCts.Token,
+            bytesPerPixel: 3);
+
+        using var conn = new IpcConnection(client);
+        var provider = new IpcFrameProvider(conn, buffers, frameCount: 1, frameRate: new Rational(30, 1));
+
+        try
+        {
+            Assert.That(async () => await provider.RenderFrame(0),
+                Throws.TypeOf<InvalidOperationException>()
+                    .With.Message.Contains("Unsupported frame BytesPerPixel"));
+        }
+        finally
+        {
+            await StopHost(hostCts, server, hostTask);
+            DisposeBuffers(buffers);
+        }
+    }
+
     [TestCase(0, 1)]
     [TestCase(1, 0)]
     public async Task RenderFrame_WhenFrameDimensionsAreNonPositive_Throws(int width, int height)
@@ -323,7 +383,7 @@ public class IpcProviderContractTests
         var (server, client) = ConnectPair();
         var buffers = CreateBuffers();
         var hostCts = new CancellationTokenSource();
-        var hostTask = RunMalformedFrameHost(server, width, height, dataLength: 0, hostCts.Token);
+        var hostTask = RunMalformedFrameHost(server, width, height, dataLength: 0, ct: hostCts.Token);
 
         using var conn = new IpcConnection(client);
         var provider = new IpcFrameProvider(conn, buffers, frameCount: 1, frameRate: new Rational(30, 1));
@@ -352,7 +412,8 @@ public class IpcProviderContractTests
         var buffers = CreateBuffers();
         var hostCts = new CancellationTokenSource();
         const int oversizedDataLength = 32 * 32 * RgbaF16BytesPerPixel; // 8192 > BufferCapacity 4096
-        var hostTask = RunMalformedFrameHost(server, width: 32, height: 32, oversizedDataLength, hostCts.Token);
+        var hostTask = RunMalformedFrameHost(
+            server, width: 32, height: 32, dataLength: oversizedDataLength, ct: hostCts.Token);
 
         using var conn = new IpcConnection(client);
         var provider = new IpcFrameProvider(conn, buffers, frameCount: 1, frameRate: new Rational(30, 1));

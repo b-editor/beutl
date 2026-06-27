@@ -95,27 +95,30 @@ internal sealed class IpcFrameProvider : IFrameProvider
         return bmp;
     }
 
-    // RgbaF16 destination: 4 channels * 2 bytes. Must match the BitmapColorType.RgbaF16 used below.
+    // The encoding IPC accepts the two formats produced by Beutl's frame providers:
+    // SDR decoded frames are BGRA8888, while render-target frames are linear RgbaF16.
+    private const int Bgra8888BytesPerPixel = 4;
     private const int RgbaF16BytesPerPixel = 8;
 
     private Bitmap BuildBitmap(ProvideFrameMessage frameInfo, int bufferIndex)
     {
         // SharedMemoryBuffer.Read bounds-checks the shared buffer, not the destination bitmap, so a
-        // worker-reported frame that doesn't match the RgbaF16 destination must be rejected before it
-        // overruns the bitmap. Dimensions are checked first so a non-positive size can't pass the
-        // DataLength check with a degenerate (zero) length.
+        // worker-reported frame that doesn't match the destination bitmap must be rejected before it
+        // overruns the bitmap. Dimensions and format are checked first so invalid metadata can't pass
+        // the DataLength check with a degenerate length.
         if (frameInfo.Width <= 0 || frameInfo.Height <= 0)
             throw new InvalidOperationException(
                 $"Frame has non-positive dimensions {frameInfo.Width}x{frameInfo.Height}.");
 
-        long expected = (long)frameInfo.Width * frameInfo.Height * RgbaF16BytesPerPixel;
+        (BitmapColorType colorType, BitmapColorSpace colorSpace, int bytesPerPixel) = GetFrameFormat(frameInfo);
+        long expected = (long)frameInfo.Width * frameInfo.Height * bytesPerPixel;
         if (frameInfo.DataLength != expected)
             throw new InvalidOperationException(
                 $"Frame DataLength {frameInfo.DataLength} does not match the {frameInfo.Width}x{frameInfo.Height} " +
-                $"RgbaF16 buffer size {expected}.");
+                $"{colorType} buffer size {expected}.");
 
         var alphaType = frameInfo.Premul ? BitmapAlphaType.Premul : BitmapAlphaType.Unpremul;
-        var bmp = new Bitmap(frameInfo.Width, frameInfo.Height, BitmapColorType.RgbaF16, alphaType, BitmapColorSpace.LinearSrgb);
+        var bmp = new Bitmap(frameInfo.Width, frameInfo.Height, colorType, alphaType, colorSpace);
 
         try
         {
@@ -131,6 +134,18 @@ internal sealed class IpcFrameProvider : IFrameProvider
             bmp.Dispose();
             throw;
         }
+    }
+
+    private static (BitmapColorType ColorType, BitmapColorSpace ColorSpace, int BytesPerPixel) GetFrameFormat(
+        ProvideFrameMessage frameInfo)
+    {
+        return frameInfo.BytesPerPixel switch
+        {
+            Bgra8888BytesPerPixel => (BitmapColorType.Bgra8888, BitmapColorSpace.Srgb, Bgra8888BytesPerPixel),
+            RgbaF16BytesPerPixel => (BitmapColorType.RgbaF16, BitmapColorSpace.LinearSrgb, RgbaF16BytesPerPixel),
+            _ => throw new InvalidOperationException(
+                $"Unsupported frame BytesPerPixel {frameInfo.BytesPerPixel}."),
+        };
     }
 
     // Test-only probe: lets a Dispose test wait until the in-flight prefetch has actually faulted before
