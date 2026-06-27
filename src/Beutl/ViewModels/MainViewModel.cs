@@ -146,14 +146,14 @@ public sealed class MainViewModel : BasePageViewModel, IContextCommandHandler
     public override void Dispose()
     {
         CommandPalette.Dispose();
-        _agentHostEndpoint.DisposeAsync().AsTask().GetAwaiter().GetResult();
+        _agentHostEndpoint.RequestStop();
         _projectService.CloseProject();
         BeutlApplication.Current.Items.Clear();
     }
 
     private void OnExit(object? sender, ControlledApplicationLifetimeExitEventArgs e)
     {
-        _agentHostEndpoint.DisposeAsync().AsTask().GetAwaiter().GetResult();
+        _agentHostEndpoint.RequestStop();
 
         PackageChangesQueue queue = _beutlClients.GetResource<PackageChangesQueue>();
         PackageIdentity[] installs = queue.GetInstalls().ToArray();
