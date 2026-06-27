@@ -1,4 +1,4 @@
-using System.Diagnostics.CodeAnalysis;
+﻿using System.Diagnostics.CodeAnalysis;
 using Avalonia.Controls;
 using Beutl.Editor.Components.ProxiesTab.ViewModels;
 using Beutl.Editor.Components.ProxiesTab.Views;

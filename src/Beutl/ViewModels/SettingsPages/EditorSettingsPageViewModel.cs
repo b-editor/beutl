@@ -1,5 +1,6 @@
 ﻿using Beutl.Configuration;
 using Beutl.Graphics.Backend;
+using Beutl.Media.Proxy;
 using Reactive.Bindings;
 
 namespace Beutl.ViewModels.SettingsPages;
@@ -9,6 +10,7 @@ public sealed class EditorSettingsPageViewModel : IDisposable
     private readonly ViewConfig _viewConfig;
     private readonly EditorConfig _editorConfig;
     private readonly GraphicsConfig _graphicsConfig;
+    private readonly ProxyStoreConfig _proxyStoreConfig;
     private readonly CompositeDisposable _disposables = [];
 
     public EditorSettingsPageViewModel()
@@ -16,6 +18,7 @@ public sealed class EditorSettingsPageViewModel : IDisposable
         _viewConfig = GlobalConfiguration.Instance.ViewConfig;
         _editorConfig = GlobalConfiguration.Instance.EditorConfig;
         _graphicsConfig = GlobalConfiguration.Instance.GraphicsConfig;
+        _proxyStoreConfig = GlobalConfiguration.Instance.ProxyStoreConfig;
 
         AutoAdjustSceneDuration = _editorConfig.GetObservable(EditorConfig.AutoAdjustSceneDurationProperty)
             .ToReactiveProperty()
@@ -124,6 +127,49 @@ public sealed class EditorSettingsPageViewModel : IDisposable
         UseHdrPreview.Subscribe(b => _editorConfig.UseHdrPreview = b)
             .DisposeWith(_disposables);
 
+        ProxyStoreRootPath = new ReactiveProperty<string>(_proxyStoreConfig.StoreRootPath)
+            .DisposeWith(_disposables);
+        _proxyStoreConfig.GetObservable(ProxyStoreConfig.StoreRootPathProperty)
+            .Subscribe(path =>
+            {
+                string value = path ?? string.Empty;
+                if (ProxyStoreRootPath.Value != value)
+                {
+                    ProxyStoreRootPath.Value = value;
+                }
+            })
+            .DisposeWith(_disposables);
+        ProxyStoreRootPath
+            .Where(static path => !string.IsNullOrWhiteSpace(path))
+            .Subscribe(path =>
+            {
+                if (_proxyStoreConfig.StoreRootPath != path)
+                {
+                    _proxyStoreConfig.StoreRootPath = path;
+                }
+            })
+            .DisposeWith(_disposables);
+
+        ProxyStoreMaxTotalGiB = _proxyStoreConfig.GetObservable(ProxyStoreConfig.MaxTotalBytesProperty)
+            .Select(static value => value / 1024d / 1024d / 1024d)
+            .ToReactiveProperty()
+            .DisposeWith(_disposables);
+        ProxyStoreMaxTotalGiB.Subscribe(value =>
+            {
+                long bytes = checked((long)Math.Round(value * 1024d * 1024d * 1024d));
+                _proxyStoreConfig.MaxTotalBytes = bytes;
+            })
+            .DisposeWith(_disposables);
+
+        ProxyDefaultPreset = _proxyStoreConfig.GetObservable(ProxyStoreConfig.DefaultPresetProperty)
+            .Select(static value => Enum.IsDefined(typeof(ProxyPreset), value)
+                ? (ProxyPreset)value
+                : ProxyPreset.Quarter)
+            .ToReactiveProperty()
+            .DisposeWith(_disposables);
+        ProxyDefaultPreset.Subscribe(preset => _proxyStoreConfig.DefaultPreset = (int)preset)
+            .DisposeWith(_disposables);
+
         // GPU selection
         InitializeGpuSelection();
     }
@@ -192,6 +238,14 @@ public sealed class EditorSettingsPageViewModel : IDisposable
     public ReactiveProperty<double> ToneMappingExposure { get; }
 
     public ReactiveProperty<bool> UseHdrPreview { get; }
+
+    public ReactiveProperty<string> ProxyStoreRootPath { get; }
+
+    public ReactiveProperty<double> ProxyStoreMaxTotalGiB { get; }
+
+    public ReactiveProperty<ProxyPreset> ProxyDefaultPreset { get; }
+
+    public IReadOnlyList<ProxyPreset> ProxyPresetOptions { get; } = Enum.GetValues<ProxyPreset>();
 
     public IReadOnlyList<GpuItem> AvailableGpus { get; private set; } = [];
 

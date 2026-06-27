@@ -1,4 +1,4 @@
-using Beutl.Configuration;
+﻿using Beutl.Configuration;
 #if FFMPEG_BUILD_IN
 using Beutl.Extensions.FFmpeg.Proxy;
 #endif

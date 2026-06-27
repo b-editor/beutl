@@ -1,4 +1,4 @@
-using System.Security.Cryptography;
+﻿using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -30,6 +30,9 @@ public sealed class FFmpegProxyGenerator(IProxyStore store) : IProxyGenerator
         string sourcePath = job.Source.AbsolutePath;
         if (!File.Exists(sourcePath))
             throw new FileNotFoundException(null, sourcePath);
+
+        if (IsStillImage(sourcePath))
+            throw new ProxyGenerationSkippedException("Still images are not eligible for proxy generation.");
 
         using MediaReader reader = MediaReader.Open(
             sourcePath,
@@ -131,6 +134,18 @@ public sealed class FFmpegProxyGenerator(IProxyStore store) : IProxyGenerator
     private static int MakeEven(int value)
     {
         return value % 2 == 0 ? value : Math.Max(2, value - 1);
+    }
+
+    private static bool IsStillImage(string path)
+    {
+        return Path.GetExtension(path).ToLowerInvariant() is ".png"
+            or ".jpg"
+            or ".jpeg"
+            or ".bmp"
+            or ".gif"
+            or ".webp"
+            or ".tif"
+            or ".tiff";
     }
 
     private static string BuildRelativePath(ProxyFingerprint fingerprint, ProxyPreset preset)
