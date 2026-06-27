@@ -1,6 +1,7 @@
 ﻿using System.Reactive.Subjects;
 using System.Threading.Channels;
 using Beutl.Configuration;
+using Beutl.Extensibility;
 using Beutl.Graphics.Rendering;
 using Beutl.Logging;
 using Beutl.Media;

@@ -1,0 +1,37 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <IsPackable>false</IsPackable>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Beutl.AgentToolkit.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="..\..\.claude\skills\beutl-agent-timeline-from-shotlist\SKILL.md"
+                      LogicalName="Beutl.AgentToolkit.Installation.Assets.skills.beutl-agent-timeline-from-shotlist.SKILL.md" />
+    <EmbeddedResource Include="..\..\.claude\skills\beutl-agent-look-effect-chain\SKILL.md"
+                      LogicalName="Beutl.AgentToolkit.Installation.Assets.skills.beutl-agent-look-effect-chain.SKILL.md" />
+    <EmbeddedResource Include="..\..\.claude\agents\beutl-agent-timeline-builder.md"
+                      LogicalName="Beutl.AgentToolkit.Installation.Assets.agents.beutl-agent-timeline-builder.md" />
+    <EmbeddedResource Include="..\..\.claude\agents\beutl-agent-look-applier.md"
+                      LogicalName="Beutl.AgentToolkit.Installation.Assets.agents.beutl-agent-look-applier.md" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Beutl.Editor\Beutl.Editor.csproj" />
+    <ProjectReference Include="..\Beutl.ProjectSystem\Beutl.ProjectSystem.csproj" />
+    <ProjectReference Include="..\Beutl.Engine\Beutl.Engine.csproj" />
+    <ProjectReference Include="..\Beutl.Extensibility\Beutl.Extensibility.csproj" />
+    <ProjectReference Include="..\Beutl.Extensions.FFmpeg.Core\Beutl.Extensions.FFmpeg.Core.csproj" />
+    <ProjectReference Include="..\Beutl.Extensions.AVFoundation\Beutl.Extensions.AVFoundation.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="ModelContextProtocol" />
+  </ItemGroup>
+
+</Project>

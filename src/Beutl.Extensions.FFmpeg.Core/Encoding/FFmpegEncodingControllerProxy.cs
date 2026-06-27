@@ -30,7 +30,7 @@ public class FFmpegEncodingControllerProxy(string outputFile, FFmpegEncodingSett
         }
         catch (FFmpegLibrariesNotFoundException)
         {
-            FFmpegInstallNotifier.NotifyMissing();
+            FFmpegLibraryState.NotifyMissing();
             throw;
         }
 

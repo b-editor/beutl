@@ -1,0 +1,67 @@
+﻿namespace Beutl.AgentToolkit.Installation;
+
+public enum AgentToolkitAssetKind
+{
+    Skill,
+    Subagent,
+}
+
+public enum AgentToolkitInstallLayout
+{
+    Generic,
+    ClaudeCode,
+}
+
+public sealed record AgentToolkitAsset(
+    AgentToolkitAssetKind Kind,
+    string RelativePath,
+    string Content);
+
+public sealed record AgentToolkitInstallOptions
+{
+    public required string AgentRoot { get; init; }
+
+    public AgentToolkitInstallLayout Layout { get; init; }
+
+    public string? SkillsDirectory { get; init; }
+
+    public string? SubagentsDirectory { get; init; }
+
+    public bool InstallSkills { get; init; } = true;
+
+    public bool InstallSubagents { get; init; } = true;
+
+    public bool InstallStdioMcp { get; init; } = true;
+
+    public bool InstallLiveMcp { get; init; }
+
+    public string McpConfigFileName { get; init; } = ".mcp.json";
+
+    public string McpServersPropertyName { get; init; } = "servers";
+
+    public string StdioMcpServerName { get; init; } = "beutl-agent";
+
+    public string LiveMcpServerName { get; init; } = "beutl-live";
+
+    public string? WorkspaceRoot { get; init; }
+
+    public string? StdioMcpCommand { get; init; }
+
+    public IReadOnlyList<string> StdioMcpArguments { get; init; } = [];
+
+    public IReadOnlyDictionary<string, string> StdioMcpEnvironment { get; init; }
+        = new Dictionary<string, string>();
+
+    public Uri? LiveMcpUri { get; init; }
+}
+
+public sealed record AgentToolkitInstallResult(
+    IReadOnlyList<string> InstalledFiles,
+    string? McpConfigPath,
+    bool InstalledStdioMcp,
+    bool InstalledLiveMcp);
+
+public sealed record AgentToolkitMcpServerCommand(
+    string Command,
+    IReadOnlyList<string> Arguments,
+    string Source);

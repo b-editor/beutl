@@ -26,6 +26,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\..\src\Beutl.Extensions.FFmpeg.Core\Beutl.Extensions.FFmpeg.Core.csproj" />
     <ProjectReference Include="..\..\src\Beutl.Extensibility\Beutl.Extensibility.csproj" />
     <ProjectReference Include="..\..\src\Beutl.Controls\Beutl.Controls.csproj" />
     <ProjectReference Include="..\..\src\Beutl.ProjectSystem\Beutl.ProjectSystem.csproj" />

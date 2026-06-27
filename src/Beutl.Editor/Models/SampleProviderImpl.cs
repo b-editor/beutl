@@ -2,6 +2,7 @@
 using System.Threading.Channels;
 using Beutl.Audio.Composing;
 using Beutl.Configuration;
+using Beutl.Extensibility;
 using Beutl.Logging;
 using Beutl.Media.Music;
 using Beutl.Media.Music.Samples;

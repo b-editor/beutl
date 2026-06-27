@@ -25,6 +25,7 @@
     <File Path="version.json" />
   </Folder>
   <Folder Name="/Tests/">
+    <Project Path="tests\Beutl.AgentToolkit.Tests\Beutl.AgentToolkit.Tests.csproj" />
     <Project Path="tests/Beutl.Graphics3DTests/Beutl.Graphics3DTests.csproj" />
     <Project Path="tests\Beutl.Benchmarks\Beutl.Benchmarks.csproj" />
     <Project Path="tests\Beutl.Extensions.AVFoundation.Tests\Beutl.Extensions.AVFoundation.Tests.csproj" />
@@ -42,6 +43,8 @@
   <Project Path="nukebuild\_build.csproj" />
   <Project Path="src\Beutl.Engine.SourceGenerators\Beutl.Engine.SourceGenerators.csproj" />
   <Project Path="sdk\Beutl.Extensibility.Sdk\Beutl.Extensibility.Sdk.csproj" />
+  <Project Path="src\Beutl.AgentToolkit\Beutl.AgentToolkit.csproj" />
+  <Project Path="src\Beutl.AgentToolkit.Mcp\Beutl.AgentToolkit.Mcp.csproj" />
   <Project Path="src/Beutl.Editor/Beutl.Editor.csproj" />
   <Project Path="src\Beutl.Api\Beutl.Api.csproj" />
   <Project Path="src\Beutl.Configuration\Beutl.Configuration.csproj" />
@@ -51,6 +54,7 @@
   <Project Path="src\Beutl.ExceptionHandler\Beutl.ExceptionHandler.csproj" />
   <Project Path="src\Beutl.Extensibility\Beutl.Extensibility.csproj" />
   <Project Path="src\Beutl.Extensions.AVFoundation\Beutl.Extensions.AVFoundation.csproj" />
+  <Project Path="src\Beutl.Extensions.FFmpeg.Core\Beutl.Extensions.FFmpeg.Core.csproj" />
   <Project Path="src\Beutl.Extensions.FFmpeg\Beutl.Extensions.FFmpeg.csproj" />
   <Project Path="src\Beutl.FFmpegIpc\Beutl.FFmpegIpc.csproj" />
   <Project Path="src\Beutl.FFmpegWorker\Beutl.FFmpegWorker.csproj" />
