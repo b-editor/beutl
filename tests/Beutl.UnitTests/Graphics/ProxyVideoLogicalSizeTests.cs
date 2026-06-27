@@ -1,10 +1,14 @@
 ﻿using Beutl.Composition;
 using Beutl.Graphics;
+using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering;
 using Beutl.Media;
 using Beutl.Media.Decoding;
+using Beutl.Media.Pixel;
 using Beutl.Media.Proxy;
 using Beutl.Media.Source;
+using Beutl.ProjectSystem;
+using Beutl.UnitTests.Engine.Graphics.Backend;
 using Beutl.UnitTests.Engine.Graphics.Rendering;
 
 namespace Beutl.UnitTests.Graphics;
@@ -127,6 +131,189 @@ public class ProxyVideoLogicalSizeTests
         });
     }
 
+    [Test]
+    public void ImmediateCanvas_DrawVideoSource_ScalesProxyBitmapToOriginalLogicalSize()
+    {
+        VulkanTestEnvironment.EnsureAvailable();
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            using var scope = ProxyScope.Create(new PixelSize(100, 80), new PixelSize(50, 40));
+            DecoderRegistry.ProxyResolver = new ProxyResolver(scope.Store);
+
+            var source = new VideoSource();
+            source.ReadFrom(new Uri(scope.OriginalPath));
+            using var resource = source.ToResource(new CompositionContext(TimeSpan.Zero) { PreferProxy = true });
+            using RenderTarget target = RenderTarget.Create(100, 80)!;
+
+            using (var canvas = new ImmediateCanvas(target, 1f))
+            {
+                canvas.Clear(Colors.Black);
+                canvas.DrawVideoSource(resource, 1, Brushes.Resource.White, null);
+            }
+
+            using Bitmap snapshot = target.Snapshot();
+            using Bitmap srgb = snapshot.Convert(BitmapColorType.Bgra8888, BitmapAlphaType.Unpremul, BitmapColorSpace.Srgb);
+            Bgra8888 lowerRightSample = srgb.GetRow<Bgra8888>(70)[90];
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(resource.FrameSize, Is.EqualTo(new PixelSize(50, 40)));
+                Assert.That(resource.LogicalFrameSize, Is.EqualTo(new PixelSize(100, 80)));
+                Assert.That(lowerRightSample.R, Is.GreaterThan(0));
+                Assert.That(lowerRightSample.G, Is.GreaterThan(0));
+                Assert.That(lowerRightSample.B, Is.GreaterThan(0));
+            });
+        });
+    }
+
+    [Test]
+    public void SceneRenderer_DrawsProxyVideoAtOriginalLogicalFootprint()
+    {
+        VulkanTestEnvironment.EnsureAvailable();
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            using var scope = ProxyScope.Create(new PixelSize(100, 80), new PixelSize(50, 40));
+            DecoderRegistry.ProxyResolver = new ProxyResolver(scope.Store);
+
+            var media = new VideoSource();
+            media.ReadFrom(new Uri(scope.OriginalPath));
+            var drawable = new SourceVideo();
+            drawable.Source.CurrentValue = media;
+            var element = new Element
+            {
+                Start = TimeSpan.Zero,
+                Length = TimeSpan.FromSeconds(1),
+                IsEnabled = true,
+                Uri = new Uri(Path.Combine(scope.RootPath, $"{Guid.NewGuid():N}.layer")),
+            };
+            element.AddObject(drawable);
+            var scene = new Scene(120, 100, string.Empty)
+            {
+                Uri = new Uri(Path.Combine(scope.RootPath, "test.scene")),
+                PreviewSourceMode = PreviewSourceMode.PreferProxy,
+            };
+            scene.Children.Add(element);
+
+            using var renderer = new SceneRenderer(scene);
+            renderer.Render(renderer.Compositor.EvaluateGraphics(TimeSpan.FromSeconds(1d / 30d)));
+
+            using Bitmap snapshot = renderer.Snapshot();
+            using Bitmap srgb = snapshot.Convert(BitmapColorType.Bgra8888, BitmapAlphaType.Unpremul, BitmapColorSpace.Srgb);
+            Bgra8888 insideLogicalBounds = srgb.GetRow<Bgra8888>(70)[90];
+            Bgra8888 outsideLogicalBounds = srgb.GetRow<Bgra8888>(90)[110];
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(insideLogicalBounds.R, Is.GreaterThan(0));
+                Assert.That(insideLogicalBounds.G, Is.GreaterThan(0));
+                Assert.That(insideLogicalBounds.B, Is.GreaterThan(0));
+                Assert.That(outsideLogicalBounds.R, Is.EqualTo(0));
+                Assert.That(outsideLogicalBounds.G, Is.EqualTo(0));
+                Assert.That(outsideLogicalBounds.B, Is.EqualTo(0));
+            });
+        });
+    }
+
+    [Test]
+    public void SceneRenderer_DrawsFilteredProxyVideoAtOriginalLogicalFootprint()
+    {
+        VulkanTestEnvironment.EnsureAvailable();
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            using var scope = ProxyScope.Create(new PixelSize(100, 80), new PixelSize(50, 40));
+            DecoderRegistry.ProxyResolver = new ProxyResolver(scope.Store);
+
+            var media = new VideoSource();
+            media.ReadFrom(new Uri(scope.OriginalPath));
+            var drawable = new SourceVideo();
+            drawable.Source.CurrentValue = media;
+            drawable.FilterEffect.CurrentValue = new MosaicEffect();
+            var element = new Element
+            {
+                Start = TimeSpan.Zero,
+                Length = TimeSpan.FromSeconds(1),
+                IsEnabled = true,
+                Uri = new Uri(Path.Combine(scope.RootPath, $"{Guid.NewGuid():N}.layer")),
+            };
+            element.AddObject(drawable);
+            var scene = new Scene(120, 100, string.Empty)
+            {
+                Uri = new Uri(Path.Combine(scope.RootPath, "test.scene")),
+                PreviewSourceMode = PreviewSourceMode.PreferProxy,
+            };
+            scene.Children.Add(element);
+
+            using var renderer = new SceneRenderer(scene);
+            renderer.Render(renderer.Compositor.EvaluateGraphics(TimeSpan.FromSeconds(1d / 30d)));
+
+            using Bitmap snapshot = renderer.Snapshot();
+            using Bitmap srgb = snapshot.Convert(BitmapColorType.Bgra8888, BitmapAlphaType.Unpremul, BitmapColorSpace.Srgb);
+            Bgra8888 insideLogicalBounds = srgb.GetRow<Bgra8888>(70)[90];
+            Bgra8888 outsideLogicalBounds = srgb.GetRow<Bgra8888>(90)[110];
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(insideLogicalBounds.R, Is.GreaterThan(0));
+                Assert.That(insideLogicalBounds.G, Is.GreaterThan(0));
+                Assert.That(insideLogicalBounds.B, Is.GreaterThan(0));
+                Assert.That(outsideLogicalBounds.R, Is.EqualTo(0));
+                Assert.That(outsideLogicalBounds.G, Is.EqualTo(0));
+                Assert.That(outsideLogicalBounds.B, Is.EqualTo(0));
+            });
+        });
+    }
+
+    [Test]
+    public void SceneRenderer_DrawsSkiaFilteredProxyVideoAtOriginalLogicalFootprint()
+    {
+        VulkanTestEnvironment.EnsureAvailable();
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            using var scope = ProxyScope.Create(new PixelSize(100, 80), new PixelSize(50, 40));
+            DecoderRegistry.ProxyResolver = new ProxyResolver(scope.Store);
+
+            var media = new VideoSource();
+            media.ReadFrom(new Uri(scope.OriginalPath));
+            var blur = new Blur();
+            blur.Sigma.CurrentValue = new Size(3, 3);
+            var drawable = new SourceVideo();
+            drawable.Source.CurrentValue = media;
+            drawable.FilterEffect.CurrentValue = blur;
+            var element = new Element
+            {
+                Start = TimeSpan.Zero,
+                Length = TimeSpan.FromSeconds(1),
+                IsEnabled = true,
+                Uri = new Uri(Path.Combine(scope.RootPath, $"{Guid.NewGuid():N}.layer")),
+            };
+            element.AddObject(drawable);
+            var scene = new Scene(160, 130, string.Empty)
+            {
+                Uri = new Uri(Path.Combine(scope.RootPath, "test.scene")),
+                PreviewSourceMode = PreviewSourceMode.PreferProxy,
+            };
+            scene.Children.Add(element);
+
+            using var renderer = new SceneRenderer(scene);
+            renderer.Render(renderer.Compositor.EvaluateGraphics(TimeSpan.FromSeconds(1d / 30d)));
+
+            using Bitmap snapshot = renderer.Snapshot();
+            using Bitmap srgb = snapshot.Convert(BitmapColorType.Bgra8888, BitmapAlphaType.Unpremul, BitmapColorSpace.Srgb);
+            Bgra8888 insideLogicalBounds = srgb.GetRow<Bgra8888>(70)[90];
+            Bgra8888 outsideInflatedBounds = srgb.GetRow<Bgra8888>(110)[140];
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(insideLogicalBounds.R, Is.GreaterThan(0));
+                Assert.That(insideLogicalBounds.G, Is.GreaterThan(0));
+                Assert.That(insideLogicalBounds.B, Is.GreaterThan(0));
+                Assert.That(outsideInflatedBounds.R, Is.EqualTo(0));
+                Assert.That(outsideInflatedBounds.G, Is.EqualTo(0));
+                Assert.That(outsideInflatedBounds.B, Is.EqualTo(0));
+            });
+        });
+    }
+
     private sealed class ProxyScope : IDisposable
     {
         private readonly string _root;
@@ -139,6 +326,8 @@ public class ProxyVideoLogicalSizeTests
         }
 
         public string OriginalPath { get; }
+
+        public string RootPath => _root;
 
         public ProxyStore Store { get; }
 

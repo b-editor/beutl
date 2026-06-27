@@ -68,11 +68,16 @@ public class FFmpegEncodingController(string outputFile, FFmpegEncodingSettings 
             bufferSrc, width, height, srcPixFmt, timeBase, sar, frameRate);
         _bufferSinkCtx = _filterGraph.AddVideoSinkFilter(bufferSink, [encoder.PixFmt]);
 
+        var scaleFilter = new MediaFilter("scale");
+        var scaleStr = $"{VideoSettings.DestinationSize.Width}:{VideoSettings.DestinationSize.Height}";
+        var scaleCtx = _filterGraph.AddFilter(scaleFilter, scaleStr);
+
         var formatFilter = new MediaFilter("format");
         var formatStr = $"pix_fmts={ffmpeg.av_get_pix_fmt_name(encoder.PixFmt)}";
         var formatCtx = _filterGraph.AddFilter(formatFilter, formatStr);
 
-        _bufferSrcCtx.LinkTo(0, formatCtx);
+        _bufferSrcCtx.LinkTo(0, scaleCtx);
+        scaleCtx.LinkTo(0, formatCtx);
         formatCtx.LinkTo(0, _bufferSinkCtx);
 
         _filterGraph.Initialize();
