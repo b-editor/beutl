@@ -37,6 +37,12 @@ public sealed class LimiterNode : AudioNode
     private int _dequeLookahead = -1;
     private long _globalPos;
 
+    // The coefficients the last real-audio sample was processed with. A drain (Flush) following the
+    // clip end reuses these instead of re-sampling automation over the post-clip range, so the held
+    // tail is read at the lookahead it was buffered at. Invalid after Reset/format change (cold state).
+    private DerivedCoefficients _lastDerived;
+    private bool _hasLastDerived;
+
     // Per-parameter latches that keep audio-rate logging from spamming the sink (one latch each so
     // a non-finite Threshold doesn't mask a non-finite Release). Cleared only on full
     // re-initialization, not on chunk discontinuity — otherwise a persistent defect logs every chunk.
@@ -68,6 +74,14 @@ public sealed class LimiterNode : AudioNode
         using var input = Inputs[0].Process(context)
             ?? throw new InvalidOperationException("LimiterNode: upstream Process returned null.");
 
+        return ProcessTail(input, context, draining: false);
+    }
+
+    // Shared by Process (real upstream audio) and the base Flush (drained tail): the drained block
+    // runs through the same delay-line path, so the lookahead tail still held is emitted. The flush
+    // block abuts the terminal chunk, so the contiguity check below does not reset.
+    protected override AudioBuffer ProcessTail(AudioBuffer input, AudioProcessContext context, bool draining)
+    {
         if (input.SampleRate != context.SampleRate)
             throw new InvalidOperationException(
                 $"LimiterNode: sample rate mismatch. context={context.SampleRate}, input={input.SampleRate}.");
@@ -117,9 +131,22 @@ public sealed class LimiterNode : AudioNode
                             || Lookahead.Animation != null
                             || MakeupGain.Animation != null;
 
-        var output = hasAnimation
-            ? ProcessAnimated(input, context)
-            : ProcessStatic(input, context);
+        AudioBuffer output;
+        if (draining && hasAnimation && _hasLastDerived)
+        {
+            // Re-sampling animated parameters over the post-clip drain range reads the wrong delay
+            // offset: the held tail was buffered at the lookahead in effect at the clip end, but the
+            // automation may have moved off it (a keyframe back to 0 at Duration would read Read(0), the
+            // flush silence, and drop the tail). Drain at the coefficients retained from the terminal
+            // sample so the held samples are read out at the offset they were stored.
+            output = DrainFrozen(input, context, _lastDerived);
+        }
+        else
+        {
+            output = hasAnimation
+                ? ProcessAnimated(input, context)
+                : ProcessStatic(input, context);
+        }
 
         // Update only on success. If Process throws mid-buffer the state is left partially mutated,
         // but no production caller retries the same chunk: a next call at a different Start hits the
@@ -130,6 +157,21 @@ public sealed class LimiterNode : AudioNode
         _lastTimeRangeEnd = context.TimeRange.Start + context.TimeRange.Duration;
 
         return output;
+    }
+
+    /// <summary>
+    /// Reports the lookahead delay this limiter applies, in samples at <paramref name="sampleRate"/>.
+    /// An animated <see cref="Lookahead"/> varies the delay per sample, so the report cannot track a
+    /// single value; it returns the worst case (the maximum lookahead) so a tail-drain reserves enough
+    /// room even when the automation peaks near the clip end.
+    /// </summary>
+    public override int GetLatencySamples(int sampleRate)
+    {
+        // Explicit guard so a future early-return added before the delegate cannot bypass the rate contract.
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(sampleRate);
+        return Lookahead.Animation != null
+            ? LimiterParameters.ToLatencySamples(LimiterParameters.MaxLookaheadMs, sampleRate)
+            : LimiterParameters.ToLatencySamples(Lookahead.CurrentValue, sampleRate);
     }
 
     private static bool IsTimestampContiguous(TimeSpan previousEnd, TimeSpan nextStart)
@@ -203,6 +245,7 @@ public sealed class LimiterNode : AudioNode
         // A format change makes the previous warning history irrelevant, so re-arm the latches:
         // a persistent upstream defect should surface once per format change, not just once ever.
         _currentGain = 1f;
+        _hasLastDerived = false;
         _warnedNonFiniteThreshold = false;
         _warnedNonFiniteRelease = false;
         _warnedNonFiniteLookahead = false;
@@ -261,6 +304,8 @@ public sealed class LimiterNode : AudioNode
     private AudioBuffer ProcessStatic(AudioBuffer input, AudioProcessContext context)
     {
         var c = Derive(Threshold.CurrentValue, Release.CurrentValue, Lookahead.CurrentValue, MakeupGain.CurrentValue, context.SampleRate);
+        _lastDerived = c;
+        _hasLastDerived = true;
 
         var output = new AudioBuffer(input.SampleRate, input.ChannelCount, input.SampleCount);
         try
@@ -335,6 +380,8 @@ public sealed class LimiterNode : AudioNode
                     // sample-accurate automation. The common no-animation case takes ProcessStatic,
                     // which derives the coefficients once per call.
                     var c = Derive(thresholds[i], releases[i], lookaheads[i], makeups[i], context.SampleRate);
+                    _lastDerived = c;
+                    _hasLastDerived = true;
                     int idx = processed + i;
                     // The window maximum comes from ScanWindowPeak over the ring, so IngestSample's
                     // returned peak is ignored here (only its delay-line/peak-ring side-effects matter).
@@ -344,6 +391,41 @@ public sealed class LimiterNode : AudioNode
                 }
 
                 processed += chunkSize;
+            }
+
+            return output;
+        }
+        catch
+        {
+            // Dispose the output the caller never received rather than leak it.
+            output.Dispose();
+            OutputBuffersDisposedAfterFailure++;
+            throw;
+        }
+    }
+
+    // Drains the held tail at fixed coefficients (the clip's terminal sample), bypassing automation
+    // re-sampling. Mirrors the animated path's per-sample emit but with constant c, so the delay line
+    // is read at the lookahead the tail was buffered at. Used only on the Flush path with animation.
+    private AudioBuffer DrainFrozen(AudioBuffer input, AudioProcessContext context, DerivedCoefficients c)
+    {
+        var output = new AudioBuffer(input.SampleRate, input.ChannelCount, input.SampleCount);
+        try
+        {
+            // The deque tracks no fixed lookahead across this block (it reads via ScanWindowPeak like
+            // the animated path), so invalidate it for a later static chunk to rebuild.
+            _dequeLookahead = -1;
+
+            int channelCount = _delayLines!.Length;
+            int sampleCount = input.SampleCount;
+            ReadOnlySpan<float> inRaw = input.GetRawSpan();
+            Span<float> outRaw = output.GetRawSpan();
+
+            for (int idx = 0; idx < sampleCount; idx++)
+            {
+                _ = IngestSample(inRaw, sampleCount, channelCount, idx);
+                float windowPeak = ScanWindowPeak(c.LookaheadSamples);
+                EmitSample(outRaw, sampleCount, channelCount, idx, windowPeak, c.ThresholdLin, c.MakeupLin, c.LookaheadSamples, c.ReleaseCoef);
             }
 
             return output;
@@ -549,6 +631,9 @@ public sealed class LimiterNode : AudioNode
         _peakBuffer?.Clear();
         _currentGain = 1f;
         _lastTimeRangeEnd = null;
+
+        // The delay line is cold; a drain before the next real chunk has no retained coefficients to use.
+        _hasLastDerived = false;
 
         // Discard the deque. _globalPos restarts at 0 to stay aligned with the cleared _peakBuffer,
         // and the lookahead marker is invalidated so the next static chunk rebuilds from scratch.

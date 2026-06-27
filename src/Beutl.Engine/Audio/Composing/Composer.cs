@@ -12,6 +12,13 @@ public class Composer : IComposer
     private readonly ConditionalWeakTable<Sound, AudioNodeEntry> _audioCache = [];
     private readonly List<AudioNodeEntry> _currentEntry = new();
 
+    // The entries active in the previous Compose window and that window's range. A sound active last
+    // window but not this one ended at the boundary; its graph still holds the latency tail, which the
+    // next window flushes (a sound ending exactly on the boundary cannot self-recover — its terminal
+    // clip window is full, so ClipNode.AppendFlushedTail has no room).
+    private readonly List<AudioNodeEntry> _previousEntry = new();
+    private TimeRange? _previousRange;
+
     private sealed class AudioNodeEntry : IDisposable
     {
         public List<AudioNode> Nodes { get; set; } = new();
@@ -78,7 +85,14 @@ public class Composer : IComposer
                 }
 
                 // Build final audio graph
-                return BuildFinalOutput(timeRange);
+                var result = BuildFinalOutput(timeRange);
+
+                // Record this window's active set so the next window can flush sounds that just ended.
+                _previousEntry.Clear();
+                _previousEntry.AddRange(_currentEntry);
+                _previousRange = timeRange;
+
+                return result;
             }
             finally
             {
@@ -109,6 +123,9 @@ public class Composer : IComposer
                 }
             }
 
+            // Recover the latency tail of any sound that ended on the previous window boundary.
+            AppendEndedSoundTails(range, buffers);
+
             // Mix all buffers
             mixedBuffer = MixBuffers(buffers);
 
@@ -138,6 +155,39 @@ public class Composer : IComposer
             }
         }
     }
+
+    // Flushes the residual latency tail of every sound that was active last window but not this one, so
+    // a lookahead limiter's held samples land at the start of the window that follows the clip end (the
+    // tail belongs at [windowStart, windowStart + latency)). The drain produces a window-length buffer —
+    // tail at the front, silence after — so it mixes like any other branch.
+    private void AppendEndedSoundTails(TimeRange range, List<AudioBuffer> buffers)
+    {
+        // Only when this window continues sequentially from the previous one. After a seek/restart the
+        // cached graph no longer abuts the new window (the limiter resets on the discontinuity anyway),
+        // so flushing it would inject a stale tail at the wrong time.
+        if (_previousRange is not { } previous || !IsContiguous(previous.End, range.Start))
+            return;
+
+        foreach (var entry in _previousEntry)
+        {
+            if (_currentEntry.Contains(entry))
+                continue;
+            if (entry.OutputNodes is not { } outputNodes)
+                continue;
+
+            foreach (var outputNode in outputNodes)
+            {
+                if (outputNode.GetTotalLatencySamples(SampleRate) <= 0)
+                    continue;
+
+                var flushContext = new AudioProcessContext(range, SampleRate, _animationSampler, range);
+                buffers.Add(outputNode.Flush(flushContext));
+            }
+        }
+    }
+
+    private static bool IsContiguous(TimeSpan previousEnd, TimeSpan nextStart)
+        => Math.Abs((nextStart - previousEnd).Ticks) <= TimeSpan.TicksPerMillisecond;
 
     private AudioBuffer? MixBuffers(List<AudioBuffer> buffers)
     {
@@ -200,6 +250,11 @@ public class Composer : IComposer
         }
 
         _audioCache.Clear();
+
+        // The recorded entries were just disposed; drop them so the next window does not flush a freed
+        // graph (and treats the post-invalidate window as a fresh, non-contiguous start).
+        _previousEntry.Clear();
+        _previousRange = null;
     }
 
     /// <summary>
