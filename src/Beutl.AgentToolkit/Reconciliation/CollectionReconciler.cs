@@ -1,4 +1,6 @@
-﻿using System.Text.Json.Nodes;
+﻿using System.Security.Cryptography;
+using System.Text;
+using System.Text.Json.Nodes;
 using Beutl.AgentToolkit.Common;
 
 namespace Beutl.AgentToolkit.Reconciliation;
@@ -13,26 +15,26 @@ public static class CollectionReconciler
     public static HashSet<Guid> MintMissingIds(JsonNode? node)
     {
         var minted = new HashSet<Guid>();
-        MintMissingIds(node, minted);
+        MintMissingIds(node, minted, "$");
         return minted;
     }
 
-    private static void MintMissingIds(JsonNode? node, HashSet<Guid> minted)
+    private static void MintMissingIds(JsonNode? node, HashSet<Guid> minted, string path)
     {
         if (node is JsonObject obj)
         {
             bool isNewSubtree = false;
             if (obj.ContainsKey("$type") && !obj.ContainsKey(nameof(CoreObject.Id)))
             {
-                Guid id = Guid.NewGuid();
+                Guid id = CreateDeterministicId(path, obj);
                 obj[nameof(CoreObject.Id)] = id.ToString();
                 minted.Add(id);
                 isNewSubtree = true;
             }
 
-            foreach (JsonNode? child in obj.Select(pair => pair.Value).ToArray())
+            foreach (KeyValuePair<string, JsonNode?> pair in obj.ToArray())
             {
-                MintMissingIds(child, minted);
+                MintMissingIds(pair.Value, minted, $"{path}/{pair.Key}");
             }
 
             if (isNewSubtree)
@@ -45,11 +47,23 @@ public static class CollectionReconciler
         }
         else if (node is JsonArray array)
         {
-            foreach (JsonNode? child in array.ToArray())
+            for (int i = 0; i < array.Count; i++)
             {
-                MintMissingIds(child, minted);
+                MintMissingIds(array[i], minted, $"{path}[{i}]");
             }
         }
+    }
+
+    internal static Guid CreateDeterministicId(string path, JsonObject obj)
+    {
+        string discriminator = obj.TryGetPropertyValue("$type", out JsonNode? typeNode)
+            ? typeNode?.GetValue<string>() ?? string.Empty
+            : string.Empty;
+        string payload = $"{path}\n{discriminator}\n{obj.ToJsonString()}";
+        byte[] hash = SHA256.HashData(Encoding.UTF8.GetBytes(payload));
+        Span<byte> bytes = stackalloc byte[16];
+        hash.AsSpan(0, 16).CopyTo(bytes);
+        return new Guid(bytes);
     }
 
     public static ToolError? ValidateIdentityReferences(JsonObject current, JsonObject desired, ISet<Guid> newIds)

@@ -72,7 +72,7 @@ public sealed class AgentHostEndpoint : IAsyncDisposable
 
         WebApplication app = builder.Build();
         app.Use(RequireToken);
-        app.MapMcp();
+        app.MapMcp("/mcp");
 
         await app.StartAsync(cancellationToken).ConfigureAwait(false);
 

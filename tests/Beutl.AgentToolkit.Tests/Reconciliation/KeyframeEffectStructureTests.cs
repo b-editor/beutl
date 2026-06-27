@@ -26,11 +26,11 @@ public sealed class KeyframeEffectStructureTests
         Assert.Multiple(() =>
         {
             Assert.That(moved.IsSuccess, Is.True);
-            Assert.That(duplicated.IsSuccess, Is.True);
-            Assert.That(split.IsSuccess, Is.True);
+            Assert.That(duplicated.IsSuccess, Is.True, duplicated.Error?.Message);
+            Assert.That(split.IsSuccess, Is.True, split.Error?.Message);
             Assert.That(deleteRejected.IsSuccess, Is.False);
             Assert.That(deleteRejected.Error!.Code, Is.EqualTo(ErrorCode.DestructiveIntent));
-            Assert.That(deleted.IsSuccess, Is.True);
+            Assert.That(deleted.IsSuccess, Is.True, deleted.Error?.Message);
             Assert.That(scene.Children.Any(element => element.Id == first.Id), Is.False);
             Assert.That(scene.Children.Count, Is.EqualTo(3));
         });
