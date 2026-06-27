@@ -1,6 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <ItemGroup>
+    <ProjectReference Include="..\Beutl.Extensibility.Abstractions\Beutl.Extensibility.Abstractions.csproj" />
     <ProjectReference Include="..\Beutl.Core\Beutl.Core.csproj" />
     <ProjectReference Include="..\Beutl.Engine\Beutl.Engine.csproj" />
   </ItemGroup>

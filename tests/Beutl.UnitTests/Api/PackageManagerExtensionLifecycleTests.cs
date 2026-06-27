@@ -1,4 +1,7 @@
-﻿using Beutl.Api.Services;
+﻿using System.Reflection;
+
+using Beutl.Api.Services;
+using Beutl.Configuration;
 using Beutl.Extensibility;
 
 namespace Beutl.UnitTests.Api;
@@ -109,6 +112,60 @@ public class PackageManagerExtensionLifecycleTests
         Assert.That(commandManager.GetDefinitions(typeof(SuccessfulViewExtension)), Is.Empty);
     }
 
+    [Test]
+    public void SetupExtensionSettings_SubscribesToConfigurationChanged()
+    {
+        PackageManager manager = CreatePackageManager(out _, out _);
+        var extension = new SettingsExtension();
+
+        manager.SetupExtensionSettings(extension);
+
+        Assert.That(ConfigurationChangedSubscriberCount(extension.Settings), Is.EqualTo(1));
+    }
+
+    [Test]
+    public void SetupExtensionSettings_DoesNotLeaveStaleSubscription_OnRepeatedSetup()
+    {
+        PackageManager manager = CreatePackageManager(out _, out _);
+        var extension = new SettingsExtension();
+
+        manager.SetupExtensionSettings(extension);
+        // A second setup must unsubscribe the previous handler before adding a new one.
+        manager.SetupExtensionSettings(extension);
+
+        Assert.That(ConfigurationChangedSubscriberCount(extension.Settings), Is.EqualTo(1));
+    }
+
+    [Test]
+    public async Task Unload_RemovesSettingsChangedSubscription()
+    {
+        PackageManager manager = CreatePackageManager(out _, out ExtensionProvider provider);
+        var package = new LocalPackage { Name = "WithSettings" };
+
+        manager.LoadExtensionsAndRegister(
+            activity: null,
+            package,
+            assemblies: [],
+            loadContext: null,
+            [typeof(SettingsExtension)]);
+
+        SettingsExtension extension = provider.GetExtensions<SettingsExtension>().Single();
+        Assert.That(ConfigurationChangedSubscriberCount(extension.Settings), Is.EqualTo(1));
+
+        await manager.Unload(package);
+
+        Assert.That(ConfigurationChangedSubscriberCount(extension.Settings), Is.EqualTo(0));
+    }
+
+    private static int ConfigurationChangedSubscriberCount(ExtensionSettings settings)
+    {
+        FieldInfo field = typeof(ConfigurationBase).GetField(
+            nameof(ConfigurationBase.ConfigurationChanged),
+            BindingFlags.Instance | BindingFlags.NonPublic)!;
+        var handler = (EventHandler?)field.GetValue(settings);
+        return handler?.GetInvocationList().Length ?? 0;
+    }
+
     private static PackageManager CreatePackageManager(
         out ContextCommandManager commandManager,
         out ExtensionProvider extensionProvider)
@@ -180,5 +237,15 @@ public class PackageManagerExtensionLifecycleTests
         {
             UnloadCount++;
         }
+    }
+
+    [Export]
+    private sealed class SettingsExtension : Extension
+    {
+        public override ExtensionSettings Settings { get; } = new TrackedSettings();
+    }
+
+    private sealed class TrackedSettings : ExtensionSettings
+    {
     }
 }
