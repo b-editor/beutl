@@ -186,7 +186,8 @@
                                         Classes.failed="{Binding IsFailed.Value}"
                                         Classes.queued="{Binding HasJob.Value}"
                                         Classes.ready="{Binding IsReady.Value}"
-                                        Classes.stale="{Binding IsStale.Value}">
+                                        Classes.stale="{Binding IsStale.Value}"
+                                        Tapped="OnProxyItemTapped">
                                     <Grid ColumnDefinitions="Auto,*"
                                           RowDefinitions="Auto,Auto,Auto"
                                           ColumnSpacing="8"
