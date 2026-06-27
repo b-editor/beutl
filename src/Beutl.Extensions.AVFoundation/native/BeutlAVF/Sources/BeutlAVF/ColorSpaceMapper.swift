@@ -4,7 +4,7 @@ import CoreMedia
 import Foundation
 
 // Tags must stay in sync with the BEUTL_TRANSFER_*/BEUTL_PRIMARIES_* constants in
-// BeutlAVFTypes.h and the BeutlTransferFunction/BeutlColorPrimaries enums on the C# side.
+// BeutlAVFTypes.h and the Beutl.Media.BitmapColorTransfer/BitmapColorPrimaries enums on the C# side.
 struct ColorSpaceTags: Equatable {
     var isHdr: Bool
     var transfer: Int32

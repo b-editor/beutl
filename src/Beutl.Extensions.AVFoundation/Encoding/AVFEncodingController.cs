@@ -198,26 +198,26 @@ public class AVFEncodingController : EncodingController
     }
 
     // Enum-to-tag mappings are 1:1 (the AVFVideoEncoderSettings enums use the same numeric
-    // values as BeutlTransferFunction/BeutlColorPrimaries/BeutlYCbCrMatrix) but the helpers
+    // values as BitmapColorTransfer/BitmapColorPrimaries/BeutlYCbCrMatrix) but the helpers
     // below clamp to Unknown if a user adds a value that hasn't been wired through.
-    private static BeutlTransferFunction MapTransfer(AVFVideoEncoderSettings.ColorTransferCharacteristic t) => t switch
+    private static BitmapColorTransfer MapTransfer(AVFVideoEncoderSettings.ColorTransferCharacteristic t) => t switch
     {
-        AVFVideoEncoderSettings.ColorTransferCharacteristic.Srgb => BeutlTransferFunction.Srgb,
-        AVFVideoEncoderSettings.ColorTransferCharacteristic.Linear => BeutlTransferFunction.Linear,
-        AVFVideoEncoderSettings.ColorTransferCharacteristic.Bt709 => BeutlTransferFunction.Bt709,
-        AVFVideoEncoderSettings.ColorTransferCharacteristic.Pq => BeutlTransferFunction.Pq,
-        AVFVideoEncoderSettings.ColorTransferCharacteristic.Hlg => BeutlTransferFunction.Hlg,
-        AVFVideoEncoderSettings.ColorTransferCharacteristic.Smpte240M => BeutlTransferFunction.Smpte240M,
-        _ => BeutlTransferFunction.Unknown,
+        AVFVideoEncoderSettings.ColorTransferCharacteristic.Srgb => BitmapColorTransfer.Srgb,
+        AVFVideoEncoderSettings.ColorTransferCharacteristic.Linear => BitmapColorTransfer.Linear,
+        AVFVideoEncoderSettings.ColorTransferCharacteristic.Bt709 => BitmapColorTransfer.Bt709,
+        AVFVideoEncoderSettings.ColorTransferCharacteristic.Pq => BitmapColorTransfer.Pq,
+        AVFVideoEncoderSettings.ColorTransferCharacteristic.Hlg => BitmapColorTransfer.Hlg,
+        AVFVideoEncoderSettings.ColorTransferCharacteristic.Smpte240M => BitmapColorTransfer.Smpte240M,
+        _ => BitmapColorTransfer.Unknown,
     };
 
-    private static BeutlColorPrimaries MapPrimaries(AVFVideoEncoderSettings.ColorPrimariesType p) => p switch
+    private static BitmapColorPrimaries MapPrimaries(AVFVideoEncoderSettings.ColorPrimariesType p) => p switch
     {
-        AVFVideoEncoderSettings.ColorPrimariesType.Bt709 => BeutlColorPrimaries.Bt709,
-        AVFVideoEncoderSettings.ColorPrimariesType.Rec2020 => BeutlColorPrimaries.Rec2020,
-        AVFVideoEncoderSettings.ColorPrimariesType.Dcip3 => BeutlColorPrimaries.Dcip3,
-        AVFVideoEncoderSettings.ColorPrimariesType.Smpte170M => BeutlColorPrimaries.Smpte170M,
-        _ => BeutlColorPrimaries.Unknown,
+        AVFVideoEncoderSettings.ColorPrimariesType.Bt709 => BitmapColorPrimaries.Bt709,
+        AVFVideoEncoderSettings.ColorPrimariesType.Rec2020 => BitmapColorPrimaries.Rec2020,
+        AVFVideoEncoderSettings.ColorPrimariesType.Dcip3 => BitmapColorPrimaries.Dcip3,
+        AVFVideoEncoderSettings.ColorPrimariesType.Smpte170M => BitmapColorPrimaries.Smpte170M,
+        _ => BitmapColorPrimaries.Unknown,
     };
 
     private static BeutlYCbCrMatrix MapMatrix(AVFVideoEncoderSettings.YCbCrMatrixType m) => m switch
