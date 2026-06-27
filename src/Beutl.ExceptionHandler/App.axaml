@@ -7,6 +7,10 @@
     </Application.Styles>
     <Application.Resources>
         <ResourceDictionary>
+            <FontFamily x:Key="NotoSansJP">avares://Beutl.ExceptionHandler/Assets/Fonts#Noto Sans JP</FontFamily>
+            <FontFamily x:Key="BeutlUIFontFamily">avares://Beutl.ExceptionHandler/Assets/Fonts#Noto Sans JP</FontFamily>
+            <StaticResource x:Key="ContentControlThemeFontFamily" ResourceKey="BeutlUIFontFamily" />
+
             <ControlTheme x:Key="{x:Type SelectableTextBlock}" TargetType="SelectableTextBlock">
                 <Setter Property="SelectionBrush" Value="{DynamicResource TextControlSelectionHighlightColor}" />
 

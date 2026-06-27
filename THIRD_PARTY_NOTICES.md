@@ -1193,6 +1193,15 @@ WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS WITH THE SOFTWARE.
 ```
 
+## Noto Sans JP
+https://github.com/notofonts/noto-cjk
+
+SIL Open Font License, Version 1.1
+
+(c) 2014-2021 Adobe (http://www.adobe.com/), with Reserved Font Name 'Source'.
+
+Source is a trademark of Adobe in the United States and/or other countries.
+
 ## Microsoft.NET.Test.Sdk
 https://github.com/microsoft/vstest
 

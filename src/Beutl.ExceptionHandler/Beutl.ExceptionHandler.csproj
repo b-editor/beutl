@@ -22,6 +22,9 @@
     <Compile Include="..\Beutl.Core\BeutlEnvironment.cs" />
   </ItemGroup>
   <ItemGroup>
+    <AvaloniaResource Include="..\Beutl.Controls\Assets\Fonts\**" Link="Assets\Fonts\%(Filename)%(Extension)" />
+  </ItemGroup>
+  <ItemGroup>
     <EmbeddedResource Update="Properties\Resources.resx" />
   </ItemGroup>
 </Project>

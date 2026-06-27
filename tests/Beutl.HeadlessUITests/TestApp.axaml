@@ -7,8 +7,14 @@
              xmlns:views="using:Beutl.Views"
              x:Class="Beutl.HeadlessUITests.TestApp">
   <Application.Resources>
-    <!-- ElementView (timeline rows) binds through this StaticResource; only App.axaml defines it. -->
-    <aconverters:ColorToBrushConverter x:Key="ColorToBrushConverter" />
+    <ResourceDictionary>
+      <ResourceDictionary.MergedDictionaries>
+        <ResourceInclude Source="avares://Beutl.Controls/Styling/Fonts.axaml" />
+      </ResourceDictionary.MergedDictionaries>
+
+      <!-- ElementView (timeline rows) binds through this StaticResource; only App.axaml defines it. -->
+      <aconverters:ColorToBrushConverter x:Key="ColorToBrushConverter" />
+    </ResourceDictionary>
   </Application.Resources>
   <!-- Without these, hosting EditView leaves the dockables as placeholders and the real tool views never inflate. -->
   <Application.DataTemplates>

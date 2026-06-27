@@ -35,6 +35,7 @@
     <Application.Resources>
         <ResourceDictionary>
             <ResourceDictionary.MergedDictionaries>
+                <ResourceInclude Source="avares://Beutl.Controls/Styling/Fonts.axaml" />
                 <ResourceInclude Source="avares://Beutl.Controls/Styling/ButtonStyles.axaml" />
                 <ResourceInclude Source="avares://Beutl.Controls/Styling/ProgressRing.axaml" />
             </ResourceDictionary.MergedDictionaries>
