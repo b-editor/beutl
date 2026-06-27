@@ -1,9 +1,9 @@
-﻿using Avalonia;
+﻿using System.Linq;
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Headless.NUnit;
 using Avalonia.Media;
 using Avalonia.Platform;
-using System.Linq;
 
 namespace Beutl.HeadlessUITests;
 
