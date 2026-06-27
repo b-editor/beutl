@@ -23,6 +23,30 @@ Phase 0 resolves the open items left after `/speckit-clarify` so that Phase 1 (c
 
 **Verification step before merge**: grep for every call to `DecoderRegistry.OpenMediaFile` and `MediaSource.Resource.Update` and audit the surrounding `MediaOptions` construction; ensure the export pass cannot accidentally inherit a `PreferProxy = true` from a previously-built `MediaOptions`.
 
+> **Post-003 amendment**: R-1 was written before `003-resolution-independent-pipeline` landed. The `MediaOptions.PreferProxy` toggle and the `DecoderRegistry.OpenMediaFile` choke point remain correct, but they are no longer sufficient on their own — opening a smaller proxy file would shrink the source's decoded `FrameSize` and therefore its logical footprint under 003. The full integration design (logical-size channel, supply density, `MediaOptions` shape trade-off) is settled in **R-11** below; R-1's "minimum-surface change" framing still describes the toggle, while R-11 adds the size/density side-channel the 003 pipeline requires.
+
+---
+
+## R-11: Integration with the 003 resolution-independent pipeline (logical-size seam + supply density + `MediaOptions` shape)
+
+**Decision**: A proxy is modeled as a **lower-density supply with an unchanged logical footprint**, consumed through the seam 003 deliberately left open (003 FR-023/FR-024, `003/data-model.md` "003 scope note"). Concretely:
+
+1. `ProxyResolution` (returned by `IProxyResolver`) carries `OriginalLogicalFrameSize` (the original source `FrameSize`) **and** `ProxyDecodedFrameSize` (the proxy's decoded `FrameSize`); their ratio is the proxy's supply density (e.g. `0.5`).
+2. `MediaOptions.PreferProxy` stays a bare `bool` — it is only the on/off toggle consulted by `DecoderRegistry.OpenMediaFile`. The size/density data rides the `ProxyResolution` side-channel, not `MediaOptions`.
+3. `SourceImage` / `SourceVideo` and their `.Resource` thread the original logical size through; `ImageSourceRenderNode` / `VideoSourceRenderNode` pin `Bounds` to the **original** logical size, report `EffectiveScale.At(supplyDensity)` (replacing the hard-coded `EffectiveScale.At(1)`), and draw the decoded proxy bitmap scaled into the original-footprint destination rect (the 003 FR-024 dest-rect seam).
+4. On the original path (no proxy, `PreferProxy = false`, or export) the original `FrameSize` **is** the decoded `FrameSize`, the density is `1.0`, and behavior is byte-identical to 003 — the seam is purely additive.
+5. Export always decodes the original (FR-002): under 003's floor rule `w = max(s_out, densest supply)`, a sub-output proxy at export (`s_out = 1.0`) would be lifted to `w = 1.0` and upsampled (soft); routing through the original is the only way to keep export full-fidelity.
+
+**Rationale**: 003's supply-driven model means a source's value to the pipeline is its `EffectiveScale` (supply density), and effects run at `w = max(s_out, densest supply)`. Lowering a source's supply density — which is exactly what a reduced-resolution proxy does — lowers `w` and therefore the decode + effect-raster cost of preview. This is the precise mechanism by which proxies help, and it explains **where** they help: 003's preview render scale already cheapens vector / text / Skia-filter preview, so proxies add value only for **source-heavy** scenes whose supply density 003 otherwise preserves. Modeling the proxy as "same footprint, lower density" (rather than "a smaller file swapped in") is what makes it compose correctly with 003's mixed-scale compositing without moving content.
+
+**Alternatives considered**:
+
+- **Bare `bool PreferProxy` + native 1:1 blit (the pre-003 design in R-1).** Rejected as *incomplete*: opening the proxy file shrinks the decoded `FrameSize`, and because 003 derives the logical footprint from the decoded `FrameSize`, the clip would render at the proxy's smaller size / shifted position. The toggle is retained; the size side-channel (point 1–3) is added.
+- **A decode-target-size / decode-scale hint on `MediaOptions` (the seam 003 FR-025 explicitly reserves).** Considered: it would carry the scale on `MediaOptions` instead of a side-channel. Rejected for 002 because (a) a proxy needs the **original logical size**, not merely a scale factor — and the original size is known only to the resolver/generation metadata, not to the generic decoder open path; (b) the file-swap decision is per-open and already centralized in `IProxyResolver.Resolve`, so carrying the result (path + sizes) on `ProxyResolution` is more direct than encoding it as a decode-scale hint and re-deriving the footprint. This keeps `MediaOptions` minimal and additive, consistent with 003 FR-025's "MUST NOT add the decode-scale hint now, MUST NOT foreclose it" — a future feature may still add the hint if a non-file-based reduced decode appears.
+- **Derive the logical footprint from the proxy and rescale the drawable.** Rejected: it would change the document's logical coordinates and break layout/hit-testing (003 FR-027); the whole point of 003 US3 is that swapping backing resolution must not move content.
+
+**Verification step before merge**: render a clip with proxy on and proxy off and assert the on-canvas footprint (bounds + hit region) is identical and only the op's `EffectiveScale` differs; render at export and assert the original is used (no proxy upsample). Covered by T062–T065 and quickstart step 4a.
+
 ---
 
 ## R-2: Proxy generation orchestration (no new IPC verbs)
@@ -206,3 +230,4 @@ A small per-clip badge on the timeline strip is captured as a stretch goal and l
 | Project toggle storage | R-8: `Scene.PreviewSourceMode` |
 | UI surface | R-9: project settings toggle + new Proxies tool tab |
 | FFmpeg-missing UX | R-10: reuse existing install prompt; jobs stay queued |
+| 003 integration (logical-size seam, supply density, `MediaOptions` shape) | R-11: proxy = lower-density supply, same logical footprint; sizes on `ProxyResolution`, `PreferProxy` stays a bool toggle |
