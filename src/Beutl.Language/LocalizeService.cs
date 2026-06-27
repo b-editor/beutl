@@ -9,6 +9,7 @@ public sealed class LocalizeService
     [
         "en-US",
         "ja-JP",
+        "zh-Hans"
     ];
 
     public bool IsSupportedCulture(CultureInfo ci)
