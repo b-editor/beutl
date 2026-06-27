@@ -249,8 +249,9 @@ public class FFmpegEncodingController(string outputFile, FFmpegEncodingSettings 
         CancellationToken cancellationToken)
     {
         bool encodeVideo = false, encodeAudio = false;
+        OutputFormat outputFormat = GuessOutputFormat(OutputFile);
         using (var fs = File.OpenWrite(OutputFile))
-        using (var muxer = MediaMuxer.Create(fs, OutputFormat.GuessFormat(null, OutputFile, null)))
+        using (var muxer = MediaMuxer.Create(fs, outputFormat))
         using (var videoFrame = new MediaFrame())
         using (var audioFrame = new MediaFrame())
         {
@@ -359,6 +360,13 @@ public class FFmpegEncodingController(string outputFile, FFmpegEncodingSettings 
                 }
             }
         }
+    }
+
+    private static OutputFormat GuessOutputFormat(string outputFile)
+    {
+        return OutputFormat.GuessFormat(null, outputFile, null)
+            ?? throw new InvalidOperationException(
+                $"Could not determine FFmpeg output format from the file extension: {outputFile}");
     }
 
     private static async ValueTask<MediaFrame?> GetAudioFrame(MediaFrame frame, SampleConverter swr, EncodeState state,
