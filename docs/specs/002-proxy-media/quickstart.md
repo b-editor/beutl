@@ -84,7 +84,7 @@ End-to-end developer/manual-test walkthrough for the proxy media feature. The he
 3. **Confirm**:
    - The exported file's resolution matches `$SRC` (NOT 1/4 of it).
    - Bit-comparable to an export run with proxies deleted: delete all proxies via "Delete all for this project", re-export, and either checksum the resulting files (if encoding is bit-deterministic) or verify visually-indistinguishable output.
-   - At the code level, **every** export-path `MediaOptions` carries `PreferProxy = false` — audit via grep across `SceneComposer` **and** the 003 export call sites (`OutputViewModel` / `FrameProviderImpl`). Rationale (post-003): at export `s_out = 1.0`, 003's floor rule `w = max(s_out, densest supply)` would lift a `0.5` proxy back to `w = 1.0` and upsample it (soft); routing through the original is the only full-fidelity export.
+   - At the code level, the export render context never carries `PreferProxy = true`: audit `OutputViewModel`'s `new SceneRenderer(Model, renderScale, disableResourceShare: true, maxWorkingScale)`, `SceneCompositor`'s context seeding, and the sole video `MediaOptions` construction in `VideoSource.Resource.Update`. Rationale (post-003): at export `s_out ≥ 1` (Off / 2× / 4× supersampling), `w = min(max(s_out, densest supply), MaxWorkingScale)` with export ceiling `+∞` would lift a sub-output proxy to at least `s_out` and upsample it (soft); routing through the original is the only full-fidelity export.
 4. **If this step fails**, the entire feature is broken — escalate immediately. (FR-002 / FR-004 / SC-002.)
 
 ## 9. Verify staleness detection (US2 acceptance #2)
