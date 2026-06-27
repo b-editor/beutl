@@ -1,9 +1,11 @@
 ﻿using System.Collections.ObjectModel;
+using System.Globalization;
 using System.Reactive.Disposables;
 using Avalonia.Threading;
 using Beutl.Configuration;
 using Beutl.Editor.Components.ProxiesTab;
 using Beutl.Graphics;
+using Beutl.Media;
 using Beutl.Media.Proxy;
 using Beutl.ProjectSystem;
 using Microsoft.Extensions.DependencyInjection;
@@ -29,9 +31,23 @@ public sealed class ProxiesTabViewModel : IDisposable, IToolContext
 
         SelectedPreset = new ReactiveProperty<ProxyPreset>(ToPreset(_config.DefaultPreset))
             .DisposeWith(_disposables);
+        ClipSummary = new ReactiveProperty<string>()
+            .DisposeWith(_disposables);
+        SelectionSummary = new ReactiveProperty<string>()
+            .DisposeWith(_disposables);
+        JobSummary = new ReactiveProperty<string>()
+            .DisposeWith(_disposables);
+        ProjectUsageText = new ReactiveProperty<string>()
+            .DisposeWith(_disposables);
+        StoreUsageText = new ReactiveProperty<string>()
+            .DisposeWith(_disposables);
+        StoreCapText = new ReactiveProperty<string>()
+            .DisposeWith(_disposables);
         StoreSummary = new ReactiveProperty<string>()
             .DisposeWith(_disposables);
-        StatusMessage = new ReactiveProperty<string>()
+        SelectedPresetDisplayText = new ReactiveProperty<string>(GetPresetDisplayName(SelectedPreset.Value))
+            .DisposeWith(_disposables);
+        StatusMessage = new ReactiveProperty<string>(Strings.ProxyReady)
             .DisposeWith(_disposables);
 
         GenerateSelectedCommand = new AsyncReactiveCommand()
@@ -53,7 +69,11 @@ public sealed class ProxiesTabViewModel : IDisposable, IToolContext
             .WithSubscribe(Refresh)
             .DisposeWith(_disposables);
 
-        SelectedPreset.Subscribe(_ => Refresh())
+        SelectedPreset.Subscribe(preset =>
+            {
+                SelectedPresetDisplayText.Value = GetPresetDisplayName(preset);
+                Refresh();
+            })
             .DisposeWith(_disposables);
 
         if (_store != null)
@@ -79,9 +99,21 @@ public sealed class ProxiesTabViewModel : IDisposable, IToolContext
 
     public ReactiveProperty<ProxyPreset> SelectedPreset { get; }
 
-    public IReadOnlyList<ProxyPreset> PresetOptions { get; } = Enum.GetValues<ProxyPreset>();
+    public ReactiveProperty<string> ClipSummary { get; }
+
+    public ReactiveProperty<string> SelectionSummary { get; }
+
+    public ReactiveProperty<string> JobSummary { get; }
+
+    public ReactiveProperty<string> ProjectUsageText { get; }
+
+    public ReactiveProperty<string> StoreUsageText { get; }
+
+    public ReactiveProperty<string> StoreCapText { get; }
 
     public ReactiveProperty<string> StoreSummary { get; }
+
+    public ReactiveProperty<string> SelectedPresetDisplayText { get; }
 
     public ReactiveProperty<string> StatusMessage { get; }
 
@@ -101,13 +133,13 @@ public sealed class ProxiesTabViewModel : IDisposable, IToolContext
 
     public IReactiveProperty<bool> IsSelected { get; } = new ReactiveProperty<bool>();
 
-    public string Header => "Proxies";
+    public string Header => Strings.Proxies;
 
     public async Task GenerateAsync(ProxyClipViewModel clip)
     {
         if (_queue == null)
         {
-            StatusMessage.Value = "Proxy queue is not available.";
+            StatusMessage.Value = Strings.ProxyQueueUnavailable;
             return;
         }
 
@@ -157,7 +189,7 @@ public sealed class ProxiesTabViewModel : IDisposable, IToolContext
     {
         if (_queue == null)
         {
-            StatusMessage.Value = "Proxy queue is not available.";
+            StatusMessage.Value = Strings.ProxyQueueUnavailable;
             return;
         }
 
@@ -173,7 +205,7 @@ public sealed class ProxiesTabViewModel : IDisposable, IToolContext
     {
         if (_queue == null)
         {
-            StatusMessage.Value = "Proxy queue is not available.";
+            StatusMessage.Value = Strings.ProxyQueueUnavailable;
             return;
         }
 
@@ -189,7 +221,7 @@ public sealed class ProxiesTabViewModel : IDisposable, IToolContext
     {
         if (_queue == null)
         {
-            StatusMessage.Value = "Proxy queue is not available.";
+            StatusMessage.Value = Strings.ProxyQueueUnavailable;
             return;
         }
 
@@ -246,6 +278,7 @@ public sealed class ProxiesTabViewModel : IDisposable, IToolContext
 
         RefreshJobs();
         UpdateStoreSummary();
+        UpdateClipSummary();
     }
 
     private void RefreshJobs()
@@ -261,6 +294,12 @@ public sealed class ProxiesTabViewModel : IDisposable, IToolContext
         {
             PendingJobs.Add(new ProxyJobViewModel(this, job));
         }
+
+        JobSummary.Value = PendingJobs.Count == 0
+            ? Strings.ProxyQueueIdle
+            : PendingJobs.Count == 1
+                ? Strings.ProxyQueuedJobSingular
+                : string.Format(CultureInfo.CurrentCulture, Strings.ProxyQueuedJobPlural, PendingJobs.Count);
     }
 
     private IEnumerable<(string Path, ProxyFingerprint Fingerprint)> EnumerateVideoSources()
@@ -288,14 +327,47 @@ public sealed class ProxiesTabViewModel : IDisposable, IToolContext
     {
         if (_store == null)
         {
-            StoreSummary.Value = "Proxy store is not available.";
+            ProjectUsageText.Value = Strings.ProxyUnavailable;
+            StoreUsageText.Value = Strings.ProxyUnavailable;
+            StoreCapText.Value = Strings.ProxyUnavailable;
+            StoreSummary.Value = Strings.ProxyStoreUnavailable;
             return;
         }
 
         HashSet<string> paths = [.. Clips.Select(static c => c.Source.AbsolutePath)];
         long projectBytes = _store.GetTotalBytes(paths);
         long totalBytes = _store.GetTotalBytes();
-        StoreSummary.Value = $"Project {FormatBytes(projectBytes)} / Store {FormatBytes(totalBytes)} / Cap {FormatBytes(_config.MaxTotalBytes)}";
+        ProjectUsageText.Value = FormatBytes(projectBytes);
+        StoreUsageText.Value = FormatBytes(totalBytes);
+        StoreCapText.Value = FormatBytes(_config.MaxTotalBytes);
+        StoreSummary.Value = string.Format(
+            CultureInfo.CurrentCulture,
+            Strings.ProxyStoreSummaryFormat,
+            ProjectUsageText.Value,
+            StoreUsageText.Value,
+            StoreCapText.Value);
+    }
+
+    internal void UpdateClipSummary()
+    {
+        int ready = Clips.Count(static c => c.IsReady);
+        int stale = Clips.Count(static c => c.IsStale);
+        int failed = Clips.Count(static c => c.IsFailed);
+        int missing = Clips.Count(static c => c.IsMissing);
+        int selected = Clips.Count(static c => c.IsSelected.Value);
+
+        string stateSummary = string.Format(
+            CultureInfo.CurrentCulture,
+            Strings.ProxyClipSummaryFormat,
+            Clips.Count,
+            ready,
+            stale,
+            failed,
+            missing);
+        ClipSummary.Value = stateSummary;
+        SelectionSummary.Value = selected == 1
+            ? Strings.ProxySelectedSingular
+            : string.Format(CultureInfo.CurrentCulture, Strings.ProxySelectedPlural, selected);
     }
 
     private ProxyEntry? FindEntry(ProxyFingerprint source, ProxyPreset preset)
@@ -324,7 +396,11 @@ public sealed class ProxiesTabViewModel : IDisposable, IToolContext
             return;
         }
 
-        StatusMessage.Value = $"{Path.GetFileName(e.Job.Source.AbsolutePath)}: {e.Job.Status}";
+        StatusMessage.Value = string.Format(
+            CultureInfo.CurrentCulture,
+            Strings.ProxyJobStatusWithMessageFormat,
+            Path.GetFileName(e.Job.Source.AbsolutePath),
+            GetJobStatusText(e.Job.Status));
         RefreshJobs();
         if (e.Kind is ProxyJobChangeKind.Succeeded
             or ProxyJobChangeKind.Failed
@@ -335,7 +411,7 @@ public sealed class ProxiesTabViewModel : IDisposable, IToolContext
         }
     }
 
-    private static string FormatBytes(long bytes)
+    internal static string FormatBytes(long bytes)
     {
         string[] units = ["B", "KB", "MB", "GB", "TB"];
         double value = bytes;
@@ -347,6 +423,50 @@ public sealed class ProxiesTabViewModel : IDisposable, IToolContext
         }
 
         return $"{value:0.#} {units[unit]}";
+    }
+
+    internal static string FormatSize(PixelSize size)
+    {
+        return $"{size.Width}x{size.Height}";
+    }
+
+    internal static string GetPresetDisplayName(ProxyPreset preset)
+    {
+        return preset switch
+        {
+            ProxyPreset.Half => Strings.ProxyPresetHalf,
+            ProxyPreset.Quarter => Strings.ProxyPresetQuarter,
+            ProxyPreset.Eighth => Strings.ProxyPresetEighth,
+            _ => preset.ToString(),
+        };
+    }
+
+    internal static string GetProxyStateText(ProxyState state)
+    {
+        return state switch
+        {
+            ProxyState.None => Strings.ProxyMissing,
+            ProxyState.Generating => Strings.ProxyGenerating,
+            ProxyState.Ready => Strings.ProxyReady,
+            ProxyState.Stale => Strings.ProxyStale,
+            ProxyState.Failed => Strings.ProxyFailed,
+            ProxyState.Partial => Strings.ProxyPartial,
+            _ => state.ToString(),
+        };
+    }
+
+    internal static string GetJobStatusText(ProxyJobStatus status)
+    {
+        return status switch
+        {
+            ProxyJobStatus.Queued => Strings.ProxyJobStatusQueued,
+            ProxyJobStatus.Running => Strings.ProxyJobStatusRunning,
+            ProxyJobStatus.Succeeded => Strings.ProxyJobStatusSucceeded,
+            ProxyJobStatus.Failed => Strings.ProxyJobStatusFailed,
+            ProxyJobStatus.Canceled => Strings.ProxyJobStatusCanceled,
+            ProxyJobStatus.Skipped => Strings.ProxyJobStatusSkipped,
+            _ => status.ToString(),
+        };
     }
 
     private static ProxyPreset ToPreset(int value)
@@ -394,12 +514,38 @@ public sealed class ProxyClipViewModel : IDisposable
         Source = source;
         Preset = preset;
         EntrySource = entry?.Source;
-        State = entry == null
-            ? ProxyState.None.ToString()
+        ProxyState state = entry == null
+            ? ProxyState.None
             : entry.Source == source
-                ? entry.State.ToString()
-                : ProxyState.Stale.ToString();
+                ? entry.State
+                : ProxyState.Stale;
+        State = ProxiesTabViewModel.GetProxyStateText(state);
+        IsReady = state == ProxyState.Ready;
+        IsStale = state == ProxyState.Stale;
+        IsFailed = state == ProxyState.Failed;
+        IsMissing = state == ProxyState.None;
+        SourceInfoText = string.Format(
+            CultureInfo.CurrentCulture,
+            Strings.ProxySourceInfoFormat,
+            ProxiesTabViewModel.FormatBytes(source.FileSizeBytes),
+            source.MtimeUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm", CultureInfo.CurrentCulture));
+        ProxyInfoText = entry == null
+            ? Strings.ProxyMissingForSelectedPreset
+            : string.Format(
+                CultureInfo.CurrentCulture,
+                Strings.ProxyInfoFormat,
+                ProxiesTabViewModel.FormatSize(entry.OriginalLogicalFrameSize),
+                ProxiesTabViewModel.FormatSize(entry.ProxyDecodedFrameSize),
+                ProxiesTabViewModel.FormatBytes(entry.ProxyFileSizeBytes));
+        LastUsedText = entry == null
+            ? string.Empty
+            : string.Format(
+                CultureInfo.CurrentCulture,
+                Strings.ProxyLastUsedFormat,
+                entry.LastUsedUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm", CultureInfo.CurrentCulture));
         IsSelected = new ReactiveProperty<bool>()
+            .DisposeWith(_disposables);
+        IsSelected.Subscribe(_ => _owner.UpdateClipSummary())
             .DisposeWith(_disposables);
         GenerateCommand = new AsyncReactiveCommand()
             .WithSubscribe(() => _owner.GenerateAsync(this))
@@ -423,6 +569,20 @@ public sealed class ProxyClipViewModel : IDisposable
     public ProxyPreset Preset { get; }
 
     public string State { get; }
+
+    public string SourceInfoText { get; }
+
+    public string ProxyInfoText { get; }
+
+    public string LastUsedText { get; }
+
+    public bool IsReady { get; }
+
+    public bool IsStale { get; }
+
+    public bool IsFailed { get; }
+
+    public bool IsMissing { get; }
 
     public ReactiveProperty<bool> IsSelected { get; }
 
@@ -455,11 +615,15 @@ public sealed class ProxyJobViewModel : IDisposable
 
     public string FileName => Path.GetFileName(_job.Source.AbsolutePath);
 
-    public string Preset => _job.Preset.ToString();
+    public string Preset => ProxiesTabViewModel.GetPresetDisplayName(_job.Preset);
 
     public string Status => string.IsNullOrWhiteSpace(_job.StatusMessage)
-        ? _job.Status.ToString()
-        : $"{_job.Status}: {_job.StatusMessage}";
+        ? ProxiesTabViewModel.GetJobStatusText(_job.Status)
+        : string.Format(
+            CultureInfo.CurrentCulture,
+            Strings.ProxyJobStatusWithMessageFormat,
+            ProxiesTabViewModel.GetJobStatusText(_job.Status),
+            _job.StatusMessage);
 
     public double ProgressValue => _job.LatestProgress?.FractionComplete ?? 0;
 

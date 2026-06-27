@@ -12,9 +12,9 @@ public sealed class ProxiesTabExtension : ToolTabExtension
 
     public override string Name => "Proxies";
 
-    public override string DisplayName => "Proxies";
+    public override string DisplayName => Strings.Proxies;
 
-    public override string? Header => "Proxies";
+    public override string? Header => Strings.Proxies;
 
     public override bool CanMultiple => false;
 
