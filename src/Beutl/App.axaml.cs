@@ -89,10 +89,6 @@ public sealed class App : Application
             _theme.CustomAccentColor = customColor;
         }
 
-        if (!OperatingSystem.IsWindows() && view.UICulture.Name == "ja-JP")
-        {
-            Resources["ContentControlThemeFontFamily"] = Resources["NotoSansJP"] as FontFamily;
-        }
     }
 
     private void ApplyDockStringOverrides()

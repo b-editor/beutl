@@ -1,0 +1,6 @@
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <FontFamily x:Key="NotoSansJP">avares://Beutl.Controls/Assets/Fonts#Noto Sans JP</FontFamily>
+    <FontFamily x:Key="BeutlUIFontFamily">avares://Beutl.Controls/Assets/Fonts#Noto Sans JP</FontFamily>
+    <StaticResource x:Key="ContentControlThemeFontFamily" ResourceKey="BeutlUIFontFamily" />
+</ResourceDictionary>

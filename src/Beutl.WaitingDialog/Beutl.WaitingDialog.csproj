@@ -23,4 +23,8 @@
     <PackageReference Include="System.Reactive" />
   </ItemGroup>
 
+  <ItemGroup>
+    <AvaloniaResource Include="..\Beutl.Controls\Assets\Fonts\**" Link="Assets\Fonts\%(Filename)%(Extension)" />
+  </ItemGroup>
+
 </Project>
