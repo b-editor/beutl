@@ -74,10 +74,10 @@ public class MFReaderIntegrationTests
         Assert.That(read, Is.True);
         using (pcm)
         {
-            // `read` and a non-null Ref are structurally always true (ReadAudioCore returns true for
-            // any non-negative provider count and allocates the buffer unconditionally). The fixture
-            // is a 440Hz sine at 0.3 amplitude, so assert the decoded buffer is the requested length
-            // AND actually carries the signal rather than silence.
+            // Under the ReadAudio contract, ReadAudioCore always returns true with a buffer once the
+            // reader is initialized — end-of-stream is signalled by a short/empty NumSamples, not by
+            // false. The fixture is a 440Hz sine at 0.3 amplitude longer than 4410 frames, so an in-range
+            // read yields the requested length and carries the signal rather than silence.
             var samples = ((Pcm<Stereo32BitFloat>)pcm!.Value).DataSpan;
             Assert.That(samples.Length, Is.EqualTo(4410));
 
