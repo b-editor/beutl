@@ -1,6 +1,7 @@
 ﻿using System.Collections.ObjectModel;
 using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
+using Beutl.AgentHost;
 using Beutl.Api;
 using Beutl.Api.Services;
 using Beutl.Helpers;
@@ -21,6 +22,7 @@ public sealed class MainViewModel : BasePageViewModel, IContextCommandHandler
     private readonly ProjectService _projectService;
     private readonly EditorService _editorService;
     private readonly ExtensionProvider _extensionProvider;
+    private readonly AgentHostEndpoint _agentHostEndpoint;
 
     public MainViewModel()
     {
@@ -30,6 +32,7 @@ public sealed class MainViewModel : BasePageViewModel, IContextCommandHandler
         _extensionProvider = new ExtensionProvider();
         _projectService = new ProjectService();
         _editorService = new EditorService(_extensionProvider);
+        _agentHostEndpoint = new AgentHostEndpoint(_editorService);
         _beutlClients = new BeutlApiApplication(_authHttpClient, _extensionProvider);
         ContextCommandManager = _beutlClients.GetResource<ContextCommandManager>();
 
@@ -102,6 +105,8 @@ public sealed class MainViewModel : BasePageViewModel, IContextCommandHandler
 
     internal ExtensionProvider ExtensionProvider => _extensionProvider;
 
+    internal AgentHostEndpoint AgentHostEndpoint => _agentHostEndpoint;
+
     public IReadOnlyReactiveProperty<bool> IsProjectOpened { get; }
 
     public ReadOnlyObservableCollection<ToolTabExtension> ToolTabExtensions { get; }
@@ -116,7 +121,7 @@ public sealed class MainViewModel : BasePageViewModel, IContextCommandHandler
 
     public SettingsDialogViewModel CreateSettingsDialog()
     {
-        return new SettingsDialogViewModel(_beutlClients, _extensionProvider);
+        return new SettingsDialogViewModel(_beutlClients, _extensionProvider, _agentHostEndpoint);
     }
 
     public Startup RunStartupTask()
@@ -134,17 +139,22 @@ public sealed class MainViewModel : BasePageViewModel, IContextCommandHandler
         {
             lifetime.Exit += OnExit;
         }
+
+        _ = _agentHostEndpoint.StartAsync();
     }
 
     public override void Dispose()
     {
         CommandPalette.Dispose();
+        _agentHostEndpoint.DisposeAsync().AsTask().GetAwaiter().GetResult();
         _projectService.CloseProject();
         BeutlApplication.Current.Items.Clear();
     }
 
     private void OnExit(object? sender, ControlledApplicationLifetimeExitEventArgs e)
     {
+        _agentHostEndpoint.DisposeAsync().AsTask().GetAwaiter().GetResult();
+
         PackageChangesQueue queue = _beutlClients.GetResource<PackageChangesQueue>();
         PackageIdentity[] installs = queue.GetInstalls().ToArray();
         PackageIdentity[] uninstalls = queue.GetUninstalls().ToArray();

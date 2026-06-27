@@ -13,6 +13,19 @@ dotnet build Beutl.slnx
 
 ## Wire it into an agent host (`.mcp.json`)
 
+### Install from the Beutl UI
+
+Open **Settings → AI Agents** in the Beutl app. The page installs the bundled Skills, Subagents, and MCP configuration into a user-selected agent root.
+
+- Pick an agent root. For Claude Code, select the home or workspace root and use the `Claude Code .claude folders` preset. For other MCP-capable agents, use `Generic skills/agents folders` or edit the relative Skills/Subagents folders directly.
+- Choose whether to install Skills, Subagents, stdio MCP, live MCP, or any subset.
+- Keep `.mcp.json` / `servers` for hosts that use the repository-local config shape, or change the config file and servers property name for hosts that use a different JSON layout such as `mcpServers`.
+- Use the generated stdio command for headless project editing, or enable live MCP while Beutl is running to connect to the in-app loopback endpoint.
+
+The installer preserves existing JSON properties and existing MCP servers, then updates only the `beutl-agent` and `beutl-live` entries.
+
+### Manual `.mcp.json`
+
 ```jsonc
 {
   "servers": {
@@ -35,10 +48,10 @@ In release, point `command` at the published exe. `BEUTL_WORKSPACE` is the write
 To see edits appear live in the running Beutl editor, connect to the **in-app endpoint** instead of spawning the headless server. With a project open in the editor (which hosts a loopback HTTP/SSE endpoint), point the agent host at it:
 
 ```jsonc
-{ "servers": { "beutl-live": { "type": "http", "url": "http://127.0.0.1:<port>/mcp" } } }
+{ "servers": { "beutl-live": { "type": "http", "url": "http://127.0.0.1:<port>/mcp?token=<token>" } } }
 ```
 
-Then `attach_active_editor` binds a **live session** to the open project; edits flow through the same scene + history the UI is bound to, so the preview/timeline/property panels update in real time and each change is on the editor's undo stack. (The endpoint binds loopback only; the write-boundary and validation guarantees are unchanged.)
+Then `attach_active_editor` binds a **live session** to the open project; edits flow through the same scene + history the UI is bound to, so the preview/timeline/property panels update in real time and each change is on the editor's undo stack. (The endpoint binds loopback only, issues a per-session token, and accepts the token either as `?token=` or `X-Beutl-Agent-Token`; the write-boundary and validation guarantees are unchanged.)
 
 ## The declarative loop (worked example)
 
@@ -50,34 +63,34 @@ A creator asks the agent: *"10-second 1080p clip: a title that fades in over a b
    ```
 2. **Create** the project:
    ```
-   create_project { "path": "promo.bep", "frameSize": [1920,1080], "frameRate": 30, "duration": "00:00:10" }  → { session }
+   create_project { "path": "promo.bep", "width": 1920, "height": 1080, "frameRate": 30, "duration": "00:00:10" }  → { session }
    ```
 3. **Read** the (empty) document, then **plan** the full desired state:
    ```
-   read_document { session }                  → { document, schemaVersion }   // echo schemaVersion back on every edit
-   plan_edit { session, "schemaVersion": "1", "desired": <document with the image, title (with an Opacity fade-in keyframe animation), and logo elements> }
+   read_document {}                           → { document, schemaVersion }   // echo schemaVersion back on every edit
+   plan_edit { "schemaVersion": "1", "desired": <document with the image, title (with an Opacity fade-in keyframe animation), and logo elements> }
                                               → changeSet + validation (e.g. any value clamped to its [Range])
    ```
 4. **Apply** atomically once the plan looks right:
    ```
-   apply_edit { session, "schemaVersion": "1", "desired": <same>, "expectedChangeSet": <from plan> }  → applied, historyEntry
+   apply_edit { "schemaVersion": "1", "desired": <same>, "expectedChangeSet": <from plan> }  → applied, historyEntry
    ```
    For a later tweak — *"make the title bigger"* — send a tiny **merge-patch** instead of the whole document:
    ```
-   plan_edit { session, "schemaVersion": "1", "patch": { "Elements": [ { "Id": "<title-el>", "Objects": [ { "Id": "<text>", "Size": 140 } ] } ] } }
-   apply_edit { session, "schemaVersion": "1", "patch": <same> }
+   plan_edit { "schemaVersion": "1", "patch": { "Elements": [ { "Id": "<title-el>", "Objects": [ { "Id": "<text>", "Size": 140 } ] } ] } }
+   apply_edit { "schemaVersion": "1", "patch": <same> }
    ```
 5. **Verify** by rendering a still (and optionally export):
    ```
-   render_still { session, sceneId, "time": "00:00:01.5", "outputPath": "preview.png" }   → imagePath
-   export_video { session, sceneId, "outputPath": "promo.mp4" }                            → videoPath   (needs FFmpeg native libs)
+   render_still { "timeSeconds": 1.5, "outputPath": "preview.png" }  → imagePath
+   export_video { "outputPath": "promo.mp4" }                        → videoPath   (needs FFmpeg native libs)
    ```
 6. **Save**:
    ```
    save_project { session }                   → savedPath (under BEUTL_WORKSPACE)
    ```
 
-Undo is available (`undo`/`redo`) and an agent's edits show up as normal, human-undoable history entries when the project is later opened in the Beutl GUI.
+Undo is same-session: file sessions record normal history while open, and live editor sessions put edits on the active editor's undo stack.
 
 ## What an agent can rely on
 
@@ -95,6 +108,22 @@ Run:
 dotnet test tests/Beutl.AgentToolkit.Tests --settings coverlet.runsettings
 ```
 
+## Live-Mode Manual Verification (SC-010)
+
+1. Open a project in the Beutl editor.
+2. Connect an MCP host to `http://127.0.0.1:<port>/mcp?token=<token>`.
+3. Call `attach_active_editor`.
+4. Call `read_document`, `plan_edit`, and `apply_edit` for one visible text/shape change.
+5. Confirm the preview, timeline, and property panel update without reloading the project.
+6. Confirm the edit is one normal undo entry in the active editor session.
+
 ## The guidance pillar (Skills / Subagents)
 
-Beyond the MCP surface, the toolkit ships discoverable editing recipes (Skills) and scoped specialists (Subagents) — e.g. "lay out a timeline from a shot list", "apply a look/effect chain" — so agents follow Beutl's conventions (PascalCase property keys, the id-keyed array-merge rule, in-range values) without re-deriving them. These are authored under `.claude/skills/*` and `.claude/agents/*` during implementation.
+Beyond the MCP surface, the toolkit ships discoverable editing recipes (Skills) and scoped specialists (Subagents) so agents follow Beutl's conventions without re-deriving them:
+
+- `.claude/skills/beutl-agent-timeline-from-shotlist/SKILL.md`
+- `.claude/skills/beutl-agent-look-effect-chain/SKILL.md`
+- `.claude/agents/beutl-agent-timeline-builder.md`
+- `.claude/agents/beutl-agent-look-applier.md`
+
+Use the timeline recipe/specialist for shot-list layout, retiming, splitting, grouping, and media placement. Use the look/effect recipe/specialist for color/effect chains, effect ordering, and cross-shot consistency. Both document PascalCase property keys, id-keyed array merge-patch rules, and in-range schema-driven values.

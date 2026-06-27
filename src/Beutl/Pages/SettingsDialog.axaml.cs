@@ -126,6 +126,15 @@ public sealed partial class SettingsDialog : AppWindow
             },
             new NavigationViewItem()
             {
+                Content = "AI Agents",
+                Tag = typeof(AiAgentSettingsPage),
+                IconSource = new FluentIcons.Avalonia.Fluent.SymbolIconSource()
+                {
+                    Symbol = FluentIcons.Common.Symbol.Chat
+                }
+            },
+            new NavigationViewItem()
+            {
                 Content = Strings.Info,
                 Tag = typeof(InformationPage),
                 IconSource = new FluentIcons.Avalonia.Fluent.SymbolIconSource()
@@ -162,6 +171,7 @@ public sealed partial class SettingsDialog : AppWindow
                 "EditorSettingsPage" => settingsPage.Editor,
                 "FontSettingsPage" => settingsPage.Font,
                 "ExtensionsSettingsPage" => settingsPage.ExtensionsPage,
+                "AiAgentSettingsPage" => settingsPage.AiAgent,
                 "InformationPage" => settingsPage.Information,
                 "KeyMapSettingsPage" => settingsPage.KeyMap,
                 _ => null,
@@ -201,6 +211,7 @@ public sealed partial class SettingsDialog : AppWindow
                 || pagetype == typeof(KeyMapSettingsPage)
                 || pagetype == typeof(FontSettingsPage)
                 || pagetype == typeof(ExtensionsSettingsPage)
+                || pagetype == typeof(AiAgentSettingsPage)
                 || pagetype == typeof(InformationPage))
             {
                 return 0;
@@ -229,8 +240,9 @@ public sealed partial class SettingsDialog : AppWindow
                 "FontSettingsPage" => 4,
                 "ExtensionsSettingsPage" or "EditorExtensionPriorityPage" or "DecoderPriorityPage"
                     or "AnExtensionSettingsPage" => 5,
-                "StorageSettingsPage" or "StorageDetailPage" => 6,
-                "InformationPage" or "TelemetrySettingsPage" => 7,
+                "AiAgentSettingsPage" => 6,
+                "StorageSettingsPage" or "StorageDetailPage" => 7,
+                "InformationPage" or "TelemetrySettingsPage" => 8,
                 _ => 0,
             };
         }
@@ -245,6 +257,7 @@ public sealed partial class SettingsDialog : AppWindow
                 "KeyMapSettingsPageViewModel" => typeof(KeyMapSettingsPage),
                 "FontSettingsPageViewModel" => typeof(FontSettingsPage),
                 "ExtensionsSettingsPageViewModel" => typeof(ExtensionsSettingsPage),
+                "AiAgentSettingsPageViewModel" => typeof(AiAgentSettingsPage),
                 "EditorExtensionPriorityPageViewModel" => typeof(EditorExtensionPriorityPage),
                 "DecoderPriorityPageViewModel" => typeof(DecoderPriorityPage),
                 "TelemetrySettingsPageViewModel" => typeof(TelemetrySettingsPage),

@@ -85,7 +85,7 @@ public sealed class FFmpegWorkerProcess : IDisposable
     private static void ThrowIfLibrariesMissing()
     {
 #if !BEUTL_FFMPEG_WORKER
-        if (FFmpegInstallNotifier.IsLibrariesMissing)
+        if (FFmpegLibraryState.IsLibrariesMissing)
         {
             throw new FFmpegLibrariesNotFoundException(
                 "FFmpeg libraries are missing; install FFmpeg before starting the worker.");

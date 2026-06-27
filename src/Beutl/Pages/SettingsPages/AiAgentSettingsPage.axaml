@@ -1,0 +1,173 @@
+<UserControl x:Class="Beutl.Pages.SettingsPages.AiAgentSettingsPage"
+             xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:vm="using:Beutl.ViewModels.SettingsPages"
+             d:DesignHeight="700"
+             d:DesignWidth="800"
+             x:CompileBindings="True"
+             x:DataType="vm:AiAgentSettingsPageViewModel"
+             mc:Ignorable="d">
+    <ScrollViewer Padding="18">
+        <StackPanel Margin="10,0"
+                    VerticalAlignment="Stretch"
+                    Orientation="Vertical"
+                    Spacing="12">
+            <TextBlock Text="AI Agents" Theme="{StaticResource SimpleLargeBreadcrumbBarTextBlock}" />
+
+            <TextBlock Margin="0,8,0,0"
+                       Text="Target"
+                       Theme="{StaticResource BodyStrongTextBlockStyle}" />
+
+            <Grid ColumnDefinitions="160,*,Auto"
+                  RowDefinitions="Auto,Auto,Auto,Auto,Auto"
+                  RowSpacing="8"
+                  ColumnSpacing="8">
+                <TextBlock VerticalAlignment="Center" Text="Agent root" />
+                <TextBox Grid.Column="1"
+                         MinWidth="360"
+                         Text="{Binding AgentRoot.Value}" />
+                <Button Grid.Column="2"
+                        Click="BrowseAgentRoot_Click"
+                        Content="Browse" />
+
+                <TextBlock Grid.Row="1"
+                           VerticalAlignment="Center"
+                           Text="Layout" />
+                <ComboBox Grid.Row="1"
+                          Grid.Column="1"
+                          MinWidth="260"
+                          HorizontalAlignment="Left"
+                          ItemsSource="{Binding Layouts}"
+                          SelectedItem="{Binding SelectedLayout.Value}">
+                    <ComboBox.ItemTemplate>
+                        <DataTemplate x:DataType="vm:AgentInstallLayoutItem">
+                            <TextBlock Text="{Binding DisplayName}" />
+                        </DataTemplate>
+                    </ComboBox.ItemTemplate>
+                </ComboBox>
+
+                <TextBlock Grid.Row="2"
+                           VerticalAlignment="Center"
+                           Text="Workspace root" />
+                <TextBox Grid.Row="2"
+                         Grid.Column="1"
+                         MinWidth="360"
+                         Text="{Binding WorkspaceRoot.Value}" />
+                <Button Grid.Row="2"
+                        Grid.Column="2"
+                        Click="BrowseWorkspaceRoot_Click"
+                        Content="Browse" />
+
+                <TextBlock Grid.Row="3"
+                           VerticalAlignment="Center"
+                           Text="Skills folder" />
+                <TextBox Grid.Row="3"
+                         Grid.Column="1"
+                         MaxWidth="360"
+                         HorizontalAlignment="Left"
+                         Text="{Binding SkillsDirectory.Value}" />
+
+                <TextBlock Grid.Row="4"
+                           VerticalAlignment="Center"
+                           Text="Subagents folder" />
+                <TextBox Grid.Row="4"
+                         Grid.Column="1"
+                         MaxWidth="360"
+                         HorizontalAlignment="Left"
+                         Text="{Binding SubagentsDirectory.Value}" />
+            </Grid>
+
+            <TextBlock Margin="0,8,0,0"
+                       Text="Components"
+                       Theme="{StaticResource BodyStrongTextBlockStyle}" />
+
+            <WrapPanel>
+                <CheckBox Margin="0,0,16,0"
+                          Content="Skills"
+                          IsChecked="{Binding InstallSkills.Value}" />
+                <CheckBox Margin="0,0,16,0"
+                          Content="Subagents"
+                          IsChecked="{Binding InstallSubagents.Value}" />
+                <CheckBox Margin="0,0,16,0"
+                          Content="Stdio MCP"
+                          IsChecked="{Binding InstallStdioMcp.Value}" />
+                <CheckBox Content="Live MCP"
+                          IsChecked="{Binding InstallLiveMcp.Value}" />
+            </WrapPanel>
+
+            <TextBlock Margin="0,8,0,0"
+                       Text="MCP"
+                       Theme="{StaticResource BodyStrongTextBlockStyle}" />
+
+            <Grid ColumnDefinitions="160,*"
+                  RowDefinitions="Auto,Auto,Auto,Auto,Auto"
+                  RowSpacing="8"
+                  ColumnSpacing="8">
+                <TextBlock VerticalAlignment="Center" Text="Config file" />
+                <TextBox Grid.Column="1"
+                         MaxWidth="360"
+                         HorizontalAlignment="Left"
+                         Text="{Binding McpConfigFileName.Value}" />
+
+                <TextBlock Grid.Row="1"
+                           VerticalAlignment="Center"
+                           Text="Servers property" />
+                <TextBox Grid.Row="1"
+                         Grid.Column="1"
+                         MaxWidth="360"
+                         HorizontalAlignment="Left"
+                         Text="{Binding McpServersPropertyName.Value}" />
+
+                <TextBlock Grid.Row="2"
+                           VerticalAlignment="Center"
+                           Text="Command" />
+                <TextBox Grid.Row="2"
+                         Grid.Column="1"
+                         MinWidth="360"
+                         Text="{Binding McpCommand.Value}" />
+
+                <TextBlock Grid.Row="3"
+                           VerticalAlignment="Top"
+                           Text="Arguments" />
+                <TextBox Grid.Row="3"
+                         Grid.Column="1"
+                         MinHeight="96"
+                         MinWidth="360"
+                         AcceptsReturn="True"
+                         FontFamily="Cascadia Code,Consolas,Menlo,Monospace"
+                         Text="{Binding McpArguments.Value}"
+                         TextWrapping="NoWrap" />
+
+                <TextBlock Grid.Row="4"
+                           VerticalAlignment="Center"
+                           Text="Live URL" />
+                <DockPanel Grid.Row="4" Grid.Column="1">
+                    <Button Margin="8,0,0,0"
+                            HorizontalAlignment="Right"
+                            Click="RefreshLiveMcp_Click"
+                            Content="Refresh"
+                            DockPanel.Dock="Right" />
+                    <TextBox MinWidth="360"
+                             IsReadOnly="True"
+                             Text="{Binding LiveMcpUrl.Value}" />
+                </DockPanel>
+            </Grid>
+
+            <StackPanel Margin="0,8,0,0"
+                        HorizontalAlignment="Right"
+                        Orientation="Horizontal"
+                        Spacing="8">
+                <Button MinWidth="120"
+                        Command="{Binding Install}"
+                        Content="Install" />
+            </StackPanel>
+
+            <SelectableTextBlock MinHeight="24"
+                                 FontFamily="Cascadia Code,Consolas,Menlo,Monospace"
+                                 Text="{Binding Status.Value}"
+                                 TextWrapping="Wrap" />
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

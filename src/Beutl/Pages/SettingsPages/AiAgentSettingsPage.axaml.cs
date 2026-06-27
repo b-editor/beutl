@@ -1,0 +1,66 @@
+﻿using Avalonia.Controls;
+using Avalonia.Interactivity;
+using Avalonia.Platform.Storage;
+using Beutl.ViewModels.SettingsPages;
+
+namespace Beutl.Pages.SettingsPages;
+
+public sealed partial class AiAgentSettingsPage : UserControl
+{
+    public AiAgentSettingsPage()
+    {
+        InitializeComponent();
+    }
+
+    private async void BrowseAgentRoot_Click(object? sender, RoutedEventArgs e)
+    {
+        await PickFolderAsync("Select AI agent root", path =>
+        {
+            if (DataContext is AiAgentSettingsPageViewModel vm)
+            {
+                vm.AgentRoot.Value = path;
+            }
+        });
+    }
+
+    private async void BrowseWorkspaceRoot_Click(object? sender, RoutedEventArgs e)
+    {
+        await PickFolderAsync("Select Beutl workspace root", path =>
+        {
+            if (DataContext is AiAgentSettingsPageViewModel vm)
+            {
+                vm.WorkspaceRoot.Value = path;
+            }
+        });
+    }
+
+    private void RefreshLiveMcp_Click(object? sender, RoutedEventArgs e)
+    {
+        if (DataContext is AiAgentSettingsPageViewModel vm)
+        {
+            vm.RefreshLiveMcp.Execute();
+        }
+    }
+
+    private async Task PickFolderAsync(string title, Action<string> setPath)
+    {
+        TopLevel? topLevel = TopLevel.GetTopLevel(this);
+        if (topLevel is null)
+        {
+            return;
+        }
+
+        IReadOnlyList<IStorageFolder> folders = await topLevel.StorageProvider.OpenFolderPickerAsync(
+            new FolderPickerOpenOptions
+            {
+                Title = title,
+                AllowMultiple = false,
+            });
+
+        if (folders.Count > 0
+            && folders[0].Path.LocalPath is { Length: > 0 } path)
+        {
+            setPath(path);
+        }
+    }
+}
