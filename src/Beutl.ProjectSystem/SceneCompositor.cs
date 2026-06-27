@@ -3,6 +3,7 @@ using Beutl.Collections.Pooled;
 using Beutl.Composition;
 using Beutl.Engine;
 using Beutl.Media;
+using Beutl.Media.Proxy;
 using Beutl.ProjectSystem;
 
 namespace Beutl;
@@ -35,6 +36,8 @@ public sealed class SceneCompositor : ICompositor
             Target = target;
             Flow = flow;
             DisableResourceShare = compositor.DisableResourceShare;
+            PreferProxy = !compositor.DisableResourceShare
+                && compositor.Scene.PreviewSourceMode == PreviewSourceMode.PreferProxy;
         }
 
         public IList<Element> CurrentElements { get; set; }

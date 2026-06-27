@@ -145,6 +145,8 @@ public sealed class MainViewModel : BasePageViewModel, IContextCommandHandler
 
     private void OnExit(object? sender, ControlledApplicationLifetimeExitEventArgs e)
     {
+        ProxyMediaServices.Current?.DisposeAsync().AsTask().GetAwaiter().GetResult();
+
         PackageChangesQueue queue = _beutlClients.GetResource<PackageChangesQueue>();
         PackageIdentity[] installs = queue.GetInstalls().ToArray();
         PackageIdentity[] uninstalls = queue.GetUninstalls().ToArray();

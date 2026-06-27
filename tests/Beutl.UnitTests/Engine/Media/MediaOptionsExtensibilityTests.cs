@@ -15,6 +15,13 @@ public class MediaOptionsExtensibilityTests
     }
 
     [Test]
+    public void Default_DoesNotPreferProxy()
+    {
+        var options = new MediaOptions();
+        Assert.That(options.PreferProxy, Is.False);
+    }
+
+    [Test]
     public void StreamsToLoad_RoundTrips()
     {
         Assert.That(new MediaOptions(MediaMode.Video).StreamsToLoad, Is.EqualTo(MediaMode.Video));
@@ -33,8 +40,10 @@ public class MediaOptionsExtensibilityTests
     {
         // The `with` clone is how a future decode-scale hint gets set without disturbing existing members.
         var baseline = new MediaOptions(MediaMode.AudioVideo);
-        var narrowed = baseline with { StreamsToLoad = MediaMode.Video };
+        var narrowed = baseline with { StreamsToLoad = MediaMode.Video, PreferProxy = true };
         Assert.That(narrowed.StreamsToLoad, Is.EqualTo(MediaMode.Video));
+        Assert.That(narrowed.PreferProxy, Is.True);
         Assert.That(baseline.StreamsToLoad, Is.EqualTo(MediaMode.AudioVideo));
+        Assert.That(baseline.PreferProxy, Is.False);
     }
 }

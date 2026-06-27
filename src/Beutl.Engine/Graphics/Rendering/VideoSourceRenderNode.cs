@@ -15,7 +15,7 @@ public sealed class VideoSourceRenderNode(
 
     public int Frame { get; private set; } = frame;
 
-    public Rect Bounds { get; private set; } = PenHelper.GetBounds(new Rect(default, source.FrameSize.ToSize(1)), pen);
+    public Rect Bounds { get; private set; } = PenHelper.GetBounds(new Rect(default, source.LogicalFrameSize.ToSize(1)), pen);
 
     public bool Update(VideoSource.Resource source, int frame, Brush.Resource? fill, Pen.Resource? pen)
     {
@@ -28,7 +28,7 @@ public sealed class VideoSourceRenderNode(
 
         if (changed && Source.HasValue)
         {
-            Bounds = PenHelper.GetBounds(new Rect(default, Source.Value.Resource.FrameSize.ToSize(1)), Pen?.Resource);
+            Bounds = PenHelper.GetBounds(new Rect(default, Source.Value.Resource.LogicalFrameSize.ToSize(1)), Pen?.Resource);
         }
 
         if (Frame != frame)
@@ -55,13 +55,20 @@ public sealed class VideoSourceRenderNode(
                     {
                         using (bitmapRef)
                         {
-                            canvas.DrawBitmap(bitmapRef.Value, Fill?.Resource, Pen?.Resource);
+                            if (Source.Value.Resource.ProxyResolution == null)
+                            {
+                                canvas.DrawBitmap(bitmapRef.Value, Fill?.Resource, Pen?.Resource);
+                            }
+                            else
+                            {
+                                var dest = new Rect(default, Source.Value.Resource.LogicalFrameSize.ToSize(1));
+                                canvas.DrawBitmapScaled(bitmapRef.Value, dest, Fill?.Resource);
+                            }
                         }
                     }
                 },
                 hitTest: HitTest,
-                // Bitmap at native 1:1 density, like ImageSourceRenderNode.
-                effectiveScale: EffectiveScale.At(1f)
+                effectiveScale: EffectiveScale.At(Source.Value.Resource.SupplyDensity)
             )
         ];
     }

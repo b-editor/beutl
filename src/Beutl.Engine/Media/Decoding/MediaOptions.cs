@@ -4,4 +4,5 @@
 public record MediaOptions(
     MediaMode StreamsToLoad = MediaMode.AudioVideo,
     [property: Obsolete("Do not use this property.", true)]
-    int SampleRate = 44100);
+    int SampleRate = 44100,
+    bool PreferProxy = false);
