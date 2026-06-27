@@ -21,6 +21,7 @@
 - Q: How is audio (audio elements, sources, audio properties/effects) handled? → A: Audio is a first-class concern alongside visual — audio sources, per-element mixing, and audio effects are in scope.
 - Q: Primary interaction model for editing — declarative desired-state vs imperative call-by-call? → A: Declarative-first with imperative assist — agents read the project as an identity-anchored document and submit a desired end-state (full document or partial patch) reconciled into undoable operations; a thin set of imperative tools remains for surgical edits.
 - Q: Input format for partial declarative edits? → A: JSON Merge Patch (RFC 7386) — a partial subtree where a null member deletes — plus full desired-state documents. Beutl's serializer has no native patch mechanism, so the toolkit layer owns the merge → identity-diff → undoable-operations reconciliation (it must NOT bypass change-tracking by writing model state directly).
+- Q: Can a human watch the agent's edits in the GUI in real time? → A: Yes — via **in-app hosting**: the running Beutl editor hosts an in-process endpoint that drives the same live scene and history the UI is bound to, so agent edits reflect live (preview/timeline/property panels) and land on the normal undo stack. The headless console server remains for the no-GUI case; the editing core is shared and only the *session source* differs (file-opened vs live editor). This is distinct from live-GUI automation (the agent does not simulate UI input — it edits the shared model and the UI observes it), which stays out of scope.
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -106,6 +107,22 @@ The toolkit ships reusable, discoverable guidance for common editing tasks (reci
 
 ---
 
+### User Story 6 - Watch the agent edit live in the editor (Priority: P2)
+
+A creator opens a project in the Beutl editor and asks the agent — connected to the editor's in-process endpoint — to make changes. As the agent applies edits, the creator sees them appear live: the preview repaints, the timeline updates, property panels reflect the new values, and each change lands on the editor's normal undo stack, so the creator can undo/redo or take over at any moment.
+
+**Why this priority**: Live observation turns the agent from a batch tool into a *supervisable collaborator* — the creator can watch, trust, and intervene mid-edit. It is sequenced after the headless editing core (US1–US3) because it reuses that core's reconcile/plan/apply against a *live* session instead of a file-opened one; it is not the MVP, but it is an experience the project explicitly wants, so it ranks above render/skills polish.
+
+**Independent Test**: Open a project in the editor, drive an edit through the in-process endpoint, and confirm the preview/timeline/property UI update without a manual reload and that the change is a single undoable history entry — all without simulating any UI input.
+
+**Acceptance Scenarios**:
+
+1. **Given** a project open in the editor with the in-process endpoint active, **When** the agent applies a property change, **Then** the preview and the relevant property panel update live (no reload) and the change is one entry on the editor's undo stack.
+2. **Given** the agent adds or retimes an element via the endpoint, **When** the edit commits, **Then** the timeline reflects the new/moved element immediately.
+3. **Given** the creator presses undo after an agent edit, **When** the editor processes it, **Then** the agent's change reverts through the normal history, identical to undoing a human edit.
+
+---
+
 ### Edge Cases
 
 - **Missing or unsupported media**: the agent references a media file that does not exist or whose format Beutl cannot decode → specific error, project unchanged.
@@ -120,6 +137,8 @@ The toolkit ships reusable, discoverable guidance for common editing tasks (reci
 - **Large projects**: very large projects (many elements/keyframes) must not produce unbounded payloads or hang; structure queries should remain usable (e.g. scoping/pagination) and operations stay responsive.
 - **Destructive intent**: a request that would delete content or overwrite an existing project file is treated as explicit and confirmable, never an implicit side effect of an unrelated edit.
 - **Write outside the workspace**: a save or render/export target that resolves outside the configured workspace root → rejected with a typed error; reads from arbitrary paths remain allowed.
+- **In-app, no active session**: an agent calls a live-session tool while no project/scene is open in the editor → typed "no active editor session" error.
+- **In-app concurrent input**: an agent edit arrives while the human is mid-drag or has the same element selected → the edit is serialized onto the editor's single writer thread, producing no torn state and one clean undo entry.
 
 ## Requirements *(mandatory)*
 
@@ -186,6 +205,13 @@ The toolkit ships reusable, discoverable guidance for common editing tasks (reci
 - **FR-030**: The toolkit MUST provide a dry-run ("plan") that, given a desired-state document or merge-patch, returns the computed change set plus all validation results (rejections and range coercions) WITHOUT mutating the project, so the agent — and a reviewing human — can inspect the consequences before a separate "apply" commits them.
 - **FR-031**: Declarative documents MUST carry a schema/version stamp. When a submitted document's version does not match the runtime's known schema, the toolkit MUST surface a typed error rather than silently dropping unrecognized content — closing, for the declarative path, the forward-compatibility gap that FR-013 requires not be a silent data loss.
 
+**Real-time reflection (in-app hosting)**
+
+- **FR-032**: The editing core MUST support two session sources behind one reconcile/plan/apply surface: a **file-opened session** (headless) and a **live session** bound to a running editor's in-memory scene + history. The same tools MUST behave identically against either source.
+- **FR-033**: When hosted **in-process within the running Beutl editor**, agent edits MUST be applied to the same live model the UI is bound to, so they reflect in real time (preview, timeline, property panels) and appear as normal, human-undoable entries on the editor's existing history — no separate, duplicate, or shadow history.
+- **FR-034**: In-app edits MUST be marshaled onto the editor's single writer thread and MUST share the editor's one history/change-tracking pipeline (the agent is an additional command source, not a second writer), so there is no concurrent-writer corruption or torn UI state.
+- **FR-035**: The in-app endpoint MUST be reachable by an external agent host over a local connectable transport (a running GUI cannot be stdio-spawned), MUST bind to loopback only, and MUST NOT relax any editing guarantee — validation (FR-007), atomicity (FR-012), and the workspace write-boundary (FR-026) still hold. When no project/scene is open, tools that need a live session MUST return a typed "no active editor session" error.
+
 ### Key Entities
 
 - **Project**: The top-level document an agent authors/edits; holds one or more scenes and project-level variables (frame rate, sample rate). Persisted as a Beutl project file.
@@ -198,7 +224,7 @@ The toolkit ships reusable, discoverable guidance for common editing tasks (reci
 - **Capability Descriptor**: The machine-readable schema of what is editable — the enumerated types and their parameters/ranges/defaults — that an agent reads to plan edits.
 - **Edit Operation / Transaction**: A single addressable change or an atomic batch of changes, reconcilable with the editor's undo/redo history.
 - **Render / Export Job**: A request to produce an image (still frame) or video (range/timeline) artifact for verification or delivery.
-- **Editing Session**: The agent's stateful working context over one or more projects, within which entity handles remain stable.
+- **Editing Session**: The agent's stateful working context over one or more projects, within which entity handles remain stable. A session has a **source** — either *file-opened* (headless: the toolkit loads its own in-memory copy) or *live* (in-app: bound to the running editor's existing scene + history) — behind the same edit surface.
 - **Editing Recipe (Skill)** / **Editing Specialist (Subagent)**: Packaged, discoverable know-how and scoped delegated workers that operate the surface above on the agent's behalf.
 - **Declarative Document / Patch**: The identity-anchored JSON desired-state an agent submits to express edits — either a full document or an RFC 7386 merge-patch (partial subtree, null deletes) — mirroring the project's own serialization so the agent reads and writes the same shape.
 - **Reconciliation (plan / apply)**: The diff of a desired-state (or merge-patch-expanded) document against the current project, matched by stable identity, into a minimal set of undoable operations. "plan" computes and previews it (with validation results) without mutating; "apply" commits it atomically within one history transaction.
@@ -216,11 +242,13 @@ The toolkit ships reusable, discoverable guidance for common editing tasks (reci
 - **SC-007**: For projects the agent authored, it can produce a verification artifact — a still frame, and a short video export through the encoder path — for at least 95% of them without manual intervention (in an environment where rendering and encoding are supported).
 - **SC-008**: An agent receives the result of a single edit or query operation quickly enough to sustain an interactive loop — under 2 seconds for a typical project.
 - **SC-009**: A declarative dry-run ("plan") predicts the applied result exactly — across a representative set of edits, 100% of the change-set entries and validation outcomes reported by plan match those produced by the subsequent apply (no surprise mutations, no divergence between preview and commit).
+- **SC-010**: When hosted in-app, an agent edit reflects in the running editor (preview/timeline/property panels update with no manual reload) and registers as exactly one entry on the editor's undo stack — for 100% of edits in a representative set, with no torn UI state.
 
 ## Assumptions
 
 - **Delivery shape**: The three mechanisms the request names map to (1) a programmatic editing/query/render surface exposed over the Model Context Protocol ("MCP"), (2) packaged editing recipes ("Skills"), and (3) scoped delegated workers ("Subagents"). This spec states the *capabilities* independently of any one mechanism; the mechanisms are the agreed delivery vehicles, not incidental implementation detail.
-- **Headless/programmatic, not GUI automation** *(confirmed — Clarifications 2026-06-27)*: Scope is programmatic authoring, editing, querying, and rendering of Beutl project files. Driving the *running* GUI app by simulating clicks/pixels is out of scope. This is chosen because Beutl already has a non-UI editing layer (`Beutl.Editor` services + the undo/redo history/operation stack) and there is no GUI-automation surface today, so building on the non-UI layer is the lower-risk, more testable path.
+- **Headless/programmatic, not GUI automation** *(confirmed — Clarifications 2026-06-27)*: Scope is programmatic authoring, editing, querying, and rendering of Beutl project files. Driving the *running* GUI app by simulating clicks/pixels is out of scope. This is chosen because Beutl already has a non-UI editing layer (`Beutl.Editor` services + the undo/redo history/operation stack), so building on the non-UI layer is the lower-risk, more testable path.
+- **Two hosting modes share one core** *(confirmed — Clarifications 2026-06-27)*: the same editing core is hosted (a) as a standalone headless server over a stdio-spawned process (file-opened sessions), and (b) **in-process inside the running editor** over a loopback connectable endpoint (live sessions) so edits reflect in the UI in real time (User Story 6). In-app hosting is *live observation of the shared model*, not GUI/pixel automation.
 - **Builds on existing infrastructure**: The toolkit reuses Beutl's existing non-UI editing services, change-tracking/undo history, project serialization, and rendering engine rather than introducing a parallel editing engine.
 - **Current on-disk format**: Projects use Beutl's current project/scene/element file format. Cross-version migration is governed by Beutl's existing serialization compatibility, not added by this feature.
 - **Media is pre-existing**: Media assets the agent references already exist on the local filesystem; this feature does not source or generate media (an agent may combine it with separate media-generation tools).
@@ -232,7 +260,7 @@ The toolkit ships reusable, discoverable guidance for common editing tasks (reci
 
 ## Out of Scope
 
-- **GUI/pixel automation** of the running Beutl application (driving the live UI by simulated input).
+- **GUI/pixel automation** of the running Beutl application (driving the live UI by simulated clicks/keystrokes/pixels). *(Note: in-process **live hosting** — where the agent edits the shared model and the GUI observes the result — is IN scope per Clarifications and User Story 6. What stays out is the agent operating the UI by simulated input.)*
 - **The agent/LLM itself** — the consuming agent is assumed to exist; this feature builds the tools it calls, not the model.
 - **Media generation** — creating images, audio, or video assets is a separate concern.
 - **Real-time collaborative editing** or multiple agents writing to the same project concurrently.
