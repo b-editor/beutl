@@ -22,6 +22,7 @@
 - Q: Primary interaction model for editing — declarative desired-state vs imperative call-by-call? → A: Declarative-first with imperative assist — agents read the project as an identity-anchored document and submit a desired end-state (full document or partial patch) reconciled into undoable operations; a thin set of imperative tools remains for surgical edits.
 - Q: Input format for partial declarative edits? → A: JSON Merge Patch (RFC 7396) — a partial subtree where a null member deletes — plus full desired-state documents. Beutl's serializer has no native patch mechanism, so the toolkit layer owns the merge → identity-diff → undoable-operations reconciliation (it must NOT bypass change-tracking by writing model state directly).
 - Q: Can a human watch the agent's edits in the GUI in real time? → A: Yes — via **in-app hosting**: the running Beutl editor hosts an in-process endpoint that drives the same live scene and history the UI is bound to, so agent edits reflect live (preview/timeline/property panels) and land on the normal undo stack. The headless console server remains for the no-GUI case; the editing core is shared and only the *session source* differs (file-opened vs live editor). This is distinct from live-GUI automation (the agent does not simulate UI input — it edits the shared model and the UI observes it), which stays out of scope.
+- Q: Does undo of agent edits survive closing and reopening the project? → A: No — same-session only. Beutl's undo history is per-`HistoryManager` and is not persisted across a reopen (true for human edits too); FR-015 covers undo **while the project is open in the editor** (live session, User Story 6), not cross-reopen replay.
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -169,7 +170,7 @@ A creator opens a project in the Beutl editor and asks the agent — connected t
 - **FR-012**: A multi-step edit MUST be applied atomically — a failure partway through leaves the project in its exact pre-batch state, with no partially applied edits persisted.
 - **FR-013**: Opening a project and saving it back without edits MUST preserve all project content (round-trip fidelity) — the toolkit MUST NOT silently drop content it does not understand.
 - **FR-014**: Every operation MUST return an actionable, machine-readable result — either success with a description of what changed, or a typed error stating the reason and how to correct it. The toolkit MUST NOT fail silently or surface an unhandled crash to the agent.
-- **FR-015**: Edits an agent performs MUST be reconcilable with Beutl's existing undo/redo model so that a human reopening the project can undo agent changes through the normal editor flow (the toolkit MUST NOT bypass the change-tracking the editor relies on).
+- **FR-015**: Edits an agent performs MUST be reconcilable with Beutl's existing undo/redo model so that a human can undo agent changes through the normal editor flow **within the same editing session** (the toolkit MUST NOT bypass the change-tracking the editor relies on). Beutl's undo history is per-`HistoryManager` and is **not** persisted across a close/reopen — agent edits behave exactly like human edits in this respect, so cross-reopen undo replay is out of scope (consistent with the "Undo scope is the Scene" assumption).
 
 **Rendering & verification**
 
