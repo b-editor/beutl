@@ -396,8 +396,8 @@ public sealed class SchemaGenerator
                     {
                         Children =
                         {
-                            new RotationTransform(-10),
-                            new TranslateTransform(-120, 38)
+                            new TranslateTransform(-120, 38),
+                            new RotationTransform(-10)
                         }
                     }
                 },
@@ -491,8 +491,8 @@ public sealed class SchemaGenerator
                     {
                         Children =
                         {
-                            new RotationTransform(0),
-                            new TranslateTransform(-270, 0)
+                            new TranslateTransform(-270, 0),
+                            new RotationTransform(0)
                         }
                     }
                 },
@@ -525,8 +525,8 @@ public sealed class SchemaGenerator
                     {
                         Children =
                         {
-                            new RotationTransform(0),
-                            new TranslateTransform(-270, 0)
+                            new TranslateTransform(-270, 0),
+                            new RotationTransform(0)
                         }
                     }
                 },
@@ -589,8 +589,8 @@ public sealed class SchemaGenerator
                     {
                         Children =
                         {
-                            new RotationTransform(0),
-                            new TranslateTransform(-270, 0)
+                            new TranslateTransform(-270, 0),
+                            new RotationTransform(0)
                         }
                     }
                 },

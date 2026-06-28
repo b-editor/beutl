@@ -3,6 +3,7 @@ using Beutl.AgentToolkit.Reconciliation;
 using Beutl.AgentToolkit.Rendering;
 using Beutl.AgentToolkit.Schema;
 using Beutl.AgentToolkit.Tests.Helpers;
+using Beutl.AgentToolkit.Tools;
 using Beutl.Engine;
 using Beutl.Graphics;
 using Beutl.Graphics.Effects;
@@ -19,6 +20,17 @@ namespace Beutl.AgentToolkit.Tests.Rendering;
 
 public sealed class RenderStillTests
 {
+    [Test]
+    public void Bare_render_output_paths_default_to_agent_output_directory()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(RenderTools.NormalizeOutputPath("preview.png"), Is.EqualTo(Path.Combine("agent-output", "preview.png")));
+            Assert.That(RenderTools.NormalizeOutputPath(Path.Combine("nested", "preview.png")), Is.EqualTo(Path.Combine("nested", "preview.png")));
+            Assert.That(RenderTools.NormalizeOutputPath(Path.GetFullPath("preview.png")), Is.EqualTo(Path.GetFullPath("preview.png")));
+        });
+    }
+
     [TestCase(CpuSafeDrawable.Shape)]
     [TestCase(CpuSafeDrawable.Text)]
     [TestCase(CpuSafeDrawable.UnscaledBitmap)]

@@ -48,7 +48,7 @@ Return one Remotion-style composition contract.
 Materialize a Remotion-style composition into a declarative Beutl JSON Merge Patch.
 - **Input**: `{ "name"?: string, "tag"?: string, "inputProps"?: object, "seed"?: string }`. Pass `name` for an explicit template, or omit it and pass `tag` to pick the first seed-shuffled match. `inputProps` override `defaultProps`; metadata is calculated from props such as `width`, `height`, `fps`, and `durationSeconds`.
 - **Output**: `{ "schemaVersion": string, "composition": { name, seed, inputProps, resolvedProps, metadata, sequences, transitions, patch }, "usageHint": string }`. The same `name`/`inputProps`/`seed` returns the same patch; a different seed changes seeded layout, colors, noise dots, and motion offsets. `patch` is directly consumable by `plan_edit` / `apply_edit`.
-- **Use when**: an agent should author the first scene like a Remotion composition: choose a template, pass props, calculate metadata, use Sequence/transition timing, and render deterministic declarative Beutl content.
+- **Use when**: an agent explicitly needs the generated JSON patch. Prefer `plan_composition` / `apply_composition` for raw HTTP or low-context agents because those tools avoid returning the large patch payload.
 - **Errors**: `unknown_type`.
 
 ### `read_document_summary`
@@ -106,12 +106,26 @@ Dry-run a declarative change; **does not mutate** (FR-030).
 - **Errors**: `no_active_editor_session`, `schema_version_mismatch`, `stale_handle`.
 - **Backed by**: reconcile on a deep clone (research §3); introspect operations (`IUpdatePropertyValueOperation`, collection ops).
 
+### `plan_composition`
+Dry-run a Remotion-style composition without returning a huge patch.
+- **Input**: `{ "name"?: string, "tag"?: string, "inputProps"?: object, "seed"?: string }`. Arguments match `render_composition_patch`, but the generated patch stays server-side.
+- **Output**: `{ "schemaVersion": string, "composition": { name, seed, inputProps, resolvedProps, metadata, sequences, transitions }, "plan": { "changes": [ ... ], "validation": [ ... ], "valid": bool, "expectedChangeSet": [ ... ] } }`.
+- **Use when**: a low-context agent wants to preview the composition edit while avoiding large SSE/terminal payloads.
+- **Errors**: `no_active_editor_session`, `unknown_type`, `schema_version_mismatch`, `stale_handle`.
+
 ### `apply_edit`
 Commit a declarative change atomically and undoably (FR-007/FR-012/FR-015/FR-028/FR-029).
 - **Input**: same as `plan_edit`, plus `"expectedChangeSet"?` (optional — pass `plan_edit.expectedChangeSet`; reject if the live diff diverges, guaranteeing SC-009 plan↔apply parity).
 - **Output**: `{ "plan": { "changes": [ ... ], "validation": [ ... ], "valid": bool, "expectedChangeSet": [ ... ] }, "document": <updated declarative JSON> }`. The returned document includes toolkit-minted Ids for new nodes; agents should use it, or call `read_document`, before follow-up edits.
 - **Errors**: `no_active_editor_session`, `validation_rejected` (whole batch rolled back), `stale_handle`, `schema_version_mismatch`.
 - **Backed by**: reconcile on the live root inside `HistoryManager.ExecuteInTransaction` (commits on success, **rolls back on any mid-reconcile exception** — a bare `Commit` would leave partial live mutations, breaking FR-012).
+
+### `apply_composition`
+Apply a Remotion-style composition atomically without sending the generated patch through the client.
+- **Input**: same as `plan_composition`, plus `"expectedChangeSet"?` (optional — pass `plan_composition.plan.expectedChangeSet`; reject if the live diff diverges).
+- **Output**: `{ "schemaVersion": string, "composition": { name, seed, inputProps, resolvedProps, metadata, sequences, transitions }, "result": { "plan": { ... }, "document": <updated declarative JSON> } }`.
+- **Use when**: a raw or low-context agent should create motion graphics in one server-side declarative operation.
+- **Errors**: `no_active_editor_session`, `validation_rejected`, `unknown_type`, `stale_handle`, `schema_version_mismatch`.
 
 ## Editing Surface
 
@@ -121,14 +135,14 @@ Element, property, transform, geometry, pen, brush, visual effect, audio effect,
 
 ### `render_still`
 Render one frame to an image without the GUI (FR-016).
-- **Input**: `{ "outputPath": string, "timeSeconds"?: number, "renderScale"?: number, "confirmOverwrite"?: bool }` (write — **guarded**).
+- **Input**: `{ "outputPath": string, "timeSeconds"?: number, "renderScale"?: number, "confirmOverwrite"?: bool }` (write — **guarded**). Bare filenames are written under `agent-output/`; explicit relative directories and absolute in-workspace paths are preserved.
 - **Output**: `{ "imagePath": string, "size": [w,h] }`.
 - **Errors**: `no_active_editor_session`, `workspace_boundary`, `destructive_intent`, `rendering_unavailable` (typed — content needs a GPU absent on the host, FR-018).
 - **Backed by**: `SceneRenderer`→`Renderer.Snapshot`→`Bitmap.Save` on `RenderThread.Dispatcher`.
 
 ### `export_video`
 Export a range/timeline to a video file (FR-017).
-- **Input**: `{ "outputPath": string, "frameRateNumerator"?: number, "frameRateDenominator"?: number, "sampleRate"?: number, "renderScale"?: number, "confirmOverwrite"?: bool }` (write — **guarded**).
+- **Input**: `{ "outputPath": string, "frameRateNumerator"?: number, "frameRateDenominator"?: number, "sampleRate"?: number, "renderScale"?: number, "confirmOverwrite"?: bool }` (write — **guarded**). Bare filenames are written under `agent-output/`; explicit relative directories and absolute in-workspace paths are preserved.
 - **Output**: `{ "videoPath": string, "frames": number, "duration": string }`.
 - **Errors**: `no_active_editor_session`, `workspace_boundary`, `destructive_intent`, `validation_rejected`, `codec_unavailable` (FFmpeg native libs / worker missing, FR-018), `rendering_unavailable`.
 - **Backed by**: `EncodingController.Encode(frameProvider, sampleProvider, ct)` with the concrete encoder from the MIT non-UI `Beutl.Extensions.FFmpeg.Core` (or a headlessly-registered installed encoder) — reaching the FFmpeg worker only via `Beutl.FFmpegIpc` (no GPL `ProjectReference`, and no compile-time reference to the Avalonia-coupled `Beutl.Extensions.FFmpeg`; Constitution I).

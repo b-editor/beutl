@@ -3,6 +3,7 @@ using System.Text.Json;
 using System.Text.Json.Nodes;
 using Beutl.AgentToolkit.Common;
 using Beutl.AgentToolkit.Reconciliation;
+using Beutl.AgentToolkit.Schema;
 using Beutl.AgentToolkit.Sessions;
 using Beutl.Serialization;
 using ModelContextProtocol.Server;
@@ -10,10 +11,30 @@ using MergePatchApplier = Beutl.AgentToolkit.MergePatch.MergePatch;
 
 namespace Beutl.AgentToolkit.Tools;
 
+public sealed record CompositionRunSummary(
+    string Name,
+    string Seed,
+    JsonObject InputProps,
+    JsonObject ResolvedProps,
+    CompositionMetadata Metadata,
+    IReadOnlyList<CompositionSequenceDescriptor> Sequences,
+    IReadOnlyList<CompositionTransitionDescriptor> Transitions);
+
+public sealed record PlanCompositionResponse(
+    string SchemaVersion,
+    CompositionRunSummary Composition,
+    ReconcilePlan Plan);
+
+public sealed record ApplyCompositionResponse(
+    string SchemaVersion,
+    CompositionRunSummary Composition,
+    ReconcileResult Result);
+
 [McpServerToolType]
 public sealed class EditTools(AgentSessionManager sessions) : ToolBase
 {
     private readonly Reconciler _reconciler = new();
+    private readonly CompositionTemplateCatalog _compositionCatalog = new();
 
     [McpServerTool(Name = "plan_edit")]
     [Description("Dry-runs a declarative edit without mutating the session. In the in-app host, call attach_active_editor first. Supply exactly one of desired or patch; prefer patch for targeted edits.")]
@@ -62,6 +83,57 @@ public sealed class EditTools(AgentSessionManager sessions) : ToolBase
         });
     }
 
+    [McpServerTool(Name = "plan_composition")]
+    [Description("Dry-runs a Remotion-style composition without returning a huge patch. Pass name or tag, optional inputProps, and optional seed. The generated declarative patch is planned server-side.")]
+    public ToolResult<PlanCompositionResponse> PlanComposition(
+        string? name = null,
+        string? tag = null,
+        JsonObject? inputProps = null,
+        string? seed = null)
+    {
+        return Execute(() =>
+        {
+            IEditingSession session = sessions.RequireSession();
+            CompositionRender composition = _compositionCatalog.Render(name, tag, inputProps, seed);
+            JsonObject resolved = ResolveDesiredDocument(session, desired: null, patch: composition.Patch, schemaVersion: SchemaVersion.Current);
+            return new PlanCompositionResponse(
+                SchemaVersion.Current,
+                CreateCompositionRunSummary(composition),
+                _reconciler.Plan(session, resolved));
+        });
+    }
+
+    [McpServerTool(Name = "apply_composition")]
+    [Description("Applies a Remotion-style composition through the declarative editor loop without requiring the client to handle a huge patch. Pass plan_composition.plan.expectedChangeSet to enforce parity.")]
+    public ToolResult<ApplyCompositionResponse> ApplyComposition(
+        string? name = null,
+        string? tag = null,
+        JsonObject? inputProps = null,
+        string? seed = null,
+        JsonArray? expectedChangeSet = null)
+    {
+        return Execute(() =>
+        {
+            IEditingSession session = sessions.RequireSession();
+            CompositionRender composition = _compositionCatalog.Render(name, tag, inputProps, seed);
+            JsonObject resolved = ResolveDesiredDocument(session, desired: null, patch: composition.Patch, schemaVersion: SchemaVersion.Current);
+            ReconcilePlan plan = _reconciler.Plan(session, resolved);
+            if (expectedChangeSet is not null && !ChangeSetMatches(plan, expectedChangeSet))
+            {
+                throw new ReconcileException(new ToolError(
+                    ErrorCode.ValidationRejected,
+                    "The live composition change set differs from expectedChangeSet.",
+                    null,
+                    "Run plan_composition again and submit the updated expectedChangeSet."));
+            }
+
+            return new ApplyCompositionResponse(
+                SchemaVersion.Current,
+                CreateCompositionRunSummary(composition),
+                _reconciler.Apply(session, resolved));
+        });
+    }
+
     private static JsonObject ResolveDesiredDocument(
         IEditingSession session,
         JsonObject? desired,
@@ -98,6 +170,18 @@ public sealed class EditTools(AgentSessionManager sessions) : ToolBase
 
         SchemaVersion.Stamp(mergedObject);
         return mergedObject;
+    }
+
+    private static CompositionRunSummary CreateCompositionRunSummary(CompositionRender composition)
+    {
+        return new CompositionRunSummary(
+            composition.Name,
+            composition.Seed,
+            (JsonObject)composition.InputProps.DeepClone(),
+            (JsonObject)composition.ResolvedProps.DeepClone(),
+            composition.Metadata,
+            composition.Sequences.ToArray(),
+            composition.Transitions.ToArray());
     }
 
     private static bool ChangeSetMatches(ReconcilePlan plan, JsonArray expectedChangeSet)

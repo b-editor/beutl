@@ -19,7 +19,7 @@ public sealed record AttachActiveEditorResponse(string Session, string Source, A
     public IReadOnlyList<string> NextSteps { get; } =
     [
         "Call read_document_summary to observe the scene without pulling the full document.",
-        "Call list_compositions with a seed, then render_composition_patch with name, inputProps, and seed for Remotion-style authoring.",
+        "Call list_compositions with a seed, then plan_composition/apply_composition with name, inputProps, and seed for Remotion-style authoring without large patch payloads.",
         "Call list_examples to choose a compact declarative snippet when you only need a targeted patch.",
         "Call get_schema with includeProperties/includeExamples filters for detailed discovery.",
         "Call read_document when you need the normalized declarative scene.",

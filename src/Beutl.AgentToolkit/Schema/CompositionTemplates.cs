@@ -329,8 +329,8 @@ public sealed class CompositionTemplateCatalog
                         {
                             Children =
                             {
-                                new RotationTransform(rotation),
-                                new TranslateTransform(startX, y)
+                                new TranslateTransform(startX, y),
+                                new RotationTransform(rotation)
                             }
                         }
                     },
@@ -445,8 +445,8 @@ public sealed class CompositionTemplateCatalog
                         {
                             Children =
                             {
-                                new RotationTransform(context.Random.Range(-20, 20)),
-                                new TranslateTransform(centerX, centerY)
+                                new TranslateTransform(centerX, centerY),
+                                new RotationTransform(context.Random.Range(-20, 20))
                             }
                         }
                     },
@@ -486,8 +486,8 @@ public sealed class CompositionTemplateCatalog
                     {
                         Children =
                         {
-                            new RotationTransform(-20),
-                            new TranslateTransform(centerX, centerY)
+                            new TranslateTransform(centerX, centerY),
+                            new RotationTransform(-20)
                         }
                     }
                 },

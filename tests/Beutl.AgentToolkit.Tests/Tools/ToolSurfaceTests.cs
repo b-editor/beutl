@@ -33,6 +33,8 @@ public sealed class ToolSurfaceTests
                 "read_document",
                 "plan_edit",
                 "apply_edit",
+                "plan_composition",
+                "apply_composition",
                 "render_still",
                 "export_video"
             }));
